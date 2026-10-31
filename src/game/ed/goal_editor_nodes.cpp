@@ -1,4 +1,4 @@
-// The goal editor's nodes added to the level's node array (Ed::AddGoalEditorNodes): see goal_editor.h. From the
+// The goal editor's nodes added to the level's node array (ParkEditing::AddGoalEditorNodes): see goal_editor.h. From the
 // disassembly of 0x004E8F50-0x004E93B7.
 
 #include <cstdint>
@@ -12,7 +12,7 @@
 #include "game/script/struct.h"
 #include "game/sys/crt.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -25,40 +25,40 @@ int Sprintf(char* out, const char* format, Args... args)
 } // namespace
 
 // 0x004E8F50
-void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* heap)
+void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Heap* heap)
 {
-    Dbg::Printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", 0x152, "Inserting Goal Editor Nodes");
+    DebugOut::Printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", 0x152, "Inserting Goal Editor Nodes");
     bool inPlace = true;
     uint32_t arrayName = 0;
-    SkateScript::CNodeManager* manager = nullptr;
+    LevelNodes::CNodeManager* manager = nullptr;
     int count = 0;
     if (!nodes) {
         // Added to the node manager's last array, grown for them, and hashed there.
-        nodes = reinterpret_cast<Script::CArray*>(SkateScript::GetNodeOwnerValue58());
-        manager = SkateScript::NodeManagerInstance();
-        arrayName = SkateScript::GetLastNodeArrayName();
+        nodes = reinterpret_cast<Scripts::CArray*>(LevelNodes::GetNodeOwnerValue58());
+        manager = LevelNodes::NodeManagerInstance();
+        arrayName = LevelNodes::GetLastNodeArrayName();
         inPlace = false;
         count = static_cast<int>(nodes->m_size);
         index = &count;
         if (!count)
-            nodes->SetSizeAndType(0x82, Script::ESYMBOLTYPE_STRUCTURE);
+            nodes->ConfigureSizeKind(0x82, Scripts::QBVAL_STRUCT);
         else
             nodes->Resize(nodes->m_size + 0x82);
     }
-    Mem::Manager::Get()->PushContext(reinterpret_cast<Mem::Allocator*>(heap));
+    MemSys::Manager::Get()->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(heap));
     char name[100];
     for (int goal = 0; goal < 10; ++goal) {
         // The pro, the restart, then eleven objects.
         for (int which = 0; which < 13; ++which) {
-            Script::CStruct* node;
+            Scripts::CStruct* node;
             if (inPlace) {
-                node = reinterpret_cast<Script::CStruct*>(nodes->GetElement(static_cast<uint32_t>(*index)));
+                node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(static_cast<uint32_t>(*index)));
             } else {
-                node = Script::NewStruct();
+                node = Scripts::NewStruct();
                 node = node ? node->Init() : nullptr;
             }
             static const uint32_t kKinds[3] = {0x8F0F67D7, 0xC9119673, 0x000B52B3};
-            node->AppendStructureIfAny(Script::GetStructure(kKinds[which < 2 ? which : 2]));
+            node->AppendStructureIfAny(Scripts::ReadSubStruct(kKinds[which < 2 ? which : 2]));
             name[0] = '\0';
             if (which == 0)
                 Sprintf(name, "TRG_EditedGoal%d_Pro", goal);
@@ -66,8 +66,8 @@ void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* he
                 Sprintf(name, "TRG_EditedGoal%d_Restart", goal);
             else
                 Sprintf(name, "TRG_EditedGoal%d_Object_%d", goal, which - 2);
-            node->AddChecksum(0xA1DC81F9, Crc::GenerateCRCFromString(name));
-            node->AddInteger(0xE50D6573, *index);
+            node->PutNameKey(0xA1DC81F9, Checksums::HashFromText(name));
+            node->PutInt(0xE50D6573, *index);
             if (!inPlace) {
                 nodes->SetElement(static_cast<uint32_t>(*index), reinterpret_cast<uint32_t>(node));
                 manager->HashNodeIn(arrayName, static_cast<uint32_t>(*index), reinterpret_cast<uint32_t>(node));
@@ -75,7 +75,7 @@ void __cdecl AddGoalEditorNodes(Script::CArray* nodes, int* index, Mem::Heap* he
             ++*index;
         }
     }
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 } // namespace Ed

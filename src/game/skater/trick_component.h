@@ -5,18 +5,18 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
-struct CSkaterProfile;
+struct CRiderIdentity;
 
 // A button event (0x18 bytes, 100 of them from +0x38; the newest at m_eventHead).
 struct TrickEvent {
-    uint32_t time;      // +0x00 Tmr::GetTime() when it happened
+    uint32_t time;      // +0x00 FrameClock::GetTime() when it happened
     int type;           // +0x04 1 pressed, 2 released
     uint32_t button;    // +0x08 the button's checksum
     uint32_t unknown0C;
@@ -51,8 +51,8 @@ static_assert(sizeof(QueuedTrick) == 0x14, "layout must match the original");
 // mashing, the member functions). Only the fields the first part uses are named below; the second reaches its fields
 // by offset (named in trick_queue.cpp).
 //
-// Vtable: 0 the scalar deleting destructor, 1 Update, 3 Finalize (0x0051F2B0), 12 CallMemberFunction.
-class CTrickComponent : public CBaseComponent {
+// Vtable: 0 the scalar deleting destructor, 1 Update, 3 Finalize (0x0051F2B0), 12 InvokeMethodByName.
+class CMoveExecutor : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x270F56E1;
     static constexpr int kEvents = 100;
@@ -60,7 +60,7 @@ public:
 
     // 0x0051EA90 (not a Ghidra function; registered with the composite object manager): its script member
     // functions (the table at 0x00683148: Pressed, GetCurrentBailEndpose, SetCurrentBailEndpose).
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
 
     // 0x0051F2B0 (vtable Finalize): the skater's input, balance trick, core physics, flip and rotate, state and stats
     // manager components.
@@ -112,9 +112,9 @@ public:
     void RemoveTrickList(uint32_t list);
     // 0x0051EE10: whether `trick` is one to check: a direct trigger, or a name of the trick lists naming a structure
     // or an integer.
-    bool IsTrickEntry(Script::CStruct* trick);
+    bool IsTrickEntry(Scripts::CStruct* trick);
     // 0x0051EF50: whether `trick`'s params name `name` (case-insensitively).
-    bool TrickNamed(Script::CStruct* trick, const char* name);
+    bool TrickNamed(Scripts::CStruct* trick, const char* name);
     // 0x0051F010: the newest 10 events printed (compiled-out debug output).
     void DumpEventBuffer();
     // 0x0051FDA0: whether the trigger `trigger` (its first component the kind - Press, Tap, InOrder... -, then its
@@ -122,7 +122,7 @@ public:
     // `mask`'s flags. When it is, its events get `markFlags` and (mostly) the button map is set; when the events ran
     // out, the used marks are cleared. With `scaled`, a Press's time is stretched by the core physics' rate (+0x2E8)
     // below 1.
-    bool CheckTrigger(Script::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled);
+    bool CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled);
     // 0x00521930: the tricks of the list `list` whose trigger (or alternate trigger) was done are queued.
     void QueueDoneTricks(uint32_t list, bool flag, uint32_t used);
     // 0x00521A10: the manual tricks list (+0x1230, when the balance component's +0x74) and the extra lists checked.
@@ -132,18 +132,18 @@ public:
 
     // --- script member functions (the table at 0x00683148) ---
     // 0x0051F260 SetCurrentBailEndpose (not a Ghidra function): the unnamed checksum (0 without one). True.
-    bool SetCurrentBailEndpose(Script::CStruct* params, Script::CScript* script);
+    bool SetCurrentBailEndpose(Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- 0x00521BA0-0x00524411 (trick_queue.cpp, trick_member_functions.cpp) ---
     // 0x00523490: a new one (0 if out of memory): 0x1BC0 bytes, constructed.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00522390: the constructor: the base's, its vtable and type, its trick object list (+0x13B4), no trick
     // mappings, no components, reset (0x0051F320). Returns this.
-    CTrickComponent* Construct();
+    CMoveExecutor* Construct();
     // 0x005234F0: the destructor body: its trick mappings structure freed, then the base's. 0x005243F0 (slot 0):
     // the scalar deleting destructor.
     void DestroyBody();
-    CTrickComponent* Destroy(unsigned int flags);
+    CMoveExecutor* Destroy(unsigned int flags);
     // 0x005231D0 (slot 1): one frame (suspended - vtable +0x1C - while its object is: the object's +0xBC clear):
     // the buttons, the balance trick's buttons, the extra tricks, 0x00521A10, the manual tricks (the pending one
     // dropped after its time), the extra grind tricks (likewise), button mashing.
@@ -151,7 +151,7 @@ public:
 
     // 0x00522410: the trick mapping structure (made if needed) filled from `profile`: its 12 special trick slots
     // (keys = trick, an integer when the slot's flag is set, else a name), then its trick_mapping info.
-    void SetTrickMappings(CSkaterProfile* profile);
+    void SetTrickMappings(CRiderIdentity* profile);
     // 0x00521E50: the 21 buttons' states from the input's mask (+0x1C): the d-pad's direction (1-8) then the
     // others (0x0051F8F0 each).
     void UpdateButtons();
@@ -162,15 +162,15 @@ public:
     // added to the script's params (unnamed) and `extraParams` appended, updated once; the state component told,
     // the trick counted (0x00522340). A trick with Params without IsExtra is counted by the 0x4FF8DAC6 component
     // first. Whether it started.
-    bool TryTrick(Script::CStruct* trick, uint32_t flag, Script::CStruct* extraParams);
+    bool TryTrick(Scripts::CStruct* trick, uint32_t flag, Scripts::CStruct* extraParams);
     // 0x00522670: the next trick of the queue (skipping empty entries): `first` run first as an interrupt (with
     // `params`); the trick tried; failing that its trickSlot's mapping: an integer starts CreateATrick (with
     // trick_index and `trickParams`), a name the structure it names (the goal manager told first).
-    void DoNextTrick(uint32_t first, Script::CStruct* params, Script::CStruct* trickParams);
+    void DoNextTrick(uint32_t first, Scripts::CStruct* params, Scripts::CStruct* trickParams);
     // 0x005228B0: the pending manual trick (DoNextManualTrick): ScriptToRunFirst run first as an interrupt with
     // Params (on a copy of `params`, copied back); its slot's mapping; its script switched to with `params` (its
     // Params appended) or its Params.
-    void DoNextManualTrick(Script::CStruct* params);
+    void DoNextManualTrick(Scripts::CStruct* params);
     // 0x00522E80: the pending extra grind trick: its Scripts array (or Template + prefix, by name) picked by the four
     // flags (bits 1, 2, 4, 8), switched to with its Params; the core physics' +0x3A8 cleared for a skater. Whether
     // there was one.
@@ -191,7 +191,7 @@ public:
     // 0x00522CD0 (SetExtraTricks): on, for duration= frames (16.67 ms each; none: forever); the arrays (tricks= a
     // name, or the unnamed names), special=, the masks of the tricks to skip from ignore= (a string - its address
     // used as a name, as the original does - or an array of names).
-    void SetExtraTricks(Script::CStruct* params, Script::CScript* script);
+    void SetExtraTricks(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00521D80: the bits of `array`'s tricks that 0x0051EF50 matches `ignore` with (the array must exist).
     // 0x00521DF0: those bits added to each extra trick array's mask (and the special one's).
     uint32_t GetIgnoreMask(uint32_t array, uint32_t ignore);
@@ -226,35 +226,35 @@ public:
     // buffer (ClearEventBuffer, RestoreEvents, UseGrindEvents, 0x070E934D), mashing (BashOn / BashOff, the quick
     // getup), the trick display (SetTrickName, SetTrickScore, display), ClearPanel_Landed / ClearPanel_Bailed.
     // 1 / 0 for true / false, 2 for a name it doesn't know.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- member functions reached through their records (the table at 0x00683148) ---
     // 0x00522280 (Pressed): whether the unnamed button was pressed within dur= (15) ms (0x0051F6B0).
-    int Pressed(Script::CStruct* params, Script::CScript* script);
+    int Pressed(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x005222F0 (GetCurrentBailEndpose): current_bail_endpose (the end pose, or none) added to the script's
     // params. True.
-    int GetCurrentBailEndpose(Script::CStruct* params, Script::CScript* script);
+    int GetCurrentBailEndpose(Scripts::CStruct* params, Scripts::CScript* script);
 
     uint32_t m_unknown18;          // +0x18
     uint8_t* m_balance1C;          // +0x1C (+0x74: manuals checked)
     uint8_t* m_input;              // +0x20 (+0x498 / +0x499: no tricks)
-    CBaseComponent* m_balanceTrick;  // +0x24
+    CObjectModule* m_balanceTrick;  // +0x24
     uint8_t* m_corePhysics;          // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
-    CBaseComponent* m_flipRotate;    // +0x2C
-    CBaseComponent* m_skaterState;   // +0x30
-    CBaseComponent* m_statsManager;  // +0x34
+    CObjectModule* m_flipRotate;    // +0x2C
+    CObjectModule* m_skaterState;   // +0x30
+    CObjectModule* m_statsManager;  // +0x34
     TrickEvent m_events[kEvents];    // +0x38
     uint16_t m_eventCount;           // +0x998
     uint16_t m_eventHead;            // +0x99A
     uint32_t m_buttonMap[3];         // +0x99C what the generic button names stand for
     float m_heldOffUntil[kButtons];  // +0x9A8
-    bool m_down[kButtons];           // +0xA00
+    bool m_btnDown[kButtons];           // +0xA00
     uint8_t padA16[2];
     int m_ignoredCount;              // +0xA18
     uint32_t m_ignored[2];           // +0xA1C
     bool m_unknownA24;               // +0xA24
     uint8_t padA25[3];
-    Script::CStruct* m_trickLists;   // +0xA28
+    Scripts::CStruct* m_trickLists;   // +0xA28
     int m_queueFirst;                // +0xA2C
     int m_queueLast;                 // +0xA30
     QueuedTrick m_queue[100];        // +0xA34
@@ -263,14 +263,14 @@ public:
     uint32_t m_manualList;           // +0x1230
     uint32_t m_listUsed;             // +0x1234
 };
-static_assert(offsetof(CTrickComponent, m_input) == 0x20 && offsetof(CTrickComponent, m_events) == 0x38 &&
-                  offsetof(CTrickComponent, m_eventCount) == 0x998 &&
-                  offsetof(CTrickComponent, m_buttonMap) == 0x99C &&
-                  offsetof(CTrickComponent, m_heldOffUntil) == 0x9A8 && offsetof(CTrickComponent, m_down) == 0xA00 &&
-                  offsetof(CTrickComponent, m_ignoredCount) == 0xA18 &&
-                  offsetof(CTrickComponent, m_trickLists) == 0xA28 && offsetof(CTrickComponent, m_queue) == 0xA34 &&
-                  offsetof(CTrickComponent, m_extraListCount) == 0x1204 &&
-                  offsetof(CTrickComponent, m_manualList) == 0x1230,
+static_assert(offsetof(CMoveExecutor, m_input) == 0x20 && offsetof(CMoveExecutor, m_events) == 0x38 &&
+                  offsetof(CMoveExecutor, m_eventCount) == 0x998 &&
+                  offsetof(CMoveExecutor, m_buttonMap) == 0x99C &&
+                  offsetof(CMoveExecutor, m_heldOffUntil) == 0x9A8 && offsetof(CMoveExecutor, m_btnDown) == 0xA00 &&
+                  offsetof(CMoveExecutor, m_ignoredCount) == 0xA18 &&
+                  offsetof(CMoveExecutor, m_trickLists) == 0xA28 && offsetof(CMoveExecutor, m_queue) == 0xA34 &&
+                  offsetof(CMoveExecutor, m_extraListCount) == 0x1204 &&
+                  offsetof(CMoveExecutor, m_manualList) == 0x1230,
               "layout must match the original");
 
 // 0x0051EA40 (the button in EAX; ECX and EDX kept): whether `button` is one of the d-pad's eight directions (Up, Down,
@@ -282,6 +282,6 @@ void MarkUsedStub();
 
 // 0x00523350 (the C function DoNextTrick): the trick component's DoNextTrick with ScriptToRunFirst, Params and a
 // copy of TrickParams. True.
-bool __cdecl CFunc_DoNextTrick(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_DoNextTrick(Scripts::CStruct* params, Scripts::CScript* script);
 
 } // namespace Obj

@@ -12,7 +12,7 @@
 #include "game/net/gamenet_handlers.h"
 #include "game/gfx/weather.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 extern void** const kCRibbonParticlesNodeVtable;
@@ -43,7 +43,7 @@ T* DestroyAndFree(T* system, unsigned int flags)
 {
     system->DestroyBody();
     if (flags & 1)
-        Mem::Free(system);
+        MemSys::Free(system);
     return system;
 }
 
@@ -52,13 +52,13 @@ T* DestroyAndFree(T* system, unsigned int flags)
 // --- ribbon ---
 
 // 0x0049B0D0
-CRibbonParticles* CRibbonParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int, int, float,
+CRibbonParticles* CRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                               int history)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
     m_steps = history + 1;
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles * m_steps) * kPosition, true,
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * m_steps) * kPosition, true,
                        2)) {
         m_colourMid = -1.0f;
         m_flags |= 4u;
@@ -79,14 +79,14 @@ CRibbonParticles* CRibbonParticles::Destroy(unsigned int flags) { return Destroy
 // --- ribbontrail ---
 
 // 0x0049B380
-CRibbonTrailParticles* CRibbonTrailParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int, int,
+CRibbonTrailParticles* CRibbonTrailParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int,
                                                         float, int history)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
     m_steps = history + 1;
     // (the colours' count read again from m_steps for each array and each step of the loop)
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles * m_steps) * kPosition, true,
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * m_steps) * kPosition, true,
                        m_steps)) {
         m_colourMid = -1.0f;
         m_flags |= 4u;
@@ -107,12 +107,12 @@ CRibbonTrailParticles* CRibbonTrailParticles::Destroy(unsigned int flags) { retu
 // --- shaded ---
 
 // 0x0049B660
-CShadedParticles* CShadedParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int, int, float,
+CShadedParticles* CShadedParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                               int)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles) * kPosition, false, 4)) {
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 4)) {
         m_colourMid = -1.0f;
         m_flags |= 4u;
     }
@@ -132,12 +132,12 @@ CShadedParticles* CShadedParticles::Destroy(unsigned int flags) { return Destroy
 // --- smooth ---
 
 // 0x0049B910
-CSmoothParticles* CSmoothParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int, int, float,
+CSmoothParticles* CSmoothParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                               int)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles) * kPosition, false, 2)) {
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 2)) {
         m_colourMid = -1.0f;
         m_flags |= 4u;
     }
@@ -157,12 +157,12 @@ CSmoothParticles* CSmoothParticles::Destroy(unsigned int flags) { return Destroy
 // --- smoothribbon ---
 
 // 0x0049BBD0
-CSmoothRibbonParticles* CSmoothRibbonParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int,
+CSmoothRibbonParticles* CSmoothRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int,
                                                           int, float, int history)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles * (history + 1)) * kPosition,
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * (history + 1)) * kPosition,
                        true, 4)) {
         m_steps = history + 1;
         m_colourMid = -1.0f;
@@ -184,12 +184,12 @@ CSmoothRibbonParticles* CSmoothRibbonParticles::Destroy(unsigned int flags) { re
 // --- smoothstar ---
 
 // 0x0049BE80
-CSmoothStarParticles* CSmoothStarParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int,
+CSmoothStarParticles* CSmoothStarParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int,
                                                       int segments, float size, int)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles) * kPosition, false, 3)) {
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 3)) {
         m_segments = segments;
         m_colourMid = -1.0f;
         m_size = size;
@@ -211,12 +211,12 @@ CSmoothStarParticles* CSmoothStarParticles::Destroy(unsigned int flags) { return
 // --- star ---
 
 // 0x0049C140
-CStarParticles* CStarParticles::Construct(uint32_t name, int maxParticles, uint32_t, uint32_t, int, int segments,
+CStarParticles* CStarParticles::Construct(uint32_t name, int particleCap, uint32_t, uint32_t, int, int segments,
                                           float size, int)
 {
     CParticleSystem::Construct();
     SetVtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
-    if (ConstructParts(this, name, maxParticles, static_cast<unsigned int>(maxParticles) * kPosition, false, 3)) {
+    if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 3)) {
         m_segments = segments;
         m_colourMid = -1.0f;
         m_size = size;
@@ -252,64 +252,64 @@ struct TypeNodeAdapters {
     template <typename T>
     T* System()
     {
-        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(Nx::CParticleSystem, m_node));
+        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(Engine3D::CParticleSystem, m_listLink));
     }
-    Nx::CRibbonParticles* DestroyRibbon(unsigned int flags) { return System<Nx::CRibbonParticles>()->Destroy(flags); }
-    Nx::CRibbonTrailParticles* DestroyRibbonTrail(unsigned int flags)
+    Engine3D::CRibbonParticles* DestroyRibbon(unsigned int flags) { return System<Engine3D::CRibbonParticles>()->Destroy(flags); }
+    Engine3D::CRibbonTrailParticles* DestroyRibbonTrail(unsigned int flags)
     {
-        return System<Nx::CRibbonTrailParticles>()->Destroy(flags);
+        return System<Engine3D::CRibbonTrailParticles>()->Destroy(flags);
     }
-    Nx::CShadedParticles* DestroyShaded(unsigned int flags) { return System<Nx::CShadedParticles>()->Destroy(flags); }
-    Nx::CSmoothParticles* DestroySmooth(unsigned int flags) { return System<Nx::CSmoothParticles>()->Destroy(flags); }
-    Nx::CSmoothRibbonParticles* DestroySmoothRibbon(unsigned int flags)
+    Engine3D::CShadedParticles* DestroyShaded(unsigned int flags) { return System<Engine3D::CShadedParticles>()->Destroy(flags); }
+    Engine3D::CSmoothParticles* DestroySmooth(unsigned int flags) { return System<Engine3D::CSmoothParticles>()->Destroy(flags); }
+    Engine3D::CSmoothRibbonParticles* DestroySmoothRibbon(unsigned int flags)
     {
-        return System<Nx::CSmoothRibbonParticles>()->Destroy(flags);
+        return System<Engine3D::CSmoothRibbonParticles>()->Destroy(flags);
     }
-    Nx::CSmoothStarParticles* DestroySmoothStar(unsigned int flags)
+    Engine3D::CSmoothStarParticles* DestroySmoothStar(unsigned int flags)
     {
-        return System<Nx::CSmoothStarParticles>()->Destroy(flags);
+        return System<Engine3D::CSmoothStarParticles>()->Destroy(flags);
     }
-    Nx::CStarParticles* DestroyStar(unsigned int flags) { return System<Nx::CStarParticles>()->Destroy(flags); }
+    Engine3D::CStarParticles* DestroyStar(unsigned int flags) { return System<Engine3D::CStarParticles>()->Destroy(flags); }
 };
 
 } // namespace
 
-namespace Nx {
+namespace Engine3D {
 namespace {
 static VtableSlot kCRibbonParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyRibbon};
 void** const kCRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCRibbonParticlesNodeVtable_slots);
-static VtableSlot kCRibbonParticlesVtable_slots[] = {&Nx::CRibbonParticles::Destroy, &Nx::CWeather::Render,
-                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+static VtableSlot kCRibbonParticlesVtable_slots[] = {&Engine3D::CRibbonParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
 void** const kCRibbonParticlesVtable = reinterpret_cast<void**>(kCRibbonParticlesVtable_slots);
 static VtableSlot kCRibbonTrailParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyRibbonTrail};
 void** const kCRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(kCRibbonTrailParticlesNodeVtable_slots);
-static VtableSlot kCRibbonTrailParticlesVtable_slots[] = {&Nx::CRibbonTrailParticles::Destroy, &Nx::CWeather::Render,
-                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::Field134};
+static VtableSlot kCRibbonTrailParticlesVtable_slots[] = {&Engine3D::CRibbonTrailParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::Field134};
 void** const kCRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCRibbonTrailParticlesVtable_slots);
 static VtableSlot kCShadedParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyShaded};
 void** const kCShadedParticlesNodeVtable = reinterpret_cast<void**>(kCShadedParticlesNodeVtable_slots);
-static VtableSlot kCShadedParticlesVtable_slots[] = {&Nx::CShadedParticles::Destroy, &Nx::CWeather::Render,
-                GameNet::HandleNothing, &Nx::CParticleCounts::FourColours};
+static VtableSlot kCShadedParticlesVtable_slots[] = {&Engine3D::CShadedParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::FourColours};
 void** const kCShadedParticlesVtable = reinterpret_cast<void**>(kCShadedParticlesVtable_slots);
 static VtableSlot kCSmoothParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmooth};
 void** const kCSmoothParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothParticlesNodeVtable_slots);
-static VtableSlot kCSmoothParticlesVtable_slots[] = {&Nx::CSmoothParticles::Destroy, &Nx::CWeather::Render,
-                GameNet::HandleNothing, &Nx::CParticleCounts::TwoColours};
+static VtableSlot kCSmoothParticlesVtable_slots[] = {&Engine3D::CSmoothParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::TwoColours};
 void** const kCSmoothParticlesVtable = reinterpret_cast<void**>(kCSmoothParticlesVtable_slots);
 static VtableSlot kCSmoothRibbonParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmoothRibbon};
 void** const kCSmoothRibbonParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothRibbonParticlesNodeVtable_slots);
-static VtableSlot kCSmoothRibbonParticlesVtable_slots[] = {&Nx::CSmoothRibbonParticles::Destroy, &Nx::CWeather::Render,
-                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::FourColours};
+static VtableSlot kCSmoothRibbonParticlesVtable_slots[] = {&Engine3D::CSmoothRibbonParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::FourColours};
 void** const kCSmoothRibbonParticlesVtable = reinterpret_cast<void**>(kCSmoothRibbonParticlesVtable_slots);
 static VtableSlot kCSmoothStarParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroySmoothStar};
 void** const kCSmoothStarParticlesNodeVtable = reinterpret_cast<void**>(kCSmoothStarParticlesNodeVtable_slots);
-static VtableSlot kCSmoothStarParticlesVtable_slots[] = {&Nx::CSmoothStarParticles::Destroy, &Nx::CWeather::Render,
-                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+static VtableSlot kCSmoothStarParticlesVtable_slots[] = {&Engine3D::CSmoothStarParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCSmoothStarParticlesVtable = reinterpret_cast<void**>(kCSmoothStarParticlesVtable_slots);
 static VtableSlot kCStarParticlesNodeVtable_slots[] = {&TypeNodeAdapters::DestroyStar};
 void** const kCStarParticlesNodeVtable = reinterpret_cast<void**>(kCStarParticlesNodeVtable_slots);
-static VtableSlot kCStarParticlesVtable_slots[] = {&Nx::CStarParticles::Destroy, &Nx::CWeather::Render,
-                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+static VtableSlot kCStarParticlesVtable_slots[] = {&Engine3D::CStarParticles::Destroy, &Engine3D::CWeatherSystem::Render,
+                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCStarParticlesVtable = reinterpret_cast<void**>(kCStarParticlesVtable_slots);
 } // namespace
 } // namespace Nx

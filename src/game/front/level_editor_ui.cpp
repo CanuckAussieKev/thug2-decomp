@@ -49,7 +49,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 
 namespace {
 
@@ -87,7 +87,7 @@ void Ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.push_b
 ImVec4 Accent(float alpha)
 {
     float rgb[3];
-    Prefs::AccentRgb(Prefs::Get().accent, rgb);
+    OptionStore::AccentRgb(OptionStore::Get().accent, rgb);
     return ImVec4(rgb[0], rgb[1], rgb[2], alpha);
 }
 int g_styleGeneration = -1; // (the preferences' scale / accent the style was built for)
@@ -106,12 +106,12 @@ void UpdateScale()
     int width = 0, height = 0;
     UiBackend::WindowSize(&width, &height);
     float scale = UiLayout::ScaleFor(width, height);
-    if (int pct = Prefs::Get().uiScalePct; pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
+    if (int pct = OptionStore::Get().uiScalePct; pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
         scale = static_cast<float>(pct) / 100.0f;
-    if (scale == g_scale && g_styleGeneration == Prefs::StyleGeneration())
+    if (scale == g_scale && g_styleGeneration == OptionStore::StyleGeneration())
         return;
     g_scale = scale;
-    g_styleGeneration = Prefs::StyleGeneration();
+    g_styleGeneration = OptionStore::StyleGeneration();
     UiLayout::FontSizes sizes = UiLayout::FontSizesFor(scale);
     UiTheme::Fonts fonts = UiTheme::BuildFonts(scale);
     g_ui = fonts.ui;
@@ -120,7 +120,7 @@ void UpdateScale()
     g_heading = fonts.heading;
     UiBackend::InvalidateDeviceObjects(); // (the font texture is made again)
     float rgb[3];
-    Prefs::AccentRgb(Prefs::Get().accent, rgb);
+    OptionStore::AccentRgb(OptionStore::Get().accent, rgb);
     UiTheme::ApplyStyle(scale, rgb);
     Log("level editor UI: scale %.2f for a %dx%d window (Inter %.0f px, JetBrains Mono %.0f px)", scale, width,
         height, sizes.ui, sizes.mono);
@@ -283,7 +283,7 @@ void ViewSection(const Model& model)
         ImGui::PushFont(g_mono);
         ImGui::TextWrapped("%s", model.view.wallInfo.c_str());
         ImGui::PopFont();
-        // (level_editor_walls.h: the game's own switch, CSector::SetActive; moved and turned as scenery)
+        // (level_editor_walls.h: the game's own switch, CWorldCell::SetActive; moved and turned as scenery)
         if (model.view.wallOff)
             ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s", model.view.wallState.c_str());
         else
@@ -765,7 +765,7 @@ void NodeSection(const Model& model, int index)
             if (model.nodes.rail) {
                 // A rail point: alone, or its whole rail (the points linked to it) by as much (L).
                 FieldLabel("Moves");
-                bool whole = model.nodes.wholeRail;
+                bool whole = model.nodes.entireRail;
                 char label[64];
                 std::snprintf(label, sizeof(label), "Whole %s (%d point%s)", model.nodes.chainNoun,
                               model.nodes.railPoints, model.nodes.railPoints == 1 ? "" : "s");
@@ -1163,10 +1163,10 @@ void Help(const Model& model)
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     // (the first-run tips again, the preferences - level_editor_prefs.h)
     if (ImGui::SmallButton("Show Tips"))
-        Prefs::ShowTips();
+        OptionStore::ShowTips();
     ImGui::SameLine();
     if (ImGui::SmallButton("Preferences"))
-        Prefs::Open() = true;
+        OptionStore::Open() = true;
     // (every action from the registry, with its keys as bound now - level_editor_actions.h; the details below)
     Ux3::HelpFromRegistry();
     if (ImGui::CollapsingHeader("Reference###helpdetails")) {
@@ -1720,8 +1720,8 @@ void Frame(const Model& model, const Overlay& overlay)
     ConfirmReset(model);
     CollisionLegend(model);
     OnlineWarning(model);
-    Prefs::Window(g_scale, g_heading, g_small); // (level_editor_prefs.h)
-    Prefs::TipsWindow(g_scale, g_heading, g_mono);
+    OptionStore::Window(g_scale, g_heading, g_small); // (level_editor_prefs.h)
+    OptionStore::TipsWindow(g_scale, g_heading, g_mono);
     PlayTest::Window(g_scale, g_heading, g_small); // (level_editor_playtest.h)
     // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
     Arrange::Window(g_scale);
@@ -1745,4 +1745,4 @@ void Frame(const Model& model, const Overlay& overlay)
     g_wantKeys = io.WantCaptureKeyboard;
 }
 
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui

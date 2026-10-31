@@ -8,7 +8,7 @@
 #include "game/core/mem.h"
 #include "game/sys/log.h"
 
-namespace Mem {
+namespace MemSys {
 
 static_assert(offsetof(Pool, m_freeList) == 0x14 && offsetof(Pool, m_name) == 0x18 &&
                   offsetof(Pool, m_peakUsed) == 0x58,
@@ -17,10 +17,10 @@ static_assert(offsetof(Pool, m_freeList) == 0x14 && offsetof(Pool, m_name) == 0x
 // 0x005BA420
 Pool::Pool(int item_size, int count, const char* name)
 {
-    m_itemSize = item_size;
+    m_slotBytes = item_size;
     m_count = count;
     auto* block = static_cast<uint8_t*>(New(static_cast<unsigned int>(item_size * count)));
-    m_end = block + m_count * m_itemSize;
+    m_end = block + m_count * m_slotBytes;
     m_start = block;
     m_used = 0;
     m_peakUsed = 0;
@@ -28,8 +28,8 @@ Pool::Pool(int item_size, int count, const char* name)
 
     // Link every item to the next; the last one ends the list.
     uint8_t* item = block;
-    for (int i = 0; i < m_count; ++i, item += m_itemSize)
-        *reinterpret_cast<void**>(item) = i < m_count - 1 ? item + m_itemSize : nullptr;
+    for (int i = 0; i < m_count; ++i, item += m_slotBytes)
+        *reinterpret_cast<void**>(item) = i < m_count - 1 ? item + m_slotBytes : nullptr;
 
     // The original copies with no length limit, like strcpy.
     const char* source = name ? name : "unnamed";
@@ -52,7 +52,7 @@ void* Pool::Allocate()
         // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
         if (!seen && reportedCount < 16 && m_name[0] != '\0') {
             reported[reportedCount++] = this;
-            Log("pool %s full: all %d items (%d bytes each) in use", m_name, m_count, m_itemSize);
+            Log("pool %s full: all %d items (%d bytes each) in use", m_name, m_count, m_slotBytes);
         }
         return nullptr;
     }
@@ -93,7 +93,7 @@ bool Pool::Contains(const void* pointer) const
     return m_start <= p && p < m_end;
 }
 
-namespace PoolManager {
+namespace SlotPoolSetup {
 
 Pool* g_pools[2]; // (the memory card's path buffer follows)
 
@@ -132,7 +132,7 @@ void FreeItem(int index, void* item)
         Free(item);
 }
 
-} // namespace PoolManager
+} // namespace SlotPoolSetup
 
 void* PoolPair::Allocate(unsigned int size)
 {
@@ -150,7 +150,7 @@ void PoolPair::Free(void* item)
             return;
         }
     }
-    Mem::Free(item);
+    MemSys::Free(item);
 }
 
 } // namespace Mem
@@ -158,9 +158,9 @@ void PoolPair::Free(void* item)
 namespace {
 
 struct PoolAdapter {
-    Mem::Pool* Construct(int item_size, int count, const char* name)
+    MemSys::Pool* Construct(int item_size, int count, const char* name)
     {
-        return new (this) Mem::Pool(item_size, count, name);
+        return new (this) MemSys::Pool(item_size, count, name);
     }
 };
 

@@ -1,9 +1,9 @@
-// A vector times a full 4x4 matrix (Mth::Vector::MultiplyBy, game/mth/vector.h).
+// A vector times a full 4x4 matrix (Maths::Vector::MultiplyBy, game/mth/vector.h).
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 
-namespace Mth {
+namespace Maths {
 
 // 0x00434200 (the x87 sums in double, each stored once; the terms added as the original does: w first, then z,
 // then x / y in the order below)

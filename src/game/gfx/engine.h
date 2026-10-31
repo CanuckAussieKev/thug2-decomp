@@ -4,20 +4,20 @@
 
 #include "game/core/alloc.h"
 
-// The engine's own entry points (Nx::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's
+// The engine's own entry points (Engine3D::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's
 // update and render, model and scene files, and the list of loaded scenes. (The ones that only jump into the
 // platform are in engine_glue.h.) From the disassembly of 0x0048BF20-0x0048C741.
-namespace Mth {
+namespace Maths {
 class Vector;
 }
 
-namespace Nx {
+namespace Engine3D {
 
-struct CScene;
+struct CWorldScene;
 
-// A loaded scene's node in the engine's list (Lst::Node<CScene>, 0x14 bytes, vtable 0x00648A38; data = the scene).
+// A loaded scene's node in the engine's list (ListKit::Node<CWorldScene>, 0x14 bytes, vtable 0x00648A38; data = the scene).
 // The list's head is at 0x006FA7E0 (its data -1).
-struct CSceneNode : Mem::ListNode {
+struct CSceneNode : MemSys::ListNode {
     // 0x0048C4B0: the destructor body: out of the list (and linked to itself).
     void DestroyBody();
     // 0x0048C4D0: the scalar deleting destructor (vtable slot 0). Returns this.
@@ -65,21 +65,21 @@ bool __cdecl DeleteGeomObject(void* object);
 // (lower case). The last three arguments are passed on (the mesh load reads only the name and textures).
 void* __cdecl LoadModelFile(const char* fileName, void* textures, int texDictOffset, bool shadowVolume);
 // 0x0048C490: SphereVisible - always 0 with more than one viewport (0x00701378).
-int __cdecl SphereVisibleInOneViewport(const Mth::Vector* centre, float radius);
+int __cdecl SphereVisibleInOneViewport(const Maths::Vector* centre, float radius);
 
 // --- the loaded scenes (the list 0x006FA7E0) ---
 // 0x0048C510: the sector `checksum` from the first scene that has it, or null.
-void* __cdecl GetSector(uint32_t checksum);
+void* __cdecl LookUpSector(uint32_t checksum);
 // 0x0048C560: `scene` (from the file of the level `name`) named and given `textures`; unless it's `loaded`, its
 // load finished (with `arena`); added at the end of the list. (No scene: a crash, as the original.)
-void __cdecl AddScene(CScene* scene, const char* name, void* textures, bool loaded, void* arena);
+void __cdecl AddScene(CWorldScene* scene, const char* name, void* textures, bool loaded, void* arena);
 // 0x0048C650: every scene's added scenes toggled.
 void __cdecl ToggleAddScenes();
 // 0x0048C690: `scene` unloaded (its added scene first) and deleted, its node too. False when the platform couldn't
 // unload it or it isn't in the list.
-bool __cdecl UnloadScene(CScene* scene, int flags);
+bool __cdecl UnloadScene(CWorldScene* scene, int flags);
 // 0x0048C700: the scene named `checksum`, or null.
-CScene* __cdecl FindScene(uint32_t checksum);
+CWorldScene* __cdecl FindScene(uint32_t checksum);
 
 } // namespace Engine
 
@@ -88,5 +88,5 @@ extern bool g_skipRender; // rendering skipped (frames not drawn or shown)
 extern void* g_flexibleParticleManager;
 extern void* g_imposterManager;
 extern int g_renderMode;
-extern Mem::ListNode g_sceneList;
+extern MemSys::ListNode g_sceneList;
 } // namespace Nx

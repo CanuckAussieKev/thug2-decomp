@@ -5,9 +5,9 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 
-// The parts of a script's parameter structure (Script::CStruct) script functions (CFuncs) use. Parameter names
+// The parts of a script's parameter structure (Scripts::CStruct) script functions (ScriptCommands) use. Parameter names
 // are checksums of the names used in the scripts; 0 means the unnamed (first) parameter.
-namespace Script {
+namespace Scripts {
 
 class CScript;
 
@@ -22,19 +22,19 @@ inline bool GetString(CStruct* params, uint32_t name, const char** out, bool ass
 }
 
 // The checksum parameter `name` (a name written without quotes in the script), or false if there isn't one.
-inline bool GetChecksum(CStruct* params, uint32_t name, uint32_t* out, bool assert = false)
+inline bool ReadHashValue(CStruct* params, uint32_t name, uint32_t* out, bool assert = false)
 {
-    return params->GetChecksum(name, out, assert);
+    return params->ReadHashValue(name, out, assert);
 }
 
 // Whether the flag `name` (a bare name among the parameters) is present.
-inline bool ContainsFlag(CStruct* params, uint32_t name)
+inline bool HasBareFlag(CStruct* params, uint32_t name)
 {
-    return params->ContainsFlag(name);
+    return params->HasBareFlag(name);
 }
-inline bool ContainsFlag(CStruct* params, const char* name)
+inline bool HasBareFlag(CStruct* params, const char* name)
 {
-    return params->ContainsFlag(name);
+    return params->HasBareFlag(name);
 }
 
 } // namespace Script

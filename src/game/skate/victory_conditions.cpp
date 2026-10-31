@@ -19,34 +19,34 @@
 #include "game/core/stubs.h"
 #include "game/core/code_address.h"
 
-namespace Game {
+namespace GoalSystem {
 
 namespace {
 
 // The vtables.
-static VtableSlot kBaseVtable_slots[] = {&Game::CVictoryCondition::DestroyBase, Stubs::ReturnFalse1, &_purecall,
+static VtableSlot kBaseVtable_slots[] = {&GoalSystem::CWinRule::DestroyBase, Stubs::ReturnFalse1, &_purecall,
                  &_purecall, &_purecall};
 void** const kBaseVtable = reinterpret_cast<void**>(kBaseVtable_slots);
-static VtableSlot kHighestScoreVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
+static VtableSlot kHighestScoreVtable_slots[] = {&GoalSystem::CWinRule::Destroy, &GoalSystem::CWinRule::IsHighestScore, Stubs::ReturnFalse,
                  Stubs::ReturnFalse, Stubs::ReturnTrue};
 void** const kHighestScoreVtable = reinterpret_cast<void**>(kHighestScoreVtable_slots);
-static VtableSlot kScoreReachedVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
-                 &Game::CScoreReachedVictoryCondition::ConditionComplete, &Game::CScoreReachedVictoryCondition::Print};
+static VtableSlot kScoreReachedVtable_slots[] = {&GoalSystem::CWinRule::Destroy, &GoalSystem::CWinRule::IsHighestScore, Stubs::ReturnTrue,
+                 &GoalSystem::CScoreReachedVictoryCondition::RuleSatisfied, &GoalSystem::CScoreReachedVictoryCondition::Print};
 void** const kScoreReachedVtable = reinterpret_cast<void**>(kScoreReachedVtable_slots);
-static VtableSlot kCompleteGoalsVtable_slots[] = {&Game::CVictoryCondition::Destroy, Stubs::ReturnFalse1, Stubs::ReturnTrue,
-                 &Game::CCompleteGoalsVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+static VtableSlot kCompleteGoalsVtable_slots[] = {&GoalSystem::CWinRule::Destroy, Stubs::ReturnFalse1, Stubs::ReturnTrue,
+                 &GoalSystem::CCompleteGoalsVictoryCondition::RuleSatisfied, Stubs::ReturnTrue};
 void** const kCompleteGoalsVtable = reinterpret_cast<void**>(kCompleteGoalsVtable_slots);
-static VtableSlot kBestComboVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnFalse,
-                 Stubs::ReturnFalse, &Game::CBestComboVictoryCondition::Print};
+static VtableSlot kBestComboVtable_slots[] = {&GoalSystem::CWinRule::Destroy, &GoalSystem::CWinRule::IsHighestScore, Stubs::ReturnFalse,
+                 Stubs::ReturnFalse, &GoalSystem::CBestComboVictoryCondition::Print};
 void** const kBestComboVtable = reinterpret_cast<void**>(kBestComboVtable_slots);
-static VtableSlot kLastManStandingVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CLastManStandingVictoryCondition::IsWinner,
-                 Stubs::ReturnTrue, &Game::CLastManStandingVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+static VtableSlot kLastManStandingVtable_slots[] = {&GoalSystem::CWinRule::Destroy, &GoalSystem::CSoleSurvivorWin::HasWonMatch,
+                 Stubs::ReturnTrue, &GoalSystem::CSoleSurvivorWin::RuleSatisfied, Stubs::ReturnTrue};
 void** const kLastManStandingVtable = reinterpret_cast<void**>(kLastManStandingVtable_slots);
-static VtableSlot kEliminationVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CEliminationVictoryCondition::IsWinner, Stubs::ReturnTrue,
-                 &Game::CEliminationVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+static VtableSlot kEliminationVtable_slots[] = {&GoalSystem::CWinRule::Destroy, &GoalSystem::CEliminationVictoryCondition::HasWonMatch, Stubs::ReturnTrue,
+                 &GoalSystem::CEliminationVictoryCondition::RuleSatisfied, Stubs::ReturnTrue};
 void** const kEliminationVtable = reinterpret_cast<void**>(kEliminationVtable_slots);
-static VtableSlot kCollectAllObjectsVtable_slots[] = {&Game::CVictoryCondition::Destroy, &Game::CVictoryCondition::IsHighestScore, Stubs::ReturnTrue,
-                 &Game::CCollectAllObjectsVictoryCondition::ConditionComplete, Stubs::ReturnTrue};
+static VtableSlot kCollectAllObjectsVtable_slots[] = {&GoalSystem::CWinRule::Destroy, &GoalSystem::CWinRule::IsHighestScore, Stubs::ReturnTrue,
+                 &GoalSystem::CCollectAllObjectsVictoryCondition::RuleSatisfied, Stubs::ReturnTrue};
 void** const kCollectAllObjectsVtable = reinterpret_cast<void**>(kCollectAllObjectsVtable_slots);
 
 // The types (type=).
@@ -58,8 +58,8 @@ constexpr uint32_t kLastManStanding = 0xCC06880F;   // last_man_standing
 constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 
-// The skate module (Mdl::Skate, 0x007CE478) and its skaters (not rewritten yet).
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+// The skate module (GameModules::Skate, 0x007CE478) and its skaters (not rewritten yet).
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 // How many skaters there are: the skate module's skater list (+0x34; nodes: +0x04 the skater, -1 at the end,
 // +0x0C the next).
 uint32_t SkaterCount(uint8_t* skate)
@@ -74,69 +74,69 @@ uint32_t SkaterCount(uint8_t* skate)
     } while (*reinterpret_cast<int*>(node + 4) != -1 && node);
     return count;
 }
-uint8_t* GetSkater(uint8_t* skate, uint32_t index)
+uint8_t* GetRiderAt(uint8_t* skate, uint32_t index)
 {
-    return reinterpret_cast<uint8_t*>(reinterpret_cast<Mdl::Skate*>(skate)->GetSkater(static_cast<int>(index)));
+    return reinterpret_cast<uint8_t*>(reinterpret_cast<GameModules::Skate*>(skate)->GetRiderAt(static_cast<int>(index)));
 }
-// A skater's score object (Mdl::Score) and its total.
-uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
-int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
+// A skater's score object (GameModules::Score) and its total.
+uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<GameObjects::CRider*>(skater)->GetPointsTotal()); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<GameModules::Score*>(score)->GetTotalScore(); }
 
 // The game mode (0x007CE470).
 void* GameMode() { return static_cast<void*>(g_gameMode); }
-bool IsTeamGame() { return static_cast<CGameMode*>(GameMode())->IsTeamGame() != 0; }
-int NumTeams() { return static_cast<CGameMode*>(GameMode())->NumTeams(); }
+bool IsSquadMatch() { return static_cast<CMatchRules*>(GameMode())->IsSquadMatch() != 0; }
+int NumTeams() { return static_cast<CMatchRules*>(GameMode())->NumTeams(); }
 
-// The network manager's players (0x007CCE14): PlayerInfo +0x14 the skater, +0x30 the team, +0x34 the objects
-// collected. Walked with a Lst::Search<PlayerInfo> (vtable 0x0064C1A8).
-GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
+// The network manager's players (0x007CCE14): PlayerRecord +0x14 the skater, +0x30 the team, +0x34 the objects
+// collected. Walked with a ListKit::Search<PlayerRecord> (vtable 0x0064C1A8).
+OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
 struct PlayerSearch {
-    void* m_vtable = Mdl::kPlayerSearchVtable;
-    void* m_node = nullptr;
+    void* m_vtable = GameModules::kPlayerSearchVtable;
+    void* m_listLink = nullptr;
 };
 uint8_t* FirstPlayer(PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(NetManager()->FirstPlayerInfo(search, false));
+    return static_cast<uint8_t*>(NetManager()->BeginPlayerWalk(search, false));
 }
 uint8_t* NextPlayer(PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(NetManager()->NextPlayerInfo(search, false));
+    return static_cast<uint8_t*>(NetManager()->StepPlayerWalk(search, false));
 }
-uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetLocalPlayer()); }
-bool IsEliminated(uint8_t* player) { return reinterpret_cast<GameNet::PlayerInfo*>(player)->IsEliminated(); }
+uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetOwnPlayer()); }
+bool IsEliminated(uint8_t* player) { return reinterpret_cast<OnlinePlay::PlayerRecord*>(player)->IsEliminated(); }
 
 } // namespace
 
 // 0x005769A0
-void CVictoryCondition::DestroyBody() { m_vtable = kBaseVtable; }
+void CWinRule::DestroyBody() { m_vtable = kBaseVtable; }
 
 // 0x00576970
-CVictoryCondition* CVictoryCondition::Destroy(uint8_t flags)
+CWinRule* CWinRule::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00576650
-CVictoryCondition* CVictoryCondition::DestroyBase(uint8_t flags)
+CWinRule* CWinRule::DestroyBase(uint8_t flags)
 {
     m_vtable = kBaseVtable;
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x005769B0
-bool CVictoryCondition::IsHighestScore(uint32_t player)
+bool CWinRule::IsHighestScore(uint32_t player)
 {
     uint8_t* skate = Skate();
     for (uint32_t i = 0; i < SkaterCount(skate); ++i) {
         if (i == player)
             continue;
-        uint8_t* mine = ScoreOf(GetSkater(skate, player));
-        uint8_t* theirs = ScoreOf(GetSkater(skate, i));
+        uint8_t* mine = ScoreOf(GetRiderAt(skate, player));
+        uint8_t* theirs = ScoreOf(GetRiderAt(skate, i));
         int theirScore = TotalScore(theirs);
         if (TotalScore(mine) < theirScore)
             return false;
@@ -145,10 +145,10 @@ bool CVictoryCondition::IsHighestScore(uint32_t player)
 }
 
 // 0x00576A40
-bool CScoreReachedVictoryCondition::ConditionComplete()
+bool CScoreReachedVictoryCondition::RuleSatisfied()
 {
     uint8_t* skate = Skate();
-    if (IsTeamGame()) {
+    if (IsSquadMatch()) {
         int totals[4] = {};
         PlayerSearch search;
         for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
@@ -157,13 +157,13 @@ bool CScoreReachedVictoryCondition::ConditionComplete()
             totals[team] += TotalScore(score);
         }
         for (int total : totals) {
-            if (total >= m_score)
+            if (total >= m_pointsHeld)
                 return true;
         }
         return false;
     }
     for (uint32_t i = 0; i < SkaterCount(skate); ++i) {
-        if (TotalScore(ScoreOf(GetSkater(skate, i))) >= m_score)
+        if (TotalScore(ScoreOf(GetRiderAt(skate, i))) >= m_pointsHeld)
             return true;
     }
     return false;
@@ -172,42 +172,42 @@ bool CScoreReachedVictoryCondition::ConditionComplete()
 // 0x00576610
 bool CScoreReachedVictoryCondition::Print()
 {
-    Dbg::Printf("Found CScoreReachedVictoryCondition %d\n", m_score);
+    DebugOut::Printf("Found CScoreReachedVictoryCondition %d\n", m_pointsHeld);
     return true;
 }
 
 // 0x00576630
 bool CBestComboVictoryCondition::Print()
 {
-    Dbg::Printf("Found CBestComboVictoryCondition %d\n", m_numCombos);
+    DebugOut::Printf("Found CBestComboVictoryCondition %d\n", m_numCombos);
     return true;
 }
 
 // 0x00576B80
-bool CCompleteGoalsVictoryCondition::ConditionComplete()
+bool CCompleteGoalsVictoryCondition::RuleSatisfied()
 {
-    GameNet::Manager* net = NetManager();
+    OnlinePlay::Manager* net = NetManager();
     uint8_t* skate = Skate();
-    CGoalManager* goals = GetGoalManager(); // the skate module's goal manager
-    if (IsTeamGame()) {
-        int needed = goals->GetNumSelectedGoals();
+    CGoalManager* goals = GetObjectiveBoard(); // the skate module's goal manager
+    if (IsSquadMatch()) {
+        int needed = goals->CountPickedObjectives();
         for (int team = 0; team < NumTeams(); ++team) {
-            if (net->GetTeamScore(team) >= needed)
+            if (net->GetSquadPoints(team) >= needed)
                 return true;
         }
         return false;
     }
     uint32_t count = *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < SkaterCount(skate); ++i) {
-        uint8_t* skater = GetSkater(skate, i);
+        uint8_t* skater = GetRiderAt(skate, i);
         if (count == 0)
             return true;
         bool missing = false;
         for (uint32_t g = 0; g < count; ++g) {
-            uint8_t* goal = reinterpret_cast<uint8_t*>(goals->GetGoalByIndex(static_cast<int>(g)));
+            uint8_t* goal = reinterpret_cast<uint8_t*>(goals->GetObjectiveAt(static_cast<int>(g)));
             // A goal that doesn't count (+0x2C's value set, or 0x005542F0 false) or that the skater has won (vtable
             // +0x50, by the skater's id).
-            if (**reinterpret_cast<int**>(goal + 0x2C) != 0 || !reinterpret_cast<CGoal*>(goal)->IsSelected())
+            if (**reinterpret_cast<int**>(goal + 0x2C) != 0 || !reinterpret_cast<CObjective*>(goal)->IsSelected())
                 continue;
             auto hasWon = reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>((*reinterpret_cast<void***>(goal))[0x50 / 4]);
             if (hasWon(goal, *reinterpret_cast<uint32_t*>(skater + 0x14)))
@@ -222,7 +222,7 @@ bool CCompleteGoalsVictoryCondition::ConditionComplete()
 }
 
 // 0x00576680
-bool CLastManStandingVictoryCondition::ConditionComplete()
+bool CSoleSurvivorWin::RuleSatisfied()
 {
     uint8_t* player = LocalPlayer();
     if (player) {
@@ -234,24 +234,24 @@ bool CLastManStandingVictoryCondition::ConditionComplete()
 }
 
 // 0x005766B0
-bool CLastManStandingVictoryCondition::IsWinner(uint32_t player)
+bool CSoleSurvivorWin::HasWonMatch(uint32_t player)
 {
-    uint8_t* score = ScoreOf(GetSkater(Skate(), player));
+    uint8_t* score = ScoreOf(GetRiderAt(Skate(), player));
     return score && TotalScore(score) > 0;
 }
 
 // 0x005766E0
-bool CEliminationVictoryCondition::ConditionComplete()
+bool CEliminationVictoryCondition::RuleSatisfied()
 {
     uint8_t* player = LocalPlayer();
     return player && IsEliminated(player);
 }
 
 // 0x00576700
-bool CEliminationVictoryCondition::IsWinner(uint32_t player)
+bool CEliminationVictoryCondition::HasWonMatch(uint32_t player)
 {
-    GameNet::Manager* net = NetManager();
-    uint8_t* skater = GetSkater(Skate(), player);
+    OnlinePlay::Manager* net = NetManager();
+    uint8_t* skater = GetRiderAt(Skate(), player);
     if (!skater)
         return false;
     uint8_t* info = net->PlayerByObjectId(
@@ -260,7 +260,7 @@ bool CEliminationVictoryCondition::IsWinner(uint32_t player)
 }
 
 // 0x00576740
-bool CCollectAllObjectsVictoryCondition::ConditionComplete()
+bool CCollectAllObjectsVictoryCondition::RuleSatisfied()
 {
     int total = 0;
     PlayerSearch search;
@@ -276,12 +276,12 @@ bool CCollectAllObjectsVictoryCondition::ConditionComplete()
 }
 
 // 0x00576810
-CVictoryCondition* CreateVictoryCondition(Script::CStruct* params)
+CWinRule* CreateVictoryCondition(Scripts::CStruct* params)
 {
     uint32_t type;
-    params->GetChecksum("type", &type, 1);
+    params->ReadHashValue("type", &type, 1);
     auto make = [](unsigned int size, void** vtable) {
-        auto* condition = static_cast<CVictoryCondition*>(Mem::Calloc(size));
+        auto* condition = static_cast<CWinRule*>(MemSys::AllocZeroed(size));
         if (condition)
             condition->m_vtable = vtable;
         return condition;
@@ -289,15 +289,15 @@ CVictoryCondition* CreateVictoryCondition(Script::CStruct* params)
     switch (type) {
     case kTargetScore: {
         int score;
-        params->GetInteger("score", &score, 1);
+        params->FetchIntValue("score", &score, 1);
         auto* condition = static_cast<CScoreReachedVictoryCondition*>(make(8, kScoreReachedVtable));
         if (condition)
-            condition->m_score = score;
+            condition->m_pointsHeld = score;
         return condition;
     }
     case kBestCombo: {
         int combos;
-        params->GetInteger("num_combos", &combos, 1);
+        params->FetchIntValue("num_combos", &combos, 1);
         auto* condition = static_cast<CBestComboVictoryCondition*>(make(8, kBestComboVtable));
         if (condition)
             condition->m_numCombos = combos;

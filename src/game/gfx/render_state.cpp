@@ -21,7 +21,7 @@
 #include "game/gfx/shader_slots.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Nx {
+namespace Engine3D {
 
 bool g_shadersAvailable;
 uint32_t g_blendMode;
@@ -132,22 +132,22 @@ void __cdecl SetState(int state, uint32_t value)
     case kZWrite:
         if (value) {
             if (!ZWrite()) {
-                Nx::SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+                Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
                 ZWrite() = 1;
             }
         } else if (ZWrite() == 1) {
-            Nx::SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+            Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
             ZWrite() = 0;
         }
         return;
     case kZTest:
         if (value) {
             if (!ZTest()) {
-                Nx::SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+                Engine3D::SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
                 ZTest() = 1;
             }
         } else if (ZTest() == 1) {
-            Nx::SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
+            Engine3D::SetRenderState(D3DRS_ZFUNC, D3DCMP_ALWAYS);
             ZTest() = 0;
         }
         return;
@@ -156,13 +156,13 @@ void __cdecl SetState(int state, uint32_t value)
             return;
         AlphaRef() = value;
         if (value) {
-            Nx::SetRenderState(D3DRS_ALPHAREF, value);
+            Engine3D::SetRenderState(D3DRS_ALPHAREF, value);
             if (!AlphaTest()) {
-                Nx::SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
+                Engine3D::SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
                 AlphaTest() = 1;
             }
         } else if (AlphaTest()) {
-            Nx::SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+            Engine3D::SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
             AlphaTest() = 0;
         }
         return;
@@ -202,32 +202,32 @@ void __cdecl SetState(int state, uint32_t value)
     case kCullMode:
         if (value != CullMode()) {
             CullMode() = value;
-            Nx::SetRenderState(D3DRS_CULLMODE, value);
+            Engine3D::SetRenderState(D3DRS_CULLMODE, value);
         }
         return;
     case kAlphaBlend:
         if (value != AlphaBlend()) {
             AlphaBlend() = value;
-            Nx::SetRenderState(D3DRS_ALPHABLENDENABLE, value != 0);
+            Engine3D::SetRenderState(D3DRS_ALPHABLENDENABLE, value != 0);
         }
         return;
     case kAlphaTest:
         if (value != AlphaTest()) {
             AlphaTest() = value;
-            Nx::SetRenderState(D3DRS_ALPHATESTENABLE, value != 0);
+            Engine3D::SetRenderState(D3DRS_ALPHATESTENABLE, value != 0);
         }
         return;
     case kSpecular:
         if (value != Specular()) {
             Specular() = value;
-            Nx::SetRenderState(D3DRS_SPECULARENABLE, value != 0);
-            Nx::SetRenderState(D3DRS_LOCALVIEWER, value != 0);
+            Engine3D::SetRenderState(D3DRS_SPECULARENABLE, value != 0);
+            Engine3D::SetRenderState(D3DRS_LOCALVIEWER, value != 0);
         }
         return;
     case kFog:
         if (value != Fog()) {
             Fog() = value;
-            Nx::SetRenderState(D3DRS_FOGENABLE, value != 0);
+            Engine3D::SetRenderState(D3DRS_FOGENABLE, value != 0);
         }
         return;
     case kDepthBias:
@@ -235,13 +235,13 @@ void __cdecl SetState(int state, uint32_t value)
             DepthBias() = value;
             // (unsigned, scaled; x87 at double precision, stored as a float)
             float bias = static_cast<float>(static_cast<double>(value) * kDepthBiasUnit);
-            Nx::SetRenderState(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
+            Engine3D::SetRenderState(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
         }
         return;
     case kLighting:
         if (value != Lighting()) {
             Lighting() = value;
-            Nx::SetRenderState(D3DRS_LIGHTING, value != 0);
+            Engine3D::SetRenderState(D3DRS_LIGHTING, value != 0);
         }
         return;
     case kFilter0:
@@ -268,7 +268,7 @@ void __cdecl SetState(int state, uint32_t value)
     case kLocalViewer:
         if (value != LocalViewer()) {
             LocalViewer() = value != 0;
-            Nx::SetRenderState(D3DRS_LOCALVIEWER, value);
+            Engine3D::SetRenderState(D3DRS_LOCALVIEWER, value);
         }
         return;
     default: // (0xC-0xF, 0x17-0x1F: nothing)
@@ -295,7 +295,7 @@ void __cdecl SetTexture(int stage, void* texture)
 }
 
 // 0x004DA760
-void __cdecl SetBlendMode(uint32_t mode)
+void __cdecl ChooseBlendMode(uint32_t mode)
 {
     uint32_t wanted = BlendModeOverride() ? BlendModeOverride() : mode;
     if (wanted == BlendMode())
@@ -305,7 +305,7 @@ void __cdecl SetBlendMode(uint32_t mode)
         // Fog goes black under the additive and subtractive modes (1-4).
         if (Fog()) {
             if (kind >= 1 && kind <= 4)
-                Nx::SetRenderState(D3DRS_FOGCOLOR, 0);
+                Engine3D::SetRenderState(D3DRS_FOGCOLOR, 0);
             else
                 SetDeviceRenderState(D3DRS_FOGCOLOR, FogColor());
         }
@@ -506,7 +506,7 @@ void __cdecl ResetRenderState()
 {
     LocalViewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
-    for (Mth::Matrix* matrix : {&g_worldMatrix, &g_viewMatrix, &g_projectionMatrix}) {
+    for (Maths::Matrix* matrix : {&g_worldMatrix, &g_viewMatrix, &g_projectionMatrix}) {
         float* m = reinterpret_cast<float*>(matrix);
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;

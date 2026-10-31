@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace Front::LevelEditor::UiLayout {
+namespace MenuSystem::LevelEditor::UiLayout {
 
 constexpr double kMinScale = 0.875;
 
@@ -88,10 +88,10 @@ Route Decide(const RouteInput& input)
     return route;
 }
 
-} // namespace Front::LevelEditor::UiLayout
+} // namespace MenuSystem::LevelEditor::UiLayout
 
 // The Outliner's markers (level_editor_ui.h) - pure, beside the layout's other pure parts.
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 
 namespace {
 struct MarkInfo {
@@ -125,4 +125,4 @@ std::string MarkLetters(uint8_t marks)
     return letters;
 }
 
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui

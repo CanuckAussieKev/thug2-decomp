@@ -12,17 +12,17 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Gfx::ScreenshotCapture {
+namespace Gfx2D::ScreenshotCapture {
 
 namespace {
 
-IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
-// The renderer's "device lost" flag (Nx::StartRender doesn't begin a scene while it's set).
-bool DeviceLostFlag() { return static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0; }
+IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+// The renderer's "device lost" flag (Engine3D::StartRender doesn't begin a scene while it's set).
+bool DeviceLostFlag() { return static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0; }
 
-Sys::Screenshot::PixelFormat Map(D3DFORMAT format)
+SystemCore::Screenshot::PixelFormat Map(D3DFORMAT format)
 {
-    using Sys::Screenshot::PixelFormat;
+    using SystemCore::Screenshot::PixelFormat;
     switch (format) {
     case D3DFMT_X8R8G8B8: return PixelFormat::X8R8G8B8;
     case D3DFMT_A8R8G8B8: return PixelFormat::A8R8G8B8;
@@ -43,7 +43,7 @@ void Release(T*& p)
 }
 
 // The copy, with the scene ended around it (StretchRect / GetRenderTargetData outside a scene, as Direct3D wants).
-bool Copy(IDirect3DDevice9* device, Sys::Screenshot::Frame* out, std::string* error)
+bool Copy(IDirect3DDevice9* device, SystemCore::Screenshot::Frame* out, std::string* error)
 {
     IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
@@ -60,8 +60,8 @@ bool Copy(IDirect3DDevice9* device, Sys::Screenshot::Frame* out, std::string* er
         return fail("no back buffer", hr);
     D3DSURFACE_DESC desc = {};
     back->GetDesc(&desc);
-    Sys::Screenshot::PixelFormat format = Map(desc.Format);
-    if (format == Sys::Screenshot::PixelFormat::Unknown)
+    SystemCore::Screenshot::PixelFormat format = Map(desc.Format);
+    if (format == SystemCore::Screenshot::PixelFormat::Unknown)
         return fail("the back buffer's format isn't one we read", static_cast<HRESULT>(desc.Format));
     IDirect3DSurface9* source = back;
     if (desc.MultiSampleType != D3DMULTISAMPLE_NONE) {
@@ -85,7 +85,7 @@ bool Copy(IDirect3DDevice9* device, Sys::Screenshot::Frame* out, std::string* er
     hr = system->LockRect(&locked, nullptr, D3DLOCK_READONLY);
     if (FAILED(hr))
         return fail("LockRect failed", hr);
-    int rowBytes = static_cast<int>(desc.Width) * Sys::Screenshot::BytesPerPixel(format);
+    int rowBytes = static_cast<int>(desc.Width) * SystemCore::Screenshot::BytesPerPixel(format);
     out->width = static_cast<int>(desc.Width);
     out->height = static_cast<int>(desc.Height);
     out->pitch = rowBytes;
@@ -103,7 +103,7 @@ bool Copy(IDirect3DDevice9* device, Sys::Screenshot::Frame* out, std::string* er
 
 } // namespace
 
-bool CaptureBackBuffer(Sys::Screenshot::Frame* out, std::string* error)
+bool CaptureBackBuffer(SystemCore::Screenshot::Frame* out, std::string* error)
 {
     IDirect3DDevice9* device = Device();
     if (!device) {
@@ -114,11 +114,11 @@ bool CaptureBackBuffer(Sys::Screenshot::Frame* out, std::string* error)
         *error = "the device is lost";
         return false;
     }
-    // (the main loop's scene is open here: Nx::StartRender began it, the end of the frame - 0x004B2750 - ends it)
+    // (the main loop's scene is open here: Engine3D::StartRender began it, the end of the frame - 0x004B2750 - ends it)
     device->EndScene();
     bool ok = Copy(device, out, error);
     device->BeginScene();
     return ok;
 }
 
-} // namespace Gfx::ScreenshotCapture
+} // namespace Gfx2D::ScreenshotCapture

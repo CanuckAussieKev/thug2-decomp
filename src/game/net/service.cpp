@@ -33,7 +33,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/stats_man.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
@@ -42,7 +42,7 @@ constexpr uint32_t kLobbyList = 0x10;       // an object: the lobby (server) lis
 constexpr uint32_t kServiceTaskField = 0xE0; // the task running this function
 constexpr uint32_t kState = 0x1B8;
 constexpr uint32_t kNextState = 0x1BC;      // state 0 moves on to it at the wake time
-constexpr uint32_t kWakeTime = 0x1C0;       // Tmr::GetTime() milliseconds; 0 = none
+constexpr uint32_t kWakeTime = 0x1C0;       // FrameClock::GetTime() milliseconds; 0 = none
 constexpr uint32_t kMotdText = 0xFDF4;      // char*: the downloaded message of the day
 constexpr uint32_t kRequest = 0xFE00;       // the current ghttp request
 constexpr uint32_t kRequestStart = 0xFE04;  // when it was started
@@ -67,49 +67,49 @@ constexpr uint32_t kMotdTimeout = 15000;
 constexpr uint32_t kText = 0x4942CF80; // "text"
 
 // The two download threads (stdcall, the manager as their argument).
-const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(GameNet::NewsThread));
-const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(GameNet::MotdThread));
+const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(OnlinePlay::NewsThread));
+const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(OnlinePlay::MotdThread));
 
 void SetState(uint8_t* manager, int state)
 {
-    reinterpret_cast<GameNet::Manager*>(manager)->SetServiceState(state);
+    reinterpret_cast<OnlinePlay::Manager*>(manager)->SetServiceState(state);
 }
-// Take this task out of the task list (Tsk::BaseTask::Remove).
+// Take this task out of the task list (TaskList::SchedulerTask::Remove).
 void RemoveServiceTask(uint8_t* manager)
 {
-    Field<Tsk::BaseTask*>(manager, kServiceTaskField)->Remove();
+    Field<TaskList::SchedulerTask*>(manager, kServiceTaskField)->Remove();
 }
-GameNet::LobbyMan* LobbyList(uint8_t* manager) { return Field<GameNet::LobbyMan*>(manager, kLobbyList); }
+OnlinePlay::RoomManager* LobbyList(uint8_t* manager) { return Field<OnlinePlay::RoomManager*>(manager, kLobbyList); }
 
 void PushInternetHeap()
 {
-    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_internetBottomUpHeap);
+    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_internetBottomUpHeap);
 }
-void PopHeap() { Mem::Manager::Get()->PopContext(); }
+void PopHeap() { MemSys::Manager::Get()->LeaveHeapScope(); }
 
-void RunScript(uint32_t name, Script::CStruct* params = nullptr)
+void LaunchScript(uint32_t name, Scripts::CStruct* params = nullptr)
 {
-    Script::RunScript(name, params, nullptr, false, nullptr);
+    Scripts::LaunchScript(name, params, nullptr, false, nullptr);
 }
-void SpawnScript(uint32_t name, Script::CStruct* params = nullptr)
+void SpawnScript(uint32_t name, Scripts::CStruct* params = nullptr)
 {
-    Script::SpawnScript(name, params, 0, nullptr, 0, 0, false, false, false, false);
+    Scripts::SpawnScript(name, params, 0, nullptr, 0, 0, false, false, false, false);
 }
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     return params ? params->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
 // Pause (1), unpause (0) or restore (-1) the music streams.
-void PauseStream(int pause) { Pcm::PauseStream(pause); }
+void PauseStream(int pause) { AudioStream::PauseStream(pause); }
 
 // GameSpy (library code, not decompiled).
 void GsiStartAvailableCheck(const char* game) { GameSpy::StartAvailableCheck(game); }
@@ -123,16 +123,16 @@ void StartThread(uint8_t* manager, LPTHREAD_START_ROUTINE thread)
 {
     DWORD id;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, manager, CREATE_SUSPENDED, &id);
-    reinterpret_cast<GameNet::Manager*>(manager)->SetLobbyId(id); // (+0x9950 = id)
+    reinterpret_cast<OnlinePlay::Manager*>(manager)->SetRoomId(id); // (+0x9950 = id)
     ResumeThread(handle);
 }
 
 // "No servers found" (the lobby list is empty).
 void ShowNoServers()
 {
-    Script::CStruct* params = NewParams();
-    params->AddString(kText, Script::ESYMBOLTYPE_STRING, Script::GetString(0x4AF78404));
-    RunScript(0x43D52414, params);
+    Scripts::CStruct* params = NewParams();
+    params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(0x4AF78404));
+    LaunchScript(0x43D52414, params);
     DeleteParams(params);
 }
 
@@ -151,12 +151,12 @@ void __cdecl ServiceTask(const uint8_t* task)
     uint8_t* manager = *reinterpret_cast<uint8_t* const*>(task + 0x1C);
     switch (Field<int>(manager, kState)) {
     case 0: // waiting
-        if (Field<uint32_t>(manager, kWakeTime) != 0 && Tmr::GetTime() > Field<uint32_t>(manager, kWakeTime))
+        if (Field<uint32_t>(manager, kWakeTime) != 0 && FrameClock::GetTime() > Field<uint32_t>(manager, kWakeTime))
             SetState(manager, Field<int>(manager, kNextState));
         break;
     case 3: // start: a script, then the availability check a moment later
         PushInternetHeap();
-        RunScript(0x15EC44CF);
+        LaunchScript(0x15EC44CF);
         Field<int>(manager, kState) = 0;
         Field<int>(manager, kNextState) = 4;
         Field<uint32_t>(manager, kWakeTime) = 100;
@@ -171,15 +171,15 @@ void __cdecl ServiceTask(const uint8_t* task)
         switch (GsiAvailableCheckThink()) {
         case 1: // available
             Field<bool>(manager, kAvailable) = true;
-            RunScript(0xA8D71FCC);
+            LaunchScript(0xA8D71FCC);
             break;
         case 2: // unavailable
-            RunScript(0xAA290EB3);
+            LaunchScript(0xAA290EB3);
             Finish(manager);
             Field<uint32_t>(manager, kWakeTime) = 0;
             break;
         case 3: // temporarily unavailable
-            RunScript(0xCB856AF7);
+            LaunchScript(0xCB856AF7);
             Finish(manager);
             Field<uint32_t>(manager, kWakeTime) = 0;
             break;
@@ -191,14 +191,14 @@ void __cdecl ServiceTask(const uint8_t* task)
     case 6:
     case 0xA: { // the news: a message (with the count of messages, if any), then the download thread
         PauseStream(1);
-        int count = GameNet::g_newsMessageCount;
+        int count = OnlinePlay::g_newsMessageCount;
         if (count == 0) {
             SpawnScript(0xBDA86A12);
         } else {
-            Script::CStruct* params = NewParams();
+            Scripts::CStruct* params = NewParams();
             char text[256];
-            std::snprintf(text, sizeof(text), "(%d) %s", count, Script::GetString(0x78D25623));
-            params->AddString(kText, Script::ESYMBOLTYPE_STRING, text);
+            std::snprintf(text, sizeof(text), "(%d) %s", count, Scripts::GetString(0x78D25623));
+            params->AddString(kText, Scripts::QBVAL_STRING, text);
             SpawnScript(0xC072AC4E, params);
             DeleteParams(params);
         }
@@ -211,7 +211,7 @@ void __cdecl ServiceTask(const uint8_t* task)
     case 7: // the news download
         PushInternetHeap();
         // (PartyMod's time limit; the original's was 15000 ms)
-        if (Tmr::GetTime() - Field<uint32_t>(manager, kRequestStart) > kNewsTimeout ||
+        if (FrameClock::GetTime() - Field<uint32_t>(manager, kRequestStart) > kNewsTimeout ||
             Field<bool>(manager, kNewsFinished)) {
             GhttpCancelRequest(Field<int>(manager, kRequest));
             Field<int>(manager, kState) = 0xB;
@@ -227,7 +227,7 @@ void __cdecl ServiceTask(const uint8_t* task)
         break;
     case 0xC: // the message of the day's download
         PushInternetHeap();
-        if (Tmr::GetTime() - Field<uint32_t>(manager, kRequestStart) > kMotdTimeout) {
+        if (FrameClock::GetTime() - Field<uint32_t>(manager, kRequestStart) > kMotdTimeout) {
             GhttpCancelRequest(Field<int>(manager, kRequest));
             Field<int>(manager, kState) = 9;
         } else {
@@ -237,9 +237,9 @@ void __cdecl ServiceTask(const uint8_t* task)
         break;
     case 9: { // show the message of the day
         GhttpCleanup();
-        Script::CStruct* params = NewParams();
+        Scripts::CStruct* params = NewParams();
         params->AddString(kText, Field<const char*>(manager, kMotdText));
-        RunScript(0xF17B894C, params);
+        LaunchScript(0xF17B894C, params);
         DeleteParams(params);
         Field<int>(manager, kState) = 0;
         Field<uint32_t>(manager, kWakeTime) = 0;
@@ -249,12 +249,12 @@ void __cdecl ServiceTask(const uint8_t* task)
         GhttpCleanup();
         // Originally from PartyMod Fixes: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
         Field<bool>(manager, kNewsOk) = kNewsOkValue;
-        RunScript(kNewsDoneScript);
+        LaunchScript(kNewsDoneScript);
         Finish(manager);
         Field<uint32_t>(manager, kWakeTime) = 0;
         break;
     case 0xD:
-        RunScript(0xF68F8A86);
+        LaunchScript(0xF68F8A86);
         LobbyList(manager)->ClearLobbies();
         LobbyList(manager)->StartListingGames();
         break;
@@ -277,7 +277,7 @@ void __cdecl ServiceTask(const uint8_t* task)
         Finish(manager);
         break;
     case 0x11:
-        LobbyList(manager)->FillLobbyList();
+        LobbyList(manager)->PopulateRoomList();
         Finish(manager);
         break;
     default: // 1, 2: nothing to do

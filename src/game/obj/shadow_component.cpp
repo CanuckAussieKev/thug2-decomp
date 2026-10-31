@@ -19,7 +19,7 @@
 #include "game/gfx/weather.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -41,7 +41,7 @@ constexpr uint32_t kShadowOn = 0xF272C43A;    // Obj_ShadowOn
 enum ShadowKind { SHADOW_DETAILED = 1, SHADOW_SIMPLE = 2, SHADOW_VOLUME = 3 };
 
 // The detailed and Volume shadows are cast along this over this distance.
-const Mth::Vector kDown = {0.0f, -1.0f, 0.0f, 1.0f};
+const Maths::Vector kDown = {0.0f, -1.0f, 0.0f, 1.0f};
 constexpr float kCastDistance = 72.0f;
 // A detailed shadow is placed this far up the object's up.
 constexpr float kDetailedHeight = 36.0f;
@@ -52,163 +52,163 @@ int& ShadowKindOf(void* shadow) { return *reinterpret_cast<int*>(static_cast<uin
 float& ShadowScaleOf(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x0C); }
 float& ShadowOffsetOf(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x10); }
 void DeleteShadow(void* shadow) { reinterpret_cast<void*(__thiscall*)(void*, int)>(Vtable(shadow)[0])(shadow, 1); }
-void ShadowUpdate(void* shadow, const Mth::Vector* pos, const Mth::Matrix* matrix, Mth::Vector normal)
+void ShadowUpdate(void* shadow, const Maths::Vector* pos, const Maths::Matrix* matrix, Maths::Vector normal)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*, const Mth::Matrix*, Mth::Vector)>(Vtable(shadow)[1])(
+    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*, const Maths::Matrix*, Maths::Vector)>(Vtable(shadow)[1])(
         shadow, pos, matrix, normal);
 }
-void ShadowSetPosition(void* shadow, Mth::Vector pos)
+void ShadowSetPosition(void* shadow, Maths::Vector pos)
 {
-    reinterpret_cast<void(__thiscall*)(void*, Mth::Vector)>(Vtable(shadow)[2])(shadow, pos);
+    reinterpret_cast<void(__thiscall*)(void*, Maths::Vector)>(Vtable(shadow)[2])(shadow, pos);
 }
-void ShadowSetMatrix(void* shadow, const Mth::Matrix* matrix)
+void ShadowSetMatrix(void* shadow, const Maths::Matrix* matrix)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const Mth::Matrix*)>(Vtable(shadow)[4])(shadow, matrix);
+    reinterpret_cast<void(__thiscall*)(void*, const Maths::Matrix*)>(Vtable(shadow)[4])(shadow, matrix);
 }
 void ShadowHide(void* shadow) { reinterpret_cast<void(__thiscall*)(void*)>(Vtable(shadow)[5])(shadow); }
 void ShadowShow(void* shadow) { reinterpret_cast<void(__thiscall*)(void*)>(Vtable(shadow)[6])(shadow); }
 
 // The model component's model (+0x208), and that model's flags (+0x44: 0x2 visible, 0x4 hidden), its +0x1C (a
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
-uint8_t* ModelOf(CBaseComponent* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
+uint8_t* ModelOf(CObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
-void SetModelShadow(uint8_t* model, bool on) { reinterpret_cast<Nx::CModel*>(model)->EnableShadow(on); }
+void SetModelShadow(uint8_t* model, bool on) { reinterpret_cast<Engine3D::CRenderModel*>(model)->ActivateShadow(on); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
 const uint8_t* HierarchyOf(uint8_t* model)
 {
-    return reinterpret_cast<const uint8_t*>(reinterpret_cast<Nx::CModel*>(model)->GetAssetHierarchy());
+    return reinterpret_cast<const uint8_t*>(reinterpret_cast<Engine3D::CRenderModel*>(model)->GetAssetHierarchy());
 }
 
 } // namespace
 
 // 0x00431800
-CBaseComponent* __cdecl CShadowComponent::Create()
+CObjectModule* __cdecl CGroundShadowModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CShadowComponent));
-    return memory ? static_cast<CShadowComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CGroundShadowModule));
+    return memory ? static_cast<CGroundShadowModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x00431380
-CShadowComponent* CShadowComponent::Construct()
+CGroundShadowModule* CGroundShadowModule::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_type = kType;
-    mp_shadow = nullptr;
-    m_normal = {0.0f, 1.0f, 0.0f, 1.0f};
-    m_shadowType = kNone;
+    m_shadowHandle = nullptr;
+    m_surfaceDir = {0.0f, 1.0f, 0.0f, 1.0f};
+    m_shadowKind = kNone;
     m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
     m_followObject = true;
     return this;
 }
 
 // 0x00431300
-void CShadowComponent::DestroyBody()
+void CGroundShadowModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_shadow) {
-        DeleteShadow(mp_shadow);
-        mp_shadow = nullptr;
+    if (m_shadowHandle) {
+        DeleteShadow(m_shadowHandle);
+        m_shadowHandle = nullptr;
     }
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004313D0
-CShadowComponent* CShadowComponent::Destroy(unsigned int flags)
+CGroundShadowModule* CGroundShadowModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00431400
-void CShadowComponent::Finalize()
+void CGroundShadowModule::Finalize()
 {
-    mp_model = m_object->GetComponent(kModel);
-    uint32_t checksum = *reinterpret_cast<uint32_t*>(ModelOf(mp_model) + 0x30);
-    void* asset = Ass::g_assetManager->GetAssetData(checksum, 0);
-    if (mp_shadow)
-        reinterpret_cast<void(__thiscall*)(void*, uint8_t*, void*)>(Vtable(mp_shadow)[7])(mp_shadow, ModelOf(mp_model),
+    m_meshInstance = m_object->GetComponent(kModel);
+    uint32_t checksum = *reinterpret_cast<uint32_t*>(ModelOf(m_meshInstance) + 0x30);
+    void* asset = AssetStore::g_assetManager->GetAssetData(checksum, 0);
+    if (m_shadowHandle)
+        reinterpret_cast<void(__thiscall*)(void*, uint8_t*, void*)>(Vtable(m_shadowHandle)[7])(m_shadowHandle, ModelOf(m_meshInstance),
                                                                                          asset);
 }
 
 // 0x00431450
-void CShadowComponent::RefreshShadow()
+void CGroundShadowModule::RefreshShadow()
 {
-    if (!mp_shadow || !mp_model)
+    if (!m_shadowHandle || !m_meshInstance)
         return;
-    uint8_t* model = ModelOf(mp_model);
+    uint8_t* model = ModelOf(m_meshInstance);
     if (!model)
         return;
     uint8_t flags = model[0x44];
     if (!(flags & 0x2) || (flags & 0x4)) {
-        ShadowHide(mp_shadow);
+        ShadowHide(m_shadowHandle);
         return;
     }
-    switch (ShadowKindOf(mp_shadow)) {
+    switch (ShadowKindOf(m_shadowHandle)) {
     case SHADOW_DETAILED: {
-        const CCompositeObject* object = m_object;
-        Mth::Vector above = object->m_pos + object->m_matrix.row[1] * kDetailedHeight;
+        const CGameEntity* object = m_object;
+        Maths::Vector above = object->m_pos + object->m_basisFrame.row[1] * kDetailedHeight;
         // (the model's +0x2C object's slot 5 vector, turned round - and not used)
         if (void* fader = *reinterpret_cast<void**>(model + 0x2C)) {
-            const Mth::Vector* v = reinterpret_cast<const Mth::Vector*(__thiscall*)(void*, int)>(Vtable(fader)[5])(fader, 0);
-            Mth::Vector unused = *v * -1.0f;
+            const Maths::Vector* v = reinterpret_cast<const Maths::Vector*(__thiscall*)(void*, int)>(Vtable(fader)[5])(fader, 0);
+            Maths::Vector unused = *v * -1.0f;
             (void)unused;
         }
-        ShadowSetPosition(mp_shadow, above);
+        ShadowSetPosition(m_shadowHandle, above);
         break;
     }
     case SHADOW_SIMPLE:
-        ShadowScaleOf(mp_shadow) = *reinterpret_cast<float*>(model + 0x1C);
+        ShadowScaleOf(m_shadowHandle) = *reinterpret_cast<float*>(model + 0x1C);
         [[fallthrough]];
     case SHADOW_VOLUME:
-        ShadowUpdate(mp_shadow, &m_pos, &m_object->m_matrix, m_normal);
+        ShadowUpdate(m_shadowHandle, &m_pos, &m_object->m_basisFrame, m_surfaceDir);
         break;
     default:
         break;
     }
-    ShadowShow(mp_shadow);
+    ShadowShow(m_shadowHandle);
 }
 
 // 0x00431570
-void CShadowComponent::Hide(bool hide)
+void CGroundShadowModule::Hide(bool hide)
 {
-    if (!mp_shadow)
+    if (!m_shadowHandle)
         return;
     if (hide)
-        ShadowHide(mp_shadow);
+        ShadowHide(m_shadowHandle);
     else
-        ShadowShow(mp_shadow);
+        ShadowShow(m_shadowHandle);
 }
 
 // 0x004315A0
-void CShadowComponent::CreateShadow(int type, const char* modelName)
+void CGroundShadowModule::CreateShadow(int type, const char* modelName)
 {
-    if (mp_shadow)
+    if (m_shadowHandle)
         return;
-    CBaseComponent* modelComponent = m_object->GetComponent(kModel);
+    CObjectModule* modelComponent = m_object->GetComponent(kModel);
     uint8_t* model = modelComponent ? ModelOf(modelComponent) : nullptr;
     switch (type) {
     case SHADOW_DETAILED: {
-        void* memory = Mem::Calloc(0x24);
-        mp_shadow = memory ? static_cast<Nx::CDetailedShadow*>(memory)->Construct(reinterpret_cast<Nx::CModel*>(model), kDown,
+        void* memory = MemSys::AllocZeroed(0x24);
+        m_shadowHandle = memory ? static_cast<Engine3D::CFullShadow*>(memory)->Construct(reinterpret_cast<Engine3D::CRenderModel*>(model), kDown,
                                                                                       kCastDistance)
                            : nullptr;
         return;
     }
     case SHADOW_SIMPLE: {
-        void* memory = Mem::Calloc(0x14);
-        void* shadow = memory ? static_cast<Nx::CSimpleShadow*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::AllocZeroed(0x14);
+        void* shadow = memory ? static_cast<Engine3D::CBlobShadow*>(memory)->Construct() : nullptr;
         // (no shadow - out of memory - is written through regardless, as the original)
         ShadowScaleOf(shadow) = *reinterpret_cast<float*>(model + 0x1C);
-        static_cast<Nx::CSimpleShadow*>(shadow)->SetModel(modelName);
-        mp_shadow = shadow;
+        static_cast<Engine3D::CBlobShadow*>(shadow)->SetModel(modelName);
+        m_shadowHandle = shadow;
         break;
     }
     case SHADOW_VOLUME: {
-        void* memory = Mem::New(0x68);
-        mp_shadow = memory ? static_cast<Nx::CShadowVolume*>(memory)->Construct(reinterpret_cast<Nx::CModel*>(model), kDown,
+        void* memory = MemSys::New(0x68);
+        m_shadowHandle = memory ? static_cast<Engine3D::CShadowVolume*>(memory)->Construct(reinterpret_cast<Engine3D::CRenderModel*>(model), kDown,
                                                                                    kCastDistance)
                            : nullptr;
         break;
@@ -216,64 +216,64 @@ void CShadowComponent::CreateShadow(int type, const char* modelName)
     default:
         return;
     }
-    ShadowUpdate(mp_shadow, &m_pos, &m_object->m_matrix, m_normal);
+    ShadowUpdate(m_shadowHandle, &m_pos, &m_object->m_basisFrame, m_surfaceDir);
 }
 
 // 0x00431780
-void CShadowComponent::DestroyShadow()
+void CGroundShadowModule::DestroyShadow()
 {
-    if (!mp_shadow)
+    if (!m_shadowHandle)
         return;
-    if (mp_model)
-        SetModelShadow(ModelOf(mp_model), false);
-    if (mp_shadow)
-        DeleteShadow(mp_shadow);
-    mp_shadow = nullptr;
+    if (m_meshInstance)
+        SetModelShadow(ModelOf(m_meshInstance), false);
+    if (m_shadowHandle)
+        DeleteShadow(m_shadowHandle);
+    m_shadowHandle = nullptr;
 }
 
 // 0x004317C0
-void CShadowComponent::SetPosition(const Mth::Vector* position) { m_pos = *position; }
+void CGroundShadowModule::SetPosition(const Maths::Vector* position) { m_pos = *position; }
 
 // 0x004317E0
-void CShadowComponent::SetNormal(const Mth::Vector* normal) { m_normal = *normal; }
+void CGroundShadowModule::SetNormal(const Maths::Vector* normal) { m_surfaceDir = *normal; }
 
 // 0x00431360
-void CShadowComponent::SetLightDirection(const Mth::Vector* direction)
+void CGroundShadowModule::SetLightDirection(const Maths::Vector* direction)
 {
-    if (mp_shadow)
-        reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*)>(Vtable(mp_shadow)[3])(mp_shadow, direction);
+    if (m_shadowHandle)
+        reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*)>(Vtable(m_shadowHandle)[3])(m_shadowHandle, direction);
 }
 
 // 0x00431860
-void CShadowComponent::InitFromStructure(Script::CStruct* params)
+void CGroundShadowModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    m_shadowType = kSimple;
-    params->GetChecksum(kShadowType, &m_shadowType, 0);
-    if (params->ContainsFlag(kStayPut))
+    m_shadowKind = kSimple;
+    params->ReadHashValue(kShadowType, &m_shadowKind, 0);
+    if (params->HasBareFlag(kStayPut))
         m_followObject = false;
     DestroyShadow();
-    switch (m_shadowType) {
+    switch (m_shadowKind) {
     case kDetailed:
-        if (!mp_shadow)
+        if (!m_shadowHandle)
             CreateShadow(SHADOW_DETAILED, nullptr);
         break;
     case kSimple: {
         const char* model = "Ped_Shadow";
         params->GetString(kShadowModel, &model, 0);
-        if (!mp_shadow)
+        if (!m_shadowHandle)
             CreateShadow(SHADOW_SIMPLE, model);
         float scale = 1.0f;
         params->GetFloat(kShadowScale, &scale, 0);
-        ShadowScaleOf(mp_shadow) = scale;
-        ShadowUpdate(mp_shadow, &m_pos, &m_object->m_matrix, m_normal);
+        ShadowScaleOf(m_shadowHandle) = scale;
+        ShadowUpdate(m_shadowHandle, &m_pos, &m_object->m_basisFrame, m_surfaceDir);
         break;
     }
     case kVolume:
-        if (!mp_shadow)
+        if (!m_shadowHandle)
             CreateShadow(SHADOW_VOLUME, nullptr);
         break;
     case kNone:
-        if (mp_shadow)
+        if (m_shadowHandle)
             DestroyShadow();
         break;
     default:
@@ -282,33 +282,33 @@ void CShadowComponent::InitFromStructure(Script::CStruct* params)
 }
 
 // 0x004319D0
-void CShadowComponent::Update()
+void CGroundShadowModule::Update()
 {
     if (m_followObject) {
         m_pos = m_object->m_pos;
-        if (mp_shadow) {
-            Mth::Matrix matrix = m_object->m_displayMatrix;
-            Mth::Vector pos = m_object->m_pos;
-            uint8_t* model = mp_model ? ModelOf(mp_model) : nullptr;
+        if (m_shadowHandle) {
+            Maths::Matrix matrix = m_object->m_displayMatrix;
+            Maths::Vector pos = m_object->m_pos;
+            uint8_t* model = m_meshInstance ? ModelOf(m_meshInstance) : nullptr;
             if (model && HierarchyOf(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
                 const float* root = reinterpret_cast<const float*>(HierarchyOf(model) + 0x40);
                 pos = {root[0], root[1], root[2], 0.0f};
-                Mth::Matrix rootMatrix = *reinterpret_cast<const Mth::Matrix*>(HierarchyOf(model) + 0x10);
-                (void)rootMatrix; // (copied and not used: the product reads the hierarchy's again)
+                Maths::Matrix baseMat = *reinterpret_cast<const Maths::Matrix*>(HierarchyOf(model) + 0x10);
+                (void)baseMat; // (copied and not used: the product reads the hierarchy's again)
                 pos += m_object->m_pos;
-                matrix = Mth::MatrixProduct{reinterpret_cast<const Mth::Matrix*>(HierarchyOf(model) + 0x10),
+                matrix = Maths::MatrixProduct{reinterpret_cast<const Maths::Matrix*>(HierarchyOf(model) + 0x10),
                                             &m_object->m_displayMatrix};
             }
             matrix.row[3] = pos;
-            ShadowSetMatrix(mp_shadow, &matrix);
+            ShadowSetMatrix(m_shadowHandle, &matrix);
         }
     }
     RefreshShadow();
 }
 
 // 0x00431B10
-int CShadowComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* /*script*/)
+int CGroundShadowModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     if (name == kShadowOff) {
         DestroyShadow();
@@ -317,35 +317,35 @@ int CShadowComponent::CallMemberFunction(uint32_t name, Script::CStruct* params,
     if (name != kShadowOn)
         return 2;
     uint32_t type; // (read into the parameters' own argument slot)
-    if (!params->GetChecksum(kShadowType, &type, 0))
-        params->AddChecksum(kShadowType, kSimple);
-    reinterpret_cast<void(__thiscall*)(CShadowComponent*, Script::CStruct*)>(m_vtable[2])(this, params);
-    if (mp_shadow && ShadowKindOf(mp_shadow) == SHADOW_SIMPLE) {
+    if (!params->ReadHashValue(kShadowType, &type, 0))
+        params->PutNameKey(kShadowType, kSimple);
+    reinterpret_cast<void(__thiscall*)(CGroundShadowModule*, Scripts::CStruct*)>(m_vtable[2])(this, params);
+    if (m_shadowHandle && ShadowKindOf(m_shadowHandle) == SHADOW_SIMPLE) {
         float offset = 0.2f; // (read into the name's argument slot)
         params->GetFloat(kOffset, &offset, 0);
-        ShadowOffsetOf(mp_shadow) = offset;
+        ShadowOffsetOf(m_shadowHandle) = offset;
     }
     return 1;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CShadowComponent::Destroy,
-         &Obj::CShadowComponent::Update,
-         &Obj::CShadowComponent::InitFromStructure,
-         &Obj::CShadowComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CGroundShadowModule::Destroy,
+         &GameObjects::CGroundShadowModule::Update,
+         &GameObjects::CGroundShadowModule::ConfigureFromData,
+         &GameObjects::CGroundShadowModule::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
-         &Obj::CShadowComponent::Hide,
-         Nx::VirtualSlot1Jump,
+         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CGroundShadowModule::Hide,
+         Engine3D::VirtualSlot1Jump,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CShadowComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CGroundShadowModule::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

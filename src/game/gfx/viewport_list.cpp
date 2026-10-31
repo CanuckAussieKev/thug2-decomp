@@ -3,17 +3,17 @@
 #include "game/gfx/viewport_list.h"
 #include "game/gfx/viewport.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 // The ten viewports (0x00701350).
-CViewport* Viewport(int index) { return g_viewports[index]; }
+CViewRegion* Viewport(int index) { return g_viewports[index]; }
 
 } // namespace
 
 // 0x004A06D0
-CViewport* __cdecl GetActiveViewport(int n)
+CViewRegion* __cdecl GetActiveViewport(int n)
 {
     const int* map = g_modeMap;
     int shown = 0;
@@ -28,15 +28,15 @@ CViewport* __cdecl GetActiveViewport(int n)
 }
 
 // 0x004A0710
-int __cdecl GetScreenMode() { return g_screenMode; }
+int __cdecl GetViewLayout() { return g_screenMode; }
 
 // 0x004A0720
-bool __cdecl MarkCameraForDeletion(Gfx::Camera* camera)
+bool __cdecl FlagCameraForRemoval(Gfx2D::Camera* camera)
 {
     for (int i = 0; i < 10; ++i) {
-        CViewport* viewport = Viewport(i);
-        // (CViewport::MarkCameraForDeletion)
-        if (viewport && viewport->MarkCameraForDeletion(camera))
+        CViewRegion* viewport = Viewport(i);
+        // (CViewRegion::FlagCameraForRemoval)
+        if (viewport && viewport->FlagCameraForRemoval(camera))
             return true;
     }
     return false;

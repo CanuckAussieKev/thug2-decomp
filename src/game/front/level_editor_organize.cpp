@@ -24,7 +24,7 @@
 #include "game/obj/object.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Organize {
+namespace MenuSystem::LevelEditor::Organize {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -302,7 +302,7 @@ Rect RectOf(float ax, float ay, float bx, float by)
     return {std::min(ax, bx), std::min(ay, by), std::max(ax, bx), std::max(ay, by)};
 }
 
-bool CrossingDrag(float startX, float endX) { return endX < startX; }
+bool CrossingDrag(float originCoordX, float lastColumn) { return lastColumn < originCoordX; }
 
 bool BoxTakes(const Rect& box, const Rect& thing, bool crossing)
 {
@@ -412,10 +412,10 @@ uint32_t SceneNow()
     return scene ? Scenery::SceneName(scene) : 0;
 }
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
 // Every object with a model the editor can select (the level's object nodes and the copies), once each.
@@ -423,7 +423,7 @@ std::vector<uint32_t> SelectableObjects()
 {
     std::vector<uint32_t> ids;
     auto add = [&](uint32_t id) {
-        Obj::CCompositeObject* object = LiveObject(id);
+        GameObjects::CGameEntity* object = LiveObject(id);
         OrientedBox box;
         if (object && !Has(ids, id) && !View::HiddenObject(id) && !Picking::Locked(Picking::kObjects, id) &&
             Objects::ModelBox(object, &box))
@@ -1086,4 +1086,4 @@ bool DeleteSnapshot(const std::string& name, std::string* message)
     return true;
 }
 
-} // namespace Front::LevelEditor::Organize
+} // namespace MenuSystem::LevelEditor::Organize

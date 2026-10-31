@@ -74,7 +74,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | Crash | Where in THUG2 | What the converters do now | Cost |
 |---|---|---|---|
 | A TrickObject / Cluster on geometry with no drawn sector | ParseNodeArray | Strip the marking (all games) | 2-89 nodes per THAW level aren't trick objects |
-| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only (THPS3 since PC-THPS3-17: Visible / Invisible / Shatter only - Create / Kill reach the geometry only through CSector calls that skip a null one) | 1-74 statements per THAW level; a few in THPS3 |
+| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only (THPS3 since PC-THPS3-17: Visible / Invisible / Shatter only - Create / Kill reach the geometry only through CWorldCell calls that skip a null one) | 1-74 statements per THAW level; a few in THPS3 |
 | THUG2's Car_Generic01 on a LevelObject | its member calls on missing components | Traffic made a real THUG2 Vehicle | THPS3 cars are THUG2 look-alikes |
 | TriggerType with a bare name | 0x004349B2 | Made THUG2's array form (script_port.triggerType, every game); a form it can't make: left out (false) | THAW's four THUG2-less flags |
 | IsAlive / other commands naming a missing node | CFunc_IsAlive | Parameters naming nodes the level lacks are checked | Statements left out |
@@ -92,7 +92,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A restart whose own script "kills" (respawn loop) | a restart's TriggerScript runs when the skater is put there | nodes.is_kill_call: camera animations (KillSkaterCamAnim) and other "kill" names that aren't kills don't count; add_kill_restarts never gives a restart a kill | THPS4 skate shop's start point and THAW BH's Gap14 restart lose their (camera / goal) scripts |
 | No Multiplayer restart (single-player levels) | a network game's spawn | nodes.net_restarts: Player1 restarts also Multiplayer and Horse (as THUG2's skate shop) | None |
 | A restart over nothing (THAW's shop interiors: separate zones) or over a kill zone (respawn loop / under the world) | the kill's nodename= restart, a network spawn | nodes.ground_restarts (after the collision is written, all games): no network spawn there; kills sent there go to the nearest grounded restart | East L.A.'s freeway kill no longer goes "into" the CAS shop; Hollywood's hill kills skip the sign restart; Suburbia's hell box |
-| A ported level named in a network game (2026-10-19) | GameNet::Manager::GetLevelName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
+| A ported level named in a network game (2026-10-19) | OnlinePlay::Manager::GetMapName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
 
 ## 4. THPS3
 

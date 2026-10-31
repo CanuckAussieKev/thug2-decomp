@@ -1,4 +1,4 @@
-// CScript's life: construction and destruction, the pooled new / delete, stopping (ClearScript), setting the
+// CScript's life: construction and destruction, the pooled new / delete, stopping (ResetScriptState), setting the
 // script to run, and the small accessors. See cscript.h for the class and docs/script-runtime.md.
 
 #include "game/script/cscript.h"
@@ -19,7 +19,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 
-namespace Script {
+namespace Scripts {
 
 CScript* g_currentScript;
 CScript* g_scriptListHead;
@@ -28,12 +28,12 @@ int g_scriptCount;
 uint32_t g_nextScriptUniqueId;
 bool g_updatingSpawnedScripts;
 bool g_deleteSpawnedScriptsPending;
-Mem::PoolPair g_scriptPools;
+MemSys::PoolPair g_scriptPools;
 
 namespace {
 
 // The CScript pool pair (300 items, made by the script system's start-up).
-Mem::PoolPair& ScriptPools() { return g_scriptPools; }
+MemSys::PoolPair& ScriptPools() { return g_scriptPools; }
 
 // A new empty structure from the structure pool (null if there's no room).
 CStruct* NewEmptyStruct()
@@ -53,19 +53,19 @@ void FreeStruct(CStruct* structure)
 // 0x004738E0
 CScript* CScript::Construct()
 {
-    m_object.mp_prev = nullptr;
-    m_object.mp_next = nullptr;
-    m_object.mp_object = nullptr;
+    m_object.m_preceding = nullptr;
+    m_object.m_following = nullptr;
+    m_object.m_ownerObject = nullptr;
     m_refCounted.Construct();
     // Then all of it is zeroed - m_refCounted's vtable too (an original quirk, kept).
     std::memset(this, 0, sizeof(CScript));
-    mp_next = ScriptListHead();
+    m_following = ScriptListHead();
     if (ScriptListHead())
-        ScriptListHead()->mp_previous = this;
+        ScriptListHead()->m_priorEntry = this;
     m_uniqueId = NextScriptUniqueId();
     ++ScriptCount();
     ++NextScriptUniqueId();
-    m_node = 0;
+    m_listLink = 0;
     m_eventHandlers = nullptr;
     m_returnAddresses = m_inlineReturnAddresses;
     m_onExceptionScript = 0;
@@ -78,26 +78,26 @@ CScript* CScript::Construct()
 // 0x00474420
 void CScript::Destroy()
 {
-    ClearScript();
+    ResetScriptState();
     ReportStopped(); // (inlined in the original)
     if (m_callbackParams)
         FreeStruct(m_callbackParams);
 
-    if (!mp_previous)
-        ScriptListHead() = mp_next;
-    if (mp_next)
-        mp_next->mp_previous = mp_previous;
-    if (mp_previous)
-        mp_previous->mp_next = mp_next;
+    if (!m_priorEntry)
+        ScriptListHead() = m_following;
+    if (m_following)
+        m_following->m_priorEntry = m_priorEntry;
+    if (m_priorEntry)
+        m_priorEntry->m_following = m_following;
 
     ForgetStoredRandomsOf(reinterpret_cast<uint32_t>(this));
-    if (Obj::CEventHandlerTable* table = m_eventHandlers) {
+    if (GameObjects::CSignalRouteTable* table = m_eventHandlers) {
         if (table->m_inUse) {
             // Its handlers are being run: it is marked dead and freed afterwards (by PassEvent).
             table->m_alive = false;
         } else {
             table->Destroy();
-            Mem::Manager::Get()->Free(table);
+            MemSys::Manager::Get()->Free(table);
         }
     }
     --ScriptCount();
@@ -112,18 +112,18 @@ void* CScript::operator new(size_t size) { return ScriptPools().Allocate(static_
 void CScript::operator delete(void* script) { ScriptPools().Free(script); }
 
 // 0x00473A80
-void CScript::ClearScript()
+void CScript::ResetScriptState()
 {
     RunOnExitScripts();
     if (m_codeCopy) {
-        Mem::FreeMalloc(m_codeCopy);
+        MemSys::FreeMalloc(m_codeCopy);
         m_codeCopy = nullptr;
     }
-    CScriptCache* cache = ScriptCache();
-    // (released even when the code was a private copy or given to SetScript, which took no use of the cached
+    CScriptStore* cache = ScriptCache();
+    // (released even when the code was a private copy or given to BindScript, which took no use of the cached
     // code: if that script is cached, a use someone else took is given back - an original quirk, kept)
     if (m_pc)
-        cache->ReleaseScript(m_scriptName);
+        cache->ReleaseScript(m_scriptTitle);
     m_pc = nullptr;
     if (m_params) {
         FreeStruct(m_params);
@@ -134,26 +134,26 @@ void CScript::ClearScript()
         m_functionParams = nullptr;
     }
     for (int i = 0; i < m_numReturnAddresses; ++i) {
-        cache->ReleaseScript(m_returnAddresses[i].mScriptName);
-        if (CStruct* params = m_returnAddresses[i].mpParams) {
+        cache->ReleaseScript(m_returnAddresses[i].m_scriptId);
+        if (CStruct* params = m_returnAddresses[i].m_argStruct) {
             FreeStruct(params);
-            m_returnAddresses[i].mpParams = nullptr;
+            m_returnAddresses[i].m_argStruct = nullptr;
         }
     }
     m_numReturnAddresses = 0;
     if (m_returnAddresses != m_inlineReturnAddresses)
-        Mem::FreeMalloc(m_returnAddresses);
+        MemSys::FreeMalloc(m_returnAddresses);
     m_returnAddresses = m_inlineReturnAddresses;
     m_currentLoop = nullptr;
     if (m_loops != &m_inlineLoop)
-        Mem::FreeMalloc(m_loops);
+        MemSys::FreeMalloc(m_loops);
     m_loops = &m_inlineLoop;
     m_waitCounter = 0;
-    m_waitType = WAIT_TYPE_NONE;
+    m_waitType = SUSPEND_ON_NOTHING;
     m_waitComponent = nullptr;
     m_waitArg = 0;
     m_object.Release();
-    m_scriptName = 0;
+    m_scriptTitle = 0;
     m_flags &= ~(SCRIPT_RUN_INTERRUPTED | SCRIPT_RUN_WAIT_UPDATED);
 }
 
@@ -179,10 +179,10 @@ void CScript::ReportStopped()
 {
     if (m_eventHandlers) {
         m_eventHandlers->UnregisterWithTracker(this);
-        m_eventHandlers->RemoveGroup(Obj::kAllGroups);
+        m_eventHandlers->RemoveGroup(GameObjects::kAllGroups);
     }
     if (m_spawnFlags & SCRIPT_FLAG_TRACKER_BLOCKED)
-        Obj::Tracker()->ForgetScript(this);
+        GameObjects::Tracker()->ForgetScript(this);
 }
 
 // 0x004739D0
@@ -190,7 +190,7 @@ CStruct* CScript::CopyParamsIfOwned(CStruct* params)
 {
     if (!params)
         return nullptr;
-    if ((m_functionParams && m_functionParams->References(params)) || (m_params && m_params->References(params))) {
+    if ((m_functionParams && m_functionParams->RefTally(params)) || (m_params && m_params->RefTally(params))) {
         CStruct* copy = NewEmptyStruct();
         copy->AppendStructureIfAny(params); // (no check for a full pool)
         return copy;
@@ -199,13 +199,13 @@ CStruct* CScript::CopyParamsIfOwned(CStruct* params)
 }
 
 // 0x00474540
-void CScript::SetScript(uint32_t name, const uint8_t* code, CStruct* params, Obj::CObject* object)
+void CScript::BindScript(uint32_t name, const uint8_t* code, CStruct* params, GameObjects::CObject* object)
 {
-    // ClearScript frees this script's parameters: keep what `params` needs.
+    // ResetScriptState frees this script's parameters: keep what `params` needs.
     CStruct* copy = CopyParamsIfOwned(params);
-    ClearScript();
+    ResetScriptState();
     m_functionParams = NewEmptyStruct();
-    m_scriptName = name;
+    m_scriptTitle = name;
     m_object.Set(object);
     m_params = NewEmptyStruct();
     m_pc = code ? code : ScriptCache()->GetScript(name);
@@ -213,7 +213,7 @@ void CScript::SetScript(uint32_t name, const uint8_t* code, CStruct* params, Obj
         // No such script.
         if (copy)
             FreeStruct(copy);
-        ClearScript();
+        ResetScriptState();
         ReportStopped();
         return;
     }
@@ -228,27 +228,27 @@ void CScript::SetScript(uint32_t name, const uint8_t* code, CStruct* params, Obj
 }
 
 // 0x004747A0
-void CScript::SetScript(uint32_t name, CStruct* params, Obj::CObject* object) { SetScript(name, nullptr, params, object); }
+void CScript::BindScript(uint32_t name, CStruct* params, GameObjects::CObject* object) { BindScript(name, nullptr, params, object); }
 
 // 0x004747C0
-void CScript::SetScript(const char* name, CStruct* params, Obj::CObject* object)
+void CScript::BindScript(const char* name, CStruct* params, GameObjects::CObject* object)
 {
-    SetScript(Crc::GenerateCRCFromString(name), nullptr, params, object);
+    BindScript(Checksums::HashFromText(name), nullptr, params, object);
 }
 
 // 0x00474720
-void CScript::SetScriptCopy(SStructScript* script, CStruct* params, Obj::CObject* object)
+void CScript::SetScriptCopy(SParamScript* script, CStruct* params, GameObjects::CObject* object)
 {
-    auto size = static_cast<uint32_t>(SkipToEndOfScript(script->mpScriptTokens) - script->mpScriptTokens);
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_scriptHeap);
-    auto* copy = static_cast<uint8_t*>(Mem::Malloc(size));
-    Mem::Manager::Get()->PopContext();
-    const uint8_t* source = script->mpScriptTokens;
+    auto size = static_cast<uint32_t>(SkipToEndOfScript(script->m_codeStream) - script->m_codeStream);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_scriptHeap);
+    auto* copy = static_cast<uint8_t*>(MemSys::AllocBlock(size));
+    MemSys::Manager::Get()->LeaveHeapScope();
+    const uint8_t* source = script->m_codeStream;
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = source[i];
-    SetScript(script->mNameChecksum, copy, params, object);
-    m_codeCopy = copy; // (after SetScript: its ClearScript would free it)
+    BindScript(script->m_ownNameHash, copy, params, object);
+    m_codeCopy = copy; // (after BindScript: its ResetScriptState would free it)
 }
 
 // 0x004747F0
@@ -256,18 +256,18 @@ void CScript::Restart()
 {
     CStruct* params = NewEmptyStruct();
     uint32_t name;
-    Obj::CObject* object;
+    GameObjects::CObject* object;
     if (m_numReturnAddresses) {
         // The bottom level: the script it was started with.
-        params->Assign(m_returnAddresses[0].mpParams);
-        object = m_returnAddresses[0].mpObject;
-        name = m_returnAddresses[0].mScriptName;
+        params->Assign(m_returnAddresses[0].m_argStruct);
+        object = m_returnAddresses[0].m_ownerEntity;
+        name = m_returnAddresses[0].m_scriptId;
     } else {
         params->Assign(m_params);
         object = m_object.Get();
-        name = m_scriptName;
+        name = m_scriptTitle;
     }
-    SetScript(name, nullptr, params, object);
+    BindScript(name, nullptr, params, object);
     if (params)
         FreeStruct(params);
 }
@@ -276,39 +276,39 @@ void CScript::Restart()
 bool CScript::AllScriptsStillDefined()
 {
     if (m_numReturnAddresses == 0)
-        return m_codeCopy || FindSymbol(m_scriptName);
-    if (!FindSymbol(m_scriptName))
+        return m_codeCopy || FindSymbol(m_scriptTitle);
+    if (!FindSymbol(m_scriptTitle))
         return false;
     // (the bottom level's script isn't looked for when it runs a private copy)
     for (int i = m_codeCopy ? 1 : 0; i < m_numReturnAddresses; ++i) {
-        if (!FindSymbol(m_returnAddresses[i].mScriptName))
+        if (!FindSymbol(m_returnAddresses[i].m_scriptId))
             return false;
     }
     return true;
 }
 
 // 0x00472940
-bool CScript::GotScript() { return m_pc != nullptr; }
+bool CScript::HasAttachedScript() { return m_pc != nullptr; }
 
 // 0x00472F90
 void CScript::SetSpawnerFile(CScript* spawner)
 {
-    uint32_t name = spawner->m_numReturnAddresses ? spawner->m_returnAddresses[0].mScriptName : spawner->m_scriptName;
+    uint32_t name = spawner->m_numReturnAddresses ? spawner->m_returnAddresses[0].m_scriptId : spawner->m_scriptTitle;
     m_spawnerFile = FindSymbol(name)->unknown8; // (no check that it is still defined)
 }
 
 // 0x00473BE0
-void CScript::ObjectDestroyed(Obj::CObject* object)
+void CScript::ObjectDestroyed(GameObjects::CObject* object)
 {
     if (!object)
         return;
     if (m_object.Get() == object)
         m_object.Release();
     for (int i = 0; i < m_numReturnAddresses; ++i) {
-        if (m_returnAddresses[i].mpObject == object)
-            m_returnAddresses[i].mpObject = nullptr;
+        if (m_returnAddresses[i].m_ownerEntity == object)
+            m_returnAddresses[i].m_ownerEntity = nullptr;
     }
-    m_waitType = WAIT_TYPE_NONE; // (whatever it was waiting for)
+    m_waitType = SUSPEND_ON_NOTHING; // (whatever it was waiting for)
 }
 
 // 0x00472ED0 / 0x00472EE0 / 0x00472EF0
@@ -327,7 +327,7 @@ void CScript::ClearOnExitScripts()
 // 0x004734B0
 CScript* FindScriptWithUniqueId(uint32_t id)
 {
-    for (CScript* script = ScriptListHead(); script; script = script->mp_next) {
+    for (CScript* script = ScriptListHead(); script; script = script->m_following) {
         if (script->m_uniqueId == id)
             return script;
     }

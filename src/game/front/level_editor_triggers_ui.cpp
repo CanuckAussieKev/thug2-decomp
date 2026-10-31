@@ -17,7 +17,7 @@
 #include "game/front/level_editor_playtest.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Triggers {
+namespace MenuSystem::LevelEditor::Triggers {
 
 namespace {
 
@@ -27,7 +27,7 @@ ImVec4 Colour(uint32_t argb)
                   static_cast<float>(argb & 0xFF) / 255.0f, static_cast<float>(argb >> 24) / 255.0f);
 }
 
-std::string NameOf(uint32_t checksum) { return NameFor(checksum, Script::KeptQbName(checksum)); }
+std::string NameOf(uint32_t checksum) { return NameFor(checksum, Scripts::KeptQbName(checksum)); }
 
 // The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
 std::vector<std::string> g_restarts, g_scripts, g_cameras; // (map4: the editor's camera nodes)
@@ -48,9 +48,9 @@ void UpdateLists()
             g_restarts.push_back(NameOf(node.name));
         if (!node.triggerScript || node.added)
             continue;
-        Script::CStruct* s = Nodes::StructOf(node);
+        Scripts::CStruct* s = Nodes::StructOf(node);
         uint32_t script = 0;
-        if (s && s->GetChecksum(kTriggerScript, &script, 0) && script) {
+        if (s && s->ReadHashValue(kTriggerScript, &script, 0) && script) {
             std::string name = NameOf(script);
             if (std::find(g_scripts.begin(), g_scripts.end(), name) == g_scripts.end())
                 g_scripts.push_back(name);
@@ -273,7 +273,7 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
         ImGui::SetTooltip("Run a level script");
     ImGui::SameLine();
     if (ImGui::Button("Gap"))
-        Queue([] { AddGap(); });
+        Queue([] { RegisterGapEntry(); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Gap start and end");
     ImGui::SameLine();
@@ -370,7 +370,7 @@ void InspectorSection(int index)
         return;
     }
     // The kind.
-    const Kind kinds[] = {Kind::Kill,   Kind::Teleport, Kind::Script, Kind::GapStart,
+    const Kind kinds[] = {Kind::Kill,   Kind::JumpTo, Kind::Scripts, Kind::GapStart,
                           Kind::GapEnd, Kind::Boost,    Kind::Camera};
     if (ImGui::BeginCombo("Kind", KindName(s.kind))) {
         for (Kind k : kinds) {
@@ -401,11 +401,11 @@ void InspectorSection(int index)
         changed |= NameCombo("Restart", &s.target, g_restarts);
         changed |= ImGui::Checkbox("Water", &s.water);
         break;
-    case Kind::Teleport:
+    case Kind::JumpTo:
         changed |= NameCombo("To", &s.target, g_restarts);
         changed |= NameField("Or a node", &s.target, target, sizeof(target), &targetEditing);
         break;
-    case Kind::Script:
+    case Kind::Scripts:
         changed |= NameCombo("Script", &s.script, g_scripts);
         changed |= NameField("Or by name", &s.script, script, sizeof(script), &scriptEditing);
         if (!a->problem && (a->calls.kill || a->calls.teleport || a->calls.endGap || a->calls.startGap))
@@ -519,4 +519,4 @@ void ScenerySection(uint32_t sector)
         ImGui::TextDisabled("Broken in play; restored in the editor");
 }
 
-} // namespace Front::LevelEditor::Triggers
+} // namespace MenuSystem::LevelEditor::Triggers

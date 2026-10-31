@@ -16,7 +16,7 @@
 #include "game/core/code_address.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 int g_dynamicLightCount;
 
@@ -89,19 +89,19 @@ sWorldLights* sWorldLights::Construct()
 void sWorldLights::FreeArrays()
 {
     if (directions) {
-        Mem::Manager::Get()->Free(directions);
+        MemSys::Manager::Get()->Free(directions);
         directions = nullptr;
     }
     if (colours) {
-        Mem::Manager::Get()->Free(colours);
+        MemSys::Manager::Get()->Free(colours);
         colours = nullptr;
     }
     if (lightLow) {
-        Mem::Manager::Get()->Free(lightLow);
+        MemSys::Manager::Get()->Free(lightLow);
         lightLow = nullptr;
     }
     if (lightHigh) {
-        Mem::Manager::Get()->Free(lightHigh);
+        MemSys::Manager::Get()->Free(lightHigh);
         lightHigh = nullptr;
     }
 }
@@ -109,26 +109,26 @@ void sWorldLights::FreeArrays()
 // 0x0048EB70
 void __cdecl InitLightManager(uint32_t maxLights, uint32_t maxModelLights)
 {
-    Dbg::Printf("Initializing Light Manager...");
+    DebugOut::Printf("Initializing Light Manager...");
     g_modelLightCount = maxModelLights;
     LightCount() = maxLights;
     sWorldLights& world = World();
-    world.directions = static_cast<Mth::Vector*>(Mem::New(maxLights * 16));
-    world.colours = static_cast<uint32_t*>(Mem::New(maxLights * 4));
-    world.lightLow = static_cast<float*>(Mem::New(maxLights * 4));
-    world.lightHigh = static_cast<float*>(Mem::New(maxLights * 4));
+    world.directions = static_cast<Maths::Vector*>(MemSys::New(maxLights * 16));
+    world.colours = static_cast<uint32_t*>(MemSys::New(maxLights * 4));
+    world.lightLow = static_cast<float*>(MemSys::New(maxLights * 4));
+    world.lightHigh = static_cast<float*>(MemSys::New(maxLights * 4));
     for (int i = 0; i < kStackDepth; ++i) {
         sWorldLights& saved = Stack()[i];
-        saved.directions = static_cast<Mth::Vector*>(Mem::New(maxLights * 16));
-        saved.colours = static_cast<uint32_t*>(Mem::New(maxLights * 4));
-        saved.lightLow = static_cast<float*>(Mem::New(maxLights * 4));
-        saved.lightHigh = static_cast<float*>(Mem::New(maxLights * 4));
+        saved.directions = static_cast<Maths::Vector*>(MemSys::New(maxLights * 16));
+        saved.colours = static_cast<uint32_t*>(MemSys::New(maxLights * 4));
+        saved.lightLow = static_cast<float*>(MemSys::New(maxLights * 4));
+        saved.lightHigh = static_cast<float*>(MemSys::New(maxLights * 4));
         std::memset(saved.directions, 0, maxLights * 16);
         std::memset(saved.colours, 0, maxLights * 4);
         std::memset(saved.lightLow, 0, maxLights * 4);
         std::memset(saved.lightHigh, 0, maxLights * 4);
     }
-    Intensities() = static_cast<float*>(Mem::New(maxLights * 4));
+    Intensities() = static_cast<float*>(MemSys::New(maxLights * 4));
     for (uint32_t i = 0; i < maxLights; ++i)
         Intensities()[i] = 1.0f;
 }
@@ -136,7 +136,7 @@ void __cdecl InitLightManager(uint32_t maxLights, uint32_t maxModelLights)
 // 0x0048FB60
 void __cdecl UninitLightManager()
 {
-    Dbg::Printf("Uninitializing Light Manager...");
+    DebugOut::Printf("Uninitializing Light Manager...");
     DeleteDynamicLights();
 }
 
@@ -164,12 +164,12 @@ bool __cdecl SetLightDiffuseColor(int light, uint32_t rgba)
 // 0x0048E950
 uint32_t* __cdecl GetLightDiffuseColor(uint32_t* out, int light)
 {
-    GetLightColor(out, light);
+    FetchLightTint(out, light);
     return out;
 }
 
 // 0x0048ED70
-bool __cdecl SetLightDirection(int light, const Mth::Vector* direction)
+bool __cdecl SetLightDirection(int light, const Maths::Vector* direction)
 {
     World().directions[light] = *direction;
     return UpdateLightDirection(light);
@@ -257,7 +257,7 @@ void __cdecl DeleteDynamicLights()
 {
     for (int i = 0; i < DynamicLightCount(); ++i) {
         if (DynamicLights()[i]) {
-            Mem::Manager::Get()->Free(DynamicLights()[i]);
+            MemSys::Manager::Get()->Free(DynamicLights()[i]);
             DynamicLights()[i] = nullptr;
         }
     }
@@ -276,7 +276,7 @@ CDynamicLightBase** __cdecl FindDynamicLight(uint32_t owner)
 }
 
 // 0x0048EF90
-uint32_t __cdecl GetDynamicLightsNear(const Mth::Vector* position, uint32_t max, CDynamicLightBase** out)
+uint32_t __cdecl GetDynamicLightsNear(const Maths::Vector* position, uint32_t max, CDynamicLightBase** out)
 {
     float* falloffs = NearFalloffs();
     int* indexes = NearIndexes();
@@ -342,7 +342,7 @@ CDynamicLightBase* __cdecl CreateDynamicLight(int type)
 {
     if (type != 1)
         return nullptr;
-    auto* light = static_cast<CDynamicLightBase*>(Mem::Calloc(sizeof(CDynamicLightBase)));
+    auto* light = static_cast<CDynamicLightBase*>(MemSys::AllocZeroed(sizeof(CDynamicLightBase)));
     if (!light)
         return nullptr;
     light->unknown2C = false;
@@ -392,14 +392,14 @@ double CDynamicLightBase::Falloff(float distance)
 }
 
 namespace {
-static VtableSlot kDynamicLightVtable_slots[] = {&Nx::CDynamicLightBase::IsOn, &Nx::CDynamicLightBase::InReach,
-                &Nx::CDynamicLightBase::Falloff};
+static VtableSlot kDynamicLightVtable_slots[] = {&Engine3D::CDynamicLightBase::IsOn, &Engine3D::CDynamicLightBase::InReach,
+                &Engine3D::CDynamicLightBase::Falloff};
 void** const kDynamicLightVtable = reinterpret_cast<void**>(kDynamicLightVtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
 void SetWorldLightsAmbient() { g_worldLights.ambient = 0x80484848; }

@@ -22,7 +22,7 @@ const char* InetNtoa(uint32_t address);    // inet_ntoa (the address in network 
 void* GetHostByName(const char* name);     // gethostbyname (a hostent*)
 
 // --- The C runtime: its heap, files and exit ---
-inline void* Malloc(size_t size) { return std::malloc(size); }
+inline void* AllocBlock(size_t size) { return std::malloc(size); }
 inline void Free(void* memory) { std::free(memory); }
 inline FILE* Fopen(const char* path, const char* mode)
 {

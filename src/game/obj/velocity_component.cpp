@@ -17,7 +17,7 @@
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -26,43 +26,43 @@ constexpr uint32_t kVel = 0x0C4C809E;
 const float kHalf = 0.5f; // 0x006453BC
 
 // The Suspend component's flag at +0x30 (0x00433E90; not rewritten yet).
-bool SuspendFlag(CBaseComponent* suspend) { return static_cast<CSuspendComponent*>(suspend)->IsFar(); }
+bool SuspendFlag(CObjectModule* suspend) { return static_cast<CDormancyModule*>(suspend)->IsFar(); }
 
 } // namespace
 
 // 0x0043D430
-CBaseComponent* __cdecl CVelocityComponent::Create()
+CObjectModule* __cdecl CVelocityTrackerModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CVelocityComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CVelocityTrackerModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CVelocityComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CVelocityTrackerModule*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     return component;
 }
 
 // 0x0043D2B0
-void CVelocityComponent::DestroyBody()
+void CVelocityTrackerModule::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0043D2C0
-CVelocityComponent* CVelocityComponent::Destroy(unsigned int flags)
+CVelocityTrackerModule* CVelocityTrackerModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0043D2F0
-void CVelocityComponent::InitFromStructure(Script::CStruct* params)
+void CVelocityTrackerModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    Script::VectorValue vel;
+    Scripts::VectorValue vel;
     params->GetVector(kVel, &vel, 1);
     m_object->m_vel.x = vel.x;
     m_object->m_vel.y = vel.y;
@@ -71,20 +71,20 @@ void CVelocityComponent::InitFromStructure(Script::CStruct* params)
 }
 
 // 0x0043D340
-void CVelocityComponent::Update()
+void CVelocityTrackerModule::Update()
 {
     if (!g_gameNetManager->InNetGame() && SuspendFlag(mp_suspend))
         return;
-    const Mth::Vector& vel = m_object->m_vel;
+    const Maths::Vector& vel = m_object->m_vel;
     // Half the velocity (each rounded), the position as it was.
     float halfX = vel.x * kHalf, halfY = vel.y * kHalf, halfZ = vel.z * kHalf, halfW = vel.w * kHalf;
-    Mth::Vector pos = m_object->m_pos;
-    double frame = Tmr::GetSlomoFrameSeconds();
+    Maths::Vector pos = m_object->m_pos;
+    double frame = FrameClock::GetSlomoFrameSeconds();
     // Each step rounded, then added - but w's step isn't rounded.
     float stepX = static_cast<float>(halfX * frame);
     float stepY = static_cast<float>(halfY * frame);
     float stepZ = static_cast<float>(halfZ * frame);
-    Mth::Vector& out = m_object->m_pos;
+    Maths::Vector& out = m_object->m_pos;
     out.z = static_cast<float>(static_cast<double>(stepZ) + pos.z);
     out.w = static_cast<float>(frame * halfW + pos.w);
     out.x = static_cast<float>(static_cast<double>(stepX) + pos.x);
@@ -93,22 +93,22 @@ void CVelocityComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CVelocityComponent::Destroy,
-         &Obj::CVelocityComponent::Update,
-         &Obj::CVelocityComponent::InitFromStructure,
-         &Obj::CCollideAndDieComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CVelocityTrackerModule::Destroy,
+         &GameObjects::CVelocityTrackerModule::Update,
+         &GameObjects::CVelocityTrackerModule::ConfigureFromData,
+         &GameObjects::CImpactDestructModule::Finalize,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -19,7 +19,7 @@
 #include "game/sys/game_config.h"
 #include "game/obj/anim_movies.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 int g_frameCount{1};
 int g_currentTrackIndex;
@@ -44,7 +44,7 @@ enum : int { kMusicStreamNone = 0, kMusicStreamNormal = 1, kMusicStreamPreload =
 int& FrameCount() { return g_frameCount; }
 float& DefaultStreamVolume() { return g_musicVolume; }
 float& DefaultMusicVolume() { return g_musicStreamVolume; }
-float Zero() { return Obj::g_floatZero; }
+float Zero() { return GameObjects::g_floatZero; }
 int& CurrentTrackIndex() { return g_currentTrackIndex; }
 
 // The stream fields used here (Stream in music.h; 0x74 bytes each, three at 0x0069B938).
@@ -61,7 +61,7 @@ struct StreamFields {
     uint8_t pad24[4];
     bool positional;    // +0x28: the volume follows the owner's object
     uint8_t pad29[3];
-    int dropoffFunction; // +0x2C
+    int falloffCurve; // +0x2C
     uint8_t pad30[4];
     struct Entry {
         uint32_t first;
@@ -78,7 +78,7 @@ uint32_t* OwnerIds(uint8_t* owner) { return reinterpret_cast<uint32_t*>(owner + 
 
 // The user soundtrack (see music.cpp).
 int& UserSoundtrack() { return g_userSoundtrack; }
-bool UsingUserSoundtrack() { return g_usingUserSoundtrack; }
+bool CustomSoundtrackActive() { return g_usingUserSoundtrack; }
 int* UserOrder() { return g_userOrder; }
 uint32_t& UserTrack() { return g_userTrack; }
 uint32_t& UserPosition() { return g_userPosition; }
@@ -87,26 +87,26 @@ int CurrentPlaylist() { return g_currentPlaylist; }
 
 // The platform layer (stream.h). The original passes the music's stop 1 (StopMusic) or 0 (the music streams),
 // which it doesn't use; the stream's stop is given 1 (unused too).
-void PlatformStopStreams() { Pcm::StopStreams(); }
-void PlatformStopStream(int index) { Pcm::StopStream(index, 1); }
+void PlatformStopStreams() { AudioStream::HaltStreams(); }
+void PlatformStopStream(int index) { AudioStream::StopStream(index, 1); }
 void PlatformSetStreamVolume(const void* volume, int index)
 {
-    // (an sVolume starts with the platform's StreamVolume: five channels and the type)
-    Pcm::SetStreamVolume(static_cast<const StreamVolume*>(volume), index);
+    // (an volumeRef starts with the platform's StreamVolume: five channels and the type)
+    AudioStream::ChangeStreamLoudness(static_cast<const StreamVolume*>(volume), index);
 }
 int ChannelStatus(int channel) { return StreamStatus(channel); }
 uint32_t NumUserTracks(int soundtrack) { return static_cast<uint32_t>(UserSoundtrackTracks(soundtrack)); }
 
 constexpr uint32_t kHundredPercent = 0x42C80000; // 100.0f
-Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
+SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_sfxManager; }
 
 } // namespace
 
 // 0x004505F0
-bool __cdecl NoMusicPlease() { return !MusicOn(); }
+bool __cdecl MusicOffRequested() { return !MusicOn(); }
 
 // 0x00450620
-bool __cdecl StreamsDisabled() { return !StreamsOn(); }
+bool __cdecl StreamsOff() { return !StreamsOn(); }
 
 // 0x00450500
 bool __cdecl StreamExists(uint32_t name) { return StreamExists(name, 0) != 0; }
@@ -115,7 +115,7 @@ bool __cdecl StreamExists(uint32_t name) { return StreamExists(name, 0) != 0; }
 int __cdecl GetCurrentTrack() { return CurrentTrackIndex(); }
 
 // 0x00450530
-void __cdecl SetCurrentTrack(int track) { CurrentTrackIndex() = track; }
+void __cdecl PickTrack(int track) { CurrentTrackIndex() = track; }
 
 // 0x00450650
 void __cdecl StopMusic()
@@ -132,7 +132,7 @@ bool __cdecl PlayTrackByName(const char* name, float volume)
 {
     if (!MusicOn())
         return false;
-    if (!UsingUserSoundtrack() || CurrentPlaylist() == 1) {
+    if (!CustomSoundtrackActive() || CurrentPlaylist() == 1) {
         if (!LoadMusicTrackByName(name))
             return false;
         PlatformSetMusicVolume(volume);
@@ -169,7 +169,7 @@ void __cdecl PlayMusicStream(uint32_t /*name*/, float volume)
 }
 
 // 0x004509E0
-bool __cdecl PreLoadMusicStream(uint32_t name)
+bool __cdecl PrimeMusicTrack(uint32_t name)
 {
     if (!MusicOn())
         return false;
@@ -183,7 +183,7 @@ bool __cdecl PreLoadMusicStream(uint32_t name)
 }
 
 // 0x00450A50
-bool __cdecl PreLoadMusicStreamDone()
+bool __cdecl IsMusicTrackPrimed()
 {
     if (!MusicOn())
         return false;
@@ -191,7 +191,7 @@ bool __cdecl PreLoadMusicStreamDone()
 }
 
 // 0x00450A80
-bool __cdecl StartPreLoadedMusicStream(float volume)
+bool __cdecl BeginPrimedMusicTrack(float volume)
 {
     if (!MusicOn())
         return false;
@@ -204,7 +204,7 @@ bool __cdecl StartPreLoadedMusicStream(float volume)
 }
 
 // 0x00450690
-void __cdecl StopStreams(int which)
+void __cdecl HaltStreams(int which)
 {
     if (!StreamsOn())
         return;
@@ -240,7 +240,7 @@ void __cdecl StopStream(uint32_t idOrName)
 }
 
 // 0x00450780
-bool __cdecl SetStreamVolume(uint32_t idOrName, void* volume)
+bool __cdecl ChangeStreamLoudness(uint32_t idOrName, void* volume)
 {
     if (StreamsOn()) {
         int index = FindPlayingStream(idOrName);
@@ -339,32 +339,32 @@ bool __cdecl UpdateStreamVolume(int slot)
     if (ChannelStatus(StreamAt(slot)->channel) == 1)
         return false;
     StreamFields* stream = StreamAt(index);
-    Sfx::sVolume volume;
+    SoundFx::volumeRef volume;
     volume.Init();
-    Sfx::CSfxManager* manager = SoundManager();
+    SoundFx::CAudioMixer* manager = SoundManager();
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
-        void* object = Nx::GetClosestCamera(
-            reinterpret_cast<const Mth::Vector*>(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C), nullptr);
+        void* object = Engine3D::GetClosestCamera(
+            reinterpret_cast<const Maths::Vector*>(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C), nullptr);
         if (object) {
-            auto* component = reinterpret_cast<Obj::CStreamComponent*>(owner);
-            Mth::Vector extent;
-            Mth::Vector* extentOrNull = nullptr;
+            auto* component = reinterpret_cast<GameObjects::CAudioStreamModule*>(owner);
+            Maths::Vector extent;
+            Maths::Vector* extentOrNull = nullptr;
             if (component->GetStreamExtent(object, &extent))
                 extentOrNull = &extent;
-            Mth::Vector position;
-            Mth::Vector* where = component->GetStreamPosition(&position, object);
-            manager->GetVolume(&volume, where, std::bit_cast<float>(stream->dropoff), stream->dropoffFunction, object,
+            Maths::Vector position;
+            Maths::Vector* where = component->GetStreamPosition(&position, object);
+            manager->GetVolume(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloffCurve, object,
                                extentOrNull);
         } else {
-            volume.SetSilent();
+            volume.ChangeMuted();
         }
     } else {
         std::memcpy(&volume.m_channels[0], &stream->volume, 4);
         std::memcpy(&volume.m_channels[1], &stream->volume, 4);
     }
     if (stream->volume != kHundredPercent)
-        volume.PercentageAdjustment(std::bit_cast<float>(stream->volume));
+        volume.PercentTweak(std::bit_cast<float>(stream->volume));
     PlatformSetStreamVolume(&volume, stream->channel);
     return true;
 }
@@ -376,10 +376,10 @@ void __cdecl Init()
     if (SoundAvailable() && (g_musicHeaderLoaded || StreamsOn())) {
         InitPlatform();
         Initialised() = true;
-        DefaultStreamVolume() = static_cast<float>(Script::GetInteger(0xABD4A575u));
+        DefaultStreamVolume() = static_cast<float>(Scripts::FetchIntValue(0xABD4A575u));
         if (DefaultStreamVolume() == Zero())
             DefaultStreamVolume() = 50.0f;
-        DefaultMusicVolume() = static_cast<float>(Script::GetInteger(0x73F8E03Bu));
+        DefaultMusicVolume() = static_cast<float>(Scripts::FetchIntValue(0x73F8E03Bu));
         if (DefaultMusicVolume() == Zero())
             DefaultMusicVolume() = 100.0f;
         auto* playlists = g_playlists;
@@ -399,7 +399,7 @@ void __cdecl Init()
 }
 
 // 0x00450EB0
-bool __cdecl UsingCD()
+bool __cdecl DiscModeActive()
 {
     if (GameConfig::g_fromCD && Initialised()) {
         StopMusic();
@@ -414,16 +414,16 @@ bool FamData::Load(uint32_t famName)
 {
     char path[256];
     std::snprintf(path, sizeof(path), "fam\\%x.fam", famName);
-    File::AsyncFileHandle* file = File::AsyncOpen(path, true, 100);
+    FileLoad::AsyncFileHandle* file = FileLoad::AsyncOpen(path, true, 100);
     if (!file)
         return false;
     size = file->GetFileSize();
     if (size >= 0x1000) {
-        File::AsyncClose(file);
+        FileLoad::AsyncClose(file);
         return false;
     }
     file->Read(data, 1, size);
-    File::AsyncClose(file);
+    FileLoad::AsyncClose(file);
     name = famName;
     return true;
 }

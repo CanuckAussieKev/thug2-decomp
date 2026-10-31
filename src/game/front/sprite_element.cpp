@@ -20,7 +20,7 @@
 #include "game/front/screen_constants.h"
 #include "game/gfx/engine_texture.h"
 
-namespace Front {
+namespace MenuSystem {
 
 namespace {
 extern void** const kCTextureElementVtable;
@@ -30,26 +30,26 @@ extern void** const kCWindowElementVtable;
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kTextureElement = 0x118F6383, kSpriteElement = 0xB12B510A, kWindowElement = 0xA13ADBB7;
 constexpr uint32_t kTexture = 0x7D99F28D, kRotAngle = 0xED344E1B, kBlend = 0x54628ED7, kNoZWrite = 0x40F139CB;
 constexpr uint32_t kRgba = 0x3F6BCDBA;
 
-float Degrees() { return ::CFuncs::g_degreesToRadians; }        // pi / 180
-float RotationOffset() { return ::Game::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
-float MinimumAlpha() { return ::Mdl::g_competitionTiny; }    // 0.0001: below it, transparent
-float LayoutTop() { return Front::g_layoutTop; }       // -200: a sprite whose top is above it is hidden
-float LayoutBottom() { return Front::g_layoutBottom; }    // 648: ... or below it
-float One() { return ::Obj::g_animMoviesOne; }
-float Half() { return ::Gfx::g_half; }
+float Degrees() { return ::ScriptCommands::g_degreesToRadians; }        // pi / 180
+float RotationOffset() { return ::GoalSystem::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
+float MinimumAlpha() { return ::GameModules::g_competitionTiny; }    // 0.0001: below it, transparent
+float LayoutTop() { return MenuSystem::g_layoutTop; }       // -200: a sprite whose top is above it is hidden
+float LayoutBottom() { return MenuSystem::g_layoutBottom; }    // 648: ... or below it
+float One() { return ::GameObjects::g_animMoviesOne; }
+float Half() { return ::Gfx2D::g_half; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The shown colour with its alpha the shown alpha times the summed alpha (none below 0.0001).
-uint32_t ShownColour(const CScreenElement* e)
+uint32_t ShownColour(const CUiWidget* e)
 {
     uint32_t rgba;
     std::memcpy(&rgba, e->m_shown.rgba, 4);
@@ -63,22 +63,22 @@ uint32_t ShownColour(const CScreenElement* e)
 // (vtable slots 0x84 / 0x88).
 void* FindTexture(uint32_t checksum)
 {
-    return Nx::g_gameTextureDict->GetTexture(checksum);
+    return Engine3D::g_gameTextureDict->GetTexture(checksum);
 }
-uint16_t TextureWidth(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Nx::VirtualSlot33Jump)(texture); }
-uint16_t TextureHeight(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Nx::VirtualSlot34Jump)(texture); }
+uint16_t TextureWidth(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot33Jump)(texture); }
+uint16_t TextureHeight(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot34Jump)(texture); }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
-void* NewTexturedPiece() { return Nx::CreateTexturedQuad(); }
-void* NewSprite(int unused) { return (void)unused, Nx::CreateSprite(); }
-void FreePiece(void* piece) { Nx::DeleteModelLights(static_cast<Nx::CPcModelLights*>(piece)); }
+void* NewTexturedPiece() { return Engine3D::CreateTexturedQuad(); }
+void* NewSprite(int unused) { return (void)unused, Engine3D::CreateSprite(); }
+void FreePiece(void* piece) { Engine3D::DeleteModelLights(static_cast<Engine3D::CPcModelLights*>(piece)); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
 void* NewWindow2d(int x, int y, int w, int h)
 {
-    return Nx::AllocateWindow2D(x, y, w, h);
+    return Engine3D::AllocateWindow2D(x, y, w, h);
 }
-void FreeWindow2d(void* window) { Nx::FreeWindow2D(static_cast<Nx::CWindow2D*>(window)); }
+void FreeWindow2d(void* window) { Engine3D::FreeWindow2D(static_cast<Engine3D::CScreenWindow*>(window)); }
 
 } // namespace
 
@@ -87,7 +87,7 @@ void FreeWindow2d(void* window) { Nx::FreeWindow2D(static_cast<Nx::CWindow2D*>(w
 // 0x004AED90
 CTextureElement* CTextureElement::Construct()
 {
-    CScreenElement::Construct();
+    CUiWidget::Construct();
     m_vtable = kCTextureElementVtable;
     m_texture = 0;
     mp_piece = NewTexturedPiece();
@@ -101,7 +101,7 @@ void CTextureElement::DestroyBody()
     m_vtable = kCTextureElementVtable;
     if (mp_piece)
         FreePiece(mp_piece);
-    CScreenElement::DestroyBody();
+    CUiWidget::DestroyBody();
 }
 
 // 0x004AEE60
@@ -109,26 +109,26 @@ CTextureElement* CTextureElement::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004AEE90
 void CTextureElement::SetProperties(CStruct* params)
 {
-    CScreenElement::SetProperties(params);
+    CUiWidget::SetProperties(params);
     uint32_t texture;
-    if (params->GetChecksum(kTexture, &texture, 0)) {
+    if (params->ReadHashValue(kTexture, &texture, 0)) {
         m_texture = texture;
-        reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetTexture(static_cast<uint8_t*>(FindTexture(texture)));
+        reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->SetTexture(static_cast<uint8_t*>(FindTexture(texture)));
         m_objectFlags |= kVisibleNow;
     }
     float angle;
     if (params->GetFloat(kRotAngle, &angle, 0))
         SetRotation(angle, 1);
     uint32_t blend;
-    if (params->GetChecksum(kBlend, &blend, 0))
-        reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetBlendMode(blend);
+    if (params->ReadHashValue(kBlend, &blend, 0))
+        reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->ChooseBlendMode(blend);
 }
 
 // 0x004AEFD0
@@ -136,237 +136,237 @@ void CTextureElement::GetProperties(CStruct* out)
 {
     uint8_t rgba[4];
     std::memcpy(rgba, m_summed.rgba, 4);
-    Script::CArray* array = Script::NewArray();
+    Scripts::CArray* array = Scripts::NewArray();
     if (array)
         array = array->Init();
-    array->SetSizeAndType(4, Script::ESYMBOLTYPE_INTEGER);
+    array->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
     for (int i = 0; i < 4; ++i)
         array->SetElement(i, rgba[i]);
-    out->AddArray(kRgba, array);
+    out->AppendArrayValue(kRgba, array);
     if (array) {
         array->Clear();
-        Script::DeleteArray(array);
+        Scripts::DeleteArray(array);
     }
 }
 
 // 0x004AEF40
 void CTextureElement::Update()
 {
-    reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetHidden(false);
-    reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetPriority(m_zPriority);
-    reinterpret_cast<Nx::CTexturedQuad*>(mp_piece)->SetRGBA(ShownColour(this));
+    reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->SetHidden(false);
+    reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->SetPriority(m_zPriority);
+    reinterpret_cast<Engine3D::CTexturedQuad*>(mp_piece)->ChangeRgba(ShownColour(this));
 }
 
 // --- SpriteElement --------------------------------------------------------------------------------------------
 
 // 0x004AF1A0
-CSpriteElement* CSpriteElement::Construct()
+CImageWidget* CImageWidget::Construct()
 {
-    CScreenElement::Construct();
+    CUiWidget::Construct();
     m_vtable = kCSpriteElementVtable;
     m_texture = 0;
-    mp_sprite = NewSprite(0);
+    m_quad = NewSprite(0);
     m_zWrite = true;
     SetType(kSpriteElement);
     return this;
 }
 
 // 0x004AF0D0
-void CSpriteElement::DestroyBody()
+void CImageWidget::DestroyBody()
 {
     m_vtable = kCSpriteElementVtable;
-    if (mp_sprite)
-        FreePiece(mp_sprite);
-    CScreenElement::DestroyBody();
+    if (m_quad)
+        FreePiece(m_quad);
+    CUiWidget::DestroyBody();
 }
 
 // 0x004AF210
-CSpriteElement* CSpriteElement::Destroy(uint8_t flags)
+CImageWidget* CImageWidget::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004AF130 (no texture of that name: the original reads through null)
-void CSpriteElement::SetTexture(uint32_t texture)
+void CImageWidget::SetTexture(uint32_t texture)
 {
     m_texture = texture;
     void* found = FindTexture(texture);
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetTexture(static_cast<uint8_t*>(found));
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetTexture(static_cast<uint8_t*>(found));
     float height = static_cast<float>(TextureHeight(found));
     float width = static_cast<float>(TextureWidth(found));
-    SetDims(width, height, 0);
+    FitToSize(width, height, 0);
     m_objectFlags |= kVisibleNow;
 }
 
 // 0x004AF240 (the target compared unrounded, the shown one with the float)
-void CSpriteElement::SetSpriteRotation(float degrees, int now)
+void CImageWidget::SetSpriteRotation(float degrees, int now)
 {
     double radians = static_cast<double>(degrees) * Degrees() + RotationOffset();
     float angle = static_cast<float>(radians);
-    if (radians != m_target.angle) {
-        m_target.angle = angle;
+    if (radians != m_aimPoint.angle) {
+        m_aimPoint.angle = angle;
         m_objectFlags |= kDirty;
     }
     if (now && angle != m_shown.angle) {
-        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetRotation(angle);
+        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetRotation(angle);
         m_objectFlags |= kDirty;
         m_shown.angle = angle;
     }
 }
 
 // 0x004AF520
-void CSpriteElement::SetProperties(CStruct* params)
+void CImageWidget::SetProperties(CStruct* params)
 {
-    CScreenElement::SetProperties(params);
+    CUiWidget::SetProperties(params);
     uint32_t texture;
-    if (params->GetChecksum(kTexture, &texture, 0))
+    if (params->ReadHashValue(kTexture, &texture, 0))
         SetTexture(texture);
     float angle;
     if (params->GetFloat(kRotAngle, &angle, 0))
         SetSpriteRotation(angle, 1);
     uint32_t blend;
-    if (params->GetChecksum(kBlend, &blend, 0))
-        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetBlendMode(blend);
-    if (params->ContainsFlag(kNoZWrite))
+    if (params->ReadHashValue(kBlend, &blend, 0))
+        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChooseBlendMode(blend);
+    if (params->HasBareFlag(kNoZWrite))
         m_zWrite = false;
     // (no window above it: the original reads through null)
-    auto* window = static_cast<CWindowElement*>(GetWindow());
-    reinterpret_cast<Nx::CText*>(mp_sprite)->SetWindow(window->GetWindow2d());
+    auto* window = static_cast<CPanelWidget*>(GetWindow());
+    reinterpret_cast<Engine3D::CGlyphString*>(m_quad)->SetWindow(window->GetWindow2d());
 }
 
 // 0x004AF4E0
-void CSpriteElement::GetProperties(CStruct* out)
+void CImageWidget::GetProperties(CStruct* out)
 {
-    CScreenElement::GetProperties(out);
-    out->AddFloat(kRotAngle, m_shown.angle);
-    out->AddChecksum(kTexture, m_texture);
+    CUiWidget::GetProperties(out);
+    out->PushFloat(kRotAngle, m_shown.angle);
+    out->PutNameKey(kTexture, m_texture);
 }
 
 // 0x004AF5E0
-void CSpriteElement::SetMorph(CStruct* params)
+void CImageWidget::BlendTowards(CStruct* params)
 {
-    CScreenElement::SetMorph(params);
+    CUiWidget::BlendTowards(params);
     float degrees;
     if (params->GetFloat(kRotAngle, &degrees, 0)) {
         double radians = static_cast<double>(degrees) * Degrees() + RotationOffset();
-        if (radians != m_target.angle) {
-            m_target.angle = static_cast<float>(radians);
+        if (radians != m_aimPoint.angle) {
+            m_aimPoint.angle = static_cast<float>(radians);
             m_objectFlags |= kDirty;
         }
     }
 }
 
 // 0x004AF2C0
-void CSpriteElement::Update()
+void CImageWidget::Update()
 {
     float top = m_summed.top;
     bool outside = top < LayoutTop() || top > LayoutBottom();
     bool hidden = IsHidden();
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHidden(outside || hidden);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetHidden(outside || hidden);
     if (!(m_objectFlags & (kChildrenDirty | kVisibleNow)))
         return;
     uint32_t rgba = ShownColour(this);
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetPos(m_summed.x, m_summed.y);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetPos(m_summed.x, m_summed.y);
     // (the size truncated: the height first)
-    int height = Truncated(m_height);
-    int width = Truncated(m_width);
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetSize(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetFlip(static_cast<bool>((m_objectFlags >> 25) & 1), static_cast<bool>((m_objectFlags >> 26) & 1));
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetRotation((m_objectFlags & kFlag1000000) ? m_shown.angle : m_summed.angle);
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHotSpot(m_justX, m_justY);
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetScale(m_summed.scaleX, m_summed.scaleY);
+    int height = Truncated(m_levelY);
+    int width = Truncated(m_span);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetSize(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetFlip(static_cast<bool>((m_objectFlags >> 25) & 1), static_cast<bool>((m_objectFlags >> 26) & 1));
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetRotation((m_objectFlags & kFlag1000000) ? m_shown.angle : m_summed.angle);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetHotSpot(m_justX, m_justY);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeScale(m_summed.scaleX, m_summed.scaleY);
     if (m_objectFlags & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth;
         std::memcpy(&depth, &m_summed.z, 4);
         depth += (m_objectFlags & kKeepScale) ? 5000u : 0u;
-        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetDepth(depth);
-        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHidden((m_objectFlags & kOffScreen) != 0 || hidden);
+        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetDepth(depth);
+        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetHidden((m_objectFlags & kOffScreen) != 0 || hidden);
     } else {
-        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetPriority(m_zPriority);
-        reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetHidden(outside || hidden);
+        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetPriority(m_zPriority);
+        reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetHidden(outside || hidden);
     }
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetZWrite(m_zWrite);
-    reinterpret_cast<Nx::CSprite*>(mp_sprite)->SetRGBA(rgba);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetZWrite(m_zWrite);
+    reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->ChangeRgba(rgba);
 }
 
 // --- WindowElement --------------------------------------------------------------------------------------------
 
 // 0x004B2060
-CWindowElement* CWindowElement::Construct()
+CPanelWidget* CPanelWidget::Construct()
 {
-    CScreenElement::Construct();
+    CUiWidget::Construct();
     m_vtable = kCWindowElementVtable;
     SetType(kWindowElement);
-    mp_window = NewWindow2d(0, 0, 640, 448);
-    SetJust(-1.0f, -1.0f);
+    m_viewWindow = NewWindow2d(0, 0, 640, 448);
+    ChangeAlignment(-1.0f, -1.0f);
     SetPos(0.0f, 0.0f, 1);
-    SetDims(640.0f, 448.0f, 0);
+    FitToSize(640.0f, 448.0f, 0);
     return this;
 }
 
 // 0x004B2100
-void CWindowElement::DestroyBody()
+void CPanelWidget::DestroyBody()
 {
     m_vtable = kCWindowElementVtable;
-    FreeWindow2d(mp_window);
-    CScreenElement::DestroyBody();
+    FreeWindow2d(m_viewWindow);
+    CUiWidget::DestroyBody();
 }
 
 // 0x004B2170
-CWindowElement* CWindowElement::Destroy(uint8_t flags)
+CPanelWidget* CPanelWidget::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004B2160
-void* CWindowElement::GetWindow2d() const
+void* CPanelWidget::GetWindow2d() const
 {
-    return mp_window;
+    return m_viewWindow;
 }
 
 // 0x004B21A0
-void CWindowElement::Update()
+void CPanelWidget::Update()
 {
     if (!(m_objectFlags & (kChildrenDirty | kVisibleNow)))
         return;
-    int top = Truncated(m_summed.y - (static_cast<double>(m_justY) + One()) * Half() * m_height);
-    int left = Truncated(m_summed.x - (static_cast<double>(m_justX) + One()) * Half() * m_width);
-    reinterpret_cast<Nx::CWindow2D*>(mp_window)->SetPos(left, top);
-    int height = Truncated(m_height);
-    int width = Truncated(m_width);
-    reinterpret_cast<Nx::CWindow2D*>(mp_window)->SetSize(width, height);
+    int top = Truncated(m_summed.y - (static_cast<double>(m_justY) + One()) * Half() * m_levelY);
+    int left = Truncated(m_summed.x - (static_cast<double>(m_justX) + One()) * Half() * m_span);
+    reinterpret_cast<Engine3D::CScreenWindow*>(m_viewWindow)->SetPos(left, top);
+    int height = Truncated(m_levelY);
+    int width = Truncated(m_span);
+    reinterpret_cast<Engine3D::CScreenWindow*>(m_viewWindow)->SetSize(width, height);
 }
 
 namespace {
 static VtableSlot kCTextureElementVtable_slots[] = {&CTextureElement::Destroy, &CTextureElement::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CTextureElement::GetProperties,
-                &CScreenElement::SetMorph, &CTextureElement::Update};
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CTextureElement::GetProperties,
+                &CUiWidget::BlendTowards, &CTextureElement::Update};
 void** const kCTextureElementVtable = reinterpret_cast<void**>(kCTextureElementVtable_slots);
-static VtableSlot kCSpriteElementVtable_slots[] = {&CSpriteElement::Destroy, &CSpriteElement::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CSpriteElement::GetProperties, &CSpriteElement::SetMorph,
-                &CSpriteElement::Update};
+static VtableSlot kCSpriteElementVtable_slots[] = {&CImageWidget::Destroy, &CImageWidget::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CImageWidget::GetProperties, &CImageWidget::BlendTowards,
+                &CImageWidget::Update};
 void** const kCSpriteElementVtable = reinterpret_cast<void**>(kCSpriteElementVtable_slots);
-static VtableSlot kCWindowElementVtable_slots[] = {&CWindowElement::Destroy, &CScreenElement::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
-                &CWindowElement::Update};
+static VtableSlot kCWindowElementVtable_slots[] = {&CPanelWidget::Destroy, &CUiWidget::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
+                &CPanelWidget::Update};
 void** const kCWindowElementVtable = reinterpret_cast<void**>(kCWindowElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
-using Front::CSpriteElement;
-using Front::CTextureElement;
-using Front::CWindowElement;
+using MenuSystem::CImageWidget;
+using MenuSystem::CTextureElement;
+using MenuSystem::CPanelWidget;

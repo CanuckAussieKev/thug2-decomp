@@ -17,13 +17,13 @@
 #include "game/core/code_address.h"
 #include "game/skate/skate_module.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint32_t g_occlusionRequestCount;
 OcclusionRequest g_occlusionRequests[4];
 float g_screenAngle;
 int g_screenMode;
-CViewport* g_viewports[10];
+CViewRegion* g_viewports[10];
 
 float g_minusOne{-1.0f};
 float g_halfDegreeRadians{0.008726646f};
@@ -57,17 +57,17 @@ constexpr uint32_t kScaleNumerator = 0x33AA4915;
 constexpr uint32_t kMaxScale = 0xA0A0DB70; // max_scale
 constexpr uint32_t kMinScale = 0x774B6931; // min_scale
 
-CViewport*& Viewport(int index) { return g_viewports[index]; }
+CViewRegion*& Viewport(int index) { return g_viewports[index]; }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
 const int*& ModeMap() { return g_modeMap; }
 int& ScreenMode() { return g_screenMode; }
-int& ActiveViewportCount() { return Mdl::g_viewportCount; }
+int& ActiveViewportCount() { return GameModules::g_viewportCount; }
 int ModeViewportCount(int mode) { return g_modeViewportCounts[mode]; }
 const int* ModeMapOf(int mode) { return g_modeMaps + 4 * mode; }
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
 // null when there's none.
-CViewport* ActiveViewport(int n)
+CViewRegion* ActiveViewport(int n)
 {
     const int* map = ModeMap();
     int found = 0;
@@ -94,98 +94,98 @@ uint32_t& OcclusionRequestCount() { return g_occlusionRequestCount; }
 } // namespace
 
 // 0x004A0DB0
-CViewport* CViewport::Construct(const float* rect, Gfx::Camera* camera)
+CViewRegion* CViewRegion::Construct(const float* rect, Gfx2D::Camera* camera)
 {
     m_vtable = reinterpret_cast<void**>(kViewportVtable);
-    m_x = 0.0f;
+    m_posX = 0.0f;
     m_y = 0.0f;
-    m_width = 1.0f;
-    m_height = 1.0f;
+    m_span = 1.0f;
+    m_levelY = 1.0f;
     m_flags = 0;
-    m_camera.Construct();
+    m_viewer.Construct();
     if (rect) {
-        m_x = rect[0];
+        m_posX = rect[0];
         m_y = rect[1];
-        m_width = rect[2];
-        m_height = rect[3];
+        m_span = rect[2];
+        m_levelY = rect[3];
     } else {
-        m_x = 0.0f;
+        m_posX = 0.0f;
         m_y = 0.0f;
-        m_width = 1.0f;
-        m_height = 1.0f;
+        m_span = 1.0f;
+        m_levelY = 1.0f;
     }
-    m_camera.Set(camera);
+    m_viewer.Set(camera);
     return this;
 }
 
 // 0x004A0E60
-void CViewport::DestroyBody()
+void CViewRegion::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kViewportVtable);
-    m_camera.Release();
+    m_viewer.Release();
 }
 
 // 0x004A0E80
-CViewport* CViewport::Destroy(unsigned int freeFlags)
+CViewRegion* CViewRegion::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004A0CC0
-float CViewport::ProjectToScreen(const Mth::Vector*, float*, float*, int*)
+float CViewRegion::ProjectToScreen(const Maths::Vector*, float*, float*, int*)
 {
-    Dbg::Printf("STUB: PlatTransformToScreenCoord\n");
+    DebugOut::Printf("STUB: PlatTransformToScreenCoord\n");
     return g_minusOne; // -1
 }
 
 // 0x004A0CF0
-bool CViewport::QueryPoint(const Mth::Vector*, int, uint8_t)
+bool CViewRegion::QueryPoint(const Maths::Vector*, int, uint8_t)
 {
     return false;
 }
 
 // 0x004A0CE0
-bool CViewport::QueryRect(float, float, float, float, uint32_t, uint8_t)
+bool CViewRegion::QueryRect(float, float, float, float, uint32_t, uint8_t)
 {
     return false;
 }
 
 // 0x004A0D00
-int CViewport::GetVisibility(int)
+int CViewRegion::GetVisibility(int)
 {
-    Dbg::Printf("STUB: plat_get_visibility_test\n");
+    DebugOut::Printf("STUB: plat_get_visibility_test\n");
     return 0;
 }
 
 // 0x004A0D20
-float CViewport::GetAspectRatio()
+float CViewRegion::GetAspectRatio()
 {
-    float width = m_width, height = m_height;
+    float width = m_span, height = m_levelY;
     double aspect = GetScreenAspect();
     return static_cast<float>(aspect * (static_cast<double>(width) / height));
 }
 
 // 0x004A0D50
-bool CViewport::MarkCameraForDeletion(Gfx::Camera* camera)
+bool CViewRegion::FlagCameraForRemoval(Gfx2D::Camera* camera)
 {
-    if (m_camera.Get() != camera)
+    if (m_viewer.Get() != camera)
         return false;
     m_flags |= 1;
     return true;
 }
 
 // 0x004A0D70
-void CViewport::DeleteMarkedCamera()
+void CViewRegion::RemoveFlaggedCamera()
 {
     if (!(m_flags & 1))
         return;
-    if (m_camera.Get())
-        DeleteThrough0(m_camera.Get()); // (its destructor clears the pointer)
-    m_camera.Release();
-    m_camera.mp_object = nullptr;
+    if (m_viewer.Get())
+        DeleteThrough0(m_viewer.Get()); // (its destructor clears the pointer)
+    m_viewer.Release();
+    m_viewer.m_ownerObject = nullptr;
     m_flags &= ~1u;
 }
 
@@ -194,7 +194,7 @@ void __cdecl DeleteMarkedCameras()
 {
     for (int i = 0; i < kViewports; ++i) {
         if (Viewport(i))
-            Viewport(i)->DeleteMarkedCamera();
+            Viewport(i)->RemoveFlaggedCamera();
     }
 }
 
@@ -204,49 +204,49 @@ void __cdecl CreateViewports()
     for (int i = 0; i < kViewports; ++i) {
         const float* table = g_viewportRects + 4 * i;
         float rect[4] = {table[0], table[1], table[2], table[3]};
-        Viewport(i) = reinterpret_cast<CViewport*>(CreateViewport(reinterpret_cast<uint32_t>(rect), 0));
+        Viewport(i) = reinterpret_cast<CViewRegion*>(CreateViewport(reinterpret_cast<uint32_t>(rect), 0));
     }
 }
 
 // 0x004A0950
-Gfx::Camera* __cdecl GetCamera(int view)
+Gfx2D::Camera* __cdecl ObtainActiveLens(int view)
 {
     int index = ModeMap()[view];
     if (index == -1)
         return nullptr;
-    return Viewport(index)->m_camera.Get();
+    return Viewport(index)->m_viewer.Get();
 }
 
 // 0x004A0970
-void __cdecl SetCamera(int view, Gfx::Camera* camera)
+void __cdecl ChooseCamera(int view, Gfx2D::Camera* camera)
 {
     int index = ModeMap()[view];
     if (index == -1)
         return;
-    CViewport* viewport = Viewport(index);
-    viewport->DeleteMarkedCamera();
-    viewport->m_camera.Set(camera);
+    CViewRegion* viewport = Viewport(index);
+    viewport->RemoveFlaggedCamera();
+    viewport->m_viewer.Set(camera);
 }
 
 // 0x004A09C0
-Gfx::Camera* __cdecl GetActiveCamera(int n)
+Gfx2D::Camera* __cdecl FetchLiveCamera(int n)
 {
     auto* viewport = GetActiveViewport(n);
-    return viewport->m_camera.Get();
+    return viewport->m_viewer.Get();
 }
 
 // 0x004A09E0
-Gfx::Camera* __cdecl GetClosestCamera(const Mth::Vector* position, float* distance)
+Gfx2D::Camera* __cdecl GetClosestCamera(const Maths::Vector* position, float* distance)
 {
     int count = ModeViewportCount(ScreenMode());
-    Gfx::Camera* closest = nullptr;
+    Gfx2D::Camera* closest = nullptr;
     float best = -1.0f; // (squared)
     for (int i = 0; i < count; ++i) {
         // (none: read through null, as the original - a mode's count never exceeds its map)
-        Gfx::Camera* camera = ActiveViewport(i)->m_camera.Get();
+        Gfx2D::Camera* camera = ActiveViewport(i)->m_viewer.Get();
         if (!camera)
             continue;
-        const Mth::Vector* at = camera->GetPos();
+        const Maths::Vector* at = camera->GetPos();
         double dx = static_cast<double>(position->x) - at->x;
         double dy = static_cast<double>(position->y) - at->y;
         double dz = static_cast<double>(position->z) - at->z;
@@ -270,16 +270,16 @@ void __cdecl SetScreenMode(int mode)
     ScreenMode() = mode;
     ActiveViewportCount() = ModeViewportCount(mode);
     for (int i = 0; i < ModeViewportCount(mode); ++i) {
-        Gfx::Camera* camera = ActiveViewport(i)->m_camera.Get(); // (no check, as the original)
+        Gfx2D::Camera* camera = ActiveViewport(i)->m_viewer.Get(); // (no check, as the original)
         if (!camera)
             continue;
         float angle;
         if (mode == 1)
-            angle = static_cast<float>(static_cast<double>(Script::GetFloat("Skater_Cam_Horiz_FOV")) *
-                                       Gfx::g_half); // (0.5: split_vertical)
+            angle = static_cast<float>(static_cast<double>(Scripts::GetFloat("Skater_Cam_Horiz_FOV")) *
+                                       Gfx2D::g_half); // (0.5: split_vertical)
         else
-            angle = Script::GetFloat("Skater_Cam_Horiz_FOV");
-        camera->SetHFOV(angle);
+            angle = Scripts::GetFloat("Skater_Cam_Horiz_FOV");
+        camera->ChangeHFov(angle);
     }
 }
 
@@ -308,9 +308,9 @@ void __cdecl SetScreenFieldOfView(float degrees)
     }
     g_angleFactor = factor;
     for (int i = 0; i < ActiveViewportCount(); ++i) {
-        CViewport* viewport = ActiveViewport(i);
-        if (viewport && viewport->m_camera.Get())
-            viewport->m_camera.Get()->UpdateAdjustedHFOV();
+        CViewRegion* viewport = ActiveViewport(i);
+        if (viewport && viewport->m_viewer.Get())
+            viewport->m_viewer.Get()->RefreshEffectiveHFov();
     }
 }
 
@@ -356,7 +356,7 @@ void __cdecl PopOcclusionRequest()
 }
 
 // 0x004A07D0
-bool __cdecl CFunc_Set2DIn3DSpaceParams(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_Set2DIn3DSpaceParams(Scripts::CStruct* params, Scripts::CScript*)
 {
     float value;
     if (params->GetFloat(kScaleNumerator, &value, 0))
@@ -369,19 +369,19 @@ bool __cdecl CFunc_Set2DIn3DSpaceParams(Script::CStruct* params, Script::CScript
 }
 
 // 0x004A08A0
-bool __cdecl CFunc_ScriptGetScreenMode(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_ScriptGetScreenMode(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Script::CStruct* results = script->m_params;
+    Scripts::CStruct* results = script->m_params;
     uint32_t mode = static_cast<uint32_t>(ScreenMode());
-    results->AddChecksum(kScreenMode, mode <= 5 ? kModeNames[mode] : 0u);
+    results->PutNameKey(kScreenMode, mode <= 5 ? kModeNames[mode] : 0u);
     return true;
 }
 
 // 0x004A0C20
-bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetScreenMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
-    params->GetChecksum(0u, &name, 1);
+    params->ReadHashValue(0u, &name, 1);
     for (int mode = 0; mode < 6; ++mode) {
         if (name == kModeNames[mode]) {
             SetScreenMode(mode);
@@ -392,8 +392,8 @@ bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript*)
 }
 
 namespace {
-static VtableSlot kViewportVtable_slots[] = {&Nx::CViewport::Destroy, &Nx::CViewport::ProjectToScreen,
-                &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryRect, &Nx::CViewport::GetVisibility};
+static VtableSlot kViewportVtable_slots[] = {&Engine3D::CViewRegion::Destroy, &Engine3D::CViewRegion::ProjectToScreen,
+                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryRect, &Engine3D::CViewRegion::GetVisibility};
 void** const kViewportVtable = reinterpret_cast<void**>(kViewportVtable_slots);
 } // namespace
 

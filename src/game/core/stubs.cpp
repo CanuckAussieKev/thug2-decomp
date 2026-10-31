@@ -23,8 +23,8 @@ int ReturnZero() { return 0; }
 
 // 0x005480A0: an empty cdecl function - the most called address in the game (528 calls). Compiled-out debug
 // code: the callers still push its arguments and pop them after. In our source it appears under its uses'
-// names, as empty inline functions: Mem::PushMemProfile / PopMemProfile, Mem::DebugTrackBlock,
-// Script::PrintContents (more as their callers are rewritten). (The bytes
+// names, as empty inline functions: MemSys::PushMemProfile / PopMemProfile, MemSys::DebugTrackBlock,
+// Scripts::DumpToLog (more as their callers are rewritten). (The bytes
 // after its RET, 0x005480A1-0x005480BE, are PartyMod's: a code cave its exe patch put in the padding, which
 // loads its DLL (the name at 0x0064B198) - not the game's.)
 void DoNothing() {}

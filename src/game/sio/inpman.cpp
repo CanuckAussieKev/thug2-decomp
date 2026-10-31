@@ -12,9 +12,9 @@
 #include "game/core/task.h"
 #include "game/sio/device.h"
 
-namespace Inp {
+namespace PadInput {
 
-Inp::Manager* g_inputManager;
+PadInput::Manager* g_inputManager;
 
 namespace {
 
@@ -24,7 +24,7 @@ unsigned int g_inputManagerReferences;
 // The buttons' name checksums (index 0: none).
 uint32_t g_buttonChecksums[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
 
-unsigned int& References() { return g_inputManagerReferences; }
+unsigned int& RefTally() { return g_inputManagerReferences; }
 
 // Each device index's buttons this frame: down, pressed, released (two of each).
 uint32_t g_deviceMakes[2];
@@ -43,15 +43,15 @@ struct DigitalToAnalog {
 DigitalToAnalog g_digitalToAnalog[18]{{0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
 const DigitalToAnalog* DigitalToAnalogTable() { return g_digitalToAnalog; }
 
-void ConstructTaskList(uint8_t* list) { reinterpret_cast<Tsk::Stack*>(list)->Construct(); }
-void RunTaskList(uint8_t* list) { reinterpret_cast<Tsk::Stack*>(list)->Process(nullptr); }
-// Tsk::Task<Manager>: the base task (with the priority), then its vtable, code and data.
+void ConstructTaskList(uint8_t* list) { reinterpret_cast<TaskList::Stack*>(list)->Construct(); }
+void RunTaskList(uint8_t* list) { reinterpret_cast<TaskList::Stack*>(list)->Process(nullptr); }
+// TaskList::Task<Manager>: the base task (with the priority), then its vtable, code and data.
 void* NewTask(int priority, uint32_t code, void* data)
 {
-    auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
+    auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (!task)
         return nullptr;
-    reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
+    reinterpret_cast<TaskList::SchedulerTask*>(task)->Construct(priority);
     task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     task[6] = code;
     task[7] = reinterpret_cast<uint32_t>(data);
@@ -83,7 +83,7 @@ void SetButtons(Data& data, uint32_t buttons)
 } // namespace
 
 // 0x0044E840
-void Data::MaskDigitalInput(uint32_t mask)
+void Data::BlockButtonInput(uint32_t mask)
 {
     m_buttons &= ~mask;
     m_makes &= ~mask;
@@ -91,7 +91,7 @@ void Data::MaskDigitalInput(uint32_t mask)
 }
 
 // 0x0044E860
-void Data::MaskAnalogInput(uint32_t mask)
+void Data::BlockStickInput(uint32_t mask)
 {
     for (int i = 0; i < kNumEvents; ++i) {
         if (!(mask & (1u << i)))
@@ -103,7 +103,7 @@ void Data::MaskAnalogInput(uint32_t mask)
 }
 
 // 0x0044E8C0
-void Data::ConvertDigitalToAnalog()
+void Data::DigitalAsStick()
 {
     for (const DigitalToAnalog* entry = DigitalToAnalogTable(); entry->mask > 0; ++entry)
         m_event[entry->event] = (m_buttons & entry->mask) ? 0xFF : 0;
@@ -168,7 +168,7 @@ Server* Server::Construct()
 // 0x0044EAA0
 void Server::ServiceHandlers()
 {
-    if (m_dataIn && m_dataIn->m_valid) {
+    if (m_dataIn && m_dataIn->m_isUsable) {
         SetButtons(m_data, m_dataIn->m_buttons);
         std::memcpy(m_data.m_event, m_dataIn->m_event, sizeof(m_data.m_event));
         RunTaskList(m_handlers);
@@ -176,11 +176,11 @@ void Server::ServiceHandlers()
         return;
     }
     Sio::Device* device = m_device;
-    if (!device || !device->m_valid)
+    if (!device || !device->m_isUsable)
         return;
     Manager* manager = Instance();
     if (m_dataOut)
-        m_dataOut->m_valid = 0;
+        m_dataOut->m_isUsable = 0;
     const uint8_t* control = device->m_controlData;
     if (control[0] != 0) // no pad
         return;
@@ -189,11 +189,11 @@ void Server::ServiceHandlers()
     SetButtons(m_data, buttons | (static_cast<uint32_t>(control[0x14]) << 16));
     switch (type) {
     case 4: // digital
-        m_data.ConvertDigitalToAnalog();
+        m_data.DigitalAsStick();
         break;
     case 5: // the sticks, no pressures
         std::memcpy(m_data.m_event, control + 4, 4);
-        m_data.ConvertDigitalToAnalog();
+        m_data.DigitalAsStick();
         if (OverridePadWithStick(manager))
             m_data.OverridePadWithStick();
         break;
@@ -203,7 +203,7 @@ void Server::ServiceHandlers()
             break;
         }
         std::memcpy(m_data.m_event, control + 4, 4);
-        m_data.ConvertDigitalToAnalog();
+        m_data.DigitalAsStick();
         m_data.HandleAnalogTolerance();
         if (OverridePadWithStick(manager))
             m_data.OverridePadWithStick();
@@ -211,7 +211,7 @@ void Server::ServiceHandlers()
     }
     if (m_dataOut) {
         m_dataOut->m_buttons = m_data.m_current;
-        m_dataOut->m_valid = 1;
+        m_dataOut->m_isUsable = 1;
         std::memcpy(m_dataOut->m_event, m_data.m_event, sizeof(m_data.m_event));
         ++m_dataOut;
     }
@@ -231,7 +231,7 @@ Manager* Manager::Construct()
     Sio::Manager* devices = Sio::g_manager;
     m_task = NewTask(2000, reinterpret_cast<uint32_t>(&Manager::ServiceTask), this);
     for (int i = 0; i < kNumServers; ++i)
-        m_servers[i].m_device = devices->GetDeviceByIndex(i);
+        m_servers[i].m_device = devices->GetPadAtSlot(i);
     m_overridePadWithStick = true;
     m_unknown10D = false;
     m_unknown110[0] = -1;
@@ -244,34 +244,34 @@ Manager* Manager::Construct()
 Manager* CreateManager(bool create)
 {
     if (!Instance() && create) {
-        if (void* memory = Mem::Calloc(sizeof(Manager), nullptr, 1)) {
+        if (void* memory = MemSys::AllocZeroed(sizeof(Manager), nullptr, 1)) {
             Instance() = static_cast<Manager*>(memory)->Construct();
-            ++References();
+            ++RefTally();
             return Instance();
         }
         Instance() = nullptr;
     }
-    ++References();
+    ++RefTally();
     return Instance();
 }
 
 // 0x0044E6B0
 void ReleaseManager()
 {
-    if (References() > 1) {
-        --References();
+    if (RefTally() > 1) {
+        --RefTally();
         return;
     }
     if (Manager* manager = Instance()) {
         manager->Destruct();
-        Mem::Manager::Get()->Free(manager);
+        MemSys::Manager::Get()->Free(manager);
     }
     Instance() = nullptr;
-    References() = 0;
+    RefTally() = 0;
 }
 
 // 0x0044E520
-void Server::Destruct() { reinterpret_cast<Tsk::Stack*>(m_handlers)->Destruct(); }
+void Server::Destruct() { reinterpret_cast<TaskList::Stack*>(m_handlers)->Destruct(); }
 
 // 0x0044E530
 void Manager::Destruct()
@@ -286,10 +286,10 @@ void Manager::Destruct()
 }
 
 // 0x0044E5D0
-void Manager::DisableActuators(int index)
+void Manager::StopRumble(int index)
 {
     if (Sio::Device* device = m_servers[index].m_device)
-        device->DisableActuators();
+        device->StopRumble();
 }
 
 // 0x0044E5F0
@@ -313,7 +313,7 @@ void __cdecl Manager::ServiceTask(void* task)
 }
 
 // 0x0044E590
-uint32_t __cdecl ButtonChecksum(int index) { return g_buttonChecksums[index]; }
+uint32_t __cdecl ButtonHash(int index) { return g_buttonChecksums[index]; }
 
 // 0x0044E5A0
 int __cdecl ButtonIndex(uint32_t checksum)

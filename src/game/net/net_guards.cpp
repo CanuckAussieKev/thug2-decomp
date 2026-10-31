@@ -12,7 +12,7 @@
 #include "game/gfx/frame_source.h"
 #include "game/sys/log.h"
 
-namespace GameNet::Guards {
+namespace OnlinePlay::Guards {
 
 namespace {
 
@@ -42,20 +42,20 @@ constexpr uint32_t kSpecialItemDetails = 0;  // 0x77 / 0x78
 bool AnimationLoaded(uint32_t animation)
 {
     // (0x0048CF50: the animation cache's entry for the set + animation, 0 = don't load it)
-    return Nx::GetAnimData(kSkaterAnims + animation, 0) != nullptr;
+    return Engine3D::GetAnimData(kSkaterAnims + animation, 0) != nullptr;
 }
 
-bool StructureExists(uint32_t name) { return Script::GetStructure(name) != nullptr; }
+bool StructureExists(uint32_t name) { return Scripts::ReadSubStruct(name) != nullptr; }
 
 bool GameModeExists(uint32_t mode)
 {
-    Script::CArray* modes = Script::GetArray(kModeInfo);
+    Scripts::CArray* modes = Scripts::GetArray(kModeInfo);
     if (!modes)
         return false;
     for (uint32_t i = 0; i < modes->m_size; ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(modes->GetElement(i));
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(modes->GetElement(i));
         uint32_t checksum = 0;
-        if (entry && entry->GetChecksum(kChecksum, &checksum, 0) && checksum == mode)
+        if (entry && entry->ReadHashValue(kChecksum, &checksum, 0) && checksum == mode)
             return true;
     }
     return false;
@@ -63,15 +63,15 @@ bool GameModeExists(uint32_t mode)
 
 bool ScriptExists(uint32_t name)
 {
-    Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(name);
-    return symbol && symbol->type == Script::ESYMBOLTYPE_QSCRIPT;
+    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(name);
+    return symbol && symbol->type == Scripts::QBVAL_SCRIPT_BODY;
 }
 
-int LeaveServer(Net::MsgHandlerContext* context)
+int LeaveServer(NetLink::InboundMsgCtx* context)
 {
-    Net::MsgHandlerContext moved = *context;
-    moved.m_MsgId = kMsgServerMovedOn;
-    return Mdl::SkateNet::HandleServerRemovedYou(&moved);
+    NetLink::InboundMsgCtx moved = *context;
+    moved.m_typeCode = kMsgServerMovedOn;
+    return GameModules::SkateNet::HandleServerRemovedYou(&moved);
 }
 
 const Lookups kGameLookups = {AnimationLoaded, StructureExists, GameModeExists, ScriptExists, LeaveServer};
@@ -85,15 +85,15 @@ void LogOnce(uint8_t id, uint32_t name, const char* what)
         Log("network guard (THUGPRO, TP-R8): message 0x%02X %s 0x%08X", id, what, name);
 }
 
-uint32_t Read32(const Net::MsgHandlerContext* context, uint32_t offset)
+uint32_t Read32(const NetLink::InboundMsgCtx* context, uint32_t offset)
 {
     uint32_t value;
-    std::memcpy(&value, context->m_Msg + offset, 4);
+    std::memcpy(&value, context->m_body + offset, 4);
     return value;
 }
-void Write32(Net::MsgHandlerContext* context, uint32_t offset, uint32_t value)
+void Write32(NetLink::InboundMsgCtx* context, uint32_t offset, uint32_t value)
 {
-    std::memcpy(context->m_Msg + offset, &value, 4);
+    std::memcpy(context->m_body + offset, &value, 4);
 }
 
 constexpr int kDispatch = -1;
@@ -104,9 +104,9 @@ constexpr int kDropped = 1; // (as a handler that took the message: the dispatch
 const Lookups& GameLookups() { return kGameLookups; }
 void SetLookups(const Lookups& lookups) { s_lookups = lookups; }
 
-int CheckReceivedMessage(Net::MsgHandlerContext* context)
+int CheckReceivedMessage(NetLink::InboundMsgCtx* context)
 {
-    uint8_t id = context->m_MsgId;
+    uint8_t id = context->m_typeCode;
     // How many bytes each check reads.
     uint32_t needed = 0;
     switch (id) {
@@ -118,9 +118,9 @@ int CheckReceivedMessage(Net::MsgHandlerContext* context)
     case kMsgChangeLevel: needed = kChangeLevelLevel + 4; break;
     default: return kDispatch;
     }
-    if (!context->m_Msg || context->m_MsgLength < needed) {
+    if (!context->m_body || context->m_bodySize < needed) {
         // (not checked - nothing is read past its end -, and left to THUG2's handlers as it is)
-        LogOnce(id, context->m_MsgLength, "too short to check, passed on unchecked: length");
+        LogOnce(id, context->m_bodySize, "too short to check, passed on unchecked: length");
         return kDispatch;
     }
     switch (id) {
@@ -174,4 +174,4 @@ int CheckReceivedMessage(Net::MsgHandlerContext* context)
     }
 }
 
-} // namespace GameNet::Guards
+} // namespace OnlinePlay::Guards

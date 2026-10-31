@@ -16,7 +16,7 @@
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
@@ -40,9 +40,9 @@ const char*& GamestatsHost() { return s_gamestatsHost; }
 void SetUpOnlineHosts()
 {
     char domain[256];
-    Config::GetString(Config::kMiscellaneous, "OnlineDomain", "openspy.net", domain, sizeof(domain));
+    BuildInfo::GetString(BuildInfo::kMiscellaneous, "OnlineDomain", "openspy.net", domain, sizeof(domain));
 
-    // gamestats: also the game's own top stats request (Net::RetrieveTopStats reads GamestatsHost)
+    // gamestats: also the game's own top stats request (NetLink::RetrieveTopStats reads GamestatsHost)
     char* gamestats = HostName("gamestats.%s", domain);
     s_gamestatsHost = gamestats;
     GameSpy::SetOnlineDomain(domain);

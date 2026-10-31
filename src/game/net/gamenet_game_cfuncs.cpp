@@ -38,7 +38,7 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the player's name)
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -53,7 +53,7 @@ constexpr uint32_t kFlagTeam = 0xD61CFF21; // flag_team
 constexpr uint32_t kObjId = 0x0830ECAF;    // objId
 constexpr uint32_t kSkaterScore = 0xD262802F; // the skater's score component
 
-// PlayerInfo flags (+0x1D0).
+// PlayerRecord flags (+0x1D0).
 constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
 constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 // (kPlayerSurveying, 0x10000: player_info.h)
@@ -63,9 +63,9 @@ constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
 Manager* NetManager() { return g_gameNetManager; }
-Tsk::Stack* LogicTasks()
+TaskList::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4);
+    return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
 }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
@@ -74,20 +74,20 @@ template <typename Local>
 void SendFlagMessage(Manager* manager, uint8_t id, int player, int team, Local local)
 {
     uint8_t msg[2] = {static_cast<uint8_t>(player), static_cast<uint8_t>(team)};
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
-    desc.m_length = sizeof(msg);
+    desc.m_byteCount = sizeof(msg);
     desc.m_data = msg;
     desc.m_id = id;
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
-    Net::App* server = manager->m_server;
+    NetLink::App* server = manager->m_server;
     PlayerSearch search;
     for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true)) {
-        if (IsLocalPlayer(other))
+        if (IsOwnPlayer(other))
             local();
         else
-            server->EnqueueMessage(PlayerHandle(other), &desc);
+            server->PutOnOutbox(PlayerHandle(other), &desc);
     }
 }
 
@@ -102,11 +102,11 @@ void KickOrBan(Manager* manager, int drop, uint8_t request)
     if (!player)
         return;
     if (manager->OnServer()) {
-        Obj::CObject* skater = PlayerSkater(player);
+        GameObjects::CObject* skater = PlayerSkater(player);
         bool observer = IsObserver(player);
-        manager->DropPlayer(player, drop);
+        manager->EvictPlayer(player, drop);
         if (!observer)
-            Call(CodeAddress(&Mdl::Skate::RemoveSkater), Skate(), skater); // its skater removed
+            Call(CodeAddress(&GameModules::Skate::RemoveSkater), Skate(), skater); // its skater removed
         return;
     }
     struct {
@@ -115,21 +115,21 @@ void KickOrBan(Manager* manager, int drop, uint8_t request)
         char name[kNameSize];
         uint8_t pad[2];
     } msg;
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
     msg.request = request;
     msg.index = static_cast<uint8_t>(index);
     std::strcpy(msg.name, PlayerName(player));
     desc.m_data = &msg;
-    desc.m_length = 2 + kNameSize;
+    desc.m_byteCount = 2 + kNameSize;
     desc.m_id = kMsgKickRequest;
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
-    SendToServer(manager->m_client, &desc);
+    SendToServer(manager->m_clientApp, &desc);
 }
 
 // A task node / input handler's scalar deleting destructor (vtable slot 2).
-void DeleteNode(void* node)
+void UnlinkListNode(void* node)
 {
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
 }
@@ -137,57 +137,57 @@ void DeleteNode(void* node)
 } // namespace
 
 // 0x0053B450
-bool __cdecl CFunc_PlayerTookFlag(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PlayerTookFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     int player = 0;
     int team = 0;
-    params->GetInteger(kPlayer, &player, 0);
-    params->GetInteger(kFlagTeam, &team, 0);
+    params->FetchIntValue(kPlayer, &player, 0);
+    params->FetchIntValue(kFlagTeam, &team, 0);
     uint8_t* taker = manager->PlayerByObjectId(static_cast<uint16_t>(player));
     if (taker)
-        SendFlagMessage(manager, kMsgTookFlag, player, team, [&] { AsPlayer(taker)->TookFlag(team); });
+        SendFlagMessage(manager, kMsgTookFlag, player, team, [&] { AsPlayer(taker)->NoteFlagPickup(team); });
     return true;
 }
 
 // 0x0053B5A0
-bool __cdecl CFunc_PlayerCapturedFlag(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PlayerCapturedFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     int player = 0;
-    params->GetInteger(kPlayer, &player, 0);
+    params->FetchIntValue(kPlayer, &player, 0);
     uint8_t* capturer = manager->PlayerByObjectId(static_cast<uint16_t>(player));
     if (!capturer || (Field<uint32_t>(capturer, 0x1D0) & kPlayerCaptureBlocked))
         return true;
     int team = AsPlayer(capturer)->GetFlagTeam(); // the flag it carries
     SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] {
-        auto* skater = reinterpret_cast<Obj::CCompositeObject*>(PlayerSkater(capturer));
+        auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(PlayerSkater(capturer));
         uint8_t* score = Field<uint8_t*>(skater->GetComponent(kSkaterScore), 0x18);
-        Call(CodeAddress(&Mdl::Score::SetTotalScore), score, Call<int>(CodeAddress(&Mdl::Score::GetTotalScore), score) + 1); // its captures
-        AsPlayer(capturer)->CapturedFlag(team);
+        Call(CodeAddress(&GameModules::Score::SetGrandTotal), score, Call<int>(CodeAddress(&GameModules::Score::GetTotalScore), score) + 1); // its captures
+        AsPlayer(capturer)->ScoreFlagCapture(team);
     });
     return true;
 }
 
 // 0x0053B710
-bool __cdecl CFunc_PlayerRetrievedFlag(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PlayerRetrievedFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     int player = 0;
     int team = 0;
-    params->GetInteger("player", &player, 0);
-    params->GetInteger("flag_team", &team, 0);
+    params->FetchIntValue("player", &player, 0);
+    params->FetchIntValue("flag_team", &team, 0);
     uint8_t* retriever = manager->PlayerByObjectId(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
-        SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] { AsPlayer(retriever)->CapturedFlag(team); });
+        SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] { AsPlayer(retriever)->ScoreFlagCapture(team); });
     return true;
 }
 
 // 0x0053B860
-bool __cdecl CFunc_PlayerHasFlag(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PlayerHasFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
     int player = 0;
-    params->GetInteger("player", &player, 0);
+    params->FetchIntValue("player", &player, 0);
     uint8_t* found = NetManager()->PlayerByObjectId(static_cast<uint16_t>(player));
     if (!found)
         return true;
@@ -195,40 +195,40 @@ bool __cdecl CFunc_PlayerHasFlag(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x0053B8A0
-bool __cdecl CFunc_GetNumPlayersOnTeam(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetNumPlayersOnTeam(Scripts::CStruct* params, Scripts::CScript* script)
 {
     Manager* manager = NetManager();
     int team = 0;
-    params->GetInteger("team", &team, 1);
-    script->m_params->AddInteger("num_members", manager->CountTeamPlayers(team));
+    params->FetchIntValue("team", &team, 1);
+    script->m_params->PutInt("num_members", manager->CountTeamPlayers(team));
     return true;
 }
 
 // 0x0053B8F0
-bool __cdecl CFunc_GetPlayersTeam(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPlayersTeam(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int id = 0;
-    params->GetInteger(kObjId, &id, 0);
+    params->FetchIntValue(kObjId, &id, 0);
     uint8_t* player = NetManager()->PlayerByObjectId(static_cast<uint16_t>(id));
     if (player)
-        script->m_params->AddInteger("team", PlayerTeam(player));
+        script->m_params->PutInt("team", PlayerTeam(player));
     return true;
 }
 
 // 0x0053B940
-bool __cdecl CFunc_ExitSurveyorMode(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ExitSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     uint8_t* local = LocalPlayer(manager);
     if (!local)
         return false;
     if (Field<uint32_t>(local, 0x1D0) & kPlayerSurveying) {
-        manager->ObservePlayer(local);
+        manager->SpectatePlayer(local);
         if (void* task = Field<void*>(local, 0x1EC))
-            DeleteNode(task);
+            UnlinkListNode(task);
         Field<void*>(local, 0x1EC) = nullptr;
         if (manager->m_observerInputHandler)
-            DeleteNode(manager->m_observerInputHandler);
+            UnlinkListNode(manager->m_observerInputHandler);
         manager->m_observerInputHandler = nullptr;
         Field<uint32_t>(local, 0x1D0) &= ~kPlayerSurveying;
     }
@@ -236,10 +236,10 @@ bool __cdecl CFunc_ExitSurveyorMode(Script::CStruct*, Script::CScript*)
 }
 
 // 0x0053D400
-bool __cdecl CFunc_SetHostMode(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetHostMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     int mode = 0;
-    params->GetInteger(0u, &mode, 0);
+    params->FetchIntValue(0u, &mode, 0);
     NetManager()->SetHostMode(mode);
     return true;
 }
@@ -247,38 +247,38 @@ bool __cdecl CFunc_SetHostMode(Script::CStruct* params, Script::CScript*)
 bool g_textEntry;
 
 // 0x0053D440
-bool __cdecl CFunc_EnteredNetworkGame(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_EnteredNetworkGame(Scripts::CStruct*, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     if (g_netEnabled) // (on the internet: the server's GameSpy reporting)
         StartQueryReporting(false);
-    Tsk::Stack* tasks = LogicTasks();
-    tasks->AddTask(Field<Tsk::BaseTask*>(manager, 0xD4));
+    TaskList::Stack* tasks = LogicTasks();
+    tasks->AddTask(Field<TaskList::SchedulerTask*>(manager, 0xD4));
     g_textEntry = true;
-    tasks->AddTask(Field<Tsk::BaseTask*>(manager, 0xC8));
+    tasks->AddTask(Field<TaskList::SchedulerTask*>(manager, 0xC8));
     Field<bool>(manager, 0x46) = true;
     return true;
 }
 
 // 0x0053D490
-bool __cdecl CFunc_KickPlayer(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_KickPlayer(Scripts::CStruct*, Scripts::CScript*)
 {
     KickOrBan(NetManager(), kDropKicked, 0);
     return true;
 }
 
 // 0x0053D5E0
-bool __cdecl CFunc_BanPlayer(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_BanPlayer(Scripts::CStruct*, Scripts::CScript*)
 {
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(memory->m_networkHeap);
+    MemSys::Manager* memory = MemSys::Manager::Get();
+    memory->EnterHeapScope(memory->m_networkHeap);
     KickOrBan(NetManager(), kDropBanned, 1);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     return true;
 }
 
 // 0x0053D760
-bool __cdecl CFunc_CancelJoinServer(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_CancelJoinServer(Scripts::CStruct*, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     manager->CancelJoin();
@@ -287,27 +287,27 @@ bool __cdecl CFunc_CancelJoinServer(Script::CStruct*, Script::CScript*)
 }
 
 // 0x0053D780
-bool __cdecl CFunc_EnterSurveyorMode(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_EnterSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 {
-    Tsk::Stack* tasks = LogicTasks();
+    TaskList::Stack* tasks = LogicTasks();
     Manager* manager = NetManager();
-    uint8_t* input = reinterpret_cast<uint8_t*>(Inp::g_inputManager); // the input manager
+    uint8_t* input = reinterpret_cast<uint8_t*>(PadInput::g_inputManager); // the input manager
     uint8_t* local = LocalPlayer(manager);
     if (IsObserver(local) || (Field<uint32_t>(local, 0x1D0) & kPlayerSurveying))
         return false;
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(memory->m_networkHeap);
+    MemSys::Manager* memory = MemSys::Manager::Get();
+    memory->EnterHeapScope(memory->m_networkHeap);
     AddObserverControls(manager, local, tasks, input);
     Field<uint32_t>(local, 0x1D0) |= kPlayerSurveying;
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     return true;
 }
 
 // 0x0053EA20
-bool __cdecl CFunc_DropPendingPlayers(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_DropPendingPlayers(Scripts::CStruct*, Scripts::CScript*)
 {
     NetManager()->DropPlayersNotReady();
     return true;
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

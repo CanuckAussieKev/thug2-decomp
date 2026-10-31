@@ -34,10 +34,10 @@ bool __cdecl GotArgument(const char* option, int argc, char** argv);
 const char* __cdecl GetPathPrefix();
 // 0x005B5F20 / 0x005B5F90 / 0x005B5FC0 / 0x005B6020 / 0x005B6040: the names ("English", "US", "Win32", "NTSC",
 // "xbx"...; "Unknown ..." / "???" for anything else).
-const char* __cdecl GetLanguageName();
-const char* __cdecl GetTerritoryName();
-const char* __cdecl GetHardwareName();
-const char* __cdecl GetDisplayTypeName();
+const char* __cdecl GetLocaleLabel();
+const char* __cdecl GetRegionLabel();
+const char* __cdecl GetPlatformLabel();
+const char* __cdecl GetScreenModeLabel();
 const char* __cdecl GetPlatformExtension();
 // 0x005B6090: the NTSC flag set (only with an NTSC display).
 void __cdecl SetNtscFlag(bool on);

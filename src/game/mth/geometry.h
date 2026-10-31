@@ -4,7 +4,7 @@
 
 #include "game/mth/vector.h"
 
-namespace Mth {
+namespace Maths {
 
 // Integer rectangle. Field meanings are assumed (left, top, right, bottom) until its users are decompiled.
 struct Rect {
@@ -40,7 +40,7 @@ public:
     // Where the segment first enters the box through a face, checking +X, -X, +Y, -Y, +Z, -Z in that order.
     // Fills `hit` (w = 1) and the face's outward normal. False if both ends are inside, both are beyond the
     // same face, or the segment misses every face.
-    bool LineIntersect(const Line& line, Vector& hit, Vector& normal) const;
+    bool SegmentCrossing(const Line& line, Vector& hit, Vector& normal) const;
     // For a point inside: the nearest point on the surface (moving along one axis; ties go to the earlier
     // axis, and to max over min). For a point outside: the point clamped onto the box, w = 1.
     void GetClosestSurfacePoint(const Vector& point, Vector& out) const;
@@ -68,7 +68,7 @@ public:
     // 1 if `segment` passes within the capsule, else 0. Optionally reports where (s on the capsule's line,
     // t on the segment, see Line::DistanceSqrToLine) and the squared distance between them. Returns int, not
     // bool: the original sets all of EAX.
-    int IntersectsSegment(const Line& segment, float* s, float* t, float* distance_sqr) const;
+    int IntersectsSegment(const Line& segment, float* s, float* t, float* squaredGap) const;
 
     Line line;
     float radius;

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Nx {
+namespace Engine3D {
 
 // A screen flash (0x24 bytes; made by AddFlash, engine_effects.h).
 struct Flash {

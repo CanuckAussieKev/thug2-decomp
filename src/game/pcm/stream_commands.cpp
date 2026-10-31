@@ -19,7 +19,7 @@
 #include "game/sys/timer.h"
 #include "game/gfx/viewport.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 namespace {
 
@@ -64,36 +64,36 @@ bool PlayOnChannel(uint32_t checksum, int channel, const void* volume, float pit
 // FrameAmp's load (FamData::Load: data\fam\<checksum>.fam into the slot).
 bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->Load(checksum); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
-void ReadDebugFlag() { Script::GetInteger(0xD7BB618Du); }
+void ReadDebugFlag() { Scripts::FetchIntValue(0xD7BB618Du); }
 
-// The sound effects manager (0x006F85A8) and its volumes (Sfx::sVolume, 0x2C bytes; the first two channels are
-// set below). sVolume's destructor is empty.
-Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
-using Volume = Sfx::sVolume;
+// The sound effects manager (0x006F85A8) and its volumes (SoundFx::volumeRef, 0x2C bytes; the first two channels are
+// set below). volumeRef's destructor is empty.
+SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_sfxManager; }
+using Volume = SoundFx::volumeRef;
 void ConstructVolume(Volume* volume) { volume->Init(); }
-void SetSilent(Volume* volume) { volume->SetSilent(); }
-float LoudestChannel(Volume* volume) { return volume->GetLoudestChannel(); }
+void ChangeMuted(Volume* volume) { volume->ChangeMuted(); }
+float LoudestChannel(Volume* volume) { return volume->FindPeakChannel(); }
 inline void DestroyVolume(Volume*) {} // (0x005480A0)
 // Whether sound is off (the manager's IsPaused).
-bool NoSoundPlease(Sfx::CSfxManager* manager) { return manager->IsPaused(); }
-bool SetVolumeFromPos(Sfx::CSfxManager* manager, Volume* volume, const Mth::Vector* position, float dropoff,
-                      int dropoffFunction, void* emitter, Mth::Vector* emitterDirection)
+bool SoundOffRequested(SoundFx::CAudioMixer* manager) { return manager->IsPaused(); }
+bool LoudnessFromPosition(SoundFx::CAudioMixer* manager, Volume* volume, const Maths::Vector* position, float dropoff,
+                      int falloffCurve, void* emitter, Maths::Vector* emitterDirection)
 {
-    return manager->GetVolume(volume, position, dropoff, dropoffFunction, emitter, emitterDirection);
+    return manager->GetVolume(volume, position, dropoff, falloffCurve, emitter, emitterDirection);
 }
 // The emitter nearest to a position (0x004A09E0, not rewritten yet; its distance through the second argument),
 // and the stream component's position for it and its emitter's extent.
 void* NearestEmitter(const float* position)
 {
-    return Nx::GetClosestCamera(reinterpret_cast<const Mth::Vector*>(position), nullptr);
+    return Engine3D::GetClosestCamera(reinterpret_cast<const Maths::Vector*>(position), nullptr);
 }
-Mth::Vector* SoundPosition(void* component, Mth::Vector* out, void* emitter)
+Maths::Vector* SoundPosition(void* component, Maths::Vector* out, void* emitter)
 {
-    return static_cast<Obj::CStreamComponent*>(component)->GetStreamPosition(out, emitter);
+    return static_cast<GameObjects::CAudioStreamModule*>(component)->GetStreamPosition(out, emitter);
 }
-bool EmitterDirection(void* component, void* emitter, Mth::Vector* out)
+bool EmitterDirection(void* component, void* emitter, Maths::Vector* out)
 {
-    return static_cast<Obj::CStreamComponent*>(component)->GetStreamExtent(emitter, out);
+    return static_cast<GameObjects::CAudioStreamModule*>(component)->GetStreamExtent(emitter, out);
 }
 
 // A new stream's record: volume 100, dropoff 1020, one name (the stream's own).
@@ -179,7 +179,7 @@ int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int 
 {
     if (!StreamsOn())
         return -1;
-    uint32_t oldest = Streams()[0].startFrame;
+    uint32_t oldest = Streams()[0].beginFrame;
     int lowest = Streams()[0].priority;
     int channel = 0;
     uint32_t id = FreeStreamId(name);
@@ -190,9 +190,9 @@ int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int 
             break;
         }
         const Stream& stream = Streams()[i];
-        if (stream.priority < lowest || (stream.priority == lowest && stream.startFrame < oldest)) {
+        if (stream.priority < lowest || (stream.priority == lowest && stream.beginFrame < oldest)) {
             lowest = stream.priority;
-            oldest = stream.startFrame;
+            oldest = stream.beginFrame;
             channel = i;
         }
     }
@@ -216,7 +216,7 @@ int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int 
     stream.id = id;
     stream.channel = channel;
     stream.priority = priority;
-    stream.startFrame = static_cast<uint32_t>(Tmr::GetRenderFrame()); // (the low half)
+    stream.beginFrame = static_cast<uint32_t>(FrameClock::GetDrawFrame()); // (the low half)
     stream.listener = reinterpret_cast<uint32_t*>(GetStreamFrameAmp(checksum));
     return channel;
 }
@@ -240,13 +240,13 @@ uint32_t __cdecl PlayStream(uint32_t checksum, const void* volume, float pitch, 
 }
 
 // 0x00451A50
-uint32_t __cdecl PreLoadStream(uint32_t checksum, int priority)
+uint32_t __cdecl PrimeStream(uint32_t checksum, int priority)
 {
     if (!StreamsOn())
         return 0;
     Volume volume;
     ConstructVolume(&volume);
-    SetSilent(&volume);
+    ChangeMuted(&volume);
     uint32_t id = 0;
     int channel = StartStream(checksum, &volume, 0.0f, 0, priority, checksum, true);
     if (channel != -1) {
@@ -287,27 +287,27 @@ bool __cdecl AddStream(uint32_t stream, uint32_t name, void* owner)
 }
 
 // 0x00451E20
-uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
-                                      int option, int priority, int usePosInfo, int dropoffFunction, uint32_t id)
+uint32_t __cdecl PlayStreamAtObject(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
+                                      int option, int priority, int usePosInfo, int falloffCurve, uint32_t id)
 {
-    Sfx::CSfxManager* manager = SoundManager();
-    if (NoSoundPlease(manager) || !StreamsOn())
+    SoundFx::CAudioMixer* manager = SoundManager();
+    if (SoundOffRequested(manager) || !StreamsOn())
         return 0;
     Volume streamVolume;
     ConstructVolume(&streamVolume);
-    SetSilent(&streamVolume);
+    ChangeMuted(&streamVolume);
     if (usePosInfo) {
         void* object = *reinterpret_cast<void**>(static_cast<uint8_t*>(component) + 0xC);
         void* emitter = NearestEmitter(reinterpret_cast<const float*>(static_cast<uint8_t*>(object) + 0x4C));
         bool audible = true;
         if (emitter) {
-            Mth::Vector direction;
-            Mth::Vector* towards = EmitterDirection(component, emitter, &direction) ? &direction : nullptr;
-            Mth::Vector position;
-            audible = SetVolumeFromPos(manager, &streamVolume, SoundPosition(component, &position, emitter), dropoff,
-                                       dropoffFunction, emitter, towards);
+            Maths::Vector direction;
+            Maths::Vector* towards = EmitterDirection(component, emitter, &direction) ? &direction : nullptr;
+            Maths::Vector position;
+            audible = LoudnessFromPosition(manager, &streamVolume, SoundPosition(component, &position, emitter), dropoff,
+                                       falloffCurve, emitter, towards);
         } else {
-            SetSilent(&streamVolume);
+            ChangeMuted(&streamVolume);
         }
         if (std::fabs(LoudestChannel(&streamVolume)) < 2.0f) { // (NaN: on)
             ReadDebugFlag();
@@ -342,7 +342,7 @@ uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float 
                 continue;
             if (usePosInfo) {
                 Streams()[i].usePosInfo = 1;
-                Streams()[i].dropoffFunction = dropoffFunction;
+                Streams()[i].falloffCurve = falloffCurve;
             } else {
                 Streams()[i].usePosInfo = 0;
             }

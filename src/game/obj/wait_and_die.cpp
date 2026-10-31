@@ -17,7 +17,7 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/wait_and_die.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -28,7 +28,7 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// The object's vtable slot 6 (MarkAsDead), as the original's tail jump.
+// The object's vtable slot 6 (FlagAsDead), as the original's tail jump.
 void Die(CObject* object) { reinterpret_cast<void(__thiscall*)(CObject*)>(object->m_vtable[6])(object); }
 
 } // namespace
@@ -37,7 +37,7 @@ void Die(CObject* object) { reinterpret_cast<void(__thiscall*)(CObject*)>(object
 void CWaitAndDieComponent::DestroyBody()
 {
     m_vtable = g_waitAndDieVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0043D850
@@ -45,18 +45,18 @@ CWaitAndDieComponent* CWaitAndDieComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0043D880
-void CWaitAndDieComponent::InitFromStructure(Script::CStruct* params)
+void CWaitAndDieComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     float seconds = 0.0f;
-    if (!params->GetChecksum(kWaitFor, &m_waitFor, 0))
+    if (!params->ReadHashValue(kWaitFor, &m_waitFor, 0))
         params->GetFloat(kLifeTime, &seconds, 1);
-    m_lifetime = static_cast<uint32_t>(Ftol(static_cast<double>(seconds) * kMilliseconds));
-    int clock = Tmr::GameClockElapsed();
+    m_lifespan = static_cast<uint32_t>(Ftol(static_cast<double>(seconds) * kMilliseconds));
+    int clock = FrameClock::GameClockElapsed();
     m_start = clock + g_clockOffset;
 }
 
@@ -64,39 +64,39 @@ void CWaitAndDieComponent::InitFromStructure(Script::CStruct* params)
 void CWaitAndDieComponent::Update()
 {
     int start = m_start;
-    int clock = Tmr::GameClockElapsed();
+    int clock = FrameClock::GameClockElapsed();
     m_elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
     if (m_waitFor) {
         if (!FindObject(m_waitFor))
             Die(m_object);
-    } else if (m_elapsed > m_lifetime) {
+    } else if (m_elapsed > m_lifespan) {
         Die(m_object);
     }
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
 } // namespace
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 
-static VtableSlot g_waitAndDieVtable_slots[] = {&Obj::CWaitAndDieComponent::Destroy,
-         &Obj::CWaitAndDieComponent::Update,
-         &Obj::CWaitAndDieComponent::InitFromStructure,
+static VtableSlot g_waitAndDieVtable_slots[] = {&GameObjects::CWaitAndDieComponent::Destroy,
+         &GameObjects::CWaitAndDieComponent::Update,
+         &GameObjects::CWaitAndDieComponent::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const g_waitAndDieVtable = reinterpret_cast<void**>(g_waitAndDieVtable_slots);
 
 } // namespace Obj

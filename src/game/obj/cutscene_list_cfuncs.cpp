@@ -12,14 +12,14 @@
 #include "game/script/struct.h"
 #include "game/sys/startup_init.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 bool g_cutsceneListFlushing;
 PointerList g_cutsceneDestroyList;
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 using Node = PointerList::Node;
 
 constexpr uint32_t kName = 0xA1DC81F9;             // "name"
@@ -34,7 +34,7 @@ constexpr uint32_t kPermanent = 0x23627FD7;        // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
 constexpr uint32_t kKillSpawnedScript = 0xD7034230; // "cutscene_kill_spawned_script"
 
-PointerList& DestroyList() { return g_cutsceneDestroyList; }
+PointerList& FreeNodeChain() { return g_cutsceneDestroyList; }
 // Set while the list is flushed (RemoveFromCutsceneDestroyList does nothing then).
 bool& Flushing() { return g_cutsceneListFlushing; }
 
@@ -47,23 +47,23 @@ void DeleteEntry(CutsceneDestroyEntry* entry)
         return;
     if (CStruct* params = entry->m_params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
         entry->m_params = nullptr;
     }
-    Mem::Manager::Get()->Free(entry);
+    MemSys::Manager::Get()->Free(entry);
 }
 
 // A new structure (`new CStruct`), deleted with Clear and DeleteStruct.
 CStruct* NewParams()
 {
-    CStruct* memory = Script::NewStruct();
+    CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
 void DeleteParams(CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
@@ -73,7 +73,7 @@ void DeleteParams(CStruct* params)
 PointerList* PointerList::Construct()
 {
     m_size = 0;
-    auto* node = static_cast<Node*>(Mem::New(sizeof(Node))); // (operator new inlined)
+    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node))); // (operator new inlined)
     if (node) {
         node->next = node;
         node->prev = node;
@@ -84,16 +84,16 @@ PointerList* PointerList::Construct()
 
 // 0x005B5320: AddToCutsceneDestroyList name=<object> destroy_func=<script> [destroy_params={...}]: an entry (with its
 // own copy of the parameters) added at the end of the list. Always true.
-bool __cdecl CFunc_AddToCutsceneDestroyList(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_AddToCutsceneDestroyList(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name;
-    params->GetChecksum(kName, &name, 1);
+    params->ReadHashValue(kName, &name, 1);
     uint32_t destroyScript;
-    params->GetChecksum(kDestroyFunc, &destroyScript, 1);
+    params->ReadHashValue(kDestroyFunc, &destroyScript, 1);
     CStruct* destroyParams = nullptr;
-    params->GetStructure(kDestroyParams, &destroyParams, 0);
+    params->ReadSubStruct(kDestroyParams, &destroyParams, 0);
     // (the original walks the list to its end first, finding nothing)
-    void* memory = Mem::Calloc(sizeof(CutsceneDestroyEntry));
+    void* memory = MemSys::AllocZeroed(sizeof(CutsceneDestroyEntry));
     auto* entry = memory ? static_cast<CutsceneDestroyEntry*>(memory)->Construct() : nullptr;
     entry->m_name = name;
     entry->m_destroyScript = destroyScript;
@@ -101,9 +101,9 @@ bool __cdecl CFunc_AddToCutsceneDestroyList(Script::CStruct* params, Script::CSc
         entry->m_params->AppendStructureIfAny(destroyParams);
 
     // push_back
-    PointerList& list = DestroyList();
+    PointerList& list = FreeNodeChain();
     Node* head = list.m_head;
-    auto* node = static_cast<Node*>(Mem::New(sizeof(Node))); // (operator new inlined)
+    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node))); // (operator new inlined)
     if (node) {
         node->value = entry;
         node->next = head;
@@ -117,13 +117,13 @@ bool __cdecl CFunc_AddToCutsceneDestroyList(Script::CStruct* params, Script::CSc
 
 // 0x005B5450: RemoveFromCutsceneDestroyList name=<object>: the object's entry deleted and taken out of the list (not
 // run). False while the list is being flushed or without such an entry.
-bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Scripts::CStruct* params, Scripts::CScript*)
 {
     if (Flushing())
         return false;
     uint32_t name;
-    params->GetChecksum(kName, &name, 1);
-    PointerList& list = DestroyList();
+    params->ReadHashValue(kName, &name, 1);
+    PointerList& list = FreeNodeChain();
     Node* head = list.m_head;
     Node* node = head ? head->next : nullptr;
     for (; node != head; node = node->next)
@@ -135,7 +135,7 @@ bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Script::CStruct* params, Script
     if (node != list.m_head) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        Mem::Manager::Get()->Free(node);
+        MemSys::Manager::Get()->Free(node);
         --list.m_size;
     }
     return true;
@@ -145,33 +145,33 @@ bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Script::CStruct* params, Script
 // [NetEnabled] [permanent] [NotSessionSpecific=n]: the script spawned as SpawnScript does (the id defaulting to the
 // calling script's .qb file - its symbol's +8), and an entry added to the cutscene destroy list that kills it
 // (cutscene_kill_spawned_script with its unique id). The spawned script isn't checked for null. Always true.
-bool __cdecl CFunc_Cutscene_SpawnScript(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_Cutscene_SpawnScript(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::PrintContents(params, 0);
+    Scripts::DumpToLog(params, 0);
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
-    uint32_t id = Script::FindSymbol(script->m_scriptName)->unknown8;
-    params->GetChecksum(kId, &id, 0);
+    params->ReadSubStruct(kParams, &scriptParams, 0);
+    uint32_t id = Scripts::FindSymbol(script->m_scriptTitle)->unknown8;
+    params->ReadHashValue(kId, &id, 0);
     uint32_t callback = 0;
-    params->GetChecksum(kCallback, &callback, 0);
+    params->ReadHashValue(kCallback, &callback, 0);
     CStruct* callbackParams = nullptr;
-    params->GetStructure(kCallbackParams, &callbackParams, 0);
-    bool netEnabled = params->ContainsFlag(kNetEnabled);
-    bool permanent = params->ContainsFlag(kPermanent);
+    params->ReadSubStruct(kCallbackParams, &callbackParams, 0);
+    bool replicateFlag = params->HasBareFlag(kNetEnabled);
+    bool permanent = params->HasBareFlag(kPermanent);
     int notSessionSpecific = 0;
-    params->GetInteger(kNotSessionSpecific, &notSessionSpecific, 0);
-    Script::CScript* spawned = Script::SpawnScript(name, scriptParams, callback, callbackParams, script->m_node, id,
-                                                   netEnabled, permanent, notSessionSpecific != 0, false);
+    params->FetchIntValue(kNotSessionSpecific, &notSessionSpecific, 0);
+    Scripts::CScript* spawned = Scripts::SpawnScript(name, scriptParams, callback, callbackParams, script->m_listLink, id,
+                                                   replicateFlag, permanent, notSessionSpecific != 0, false);
     uint32_t uniqueId = spawned->m_uniqueId;
 
     CStruct* entry = NewParams();
-    entry->AddChecksum(kName, uniqueId);
-    entry->AddChecksum(kDestroyFunc, kKillSpawnedScript);
+    entry->PutNameKey(kName, uniqueId);
+    entry->PutNameKey(kDestroyFunc, kKillSpawnedScript);
     CStruct* destroyParams = NewParams();
-    destroyParams->AddChecksum(kId, uniqueId);
-    entry->AddStructure(kDestroyParams, destroyParams);
+    destroyParams->PutNameKey(kId, uniqueId);
+    entry->PutSubStruct(kDestroyParams, destroyParams);
     DeleteParams(destroyParams);
     CFunc_AddToCutsceneDestroyList(entry, nullptr);
     DeleteParams(entry);
@@ -180,30 +180,30 @@ bool __cdecl CFunc_Cutscene_SpawnScript(Script::CStruct* params, Script::CScript
 
 // 0x005B5BE0: FlushCutsceneDestroyList: each entry's destroy script run (with its parameters, on no object) and the
 // entry deleted, then the list emptied (std::list::erase, 0x004ECC30). Always true.
-bool __cdecl CFunc_FlushCutsceneDestroyList(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_FlushCutsceneDestroyList(Scripts::CStruct*, Scripts::CScript*)
 {
-    PointerList& list = DestroyList();
+    PointerList& list = FreeNodeChain();
     Flushing() = true;
     Node* head = list.m_head;
     for (Node* node = head ? head->next : nullptr; node != head; node = node->next) {
         CutsceneDestroyEntry* entry = EntryOf(node);
-        Script::RunScript(entry->m_destroyScript, entry->m_params, nullptr, false, nullptr);
+        Scripts::LaunchScript(entry->m_destroyScript, entry->m_params, nullptr, false, nullptr);
         DeleteEntry(EntryOf(node));
     }
     Node* result;
-    reinterpret_cast<Obj::PointerList*>(&list)->Erase(
-        reinterpret_cast<Obj::PointerListNode**>(&result),
-        reinterpret_cast<Obj::PointerListNode*>(list.m_head ? list.m_head->next : nullptr),
-        reinterpret_cast<Obj::PointerListNode*>(list.m_head));
+    reinterpret_cast<GameObjects::PointerList*>(&list)->Erase(
+        reinterpret_cast<GameObjects::PointerListNode**>(&result),
+        reinterpret_cast<GameObjects::PointerListNode*>(list.m_head ? list.m_head->next : nullptr),
+        reinterpret_cast<GameObjects::PointerListNode*>(list.m_head));
     Flushing() = false;
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 // 0x00644A00 (a static initialiser): the cutscene destroy list, empty.
 void ConstructCutsceneDestroyList() { g_cutsceneDestroyList.Construct(); }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

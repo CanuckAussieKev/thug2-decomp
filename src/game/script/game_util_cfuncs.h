@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -12,21 +12,21 @@ class CScript;
 // initials, the fireball level, a skater's last name, the directional light's debug lines, the slap game,
 // a preference set from a menu. All are
 // cdecl (params, script) and return whether the script's `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
-bool __cdecl CFunc_InterpolateParameters(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetTextureFromPath(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ClearPowerups(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_FindNearestRailPoint(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetParkName(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_SetSpecialBarColors(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetInitialsString(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_SetInitialsString(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetFireballLevel(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetSkaterLastNameString(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_DrawDirectionalLightLines(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_InterpolateParameters(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetTextureFromPath(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ClearPowerups(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_FindNearestRailPoint(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetParkName(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_SetSpecialBarColors(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetInitialsString(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_SetInitialsString(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetFireballLevel(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetSkaterLastNameString(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_DrawDirectionalLightLines(Scripts::CStruct* params, Scripts::CScript* script);
 // (also called directly by the game: the arguments are ignored)
-bool __cdecl CFunc_InSlapGame(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_SetPreferencesFromUI(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_InSlapGame(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_SetPreferencesFromUI(Scripts::CStruct* params, Scripts::CScript* script);
 
-} // namespace CFuncs
+} // namespace ScriptCommands

@@ -9,7 +9,7 @@
 #include "game/file/pip.h"
 #include "game/core/code_address.h"
 
-namespace File {
+namespace FileLoad {
 
 namespace {
 extern void** const kAssetBundleVtable;
@@ -22,7 +22,7 @@ AssetBundle::AssetBundle()
     m_fileData = nullptr;
     m_loadedData = nullptr;
     m_file = nullptr;
-    m_loaded = false;
+    m_readyFlag = false;
     m_fileHeap = nullptr;
     m_assetHeap = nullptr;
     m_unknown234C = 0;
@@ -34,18 +34,18 @@ AssetBundle* AssetBundle::Destroy(unsigned int flags)
 {
     m_vtable = kAssetBundleVtable;
     if (m_fileData) {
-        Mem::FreeMalloc(m_fileData);
+        MemSys::FreeMalloc(m_fileData);
         m_fileData = nullptr;
     }
     if (m_file)
         AsyncClose(m_file);
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x005B6D30
-void AssetBundle::SetHeaps(Mem::Heap* fileHeap, Mem::Heap* assetHeap)
+void AssetBundle::SetHeaps(MemSys::Heap* fileHeap, MemSys::Heap* assetHeap)
 {
     m_fileHeap = fileHeap;
     m_assetHeap = assetHeap;
@@ -55,10 +55,10 @@ void AssetBundle::SetHeaps(Mem::Heap* fileHeap, Mem::Heap* assetHeap)
 bool AssetBundle::Load(const char* name, int unused1, int /*unused2*/)
 {
     int size = 0;
-    Mem::PushContext(m_fileHeap);
-    m_fileData = Pip::LoadFileInto(name, &size, nullptr);
+    MemSys::EnterHeapScope(m_fileHeap);
+    m_fileData = Packs::LoadFileInto(name, &size, nullptr);
     m_loadedData = static_cast<uint8_t*>(m_fileData);
-    Mem::PopContext();
+    MemSys::LeaveHeapScope();
     return Split(unused1, size);
 }
 
@@ -88,31 +88,31 @@ bool AssetBundle::Split(int /*unused*/, int size)
     for (int i = m_count - 1; i >= 0; --i) {
         uint32_t assetSize = m_entries[i].size;
         void* source = m_assets[i];
-        Mem::PushContext(m_assetHeap);
-        m_assets[i] = Mem::Malloc(assetSize);
+        MemSys::EnterHeapScope(m_assetHeap);
+        m_assets[i] = MemSys::AllocBlock(assetSize);
         std::memcpy(m_assets[i], source, assetSize);
-        Mem::PopContext();
+        MemSys::LeaveHeapScope();
 
         // The asset has its own copy: give the end of the file's block back.
-        Mem::PushContext(m_fileHeap);
-        m_fileData = Mem::ReallocateShrink(Mem::MallocSize(m_fileData) - assetSize, m_fileData);
-        Mem::PopContext();
+        MemSys::EnterHeapScope(m_fileHeap);
+        m_fileData = MemSys::TrimBlockEnd(MemSys::MallocSize(m_fileData) - assetSize, m_fileData);
+        MemSys::LeaveHeapScope();
     }
-    Mem::FreeMalloc(m_fileData);
+    MemSys::FreeMalloc(m_fileData);
     m_fileData = nullptr;
     m_loadedData = nullptr;
-    m_loaded = true;
+    m_readyFlag = true;
     return true;
 }
 
 // 0x005B6D50
 bool AssetBundle::IsLoaded()
 {
-    return m_loaded;
+    return m_readyFlag;
 }
 
 // 0x005B6D60
-void* AssetBundle::GetAsset(int index)
+void* AssetBundle::ObtainLoadedItem(int index)
 {
     return m_assets[index];
 }
@@ -159,7 +159,7 @@ bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
     bool found = false;
     for (int i = 0; i < m_count; ++i) {
         if (m_entries[i].name == name && m_entries[i].type == type) {
-            Mem::FreeMalloc(m_assets[i]);
+            MemSys::FreeMalloc(m_assets[i]);
             m_assets[i] = nullptr;
             found = true;
         }
@@ -168,7 +168,7 @@ bool AssetBundle::FreeAsset(uint32_t name, uint32_t type)
 }
 
 namespace {
-static VtableSlot kAssetBundleVtable_slots[] = {&File::AssetBundle::Destroy};
+static VtableSlot kAssetBundleVtable_slots[] = {&FileLoad::AssetBundle::Destroy};
 void** const kAssetBundleVtable = reinterpret_cast<void**>(kAssetBundleVtable_slots);
 } // namespace
 
@@ -178,7 +178,7 @@ namespace {
 
 // The constructor returns `this` in EAX (callers use it).
 struct AssetBundleAdapter {
-    File::AssetBundle* Construct() { return new (this) File::AssetBundle; }
+    FileLoad::AssetBundle* Construct() { return new (this) FileLoad::AssetBundle; }
 };
 
 } // namespace

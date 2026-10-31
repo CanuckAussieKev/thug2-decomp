@@ -1,4 +1,4 @@
-// The network manager's tasks (Tsk::Task<GameNet::Manager>: the manager at the task's +0x1C) and its GameSpy query
+// The network manager's tasks (TaskList::Task<OnlinePlay::Manager>: the manager at the task's +0x1C) and its GameSpy query
 // callbacks. See gamenet_handlers.h.
 
 #include <cstdint>
@@ -38,7 +38,7 @@
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -65,28 +65,28 @@ constexpr uint32_t kJoinTimeout = 60000; // ms
 Manager* TaskManager(void* task) { return Field<Manager*>(task, 0x1C); }
 
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
-void ShowConnectionMetrics(Net::Conn* conn, int index)
+void ShowConnectionMetrics(NetLink::Conn* conn, int index)
 {
     int lag = conn->IsLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
-    int sent = conn->m_sendMetrics.GetBytesPerSec();
-    int received = conn->m_receiveMetrics.GetBytesPerSec();
+    int sent = conn->m_sendMetrics.GetThroughput();
+    int received = conn->m_receiveMetrics.GetThroughput();
     int resends = conn->GetHighestResendCount();
     char line[1024];
     std::sprintf(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
-    Script::CStruct* params = NewParams();
+    Scripts::CStruct* params = NewParams();
     params->AddString(kText, line);
     Run(kUpdateNetMetrics, params);
     DeleteParams(params);
 }
 
 // Each connection of `app` that isn't local.
-void ShowAppMetrics(Net::App* app)
+void ShowAppMetrics(NetLink::App* app)
 {
-    Net::ConnSearch search;
-    search.m_vtable = Net::kConnSearchVtable;
-    search.m_node = nullptr;
+    NetLink::ConnSearch search;
+    search.m_vtable = NetLink::kConnSearchVtable;
+    search.m_listLink = nullptr;
     int index = 0;
-    for (Net::Conn* conn = app->FirstConnection(&search); conn; conn = app->NextConnection(&search)) {
+    for (NetLink::Conn* conn = app->BeginConnWalk(&search); conn; conn = app->StepConnWalk(&search)) {
         if (conn->IsLocal())
             continue;
         ShowConnectionMetrics(conn, index);
@@ -101,14 +101,14 @@ void __cdecl LevelChangeTask(void* task)
 {
     PlayerSearch search;
     Manager* manager = TaskManager(task);
-    if (Tmr::GetTime() < g_levelChangeTime)
+    if (FrameClock::GetTime() < g_levelChangeTime)
         return;
-    Call(CodeAddress(&Mdl::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
+    Call(CodeAddress(&GameModules::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
     if (uint8_t* king = KingOfTheHill(manager))
-        AsPlayer(king)->MarkAsKing(false);
+        AsPlayer(king)->GiveCrown(false);
     for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
         AsPlayer(p)->ClearFlags(); // carries no flag
-    Field<Tsk::BaseTask*>(manager, 0xEC)->Remove();
+    Field<TaskList::SchedulerTask*>(manager, 0xEC)->Remove();
 }
 
 uint32_t g_modemDialogEnd;
@@ -117,55 +117,55 @@ uint32_t g_modemDialogEnd;
 void __cdecl ModemStateTask(void* task)
 {
     Manager* manager = TaskManager(task);
-    Net::Manager* net = Net::Manager::Instance();
-    int state = net->GetModemState();
+    NetLink::Manager* net = NetLink::Manager::Instance();
+    int state = net->GetDialupStatus();
     int& shown = Field<int>(manager, 0x1A8); // the state shown last
     if (state == shown && state != 8) {
         shown = state;
         return;
     }
-    Script::CStruct* params = NewParams();
+    Scripts::CStruct* params = NewParams();
     char line[128];
     char line2[128];
     switch (state) {
     case 0: // connecting / dialing
-        if (net->GetConnectionType() == 3)
-            std::sprintf(line, "%s", Script::GetString(kConnecting));
+        if (net->GetNetLinkKind() == 3)
+            std::sprintf(line, "%s", Scripts::GetString(kConnecting));
         else
-            std::sprintf(line, "%s %s", Script::GetString(kDialing), net->GetDialupNumber());
-        params->AddString(kText, Script::ESYMBOLTYPE_STRING, line);
+            std::sprintf(line, "%s %s", Scripts::GetString(kDialing), net->GetDialupNumber());
+        params->AddString(kText, Scripts::QBVAL_STRING, line);
         Run(kStateDialog, params);
         break;
     case 1:
-        params->AddString(kText, Script::ESYMBOLTYPE_STRING, Script::GetString(kConnected));
+        params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(kConnected));
         Run(kStateDialog, params);
         break;
     case 2: // logged in (with the speed on a modem)
-        if (net->GetConnectionType() == 1)
-            std::sprintf(line2, "%s %d bps", Script::GetString(kLoggedIn), net->GetModemBaudRate());
+        if (net->GetNetLinkKind() == 1)
+            std::sprintf(line2, "%s %d bps", Scripts::GetString(kLoggedIn), net->GetDialupSpeed());
         else
-            std::sprintf(line2, "%s", Script::GetString(kLoggedIn));
-        params->AddString(kText, Script::ESYMBOLTYPE_STRING, line2);
+            std::sprintf(line2, "%s", Scripts::GetString(kLoggedIn));
+        params->AddString(kText, Scripts::QBVAL_STRING, line2);
         Run(kFinalStateDialog, params);
         break;
     case 3:
     case 4:
-        params->AddString(kText, Script::ESYMBOLTYPE_STRING, Script::GetString(state == 3 ? kDisconnecting : kHangingUp));
+        params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(state == 3 ? kDisconnecting : kHangingUp));
         Run(kStatusDialog, params);
         break;
     case 5:
-        params->AddString(kText, Script::ESYMBOLTYPE_STRING, Script::GetString(kDisconnected));
+        params->AddString(kText, Scripts::QBVAL_STRING, Scripts::GetString(kDisconnected));
         Run(kFinalStateDialog, params);
         break;
     case 7: // redial in five seconds
-        std::sprintf(line, "%s", Script::GetString(kRedialPause));
-        params->AddString(kText, Script::ESYMBOLTYPE_STRING, line);
+        std::sprintf(line, "%s", Scripts::GetString(kRedialPause));
+        params->AddString(kText, Scripts::QBVAL_STRING, line);
         Run(kStateDialog, params);
-        g_modemDialogEnd = Tmr::GetTime() + 5000;
-        net->SetModemState(8);
+        g_modemDialogEnd = FrameClock::GetTime() + 5000;
+        net->SetDialupStatus(8);
         break;
     case 8:
-        if (Tmr::GetTime() > g_modemDialogEnd) {
+        if (FrameClock::GetTime() > g_modemDialogEnd) {
             shown = -1;
             net->ConnectToInternet();
             return; // (the parameters never deleted: the original's)
@@ -183,9 +183,9 @@ void __cdecl NetMetricsTask(void* task)
 {
     Manager* manager = TaskManager(task);
     for (int pass = 0; pass < 2; ++pass) {
-        if (Net::App* client = manager->m_client; client && !client->IsLocal())
+        if (NetLink::App* client = manager->m_clientApp; client && !client->IsLocal())
             ShowAppMetrics(client);
-        if (Net::App* server = manager->m_server)
+        if (NetLink::App* server = manager->m_server)
             ShowAppMetrics(server);
     }
 }
@@ -194,7 +194,7 @@ void __cdecl NetMetricsTask(void* task)
 void __cdecl JoinTimeoutTask(void* task)
 {
     Manager* manager = TaskManager(task);
-    if (manager->m_joinState == 8 || Tmr::GetTime() - static_cast<uint32_t>(manager->m_joinStartTime) <= kJoinTimeout)
+    if (manager->m_joinState == 8 || FrameClock::GetTime() - static_cast<uint32_t>(manager->m_joinStartTime) <= kJoinTimeout)
         return;
     manager->m_joinStateTask->Remove();
     Run(kShowJoinTimeoutNotice);
@@ -222,7 +222,7 @@ void __cdecl KeyListCallback(int type, void* keys, void*)
 // 0x005334B0
 void __cdecl AddErrorCallback(int error, const char* message, void*)
 {
-    Dbg::Printf("Error adding server: %d, %s\n", error, message);
+    DebugOut::Printf("Error adding server: %d, %s\n", error, message);
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

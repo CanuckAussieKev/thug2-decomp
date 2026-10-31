@@ -9,18 +9,18 @@
 #include "game/gfx/loading_screen.h"
 #include "game/script/struct.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t g_loadingScreenShown;
 
 namespace {
 
 // Two integers into two settings (each left unset when missing - the original's stack garbage; 0 here).
-bool SetPair(Script::CStruct* params, uint32_t first, uint32_t second, int& settingA, int& settingB)
+bool ChoosePair(Scripts::CStruct* params, uint32_t first, uint32_t second, int& settingA, int& settingB)
 {
     int a = 0, b = 0;
-    params->GetInteger(first, &a, 0);
-    params->GetInteger(second, &b, 0);
+    params->FetchIntValue(first, &a, 0);
+    params->FetchIntValue(second, &b, 0);
     settingA = a;
     settingB = b;
     UpdateLoadingBarColors();
@@ -28,12 +28,12 @@ bool SetPair(Script::CStruct* params, uint32_t first, uint32_t second, int& sett
 }
 
 // A colour from r, g, b (alpha 0x80).
-bool SetColour(Script::CStruct* params, uint8_t (&setting)[4])
+bool ChangeColour(Scripts::CStruct* params, uint8_t (&setting)[4])
 {
     int r = 0, g = 0, b = 0; // (unset when missing in the original)
-    params->GetInteger(0x93F60062u, &r, 0);
-    params->GetInteger(0xFE2BE489u, &g, 0);
-    params->GetInteger(0x8E411006u, &b, 0);
+    params->FetchIntValue(0x93F60062u, &r, 0);
+    params->FetchIntValue(0xFE2BE489u, &g, 0);
+    params->FetchIntValue(0x8E411006u, &b, 0);
     uint8_t colour[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
     std::memcpy(setting, colour, sizeof(colour));
     UpdateLoadingBarColors();
@@ -53,43 +53,43 @@ void __cdecl SetLoadingBarTime(float seconds)
         return;
     g_loadingBarSeconds = seconds;
     UpdateLoadingBarColors();
-    StartLoadingBar(seconds);
+    ShowProgressBar(seconds);
 }
 
 // 0x004907A0
-bool __cdecl CFunc_SetLoadingBarPos(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetLoadingBarPos(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return SetPair(params, 0x7323E97Cu, 0x0424D9EAu, g_barPosition[0], g_barPosition[1]);
+    return ChoosePair(params, 0x7323E97Cu, 0x0424D9EAu, g_barPosition[0], g_barPosition[1]);
 }
 
 // 0x004907F0
-bool __cdecl CFunc_SetLoadingBarSize(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetLoadingBarSize(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return SetPair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_barWidth, g_barHeight);
+    return ChoosePair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_barWidth, g_barHeight);
 }
 
 // 0x00490840
-bool __cdecl CFunc_SetLoadingBarBorder(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetLoadingBarBorder(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return SetPair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_barBorder[0], g_barBorder[1]);
+    return ChoosePair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_barBorder[0], g_barBorder[1]);
 }
 
 // 0x004908E0
-bool __cdecl CFunc_SetLoadingBarStartColor(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetLoadingBarStartColor(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return SetColour(params, g_barStartColor);
+    return ChangeColour(params, g_barStartColor);
 }
 
 // 0x00490960
-bool __cdecl CFunc_SetLoadingBarEndColor(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetLoadingBarEndColor(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return SetColour(params, g_barEndColor);
+    return ChangeColour(params, g_barEndColor);
 }
 
 // 0x004909E0
-bool __cdecl CFunc_SetLoadingBarBorderColor(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetLoadingBarBorderColor(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return SetColour(params, g_barBorderColor);
+    return ChangeColour(params, g_barBorderColor);
 }
 
 // 0x00490890

@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-namespace Game::GoalNames {
+namespace GoalSystem::GoalNames {
 
 constexpr uint32_t kNoName = 0;                         // (an unnamed component: a flag)
 constexpr uint32_t kUnlimitedTime = 0xF0E712D2;         // unlimited_Time
@@ -94,4 +94,4 @@ inline const char* const kIdName = "id";            // "id"
 inline const char* const kEmptyString = "";       // ""
 inline const char* const kGotFormat = "got_%d";         // "got_%d"
 
-} // namespace Game::GoalNames
+} // namespace GoalSystem::GoalNames

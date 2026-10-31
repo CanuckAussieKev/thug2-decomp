@@ -10,7 +10,7 @@
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -19,8 +19,8 @@ float Difference(float a, float b) { return static_cast<float>(static_cast<doubl
 } // namespace
 
 // 0x0040FC00
-bool CapsuleHitsTriangle(const Mth::Capsule* capsule, const Mth::Vector* v0, const Mth::Vector* v1,
-                         const Mth::Vector* v2, Mth::Vector* point, Mth::Vector* normal, Mth::Vector* offset)
+bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vector* v0, const Maths::Vector* v1,
+                         const Maths::Vector* v2, Maths::Vector* point, Maths::Vector* normal, Maths::Vector* offset)
 {
     // The face's normal: e1 x e2 (e1 = v1 - v0, e2 = v2 - v0).
     const double e2x = static_cast<double>(v2->x) - v0->x;
@@ -61,8 +61,8 @@ bool CapsuleHitsTriangle(const Mth::Capsule* capsule, const Mth::Vector* v0, con
     point->w = static_cast<float>(static_cast<double>(pw) + e2tW);
 
     // The segment's nearest point: start + along (end - start); the offset from it to the face's.
-    const Mth::Vector& start = capsule->line.start;
-    const Mth::Vector& end = capsule->line.end;
+    const Maths::Vector& start = capsule->line.start;
+    const Maths::Vector& end = capsule->line.end;
     const float dX = static_cast<float>((static_cast<double>(end.x) - start.x) * along);
     const double dY = (static_cast<double>(end.y) - start.y) * along;
     const double dZ = static_cast<double>(Difference(end.z, start.z)) * along;
@@ -86,24 +86,24 @@ bool CapsuleHitsTriangle(const Mth::Capsule* capsule, const Mth::Vector* v0, con
 }
 
 // 0x004114E0 (slot 17, an instance's too: its faces are taken unplaced)
-bool CCollStatic::CollideWithCapsule(const Mth::Capsule* capsule, const Mth::BBox* box, CapsuleHits* hits)
+bool CStaticCollider::CollideWithCapsule(const Maths::Capsule* capsule, const Maths::BBox* box, CapsuleHits* hits)
 {
     int count;
     uint16_t buffer[0x800];
     const uint16_t* faces = m_geometry->GetFacesInBox(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
-        const CCollObjTriData* geometry = m_geometry;
+        const CTriMeshSource* geometry = m_geometry;
         uint32_t face = faces[i];
         uint16_t flags = *reinterpret_cast<const uint16_t*>(geometry->m_faces + face * (geometry->m_smallFaces ? 8 : 10));
         if ((flags & hits->ignoreFlags) || (~flags & hits->requireFlags))
             continue;
-        Mth::Vector v0, v1, v2;
-        geometry->GetRawVertexPos(geometry->FaceVertex(face, 0), &v0);
-        geometry->GetRawVertexPos(geometry->FaceVertex(face, 1), &v1);
-        geometry->GetRawVertexPos(geometry->FaceVertex(face, 2), &v2);
+        Maths::Vector v0, v1, v2;
+        geometry->ReadStoredVertex(geometry->FaceVertex(face, 0), &v0);
+        geometry->ReadStoredVertex(geometry->FaceVertex(face, 1), &v1);
+        geometry->ReadStoredVertex(geometry->FaceVertex(face, 2), &v2);
         if (!(hits->sweep == 0.0f)) // (a moving capsule isn't tested)
             continue;
-        Mth::Vector point, normal, offset;
+        Maths::Vector point, normal, offset;
         if (!CapsuleHitsTriangle(capsule, &v0, &v1, &v2, &point, &normal, &offset))
             continue;
         if (hits->count == CapsuleHits::kMost)

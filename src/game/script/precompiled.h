@@ -19,7 +19,7 @@
 //       script component: its tokens up to and including '$'), structures and arrays nested the same way
 //     array: a CArray (0x0C), then for more than one element their table (4 bytes each), then the elements'
 //       values: strings one after another (padded once at the end), pairs, vectors, or nested structures/arrays
-namespace Script {
+namespace Scripts {
 
 // Load the pre-compiled .qb image `data` (named `filename`): relocate it and define its symbols, replacing
 // symbols of the same names. `unused` is passed on as a flag no one reads.

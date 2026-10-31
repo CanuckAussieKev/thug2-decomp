@@ -13,7 +13,7 @@
 #include "game/front/level_editor_transform.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Arrange {
+namespace MenuSystem::LevelEditor::Arrange {
 
 namespace {
 
@@ -126,9 +126,9 @@ void BrowserExtras(float uiScale)
     Tip("Click in the view to place (Shift: more)");
 }
 
-} // namespace Front::LevelEditor::Arrange
+} // namespace MenuSystem::LevelEditor::Arrange
 
-namespace Front::LevelEditor::Adjust {
+namespace MenuSystem::LevelEditor::Adjust {
 
 void Panel(float x, float y, float uiScale)
 {
@@ -228,4 +228,4 @@ void Panel(float x, float y, float uiScale)
         Request(edit, done);
 }
 
-} // namespace Front::LevelEditor::Adjust
+} // namespace MenuSystem::LevelEditor::Adjust

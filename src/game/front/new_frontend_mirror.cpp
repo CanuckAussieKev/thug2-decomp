@@ -9,11 +9,11 @@
 
 #include "game/core/crc.h"
 
-namespace Front::NewFrontend::Mirror {
+namespace MenuSystem::NewFrontend::Mirror {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 // The longest list restyled (ours scrolls it; past this the game's own is kept - nothing the game makes is that long).
 constexpr size_t kMaxItems = 400;
@@ -470,33 +470,33 @@ bool Tracker::Update(const View& now, float dt)
     if (now.kind == Kind::None) {
         m_seen = 0;
         m_pendingKind = Kind::None;
-        if (m_up && ++m_gone >= kFramesToHide) {
-            m_up = false;
-            m_view = View{};
+        if (m_upDir && ++m_gone >= kFramesToHide) {
+            m_upDir = false;
+            m_cameraView = View{};
             m_rows.clear();
         }
     } else {
         m_gone = 0;
-        if (!m_up) {
+        if (!m_upDir) {
             m_seen = now.kind == m_pendingKind ? m_seen + 1 : 1;
             m_pendingKind = now.kind;
             if (m_seen >= kFramesToShow) {
-                m_up = true;
+                m_upDir = true;
                 m_rows.clear();
             }
         }
-        if (m_up) {
-            if (now.key != m_view.key || now.kind != m_view.kind)
+        if (m_upDir) {
+            if (now.key != m_cameraView.key || now.kind != m_cameraView.kind)
                 m_rows.clear();
-            m_view = now;
+            m_cameraView = now;
         }
     }
-    if (m_up) {
-        m_rows.resize(m_view.rows.size());
+    if (m_upDir) {
+        m_rows.resize(m_cameraView.rows.size());
         for (size_t i = 0; i < m_rows.size(); ++i)
-            m_rows[i].Tick(static_cast<int>(i) == m_view.selected, dt);
+            m_rows[i].Tick(static_cast<int>(i) == m_cameraView.selected, dt);
     }
-    return m_up;
+    return m_upDir;
 }
 
 float Tracker::RowAmount(int row) const
@@ -506,11 +506,11 @@ float Tracker::RowAmount(int row) const
 
 void Tracker::Reset()
 {
-    m_view = View{};
-    m_up = false;
+    m_cameraView = View{};
+    m_upDir = false;
     m_seen = m_gone = 0;
     m_pendingKind = Kind::None;
     m_rows.clear();
 }
 
-} // namespace Front::NewFrontend::Mirror
+} // namespace MenuSystem::NewFrontend::Mirror

@@ -15,7 +15,7 @@ struct ImFont;
 // TrickObject flag (and not a rail: those are the rail manager's) with the trick object manager (0x007CE500): AddCluster
 // (0x005896D0) of its Cluster= (its own name when it has none), then 0x00589760 (name, cluster) - the cluster's object
 // list (+0x44, nodes of 0x18 bytes: +0x0C next, +0x10 previous, +0x14 the name; 0x00588630 also readies the sector to
-// be coloured - 0x0049E670) and, when the name isn't the cluster's, the name -> cluster map (+0x20, a Lst::HashTable).
+// be coloured - 0x0049E670) and, when the name isn't the cluster's, the name -> cluster map (+0x20, a ListKit::HashTable).
 // Tricks on a piece look its name up there (0x00588380 / 0x00588FF0): its cluster counts for the combo's trick objects
 // - graffiti tagging, trick-object goals, the cluster's colour.
 //
@@ -29,7 +29,7 @@ struct ImFont;
 // Layout record (version 2 still; an older reader skips the kind):
 //   cluster <sector> <cluster>    the piece a trick object of that cluster (8 hex digits each)
 //   cluster <sector> -            the piece not a trick object
-namespace Front::LevelEditor::Clusters {
+namespace MenuSystem::LevelEditor::Clusters {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
@@ -73,4 +73,4 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
 // A cluster's name for the UI (the game's name table, the names typed in), else its 8 hex digits.
 std::string NameOf(uint32_t cluster);
 
-} // namespace Front::LevelEditor::Clusters
+} // namespace MenuSystem::LevelEditor::Clusters

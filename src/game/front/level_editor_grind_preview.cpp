@@ -16,7 +16,7 @@
 #include "game/obj/rail_manager.h"
 #include "game/skate/skate_module.h"
 
-namespace Front::LevelEditor::GrindPreview {
+namespace MenuSystem::LevelEditor::GrindPreview {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -125,10 +125,10 @@ namespace {
 
 // The rail manager (the skate module's +0x24 - as level_editor_chains.cpp reads it): the grindable points where they
 // are now; not one on an object.
-Obj::CRailManager* Rails()
+GameObjects::CGrindRailHub* Rails()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
-    auto* manager = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    auto* manager = skate ? *reinterpret_cast<GameObjects::CGrindRailHub**>(skate + 0x24) : nullptr;
     return manager && !manager->m_onObject && manager->m_nodes ? manager : nullptr;
 }
 
@@ -150,7 +150,7 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
         return index >= 0 && index < static_cast<int>(all.size()) && all[index].family == Nodes::Family::Rail;
     };
     int index = railNode(hovered) ? hovered : railNode(selected) ? selected : -1;
-    Obj::CRailManager* rails = Rails();
+    GameObjects::CGrindRailHub* rails = Rails();
     if (index < 0 || !rails)
         return;
     uint32_t name = all[index].name;
@@ -160,11 +160,11 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
     std::vector<V3> positions(graph.count);
     int start = -1;
     for (int i = 0; i < rails->m_count; ++i) {
-        const Obj::CRailNode& node = rails->m_nodes[i];
+        const GameObjects::CGrindPoint& node = rails->m_nodes[i];
         positions[i] = {node.m_pos.x, node.m_pos.y, node.m_pos.z};
-        if (node.m_name == name && !(node.m_flags & Obj::RAIL_FLAG_CLIMBING))
+        if (node.m_name == name && !(node.m_flags & GameObjects::RAIL_FLAG_CLIMBING))
             start = i;
-        if (node.m_next && !(node.m_flags & Obj::RAIL_FLAG_CLIMBING)) {
+        if (node.m_next && !(node.m_flags & GameObjects::RAIL_FLAG_CLIMBING)) {
             int next = static_cast<int>(node.m_next - rails->m_nodes);
             if (next >= 0 && next < rails->m_count)
                 graph.links.push_back({i, next});
@@ -173,7 +173,7 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
     if (start < 0)
         return;
     Rail rail = RailOf(graph, start);
-    bool active = (rails->m_nodes[start].m_flags & Obj::RAIL_FLAG_ACTIVE) != 0;
+    bool active = (rails->m_nodes[start].m_flags & GameObjects::RAIL_FLAG_ACTIVE) != 0;
     // The segments with their direction; the points; the ends; branches.
     constexpr uint32_t kSegment = 0xF0FFFFFF, kChevron = 0xFF40E0FF, kInactive = 0xA0909090;
     uint32_t segmentColour = active ? kSegment : kInactive;
@@ -234,7 +234,7 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
     int transfers = 0;
     for (int e : ends) {
         for (int q = 0; q < graph.count && transfers < 24; ++q) {
-            if (inRail[q] || degree[q] != 1 || (rails->m_nodes[q].m_flags & Obj::RAIL_FLAG_CLIMBING))
+            if (inRail[q] || degree[q] != 1 || (rails->m_nodes[q].m_flags & GameObjects::RAIL_FLAG_CLIMBING))
                 continue;
             V3 d = positions[q] - positions[e];
             float distance = std::sqrt(Dot(d, d));
@@ -272,4 +272,4 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected)
 
 std::string Describe() { return g_describe; }
 
-} // namespace Front::LevelEditor::GrindPreview
+} // namespace MenuSystem::LevelEditor::GrindPreview

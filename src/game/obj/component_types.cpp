@@ -85,7 +85,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/core/code_address.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -99,88 +99,88 @@ struct ComponentType {
 
 // In the original's order (CreateComponent finds the first of a type).
 const ComponentType kComponentTypes[] = {
-    {0x21FC3301, CodeAddress(&Obj::CSkaterStancePanelComponent::Create), nullptr},
-    {0xB5F1E9D2, CodeAddress(&Obj::CSkaterLoopingSoundComponent::Create), CodeAddress(&Obj::CSkaterLoopingSoundComponent::RegisterMemberFunctions)}, // SkaterLoopingSound
-    {0x187574FA, CodeAddress(&Obj::CSkaterSoundComponent::Create), nullptr}, // SkaterSound
-    {0x11B4C67F, CodeAddress(&Obj::CSkaterGapComponent::Create), nullptr}, // SkaterGap
-    {0x52D61A0D, CodeAddress(&Obj::CSkaterRotateComponent::Create), nullptr}, // SkaterRotate
-    {0xD9151D4D, CodeAddress(&Obj::CSkaterPhysicsControlComponent::Create), CodeAddress(&Obj::CSkaterPhysicsControlComponent::RegisterMemberFunctions)}, // SkaterPhysicsControl
-    {0x7CD3E6D5, CodeAddress(&Obj::CSkaterLocalNetLogicComponent::Create), nullptr}, // SkaterLocalNetLogic
-    {0x850EEF66, CodeAddress(&Obj::CSkaterNonLocalNetLogicComponent::Create), nullptr}, // SkaterNonLocalNetLogic
-    {0xD262802F, CodeAddress(&Obj::CSkaterScoreComponent::Create), nullptr}, // SkaterScore
-    {0xBF518E27, CodeAddress(&Obj::CSkaterMatrixQueriesComponent::Create), nullptr}, // SkaterMatrixQueries
-    {0x125044E2, CodeAddress(&Obj::CSkaterFloatingNameComponent::Create), nullptr}, // SkaterFloatingName
-    {0x18223FD6, CodeAddress(&Obj::CSkaterStateHistoryComponent::Create), nullptr}, // SkaterStateHistory
-    {0x5BD63B29, CodeAddress(&Skater::CorePhysicsComponent::Create), CodeAddress(&Skater::CorePhysicsComponent::RegisterMemberFunctions)}, // SkaterCorePhysics
-    {0x9F9CC949, CodeAddress(&Obj::CSkaterAdjustPhysicsComponent::Create), nullptr}, // SkaterAdjustPhysics
-    {0x9B373E58, CodeAddress(&Obj::CSkaterFinalizePhysicsComponent::Create), nullptr}, // SkaterFinalizePhysics
-    {0xD8CC3428, CodeAddress(&CSkaterCleanupStateComponent::Create), nullptr}, // SkaterCleanupState
-    {0xB1D5A3E1, CodeAddress(&Obj::CSkaterEndRunComponent::Create), nullptr}, // SkaterEndRun
-    {0x589E5FB3, CodeAddress(&Obj::CSkaterBalanceTrickComponent::Create), CodeAddress(&Obj::CSkaterBalanceTrickComponent::RegisterMemberFunctions)}, // SkaterBalanceTrick (balance_trick.h)
-    {0x488AF07A, CodeAddress(&Obj::CSkaterFlipAndRotateComponent::Create), nullptr}, // SkaterFlipAndRotate
-    {0x43686585, CodeAddress(&Obj::CSkaterStateComponent::Create), CodeAddress(&Obj::CSkaterStateComponent::RegisterMemberFunctions)}, // SkaterState
-    {0x81F01058, CodeAddress(&Ed::CGoalEditorComponent::Create), CodeAddress(&Ed::CGoalEditorComponent::RegisterMemberFunctions)},
-    {0x5B509AD3, CodeAddress(&Ed::CRailEditorComponent::Create), nullptr},
-    {0x1D5B1AE6, CodeAddress(&Obj::CObjectProximityComponent::Create), CodeAddress(&Obj::CObjectProximityComponent::RegisterMemberFunctions)},
-    {0xAC8946E2, CodeAddress(&Obj::CEditorCameraComponent::Create), nullptr},
-    {0x8BCE7E66, CodeAddress(&Obj::CSkaterRunTimerComponent::Create), CodeAddress(&Obj::CSkaterRunTimerComponent::RegisterMemberFunctions)}, // SkaterRunTimer
-    {0x1859F772, CodeAddress(&Obj::CSkaterVehicleSoundComponent::Create), CodeAddress(&Obj::CSkaterVehicleSoundComponent::RegisterMemberFunctions)},
-    {0x380D909A, CodeAddress(&Obj::CTaggingControlComponent::Create), nullptr},
-    {0x5B512EDC, CodeAddress(&Obj::CTaggingComponent::Create), nullptr}, // Tagging
-    {0xD1515392, CodeAddress(&Obj::CPagerMessageComponent::Create), CodeAddress(&Obj::CPagerMessageComponent::RegisterMemberFunctions)},
-    {0x286A8D26, CodeAddress(&Obj::CModelComponent::Create), nullptr}, // Model
-    {0xE3FCA939, CodeAddress(&Obj::CModelLightUpdateComponent::Create), nullptr}, // ModelLightUpdate
-    {0x222756D5, CodeAddress(&Obj::CSkeletonComponent::Create), CodeAddress(&Obj::CSkeletonComponent::RegisterMemberFunctions)}, // the skeleton
-    {0x7149B753, CodeAddress(&Obj::CAnimBlenderComponent::Create),
-     CodeAddress(&Obj::CAnimBlenderComponent::RegisterMemberFunctions)}, // the animation blender
-    {0x07713C7B, CodeAddress(&Obj::CSoundComponent::Create), CodeAddress(&Obj::CSoundComponent::RegisterMemberFunctions)}, // Sound
-    {0xA432DC41, CodeAddress(&Obj::CCollisionComponent::Create), nullptr}, // Collision
-    {0x5CB5CB7E, CodeAddress(&Obj::CLockObjComponent::Create), nullptr},
-    {0xC695136D, CodeAddress(&Obj::CCarPhysicsComponent::Create), CodeAddress(&Obj::CCarPhysicsComponent::RegisterMemberFunctions)}, // CarPhysics
-    {0x0A015E17, CodeAddress(&Obj::CMotionComponent::Create), CodeAddress(&Obj::CMotionPathMembers::RegisterMemberFunctions)}, // Motion
-    {0xCE0CA665, CodeAddress(&Obj::CSuspendComponent::Create), CodeAddress(&Obj::CSuspendComponent::RegisterMemberFunctions)}, // Suspend
-    {0x270F56E1, CodeAddress(&Obj::CTrickComponent::Create), CodeAddress(&Obj::CTrickComponent::RegisterMemberFunctions)}, // Trick
-    {0x6EB050ED, CodeAddress(&Obj::CAvoidComponent::Create), CodeAddress(&Obj::CAvoidComponent::RegisterMemberFunctions)}, // Avoid
-    {0x6EFDDFB8, CodeAddress(&Obj::CPedLogicComponent::Create), CodeAddress(&Obj::CPedLogicComponent::RegisterMemberFunctions)}, // PedLogic
-    {0xFFB39248, CodeAddress(&Obj::CRigidBodyComponent::Create), CodeAddress(&CRigidBodyComponent::RegisterMemberFunctions)}, // Rigidbody
+    {0x21FC3301, CodeAddress(&GameObjects::CRiderStanceDisplay::Create), nullptr},
+    {0xB5F1E9D2, CodeAddress(&GameObjects::CRiderRollingAudio::Create), CodeAddress(&GameObjects::CRiderRollingAudio::PublishMethodTable)}, // SkaterLoopingSound
+    {0x187574FA, CodeAddress(&GameObjects::CRiderSfxPlayer::Create), nullptr}, // SkaterSound
+    {0x11B4C67F, CodeAddress(&GameObjects::CRiderGapTracker::Create), nullptr}, // SkaterGap
+    {0x52D61A0D, CodeAddress(&GameObjects::CRiderTurning::Create), nullptr}, // SkaterRotate
+    {0xD9151D4D, CodeAddress(&GameObjects::CRiderBoardPhysics::Create), CodeAddress(&GameObjects::CRiderBoardPhysics::PublishMethodTable)}, // SkaterPhysicsControl
+    {0x7CD3E6D5, CodeAddress(&GameObjects::CRiderHostSync::Create), nullptr}, // SkaterLocalNetLogic
+    {0x850EEF66, CodeAddress(&GameObjects::CRiderRemoteSync::Create), nullptr}, // SkaterNonLocalNetLogic
+    {0xD262802F, CodeAddress(&GameObjects::CRiderPointKeeper::Create), nullptr}, // SkaterScore
+    {0xBF518E27, CodeAddress(&GameObjects::CRiderFrameLookups::Create), nullptr}, // SkaterMatrixQueries
+    {0x125044E2, CodeAddress(&GameObjects::CRiderOverheadTag::Create), nullptr}, // SkaterFloatingName
+    {0x18223FD6, CodeAddress(&GameObjects::CRiderFrameLog::Create), nullptr}, // SkaterStateHistory
+    {0x5BD63B29, CodeAddress(&Skater::CorePhysicsComponent::Create), CodeAddress(&Skater::CorePhysicsComponent::PublishMethodTable)}, // SkaterCorePhysics
+    {0x9F9CC949, CodeAddress(&GameObjects::CRiderPhysicsTweaks::Create), nullptr}, // SkaterAdjustPhysics
+    {0x9B373E58, CodeAddress(&GameObjects::CRiderPhysicsCommit::Create), nullptr}, // SkaterFinalizePhysics
+    {0xD8CC3428, CodeAddress(&CRiderStateReset::Create), nullptr}, // SkaterCleanupState
+    {0xB1D5A3E1, CodeAddress(&GameObjects::CRiderSessionEnd::Create), nullptr}, // SkaterEndRun
+    {0x589E5FB3, CodeAddress(&GameObjects::CRiderTeeterMoves::Create), CodeAddress(&GameObjects::CRiderTeeterMoves::PublishMethodTable)}, // SkaterBalanceTrick (balance_trick.h)
+    {0x488AF07A, CodeAddress(&GameObjects::CRiderSpinAndFlip::Create), nullptr}, // SkaterFlipAndRotate
+    {0x43686585, CodeAddress(&GameObjects::CRiderPoseState::Create), CodeAddress(&GameObjects::CRiderPoseState::PublishMethodTable)}, // SkaterState
+    {0x81F01058, CodeAddress(&ParkEditing::CObjectiveAuthoring::Create), CodeAddress(&ParkEditing::CObjectiveAuthoring::PublishMethodTable)},
+    {0x5B509AD3, CodeAddress(&ParkEditing::CRailAuthoring::Create), nullptr},
+    {0x1D5B1AE6, CodeAddress(&GameObjects::CObjectProximityComponent::Create), CodeAddress(&GameObjects::CObjectProximityComponent::PublishMethodTable)},
+    {0xAC8946E2, CodeAddress(&GameObjects::CEditorViewModule::Create), nullptr},
+    {0x8BCE7E66, CodeAddress(&GameObjects::CRiderRunClock::Create), CodeAddress(&GameObjects::CRiderRunClock::PublishMethodTable)}, // SkaterRunTimer
+    {0x1859F772, CodeAddress(&GameObjects::CSkaterVehicleSoundComponent::Create), CodeAddress(&GameObjects::CSkaterVehicleSoundComponent::PublishMethodTable)},
+    {0x380D909A, CodeAddress(&GameObjects::CTaggingControlComponent::Create), nullptr},
+    {0x5B512EDC, CodeAddress(&GameObjects::CTaggingComponent::Create), nullptr}, // Tagging
+    {0xD1515392, CodeAddress(&GameObjects::CPagerMessageComponent::Create), CodeAddress(&GameObjects::CPagerMessageComponent::PublishMethodTable)},
+    {0x286A8D26, CodeAddress(&GameObjects::CMeshInstanceModule::Create), nullptr}, // Model
+    {0xE3FCA939, CodeAddress(&GameObjects::CMeshLightingModule::Create), nullptr}, // ModelLightUpdate
+    {0x222756D5, CodeAddress(&GameObjects::CBoneRigModule::Create), CodeAddress(&GameObjects::CBoneRigModule::PublishMethodTable)}, // the skeleton
+    {0x7149B753, CodeAddress(&GameObjects::CAnimBlenderComponent::Create),
+     CodeAddress(&GameObjects::CAnimBlenderComponent::PublishMethodTable)}, // the animation blender
+    {0x07713C7B, CodeAddress(&GameObjects::CAudioEmitterModule::Create), CodeAddress(&GameObjects::CAudioEmitterModule::PublishMethodTable)}, // Sound
+    {0xA432DC41, CodeAddress(&GameObjects::CContactShapeModule::Create), nullptr}, // Collision
+    {0x5CB5CB7E, CodeAddress(&GameObjects::CPinnedObjectModule::Create), nullptr},
+    {0xC695136D, CodeAddress(&GameObjects::CAutomobileDynamicsModule::Create), CodeAddress(&GameObjects::CAutomobileDynamicsModule::PublishMethodTable)}, // CarPhysics
+    {0x0A015E17, CodeAddress(&GameObjects::CKinematicsModule::Create), CodeAddress(&GameObjects::CMotionPathMembers::PublishMethodTable)}, // Motion
+    {0xCE0CA665, CodeAddress(&GameObjects::CDormancyModule::Create), CodeAddress(&GameObjects::CDormancyModule::PublishMethodTable)}, // Suspend
+    {0x270F56E1, CodeAddress(&GameObjects::CMoveExecutor::Create), CodeAddress(&GameObjects::CMoveExecutor::PublishMethodTable)}, // Trick
+    {0x6EB050ED, CodeAddress(&GameObjects::CObstacleDodgeModule::Create), CodeAddress(&GameObjects::CObstacleDodgeModule::PublishMethodTable)}, // Avoid
+    {0x6EFDDFB8, CodeAddress(&GameObjects::CPedestrianBrainModule::Create), CodeAddress(&GameObjects::CPedestrianBrainModule::PublishMethodTable)}, // PedLogic
+    {0xFFB39248, CodeAddress(&GameObjects::CBodyDynamicsModule::Create), CodeAddress(&CBodyDynamicsModule::PublishMethodTable)}, // Rigidbody
     {0x6DCFEC46, CodeAddress(&CChainComponent::Create), nullptr},
-    {0x8A897DD2, CodeAddress(&Obj::CShadowComponent::Create), nullptr}, // Shadow
-    {0x0F1641E3, CodeAddress(&Obj::CStreamComponent::Create), CodeAddress(&Obj::CStreamComponent::RegisterMemberFunctions)}, // Stream
-    {0xF27A294D, CodeAddress(&Obj::CSpecialItemComponent::Create), nullptr}, // SpecialItem
-    {0xE47F1B79, CodeAddress(&Obj::CVehicleComponent::Create), CodeAddress(&Obj::RegisterVehicleMemberFunctions)}, // Vehicle
-    {0x2C747D8A, CodeAddress(&Obj::CVehicleCameraComponent::Create), CodeAddress(&Obj::CVehicleCameraComponent::RegisterMemberFunctions)}, // VehicleCamera
-    {0xC472ECC5, CodeAddress(&CNodeArrayComponent::Create), nullptr},
-    {0x1CDFB2A3, CodeAddress(&CRailManagerComponent::Create), nullptr},
-    {0x27443708, CodeAddress(&CObjectHookManagerComponent::Create), nullptr},
-    {0x3506CE64, CodeAddress(&Obj::CSkitchComponent::Create), nullptr}, // Skitch
-    {0xC4E311FA, CodeAddress(&Obj::CCameraComponent::Create), nullptr}, // Camera
-    {0x5E43A604, CodeAddress(&CSkaterCameraComponent::Create), nullptr}, // SkaterCamera
-    {0x404EB936, CodeAddress(&Obj::CVibrationComponent::Create), CodeAddress(&Obj::CVibrationComponent::RegisterMemberFunctions)},
-    {0xE594F0A2, CodeAddress(&Obj::CTriggerComponent::Create), nullptr}, // Trigger
-    {0xEADA1621, CodeAddress(&Obj::CFloatingTextComponent::Create), nullptr},
-    {0x27D7CD28, CodeAddress(&Obj::CInputComponent::Create), CodeAddress(&Obj::CInputComponent::RegisterMemberFunctions)}, // Input
-    {0xA9DB601E, CodeAddress(&CParticleComponent::Create), CodeAddress(&CParticleComponent::RegisterMemberFunctions)}, // Particle
-    {0xC5BCEB9E, CodeAddress(&Obj::CFlexibleParticleComponent::Create), CodeAddress(&Obj::CFlexibleParticleComponent::RegisterMemberFunctions)},
-    {0x726E85AA, CodeAddress(&CWalkComponent::Create), CodeAddress(&Obj::CWalkComponent::RegisterMemberFunctions)}, // Walk
-    {0xC7D37EC2, CodeAddress(&Obj::CWalkCameraComponent::Create), nullptr}, // WalkCamera
-    {0x7505D7CC, CodeAddress(&Obj::CTextureProjectionComponent::Create), nullptr},
-    {0x81C7122D, CodeAddress(&Obj::CCameraLookAroundComponent::Create), nullptr}, // CameraLookAround
-    {0x408D2AA9, CodeAddress(&CMovableContactComponent::Create), nullptr}, // MovableContact
-    {0x4FF8DAC6, CodeAddress(&Obj::CStatsManagerComponent::Create), CodeAddress(&Obj::CStatsManagerComponent::RegisterMemberFunctions)},
-    {0x28C97F3C, CodeAddress(&Obj::CVehicleSoundComponent::Create), nullptr}, // VehicleSound
-    {0x41272956, CodeAddress(&Obj::CVelocityComponent::Create), nullptr}, // Velocity
-    {0x6259B52B, CodeAddress(&Obj::CCollideAndDieComponent::Create), nullptr},
-    {0x7767D6D7, CodeAddress(&Obj::CProjectileCollisionComponent::Create), nullptr},
-    {0x1BBF844D, CodeAddress(&Obj::CDisplayMatrixComponent::Create), nullptr},
-    {0x9649D4F9, CodeAddress(&Obj::CStaticVehicleComponent::Create), nullptr}, // StaticVehicle
-    {0xCDC76A22, CodeAddress(&Obj::CColorCycleComponent::Create), CodeAddress(&Obj::CColorCycleComponent::RegisterMemberFunctions)},
-    {0xB87C8E43, CodeAddress(&Obj::CBBoxComponent::Create), nullptr},
-    {0x3618B878, CodeAddress(&Obj::CProjectileProximityComponent::Create), nullptr},
-    {0x7E747547, CodeAddress(&Obj::CProjectileComponent::Create), nullptr}, // (the projectile component)
-    {0x03AC8065, CodeAddress(&Obj::CreateWaitAndDieComponent), nullptr},
-    {0xD8BFC9F7, CodeAddress(&Obj::CDynamicLightComponent::Create), nullptr},
-    {0x208353AC, CodeAddress(&Obj::CMatrixComponent::Create), nullptr},
-    {0x0301D67C, CodeAddress(&Obj::CFamComponent::Create), CodeAddress(&Obj::CFamComponent::RegisterMemberFunctions)},
+    {0x8A897DD2, CodeAddress(&GameObjects::CGroundShadowModule::Create), nullptr}, // Shadow
+    {0x0F1641E3, CodeAddress(&GameObjects::CAudioStreamModule::Create), CodeAddress(&GameObjects::CAudioStreamModule::PublishMethodTable)}, // Stream
+    {0xF27A294D, CodeAddress(&GameObjects::CPickupItemHandler::Create), nullptr}, // SpecialItem
+    {0xE47F1B79, CodeAddress(&GameObjects::CDrivableModule::Create), CodeAddress(&GameObjects::RegisterVehicleMemberFunctions)}, // Vehicle
+    {0x2C747D8A, CodeAddress(&GameObjects::CCarView::Create), CodeAddress(&GameObjects::CCarView::PublishMethodTable)}, // VehicleCamera
+    {0xC472ECC5, CodeAddress(&CWaypointListModule::Create), nullptr},
+    {0x1CDFB2A3, CodeAddress(&CGrindPathLinkModule::Create), nullptr},
+    {0x27443708, CodeAddress(&CHookPointRegistryModule::Create), nullptr},
+    {0x3506CE64, CodeAddress(&GameObjects::CTowRideHandler::Create), nullptr}, // Skitch
+    {0xC4E311FA, CodeAddress(&GameObjects::CViewpointModule::Create), nullptr}, // Camera
+    {0x5E43A604, CodeAddress(&CRiderChaseView::Create), nullptr}, // SkaterCamera
+    {0x404EB936, CodeAddress(&GameObjects::CPadRumbleModule::Create), CodeAddress(&GameObjects::CPadRumbleModule::PublishMethodTable)},
+    {0xE594F0A2, CodeAddress(&GameObjects::CActivationZoneModule::Create), nullptr}, // Trigger
+    {0xEADA1621, CodeAddress(&GameObjects::CFloatingTextComponent::Create), nullptr},
+    {0x27D7CD28, CodeAddress(&GameObjects::CPadInputModule::Create), CodeAddress(&GameObjects::CPadInputModule::PublishMethodTable)}, // Input
+    {0xA9DB601E, CodeAddress(&CEffectsEmitterModule::Create), CodeAddress(&CEffectsEmitterModule::PublishMethodTable)}, // Particle
+    {0xC5BCEB9E, CodeAddress(&GameObjects::CFlexibleParticleComponent::Create), CodeAddress(&GameObjects::CFlexibleParticleComponent::PublishMethodTable)},
+    {0x726E85AA, CodeAddress(&CFootMovement::Create), CodeAddress(&GameObjects::CFootMovement::PublishMethodTable)}, // Walk
+    {0xC7D37EC2, CodeAddress(&GameObjects::CFootView::Create), nullptr}, // WalkCamera
+    {0x7505D7CC, CodeAddress(&GameObjects::CTextureProjectionComponent::Create), nullptr},
+    {0x81C7122D, CodeAddress(&GameObjects::CFreeLookModule::Create), nullptr}, // CameraLookAround
+    {0x408D2AA9, CodeAddress(&CMovingSurfaceModule::Create), nullptr}, // MovableContact
+    {0x4FF8DAC6, CodeAddress(&GameObjects::CAttributeTracker::Create), CodeAddress(&GameObjects::CAttributeTracker::PublishMethodTable)},
+    {0x28C97F3C, CodeAddress(&GameObjects::CEngineAudioModule::Create), nullptr}, // VehicleSound
+    {0x41272956, CodeAddress(&GameObjects::CVelocityTrackerModule::Create), nullptr}, // Velocity
+    {0x6259B52B, CodeAddress(&GameObjects::CImpactDestructModule::Create), nullptr},
+    {0x7767D6D7, CodeAddress(&GameObjects::CShotImpactModule::Create), nullptr},
+    {0x1BBF844D, CodeAddress(&GameObjects::CDisplayMatrixComponent::Create), nullptr},
+    {0x9649D4F9, CodeAddress(&GameObjects::CParkedVehicleModule::Create), nullptr}, // StaticVehicle
+    {0xCDC76A22, CodeAddress(&GameObjects::CColorCycleComponent::Create), CodeAddress(&GameObjects::CColorCycleComponent::PublishMethodTable)},
+    {0xB87C8E43, CodeAddress(&GameObjects::CBBoxComponent::Create), nullptr},
+    {0x3618B878, CodeAddress(&GameObjects::CProjectileProximityComponent::Create), nullptr},
+    {0x7E747547, CodeAddress(&GameObjects::CProjectileComponent::Create), nullptr}, // (the projectile component)
+    {0x03AC8065, CodeAddress(&GameObjects::CreateWaitAndDieComponent), nullptr},
+    {0xD8BFC9F7, CodeAddress(&GameObjects::CDynamicLightComponent::Create), nullptr},
+    {0x208353AC, CodeAddress(&GameObjects::CMatrixComponent::Create), nullptr},
+    {0x0301D67C, CodeAddress(&GameObjects::CFamComponent::Create), CodeAddress(&GameObjects::CFamComponent::PublishMethodTable)},
 };
 
 } // namespace
@@ -188,7 +188,7 @@ const ComponentType kComponentTypes[] = {
 // 0x004E4860
 void __cdecl RegisterComponentTypes()
 {
-    CCompositeObjectManager* manager = CompositeObjectManager();
+    CEntityHub* manager = CompositeObjectManager();
     for (const ComponentType& t : kComponentTypes) {
         manager->RegisterComponent(t.type, reinterpret_cast<ComponentCreateFunction>(t.create),
                                    reinterpret_cast<ComponentRegisterFunction>(t.registerFunctions));

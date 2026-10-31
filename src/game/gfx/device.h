@@ -7,7 +7,7 @@
 #include <cstdint>
 
 // The Direct3D 9 device (Nx engine, PC).
-namespace Nx {
+namespace Engine3D {
 
 // 0x004D8650: create Direct3D and the device - full screen (or windowed, PartyMod's Windowed setting) at the
 // resolution setting's size, trying smaller ones and fewer features until it works (exits if nothing does) -

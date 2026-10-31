@@ -11,7 +11,7 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Career {
+namespace MenuSystem::LevelEditor::Career {
 
 bool EditorGap(const std::string& name, const std::vector<std::string>& editorGaps,
                const std::vector<std::string>& levelGaps)
@@ -37,13 +37,13 @@ namespace {
 
 // The baseline (level_editor_career.h) and the checklist it is of.
 bool g_on;
-Game::CGapChecklist* g_of;
+GoalSystem::CGapTally* g_of;
 Checklist g_baseline;
 
-Game::CGapChecklist* CurrentChecklist()
+GoalSystem::CGapTally* CurrentChecklist()
 {
-    void* skate = reinterpret_cast<void*>(Mdl::g_skateModule);
-    return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
+    void* skate = reinterpret_cast<void*>(GameModules::g_skateModule);
+    return skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
 }
 
 int Landed(const Checklist& list)
@@ -66,18 +66,18 @@ void TakeBaseline(const char* why)
 
 } // namespace
 
-Checklist Read(Game::CGapChecklist* checklist)
+Checklist Read(GoalSystem::CGapTally* checklist)
 {
     Checklist out;
     out.built = checklist->m_built;
     int count = checklist->Count();
     for (int i = 0; i < count; ++i) {
         Gap gap;
-        gap.name = checklist->GetGapName(i);
-        gap.score = checklist->GetGapScore(i);
-        gap.count = checklist->GetGapCount(i);
+        gap.name = checklist->GetGapTitle(i);
+        gap.score = checklist->GetGapPoints(i);
+        gap.count = checklist->CountGapsFound(i);
         if (gap.count) {
-            Mth::Vector pos, dir;
+            Maths::Vector pos, dir;
             checklist->GetGapPositions(i, &pos, &dir);
             const float p[4] = {pos.x, pos.y, pos.z, pos.w}, d[4] = {dir.x, dir.y, dir.z, dir.w};
             std::copy(p, p + 4, gap.pos);
@@ -97,17 +97,17 @@ void EditedCopy(bool on)
         TakeBaseline("the edited copy");
         return;
     }
-    if (Game::CGapChecklist* checklist = g_of) {
-        // Put back as the career's load puts a checklist (CSkaterCareer::ReadFromStructure): cleared, the gaps added.
+    if (GoalSystem::CGapTally* checklist = g_of) {
+        // Put back as the career's load puts a checklist (CRiderStoryProgress::DecodeFromStruct): cleared, the gaps added.
         Checklist now = Read(checklist);
         checklist->Clear();
         for (const Gap& gap : g_baseline.gaps) {
-            checklist->AddGap(gap.name.c_str(), gap.count, gap.score);
+            checklist->RegisterGapEntry(gap.name.c_str(), gap.count, gap.score);
             if (gap.count)
                 checklist->SetGapPositions(gap.name.c_str(), {gap.pos[0], gap.pos[1], gap.pos[2], gap.pos[3]},
                                            {gap.dir[0], gap.dir[1], gap.dir[2], gap.dir[3]});
         }
-        checklist->m_built = g_baseline.built; // (AddGap marks it built)
+        checklist->m_built = g_baseline.built; // (RegisterGapEntry marks it built)
         Log("level editor: the career's gap list put back as before the edited copy (%u gaps, %d landed; it had %u, "
             "%d landed)",
             static_cast<unsigned>(g_baseline.gaps.size()), Landed(g_baseline), static_cast<unsigned>(now.gaps.size()),
@@ -123,7 +123,7 @@ void CareerReplaced()
         TakeBaseline("the career replaced");
 }
 
-bool SaveView(Game::CGapChecklist* checklist, Checklist* out)
+bool SaveView(GoalSystem::CGapTally* checklist, Checklist* out)
 {
     std::vector<std::string> editorGaps, levelGaps;
     bool editor = Triggers::EditorGaps(checklist, &editorGaps, &levelGaps);
@@ -138,4 +138,4 @@ bool SaveView(Game::CGapChecklist* checklist, Checklist* out)
     return true;
 }
 
-} // namespace Front::LevelEditor::Career
+} // namespace MenuSystem::LevelEditor::Career

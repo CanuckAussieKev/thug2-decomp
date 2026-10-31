@@ -24,7 +24,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -56,16 +56,16 @@ void SetState(void* core, int state) { static_cast<Skater::CorePhysicsComponent*
 } // namespace
 
 // 0x004F80E0
-CBaseComponent* __cdecl CSkaterAdjustPhysicsComponent::Create()
+CObjectModule* __cdecl CRiderPhysicsTweaks::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterAdjustPhysicsComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderPhysicsTweaks));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterAdjustPhysicsComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderPhysicsTweaks*>(memory);
+    component->CObjectModule::Construct();
     component->mp_core = nullptr;
-    component->mp_model = nullptr;
-    component->mp_shadow = nullptr;
+    component->m_meshInstance = nullptr;
+    component->m_shadowHandle = nullptr;
     component->mp_ride = nullptr;
     component->m_uberFrigged = 0;
     component->m_vtable = kVtable;
@@ -74,39 +74,39 @@ CBaseComponent* __cdecl CSkaterAdjustPhysicsComponent::Create()
 }
 
 // 0x004F8040
-void CSkaterAdjustPhysicsComponent::DestroyBody()
+void CRiderPhysicsTweaks::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004F8050
-CSkaterAdjustPhysicsComponent* CSkaterAdjustPhysicsComponent::Destroy(unsigned int flags)
+CRiderPhysicsTweaks* CRiderPhysicsTweaks::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004F8080
-void CSkaterAdjustPhysicsComponent::Finalize()
+void CRiderPhysicsTweaks::Finalize()
 {
     mp_core = m_object->GetComponent(kSkaterCorePhysics);
-    mp_model = reinterpret_cast<CModelComponent*>(m_object->GetComponent(kModel));
-    mp_shadow = reinterpret_cast<CShadowComponent*>(m_object->GetComponent(kShadow));
-    mp_ride = reinterpret_cast<CMovableContactComponent*>(m_object->GetComponent(kMovableContact));
-    mp_state = reinterpret_cast<CSkaterStateComponent*>(m_object->GetComponent(kSkaterState));
+    m_meshInstance = reinterpret_cast<CMeshInstanceModule*>(m_object->GetComponent(kModel));
+    m_shadowHandle = reinterpret_cast<CGroundShadowModule*>(m_object->GetComponent(kShadow));
+    mp_ride = reinterpret_cast<CMovingSurfaceModule*>(m_object->GetComponent(kMovableContact));
+    mp_state = reinterpret_cast<CRiderPoseState*>(m_object->GetComponent(kSkaterState));
 }
 
 // 0x004F8C40
-void CSkaterAdjustPhysicsComponent::FrameUpdate()
+void CRiderPhysicsTweaks::FrameUpdate()
 {
     uint8_t* flags = At<uint8_t*>(mp_core, kTimedFlags);
     if (At<int>(flags, 0x18) == 0 || m_object->m_vel.y < 0.0f) {
         if (flags[0x60] != 1) {
             flags[0x60] = 1;
-            At<int>(flags, 0x64) = Tmr::GameClockElapsed() + g_clockOffset;
+            At<int>(flags, 0x64) = FrameClock::GameClockElapsed() + g_clockOffset;
         }
     }
     if (!At<uint8_t*>(mp_core, kTimedFlags)[0x88])
@@ -116,24 +116,24 @@ void CSkaterAdjustPhysicsComponent::FrameUpdate()
 }
 
 // 0x004F8AA0
-void CSkaterAdjustPhysicsComponent::CheckInsideMovingObject()
+void CRiderPhysicsTweaks::CheckInsideMovingObject()
 {
-    Mth::Vector& frameStart = At<Mth::Vector>(mp_core, kFrameStart);
+    Maths::Vector& frameStart = At<Maths::Vector>(mp_core, kFrameStart);
     if (!mp_ride->FindContactAhead(&m_object->m_pos, &frameStart))
         return;
-    Dbg::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
-    Nx::CFeeler feeler;
+    DebugOut::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    const Mth::Vector& pos = m_object->m_pos;
-    Mth::Vector start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
+    const Maths::Vector& pos = m_object->m_pos;
+    Maths::Vector start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
     feeler.SetStart(&start);
-    Mth::Vector end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
+    Maths::Vector end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
     feeler.SetEnd(&end);
-    if (feeler.GetCollision(true, false) && feeler.HitObjectAlive())
+    if (feeler.GetHitShape(true, false) && feeler.HitObjectAlive())
         reinterpret_cast<Walk::MovableContact*>(mp_ride)->StartRiding(feeler.GetHitObject());
     if (At<int>(At<uint8_t*>(mp_core, kTimedFlags), 0x18) == 4) {
         SetState(mp_core, 1);
-        m_object->SelfEvent(kUnderTheFloor, nullptr);
+        m_object->PostOwnEvent(kUnderTheFloor, nullptr);
     } else if (m_object->m_pos == frameStart) {
         m_object->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
     }
@@ -141,43 +141,43 @@ void CSkaterAdjustPhysicsComponent::CheckInsideMovingObject()
 }
 
 // 0x004F82F0
-void CSkaterAdjustPhysicsComponent::UpdateBrightness(Nx::CFeeler* ground)
+void CRiderPhysicsTweaks::UpdateBrightness(Engine3D::CProbeRay* ground)
 {
-    bool hit = ground->GetCollision(false, false) != 0;
-    Nx::CFeeler feeler;
+    bool hit = ground->GetHitShape(false, false) != 0;
+    Engine3D::CProbeRay feeler;
     feeler.CopyConstruct(*ground);
-    feeler.SetIgnore(0, 0x20);
+    feeler.SetExcluded(0, 0x20);
     feeler.m_line.start.y = static_cast<float>(static_cast<double>(feeler.m_line.start.y) + kBrightnessAbove);
     if (hit)
-        feeler.m_line.end = {ground->m_point.x, static_cast<float>(static_cast<double>(ground->m_point.y) - 1.0f),
-                             ground->m_point.z, ground->m_point.w};
+        feeler.m_line.end = {ground->m_contactPos.x, static_cast<float>(static_cast<double>(ground->m_contactPos.y) - 1.0f),
+                             ground->m_contactPos.z, ground->m_contactPos.w};
     else
         feeler.m_line.end = feeler.m_line.start;
-    if (feeler.GetCollision(false, false))
-        mp_model->ApplyBrightness(&feeler, true, 1.0f);
+    if (feeler.GetHitShape(false, false))
+        m_meshInstance->ApplyBrightness(&feeler, true, 1.0f);
     else if (hit)
-        mp_model->ApplyBrightness(ground, true, 1.0f);
+        m_meshInstance->ApplyBrightness(ground, true, 1.0f);
     feeler.m_object.Release();
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterAdjustPhysicsComponent::Destroy,
-         &Obj::CSkaterAdjustPhysicsComponent::FrameUpdate,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsTweaks::Destroy,
+         &GameObjects::CRiderPhysicsTweaks::FrameUpdate,
          Stubs::IgnoreArgument,
-         &Obj::CSkaterAdjustPhysicsComponent::Finalize,
+         &GameObjects::CRiderPhysicsTweaks::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

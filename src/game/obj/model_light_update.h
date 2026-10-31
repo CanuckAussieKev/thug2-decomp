@@ -5,15 +5,15 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
-class CModelComponent;
+class CMeshInstanceModule;
 
-// CModelLightUpdateComponent::m_lightFlags (+0x18)
+// CMeshLightingModule::m_lightFlags (+0x18)
 constexpr uint32_t MODEL_LIGHT_ONCE = 0x1;    // (flag 0xE7375C4C) sampled once, then the component suspends itself
 constexpr uint32_t MODEL_LIGHT_SAMPLED = 0x2; // the first sample taken
 
@@ -23,22 +23,22 @@ constexpr uint32_t MODEL_LIGHT_SAMPLED = 0x2; // the first sample taken
 // component (ApplyBrightness), every `interval` frames (staggered by the component's address), its model's lights lerped
 // towards it in between.
 //
-// Vtable: 0 the scalar deleting destructor, 1 Update, 2 InitFromStructure, 3 Finalize; the rest the base's / shared.
-class CModelLightUpdateComponent : public CBaseComponent {
+// Vtable: 0 the scalar deleting destructor, 1 Update, 2 ConfigureFromData, 3 Finalize; the rest the base's / shared.
+class CMeshLightingModule : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0xE3FCA939;
 
     // 0x00422DC0 (registered with the composite object manager): a new one (the constructor inlined: the base's, its
     // vtable, no flags, interval or brightness, its type; 0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00422D00: its vtable back, then the base's body.
     void DestroyBody();
     // 0x00422D10 (vtable slot 0)
-    CModelLightUpdateComponent* Destroy(unsigned int flags);
+    CMeshLightingModule* Destroy(unsigned int flags);
     // 0x00422D40 (vtable slot 2): MODEL_LIGHT_ONCE from flag 0xE7375C4C; the interval from 0x470B8AE9 (default 0: every
     // frame), the counter starting at (this component's address % interval) + 1 - spreading objects' samples over the
     // frames (an interval of 0 given: a division by zero, as the original).
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x00422DA0 (vtable slot 3): its object's model component.
     void Finalize();
     // 0x004230B0 (vtable slot 1): the first time, a sample (set at once); then, until the counter passes the
@@ -50,14 +50,14 @@ public:
     void Sample(bool lerp, float rate);
 
     uint32_t m_lightFlags;      // +0x18 MODEL_LIGHT_*
-    uint32_t m_interval;        // +0x1C 0x470B8AE9 (frames)
+    uint32_t m_gapTime;        // +0x1C 0x470B8AE9 (frames)
     uint32_t m_counter;         // +0x20
     float m_brightness;         // +0x24 the last sample's
-    CModelComponent* mp_model;  // +0x28
+    CMeshInstanceModule* m_meshInstance;  // +0x28
 };
-static_assert(offsetof(CModelLightUpdateComponent, m_lightFlags) == 0x18 &&
-                  offsetof(CModelLightUpdateComponent, m_brightness) == 0x24 &&
-                  offsetof(CModelLightUpdateComponent, mp_model) == 0x28 && sizeof(CModelLightUpdateComponent) == 0x2C,
+static_assert(offsetof(CMeshLightingModule, m_lightFlags) == 0x18 &&
+                  offsetof(CMeshLightingModule, m_brightness) == 0x24 &&
+                  offsetof(CMeshLightingModule, m_meshInstance) == 0x28 && sizeof(CMeshLightingModule) == 0x2C,
               "layout must match the original (0x00422DC0 allocates 0x2C bytes)");
 
 } // namespace Obj

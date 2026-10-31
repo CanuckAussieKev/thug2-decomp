@@ -1,7 +1,7 @@
 // The network manager's GameSpy lobby: small members and the peer SDK's hosting callbacks (0x0053F620-0x0053FEE0).
 // See gamenet_lobby.h.
 //
-// NOT ORIGINAL: the game name reported (key 2) is the online identity's (Net::GameName()); the original pushes
+// NOT ORIGINAL: the game name reported (key 2) is the online identity's (NetLink::GameName()); the original pushes
 // "thps6pc" and online_identity.cpp wrote the configured name over that push (0x0053F936), which this source replaces.
 
 #include "game/net/gamenet_lobby.h"
@@ -21,7 +21,7 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the server's name)
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -64,7 +64,7 @@ void KeyBufferAdd(void* keyBuffer, int key) { GameSpy::Qr2KeyBufferAdd(keyBuffer
 } // namespace
 
 // 0x0053F7E0
-void LobbyMan::StopHosting()
+void RoomManager::StopHosting()
 {
     if (m_peer) {
         GameSpy::PeerStopGame(m_peer); // peerStopGame
@@ -74,21 +74,21 @@ void LobbyMan::StopHosting()
 }
 
 // 0x0053F810
-bool LobbyMan::IsHosting() { return m_hosting; }
+bool RoomManager::IsHosting() { return m_hosting; }
 // 0x0053F820
-char* LobbyMan::GetRoomName() { return m_roomName; }
+char* RoomManager::GetRoomName() { return m_roomName; }
 // 0x0053F830
-void LobbyMan::SetServerName(const char* name) { std::strcpy(m_serverName, name); }
+void RoomManager::SetServerName(const char* name) { std::strcpy(m_serverName, name); }
 // 0x0053F850
-char* LobbyMan::GetServerName() { return m_serverName; }
+char* RoomManager::GetServerName() { return m_serverName; }
 // 0x0053F860
-void LobbyMan::ClearLostConnection() { m_lostConnection = false; }
+void RoomManager::ClearLostConnection() { m_lostConnection = false; }
 // 0x0053F870
-void LobbyMan::SetLostConnection() { m_lostConnection = true; }
+void RoomManager::SetLostConnection() { m_lostConnection = true; }
 // 0x0053F880
-void* LobbyMan::GetPeer() { return m_peer; }
+void* RoomManager::GetLobbyHandle() { return m_peer; }
 // 0x0053F890
-bool LobbyMan::InGroupRoom() { return m_inGroupRoom; }
+bool RoomManager::InGroupRoom() { return m_inGroupRoom; }
 
 // 0x0053F8B0
 void LobbySearchA::DestroyBody() { m_vtable = kLobbySearchAVtable; }
@@ -96,17 +96,17 @@ void LobbySearchA::DestroyBody() { m_vtable = kLobbySearchAVtable; }
 void LobbySearchB::DestroyBody() { m_vtable = kLobbySearchBVtable; }
 
 // 0x0053F8A0
-bool __cdecl CFunc_ResetConnectionTimer(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ResetConnectionTimer(Scripts::CStruct*, Scripts::CScript*)
 {
-    g_connectionTimer = Tmr::GetTime();
+    g_connectionTimer = FrameClock::GetTime();
     return true;
 }
 
 // 0x0053F8D0
-void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
+void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
 {
     Manager* manager = g_gameNetManager;
-    Prefs::Preferences* prefs = manager->GetNetworkPreferences();
+    OptionStore::Preferences* prefs = manager->GetOnlineSettings();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
@@ -115,13 +115,13 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
         break;
     }
     case kKeyGamename:
-        BufferAdd(buffer, Net::GameName()); // (the original: "thps6pc")
+        BufferAdd(buffer, NetLink::GameName()); // (the original: "thps6pc")
         break;
     case kKeyHostport:
         BufferAddInt(buffer, kHostPort);
         break;
     case kKeyMapname:
-        BufferAdd(buffer, manager->GetLevelName(true)); // (null passed on, unlike the qr2 callback)
+        BufferAdd(buffer, manager->GetMapName(true)); // (null passed on, unlike the qr2 callback)
         break;
     case kKeyGametype:
     case kKeyGamemode:
@@ -131,7 +131,7 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAddInt(buffer, manager->CountPlayers());
         break;
     case kKeyMaxplayers:
-        BufferAddInt(buffer, manager->GetMaxPlayers());
+        BufferAddInt(buffer, manager->GetPlayerLimit());
         break;
     case kKeyTeamplay:
         BufferAddInt(buffer, 0);
@@ -143,16 +143,16 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAddInt(buffer, manager->CountObservers());
         break;
     case kKeyMaxObservers:
-        BufferAddInt(buffer, manager->GetMaxObservers());
+        BufferAddInt(buffer, manager->GetSpectatorLimit());
         break;
     case kKeySkillLevel:
-        BufferAddInt(buffer, manager->GetSkillLevel());
+        BufferAddInt(buffer, manager->GetDifficultyTier());
         break;
     case kKeyInProgress:
         BufferAddInt(buffer, GameType() == kNetLobby ? 0 : 1);
         break;
     case kKeyHostMode:
-        BufferAddInt(buffer, manager->GetHostMode());
+        BufferAddInt(buffer, manager->GetHostingRole());
         break;
     case kKeyLoggedIn:
         BufferAddInt(buffer, Field<bool>(manager->m_buddyMan, 0x10) ? 1 : 0); // (the presence)
@@ -165,7 +165,7 @@ void __cdecl LobbyMan::ServerKeyCallback(void*, int key, void* buffer, void*)
 }
 
 // 0x0053FEC0
-int __cdecl LobbyMan::CountCallback(void*, int type, void*)
+int __cdecl RoomManager::CountCallback(void*, int type, void*)
 {
     if (type == kKeyTypeServer)
         return kServerKeyCount;
@@ -175,7 +175,7 @@ int __cdecl LobbyMan::CountCallback(void*, int type, void*)
 }
 
 // 0x0053F620
-void __cdecl LobbyMan::KeyListCallback(void*, int type, void* keyBuffer, void*)
+void __cdecl RoomManager::KeyListCallback(void*, int type, void* keyBuffer, void*)
 {
     if (type == kKeyTypeServer) {
         for (int key : {kKeyHostport, kKeyMapname, kKeyGametype, kKeyTeamplay, kKeyNumplayers, kKeyMaxplayers,
@@ -188,4 +188,4 @@ void __cdecl LobbyMan::KeyListCallback(void*, int type, void* keyBuffer, void*)
     }
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

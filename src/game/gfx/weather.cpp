@@ -10,22 +10,22 @@
 #include "game/script/struct.h"
 #include "game/core/code_address.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 extern void** const kWeatherVtable;
 
-float FloatParameter(Script::CStruct* params, float fallback)
+float FloatParameter(Scripts::CStruct* params, float fallback)
 {
     float value = fallback;
     params->GetFloat(0u, &value, 0);
     return value;
 }
-int IntegerParameter(Script::CStruct* params, int fallback)
+int IntegerParameter(Scripts::CStruct* params, int fallback)
 {
     int value = fallback;
-    params->GetInteger(0u, &value, 0);
+    params->FetchIntValue(0u, &value, 0);
     return value;
 }
 int Frames(int frames)
@@ -36,24 +36,24 @@ int Frames(int frames)
         frames = 0xFE;
     return frames;
 }
-void SetColour(uint8_t* colour, int value) { std::memcpy(colour, &value, 4); }
+void ChangeColour(uint8_t* colour, int value) { std::memcpy(colour, &value, 4); }
 
 // A blend mode's name (the unnamed checksum) and fixed alpha (0x20) handed to virtual [slot].
-bool PassBlendMode(CWeather* weather, Script::CStruct* params, int slot)
+bool PassBlendMode(CWeatherSystem* weather, Scripts::CStruct* params, int slot)
 {
     uint32_t name = 0;
-    if (!params->GetChecksum(0u, &name, 0))
+    if (!params->ReadHashValue(0u, &name, 0))
         return false;
     int fixedAlpha = 0x20;
-    params->GetInteger(0u, &fixedAlpha, 0);
-    reinterpret_cast<void(__thiscall*)(CWeather*, uint32_t, int)>(weather->m_vtable[slot])(weather, name, fixedAlpha);
+    params->FetchIntValue(0u, &fixedAlpha, 0);
+    reinterpret_cast<void(__thiscall*)(CWeatherSystem*, uint32_t, int)>(weather->m_vtable[slot])(weather, name, fixedAlpha);
     return true;
 }
 
 } // namespace
 
 // 0x004A14C0
-CWeather* CWeather::Construct()
+CWeatherSystem* CWeatherSystem::Construct()
 {
     std::memset(m_rainBottom, 0xFF, 4);
     m_vtable = reinterpret_cast<void**>(kWeatherVtable);
@@ -71,64 +71,64 @@ CWeather* CWeather::Construct()
     m_snowSize = 4.0f;
     m_snowRate = 0.0f;
     std::memset(m_snowColour, 0x80, 4);
-    m_raining = true;
+    m_rainOn = true;
     m_active = false;
     return this;
 }
 
 // 0x004A1080
-void CWeather::DestroyBody()
+void CWeatherSystem::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kWeatherVtable);
 }
 
 // 0x004A1550
-CWeather* CWeather::Destroy(unsigned int freeFlags)
+CWeatherSystem* CWeatherSystem::Destroy(unsigned int freeFlags)
 {
     m_vtable = reinterpret_cast<void**>(kWeatherVtable);
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004A1020
-void CWeather::UpdateGrid()
+void CWeatherSystem::TickGrid()
 {
-    Dbg::Printf("STUB: plat_update_grid\n");
+    DebugOut::Printf("STUB: plat_update_grid\n");
 }
 
 // 0x004A1030
-void CWeather::Update(int)
+void CWeatherSystem::Update(int)
 {
-    Dbg::Printf("STUB: plat_process\n");
+    DebugOut::Printf("STUB: plat_process\n");
 }
 
 // 0x004A1040
-void CWeather::Render()
+void CWeatherSystem::Render()
 {
-    Dbg::Printf("STUB: plat_render\n");
+    DebugOut::Printf("STUB: plat_render\n");
 }
 
 // 0x004A1050
-void CWeather::SetRainBlendMode(uint32_t, int)
+void CWeatherSystem::SetRainBlendMode(uint32_t, int)
 {
-    Dbg::Printf("STUB: plat_set_rain_blend_mode\n");
+    DebugOut::Printf("STUB: plat_set_rain_blend_mode\n");
 }
 
 // 0x004A1060
-void CWeather::SetSplashBlendMode(uint32_t, int)
+void CWeatherSystem::SetSplashBlendMode(uint32_t, int)
 {
-    Dbg::Printf("STUB: plat_set_splash_blend_mode\n");
+    DebugOut::Printf("STUB: plat_set_splash_blend_mode\n");
 }
 
 // 0x004A1070
-void CWeather::SetSnowBlendMode(uint32_t, int)
+void CWeatherSystem::SetSnowBlendMode(uint32_t, int)
 {
-    Dbg::Printf("STUB: plat_set_snow_blend_mode\n");
+    DebugOut::Printf("STUB: plat_set_snow_blend_mode\n");
 }
 
 // 0x004A10B0
-bool CWeather::ScriptSetRainHeight(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainHeight(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainHeight = 2000.0f;
     params->GetFloat(0u, &m_rainHeight, 0);
@@ -136,16 +136,16 @@ bool CWeather::ScriptSetRainHeight(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A10D0
-bool CWeather::ScriptSetRainFrames(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainFrames(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainFrames = 40;
-    params->GetInteger(0u, &m_rainFrames, 0);
+    params->FetchIntValue(0u, &m_rainFrames, 0);
     m_rainFrames = Frames(m_rainFrames);
     return true;
 }
 
 // 0x004A1110
-bool CWeather::ScriptSetRainLength(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainLength(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainLength = 100.0f;
     params->GetFloat(0u, &m_rainLength, 0);
@@ -153,13 +153,13 @@ bool CWeather::ScriptSetRainLength(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A1130
-bool CWeather::ScriptSetRainBlendMode(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainBlendMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     return PassBlendMode(this, params, 4);
 }
 
 // 0x004A1190
-bool CWeather::ScriptSetRainRate(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainRate(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_rainRate = 0.0f;
     params->GetFloat(0u, &m_rainRate, 0);
@@ -167,19 +167,19 @@ bool CWeather::ScriptSetRainRate(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A11B0
-bool CWeather::ScriptSetRainColor(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainColor(Scripts::CStruct* params, Scripts::CScript*)
 {
     int colour = 0;
-    params->GetInteger("top", &colour, 0);
-    SetColour(m_rainTop, colour);
+    params->FetchIntValue("top", &colour, 0);
+    ChangeColour(m_rainTop, colour);
     colour = -1;
-    params->GetInteger("bottom", &colour, 0);
-    SetColour(m_rainBottom, colour);
+    params->FetchIntValue("bottom", &colour, 0);
+    ChangeColour(m_rainBottom, colour);
     return true;
 }
 
 // 0x004A1240
-bool CWeather::ScriptSetSplashRate(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSplashRate(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_splashRate = 0.0f;
     params->GetFloat(0u, &m_splashRate, 0);
@@ -187,15 +187,15 @@ bool CWeather::ScriptSetSplashRate(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A1260
-bool CWeather::ScriptSetSplashLife(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSplashLife(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_splashLife = 8; // (not kept within 0-254)
-    params->GetInteger(0u, &m_splashLife, 0);
+    params->FetchIntValue(0u, &m_splashLife, 0);
     return true;
 }
 
 // 0x004A1280
-bool CWeather::ScriptSetSplashSize(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSplashSize(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_splashSize = 16.0f;
     params->GetFloat(0u, &m_splashSize, 0);
@@ -203,20 +203,20 @@ bool CWeather::ScriptSetSplashSize(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A12A0
-bool CWeather::ScriptSetSplashColor(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSplashColor(Scripts::CStruct* params, Scripts::CScript*)
 {
-    SetColour(m_splashColour, IntegerParameter(params, static_cast<int>(0x80808080)));
+    ChangeColour(m_splashColour, IntegerParameter(params, static_cast<int>(0x80808080)));
     return true;
 }
 
 // 0x004A12F0
-bool CWeather::ScriptSetSplashBlendMode(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSplashBlendMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     return PassBlendMode(this, params, 5);
 }
 
 // 0x004A1350
-bool CWeather::ScriptSetSnowHeight(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowHeight(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_snowHeight = 500.0f;
     params->GetFloat(0u, &m_snowHeight, 0);
@@ -224,16 +224,16 @@ bool CWeather::ScriptSetSnowHeight(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A1370
-bool CWeather::ScriptSetSnowFrames(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowFrames(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_snowFrames = 0xFE;
-    params->GetInteger(0u, &m_snowFrames, 0);
+    params->FetchIntValue(0u, &m_snowFrames, 0);
     m_snowFrames = Frames(m_snowFrames);
     return true;
 }
 
 // 0x004A13B0
-bool CWeather::ScriptSetSnowSize(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowSize(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_snowSize = 4.0f;
     params->GetFloat(0u, &m_snowSize, 0);
@@ -241,36 +241,36 @@ bool CWeather::ScriptSetSnowSize(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004A13D0
-bool CWeather::ScriptSetSnowBlendMode(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowBlendMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     return PassBlendMode(this, params, 6);
 }
 
 // 0x004A1430
-bool CWeather::ScriptSetSnowRate(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowRate(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_snowRate = FloatParameter(params, 0.0f);
     return true;
 }
 
 // 0x004A1450
-bool CWeather::ScriptSetSnowColor(Script::CStruct* params, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowColor(Scripts::CStruct* params, Scripts::CScript*)
 {
-    SetColour(m_snowColour, IntegerParameter(params, static_cast<int>(0x80808080)));
+    ChangeColour(m_snowColour, IntegerParameter(params, static_cast<int>(0x80808080)));
     return true;
 }
 
 // 0x004A14A0
-bool CWeather::ScriptSetSnowActive(Script::CStruct*, Script::CScript*)
+bool CWeatherSystem::ScriptSetSnowActive(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_raining = false;
+    m_rainOn = false;
     return true;
 }
 
 // 0x004A14B0
-bool CWeather::ScriptSetRainActive(Script::CStruct*, Script::CScript*)
+bool CWeatherSystem::ScriptSetRainActive(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_raining = true;
+    m_rainOn = true;
     return true;
 }
 
@@ -293,9 +293,9 @@ __declspec(naked) void VirtualSlot3Jump()
 }
 
 namespace {
-static VtableSlot kWeatherVtable_slots[] = {&Nx::CWeather::Destroy, &Nx::CWeather::UpdateGrid, &Nx::CWeather::Update,
-                &Nx::CWeather::Render, &Nx::CWeather::SetRainBlendMode, &Nx::CWeather::SetSplashBlendMode,
-                &Nx::CWeather::SetSnowBlendMode};
+static VtableSlot kWeatherVtable_slots[] = {&Engine3D::CWeatherSystem::Destroy, &Engine3D::CWeatherSystem::TickGrid, &Engine3D::CWeatherSystem::Update,
+                &Engine3D::CWeatherSystem::Render, &Engine3D::CWeatherSystem::SetRainBlendMode, &Engine3D::CWeatherSystem::SetSplashBlendMode,
+                &Engine3D::CWeatherSystem::SetSnowBlendMode};
 void** const kWeatherVtable = reinterpret_cast<void**>(kWeatherVtable_slots);
 } // namespace
 

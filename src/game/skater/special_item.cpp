@@ -21,7 +21,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -55,54 +55,54 @@ T& Field(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
 // The object marked dead (its vtable +0x18: a composite object tells its components first).
-void MarkAsDead(CCompositeObject* object) { reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(object->m_vtable[6])(object); }
+void FlagAsDead(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[6])(object); }
 
 // An object's model's data (its model component's +0x208), or null.
-uint8_t* ModelData(CCompositeObject* object)
+uint8_t* ModelData(CGameEntity* object)
 {
-    CBaseComponent* model = object->GetComponent(kModel);
+    CObjectModule* model = object->GetComponent(kModel);
     return model ? Field<uint8_t*>(model, 0x208) : nullptr;
 }
 
 // A message to the server, in a network game.
 void SendToServer(uint8_t id, void* data)
 {
-    auto* manager = GameNet::g_gameNetManager;
+    auto* manager = OnlinePlay::g_gameNetManager;
     if (!manager->InNetGame())
         return;
-    Net::MsgDesc msg;
+    NetLink::NetMessageInfo msg;
     msg.Construct();
-    auto* client = static_cast<Net::Client*>(manager->GetClient(0));
+    auto* client = static_cast<NetLink::Client*>(manager->GetClient(0));
     msg.m_data = data;
-    msg.m_length = 0xC;
+    msg.m_byteCount = 0xC;
     msg.m_id = id;
-    client->EnqueueMessageToServer(&msg);
+    client->SendToHost(&msg);
 }
 
 } // namespace
 
 // 0x0051BD80
-CBaseComponent* __cdecl CSpecialItemComponent::Create()
+CObjectModule* __cdecl CPickupItemHandler::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSpecialItemComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CPickupItemHandler));
     if (!memory)
         return nullptr;
-    auto* items = static_cast<CSpecialItemComponent*>(memory);
-    items->CBaseComponent::Construct();
+    auto* items = static_cast<CPickupItemHandler*>(memory);
+    items->CObjectModule::Construct();
     items->m_vtable = kVtable;
     items->m_type = kType;
     items->m_items[0] = nullptr;
@@ -111,65 +111,65 @@ CBaseComponent* __cdecl CSpecialItemComponent::Create()
 }
 
 // 0x0051BF20
-void CSpecialItemComponent::DestroyBody()
+void CPickupItemHandler::DestroyBody()
 {
     m_vtable = kVtable;
     for (int slot = 0; slot < kItems; ++slot)
         DestroyItem(slot);
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0051C130
-CSpecialItemComponent* CSpecialItemComponent::Destroy(unsigned int flags)
+CPickupItemHandler* CPickupItemHandler::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0051BE00
-void CSpecialItemComponent::DestroyItem(int slot)
+void CPickupItemHandler::DestroyItem(int slot)
 {
     if (!m_items[slot])
         return;
-    Script::CStruct* tags = NewParams();
+    Scripts::CStruct* tags = NewParams();
     m_items[slot]->CopyTagsTo(tags);
     uint32_t script;
-    if (tags->GetChecksum(kDeathScript, &script, 0))
-        Script::RunScript(script, nullptr, m_items[slot], false, nullptr);
+    if (tags->ReadHashValue(kDeathScript, &script, 0))
+        Scripts::LaunchScript(script, nullptr, m_items[slot], false, nullptr);
     DeleteParams(tags);
-    MarkAsDead(m_items[slot]);
+    FlagAsDead(m_items[slot]);
     m_items[slot] = nullptr;
 }
 
 // 0x0051BF00
-void CSpecialItemComponent::DestroyItems()
+void CPickupItemHandler::DestroyItems()
 {
     for (int slot = 0; slot < kItems; ++slot)
         DestroyItem(slot);
 }
 
 // 0x0051BF80
-CCompositeObject* CSpecialItemComponent::CreateItem(int slot, Script::CStruct* params)
+CGameEntity* CPickupItemHandler::CreateItem(int slot, Scripts::CStruct* params)
 {
     if (m_items[slot])
         DestroyItem(slot);
     uint32_t id;
-    if (params->GetChecksum(kId, &id, 0)) {
+    if (params->ReadHashValue(kId, &id, 0)) {
         id += m_object->m_id;
-        params->AddChecksum(kId, id);
+        params->PutNameKey(kId, id);
     }
-    Mem::PushMemProfile("Game Objects");
-    CCompositeObject* item = CreateGameObjectFromNode(params);
-    Mem::PopMemProfile();
+    MemSys::PushMemProfile("Game Objects");
+    CGameEntity* item = CreateGameObjectFromNode(params);
+    MemSys::PopMemProfile();
     m_items[slot] = item;
 
-    Script::CStruct* tags = NewParams();
-    tags->AddChecksum(kOwner, m_object->m_id);
+    Scripts::CStruct* tags = NewParams();
+    tags->PutNameKey(kOwner, m_object->m_id);
     uint32_t script;
-    if (params->GetChecksum(kDeathScript, &script, 0))
-        tags->AddChecksum(kDeathScript, script);
+    if (params->ReadHashValue(kDeathScript, &script, 0))
+        tags->PutNameKey(kDeathScript, script);
     m_items[slot]->SetTagsFromStruct(tags);
     DeleteParams(tags);
 
@@ -179,13 +179,13 @@ CCompositeObject* CSpecialItemComponent::CreateItem(int slot, Script::CStruct* p
     if (mine && its) {
         uint32_t colour[4] = {Field<uint32_t>(mine, 0x1C), Field<uint32_t>(mine, 0x20), Field<uint32_t>(mine, 0x24),
                               Field<uint32_t>(mine, 0x28)};
-        reinterpret_cast<Nx::CModel*>(its)->SetScale(reinterpret_cast<const Mth::Vector*>(colour)); // (0x00492EE0: four words set)
+        reinterpret_cast<Engine3D::CRenderModel*>(its)->ChangeScale(reinterpret_cast<const Maths::Vector*>(colour)); // (0x00492EE0: four words set)
     }
     return item;
 }
 
 // 0x0051C160
-int CSpecialItemComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+int CPickupItemHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     switch (name) {
     case kCreateSpecialItem: {
@@ -194,14 +194,14 @@ int CSpecialItemComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
         int slot = static_cast<int>(name);
         uint32_t bone = 0;
         uint32_t itemParams = reinterpret_cast<uint32_t>(params);
-        params->GetInteger(kIndex, &slot, 1);
-        params->GetChecksum(kBone, &bone, 0);
-        params->GetChecksum(kParams, &itemParams, 1);
-        CCompositeObject* item = CreateItem(slot, Script::GetStructure(itemParams));
-        Script::CStruct* lock = NewParams();
+        params->FetchIntValue(kIndex, &slot, 1);
+        params->ReadHashValue(kBone, &bone, 0);
+        params->ReadHashValue(kParams, &itemParams, 1);
+        CGameEntity* item = CreateItem(slot, Scripts::ReadSubStruct(itemParams));
+        Scripts::CStruct* lock = NewParams();
         lock->AppendStructureIfAny(params);
-        lock->AddChecksum(kObjectId, m_object->m_id);
-        item->GetComponent(kLockObj)->InitFromStructure(lock);
+        lock->PutNameKey(kObjectId, m_object->m_id);
+        item->GetComponent(kLockObj)->ConfigureFromData(lock);
         DeleteParams(lock);
         struct {
             uint32_t params;
@@ -215,7 +215,7 @@ int CSpecialItemComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
     }
     case kDestroySpecialItem: {
         int slot = static_cast<int>(reinterpret_cast<uint32_t>(params)); // (as above)
-        params->GetInteger(kIndex, &slot, 1);
+        params->FetchIntValue(kIndex, &slot, 1);
         DestroyItem(slot);
         struct {
             uint32_t unused[2]; // (not set by the original)
@@ -231,9 +231,9 @@ int CSpecialItemComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
         return 1;
     case kSpecialItemExists: {
         int slot;
-        if (params->GetInteger(kIndex, &slot, 0))
+        if (params->FetchIntValue(kIndex, &slot, 0))
             return m_items[slot] != nullptr;
-        for (CCompositeObject* item : m_items)
+        for (CGameEntity* item : m_items)
             if (item)
                 return 1;
         return 0;
@@ -245,22 +245,22 @@ int CSpecialItemComponent::CallMemberFunction(uint32_t name, Script::CStruct* pa
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSpecialItemComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPickupItemHandler::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CSpecialItemComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CPickupItemHandler::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

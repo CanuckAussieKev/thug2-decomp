@@ -19,7 +19,7 @@
 #include "game/script/nodes.h"
 #include "game/ed/park_editor.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -27,42 +27,42 @@ namespace {
 bool& SceneUpdates() { return g_collisionAllowed; }
 
 // The engine's scenes and sectors (Nx).
-void* GetScene(const char* name) { return Nx::GetSceneByName(name); }
+void* LookUpScene(const char* name) { return Engine3D::GetSceneByName(name); }
 void* CloneScene(const char* name, void* textures, int flag)
 {
-    return Nx::NewScene(name, static_cast<Nx::CTexDict*>(textures), flag != 0);
+    return Engine3D::NewScene(name, static_cast<Engine3D::CTextureSet*>(textures), flag != 0);
 }
-void* GetSector(uint32_t name) { return Nx::Engine::GetSector(name); }
-// CScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted (0x0049D030), the super sectors updated
+void* LookUpSector(uint32_t name) { return Engine3D::Engine::LookUpSector(name); }
+// CWorldScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted (0x0049D030), the super sectors updated
 // (0x0049D780), a sector cloned into `scene` (0x0049DF30; returns the clone's name)
-void DeleteSector(void* scene, uint32_t name) { static_cast<Nx::CScene*>(scene)->DeleteSectorNamed(name); }
-void DeleteMarkedSectors(void* scene) { static_cast<Nx::CScene*>(scene)->DeleteMarkedSectors(); }
-void UpdateSuperSectorsOf(void* scene) { static_cast<Nx::CScene*>(scene)->UpdateSuperSectors(nullptr); }
-uint32_t CloneSector(void* source, uint32_t name, void* scene, int cursor, int notCursor)
+void RemoveSceneSector(void* scene, uint32_t name) { static_cast<Engine3D::CWorldScene*>(scene)->DeleteSectorNamed(name); }
+void DeleteMarkedSectors(void* scene) { static_cast<Engine3D::CWorldScene*>(scene)->DeleteMarkedSectors(); }
+void UpdateSuperSectorsOf(void* scene) { static_cast<Engine3D::CWorldScene*>(scene)->UpdateSuperSectors(nullptr); }
+uint32_t DuplicateSceneSector(void* source, uint32_t name, void* scene, int cursor, int notCursor)
 {
-    return static_cast<Nx::CScene*>(source)->CloneSectorNamed(name, static_cast<Nx::CScene*>(scene), cursor,
+    return static_cast<Engine3D::CWorldScene*>(source)->CloneSectorNamed(name, static_cast<Engine3D::CWorldScene*>(scene), cursor,
                                                               notCursor != 0, 0);
 }
-// CSector: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0: min, max), its geometry (+0x14, 0x004A2BA0)
-void SetWorldPosition(void* sector, const Mth::Vector* position)
+// CWorldCell: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0: min, max), its geometry (+0x14, 0x004A2BA0)
+void PlaceAtAbsolutePoint(void* sector, const Maths::Vector* position)
 {
-    static_cast<Nx::CSector*>(sector)->SetWorldPosition(position);
+    static_cast<Engine3D::CWorldCell*>(sector)->PlaceAtAbsolutePoint(position);
 }
-void SetYRotation(void* sector, int rot) { static_cast<Nx::CSector*>(sector)->SetYRotation(rot); }
-const Mth::Vector* GetBBox(void* sector)
+void SpinAroundUp(void* sector, int rot) { static_cast<Engine3D::CWorldCell*>(sector)->SpinAroundUp(rot); }
+const Maths::Vector* GetLocalBounds(void* sector)
 {
-    return reinterpret_cast<const Mth::Vector*>(static_cast<Nx::CSector*>(sector)->GetBoundingBox());
+    return reinterpret_cast<const Maths::Vector*>(static_cast<Engine3D::CWorldCell*>(sector)->GetBoundingBox());
 }
-void* GetGeometry(void* sector) { return static_cast<Nx::CSector*>(sector)->mp_geom; }
+void* GetGeometry(void* sector) { return static_cast<Engine3D::CWorldCell*>(sector)->m_geomHandle; }
 // The geometry's vertices (virtual calls through its vtable): how many (slot 36, 0x0048DF70), their positions
 // (slot 37), their colours set (slot 40) and read (slot 38, 0x0049F3E0), its collision (the word at +8, 0x0049E810)
 int VertexCount(void* geometry)
 {
     return Scene::GeomSlot<int(__thiscall*)(void*)>(static_cast<uint8_t*>(geometry), 36)(geometry);
 }
-void GetVertexPositions(void* geometry, Mth::Vector* out)
+void GetVertexPositions(void* geometry, Maths::Vector* out)
 {
-    Scene::GeomSlot<void(__thiscall*)(void*, Mth::Vector*)>(static_cast<uint8_t*>(geometry), 37)(geometry, out);
+    Scene::GeomSlot<void(__thiscall*)(void*, Maths::Vector*)>(static_cast<uint8_t*>(geometry), 37)(geometry, out);
 }
 void SetVertexColours(void* geometry, uint32_t* colours)
 {
@@ -72,13 +72,13 @@ void GetVertexColours(void* geometry, uint32_t* out)
 {
     Scene::GeomSlot<void(__thiscall*)(void*, uint32_t*)>(static_cast<uint8_t*>(geometry), 38)(geometry, out);
 }
-Nx::CCollObjTriData* GetCollision(void* geometry)
+Engine3D::CTriMeshSource* GetHitShape(void* geometry)
 {
-    return static_cast<Nx::CCollObjTriData*>(static_cast<Nx::CGeom*>(geometry)->mp_collTriData);
+    return static_cast<Engine3D::CTriMeshSource*>(static_cast<Engine3D::CGeom*>(geometry)->mp_collTriData);
 }
 
 // The rail editor (0x004F4970): its rails taken out of the scene (0x004F45C0, 0x004F45E0), put back (0x004F6650).
-CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
+CRailAuthoring* RailEditor() { return CRailAuthoring::Instance(); }
 void RailEditorRemoveA() { RailEditor()->DeleteAllSegments(); }
 void RailEditorRemoveB() { RailEditor()->DeleteAllPosts(); }
 void RailEditorRebuild() { RailEditor()->Rebuild(); }
@@ -86,17 +86,17 @@ void RailEditorRebuild() { RailEditor()->Rebuild(); }
 // The generator's code in park_generator.cpp: a piece made from a source, a piece taken out and deleted (its sector
 // too unless `keepSector`), the restart slots of a type, the bounds, the source pieces' flags from the pieces' node
 // array.
-ClonedPiece* NewPiece(CParkGenerator* generator, SourcePiece* source, uint32_t flags)
+ClonedPiece* NewPiece(CParkAssembler* generator, SourcePiece* source, uint32_t flags)
 {
     return generator->CreatePiece(source->AsPiece(), flags);
 }
-void DestroyPieceNow(CParkGenerator* generator, ClonedPiece* piece, int keepSector) { generator->DeletePiece(piece, keepSector); }
-void RestartSlots(CParkGenerator* generator, int type, int* first, int* last) { generator->GetRestartSlots(type, first, last); }
-void SetUpBounds(CParkGenerator* generator) { generator->SetUpBounds(); }
-void ReadPieceFlags(CParkGenerator* generator, Script::CArray* nodes) { generator->ReadPieceFlags(nodes); }
+void DestroyPieceNow(CParkAssembler* generator, ClonedPiece* piece, int keepSector) { generator->DeletePiece(piece, keepSector); }
+void RestartSlots(CParkAssembler* generator, int type, int* first, int* last) { generator->GetRestartSlots(type, first, last); }
+void SetUpBounds(CParkAssembler* generator) { generator->SetUpBounds(); }
+void ReadPieceFlags(CParkAssembler* generator, Scripts::CArray* nodes) { generator->ReadPieceFlags(nodes); }
 SourcePiece* ConstructSourcePiece(void* memory) { return static_cast<SourcePiece*>(memory)->Construct(); }
 // The gap manager: a gap piece placed
-void PlaceGapPiece(ClonedPiece* piece) { CGapManager::Instance()->SetTriggerLength(piece); }
+void PlaceGapPiece(ClonedPiece* piece) { CGapRegistry::Instance()->SetTriggerLength(piece); }
 
 // Virtual slot 1 of the pieces: the scalar deleting destructor.
 template <typename T>
@@ -116,76 +116,76 @@ constexpr double kSizeSlack = 2.0;
 constexpr float kInverseCell = 0.008333333767950535f;
 
 // The super sectors brought up to date (on the bottom-up heap).
-void UpdateSuperSectors(CParkGenerator& d)
+void UpdateSuperSectors(CParkAssembler& d)
 {
-    d.m_flags &= ~CParkGenerator::kSceneChanged;
-    Mem::PushContext(Mem::BottomUpHeap());
-    UpdateSuperSectorsOf(d.mp_scene);
-    Mem::PopContext();
-    d.m_flags |= CParkGenerator::kSuperSectorsUpdated;
+    d.m_flags &= ~CParkAssembler::kSceneChanged;
+    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
+    UpdateSuperSectorsOf(d.m_sceneHandle);
+    MemSys::LeaveHeapScope();
+    d.m_flags |= CParkAssembler::kSuperSectorsUpdated;
 }
 
 // Take `piece` out of the list (unless it's the cursor's), delete its sector and the piece (inline in the original, as
 // 0x00592570 does).
-void DeletePiece(CParkGenerator& d, ClonedPiece* piece)
+void DeletePiece(CParkAssembler& d, ClonedPiece* piece)
 {
     if (!(piece->m_flags & ClonedPiece::kCursor)) {
         ClonedPiece* previous = nullptr;
-        for (ClonedPiece* p = d.mp_pieces; p; previous = p, p = p->mp_next) {
+        for (ClonedPiece* p = d.mp_pieces; p; previous = p, p = p->m_following) {
             if (p == piece) {
                 if (previous)
-                    previous->mp_next = p->mp_next;
+                    previous->m_following = p->m_following;
                 else
-                    d.mp_pieces = p->mp_next;
+                    d.mp_pieces = p->m_following;
                 break;
             }
         }
     }
-    DeleteSector(d.mp_scene, piece->m_sector);
+    RemoveSceneSector(d.m_sceneHandle, piece->m_sector);
     if (SceneUpdates())
         UpdateSuperSectors(d);
     SetCountsDirty(); // (given the piece)
     DeleteObject(piece);
     if (!d.mp_pieces)
-        d.m_flags &= ~CParkGenerator::kHasPieces;
+        d.m_flags &= ~CParkAssembler::kHasPieces;
 }
 
 } // namespace
 
-CParkGenerator* CParkGenerator::Construct()
+CParkAssembler* CParkAssembler::Construct()
 {
     m_sourceRails.Construct();
     m_rails.Construct();
     for (RestartPoint& restart : m_restarts)
-        restart.m_area.Set(0, 0, 0, 0, 0, 0);
-    reinterpret_cast<Ass::AssetConstructors*>(m_nodeArray)->NodeArray();
+        restart.m_editSpan.Set(0, 0, 0, 0, 0, 0);
+    reinterpret_cast<AssetStore::AssetConstructors*>(m_nodeArray)->NodeArray();
     m_flags = 0;
     m_04 = 0;
     mp_pieces = nullptr;
     mp_sources = nullptr;
-    mp_scene = nullptr;
+    m_sceneHandle = nullptr;
     mp_sourceScene = nullptr;
     m_nextPieceId = 0x20;
     m_maxPlayers = 2;
     return this;
 }
 
-void CParkGenerator::SetLightPosition(const Mth::Vector* position, int index)
+void CParkAssembler::MoveLightSource(const Maths::Vector* position, int index)
 {
-    Mth::Vector& light = m_lights[index];
+    Maths::Vector& light = m_lights[index];
     light.x = position->x;
     light.y = position->y;
     light.z = position->z;
     light.w = position->w;
 }
 
-void CParkGenerator::CalculateLighting(const Mth::Vector* position, uint8_t* rgba)
+void CParkAssembler::SampleLightColour(const Maths::Vector* position, uint8_t* rgba)
 {
     const float red = static_cast<float>(rgba[0] * static_cast<double>(m_ambient[0]));
     const float green = static_cast<float>(rgba[1] * static_cast<double>(m_ambient[1]));
     const double blue = rgba[2] * static_cast<double>(m_ambient[2]); // (kept unrounded)
     double sum = 0.0;
-    for (int i = 0; i < m_numLights; ++i) {
+    for (int i = 0; i < m_lightTotal; ++i) {
         const double dx = static_cast<double>(position->x) - m_lights[i].x;
         const double dz = static_cast<double>(position->z) - m_lights[i].z;
         sum += 1.0 / (dz * dz + dx * dx + kLightDistance);
@@ -200,44 +200,44 @@ void CParkGenerator::CalculateLighting(const Mth::Vector* position, uint8_t* rgb
     rgba[2] = channel(sum * m_falloff[2] + blue);
 }
 
-void CParkGenerator::LightPiece(CPiece* p)
+void CParkAssembler::LightPiece(CParkTile* p)
 {
     ClonedPiece* piece = Cloned(p);
-    void* geometry = GetGeometry(GetSector(piece->m_sector));
-    void* sourceGeometry = GetGeometry(GetSector(piece->mp_source->m_name));
+    void* geometry = GetGeometry(LookUpSector(piece->m_sector));
+    void* sourceGeometry = GetGeometry(LookUpSector(piece->mp_source->m_name));
     int count = VertexCount(geometry);
     if (count) {
         // (new[] of vectors and colours: their constructors do nothing)
-        auto* positions = static_cast<Mth::Vector*>(Mem::New(count * sizeof(Mth::Vector)));
-        auto* colours = static_cast<uint32_t*>(Mem::New(count * sizeof(uint32_t)));
+        auto* positions = static_cast<Maths::Vector*>(MemSys::New(count * sizeof(Maths::Vector)));
+        auto* colours = static_cast<uint32_t*>(MemSys::New(count * sizeof(uint32_t)));
         GetVertexPositions(geometry, positions);
         GetVertexColours(sourceGeometry, colours);
         for (int i = 0; i < count; ++i)
-            CalculateLighting(&positions[i], reinterpret_cast<uint8_t*>(&colours[i]));
+            SampleLightColour(&positions[i], reinterpret_cast<uint8_t*>(&colours[i]));
         SetVertexColours(geometry, colours);
-        Mem::Free(positions);
-        Mem::Free(colours);
+        MemSys::Free(positions);
+        MemSys::Free(colours);
     }
     // the collision's vertex intensities, from the source's (grey)
-    Nx::CCollObjTriData* collision = GetCollision(geometry);
-    Nx::CCollObjTriData* sourceCollision = GetCollision(sourceGeometry);
+    Engine3D::CTriMeshSource* collision = GetHitShape(geometry);
+    Engine3D::CTriMeshSource* sourceCollision = GetHitShape(sourceGeometry);
     int vertices = collision->m_numVertices;
     for (int i = 0; i < vertices; ++i) {
         uint8_t grey = sourceCollision->m_vertexBytes[i];
         uint8_t rgba[4] = {grey, grey, grey, 0xFF};
-        Mth::Vector position = collision->GetRawVertexPos(i);
-        CalculateLighting(&position, rgba);
+        Maths::Vector position = collision->ReadStoredVertex(i);
+        SampleLightColour(&position, rgba);
         collision->m_vertexBytes[i] = static_cast<uint8_t>((rgba[0] + rgba[1] + rgba[2]) / 3);
     }
 }
 
-bool CParkGenerator::AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic,
+bool CParkAssembler::PlantRestartPoint(Maths::Vector* position, int rot, SCellBox* area, int type, int automatic,
                                 uint32_t keepPlaced)
 {
     int first = 0, last = 0;
     RestartSlots(this, type, &first, &last);
-    Mth::Vector pos = *position;
-    GridDims cells = *area;
+    Maths::Vector pos = *position;
+    SCellBox cells = *area;
     const uint8_t isAutomatic = static_cast<uint8_t>(automatic);
     if (isAutomatic && static_cast<uint8_t>(keepPlaced)) {
         if (first > last)
@@ -246,7 +246,7 @@ bool CParkGenerator::AddRestart(Mth::Vector* position, int rot, GridDims* area, 
             const RestartPoint& restart = m_restarts[i];
             if (restart.m_type == type && !restart.m_automatic) {
                 pos = restart.m_pos;
-                cells = restart.m_area;
+                cells = restart.m_editSpan;
             }
         }
     }
@@ -254,8 +254,8 @@ bool CParkGenerator::AddRestart(Mth::Vector* position, int rot, GridDims* area, 
         RestartPoint& restart = m_restarts[i];
         if (restart.m_type == RestartPoint::kFree || (restart.m_automatic && !isAutomatic)) {
             restart.m_pos = pos;
-            restart.m_rot = rot;
-            restart.m_area = cells;
+            restart.m_quarterTurns = rot;
+            restart.m_editSpan = cells;
             restart.m_type = type;
             restart.m_automatic = isAutomatic;
             return true;
@@ -264,7 +264,7 @@ bool CParkGenerator::AddRestart(Mth::Vector* position, int rot, GridDims* area, 
     return false;
 }
 
-int CParkGenerator::CountRestarts(int type)
+int CParkAssembler::CountRestarts(int type)
 {
     int first = 0, last = 0;
     RestartSlots(this, type, &first, &last);
@@ -276,57 +276,57 @@ int CParkGenerator::CountRestarts(int type)
     return count;
 }
 
-bool CParkGenerator::NeedsRestarts(int type, int count) { return CountRestarts(type) < count; }
+bool CParkAssembler::NeedsRestarts(int type, int count) { return CountRestarts(type) < count; }
 
-void CParkGenerator::RemoveRestart(GridDims* area, int player)
+void CParkAssembler::UnplantRestartPoint(SCellBox* area, int player)
 {
     int first = 0, last = 0;
     RestartSlots(this, player, &first, &last);
     for (int i = first; i <= last; ++i) {
         RestartPoint& restart = m_restarts[i];
-        if (restart.m_area.x == area->x && restart.m_area.y == area->y && restart.m_area.z == area->z)
+        if (restart.m_editSpan.x == area->x && restart.m_editSpan.y == area->y && restart.m_editSpan.z == area->z)
             restart.m_type = RestartPoint::kFree;
     }
 }
 
-void* CParkGenerator::CreateGapPiece(Mth::Vector* position, float /*length*/, int rot)
+void* CParkAssembler::MakeGapMarkerPiece(Maths::Vector* position, float /*length*/, int rot)
 {
     SourcePiece* source = nullptr;
-    for (SourcePiece* s = mp_sources; s; s = s->mp_next) {
+    for (SourcePiece* s = mp_sources; s; s = s->m_following) {
         if (s->m_name == kGapPiece) {
             source = s;
             break;
         }
     }
     ClonedPiece* piece = NewPiece(this, source, 0);
-    reinterpret_cast<CPiece*>(piece)->SetPosition(position, 1);
-    reinterpret_cast<CPiece*>(piece)->SetRot(rot, 1);
+    reinterpret_cast<CParkTile*>(piece)->SetPosition(position, 1);
+    reinterpret_cast<CParkTile*>(piece)->SetQuarterTurns(rot, 1);
     piece->m_flags |= ClonedPiece::kGap | ClonedPiece::kInList;
-    piece->mp_next = mp_pieces;
+    piece->m_following = mp_pieces;
     mp_pieces = piece;
-    m_flags |= CParkGenerator::kHasPieces;
+    m_flags |= CParkAssembler::kHasPieces;
     return piece;
 }
 
-void CParkGenerator::DestroyPieces(int keepRails)
+void CParkAssembler::DestroyPieces(int keepRails)
 {
     if (!keepRails) {
         RailEditorRemoveA();
         RailEditorRemoveB();
     }
     for (ClonedPiece* piece = mp_pieces; piece;) {
-        ClonedPiece* next = piece->mp_next;
+        ClonedPiece* next = piece->m_following;
         DestroyPieceNow(this, piece, keepRails);
         piece = next;
     }
     if (!keepRails)
-        m_flags &= ~CParkGenerator::kPiecesCreated;
-    m_flags &= ~CParkGenerator::kHasPieces;
+        m_flags &= ~CParkAssembler::kPiecesCreated;
+    m_flags &= ~CParkAssembler::kHasPieces;
     if (!keepRails)
-        DeleteMarkedSectors(mp_scene);
+        DeleteMarkedSectors(m_sceneHandle);
 }
 
-void CParkGenerator::DestroyPiece(void* p)
+void CParkAssembler::DestroyPiece(void* p)
 {
     auto* piece = static_cast<ClonedPiece*>(p);
     uint32_t flags = piece->m_flags;
@@ -335,66 +335,66 @@ void CParkGenerator::DestroyPiece(void* p)
         DestroyPieceNow(this, piece, 0);
 }
 
-void CParkGenerator::CleanUpOutRefs()
+void CParkAssembler::CleanUpOutRefs()
 {
     for (ClonedPiece* piece = mp_pieces; piece;) {
-        ClonedPiece* next = piece->mp_next;
+        ClonedPiece* next = piece->m_following;
         if (piece->m_flags & ClonedPiece::kDestroy)
-            Ed::DeletePiece(*this, piece);
+            ParkEditing::DeletePiece(*this, piece);
         piece = next;
     }
 }
 
-void CParkGenerator::UnloadPieces()
+void CParkAssembler::UnloadPieces()
 {
-    if (m_flags & CParkGenerator::kHasPieces) {
+    if (m_flags & CParkAssembler::kHasPieces) {
         RailEditorRemoveA();
         RailEditorRemoveB();
         for (ClonedPiece* piece = mp_pieces; piece;) {
-            ClonedPiece* next = piece->mp_next;
-            Ed::DeletePiece(*this, piece);
+            ClonedPiece* next = piece->m_following;
+            ParkEditing::DeletePiece(*this, piece);
             piece = next;
         }
-        m_flags &= ~(CParkGenerator::kPiecesCreated | CParkGenerator::kHasPieces);
-        DeleteMarkedSectors(mp_scene);
+        m_flags &= ~(CParkAssembler::kPiecesCreated | CParkAssembler::kHasPieces);
+        DeleteMarkedSectors(m_sceneHandle);
     }
     for (SourcePiece* source = mp_sources; source;) {
-        SourcePiece* next = source->mp_next;
+        SourcePiece* next = source->m_following;
         DeleteObject(source);
         source = next;
     }
     mp_sources = nullptr;
-    m_flags &= ~CParkGenerator::kSourcesLoaded;
+    m_flags &= ~CParkAssembler::kSourcesLoaded;
 }
 
-void CParkGenerator::AddPieceToScene(CPiece* p)
+void CParkAssembler::AddPieceToScene(CParkTile* p)
 {
     ClonedPiece* piece = Cloned(p);
-    m_flags |= CParkGenerator::kSceneChanged;
+    m_flags |= CParkAssembler::kSceneChanged;
     const int cursor = (piece->m_flags & ClonedPiece::kCursor) ? 1 : 0;
-    piece->m_sector = Ed::CloneSector(mp_sourceScene, piece->mp_source->m_name, mp_scene, cursor, !cursor);
-    void* sector = GetSector(piece->m_sector);
-    Mth::Vector position = piece->m_pos;
-    SetWorldPosition(sector, &position);
-    SetYRotation(sector, piece->m_rot);
+    piece->m_sector = ParkEditing::DuplicateSceneSector(mp_sourceScene, piece->mp_source->m_name, m_sceneHandle, cursor, !cursor);
+    void* sector = LookUpSector(piece->m_sector);
+    Maths::Vector position = piece->m_pos;
+    PlaceAtAbsolutePoint(sector, &position);
+    SpinAroundUp(sector, piece->m_quarterTurns);
     if (piece->m_flags & ClonedPiece::kGap)
         PlaceGapPiece(piece);
     LightPiece(p);
 }
 
-void CParkGenerator::RebuildAll()
+void CParkAssembler::RebuildAll()
 {
     SceneUpdates() = false;
-    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->mp_next)
-        Ed::DeleteSector(mp_scene, piece->m_sector);
+    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->m_following)
+        ParkEditing::RemoveSceneSector(m_sceneHandle, piece->m_sector);
     RailEditorRemoveA();
     RailEditorRemoveB();
-    CParkManager::sInstance(); // (the result unused)
+    CParkLayout::sSingleton(); // (the result unused)
     RemoveNodeArray();          // (inline in the original)
     SceneUpdates() = true;
-    DeleteMarkedSectors(mp_scene);
-    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->mp_next)
-        AddPieceToScene(reinterpret_cast<CPiece*>(piece));
+    DeleteMarkedSectors(m_sceneHandle);
+    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->m_following)
+        AddPieceToScene(reinterpret_cast<CParkTile*>(piece));
     if (SceneUpdates())
         UpdateSuperSectors(*this);
     SceneUpdates() = false;
@@ -404,54 +404,54 @@ void CParkGenerator::RebuildAll()
     MarkProgress("CleanMainHeap - post cleanup");
 }
 
-void CParkGenerator::RebuildMarked()
+void CParkAssembler::RebuildMarked()
 {
     SceneUpdates() = false;
-    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->mp_next) {
+    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->m_following) {
         if (piece->mp_source->m_flags & SourcePiece::kRebuilt) {
-            Ed::DeleteSector(mp_scene, piece->m_sector);
+            ParkEditing::RemoveSceneSector(m_sceneHandle, piece->m_sector);
             if (SceneUpdates())
                 UpdateSuperSectors(*this);
         }
     }
-    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->mp_next) {
+    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->m_following) {
         if (piece->mp_source->m_flags & SourcePiece::kRebuilt)
-            AddPieceToScene(reinterpret_cast<CPiece*>(piece));
+            AddPieceToScene(reinterpret_cast<CParkTile*>(piece));
     }
     SceneUpdates() = true;
     UpdateSuperSectors(*this);
 }
 
-void CParkGenerator::CleanUp(int /*type*/)
+void CParkAssembler::CleanUp(int /*type*/)
 {
     UnloadPieces();
     m_sourceRails.Clear();
     m_sourceRails.FreePools();
 }
 
-void CParkGenerator::LoadSourcePieces(int /*unused*/)
+void CParkAssembler::LoadSourcePieces(int /*unused*/)
 {
-    if (m_flags & CParkGenerator::kSourcesLoaded)
+    if (m_flags & CParkAssembler::kSourcesLoaded)
         UnloadPieces();
-    m_flags |= CParkGenerator::kSourcesLoaded;
+    m_flags |= CParkAssembler::kSourcesLoaded;
     m_nextPieceId = 0x20;
-    mp_sourceScene = GetScene("sk5ed");
+    mp_sourceScene = LookUpScene("sk5ed");
     // every sector of the scene (its sector table at +0xD0)
-    auto* sectors = *reinterpret_cast<Lst::HashTable**>(static_cast<uint8_t*>(mp_sourceScene) + 0xD0);
+    auto* sectors = *reinterpret_cast<ListKit::HashTable**>(static_cast<uint8_t*>(mp_sourceScene) + 0xD0);
     sectors->m_iterBucket = -1;
     sectors->m_iterItem = nullptr;
     void* sector;
-    while (sectors->IterateNext() && sectors->m_iterItem && (sector = sectors->m_iterItem->value) != nullptr) {
-        Mem::PushContext(GetParkHeap());
-        void* memory = Mem::New(sizeof(SourcePiece));
+    while (sectors->StepIterator() && sectors->m_iterItem && (sector = sectors->m_iterItem->value) != nullptr) {
+        MemSys::EnterHeapScope(GetParkHeap());
+        void* memory = MemSys::New(sizeof(SourcePiece));
         SourcePiece* source = memory ? ConstructSourcePiece(memory) : nullptr;
-        Mem::PopContext();
-        source->mp_next = mp_sources;
+        MemSys::LeaveHeapScope();
+        source->m_following = mp_sources;
         mp_sources = source;
         source->m_name = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(sector) + 4); // its checksum
-        const Mth::Vector* box = GetBBox(sector); // min, max
-        const Mth::Vector& min = box[0];
-        const Mth::Vector& max = box[1];
+        const Maths::Vector* box = GetLocalBounds(sector); // min, max
+        const Maths::Vector& min = box[0];
+        const Maths::Vector& max = box[1];
         int cells = static_cast<int>((static_cast<double>(max.x) - min.x + kSizeSlack) * kInverseCell);
         if (cells < 1)
             cells = 1;
@@ -465,21 +465,21 @@ void CParkGenerator::LoadSourcePieces(int /*unused*/)
         if (height < kCellHeight && height > 0.0)
             source->m_size.y = kCellHeight; // (at least a step high)
     }
-    mp_scene = CloneScene("cloned", *reinterpret_cast<void**>(static_cast<uint8_t*>(mp_sourceScene) + 0x88), 1);
-    Ed::SetUpBounds(this);
+    m_sceneHandle = CloneScene("cloned", *reinterpret_cast<void**>(static_cast<uint8_t*>(mp_sourceScene) + 0x88), 1);
+    ParkEditing::SetUpBounds(this);
     for (RestartPoint& restart : m_restarts)
         restart.m_type = RestartPoint::kFree;
 }
 
-void CParkGenerator::LoadPieces(uint32_t level, int unused)
+void CParkAssembler::LoadPieces(uint32_t level, int unused)
 {
     LoadSourcePieces(unused);
-    Script::CArray* nodes = SkateScript::GetLastNodeArray();
-    Ed::ReadPieceFlags(this, nodes);
+    Scripts::CArray* nodes = LevelNodes::GetLastNodeArray();
+    ParkEditing::ReadPieceFlags(this, nodes);
     if (level == kParkEditorLevel) {
-        Mem::PushContext(Mem::TopDownHeap());
+        MemSys::EnterHeapScope(MemSys::TopDownHeap());
         BuildSourceRails(nodes);
-        Mem::PopContext();
+        MemSys::LeaveHeapScope();
     } else {
         BuildSourceRails(nodes);
     }

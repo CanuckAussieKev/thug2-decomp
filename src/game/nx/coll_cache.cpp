@@ -10,42 +10,42 @@
 #include "game/gfx/engine_scene_list.h"
 #include "game/nx/coll_world.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
-CCollCache* g_caches[8];
+CHitMeshCache* g_caches[8];
 
-CCollCache** Caches() { return g_caches; }
+CHitMeshCache** Caches() { return g_caches; }
 
 uint32_t g_cachesInUse;
 
 uint32_t& CachesInUse() { return g_cachesInUse; }
 
 // The movable collision objects (the first node of their list: 0x00691984).
-Mem::ListNode* FirstMovable() { return g_movables.next; }
+MemSys::ListNode* FirstMovable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-void** GridListsAlong(Mth::Line* line) { return reinterpret_cast<void**>(GetCollGridsOnLine(line)); }
-CCollObj** ObjectsAlong(void* list, Mth::Line* line)
+void** GridListsAlong(Maths::Line* line) { return reinterpret_cast<void**>(GetCollGridsOnLine(line)); }
+CHitMesh** ObjectsAlong(void* list, Maths::Line* line)
 {
     return static_cast<CCollGrid*>(list)->ObjectsAlongLine(line, nullptr);
 }
 
 // The collision objects' virtual methods the cache uses.
-bool TouchesBox(CCollObj* object, const Mth::BBox* box)
+bool TouchesBox(CHitMesh* object, const Maths::BBox* box)
 {
-    return reinterpret_cast<bool(__thiscall*)(CCollObj*, const Mth::BBox*)>((*reinterpret_cast<void***>(object))[13])(
+    return reinterpret_cast<bool(__thiscall*)(CHitMesh*, const Maths::BBox*)>((*reinterpret_cast<void***>(object))[13])(
         object, box);
 }
-void* Geometry(CCollObj* object, int slot)
+void* Geometry(CHitMesh* object, int slot)
 {
-    return reinterpret_cast<void*(__thiscall*)(CCollObj*)>((*reinterpret_cast<void***>(object))[slot])(object);
+    return reinterpret_cast<void*(__thiscall*)(CHitMesh*)>((*reinterpret_cast<void***>(object))[slot])(object);
 }
-uint32_t ObjectFlags(CCollObj* object) { return reinterpret_cast<uint32_t*>(object)[2]; }
+uint32_t ObjectFlags(CHitMesh* object) { return reinterpret_cast<uint32_t*>(object)[2]; }
 
-void Clear(CCollCache* cache)
+void Clear(CHitMeshCache* cache)
 {
     cache->m_box.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     cache->m_box.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
@@ -57,35 +57,35 @@ void Clear(CCollCache* cache)
 } // namespace
 
 // 0x0040AB50
-CCollCache* CCollCache::Construct()
+CHitMeshCache* CHitMeshCache::Construct()
 {
-    new (&m_box) Mth::BBox();
+    new (&m_box) Maths::BBox();
     RegisterCollCache(this);
     Clear(this);
     return this;
 }
 
 // 0x0040AB40
-void CCollCache::Destruct()
+void CHitMeshCache::Destruct()
 {
     UnregisterCollCache(this);
 }
 
 // 0x0040ABA0
-void CCollCache::Update(const Mth::BBox& box)
+void CHitMeshCache::Update(const Maths::BBox& box)
 {
     Clear(this);
-    Mth::Line line(box.min, box.max);
+    Maths::Line line(box.min, box.max);
     void** lists = GridListsAlong(&line);
     if (!lists)
         return;
     m_box = box;
     // The box the objects are tested against: grown by half a unit each way.
-    Mth::BBox grown;
+    Maths::BBox grown;
     grown.AddPoint({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
     grown.AddPoint({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
     for (; *lists; ++lists) {
-        for (CCollObj** object = ObjectsAlong(*lists, &line); *object; ++object) {
+        for (CHitMesh** object = ObjectsAlong(*lists, &line); *object; ++object) {
             if (!TouchesBox(*object, &grown))
                 continue;
             m_entries[m_count].geometry = Geometry(*object, 21);
@@ -94,8 +94,8 @@ void CCollCache::Update(const Mth::BBox& box)
             ++m_statics;
         }
     }
-    for (Mem::ListNode* node = FirstMovable(); node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
-        auto* object = static_cast<CCollObj*>(node->data);
+    for (MemSys::ListNode* node = FirstMovable(); node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+        auto* object = static_cast<CHitMesh*>(node->data);
         if (!object || (ObjectFlags(object) & 6) || !TouchesBox(object, &grown))
             continue;
         m_entries[m_count].geometry = Geometry(object, 20);
@@ -106,7 +106,7 @@ void CCollCache::Update(const Mth::BBox& box)
 }
 
 // 0x0040A910
-void CCollCache::RemoveStatic(CCollObj* object)
+void CHitMeshCache::RemoveStatic(CHitMesh* object)
 {
     for (int i = 0; i < m_statics; ++i) {
         if (m_entries[i].object != object)
@@ -120,7 +120,7 @@ void CCollCache::RemoveStatic(CCollObj* object)
 }
 
 // 0x0040A990
-void CCollCache::RemoveMovable(CCollObj* object)
+void CHitMeshCache::RemoveMovable(CHitMesh* object)
 {
     for (int i = m_statics; i < m_count; ++i) {
         if (m_entries[i].object != object)
@@ -133,7 +133,7 @@ void CCollCache::RemoveMovable(CCollObj* object)
 }
 
 // 0x0040AA00
-void RegisterCollCache(CCollCache* cache)
+void RegisterCollCache(CHitMeshCache* cache)
 {
     for (int i = 0; i < 8; ++i) {
         if (!(CachesInUse() & (1u << i))) {
@@ -145,7 +145,7 @@ void RegisterCollCache(CCollCache* cache)
 }
 
 // 0x0040AA40
-void UnregisterCollCache(CCollCache* cache)
+void UnregisterCollCache(CHitMeshCache* cache)
 {
     for (int i = 0; i < 8; ++i) {
         if ((CachesInUse() & (1u << i)) && Caches()[i] == cache) {
@@ -156,7 +156,7 @@ void UnregisterCollCache(CCollCache* cache)
 }
 
 // 0x0040AA80
-void RemoveMovableFromCaches(CCollObj* object)
+void RemoveMovableFromCaches(CHitMesh* object)
 {
     for (int i = 0; i < 8; ++i) {
         if (CachesInUse() & (1u << i))
@@ -165,7 +165,7 @@ void RemoveMovableFromCaches(CCollObj* object)
 }
 
 // 0x0040AAC0
-void RemoveFromCaches(CCollObj* object)
+void RemoveFromCaches(CHitMesh* object)
 {
     for (int i = 0; i < 8; ++i) {
         if (CachesInUse() & (1u << i)) {

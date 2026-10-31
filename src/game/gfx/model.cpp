@@ -10,7 +10,7 @@
 #include "game/gfx/model_internal.h"
 #include "game/gfx/pc_lights.h"
 
-namespace Nx {
+namespace Engine3D {
 
 using namespace ModelGeoms;
 
@@ -20,35 +20,35 @@ namespace {
 uint8_t SetFlag(uint8_t flags, uint8_t flag, int bit) { return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag); }
 
 // The first geom's entry (as the original: through the head's next even when there's no head).
-sModelGeom* FirstEntry(CModel* model) { return Entry(First(model)); }
+sModelGeom* FirstEntry(CRenderModel* model) { return Entry(First(model)); }
 
 // An asset's scene data's +0xB8 / +0xB4 (the folded getters 0x00490AC0 / 0x00490AB0).
-uint32_t SceneB8(void* scene) { return static_cast<CMesh*>(scene)->GetHierarchyCount(); }
-uint32_t SceneB4(void* scene) { return reinterpret_cast<uint32_t>(static_cast<CMesh*>(scene)->GetHierarchy()); }
+uint32_t SceneB8(void* scene) { return static_cast<CSubMesh*>(scene)->GetHierarchyCount(); }
+uint32_t SceneB4(void* scene) { return reinterpret_cast<uint32_t>(static_cast<CSubMesh*>(scene)->FetchBoneTree()); }
 
 // Lights made and deleted (the engine's 0x0048EA80 / 0x0048C080).
-uint8_t* NewLights() { return reinterpret_cast<uint8_t*>(CreateModelLights()); }
+uint8_t* NewLights() { return reinterpret_cast<uint8_t*>(SpawnModelLights()); }
 
 } // namespace
 
 // 0x00492DC0
-bool CModel::VirtualTrue4(int, int, int, int) { return true; }
+bool CRenderModel::VirtualTrue4(int, int, int, int) { return true; }
 
 // 0x00492EB0
-Mth::Vector* CModel::PlatGetBoundingSphere(Mth::Vector* out)
+Maths::Vector* CRenderModel::PlatGetBoundingSphere(Maths::Vector* out)
 {
     out->z = 0.0f;
     out->y = 36.0f;
     out->x = 0.0f;
-    out->w = m_numBones > 0 ? 48.0f : 1200.0f;
+    out->w = m_boneTotal > 0 ? 48.0f : 1200.0f;
     return out;
 }
 
 // 0x00492DD0
-bool CModel::SetSkeleton(uint8_t* skeleton)
+bool CRenderModel::ChooseRig(uint8_t* skeleton)
 {
     if (!m_boneMatrices) {
-        m_numBones = SkeletonBoneCount(skeleton);
+        m_boneTotal = SkeletonBoneCount(skeleton);
         ModelVirtual<bool>(this, 1, SkeletonBoneCount(skeleton));
         m_boneMatrices = SkeletonBones(skeleton);
     }
@@ -56,7 +56,7 @@ bool CModel::SetSkeleton(uint8_t* skeleton)
 }
 
 // 0x00492E10
-bool CModel::SetDisplayMode(int mode)
+bool CRenderModel::SetDisplayMode(int mode)
 {
     if (mode == m_displayMode)
         return false;
@@ -67,36 +67,36 @@ bool CModel::SetDisplayMode(int mode)
 }
 
 // 0x00492E40
-int CModel::GetNumGeoms() { return m_numGeoms; }
+int CRenderModel::FetchGeomTotal() { return m_geomTotal; }
 
 // 0x00492E50
-uint8_t* CModel::GetBoneMatrices() { return m_boneMatrices; }
+uint8_t* CRenderModel::GetBoneMatrices() { return m_boneMatrices; }
 
 // 0x00493460
-void CModel::SetBoneMatrices(uint8_t* matrices)
+void CRenderModel::SetBoneMatrices(uint8_t* matrices)
 {
     m_boneMatrices = matrices;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomBones(Geom(node), m_boneMatrices, m_numBones);
+        SetGeomBones(Geom(node), m_boneMatrices, m_boneTotal);
 }
 
 // 0x00492E60
-void CModel::EnableScaling(uint8_t on) { m_flags = SetFlag(m_flags, kModelScaled, on & 1); }
+void CRenderModel::AllowResizing(uint8_t on) { m_flags = SetFlag(m_flags, kModelScaled, on & 1); }
 
 // 0x00492E80
-void CModel::SetBoundingSphere(const Mth::Vector* sphere)
+void CRenderModel::ChangeBoundSphere(const Maths::Vector* sphere)
 {
     m_flags &= ~kModelSphereValid;
     ModelVirtual<void>(this, 13, sphere);
 }
 
 // 0x00492E90
-void CModel::EnableShadowVolume(uint8_t on) { m_flags = SetFlag(m_flags, kModelShadowVolume, on & 1); }
+void CRenderModel::ActivateShadowVolume(uint8_t on) { m_flags = SetFlag(m_flags, kModelShadowVolume, on & 1); }
 
 // 0x00492EE0
-bool CModel::SetScale(const Mth::Vector* scale)
+bool CRenderModel::ChangeScale(const Maths::Vector* scale)
 {
-    m_scale = *scale;
+    m_sizeFactor = *scale;
     // (compared as bit patterns)
     const auto* bits = reinterpret_cast<const uint32_t*>(scale);
     bool scaled = !(bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000);
@@ -105,19 +105,19 @@ bool CModel::SetScale(const Mth::Vector* scale)
 }
 
 // 0x00492F30
-Mth::Vector* CModel::GetBoundingSphere(Mth::Vector* out)
+Maths::Vector* CRenderModel::FetchBoundSphere(Maths::Vector* out)
 {
     if (!(m_flags & kModelSphereValid)) {
-        Mth::Vector sphere;
-        m_boundingSphere = *ModelVirtual<Mth::Vector*>(this, 12, &sphere);
+        Maths::Vector sphere;
+        m_enclosingBall = *ModelVirtual<Maths::Vector*>(this, 12, &sphere);
         m_flags |= kModelSphereValid;
     }
-    *out = m_boundingSphere;
+    *out = m_enclosingBall;
     return out;
 }
 
 // 0x00492F90
-void CModel::SetBoneVolumes(uint8_t* volumes)
+void CRenderModel::SetBoneVolumes(uint8_t* volumes)
 {
     if (!m_geomListSize)
         return;
@@ -127,7 +127,7 @@ void CModel::SetBoneVolumes(uint8_t* volumes)
 }
 
 // 0x00492FC0
-uint8_t* CModel::GetBoneVolumes()
+uint8_t* CRenderModel::GetBoneVolumes()
 {
     if (!m_geomListSize)
         return nullptr;
@@ -136,23 +136,23 @@ uint8_t* CModel::GetBoneVolumes()
 }
 
 // 0x00492FF0
-uint32_t CModel::GetAssetBoneCount()
+uint32_t CRenderModel::GetAssetBoneCount()
 {
     if (m_numAssetGeoms != 1)
         return 0;
-    return SceneB8(Ass::AssetManager()->GetAssetData(FirstEntry(this)->assetName, 1));
+    return SceneB8(AssetStore::AssetManager()->GetAssetData(FirstEntry(this)->assetName, 1));
 }
 
 // 0x00493040
-uint32_t CModel::GetAssetHierarchy()
+uint32_t CRenderModel::GetAssetHierarchy()
 {
     if (m_numAssetGeoms != 1)
         return 0;
-    return SceneB4(Ass::AssetManager()->GetAssetData(FirstEntry(this)->assetName, 1));
+    return SceneB4(AssetStore::AssetManager()->GetAssetData(FirstEntry(this)->assetName, 1));
 }
 
 // 0x00493410
-bool CModel::CopyBones(uint8_t* skeleton)
+bool CRenderModel::CopyBones(uint8_t* skeleton)
 {
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
         CopyGeomBones(Geom(node), SkeletonBones(skeleton), SkeletonBoneCount(skeleton));
@@ -160,7 +160,7 @@ bool CModel::CopyBones(uint8_t* skeleton)
 }
 
 // 0x00493B30
-uint32_t CModel::GetStripBreakFlags()
+uint32_t CRenderModel::GetStripBreakFlags()
 {
     uint32_t flags = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
@@ -168,7 +168,7 @@ uint32_t CModel::GetStripBreakFlags()
         if (entry->scene) {
             flags |= *reinterpret_cast<uint32_t*>(entry->scene + 0xB0);
         } else if (entry->assetName) {
-            auto* scene = static_cast<uint8_t*>(Ass::AssetManager()->GetAssetData(entry->assetName, 1));
+            auto* scene = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(entry->assetName, 1));
             if (scene)
                 flags |= *reinterpret_cast<uint32_t*>(scene + 0xB0);
         }
@@ -177,21 +177,21 @@ uint32_t CModel::GetStripBreakFlags()
 }
 
 // 0x00493B90
-void CModel::BreakStrips(uint32_t mask)
+void CRenderModel::BreakStrips(uint32_t mask)
 {
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
         BreakGeomStrips(Geom(node), mask);
 }
 
 // 0x00494700
-void CModel::CleanInstanceStrips()
+void CRenderModel::CleanInstanceStrips()
 {
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
         CleanGeomInstanceStrips(Geom(node));
 }
 
 // 0x00494B30
-bool CModel::BreakOwnStrips()
+bool CRenderModel::BreakOwnStrips()
 {
     uint32_t mask = GetStripBreakFlags();
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
@@ -200,7 +200,7 @@ bool CModel::BreakOwnStrips()
 }
 
 // 0x00493BD0
-bool CModel::CreateLights()
+bool CRenderModel::CreateLights()
 {
     mp_lights = NewLights();
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
@@ -209,9 +209,9 @@ bool CModel::CreateLights()
 }
 
 // 0x00493C10
-bool CModel::DestroyLights()
+bool CRenderModel::DestroyLights()
 {
-    DeleteScene(mp_lights);
+    DiscardScene(mp_lights);
     mp_lights = nullptr;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
         SetGeomLights(Geom(node), nullptr);
@@ -219,7 +219,7 @@ bool CModel::DestroyLights()
 }
 
 // 0x00493C60
-bool CModel::SetActive(uint8_t active)
+bool CRenderModel::SetActive(uint8_t active)
 {
     if ((m_flags & kModelHidden) && active)
         return false;
@@ -232,14 +232,14 @@ bool CModel::SetActive(uint8_t active)
 }
 
 // 0x00494B70
-bool CModel::Hide(uint8_t hide)
+bool CRenderModel::Hide(uint8_t hide)
 {
     m_flags = SetFlag(m_flags, kModelHidden, hide & 1);
     return SetActive(hide == 0);
 }
 
 // 0x00493CD0
-void* CModel::GetGeomByName(uint32_t name)
+void* CRenderModel::GetGeomByName(uint32_t name)
 {
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         if (name == Entry(node)->name)
@@ -249,7 +249,7 @@ void* CModel::GetGeomByName(uint32_t name)
 }
 
 // 0x00494640
-void* CModel::GetGeom(int index)
+void* CRenderModel::FetchGeom(int index)
 {
     int i = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
@@ -260,7 +260,7 @@ void* CModel::GetGeom(int index)
 }
 
 // 0x00494680
-uint32_t CModel::GetGeomName(int index)
+uint32_t CRenderModel::GetGeomName(int index)
 {
     int i = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
@@ -271,7 +271,7 @@ uint32_t CModel::GetGeomName(int index)
 }
 
 // 0x004946C0
-uint8_t* CModel::GetGeomTextures(int index)
+uint8_t* CRenderModel::GetGeomTextures(int index)
 {
     int i = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
@@ -282,7 +282,7 @@ uint8_t* CModel::GetGeomTextures(int index)
 }
 
 // 0x00493FB0
-bool CModel::ClearGeomColor(uint32_t name)
+bool CRenderModel::ClearGeomColor(uint32_t name)
 {
     bool all = name == kAllGeoms;
     bool any = false;
@@ -296,7 +296,7 @@ bool CModel::ClearGeomColor(uint32_t name)
 }
 
 // 0x00494110
-bool CModel::SetUVOffset(uint32_t material, int pass, float u, float v)
+bool CRenderModel::ChooseUvShift(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
@@ -305,7 +305,7 @@ bool CModel::SetUVOffset(uint32_t material, int pass, float u, float v)
 }
 
 // 0x00494160
-bool CModel::SetUVMatrix(uint32_t material, int pass, const Mth::Matrix* matrix)
+bool CRenderModel::ChooseUvMatrix(uint32_t material, int pass, const Maths::Matrix* matrix)
 {
     bool any = false;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
@@ -314,7 +314,7 @@ bool CModel::SetUVMatrix(uint32_t material, int pass, const Mth::Matrix* matrix)
 }
 
 // 0x004941B0
-bool CModel::AllocateUVMatrixParams(uint32_t material, int pass)
+bool CRenderModel::CreateUvAnimParams(uint32_t material, int pass)
 {
     bool any = false;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
@@ -323,7 +323,7 @@ bool CModel::AllocateUVMatrixParams(uint32_t material, int pass)
 }
 
 // 0x00494800
-bool CModel::HideGeom(uint32_t name, bool hide)
+bool CRenderModel::ConcealMesh(uint32_t name, bool hide)
 {
     bool all = name == kAllGeoms;
     bool any = false;
@@ -341,7 +341,7 @@ bool CModel::HideGeom(uint32_t name, bool hide)
 }
 
 // 0x00494880
-bool CModel::IsGeomHidden(uint32_t name)
+bool CRenderModel::IsGeomHidden(uint32_t name)
 {
     bool hidden = true;
     int index = 0;
@@ -353,7 +353,7 @@ bool CModel::IsGeomHidden(uint32_t name)
 }
 
 // 0x004948D0
-bool CModel::SetColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+bool CRenderModel::SetColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     uint32_t rgba = r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) |
                     (static_cast<uint32_t>(a) << 24);
@@ -363,7 +363,7 @@ bool CModel::SetColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 }
 
 // 0x00494930
-uint32_t CModel::GetVisibility()
+uint32_t CRenderModel::GetVisibility()
 {
     uint32_t mask = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
@@ -372,7 +372,7 @@ uint32_t CModel::GetVisibility()
 }
 
 // 0x00494970
-bool CModel::SetVisibility(uint32_t mask)
+bool CRenderModel::ToggleShown(uint32_t mask)
 {
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
         SetGeomVisibility(Geom(node), mask);
@@ -380,7 +380,7 @@ bool CModel::SetVisibility(uint32_t mask)
 }
 
 // 0x004949B0
-void CModel::EnableShadow(uint8_t on)
+void CRenderModel::ActivateShadow(uint8_t on)
 {
     m_flags = SetFlag(m_flags, kModelShadow, on & 1);
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)

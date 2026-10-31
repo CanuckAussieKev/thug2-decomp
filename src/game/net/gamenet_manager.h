@@ -3,29 +3,29 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Net {
+namespace NetLink {
 struct App;
 struct Conn;
-struct MsgHandlerContext;
+struct InboundMsgCtx;
 } // namespace Net
-namespace Obj {
+namespace GameObjects {
 class CObject;
 } // namespace Obj
-namespace Prefs {
+namespace OptionStore {
 class Preferences;
 } // namespace Prefs
 
-namespace Tsk {
-class BaseTask;
+namespace TaskList {
+class SchedulerTask;
 }
-namespace Mem {
+namespace MemSys {
 struct ListNode;
 }
 
-// The game's network manager GameNet::Manager (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
+// The game's network manager OnlinePlay::Manager (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
 // game itself - the players, the levels and modes the server picks, the lobby. Partly rewritten: the join path
 // (gamenet_join.cpp) and the level name; only the fields used so far are named.
-namespace GameNet {
+namespace OnlinePlay {
 
 // --- The join messages (THUG2's) ---
 
@@ -53,7 +53,7 @@ struct JoinInfo : ConnectInfo {
     int32_t rating;                 // +0x60
     int32_t vehicleControlType;     // +0x64
     char name[kNameSize];           // +0x68
-    uint8_t appearance[kAppearanceSize]; // +0x78 (CSkaterProfile::WriteToBuffer)
+    uint8_t appearance[kAppearanceSize]; // +0x78 (CRiderIdentity::EmitIntoBuffer)
 };
 static_assert(offsetof(JoinInfo, name) == 0x68 && offsetof(JoinInfo, appearance) == 0x78);
 constexpr uint32_t kJoinInfoHeaderSize = offsetof(JoinInfo, appearance);
@@ -86,7 +86,7 @@ enum JoinRefusedReason : int8_t {
 constexpr uint16_t kJoinRefusedSize = 10;
 
 // The join's state (m_joinState, 0x005331F0 / 0x00533200).
-enum JoinState : int {
+enum EntryPhase : int {
     kJoinStateConnecting = 1,
     kJoinStateJoining = 2,
     kJoinStateJoiningWithPassword = 3,
@@ -103,14 +103,14 @@ public:
     // The original looks in level_select_menu_level_info only, THUG2's own levels: ours also looks in the lists
     // of the ported levels (tools/pipeline/menu_level/level_select.ts sections()), which the original's null crashed on
     // (0x005311F0, the server's level change, adds it to a structure as a string).
-    const char* GetLevelName(bool parkName);
+    const char* GetMapName(bool parkName);
     // 0x0044E4E0: whether the network mode bits (+0, bits 2-3) are set: 1 or 0.
-    int InNetMode();
+    int IsNetworkGame();
     // 0x0044E4F0: whether a network game is on: in network mode, with a server or client app that isn't local.
     bool InNetGame();
 
     // NOT ORIGINAL: the level select's name for `level` (a load script), in THUG2's list or the ported levels' -
-    // GetLevelName's lookup for any level (null if none).
+    // GetMapName's lookup for any level (null if none).
     static const char* LevelListName(uint32_t level);
     // 0x00533F90 (inline here): the server's side of the game (OnServer): flags bit 0.
     bool OnServer() const { return (m_flags & 1) != 0; }
@@ -121,27 +121,27 @@ public:
     // 0x00532AA0 / 0x00532AC0: how the player joins (m_joinMode: 0 to play, 1 to watch - IsObserving). Setting it
     // clears the join-by-address flag (0x007CCA88, TryJoinServerIPSuccess).
     void SetJoinMode(int mode);
-    int GetJoinMode();
+    int GetEntryMode();
     // 0x00532AD0: m_hostMode (1: the task at +0xF4 is removed when the player list is sent - 0x0056B890).
-    int GetHostMode();
+    int GetHostingRole();
     // 0x00532AE0: the network preference rank_test: 1 rank_test_less, 2 rank_test_greater, else 0.
     int GetRankTest();
     // 0x00532B30: rank_limit: num_1 ... num_9 -> 0 ... 8, else 9.
     int GetRankLimit();
     // 0x00532BE0: skill_level: num_1 ... num_4 -> 0 ... 3, num_5 -> 4, else 2.
-    int GetSkillLevel();
+    int GetDifficultyTier();
     // 0x00532C50: num_players: num_2 ... num_8 -> 2 ... 8, else 2.
-    int GetMaxPlayers();
+    int GetPlayerLimit();
     // 0x00532CF0: team_mode: teams_none 0, teams_two 2, teams_three 3, teams_four (or anything else) 4.
     int GetNumTeams();
     // 0x00532D60: num_observers: num_0 ... num_8 -> 0 ... 8, else 2.
-    int GetMaxObservers();
+    int GetSpectatorLimit();
     // 0x00533080: the level preference's checksum (level).
     uint32_t GetLevelPreference();
     // 0x005330B0: fireball_difficulty: num_1 ... num_4 -> 1 ... 4, num_5 -> 5, else 3.
     int GetFireballLevel();
     // 0x00533140: show_names is boolean_true (a missing preference: false, not asserted).
-    bool ShouldDrawPlayerNames();
+    bool WantsNameTags();
     // 0x00533130: the player-names flag (+0x47) toggled (TogglePlayerNames).
     void TogglePlayerNames();
     // 0x00532FE0: the game mode (+0x30) has no time limit: goal attack, king of the hill, score challenge (and
@@ -154,22 +154,22 @@ public:
     // m_joinPrivateIp, m_joinPort.
     uint32_t GetJoinIp();
     uint32_t GetJoinPrivateIp();
-    int GetJoinPort();
+    int GetEntryPort();
     void SetJoinIp(uint32_t ip);
     void SetJoinPrivateIp(uint32_t ip);
-    void SetJoinPort(int port);
+    void SetEntryPort(int port);
     // 0x00532EA0: client `index` (ClientSlot).
-    Net::App* GetClient(int index);
+    NetLink::App* GetClient(int index);
     // 0x00532EB0: the server list's client (m_matchClient).
-    Net::App* GetMatchClient();
+    NetLink::App* GetMatchmakingClient();
     // 0x00532EC0: m_camPlayer.
     void* GetCamPlayer();
     // 0x00532ED0: ask for servers on the LAN: message 0x11 (the time now, 12 bytes) through the lobby client to the
     // address asked for (0x007CCA84, once), else broadcast on port 5153 and to the address from the command line.
     void FindServersOnLan();
     // 0x00532F70 / 0x00532F80: the network preferences (+0x104) / the taunt preferences (+0x110).
-    Prefs::Preferences* GetNetworkPreferences();
-    Prefs::Preferences* GetTauntPreferences();
+    OptionStore::Preferences* GetOnlineSettings();
+    OptionStore::Preferences* GetTauntSettings();
     // 0x00532F90 / 0x00532FD0: the eight words at +0x48 (the start info's, message 0x34) / one of them.
     void SetStartInfoWords(const uint32_t* words);
     uint32_t GetStartInfoWord(int index);
@@ -184,7 +184,7 @@ public:
     // 0x005332B0 / 0x005332C0 / 0x005332D0: m_gameOver (the server's message 0x5A).
     bool IsGameOver();
     void SetGameOver();
-    void ClearGameOver();
+    void ResetMatchEnded();
     // 0x005332E0 / 0x005332F0: the cheating notice has been shown (+0x3B).
     bool CheatingNoted();
     void NoteCheating();
@@ -199,15 +199,15 @@ public:
     void SetFinalScoresReceived(bool received);
     bool FinalScoresReceived();
     // 0x005331F0 / 0x00533200: m_joinState.
-    void SetJoinState(int state);
-    int GetJoinState();
+    void SetEntryPhase(int state);
+    int GetEntryPhase();
     // 0x00533210 / 0x00533220: the crown of king of the hill (+0x6C) / forgotten.
-    void* GetCrown();
+    void* GetCrownHolder();
     void ClearCrown();
     // 0x00533230: the crown's restart point (+0x68), a signed byte.
-    void SetCrownSpawnPoint(char point);
+    void SetCrownStartSpot(char point);
     // 0x00533240: +0x9950.
-    void SetLobbyId(uint32_t id);
+    void SetRoomId(uint32_t id);
     // 0x00533300: message 0x26 - the ready query's id the server sent (m_latestReadyQuery, message 0x25) back to the
     // server through each client (the player's connection is ready again).
     void SendReadyResponse();
@@ -228,11 +228,11 @@ public:
     // 0x00533F50: the server's side (flags bit 0) on or off.
     void SetServerMode(bool on);
     // 0x00533F70: LAN play (flags bit 3).
-    int InLanMode();
+    int IsLocalNetworkPlay();
     // 0x00533FA0: the client's side (flags bit 1).
-    int OnClient();
+    int IsClientSide();
     // 0x00533FB0: Kill_Team_Flags, then (with teams) create_team_flags {num_teams = n}.
-    void CreateTeamFlags(int numTeams);
+    void BuildTeamFlagSet(int numTeams);
     // 0x00534090 / 0x005341B0: the network preference num_players / num_observers set to `count` - its ui_string
     // ("<n> <netmenu_str_players>"; for observers "no observers", "1 observer", "<n> observers") and checksum
     // (num_<n>). The parameters are never freed (a leak the original has).
@@ -242,7 +242,7 @@ public:
     const char* GetPassword();
     // 0x00534340: whether skaters collide with each other: never in a finished game, free skate or horse (unless in
     // the lobby); always in split screen, with player_collision on, and in (net)slap.
-    bool PlayerCollisionEnabled();
+    bool PlayersCanCollide();
     // 0x005343E0: a team game's scores shown by team (score_display = score_teams; never in the lobby).
     bool ShowTeamScores();
     // 0x00534CF0: the server destroyed (an internet one's GameSpy reporting stopped first), its two tasks removed;
@@ -272,10 +272,10 @@ public:
     // attack, CTF, scavenger hunt - but not elimiskate (unless the net firefight / elimiskate modes).
     bool KeepsScore();
     // 0x00535D90: m_proSetFlags (a signed byte, widened).
-    void SetProSetFlags(char flags);
+    void SetPresetOptionBits(char flags);
 
     // --- gamenet_settings.cpp: the network settings and the connection (0x00535040-0x00535CB0) ---
-    // 0x00535040: the network preferences handed to the net library (Net::Manager): the master servers (+0x9954, ten
+    // 0x00535040: the network preferences handed to the net library (NetLink::Manager): the master servers (+0x9954, ten
     // names of 16 bytes: the two set, unless "0.0.0.0", then default_master_servers - or only those), DHCP or the
     // addresses, DNS, dial-up, the device and connection type (modems: at most 3 players, no observers),
     // dialup_authentication. Four global strings (names unknown) override the address, gateway, subnet mask and DNS
@@ -284,15 +284,15 @@ public:
     // 0x00535AD0: team_graffiti_mode in a network team game, else graffiti_individual_scoring.
     uint32_t GetTeamGraffitiMode();
     // NOT ORIGINAL (inline in both below): the network preferences in a network game, else the skate module's.
-    Prefs::Preferences* GetGamePreferences();
+    OptionStore::Preferences* GetGamePreferences();
     // 0x00535B20 / 0x00535B70: the goals / game_type preference's checksum (the manager's address on a miss).
     uint32_t GetGoalsPreference();
     uint32_t GetGameTypePreference();
-    // 0x00535C10: go online (Net::Manager::ConnectToInternet unless already); then `onlineScript` runs. If it fails, a
+    // 0x00535C10: go online (NetLink::Manager::ConnectToInternet unless already); then `onlineScript` runs. If it fails, a
     // modem or PPPoE connection (types 1 / 3) carries on in the online state task (+0xD8), `failScript` kept (+0x1C8).
     bool ConnectToInternet(uint32_t onlineScript, uint32_t failScript);
     // 0x00535CB0: go offline: the online state task added (state -1; `script`, if any, for when it's done), the lobby
-    // left (0x005453E0 with 2), Net::Manager::DisconnectFromInternet.
+    // left (0x005453E0 with 2), NetLink::Manager::DisconnectFromInternet.
     void DisconnectFromInternet(uint32_t script);
     // 0x00536C10 (the CFunc CancelConnectToInternet's; no `this`): by the net library's modem state - 0 / 1 (dialling):
     // the online task restarted, the lobby left (state 2), offline; 2: modem state 6; 5: the online task removed and
@@ -318,35 +318,35 @@ public:
     // 0x00536B10: the joining player `player` removed (its connection terminated on the server, or on client 0 if it
     // has one).
     void RemoveNewPlayer(void* player);
-    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search` (a Lst::Search -
+    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search` (a ListKit::Search -
     // {vtable, node}); without `observers`, observers are skipped. Null at the end.
-    void* FirstPlayerInfo(void* search, bool observers);
-    void* NextPlayerInfo(void* search, bool observers);
+    void* BeginPlayerWalk(void* search, bool observers);
+    void* StepPlayerWalk(void* search, bool observers);
     // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
-    void* FirstNewPlayerInfo(void* search);
+    void* BeginJoinerWalk(void* search);
     // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
-    // generic next, folded at 0x004573D0 (Net::App::NextConnection), with the manager as its unused `this`.
-    void* NextNewPlayerInfo(void* search);
+    // generic next, folded at 0x004573D0 (NetLink::App::StepConnWalk), with the manager as its unused `this`.
+    void* StepJoinerWalk(void* search);
     // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
     void* GetNewPlayerInfoByObjectId(uint16_t id);
     // 0x00537140: ready to play (m_readyToPlay) or not; when it changes, every skater of the skate module (+0x28's
     // list) told - its virtual slot 12 when ready, 11 when not.
-    void SetReadyToPlay(bool ready);
+    void SetReadyState(bool ready);
     // 0x00537320 / 0x005373D0 / 0x00537480: the first player (observers too) that is local (flags bit 0) / the server's
     // (bit 9) / has the crown (0x00543490). Null if none.
-    void* GetLocalPlayer();
-    void* GetServerPlayer();
-    void* GetKingOfTheHill();
+    void* GetOwnPlayer();
+    void* GetHostPlayer();
+    void* GetHillRuler();
     // 0x00537530: the players (no observers) with neither flag 0x21 (bit 0 local; bit 5) set.
     int CountOtherPlayers();
     // 0x00537620: every player's flags 0x100 / 0x20000 and +0x1C, +0x20, +0x34 cleared, its skater's score reset
     // (the SkaterScore component's +0x18 - 0x00564A10).
-    void ResetPlayers();
+    void ClearRoster();
     // 0x005376F0: a panel message: with `broadcast`, message 0x3F to every player through the server (the CRC of
     // `properties`, `text`, `time`, string 1 and 2 - 16 bytes each; sequenced in group 8 when `important`); else locally:
     // create_net_panel_message {text (the global text `text`, its "%s0" replaced by string 1), id = net_panel_msg,
     // msg_time = time}. `object` isn't used.
-    void CreateNetPanelMessage(bool broadcast, uint32_t text, const char* string1, const char* string2, void* object,
+    void BuildNetNotice(bool broadcast, uint32_t text, const char* string1, const char* string2, void* object,
                                const char* properties, bool important, int time);
     // 0x00537A10: a script queued to spawn once the level is up (+0x144; in the network heap) - unless one of the same
     // name is queued already.
@@ -399,17 +399,17 @@ public:
     // two preference sets destroyed.
     void DestroyBody();
     // Every node after `head` taken out of its list (each linked to itself; none freed). No address of its own: the
-    // original calls the list code folded at 0x00588B70 (Obj::TrickObjectHead::UnlinkAll).
+    // original calls the list code folded at 0x00588B70 (GameObjects::TrickObjectHead::UnlinkAll).
     // (__fastcall: `head` in ECX, as the original's call passes it.)
-    static void __fastcall UnlinkAllNodes(Mem::ListNode* head);
+    static void __fastcall UnlinkAllNodes(MemSys::ListNode* head);
 
     // --- The scores (score_list.cpp) ---
     // 0x005435F0: team `team`'s score: the sum of its players' (fully in or local) SkaterScore scores; in net goal
     // attack, for a player who isn't observing, the goal manager's count for the team (0x00558B10) instead.
-    int GetTeamScore(int team);
+    int GetSquadPoints(int team);
     // 0x005436E0: the score of the player with object id `id` (its SkaterScore's - no null checks); in net goal
     // attack, for a player who isn't observing, the goal manager's count (0x00558AB0).
-    int GetPlayerScore(uint32_t id);
+    int GetEntrantPoints(uint32_t id);
 
     // --- The server list (server_list.cpp) ---
     // 0x005451B0 / 0x005451C0: the online service's next state (+0x1BC) / its state (+0x1B8).
@@ -421,7 +421,7 @@ public:
     // 0x005451E0 (PostGame): the lobby's 0x00540220; logged in to presence, the status "hosting" with the
     // location "10thug211:<local address>:<public address>:5153:<server name> (<lobby>)" (all 0 without a peer).
     void UpdateHostingStatus();
-    // 0x00545300: in LAN mode the server-list client restarted (0x00534D50, SpawnMatchClient - false if that
+    // 0x00545300: in LAN mode the server-list client restarted (0x00534D50, StartMatchmakingClient - false if that
     // fails) and its task (+0xF0) added to the logic tasks if not in a list. True.
     bool StartServerList();
     // 0x00545370: the browsing stopped: on the internet GameSpy's (0x005FCA40, with a peer), else the server-list
@@ -435,9 +435,9 @@ public:
     // 0x005460D0: `server` added to the server list menu (the first one clears the "none found" message):
     // server_list_menu_add_item with its name, mode, id (internet: its SBServer; LAN: itself), the menu's
     // scripts and their parameters. (`index` isn't used.)
-    void AddServerToMenu(void* server, int index);
+    void ShowServerInMenu(void* server, int index);
     // 0x005462F0: every server (waiting and listed) deleted; in LAN mode 0x00534D50.
-    void ClearServerList();
+    void EmptyServerListing();
     // 0x00546400: whether a server named `name` (case ignored) at `ip` is listed or waiting.
     bool HasServer(const char* name, uint32_t ip);
     // 0x005464D0: the listed server with id `id` (internet: its SBServer; LAN: itself), or null.
@@ -458,49 +458,49 @@ public:
     // game is none), with `checkPassword` the password, with `checkCdKey` a CD-key response of 72 characters.
     // In the THUGPRO peer mode the CD-key check is left out: THUGPRO's hosts drop it, and its players send a made-up
     // key (TP-R12).
-    bool OkToJoin(int& reason, ConnectInfo* msg, Net::Conn* conn, bool checkPassword, bool checkVersion,
+    bool OkToJoin(int& reason, ConnectInfo* msg, NetLink::Conn* conn, bool checkPassword, bool checkVersion,
                   bool checkCdKey);
     // 0x00534480: join the server at ip:port with client `index` (a local client - the host's own - is connected
     // directly): the connection request sent, the client's join handlers added (index 0: the game's too).
     void JoinServer(uint32_t ip, uint16_t port, int index);
     // 0x00534AF0: the connection request again (state "joining"), on `client`.
-    void ReattemptJoin(Net::App* client);
+    void RetryEntry(NetLink::App* client);
     // 0x00534BD0: the connection request again with `password` (state "joining with password").
-    void ReattemptJoinWithPassword(const char* password);
+    void RetryEntryWithKey(const char* password);
     // 0x00537220: client `index` made (THUG2's join port; broadcast, local - else dynamic resend and foreign
     // connections -, secure as asked); index 0 resets the ready / pro-set state. Returns it (null if it failed).
-    Net::App* SpawnClient(bool broadcast, bool local, bool secure, int index);
+    NetLink::App* StartClientSession(bool broadcast, bool local, bool secure, int index);
     // 0x00534430: the server-list client (broadcast, dynamic resend, foreign connections, secure) and its server
     // response handler.
-    Net::App* SpawnMatchClient();
+    NetLink::App* StartMatchmakingClient();
     // 0x0053C380: the server made (THUG2's host port, 20 connections), host mode "serve", its lobby handlers (the
     // connection and join requests among them), the starting points shuffled. Returns it (null if it failed).
-    Net::App* SpawnServer(bool local, bool secure);
+    NetLink::App* StartHostSession(bool local, bool secure);
 
     // The message handlers (cdecl, data: the manager).
     // 0x0052F790 (message 3, host): a connection request - ok_to_join (password, version, CD key), then a new
     // connection and join proceed, or join refused; on the internet the CD key is checked with GameSpy first (the
     // answer comes to ClientAuthorized). In the THUGPRO peer mode that GameSpy check is left out (TP-R12).
-    static int __cdecl HandleConnection(Net::MsgHandlerContext* context);
+    static int __cdecl HandleConnection(NetLink::InboundMsgCtx* context);
     // 0x0052FA10 (message 80, host): a join request - ok_to_join again (remote players), then the new player
     // (deferred 10 frames; the host's own at once - and on the internet its own CD key checked, an answer nobody
     // reads: left out in the peer mode).
-    static int __cdecl HandleJoinRequest(Net::MsgHandlerContext* context);
+    static int __cdecl HandleJoinRequest(NetLink::InboundMsgCtx* context);
     // 0x0052E490 (message 79, client): join proceed - the host's details kept, the join request sent (the
     // appearance; in the THUGPRO peer mode the profile is the machine id, as THUGPRO's - TP-R12).
-    static int __cdecl HandleJoinProceed(Net::MsgHandlerContext* context);
+    static int __cdecl HandleJoinProceed(NetLink::InboundMsgCtx* context);
     // 0x0052E1E0 (message 71, client): join refused - the reason shown (or the password asked for, the "game in
     // progress" dialog, the CD-key challenge answered). NOT ORIGINAL: THUGPRO's reasons 31-37 shown in words (TP-R13).
-    static int __cdecl HandleJoinRefused(Net::MsgHandlerContext* context);
+    static int __cdecl HandleJoinRefused(NetLink::InboundMsgCtx* context);
     // 0x00536530: GameSpy's answer to a CD-key check (gcd_authenticate_user's callback; `instance` the
     // connection's {app, manager, connection}, freed here): join proceed, or refused (reason 8).
     static void __cdecl ClientAuthorized(int gameId, int localId, int authenticated, char* error, void* instance);
 
-    // --- The players and the observer's camera (gamenet_players.cpp; players are PlayerInfo, not rewritten yet) ---
+    // --- The players and the observer's camera (gamenet_players.cpp; players are PlayerRecord, not rewritten yet) ---
 
     // 0x0053A910: the observer's camera onto `player`'s skater (m_camPlayer): someone else's - the skater camera; the
     // local skater - the walk camera while it walks, else the skater camera; none (or no skater) - neither.
-    void ObservePlayer(uint8_t* player);
+    void SpectatePlayer(uint8_t* player);
     // 0x0053AA70: message 0x4A (observe) to the server, unless the local player observes already.
     void SendObserveRequest();
     // 0x0053AAC0: the first remote player with flag 0x20 gets "first come, first served" (flag 0x200 and message 0x5F
@@ -510,7 +510,7 @@ public:
     // given; 16 if none.
     int NextPlayerObjectId();
     // 0x0053AE10: the player (observers too) of connection `conn`, or null.
-    uint8_t* PlayerByConnection(Net::Conn* conn);
+    uint8_t* PlayerByConnection(NetLink::Conn* conn);
     // 0x0053AEA0: the player (not an observer) whose skater has object id `id`, or null.
     uint8_t* PlayerByObjectId(uint16_t id);
     // 0x0053C320: the host mode (kHostMode*): auto-serve observes (message 0x4A) and starts its task (+0xF4) with
@@ -519,14 +519,14 @@ public:
     static constexpr int kHostModeServe = 0;
     static constexpr int kHostModeAutoServe = 1;
     static constexpr int kHostModeFcfs = 2;
-    // 0x0053C770: a new player (PlayerInfo, 0x1F0 bytes from the network heap, constructor 0x00543740 with `flags`)
+    // 0x0053C770: a new player (PlayerRecord, 0x1F0 bytes from the network heap, constructor 0x00543740 with `flags`)
     // of `skater` and `conn`. A local observer gets the observer's controls (hide_panel_stuff, the camera onto the
     // first player); a local player clears m_camPlayer; a remote one is watched if the local player observes and
     // watches nobody. Returns it.
-    uint8_t* NewPlayer(Obj::CObject* skater, Net::Conn* conn, uint32_t flags);
+    uint8_t* NewPlayer(GameObjects::CObject* skater, NetLink::Conn* conn, uint32_t flags);
     // 0x0053C950: `player` deleted: the camera moved off it, its crown taken off, its flag returned (flag_returned,
     // hide_ctf_arrow for the local team); the lobby's server details and qr2 told.
-    void DestroyPlayer(uint8_t* player);
+    void RemovePlayerRecord(uint8_t* player);
     // 0x0053CB70: `player` out of the game for `reason` (0 quit, 1 timed out, 2 to observe, 3 banned, 4 kicked,
     // 5 dropped, 6 left out). A client only destroys it. The server: its GameSpy CD key released, message 0x2D to
     // the remote players, the stats told of an early leave, 'Q' (banned / kicked; banned: its address banned) or 'V'
@@ -534,7 +534,7 @@ public:
     // (net_message_player_*); observing: crown and flag given up; otherwise destroyed - and who serves next chosen
     // again if it was that one (network_end_game_selected when nobody is left to). Then, when every playing player's
     // game has ended, message 0x5A (game over) to all.
-    void DropPlayer(uint8_t* player, int reason);
+    void EvictPlayer(uint8_t* player, int reason);
     // 0x0053D120: the players who joined during the game (flag 8) added back as joining players (20, 30 ... frames
     // on), their skaters' appearance kept; the remote skaters hidden and reset. The lobby's server details told.
     void ReAddPendingPlayers();
@@ -550,14 +550,14 @@ public:
     // 0x0053E650: the local player becomes an observer (not again): dropped as observing on the server, its crown and
     // flag given up, its skater removed, the observer's controls (its handler at priority -1), hide_panel_stuff.
     void EnterObserveMode();
-    // 0x0053E440 (gamenet_newplayers.cpp): a client's joining player (a NewPlayerInfo) made real: its skater (none for
+    // 0x0053E440 (gamenet_newplayers.cpp): a client's joining player (a JoinerRecord) made real: its skater (none for
     // an observer; the local one / a remote one / split screen's), the player (an existing one kept; with flag 0x10
     // the old one destroyed and the players resynced), its score.
     void AddNewPlayer(uint8_t* info);
-    // NOT ORIGINAL (inlined in DestroyPlayer / ReAddPendingPlayers): the lobby's peer, when hosting, told the game's
+    // NOT ORIGINAL (inlined in RemovePlayerRecord / ReAddPendingPlayers): the lobby's peer, when hosting, told the game's
     // details changed (0x005FCCF0).
     void UpdateLobbyServer();
-    // NOT ORIGINAL (inlined in DestroyPlayer / DropPlayer): `player`'s flag returned (flag_returned with its team,
+    // NOT ORIGINAL (inlined in RemovePlayerRecord / EvictPlayer): `player`'s flag returned (flag_returned with its team,
     // hide_ctf_arrow when it's the local player's team), the flag bits cleared.
     void FlagReturned(uint8_t* player);
 
@@ -573,7 +573,7 @@ public:
     // 0x0053C6E0: the join given up (not when already over: states 8-10): message 0x0B to the server, the apps shut
     // down, the timeout task off, the joining players gone, the presence back to "chatting" in the lobby.
     void CancelJoin();
-    // Tasks (Tsk::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
+    // Tasks (TaskList::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
     // 0x0053BED0: the observer asked for the next player (m_observerCommand 1): the camera onto it.
     static void __cdecl ObserverTask(void* task);
     // 0x00536890 (the observer's input handler's code, given the handler - Detail::ObserverInputHandler): the next
@@ -610,19 +610,19 @@ public:
     static void __cdecl StartGameTask(void* task);
 
     // Fields.
-    Net::App*& ClientSlot(int index) { return (&m_client)[index]; }
+    NetLink::App*& ClientSlot(int index) { return (&m_clientApp)[index]; }
 
     uint8_t m_flags;          // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     uint8_t m_unknown1[3];
-    Net::App* m_server;       // +0x04
-    Net::App* m_client;       // +0x08 client 0 (the game's)
-    Net::App* m_client1;      // +0x0C client 1
+    NetLink::App* m_server;       // +0x04
+    NetLink::App* m_clientApp;       // +0x08 client 0 (the game's)
+    NetLink::App* m_client1;      // +0x0C client 1
     void* m_lobbyMan;         // +0x10 the GameSpy lobby (its server name +0xB4, its peer +0x34)
     void* m_vaultMan;         // +0x14 the content vault and HTTP transfers (VaultMan)
     void* m_buddyMan;        // +0x18 the GameSpy presence (logged in: +0x10)
     void* m_statsMan;         // +0x1C the player's rating (+0x14)
     char m_challenge[12];     // +0x20 the host's CD-key challenge
-    Net::App* m_matchClient;  // +0x2C the server list's client
+    NetLink::App* m_matchClient;  // +0x2C the server list's client
     uint32_t m_unknown30;
     uint32_t m_level;         // +0x34 the level's load script
     uint16_t m_unknown38;
@@ -631,23 +631,23 @@ public:
     int m_joinMode;           // +0x3C (1: observe)
     int m_hostMode;           // +0x40 (0: serve)
     uint8_t m_unknown44[0x88];
-    Tsk::BaseTask* m_serverAddNewPlayersTask; // +0xCC
-    Tsk::BaseTask* m_clientAddNewPlayersTask; // +0xD0
+    TaskList::SchedulerTask* m_serverAddNewPlayersTask; // +0xCC
+    TaskList::SchedulerTask* m_clientAddNewPlayersTask; // +0xD0
     uint8_t m_unknownD4[8];
-    Tsk::BaseTask* m_joinTimeoutTask;   // +0xDC
+    TaskList::SchedulerTask* m_joinTimeoutTask;   // +0xDC
     uint32_t m_unknownE0;
-    Tsk::BaseTask* m_joinStateTask;     // +0xE4
+    TaskList::SchedulerTask* m_joinStateTask;     // +0xE4
     uint8_t m_unknownE8[0x14];
     void* m_observerInputHandler;       // +0xFC
     int m_observerCommand;              // +0x100
-    uint8_t m_networkPreferences[0x80]; // +0x104 (Prefs::Preferences)
+    uint8_t m_networkPreferences[0x80]; // +0x104 (OptionStore::Preferences)
     uint32_t m_refusedReason;           // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
     uint32_t m_latestReadyQuery;        // +0x188
     bool m_readyToPlay;                 // +0x18C
     uint8_t m_unknown18D[3];
     uint32_t m_lastScoreUpdate;         // +0x190
     uint32_t m_proSetFlags;             // +0x194
-    int m_joinState;                    // +0x198 JoinState
+    int m_joinState;                    // +0x198 EntryPhase
     uint32_t m_joinIp;                  // +0x19C
     uint32_t m_joinPrivateIp;           // +0x1A0
     int m_joinPort;                     // +0x1A4
@@ -695,4 +695,4 @@ extern bool g_gamePosted;
 extern int g_queuedCount;
 extern bool g_cheatFlag;
 
-} // namespace GameNet
+} // namespace OnlinePlay

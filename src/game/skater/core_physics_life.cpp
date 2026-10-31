@@ -84,25 +84,25 @@ constexpr uint32_t kFlagD8 = 0xD8;
 
 enum : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4 };
 
-Obj::CSkaterStateComponent* StateOf(void* component)
+GameObjects::CRiderPoseState* StateOf(void* component)
 {
-    return At<Obj::CSkaterStateComponent*>(component, kTimedFlags);
+    return At<GameObjects::CRiderPoseState*>(component, kTimedFlags);
 }
 uint8_t* SoundOf(void* component) { return At<uint8_t*>(component, kSoundComponent); }
-Obj::CTrickComponent* TrickOf(void* component) { return At<Obj::CTrickComponent*>(component, kSkaterComponent); }
+GameObjects::CMoveExecutor* TrickOf(void* component) { return At<GameObjects::CMoveExecutor*>(component, kSkaterComponent); }
 void ReleasePointer(void* component, uint32_t offset)
 {
-    At<Obj::CSmtPtr<Obj::CRefCounted>>(component, offset).Release();
+    At<GameObjects::CSharedRef<GameObjects::CSharedBase>>(component, offset).Release();
 }
 
 } // namespace
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
-void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b)
+void __cdecl TrackingPrint(int index, const Maths::Vector* a, const Maths::Vector* b)
 {
-    if (!Script::GetInteger(kTrackingName))
+    if (!Scripts::FetchIntValue(kTrackingName))
         return;
-    Dbg::Printf("Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", index, static_cast<double>(a->x),
+    DebugOut::Printf("Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", index, static_cast<double>(a->x),
                 static_cast<double>(a->y), static_cast<double>(a->z), static_cast<double>(b->x),
                 static_cast<double>(b->y), static_cast<double>(b->z));
 }
@@ -110,7 +110,7 @@ void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b
 // 0x004FC3C0
 bool CorePhysicsComponent::ProjectileButtonPressed()
 {
-    uint32_t button = Script::GetSymbolValue(kProjectileControl); // (the game's string)
+    uint32_t button = Scripts::GetSymbolValue(kProjectileControl); // (the game's string)
     if (!TrickOf(this)->CheckReleasePress(button, false, true))
         return false;
     At<int>(this, kProjectileInput) = -1;
@@ -118,7 +118,7 @@ bool CorePhysicsComponent::ProjectileButtonPressed()
 }
 
 // 0x004FC440
-int CorePhysicsComponent::IsSwitched()
+int CorePhysicsComponent::IsSidesSwapped()
 {
     uint8_t flipped = At<uint8_t>(StateOf(this), kFlagFlipped);
     if (At<uint8_t>(ObjectOf(this), 0x110))
@@ -127,9 +127,9 @@ int CorePhysicsComponent::IsSwitched()
 }
 
 // 0x004FC470
-void CorePhysicsComponent::SetTerrain(uint32_t terrain)
+void CorePhysicsComponent::SetSurfaceKind(uint32_t terrain)
 {
-    StateOf(this)->SetTerrain(static_cast<uint8_t>(terrain));
+    StateOf(this)->SetSurfaceKind(static_cast<uint8_t>(terrain));
     SoundOf(this)[0x1C] = static_cast<uint8_t>(terrain);
 }
 
@@ -137,26 +137,26 @@ void CorePhysicsComponent::SetTerrain(uint32_t terrain)
 void CorePhysicsComponent::DestroyBody()
 {
     At<void**>(this, 0) = g_corePhysicsVtable;
-    At<Nx::CCollCache>(this, kCollisionCache).Destruct();
+    At<Engine3D::CHitMeshCache>(this, kCollisionCache).Destruct();
     ReleasePointer(this, kSkitched);
     ReleasePointer(this, kGroundFeelerObject);
     ReleasePointer(this, kFeelerObject);
-    reinterpret_cast<Obj::CBaseComponent*>(this)->Obj::CBaseComponent::DestroyBody();
+    reinterpret_cast<GameObjects::CObjectModule*>(this)->GameObjects::CObjectModule::DestroyBody();
 }
 
 // 0x004FC5C0
-void CorePhysicsComponent::InitFromStructure(Script::CStruct*)
+void CorePhysicsComponent::ConfigureFromData(Scripts::CStruct*)
 {
     At<float>(this, kRollingFrictionValue) = PhysicsFloat(kRollingFriction, ObjectOf(this));
     void* object = ObjectOf(this);
-    VectorAt(object, kPosition) = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
-    Mth::Matrix& matrix = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-    matrix.row[0] = Mth::Vector(1.0f, 0.0f, 0.0f, 0.0f);
-    matrix.row[1] = Mth::Vector(0.0f, 1.0f, 0.0f, 0.0f);
-    matrix.row[2] = Mth::Vector(0.0f, 0.0f, 1.0f, 0.0f);
-    matrix.row[3] = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-    VectorAt(this, kGroundNormalA) = Mth::Vector(0.0f, 1.0f, 0.0f, 1.0f);
+    VectorAt(object, kPosition) = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    Maths::Matrix& matrix = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    matrix.row[0] = Maths::Vector(1.0f, 0.0f, 0.0f, 0.0f);
+    matrix.row[1] = Maths::Vector(0.0f, 1.0f, 0.0f, 0.0f);
+    matrix.row[2] = Maths::Vector(0.0f, 0.0f, 1.0f, 0.0f);
+    matrix.row[3] = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    VectorAt(this, kGroundNormalA) = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
     VectorAt(this, kGroundNormalB) = VectorAt(this, kGroundNormalA);
     VectorAt(this, kGroundNormalC) = VectorAt(this, kGroundNormalA);
     At<uint8_t>(this, kUnknown2EC) = 0;
@@ -167,7 +167,7 @@ void CorePhysicsComponent::InitFromStructure(Script::CStruct*)
 void CorePhysicsComponent::Finalize()
 {
     for (const auto& c : kComponents)
-        At<void*>(this, c.offset) = static_cast<Obj::CCompositeObject*>(ObjectOf(this))->GetComponent(c.type);
+        At<void*>(this, c.offset) = static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->GetComponent(c.type);
 }
 
 // 0x004FDD50
@@ -175,18 +175,18 @@ void CorePhysicsComponent::LeaveSkating()
 {
     if (At<uint8_t>(this, kGetOffPending)) {
         At<uint8_t>(this, kGetOffPending) = 0;
-        static_cast<Obj::CObject*>(ObjectOf(this))->BroadcastEvent(kGetOffEvent, nullptr, 0.0f);
+        static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(kGetOffEvent, nullptr, 0.0f);
     }
-    At<uint32_t>(this, kRailWait) = Ftol(Script::GetFloat(kRailWaitName));
+    At<uint32_t>(this, kRailWait) = Ftol(Scripts::GetFloat(kRailWaitName));
     if (At<uint32_t>(this, kRailLeftAt) > At<uint32_t>(this, kRailLeft))
         At<uint32_t>(this, kRailLeft) = At<uint32_t>(this, kRailLeftAt);
     uint8_t* state = reinterpret_cast<uint8_t*>(StateOf(this));
     if (At<int>(state, kState) == kAir && At<int>(this, kOldState) == kLip && state[kFlagLipToAir])
         SetTimedFlag(this, kFlagLipToAir, 0);
     StateOf(this)->SetState(kGround);
-    VectorAt(StateOf(this), 0xF8) = Mth::Vector(0.0f, 1.0f, 0.0f, 1.0f);
-    VectorAt(StateOf(this), 0x108) = Mth::Vector(0.0f, 1.0f, 0.0f, 1.0f);
-    VectorAt(StateOf(this), 0xE4) = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    VectorAt(StateOf(this), 0xF8) = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
+    VectorAt(StateOf(this), 0x108) = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
+    VectorAt(StateOf(this), 0xE4) = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
     At<uint8_t>(StateOf(this), 0xF4) = 0;
 }
 
@@ -215,14 +215,14 @@ void CorePhysicsComponent::SetPhysicsState(int state)
         At<int>(this, kOldState) = StateOf(this)->m_state;
     }
     int old = StateOf(this)->m_state;
-    Mth::Vector& lip = VectorAt(this, kLipPosition);
+    Maths::Vector& lip = VectorAt(this, kLipPosition);
     if (old == kLip && state != kLip && (lip.x != 0.0f || lip.y != 0.0f || lip.z != 0.0f)) {
         void* object = ObjectOf(this);
         VectorAt(object, kPosition) = lip;
         VectorAt(object, kOldPosition) = VectorAt(object, kPosition);
     }
     if (state != kLip)
-        lip = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        lip = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
     if (state != kGround)
         TrickOf(this)->SetTrickObjects(true);
     if (StateOf(this)->m_state == kRail && state != kRail) {
@@ -253,11 +253,11 @@ void CorePhysicsComponent::SetPhysicsState(int state)
 void CorePhysicsComponent::TurnAround()
 {
     void* object = ObjectOf(this);
-    Mth::Vector& facing = VectorAt(object, kForward);
-    facing = Mth::Vector(-facing.x, -facing.y, -facing.z, -facing.w);
-    Mth::Vector& right = VectorAt(ObjectOf(this), kMatrix);
-    right = Mth::Vector(-right.x, -right.y, -right.z, -right.w);
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+    Maths::Vector& facing = VectorAt(object, kForward);
+    facing = Maths::Vector(-facing.x, -facing.y, -facing.z, -facing.w);
+    Maths::Vector& right = VectorAt(ObjectOf(this), kMatrix);
+    right = Maths::Vector(-right.x, -right.y, -right.z, -right.w);
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
     At<uint8_t>(this, kFacingBackwards) = At<uint8_t>(this, kFacingBackwards) ? 0 : 1;
 }
 
@@ -270,10 +270,10 @@ void CorePhysicsComponent::ResetToAir(void*)
 
 } // namespace Skater
 
-namespace Mth {
+namespace Maths {
 
 // 0x004FC370
-Vector& Vector::ZeroIfShorterThan(float length)
+Vector& Vector::ClampTinyToNothing(float length)
 {
     double lengthSquared = (static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z;
     if (lengthSquared < static_cast<double>(length) * length)
@@ -283,16 +283,16 @@ Vector& Vector::ZeroIfShorterThan(float length)
 
 } // namespace Mth
 
-namespace Obj {
+namespace GameObjects {
 
 // 0x004FC400
-int CMovableContactComponent::TimeSinceStop() { return static_cast<int>(Skater::Physics::Since(m_stopTime)); }
+int CMovingSurfaceModule::TimeSinceStop() { return static_cast<int>(Skater::Physics::Since(m_stopTime)); }
 
 // 0x004FC420
-bool CSkaterPhysicsControlComponent::IsWalking()
+bool CRiderBoardPhysics::IsOnFoot()
 {
-    auto* state = reinterpret_cast<CSkaterStateComponent*>(m_state);
-    return !state->m_driving && state->m_physicsMode == 1;
+    auto* state = reinterpret_cast<CRiderPoseState*>(m_state);
+    return !state->m_inVehicle && state->m_physicsMode == 1;
 }
 
 } // namespace Obj

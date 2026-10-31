@@ -11,7 +11,7 @@
 #include "game/sys/config.h"
 #include "game/sys/log.h"
 
-namespace GameNet::Thugpro {
+namespace OnlinePlay::Thugpro {
 
 namespace {
 
@@ -20,7 +20,7 @@ uint32_t g_hashOverride = 0;
 uint32_t ReadScriptsHash()
 {
     char text[32];
-    Config::GetString("online", "thugpro_scripts_hash", "", text, sizeof(text));
+    BuildInfo::GetString("online", "thugpro_scripts_hash", "", text, sizeof(text));
     uint32_t hash = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     return hash ? hash : kReleaseScriptsHash;
 }
@@ -90,13 +90,13 @@ uint32_t RefusedReasonText(int reason)
     if (reason < kRefusedVersionLow || reason > kRefusedTest)
         return 0;
     const ReasonText& text = kReasons[reason - kRefusedVersionLow];
-    if (!Script::FindSymbol(text.name)) {
-        Script::CSymbolTableEntry* symbol = Script::CreateSymbol(text.name);
-        symbol->type = Script::ESYMBOLTYPE_STRING;
-        symbol->raw = reinterpret_cast<uint32_t>(Script::CreateString(text.words));
+    if (!Scripts::FindSymbol(text.name)) {
+        Scripts::CSymbolTableEntry* symbol = Scripts::CreateSymbol(text.name);
+        symbol->type = Scripts::QBVAL_STRING;
+        symbol->raw = reinterpret_cast<uint32_t>(Scripts::CreateString(text.words));
     }
     Log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
     return text.name;
 }
 
-} // namespace GameNet::Thugpro
+} // namespace OnlinePlay::Thugpro

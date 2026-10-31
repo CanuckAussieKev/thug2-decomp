@@ -21,7 +21,7 @@
 //   - its client shows reasons 31-37 in its own words.
 // (The source snapshot of thugpro_proxy has a different, 48-byte request - an unreleased version: a release host
 // takes THUG2's version from its first 4 bytes and refuses anything else, so this mode sends what the release does.)
-namespace GameNet::Thugpro {
+namespace OnlinePlay::Thugpro {
 
 // The release's scripts hash: the CRC-32 of THUGPRO's data\pre\thugpro_qb.prx (THUGPRO's own toolchain computes it with
 // calculate_qb_prx_hash.bat). The user's decision (2026-10-21): our client sends THUGPRO's release hash, hard-coded,
@@ -81,4 +81,4 @@ uint32_t RefusedReasonText(int reason);
 // The words of reason `reason` (31-37; null for any other).
 const char* RefusedReasonWords(int reason);
 
-} // namespace GameNet::Thugpro
+} // namespace OnlinePlay::Thugpro

@@ -12,13 +12,13 @@
 #include "game/core/mem.h"
 #include "game/park/park_memory.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 float g_parkCellSizeX{120.0f};
 float g_parkCellSizeY{48.0f};
 float g_parkCellSizeZ{120.0f};
-CGapManager* g_gapManager;
-CParkManager* g_parkManager;
+CGapRegistry* g_gapManager;
+CParkLayout* g_parkManager;
 
 namespace {
 
@@ -39,43 +39,43 @@ void CopyText(char* to, const char* from)
 
 } // namespace
 
-CParkManager* CParkManager::sInstance() { return g_parkManager; }
+CParkLayout* CParkLayout::sSingleton() { return g_parkManager; }
 
-CompressedMap* CParkManager::GetCompressedMapBuffer(bool markSaved)
+CompressedMap* CParkLayout::GetPackedParkData(bool flagClean)
 {
-    if (markSaved)
+    if (flagClean)
         m_flags &= ~kMapNotSavedLocal;
     return &m_map;
 }
 
-void CParkManager::SetCompressedMapBuffer(const CompressedMap* map, bool markNotSaved)
+void CParkLayout::SetPackedParkData(const CompressedMap* map, bool flagDirty)
 {
     std::memcpy(&m_map, map, sizeof(m_map));
     m_flags |= kMapInSync | kMapNewerThanPark;
-    if (markNotSaved)
+    if (flagDirty)
         m_flags |= kMapNotSavedLocal;
 }
 
-bool CParkManager::IsMapSavedLocally()
+bool CParkLayout::HasLocalParkCopy()
 {
     return (m_flags & (kMapValid | kMapNewerThanPark)) && !(m_flags & kMapNotSavedLocal);
 }
 
-int CParkManager::GetShellSize()
+int CParkLayout::GetShellSize()
 {
     if (m_flags & kMapInSync)
         return m_map.m_shellSize;
     return 0;
 }
 
-const char* CParkManager::GetParkName()
+const char* CParkLayout::GetParkName()
 {
     if (m_map.m_version == CompressedMap::kVersion)
         return m_map.m_name;
     return nullptr;
 }
 
-void CParkManager::SetParkName(const char* name)
+void CParkLayout::SetParkName(const char* name)
 {
     if (m_map.m_version != CompressedMap::kVersion)
         return;
@@ -83,39 +83,39 @@ void CParkManager::SetParkName(const char* name)
     CopyText(m_parkName, name);
 }
 
-void CParkManager::RebuildParkGeometry(int how)
+void CParkLayout::RebuildParkGeometry(int how)
 {
-    // CParkGenerator's three updates
+    // CParkAssembler's three updates
     switch (how) {
     case 0:
-        mp_generator->CleanUpOutRefs(); // take out the removed pieces
+        m_builder->CleanUpOutRefs(); // take out the removed pieces
         break;
     case 1:
-        mp_generator->RebuildAll();
+        m_builder->RebuildAll();
         break;
     case 2:
-        mp_generator->RebuildMarked();
+        m_builder->RebuildMarked();
         break;
     }
 }
 
-uint32_t CParkManager::GetShellChecksum()
+uint32_t CParkLayout::GetShellChecksum()
 {
     char name[40];
     if ((m_flags & kMapInSync) && m_map.m_shellSize != 0)
         std::snprintf(name, sizeof(name), "sk5ed%d_shell", m_map.m_shellSize + 1); // 0x0064F650
     else
         std::memcpy(name, "sk5ed_shell", 12); // 0x0064F644
-    return Crc::GenerateCRCFromString(name);
+    return Checksums::HashFromText(name);
 }
 
-CMapListNode* CParkManager::GetMapListNode(int x, int z) { return m_cellMetas[x][z]; }
+CMapListNode* CParkLayout::GetCellChain(int x, int z) { return m_cellMetas[x][z]; }
 
-CPieceSet* CParkManager::GetPieceSet(int index, int* usedBefore)
+CPieceFamily* CParkLayout::GetPieceFamily(int index, int* usedBefore)
 {
     int used = 0;
     for (int i = 0; i < index; ++i) {
-        if (m_sets[i].m_visible)
+        if (m_sets[i].m_isDisplayed)
             ++used;
     }
     if (usedBefore)
@@ -123,7 +123,7 @@ CPieceSet* CParkManager::GetPieceSet(int index, int* usedBefore)
     return &m_sets[index];
 }
 
-void CParkManager::GetMapInfo(const CompressedMap* map, int* numGaps, int* numMetas, uint16_t* theme,
+void CParkLayout::GetMapInfo(const CompressedMap* map, int* numGaps, int* numMetas, uint16_t* theme,
                               uint32_t* unknown18, int* width, int* length)
 {
     *width = map->m_w;
@@ -131,27 +131,27 @@ void CParkManager::GetMapInfo(const CompressedMap* map, int* numGaps, int* numMe
     *numGaps = map->m_numGaps;
     *numMetas = map->m_numMetas;
     *theme = map->m_shellSize;
-    *unknown18 = map->m_theme ? map->m_theme : 0x1CA1FF20; // Default
+    *unknown18 = map->m_styleSet ? map->m_styleSet : 0x1CA1FF20; // Default
 }
 
-void CParkManager::RestoreFloorHeights()
+void CParkLayout::RestoreFloorHeights()
 {
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
             FloorCell& cell = m_floor[x][z];
             if (cell.m_touched) {
                 cell.m_touched = false;
-                cell.m_height -= cell.m_delta;
+                cell.m_levelY -= cell.m_delta;
             }
-            if (cell.m_height > 15)
-                cell.m_height = 15;
-            else if (cell.m_height < -16)
-                cell.m_height = -16;
+            if (cell.m_levelY > 15)
+                cell.m_levelY = 15;
+            else if (cell.m_levelY < -16)
+                cell.m_levelY = -16;
         }
     }
 }
 
-int CParkManager::GetRestartIndex(uint32_t name)
+int CParkLayout::GetRestartIndex(uint32_t name)
 {
     for (int i = 1; i <= kNumRestartPieces; ++i) {
         if (m_restartPieces[i - 1] == name)
@@ -160,12 +160,12 @@ int CParkManager::GetRestartIndex(uint32_t name)
     return 0;
 }
 
-CMetaPiece* CParkManager::GetAbstractMetaPiece(uint32_t name, int* index)
+CPieceGroup* CParkLayout::GetAbstractMetaPiece(uint32_t name, int* index)
 {
     int position = m_numAbstractMetas - 1;
-    for (CMapListNode* node = mp_abstract_metas; node; node = node->mp_next, --position) {
-        CMetaPiece* meta = node->GetMeta()->Cast();
-        if (meta->m_name_checksum == name) {
+    for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following, --position) {
+        CPieceGroup* meta = node->GetPieceGroup()->Cast();
+        if (meta->m_nameKey == name) {
             if (index)
                 *index = position;
             return meta;
@@ -174,21 +174,21 @@ CMetaPiece* CParkManager::GetAbstractMetaPiece(uint32_t name, int* index)
     return nullptr;
 }
 
-bool CParkManager::CanResizeTo(GridDims area)
+bool CParkLayout::CanResizeTo(SCellBox area)
 {
     // 0x0059EB30: the park memory check for going from one floor area to another
     return PiecesFit(m_parkBounds.w * m_parkBounds.l, area.w * area.l);
 }
 
-int CParkManager::GetFloorHeight(GridDims area, bool* uniform)
+int CParkLayout::GetGroundLevel(SCellBox area, bool* uniform)
 {
     if (uniform)
         *uniform = true;
-    int first = m_floor[area.x][area.z].m_height;
+    int first = m_floor[area.x][area.z].m_levelY;
     int highest = -10000;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            int height = m_floor[x][z].m_height;
+            int height = m_floor[x][z].m_levelY;
             if (uniform && height != first)
                 *uniform = false;
             if (height > highest)
@@ -198,7 +198,7 @@ int CParkManager::GetFloorHeight(GridDims area, bool* uniform)
     return highest;
 }
 
-Mth::Vector CParkManager::GridCoordinatesToWorld(const GridDims& area, Mth::Vector* dimensions)
+Maths::Vector CParkLayout::CellToWorldPos(const SCellBox& area, Maths::Vector* dimensions)
 {
     float x = static_cast<float>(area.x - kGridCentre) * CellSizeX();
     float y = static_cast<float>(area.y) * CellSizeY();
@@ -211,10 +211,10 @@ Mth::Vector CParkManager::GridCoordinatesToWorld(const GridDims& area, Mth::Vect
     return {x, y, z, 1.0f};
 }
 
-bool CParkManager::IsAreaBlocked(GridDims area)
+bool CParkLayout::IsAreaBlocked(SCellBox area)
 {
     for (uint32_t i = 0; i < m_numBlockedAreas; ++i) {
-        const GridDims& mask = m_blockedAreas[i];
+        const SCellBox& mask = m_blockedAreas[i];
         if (area.x + area.w > mask.x && area.x < mask.x + mask.w && area.z + area.l > mask.z &&
             area.z < mask.z + mask.l)
             return true;
@@ -224,51 +224,51 @@ bool CParkManager::IsAreaBlocked(GridDims area)
 
 namespace {
 
-// CGapManager (0xA8 bytes): the instance in use (sInstance, 0x0058CBB0), constructor, copying and destructor.
+// CGapRegistry (0xA8 bytes): the instance in use (sSingleton, 0x0058CBB0), constructor, copying and destructor.
 void*& GapManagerInstance() { return reinterpret_cast<void*&>(g_gapManager); }
 
 } // namespace
 
-void CParkManager::CreateGapManagerCopy()
+void CParkLayout::CreateGapManagerCopy()
 {
     void* current = GapManagerInstance();
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
-    void* memory = Mem::New(0xA8);
-    CGapManager* copy = memory ? static_cast<CGapManager*>(memory)->Construct(nullptr) : nullptr;
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    void* memory = MemSys::New(0xA8);
+    CGapRegistry* copy = memory ? static_cast<CGapRegistry*>(memory)->Construct(nullptr) : nullptr;
     mp_gapManagerCopy = copy;
-    copy->CopyFrom(static_cast<CGapManager*>(current)); // (null if out of memory)
-    Mem::PopContext();
+    copy->CopyFrom(static_cast<CGapRegistry*>(current)); // (null if out of memory)
+    MemSys::LeaveHeapScope();
     GapManagerInstance() = current; // (the constructor made the copy current)
 }
 
-void CParkManager::UseGapManagerCopy() { GapManagerInstance() = mp_gapManagerCopy; }
+void CParkLayout::UseGapManagerCopy() { GapManagerInstance() = mp_gapManagerCopy; }
 
-void CParkManager::DestroyGapManagerCopy()
+void CParkLayout::DestroyGapManagerCopy()
 {
-    CGapManager* copy = mp_gapManagerCopy;
+    CGapRegistry* copy = mp_gapManagerCopy;
     if (!copy)
         return;
     copy->Destroy();
-    Mem::Manager::Get()->Free(copy);
+    MemSys::Manager::Get()->Free(copy);
     mp_gapManagerCopy = nullptr;
 }
 
-void CParkManager::HighlightGapPieces(bool on, GapInfo* gap)
+void CParkLayout::HighlightGapPieces(bool on, SGapDetails* gap)
 {
-    for (CMapListNode* node = mp_concrete_metas; node; node = node->mp_next) {
-        if (node->GetMeta()->Cast()->m_flags & CMetaPiece::kHighlightable)
-            node->GetMeta()->Cast()->Highlight(on, 1);
+    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+        if (node->GetPieceGroup()->Cast()->m_flags & CPieceGroup::kHighlightable)
+            node->GetPieceGroup()->Cast()->Highlight(on, 1);
     }
-    mp_generator->SetPiecesHighlighted(0);
+    m_builder->SetPiecesHighlighted(0);
     if (on) {
         if (gap && gap->m_tabIndex >= 0)
             mp_gapManager->SetCurrentGap(gap->m_tabIndex);
     } else {
-        mp_generator->SetPiecesHighlighted(0);
+        m_builder->SetPiecesHighlighted(0);
     }
 }
 
-void CParkManager::ClearFloorChangeMarks()
+void CParkLayout::ClearFloorChangeMarks()
 {
     for (int x = m_shellBounds.x; x < m_shellBounds.x + m_shellBounds.w; ++x) {
         for (int z = m_shellBounds.z; z < m_shellBounds.z + m_shellBounds.l; ++z) {
@@ -276,10 +276,10 @@ void CParkManager::ClearFloorChangeMarks()
             m_floor[x][z].m_delta = 0;
         }
     }
-    for (CMapListNode* node = mp_concrete_metas; node; node = node->mp_next)
-        node->GetMeta()->Cast()->m_flags &= ~CMetaPiece::kFlag20;
+    for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following)
+        node->GetPieceGroup()->Cast()->m_flags &= ~CPieceGroup::kFlag20;
 }
 
 } // namespace Ed
 
-using Ed::CParkManager;
+using ParkEditing::CParkLayout;

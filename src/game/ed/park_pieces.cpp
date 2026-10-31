@@ -1,4 +1,4 @@
-// The park editor's pieces (Ed::CPiece, CSourcePiece, CClonedPiece) and cell boxes (GridDims): a source piece is
+// The park editor's pieces (ParkEditing::CParkTile, CTileTemplate, CCopiedPiece) and cell boxes (SCellBox): a source piece is
 // one of the editor's own sectors (its name and size); the pieces placed in the park are cloned from them and moved,
 // turned, stretched, shown or tinted through their sectors.
 
@@ -13,13 +13,13 @@
 #include "game/ed/park_nx.h"
 #include "game/mth/matrix.h"
 
-namespace Ed {
+namespace ParkEditing {
 
-static VtableSlot kPieceVtable_slots[] = {&_purecall, &CPiece::Destroy};
+static VtableSlot kPieceVtable_slots[] = {&_purecall, &CParkTile::Destroy};
 void** const kPieceVtable = reinterpret_cast<void**>(kPieceVtable_slots);
-static VtableSlot kSourcePieceVtable_slots[] = {&CSourcePiece::GetDims, &CSourcePiece::Destroy};
+static VtableSlot kSourcePieceVtable_slots[] = {&CTileTemplate::MeasureSpan, &CTileTemplate::Destroy};
 void** const kSourcePieceVtable = reinterpret_cast<void**>(kSourcePieceVtable_slots);
-static VtableSlot kClonedPieceVtable_slots[] = {&CClonedPiece::GetDims, &CSourcePiece::Destroy};
+static VtableSlot kClonedPieceVtable_slots[] = {&CCopiedPiece::MeasureSpan, &CTileTemplate::Destroy};
 void** const kClonedPieceVtable = reinterpret_cast<void**>(kClonedPieceVtable_slots);
 
 namespace {
@@ -33,16 +33,16 @@ constexpr float kDegreesToRadians = 0.0174532924f;
 uint8_t Cells(float size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
-void MultiplyMatrices(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MultiplyMatrices(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 } // namespace
 
-// --- GridDims ----------------------------------------------------------------------------------------------------
+// --- SCellBox ----------------------------------------------------------------------------------------------------
 
-GridDims* GridDims::Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
+SCellBox* SCellBox::Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_)
 {
     x = x_;
     y = y_;
@@ -53,62 +53,62 @@ GridDims* GridDims::Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h
     return this;
 }
 
-uint8_t* GridDims::Byte(int index) { return reinterpret_cast<uint8_t*>(this) + index; }
+uint8_t* SCellBox::Byte(int index) { return reinterpret_cast<uint8_t*>(this) + index; }
 
-void GridDims::MakeInfiniteOnY() { h = static_cast<uint8_t>(0x7F - y); }
+void SCellBox::StretchVertically() { h = static_cast<uint8_t>(0x7F - y); }
 
-void GridDims::MakeInfinitelyHigh()
+void SCellBox::RaiseCeilingToLimit()
 {
     y = -100;
     h = 200;
 }
 
-void GridDims::PrintContents() const
+void SCellBox::DumpToLog() const
 {
-    Dbg::Printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
+    DebugOut::Printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", x, static_cast<int>(y), z, w, h, l); // "pos=(%d,%d,%d) dims=..."
 }
 
-// --- CPiece -------------------------------------------------------------------------------------------------------
+// --- CParkTile -------------------------------------------------------------------------------------------------------
 
-void CPiece::DestroyBody() { m_vtable = kVtable; }
+void CParkTile::DestroyBody() { m_vtable = kVtable; }
 
-CPiece* CPiece::Destroy(unsigned int flags)
+CParkTile* CParkTile::Destroy(unsigned int flags)
 {
     m_vtable = kVtable;
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
-uint32_t CPiece::GetId() { return m_id; }
+uint32_t CParkTile::GetId() { return m_id; }
 
-void CPiece::SetRot(int rot, int update)
+void CParkTile::SetQuarterTurns(int rot, int update)
 {
-    m_rot = rot;
+    m_quarterTurns = rot;
     if (update == 1)
-        Scene::SetYRotation(Scene::GetSector(m_sector), rot);
+        Scene::SpinAroundUp(Scene::LookUpSector(m_sector), rot);
 }
 
-void CPiece::SetActive(bool active) { Scene::SetActive(Scene::GetSector(m_sector), active); }
+void CParkTile::SetActive(bool active) { Scene::SetActive(Scene::LookUpSector(m_sector), active); }
 
-void CPiece::SetVisible(bool visible) { Scene::SetVisibility(Scene::GetSector(m_sector), visible ? 0xFF : 0); }
+void CParkTile::SetVisible(bool visible) { Scene::ToggleShown(Scene::LookUpSector(m_sector), visible ? 0xFF : 0); }
 
-void CPiece::GetCellDims(GridDims* dims)
+void CParkTile::GetFootprintSize(SCellBox* dims)
 {
-    Mth::Vector size;
-    GetDims(&size);
+    Maths::Vector size;
+    MeasureSpan(&size);
     dims->l = Cells(size.z, kCellLength);
     dims->h = Cells(size.y, kCellHeight);
     dims->w = Cells(size.x, kCellWidth);
 }
 
-Mth::Vector* CPiece::GetDimsTurned(Mth::Vector* out, int rot)
+Maths::Vector* CParkTile::GetDimsTurned(Maths::Vector* out, int rot)
 {
-    CPiece* source = (m_flags & kSource) ? this : mp_source->AsPiece();
+    CParkTile* source = (m_flags & kSource) ? this : mp_source->AsPiece();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
-    Mth::Vector size;
-    source->GetDims(&size);
+    Maths::Vector size;
+    source->MeasureSpan(&size);
     const bool across = (rot & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;
@@ -117,41 +117,41 @@ Mth::Vector* CPiece::GetDimsTurned(Mth::Vector* out, int rot)
     return out;
 }
 
-void CPiece::SetPosition(Mth::Vector* position, int update)
+void CParkTile::SetPosition(Maths::Vector* position, int update)
 {
     m_pos.x = position->x;
     m_pos.y = position->y;
     m_pos.z = position->z;
     m_pos.w = position->w;
     if (update == 1)
-        Scene::SetWorldPosition(Scene::GetSector(m_sector), position);
+        Scene::PlaceAtAbsolutePoint(Scene::LookUpSector(m_sector), position);
 }
 
-void CPiece::SetLength(float length)
+void CParkTile::SetLength(float length)
 {
-    uint8_t* sector = Scene::GetSector(m_sector);
-    const bool across = (m_rot & 1) != 0;
+    uint8_t* sector = Scene::LookUpSector(m_sector);
+    const bool across = (m_quarterTurns & 1) != 0;
     // (w is a stack leftover in the original)
-    Mth::Vector scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
-    Scene::SetScale(sector, &scale);
+    Maths::Vector scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
+    Scene::ChangeScale(sector, &scale);
 }
 
-void CPiece::SetAngle(float degrees)
+void CParkTile::SetAngle(float degrees)
 {
-    uint8_t* geometry = Scene::GetGeometry(Scene::GetSector(m_sector));
+    uint8_t* geometry = Scene::GetGeometry(Scene::LookUpSector(m_sector));
     if (!geometry)
         return;
-    Mth::Matrix orientation;
-    orientation.Ident();
-    Mth::Matrix turn;
-    Mth::CreateRotateYMatrix(turn, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+    Maths::Matrix orientation;
+    orientation.ResetToIdentity();
+    Maths::Matrix turn;
+    Maths::MakeYawMatrix(turn, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
     MultiplyMatrices(&orientation, &orientation, &turn);
     Scene::SetOrientation(geometry, &orientation);
 }
 
-void CPiece::SetHighlight(bool on, bool gap)
+void CParkTile::SetHighlight(bool on, bool gap)
 {
-    uint8_t* sector = Scene::GetSector(m_sector);
+    uint8_t* sector = Scene::LookUpSector(m_sector);
     if (!sector)
         return;
     uint8_t* geometry = Scene::GetGeometry(sector);
@@ -165,14 +165,14 @@ void CPiece::SetHighlight(bool on, bool gap)
     Scene::SetColor(geometry, gap ? 0x00A064A0u : 0x006464A0u);
 }
 
-// --- CSourcePiece / CClonedPiece ---------------------------------------------------------------------------------
+// --- CTileTemplate / CCopiedPiece ---------------------------------------------------------------------------------
 
-CSourcePiece* CSourcePiece::Construct()
+CTileTemplate* CTileTemplate::Construct()
 {
     m_name = 0;
-    mp_next = nullptr;
+    m_following = nullptr;
     m_vtable = kVtable;
-    m_flags = CPiece::kSource;
+    m_flags = CParkTile::kSource;
     m_size = {0.0f, 0.0f, 0.0f, 1.0f};
     m_20 = 1;
     m_triggerScript = 0;
@@ -181,7 +181,7 @@ CSourcePiece* CSourcePiece::Construct()
     return this;
 }
 
-Mth::Vector* CSourcePiece::GetDims(Mth::Vector* out)
+Maths::Vector* CTileTemplate::MeasureSpan(Maths::Vector* out)
 {
     out->x = m_size.x;
     out->y = m_size.y;
@@ -190,18 +190,18 @@ Mth::Vector* CSourcePiece::GetDims(Mth::Vector* out)
     return out;
 }
 
-CSourcePiece* CSourcePiece::Destroy(unsigned int flags)
+CTileTemplate* CTileTemplate::Destroy(unsigned int flags)
 {
     AsPiece()->DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
-CClonedPiece* CClonedPiece::Construct()
+CCopiedPiece* CCopiedPiece::Construct()
 {
     m_sector = 0;
-    mp_next = nullptr;
+    m_following = nullptr;
     m_vtable = kVtable;
     m_id = 0;
     m_flags = kCloned;
@@ -209,10 +209,10 @@ CClonedPiece* CClonedPiece::Construct()
     return this;
 }
 
-Mth::Vector* CClonedPiece::GetDims(Mth::Vector* out)
+Maths::Vector* CCopiedPiece::MeasureSpan(Maths::Vector* out)
 {
-    const Mth::Vector& size = mp_source->m_size;
-    const bool across = (m_rot & 1) != 0;
+    const Maths::Vector& size = mp_source->m_size;
+    const bool across = (m_quarterTurns & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;
     out->z = across ? size.x : size.z;
@@ -222,7 +222,7 @@ Mth::Vector* CClonedPiece::GetDims(Mth::Vector* out)
 
 } // namespace Ed
 
-using Ed::CClonedPiece;
-using Ed::CPiece;
-using Ed::CSourcePiece;
-using Ed::GridDims;
+using ParkEditing::CCopiedPiece;
+using ParkEditing::CParkTile;
+using ParkEditing::CTileTemplate;
+using ParkEditing::SCellBox;

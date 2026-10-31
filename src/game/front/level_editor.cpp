@@ -82,7 +82,7 @@
 #include "game/sys/log.h"
 #include "game/gfx/device.h"
 
-namespace Front::LevelEditor {
+namespace MenuSystem::LevelEditor {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -309,7 +309,7 @@ bool ClipToNear(V3 cameraPos, const Frame& frame, float nearZ, V3* a, V3* b)
 
 namespace {
 
-constexpr float kNearZ = 2.0f; // (Nx::SetCamera's near plane)
+constexpr float kNearZ = 2.0f; // (Engine3D::ChooseCamera's near plane)
 constexpr float kPi = 3.14159265f;
 constexpr float kLookRadiansPerPixel = 0.0035f;
 constexpr float kMaxPickDistance = 30000.0f;
@@ -320,9 +320,9 @@ constexpr float kArrowGrab = 8.0f;     // (pixels from a move arrow that grab it
 
 bool g_active;
 // The camera we fly (the first viewport's, when the editor started) and the pose the game had given it.
-Gfx::Camera* g_camera;
-Mth::Vector g_savedPos;
-Mth::Matrix g_savedMatrix;
+Gfx2D::Camera* g_camera;
+Maths::Vector g_savedPos;
+Maths::Matrix g_savedMatrix;
 // Our pose.
 V3 g_pos;
 float g_yaw, g_pitch;
@@ -405,7 +405,7 @@ Mouse g_mouse;
 
 // What is picked: the pointer (only used after checking it's still the object found under its id).
 struct Picked {
-    Obj::CCompositeObject* object = nullptr;
+    GameObjects::CGameEntity* object = nullptr;
     uint32_t id = 0;
 };
 Picked g_hover;
@@ -597,22 +597,22 @@ void HandleEvent(SDL_Event* event)
 
 // --- the selection ---
 
-Obj::CCompositeObject* Live(const Picked& picked)
+GameObjects::CGameEntity* Live(const Picked& picked)
 {
     if (!picked.object)
         return nullptr;
-    if (Obj::FindObject(picked.id) != picked.object || (picked.object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+    if (GameObjects::FindObject(picked.id) != picked.object || (picked.object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD))
         return nullptr;
     return picked.object;
 }
 
 // The selected objects still there (the others dropped).
-std::vector<Obj::CCompositeObject*> SelectedObjects()
+std::vector<GameObjects::CGameEntity*> SelectedObjects()
 {
-    std::vector<Obj::CCompositeObject*> live;
+    std::vector<GameObjects::CGameEntity*> live;
     std::vector<Picked> kept;
     for (const Picked& picked : g_objects) {
-        if (Obj::CCompositeObject* object = Live(picked)) {
+        if (GameObjects::CGameEntity* object = Live(picked)) {
             live.push_back(object);
             kept.push_back(picked);
         }
@@ -620,9 +620,9 @@ std::vector<Obj::CCompositeObject*> SelectedObjects()
     g_objects = kept;
     return live;
 }
-Obj::CCompositeObject* Primary()
+GameObjects::CGameEntity* Primary()
 {
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     return objects.empty() ? nullptr : objects.front();
 }
 // The node selected by itself, if the editor moves it (a point node): its index in Nodes::All(), else -1.
@@ -708,14 +708,14 @@ void SelectNodeOnly(int index)
     g_nodeIndex = index;
     g_nodeName = Nodes::All()[index].name;
 }
-bool IsSelected(Obj::CCompositeObject* object)
+bool IsSelected(GameObjects::CGameEntity* object)
 {
     return std::any_of(g_objects.begin(), g_objects.end(), [&](const Picked& p) { return p.object == object; });
 }
-void SelectObjects(const std::vector<Obj::CCompositeObject*>& objects)
+void SelectObjects(const std::vector<GameObjects::CGameEntity*>& objects)
 {
     g_objects.clear();
-    for (Obj::CCompositeObject* object : objects)
+    for (GameObjects::CGameEntity* object : objects)
         g_objects.push_back({object, object->m_id});
     if (!objects.empty())
         Scenery::ClearSelection();
@@ -735,7 +735,7 @@ void Deselect()
 // (a node selected by itself: its pos=, which is its base too)
 V3 SelectionPos()
 {
-    if (Obj::CCompositeObject* object = Primary())
+    if (GameObjects::CGameEntity* object = Primary())
         return Objects::PosOf(object);
     NodeEdit::Values node;
     if (NodeValues(&node))
@@ -746,7 +746,7 @@ V3 SelectionPos()
 }
 float SelectionBase()
 {
-    if (Obj::CCompositeObject* object = Primary())
+    if (GameObjects::CGameEntity* object = Primary())
         return object->m_pos.y;
     NodeEdit::Values node;
     if (NodeValues(&node))
@@ -758,7 +758,7 @@ float SelectionBase()
 // The point the camera looks at: the first object's middle, a node's place, or the scenery's pivot.
 V3 TargetOf()
 {
-    if (Obj::CCompositeObject* object = Primary())
+    if (GameObjects::CGameEntity* object = Primary())
         return Objects::Centre(object);
     NodeEdit::Values node;
     if (NodeValues(&node))
@@ -776,7 +776,7 @@ void PlaceSelection(V3 pos)
         SetSelectedNode(node);
         return;
     }
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
         Walls::MoveTo(wall, pos);
         return;
@@ -787,19 +787,19 @@ void PlaceSelection(V3 pos)
         return;
     }
     V3 delta = pos - Objects::PosOf(objects.front());
-    for (Obj::CCompositeObject* object : objects)
+    for (GameObjects::CGameEntity* object : objects)
         Objects::Place(object, Objects::PosOf(object) + delta);
 }
 // The middle of the selection's box: the objects' model boxes (or places), the scenery's boxes; a node's or a wall's
 // place (the Centre pivot - level_editor_transform.h).
 V3 SelectionCentre()
 {
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     V3 min = {}, max = {};
     bool have = false;
     OrientedBox box;
     if (!objects.empty()) {
-        for (Obj::CCompositeObject* object : objects) {
+        for (GameObjects::CGameEntity* object : objects) {
             V3 a, b;
             if (Objects::ModelBox(object, &box))
                 BoundsOf(box, &a, &b);
@@ -824,13 +824,13 @@ V3 SelectionCentre()
 }
 // Objects turned by `radians` about the toolbar's Pivot (Base: the first one's position; Centre: `centre`; Own: each
 // about its own).
-void TurnObjectsBy(const std::vector<Obj::CCompositeObject*>& objects, float radians, V3 centre)
+void TurnObjectsBy(const std::vector<GameObjects::CGameEntity*>& objects, float radians, V3 centre)
 {
     if (objects.empty() || radians == 0.0f)
         return;
     Transform::Pivot pivot = Transform::Current().pivot;
     V3 base = Objects::PosOf(objects.front());
-    for (Obj::CCompositeObject* object : objects)
+    for (GameObjects::CGameEntity* object : objects)
         Objects::TurnAbout(object,
                            pivot == Transform::Pivot::Own      ? Objects::PosOf(object)
                            : pivot == Transform::Pivot::Centre ? centre
@@ -849,7 +849,7 @@ void TurnSelection(int notches)
         SetSelectedNode(node);
         return;
     }
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
         Walls::Turn(wall, notches);
         Walls::Commit();
@@ -946,7 +946,7 @@ constexpr size_t kMaxUndo = 64;
 UndoStep Snapshot()
 {
     UndoStep step;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (MovableNode() >= 0) {
         step.kind = UndoStep::kNodes;
         // (a rail point: the points that move with it too)
@@ -960,7 +960,7 @@ UndoStep Snapshot()
         step.walls = Walls::Save({wall});
     } else if (!objects.empty()) {
         step.kind = UndoStep::kObjects;
-        for (Obj::CCompositeObject* object : objects) {
+        for (GameObjects::CGameEntity* object : objects) {
             Objects::NoteOrigin(object);
             Objects::Touch(object->m_id);
             step.objects.push_back(Objects::Save(object));
@@ -1038,17 +1038,17 @@ void PushLocksUndo(const char* label = "Lock / unlock")
 
 // The selected objects scaled by `factor` (along the world's axes - each object takes it along its own axis nearest
 // each; `uniform`: the same on all three) about their positions. Whether any changed.
-bool ScaleObjects(const std::vector<Obj::CCompositeObject*>& objects, V3 factor, bool uniform)
+bool ScaleObjects(const std::vector<GameObjects::CGameEntity*>& objects, V3 factor, bool uniform)
 {
     bool any = false;
-    for (Obj::CCompositeObject* object : objects) {
+    for (GameObjects::CGameEntity* object : objects) {
         if (!Scale::ObjectScalable(object))
             continue;
         V3 local = factor;
         if (!uniform) {
             V3 rows[3];
             for (int i = 0; i < 3; ++i)
-                rows[i] = {object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z};
+                rows[i] = {object->m_basisFrame.row[i].x, object->m_basisFrame.row[i].y, object->m_basisFrame.row[i].z};
             local = Scale::Uniform(1.0f);
             const float along[3] = {factor.x, factor.y, factor.z};
             for (int a = 0; a < 3; ++a) {
@@ -1073,7 +1073,7 @@ bool ScaleObjects(const std::vector<Obj::CCompositeObject*>& objects, V3 factor,
 // (nodes, or at its limit - said on the message line).
 bool ScaleSelectionBy(V3 factor, bool uniform)
 {
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (WallOnly()) {
         // (level_editor_walls.h: a wall's collision is moved by the geometry's own Translate / RotateY on the BSP
         // tree's sixteenths; a scale would need its collision kept and rebuilt as level_editor_scale.h does scenery's)
@@ -1106,7 +1106,7 @@ bool ScaleSelectionBy(V3 factor, bool uniform)
 // The selection's scale (scenery: its first piece's, along its axes as first touched; an object: along its own).
 V3 SelectionScaleNow()
 {
-    if (Obj::CCompositeObject* object = Primary())
+    if (GameObjects::CGameEntity* object = Primary())
         return Scale::ObjectScale(object);
     return Scenery::SelectionScale();
 }
@@ -1116,7 +1116,7 @@ void ScaleSelectionTo(V3 scale)
     V3 now = SelectionScaleNow();
     V3 local = {Scale::Clamp(scale.x) / now.x, Scale::Clamp(scale.y) / now.y, Scale::Clamp(scale.z) / now.z};
     if (Primary()) {
-        for (Obj::CCompositeObject* object : SelectedObjects()) {
+        for (GameObjects::CGameEntity* object : SelectedObjects()) {
             if (Scale::ObjectScalable(object))
                 Scale::SetObjectScale(object, PerAxis(Scale::ObjectScale(object), local));
         }
@@ -1169,10 +1169,10 @@ void SetExist(UndoStep* step, bool exist)
         }
     }
     if (!step->copies.empty()) {
-        std::vector<Obj::CCompositeObject*> made;
+        std::vector<GameObjects::CGameEntity*> made;
         for (MadeCopy& copy : step->copies) {
-            auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(copy.name));
-            bool there = object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD);
+            auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(copy.name));
+            bool there = object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD);
             if (exist && !there) {
                 V3 pos = {copy.state.pos.x, copy.state.pos.y, copy.state.pos.z};
                 object = Objects::MakeCopy(copy.source, pos, copy.name);
@@ -1198,10 +1198,10 @@ void Restore(UndoStep& step)
 {
     switch (step.kind) {
     case UndoStep::kObjects: {
-        std::vector<Obj::CCompositeObject*> objects;
+        std::vector<GameObjects::CGameEntity*> objects;
         for (const Objects::State& state : step.objects) {
             if (Objects::Restore(state))
-                objects.push_back(static_cast<Obj::CCompositeObject*>(Obj::FindObject(state.id)));
+                objects.push_back(static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(state.id)));
         }
         SelectObjects(objects);
         break;
@@ -1331,7 +1331,7 @@ UndoStep Current(const UndoStep& step)
     case UndoStep::kObjects:
         now.objects.clear();
         for (const Objects::State& state : step.objects) {
-            if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(state.id)))
+            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(state.id)))
                 now.objects.push_back(Objects::Save(object));
         }
         break;
@@ -1340,7 +1340,7 @@ UndoStep Current(const UndoStep& step)
         now.scenery = Scenery::SaveState();
         now.carriedObjects.clear();
         for (const Objects::State& state : step.carriedObjects) {
-            if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(state.id)))
+            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(state.id)))
                 now.carriedObjects.push_back(Objects::Save(object));
         }
         std::vector<uint32_t> names;
@@ -1471,7 +1471,7 @@ const V3 kAxes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}
 float ArrowLength()
 {
     float distance = Camera::Apparent(std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)));
-    float length = std::max(20.0f, std::min(1500.0f, distance * 0.2f)) * static_cast<float>(Prefs::Get().gizmoPct) / 100.0f;
+    float length = std::max(20.0f, std::min(1500.0f, distance * 0.2f)) * static_cast<float>(OptionStore::Get().gizmoPct) / 100.0f;
     return Camera::Ortho() ? length * std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)) / std::max(1.0f, distance) : length;
 }
 
@@ -1494,7 +1494,7 @@ bool SelectionScales()
 {
     if (MovableNode() >= 0 || WallOnly())
         return false;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (objects.empty())
         return Scenery::HasSelection();
     return std::any_of(objects.begin(), objects.end(), Scale::ObjectScalable);
@@ -1515,10 +1515,10 @@ void SelectionAxes(V3 out[3])
         out[i] = kAxes[i];
     if (Transform::Current().space != Transform::Space::Local)
         return;
-    if (Obj::CCompositeObject* object = Primary()) {
+    if (GameObjects::CGameEntity* object = Primary()) {
         V3 rows[3];
         for (int i = 0; i < 3; ++i)
-            rows[i] = {object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z};
+            rows[i] = {object->m_basisFrame.row[i].x, object->m_basisFrame.row[i].y, object->m_basisFrame.row[i].z};
         Transform::UnitAxes(rows, out);
         return;
     }
@@ -1543,8 +1543,8 @@ V3 AxisVector(int axis)
 // turns.
 float SelectionHeading()
 {
-    if (Obj::CCompositeObject* object = Primary())
-        return Transform::HeadingOf({object->m_matrix.row[2].x, object->m_matrix.row[2].y, object->m_matrix.row[2].z});
+    if (GameObjects::CGameEntity* object = Primary())
+        return Transform::HeadingOf({object->m_basisFrame.row[2].x, object->m_basisFrame.row[2].y, object->m_basisFrame.row[2].z});
     NodeEdit::Values node;
     if (NodeValues(&node))
         return node.angles.y;
@@ -1578,7 +1578,7 @@ Transform::Gizmo GizmoNow()
 // invisible walls by whole quarter turns (the engine turns level geometry by quarters - level_editor_scenery.h).
 void ApplyTurnTo(float target)
 {
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     NodeEdit::Values node;
     if (!objects.empty()) {
         float delta = target - g_rotApplied;
@@ -1610,10 +1610,10 @@ V3 ScaleAppliedNow()
     V3 r = {now.x / g_scaleStart.x, now.y / g_scaleStart.y, now.z / g_scaleStart.z};
     if (Transform::Current().space == Transform::Space::Local)
         return r;
-    if (Obj::CCompositeObject* object = Primary()) {
+    if (GameObjects::CGameEntity* object = Primary()) {
         V3 rows[3];
         for (int i = 0; i < 3; ++i)
-            rows[i] = {object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z};
+            rows[i] = {object->m_basisFrame.row[i].x, object->m_basisFrame.row[i].y, object->m_basisFrame.row[i].z};
         const float own[3] = {r.x, r.y, r.z};
         return {own[Scale::NearestAxis(rows, 0)], own[Scale::NearestAxis(rows, 1)], own[Scale::NearestAxis(rows, 2)]};
     }
@@ -1631,13 +1631,13 @@ void ApplyScaleTo(V3 wanted, bool uniform)
         return;
     bool local = Transform::Current().space == Transform::Space::Local;
     bool centre = Transform::Current().pivot == Transform::Pivot::Centre;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (!objects.empty()) {
         std::vector<V3> before;
-        for (Obj::CCompositeObject* object : objects)
+        for (GameObjects::CGameEntity* object : objects)
             before.push_back(Objects::PosOf(object));
         if (local) {
-            for (Obj::CCompositeObject* object : objects) {
+            for (GameObjects::CGameEntity* object : objects) {
                 if (!Scale::ObjectScalable(object))
                     continue;
                 V3 now = Scale::ObjectScale(object);
@@ -1832,8 +1832,8 @@ std::vector<V3> SelectionCorners()
         BoxCorners(b.origin, b.axes, b.min, b.max, corners);
         out.insert(out.end(), corners, corners + 8);
     };
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
-    for (Obj::CCompositeObject* object : objects) {
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
+    for (GameObjects::CGameEntity* object : objects) {
         if (Objects::ModelBox(object, &box))
             add(box);
     }
@@ -1867,8 +1867,8 @@ void SurfaceDrag(V3 origin, V3 dir)
         PlaceSelection(wanted);
     if (!Transform::Current().alignToSlope)
         return;
-    for (Obj::CCompositeObject* object : SelectedObjects()) {
-        for (Mth::Matrix* m : {&object->m_matrix, &object->m_displayMatrix}) {
+    for (GameObjects::CGameEntity* object : SelectedObjects()) {
+        for (Maths::Matrix* m : {&object->m_basisFrame, &object->m_displayMatrix}) {
             V3 rows[3];
             for (int i = 0; i < 3; ++i)
                 rows[i] = {m->row[i].x, m->row[i].y, m->row[i].z};
@@ -2093,7 +2093,7 @@ int ArrowAt(const Frame& frame, float x, float y)
 
 // --- drawing (the renderer's cached state, then the device directly) ---
 
-void* Device() { return reinterpret_cast<void*>(Nx::g_d3dDevice); }
+void* Device() { return reinterpret_cast<void*>(Engine3D::g_d3dDevice); }
 template <typename F>
 F Method(void* object, int offset)
 {
@@ -2176,7 +2176,7 @@ void AddArrow(V3 from, V3 to, const Frame& frame, uint32_t color, std::vector<Li
 // Back buffer pixels per pixel at 720 lines (the icons' size).
 float PixelScale()
 {
-    float gizmo = static_cast<float>(Prefs::Get().gizmoPct) / 100.0f; // ([editor] gizmo_pct)
+    float gizmo = static_cast<float>(OptionStore::Get().gizmoPct) / 100.0f; // ([editor] gizmo_pct)
     return (g_viewport[3] > 0 ? static_cast<float>(g_viewport[3]) / 720.0f : 1.0f) * gizmo;
 }
 
@@ -2447,13 +2447,13 @@ void UpdateHighlights()
 {
     uint32_t pulse = Pulse(kSelectedTintLow, kSelectedTintHigh, SDL_GetTicks() / 1000.0);
     g_selectedTinted = true;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
-    for (Obj::CCompositeObject* object : objects)
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
+    for (GameObjects::CGameEntity* object : objects)
         g_selectedTinted &= Objects::Tint(object, pulse);
     if (objects.empty() && Scenery::HasSelection())
         g_selectedTinted = TintSectors(Scenery::Selection(), pulse);
     g_hoverTinted = true;
-    Obj::CCompositeObject* hover = g_dragging ? nullptr : Live(g_hover);
+    GameObjects::CGameEntity* hover = g_dragging ? nullptr : Live(g_hover);
     if (hover && !IsSelected(hover))
         g_hoverTinted = Objects::Tint(hover, kHoverTint);
     else if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector) && !Scenery::WhyNotMovable(g_hoverSector))
@@ -2467,7 +2467,7 @@ void UpdateHighlights()
         uint32_t id = g_browser.items[g_browser.index].id;
         if (g_browser.tab == 0)
             TintSectors({id}, kBrowseTint);
-        else if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id)))
+        else if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id)))
             Objects::Tint(object, kBrowseTint);
     }
     Scenery::EndTints(Objects::ResolveTint, false);
@@ -2488,9 +2488,9 @@ bool& DebugEnabled()
 }
 
 bool Active() { return g_active; }
-// Occlusion culling switched off while editing (O; Nx::OcclusionOff).
+// Occlusion culling switched off while editing (O; Engine3D::OcclusionOff).
 static bool g_occlusionOff = true;
-static bool g_occlusionInPlay; // (Nx::OcclusionOff as it was when the editor opened)
+static bool g_occlusionInPlay; // (Engine3D::OcclusionOff as it was when the editor opened)
 
 bool PassKey(bool* released, bool down)
 {
@@ -2516,12 +2516,12 @@ bool PassPauseKey(bool down)
 
 // (offline only, outside career-type modes: no LEVEL EDITOR in a network session or in story / classic... -
 // level_editor_layout.h)
-bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_Available(Scripts::CStruct*, Scripts::CScript*)
 {
-    return Enabled() && Nx::CurrentLevel() != 0 && !Layout::Refused();
+    return Enabled() && Engine3D::CurrentLevel() != 0 && !Layout::Refused();
 }
 
-bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_Start(Scripts::CStruct*, Scripts::CScript*)
 {
     if (!Enabled()) {
         Log("level editor: off ([features] level_editor=0)");
@@ -2568,13 +2568,13 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     Entities::Start();
     // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
     // [Graphics] OcclusionCulling comes back when the editor closes)
-    g_occlusionInPlay = Nx::OcclusionOff();
+    g_occlusionInPlay = Engine3D::OcclusionOff();
     // (the camera tools and the preferences - level_editor_camera.h, level_editor_prefs.h)
-    g_speed = static_cast<float>(Prefs::Get().flySpeed);
+    g_speed = static_cast<float>(OptionStore::Get().flySpeed);
     Camera::Start(Scenery::SceneName(Scenery::MainScene()));
     PlayTest::OnEditorStart(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
     Actions::SeedKeys(SDL_GetKeyboardState(nullptr)); // (the key that opened the editor doesn't act at once)
-    Nx::OcclusionOff() = g_occlusionOff;
+    Engine3D::OcclusionOff() = g_occlusionOff;
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
@@ -2605,8 +2605,8 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
         // (rail points away from their nodes' pos=: where the node layer shows them - the rail manager's)
         int away = 0;
         for (const Nodes::Node& n : Nodes::All()) {
-            Script::CStruct* s = n.family == Nodes::Family::Rail ? Nodes::StructOf(n) : nullptr;
-            Script::VectorValue v = {};
+            Scripts::CStruct* s = n.family == Nodes::Family::Rail ? Nodes::StructOf(n) : nullptr;
+            Scripts::VectorValue v = {};
             V3 rail;
             if (!s || !s->GetVector(0x7F261953, &v, 0) || !Scenery::RailPoint(n.name, &rail) ||
                 (rail.x == v.x && rail.y == v.y && rail.z == v.z))
@@ -2623,15 +2623,15 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
 
 namespace {
 
-// The ground below a point: the game's collision ray (a CFeeler: constructor 0x00417760; 0x00417710 (start, end,
+// The ground below a point: the game's collision ray (a CProbeRay: constructor 0x00417760; 0x00417710 (start, end,
 // movables) casts it - thiscall, RET 0xC, true on a hit; the hit's normal at +0x24, its point at +0x34), static
 // collision only, from `from` along `to - from`.
 bool Cast(V3 from, V3 to, V3* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
@@ -2645,7 +2645,7 @@ bool GroundBelow(V3 from, V3* ground) { return Cast(from, {from.x, from.y - 5000
 void PlaceSkaterBelowCamera()
 {
     constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
-    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
     if (!skater)
         return;
     // (below the camera; else from high above it - the camera may have gone through the floor)
@@ -2661,8 +2661,8 @@ void PlaceSkaterBelowCamera()
     else
         at = {0.0f, 0.0f, 1.0f};
     // (rows: right = up x at, up, at)
-    Mth::Vector right = {at.z, 0.0f, -at.x, 0.0f}, up = {0.0f, 1.0f, 0.0f, 0.0f}, forward = {at.x, 0.0f, at.z, 0.0f};
-    for (Mth::Matrix* m : {&skater->m_matrix, &skater->m_displayMatrix}) {
+    Maths::Vector right = {at.z, 0.0f, -at.x, 0.0f}, up = {0.0f, 1.0f, 0.0f, 0.0f}, forward = {at.x, 0.0f, at.z, 0.0f};
+    for (Maths::Matrix* m : {&skater->m_basisFrame, &skater->m_displayMatrix}) {
         m->row[0] = right;
         m->row[1] = up;
         m->row[2] = forward;
@@ -2674,7 +2674,7 @@ void PlaceSkaterBelowCamera()
 
 } // namespace
 
-bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_Stop(Scripts::CStruct*, Scripts::CScript*)
 {
     if (!g_active)
         return true;
@@ -2699,14 +2699,14 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Triggers::Stop();
     Goals::Stop(); // (the goals put in play again, with their changes)
     Entities::Stop(); // (the previewed object put back)
-    Nx::OcclusionOff() = g_occlusionInPlay;
+    Engine3D::OcclusionOff() = g_occlusionInPlay;
     Camera::Stop();
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
     if (g_camera) {
         g_camera->m_pos = g_savedPos;
-        g_camera->m_matrix = g_savedMatrix;
+        g_camera->m_basisFrame = g_savedMatrix;
     }
     if (g_savedCursor >= 0)
         SDL_ShowCursor(g_savedCursor);
@@ -2723,7 +2723,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
 
 void RegisterScriptFunctions()
 {
-    static const Script::CFunctionEntry functions[] = {
+    static const Scripts::CFunctionEntry functions[] = {
         {"LevelEditor_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"LevelEditor_Start", reinterpret_cast<void*>(&CFunc_Start)},
         {"LevelEditor_Stop", reinterpret_cast<void*>(&CFunc_Stop)},
@@ -2731,14 +2731,14 @@ void RegisterScriptFunctions()
         {"LevelEditor_EditedLevels", reinterpret_cast<void*>(&Layout::CFunc_EditedLevels)},
         {"LevelEditor_PlayCamera", reinterpret_cast<void*>(&Cameras::CFunc_PlayCamera)}, // (map4)
     };
-    Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }
 
 void Init()
 {
     Platform::RegisterEventHandler(HandleEvent);
     SetCrashHook(OnCrash);
-    Script::KeepQbNames(Enabled()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
+    Scripts::KeepQbNames(Enabled()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
     Ux3::Init(); // (the Outliner's records in the layouts, the actions' callbacks - level_editor_ux3.h)
     Ux8::Init(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)
     Ux9::Init(); // (UX9: its actions and the ground pieces' layout records - level_editor_ux9.h)
@@ -2760,19 +2760,19 @@ void InputLogic()
     g_exitRequested = false;
     if (DebugEnabled())
         Log("level editor: Escape - running level_editor_exit");
-    Script::RunScript("level_editor_exit", nullptr, nullptr, false);
+    Scripts::LaunchScript("level_editor_exit", nullptr, nullptr, false);
 }
 
-void PlaceCamera(Gfx::Camera* camera)
+void PlaceCamera(Gfx2D::Camera* camera)
 {
     if (!g_active || !camera)
         return;
     if (!g_camera) {
         g_camera = camera;
         g_savedPos = camera->m_pos;
-        g_savedMatrix = camera->m_matrix;
+        g_savedMatrix = camera->m_basisFrame;
         g_pos = {camera->m_pos.x, camera->m_pos.y, camera->m_pos.z};
-        const Mth::Vector& back = camera->m_matrix.row[2];
+        const Maths::Vector& back = camera->m_basisFrame.row[2];
         YawPitchFromBack({back.x, back.y, back.z}, &g_yaw, &g_pitch);
         if (DebugEnabled())
             Log("level editor: camera %p at (%.1f, %.1f, %.1f), yaw %.1f, pitch %.1f degrees", static_cast<void*>(camera),
@@ -2786,19 +2786,19 @@ void PlaceCamera(Gfx::Camera* camera)
         return;
     Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
     camera->m_pos = {g_pos.x, g_pos.y, g_pos.z, 1.0f};
-    camera->m_matrix.row[0] = {frame.right.x, frame.right.y, frame.right.z, 0.0f};
-    camera->m_matrix.row[1] = {frame.up.x, frame.up.y, frame.up.z, 0.0f};
-    camera->m_matrix.row[2] = {frame.back.x, frame.back.y, frame.back.z, 0.0f};
+    camera->m_basisFrame.row[0] = {frame.right.x, frame.right.y, frame.right.z, 0.0f};
+    camera->m_basisFrame.row[1] = {frame.up.x, frame.up.y, frame.up.z, 0.0f};
+    camera->m_basisFrame.row[2] = {frame.back.x, frame.back.y, frame.back.z, 0.0f};
 }
 
-float ViewAngle(Gfx::Camera* camera, float angle)
+float ViewAngle(Gfx2D::Camera* camera, float angle)
 {
     return g_active && camera && camera == g_camera ? Camera::ViewAngle(angle) : angle;
 }
 
-float NearPlane(Gfx::Camera* camera) { return g_active && camera && camera == g_camera ? Camera::NearPlane() : 2.0f; }
+float NearPlane(Gfx2D::Camera* camera) { return g_active && camera && camera == g_camera ? Camera::NearPlane() : 2.0f; }
 
-void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4])
+void NoteView(Gfx2D::Camera* camera, float angle, float aspect, const uint32_t viewport[4])
 {
     if (!g_active || camera != g_camera)
         return;
@@ -2819,7 +2819,7 @@ using Hud::Key;
 
 std::string DescribeSelection()
 {
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (!objects.empty()) {
         std::string text = Objects::Describe(objects.front());
         if (objects.size() > 1)
@@ -2967,7 +2967,7 @@ const std::vector<PlaceEntry>& PlaceEntries()
     }
     entries.push_back({Kind::Light, Team::Red, "Level light", 0xFFFFE9A8});
     entries.push_back({Kind::Sound, Team::Red, "Sound Emitter", 0xFF4FD1C5});
-    entries.push_back({Kind::Proxim, Team::Red, "Proximity Node", 0xFFF08A3C});
+    entries.push_back({Kind::ProximityNode, Team::Red, "Proximity Node", 0xFFF08A3C});
     return entries;
 }
 
@@ -2980,7 +2980,7 @@ Nodes::Family FamilyOf(NodeCreate::Kind kind)
     case NodeCreate::Kind::FlagSet: return Nodes::Family::Flag;
     case NodeCreate::Kind::Light: return Nodes::Family::Light;
     case NodeCreate::Kind::Sound: return Nodes::Family::Sound;
-    case NodeCreate::Kind::Proxim: return Nodes::Family::Trigger;
+    case NodeCreate::Kind::ProximityNode: return Nodes::Family::Trigger;
     }
     return Nodes::Family::Other;
 }
@@ -3071,7 +3071,7 @@ uint32_t ChainTarget()
 {
     if (g_nodeSelected && g_nodeName)
         return g_nodeName;
-    if (Obj::CCompositeObject* object = Primary())
+    if (GameObjects::CGameEntity* object = Primary())
         return Nodes::Find(object->m_id) >= 0 ? object->m_id : 0;
     return 0;
 }
@@ -3269,9 +3269,9 @@ bool PlaceEntity(int entry, V3 at)
     UndoStep step;
     step.kind = UndoStep::kMade;
     step.exist = false;
-    std::vector<Obj::CCompositeObject*> made;
+    std::vector<GameObjects::CGameEntity*> made;
     for (uint32_t name : placed.copies) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(name));
         if (!object)
             continue;
         uint32_t source = 0;
@@ -3355,7 +3355,7 @@ void StopChainDrawing(const char* message)
 
 // The selected node deleted: an added one removed (undoable); a level's own hidden - after the confirm window when the
 // UI runs (`confirmed`), at once with the old HUD.
-void DeleteNode(bool confirmed)
+void UnlinkListNode(bool confirmed)
 {
     int index = MovableNode();
     if (index < 0)
@@ -3377,8 +3377,8 @@ void DeleteNode(bool confirmed)
             if (c.name == node.name)
                 source = c.source;
         }
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(node.name));
-        if (!object || (object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(node.name));
+        if (!object || (object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD))
             return;
         step.copies.push_back({node.name, source, Objects::Save(object)});
         Objects::RemoveCopy(node.name);
@@ -3575,10 +3575,10 @@ std::unordered_map<uint32_t, uint8_t> ChangeMarks()
     }
     for (uint32_t id : Objects::Touched()) {
         const Objects::State* origin = Objects::Origin(id);
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
         if (!origin || !object)
             continue;
-        const Mth::Vector &a = origin->matrix.row[2], &b = object->m_matrix.row[2];
+        const Maths::Vector &a = origin->matrix.row[2], &b = object->m_basisFrame.row[2];
         if (origin->pos.x != object->m_pos.x || origin->pos.y != object->m_pos.y || origin->pos.z != object->m_pos.z ||
             a.x != b.x || a.z != b.z)
             mark(id, Ui::kMarkMoved);
@@ -3598,7 +3598,7 @@ std::unordered_map<uint32_t, uint8_t> ChangeMarks()
     return marks;
 }
 
-Ui::Model BuildModel()
+Ui::Model AssembleModel()
 {
     Ui::Model model = {};
     model.carry = Carry::Enabled();
@@ -3665,17 +3665,17 @@ Ui::Model BuildModel()
                 offs.push_back(Walls::Off(checksum));
         model.view.sceneryCollision = Walls::Combined(offs);
     }
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     Ui::Model::Selection& s = model.selection;
     if (!objects.empty()) {
-        Obj::CCompositeObject* object = objects.front();
+        GameObjects::CGameEntity* object = objects.front();
         s.objects = static_cast<int>(objects.size());
         const char* cls = Objects::ClassOf(object->m_id);
         s.kind = cls ? cls : "Object";
         s.name = Objects::Label(object->m_id);
         s.checksum = object->m_id;
         s.pos = Objects::PosOf(object);
-        const Mth::Vector& at = object->m_matrix.row[2];
+        const Maths::Vector& at = object->m_basisFrame.row[2];
         s.scalable = Scale::ObjectScalable(object);
         s.scale = Scale::ObjectScale(object);
         s.hasHeading = true;
@@ -3740,7 +3740,7 @@ Ui::Model BuildModel()
         if (NodeEdit::IsChain(g_nodeName)) {
             model.nodes.rail = true; // (a rail's, a ladder's or a path's point: moved alone or with its chain)
             model.nodes.chainNoun = Chains::IsPath(g_nodeName) ? "path" : Chains::IsLadder(g_nodeName) ? "ladder" : "rail";
-            model.nodes.wholeRail = g_wholeRail;
+            model.nodes.entireRail = g_wholeRail;
             model.nodes.railPoints = static_cast<int>(NodeEdit::MovedWith(g_nodeName, g_wholeRail).size());
         }
     }
@@ -3774,7 +3774,7 @@ Ui::Model BuildModel()
             defaultsFor = Layout::LevelLoads();
             haveDefaults = LevelProps::LevelDefaults(&defaults);
         }
-        model.levelProps.inLevel = Nx::CurrentLevel() != 0 && scene != 0;
+        model.levelProps.inLevel = Engine3D::CurrentLevel() != 0 && scene != 0;
         model.levelProps.props = LevelProps::Current();
         model.levelProps.defaults = defaults;
         model.levelProps.haveDefaults = haveDefaults;
@@ -3951,7 +3951,7 @@ void PlaceFromBrowser(V3 at, bool keepOpen = false)
         Scenery::Commit();
         step.sectors.push_back(copy);
     } else {
-        Obj::CCompositeObject* object = Objects::MakeCopy(source, at);
+        GameObjects::CGameEntity* object = Objects::MakeCopy(source, at);
         if (!object) {
             Hud::Message("Couldn't copy the object");
             return;
@@ -3987,7 +3987,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
     step.kind = UndoStep::kMade;
     step.exist = false;
     V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     V3 sourcePos = SelectionPos();
     float sourceHeading = SelectionHeading();
     if (MovableNode() >= 0) {
@@ -3995,9 +3995,9 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
         return;
     }
     if (!objects.empty()) {
-        std::vector<Obj::CCompositeObject*> made;
+        std::vector<GameObjects::CGameEntity*> made;
         std::vector<uint32_t> sources;
-        for (Obj::CCompositeObject* object : objects) {
+        for (GameObjects::CGameEntity* object : objects) {
             if (!Objects::CanCopy(object->m_id) && !Objects::IsCopy(object->m_id))
                 continue;
             uint32_t source = object->m_id;
@@ -4009,7 +4009,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
             float width = Objects::ModelBox(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0f;
             V3 at = repeat ? Transform::RepeatTarget(Objects::PosOf(object), *repeat)
                            : Objects::PosOf(object) + right * (width + 20.0f);
-            Obj::CCompositeObject* copy = Objects::MakeCopy(source, at);
+            GameObjects::CGameEntity* copy = Objects::MakeCopy(source, at);
             if (!copy)
                 continue;
             Objects::State state = Objects::Save(object);
@@ -4023,7 +4023,7 @@ void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr
         // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
         if (repeat && repeat->turn != 0.0f && !made.empty()) {
             V3 pivot = Objects::PosOf(made.front());
-            for (Obj::CCompositeObject* copy : made)
+            for (GameObjects::CGameEntity* copy : made)
                 Objects::TurnAbout(copy, pivot, repeat->turn);
         }
         for (size_t i = 0; i < made.size(); ++i)
@@ -4159,13 +4159,13 @@ void RepeatDuplicate(const Frame& frame)
 {
     Transform::Kind kind = Transform::Kind::None;
     std::vector<uint32_t> ids;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (MovableNode() >= 0) {
         kind = Transform::Kind::Node;
         ids.push_back(g_nodeName);
     } else if (!objects.empty()) {
         kind = Transform::Kind::Objects;
-        for (Obj::CCompositeObject* object : objects)
+        for (GameObjects::CGameEntity* object : objects)
             ids.push_back(object->m_id);
     } else if (Scenery::HasSelection()) {
         kind = Transform::Kind::Scenery;
@@ -4180,7 +4180,7 @@ void RepeatDuplicate(const Frame& frame)
 }
 
 
-// An invisible wall's collision switched off / on (level_editor_walls.h: the game's CSector::SetActive) - Delete, Delete
+// An invisible wall's collision switched off / on (level_editor_walls.h: the game's CWorldCell::SetActive) - Delete, Delete
 // again, the Inspector's Delete wall / Restore; one undo step.
 void SwitchWall(uint32_t wall, bool off)
 {
@@ -4226,15 +4226,15 @@ void SwitchSceneryCollision(bool off)
 void Delete()
 {
     if (MovableNode() >= 0) {
-        DeleteNode(false);
+        UnlinkListNode(false);
         return;
     }
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (!objects.empty()) {
         UndoStep step;
         step.kind = UndoStep::kMade;
         step.exist = true; // (undone: they're made again)
-        for (Obj::CCompositeObject* object : objects) {
+        for (GameObjects::CGameEntity* object : objects) {
             if (!Objects::IsCopy(object->m_id))
                 continue;
             uint32_t source = 0;
@@ -4274,7 +4274,7 @@ void Reset()
     // (map3: faces selected - their flags back as the level has them, level_editor_faces.h)
     if (Faces::HasSelection() && Faces::HomeSelection())
         return;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     NodeEdit::Values node;
     if (ShowHiddenNode()) {
         // (a hidden node: shown first - Home again puts it back where the level has it)
@@ -4305,7 +4305,7 @@ void Reset()
     } else if (!objects.empty()) {
         UndoStep before = Snapshot();
         bool any = false;
-        for (Obj::CCompositeObject* object : objects) {
+        for (GameObjects::CGameEntity* object : objects) {
             if (const Objects::State* origin = Objects::Origin(object->m_id))
                 any |= Objects::Restore(*origin);
         }
@@ -4407,7 +4407,7 @@ void NoteClickForCycle(float x, float y, V3 dir, bool plain)
         g_cycle.pos = g_pos;
         g_cycle.filter = g_pickFilter;
         g_cycle.order = Picking::CycleOrder(g_hoverNode, objects, scenery, g_pickFilter);
-        Obj::CCompositeObject* object = Live(g_hover);
+        GameObjects::CGameEntity* object = Live(g_hover);
         g_cycle.index = g_hoverNode >= 0 ? Picking::IndexOf(g_cycle.order, Picking::Choice::kNode, g_hoverNode)
                         : object       ? Picking::IndexOf(g_cycle.order, Picking::Choice::kObject, object->m_id)
                         : g_hoverSector ? Picking::IndexOf(g_cycle.order, Picking::Choice::kScenery, g_hoverSector)
@@ -4458,7 +4458,7 @@ bool DropUnderCursor(V3 dir)
 std::vector<Picking::Lock> SelectionLocks()
 {
     std::vector<Picking::Lock> locks;
-    for (Obj::CCompositeObject* object : SelectedObjects())
+    for (GameObjects::CGameEntity* object : SelectedObjects())
         locks.push_back({Picking::kObjects, object->m_id});
     if (locks.empty())
         for (uint32_t sector : Scenery::Selection())
@@ -4595,7 +4595,7 @@ int InspectedNode()
         g_nodeIndex = found;
         return found;
     }
-    if (Obj::CCompositeObject* object = Primary())
+    if (GameObjects::CGameEntity* object = Primary())
         return Nodes::Find(object->m_id);
     if (Scenery::HasSelection())
         return Nodes::Find(Scenery::Selection().front());
@@ -4612,9 +4612,9 @@ void SelectNode(int index)
     const Nodes::Node& node = nodes[index];
     // (a flag is moved as its node - its object with it - so the place the game makes it at changes too)
     if (node.family == Nodes::Family::Object) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(node.name));
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(node.name));
         OrientedBox box;
-        if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, &box)) {
+        if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, &box)) {
             g_nodeSelected = false;
             SelectObjects({object});
             NoteAction("selected %s (its node)", Nodes::Label(node.name).c_str());
@@ -4636,7 +4636,7 @@ void SelectNode(int index)
 }
 
 // The flag node of a flag's object (-1: not a flag's).
-int FlagNodeOf(Obj::CCompositeObject* object)
+int FlagNodeOf(GameObjects::CGameEntity* object)
 {
     int index = object ? Nodes::Find(object->m_id) : -1;
     return index >= 0 && Nodes::All()[index].family == Nodes::Family::Flag ? index : -1;
@@ -4777,7 +4777,7 @@ void FocusBrowserItem()
         V3 a, b;
         BoundsOf(box, &a, &b);
         LookAt((a + b) * 0.5f, std::max(300.0f, std::sqrt(Dot(b - a, b - a)) * 1.5f));
-    } else if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id))) {
+    } else if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id))) {
         LookAt(Objects::Centre(object), 300.0f);
     }
 }
@@ -4789,7 +4789,7 @@ void GoToSelection()
         return;
     float distance = 300.0f;
     OrientedBox box;
-    if (Obj::CCompositeObject* object = Primary()) {
+    if (GameObjects::CGameEntity* object = Primary()) {
         if (Objects::ModelBox(object, &box))
             distance = std::max(200.0f, std::sqrt(Dot(box.max - box.min, box.max - box.min)) * 1.5f);
     } else if (!Scenery::Selection().empty() && Scenery::Box(Scenery::Selection().front(), &box)) {
@@ -4807,7 +4807,7 @@ void GoToSelection()
 float SelectionRadius()
 {
     OrientedBox box;
-    if (Obj::CCompositeObject* object = Primary()) {
+    if (GameObjects::CGameEntity* object = Primary()) {
         if (Objects::ModelBox(object, &box)) {
             V3 size = BoxSize(box);
             return std::max(50.0f, 0.5f * std::sqrt(Dot(size, size)));
@@ -4872,9 +4872,9 @@ void ApplyResume(const Play::Resume& r)
     g_yaw = r.yaw;
     g_pitch = r.pitch;
     g_speed = r.speed;
-    std::vector<Obj::CCompositeObject*> objects;
+    std::vector<GameObjects::CGameEntity*> objects;
     for (uint32_t id : r.objects) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
         if (object && Live({object, id}))
             objects.push_back(object);
     }
@@ -5143,13 +5143,13 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kDeleteNode:
             if (!noChange)
-                DeleteNode(false);
+                UnlinkListNode(false);
             break;
         case Ui::Request::kHideConfirmed: {
             uint32_t name = g_confirmHide;
             g_confirmHide = 0;
             if (!noChange && name && name == g_nodeName)
-                DeleteNode(true);
+                UnlinkListNode(true);
             break;
         }
         case Ui::Request::kHideCancelled:
@@ -5192,7 +5192,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kSelectObject:
             if (!g_dragging) {
-                if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(request.id))) {
+                if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(request.id))) {
                     SelectObjects({object});
                     GoToSelection();
                     NoteAction("selected in the Outliner: %s", DescribeSelection().c_str());
@@ -5234,7 +5234,7 @@ void DrillThrough(int steps, float x, float y, V3 dir)
         g_cycle.changes = g_changes;
         g_cycle.filter = g_pickFilter;
         g_cycle.order = Picking::CycleOrder(g_hoverNode, objects, scenery, g_pickFilter);
-        Obj::CCompositeObject* object = Live(g_hover);
+        GameObjects::CGameEntity* object = Live(g_hover);
         shown = g_hoverNode >= 0 ? Picking::IndexOf(g_cycle.order, Picking::Choice::kNode, g_hoverNode)
                 : object       ? Picking::IndexOf(g_cycle.order, Picking::Choice::kObject, object->m_id)
                 : g_hoverSector ? Picking::IndexOf(g_cycle.order, Picking::Choice::kScenery, g_hoverSector)
@@ -5282,7 +5282,7 @@ void WalkFrame(const Mouse& input, const uint8_t* keys, const Ux8::Pad& pad, dou
         return;
     }
     SetRelative(true);
-    const Prefs::Values& prefs = Prefs::Get();
+    const OptionStore::Values& prefs = OptionStore::Get();
     float dx = input.relX + pad.lookX * kPadLookPixelsPerSecond * static_cast<float>(seconds);
     float dy = input.relY - pad.lookY * kPadLookPixelsPerSecond * static_cast<float>(seconds);
     Look(&g_yaw, &g_pitch, dx, prefs.invertY ? -dy : dy, kLookRadiansPerPixel * static_cast<float>(prefs.lookPct) / 100.0f);
@@ -5372,7 +5372,7 @@ void Update()
     Triggers::Play(g_active); // (exit triggers: the skater leaving one, in play)
     // (emitters' sounds, path speeds, objects made again, the path preview - level_editor_entities.h)
     {
-        Obj::CCompositeObject* primary = g_active ? Primary() : nullptr;
+        GameObjects::CGameEntity* primary = g_active ? Primary() : nullptr;
         Entities::Tick(g_active, primary ? primary->m_id : 0, g_dragging);
     }
     Chains::Tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
@@ -5382,14 +5382,14 @@ void Update()
     // few frames)
     if (Ui::Running() && g_hudTakenDown < 4) {
         ++g_hudTakenDown;
-        Script::RunScript("level_editor_hud_destroy", nullptr, nullptr, false);
+        Scripts::LaunchScript("level_editor_hud_destroy", nullptr, nullptr, false);
     }
     UpdateHud();
     // The autosave: the snapshot made again after each change (the frame after: the change is complete), written once a
     // minute while there are unsaved changes; an older autosave offered once the HUD is up.
     if (g_unsaved && g_changes != g_snapshotChanges && Layout::Snapshot())
         g_snapshotChanges = g_changes;
-    if (g_unsaved && SDL_GetTicks() - g_lastAutosave >= static_cast<uint32_t>(Prefs::Get().autosaveSeconds) * 1000u) { // ([editor] autosave_s)
+    if (g_unsaved && SDL_GetTicks() - g_lastAutosave >= static_cast<uint32_t>(OptionStore::Get().autosaveSeconds) * 1000u) { // ([editor] autosave_s)
         g_lastAutosave = SDL_GetTicks();
         Layout::WriteAutosave();
     }
@@ -5449,7 +5449,7 @@ void Update()
     if (Actions::Pressed(Actions::kPlay) && !g_dragging)
         Play::Request();
     if (Actions::Pressed(Actions::kPreferences) && Ui::Running())
-        Prefs::Open() = !Prefs::Open();
+        OptionStore::Open() = !OptionStore::Open();
     // Simulate (F6) and the Trail window (F7) - level_editor_playtest.h.
     PlayTest::Tick(g_dragging);
     // Walk mode (UX8 - level_editor_ux8.h: Shift+`): the camera at a skater's eye height; the editor's other keys and
@@ -5593,7 +5593,7 @@ void Update()
     // (level_editor_view.h - while editing only).
     if (Actions::Pressed(Actions::kOcclusion) && !g_browser.open) {
         g_occlusionOff = !g_occlusionOff;
-        Nx::OcclusionOff() = g_occlusionOff;
+        Engine3D::OcclusionOff() = g_occlusionOff;
         Hud::Message(g_occlusionOff ? "Occlusion culling off" : "Occlusion culling on");
     }
     if (Actions::Pressed(Actions::kCollision) && !g_browser.open)
@@ -5695,7 +5695,7 @@ void Update()
     if (Actions::Pressed(Actions::kLogCamera)) {
         Frame view = FrameFromYawPitch(g_yaw, g_pitch);
         uint32_t scene = Scenery::SceneName(Scenery::MainScene());
-        Log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:", Nx::CurrentLevel(),
+        Log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:", Engine3D::CurrentLevel(),
             Objects::Label(scene).c_str(), g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
         Log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", g_pos.x, g_pos.y, g_pos.z,
             view.back.x, view.back.y, view.back.z, view.up.x, view.up.y, view.up.z);
@@ -5750,14 +5750,14 @@ void Update()
     // Looking (right button held): about the camera, or orbiting the selection.
     SetRelative(input.right || Camera::Orbiting());
     if (input.right) {
-        const Prefs::Values& prefs = Prefs::Get(); // ([editor] look_pct, invert_y)
+        const OptionStore::Values& prefs = OptionStore::Get(); // ([editor] look_pct, invert_y)
         Look(&g_yaw, &g_pitch, input.relX, prefs.invertY ? -input.relY : input.relY,
              kLookRadiansPerPixel * static_cast<float>(prefs.lookPct) / 100.0f);
     }
     bool padSticks = pad.active && !Ux8::PieOpen();
     if (padSticks && (pad.lookX != 0.0f || pad.lookY != 0.0f)) {
         // (UX8: the controller's right stick looks - orbits a selection, as the right button does)
-        const Prefs::Values& prefs = Prefs::Get();
+        const OptionStore::Values& prefs = OptionStore::Get();
         float px = pad.lookX * kPadLookPixelsPerSecond * static_cast<float>(seconds),
               py = -pad.lookY * kPadLookPixelsPerSecond * static_cast<float>(seconds);
         Look(&g_yaw, &g_pitch, px, prefs.invertY ? -py : py,
@@ -6054,7 +6054,7 @@ void Update()
             g_hoverHandle = haveRay && g_hoverAxis < 0 && Ui::Running() ? Triggers::HandleAt(backX, backY, 8.0f * PixelScale())
                                                                       : -1;
         Triggers::SetHoverHandle(g_hoverHandle);
-        Obj::CCompositeObject* hover = nullptr;
+        GameObjects::CGameEntity* hover = nullptr;
         uint32_t hoverSector = 0;
         // What a click would take (level_editor_picking.h): the cycle's next entry while a click-to-cycle holds; else
         // a node's gizmo under the cursor (what the last frame drew), then the nearer of an object and scenery -
@@ -6072,7 +6072,7 @@ void Update()
             if (next.kind == Picking::Choice::kNode)
                 g_hoverNode = static_cast<int>(next.id);
             else if (next.kind == Picking::Choice::kObject)
-                hover = Live({static_cast<Obj::CCompositeObject*>(Obj::FindObject(next.id)), next.id});
+                hover = Live({static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(next.id)), next.id});
             else
                 hoverSector = next.id;
         } else if (haveRay && g_hoverAxis < 0) {
@@ -6085,7 +6085,7 @@ void Update()
                                                         GizmoOccluder(frame, dir, hit, everything))
                                    : -1;
             float objectT = kMaxPickDistance;
-            Obj::CCompositeObject* object = Objects::Pick(g_pos, dir, kMaxPickDistance, &objectT);
+            GameObjects::CGameEntity* object = Objects::Pick(g_pos, dir, kMaxPickDistance, &objectT);
             c.object = object != nullptr;
             c.objectT = objectT;
             // (Alt: the nearest pickable piece whatever is in front of it; a plain click: the first, if nothing occludes)
@@ -6191,7 +6191,7 @@ void Update()
         if (DebugEnabled())
             Log("level editor: ctrl+click - selected: %s", DescribeSelection().c_str());
     } else if ((input.leftPresses || input.middlePresses) && haveRay && !g_dragging) {
-        Obj::CCompositeObject* hover = Live(g_hover);
+        GameObjects::CGameEntity* hover = Live(g_hover);
         bool one = alt || (input.middlePresses && !input.leftPresses);
         bool drag = false;
         if (g_hoverAxis < 0)
@@ -6327,8 +6327,8 @@ void Draw()
     // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
     static std::vector<LineVertex> lines;
     lines.clear();
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
-    Obj::CCompositeObject* hover = g_dragging ? nullptr : Live(g_hover);
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
+    GameObjects::CGameEntity* hover = g_dragging ? nullptr : Live(g_hover);
     OrientedBox box;
     // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
     // its one piece with Alt)
@@ -6350,7 +6350,7 @@ void Draw()
         }
     }
     if (!g_selectedTinted) {
-        for (Obj::CCompositeObject* object : objects) {
+        for (GameObjects::CGameEntity* object : objects) {
             if (Objects::ModelBox(object, &box))
                 AddBox(box, frame, 0xFF00FFFF, &lines);
         }
@@ -6389,7 +6389,7 @@ void Draw()
     // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).
     if (Ui::Running()) {
         g_overlay.Clear();
-        Ui::Model model = BuildModel();
+        Ui::Model model = AssembleModel();
         // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
         Preview::Frame(&model);
         AddNodeGizmos(frame, model.nodes.selected);
@@ -6440,9 +6440,9 @@ void Draw()
     int count = static_cast<int>(lines.size());
     LineVertex* lineData = lines.data();
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
-    Nx::SetTexture(0, nullptr);
-    Nx::SetVertexFormat(0x144);          // XYZRHW | DIFFUSE | TEX1
-    Nx::SetPixelShader(nullptr, nullptr); // no pixel shader
+    Engine3D::SetTexture(0, nullptr);
+    Engine3D::SetVertexFormat(0x144);          // XYZRHW | DIFFUSE | TEX1
+    Engine3D::SetPixelShader(nullptr, nullptr); // no pixel shader
     // Stage 0 takes the vertex colour (put back after: the renderer doesn't know of this).
     const int kStates[4] = {1, 2, 4, 5};      // colour op / arg 1, alpha op / arg 1
     const uint32_t kValues[4] = {2, 0, 2, 0}; // select arg 1, diffuse
@@ -6463,7 +6463,7 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
     std::vector<std::pair<std::string, std::string>> out;
     if (!g_active)
         return out;
-    Ui::Model model = BuildModel();
+    Ui::Model model = AssembleModel();
     char text[160];
     out.emplace_back("mode", std::string(model.mode ? model.mode : "") + (Ui::Running() ? " (Dear ImGui panels)" : " (old HUD)"));
     out.emplace_back("level", model.level);
@@ -6592,7 +6592,7 @@ bool ApplyLayoutStep(const std::string& text, const char* label, std::string* me
 SelectionIds CurrentSelection()
 {
     SelectionIds ids;
-    for (Obj::CCompositeObject* object : SelectedObjects())
+    for (GameObjects::CGameEntity* object : SelectedObjects())
         ids.objects.push_back(object->m_id);
     if (ids.objects.empty())
         ids.sectors = Scenery::Selection();
@@ -6606,10 +6606,10 @@ void SetSelection(const SelectionIds& ids)
     if (g_dragging)
         return;
     Deselect();
-    std::vector<Obj::CCompositeObject*> objects;
+    std::vector<GameObjects::CGameEntity*> objects;
     for (uint32_t id : ids.objects) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-        if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+        if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD))
             objects.push_back(object);
     }
     if (!objects.empty()) {
@@ -6637,8 +6637,8 @@ bool GoToThing(uint32_t id)
             GoToSelection();
         return true;
     }
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD)) {
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD)) {
         Deselect();
         SelectObjects({object});
         GoToSelection();
@@ -6709,8 +6709,8 @@ bool SelectionTransform(TransformValues* transform)
     *transform = TransformValues{};
     transform->pos = SelectionPos();
     NodeEdit::Values node;
-    if (Obj::CCompositeObject* object = Primary()) {
-        const Mth::Vector& at = object->m_matrix.row[2];
+    if (GameObjects::CGameEntity* object = Primary()) {
+        const Maths::Vector& at = object->m_basisFrame.row[2];
         transform->hasHeading = true;
         transform->heading = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
         transform->hasScale = Scale::ObjectScalable(object);
@@ -6735,11 +6735,11 @@ bool SetSelectionTransform(const TransformValues& transform)
     PlaceSelection(transform.pos);
     NodeEdit::Values node;
     if (transform.hasHeading) {
-        if (Obj::CCompositeObject* object = Primary()) {
-            const Mth::Vector& at = object->m_matrix.row[2];
+        if (GameObjects::CGameEntity* object = Primary()) {
+            const Maths::Vector& at = object->m_basisFrame.row[2];
             float now = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
             V3 pivot = Objects::PosOf(object);
-            for (Obj::CCompositeObject* o : SelectedObjects())
+            for (GameObjects::CGameEntity* o : SelectedObjects())
                 Objects::TurnAbout(o, pivot, transform.heading - now);
         } else if (NodeValues(&node)) {
             node.angles.y = transform.heading;
@@ -6819,10 +6819,10 @@ namespace Edit {
 Selected Selection()
 {
     Selected out;
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (!objects.empty()) {
         out.kind = Kind::Objects;
-        for (Obj::CCompositeObject* object : objects)
+        for (GameObjects::CGameEntity* object : objects)
             out.ids.push_back(object->m_id);
     } else if (MovableNode() >= 0) {
         out.kind = Kind::Node;
@@ -6841,10 +6841,10 @@ void Select(const Selected& selected)
 {
     switch (selected.kind) {
     case Kind::Objects: {
-        std::vector<Obj::CCompositeObject*> objects;
+        std::vector<GameObjects::CGameEntity*> objects;
         for (uint32_t id : selected.ids) {
-            auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-            if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+            auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+            if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD))
                 objects.push_back(object);
         }
         Deselect();
@@ -6896,7 +6896,7 @@ void TurnBy(float radians)
         SetSelectedNode(node);
         return;
     }
-    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (!objects.empty()) {
         TurnObjectsBy(objects, radians, SelectionCentre());
         return;
@@ -6950,7 +6950,7 @@ void PushMade(const std::vector<uint32_t>& objects, const std::vector<uint32_t>&
     step.kind = UndoStep::kMade;
     step.exist = false;
     for (uint32_t id : objects) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
         if (!object)
             continue;
         uint32_t source = 0;
@@ -6974,7 +6974,7 @@ void RemoveCopies(const std::vector<uint32_t>& ids)
     step.kind = UndoStep::kMade;
     step.exist = true; // (undone: made again)
     for (uint32_t id : ids) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
         if (!object || !Objects::IsCopy(id))
             continue;
         uint32_t source = 0;
@@ -7063,4 +7063,4 @@ V3 CursorPoint() { return LevelEditor::CursorPoint(g_lastRay, g_lastHaveRay, Fra
 
 } // namespace Edit
 
-} // namespace Front::LevelEditor
+} // namespace MenuSystem::LevelEditor

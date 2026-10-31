@@ -22,7 +22,7 @@ struct ImFont;
 //     entries starred (the star on a thumbnail or a row). Both per level (the scene's name), kept in
 //     thug2-decomp.ini's [editor_palette] as <scene>_recent= / <scene>_favourites= (s:<sector checksum> /
 //     o:<object id> in hex, comma separated). The chips All / Recent / Favourites choose what the palette lists.
-namespace Front::LevelEditor::Thumbs {
+namespace MenuSystem::LevelEditor::Thumbs {
 
 constexpr int kAtlasPixels = 2048;
 constexpr int kCellPixels = 128;
@@ -84,4 +84,4 @@ void SetGridMode(bool on);
 int ItemsPanel(const Ui::Model& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* smallFont,
                float scale, std::vector<Ui::Request>* requests);
 
-} // namespace Front::LevelEditor::Thumbs
+} // namespace MenuSystem::LevelEditor::Thumbs

@@ -24,7 +24,7 @@
 #include "game/script/struct.h"
 #include "game/sys/log.h"
 
-namespace Obj::ThugproCas {
+namespace GameObjects::ThugproCas {
 
 namespace {
 
@@ -75,17 +75,17 @@ std::vector<std::string> Candidates(const char* path)
     return {relative, relative + ".xbx", key + ".img.xbx", relative + ".img.xbx"};
 }
 
-// Whether the game has a file: in the data overlay, a loaded archive, or its data folder. (Not File::Exist: on disk
+// Whether the game has a file: in the data overlay, a loaded archive, or its data folder. (Not FileLoad::Exist: on disk
 // it opens the file, and any error but "not found" - a folder that isn't there - is the game's fatal file error.)
 bool GameHas(const std::string& name)
 {
     char overlay[260];
-    if (Front::DataOverlay::OverlayPath(name.c_str(), overlay))
+    if (MenuSystem::DataOverlay::OverlayPath(name.c_str(), overlay))
         return true;
     if (Pre::Manager() && Pre::Exist(name.c_str()))
         return true;
     char disk[256];
-    File::MakeDiskPath(disk, name.c_str());
+    FileLoad::MakeDiskPath(disk, name.c_str());
     return IsFile(GameFolderPath(disk));
 }
 
@@ -112,8 +112,8 @@ bool Found(const char* path)
 }
 
 // Every path a part's structure names (strings with a slash), its structures and arrays included.
-void CollectPaths(Script::CStruct* part, std::vector<const char*>* out, int depth = 0);
-void CollectArrayPaths(Script::CArray* array, std::vector<const char*>* out, int depth)
+void CollectPaths(Scripts::CStruct* part, std::vector<const char*>* out, int depth = 0);
+void CollectArrayPaths(Scripts::CArray* array, std::vector<const char*>* out, int depth)
 {
     if (!array || depth > 4)
         return;
@@ -121,39 +121,39 @@ void CollectArrayPaths(Script::CArray* array, std::vector<const char*>* out, int
         uint32_t element = array->GetElement(i);
         if (!element)
             continue;
-        if (array->m_type == Script::ESYMBOLTYPE_STRING && IsPath(reinterpret_cast<const char*>(element)))
+        if (array->m_type == Scripts::QBVAL_STRING && IsPath(reinterpret_cast<const char*>(element)))
             out->push_back(reinterpret_cast<const char*>(element));
-        else if (array->m_type == Script::ESYMBOLTYPE_STRUCTURE)
-            CollectPaths(reinterpret_cast<Script::CStruct*>(element), out, depth + 1);
-        else if (array->m_type == Script::ESYMBOLTYPE_ARRAY)
-            CollectArrayPaths(reinterpret_cast<Script::CArray*>(element), out, depth + 1);
+        else if (array->m_type == Scripts::QBVAL_STRUCT)
+            CollectPaths(reinterpret_cast<Scripts::CStruct*>(element), out, depth + 1);
+        else if (array->m_type == Scripts::QBVAL_ARRAY)
+            CollectArrayPaths(reinterpret_cast<Scripts::CArray*>(element), out, depth + 1);
     }
 }
-void CollectPaths(Script::CStruct* part, std::vector<const char*>* out, int depth)
+void CollectPaths(Scripts::CStruct* part, std::vector<const char*>* out, int depth)
 {
     if (!part || depth > 4)
         return;
-    for (Script::CComponent* c = part->GetNextComponent(nullptr); c; c = part->GetNextComponent(c)) {
+    for (Scripts::CComponent* c = part->StepToEntry(nullptr); c; c = part->StepToEntry(c)) {
         switch (c->Type()) {
-        case Script::ESYMBOLTYPE_STRING:
+        case Scripts::QBVAL_STRING:
             if (c->string && IsPath(c->string))
                 out->push_back(c->string);
             break;
-        case Script::ESYMBOLTYPE_STRUCTURE: CollectPaths(c->structure, out, depth + 1); break;
-        case Script::ESYMBOLTYPE_ARRAY: CollectArrayPaths(c->array, out, depth + 1); break;
+        case Scripts::QBVAL_STRUCT: CollectPaths(c->structure, out, depth + 1); break;
+        case Scripts::QBVAL_ARRAY: CollectArrayPaths(c->array, out, depth + 1); break;
         default: break;
         }
     }
 }
 
 // One of our part lists: a global array of structures whose first has a desc_id.
-bool IsPartList(Script::CArray* array)
+bool IsPartList(Scripts::CArray* array)
 {
-    if (!array || array->m_type != Script::ESYMBOLTYPE_STRUCTURE || array->m_size == 0)
+    if (!array || array->m_type != Scripts::QBVAL_STRUCT || array->m_size == 0)
         return false;
-    auto* first = reinterpret_cast<Script::CStruct*>(array->GetElement(0));
+    auto* first = reinterpret_cast<Scripts::CStruct*>(array->GetElement(0));
     uint32_t desc;
-    return first && first->GetChecksum(kDescId, &desc, 0);
+    return first && first->ReadHashValue(kDescId, &desc, 0);
 }
 
 std::vector<uint8_t> ReadWholeFile(const std::string& path)
@@ -272,26 +272,26 @@ std::vector<std::pair<uint32_t, const uint8_t*>> TopLevelArrays(const uint8_t* q
     const uint8_t* p = qb;
     const uint8_t* end = qb + size;
     while (p < end) {
-        p = Script::SkipEndOfLines(p);
+        p = Scripts::SkipNewlineTokens(p);
         const uint8_t* before = p;
         switch (*p) {
         case 0x00: return arrays;
         case 0x16: { // name = value
-            uint32_t name = Script::Read4Bytes(p + 1);
-            const uint8_t* q = Script::SkipEndOfLines(p + 5);
+            uint32_t name = Scripts::FetchWord32(p + 1);
+            const uint8_t* q = Scripts::SkipNewlineTokens(p + 5);
             if (*q != 0x07) {
-                p = Script::SkipToken(p);
+                p = Scripts::StepOverToken(p);
                 break;
             }
-            q = Script::SkipEndOfLines(q + 1);
+            q = Scripts::SkipNewlineTokens(q + 1);
             if (*q == 0x05)
                 arrays.emplace_back(name, q);
-            p = Script::SkipValue(q);
+            p = Scripts::SkipValue(q);
             break;
         }
-        case 0x23: p = Script::SkipToEndOfScript(p + 6); break; // script name ... endscript
+        case 0x23: p = Scripts::SkipToEndOfScript(p + 6); break; // script name ... endscript
         case 0x45: p += 6; break;                               // a section marker
-        default: p = Script::SkipToken(p); break;
+        default: p = Scripts::StepOverToken(p); break;
         }
         if (p <= before)
             return arrays; // (a token we can't move past: stop)
@@ -317,22 +317,22 @@ std::string PathKey(const char* path)
     return key;
 }
 
-std::vector<uint32_t> PickNew(Script::CArray* ours, Script::CArray* theirs, bool (*found)(const char* path))
+std::vector<uint32_t> PickNew(Scripts::CArray* ours, Scripts::CArray* theirs, bool (*found)(const char* path))
 {
     std::vector<uint32_t> picked;
-    if (!ours || !theirs || theirs->m_type != Script::ESYMBOLTYPE_STRUCTURE)
+    if (!ours || !theirs || theirs->m_type != Scripts::QBVAL_STRUCT)
         return picked;
     std::set<uint32_t> descs;
     for (uint32_t i = 0; i < ours->m_size; ++i) {
-        auto* part = reinterpret_cast<Script::CStruct*>(ours->GetElement(i));
+        auto* part = reinterpret_cast<Scripts::CStruct*>(ours->GetElement(i));
         uint32_t desc;
-        if (part && part->GetChecksum(kDescId, &desc, 0))
+        if (part && part->ReadHashValue(kDescId, &desc, 0))
             descs.insert(desc);
     }
     for (uint32_t i = 0; i < theirs->m_size; ++i) {
-        auto* part = reinterpret_cast<Script::CStruct*>(theirs->GetElement(i));
+        auto* part = reinterpret_cast<Scripts::CStruct*>(theirs->GetElement(i));
         uint32_t desc;
-        if (!part || !part->GetChecksum(kDescId, &desc, 0) || descs.count(desc))
+        if (!part || !part->ReadHashValue(kDescId, &desc, 0) || descs.count(desc))
             continue;
         std::vector<const char*> paths;
         CollectPaths(part, &paths);
@@ -366,7 +366,7 @@ void LoadOnce()
 {
     if (s_done)
         return;
-    if (!Script::GetArray(kMasterEditableList)) {
+    if (!Scripts::GetArray(kMasterEditableList)) {
         if (++s_frames > kWaitFrames)
             s_done = true;
         return;
@@ -396,7 +396,7 @@ void LoadOnce()
     // The arrays that are also our part lists, and every path our own parts name (never served from THUGPRO's).
     struct Target {
         uint32_t name;
-        Script::CArray* ours;
+        Scripts::CArray* ours;
         const uint8_t* theirs;
     };
     std::vector<Target> targets;
@@ -404,7 +404,7 @@ void LoadOnce()
         size_t size = data.size();
         data.resize(size + 16, 0); // (the walk stops at a 0 token)
         for (auto [array, at] : TopLevelArrays(data.data(), size)) {
-            Script::CArray* ours = Script::GetArray(array);
+            Scripts::CArray* ours = Scripts::GetArray(array);
             if (IsPartList(ours))
                 targets.push_back({array, ours, at});
         }
@@ -412,59 +412,59 @@ void LoadOnce()
     for (const Target& target : targets) {
         for (uint32_t i = 0; i < target.ours->m_size; ++i) {
             std::vector<const char*> paths;
-            CollectPaths(reinterpret_cast<Script::CStruct*>(target.ours->GetElement(i)), &paths);
+            CollectPaths(reinterpret_cast<Scripts::CStruct*>(target.ours->GetElement(i)), &paths);
             for (const char* path : paths)
                 s_ourKeys.insert(PathKey(path));
         }
     }
     int added = 0, lists = 0, skipped = 0;
-    Mem::Manager* manager = Mem::Manager::Get();
-    Mem::PushContext(manager->m_scriptHeap);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::EnterHeapScope(manager->m_scriptHeap);
     for (const Target& target : targets) {
-        Script::CArray* theirs = Script::NewArray();
+        Scripts::CArray* theirs = Scripts::NewArray();
         if (!theirs)
             break;
         theirs->Init();
-        Script::ParseArray(theirs, target.theirs, nullptr);
+        Scripts::ParseArray(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = PickNew(target.ours, theirs, Found);
         int theirNew = 0;
-        if (theirs->m_type == Script::ESYMBOLTYPE_STRUCTURE) {
+        if (theirs->m_type == Scripts::QBVAL_STRUCT) {
             std::set<uint32_t> descs;
             for (uint32_t i = 0; i < target.ours->m_size; ++i) {
                 uint32_t desc;
-                auto* part = reinterpret_cast<Script::CStruct*>(target.ours->GetElement(i));
-                if (part && part->GetChecksum(kDescId, &desc, 0))
+                auto* part = reinterpret_cast<Scripts::CStruct*>(target.ours->GetElement(i));
+                if (part && part->ReadHashValue(kDescId, &desc, 0))
                     descs.insert(desc);
             }
             for (uint32_t i = 0; i < theirs->m_size; ++i) {
                 uint32_t desc;
-                auto* part = reinterpret_cast<Script::CStruct*>(theirs->GetElement(i));
-                if (part && part->GetChecksum(kDescId, &desc, 0) && !descs.count(desc))
+                auto* part = reinterpret_cast<Scripts::CStruct*>(theirs->GetElement(i));
+                if (part && part->ReadHashValue(kDescId, &desc, 0) && !descs.count(desc))
                     ++theirNew;
             }
         }
         if (!picked.empty()) {
             uint32_t old = target.ours->m_size;
             target.ours->Resize(old + static_cast<uint32_t>(picked.size()));
-            uint32_t* elements = theirs->GetArrayPointer();
+            uint32_t* elements = theirs->FindArrayValue();
             for (size_t k = 0; k < picked.size(); ++k) {
-                auto* part = reinterpret_cast<Script::CStruct*>(elements[picked[k]]);
+                auto* part = reinterpret_cast<Scripts::CStruct*>(elements[picked[k]]);
                 elements[picked[k]] = 0; // (now ours: not freed with THUGPRO's array)
-                if (setting == 1 && !part->ContainsFlag(kHidden))
-                    part->AddChecksum(0u, kHidden);
-                if (setting == 1 && !part->ContainsFlag(kNoRandom))
-                    part->AddChecksum(0u, kNoRandom);
+                if (setting == 1 && !part->HasBareFlag(kHidden))
+                    part->PutNameKey(0u, kHidden);
+                if (setting == 1 && !part->HasBareFlag(kNoRandom))
+                    part->PutNameKey(0u, kNoRandom);
                 target.ours->SetElement(old + static_cast<uint32_t>(k), reinterpret_cast<uint32_t>(part));
             }
             ++lists;
         }
         added += static_cast<int>(picked.size());
         skipped += theirNew - static_cast<int>(picked.size());
-        Script::CleanUpArray(theirs);
+        Scripts::ReleaseArrayStorage(theirs);
         theirs->Clear();
-        Script::DeleteArray(theirs);
+        Scripts::DeleteArray(theirs);
     }
-    Mem::PopContext();
+    MemSys::LeaveHeapScope();
     s_served.store(new std::set<std::string>(s_theirFiles)); // (kept for the game's life)
     Log("THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",
@@ -473,4 +473,4 @@ void LoadOnce()
         static_cast<int>(s_theirFiles.size()));
 }
 
-} // namespace Obj::ThugproCas
+} // namespace GameObjects::ThugproCas

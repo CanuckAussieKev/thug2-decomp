@@ -10,8 +10,8 @@
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_walls.h"
 
-namespace Game {
-class CGapChecklist;
+namespace GoalSystem {
+class CGapTally;
 }
 
 // NOT ORIGINAL - the level editor's trigger volumes, kill zones, teleports and gaps (ours; see level_editor.h - phase 5
@@ -21,10 +21,10 @@ class CGapChecklist;
 // How the game's triggers work (the reference build):
 //   - A trigger face is a collision face with flag 0x40; with 0x10 too (not collidable) the skater passes through it -
 //     a trigger volume (kill zones, water, gap planes). The trigger component's update (0x00434D90: an object that
-//     moved since its last frame) casts a feeler from where it was to where it is with SetIgnore(0, 0x50) - only faces
-//     with both flags - static and movable collision alike (GetCollision(1, 0)), its callback 0x00434D70 handing each
+//     moved since its last frame) casts a feeler from where it was to where it is with SetExcluded(0, 0x50) - only faces
+//     with both flags - static and movable collision alike (GetHitShape(1, 0)), its callback 0x00434D70 handing each
 //     face hit to 0x00434BF0: the hit's collision object's checksum (CollisionHit +0x34, the feeler's +0x58) is a
-//     node's name, and CTriggerComponent::TriggerNode (0x00434A60) runs that node's TriggerScript on the object. A
+//     node's name, and CActivationZoneModule::TriggerNode (0x00434A60) runs that node's TriggerScript on the object. A
 //     level's trigger sectors are LevelGeometry nodes (usually collision only) named like their sector.
 //   - A kill zone is a trigger whose script kills: SK3_KillSkater / SK3_KillSkater_Water / ..._Pungee nodename=<a
 //     restart> (sk4_scripts.qb: the panel message, then SK3_Killskater_Finish -> KillSkater node=); a teleport's calls
@@ -32,19 +32,19 @@ class CGapChecklist;
 //     EndGap GapID= score= text= on another (a level's <level>_scripts.qb).
 //   - The gap checklist (the pause menu's gap list) is built at the end of CFunc_ParseNodeArray (0x005A34E0, unless the
 //     script integer 0xF7ECD937 is set): the skate module's checklist (0x005656C0 - the career's for the level) Build
-//     (0x00578AC0): every EndGap any node's TriggerScript reaches (SkateScript::ForEachNodeScriptCall - every node
+//     (0x00578AC0): every EndGap any node's TriggerScript reaches (LevelNodes::ForEachNodeScriptCall - every node
 //     array, the editor's overlay too) with a score and a text.
 //
 // What the editor adds:
 //   - A trigger volume is a box: a node in the editor's overlay array (level_editor_node_create.h: class GenericNode,
 //     type ed_trigger - the Triggers family - with its TriggerScript), centred on the node's pos and turned by its
 //     heading, so it moves, turns, drops, undoes and goes Home as other point nodes do (level_editor_node_edit.h); and
-//     its collision: a movable box (Nx::CCollMovBBox, its checksum the node's name, every face 0x50) on the movable
-//     collision list (Nx::RegisterMovable) - the trigger component's feeler meets it as it meets a level's trigger
+//     its collision: a movable box (Engine3D::CHitMovingBox, its checksum the node's name, every face 0x50) on the movable
+//     collision list (Engine3D::RegisterMovable) - the trigger component's feeler meets it as it meets a level's trigger
 //     faces (no collision cache is current then: the skater's physics sets one only for its own feelers), and a feeler
 //     ignoring 0x10 (every other one but the graffiti feelers') never does. A box is hit where a line enters it, so it
 //     fires once on the way in.
-//   - Its script is made here: compiled .qb tokens (Body) defined through the game's own loader (Script::LoadQBData,
+//   - Its script is made here: compiled .qb tokens (Body) defined through the game's own loader (Scripts::LoadQBData,
 //     the file name "editor\thug2_decomp_triggers.qb") as <node>Script - except "Run a script", whose TriggerScript is
 //     the script chosen.
 //   - Kinds: Kill (SK3_KillSkater, or SK3_KillSkater_Water: the splash) back at a restart; Teleport (TeleportSkaterToNode
@@ -53,9 +53,9 @@ class CGapChecklist;
 //     gap's name and score). After each change the gap checklist is built again as the level's load does (Build: new
 //     gaps added) and the editor's gaps no longer there taken out of it (not a level's own gap of the same name).
 //   - A level's own trigger volumes are found from their collision (faces with 0x40), their node's TriggerScript walked
-//     (SkateScript::ForEachScriptCall) for the calls above - drawn coloured by kind, an arrow from a teleport to its
+//     (LevelNodes::ForEachScriptCall) for the calls above - drawn coloured by kind, an arrow from a teleport to its
 //     target. Their collision is switched off / on and (collision only - an invisible wall) moved and turned through
-//     level_editor_walls.h (the game's own switch, CSector::SetActive; their `wall` records) - only when every face of
+//     level_editor_walls.h (the game's own switch, CWorldCell::SetActive; their `wall` records) - only when every face of
 //     it is a trigger's or it's a wall, so nothing solid goes with it. Or they get an editable copy: an editor trigger
 //     with the same TriggerScript over the faces' box (resizable, any kind), the original switched off while the copy
 //     is there (its `replaces`).
@@ -66,12 +66,12 @@ class CGapChecklist;
 //     (a level trigger switched off or moved: its `wall` record - level_editor_walls.h)
 //   - The level's node array leaving takes everything with it (NodeCreate's listener): the boxes unregistered, the
 //     editor's gaps taken out of that level's checklist.
-namespace Front::LevelEditor::Triggers {
+namespace MenuSystem::LevelEditor::Triggers {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 // (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
-enum class Kind : uint8_t { Kill, Teleport, Script, GapStart, GapEnd, Other, Boost, Break, Camera };
+enum class Kind : uint8_t { Kill, JumpTo, Scripts, GapStart, GapEnd, Other, Boost, Break, Camera };
 constexpr int kKinds = 9;
 const char* KindName(Kind kind); // "Kill zone"...
 const char* KindWord(Kind kind); // the record's: kill, teleport, script, gapstart, gapend, other
@@ -114,7 +114,7 @@ struct Spec {
     int score = 100;                 // the gap's score
     uint32_t replaces = 0;           // a level trigger this one stands in for (off while this one is there)
     // Fires on the way out as well (the record's exit=1): the game's trigger component only reports a box where a line
-    // enters it (a CCollMovBBox is met on the way in), so leaving is seen by Play's inside test on the skater each
+    // enters it (a CHitMovingBox is met on the way in), so leaving is seen by Play's inside test on the skater each
     // frame - its TriggerScript run on the skater as the trigger component runs it (0x00434A60).
     bool exit = false;
     // Boost (a jump boost / launch pad - THUG2's own skutils.qb trigger_jump_boost, as THAW's Ruins and BE's fans use
@@ -190,7 +190,7 @@ int Partner(const std::vector<Spec>& specs, int index);
 // --- proximity nodes (the feature map) ---
 //
 // A ProximNode (the editor's or a level's) runs ONE script - its TriggerScript, kept by the game in its ProximNode
-// (+0xA0, read at Proxim_AddNode) - both when a skater comes in and when it goes out; the script tells them apart
+// (+0xA0, read at NearbyZone_AddNode) - both when a skater comes in and when it goes out; the script tells them apart
 // with `if Inside` (the level's own: BO's TRG_Proxim_In_LibraryScript). The editor gives a node an enter script and /
 // or an exit script: a script of its own, ed_proxim_<node> = `if Inside { <enter> } else { <exit> }`, where a branch
 // not chosen calls the node's own script (its arguments passed on - `<script> <...>`), if it has one, so the other half
@@ -241,7 +241,7 @@ struct LevelTrigger {
     bool off = false;      // its collision switched off (by the editor, or while an editable copy stands in for it)
     bool wall = false;     // collision only (no geometry): an invisible wall to level_editor_walls.h - movable there
     bool allTrigger = false; // every face of its collision a trigger's (switching it off takes nothing else)
-    V3 boxMin = {}, boxMax = {}; // (its collision's box when read: moved since - read again)
+    V3 boundsLow = {}, boundsHigh = {}; // (its collision's box when read: moved since - read again)
 };
 const std::vector<LevelTrigger>& LevelTriggers();
 
@@ -309,7 +309,7 @@ void Queue(std::function<void()> action);
 void AddKill(bool water);
 void AddTeleport();
 void AddScript();
-void AddGap();
+void RegisterGapEntry();
 // (UX9: the gap wizard) A gap made of two ends placed as given (their specs' size, text, score and the start's flags;
 // names and the GapID made fresh) - the start selected; one undo step. Queued like the others.
 void AddGapPair(Placed start, Placed end);
@@ -386,7 +386,7 @@ std::string Describe();
 // The career save (level_editor_career.h): the names of the gaps the editor put in `checklist` (false, nothing: it
 // isn't the checklist they went into, or there are none) and the level's own gap names (a level gap of the same name
 // is the level's, not the editor's).
-bool EditorGaps(const Game::CGapChecklist* checklist, std::vector<std::string>* names,
+bool EditorGaps(const GoalSystem::CGapTally* checklist, std::vector<std::string>* names,
                 std::vector<std::string>* levelNames);
 
-} // namespace Front::LevelEditor::Triggers
+} // namespace MenuSystem::LevelEditor::Triggers

@@ -1,4 +1,4 @@
-// The skater's balance trick component (Obj::CSkaterBalanceTrickComponent): see balance_trick.h.
+// The skater's balance trick component (GameObjects::CRiderTeeterMoves): see balance_trick.h.
 
 #include "game/skater/balance_trick.h"
 
@@ -20,7 +20,7 @@
 #include "game/obj/node_components.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_balanceTrickMemberFunctions[12]{
     0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0,
@@ -51,34 +51,34 @@ constexpr uint32_t kWobbleNames[5] = {0xFD266A26 /* WobbleAmpA */, 0x642F3B9C /*
 constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitchParams = 0xFC87CC01,
                    kLipParams = 0xBE615D0A;
 
-CSkater* SkaterOf(CCompositeObject* object) { return static_cast<CSkater*>(object); }
+CRider* SkaterOf(CGameEntity* object) { return static_cast<CRider*>(object); }
 
-Script::CStruct* NewStruct()
+Scripts::CStruct* NewStruct()
 {
-    Script::CStruct* structure = Script::NewStruct();
+    Scripts::CStruct* structure = Scripts::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
 
 } // namespace
 
 // 0x004F9170
-CBaseComponent* __cdecl CSkaterBalanceTrickComponent::Create()
+CObjectModule* __cdecl CRiderTeeterMoves::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterBalanceTrickComponent));
-    return memory ? static_cast<CSkaterBalanceTrickComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderTeeterMoves));
+    return memory ? static_cast<CRiderTeeterMoves*>(memory)->Construct() : nullptr;
 }
 
 // 0x004F8CD0
-void __cdecl CSkaterBalanceTrickComponent::RegisterMemberFunctions()
+void __cdecl CRiderTeeterMoves::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_balanceTrickMemberFunctions,
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_balanceTrickMemberFunctions,
                                         0x18);
 }
 
 // 0x004F8F80
-CSkaterBalanceTrickComponent* CSkaterBalanceTrickComponent::Construct()
+CRiderTeeterMoves* CRiderTeeterMoves::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_manual.Construct();
     m_grind.Construct();
@@ -91,27 +91,27 @@ CSkaterBalanceTrickComponent* CSkaterBalanceTrickComponent::Construct()
 }
 
 // 0x004F8CF0
-void CSkaterBalanceTrickComponent::DestroyBody()
+void CRiderTeeterMoves::DestroyBody()
 {
     m_vtable = kVtable;
     m_skitch.DestroyBody();
     m_lip.DestroyBody();
     m_grind.DestroyBody();
     m_manual.DestroyBody();
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004F9010
-CSkaterBalanceTrickComponent* CSkaterBalanceTrickComponent::Destroy(unsigned int flags)
+CRiderTeeterMoves* CRiderTeeterMoves::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004F9040
-void CSkaterBalanceTrickComponent::InitFromStructure(Script::CStruct* /*params*/)
+void CRiderTeeterMoves::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
     m_manual.Init(m_object);
     m_grind.Init(m_object);
@@ -120,19 +120,19 @@ void CSkaterBalanceTrickComponent::InitFromStructure(Script::CStruct* /*params*/
 }
 
 // 0x004F9080
-void CSkaterBalanceTrickComponent::Finalize()
+void CRiderTeeterMoves::Finalize()
 {
     mp_animBlender = static_cast<CAnimBlenderComponent*>(m_object->GetComponent(kAnimBlender));
 }
 
 // 0x004F8D70
-int CSkaterBalanceTrickComponent::DoingBalanceTrick(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+int CRiderTeeterMoves::InBalanceMove(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
     return m_started ? 1 : 0;
 }
 
 // 0x004F8D80
-void CSkaterBalanceTrickComponent::ClearBestTimes()
+void CRiderTeeterMoves::ClearBestTimes()
 {
     m_manual.ClearBestTime();
     m_grind.ClearBestTime();
@@ -141,7 +141,7 @@ void CSkaterBalanceTrickComponent::ClearBestTimes()
 }
 
 // 0x004F8DB0
-void CSkaterBalanceTrickComponent::KeepBestTimes()
+void CRiderTeeterMoves::KeepBestTimes()
 {
     m_manual.KeepBestTime();
     m_grind.KeepBestTime();
@@ -150,7 +150,7 @@ void CSkaterBalanceTrickComponent::KeepBestTimes()
 }
 
 // 0x004F8DE0
-void CSkaterBalanceTrickComponent::Reset()
+void CRiderTeeterMoves::Reset()
 {
     m_manual.Reset();
     m_grind.Reset();
@@ -161,7 +161,7 @@ void CSkaterBalanceTrickComponent::Reset()
 }
 
 // 0x004F8EE0
-void CSkaterBalanceTrickComponent::Stop()
+void CRiderTeeterMoves::Stop()
 {
     m_manual.Stop();
     m_grind.Stop();
@@ -171,7 +171,7 @@ void CSkaterBalanceTrickComponent::Stop()
     m_started = false;
 }
 
-CBalance* CSkaterBalanceTrickComponent::Current()
+CBalance* CRiderTeeterMoves::Current()
 {
     switch (m_trick) {
     case kManual:
@@ -190,9 +190,9 @@ CBalance* CSkaterBalanceTrickComponent::Current()
 }
 
 // 0x004F8E20
-void CSkaterBalanceTrickComponent::GetButtons(int* count, uint32_t* buttons) const
+void CRiderTeeterMoves::GetButtons(int* count, uint32_t* buttons) const
 {
-    const CBalance* balance = const_cast<CSkaterBalanceTrickComponent*>(this)->Current();
+    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->Current();
     if (!balance) {
         *count = 0;
         return;
@@ -203,14 +203,14 @@ void CSkaterBalanceTrickComponent::GetButtons(int* count, uint32_t* buttons) con
 }
 
 // 0x004F8F20
-float CSkaterBalanceTrickComponent::GetLean() const
+float CRiderTeeterMoves::GetLean() const
 {
-    const CBalance* balance = const_cast<CSkaterBalanceTrickComponent*>(this)->Current();
+    const CBalance* balance = const_cast<CRiderTeeterMoves*>(this)->Current();
     return balance ? balance->m_lean : 0.0f;
 }
 
 // 0x004F90A0
-float CSkaterBalanceTrickComponent::GetPhysicsValue(uint32_t name)
+float CRiderTeeterMoves::GetPhysicsValue(uint32_t name)
 {
     if (mp_params)
         return SkaterOf(m_object)->GetScaledParam(name, mp_params);
@@ -233,22 +233,22 @@ float CSkaterBalanceTrickComponent::GetPhysicsValue(uint32_t name)
     default:
         return 0.0f;
     }
-    CSkater* skater = SkaterOf(m_object);
-    return skater->GetScaledParam(name, Script::GetStructure(structure));
+    CRider* skater = SkaterOf(m_object);
+    return skater->GetScaledParam(name, Scripts::ReadSubStruct(structure));
 }
 
 // 0x004F91D0
-void CSkaterBalanceTrickComponent::ClearParams()
+void CRiderTeeterMoves::ClearParams()
 {
-    if (Script::CStruct* params = mp_params) {
+    if (Scripts::CStruct* params = mp_params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
         mp_params = nullptr;
     }
 }
 
 // 0x004F9370
-void CSkaterBalanceTrickComponent::SetParams(Script::CStruct* params)
+void CRiderTeeterMoves::SetParams(Scripts::CStruct* params)
 {
     if (!mp_params)
         mp_params = NewStruct();
@@ -257,31 +257,31 @@ void CSkaterBalanceTrickComponent::SetParams(Script::CStruct* params)
 }
 
 // 0x004F9200
-void CSkaterBalanceTrickComponent::SetWobble(Script::CStruct* wobble)
+void CRiderTeeterMoves::SetWobble(Scripts::CStruct* wobble)
 {
-    if (!m_object->m_script) {
-        void* memory = Script::g_scriptPools.Allocate(0xF4);
-        m_object->m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    if (!m_object->m_runScript) {
+        void* memory = Scripts::g_scriptPools.Allocate(0xF4);
+        m_object->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
     }
     float values[5];
-    Script::CStruct* value = nullptr; // (not cleared again: a missing one leaves the last found)
+    Scripts::CStruct* value = nullptr; // (not cleared again: a missing one leaves the last found)
     for (int i = 0; i < 5; ++i) {
-        wobble->GetStructure(kWobbleNames[i], &value, 1);
+        wobble->ReadSubStruct(kWobbleNames[i], &value, 1);
         values[i] = SkaterOf(m_object)->GetScaledValue(value);
     }
     mp_animBlender->FirstChannel47E450(values, 1);
 }
 
 // 0x004F9420
-int CSkaterBalanceTrickComponent::CallMemberFunction(uint32_t name, Script::CStruct* params,
-                                                     Script::CScript* /*script*/)
+int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* params,
+                                                     Scripts::CScript* /*script*/)
 {
     switch (name) {
     case kSwitchOffBalanceMeter: {
         auto* score = m_object->GetComponent(kSkaterScore);
-        Mdl::Score* display = *reinterpret_cast<Mdl::Score**>(reinterpret_cast<uint8_t*>(score) + 0x18);
-        display->SetBalanceMeter(false, 0.0f);
-        display->SetManualMeter(false, 0.0f);
+        GameModules::Score* display = *reinterpret_cast<GameModules::Score**>(reinterpret_cast<uint8_t*>(score) + 0x18);
+        display->SetTeeterGauge(false, 0.0f);
+        display->SetWheelieGauge(false, 0.0f);
         m_manual.HideDisplay();
         m_grind.HideDisplay();
         m_lip.HideDisplay();
@@ -321,14 +321,14 @@ int CSkaterBalanceTrickComponent::CallMemberFunction(uint32_t name, Script::CStr
         return 1;
     }
     case kSetWobbleDetails: {
-        if (params->ContainsFlag(kWobble)) {
+        if (params->HasBareFlag(kWobble)) {
             m_manual.ShowMeter();
             m_grind.ShowMeter();
             m_lip.ShowMeter();
             m_skitch.ShowMeter();
         }
-        Script::CStruct* wobble = Script::GetStructure(kDefaultWobbleParams); // (asserted)
-        params->GetStructure(kWobbleParams, &wobble, 0);
+        Scripts::CStruct* wobble = Scripts::ReadSubStruct(kDefaultWobbleParams); // (asserted)
+        params->ReadSubStruct(kWobbleParams, &wobble, 0);
         SetWobble(wobble);
         return 1;
     }
@@ -337,25 +337,25 @@ int CSkaterBalanceTrickComponent::CallMemberFunction(uint32_t name, Script::CStr
         return 1;
     case kDoBalanceTrick: {
         ClearParams();
-        Script::CStruct* balanceParams = nullptr;
-        if (params->GetStructure(kBalanceParams, &balanceParams, 0))
+        Scripts::CStruct* balanceParams = nullptr;
+        if (params->ReadSubStruct(kBalanceParams, &balanceParams, 0))
             SetParams(balanceParams);
         int tweak = 0;
-        params->GetInteger(kTweak, &tweak, 0);
+        params->FetchIntValue(kTweak, &tweak, 0);
         uint32_t buttonA = 0, buttonB = 0, type = 0;
-        params->GetChecksum(kButtonA, &buttonA, 1);
-        params->GetChecksum(kButtonB, &buttonB, 1);
-        params->GetChecksum(kTypeName, &type, 0);
+        params->ReadHashValue(kButtonA, &buttonA, 1);
+        params->ReadHashValue(kButtonB, &buttonB, 1);
+        params->ReadHashValue(kTypeName, &type, 0);
         // The same trick (a manual and a nose manual count as one) or a tap: carried on.
         if (m_trick == type || (m_trick == kManual && type == kNoseManual) || (m_trick == kNoseManual && type == kManual))
             return 1;
         int tap;
-        if (params->GetInteger(kIsATap, &tap, 0))
+        if (params->FetchIntValue(kIsATap, &tap, 0))
             return 1;
         m_trick = type;
-        bool doFlip = params->ContainsFlag(kDoFlipCheck);
-        bool backwards = params->ContainsFlag(kPlayRangeAnimBackwards);
-        bool clearCheese = params->ContainsFlag(kClearCheese);
+        bool doFlip = params->HasBareFlag(kDoFlipCheck);
+        bool backwards = params->HasBareFlag(kPlayRangeAnimBackwards);
+        bool clearCheese = params->HasBareFlag(kClearCheese);
         CBalance* balance = Current();
         if (!balance)
             return 1;
@@ -372,22 +372,22 @@ int CSkaterBalanceTrickComponent::CallMemberFunction(uint32_t name, Script::CStr
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterBalanceTrickComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
-         &Obj::CSkaterBalanceTrickComponent::InitFromStructure,
-         &Obj::CSkaterBalanceTrickComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderTeeterMoves::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
+         &GameObjects::CRiderTeeterMoves::ConfigureFromData,
+         &GameObjects::CRiderTeeterMoves::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::CSkaterBalanceTrickComponent::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CRiderTeeterMoves::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

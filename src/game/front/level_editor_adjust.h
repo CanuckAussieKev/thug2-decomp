@@ -16,7 +16,7 @@
 // started (the copies from their source; a placed thing just moved / turned - its step is its existence). Only while
 // that action's step is still the newest on the undo stack (another action, an undo or a redo: the panel says so).
 // F4 hides / shows the panel.
-namespace Front::LevelEditor::Adjust {
+namespace MenuSystem::LevelEditor::Adjust {
 
 enum class Kind : uint8_t { None, Move, Turn, Scale, Duplicate, Align, Distribute, Place };
 
@@ -67,4 +67,4 @@ void Panel(float x, float y, float uiScale);
 // The editor starting / a new level: forgotten.
 void Forget();
 
-} // namespace Front::LevelEditor::Adjust
+} // namespace MenuSystem::LevelEditor::Adjust

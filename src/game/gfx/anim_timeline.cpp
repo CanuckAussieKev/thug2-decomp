@@ -1,4 +1,4 @@
-// The animation timeline (Gfx::CAnimTimeline, anim_controller.h), the blend channel's timeline (blend_timeline.h),
+// The animation timeline (Gfx2D::CAnimTimeline, anim_controller.h), the blend channel's timeline (blend_timeline.h),
 // the base animation controller's members and the base animation event's destructor body
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
@@ -18,7 +18,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/core/stubs.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 namespace {
 
@@ -39,7 +39,7 @@ void** Vtable(T address)
     return reinterpret_cast<void**>(address);
 }
 
-Mem::ListNode* Node(CAnimTimeline* timeline) { return reinterpret_cast<Mem::ListNode*>(timeline); }
+MemSys::ListNode* Node(CAnimTimeline* timeline) { return reinterpret_cast<MemSys::ListNode*>(timeline); }
 
 // The timeline's empty state (Reset and the constructor).
 void Clear(CAnimTimeline* t)
@@ -67,7 +67,7 @@ void DeleteController(CAnimController* controller)
 // 0x00481650
 CAnimTimeline* CAnimTimeline::Construct()
 {
-    Mem::ListNode* node = Node(this);
+    MemSys::ListNode* node = Node(this);
     node->data = this;
     node->priority = 0;
     node->next = node;
@@ -88,7 +88,7 @@ CAnimTimeline* CAnimTimeline::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
@@ -149,7 +149,7 @@ double CAnimTimeline::NextTime()
     if (m_loopType == kHold)
         return 0.0;
     if (m_direction == 0) {
-        double next = Tmr::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed + m_current;
+        double next = FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed + m_current;
         stepped = static_cast<float>(next);
         m_complete = next > m_end;
         if (m_start == m_end) {
@@ -163,7 +163,7 @@ double CAnimTimeline::NextTime()
             bound = m_end;
         }
     } else if (m_direction == -1) {
-        double next = m_current - Tmr::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed;
+        double next = m_current - FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed;
         stepped = static_cast<float>(next);
         m_complete = next < m_start;
         if (m_start == m_end) {
@@ -191,7 +191,7 @@ double CAnimTimeline::NextTime()
 }
 
 // 0x004816B0
-void CAnimTimeline::AddTime(float frames)
+void CAnimTimeline::AdvanceClock(float frames)
 {
     float speed = m_speed;
     m_speed = 0.0f;
@@ -203,13 +203,13 @@ void CAnimTimeline::AddTime(float frames)
 // --- the blend timeline ---
 
 // 0x00481830
-CAnimTrack* CAnimTrack::Construct(Obj::CCompositeObject* object)
+CAnimTrack* CAnimTrack::Construct(GameObjects::CGameEntity* object)
 {
     CAnimTimeline::Construct();
     m_controllerCount = 0;
     mp_events = nullptr;
     m_eventCount = 0;
-    mp_object = object;
+    m_ownerObject = object;
     m_vtable = kBlendTimelineVtable;
     m_eventsOn = true;
     m_state = kPlaying;
@@ -229,9 +229,9 @@ void CAnimTrack::Reset()
 void CAnimTrack::DeleteControllers()
 {
     for (int i = 0; i < m_controllerCount; ++i) {
-        if (mp_controllers[i])
-            DeleteController(mp_controllers[i]);
-        mp_controllers[i] = nullptr;
+        if (m_controllerList[i])
+            DeleteController(m_controllerList[i]);
+        m_controllerList[i] = nullptr;
     }
     m_controllerCount = 0;
 }
@@ -243,14 +243,14 @@ void CAnimTrack::RemoveController(CAnimController* controller)
     for (;; ++i) {
         if (i >= m_controllerCount)
             return;
-        if (mp_controllers[i] == controller)
+        if (m_controllerList[i] == controller)
             break;
     }
-    if (mp_controllers[i])
-        DeleteController(mp_controllers[i]);
-    mp_controllers[i] = nullptr;
+    if (m_controllerList[i])
+        DeleteController(m_controllerList[i]);
+    m_controllerList[i] = nullptr;
     for (; i < m_controllerCount - 1; ++i)
-        mp_controllers[i] = mp_controllers[i + 1];
+        m_controllerList[i] = m_controllerList[i + 1];
     --m_controllerCount;
 }
 
@@ -258,7 +258,7 @@ void CAnimTrack::RemoveController(CAnimController* controller)
 bool CAnimTrack::GetPoses(void* pose)
 {
     for (int i = 0; i < m_controllerCount; ++i) {
-        CAnimController* controller = mp_controllers[i];
+        CAnimController* controller = m_controllerList[i];
         reinterpret_cast<bool(__thiscall*)(CAnimController*, void*)>(controller->m_vtable[1])(controller, pose);
     }
     return true;
@@ -280,13 +280,13 @@ bool CAnimTrack::IsFading()
 void CAnimTrack::ArmEvents()
 {
     for (uint32_t i = 0; i < m_eventCount; ++i)
-        reinterpret_cast<CCustomAnimKey*>(&mp_events[i])->SetActive(true);
+        reinterpret_cast<CUserClipKey*>(&mp_events[i])->SetActive(true);
 }
 
 // 0x004819D0
-Obj::CCompositeObject* CAnimTrack::GetObject()
+GameObjects::CGameEntity* CAnimTrack::GetObject()
 {
-    return mp_object;
+    return m_ownerObject;
 }
 
 // --- the base controller ---
@@ -297,7 +297,7 @@ CAnimController* CAnimController::Construct(CAnimTimeline* timeline)
     mp_timeline = timeline;
     m_vtable = kControllerVtable;
     m_id = 0;
-    mp_object = nullptr;
+    m_ownerObject = nullptr;
     m_priority = 0;
     return this;
 }
@@ -313,27 +313,27 @@ CAnimController* CAnimController::Destroy(uint8_t flags)
 {
     m_vtable = kControllerVtable;
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x00481740
-bool CAnimController::InitFromStructure(Script::CStruct* params)
+bool CAnimController::ConfigureFromData(Scripts::CStruct* params)
 {
-    return params->GetChecksum(kId, &m_id, 0);
+    return params->ReadHashValue(kId, &m_id, 0);
 }
 
 // 0x00481760
-Obj::CCompositeObject* CAnimController::GetObject()
+GameObjects::CGameEntity* CAnimController::GetObject()
 {
     return static_cast<CAnimTrack*>(mp_timeline)->GetObject();
 }
 
 // 0x00481770
-uint8_t* CAnimController::GetSkeleton()
+uint8_t* CAnimController::FetchRig()
 {
-    Obj::CBaseComponent* component = static_cast<CAnimTrack*>(mp_timeline)->GetObject()->GetComponent(kSkeleton);
-    return component ? static_cast<Obj::CSkeletonComponent*>(component)->mp_skeleton : nullptr;
+    GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(mp_timeline)->GetObject()->GetComponent(kSkeleton);
+    return component ? static_cast<GameObjects::CBoneRigModule*>(component)->m_boneRig : nullptr;
 }
 
 // --- the base event ---
@@ -345,12 +345,12 @@ void CAnimEventBase::DestroyBody()
 }
 
 namespace {
-static VtableSlot kTimelineVtable_slots[] = {&Gfx::CAnimTimeline::Destroy, &Gfx::CAnimTimeline::Reset,
-                &Gfx::CAnimTimeline::Update, &Gfx::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
+static VtableSlot kTimelineVtable_slots[] = {&Gfx2D::CAnimTimeline::Destroy, &Gfx2D::CAnimTimeline::Reset,
+                &Gfx2D::CAnimTimeline::Update, &Gfx2D::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
 void** const kTimelineVtable = reinterpret_cast<void**>(kTimelineVtable_slots);
-static VtableSlot kControllerVtable_slots[] = {&Gfx::CAnimController::Destroy, Stubs::ReturnFalse1,
-                Stubs::IgnoreArgument, &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-                &Gfx::CAnimController::InitFromStructure, Stubs::DoNothing};
+static VtableSlot kControllerVtable_slots[] = {&Gfx2D::CAnimController::Destroy, Stubs::ReturnFalse1,
+                Stubs::IgnoreArgument, &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
+                &Gfx2D::CAnimController::ConfigureFromData, Stubs::DoNothing};
 void** const kControllerVtable = reinterpret_cast<void**>(kControllerVtable_slots);
 } // namespace
 

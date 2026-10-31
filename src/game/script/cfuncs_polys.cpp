@@ -18,11 +18,11 @@
 #include "game/gfx/spawned_polys.h"
 #include "game/gfx/texture_dict.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
-using Script::CArray;
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 namespace {
 
@@ -57,7 +57,7 @@ constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 // A spawned polygon's settings (0xB8 bytes, from the pool pair 0x00700500; constructed by 0x00491990: zeroed,
 // blend mode 0x54628ED7). The fields not named are set elsewhere (0x00492450).
 struct SpawnedPolyDetails {
-    Script::VectorValue pos;   // +0x00
+    Scripts::VectorValue pos;   // +0x00
     uint8_t unknown10[0x48];
     float startDims[2];        // +0x58
     float endDims[2];          // +0x60
@@ -70,12 +70,12 @@ struct SpawnedPolyDetails {
     void* texture;             // +0xA4
     uint32_t unknownA8;
     uint32_t blendMode;        // +0xAC
-    float justX;               // +0xB0 (-1 left, 0 centre, 1 right)
-    float justY;               // +0xB4 (-1 top, 0 centre, 1 bottom)
+    float alignH;               // +0xB0 (-1 left, 0 centre, 1 right)
+    float alignV;               // +0xB4 (-1 top, 0 centre, 1 bottom)
 };
 static_assert(sizeof(SpawnedPolyDetails) == 0xB8, "layout must match the original");
 
-Mem::PoolPair& SpawnedPolyPools() { return Nx::g_spawnedPolyPools; }
+MemSys::PoolPair& SpawnedPolyPools() { return Engine3D::g_spawnedPolyPools; }
 
 // The loaded scenes' list (0x006FA7EC): nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1.
 struct SceneNode {
@@ -84,19 +84,19 @@ struct SceneNode {
     uint32_t unknown8;
     SceneNode* next;
 };
-SceneNode* FirstSceneNode() { return reinterpret_cast<SceneNode*>(Nx::FirstSceneNode()); }
+SceneNode* FirstSceneNode() { return reinterpret_cast<SceneNode*>(Engine3D::FirstSceneNode()); }
 SceneNode* NextSceneNode(SceneNode* node)
 {
     SceneNode* next = node->next;
     return next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : next;
 }
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
-bool IsSky(const uint8_t* scene) { return scene[0x8D] != 0; }
-uint8_t* FirstSkyScene() { return reinterpret_cast<uint8_t*>(Nx::GetSkyScene()); }
+bool IsSkyBackdrop(const uint8_t* scene) { return scene[0x8D] != 0; }
+uint8_t* FirstSkyScene() { return reinterpret_cast<uint8_t*>(Engine3D::GetSkyScene()); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
 // 0x0048DF80, 0x0048E150 into a buffer, 0x0048DFA0 back from one).
-void* SectorGeometry(void* sector) { return static_cast<Nx::CSector*>(sector)->mp_geom; }
+void* SectorGeometry(void* sector) { return static_cast<Engine3D::CWorldCell*>(sector)->m_geomHandle; }
 // (the geometry's virtual slots 36, 37 and 40, called through its vtable)
 template <typename Fn>
 Fn GeometrySlot(const void* geometry, int slot)
@@ -104,11 +104,11 @@ Fn GeometrySlot(const void* geometry, int slot)
     return reinterpret_cast<Fn>((*static_cast<void* const* const*>(geometry))[slot]);
 }
 int VertexCount(void* geometry) { return GeometrySlot<int(__thiscall*)(void*)>(geometry, 36)(geometry); }
-void GetPositions(void* geometry, Script::VectorValue* out)
+void GetPositions(void* geometry, Scripts::VectorValue* out)
 {
-    GeometrySlot<void(__thiscall*)(void*, Script::VectorValue*)>(geometry, 37)(geometry, out);
+    GeometrySlot<void(__thiscall*)(void*, Scripts::VectorValue*)>(geometry, 37)(geometry, out);
 }
-void GetColours(void* geometry, uint32_t* out) { static_cast<Nx::CGeom*>(geometry)->GetColors(out); }
+void GetColours(void* geometry, uint32_t* out) { static_cast<Engine3D::CGeom*>(geometry)->GetColors(out); }
 void SetColours(void* geometry, uint32_t* colours)
 {
     GeometrySlot<void(__thiscall*)(void*, uint32_t*)>(geometry, 40)(geometry, colours);
@@ -131,18 +131,18 @@ uint8_t ChannelByte(double value)
 template <typename Fn>
 void ForEachSectorGeometry(uint8_t* scene, uint32_t lightGroup, Fn fn)
 {
-    auto* sectors = *reinterpret_cast<Lst::HashTable**>(scene + 0xD0);
+    auto* sectors = *reinterpret_cast<ListKit::HashTable**>(scene + 0xD0);
     if (!sectors)
         return;
     sectors->m_iterBucket = -1;
     sectors->m_iterItem = nullptr;
-    if (!sectors->IterateNext() || !sectors->m_iterItem)
+    if (!sectors->StepIterator() || !sectors->m_iterItem)
         return;
     for (auto* sector = static_cast<uint8_t*>(sectors->m_iterItem->value); sector;) {
         void* geometry = SectorGeometry(sector);
         if (geometry && (!lightGroup || lightGroup == *reinterpret_cast<uint32_t*>(sector + 0xC)))
             fn(geometry);
-        if (!sectors->IterateNext() || !sectors->m_iterItem)
+        if (!sectors->StepIterator() || !sectors->m_iterItem)
             break;
         sector = static_cast<uint8_t*>(sectors->m_iterItem->value);
     }
@@ -206,15 +206,15 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
 {
     auto* details = static_cast<SpawnedPolyDetails*>(SpawnedPolyPools().Allocate(sizeof(SpawnedPolyDetails)));
     if (details)
-        details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<Nx::sSpawnedPoly*>(details)->Construct());
+        details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<Engine3D::sSpawnedPoly*>(details)->Construct());
     // (a failed allocation writes through null below, as in the original)
     params->GetVector(kPos, &details->pos, 1);
-    Script::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
-    Script::VectorValue vector2 = {0.0f, 1.0f, 0.0f, 1.0f};
+    Scripts::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
+    Scripts::VectorValue vector2 = {0.0f, 1.0f, 0.0f, 1.0f};
     params->GetVector(kSpawnVector1, &vector1, 0);
     params->GetVector(kSpawnVector2, &vector2, 0);
-    params->GetPair(kStartDims, &details->startDims[0], &details->startDims[1], 1);
-    params->GetPair(kEndDims, &details->endDims[0], &details->endDims[1], 1);
+    params->FetchPair(kStartDims, &details->startDims[0], &details->startDims[1], 1);
+    params->FetchPair(kEndDims, &details->endDims[0], &details->endDims[1], 1);
     params->GetFloat(kLifetime, &details->lifetime, 1);
     CArray* start = nullptr; // (uninitialised in the original)
     CArray* end = nullptr;
@@ -239,32 +239,32 @@ bool __cdecl CFunc_SpawnPoly(CStruct* params, CScript*)
                 details->endColours[corner][i] = static_cast<uint8_t>(end->GetElement(i));
         }
     }
-    if (params->ContainsFlag(kSpawnFlag2))
+    if (params->HasBareFlag(kSpawnFlag2))
         details->flags |= 2;
     CArray* just = nullptr;
-    details->justX = 0.0f;
-    details->justY = 0.0f;
+    details->alignH = 0.0f;
+    details->alignV = 0.0f;
     if (params->GetArray(kJust, &just, 0)) {
         switch (just->GetElement(0)) {
-        case kRight: details->justX = 1.0f; break;
-        case kLeft: details->justX = -1.0f; break;
-        case kCenter: details->justX = 0.0f; break;
+        case kRight: details->alignH = 1.0f; break;
+        case kLeft: details->alignH = -1.0f; break;
+        case kCenter: details->alignH = 0.0f; break;
         default: break;
         }
         switch (just->GetElement(1)) {
-        case kBottom: details->justY = 1.0f; break;
-        case kCenter: details->justY = 0.0f; break;
-        case kTop: details->justY = -1.0f; break;
+        case kBottom: details->alignV = 1.0f; break;
+        case kCenter: details->alignV = 0.0f; break;
+        case kTop: details->alignV = -1.0f; break;
         default: break;
         }
     }
-    params->GetChecksum(kBlendMode, &details->blendMode, 0);
+    params->ReadHashValue(kBlendMode, &details->blendMode, 0);
     uint32_t texture = 0;
-    params->GetChecksum(kTexture, &texture, 0);
-    details->texture = texture ? static_cast<Nx::CTexDict*>(reinterpret_cast<void*>(Nx::g_particleTextureDict))->GetTexture(texture) // the texture dictionary
+    params->ReadHashValue(kTexture, &texture, 0);
+    details->texture = texture ? static_cast<Engine3D::CTextureSet*>(reinterpret_cast<void*>(Engine3D::g_particleTextureDict))->GetTexture(texture) // the texture dictionary
                                : nullptr;
-    Nx::Engine::SpawnPoly(reinterpret_cast<Nx::sSpawnedPoly*>(details), reinterpret_cast<Mth::Vector*>(&vector1),
-                          reinterpret_cast<Mth::Vector*>(&vector2));
+    Engine3D::Engine::SpawnPoly(reinterpret_cast<Engine3D::sSpawnedPoly*>(details), reinterpret_cast<Maths::Vector*>(&vector1),
+                          reinterpret_cast<Maths::Vector*>(&vector2));
     return true;
 }
 
@@ -278,7 +278,7 @@ void __cdecl CompressSceneVertexColours(uint8_t* scene, float target, float fact
         if (!count)
             return;
         // (the original runs an empty constructor over the array: 0x005902E0)
-        auto* colours = static_cast<uint8_t*>(Mem::New(static_cast<unsigned int>(count) * 4));
+        auto* colours = static_cast<uint8_t*>(MemSys::New(static_cast<unsigned int>(count) * 4));
         GetColours(geometry, reinterpret_cast<uint32_t*>(colours));
         if (target != 0.0f || factor != 0.0f) {
             for (int i = 0; i < count; ++i) {
@@ -289,7 +289,7 @@ void __cdecl CompressSceneVertexColours(uint8_t* scene, float target, float fact
             }
         }
         SetColours(geometry, reinterpret_cast<uint32_t*>(colours));
-        Mem::Free(colours);
+        MemSys::Free(colours);
     });
 }
 
@@ -303,10 +303,10 @@ bool __cdecl CFunc_CompressVC(CStruct* params, CScript*)
     params->GetFloat(kPercent, &percent, 0);
     auto factor = static_cast<float>((100.0 - percent) * static_cast<double>(0.01f)); // (x87: rounded once)
     uint32_t lightGroup = 0;
-    params->GetChecksum(kLightGroup, &lightGroup, 0);
+    params->ReadHashValue(kLightGroup, &lightGroup, 0);
     for (SceneNode* node = FirstSceneNode(); node;) {
         SceneNode* next = NextSceneNode(node);
-        if (!IsSky(node->scene))
+        if (!IsSkyBackdrop(node->scene))
             CompressSceneVertexColours(node->scene, target, factor, lightGroup);
         node = next;
     }
@@ -325,12 +325,12 @@ void __cdecl NudgeSceneVertexColours(uint8_t* scene, float amount)
         if (!count)
             return;
         // (the original runs an empty constructor over both arrays: 0x005902E0)
-        auto* positions = static_cast<Script::VectorValue*>(Mem::New(static_cast<unsigned int>(count) * 16));
-        auto* colours = static_cast<uint8_t*>(Mem::New(static_cast<unsigned int>(count) * 4));
+        auto* positions = static_cast<Scripts::VectorValue*>(MemSys::New(static_cast<unsigned int>(count) * 16));
+        auto* colours = static_cast<uint8_t*>(MemSys::New(static_cast<unsigned int>(count) * 4));
         GetPositions(geometry, positions);
         GetColours(geometry, reinterpret_cast<uint32_t*>(colours));
         for (int i = 0; i < count; ++i) {
-            const Script::VectorValue& position = positions[i];
+            const Scripts::VectorValue& position = positions[i];
             uint8_t* colour = colours + 4 * i;
             auto hash = static_cast<uint32_t>(Ftol(static_cast<double>(position.x) * 16.0)) *
                         static_cast<uint32_t>(Ftol(static_cast<double>(position.y) * 16.0));
@@ -345,8 +345,8 @@ void __cdecl NudgeSceneVertexColours(uint8_t* scene, float amount)
             colour[2] = ChannelByte(blue);
         }
         SetColours(geometry, reinterpret_cast<uint32_t*>(colours));
-        Mem::Free(positions);
-        Mem::Free(colours);
+        MemSys::Free(positions);
+        MemSys::Free(colours);
     });
 }
 
@@ -371,8 +371,8 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
 {
     constexpr float kDegreesToRadians = 0.0174532924f; // (0x00645464)
     int index = 0; // (uninitialised in the original)
-    params->GetInteger(kIndex, &index, 0);
-    Script::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
+    params->FetchIntValue(kIndex, &index, 0);
+    Scripts::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
     float heading;
     float pitch;
     if (params->GetVector(kDirection, &direction, 0)) {
@@ -390,23 +390,23 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turnedZ * c);
         direction.x = static_cast<float>(turnedZ * s + static_cast<double>(c) * x);
     }
-    return Nx::SetLightDirection(index, reinterpret_cast<const Mth::Vector*>(&direction));
+    return Engine3D::SetLightDirection(index, reinterpret_cast<const Maths::Vector*>(&direction));
 }
 
 // 0x00447F30: GetMetrics: the renderer's metrics (0x0048CB00 into a new structure) added to the script's params as
 // Metrics. Always true.
 bool __cdecl CFunc_GetMetrics(CStruct*, CScript* script)
 {
-    CStruct* metrics = Script::NewStruct();
+    CStruct* metrics = Scripts::NewStruct();
     if (metrics)
         metrics = metrics->Init();
-    Nx::GetSceneDebugInfo(metrics);
-    script->m_params->AddStructure(kMetrics, metrics);
+    Engine3D::GetSceneDebugInfo(metrics);
+    script->m_params->PutSubStruct(kMetrics, metrics);
     if (metrics) {
         metrics->Clear();
-        Script::DeleteStruct(metrics);
+        Scripts::DeleteStruct(metrics);
     }
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

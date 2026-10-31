@@ -15,14 +15,14 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
-Lst::HashTable g_fontTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(4) at start-up)
+ListKit::HashTable g_fontTable{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(4) at start-up)
 
 namespace {
 
 FontSlot* Slots() { return g_fontSlots; }
-Lst::HashTable& FontTable() { return g_fontTable; }
+ListKit::HashTable& FontTable() { return g_fontTable; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
 char* MetaButtonMap() { return g_metaButtonMap; }
 bool g_metaButtonMapLoaded;
@@ -34,20 +34,20 @@ CFont* FindFont(uint32_t checksum) { return GetFont(checksum); }
 // Load a font file (fonts\<name>.fnt...).
 CFont* LoadFontFile(const char* name) { return reinterpret_cast<CFont*>(CreatePcFont(name)); }
 
-// Nx::CFont's setters (each calls the platform font's virtual).
-void SetSpacings(CFont* font, int charSpacing, int spaceSpacing)
+// Engine3D::CFont's setters (each calls the platform font's virtual).
+void ChangeSpacings(CFont* font, int glyphGap, int blankGap)
 {
-    // The original calls 0x004E3F90, a shared tail jump to vtable slot 2 (Obj::RefreshFromStructure, a naked stub):
+    // The original calls 0x004E3F90, a shared tail jump to vtable slot 2 (GameObjects::ReapplyFromData, a naked stub):
     // the slot called here.
     using Slot = void(__thiscall*)(CFont*, int, int);
-    (*reinterpret_cast<Slot**>(font))[2](font, charSpacing, spaceSpacing);
+    (*reinterpret_cast<Slot**>(font))[2](font, glyphGap, blankGap);
 }
 void SetColorTable(CFont* font, uint32_t* colors)
 {
     // (slot 3, through the jump 0x004A10A0)
     reinterpret_cast<void(__thiscall*)(CFont*, uint32_t*)>((*reinterpret_cast<void***>(font))[3])(font, colors);
 }
-void MarkAsButtonFont(CFont* font, bool buttonFont)
+void FlagButtonFont(CFont* font, bool buttonFont)
 {
     // (slot 4, through the jump 0x00487D50)
     reinterpret_cast<void(__thiscall*)(CFont*, bool)>((*reinterpret_cast<void***>(font))[4])(font, buttonFont);
@@ -80,14 +80,14 @@ const char* MetaButtonMapName()
 }
 
 // 0x0048D7E0
-void LoadFont(const char* name, int charSpacing, int spaceSpacing, uint32_t* colors, bool buttonFont)
+void LoadFont(const char* name, int glyphGap, int blankGap, uint32_t* colors, bool buttonFont)
 {
-    if (FindFont(Crc::GenerateCRCFromString(name))) {
+    if (FindFont(Checksums::HashFromText(name))) {
         // Already loaded: just update it (looked up again for each setter, as the original does).
-        SetSpacings(FindFont(Crc::GenerateCRCFromString(name)), charSpacing, spaceSpacing);
+        ChangeSpacings(FindFont(Checksums::HashFromText(name)), glyphGap, blankGap);
         if (colors)
-            SetColorTable(FindFont(Crc::GenerateCRCFromString(name)), colors);
-        MarkAsButtonFont(FindFont(Crc::GenerateCRCFromString(name)), buttonFont);
+            SetColorTable(FindFont(Checksums::HashFromText(name)), colors);
+        FlagButtonFont(FindFont(Checksums::HashFromText(name)), buttonFont);
         return;
     }
 
@@ -98,23 +98,23 @@ void LoadFont(const char* name, int charSpacing, int spaceSpacing, uint32_t* col
     if (index < kFontSlots) {
         FontSlot& slot = slots[index];
         slot.font = LoadFontFile(name);
-        SetSpacings(slot.font, charSpacing, spaceSpacing);
+        ChangeSpacings(slot.font, glyphGap, blankGap);
         if (colors)
             SetColorTable(slot.font, colors);
-        MarkAsButtonFont(slot.font, buttonFont);
+        FlagButtonFont(slot.font, buttonFont);
         // The original copies the name with no length limit, like strcpy.
         const char* source = name;
         char* out = slot.name;
         while ((*out++ = *source++) != '\0') {
         }
-        uint32_t key = Crc::GenerateCRCFromString(name);
-        FontTable().PutItem(key, slot.name);
+        uint32_t key = Checksums::HashFromText(name);
+        FontTable().StoreEntry(key, slot.name);
     }
     // (With every slot taken nothing is loaded, but the map below still is.)
 
     if (MetaButtonMapLoaded())
         return;
-    Script::CArray* map = Script::GetArray(MetaButtonMapName());
+    Scripts::CArray* map = Scripts::GetArray(MetaButtonMapName());
     if (!map)
         return;
     for (uint32_t i = 0; i < 32; ++i) {
@@ -125,29 +125,29 @@ void LoadFont(const char* name, int charSpacing, int spaceSpacing, uint32_t* col
 }
 
 // 0x0048D950
-bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_LoadFont(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    bool buttonFont = params->ContainsFlag("buttons_font");
+    bool buttonFont = params->HasBareFlag("buttons_font");
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
     params->GetString(0u, &name, false);
     if (buttonFont)
         name = ButtonFontName();
     DebugFontName(name);
 
-    float charSpacing = 0.0f;
-    params->GetFloat("char_spacing", &charSpacing, false);
-    float spaceSpacing = 0.0f;
-    params->GetFloat("space_spacing", &spaceSpacing, false);
+    float glyphGap = 0.0f;
+    params->GetFloat("char_spacing", &glyphGap, false);
+    float blankGap = 0.0f;
+    params->GetFloat("space_spacing", &blankGap, false);
 
     // Up to 16 colours, each an array of up to 4 bytes (r g b a: lowest byte first). The original leaves the
     // entries the script doesn't give as stack garbage; here they're 0.
     uint32_t colors[16] = {};
-    Script::CArray* table;
+    Scripts::CArray* table;
     if (params->GetArray("color_tab", &table, false)) {
         for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->m_size); ++i) {
             if (i >= 16)
                 break;
-            auto* color = reinterpret_cast<Script::CArray*>(table->GetElement(i));
+            auto* color = reinterpret_cast<Scripts::CArray*>(table->GetElement(i));
             uint32_t packed = 0;
             for (int j = 0; j < static_cast<int>(color->m_size); ++j)
                 packed |= (color->GetElement(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)
@@ -155,16 +155,16 @@ bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* /*script*/
         }
     }
 
-    LoadFont(name, static_cast<int>(charSpacing), static_cast<int>(spaceSpacing), colors, buttonFont);
+    LoadFont(name, static_cast<int>(glyphGap), static_cast<int>(blankGap), colors, buttonFont);
     DebugFontLoaded();
     return true;
 }
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640B40 (a static initialiser): the loaded fonts' table, 16 buckets.
-void ConstructFontTable() { new (&g_fontTable) Lst::HashTable(4); }
+void ConstructFontTable() { new (&g_fontTable) ListKit::HashTable(4); }
 
 } // namespace Nx

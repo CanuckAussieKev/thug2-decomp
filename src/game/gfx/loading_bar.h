@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Nx {
+namespace Engine3D {
 
 // Work out the loading bar's colours from its settings: the gradient's end colours, its width in pixels, the
 // border colour, and the per-pixel gradient table.

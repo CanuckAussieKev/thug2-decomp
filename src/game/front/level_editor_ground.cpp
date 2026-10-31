@@ -12,7 +12,7 @@
 
 #include "game/core/crc.h"
 
-namespace Front::LevelEditor::Ground {
+namespace MenuSystem::LevelEditor::Ground {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -374,7 +374,7 @@ uint32_t NameChecksumFor(const std::string& text)
     uint32_t value = 0;
     if (IsHex8(text, &value))
         return value;
-    return text.empty() ? 0u : Crc::GenerateCRCFromString(text.c_str());
+    return text.empty() ? 0u : Checksums::HashFromText(text.c_str());
 }
 } // namespace
 
@@ -530,4 +530,4 @@ float SnapTo(float value, float grid)
     return std::floor(value / grid + 0.5f) * grid;
 }
 
-} // namespace Front::LevelEditor::Ground
+} // namespace MenuSystem::LevelEditor::Ground

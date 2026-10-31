@@ -6,7 +6,7 @@
 
 #include "game/file/file.h"
 
-namespace Mem {
+namespace MemSys {
 
 namespace {
 
@@ -14,12 +14,12 @@ namespace {
 // (0x007CEBB8 - nothing in this build ever opens it, so it stays null).
 char g_dumpBuffer[0x3F0];
 char* g_dumpPosition;
-File::Handle g_dumpFile;
+FileLoad::Handle g_dumpFile;
 
 char* DumpBuffer() { return g_dumpBuffer; }
 char* DumpBufferEnd() { return g_dumpBuffer + sizeof(g_dumpBuffer); }
 char*& DumpPosition() { return g_dumpPosition; }
-File::Handle DumpFile() { return g_dumpFile; }
+FileLoad::Handle DumpFile() { return g_dumpFile; }
 
 } // namespace
 
@@ -30,7 +30,7 @@ void __cdecl DumpText(const char* text)
     char* position = DumpPosition();
     // Flushed when the text won't fit (checked before newlines become CR LF: they can run past the end).
     if (reinterpret_cast<int>(position + length) > reinterpret_cast<int>(DumpBufferEnd()) && position != DumpBuffer()) {
-        File::Write(DumpBuffer(), static_cast<int>(position - DumpBuffer()), 1, DumpFile());
+        FileLoad::Write(DumpBuffer(), static_cast<int>(position - DumpBuffer()), 1, DumpFile());
         position = DumpBuffer();
         DumpPosition() = position;
     }

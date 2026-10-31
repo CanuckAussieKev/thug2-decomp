@@ -1,4 +1,4 @@
-// The skater's matrix queries component (Obj::CSkaterMatrixQueriesComponent): see matrix_queries.h.
+// The skater's matrix queries component (GameObjects::CRiderFrameLookups): see matrix_queries.h.
 
 #include "game/skater/matrix_queries.h"
 
@@ -18,7 +18,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -38,10 +38,10 @@ constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 constexpr float kFullCircle = 360.0f;                  // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
-const Mth::Vector& CoreVector78(uint8_t* corePhysics) { return *reinterpret_cast<Mth::Vector*>(corePhysics + 0x78); }
+const Maths::Vector& CoreVector78(uint8_t* corePhysics) { return *reinterpret_cast<Maths::Vector*>(corePhysics + 0x78); }
 
 // The unnamed float parameter (0 without one; asserted).
-float AngleParameter(Script::CStruct* params)
+float AngleParameter(Scripts::CStruct* params)
 {
     float angle = 0.0f;
     params->GetFloat(uint32_t{0}, &angle, 1);
@@ -53,13 +53,13 @@ double CosDegrees(float degrees) { return Skater::X87Cos(static_cast<double>(deg
 } // namespace
 
 // 0x00514430
-CBaseComponent* __cdecl CSkaterMatrixQueriesComponent::Create()
+CObjectModule* __cdecl CRiderFrameLookups::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterMatrixQueriesComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderFrameLookups));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterMatrixQueriesComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderFrameLookups*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kSkaterMatrixQueries;
     component->m_corePhysics = nullptr;
@@ -67,45 +67,45 @@ CBaseComponent* __cdecl CSkaterMatrixQueriesComponent::Create()
 }
 
 // 0x00513FD0
-void CSkaterMatrixQueriesComponent::DestroyBody()
+void CRiderFrameLookups::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00513FE0
-CSkaterMatrixQueriesComponent* CSkaterMatrixQueriesComponent::Destroy(unsigned int flags)
+CRiderFrameLookups* CRiderFrameLookups::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00514010
-void CSkaterMatrixQueriesComponent::Finalize()
+void CRiderFrameLookups::Finalize()
 {
     m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
 }
 
 // 0x00514030
-void CSkaterMatrixQueriesComponent::Update() { m_matrix = *reinterpret_cast<Mth::Matrix*>(m_corePhysics + 0x18); }
+void CRiderFrameLookups::Update() { m_basisFrame = *reinterpret_cast<Maths::Matrix*>(m_corePhysics + 0x18); }
 
 // 0x00514040
-int CSkaterMatrixQueriesComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+int CRiderFrameLookups::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
-    const Mth::Vector& right = m_matrix.row[0];
-    const Mth::Vector& up = m_matrix.row[1];
-    const Mth::Vector& at = m_matrix.row[2];
+    const Maths::Vector& right = m_basisFrame.row[0];
+    const Maths::Vector& up = m_basisFrame.row[1];
+    const Maths::Vector& at = m_basisFrame.row[2];
     switch (name) {
     case kGetHeading: {
-        const Mth::Vector& facing = m_object->m_matrix.row[2];
-        float heading = static_cast<float>(static_cast<double>(Mth::FastACos(facing.x)) * kRadiansToDegrees);
+        const Maths::Vector& facing = m_object->m_basisFrame.row[2];
+        float heading = static_cast<float>(static_cast<double>(Maths::FastACos(facing.x)) * kRadiansToDegrees);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
-        script->m_params->AddFloat(kHeading, heading);
-        script->m_params->AddFloat(kCosine, m_object->m_matrix.row[2].x);
-        script->m_params->AddFloat(kSine, m_object->m_matrix.row[2].z);
+        script->m_params->PushFloat(kHeading, heading);
+        script->m_params->PushFloat(kCosine, m_object->m_basisFrame.row[2].x);
+        script->m_params->PushFloat(kSine, m_object->m_basisFrame.row[2].z);
         return 1;
     }
     case kAbsolutePitchGreaterThan: {
@@ -114,48 +114,48 @@ int CSkaterMatrixQueriesComponent::CallMemberFunction(uint32_t name, Script::CSt
     }
     case kGetSlope: {
         // The at row's angle from its own flattened copy (negative when it points down).
-        const Mth::Vector& facing = m_object->m_matrix.row[2];
-        Mth::Vector flat = facing;
+        const Maths::Vector& facing = m_object->m_basisFrame.row[2];
+        Maths::Vector flat = facing;
         flat.y = 0.0f;
-        float slope = static_cast<float>(Mth::GetAngle(facing, flat));
-        if (m_object->m_matrix.row[2].y < 0.0f)
+        float slope = static_cast<float>(Maths::ReadTurnAngle(facing, flat));
+        if (m_object->m_basisFrame.row[2].y < 0.0f)
             slope = -slope;
-        script->m_params->AddFloat(kSlope, slope);
-        script->m_params->AddFloat(kChangeInSlope, slope - m_lastSlope);
+        script->m_params->PushFloat(kSlope, slope);
+        script->m_params->PushFloat(kChangeInSlope, slope - m_lastSlope);
         m_lastSlope = slope;
         return 1;
     }
     case kPitchGreaterThan: {
         float angle = AngleParameter(params);
-        const Mth::Vector& v = CoreVector78(m_corePhysics);
+        const Maths::Vector& v = CoreVector78(m_corePhysics);
         double dot = static_cast<double>(up.z) * v.z + static_cast<double>(up.y) * v.y + static_cast<double>(v.x) * up.x;
         return CosDegrees(angle) > dot ? 1 : 0;
     }
     case kYawingLeft: {
-        Mth::Vector v = m_object->m_vel;
-        v.RotateToPlane(up);
+        Maths::Vector v = m_object->m_vel;
+        v.AlignToPlane(up);
         return static_cast<double>(v.z) * at.x - static_cast<double>(v.x) * at.z > 0.0 ? 1 : 0;
     }
     case kYawingRight: {
-        Mth::Vector v = m_object->m_vel;
-        v.RotateToPlane(up);
-        return Mth::CrossProduct(v, at).y < 0.0f ? 1 : 0;
+        Maths::Vector v = m_object->m_vel;
+        v.AlignToPlane(up);
+        return Maths::CrossProduct(v, at).y < 0.0f ? 1 : 0;
     }
     case kRollGreaterThan: {
         float angle = AngleParameter(params);
-        Mth::Vector v = right;
-        v.RotateToPlane(CoreVector78(m_corePhysics));
-        return Mth::IsAngleBeyond(v, right, angle) ? 1 : 0;
+        Maths::Vector v = right;
+        v.AlignToPlane(CoreVector78(m_corePhysics));
+        return Maths::IsAngleBeyond(v, right, angle) ? 1 : 0;
     }
     case kYawBetween: {
-        Script::CPair range;
+        Scripts::CPair range;
         range.Init();
-        params->GetPair(uint32_t{0}, &range, true);
-        Mth::Vector v = m_object->m_vel;
-        v.RotateToPlane(up);
-        if (!Mth::IsAngleBeyond(v, at, range.x))
+        params->FetchPair(uint32_t{0}, &range, true);
+        Maths::Vector v = m_object->m_vel;
+        v.AlignToPlane(up);
+        if (!Maths::IsAngleBeyond(v, at, range.x))
             return 0;
-        return Mth::IsAngleBeyond(v, at, range.y) ? 0 : 1;
+        return Maths::IsAngleBeyond(v, at, range.y) ? 0 : 1;
     }
     default:
         return 2;
@@ -164,22 +164,22 @@ int CSkaterMatrixQueriesComponent::CallMemberFunction(uint32_t name, Script::CSt
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterMatrixQueriesComponent::Destroy,
-         &Obj::CSkaterMatrixQueriesComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderFrameLookups::Destroy,
+         &GameObjects::CRiderFrameLookups::Update,
          Stubs::IgnoreArgument,
-         &Obj::CSkaterMatrixQueriesComponent::Finalize,
+         &GameObjects::CRiderFrameLookups::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CSkaterMatrixQueriesComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CRiderFrameLookups::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

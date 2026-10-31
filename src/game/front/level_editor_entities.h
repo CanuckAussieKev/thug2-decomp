@@ -36,15 +36,15 @@ struct ImFont;
 //     on reload); the Place palette's "Bouncy set" entries copy a set - the bouncy objects whose names share a stem
 //     (BO_Bouncy_Ball01..04) - placed as the level placed them, about where the cursor points.
 //   - Moving objects (a node whose links= name a Waypoint: peds, cars, moving game objects): a path speed (mph) set
-//     with the game's own Obj_SetPathVelocity on the object (RunScript of the member function: live, again whenever
+//     with the game's own Obj_SetPathVelocity on the object (LaunchScript of the member function: live, again whenever
 //     the object is made again - a level script that sets its own speed later wins), `speed` records; and a preview
 //     while the game is paused: Play / Pause / Step move the object along its path (from its node's first link, along
 //     each waypoint's first link) at that speed - no script runs, nothing is saved; Stop (and any change, selection,
 //     save or leaving) puts it back.
 //   - Sound emitters (EmitterObject): a sound for an emitter - one of the sounds the level has loaded (the level's wave
 //     table, 0x006F5E68) - played by this module as THUG2's own emitter sounds sound (a sound played "from" an emitter
-//     sounds from the shape's nearest point to the listener: EmitterNode::GetClosestPoint, the sound's own dropoff,
-//     CSfxManager::GetVolume), again whenever it stops (a loop keeps going; a one-shot repeats) while the listener is
+//     sounds from the shape's nearest point to the listener: EmitterNode::NearestPointOn, the sound's own dropoff,
+//     CAudioMixer::GetVolume), again whenever it stops (a loop keeps going; a one-shot repeats) while the listener is
 //     in range, volume in percent; a sphere emitter's radius set (its node's Radius and the emitter manager's copy).
 //     The Place palette's "Sound emitter: <sound>" entries add an emitter (level_editor_node_create.h) with that sound.
 //     `emitter` records. Silent while the game is paused (the editor).
@@ -59,7 +59,7 @@ struct ImFont;
 // tools/pipeline/game/apply_layout.ts bakes them as node fields only this project's DLL reads - ed_path_speed (mph), ed_sound /
 // ed_volume - and the radius as the node's Radius (warned); the game reads those fields when a level loads, too.
 // Offline only: layouts apply only offline (level_editor_layout.h); the baked fields are ignored in a network session.
-namespace Front::LevelEditor::Entities {
+namespace MenuSystem::LevelEditor::Entities {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ namespace Front::LevelEditor::Entities {
 // "BO_Bouncy_Ball"); the name itself when that would leave nothing.
 std::string SetStem(const std::string& name);
 // The point a set is placed about: its members' middle across (x, z) and its lowest y.
-V3 SetAnchor(const std::vector<V3>& places);
+V3 PinAnchorPoint(const std::vector<V3>& places);
 
 // A path (waypoints in order; `closed`: the last links back to the first): its length, and the place `distance` along
 // it (wrapping past the end: back to the start) with the direction it heads there. False: fewer than 2 points or no
@@ -225,4 +225,4 @@ float PreviewLength();
 } // namespace Detail
 
 
-} // namespace Front::LevelEditor::Entities
+} // namespace MenuSystem::LevelEditor::Entities

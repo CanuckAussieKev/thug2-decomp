@@ -73,7 +73,7 @@ struct PathRecord {
 
 void* g_component = nullptr;
 Sample g_samples[kHistory];
-int g_count = 0, g_next = 0; // (a ring: g_next the slot for the next sample)
+int g_sampleTotal = 0, g_next = 0; // (a ring: g_next the slot for the next sample)
 PathRecord g_paths[kPathRecords];
 int g_pathCount = 0, g_pathNext = 0;
 int g_events = 0;
@@ -98,14 +98,14 @@ struct Spot {
 Spot g_spots[32];
 int g_spotNext = 0;
 
-void Copy3(float* to, const Mth::Vector& from)
+void Copy3(float* to, const Maths::Vector& from)
 {
     to[0] = from.x;
     to[1] = from.y;
     to[2] = from.z;
 }
 
-Ray LineOf(const Nx::CFeeler& feeler)
+Ray LineOf(const Engine3D::CProbeRay& feeler)
 {
     Ray ray;
     Copy3(ray.start, feeler.m_line.start);
@@ -113,30 +113,30 @@ Ray LineOf(const Nx::CFeeler& feeler)
     return ray;
 }
 
-Face FaceOf(const Nx::CFeeler& feeler)
+Face FaceOf(const Engine3D::CProbeRay& feeler)
 {
     Face face;
     face.hit = feeler.m_hit.hit;
     if (!face.hit)
         return face;
-    face.object = feeler.m_object.mp_object != nullptr;
-    face.checksum = face.object ? feeler.m_objectId : feeler.m_hit.objectChecksum;
+    face.object = feeler.m_object.m_ownerObject != nullptr;
+    face.checksum = face.object ? feeler.m_entityKey : feeler.m_hit.objectChecksum;
     face.index = static_cast<int>(feeler.m_hit.face);
     face.flags = feeler.m_hit.faceFlags;
     face.terrain = feeler.m_hit.terrain;
     face.collObj = feeler.m_hit.object;
-    Copy3(face.point, feeler.m_point);
-    Copy3(face.normal, feeler.m_normal);
+    Copy3(face.point, feeler.m_contactPos);
+    Copy3(face.normal, feeler.m_surfaceDir);
     return face;
 }
 
-const Nx::CFeeler& FeelerAt(void* component, uint32_t offset) { return At<Nx::CFeeler>(component, offset); }
+const Engine3D::CProbeRay& FeelerAt(void* component, uint32_t offset) { return At<Engine3D::CProbeRay>(component, offset); }
 
 std::string NameOf(uint32_t checksum)
 {
-    const char* name = Script::KeptQbName(checksum);
+    const char* name = Scripts::KeptQbName(checksum);
     if (!name)
-        name = Script::FindChecksumName(checksum);
+        name = Scripts::LookUpHashName(checksum);
     char text[16];
     if (!name) {
         std::snprintf(text, sizeof(text), "0x%08X", checksum);
@@ -150,14 +150,14 @@ std::string NameOf(uint32_t checksum)
 }
 
 // The level loaded: its load script's name (the skate module's +0x378) without "Load_".
-uint32_t LevelLoad()
+uint32_t CurrentLoadState()
 {
-    uint8_t* module = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* module = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     return module ? At<uint32_t>(module, 0x378) : 0;
 }
 std::string LevelName()
 {
-    uint32_t load = LevelLoad();
+    uint32_t load = CurrentLoadState();
     if (!load)
         return "-";
     std::string name = NameOf(load);
@@ -199,8 +199,8 @@ std::string LevelFileStamp(const std::string& level, const char* kind)
 // The local skater (the skate module's 0x00566520; null with none).
 void* LocalSkater()
 {
-    uint8_t* module = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
-    return module ? reinterpret_cast<Mdl::Skate*>(module)->GetLocalSkater() : nullptr;
+    uint8_t* module = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    return module ? reinterpret_cast<GameModules::Skate*>(module)->GetHomeRider() : nullptr;
 }
 
 float Horizontal(const float* v, float* direction)
@@ -224,7 +224,7 @@ const Sample& SampleAt(int age) // 0: the newest
 
 void Reset()
 {
-    g_count = g_next = 0;
+    g_sampleTotal = g_next = 0;
     g_pathCount = g_pathNext = 0;
     g_markCount = g_markNext = 0;
 }
@@ -232,13 +232,13 @@ void Reset()
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
 Face Probe(const float* from, const float* to, bool everything)
 {
-    alignas(16) uint8_t storage[sizeof(Nx::CFeeler)];
-    auto* feeler = reinterpret_cast<Nx::CFeeler*>(storage);
-    Mth::Vector start = {from[0], from[1], from[2], 1.0f};
-    Mth::Vector end = {to[0], to[1], to[2], 1.0f};
+    alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage);
+    Maths::Vector start = {from[0], from[1], from[2], 1.0f};
+    Maths::Vector end = {to[0], to[1], to[2], 1.0f};
     feeler->Construct(&start, &end);
-    feeler->SetIgnore(everything ? 0 : 0x10, 0);
-    feeler->GetCollision(true, false);
+    feeler->SetExcluded(everything ? 0 : 0x10, 0);
+    feeler->GetHitShape(true, false);
     Face face = FaceOf(*feeler);
     feeler->Destruct();
     return face;
@@ -295,22 +295,22 @@ void FaceGeometry(const Face& face, const float* spot, Detail* detail)
 {
     if (!face.hit || face.object || !face.collObj)
         return;
-    auto* object = static_cast<Nx::CCollObj*>(const_cast<void*>(face.collObj));
-    const Nx::CCollObjTriData* geometry = object->m_geometry;
+    auto* object = static_cast<Engine3D::CHitMesh*>(const_cast<void*>(face.collObj));
+    const Engine3D::CTriMeshSource* geometry = object->m_geometry;
     if (!geometry || face.index < 0 || face.index >= geometry->m_numFaces)
         return;
     uint32_t index[3];
-    Mth::Vector raw[3];
+    Maths::Vector raw[3];
     for (int k = 0; k < 3; ++k) {
         index[k] = geometry->FaceVertex(face.index, k);
-        raw[k] = geometry->GetRawVertexPos(static_cast<int>(index[k]));
-        Mth::Vector world;
-        object->Call<Mth::Vector*>(9, &world, static_cast<int>(index[k])); // (slot 9: a vertex in the world)
+        raw[k] = geometry->ReadStoredVertex(static_cast<int>(index[k]));
+        Maths::Vector world;
+        object->Call<Maths::Vector*>(9, &world, static_cast<int>(index[k])); // (slot 9: a vertex in the world)
         Copy3(detail->corners[k], world);
     }
     detail->geometry = true;
-    Copy3(detail->boxMin, geometry->m_min);
-    Copy3(detail->boxMax, geometry->m_max);
+    Copy3(detail->boundsLow, geometry->m_lowerLimit);
+    Copy3(detail->boundsHigh, geometry->m_upperLimit);
     for (int k = 0; k < 3; ++k) {
         float d = ToSegment(spot, detail->corners[k], detail->corners[(k + 1) % 3]);
         if (detail->edge < 0 || d < detail->edgeDistance) {
@@ -322,7 +322,7 @@ void FaceGeometry(const Face& face, const float* spot, Detail* detail)
     auto same = [&](uint32_t vertex, int k) {
         if (vertex == index[k])
             return true;
-        Mth::Vector v = geometry->GetRawVertexPos(static_cast<int>(vertex));
+        Maths::Vector v = geometry->ReadStoredVertex(static_cast<int>(vertex));
         float dx = v.x - raw[k].x, dy = v.y - raw[k].y, dz = v.z - raw[k].z;
         return dx * dx + dy * dy + dz * dz < 0.25f;
     };
@@ -494,7 +494,7 @@ void Emit(int before)
     float high[3] = {at[0], at[1] + 48.0f, at[2]}, low[3] = {at[0], at[1] - 200.0f, at[2]};
     float beyond[3] = {at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f};
     float beyondHigh[3] = {beyond[0], beyond[1] + 48.0f, beyond[2]}, beyondLow[3] = {beyond[0], beyond[1] - 200.0f, beyond[2]};
-    float lift = Script::GetFloat(kForwardHeight);
+    float lift = Scripts::GetFloat(kForwardHeight);
     float aheadFrom[3] = {old.pos[0], old.pos[1] + lift, old.pos[2]};
     float aheadTo[3] = {aheadFrom[0] + direction[0] * 120.0f, aheadFrom[1], aheadFrom[2] + direction[1] * 120.0f};
     for (int everything = 0; everything < 2; ++everything) {
@@ -510,7 +510,7 @@ void Emit(int before)
     if (shots) {
         char note[64];
         std::snprintf(note, sizeof(note), "collision event %d", event.number);
-        event.screenshot = Sys::Screenshot::RequestEventShot(note) ? "requested" : "busy";
+        event.screenshot = SystemCore::Screenshot::RequestEventShot(note) ? "requested" : "busy";
     }
 
     // The detail line.
@@ -526,7 +526,7 @@ void Emit(int before)
     detail.stick[1] = now.stick[1];
     if (ray) {
         detail.ray = true;
-        std::memcpy(detail.rayStart, ray->start, sizeof(detail.rayStart));
+        std::memcpy(detail.probeOrigin, ray->start, sizeof(detail.probeOrigin));
         std::memcpy(detail.rayEnd, ray->end, sizeof(detail.rayEnd));
     }
     FaceGeometry(event.face, event.spot, &detail);
@@ -534,7 +534,7 @@ void Emit(int before)
     detail.scnFile = g_scnFile;
     detail.approach.clear();
     for (int age = 50; age >= 0; age -= 10) {
-        if (age >= g_count)
+        if (age >= g_sampleTotal)
             continue;
         const Sample& s = SampleAt(age);
         char text[64];
@@ -542,7 +542,7 @@ void Emit(int before)
                       s.pos[1], s.pos[2], StateLetter(s.state));
         detail.approach += text;
     }
-    detail.camera = Sys::Screenshot::LastView(detail.cameraPos, detail.cameraDir);
+    detail.camera = SystemCore::Screenshot::LastView(detail.cameraPos, detail.cameraDir);
 
     Log("%s", FormatEvent(event, &NameOf).c_str());
     Log("%s", FormatDetail(detail).c_str());
@@ -550,25 +550,25 @@ void Emit(int before)
     char notice[96];
     std::snprintf(notice, sizeof(notice), "collision event %d: %s%s", event.number, event.reason,
                   event.screenshot == "requested" ? " (screenshot)" : "");
-    Sys::Screenshot::ShowNotice(notice);
+    SystemCore::Screenshot::ShowNotice(notice);
 }
 
 void Detect()
 {
     Motion frames[kHistory];
-    for (int i = 0; i < g_count; ++i) {
-        const Sample& s = SampleAt(g_count - 1 - i);
+    for (int i = 0; i < g_sampleTotal; ++i) {
+        const Sample& s = SampleAt(g_sampleTotal - 1 - i);
         frames[i].frame = s.frame;
         frames[i].state = s.state;
         std::memcpy(frames[i].vel, s.vel, sizeof(frames[i].vel));
     }
-    int index = FindReversal(frames, g_count);
+    int index = FindReversal(frames, g_sampleTotal);
     if (index < 0)
         return;
-    Emit(g_count - 1 - index);
+    Emit(g_sampleTotal - 1 - index);
     // (seen once - logged or not: the history starts again from this frame)
     Sample last = SampleAt(0);
-    g_count = 1;
+    g_sampleTotal = 1;
     g_next = 1;
     g_samples[0] = last;
 }
@@ -647,7 +647,7 @@ bool On()
     return on;
 }
 
-void NotePath(void* component, Path path, const Mth::Vector&)
+void NotePath(void* component, Path path, const Maths::Vector&)
 {
     if (component != g_component || !On()) // (g_component: set by EndFrame, only while on)
         return;
@@ -655,7 +655,7 @@ void NotePath(void* component, Path path, const Mth::Vector&)
     g_pathNext = (g_pathNext + 1) % kPathRecords;
     if (g_pathCount < kPathRecords)
         ++g_pathCount;
-    record.frame = Mlp::FramesRun();
+    record.frame = FrameLoop::FramesRun();
     record.path = path;
     record.face = FaceOf(FeelerAt(component, kFeeler));
     record.ray = LineOf(FeelerAt(component, kFeeler));
@@ -669,7 +669,7 @@ void Checkpoint(void* component, const char* label)
     g_markNext = (g_markNext + 1) % kMarks;
     if (g_markCount < kMarks)
         ++g_markCount;
-    mark.frame = Mlp::FramesRun();
+    mark.frame = FrameLoop::FramesRun();
     mark.label = label;
     Copy3(mark.vel, VectorAt(ObjectOf(component), kVelocity));
     mark.ray = LineOf(FeelerAt(component, kFeeler));
@@ -677,7 +677,7 @@ void Checkpoint(void* component, const char* label)
 
 void EndFrame(void* component)
 {
-    if (Mlp::FramesRun() == 0 || !On()) // (not in the early self-tests)
+    if (FrameLoop::FramesRun() == 0 || !On()) // (not in the early self-tests)
         return;
     if (component != g_component) {
         // (only the local skater's component: not a self-test's stand-in)
@@ -688,7 +688,7 @@ void EndFrame(void* component)
     }
     // A line once a level, so the log shows the switch was on; the level's files noted for the events.
     static uint32_t s_loggedLoad = 0;
-    uint32_t load = LevelLoad();
+    uint32_t load = CurrentLoadState();
     if (load != s_loggedLoad) {
         s_loggedLoad = load;
         std::string level = LevelName();
@@ -699,13 +699,13 @@ void EndFrame(void* component)
     void* object = ObjectOf(component);
     uint8_t* flags = FlagsOf(component);
     Sample s = {};
-    s.frame = Mlp::FramesRun();
+    s.frame = FrameLoop::FramesRun();
     s.state = At<int>(flags, kState);
     s.physics = At<int>(flags, 0x1C);
     s.trick = flags[0xE0] != 0;
     void* balance = At<void*>(component, kBalanceTrick);
     s.balance = balance ? At<uint32_t>(balance, 0x18) : 0;
-    if (uint8_t* pad = InputOf(component)) { // (the Obj::CControlPad: 16 buttons of 0x20 bytes, the sticks at +0x210)
+    if (uint8_t* pad = InputOf(component)) { // (the GameObjects::CPadState: 16 buttons of 0x20 bytes, the sticks at +0x210)
         for (int i = 0; i < 16; ++i)
             if (pad[i * 0x20])
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
@@ -718,19 +718,19 @@ void EndFrame(void* component)
     Copy3(s.groundNormal, VectorAt(component, kGroundNormal));
     s.ground = FaceOf(FeelerAt(component, kLastGroundFeeler));
     s.groundRay = LineOf(FeelerAt(component, kLastGroundFeeler));
-    if (g_count) {
+    if (g_sampleTotal) {
         const Sample& last = SampleAt(0);
         float dx = s.pos[0] - last.pos[0], dy = s.pos[1] - last.pos[1], dz = s.pos[2] - last.pos[2];
         if (s.frame == last.frame) { // (the same frame again: the newer replaces it)
             g_next = (g_next - 1 + kHistory) % kHistory;
-            --g_count;
+            --g_sampleTotal;
         } else if (dx * dx + dy * dy + dz * dz > kTeleport * kTeleport || s.frame < last.frame)
             Reset();
     }
     g_samples[g_next] = s;
     g_next = (g_next + 1) % kHistory;
-    if (g_count < kHistory)
-        ++g_count;
+    if (g_sampleTotal < kHistory)
+        ++g_sampleTotal;
     Detect();
 }
 
@@ -828,10 +828,10 @@ std::string FormatDetail(const Detail& d)
                   d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
                   d.inputWindow.c_str(), d.stick[0], d.stick[1]);
     std::string line = text;
-    line += " ray=" + (d.ray ? V3(d.rayStart) + ">" + V3(d.rayEnd) : std::string("-"));
+    line += " ray=" + (d.ray ? V3(d.probeOrigin) + ">" + V3(d.rayEnd) : std::string("-"));
     if (d.geometry) {
         line += " corners=" + V3(d.corners[0]) + ";" + V3(d.corners[1]) + ";" + V3(d.corners[2]);
-        line += " col_box=" + V3(d.boxMin) + ">" + V3(d.boxMax);
+        line += " col_box=" + V3(d.boundsLow) + ">" + V3(d.boundsHigh);
     } else {
         line += " corners=- col_box=-";
     }

@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace Mdl {
+namespace GameModules {
 struct FrontEnd;
 }
 
@@ -24,7 +24,7 @@ struct FrontEnd;
 //   thug2-decomp.ini [features] edit_level=<name>    (the command line wins; -edit before -level, edit_level before
 //                                                     start_level)
 //
-// As -level, and the intro movies are skipped for that run (Nx::SkipIntroMovies). Once the level is up - the skater
+// As -level, and the intro movies are skipped for that run (Engine3D::SkipIntroMovies). Once the level is up - the skater
 // there, not paused, a second and a half settled - Start is pressed for the player (the pad_start event the menus
 // get: handle_start_pressed pauses the game and makes the pause menu), and once the pause menu is up, level_editor_enter
 // runs - what the pause menu's LEVEL EDITOR item runs (game/front/level_editor.h). Leaving the editor is as usual (the
@@ -44,13 +44,13 @@ struct FrontEnd;
 // +x - as the screenshot sidecar gives it) or the way it faced. Once per run, before -edit's editor opens. Without a
 // level it is logged and ignored; never in network games (the level is loaded in free skate). A malformed spot is
 // logged and ignored.
-namespace Front::StartLevel {
+namespace MenuSystem::BeginLevel {
 
 // The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
 const char* Requested();
 bool EditRequested();
 // Once a frame from the front end's input logic (MouseMenus::Update).
-void Update(Mdl::FrontEnd* frontEnd);
+void Update(GameModules::FrontEnd* frontEnd);
 // What Update does once the menu is up: the level `name` (with or without Load_) in free skate. False (logged, and
 // why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
 // `level` command - game/front/automation.h.)
@@ -70,4 +70,4 @@ struct Spot {
 };
 bool ParseSpot(const std::string& text, Spot* out);
 
-} // namespace Front::StartLevel
+} // namespace MenuSystem::BeginLevel

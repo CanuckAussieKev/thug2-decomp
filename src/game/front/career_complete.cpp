@@ -14,14 +14,14 @@
 #include "game/skater/skater.h"
 #include "game/sys/log.h"
 
-namespace Front::CareerComplete {
+namespace MenuSystem::CareerComplete {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 // A goal's saved state as the goal manager keeps it (the names a goal's save writes - 0x00554770).
-constexpr uint32_t kLevelNum = 0x1A4CDE06;  // levelNum
+constexpr uint32_t kLevelNum = 0x1A4CDE06;  // levelIndex
 constexpr uint32_t kUnlocked = 0xD3E93882;
 constexpr uint32_t k2206B1E7 = 0x2206B1E7;
 constexpr uint32_t kHasBeaten = 0x49807745; // hasBeaten
@@ -31,7 +31,7 @@ constexpr uint32_t kRecord = 0xC22A2B72;
 constexpr uint32_t kCareer = 0x4DA4937B;    // career
 constexpr uint32_t kClassic = 0x4C10DE52;   // classic
 
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 
 // The local skater's stats manager (component 0x4FF8DAC6, the skater's story stat challenges - stats_goals): its 70
 // challenges from +0x1C, 0x24 bytes each, the status at +0x10 of each (0 open, 1 done - the stat point given -,
@@ -44,7 +44,7 @@ constexpr int kStatGoalJustDone = 0x1C + 0x0C;
 
 int CompleteStatGoals()
 {
-    Obj::CCompositeObject* skater = reinterpret_cast<Mdl::Skate*>(Skate())->GetLocalSkater(); // (the local one)
+    GameObjects::CGameEntity* skater = reinterpret_cast<GameModules::Skate*>(Skate())->GetHomeRider(); // (the local one)
     auto* stats = skater ? reinterpret_cast<uint8_t*>(skater->GetComponent(0x4FF8DAC6)) : nullptr;
     if (!stats)
         return 0;
@@ -57,56 +57,56 @@ int CompleteStatGoals()
 
 // One goal put into the goal manager's store of goals that aren't loaded (+0x14) as beaten, as a goal's save writes
 // it, with the bare name `mode`. A record already there (a classic score goal's best) is kept.
-void StoreBeatenGoal(Script::CStruct* saved, uint32_t name, int level, uint32_t mode)
+void StoreBeatenGoal(Scripts::CStruct* saved, uint32_t name, int level, uint32_t mode)
 {
     int record = 0;
-    Script::CStruct* old = nullptr;
-    if (saved->GetStructure(name, &old, 0) && old)
-        old->GetInteger(kRecord, &record, 0);
-    Script::CStruct* memory = Script::NewStruct();
-    Script::CStruct* goal = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* old = nullptr;
+    if (saved->ReadSubStruct(name, &old, 0) && old)
+        old->FetchIntValue(kRecord, &record, 0);
+    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* goal = memory ? memory->Init() : nullptr;
     if (!goal)
         return;
-    goal->AddInteger(kLevelNum, level);
-    goal->AddInteger(kUnlocked, 1);
-    goal->AddInteger(k2206B1E7, 0);
-    goal->AddInteger(kHasBeaten, 1);
-    goal->AddInteger(kRecord, record);
-    goal->AddChecksum(0u, mode);
-    saved->AddStructure(name, goal); // (a copy; replaces one of the same name)
+    goal->PutInt(kLevelNum, level);
+    goal->PutInt(kUnlocked, 1);
+    goal->PutInt(k2206B1E7, 0);
+    goal->PutInt(kHasBeaten, 1);
+    goal->PutInt(kRecord, record);
+    goal->PutNameKey(0u, mode);
+    saved->PutSubStruct(name, goal); // (a copy; replaces one of the same name)
     goal->Clear();
-    Script::DeleteStruct(goal);
+    Scripts::DeleteStruct(goal);
 }
 
 // Every gap of `gaps` ({name score [pos]} each) put in the level's checklist and landed once, and the level visited
-// (CSkaterCareer::AllGapsGot 0x00584BC0 asks for both). A landed gap keeps where the skater started it, which the
+// (CRiderStoryProgress::AllGapsGot 0x00584BC0 asks for both). A landed gap keeps where the skater started it, which the
 // pause menu's VIEW GAPS puts its camera above (gap_menu_focus_show_gap); ours get `pos` (where the gap ends: the
 // node leading to its EndGap) facing along z - a gap with neither stays at the origin, but never with a zero
 // direction. Gaps already landed keep their count and positions. Returns the checklist's gap count.
-int FillGapChecklist(Obj::CSkaterCareer* career, int level, Script::CArray* gaps)
+int FillGapChecklist(GameObjects::CRiderStoryProgress* career, int level, Scripts::CArray* gaps)
 {
-    Game::CGapChecklist* checklist = career->m_gaps[level];
+    GoalSystem::CGapTally* checklist = career->m_gaps[level];
     if (!checklist)
         return 0;
-    const Mth::Vector facing = {0.0f, 0.0f, 1.0f, 0.0f};
+    const Maths::Vector facing = {0.0f, 0.0f, 1.0f, 0.0f};
     for (uint32_t i = 0; i < gaps->m_size; ++i) {
-        auto* gap = reinterpret_cast<Script::CStruct*>(gaps->GetElement(i));
+        auto* gap = reinterpret_cast<Scripts::CStruct*>(gaps->GetElement(i));
         const char* name = nullptr;
         int score = 0;
         if (!gap || !gap->GetString(Checksum("name"), &name, 0) || !name || !*name ||
-            !gap->GetInteger(Checksum("score"), &score, 0) || !score)
+            !gap->FetchIntValue(Checksum("score"), &score, 0) || !score)
             continue;
         int index = checklist->FindGap(name);
-        if (index >= 0 && checklist->GetGapCount(index) > 0)
+        if (index >= 0 && checklist->CountGapsFound(index) > 0)
             continue; // (landed already)
-        checklist->AddGap(name, 1, score); // (also marks the checklist built; one already there is left as it is)
-        Script::VectorValue pos = {0.0f, 0.0f, 0.0f, 1.0f};
+        checklist->RegisterGapEntry(name, 1, score); // (also marks the checklist built; one already there is left as it is)
+        Scripts::VectorValue pos = {0.0f, 0.0f, 0.0f, 1.0f};
         gap->GetVector(Checksum("pos"), &pos, 0);
         checklist->SetGapPositions(name, {pos.x, pos.y, pos.z, 1.0f}, facing);
     }
     int count = checklist->Count();
     for (int i = 0; i < count; ++i) {
-        Game::CGapCheck* gap = checklist->GetGap(i);
+        GoalSystem::CGapEntry* gap = checklist->GetGap(i);
         if (gap && !gap->m_count) {
             gap->m_count = 1;
             gap->m_skaterStartDir = facing;
@@ -124,41 +124,41 @@ bool& Enabled()
     return on;
 }
 
-bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*) { return Enabled(); }
+bool __cdecl CFunc_Available(Scripts::CStruct*, Scripts::CScript*) { return Enabled(); }
 
-bool __cdecl CFunc_Apply(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_Apply(Scripts::CStruct* params, Scripts::CScript*)
 {
     if (!Enabled()) {
         Log("create 100%% cas: off ([features] create_100_cas=0)");
         return false;
     }
     uint8_t* skate = Skate();
-    Script::CArray* levels = nullptr;
+    Scripts::CArray* levels = nullptr;
     if (!skate || !params || !params->GetArray(Checksum("levels"), &levels, 0) || !levels)
         return false;
-    auto* career = *reinterpret_cast<Obj::CSkaterCareer**>(skate + 0x20);
+    auto* career = *reinterpret_cast<GameObjects::CRiderStoryProgress**>(skate + 0x20);
     uint8_t* goalManager = *reinterpret_cast<uint8_t**>(skate + 0x38C);
-    Script::CStruct* saved = goalManager ? *reinterpret_cast<Script::CStruct**>(goalManager + 0x14) : nullptr;
+    Scripts::CStruct* saved = goalManager ? *reinterpret_cast<Scripts::CStruct**>(goalManager + 0x14) : nullptr;
     if (!career || !saved)
         return false;
     int goalCount = 0, classicCount = 0, gapLevels = 0, gapCount = 0;
     for (uint32_t i = 0; i < levels->m_size; ++i) {
-        auto* level = reinterpret_cast<Script::CStruct*>(levels->GetElement(i));
+        auto* level = reinterpret_cast<Scripts::CStruct*>(levels->GetElement(i));
         int number = -1;
-        if (!level || !level->GetInteger(Checksum("level"), &number, 0) || number < 0 ||
-            number >= Obj::CSkaterCareer::kLevels)
+        if (!level || !level->FetchIntValue(Checksum("level"), &number, 0) || number < 0 ||
+            number >= GameObjects::CRiderStoryProgress::kLevels)
             continue;
-        // The story's points and potential, as AddCash (0x005845C0) and SetLevelAmount (0x005845F0) change them.
+        // The story's points and potential, as DepositMoney (0x005845C0) and SetLevelAmount (0x005845F0) change them.
         int points = 0, total = 0;
-        if (level->GetInteger(Checksum("points"), &points, 0)) {
-            level->GetInteger(Checksum("total"), &total, 0);
-            career->m_totalCash = static_cast<uint16_t>(career->m_totalCash + (points - career->m_cash[number]));
-            career->m_cash[number] = static_cast<uint16_t>(points);
+        if (level->FetchIntValue(Checksum("points"), &points, 0)) {
+            level->FetchIntValue(Checksum("total"), &total, 0);
+            career->m_lifetimeFunds = static_cast<uint16_t>(career->m_lifetimeFunds + (points - career->m_funds[number]));
+            career->m_funds[number] = static_cast<uint16_t>(points);
             career->m_totalAmount =
                 static_cast<uint16_t>(career->m_totalAmount + (total - career->m_amount[number]));
             career->m_amount[number] = static_cast<uint16_t>(total);
         }
-        Script::CArray* goals = nullptr;
+        Scripts::CArray* goals = nullptr;
         if (level->GetArray(Checksum("goals"), &goals, 0) && goals) {
             for (uint32_t g = 0; g < goals->m_size; ++g, ++goalCount)
                 StoreBeatenGoal(saved, goals->GetElement(g), number, kCareer);
@@ -166,14 +166,14 @@ bool __cdecl CFunc_Apply(Script::CStruct* params, Script::CScript*)
         // Classic mode: its goals beaten, and the level's classic goal counter at their number - what each classic
         // goal's win adds (the goal win 0x005576D0 calls IncrementCounter 0x00584620 in classic mode);
         // GetClassicLevelGoalCount 0x005AEAE0 reads it for the level select and GAME PROGRESS.
-        Script::CArray* classic = nullptr;
+        Scripts::CArray* classic = nullptr;
         if (level->GetArray(Checksum("classic_goals"), &classic, 0) && classic) {
             for (uint32_t g = 0; g < classic->m_size; ++g, ++classicCount)
                 StoreBeatenGoal(saved, classic->GetElement(g), number, kClassic);
             if (number < static_cast<int>(sizeof(career->m_counter)))
                 career->m_counter[number] = static_cast<uint8_t>(classic->m_size);
         }
-        Script::CArray* gaps = nullptr;
+        Scripts::CArray* gaps = nullptr;
         if (level->GetArray(Checksum("gaps"), &gaps, 0) && gaps) {
             gapCount += FillGapChecklist(career, number, gaps);
             ++gapLevels;
@@ -187,18 +187,18 @@ bool __cdecl CFunc_Apply(Script::CStruct* params, Script::CScript*)
     int statGoals = CompleteStatGoals();
     Log("create 100%% cas: %u levels; %d story goals beaten, story points %u / %u; %d classic goals beaten, classic "
         "goals %u / %u; %d gaps got in %d levels, all gaps got: %d; %d stat challenges done",
-        levels->m_size, goalCount, career->m_totalCash, career->m_totalAmount, classicCount, career->m_totalCounter,
+        levels->m_size, goalCount, career->m_lifetimeFunds, career->m_totalAmount, classicCount, career->m_totalCounter,
         career->m_flag5EF, gapCount, gapLevels, career->AllGapsGot() ? 1 : 0, statGoals);
     return true;
 }
 
 void RegisterScriptFunctions()
 {
-    static const Script::CFunctionEntry functions[] = {
+    static const Scripts::CFunctionEntry functions[] = {
         {"Career100_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"Career100_Apply", reinterpret_cast<void*>(&CFunc_Apply)},
     };
-    Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }
 
-} // namespace Front::CareerComplete
+} // namespace MenuSystem::CareerComplete

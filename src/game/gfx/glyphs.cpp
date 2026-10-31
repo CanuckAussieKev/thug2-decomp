@@ -7,7 +7,7 @@
 #include "game/sio/sdl_input.h"
 #include "game/sys/config.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -24,8 +24,8 @@ uint8_t& GlyphStyle() { return s_glyphStyle; }
 
 void LoadGlyphSettings()
 {
-    s_preferGlyphs = Config::GetBool(Config::kMiscellaneous, "PreferGlyphs", false);
-    s_glyphStyle = static_cast<uint8_t>(Config::GetInt(Config::kMiscellaneous, "GlyphStyle", 1));
+    s_preferGlyphs = BuildInfo::GetBool(BuildInfo::kMiscellaneous, "PreferGlyphs", false);
+    s_glyphStyle = static_cast<uint8_t>(BuildInfo::GetInt(BuildInfo::kMiscellaneous, "GlyphStyle", 1));
 }
 
 uint32_t __cdecl ButtonForTag(uint8_t* digit)
@@ -43,7 +43,7 @@ uint32_t __cdecl ButtonForTag(uint8_t* digit)
         default: break;
         }
     }
-    return static_cast<uint32_t>(Str::DehexifyDigit(reinterpret_cast<const char*>(digit)));
+    return static_cast<uint32_t>(TextUtil::HexDigitValue(reinterpret_cast<const char*>(digit)));
 }
 
 uint8_t __cdecl ShouldUseGlyph(uint8_t index)

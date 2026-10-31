@@ -18,13 +18,13 @@
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
 
-namespace Sys {
+namespace SystemCore {
 
 void InitPcSetup()
 {
     using DebugLog::Level;
-    Config::Init();
-    bool debug = Config::GetBool(Config::kMiscellaneous, "Debug", false);
+    BuildInfo::Init();
+    bool debug = BuildInfo::GetBool(BuildInfo::kMiscellaneous, "Debug", false);
     DebugLog::Configure(debug);
     if (debug) {
         AllocConsole();
@@ -34,18 +34,18 @@ void InitPcSetup()
         freopen_s(&unused, "CONOUT$", "w", stdout);
     }
     DebugLog::Printf(Level::kInfo, "PC set-up\n");
-    DebugLog::Printf(Level::kInfo, "DIRECTORY: %s\n", Config::ExecutableDirectory());
+    DebugLog::Printf(Level::kInfo, "DIRECTORY: %s\n", BuildInfo::ExecutableDirectory());
 
-    Script::InitScriptPatches();
+    Scripts::InitScriptPatches();
     Platform::InitEvents();
-    // the music shuffle's randomness (Pcm::ShuffleRandom)
+    // the music shuffle's randomness (AudioStream::ShuffleRandom)
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     DebugLog::Printf(Level::kInfo, "Patch Initialized\n");
 
-    Net::SetUpOnlineHosts();
-    Net::SetUpOnlineIdentity();
-    Nx::LoadGlyphSettings();
-    Nx::LoadGraphicsSettings();
+    NetLink::SetUpOnlineHosts();
+    NetLink::SetUpOnlineIdentity();
+    Engine3D::LoadGlyphSettings();
+    Engine3D::LoadGraphicsSettings();
 }
 
 void FastExit()

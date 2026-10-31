@@ -1,4 +1,4 @@
-// The engine's primitive (Nx::CPrimitive) and its lists: see engine_primitive.h. From the disassembly of
+// The engine's primitive (Engine3D::CPrimitive) and its lists: see engine_primitive.h. From the disassembly of
 // 0x0049C390-0x0049C906.
 
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include "game/gfx/pc_primitive.h"
 #include "game/core/code_address.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -35,7 +35,7 @@ CPrimitive* CPrimitive::Construct(int own)
 {
     unknown1C = 0;
     m_ready = false;
-    mp_next = nullptr;
+    m_following = nullptr;
     unknown14 = 0;
     m_flags = 0;
     m_vtable = reinterpret_cast<void**>(kVtable);
@@ -59,7 +59,7 @@ CPrimitive* CPrimitive::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
@@ -87,79 +87,79 @@ void CPrimitive::DrawIfReady(const float* positions, const uint32_t* colours, co
 
 // --- the virtuals' bodies (0x0049C390-0x0049C640) ---
 
-void CPrimitive::SetTexture(const uint8_t*, int, int) { Dbg::Printf("STUB: plat_set_texture\n"); }
-void CPrimitive::SetColour(uint32_t) { Dbg::Printf("STUB: plat_set_base_color\n"); }
-void CPrimitive::Init(uint32_t, int, int) { Dbg::Printf("STUB: plat_begin\n"); }
-void CPrimitive::End() { Dbg::Printf("STUB: plat_end\n"); }
-void CPrimitive::Render() { Dbg::Printf("STUB: plat_draw\n"); }
-void CPrimitive::Draw(const float*, const uint32_t*, const float*, const float*) { Dbg::Printf("STUB: plat_render\n"); }
-void CPrimitive::SetPosition(int, float, float, float) { Dbg::Printf("STUB: plat_set_pos\n"); }
-void CPrimitive::SetX(int, float) { Dbg::Printf("STUB: plat_set_pos_x\n"); }
-void CPrimitive::SetY(int, float) { Dbg::Printf("STUB: plat_set_pos_y\n"); }
-void CPrimitive::SetZ(int, float) { Dbg::Printf("STUB: plat_set_pos_z\n"); }
-void CPrimitive::SetNormal(int, float, float, float) { Dbg::Printf("STUB: plat_set_normal\n"); }
-void CPrimitive::SetNormalX(int, float) { Dbg::Printf("STUB: plat_set_normal_x\n"); }
-void CPrimitive::SetNormalY(int, float) { Dbg::Printf("STUB: plat_set_normal_y\n"); }
-void CPrimitive::SetNormalZ(int, float) { Dbg::Printf("STUB: plat_set_normal_z\n"); }
-void CPrimitive::SetVertexColour(int, uint32_t) { Dbg::Printf("STUB: plat_set_color\n"); }
-void CPrimitive::SetUV(int, float, float) { Dbg::Printf("STUB: plat_set_uv\n"); }
-void CPrimitive::SetU(int, float) { Dbg::Printf("STUB: plat_set_u\n"); }
-void CPrimitive::SetV(int, float) { Dbg::Printf("STUB: plat_set_v\n"); }
-float CPrimitive::GetX(int)
+void CPrimitive::SetTexture(const uint8_t*, int, int) { DebugOut::Printf("STUB: plat_set_texture\n"); }
+void CPrimitive::ChangeColour(uint32_t) { DebugOut::Printf("STUB: plat_set_base_color\n"); }
+void CPrimitive::Init(uint32_t, int, int) { DebugOut::Printf("STUB: plat_begin\n"); }
+void CPrimitive::End() { DebugOut::Printf("STUB: plat_end\n"); }
+void CPrimitive::Render() { DebugOut::Printf("STUB: plat_draw\n"); }
+void CPrimitive::Draw(const float*, const uint32_t*, const float*, const float*) { DebugOut::Printf("STUB: plat_render\n"); }
+void CPrimitive::SetPosition(int, float, float, float) { DebugOut::Printf("STUB: plat_set_pos\n"); }
+void CPrimitive::SetX(int, float) { DebugOut::Printf("STUB: plat_set_pos_x\n"); }
+void CPrimitive::SetY(int, float) { DebugOut::Printf("STUB: plat_set_pos_y\n"); }
+void CPrimitive::SetZ(int, float) { DebugOut::Printf("STUB: plat_set_pos_z\n"); }
+void CPrimitive::SetNormal(int, float, float, float) { DebugOut::Printf("STUB: plat_set_normal\n"); }
+void CPrimitive::SetNormalX(int, float) { DebugOut::Printf("STUB: plat_set_normal_x\n"); }
+void CPrimitive::SetNormalY(int, float) { DebugOut::Printf("STUB: plat_set_normal_y\n"); }
+void CPrimitive::SetNormalZ(int, float) { DebugOut::Printf("STUB: plat_set_normal_z\n"); }
+void CPrimitive::SetVertexColour(int, uint32_t) { DebugOut::Printf("STUB: plat_set_color\n"); }
+void CPrimitive::SetUV(int, float, float) { DebugOut::Printf("STUB: plat_set_uv\n"); }
+void CPrimitive::ChooseU(int, float) { DebugOut::Printf("STUB: plat_set_u\n"); }
+void CPrimitive::ChooseV(int, float) { DebugOut::Printf("STUB: plat_set_v\n"); }
+float CPrimitive::FetchPosX(int)
 {
-    Dbg::Printf("STUB: plat_get_pos_x\n");
+    DebugOut::Printf("STUB: plat_get_pos_x\n");
     return 0.0f;
 }
-float CPrimitive::GetY(int)
+float CPrimitive::FetchPosY(int)
 {
-    Dbg::Printf("STUB: plat_get_pos_y\n");
+    DebugOut::Printf("STUB: plat_get_pos_y\n");
     return 0.0f;
 }
-float CPrimitive::GetZ(int)
+float CPrimitive::FetchPosZ(int)
 {
-    Dbg::Printf("STUB: plat_get_pos_z\n");
+    DebugOut::Printf("STUB: plat_get_pos_z\n");
     return 0.0f;
 }
 float CPrimitive::GetNormalX(int)
 {
-    Dbg::Printf("STUB: plat_get_normal_x\n");
+    DebugOut::Printf("STUB: plat_get_normal_x\n");
     return 0.0f;
 }
 float CPrimitive::GetNormalY(int)
 {
-    Dbg::Printf("STUB: plat_get_normal_y\n");
+    DebugOut::Printf("STUB: plat_get_normal_y\n");
     return 0.0f;
 }
 float CPrimitive::GetNormalZ(int)
 {
-    Dbg::Printf("STUB: plat_get_normal_z\n");
+    DebugOut::Printf("STUB: plat_get_normal_z\n");
     return 0.0f;
 }
 uint32_t CPrimitive::GetVertexColour(int)
 {
-    Dbg::Printf("STUB: plat_get_color\n");
+    DebugOut::Printf("STUB: plat_get_color\n");
     return 0;
 }
 float CPrimitive::GetU(int)
 {
-    Dbg::Printf("STUB: plat_get_u\n");
+    DebugOut::Printf("STUB: plat_get_u\n");
     return 0.0f;
 }
 float CPrimitive::GetV(int)
 {
-    Dbg::Printf("STUB: plat_get_v\n");
+    DebugOut::Printf("STUB: plat_get_v\n");
     return 0.0f;
 }
-void CPrimitive::Translate(float, float, float) { Dbg::Printf("STUB: plat_add_pos\n"); }
-void CPrimitive::TranslateX(float) { Dbg::Printf("STUB: plat_add_pos_x\n"); }
-void CPrimitive::TranslateY(float) { Dbg::Printf("STUB: plat_add_pos_y\n"); }
-void CPrimitive::TranslateZ(float) { Dbg::Printf("STUB: plat_add_pos_z\n"); }
-void CPrimitive::ScrollUV(float, float) { Dbg::Printf("STUB: plat_add_uv\n"); }
-void CPrimitive::ScrollU(float) { Dbg::Printf("STUB: plat_add_u\n"); }
-void CPrimitive::ScrollV(float) { Dbg::Printf("STUB: plat_add_v\n"); }
+void CPrimitive::Translate(float, float, float) { DebugOut::Printf("STUB: plat_add_pos\n"); }
+void CPrimitive::TranslateX(float) { DebugOut::Printf("STUB: plat_add_pos_x\n"); }
+void CPrimitive::TranslateY(float) { DebugOut::Printf("STUB: plat_add_pos_y\n"); }
+void CPrimitive::TranslateZ(float) { DebugOut::Printf("STUB: plat_add_pos_z\n"); }
+void CPrimitive::ScrollUV(float, float) { DebugOut::Printf("STUB: plat_add_uv\n"); }
+void CPrimitive::ScrollU(float) { DebugOut::Printf("STUB: plat_add_u\n"); }
+void CPrimitive::ScrollV(float) { DebugOut::Printf("STUB: plat_add_v\n"); }
 int CPrimitive::Compare(const CPrimitive*)
 {
-    Dbg::Printf("STUB: plat_sort\n");
+    DebugOut::Printf("STUB: plat_sort\n");
     return 0;
 }
 
@@ -177,7 +177,7 @@ __declspec(naked) void CallVirtual35Stub()
 // 0x0049C7D0
 void __cdecl LinkPrimitive(CPrimitive* primitive)
 {
-    primitive->mp_next = NewPrimitives();
+    primitive->m_following = NewPrimitives();
     NewPrimitives() = primitive;
     primitive->m_flags |= kNewFlag;
 }
@@ -188,12 +188,12 @@ void __cdecl UnlinkPrimitive(CPrimitive* primitive)
     CPrimitive** list = (primitive->m_flags & kNewFlag) ? &NewPrimitives() : &DrawnPrimitives();
     CPrimitive* before = *list;
     if (before == primitive) {
-        *list = before->mp_next;
+        *list = before->m_following;
         return;
     }
-    while (before && before->mp_next && before->mp_next != primitive)
-        before = before->mp_next;
-    before->mp_next = before->mp_next->mp_next; // (not found: through null, as the original)
+    while (before && before->m_following && before->m_following != primitive)
+        before = before->m_following;
+    before->m_following = before->m_following->m_following; // (not found: through null, as the original)
 }
 
 // 0x0049C840
@@ -210,15 +210,15 @@ void __cdecl RenderPrimitives()
                     primitive, *at);
                 if (order < 0)
                     break;
-                at = &(*at)->mp_next;
+                at = &(*at)->m_following;
                 if (!*at)
                     break;
             }
         }
-        primitive->mp_next = *at;
+        primitive->m_following = *at;
         *at = primitive;
     }
-    for (CPrimitive* primitive = DrawnPrimitives(); primitive; primitive = primitive->mp_next) {
+    for (CPrimitive* primitive = DrawnPrimitives(); primitive; primitive = primitive->m_following) {
         if (primitive->m_ready)
             primitive->RenderIfReady();
     }
@@ -245,17 +245,17 @@ void __cdecl SetPrimitiveState(int state, int value)
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Nx::CPrimitive::Destroy, &Nx::CPrimitive::SetTexture, &Nx::CPrimitive::SetColour,
-                &Nx::CPrimitive::Init, &Nx::CPrimitive::End, &Nx::CPrimitive::Render, &Nx::CPrimitive::Draw,
-                &Nx::CPrimitive::SetPosition, &Nx::CPrimitive::SetX, &Nx::CPrimitive::SetY, &Nx::CPrimitive::SetZ,
-                &Nx::CPrimitive::SetNormal, &Nx::CPrimitive::SetNormalX, &Nx::CPrimitive::SetNormalY,
-                &Nx::CPrimitive::SetNormalZ, &Nx::CPrimitive::SetVertexColour, &Nx::CPrimitive::SetUV,
-                &Nx::CPrimitive::SetU, &Nx::CPrimitive::SetV, &Nx::CPrimitive::GetX, &Nx::CPrimitive::GetY,
-                &Nx::CPrimitive::GetZ, &Nx::CPrimitive::GetNormalX, &Nx::CPrimitive::GetNormalY,
-                &Nx::CPrimitive::GetNormalZ, &Nx::CPrimitive::GetVertexColour, &Nx::CPrimitive::GetU,
-                &Nx::CPrimitive::GetV, &Nx::CPrimitive::Translate, &Nx::CPrimitive::TranslateX,
-                &Nx::CPrimitive::TranslateY, &Nx::CPrimitive::TranslateZ, &Nx::CPrimitive::ScrollUV,
-                &Nx::CPrimitive::ScrollU, &Nx::CPrimitive::ScrollV, &Nx::CPrimitive::Compare};
+static VtableSlot kVtable_slots[] = {&Engine3D::CPrimitive::Destroy, &Engine3D::CPrimitive::SetTexture, &Engine3D::CPrimitive::ChangeColour,
+                &Engine3D::CPrimitive::Init, &Engine3D::CPrimitive::End, &Engine3D::CPrimitive::Render, &Engine3D::CPrimitive::Draw,
+                &Engine3D::CPrimitive::SetPosition, &Engine3D::CPrimitive::SetX, &Engine3D::CPrimitive::SetY, &Engine3D::CPrimitive::SetZ,
+                &Engine3D::CPrimitive::SetNormal, &Engine3D::CPrimitive::SetNormalX, &Engine3D::CPrimitive::SetNormalY,
+                &Engine3D::CPrimitive::SetNormalZ, &Engine3D::CPrimitive::SetVertexColour, &Engine3D::CPrimitive::SetUV,
+                &Engine3D::CPrimitive::ChooseU, &Engine3D::CPrimitive::ChooseV, &Engine3D::CPrimitive::FetchPosX, &Engine3D::CPrimitive::FetchPosY,
+                &Engine3D::CPrimitive::FetchPosZ, &Engine3D::CPrimitive::GetNormalX, &Engine3D::CPrimitive::GetNormalY,
+                &Engine3D::CPrimitive::GetNormalZ, &Engine3D::CPrimitive::GetVertexColour, &Engine3D::CPrimitive::GetU,
+                &Engine3D::CPrimitive::GetV, &Engine3D::CPrimitive::Translate, &Engine3D::CPrimitive::TranslateX,
+                &Engine3D::CPrimitive::TranslateY, &Engine3D::CPrimitive::TranslateZ, &Engine3D::CPrimitive::ScrollUV,
+                &Engine3D::CPrimitive::ScrollU, &Engine3D::CPrimitive::ScrollV, &Engine3D::CPrimitive::Compare};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

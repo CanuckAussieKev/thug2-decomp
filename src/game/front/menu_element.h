@@ -5,38 +5,38 @@
 
 #include "game/front/screen_element.h"
 
-namespace Obj {
-struct CEvent;
+namespace GameObjects {
+struct CSignal;
 }
 
 // The menus (CreateScreenElement type vmenu / hmenu) and the container element: screen elements that arrange and
 // focus their children.
-namespace Front {
+namespace MenuSystem {
 
 // A menu (vtable 0x0064A048, 0x1A8 bytes): its children are the items, laid out in a column (vmenu) or a row
 // (hmenu); the focused menu moves its selection on the pad (pad_up / pad_down, or pad_left / pad_right), sending
 // unfocus / focus to the items. An item tagged as not focusable (`not_focusable`) or with block_events is
 // skipped.
-class CBaseMenu : public CScreenElement {
+class CMenuBase : public CUiWidget {
 public:
     // 0x004A74E0: the constructor (returns this): nothing selected (-1), not focused, regular spacing off,
     // padding_scale 1, pad handling and wrapping on, no grid index.
-    CBaseMenu* Construct();
+    CMenuBase* Construct();
     // 0x004A75C0 / 0x004A7630: a vmenu / an hmenu (type VMenu / HMenu).
-    CBaseMenu* ConstructVMenu();
-    CBaseMenu* ConstructHMenu();
-    // 0x004A7620: the destructor body (CScreenElement's).
+    CMenuBase* ConstructVMenu();
+    CMenuBase* ConstructHMenu();
+    // 0x004A7620: the destructor body (CUiWidget's).
     void DestroyBody();
     // 0x004A76C0 (vtable slot 0)
-    CBaseMenu* Destroy(uint8_t flags);
+    CMenuBase* Destroy(uint8_t flags);
     // 0x004A76F0 (slot 1): internal_just, regular_space_amount (an integer), padding_scale, spacing_between (an
-    // integer), enable / disable_pad_handling, allow_wrap / dont_allow_wrap; then CScreenElement's.
-    void SetProperties(Script::CStruct* params);
+    // integer), enable / disable_pad_handling, allow_wrap / dont_allow_wrap; then CUiWidget's.
+    void SetProperties(Scripts::CStruct* params);
     // 0x004A8100 (slot 5): the event for its script first (false if it went - or, with the manager's pad-event
     // priorities, if this menu may not have it); then: the focus-sent event 0x3056434F re-finds the selection and
     // lays the items out; focus (grid_index / child_id pick the item) / unfocus pass to the selected item; the pad
     // moves the selection. True.
-    bool PassEventToScript(Obj::CEvent* event);
+    bool PassEventToScript(GameObjects::CSignal* event);
 
     // 0x004A7550: the regular spacing into `out`; whether it is used (> 0.0001).
     int GetRegularSpace(float* out) const;
@@ -70,29 +70,29 @@ public:
     uint8_t m_pad1A2[2];
     int m_gridIndex;         // +0x1A4 (-1)
 };
-static_assert(offsetof(CBaseMenu, m_selectedIndex) == 0x178 && offsetof(CBaseMenu, m_controller) == 0x184 &&
-                  offsetof(CBaseMenu, m_vertical) == 0x190 && offsetof(CBaseMenu, m_padHandling) == 0x1A0 &&
-                  offsetof(CBaseMenu, m_gridIndex) == 0x1A4 && sizeof(CBaseMenu) == 0x1A8,
+static_assert(offsetof(CMenuBase, m_selectedIndex) == 0x178 && offsetof(CMenuBase, m_controller) == 0x184 &&
+                  offsetof(CMenuBase, m_vertical) == 0x190 && offsetof(CMenuBase, m_padHandling) == 0x1A0 &&
+                  offsetof(CMenuBase, m_gridIndex) == 0x1A4 && sizeof(CMenuBase) == 0x1A8,
               "layout must match the original");
 
 // The container element (ContainerElement, vtable 0x0064A0BC, 0x17C bytes): passes focus / unfocus on to its
 // focusable_child.
-class CContainerElement : public CScreenElement {
+class CGroupWidget : public CUiWidget {
 public:
     // 0x004AAC20: the constructor (returns this): no focusable child; type ContainerElement.
-    CContainerElement* Construct();
-    // 0x004AAC80: the destructor body (CScreenElement's).
+    CGroupWidget* Construct();
+    // 0x004AAC80: the destructor body (CUiWidget's).
     void DestroyBody();
     // 0x004AACC0 (vtable slot 0)
-    CContainerElement* Destroy(uint8_t flags);
-    // 0x004AA530 (slot 1): focusable_child, then CScreenElement's.
-    void SetProperties(Script::CStruct* params);
+    CGroupWidget* Destroy(uint8_t flags);
+    // 0x004AA530 (slot 1): focusable_child, then CUiWidget's.
+    void SetProperties(Scripts::CStruct* params);
     // 0x004AA560 (slot 5): the event for its script first (with pad-event priorities as the menu's); focus /
     // unfocus then go on to the focusable child (with the event's controller).
-    bool PassEventToScript(Obj::CEvent* event);
+    bool PassEventToScript(GameObjects::CSignal* event);
 
     uint32_t m_focusableChild; // +0x178
 };
-static_assert(sizeof(CContainerElement) == 0x17C, "layout must match the original");
+static_assert(sizeof(CGroupWidget) == 0x17C, "layout must match the original");
 
 } // namespace Front

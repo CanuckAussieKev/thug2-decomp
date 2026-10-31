@@ -1,13 +1,13 @@
-// A connection's round-trip times (Net::LatencyTest). See net_latency.h.
+// A connection's round-trip times (NetLink::PingProbe). See net_latency.h.
 
 #include <cstdint>
 
 #include "game/net/net_latency.h"
 
-namespace Net {
+namespace NetLink {
 
 // 0x00456970
-LatencyTest* LatencyTest::Construct()
+PingProbe* PingProbe::Construct()
 {
     for (int& time : m_times)
         time = 0;
@@ -19,7 +19,7 @@ LatencyTest* LatencyTest::Construct()
 }
 
 // 0x004569B0
-void LatencyTest::InputLatencyValue(int latency)
+void PingProbe::InputDelayAmount(int latency)
 {
     m_times[m_next] = latency;
     m_next = (m_next + 1) % kNumTimes;

@@ -22,7 +22,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/glow.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t g_occlusionSlots[1024]{1};
 uint32_t g_occlusionPixels;
@@ -50,7 +50,7 @@ void Transform(float* out, const float* v, const void* matrix)
 // The queries' states: colour writes off, no z writes, no texture, the vertex colour's shader.
 void BeginQueryDraw(uint32_t fvf)
 {
-    SetBlendMode(0);
+    ChooseBlendMode(0);
     SetTexture(0, nullptr);
     SetPixelShader(g_pixelShaders[kPixelShader94C], nullptr);
     SetVertexFormat(fvf);
@@ -68,15 +68,15 @@ void EndQueryDraw(uint8_t query)
 // 0x004CB860
 CPcViewport* __cdecl CreateViewport(uint32_t a1, uint32_t a2)
 {
-    void* memory = Mem::New(sizeof(CPcViewport));
+    void* memory = MemSys::New(sizeof(CPcViewport));
     return memory ? static_cast<CPcViewport*>(memory)->Construct(a1, a2) : nullptr;
 }
 
 // 0x004CB8E0
 CPcViewport* CPcViewport::Construct(uint32_t a1, uint32_t a2)
 {
-    reinterpret_cast<CViewport*>(this)->CViewport::Construct(reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
-                                                              reinterpret_cast<Gfx::Camera*>(static_cast<uintptr_t>(a2)));
+    reinterpret_cast<CViewRegion*>(this)->CViewRegion::Construct(reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
+                                                              reinterpret_cast<Gfx2D::Camera*>(static_cast<uintptr_t>(a2)));
     vtable = reinterpret_cast<void**>(kViewportVtable);
     return this;
 }
@@ -85,7 +85,7 @@ CPcViewport* CPcViewport::Construct(uint32_t a1, uint32_t a2)
 void CPcViewport::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kViewportVtable);
-    reinterpret_cast<CViewport*>(this)->CViewport::DestroyBody();
+    reinterpret_cast<CViewRegion*>(this)->CViewRegion::DestroyBody();
 }
 
 // 0x004CB910
@@ -93,12 +93,12 @@ CPcViewport* CPcViewport::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004CB940
-float CPcViewport::ProjectToScreen(const Mth::Vector* point, float* x, float* y, int* depth)
+float CPcViewport::ProjectToScreen(const Maths::Vector* point, float* x, float* y, int* depth)
 {
     float v[4] = {point->x, point->y, point->z, 1.0f};
     float view[4], clip[4];
@@ -125,7 +125,7 @@ float CPcViewport::ProjectToScreen(const Mth::Vector* point, float* x, float* y,
 }
 
 // 0x004CBC00
-uint8_t CPcViewport::QueryPoint(const Mth::Vector* point, int /*unused*/, uint8_t query)
+uint8_t CPcViewport::QueryPoint(const Maths::Vector* point, int /*unused*/, uint8_t query)
 {
     if (Radeon8500() || !query)
         return 0;
@@ -184,8 +184,8 @@ uint32_t __cdecl OcclusionPixels()
 }
 
 namespace {
-static VtableSlot kViewportVtable_slots[] = {&Nx::CPcViewport::Destroy, &Nx::CPcViewport::ProjectToScreen,
-                &Nx::CPcViewport::QueryPoint, &Nx::CPcViewport::QueryRect, Stubs::ReturnZero1};
+static VtableSlot kViewportVtable_slots[] = {&Engine3D::CPcViewport::Destroy, &Engine3D::CPcViewport::ProjectToScreen,
+                &Engine3D::CPcViewport::QueryPoint, &Engine3D::CPcViewport::QueryRect, Stubs::ReturnZero1};
 void** const kViewportVtable = reinterpret_cast<void**>(kViewportVtable_slots);
 } // namespace
 

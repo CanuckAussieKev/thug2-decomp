@@ -21,7 +21,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_walls.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -123,7 +123,7 @@ class CScript;
 // (UX5) Records that didn't resolve to anything in the level when the layout went in (level_editor_checks.h) are
 // written again at the file's end, as they were, under a comment - until the Problems window drops them.
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
-namespace Front::LevelEditor::Layout {
+namespace MenuSystem::LevelEditor::Layout {
 
 struct ObjectRecord {
     uint32_t id;
@@ -152,7 +152,7 @@ struct SetRecord {
 };
 // The version written.
 constexpr int kVersion = 2;
-struct File {
+struct FileLoad {
     int version = kVersion; // (the file's, as read)
     uint32_t scene = 0;
     std::vector<Scenery::SectorState> sectors;
@@ -199,8 +199,8 @@ void AddExtension(const Extension& extension);
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't
 // understood).
-std::string Write(const File& file);
-bool Read(const std::string& text, File* file, int* line);
+std::string Write(const FileLoad& file);
+bool Read(const std::string& text, FileLoad* file, int* line);
 
 // --- autosave ---------------------------------------------------------------------------------------------------
 //
@@ -240,12 +240,12 @@ bool DiscardAutosave(std::string* message);
 int LevelLoads();
 // The saved layout put in place (false: none, or not in a level, or a network session).
 bool Load(std::string* message);
-// A scene loaded (Nx::CFunc_LoadScene): once the level is up, its layout is put back if it was picked as the edited
+// A scene loaded (Engine3D::CFunc_LoadScene): once the level is up, its layout is put back if it was picked as the edited
 // copy (Tick).
 void OnSceneLoaded(const char* name, bool isNet);
 // Once a frame (the editor's Update, on or off).
 void Tick();
-// (phase 6) The node manager added a node array (SkateScript::SetNodeArrayAddedHook): the edited copy's level array
+// (phase 6) The node manager added a node array (LevelNodes::SetNodeArrayAddedHook): the edited copy's level array
 // gets its layout's field edits now, before the level's objects are made from it (level_editor_fields.h).
 void OnNodeArrayAdded(uint32_t name);
 // The edited copy's level properties: whether this level's saved layout names one (`props`) - for the level select.
@@ -283,7 +283,7 @@ uint32_t SceneOfLevelText(const char* level);
 // structures give them (is_freeskate=1 ...), read through the mode's IsTrue (0x00553220 - what GameModeEquals and
 // IsCareerMode 0x005AEFC0 ask).
 struct ModeFlags {
-    bool known = false;         // a game mode at all (Mdl::Skate's 0x007CE470)
+    bool known = false;         // a game mode at all (GameModules::Skate's 0x007CE470)
     bool freeskate = false;     // is_freeskate: mode_freeskate (SKATE NOW, -level / -edit), mode_freeskate2p (2 PLAYER)
     bool singleSession = false; // is_singlesession: HIGH SCORE / FREE SKATE (its high score runs' records: see below)
     bool career = false;        // is_career: story mode (goals, cash, stat points, chapters)
@@ -331,10 +331,10 @@ bool CaptureText(std::string* text);
 // Script commands (registered with the editor's: LevelEditor::RegisterScriptFunctions).
 // LevelEditor_PickLevel level=<load script> [edited_layout]: the level select chose a level (the first line of
 // level_select_change_level) - the edited copy or the level as shipped.
-bool __cdecl CFunc_PickLevel(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_PickLevel(Scripts::CStruct* params, Scripts::CScript* script);
 // LevelEditor_EditedLevels: the level select's entries for the edited copies (edited_list, edited_count) - each the
 // level's own entry (from level_select_menu_level_info and the ported levels' lists) with the text "<TEXT> (EDITED)"
 // and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
-bool __cdecl CFunc_EditedLevels(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_EditedLevels(Scripts::CStruct* params, Scripts::CScript* script);
 
-} // namespace Front::LevelEditor::Layout
+} // namespace MenuSystem::LevelEditor::Layout

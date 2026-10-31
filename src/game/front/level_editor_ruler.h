@@ -6,7 +6,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -15,7 +15,7 @@ struct Painter;
 // piece within kSnapPixels, Alt: no snap) are its ends; the distance, the horizontal gap and the height difference are
 // drawn and stay until Shift+M clears them (a third click starts a new measurement; M again disarms it, the measurement
 // stays). While armed, clicks measure instead of selecting. Shown with the Overlays menu's Ruler.
-namespace Front::LevelEditor::Ruler {
+namespace MenuSystem::LevelEditor::Ruler {
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -46,4 +46,4 @@ void AddOverlay(const Overlays::Painter& painter);
 // The measurement now ("" when there's none) - the status bar, the screenshot sidecar.
 std::string Describe();
 
-} // namespace Front::LevelEditor::Ruler
+} // namespace MenuSystem::LevelEditor::Ruler

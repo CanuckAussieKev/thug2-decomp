@@ -38,10 +38,10 @@
 //   the level's collision / scene files (size and time, to tell a reconverted file), the approach, the camera.
 // - Rate limit: the same spot (within 40 inches) again within 1 second isn't logged; the next line there says how
 //   many were left out (repeats=).
-// - On screen: "collision event <n>: <reason>" for 2 s (Sys::Screenshot::ShowNotice; " (screenshot)" when one was
+// - On screen: "collision event <n>: <reason>" for 2 s (SystemCore::Screenshot::ShowNotice; " (screenshot)" when one was
 //   taken). A level's first frame logs "collision-event: logging on in <level>".
 // - [debug] collision_event_screenshots (default 1 - 0 turns them off): a screenshot of the event's frame
-//   (Sys::Screenshot::RequestEventShot; the reversal is seen the frame it happens, while the camera still looks the
+//   (SystemCore::Screenshot::RequestEventShot; the reversal is seen the frame it happens, while the camera still looks the
 //   way the skater was going - it follows his turn only over the next frames), named in the log.
 
 #include <cstdint>
@@ -73,7 +73,7 @@ bool On();
 
 // After a path ran: `component` the skater's core physics component (its feeler's hit and line are read), `before`
 // the skater's velocity when the path began.
-void NotePath(void* component, Path path, const Mth::Vector& before);
+void NotePath(void* component, Path path, const Maths::Vector& before);
 
 // The end of the core physics component's update.
 void EndFrame(void* component);
@@ -109,7 +109,7 @@ struct Face {
     uint8_t terrain = 0;
     float point[3] = {};
     float normal[3] = {};
-    const void* collObj = nullptr; // (not printed: the Nx::CCollObj hit, for its geometry)
+    const void* collObj = nullptr; // (not printed: the Engine3D::CHitMesh hit, for its geometry)
 };
 
 struct Event {
@@ -144,10 +144,10 @@ struct Detail {
     std::string inputWindow = "-"; // ... at any frame of the window
     float stick[2] = {};
     bool ray = false;             // the feeler that decided it
-    float rayStart[3] = {}, rayEnd[3] = {};
+    float probeOrigin[3] = {}, rayEnd[3] = {};
     bool geometry = false;        // the face's corners and object
     float corners[3][3] = {};
-    float boxMin[3] = {}, boxMax[3] = {};
+    float boundsLow[3] = {}, boundsHigh[3] = {};
     int edge = -1;                // the face's edge nearest the spot (corner k to k+1)
     float edgeDistance = 0;
     int edgeOpen = -1;            // 1 open, 0 a face across it, -1 not known
@@ -166,7 +166,7 @@ std::string FaceText(const Face& face, std::string (*name)(uint32_t));
 std::string FormatEvent(const Event& event, std::string (*name)(uint32_t));
 // The second line, starting "collision-event-detail: n=<n> ".
 std::string FormatDetail(const Detail& detail);
-// The pad's buttons held in `mask` (bit i: the CControlPad's i-th button), '+'-joined ("-" for none).
+// The pad's buttons held in `mask` (bit i: the CPadState's i-th button), '+'-joined ("-" for none).
 std::string ButtonNames(uint16_t mask);
 
 } // namespace Skater::CollisionEvents

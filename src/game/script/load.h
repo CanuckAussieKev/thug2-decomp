@@ -6,7 +6,7 @@
 
 // Loading .qb files: defining their global symbols (values, structures, arrays and compressed scripts) and
 // restarting the running scripts whose code changed.
-namespace Script {
+namespace Scripts {
 
 class CScript;
 
@@ -17,7 +17,7 @@ CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32
                                       const char* filename);
 // Define everything in the .qb file `data` (old format). With `useQbNames`, the file's checksum names go in
 // the .qb name table; with `temporary`, every change is undone by ProcessPendingSymbols.
-void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary);
+void ReadQbFile(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary);
 // Restart the scripts running (or calling) a script that was just (re)defined.
 void RestartChangedScripts();
 // Whether `script` is running `name` or has it on its call stack.

@@ -2,7 +2,7 @@
 // one day: these are the only places that talk to D3DX).
 //
 // Microsoft's D3DX9 (d3dx9_43.dll, from the Microsoft.DXSDK.D3DX NuGet package), through the standard API only - MinGW-w64's
-// d3dx9 headers and libd3dx9_43.a offer the same calls. Matrices are 16 floats, row-major (D3DXMATRIX / Mth::Matrix);
+// d3dx9 headers and libd3dx9_43.a offer the same calls. Matrices are 16 floats, row-major (D3DXMATRIX / Maths::Matrix);
 // the viewing functions are the right-handed ones (what the original's 2004 D3DX9 computes).
 #pragma once
 

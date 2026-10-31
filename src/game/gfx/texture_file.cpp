@@ -18,7 +18,7 @@
 #include "game/sys/platform_system.h"
 #include "game/gfx/device.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -60,14 +60,14 @@ void ExpandPalette(void* out, const void* indices, uint32_t size, const void* pa
                             static_cast<const uint32_t*>(palette));
 }
 
-sTexture* NewTexture()
+textureRef* NewTexture()
 {
-    void* memory = Mem::New(sizeof(sTexture));
-    return memory ? static_cast<sTexture*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::New(sizeof(textureRef));
+    return memory ? static_cast<textureRef*>(memory)->Construct() : nullptr;
 }
 
 // The texture's sizes from the header: its own (the image's if the size isn't a power of two) and the image's.
-void SetSizes(sTexture* texture, const ImageHeader& header, bool asImage)
+void SetSizes(textureRef* texture, const ImageHeader& header, bool asImage)
 {
     if (asImage) {
         texture->width = header.imageWidth;
@@ -80,7 +80,7 @@ void SetSizes(sTexture* texture, const ImageHeader& header, bool asImage)
     texture->imageHeight = header.imageHeight;
 }
 
-void Finish(sTexture* texture)
+void Finish(textureRef* texture)
 {
     texture->unknownE = 0;
     texture->depth = 0x20;
@@ -91,23 +91,23 @@ void Finish(sTexture* texture)
 
 // The buffer the stored texels are read into. Not original - HD menu UI (game/gfx/hd_ui.h): an upscaled image's
 // (up to 16 MB) comes from the C runtime's heap, not the game's - the game's heap in use while the front end loads its
-// sprites hasn't room for them (the first one made Mem::New fail and the read end the game).
+// sprites hasn't room for them (the first one made MemSys::New fail and the read end the game).
 void* NewTexelBuffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
 {
     if (HdUi::ImageScale(header.unknown14) != 1)
         return std::malloc(size);
-    return Mem::New(size);
+    return MemSys::New(size);
 }
 void FreeTexelBuffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
 {
     if (HdUi::ImageScale(header.unknown14) != 1)
         return std::free(buffer);
-    Mem::Manager::Instance()->Free(buffer);
+    MemSys::Manager::Instance()->Free(buffer);
 }
 
 // Not original - HD menu UI (game/gfx/hd_ui.h, [features] hd_ui): an upscaled image keeps its full-size
 // Direct3D texture but reports the original's sizes, so what sizes itself by them is drawn as large as before.
-void ApplyHdScale(sTexture* texture, const ImageHeader& header)
+void ApplyHdScale(textureRef* texture, const ImageHeader& header)
 {
     uint32_t scale = HdUi::ImageScale(header.unknown14);
     if (scale == 1)
@@ -121,7 +121,7 @@ void ApplyHdScale(sTexture* texture, const ImageHeader& header)
 
 // Not original - HD menu UI (hd_ui.h): an upscaled opaque image (a loading screen) stored as DXT1 blocks, header format
 // HdUi::kFormatDxt1. The Direct3D texture is made D3DFMT_DXT1 (one level: drawn full screen, about 1:1) and the blocks
-// are read straight into it; the sTexture is finished like the 32-bit ones (its sizes divided by ApplyHdScale).
+// are read straight into it; the textureRef is finished like the 32-bit ones (its sizes divided by ApplyHdScale).
 bool IsHdDxt(const ImageHeader& header)
 {
     return header.format == HdUi::kFormatDxt1 && HdUi::ImageScale(header.unknown14) != 1 && header.width % 4 == 0 &&
@@ -132,23 +132,23 @@ uint32_t HdDxtSize(const ImageHeader& header) { return header.width * header.hei
 } // namespace
 
 // 0x004E0790
-sTexture* __cdecl LoadTextureFile(const char* name)
+textureRef* __cdecl ReadTextureFile(const char* name)
 {
-    File::Handle file = File::Open(name, "rb");
+    FileLoad::Handle file = FileLoad::Open(name, "rb");
     if (!file)
         return nullptr;
     ImageHeader header;
-    File::Read(&header, 0x20, 1, file);
+    FileLoad::Read(&header, 0x20, 1, file);
     if (IsHdDxt(header)) { // (not original - hd_ui.h)
-        sTexture* hd = NewTexture();
+        textureRef* hd = NewTexture();
         hd->palette = nullptr;
         Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
         SetSizes(hd, header, false);
         D3DLOCKED_RECT locked;
         static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
-        File::Read(locked.pBits, HdDxtSize(header), 1, file);
-        File::Close(file);
+        FileLoad::Read(locked.pBits, HdDxtSize(header), 1, file);
+        FileLoad::Close(file);
         Finish(hd);
         ApplyHdScale(hd, header);
         return hd;
@@ -156,11 +156,11 @@ sTexture* __cdecl LoadTextureFile(const char* name)
     uint32_t bits;
     bool palettized;
     Decode(header.format, &bits, &palettized);
-    sTexture* texture = NewTexture();
+    textureRef* texture = NewTexture();
     texture->palette = nullptr;
     uint8_t palette[0x400];
     if (palettized)
-        File::Read(palette, header.paletteSize, 1, file);
+        FileLoad::Read(palette, header.paletteSize, 1, file);
     // Not a power of two each way: the image is loaded as it is (no swizzling).
     bool plain = !(header.width && PowerOfTwo(header.width) && header.height && PowerOfTwo(header.height));
     Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
@@ -170,37 +170,37 @@ sTexture* __cdecl LoadTextureFile(const char* name)
     D3DLOCKED_RECT locked;
     static_cast<IDirect3DTexture9*>(texture->texture)->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
-        File::Read(locked.pBits, size, 1, file);
+        FileLoad::Read(locked.pBits, size, 1, file);
     } else {
         void* buffer = NewTexelBuffer(size, header);
-        File::Read(buffer, size, 1, file);
+        FileLoad::Read(buffer, size, 1, file);
         void* indices = nullptr;
         void* texels;
         if (plain) {
             texels = buffer;
         } else {
-            texels = palettized ? (indices = Mem::New(size)) : locked.pBits;
+            texels = palettized ? (indices = MemSys::New(size)) : locked.pBits;
             Unswizzle(texels, buffer, header.width, header.height, bits >> 3);
         }
         if (palettized)
             ExpandPalette(locked.pBits, texels, size, palette);
         FreeTexelBuffer(buffer, header);
-        Mem::Manager::Instance()->Free(indices);
+        MemSys::Manager::Instance()->Free(indices);
     }
-    File::Close(file);
+    FileLoad::Close(file);
     Finish(texture);
     ApplyHdScale(texture, header); // (not original - hd_ui.h)
     return texture;
 }
 
 // 0x004E0A90
-sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
+textureRef* __cdecl LoadTextureMemory(const uint8_t* data)
 {
     ImageHeader header;
     std::memcpy(&header, data, sizeof(header));
     const uint8_t* at = data + 0x20;
     if (IsHdDxt(header)) { // (not original - hd_ui.h)
-        sTexture* hd = NewTexture();
+        textureRef* hd = NewTexture();
         hd->palette = nullptr;
         Device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
@@ -217,7 +217,7 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
     uint32_t bits;
     bool palettized;
     Decode(header.format, &bits, &palettized);
-    sTexture* texture = NewTexture();
+    textureRef* texture = NewTexture();
     texture->palette = nullptr;
     uint8_t palette[0x400];
     if (palettized) {
@@ -246,13 +246,13 @@ sTexture* __cdecl LoadTextureMemory(const uint8_t* data)
         if (plain) {
             texels = buffer;
         } else {
-            texels = palettized ? (indices = Mem::New(size)) : locked.pBits;
+            texels = palettized ? (indices = MemSys::New(size)) : locked.pBits;
             Unswizzle(texels, buffer, header.width, header.height, bytesPerPixel);
         }
         if (palettized)
             ExpandPalette(locked.pBits, texels, size, palette);
         FreeTexelBuffer(buffer, header);
-        Mem::Manager::Instance()->Free(indices);
+        MemSys::Manager::Instance()->Free(indices);
     }
     Finish(texture);
     ApplyHdScale(texture, header); // (not original - hd_ui.h)

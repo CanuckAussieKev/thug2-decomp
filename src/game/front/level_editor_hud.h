@@ -9,7 +9,7 @@
 // 5-6: the controls for what you're doing) and a message line (7, top centre) - and level_editor_panel_show /
 // level_editor_panel_hide: one panel of lines (the help, the piece browser). Text may hold the fonts' colour codes:
 // \c1 (the highlight the cutscene subtitles use for names) ... \c0 (back to the element's colour).
-namespace Front::LevelEditor::Hud {
+namespace MenuSystem::LevelEditor::Hud {
 
 // The editor starting: nothing shown is assumed (the elements are new). `screenElements` false: the UI
 // (level_editor_ui.h) shows the editor instead - the HUD's elements are taken down (level_editor_hud_destroy) and the
@@ -32,4 +32,4 @@ bool PanelShown();
 // The keys in the highlight colour: "\c1" + keys + "\c0".
 std::string Key(const char* keys);
 
-} // namespace Front::LevelEditor::Hud
+} // namespace MenuSystem::LevelEditor::Hud

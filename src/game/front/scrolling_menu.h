@@ -8,9 +8,9 @@
 
 // The scrolling menus (VScrollingMenu / HScrollingMenu): an element holding a vmenu / hmenu that shows a window of
 // its items, scrolling to keep the focused item in view (items outside the window get alpha 0).
-namespace Front {
+namespace MenuSystem {
 
-class CScrollingMenu : public CScreenElement {
+class CScrollingMenu : public CUiWidget {
 public:
     // 0x004AE050: the constructor (returns this): vtables 0x0064A154 / 0x0064A14C (the listener, registered for
     // the element), no menu yet, scroll_speed 10000, every item shown, no regular spacing (-1); type
@@ -19,7 +19,7 @@ public:
     // 0x004AE170 / 0x004AE1C0: vertical (vtables 0x0064A188 / 0x0064A180) / horizontal (0x0064A1BC / 0x0064A1B4).
     CScrollingMenu* ConstructVertical();
     CScrollingMenu* ConstructHorizontal();
-    // 0x004AE110: the destructor body (the listener goes, then CScreenElement's). 0x004AE1A0 / 0x004AE1F0: the
+    // 0x004AE110: the destructor body (the listener goes, then CUiWidget's). 0x004AE1A0 / 0x004AE1F0: the
     // vertical / horizontal one's (their vtables, then this).
     void DestroyBody();
     void DestroyBodyVertical();
@@ -31,17 +31,17 @@ public:
     CScrollingMenu* DestroyHorizontal(uint8_t flags);
 
     // 0x004AE520 (slot 1): internal_just, scroll_speed (an integer), num_items_to_show, reset_window_top /
-    // reset_window_bottom / 0xA1F3B8BB (a new arrangement); then CScreenElement's.
-    void SetProperties(Script::CStruct* params);
+    // reset_window_bottom / 0xA1F3B8BB (a new arrangement); then CUiWidget's.
+    void SetProperties(Scripts::CStruct* params);
     // 0x004AE6A0 (slot 5): the event for its script first (pad-event priorities as the menus'); the focus flag's
     // event finds the menu and arranges; focus / unfocus pass to the menu. True unless refused.
-    bool PassEventToScript(Obj::CEvent* event);
+    bool PassEventToScript(GameObjects::CSignal* event);
     // 0x004AE960 (slot 10): the window follows the selected item (by scroll_speed per frame), the menu moves
     // against it and the items outside the window are hidden.
     void Update();
     // 0x004AE7E0 (the listener's slot 1, `this` = the listener): the menu's focus flag event re-arranges; focus
     // on one of the menu's items selects it.
-    void ListenerReceive(Obj::CEvent* event);
+    void ListenerReceive(GameObjects::CSignal* event);
 
     // 0x004AE2D0: the vmenu (vertical) / hmenu (horizontal) child - the last one - and the window's length (the
     // shown items times the regular spacing, else the element's size).
@@ -49,8 +49,8 @@ public:
     // 0x004AE450: an item's top left and size in the menu (scaled by the menu's scale).
     void ItemPlace(ElementPtr* item, float* x, float* y, float* w, float* h);
 
-    Obj::CEventListener m_listener; // +0x178
-    CScreenElement* mp_menu;        // +0x194
+    GameObjects::CSignalReceiver m_listener; // +0x178
+    CUiWidget* mp_menu;        // +0x194
     uint32_t m_selectedId;          // +0x198 the item focused
     float m_internalJustX;          // +0x19C internal_just
     float m_internalJustY;          // +0x1A0

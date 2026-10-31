@@ -21,7 +21,7 @@
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -32,16 +32,16 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-static VtableSlot kBuddySearchVtable_slots[] = {&GameNet::BuddySearch::Destroy};
+static VtableSlot kBuddySearchVtable_slots[] = {&OnlinePlay::BuddySearch::Destroy};
 void** const kBuddySearchVtable = reinterpret_cast<void**>(kBuddySearchVtable_slots);
-static VtableSlot kMessageSearchVtable_slots[] = {&GameNet::BuddyMessageSearch::Destroy};
+static VtableSlot kMessageSearchVtable_slots[] = {&OnlinePlay::BuddyMessageSearch::Destroy};
 void** const kMessageSearchVtable = reinterpret_cast<void**>(kMessageSearchVtable_slots);
 
 Manager* TheManager() { return g_gameNetManager; }
-Mem::Manager* Memory() { return Mem::Manager::Get(); }
-BuddyMan* Buddies() { return static_cast<BuddyMan*>(TheManager()->m_buddyMan); }
+MemSys::Manager* Memory() { return MemSys::Manager::Get(); }
+FriendsManager* Buddies() { return static_cast<FriendsManager*>(TheManager()->m_buddyMan); }
 
-void UnlinkNode(Mem::ListNode* node)
+void UnlinkNode(MemSys::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -51,50 +51,50 @@ void UnlinkNode(Mem::ListNode* node)
 
 } // namespace
 
-static VtableSlot kBuddyNodeVtable_slots[] = {&GameNet::BuddyNode::Destroy};
+static VtableSlot kBuddyNodeVtable_slots[] = {&OnlinePlay::BuddyNode::Destroy};
 void** const kBuddyNodeVtable = reinterpret_cast<void**>(kBuddyNodeVtable_slots);
-static VtableSlot kMessageNodeVtable_slots[] = {&GameNet::BuddyMessageNode::Destroy};
+static VtableSlot kMessageNodeVtable_slots[] = {&OnlinePlay::BuddyMessageNode::Destroy};
 void** const kMessageNodeVtable = reinterpret_cast<void**>(kMessageNodeVtable_slots);
 
 // 0x00548100
-void __cdecl BuddyMan::OnBuddyRequest(void* connection, const void* arg, BuddyMan* man)
+void __cdecl FriendsManager::OnBuddyRequest(void* connection, const void* arg, FriendsManager* man)
 {
     (void)connection;
-    Memory()->PushContext(Memory()->m_internetTopDownHeap);
+    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
     GameSpy::GpAuthBuddyRequest(man, *static_cast<const int*>(arg)); // (the request's profile accepted)
-    Memory()->PopContext();
+    Memory()->LeaveHeapScope();
 }
 
 char g_commandLineEmail[256];
 char g_commandLinePassword[16];
 
 // 0x00548140
-unsigned long __stdcall BuddyMan::LoginThread(void* man)
+unsigned long __stdcall FriendsManager::LoginThread(void* man)
 {
     Manager* manager = TheManager();
-    Memory()->PushContext(Memory()->m_internetBottomUpHeap);
-    Prefs::Preferences* preferences = manager->GetNetworkPreferences();
+    Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap);
+    OptionStore::Preferences* preferences = manager->GetOnlineSettings();
     const char* email;
     const char* password;
-    if (Sys::g_internetGameHost || Sys::g_joiningInternetGame) {
+    if (SystemCore::g_internetGameHost || SystemCore::g_joiningInternetGame) {
         email = g_commandLineEmail;
         password = g_commandLinePassword;
     } else {
-        email = preferences->GetPreferenceString(Crc::GenerateCRCFromString("profile_email"),
-                                                 Crc::GenerateCRCFromString("ui_string"));
-        password = preferences->GetPreferenceString(Crc::GenerateCRCFromString("profile_password"),
-                                                    Crc::GenerateCRCFromString("ui_string"));
+        email = preferences->GetPreferenceString(Checksums::HashFromText("profile_email"),
+                                                 Checksums::HashFromText("ui_string"));
+        password = preferences->GetPreferenceString(Checksums::HashFromText("profile_password"),
+                                                    Checksums::HashFromText("ui_string"));
     }
-    GameSpy::GpConnect(man, "proskater", email, password, 1, 0, &BuddyMan::OnConnectNewUser, man); // (gpConnect)
-    Memory()->PopContext();
+    GameSpy::GpConnect(man, "proskater", email, password, 1, 0, &FriendsManager::OnConnectNewUser, man); // (gpConnect)
+    Memory()->LeaveHeapScope();
     return 0;
 }
 
 // 0x00548200
-void BuddyMan::SendBuddyMessage(int profile, const char* text)
+void FriendsManager::SendBuddyMessage(int profile, const char* text)
 {
     const char* nick;
-    TheManager()->GetNetworkPreferences()->GetPreference(Crc::GenerateCRCFromString("network_id"))->GetString(
+    TheManager()->GetOnlineSettings()->GetPreference(Checksums::HashFromText("network_id"))->GetString(
         kUiString, &nick, 1);
     char message[128];
     std::sprintf(message, "%s\n%s", nick, text);
@@ -102,24 +102,24 @@ void BuddyMan::SendBuddyMessage(int profile, const char* text)
 }
 
 // 0x005482A0
-void BuddyMan::SetLoggedIn(int profile)
+void FriendsManager::SetLoggedIn(int profile)
 {
-    Memory()->PushContext(Memory()->m_internetTopDownHeap);
+    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
     m_loggedIn = true;
     m_profile = profile;
     m_state = 4;
-    Script::RunScript("profile_logged_in", nullptr, nullptr, false);
-    const char* location = Script::GetString("homie_status_logging_in");
-    GameSpy::GpSetStatus(this, kStatusOnline, Script::GetString("homie_status_online"), location); // (gpSetStatus)
-    Memory()->PopContext();
+    Scripts::LaunchScript("profile_logged_in", nullptr, nullptr, false);
+    const char* location = Scripts::GetString("homie_status_logging_in");
+    GameSpy::GpSetStatus(this, kStatusOnline, Scripts::GetString("homie_status_online"), location); // (gpSetStatus)
+    Memory()->LeaveHeapScope();
 }
 
 // 0x00548320
-void BuddyMan::SetStatus(int status, const char* text, const char* location)
+void FriendsManager::SetStatus(int status, const char* text, const char* location)
 {
-    Memory()->PushContext(Memory()->m_internetTopDownHeap);
+    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
     GameSpy::GpSetStatus(this, status, text, location); // (gpSetStatus)
-    Memory()->PopContext();
+    Memory()->LeaveHeapScope();
 }
 
 // --- The list types ---
@@ -181,7 +181,7 @@ uint32_t FoldedGetters::Word18() { return Field<uint32_t>(this, 0x18); }
 // --- The script commands ---
 
 // 0x00548360: whether we're logged in to presence.
-bool __cdecl ProfileLoggedIn(Script::CStruct* params, Script::CScript* script)
+bool __cdecl ProfileLoggedIn(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)params;
     (void)script;
@@ -189,7 +189,7 @@ bool __cdecl ProfileLoggedIn(Script::CStruct* params, Script::CScript* script)
 }
 
 // 0x00548370: the message `string` sent to `profile` (false for none or an empty one).
-bool __cdecl SendBuddyMessage(Script::CStruct* params, Script::CScript* script)
+bool __cdecl SendBuddyMessage(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)script;
     Manager* manager = TheManager();
@@ -198,26 +198,26 @@ bool __cdecl SendBuddyMessage(Script::CStruct* params, Script::CScript* script)
     if (!text || !*text)
         return false;
     int profile;
-    params->GetInteger("profile", &profile, 1);
-    static_cast<BuddyMan*>(manager->m_buddyMan)->SendBuddyMessage(profile, text);
+    params->FetchIntValue("profile", &profile, 1);
+    static_cast<FriendsManager*>(manager->m_buddyMan)->SendBuddyMessage(profile, text);
     return true;
 }
 
 // 0x005483E0: our presence status: chatting in the lobby.
-bool __cdecl SetLobbyStatus(Script::CStruct* params, Script::CScript* script)
+bool __cdecl SetLobbyStatus(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)params;
     (void)script;
     Manager* manager = TheManager();
-    const char* lobby = static_cast<LobbyMan*>(manager->m_lobbyMan)->m_roomName; // (0x0053F820)
-    const char* text = Script::GetString("homie_status_chatting");
-    BuddyMan* buddies = static_cast<BuddyMan*>(manager->m_buddyMan);
-    Memory()->PushContext(Memory()->m_internetTopDownHeap);
+    const char* lobby = static_cast<RoomManager*>(manager->m_lobbyMan)->m_roomName; // (0x0053F820)
+    const char* text = Scripts::GetString("homie_status_chatting");
+    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_buddyMan);
+    Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap);
     GameSpy::GpSetStatus(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
-    Memory()->PopContext();
+    Memory()->LeaveHeapScope();
     return true;
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay
 
-using GameNet::BuddyMan;
+using OnlinePlay::FriendsManager;

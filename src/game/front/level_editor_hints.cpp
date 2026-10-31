@@ -2,7 +2,7 @@
 
 #include "game/front/level_editor_hints.h"
 
-namespace Front::LevelEditor::Hints {
+namespace MenuSystem::LevelEditor::Hints {
 
 std::string FirstKey(const std::string& keysText)
 {
@@ -406,4 +406,4 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
     return b.out;
 }
 
-} // namespace Front::LevelEditor::Hints
+} // namespace MenuSystem::LevelEditor::Hints

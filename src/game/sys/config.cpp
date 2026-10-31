@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace Config {
+namespace BuildInfo {
 
 namespace {
 

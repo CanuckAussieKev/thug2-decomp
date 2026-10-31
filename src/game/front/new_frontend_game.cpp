@@ -20,23 +20,23 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 
-namespace Front::NewFrontend::GameScreens {
+namespace MenuSystem::NewFrontend::GameScreens {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu
 constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and source (as InputLogic launches them)
 constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
-uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
-uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
+uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 
-uint32_t IdOf(CScreenElement* element) { return reinterpret_cast<Obj::CObject*>(element)->m_id; }
+uint32_t IdOf(CUiWidget* element) { return reinterpret_cast<GameObjects::CObject*>(element)->m_id; }
 
-bool Paused(Mdl::FrontEnd* frontEnd) { return frontEnd && frontEnd->m_paused; }
+bool Paused(GameModules::FrontEnd* frontEnd) { return frontEnd && frontEnd->m_isHalted; }
 
 } // namespace
 
@@ -55,10 +55,10 @@ const char* AnchorName(Anchor anchor)
 
 std::string GameModeName()
 {
-    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
+    void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
     if (!mode)
         return {};
-    uint32_t name = static_cast<Game::CGameMode*>(mode)->GetNameChecksum();
+    uint32_t name = static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey();
     static const char* const kNames[] = {"singlesession", "freeskate", "career", "classic", "creategoals", "net",
                                          "netlobby", "freeskate_2p", "parkeditor"};
     for (const char* known : kNames)
@@ -71,27 +71,27 @@ std::string GameModeName()
 
 bool NetSession()
 {
-    if (Net::Manager* net = Net::Manager::Instance())
+    if (NetLink::Manager* net = NetLink::Manager::Instance())
         if (net->IsOnline())
             return true;
-    if (void* gameNet = GameNet::g_gameNetManager)
-        if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
+    if (void* gameNet = OnlinePlay::g_gameNetManager)
+        if (static_cast<OnlinePlay::Manager*>(gameNet)->InNetGame())
             return true;
     return GameModeName().rfind("net", 0) == 0;
 }
 
-CScreenElement* Find(uint32_t id)
+CUiWidget* Find(uint32_t id)
 {
-    if (!CScreenElementManager::Instance() || !id)
+    if (!CUiTree::Instance() || !id)
         return nullptr;
     ElementPtr holder;
     GetElement(&holder, id);
     return holder.Get(); // (the manager keeps the element; the holder's reference only for this lookup)
 }
 
-Anchor Current(Mdl::FrontEnd* frontEnd)
+Anchor Current(GameModules::FrontEnd* frontEnd)
 {
-    uint32_t level = LevelLoad();
+    uint32_t level = CurrentLoadState();
     if (!level || NetSession() || LevelEditor::Active())
         return Anchor::None;
     if (level == kLoadMainMenu) {
@@ -113,19 +113,19 @@ Anchor Current(Mdl::FrontEnd* frontEnd)
     return Anchor::Pause;
 }
 
-void LaunchPad(Mdl::FrontEnd* frontEnd, uint32_t type, CScreenElement* element)
+void LaunchPad(GameModules::FrontEnd* frontEnd, uint32_t type, CUiWidget* element)
 {
     if (!element)
         return;
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
     int device = 0;
     if (frontEnd && frontEnd->m_inputHandlers[0] && frontEnd->m_inputHandlers[0]->m_device)
         device = *reinterpret_cast<int*>(frontEnd->m_inputHandlers[0]->m_device + 0xC);
-    params.AddInteger(kDeviceNum, device);
-    params.AddInteger(kController, 0);
-    Obj::Tracker()->LaunchEvent(type, IdOf(element), kMenuEvent, &params, false, -1.0f);
+    params.PutInt(kDeviceNum, device);
+    params.PutInt(kController, 0);
+    GameObjects::Tracker()->LaunchEvent(type, IdOf(element), kMenuEvent, &params, false, -1.0f);
     params.Clear();
 }
 
-} // namespace Front::NewFrontend::GameScreens
+} // namespace MenuSystem::NewFrontend::GameScreens

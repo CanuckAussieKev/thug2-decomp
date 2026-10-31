@@ -1,4 +1,4 @@
-// The skater's finalize-physics component (Obj::CSkaterFinalizePhysicsComponent): see finalize_physics.h.
+// The skater's finalize-physics component (GameObjects::CRiderPhysicsCommit): see finalize_physics.h.
 
 #include "game/skater/finalize_physics.h"
 
@@ -19,7 +19,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -42,14 +42,14 @@ T& Field(void* object, uint32_t offset)
 constexpr int kStateAir = 1, kStateLip = 3;
 
 // The skater's physics value `name` (as GetScaledValue).
-double ScaledPhysicsValue(CCompositeObject* skater, uint32_t name)
+double ScaledPhysicsValue(CGameEntity* skater, uint32_t name)
 {
-    return static_cast<CSkater*>(skater)->GetScaledPhysics(name);
+    return static_cast<CRider*>(skater)->GetScaledPhysics(name);
 }
 // The looping sound component: the speed as a fraction of the top speed.
-void SetLoopingSoundSpeed(CBaseComponent* sound, float fraction)
+void SetLoopingSoundSpeed(CObjectModule* sound, float fraction)
 {
-    static_cast<CSkaterLoopingSoundComponent*>(sound)->SetSpeedFraction(fraction);
+    static_cast<CRiderRollingAudio*>(sound)->SetPaceRatio(fraction);
 }
 
 // `value` into `stored`, `changed` set if it differs.
@@ -63,13 +63,13 @@ void Note(T& stored, T value, uint8_t& changed)
 } // namespace
 
 // 0x00511280
-CBaseComponent* __cdecl CSkaterFinalizePhysicsComponent::Create()
+CObjectModule* __cdecl CRiderPhysicsCommit::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterFinalizePhysicsComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderPhysicsCommit));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterFinalizePhysicsComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderPhysicsCommit*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kSkaterFinalizePhysics;
     component->m_corePhysics = nullptr;
@@ -78,30 +78,30 @@ CBaseComponent* __cdecl CSkaterFinalizePhysicsComponent::Create()
 }
 
 // 0x00511010
-void CSkaterFinalizePhysicsComponent::DestroyBody()
+void CRiderPhysicsCommit::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00511020
-CSkaterFinalizePhysicsComponent* CSkaterFinalizePhysicsComponent::Destroy(unsigned int flags)
+CRiderPhysicsCommit* CRiderPhysicsCommit::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00511050
-void CSkaterFinalizePhysicsComponent::Finalize()
+void CRiderPhysicsCommit::Finalize()
 {
     m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
     m_state = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
 }
 
 // 0x00511080
-void CSkaterFinalizePhysicsComponent::Update()
+void CRiderPhysicsCommit::Update()
 {
     uint8_t* core = m_corePhysics;
     uint8_t* state = m_state;
@@ -115,22 +115,22 @@ void CSkaterFinalizePhysicsComponent::Update()
     }
     if (Field<int>(state, 0x18) != kStateAir)
         Field<uint8_t>(state, 0xF4) = 0;
-    Field<Mth::Vector>(state, 0xF8) = Field<Mth::Vector>(core, 0x58);
-    Field<Mth::Vector>(state, 0x108) = Field<Mth::Vector>(core, 0x68);
+    Field<Maths::Vector>(state, 0xF8) = Field<Maths::Vector>(core, 0x58);
+    Field<Maths::Vector>(state, 0x108) = Field<Maths::Vector>(core, 0x68);
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
-    m_object->m_matrix.OrthoNormalizeAbout(1);
-    Mth::Matrix& physicsMatrix = Field<Mth::Matrix>(core, 0x18);
-    physicsMatrix.OrthoNormalizeAbout(1);
-    if (m_object->m_matrix.PatchOrthogonality())
-        physicsMatrix = reinterpret_cast<CBaseComponent*>(core)->m_object->m_matrix;
+    m_object->m_basisFrame.SquareUpAxes(1);
+    Maths::Matrix& physicsMatrix = Field<Maths::Matrix>(core, 0x18);
+    physicsMatrix.SquareUpAxes(1);
+    if (m_object->m_basisFrame.RestoreRightAngles())
+        physicsMatrix = reinterpret_cast<CObjectModule*>(core)->m_object->m_basisFrame;
     m_object->m_displayMatrix = physicsMatrix;
 
     // The sounds: terrain and state.
     uint8_t* sound = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterSound));
     Field<uint8_t>(sound, 0x1E) = Field<uint8_t>(m_state, 0x58);
     Field<uint8_t>(sound, 0x1C) = Field<uint8_t>(m_state, 0xE1);
-    CBaseComponent* looping = m_object->GetComponent(kSkaterLoopingSound);
+    CObjectModule* looping = m_object->GetComponent(kSkaterLoopingSound);
     double x = m_object->m_vel.x, z = m_object->m_vel.z;
     float speed = static_cast<float>(std::sqrt(x * x + z * z));
     float fraction = static_cast<float>(speed / ScaledPhysicsValue(m_object, kSkaterMaxMaxSpeedStat));
@@ -145,22 +145,22 @@ void CSkaterFinalizePhysicsComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterFinalizePhysicsComponent::Destroy,
-         &Obj::CSkaterFinalizePhysicsComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPhysicsCommit::Destroy,
+         &GameObjects::CRiderPhysicsCommit::Update,
          Stubs::IgnoreArgument,
-         &Obj::CSkaterFinalizePhysicsComponent::Finalize,
+         &GameObjects::CRiderPhysicsCommit::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

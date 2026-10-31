@@ -57,7 +57,7 @@
 #include "game/gfx/movie.h"
 #include "game/sys/crt.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 bool g_tryingToJoin;
 char g_nodeArrayName[128];
@@ -84,42 +84,42 @@ constexpr uint32_t kControllerMissing = 0x9C9DFCF8;  // (name unknown) ... and w
 constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the object whose camera a view mode uses
 constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the object whose camera is used otherwise
 
-// The skate module (Mdl::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
-Obj::CSkaterProfile* GetProfile(int index)
+// The skate module (GameModules::Skate, 0x007CE478) and its code we call through the game.
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
+GameObjects::CRiderIdentity* GetProfile(int index)
 {
     // (0x00564F80 is the overload taking the params: the original passes the index in its place - 0, no params, the
     // current profile)
-    return reinterpret_cast<Mdl::Skate*>(Skate())->GetProfile(reinterpret_cast<Script::CStruct*>(index));
+    return reinterpret_cast<GameModules::Skate*>(Skate())->GetProfile(reinterpret_cast<Scripts::CStruct*>(index));
 }
-Obj::CSkater* GetSkater(int index)
+GameObjects::CRider* GetRiderAt(int index)
 {
-    return static_cast<Obj::CSkater*>(reinterpret_cast<Mdl::Skate*>(Skate())->GetSkater(index));
+    return static_cast<GameObjects::CRider*>(reinterpret_cast<GameModules::Skate*>(Skate())->GetRiderAt(index));
 }
 
 // The object manager (0x006F0FB8).
-Obj::CBaseManager* Objects() { return reinterpret_cast<Obj::CBaseManager*>(Obj::g_compositeObjectManager); }
+GameObjects::CObjectHubBase* Objects() { return reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager); }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
-Gfx::Camera* ViewportCamera(int viewport) { return Nx::GetActiveCamera(viewport); }
+Gfx2D::Camera* ViewportCamera(int viewport) { return Engine3D::FetchLiveCamera(viewport); }
 void SetViewportCamera(int viewport, void* camera)
 {
-    Nx::SetCamera(viewport, static_cast<Gfx::Camera*>(camera));
+    Engine3D::ChooseCamera(viewport, static_cast<Gfx2D::Camera*>(camera));
 }
 
 // The preferences of a type (0x00565680: the network's, the taunts', the skate module's; null for others). The
 // original passes a second argument (1) that isn't read.
-Prefs::Preferences* GetPreferencesOfType(uint32_t type)
+OptionStore::Preferences* GetPreferencesOfType(uint32_t type)
 {
-    return Mdl::Skate::GetPreferences(type);
+    return GameModules::Skate::GetPlayerOptions(type);
 }
 
-// The network game flags (GameNet).
-bool& InternetGameHost() { return Sys::g_internetGameHost; }
-bool& JoiningInternetGame() { return Sys::g_joiningInternetGame; }
+// The network game flags (OnlinePlay).
+bool& InternetGameHost() { return SystemCore::g_internetGameHost; }
+bool& JoiningInternetGame() { return SystemCore::g_joiningInternetGame; }
 bool& TryingToJoin() { return g_tryingToJoin; }
-bool& NetEnabled() { return GameNet::g_netEnabled; }
-bool& JoinServerIPSucceeded() { return GameNet::g_joinServerIPSucceeded; }
+bool& NetEnabled() { return OnlinePlay::g_netEnabled; }
+bool& JoinServerIPSucceeded() { return OnlinePlay::g_joinServerIPSucceeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
 void*& SecondControllerCheck() { return g_secondControllerCheck; }
@@ -128,17 +128,17 @@ int& ViewMode() { return g_viewModeCfunc; }
 // GetPreferencePassword's row of stars (0x007CEBD0).
 char* PasswordStars() { return g_passwordStars; }
 
-Obj::CViewerObject* ViewerObject(Mdl::Viewer* viewer) { return static_cast<Obj::CViewerObject*>(viewer->GetViewerObject()); }
+GameObjects::CPreviewEntity* ViewerObject(GameModules::Viewer* viewer) { return static_cast<GameObjects::CPreviewEntity*>(viewer->GetViewerEntity()); }
 
 } // namespace
 
 // 0x0059F610: SetViewerAnim <anim>: the viewer's object plays the animation (if there's a viewer and an object).
-bool __cdecl CFunc_SetViewerAnim(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetViewerAnim(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (Mdl::Viewer* viewer = Mdl::GetViewer()) {
+    if (GameModules::Viewer* viewer = GameModules::GetLiveViewer()) {
         uint32_t anim = 0; // (unset in the original when missing - an asserted parameter)
-        params->GetChecksum(0u, &anim, 1);
-        if (Obj::CViewerObject* object = ViewerObject(viewer))
+        params->ReadHashValue(0u, &anim, 1);
+        if (GameObjects::CPreviewEntity* object = ViewerObject(viewer))
             object->PlayAnimation(anim);
     }
     return true;
@@ -146,48 +146,48 @@ bool __cdecl CFunc_SetViewerAnim(Script::CStruct* params, Script::CScript*)
 
 // 0x0059F650: SetViewerLODDist (x, y): the viewer's object's model component gets colour value `x` (an index,
 // truncated) set to `y`. False without the pair (with a viewer); true otherwise.
-bool __cdecl CFunc_SetViewerLODDist(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetViewerLODDist(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Mdl::Viewer* viewer = Mdl::GetViewer();
+    GameModules::Viewer* viewer = GameModules::GetLiveViewer();
     if (!viewer)
         return true;
-    Script::CPair pair;
+    Scripts::CPair pair;
     pair.Init();
-    if (!params->GetPair(0u, &pair, false))
+    if (!params->FetchPair(0u, &pair, false))
         return false;
-    if (Obj::CViewerObject* object = ViewerObject(viewer)) {
+    if (GameObjects::CPreviewEntity* object = ViewerObject(viewer)) {
         // (the model component isn't checked for null, as in the original)
-        auto* model = reinterpret_cast<Obj::CModelComponent*>(object->GetComponent(kModel));
+        auto* model = reinterpret_cast<GameObjects::CMeshInstanceModule*>(object->GetComponent(kModel));
         model->SetColorValue(static_cast<int>(pair.x), pair.y);
     }
     return true;
 }
 
 // 0x0059F6C0: ReloadViewerAnim <anim> "<file>": the viewer's object reloads the animation from the file.
-bool __cdecl CFunc_ReloadViewerAnim(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ReloadViewerAnim(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Mdl::Viewer* viewer = Mdl::GetViewer();
+    GameModules::Viewer* viewer = GameModules::GetLiveViewer();
     if (!viewer)
         return true;
-    Obj::CViewerObject* object = ViewerObject(viewer);
+    GameObjects::CPreviewEntity* object = ViewerObject(viewer);
     if (!object)
         return true;
     uint32_t anim;
     const char* file;
-    if (params->GetChecksum(0u, &anim, 0) && params->GetString(0u, &file, 0))
+    if (params->ReadHashValue(0u, &anim, 0) && params->GetString(0u, &file, 0))
         object->ReloadAnimation(file, anim);
     return true;
 }
 
 // 0x0059F730: CheckForHoles (0x0048C8F0).
-bool __cdecl CFunc_CheckForHoles(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_CheckForHoles(Scripts::CStruct*, Scripts::CScript*)
 {
-    Nx::PrintCollStatics();
+    Engine3D::PrintCollStatics();
     return true;
 }
 
 // 0x0059F740: StopSecondControllerCheck: the check's task (if any) deleted.
-bool __cdecl CFunc_StopSecondControllerCheck(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_StopSecondControllerCheck(Scripts::CStruct*, Scripts::CScript*)
 {
     if (void* task = SecondControllerCheck()) {
         auto destroy = (*static_cast<void* (__thiscall***)(void*, unsigned int)>(task))[2];
@@ -198,52 +198,52 @@ bool __cdecl CFunc_StopSecondControllerCheck(Script::CStruct*, Script::CScript*)
 }
 
 // 0x0059F760: QuitGame: the game ends (0x007D6A2C).
-bool __cdecl CFunc_QuitGame(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_QuitGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    Nx::g_quitRequested = true;
+    Engine3D::g_quitRequested = true;
     return true;
 }
 
 // 0x0059F770: IsInternetGameHost.
-bool __cdecl CFunc_IsInternetGameHost(Script::CStruct*, Script::CScript*) { return InternetGameHost(); }
+bool __cdecl CFunc_IsInternetGameHost(Scripts::CStruct*, Scripts::CScript*) { return InternetGameHost(); }
 
 // 0x0059F780: IsJoiningInternetGame (logged).
-bool __cdecl CFunc_IsJoiningInternetGame(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_IsJoiningInternetGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    Dbg::Printf("ScriptIsJoiningInternetGame %d\n", JoiningInternetGame()); // "ScriptIsJoiningInternetGame %d\n"
+    DebugOut::Printf("ScriptIsJoiningInternetGame %d\n", JoiningInternetGame()); // "ScriptIsJoiningInternetGame %d\n"
     return JoiningInternetGame();
 }
 
 // 0x0059F7A0: TryingToJoinGame.
-bool __cdecl CFunc_TryingToJoinGame(Script::CStruct*, Script::CScript*) { return TryingToJoin(); }
+bool __cdecl CFunc_TryingToJoinGame(Scripts::CStruct*, Scripts::CScript*) { return TryingToJoin(); }
 
 // 0x0059F7B0: TryJoinServerIPSuccess: whether joining by IP worked (forgotten once no join is being tried; logged).
-bool __cdecl CFunc_TryJoinServerIPSuccess(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_TryJoinServerIPSuccess(Scripts::CStruct*, Scripts::CScript*)
 {
     if (!TryingToJoin())
         JoinServerIPSucceeded() = false;
-    Dbg::Printf("ScriptTryJoinServerIPSuccess %d\n", JoinServerIPSucceeded()); // "ScriptTryJoinServerIPSuccess %d\n"
+    DebugOut::Printf("ScriptTryJoinServerIPSuccess %d\n", JoinServerIPSucceeded()); // "ScriptTryJoinServerIPSuccess %d\n"
     return JoinServerIPSucceeded();
 }
 
 // 0x0059F7E0 / 0x0059F7F0: GSEnableNet / GSDisableNet.
-bool __cdecl CFunc_GSEnableNet(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_GSEnableNet(Scripts::CStruct*, Scripts::CScript*)
 {
     NetEnabled() = true;
     return true;
 }
 
-bool __cdecl CFunc_GSDisableNet(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_GSDisableNet(Scripts::CStruct*, Scripts::CScript*)
 {
     NetEnabled() = false;
     return true;
 }
 
 // 0x0059F800: WaitForAsyncLoadToFinish: waits for every asynchronous file read.
-bool __cdecl CFunc_WaitForAsyncLoadToFinish(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_WaitForAsyncLoadToFinish(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (File::AsyncBusy())
-        File::AsyncWaitForIO(true);
+    if (FileLoad::AsyncBusy())
+        FileLoad::AsyncWaitForIO(true);
     return true;
 }
 
@@ -251,25 +251,25 @@ bool __cdecl CFunc_WaitForAsyncLoadToFinish(Script::CStruct*, Script::CScript*)
 void __cdecl SecondControllerCheckTask(void*)
 {
     Sio::Manager* devices = Sio::ManagerInstance();
-    Sio::Device* first = devices->GetDeviceByIndex(0);
-    Sio::Device* second = devices->GetDeviceByIndex(1);
-    if (second->IsPluggedIn() && first->IsPluggedIn())
-        Script::RunScript(kBothControllersIn, nullptr, nullptr, false, nullptr);
+    Sio::Device* first = devices->GetPadAtSlot(0);
+    Sio::Device* second = devices->GetPadAtSlot(1);
+    if (second->IsAttached() && first->IsAttached())
+        Scripts::LaunchScript(kBothControllersIn, nullptr, nullptr, false, nullptr);
     else
-        Script::RunScript(kControllerMissing, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(kControllerMissing, nullptr, nullptr, false, nullptr);
 }
 
 // 0x0059F890
 bool __cdecl MakeCameraActive(uint32_t id, int viewport, bool takeCurrentView)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Objects()->GetObjectByID(id));
+    auto* object = static_cast<GameObjects::CGameEntity*>(Objects()->LookUpEntity(id));
     if (!object)
         return false;
-    Obj::CBaseComponent* camera = object->GetComponent(kCamera);
+    GameObjects::CObjectModule* camera = object->GetComponent(kCamera);
     if (!camera)
         return true;
     if (takeCurrentView) {
-        object->m_matrix = *ViewportCamera(viewport)->GetMatrix();
+        object->m_basisFrame = *ViewportCamera(viewport)->GetMatrix();
         object->m_pos = *ViewportCamera(viewport)->GetPos();
         (*reinterpret_cast<void(__thiscall***)(void*)>(camera))[1](camera); // (vtable slot 1)
     }
@@ -279,17 +279,17 @@ bool __cdecl MakeCameraActive(uint32_t id, int viewport, bool takeCurrentView)
 
 // 0x0059F930: GetCustomSkaterFilename: the first profile's custom skater file name ("Unimplemented" if none) as
 // the script's 0xF36C1878.
-bool __cdecl CFunc_GetCustomSkaterFilename(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetCustomSkaterFilename(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Obj::CSkaterProfile* profile = GetProfile(0);
+    GameObjects::CRiderIdentity* profile = GetProfile(0);
     script->m_params->AddString(kCustomSkaterFile, profile->GetStringF36C1878());
     return true;
 }
 
 // 0x0059F960: SetCustomSkaterFilename ["<name>" ("Unimplemented")]: the first profile's custom skater file name.
-bool __cdecl CFunc_SetCustomSkaterFilename(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetCustomSkaterFilename(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = GetProfile(0);
+    GameObjects::CRiderIdentity* profile = GetProfile(0);
     const char* name = "Unimplemented"; // "Unimplemented"
     params->GetString(0u, &name, 0);
     profile->SetStringF36C1878(name);
@@ -298,14 +298,14 @@ bool __cdecl CFunc_SetCustomSkaterFilename(Script::CStruct* params, Script::CScr
 
 // 0x0059F9A0: ControllerPressed <button> [controller]: whether the button is held on that controller (the front
 // end's handler) - without a number, on either. False without a button.
-bool __cdecl CFunc_ControllerPressed(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ControllerPressed(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
+    GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
     uint32_t button = 0;
-    if (!params->GetChecksum(0u, &button, 0))
+    if (!params->ReadHashValue(0u, &button, 0))
         return false;
     int controller;
-    if (params->GetInteger(0u, &controller, 0))
+    if (params->FetchIntValue(0u, &controller, 0))
         return ControllerPressed(frontEnd->m_inputHandlers[controller], button);
     for (int i = 0; i < 2; ++i) {
         if (ControllerPressed(frontEnd->m_inputHandlers[i], button))
@@ -316,52 +316,52 @@ bool __cdecl CFunc_ControllerPressed(Script::CStruct* params, Script::CScript*)
 
 // 0x0059FA40: GetAnalogueInfo [controller=n (0)]: the controller's sticks as leftx / lefty / rightx / righty in
 // the script's parameters - false (and none) if it isn't plugged in and valid.
-bool __cdecl CFunc_GetAnalogueInfo(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetAnalogueInfo(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
+    GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
     int controller = 0;
-    params->GetInteger(kController, &controller, 0);
-    Mdl::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[controller];
-    Obj::CControlPad pad;
+    params->FetchIntValue(kController, &controller, 0);
+    GameModules::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[controller];
+    GameObjects::CPadState pad;
     pad.Init();
     pad.Update(reinterpret_cast<const uint8_t*>(handler->m_controlData));
     auto* device = reinterpret_cast<Sio::Device*>(handler->m_device);
-    if (!device->IsPluggedIn() || !device->m_valid)
+    if (!device->IsAttached() || !device->m_isUsable)
         return false;
-    script->m_params->AddFloat(kLeftX, pad.m_scaledStick[2]);
-    script->m_params->AddFloat(kLeftY, pad.m_scaledStick[3]);
-    script->m_params->AddFloat(kRightX, pad.m_scaledStick[0]);
-    script->m_params->AddFloat(kRightY, pad.m_scaledStick[1]);
+    script->m_params->PushFloat(kLeftX, pad.m_scaledStick[2]);
+    script->m_params->PushFloat(kLeftY, pad.m_scaledStick[3]);
+    script->m_params->PushFloat(kRightX, pad.m_scaledStick[0]);
+    script->m_params->PushFloat(kRightY, pad.m_scaledStick[1]);
     return true;
 }
 
 // 0x0059FB10
-void __cdecl DestroyObjectWithId(Obj::CObject* object, void* id)
+void __cdecl DestroyObjectWithId(GameObjects::CObject* object, void* id)
 {
     if (object->m_id == *static_cast<uint32_t*>(id))
-        object->DestroyIfUnlocked();
+        object->DisposeWhenFree();
 }
 
 // 0x0059FB30: NodeArrayManLoad "<file>": the node array's name noted (0x007CE6D8, copied unchecked) and the file
 // loaded as an asset of type 11 (the node array manager's).
-bool __cdecl CFunc_NodeArrayManLoad(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_NodeArrayManLoad(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* file = nullptr;
     params->GetString(0u, &file, 1);
     char* out = g_nodeArrayName;
     for (const char* in = file; (*out++ = *in++) != '\0';) {
     }
-    Ass::AssetManager()->LoadAsset(file, 11, 0, 0, false, false, false, nullptr, 0);
-    Dbg::Printf("p_file = %s\n", file); // "p_file = %s\n"
+    AssetStore::AssetManager()->LoadAsset(file, 11, 0, 0, false, false, false, nullptr, 0);
+    DebugOut::Printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
 }
 
 // 0x0059FB90: NodeArrayManUnload "<file>": the node manager drops the file's node array.
-bool __cdecl CFunc_NodeArrayManUnload(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_NodeArrayManUnload(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* file = nullptr;
     params->GetString(0u, &file, 1);
-    SkateScript::NodeManagerInstance()->RemoveNodeArrayOfFile(file);
+    LevelNodes::NodeManagerInstance()->RemoveNodeArrayOfFile(file);
     return true;
 }
 
@@ -369,14 +369,14 @@ bool __cdecl CFunc_NodeArrayManUnload(Script::CStruct* params, Script::CScript*)
 // Without pref_type the original reads the type from the slot it would have been written to - the `script`
 // argument's (kept: a type no set has, so a null set; the call on it crashes, as does a missing field's
 // preference).
-bool __cdecl CFunc_GetPreferenceString(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPreferenceString(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::CStruct* results = script->m_params;
+    Scripts::CStruct* results = script->m_params;
     uint32_t field = 0;
-    params->GetChecksum(0u, &field, 0);
+    params->ReadHashValue(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script);
-    params->GetChecksum(kPrefType, &type, 0);
-    Script::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
+    params->ReadHashValue(kPrefType, &type, 0);
+    Scripts::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
     const char* text = nullptr; // (unset in the original when missing)
     preference->GetString(kUiString, &text, 0);
     results->AddString(kUiString, text);
@@ -385,14 +385,14 @@ bool __cdecl CFunc_GetPreferenceString(Script::CStruct* params, Script::CScript*
 
 // 0x0059FC40: GetPreferencePassword <field> pref_type=<type>: as many stars as the preference's ui_string has
 // characters (in a static buffer, 0x007CEBD0, unchecked), as the script's password_string.
-bool __cdecl CFunc_GetPreferencePassword(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPreferencePassword(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::CStruct* results = script->m_params;
+    Scripts::CStruct* results = script->m_params;
     uint32_t field = 0;
-    params->GetChecksum(0u, &field, 0);
+    params->ReadHashValue(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
-    params->GetChecksum("pref_type", &type, 0); // "pref_type"
-    Script::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
+    params->ReadHashValue("pref_type", &type, 0); // "pref_type"
+    Scripts::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
     const char* password = nullptr; // (unset in the original when missing)
     preference->GetString("ui_string", &password, 0); // "ui_string"
     char* stars = PasswordStars();
@@ -405,24 +405,24 @@ bool __cdecl CFunc_GetPreferencePassword(Script::CStruct* params, Script::CScrip
 }
 
 // 0x0059FD00: GetPreferenceChecksum <field> pref_type=<type>: the preference's checksum, as the script's checksum.
-bool __cdecl CFunc_GetPreferenceChecksum(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPreferenceChecksum(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::CStruct* results = script->m_params;
+    Scripts::CStruct* results = script->m_params;
     uint32_t field = 0;
-    params->GetChecksum(0u, &field, 0);
+    params->ReadHashValue(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
-    params->GetChecksum("pref_type", &type, 0); // "pref_type"
-    Script::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
+    params->ReadHashValue("pref_type", &type, 0); // "pref_type"
+    Scripts::CStruct* preference = GetPreferencesOfType(type)->GetPreference(field);
     uint32_t value = 0; // (unset in the original when missing)
-    preference->GetChecksum(kChecksum, &value, 0);
-    results->AddChecksum(kChecksum, value);
+    preference->ReadHashValue(kChecksum, &value, 0);
+    results->PutNameKey(kChecksum, value);
     return true;
 }
 
 // 0x0059FD80: ToggleNetMetrics.
-bool __cdecl CFunc_ToggleNetMetrics(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ToggleNetMetrics(Scripts::CStruct*, Scripts::CScript*)
 {
-    GameNet::g_gameNetManager->ToggleNetMetrics();
+    OnlinePlay::g_gameNetManager->ToggleNetMetrics();
     return true;
 }
 
@@ -436,15 +436,15 @@ namespace {
 void ApplyViewMode(int mode)
 {
     ViewMode() = mode;
-    Mdl::SetViewMode(mode);
+    GameModules::SetViewMode(mode);
     if (ViewMode()) {
         MakeCameraActive(kViewerCameraObject, 0, true);
-    } else if (Obj::CObject* object = Objects()->GetObjectByID(kSkaterCamObject)) {
-        if (Obj::CBaseComponent* camera = static_cast<Obj::CCompositeObject*>(object)->GetComponent(kCamera))
+    } else if (GameObjects::CObject* object = Objects()->LookUpEntity(kSkaterCamObject)) {
+        if (GameObjects::CObjectModule* camera = static_cast<GameObjects::CGameEntity*>(object)->GetComponent(kCamera))
             SetViewportCamera(0, reinterpret_cast<void**>(camera)[0x18 / 4]);
     }
     for (int i = 0; i < 8; ++i) {
-        if (Obj::CSkater* skater = GetSkater(i))
+        if (GameObjects::CRider* skater = GetRiderAt(i))
             skater->SetPauseState(ViewMode());
     }
 }
@@ -452,25 +452,25 @@ void ApplyViewMode(int mode)
 } // namespace
 
 // 0x0059FD90: SetViewMode <mode>: the view mode (ApplyViewMode), and the viewer lets go of its object.
-bool __cdecl CFunc_SetViewMode(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetViewMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     int mode = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetInteger(0u, &mode, 1);
+    params->FetchIntValue(0u, &mode, 1);
     ApplyViewMode(mode);
-    if (Mdl::Viewer* viewer = Mdl::GetViewer())
-        viewer->RemoveViewerObject();
+    if (GameModules::Viewer* viewer = GameModules::GetLiveViewer())
+        viewer->DropViewerEntity();
     return true;
 }
 
 // 0x005A1C80: SetViewerModel <...>: view mode 1; the viewer (if any) places its camera and makes a viewer object
 // from the parameters.
-bool __cdecl CFunc_SetViewerModel(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetViewerModel(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Mdl::Viewer* viewer = Mdl::GetViewer();
+    GameModules::Viewer* viewer = GameModules::GetLiveViewer();
     ApplyViewMode(1);
     if (viewer) {
         viewer->PlaceCamera(params);
-        Script::PrintContents(params, 0);
+        Scripts::DumpToLog(params, 0);
         viewer->CreateViewerObject(params);
     }
     return true;
@@ -478,12 +478,12 @@ bool __cdecl CFunc_SetViewerModel(Script::CStruct* params, Script::CScript*)
 
 // 0x005A1D40: GetViewerObjectID: the viewer object's id as the script's 0x0830ECAF and 0x52280066 (the object isn't
 // checked for null).
-bool __cdecl CFunc_GetViewerObjectID(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetViewerObjectID(Scripts::CStruct*, Scripts::CScript* script)
 {
-    if (Mdl::Viewer* viewer = Mdl::GetViewer()) {
-        Obj::CViewerObject* object = ViewerObject(viewer);
-        script->m_params->AddChecksum(0x0830ECAF, object->m_id);
-        script->m_params->AddChecksum(0x52280066, object->m_id);
+    if (GameModules::Viewer* viewer = GameModules::GetLiveViewer()) {
+        GameObjects::CPreviewEntity* object = ViewerObject(viewer);
+        script->m_params->PutNameKey(0x0830ECAF, object->m_id);
+        script->m_params->PutNameKey(0x52280066, object->m_id);
     }
     return true;
 }
@@ -491,91 +491,91 @@ bool __cdecl CFunc_GetViewerObjectID(Script::CStruct*, Script::CScript* script)
 // 0x005A1D80: ReloadAnim 0x52A864B0=<anim> 0x98549BA4=<base> 0xC3F4169A="<file>": the animation asset (by base +
 // anim, or without a base the file name's checksum) unloaded and loaded again from the file (in the debug heap while
 // 0x007CEFAC is set). False if it isn't loaded.
-bool __cdecl CFunc_ReloadAnim(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ReloadAnim(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t anim = 0;
-    params->GetChecksum(0x52A864B0u, &anim, 0);
+    params->ReadHashValue(0x52A864B0u, &anim, 0);
     uint32_t base = 0;
-    params->GetChecksum(0x98549BA4u, &base, 0);
+    params->ReadHashValue(0x98549BA4u, &base, 0);
     const char* file = ""; // ""
     params->GetString(0xC3F4169Au, &file, 0);
-    Ass::CAssMan* assets = Ass::AssetManager();
-    uint32_t name = Crc::GenerateCRCFromString(file);
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
+    uint32_t name = Checksums::HashFromText(file);
     if (base)
         name = base + anim;
-    Ass::CAsset* asset = assets->GetAsset(name, 0);
+    AssetStore::CResource* asset = assets->ObtainLoadedItem(name, 0);
     if (!asset)
         return false;
-    assets->UnloadAsset(asset);
+    assets->DiscardLoadedItem(asset);
     bool debugHeap = g_gotExtraMemory;
     if (debugHeap) {
-        Mem::Manager* memory = Mem::Manager::Get();
-        memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
+        MemSys::Manager* memory = MemSys::Manager::Get();
+        memory->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(memory->m_debugHeap));
     }
     assets->LoadAnim(file, base, anim, false, false);
     if (g_gotExtraMemory)
-        Mem::Manager::Get()->PopContext();
+        MemSys::Manager::Get()->LeaveHeapScope();
     return true;
 }
 
 // 0x005A1E70: Debounce <button> [time=seconds (1)] [0x1A4E0EF9=n]: every input component locks the button for that
 // long (released if n), and every trick component holds it off until the clock (ms) + time * 1000. Nothing without
 // a button.
-bool __cdecl CFunc_Debounce(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_Debounce(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t button = 0;
-    params->GetChecksum(0u, &button, 0);
+    params->ReadHashValue(0u, &button, 0);
     if (!button)
         return true;
     float time = 1.0f;
     params->GetFloat(0x906B67BAu, &time, 0); // "time"
     int release = 0;
-    params->GetInteger(0x1A4E0EF9u, &release, 0);
-    auto* objects = Obj::g_compositeObjectManager;
-    for (Obj::CBaseComponent* input = objects->GetFirstComponentByType(0x27D7CD28); input; input = input->mp_nextOfType)
-        static_cast<Obj::CInputComponent*>(input)->LockButton(button, time, release != 0);
+    params->FetchIntValue(0x1A4E0EF9u, &release, 0);
+    auto* objects = GameObjects::g_compositeObjectManager;
+    for (GameObjects::CObjectModule* input = objects->FindFirstModuleOfKind(0x27D7CD28); input; input = input->mp_nextOfType)
+        static_cast<GameObjects::CPadInputModule*>(input)->LockButton(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
-    float until = static_cast<float>(static_cast<double>(Tmr::GetTime()) +
-                                     static_cast<double>(time) * static_cast<double>(Gfx::g_thousand));
-    for (Obj::CBaseComponent* trick = objects->GetFirstComponentByType(0x270F56E1); trick; trick = trick->mp_nextOfType)
-        static_cast<Obj::CTrickComponent*>(trick)->HoldOffButton(Inp::ButtonIndex(button), until);
+    float until = static_cast<float>(static_cast<double>(FrameClock::GetTime()) +
+                                     static_cast<double>(time) * static_cast<double>(Gfx2D::g_thousand));
+    for (GameObjects::CObjectModule* trick = objects->FindFirstModuleOfKind(0x270F56E1); trick; trick = trick->mp_nextOfType)
+        static_cast<GameObjects::CMoveExecutor*>(trick)->HoldOffButton(PadInput::ButtonIndex(button), until);
     return true;
 }
 
 // 0x005A2050: StartKeyboardHandler 0x69E3A1C4=<device>: typed keys reported for it.
-bool __cdecl CFunc_StartKeyboardHandler(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_StartKeyboardHandler(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
+    GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
     int device = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetInteger(0x69E3A1C4u, &device, true);
-    frontEnd->AddKeyboardHandler(device);
+    params->FetchIntValue(0x69E3A1C4u, &device, true);
+    frontEnd->RegisterKeyListener(device);
     return true;
 }
 
 // 0x005A2080: StopKeyboardHandler.
-bool __cdecl CFunc_StopKeyboardHandler(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_StopKeyboardHandler(Scripts::CStruct*, Scripts::CScript*)
 {
-    Mdl::FrontEndInstance()->RemoveKeyboardHandler();
+    GameModules::FrontEndInstance()->UnregisterKeyListener();
     return true;
 }
 
-// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (Tsk::Task, SecondControllerCheckTask,
+// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (TaskList::Task, SecondControllerCheckTask,
 // priority 0) made and added to the main loop's logic tasks. (The original gives the task a pointer to one of its
 // own locals as its data - the task never reads it; null here.)
-bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_SpawnSecondControllerCheck(Scripts::CStruct*, Scripts::CScript*)
 {
-    auto* mainLoop = Ass::g_mainLoopManager;
+    auto* mainLoop = AssetStore::g_mainLoopManager;
     if (SecondControllerCheck())
         return true;
-    auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
+    auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        reinterpret_cast<Tsk::BaseTask*>(task)->Construct(0);
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // Tsk::Task vtable
+        reinterpret_cast<TaskList::SchedulerTask*>(task)->Construct(0);
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // TaskList::Task vtable
         task[0x18 / 4] = reinterpret_cast<uint32_t>(&SecondControllerCheckTask);
         task[0x1C / 4] = 0;
     }
     SecondControllerCheck() = task;
-    mainLoop->m_logicTasks.AddTask(reinterpret_cast<Tsk::BaseTask*>(task));
+    mainLoop->m_logicTasks.AddTask(reinterpret_cast<TaskList::SchedulerTask*>(task));
     return true;
 }
 
@@ -588,19 +588,19 @@ constexpr uint32_t kPosition = 0xB9D31B0A; // "position"
 constexpr uint32_t kClassClimbingNode = 0x30C19600; // "ClimbingNode"
 constexpr uint32_t kClassRailNode = 0x8E6B02AD;     // "RailNode"
 
-bool GetPosition(Script::CStruct* structure, Script::VectorValue* out)
+bool GetPosition(Scripts::CStruct* structure, Scripts::VectorValue* out)
 {
     return structure->GetVector(kPosition, out, 0) || structure->GetVector(kPos, out, 0);
 }
 
 // The getter folded at 0x00576E60 (the word at +0x54: the viewer's object, a profile's face texture...).
-void* Word54(void* object) { return reinterpret_cast<Mdl::Viewer*>(object)->GetViewerObject(); }
+void* Word54(void* object) { return reinterpret_cast<GameModules::Viewer*>(object)->GetViewerEntity(); }
 
 // The game's C runtime (library code, called through the game).
 void* GameFopen(const char* name, const char* mode) { return Crt::Fopen(name, mode); }
 int GameFseek(void* file, long offset, int origin) { return Crt::Fseek(static_cast<FILE*>(file), offset, origin); }
 long GameFtell(void* file) { return Crt::Ftell(static_cast<FILE*>(file)); }
-void* GameMalloc(size_t size) { return Crt::Malloc(size); }
+void* GameMalloc(size_t size) { return Crt::AllocBlock(size); }
 size_t GameFread(void* buffer, size_t size, size_t count, void* file)
 {
     return Crt::Fread(buffer, size, count, static_cast<FILE*>(file));
@@ -610,7 +610,7 @@ void GameFree(void* memory) { Crt::Free(memory); }
 double GameAtof(const char* text) { return Crt::Atof(text); }
 
 // ShowTracking's debug line drawing - compiled out of this build (an empty call, 0x005480A0).
-inline void DrawDebugLine(const Mth::Vector* /*from*/, const Mth::Vector* /*to*/, uint32_t /*colour1*/,
+inline void DrawDebugLine(const Maths::Vector* /*from*/, const Maths::Vector* /*to*/, uint32_t /*colour1*/,
                           uint32_t /*colour2*/, int /*unused*/)
 {
 }
@@ -623,36 +623,36 @@ inline void CompiledOutDebugCall() {}
 // its object's position (if there is one) set. Rail and climbing nodes are moved in the rail manager too; the other
 // known classes (Pedestrian, ProximNode, Vehicle, LevelObject, LevelGeometry, GameObject, 0x061A741E) need nothing
 // more; any other class: false. Also false (with a message) without the name or a position.
-bool __cdecl CFunc_MoveNode(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_MoveNode(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name;
-    if (!params->GetChecksum(0xA1DC81F9u, &name, 0)) { // "name"
-        Dbg::Printf("Missing Name\n"); // "Missing Name\n"
+    if (!params->ReadHashValue(0xA1DC81F9u, &name, 0)) { // "name"
+        DebugOut::Printf("Missing Name\n"); // "Missing Name\n"
         return false;
     }
-    Script::CStruct* node = SkateScript::GetNode(name, false);
+    Scripts::CStruct* node = LevelNodes::GetNode(name, false);
     if (!node)
         return false;
-    Script::VectorValue position;
+    Scripts::VectorValue position;
     if (!GetPosition(params, &position)) {
-        Dbg::Printf("Missing position parameter in MoveNode\n"); // "Missing position parameter in MoveNode\n"
+        DebugOut::Printf("Missing position parameter in MoveNode\n"); // "Missing position parameter in MoveNode\n"
         return false;
     }
-    Script::VectorValue old;
+    Scripts::VectorValue old;
     if (!GetPosition(node, &old)) {
-        Dbg::Printf("node is missing position\n"); // "node is missing position\n"
+        DebugOut::Printf("node is missing position\n"); // "node is missing position\n"
         return false;
     }
-    node->AddVector(kPos, position.x, position.y, position.z);
-    if (Obj::CObject* object = Objects()->GetObjectByID(name))
-        std::memcpy(&static_cast<Obj::CCompositeObject*>(object)->m_pos, &position, sizeof(position));
+    node->PutVec3(kPos, position.x, position.y, position.z);
+    if (GameObjects::CObject* object = Objects()->LookUpEntity(name))
+        std::memcpy(&static_cast<GameObjects::CGameEntity*>(object)->m_pos, &position, sizeof(position));
     uint32_t nodeClass = 0;
-    node->GetChecksum(0x12B4E660u, &nodeClass, 0); // "class"
+    node->ReadHashValue(0x12B4E660u, &nodeClass, 0); // "class"
     switch (nodeClass) {
     case kClassClimbingNode:
     case kClassRailNode:
-        (*reinterpret_cast<Obj::CRailManager**>(Skate() + 0x24))
-            ->MoveNode(name, reinterpret_cast<const Mth::Vector*>(&position));
+        (*reinterpret_cast<GameObjects::CGrindRailHub**>(Skate() + 0x24))
+            ->MoveNode(name, reinterpret_cast<const Maths::Vector*>(&position));
         return true;
     case 0xA0DFAC98: // Pedestrian
     case 0x061A741E: // (name unknown)
@@ -669,13 +669,13 @@ bool __cdecl CFunc_MoveNode(Script::CStruct* params, Script::CScript*)
 
 // 0x005A2370: SetActiveCamera id=<object> [0x9FD29151=viewport (0)] [0x10C1C887]: MakeCameraActive (taking the
 // current view with the flag); its answer.
-bool __cdecl CFunc_SetActiveCamera(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetActiveCamera(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t id = 0;
-    params->GetChecksum(0x40C698AFu, &id, 0); // "id"
+    params->ReadHashValue(0x40C698AFu, &id, 0); // "id"
     int viewport = 0;
-    params->GetInteger(0x9FD29151u, &viewport, 0);
-    bool takeCurrentView = params->ContainsFlag(0x10C1C887u);
+    params->FetchIntValue(0x9FD29151u, &viewport, 0);
+    bool takeCurrentView = params->HasBareFlag(0x10C1C887u);
     return MakeCameraActive(id, viewport, takeCurrentView);
 }
 
@@ -684,31 +684,31 @@ bool __cdecl CFunc_SetActiveCamera(Script::CStruct* params, Script::CScript*)
 // line from one point to another - types 1 to 4 counted, each shown (compiled out) if its flag is on, the line
 // lengthened 10 / 1 / 2 / 4 times for 1, 3, 4; other types shown always. The counts are logged. False if the file
 // isn't there.
-bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ShowTracking(Scripts::CStruct* params, Scripts::CScript*)
 {
     CompiledOutDebugCall();
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(reinterpret_cast<Mem::Allocator*>(memory->m_debugHeap));
-    bool show1 = params->ContainsFlag(0xB426BF5Au);
-    bool show2 = params->ContainsFlag(0x14240297u);
-    bool show3 = params->ContainsFlag(0x969D3AF6u);
-    bool show4 = params->ContainsFlag(0xB0FE7369u);
+    MemSys::Manager* memory = MemSys::Manager::Get();
+    memory->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(memory->m_debugHeap));
+    bool show1 = params->HasBareFlag(0xB426BF5Au);
+    bool show2 = params->HasBareFlag(0x14240297u);
+    bool show3 = params->HasBareFlag(0x969D3AF6u);
+    bool show4 = params->HasBareFlag(0xB0FE7369u);
     if (!show1 && !show2 && !show3 && !show4)
         show1 = show2 = show3 = show4 = true;
     const char* file = ""; // ""
     params->GetString(0u, &file, 0);
     if (file[1] == ':') {
-        Dbg::Printf("WARNING: stripped drive name off file\n"); // "WARNING: stripped drive name off file\n"
+        DebugOut::Printf("WARNING: stripped drive name off file\n"); // "WARNING: stripped drive name off file\n"
         file += 2;
     }
     int size = 0;
-    if (!File::Exist(file)) {
-        Dbg::Printf("Can't find file: %s\n", file); // "Can't find file: %s\n"
+    if (!FileLoad::Exist(file)) {
+        DebugOut::Printf("Can't find file: %s\n", file); // "Can't find file: %s\n"
         return false; // (as in the original, the debug heap stays pushed)
     }
-    auto* data = static_cast<uint8_t*>(Pip::LoadFileInto(file, &size, nullptr));
-    Dbg::Printf("Loaded %s, size = %d, at %p\n", file, size, data); // "Loaded %s, size = %d, at %p\n"
-    Mem::Manager::Get()->PopContext();
+    auto* data = static_cast<uint8_t*>(Packs::LoadFileInto(file, &size, nullptr));
+    DebugOut::Printf("Loaded %s, size = %d, at %p\n", file, size, data); // "Loaded %s, size = %d, at %p\n"
+    MemSys::Manager::Get()->LeaveHeapScope();
     int count1 = 0;
     int count2 = 0;
     int count3 = 0;
@@ -729,8 +729,8 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
                 ++at;
             ++at;
         }
-        Mth::Vector from = {values[0], values[1], values[2], 1.0f};
-        Mth::Vector to = {values[3], values[4], values[5], 1.0f};
+        Maths::Vector from = {values[0], values[1], values[2], 1.0f};
+        Maths::Vector to = {values[3], values[4], values[5], 1.0f};
         --at;
         uint32_t colour;
         switch (type) {
@@ -767,14 +767,14 @@ bool __cdecl CFunc_ShowTracking(Script::CStruct* params, Script::CScript*)
         }
         DrawDebugLine(&from, &to, colour, colour, 0);
     }
-    Dbg::Printf("Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n", count1, count2, count3, count4); // "Bonks = %d, ..."
-    Mem::FreeMalloc(data);
+    DebugOut::Printf("Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n", count1, count2, count3, count4); // "Bonks = %d, ..."
+    MemSys::FreeMalloc(data);
     return true;
 }
 
 // 0x005A2790: ChooseFaceForFacemap string="<file>": the first profile's face texture (+0x54) loaded from
 // faces\<file> (read with the C runtime; the script 0x808008EA then runs). False if the file can't be opened.
-bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ChooseFaceForFacemap(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* face = Word54(GetProfile(0));
     const char* name = nullptr; // (unset in the original when missing - an asserted parameter)
@@ -791,24 +791,24 @@ bool __cdecl CFunc_ChooseFaceForFacemap(Script::CStruct* params, Script::CScript
     void* data = GameMalloc(static_cast<size_t>(size));
     GameFread(data, 1, static_cast<size_t>(size), file);
     GameFclose(file);
-    static_cast<Gfx::CFaceTexture*>(face)->SetImage(static_cast<const uint8_t*>(data), 0);
+    static_cast<Gfx2D::CFaceSkin*>(face)->SetImage(static_cast<const uint8_t*>(data), 0);
     GameFree(data);
-    static_cast<Gfx::CFaceTexture*>(face)->SetValid(true);
-    Script::RunScript(0x808008EA, nullptr, nullptr, false, nullptr);
+    static_cast<Gfx2D::CFaceSkin*>(face)->MarkUsable(true);
+    Scripts::LaunchScript(0x808008EA, nullptr, nullptr, false, nullptr);
     return true;
 }
 
 // 0x005A29A0: SkaterIsCustom 0x67E6859A=<n>: whether the skate module's profile n (0x00564FC0) has a face texture.
-bool __cdecl CFunc_SkaterIsCustom(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SkaterIsCustom(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetInteger(0x67E6859Au, &index, 1);
-    void* profile = reinterpret_cast<Mdl::Skate*>(Skate())->GetProfile(index);
+    params->FetchIntValue(0x67E6859Au, &index, 1);
+    void* profile = reinterpret_cast<GameModules::Skate*>(Skate())->GetProfile(index);
     return Word54(profile) != nullptr;
 }
 
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.
-bool __cdecl CFunc_SetSceneColor(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetSceneColor(Scripts::CStruct* params, Scripts::CScript*)
 {
     g_todManager->SetSceneColor(params);
     return true;
@@ -823,25 +823,25 @@ constexpr uint32_t kMenuScript = 0x2B0CFCA1;  // its pad_choose script
 constexpr uint32_t kFirstRestartId = 123456;  // the restart items' ids, from here
 
 // A new, empty script structure (from the structures' pool) and its deletion.
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    auto* structure = Script::NewStruct();
+    auto* structure = Scripts::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
-void DeleteStructure(Script::CStruct* structure)
+void DeleteStructure(Scripts::CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
 
 // A restart menu item's fixed parts.
-void AddRestartItemFlags(Script::CStruct* item)
+void AddRestartItemFlags(Scripts::CStruct* item)
 {
-    item->AddChecksum(0x9F67B2C8, 0x9F67B2C8); // (flags, names unknown)
-    item->AddChecksum(0x2A434D05, 0x2A434D05);
-    item->AddChecksum(kMenuScript, 0x506562D9);
+    item->PutNameKey(0x9F67B2C8, 0x9F67B2C8); // (flags, names unknown)
+    item->PutNameKey(0x2A434D05, 0x2A434D05);
+    item->PutNameKey(kMenuScript, 0x506562D9);
 }
 
 } // namespace
@@ -849,36 +849,36 @@ void AddRestartItemFlags(Script::CStruct* item)
 // 0x005A4260: AddRestartsToMenu 0x1B9E8272=<scale>: an item (script 0xC16BF7BD) per restart of the level (its
 // RestartName, else "Unnamed restart"; ids from 123456; the restart's node in its parameters), or "No restarts in
 // level".
-bool __cdecl CFunc_AddRestartsToMenu(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_AddRestartsToMenu(Scripts::CStruct* params, Scripts::CScript*)
 {
     int count = 0;
     uint32_t restart = 0;
-    while ((restart = Obj::GetRestartNode(0, 0, restart)) != 0) {
-        Script::CStruct* node = SkateScript::GetNode(restart, true);
+    while ((restart = GameObjects::GetSpawnNode(0, 0, restart)) != 0) {
+        Scripts::CStruct* node = LevelNodes::GetNode(restart, true);
         const char* name;
         if (!node->GetString("RestartName", &name, 0)) // "RestartName"
             name = "Unnamed restart";                       // "Unnamed restart"
-        Script::CStruct* item = NewStructure();
+        Scripts::CStruct* item = NewStructure();
         item->AddString(kMenuText, name);
-        item->AddChecksum(kMenuId, kFirstRestartId + count);
+        item->PutNameKey(kMenuId, kFirstRestartId + count);
         AddRestartItemFlags(item);
-        Script::CStruct* choose = NewStructure();
-        choose->AddChecksum(0x66780C6F, restart);
-        item->AddStructure(kMenuParams, choose);
+        Scripts::CStruct* choose = NewStructure();
+        choose->PutNameKey(0x66780C6F, restart);
+        item->PutSubStruct(kMenuParams, choose);
         float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
         params->GetFloat(0x1B9E8272u, &scale, true);
-        item->AddFloat(0x13B9DA7B, scale); // "scale"
-        Script::RunScript(0xC16BF7BD, item, nullptr, false, nullptr);
+        item->PushFloat(0x13B9DA7B, scale); // "scale"
+        Scripts::LaunchScript(0xC16BF7BD, item, nullptr, false, nullptr);
         DeleteStructure(item);
         DeleteStructure(choose);
         ++count;
     }
     if (!count) {
-        Script::CStruct* item = NewStructure();
+        Scripts::CStruct* item = NewStructure();
         item->AddString(kMenuText, "No restarts in level"); // "No restarts in level"
-        item->AddChecksum(kMenuId, kFirstRestartId);
+        item->PutNameKey(kMenuId, kFirstRestartId);
         AddRestartItemFlags(item);
-        Script::RunScript(0xC16BF7BD, item, nullptr, false, nullptr);
+        Scripts::LaunchScript(0xC16BF7BD, item, nullptr, false, nullptr);
         DeleteStructure(item);
     }
     return true;
@@ -887,22 +887,22 @@ bool __cdecl CFunc_AddRestartsToMenu(Script::CStruct* params, Script::CScript*)
 // 0x005A4560: AddWarpPointsToMenu 0xE2C2FA03=[nodes]: an item (script 0xBEED50B6) per node (its 0xFCD206E1 name,
 // else "Unnamed restart"; the node in its parameters). The parameters' own structure isn't freed (a leak, kept). The
 // array isn't checked for null.
-bool __cdecl CFunc_AddWarpPointsToMenu(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_AddWarpPointsToMenu(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Script::CArray* nodes = nullptr;
+    Scripts::CArray* nodes = nullptr;
     params->GetArray(0xE2C2FA03u, &nodes, 0);
     for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        Script::CStruct* item = NewStructure();
-        Script::CStruct* node = SkateScript::GetNode(nodes->GetElement(i), true);
+        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* node = LevelNodes::GetNode(nodes->GetElement(i), true);
         const char* name;
         if (!node->GetString(0xFCD206E1u, &name, 0))
             name = "Unnamed restart"; // "Unnamed restart"
         item->AddString(kMenuText, name);
-        item->AddChecksum(kMenuScript, 0x54523C62);
-        Script::CStruct* choose = NewStructure();
-        choose->AddChecksum(0x9F92BA78, nodes->GetElement(i));
-        item->AddStructure(kMenuParams, choose);
-        Script::RunScript(0xBEED50B6, item, nullptr, false, nullptr);
+        item->PutNameKey(kMenuScript, 0x54523C62);
+        Scripts::CStruct* choose = NewStructure();
+        choose->PutNameKey(0x9F92BA78, nodes->GetElement(i));
+        item->PutSubStruct(kMenuParams, choose);
+        Scripts::LaunchScript(0xBEED50B6, item, nullptr, false, nullptr);
         DeleteStructure(item);
     }
     return true;
@@ -910,7 +910,7 @@ bool __cdecl CFunc_AddWarpPointsToMenu(Script::CStruct* params, Script::CScript*
 
 // 0x005A4730: AddFacesToMenu: an add_item_to_face_menu (name= without its extension, file=) for each of the first 11
 // Faces\*.img files with names up to 90 characters. False if there are none.
-bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_AddFacesToMenu(Scripts::CStruct*, Scripts::CScript*)
 {
     WIN32_FIND_DATAA found;
     HANDLE search = FindFirstFileA("Faces\\*.img", &found); // "Faces\*.img"
@@ -925,10 +925,10 @@ bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
             std::memcpy(name, found.cFileName, std::strlen(found.cFileName) + 1);
             if (std::strlen(name) > 4)
                 name[std::strlen(name) - 4] = '\0';
-            Script::CStruct* item = NewStructure();
+            Scripts::CStruct* item = NewStructure();
             item->AddString("name", name); // "name"
             item->AddString("file", file); // "file"
-            Script::RunScript("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"
+            Scripts::LaunchScript("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"
             ++count;
             DeleteStructure(item);
         }
@@ -937,4 +937,4 @@ bool __cdecl CFunc_AddFacesToMenu(Script::CStruct*, Script::CScript*)
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

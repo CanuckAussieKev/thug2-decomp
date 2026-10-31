@@ -32,7 +32,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/skater/skater_camera_component.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -44,7 +44,7 @@ extern void** const kCleanupVtable;
 constexpr uint32_t kCleanupState = 0xD8CC3428;        // SkaterCleanupState (the component type)
 constexpr uint32_t kSkaterState = 0x43686585;         // SkaterState (a component)
 constexpr uint32_t kPhysicsControl = 0xD9151D4D;      // SkaterPhysicsControl (a component)
-constexpr uint32_t kSkaterId = 0x4C48DA58;            // (InitFromStructure's object id; name not recovered)
+constexpr uint32_t kSkaterId = 0x4C48DA58;            // (ConfigureFromData's object id; name not recovered)
 constexpr uint32_t kShake = 0x75A516D3;               // (the shake member function; name not recovered)
 constexpr uint32_t kSetMode = 0xD7867FFE;             // (the camera mode member function; name not recovered)
 constexpr uint32_t kMode = 0x6835B854;                // (its parameter; name not recovered)
@@ -70,9 +70,9 @@ bool VertAir(const uint8_t* state) { return state[0x30] && !state[0x48] && !stat
 } // namespace
 
 // 0x004F9EB0
-bool CSkaterCameraComponent::LookDown()
+bool CRiderChaseView::LookDown()
 {
-    if (!mp_skater)
+    if (!m_riderRef)
         return false;
     uint8_t* state = mp_state;
     if (At<int>(state, 0x1C))
@@ -83,14 +83,14 @@ bool CSkaterCameraComponent::LookDown()
 }
 
 // 0x004F9F00
-void CSkaterCameraComponent::ApplyShake(Mth::Vector* position, const Mth::Matrix* orientation)
+void CRiderChaseView::ApplyShake(Maths::Vector* position, const Maths::Matrix* orientation)
 {
     double left = m_shakeLeft;
     double fraction = left / m_shakeLength;
     double across = X87Sin(m_shakeRateX * left * kTwoPi) * m_shakeAmpX * fraction;
     double up = X87Sin(m_shakeRateY * left * kTwoPi) * m_shakeAmpY * fraction;
-    const Mth::Vector& row0 = orientation->row[0];
-    const Mth::Vector& row1 = orientation->row[1];
+    const Maths::Vector& row0 = orientation->row[0];
+    const Maths::Vector& row1 = orientation->row[1];
     float y0 = static_cast<float>(up * row0.y);
     float z0 = static_cast<float>(up * row0.z);
     float w0 = static_cast<float>(up * row0.w);
@@ -109,22 +109,22 @@ void CSkaterCameraComponent::ApplyShake(Mth::Vector* position, const Mth::Matrix
     position->y = y + y1;
     position->z = z + z1;
     position->w = static_cast<float>(w + across * row1.w);
-    double now = m_shakeLeft - Tmr::GetSlomoFrameSeconds();
+    double now = m_shakeLeft - FrameClock::GetSlomoFrameSeconds();
     m_shakeLeft = static_cast<float>(now);
     if (now < 0.0)
         m_shakeLeft = 0.0f;
 }
 
 // 0x004FA020
-void CSkaterCameraComponent::GetTarget(Mth::Vector* out, bool instant)
+void CRiderChaseView::GetTarget(Maths::Vector* out, bool instant)
 {
-    float seconds = static_cast<float>(Tmr::GetSlomoFrameSeconds());
-    CCompositeObject* skater = mp_skater;
+    float seconds = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
+    CGameEntity* skater = m_riderRef;
     if (!skater) {
-        *out = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        *out = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
-    Mth::Vector position = skater->m_pos;
+    Maths::Vector position = skater->m_pos;
     if (m_rateTime > 0.0f) {
         double left = m_rateTime - static_cast<double>(seconds);
         m_rateTime = static_cast<float>(left);
@@ -154,7 +154,7 @@ void CSkaterCameraComponent::GetTarget(Mth::Vector* out, bool instant)
         if (state[0xA0])
             snap = true;
     }
-    Mth::Vector& target = m_target;
+    Maths::Vector& target = m_aimPoint;
     if (snap) {
         target = position;
     } else {
@@ -169,9 +169,9 @@ void CSkaterCameraComponent::GetTarget(Mth::Vector* out, bool instant)
 }
 
 // 0x004FA230
-void CSkaterCameraComponent::GetZoomedOffsets(float* height, float* distance)
+void CRiderChaseView::GetZoomedOffsets(float* height, float* distance)
 {
-    if (!mp_skater)
+    if (!m_riderRef)
         return;
     m_zoomTarget = 1.0f;
     uint8_t* state = mp_state;
@@ -186,14 +186,14 @@ void CSkaterCameraComponent::GetZoomedOffsets(float* height, float* distance)
         m_zoomTarget = m_grindZoom;
     else if (At<int>(state, 0x18) == 3)
         m_zoomTarget = m_lipTrickZoom;
-    CCameraLookAroundComponent* lookAround = mp_lookAround;
+    CFreeLookModule* lookAround = mp_lookAround;
     if (lookAround->m_turning && std::bit_cast<uint32_t>(lookAround->m_factor) != 0x3F800000u)
         m_zoomTarget = static_cast<float>(static_cast<double>(lookAround->m_factor) * m_zoomTarget);
     double eased = (static_cast<double>(m_zoomTarget) - m_zoom) * m_zoomLerp + m_zoom;
     m_zoom = static_cast<float>(eased);
     double behind = eased * m_behind;
     *distance = static_cast<float>(behind);
-    float tilt = mp_lookAround->m_tilt;
+    float tilt = mp_lookAround->m_leanAngle;
     if (tilt < 0.0f)
         *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) * behind);
     float above = At<int>(mp_state, 0x18) == 3 ? m_lipTrickAbove : m_above;
@@ -204,46 +204,46 @@ void CSkaterCameraComponent::GetZoomedOffsets(float* height, float* distance)
 }
 
 // 0x004FA3C0
-void CSkaterCameraComponent::SetSkater(CCompositeObject* skater)
+void CRiderChaseView::BindRider(CGameEntity* skater)
 {
-    mp_skater = skater;
+    m_riderRef = skater;
     if (!skater) {
         mp_state = nullptr;
         mp_control = nullptr;
         return;
     }
     mp_state = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterState));
-    mp_control = reinterpret_cast<uint8_t*>(mp_skater->GetComponent(kPhysicsControl));
+    mp_control = reinterpret_cast<uint8_t*>(m_riderRef->GetComponent(kPhysicsControl));
     m_instantFrames = 3;
 }
 
 // 0x004FA420
-void CSkaterCameraComponent::SaveState(WalkCameraState* state)
+void CRiderChaseView::SaveState(WalkCameraState* state)
 {
     std::memcpy(&state->orientation, m_orientation, sizeof(m_orientation));
-    state->orientation.row[3] = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
-    state->target = m_target;
+    state->orientation.row[3] = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    state->target = m_aimPoint;
     state->turnCosine = m_turnCosine;
     state->zoom = m_zoom;
 }
 
 // 0x004FA4B0
-CSkaterCameraComponent* CSkaterCameraComponent::Construct()
+CRiderChaseView* CRiderChaseView::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = g_skaterCameraVtable;
     m_type = kSkaterCamera;
     m_mode = 0;
-    if (!Mem::g_managerReady)
-        Mem::EnsureManager();
-    void* memory = Mem::Manager::Get()->Allocate(0x98, 1, nullptr);
+    if (!MemSys::g_managerReady)
+        MemSys::EnsureManager();
+    void* memory = MemSys::Manager::Get()->Allocate(0x98, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
-    mp_slerp = static_cast<Mth::SlerpInterpolator*>(memory);
+    m_arcBlender = static_cast<Maths::ArcRotationBlender*>(memory);
     m_zoom = 1.0f;
     m_turnCosine = 1.0f;
     m_vertAirLerpXZ = 1.0f;
     m_vertAirLerpY = 1.0f;
-    mp_skater = nullptr;
+    m_riderRef = nullptr;
     mp_state = nullptr;
     mp_control = nullptr;
     m_zoomLerp = 0.0625f;
@@ -254,30 +254,30 @@ CSkaterCameraComponent* CSkaterCameraComponent::Construct()
 }
 
 // 0x004FA590
-CSkaterCameraComponent* CSkaterCameraComponent::Destroy(unsigned int flags)
+CRiderChaseView* CRiderChaseView::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004FA5C0
-void CSkaterCameraComponent::InitFromStructure(Script::CStruct* params)
+void CRiderChaseView::ConfigureFromData(Scripts::CStruct* params)
 {
-    Mth::Matrix& matrix = m_object->m_matrix;
-    matrix.row[0] = Mth::Vector(1.0f, 0.0f, 0.0f, 0.0f);
-    matrix.row[1] = Mth::Vector(0.0f, 1.0f, 0.0f, 0.0f);
-    matrix.row[2] = Mth::Vector(0.0f, 0.0f, 1.0f, 0.0f);
-    matrix.row[3] = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+    Maths::Matrix& matrix = m_object->m_basisFrame;
+    matrix.row[0] = Maths::Vector(1.0f, 0.0f, 0.0f, 0.0f);
+    matrix.row[1] = Maths::Vector(0.0f, 1.0f, 0.0f, 0.0f);
+    matrix.row[2] = Maths::Vector(0.0f, 0.0f, 1.0f, 0.0f);
+    matrix.row[3] = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
     std::memcpy(m_orientation, &matrix, sizeof(m_orientation));
     uint32_t id = 0;
-    params->GetChecksum(kSkaterId, &id, 1);
-    SetSkater(static_cast<CCompositeObject*>(reinterpret_cast<CBaseManager*>(g_compositeObjectManager)->GetObjectByID(id)));
+    params->ReadHashValue(kSkaterId, &id, 1);
+    BindRider(static_cast<CGameEntity*>(reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(id)));
 }
 
 // 0x004FA680
-int CSkaterCameraComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+int CRiderChaseView::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     if (name == kShake) {
         float duration = 0.0f, vertAmp = 0.0f, horizAmp = 0.0f, vertVel = 0.0f, horizVel = 0.0f;
@@ -296,7 +296,7 @@ int CSkaterCameraComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
     }
     if (name == kSetMode) {
         int mode = 0;
-        params->GetInteger(kMode, &mode, 1);
+        params->FetchIntValue(kMode, &mode, 1);
         SetMode(mode, 1.0f);
         return 1;
     }
@@ -304,10 +304,10 @@ int CSkaterCameraComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
 }
 
 // 0x004FA7C0
-void CSkaterCameraComponent::ResetMode() { SetMode(m_mode, 1.0f); }
+void CRiderChaseView::RestoreDefaultState() { SetMode(m_mode, 1.0f); }
 
 // 0x004FA7D0
-void CSkaterCameraComponent::NextMode()
+void CRiderChaseView::NextMode()
 {
     if (m_mode >= 5)
         return;
@@ -317,54 +317,54 @@ void CSkaterCameraComponent::NextMode()
 }
 
 // 0x004FA800
-CBaseComponent* __cdecl CSkaterCameraComponent::Create()
+CObjectModule* __cdecl CRiderChaseView::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterCameraComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderChaseView));
     if (!memory)
         return nullptr;
-    return static_cast<CSkaterCameraComponent*>(memory)->Construct();
+    return static_cast<CRiderChaseView*>(memory)->Construct();
 }
 
 // --- the cleanup state ---
 
 // 0x004FBD90
-void CSkaterCleanupStateComponent::DestroyBody()
+void CRiderStateReset::DestroyBody()
 {
     m_vtable = kCleanupVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004FBDA0
-void CSkaterCleanupStateComponent::InitFromStructure(Script::CStruct*) { mp_state = nullptr; }
+void CRiderStateReset::ConfigureFromData(Scripts::CStruct*) { mp_state = nullptr; }
 
 // 0x004FBDB0
-CSkaterCleanupStateComponent* CSkaterCleanupStateComponent::Destroy(unsigned int flags)
+CRiderStateReset* CRiderStateReset::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004FBDE0
-void CSkaterCleanupStateComponent::Finalize() { mp_state = m_object->GetComponent(kSkaterState); }
+void CRiderStateReset::Finalize() { mp_state = m_object->GetComponent(kSkaterState); }
 
 // 0x004FBE00
-void CSkaterCleanupStateComponent::Update()
+void CRiderStateReset::Update()
 {
-    CCompositeObject* skater = m_object;
-    reinterpret_cast<CSkater*>(skater)->UpdateShadowLight(reinterpret_cast<int>(&skater->m_pos),
-                                                          reinterpret_cast<int>(&skater->m_matrix));
+    CGameEntity* skater = m_object;
+    reinterpret_cast<CRider*>(skater)->UpdateShadowLight(reinterpret_cast<int>(&skater->m_pos),
+                                                          reinterpret_cast<int>(&skater->m_basisFrame));
 }
 
 // 0x004FBE20
-CBaseComponent* __cdecl CSkaterCleanupStateComponent::Create()
+CObjectModule* __cdecl CRiderStateReset::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterCleanupStateComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderStateReset));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterCleanupStateComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderStateReset*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kCleanupVtable;
     component->m_type = kCleanupState;
     return component;
@@ -372,45 +372,45 @@ CBaseComponent* __cdecl CSkaterCleanupStateComponent::Create()
 
 } // namespace Obj
 
-using Obj::CSkaterCameraComponent;
-using Obj::CSkaterCleanupStateComponent;
+using GameObjects::CRiderChaseView;
+using GameObjects::CRiderStateReset;
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kCleanupVtable_slots[] = {&CSkaterCleanupStateComponent::Destroy,
-         &CSkaterCleanupStateComponent::Update,
-         &CSkaterCleanupStateComponent::InitFromStructure,
-         &CSkaterCleanupStateComponent::Finalize,
+static VtableSlot kCleanupVtable_slots[] = {&CRiderStateReset::Destroy,
+         &CRiderStateReset::Update,
+         &CRiderStateReset::ConfigureFromData,
+         &CRiderStateReset::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kCleanupVtable = reinterpret_cast<void**>(kCleanupVtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 
-static VtableSlot g_skaterCameraVtable_slots[] = {&CSkaterCameraComponent::Destroy,
-         &Obj::CSkaterCameraComponent::Update,
-         &CSkaterCameraComponent::InitFromStructure,
-         &Obj::CSkaterCameraComponent::Finalize,
+static VtableSlot g_skaterCameraVtable_slots[] = {&CRiderChaseView::Destroy,
+         &GameObjects::CRiderChaseView::Update,
+         &CRiderChaseView::ConfigureFromData,
+         &GameObjects::CRiderChaseView::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &CSkaterCameraComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &CRiderChaseView::InvokeMethodByName};
 void** const g_skaterCameraVtable = reinterpret_cast<void**>(g_skaterCameraVtable_slots);
 
 } // namespace Obj

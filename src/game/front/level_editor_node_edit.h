@@ -14,8 +14,8 @@
 // without reloading the level (phase 2 of the plan). Undo / redo and the layouts' `set` records go through here.
 //
 // What applies when (found in the decompiled code):
-//   - restarts: read from the node each time one is used (Obj::GetRestartNodes 0x0046B6C0, the skate module's lookup
-//     0x00566100, CSkater::MoveToNode 0x005815C0): the next respawn / F8 (restart_tester) puts the skater there;
+//   - restarts: read from the node each time one is used (GameObjects::GetRestartNodes 0x0046B6C0, the skate module's lookup
+//     0x00566100, CRider::GlideToNode 0x005815C0): the next respawn / F8 (restart_tester) puts the skater there;
 //   - crowns: CFunc_SpawnCrown 0x00538170 walks the nodes and makes the crown from the n-th Crown node's place each
 //     time: the next crown spawned is there (one already in the level stays where it is);
 //   - flags: their object (when a CTF / team game has made it) is moved with the node, as the editor moves objects;
@@ -26,9 +26,9 @@
 //     0x006FAAF0, the level lights at 0x006FAF80): updated; what a light has already lit in the scene's colours
 //     follows only after the level is loaded again;
 //   - cameras, generic nodes and the rest: read from the node when used;
-//   - rail points: the rail manager's (Mdl::Skate +0x24: what skaters grind) - moved there at once, as a moved sector
+//   - rail points: the rail manager's (GameModules::Skate +0x24: what skaters grind) - moved there at once, as a moved sector
 //     moves its rails (see IsRail below).
-namespace Front::LevelEditor::NodeEdit {
+namespace MenuSystem::LevelEditor::NodeEdit {
 
 // A node's place: pos= and angles= (radians, as the node arrays hold them).
 struct Values {
@@ -76,8 +76,8 @@ bool IsRail(uint32_t name);
 // A chain's point: a rail's or a ladder's (IsRail), or a path's waypoint (moved through its pos=; not turned).
 bool IsChain(uint32_t name);
 // What moves when `name` is moved: its whole rail / ladder / path (`name` first) when it's a chain's point and
-// `wholeRail`, else itself.
-std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail);
+// `entireRail`, else itself.
+std::vector<uint32_t> MovedWith(uint32_t name, bool entireRail);
 // When a change to it shows in the game (the Inspector's note).
 const char* WhenApplied(const Nodes::Node& node);
 
@@ -103,4 +103,4 @@ void ResetAll();
 // A new level: the changes forgotten (put back first if the last level's node array is still the one loaded).
 void ForgetLevel();
 
-} // namespace Front::LevelEditor::NodeEdit
+} // namespace MenuSystem::LevelEditor::NodeEdit

@@ -32,7 +32,7 @@
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -71,19 +71,19 @@ constexpr uint32_t kJoinSettleTime = 1000;  // ms
 constexpr uint32_t kJustJoinedTime = 5000;  // ms
 
 Manager* TheManager() { return g_gameNetManager; }
-PlayerInfo* Local(Manager* manager) { return reinterpret_cast<PlayerInfo*>(LocalPlayer(manager)); }
+PlayerRecord* Local(Manager* manager) { return reinterpret_cast<PlayerRecord*>(LocalPlayer(manager)); }
 uint32_t FlagOf(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
 // "team_<team + 1>_name" (the original's sprintf).
 void TeamKey(char* key, int team) { std::sprintf(key, "team_%d_name", team + 1); }
-const char* TeamName(const char* key) { return Script::GetString(key); }
+const char* TeamName(const char* key) { return Scripts::GetString(key); }
 
 // Every player carrying `team`'s flag (its lowest) carries none.
 void TakeFlagFromCarriers(Manager* manager, int team, bool stopAtFirst)
 {
     PlayerSearch search;
-    for (auto* p = reinterpret_cast<PlayerInfo*>(FirstPlayer(manager, &search, false)); p;
-         p = reinterpret_cast<PlayerInfo*>(NextPlayer(manager, &search, false))) {
+    for (auto* p = reinterpret_cast<PlayerRecord*>(FirstPlayer(manager, &search, false)); p;
+         p = reinterpret_cast<PlayerRecord*>(NextPlayer(manager, &search, false))) {
         if (p->GetFlagTeam() != team)
             continue;
         if (stopAtFirst) {
@@ -98,72 +98,72 @@ void TakeFlagFromCarriers(Manager* manager, int team, bool stopAtFirst)
 } // namespace
 
 // 0x00543910
-bool PlayerInfo::IsInvulnerable()
+bool PlayerRecord::IsInvulnerable()
 {
-    if (!(m_conn->m_status & Net::Conn::kStatusReady) || !m_skater->GetFlag2C4())
+    if (!(m_conn->m_status & NetLink::Conn::kStatusReady) || !m_skater->GetFlag2C4())
         return true;
     if (Field<int>(Field<void*>(m_skater, 0x27C), 0x18) < 10) // (its state history's frames)
         return true;
-    if (Tmr::GetTime() - m_joinTime < kJoinSettleTime)
+    if (FrameClock::GetTime() - m_joinTime < kJoinSettleTime)
         return true;
     if (GameType() == kNetFirefight) {
-        auto* skater = reinterpret_cast<Obj::CCompositeObject*>(m_skater);
-        if (Call<int>(CodeAddress(&Mdl::Score::GetTotalScore), Field<void*>(skater->GetComponent(kSkaterScore), 0x18)) <= 0)
+        auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(m_skater);
+        if (Call<int>(CodeAddress(&GameModules::Score::GetTotalScore), Field<void*>(skater->GetComponent(kSkaterScore), 0x18)) <= 0)
             return true;
     }
     if (IsEliminated() || (Field<uint32_t>(m_skater, 0x104) >> 2) & 1)
         return true;
-    if (Tmr::GetTime() - m_joinTime <= kJustJoinedTime)
+    if (FrameClock::GetTime() - m_joinTime <= kJustJoinedTime)
         return (m_flags >> 1) & 1;
     m_flags &= ~kPlayerJustJoined;
     return false;
 }
 
 // 0x005439D0
-void PlayerInfo::MarkAsFullyIn()
+void PlayerRecord::SetFinishedJoining()
 {
     Manager* manager = TheManager();
     m_flags |= kPlayerFullyIn;
     if (!manager->InNetGame() || !manager->OnServer() || (m_flags & kPlayerLocal))
         return;
-    switch (manager->GetHostMode()) {
+    switch (manager->GetHostingRole()) {
     case 1: {
-        Net::MsgDesc desc;
+        NetLink::NetMessageInfo desc;
         desc.Construct();
-        Net::App* server = manager->m_server; // (0x005480C0, a getter folded there)
+        NetLink::App* server = manager->m_server; // (0x005480C0, a getter folded there)
         desc.m_id = kMsgPlayerFullyIn;
-        desc.m_queue = Net::MsgDesc::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         desc.m_groupId = kGroupGame;
-        server->EnqueueMessage(m_conn ? Field<int>(m_conn, 0x3C) : 0, &desc);
+        server->PutOnOutbox(m_conn ? Field<int>(m_conn, 0x3C) : 0, &desc);
         break;
     }
     case 2:
-        if (!manager->GetServerPlayer())
+        if (!manager->GetHostPlayer())
             manager->AssignFirstComeFirstServed(); // (the game starts)
         break;
     }
 }
 
 // 0x00543A90
-void PlayerInfo::CapturedFlag(int team)
+void PlayerRecord::ScoreFlagCapture(int team)
 {
     char key[64];
     TeamKey(key, team);
-    PlayerInfo* local = Local(TheManager());
-    Script::CStruct* params = NewParams();
+    PlayerRecord* local = Local(TheManager());
+    Scripts::CStruct* params = NewParams();
     if (m_flags & kPlayerLocal) {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, TeamName(key));
-        params->AddInteger(kTeam, team);
+        params->AddString(kString0, Scripts::QBVAL_STRING, TeamName(key));
+        params->PutInt(kTeam, team);
         Run(kCapturedFlagYou, params);
     } else if (!(local->m_flags & kPlayerObserver) && local->m_team == team) {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, m_name);
-        params->AddInteger(kTeam, team);
+        params->AddString(kString0, Scripts::QBVAL_STRING, m_name);
+        params->PutInt(kTeam, team);
         Run(kHideCtfArrow);
         Run(kCapturedYourFlag, params);
     } else {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, m_name);
-        params->AddString(kString1, Script::ESYMBOLTYPE_STRING, TeamName(key));
-        params->AddInteger(kTeam, team);
+        params->AddString(kString0, Scripts::QBVAL_STRING, m_name);
+        params->AddString(kString1, Scripts::QBVAL_STRING, TeamName(key));
+        params->PutInt(kTeam, team);
         Run(kCapturedFlagOther, params);
     }
     m_flags &= ~kPlayerCarryingFlags;
@@ -171,19 +171,19 @@ void PlayerInfo::CapturedFlag(int team)
 }
 
 // 0x00543C70
-void PlayerInfo::StoleFlag(int team)
+void PlayerRecord::NoteFlagSteal(int team)
 {
     Manager* manager = TheManager();
     char key[64];
     TeamKey(key, team);
-    Script::CStruct* params = NewParams();
-    PlayerInfo* local = Local(manager);
+    Scripts::CStruct* params = NewParams();
+    PlayerRecord* local = Local(manager);
     if (m_flags & kPlayerLocal) {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, TeamName(key));
+        params->AddString(kString0, Scripts::QBVAL_STRING, TeamName(key));
         Run(kStoleFlagYou, params);
     } else {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, m_name);
-        params->AddString(kString1, Script::ESYMBOLTYPE_STRING, TeamName(key));
+        params->AddString(kString0, Scripts::QBVAL_STRING, m_name);
+        params->AddString(kString1, Scripts::QBVAL_STRING, TeamName(key));
         bool fromLocal = !(local->m_flags & kPlayerObserver) && local->GetFlagTeam() == team;
         Run(fromLocal ? kStoleFlagFromYou : kStoleFlagOther, params);
     }
@@ -193,26 +193,26 @@ void PlayerInfo::StoleFlag(int team)
 }
 
 // 0x00543F00
-void PlayerInfo::TookFlag(int team)
+void PlayerRecord::NoteFlagPickup(int team)
 {
     Manager* manager = TheManager();
     char key[64];
     TeamKey(key, team);
-    Script::CStruct* params = NewParams();
-    PlayerInfo* local = Local(manager);
+    Scripts::CStruct* params = NewParams();
+    PlayerRecord* local = Local(manager);
     if (m_flags & kPlayerLocal) {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, TeamName(key));
+        params->AddString(kString0, Scripts::QBVAL_STRING, TeamName(key));
         Run(kTookFlagYou, params);
     } else if (!(local->m_flags & kPlayerObserver) && team == local->m_team) {
-        Script::CStruct* arrow = NewParams();
-        arrow->AddInteger(kTeam, local->m_team);
+        Scripts::CStruct* arrow = NewParams();
+        arrow->PutInt(kTeam, local->m_team);
         Run(kShowCtfArrow, arrow);
         DeleteParams(arrow);
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, m_name);
+        params->AddString(kString0, Scripts::QBVAL_STRING, m_name);
         Run(kTookFlagYours, params);
     } else {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, m_name);
-        params->AddString(kString1, Script::ESYMBOLTYPE_STRING, TeamName(key));
+        params->AddString(kString0, Scripts::QBVAL_STRING, m_name);
+        params->AddString(kString1, Scripts::QBVAL_STRING, TeamName(key));
         Run(kTookFlagOther, params);
     }
     DeleteParams(params);
@@ -220,24 +220,24 @@ void PlayerInfo::TookFlag(int team)
 }
 
 // 0x00544110
-void PlayerInfo::RetrievedFlag()
+void PlayerRecord::NoteFlagReturned()
 {
     Manager* manager = TheManager();
     char key[64];
     TeamKey(key, m_team);
-    Script::CStruct* params = NewParams();
+    Scripts::CStruct* params = NewParams();
     if (m_flags & kPlayerLocal) {
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, TeamName(key));
-        params->AddInteger(kTeam, m_team);
+        params->AddString(kString0, Scripts::QBVAL_STRING, TeamName(key));
+        params->PutInt(kTeam, m_team);
         Run(kHideCtfArrow);
         Run(kRetrievedFlagYou, params);
     } else {
-        PlayerInfo* local = Local(manager);
+        PlayerRecord* local = Local(manager);
         if (local && !(local->m_flags & kPlayerObserver) && local->m_team == m_team)
             Run(kHideCtfArrow);
-        params->AddString(kString0, Script::ESYMBOLTYPE_STRING, m_name);
-        params->AddString(kString1, Script::ESYMBOLTYPE_STRING, TeamName(key));
-        params->AddInteger(kTeam, m_team);
+        params->AddString(kString0, Scripts::QBVAL_STRING, m_name);
+        params->AddString(kString1, Scripts::QBVAL_STRING, TeamName(key));
+        params->PutInt(kTeam, m_team);
         Run(kRetrievedFlagOther, params);
     }
     // (the structure is never deleted here: the original leaks it)
@@ -245,36 +245,36 @@ void PlayerInfo::RetrievedFlag()
 }
 
 // 0x00544340
-void PlayerInfo::MarkAsKing(bool king)
+void PlayerRecord::GiveCrown(bool king)
 {
     Manager* manager = TheManager();
     if (!king) {
         if (!(m_flags & kPlayerKing))
             return;
         if ((m_flags & kPlayerLocal) && (GameType() == kNetKing || GameType() == kKing)) {
-            Script::CStruct* params = NewParams();
-            params->AddChecksum(kPlayer1, kPlayer1);
-            params->AddChecksum(kPlayer2, kPlayer2);
+            Scripts::CStruct* params = NewParams();
+            params->PutNameKey(kPlayer1, kPlayer1);
+            params->PutNameKey(kPlayer2, kPlayer2);
             Run(kShowCrownArrow, params);
             DeleteParams(params);
         }
         m_flags &= ~kPlayerKing;
         return;
     }
-    if (auto* previous = reinterpret_cast<PlayerInfo*>(KingOfTheHill(manager)))
-        previous->MarkAsKing(false);
+    if (auto* previous = reinterpret_cast<PlayerRecord*>(KingOfTheHill(manager)))
+        previous->GiveCrown(false);
     if (!(m_flags & kPlayerKing)) {
         m_flags |= kPlayerKing;
         if (m_flags & kPlayerLocal) {
-            Script::CStruct* params = NewParams();
+            Scripts::CStruct* params = NewParams();
             uint32_t player = m_skater->GetSkaterNumber() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
-            params->AddChecksum(player, player);
+            params->PutNameKey(player, player);
             Run(kHideCrownArrow, params);
             DeleteParams(params);
             Run(kNewKingYou);
         } else {
-            Script::CStruct* params = NewParams();
-            params->AddChecksum(kPlayer1, kPlayer1);
+            Scripts::CStruct* params = NewParams();
+            params->PutNameKey(kPlayer1, kPlayer1);
             Run(kShowCrownArrow, params);
             params->AddString(kString0, m_name);
             Run(kNewKingOther, params);
@@ -283,17 +283,17 @@ void PlayerInfo::MarkAsKing(bool king)
         // Split screen: the other screen's player is told too.
         if (!manager->InNetGame() &&
             manager->PlayerByObjectId(SkaterId(m_skater) == 0 ? 1 : 0)) {
-            Script::CStruct* params = NewParams();
+            Scripts::CStruct* params = NewParams();
             params->AddString(kString0, m_skater->GetDisplayName()); // (its display name)
             Run(kNewKingOther, params);
             DeleteParams(params);
         }
         m_flags |= kPlayerKing;
     }
-    if (void* crown = manager->GetCrown())
-        static_cast<Obj::CCrownObject*>(crown)->PutOn(m_skater); // (worn by the skater)
+    if (void* crown = manager->GetCrownHolder())
+        static_cast<GameObjects::CCrownObject*>(crown)->PutOn(m_skater); // (worn by the skater)
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay
 
-using GameNet::PlayerInfo;
+using OnlinePlay::PlayerRecord;

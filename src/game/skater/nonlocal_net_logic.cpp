@@ -1,4 +1,4 @@
-// The skater's non-local network logic component (Obj::CSkaterNonLocalNetLogicComponent): see nonlocal_net_logic.h.
+// The skater's non-local network logic component (GameObjects::CRiderRemoteSync): see nonlocal_net_logic.h.
 // The movement code follows the original's x87 maths: products and sums kept unrounded (double, at the game's 53-bit
 // precision) until the original stores them as floats.
 
@@ -33,7 +33,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -75,11 +75,11 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// A physics value of the skater (Obj::GetPhysicsFloat, asserting).
-double Physics(CCompositeObject* skater, uint32_t name) { return GetPhysicsFloat(name, 1, skater); }
+// A physics value of the skater (GameObjects::ReadTuningFloat, asserting).
+double Physics(CGameEntity* skater, uint32_t name) { return ReadTuningFloat(name, 1, skater); }
 
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void TurnBy(Mth::Matrix& m, const Mth::Matrix& rotation)
+void TurnBy(Maths::Matrix& m, const Maths::Matrix& rotation)
 {
     D3dx::MatrixMultiply(&m, &rotation, &m);
 }
@@ -106,24 +106,24 @@ double X87Acos(double x)
 } // namespace
 
 // 0x005147F0
-CBaseComponent* __cdecl CSkaterNonLocalNetLogicComponent::Create()
+CObjectModule* __cdecl CRiderRemoteSync::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterNonLocalNetLogicComponent));
-    return memory ? static_cast<CSkaterNonLocalNetLogicComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderRemoteSync));
+    return memory ? static_cast<CRiderRemoteSync*>(memory)->Construct() : nullptr;
 }
 
 // 0x005144E0
-CSkaterNonLocalNetLogicComponent* CSkaterNonLocalNetLogicComponent::Construct()
+CRiderRemoteSync* CRiderRemoteSync::Construct()
 {
-    CBaseComponent::Construct();
-    m_history = nullptr;
+    CObjectModule::Construct();
+    m_pastFrames = nullptr;
     m_state = nullptr;
-    m_endRun = nullptr;
+    m_runOver = nullptr;
     m_animBlender = nullptr;
     m_flipAndRotate = nullptr;
-    m_model = nullptr;
+    m_meshSet = nullptr;
     m_shadow = nullptr;
-    m_entry = 0;
+    m_playIdx = 0;
     m_vtable = kVtable;
     m_type = kSkaterNonLocalNetLogic;
     m_playPos = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -134,49 +134,49 @@ CSkaterNonLocalNetLogicComponent* CSkaterNonLocalNetLogicComponent::Construct()
 }
 
 // 0x005144B0
-void CSkaterNonLocalNetLogicComponent::DestroyBody()
+void CRiderRemoteSync::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00514550
-CSkaterNonLocalNetLogicComponent* CSkaterNonLocalNetLogicComponent::Destroy(unsigned int flags)
+CRiderRemoteSync* CRiderRemoteSync::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00514580
-void CSkaterNonLocalNetLogicComponent::Finalize()
+void CRiderRemoteSync::Finalize()
 {
-    m_history = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterStateHistory));
+    m_pastFrames = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterStateHistory));
     m_state = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
-    m_endRun = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterEndRun));
+    m_runOver = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterEndRun));
     m_animBlender = m_object->GetComponent(kAnimBlender);
     m_flipAndRotate = m_object->GetComponent(kSkaterFlipAndRotate);
-    m_model = reinterpret_cast<uint8_t*>(m_object->GetComponent(kModel));
+    m_meshSet = reinterpret_cast<uint8_t*>(m_object->GetComponent(kModel));
     m_shadow = m_object->GetComponent(kShadow);
 }
 
 // 0x005144D0
-void CSkaterNonLocalNetLogicComponent::ResetPlayback()
+void CRiderRemoteSync::ResetPlayback()
 {
     m_syncFrame = 0;
     m_lastEventTime = 0;
 }
 
 // 0x00514610
-void CSkaterNonLocalNetLogicComponent::UpdateGroundLighting()
+void CRiderRemoteSync::UpdateGroundLighting()
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    const Mth::Vector& pos = m_object->m_pos;
-    const Mth::Vector& up = m_object->m_matrix.row[1];
-    Mth::Vector& start = feeler.m_line.start;
-    Mth::Vector& end = feeler.m_line.end;
+    const Maths::Vector& pos = m_object->m_pos;
+    const Maths::Vector& up = m_object->m_basisFrame.row[1];
+    Maths::Vector& start = feeler.m_line.start;
+    Maths::Vector& end = feeler.m_line.end;
     start = pos;
     end = pos;
     // (from just above the skater: a thousandth of the up row, then 8 up; down 4800)
@@ -186,35 +186,35 @@ void CSkaterNonLocalNetLogicComponent::UpdateGroundLighting()
     start.w = static_cast<float>(static_cast<double>(up.w) * kLightingRise + start.w);
     start.y = static_cast<float>(static_cast<double>(start.y) + kLightingAbove);
     end.y = static_cast<float>(static_cast<double>(end.y) - kLightingBelow);
-    if (!feeler.GetCollision(true, false))
+    if (!feeler.GetHitShape(true, false))
         return;
     if (Field<int>(m_state, 0x18) != kStateRail && feeler.IsHitTriangleCollision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
-        void* model = Field<void*>(m_model, 0x208);
+        void* model = Field<void*>(m_meshSet, 0x208);
         void* light = Field<void*>(model, 0x2C);
         if (light)
-            static_cast<Nx::CModelLights*>(light)->MoveBrightness(static_cast<float>(feeler.GetHitVertexValue()),
+            static_cast<Engine3D::CModelLights*>(light)->MoveBrightness(static_cast<float>(feeler.GetHitVertexValue()),
                                                                   kLightTime);
         else
-            Nx::SetWorldBrightness(static_cast<float>(feeler.GetHitVertexValue()));
+            Engine3D::SetWorldBrightness(static_cast<float>(feeler.GetHitVertexValue()));
     }
     // The shadow at the hit.
-    static_cast<CShadowComponent*>(m_shadow)->SetPosition(&feeler.m_point);
-    static_cast<CShadowComponent*>(m_shadow)->SetNormal(&feeler.m_normal);
+    static_cast<CGroundShadowModule*>(m_shadow)->SetPosition(&feeler.m_contactPos);
+    static_cast<CGroundShadowModule*>(m_shadow)->SetNormal(&feeler.m_surfaceDir);
 }
 
 // 0x00514850
-void CSkaterNonLocalNetLogicComponent::SnapToGround()
+void CRiderRemoteSync::SnapToGround()
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    CCompositeObject* skater = m_object;
-    const Mth::Vector& up = skater->m_matrix.row[1];
-    const Mth::Vector& pos = skater->m_pos;
+    CGameEntity* skater = m_object;
+    const Maths::Vector& up = skater->m_basisFrame.row[1];
+    const Maths::Vector& pos = skater->m_pos;
     // From Physics_Ground_Snap_Up above (the product unrounded) to 200 below (rounded first).
     double snapUp = Physics(skater, kGroundSnapUp);
-    Mth::Vector start, end;
+    Maths::Vector start, end;
     start.x = static_cast<float>(snapUp * up.x + pos.x);
     start.y = static_cast<float>(snapUp * up.y + pos.y);
     start.z = static_cast<float>(snapUp * up.z + pos.z);
@@ -228,12 +228,12 @@ void CSkaterNonLocalNetLogicComponent::SnapToGround()
     end.z = static_cast<float>(static_cast<double>(downZ) + pos.z);
     end.w = static_cast<float>(static_cast<double>(downW) + pos.w);
     feeler.SetLine(&start, &end);
-    feeler.SetIgnore(0x10, 0);
-    if (!feeler.GetCollision(true, false))
+    feeler.SetExcluded(0x10, 0);
+    if (!feeler.GetHitShape(true, false))
         return;
 
-    const Mth::Vector& point = feeler.m_point;
-    const Mth::Vector& normal = feeler.m_normal;
+    const Maths::Vector& point = feeler.m_contactPos;
+    const Maths::Vector& normal = feeler.m_surfaceDir;
     double dz = static_cast<double>(pos.z) - point.z;
     double dy = static_cast<double>(pos.y) - point.y;
     double dx = static_cast<double>(pos.x) - point.x;
@@ -246,17 +246,17 @@ void CSkaterNonLocalNetLogicComponent::SnapToGround()
     bool skatable = (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) &&
                     !(flags & kFaceWallride);
     if (skatable &&
-        !(Skater::X87Sin(static_cast<double>(Script::GetFloat(kWallNonSkatableAngle)) * kDegreesToRadians) >
+        !(Skater::X87Sin(static_cast<double>(Scripts::GetFloat(kWallNonSkatableAngle)) * kDegreesToRadians) >
           normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
-        const Mth::Vector ground = normal;
-        const Mth::Vector& atRow = skater->m_matrix.row[2];
-        Mth::Vector onGround = atRow;
+        const Maths::Vector ground = normal;
+        const Maths::Vector& atRow = skater->m_basisFrame.row[2];
+        Maths::Vector onGround = atRow;
         float facing = static_cast<float>((static_cast<double>(normal.x) * atRow.x + static_cast<double>(normal.z) * atRow.z) +
                                           static_cast<double>(atRow.y) * normal.y);
-        Mth::Vector onLast = atRow;
-        onGround.RotateToPlane(ground);
-        onLast.RotateToPlane(m_groundNormal);
+        Maths::Vector onLast = atRow;
+        onGround.AlignToPlane(ground);
+        onLast.AlignToPlane(m_groundNormal);
         float turn = static_cast<float>((static_cast<double>(onLast.x) * onGround.x +
                                          static_cast<double>(onLast.z) * onGround.z) +
                                         static_cast<double>(onLast.y) * onGround.y);
@@ -268,7 +268,7 @@ void CSkaterNonLocalNetLogicComponent::SnapToGround()
             // Above it: only within this frame's move times the slope between the two grounds (at least
             // Physics_Ground_Snap_Down).
             float angle = static_cast<float>(X87Acos(turn));
-            Mth::Vector move = skater->m_pos - m_lastPos;
+            Maths::Vector move = skater->m_pos - m_lastPos;
             float slope = static_cast<float>(Skater::X87Tan(angle));
             // (its length unrounded, as Vector::Length's x87 code leaves it)
             double length = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
@@ -281,8 +281,8 @@ void CSkaterNonLocalNetLogicComponent::SnapToGround()
                 return;
         }
         m_groundNormal = ground;
-        skater->m_matrix.row[1] = ground;
-        skater->m_matrix.OrthoNormalizeAbout(1);
+        skater->m_basisFrame.row[1] = ground;
+        skater->m_basisFrame.SquareUpAxes(1);
         skater->m_pos = point;
         return;
     }
@@ -296,9 +296,9 @@ void CSkaterNonLocalNetLogicComponent::SnapToGround()
 }
 
 // 0x00514D10
-double CSkaterNonLocalNetLogicComponent::TurnTowards(Mth::Vector dir, float* turn)
+double CRiderRemoteSync::TurnTowards(Maths::Vector dir, float* turn)
 {
-    const Mth::Vector& right = m_object->m_matrix.row[0];
+    const Maths::Vector& right = m_object->m_basisFrame.row[0];
     float cosine = static_cast<float>((static_cast<double>(dir.z) * right.z + static_cast<double>(dir.y) * right.y) +
                                       static_cast<double>(dir.x) * right.x);
     if (cosine > 1.0f)
@@ -309,32 +309,32 @@ double CSkaterNonLocalNetLogicComponent::TurnTowards(Mth::Vector dir, float* tur
     float angle = static_cast<float>(exact);
     if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
         angle = static_cast<float>(static_cast<double>(angle) - kPi);
-    double rotation = static_cast<double>(Script::GetFloat(kWallBounceAngleMultiplier)) * angle;
+    double rotation = static_cast<double>(Scripts::GetFloat(kWallBounceAngleMultiplier)) * angle;
     *turn = static_cast<float>(rotation);
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
     double s = Skater::X87Sin(rotation), c = Skater::X87Cos(rotation);
-    Mth::Vector& vel = m_object->m_vel;
+    Maths::Vector& vel = m_object->m_vel;
     double vx = vel.x, vz = vel.z;
     vel.x = static_cast<float>(s * vz + c * vx);
     vel.z = static_cast<float>(-(vx * s) + c * vz);
-    Mth::Matrix rotate;
-    Mth::CreateRotateYMatrix(rotate, *turn);
-    TurnBy(m_object->m_matrix, rotate);
+    Maths::Matrix rotate;
+    Maths::MakeYawMatrix(rotate, *turn);
+    TurnBy(m_object->m_basisFrame, rotate);
     return angle;
 }
 
 // 0x00514E20
-void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, const Mth::Vector* point)
+void CRiderRemoteSync::BounceOffWall(const Maths::Vector* normal, const Maths::Vector* point)
 {
-    CCompositeObject* skater = m_object;
+    CGameEntity* skater = m_object;
     float awayZ = static_cast<float>(static_cast<double>(skater->m_pos.z) - m_lastPos.z);
     float awayY = static_cast<float>(static_cast<double>(skater->m_pos.y) - m_lastPos.y);
     float awayX = static_cast<float>(static_cast<double>(skater->m_pos.x) - m_lastPos.x);
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
     // The collision height up the up row (the products rounded).
     double height = Physics(skater, kFirstForwardCollisionHeight);
-    const Mth::Vector& up = skater->m_matrix.row[1];
+    const Maths::Vector& up = skater->m_basisFrame.row[1];
     float raiseW = static_cast<float>(height * up.w);
     float raiseZ = static_cast<float>(height * up.z);
     float raiseY = static_cast<float>(height * up.y);
@@ -342,18 +342,18 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
     float turn;
     float angle = static_cast<float>(TurnTowards(*normal, &turn));
     // Slowed by how far past Wall_Bounce_Dont_Slow_Angle it turned (to nothing at a right angle).
-    double dontSlow = static_cast<double>(Script::GetFloat(kWallBounceDontSlowAngle)) * kDegreesToRadians;
+    double dontSlow = static_cast<double>(Scripts::GetFloat(kWallBounceDontSlowAngle)) * kDegreesToRadians;
     double magnitude = std::fabs(static_cast<double>(angle));
     if (magnitude > dontSlow) {
         double keep = 1.0 - (magnitude - dontSlow) / (kHalfPi - dontSlow);
-        Mth::Vector& vel = skater->m_vel;
+        Maths::Vector& vel = skater->m_vel;
         vel.x = static_cast<float>(keep * vel.x);
         vel.y = static_cast<float>(keep * vel.y);
         vel.z = static_cast<float>(keep * vel.z);
         vel.w = static_cast<float>(keep * vel.w);
     }
     // Back at the wall's point, the height below it, 6 out along the normal.
-    Mth::Vector& pos = skater->m_pos;
+    Maths::Vector& pos = skater->m_pos;
     pos.x = static_cast<float>(static_cast<double>(point->x) - raiseX);
     pos.y = static_cast<float>(static_cast<double>(point->y) - raiseY);
     pos.z = static_cast<float>(static_cast<double>(point->z) - raiseZ);
@@ -367,7 +367,7 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
     // collision length further).
     double moved = std::sqrt((static_cast<double>(awayX) * awayX + static_cast<double>(awayY) * awayY) +
                              static_cast<double>(awayZ) * awayZ);
-    Mth::Vector dir = skater->m_vel;
+    Maths::Vector dir = skater->m_vel;
     double speed = std::sqrt((static_cast<double>(dir.z) * dir.z + static_cast<double>(dir.y) * dir.y) +
                              static_cast<double>(dir.x) * dir.x);
     if (speed > 0.0) {
@@ -380,7 +380,7 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
     float aheadZ = static_cast<float>(dir.z * moved);
     float aheadY = static_cast<float>(dir.y * moved);
     float aheadX = static_cast<float>(dir.x * moved);
-    Mth::Vector from;
+    Maths::Vector from;
     from.x = static_cast<float>((static_cast<double>(raiseX) + pos.x) + raiseX);
     from.y = static_cast<float>((static_cast<double>(raiseY) + pos.y) + raiseY);
     from.z = static_cast<float>((static_cast<double>(raiseZ) + pos.z) + raiseZ);
@@ -396,7 +396,7 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
     float midZ = static_cast<float>((static_cast<double>(raiseZ) + pos.z) + aheadZ);
     float midY = static_cast<float>(static_cast<double>(baseY) + aheadY);
     float midX = static_cast<float>(static_cast<double>(baseX) + aheadX);
-    Mth::Vector to;
+    Maths::Vector to;
     double toW = static_cast<double>(midW) + reachW;
     double toZ = static_cast<double>(midZ) + reachZ;
     to.y = static_cast<float>(static_cast<double>(midY) + reachY);
@@ -408,22 +408,22 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
     if (std::sqrt((ex * ex + ey * ey) + ez * ez) > kBounceReach)
         return;
     feeler.SetLine(&from, &to);
-    feeler.SetIgnore(0x10, 0);
-    if (!feeler.GetCollision(true, false) || !skater->m_unknownBC)
+    feeler.SetExcluded(0x10, 0);
+    if (!feeler.GetHitShape(true, false) || !skater->m_unknownBC)
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
     double around = static_cast<double>(kPi) - turn;
     float s = static_cast<float>(Skater::X87Sin(around));
     float c = static_cast<float>(Skater::X87Cos(around));
-    Mth::Vector& vel = skater->m_vel;
+    Maths::Vector& vel = skater->m_vel;
     double vx = vel.x, vz = vel.z;
     double nx = vx * c + vz * s;
     double nz = -(vx * s) + vz * c;
     vel.x = static_cast<float>(nx);
     vel.z = static_cast<float>(nz);
-    Mth::Matrix rotate;
-    Mth::CreateRotateYMatrix(rotate, static_cast<float>(around));
-    TurnBy(skater->m_matrix, rotate);
+    Maths::Matrix rotate;
+    Maths::MakeYawMatrix(rotate, static_cast<float>(around));
+    TurnBy(skater->m_basisFrame, rotate);
     vel.x = static_cast<float>(vel.x * 0.5);
     vel.y = static_cast<float>(vel.y * 0.5);
     vel.z = static_cast<float>(vel.z * 0.5);
@@ -431,29 +431,29 @@ void CSkaterNonLocalNetLogicComponent::BounceOffWall(const Mth::Vector* normal, 
 }
 
 // 0x00517270
-void CSkaterNonLocalNetLogicComponent::Update()
+void CRiderRemoteSync::Update()
 {
-    auto* netManager = GameNet::g_gameNetManager;
-    m_frameSeconds = static_cast<float>(Tmr::GetFrameSeconds());
+    auto* netManager = OnlinePlay::g_gameNetManager;
+    m_frameSeconds = static_cast<float>(FrameClock::GetFrameSeconds());
     int state = Field<int>(m_state, 0x18);
     bool wasLip = state == kStateLip;
     if (state != kStateAir) {
         // (on the ground the state's two vectors follow the up row)
-        Field<Mth::Vector>(m_state, 0xF8) = m_object->m_matrix.row[1];
-        Field<Mth::Vector>(m_state, 0x108) = m_object->m_matrix.row[1];
+        Field<Maths::Vector>(m_state, 0xF8) = m_object->m_basisFrame.row[1];
+        Field<Maths::Vector>(m_state, 0x108) = m_object->m_basisFrame.row[1];
     }
     UpdateGroundLighting();
     m_lastPos = m_object->m_pos;
     m_object->m_oldPos = m_object->m_pos;
     Interpolate();
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
-    auto* player = static_cast<GameNet::PlayerInfo*>(netManager->GetLocalPlayer());
-    if (!player->IsObserver() && !player->IsSurveying()) {
-        void* gameMode = static_cast<void*>(Game::g_gameMode);
-        bool extrapolate = GameNet::g_gameNetManager->PlayerCollisionEnabled() ||
-                           static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kNetFirefight ||
-                           static_cast<Game::CGameMode*>(gameMode)->GetNameChecksum() == kFirefight;
-        if (extrapolate && Field<int>(m_history, 0x18) >= kHistory) {
+    auto* player = static_cast<OnlinePlay::PlayerRecord*>(netManager->GetOwnPlayer());
+    if (!player->IsObserver() && !player->IsScoutingLevel()) {
+        void* gameMode = static_cast<void*>(GoalSystem::g_gameMode);
+        bool extrapolate = OnlinePlay::g_gameNetManager->PlayersCanCollide() ||
+                           static_cast<GoalSystem::CMatchRules*>(gameMode)->GetNameKey() == kNetFirefight ||
+                           static_cast<GoalSystem::CMatchRules*>(gameMode)->GetNameKey() == kFirefight;
+        if (extrapolate && Field<int>(m_pastFrames, 0x18) >= kHistory) {
             if (Field<int>(m_state, 0x18) == kStateRail) {
                 ExtrapolateOnRail();
             } else {
@@ -476,27 +476,27 @@ void CSkaterNonLocalNetLogicComponent::Update()
 
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
     uint8_t driving = Field<uint8_t>(m_state, 0x118);
-    uint32_t controlType = Field<uint32_t>(m_history, 0x1104);
-    if ((driving && controlType) || (!driving && m_wasDriving)) {
-        Script::CStruct* params = Script::NewStruct();
+    uint32_t steerKind = Field<uint32_t>(m_pastFrames, 0x1104);
+    if ((driving && steerKind) || (!driving && m_wasDriving)) {
+        Scripts::CStruct* params = Scripts::NewStruct();
         if (params)
             params = params->Init();
-        params->AddChecksum(kSkaterId, m_object->m_id);
+        params->PutNameKey(kSkaterId, m_object->m_id);
         uint32_t script = kStopDrivingScript;
         if (driving) {
-            params->AddChecksum(kControlType, controlType);
+            params->PutNameKey(kControlType, steerKind);
             script = kStartDrivingScript;
         }
-        Script::RunScript(script, params, nullptr, false, nullptr);
+        Scripts::LaunchScript(script, params, nullptr, false, nullptr);
         if (params) {
             params->Clear();
-            Script::DeleteStruct(params);
+            Scripts::DeleteStruct(params);
         }
     }
     m_wasDriving = Field<uint8_t>(m_state, 0x118);
 
     // The looping sound: on while skating, its speed and state.
-    auto* sound = static_cast<CSkaterLoopingSoundComponent*>(m_object->GetComponent(kSkaterLoopingSound));
+    auto* sound = static_cast<CRiderRollingAudio*>(m_object->GetComponent(kSkaterLoopingSound));
     if (Field<int>(m_state, 0x1C) != 0) {
         if (sound->m_on) {
             sound->VirtualSuspend(true);
@@ -509,13 +509,13 @@ void CSkaterNonLocalNetLogicComponent::Update()
         sound->m_on = 1;
     }
     double vz = m_object->m_vel.z, vx = m_object->m_vel.x;
-    sound->SetSpeedFraction(static_cast<float>(std::sqrt(vx * vx + vz * vz) * kSpeedToSoundFraction));
+    sound->SetPaceRatio(static_cast<float>(std::sqrt(vx * vx + vz * vz) * kSpeedToSoundFraction));
     uint8_t changed = sound->m_soundChanged;
     changed |= sound->m_state != Field<int>(m_state, 0x18) ? 1 : 0;
     sound->m_state = Field<int>(m_state, 0x18);
-    changed |= sound->m_terrain != Field<uint8_t>(m_state, 0xE1) ? 1 : 0;
+    changed |= sound->m_surfaceType != Field<uint8_t>(m_state, 0xE1) ? 1 : 0;
     sound->m_soundChanged = changed;
-    sound->m_terrain = Field<uint8_t>(m_state, 0xE1);
+    sound->m_surfaceType = Field<uint8_t>(m_state, 0xE1);
     sound->m_noRailSound = Field<uint8_t>(m_state, 0x70);
     changed |= sound->m_sliding != Field<uint8_t>(m_state, 0x58) ? 1 : 0;
     sound->m_soundChanged = changed;
@@ -524,22 +524,22 @@ void CSkaterNonLocalNetLogicComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterNonLocalNetLogicComponent::Destroy,
-         &Obj::CSkaterNonLocalNetLogicComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRemoteSync::Destroy,
+         &GameObjects::CRiderRemoteSync::Update,
          Stubs::IgnoreArgument,
-         &Obj::CSkaterNonLocalNetLogicComponent::Finalize,
+         &GameObjects::CRiderRemoteSync::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -1,4 +1,4 @@
-// Cutscenes: starting and ending one (the details' InitFromStructure / End), the data's assets from the loaded
+// Cutscenes: starting and ending one (the details' ConfigureFromData / End), the data's assets from the loaded
 // bundle and its destructor (0x00466620-0x00467707). See cutscene.h.
 
 #include <cstdint>
@@ -35,7 +35,7 @@
 #include "game/gfx/engine.h"
 #include "game/obj/cutscene.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint8_t g_skinColourTable[80]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 239, 226, 125, 59, 80, 171, 108, 64, 205, 4, 143, 63, 0, 0, 128, 63, 239, 226, 125, 59, 180, 212, 5, 65, 87, 207, 247, 63, 0, 0, 128, 63, 153, 71, 126, 59, 185, 169, 157, 64, 74, 151, 190, 64, 0, 0, 128, 63, 153, 71, 126, 59, 46, 84, 117, 64, 72, 24, 102, 64, 0, 0, 128, 63};
 float g_skinColours[20]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
@@ -45,7 +45,7 @@ namespace {
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kFlagParam = 0x82C84419;
 
-// InitFromStructure's parameters and scripts (names unknown).
+// ConfigureFromData's parameters and scripts (names unknown).
 constexpr uint32_t kCutsceneName = 0xA1DC81F9;
 constexpr uint32_t kNoMusicFlag = 0xBAFA9F1C;
 constexpr uint32_t kForceFlag = 0x7DDDE00E;
@@ -71,16 +71,16 @@ constexpr uint32_t kTypeExtra = 0xFFC529F4;
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE;
 constexpr uint32_t kColourNames[4] = {0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442D3C1};
 
-Ass::CAssMan* Assets() { return Ass::g_assetManager; }
+AssetStore::CResourceRegistry* Assets() { return AssetStore::g_assetManager; }
 // The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
 void* LoadAssetData(uint32_t name, int type, uint32_t textures, const void* data, uint32_t size, void* params)
 {
-    return Assets()->LoadAssetFromStream(name, type, textures, const_cast<void*>(data), size, false, true, params, 0);
+    return Assets()->ReadResourceFromStream(name, type, textures, const_cast<void*>(data), size, false, true, params, 0);
 }
-void UnloadAsset(uint32_t name)
+void DiscardLoadedItem(uint32_t name)
 {
-    Ass::CAsset* asset = Assets()->GetAsset(name, 1);
-    Assets()->UnloadAsset(asset);
+    AssetStore::CResource* asset = Assets()->ObtainLoadedItem(name, 1);
+    Assets()->DiscardLoadedItem(asset);
 }
 void DeleteVirtual(void* object)
 {
@@ -89,23 +89,23 @@ void DeleteVirtual(void* object)
 void* NewAnimSource()
 {
     void* memory = AnimSourceAllocate(0x214);
-    return memory ? static_cast<Nx::CFrameSource*>(memory)->Construct() : nullptr;
+    return memory ? static_cast<Engine3D::CFrameSource*>(memory)->Construct() : nullptr;
 }
-Script::CStruct* MakeStruct()
+Scripts::CStruct* MakeStruct()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void FreeStruct(Script::CStruct* s)
+void FreeStruct(Scripts::CStruct* s)
 {
     if (!s)
         return;
     s->Clear();
-    Script::DeleteStruct(s);
+    Scripts::DeleteStruct(s);
 }
-void Run(uint32_t script, Script::CStruct* params = nullptr, CObject* object = nullptr)
+void Run(uint32_t script, Scripts::CStruct* params = nullptr, CObject* object = nullptr)
 {
-    Script::RunScript(script, params, object, false, nullptr);
+    Scripts::LaunchScript(script, params, object, false, nullptr);
 }
 
 // The asset manager's load parameters (0x00409E90 constructs them).
@@ -140,78 +140,78 @@ inline void PrintCutsceneDetails(void*) {}
 } // namespace
 
 // 0x00466620
-bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
+bool CCinematicEntry::ConfigureFromData(Scripts::CStruct* params)
 {
     char fileName[256] = "none"; // (from the game's 0x0064797C)
     uint32_t name = 0;
     if (m_ownsData) {
         const char* path;
         params->GetString(kCutsceneName, &path, 1);
-        name = Crc::GenerateCRCFromString(CutsceneNameFromPath(path));
-        m_asset = Crc::GenerateCRCFromString(path);
+        name = Checksums::HashFromText(CutsceneNameFromPath(path));
+        m_asset = Checksums::HashFromText(path);
         std::memcpy(fileName, path, std::strlen(path) + 1); // (unbounded, as the original)
     } else {
-        params->GetChecksum(kCutsceneName, &name, 1);
+        params->ReadHashValue(kCutsceneName, &name, 1);
         m_asset = 0;
     }
-    Script::CStruct* settings = MakeStruct();
+    Scripts::CStruct* settings = MakeStruct();
     settings->AppendStructureIfAny(params);
-    reinterpret_cast<CMovieDetails*>(this)->InitFromStructure(settings);
-    if (Script::CStruct* defaults = Script::GetStructure(Crc::ExtendCRCWithString(name, "_params")))
+    reinterpret_cast<CVideoEntry*>(this)->ConfigureFromData(settings);
+    if (Scripts::CStruct* defaults = Scripts::ReadSubStruct(Checksums::FoldTextIntoChecksum(name, "_params")))
         m_params->AppendStructureIfAny(defaults);
-    m_beginScript = Crc::ExtendCRCWithString(name, "_begin");
-    m_endScript = Crc::ExtendCRCWithString(name, "_end");
+    m_beginScript = Checksums::FoldTextIntoChecksum(name, "_begin");
+    m_endScript = Checksums::FoldTextIntoChecksum(name, "_end");
     bool loaded = false;
     if (!m_ownsData) {
-        m_data = static_cast<CCutsceneData*>(
+        m_data = static_cast<CCinematicTable*>(
             Assets()->GetAssetData(name, 0));
         loaded = m_data != nullptr;
     } else {
         // the loading screen; the music volumes kept to give back at the end, then muted
-        Nx::DisplayLoadingScreen(nullptr, true, false);
-        Gfx::LoadingConsole::ScreenShown(true, false); // not original: the loading console (gfx/loading_console.h)
-        m_musicVolume = Nx::GetAmbientLightModulationFactor(true);
-        m_streamVolume0 = Nx::GetDiffuseLightModulationFactor(0, true);
-        m_streamVolume1 = Nx::GetDiffuseLightModulationFactor(1, true);
-        Nx::SetAmbientLightModulationFactor(0.0f, 0.0f);
-        Nx::SetDiffuseLightModulationFactor(0, 0.0f, 0.0f);
-        Nx::SetDiffuseLightModulationFactor(1, 0.0f, 0.0f);
-        Nx::UpdateSceneLightQueue();
-        Ass::CAssMan* assets = Assets();
+        Engine3D::DisplayLoadingScreen(nullptr, true, false);
+        Gfx2D::LoadingConsole::ScreenShown(true, false); // not original: the loading console (gfx/loading_console.h)
+        m_musicVolume = Engine3D::GetAmbientLightModulationFactor(true);
+        m_streamVolume0 = Engine3D::GetDiffuseLightModulationFactor(0, true);
+        m_streamVolume1 = Engine3D::GetDiffuseLightModulationFactor(1, true);
+        Engine3D::SetAmbientLightModulationFactor(0.0f, 0.0f);
+        Engine3D::SetDiffuseLightModulationFactor(0, 0.0f, 0.0f);
+        Engine3D::SetDiffuseLightModulationFactor(1, 0.0f, 0.0f);
+        Engine3D::UpdateSceneLightQueue();
+        AssetStore::CResourceRegistry* assets = Assets();
         if (!assets->GetAssetDataByName(fileName, 0)) {
-            int music = m_params->ContainsFlag(kNoMusicFlag) ? 0 : 1;
-            int streams = m_params->ContainsFlag(kNoMusicFlag) ? 0 : 1;
-            if (params->ContainsFlag(kForceFlag)) {
+            int music = m_params->HasBareFlag(kNoMusicFlag) ? 0 : 1;
+            int streams = m_params->HasBareFlag(kNoMusicFlag) ? 0 : 1;
+            if (params->HasBareFlag(kForceFlag)) {
                 music = 1;
                 streams = 1;
             }
-            m_params->AddInteger(0xCDF2B13E, music);
-            m_params->AddInteger(0x9A4BDFF5, streams);
-            m_params->AddInteger(0xED064302, 1);
-            m_params->AddInteger(0xBABF2DC9, 1);
+            m_params->PutInt(0xCDF2B13E, music);
+            m_params->PutInt(0x9A4BDFF5, streams);
+            m_params->PutInt(0xED064302, 1);
+            m_params->PutInt(0xBABF2DC9, 1);
             m_params->AppendStructureIfAny(settings);
             Run(0x722D9CA7);
-            Gfx::HideModelsForCutscene();
+            Gfx2D::HideModelsForCutscene();
             Run(0xE1CE826A, m_params);
-            m_data = static_cast<CCutsceneData*>(assets->LoadAsset(fileName, 0, 0, 0, false, false, false, m_settings, 0));
+            m_data = static_cast<CCinematicTable*>(assets->LoadAsset(fileName, 0, 0, 0, false, false, false, m_settings, 0));
             float start;
             if (params->GetFloat(kStartTime, &start, 0)) {
-                CCutsceneData* data = m_data;
+                CCinematicTable* data = m_data;
                 float seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
-                Pcm::PauseMusic(1);
+                AudioStream::PauseMusic(1);
                 data->m_unknown3474 = 1;
-                data->m_time = seconds;
+                data->m_clock = seconds;
             }
             float loop;
             if (params->GetFloat(kLoopLength, &loop, 0)) {
                 loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
-                CCutsceneData* data = m_data;
+                CCinematicTable* data = m_data;
                 data->m_unknown3474 = 1;
-                data->m_unknown3488 = *reinterpret_cast<uint32_t*>(&data->m_time);
-                data->m_unknown348C = static_cast<float>(static_cast<double>(loop) + data->m_time);
-                Pcm::PauseMusic(1);
+                data->m_unknown3488 = *reinterpret_cast<uint32_t*>(&data->m_clock);
+                data->m_unknown348C = static_cast<float>(static_cast<double>(loop) + data->m_clock);
+                AudioStream::PauseMusic(1);
             }
-            if (Script::CArray* subtitles = Script::GetArray(Crc::ExtendCRCWithString(name, "_subtitles")))
+            if (Scripts::CArray* subtitles = Scripts::GetArray(Checksums::FoldTextIntoChecksum(name, "_subtitles")))
                 m_data->SetSubtitles(subtitles);
             loaded = true;
         }
@@ -221,7 +221,7 @@ bool CCutsceneDetails::InitFromStructure(Script::CStruct* params)
 }
 
 // 0x00466A10
-void CCutsceneDetails::End()
+void CCinematicEntry::End()
 {
     if (!m_ownsData) {
         if (m_data)
@@ -233,34 +233,34 @@ void CCutsceneDetails::End()
     }
     Run(0xE7BC7EFD);
     Run(0x4C0FD1D7);
-    reinterpret_cast<Nx::CFlexibleParticleManager*&>(Nx::g_flexibleParticleManager)->DeleteTempHeap();
+    reinterpret_cast<Engine3D::CFlexibleParticleManager*&>(Engine3D::g_flexibleParticleManager)->DeleteTempHeap();
     if (m_data) {
-        UnloadAsset(m_asset);
+        DiscardLoadedItem(m_asset);
         m_data = nullptr;
     }
-    Nx::ClearSceneLightQueue();
+    Engine3D::ClearSceneLightQueue();
     if (m_endScript)
         Run(m_endScript);
     Run(0xF49A8C9C);
     Run(0xDEFF69FF);
-    Mem::Manager::Get()->DeleteCutsceneHeaps();
+    MemSys::Manager::Get()->DeleteCutsceneHeaps();
     auto* skater =
-        static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
+        static_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
     if (skater) {
-        Script::CStruct* flag = MakeStruct();
-        flag->AddChecksum(kUnnamed, kFlagParam);
+        Scripts::CStruct* flag = MakeStruct();
+        flag->PutNameKey(kUnnamed, kFlagParam);
         Run(0xABF617EE, flag, reinterpret_cast<CObject*>(skater));
         FreeStruct(flag);
     }
     Run(0xBCA1791C, m_params);
-    Gfx::ShowModelsAfterCutscene();
+    Gfx2D::ShowModelsAfterCutscene();
     Run(0x94D0D528);
     PrintCutsceneDetails(this);
     Run(0x15674315);
 }
 
 // 0x00466C20
-void CCutsceneData::DestroyBody()
+void CCinematicTable::DestroyBody()
 {
     m_vtable = g_cutsceneDataVtable;
     g_cutscenePlaying = false;
@@ -282,16 +282,16 @@ void CCutsceneData::DestroyBody()
     DestroyObjects();
     RemoveCutsceneLights();
     for (int i = 0; i < m_assetCount; ++i) {
-        UnloadAsset(m_assets[i]);
+        DiscardLoadedItem(m_assets[i]);
         m_assets[i] = 0;
     }
     if (m_flag34B0) {
-        Pcm::StopMusic();
+        AudioStream::StopMusic();
         if (m_flag34B0) {
             Run(0x7216D8DA);
             char fileName[256];
             std::snprintf(fileName, sizeof(fileName), "%08x.qb", m_name);
-            Script::UnloadQB(Crc::GenerateCRCFromString(fileName));
+            Scripts::UnloadQB(Checksums::HashFromText(fileName));
         }
     }
     if (mp_params) {
@@ -301,53 +301,53 @@ void CCutsceneData::DestroyBody()
 }
 
 // 0x00466DD0
-void CCutsceneData::LoadFromBundle()
+void CCinematicTable::LoadFromBundle()
 {
-    File::AssetBundle* bundle = mp_bundle;
+    FileLoad::AssetBundle* bundle = mp_bundle;
     int count = bundle->m_count;
     for (int i = 0; i < count; ++i) {
-        File::AssetBundle::Entry* entry = mp_bundle->GetEntry(i);
-        void* data = mp_bundle->GetAsset(i);
+        FileLoad::AssetBundle::Entry* entry = mp_bundle->GetEntry(i);
+        void* data = mp_bundle->ObtainLoadedItem(i);
         uint32_t type = entry->type;
         switch (type) {
         case kTypeStructure:
             mp_params->Clear();
-            Script::ReadFromBuffer(mp_params, static_cast<const uint8_t*>(data));
+            Scripts::DecodeFromBytes(mp_params, static_cast<const uint8_t*>(data));
             break;
         case kTypeQB:
             if (m_flag34B0) {
                 char fileName[256];
                 std::snprintf(fileName, sizeof(fileName), "%08x.qb", m_name);
-                Script::LoadQBData(fileName, static_cast<const uint8_t*>(data), 1, 0, 0);
+                Scripts::LoadQBData(fileName, static_cast<const uint8_t*>(data), 1, 0, 0);
             }
             break;
         case kTypeCameraAnim: {
-            uint32_t name = NameChecksum("_CAM", static_cast<int>(entry->name)); // (the game's 0x00647914)
+            uint32_t name = HashOfName("_CAM", static_cast<int>(entry->name)); // (the game's 0x00647914)
             LoadAsset(name, reinterpret_cast<uint32_t>(data), entry->size);
             ++m_cameraParts;
             if (!m_cameraSource) {
                 m_cameraSource = NewAnimSource();
-                static_cast<Nx::CFrameSource*>(m_cameraSource)->SetDone(true);
+                static_cast<Engine3D::CFrameSource*>(m_cameraSource)->SetDone(true);
             }
             if (!mp_cameraAnim) {
-                mp_cameraAnim = static_cast<Nx::CFrameSource*>(m_cameraSource)->SetAnim(name);
-                static_cast<Gfx::CBonedAnimFrameData*>(mp_cameraAnim)->ArmEvents();
+                mp_cameraAnim = static_cast<Engine3D::CFrameSource*>(m_cameraSource)->PlayClip(name);
+                static_cast<Gfx2D::CJointClipFrames*>(mp_cameraAnim)->ArmEvents();
             }
             if (!mp_objectAnims)
                 mp_objectAnims = mp_cameraAnim;
             break;
         }
         case kTypeObjectAnim: {
-            uint32_t name = NameChecksum("_OBA", static_cast<int>(entry->name)); // (the game's 0x0064790C)
+            uint32_t name = HashOfName("_OBA", static_cast<int>(entry->name)); // (the game's 0x0064790C)
             LoadAsset(name, reinterpret_cast<uint32_t>(data), entry->size);
             ++m_objectParts;
             if (!m_objectSource) {
                 m_objectSource = NewAnimSource();
-                static_cast<Nx::CFrameSource*>(m_objectSource)->SetDone(true);
+                static_cast<Engine3D::CFrameSource*>(m_objectSource)->SetDone(true);
             }
             if (!mp_animList) {
-                mp_animList = static_cast<Nx::CFrameSource*>(m_objectSource)->SetAnim(name);
-                static_cast<Gfx::CBonedAnimFrameData*>(mp_animList)->ArmEvents();
+                mp_animList = static_cast<Engine3D::CFrameSource*>(m_objectSource)->PlayClip(name);
+                static_cast<Gfx2D::CJointClipFrames*>(mp_animList)->ArmEvents();
             }
             break;
         }
@@ -385,13 +385,13 @@ void CCutsceneData::LoadFromBundle()
 
 // A model in the bundle (with its textures, a skinned model's colours): loaded unless it's a skin variant that
 // isn't the skater's (variants: name + 1 ... name + 4 by face and sex).
-void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* data)
+void CCinematicTable::LoadModel(int index, FileLoad::AssetBundle::Entry* entry, void* data)
 {
     uint32_t modelName = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     LoadParams params;
-    reinterpret_cast<Ass::SkinParams*>(&params)->Clear(); // (the skinned model's load parameters, 0x14 bytes)
+    reinterpret_cast<AssetStore::SkinParams*>(&params)->Clear(); // (the skinned model's load parameters, 0x14 bytes)
     void* textureData = mp_bundle->FindAsset(entry->name, kTypeTextures, 1);
-    File::AssetBundle::Entry* textures = mp_bundle->FindEntry(entry->name, kTypeTextures, 1);
+    FileLoad::AssetBundle::Entry* textures = mp_bundle->FindEntry(entry->name, kTypeTextures, 1);
     uint32_t textureSize = textures->size;
     uint32_t texturesName = textures->type + textures->name;
     uint8_t isModel = entry->type == kTypeModel;
@@ -410,21 +410,21 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
     if (const uint8_t* colours =
             static_cast<const uint8_t*>(mp_bundle->FindAsset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
-        auto* part1 = static_cast<Script::CStruct*>(
-            static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPart(kPartA));
+        auto* part1 = static_cast<Scripts::CStruct*>(
+            static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPart(kPartA));
         if (!part1)
-            part1 = static_cast<Script::CStruct*>(
-                static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPart(kPartB));
-        auto* part2 = static_cast<Script::CStruct*>(
-            static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPartOption(kPartA));
+            part1 = static_cast<Scripts::CStruct*>(
+                static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPart(kPartB));
+        auto* part2 = static_cast<Scripts::CStruct*>(
+            static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPartOption(kPartA));
         if (!part2)
-            part2 = static_cast<Script::CStruct*>(
-                static_cast<Gfx::CModelAppearance*>(m_unknown34A8)->GetPartOption(kPartB));
+            part2 = static_cast<Scripts::CStruct*>(
+                static_cast<Gfx2D::CModelLook*>(m_unknown34A8)->GetPartOption(kPartB));
         float* skin = g_skinColours;
         skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
         for (int k = 0; k < 4; ++k) {
             float colour[4];
-            Script::CStruct* from = part1->ContainsComponentNamed(kColourNames[k]) ? part1 : part2;
+            Scripts::CStruct* from = part1->HasEntryNamed(kColourNames[k]) ? part1 : part2;
             std::memcpy(skin + 4 * (k + 1), ReadColour(colour, from, kColourNames[k]), 16);
         }
         int entries = *reinterpret_cast<const int*>(colours + 4);
@@ -449,20 +449,20 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
             hasFace = false;
         }
         void* face = AppearanceFace(m_unknown34A8);
-        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx::CFaceTexture::IsValid))(face) ? 1 : 0;
+        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CFaceSkin::IsValid))(face) ? 1 : 0;
         int skaterMale;
-        static_cast<Script::CStruct*>(m_unknown34AC)->GetInteger(0x3F813177, &skaterMale, 1);
+        static_cast<Scripts::CStruct*>(m_unknown34AC)->FetchIntValue(0x3F813177, &skaterMale, 1);
         load = static_cast<int>(hasFace) == skaterFace && static_cast<int>(male) == skaterMale;
         if (load)
-            Nx::SetScreenClip(&table);
+            Engine3D::SetScreenClip(&table);
     }
     if (load) {
         params.extra = mp_bundle->FindAsset(entry->name, kTypeExtra, 0);
         if (params.extra)
             params.extraSize = mp_bundle->FindEntry(entry->name, kTypeExtra, 1)->size;
-        static_cast<Ass::CAssMan*>(assets)->LoadAssetFromStream(texturesName, 3, 0, textureData, textureSize, false, true,
+        static_cast<AssetStore::CResourceRegistry*>(assets)->ReadResourceFromStream(texturesName, 3, 0, textureData, textureSize, false, true,
                                                                  &textureParams, 0);
-        static_cast<Ass::CAssMan*>(assets)->LoadAssetFromStream(modelName, 7, texturesName, data, entry->size, false, true,
+        static_cast<AssetStore::CResourceRegistry*>(assets)->ReadResourceFromStream(modelName, 7, texturesName, data, entry->size, false, true,
                                                                  &params, 0);
         m_assets[m_assetCount] = modelName;
         ++m_assetCount;

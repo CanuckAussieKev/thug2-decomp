@@ -23,7 +23,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_rigidBodyMemberFunctions[78]{
             0xCC12CF87, 0xFFB39248, 0, 0, 0, 0,
@@ -58,16 +58,16 @@ bool& DrawShape() { return g_rigidBodyDrawShape; }
 bool& DrawDetails() { return g_rigidBodyDrawDetails; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-CSmtPtr<CCompositeObject>* Pushers() { return g_rigidBodyPushers; }
+CSharedRef<CGameEntity>* Pushers() { return g_rigidBodyPushers; }
 float* PusherReach() { return g_rigidBodyPusherReach; }
 
 // The matrix's element at byte offset `offset` from its start.
-double M(const Mth::Matrix& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
+double M(const Maths::Matrix& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
 
 } // namespace
 
 // 0x0042BAC0
-bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ToggleRigidBodyDebug(Scripts::CStruct*, Scripts::CScript*)
 {
     if (!DrawShape()) {
         DrawShape() = true;
@@ -81,51 +81,51 @@ bool __cdecl CFunc_ToggleRigidBodyDebug(Script::CStruct*, Script::CScript*)
 }
 
 // 0x0042BB00
-void __cdecl CRigidBodyComponent::RegisterMemberFunctions()
+void __cdecl CBodyDynamicsModule::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_rigidBodyMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_rigidBodyMemberFunctions, 0x18);
 }
 
 // 0x0042BB20
-int CBaseComponent::RunMemberFunction(Script::CMemberFunctionEntry* entry, Script::CStruct* params,
-                                      Script::CScript* script)
+int CObjectModule::RunMemberFunction(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
+                                      Scripts::CScript* script)
 {
     if (entry->mCode) {
         void* self = reinterpret_cast<uint8_t*>(this) + entry->mThisAdjustment;
-        return reinterpret_cast<int(__thiscall*)(void*, Script::CStruct*, Script::CScript*)>(entry->mCode)(self, params,
+        return reinterpret_cast<int(__thiscall*)(void*, Scripts::CStruct*, Scripts::CScript*)>(entry->mCode)(self, params,
                                                                                                          script);
     }
-    return CallMemberFunction(entry->mName, params, script);
+    return InvokeMethodByName(entry->mName, params, script);
 }
 
 // 0x0042BB60
-bool CRigidBodyComponent::RigidBody_IgnoreSkater(Script::CStruct* params, Script::CScript*)
+bool CBodyDynamicsModule::RigidBody_IgnoreSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->GetFloat(0u, &m_pushCooldown, 1);
-    if (params->ContainsFlag(kFrames) || params->ContainsFlag(kFrame))
+    if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
         m_pushCooldown = Narrow(Wide(m_pushCooldown) * kFrameSeconds);
     return true;
 }
 
 // 0x0042BBB0
-bool CRigidBodyComponent::RigidBody_Disable(Script::CStruct*, Script::CScript*)
+bool CBodyDynamicsModule::RigidBody_Disable(Scripts::CStruct*, Scripts::CScript*)
 {
     m_state = STATE_DISABLED;
     return true;
 }
 
 // 0x0042BBD0
-bool CRigidBodyComponent::RigidBody_Reset(Script::CStruct* params, Script::CScript*)
+bool CBodyDynamicsModule::RigidBody_Reset(Scripts::CStruct* params, Scripts::CScript*)
 {
-    CBaseComponent::InitFromStructure(params);
+    CObjectModule::ConfigureFromData(params);
     return true;
 }
 
 // 0x0042BD60
-void __cdecl SetRigidBodyPusherReach(CCompositeObject* object, float reach)
+void __cdecl SetRigidBodyPusherReach(CGameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
-        if (Pushers()[i].mp_object == object) {
+        if (Pushers()[i].m_ownerObject == object) {
             PusherReach()[i] = reach;
             return;
         }
@@ -133,13 +133,13 @@ void __cdecl SetRigidBodyPusherReach(CCompositeObject* object, float reach)
 }
 
 // 0x0042BD90
-void CRigidBodyComponent::Finalize()
+void CBodyDynamicsModule::Finalize()
 {
-    mp_soundComponent = static_cast<CSoundComponent*>(m_object->GetComponent(kSound));
-    const Mth::Matrix& m = m_matrix;
+    mp_soundComponent = static_cast<CAudioEmitterModule*>(m_object->GetComponent(kSound));
+    const Maths::Matrix& m = m_basisFrame;
     for (int i = 0; i < m_springCount; ++i) {
         Spring& spring = mp_springs[i];
-        const Mth::Vector& p = spring.point;
+        const Maths::Vector& p = spring.point;
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.x) * M(m, 0x00)) + Wide(p.z) * M(m, 0x20);
         float y = Narrow((Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14));
         float z = Narrow((Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18));
@@ -151,7 +151,7 @@ void CRigidBodyComponent::Finalize()
 }
 
 // 0x0042BE90
-void CRigidBodyComponent::Sleep()
+void CBodyDynamicsModule::Sleep()
 {
     if (m_settleScript)
         m_object->SpawnScript(m_settleScript, mp_callbackParams, 0, false)->Update();
@@ -161,20 +161,20 @@ void CRigidBodyComponent::Sleep()
 }
 
 // 0x0042BF00 (each array from its last element back)
-void CRigidBodyComponent::UpdateWorldPoints()
+void CBodyDynamicsModule::UpdateWorldPoints()
 {
-    const Mth::Matrix& m = m_matrix;
+    const Maths::Matrix& m = m_basisFrame;
     for (int i = m_contactCount - 1; i >= 0; --i) {
-        const Mth::Vector& p = mp_contacts[i];
-        Mth::Vector& out = WorldContactPoints()[i];
+        const Maths::Vector& p = mp_contacts[i];
+        Maths::Vector& out = WorldContactPoints()[i];
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
         double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
         out = {Narrow(x), Narrow(y), Narrow(z), p.w};
     }
     for (int i = m_sphereCount - 1; i >= 0; --i) {
-        const Mth::Vector& p = mp_spheres[i].center;
-        Mth::Vector& out = WorldSphereCenters()[i];
+        const Maths::Vector& p = mp_spheres[i].center;
+        Maths::Vector& out = WorldSphereCenters()[i];
         double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
         double z = (Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18);
@@ -184,8 +184,8 @@ void CRigidBodyComponent::UpdateWorldPoints()
         const Spring& spring = mp_springs[i];
         if (!spring.active)
             continue;
-        const Mth::Vector& p = spring.point;
-        Mth::Vector& out = WorldSpringPoints()[i];
+        const Maths::Vector& p = spring.point;
+        Maths::Vector& out = WorldSpringPoints()[i];
         double x = (Wide(p.z) * M(m, 0x20) + Wide(p.y) * M(m, 0x10)) + Wide(p.x) * M(m, 0x00);
         double y = (Wide(p.z) * M(m, 0x24) + Wide(p.y) * M(m, 0x14)) + Wide(p.x) * M(m, 0x04);
         double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
@@ -197,7 +197,7 @@ namespace {
 
 // A velocity slowed by `drag` (a speed; 0: left alone): stopped (w 1) at or below it, else each component, w too,
 // less its share (a not-a-number speed or drag: that).
-void Slow(Mth::Vector& v, float drag)
+void Slow(Maths::Vector& v, float drag)
 {
     if (drag == 0.0f)
         return;
@@ -218,28 +218,28 @@ void Slow(Mth::Vector& v, float drag)
 }
 
 // x * x + y * y + z * z, as the original sums it.
-double LengthSqr(const Mth::Vector& v) { return (Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z; }
+double MagnitudeSquared(const Maths::Vector& v) { return (Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z; }
 
 } // namespace
 
 // 0x0042C6D0
-void CRigidBodyComponent::Damp()
+void CBodyDynamicsModule::Damp()
 {
     Slow(m_vel, m_unknown38);
     Slow(m_rotVel, m_unknown3C);
 }
 
 // 0x0042C890 (the comparisons let a not-a-number speed through)
-void CRigidBodyComponent::CheckSleep()
+void CBodyDynamicsModule::CheckSleep()
 {
     if (m_unknown191 < 3)
         return;
-    if (LengthSqr(m_vel) > m_linearSleepSquared)
+    if (MagnitudeSquared(m_vel) > m_linearSleepSquared)
         return;
-    if (LengthSqr(m_rotVel) > m_angularSleepSquared)
+    if (MagnitudeSquared(m_rotVel) > m_angularSleepSquared)
         return;
     Sleep();
-    if ((m_flags & FLAG_DIE_UPON_SETTLING) && !(Mth::DistanceSquared(m_pos, m_wakePos) < kSettledDistanceSqr))
+    if ((m_flags & FLAG_DIE_UPON_SETTLING) && !(Maths::DistanceSquared(m_pos, m_wakePos) < kSettledDistanceSqr))
         m_dieTimer = kDieAfterSettling;
 }
 
@@ -255,7 +255,7 @@ constexpr float kTurnShare = 0.6f;        // 0x006463C4
 constexpr float kSoundScale = 0.1f;       // 0x00645D74: the push's size to the collide sound's percent
 constexpr uint32_t kPercent = 0x9E497FC6; // percent
 
-// The pushers' height (0x006939D0: 77, set by InitFromStructure) and the time the next collide sound of any rigid
+// The pushers' height (0x006939D0: 77, set by ConfigureFromData) and the time the next collide sound of any rigid
 // body may play (0x006939D8).
 float PusherHeight() { return g_rigidBodyPusherHeight; }
 int& NextCollideSoundTime() { return g_nextCollideSoundTime; }
@@ -264,17 +264,17 @@ int& NextCollideSoundTime() { return g_nextCollideSoundTime; }
 // which 0x0049CB00 then takes as its own; neither rewritten yet).
 void HideSector(uint32_t checksum)
 {
-    Nx::CScene* scene = Nx::GetMainScene();
-    void* sector = scene->GetSector(checksum);
+    Engine3D::CWorldScene* scene = Engine3D::GetMainScene();
+    void* sector = scene->LookUpSector(checksum);
     if (sector)
-        static_cast<Nx::CSector*>(sector)->SetActive(false);
+        static_cast<Engine3D::CWorldCell*>(sector)->SetActive(false);
 }
 
 // A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).
 int MuteUntil(int delay)
 {
-    uint32_t scaled = static_cast<uint32_t>((Mth::Rnd(100) + 50) * delay) / 100u;
-    return static_cast<int>(scaled + Tmr::GetTime());
+    uint32_t scaled = static_cast<uint32_t>((Maths::Rnd(100) + 50) * delay) / 100u;
+    return static_cast<int>(scaled + FrameClock::GetTime());
 }
 
 } // namespace
@@ -286,14 +286,14 @@ int MuteUntil(int delay)
 // its feet, or 12 below); then it wakes, ignores pushers for a while, runs CollideScript, hides its shadow sector
 // and plays the collide sound (mute delays allowing). A pusher not moving relative to it (0.01 on each axis) ends
 // the look at once - the pushers after it aren't felt.
-void CRigidBodyComponent::FeelPushers()
+void CBodyDynamicsModule::FeelPushers()
 {
     for (int i = 7; i >= 0; --i) {
-        CCompositeObject* pusher = Pushers()[i].mp_object;
+        CGameEntity* pusher = Pushers()[i].m_ownerObject;
         if (!pusher)
             continue;
         const float reach = PusherReach()[i];
-        const Mth::Vector& at = pusher->m_pos;
+        const Maths::Vector& at = pusher->m_pos;
         double outer = Wide(reach) + m_skaterRadius;
         double dz = Wide(m_pos.z) - at.z;
         double dx = Wide(m_pos.x) - at.x;
@@ -342,7 +342,7 @@ void CRigidBodyComponent::FeelPushers()
         float jx = Narrow(Wide(ax) * ig * m_skaterAssentCos);
         jz = Narrow(Wide(jz) * m_skaterAssentCos);
         double size = push * m_skaterImpulseFactor;
-        Mth::Vector impulse = {Narrow(Wide(jx) * size), Narrow(Wide(m_skaterAssentSin) * size),
+        Maths::Vector impulse = {Narrow(Wide(jx) * size), Narrow(Wide(m_skaterAssentSin) * size),
                                Narrow(Wide(jz) * size), 0.0f};
 
         // Where it's applied (from the centre).
@@ -382,13 +382,13 @@ void CRigidBodyComponent::FeelPushers()
         m_pushCooldown = m_pushCooldownTime;
         if (m_collideScript)
             m_object->SpawnScript(m_collideScript, mp_callbackParams, 0, false)->Update();
-        HideSector(Crc::ExtendCRCWithString(m_object->m_id, "_Shadow"));
-        int now = static_cast<int>(Tmr::GetTime());
+        HideSector(Checksums::FoldTextIntoChecksum(m_object->m_id, "_Shadow"));
+        int now = static_cast<int>(FrameClock::GetTime());
         if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && mp_soundComponent &&
             mp_collideSound) {
             double length = std::sqrt((Wide(impulse.x) * impulse.x + Wide(impulse.z) * impulse.z) +
                                       Wide(impulse.y) * impulse.y);
-            mp_collideSound->AddFloat(kPercent, Narrow(length * kSoundScale));
+            mp_collideSound->PushFloat(kPercent, Narrow(length * kSoundScale));
             mp_soundComponent->PlaySound(mp_collideSound);
             m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_collideMuteDelay));
             NextCollideSoundTime() = MuteUntil(m_globalCollideMuteDelay);
@@ -399,4 +399,4 @@ void CRigidBodyComponent::FeelPushers()
 
 } // namespace Obj
 
-using Obj::CRigidBodyComponent;
+using GameObjects::CBodyDynamicsModule;

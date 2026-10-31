@@ -18,7 +18,7 @@
 #include "game/obj/object.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Clip {
+namespace MenuSystem::LevelEditor::Clip {
 
 const char* const kHeaderComment = "# thug2-decomp clipboard";
 
@@ -28,7 +28,7 @@ bool IsClipText(const std::string& text)
     return text.compare(0, n, kHeaderComment) == 0;
 }
 
-int Merge(const Layout::File& fragment, Layout::File* into, const PasteHooks& hooks, std::vector<std::string>* missing,
+int Merge(const Layout::FileLoad& fragment, Layout::FileLoad* into, const PasteHooks& hooks, std::vector<std::string>* missing,
           std::vector<uint32_t>* copyNames)
 {
     int added = 0;
@@ -72,7 +72,7 @@ int Merge(const Layout::File& fragment, Layout::File* into, const PasteHooks& ho
         for (;;) {
             char text[64];
             std::snprintf(text, sizeof(text), "level_editor_copy_%08X_p%u", c.source, ++counter);
-            copy.name = Fields::NameChecksum(text);
+            copy.name = Fields::HashOfName(text);
             if (std::find(usedIds.begin(), usedIds.end(), copy.name) == usedIds.end() &&
                 !(hooks.idTaken && hooks.idTaken(copy.name)))
                 break;
@@ -114,10 +114,10 @@ int Merge(const Layout::File& fragment, Layout::File* into, const PasteHooks& ho
 
 namespace {
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
 // A level's own point node as a new node of its kind (false: not a kind the editor makes).
@@ -129,7 +129,7 @@ bool SpecOfLevelNode(const Nodes::Node& n, NodeCreate::Spec* spec)
     case Nodes::Family::Crown: kind = NodeCreate::Kind::Crown; break;
     case Nodes::Family::Light: kind = NodeCreate::Kind::Light; break;
     case Nodes::Family::Sound: kind = NodeCreate::Kind::Sound; break;
-    case Nodes::Family::Trigger: kind = NodeCreate::Kind::Proxim; break;
+    case Nodes::Family::Trigger: kind = NodeCreate::Kind::ProximityNode; break;
     default: return false;
     }
     *spec = NodeCreate::Default(kind, NodeCreate::Team::Red, n.pos, n.angles.y, NodeCreate::NameStem(kind) + std::string("01"));
@@ -137,7 +137,7 @@ bool SpecOfLevelNode(const Nodes::Node& n, NodeCreate::Spec* spec)
     if (kind == NodeCreate::Kind::Light && n.radius > 0.0f) {
         spec->outer = n.radius;
         spec->inner = n.innerRadius;
-    } else if ((kind == NodeCreate::Kind::Sound || kind == NodeCreate::Kind::Proxim) && n.radius > 0.0f) {
+    } else if ((kind == NodeCreate::Kind::Sound || kind == NodeCreate::Kind::ProximityNode) && n.radius > 0.0f) {
         spec->radius = n.radius;
     }
     return true;
@@ -178,7 +178,7 @@ bool Copy(std::string* message)
         *message = "Not in a level";
         return false;
     }
-    Layout::File fragment;
+    Layout::FileLoad fragment;
     fragment.scene = Scenery::SceneName(scene);
     std::vector<std::string> skipped;
     for (uint32_t checksum : s.sectors) {
@@ -196,7 +196,7 @@ bool Copy(std::string* message)
         fragment.clones.push_back(record);
     }
     for (uint32_t id : s.objects) {
-        Obj::CCompositeObject* object = LiveObject(id);
+        GameObjects::CGameEntity* object = LiveObject(id);
         if (!object)
             continue;
         uint32_t source = id;
@@ -210,9 +210,9 @@ bool Copy(std::string* message)
         }
         Layout::CopyRecord record = {0, source, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
         for (int r = 0; r < 3; ++r) {
-            record.rows[r * 3 + 0] = object->m_matrix.row[r].x;
-            record.rows[r * 3 + 1] = object->m_matrix.row[r].y;
-            record.rows[r * 3 + 2] = object->m_matrix.row[r].z;
+            record.rows[r * 3 + 0] = object->m_basisFrame.row[r].x;
+            record.rows[r * 3 + 1] = object->m_basisFrame.row[r].y;
+            record.rows[r * 3 + 2] = object->m_basisFrame.row[r].z;
         }
         record.scale = Scale::ObjectScale(object);
         fragment.copies.push_back(record);
@@ -222,7 +222,7 @@ bool Copy(std::string* message)
         bool done = false;
         if (index >= 0 && NodeCreate::IsAdded(s.node)) {
             for (const Triggers::Placed& t : Triggers::CaptureAdded()) {
-                if (Fields::NameChecksum(t.spec.name) == s.node || NodeCreate::Checksum(t.spec.name) == s.node) {
+                if (Fields::HashOfName(t.spec.name) == s.node || NodeCreate::Checksum(t.spec.name) == s.node) {
                     fragment.triggers.push_back(t);
                     done = true;
                 }
@@ -267,7 +267,7 @@ bool Paste(std::string* message)
     std::string text = clip ? clip : "";
     if (clip)
         SDL_free(clip);
-    Layout::File fragment, now;
+    Layout::FileLoad fragment, now;
     int line = 0;
     // (the comment line first, then the layout's header: Read skips comments)
     if (!IsClipText(text) || !Layout::Read(text.substr(text.find('\n') + 1), &fragment, &line)) {
@@ -283,7 +283,7 @@ bool Paste(std::string* message)
     hooks.sectorExists = [](uint32_t sector) { return Scenery::SectorOf(sector) != nullptr; };
     hooks.objectCopyable = [](uint32_t object) { return Objects::CanCopy(object); };
     hooks.nameTaken = [](const std::string& name) { return NodeCreate::NameTaken(name); };
-    hooks.idTaken = [](uint32_t id) { return Obj::FindObject(id) != nullptr; };
+    hooks.idTaken = [](uint32_t id) { return GameObjects::FindObject(id) != nullptr; };
     hooks.label = [](uint32_t checksum) {
         const char* name = Objects::NameOf(checksum);
         return std::string(name ? name : "");
@@ -392,4 +392,4 @@ std::string Describe()
     return text.empty() ? "nothing" : text;
 }
 
-} // namespace Front::LevelEditor::Clip
+} // namespace MenuSystem::LevelEditor::Clip

@@ -7,7 +7,7 @@
 
 #include "game/sys/platform_input.h"
 
-namespace Sys {
+namespace SystemCore {
 
 namespace {
 

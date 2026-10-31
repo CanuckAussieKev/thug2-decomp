@@ -5,14 +5,14 @@
 namespace Util {
 
 // Reads or writes values packed at bit level, a 32-bit word at a time, least significant bits first.
-class BitStream {
+class PackedBitBuffer {
 public:
-    BitStream();
+    PackedBitBuffer();
 
     // Prepare to read `size` bytes from `data`. The word buffer starts empty, so the first read loads it.
     void SetInputData(void* data, int size);
     // Prepare to write into `data` (capacity `size` bytes).
-    void SetOutputData(void* data, int size);
+    void BindOutputBuffer(void* data, int size);
     // Bytes touched so far, rounding a partial byte up.
     int GetByteCount() const;
     // Write out a partially filled word (writing only).
@@ -29,8 +29,8 @@ public:
 
     uint32_t* m_cursor;   // next word to read/write
     uint32_t* m_start;    // start of the data
-    uint32_t m_buffer;    // bits waiting to be written / not yet read
-    int m_bitsLeft;       // writing: free bits in m_buffer (32 = empty); reading: unread bits (0 = empty)
+    uint32_t m_octets;    // bits waiting to be written / not yet read
+    int m_bitsLeft;       // writing: free bits in m_octets (32 = empty); reading: unread bits (0 = empty)
     int m_size;           // size of the data in bytes
     int m_bitsUsed;       // bits read or written so far
 };

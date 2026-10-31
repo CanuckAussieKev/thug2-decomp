@@ -9,21 +9,21 @@
 #include "game/lst/head.h"
 #include "game/core/code_address.h"
 
-namespace Tsk {
+namespace TaskList {
 
 namespace {
 
 extern void** const kBaseTaskVtable;
-extern void** const kTaskNodeVtable;       // Lst::Node<BaseTask>
-extern void** const kTaskSearchVtable;     // Lst::Search<BaseTask>
-extern void** const kStackListSearchVtable; // Lst::Search<StackList>
-extern void** const kStackListNodeVtable;  // Lst::Node<StackList>
-extern void** const kStackListHeadVtable;  // Lst::Head<StackList>
+extern void** const kTaskNodeVtable;       // ListKit::Node<SchedulerTask>
+extern void** const kTaskSearchVtable;     // ListKit::Search<SchedulerTask>
+extern void** const kStackListSearchVtable; // ListKit::Search<StackList>
+extern void** const kStackListNodeVtable;  // ListKit::Node<StackList>
+extern void** const kStackListHeadVtable;  // ListKit::Head<StackList>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
 // A node's links taken out of its list and pointed at itself (the vtable kept).
-void Unlink(Mem::ListNode* node)
+void Unlink(MemSys::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -31,20 +31,20 @@ void Unlink(Mem::ListNode* node)
     node->prev = node;
 }
 // After `head`: the first node of its list.
-void InsertFront(Mem::ListNode* head, Mem::ListNode* node)
+void InsertFront(MemSys::ListNode* head, MemSys::ListNode* node)
 {
     node->prev = head;
     node->next = head->next;
     head->next->prev = node;
     head->next = node;
 }
-// The node after `node` (null at the head) - Lst::Search's step.
-Mem::ListNode* NextNode(Mem::ListNode* node)
+// The node after `node` (null at the head) - ListKit::Search's step.
+MemSys::ListNode* NextNode(MemSys::ListNode* node)
 {
-    Mem::ListNode* next = node->next;
+    MemSys::ListNode* next = node->next;
     return next->data == kHeadData ? nullptr : next;
 }
-void InitHead(Mem::ListNode* head, void** vtable)
+void SetupListSentinel(MemSys::ListNode* head, void** vtable)
 {
     head->data = kHeadData;
     head->priority = 0;
@@ -53,13 +53,13 @@ void InitHead(Mem::ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 // A node's scalar deleting destructor (vtable slot 0), with 1: unlinked and freed.
-void DeleteNode(Mem::ListNode* node)
+void UnlinkListNode(MemSys::ListNode* node)
 {
-    reinterpret_cast<void(__thiscall*)(Mem::ListNode*, int)>(node->vtable[0])(node, 1);
+    reinterpret_cast<void(__thiscall*)(MemSys::ListNode*, int)>(node->vtable[0])(node, 1);
 }
 
 // The destructors behind the nodes', heads' and local searches' vtables.
-struct TaskNode : Mem::ListNode {
+struct TaskNode : MemSys::ListNode {
     // 0x00406A00
     void DestroyBody() { UnlinkAs(kTaskNodeVtable); }
     // 0x00406860 (scalar deleting)
@@ -67,11 +67,11 @@ struct TaskNode : Mem::ListNode {
     {
         DestroyBody();
         if (flags & 1)
-            Mem::Manager::Get()->Free(this);
+            MemSys::Manager::Get()->Free(this);
         return this;
     }
 };
-struct StackListNode : Mem::ListNode {
+struct StackListNode : MemSys::ListNode {
     // 0x00406D00
     void DestroyBody() { UnlinkAs(kStackListNodeVtable); }
     // 0x00406D20 (scalar deleting; the body inlined)
@@ -79,21 +79,21 @@ struct StackListNode : Mem::ListNode {
     {
         DestroyBody();
         if (flags & 1)
-            Mem::Manager::Get()->Free(this);
+            MemSys::Manager::Get()->Free(this);
         return this;
     }
-    // 0x00406E50: Lst::Head<StackList>'s scalar deleting destructor (the node's body).
+    // 0x00406E50: ListKit::Head<StackList>'s scalar deleting destructor (the node's body).
     StackListNode* DestroyHead(uint8_t flags)
     {
         DestroyBody();
         if (flags & 1)
-            Mem::Manager::Get()->Free(this);
+            MemSys::Manager::Get()->Free(this);
         return this;
     }
 };
 struct Search {
     void** m_vtable;
-    Mem::ListNode* m_node;
+    MemSys::ListNode* m_listLink;
 
     // 0x004069C0
     void DestroyTaskSearchBody() { m_vtable = kTaskSearchVtable; }
@@ -102,7 +102,7 @@ struct Search {
     {
         m_vtable = kTaskSearchVtable;
         if (flags & 1)
-            Mem::Manager::Get()->Free(this);
+            MemSys::Manager::Get()->Free(this);
         return this;
     }
     // 0x00406CA0
@@ -112,7 +112,7 @@ struct Search {
     {
         m_vtable = kStackListSearchVtable;
         if (flags & 1)
-            Mem::Manager::Get()->Free(this);
+            MemSys::Manager::Get()->Free(this);
         return this;
     }
 };
@@ -120,14 +120,14 @@ struct Search {
 } // namespace
 
 // 0x00406890
-BaseTask* BaseTask::Construct(int priority)
+SchedulerTask* SchedulerTask::Construct(int priority)
 {
     m_disabled = 0;
     m_vtable = kBaseTaskVtable;
     m_list = nullptr;
-    m_stamp = 0;
-    m_mask = 0;
-    auto* node = static_cast<Mem::ListNode*>(Mem::Calloc(sizeof(Mem::ListNode)));
+    m_passCount = 0;
+    m_skipBits = 0;
+    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
     if (node) {
         node->data = this;
         node->vtable = kTaskNodeVtable;
@@ -135,52 +135,52 @@ BaseTask* BaseTask::Construct(int priority)
         node->next = node;
         node->prev = node;
     }
-    m_node = node;
+    m_listLink = node;
     return this;
 }
 
 // 0x00406930
-void BaseTask::Destruct()
+void SchedulerTask::Destruct()
 {
     m_vtable = kBaseTaskVtable;
     Remove(); // (inlined)
-    if (m_node)
-        DeleteNode(m_node);
+    if (m_listLink)
+        UnlinkListNode(m_listLink);
 }
 
 // 0x00406980
-BaseTask* BaseTask::ScalarDelete(uint8_t flags)
+SchedulerTask* SchedulerTask::ScalarDelete(uint8_t flags)
 {
     Destruct();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004068F0
-void BaseTask::Remove()
+void SchedulerTask::Remove()
 {
     if (!m_list)
         return;
     ++m_list->m_lock;
     m_list->MarkChanged();
-    Unlink(m_node);
+    Unlink(m_listLink);
     --m_list->m_lock;
     m_list = nullptr;
 }
 
 // 0x00406850
-bool BaseTask::InList() const
+bool SchedulerTask::IsOnTaskList() const
 {
-    return m_node->prev != m_node;
+    return m_listLink->prev != m_listLink;
 }
 
 // 0x00406A50
 List* List::Construct()
 {
     m_lock = 0;
-    InitHead(&m_head, kTaskNodeVtable);
-    m_stamp = 0;
+    SetupListSentinel(&m_head, kTaskNodeVtable);
+    m_passCount = 0;
     m_changed = false;
     return this;
 }
@@ -198,12 +198,12 @@ void List::MarkChanged()
 }
 
 // 0x00406A80
-void List::AddTask(BaseTask* task)
+void List::AddTask(SchedulerTask* task)
 {
     ++m_lock;
-    reinterpret_cast<Lst::Head*>(&m_head)->AddNode(task->m_node);
+    reinterpret_cast<ListKit::Head*>(&m_head)->AddNode(task->m_listLink);
     task->m_list = this;
-    task->m_stamp = m_stamp - 1;
+    task->m_passCount = m_passCount - 1;
     m_changed = true;
     --m_lock;
 }
@@ -213,19 +213,19 @@ void List::Process(void* /*unused*/, uint32_t mask)
 {
     if (m_lock != 0)
         return;
-    ++m_stamp;
+    ++m_passCount;
     do {
-        Mem::ListNode* node = NextNode(&m_head);
-        BaseTask* task = node ? static_cast<BaseTask*>(node->data) : nullptr;
+        MemSys::ListNode* node = NextNode(&m_head);
+        SchedulerTask* task = node ? static_cast<SchedulerTask*>(node->data) : nullptr;
         m_changed = false;
         while (task) {
             // (the next task is found before this one runs: it may take itself out)
-            Mem::ListNode* nextNode = NextNode(node);
-            BaseTask* next = nextNode ? static_cast<BaseTask*>(nextNode->data) : nullptr;
-            if (task->m_disabled == 0 && task->m_stamp != m_stamp) {
-                task->m_stamp = m_stamp;
-                if ((mask & task->m_mask) == 0)
-                    reinterpret_cast<void(__thiscall*)(BaseTask*)>(task->m_vtable[0])(task);
+            MemSys::ListNode* nextNode = NextNode(node);
+            SchedulerTask* next = nextNode ? static_cast<SchedulerTask*>(nextNode->data) : nullptr;
+            if (task->m_disabled == 0 && task->m_passCount != m_passCount) {
+                task->m_passCount = m_passCount;
+                if ((mask & task->m_skipBits) == 0)
+                    reinterpret_cast<void(__thiscall*)(SchedulerTask*)>(task->m_vtable[0])(task);
             }
             if (m_changed)
                 break;
@@ -236,14 +236,14 @@ void List::Process(void* /*unused*/, uint32_t mask)
 }
 
 // 0x00406BB0
-void List::RemoveAllTasks()
+void List::ClearJobList()
 {
     ++m_lock;
     for (;;) {
-        Mem::ListNode* node = NextNode(&m_head);
+        MemSys::ListNode* node = NextNode(&m_head);
         if (!node || !node->data)
             break;
-        static_cast<BaseTask*>(node->data)->Remove();
+        static_cast<SchedulerTask*>(node->data)->Remove();
         m_changed = true;
     }
     --m_lock;
@@ -253,7 +253,7 @@ void List::RemoveAllTasks()
 StackList* StackList::Construct()
 {
     List::Construct();
-    auto* node = static_cast<Mem::ListNode*>(Mem::Calloc(sizeof(Mem::ListNode)));
+    auto* node = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
     if (node) {
         node->data = this;
         node->vtable = kStackListNodeVtable;
@@ -261,15 +261,15 @@ StackList* StackList::Construct()
         node->next = node;
         node->prev = node;
     }
-    m_node = node;
+    m_listLink = node;
     return this;
 }
 
 // 0x00406C30
 void StackList::Destruct()
 {
-    if (m_node)
-        DeleteNode(m_node);
+    if (m_listLink)
+        UnlinkListNode(m_listLink);
     List::Destruct();
 }
 
@@ -277,8 +277,8 @@ void StackList::Destruct()
 Stack* Stack::Construct()
 {
     m_lock = 0;
-    InitHead(&m_lists, kStackListHeadVtable);
-    InitHead(&m_poppedLists, kStackListHeadVtable);
+    SetupListSentinel(&m_lists, kStackListHeadVtable);
+    SetupListSentinel(&m_poppedLists, kStackListHeadVtable);
     m_pushed = false;
     m_justPopped = false;
     Push();
@@ -293,7 +293,7 @@ void Stack::Destruct()
 {
     // (the original counts the lists each time round)
     for (;;) {
-        Mem::ListNode* first = m_lists.next;
+        MemSys::ListNode* first = m_lists.next;
         if (first->data == kHeadData || !first)
             break;
         Pop();
@@ -306,10 +306,10 @@ void Stack::Destruct()
 // 0x00406DE0
 void Stack::Push()
 {
-    void* memory = Mem::Calloc(sizeof(StackList));
+    void* memory = MemSys::AllocZeroed(sizeof(StackList));
     auto* list = memory ? static_cast<StackList*>(memory)->Construct() : nullptr;
     m_top = list;
-    InsertFront(&m_lists, list->m_node); // (a failed allocation crashes here, as in the original)
+    InsertFront(&m_lists, list->m_listLink); // (a failed allocation crashes here, as in the original)
     m_pushed = true;
 }
 
@@ -317,10 +317,10 @@ void Stack::Push()
 void Stack::Pop()
 {
     StackList* old = m_top;
-    Mem::ListNode* first = NextNode(&m_lists);
+    MemSys::ListNode* first = NextNode(&m_lists);
     if (m_current == old) {
         // The current list becomes the one below (an empty stack would crash here, as in the original).
-        Mem::ListNode* below = NextNode(first);
+        MemSys::ListNode* below = NextNode(first);
         m_current = below ? static_cast<StackList*>(below->data) : nullptr;
     } else {
         m_pushed = false;
@@ -328,26 +328,26 @@ void Stack::Pop()
     if (m_lock == 0) {
         if (old) {
             old->Destruct();
-            Mem::Manager::Get()->Free(old);
+            MemSys::Manager::Get()->Free(old);
         }
     } else {
-        Unlink(old->m_node);
-        InsertFront(&m_poppedLists, old->m_node);
+        Unlink(old->m_listLink);
+        InsertFront(&m_poppedLists, old->m_listLink);
     }
     m_top = m_current;
     m_justPopped = true;
 }
 
 // 0x00406C90
-void Stack::AddTask(BaseTask* task)
+void Stack::AddTask(SchedulerTask* task)
 {
     m_current->AddTask(task);
 }
 
 // 0x00406CB0
-void Stack::RemoveAllTasks()
+void Stack::ClearJobList()
 {
-    (m_pushed ? m_top : m_current)->RemoveAllTasks();
+    (m_pushed ? m_top : m_current)->ClearJobList();
 }
 
 // 0x004070A0
@@ -355,7 +355,7 @@ void Stack::Process(void* unused)
 {
     ++m_lock;
     m_current = m_top;
-    m_top->Process(unused, m_mask);
+    m_top->Process(unused, m_skipBits);
     --m_lock;
     DeletePoppedLists();
     m_pushed = false;
@@ -366,28 +366,28 @@ void Stack::Process(void* unused)
 void Stack::DeletePoppedLists()
 {
     for (;;) {
-        Mem::ListNode* node = NextNode(&m_poppedLists);
+        MemSys::ListNode* node = NextNode(&m_poppedLists);
         if (!node || !node->data)
             break;
         auto* list = static_cast<StackList*>(node->data);
         list->Destruct(); // (inlined; deleting the node takes it out of the popped lists)
-        Mem::Manager::Get()->Free(list);
+        MemSys::Manager::Get()->Free(list);
     }
 }
 
 namespace {
 static VtableSlot kBaseTaskVtable_slots[] = {&_purecall, &_purecall,
-                &Tsk::BaseTask::ScalarDelete};
+                &TaskList::SchedulerTask::ScalarDelete};
 void** const kBaseTaskVtable = reinterpret_cast<void**>(kBaseTaskVtable_slots);
-static VtableSlot kTaskNodeVtable_slots[] = {&Tsk::TaskNode::Destroy};
+static VtableSlot kTaskNodeVtable_slots[] = {&TaskList::TaskNode::Destroy};
 void** const kTaskNodeVtable = reinterpret_cast<void**>(kTaskNodeVtable_slots);
-static VtableSlot kTaskSearchVtable_slots[] = {&Tsk::Search::DestroyTaskSearch};
+static VtableSlot kTaskSearchVtable_slots[] = {&TaskList::Search::DestroyTaskSearch};
 void** const kTaskSearchVtable = reinterpret_cast<void**>(kTaskSearchVtable_slots);
-static VtableSlot kStackListSearchVtable_slots[] = {&Tsk::Search::DestroyStackListSearch};
+static VtableSlot kStackListSearchVtable_slots[] = {&TaskList::Search::DestroyStackListSearch};
 void** const kStackListSearchVtable = reinterpret_cast<void**>(kStackListSearchVtable_slots);
-static VtableSlot kStackListNodeVtable_slots[] = {&Tsk::StackListNode::Destroy};
+static VtableSlot kStackListNodeVtable_slots[] = {&TaskList::StackListNode::Destroy};
 void** const kStackListNodeVtable = reinterpret_cast<void**>(kStackListNodeVtable_slots);
-static VtableSlot kStackListHeadVtable_slots[] = {&Tsk::StackListNode::DestroyHead};
+static VtableSlot kStackListHeadVtable_slots[] = {&TaskList::StackListNode::DestroyHead};
 void** const kStackListHeadVtable = reinterpret_cast<void**>(kStackListHeadVtable_slots);
 } // namespace
 

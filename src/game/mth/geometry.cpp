@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <new>
 
-namespace Mth {
+namespace Maths {
 
 namespace {
 
@@ -110,7 +110,7 @@ int BBox::CountAxesContaining(const Vector& point, uint32_t& axes) const
 }
 
 // 0x00403550
-bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
+bool BBox::SegmentCrossing(const Line& line, Vector& hit, Vector& normal) const
 {
     const Vector& s = line.start;
     const Vector& e = line.end;
@@ -209,7 +209,7 @@ void BBox::GetClosestSurfacePoint(const Vector& point, Vector& out) const
     if (CountAxesContaining(point, axes) == 3) {
         // Inside: move along whichever axis reaches a face soonest.
         float best_value = 0.0f, best_distance = 0.0f; // always set on the first pass (axis 0)
-        int best_axis = 0;
+        int winningAxis = 0;
         for (int axis = 0; axis < 3; ++axis) {
             float p = (&point.x)[axis], lo = (&min.x)[axis], hi = (&max.x)[axis];
             float value = hi, distance = hi - p;
@@ -218,13 +218,13 @@ void BBox::GetClosestSurfacePoint(const Vector& point, Vector& out) const
                 distance = p - lo;
             }
             if (axis == 0 || distance < best_distance) {
-                best_axis = axis;
+                winningAxis = axis;
                 best_value = value;
                 best_distance = distance;
             }
         }
         out = point;
-        (&out.x)[best_axis] = best_value;
+        (&out.x)[winningAxis] = best_value;
         return;
     }
 
@@ -260,8 +260,8 @@ float Capsule::Volume() const
 bool Capsule::ContainsPoint(const Vector& point, Vector* offset) const
 {
     Vector local_offset;
-    float distance_sqr = line.DistanceSqrToPoint(point, &local_offset);
-    if (!(radius * radius >= distance_sqr))
+    float squaredGap = line.DistanceSqrToPoint(point, &local_offset);
+    if (!(radius * radius >= squaredGap))
         return false;
     if (offset)
         *offset = local_offset;
@@ -277,14 +277,14 @@ float Line::DistanceSqrToPoint(const Vector& point, Vector* offset) const
 
     // Project onto the segment: before the start, past the end, or in between.
     float along = vx * dx + vy * dy + vz * dz;
-    float length_sqr = dx * dx + dy * dy + dz * dz;
+    float squaredLen = dx * dx + dy * dy + dz * dz;
     Vector result;
     if (along <= 0.0f) {
         result = point - start;
-    } else if (length_sqr <= along) {
+    } else if (squaredLen <= along) {
         result = point - end;
     } else {
-        float t = along / length_sqr;
+        float t = along / squaredLen;
         result = {point.x - (dx * t + start.x), point.y - (dy * t + start.y), point.z - (dz * t + start.z),
                   point.w - (dw * t + start.w)};
     }
@@ -473,11 +473,11 @@ double Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) co
 }
 
 // 0x004032E0
-int Capsule::IntersectsSegment(const Line& segment, float* s, float* t, float* distance_sqr) const
+int Capsule::IntersectsSegment(const Line& segment, float* s, float* t, float* squaredGap) const
 {
     float distance = static_cast<float>(line.DistanceSqrToLine(segment, s, t));
-    if (distance_sqr)
-        *distance_sqr = distance;
+    if (squaredGap)
+        *squaredGap = distance;
     return distance <= radius * radius ? 1 : 0;
 }
 
@@ -543,25 +543,25 @@ bool __cdecl PointInBox(const Vector* point, const Vector* max, const Vector* mi
 // --- replacements -------------------------------------------------------------------------------------
 namespace {
 
-using Mth::BBox;
-using Mth::Capsule;
-using Mth::Line;
-using Mth::Vector;
+using Maths::BBox;
+using Maths::Capsule;
+using Maths::Line;
+using Maths::Vector;
 
 // Constructors keep the original __thiscall shape (object in ECX, returned in EAX).
 struct GeometryAdapter {
     BBox* ConstructBBox() { return new (this) BBox(); }
     Capsule* ConstructEmptyCapsule() { return new (this) Capsule(); }
-    Mth::Sphere* ConstructSphere() { return new (this) Mth::Sphere(); }
+    Maths::Sphere* ConstructSphere() { return new (this) Maths::Sphere(); }
     BBox* ConstructBBoxAt(const Vector& point) { return new (this) BBox(point); }
     Capsule* ConstructCapsule(const Vector& start, const Vector& offset, float radius)
     {
         return new (this) Capsule(start, offset, radius);
     }
     Capsule* ConstructCapsuleFromLine(const Line& line, float radius) { return new (this) Capsule(line, radius); }
-    Mth::Rect* ConstructRect(int left, int top, int right, int bottom)
+    Maths::Rect* ConstructRect(int left, int top, int right, int bottom)
     {
-        return new (this) Mth::Rect(left, top, right, bottom);
+        return new (this) Maths::Rect(left, top, right, bottom);
     }
 };
 

@@ -1,4 +1,4 @@
-// The editor camera component (Obj::CEditorCameraComponent) and its ground checks: see editor_camera.h. From the
+// The editor camera component (GameObjects::CEditorViewModule) and its ground checks: see editor_camera.h. From the
 // disassembly of 0x004E4ED0-0x004E65F2. The x87 roundings are kept: values the original stores are rounded to
 // float, the ones it keeps on the FPU stack are worked in double.
 
@@ -30,7 +30,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_editorCameraSkipNames[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
 uint32_t g_editorCameraName{0x43BFAB74};
@@ -53,8 +53,8 @@ constexpr float kStickScale = 0.0078125f;        // 0x0064A2FC (1 / 128)
 constexpr float kDeadZone = 0.009999999776482582f; // 0x0064544C
 constexpr double kHeightSlack = 0.01;            // 0x0064B310
 
-// Script globals (Script::GetFloat).
-float Global(uint32_t name) { return Script::GetFloat(name); }
+// Script globals (Scripts::GetFloat).
+float Global(uint32_t name) { return Scripts::GetFloat(name); }
 
 uint8_t& Flagged() { return g_editorCameraFlagged; }
 int& SeenCount() { return g_editorCameraSeenCount; }
@@ -65,22 +65,22 @@ uint32_t* Seen() { return g_editorCameraSeen; }
 class Feeler {
 public:
     Feeler() { AsFeeler()->Construct(); }
-    ~Feeler() { reinterpret_cast<CSmtPtr<CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr(); }
+    ~Feeler() { reinterpret_cast<CSharedRef<CSharedBase>*>(m_bytes + 0x98)->~CSharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    void SetIgnore(uint32_t skip, uint32_t need)
+    void SetExcluded(uint32_t skip, uint32_t need)
     {
-        AsFeeler()->SetIgnore(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
+        AsFeeler()->SetExcluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
-    void SetStart(const Mth::Vector& v) { AsFeeler()->SetStart(&v); }
-    void SetEnd(const Mth::Vector& v) { AsFeeler()->SetEnd(&v); }
-    bool GetCollision(int a, int b) { return AsFeeler()->GetCollision(a != 0, b != 0) != 0; }
-    Nx::CFeeler* AsFeeler() { return reinterpret_cast<Nx::CFeeler*>(m_bytes); }
-    Mth::Vector& Start() { return *reinterpret_cast<Mth::Vector*>(m_bytes); }
-    Mth::Vector& End() { return *reinterpret_cast<Mth::Vector*>(m_bytes + 0x10); }
+    void SetStart(const Maths::Vector& v) { AsFeeler()->SetStart(&v); }
+    void SetEnd(const Maths::Vector& v) { AsFeeler()->SetEnd(&v); }
+    bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
+    Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes); }
+    Maths::Vector& Start() { return *reinterpret_cast<Maths::Vector*>(m_bytes); }
+    Maths::Vector& End() { return *reinterpret_cast<Maths::Vector*>(m_bytes + 0x10); }
     void*& Callback() { return *reinterpret_cast<void**>(m_bytes + 0x20); }
-    const Mth::Vector& Point() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes + 0x78); }
-    const Mth::Vector& Normal() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes + 0x88); }
+    const Maths::Vector& Point() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x78); }
+    const Maths::Vector& Normal() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x88); }
     uint8_t* Bytes() { return m_bytes; }
 
 private:
@@ -98,11 +98,11 @@ void DeleteShadow(void*& shadow)
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void RailEditorMoving(int moved)
 {
-    Ed::CRailEditorComponent::Instance()->SetActive(moved != 0);
+    ParkEditing::CRailAuthoring::Instance()->SetActive(moved != 0);
 }
 bool InParkEditor()
 {
-    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x378) == 0xE8B4B836;
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378) == 0xE8B4B836;
 }
 
 } // namespace
@@ -121,25 +121,25 @@ bool __cdecl ScriptFlagged(uint32_t name)
         if (name == skipName)
             return true;
     }
-    Script::CScriptCache* cache = Script::g_scriptCache;
+    Scripts::CScriptStore* cache = Scripts::g_scriptCache;
     const uint8_t* token = cache->GetScript(name);
     if (!token)
         return false;
-    token = Script::SkipToEndOfStatement(token);
+    token = Scripts::SkipToEndOfStatement(token);
     while (*token != 0x24) { // (end of script)
         const uint8_t* next;
         if (*token == 0x16) { // a name: a script called?
-            uint32_t called = Script::Read4Bytes(token + 1);
+            uint32_t called = Scripts::FetchWord32(token + 1);
             next = token + 5;
             bool flagged = false;
             if (*next == 0x42) { // (a name after a colon-like 0x42 token: the second name's the script)
                 ++next;
                 if (*next == 0x16) {
-                    called = Script::Read4Bytes(next + 1);
+                    called = Scripts::FetchWord32(next + 1);
                     next += 5;
                     flagged = ScriptFlagged(called);
                 } else {
-                    token = Script::SkipToEndOfStatement(next);
+                    token = Scripts::SkipToEndOfStatement(next);
                     continue;
                 }
             } else {
@@ -149,13 +149,13 @@ bool __cdecl ScriptFlagged(uint32_t name)
                 cache->ReleaseScript(name);
                 return true;
             }
-            token = Script::SkipToEndOfStatement(next);
+            token = Scripts::SkipToEndOfStatement(next);
         } else if (*token == 0x47) {
-            token = Script::SkipToken(token);
+            token = Scripts::StepOverToken(token);
             if (*token == 0x39)
                 ++token;
         } else {
-            token = Script::SkipToEndOfStatement(token);
+            token = Scripts::SkipToEndOfStatement(token);
         }
     }
     cache->ReleaseScript(name);
@@ -171,11 +171,11 @@ void __cdecl FlagScriptedHit(void* feeler)
     uint32_t nodeName = *reinterpret_cast<uint32_t*>(bytes + 0x58);
     if (!nodeName)
         return;
-    Script::CStruct* node = SkateScript::GetNode(nodeName, false);
+    Scripts::CStruct* node = LevelNodes::GetNode(nodeName, false);
     if (!node)
         return;
     uint32_t script = 0;
-    node->GetChecksum(0x2CA8A299, &script, 0);
+    node->ReadHashValue(0x2CA8A299, &script, 0);
     if (!script)
         return;
     SeenCount() = 0;
@@ -184,35 +184,35 @@ void __cdecl FlagScriptedHit(void* feeler)
 }
 
 // 0x004E5390
-bool FlaggedObjectBetween(const Mth::Vector& start, const Mth::Vector& end)
+bool FlaggedObjectBetween(const Maths::Vector& start, const Maths::Vector& end)
 {
     Flagged() = 0;
     Feeler feeler;
     feeler.Start() = start;
     feeler.End() = end;
-    feeler.SetIgnore(0, 0x50);
+    feeler.SetExcluded(0, 0x50);
     feeler.Callback() = reinterpret_cast<void*>(&FlagScriptedHit);
-    feeler.GetCollision(1, 0);
+    feeler.GetHitShape(1, 0);
     return Flagged() != 0;
 }
 
 // 0x004E5940
-CBaseComponent* __cdecl CEditorCameraComponent::Create()
+CObjectModule* __cdecl CEditorViewModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CEditorCameraComponent));
-    return memory ? static_cast<CEditorCameraComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CEditorViewModule));
+    return memory ? static_cast<CEditorViewModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x004E5060
-CEditorCameraComponent* CEditorCameraComponent::Construct()
+CEditorViewModule* CEditorViewModule::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_type = kEditorCamera;
-    for (Mth::Vector* v : {&m_focus, &m_camera, &m_cursor, &m_right, &m_forward})
+    for (Maths::Vector* v : {&m_focus, &m_viewer, &m_cursor, &m_right, &m_forward})
         *v = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_zoom = m_minZoom = m_maxZoom = m_heading = m_tilt = m_minTilt = m_maxTilt = m_height = m_minHeight = 0.0f;
-    mp_shadow = nullptr;
+    m_zoom = m_minZoom = m_maxZoom = m_heading = m_leanAngle = m_minTilt = m_maxTilt = m_levelY = m_minHeight = 0.0f;
+    m_shadowHandle = nullptr;
     mp_input = nullptr;
     m_simpleCollision = false;
     m_noWallCheck = false;
@@ -220,25 +220,25 @@ CEditorCameraComponent* CEditorCameraComponent::Construct()
 }
 
 // 0x004E5100
-void CEditorCameraComponent::DestroyBody()
+void CEditorViewModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_shadow)
-        DeleteShadow(mp_shadow);
-    CBaseComponent::DestroyBody();
+    if (m_shadowHandle)
+        DeleteShadow(m_shadowHandle);
+    CObjectModule::DestroyBody();
 }
 
 // 0x004E59A0
-CEditorCameraComponent* CEditorCameraComponent::Destroy(unsigned int flags)
+CEditorViewModule* CEditorViewModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004E4ED0
-void CEditorCameraComponent::InitFromStructure(Script::CStruct* params)
+void CEditorViewModule::ConfigureFromData(Scripts::CStruct* params)
 {
     m_minHeight = 0.0f;
     params->GetFloat(0x9CDF40CD, &m_minHeight, 0); // min_height
@@ -246,65 +246,65 @@ void CEditorCameraComponent::InitFromStructure(Script::CStruct* params)
     params->GetFloat(0x52EECB98, &m_minZoom, 0);
     m_maxZoom = 2000.0f;
     params->GetFloat(0x53E2512C, &m_maxZoom, 0);
-    m_simpleCollision = params->ContainsFlag(0xA0D7FBAB); // SimpleCollision
-    m_noWallCheck = params->ContainsFlag(0xF5680DEF);
+    m_simpleCollision = params->HasBareFlag(0xA0D7FBAB); // SimpleCollision
+    m_noWallCheck = params->HasBareFlag(0xF5680DEF);
 }
 
 // 0x004E51F0
-void CEditorCameraComponent::Finalize()
+void CEditorViewModule::Finalize()
 {
     mp_input = reinterpret_cast<uint8_t*>(m_object->GetComponent(kInput));
 }
 
 // 0x004E5170
-void CEditorCameraComponent::CreateShadow()
+void CEditorViewModule::CreateShadow()
 {
-    if (mp_shadow)
+    if (m_shadowHandle)
         return;
-    void* memory = Mem::Calloc(0x14);
-    mp_shadow = memory ? static_cast<Nx::CSimpleShadow*>(memory)->Construct() : nullptr;
-    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(mp_shadow) + 0xC) = 0x3F99999A; // 1.2 (no null check)
-    static_cast<Nx::CSimpleShadow*>(mp_shadow)->SetModel("Ped_Shadow");
+    void* memory = MemSys::AllocZeroed(0x14);
+    m_shadowHandle = memory ? static_cast<Engine3D::CBlobShadow*>(memory)->Construct() : nullptr;
+    *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(m_shadowHandle) + 0xC) = 0x3F99999A; // 1.2 (no null check)
+    static_cast<Engine3D::CBlobShadow*>(m_shadowHandle)->SetModel("Ped_Shadow");
 }
 
 // 0x004E59D0
-void CEditorCameraComponent::Hide(bool hide)
+void CEditorViewModule::Hide(bool hide)
 {
     if (!hide)
         CreateShadow();
-    else if (mp_shadow)
-        DeleteShadow(mp_shadow);
+    else if (m_shadowHandle)
+        DeleteShadow(m_shadowHandle);
 }
 
 // 0x004E5A10
-void CEditorCameraComponent::UpdateShadow()
+void CEditorViewModule::ResyncGroundShadow()
 {
-    Mth::Vector top = {m_cursor.x, m_cursor.y + m_height, m_cursor.z, m_cursor.w};
+    Maths::Vector top = {m_cursor.x, m_cursor.y + m_levelY, m_cursor.z, m_cursor.w};
     Feeler feeler;
     feeler.SetStart(top);
-    Mth::Vector bottom = {top.x, top.y - kDown, top.z, top.w};
+    Maths::Vector bottom = {top.x, top.y - kDown, top.z, top.w};
     feeler.SetEnd(bottom);
-    if (!feeler.GetCollision(1, 0)) {
-        if (mp_shadow)
-            DeleteShadow(mp_shadow);
+    if (!feeler.GetHitShape(1, 0)) {
+        if (m_shadowHandle)
+            DeleteShadow(m_shadowHandle);
         return;
     }
     CreateShadow();
-    Mth::Vector point = feeler.Point();
-    Mth::Matrix identity;
-    identity.Ident();
-    Mth::Vector normal = feeler.Normal();
-    reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*, const Mth::Matrix*, Mth::Vector)>(
-        (*static_cast<void***>(mp_shadow))[1])(mp_shadow, &point, &identity, normal);
+    Maths::Vector point = feeler.Point();
+    Maths::Matrix identity;
+    identity.ResetToIdentity();
+    Maths::Vector normal = feeler.Normal();
+    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*, const Maths::Matrix*, Maths::Vector)>(
+        (*static_cast<void***>(m_shadowHandle))[1])(m_shadowHandle, &point, &identity, normal);
 }
 
 // 0x004E5460
-bool CEditorCameraComponent::GroundHeight(Mth::Vector start, Mth::Vector end, float* height)
+bool CEditorViewModule::GroundHeight(Maths::Vector start, Maths::Vector end, float* height)
 {
     Feeler feeler;
     feeler.SetStart(start);
     feeler.SetEnd(end);
-    if (!feeler.GetCollision(1, 0))
+    if (!feeler.GetHitShape(1, 0))
         return false;
     Flagged() = 0;
     if (m_simpleCollision) {
@@ -317,83 +317,83 @@ bool CEditorCameraComponent::GroundHeight(Mth::Vector start, Mth::Vector end, fl
     if (feeler.Normal().y < kMaxSlope)
         return false;
     *height = feeler.Point().y;
-    Mth::Vector point = feeler.Point();
+    Maths::Vector point = feeler.Point();
     return !FlaggedObjectBetween(start, point);
 }
 
 // 0x004E5640
-bool CEditorCameraComponent::PlaceCursor(Mth::Vector previous, float step)
+bool CEditorViewModule::PlaceCursor(Maths::Vector previous, float step)
 {
     float above = m_cursor.y + step;
     float below = Global(0xF230D521) + m_cursor.y;
     float height;
-    if (!GroundHeight({m_cursor.x, above + m_height, m_cursor.z, m_cursor.w},
-                      {m_cursor.x, below + m_height, m_cursor.z, m_cursor.w}, &height))
+    if (!GroundHeight({m_cursor.x, above + m_levelY, m_cursor.z, m_cursor.w},
+                      {m_cursor.x, below + m_levelY, m_cursor.z, m_cursor.w}, &height))
         return false;
     // Nothing in the way at head height from where it was?
-    double was = static_cast<double>(previous.y) + m_height;
+    double was = static_cast<double>(previous.y) + m_levelY;
     float top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
-    Mth::Vector to = {m_cursor.x, top, m_cursor.z, m_cursor.w};
-    Mth::Vector from = {previous.x, top, previous.z, previous.w};
+    Maths::Vector to = {m_cursor.x, top, m_cursor.z, m_cursor.w};
+    Maths::Vector from = {previous.x, top, previous.z, previous.w};
     bool clear = true;
     if (!m_simpleCollision && FlaggedObjectBetween(from, to))
         clear = false;
     if (!m_noWallCheck) {
         Feeler feeler;
-        feeler.SetIgnore(0x10, 0);
+        feeler.SetExcluded(0x10, 0);
         feeler.SetStart(from);
         feeler.SetEnd(to);
-        if (feeler.GetCollision(1, 0))
+        if (feeler.GetHitShape(1, 0))
             clear = false;
     }
     if (!clear)
         return false;
     if (height >= m_cursor.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
-        float lowered = static_cast<float>(m_height - (static_cast<double>(height) - m_cursor.y));
-        if (!m_simpleCollision || m_object->m_id == 0x5B509AD3 || Global(0x71EC75E9) < m_height)
-            m_height = lowered;
-        if (m_height < m_minHeight)
-            m_height = m_minHeight;
+        float lowered = static_cast<float>(m_levelY - (static_cast<double>(height) - m_cursor.y));
+        if (!m_simpleCollision || m_object->m_id == 0x5B509AD3 || Global(0x71EC75E9) < m_levelY)
+            m_levelY = lowered;
+        if (m_levelY < m_minHeight)
+            m_levelY = m_minHeight;
         m_cursor.y = height;
         return true;
     }
     // Down: the drop added to the height (unless it's a small one with the camera low).
     double drop = static_cast<double>(m_cursor.y) - height;
-    if (m_height > 1.0f || !(drop <= step))
-        m_height = static_cast<float>(drop + m_height);
+    if (m_levelY > 1.0f || !(drop <= step))
+        m_levelY = static_cast<float>(drop + m_levelY);
     m_cursor.y = height;
     return true;
 }
 
 // 0x004E5210
-int CEditorCameraComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* /*script*/)
+int CEditorViewModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     if (name == 0x69CB3AE1) {
-        Script::VectorValue position;
+        Scripts::VectorValue position;
         params->GetVector(0xB9D31B0A, &position, 1); // Position
         m_cursor = {position.x, position.y, position.z, position.w};
-        m_height = 0.0f;
-        reinterpret_cast<void(__thiscall*)(CBaseComponent*)>(m_vtable[1])(this); // Update
-        m_height = position.y - m_cursor.y;
+        m_levelY = 0.0f;
+        reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[1])(this); // Update
+        m_levelY = position.y - m_cursor.y;
         return 1;
     }
     if (name == 0xF362BBBF) {
-        params->GetVector(0xB9D31B0A, reinterpret_cast<Script::VectorValue*>(&m_cursor), 0);
+        params->GetVector(0xB9D31B0A, reinterpret_cast<Scripts::VectorValue*>(&m_cursor), 0);
         m_focus = m_cursor;
         m_zoom = 700.0f;
         params->GetFloat(0xC48391A5, &m_zoom, 0);
-        m_tilt = 0.6f;
-        params->GetFloat(0xE3C07609, &m_tilt, 0); // tilt
-        m_height = 0.0f;
-        params->GetFloat(0xB8D629CA, &m_height, 0);
+        m_leanAngle = 0.6f;
+        params->GetFloat(0xE3C07609, &m_leanAngle, 0); // tilt
+        m_levelY = 0.0f;
+        params->GetFloat(0xB8D629CA, &m_levelY, 0);
         return 1;
     }
     return 2;
 }
 
 // 0x004E5C20
-void CEditorCameraComponent::Update()
+void CEditorViewModule::Update()
 {
     m_minTilt = Global(0x7D16D113);
     m_maxTilt = Global(0x411BEE4A);
@@ -418,12 +418,12 @@ void CEditorCameraComponent::Update()
         m_heading = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
-    double tilt = -(static_cast<double>(Global(0x3CFA3A72)) * stick(0x214)) + m_tilt;
-    m_tilt = static_cast<float>(tilt);
+    double tilt = -(static_cast<double>(Global(0x3CFA3A72)) * stick(0x214)) + m_leanAngle;
+    m_leanAngle = static_cast<float>(tilt);
     if (tilt > m_maxTilt)
-        m_tilt = m_maxTilt;
-    if (m_tilt < m_minTilt)
-        m_tilt = m_minTilt;
+        m_leanAngle = m_maxTilt;
+    if (m_leanAngle < m_minTilt)
+        m_leanAngle = m_minTilt;
 
     // The zoom and height buttons by controller type.
     bool zoomIn = false, zoomOut = false, raise = false, lower = false;
@@ -432,7 +432,7 @@ void CEditorCameraComponent::Update()
     if (controller == 4 || controller == 7) {
         zoomIn = (buttons & 0x400000) != 0;
         zoomOut = (buttons & 0x800000) != 0;
-        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) == 0x7ECA21E5) {
+        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == 0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -477,13 +477,13 @@ void CEditorCameraComponent::Update()
             rise = -rise;
     }
     if ((raise || lower) && rise > 0.0f) {
-        Mth::Vector from = {m_cursor.x, static_cast<float>(static_cast<double>(m_cursor.y) + m_height + kAbove),
+        Maths::Vector from = {m_cursor.x, static_cast<float>(static_cast<double>(m_cursor.y) + m_levelY + kAbove),
                             m_cursor.z, m_cursor.w};
-        Mth::Vector to = {m_cursor.x, from.y - kDown, m_cursor.z, m_cursor.w};
+        Maths::Vector to = {m_cursor.x, from.y - kDown, m_cursor.z, m_cursor.w};
         Feeler ceiling;
         ceiling.SetStart(from);
         ceiling.SetEnd(to);
-        if (ceiling.GetCollision(1, 0)) {
+        if (ceiling.GetHitShape(1, 0)) {
             float room = from.y - ceiling.Point().y;
             if (Global(0x61D56FA0) < room)
                 rise = 0.0f;
@@ -493,35 +493,35 @@ void CEditorCameraComponent::Update()
             rise = 0.0f;
         }
     }
-    m_height = rise + m_height;
+    m_levelY = rise + m_levelY;
 
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     if (InParkEditor())
         RailEditorMoving(0);
 
     // The cursor kept under anything above it, and the height under any ceiling.
     Feeler feeler;
     {
-        float height = m_height;
-        Mth::Vector above = {m_cursor.x, static_cast<float>(static_cast<double>(height) + m_cursor.y), m_cursor.z,
+        float height = m_levelY;
+        Maths::Vector above = {m_cursor.x, static_cast<float>(static_cast<double>(height) + m_cursor.y), m_cursor.z,
                              static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
         feeler.SetStart(above);
         feeler.SetEnd(m_cursor);
-        if (feeler.GetCollision(1, 0)) {
-            m_height = static_cast<float>((static_cast<double>(m_cursor.y) + m_height) - feeler.Point().y);
+        if (feeler.GetHitShape(1, 0)) {
+            m_levelY = static_cast<float>((static_cast<double>(m_cursor.y) + m_levelY) - feeler.Point().y);
             m_cursor = feeler.Point();
         }
         feeler.SetStart(m_cursor);
-        float up = m_height + kAbove;
-        Mth::Vector top = {m_cursor.x, up + m_cursor.y, m_cursor.z, static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
+        float up = m_levelY + kAbove;
+        Maths::Vector top = {m_cursor.x, up + m_cursor.y, m_cursor.z, static_cast<float>(static_cast<double>(m_cursor.w) + 1.0f)};
         feeler.SetEnd(top);
-        if (feeler.GetCollision(1, 0))
-            m_height = static_cast<float>((static_cast<double>(feeler.Point().y) - m_cursor.y) - kAbove);
+        if (feeler.GetHitShape(1, 0))
+            m_levelY = static_cast<float>((static_cast<double>(feeler.Point().y) - m_cursor.y) - kAbove);
     }
-    if (rise < 0.0f && m_minHeight <= (static_cast<double>(m_height) - rise) + kHeightSlack && m_height < m_minHeight)
-        m_height = m_minHeight;
-    if (m_height < 0.0f)
-        m_height = 0.0f;
+    if (rise < 0.0f && m_minHeight <= (static_cast<double>(m_levelY) - rise) + kHeightSlack && m_levelY < m_minHeight)
+        m_levelY = m_minHeight;
+    if (m_levelY < 0.0f)
+        m_levelY = 0.0f;
 
     // The heading's axes.
     float headingNow = m_heading;
@@ -559,7 +559,7 @@ void CEditorCameraComponent::Update()
     float c3 = side * m_right.y, c4 = side * m_right.x;
     float d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
     double x0 = speed * c4;
-    Mth::Vector previous = m_cursor;
+    Maths::Vector previous = m_cursor;
     m_cursor.x = static_cast<float>((x0 + b4) + m_cursor.x);
     m_cursor.y = static_cast<float>((static_cast<double>(d3) + b3) + m_cursor.y);
     m_cursor.z = static_cast<float>((static_cast<double>(d2) + b2) + m_cursor.z);
@@ -573,12 +573,12 @@ void CEditorCameraComponent::Update()
     m_focus.x = m_cursor.x;
     m_focus.z = m_cursor.z;
     float ease = Global(0x725AD02C);
-    m_focus.y = static_cast<float>(((static_cast<double>(m_cursor.y) + m_height) - m_focus.y) * ease + m_focus.y);
-    float tiltNow = m_tilt;
+    m_focus.y = static_cast<float>(((static_cast<double>(m_cursor.y) + m_levelY) - m_focus.y) * ease + m_focus.y);
+    float tiltNow = m_leanAngle;
     float atX = static_cast<float>(std::cos(static_cast<double>(tiltNow)) * m_forward.x);
     float atZ = static_cast<float>(std::cos(static_cast<double>(tiltNow)) * m_forward.z);
     float atY = static_cast<float>(std::sin(static_cast<double>(tiltNow)));
-    Mth::Matrix look;
+    Maths::Matrix look;
     look.row[0] = {m_right.x, m_right.y, m_right.z, 0.0f};
     look.row[1] = {static_cast<float>(static_cast<double>(atY) * m_right.z - static_cast<double>(atZ) * m_right.y),
                    static_cast<float>(static_cast<double>(atZ) * m_right.x - static_cast<double>(atX) * m_right.z),
@@ -586,17 +586,17 @@ void CEditorCameraComponent::Update()
                    0.0f};
     look.row[2] = {atX, atY, atZ, 0.0f};
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_object->m_matrix = look;
+    m_object->m_basisFrame = look;
     float zoomNow = m_zoom;
     float offW = previous.w * zoomNow; // (the cursor's w from before the move, as the original reuses it)
-    float offZ = atZ * zoomNow, offY = atY * zoomNow, offX = atX * zoomNow;
-    m_camera.x = offX + m_focus.x;
-    m_camera.y = m_focus.y + offY;
-    m_camera.z = m_focus.z + offZ;
-    m_camera.w = m_focus.w + offW;
-    m_camera.w = 1.0f;
-    m_object->m_pos = m_camera;
-    UpdateShadow();
+    float offZ = atZ * zoomNow, nudgeAlongY = atY * zoomNow, sideShiftX = atX * zoomNow;
+    m_viewer.x = sideShiftX + m_focus.x;
+    m_viewer.y = m_focus.y + nudgeAlongY;
+    m_viewer.z = m_focus.z + offZ;
+    m_viewer.w = m_focus.w + offW;
+    m_viewer.w = 1.0f;
+    m_object->m_pos = m_viewer;
+    ResyncGroundShadow();
 }
 
 namespace {
@@ -617,22 +617,22 @@ __declspec(naked) void FlaggedObjectBetweenStub()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CEditorCameraComponent::Destroy,
-         &Obj::CEditorCameraComponent::Update,
-         &Obj::CEditorCameraComponent::InitFromStructure,
-         &Obj::CEditorCameraComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CEditorViewModule::Destroy,
+         &GameObjects::CEditorViewModule::Update,
+         &GameObjects::CEditorViewModule::ConfigureFromData,
+         &GameObjects::CEditorViewModule::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
-         &Obj::CEditorCameraComponent::Hide,
+         &GameObjects::CObjectModule::Suspend,
+         &GameObjects::CEditorViewModule::Hide,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CEditorCameraComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CEditorViewModule::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -1,4 +1,4 @@
-// The park editor's cursor (Ed::CCursor): moving over the grid, turning, the piece or paste it shows, the area
+// The park editor's cursor (ParkEditing::CBuildPointer): moving over the grid, turning, the piece or paste it shows, the area
 // selection and the clipboards.
 
 #include "game/ed/park.h"
@@ -13,7 +13,7 @@
 #include "game/park/park_memory.h"
 #include "game/ed/rail_editor.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -35,14 +35,14 @@ void FreeClipboard(CClipboard* clipboard) { CClipboard::Free(clipboard); }
 // the clipboard (0x0058D6D0).
 bool EditorAllowsCopy(int w, int l)
 {
-    bool allowed = CParkEditor::Create(false)->MainHeapHasRoom(w, l);
-    CParkEditor::Release();
+    bool allowed = CParkBuilderMode::Create(false)->MainHeapHasRoom(w, l);
+    CParkBuilderMode::Release();
     return allowed;
 }
 
 // The rail editor (0x004F4970 looks it up): how many rail points are in a box of the world, and how many more
 // there's room for.
-CRailEditorComponent* RailEditor() { return CRailEditorComponent::Instance(); }
+CRailAuthoring* RailEditor() { return CRailAuthoring::Instance(); }
 int CountRailPoints(float x0, float z0, float x1, float z1)
 {
     return RailEditor()->CountPointsInside(x0, z0, x1, z1);
@@ -50,14 +50,14 @@ int CountRailPoints(float x0, float z0, float x1, float z1)
 int FreeRailPoints()
 {
     RailEditor(); // (the original looks the editor up to pass it; FreePoints doesn't read it)
-    return CRailEditorComponent::FreePoints();
+    return CRailAuthoring::FreePoints();
 }
 
 // The heap the park editor allocates from (0x0059E180).
-Mem::Allocator* ParkEditorHeap() { return GetMainHeap(); }
+MemSys::Allocator* ParkEditorHeap() { return GetMainHeap(); }
 
 // Swap the box's w and l (a quarter turn).
-void SwapWidthAndLength(GridDims& area)
+void SwapWidthAndLength(SCellBox& area)
 {
     uint8_t w = area.w;
     area.w = area.l;
@@ -67,59 +67,59 @@ void SwapWidthAndLength(GridDims& area)
 } // namespace
 
 // 0x00598A60
-void CCursor::HighlightIntersectingMetas(int on)
+void CBuildPointer::GlowOverlappingPieces(int on)
 {
     if (m_mode == kModePaste) {
         if (mp_clipboard)
-            mp_clipboard->HighlightIntersectingMetas(this, on);
+            mp_clipboard->GlowOverlappingPieces(this, on);
         return;
     }
-    MapListHolder metas(mp_manager->GetIntersectingMetas(m_cell_area, 0, nullptr, 0));
+    MapListHolder metas(m_parkOwner->GetIntersectingMetas(m_cellFootprint, 0, nullptr, 0));
     if (metas.list) {
-        for (CMapListNode* node = metas.list; node; node = node->mp_next)
-            node->GetConcreteMeta()->Highlight(on, 0);
+        for (CMapListNode* node = metas.list; node; node = node->m_following)
+            node->GetPlacedPiece()->Highlight(on, 0);
     }
 }
 
 // 0x00598B40
-bool CCursor::IsOverGap()
+bool CBuildPointer::IsOverGap()
 {
     int half;
-    return mp_manager->GetGapInfo(&m_cell_area, &half) != nullptr;
+    return m_parkOwner->GetGapInfo(&m_cellFootprint, &half) != nullptr;
 }
 
 // 0x00598B60
-void CCursor::Move(int dx, int dz)
+void CBuildPointer::Move(int dx, int dz)
 {
     ClampToPark();
-    GridDims old = m_cell_area;
-    m_cell_area.x = static_cast<uint8_t>(m_cell_area.x + dx);
-    m_cell_area.z = static_cast<uint8_t>(m_cell_area.z + dz);
+    SCellBox old = m_cellFootprint;
+    m_cellFootprint.x = static_cast<uint8_t>(m_cellFootprint.x + dx);
+    m_cellFootprint.z = static_cast<uint8_t>(m_cellFootprint.z + dz);
     ClampToPark();
 
     // Stand on the floor: the paste at its own height, otherwise the higher of the new and the old cells.
     if (m_mode == kModePaste) {
         if (mp_clipboard) {
             m_clipboardHeight = mp_clipboard->GetHeight(this);
-            m_cell_area.y = static_cast<int8_t>(m_clipboardHeight);
+            m_cellFootprint.y = static_cast<int8_t>(m_clipboardHeight);
         } else {
-            m_cell_area.y = 0;
+            m_cellFootprint.y = 0;
         }
     } else {
-        int here = mp_manager->GetFloorHeight(m_cell_area, nullptr);
-        int before = mp_manager->GetFloorHeight(old, nullptr);
-        m_cell_area.y = static_cast<int8_t>(here > before ? here : before);
+        int here = m_parkOwner->GetGroundLevel(m_cellFootprint, nullptr);
+        int before = m_parkOwner->GetGroundLevel(old, nullptr);
+        m_cellFootprint.y = static_cast<int8_t>(here > before ? here : before);
     }
 
     if (m_mode != kModeGap && m_mode != kModeGapAdjust)
         return;
     // The gap tool: adjusting when over a piece of a gap (taking that gap over unless one end is placed).
     int mode = kModeGap;
-    MapListHolder metas(mp_manager->GetIntersectingMetas(m_cell_area, 0, nullptr, 0));
+    MapListHolder metas(m_parkOwner->GetIntersectingMetas(m_cellFootprint, 0, nullptr, 0));
     if (metas.list) {
-        GridDims pos = metas.list->GetConcreteMeta()->m_cell_area;
+        SCellBox pos = metas.list->GetPlacedPiece()->m_cellFootprint;
         int half;
-        if (GapInfo* gap = mp_manager->GetGapInfo(&pos, &half)) {
+        if (SGapDetails* gap = m_parkOwner->GetGapInfo(&pos, &half)) {
             if (m_gap.m_numCompleteHalves != 1)
                 m_gap = *gap;
             mode = kModeGapAdjust;
@@ -130,74 +130,74 @@ void CCursor::Move(int dx, int dz)
         OnModeChanged();
     }
     if (m_gap.m_numCompleteHalves > 0) {
-        mp_manager->HighlightGapPieces(1, &m_gap);
+        m_parkOwner->HighlightGapPieces(1, &m_gap);
     } else {
-        CParkManager* manager = mp_manager;
-        for (CMapListNode* node = manager->mp_concrete_metas; node; node = node->mp_next) {
-            if (node->GetConcreteMeta()->m_flags & CMetaPiece::kHighlightable)
-                node->GetConcreteMeta()->Highlight(1, 1);
+        CParkLayout* manager = m_parkOwner;
+        for (CMapListNode* node = manager->mp_concrete_metas; node; node = node->m_following) {
+            if (node->GetPlacedPiece()->m_flags & CPieceGroup::kHighlightable)
+                node->GetPlacedPiece()->Highlight(1, 1);
         }
-        manager->mp_generator->SetPiecesHighlighted(0);
+        manager->m_builder->SetPiecesHighlighted(0);
     }
 }
 
 // 0x0059A1F0
-void CCursor::Update(float shiftX, float shiftZ, int rotInc)
+void CBuildPointer::Update(float offsetCellX, float offsetCellZ, int turnStep)
 {
     // Turning: the angle aimed at moves a quarter turn (kept within 0..360, the shown angle following it round),
     // and the box turns with it.
     // (the sums are kept at double precision past the stores, as the x87 code does)
-    if (rotInc > 0) {
+    if (turnStep > 0) {
         double angle = static_cast<double>(m_targetAngle) + kQuarterTurn;
-        m_rot = (m_rot + 1) & 3;
+        m_quarterTurns = (m_quarterTurns + 1) & 3;
         m_targetAngle = static_cast<float>(angle);
         if (angle > kFullTurn) {
             m_targetAngle = static_cast<float>(angle - kFullTurn);
             m_angle = static_cast<float>(static_cast<double>(m_angle) - kFullTurn);
         }
-        SwapWidthAndLength(m_cell_area);
-    } else if (rotInc < 0) {
+        SwapWidthAndLength(m_cellFootprint);
+    } else if (turnStep < 0) {
         double angle = static_cast<double>(m_targetAngle) - kQuarterTurn;
-        m_rot = (m_rot - 1) & 3;
+        m_quarterTurns = (m_quarterTurns - 1) & 3;
         m_targetAngle = static_cast<float>(angle);
         if (angle < 0.0) {
             m_targetAngle = static_cast<float>(angle + kFullTurn);
             m_angle = static_cast<float>(static_cast<double>(m_angle) + kFullTurn);
         }
-        SwapWidthAndLength(m_cell_area);
+        SwapWidthAndLength(m_cellFootprint);
     }
 
     // Stepping: one cell along the stick's main axis (both when it's diagonal), once the last step has slid in.
-    float xx = shiftX * shiftX;
-    float zz = shiftZ * shiftZ;
+    float xx = offsetCellX * offsetCellX;
+    float zz = offsetCellZ * offsetCellZ;
     if (!(xx > kDeadZone || zz > kDeadZone) || !(m_moveTime <= 0.0f)) {
         Move(0, 0);
     } else if (static_cast<double>(xx) * kAxisDominance < zz) {
-        Move(0, shiftZ < 0.0f ? -1 : 1);
+        Move(0, offsetCellZ < 0.0f ? -1 : 1);
         m_moveTime = 1.0f;
     } else if (static_cast<double>(zz) * kAxisDominance < xx) {
-        Move(shiftX < 0.0f ? -1 : 1, 0);
+        Move(offsetCellX < 0.0f ? -1 : 1, 0);
         m_moveTime = 1.0f;
     } else {
-        Move(0, shiftZ < 0.0f ? -1 : 1);
-        Move(shiftX < 0.0f ? -1 : 1, 0);
+        Move(0, offsetCellZ < 0.0f ? -1 : 1);
+        Move(offsetCellX < 0.0f ? -1 : 1, 0);
         m_moveTime = 1.0f;
     }
 
     // The target: the middle of the box (on the floor), and the slide towards it.
-    Mth::Vector corner;
-    Mth::Vector size;
-    Mth::Vector* world = mp_manager->GridDimsToWorld(&corner, &m_cell_area, &size);
-    m_target = *world;
-    m_target.x = static_cast<float>(static_cast<double>(size.x) * 0.5 + m_target.x);
-    m_target.z = static_cast<float>(static_cast<double>(size.z) * 0.5 + m_target.z);
+    Maths::Vector corner;
+    Maths::Vector size;
+    Maths::Vector* world = m_parkOwner->GridDimsToWorld(&corner, &m_cellFootprint, &size);
+    m_aimPoint = *world;
+    m_aimPoint.x = static_cast<float>(static_cast<double>(size.x) * 0.5 + m_aimPoint.x);
+    m_aimPoint.z = static_cast<float>(static_cast<double>(size.z) * 0.5 + m_aimPoint.z);
     if (!(m_moveTime > 0.0f)) {
-        m_pos = m_target;
+        m_pos = m_aimPoint;
         m_moveTime = 0.0f;
     } else {
-        m_pos.x = static_cast<float>((static_cast<double>(m_target.x) - m_pos.x) / m_moveTime * kSlideStep + m_pos.x);
-        m_pos.z = static_cast<float>((static_cast<double>(m_target.z) - m_pos.z) / m_moveTime * kSlideStep + m_pos.z);
-        m_pos.y = m_target.y;
+        m_pos.x = static_cast<float>((static_cast<double>(m_aimPoint.x) - m_pos.x) / m_moveTime * kSlideStep + m_pos.x);
+        m_pos.z = static_cast<float>((static_cast<double>(m_aimPoint.z) - m_pos.z) / m_moveTime * kSlideStep + m_pos.z);
+        m_pos.y = m_aimPoint.y;
         double time = static_cast<double>(m_moveTime) - kSlideStep;
         m_moveTime = static_cast<float>(time);
         if (time < 0.0)
@@ -218,53 +218,53 @@ void CCursor::Update(float shiftX, float shiftZ, int rotInc)
     }
 
     // Show the paste, or the piece (the rail tool shows none), a little in from the corner.
-    Mth::Vector shown = {static_cast<float>(static_cast<double>(m_pos.x) - kShowInset),
+    Maths::Vector shown = {static_cast<float>(static_cast<double>(m_pos.x) - kShowInset),
                          static_cast<float>(static_cast<double>(m_pos.y) + kShowInset),
                          static_cast<float>(static_cast<double>(m_pos.z) - kShowInset),
                          static_cast<float>(static_cast<double>(m_pos.w) + 1.0)};
     if (m_mode == kModePaste) {
         if (mp_clipboard)
-            mp_clipboard->ShowMetas(shown, m_angle, m_clipboardHeight);
+            mp_clipboard->PreviewPieces(shown, m_angle, m_clipboardHeight);
         return;
     }
-    for (CClipboard* clipboard = mp_clipboards; clipboard; clipboard = clipboard->mp_next)
-        clipboard->DestroyMetas();
+    for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
+        clipboard->FreeAllPieceGroups();
     if (m_mode != kModeRailPlacement)
-        mp_meta->SetPosition(shown, m_angle);
+        m_pieceGroup->SetPosition(shown, m_angle);
 }
 
 // 0x0059A5A0
-void CCursor::ClearAreaSelection()
+void CBuildPointer::DropAreaMarquee()
 {
-    GridDims area = GridDims::Make(0, 0, 0, 0, 0, 0);
-    GetAreaSelectDims(&area);
-    mp_manager->HighlightMetasWithinArea(area, 0);
+    SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
+    GetMarqueeBounds(&area);
+    m_parkOwner->HighlightMetasWithinArea(area, 0);
     m_areaSelect = 0;
     m_areaHighlighted = false;
 }
 
 // 0x0059A610
-bool CCursor::IsAreaSelectionInvalid()
+bool CBuildPointer::IsAreaSelectionInvalid()
 {
-    GridDims area = GridDims::Make(0, 0, 0, 0, 0, 0);
-    GetAreaSelectDims(&area);
+    SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
+    GetMarqueeBounds(&area);
     if (area.w > 10 || area.l > 10)
         return true;
     return !EditorAllowsCopy(area.w, area.l);
 }
 
 // 0x0059A6D0
-bool CCursor::CopyAreaToClipboard()
+bool CBuildPointer::CopyAreaToClipboard()
 {
     if (IsAreaSelectionInvalid())
         return false;
-    GridDims area = GridDims::Make(0, 0, 0, 0, 0, 0);
-    GetAreaSelectDims(&area);
+    SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
+    GetMarqueeBounds(&area);
 
     // Not if its rails wouldn't fit in what's left of the rail budget (the original asks the global manager).
-    Mth::Vector corner;
-    Mth::Vector size;
-    Mth::Vector* world = CParkManager::Instance()->GridDimsToWorld(&corner, &area, &size);
+    Maths::Vector corner;
+    Maths::Vector size;
+    Maths::Vector* world = CParkLayout::Instance()->GridDimsToWorld(&corner, &area, &size);
     float x0 = world->x;
     float z0 = world->z;
     float x1 = static_cast<float>(static_cast<double>(size.x) + x0);
@@ -274,7 +274,7 @@ bool CCursor::CopyAreaToClipboard()
         return false;
 
     int count = 0;
-    for (CClipboard* clipboard = mp_clipboards; clipboard; clipboard = clipboard->mp_next)
+    for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
         ++count;
     if (count == kMaxClipboards)
         RemoveOldestClipboard();
@@ -282,19 +282,19 @@ bool CCursor::CopyAreaToClipboard()
     auto* memory = static_cast<CClipboard*>(ClipboardPools().Allocate(sizeof(CClipboard)));
     CClipboard* copy = memory ? memory->Construct() : nullptr;
     // Without room for the copy, the oldest clipboards go one by one.
-    while (!copy->CopySelectionToClipboard(area) && mp_clipboards) {
+    while (!copy->CopySelectionToClipboard(area) && m_copyBuffers) {
         CClipboard* previous = nullptr;
-        CClipboard* last = mp_clipboards;
-        while (last->mp_next) {
+        CClipboard* last = m_copyBuffers;
+        while (last->m_following) {
             previous = last;
-            last = last->mp_next;
+            last = last->m_following;
         }
         last->Destroy();
         FreeClipboard(last);
         if (previous)
-            previous->mp_next = nullptr;
+            previous->m_following = nullptr;
         else
-            mp_clipboards = nullptr;
+            m_copyBuffers = nullptr;
     }
     if (copy->IsEmpty()) {
         if (copy) {
@@ -303,74 +303,74 @@ bool CCursor::CopyAreaToClipboard()
         }
         return false;
     }
-    copy->mp_next = mp_clipboards;
-    mp_clipboards = copy;
+    copy->m_following = m_copyBuffers;
+    m_copyBuffers = copy;
     return true;
 }
 
 // 0x0059A8D0
-void CCursor::UpdateAreaSelectionHighlight()
+void CBuildPointer::UpdateAreaSelectionHighlight()
 {
     if (m_areaSelect != 1)
         return;
-    GridDims area = GridDims::Make(0, 0, 0, 0, 0, 0);
+    SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
     if (!m_areaHighlighted) {
-        GetAreaSelectDims(&area);
-        mp_manager->HighlightMetasWithinArea(area, 1);
+        GetMarqueeBounds(&area);
+        m_parkOwner->HighlightMetasWithinArea(area, 1);
         m_areaHighlighted = true;
         return;
     }
-    if (m_cell_area.x != m_areaLast.x || m_cell_area.z != m_areaLast.z) {
-        GetAreaSelectDims(&area);
-        mp_manager->HighlightMetasWithinArea(area, 0);
-        m_areaLast = m_cell_area;
-        GetAreaSelectDims(&area);
-        mp_manager->HighlightMetasWithinArea(area, 1);
+    if (m_cellFootprint.x != m_areaLast.x || m_cellFootprint.z != m_areaLast.z) {
+        GetMarqueeBounds(&area);
+        m_parkOwner->HighlightMetasWithinArea(area, 0);
+        m_areaLast = m_cellFootprint;
+        GetMarqueeBounds(&area);
+        m_parkOwner->HighlightMetasWithinArea(area, 1);
     }
 }
 
 // 0x0059BAC0
-void CCursor::DestroyCursorMeta()
+void CBuildPointer::DestroyCursorMeta()
 {
-    if (!mp_meta)
+    if (!m_pieceGroup)
         return;
-    mp_meta->m_flags &= ~CMetaPiece::kCursor;
-    mp_manager->DestroyConcreteMeta(mp_meta, 0);
-    mp_manager->mp_generator->CleanUpOutRefs();
-    mp_meta = nullptr;
+    m_pieceGroup->m_flags &= ~CPieceGroup::kCursor;
+    m_parkOwner->FreePlacedPiece(m_pieceGroup, 0);
+    m_parkOwner->m_builder->CleanUpOutRefs();
+    m_pieceGroup = nullptr;
 }
 
 // 0x0059BAF0
-void CCursor::SwitchToClipboard()
+void CBuildPointer::SwitchToClipboard()
 {
     int count = 0;
-    for (CClipboard* clipboard = mp_clipboards; clipboard; clipboard = clipboard->mp_next)
+    for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
         ++count;
     if (count == 0)
         return;
 
     // The clipboard set (its menu index counts the sets with menus before it). Without one, the original
     // writes through a null set.
-    CPieceSet* set = nullptr;
-    int sets = mp_manager->m_numSets;
+    CPieceFamily* set = nullptr;
+    int sets = m_parkOwner->m_numSets;
     for (int i = 0; i < sets; ++i) {
         int menuIndex = 0;
         for (int j = 0; j < i; ++j) {
-            if (mp_manager->m_sets[j].m_visible)
+            if (m_parkOwner->m_sets[j].m_isDisplayed)
                 ++menuIndex;
         }
         m_menuIndex = menuIndex;
-        if (mp_manager->m_sets[i].m_isClipboard) {
+        if (m_parkOwner->m_sets[i].m_isClipboard) {
             m_clipboardSet = i;
-            set = &mp_manager->m_sets[i];
+            set = &m_parkOwner->m_sets[i];
             break;
         }
     }
     set->m_selected = 0;
 
-    for (CClipboard* clipboard = mp_clipboards; clipboard; clipboard = clipboard->mp_next)
-        clipboard->DestroyMetas();
-    mp_clipboard = mp_clipboards;
+    for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
+        clipboard->FreeAllPieceGroups();
+    mp_clipboard = m_copyBuffers;
     DestroyCursorMeta();
     if (m_mode != kModePaste) {
         m_mode = kModePaste;
@@ -380,28 +380,28 @@ void CCursor::SwitchToClipboard()
 }
 
 // 0x0059BC00
-void CCursor::ChangePiece(uint32_t checksum)
+void CBuildPointer::ChangePiece(uint32_t checksum)
 {
     DestroyCursorMeta();
     // (an unknown checksum is read through a null metapiece, as in the original)
-    CMetaPiece* source = mp_manager->GetAbstractMeta(checksum);
-    if (source->m_flags & CMetaPiece::kRailPlacement) {
-        m_cell_area.w = 1;
-        m_cell_area.h = 1;
-        m_cell_area.l = 1;
+    CPieceGroup* source = m_parkOwner->FindPieceTemplate(checksum);
+    if (source->m_flags & CPieceGroup::kRailPlacement) {
+        m_cellFootprint.w = 1;
+        m_cellFootprint.h = 1;
+        m_cellFootprint.l = 1;
     } else {
-        mp_meta = mp_manager->CreateConcreteMeta(source, CMetaPiece::kCursor | CMetaPiece::kInPark);
-        mp_meta->m_flags |= CMetaPiece::kCursor;
-        m_cell_area.w = mp_meta->m_cell_area.w;
-        m_cell_area.h = mp_meta->m_cell_area.h;
-        m_cell_area.l = mp_meta->m_cell_area.l;
-        if (m_rot & 1)
-            SwapWidthAndLength(m_cell_area);
+        m_pieceGroup = m_parkOwner->MakePlacedPiece(source, CPieceGroup::kCursor | CPieceGroup::kInPark);
+        m_pieceGroup->m_flags |= CPieceGroup::kCursor;
+        m_cellFootprint.w = m_pieceGroup->m_cellFootprint.w;
+        m_cellFootprint.h = m_pieceGroup->m_cellFootprint.h;
+        m_cellFootprint.l = m_pieceGroup->m_cellFootprint.l;
+        if (m_quarterTurns & 1)
+            SwapWidthAndLength(m_cellFootprint);
     }
-    ClearAreaSelection();
+    DropAreaMarquee();
 
     uint32_t flags = source->m_flags;
-    if (flags & CMetaPiece::kGap) {
+    if (flags & CPieceGroup::kGap) {
         if (m_mode != kModeGap) {
             m_mode = kModeGap;
             OnModeChanged();
@@ -409,33 +409,33 @@ void CCursor::ChangePiece(uint32_t checksum)
         return;
     }
     int mode = kModeRegular;
-    if (flags & CMetaPiece::kAreaSelect)
+    if (flags & CPieceGroup::kAreaSelect)
         mode = kModeAreaSelect;
-    else if (flags & CMetaPiece::kRailPlacement)
+    else if (flags & CPieceGroup::kRailPlacement)
         mode = kModeRailPlacement;
     if (m_mode != mode) {
         m_mode = mode;
         OnModeChanged();
     }
-    mp_manager->HighlightGapPieces(0, nullptr);
+    m_parkOwner->HighlightGapPieces(0, nullptr);
 }
 
 // 0x0059C7A0
-CCursor* CCursor::Construct()
+CBuildPointer* CBuildPointer::Construct()
 {
-    m_cell_area = GridDims::Make(0, 0, 0, 0, 0, 0);
-    m_target = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_cellFootprint = SCellBox::Make(0, 0, 0, 0, 0, 0);
+    m_aimPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_rot = 0;
+    m_quarterTurns = 0;
     m_targetAngle = 0.0f;
     m_angle = 0.0f;
-    mp_meta = nullptr;
-    m_areaStart = GridDims::Make(0, 0, 0, 0, 0, 0);
-    m_areaLast = GridDims::Make(0, 0, 0, 0, 0, 0);
+    m_pieceGroup = nullptr;
+    m_areaStart = SCellBox::Make(0, 0, 0, 0, 0, 0);
+    m_areaLast = SCellBox::Make(0, 0, 0, 0, 0, 0);
     m_gap.Construct();
     m_areaSelect = 0;
     m_areaHighlighted = false;
-    mp_clipboards = nullptr;
+    m_copyBuffers = nullptr;
     mp_clipboard = nullptr;
     m_moveTime = 1.0f;
     m_clipboardSet = 0;
@@ -443,23 +443,23 @@ CCursor* CCursor::Construct()
     m_gap.m_numCompleteHalves = 0;
     m_gap.m_cancelFlags = 0;
     m_mode = kModeNone;
-    mp_manager = CParkManager::Instance();
-    CPieceSet* set = mp_manager->GetPieceSet(0, &m_menuIndex);
+    m_parkOwner = CParkLayout::Instance();
+    CPieceFamily* set = m_parkOwner->GetPieceFamily(0, &m_menuIndex);
     ChangePiece(set->m_entries[set->m_selected].checksum);
     m_gapCounter = 1;
     return this;
 }
 
 // 0x0059C860
-void CCursor::CreateInstance()
+void CBuildPointer::CreateInstance()
 {
     if (Instance())
         return;
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(ParkEditorHeap());
-    void* memory = Mem::New(sizeof(CCursor));
-    Instance() = memory ? static_cast<CCursor*>(memory)->Construct() : nullptr;
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(ParkEditorHeap());
+    void* memory = MemSys::New(sizeof(CBuildPointer));
+    Instance() = memory ? static_cast<CBuildPointer*>(memory)->Construct() : nullptr;
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 } // namespace Ed

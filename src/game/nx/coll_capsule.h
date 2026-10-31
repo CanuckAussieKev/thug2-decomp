@@ -8,16 +8,16 @@
 #include "game/mth/geometry.h"
 #include "game/mth/vector.h"
 
-namespace Nx {
+namespace Engine3D {
 
 // Where a capsule touches a face (0x3C bytes): the face's nearest point, the offset to it from the segment's
 // nearest point, a time (+0x20: left as it was - only written for a moving capsule, which slot 17 never takes),
 // the face's normal, its object's checksum and flag 0x40.
 struct CapsuleHit {
-    Mth::Vector point;
-    Mth::Vector offset;      // +0x10
+    Maths::Vector point;
+    Maths::Vector offset;      // +0x10
     float t;                 // +0x20
-    Mth::Vector normal;      // +0x24
+    Maths::Vector normal;      // +0x24
     uint32_t checksum;       // +0x34
     uint8_t faceFlag40;      // +0x38
     uint8_t pad[3];
@@ -32,7 +32,7 @@ struct CapsuleHits {
 
     uint32_t unknown00;
     CapsuleHit hits[kMost];  // +0x004
-    Mth::Vector direction;   // +0x784
+    Maths::Vector direction;   // +0x784
     float sweep;             // +0x794
     int count;               // +0x798
     uint16_t ignoreFlags;    // +0x79C
@@ -47,7 +47,7 @@ static_assert(sizeof(CapsuleHits) == 0x7A4 && offsetof(CapsuleHits, count) == 0x
 // `normal` (false for a degenerate face, `normal` then unnormalised), the nearest points of the capsule's segment
 // and the face (SegmentTriangleDistanceSquared): the face's to `point`, it minus the segment's to `offset`. True
 // when the segment is in front of the face (offset against the normal) and within the radius of it.
-bool CapsuleHitsTriangle(const Mth::Capsule* capsule, const Mth::Vector* v0, const Mth::Vector* v1,
-                         const Mth::Vector* v2, Mth::Vector* point, Mth::Vector* normal, Mth::Vector* offset);
+bool CapsuleHitsTriangle(const Maths::Capsule* capsule, const Maths::Vector* v0, const Maths::Vector* v1,
+                         const Maths::Vector* v2, Maths::Vector* point, Maths::Vector* normal, Maths::Vector* offset);
 
 } // namespace Nx

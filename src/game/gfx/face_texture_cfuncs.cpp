@@ -14,12 +14,12 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
-using Script::CArray;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CStruct;
 
 constexpr uint32_t kChecksum = 0x21902065;        // "checksum"
 constexpr uint32_t kCapturedTexture = 0xD7C087AF; // "captured_texture"
@@ -42,14 +42,14 @@ constexpr uint32_t kHsv = 0xFB0E4249;             // "hsv"
 constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
-void* TextureDictionary() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
-void* FindTexture(uint32_t name) { return static_cast<Nx::CTexDict*>(TextureDictionary())->GetTexture(name); }
+void* TextureDictionary() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
+void* FindTexture(uint32_t name) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->GetTexture(name); }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
 // skate module's 0x00564F80 with no params is the current profile.
 void* FaceTexture()
 {
-    auto* profile = Mdl::Skate::Instance()->GetProfile(static_cast<CStruct*>(nullptr));
+    auto* profile = GameModules::Skate::Instance()->GetProfile(static_cast<CStruct*>(nullptr));
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(profile) + 0x54);
 }
 
@@ -72,12 +72,12 @@ uint32_t PackColour(int c0, int c1, int c2, int c3)
 uint32_t ReadColour(CStruct* params, bool* given)
 {
     int c[4] = {0x80, 0x80, 0x80, 0x80};
-    bool any = params->GetInteger(kColour0, &c[0], 0);
-    if (params->GetInteger(kColour1, &c[1], 0))
+    bool any = params->FetchIntValue(kColour0, &c[0], 0);
+    if (params->FetchIntValue(kColour1, &c[1], 0))
         any = true;
-    if (params->GetInteger(kColour2, &c[2], 0))
+    if (params->FetchIntValue(kColour2, &c[2], 0))
         any = true;
-    if (params->GetInteger(kColour3, &c[3], 0))
+    if (params->FetchIntValue(kColour3, &c[3], 0))
         any = true;
     *given = any;
     return PackColour(c[0], c[1], c[2], c[3]);
@@ -89,13 +89,13 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // A new integer array for the converted colour: 3 elements, or 4 with the source's fourth copied.
 CArray* NewColourArray(CArray* source)
 {
-    CArray* memory = Script::NewArray();
+    CArray* memory = Scripts::NewArray();
     CArray* colour = memory ? memory->Init() : nullptr;
     if (source->m_size == 4) {
-        colour->SetSizeAndType(4, Script::ESYMBOLTYPE_INTEGER);
+        colour->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
         colour->SetElement(3, source->GetElement(3));
     } else {
-        colour->SetSizeAndType(3, Script::ESYMBOLTYPE_INTEGER);
+        colour->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
     }
     return colour;
 }
@@ -104,15 +104,15 @@ CArray* NewColourArray(CArray* source)
 
 // 0x005B2420: LoadFaceTextureFromProfile checksum=<name>: the texture dictionary given the current profile's face
 // texture image (0x0049FA20) as `name`. Whether a texture was made.
-bool __cdecl CFunc_LoadFaceTextureFromProfile(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_LoadFaceTextureFromProfile(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name;
-    params->GetChecksum(kChecksum, &name, 1);
+    params->ReadHashValue(kChecksum, &name, 1);
     void* face = FaceTexture();
-    int size = static_cast<Gfx::CFaceTexture*>(face)->GetImageSize();         // (0x4420)
-    void* data = static_cast<Gfx::CFaceTexture*>(face)->GetImage();           // (its +0x3C)
-    void* texture = static_cast<Nx::CTexDict*>(TextureDictionary())
-                        ->LoadTextureFromBuffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
+    int size = static_cast<Gfx2D::CFaceSkin*>(face)->GetImageSize();         // (0x4420)
+    void* data = static_cast<Gfx2D::CFaceSkin*>(face)->GetImage();           // (its +0x3C)
+    void* texture = static_cast<Engine3D::CTextureSet*>(TextureDictionary())
+                        ->ReadTextureBuffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
     return texture != nullptr;
 }
 
@@ -120,10 +120,10 @@ bool __cdecl CFunc_LoadFaceTextureFromProfile(Script::CStruct* params, Script::C
 // the captured texture: a 0x4420-byte image (zeroed) - the texture's header (+0x78), its palette (+0x74: header size
 // / bytes per pixel entries, after 0x20 bytes) and its pixels (+0x64, +0x68 bytes) after it - copied in (0x00487420).
 // The texture isn't checked for null. Always true.
-bool __cdecl CFunc_SetFaceTextureFromVideoCapture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetFaceTextureFromVideoCapture(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name;
-    params->GetChecksum(kCapturedTexture, &name, 1);
+    params->ReadHashValue(kCapturedTexture, &name, 1);
     void* face = FaceTexture();
     void* texture = FindTexture(name);
     uint8_t image[0x4420];
@@ -135,23 +135,23 @@ bool __cdecl CFunc_SetFaceTextureFromVideoCapture(Script::CStruct* params, Scrip
     const void* pixels = TextureCall<const void*>(25, texture);
     int pixelSize = TextureCall<int>(26, texture);
     std::memcpy(image + 0x20 + paletteSize, pixels, pixelSize);
-    static_cast<Gfx::CFaceTexture*>(face)->SetImage(image, pixelSize + paletteSize + 0x20);
+    static_cast<Gfx2D::CFaceSkin*>(face)->SetImage(image, pixelSize + paletteSize + 0x20);
     return true;
 }
 
 // 0x005B2570: OffsetTexture <texture> [0xD83D589E=x] [y_offset=y] [colour bytes]: the texture's image shifted
 // (+0x48: x, y, whether a colour was given, the colour - 0x80 for each byte not given). Always true.
-bool __cdecl CFunc_OffsetTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_OffsetTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     void* texture = FindTexture(name);
     if (!texture)
         return true;
     int x = 0;
     int y = 0;
-    params->GetInteger(kXOffset, &x, 0);
-    params->GetInteger(kYOffset, &y, 0);
+    params->FetchIntValue(kXOffset, &x, 0);
+    params->FetchIntValue(kYOffset, &y, 0);
     bool given;
     uint32_t colour = ReadColour(params, &given);
     TextureCall<void>(18, texture, x, y, given, colour);
@@ -160,10 +160,10 @@ bool __cdecl CFunc_OffsetTexture(Script::CStruct* params, Script::CScript*)
 
 // 0x005B26B0: RotateTexture <texture> angle=degrees: the texture's image rotated (+0x44: radians, -1, -1). Always
 // true.
-bool __cdecl CFunc_RotateTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_RotateTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (both uninitialised in the original when missing)
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     float angle = 0.0f;
     params->GetFloat(kAngle, &angle, 0);
     void* texture = FindTexture(name);
@@ -178,19 +178,19 @@ bool __cdecl CFunc_RotateTexture(Script::CStruct* params, Script::CScript*)
 // 0x005B2720: PushTextureToPoint <texture> [0x485A0CDB=point] [Axis=n] [0x88CF948C=amount] [colour bytes]: the
 // texture's image pushed towards a point (+0x58: point, axis, amount, whether a colour was given, the colour).
 // Always true.
-bool __cdecl CFunc_PushTextureToPoint(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PushTextureToPoint(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     void* texture = FindTexture(name);
     if (!texture)
         return true;
     int point = 0;
     int axis = 0;
     int amount = 0;
-    params->GetInteger(kPushPoint, &point, 0);
-    params->GetInteger(kAxis, &axis, 0);
-    params->GetInteger(kPushAmount, &amount, 0);
+    params->FetchIntValue(kPushPoint, &point, 0);
+    params->FetchIntValue(kAxis, &axis, 0);
+    params->FetchIntValue(kPushAmount, &amount, 0);
     bool given;
     uint32_t colour = ReadColour(params, &given);
     TextureCall<void>(22, texture, point, axis, amount, given, colour);
@@ -199,10 +199,10 @@ bool __cdecl CFunc_PushTextureToPoint(Script::CStruct* params, Script::CScript*)
 
 // 0x005B2880: ApplyRGBAToTexture <texture> r= g= b= [a=a (0x80)] [0xC164842A=mode]: the texture tinted (+0x30: the
 // colour, whether the mode is 1). Always true.
-bool __cdecl CFunc_ApplyRGBAToTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ApplyRGBAToTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     void* texture = FindTexture(name);
     if (!texture)
         return true;
@@ -210,12 +210,12 @@ bool __cdecl CFunc_ApplyRGBAToTexture(Script::CStruct* params, Script::CScript*)
     int g = 0;
     int b = 0;
     int a = 0x80;
-    params->GetInteger(kR, &r, 0);
-    params->GetInteger(kG, &g, 0);
-    params->GetInteger(kB, &b, 0);
-    params->GetInteger(kA, &a, 0);
+    params->FetchIntValue(kR, &r, 0);
+    params->FetchIntValue(kG, &g, 0);
+    params->FetchIntValue(kB, &b, 0);
+    params->FetchIntValue(kA, &a, 0);
     int mode = 0;
-    params->GetInteger(kTintMode, &mode, 0);
+    params->FetchIntValue(kTintMode, &mode, 0);
     bool second = mode == 1;
     TextureCall<void>(12, texture, PackColour(r, g, b, a), second);
     return true;
@@ -224,7 +224,7 @@ bool __cdecl CFunc_ApplyRGBAToTexture(Script::CStruct* params, Script::CScript*)
 // 0x005B2970: HSVtoRGB hsv=[h s v (alpha)]: rgb, the colour in RGB (0-128 each; the fourth element copied). Hue is
 // taken in 60ths (wrapped into 0-6), saturation in 90ths (kept to 0.01-1), value in 60ths (kept to 0.01-1) - the
 // value stays at the x87's precision until stored. Always true.
-bool __cdecl CFunc_HSVtoRGB(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_HSVtoRGB(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float r = 0.0f;
     float g = 0.0f;
@@ -279,13 +279,13 @@ bool __cdecl CFunc_HSVtoRGB(Script::CStruct* params, Script::CScript* script)
     rgb->SetElement(0, static_cast<uint32_t>(Ftol(static_cast<double>(r) * 128.0f)));
     rgb->SetElement(1, static_cast<uint32_t>(Ftol(static_cast<double>(g) * 128.0f)));
     rgb->SetElement(2, static_cast<uint32_t>(Ftol(static_cast<double>(b) * 128.0f)));
-    script->m_params->AddArrayPointer(kRgb, rgb);
+    script->m_params->AppendArrayRef(kRgb, rgb);
     return true;
 }
 
 // 0x005B2CD0: RGBtoHSV rgb=[r g b (alpha)]: hsv, the colour in HSV (hue 0-360, saturation 0-90, value 0-60; the
 // fourth element copied). Always true.
-bool __cdecl CFunc_RGBtoHSV(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_RGBtoHSV(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float h = 0.0f;
     CArray* rgbArray = nullptr;
@@ -335,8 +335,8 @@ bool __cdecl CFunc_RGBtoHSV(Script::CStruct* params, Script::CScript* script)
     hsv->SetElement(0, static_cast<uint32_t>(Ftol(h)));
     hsv->SetElement(1, static_cast<uint32_t>(Ftol(static_cast<double>(s) * 90.0f)));
     hsv->SetElement(2, static_cast<uint32_t>(Ftol(static_cast<double>(max) * 60.0f)));
-    script->m_params->AddArrayPointer(kHsv, hsv);
+    script->m_params->AppendArrayRef(kHsv, hsv);
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

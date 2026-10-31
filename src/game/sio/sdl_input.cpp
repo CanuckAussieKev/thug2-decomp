@@ -146,7 +146,7 @@ constexpr int kMaxPlayers = 2;
 uint8_t s_playerCount = 0;
 PlayerSlot s_players[kMaxPlayers] = {{nullptr, 0}, {nullptr, 0}};
 
-void AddController(int index)
+void AttachController(int index)
 {
     DebugLog::Printf(Level::kInfo, "Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(index));
     SDL_GameController* controller = SDL_GameControllerOpen(index);
@@ -165,7 +165,7 @@ void AddController(int index)
     s_controllers[s_controllerCount++] = controller;
 }
 
-void AddPlayer(SDL_GameController* controller)
+void EnrollPlayer(SDL_GameController* controller)
 {
     if (s_playerCount >= 2) {
         DebugLog::Printf(Level::kInfo, "Already two players, not adding\n");
@@ -230,7 +230,7 @@ void InitControllers()
     s_controllers = static_cast<SDL_GameController**>(std::malloc(sizeof(SDL_GameController*) * s_controllerCapacity));
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         if (SDL_IsGameController(i))
-            AddController(i);
+            AttachController(i);
     }
 }
 
@@ -260,20 +260,20 @@ uint8_t ButtonDown(SDL_GameController* controller, PadButton button)
 // A stick into (x, y), where it's further from the centre than what's there (the keyboard's).
 void ReadStick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8_t* y)
 {
-    uint8_t stickX;
+    uint8_t padAxisX;
     uint8_t stickY;
     if (stick == kStickLeft) {
-        stickX = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
+        padAxisX = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
         stickY = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> 8) + 128);
     } else if (stick == kStickRight) {
-        stickX = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
+        padAxisX = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
         stickY = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> 8) + 128);
     } else {
-        stickX = 0x80;
+        padAxisX = 0x80;
         stickY = 0x80;
     }
-    if (AxisDistance(stickX) > AxisDistance(*x))
-        *x = stickX;
+    if (AxisDistance(padAxisX) > AxisDistance(*x))
+        *x = padAxisX;
     if (AxisDistance(stickY) > AxisDistance(*y))
         *y = stickY;
 }
@@ -282,10 +282,10 @@ void ReadStick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8
 // GetElement 0x004AAE20 - it returns a smart pointer, released by its destructor).
 uint8_t InParkEditor()
 {
-    Front::CScreenElementManager* manager = Front::CScreenElementManager::Instance();
+    MenuSystem::CUiTree* manager = MenuSystem::CUiTree::Instance();
     if (!manager)
         return 0;
-    Front::ElementPtr element;
+    MenuSystem::ElementPtr element;
     return manager->GetElement(&element, 0x5999551E, 0)->Get() ? 1 : 0;
 }
 
@@ -319,7 +319,7 @@ void PollController(Device* device, SDL_GameController* controller)
     if (!SDL_GameControllerGetAttached(controller))
         return;
     uint8_t* data = device->m_controlData;
-    device->m_valid = 1;
+    device->m_isUsable = 1;
     device->m_pluggedIn = true;
 
     if (ButtonDown(controller, s_pad.menu))
@@ -536,7 +536,7 @@ uint8_t KeyDown(const uint8_t* keys, uint8_t key)
 void PollKeyboard(Device* device)
 {
     uint8_t* data = device->m_controlData;
-    device->m_valid = 1;
+    device->m_isUsable = 1;
     device->m_pluggedIn = true;
 
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
@@ -551,8 +551,8 @@ void PollKeyboard(Device* device)
     // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
     // editor started; nothing else.
     // Original behaviour: every binding is read.
-    if (Front::LevelEditor::Active()) {
-        if (Front::LevelEditor::PassPauseKey(keys[s_keys.menu] != 0))
+    if (MenuSystem::LevelEditor::Active()) {
+        if (MenuSystem::LevelEditor::PassPauseKey(keys[s_keys.menu] != 0))
             data[2] |= 1 << 3;
         return;
     }
@@ -745,7 +745,7 @@ void HandleInputEvent(SDL_Event* event)
     switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:
         if (SDL_IsGameController(event->cdevice.which))
-            AddController(event->cdevice.which);
+            AttachController(event->cdevice.which);
         else
             DebugLog::Printf(Level::kInfo, "Not a game controller: %s\n", SDL_JoystickNameForIndex(event->cdevice.which));
         return;
@@ -760,7 +760,7 @@ void HandleInputEvent(SDL_Event* event)
         s_usingKeyboard = true;
         // (not original: Enter / F1-F4 aren't the game's special keys while the new front end has the keyboard -
         // game/front/new_frontend.h)
-        if (!Front::NewFrontend::BlocksGameInput())
+        if (!MenuSystem::NewFrontend::BlocksGameInput())
             KeyPressed(event->key.keysym.sym);
         return;
     case SDL_CONTROLLERBUTTONDOWN: {
@@ -768,7 +768,7 @@ void HandleInputEvent(SDL_Event* event)
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
         int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player == -1)
-            AddPlayer(controller);
+            EnrollPlayer(controller);
         else if (s_players[player].lockedOut)
             ++s_players[player].lockedOut;
         s_usingKeyboard = false;
@@ -873,12 +873,12 @@ void WriteGameKeyBindings()
 
 void LoadInputSettings()
 {
-    s_settings.ps2Controls = Config::GetBool(Config::kMiscellaneous, "UsePS2Controls", true);
-    s_settings.uiControls = static_cast<uint8_t>(Config::GetInt(Config::kMiscellaneous, "UIControls", 1));}
+    s_settings.ps2Controls = BuildInfo::GetBool(BuildInfo::kMiscellaneous, "UsePS2Controls", true);
+    s_settings.uiControls = static_cast<uint8_t>(BuildInfo::GetInt(BuildInfo::kMiscellaneous, "UIControls", 1));}
 
 SDL_Scancode Key(const char* name, SDL_Scancode fallback)
 {
-    return static_cast<SDL_Scancode>(Config::GetInt(Config::kKeybinds, name, fallback));
+    return static_cast<SDL_Scancode>(BuildInfo::GetInt(BuildInfo::kKeybinds, name, fallback));
 }
 
 void LoadKeyBinds()
@@ -918,7 +918,7 @@ void LoadKeyBinds()
 
 PadButton Button(const char* name, int fallback)
 {
-    return static_cast<PadButton>(Config::GetInt(Config::kGamepad, name, fallback));
+    return static_cast<PadButton>(BuildInfo::GetInt(BuildInfo::kGamepad, name, fallback));
 }
 
 void LoadPadBinds()
@@ -945,14 +945,14 @@ void LoadPadBinds()
     s_pad.up = Button("Forward", kDpadUp);
     s_pad.down = Button("Backward", kDpadDown);
 
-    s_pad.movement = static_cast<PadStick>(Config::GetInt(Config::kGamepad, "MovementStick", kStickLeft));
-    s_pad.camera = static_cast<PadStick>(Config::GetInt(Config::kGamepad, "CameraStick", kStickRight));
+    s_pad.movement = static_cast<PadStick>(BuildInfo::GetInt(BuildInfo::kGamepad, "MovementStick", kStickLeft));
+    s_pad.camera = static_cast<PadStick>(BuildInfo::GetInt(BuildInfo::kGamepad, "CameraStick", kStickRight));
 }
 
 // Stores 32 bits at `offset` into the device. PartyMod's view of the device has these fields as 32-bit (the game's
 // are bytes followed by padding - and +0xEC's second byte is m_keyboardControl, cleared this way); its last one,
 // "start or A pressed" at +0xF0, lies just past the end of the 0xF0-byte device. Kept as it was.
-void Store32(Device* device, uint32_t offset, uint32_t value)
+void PutWord32(Device* device, uint32_t offset, uint32_t value)
 {
     std::memcpy(reinterpret_cast<uint8_t*>(device) + offset, &value, sizeof(value));
 }
@@ -969,7 +969,7 @@ void InitSdlInput()
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
     char mappings[1024];
-    int length = sprintf_s(mappings, sizeof(mappings), "%s%s", Config::ExecutableDirectory(), "gamecontrollerdb.txt");
+    int length = sprintf_s(mappings, sizeof(mappings), "%s%s", BuildInfo::ExecutableDirectory(), "gamecontrollerdb.txt");
     if (length) {
         // (-1, a failure, counts as loaded too)
         if (SDL_GameControllerAddMappingsFromFile(mappings))
@@ -983,19 +983,19 @@ void InitSdlInput()
     LoadPadBinds();
     InitControllers();
     if (s_settings.ps2Controls)
-        Sys::InstallIsPS2();
+        SystemCore::InstallIsPS2();
     // (not PartyMod's - [features] debug_mode: CD false, the developers' menus - game/sys/debug_mode.h)
-    Sys::DebugMode::Install();
+    SystemCore::DebugMode::Install();
     WriteGameKeyBindings();
     Platform::RegisterEventHandler(HandleInputEvent);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
     MouseMenus::Init();
     // (not PartyMod's either - the level editor: its mouse and Escape key)
-    Front::LevelEditor::Init();
+    MenuSystem::LevelEditor::Init();
     // (nor the new front end's input - game/front/new_frontend.h; nothing when it's off)
-    Front::NewFrontend::Init();
+    MenuSystem::NewFrontend::Init();
     // (nor the screenshot key - game/sys/screenshot.h)
-    Sys::Screenshot::Init();
+    SystemCore::Screenshot::Init();
 }
 
 void ProcessSdlDevice(Device* device)
@@ -1011,8 +1011,8 @@ void ProcessSdlDevice(Device* device)
 
     Platform::PumpSdlEvents();
 
-    Store32(device, 0x14, 0); // m_valid
-    Store32(device, 0xE0, 0); // m_pluggedIn
+    PutWord32(device, 0x14, 0); // m_isUsable
+    PutWord32(device, 0xE0, 0); // m_pluggedIn
     uint8_t* data = device->m_controlData;
     data[0] = 0;
     data[1] = 0x70;
@@ -1031,10 +1031,10 @@ void ProcessSdlDevice(Device* device)
     // Not original - the new front end (game/front/new_frontend.h): while it's up (and until the keys that chose for it
     // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
     // Original behaviour: the keyboard and the controller always read.
-    bool newFrontend = Front::NewFrontend::BlocksGameInput();
+    bool newFrontend = MenuSystem::NewFrontend::BlocksGameInput();
     if (device->m_port == 0) {
-        Store32(device, 0x14, 1);
-        Store32(device, 0xE0, 1);
+        PutWord32(device, 0x14, 1);
+        PutWord32(device, 0xE0, 1);
         if (!KeyboardOnScreen() && !newFrontend)
             PollKeyboard(device);
     }
@@ -1042,15 +1042,15 @@ void ProcessSdlDevice(Device* device)
     if (port < kMaxPlayers && s_players[port].controller && !s_players[port].lockedOut && !newFrontend)
         PollController(device, s_players[port].controller);
     // (not original: the buttons the test-automation channel presses - game/front/automation.h)
-    Front::Automation::AddPadButtons(device->m_port, data);
+    MenuSystem::Automation::AddPadButtons(device->m_port, data);
 
     data[2] = static_cast<uint8_t>(~data[2]);
     data[3] = static_cast<uint8_t>(~data[3]);
-    Store32(device, 0xEC, (0xFFFF ^ (data[2] << 8 | data[3])) ? 1 : 0); // m_pressed (and m_keyboardControl)
-    Store32(device, 0xF0, ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0); // start or A (past the end)
+    PutWord32(device, 0xEC, (0xFFFF ^ (data[2] << 8 | data[3])) ? 1 : 0); // m_heldDown (and m_keyboardControl)
+    PutWord32(device, 0xF0, ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0); // start or A (past the end)
 
     // (typed text only works with these set)
-    GameNet::g_textEntry = 1;
+    OnlinePlay::g_textEntry = 1;
     g_inMenuFlag = 0;
 }
 

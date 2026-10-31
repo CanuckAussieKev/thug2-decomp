@@ -20,7 +20,7 @@
 #include "game/front/screen_constants.h"
 #include "game/gfx/engine_geom.h"
 
-namespace Front {
+namespace MenuSystem {
 
 namespace {
 extern void** const kCTextBlockElementVtable;
@@ -28,7 +28,7 @@ extern void** const kCTextBlockElementVtable;
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kTextBlockElement = 0x40D92263, kFont = 0x2F6BF72D, kInternalJust = 0x67E093E4;
@@ -52,8 +52,8 @@ void CopyText(char* to, const char* from)
 }
 void AppendText(char* to, const char* from) { CopyText(to + std::strlen(to), from); }
 
-float Half() { return ::Gfx::g_half; }
-float One() { return ::Obj::g_animMoviesOne; }
+float Half() { return ::Gfx2D::g_half; }
+float One() { return ::GameObjects::g_animMoviesOne; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -63,37 +63,37 @@ const char* SizingText() { return "AAA"; }
 // " " (0x0064A2BC): what joins the lines.
 const char* Space() { return " "; }
 
-void* GetFont(uint32_t name) { return Nx::GetFont(name); }
-void QueryString(void* font, const char* text, float* width, float* height)
+void* GetFont(uint32_t name) { return Engine3D::GetFont(name); }
+void ReadStringParam(void* font, const char* text, float* width, float* height)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&Nx::VirtualSlot8Jump)(font, text, width, height);
+    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&Engine3D::VirtualSlot8Jump)(font, text, width, height);
 }
 
 void* FrontEndNew(unsigned int size)
 {
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(memory->m_frontEndHeap);
-    void* block = Mem::New(size);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* memory = MemSys::Manager::Get();
+    memory->EnterHeapScope(memory->m_frontEndHeap);
+    void* block = MemSys::New(size);
+    MemSys::Manager::Get()->LeaveHeapScope();
     return block;
 }
 
-void DeleteBlur(CBlurEffect* blur)
+void DeleteBlur(CSmearEffect* blur)
 {
     if (blur) {
         Stubs::DoNothing(); // (its destructor: the shared empty stub the original calls)
-        Mem::Free(blur);
+        MemSys::Free(blur);
     }
 }
 
-CTextElement* AsText(CScreenElement* e) { return static_cast<CTextElement*>(e); }
+CLabelWidget* AsText(CUiWidget* e) { return static_cast<CLabelWidget*>(e); }
 
 } // namespace
 
 // 0x004B0810
-CTextBlockElement* CTextBlockElement::Construct()
+CParagraphWidget* CParagraphWidget::Construct()
 {
-    CScreenElement::Construct();
+    CUiWidget::Construct();
     m_vtable = kCTextBlockElementVtable;
     m_shadowRgba[0] = m_shadowRgba[1] = m_shadowRgba[2] = 0;
     m_shadowRgba[3] = 0x80;
@@ -111,35 +111,35 @@ CTextBlockElement* CTextBlockElement::Construct()
 }
 
 // 0x004B08B0
-void CTextBlockElement::DestroyBody()
+void CParagraphWidget::DestroyBody()
 {
     m_vtable = kCTextBlockElementVtable;
     DeleteBlur(mp_blur);
-    CScreenElement::DestroyBody();
+    CUiWidget::DestroyBody();
 }
 
 // 0x004B0B30
-CTextBlockElement* CTextBlockElement::Destroy(uint8_t flags)
+CParagraphWidget* CParagraphWidget::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004AF6C0 (a font with no height: a division by zero, as the original)
-void CTextBlockElement::SetFont(uint32_t font)
+void CParagraphWidget::SetFont(uint32_t font)
 {
     m_fontName = font;
     float width, height;
-    QueryString(GetFont(font), SizingText(), &width, &height);
+    ReadStringParam(GetFont(font), SizingText(), &width, &height);
     int lineHeight = Truncated(static_cast<double>(height) * m_internalScale);
-    m_maxLines = Truncated(m_height) / lineHeight;
+    m_maxLines = Truncated(m_levelY) / lineHeight;
     m_objectFlags |= kVisibleNow;
 }
 
 // 0x004AF720 (a new line from an empty one "trims" the byte before it, as the original)
-void CTextBlockElement::AddWords(const char* text)
+void CParagraphWidget::AddWords(const char* text)
 {
     void* font = GetFont(m_fontName);
     const char* cursor = text;
@@ -147,11 +147,11 @@ void CTextBlockElement::AddWords(const char* text)
     int result;
     do {
         char word[0x64];
-        result = Str::NextWord(word, cursor);
+        result = TextUtil::NextWord(word, cursor);
         float width, height;
-        QueryString(font, word, &width, &height);
+        ReadStringParam(font, word, &width, &height);
         width = static_cast<float>(static_cast<double>(width) * m_internalScale);
-        bool full = m_lineWidth > 0.0f && static_cast<double>(width) + m_lineWidth > m_width;
+        bool full = m_lineWidth > 0.0f && static_cast<double>(width) + m_lineWidth > m_span;
         if (full || previous == 1 || std::strlen(word) + static_cast<size_t>(m_lineLength) >= kLineChars) {
             char* last = mp_lines[m_line] + m_lineLength - 1;
             if (*last == ' ')
@@ -170,25 +170,25 @@ void CTextBlockElement::AddWords(const char* text)
 }
 
 // 0x004B0CD0
-void CTextBlockElement::SetText(const char** texts, int count)
+void CParagraphWidget::SetText(const char** texts, int count)
 {
-    CScreenElementManager* manager = CScreenElementManager::Instance();
+    CUiTree* manager = CUiTree::Instance();
     SetFocusSent(0);
     {
         ElementPtr child;
-        child.Set(mp_firstChild.mp_object);
+        child.Set(mp_firstChild.m_ownerObject);
         while (child) {
             ElementPtr next;
-            next.Set(child->mp_next.mp_object);
+            next.Set(child->m_following.m_ownerObject);
             manager->DestroyElement(child->m_id, 1, 0, nullptr);
-            child.Set(next.mp_object);
+            child.Set(next.m_ownerObject);
         }
     }
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(memory->m_frontEndHeap);
-    mp_lines = static_cast<char**>(Mem::New(kLineBuffers * sizeof(char*)));
-    mp_lines[0] = static_cast<char*>(Mem::New(kLineBuffers * kLineChars));
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* memory = MemSys::Manager::Get();
+    memory->EnterHeapScope(memory->m_frontEndHeap);
+    mp_lines = static_cast<char**>(MemSys::New(kLineBuffers * sizeof(char*)));
+    mp_lines[0] = static_cast<char*>(MemSys::New(kLineBuffers * kLineChars));
+    MemSys::Manager::Get()->LeaveHeapScope();
     for (int i = 1; i < kLineBuffers; ++i)
         mp_lines[i] = mp_lines[0] + kLineChars * i;
     for (int i = 0; i < kLineBuffers; ++i)
@@ -198,7 +198,7 @@ void CTextBlockElement::SetText(const char** texts, int count)
     m_line = 0;
     m_lineWidth = 0.0f;
     if (m_allowExpansion) {
-        m_height = 0.0f;
+        m_levelY = 0.0f;
         m_maxLines = 0;
     }
     for (int i = 0; i < count; ++i)
@@ -213,10 +213,10 @@ void CTextBlockElement::SetText(const char** texts, int count)
         if (m_allowExpansion) {
             // the block grows to the lines' height and they are made again
             float width, height;
-            QueryString(GetFont(m_fontName), SizingText(), &width, &height);
+            ReadStringParam(GetFont(m_fontName), SizingText(), &width, &height);
             double lineHeight = static_cast<double>(m_lineSpacing) * m_internalScale * height;
             double total = static_cast<double>(m_numLines) * lineHeight;
-            m_height = static_cast<float>(total);
+            m_levelY = static_cast<float>(total);
             int maxLines = Truncated(total) / Truncated(lineHeight);
             m_lineLength = 0;
             m_numLines = 0;
@@ -234,11 +234,11 @@ void CTextBlockElement::SetText(const char** texts, int count)
     }
     m_linesHeight = 0.0f;
     for (int k = 0; k < m_numElements; ++k) {
-        memory = Mem::Manager::Get();
-        memory->PushContext(memory->m_frontEndHeap);
-        void* block = Mem::Calloc(sizeof(CTextElement));
-        CTextElement* line = block ? static_cast<CTextElement*>(block)->Construct() : nullptr;
-        Mem::Manager::Get()->PopContext();
+        memory = MemSys::Manager::Get();
+        memory->EnterHeapScope(memory->m_frontEndHeap);
+        void* block = MemSys::AllocZeroed(sizeof(CLabelWidget));
+        CLabelWidget* line = block ? static_cast<CLabelWidget*>(block)->Construct() : nullptr;
+        MemSys::Manager::Get()->LeaveHeapScope();
         manager->VirtualRegisterObject(line);
         {
             ElementPtr child, self;
@@ -247,32 +247,32 @@ void CTextBlockElement::SetText(const char** texts, int count)
             manager->SetParent(&self, &child, 1);
         }
         line->m_fontName = m_fontName;
-        line->mp_font = GetFont(m_fontName);
+        line->m_typeface = GetFont(m_fontName);
         line->m_objectFlags |= kVisibleNow;
         line->SetText(mp_lines[first]);
-        line->SetScale(m_internalScale, m_internalScale, false, 0);
-        m_linesHeight = static_cast<float>(static_cast<double>(line->m_height) * m_internalScale * m_lineSpacing +
+        line->ChangeScale(m_internalScale, m_internalScale, false, 0);
+        m_linesHeight = static_cast<float>(static_cast<double>(line->m_levelY) * m_internalScale * m_lineSpacing +
                                            m_linesHeight);
         if (++first >= m_maxLines)
             first = 0;
     }
-    Mem::Free(mp_lines[0]);
-    Mem::Free(mp_lines);
+    MemSys::Free(mp_lines[0]);
+    MemSys::Free(mp_lines);
     SetFocusSent(1);
     m_objectFlags |= kVisibleNow;
 }
 
 // 0x004B11C0
-bool CTextBlockElement::GetText(char* out, int size)
+bool CParagraphWidget::GetText(char* out, int size)
 {
     *out = 0;
     int total = 0;
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     while (child) {
         ElementPtr next;
-        next.Set(child->mp_next.mp_object);
-        const char* text = AsText(child.mp_object)->m_string;
+        next.Set(child->m_following.m_ownerObject);
+        const char* text = AsText(child.m_ownerObject)->m_string;
         total += static_cast<int>(std::strlen(text));
         if (next)
             ++total;
@@ -281,30 +281,30 @@ bool CTextBlockElement::GetText(char* out, int size)
         AppendText(out, text);
         if (next)
             AppendText(out, Space());
-        child.Set(next.mp_object);
+        child.Set(next.m_ownerObject);
     }
     return true;
 }
 
 // 0x004B1390
-int CTextBlockElement::GetLength()
+int CParagraphWidget::GetLength()
 {
     int total = 0;
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     while (child) {
         ElementPtr next;
-        next.Set(child->mp_next.mp_object);
-        total += static_cast<int>(std::strlen(AsText(child.mp_object)->m_string));
+        next.Set(child->m_following.m_ownerObject);
+        total += static_cast<int>(std::strlen(AsText(child.m_ownerObject)->m_string));
         if (next)
             ++total;
-        child.Set(next.mp_object);
+        child.Set(next.m_ownerObject);
     }
     return total;
 }
 
 // 0x004B14A0
-bool CTextBlockElement::Backspace()
+bool CParagraphWidget::Backspace()
 {
     int length = GetLength();
     if (length == 0)
@@ -320,9 +320,9 @@ bool CTextBlockElement::Backspace()
 }
 
 // 0x004B16D0 (the joined text in a block from the current heap)
-bool CTextBlockElement::Concatenate(const char* text, bool enforceMaxWidth, bool lastLine)
+bool CParagraphWidget::JoinOnto(const char* text, bool enforceMaxWidth, bool lastLine)
 {
-    char* joined = static_cast<char*>(Mem::New(0x200));
+    char* joined = static_cast<char*>(MemSys::New(0x200));
     GetText(joined, 0x200);
     AppendText(joined, text);
     if ((enforceMaxWidth && std::strcmp(text, Space()) != 0) || lastLine) {
@@ -330,29 +330,29 @@ bool CTextBlockElement::Concatenate(const char* text, bool enforceMaxWidth, bool
         void* font = GetFont(m_fontName);
         const char* cursor = joined;
         char word[0x64];
-        while (Str::NextWord(word, cursor) != 2) {
+        while (TextUtil::NextWord(word, cursor) != 2) {
         }
         float width, height;
-        QueryString(font, word, &width, &height);
+        ReadStringParam(font, word, &width, &height);
         width = static_cast<float>(static_cast<double>(width) * m_internalScale);
-        if (width > m_width) {
-            Mem::Free(joined);
+        if (width > m_span) {
+            MemSys::Free(joined);
             return false;
         }
     }
     const char* texts[1] = {joined};
     SetText(texts, 1);
-    Mem::Free(joined);
+    MemSys::Free(joined);
     return true;
 }
 
 // 0x004B1540
-void CTextBlockElement::UpdateLines()
+void CParagraphWidget::UpdateLines()
 {
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     while (child) {
-        CTextElement* line = AsText(child.mp_object);
+        CLabelWidget* line = AsText(child.m_ownerObject);
         if (mp_blur)
             line->EnableBlur();
         else
@@ -370,26 +370,26 @@ void CTextBlockElement::UpdateLines()
         line->m_shadowY = m_shadowY;
         std::memcpy(line->m_shadowRgba, m_shadowRgba, 4);
         line->m_overrideRgba = m_overrideRgba;
-        child.Set(child->mp_next.mp_object);
+        child.Set(child->m_following.m_ownerObject);
     }
 }
 
 // 0x004B1B60 (an array of more than 29 strings overran the original's stack)
-void CTextBlockElement::SetProperties(CStruct* params)
+void CParagraphWidget::SetProperties(CStruct* params)
 {
-    CScreenElement::SetProperties(params);
+    CUiWidget::SetProperties(params);
     if (params->GetFloat(kInternalScale, &m_internalScale, 0))
         m_objectFlags |= kVisibleNow;
     params->GetFloat(kLineSpacing, &m_lineSpacing, 0);
     uint32_t font;
-    if (params->GetChecksum(kFont, &font, 0))
+    if (params->ReadHashValue(kFont, &font, 0))
         SetFont(font);
     if (ResolveJust(params, kInternalJust, &m_internalJustX, &m_internalJustY))
         m_objectFlags |= kVisibleNow;
-    if (params->ContainsFlag(kAllowExpansion))
+    if (params->HasBareFlag(kAllowExpansion))
         m_allowExpansion = true;
     const char* texts[kMaxTexts];
-    Script::CArray* array;
+    Scripts::CArray* array;
     if (params->GetString(kText, &texts[0], 0)) {
         SetText(texts, 1);
     } else if (params->GetArray(kText, &array, 0)) {
@@ -398,101 +398,101 @@ void CTextBlockElement::SetProperties(CStruct* params)
             texts[i] = array->GetString(static_cast<uint32_t>(i));
         SetText(texts, count < kMaxTexts ? count : kMaxTexts);
     }
-    if (params->ContainsFlag(kBlurEffect) && !mp_blur) {
-        Mem::Manager* memory = Mem::Manager::Get();
-        memory->PushContext(memory->m_frontEndHeap);
-        mp_blur = static_cast<CBlurEffect*>(Mem::New(sizeof(CBlurEffect)));
-        std::memcpy(&mp_blur->m_rgba, m_shown.rgba, 4);
-        Mem::Manager::Get()->PopContext();
-    } else if (params->ContainsFlag(kNoBlurEffect) && mp_blur) {
+    if (params->HasBareFlag(kBlurEffect) && !mp_blur) {
+        MemSys::Manager* memory = MemSys::Manager::Get();
+        memory->EnterHeapScope(memory->m_frontEndHeap);
+        mp_blur = static_cast<CSmearEffect*>(MemSys::New(sizeof(CSmearEffect)));
+        std::memcpy(&mp_blur->m_rgbaValue, m_shown.rgba, 4);
+        MemSys::Manager::Get()->LeaveHeapScope();
+    } else if (params->HasBareFlag(kNoBlurEffect) && mp_blur) {
         DeleteBlur(mp_blur);
         mp_blur = nullptr;
     }
     uint32_t rgba;
     if (ResolveRGBA(params, kBlurRgba, &rgba) && mp_blur)
-        mp_blur->m_rgba = rgba;
-    Script::CPair offset;
+        mp_blur->m_rgbaValue = rgba;
+    Scripts::CPair offset;
     offset.Init();
-    if (params->GetPair(kShadowOffs, &offset, false)) {
+    if (params->FetchPair(kShadowOffs, &offset, false)) {
         m_shadowX = offset.x;
         m_shadowY = offset.y;
     }
-    if (params->ContainsFlag(kShadow))
+    if (params->HasBareFlag(kShadow))
         m_shadow = true;
-    if (params->ContainsFlag(kNoShadow))
+    if (params->HasBareFlag(kNoShadow))
         m_shadow = false;
     ResolveRGBA(params, kShadowRgba, reinterpret_cast<uint32_t*>(m_shadowRgba));
-    if (params->ContainsFlag(kRememberOverrideRgbaState))
+    if (params->HasBareFlag(kRememberOverrideRgbaState))
         m_rememberedOverride = m_overrideRgba;
-    if (params->ContainsFlag(kRestoreOverrideRgbaState))
+    if (params->HasBareFlag(kRestoreOverrideRgbaState))
         m_overrideRgba = m_rememberedOverride;
-    if (params->ContainsFlag(kOverrideEncodedRgba))
+    if (params->HasBareFlag(kOverrideEncodedRgba))
         m_overrideRgba = true;
-    if (params->ContainsFlag(kDontOverrideEncodedRgba))
+    if (params->HasBareFlag(kDontOverrideEncodedRgba))
         m_overrideRgba = false;
-    if (params->ContainsFlag(kOverrideEncodedAlpha))
+    if (params->HasBareFlag(kOverrideEncodedAlpha))
         m_overrideAlpha = true;
-    if (params->ContainsFlag(kDontOverrideEncodedAlpha))
+    if (params->HasBareFlag(kDontOverrideEncodedAlpha))
         m_overrideAlpha = false;
     UpdateLines();
 }
 
 // 0x004B0B60
-void CTextBlockElement::SetMorph(CStruct* params)
+void CParagraphWidget::BlendTowards(CStruct* params)
 {
     if (mp_blur) {
-        reinterpret_cast<void(__thiscall*)(CTextBlockElement*)>(m_vtable[10])(this);
+        reinterpret_cast<void(__thiscall*)(CParagraphWidget*)>(m_vtable[10])(this);
         int ms;
-        CBlurEffect::Settings* target = mp_blur->SetFromParams(params, &ms);
+        CSmearEffect::Settings* target = mp_blur->SetFromParams(params, &ms);
         ElementPtr child;
-        child.Set(mp_firstChild.mp_object);
+        child.Set(mp_firstChild.m_ownerObject);
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
-            CBlurEffect::Settings settings = *target;
+            CSmearEffect::Settings settings = *target;
             float x, y;
             child->GetPos(&x, &y);
-            y = static_cast<float>(static_cast<double>(child->m_height) * Half() + y);
-            double offset = static_cast<double>(m_height) * Half() - y;
+            y = static_cast<float>(static_cast<double>(child->m_levelY) * Half() + y);
+            double offset = static_cast<double>(m_levelY) * Half() - y;
             settings.maxDisplacement[1] = static_cast<float>(offset * target->bottomScales[1] - offset +
                                                              settings.maxDisplacement[1]);
-            AsText(child.mp_object)->mp_blur->SetTarget(&settings, ms);
-            child.Set(child->mp_next.mp_object);
+            AsText(child.m_ownerObject)->mp_blur->SetTarget(&settings, ms);
+            child.Set(child->m_following.m_ownerObject);
         }
     }
-    CScreenElement::SetMorph(params);
+    CUiWidget::BlendTowards(params);
 }
 
 // 0x004B1EC0 (as many lines as were made: the original doesn't check for fewer children)
-void CTextBlockElement::Update()
+void CParagraphWidget::Update()
 {
     if (!(m_objectFlags & kVisibleNow))
         return;
-    float y = static_cast<float>((static_cast<double>(m_height) - m_linesHeight) * (static_cast<double>(m_internalJustY) + One()) *
+    float y = static_cast<float>((static_cast<double>(m_levelY) - m_linesHeight) * (static_cast<double>(m_internalJustY) + One()) *
                                  Half());
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     for (int i = 0; i < m_numElements; ++i) {
-        child->SetJust(m_internalJustX, -1.0f);
+        child->ChangeAlignment(m_internalJustX, -1.0f);
         uint32_t rgba;
         std::memcpy(&rgba, m_shown.rgba, 4);
-        child->SetRGBA(rgba, 1);
-        float x = static_cast<float>((static_cast<double>(m_internalJustX) + One()) * m_width * Half());
+        child->ChangeRgba(rgba, 1);
+        float x = static_cast<float>((static_cast<double>(m_internalJustX) + One()) * m_span * Half());
         child->SetPos(x, y, 0);
-        y = static_cast<float>(static_cast<double>(child->m_height) * m_internalScale * m_lineSpacing + y);
-        child.Set(child->mp_next.mp_object);
+        y = static_cast<float>(static_cast<double>(child->m_levelY) * m_internalScale * m_lineSpacing + y);
+        child.Set(child->m_following.m_ownerObject);
     }
     UpdateLines();
 }
 
 namespace {
-static VtableSlot kCTextBlockElementVtable_slots[] = {&CTextBlockElement::Destroy, &CTextBlockElement::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties,
-                &CTextBlockElement::SetMorph, &CTextBlockElement::Update};
+static VtableSlot kCTextBlockElementVtable_slots[] = {&CParagraphWidget::Destroy, &CParagraphWidget::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties,
+                &CParagraphWidget::BlendTowards, &CParagraphWidget::Update};
 void** const kCTextBlockElementVtable = reinterpret_cast<void**>(kCTextBlockElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
-using Front::CTextBlockElement;
+using MenuSystem::CParagraphWidget;

@@ -19,30 +19,30 @@
 #include "game/core/stubs.h"
 #include "game/obj/objman.h"
 
-namespace Front {
+namespace MenuSystem {
 
 namespace {
 extern void** const kCScreenElementManagerVtable;
 extern void** const kListenerAdapterVtable;
 } // namespace
 
-CScreenElementManager* g_screenElementManager;
+CUiTree* g_screenElementManager;
 
-static_assert(offsetof(CScreenElementManager, m_listener) == 0x28 && offsetof(CScreenElementManager, mp_root) == 0x44 &&
-                  offsetof(CScreenElementManager, mp_resolving) == 0x50 &&
-                  offsetof(CScreenElementManager, m_focusEntries) == 0x5C &&
-                  offsetof(CScreenElementManager, mp_focusLists) == 0x4DC &&
-                  offsetof(CScreenElementManager, m_focusListChanged) == 0x4E4 &&
-                  offsetof(CScreenElementManager, m_numPriorities) == 0x4E8 &&
-                  offsetof(CScreenElementManager, m_priorities) == 0x4EC &&
-                  offsetof(CScreenElementManager, m_padEventTypes) == 0x5DC &&
-                  offsetof(CScreenElementManager, m_numPadEventTypes) == 0x69C &&
-                  offsetof(CScreenElementManager, m_checkDevice) == 0x6A0 && sizeof(CScreenElementManager) == 0x6A4,
+static_assert(offsetof(CUiTree, m_listener) == 0x28 && offsetof(CUiTree, mp_root) == 0x44 &&
+                  offsetof(CUiTree, mp_resolving) == 0x50 &&
+                  offsetof(CUiTree, m_focusEntries) == 0x5C &&
+                  offsetof(CUiTree, mp_focusLists) == 0x4DC &&
+                  offsetof(CUiTree, m_focusListChanged) == 0x4E4 &&
+                  offsetof(CUiTree, m_numPriorities) == 0x4E8 &&
+                  offsetof(CUiTree, m_priorities) == 0x4EC &&
+                  offsetof(CUiTree, m_padEventTypes) == 0x5DC &&
+                  offsetof(CUiTree, m_numPadEventTypes) == 0x69C &&
+                  offsetof(CUiTree, m_checkDevice) == 0x6A0 && sizeof(CUiTree) == 0x6A4,
               "layout must match the original");
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kTagLocalId = 0x9494A525, kChild = 0xDD4CABD6, kUnHide = 0xB60D1F35, kHide = 0x5B6634D4;
@@ -53,26 +53,26 @@ constexpr uint32_t kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B
 // The script array of the pad event types ("pad_event_types").
 const char* PadEventTypesName() { return "pad_event_types"; }
 
-CScreenElement* AsElement(Obj::CObject* object) { return static_cast<CScreenElement*>(object); }
+CUiWidget* AsElement(GameObjects::CObject* object) { return static_cast<CUiWidget*>(object); }
 
-void MarkRead(Obj::CEvent* event, uint32_t how, uint32_t script) { event->MarkRead(how, script); }
+void SetEventConsumed(GameObjects::CSignal* event, uint32_t how, uint32_t script) { event->SetEventConsumed(how, script); }
 
-void VSetProperties(CScreenElement* e, CStruct* params)
+void VSetProperties(CUiWidget* e, CStruct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CScreenElement*, CStruct*)>(e->m_vtable[1])(e, params);
+    reinterpret_cast<void(__thiscall*)(CUiWidget*, CStruct*)>(e->m_vtable[1])(e, params);
 }
 
 // A structure with one flag, given to `element`'s SetProperties (Hide / UnHide).
-void SetFlagProperty(CScreenElement* element, uint32_t flag)
+void SetFlagProperty(CUiWidget* element, uint32_t flag)
 {
-    CStruct* params = Script::NewStruct();
+    CStruct* params = Scripts::NewStruct();
     if (params)
         params = params->Init();
-    params->AddChecksum(0u, flag);
+    params->PutNameKey(0u, flag);
     VSetProperties(element, params);
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
@@ -81,27 +81,27 @@ void SetFlagProperty(CScreenElement* element, uint32_t flag)
 // --- construction ---------------------------------------------------------------------------------------------
 
 // 0x004AB990
-CScreenElementManager* CScreenElementManager::Construct()
+CUiTree* CUiTree::Construct()
 {
-    Obj::CBaseManager::Construct();
+    GameObjects::CObjectHubBase::Construct();
     m_listener.Construct();
     m_listener.m_vtable = kListenerAdapterVtable;
     m_vtable = kCScreenElementManagerVtable;
-    mp_root.mp_prev = mp_root.mp_next = nullptr;
-    mp_root.mp_object = nullptr;
-    mp_resolving.mp_prev = mp_resolving.mp_next = nullptr;
-    mp_resolving.mp_object = nullptr;
+    mp_root.m_preceding = mp_root.m_following = nullptr;
+    mp_root.m_ownerObject = nullptr;
+    mp_resolving.m_preceding = mp_resolving.m_following = nullptr;
+    mp_resolving.m_ownerObject = nullptr;
     for (FocusEntry& entry : m_focusEntries) {
-        entry.element.mp_object = nullptr;
-        entry.element.mp_prev = entry.element.mp_next = nullptr;
+        entry.element.m_ownerObject = nullptr;
+        entry.element.m_preceding = entry.element.m_following = nullptr;
     }
     for (PriorityEntry& entry : m_priorities) {
-        entry.element.mp_object = nullptr;
-        entry.element.mp_prev = entry.element.mp_next = nullptr;
+        entry.element.m_ownerObject = nullptr;
+        entry.element.m_preceding = entry.element.m_following = nullptr;
     }
     mp_root.Release();
     mp_resolving.Release();
-    m_listener.RegisterWithTracker(nullptr);
+    m_listener.EnterWaitBoard(nullptr);
     for (int i = 0; i < 2; ++i) {
         mp_focusLists[i] = nullptr;
         m_focusListChanged[i] = false;
@@ -120,7 +120,7 @@ CScreenElementManager* CScreenElementManager::Construct()
 }
 
 // 0x004ABB00
-void CScreenElementManager::DestroyBody()
+void CUiTree::DestroyBody()
 {
     m_vtable = kCScreenElementManagerVtable;
     m_listener.m_vtable = kListenerAdapterVtable;
@@ -131,160 +131,160 @@ void CScreenElementManager::DestroyBody()
     mp_resolving.Release();
     mp_root.Release();
     m_listener.Destroy();
-    Obj::CBaseManager::DestroyBody();
+    GameObjects::CObjectHubBase::DestroyBody();
 }
 
 // 0x004ACB40
-CScreenElementManager* CScreenElementManager::Destroy(uint8_t flags)
+CUiTree* CUiTree::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004AAD40
-Obj::CObjectListHead* CScreenElementManager::GetObjectList() { return &m_objects; }
+GameObjects::CObjectListHead* CUiTree::FetchObjectSet() { return &m_entities; }
 
 // 0x004AAFF0
-void CScreenElementManager::UnregisterObject(Obj::CObject* object)
+void CUiTree::DropEntityRegistration(GameObjects::CObject* object)
 {
     ElementPtr element;
     element.Set(AsElement(object));
-    if (element && mp_root.mp_object == element.mp_object) {
+    if (element && mp_root.m_ownerObject == element.m_ownerObject) {
         mp_root.Release();
-        for (Mem::ListNode* node = m_objects.next; node->data != reinterpret_cast<void*>(-1); node = node->next) {
+        for (MemSys::ListNode* node = m_entities.next; node->data != reinterpret_cast<void*>(-1); node = node->next) {
             ElementPtr candidate;
-            candidate.Set(static_cast<CScreenElement*>(node->data));
-            if (!candidate->mp_parent && candidate.mp_object != element.mp_object) {
+            candidate.Set(static_cast<CUiWidget*>(node->data));
+            if (!candidate->m_container && candidate.m_ownerObject != element.m_ownerObject) {
                 mp_root.Assign(&candidate);
                 break;
             }
         }
     }
-    Obj::CBaseManager::UnregisterObject(object);
+    GameObjects::CObjectHubBase::DropEntityRegistration(object);
 }
 
 // --- elements -------------------------------------------------------------------------------------------------
 
 // 0x004AAE20
-ElementPtr* CScreenElementManager::GetElement(ElementPtr* out, uint32_t id, int)
+ElementPtr* CUiTree::GetElement(ElementPtr* out, uint32_t id, int)
 {
-    Obj::CObject* object = Obj::Tracker()->LookUpObject(id);
-    out->mp_prev = out->mp_next = nullptr;
-    out->mp_object = nullptr;
+    GameObjects::CObject* object = GameObjects::Tracker()->LookUpObject(id);
+    out->m_preceding = out->m_following = nullptr;
+    out->m_ownerObject = nullptr;
     if (object)
         out->Set(AsElement(object));
     return out;
 }
 
 // 0x004AB730
-void CScreenElementManager::SetRoot(uint32_t id)
+void CUiTree::SetRoot(uint32_t id)
 {
     ElementPtr element;
     GetElement(&element, id, 1);
-    mp_root.Set(element.mp_object);
+    mp_root.Set(element.m_ownerObject);
 }
 
 // 0x004ABBE0
-void CScreenElementManager::SetParent(ElementPtr* parent, ElementPtr* child, int unused)
+void CUiTree::SetParent(ElementPtr* parent, ElementPtr* child, int unused)
 {
     ElementPtr oldParent;
-    oldParent.Set(child->mp_object->mp_parent.mp_object);
-    if (CScreenElement* newParent = parent->mp_object) {
-        if (mp_root.mp_object == child->mp_object || !mp_root) {
+    oldParent.Set(child->m_ownerObject->m_container.m_ownerObject);
+    if (CUiWidget* newParent = parent->m_ownerObject) {
+        if (mp_root.m_ownerObject == child->m_ownerObject || !mp_root) {
             mp_root.Set(newParent);
-            while (mp_root->mp_parent)
-                mp_root.Set(mp_root->mp_parent.mp_object);
+            while (mp_root->m_container)
+                mp_root.Set(mp_root->m_container.m_ownerObject);
         }
     }
     RemoveFocusEntries(child, false, false);
-    child->mp_object->SetParent(parent, unused);
+    child->m_ownerObject->SetParent(parent, unused);
 }
 
 // 0x004AC400
-void CScreenElementManager::DestroyTree(int keep, ElementPtr* element, Script::CScript* script)
+void CUiTree::DestroyTree(int keep, ElementPtr* element, Scripts::CScript* script)
 {
-    element->mp_object->SetFocusSent(0);
+    element->m_ownerObject->SetFocusSent(0);
     ElementPtr child;
-    child.Set(element->mp_object->mp_firstChild.mp_object);
+    child.Set(element->m_ownerObject->mp_firstChild.m_ownerObject);
     while (child) {
         ElementPtr next;
-        next.Set(child->mp_next.mp_object);
+        next.Set(child->m_following.m_ownerObject);
         DestroyTree(0, &child, script);
-        child.Set(next.mp_object);
+        child.Set(next.m_ownerObject);
     }
     if (keep == 0) {
-        if (script && element->mp_object)
-            script->ObjectDestroyed(element->mp_object);
+        if (script && element->m_ownerObject)
+            script->ObjectDestroyed(element->m_ownerObject);
         {
             ElementPtr none;
             SetParent(&none, element, 1);
         }
-        VirtualUnregisterObject(element->mp_object);
-        if (element->mp_object)
-            element->mp_object->VirtualDestroy(1);
+        VirtualUnregisterObject(element->m_ownerObject);
+        if (element->m_ownerObject)
+            element->m_ownerObject->VirtualDestroy(1);
     }
 }
 
 // 0x004AD100
-void CScreenElementManager::DestroyElement(uint32_t id, int recurse, int keep, Script::CScript* script)
+void CUiTree::DestroyElement(uint32_t id, int recurse, int keep, Scripts::CScript* script)
 {
     ElementPtr element;
     GetElement(&element, id, 1);
     if (recurse) {
         RemoveFocusEntries(&element, false, false);
-        if (CScreenElement* parent = element->mp_parent.mp_object)
+        if (CUiWidget* parent = element->m_container.m_ownerObject)
             parent->SetFocusSent(0);
         DestroyTree(keep, &element, script);
     } else {
         RemoveFocusEntries(&element, false, false);
-        if (script && element.mp_object)
-            script->ObjectDestroyed(element.mp_object);
-        VirtualUnregisterObject(element.mp_object);
-        if (element.mp_object)
-            element.mp_object->VirtualDestroy(1);
+        if (script && element.m_ownerObject)
+            script->ObjectDestroyed(element.m_ownerObject);
+        VirtualUnregisterObject(element.m_ownerObject);
+        if (element.m_ownerObject)
+            element.m_ownerObject->VirtualDestroy(1);
     }
 }
 
 // 0x004AB130
-ElementPtr* CScreenElementManager::FindByLocalId(ElementPtr* out, const ElementPtr* parent, uint32_t localId)
+ElementPtr* CUiTree::FindByLocalId(ElementPtr* out, const ElementPtr* parent, uint32_t localId)
 {
     ElementPtr child;
-    child.Set(parent->mp_object->mp_firstChild.mp_object);
+    child.Set(parent->m_ownerObject->mp_firstChild.m_ownerObject);
     while (child) {
         uint32_t tag;
-        if (child->GetChecksumTag(kTagLocalId, &tag) && tag == localId)
+        if (child->ReadHashTag(kTagLocalId, &tag) && tag == localId)
             break;
-        child.Set(child->mp_next.mp_object);
+        child.Set(child->m_following.m_ownerObject);
     }
-    out->mp_prev = out->mp_next = nullptr;
-    out->mp_object = nullptr;
-    out->Set(child.mp_object);
+    out->m_preceding = out->m_following = nullptr;
+    out->m_ownerObject = nullptr;
+    out->Set(child.m_ownerObject);
     return out;
 }
 
 // 0x004AC120
-bool CScreenElementManager::ResolveId(Script::CStruct* params, uint32_t name, uint32_t* out)
+bool CUiTree::ResolveId(Scripts::CStruct* params, uint32_t name, uint32_t* out)
 {
     CStruct* path = nullptr;
-    if (params->GetStructure(name, &path, 0)) {
+    if (params->ReadSubStruct(name, &path, 0)) {
         uint32_t id = 0;
-        path->GetChecksum(0u, &id, 0);
+        path->ReadHashValue(0u, &id, 0);
         int index = -1;
-        path->GetInteger(0u, &index, 0);
+        path->FetchIntValue(0u, &index, 0);
         if (id) {
             ElementPtr found;
             if (!mp_resolving)
                 GetElement(&found, id, 0);
             else
                 FindByLocalId(&found, &mp_resolving, id);
-            mp_resolving.Set(found.mp_object);
+            mp_resolving.Set(found.m_ownerObject);
             found.Release();
             if (!mp_resolving)
                 return false;
         } else if (index != -1) {
-            mp_resolving.Set(mp_resolving->GetChildByIndex(index));
+            mp_resolving.Set(mp_resolving->FindChildAtSlot(index));
             if (!mp_resolving)
                 return false;
         }
@@ -294,16 +294,16 @@ bool CScreenElementManager::ResolveId(Script::CStruct* params, uint32_t name, ui
             return true;
     }
     uint32_t id;
-    if (params->GetChecksum(name, &id, 0)) {
+    if (params->ReadHashValue(name, &id, 0)) {
         if (mp_resolving) {
             ElementPtr found;
             FindByLocalId(&found, &mp_resolving, id);
-            mp_resolving.Set(found.mp_object);
+            mp_resolving.Set(found.m_ownerObject);
             found.Release();
             if (!mp_resolving)
                 return false;
             id = mp_resolving->m_id;
-        } else if (Obj::CObject* aliased = Obj::Tracker()->GetObjectByAlias(id)) {
+        } else if (GameObjects::CObject* aliased = GameObjects::Tracker()->LookUpByNickname(id)) {
             id = aliased->m_id;
         }
         mp_resolving.Release();
@@ -311,11 +311,11 @@ bool CScreenElementManager::ResolveId(Script::CStruct* params, uint32_t name, ui
         return true;
     }
     int index;
-    if (params->GetInteger(name, &index, 0)) {
+    if (params->FetchIntValue(name, &index, 0)) {
         if (!mp_resolving)
             return false;
         ElementPtr child;
-        child.Set(mp_resolving->GetChildByIndex(index));
+        child.Set(mp_resolving->FindChildAtSlot(index));
         mp_resolving.Release();
         if (!child)
             return false;
@@ -327,27 +327,27 @@ bool CScreenElementManager::ResolveId(Script::CStruct* params, uint32_t name, ui
 }
 
 // 0x004AD1E0
-ElementPtr* CScreenElementManager::ResolveElement(ElementPtr* out, Script::CStruct* params, uint32_t name, int assert)
+ElementPtr* CUiTree::ResolveElement(ElementPtr* out, Scripts::CStruct* params, uint32_t name, int assert)
 {
     uint32_t id;
     if (ResolveId(params, name, &id))
         return GetElement(out, id, assert);
-    out->mp_prev = out->mp_next = nullptr;
-    out->mp_object = nullptr;
+    out->m_preceding = out->m_following = nullptr;
+    out->m_ownerObject = nullptr;
     return out;
 }
 
 // --- each frame -----------------------------------------------------------------------------------------------
 
 // 0x004ABD00
-void CScreenElementManager::Update()
+void CUiTree::Update()
 {
     if (!mp_root)
         return;
     // Not original - the new front end (game/front/new_frontend.h): the original's elements hidden or shown for this
     // frame before they are laid out - a menu restyled by ours is never drawn as the game made it, not even a frame.
     // Original behaviour: the tree laid out as the scripts left it.
-    Front::NewFrontend::BeforeScreenLayout();
+    MenuSystem::NewFrontend::BeforeScreenLayout();
     LockTree(1);
     mp_root->UpdateLayout();
     LockTree(0);
@@ -356,36 +356,36 @@ void CScreenElementManager::Update()
 }
 
 // 0x004AAF90 (a stack of 32 elements: the next sibling, then the first child, of each)
-void CScreenElementManager::LockTree(int lock)
+void CUiTree::LockTree(int lock)
 {
     if (!mp_root)
         return;
-    CScreenElement* stack[32];
-    stack[0] = mp_root.mp_object;
+    CUiWidget* stack[32];
+    stack[0] = mp_root.m_ownerObject;
     int count = 1;
     while (count) {
-        CScreenElement* element = stack[--count];
+        CUiWidget* element = stack[--count];
         if (lock == 1)
             ++element->m_aliasCount;
         else if (static_cast<int>(element->m_aliasCount) > 0)
             --element->m_aliasCount;
-        if (element->mp_next)
-            stack[count++] = element->mp_next.mp_object;
+        if (element->m_following)
+            stack[count++] = element->m_following.m_ownerObject;
         if (element->mp_firstChild)
-            stack[count++] = element->mp_firstChild.mp_object;
+            stack[count++] = element->mp_firstChild.m_ownerObject;
     }
 }
 
 // 0x004AAEE0
-void CScreenElementManager::SetPausedAll(bool pause)
+void CUiTree::SetPausedAll(bool pause)
 {
-    Mem::ListNode* node = m_objects.next;
+    MemSys::ListNode* node = m_entities.next;
     if (node->data == reinterpret_cast<void*>(-1))
         return;
     while (node) {
         ElementPtr element;
-        element.Set(static_cast<CScreenElement*>(node->data));
-        element->SetPaused(pause);
+        element.Set(static_cast<CUiWidget*>(node->data));
+        element->SetFrozen(pause);
         node = node->next;
         if (node->data == reinterpret_cast<void*>(-1))
             node = nullptr;
@@ -396,12 +396,12 @@ void CScreenElementManager::SetPausedAll(bool pause)
 
 // 0x004AB250 (a new entry goes after the last entry looked at - the second list's tail when it has entries,
 // whichever list it is for -, or heads `list` when both are empty)
-void CScreenElementManager::AddFocusEntry(ElementPtr* element, int list)
+void CUiTree::AddFocusEntry(ElementPtr* element, int list)
 {
     FocusEntry* last = nullptr;
     for (int i = 0; i < 2; ++i) {
         for (FocusEntry* entry = mp_focusLists[i]; entry; entry = entry->next) {
-            if (entry->element.mp_object == element->mp_object && list == i) {
+            if (entry->element.m_ownerObject == element->m_ownerObject && list == i) {
                 entry->marked = false;
                 return;
             }
@@ -414,8 +414,8 @@ void CScreenElementManager::AddFocusEntry(ElementPtr* element, int list)
             return;
     }
     FocusEntry* entry = &m_focusEntries[free];
-    entry->element.Set(element->mp_object);
-    entry->id = element->mp_object->m_id;
+    entry->element.Set(element->m_ownerObject);
+    entry->id = element->m_ownerObject->m_id;
     entry->next = nullptr;
     entry->marked = false;
     if (last)
@@ -426,7 +426,7 @@ void CScreenElementManager::AddFocusEntry(ElementPtr* element, int list)
 }
 
 // 0x004AB330
-void CScreenElementManager::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark)
+void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark)
 {
     for (int i = 0; i < 2; ++i) {
         FocusEntry* previous = nullptr;
@@ -434,12 +434,12 @@ void CScreenElementManager::RemoveFocusEntries(ElementPtr* element, bool fromPar
         while (entry) {
             FocusEntry* next = entry->next;
             ElementPtr walk;
-            walk.Set(entry->element.mp_object);
+            walk.Set(entry->element.m_ownerObject);
             if (fromParent && walk)
-                walk.Set(walk->mp_parent.mp_object);
+                walk.Set(walk->m_container.m_ownerObject);
             bool matched = false;
-            for (; walk; walk.Set(walk->mp_parent.mp_object)) {
-                if (walk.mp_object == element->mp_object) {
+            for (; walk; walk.Set(walk->m_container.m_ownerObject)) {
+                if (walk.m_ownerObject == element->m_ownerObject) {
                     matched = true;
                     break;
                 }
@@ -464,16 +464,16 @@ void CScreenElementManager::RemoveFocusEntries(ElementPtr* element, bool fromPar
 }
 
 // 0x004AB4D0
-void CScreenElementManager::ClearMarks(ElementPtr* element)
+void CUiTree::ClearMarks(ElementPtr* element)
 {
     for (int i = 0; i < 2; ++i) {
         for (FocusEntry* entry = mp_focusLists[i]; entry; entry = entry->next) {
             if (!entry->marked)
                 continue;
             ElementPtr walk;
-            walk.Set(entry->element.mp_object);
-            for (; walk; walk.Set(walk->mp_parent.mp_object)) {
-                if (walk.mp_object == element->mp_object) {
+            walk.Set(entry->element.m_ownerObject);
+            for (; walk; walk.Set(walk->m_container.m_ownerObject)) {
+                if (walk.m_ownerObject == element->m_ownerObject) {
                     entry->marked = false;
                     break;
                 }
@@ -483,13 +483,13 @@ void CScreenElementManager::ClearMarks(ElementPtr* element)
 }
 
 // 0x004ABD40
-void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
+void CUiTree::ListenerReceive(GameObjects::CSignal* event)
 {
     // (`this` is the listener: the manager is 0x28 before it)
-    CScreenElementManager* manager =
-        reinterpret_cast<CScreenElementManager*>(reinterpret_cast<uint8_t*>(this) - offsetof(CScreenElementManager, m_listener));
+    CUiTree* manager =
+        reinterpret_cast<CUiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(CUiTree, m_listener));
     if (manager->m_numPadEventTypes == 0) {
-        Script::CArray* types = Script::GetArray(PadEventTypesName()); // (the original passes 1 as well: unused)
+        Scripts::CArray* types = Scripts::GetArray(PadEventTypesName()); // (the original passes 1 as well: unused)
         manager->m_numPadEventTypes = static_cast<int>(types->m_size);
         for (int i = 0; i < manager->m_numPadEventTypes; ++i)
             manager->m_padEventTypes[i] = types->GetElement(i);
@@ -503,42 +503,42 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
             }
         }
     }
-    if (manager->m_checkDevice && event->mp_data) {
+    if (manager->m_checkDevice && event->m_payload) {
         int device;
-        if (event->mp_data->GetInteger(kDeviceNum, &device, 0)) {
-            auto* input = Inp::g_inputManager; // (the input manager)
+        if (event->m_payload->FetchIntValue(kDeviceNum, &device, 0)) {
+            auto* input = PadInput::g_inputManager; // (the input manager)
             if (input->GetPlayerController(0) != device)
                 return;
         }
     }
-    Obj::CTracker* tracker = Obj::Tracker();
-    if (event->m_type == kFocus && event->m_target != kSystem) {
+    GameObjects::CEventWaitBoard* tracker = GameObjects::Tracker();
+    if (event->m_type == kFocus && event->m_aimPoint != kSystem) {
         ElementPtr element;
-        manager->GetElement(&element, event->m_target, 0);
-        if (element && !element->EventsBlocked()) {
-            manager->AddFocusEntry(&element, Obj::EventController(event));
-            MarkRead(event, 1, 0);
+        manager->GetElement(&element, event->m_aimPoint, 0);
+        if (element && !element->InputSuppressed()) {
+            manager->AddFocusEntry(&element, GameObjects::EventController(event));
+            SetEventConsumed(event, 1, 0);
         }
     }
-    if (event->m_type == kUnfocus && event->m_target != kSystem) {
+    if (event->m_type == kUnfocus && event->m_aimPoint != kSystem) {
         ElementPtr element;
-        manager->GetElement(&element, event->m_target, 0);
-        if (element && !element->EventsBlocked()) {
+        manager->GetElement(&element, event->m_aimPoint, 0);
+        if (element && !element->InputSuppressed()) {
             manager->RemoveFocusEntries(&element, false, false);
-            MarkRead(event, 1, 0);
+            SetEventConsumed(event, 1, 0);
         }
     }
     if (event->m_type == kFocusClearedEvent) {
         ElementPtr element;
-        manager->GetElement(&element, event->m_target, 0);
+        manager->GetElement(&element, event->m_aimPoint, 0);
         manager->RemoveFocusEntries(&element, true, true);
-        MarkRead(event, 1, 0);
+        SetEventConsumed(event, 1, 0);
     }
     if (event->m_type == kFocusSentEvent) {
         ElementPtr element;
-        manager->GetElement(&element, event->m_target, 0);
+        manager->GetElement(&element, event->m_aimPoint, 0);
         manager->ClearMarks(&element);
-        MarkRead(event, 1, 0);
+        SetEventConsumed(event, 1, 0);
         element.Release();
     }
     // a pad event from the system: offered to the controller's focused elements until one handles it (a
@@ -550,21 +550,21 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
             break;
         }
     }
-    if (!isPadType || event->m_target != kSystem)
+    if (!isPadType || event->m_aimPoint != kSystem)
         return;
-    int controller = Obj::EventController(event);
+    int controller = GameObjects::EventController(event);
     for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next)
         entry->tried = false;
     manager->m_focusListChanged[controller] = true;
     do {
         manager->m_focusListChanged[controller] = false;
         for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next) {
-            if (!entry->tried && !entry->marked && !entry->element->EventsBlocked()) {
+            if (!entry->tried && !entry->marked && !entry->element->InputSuppressed()) {
                 if (padEvent && (!entry->element->HasPriority() || !manager->IsTopPriority(entry->id)))
                     continue;
-                if (tracker->LaunchEvent(event->m_type, entry->element->m_id, event->m_source, event->mp_data, false,
+                if (tracker->LaunchEvent(event->m_type, entry->element->m_id, event->m_source, event->m_payload, false,
                                          -1.0f)) {
-                    event->MarkHandled(1, 0);
+                    event->SetEventHandled(1, 0);
                     return;
                 }
                 entry->tried = true;
@@ -578,10 +578,10 @@ void CScreenElementManager::ListenerReceive(Obj::CEvent* event)
 // --- pad-event priorities -------------------------------------------------------------------------------------
 
 // 0x004AAD80
-bool CScreenElementManager::HasPriorities() const { return m_numPriorities > 0; }
+bool CUiTree::HasPriorities() const { return m_numPriorities > 0; }
 
 // 0x004AAD50
-bool CScreenElementManager::IsPadEvent(uint32_t type) const
+bool CUiTree::IsPadEvent(uint32_t type) const
 {
     for (int i = 0; i < m_numPadEventTypes; ++i)
         if (type == m_padEventTypes[i])
@@ -590,7 +590,7 @@ bool CScreenElementManager::IsPadEvent(uint32_t type) const
 }
 
 // 0x004AB7C0
-bool CScreenElementManager::IsTopPriority(uint32_t id)
+bool CUiTree::IsTopPriority(uint32_t id)
 {
     ElementPtr element;
     GetElement(&element, id, 1);
@@ -603,7 +603,7 @@ bool CScreenElementManager::IsTopPriority(uint32_t id)
 }
 
 // 0x004AC570
-bool CScreenElementManager::PushPriority(uint32_t id, uint32_t priority)
+bool CUiTree::PushPriority(uint32_t id, uint32_t priority)
 {
     uint32_t lowest = 0, highest = 0;
     int slot = -1, highestSlot = -1;
@@ -631,21 +631,21 @@ bool CScreenElementManager::PushPriority(uint32_t id, uint32_t priority)
     entry.active = true;
     ElementPtr element;
     GetElement(&element, id, 1);
-    entry.element.Set(element.mp_object);
+    entry.element.Set(element.m_ownerObject);
     entry.priority = priority;
     if (m_numPriorities > 0) {
         // the top one shown: the new one hidden unless it is the new top, then the old top is
-        CStruct* params = Script::NewStruct();
+        CStruct* params = Scripts::NewStruct();
         if (params)
             params = params->Init();
-        params->AddChecksum(0u, kHide);
+        params->PutNameKey(0u, kHide);
         if (priority > highest)
-            VSetProperties(m_priorities[highestSlot].element.mp_object, params);
+            VSetProperties(m_priorities[highestSlot].element.m_ownerObject, params);
         else
-            VSetProperties(element.mp_object, params);
+            VSetProperties(element.m_ownerObject, params);
         if (params) {
             params->Clear();
-            Script::DeleteStruct(params);
+            Scripts::DeleteStruct(params);
         }
     }
     ++m_numPriorities;
@@ -653,7 +653,7 @@ bool CScreenElementManager::PushPriority(uint32_t id, uint32_t priority)
 }
 
 // 0x004AB5D0 (with no priority above 0 the "top" is the entry before the first)
-void CScreenElementManager::UpdatePriorities()
+void CUiTree::UpdatePriorities()
 {
     uint32_t highest = 0;
     int top = -1;
@@ -663,10 +663,10 @@ void CScreenElementManager::UpdatePriorities()
         PriorityEntry& entry = m_priorities[i];
         if (!entry.active)
             continue;
-        CScreenElement* element;
+        CUiWidget* element;
         {
             ElementPtr found;
-            element = GetElement(&found, entry.id, 0)->mp_object;
+            element = GetElement(&found, entry.id, 0)->m_ownerObject;
         }
         if (element) {
             if (entry.priority > highest) {
@@ -680,7 +680,7 @@ void CScreenElementManager::UpdatePriorities()
     }
     if (m_numPriorities <= 0)
         return;
-    SetFlagProperty(m_priorities[top].element.mp_object, kUnHide);
+    SetFlagProperty(m_priorities[top].element.m_ownerObject, kUnHide);
 }
 
 // --- the singleton --------------------------------------------------------------------------------------------
@@ -690,11 +690,11 @@ uint32_t g_screenElementManagerUses;
 // 0x004ACAF0
 void CreateScreenElementManager(bool create)
 {
-    CScreenElementManager*& instance = CScreenElementManager::Instance();
+    CUiTree*& instance = CUiTree::Instance();
     if (!instance && create) {
-        void* memory = Mem::Calloc(sizeof(CScreenElementManager), static_cast<Mem::Heap*>(nullptr), 1);
+        void* memory = MemSys::AllocZeroed(sizeof(CUiTree), static_cast<MemSys::Heap*>(nullptr), 1);
         if (memory) {
-            instance = static_cast<CScreenElementManager*>(memory)->Construct();
+            instance = static_cast<CUiTree*>(memory)->Construct();
             ++g_screenElementManagerUses;
             return;
         }
@@ -711,9 +711,9 @@ void DeleteScreenElementManager()
         --uses;
         return;
     }
-    if (CScreenElementManager* instance = CScreenElementManager::Instance())
+    if (CUiTree* instance = CUiTree::Instance())
         reinterpret_cast<void*(__thiscall*)(void*, int)>(instance->m_vtable[0])(instance, 1);
-    CScreenElementManager::Instance() = nullptr;
+    CUiTree::Instance() = nullptr;
     uses = 0;
 }
 
@@ -721,9 +721,9 @@ void DeleteScreenElementManager()
 void SetScoreText(const char* text, int player)
 {
     ElementPtr element;
-    CScreenElementManager::Instance()->GetElement(&element, kTheScore + player, 0);
+    CUiTree::Instance()->GetElement(&element, kTheScore + player, 0);
     if (element)
-        static_cast<CTextElement*>(element.mp_object)->SetText(text);
+        static_cast<CLabelWidget*>(element.m_ownerObject)->SetText(text);
 }
 
 } // namespace Front
@@ -732,25 +732,25 @@ namespace {
 
 // 0x004ABAF0: the listener's slot 0 (`this` = the listener): the manager's Destroy.
 struct ListenerAdapter {
-    Front::CScreenElementManager* Destroy(uint8_t flags)
+    MenuSystem::CUiTree* Destroy(uint8_t flags)
     {
-        auto* manager = reinterpret_cast<Front::CScreenElementManager*>(reinterpret_cast<uint8_t*>(this) - 0x28);
+        auto* manager = reinterpret_cast<MenuSystem::CUiTree*>(reinterpret_cast<uint8_t*>(this) - 0x28);
         return manager->Destroy(flags);
     }
 };
 
 } // namespace
 
-using Front::CScreenElementManager;
+using MenuSystem::CUiTree;
 
-namespace Front {
+namespace MenuSystem {
 namespace {
-static VtableSlot kCScreenElementManagerVtable_slots[] = {&CScreenElementManager::Destroy,
-                &Obj::CBaseManager::RegisterObject, &CScreenElementManager::UnregisterObject,
-                &Obj::CBaseManager::ReassignObjectId, &Obj::CBaseManager::SetObjectPriority, Stubs::IgnoreArgument,
-                &CScreenElementManager::GetObjectList};
+static VtableSlot kCScreenElementManagerVtable_slots[] = {&CUiTree::Destroy,
+                &GameObjects::CObjectHubBase::RegisterObject, &CUiTree::DropEntityRegistration,
+                &GameObjects::CObjectHubBase::ReassignObjectId, &GameObjects::CObjectHubBase::SetEntityRank, Stubs::IgnoreArgument,
+                &CUiTree::FetchObjectSet};
 void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(kCScreenElementManagerVtable_slots);
-static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Destroy, &CScreenElementManager::ListenerReceive};
+static VtableSlot kListenerAdapterVtable_slots[] = {&ListenerAdapter::Destroy, &CUiTree::ListenerReceive};
 void** const kListenerAdapterVtable = reinterpret_cast<void**>(kListenerAdapterVtable_slots);
 } // namespace
 } // namespace Front

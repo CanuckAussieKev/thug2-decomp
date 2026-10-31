@@ -5,7 +5,7 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -18,11 +18,11 @@ class CStruct;
 // (0x00519430-0x00519600, 0x00519650 and 0x005196D0-0x00519720 aren't Ghidra functions). Also here: three
 // functions of the skater's state history (0x005197C0-0x005197EF).
 //
-// Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 InitFromStructure, 11 the shared 0x0042BB20, 12 the shared
-// CallMemberFunction 0x0051ADC0.
-namespace Obj {
+// Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 ConfigureFromData, 11 the shared 0x0042BB20, 12 the shared
+// InvokeMethodByName 0x0051ADC0.
+namespace GameObjects {
 
-class CSkaterStateComponent : public CBaseComponent {
+class CRiderPoseState : public CObjectModule {
 public:
     // The skater's state (+0x18).
     enum State : int { GROUND = 0, AIR = 1, WALL = 2, LIP = 3, RAIL = 4, WALLPLANT = 5 };
@@ -30,21 +30,21 @@ public:
     enum PhysicsMode : int { SKATING = 0, WALKING = 1 };
 
     // 0x00519740 (registered by RegisterComponentTypes): a new one (0 if out of memory), no powerups.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00519430 (registered with Create): its script member functions (the table at 0x00684A80) registered.
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
     // 0x00519450: the destructor body (the base's).
     void DestroyBody();
     // 0x00519620 (vtable slot 0)
-    CSkaterStateComponent* Destroy(unsigned int flags);
+    CRiderPoseState* Destroy(unsigned int flags);
     // 0x00519460 (vtable +0x08): in the air. `params` isn't read.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
 
     // 0x00519660 / 0x00519680 / 0x005196A0: the state / the physics mode / the terrain; when it changes the skater
     // gets OnSkaterStateChange / OnSkaterPhysicsStateChange / OnSkaterTerrainChange.
     void SetState(int state);
     void SetPhysicsMode(int mode);
-    void SetTerrain(uint8_t terrain);
+    void SetSurfaceKind(uint8_t terrain);
     // 0x00519470: the powerups dropped (called by a script command).
     void ClearPowerups();
     // 0x00519650: +0xE0 (doingtrick) cleared (called by the skater).
@@ -52,25 +52,25 @@ public:
 
     // --- script member functions (the table at 0x00684A80; params, script) ---
     // (OnGround is 0x00525E90's, not here)
-    bool InAir(Script::CStruct* params, Script::CScript* script);           // 0x00519480
-    bool OnWall(Script::CStruct* params, Script::CScript* script);          // 0x00519490
-    bool OnLip(Script::CStruct* params, Script::CScript* script);           // 0x005194A0
-    bool OnRail(Script::CStruct* params, Script::CScript* script);          // 0x005194B0
-    bool InWallplant(Script::CStruct* params, Script::CScript* script);     // 0x005194C0
-    bool InBailState(Script::CStruct* params, Script::CScript* script);     // 0x005196D0 (+0x70)
-    bool Walking(Script::CStruct* params, Script::CScript* script);         // 0x005194D0 (not driving)
-    bool Skating(Script::CStruct* params, Script::CScript* script);         // 0x005194F0 (not driving)
-    bool Driving(Script::CStruct* params, Script::CScript* script);         // 0x00519510
-    bool SetDriving(Script::CStruct* params, Script::CScript* script);      // 0x00519520
-    bool UnsetDriving(Script::CStruct* params, Script::CScript* script);    // 0x00519530
-    bool DoingTrick(Script::CStruct* params, Script::CScript* script);      // 0x005196E0 (+0xE0)
+    bool InAir(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00519480
+    bool OnWall(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00519490
+    bool OnLip(Scripts::CStruct* params, Scripts::CScript* script);           // 0x005194A0
+    bool OnRail(Scripts::CStruct* params, Scripts::CScript* script);          // 0x005194B0
+    bool InWallplant(Scripts::CStruct* params, Scripts::CScript* script);     // 0x005194C0
+    bool InBailState(Scripts::CStruct* params, Scripts::CScript* script);     // 0x005196D0 (+0x70)
+    bool Walking(Scripts::CStruct* params, Scripts::CScript* script);         // 0x005194D0 (not driving)
+    bool Skating(Scripts::CStruct* params, Scripts::CScript* script);         // 0x005194F0 (not driving)
+    bool Driving(Scripts::CStruct* params, Scripts::CScript* script);         // 0x00519510
+    bool SetDriving(Scripts::CStruct* params, Scripts::CScript* script);      // 0x00519520
+    bool UnsetDriving(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00519530
+    bool InAirMove(Scripts::CStruct* params, Scripts::CScript* script);      // 0x005196E0 (+0xE0)
     // 0x00519540 / 0x005195B0: the powerup the unnamed checksum names (the one in the table at 0x0067F09C) - picked
     // up or not / picked up. Unknown names: false / nothing.
-    bool HasPowerup(Script::CStruct* params, Script::CScript* script);
-    bool PickedUpPowerup(Script::CStruct* params, Script::CScript* script);
-    bool GetTerrain(Script::CStruct* params, Script::CScript* script);      // 0x005196F0 (terrain)
-    bool GetSparksPos(Script::CStruct* params, Script::CScript* script);    // 0x00519720 (SparksPos)
-    bool SetSparksPos(Script::CStruct* params, Script::CScript* script);    // 0x00519600 (the unnamed checksum)
+    bool HasPowerup(Scripts::CStruct* params, Scripts::CScript* script);
+    bool PickedUpPowerup(Scripts::CStruct* params, Scripts::CScript* script);
+    bool GetSurfaceKind(Scripts::CStruct* params, Scripts::CScript* script);      // 0x005196F0 (terrain)
+    bool GetSparksPos(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00519720 (SparksPos)
+    bool SetSparksPos(Scripts::CStruct* params, Scripts::CScript* script);    // 0x00519600 (the unnamed checksum)
 
     int m_state;                // +0x18 State
     int m_physicsMode;          // +0x1C PhysicsMode (-1 until the physics control component sets it)
@@ -78,22 +78,22 @@ public:
     uint8_t m_bailing;          // +0x70
     uint8_t m_unknown71[0x6F];
     uint8_t m_doingTrick;       // +0xE0
-    uint8_t m_terrain;          // +0xE1
+    uint8_t m_surfaceType;          // +0xE1
     uint8_t m_unknownE2[0x36];
-    uint8_t m_driving;          // +0x118
+    uint8_t m_inVehicle;          // +0x118
     uint8_t m_unknown119[7];
-    uint8_t m_powerups[1];      // +0x120 (one per name in 0x0067F09C)
+    uint8_t m_boostItems[1];      // +0x120 (one per name in 0x0067F09C)
     uint8_t m_unknown121[3];
     uint32_t m_sparksPos;       // +0x124 a checksum
 };
-static_assert(offsetof(CSkaterStateComponent, m_state) == 0x18 &&
-                  offsetof(CSkaterStateComponent, m_physicsMode) == 0x1C &&
-                  offsetof(CSkaterStateComponent, m_bailing) == 0x70 &&
-                  offsetof(CSkaterStateComponent, m_doingTrick) == 0xE0 &&
-                  offsetof(CSkaterStateComponent, m_terrain) == 0xE1 &&
-                  offsetof(CSkaterStateComponent, m_driving) == 0x118 &&
-                  offsetof(CSkaterStateComponent, m_powerups) == 0x120 &&
-                  offsetof(CSkaterStateComponent, m_sparksPos) == 0x124 && sizeof(CSkaterStateComponent) == 0x128,
+static_assert(offsetof(CRiderPoseState, m_state) == 0x18 &&
+                  offsetof(CRiderPoseState, m_physicsMode) == 0x1C &&
+                  offsetof(CRiderPoseState, m_bailing) == 0x70 &&
+                  offsetof(CRiderPoseState, m_doingTrick) == 0xE0 &&
+                  offsetof(CRiderPoseState, m_surfaceType) == 0xE1 &&
+                  offsetof(CRiderPoseState, m_inVehicle) == 0x118 &&
+                  offsetof(CRiderPoseState, m_boostItems) == 0x120 &&
+                  offsetof(CRiderPoseState, m_sparksPos) == 0x124 && sizeof(CRiderPoseState) == 0x128,
               "layout must match the original (0x00519740 allocates 0x128 bytes)");
 
 // The skater's state history (SkaterStateHistory, state_history.h): its state records (0x84 bytes; 20 of them from

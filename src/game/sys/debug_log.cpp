@@ -23,7 +23,7 @@ bool s_toConsole = false;
 void Configure(bool toConsole)
 {
     s_toConsole = toConsole;
-    s_level = Config::GetInt(Config::kLogging, "Level", 2);
+    s_level = BuildInfo::GetInt(BuildInfo::kLogging, "Level", 2);
     s_configured = true;
 }
 

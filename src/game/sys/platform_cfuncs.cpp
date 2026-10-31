@@ -9,21 +9,21 @@
 #include "game/script/script_tables.h"
 #include "game/sio/sdl_input.h"
 
-namespace Sys {
+namespace SystemCore {
 
 namespace {
 
 constexpr uint32_t kVehicleGrindScript = 0x47F15883;
 
 // The script's name (the one it's running now: CScript +0xC8).
-uint32_t ScriptName(const Script::CScript* script)
+uint32_t ScriptName(const Scripts::CScript* script)
 {
     return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(script) + 0xC8);
 }
 
 } // namespace
 
-bool __cdecl CFunc_IsPS2(Script::CStruct* /*params*/, Script::CScript* script)
+bool __cdecl CFunc_IsPS2(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
     if (!Sio::TheInputSettings().ps2Controls)
         return false; // (the original: 0x005B9E50)
@@ -32,8 +32,8 @@ bool __cdecl CFunc_IsPS2(Script::CStruct* /*params*/, Script::CScript* script)
 
 void InstallIsPS2()
 {
-    if (Script::CFunctionEntry* entry = Script::FindCFunction("IsPS2"))
-        Script::SetCFunction(*entry, reinterpret_cast<void*>(&CFunc_IsPS2));
+    if (Scripts::CFunctionEntry* entry = Scripts::FindCFunction("IsPS2"))
+        Scripts::SetCFunction(*entry, reinterpret_cast<void*>(&CFunc_IsPS2));
 }
 
 } // namespace Sys

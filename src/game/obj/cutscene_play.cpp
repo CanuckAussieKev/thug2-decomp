@@ -21,12 +21,12 @@
 #include "game/sys/timer.h"
 #include "game/sys/game_config.h"
 
-namespace Pcm {
+namespace AudioStream {
 // (stream.h; not included here: its SetMusicVolume clashes with music.h's)
 void __cdecl SyncMusicToTime(float seconds);
 } // namespace Pcm
 
-namespace Obj {
+namespace GameObjects {
 
 char g_cutsceneShotName[256];
 bool g_cutscenePlaying;
@@ -51,17 +51,17 @@ constexpr uint32_t kInfoScript = 0xD9157174;
 int& FixedFrame() { return g_cutsceneFixedFrame; }
 char* ShotName() { return g_cutsceneShotName; }
 
-void Run(uint32_t script, Script::CStruct* params = nullptr)
+void Run(uint32_t script, Scripts::CStruct* params = nullptr)
 {
-    Script::RunScript(script, params, nullptr, false, nullptr);
+    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
 }
 void DeleteVirtual(void* object)
 {
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
 }
-Script::CStruct* MakeStruct()
+Scripts::CStruct* MakeStruct()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
 
@@ -85,45 +85,45 @@ float VblankSeconds(uint64_t vblanks, int rate)
 } // namespace
 
 // 0x00467710
-void CCutsceneData::MarkLoadedModels()
+void CCinematicTable::MarkLoadedModels()
 {
     int version = 0;
-    mp_params->GetInteger(kVersion, &version, 1);
-    Script::CArray* objects = nullptr;
+    mp_params->FetchIntValue(kVersion, &version, 1);
+    Scripts::CArray* objects = nullptr;
     mp_params->GetArray(kObjects, &objects, 1);
     for (uint32_t i = 0; i < objects->m_size; ++i) {
-        auto* object = reinterpret_cast<Script::CStruct*>(objects->GetElement(i));
+        auto* object = reinterpret_cast<Scripts::CStruct*>(objects->GetElement(i));
         uint32_t model;
-        if (object->GetChecksum(version >= 2 ? kName : kModel, &model, 0) &&
+        if (object->ReadHashValue(version >= 2 ? kName : kModel, &model, 0) &&
             mp_bundle->HasAsset(model, kTypeModel))
-            object->AddChecksum(kUnnamed, kKeepSkeleton);
+            object->PutNameKey(kUnnamed, kKeepSkeleton);
     }
     if (m_flag34B0)
         AddObjects(mp_params);
 }
 
 // 0x004677F0
-bool CCutsceneData::FinishLoading(int /*unused*/)
+bool CCinematicTable::FinishLoading(int /*unused*/)
 {
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap);
     LoadFromBundle();
     MarkLoadedModels();
     AddCutsceneLights();
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     if (mp_bundle)
         DeleteVirtual(mp_bundle);
     mp_bundle = nullptr;
     if (m_flag34B0 && !m_ready) {
         // the music: waiting for its stream to be ready, then started
         for (;;) {
-            Pcm::Update();
-            if (Pcm::PreLoadMusicStreamDone()) {
-                Pcm::StartPreLoadedMusicStream(-1.0f);
+            AudioStream::Update();
+            if (AudioStream::IsMusicTrackPrimed()) {
+                AudioStream::BeginPrimedMusicTrack(-1.0f);
                 m_ready = true;
                 break;
             }
-            Tmr::WaitForVblank();
+            FrameClock::WaitForVblank();
             if (m_ready)
                 break;
         }
@@ -132,7 +132,7 @@ bool CCutsceneData::FinishLoading(int /*unused*/)
 }
 
 // 0x004678A0
-bool CCutsceneData::Load(const char* path, int a2, int /*unused*/, const uint32_t* settings)
+bool CCinematicTable::Load(const char* path, int a2, int /*unused*/, const uint32_t* settings)
 {
     if (settings) {
         m_unknown34A8 = reinterpret_cast<void*>(settings[0]);
@@ -144,54 +144,54 @@ bool CCutsceneData::Load(const char* path, int a2, int /*unused*/, const uint32_
         m_flag34B0 = 0;
     }
     if (m_flag34B0)
-        Pcm::StopMusic();
+        AudioStream::StopMusic();
     Stubs::ReturnTrue(); // (0x005B6570: a jump to the shared stub, true)
     const char* name = CutsceneNameFromPath(path);
     if (m_flag34B0)
         std::memcpy(ShotName(), name, std::strlen(name) + 1);
     else
         std::memcpy(ShotName(), "dummy", 6); // (the game's 0x0064799C)
-    m_name = Crc::GenerateCRCFromString(name);
+    m_name = Checksums::HashFromText(name);
     if (m_flag34B0) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
         char stream[256];
-        std::snprintf(stream, sizeof(stream), "%s_%s", name, SkaterModelName(static_cast<Script::CStruct*>(m_unknown34AC)));
-        if (!Pcm::PreLoadMusicStream(Crc::GenerateCRCFromString(stream))) {
-            Pcm::StopMusic();
+        std::snprintf(stream, sizeof(stream), "%s_%s", name, SkaterModelName(static_cast<Scripts::CStruct*>(m_unknown34AC)));
+        if (!AudioStream::PrimeMusicTrack(Checksums::HashFromText(stream))) {
+            AudioStream::StopMusic();
             std::snprintf(stream, sizeof(stream), "%s", name);
-            if (!Pcm::PreLoadMusicStream(Crc::GenerateCRCFromString(stream)))
+            if (!AudioStream::PrimeMusicTrack(Checksums::HashFromText(stream)))
                 m_ready = true;
         }
         if (m_flag34B0)
             SetUpCutsceneHeaps();
     }
     g_cutscenePlaying = true;
-    Mem::Manager* manager = Mem::Manager::Get();
-    Mem::Heap* fileHeap = m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap;
-    Mem::Heap* assetHeap = m_flag34B0 ? manager->m_cutsceneTopDownHeap : manager->m_topDownHeap;
-    manager->PushContext(fileHeap);
-    void* memory = Mem::Calloc(sizeof(File::AssetBundle));
-    mp_bundle = memory ? new (memory) File::AssetBundle : nullptr;
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::Heap* fileHeap = m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap;
+    MemSys::Heap* assetHeap = m_flag34B0 ? manager->m_cutsceneTopDownHeap : manager->m_topDownHeap;
+    manager->EnterHeapScope(fileHeap);
+    void* memory = MemSys::AllocZeroed(sizeof(FileLoad::AssetBundle));
+    mp_bundle = memory ? new (memory) FileLoad::AssetBundle : nullptr;
     mp_bundle->SetHeaps(fileHeap, assetHeap);
-    Mem::Manager::Get()->PopContext();
-    Mem::Manager::Get()->PushContext(assetHeap);
+    MemSys::Manager::Get()->LeaveHeapScope();
+    MemSys::Manager::Get()->EnterHeapScope(assetHeap);
     mp_bundle->Load(path, a2, 0);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     FinishLoading(a2);
-    m_loaded = true;
+    m_readyFlag = true;
     return true;
 }
 
 // 0x00467B50
-bool CCutsceneData::IsLoaded()
+bool CCinematicTable::IsLoaded()
 {
-    if (m_loaded)
+    if (m_readyFlag)
         return true;
     if (m_flag34B0) {
         if (!mp_bundle->IsLoaded())
             return false;
         FinishLoading(1);
-        m_loaded = true;
+        m_readyFlag = true;
         return true;
     }
     if (mp_bundle && !mp_bundle->IsLoaded())
@@ -200,26 +200,26 @@ bool CCutsceneData::IsLoaded()
 }
 
 // 0x00467BA0
-void CCutsceneData::Update(void* camera, Script::CStruct* /*params*/)
+void CCinematicTable::Update(void* camera, Scripts::CStruct* /*params*/)
 {
-    bool fixed = Script::GetInteger(kFixedTime) != 0;
+    bool fixed = Scripts::FetchIntValue(kFixedTime) != 0;
     if (!m_flag34B0) {
-        m_unknown3478 = *reinterpret_cast<uint32_t*>(&m_time);
-        m_time = static_cast<float>(Tmr::GetFrameSeconds() + m_time);
+        m_unknown3478 = *reinterpret_cast<uint32_t*>(&m_clock);
+        m_clock = static_cast<float>(FrameClock::GetFrameSeconds() + m_clock);
     } else {
-        if (!m_skippable) { // (the first update: started)
-            m_skippable = true;
+        if (!m_canSkip) { // (the first update: started)
+            m_canSkip = true;
             Run(kStartScript);
-            static_cast<Gfx::Camera*>(camera)->SetHFOV(Script::GetFloat(kFieldOfView));
+            static_cast<Gfx2D::Camera*>(camera)->ChangeHFov(Scripts::GetFloat(kFieldOfView));
             m_unknown3478 = 0;
-            m_pausedVblanks = Tmr::GetVblanks();
+            m_pausedVblanks = FrameClock::FetchRetraceCount();
             FixedFrame() = 0;
         }
         int rate = GameConfig::g_frameRate;
-        Pcm::SyncMusicToTime(VblankSeconds(Tmr::GetVblanks() - m_pausedVblanks, rate));
+        AudioStream::SyncMusicToTime(VblankSeconds(FrameClock::FetchRetraceCount() - m_pausedVblanks, rate));
         UpdateTime(reinterpret_cast<int>(camera));
         CheckSkip();
-        UpdateCamera(camera);
+        RefreshViewer(camera);
         UpdateSubtitles();
     }
     UpdateObjectPoses();
@@ -227,32 +227,32 @@ void CCutsceneData::Update(void* camera, Script::CStruct* /*params*/)
     ShowHiddenObjects();
     if (!m_flag34B0)
         return;
-    if (Script::GetInteger(kDebugInfo) != 0 || fixed) {
-        Script::CStruct* info = MakeStruct();
+    if (Scripts::FetchIntValue(kDebugInfo) != 0 || fixed) {
+        Scripts::CStruct* info = MakeStruct();
         int frame = FixedFrame();
         char line[128];
         std::snprintf(line, sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
         info->AddString("line1", line);
         char line2[128];
-        std::snprintf(line2, sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(m_time),
+        std::snprintf(line2, sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(m_clock),
                       static_cast<double>(m_endTime));
         info->AddString("line2", line2);
-        Script::RunScript(kInfoScript, info, nullptr, false, nullptr);
+        Scripts::LaunchScript(kInfoScript, info, nullptr, false, nullptr);
         if (info) {
             info->Clear();
-            Script::DeleteStruct(info);
+            Scripts::DeleteStruct(info);
         }
         if (fixed && FixedFrame() > 0) {
             char shot[128];
             std::snprintf(shot, sizeof(shot), "%s%04d", ShotName(), FixedFrame() - 1);
-            Nx::ScreenShot(shot, 1); // (a screenshot)
+            Engine3D::ScreenShot(shot, 1); // (a screenshot)
         }
     }
     ++FixedFrame();
 }
 
 // 0x00467EA0
-void CCutsceneData::Play(void* camera, Script::CStruct* params)
+void CCinematicTable::Play(void* camera, Scripts::CStruct* params)
 {
     g_cutscenePlaying = true;
     if (!m_flag34B0) {
@@ -262,34 +262,34 @@ void CCutsceneData::Play(void* camera, Script::CStruct* params)
     }
     RefreshObjects();
     if (!m_ready) {
-        if (!Pcm::PreLoadMusicStreamDone())
+        if (!AudioStream::IsMusicTrackPrimed())
             return;
-        Pcm::StartPreLoadedMusicStream(-1.0f);
+        AudioStream::BeginPrimedMusicTrack(-1.0f);
         m_ready = true;
     }
     Update(camera, params);
 }
 
 // 0x00468080
-CCutsceneData* CCutsceneData::Destroy(unsigned int flags)
+CCinematicTable* CCinematicTable::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00467F30
-CCutsceneDetails* CCutsceneDetails::Destroy(unsigned int flags)
+CCinematicEntry* CCinematicEntry::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00467F60
-void CCutsceneDetails::Update()
+void CCinematicEntry::Update()
 {
     if (!m_data)
         return;
@@ -300,7 +300,7 @@ void CCutsceneDetails::Update()
                 Run(m_beginScript);
         }
         m_begun = true;
-        m_data->Play(m_camera, m_params);
+        m_data->Play(m_viewer, m_params);
         return;
     }
     if (!m_data->IsLoaded())
@@ -314,7 +314,7 @@ void CCutsceneDetails::Update()
         m_data->RefreshObjects();
         m_data->UpdateObjectTransforms();
     } else {
-        m_data->Play(m_camera, m_params);
+        m_data->Play(m_viewer, m_params);
     }
     if (m_unknown60 > -1 && --m_unknown60 == 0) {
         m_unknown60 = -1;
@@ -323,9 +323,9 @@ void CCutsceneDetails::Update()
 }
 
 // 0x00468040
-bool CCutsceneDetails::IsDone()
+bool CCinematicEntry::IsDone()
 {
-    if (m_done)
+    if (m_isFinished)
         return true;
     if (m_flag18 || !m_data)
         return false;
@@ -333,9 +333,9 @@ bool CCutsceneDetails::IsDone()
 }
 
 // 0x004680B0
-bool CCutsceneDetails::IsReady()
+bool CCinematicEntry::IsReady()
 {
-    CCutsceneData* data = m_data;
+    CCinematicTable* data = m_data;
     return data && data->m_flag34B0 && data->IsLoaded() && data->m_ready;
 }
 

@@ -16,7 +16,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/log.h"
 
-namespace Front::TestView {
+namespace MenuSystem::TestView {
 
 namespace {
 
@@ -34,35 +34,35 @@ struct Lock {
     uint32_t frame; // (the game frame it was locked at)
 } g_lock;
 
-Mth::Vector Row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
+Maths::Vector Row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 
 // The local skater (the skate module's 0x00566520; null with none).
-Obj::CSkater* LocalSkater()
+GameObjects::CRider* LocalSkater()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
-    return skate ? reinterpret_cast<Mdl::Skate*>(skate)->GetLocalSkater()
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    return skate ? reinterpret_cast<GameModules::Skate*>(skate)->GetHomeRider()
                  : nullptr;
 }
 
-// The game's collision ray (Nx::CFeeler: static collision, the nearest hit) from `from` to `to`.
+// The game's collision ray (Engine3D::CProbeRay: static collision, the nearest hit) from `from` to `to`.
 bool GroundBelow(Vec3 point, float* y)
 {
     // (the game's memory layout, as level_editor_carry.cpp's FirstHit: static collision only, nothing to release)
-    alignas(16) uint8_t memory[sizeof(Nx::CFeeler)] = {};
-    auto* feeler = reinterpret_cast<Nx::CFeeler*>(memory);
+    alignas(16) uint8_t memory[sizeof(Engine3D::CProbeRay)] = {};
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(memory);
     feeler->Construct();
-    Mth::Vector start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
-    Mth::Vector end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
+    Maths::Vector start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
+    Maths::Vector end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
     if (!feeler->GetCollisionAlong(&start, &end, false))
         return false;
-    *y = feeler->m_point.y;
+    *y = feeler->m_contactPos.y;
     return true;
 }
 
 // TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>]
-bool __cdecl CFunc_TeleportSkaterStanding(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_TeleportSkaterStanding(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Script::VectorValue pos = {};
+    Scripts::VectorValue pos = {};
     if (!params || !params->GetVector("pos", &pos, 0)) {
         Log("TeleportSkaterStanding: pos=(x, y, z) needed");
         return false;
@@ -70,7 +70,7 @@ bool __cdecl CFunc_TeleportSkaterStanding(Script::CStruct* params, Script::CScri
     float heading = 0.0f;
     bool hasHeading = params->GetFloat("heading", &heading, 0);
     Vec3 at = {};
-    std::string why = Teleport({pos.x, pos.y, pos.z}, hasHeading, heading, &at);
+    std::string why = JumpTo({pos.x, pos.y, pos.z}, hasHeading, heading, &at);
     if (!why.empty()) {
         Log("TeleportSkaterStanding: %s", why.c_str());
         return false;
@@ -112,13 +112,13 @@ void StandingRows(float headingDegrees, Vec3* right, Vec3* up, Vec3* at)
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
-std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard)
+std::string JumpTo(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard)
 {
-    Obj::CSkater* skater = LocalSkater();
+    GameObjects::CRider* skater = LocalSkater();
     if (!skater)
         return "no local skater";
     if (!hasHeading) {
-        const Mth::Vector& at = skater->m_matrix.row[2];
+        const Maths::Vector& at = skater->m_basisFrame.row[2];
         headingDegrees = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     }
     float ground = 0.0f;
@@ -128,8 +128,8 @@ std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3*
     Vec3 right, up, at;
     StandingRows(headingDegrees, &right, &up, &at);
     // (the skater's own custom restart kept and put back: only the restart's code is borrowed)
-    Mth::Vector savedPos = skater->m_customRestartPos;
-    Mth::Matrix savedMatrix = skater->m_customRestartMatrix;
+    Maths::Vector savedPos = skater->m_customRestartPos;
+    Maths::Matrix savedMatrix = skater->m_customRestartMatrix;
     bool savedWalking = skater->m_customRestartWalking;
     skater->m_customRestartPos = Row(position, 1.0f);
     skater->m_customRestartMatrix.row[0] = Row(right, 0.0f);
@@ -153,7 +153,7 @@ bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift)
     Vec3 right, up, back;
     if (!CameraRows(direction, &right, &up, &back))
         return false;
-    g_lock = {true, position, right, up, back, drift, Mlp::FramesRun()};
+    g_lock = {true, position, right, up, back, drift, FrameLoop::FramesRun()};
     Log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, %.3f) a "
         "frame",
         position.x, position.y, position.z, -back.x, -back.y, -back.z, drift.x, drift.y, drift.z);
@@ -169,25 +169,25 @@ void UnlockCamera()
 
 bool CameraLocked() { return g_lock.on; }
 
-void PlaceCamera(Gfx::Camera* camera, int viewport)
+void PlaceCamera(Gfx2D::Camera* camera, int viewport)
 {
     if (!g_lock.on || !camera || viewport != 0)
         return;
-    float frames = static_cast<float>(Mlp::FramesRun() - g_lock.frame);
+    float frames = static_cast<float>(FrameLoop::FramesRun() - g_lock.frame);
     camera->m_pos = Row({g_lock.pos.x + g_lock.drift.x * frames, g_lock.pos.y + g_lock.drift.y * frames,
                          g_lock.pos.z + g_lock.drift.z * frames},
                         1.0f);
-    camera->m_matrix.row[0] = Row(g_lock.right, 0.0f);
-    camera->m_matrix.row[1] = Row(g_lock.up, 0.0f);
-    camera->m_matrix.row[2] = Row(g_lock.back, 0.0f);
+    camera->m_basisFrame.row[0] = Row(g_lock.right, 0.0f);
+    camera->m_basisFrame.row[1] = Row(g_lock.up, 0.0f);
+    camera->m_basisFrame.row[2] = Row(g_lock.back, 0.0f);
 }
 
 void RegisterScriptFunctions()
 {
-    static const Script::CFunctionEntry functions[] = {
+    static const Scripts::CFunctionEntry functions[] = {
         {"TeleportSkaterStanding", reinterpret_cast<void*>(&CFunc_TeleportSkaterStanding)},
     };
-    Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }
 
-} // namespace Front::TestView
+} // namespace MenuSystem::TestView

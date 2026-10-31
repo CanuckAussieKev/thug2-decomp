@@ -1,4 +1,4 @@
-// The PC materials (sMaterial, material.h): constructed and destroyed, their animations (UV wibbles, colours,
+// The PC materials (materialRef, material.h): constructed and destroyed, their animations (UV wibbles, colours,
 // textures) brought up to date, and set up on the device for drawing - all passes (for the pixel shaders) or one pass
 // through the fixed-function texture stages. The animations' arithmetic is the original's x87 code (in registers,
 // rounded where it stores), so it is written in x87 here too.
@@ -20,7 +20,7 @@
 #include "game/gfx/device.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 float g_billboardUvMatrix[8]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 float g_wibbleMatrixPass[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
@@ -153,7 +153,7 @@ float WibbleOffset(float t, float frequency, float phase, float amplitude, float
 
 // What both set-ups share: the alpha reference, culling, depth bias, the animations, and the specular material
 // (pass 0's flag 0x100) - or none, once, when the last material had it (0x00786E4C).
-void SetCommonStates(sMaterial* material)
+void SetCommonStates(materialRef* material)
 {
     SetState(kAlphaRef, material->alphaRef);
     SetState(kCullMode, material->twoSided ? D3DCULL_NONE : D3DCULL_CW);
@@ -183,7 +183,7 @@ void SetCommonStates(sMaterial* material)
 }
 
 // The pass's border colour (0x00786EA4, a word a stage): 0xE0000000 with flag 0x200, else 0.
-void SetBorderColor(const sMaterial* material, uint32_t pass, uint32_t stage)
+void SetBorderColor(const materialRef* material, uint32_t pass, uint32_t stage)
 {
     uint32_t& border = g_borderColours[stage];
     if (material->passFlags[pass] & kPassBorder) {
@@ -218,7 +218,7 @@ uint32_t FactorChannel(float value) { return static_cast<uint32_t>(static_cast<i
 } // namespace
 
 // 0x004D1A90
-sMaterial* sMaterial::Construct()
+materialRef* materialRef::Construct()
 {
     passCount = 0;
     colorAnimCount = 0;
@@ -241,9 +241,9 @@ sMaterial* sMaterial::Construct()
 }
 
 // 0x004D2BD0
-void sMaterial::DestroyBody()
+void materialRef::DestroyBody()
 {
-    Mem::Manager* heap = Mem::Manager::Get();
+    MemSys::Manager* heap = MemSys::Manager::Get();
     if (colorAnims) {
         for (uint32_t i = 0; i < colorAnimCount; ++i)
             heap->Free(colorAnims[i].keys);
@@ -262,7 +262,7 @@ void sMaterial::DestroyBody()
 }
 
 // 0x004D1D90
-uint32_t sMaterial::TextureAlphaPasses() const
+uint32_t materialRef::TextureAlphaPasses() const
 {
     uint32_t mask = 0;
     for (uint32_t pass = 0; pass < passCount; ++pass)
@@ -272,7 +272,7 @@ uint32_t sMaterial::TextureAlphaPasses() const
 }
 
 // 0x004D1B40
-void sMaterial::UpdateColorAnims()
+void materialRef::UpdateColorAnims()
 {
     if (!(passFlags[0] & kPassColorAnim))
         return;
@@ -292,11 +292,11 @@ void sMaterial::UpdateColorAnims()
 }
 
 // 0x004D1CC0
-void sMaterial::UpdateTextureAnims()
+void materialRef::UpdateTextureAnims()
 {
     if (!hasTextureAnim)
         return;
-    int now = static_cast<int>(Tmr::GetTime());
+    int now = static_cast<int>(FrameClock::GetTime());
     sTextureAnim* anim = textureAnim;
     for (int pass = 0; pass < 4; ++pass) {
         if (!(passFlags[pass] & kPassTextureAnim))
@@ -318,11 +318,11 @@ void sMaterial::UpdateTextureAnims()
 }
 
 // 0x004D1DC0
-void sMaterial::UpdateUVWibbles()
+void materialRef::UpdateUVWibbles()
 {
     if (!hasUVWibble)
         return;
-    float t = WibbleTime(Tmr::GetTime());
+    float t = WibbleTime(FrameClock::GetTime());
     for (uint32_t pass = 0; pass < passCount; ++pass) {
         if (!(passFlags[pass] & kPassUVWibble) || (passFlags[pass] & kPassExplicitUV))
             continue;
@@ -335,11 +335,11 @@ void sMaterial::UpdateUVWibbles()
 }
 
 // 0x004D1F00
-void sMaterial::Submit()
+void materialRef::Submit()
 {
     if (g_submitLocked)
         return;
-    SetBlendMode(blendModes[0]);
+    ChooseBlendMode(blendModes[0]);
     SetCommonStates(this);
     for (uint32_t pass = 0; pass < passCount; ++pass) {
         if (g_skippedPasses & (1u << (pass & 31)))
@@ -398,7 +398,7 @@ void sMaterial::Submit()
 }
 
 // 0x004D23E0
-void sMaterial::SubmitStates()
+void materialRef::SubmitStates()
 {
     if (g_submitLocked)
         return;
@@ -406,11 +406,11 @@ void sMaterial::SubmitStates()
 }
 
 // 0x004D24D0
-void sMaterial::SubmitPass(uint32_t pass, const float* color)
+void materialRef::SubmitPass(uint32_t pass, const float* color)
 {
     if (g_submitLocked)
         return;
-    SetBlendMode(blendModes[pass]);
+    ChooseBlendMode(blendModes[pass]);
     if (!(g_skippedPasses & (1u << (pass & 31)))) {
         uint8_t* texture = textures[pass];
         if (!texture) {
@@ -428,7 +428,7 @@ void sMaterial::SubmitPass(uint32_t pass, const float* color)
                 matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
                 matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
                 SetState(kLocalViewer, 1);
-                Nx::SetTransform(D3DTS_TEXTURE0, matrix);
+                Engine3D::SetTransform(D3DTS_TEXTURE0, matrix);
                 SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
             } else if (flags & kPassUVWibble) {
@@ -524,12 +524,12 @@ void sMaterial::SubmitPass(uint32_t pass, const float* color)
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 // A material nothing uses but its static initialiser and exit function.
-sMaterial g_spareMaterial;
+materialRef g_spareMaterial;
 
 } // namespace
 

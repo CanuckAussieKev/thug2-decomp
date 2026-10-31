@@ -24,10 +24,10 @@
 #include "game/gfx/texture_dict.h"
 #include "game/sys/game_config.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 int g_configNtsc{1};
 
@@ -76,37 +76,37 @@ int& ConfigNTSC() { return g_configNtsc; }
 int& ConfigFramerate() { return GameConfig::g_frameRate; }
 bool& ConfigBootstrap() { return GameConfig::g_configBootstrap; }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.
-const char* HardwareName() { return GameConfig::GetHardwareName(); }
-const char* DisplayTypeName(int) { return GameConfig::GetDisplayTypeName(); } // (the frame rate isn't read)
-const char* LanguageName() { return GameConfig::GetLanguageName(); }
-const char* TerritoryName() { return GameConfig::GetTerritoryName(); }
+const char* HardwareName() { return GameConfig::GetPlatformLabel(); }
+const char* DisplayTypeName(int) { return GameConfig::GetScreenModeLabel(); } // (the frame rate isn't read)
+const char* LanguageName() { return GameConfig::GetLocaleLabel(); }
+const char* TerritoryName() { return GameConfig::GetRegionLabel(); }
 
 // The engine's scenes (Nx, cdecl): by name (0x0048C750: the name's checksum looked up, 0x0048C700), the first in the
 // scene table, every one unloaded, one unloaded (0x0048C690; 1: its collision too), reloaded, geometry added to one
 // (0x0048CDD0: the scene's name and the added file's). A scene's texture dictionary is at +0x88.
-void* GetScene(const char* name) { return Nx::GetSceneByName(name); }
-void* FirstScene() { return Nx::GetMainScene(); }
-void UnloadAllScenes() { Nx::UnloadAllScenes(); }
-void UnloadScene(void* scene, int flag) { Nx::Engine::UnloadScene(static_cast<Nx::CScene*>(scene), flag); }
-void QuickReloadScene(const char* name) { Nx::ReloadScene(name); }
-void AddToScene(const char* scene, const char* add) { Nx::AddScene(scene, add); }
-void UnloadTexDict(void* textures) { Nx::UnloadTexDict(static_cast<Nx::CTexDict*>(textures)); }
+void* LookUpScene(const char* name) { return Engine3D::GetSceneByName(name); }
+void* FirstScene() { return Engine3D::GetMainScene(); }
+void UnloadAllScenes() { Engine3D::UnloadAllScenes(); }
+void UnloadScene(void* scene, int flag) { Engine3D::Engine::UnloadScene(static_cast<Engine3D::CWorldScene*>(scene), flag); }
+void QuickReloadScene(const char* name) { Engine3D::ReloadScene(name); }
+void AddToScene(const char* scene, const char* add) { Engine3D::AddScene(scene, add); }
+void UnloadTexDict(void* textures) { Engine3D::UnloadTexDict(static_cast<Engine3D::CTextureSet*>(textures)); }
 // A scene's collision (thiscall): loaded from the scene's collision file (0x0049DF70), or added from another one
 // (0x0049DFD0).
 void LoadSceneCollision(void* scene, const char* name, bool isNet)
 {
-    static_cast<Nx::CScene*>(scene)->LoadCollisionFile(name, isNet);
+    static_cast<Engine3D::CWorldScene*>(scene)->LoadCollisionFile(name, isNet);
 }
-void AddSceneCollision(void* scene, const char* add) { static_cast<Nx::CScene*>(scene)->LoadAddScene(add); }
+void AddSceneCollision(void* scene, const char* add) { static_cast<Engine3D::CWorldScene*>(scene)->LoadAddScene(add); }
 
 // Models (Nx): one made (0x0048BFA0, a jump to 0x004B29C0), its model file loaded (0x004935E0, thiscall), destroyed
 // again (0x0048C3C0).
-void* CreateModel(int) { return Nx::CreateModel(); } // (0x0048BFA0, a jump to 0x004B29C0)
+void* SpawnModel(int) { return Engine3D::SpawnModel(); } // (0x0048BFA0, a jump to 0x004B29C0)
 void LoadModelFile(void* model, const char* file, bool allowReplaceTex)
 {
-    static_cast<Nx::CModel*>(model)->AddFileGeom(file, 0, true, 0, allowReplaceTex, false, true, false);
+    static_cast<Engine3D::CRenderModel*>(model)->AddFileGeom(file, 0, true, 0, allowReplaceTex, false, true, false);
 }
-void DestroyModel(void* model) { Nx::Engine::DeleteGeomObject(model); }
+void DestroyModel(void* model) { Engine3D::Engine::DeleteGeomObject(model); }
 
 } // namespace
 
@@ -114,7 +114,7 @@ void DestroyModel(void* model) { Nx::Engine::DeleteGeomObject(model); }
 bool __cdecl CFunc_LoadTerrainSounds(CStruct* params, CScript*)
 {
     uint32_t terrain;
-    if (!params->GetChecksum(kTerrain, &terrain, 0))
+    if (!params->ReadHashValue(kTerrain, &terrain, 0))
         return false;
     Terrain::LoadTerrainSounds(terrain);
     return true;
@@ -125,13 +125,13 @@ bool __cdecl CFunc_PreloadModel(CStruct* params, CScript*)
 {
     const char* name;
     params->GetString(kName, &name, true);
-    void* model = CreateModel(1);
-    bool allowReplaceTex = params->ContainsFlag(kAllowReplaceTex);
-    Str::String file;
+    void* model = SpawnModel(1);
+    bool allowReplaceTex = params->HasBareFlag(kAllowReplaceTex);
+    TextUtil::String file;
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
-        alignas(Str::String) uint8_t storage[sizeof(Str::String)];
-        auto* path = Gfx::MakeModelPath(reinterpret_cast<Str::String*>(storage), name, ".mdl");
+        alignas(TextUtil::String) uint8_t storage[sizeof(TextUtil::String)];
+        auto* path = Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::String*>(storage), name, ".mdl");
         file = *path;
         path->~String();
     }
@@ -153,8 +153,8 @@ bool __cdecl CFunc_LoadCollision(CStruct* params, CScript*)
     const char* name = nullptr;
     params->GetString(kScene, &name, false);
     if (name) {
-        bool isNet = params->ContainsFlag(kIsNet);
-        LoadSceneCollision(GetScene(name), name, isNet);
+        bool isNet = params->HasBareFlag(kIsNet);
+        LoadSceneCollision(LookUpScene(name), name, isNet);
     }
     return true;
 }
@@ -167,7 +167,7 @@ bool __cdecl CFunc_AddCollision(CStruct* params, CScript*)
     params->GetString(kScene, &scene, false);
     params->GetString(kAdd, &add, false);
     if (scene && add)
-        AddSceneCollision(GetScene(scene), add);
+        AddSceneCollision(LookUpScene(scene), add);
     return true;
 }
 
@@ -184,70 +184,70 @@ bool __cdecl CFunc_QuickReload(CStruct* params, CScript*)
 // 0x00445430
 bool __cdecl CFunc_UnloadAnim(CStruct* params, CScript*)
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     const char* name = nullptr;
     params->GetString(kName, &name, true);
     uint32_t desc = 0;
     uint32_t reference = 0;
-    params->GetChecksum(kDescChecksum, &desc, 1);
-    if (!params->GetChecksum(kRefChecksum, &reference, 0))
+    params->ReadHashValue(kDescChecksum, &desc, 1);
+    if (!params->ReadHashValue(kRefChecksum, &reference, 0))
         reference = static_cast<uint32_t>(assets->m_unknown18); // the reference checksum (SetReferenceChecksum)
-    uint32_t checksum = desc ? reference + desc : Crc::GenerateCRCFromString(name);
-    if (Ass::CAsset* asset = assets->GetAsset(checksum, 0))
-        assets->UnloadAsset(asset);
+    uint32_t checksum = desc ? reference + desc : Checksums::HashFromText(name);
+    if (AssetStore::CResource* asset = assets->ObtainLoadedItem(checksum, 0))
+        assets->DiscardLoadedItem(asset);
     return true;
 }
 
 // 0x004454E0 (the script's params are passed on as the load's extra value)
 bool __cdecl CFunc_LoadAsset(CStruct* params, CScript*)
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     uint32_t parent = 0;
     const char* name;
     if (!params->GetString(kName, &name, false))
         params->GetString(0u, &name, true);
-    params->GetChecksum(kParent, &parent, false);
-    bool async = params->ContainsFlag(kAsync);
+    params->ReadHashValue(kParent, &parent, false);
+    bool async = params->HasBareFlag(kAsync);
     uint32_t desc = 0;
-    params->GetChecksum(kDesc, &desc, false);
-    if (!assets->LoadOrGetAsset(name, 0, desc, parent, async, false, assets->GetPermanentByDefault(), nullptr,
+    params->ReadHashValue(kDesc, &desc, false);
+    if (!assets->FetchOrLoadResource(name, 0, desc, parent, async, false, assets->GetPermanentByDefault(), nullptr,
                                 static_cast<int>(reinterpret_cast<uintptr_t>(params))))
-        Script::GetInteger(kAssertOnMissingAssets); // (an assert on it compiled out)
+        Scripts::FetchIntValue(kAssertOnMissingAssets); // (an assert on it compiled out)
     return true;
 }
 
 // 0x004455A0
 bool __cdecl CFunc_LoadAnim(CStruct* params, CScript*)
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     const char* name;
     uint32_t desc = 0;
     params->GetString(kName, &name, false);
-    params->GetChecksum(kDescChecksum, &desc, true);
-    bool async = params->ContainsFlag(kAsync);
-    bool usePip = params->ContainsFlag(kUsePip);
+    params->ReadHashValue(kDescChecksum, &desc, true);
+    bool async = params->HasBareFlag(kAsync);
+    bool usePip = params->HasBareFlag(kUsePip);
     return assets->LoadAnim(name, desc, static_cast<uint32_t>(assets->m_unknown18), async, usePip);
 }
 
 // 0x00445640
 bool __cdecl CFunc_LoadSkeleton(CStruct* params, CScript*)
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     const char* name;
     uint32_t checksum;
     params->GetString(kName, &name, true);
-    params->GetChecksum(0u, &checksum, 1);
-    assets->LoadOrGetAsset(name, 0, checksum, 0, false, false, assets->GetPermanentByDefault(), nullptr, 0);
+    params->ReadHashValue(0u, &checksum, 1);
+    assets->FetchOrLoadResource(name, 0, checksum, 0, false, false, assets->GetPermanentByDefault(), nullptr, 0);
     return true;
 }
 
 // 0x004456A0
 bool __cdecl CFunc_SetReferenceChecksum(CStruct* params, CScript*)
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
-    if (!params->GetChecksum(0u, &checksum, 0))
-        params->GetInteger(0u, reinterpret_cast<int*>(&checksum), true);
+    if (!params->ReadHashValue(0u, &checksum, 0))
+        params->FetchIntValue(0u, reinterpret_cast<int*>(&checksum), true);
     assets->SetUnknown18(static_cast<int>(checksum));
     return true;
 }
@@ -255,9 +255,9 @@ bool __cdecl CFunc_SetReferenceChecksum(CStruct* params, CScript*)
 // 0x004456F0
 bool __cdecl CFunc_SetDefaultPermanent(CStruct* params, CScript*)
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     int permanent = 0; // (uninitialised in the original without one; the getter asserts)
-    params->GetInteger(0u, &permanent, true);
+    params->FetchIntValue(0u, &permanent, true);
     assets->SetPermanentByDefault(permanent != 0);
     return true;
 }
@@ -270,10 +270,10 @@ bool __cdecl CFunc_AddScene(CStruct* params, CScript*)
     params->GetString(kScene, &scene, false);
     params->GetString(kAdd, &add, false);
     if (scene && add) {
-        Mem::Manager* manager = Mem::Manager::Instance();
-        manager->PushContext(manager->m_debugHeap);
+        MemSys::Manager* manager = MemSys::Manager::Instance();
+        manager->EnterHeapScope(manager->m_debugHeap);
         AddToScene(scene, add);
-        Mem::Manager::Instance()->PopContext();
+        MemSys::Manager::Instance()->LeaveHeapScope();
     }
     return true;
 }
@@ -285,7 +285,7 @@ bool __cdecl CFunc_UnloadScene(CStruct* params, CScript*)
     params->GetString(kScene, &name, false);
     bool found = false;
     if (name) {
-        void* scene = GetScene(name);
+        void* scene = LookUpScene(name);
         if (scene)
             found = true;
         else
@@ -304,7 +304,7 @@ bool __cdecl CFunc_UnloadScene(CStruct* params, CScript*)
 bool __cdecl CFunc_SetConfig(CStruct* params, CScript*)
 {
     uint32_t language = 0;
-    params->GetChecksum(kLanguage, &language, 0);
+    params->ReadHashValue(kLanguage, &language, 0);
     switch (language) {
     case kItalian:
     case kGerman:
@@ -320,25 +320,25 @@ bool __cdecl CFunc_SetConfig(CStruct* params, CScript*)
     default:
         break;
     }
-    if (params->ContainsFlag(kCD)) {
+    if (params->HasBareFlag(kCD)) {
         if (!ConfigCD())
-            File::AsyncInit(); // (passed "DATA", unused)
+            FileLoad::AsyncInit(); // (passed "DATA", unused)
         ConfigCD() = true;
     }
-    if (params->ContainsFlag(kNotCD)) {
+    if (params->HasBareFlag(kNotCD)) {
         // (with the CD set, a compiled-out call: 0x005480A0)
         ConfigCD() = false;
     }
-    if (params->ContainsFlag(kGotExtraMemory))
+    if (params->HasBareFlag(kGotExtraMemory))
         ConfigGotExtraMemory() = true;
-    if (params->ContainsFlag(kNoExtraMemory))
+    if (params->HasBareFlag(kNoExtraMemory))
         ConfigGotExtraMemory() = false;
-    if (params->ContainsFlag(kPal))
+    if (params->HasBareFlag(kPal))
         ConfigNTSC() = 0;
-    if (params->ContainsFlag(kNTSC))
+    if (params->HasBareFlag(kNTSC))
         ConfigNTSC() = 1;
     int framerate = 60;
-    if (params->GetInteger(kFramerate, &framerate, 0))
+    if (params->FetchIntValue(kFramerate, &framerate, 0))
         ConfigFramerate() = framerate;
     return true;
 }
@@ -346,18 +346,18 @@ bool __cdecl CFunc_SetConfig(CStruct* params, CScript*)
 // 0x00445980
 bool __cdecl CFunc_PrintConfig(CStruct*, CScript*)
 {
-    Dbg::Printf("\n");
-    Dbg::Printf("System Configuration:\n\n");
-    Dbg::Printf("Hardware       = %s\n", HardwareName());
+    DebugOut::Printf("\n");
+    DebugOut::Printf("System Configuration:\n\n");
+    DebugOut::Printf("Hardware       = %s\n", HardwareName());
     // (the original passes no number: the %d reads the frame rate it passed to the name's function, still on the
     // stack)
     int framerate = ConfigFramerate();
-    Dbg::Printf("Display Type   = %s, %d fps\n", DisplayTypeName(framerate), framerate);
-    Dbg::Printf("Language       = %s\n", LanguageName());
-    Dbg::Printf("Territory      = %s\n", TerritoryName());
-    Dbg::Printf("CD             = %s\n", ConfigCD() ? "True" : "False");
-    Dbg::Printf("GotExtraMemory = %s\n", ConfigGotExtraMemory() ? "True" : "False");
-    Dbg::Printf("\n");
+    DebugOut::Printf("Display Type   = %s, %d fps\n", DisplayTypeName(framerate), framerate);
+    DebugOut::Printf("Language       = %s\n", LanguageName());
+    DebugOut::Printf("Territory      = %s\n", TerritoryName());
+    DebugOut::Printf("CD             = %s\n", ConfigCD() ? "True" : "False");
+    DebugOut::Printf("GotExtraMemory = %s\n", ConfigGotExtraMemory() ? "True" : "False");
+    DebugOut::Printf("\n");
     return true;
 }
 
@@ -381,9 +381,9 @@ bool __cdecl CFunc_InitSun(CStruct* params, CScript*)
     params->GetFloat(kPhi, &phi, 1);
     params->GetFloat(kRadius, &radius, 1);
     params->GetFloat(kSize, &size, 1);
-    params->GetChecksum(kTexture, &texture, 1);
-    params->GetChecksum(kCoronaTexture, &coronaTexture, 1);
-    params->GetChecksum(kLensFlareData, &lensFlareData, 1);
+    params->ReadHashValue(kTexture, &texture, 1);
+    params->ReadHashValue(kCoronaTexture, &coronaTexture, 1);
+    params->ReadHashValue(kLensFlareData, &lensFlareData, 1);
     Sun::Init(theta, phi, radius, size, texture, coronaTexture, lensFlareData);
     return true;
 }
@@ -395,4 +395,4 @@ bool __cdecl CFunc_UpdateLensFlare(CStruct* params, CScript* script)
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

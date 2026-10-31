@@ -5,22 +5,22 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
 // The object proximity component ("objectproximity", type 0x1D5B1AE6, vtable 0x0064B6C4, 0x30 bytes; made by
 // 0x004EC420): radii (kept squared, in inches: the scripts give feet) round an object and the nearest skater's
 // distance from it. Its script member functions are the table at 0x00682620 (filled at start-up).
-class CObjectProximityComponent : public CBaseComponent {
+class CObjectProximityComponent : public CObjectModule {
 public:
     // 0x004EC420: a new one (0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
     // 0x004EC370: the base's constructor, its vtable and type. Returns this.
     CObjectProximityComponent* Construct();
     // 0x004EC240: the destructor body (the base's).
@@ -44,17 +44,17 @@ public:
     // --- script member functions (the table at 0x00682620): the radius (the unnamed float, in feet) kept as
     // (12 x it) squared. True. ---
     // 0x004EC250 [Obj_SetInnerRadius]
-    bool Obj_SetInnerRadius(Script::CStruct* params, Script::CScript* script);
+    bool Obj_SetInnerRadius(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004EC280 [Obj_SetOuterRadius]
-    bool Obj_SetOuterRadius(Script::CStruct* params, Script::CScript* script);
+    bool Obj_SetOuterRadius(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004EC2B0 [Obj_SetInnerAvoidRadius]
-    bool Obj_SetInnerAvoidRadius(Script::CStruct* params, Script::CScript* script);
+    bool Obj_SetInnerAvoidRadius(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004EC2E0 [Obj_SetOuterAvoidRadius]
-    bool Obj_SetOuterAvoidRadius(Script::CStruct* params, Script::CScript* script);
+    bool Obj_SetOuterAvoidRadius(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004EC310 [Obj_SetAttentionRadius]: with the flag 0xFD2EACAD only if none is set yet.
-    bool Obj_SetAttentionRadius(Script::CStruct* params, Script::CScript* script);
+    bool Obj_SetAttentionRadius(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004EC480 [Obj_ObjectInAttentionRadius]: the local skater within the attention radius.
-    bool Obj_ObjectInAttentionRadius(Script::CStruct* params, Script::CScript* script);
+    bool Obj_ObjectInAttentionRadius(Scripts::CStruct* params, Scripts::CScript* script);
 
     float m_innerRadiusSquared;       // +0x18
     float m_outerRadiusSquared;       // +0x1C

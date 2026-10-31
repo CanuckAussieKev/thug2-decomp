@@ -11,7 +11,7 @@
 
 #include "game/front/level_editor_fields.h"
 
-namespace Front::LevelEditor::Changes {
+namespace MenuSystem::LevelEditor::Changes {
 
 namespace {
 
@@ -84,7 +84,7 @@ uint32_t IdOf(const std::string& word)
         w = w.substr(2);
     if (IsHex8(w))
         return static_cast<uint32_t>(std::strtoul(w.c_str(), nullptr, 16));
-    return w.empty() ? 0 : Fields::NameChecksum(w);
+    return w.empty() ? 0 : Fields::HashOfName(w);
 }
 
 std::vector<Entry> List(const std::string& layoutText, const Labeler& label)
@@ -263,4 +263,4 @@ std::string Without(const std::string& layoutText, int line)
     return out;
 }
 
-} // namespace Front::LevelEditor::Changes
+} // namespace MenuSystem::LevelEditor::Changes

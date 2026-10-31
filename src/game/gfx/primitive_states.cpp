@@ -12,7 +12,7 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/device.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -23,7 +23,7 @@ IDirect3DDevice9* Device() { return g_d3dDevice; }
 // 0x004B60B0
 void __cdecl SetPrimitiveStates()
 {
-    SetBlendMode(0x11);
+    ChooseBlendMode(0x11);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_TEX1);
     SetPixelShader(nullptr, nullptr);
     Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);

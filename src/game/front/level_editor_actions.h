@@ -25,7 +25,7 @@
 //
 // Other agents' and later work's keys: appended to the built-in table (kBuiltins) and to Id below; the order is the
 // registry's and the help's.
-namespace Front::LevelEditor::Actions {
+namespace MenuSystem::LevelEditor::Actions {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -157,4 +157,4 @@ void CancelCapture();
 bool Capturing();
 int CapturingIndex();
 
-} // namespace Front::LevelEditor::Actions
+} // namespace MenuSystem::LevelEditor::Actions

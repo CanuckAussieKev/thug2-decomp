@@ -19,7 +19,7 @@
 #include "game/sys/log.h"
 #include "game/skate/skate_module.h"
 
-namespace Front::LevelEditor::LevelProps {
+namespace MenuSystem::LevelEditor::LevelProps {
 
 namespace {
 
@@ -159,7 +159,7 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
     if (TodName(props.tod)) {
         Fields::Value v;
         v.kind = Fields::Kind::Name;
-        v.checksum = Fields::NameChecksum(TodName(props.tod));
+        v.checksum = Fields::HashOfName(TodName(props.tod));
         out.push_back({"tod_state", v});
     }
     if (props.time == 0 || props.time == 1)
@@ -189,7 +189,7 @@ std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& 
     return out;
 }
 
-bool Override(const Props& edited, const Props& level, Gfx::TODParams* params)
+bool Override(const Props& edited, const Props& level, Gfx2D::TODParams* params)
 {
     const Props* ambient = edited.hasAmbient ? &edited : level.hasAmbient ? &level : nullptr;
     if (ambient) {
@@ -208,13 +208,13 @@ bool Override(const Props& edited, const Props& level, Gfx::TODParams* params)
     return true;
 }
 
-void ReadOverrideKeys(Script::CStruct* level, Props* out)
+void ReadOverrideKeys(Scripts::CStruct* level, Props* out)
 {
-    static const uint32_t kAmbient = Crc::GenerateCRCFromString("ed_ambient"),
-                          kFog = Crc::GenerateCRCFromString("ed_fog");
+    static const uint32_t kAmbient = Checksums::HashFromText("ed_ambient"),
+                          kFog = Checksums::HashFromText("ed_fog");
     auto read = [&](uint32_t key, int* values, uint32_t count) {
-        Script::CArray* array = nullptr;
-        if (!level || !level->GetArray(key, &array, 0) || !array || array->m_type != Script::ESYMBOLTYPE_INTEGER ||
+        Scripts::CArray* array = nullptr;
+        if (!level || !level->GetArray(key, &array, 0) || !array || array->m_type != Scripts::QBVAL_INTEGER ||
             array->m_size != count)
             return false;
         for (uint32_t i = 0; i < count; ++i)
@@ -234,13 +234,13 @@ Props g_props;
 Props g_level;
 bool g_filterSet;
 
-bool Filter(Gfx::TODParams* params) { return Override(g_props, g_level, params); }
+bool Filter(Gfx2D::TODParams* params) { return Override(g_props, g_level, params); }
 
 void InstallFilter()
 {
     if (!g_filterSet) {
         g_filterSet = true;
-        Gfx::SetTODParamsFilter(&Filter);
+        Gfx2D::SetTODParamsFilter(&Filter);
     }
 }
 
@@ -252,26 +252,26 @@ bool LightingSame(const Props& a, const Props& b)
 std::vector<std::string> g_skies;
 bool g_skiesMade;
 
-// The level structure's values put in by WriteIntoStructure, and what was there before.
+// The level structure's values put in by ExportToStruct, and what was there before.
 struct Kept {
     uint32_t key;
     Fields::Own before;
 };
-Script::CStruct* g_written;
+Scripts::CStruct* g_written;
 std::vector<Kept> g_kept;
 
 // The level structure of the level loaded now (Levels.qb's Level_<x>: its load_script is the skate module's level).
-Script::CStruct* CurrentLevelStructure()
+Scripts::CStruct* CurrentLevelStructure()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     uint32_t load = skate ? *reinterpret_cast<uint32_t*>(skate + 0x378) : 0;
     if (!load)
         return nullptr;
-    static const uint32_t kLoadScript = Crc::GenerateCRCFromString("load_script");
-    for (Script::CSymbolTableEntry* e = Script::GetNextSymbol(nullptr); e; e = Script::GetNextSymbol(e)) {
+    static const uint32_t kLoadScript = Checksums::HashFromText("load_script");
+    for (Scripts::CSymbolTableEntry* e = Scripts::GetNextSymbol(nullptr); e; e = Scripts::GetNextSymbol(e)) {
         uint32_t value = 0;
-        if (e->type == Script::ESYMBOLTYPE_STRUCTURE && e->structure &&
-            e->structure->GetChecksum(kLoadScript, &value, 0) && value == load)
+        if (e->type == Scripts::QBVAL_STRUCT && e->structure &&
+            e->structure->ReadHashValue(kLoadScript, &value, 0) && value == load)
             return e->structure;
     }
     return nullptr;
@@ -279,9 +279,9 @@ Script::CStruct* CurrentLevelStructure()
 
 void ShowTimeOfDay(int tod)
 {
-    Gfx::CTODManager* manager = Gfx::TODManager();
+    Gfx2D::CTODManager* manager = Gfx2D::TODManager();
     if (manager && TodName(tod))
-        manager->SetTODInstant(Crc::GenerateCRCFromString(TodName(tod)));
+        manager->SetTODInstant(Checksums::HashFromText(TodName(tod)));
 }
 
 } // namespace
@@ -307,7 +307,7 @@ void Set(const Props& props)
     if (lighting && !todChanged)
         Reapply();
     // (a fog the editor had forced on, taken off where the manager's fog is off: off again - the manager's own switch)
-    Gfx::CTODManager* manager = Gfx::TODManager();
+    Gfx2D::CTODManager* manager = Gfx2D::TODManager();
     if (fogWas && !g_props.hasFog && !g_level.hasFog && manager && !manager->m_fogActive) {
         manager->m_fogActive = true;
         manager->SetFogActive(false);
@@ -331,7 +331,7 @@ void OnLevelUp(bool network)
 
 void Reapply()
 {
-    Gfx::CTODManager* manager = Gfx::TODManager();
+    Gfx2D::CTODManager* manager = Gfx2D::TODManager();
     // (no parameters yet: nothing to send; lights a script set from a named state - ResetLevelLights - kept: the
     // override goes with the next state change)
     if (!manager || !manager->m_paramsSet || manager->m_levelLightsReset)
@@ -342,29 +342,29 @@ void Reapply()
 
 bool LevelDefaults(Props* props)
 {
-    Script::CStruct* level = CurrentLevelStructure();
+    Scripts::CStruct* level = CurrentLevelStructure();
     if (!level)
         return false;
     Props p;
     const char* name = nullptr;
-    if (level->GetString(Crc::GenerateCRCFromString("name"), &name, 0) && name)
+    if (level->GetString(Checksums::HashFromText("name"), &name, 0) && name)
         p.name = name;
     const char* sky = nullptr;
-    if (level->GetString(Crc::GenerateCRCFromString("sky"), &sky, 0) && sky)
+    if (level->GetString(Checksums::HashFromText("sky"), &sky, 0) && sky)
         p.sky = sky;
     uint32_t state = 0;
     p.tod = 1; // (load_level: afternoon when the level names none)
-    if (level->GetChecksum(Crc::GenerateCRCFromString("tod_state"), &state, 0)) {
+    if (level->ReadHashValue(Checksums::HashFromText("tod_state"), &state, 0)) {
         for (int i = 0; i < kStates; ++i)
-            p.tod = state == Crc::GenerateCRCFromString(kStateNames[i]) ? i : p.tod;
+            p.tod = state == Checksums::HashFromText(kStateNames[i]) ? i : p.tod;
     }
     int value = 1;
-    p.time = level->GetInteger(Crc::GenerateCRCFromString("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
+    p.time = level->FetchIntValue(Checksums::HashFromText("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
     // (map4) The ambient light and fog the level shows: the time-of-day manager's current state's - where the engine's
     // come from - with the level structure's ed_ keys (a bake's) over them.
-    Gfx::CTODManager* manager = Gfx::TODManager();
+    Gfx2D::CTODManager* manager = Gfx2D::TODManager();
     if (manager && manager->m_paramsSet) {
-        Gfx::TODParams now = manager->GetTODParams(-1);
+        Gfx2D::TODParams now = manager->GetTODParams(-1);
         Override(Props{}, g_level, &now);
         p.hasAmbient = true;
         p.ambient[0] = now.ambientRed;
@@ -391,12 +391,12 @@ const std::vector<std::string>& Skies()
         return g_skies;
     g_skiesMade = true;
     g_skies.clear();
-    static const uint32_t kSky = Crc::GenerateCRCFromString("sky"), kLoadScript = Crc::GenerateCRCFromString("load_script");
-    for (Script::CSymbolTableEntry* e = Script::GetNextSymbol(nullptr); e; e = Script::GetNextSymbol(e)) {
+    static const uint32_t kSky = Checksums::HashFromText("sky"), kLoadScript = Checksums::HashFromText("load_script");
+    for (Scripts::CSymbolTableEntry* e = Scripts::GetNextSymbol(nullptr); e; e = Scripts::GetNextSymbol(e)) {
         const char* sky = nullptr;
         uint32_t load = 0;
         // (a level structure: it names its load script - not some other structure with a sky=)
-        if (e->type != Script::ESYMBOLTYPE_STRUCTURE || !e->structure || !e->structure->GetChecksum(kLoadScript, &load, 0) ||
+        if (e->type != Scripts::QBVAL_STRUCT || !e->structure || !e->structure->ReadHashValue(kLoadScript, &load, 0) ||
             !e->structure->GetString(kSky, &sky, 0) || !sky || !ValidSky(sky))
             continue;
         bool there = false;
@@ -411,7 +411,7 @@ const std::vector<std::string>& Skies()
     return g_skies;
 }
 
-void WriteIntoStructure(Script::CStruct* level, const Props& props)
+void ExportToStruct(Scripts::CStruct* level, const Props& props)
 {
     RestoreStructure();
     if (!level)
@@ -421,7 +421,7 @@ void WriteIntoStructure(Script::CStruct* level, const Props& props)
         return;
     g_written = level;
     for (const auto& entry : values) {
-        uint32_t key = Crc::GenerateCRCFromString(entry.first);
+        uint32_t key = Checksums::HashFromText(entry.first);
         g_kept.push_back({key, Fields::OwnIn(level, key, false)});
         Fields::Own own;
         own.present = true;
@@ -444,21 +444,21 @@ void RestoreStructure()
 
 void OnEditedCopyUp(const Props& props)
 {
-    static const uint32_t kClass = Crc::GenerateCRCFromString("Class"), kRestart = Crc::GenerateCRCFromString("Restart");
-    Script::CStruct* node = props.start && SkateScript::NodeManagerInstance() ? SkateScript::GetNode(props.start, false)
+    static const uint32_t kClass = Checksums::HashFromText("Class"), kRestart = Checksums::HashFromText("Restart");
+    Scripts::CStruct* node = props.start && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(props.start, false)
                                                                               : nullptr;
     uint32_t cls = 0;
-    if (!node || !node->GetChecksum(kClass, &cls, 0) || cls != kRestart) {
+    if (!node || !node->ReadHashValue(kClass, &cls, 0) || cls != kRestart) {
         if (props.start)
             Log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
         return;
     }
-    Script::CStruct* params = Script::NewStruct()->Init();
-    params->AddChecksum(Crc::GenerateCRCFromString("node_name"), props.start);
-    Script::RunScript(Crc::GenerateCRCFromString("ResetSkaters"), params, nullptr, false, "ResetSkaters");
+    Scripts::CStruct* params = Scripts::NewStruct()->Init();
+    params->PutNameKey(Checksums::HashFromText("node_name"), props.start);
+    Scripts::LaunchScript(Checksums::HashFromText("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->Clear();
-    Script::DeleteStruct(params);
+    Scripts::DeleteStruct(params);
     Log("level editor: the edited copy's start - the skater put at %08X", props.start);
 }
 
-} // namespace Front::LevelEditor::LevelProps
+} // namespace MenuSystem::LevelEditor::LevelProps

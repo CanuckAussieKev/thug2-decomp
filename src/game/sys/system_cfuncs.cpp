@@ -12,12 +12,12 @@
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 constexpr uint32_t kPlatform = 0xC6AD2F34;    // "platform"
 constexpr uint32_t kXbox = 0x87D839B8;        // "xbox" (the PC build answers as the Xbox one)
@@ -29,10 +29,10 @@ int Platform() { return GameConfig::g_platform; }
 
 uint32_t g_timerStart;
 
-// The stopwatch's start (Tmr::GetTime, 0x00696D3C).
+// The stopwatch's start (FrameClock::GetTime, 0x00696D3C).
 uint32_t& TimerStart() { return g_timerStart; }
 // The game clock (ms), as scripts see it: the clock plus its offset (0x00696D60).
-int ScriptClock() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
+int ScriptClock() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
 
 } // namespace
 
@@ -42,21 +42,21 @@ bool __cdecl CFunc_IsWIN32(CStruct*, CScript*) { return Platform() == 7; }
 // 0x0044E3B0: GetPlatform: the script's platform=xbox. Always true.
 bool __cdecl CFunc_GetPlatform(CStruct*, CScript* script)
 {
-    script->m_params->AddChecksum(kPlatform, kXbox);
+    script->m_params->PutNameKey(kPlatform, kXbox);
     return true;
 }
 
 // 0x0044E3D0: Randomize: the random numbers seeded from the time. Always true.
 bool __cdecl CFunc_Randomize(CStruct*, CScript*)
 {
-    Mth::InitialRand(Tmr::GetTime());
+    Maths::SeedRandom(FrameClock::GetTime());
     return true;
 }
 
 // 0x0044E3F0: ResetTimer: the stopwatch started. Always true.
 bool __cdecl CFunc_ResetTimer(CStruct*, CScript*)
 {
-    TimerStart() = Tmr::GetTime();
+    TimerStart() = FrameClock::GetTime();
     return true;
 }
 
@@ -66,14 +66,14 @@ bool __cdecl CFunc_TimeGreaterThan(CStruct* params, CScript*)
 {
     float seconds = 0.0f;
     params->GetFloat(0u, &seconds, 0);
-    uint32_t elapsed = Tmr::GetTime() - TimerStart();
+    uint32_t elapsed = FrameClock::GetTime() - TimerStart();
     return static_cast<double>(seconds) * 1000.0 < static_cast<double>(elapsed);
 }
 
 // 0x0044E460: GetStartTime: the script clock now as the script's StartTime. Always true.
 bool __cdecl CFunc_GetStartTime(CStruct*, CScript* script)
 {
-    script->m_params->AddInteger(kStartTime, ScriptClock());
+    script->m_params->PutInt(kStartTime, ScriptClock());
     return true;
 }
 
@@ -82,9 +82,9 @@ bool __cdecl CFunc_GetStartTime(CStruct*, CScript* script)
 bool __cdecl CFunc_GetElapsedTime(CStruct* params, CScript* script)
 {
     int start = 0;
-    params->GetInteger(kStartTime, &start, 0);
-    script->m_params->AddInteger(kElapsedTime, Tmr::GameClockElapsed() + (Obj::g_clockOffset - start));
+    params->FetchIntValue(kStartTime, &start, 0);
+    script->m_params->PutInt(kElapsedTime, FrameClock::GameClockElapsed() + (GameObjects::g_clockOffset - start));
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

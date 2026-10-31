@@ -11,16 +11,16 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 bool g_textureFlagCe441;
 char g_parkName[128];
 
 namespace {
 
-using Script::CComponent;
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CComponent;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 // The names of the texture commands' parameters.
 constexpr uint32_t kWidth = 0x73E5BAD0;  // "width"
@@ -30,25 +30,25 @@ constexpr uint32_t kNew = 0x941CBBBA;    // "new"
 constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness / HSV: an integer, 1 = the flag on
 
 // The texture dictionaries (Nx): the level's / scripts' (0x00700F1C) and the particles' (0x00700F20).
-void* Textures() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
-void* ParticleTextures() { return reinterpret_cast<void*>(Nx::g_particleTextureDict); }
+void* Textures() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
+void* ParticleTextures() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
 
 // A dictionary's calls (no source yet).
-void* LoadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)
+void* ReadTextureFile(void* dictionary, const char* file, bool flag1, bool allocateVram, bool flag3)
 {
-    return static_cast<Nx::CTexDict*>(dictionary)->LoadTexture(file, flag1, allocateVram, flag3);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->LoadTexture(file, flag1, allocateVram, flag3);
 }
 void* GetTexture(void* dictionary, uint32_t checksum)
 {
-    return static_cast<Nx::CTexDict*>(dictionary)->GetTexture(checksum);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->GetTexture(checksum);
 }
 void* GetTextureByName(void* dictionary, const char* file)
 {
-    return static_cast<Nx::CTexDict*>(dictionary)->GetTextureByName(file);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->GetTextureByName(file);
 }
 void UnloadTextureFrom(void* dictionary, void* texture)
 {
-    static_cast<Nx::CTexDict*>(dictionary)->UnloadTexture(static_cast<Nx::CTexture*>(texture));
+    static_cast<Engine3D::CTextureSet*>(dictionary)->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(texture));
 }
 
 // A texture's own calls (thunks into its vtable).
@@ -77,17 +77,17 @@ uint32_t __cdecl FindNameOfValue(CStruct* structure, uint32_t value, int depth)
     if (depth > 10)
         return 0;
     uint32_t found = 0;
-    for (CComponent* component = structure->GetNextComponent(nullptr); component;) {
+    for (CComponent* component = structure->StepToEntry(nullptr); component;) {
         // (the global structure the component's value names, looked up for every component)
-        CStruct* named = Script::GetStructure(RawValue(component));
-        CComponent* next = structure->GetNextComponent(component);
+        CStruct* named = Scripts::ReadSubStruct(RawValue(component));
+        CComponent* next = structure->StepToEntry(component);
         if (!found) {
-            if (component->Type() == Script::ESYMBOLTYPE_STRUCTURE)
+            if (component->Type() == Scripts::QBVAL_STRUCT)
                 found = FindNameOfValue(component->structure, value, depth + 1);
             else if (named)
                 found = FindNameOfValue(named, value, depth + 1);
         }
-        if (component->Type() == Script::ESYMBOLTYPE_NAME && component->checksum == value)
+        if (component->Type() == Scripts::QBVAL_NAME && component->checksum == value)
             found = component->name;
         component = next;
     }
@@ -98,10 +98,10 @@ uint32_t __cdecl FindNameOfValue(CStruct* structure, uint32_t value, int depth)
 uint32_t FindNameOfInteger(CStruct* structure, uint32_t value)
 {
     uint32_t found = 0;
-    for (CComponent* component = structure->GetNextComponent(nullptr); component;) {
-        CComponent* next = structure->GetNextComponent(component);
-        if (component->Type() == Script::ESYMBOLTYPE_INTEGER && component->raw == value) {
-            Dbg::Printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
+    for (CComponent* component = structure->StepToEntry(nullptr); component;) {
+        CComponent* next = structure->StepToEntry(component);
+        if (component->Type() == Scripts::QBVAL_INTEGER && component->raw == value) {
+            DebugOut::Printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }
         component = next;
@@ -143,8 +143,8 @@ float __cdecl WrapAngle(float degrees)
 bool __cdecl CFunc_CompositeObjectExists(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
-    return Obj::FindObject(id) != nullptr;
+    params->ReadHashValue(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
+    return GameObjects::FindObject(id) != nullptr;
 }
 
 // 0x005A9F00
@@ -152,8 +152,8 @@ bool __cdecl CFunc_LoadTexture(CStruct* params, CScript*)
 {
     const char* file;
     params->GetString(0u, &file, 0);
-    bool allocateVram = !params->ContainsFlag(0x3955FF2Eu); // no_vram_alloc
-    return LoadTextureFile(Textures(), file, true, allocateVram, true) != nullptr;
+    bool allocateVram = !params->HasBareFlag(0x3955FF2Eu); // no_vram_alloc
+    return ReadTextureFile(Textures(), file, true, allocateVram, true) != nullptr;
 }
 
 bool TextureLoaded(const char* file) { return GetTextureByName(Textures(), file) != nullptr; }
@@ -162,19 +162,19 @@ bool TextureLoaded(const char* file) { return GetTextureByName(Textures(), file)
 bool __cdecl CFunc_CreateTexture(CStruct* params, CScript*)
 {
     uint32_t name;
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     int width;
     int height;
     int bitDepth;
     int paletteBitDepth = 0; // (not initialised in the original: only read when needed)
-    bool valid = params->GetInteger(kWidth, &width, 0);
-    valid = params->GetInteger(kHeight, &height, 0) && valid;
-    valid = params->GetInteger(0xBA0F2AC5u, &bitDepth, 0) && valid; // bitdepth
-    if (bitDepth <= 8 && !params->GetInteger(0x51533ECBu, &paletteBitDepth, 0)) // palette_bitdepth
+    bool valid = params->FetchIntValue(kWidth, &width, 0);
+    valid = params->FetchIntValue(kHeight, &height, 0) && valid;
+    valid = params->FetchIntValue(0xBA0F2AC5u, &bitDepth, 0) && valid; // bitdepth
+    if (bitDepth <= 8 && !params->FetchIntValue(0x51533ECBu, &paletteBitDepth, 0)) // palette_bitdepth
         return false;
     if (!valid)
         return false;
-    return static_cast<Nx::CTexDict*>(Textures())->CreateTexture(name, width, height, bitDepth, paletteBitDepth, 1, true) !=
+    return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, bitDepth, paletteBitDepth, 1, true) !=
            nullptr;
 }
 
@@ -186,13 +186,13 @@ bool __cdecl CFunc_UnloadTexture(CStruct* params, CScript*)
     uint32_t checksum;
     if (params->GetString(0u, &file, 0))
         texture = GetTextureByName(Textures(), file);
-    else if (params->GetChecksum(0u, &checksum, 0))
+    else if (params->ReadHashValue(0u, &checksum, 0))
         texture = GetTexture(Textures(), checksum);
     if (texture) {
         UnloadTextureFrom(Textures(), texture);
         return true;
     }
-    params->ContainsFlag(0x3D92465Eu); // dont_assert (the assert is compiled out)
+    params->HasBareFlag(0x3D92465Eu); // dont_assert (the assert is compiled out)
     return true;
 }
 
@@ -200,15 +200,15 @@ bool __cdecl CFunc_UnloadTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_Generate32BitImage(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         bool renderable = false;
         bool storeOriginal = false;
         int value;
-        if (params->GetInteger(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
+        if (params->FetchIntValue(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
             renderable = true;
-        if (params->GetInteger(0xEEFAF080u, &value, 0) && value == 1) // store_original
+        if (params->FetchIntValue(0xEEFAF080u, &value, 0) && value == 1) // store_original
             storeOriginal = true;
         TextureCall<void(__thiscall*)(void*, bool, bool)>(8, texture, renderable, storeOriginal);
     }
@@ -219,12 +219,12 @@ bool __cdecl CFunc_Generate32BitImage(CStruct* params, CScript*)
 bool __cdecl CFunc_Put32BitImageIntoTexture(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         bool paletteGen = false;
         int value = 0;
-        params->GetInteger(0xC313FDFFu, &value, 0); // palette_gen
+        params->FetchIntValue(0xC313FDFFu, &value, 0); // palette_gen
         if (value == 1)
             paletteGen = true;
         TextureCall<void(__thiscall*)(void*, bool, bool)>(9, texture, paletteGen, false);
@@ -236,13 +236,13 @@ bool __cdecl CFunc_Put32BitImageIntoTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_FlipTexture(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     int horizontal = 0;
     int vertical = 0;
     void* texture = GetTexture(Textures(), id);
     if (texture) {
-        params->GetInteger(0xA04027C9u, &horizontal, 0); // horiz
-        params->GetInteger(0x94927839u, &vertical, 0);   // vert
+        params->FetchIntValue(0xA04027C9u, &horizontal, 0); // horiz
+        params->FetchIntValue(0x94927839u, &vertical, 0);   // vert
         if (horizontal)
             TextureCall<void(__thiscall*)(void*)>(13, texture);
         if (vertical)
@@ -255,9 +255,9 @@ bool __cdecl CFunc_FlipTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_ResizeTextureInto(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     uint32_t source; // (not initialised without src=, as in the original)
-    params->GetChecksum(kSrc, &source, 0);
+    params->ReadHashValue(kSrc, &source, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         if (void* sourceTexture = GetTexture(Textures(), source))
@@ -270,7 +270,7 @@ bool __cdecl CFunc_ResizeTextureInto(CStruct* params, CScript*)
 bool __cdecl CFunc_ScaleTexture(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     float scale; // (not initialised without scale=, as in the original)
     params->GetFloat(0x13B9DA7Bu, &scale, 0);
     if (void* texture = GetTexture(Textures(), id))
@@ -282,7 +282,7 @@ bool __cdecl CFunc_ScaleTexture(CStruct* params, CScript*)
 bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         int x = 0;
@@ -294,13 +294,13 @@ bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
         int value5 = 0;
         int value6 = 0;
         int value7 = 0;
-        params->GetInteger(0x0FA8972Eu, &x, 0); // xpos
-        params->GetInteger(0xB714F04Bu, &y, 0); // ypos
-        params->GetInteger(kWidth, &width, 0);
-        params->GetInteger(kHeight, &height, 0);
-        params->GetInteger(0xE679982Eu, &value5, 0); // (names unknown)
-        params->GetInteger(0x3D0F162Au, &value6, 0);
-        params->GetInteger(0x39C54BDEu, &value7, 0);
+        params->FetchIntValue(0x0FA8972Eu, &x, 0); // xpos
+        params->FetchIntValue(0xB714F04Bu, &y, 0); // ypos
+        params->FetchIntValue(kWidth, &width, 0);
+        params->FetchIntValue(kHeight, &height, 0);
+        params->FetchIntValue(0xE679982Eu, &value5, 0); // (names unknown)
+        params->FetchIntValue(0x3D0F162Au, &value6, 0);
+        params->FetchIntValue(0x39C54BDEu, &value7, 0);
         TextureCall<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width,
                                                                                  height, value5, value6, value7);
     }
@@ -311,15 +311,15 @@ bool __cdecl CFunc_AdjustTextureRegion(CStruct* params, CScript*)
 bool __cdecl CFunc_PullTextureToEdge(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         int edge = 0;
         int axis = 0;
         int pixels = 0;
-        params->GetInteger(0x485A0CDBu, &edge, 0);   // (name unknown)
-        params->GetInteger(0x7AF07905u, &axis, 0);   // Axis
-        params->GetInteger(0x88CF948Cu, &pixels, 0); // num_pixels
+        params->FetchIntValue(0x485A0CDBu, &edge, 0);   // (name unknown)
+        params->FetchIntValue(0x7AF07905u, &axis, 0);   // Axis
+        params->FetchIntValue(0x88CF948Cu, &pixels, 0); // num_pixels
         TextureCall<void(__thiscall*)(void*, int, int, int)>(21, texture, edge, axis, pixels);
     }
     return true;
@@ -329,14 +329,14 @@ bool __cdecl CFunc_PullTextureToEdge(CStruct* params, CScript*)
 bool __cdecl CFunc_AdjustTextureBrightness(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         float brightness = 1.0f;
         int value = 0;
         bool flag = false;
         params->GetFloat(0x2689291Cu, &brightness, 1); // Brightness
-        params->GetInteger(kSetsPaletteFlag, &value, 0);
+        params->FetchIntValue(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
         TextureCall<void(__thiscall*)(void*, float, bool)>(23, texture, brightness, flag);
@@ -348,19 +348,19 @@ bool __cdecl CFunc_AdjustTextureBrightness(CStruct* params, CScript*)
 bool __cdecl CFunc_AdjustTextureHSV(CStruct* params, CScript*)
 {
     uint32_t id;
-    params->GetChecksum(0u, &id, 0);
+    params->ReadHashValue(0u, &id, 0);
     void* texture = GetTexture(Textures(), id);
     if (texture) {
         float hue = 0.0f;
         float saturation = 1.0f;
         float value = 1.0f;
-        int flagValue = 0;
+        int bitValue = 0;
         bool flag = false;
         params->GetFloat(0x6E94F918u, &hue, 0);        // h
         params->GetFloat(0xE4F130F4u, &saturation, 0); // s
         params->GetFloat(0x949BC47Bu, &value, 0);      // v
-        params->GetInteger(kSetsPaletteFlag, &flagValue, 0);
-        if (flagValue == 1)
+        params->FetchIntValue(kSetsPaletteFlag, &bitValue, 0);
+        if (bitValue == 1)
             flag = true;
         TextureCall<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value,
                                                                          flag);
@@ -373,11 +373,11 @@ bool __cdecl CFunc_AdjustTextureHSV(CStruct* params, CScript*)
 bool __cdecl CFunc_CopyTexture(CStruct* params, CScript*)
 {
     uint32_t source;
-    params->GetChecksum(kSrc, &source, 0);
+    params->ReadHashValue(kSrc, &source, 0);
     void* texture = GetTexture(Textures(), source);
     uint32_t copy;
-    if (texture && params->GetChecksum(kNew, &copy, 0))
-        static_cast<Nx::CTexDict*>(Textures())->CopyTexture(copy, static_cast<Nx::CTexture*>(texture));
+    if (texture && params->ReadHashValue(kNew, &copy, 0))
+        static_cast<Engine3D::CTextureSet*>(Textures())->CopyTexture(copy, static_cast<Engine3D::CBitmapTexture*>(texture));
     return true;
 }
 
@@ -388,10 +388,10 @@ bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
     uint32_t top;
     uint32_t combined = 0;
     bool paletteGen = true;
-    params->GetChecksum(kSrc, &source, 0);
-    params->GetChecksum(0xE126E035u, &top, 0); // top
-    params->GetChecksum(kNew, &combined, 0);
-    if (params->ContainsFlag(0x5905256Bu)) // no_palette_gen
+    params->ReadHashValue(kSrc, &source, 0);
+    params->ReadHashValue(0xE126E035u, &top, 0); // top
+    params->ReadHashValue(kNew, &combined, 0);
+    if (params->HasBareFlag(0x5905256Bu)) // no_palette_gen
         paletteGen = false;
     void* sourceTexture = GetTexture(Textures(), source);
     if (!sourceTexture)
@@ -401,8 +401,8 @@ bool __cdecl CFunc_CombineTextures(CStruct* params, CScript*)
         return true;
     if (combined) {
         // a new texture of the two
-        static_cast<Nx::CTexDict*>(Textures())->CopyTextureWithOverlay(
-            combined, static_cast<Nx::CTexture*>(sourceTexture), static_cast<Nx::CTexture*>(topTexture), paletteGen);
+        static_cast<Engine3D::CTextureSet*>(Textures())->CopyTextureWithOverlay(
+            combined, static_cast<Engine3D::CBitmapTexture*>(sourceTexture), static_cast<Engine3D::CBitmapTexture*>(topTexture), paletteGen);
         return true;
     }
     TextureCall<void(__thiscall*)(void*, void*, bool)>(41, sourceTexture, topTexture, paletteGen);
@@ -417,9 +417,9 @@ bool __cdecl CFunc_LoadParticleTexture(CStruct* params, CScript*)
     if (file[0] == '\0')
         return false;
     void* texture = GetTextureByName(ParticleTextures(), file);
-    bool permanent = params->ContainsFlag(0xD5928F25u); // perm
+    bool permanent = params->HasBareFlag(0xD5928F25u); // perm
     if (!texture)
-        texture = LoadTextureFile(ParticleTextures(), file, true, true, permanent);
+        texture = ReadTextureFile(ParticleTextures(), file, true, true, permanent);
     return texture != nullptr;
 }
 
@@ -440,7 +440,7 @@ bool __cdecl CFunc_LoadSFPTexture(CStruct* params, CScript*)
 {
     const char* file;
     params->GetString(0u, &file, 0);
-    return LoadTextureFile(ParticleTextures(), file, false, true, true) != nullptr;
+    return ReadTextureFile(ParticleTextures(), file, false, true, true) != nullptr;
 }
 
 // 0x005AA8B0
@@ -464,4 +464,4 @@ bool __cdecl CFunc_SetParkName(CStruct* params, CScript*)
     return false;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

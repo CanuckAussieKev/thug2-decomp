@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace Front::LevelEditor::Nav {
+namespace MenuSystem::LevelEditor::Nav {
 
 namespace {
 
@@ -220,4 +220,4 @@ bool RemoveFromGroup(Organize::State* state, int index, const std::vector<Organi
     return in.size() != before;
 }
 
-} // namespace Front::LevelEditor::Nav
+} // namespace MenuSystem::LevelEditor::Nav

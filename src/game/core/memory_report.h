@@ -6,7 +6,7 @@
 //   (peak <peak> KB) ...; process: private <committed> MB, address space free <total> MB (largest <block> MB)
 // The main block's heaps (top down / bottom up) hold the level's scene, collision and node data; the textures and
 // vertex buffers are Direct3D's, outside it (the process figures show them).
-namespace Mem {
+namespace MemSys {
 
 void LogMemoryUse(const char* when);
 

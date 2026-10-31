@@ -2,7 +2,7 @@
 
 #include "game/mth/random.h"
 
-namespace Mth {
+namespace Maths {
 
 namespace {
 
@@ -40,7 +40,7 @@ int Scale(uint32_t sample, int n)
 } // namespace
 
 // 0x00403DA0
-void InitialRand(uint32_t seed)
+void SeedRandom(uint32_t seed)
 {
     Stream1() = {kInitialAdd, kInitialMul, seed};
     Stream2() = {kInitialAdd, kInitialMul, seed};
@@ -53,13 +53,13 @@ int Rnd(int n)
 }
 
 // 0x00403E30
-int Rnd2(int n)
+int RollSideStream(int n)
 {
     return Scale(Next(Stream2()), n);
 }
 
 // 0x00403E80
-float PlusOrMinus(float range) { return static_cast<float>(PlusOrMinusExact(range)); }
+float SignedSpread(float range) { return static_cast<float>(PlusOrMinusExact(range)); }
 
 // (0x00403E80's result as the x87 leaves it in ST0, unrounded)
 double PlusOrMinusExact(float range)

@@ -9,7 +9,7 @@
 #include "game/mth/math.h"
 #include "game/mth/x87_math.h"
 
-namespace Mth {
+namespace Maths {
 
 // 0x00404090
 Matrix& Matrix::operator=(const Matrix& other)
@@ -26,7 +26,7 @@ Vector& Matrix::operator[](int index)
 }
 
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
-Matrix& CreateRotateXMatrix(Matrix& m, float angle)
+Matrix& MakePitchMatrix(Matrix& m, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -38,7 +38,7 @@ Matrix& CreateRotateXMatrix(Matrix& m, float angle)
 }
 
 // 0x00404E20
-Matrix& CreateRotateYMatrix(Matrix& m, float angle)
+Matrix& MakeYawMatrix(Matrix& m, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -50,7 +50,7 @@ Matrix& CreateRotateYMatrix(Matrix& m, float angle)
 }
 
 // 0x00404E70
-Matrix& CreateRotateZMatrix(Matrix& m, float angle)
+Matrix& MakeRollMatrix(Matrix& m, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -78,47 +78,47 @@ Matrix& Multiply(Matrix& out, const Matrix& a, const Matrix& b)
 // The originals build the rotation and call the statically linked D3DXMatrixMultiply(this, &rotation, this).
 
 // 0x00405670
-Matrix& Matrix::RotateXLocal(float angle)
+Matrix& Matrix::PitchLocally(float angle)
 {
     Matrix rotation;
-    return Multiply(*this, CreateRotateXMatrix(rotation, angle), *this);
+    return Multiply(*this, MakePitchMatrix(rotation, angle), *this);
 }
 
 // 0x0041A6A0 / 0x0041A6D0 / 0x0041A700 (the originals: D3DXMatrixMultiply(this, this, &rotation))
-Matrix& Matrix::RotateX(float angle)
+Matrix& Matrix::SpinAroundX(float angle)
 {
     Matrix rotation;
-    return Multiply(*this, *this, CreateRotateXMatrix(rotation, angle));
+    return Multiply(*this, *this, MakePitchMatrix(rotation, angle));
 }
 
 Matrix& Matrix::RotateY(float angle)
 {
     Matrix rotation;
-    return Multiply(*this, *this, CreateRotateYMatrix(rotation, angle));
+    return Multiply(*this, *this, MakeYawMatrix(rotation, angle));
 }
 
-Matrix& Matrix::RotateZ(float angle)
+Matrix& Matrix::SpinAroundZ(float angle)
 {
     Matrix rotation;
-    return Multiply(*this, *this, CreateRotateZMatrix(rotation, angle));
+    return Multiply(*this, *this, MakeRollMatrix(rotation, angle));
 }
 
-// 0x0041A730 (the original: D3DXMatrixMultiply(this, this, &rotation) for each angle, as RotateX / Y / Z)
+// 0x0041A730 (the original: D3DXMatrixMultiply(this, this, &rotation) for each angle, as SpinAroundX / Y / Z)
 Matrix& Matrix::InitFromAngles(const Vector& angles)
 {
-    Ident();
+    ResetToIdentity();
     if (angles.x != 0.0f || angles.y != 0.0f || angles.z != 0.0f) {
         Matrix rotation;
         auto multiply = D3dx::MatrixMultiply;
-        multiply(this, this, &CreateRotateXMatrix(rotation, angles.x));
-        multiply(this, this, &CreateRotateYMatrix(rotation, angles.y));
-        multiply(this, this, &CreateRotateZMatrix(rotation, angles.z));
+        multiply(this, this, &MakePitchMatrix(rotation, angles.x));
+        multiply(this, this, &MakeYawMatrix(rotation, angles.y));
+        multiply(this, this, &MakeRollMatrix(rotation, angles.z));
     }
     return *this;
 }
 
 // 0x0041A640
-Matrix& Matrix::Ident()
+Matrix& Matrix::ResetToIdentity()
 {
     row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -174,21 +174,21 @@ Vector operator*(const Vector& v, const Matrix& m)
 }
 
 // 0x00405710
-Matrix& Matrix::RotateYLocal(float angle)
+Matrix& Matrix::YawLocally(float angle)
 {
     Matrix rotation;
-    return Multiply(*this, CreateRotateYMatrix(rotation, angle), *this);
+    return Multiply(*this, MakeYawMatrix(rotation, angle), *this);
 }
 
 // 0x004057B0
-Matrix& Matrix::RotateZLocal(float angle)
+Matrix& Matrix::RollInOwnFrame(float angle)
 {
     Matrix rotation;
-    return Multiply(*this, CreateRotateZMatrix(rotation, angle), *this);
+    return Multiply(*this, MakeRollMatrix(rotation, angle), *this);
 }
 
 // 0x00404C60
-Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
+Matrix& BuildAxisAngleMatrix(Matrix& m, const Vector& axis, float angle)
 {
     // As the original's x87 code, rounding where it stores: the axis made unit (x and y kept in double, z rounded
     // to float), 1 - cos from the FPU's full-precision cosine, the sine rounded to float, the products as below.
@@ -248,7 +248,7 @@ Vector& Matrix::Transform(Vector& out, const Vector& in) const
 }
 
 // 0x0040B000
-Vector& Matrix::TransformAsPos(Vector& out, const Vector& in) const
+Vector& Matrix::CarryPointThrough(Vector& out, const Vector& in) const
 {
     double x = in.x, y = in.y, z = in.z;
     double rx = ((row[2].x * z + row[1].x * y) + x * row[0].x) + row[3].x;
@@ -305,7 +305,7 @@ float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal
     const Vector& ref = m.row[ref_axis];
 
     Vector in_plane = v;
-    in_plane.ProjectToPlane(normal);
+    in_plane.FlattenOntoPlane(normal);
     if (in_plane.z * in_plane.z + in_plane.x * in_plane.x + in_plane.y * in_plane.y < 0.0001f)
         return 0.0f;
     in_plane.Normalize();
@@ -321,7 +321,7 @@ float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal
     Vector cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
                  ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
     int axis;
-    bool cross_positive = cross.GetMaxAxis(&axis) > 0.0f;
+    bool cross_positive = cross.DominantAxisIndex(&axis) > 0.0f;
     bool normal_positive = (&normal.x)[axis] > 0.0f;
     return cross_positive == normal_positive ? angle : -angle;
 }
@@ -364,36 +364,36 @@ void Matrix::GetRotationAxisAngle(Vector& axis, float& angle) const
 }
 
 // 0x00405850
-void Matrix::RotateLocal(const Vector& angles)
+void Matrix::TurnInOwnFrame(const Vector& angles)
 {
     if (angles.x != 0.0f)
-        RotateXLocal(angles.x);
+        PitchLocally(angles.x);
     if (angles.y != 0.0f)
-        RotateYLocal(angles.y);
+        YawLocally(angles.y);
     if (angles.z != 0.0f)
-        RotateZLocal(angles.z);
+        RollInOwnFrame(angles.z);
 }
 
 // 0x00404BA0
 void Matrix::Print() const
 {
-    Dbg::Printf("-----------------\n");
+    DebugOut::Printf("-----------------\n");
     for (const Vector& r : row)
-        Dbg::Printf("%f %f %f %f\n", r.x, r.y, r.z, r.w);
-    Dbg::Printf("-----------------\n");
+        DebugOut::Printf("%f %f %f %f\n", r.x, r.y, r.z, r.w);
+    DebugOut::Printf("-----------------\n");
 }
 
 // 0x00405170
-Matrix& Matrix::OrthoNormalizeAbout(int axis)
+Matrix& Matrix::SquareUpAxes(int axis)
 {
-    int b_index = axis + 1;
-    if (b_index == 3)
-        b_index = 0;
-    int c_index = b_index + 1;
+    int bestIndex = axis + 1;
+    if (bestIndex == 3)
+        bestIndex = 0;
+    int c_index = bestIndex + 1;
     if (c_index == 3)
         c_index = 0;
     const Vector& a = row[axis];
-    Vector& b = row[b_index];
+    Vector& b = row[bestIndex];
     Vector& c = row[c_index];
 
     // b = c x a and c = a x b, written out in the original's operand order.
@@ -420,7 +420,7 @@ Matrix& Matrix::OrthoNormalizeAbout(int axis)
 
 // 0x00405480 (the lengths at the FPU's 53 bits - row 1's stored as a float first - and each compared with 0.99f,
 // 0x00645450: a NaN length counts as long enough)
-bool Matrix::PatchOrthogonality()
+bool Matrix::RestoreRightAngles()
 {
     constexpr float kMinLength = 0.99f;
     const double length1 = static_cast<float>(X87::Sqrt(
@@ -441,7 +441,7 @@ bool Matrix::PatchOrthogonality()
         target = cross.Normalize();
     };
     if (short0 + short1 + short2 >= 2) {
-        Ident();
+        ResetToIdentity();
         return true;
     }
     if (short0)
@@ -456,7 +456,7 @@ bool Matrix::PatchOrthogonality()
 }
 
 // 0x00404EC0
-Matrix& CreateRotateMatrix(Matrix& m, int axis, float angle)
+Matrix& BuildAxisAngleMatrix(Matrix& m, int axis, float angle)
 {
     float s = X87::SinF(angle);
     float c = X87::CosF(angle);
@@ -497,25 +497,25 @@ Matrix& CreateLookAtMatrix(Matrix& m, const Vector& eye, const Vector& target, c
 }
 
 // 0x00405080
-Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float near_z, float far_z)
+Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float nearDepth, float farDepth)
 {
     m.row[0] = {2.0f / width, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 2.0f / height, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, 2.0f / (far_z - near_z), 0.0f};
-    m.row[3] = {0.0f, 0.0f, -((near_z + far_z) / (far_z - near_z)), 1.0f};
+    m.row[2] = {0.0f, 0.0f, 2.0f / (farDepth - nearDepth), 0.0f};
+    m.row[3] = {0.0f, 0.0f, -((nearDepth + farDepth) / (farDepth - nearDepth)), 1.0f};
     return m;
 }
 
 // 0x004050F0
-Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float near_z, float far_z)
+Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float nearDepth, float farDepth)
 {
     // (x87: q and the cotangent of FSIN / FCOS kept on the FPU until stored)
-    double q = far_z / (static_cast<double>(far_z) - near_z);
+    double q = farDepth / (static_cast<double>(farDepth) - nearDepth);
     double cot = X87::Cot(static_cast<double>(fov) * 0.5f);
     m.row[0] = {static_cast<float>(aspect * cot), 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, static_cast<float>(cot), 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, static_cast<float>(q), 1.0f};
-    m.row[3] = {0.0f, 0.0f, static_cast<float>(-(q * near_z)), 0.0f};
+    m.row[3] = {0.0f, 0.0f, static_cast<float>(-(q * nearDepth)), 0.0f};
     return m;
 }
 
@@ -523,14 +523,14 @@ Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float near_z
 Matrix& Matrix::Rotate(const Vector& axis, float angle)
 {
     Matrix rotation;
-    return Multiply(*this, *this, CreateRotateMatrix(rotation, axis, angle));
+    return Multiply(*this, *this, BuildAxisAngleMatrix(rotation, axis, angle));
 }
 
 // 0x005772A0 (the original: D3DXMatrixMultiply(this, &rotation, this))
-Matrix& Matrix::RotateLocal(const Vector& axis, float angle)
+Matrix& Matrix::TurnInOwnFrame(const Vector& axis, float angle)
 {
     Matrix rotation;
-    return Multiply(*this, CreateRotateMatrix(rotation, axis, angle), *this);
+    return Multiply(*this, BuildAxisAngleMatrix(rotation, axis, angle), *this);
 }
 
 // 0x00404120 (each element as scale * element on the FPU: a NaN times a NaN gives the FPU's NaN)

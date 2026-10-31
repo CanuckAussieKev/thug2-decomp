@@ -10,14 +10,14 @@
 // Each is constructed as the others are - (name, max particles, texture, blend mode, fixed alpha, segments, a float,
 // history), each reading what it uses -, its particles, positions and colours allocated (each step stops at the first
 // that fails), the colours grey, no mid colour, flag 4. Their PC classes over them are in pc_flexible_particles.h.
-namespace Nx {
+namespace Engine3D {
 
 // "ribbon" (vtables 0x006494DC and 0x006494D8): history + 1 positions each (zeroed), two colours.
 struct CRibbonParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1
 
     // 0x0049B0D0. Returns this.
-    CRibbonParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
     // 0x0049B070: the vtables, the base's body.
     void DestroyBody();
@@ -30,7 +30,7 @@ struct CRibbonTrailParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1
 
     // 0x0049B380. Returns this.
-    CRibbonTrailParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                      int fixedAlpha, int segments, float unknown, int history);
     // 0x0049B320
     void DestroyBody();
@@ -41,7 +41,7 @@ struct CRibbonTrailParticles : CParticleSystem {
 // "shaded" (vtables 0x00649504 and 0x00649500): a position each, four colours.
 struct CShadedParticles : CParticleSystem {
     // 0x0049B660. Returns this.
-    CShadedParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CShadedParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
     // 0x0049B600
     void DestroyBody();
@@ -52,7 +52,7 @@ struct CShadedParticles : CParticleSystem {
 // "smooth" (vtables 0x00649518 and 0x00649514): a position each, two colours.
 struct CSmoothParticles : CParticleSystem {
     // 0x0049B910. Returns this.
-    CSmoothParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CSmoothParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
     // 0x0049B8A0
     void DestroyBody();
@@ -65,7 +65,7 @@ struct CSmoothRibbonParticles : CParticleSystem {
     int m_steps; // +0x134: history + 1 (set once everything is allocated)
 
     // 0x0049BBD0. Returns this.
-    CSmoothRibbonParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CSmoothRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                       int fixedAlpha, int segments, float unknown, int history);
     // 0x0049BB50
     void DestroyBody();
@@ -79,7 +79,7 @@ struct CSmoothStarParticles : CParticleSystem {
     float m_size;    // +0x138
 
     // 0x0049BE80. Returns this.
-    CSmoothStarParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CSmoothStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                     int fixedAlpha, int segments, float size, int history);
     // 0x0049BE20
     void DestroyBody();
@@ -93,7 +93,7 @@ struct CStarParticles : CParticleSystem {
     float m_size;   // +0x138
 
     // 0x0049C140. Returns this.
-    CStarParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                               int segments, float size, int history);
     // 0x0049C0D0
     void DestroyBody();

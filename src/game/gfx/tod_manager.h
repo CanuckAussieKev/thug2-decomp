@@ -11,18 +11,18 @@
 // TODManager_SetParams) gives each state's parameters and lengths; scripts are told when a state changes
 // (tod_manager_state_transition).
 //
-// The singleton (0x007CE490, references 0x007CE494) is made by Sys::Main and updated by Mdl::Skate (0x00567710).
+// The singleton (0x007CE490, references 0x007CE494) is made by SystemCore::Main and updated by GameModules::Skate (0x00567710).
 // From the disassembly of 0x00571140-0x00574910 (methods __thiscall, RET n = 4 * arguments; the helpers that don't
 // use the manager __cdecl).
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
-namespace Gfx {
+namespace Gfx2D {
 
 extern float g_half;
 
@@ -63,7 +63,7 @@ struct TODParams {
     int blue0;              // +0x7C blue_0
     float modLo0;           // +0x80 mod_factor_0_lo
     float modHi0;           // +0x84 mod_factor_0_hi
-    float heading1;         // +0x88 heading_1: directional light 1
+    float headingA;         // +0x88 heading_1: directional light 1
     float pitch1;           // +0x8C pitch_1
     int red1;               // +0x90 red_1
     int green1;             // +0x94 green_1
@@ -99,7 +99,7 @@ uint32_t PreviousTODState(uint32_t state);
 struct TODSystem {
     TODParams current;          // +0x000 (manager +0x008) the state's parameters
     TODParams next;             // +0x0A4 (+0x0AC) the next state's
-    Script::CStruct* params;    // +0x148 (+0x150) a copy of the system's TODManager_SetParams parameters
+    Scripts::CStruct* params;    // +0x148 (+0x150) a copy of the system's TODManager_SetParams parameters
     int time;                   // +0x14C (+0x154) milliseconds into the state, then into the transition
     uint32_t state;             // +0x150 (+0x158) the current state
     uint32_t nextState;         // +0x154 (+0x15C)
@@ -135,7 +135,7 @@ public:
     // multiplier 1; the systems' parameters and the dead-objects table emptied.
     void Reset();
 
-    // 0x00574590: a frame (Mdl::Skate's update): in a career game, unless the script variable
+    // 0x00574590: a frame (GameModules::Skate's update): in a career game, unless the script variable
     // tod_manager_inactive is 1, a temporary state is up, the manager is inactive or the front end is paused, time
     // moves on (the frame's length times the multiplier) and each system is updated.
     void Update();
@@ -155,15 +155,15 @@ public:
 
     // 0x00572130: TODManager_SetParams system=1|2 current_state=... <state structures> transition_length=...
     // [overwrite_current_state={...}] [sky].
-    void SetParams(Script::CStruct* params);
+    void SetParams(Scripts::CStruct* params);
     // 0x00571A00: the parameters in `structure` read into `out` (missing ones are left as they are).
-    void ParseParams(Script::CStruct* structure, TODParams* out);
+    void ParseParams(Scripts::CStruct* structure, TODParams* out);
     // 0x00571340: `a` blended towards `b` by `t` (integers truncated). Fields +0x14..+0x24 and fog_on aren't set
     // by the original (stack garbage): here they're a's.
     TODParams Lerp(TODParams a, TODParams b, float t);
     // 0x00571E00: system `index`'s parameters now (blended while transitioning); -1: the first non-sky system.
     TODParams GetTODParams(int index);
-    // 0x00571140: the current level colour (0x00BBGGRR) of the first non-sky system (Obj::CreateFromStructure
+    // 0x00571140: the current level colour (0x00BBGGRR) of the first non-sky system (GameObjects::CreateFromStructure
     // colours new objects with it).
     void GetLevelColor(uint32_t* out);
     // 0x00572A10: the parameters sent to the engine: ambient light, the two directional lights, fog (if on), the
@@ -182,21 +182,21 @@ public:
 
     // 0x00571EF0: TODManager_Create name=<node> | prefix=<prefix>: the nodes' objects made (Obj's
     // CreateFromNode), except those marked permanently dead.
-    void CreateObjects(Script::CStruct* params, Script::CScript* script);
+    void CreateObjects(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00573400: TODManager_MarkPermanentlyDead name=<node> | prefix=<prefix>.
-    void MarkPermanentlyDead(Script::CStruct* params);
+    void MarkPermanentlyDead(Scripts::CStruct* params);
     // 0x00572BD0: the dead-objects table emptied (level clean-up).
     void ClearDeadObjects();
     // 0x005732D0: SetSceneColor's colouring: color=, [sky=], light_group=, reset_light_group= ...
-    void SetSceneColor(Script::CStruct* params);
+    void SetSceneColor(Scripts::CStruct* params);
     // 0x00573BE0: TODManager_ResetLevelLights [state_name=]: the lights set from the current parameters (no name)
     // or from the named state's.
     void ResetLevelLights(uint32_t stateName);
     // 0x005741B0 / 0x00574210: TODManager_SetTempTOD <params> / TODManager_RestoreCurrentTOD.
-    void SetTempTOD(Script::CStruct* params);
+    void SetTempTOD(Scripts::CStruct* params);
     void RestoreCurrentTOD();
     // 0x00574270 / 0x00574400: TODManager_SetTempBloomParams / TODManager_EnableBloom.
-    void SetTempBloomParams(Script::CStruct* params);
+    void SetTempBloomParams(Scripts::CStruct* params);
     void EnableBloom(int on);
 
     // NOT ORIGINAL (THUGPRO's time of day in network games - game/net/thugpro_peer.h): the first non-sky system's
@@ -205,11 +205,11 @@ public:
     uint32_t CurrentState() const;
     bool CanSetTODInstant(uint32_t state) const;
 
-    Lst::HashTable* m_deadObjects;       // +0x000 nodes marked permanently dead (value: the manager)
-    Script::CStruct* m_unknown4;          // +0x004 made, emptied and freed, never filled
+    ListKit::HashTable* m_deadObjects;       // +0x000 nodes marked permanently dead (value: the manager)
+    Scripts::CStruct* m_unknown4;          // +0x004 made, emptied and freed, never filled
     TODSystem m_systems[kSystems];        // +0x008
     BloomParams m_tempBloom;              // +0x318 TODManager_SetTempBloomParams'
-    int m_totalTime;                      // +0x32C milliseconds the manager has run
+    int m_fullLength;                      // +0x32C milliseconds the manager has run
     float m_timeMultiplier;               // +0x330 TODManager_SetTimeMultiplier
     uint32_t m_transitionScript;          // +0x334 TODManager_SetTODScript: level_specific_transition_script
     bool m_fogActive;                     // +0x338
@@ -236,7 +236,7 @@ void ApplyColorToScene(uint8_t* scene, uint32_t color, uint32_t lightGroup, uint
 // 0x00572980: directional light `index` pointed by heading and pitch (degrees).
 void SetLightDirection(int index, float heading, float pitch);
 // 0x00573180: the bloom parameters added to `out` (on, bloom1, bloom2, strength, color).
-void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, Script::CStruct* out);
+void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, Scripts::CStruct* out);
 
 // NOT ORIGINAL - an override of what the manager sends the engine (the level editor's level properties: an edited
 // level's own ambient light and fog - level_editor_level_props.h). When set, ApplyTODParams and SetFogActive pass the
@@ -264,24 +264,24 @@ CTODManager* CreateTODManager(bool create);
 void ReleaseTODManager();
 
 // The script commands (0x00571FE0-0x00574870).
-bool __cdecl CFunc_TODManager_SetActive(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_GetNumberOfDaysPassed(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetTimeMultiplier(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_GetTimeMultiplier(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetTODScript(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_Create(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetParams(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_GetCurrentTODParams(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetFogActive(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_MarkPermanentlyDead(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_Reset(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_ResetLevelLights(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetTempTOD(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_RestoreCurrentTOD(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetTempBloomParams(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_EnableBloom(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_SetTODInstant(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TODManager_AdvanceTODState(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_TODManager_SetActive(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_GetNumberOfDaysPassed(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetTimeMultiplier(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_GetTimeMultiplier(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetTODScript(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_Create(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetParams(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_GetCurrentTODParams(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetFogActive(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_MarkPermanentlyDead(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_Reset(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_ResetLevelLights(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetTempTOD(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_RestoreCurrentTOD(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetTempBloomParams(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_EnableBloom(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_SetTODInstant(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TODManager_AdvanceTODState(Scripts::CStruct* params, Scripts::CScript* script);
 
 extern float g_thousand;
 extern float g_hundred;

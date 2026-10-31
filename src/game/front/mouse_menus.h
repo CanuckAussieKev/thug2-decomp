@@ -4,7 +4,7 @@
 // mouse handling at all, as the original). Not in the original game, not from PartyMod: our own addition.
 //
 // The mouse drives the menus by sending the same pad events a controller does (pad_up / pad_down / pad_left /
-// pad_right / pad_choose / pad_back, launched like Mdl::FrontEnd::InputLogic launches them):
+// pad_right / pad_choose / pad_back, launched like GameModules::FrontEnd::InputLogic launches them):
 // - moving the cursor over an item of a menu that takes pad events selects it (the menu's pad_up / pad_down, or
 //   pad_left / pad_right for a horizontal one, until its selected index is the item's);
 // - a left click selects the item under the cursor and chooses it (pad_choose) - on an item with pad_left /
@@ -26,10 +26,10 @@
 
 #include <cstdint>
 
-namespace Front {
-class CScreenElement;
+namespace MenuSystem {
+class CUiWidget;
 }
-namespace Mdl {
+namespace GameModules {
 struct FrontEnd;
 }
 
@@ -40,14 +40,14 @@ bool& Enabled();
 
 // Start listening to SDL's mouse events (Sio::InitSdlInput; nothing when the feature is off).
 void Init();
-// Once a frame, from the front end's first input handler (Mdl::FrontEnd::InputLogic): the cursor shown or hidden,
+// Once a frame, from the front end's first input handler (GameModules::FrontEnd::InputLogic): the cursor shown or hidden,
 // then the mouse's movement, clicks and wheel turned into menu events.
-void Update(Mdl::FrontEnd* frontEnd);
+void Update(GameModules::FrontEnd* frontEnd);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // Window pixels -> the 640x480 menu layout: the window's size, the back buffer's (0x00786D6C / 0x00786D70) and
-// the layout -> back buffer conversion Nx::SetLetterbox set (scale 0x00786D80 / 84, offset 0x00786D88 / 8C:
+// the layout -> back buffer conversion Engine3D::SetLetterbox set (scale 0x00786D80 / 84, offset 0x00786D88 / 8C:
 // back buffer = layout * scale + offset).
 struct ScreenMapping {
     int windowWidth, windowHeight;
@@ -67,7 +67,7 @@ struct Rect {
     float left, top, right, bottom;
     bool Contains(float x, float y) const { return x >= left && x < right && y >= top && y < bottom; }
 };
-Rect ElementRect(const Front::CScreenElement* element);
+Rect ElementRect(const MenuSystem::CUiWidget* element);
 
 // An element's area with its rotation: from its absolute top left (+0x134 / +0x138) along its absolute angle
 // (+0x14C, radians: its own and its parents' - the layout pass 0x004A9D30 places a child's top left at the
@@ -76,26 +76,26 @@ Rect ElementRect(const Front::CScreenElement* element);
 struct Box {
     float x, y, width, height, angle;
 };
-Box ElementBox(const Front::CScreenElement* element);
+Box ElementBox(const MenuSystem::CUiWidget* element);
 bool BoxContains(const Box& box, float x, float y);
 // Whether an angle turns anything (not a whole number of turns).
 bool Rotated(float angle);
 
-// A menu (a vmenu or an hmenu - CBaseMenu, vtable 0x0064A048) and its item.
-bool IsMenu(const Front::CScreenElement* element);
-bool IsVerticalMenu(const Front::CScreenElement* menu); // +0x190
-int SelectedIndex(const Front::CScreenElement* menu);   // +0x178 (-1: none)
-bool MenuHasFocus(const Front::CScreenElement* menu);   // +0x180
-bool MenuWraps(const Front::CScreenElement* menu);      // +0x1A1
-int ChildCount(const Front::CScreenElement* element);
+// A menu (a vmenu or an hmenu - CMenuBase, vtable 0x0064A048) and its item.
+bool IsMenu(const MenuSystem::CUiWidget* element);
+bool IsVerticalMenu(const MenuSystem::CUiWidget* menu); // +0x190
+int SelectedIndex(const MenuSystem::CUiWidget* menu);   // +0x178 (-1: none)
+bool MenuHasFocus(const MenuSystem::CUiWidget* menu);   // +0x180
+bool MenuWraps(const MenuSystem::CUiWidget* menu);      // +0x1A1
+int ChildCount(const MenuSystem::CUiWidget* element);
 // What the menu's move (0x004A7850) skips: an item tagged tag_not_focusable, or one with block_events (flag
 // 0x200000) on it or a parent.
-bool ItemFocusable(const Front::CScreenElement* item);
+bool ItemFocusable(const MenuSystem::CUiWidget* item);
 
 // Items a menu passes over by script: the main menu's spin menu (make_spin_menu_item) gives its filler items the
 // tag `blank` and its disabled ones `active = 0`; their focus script moves the selection on at once. They are
 // never a mouse target.
-bool ItemPassedOver(const Front::CScreenElement* item);
+bool ItemPassedOver(const MenuSystem::CUiWidget* item);
 
 // Where an item is drawn: itself and everything below it that isn't hidden (whatever their alpha - the spin
 // menu fades out the front item's text under its "roundbar" label; theme_menu_add_item's text and highlight bar
@@ -103,28 +103,28 @@ bool ItemPassedOver(const Front::CScreenElement* item);
 // with no area count only if they are the item itself. The unrotated parts make one rectangle,
 // widened to the menu's width (a vertical menu) or height (a horizontal one) unless the menu is rotated; rotated
 // parts count each as its own turned box.
-bool ItemContains(const Front::CScreenElement* item, const Front::CScreenElement* menu, float x, float y);
+bool ItemContains(const MenuSystem::CUiWidget* item, const MenuSystem::CUiWidget* menu, float x, float y);
 // The rectangle around all of it (for the debug log).
-Rect ItemBounds(const Front::CScreenElement* item, const Front::CScreenElement* menu);
+Rect ItemBounds(const MenuSystem::CUiWidget* item, const MenuSystem::CUiWidget* menu);
 // A menu whose items are turned (the main menu's spin menu: its vmenu and items have rot_angle): hovering
 // doesn't select (the items would turn away under the cursor and the next one would be selected, and so on);
 // a click turns it to the item and chooses it.
-bool IsRotatingMenu(const Front::CScreenElement* menu);
+bool IsRotatingMenu(const MenuSystem::CUiWidget* menu);
 
 struct Hit {
-    Front::CScreenElement* menu;
-    Front::CScreenElement* item;
+    MenuSystem::CUiWidget* menu;
+    MenuSystem::CUiWidget* item;
     int index; // the item's place in the menu's children
 };
 // Which menus count (the game's test: MenuTakesPadEvents).
-using MenuFilter = bool (*)(Front::CScreenElement* menu);
+using MenuFilter = bool (*)(MenuSystem::CUiWidget* menu);
 // The item under (x, y): of the elements below `root` that are focusable items of a menu `accepts` (and not passed
 // over), not hidden and visible (alpha), inside every window element above them (their clip region; scrolling
 // menus too), the deepest - and of overlapping ones the last in the tree. An item's area: ItemContains. False if
 // none.
-bool FindItemAt(Front::CScreenElement* root, float x, float y, MenuFilter accepts, Hit* out);
+bool FindItemAt(MenuSystem::CUiWidget* root, float x, float y, MenuFilter accepts, Hit* out);
 // Whether there is a menu `accepts` below `root` (vertical only: `vertical`).
-bool AnyMenu(Front::CScreenElement* root, MenuFilter accepts, bool verticalOnly);
+bool AnyMenu(MenuSystem::CUiWidget* root, MenuFilter accepts, bool verticalOnly);
 
 // Move a menu's selection to `target`, one pad event (`send`, direction -1 or +1) at a time, re-reading the
 // selected index (`read`, -1 when the menu is gone) after each: the shorter way round when the menu wraps; stops
@@ -160,8 +160,8 @@ bool& DebugEnabled();
 
 // For the test-automation channel (game/front/automation.h): whether a menu takes the pad events now (the game's
 // test, as hovering uses it), and a menu pad event launched as InputLogic launches it (pad_up, pad_choose...).
-bool MenuGetsPadEvents(Front::CScreenElement* menu);
-void SendMenuPadEvent(Mdl::FrontEnd* frontEnd, uint32_t event);
+bool MenuGetsPadEvents(MenuSystem::CUiWidget* menu);
+void SendMenuPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event);
 
 // A click on an item with its own pad_left / pad_right handlers: -1 in its left 30%, +1 in its right 30%, else 0
 // (pad_choose).

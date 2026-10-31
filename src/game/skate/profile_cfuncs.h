@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -11,7 +11,7 @@ class CScript;
 // nodes, preloading the meshes a list names, the skater profiles (pro or not, the current one, templates, temporary
 // profiles and their appearance) and the career's goal counts for the menus. The CFunctions are cdecl (params,
 // script) and return whether the script's `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
 // The swap table (0x007CEDE0): five slots - in use, key, value.
 struct SwapSlot {
@@ -33,24 +33,24 @@ void PreloadMeshes(uint32_t arrayName);
 void PreloadMeshesStub();
 
 // 0x005AAA80: AddGoalEditorNodesToLevelNodeArray (on the bottom-up heap). True.
-bool __cdecl CFunc_AddGoalEditorNodesToLevelNodeArray(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_AddGoalEditorNodesToLevelNodeArray(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AAB50: CurrentSkaterIsPro: whether the skate module's profile - looked up with the params pointer as the
 // index, as in the original - is a pro.
-bool __cdecl CFunc_CurrentSkaterIsPro(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_CurrentSkaterIsPro(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AAB80: GetGoalsCompleted <level>: the level's goal count as "%d/9" and "---" in the script's parameters.
-bool __cdecl CFunc_GetGoalsCompleted(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_GetGoalsCompleted(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AAC10: GetNextLevelRequirements: the first level step of the global array 0x1D8F1A7E still out of reach -
 // "goals for next level" / "medals for next level" with how many are missing - or "---".
-bool __cdecl CFunc_GetNextLevelRequirements(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_GetNextLevelRequirements(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AAD70: SetCurrentSkaterProfile <index>. True.
-bool __cdecl CFunc_SetCurrentSkaterProfile(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SetCurrentSkaterProfile(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AADA0: AddSkaterProfile <profile>: the profile manager's AddTemplate.
-bool __cdecl CFunc_AddSkaterProfile(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_AddSkaterProfile(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AADC0: AddTemporaryProfile name=<id>: the profile manager's AddExtraProfile.
-bool __cdecl CFunc_AddTemporaryProfile(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_AddTemporaryProfile(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005AADF0: RememberTemporaryAppearance name=<id> appearance_structure=<s> | player=<n> [NoFaceTexture]: the
 // temporary profile `name` given that appearance (or player n's profile's) - with NoFaceTexture only its
 // structure. True.
-bool __cdecl CFunc_RememberTemporaryAppearance(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_RememberTemporaryAppearance(Scripts::CStruct* params, Scripts::CScript* script);
 
-} // namespace CFuncs
+} // namespace ScriptCommands

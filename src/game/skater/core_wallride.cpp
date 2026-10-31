@@ -39,15 +39,15 @@ constexpr float kTopFacesUp = 0.9f;   // 0x00649FE4: a hit ahead facing up this 
 constexpr float kPushOff = 18.0f;     // 0x0064AAAC
 constexpr float kPushAway = 100.0f;   // 0x006463D4
 
-const Mth::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
+const Maths::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
 void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
-void SetUp(void* component, const Mth::Vector& up)
+void SetUp(void* component, const Maths::Vector& up)
 {
     static_cast<CorePhysicsComponent*>(component)->TurnToNormal(up);
 }
 // velocity or position += normal * scale, x and y from the unrounded products (as the original).
-void AddScaled(Mth::Vector& to, const Mth::Vector& normal, float scale)
+void AddScaled(Maths::Vector& to, const Maths::Vector& normal, float scale)
 {
     float z = normal.z * scale, w = normal.w * scale;
     to.x = static_cast<float>(static_cast<double>(normal.x) * scale + to.x);
@@ -66,8 +66,8 @@ void CorePhysicsComponent::OffWallEdge(bool resetDisplay)
         MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
     AddScaled(VectorAt(ObjectOf(this), kPosition), VectorAt(this, kWallNormal), kPushOff);
     ChangeState(this, kAir);
-    static_cast<Obj::CObject*>(ObjectOf(this))->BroadcastEvent(kOffEdge, nullptr, 0.0f);
-    static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(kGroundGone, nullptr);
+    static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(kOffEdge, nullptr, 0.0f);
+    static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kGroundGone, nullptr);
 }
 
 // 0x0050F830
@@ -83,16 +83,16 @@ void CorePhysicsComponent::DoWallRidePhysics()
     At<int>(this, 0x39C) = Now();
 
     // What the skater rides on carries it (its turn too).
-    Mth::Vector carried = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (Obj::CRideTracker* tracker = Tracker(this)) {
-        if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+    Maths::Vector carried = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (GameObjects::CRideTracker* tracker = Tracker(this)) {
+        if (!tracker->m_object.m_ownerObject || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
             StopRiding(this);
         } else {
             carried = Tracker(this)->m_carried;
             if (Tracker(this)->m_turned) {
                 auto multiply =
                     D3dx::MatrixMultiply;
-                Mth::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
+                Maths::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
                 multiply(&m, &m, &Tracker(this)->m_turn);
                 multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
             }
@@ -110,14 +110,14 @@ void CorePhysicsComponent::DoWallRidePhysics()
         float zeroHalfRounded = static_cast<float>(zeroHalf);
         float gravityHalf = static_cast<float>(half * gravity);
         float halfRounded = static_cast<float>(half);
-        Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
         double tx = static_cast<double>(t) * v.x;
         float ty = t * v.y, tz = t * v.z, tw = t * v.w;
         float mx = static_cast<float>(tx + zeroHalfRounded);
         float my = ty + gravityHalf;
         double mz = zeroHalf + tz;
         double mw = static_cast<double>(tw) + halfRounded;
-        Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
         p.x = mx + p.x;
         p.y = my + p.y;
         p.z = static_cast<float>(mz + p.z);
@@ -129,7 +129,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
         float tt = At<float>(this, kFrameLength);
         double zeroT = 0.0f * static_cast<double>(tt);
         float fall = tt * gravity;
-        Mth::Vector& u = VectorAt(ObjectOf(this), kVelocity);
+        Maths::Vector& u = VectorAt(ObjectOf(this), kVelocity);
         u.x = static_cast<float>(zeroT) + u.x;
         u.y = fall + u.y;
         u.z = static_cast<float>(zeroT + u.z);
@@ -137,7 +137,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
     }
 
     // Up the wall: the wall's level tangent (normalised) crossed with its normal.
-    const Mth::Vector& wall = VectorAt(this, kWallNormal);
+    const Maths::Vector& wall = VectorAt(this, kWallNormal);
     double tangentZ = wall.z, tangentX = -static_cast<double>(wall.x);
     float tangentY = 0.0f;
     double tangentLength = std::sqrt(tangentZ * tangentZ + tangentX * tangentX);
@@ -147,19 +147,19 @@ void CorePhysicsComponent::DoWallRidePhysics()
         tangentY = static_cast<float>(0.0 * inverse);
         tangentX *= inverse;
     }
-    Mth::Vector upWall = carried;
+    Maths::Vector upWall = carried;
     upWall.x = static_cast<float>(tangentY * wall.z - tangentX * wall.y);
     upWall.y = static_cast<float>(tangentX * wall.x - tangentZ * wall.z);
     upWall.z = static_cast<float>(tangentZ * wall.y - tangentY * wall.x);
 
     // Turned towards up the wall when not heading up it enough (a turn's cosine at most).
-    float turn = Script::GetFloat(kWallRideTurnSpeed);
-    const Mth::Vector& facing = VectorAt(ObjectOf(this), kFacing);
+    float turn = Scripts::GetFloat(kWallRideTurnSpeed);
+    const Maths::Vector& facing = VectorAt(ObjectOf(this), kFacing);
     double heading = (static_cast<double>(upWall.z) * facing.z + static_cast<double>(upWall.y) * facing.y) +
                      static_cast<double>(upWall.x) * facing.x;
     bool turning = !(heading > kHeadingUp) && !(heading > 0.0 && heading > std::cos(static_cast<double>(turn)));
     if (turning) {
-        const Mth::Vector& right = VectorAt(ObjectOf(this), kRight);
+        const Maths::Vector& right = VectorAt(ObjectOf(this), kRight);
         double side = (static_cast<double>(upWall.z) * right.z + static_cast<double>(upWall.y) * right.y) +
                       static_cast<double>(upWall.x) * right.x;
         if (side <= 0.0)
@@ -172,9 +172,9 @@ void CorePhysicsComponent::DoWallRidePhysics()
         VectorAt(ObjectOf(this), kFacing).Normalize();
         o = ObjectOf(this);
         VectorAt(o, kUp) = VectorAt(this, kWallNormal);
-        const Mth::Vector& f = VectorAt(o, kFacing);
-        const Mth::Vector& u = VectorAt(o, kUp);
-        Mth::Vector& r = VectorAt(o, kRight);
+        const Maths::Vector& f = VectorAt(o, kFacing);
+        const Maths::Vector& u = VectorAt(o, kUp);
+        Maths::Vector& r = VectorAt(o, kRight);
         float rx = static_cast<float>(static_cast<double>(f.z) * u.y - static_cast<double>(f.y) * u.z);
         float ry = static_cast<float>(static_cast<double>(f.x) * u.z - static_cast<double>(f.z) * u.x);
         float rz = static_cast<float>(static_cast<double>(f.y) * u.x - static_cast<double>(f.x) * u.y);
@@ -189,9 +189,9 @@ void CorePhysicsComponent::DoWallRidePhysics()
     // A feeler ahead along the move (Skater_First_Forward_Collision_Length past the new position).
     {
         void* o = ObjectOf(this);
-        const Mth::Vector& p = VectorAt(o, kPosition);
-        const Mth::Vector& old = VectorAt(o, kOldPosition);
-        Mth::Vector move = {p.x - old.x, p.y - old.y, p.z - old.z, p.w - old.w};
+        const Maths::Vector& p = VectorAt(o, kPosition);
+        const Maths::Vector& old = VectorAt(o, kOldPosition);
+        Maths::Vector move = {p.x - old.x, p.y - old.y, p.z - old.z, p.w - old.w};
         double moved = std::sqrt((static_cast<double>(move.z) * move.z + static_cast<double>(move.y) * move.y) +
                                  static_cast<double>(move.x) * move.x);
         if (moved > 0.0) {
@@ -201,7 +201,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             move.z = static_cast<float>(inverse * move.z);
         }
         VectorAt(this, kFeelerStart) = VectorAt(o, kOldPosition);
-        Mth::Vector& end = VectorAt(this, kFeelerEnd);
+        Maths::Vector& end = VectorAt(this, kFeelerEnd);
         end = VectorAt(ObjectOf(this), kPosition);
         float reach = PhysicsFloat(kForwardLength, ObjectOf(this));
         double aheadX = static_cast<double>(move.x) * reach;
@@ -212,12 +212,12 @@ void CorePhysicsComponent::DoWallRidePhysics()
         end.w = aheadW + end.w;
     }
     if (Feel(this, 0x10, 0)) {
-        const Mth::Vector hit = VectorAt(this, kHitNormal);
-        const Mth::Vector& w = VectorAt(this, kWallNormal);
+        const Maths::Vector hit = VectorAt(this, kHitNormal);
+        const Maths::Vector& w = VectorAt(this, kWallNormal);
         double alongWall = (static_cast<double>(hit.z) * w.z + static_cast<double>(hit.y) * w.y) +
                            static_cast<double>(hit.x) * w.x;
-        const Mth::Vector& point = VectorAt(this, kHitPoint);
-        Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& point = VectorAt(this, kHitPoint);
+        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
         p.z = hit.z + point.z;
         p.w = hit.w + point.w;
         p.x = hit.x + point.x;
@@ -227,20 +227,20 @@ void CorePhysicsComponent::DoWallRidePhysics()
             VectorAt(this, kWallNormal) = hit;
             SetUp(this, VectorAt(this, kWallNormal));
             MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
-            VectorAt(ObjectOf(this), kVelocity).RotateToPlane(VectorAt(this, kWallNormal));
+            VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kWallNormal));
         } else if (hit.y > kTopFacesUp) {
             // Onto the top: the ground (a grind first), upright on it, heading along the velocity.
             void* o = ObjectOf(this);
             VectorAt(o, kPosition) = VectorAt(this, kHitPoint);
             VectorAt(o, kFacing) = VectorAt(o, kVelocity);
-            VectorAt(ObjectOf(this), kFacing).ProjectToPlane(hit);
+            VectorAt(ObjectOf(this), kFacing).FlattenOntoPlane(hit);
             VectorAt(ObjectOf(this), kFacing).Normalize();
             VectorAt(ObjectOf(this), kUp) = hit;
             void* s = ObjectOf(this);
-            VectorAt(s, kRight) = Mth::CrossProduct(VectorAt(s, kUp), VectorAt(s, kFacing));
+            VectorAt(s, kRight) = Maths::CrossProduct(VectorAt(s, kUp), VectorAt(s, kFacing));
             VectorAt(ObjectOf(this), kRight).Normalize();
             MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
-            auto* queries = static_cast<Obj::CCompositeObject*>(ObjectOf(this))->GetComponent(kMatrixQueries);
+            auto* queries = static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->GetComponent(kMatrixQueries);
             MatrixAt(queries, 0x18) = MatrixAt(At<void*>(queries, 0xC), kMatrix);
             VectorAt(this, 0x78) = VectorAt(ObjectOf(this), kUp);
             VectorAt(this, 0x58) = VectorAt(ObjectOf(this), kUp);
@@ -249,7 +249,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             if (StateOf(this) == kRail)
                 return;
             ChangeState(this, kGround);
-            static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(kLanded, nullptr);
+            static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kLanded, nullptr);
             return;
         } else {
             OffWallEdge(false);
@@ -262,16 +262,16 @@ void CorePhysicsComponent::DoWallRidePhysics()
     {
         void* o = object;
         float snap = PhysicsFloat(kGroundSnapUp, o);
-        const Mth::Vector& up = VectorAt(ObjectOf(this), kUp);
-        Mth::Vector& start = VectorAt(this, kFeelerStart);
+        const Maths::Vector& up = VectorAt(ObjectOf(this), kUp);
+        Maths::Vector& start = VectorAt(this, kFeelerStart);
         start = {snap * up.x, snap * up.y, snap * up.z, snap * up.w};
-        const Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
         start.x = start.x + p.x, start.y = p.y + start.y, start.z = p.z + start.z, start.w = p.w + start.w;
-        float down = Script::GetFloat(kDownCheckLength);
-        const Mth::Vector& up2 = VectorAt(ObjectOf(this), kUp);
-        Mth::Vector& end = VectorAt(this, kFeelerEnd);
+        float down = Scripts::GetFloat(kDownCheckLength);
+        const Maths::Vector& up2 = VectorAt(ObjectOf(this), kUp);
+        Maths::Vector& end = VectorAt(this, kFeelerEnd);
         end = {down * up2.x, down * up2.y, down * up2.z, down * up2.w};
-        const Mth::Vector& q = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& q = VectorAt(ObjectOf(this), kPosition);
         end.x = end.x + q.x, end.y = q.y + end.y, end.z = q.z + end.z, end.w = q.w + end.w;
     }
     if (Feel(this, 0x10, 0)) {
@@ -279,10 +279,10 @@ void CorePhysicsComponent::DoWallRidePhysics()
         VectorAt(this, kWallNormal) = VectorAt(this, kHitNormal);
         void* o = ObjectOf(this);
         VectorAt(o, kPosition) = VectorAt(this, kHitPoint);
-        Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
-        const Mth::Vector& w = VectorAt(this, kWallNormal);
+        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& w = VectorAt(this, kWallNormal);
         p.x = p.x + w.x, p.y = w.y + p.y, p.z = w.z + p.z, p.w = w.w + p.w;
-        VectorAt(ObjectOf(this), kVelocity).RotateToPlane(VectorAt(this, kWallNormal));
+        VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kWallNormal));
         SetUp(this, VectorAt(this, kWallNormal));
         MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
         if (!At<uint8_t>(this, 0x22A)) {
@@ -291,8 +291,8 @@ void CorePhysicsComponent::DoWallRidePhysics()
             SetUp(this, kUpAxis);
             MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
             ChangeState(this, kAir);
-            static_cast<Obj::CObject*>(ObjectOf(this))->BroadcastEvent(kOffEdge, nullptr, 0.0f);
-            static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(kGroundGone, nullptr);
+            static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(kOffEdge, nullptr, 0.0f);
+            static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kGroundGone, nullptr);
             TriggerFeeler(this, g_otherFeelerLeaveEvents, kOtherFeeler);
             if (TriggerTookOver(this))
                 return;
@@ -307,7 +307,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             }
             void* skater = At<void*>(this, kSkaterComponent);
             if (!At<uint8_t>(skater, 0x13B0))
-                static_cast<Obj::CTrickComponent*>(skater)->SetTrickObjects(false);
+                static_cast<GameObjects::CMoveExecutor*>(skater)->SetTrickObjects(false);
             AssignFeeler(&At<uint8_t>(this, kOtherFeeler), &At<uint8_t>(this, kFeeler));
             At<uint8_t>(At<void*>(this, kSoundComponent), 0x1D) = At<uint8_t>(this, 0x1AA);
         }
@@ -326,25 +326,25 @@ void CorePhysicsComponent::DoWallRidePhysics()
         TriggerFeeler(this, g_jumpTriggerEvents, kOtherFeeler);
         if (TriggerTookOver(this))
             return;
-        float out = Script::GetFloat(kJumpOutSpeed);
-        Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
-        const Mth::Vector& w = VectorAt(this, kWallNormal);
+        float out = Scripts::GetFloat(kJumpOutSpeed);
+        Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        const Maths::Vector& w = VectorAt(this, kWallNormal);
         float y = out * w.y, z = out * w.z, ww = out * w.w;
         v.x = static_cast<float>(static_cast<double>(out) * w.x + v.x);
         v.y = y + v.y;
         v.z = z + v.z;
         v.w = ww + v.w;
         float& vy = VectorAt(ObjectOf(this), kVelocity).y;
-        vy = Script::GetFloat(kJumpUpSpeed) + vy;
+        vy = Scripts::GetFloat(kJumpUpSpeed) + vy;
         VectorAt(ObjectOf(this), kUp) = kUpAxis;
-        MatrixAt(ObjectOf(this), kMatrix).OrthoNormalizeAbout(1);
+        MatrixAt(ObjectOf(this), kMatrix).SquareUpAxes(1);
         MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
         At<int>(this, 0x88) = 0;
         VectorAt(this, 0x58) = VectorAt(ObjectOf(this), kUp);
         VectorAt(this, kGroundNormal) = VectorAt(this, 0x58);
         VectorAt(this, 0x78) = VectorAt(this, 0x58);
     }
-    static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(this, 0x1B0));
+    static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(this, 0x1B0));
 }
 
 } // namespace Skater

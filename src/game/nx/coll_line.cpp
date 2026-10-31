@@ -13,7 +13,7 @@
 #include "game/nx/coll_tests.h"
 #include "game/nx/coll_tri.h"
 
-namespace Nx {
+namespace Engine3D {
 
 bool g_wantFarthest;
 
@@ -28,17 +28,17 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 
 // The rejection threshold of a line test: the line's distance from the geometry's minimum corner times the
 // geometry's rejection scale, truncated (to the low 32 bits of the 64-bit conversion, as _ftol).
-uint32_t Threshold(double distance, const CCollObjTriData* geometry)
+uint32_t Threshold(double distance, const CTriMeshSource* geometry)
 {
     return static_cast<uint32_t>(Truncate(distance * geometry->RejectionScale()));
 }
 
 // A face's three corners (raw vertices).
-void Corners(const CCollObjTriData* geometry, uint32_t face, Mth::Vector* v0, Mth::Vector* v1, Mth::Vector* v2)
+void Corners(const CTriMeshSource* geometry, uint32_t face, Maths::Vector* v0, Maths::Vector* v1, Maths::Vector* v2)
 {
-    geometry->GetRawVertexPos(geometry->FaceVertex(face, 0), v0);
-    geometry->GetRawVertexPos(geometry->FaceVertex(face, 1), v1);
-    geometry->GetRawVertexPos(geometry->FaceVertex(face, 2), v2);
+    geometry->ReadStoredVertex(geometry->FaceVertex(face, 0), v0);
+    geometry->ReadStoredVertex(geometry->FaceVertex(face, 1), v1);
+    geometry->ReadStoredVertex(geometry->FaceVertex(face, 2), v2);
 }
 
 } // namespace
@@ -67,7 +67,7 @@ CollisionHit* CollisionHit::CopyFrom(const CollisionHit& other)
 }
 
 // 0x004131F0
-bool ReportHit(const Mth::Line& line, CCollObj* object, const FaceHit& face, float distance, CollisionHit* hit)
+bool ReportHit(const Maths::Line& line, CHitMesh* object, const FaceHit& face, float distance, CollisionHit* hit)
 {
     bool better = s_wantFarthest ? !(distance < hit->distance) : distance <= hit->distance;
     CollisionHit saved;
@@ -108,29 +108,29 @@ bool ReportHit(const Mth::Line& line, CCollObj* object, const FaceHit& face, flo
 }
 
 // 0x004137B0 (the face index handed on is left unset by the original - stack garbage; 0 here)
-bool CCollMovBBox::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*direction*/, CollisionHit* hit,
-                                   const Mth::BBox* /*lineBox*/)
+bool CHitMovingBox::CollideWithLine(const Maths::Line* line, const Maths::Vector* /*direction*/, CollisionHit* hit,
+                                   const Maths::BBox* /*lineBox*/)
 {
-    Mth::Line local; // (its constructor, 0x005902E0, does nothing)
-    BoxToLocal(reinterpret_cast<const Mth::BBox*>(line), reinterpret_cast<Mth::BBox*>(&local));
-    Mth::BBox around(local.start);
+    Maths::Line local; // (its constructor, 0x005902E0, does nothing)
+    BoxToLocal(reinterpret_cast<const Maths::BBox*>(line), reinterpret_cast<Maths::BBox*>(&local));
+    Maths::BBox around(local.start);
     around.AddPoint(local.end);
     if (!m_box.Intersects(around))
         return false;
-    Mth::Vector point, normal;
-    if (!m_box.LineIntersect(local, point, normal))
+    Maths::Vector point, normal;
+    if (!m_box.SegmentCrossing(local, point, normal))
         return false;
     float hx = Difference(point.x, local.start.x), hy = Difference(point.y, local.start.y),
           hz = Difference(point.z, local.start.z);
     float lx = Difference(local.end.x, local.start.x), ly = Difference(local.end.y, local.start.y),
           lz = Difference(local.end.z, local.start.z);
-    Mth::Vector turned;
+    Maths::Vector turned;
     m_orientation.RotateVector(turned, point);
     FaceHit face;
-    face.point = {static_cast<float>(static_cast<double>(turned.x) + m_position.x),
-                  static_cast<float>(static_cast<double>(turned.y) + m_position.y),
-                  static_cast<float>(static_cast<double>(turned.z) + m_position.z),
-                  static_cast<float>(static_cast<double>(turned.w) + m_position.w)};
+    face.point = {static_cast<float>(static_cast<double>(turned.x) + m_anchorPoint.x),
+                  static_cast<float>(static_cast<double>(turned.y) + m_anchorPoint.y),
+                  static_cast<float>(static_cast<double>(turned.z) + m_anchorPoint.z),
+                  static_cast<float>(static_cast<double>(turned.w) + m_anchorPoint.w)};
     m_orientation.RotateVector(face.normal, normal);
     face.face = 0;
     float distance = static_cast<float>(
@@ -140,8 +140,8 @@ bool CCollMovBBox::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*d
 }
 
 // 0x00413B50
-bool CCollStatic::CollideWithLine(const Mth::Line* line, const Mth::Vector* direction, CollisionHit* hit,
-                                  const Mth::BBox* lineBox)
+bool CStaticCollider::CollideWithLine(const Maths::Line* line, const Maths::Vector* direction, CollisionHit* hit,
+                                  const Maths::BBox* lineBox)
 {
     // the line's distance from the geometry's minimum corner, for the rejection test
     double ux = direction->x, uy = direction->y;
@@ -153,10 +153,10 @@ bool CCollStatic::CollideWithLine(const Mth::Line* line, const Mth::Vector* dire
         uy *= inverse;
         uz = static_cast<float>(uz * inverse);
     }
-    CCollObjTriData* geometry = m_geometry;
-    float cx = Difference(geometry->m_min.x, line->start.x);
-    float cy = Difference(geometry->m_min.y, line->start.y);
-    double czExact = static_cast<double>(geometry->m_min.z) - line->start.z;
+    CTriMeshSource* geometry = m_geometry;
+    float cx = Difference(geometry->m_lowerLimit.x, line->start.x);
+    float cy = Difference(geometry->m_lowerLimit.y, line->start.y);
+    double czExact = static_cast<double>(geometry->m_lowerLimit.z) - line->start.z;
     float cz = static_cast<float>(czExact);
     float along = static_cast<float>((czExact * uz + cy * uy) + cx * ux);
     float px = static_cast<float>(ux * along);
@@ -177,10 +177,10 @@ bool CCollStatic::CollideWithLine(const Mth::Line* line, const Mth::Vector* dire
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         geometry = m_geometry;
         uint32_t face = faces[i];
-        uint8_t rejection = geometry->m_smallFaces ? geometry->m_faces[face * 8 + 7] : m_buffer[face];
+        uint8_t rejection = geometry->m_smallFaces ? geometry->m_faces[face * 8 + 7] : m_octets[face];
         if (threshold > rejection)
             continue;
-        Mth::Vector v0, v1, v2;
+        Maths::Vector v0, v1, v2;
         Corners(geometry, face, &v0, &v1, &v2);
         float t;
         if (!RayHitsTriangle(line->start, *direction, v0, v1, v2, &t))
@@ -205,23 +205,23 @@ bool CCollStatic::CollideWithLine(const Mth::Line* line, const Mth::Vector* dire
 }
 
 // 0x00413FF0
-bool CCollStaticInstance::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*direction*/,
-                                          CollisionHit* hit, const Mth::BBox* /*lineBox*/)
+bool CCollStaticInstance::CollideWithLine(const Maths::Line* line, const Maths::Vector* /*direction*/,
+                                          CollisionHit* hit, const Maths::BBox* /*lineBox*/)
 {
-    Mth::Line local; // (its constructor, 0x005902E0, does nothing)
+    Maths::Line local; // (its constructor, 0x005902E0, does nothing)
     LineToLocal(line, &local);
-    Mth::Vector way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
+    Maths::Vector way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
                     Difference(local.end.z, local.start.z), Difference(local.end.w, local.start.w)};
-    Mth::BBox around(local.start);
+    Maths::BBox around(local.start);
     around.AddPoint(local.end);
     int count;
     uint16_t buffer[0x800];
     const uint16_t* faces = m_geometry->GetFacesInBox(&around, &count, buffer, 0x800);
     bool any = false;
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
-        CCollObjTriData* geometry = m_geometry;
+        CTriMeshSource* geometry = m_geometry;
         uint32_t face = faces[i];
-        Mth::Vector v0, v1, v2;
+        Maths::Vector v0, v1, v2;
         Corners(geometry, face, &v0, &v1, &v2);
         float t;
         if (!RayHitsTriangle(local.start, way, v0, v1, v2, &t))
@@ -244,12 +244,12 @@ bool CCollStaticInstance::CollideWithLine(const Mth::Line* line, const Mth::Vect
             nz = static_cast<float>(nzExact * inverse);
         }
         // the corner scaled and placed, the normal turned
-        Mth::Vector scaled{static_cast<float>(static_cast<double>(v0.x) * m_scale.x),
-                           static_cast<float>(static_cast<double>(v0.y) * m_scale.y),
-                           static_cast<float>(static_cast<double>(v0.z) * m_scale.z),
-                           static_cast<float>(static_cast<double>(v0.w) * m_scale.w)};
-        m_matrix.TransformAsPos(faceHit.point, scaled);
-        const Mth::Vector* r = m_matrix.row;
+        Maths::Vector scaled{static_cast<float>(static_cast<double>(v0.x) * m_sizeFactor.x),
+                           static_cast<float>(static_cast<double>(v0.y) * m_sizeFactor.y),
+                           static_cast<float>(static_cast<double>(v0.z) * m_sizeFactor.z),
+                           static_cast<float>(static_cast<double>(v0.w) * m_sizeFactor.w)};
+        m_basisFrame.CarryPointThrough(faceHit.point, scaled);
+        const Maths::Vector* r = m_basisFrame.row;
         faceHit.normal = {
             static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) +
                                static_cast<double>(nx) * r[0].x),
@@ -265,23 +265,23 @@ bool CCollStaticInstance::CollideWithLine(const Mth::Line* line, const Mth::Vect
 }
 
 // 0x00414460
-bool CCollMovTri::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*direction*/, CollisionHit* hit,
-                                  const Mth::BBox* /*lineBox*/)
+bool CHitMovingTriangles::CollideWithLine(const Maths::Line* line, const Maths::Vector* /*direction*/, CollisionHit* hit,
+                                  const Maths::BBox* /*lineBox*/)
 {
-    Mth::Line local; // (its constructor, 0x005902E0, does nothing)
-    BoxToLocal(reinterpret_cast<const Mth::BBox*>(line), reinterpret_cast<Mth::BBox*>(&local));
-    Mth::Vector way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
+    Maths::Line local; // (its constructor, 0x005902E0, does nothing)
+    BoxToLocal(reinterpret_cast<const Maths::BBox*>(line), reinterpret_cast<Maths::BBox*>(&local));
+    Maths::Vector way{Difference(local.end.x, local.start.x), Difference(local.end.y, local.start.y),
                     Difference(local.end.z, local.start.z), Difference(local.end.w, local.start.w)};
-    Mth::BBox around(local.start);
+    Maths::BBox around(local.start);
     around.AddPoint(local.end);
-    CCollObjTriData* geometry = m_geometry;
+    CTriMeshSource* geometry = m_geometry;
     uint32_t threshold = 0;
     if (geometry->m_smallFaces) {
-        Mth::Vector unit = way;
+        Maths::Vector unit = way;
         unit.Normalize();
-        double cx = static_cast<double>(geometry->m_min.x) - local.start.x;
-        double cy = static_cast<double>(geometry->m_min.y) - local.start.y;
-        float cz = Difference(geometry->m_min.z, local.start.z);
+        double cx = static_cast<double>(geometry->m_lowerLimit.x) - local.start.x;
+        double cy = static_cast<double>(geometry->m_lowerLimit.y) - local.start.y;
+        float cz = Difference(geometry->m_lowerLimit.z, local.start.z);
         double along = (cx * unit.x + static_cast<double>(cz) * unit.z) + cy * unit.y;
         double px = unit.x * along;
         float py = static_cast<float>(unit.y * along);
@@ -302,7 +302,7 @@ bool CCollMovTri::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*di
         uint32_t face = faces[i];
         if (geometry->m_smallFaces && threshold > geometry->m_faces[face * 8 + 7])
             continue;
-        Mth::Vector v0, v1, v2;
+        Maths::Vector v0, v1, v2;
         Corners(geometry, face, &v0, &v1, &v2);
         float t;
         if (!RayHitsTriangle(local.start, way, v0, v1, v2, &t))
@@ -327,16 +327,16 @@ bool CCollMovTri::CollideWithLine(const Mth::Line* line, const Mth::Vector* /*di
             nz = static_cast<float>(static_cast<double>(nz) * inverse);
         }
         // the corner turned and placed (z rounded before it's placed), the normal turned
-        const Mth::Vector* r = m_orientation.row;
+        const Maths::Vector* r = m_orientation.row;
         double placedX = (static_cast<double>(v0.z) * r[2].x + static_cast<double>(v0.y) * r[1].x) +
                          static_cast<double>(v0.x) * r[0].x;
         double placedY = (static_cast<double>(v0.z) * r[2].y + static_cast<double>(v0.y) * r[1].y) +
                          static_cast<double>(v0.x) * r[0].y;
         float placedZ = static_cast<float>((static_cast<double>(v0.z) * r[2].z + static_cast<double>(v0.y) * r[1].z) +
                                            static_cast<double>(v0.x) * r[0].z);
-        faceHit.point = {static_cast<float>(placedX + m_position.x), static_cast<float>(placedY + m_position.y),
-                         static_cast<float>(static_cast<double>(placedZ) + m_position.z),
-                         static_cast<float>(static_cast<double>(v0.w) + m_position.w)};
+        faceHit.point = {static_cast<float>(placedX + m_anchorPoint.x), static_cast<float>(placedY + m_anchorPoint.y),
+                         static_cast<float>(static_cast<double>(placedZ) + m_anchorPoint.z),
+                         static_cast<float>(static_cast<double>(v0.w) + m_anchorPoint.w)};
         faceHit.normal = {
             static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) + unitX * r[0].x),
             static_cast<float>((unitX * r[0].y + static_cast<double>(nz) * r[2].y) + static_cast<double>(ny) * r[1].y),

@@ -5,7 +5,7 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -15,19 +15,19 @@ class CStruct;
 // the scripts set (NollieOn / NollieOff / InNollie, PressureOn / PressureOff / InPressure; each change broadcast).
 // From the disassembly of 0x00519130-0x00519421 (0x00519150 isn't a Ghidra function).
 //
-// Vtable: 0 Destroy, 1 Update, 2 InitFromStructure, 3 Finalize, 12 CallMemberFunction.
-namespace Obj {
+// Vtable: 0 Destroy, 1 Update, 2 ConfigureFromData, 3 Finalize, 12 InvokeMethodByName.
+namespace GameObjects {
 
-class CSkaterStancePanelComponent : public CBaseComponent {
+class CRiderStanceDisplay : public CObjectModule {
 public:
     // 0x005193B0 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00519130: the destructor body (the base's).
     void DestroyBody();
     // 0x005191E0 (vtable slot 0)
-    CSkaterStancePanelComponent* Destroy(unsigned int flags);
+    CRiderStanceDisplay* Destroy(unsigned int flags);
     // 0x00519140 (vtable +0x08): no stance shown yet. `params` isn't read.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x00519210 (vtable +0x0C): the core physics component found.
     void Finalize();
     // 0x00519230 (vtable +0x04): the skater's panel element (0x69751A23 below its skater number's id) shown the
@@ -35,7 +35,7 @@ public:
     void Update();
     // 0x005192C0 (vtable +0x30): NollieOn / NollieOff / InNollie, PressureOn / PressureOff / InPressure; 2 for any
     // other name.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00519150: the stance: with pressure 3 or 4 (flipped or not), else nollie 1 / 2 when flipped, 0 / 5 when not
     // - flipped being the state component's +0x28 (the other way round when the skater's +0x110 is set).
@@ -44,15 +44,15 @@ public:
     int m_shown;            // +0x18 the stance shown (-1: none yet)
     uint8_t pad1C;
     uint8_t m_nollie;       // +0x1D
-    uint8_t m_pressure;     // +0x1E
+    uint8_t m_pressAmount;     // +0x1E
     uint8_t pad1F;
     uint8_t* m_corePhysics; // +0x20 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(CSkaterStancePanelComponent, m_shown) == 0x18 &&
-                  offsetof(CSkaterStancePanelComponent, m_nollie) == 0x1D &&
-                  offsetof(CSkaterStancePanelComponent, m_pressure) == 0x1E &&
-                  offsetof(CSkaterStancePanelComponent, m_corePhysics) == 0x20 &&
-                  sizeof(CSkaterStancePanelComponent) == 0x24,
+static_assert(offsetof(CRiderStanceDisplay, m_shown) == 0x18 &&
+                  offsetof(CRiderStanceDisplay, m_nollie) == 0x1D &&
+                  offsetof(CRiderStanceDisplay, m_pressAmount) == 0x1E &&
+                  offsetof(CRiderStanceDisplay, m_corePhysics) == 0x20 &&
+                  sizeof(CRiderStanceDisplay) == 0x24,
               "layout must match the original (0x005193B0 allocates 0x24 bytes)");
 
 } // namespace Obj

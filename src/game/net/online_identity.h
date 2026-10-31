@@ -11,7 +11,7 @@
 //   ; OnlineGameKey=   (leave empty: THUGPRO keeps THUG2's AdLWaZ)
 // Joining THUGPRO players' sessions may not work: their scripts and DLL differ from this game's.
 // Test online only by hand; tools and agents never go online.
-namespace Net {
+namespace NetLink {
 
 // The game name: OnlineGameName, or "thps6pc". Read once (it's needed before the PC set-up: WinMain's availability
 // check).

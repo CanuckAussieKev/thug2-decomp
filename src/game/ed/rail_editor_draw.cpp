@@ -22,10 +22,10 @@
 #include "game/gfx/sector.h"
 #include "game/gfx/engine_geom.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 using namespace RailEditorInternal;
-using Mth::Vector;
+using Maths::Vector;
 
 int g_railFlashCounter;
 
@@ -83,8 +83,8 @@ Fn GeometrySlot(const uint8_t* geometry, int slot)
 {
     return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
 }
-uint8_t* GetSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
-uint8_t* GetGeometry(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<Nx::CSector*>(sector)->mp_geom); }
+uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
+uint8_t* GetGeometry(uint8_t* sector) { return static_cast<uint8_t*>(reinterpret_cast<Engine3D::CWorldCell*>(sector)->m_geomHandle); }
 int VertexCount(uint8_t* geometry) { return GeometrySlot<int(__thiscall*)(uint8_t*)>(geometry, 36)(geometry); }
 void GetVertices(uint8_t* geometry, Vector* out)
 {
@@ -94,17 +94,17 @@ void SetVertices(uint8_t* geometry, Vector* vertices)
 {
     GeometrySlot<void(__thiscall*)(uint8_t*, Vector*)>(geometry, 39)(geometry, vertices);
 }
-Nx::CCollObjTriData* GetCollision(uint8_t* geometry)
+Engine3D::CTriMeshSource* GetHitShape(uint8_t* geometry)
 {
-    return static_cast<Nx::CCollObjTriData*>(reinterpret_cast<Nx::CGeom*>(geometry)->mp_collTriData);
+    return static_cast<Engine3D::CTriMeshSource*>(reinterpret_cast<Engine3D::CGeom*>(geometry)->mp_collTriData);
 }
-uint16_t CollisionVertexCount(const Nx::CCollObjTriData* collision)
+uint16_t CollisionVertexCount(const Engine3D::CTriMeshSource* collision)
 {
     return *reinterpret_cast<const uint16_t*>(reinterpret_cast<const uint8_t*>(collision) + 6);
 }
 void SetCollisionVertices(uint8_t* sector, Vector* vertices)
 {
-    reinterpret_cast<Nx::CSector*>(sector)->SetRawVertices(vertices);
+    reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChooseRawVerts(vertices);
 }
 
 // One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the 53-bit differences, the sine rounded to
@@ -154,12 +154,12 @@ bool SinAtLeast(double angle, float value)
 }
 
 // The clone of a source sector made for the park (its pieces' counts marked dirty, the collision rebuilt).
-uint8_t* CloneSector(uint32_t source)
+uint8_t* DuplicateSceneSector(uint32_t source)
 {
-    uint32_t name = CParkManager::sInstance()->mp_generator->CloneSector(source, 0, 1, 0);
+    uint32_t name = CParkLayout::sSingleton()->m_builder->DuplicateSceneSector(source, 0, 1, 0);
     SetCountsDirty();
-    CParkManager::sInstance()->mp_generator->RebuildCollision();
-    return GetSector(name);
+    CParkLayout::sSingleton()->m_builder->RebuildCollision();
+    return LookUpSector(name);
 }
 
 // The bytes of a colour word (red, green, blue; alpha 0) as the highlight writes them.
@@ -176,7 +176,7 @@ const int kEndVertices[10] = {6, 11, 7, 8, 15, 18, 4, 12, 5, 17};
 } // namespace
 
 // 0x004F3E00 (cdecl)
-uint8_t* __cdecl CloneRailSector(uint32_t source) { return CloneSector(source); }
+uint8_t* __cdecl CloneRailSector(uint32_t source) { return DuplicateSceneSector(source); }
 
 // 0x004F3D80
 Vector* TransformRailPoint(Vector* out, const Vector* point, const Vector* origin, const Vector* position, float angle)
@@ -217,7 +217,7 @@ bool RailCornerOk(const Vector* a, const Vector* b, const Vector* c)
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
     float dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
-    return !X87::CosAbove(static_cast<double>(Script::GetFloat(kCornerLeaveAngle)) * kDegToRad, dot);
+    return !X87::CosAbove(static_cast<double>(Scripts::GetFloat(kCornerLeaveAngle)) * kDegToRad, dot);
 }
 
 namespace {
@@ -257,11 +257,11 @@ bool RailSegmentValid(const Vector* a, const Vector* b)
                 static_cast<float>(static_cast<double>(b->w) - a->w)};
     float length = static_cast<float>(X87::Sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) +
                                                 static_cast<double>(d.x) * d.x));
-    if (Script::GetFloat(kMinimumSeparation) > length)
+    if (Scripts::GetFloat(kMinimumSeparation) > length)
         return false;
     d.Normalize();
     float slope = d.y < 0.0f ? -d.y : d.y;
-    return SinAtLeast(static_cast<double>(Script::GetFloat(kMaxSlope)) * kDegToRad, slope);
+    return SinAtLeast(static_cast<double>(Scripts::GetFloat(kMaxSlope)) * kDegToRad, slope);
 }
 
 // 0x004F4B90
@@ -301,7 +301,7 @@ void OrientRailVertices(const Vector* direction, const Vector* translation, Vect
         uy *= inverse;
         uzF = static_cast<float>(uzF * inverse);
     }
-    Mth::Matrix m;
+    Maths::Matrix m;
     m.row[0] = {x, y, z, direction->w};
     m.row[1] = {static_cast<float>(ux), static_cast<float>(uy), uzF, 0.0f};
     m.row[2] = {side.x, side.y, side.z, sideW};
@@ -325,10 +325,10 @@ void OrientRailVertices(const Vector* direction, const Vector* translation, Vect
 void StretchRailSector(uint32_t source, const Vector* from, const Vector* previous, const Vector* to, uint8_t* sector,
                        uint8_t* previousSector, bool updateCollision)
 {
-    uint8_t* sourceGeometry = GetGeometry(GetSector(source));
+    uint8_t* sourceGeometry = GetGeometry(LookUpSector(source));
     int count = VertexCount(sourceGeometry);
     uint32_t bytes = static_cast<uint32_t>(count) << 4;
-    auto* vertices = static_cast<Vector*>(Mem::Malloc(bytes));
+    auto* vertices = static_cast<Vector*>(MemSys::AllocBlock(bytes));
     GetVertices(sourceGeometry, vertices);
     double dx = static_cast<double>(to->x) - from->x;
     double dy = static_cast<double>(to->y) - from->y;
@@ -350,12 +350,12 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
                           static_cast<float>(static_cast<double>(sw) * 0.5f)};
         OrientRailVertices(&halfway, from, vertices, kStartVertices, 10);
         uint8_t* previousGeometry = GetGeometry(previousSector);
-        auto* previousVertices = static_cast<Vector*>(Mem::Malloc(static_cast<uint32_t>(VertexCount(previousGeometry)) << 4));
+        auto* previousVertices = static_cast<Vector*>(MemSys::AllocBlock(static_cast<uint32_t>(VertexCount(previousGeometry)) << 4));
         GetVertices(previousGeometry, previousVertices);
         for (int i = 0; i < 10; ++i)
             previousVertices[kEndVertices[i]] = vertices[kStartVertices[i]];
         SetVertices(previousGeometry, previousVertices);
-        Mem::FreeMalloc(previousVertices);
+        MemSys::FreeMalloc(previousVertices);
     } else {
         Vector direction = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
         OrientRailVertices(&direction, from, vertices, kStartVertices, 10);
@@ -369,12 +369,12 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
     if (updateCollision) {
         // The collision's vertices moved as the drawn ones were: each found among the source geometry's (as read
         // back now) by its position - or by x and z alone, keeping its height over that vertex.
-        auto* before = static_cast<Vector*>(Mem::Malloc(bytes));
+        auto* before = static_cast<Vector*>(MemSys::AllocBlock(bytes));
         GetVertices(sourceGeometry, before);
-        Nx::CCollObjTriData* collision = GetCollision(sourceGeometry);
+        Engine3D::CTriMeshSource* collision = GetHitShape(sourceGeometry);
         int collisionCount = CollisionVertexCount(collision);
-        auto* raw = static_cast<Vector*>(Mem::Malloc(static_cast<uint32_t>(collisionCount) << 4));
-        collision->GetRawVertices(raw);
+        auto* raw = static_cast<Vector*>(MemSys::AllocBlock(static_cast<uint32_t>(collisionCount) << 4));
+        collision->GetStoredVertexArray(raw);
         for (int v = 0; v < collisionCount; ++v) {
             Vector vertex = raw[v];
             bool found = false;
@@ -396,11 +396,11 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
                 vertex.Print();
         }
         SetCollisionVertices(sector, raw);
-        Mem::FreeMalloc(raw);
-        Mem::FreeMalloc(before);
-        CParkManager::sInstance()->mp_generator->RebuildCollision();
+        MemSys::FreeMalloc(raw);
+        MemSys::FreeMalloc(before);
+        CParkLayout::sSingleton()->m_builder->RebuildCollision();
     }
-    Mem::FreeMalloc(vertices);
+    MemSys::FreeMalloc(vertices);
 }
 
 // --- CEditedRailPoint ---------------------------------------------------------------------------------------------
@@ -408,16 +408,16 @@ void StretchRailSector(uint32_t source, const Vector* from, const Vector* previo
 // 0x004F5460
 void CEditedRailPoint::DrawSegment(const Vector* origin, const Vector* position, float angle)
 {
-    if (!mp_next) {
+    if (!m_following) {
         DeleteSegment();
         return;
     }
     if (!mp_segment)
         mp_segment = CloneRailSector(kRailSource);
-    CEditedRailPoint* next = mp_next;
-    if (next->mp_next) {
+    CEditedRailPoint* next = m_following;
+    if (next->m_following) {
         // Joined on to the previous segment unless the turn is sharper than RailEditorMaxJoinAngle.
-        CEditedRailPoint* nextNext = next->mp_next;
+        CEditedRailPoint* nextNext = next->m_following;
         Vector before = {static_cast<float>(static_cast<double>(next->m_pos.x) - nextNext->m_pos.x),
                          static_cast<float>(static_cast<double>(next->m_pos.y) - nextNext->m_pos.y),
                          static_cast<float>(static_cast<double>(next->m_pos.z) - nextNext->m_pos.z),
@@ -430,7 +430,7 @@ void CEditedRailPoint::DrawSegment(const Vector* origin, const Vector* position,
         here.Normalize();
         float dot = static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                        static_cast<double>(here.x) * before.x);
-        bool join = !X87::CosAbove(static_cast<double>(Script::GetFloat(kMaxJoinAngle)) * kDegToRad, dot);
+        bool join = !X87::CosAbove(static_cast<double>(Scripts::GetFloat(kMaxJoinAngle)) * kDegToRad, dot);
         Vector c, b, a;
         TransformRailPoint(&c, &nextNext->m_pos, origin, position, angle);
         TransformRailPoint(&b, &next->m_pos, origin, position, angle);
@@ -448,13 +448,13 @@ void CEditedRailPoint::DrawSegment(const Vector* origin, const Vector* position,
 // 0x004F56D0
 void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, float angle)
 {
-    if (!m_hasPost || m_height < kPostWidth) {
+    if (!m_hasPost || m_levelY < kPostWidth) {
         DeletePost();
         return;
     }
-    uint8_t* geometry = GetGeometry(GetSector(kPostSource));
+    uint8_t* geometry = GetGeometry(LookUpSector(kPostSource));
     int count = VertexCount(geometry);
-    auto* vertices = static_cast<Vector*>(Mem::Malloc(static_cast<uint32_t>(count) << 4));
+    auto* vertices = static_cast<Vector*>(MemSys::AllocBlock(static_cast<uint32_t>(count) << 4));
     GetVertices(geometry, vertices);
     float low = kFar, high = -kFar;
     for (int i = 0; i < count; ++i) {
@@ -466,15 +466,15 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
     }
     // Leaning along the rail at an inner point: the post narrower as the rail climbs.
     float width = kPostWidth;
-    if (mp_next && mp_prev) {
-        double ax = static_cast<double>(mp_prev->m_pos.x) - m_pos.x;
-        double ay = static_cast<double>(mp_prev->m_pos.y) - m_pos.y;
-        float az = static_cast<float>(static_cast<double>(mp_prev->m_pos.z) - m_pos.z);
-        float aw = static_cast<float>(static_cast<double>(mp_prev->m_pos.w) - m_pos.w);
-        double bx = static_cast<double>(m_pos.x) - mp_next->m_pos.x;
-        float by = static_cast<float>(static_cast<double>(m_pos.y) - mp_next->m_pos.y);
-        float bz = static_cast<float>(static_cast<double>(m_pos.z) - mp_next->m_pos.z);
-        float bw = static_cast<float>(static_cast<double>(m_pos.w) - mp_next->m_pos.w);
+    if (m_following && m_preceding) {
+        double ax = static_cast<double>(m_preceding->m_pos.x) - m_pos.x;
+        double ay = static_cast<double>(m_preceding->m_pos.y) - m_pos.y;
+        float az = static_cast<float>(static_cast<double>(m_preceding->m_pos.z) - m_pos.z);
+        float aw = static_cast<float>(static_cast<double>(m_preceding->m_pos.w) - m_pos.w);
+        double bx = static_cast<double>(m_pos.x) - m_following->m_pos.x;
+        float by = static_cast<float>(static_cast<double>(m_pos.y) - m_following->m_pos.y);
+        float bz = static_cast<float>(static_cast<double>(m_pos.z) - m_following->m_pos.z);
+        float bw = static_cast<float>(static_cast<double>(m_pos.w) - m_following->m_pos.w);
         float sx = static_cast<float>(bx + ax);
         double sy = static_cast<double>(by) + ay;
         double sz = static_cast<double>(bz) + az;
@@ -496,13 +496,13 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
         v.y = static_cast<float>(static_cast<double>(v.y) - drop);
     }
     // The foot's vertices down to the ground.
-    double foot = (static_cast<double>(m_height) - drop) - high;
+    double foot = (static_cast<double>(m_levelY) - drop) - high;
     for (int i : {8, 9, 10, 11, 1, 2, 5, 6})
         vertices[i].y = static_cast<float>(static_cast<double>(vertices[i].y) - foot);
-    if (mp_next) {
+    if (m_following) {
         // Turned to face along the rail.
-        double dx = static_cast<double>(m_pos.x) - mp_next->m_pos.x;
-        double dz = static_cast<double>(m_pos.z) - mp_next->m_pos.z;
+        double dx = static_cast<double>(m_pos.x) - m_following->m_pos.x;
+        double dz = static_cast<double>(m_pos.z) - m_following->m_pos.z;
         double length = X87::Sqrt(dz * dz + dx * dx);
         if (length > 0.0) {
             double inverse = 1.0 / length;
@@ -519,15 +519,15 @@ void CEditedRailPoint::DrawPost(const Vector* origin, const Vector* position, fl
         }
     }
     if (!mp_post)
-        mp_post = CloneSector(kPostSource);
+        mp_post = DuplicateSceneSector(kPostSource);
     SetVertices(GetGeometry(mp_post), vertices);
-    Mem::FreeMalloc(vertices);
+    MemSys::FreeMalloc(vertices);
 }
 
 // 0x004F5D10
 float __fastcall CEditedRailPoint::GroundHeight(const Vector* position)
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
     Vector start = {position->x, static_cast<float>(static_cast<double>(position->y) + kGroundProbe), position->z,
                     position->w};
@@ -535,8 +535,8 @@ float __fastcall CEditedRailPoint::GroundHeight(const Vector* position)
     Vector end = {position->x, static_cast<float>(static_cast<double>(position->y) - kGroundProbe), position->z,
                   position->w};
     feeler.SetEnd(&end);
-    if (feeler.GetCollision(true, false)) {
-        float height = feeler.m_point.y;
+    if (feeler.GetHitShape(true, false)) {
+        float height = feeler.m_contactPos.y;
         feeler.m_object.Release();
         return height;
     }
@@ -549,20 +549,20 @@ void CEditedRailPoint::Highlight(bool flash, bool includeEndPosts)
 {
     if (m_highlighted)
         return;
-    uint32_t mask = flash ? FlashMask(Script::GetInteger(kFlashRate)) : 0xFFFFFFFFu;
-    Colour normal = {static_cast<uint8_t>(Script::GetInteger(kHighlightR)),
-                     static_cast<uint8_t>(Script::GetInteger(kHighlightG)),
-                     static_cast<uint8_t>(Script::GetInteger(kHighlightB))};
-    Colour bad = {static_cast<uint8_t>(Script::GetInteger(kBadR)), static_cast<uint8_t>(Script::GetInteger(kBadG)),
-                  static_cast<uint8_t>(Script::GetInteger(kBadB))};
+    uint32_t mask = flash ? FlashMask(Scripts::FetchIntValue(kFlashRate)) : 0xFFFFFFFFu;
+    Colour normal = {static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightR)),
+                     static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightG)),
+                     static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightB))};
+    Colour bad = {static_cast<uint8_t>(Scripts::FetchIntValue(kBadR)), static_cast<uint8_t>(Scripts::FetchIntValue(kBadG)),
+                  static_cast<uint8_t>(Scripts::FetchIntValue(kBadB))};
     // Too long a segment either side: everything in the bad colour.
     bool tooLong = false;
-    if (mp_next && RailTooFar(&m_pos, &mp_next->m_pos))
+    if (m_following && RailTooFar(&m_pos, &m_following->m_pos))
         tooLong = true;
-    if (mp_prev && RailTooFar(&m_pos, &mp_prev->m_pos))
+    if (m_preceding && RailTooFar(&m_pos, &m_preceding->m_pos))
         tooLong = true;
     auto cornerOk = [](const CEditedRailPoint* p) {
-        return !p->mp_next || !p->mp_prev || RailCornerOk(&p->mp_next->m_pos, &p->m_pos, &p->mp_prev->m_pos);
+        return !p->m_following || !p->m_preceding || RailCornerOk(&p->m_following->m_pos, &p->m_pos, &p->m_preceding->m_pos);
     };
     auto paint = [mask](uint8_t* sector, const Colour& colour) {
         SetSectorColour(sector, colour.Word());
@@ -575,17 +575,17 @@ void CEditedRailPoint::Highlight(bool flash, bool includeEndPosts)
         paint(mp_post, colour);
     }
     if (mp_segment) {
-        if (mp_next)
-            colour = cornerOk(mp_next) && cornerOk(this) && !tooLong ? normal : bad;
+        if (m_following)
+            colour = cornerOk(m_following) && cornerOk(this) && !tooLong ? normal : bad;
         paint(mp_segment, colour);
     }
-    if (mp_prev && mp_prev->mp_segment)
-        paint(mp_prev->mp_segment, cornerOk(mp_prev) && cornerOk(this) && !tooLong ? normal : bad);
+    if (m_preceding && m_preceding->mp_segment)
+        paint(m_preceding->mp_segment, cornerOk(m_preceding) && cornerOk(this) && !tooLong ? normal : bad);
     if (includeEndPosts) {
-        if (mp_next && !mp_next->mp_next && mp_next->mp_post)
-            paint(mp_next->mp_post, normal);
-        if (mp_prev && !mp_prev->mp_prev && mp_prev->mp_post)
-            paint(mp_prev->mp_post, normal);
+        if (m_following && !m_following->m_following && m_following->mp_post)
+            paint(m_following->mp_post, normal);
+        if (m_preceding && !m_preceding->m_preceding && m_preceding->mp_post)
+            paint(m_preceding->mp_post, normal);
     }
     m_highlighted = true;
 }
@@ -596,7 +596,7 @@ void CEditedRailPoint::Highlight(bool flash, bool includeEndPosts)
 void CEditedRail::Transform(const Vector* origin, const Vector* position, float angle)
 {
     // (TransformRailPoint's turn, but z' not rounded to float before the position is added)
-    for (CEditedRailPoint* p = mp_points; p; p = p->mp_next) {
+    for (CEditedRailPoint* p = mp_points; p; p = p->m_following) {
         double dx = static_cast<double>(p->m_pos.x) - origin->x;
         float dy = static_cast<float>(static_cast<double>(p->m_pos.y) - origin->y);
         double dz = static_cast<double>(p->m_pos.z) - origin->z;
@@ -614,16 +614,16 @@ void CEditedRail::Transform(const Vector* origin, const Vector* position, float 
 void CEditedRail::DrawSegments(const Vector* origin, const Vector* position, float angle)
 {
     CEditedRailPoint* last = nullptr;
-    for (CEditedRailPoint* p = mp_points; p; p = p->mp_next)
+    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
         last = p;
-    for (CEditedRailPoint* p = last; p; p = p->mp_prev)
+    for (CEditedRailPoint* p = last; p; p = p->m_preceding)
         p->DrawSegment(origin, position, angle);
 }
 
 // 0x004F6210
 void CEditedRail::DrawPosts(const Vector* origin, const Vector* position, float angle)
 {
-    for (CEditedRailPoint* p = mp_points; p; p = p->mp_next)
+    for (CEditedRailPoint* p = mp_points; p; p = p->m_following)
         p->DrawPost(origin, position, angle);
 }
 
@@ -632,80 +632,80 @@ bool CEditedRail::MovePoint(int index, const Vector* position, bool /*updateSupe
 {
     CEditedRailPoint* p = GetPoint(index);
     bool valid = true;
-    if (p->mp_next && !RailSegmentValid(&p->mp_next->m_pos, position))
+    if (p->m_following && !RailSegmentValid(&p->m_following->m_pos, position))
         valid = false;
-    if (p->mp_prev && !RailSegmentValid(&p->mp_prev->m_pos, position))
+    if (p->m_preceding && !RailSegmentValid(&p->m_preceding->m_pos, position))
         valid = false;
-    if (!CParkEditor::IsInsidePark(*position, 10.0f))
+    if (!CParkBuilderMode::IsInsidePark(*position, 10.0f))
         valid = false;
     // Moved (even when not valid) unless a neighbour would be out of reach.
-    if (p->mp_next && DistanceZYX(position, &p->mp_next->m_pos) > kMaxReach)
+    if (p->m_following && DistanceZYX(position, &p->m_following->m_pos) > kMaxReach)
         return valid;
-    if (p->mp_prev && DistanceZYX(position, &p->mp_prev->m_pos) > kMaxReach)
+    if (p->m_preceding && DistanceZYX(position, &p->m_preceding->m_pos) > kMaxReach)
         return valid;
     p->m_pos = *position;
-    p->m_height = static_cast<float>(static_cast<double>(p->m_pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
+    p->m_levelY = static_cast<float>(static_cast<double>(p->m_pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
     p->DrawPost(&Zero(), &Zero(), 0.0f);
     p->DrawSegment(&Zero(), &Zero(), 0.0f);
-    if (p->mp_prev)
-        p->mp_prev->DrawSegment(&Zero(), &Zero(), 0.0f);
+    if (p->m_preceding)
+        p->m_preceding->DrawSegment(&Zero(), &Zero(), 0.0f);
     return valid;
 }
 
-// --- CRailEditorComponent -----------------------------------------------------------------------------------------
+// --- CRailAuthoring -----------------------------------------------------------------------------------------
 
 // 0x004F6510
-void CRailEditorComponent::RestoreHeights()
+void CRailAuthoring::RestoreHeights()
 {
     SetActive(false);
-    for (CEditedRail* rail = mp_rails; rail; rail = rail->mp_next) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->mp_next) {
+    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
+        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
             if (p->m_hasPost)
                 p->m_pos.y = static_cast<float>(static_cast<double>(CEditedRailPoint::GroundHeight(&p->m_pos)) +
-                                                p->m_height);
+                                                p->m_levelY);
         }
     }
     SetActive(true);
 }
 
 // 0x004F6560
-void CRailEditorComponent::StoreHeights()
+void CRailAuthoring::StoreHeights()
 {
-    for (CEditedRail* rail = mp_rails; rail; rail = rail->mp_next) {
-        for (CEditedRailPoint* p = rail->mp_points; p; p = p->mp_next)
-            p->m_height = static_cast<float>(static_cast<double>(p->m_pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
+    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
+        for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following)
+            p->m_levelY = static_cast<float>(static_cast<double>(p->m_pos.y) - CEditedRailPoint::GroundHeight(&p->m_pos));
     }
 }
 
 // 0x004F65A0
-void CRailEditorComponent::DrawAllSegments()
+void CRailAuthoring::DrawAllSegments()
 {
-    for (CEditedRail* rail = mp_rails; rail; rail = rail->mp_next)
+    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
         rail->DrawSegments(&Zero(), &Zero(), 0.0f);
 }
 
 // 0x004F6600
-void CRailEditorComponent::DrawAllPosts()
+void CRailAuthoring::DrawAllPosts()
 {
-    for (CEditedRail* rail = mp_rails; rail; rail = rail->mp_next)
+    for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
         rail->DrawPosts(&Zero(), &Zero(), 0.0f);
 }
 
 // 0x004F6650
-void CRailEditorComponent::Rebuild()
+void CRailAuthoring::Rebuild()
 {
-    CParkManager::sInstance()->mp_generator->RebuildCollision();
+    CParkLayout::sSingleton()->m_builder->RebuildCollision();
     StoreHeights();
     DrawAllSegments();
     DrawAllPosts();
 }
 
 // 0x004F6AF0
-void CRailEditorComponent::DrawDottedLine(const Vector* position)
+void CRailAuthoring::DrawDottedLine(const Vector* position)
 {
-    if (!mp_current)
+    if (!m_activeNode)
         return;
-    CEditedRailPoint* head = mp_current->mp_points;
+    CEditedRailPoint* head = m_activeNode->mp_points;
     if (!head)
         return;
     uint32_t source = kDottedGreen;
@@ -715,7 +715,7 @@ void CRailEditorComponent::DrawDottedLine(const Vector* position)
             return;
         }
         source = kDottedRed;
-    } else if (head->mp_next && !RailCornerOk(&head->mp_next->m_pos, &head->m_pos, position)) {
+    } else if (head->m_following && !RailCornerOk(&head->m_following->m_pos, &head->m_pos, position)) {
         source = kDottedRed;
     }
     if (!mp_dottedLine || source != m_dottedLineName) {
@@ -726,7 +726,7 @@ void CRailEditorComponent::DrawDottedLine(const Vector* position)
     // (the original passes an unset local as the previous point: unread without a previous sector)
     StretchRailSector(m_dottedLineName, &head->m_pos, position, position, mp_dottedLine, nullptr, false);
     if (source == kDottedRed)
-        SetSectorVisibility(mp_dottedLine, FlashMask(Script::GetInteger(kRedLineFlashRate)));
+        SetSectorVisibility(mp_dottedLine, FlashMask(Scripts::FetchIntValue(kRedLineFlashRate)));
 }
 
 // --- The register-argument entry points ---------------------------------------------------------------------------

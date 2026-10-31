@@ -18,14 +18,14 @@
 #include "game/script/struct.h"
 #include "game/sys/crt.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
-using Script::CArray;
-using Script::CComponent;
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CComponent;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 constexpr uint32_t kName = 0xA1DC81F9;           // "name"
 constexpr uint32_t kInteger = 0xA5F054F4;        // "integer"
@@ -59,7 +59,7 @@ constexpr uint32_t kNewValue = 0x4B40630D;       // "NewValue"
 constexpr uint32_t kTypeStructurePointer = 11;
 
 // The calling script's object (null: not an object's script).
-Obj::CObject* ScriptObject(CScript* script) { return script->m_object.Get(); }
+GameObjects::CObject* ScriptObject(CScript* script) { return script->m_object.Get(); }
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
@@ -76,7 +76,7 @@ void CopyText(char* out, const char* text)
 }
 
 // 0x00479190: the type-name lookup, compiled out (its "(Hey, don't use this...)" text; the type is ignored).
-const char* TypeName(Script::ESymbolType /*type*/) { return "(Hey, don't use GetTypeName on the CD!)"; }
+const char* TypeName(Scripts::EQbValueKind /*type*/) { return "(Hey, don't use GetTypeName on the CD!)"; }
 
 // 0x0044A480 (script_cfuncs.cpp): FormatText's work - the text put together from `params` into `out`.
 int FormatTextInto(CStruct* out, CStruct* params) { return FormatText(out, params); }
@@ -88,7 +88,7 @@ int FormatTextInto(CStruct* out, CStruct* params) { return FormatText(out, param
 bool __cdecl CFunc_RemoveParameter(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     CStruct* own = script->m_params;
     own->RemoveComponent(name);
     own->RemoveFlag(name);
@@ -99,7 +99,7 @@ bool __cdecl CFunc_RemoveParameter(CStruct* params, CScript* script)
 bool __cdecl CFunc_RemoveFlag(CStruct* params, CScript* script)
 {
     uint32_t flag = 0;
-    params->GetChecksum(0u, &flag, 0);
+    params->ReadHashValue(0u, &flag, 0);
     script->m_params->RemoveFlag(flag);
     return true;
 }
@@ -110,32 +110,32 @@ bool __cdecl CFunc_RemoveFlag(CStruct* params, CScript* script)
 bool __cdecl CFunc_GetRandomValue(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(kName, &name, 0);
-    if (params->ContainsFlag(kInteger)) {
+    params->ReadHashValue(kName, &name, 0);
+    if (params->HasBareFlag(kInteger)) {
         int a = 0;
         int b = 0;
-        params->GetInteger(kA, &a, 0);
-        params->GetInteger(kB, &b, 0);
+        params->FetchIntValue(kA, &a, 0);
+        params->FetchIntValue(kB, &b, 0);
         if (a > b) {
             int swap = a;
             a = b;
             b = swap;
         }
-        script->m_params->AddInteger(name, Mth::Rnd(b - a + 1) + a);
+        script->m_params->PutInt(name, Maths::Rnd(b - a + 1) + a);
         return true;
     }
     int resolution = 1000;
-    params->GetInteger(kResolution, &resolution, 0);
+    params->FetchIntValue(kResolution, &resolution, 0);
     float a = 0.0f;
     float b = 0.0f;
     params->GetFloat(kA, &a, 0);
     params->GetFloat(kB, &b, 0);
-    int step = Mth::Rnd(resolution);
+    int step = Maths::Rnd(resolution);
     // x87 at 53 bits: step * (b - a), / (resolution - 1), + a, each rounded to double; then to float
     double value = static_cast<double>(step) * (static_cast<double>(b) - static_cast<double>(a));
     value /= static_cast<double>(resolution - 1);
     value += static_cast<double>(a);
-    script->m_params->AddFloat(name, static_cast<float>(value));
+    script->m_params->PushFloat(name, static_cast<float>(value));
     return true;
 }
 
@@ -145,7 +145,7 @@ bool __cdecl CFunc_SizeOf(CStruct* params, CScript* script)
     CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
     uint32_t size = array ? array->m_size : 0;
-    script->m_params->AddComponentOfType(kArraySize, Script::ESYMBOLTYPE_INTEGER, size);
+    script->m_params->AddComponentOfType(kArraySize, Scripts::QBVAL_INTEGER, size);
     return true;
 }
 
@@ -158,7 +158,7 @@ bool __cdecl CFunc_GetNextArrayElement(CStruct* params, CScript* script)
     CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
     int index = -1;
-    script->m_params->GetInteger(kIndex, &index, 0);
+    script->m_params->FetchIntValue(kIndex, &index, 0);
     script->m_params->RemoveComponent(kIndex);
     script->m_params->RemoveComponent(kElement);
     if (!array)
@@ -173,32 +173,32 @@ bool __cdecl CFunc_GetNextArrayElement(CStruct* params, CScript* script)
         if (index >= static_cast<int>(size))
             return false;
     }
-    script->m_params->AddInteger(kIndex, index);
+    script->m_params->PutInt(kIndex, index);
     CStruct* own = script->m_params;
     switch (array->m_type) {
-    case Script::ESYMBOLTYPE_INTEGER:
-        own->AddInteger(kElement, static_cast<int>(array->GetElement(index)));
+    case Scripts::QBVAL_INTEGER:
+        own->PutInt(kElement, static_cast<int>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_FLOAT:
-        own->AddFloat(kElement, array->GetFloat(index));
+    case Scripts::QBVAL_FLOAT:
+        own->PushFloat(kElement, array->GetFloat(index));
         break;
-    case Script::ESYMBOLTYPE_STRING:
-        own->AddString(kElement, array->GetLocalString(index)); // (0x0046CB70: the same element read)
+    case Scripts::QBVAL_STRING:
+        own->AddString(kElement, array->FindInlineText(index)); // (0x0046CB70: the same element read)
         break;
-    case Script::ESYMBOLTYPE_LOCALSTRING:
-        own->AddLocalString(kElement, array->GetString(index));
+    case Scripts::QBVAL_INLINE_TEXT:
+        own->AppendInlineText(kElement, array->GetString(index));
         break;
-    case Script::ESYMBOLTYPE_STRUCTURE:
-        own->AddStructure(kElement, reinterpret_cast<CStruct*>(array->GetElement(index)));
+    case Scripts::QBVAL_STRUCT:
+        own->PutSubStruct(kElement, reinterpret_cast<CStruct*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_ARRAY:
-        own->AddArray(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
+    case Scripts::QBVAL_ARRAY:
+        own->AppendArrayValue(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_NAME:
-        own->AddChecksum(kElement, array->GetElement(index));
+    case Scripts::QBVAL_NAME:
+        own->PutNameKey(kElement, array->GetElement(index));
         break;
     default:
-        Dbg::Printf("GetNextArrayElement does not support arrays of type '%s'\n", TypeName(array->m_type)); // "... does not support ..."
+        DebugOut::Printf("GetNextArrayElement does not support arrays of type '%s'\n", TypeName(array->m_type)); // "... does not support ..."
         break;
     }
     return true;
@@ -215,27 +215,27 @@ bool __cdecl CFunc_GetRandomArrayElement(CStruct* params, CScript* script)
     params->GetArray(0u, &array, 0);
     if (!array || array->m_size == 0)
         return false;
-    int index = Mth::Rnd(static_cast<int>(array->m_size));
-    script->m_params->AddInteger(kIndex, index);
+    int index = Maths::Rnd(static_cast<int>(array->m_size));
+    script->m_params->PutInt(kIndex, index);
     CStruct* own = script->m_params;
     switch (array->m_type) {
-    case Script::ESYMBOLTYPE_INTEGER:
-        own->AddInteger(kElement, static_cast<int>(array->GetElement(index)));
+    case Scripts::QBVAL_INTEGER:
+        own->PutInt(kElement, static_cast<int>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_FLOAT:
-        own->AddFloat(kElement, array->GetFloat(index));
+    case Scripts::QBVAL_FLOAT:
+        own->PushFloat(kElement, array->GetFloat(index));
         break;
-    case Script::ESYMBOLTYPE_STRUCTURE:
-        own->AddStructure(kElement, reinterpret_cast<CStruct*>(array->GetElement(index)));
+    case Scripts::QBVAL_STRUCT:
+        own->PutSubStruct(kElement, reinterpret_cast<CStruct*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_ARRAY:
-        own->AddArray(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
+    case Scripts::QBVAL_ARRAY:
+        own->AppendArrayValue(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_NAME:
-        own->AddChecksum(kElement, array->GetElement(index));
+    case Scripts::QBVAL_NAME:
+        own->PutNameKey(kElement, array->GetElement(index));
         break;
     default:
-        Dbg::Printf("GetRandomArrayElement does not support arrays of type '%s'\n", TypeName(array->m_type)); // "... does not support ..."
+        DebugOut::Printf("GetRandomArrayElement does not support arrays of type '%s'\n", TypeName(array->m_type)); // "... does not support ..."
         break;
     }
     return true;
@@ -245,8 +245,8 @@ bool __cdecl CFunc_GetRandomArrayElement(CStruct* params, CScript* script)
 bool __cdecl CFunc_GotParam(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    return script->m_params->ContainsComponentNamed(name);
+    params->ReadHashValue(0u, &name, 0);
+    return script->m_params->HasEntryNamed(name);
 }
 
 // 0x0044BD60: Goto <script> [params={...}]: the script continues as that script (on the same object). Always
@@ -254,10 +254,10 @@ bool __cdecl CFunc_GotParam(CStruct* params, CScript* script)
 bool __cdecl CFunc_Goto(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
+    params->ReadHashValue(0u, &name, 0);
     CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
-    script->SetScript(name, scriptParams, ScriptObject(script));
+    params->ReadSubStruct(kParams, &scriptParams, 0);
+    script->BindScript(name, scriptParams, ScriptObject(script));
     return true;
 }
 
@@ -267,10 +267,10 @@ bool __cdecl CFunc_GotoRandomScript(CStruct* params, CScript* script)
 {
     CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
-    if (array && array->m_size && array->m_type == Script::ESYMBOLTYPE_NAME) {
-        Obj::CObject* object = ScriptObject(script);
-        uint32_t name = array->GetElement(Mth::Rnd(static_cast<int>(array->m_size)));
-        script->SetScript(name, nullptr, object);
+    if (array && array->m_size && array->m_type == Scripts::QBVAL_NAME) {
+        GameObjects::CObject* object = ScriptObject(script);
+        uint32_t name = array->GetElement(Maths::Rnd(static_cast<int>(array->m_size)));
+        script->BindScript(name, nullptr, object);
     }
     return true;
 }
@@ -288,11 +288,11 @@ bool __cdecl CFunc_MangleChecksums(CStruct* params, CScript* script)
 {
     uint32_t a = 0;
     uint32_t b = 0;
-    if (!params->GetChecksum(kA, &a, 0))
-        params->GetInteger(kA, reinterpret_cast<int*>(&a), 1);
-    if (!params->GetChecksum(kB, &b, 0))
-        params->GetInteger(kB, reinterpret_cast<int*>(&b), 1);
-    script->m_params->AddChecksum(kMangledId, a + b);
+    if (!params->ReadHashValue(kA, &a, 0))
+        params->FetchIntValue(kA, reinterpret_cast<int*>(&a), 1);
+    if (!params->ReadHashValue(kB, &b, 0))
+        params->FetchIntValue(kB, reinterpret_cast<int*>(&b), 1);
+    script->m_params->PutNameKey(kMangledId, a + b);
     return true;
 }
 
@@ -303,9 +303,9 @@ bool __cdecl CFunc_AppendSuffixToChecksum(CStruct* params, CScript* script)
 {
     uint32_t base = 0;
     const char* suffix = nullptr;
-    params->GetChecksum(kBase, &base, 1);
+    params->ReadHashValue(kBase, &base, 1);
     params->GetString(kSuffixString, &suffix, 1);
-    script->m_params->AddChecksum(kAppendedId, Crc::ExtendCRCWithString(base, suffix));
+    script->m_params->PutNameKey(kAppendedId, Checksums::FoldTextIntoChecksum(base, suffix));
     return true;
 }
 
@@ -318,7 +318,7 @@ bool __cdecl CFunc_GetUpperCaseString(CStruct* params, CScript* script)
     params->GetString(0u, &text, 1);
     char upper[0x80];
     CopyText(upper, text);
-    Str::UpperCase(upper);
+    TextUtil::ToCapitals(upper);
     script->m_params->AddString(kUpperCaseString, upper);
     return true;
 }
@@ -328,8 +328,8 @@ bool __cdecl CFunc_GetUpperCaseString(CStruct* params, CScript* script)
 bool __cdecl CFunc_AddFlag(CStruct* params, CScript* script)
 {
     uint32_t flag = 0;
-    params->GetChecksum(0u, &flag, 0);
-    script->m_params->AddChecksum(0u, flag);
+    params->ReadHashValue(0u, &flag, 0);
+    script->m_params->PutNameKey(0u, flag);
     return true;
 }
 
@@ -349,16 +349,16 @@ bool __cdecl CFunc_AppendSuffix(CStruct* params, CScript* script)
     } buffers;
     CopyText(buffers.result, text);
     int maxLength = 15;
-    params->GetInteger(kMaxLength, &maxLength, 0);
+    params->FetchIntValue(kMaxLength, &maxLength, 0);
     int suffix = 1;
-    params->GetInteger(kSuffix, &suffix, 0);
+    params->FetchIntValue(kSuffix, &suffix, 0);
     Sprintf(buffers.number, " %d", suffix); // " %d"
     int numberLength = static_cast<int>(std::strlen(buffers.number));
     if (numberLength + static_cast<int>(textLength) > maxLength)
         reinterpret_cast<char*>(&buffers)[sizeof(buffers.number) + maxLength - numberLength] = '\0';
     CopyText(buffers.result + std::strlen(buffers.result), buffers.number);
     uint32_t name = 0;
-    params->GetChecksum(kResultName, &name, 0);
+    params->ReadHashValue(kResultName, &name, 0);
     script->m_params->AddString(name, buffers.result);
     return true;
 }
@@ -372,32 +372,32 @@ bool __cdecl CFunc_IsObjectScript(CStruct*, CScript* script) { return ScriptObje
 bool __cdecl CFunc_ForEachIn(CStruct* params, CScript* script)
 {
     uint32_t each = 0;
-    params->GetChecksum(kDo, &each, 0);
+    params->ReadHashValue(kDo, &each, 0);
     CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
     CStruct* extra = nullptr;
-    params->GetStructure(kParams, &extra, 0);
+    params->ReadSubStruct(kParams, &extra, 0);
     if (extra) {
-        CStruct* elementParams = Script::NewStruct();
+        CStruct* elementParams = Scripts::NewStruct();
         if (elementParams)
             elementParams = elementParams->Init();
         for (uint32_t i = 0; i < array->m_size; ++i) {
             elementParams->Clear();
             if (auto* element = reinterpret_cast<CStruct*>(array->GetElement(i)))
-                elementParams->AppendStructure(element);
+                elementParams->MergeStructure(element);
             if (extra)
-                elementParams->AppendStructure(extra);
-            Script::RunScript(each, elementParams, ScriptObject(script), false, nullptr);
+                elementParams->MergeStructure(extra);
+            Scripts::LaunchScript(each, elementParams, ScriptObject(script), false, nullptr);
         }
         if (elementParams) {
             elementParams->Clear();
-            Script::DeleteStruct(elementParams);
+            Scripts::DeleteStruct(elementParams);
         }
         return true;
     }
     for (uint32_t i = 0; i < array->m_size; ++i) {
-        Obj::CObject* object = ScriptObject(script);
-        Script::RunScript(each, reinterpret_cast<CStruct*>(array->GetElement(i)), object, false, nullptr);
+        GameObjects::CObject* object = ScriptObject(script);
+        Scripts::LaunchScript(each, reinterpret_cast<CStruct*>(array->GetElement(i)), object, false, nullptr);
     }
     return true;
 }
@@ -410,29 +410,29 @@ bool __cdecl CFunc_GetElement(CStruct* params, CScript* script)
     CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
     int index = 0;
-    params->GetInteger("Index", &index, 0); // "Index"
+    params->FetchIntValue("Index", &index, 0); // "Index"
     script->m_params->RemoveComponent(kElement);
     if (!array)
         return true;
     if (index < 0 || index >= static_cast<int>(array->m_size))
         return false;
     switch (array->m_type) {
-    case Script::ESYMBOLTYPE_INTEGER:
-        script->m_params->AddComponentOfType(kElement, Script::ESYMBOLTYPE_INTEGER, array->GetElement(index));
+    case Scripts::QBVAL_INTEGER:
+        script->m_params->AddComponentOfType(kElement, Scripts::QBVAL_INTEGER, array->GetElement(index));
         break;
-    case Script::ESYMBOLTYPE_STRUCTURE: {
-        CStruct* copy = Script::NewStruct();
+    case Scripts::QBVAL_STRUCT: {
+        CStruct* copy = Scripts::NewStruct();
         if (copy)
             copy = copy->Init();
         copy->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->GetElement(index)));
         script->m_params->AddComponentOfType(kElement, kTypeStructurePointer, reinterpret_cast<uint32_t>(copy));
         break;
     }
-    case Script::ESYMBOLTYPE_ARRAY:
-        script->m_params->AddArray(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
+    case Scripts::QBVAL_ARRAY:
+        script->m_params->AppendArrayValue(kElement, reinterpret_cast<CArray*>(array->GetElement(index)));
         break;
     default:
-        Dbg::Printf("GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n", array->m_type); // "... only supports ..."
+        DebugOut::Printf("GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n", array->m_type); // "... only supports ..."
         break;
     }
     return true;
@@ -448,41 +448,41 @@ bool __cdecl CFunc_PermuteArray(CStruct* params, CScript* script)
     params->GetArray("Array", &source, 0); // "Array"
     if (!source)
         return false;
-    bool makeCopy = !params->ContainsFlag("PermuteSource"); // "PermuteSource"
+    bool makeCopy = !params->HasBareFlag("PermuteSource"); // "PermuteSource"
     uint32_t newName = 0;
     CArray* copy = nullptr;
     CArray* array = source;
     if (makeCopy) {
-        params->GetChecksum("NewArrayName", &newName, 0); // "NewArrayName"
+        params->ReadHashValue("NewArrayName", &newName, 0); // "NewArrayName"
         if (!newName)
             return false;
-        array = Script::NewArray();
+        array = Scripts::NewArray();
         if (array)
             array = array->Init();
         copy = array;
-        Script::CopyArray(array, source);
+        Scripts::DuplicateArray(array, source);
     }
     int size = static_cast<int>(array->m_size);
     if (size) {
-        uint32_t* elements = array->GetArrayPointer();
+        uint32_t* elements = array->FindArrayValue();
         uint32_t oldLast = elements[size - 1];
         for (int swaps = size * 10; swaps > 0; --swaps) {
-            int a = Mth::Rnd(size);
-            int b = Mth::Rnd(size);
+            int a = Maths::Rnd(size);
+            int b = Maths::Rnd(size);
             uint32_t swap = elements[a];
             elements[a] = elements[b];
             elements[b] = swap;
         }
-        if (params->ContainsFlag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0] == oldLast) {
+        if (params->HasBareFlag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0] == oldLast) {
             // "MakeNewFirstDifferFromOldLast"
-            int other = Mth::Rnd(size - 1) + 1;
+            int other = Maths::Rnd(size - 1) + 1;
             uint32_t swap = elements[0];
             elements[0] = elements[other];
             elements[other] = swap;
         }
     }
     if (makeCopy)
-        script->m_params->AddArrayPointer(newName, copy);
+        script->m_params->AppendArrayRef(newName, copy);
     return true;
 }
 
@@ -491,18 +491,18 @@ bool __cdecl CFunc_PermuteArray(CStruct* params, CScript* script)
 bool __cdecl CFunc_GotoPreserveParams(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    CStruct* scriptParams = Script::NewStruct();
+    params->ReadHashValue(0u, &name, 0);
+    CStruct* scriptParams = Scripts::NewStruct();
     if (scriptParams)
         scriptParams = scriptParams->Init();
     scriptParams->AppendStructureIfAny(script->m_params);
     CStruct* extra = nullptr;
-    params->GetStructure(kParams, &extra, 0);
+    params->ReadSubStruct(kParams, &extra, 0);
     scriptParams->AppendStructureIfAny(extra);
-    script->SetScript(name, scriptParams, ScriptObject(script));
+    script->BindScript(name, scriptParams, ScriptObject(script));
     if (scriptParams) {
         scriptParams->Clear();
-        Script::DeleteStruct(scriptParams);
+        Scripts::DeleteStruct(scriptParams);
     }
     return true;
 }
@@ -512,10 +512,10 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
 {
     const char* text = "Default printf text"; // "Default printf text"
     if (params->GetString(0u, &text, 0)) {
-        CStruct* format = Script::NewStruct();
+        CStruct* format = Scripts::NewStruct();
         if (format)
             format = format->Init();
-        format->AddChecksum(kTextName, kPrintfText);
+        format->PutNameKey(kTextName, kPrintfText);
         format->AppendStructureIfAny(params);
         if (FormatTextInto(format, format))
             format->GetString("PrintfText", &text, 0); // "PrintfText"
@@ -524,12 +524,12 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
         Sprintf(out, "%s\n", text); // "%s\n"
         if (format) {
             format->Clear();
-            Script::DeleteStruct(format);
+            Scripts::DeleteStruct(format);
         }
         return true;
     }
     int value = 0;
-    if (params->GetInteger(0u, &value, 0))
+    if (params->FetchIntValue(0u, &value, 0))
         Sprintf(out, "%d\n", value); // "%d\n"
     return true;
 }
@@ -540,25 +540,25 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
 bool __cdecl CFunc_Dump(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 1);
-    CStruct* dump = Script::NewStruct();
+    params->ReadHashValue(0u, &name, 1);
+    CStruct* dump = Scripts::NewStruct();
     if (dump)
         dump = dump->Init();
     char text[0x400];
     CComponent* component = script->m_params->FindComponent(name);
     if (!component) {
-        Sprintf(text, "%s=[!! DOES NOT EXIST !!]", Script::FindChecksumNameOrUnknown(name));
+        Sprintf(text, "%s=[!! DOES NOT EXIST !!]", Scripts::FindChecksumNameOrUnknown(name));
     } else {
-        Sprintf(text, "%s=%%a", Script::FindChecksumNameOrUnknown(name)); // "%s=%%a"
-        CComponent* value = Script::NewComponent();
-        Script::CopyComponent(value, component, 0);
+        Sprintf(text, "%s=%%a", Scripts::FindChecksumNameOrUnknown(name)); // "%s=%%a"
+        CComponent* value = Scripts::NewComponent();
+        Scripts::DuplicateComponent(value, component, 0);
         value->name = kA;
         dump->AddComponent(value);
     }
     dump->AddString(0u, text);
     if (dump) {
         dump->Clear();
-        Script::DeleteStruct(dump);
+        Scripts::DeleteStruct(dump);
     }
     return true;
 }
@@ -577,18 +577,18 @@ bool __cdecl CFunc_ScriptAssert(CStruct* params, CScript* script)
 bool __cdecl CFunc_CreateIndexArray(CStruct* params, CScript* script)
 {
     int size = 0;
-    params->GetInteger(0u, &size, 1);
-    CArray* indexes = Script::NewArray();
+    params->FetchIntValue(0u, &size, 1);
+    CArray* indexes = Scripts::NewArray();
     if (indexes)
         indexes = indexes->Init();
-    indexes->SetSizeAndType(static_cast<uint32_t>(size), Script::ESYMBOLTYPE_INTEGER);
+    indexes->ConfigureSizeKind(static_cast<uint32_t>(size), Scripts::QBVAL_INTEGER);
     for (int i = 0; i < size; ++i)
         indexes->SetElement(i, static_cast<uint32_t>(i));
-    script->m_params->AddArray(kIndexArray, indexes);
-    Script::CleanUpArray(indexes);
+    script->m_params->AppendArrayValue(kIndexArray, indexes);
+    Scripts::ReleaseArrayStorage(indexes);
     if (indexes) {
         indexes->Clear();
-        Script::DeleteArray(indexes);
+        Scripts::DeleteArray(indexes);
     }
     return true;
 }
@@ -598,17 +598,17 @@ bool __cdecl CFunc_CreateIndexArray(CStruct* params, CScript* script)
 // missing global structure crashes.)
 bool __cdecl CFunc_AppendStruct(CStruct* params, CScript*)
 {
-    uint32_t structName = 0;
+    uint32_t blockName = 0;
     uint32_t field = 0;
     CStruct* fieldParams = nullptr;
-    params->GetChecksum(kStruct, &structName, 1);
-    params->GetChecksum(kField, &field, 1);
-    params->GetStructure(kParams, &fieldParams, 1);
-    CStruct* copy = Script::NewStruct();
+    params->ReadHashValue(kStruct, &blockName, 1);
+    params->ReadHashValue(kField, &field, 1);
+    params->ReadSubStruct(kParams, &fieldParams, 1);
+    CStruct* copy = Scripts::NewStruct();
     if (copy)
         copy = copy->Init();
     copy->AppendStructureIfAny(fieldParams);
-    Script::GetStructure(structName)->AddStructurePointer(field, copy);
+    Scripts::ReadSubStruct(blockName)->AppendStructRef(field, copy);
     return true;
 }
 
@@ -619,17 +619,17 @@ bool __cdecl CFunc_StringToCharArray(CStruct* params, CScript* script)
     const char* string = nullptr;
     params->GetString(kString, &string, 1);
     uint32_t length = static_cast<uint32_t>(std::strlen(string));
-    CArray* characters = Script::NewArray();
+    CArray* characters = Scripts::NewArray();
     if (characters)
         characters = characters->Init();
-    characters->SetSizeAndType(length, Script::ESYMBOLTYPE_STRING);
+    characters->ConfigureSizeKind(length, Scripts::QBVAL_STRING);
     char one[2];
     one[1] = '\0';
     for (uint32_t i = 0; i < length; ++i) {
         one[0] = string[i];
-        characters->SetElement(i, reinterpret_cast<uint32_t>(Script::CreateString(one)));
+        characters->SetElement(i, reinterpret_cast<uint32_t>(Scripts::CreateString(one)));
     }
-    script->m_params->AddArrayPointer(kCharArray, characters);
+    script->m_params->AppendArrayRef(kCharArray, characters);
     return true;
 }
 
@@ -641,51 +641,51 @@ bool __cdecl CFunc_StringToCharArray(CStruct* params, CScript* script)
 bool __cdecl CFunc_SetArrayElement(CStruct* params, CScript* script)
 {
     uint32_t arrayName = 0;
-    params->GetChecksum(kArrayName, &arrayName, 1);
+    params->ReadHashValue(kArrayName, &arrayName, 1);
     CArray* array = nullptr;
     script->m_params->GetArray(arrayName, &array, 1);
     int index = 0;
-    params->GetInteger(kIndex, &index, 1);
+    params->FetchIntValue(kIndex, &index, 1);
     CComponent* newValue = params->FindLastComponent(kNewValue);
-    Script::ResolveNameComponent(newValue);
-    CComponent* value = Script::NewComponent();
-    Script::CopyComponent(value, newValue, 0);
+    Scripts::EvaluateNameToken(newValue);
+    CComponent* value = Scripts::NewComponent();
+    Scripts::DuplicateComponent(value, newValue, 0);
     bool store = true; // the element becomes the value (whose own copy is handed over)
     switch (array->m_type) {
-    case Script::ESYMBOLTYPE_INTEGER:
-    case Script::ESYMBOLTYPE_NAME:
+    case Scripts::QBVAL_INTEGER:
+    case Scripts::QBVAL_NAME:
         array->SetElement(index, value->raw);
         store = false;
         break;
-    case Script::ESYMBOLTYPE_FLOAT:
-        if (value->Type() == Script::ESYMBOLTYPE_FLOAT)
+    case Scripts::QBVAL_FLOAT:
+        if (value->Type() == Scripts::QBVAL_FLOAT)
             array->SetFloat(index, value->floatValue);
         else
             array->SetFloat(index, static_cast<float>(value->integer));
         store = false;
         break;
-    case Script::ESYMBOLTYPE_STRING:
-    case Script::ESYMBOLTYPE_LOCALSTRING:
-        Script::FreeString(array->GetLocalString(index));
+    case Scripts::QBVAL_STRING:
+    case Scripts::QBVAL_INLINE_TEXT:
+        Scripts::FreeString(array->FindInlineText(index));
         break;
-    case Script::ESYMBOLTYPE_PAIR:
-        Script::FreePair(reinterpret_cast<void*>(array->GetElement(index)));
+    case Scripts::QBVAL_PAIR:
+        Scripts::FreePair(reinterpret_cast<void*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_VECTOR:
-        Script::FreeVector(reinterpret_cast<void*>(array->GetElement(index)));
+    case Scripts::QBVAL_VECTOR:
+        Scripts::FreeVector(reinterpret_cast<void*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_STRUCTURE:
+    case Scripts::QBVAL_STRUCT:
         if (auto* old = reinterpret_cast<CStruct*>(array->GetElement(index))) {
             old->Clear();
-            Script::DeleteStruct(old);
+            Scripts::DeleteStruct(old);
         }
         break;
-    case Script::ESYMBOLTYPE_ARRAY: {
+    case Scripts::QBVAL_ARRAY: {
         auto* old = reinterpret_cast<CArray*>(array->GetElement(index));
-        Script::CleanUpArray(old);
+        Scripts::ReleaseArrayStorage(old);
         if (old) {
             old->Clear();
-            Script::DeleteArray(old);
+            Scripts::DeleteArray(old);
         }
         break;
     }
@@ -694,10 +694,10 @@ bool __cdecl CFunc_SetArrayElement(CStruct* params, CScript* script)
         break;
     }
     if (store)
-        array->GetArrayPointer()[index] = value->raw;
+        array->FindArrayValue()[index] = value->raw;
     value->raw = 0;
-    Script::FreeComponent(value);
+    Scripts::FreeComponent(value);
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

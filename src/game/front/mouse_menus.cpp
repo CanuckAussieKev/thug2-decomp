@@ -36,7 +36,7 @@
 
 namespace MouseMenus {
 
-using Front::CScreenElement;
+using MenuSystem::CUiWidget;
 
 namespace {
 
@@ -62,7 +62,7 @@ constexpr uint32_t kDeviceNum = 0xC9428A08; // "device_num"
 constexpr uint32_t kController = 0xB30D9965; // "controller"
 constexpr uint32_t kMenuEvent = 0x36B2EE74; // the pad events' target and source
 
-// CScreenElement's flags (+0x08).
+// CUiWidget's flags (+0x08).
 constexpr uint32_t kFlagBlockEvents = 0x200000;  // block_events
 constexpr uint32_t kFlagHidden = 0x400000;       // hide
 constexpr uint32_t kFlagPriority = 0x10000000;   // priority > 0 (pad events with priorities: 0x004A8F20)
@@ -71,23 +71,23 @@ constexpr uint32_t kFlagPriority = 0x10000000;   // priority > 0 (pad events wit
 constexpr float kMinAlpha = 0.01f;
 
 template <typename T>
-T Field(const CScreenElement* element, uint32_t offset)
+T Field(const CUiWidget* element, uint32_t offset)
 {
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(element) + offset);
 }
 
-const Obj::CObject* AsObject(const CScreenElement* element) { return reinterpret_cast<const Obj::CObject*>(element); }
-uint32_t Flags(const CScreenElement* element) { return Field<uint32_t>(element, 0x08); }
-uint32_t Type(const CScreenElement* element) { return AsObject(element)->m_type; }
-uint32_t Id(const CScreenElement* element) { return AsObject(element)->m_id; }
-CScreenElement* Parent(const CScreenElement* element) { return Field<CScreenElement*>(element, 0x4C); }
-CScreenElement* FirstChild(const CScreenElement* element) { return Field<CScreenElement*>(element, 0x58); }
-CScreenElement* NextSibling(const CScreenElement* element) { return Field<CScreenElement*>(element, 0x64); }
-float Alpha(const CScreenElement* element) { return Field<float>(element, 0x114); }
-float Angle(const CScreenElement* element) { return Field<float>(element, 0x14C); }
+const GameObjects::CObject* AsObject(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CObject*>(element); }
+uint32_t Flags(const CUiWidget* element) { return Field<uint32_t>(element, 0x08); }
+uint32_t Type(const CUiWidget* element) { return AsObject(element)->m_type; }
+uint32_t Id(const CUiWidget* element) { return AsObject(element)->m_id; }
+CUiWidget* Parent(const CUiWidget* element) { return Field<CUiWidget*>(element, 0x4C); }
+CUiWidget* FirstChild(const CUiWidget* element) { return Field<CUiWidget*>(element, 0x58); }
+CUiWidget* NextSibling(const CUiWidget* element) { return Field<CUiWidget*>(element, 0x64); }
+float Alpha(const CUiWidget* element) { return Field<float>(element, 0x114); }
+float Angle(const CUiWidget* element) { return Field<float>(element, 0x14C); }
 
 // The flag on the element or a parent.
-bool FlagInChain(const CScreenElement* element, uint32_t flag)
+bool FlagInChain(const CUiWidget* element, uint32_t flag)
 {
     for (; element; element = Parent(element))
         if (Flags(element) & flag)
@@ -95,7 +95,7 @@ bool FlagInChain(const CScreenElement* element, uint32_t flag)
     return false;
 }
 
-bool ClipsChildren(const CScreenElement* element)
+bool ClipsChildren(const CUiWidget* element)
 {
     uint32_t type = Type(element);
     return type == kWindowElement || type == kVScrollingMenu || type == kHScrollingMenu;
@@ -138,22 +138,22 @@ Rect TurnedBoxRect(const Box& box)
 
 // Each part of an item: itself, then everything below it that isn't hidden (nor below a hidden one).
 template <typename F>
-void ForEachPart(const CScreenElement* element, F& visit, bool item)
+void ForEachPart(const CUiWidget* element, F& visit, bool item)
 {
     if (!item && (Flags(element) & kFlagHidden))
         return;
     visit(element, item);
-    for (CScreenElement* child = FirstChild(element); child; child = NextSibling(child))
+    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
         ForEachPart(child, visit, false);
 }
 
 // The rectangle around the item's unturned parts (false: none - with `turnedInBounds` the turned ones' too), and
 // whether a turned part contains (x, y).
-bool ItemShape(const CScreenElement* item, float x, float y, bool turnedInBounds, Rect* bounds, bool* turnedHit)
+bool ItemShape(const CUiWidget* item, float x, float y, bool turnedInBounds, Rect* bounds, bool* turnedHit)
 {
     bool any = false;
     *turnedHit = false;
-    auto visit = [&](const CScreenElement* part, bool isItem) {
+    auto visit = [&](const CUiWidget* part, bool isItem) {
         Box box = ElementBox(part);
         if (!isItem && (box.width == 0.0f || box.height == 0.0f))
             return; // (an empty container somewhere: nothing to point at)
@@ -175,7 +175,7 @@ bool ItemShape(const CScreenElement* item, float x, float y, bool turnedInBounds
 }
 
 // Across its menu (a vertical menu's width, a horizontal one's height) - unless the menu is turned.
-Rect Widen(Rect area, const CScreenElement* menu)
+Rect Widen(Rect area, const CUiWidget* menu)
 {
     if (Rotated(Angle(menu)))
         return area;
@@ -201,13 +201,13 @@ struct Search {
 };
 
 // Pre-order: a later find (deeper, or later in the tree) replaces an earlier one.
-void Visit(Search& search, CScreenElement* element, bool parentAccepts, int index, const Rect& clip, bool clipped)
+void Visit(Search& search, CUiWidget* element, bool parentAccepts, int index, const Rect& clip, bool clipped)
 {
     if (Flags(element) & kFlagHidden)
         return;
     if (Alpha(element) < kMinAlpha)
         return;
-    CScreenElement* parent = Parent(element);
+    CUiWidget* parent = Parent(element);
     if (parentAccepts && !ItemPassedOver(element) && ItemFocusable(element)) {
         if (ItemContains(element, parent, search.x, search.y) && (!clipped || clip.Contains(search.x, search.y))) {
             search.found = true;
@@ -225,17 +225,17 @@ void Visit(Search& search, CScreenElement* element, bool parentAccepts, int inde
     }
     bool accepts = IsMenu(element) && search.accepts(element);
     int childIndex = 0;
-    for (CScreenElement* child = FirstChild(element); child; child = NextSibling(child), ++childIndex)
+    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child), ++childIndex)
         Visit(search, child, accepts, childIndex, childClip, childClipped);
 }
 
-bool FindMenu(CScreenElement* element, MenuFilter accepts, bool verticalOnly)
+bool FindMenu(CUiWidget* element, MenuFilter accepts, bool verticalOnly)
 {
     if (Flags(element) & kFlagHidden)
         return false;
     if (IsMenu(element) && (!verticalOnly || IsVerticalMenu(element)) && accepts(element))
         return true;
-    for (CScreenElement* child = FirstChild(element); child; child = NextSibling(child))
+    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
         if (FindMenu(child, accepts, verticalOnly))
             return true;
     return false;
@@ -250,12 +250,12 @@ ScreenMapping CurrentMapping(int windowWidth, int windowHeight)
     ScreenMapping mapping;
     mapping.windowWidth = windowWidth;
     mapping.windowHeight = windowHeight;
-    mapping.backBufferWidth = static_cast<uint32_t>(Nx::g_backBufferWidth);
-    mapping.backBufferHeight = static_cast<uint32_t>(Nx::g_backBufferHeight);
-    mapping.scaleX = Nx::g_screenScaleX;
-    mapping.scaleY = Nx::g_screenScaleY;
-    mapping.offsetX = static_cast<int32_t>(Nx::g_screenOffsetX);
-    mapping.offsetY = static_cast<int32_t>(Nx::g_screenOffsetY);
+    mapping.backBufferWidth = static_cast<uint32_t>(Engine3D::g_backBufferWidth);
+    mapping.backBufferHeight = static_cast<uint32_t>(Engine3D::g_backBufferHeight);
+    mapping.scaleX = Engine3D::g_screenScaleX;
+    mapping.scaleY = Engine3D::g_screenScaleY;
+    mapping.offsetX = static_cast<int32_t>(Engine3D::g_screenOffsetX);
+    mapping.offsetY = static_cast<int32_t>(Engine3D::g_screenOffsetY);
     return mapping;
 }
 
@@ -273,14 +273,14 @@ bool WindowToLayout(const ScreenMapping& mapping, float windowX, float windowY, 
     return true;
 }
 
-Box ElementBox(const CScreenElement* element)
+Box ElementBox(const CUiWidget* element)
 {
     return {Field<float>(element, 0x134), Field<float>(element, 0x138),
             Field<float>(element, 0x160) * Field<float>(element, 0x13C),
             Field<float>(element, 0x164) * Field<float>(element, 0x140), Angle(element)};
 }
 
-Rect ElementRect(const CScreenElement* element) { return BoxRect(ElementBox(element)); }
+Rect ElementRect(const CUiWidget* element) { return BoxRect(ElementBox(element)); }
 
 bool BoxContains(const Box& box, float x, float y)
 {
@@ -299,46 +299,46 @@ bool Rotated(float angle)
     return std::fabs(std::remainder(static_cast<double>(angle), kTurn)) > 0.001;
 }
 
-bool IsMenu(const CScreenElement* element)
+bool IsMenu(const CUiWidget* element)
 {
     uint32_t type = Type(element);
     return type == kVMenu || type == kHMenu;
 }
 
-bool IsVerticalMenu(const CScreenElement* menu) { return Field<uint8_t>(menu, 0x190) != 0; }
-int SelectedIndex(const CScreenElement* menu) { return Field<int>(menu, 0x178); }
-bool MenuHasFocus(const CScreenElement* menu) { return Field<uint8_t>(menu, 0x180) != 0; }
-bool MenuWraps(const CScreenElement* menu) { return Field<uint8_t>(menu, 0x1A1) != 0; }
+bool IsVerticalMenu(const CUiWidget* menu) { return Field<uint8_t>(menu, 0x190) != 0; }
+int SelectedIndex(const CUiWidget* menu) { return Field<int>(menu, 0x178); }
+bool MenuHasFocus(const CUiWidget* menu) { return Field<uint8_t>(menu, 0x180) != 0; }
+bool MenuWraps(const CUiWidget* menu) { return Field<uint8_t>(menu, 0x1A1) != 0; }
 
-int ChildCount(const CScreenElement* element)
+int ChildCount(const CUiWidget* element)
 {
     int count = 0;
-    for (CScreenElement* child = FirstChild(element); child; child = NextSibling(child))
+    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
         ++count;
     return count;
 }
 
-bool ItemFocusable(const CScreenElement* item)
+bool ItemFocusable(const CUiWidget* item)
 {
-    if (const_cast<Obj::CObject*>(AsObject(item))->ContainsTagFlag(kTagNotFocusable))
+    if (const_cast<GameObjects::CObject*>(AsObject(item))->ContainsTagFlag(kTagNotFocusable))
         return false;
     return !FlagInChain(item, kFlagBlockEvents);
 }
 
-bool ItemPassedOver(const CScreenElement* item)
+bool ItemPassedOver(const CUiWidget* item)
 {
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
-    Script::CStruct* tags = AsObject(item)->mp_tags;
-    for (Script::CComponent* c = tags ? tags->m_head : nullptr; c; c = c->next) {
-        if (c->name == 0 && c->Type() == Script::ESYMBOLTYPE_NAME && c->checksum == kTagBlank)
+    Scripts::CStruct* tags = AsObject(item)->m_tagTable;
+    for (Scripts::CComponent* c = tags ? tags->m_head : nullptr; c; c = c->next) {
+        if (c->name == 0 && c->Type() == Scripts::QBVAL_NAME && c->checksum == kTagBlank)
             return true;
-        if (c->name == kTagActive && c->Type() == Script::ESYMBOLTYPE_INTEGER && c->integer == 0)
+        if (c->name == kTagActive && c->Type() == Scripts::QBVAL_INTEGER && c->integer == 0)
             return true;
     }
     return false;
 }
 
-bool ItemContains(const CScreenElement* item, const CScreenElement* menu, float x, float y)
+bool ItemContains(const CUiWidget* item, const CUiWidget* menu, float x, float y)
 {
     Rect bounds;
     bool turnedHit;
@@ -348,7 +348,7 @@ bool ItemContains(const CScreenElement* item, const CScreenElement* menu, float 
     return any && Widen(bounds, menu).Contains(x, y);
 }
 
-Rect ItemBounds(const CScreenElement* item, const CScreenElement* menu)
+Rect ItemBounds(const CUiWidget* item, const CUiWidget* menu)
 {
     Rect bounds = {};
     bool turnedHit;
@@ -357,17 +357,17 @@ Rect ItemBounds(const CScreenElement* item, const CScreenElement* menu)
     return Widen(bounds, menu);
 }
 
-bool IsRotatingMenu(const CScreenElement* menu)
+bool IsRotatingMenu(const CUiWidget* menu)
 {
     if (Rotated(Angle(menu)))
         return true;
-    for (CScreenElement* child = FirstChild(menu); child; child = NextSibling(child))
+    for (CUiWidget* child = FirstChild(menu); child; child = NextSibling(child))
         if (Rotated(Angle(child)))
             return true;
     return false;
 }
 
-bool FindItemAt(CScreenElement* root, float x, float y, MenuFilter accepts, Hit* out)
+bool FindItemAt(CUiWidget* root, float x, float y, MenuFilter accepts, Hit* out)
 {
     if (!root)
         return false;
@@ -378,7 +378,7 @@ bool FindItemAt(CScreenElement* root, float x, float y, MenuFilter accepts, Hit*
     return search.found;
 }
 
-bool AnyMenu(CScreenElement* root, MenuFilter accepts, bool verticalOnly)
+bool AnyMenu(CUiWidget* root, MenuFilter accepts, bool verticalOnly)
 {
     return root && FindMenu(root, accepts, verticalOnly);
 }
@@ -464,9 +464,9 @@ struct MouseState {
     int wheel = 0;              // notches, away from the user positive
 };
 MouseState s_mouse;
-bool s_cursorShown = false; // (the window starts with it hidden: Sys::CreateSdlWindow)
+bool s_cursorShown = false; // (the window starts with it hidden: SystemCore::CreateSdlWindow)
 // The item last under the cursor (only compared, never followed).
-const CScreenElement* s_hoverItem = nullptr;
+const CUiWidget* s_hoverItem = nullptr;
 uint32_t s_hoverId = 0;
 
 void ReadWindowSize(uint32_t windowId)
@@ -506,17 +506,17 @@ void HandleMouseEvent(SDL_Event* event)
     }
 }
 
-void* ElementManager() { return Front::g_screenElementManager; }
-CScreenElement* RootElement(void* manager)
+void* ElementManager() { return MenuSystem::g_screenElementManager; }
+CUiWidget* RootElement(void* manager)
 {
-    return *reinterpret_cast<CScreenElement**>(static_cast<uint8_t*>(manager) + 0x44);
+    return *reinterpret_cast<CUiWidget**>(static_cast<uint8_t*>(manager) + 0x44);
 }
-void* Tracker() { return reinterpret_cast<void*>(Obj::g_tracker); }
+void* Tracker() { return reinterpret_cast<void*>(GameObjects::g_tracker); }
 
 bool InParkEditor()
 {
-    Front::ElementPtr element;
-    Front::GetElement(&element, kParkEditorElement);
+    MenuSystem::ElementPtr element;
+    MenuSystem::GetElement(&element, kParkEditorElement);
     return element.Get() != nullptr;
 }
 
@@ -524,11 +524,11 @@ bool InParkEditor()
 // only to the elements of the highest priority (+0x4E8 > 0, for the pad events listed at +0x5DC, +0x69C of them) -
 // it is one of those (the start of the menu's event handler 0x004A8100: 0x004A86B0, 0x004AAD50, 0x004A8F20,
 // 0x004AB7C0).
-bool MenuTakesPadEvents(CScreenElement* menu)
+bool MenuTakesPadEvents(CUiWidget* menu)
 {
     if (!MenuHasFocus(menu))
         return false;
-    auto* manager = reinterpret_cast<uint8_t*>(AsObject(menu)->mp_manager);
+    auto* manager = reinterpret_cast<uint8_t*>(AsObject(menu)->m_parkOwner);
     if (!manager)
         return false;
     if (*reinterpret_cast<int*>(manager + 0x4E8) > 0) {
@@ -540,7 +540,7 @@ bool MenuTakesPadEvents(CScreenElement* menu)
         if (listed) {
             if (!FlagInChain(menu, kFlagPriority))
                 return false;
-            if (!reinterpret_cast<Front::CScreenElementManager*>(manager)->IsTopPriority(Id(menu)))
+            if (!reinterpret_cast<MenuSystem::CUiTree*>(manager)->IsTopPriority(Id(menu)))
                 return false;
         }
     }
@@ -581,7 +581,7 @@ const char* EventName(uint32_t event)
     }
 }
 
-void LogElement(const char* what, const CScreenElement* element)
+void LogElement(const char* what, const CUiWidget* element)
 {
     Rect r = ElementRect(element);
     Log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what, Id(element),
@@ -593,10 +593,10 @@ void LogElement(const char* what, const CScreenElement* element)
 
 // As InputLogic launches a pad event: for the first controller's device, unless its mapping is inactive or menu
 // input is blocked.
-void SendPadEvent(Mdl::FrontEnd* frontEnd, uint32_t event)
+void SendPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event)
 {
     const char* notSent = nullptr;
-    Mdl::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
+    GameModules::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
     if (frontEnd->m_padMappings[0].m_mapping == 0)
         notSent = "the first controller's pad mapping is inactive";
     else if (frontEnd->m_blockMenuInput)
@@ -608,39 +608,39 @@ void SendPadEvent(Mdl::FrontEnd* frontEnd, uint32_t event)
             notSent ? notSent : "");
     if (notSent)
         return;
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
-    params.AddInteger(kDeviceNum, *reinterpret_cast<int*>(handler->m_device + 0xC));
-    params.AddInteger(kController, 0);
-    static_cast<Obj::CTracker*>(Tracker())->LaunchEvent(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
+    params.PutInt(kDeviceNum, *reinterpret_cast<int*>(handler->m_device + 0xC));
+    params.PutInt(kController, 0);
+    static_cast<GameObjects::CEventWaitBoard*>(Tracker())->LaunchEvent(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
     params.Clear();
 }
 
 // The item's own handler for `type` (its script's event handler table).
-bool HandlesEvent(const CScreenElement* item, uint32_t type)
+bool HandlesEvent(const CUiWidget* item, uint32_t type)
 {
-    Script::CScript* script = AsObject(item)->m_script;
+    Scripts::CScript* script = AsObject(item)->m_runScript;
     if (!script || !script->m_eventHandlers)
         return false;
-    const Obj::CEventHandlerTable* table = script->m_eventHandlers;
+    const GameObjects::CSignalRouteTable* table = script->m_eventHandlers;
     for (int i = 0; i < table->m_count; ++i)
-        if (table->m_entries[i].type == type && table->m_entries[i].script != Obj::kNullScript)
+        if (table->m_entries[i].type == type && table->m_entries[i].script != GameObjects::kNullScript)
             return true;
     return false;
 }
 
 // The child at `index` (null if none).
-CScreenElement* ChildAt(const CScreenElement* menu, int index)
+CUiWidget* ChildAt(const CUiWidget* menu, int index)
 {
     if (index < 0)
         return nullptr;
-    CScreenElement* child = FirstChild(menu);
+    CUiWidget* child = FirstChild(menu);
     for (; child && index > 0; --index)
         child = NextSibling(child);
     return child;
 }
 
-void LogMenu(CScreenElement* menu)
+void LogMenu(CUiWidget* menu)
 {
     Log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s", Id(menu),
         TypeName(Type(menu)), SelectedIndex(menu), ChildCount(menu), MenuHasFocus(menu), MenuTakesPadEvents(menu),
@@ -649,7 +649,7 @@ void LogMenu(CScreenElement* menu)
 
 // What is under the cursor when no item is: every element (not hidden) whose own box holds the point, with the
 // nearest menu above it. At most a dozen.
-void LogElementsAt(CScreenElement* element, float x, float y, int& lines)
+void LogElementsAt(CUiWidget* element, float x, float y, int& lines)
 {
     if (Flags(element) & kFlagHidden)
         return;
@@ -657,20 +657,20 @@ void LogElementsAt(CScreenElement* element, float x, float y, int& lines)
     if (lines < 12 && box.width != 0.0f && box.height != 0.0f && BoxContains(box, x, y)) {
         ++lines;
         LogElement("under the cursor:", element);
-        for (CScreenElement* parent = Parent(element); parent; parent = Parent(parent)) {
+        for (CUiWidget* parent = Parent(element); parent; parent = Parent(parent)) {
             if (IsMenu(parent)) {
                 LogMenu(parent);
                 break;
             }
         }
     }
-    for (CScreenElement* child = FirstChild(element); child; child = NextSibling(child))
+    for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
         LogElementsAt(child, x, y, lines);
 }
 
 struct Stepper {
-    Mdl::FrontEnd* frontEnd;
-    Front::ElementPtr menu; // (cleared if a handler destroys it)
+    GameModules::FrontEnd* frontEnd;
+    MenuSystem::ElementPtr menu; // (cleared if a handler destroys it)
     bool vertical;
 };
 
@@ -691,7 +691,7 @@ void SendStep(void* context, int direction)
 // what to send when it gets there (a click's pad_choose / pad_left / pad_right; 0 for a hover).
 struct Pending {
     bool active = false;
-    const CScreenElement* item = nullptr; // (only compared, never followed)
+    const CUiWidget* item = nullptr; // (only compared, never followed)
     uint32_t itemId = 0;
     Target target = {};
     uint32_t chooseEvent = 0;
@@ -700,9 +700,9 @@ Pending s_pending;
 
 // Its menu: a smart pointer (cleared if the menu dies), allocated once and never freed - no destructor running
 // on the game's memory at exit.
-Front::ElementPtr& PendingMenu()
+MenuSystem::ElementPtr& PendingMenu()
 {
-    static Front::ElementPtr* menu = new Front::ElementPtr;
+    static MenuSystem::ElementPtr* menu = new MenuSystem::ElementPtr;
     return *menu;
 }
 
@@ -714,11 +714,11 @@ void ClearPending(const char* why)
     PendingMenu().Release();
 }
 
-TargetState AdvancePending(Mdl::FrontEnd* frontEnd)
+TargetState AdvancePending(GameModules::FrontEnd* frontEnd)
 {
-    CScreenElement* menu = PendingMenu().Get();
+    CUiWidget* menu = PendingMenu().Get();
     // The menu still there, with the item still at its place (compared by address, then id).
-    CScreenElement* item = menu ? ChildAt(menu, s_pending.target.index) : nullptr;
+    CUiWidget* item = menu ? ChildAt(menu, s_pending.target.index) : nullptr;
     if (!item || item != s_pending.item || Id(item) != s_pending.itemId)
         return TargetState::GaveUp;
     s_pending.target.count = ChildCount(menu);
@@ -728,13 +728,13 @@ TargetState AdvancePending(Mdl::FrontEnd* frontEnd)
     stepper.vertical = IsVerticalMenu(menu);
     // Nothing to send while the menu doesn't take pad events, or while it is on an item it passes over (its own
     // focus script moves on).
-    CScreenElement* current = ChildAt(menu, SelectedIndex(menu));
+    CUiWidget* current = ChildAt(menu, SelectedIndex(menu));
     bool wait = !MenuTakesPadEvents(menu) || (current && ItemPassedOver(current));
     return AdvanceTarget(s_pending.target, wait, ReadStepper, SendStep, &stepper);
 }
 
 // Settle the pending item: there - send its event (a click's); given up - forget it. True if it got there.
-bool SettlePending(Mdl::FrontEnd* frontEnd, TargetState state)
+bool SettlePending(GameModules::FrontEnd* frontEnd, TargetState state)
 {
     if (state == TargetState::Moving)
         return false;
@@ -758,7 +758,7 @@ bool SettlePending(Mdl::FrontEnd* frontEnd, TargetState state)
 
 // Aim at an item: start moving its menu's selection there - and, with `event`, send it once there. True if it is
 // selected already.
-bool AimAt(Mdl::FrontEnd* frontEnd, const Hit& hit, uint32_t event)
+bool AimAt(GameModules::FrontEnd* frontEnd, const Hit& hit, uint32_t event)
 {
     s_pending.active = true;
     PendingMenu().Set(hit.menu);
@@ -771,7 +771,7 @@ bool AimAt(Mdl::FrontEnd* frontEnd, const Hit& hit, uint32_t event)
 
 // Select the item under the cursor - when it isn't the one that was (or on a `click`). Moving an outer menu can
 // focus an inner one (an option row's hmenu), so a few passes. A turned (spin) menu isn't moved by hovering.
-void SelectUnderCursor(Mdl::FrontEnd* frontEnd, float x, float y, bool click)
+void SelectUnderCursor(GameModules::FrontEnd* frontEnd, float x, float y, bool click)
 {
     for (int pass = 0; pass < 4; ++pass) {
         Hit hit;
@@ -792,7 +792,7 @@ void SelectUnderCursor(Mdl::FrontEnd* frontEnd, float x, float y, bool click)
     }
 }
 
-void Click(Mdl::FrontEnd* frontEnd, float x, float y)
+void Click(GameModules::FrontEnd* frontEnd, float x, float y)
 {
     bool debug = DebugEnabled();
     s_logEvents = debug;
@@ -804,7 +804,7 @@ void Click(Mdl::FrontEnd* frontEnd, float x, float y)
         if (debug) {
             Log("  no item of a menu that takes pad events under the cursor - nothing sent");
             int lines = 0;
-            if (CScreenElement* root = RootElement(ElementManager()))
+            if (CUiWidget* root = RootElement(ElementManager()))
                 LogElementsAt(root, x, y, lines);
         }
         s_logEvents = false;
@@ -868,44 +868,44 @@ void Init()
     Platform::RegisterEventHandler(HandleMouseEvent);
 }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
     // (not original either: the THUGPRO peer mode's host options applied once a level is up -
     // game/net/thugpro_peer.h)
-    GameNet::Thugpro::Update();
+    OnlinePlay::Thugpro::Update();
     // Not original either - the level editor (game/front/level_editor.h) has the mouse while it runs: no menu
     // events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it; its own input logic
     // runs here instead.
     // Original behaviour (of the mouse_menus feature): the mouse drives the menus.
-    if (Front::LevelEditor::Active()) {
+    if (MenuSystem::LevelEditor::Active()) {
         s_mouse.moved = false;
         s_mouse.leftClicks = 0;
         s_mouse.rightClicks = 0;
         s_mouse.wheel = 0;
         ClearPending("the level editor runs");
-        Front::LevelEditor::InputLogic();
+        MenuSystem::LevelEditor::InputLogic();
         // (not original either: the new front end steps aside while the editor is up - game/front/new_frontend.h)
-        Front::NewFrontend::Update(frontEnd);
+        MenuSystem::NewFrontend::Update(frontEnd);
         return;
     }
     // (not original either: the restart tester's key, F8 - game/front/restart_tester.h)
-    Front::RestartTester::Update(frontEnd);
+    MenuSystem::RestartTester::Update(frontEnd);
     // (and THAW's BMX's key, F7 - game/skater/thaw_bmx.h)
     Skater::ThawBmx::Update(frontEnd);
     // (and play from here's way back to the level editor, F5 / Ctrl+P - game/front/level_editor_play.h)
-    Front::LevelEditor::Play::Update(frontEnd);
+    MenuSystem::LevelEditor::Play::Update(frontEnd);
     // (and play testing: the skater's trail recorded, a restart's play from here - game/front/level_editor_playtest.h)
-    Front::LevelEditor::PlayTest::Update(frontEnd);
+    MenuSystem::LevelEditor::PlayTest::Update(frontEnd);
     // (and debug mode's viewer and F keys - game/sys/debug_mode.h)
-    Sys::DebugMode::Update(frontEnd);
+    SystemCore::DebugMode::Update(frontEnd);
     // (and the start level: -level <name> - game/front/start_level.h)
-    Front::StartLevel::Update(frontEnd);
+    MenuSystem::BeginLevel::Update(frontEnd);
     // (and the test-automation channel: commands from a file - game/front/automation.h)
-    Front::Automation::Update(frontEnd);
+    MenuSystem::Automation::Update(frontEnd);
     // (and the new front end - game/front/new_frontend.h: while it's up it has the mouse; the original menus under it
     // get no mouse events, the cursor stays shown)
-    Front::NewFrontend::Update(frontEnd);
-    if (Front::NewFrontend::BlocksGameInput() || Front::NewFrontend::OwnsMouse()) {
+    MenuSystem::NewFrontend::Update(frontEnd);
+    if (MenuSystem::NewFrontend::BlocksGameInput() || MenuSystem::NewFrontend::OwnsMouse()) {
         s_mouse.moved = false;
         s_mouse.leftClicks = 0;
         s_mouse.rightClicks = 0;
@@ -924,17 +924,17 @@ void Update(Mdl::FrontEnd* frontEnd)
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
     void* manager = ElementManager();
-    bool menus = manager && RootElement(manager) && (Nx::CurrentLevel() == 0 || frontEnd->m_paused);
-    if (menus && InParkEditor() && !frontEnd->m_paused)
+    bool menus = manager && RootElement(manager) && (Engine3D::CurrentLevel() == 0 || frontEnd->m_isHalted);
+    if (menus && InParkEditor() && !frontEnd->m_isHalted)
         menus = false;
     if (DebugEnabled()) {
         // (debug_mouse: each change of whether the mouse drives the menus, with what decided it)
         static int s_lastMenus = -1, s_lastPaused = -1;
-        if (static_cast<int>(menus) != s_lastMenus || static_cast<int>(frontEnd->m_paused) != s_lastPaused) {
+        if (static_cast<int>(menus) != s_lastMenus || static_cast<int>(frontEnd->m_isHalted) != s_lastPaused) {
             s_lastMenus = menus;
-            s_lastPaused = frontEnd->m_paused;
+            s_lastPaused = frontEnd->m_isHalted;
             Log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
-                menus ? "active" : "inactive", Nx::CurrentLevel(), frontEnd->m_paused, manager != nullptr,
+                menus ? "active" : "inactive", Engine3D::CurrentLevel(), frontEnd->m_isHalted, manager != nullptr,
                 manager && RootElement(manager) != nullptr, InParkEditor());
         }
     }
@@ -976,8 +976,8 @@ void Update(Mdl::FrontEnd* frontEnd)
             SendPadEvent(frontEnd, notches > 0 ? kPadUp : kPadDown);
 }
 
-bool MenuGetsPadEvents(CScreenElement* menu) { return MenuTakesPadEvents(menu); }
+bool MenuGetsPadEvents(CUiWidget* menu) { return MenuTakesPadEvents(menu); }
 
-void SendMenuPadEvent(Mdl::FrontEnd* frontEnd, uint32_t event) { SendPadEvent(frontEnd, event); }
+void SendMenuPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event) { SendPadEvent(frontEnd, event); }
 
 } // namespace MouseMenus

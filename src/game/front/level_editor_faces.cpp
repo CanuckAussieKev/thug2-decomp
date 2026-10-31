@@ -21,7 +21,7 @@
 #include "game/core/game_vtables.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Faces {
+namespace MenuSystem::LevelEditor::Faces {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -183,18 +183,18 @@ FaceKey g_hover;
 std::map<FaceKey, uint16_t> g_origins; // (each face the editor changed: its flags as the level has them)
 std::vector<std::function<void()>> g_queue;
 
-// The sector's collision geometry (its CCollStatic's), null for none.
-Nx::CCollObjTriData* Geometry(uint32_t checksum)
+// The sector's collision geometry (its CStaticCollider's), null for none.
+Engine3D::CTriMeshSource* Geometry(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
     if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return nullptr;
-    auto* tri = *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C);
+    auto* tri = *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C);
     return tri && tri->m_faces ? tri : nullptr;
 }
 
-uint16_t* Raw(Nx::CCollObjTriData* tri, int face)
+uint16_t* Raw(Engine3D::CTriMeshSource* tri, int face)
 {
     return reinterpret_cast<uint16_t*>(tri->m_faces + face * (tri->m_smallFaces ? 8 : 10));
 }
@@ -202,7 +202,7 @@ uint16_t* Raw(Nx::CCollObjTriData* tri, int face)
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
 bool Write(FaceKey key, uint16_t flags)
 {
-    Nx::CCollObjTriData* tri = Geometry(key.checksum);
+    Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
     if (!tri || key.face >= tri->m_numFaces)
         return false;
     if (!g_origins.count(key)) {
@@ -219,7 +219,7 @@ bool Write(FaceKey key, uint16_t flags)
 // The face's corners where the skater meets it (a taken face: its companion's).
 bool Corners(FaceKey key, V3 out[3])
 {
-    Nx::CCollObjTriData* tri = Geometry(key.checksum);
+    Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
     if (!tri || key.face >= tri->m_numFaces || !tri->m_vertices)
         return false;
     uint32_t piece = 0;
@@ -240,8 +240,8 @@ bool Corners(FaceKey key, V3 out[3])
         uint32_t v = tri->FaceVertex(key.face, k);
         if (v >= tri->m_numVertices)
             return false;
-        Mth::Vector p;
-        tri->GetRawVertexPos(static_cast<int>(v), &p);
+        Maths::Vector p;
+        tri->ReadStoredVertex(static_cast<int>(v), &p);
         out[k] = {p.x, p.y, p.z};
     }
     return true;
@@ -254,7 +254,7 @@ bool KeyOf(const View::FaceHit& hit, FaceKey* key, std::string* why)
     uint32_t checksum = hit.checksum;
     int face = hit.face;
     if (hit.companion) {
-        Nx::CCollObjTriData* geometry = nullptr;
+        Engine3D::CTriMeshSource* geometry = nullptr;
         if (!SharedCollision::OriginOf(hit.checksum, hit.face, &geometry, &face) || !geometry) {
             *why = "Face belongs to a copy; edit the source";
             return false;
@@ -398,14 +398,14 @@ bool SelectPiece(uint32_t checksum, bool add)
     std::vector<FaceKey> faces;
     if (Scenery::IsClone(checksum))
         return false;
-    if (Nx::CCollObjTriData* tri = Geometry(checksum)) {
+    if (Engine3D::CTriMeshSource* tri = Geometry(checksum)) {
         for (int f = 0; f < tri->m_numFaces && faces.size() < kMostSelected; ++f)
             faces.push_back({checksum, static_cast<uint16_t>(f)});
     }
     // (the faces its shared collision took along: theirs to edit too)
     if (const SharedCollision::Companion* companion = SharedCollision::CompanionOf(checksum)) {
         for (int i = 0; i < companion->FaceCount() && faces.size() < kMostSelected; ++i) {
-            Nx::CCollObjTriData* geometry = nullptr;
+            Engine3D::CTriMeshSource* geometry = nullptr;
             int face = -1;
             if (SharedCollision::OriginOf(checksum, i, &geometry, &face) && geometry && face >= 0)
                 faces.push_back({geometry->m_checksum, static_cast<uint16_t>(face)});
@@ -426,7 +426,7 @@ bool SelectPiece(uint32_t checksum, bool add)
 
 bool Read(FaceKey key, uint16_t* flags)
 {
-    Nx::CCollObjTriData* tri = Geometry(key.checksum);
+    Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
     if (!tri || key.face >= tri->m_numFaces)
         return false;
     if (!SharedCollision::TakenFace(tri, key.face, nullptr, nullptr, flags))
@@ -661,4 +661,4 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     }
 }
 
-} // namespace Front::LevelEditor::Faces
+} // namespace MenuSystem::LevelEditor::Faces

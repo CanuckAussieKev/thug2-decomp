@@ -2,7 +2,7 @@
 
 // The PC gamma (Nx engine): the red, green and blue gammas (0x0067E9C8-D0, 0.5-2.5 as 0-1 is given) and the device's
 // gamma ramp from them (0x00781BF8).
-namespace Nx {
+namespace Engine3D {
 
 // 0x004D06A0: the gammas as they were given (0-1).
 void __cdecl GetDeviceGamma(float* r, float* g, float* b);

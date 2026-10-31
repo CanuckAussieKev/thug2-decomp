@@ -1,4 +1,4 @@
-// The park editor's metapieces (Ed::CMetaPiece and its two kinds): a list of descriptors, each a piece and its cell
+// The park editor's metapieces (ParkEditing::CPieceGroup and its two kinds): a list of descriptors, each a piece and its cell
 // offset and turn within the metapiece. An abstract metapiece (a palette entry) names its pieces (source pieces or
 // other abstract metapieces); a concrete one (placed in the park or held by the cursor) holds cloned pieces, which it
 // moves and turns with itself.
@@ -14,16 +14,16 @@
 #include "game/script/struct.h"
 #include "game/core/code_address.h"
 
-namespace Ed {
+namespace ParkEditing {
 
-static VtableSlot kMetaPieceVtable_slots[] = {&_purecall, &CMetaPiece::Destroy,
+static VtableSlot kMetaPieceVtable_slots[] = {&_purecall, &CPieceGroup::Destroy,
         &_purecall};
 void** const kMetaPieceVtable = reinterpret_cast<void**>(kMetaPieceVtable_slots);
-static VtableSlot kConcreteMetaPieceVtable_slots[] = {&CConcreteMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
-        &CConcreteMetaPiece::AddPiece};
+static VtableSlot kConcreteMetaPieceVtable_slots[] = {&CPlacedPieceGroup::GetPiece, &CPlacedPieceGroup::Destroy,
+        &CPlacedPieceGroup::AddPiece};
 void** const kConcreteMetaPieceVtable = reinterpret_cast<void**>(kConcreteMetaPieceVtable_slots);
-static VtableSlot kAbstractMetaPieceVtable_slots[] = {&CAbstractMetaPiece::GetPiece, &CConcreteMetaPiece::Destroy,
-        &CAbstractMetaPiece::AddPiece};
+static VtableSlot kAbstractMetaPieceVtable_slots[] = {&CPieceBlueprint::GetPiece, &CPlacedPieceGroup::Destroy,
+        &CPieceBlueprint::AddPiece};
 void** const kAbstractMetaPieceVtable = reinterpret_cast<void**>(kAbstractMetaPieceVtable_slots);
 
 namespace {
@@ -36,13 +36,13 @@ constexpr double kCellSlack = 2.0;
 constexpr float kFarAway = 100000.0f;
 
 // The extra descriptors' memory (the memory manager's, on the current heap).
-SMetaDescriptor* AllocateDescriptors(uint32_t count)
+SPieceGroupDesc* AllocateDescriptors(uint32_t count)
 {
-    return static_cast<SMetaDescriptor*>(Mem::Allocate(count * sizeof(SMetaDescriptor), 1, nullptr));
+    return static_cast<SPieceGroupDesc*>(MemSys::Allocate(count * sizeof(SPieceGroupDesc), 1, nullptr));
 }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
-void MultiplyMatrices(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MultiplyMatrices(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -51,11 +51,11 @@ uint8_t Cells(double size, float cell) { return static_cast<uint8_t>(static_cast
 
 } // namespace
 
-// --- CMetaPiece ---------------------------------------------------------------------------------------------------
+// --- CPieceGroup ---------------------------------------------------------------------------------------------------
 
-bool CMetaPiece::IsRestartPiece()
+bool CPieceGroup::IsSpawnMarker()
 {
-    switch (m_name_checksum) {
+    switch (m_nameKey) {
     case 0xCA07B4FC:
     case 0x613C7766:
     case 0x3A784D4C:
@@ -70,33 +70,33 @@ bool CMetaPiece::IsRestartPiece()
     }
 }
 
-SMetaDescriptor* CMetaPiece::GetDescriptor(int index) { return index < 2 ? &m_desc[index] : &mp_extra_desc[index - 2]; }
+SPieceGroupDesc* CPieceGroup::GetDescriptor(int index) { return index < 2 ? &m_desc[index] : &mp_extra_desc[index - 2]; }
 
-void CMetaPiece::SetVisibility(bool visible)
+void CPieceGroup::ToggleShown(bool visible)
 {
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        auto* piece = static_cast<CPiece*>(GetDescriptor(static_cast<int>(i))->piece);
-        Scene::SetActive(Scene::GetSector(piece->m_sector), visible);
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        auto* piece = static_cast<CParkTile*>(GetDescriptor(static_cast<int>(i))->piece);
+        Scene::SetActive(Scene::LookUpSector(piece->m_sector), visible);
     }
 }
 
-int CMetaPiece::CountPieces()
+int CPieceGroup::CountPieces()
 {
     int count = 0;
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
         uint32_t name = reinterpret_cast<uint32_t>(GetDescriptor(static_cast<int>(i))->piece);
-        CMetaPiece* entry = CParkManager::sInstance()->GetAbstractMetaPiece(name, nullptr);
+        CPieceGroup* entry = CParkLayout::sSingleton()->GetAbstractMetaPiece(name, nullptr);
         if (entry->m_flags & kSector) // a single piece
             ++count;
         else
-            count += static_cast<int>(entry->m_num_used_entries);
+            count += static_cast<int>(entry->m_filledSlots);
     }
     return count;
 }
 
-bool CMetaPiece::IsCompletelyWithinArea(GridDims* area)
+bool CPieceGroup::FitsInsideRegion(SCellBox* area)
 {
-    const GridDims& cells = m_cell_area;
+    const SCellBox& cells = m_cellFootprint;
     if (cells.x < area->x || cells.x + cells.w > area->x + area->w)
         return false;
     if (cells.z < area->z || cells.z + cells.l > area->z + area->l)
@@ -104,30 +104,30 @@ bool CMetaPiece::IsCompletelyWithinArea(GridDims* area)
     return true;
 }
 
-void CMetaPiece::SetRot(int rot)
+void CPieceGroup::SetQuarterTurns(int rot)
 {
-    const int turn = (rot - m_rot) & 3;
-    m_rot = rot;
+    const int turn = (rot - m_quarterTurns) & 3;
+    m_quarterTurns = rot;
     if (turn & 1) { // a quarter turn: width and length swap
-        uint8_t w = m_cell_area.w;
-        m_cell_area.w = m_cell_area.l;
-        m_cell_area.l = w;
+        uint8_t w = m_cellFootprint.w;
+        m_cellFootprint.w = m_cellFootprint.l;
+        m_cellFootprint.l = w;
     }
     // Every descriptor turned about the metapiece's corner, into new storage.
-    SMetaDescriptor* extra = mp_extra_desc ? AllocateDescriptors(m_max_entries - 2) : nullptr;
+    SPieceGroupDesc* extra = mp_extra_desc ? AllocateDescriptors(m_max_entries - 2) : nullptr;
     // (the original leaves the unused ones of these two as stack leftovers; here they keep what they were)
-    SMetaDescriptor first[2] = {m_desc[0], m_desc[1]};
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        SMetaDescriptor* to = i < 2 ? &first[i] : &extra[i - 2];
-        const SMetaDescriptor* from = i < 2 ? &m_desc[i] : &mp_extra_desc[i - 2];
+    SPieceGroupDesc first[2] = {m_desc[0], m_desc[1]};
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        SPieceGroupDesc* to = i < 2 ? &first[i] : &extra[i - 2];
+        const SPieceGroupDesc* from = i < 2 ? &m_desc[i] : &mp_extra_desc[i - 2];
         *to = *from;
         // The entry's own size in cells, as it lies (x, z).
         uint8_t across;
         uint8_t along;
         if (m_flags & kAbstract) {
-            CMetaPiece* entry =
-                CParkManager::sInstance()->GetAbstractMetaPiece(reinterpret_cast<uint32_t>(from->piece), nullptr);
-            GridDims size = entry->m_cell_area;
+            CPieceGroup* entry =
+                CParkLayout::sSingleton()->GetAbstractMetaPiece(reinterpret_cast<uint32_t>(from->piece), nullptr);
+            SCellBox size = entry->m_cellFootprint;
             if (from->rot & 1) {
                 along = size.w;
                 across = size.l;
@@ -136,10 +136,10 @@ void CMetaPiece::SetRot(int rot)
                 across = size.w;
             }
         } else {
-            GridDims size;
+            SCellBox size;
             size.w = 0;
             size.l = 0;
-            static_cast<CPiece*>(from->piece)->GetCellDims(&size);
+            static_cast<CParkTile*>(from->piece)->GetFootprintSize(&size);
             along = size.l;
             across = size.w;
         }
@@ -150,14 +150,14 @@ void CMetaPiece::SetRot(int rot)
             break;
         case 1:
             to->x = from->z;
-            to->z = static_cast<uint8_t>(m_cell_area.l - from->x - across);
+            to->z = static_cast<uint8_t>(m_cellFootprint.l - from->x - across);
             break;
         case 2:
-            to->x = static_cast<uint8_t>(m_cell_area.w - from->x - across);
-            to->z = static_cast<uint8_t>(m_cell_area.l - from->z - along);
+            to->x = static_cast<uint8_t>(m_cellFootprint.w - from->x - across);
+            to->z = static_cast<uint8_t>(m_cellFootprint.l - from->z - along);
             break;
         case 3:
-            to->x = static_cast<uint8_t>(m_cell_area.w - from->z - along);
+            to->x = static_cast<uint8_t>(m_cellFootprint.w - from->z - along);
             to->z = from->x;
             break;
         }
@@ -166,21 +166,21 @@ void CMetaPiece::SetRot(int rot)
         to->piece = from->piece;
     }
     if (mp_extra_desc)
-        Mem::Free(mp_extra_desc);
+        MemSys::Free(mp_extra_desc);
     mp_extra_desc = extra;
     m_desc[0] = first[0];
     m_desc[1] = first[1];
 }
 
-Mth::Vector* CMetaPiece::GetRelativePosition(Mth::Vector* out, uint32_t index)
+Maths::Vector* CPieceGroup::GetRelativePosition(Maths::Vector* out, uint32_t index)
 {
     // The metapiece's half size (x and z).
-    const float halfW = static_cast<float>(static_cast<double>(m_cell_area.w) * kCellWidth * 0.5);
-    const float halfL = static_cast<float>(static_cast<double>(m_cell_area.l) * kCellLength * 0.5);
-    const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(index));
-    CPiece* piece = GetPiece(index);
-    Mth::Vector size1;
-    Mth::Vector size2;
+    const float halfW = static_cast<float>(static_cast<double>(m_cellFootprint.w) * kCellWidth * 0.5);
+    const float halfL = static_cast<float>(static_cast<double>(m_cellFootprint.l) * kCellLength * 0.5);
+    const SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(index));
+    CParkTile* piece = GetPiece(index);
+    Maths::Vector size1;
+    Maths::Vector size2;
     const float sizeZ = piece->GetDimsTurned(&size1, entry->rot)->z;
     const float sizeX = piece->GetDimsTurned(&size2, entry->rot)->x;
     // The piece's centre in the metapiece, from the metapiece's centre.
@@ -194,9 +194,9 @@ Mth::Vector* CMetaPiece::GetRelativePosition(Mth::Vector* out, uint32_t index)
     return out;
 }
 
-void CMetaPiece::Initialize(int count)
+void CPieceGroup::Initialize(int count)
 {
-    SMetaDescriptor* extra = nullptr;
+    SPieceGroupDesc* extra = nullptr;
     if (count > 2) {
         extra = AllocateDescriptors(static_cast<uint32_t>(count - 2));
         // Growing: the extra entries kept.
@@ -206,19 +206,19 @@ void CMetaPiece::Initialize(int count)
         }
     }
     if (mp_extra_desc)
-        Mem::Free(mp_extra_desc);
+        MemSys::Free(mp_extra_desc);
     mp_extra_desc = extra;
     m_max_entries = static_cast<uint32_t>(count);
 }
 
-void CMetaPiece::GetBounds(Mth::Vector* max, Mth::Vector* min)
+void CPieceGroup::GetBounds(Maths::Vector* max, Maths::Vector* min)
 {
     *min = {kFarAway, kFarAway, kFarAway, 0.0f};
     *max = {-kFarAway, -kFarAway, -kFarAway, 0.0f};
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        auto* piece = static_cast<CPiece*>(GetDescriptor(static_cast<int>(i))->piece);
-        Mth::Vector size;
-        piece->GetDims(&size);
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        auto* piece = static_cast<CParkTile*>(GetDescriptor(static_cast<int>(i))->piece);
+        Maths::Vector size;
+        piece->MeasureSpan(&size);
         const double x = piece->m_pos.x;
         const float y = piece->m_pos.y;
         const double z = piece->m_pos.z;
@@ -239,9 +239,9 @@ void CMetaPiece::GetBounds(Mth::Vector* max, Mth::Vector* min)
     }
 }
 
-bool CMetaPiece::Intersects(GridDims area, uint32_t precise)
+bool CPieceGroup::Intersects(SCellBox area, uint32_t precise)
 {
-    const GridDims& cells = m_cell_area;
+    const SCellBox& cells = m_cellFootprint;
     const int xStart = area.x;
     const int xEnd = area.x + area.w;
     const int yStart = area.y;
@@ -258,19 +258,19 @@ bool CMetaPiece::Intersects(GridDims area, uint32_t precise)
         return true;
     // Precisely (when any piece is flagged setsFloor): by the cells of the pieces that are NOT flagged.
     bool anySetsFloor = false;
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
         if (GetDescriptor(static_cast<int>(i))->setsFloor)
             anySetsFloor = true;
     }
     if (!anySetsFloor)
         return true;
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(i));
-        GridDims size;
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        const SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(i));
+        SCellBox size;
         size.w = 0;
         size.h = 0;
         size.l = 0;
-        GetPiece(i)->GetCellDims(&size);
+        GetPiece(i)->GetFootprintSize(&size);
         const uint8_t x = static_cast<uint8_t>(entry->x + cells.x);
         const int8_t y = static_cast<int8_t>(entry->y + cells.y);
         const uint8_t z = static_cast<uint8_t>(entry->z + cells.z);
@@ -282,63 +282,63 @@ bool CMetaPiece::Intersects(GridDims area, uint32_t precise)
     return false;
 }
 
-CMetaPiece* CMetaPiece::Destroy(unsigned int flags)
+CPieceGroup* CPieceGroup::Destroy(unsigned int flags)
 {
     m_vtable = kVtable;
     if (mp_extra_desc)
-        Mem::Free(mp_extra_desc);
+        MemSys::Free(mp_extra_desc);
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
-void CMetaPiece::GetPieceList(Script::CArray* out)
+void CPieceGroup::GetPieceList(Scripts::CArray* out)
 {
-    out->SetSizeAndType(m_num_used_entries, Script::ESYMBOLTYPE_STRUCTURE);
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(i));
-        Script::CStruct* memory = Script::NewStruct();
-        Script::CStruct* piece = memory ? memory->Init() : nullptr;
-        piece->AddChecksum(0u, reinterpret_cast<uint32_t>(entry->piece)); // (out of memory crashes, as in the original)
-        Mth::Vector position;
+    out->ConfigureSizeKind(m_filledSlots, Scripts::QBVAL_STRUCT);
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        const SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(i));
+        Scripts::CStruct* memory = Scripts::NewStruct();
+        Scripts::CStruct* piece = memory ? memory->Init() : nullptr;
+        piece->PutNameKey(0u, reinterpret_cast<uint32_t>(entry->piece)); // (out of memory crashes, as in the original)
+        Maths::Vector position;
         GetRelativePosition(&position, i);
-        piece->AddVector(0u, position.x, position.y, position.z);
+        piece->PutVec3(0u, position.x, position.y, position.z);
         out->SetElement(i, reinterpret_cast<uint32_t>(piece));
     }
 }
 
-void CMetaPiece::DestroyBody()
+void CPieceGroup::DestroyBody()
 {
     m_vtable = kVtable;
     if (mp_extra_desc)
-        Mem::Free(mp_extra_desc);
+        MemSys::Free(mp_extra_desc);
 }
 
-void CMetaPiece::SetPosition(Mth::Vector position, float angle)
+void CPieceGroup::SetPosition(Maths::Vector position, float angle)
 {
-    const float halfW = static_cast<float>(static_cast<double>(m_cell_area.w) * kCellWidth * 0.5);
-    const float halfL = static_cast<float>(static_cast<double>(m_cell_area.l) * kCellLength * 0.5);
-    if (!m_num_used_entries)
+    const float halfW = static_cast<float>(static_cast<double>(m_cellFootprint.w) * kCellWidth * 0.5);
+    const float halfL = static_cast<float>(static_cast<double>(m_cellFootprint.l) * kCellLength * 0.5);
+    if (!m_filledSlots)
         return;
     const float radians = static_cast<float>(static_cast<double>(angle) * kDegreesToRadians);
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(i));
-        auto* piece = static_cast<CPiece*>(entry->piece);
-        Mth::Vector size;
-        piece->GetDims(&size);
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        const SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(i));
+        auto* piece = static_cast<CParkTile*>(entry->piece);
+        Maths::Vector size;
+        piece->MeasureSpan(&size);
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
-        Mth::Matrix place;
-        place.Ident();
+        Maths::Matrix place;
+        place.ResetToIdentity();
         place.row[3].x = static_cast<float>(static_cast<double>(entry->x) * kCellWidth + static_cast<double>(size.x) * 0.5 -
                                             halfW);
         place.row[3].y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kCellHeight);
         place.row[3].z = static_cast<float>(static_cast<double>(entry->z) * kCellLength + static_cast<double>(size.z) * 0.5 -
                                             halfL);
         place.row[3].w = 1.0f;
-        Mth::Matrix turn;
-        Mth::CreateRotateYMatrix(turn, radians);
+        Maths::Matrix turn;
+        Maths::MakeYawMatrix(turn, radians);
         MultiplyMatrices(&place, &place, &turn);
-        Mth::Vector& at = place.row[3];
+        Maths::Vector& at = place.row[3];
         at.x = static_cast<float>(static_cast<double>(position.x) + at.x);
         at.y = static_cast<float>(static_cast<double>(position.y) + at.y);
         at.z = static_cast<float>(static_cast<double>(position.z) + at.z);
@@ -347,70 +347,70 @@ void CMetaPiece::SetPosition(Mth::Vector position, float angle)
         piece->m_pos.y = at.y;
         piece->m_pos.z = at.z;
         piece->m_pos.w = at.w;
-        Scene::SetWorldPosition(Scene::GetSector(piece->m_sector), &at);
+        Scene::PlaceAtAbsolutePoint(Scene::LookUpSector(piece->m_sector), &at);
         piece->SetAngle(static_cast<float>(static_cast<double>(entry->rot) * 90.0 + angle));
     }
 }
 
-void CMetaPiece::Highlight(int on, int gap)
+void CPieceGroup::Highlight(int on, int gap)
 {
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        auto* piece = static_cast<CPiece*>(GetDescriptor(static_cast<int>(i))->piece);
-        if (piece->m_flags & CPiece::kCloned)
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        auto* piece = static_cast<CParkTile*>(GetDescriptor(static_cast<int>(i))->piece);
+        if (piece->m_flags & CParkTile::kCloned)
             piece->SetHighlight(on != 0, gap != 0);
     }
 }
 
-void CMetaPiece::FinishPieces()
+void CPieceGroup::FinishPieces()
 {
-    Mth::Vector max;
-    Mth::Vector min;
+    Maths::Vector max;
+    Maths::Vector min;
     GetBounds(&max, &min);
     const double sizeX = static_cast<double>(max.x) - min.x;
     const double sizeY = static_cast<double>(max.y) - min.y;
     const float sizeZ = static_cast<float>(static_cast<double>(max.z) - min.z);
     const double exactZ = static_cast<double>(max.z) - min.z;
-    m_cell_area.l = Cells(exactZ, kCellLength);
-    m_cell_area.h = Cells(sizeY, kCellHeight);
-    m_cell_area.w = Cells(sizeX, kCellWidth);
-    if (m_cell_area.h < 1)
-        m_cell_area.h = 1;
+    m_cellFootprint.l = Cells(exactZ, kCellLength);
+    m_cellFootprint.h = Cells(sizeY, kCellHeight);
+    m_cellFootprint.w = Cells(sizeX, kCellWidth);
+    if (m_cellFootprint.h < 1)
+        m_cellFootprint.h = 1;
     // The pieces moved so that the metapiece's centre is the origin (x and z).
     const double halfX = sizeX * 0.5;
     const double halfZ = static_cast<double>(sizeZ) * 0.5;
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        auto* piece = static_cast<CPiece*>(GetDescriptor(static_cast<int>(i))->piece);
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        auto* piece = static_cast<CParkTile*>(GetDescriptor(static_cast<int>(i))->piece);
         piece->m_pos.x = static_cast<float>((static_cast<double>(piece->m_pos.x) - min.x) - halfX);
         piece->m_pos.z = static_cast<float>((static_cast<double>(piece->m_pos.z) - min.z) - halfZ);
     }
 }
 
-// --- CConcreteMetaPiece -------------------------------------------------------------------------------------------
+// --- CPlacedPieceGroup -------------------------------------------------------------------------------------------
 
-CConcreteMetaPiece* CConcreteMetaPiece::Construct()
+CPlacedPieceGroup* CPlacedPieceGroup::Construct()
 {
-    m_cell_area = {0, 0, 0, 0, 0, 0};
+    m_cellFootprint = {0, 0, 0, 0, 0, 0};
     mp_extra_desc = nullptr;
     m_max_entries = 0;
-    m_num_used_entries = 0;
+    m_filledSlots = 0;
     m_vtable = kVtable;
     m_flags = kConcrete;
-    m_rot = 0;
+    m_quarterTurns = 0;
     return this;
 }
 
-CPiece* CConcreteMetaPiece::GetPiece(uint32_t index)
+CParkTile* CPlacedPieceGroup::GetPiece(uint32_t index)
 {
-    if (index >= m_num_used_entries || static_cast<int>(index) < 0)
+    if (index >= m_filledSlots || static_cast<int>(index) < 0)
         return nullptr;
-    return static_cast<CPiece*>(GetDescriptor(static_cast<int>(index))->piece);
+    return static_cast<CParkTile*>(GetDescriptor(static_cast<int>(index))->piece);
 }
 
-void CConcreteMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, bool setsFloor)
+void CPlacedPieceGroup::AddPiece(CParkTile* piece, SCellBox* pos, int rot, bool setsFloor)
 {
-    SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
-    Mth::Vector size;
-    piece->GetDims(&size);
+    SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(m_filledSlots++));
+    Maths::Vector size;
+    piece->MeasureSpan(&size);
     // The piece's centre in the metapiece's cells.
     const double x = static_cast<double>(pos->x) * kCellWidth + static_cast<double>(size.x) * 0.5;
     const double y = static_cast<double>(pos->y) * kCellHeight;
@@ -427,40 +427,40 @@ void CConcreteMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, bool se
     entry->setsFloor = setsFloor;
 }
 
-CConcreteMetaPiece* CConcreteMetaPiece::Destroy(unsigned int flags)
+CPlacedPieceGroup* CPlacedPieceGroup::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
-// --- CAbstractMetaPiece -------------------------------------------------------------------------------------------
+// --- CPieceBlueprint -------------------------------------------------------------------------------------------
 
-CAbstractMetaPiece* CAbstractMetaPiece::Construct()
+CPieceBlueprint* CPieceBlueprint::Construct()
 {
-    m_cell_area = {0, 0, 0, 0, 0, 0};
+    m_cellFootprint = {0, 0, 0, 0, 0, 0};
     mp_extra_desc = nullptr;
     m_max_entries = 0;
-    m_num_used_entries = 0;
+    m_filledSlots = 0;
     m_vtable = kVtable;
     m_flags = kAbstract;
     return this;
 }
 
-CPiece* CAbstractMetaPiece::GetPiece(uint32_t index)
+CParkTile* CPieceBlueprint::GetPiece(uint32_t index)
 {
-    if (index >= m_num_used_entries || static_cast<int>(index) < 0)
+    if (index >= m_filledSlots || static_cast<int>(index) < 0)
         return nullptr;
-    const SMetaDescriptor* entry = GetDescriptor(static_cast<int>(index));
-    CSourcePiece* source = CParkManager::sInstance()->mp_generator->GetPieceSource(reinterpret_cast<uint32_t>(entry->piece));
+    const SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(index));
+    CTileTemplate* source = CParkLayout::sSingleton()->m_builder->GetPieceSource(reinterpret_cast<uint32_t>(entry->piece));
     return source ? source->AsPiece() : nullptr;
 }
 
 namespace {
 
 // The abstract metapiece's area grown to take in `pos` (with its size).
-void GrowToTake(GridDims& cells, const GridDims* pos)
+void GrowToTake(SCellBox& cells, const SCellBox* pos)
 {
     const int w = pos->x + pos->w;
     const int h = pos->y + pos->h;
@@ -475,10 +475,10 @@ void GrowToTake(GridDims& cells, const GridDims* pos)
 
 } // namespace
 
-void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t setsFloor)
+void CPieceBlueprint::AddPiece(CParkTile* piece, SCellBox* pos, int rot, uint8_t setsFloor)
 {
-    auto* source = (piece->m_flags & CPiece::kSource) ? reinterpret_cast<CSourcePiece*>(piece) : nullptr;
-    SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
+    auto* source = (piece->m_flags & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(piece) : nullptr;
+    SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(m_filledSlots++));
     if (!source)
         return; // (counted all the same)
     entry->x = pos->x;
@@ -487,14 +487,14 @@ void CAbstractMetaPiece::AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t
     entry->rot = static_cast<uint8_t>(rot);
     reinterpret_cast<uint8_t&>(entry->setsFloor) = setsFloor; // (the byte as given)
     entry->piece = reinterpret_cast<void*>(source->m_name);
-    GrowToTake(m_cell_area, pos);
-    if (m_cell_area.h < 1)
-        m_cell_area.h = 1;
+    GrowToTake(m_cellFootprint, pos);
+    if (m_cellFootprint.h < 1)
+        m_cellFootprint.h = 1;
 }
 
-void CAbstractMetaPiece::AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t setsFloor)
+void CPieceBlueprint::AddMetaPiece(CPieceGroup* meta, SCellBox* pos, int rot, uint8_t setsFloor)
 {
-    SMetaDescriptor* entry = GetDescriptor(static_cast<int>(m_num_used_entries++));
+    SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(m_filledSlots++));
     if (!meta)
         return;
     entry->x = pos->x;
@@ -502,19 +502,19 @@ void CAbstractMetaPiece::AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, 
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     reinterpret_cast<uint8_t&>(entry->setsFloor) = setsFloor;
-    entry->piece = reinterpret_cast<void*>(meta->m_name_checksum);
-    GrowToTake(m_cell_area, pos);
+    entry->piece = reinterpret_cast<void*>(meta->m_nameKey);
+    GrowToTake(m_cellFootprint, pos);
 }
 
-SMetaDescriptor* CAbstractMetaPiece::GetEntry(SMetaDescriptor* out, int index)
+SPieceGroupDesc* CPieceBlueprint::GetEntry(SPieceGroupDesc* out, int index)
 {
     int n = 0; // the entries counted so far, a nested metapiece's pieces each one
     // (when `index` is past the end the original returns a stack leftover; here an empty entry)
-    SMetaDescriptor result = {};
-    for (uint32_t i = 0; i < m_num_used_entries; ++i) {
-        const SMetaDescriptor* outer = GetDescriptor(static_cast<int>(i));
-        CMetaPiece* entry =
-            CParkManager::sInstance()->GetAbstractMetaPiece(reinterpret_cast<uint32_t>(outer->piece), nullptr);
+    SPieceGroupDesc result = {};
+    for (uint32_t i = 0; i < m_filledSlots; ++i) {
+        const SPieceGroupDesc* outer = GetDescriptor(static_cast<int>(i));
+        CPieceGroup* entry =
+            CParkLayout::sSingleton()->GetAbstractMetaPiece(reinterpret_cast<uint32_t>(outer->piece), nullptr);
         if (entry->m_flags & kSector) { // a single piece
             if (n == index) {
                 *out = *outer;
@@ -523,8 +523,8 @@ SMetaDescriptor* CAbstractMetaPiece::GetEntry(SMetaDescriptor* out, int index)
             ++n;
             continue;
         }
-        for (uint32_t j = 0; j < entry->m_num_used_entries; ++j) {
-            const SMetaDescriptor* inner = entry->GetDescriptor(static_cast<int>(j));
+        for (uint32_t j = 0; j < entry->m_filledSlots; ++j) {
+            const SPieceGroupDesc* inner = entry->GetDescriptor(static_cast<int>(j));
             if (n != index) {
                 ++n;
                 continue;
@@ -533,8 +533,8 @@ SMetaDescriptor* CAbstractMetaPiece::GetEntry(SMetaDescriptor* out, int index)
             result = *inner;
             result.rot = static_cast<uint8_t>(inner->rot + outer->rot);
             result.y = static_cast<int8_t>(inner->y + outer->y);
-            const GridDims& here = m_cell_area;
-            const GridDims& nested = entry->m_cell_area;
+            const SCellBox& here = m_cellFootprint;
+            const SCellBox& nested = entry->m_cellFootprint;
             uint8_t x = outer->x;
             uint8_t z = outer->z;
             switch (outer->rot) {
@@ -569,6 +569,6 @@ SMetaDescriptor* CAbstractMetaPiece::GetEntry(SMetaDescriptor* out, int index)
 
 } // namespace Ed
 
-using Ed::CAbstractMetaPiece;
-using Ed::CConcreteMetaPiece;
-using Ed::CMetaPiece;
+using ParkEditing::CPieceBlueprint;
+using ParkEditing::CPlacedPieceGroup;
+using ParkEditing::CPieceGroup;

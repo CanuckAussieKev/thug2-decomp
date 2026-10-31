@@ -38,7 +38,7 @@
 #include "game/gfx/pc_particles.h"
 #include "game/obj/particle_component.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 extern void** const kCPcParticleManagerVtable;
@@ -61,7 +61,7 @@ uint32_t g_memViewToggle;
 // The loading screen is up (0x00786D04, ShowLoadingScreen): it draws and presents on its own.
 bool LoadingScreenUp() { return g_loadingScreenUp; }
 // Rendering skipped (frames not drawn or shown).
-bool SkipRender() { return g_skipRender; }
+bool OmitFromDraw() { return g_skipRender; }
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
@@ -122,26 +122,26 @@ void __cdecl SetScreenClip(const void* rect)
 }
 
 // 0x004B22C0
-void __cdecl AddDebugShape(int type, const Mth::Vector* points, uint32_t colour)
+void __cdecl AddDebugShape(int type, const Maths::Vector* points, uint32_t colour)
 {
     if (type == 4)
-        AddOcclusionPoly(points, points + 1, points + 2, points + 3, colour);
+        InsertOccluderPoly(points, points + 1, points + 2, points + 3, colour);
 }
 
 // 0x004B22F0
 void __cdecl FlagDebugLines(uint32_t id, bool flag)
 {
-    EnableOcclusionPoly(id, flag);
+    ActivateOccluderPoly(id, flag);
 }
 
 // 0x004B2300
 void __cdecl ClearDebugLines()
 {
-    RemoveAllOcclusionPolys();
+    ClearOccluderPolys();
 }
 
 // 0x004B2310
-int __cdecl SphereVisible(const Mth::Vector* centre, float radius)
+int __cdecl SphereVisible(const Maths::Vector* centre, float radius)
 {
     return SphereOutsideView(centre, radius);
 }
@@ -194,16 +194,16 @@ void __cdecl ScreenShot(const char* name, int /*unused*/)
 void __cdecl StartEngine()
 {
     InitDirect3D();
-    void* memory = Mem::New(0x1C);
+    void* memory = MemSys::New(0x1C);
     void* particles = nullptr;
     if (memory) {
         particles = static_cast<CParticleManager*>(memory)->Construct();
         *static_cast<void**>(particles) = reinterpret_cast<void*>(kCPcParticleManagerVtable);
     }
-    reinterpret_cast<void*&>(Obj::g_particleManager) = particles;
-    memory = Mem::New(0x12AC);
+    reinterpret_cast<void*&>(GameObjects::g_particleManager) = particles;
+    memory = MemSys::New(0x12AC);
     g_weather = memory ? static_cast<CPcWeather*>(memory)->Construct() : nullptr;
-    memory = Mem::New(8);
+    memory = MemSys::New(8);
     g_screenEffects = memory ? static_cast<CPcScreenEffects*>(memory)->Construct() : nullptr;
 }
 
@@ -212,7 +212,7 @@ CPcParticleManager* CPcParticleManager::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -228,7 +228,7 @@ void __cdecl FinishRendering()
     if (LoadingScreenUp())
         return;
     Device()->EndScene();
-    if (SkipRender())
+    if (OmitFromDraw())
         return;
     Device()->Present(nullptr, nullptr, nullptr, nullptr);
     g_drawCalls = 0; // the frame's draw counts
@@ -241,18 +241,18 @@ void __cdecl FinishRendering()
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (g_screenBlur != 0) {
-        if (!SkipRender())
+        if (!OmitFromDraw())
             Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
         ++g_screenBlurFrames;
         return;
     }
     if (g_camera.letterboxActive) {
-        if (!SkipRender())
+        if (!OmitFromDraw())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
     } else if (g_camera.clearColourAndDepth) {
-        if (!SkipRender())
+        if (!OmitFromDraw())
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
-    } else if (!SkipRender()) {
+    } else if (!OmitFromDraw()) {
         ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, g_camera.backgroundColour, 1.0f, 0);
     }
     g_screenBlurFrames = 0;
@@ -261,13 +261,13 @@ void __cdecl FinishRendering()
 // 0x004B28C0
 void* __cdecl CreateScene(const char* /*name*/, void* /*textures*/, bool addSuperSectors)
 {
-    void* memory = Mem::New(0x284);
+    void* memory = MemSys::New(0x284);
     uint8_t* scene = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->Construct(10)) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     scene[0x8C] = addSuperSectors;
     scene[0x8D] = 0;
-    memory = Mem::New(sizeof(sScene));
-    *reinterpret_cast<sScene**>(scene + 0x280) = memory ? static_cast<sScene*>(memory)->Construct() : nullptr;
+    memory = MemSys::New(sizeof(sceneRef));
+    *reinterpret_cast<sceneRef**>(scene + 0x280) = memory ? static_cast<sceneRef*>(memory)->Construct() : nullptr;
     return scene;
 }
 
@@ -276,46 +276,46 @@ bool __cdecl UnloadScene(void* scene)
 {
     auto* bytes = static_cast<uint8_t*>(scene);
     static_cast<CPcScene*>(scene)->UnloadSectors();
-    DeleteScene(*reinterpret_cast<sScene**>(bytes + 0x280));
-    *reinterpret_cast<sScene**>(bytes + 0x280) = nullptr;
+    DiscardScene(*reinterpret_cast<sceneRef**>(bytes + 0x280));
+    *reinterpret_cast<sceneRef**>(bytes + 0x280) = nullptr;
     return true;
 }
 
 // 0x004B29C0
-void* __cdecl CreateModel()
+void* __cdecl SpawnModel()
 {
-    void* memory = Mem::Calloc(0x50);
+    void* memory = MemSys::AllocZeroed(0x50);
     return memory ? static_cast<CPcModel*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2A20
 void* __cdecl CreateGeom()
 {
-    void* memory = Mem::Calloc(0x64);
+    void* memory = MemSys::AllocZeroed(0x64);
     return memory ? static_cast<CPcGeom*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2A80
 void* __cdecl CreateSprite()
 {
-    void* memory = Mem::New(0x48);
+    void* memory = MemSys::New(0x48);
     return memory ? static_cast<CPcSprite*>(memory)->Construct() : nullptr;
 }
 
 // 0x004B2AF0
 void* __cdecl CreateTexturedQuad()
 {
-    void* memory = Mem::New(0x20);
+    void* memory = MemSys::New(0x20);
     return memory ? static_cast<CTexturedQuad*>(memory)->Construct(nullptr) : nullptr;
 }
 
 // 0x004B2B60
 void* __cdecl CreateRenderTarget(int width, int height, uint8_t depth, int unused)
 {
-    void* memory = Mem::New(0x14);
+    void* memory = MemSys::New(0x14);
     CPcTexture* target = memory ? static_cast<CPcTexture*>(memory)->Construct() : nullptr;
-    memory = Mem::New(sizeof(sTexture));
-    sTexture* texture = memory ? static_cast<sTexture*>(memory)->Construct() : nullptr;
+    memory = MemSys::New(sizeof(textureRef));
+    textureRef* texture = memory ? static_cast<textureRef*>(memory)->Construct() : nullptr;
     target->SetTexture(texture);
     // (no check: a failed allocation calls through null, as the original)
     texture->CreateRenderTarget(width, height, depth, unused);
@@ -329,11 +329,11 @@ void __cdecl AddTextureShadowCaster(const uint8_t* texture, void* model, uint32_
 }
 
 // 0x004B2C50
-void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx::Camera* camera)
+void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx2D::Camera* camera)
 {
-    const Mth::Vector& pos = *camera->GetPos();
+    const Maths::Vector& pos = *camera->GetPos();
     float position[3] = {pos.x, pos.y, pos.z};
-    const Mth::Matrix& m = *camera->GetMatrix();
+    const Maths::Matrix& m = *camera->GetMatrix();
     // the point it looks at: the position plus the matrix's third row
     float target[3] = {m.row[2].x + position[0], m.row[2].y + position[1], m.row[2].z + position[2]};
     AimShadowCaster(reinterpret_cast<uint32_t>(CasterKey(texture)), position, target);
@@ -346,7 +346,7 @@ void __cdecl RemoveTextureShadowCaster(const uint8_t* texture)
 }
 
 namespace {
-static VtableSlot kCPcParticleManagerVtable_slots[] = {&Nx::CPcParticleManager::Destroy, Nx::CPcParticleSystem::Create};
+static VtableSlot kCPcParticleManagerVtable_slots[] = {&Engine3D::CPcParticleManager::Destroy, Engine3D::CPcParticleSystem::Create};
 void** const kCPcParticleManagerVtable = reinterpret_cast<void**>(kCPcParticleManagerVtable_slots);
 } // namespace
 

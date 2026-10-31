@@ -4,7 +4,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 struct Model;
 }
 
@@ -14,18 +14,18 @@ struct Model;
 //
 // The drawing is the game's own (no meshes of ours):
 //   - a scene sector (scenery): its geometry's meshes (CGeom +0x3C / +0x40, world coordinates) each drawn as the
-//     world pass draws them (Nx::RenderScene 0x004DC700: shown 0x40 and not hidden 0x210; the opaque ones first, then
+//     world pass draws them (Engine3D::DrawScene 0x004DC700: shown 0x40 and not hidden 0x210; the opaque ones first, then
 //     the transparent - material +0x20 bit 0x40 -, the material set 0x004D1F00, the mesh drawn 0x004D5290);
 //   - an object: each geometry of its model drawn through its instance (CGeom +0x4C) by the engine's single-instance
 //     render (0x004D16B0 with flag 8, no culling: its world matrix and bones, its lights - as the game draws
 //     it), or its meshes as above when it has none.
-// The camera is the renderer's own (Nx::SetCamera 0x004DB200) at the orbit's eye; afterwards the camera's globals
+// The camera is the renderer's own (Engine3D::ChooseCamera 0x004DB200) at the orbit's eye; afterwards the camera's globals
 // (the matrices and the camera 0x00786B90-0x00786CF4, the view's shape 0x00786E18, the culling matrix 0x007CA968 /
 // 0x007CA980) are put back and the frustum (0x00775B80) recomputed from them; the target, depth surface, viewport and
 // the device's transforms are the backend's to switch and put back (UiBackend::BeginOffscreen / EndOffscreen - the
 // renderer-independence rules: level_editor_ui_backend.h). The game's frame is drawn by then (LevelEditor::Draw runs
 // after the 2D pass), so only what the next frame reads before it sets its camera again matters.
-namespace Front::LevelEditor::Preview {
+namespace MenuSystem::LevelEditor::Preview {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ struct Eye {
     Frame frame;
 };
 Eye OrbitEye(V3 centre, float distance, const Orbit& orbit);
-// The picture's lens: its horizontal field of view (degrees) and the aspect Nx::SetCamera is given for a square
+// The picture's lens: its horizontal field of view (degrees) and the aspect Engine3D::ChooseCamera is given for a square
 // picture (its height is the width / (aspect * 0.90909094): equal at 1.1); a tenth spare around the subject.
 constexpr float kAngle = 40.0f;
 constexpr float kSquareAspect = 1.1f;
@@ -85,4 +85,4 @@ void Hide();
 // to show (model->preview.index), that entry shown and drawn - its picture, name, size and type filled in; else Hide.
 void Frame(Ui::Model* model);
 
-} // namespace Front::LevelEditor::Preview
+} // namespace MenuSystem::LevelEditor::Preview

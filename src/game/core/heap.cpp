@@ -8,19 +8,19 @@
 #include "game/script/cfuncs_engine.h"
 #include "game/core/code_address.h"
 
-namespace Mem {
+namespace MemSys {
 
 namespace {
 
 extern void** const kHeapVtable;
 
 int g_heapBusy;
-BlockHeader* g_forcedFreeBlock;
+ChunkPrefix* g_forcedFreeBlock;
 
 // Set while a heap is falling back on others or resizing a block, so a fallback heap doesn't fall back in turn.
 int& HeapBusy() { return g_heapBusy; }
 // For debugging: when set (never, in the shipped game), Allocate only takes this free block.
-BlockHeader*& ForcedFreeBlock() { return g_forcedFreeBlock; }
+ChunkPrefix*& ForcedFreeBlock() { return g_forcedFreeBlock; }
 
 void CountUp(int& value, int& max, int amount)
 {
@@ -34,7 +34,7 @@ uint32_t RoundUp16(uint32_t size)
     return (size + 15) & ~15u;
 }
 
-uint8_t* EndOf(BlockHeader* header)
+uint8_t* EndOf(ChunkPrefix* header)
 {
     return reinterpret_cast<uint8_t*>(header) + kBlockHeaderSize + header->size;
 }
@@ -44,7 +44,7 @@ Heap* FindHeap(uint32_t name)
 {
     return Manager::Get()->GetNamedHeap(name, 0);
 }
-void DumpHeaps() { CFuncs::CFunc_DumpHeaps(nullptr, nullptr); }
+void DumpHeaps() { ScriptCommands::CFunc_DumpHeaps(nullptr, nullptr); }
 
 } // namespace
 
@@ -58,15 +58,15 @@ Heap::Heap(Region* region, int direction, const char* name) : Allocator(region, 
 }
 
 // 0x005BA780
-void* Heap::Allocate(uint32_t size, bool assertOnFail)
+void* Heap::Allocate(uint32_t size, bool haltIfExhausted)
 {
     uint32_t rounded = RoundUp16(size);
 
     // The smallest free block that fits (the first of equal sizes).
-    BlockHeader* best = nullptr;
-    BlockHeader* bestPrevious = nullptr;
-    BlockHeader* previous = nullptr;
-    for (BlockHeader* block = m_context->freeList; block; previous = block, block = block->NextFree()) {
+    ChunkPrefix* best = nullptr;
+    ChunkPrefix* bestPrevious = nullptr;
+    ChunkPrefix* previous = nullptr;
+    for (ChunkPrefix* block = m_context->freeList; block; previous = block, block = block->NextFree()) {
         if (block->size < rounded)
             continue;
         bool take = ForcedFreeBlock() ? block == ForcedFreeBlock() : !best || block->size < best->size;
@@ -89,7 +89,7 @@ void* Heap::Allocate(uint32_t size, bool assertOnFail)
         // Split off what isn't needed, as a free block of its own.
         int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
         if (rest > 0) {
-            auto* tail = reinterpret_cast<BlockHeader*>(reinterpret_cast<uint8_t*>(best) + kBlockHeaderSize + rounded);
+            auto* tail = reinterpret_cast<ChunkPrefix*>(reinterpret_cast<uint8_t*>(best) + kBlockHeaderSize + rounded);
             best->size = rounded;
             tail->allocator = this;
             tail->size = static_cast<uint32_t>(rest);
@@ -100,14 +100,14 @@ void* Heap::Allocate(uint32_t size, bool assertOnFail)
     }
 
     // Claim new space from the region.
-    auto* header = reinterpret_cast<BlockHeader*>(
-        m_region->Allocate(this, static_cast<int>(kBlockHeaderSize + rounded), m_useFallbacks == 0 && assertOnFail));
+    auto* header = reinterpret_cast<ChunkPrefix*>(
+        m_region->Allocate(this, static_cast<int>(kBlockHeaderSize + rounded), m_useFallbacks == 0 && haltIfExhausted));
     if (!header) {
         if (m_useFallbacks && !HeapBusy()) {
             HeapBusy() = 1;
             for (int i = 0; i < 5; ++i) {
                 Heap* other = m_fallbacks[i];
-                if (other && other->m_region->MemAvailable() > m_fallbackReserve[i] + static_cast<int>(size)) {
+                if (other && other->m_region->FreeByteCount() > m_fallbackReserve[i] + static_cast<int>(size)) {
                     if (void* block = other->VirtualAllocate(size, false)) {
                         HeapBusy() = 0;
                         return block;
@@ -116,9 +116,9 @@ void* Heap::Allocate(uint32_t size, bool assertOnFail)
             }
             HeapBusy() = 0;
         }
-        if (assertOnFail) {
-            Dbg::Printf("----------------------------------\n");
-            Dbg::Printf("failed to allocate %d bytes\n", rounded);
+        if (haltIfExhausted) {
+            DebugOut::Printf("----------------------------------\n");
+            DebugOut::Printf("failed to allocate %d bytes\n", rounded);
             DumpHeaps();
         }
         return nullptr;
@@ -135,22 +135,22 @@ void* Heap::Allocate(uint32_t size, bool assertOnFail)
 uint32_t Heap::LargestFree()
 {
     uint32_t largest = 0;
-    for (BlockHeader* block = m_context->freeList; block; block = block->NextFree()) {
+    for (ChunkPrefix* block = m_context->freeList; block; block = block->NextFree()) {
         if (block->size >= largest)
             largest = block->size;
     }
-    auto available = static_cast<uint32_t>(m_region->MemAvailable());
+    auto available = static_cast<uint32_t>(m_region->FreeByteCount());
     return available > largest ? available : largest;
 }
 
 // 0x005BA9A0
-void* Heap::ReallocateDown(uint32_t newSize, void* block)
+void* Heap::ExtendBlockDownward(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
-    BlockHeader* header = GetBlockHeader(block);
+    ChunkPrefix* header = GetBlockHeader(block);
     uint32_t rounded = RoundUp16(newSize);
     // The new space comes just below the block (with its own header, which becomes the block's).
-    BlockHeader* extended = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
+    ChunkPrefix* extended = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
     DebugTrackBlock(header);
     DebugTrackBlock(extended);
     --m_usedBlocks;
@@ -161,16 +161,16 @@ void* Heap::ReallocateDown(uint32_t newSize, void* block)
 }
 
 // 0x005BAA20
-void* Heap::ReallocateUp(uint32_t newSize, void* block)
+void* Heap::ExtendBlockUpward(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
-    BlockHeader* header = GetBlockHeader(block);
+    ChunkPrefix* header = GetBlockHeader(block);
     uint32_t rounded = RoundUp16(newSize);
     if (rounded <= header->size) {
         HeapBusy() = 0;
         return block;
     }
-    BlockHeader* extra = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
+    ChunkPrefix* extra = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
     if (static_cast<uint8_t*>(block) + header->size != reinterpret_cast<uint8_t*>(extra)) {
         // Not right after the block: give it back.
         HeapBusy() = 0;
@@ -188,16 +188,16 @@ void* Heap::ReallocateUp(uint32_t newSize, void* block)
 }
 
 // 0x005BAAE0
-void* Heap::ReallocateShrink(uint32_t newSize, void* block)
+void* Heap::TrimBlockEnd(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
-    BlockHeader* header = GetBlockHeader(block);
+    ChunkPrefix* header = GetBlockHeader(block);
     uint32_t cut = (header->size - newSize) & ~15u;
     if (cut <= kBlockHeaderSize) {
         HeapBusy() = 0;
         return block;
     }
-    auto* tail = reinterpret_cast<BlockHeader*>(static_cast<uint8_t*>(block) + header->size - cut);
+    auto* tail = reinterpret_cast<ChunkPrefix*>(static_cast<uint8_t*>(block) + header->size - cut);
     tail->size = cut - kBlockHeaderSize;
     tail->allocator = this;
     DebugTrackBlock(tail);
@@ -212,19 +212,19 @@ void* Heap::ReallocateShrink(uint32_t newSize, void* block)
 
 // 0x005BA5A0: onto the free list (in address order), merged with free neighbours; a free block at the heap's
 // top goes back to the region
-void Heap::Free(BlockHeader* header)
+void Heap::Free(ChunkPrefix* header)
 {
     CountUp(m_freeBlocks, m_maxFreeBlocks, 1);
     CountUp(m_freeSize, m_maxFreeSize, static_cast<int>(header->size));
     --m_usedBlocks;
     m_usedSize -= header->size;
     if (this == FindHeap(0x502D3FD2))
-        Dbg::Printf(" *********************************************************************************** FREE %d\n",
+        DebugOut::Printf(" *********************************************************************************** FREE %d\n",
                     header->size);
 
-    BlockHeader* before = nullptr;   // the free block before `previous`
-    BlockHeader* previous = nullptr; // the last free block below this one
-    BlockHeader* next = m_context->freeList;
+    ChunkPrefix* before = nullptr;   // the free block before `previous`
+    ChunkPrefix* previous = nullptr; // the last free block below this one
+    ChunkPrefix* next = m_context->freeList;
     while (next && next < header) {
         before = previous;
         previous = next;
@@ -278,28 +278,28 @@ void Heap::Free(BlockHeader* header)
 namespace {
 
 struct HeapAdapters {
-    Mem::Heap* Construct(Mem::Region* region, int direction, const char* name)
+    MemSys::Heap* Construct(MemSys::Region* region, int direction, const char* name)
     {
-        return new (this) Mem::Heap(region, direction, name);
+        return new (this) MemSys::Heap(region, direction, name);
     }
     // 0x005BA560 (scalar deleting destructor; the heap adds nothing to the allocator's destructor)
-    Mem::Heap* Destroy(unsigned int flags)
+    MemSys::Heap* Destroy(unsigned int flags)
     {
-        auto* heap = reinterpret_cast<Mem::Heap*>(this);
+        auto* heap = reinterpret_cast<MemSys::Heap*>(this);
         heap->DestroyBody();
         if (flags & 1)
-            Mem::Free(heap);
+            MemSys::Free(heap);
         return heap;
     }
 };
 
 } // namespace
 
-namespace Mem {
+namespace MemSys {
 namespace {
-static VtableSlot kHeapVtable_slots[] = {&Mem::Allocator::PushContext, &Mem::Allocator::PopContext,
-                &HeapAdapters::Destroy, &Mem::Heap::Allocate, &Mem::Heap::LargestFree, &Mem::Heap::ReallocateDown,
-                &Mem::Heap::ReallocateUp, &Mem::Heap::ReallocateShrink, &Mem::Heap::Free};
+static VtableSlot kHeapVtable_slots[] = {&MemSys::Allocator::EnterHeapScope, &MemSys::Allocator::LeaveHeapScope,
+                &HeapAdapters::Destroy, &MemSys::Heap::Allocate, &MemSys::Heap::LargestFree, &MemSys::Heap::ExtendBlockDownward,
+                &MemSys::Heap::ExtendBlockUpward, &MemSys::Heap::TrimBlockEnd, &MemSys::Heap::Free};
 void** const kHeapVtable = reinterpret_cast<void**>(kHeapVtable_slots);
 } // namespace
 } // namespace Mem

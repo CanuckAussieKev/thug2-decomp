@@ -23,8 +23,8 @@
 
 namespace Sun {
 
-using Script::CArray;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CStruct;
 
 namespace {
 
@@ -64,8 +64,8 @@ FlareElement* g_flareElements;
 uint32_t g_flareElementCount;
 uint32_t g_flareVisibleTime;
 uint32_t g_flareHiddenTime;
-Mth::Vector g_flareColor;
-Mth::Vector g_flarePosition;
+Maths::Vector g_flareColor;
+Maths::Vector g_flarePosition;
 
 // The sun's state.
 float& Theta() { return g_flareTheta; }
@@ -84,14 +84,14 @@ FlareElement*& Elements() { return g_flareElements; }
 uint32_t& ElementCount() { return g_flareElementCount; }
 uint32_t& VisibleTime() { return g_flareVisibleTime; } // when the sun was last seen
 uint32_t& HiddenTime() { return g_flareHiddenTime; }  // when it was last not seen
-Mth::Vector& Color() { return g_flareColor; }
-Mth::Vector& Position() { return g_flarePosition; } // in the world, this frame
+Maths::Vector& Color() { return g_flareColor; }
+Maths::Vector& Position() { return g_flarePosition; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted (its vtable slot 0,
 // the scalar deleting destructor).
 void* FindTexture(uint32_t checksum)
 {
-    return static_cast<Nx::CTexDict*>(reinterpret_cast<void*>(Nx::g_particleTextureDict))->GetTexture(checksum);
+    return static_cast<Engine3D::CTextureSet*>(reinterpret_cast<void*>(Engine3D::g_particleTextureDict))->GetTexture(checksum);
 }
 void DeleteTexture(void* texture)
 {
@@ -100,17 +100,17 @@ void DeleteTexture(void* texture)
 }
 
 // The game's clock with its offset, and the milliseconds since `time`.
-uint32_t Now() { return static_cast<uint32_t>(Tmr::GameClockTime()); }
-uint32_t Since(uint32_t time) { return static_cast<uint32_t>(Tmr::GameClockTimeSince(static_cast<int>(time))); }
+uint32_t Now() { return static_cast<uint32_t>(FrameClock::GameClockTime()); }
+uint32_t Since(uint32_t time) { return static_cast<uint32_t>(FrameClock::GameClockTimeSince(static_cast<int>(time))); }
 
 // The first viewport's camera (Nx, 0x004A06D0): its vtable slot 1 (through 0x004A1090) projects a point to the
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
 // rectangle (the query's number, 0 if none).
-void* ViewportCamera() { return Nx::GetActiveViewport(0); }
-void Project(void* camera, const Mth::Vector* point, float* x, float* y, float* z)
+void* ViewportCamera() { return Engine3D::GetActiveViewport(0); }
+void Project(void* camera, const Maths::Vector* point, float* x, float* y, float* z)
 {
     // (slot 1, through the jump 0x004A1090)
-    reinterpret_cast<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(
+    reinterpret_cast<float(__thiscall*)(void*, const Maths::Vector*, float*, float*, float*)>(
         (*static_cast<void***>(camera))[1])(camera, point, x, y, z);
 }
 uint8_t IssueQuery(void* camera, float left, float top, float right, float bottom, int unknown, uint8_t query)
@@ -127,8 +127,8 @@ uint8_t IssueQuery(void* camera, float left, float top, float right, float botto
 struct Prim {
     alignas(16) uint8_t storage[0x200];
 
-    void Construct() { reinterpret_cast<Nx::CPcPrimitive*>(this)->Construct(2); }
-    void Destruct() { reinterpret_cast<Nx::CPcPrimitive*>(this)->DestroyBody(); }
+    void Construct() { reinterpret_cast<Engine3D::CPcPrimitive*>(this)->Construct(2); }
+    void Destruct() { reinterpret_cast<Engine3D::CPcPrimitive*>(this)->DestroyBody(); }
     void SetTexture(void* texture)
     {
         // (slot 1, through the jump 0x004A1090)
@@ -140,19 +140,19 @@ struct Prim {
         // (slot 3, through the jump 0x004A10A0)
         reinterpret_cast<void(__thiscall*)(Prim*, int, int, int)>((*reinterpret_cast<void***>(this))[3])(this, a, b, c);
     }
-    // (the original calls linker-folded setters of other classes: 0x00428270, CLineObject::SetBlendMode, writes the
-    // dword at +0x0C; 0x00407A50, CAssMan::SetPermanentByDefault, the byte at +0x14)
-    void SetBlendMode(uint32_t mode) { std::memcpy(storage + 0x0C, &mode, 4); }
+    // (the original calls linker-folded setters of other classes: 0x00428270, CLineObject::ChooseBlendMode, writes the
+    // dword at +0x0C; 0x00407A50, CResourceRegistry::SetPermanentByDefault, the byte at +0x14)
+    void ChooseBlendMode(uint32_t mode) { std::memcpy(storage + 0x0C, &mode, 4); }
     void SetUnknown14(bool value) { storage[0x14] = value; }
-    void Ready() { reinterpret_cast<Nx::CPrimitive*>(this)->Ready(); }
+    void Ready() { reinterpret_cast<Engine3D::CPrimitive*>(this)->Ready(); }
     void Draw(const float* corners, const uint8_t* colors, const float* uvs)
     {
-        reinterpret_cast<Nx::CPrimitive*>(this)->DrawIfReady(corners, reinterpret_cast<const uint32_t*>(colors), uvs,
+        reinterpret_cast<Engine3D::CPrimitive*>(this)->DrawIfReady(corners, reinterpret_cast<const uint32_t*>(colors), uvs,
                                                              nullptr);
     }
 };
 // A render state for the primitives (0x0049C700).
-void SetPrimState(int state, int value) { Nx::SetPrimitiveState(state, value); }
+void SetPrimState(int state, int value) { Engine3D::SetPrimitiveState(state, value); }
 // A query to issue this frame (0x004A0EB0 takes a copy and fills in its slot number), and a query's result - its
 // visible pixels (0x004A0F20).
 struct QueryRequest {
@@ -166,10 +166,10 @@ struct QueryRequest {
     QueryRequest* Init();
 };
 static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
-void AddQuery(QueryRequest* request) { Nx::RequestOcclusionQuery(reinterpret_cast<Nx::OcclusionRequest*>(request)); }
-uint32_t QueryResult(uint8_t) { return Nx::OcclusionPixels(); } // (the original also passed the query: unused)
+void AddQuery(QueryRequest* request) { Engine3D::RequestOcclusionQuery(reinterpret_cast<Engine3D::OcclusionRequest*>(request)); }
+uint32_t QueryResult(uint8_t) { return Engine3D::OcclusionPixels(); } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
-void TransformInPlace(Mth::Vector* v, const Mth::Matrix* m)
+void TransformInPlace(Maths::Vector* v, const Maths::Matrix* m)
 {
     v->MultiplyBy(*m);
 }
@@ -177,14 +177,14 @@ void TransformInPlace(Mth::Vector* v, const Mth::Matrix* m)
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // x87's dot product order (0x00402530), unrounded.
-double Dot(const Mth::Vector& a, const Mth::Vector& b)
+double Dot(const Maths::Vector& a, const Maths::Vector& b)
 {
     return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x;
 }
-Script::VectorValue Value(const Mth::Vector& v) { return {v.x, v.y, v.z, v.w}; }
-Script::CStruct* NewParams()
+Scripts::VectorValue Value(const Maths::Vector& v) { return {v.x, v.y, v.z, v.w}; }
+Scripts::CStruct* NewParams()
 {
-    CStruct* structure = Script::NewStruct();
+    CStruct* structure = Scripts::NewStruct();
     if (structure)
         structure->Init();
     return structure;
@@ -193,11 +193,11 @@ void FreeParams(CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
 // The screen centre lens flares are placed from.
-Mth::Vector ScreenCentre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
+Maths::Vector ScreenCentre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
 
 // The sun's colour scaled into bytes for each of the quad's four corners.
 void CornerColors(uint8_t colors[4][4], double scale)
@@ -261,7 +261,7 @@ void __cdecl SetSun(const Settings* settings, uint32_t mask)
 // 0x00442810
 int __cdecl QuerySunVisibility(void*, uint8_t query)
 {
-    Mth::Vector screen = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vector screen = {0.0f, 0.0f, 0.0f, 1.0f};
     void* camera = ViewportCamera();
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
     Project(camera, &Position(), &screen[0], &screen[1], &z);
@@ -270,15 +270,15 @@ int __cdecl QuerySunVisibility(void*, uint8_t query)
 }
 
 // 0x004428F0
-void __cdecl PlaceFlareElements(float time, const Mth::Vector* sun, const Mth::Vector* centre)
+void __cdecl PlaceFlareElements(float time, const Maths::Vector* sun, const Maths::Vector* centre)
 {
-    Mth::Vector line = *sun - *centre;
+    Maths::Vector line = *sun - *centre;
     for (uint32_t i = 0; i < ElementCount(); ++i) {
         FlareElement& element = Elements()[i];
-        Mth::Vector pos = *centre + element.posScale * line;
-        element.morph->AddFloat(kTime, time);
-        element.morph->AddVector(kPos, Value(pos));
-        Front::CFunc_DoScreenElementMorph(element.morph, nullptr);
+        Maths::Vector pos = *centre + element.posScale * line;
+        element.morph->PushFloat(kTime, time);
+        element.morph->PutVec3(kPos, Value(pos));
+        MenuSystem::CFunc_DoScreenElementMorph(element.morph, nullptr);
     }
     FlareHidden() = false;
 }
@@ -295,9 +295,9 @@ void __cdecl Init(float theta, float phi, float radius, float size, uint32_t tex
     SunTexture() = nullptr;
     SunTexture() = FindTexture(texture);
     CoronaTexture() = FindTexture(coronaTexture);
-    CArray* data = Script::GetArray(lensFlareData);
+    CArray* data = Scripts::GetArray(lensFlareData);
     ElementCount() = data->m_size;
-    Elements() = static_cast<FlareElement*>(Mem::New(ElementCount() * sizeof(FlareElement)));
+    Elements() = static_cast<FlareElement*>(MemSys::New(ElementCount() * sizeof(FlareElement)));
     for (uint32_t i = 0; i < ElementCount(); ++i) {
         auto* item = reinterpret_cast<CStruct*>(data->GetElement(i));
         CArray* rgba = nullptr;
@@ -307,43 +307,43 @@ void __cdecl Init(float theta, float phi, float radius, float size, uint32_t tex
         item->GetArray(kRgba, &rgba, 1);
         element.rgba = rgba->GetElement(3) << 24 | rgba->GetElement(2) << 16 | rgba->GetElement(1) << 8 |
                        rgba->GetElement(0);
-        item->GetChecksum(kId, &element.id, 1);
+        item->ReadHashValue(kId, &element.id, 1);
         element.create = NewParams();
-        element.create->AddChecksum(kId, element.id);
-        element.create->AddFloat(kScale, element.scale);
-        element.create->AddArray(kRgba, rgba);
+        element.create->PutNameKey(kId, element.id);
+        element.create->PushFloat(kScale, element.scale);
+        element.create->AppendArrayValue(kRgba, rgba);
         element.morph = NewParams();
-        element.morph->AddChecksum(kId, element.id);
-        element.morph->AddVector(kPos, Script::VectorValue{0.0f, 0.0f, 0.0f, 1.0f});
-        element.morph->AddFloat(kTime, 0.0f);
+        element.morph->PutNameKey(kId, element.id);
+        element.morph->PutVec3(kPos, Scripts::VectorValue{0.0f, 0.0f, 0.0f, 1.0f});
+        element.morph->PushFloat(kTime, 0.0f);
     }
-    MorphInTime() = Script::GetFloat(kMorphIn);
-    MorphOutTime() = Script::GetFloat(kMorphOut);
-    SunBurstOutTime() = Script::GetFloat(kSunBurstOut);
+    MorphInTime() = Scripts::GetFloat(kMorphIn);
+    MorphOutTime() = Scripts::GetFloat(kMorphOut);
+    SunBurstOutTime() = Scripts::GetFloat(kSunBurstOut);
     Color() = {255.0f, 255.0f, 255.0f, 128.0f};
 }
 
 // 0x00442D70
-void __cdecl UpdateFlare(CStruct* params, Script::CScript*)
+void __cdecl UpdateFlare(CStruct* params, Scripts::CScript*)
 {
-    Script::VectorValue centre = Value(ScreenCentre());
+    Scripts::VectorValue centre = Value(ScreenCentre());
     float time = 0.0f;
     params->GetVector(kCenter, &centre, 0);
     params->GetFloat(kMorphTime, &time, 0);
-    Script::VectorValue sun; // (unset if there's none: the getter asserts)
+    Scripts::VectorValue sun; // (unset if there's none: the getter asserts)
     params->GetVector(kSunPos, &sun, 1);
-    Mth::Vector sunPos = {sun.x, sun.y, sun.z, sun.w};
-    Mth::Vector centrePos = {centre.x, centre.y, centre.z, centre.w};
+    Maths::Vector sunPos = {sun.x, sun.y, sun.z, sun.w};
+    Maths::Vector centrePos = {centre.x, centre.y, centre.z, centre.w};
     PlaceFlareElements(time, &sunPos, &centrePos);
 }
 
 // 0x00442DF0
-void __cdecl HideFlare(CStruct* params, Script::CScript* script)
+void __cdecl HideFlare(CStruct* params, Scripts::CScript* script)
 {
-    Script::VectorValue centre = Value(ScreenCentre()); // (read, not used)
+    Scripts::VectorValue centre = Value(ScreenCentre()); // (read, not used)
     float time = 0.0f;
-    Front::ElementPtr container;
-    Front::CScreenElementManager::Instance()->GetElement(&container, kContainer, 0);
+    MenuSystem::ElementPtr container;
+    MenuSystem::CUiTree::Instance()->GetElement(&container, kContainer, 0);
     if (container.IsNull()) {
         container.Release();
         return;
@@ -353,19 +353,19 @@ void __cdecl HideFlare(CStruct* params, Script::CScript* script)
         params->GetFloat(kMorphTime, &time, 0);
     }
     CStruct* morph = NewParams();
-    morph->AddChecksum(kId, kContainer);
-    morph->AddFloat(kAlpha, 0.0f);
-    morph->AddFloat(kTime, time);
-    Front::CFunc_DoScreenElementMorph(morph, script);
+    morph->PutNameKey(kId, kContainer);
+    morph->PushFloat(kAlpha, 0.0f);
+    morph->PushFloat(kTime, time);
+    MenuSystem::CFunc_DoScreenElementMorph(morph, script);
     FreeParams(morph);
     if (params) {
-        Script::VectorValue sun;
+        Scripts::VectorValue sun;
         if (params->GetVector(kSunPos, &sun, 0)) {
             for (uint32_t i = 0; i < ElementCount(); ++i) {
                 FlareElement& element = Elements()[i];
-                element.morph->AddVector(kPos, sun);
-                element.morph->AddFloat(kTime, time);
-                Front::CFunc_DoScreenElementMorph(element.morph, script);
+                element.morph->PutVec3(kPos, sun);
+                element.morph->PushFloat(kTime, time);
+                MenuSystem::CFunc_DoScreenElementMorph(element.morph, script);
             }
         }
     }
@@ -374,48 +374,48 @@ void __cdecl HideFlare(CStruct* params, Script::CScript* script)
 }
 
 // 0x00443030
-void __cdecl UnhideFlare(CStruct*, Script::CScript* script)
+void __cdecl UnhideFlare(CStruct*, Scripts::CScript* script)
 {
-    Front::ElementPtr container;
-    Front::CScreenElementManager::Instance()->GetElement(&container, kContainer, 0);
+    MenuSystem::ElementPtr container;
+    MenuSystem::CUiTree::Instance()->GetElement(&container, kContainer, 0);
     if (container.IsNull()) {
         container.Release();
         return;
     }
     float time = 0.2f;
     CStruct* morph = NewParams();
-    morph->AddChecksum(kId, kContainer);
-    morph->AddFloat(kAlpha, 1.0f);
-    morph->AddFloat(kTime, time);
-    Front::CFunc_DoScreenElementMorph(morph, script);
+    morph->PutNameKey(kId, kContainer);
+    morph->PushFloat(kAlpha, 1.0f);
+    morph->PushFloat(kTime, time);
+    MenuSystem::CFunc_DoScreenElementMorph(morph, script);
     FreeParams(morph);
     FlareHidden() = false;
     container.Release();
 }
 
 // 0x00443180
-void __cdecl BuildSunQuad(Gfx::Camera* camera, void* prim, const Mth::Vector* position, float* corners)
+void __cdecl BuildSunQuad(Gfx2D::Camera* camera, void* prim, const Maths::Vector* position, float* corners)
 {
     auto* quad = static_cast<Prim*>(prim);
     // facing the camera: its right axis reversed, then up and back from cross products
-    Mth::Matrix facing;
-    facing.Ident();
+    Maths::Matrix facing;
+    facing.ResetToIdentity();
     facing[0] = -(*camera->GetMatrix())[0];
-    facing[2] = Mth::CrossProduct((*camera->GetMatrix())[1], facing[0]);
-    facing[1] = Mth::CrossProduct(facing[2], facing[0]);
+    facing[2] = Maths::CrossProduct((*camera->GetMatrix())[1], facing[0]);
+    facing[1] = Maths::CrossProduct(facing[2], facing[0]);
     if (SunTexture())
         quad->SetTexture(SunTexture());
     float size = camera->m_unknownB4 * Size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
-    Mth::Vector quadCorners[4] = {
+    Maths::Vector quadCorners[4] = {
         {-half, -half, 0.0f, 1.0f},
         {half, -half, 0.0f, 1.0f},
         {half, half, 0.0f, 1.0f},
         {-half, half, 0.0f, 1.0f},
     };
-    for (Mth::Vector& corner : quadCorners)
+    for (Maths::Vector& corner : quadCorners)
         TransformInPlace(&corner, &facing);
-    for (Mth::Vector& corner : quadCorners) {
+    for (Maths::Vector& corner : quadCorners) {
         corner.x += position->x;
         corner.y += position->y;
         corner.z += position->z;
@@ -425,22 +425,22 @@ void __cdecl BuildSunQuad(Gfx::Camera* camera, void* prim, const Mth::Vector* po
         corners[i * 3 + 1] = quadCorners[i].y;
         corners[i * 3 + 2] = quadCorners[i].z;
     }
-    quad->SetBlendMode(kBlend);
+    quad->ChooseBlendMode(kBlend);
     quad->SetUnknown(3, 4, 4);
-    quad->SetBlendMode(kAdd);
+    quad->ChooseBlendMode(kAdd);
     quad->SetUnknown14(true);
     quad->Ready();
 }
 
 // 0x00443780
-void __cdecl ShowFlare(const Mth::Vector* sun, float time)
+void __cdecl ShowFlare(const Maths::Vector* sun, float time)
 {
-    Mth::Vector centre = ScreenCentre();
-    Front::ElementPtr container;
-    Front::CScreenElementManager::Instance()->GetElement(&container, kContainer, 0);
+    Maths::Vector centre = ScreenCentre();
+    MenuSystem::ElementPtr container;
+    MenuSystem::CUiTree::Instance()->GetElement(&container, kContainer, 0);
     if (container.IsNull())
-        Script::RunScript(kCreateLensFlare, nullptr, nullptr, false, nullptr);
-    if (!Script::GetInteger(kDoUpdateLensFlare)) {
+        Scripts::LaunchScript(kCreateLensFlare, nullptr, nullptr, false, nullptr);
+    if (!Scripts::FetchIntValue(kDoUpdateLensFlare)) {
         container.Release();
         return;
     }
@@ -453,21 +453,21 @@ void __cdecl ShowFlare(const Mth::Vector* sun, float time)
 }
 
 // 0x00443870
-void __cdecl Render(Gfx::Camera* camera)
+void __cdecl Render(Gfx2D::Camera* camera)
 {
     if (!Shown()) {
-        Script::RunScript(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);
         return;
     }
     // where the sun is: theta round the vertical, phi up, `radius` from the camera
-    Mth::Vector sunPos = *camera->GetPos();
-    Mth::Matrix rotation;
-    rotation.Ident();
+    Maths::Vector sunPos = *camera->GetPos();
+    Maths::Matrix rotation;
+    rotation.ResetToIdentity();
     rotation.RotateY(Theta());
-    Mth::Vector direction = {0.0f, 0.0f, 1.0f, 1.0f};
+    Maths::Vector direction = {0.0f, 0.0f, 1.0f, 1.0f};
     direction = direction * rotation;
-    rotation.Ident();
-    Mth::Vector axis = Mth::CrossProduct(direction, Mth::Vector{0.0f, 1.0f, 0.0f, 1.0f});
+    rotation.ResetToIdentity();
+    Maths::Vector axis = Maths::CrossProduct(direction, Maths::Vector{0.0f, 1.0f, 0.0f, 1.0f});
     axis.Normalize();
     rotation.Rotate(axis, Phi());
     direction = direction * rotation;
@@ -478,13 +478,13 @@ void __cdecl Render(Gfx::Camera* camera)
     CornerColors(colors, 1.0);
 
     // behind the camera, or off the projection: the lens flare hidden
-    Mth::Vector toSun = sunPos - *camera->GetPos();
+    Maths::Vector toSun = sunPos - *camera->GetPos();
     toSun.Normalize();
     if (Dot(toSun, (*camera->GetMatrix())[2]) >= 0.0) {
         HideFlare(nullptr, nullptr);
         return;
     }
-    Mth::Vector screen = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vector screen = {0.0f, 0.0f, 0.0f, 1.0f};
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
     Project(ViewportCamera(), &sunPos, &screen[0], &screen[1], &z);
     if (screen[0] == 0.0f && screen[1] == 0.0f) {
@@ -529,10 +529,10 @@ void __cdecl Render(Gfx::Camera* camera)
         }
         if (!FlareHidden()) {
             CStruct* params = NewParams();
-            params->AddVector(kSunPos, Value(screen));
+            params->PutVec3(kSunPos, Value(screen));
             if (!(static_cast<double>(MorphOutTime()) * 1000.0f < static_cast<double>(unseen)))
-                params->AddFloat(kMorphTime, MorphOutTime());
-            Script::RunScript(kMaybeHideLensFlare, params, nullptr, false, nullptr);
+                params->PushFloat(kMorphTime, MorphOutTime());
+            Scripts::LaunchScript(kMaybeHideLensFlare, params, nullptr, false, nullptr);
             FreeParams(params);
         }
     } else {
@@ -544,7 +544,7 @@ void __cdecl Render(Gfx::Camera* camera)
         CornerColors(colors, 0.5);
         if (CoronaTexture())
             sun.SetTexture(CoronaTexture());
-        sun.SetBlendMode(kAdd);
+        sun.ChooseBlendMode(kAdd);
         sun.Draw(corners, &colors[0][0], uvs);
         if (static_cast<double>(MorphInTime()) * 1000.0f < static_cast<double>(unseen))
             ShowFlare(&screen, 0.0f);
@@ -560,7 +560,7 @@ namespace {
 
 // 0x004426B0: a camera's +0xB4 (written out in the unoptimised lens flare code).
 struct CameraFactor {
-    float Get() { return reinterpret_cast<Gfx::Camera*>(this)->m_unknownB4; }
+    float Get() { return reinterpret_cast<Gfx2D::Camera*>(this)->m_unknownB4; }
 };
 
 } // namespace

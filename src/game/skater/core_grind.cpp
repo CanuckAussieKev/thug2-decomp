@@ -42,7 +42,7 @@ namespace Skater {
 
 using namespace CoreFields;
 
-Mth::Vector g_acidHold;
+Maths::Vector g_acidHold;
 
 namespace {
 
@@ -79,9 +79,9 @@ constexpr float kDegrees = 0.0174532924f; // (degrees to radians, 0x00645464)
 constexpr float kNearPoint = 36.0f;       // (6 squared: how far from the point a hit may be)
 
 // The acid drop's hold velocity (debugging: "GRINDING FROM ACID DROP").
-Mth::Vector& AcidHold() { return g_acidHold; }
+Maths::Vector& AcidHold() { return g_acidHold; }
 
-const Mth::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
+const Maths::Vector kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
 void SetState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
 void* Component(void* component, uint32_t offset) { return At<void*>(component, offset); }
@@ -89,8 +89,8 @@ void* Component(void* component, uint32_t offset) { return At<void*>(component, 
 // The rail's terrain (the node being ground) told to the flags (0x005196A0) and the sound component.
 void SetRailTerrain(void* component)
 {
-    uint8_t terrain = At<Obj::CRailNode*>(component, kRailNode)->m_terrain;
-    reinterpret_cast<Obj::CSkaterStateComponent*>(FlagsOf(component))->SetTerrain(terrain);
+    uint8_t terrain = At<GameObjects::CGrindPoint*>(component, kRailNode)->m_surfaceType;
+    reinterpret_cast<GameObjects::CRiderPoseState*>(FlagsOf(component))->SetSurfaceKind(terrain);
     At<uint8_t>(Component(component, kSoundComponent), 0x1C) = terrain;
 }
 
@@ -99,8 +99,8 @@ void PlayLandSound(void* component)
 {
     void* object = ObjectOf(component);
     float speed = static_cast<float>(LengthOf(VectorAt(object, kVelocity)));
-    float fraction = speed / static_cast<Obj::CSkater*>(object)->GetScaledPhysics(kMaxMaxSpeed);
-    static_cast<Obj::CSkaterSoundComponent*>(Component(component, kSoundComponent))
+    float fraction = speed / static_cast<GameObjects::CRider*>(object)->GetScaledPhysics(kMaxMaxSpeed);
+    static_cast<GameObjects::CRiderSfxPlayer*>(Component(component, kSoundComponent))
         ->PlayLand(fraction, Flag(component, 0xE1));
 }
 
@@ -109,13 +109,13 @@ void TriggerRailNode(void* component, const int* events)
 {
     const uint8_t* rideObject = nullptr;
     void* ride = Component(component, kRide);
-    if (auto* tracker = At<Obj::CRideTracker*>(ride, 0x18)) {
-        if (tracker->m_object.mp_object)
-            rideObject = reinterpret_cast<const uint8_t*>(tracker->m_object.mp_object);
+    if (auto* tracker = At<GameObjects::CRideTracker*>(ride, 0x18)) {
+        if (tracker->m_object.m_ownerObject)
+            rideObject = reinterpret_cast<const uint8_t*>(tracker->m_object.m_ownerObject);
         else
-            static_cast<Obj::CMovableContactComponent*>(ride)->StopRiding();
+            static_cast<GameObjects::CMovingSurfaceModule*>(ride)->StopRiding();
     }
-    static_cast<Obj::CTriggerComponent*>(Component(component, kTriggerComponent))
+    static_cast<GameObjects::CActivationZoneModule*>(Component(component, kTriggerComponent))
         ->TriggerNode(events, At<uint32_t>(component, kRailScriptNode), nullptr,
                       rideObject);
 }
@@ -123,16 +123,16 @@ void TriggerRailNode(void* component, const int* events)
 // A feeler from the skater to the point: false when it hits something more than 6 from the point. The distance
 // squared as the original: from the differences unrounded, z first (`fromVector`: the point less the hit as a
 // vector - rounded - x first).
-bool ClearToPoint(void* component, const Mth::Vector* point, bool fromVector)
+bool ClearToPoint(void* component, const Maths::Vector* point, bool fromVector)
 {
     VectorAt(component, kFeelerStart) = VectorAt(ObjectOf(component), kPosition);
     VectorAt(component, kFeelerEnd) = *point;
     if (!Feel(component, 0x10, 0))
         return true;
-    const Mth::Vector& hit = VectorAt(component, kHitPoint);
+    const Maths::Vector& hit = VectorAt(component, kHitPoint);
     double distance;
     if (fromVector) {
-        Mth::Vector d = *point - hit;
+        Maths::Vector d = *point - hit;
         distance = (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) + static_cast<double>(d.z) * d.z;
     } else {
         double dx = static_cast<double>(point->x) - hit.x;
@@ -145,7 +145,7 @@ bool ClearToPoint(void* component, const Mth::Vector* point, bool fromVector)
 
 // What every way onto a rail does first: the skater at the point, off vert, not wall riding (as it ends: 0x004FE860
 // with the up straight and the display matrix reset - `always` for a point rail spin), into the rail state.
-void OntoRail(void* component, const Mth::Vector* point, bool always)
+void OntoRail(void* component, const Maths::Vector* point, bool always)
 {
     VectorAt(ObjectOf(component), kPosition) = *point;
     SetFlag(component, 0x30, 0);
@@ -163,29 +163,29 @@ void OntoRail(void* component, const Mth::Vector* point, bool always)
 void PrepareVelocity(void* component, bool exactlyStill, bool fromObject)
 {
     void* object = ObjectOf(component);
-    Mth::Vector& v = VectorAt(object, kVelocity);
+    Maths::Vector& v = VectorAt(object, kVelocity);
     bool still = exactlyStill ? v.x == 0.0f && v.z == 0.0f : std::fabs(v.x) < 0.01f && std::fabs(v.z) < 0.01f;
     if (still) {
         v.x = VectorAt(object, kFacing).x;
         VectorAt(ObjectOf(component), kVelocity).z = VectorAt(ObjectOf(component), kFacing).z;
     }
     if (!fromObject) {
-        Mth::Vector& w = VectorAt(ObjectOf(component), kVelocity);
+        Maths::Vector& w = VectorAt(ObjectOf(component), kVelocity);
         if (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x > 100.0f)
-            w.RotateToPlane(kUpAxis);
+            w.AlignToPlane(kUpAxis);
     }
 }
 
 // Facing away from the velocity (the skater pointing against it).
 bool MovingAgainstFacing(void* object)
 {
-    const Mth::Vector& v = VectorAt(object, kVelocity);
-    const Mth::Vector& f = VectorAt(object, kFacing);
+    const Maths::Vector& v = VectorAt(object, kVelocity);
+    const Maths::Vector& f = VectorAt(object, kFacing);
     double dot = (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
     return dot < 0.0;
 }
 
-float JumpAdjustSpeed() { return Obj::CWalkComponent::Param(kJumpAdjustSpeed); }
+float JumpAdjustSpeed() { return GameObjects::CFootMovement::Param(kJumpAdjustSpeed); }
 
 // The flags a new rail clears (the time of getting on kept at +0x234).
 void ClearRailFlags(void* component)
@@ -199,39 +199,39 @@ void ClearRailFlags(void* component)
 
 // (0x0050A770, a node on its own) Kicked off a point rail: up into the air along the move (or the facing, when
 // from an object and too slow against it), at the kick angle, with the point rail boost.
-void KickOffPointRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fromObject)
+void KickOffPointRail(CorePhysicsComponent* c, const Maths::Vector* point, bool fromObject)
 {
     if (!ClearToPoint(c, point, false))
         return;
     PrepareVelocity(c, false, fromObject);
-    Mth::Vector along = VectorAt(ObjectOf(c), kVelocity);
+    Maths::Vector along = VectorAt(ObjectOf(c), kVelocity);
     along.y = 0.0f;
     along.Normalize();
-    double angle = static_cast<double>(Script::GetFloat(kKickUpwardAngle)) * kDegrees;
+    double angle = static_cast<double>(Scripts::GetFloat(kKickUpwardAngle)) * kDegrees;
     double cosine = std::cos(angle);
-    Mth::Vector kick;
+    Maths::Vector kick;
     kick.w = 1.0f;
     kick.x = static_cast<float>(along.x * cosine);
     kick.y = static_cast<float>(std::sin(angle));
     kick.z = static_cast<float>(along.z * cosine);
 
-    Script::CStruct* script = SkateScript::GetNode(At<Obj::CRailNode*>(c, kRailNode)->m_name, true);
-    script->GetChecksum(kName, &At<uint32_t>(c, kRailScriptNode), 1);
-    static_cast<Obj::CTrickComponent*>(Component(c, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(c, kRailScriptNode));
+    Scripts::CStruct* script = LevelNodes::GetNode(At<GameObjects::CGrindPoint*>(c, kRailNode)->m_name, true);
+    script->ReadHashValue(kName, &At<uint32_t>(c, kRailScriptNode), 1);
+    static_cast<GameObjects::CMoveExecutor*>(Component(c, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(c, kRailScriptNode));
     uint32_t triggerScript = 0;
-    if (script->GetChecksum(kTriggerScript, &triggerScript, 0))
+    if (script->ReadHashValue(kTriggerScript, &triggerScript, 0))
         TriggerRailNode(c, g_grindEvents);
     OntoRail(c, point, false);
     SetRailTerrain(c);
     if (!At<uint8_t>(c, 0x2ED))
         PlayLandSound(c);
 
-    Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
+    Maths::Vector& v = VectorAt(ObjectOf(c), kVelocity);
     float keptY = v.y;
     v.ProjectOnto(along);
     if (fromObject && MovingAgainstFacing(ObjectOf(c))) {
         float adjust = static_cast<float>(JumpAdjustSpeed() * 1.1f);
-        const Mth::Vector& w = VectorAt(ObjectOf(c), kVelocity);
+        const Maths::Vector& w = VectorAt(ObjectOf(c), kVelocity);
         double speed = (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
         if (static_cast<double>(adjust) * adjust > speed) {
             VectorAt(ObjectOf(c), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -241,49 +241,49 @@ void KickOffPointRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fr
         }
     }
     VectorAt(ObjectOf(c), kVelocity).y = keptY;
-    float boost = Script::GetFloat(kPointRailSpeedBoost);
-    Mth::Vector& u = VectorAt(ObjectOf(c), kVelocity);
+    float boost = Scripts::GetFloat(kPointRailSpeedBoost);
+    Maths::Vector& u = VectorAt(ObjectOf(c), kVelocity);
     float y = along.y * boost, z = along.z * boost, w = along.w * boost;
     u.x = static_cast<float>(static_cast<double>(along.x) * boost + u.x);
     u.y += y;
     u.z += z;
     u.w += w;
     ClearRailFlags(c);
-    At<int>(c, 0x23C) = static_cast<int>(Script::GetFloat(kRerailTime));
+    At<int>(c, 0x23C) = static_cast<int>(Scripts::GetFloat(kRerailTime));
     SetFlag(c, 0x50, 0);
     VectorAt(ObjectOf(c), kVelocity).SetDirection(kick);
     if (triggerScript)
         TriggerRailNode(c, g_kickEvents);
     SetState(c, kAir);
-    Mth::Vector& position = VectorAt(ObjectOf(c), kPosition);
+    Maths::Vector& position = VectorAt(ObjectOf(c), kPosition);
     position.y = position.y + 1.0f;
-    static_cast<Obj::CObject*>(ObjectOf(c))->SelfEvent(kPointRail, nullptr);
+    static_cast<GameObjects::CObject*>(ObjectOf(c))->PostOwnEvent(kPointRail, nullptr);
 }
 
 // (0x0050A770, a node on its own, a spin button held) A point rail spin (a Natas spin): stopped on the point.
-void SpinOnPointRail(CorePhysicsComponent* c, const Mth::Vector* point)
+void SpinOnPointRail(CorePhysicsComponent* c, const Maths::Vector* point)
 {
     At<uint8_t>(c, 0x2EC) = 1;
     At<uint8_t>(c, 0x1500) = InputOf(c)[0x100] != 0;
     if (!ClearToPoint(c, point, true))
         return;
     OntoRail(c, point, true);
-    static_cast<CorePhysicsComponent*>(c)->SetTerrain(At<Obj::CRailNode*>(c, kRailNode)->m_terrain);
+    static_cast<CorePhysicsComponent*>(c)->SetSurfaceKind(At<GameObjects::CGrindPoint*>(c, kRailNode)->m_surfaceType);
     if (!At<uint8_t>(c, 0x2ED))
         PlayLandSound(c);
-    Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
+    Maths::Vector& v = VectorAt(ObjectOf(c), kVelocity);
     v.x = 0.0f;
     VectorAt(ObjectOf(c), kVelocity).y = 0.0f;
     VectorAt(ObjectOf(c), kVelocity).z = 0.0f;
     ClearRailFlags(c);
-    static_cast<Obj::CObject*>(ObjectOf(c))->SelfEvent(kPointRailSpin, nullptr);
+    static_cast<GameObjects::CObject*>(ObjectOf(c))->PostOwnEvent(kPointRailSpin, nullptr);
     c->TriggerRailScript(g_spinEvents);
     At<int>(c, 0x1504) = Now();
 }
 
 // (0x0050A770) A lip trick on the rail at the top of a vert ramp: stopped there, upright along the ramp's top, the
 // LipTrick script.
-void StartLipTrick(CorePhysicsComponent* c, const Mth::Vector* point)
+void StartLipTrick(CorePhysicsComponent* c, const Maths::Vector* point)
 {
     VectorAt(ObjectOf(c), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     SetFlag(c, 0x30, 0);
@@ -291,65 +291,65 @@ void StartLipTrick(CorePhysicsComponent* c, const Mth::Vector* point)
     SetFlag(c, 0x40, 0);
     SetFlag(c, 0x48, 0);
     At<uint8_t>(c, 0x2D0) = 0;
-    static_cast<Obj::CSkaterBalanceTrickComponent*>(Component(c, 0x1524))->Stop();
+    static_cast<GameObjects::CRiderTeeterMoves*>(Component(c, 0x1524))->Stop();
     VectorAt(c, 0x258) = VectorAt(ObjectOf(c), kPosition); // (where it started)
     SetState(c, kLip);
     VectorAt(ObjectOf(c), kPosition) = *point;
     // Up: the ramp's normal, level; facing straight up; right across.
-    const Mth::Vector& ground = VectorAt(c, kGroundNormal);
-    Mth::Vector up = {ground.x, 0.0f, ground.z, ground.w};
+    const Maths::Vector& ground = VectorAt(c, kGroundNormal);
+    Maths::Vector up = {ground.x, 0.0f, ground.z, ground.w};
     up.Normalize();
     void* object = ObjectOf(c);
     VectorAt(object, kUp) = up;
     VectorAt(ObjectOf(c), kFacing) = kUpAxis;
-    Mth::Vector& right = VectorAt(ObjectOf(c), kRight);
-    const Mth::Vector& u = VectorAt(ObjectOf(c), kUp);
+    Maths::Vector& right = VectorAt(ObjectOf(c), kRight);
+    const Maths::Vector& u = VectorAt(ObjectOf(c), kUp);
     right.y = 0.0f;
     right.w = 0.0f;
     right.x = -u.z;
     right.z = u.x;
     MatrixAt(c, kDisplayMatrix) = MatrixAt(ObjectOf(c), kMatrix);
-    auto* gap = static_cast<Obj::CSkaterGapComponent*>(static_cast<Obj::CCompositeObject*>(ObjectOf(c))->GetComponent(kSkaterGap));
-    gap->CheckGaps(0, 0x100000);
+    auto* gap = static_cast<GameObjects::CRiderGapTracker*>(static_cast<GameObjects::CGameEntity*>(ObjectOf(c))->GetComponent(kSkaterGap));
+    gap->ScanForGaps(0, 0x100000);
     c->TriggerRailScript(g_lipEvents);
     At<uint8_t>(Component(c, kSkaterComponent), 0xA24) = 0;
-    auto* skater = static_cast<Obj::CObject*>(ObjectOf(c));
-    if (!skater->m_script) {
-        void* memory = Script::CScript::operator new(0xF4);
-        static_cast<Obj::CObject*>(ObjectOf(c))->m_script =
-            memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    auto* skater = static_cast<GameObjects::CObject*>(ObjectOf(c));
+    if (!skater->m_runScript) {
+        void* memory = Scripts::CScript::operator new(0xF4);
+        static_cast<GameObjects::CObject*>(ObjectOf(c))->m_runScript =
+            memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
     }
-    static_cast<Obj::CObject*>(ObjectOf(c))->m_script->SetScript(kLipTrick, nullptr, static_cast<Obj::CObject*>(ObjectOf(c)));
-    static_cast<Obj::CObject*>(ObjectOf(c))->m_script->Update();
+    static_cast<GameObjects::CObject*>(ObjectOf(c))->m_runScript->BindScript(kLipTrick, nullptr, static_cast<GameObjects::CObject*>(ObjectOf(c)));
+    static_cast<GameObjects::CObject*>(ObjectOf(c))->m_runScript->Update();
     At<uint8_t>(FlagsOf(c), 0xE0) = 1; // (without its time)
     SetRailTerrain(c);
 }
 
 // (0x0050A770) A grind along the rail from `node` to the next: the way the skater goes along it.
-void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fromObject)
+void GrindAlongRail(CorePhysicsComponent* c, const Maths::Vector* point, bool fromObject)
 {
     // (not original: THAW 0x005E0EAD - the velocity as the grind start began, for the bike's stall)
     bool bike = ThawBmx::Active(c);
-    Mth::Vector startVelocity = VectorAt(ObjectOf(c), kVelocity);
+    Maths::Vector startVelocity = VectorAt(ObjectOf(c), kVelocity);
     SetRailTerrain(c);
-    auto* node = At<Obj::CRailNode*>(c, kRailNode);
-    Obj::CRailNode* next = node->m_next;
-    auto* manager = At<Obj::CRailManager*>(c, kRailManager);
-    Mth::Vector from, to;
-    const Mth::Vector* a = manager->GetWorldPos(&from, node);
-    const Mth::Vector* b = At<Obj::CRailManager*>(c, kRailManager)->GetWorldPos(&to, next);
-    Mth::Vector direction = {b->x - a->x, b->y - a->y, b->z - a->z, b->w - a->w};
+    auto* node = At<GameObjects::CGrindPoint*>(c, kRailNode);
+    GameObjects::CGrindPoint* next = node->m_next;
+    auto* manager = At<GameObjects::CGrindRailHub*>(c, kRailManager);
+    Maths::Vector from, to;
+    const Maths::Vector* a = manager->GetAbsolutePos(&from, node);
+    const Maths::Vector* b = At<GameObjects::CGrindRailHub*>(c, kRailManager)->GetAbsolutePos(&to, next);
+    Maths::Vector direction = {b->x - a->x, b->y - a->y, b->z - a->z, b->w - a->w};
     direction.Normalize();
     if (!ClearToPoint(c, point, false))
         return;
     if (Flag(c, 0xA8)) {
         // (From an acid drop: its hold velocity added.)
-        Dbg::Printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9116,
+        DebugOut::Printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9116,
                     "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
-        const Mth::Vector& hold = AcidHold();
-        Dbg::Printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9117,
+        const Maths::Vector& hold = AcidHold();
+        DebugOut::Printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9117,
                     static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
-        Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
+        Maths::Vector& v = VectorAt(ObjectOf(c), kVelocity);
         v.x = AcidHold().x + v.x;
         v.y = AcidHold().y + v.y;
         v.z = AcidHold().z + v.z;
@@ -358,19 +358,19 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
     PrepareVelocity(c, true, fromObject);
 
     // Which way: along the velocity; straight across it, a coin toss. At the rail's end that way: nothing.
-    const Mth::Vector& v = VectorAt(ObjectOf(c), kVelocity);
+    const Maths::Vector& v = VectorAt(ObjectOf(c), kVelocity);
     double along = (static_cast<double>(direction.z) * v.z + static_cast<double>(direction.y) * v.y) +
                    static_cast<double>(direction.x) * v.x;
-    bool forward = along == 0.0 ? Mth::Rnd(2) != 0 : !(along < 0.0);
+    bool forward = along == 0.0 ? Maths::Rnd(2) != 0 : !(along < 0.0);
     float sign;
-    Mth::Vector end;
+    Maths::Vector end;
     if (forward) {
         sign = 1.0f;
-        if (!next->m_next && *At<Obj::CRailManager*>(c, kRailManager)->GetWorldPos(&end, next) == *point)
+        if (!next->m_next && *At<GameObjects::CGrindRailHub*>(c, kRailManager)->GetAbsolutePos(&end, next) == *point)
             return;
     } else {
         sign = -1.0f;
-        if (!node->m_prev && *At<Obj::CRailManager*>(c, kRailManager)->GetWorldPos(&end, node) == *point)
+        if (!node->m_lastValue && *At<GameObjects::CGrindRailHub*>(c, kRailManager)->GetAbsolutePos(&end, node) == *point)
             return;
     }
     c->TriggerRailScript(g_grindEvents);
@@ -380,27 +380,27 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
 
     // The speed along the rail, the height kept; plus the rail boost. From an object, too slow against the facing:
     // from standing, the way the facing points along the rail.
-    Mth::Vector& velocity = VectorAt(ObjectOf(c), kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(c), kVelocity);
     float keptY = velocity.y;
     velocity.ProjectOnto(direction);
     void* object = ObjectOf(c);
     if (fromObject && MovingAgainstFacing(object)) {
         double adjust = static_cast<double>(JumpAdjustSpeed()) * 1.1f;
-        const Mth::Vector& w = VectorAt(object, kVelocity);
+        const Maths::Vector& w = VectorAt(object, kVelocity);
         double speed = (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x) + static_cast<double>(w.y) * w.y;
         if (adjust * adjust > speed) {
             VectorAt(ObjectOf(c), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
-            const Mth::Vector& f = VectorAt(ObjectOf(c), kFacing);
-            sign = Mth::Sign(static_cast<float>((static_cast<double>(direction.z) * f.z +
+            const Maths::Vector& f = VectorAt(ObjectOf(c), kFacing);
+            sign = Maths::Sign(static_cast<float>((static_cast<double>(direction.z) * f.z +
                                                  static_cast<double>(direction.y) * f.y) +
                                                 static_cast<double>(direction.x) * f.x));
         }
     }
     VectorAt(ObjectOf(c), kVelocity).y = keptY;
-    Mth::Vector way = {sign * direction.x, direction.y * sign, direction.z * sign, direction.w * sign};
-    float boost = Script::GetFloat(kRailSpeedBoost);
+    Maths::Vector way = {sign * direction.x, direction.y * sign, direction.z * sign, direction.w * sign};
+    float boost = Scripts::GetFloat(kRailSpeedBoost);
     {
-        Mth::Vector& u = VectorAt(ObjectOf(c), kVelocity);
+        Maths::Vector& u = VectorAt(ObjectOf(c), kVelocity);
         float y = way.y * boost, z = way.z * boost, w = way.w * boost;
         u.x = static_cast<float>(static_cast<double>(way.x) * boost + u.x);
         u.y = y + u.y;
@@ -412,17 +412,17 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
         direction = {-direction.x, -direction.y, -direction.z, -direction.w};
 
     // Which side of the rail the jump to it started (+0x338).
-    const Mth::Vector& jumped = VectorAt(c, 0x338);
+    const Maths::Vector& jumped = VectorAt(c, 0x338);
     double across = -(static_cast<double>(point->x) - jumped.x) * direction.z +
                     (static_cast<double>(point->z) - jumped.z) * direction.x;
     bool leftSide = across < 0.0;
 
     // A bad ledge: feelers down beside the rail, either side.
-    Mth::Vector& start = VectorAt(c, kFeelerStart);
-    Mth::Vector& stop = VectorAt(c, kFeelerEnd);
+    Maths::Vector& start = VectorAt(c, kFeelerStart);
+    Maths::Vector& stop = VectorAt(c, kFeelerEnd);
     start.y = PhysicsFloat(kGroundSnapUp, At<void*>(c, kObject));
     start.x = 0.0f, start.z = 0.0f, start.w = 0.0f;
-    stop.y = -Script::GetFloat(kBadLedgeDropDown);
+    stop.y = -Scripts::GetFloat(kBadLedgeDropDown);
     stop.x = 0.0f, stop.z = 0.0f, stop.w = 0.0f;
     start.x = point->x + start.x;
     start.y = start.y + point->y;
@@ -432,13 +432,13 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
     stop.y = stop.y + point->y;
     stop.z = stop.z + point->z;
     stop.w = stop.w + point->w;
-    float sideDistance = Script::GetFloat(kBadLedgeSide);
+    float sideDistance = Scripts::GetFloat(kBadLedgeSide);
     float zero = 0.0f * sideDistance;
-    Mth::Vector side = {direction.z * sideDistance, zero, -direction.x * sideDistance, zero};
+    Maths::Vector side = {direction.z * sideDistance, zero, -direction.x * sideDistance, zero};
     start.x = side.x + start.x, start.y = side.y + start.y, start.z = side.z + start.z, start.w = side.w + start.w;
     stop.x = side.x + stop.x, stop.y = side.y + stop.y, stop.z = side.z + stop.z, stop.w = side.w + stop.w;
     bool leftHit = Feel(c, 0x10, 0);
-    Mth::Vector twice = {side.x + side.x, side.y + side.y, side.z + side.z, side.w + side.w};
+    Maths::Vector twice = {side.x + side.x, side.y + side.y, side.z + side.z, side.w + side.w};
     start.x -= twice.x, start.y -= twice.y, start.z -= twice.z, start.w -= twice.w;
     stop.x -= twice.x, stop.y -= twice.y, stop.z -= twice.z, stop.w -= twice.w;
     bool rightHit = Feel(c, 0x10, 0);
@@ -449,8 +449,8 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
 
     // Grinding sideways (across the skater's right) or which way round.
     void* o = ObjectOf(c);
-    const Mth::Vector& right = VectorAt(o, kRight);
-    const Mth::Vector& facing = VectorAt(o, kFacing);
+    const Maths::Vector& right = VectorAt(o, kRight);
+    const Maths::Vector& facing = VectorAt(o, kFacing);
     float acrossRight = static_cast<float>((static_cast<double>(direction.z) * right.z +
                                             static_cast<double>(direction.y) * right.y) +
                                            static_cast<double>(direction.x) * right.x);
@@ -459,7 +459,7 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
                                            static_cast<double>(direction.x) * facing.x);
     float acrossAmount = std::fabs(acrossRight);
     bool sideways = false;
-    if (Script::GetFloat(kRailTolerance) > acrossAmount) {
+    if (Scripts::GetFloat(kRailTolerance) > acrossAmount) {
         sideways = true;
         if (alongFacing < 0.0f)
             At<uint8_t>(c, 0x34C) = 1;
@@ -471,12 +471,12 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
     void* skater = Component(c, kSkaterComponent);
     At<uint8_t>(skater, 0xA24) = 0;
     // The grind trick: the skater component's (0x00522E80), else the physics' pick by the d-pad (0x005004B0).
-    if (!static_cast<Obj::CTrickComponent*>(skater)->DoExtraGrindTrick(leftSide, sideways, At<uint8_t>(c, 0x34C) != 0,
+    if (!static_cast<GameObjects::CMoveExecutor*>(skater)->DoExtraGrindTrick(leftSide, sideways, At<uint8_t>(c, 0x34C) != 0,
                                                                         Flag(c, 0x28) != 0)) {
         if (bike) // (not original: THAW 0x005E2935 - on the bike R1 held: the stall)
             ThawBmx::GrindStall(c, startVelocity, direction);
         const uint8_t* input = InputOf(c);
-        int pad = Obj::DPadDirection(input[0x20], input[0x40], input[0x60], input[0x80]);
+        int pad = GameObjects::DPadDirection(input[0x20], input[0x40], input[0x60], input[0x80]);
         c->StartGrindTrick(static_cast<uint32_t>(pad), leftSide, sideways, At<uint8_t>(c, 0x34C) != 0, Flag(c, 0x28) != 0);
     }
     At<int>(c, 0x234) = Now();
@@ -485,28 +485,28 @@ void GrindAlongRail(CorePhysicsComponent* c, const Mth::Vector* point, bool from
 } // namespace
 
 // 0x0050A770
-void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* node, Obj::CRailManager* manager,
+void CorePhysicsComponent::StartGrind(const Maths::Vector* point, GameObjects::CGrindPoint* node, GameObjects::CGrindRailHub* manager,
                                       bool noLipTrick, bool fromObject)
 {
     const uint8_t* input = InputOf(this);
-    auto* flipAndRotate = static_cast<Obj::CSkaterFlipAndRotateComponent*>(
-        static_cast<Obj::CCompositeObject*>(ObjectOf(this))->GetComponent(kSkaterFlipAndRotate));
+    auto* flipAndRotate = static_cast<GameObjects::CRiderSpinAndFlip*>(
+        static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->GetComponent(kSkaterFlipAndRotate));
     flipAndRotate->DoAfterAnim();
-    if (At<Obj::CRailNode*>(this, kRailNode) != node) {
+    if (At<GameObjects::CGrindPoint*>(this, kRailNode) != node) {
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
         uint32_t index = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) -
-                                               reinterpret_cast<uint8_t*>(At<Obj::CRailNode*>(manager, 0x40))) /
-                         sizeof(Obj::CRailNode);
-        static_cast<Mdl::Score*>(At<void*>(Component(this, 0x1520), 0x18))->UpdateRobotDetection(static_cast<int>(index));
+                                               reinterpret_cast<uint8_t*>(At<GameObjects::CGrindPoint*>(manager, 0x40))) /
+                         sizeof(GameObjects::CGrindPoint);
+        static_cast<GameModules::Score*>(At<void*>(Component(this, 0x1520), 0x18))->RefreshBotCheck(static_cast<int>(index));
     }
-    At<Obj::CRailManager*>(this, kRailManager) = manager;
-    At<Obj::CRailNode*>(this, kRailNode) = node;
+    At<GameObjects::CGrindRailHub*>(this, kRailManager) = manager;
+    At<GameObjects::CGrindPoint*>(this, kRailNode) = node;
 
-    if (!node->m_prev && !node->m_next) {
+    if (!node->m_lastValue && !node->m_next) {
         // A point rail: a spin when a spin button is held, long enough after the last one; else a kick.
         if (input[0x100] || input[0xA0]) {
             int elapsed = static_cast<int>(Since(At<uint32_t>(this, 0x1504)));
-            if (!(static_cast<double>(Script::GetFloat(kNatasDelay)) * 1000.0f > static_cast<float>(elapsed))) {
+            if (!(static_cast<double>(Scripts::GetFloat(kNatasDelay)) * 1000.0f > static_cast<float>(elapsed))) {
                 SpinOnPointRail(this, point);
                 return;
             }
@@ -517,11 +517,11 @@ void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* 
 
     // A lip trick: going up, upright (the up within the horizontal angle), facing up, on a ramp near vertical, the
     // skater's right near level (the allow angle - its override for nodes flagged 1).
-    float allow = static_cast<float>(std::sin(static_cast<double>(Script::GetFloat(kLipAllowAngle)) * kDegrees));
+    float allow = static_cast<float>(std::sin(static_cast<double>(Scripts::GetFloat(kLipAllowAngle)) * kDegrees));
     if (node->m_flags & 1)
-        allow = static_cast<float>(std::sin(static_cast<double>(Script::GetFloat(kLipAllowAngleOverride)) * kDegrees));
-    float horizontal = static_cast<float>(std::sin(static_cast<double>(Script::GetFloat(kLipHorizontalAngle)) * kDegrees));
-    float rampVert = static_cast<float>(std::cos(static_cast<double>(Script::GetFloat(kLipRampVertAngle)) * kDegrees));
+        allow = static_cast<float>(std::sin(static_cast<double>(Scripts::GetFloat(kLipAllowAngleOverride)) * kDegrees));
+    float horizontal = static_cast<float>(std::sin(static_cast<double>(Scripts::GetFloat(kLipHorizontalAngle)) * kDegrees));
+    float rampVert = static_cast<float>(std::cos(static_cast<double>(Scripts::GetFloat(kLipRampVertAngle)) * kDegrees));
     bool lip = true;
     if (!At<uint8_t>(this, 0x375)) {
         void* object = ObjectOf(this);
@@ -539,7 +539,7 @@ void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* 
 namespace {
 
 // 0x00500020: whether the rail `node` (of `manager`) may be ground.
-bool CanGrind(void* component, Obj::CRailNode* node, Obj::CRailManager* manager)
+bool CanGrind(void* component, GameObjects::CGrindPoint* node, GameObjects::CGrindRailHub* manager)
 {
     return static_cast<CorePhysicsComponent*>(component)->CanGrindRail(node, manager, false);
 }
@@ -553,19 +553,19 @@ void CorePhysicsComponent::TryGrind(bool always)
         return;
     if (Flag(this, 0x70) || At<uint8_t>(this, 0x3A4) || !InputOf(this)[0x1A0])
         return;
-    if (Since(At<uint32_t>(this, 0x4E0)) < static_cast<uint32_t>(Script::GetInteger(kDisallowGrind)))
+    if (Since(At<uint32_t>(this, 0x4E0)) < static_cast<uint32_t>(Scripts::FetchIntValue(kDisallowGrind)))
         return;
     void* object = ObjectOf(this);
-    Mth::Vector last = VectorAt(object, kOldPosition);
-    Mth::Vector now = VectorAt(object, kPosition);
+    Maths::Vector last = VectorAt(object, kOldPosition);
+    Maths::Vector now = VectorAt(object, kPosition);
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float minAlignment = 1.0f;
-    if (At<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) != kParkEditorLevel &&
-        static_cast<uint32_t>(Tmr::GameClockTimeSince(At<int>(this, 0x234))) < At<uint32_t>(this, 0x23C))
-        minAlignment = static_cast<float>(std::cos(static_cast<double>(Script::GetFloat(kCornerLeaveAngle)) * kDegrees));
-    auto* manager = At<Obj::CRailManager*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x24);
-    Mth::Vector point;
-    Obj::CRailNode* node;
+    if (At<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) != kParkEditorLevel &&
+        static_cast<uint32_t>(FrameClock::GameClockTimeSince(At<int>(this, 0x234))) < At<uint32_t>(this, 0x23C))
+        minAlignment = static_cast<float>(std::cos(static_cast<double>(Scripts::GetFloat(kCornerLeaveAngle)) * kDegrees));
+    auto* manager = At<GameObjects::CGrindRailHub*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x24);
+    Maths::Vector point;
+    GameObjects::CGrindPoint* node;
     if (manager->FindGrindRail(&last, &now, &point, &node, nullptr, minAlignment, 0)) {
         void* o = ObjectOf(this);
         TrackingPrint(2, &VectorAt(o, kOldPosition), &VectorAt(o, kPosition));
@@ -575,30 +575,30 @@ void CorePhysicsComponent::TryGrind(bool always)
         return;
     }
     // The rails on moving objects: the move in the object's space.
-    for (auto* rails = Obj::CompositeObjectManager()->GetFirstComponentByType(kRailManagerType); rails;
-         rails = At<Obj::CBaseComponent*>(rails, 0x14)) {
-        auto* objectRails = reinterpret_cast<Obj::CRailManager*(__thiscall*)(void*)>(
+    for (auto* rails = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kRailManagerType); rails;
+         rails = At<GameObjects::CObjectModule*>(rails, 0x14)) {
+        auto* objectRails = reinterpret_cast<GameObjects::CGrindRailHub*(__thiscall*)(void*)>(
             (*reinterpret_cast<void***>(rails))[13])(rails);
-        Mth::Matrix world;
-        static_cast<Obj::CRailManagerComponent*>(rails)->UpdateRailMatrix(&world);
-        Mth::Matrix inverse;
+        Maths::Matrix world;
+        static_cast<GameObjects::CGrindPathLinkModule*>(rails)->UpdateRailMatrix(&world);
+        Maths::Matrix inverse;
         inverse = world;
         inverse.Invert();
         last.w = 1.0f;
         now.w = 1.0f;
-        Mth::Vector localLast, localNow;
+        Maths::Vector localLast, localNow;
         inverse.Transform(localLast, last);
         inverse.Transform(localNow, now);
         if (objectRails->FindGrindRail(&localLast, &localNow, &point, &node, nullptr, minAlignment, 0)) {
             point.w = 1.0f;
-            Mth::Vector inWorld;
+            Maths::Vector inWorld;
             point = world.Transform(inWorld, point);
             if (!CanGrind(this, node, objectRails))
                 return;
             StartGrind(&point, node, objectRails, false, false);
-            At<Walk::MovableContact*>(this, kRide)->StartRiding(At<Obj::CCompositeObject*>(rails, 0xC));
-            At<Obj::CMovableContactComponent*>(this, kRide)->UpdateContactPoint();
-            VectorAt(ObjectOf(this), kVelocity) -= VectorAt(Tracker(this)->m_object.mp_object, kVelocity);
+            At<Walk::MovableContact*>(this, kRide)->StartRiding(At<GameObjects::CGameEntity*>(rails, 0xC));
+            At<GameObjects::CMovingSurfaceModule*>(this, kRide)->UpdateContactPoint();
+            VectorAt(ObjectOf(this), kVelocity) -= VectorAt(Tracker(this)->m_object.m_ownerObject, kVelocity);
             return;
         }
     }

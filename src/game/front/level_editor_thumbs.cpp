@@ -18,7 +18,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Thumbs {
+namespace MenuSystem::LevelEditor::Thumbs {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -549,4 +549,4 @@ int ItemsPanel(const Ui::Model& model, const char* filter, bool follow, float he
     return hovered;
 }
 
-} // namespace Front::LevelEditor::Thumbs
+} // namespace MenuSystem::LevelEditor::Thumbs

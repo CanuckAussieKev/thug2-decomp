@@ -22,7 +22,7 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/game_config.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 bool g_musicHeaderLoaded{true};
 bool g_streamsOn{true};
@@ -88,7 +88,7 @@ int& FrameCount() { return g_frameCount; }
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
 // track in it, whether it's shuffled.
 int& UserSoundtrack() { return g_userSoundtrack; }
-bool& UsingUserSoundtrack() { return g_usingUserSoundtrack; }
+bool& CustomSoundtrackActive() { return g_usingUserSoundtrack; }
 int* UserOrder() { return g_userOrder; }
 constexpr int kUserOrderSize = 600;
 int& UserTrack() { return reinterpret_cast<int&>(g_userTrack); }
@@ -111,13 +111,13 @@ void StartTrack(Playlist& list, int track)
 {
     PlayTrack(reinterpret_cast<const char*>(list.tracks[track]), false);
     CurrentTrack() = track;
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     params = params ? params->Init() : nullptr;
-    params->AddInteger(0x8D02705Du, CurrentTrack());
-    Script::RunScript(0x300CAD34u, params, nullptr, false, nullptr);
+    params->PutInt(0x8D02705Du, CurrentTrack());
+    Scripts::LaunchScript(0x300CAD34u, params, nullptr, false, nullptr);
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
@@ -135,20 +135,20 @@ uint8_t& RandomOrder() { return g_randomOrder; }
 bool& ShuffleUserFlag() { return g_shuffleUser; }
 // Playlist 0's track titles, by the track's index (100 characters each).
 char* Title(int track) { return g_trackTitles[track]; }
-// A global ClearPlaylist clears (just past the three streams; nothing else uses it).
+// A global EmptyQueue clears (just past the three streams; nothing else uses it).
 int& ClearedByClearPlaylist() { return g_clearedByClearPlaylist; }
 
 // The platform's music: its volume and pause (music 1 / streams 0).
 void SetPlatformVolume(float volume) { PlatformSetMusicVolume(volume); }
 void PlatformPause(bool pause, int music) { PauseStreams(pause, music); }
 // The sound effects manager's volume (the original calls it as a method of 0x006F85A8; it reads a global).
-float SfxVolume() { return Sfx::GetMainVolume(); }
+float SfxVolume() { return SoundFx::FetchMasterLoudness(); }
 // 0x005B9760 (the shared `return true` stub): whether the file is there (the PS2's check, nothing on the PC).
 bool FileThere(const char*, int) { return Stubs::ReturnTrue(); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
-void ReadDebugFlag() { Script::GetInteger(0xD7BB618Du); }
+void ReadDebugFlag() { Scripts::FetchIntValue(0xD7BB618Du); }
 // Set: playlists other than 0 play at the music volume, not the sound effects one.
-bool OtherListsAtMusicVolume() { return Script::GetInteger(0x450BAE2Du) != 0; }
+bool OtherListsAtMusicVolume() { return Scripts::FetchIntValue(0x450BAE2Du) != 0; }
 
 bool InRange(float volume) { return !(volume > 100.0f) && !(volume < 0.0f); } // (NaN passes)
 
@@ -200,7 +200,7 @@ void __cdecl SetMusicStreamVolume(float volume)
 }
 
 // 0x004511A0
-void __cdecl AddTrackToPlaylist(const char* name, int list, const char* title)
+void __cdecl QueueTrack(const char* name, int list, const char* title)
 {
     if (!MusicOn())
         return;
@@ -232,7 +232,7 @@ void __cdecl AddTrackToPlaylist(const char* name, int list, const char* title)
 }
 
 // 0x004512D0
-void __cdecl ClearPlaylist(int list)
+void __cdecl EmptyQueue(int list)
 {
     if (!MusicOn())
         return;
@@ -274,7 +274,7 @@ void __cdecl SetRandomMode(int mode)
 void __cdecl ApplyTrackVolume()
 {
     bool atMusicVolume = OtherListsAtMusicVolume();
-    if (UsingUserSoundtrack())
+    if (CustomSoundtrackActive())
         SetPlatformVolume(MusicVolume());
     else if (CurrentPlaylist() == 1 && !atMusicVolume)
         SetPlatformVolume(SfxVolume());
@@ -287,15 +287,15 @@ bool __cdecl IsTrackPlaying(int list, int track)
         return false;
     if (track >= Playlists()[list].count)
         return false;
-    uint32_t name = Crc::GenerateCRCFromString(reinterpret_cast<const char*>(Playlists()[list].tracks[track]));
-    return Crc::GenerateCRCFromString(static_cast<const char*>(SpecialTrack())) == name;
+    uint32_t name = Checksums::HashFromText(reinterpret_cast<const char*>(Playlists()[list].tracks[track]));
+    return Checksums::HashFromText(static_cast<const char*>(SpecialTrack())) == name;
 }
 
 // 0x004514C0
-int __cdecl GetNumTracks(int list) { return MusicOn() ? Playlists()[list].count : 0; }
+int __cdecl TrackTotal(int list) { return MusicOn() ? Playlists()[list].count : 0; }
 
 // 0x00451500
-const char* __cdecl GetTrackName(int track, int list)
+const char* __cdecl TrackLabelAt(int track, int list)
 {
     if (!MusicOn()) {
         char* first = reinterpret_cast<char*>(Playlists()[0].tracks[0]);
@@ -380,8 +380,8 @@ void __cdecl PlayTrack(const char* name, bool loop)
     // It doesn't play: switch it off.
     Playlist& playlist = Playlists()[list];
     for (int i = 0; i < playlist.count; ++i) {
-        uint32_t crc = Crc::GenerateCRCFromString(reinterpret_cast<const char*>(playlist.tracks[i]));
-        if (Crc::GenerateCRCFromString(name) == crc) {
+        uint32_t crc = Checksums::HashFromText(reinterpret_cast<const char*>(playlist.tracks[i]));
+        if (Checksums::HashFromText(name) == crc) {
             ChangeTrackState(i, true, list);
             return;
         }
@@ -393,7 +393,7 @@ void __cdecl PlayTrack(const char* name, bool loop)
 // Rnd(0) is 0, so that's kept for an empty order.)
 int ShuffleRandom(int n)
 {
-    int game = Mth::Rnd(n);
+    int game = Maths::Rnd(n);
     if (n == 0)
         return game;
     return std::rand() % n;
@@ -410,7 +410,7 @@ void __cdecl PlayNextTrack()
     g_musicStreamType = 0;
     ApplyTrackVolume(); // the music volume
     if (CurrentPlaylist() == 1) {
-        int track = Script::GetInteger(0xF18AB1F9u);
+        int track = Scripts::FetchIntValue(0xF18AB1F9u);
         if (track < Playlists()[1].count)
             PlayTrack(reinterpret_cast<const char*>(Playlists()[1].tracks[track]), false);
         return;
@@ -426,16 +426,16 @@ void __cdecl PlayNextTrack()
     if (Reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
         // here, as our globals aren't laid out as the original's)
-        int last = OrderCount() > 0 ? Order()[OrderCount() - 1] : Nx::g_movieDumpCount;
+        int last = OrderCount() > 0 ? Order()[OrderCount() - 1] : Engine3D::g_movieDumpCount;
         OrderCount() = 0;
         int count = 0;
         for (int track = 0; track < list.count; ++track)
             if (!IsOff(list, track))
                 Order()[count++] = track;
         OrderCount() = count;
-        Dbg::Printf("shuffling random song order num_songs=%i\n", count); // "shuffling random song order num_songs=%i\n"
+        DebugOut::Printf("shuffling random song order num_songs=%i\n", count); // "shuffling random song order num_songs=%i\n"
         // 2000 swaps of two random places. PartyMod draws them with ShuffleRandom; the original with
-        // Mth::Rnd(OrderCount()).
+        // Maths::Rnd(OrderCount()).
         for (int i = 0; i < 2000; ++i) {
             int a = ShuffleRandom(OrderCount());
             int b = ShuffleRandom(OrderCount());
@@ -447,7 +447,7 @@ void __cdecl PlayNextTrack()
         }
         // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
         if (Order()[0] == last) {
-            int other = OrderCount() > 1 ? Mth::Rnd(OrderCount() - 1) + 1 : 0;
+            int other = OrderCount() > 1 ? Maths::Rnd(OrderCount() - 1) + 1 : 0;
             int swap = Order()[0];
             Order()[0] = Order()[other];
             Order()[other] = swap;
@@ -518,7 +518,7 @@ void __cdecl Update()
     int streams = UpdateStreams(); // the stream system's update
     if (streams != 0) {
         if (StreamsOn())
-            StopStreams();
+            HaltStreams();
         if (streams < 0)
             StopMusic(); // pause the music
     }
@@ -598,14 +598,14 @@ void __cdecl ShuffleUserSoundtrack()
     for (int i = 0; i < count; ++i)
         UserOrder()[i] = i;
     for (int i = 0; i < 2000; ++i) {
-        int a = Mth::Rnd(count);
-        int b = Mth::Rnd(count);
+        int a = Maths::Rnd(count);
+        int b = Maths::Rnd(count);
         int swap = UserOrder()[a];
         UserOrder()[a] = UserOrder()[b];
         UserOrder()[b] = swap;
     }
     if (UserOrder()[0] == last) {
-        int other = count > 1 ? Mth::Rnd(count - 1) + 1 : 0;
+        int other = count > 1 ? Maths::Rnd(count - 1) + 1 : 0;
         int swap = UserOrder()[0];
         UserOrder()[0] = UserOrder()[other];
         UserOrder()[other] = swap;
@@ -616,7 +616,7 @@ void __cdecl ShuffleUserSoundtrack()
 void __cdecl UseUserSoundtrack(int soundtrack)
 {
     UserSoundtrack() = soundtrack;
-    UsingUserSoundtrack() = true;
+    CustomSoundtrackActive() = true;
     if (ShuffleUser()) {
         ShuffleUserSoundtrack();
         UserPosition() = 0;
@@ -627,7 +627,7 @@ void __cdecl UseUserSoundtrack(int soundtrack)
 }
 
 // 0x00450410
-void __cdecl UseStandardSoundtrack() { UsingUserSoundtrack() = false; }
+void __cdecl UseStandardSoundtrack() { CustomSoundtrackActive() = false; }
 
 // 0x00450420
 void __cdecl StopUserSoundtrack() { StopStreamThread(); }

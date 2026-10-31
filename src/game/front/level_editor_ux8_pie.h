@@ -8,7 +8,7 @@
 // NOT ORIGINAL - the level editor's pie menus: their slices (ours; see level_editor_ux8.h). Each slice runs a registry
 // action (level_editor_actions.h: Actions::Run - the editor's own key code does it, under its own conditions) or sets
 // a tool / a view mode directly; its keys are shown beside its name.
-namespace Front::LevelEditor::Ux8::Pie {
+namespace MenuSystem::LevelEditor::Ux8::Pie {
 
 enum class Kind : uint8_t { Context, View };
 struct Item {
@@ -39,4 +39,4 @@ constexpr float kDeadzone = 28.0f;
 std::vector<Item> ContextItems(bool haveSelection);
 std::vector<Item> ViewItems();
 
-} // namespace Front::LevelEditor::Ux8::Pie
+} // namespace MenuSystem::LevelEditor::Ux8::Pie

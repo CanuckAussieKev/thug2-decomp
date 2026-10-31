@@ -12,16 +12,16 @@
 #include "game/net/gamenet_manager.h"
 #include "game/net/task_vtable.h"
 
-namespace GameNet::Detail {
+namespace OnlinePlay::Detail {
 
-// Tsk::Task<PlayerInfo> (0x20 bytes, vtable 0x006476F0) and Inp::Handler<Manager> (0x2C bytes, vtable 0x0064D7D8).
+// TaskList::Task<PlayerRecord> (0x20 bytes, vtable 0x006476F0) and PadInput::Handler<Manager> (0x2C bytes, vtable 0x0064D7D8).
 struct ObserverTaskNode {
-    uint8_t m_node[0x18];
+    uint8_t m_listLink[0x18];
     void* m_code;
     uint8_t* m_data;
 };
 struct ObserverInputHandler {
-    uint8_t m_node[0x18];
+    uint8_t m_listLink[0x18];
     uint8_t* m_controlData; // +0x18 its controller's place in the input manager (+0x44)
     uint8_t* m_device;      // +0x1C
     int m_index;            // +0x20 the controller
@@ -32,15 +32,15 @@ static_assert(sizeof(ObserverTaskNode) == 0x20 && sizeof(ObserverInputHandler) =
 
 inline void ConstructTaskNode(void* node, int priority)
 {
-    static_cast<Tsk::BaseTask*>(node)->Construct(priority);
+    static_cast<TaskList::SchedulerTask*>(node)->Construct(priority);
 }
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
 // The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (EnterObserveMode).
-inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* tasks, uint8_t* input,
+inline void AddObserverControls(Manager* manager, uint8_t* player, TaskList::Stack* tasks, uint8_t* input,
                                 int handlerPriority = -1000)
 {
-    auto* task = static_cast<ObserverTaskNode*>(Mem::Calloc(sizeof(ObserverTaskNode)));
+    auto* task = static_cast<ObserverTaskNode*>(MemSys::AllocZeroed(sizeof(ObserverTaskNode)));
     if (task) {
         ConstructTaskNode(task, 0);
         *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
@@ -48,8 +48,8 @@ inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* t
         task->m_data = player;
     }
     *reinterpret_cast<ObserverTaskNode**>(player + 0x1EC) = task;
-    tasks->AddTask(reinterpret_cast<Tsk::BaseTask*>(task));
-    auto* handler = static_cast<ObserverInputHandler*>(Mem::Calloc(sizeof(ObserverInputHandler)));
+    tasks->AddTask(reinterpret_cast<TaskList::SchedulerTask*>(task));
+    auto* handler = static_cast<ObserverInputHandler*>(MemSys::AllocZeroed(sizeof(ObserverInputHandler)));
     if (handler) {
         ConstructTaskNode(handler, handlerPriority);
         handler->m_index = 0;
@@ -60,9 +60,9 @@ inline void AddObserverControls(Manager* manager, uint8_t* player, Tsk::Stack* t
     manager->m_observerInputHandler = handler;
     // (a null handler is read through, as in the original)
     uint8_t* server = input + handler->m_index * 0x84;
-    reinterpret_cast<Tsk::Stack*>(server + 8)->AddTask(reinterpret_cast<Tsk::BaseTask*>(handler));
+    reinterpret_cast<TaskList::Stack*>(server + 8)->AddTask(reinterpret_cast<TaskList::SchedulerTask*>(handler));
     handler->m_controlData = server + 0x44;
     handler->m_device = *reinterpret_cast<uint8_t**>(server + 4);
 }
 
-} // namespace GameNet::Detail
+} // namespace OnlinePlay::Detail

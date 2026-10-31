@@ -1,4 +1,4 @@
-// The collide-and-die component (Obj::CCollideAndDieComponent): see collide_and_die.h. From the disassembly of
+// The collide-and-die component (GameObjects::CImpactDestructModule): see collide_and_die.h. From the disassembly of
 // 0x0041C1F0-0x0041C707. The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
 // on the FPU stack are worked in double.
 
@@ -21,9 +21,9 @@
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
 
-namespace Obj {
+namespace GameObjects {
 
-GameNet::Manager* g_gameNetManager;
+OnlinePlay::Manager* g_gameNetManager;
 
 namespace {
 
@@ -41,118 +41,118 @@ constexpr uint32_t kLifetime = 10000;  // milliseconds
 constexpr uint32_t kDyingTime = 1000;  // milliseconds after the hit
 constexpr float kAbove = 24.0f;        // 0x00645EE8
 
-// The object dies (its vtable slot 6, MarkAsDead).
-void Kill(CCompositeObject* object) { reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(object->m_vtable[6])(object); }
+// The object dies (its vtable slot 6, FlagAsDead).
+void Kill(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[6])(object); }
 
 // The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
-void ProjectileHit(CBaseComponent* projectile)
+void ProjectileHit(CObjectModule* projectile)
 {
-    static_cast<CProjectileCollisionComponent*>(projectile)->MarkHit();
+    static_cast<CShotImpactModule*>(projectile)->MarkHit();
 }
 
 } // namespace
 
 // 0x0041C370
-CBaseComponent* __cdecl CCollideAndDieComponent::Create()
+CObjectModule* __cdecl CImpactDestructModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CCollideAndDieComponent));
-    return memory ? static_cast<CCollideAndDieComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CImpactDestructModule));
+    return memory ? static_cast<CImpactDestructModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x0041C210
-CCollideAndDieComponent* CCollideAndDieComponent::Construct()
+CImpactDestructModule* CImpactDestructModule::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_type = kType;
     m_radius = 0.0f;
-    m_scale = 0.0f;
-    m_madeTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset);
+    m_sizeFactor = 0.0f;
+    m_madeTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
     m_deathScript = 0;
-    m_dying = false;
+    m_fadingOut = false;
     m_firstUpdate = true;
     return this;
 }
 
 // 0x0041C1F0
-void CCollideAndDieComponent::DestroyBody()
+void CImpactDestructModule::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0041C280
-CCollideAndDieComponent* CCollideAndDieComponent::Destroy(unsigned int flags)
+CImpactDestructModule* CImpactDestructModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0041C2B0
-void CCollideAndDieComponent::InitFromStructure(Script::CStruct* params)
+void CImpactDestructModule::ConfigureFromData(Scripts::CStruct* params)
 {
     params->GetFloat(kRadius, &m_radius, 1);
-    params->GetFloat(kScale, &m_scale, 1);
-    params->GetChecksum(kDeathScript, &m_deathScript, 1);
+    params->GetFloat(kScale, &m_sizeFactor, 1);
+    params->ReadHashValue(kDeathScript, &m_deathScript, 1);
     m_vel = {0.0f, 0.0f, 1.0f, 1.0f};
-    params->GetVector(kVel, reinterpret_cast<Script::VectorValue*>(&m_vel), 1);
+    params->GetVector(kVel, reinterpret_cast<Scripts::VectorValue*>(&m_vel), 1);
     m_vel.Normalize();
 }
 
 // 0x0041C330
-void CCollideAndDieComponent::Finalize() { mp_suspend = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSuspend)); }
+void CImpactDestructModule::Finalize() { mp_suspend = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSuspend)); }
 
 // 0x0041C3D0
-void CCollideAndDieComponent::Update()
+void CImpactDestructModule::Update()
 {
     if (!g_gameNetManager->InNetGame() && mp_suspend[0x30])
         return;
     int& offset = g_clockOffset;
-    if (static_cast<uint32_t>(Tmr::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {
+    if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {
         Kill(m_object);
-    } else if (m_dying) {
-        if (static_cast<uint32_t>(Tmr::GameClockElapsed() + offset) > m_deathTime)
+    } else if (m_fadingOut) {
+        if (static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset) > m_deathTime)
             Kill(m_object);
     } else {
-        Nx::CFeeler feeler;
+        Engine3D::CProbeRay feeler;
         feeler.Construct();
-        CCompositeObject* object = m_object;
-        Mth::Vector direction = object->m_vel;
+        CGameEntity* object = m_object;
+        Maths::Vector direction = object->m_vel;
         direction.Normalize();
         // From where it was (24 up)...
-        Mth::Vector start = m_firstUpdate ? object->m_pos : m_lastPos;
+        Maths::Vector start = m_firstUpdate ? object->m_pos : m_lastPos;
         start.y = start.y + kAbove;
         // ...to where it is (24 up), `radius` on along its velocity.
         double up = static_cast<double>(object->m_pos.y) + kAbove;
         float alongW = m_radius * direction.w;
         float alongZ = m_radius * direction.z;
         float alongY = m_radius * direction.y;
-        Mth::Vector end;
+        Maths::Vector end;
         end.x = static_cast<float>(static_cast<double>(m_radius) * direction.x + object->m_pos.x);
         end.y = static_cast<float>(up + alongY);
         end.z = object->m_pos.z + alongZ;
         end.w = object->m_pos.w + alongW;
         feeler.SetStart(&start);
         feeler.SetEnd(&end);
-        if (feeler.GetCollision(true, false) && !m_dying) {
-            if (CBaseComponent* projectile = m_object->GetComponent(kProjectileCollision))
+        if (feeler.GetHitShape(true, false) && !m_fadingOut) {
+            if (CObjectModule* projectile = m_object->GetComponent(kProjectileCollision))
                 ProjectileHit(projectile);
-            m_dying = true;
-            m_deathTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + offset + static_cast<int>(kDyingTime));
+            m_fadingOut = true;
+            m_deathTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset + static_cast<int>(kDyingTime));
             if (m_deathScript) {
-                Mth::Vector point = feeler.m_point;
-                Script::CStruct* params = Script::NewStruct();
+                Maths::Vector point = feeler.m_contactPos;
+                Scripts::CStruct* params = Scripts::NewStruct();
                 if (params)
                     params->Init();
-                params->AddVector(kPos, *reinterpret_cast<Script::VectorValue*>(&point));
-                params->AddVector(kVel, *reinterpret_cast<Script::VectorValue*>(&m_vel));
-                params->AddFloat(kScale, m_scale);
-                Script::RunScript(m_deathScript, params, nullptr, false, nullptr);
+                params->PutVec3(kPos, *reinterpret_cast<Scripts::VectorValue*>(&point));
+                params->PutVec3(kVel, *reinterpret_cast<Scripts::VectorValue*>(&m_vel));
+                params->PushFloat(kScale, m_sizeFactor);
+                Scripts::LaunchScript(m_deathScript, params, nullptr, false, nullptr);
                 if (params) {
                     params->Clear(); // (the destructor)
-                    Script::DeleteStruct(params);
+                    Scripts::DeleteStruct(params);
                 }
             }
         }
@@ -163,22 +163,22 @@ void CCollideAndDieComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CCollideAndDieComponent::Destroy,
-         &Obj::CCollideAndDieComponent::Update,
-         &Obj::CCollideAndDieComponent::InitFromStructure,
-         &Obj::CCollideAndDieComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CImpactDestructModule::Destroy,
+         &GameObjects::CImpactDestructModule::Update,
+         &GameObjects::CImpactDestructModule::ConfigureFromData,
+         &GameObjects::CImpactDestructModule::Finalize,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

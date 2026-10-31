@@ -14,9 +14,9 @@
 #include "game/gfx/model_appearance.h"
 #include "game/lst/lookup_table.h"
 
-namespace Obj {
+namespace GameObjects {
 
-Obj::CPlayerProfileManager* g_profileManager;
+GameObjects::CProfileRoster* g_profileManager;
 uint32_t g_profileManagerReferences;
 
 namespace {
@@ -47,62 +47,62 @@ constexpr uint32_t kStats[] = {
     0xB1FC0722, // manual_balance
 };
 
-Mem::Heap* SkaterInfoHeap() { return Mem::Manager::Get()->m_skaterInfoHeap; }
+MemSys::Heap* ProfileHeap() { return MemSys::Manager::Get()->m_skaterInfoHeap; }
 
-CPlayerProfileManager*& Instance() { return g_profileManager; }
-uint32_t& References() { return g_profileManagerReferences; }
+CProfileRoster*& Instance() { return g_profileManager; }
+uint32_t& RefTally() { return g_profileManagerReferences; }
 
 // A new profile (constructed: its defaults).
-CSkaterProfile* NewProfile()
+CRiderIdentity* NewProfile()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterProfile));
-    return memory ? static_cast<CSkaterProfile*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderIdentity));
+    return memory ? static_cast<CRiderIdentity*>(memory)->Construct() : nullptr;
 }
 
-// The face texture object of a model appearance (its +0x54; 0x00576E60, folded with Mdl::Viewer's getter), told a
+// The face texture object of a model appearance (its +0x54; 0x00576E60, folded with GameModules::Viewer's getter), told a
 // face texture (0x004875F0) and whether there is one (0x00487520).
-void* FaceOf(CSkaterProfile* profile) { return *reinterpret_cast<void**>(profile->m_appearance + 0x54); }
+void* FaceOf(CRiderIdentity* profile) { return *reinterpret_cast<void**>(profile->m_lookData + 0x54); }
 
 } // namespace
 
-void CSkaterProfile::SetAppearance(Script::CStruct* appearance, bool update)
+void CRiderIdentity::SetAppearance(Scripts::CStruct* appearance, bool update)
 {
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->Load(appearance, update);
+    reinterpret_cast<Gfx2D::CModelLook*>(this)->Load(appearance, update);
 }
 // 0x00543010
-void CSkaterProfile::DestroyBody()
+void CRiderIdentity::DestroyBody()
 {
     InfoStructure()->Clear();
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->DestroyBody();
+    reinterpret_cast<Gfx2D::CModelLook*>(this)->DestroyBody();
 }
-void CSkaterProfile::Delete()
+void CRiderIdentity::Delete()
 {
     InfoStructure()->Clear();
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->DestroyBody();
-    Mem::Manager::Get()->Free(this);
+    reinterpret_cast<Gfx2D::CModelLook*>(this)->DestroyBody();
+    MemSys::Manager::Get()->Free(this);
 }
 
 // The lookup table's generic code.
-CSkaterProfile* ProfileTable::GetByIndex(int index, uint32_t* key)
+CRiderIdentity* ProfileTable::GetByIndex(int index, uint32_t* key)
 {
-    return static_cast<CSkaterProfile*>(reinterpret_cast<Lst::LookupTable*>(this)->GetItemByIndex(&index, key));
+    return static_cast<CRiderIdentity*>(reinterpret_cast<ListKit::LookupTable*>(this)->GetItemByIndex(&index, key));
 }
-CSkaterProfile* ProfileTable::Get(uint32_t key)
+CRiderIdentity* ProfileTable::Get(uint32_t key)
 {
-    return static_cast<CSkaterProfile*>(reinterpret_cast<Lst::LookupTable*>(this)->GetItem(&key));
+    return static_cast<CRiderIdentity*>(reinterpret_cast<ListKit::LookupTable*>(this)->GetItem(&key));
 }
-bool ProfileTable::Put(uint32_t key, CSkaterProfile* item)
+bool ProfileTable::Put(uint32_t key, CRiderIdentity* item)
 {
-    return reinterpret_cast<Lst::LookupTable*>(this)->PutItem(&key, item);
+    return reinterpret_cast<ListKit::LookupTable*>(this)->StoreEntry(&key, item);
 }
-void ProfileTable::Remove(uint32_t key) { reinterpret_cast<Lst::LookupTable*>(this)->FlushItem(&key); }
+void ProfileTable::Remove(uint32_t key) { reinterpret_cast<ListKit::LookupTable*>(this)->EraseEntry(&key); }
 
 // 0x0057B9E0
 void ProfileTable::Clear()
 {
     for (Node* node = m_first; node;) {
         Node* next = node->next;
-        Mem::Manager::Get()->Free(node);
+        MemSys::Manager::Get()->Free(node);
         node = next;
     }
     m_first = nullptr;
@@ -114,12 +114,12 @@ void ProfileTable::Clear()
 void ProfileTable::Destroy() { Clear(); }
 
 // 0x0057BC00
-CPlayerProfileManager* CPlayerProfileManager::Construct()
+CProfileRoster* CProfileRoster::Construct()
 {
     m_templates.m_count = 0;
     m_templates.m_first = nullptr;
     m_templates.m_cursor = nullptr;
-    m_currentIndex = 0;
+    m_cursorPos = 0;
     m_profiles[0] = nullptr;
     m_profiles[1] = nullptr;
     m_locked = false;
@@ -128,21 +128,21 @@ CPlayerProfileManager* CPlayerProfileManager::Construct()
 }
 
 // 0x0057BC20
-void CPlayerProfileManager::DestroyBody()
+void CProfileRoster::DestroyBody()
 {
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
     for (uint32_t left = m_templates.m_count; left != 0; --left) {
         uint32_t key;
-        if (CSkaterProfile* profile = m_templates.GetByIndex(0, &key))
+        if (CRiderIdentity* profile = m_templates.GetByIndex(0, &key))
             profile->Delete();
         m_templates.Remove(key);
     }
     // The second player's copy (the first player's is a template), and the extras.
-    if (CSkaterProfile* copy = m_profiles[1])
+    if (CRiderIdentity* copy = m_profiles[1])
         copy->Delete();
     m_profiles[1] = nullptr;
     for (int i = 0; i < m_extraCount; ++i) {
-        if (CSkaterProfile* extra = m_extraProfiles[i])
+        if (CRiderIdentity* extra = m_extraProfiles[i])
             extra->Delete();
         m_extraProfiles[i] = nullptr;
     }
@@ -150,12 +150,12 @@ void CPlayerProfileManager::DestroyBody()
 }
 
 // 0x0057B620 / 0x0057B630 / 0x0057B640
-void CPlayerProfileManager::SetCurrentIndex(int index) { m_currentIndex = index; }
-CSkaterProfile* CPlayerProfileManager::GetCurrentProfile() { return m_profiles[m_currentIndex]; }
-CSkaterProfile* CPlayerProfileManager::GetProfile(int index) { return m_profiles[index]; }
+void CProfileRoster::SetCurrentIndex(int index) { m_cursorPos = index; }
+CRiderIdentity* CProfileRoster::GetCurrentProfile() { return m_profiles[m_cursorPos]; }
+CRiderIdentity* CProfileRoster::GetProfile(int index) { return m_profiles[index]; }
 
 // 0x0057B650
-CSkaterProfile* CPlayerProfileManager::GetExtraProfile(uint32_t name)
+CRiderIdentity* CProfileRoster::GetExtraProfile(uint32_t name)
 {
     for (int i = 0; i < m_extraCount; ++i) {
         if (m_extraNames[i] == name)
@@ -165,24 +165,24 @@ CSkaterProfile* CPlayerProfileManager::GetExtraProfile(uint32_t name)
 }
 
 // 0x0057B680
-void CPlayerProfileManager::SetLocked(bool locked) { m_locked = locked; }
+void CProfileRoster::SetLocked(bool locked) { m_locked = locked; }
 
 // 0x0057B690
-void CPlayerProfileManager::Init()
+void CProfileRoster::Init()
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    Script::RunScript(kInitProSkaters, nullptr, nullptr, false, nullptr);
+    MemSys::Manager::Get()->EnterHeapScope(ProfileHeap());
+    Scripts::LaunchScript(kInitProSkaters, nullptr, nullptr, false, nullptr);
     uint32_t key;
     m_profiles[0] = m_templates.GetByIndex(0, &key);
     for (int i = 1; i < 2; ++i) {
         m_profiles[i] = NewProfile();
         m_profiles[i]->CopyFrom(m_templates.GetByIndex(i, &key));
     }
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 // 0x0057B770
-uint32_t CPlayerProfileManager::GetTemplateName(int index)
+uint32_t CProfileRoster::GetTemplateName(int index)
 {
     uint32_t key;
     m_templates.GetByIndex(index, &key);
@@ -190,19 +190,19 @@ uint32_t CPlayerProfileManager::GetTemplateName(int index)
 }
 
 // 0x0057B790
-void CPlayerProfileManager::ResetSecondProfile()
+void CProfileRoster::ResetSecondProfile()
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    CSkaterProfile* copy = m_profiles[1];
+    MemSys::Manager::Get()->EnterHeapScope(ProfileHeap());
+    CRiderIdentity* copy = m_profiles[1];
     copy->CopyFrom(m_templates.Get(copy->GetName()));
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 // 0x0057B7E0
-CSkaterProfile* CPlayerProfileManager::GetTemplate(uint32_t name) { return m_templates.Get(name); }
+CRiderIdentity* CProfileRoster::GetTemplate(uint32_t name) { return m_templates.Get(name); }
 
 // 0x0057B800
-void CPlayerProfileManager::ResetTemplates()
+void CProfileRoster::ResetTemplates()
 {
     uint32_t count = m_templates.m_count;
     for (uint32_t i = 0; i < count; ++i) {
@@ -212,34 +212,34 @@ void CPlayerProfileManager::ResetTemplates()
 }
 
 // 0x0057B840
-void CPlayerProfileManager::WritePros(Script::CStruct* save)
+void CProfileRoster::WritePros(Scripts::CStruct* save)
 {
     uint32_t count = m_templates.m_count;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        CSkaterProfile* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
+        CRiderIdentity* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
         if (profile->IsPro())
             profile->WriteToSave(save);
     }
-    save->AddComponentOfType(kCurrentSkater, Script::ESYMBOLTYPE_NAME, m_profiles[m_currentIndex]->GetName());
-    Str::String displayName(m_profiles[m_currentIndex]->GetDisplayName());
-    save->AddString(kDisplayName, Script::ESYMBOLTYPE_STRING, displayName.c_str());
+    save->AddComponentOfType(kCurrentSkater, Scripts::QBVAL_NAME, m_profiles[m_cursorPos]->GetName());
+    TextUtil::String displayName(m_profiles[m_cursorPos]->GetDisplayName());
+    save->AddString(kDisplayName, Scripts::QBVAL_STRING, displayName.c_str());
 }
 
 // 0x0057B920
-void CPlayerProfileManager::WriteCustomSkaters(Script::CStruct* save)
+void CProfileRoster::WriteCustomSkaters(Scripts::CStruct* save)
 {
     uint32_t count = m_templates.m_count;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        CSkaterProfile* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
+        CRiderIdentity* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
         if (!profile->IsPro())
             profile->WriteToSave(save);
     }
 }
 
 // 0x0057B970
-bool CPlayerProfileManager::AddExtraProfile(uint32_t name)
+bool CProfileRoster::AddExtraProfile(uint32_t name)
 {
     m_extraProfiles[m_extraCount] = NewProfile();
     m_extraNames[m_extraCount] = name;
@@ -248,72 +248,72 @@ bool CPlayerProfileManager::AddExtraProfile(uint32_t name)
 }
 
 // 0x0057BA20
-void CPlayerProfileManager::SetCurrentSkater(uint32_t name)
+void CProfileRoster::SetCurrentSkater(uint32_t name)
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    if (m_currentIndex == 0)
-        m_profiles[m_currentIndex] = m_templates.Get(name);
+    MemSys::Manager::Get()->EnterHeapScope(ProfileHeap());
+    if (m_cursorPos == 0)
+        m_profiles[m_cursorPos] = m_templates.Get(name);
     else
-        m_profiles[m_currentIndex]->CopyFrom(m_templates.Get(name));
-    Mem::Manager::Get()->PopContext();
+        m_profiles[m_cursorPos]->CopyFrom(m_templates.Get(name));
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 // 0x0057BAA0
-void CPlayerProfileManager::ReadPros(Script::CStruct* save)
+void CProfileRoster::ReadPros(Scripts::CStruct* save)
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
+    MemSys::Manager::Get()->EnterHeapScope(ProfileHeap());
     uint32_t count = m_templates.m_count;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key;
-        CSkaterProfile* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
+        CRiderIdentity* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
         if (profile->IsPro())
             profile->ReadFromSave(profile->GetName(), save);
     }
     uint32_t current = 0;
-    save->GetChecksum(kCurrentSkater, &current, 0);
+    save->ReadHashValue(kCurrentSkater, &current, 0);
     SetCurrentSkater(current);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 // 0x0057BB40
-bool CPlayerProfileManager::AddTemplate(Script::CStruct* params)
+bool CProfileRoster::AddTemplate(Scripts::CStruct* params)
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
+    MemSys::Manager::Get()->EnterHeapScope(ProfileHeap());
     uint32_t name;
-    params->GetChecksum(kName, &name, 1);
-    CSkaterProfile* profile = NewProfile();
+    params->ReadHashValue(kName, &name, 1);
+    CRiderIdentity* profile = NewProfile();
     profile->Reset(params);
     m_templates.Put(name, profile);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     return true;
 }
 
 // 0x0057BD70
-bool CPlayerProfileManager::ReadCustomSkater(Script::CStruct* save, bool keepSavedStats)
+bool CProfileRoster::ReadCustomSkater(Scripts::CStruct* save, bool keepSavedStats)
 {
     SetCurrentSkater(kCustom);
-    CSkaterProfile* profile = m_profiles[m_currentIndex];
-    Script::CStruct* custom = nullptr;
-    save->GetStructure(kCustom, &custom, 0);
+    CRiderIdentity* profile = m_profiles[m_cursorPos];
+    Scripts::CStruct* custom = nullptr;
+    save->ReadSubStruct(kCustom, &custom, 0);
     int version = 0;
-    if (!custom->GetInteger(kVersionNumber, &version, 0))
+    if (!custom->FetchIntValue(kVersionNumber, &version, 0))
         return false;
     if (version != 2)
         return true;
     // The appearance, and the face texture if the save has one.
-    Script::CStruct* appearance = nullptr;
-    custom->GetStructure(kAppearance, &appearance, 0);
+    Scripts::CStruct* appearance = nullptr;
+    custom->ReadSubStruct(kAppearance, &appearance, 0);
     profile->SetAppearance(appearance, true);
     if (void* face = FaceOf(profile)) {
-        Script::CStruct* texture;
-        bool found = custom->GetStructure(kFaceTexture, &texture, 0);
+        Scripts::CStruct* texture;
+        bool found = custom->ReadSubStruct(kFaceTexture, &texture, 0);
         if (found) {
-            static_cast<Gfx::CFaceTexture*>(face)->LoadFromStructure(texture);
-            Dbg::Printf("Face texture found\n");
+            static_cast<Gfx2D::CFaceSkin*>(face)->LoadFromStructure(texture);
+            DebugOut::Printf("Face texture found\n");
         } else {
-            Dbg::Printf("Face texture not found\n");
+            DebugOut::Printf("Face texture not found\n");
         }
-        static_cast<Gfx::CFaceTexture*>(face)->SetValid(found);
+        static_cast<Gfx2D::CFaceSkin*>(face)->MarkUsable(found);
     }
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.
@@ -321,52 +321,52 @@ bool CPlayerProfileManager::ReadCustomSkater(Script::CStruct* save, bool keepSav
     for (int i = 0; i < 10; ++i)
         stats[i] = profile->GetStat(kStats[i]);
     int maxSpecials = profile->GetMaxSpecials();
-    Script::CStruct* memory = Script::NewStruct();
-    Script::CStruct* specials = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* specials = memory ? memory->Init() : nullptr;
     specials->AppendStructureIfAny(profile->GetSpecials());
-    Script::CStruct* info = nullptr;
-    custom->GetStructure(kInfo, &info, 0);
+    Scripts::CStruct* info = nullptr;
+    custom->ReadSubStruct(kInfo, &info, 0);
     profile->InfoStructure()->Clear();
     profile->InfoStructure()->AppendStructureIfAny(info);
     if (!keepSavedStats) {
         for (int i = 0; i < 10; ++i)
-            profile->SetStat(kStats[i], stats[i]);
-        profile->SetStat(kMaxSpecials, maxSpecials);
+            profile->SetAbilityLevel(kStats[i], stats[i]);
+        profile->SetAbilityLevel(kMaxSpecials, maxSpecials);
         profile->GetSpecials()->Clear();
         profile->GetSpecials()->AppendStructureIfAny(specials);
     }
     if (specials) {
         specials->Clear();
-        Script::DeleteStruct(specials);
+        Scripts::DeleteStruct(specials);
     }
     int deckFlags = 1; // (read, never used)
-    return custom->GetInteger(kDeckFlags, &deckFlags, 0);
+    return custom->FetchIntValue(kDeckFlags, &deckFlags, 0);
 }
 
 // 0x0057C0D0
-CPlayerProfileManager* CPlayerProfileManager::Create(bool create)
+CProfileRoster* CProfileRoster::Create(bool create)
 {
     if (!Instance() && create) {
-        void* memory = Mem::Calloc(sizeof(CPlayerProfileManager), nullptr, 1);
-        Instance() = memory ? static_cast<CPlayerProfileManager*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::AllocZeroed(sizeof(CProfileRoster), nullptr, 1);
+        Instance() = memory ? static_cast<CProfileRoster*>(memory)->Construct() : nullptr;
     }
-    ++References();
+    ++RefTally();
     return Instance();
 }
 
 // 0x0057C120
-void CPlayerProfileManager::Release()
+void CProfileRoster::Release()
 {
-    if (References() > 1) {
-        --References();
+    if (RefTally() > 1) {
+        --RefTally();
         return;
     }
-    if (CPlayerProfileManager* manager = Instance()) {
+    if (CProfileRoster* manager = Instance()) {
         manager->DestroyBody();
-        Mem::Manager::Get()->Free(manager);
+        MemSys::Manager::Get()->Free(manager);
     }
     Instance() = nullptr;
-    References() = 0;
+    RefTally() = 0;
 }
 
 } // namespace Obj

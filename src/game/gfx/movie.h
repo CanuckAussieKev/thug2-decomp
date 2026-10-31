@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x0044FA80: draw a movie frame's texture at (x, y), (width, height) in screen units, faded by alpha (0-1),
 // with PartyMod's 4:3 fit inside the back buffer (contains code from PartyMod
@@ -17,17 +17,17 @@ void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* verti
 
 } // namespace Nx
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x0059F0C0: the PlayMovie script command. With thug2-decomp.ini [features] skip_intro_movies=1 the
 // start-up logo and intro movies (ATVI, Beenox_Shift, Dolby_Digital, Intel_intro, NSlogo, intro, introf) are
 // skipped, and so is any movie the start-up script startup_loading_screen plays (Anteara Mod's Shorty's movie);
 // other movies play as usual.
-bool __cdecl PlayMovie(Script::CStruct* params, void* script);
+bool __cdecl PlayMovie(Scripts::CStruct* params, void* script);
 // The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,
 // game/front/start_level.h).
 bool& SkipIntroMovies();

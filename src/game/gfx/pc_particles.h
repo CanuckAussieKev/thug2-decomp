@@ -10,7 +10,7 @@
 // quads emitted in bursts, each burst (up to five at once) a run of particles a period apart along the same path
 // from its own random seed - positions, spreads and sizes quadratic in a particle's age, through a start, a mid and an
 // end (or a straight line from start to end), colours from start through mid to end.
-namespace Nx {
+namespace Engine3D {
 
 // A burst of particles (0x1C bytes).
 struct sParticleBurst {
@@ -28,7 +28,7 @@ static_assert(sizeof(sParticleBurst) == 0x1C, "layout must match the original");
 
 // A quadratic in a particle's age t, per component: a + b t + c t^2.
 struct sParticleCurve {
-    Mth::Vector a, b, c;
+    Maths::Vector a, b, c;
 };
 
 // The PC particle system (0x28C bytes, vtable 0x0064A4F0; the engine's particle system - constructor 0x00496360,
@@ -44,8 +44,8 @@ struct CPcParticleSystem {
     float lifetime;          // +0x30: seconds
     float midPercent;        // +0x34: when the mid is, a percentage of the lifetime
     uint8_t params38[0x60];
-    Mth::Vector positions[3]; // +0x098: start, mid, end
-    Mth::Vector boxes[3];     // +0x0C8: the spread, start, mid, end
+    Maths::Vector positions[3]; // +0x098: start, mid, end
+    Maths::Vector boxes[3];     // +0x0C8: the spread, start, mid, end
     uint8_t params0F8[0x30];
     float colourMidPercent;  // +0x128: when the mid colour is, a percentage of the lifetime
     uint8_t colours[3][4];   // +0x12C: start, mid, end (RGBA)
@@ -60,7 +60,7 @@ struct CPcParticleSystem {
     uint8_t params158[3];
     bool cullOutside;        // +0x15B: culled by 0x004DB570 rather than 0x004DB790
     uint8_t engine15C[0x24];
-    Mth::Vector bounds;      // +0x180: the bounding sphere (centre, radius)
+    Maths::Vector bounds;      // +0x180: the bounding sphere (centre, radius)
     bool emitting;           // +0x190
     uint8_t unknown191[3];
     int capacity;            // +0x194: bursts (5)
@@ -68,7 +68,7 @@ struct CPcParticleSystem {
     sParticleBurst* bursts;  // +0x19C: a ring of `capacity`
     sParticleBurst* newest;  // +0x1A0
     sParticleBurst* oldest;  // +0x1A4
-    Mth::Matrix matrix;      // +0x1A8 (the identity)
+    Maths::Matrix matrix;      // +0x1A8 (the identity)
     uint8_t unknown1E8[0x40];
     uint8_t* material;       // +0x228: its own (0x110 bytes)
     sParticleCurve spread;   // +0x22C: the boxes and radii through time
@@ -114,12 +114,12 @@ struct CPcParticleSystem {
     void Hide(bool hide);
     // 0x00494E90 / 0x00494EA0: the rate and the lifetime set.
     void SetRate(float rate);
-    void SetLifetime(float lifetime);
+    void SetLifespan(float lifetime);
     // 0x00494EB0: size `which` (start, mid, end) set.
     void SetSize(int which, float size);
     // 0x00494EC0 / 0x00494EE0 / 0x00494EF0: colour `which`, +0x38 and the colour mid percentage set - then the
     // platform told (virtual [6]).
-    void SetColour(int which, const uint32_t* colour);
+    void ChangeColour(int which, const uint32_t* colour);
     void SetValue38(float value);
     void SetColourMidPercent(float percent);
 };

@@ -23,12 +23,12 @@
 // [features] thugpro_parts=0 turns it off, =2 offers them in our CAS menus too (without `hidden` / `no_random`: to try
 // them offline - a THUG2 player without them then sees our skater with THUG2's parts); thugpro_folder= the install's
 // folder (default %LOCALAPPDATA%\THUG Pro).
-namespace Script {
+namespace Scripts {
 class CArray;
 class CStruct;
 } // namespace Script
 
-namespace Obj::ThugproCas {
+namespace GameObjects::ThugproCas {
 
 // From the main loop once a frame until it has run (it waits for the CAS lists to exist).
 void LoadOnce();
@@ -53,6 +53,6 @@ std::vector<std::pair<uint32_t, const uint8_t*>> TopLevelArrays(const uint8_t* q
 std::string PathKey(const char* path);
 // Of THUGPRO's array `theirs`, the entries to append to our `ours`: structures with a desc_id ours hasn't, every path
 // they name found by `found` (which notes the THUGPRO ones). Their indices in `theirs`.
-std::vector<uint32_t> PickNew(Script::CArray* ours, Script::CArray* theirs, bool (*found)(const char* path));
+std::vector<uint32_t> PickNew(Scripts::CArray* ours, Scripts::CArray* theirs, bool (*found)(const char* path));
 
-} // namespace Obj::ThugproCas
+} // namespace GameObjects::ThugproCas

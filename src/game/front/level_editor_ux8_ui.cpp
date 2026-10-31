@@ -14,7 +14,7 @@
 #include "game/front/level_editor_ux8_pie.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Ux8 {
+namespace MenuSystem::LevelEditor::Ux8 {
 
 // (level_editor_ux8.cpp)
 const Pie::State& PieNow();
@@ -348,4 +348,4 @@ void PrefsSection()
         ImGui::SetTooltip("Use a game controller in the editor");
 }
 
-} // namespace Front::LevelEditor::Ux8
+} // namespace MenuSystem::LevelEditor::Ux8

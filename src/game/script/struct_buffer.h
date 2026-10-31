@@ -1,6 +1,6 @@
 #pragma once
 
-// Script structures written to / read from a byte buffer (THUG's Script::WriteToBuffer / ReadFromBuffer; network
+// Script structures written to / read from a byte buffer (THUG's Scripts::EmitIntoBuffer / DecodeFromBytes; network
 // messages, saves). 0x00479840-0x0047A8D1.
 //
 // The format: for each component a type byte (the component type, with 0x80 when its name is index n of the
@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 
 class CStruct;
 class CArray;
@@ -36,13 +36,13 @@ void WriteLocalStringStub();
 uint32_t WriteArrayToBuffer(CArray* array, uint8_t* buffer, uint32_t size, int assert);
 // 0x00479E20: the structure (null: empty), with the terminating zero. `callback` (if any) is called before each
 // component. Returns the bytes written, 0 when they don't fit (or a component can't be written).
-uint32_t WriteToBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)());
-// 0x0047A070: how many bytes WriteToBuffer takes for the structure, written into a scratch block of `maxSize`
+uint32_t EmitIntoBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)());
+// 0x0047A070: how many bytes EmitIntoBuffer takes for the structure, written into a scratch block of `maxSize`
 // (from the top-down heap): 0 if it doesn't fit.
-uint32_t CalculateBufferSize(CStruct* structure, uint32_t maxSize);
+uint32_t MeasureBufferBytes(CStruct* structure, uint32_t maxSize);
 // 0x0047A0C0: the structure emptied and filled from the buffer (structures and arrays made from the script
 // heap); returns the end of what was read.
-const uint8_t* ReadFromBuffer(CStruct* structure, const uint8_t* buffer);
+const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer);
 // 0x0047A440: the array emptied and filled from the buffer; returns the end.
 const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer);
 

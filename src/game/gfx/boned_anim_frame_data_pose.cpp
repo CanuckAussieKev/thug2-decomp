@@ -13,7 +13,7 @@
 #include "game/obj/walk_hang.h"
 #include "game/sys/timer.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 namespace {
 
@@ -31,8 +31,8 @@ constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 constexpr int kCachesPerFrame = 10;
 
 // The animation cache (the manager 0x006F92B0 through its getter) and its entries' calls (none rewritten yet).
-void* CacheManager() { return CAnimCache::Get(); }
-int CacheFormat(void* manager) { return static_cast<CAnimCache*>(manager)->GetType(); }
+void* CacheManager() { return CClipStore::Get(); }
+int CacheFormat(void* manager) { return static_cast<CClipStore*>(manager)->GetType(); }
 
 // The compressed keys' decoders: the next rotation key (0x00482C20) / translation key (0x00482E70) into `key`,
 // returning where the next one starts; a rotation key as a quaternion (0x00482A70, 0x00483D00 - the quaternion at +4
@@ -70,7 +70,7 @@ int TranslationKeyTime(const uint8_t* key) { return *reinterpret_cast<const int1
 
 // The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
 // Without one, `from` / `to` / `fraction` stay as they were.
-void FindKeys(uint8_t* keys, int count, float time, int (*keyTime)(const uint8_t*), uint8_t*& from, uint8_t*& to,
+void FindKeys(uint8_t* keys, int count, float time, int (*keyframeTime)(const uint8_t*), uint8_t*& from, uint8_t*& to,
               float& fraction)
 {
     for (int i = 0; i < count; ++i) {
@@ -81,10 +81,10 @@ void FindKeys(uint8_t* keys, int count, float time, int (*keyTime)(const uint8_t
             fraction = 0.0f;
             return;
         }
-        double t0 = keyTime(key);
+        double t0 = keyframeTime(key);
         if (!(t0 <= time))
             continue;
-        double t1 = keyTime(key + 8);
+        double t1 = keyframeTime(key + 8);
         if (!(t1 >= time))
             continue;
         from = key;
@@ -97,7 +97,7 @@ void FindKeys(uint8_t* keys, int count, float time, int (*keyTime)(const uint8_t
 } // namespace
 
 // 0x00484EB0
-bool CBonedAnimFrameData::ApplyAdditive(Mth::Quat* rotations, Mth::Vector* translations, void*, float weight,
+bool CJointClipFrames::ApplyAdditive(Maths::QuatRotation* rotations, Maths::Vector* translations, void*, float weight,
                                         uint8_t* mask)
 {
     uint8_t* rotKeys = mp_quatKeys;
@@ -110,29 +110,29 @@ bool CBonedAnimFrameData::ApplyAdditive(Mth::Quat* rotations, Mth::Vector* trans
         if (m_flags & kBoneBits)
             skip = !(mp_partialBones[1 + i / 32] & (1u << (i % 32)));
         if (!skip) {
-            Mth::Quat& rotation = rotations[i];
+            Maths::QuatRotation& rotation = rotations[i];
             if (*rotSizes) {
                 uint8_t key[8];
                 uint8_t decoded[20];
                 DecodeRotation(rotKeys, key, m_flags, mp_keyTable);
                 RotationToQuatB(decoded, key);
-                Mth::Quat added = rotation;
-                added *= *reinterpret_cast<Mth::Quat*>(decoded + 4);
-                Mth::Quat to = added;
+                Maths::QuatRotation added = rotation;
+                added *= *reinterpret_cast<Maths::QuatRotation*>(decoded + 4);
+                Maths::QuatRotation to = added;
                 float blended[4];
                 float* result = InterpolateRotation(blended, &rotation.x, &to.x, weight);
                 rotation = {result[0], result[1], result[2], result[3]};
             }
             uint32_t flags = m_flags;
             if (!(flags & kTranslationKeys) || *transSizes) {
-                Mth::Vector& translation = translations[i];
+                Maths::Vector& translation = translations[i];
                 uint8_t key[8];
                 DecodeTranslation(transKeys, key, flags);
                 const auto* values = reinterpret_cast<const int16_t*>(key + 2);
                 double x = values[0] * static_cast<double>(kKeyScale);
                 float y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
                 float z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
-                Mth::Vector target;
+                Maths::Vector target;
                 if ((m_flags & kTwiceTranslation) && (m_flags & kTranslationKeys)) {
                     float zSum = static_cast<float>(static_cast<double>(z) + translation.z);
                     float wSum = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
@@ -146,7 +146,7 @@ bool CBonedAnimFrameData::ApplyAdditive(Mth::Quat* rotations, Mth::Vector* trans
                     target.z = static_cast<float>(static_cast<double>(z) + translation.z);
                     target.w = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
                 }
-                Mth::Vector moved;
+                Maths::Vector moved;
                 translation = *Walk::Lerp(&moved, &translation, &target, weight);
             }
         }
@@ -157,7 +157,7 @@ bool CBonedAnimFrameData::ApplyAdditive(Mth::Quat* rotations, Mth::Vector* trans
 }
 
 // 0x00485250
-bool CBonedAnimFrameData::ApplyAdditiveIfCompressed(Mth::Quat* rotations, Mth::Vector* translations, void* unused,
+bool CJointClipFrames::ApplyAdditiveIfCompressed(Maths::QuatRotation* rotations, Maths::Vector* translations, void* unused,
                                                     float weight, uint8_t* mask)
 {
     if (!(m_flags & kCompressed))
@@ -166,23 +166,23 @@ bool CBonedAnimFrameData::ApplyAdditiveIfCompressed(Mth::Quat* rotations, Mth::V
 }
 
 // 0x00485270
-void CBonedAnimFrameData::BuildCache(int format)
+void CJointClipFrames::BuildCache(int format)
 {
     if (CachesBuilt() >= kCachesPerFrame) {
-        if (Tmr::GetVblanks() == LastCacheVblank())
+        if (FrameClock::FetchRetraceCount() == LastCacheVblank())
             return;
         CachesBuilt() = 0;
-        LastCacheVblank() = Tmr::GetVblanks();
-    } else if (Tmr::GetVblanks() != LastCacheVblank()) {
+        LastCacheVblank() = FrameClock::FetchRetraceCount();
+    } else if (FrameClock::FetchRetraceCount() != LastCacheVblank()) {
         CachesBuilt() = 0;
-        LastCacheVblank() = Tmr::GetVblanks();
+        LastCacheVblank() = FrameClock::FetchRetraceCount();
     }
-    CAnimCache* manager = CAnimCache::Get();
+    CClipStore* manager = CClipStore::Get();
     uint32_t size = manager->GetEntrySize(m_boneCount, static_cast<int>(m_quatKeyCount),
                                           static_cast<int>(m_transKeyCount), format);
     int priority = static_cast<int16_t>(static_cast<int16_t>(m_bits << 7) >> 8);
     if (*reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||
-        CAnimCache::HeapAvailable() < size) {
+        CClipStore::HeapAvailable() < size) {
         if (manager->FreeOldest(priority, size))
             mp_cacheEntry = nullptr;
     }
@@ -285,16 +285,16 @@ void CBonedAnimFrameData::BuildCache(int format)
     }
 
     mp_cacheEntry = cache;
-    entry->SetReleaseCallback(reinterpret_cast<void(__cdecl*)(void*)>(&CBonedAnimFrameData::ForgetCacheEntry),
+    entry->SetReleaseCallback(reinterpret_cast<void(__cdecl*)(void*)>(&CJointClipFrames::ForgetCacheEntry),
                               this); // (the entry's owner and its release callback)
     uint16_t& cacheFlags = *reinterpret_cast<uint16_t*>(mp_cacheEntry + 0x164);
     cacheFlags = static_cast<uint16_t>(((m_flags >> 11) & 1) << 13 | (cacheFlags & 0xDFFF));
     ++CachesBuilt();
-    LastCacheVblank() = Tmr::GetVblanks();
+    LastCacheVblank() = FrameClock::FetchRetraceCount();
 }
 
 // 0x004856C0
-bool CBonedAnimFrameData::Load(const uint8_t* data, uint32_t, bool)
+bool CJointClipFrames::Load(const uint8_t* data, uint32_t, bool)
 {
     auto* header = reinterpret_cast<const uint32_t*>(data);
     m_unknown00 = header[2];
@@ -311,14 +311,14 @@ bool CBonedAnimFrameData::Load(const uint8_t* data, uint32_t, bool)
 }
 
 // 0x00485730
-bool CBonedAnimFrameData::GetFrames(Mth::Quat* rotations, Mth::Vector* translations, uint8_t* arg2, float time,
+bool CJointClipFrames::GetFrames(Maths::QuatRotation* rotations, Maths::Vector* translations, uint8_t* arg2, float time,
                                     int arg4, void* arg5)
 {
     uint32_t flags = m_flags;
     if (flags & kCompressed) {
         if (!(flags & kNoAutoCache) && !mp_cacheEntry)
             BuildCache(CacheFormat(CacheManager()));
-        return GetPose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
+        return FetchPose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
                        static_cast<CFrameSource*>(arg5));
     }
     float frame = time * kFramesPerSecond;

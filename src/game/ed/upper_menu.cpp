@@ -8,44 +8,44 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
-void RunMenuScript(uint32_t script, Script::CStruct* params = nullptr)
+void RunMenuScript(uint32_t script, Scripts::CStruct* params = nullptr)
 {
-    Script::RunScript(script, params, nullptr, false, nullptr);
+    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
 }
 
 } // namespace
 
-CUpperMenuManager* CUpperMenuManager::sInstance() { return Instance(); }
+CTopBarMenus* CTopBarMenus::sSingleton() { return Instance(); }
 
-void CUpperMenuManager::Create()
+void CTopBarMenus::Create()
 {
-    if (CUpperMenuManager::Instance())
+    if (CTopBarMenus::Instance())
         return;
-    Mem::PushContext(Mem::BottomUpHeap());
-    auto* menu = static_cast<CUpperMenuManager*>(Mem::New(sizeof(CUpperMenuManager)));
+    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
+    auto* menu = static_cast<CTopBarMenus*>(MemSys::New(sizeof(CTopBarMenus)));
     if (menu) {
         menu->mp_set = nullptr;
         menu->m_selected = 0;
         menu->m_setNumber = 0;
-        menu->mp_manager = CParkManager::sInstance();
+        menu->m_parkOwner = CParkLayout::sSingleton();
     }
-    CUpperMenuManager::Instance() = menu;
-    Mem::PopContext();
+    CTopBarMenus::Instance() = menu;
+    MemSys::LeaveHeapScope();
 }
 
-void CUpperMenuManager::Enable()
+void CTopBarMenus::Enable()
 {
     RunMenuScript(0x4693636A); // parked_make_piece_menu
     RunMenuScript(0xED885B50); // parked_make_set_menu
-    for (int i = 0; i < mp_manager->m_numSets; ++i) {
-        CPieceSet& set = mp_manager->m_sets[i];
-        if (!set.m_visible)
+    for (int i = 0; i < m_parkOwner->m_numSets; ++i) {
+        CPieceFamily& set = m_parkOwner->m_sets[i];
+        if (!set.m_isDisplayed)
             continue;
-        Script::CStruct params;
+        Scripts::CStruct params;
         params.Init();
         params.AddString(0x341B6370, set.m_name); // set_name
         RunMenuScript(0xA4F522E9, &params);       // parked_make_set_menu_item
@@ -54,7 +54,7 @@ void CUpperMenuManager::Enable()
     mp_set = nullptr;
 }
 
-void CUpperMenuManager::Disable()
+void CTopBarMenus::Disable()
 {
     RunMenuScript(0x5C7A3276); // parked_destroy_piece_menu
     RunMenuScript(0x6BF4AA3D); // parked_destroy_set_menu
@@ -63,4 +63,4 @@ void CUpperMenuManager::Disable()
 
 } // namespace Ed
 
-using Ed::CUpperMenuManager;
+using ParkEditing::CTopBarMenus;

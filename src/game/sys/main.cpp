@@ -59,38 +59,38 @@
 #include "game/gfx/movie.h"
 #include "game/obj/collide_and_die.h"
 
-namespace Sys {
+namespace SystemCore {
 
 namespace {
 
 // Compiled-out debug code at the start of main (a call to the empty 0x005480A0 with 0).
 inline void DebugSetUp(int /*unused*/) {}
 
-// The main loop's task manager (Mlp::Manager): three task lists, at +0x04, +0x40 and +0x7C.
-void AddTask(Tsk::Stack& list, void* task) { list.AddTask(static_cast<Tsk::BaseTask*>(task)); }
-void RemoveAllTasks(Tsk::Stack& list) { list.RemoveAllTasks(); }
-void MainLoop(Mlp::Manager* mlp) { mlp->MainLoop(); }
+// The main loop's task manager (FrameLoop::Manager): three task lists, at +0x04, +0x40 and +0x7C.
+void AddTask(TaskList::Stack& list, void* task) { list.AddTask(static_cast<TaskList::SchedulerTask*>(task)); }
+void ClearJobList(TaskList::Stack& list) { list.ClearJobList(); }
+void MainLoop(FrameLoop::Manager* mlp) { mlp->MainLoop(); }
 
-// The module manager (Mdl::Manager, 0x0044F6F0). (The modules are passed as they were made: not all of their types
-// derive from Mdl::Module in our source yet.)
-void RegisterModule(Mdl::Manager* mdl, void* module) { mdl->RegisterModule(static_cast<Mdl::Module*>(module)); }
-void StartModule(Mdl::Manager* mdl, void* module) { mdl->StartModule(static_cast<Mdl::Module*>(module)); }
-void StopAllModules(Mdl::Manager* mdl) { mdl->StopAllModules(); }
-void UnregisterModule(Mdl::Manager* mdl, void* module) { mdl->UnregisterModule(static_cast<Mdl::Module*>(module)); }
+// The module manager (GameModules::Manager, 0x0044F6F0). (The modules are passed as they were made: not all of their types
+// derive from GameModules::Module in our source yet.)
+void RegisterModule(GameModules::Manager* mdl, void* module) { mdl->RegisterModule(static_cast<GameModules::Module*>(module)); }
+void LaunchModule(GameModules::Manager* mdl, void* module) { mdl->LaunchModule(static_cast<GameModules::Module*>(module)); }
+void HaltEveryModule(GameModules::Manager* mdl) { mdl->HaltEveryModule(); }
+void RemoveModule(GameModules::Manager* mdl, void* module) { mdl->RemoveModule(static_cast<GameModules::Module*>(module)); }
 
-// The bottom-up heap's virtual PushContext / PopContext (slots 0 and 1).
+// The bottom-up heap's virtual EnterHeapScope / LeaveHeapScope (slots 0 and 1).
 void PushBottomUpHeap()
 {
-    Mem::Allocator* heap = Mem::Manager::Get()->m_bottomUpHeap;
-    reinterpret_cast<void(__thiscall*)(Mem::Allocator*)>(heap->m_vtable[0])(heap);
+    MemSys::Allocator* heap = MemSys::Manager::Get()->m_bottomUpHeap;
+    reinterpret_cast<void(__thiscall*)(MemSys::Allocator*)>(heap->m_vtable[0])(heap);
 }
 void PopBottomUpHeap()
 {
-    Mem::Allocator* heap = Mem::Manager::Get()->m_bottomUpHeap;
-    reinterpret_cast<void(__thiscall*)(Mem::Allocator*)>(heap->m_vtable[1])(heap);
+    MemSys::Allocator* heap = MemSys::Manager::Get()->m_bottomUpHeap;
+    reinterpret_cast<void(__thiscall*)(MemSys::Allocator*)>(heap->m_vtable[1])(heap);
 }
 
-bool QuitRequested() { return Nx::g_quitRequested; }
+bool QuitRequested() { return Engine3D::g_quitRequested; }
 
 } // namespace
 
@@ -101,7 +101,7 @@ int __cdecl Main(int argc, char** argv)
 {
     DebugSetUp(0);
     GameConfig::Init(argc, argv); // the command line options (Config)
-    Mem::Manager::Get()->InitStandardHeaps();
+    MemSys::Manager::Get()->InitStandardHeaps();
     switch (GameConfig::g_language) { // the language's start-up (German has its own)
     case 3: // French
         SetKeyNames();
@@ -113,82 +113,82 @@ int __cdecl Main(int argc, char** argv)
         SetKeyNames();
         break;
     }
-    Dbg::Printf("\n Start of main()\n");
-    Dbg::Printf("argc = %d\n", argc);
+    DebugOut::Printf("\n Start of main()\n");
+    DebugOut::Printf("argc = %d\n", argc);
     for (int i = 0; i < argc; ++i)
-        Dbg::Printf("%2d: %s\n", i, argv[i]);
-    Dbg::Printf("\n");
-    Mem::PushMemProfile("Everything");
-    Mem::PushMemProfile("Initialization");
+        DebugOut::Printf("%2d: %s\n", i, argv[i]);
+    DebugOut::Printf("\n");
+    MemSys::PushMemProfile("Everything");
+    MemSys::PushMemProfile("Initialization");
     if (argc == 2 && std::strcmp(argv[1], "demo") == 0)
         g_demoMode = true; // demo mode
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
-    Mth::InitialRand(0x06680BF3);
-    Mth::InitSinLookupTable();
+    Maths::SeedRandom(0x06680BF3);
+    Maths::FillSineTable();
 
     while (!QuitRequested()) {
         PushBottomUpHeap();
         Stubs::IgnoreArgument(0x10); // (a memory manager method, compiled down to the shared stub)
 
-        Mem::PushMemProfile("Symbol Hash Table");
-        Script::CreateSymbolTable();
-        Mem::PopMemProfile();
-        Mem::PushMemProfile("Hash Item Pool Manager");
+        MemSys::PushMemProfile("Symbol Hash Table");
+        Scripts::CreateSymbolTable();
+        MemSys::PopMemProfile();
+        MemSys::PushMemProfile("Hash Item Pool Manager");
         // Not original - the HashItem pool's size is ours (game/core/memory_sizes.h: pool sizes as THUGPRO's;
         // the main block grows to match). Original behaviour: 10000 items.
-        Mem::PoolManager::SetUp(0, Mem::Sizes::Current().hashItems);
-        Mem::PopMemProfile();
+        MemSys::SlotPoolSetup::SetUp(0, MemSys::Sizes::Current().hashItems);
+        MemSys::PopMemProfile();
         Pre::CreateManager(true);
-        Tmr::Init();
-        Mem::PushMemProfile("File System");
-        File::AsyncInit(); // (passed "DATA", unused)
-        Mem::PopMemProfile();
+        FrameClock::Init();
+        MemSys::PushMemProfile("File System");
+        FileLoad::AsyncInit(); // (passed "DATA", unused)
+        MemSys::PopMemProfile();
 
-        Mem::PushMemProfile("System Singletons");
-        Obj::CreateTracker(true);
-        Mlp::Manager* mlp = Mlp::CreateManager(true);
-        Mdl::Manager* mdl = Mdl::CreateManager(true);
+        MemSys::PushMemProfile("System Singletons");
+        GameObjects::CreateTracker(true);
+        FrameLoop::Manager* mlp = FrameLoop::CreateManager(true);
+        GameModules::Manager* mdl = GameModules::CreateManager(true);
         Sio::Manager* sio = Sio::CreateManager(true);
-        Mc::CreateManager(true);
-        Inp::Manager* input = Inp::CreateManager(true);
-        File::AsyncLoaderModule* asyncLoader = File::CreateAsyncLoaderModule(true);
-        Mem::PopMemProfile();
-        Inp::g_inputManager->SetOverridePadWithStick(true); // (+0x10C)
-        Script::AllocatePools();
+        MemCard::CreateManager(true);
+        PadInput::Manager* input = PadInput::CreateManager(true);
+        FileLoad::AsyncLoaderModule* asyncLoader = FileLoad::CreateAsyncLoaderModule(true);
+        MemSys::PopMemProfile();
+        PadInput::g_inputManager->SetOverridePadWithStick(true); // (+0x10C)
+        Scripts::AllocatePools();
         // Not original - the level editor (game/front/level_editor.h) and CREATE 100% CAS
         // (game/front/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
         // registered after the game's own.
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
-        Front::LevelEditor::RegisterScriptFunctions();
-        Front::CareerComplete::RegisterScriptFunctions();
-        Front::TestView::RegisterScriptFunctions(); // (TeleportSkaterStanding - game/front/test_view.h)
+        MenuSystem::LevelEditor::RegisterScriptFunctions();
+        MenuSystem::CareerComplete::RegisterScriptFunctions();
+        MenuSystem::TestView::RegisterScriptFunctions(); // (TeleportSkaterStanding - game/front/test_view.h)
         Skater::ThawBmx::RegisterScriptFunctions(); // (ThawBmx_Available, the bike's members - game/skater/thaw_bmx.h)
-        Front::NewFrontend::RegisterScriptFunctions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
-        Script::LoadAllStartupQBFiles();
+        MenuSystem::NewFrontend::RegisterScriptFunctions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
+        Scripts::LoadBootScriptFiles();
 
-        Mem::PushMemProfile("Game Singletons");
-        Obj::CPathManager::Instance();
-        Script::CScriptCache* scriptCache = Script::CreateScriptCache(true);
-        Ass::CAssMan* assets = Ass::CreateAssetManager(true);
-        Sfx::CreateManager(true);
-        Net::CreateManager(true);
-        Obj::CreateCompositeObjectManager(true);
-        Obj::RegisterComponentTypes();
-        Obj::AcquireTrickObjectManager(true);
-        Game::CGameMode::Instance(true);
-        Obj::CPlayerProfileManager::Create(true);
-        Records::CGameRecords::Create(true);
-        uint8_t* module5691A0 = reinterpret_cast<uint8_t*>(Mdl::Skate::CreateInstance(true));
-        auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
-        GameNet::Manager::Create(true);
-        reinterpret_cast<void*&>(Obj::g_gameNetManager) = GameNet::g_gameNetManager; // (the network manager)
-        auto* parkEditor = reinterpret_cast<uint8_t*>(Ed::CParkEditor::Create(true));
-        Front::CreateScreenElementManager(true);
-        SkateScript::CreateNodeManager(true);
-        Gfx::CreateTODManager(true);
-        Mem::PopMemProfile();
+        MemSys::PushMemProfile("Game Singletons");
+        GameObjects::CPathManager::Instance();
+        Scripts::CScriptStore* scriptCache = Scripts::CreateScriptCache(true);
+        AssetStore::CResourceRegistry* assets = AssetStore::CreateAssetManager(true);
+        SoundFx::CreateManager(true);
+        NetLink::CreateManager(true);
+        GameObjects::CreateCompositeObjectManager(true);
+        GameObjects::RegisterComponentTypes();
+        GameObjects::AcquireTrickObjectManager(true);
+        GoalSystem::CMatchRules::Instance(true);
+        GameObjects::CProfileRoster::Create(true);
+        Highscores::CBestResults::Create(true);
+        uint8_t* module5691A0 = reinterpret_cast<uint8_t*>(GameModules::Skate::CreateInstance(true));
+        auto* frontEnd = reinterpret_cast<uint8_t*>(GameModules::CreateFrontEnd(true));
+        OnlinePlay::Manager::Create(true);
+        reinterpret_cast<void*&>(GameObjects::g_gameNetManager) = OnlinePlay::g_gameNetManager; // (the network manager)
+        auto* parkEditor = reinterpret_cast<uint8_t*>(ParkEditing::CParkBuilderMode::Create(true));
+        MenuSystem::CreateScreenElementManager(true);
+        LevelNodes::CreateNodeManager(true);
+        Gfx2D::CreateTODManager(true);
+        MemSys::PopMemProfile();
 
-        Mem::PushMemProfile("Resgistering and starting modules");
+        MemSys::PushMemProfile("Resgistering and starting modules");
         AddTask(mlp->m_systemTasks, mdl->m_task);
         AddTask(mlp->m_systemTasks, sio->m_task);
         AddTask(mlp->m_logicTasks, input->m_task);
@@ -198,59 +198,59 @@ int __cdecl Main(int argc, char** argv)
         RegisterModule(mdl, module5691A0);
         RegisterModule(mdl, asyncLoader);
         RegisterModule(mdl, assets);
-        StartModule(mdl, scriptCache);
-        StartModule(mdl, frontEnd);
-        StartModule(mdl, module5691A0);
-        StartModule(mdl, parkEditor);
-        StartModule(mdl, asyncLoader);
-        StartModule(mdl, assets);
-        Mem::PopMemProfile();
-        Mem::PushMemProfile("sStartEngine");
-        Nx::Engine::Init(350); // start the engine
-        Mem::PopMemProfile();
-        Mem::PopMemProfile(); // (Initialization)
+        LaunchModule(mdl, scriptCache);
+        LaunchModule(mdl, frontEnd);
+        LaunchModule(mdl, module5691A0);
+        LaunchModule(mdl, parkEditor);
+        LaunchModule(mdl, asyncLoader);
+        LaunchModule(mdl, assets);
+        MemSys::PopMemProfile();
+        MemSys::PushMemProfile("sStartEngine");
+        Engine3D::Engine::Init(350); // start the engine
+        MemSys::PopMemProfile();
+        MemSys::PopMemProfile(); // (Initialization)
 
-        Mem::PushMemProfile("MainLoop");
+        MemSys::PushMemProfile("MainLoop");
         MainLoop(mlp);
         // Originally from PartyMod Fixes: the process ends here (FastExit, in place of the original's PopMemProfile() - PartyMod's call
         // at 0x004E2492). The
         // original went on to tear everything down and, unless quitting, start again from the top.
         FastExit();
 
-        StopAllModules(mdl);
-        UnregisterModule(mdl, module5691A0); // (the script cache isn't unregistered)
-        UnregisterModule(mdl, frontEnd);
-        UnregisterModule(mdl, parkEditor);
-        UnregisterModule(mdl, asyncLoader);
-        UnregisterModule(mdl, assets);
-        RemoveAllTasks(mlp->m_displayTasks);
-        RemoveAllTasks(mlp->m_logicTasks);
-        RemoveAllTasks(mlp->m_systemTasks);
-        Gfx::ReleaseTODManager();
-        SkateScript::ReleaseNodeManager();
-        Front::DeleteScreenElementManager();
-        Ed::CParkEditor::Release();
-        GameNet::ReleaseManager();
-        Mdl::ReleaseFrontEnd();
-        Mdl::Skate::DeleteInstance();
-        Records::CGameRecords::Release();
-        Obj::CPlayerProfileManager::Release();
-        Game::CGameMode::Release();
-        Obj::ReleaseTrickObjectManager();
-        Obj::ReleaseCompositeObjectManager();
-        Net::ReleaseManager();
-        Sfx::ReleaseManager();
-        Ass::ReleaseAssetManager();
-        Script::ReleaseScriptCache();
-        File::DestroyAsyncLoaderModule();
-        Inp::ReleaseManager();
-        Mc::ReleaseManager();
+        HaltEveryModule(mdl);
+        RemoveModule(mdl, module5691A0); // (the script cache isn't unregistered)
+        RemoveModule(mdl, frontEnd);
+        RemoveModule(mdl, parkEditor);
+        RemoveModule(mdl, asyncLoader);
+        RemoveModule(mdl, assets);
+        ClearJobList(mlp->m_displayTasks);
+        ClearJobList(mlp->m_logicTasks);
+        ClearJobList(mlp->m_systemTasks);
+        Gfx2D::ReleaseTODManager();
+        LevelNodes::ReleaseNodeManager();
+        MenuSystem::DeleteScreenElementManager();
+        ParkEditing::CParkBuilderMode::Release();
+        OnlinePlay::ReleaseManager();
+        GameModules::ReleaseFrontEnd();
+        GameModules::Skate::DeleteInstance();
+        Highscores::CBestResults::Release();
+        GameObjects::CProfileRoster::Release();
+        GoalSystem::CMatchRules::Release();
+        GameObjects::ReleaseTrickObjectManager();
+        GameObjects::ReleaseCompositeObjectManager();
+        NetLink::ReleaseManager();
+        SoundFx::ReleaseManager();
+        AssetStore::ReleaseAssetManager();
+        Scripts::ReleaseScriptCache();
+        FileLoad::DestroyAsyncLoaderModule();
+        PadInput::ReleaseManager();
+        MemCard::ReleaseManager();
         Sio::ReleaseManager();
-        Mdl::ReleaseManager();
-        Mlp::ReleaseManager();
-        Obj::ReleaseTracker();
+        GameModules::ReleaseManager();
+        FrameLoop::ReleaseManager();
+        GameObjects::ReleaseTracker();
         Pre::DestroyManager();
-        Mem::PopMemProfile(); // (Everything)
+        MemSys::PopMemProfile(); // (Everything)
         Stubs::IgnoreArgument(0x10);
         PopBottomUpHeap();
     }

@@ -1,4 +1,4 @@
-// The network manager's members after its tasks (GameNet::Manager, 0x00533F20-0x00534FC0): the network mode flags,
+// The network manager's members after its tasks (OnlinePlay::Manager, 0x00533F20-0x00534FC0): the network mode flags,
 // the team flags, the player / observer counts and password among the network preferences, the server's end and the
 // custom tag texture a client sends.
 
@@ -47,7 +47,7 @@
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -58,12 +58,12 @@ constexpr uint32_t kFlagsClient = 2;   // bit 1
 constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
 
-constexpr uint32_t kServerTask2 = 0xE8; // Tsk::BaseTask* (removed with the server)
+constexpr uint32_t kServerTask2 = 0xE8; // TaskList::SchedulerTask* (removed with the server)
 constexpr uint32_t kStartPoints = 0x48; // int[8]: the starting points
 constexpr uint32_t kCrownStart = 0x68;  // int: the crown's
 constexpr uint32_t kShowMetrics = 0x45; // bool
 constexpr uint32_t kShowScores = 0x46;  // bool
-constexpr uint32_t kMetricsTask = 0xC4; // Tsk::BaseTask*
+constexpr uint32_t kMetricsTask = 0xC4; // TaskList::SchedulerTask*
 
 // Checksums.
 constexpr uint32_t kKillTeamFlags = 0xEBB3642E;     // Kill_Team_Flags
@@ -112,24 +112,24 @@ const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
 
 // The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
 // is_elimiskate, a property set (IsTrue).
-int ModeMaxPlayers() { return Call<int>(CodeAddress(&Game::CGameMode::GetMaximumNumberOfPlayers), GameMode()); }
-bool AccumulatesScore() { return Call<bool>(CodeAddress(&Game::CGameMode::ShouldAccumulateScore), GameMode()); }
-bool TracksBestCombo() { return Call<bool>(CodeAddress(&Game::CGameMode::ShouldTrackBestCombo), GameMode()); }
-bool IsElimiskate() { return Call<bool>(CodeAddress(&Game::CGameMode::EndConditionsMet), GameMode()); }
-bool ModeIsTrue(uint32_t property) { return Call<bool>(CodeAddress(&Game::CGameMode::IsTrue), GameMode(), property); }
+int ModeMaxPlayers() { return Call<int>(CodeAddress(&GoalSystem::CMatchRules::GetRiderCeiling), GameMode()); }
+bool AccumulatesScore() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::KeepsRunningTotal), GameMode()); }
+bool TracksBestCombo() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::KeepsBestChain), GameMode()); }
+bool IsElimiskate() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::FinishRulesReached), GameMode()); }
+bool ModeIsTrue(uint32_t property) { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::IsTrue), GameMode(), property); }
 
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 4); }
+TaskList::Stack* LogicTasks() { return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
 
 // The CFunction InSplitScreenGame (0x005A1180), called with no parameters.
-bool InSplitScreenGame() { return CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr) != 0; }
+bool InSplitScreenGame() { return ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr) != 0; }
 
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool ProfileHasPart(void* profile, uint32_t part)
 {
-    return Obj::PartIsCreatedGraphic(profile, part);
+    return GameObjects::PartIsCreatedGraphic(profile, part);
 }
 
-// The custom tag texture's parts (Nx::CTexture's virtual slots 25-28).
+// The custom tag texture's parts (Engine3D::CBitmapTexture's virtual slots 25-28).
 void* TexturePixels(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[25](texture); }
 uint16_t TextureSize(void* texture)
 {
@@ -144,10 +144,10 @@ uint16_t TexturePaletteSize(void* texture)
 // A network preference set from `values` (the original's new CStruct, never freed).
 void SetCountPreference(Manager* manager, uint32_t preference, const char* uiString, uint32_t checksum)
 {
-    Script::CStruct* values = NewParams();
-    values->AddString(kUiString, Script::ESYMBOLTYPE_STRING, uiString);
-    values->AddComponentOfType(kChecksum, Script::ESYMBOLTYPE_NAME, checksum);
-    manager->GetNetworkPreferences()->SetPreference(preference, values);
+    Scripts::CStruct* values = NewParams();
+    values->AddString(kUiString, Scripts::QBVAL_STRING, uiString);
+    values->AddComponentOfType(kChecksum, Scripts::QBVAL_NAME, checksum);
+    manager->GetOnlineSettings()->SetPreference(preference, values);
 }
 
 } // namespace
@@ -172,19 +172,19 @@ void Manager::SetServerMode(bool on)
 }
 
 // 0x00533F70
-int Manager::InLanMode() { return (m_flags >> 3) & 1; }
+int Manager::IsLocalNetworkPlay() { return (m_flags >> 3) & 1; }
 
 // 0x00533FA0
-int Manager::OnClient() { return (m_flags >> 1) & 1; }
+int Manager::IsClientSide() { return (m_flags >> 1) & 1; }
 
 // 0x00533FB0
-void Manager::CreateTeamFlags(int numTeams)
+void Manager::BuildTeamFlagSet(int numTeams)
 {
     Run(kKillTeamFlags);
     if (!numTeams)
         return;
-    Script::CStruct* params = NewParams();
-    params->AddInteger(kNumTeams, numTeams);
+    Scripts::CStruct* params = NewParams();
+    params->PutInt(kNumTeams, numTeams);
     Run(kCreateTeamFlags, params);
     DeleteParams(params);
 }
@@ -195,8 +195,8 @@ void Manager::SetMaxPlayersPreference(int count)
     char numName[32];
     char uiString[32];
     std::sprintf(numName, "num_%d", count);
-    uint32_t checksum = Crc::GenerateCRCFromString(numName);
-    std::sprintf(uiString, "%d %s", count, Script::GetString(kStrPlayers));
+    uint32_t checksum = Checksums::HashFromText(numName);
+    std::sprintf(uiString, "%d %s", count, Scripts::GetString(kStrPlayers));
     SetCountPreference(this, kNumPlayers, uiString, checksum);
 }
 
@@ -206,20 +206,20 @@ void Manager::SetMaxObserversPreference(int count)
     char numName[32];
     char uiString[32];
     std::sprintf(numName, "num_%d", count);
-    uint32_t checksum = Crc::GenerateCRCFromString(numName);
+    uint32_t checksum = Checksums::HashFromText(numName);
     if (count == 0)
-        std::sprintf(uiString, Script::GetString(kStrNoObservers)); // (the text is the format, as in the original)
+        std::sprintf(uiString, Scripts::GetString(kStrNoObservers)); // (the text is the format, as in the original)
     else if (count == 1)
-        std::sprintf(uiString, "1 %s", Script::GetString(kStrObserver));
+        std::sprintf(uiString, "1 %s", Scripts::GetString(kStrObserver));
     else
-        std::sprintf(uiString, "%d %s", count, Script::GetString(kStrObservers));
+        std::sprintf(uiString, "%d %s", count, Scripts::GetString(kStrObservers));
     SetCountPreference(this, kNumObservers, uiString, checksum);
 }
 
 // 0x00534310
 const char* Manager::GetPassword()
 {
-    Script::CStruct* preference = GetNetworkPreferences()->GetPreference(kPassword);
+    Scripts::CStruct* preference = GetOnlineSettings()->GetPreference(kPassword);
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
     auto password = reinterpret_cast<const char*>(this);
     preference->GetString(kUiString, &password, 1);
@@ -227,13 +227,13 @@ const char* Manager::GetPassword()
 }
 
 // 0x00534340
-bool Manager::PlayerCollisionEnabled()
+bool Manager::PlayersCanCollide()
 {
     if ((m_gameOver || GameType() == kFreeskate || GameType() == kHorse) && GameType() != kNetLobby)
         return false;
     if (InSplitScreenGame())
         return true;
-    if (GetNetworkPreferences()->GetPreferenceChecksum(kPlayerCollision, kChecksum) == kBooleanTrue)
+    if (GetOnlineSettings()->GetPreferenceChecksum(kPlayerCollision, kChecksum) == kBooleanTrue)
         return true;
     return GameType() == kNetSlap || GameType() == kSlap;
 }
@@ -241,23 +241,23 @@ bool Manager::PlayerCollisionEnabled()
 // 0x005343E0
 bool Manager::ShowTeamScores()
 {
-    if (GameType() == kNetLobby || !IsTeamGame())
+    if (GameType() == kNetLobby || !IsSquadMatch())
         return false;
-    return GetNetworkPreferences()->GetPreferenceChecksum(kScoreDisplay, kChecksum) == kScoreTeams;
+    return GetOnlineSettings()->GetPreferenceChecksum(kScoreDisplay, kChecksum) == kScoreTeams;
 }
 
 // 0x00534CF0
 void Manager::DestroyServer()
 {
-    Net::Manager* net = Net::Manager::Instance();
+    NetLink::Manager* net = NetLink::Manager::Instance();
     if (m_server) {
         if (!m_server->IsLocal() && (m_flags & kFlagsInternet)) {
-            static_cast<LobbyMan*>(m_lobbyMan)->StopHosting(); // the lobby's reporting stopped
+            static_cast<RoomManager*>(m_lobbyMan)->StopHosting(); // the lobby's reporting stopped
             GameSpy::NatFreeNegotiations();    // (GameSpy)
         }
-        net->DestroyApp(m_server);
+        net->ReleaseApp(m_server);
         m_serverAddNewPlayersTask->Remove();
-        Field<Tsk::BaseTask*>(this, kServerTask2)->Remove();
+        Field<TaskList::SchedulerTask*>(this, kServerTask2)->Remove();
         m_server = nullptr;
     }
     m_flags &= ~kFlagsServer;
@@ -267,7 +267,7 @@ void Manager::DestroyServer()
 void Manager::DestroyMatchClient()
 {
     if (m_matchClient) {
-        Net::Manager::Instance()->DestroyApp(m_matchClient);
+        NetLink::Manager::Instance()->ReleaseApp(m_matchClient);
         m_matchClient = nullptr;
     }
 }
@@ -275,23 +275,23 @@ void Manager::DestroyMatchClient()
 // 0x00534D70
 bool Manager::SendCustomTagTexture()
 {
-    Net::ConnSearch search;
-    search.m_vtable = Net::kConnSearchVtable;
-    search.m_node = nullptr;
+    NetLink::ConnSearch search;
+    search.m_vtable = NetLink::kConnSearchVtable;
+    search.m_listLink = nullptr;
     bool onServer = (m_flags & kFlagsServer) != 0;
     uint8_t* skate = Detail::Skate();
-    if (Net::Manager::Instance()->GetConnectionType() == Net::Manager::kConnectionModem || onServer)
+    if (NetLink::Manager::Instance()->GetNetLinkKind() == NetLink::Manager::kConnectionModem || onServer)
         return false;
-    auto* skater = Call<Obj::CCompositeObject*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), skate); // the local skater
+    auto* skater = Call<GameObjects::CGameEntity*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), skate); // the local skater
     if (!skater)
         return false;
-    auto* tagging = static_cast<Obj::CTaggingComponent*>(skater->GetComponent(Obj::CTaggingComponent::kType));
+    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(skater->GetComponent(GameObjects::CTaggingComponent::kType));
     if (!tagging || !tagging->HasCustomTagTexture())
         return false;
 
-    Net::Conn* server = m_client->FirstConnection(&search);
-    if (server->GetBandwidthType() == 0) {
-        void* profile = Call<void*>(CodeAddress(static_cast<Obj::CSkaterProfile* (Mdl::Skate::*)(int)>(&Mdl::Skate::GetProfile)), Detail::Skate(), 0);
+    NetLink::Conn* server = m_clientApp->BeginConnWalk(&search);
+    if (server->GetLinkSpeedClass() == 0) {
+        void* profile = Call<void*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::GetProfile)), Detail::Skate(), 0);
         uint32_t logos = ProfileHasPart(profile, kHatLogo) ? 1 : 0;
         if (ProfileHasPart(profile, kFrontLogo))
             logos |= 2;
@@ -299,22 +299,22 @@ bool Manager::SendCustomTagTexture()
             logos |= 4;
         if (ProfileHasPart(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = Call<void*>(CodeAddress(&Game::CGoal::GetParams), tagging); // the custom tag texture
+        void* texture = Call<void*>(CodeAddress(&GoalSystem::CObjective::GetParams), tagging); // the custom tag texture
         if (texture) {
-            Net::MsgDesc desc;
+            NetLink::NetMessageInfo desc;
             desc.Construct();
             desc.m_id = kMsgTagLogos;
             desc.m_data = &logos;
-            desc.m_length = 4;
-            desc.m_queue = Net::MsgDesc::kQueueSequenced;
+            desc.m_byteCount = 4;
+            desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
             desc.m_groupId = kGroupTag;
             void* palette = TexturePalette(texture);
-            m_client->StreamMessageToConn(server, kMsgTagPalette, TexturePaletteSize(texture), palette,
+            m_clientApp->SendBulkToConn(server, kMsgTagPalette, TexturePaletteSize(texture), palette,
                                           kTagPaletteDesc, kGroupTag, false, true);
             void* pixels = TexturePixels(texture);
-            m_client->StreamMessageToConn(server, kMsgTagTexture, TextureSize(texture), pixels, kTagTextureDesc,
+            m_clientApp->SendBulkToConn(server, kMsgTagTexture, TextureSize(texture), pixels, kTagTextureDesc,
                                           kGroupTag, false, true);
-            SendToServer(m_client, &desc);
+            SendToServer(m_clientApp, &desc);
         }
     }
     return true;
@@ -326,14 +326,14 @@ uint32_t Manager::GetLevel() { return m_level; }
 // 0x00534F50
 const char* Manager::GetChoiceName(uint32_t list, uint32_t choice)
 {
-    Script::CArray* choices = Script::GetArray(list);
+    Scripts::CArray* choices = Scripts::GetArray(list);
     const char* name = nullptr;
     // The checksum is read into the argument's slot: an entry without one compares what the slot last held (at
     // first the list's own name).
     uint32_t checksum = list;
     for (int i = 0; i < static_cast<int>(choices->m_size); ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(choices->GetElement(i));
-        entry->GetChecksum(kChecksum, &checksum, 1);
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(choices->GetElement(i));
+        entry->ReadHashValue(kChecksum, &checksum, 1);
         if (checksum == choice)
             entry->GetString(kName, &name, 1);
     }
@@ -343,15 +343,15 @@ const char* Manager::GetChoiceName(uint32_t list, uint32_t choice)
 // 0x00534FC0
 int Manager::GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field)
 {
-    Script::CArray* choices = Script::GetArray(list);
+    Scripts::CArray* choices = Scripts::GetArray(list);
     int value = 0;
     // (as above, the checksum goes into `choice`'s slot: an entry without one matches)
     uint32_t checksum = choice;
     for (int i = 0; i < static_cast<int>(choices->m_size); ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(choices->GetElement(i));
-        entry->GetChecksum(kChecksum, &checksum, 1);
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(choices->GetElement(i));
+        entry->ReadHashValue(kChecksum, &checksum, 1);
         if (checksum == choice)
-            entry->GetInteger(field, &value, 1);
+            entry->FetchIntValue(field, &value, 1);
     }
     return value;
 }
@@ -360,13 +360,13 @@ int Manager::GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field)
 void Manager::ChooseStartPoints()
 {
     int* points = &Field<int>(this, kStartPoints);
-    int offset = Mth::Rnd(256);
+    int offset = Maths::Rnd(256);
     int count;
     if (InNetGame()) {
         count = 8;
     } else {
         count = ModeMaxPlayers();
-        if (Field<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) != kOff && !ModeIsTrue(kIsHorse)) {
+        if (Field<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) != kOff && !ModeIsTrue(kIsHorse)) {
             count = 2;
             offset = 0;
         }
@@ -378,7 +378,7 @@ void Manager::ChooseStartPoints()
         // Drawn again until it's one no other slot has.
         bool taken;
         do {
-            points[i] = Mth::Rnd(count);
+            points[i] = Maths::Rnd(count);
             taken = false;
             for (int j = 0; j < count && !taken; ++j)
                 taken = i != j && points[i] == points[j];
@@ -386,19 +386,19 @@ void Manager::ChooseStartPoints()
     }
     for (int i = 0; i < count; ++i)
         points[i] += offset;
-    Field<int>(this, kCrownStart) = Mth::Rnd(10);
+    Field<int>(this, kCrownStart) = Maths::Rnd(10);
 }
 
 // 0x00535BC0
 void Manager::ToggleNetMetrics()
 {
-    Tsk::Stack* tasks = LogicTasks();
+    TaskList::Stack* tasks = LogicTasks();
     uint8_t& show = Field<uint8_t>(this, kShowMetrics); // (a byte flipped by its bit 0, as in the original)
     show ^= 1;
     if (show)
-        tasks->AddTask(Field<Tsk::BaseTask*>(this, kMetricsTask));
+        tasks->AddTask(Field<TaskList::SchedulerTask*>(this, kMetricsTask));
     else
-        Field<Tsk::BaseTask*>(this, kMetricsTask)->Remove();
+        Field<TaskList::SchedulerTask*>(this, kMetricsTask)->Remove();
 }
 
 // 0x00535BF0
@@ -418,17 +418,17 @@ bool Manager::KeepsScore()
 }
 
 // 0x00535D90
-void Manager::SetProSetFlags(char flags) { m_proSetFlags = static_cast<uint32_t>(static_cast<int>(flags)); }
+void Manager::SetPresetOptionBits(char flags) { m_proSetFlags = static_cast<uint32_t>(static_cast<int>(flags)); }
 
 // (no address: the list code folded at 0x00588B70 - see the header; the first node's data read before the null check,
 // as there)
-void __fastcall Manager::UnlinkAllNodes(Mem::ListNode* head)
+void __fastcall Manager::UnlinkAllNodes(MemSys::ListNode* head)
 {
-    Mem::ListNode* node = head->next;
+    MemSys::ListNode* node = head->next;
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return;
     while (node) {
-        Mem::ListNode* following = node->next;
+        MemSys::ListNode* following = node->next;
         node->prev->next = following;
         following->prev = node->prev;
         node->next = node;
@@ -450,21 +450,21 @@ void Manager::DestroyBody()
         g_queryReporting = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
-    if (auto* lobby = static_cast<LobbyMan*>(m_lobbyMan)) {
+    if (auto* lobby = static_cast<RoomManager*>(m_lobbyMan)) {
         lobby->DestroyBody();
-        Mem::Manager::Get()->Free(lobby);
+        MemSys::Manager::Get()->Free(lobby);
     }
     if (auto* vault = static_cast<VaultMan*>(m_vaultMan)) {
         vault->DestroyBody();
-        Mem::Manager::Get()->Free(vault);
+        MemSys::Manager::Get()->Free(vault);
     }
-    if (auto* buddies = static_cast<BuddyMan*>(m_buddyMan)) {
+    if (auto* buddies = static_cast<FriendsManager*>(m_buddyMan)) {
         buddies->DestroyBody();
-        Mem::Manager::Get()->Free(buddies);
+        MemSys::Manager::Get()->Free(buddies);
     }
-    if (auto* stats = static_cast<StatsMan*>(m_statsMan)) {
+    if (auto* stats = static_cast<RankingsManager*>(m_statsMan)) {
         stats->DestroyBody();
-        Mem::Manager::Get()->Free(stats);
+        MemSys::Manager::Get()->Free(stats);
     }
     // The tasks, deleted through their vtables (slot 2), in the original's order.
     for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u}) {
@@ -473,14 +473,14 @@ void Manager::DestroyBody()
             reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(task))[2])(task, 1);
     }
     // The lists: the players' nodes unlinked, then each head's destructor.
-    UnlinkAllNodes(&Field<Mem::ListNode>(this, 0x11C));
+    UnlinkAllNodes(&Field<MemSys::ListNode>(this, 0x11C));
     Field<ServerNode>(this, 0x16C).DestroyBody();
     Field<ServerNode>(this, 0x158).DestroyBody();
     Field<QueuedScriptNode>(this, 0x144).DestroyBody();
     Field<NewPlayerNode>(this, 0x130).DestroyBody();
     Field<PlayerNode>(this, 0x11C).DestroyBody();
-    GetTauntPreferences()->Deinit();
-    GetNetworkPreferences()->Deinit();
+    GetTauntSettings()->TearDownState();
+    GetOnlineSettings()->TearDownState();
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

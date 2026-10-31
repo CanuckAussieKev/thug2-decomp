@@ -3,13 +3,13 @@
 #include <cstdint>
 #include "game/lst/hashtable.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
 
 // Fonts loaded by the scripts (LoadFont), by name, and the meta button map the button glyphs go through.
-namespace Nx {
+namespace Engine3D {
 
 // The engine's font (the base of the PC font, CPcFont in pc_font.h: its first 8 bytes; vtable 0x00648A6C - [0] the
 // destructor, [1] load (0x0049F4B0: false), [2] - [4] the stubs below, [5] unload (empty), [6] / [7] the height and
@@ -27,7 +27,7 @@ public:
     // (0x0048D060, a string's width and height, is a jump to virtual [8] folded with other classes' slot 8:
     // engine_geom.h's VirtualSlot8Jump.)
     // 0x0048D070 (virtual [2]) / 0x0048D080 (virtual [3] and [4]): "STUB A DUB DUB".
-    void PlatSetSpacings(int charSpacing, int spaceSpacing);
+    void PlatSetSpacings(int glyphGap, int blankGap);
     void PlatSetColors(const uint32_t* colors);
 
     void** m_vtable;
@@ -46,10 +46,10 @@ constexpr int kFontSlots = 16;
 // Load the font `name` (or, if it's loaded, just update it): spacings, colour table (`colors` - 16 RGBA
 // entries - or null to keep the font's), and whether it's the button-glyph font. Loading a font also loads
 // the meta button map (once).
-void LoadFont(const char* name, int charSpacing, int spaceSpacing, uint32_t* colors, bool buttonFont);
+void LoadFont(const char* name, int glyphGap, int blankGap, uint32_t* colors, bool buttonFont);
 
 // LoadFont <name> [buttons_font] [char_spacing = n] [space_spacing = n] [color_tab = [[r g b a] ...]]
-bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_LoadFont(Scripts::CStruct* params, Scripts::CScript* script);
 
 // The name of the button-glyph font and of the meta button map script array, as PartyMod's GlyphStyle
 // setting picks them (1 PS2, 2 GameCube, otherwise the original Xbox ones).
@@ -61,13 +61,13 @@ CFont* __cdecl GetFont(uint32_t name);
 // 0x0048D6C0: the font `name` unloaded (0x004B4090) and taken out of the table (its slot's name kept).
 void __cdecl UnloadFont(const char* name);
 // UnloadFont <name> (0x0048D7B0).
-bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_UnloadFont(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
 char __cdecl ButtonGlyph(const char* digit);
 
 extern char g_metaButtonMap[32];
 
 extern FontSlot g_fontSlots[16];
-extern Lst::HashTable g_fontTable; // 0x006FA9F0: the fonts by name
+extern ListKit::HashTable g_fontTable; // 0x006FA9F0: the fonts by name
 
 } // namespace Nx

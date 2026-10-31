@@ -1,4 +1,4 @@
-// The skater's gap component (Obj::CSkaterGapComponent): see gap.h.
+// The skater's gap component (GameObjects::CRiderGapTracker): see gap.h.
 
 #include "game/skater/gap.h"
 
@@ -31,13 +31,13 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/gap.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
 extern void** const kVtable;
-extern void** const kGapHeadVtable;      // Lst::Head<TrickListEntry>
-extern void** const kGapTrickHeadVtable; // Lst::Head<TrickNameEntry>
+extern void** const kGapHeadVtable;      // ListKit::Head<TrickListEntry>
+extern void** const kGapTrickHeadVtable; // ListKit::Head<TrickNameEntry>
 constexpr uint32_t kSkaterGap = 0x11B4C67F;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterBalanceTrick = 0x589E5FB3,
                    kSkaterPhysicsControl = 0xD9151D4D, kWalk = 0x726E85AA, kVehicle = 0xE47F1B79, kTrick = 0x270F56E1;
@@ -81,8 +81,8 @@ int& GapSpin(TrickListEntry* gap) { return Field<int>(gap, 0x30); }             
 uint8_t& GapPerfect(TrickListEntry* gap) { return Field<uint8_t>(gap, 0x34); }
 uint32_t& GapTricksCount(TrickListEntry* gap) { return Field<uint32_t>(gap, 0x38); } // the score's +0x5C then
 int& GapTaps(TrickListEntry* gap) { return Field<int>(gap, 0x3C); }
-Mth::Vector& GapStartPos(TrickListEntry* gap) { return Field<Mth::Vector>(gap, 0x40); }
-Mth::Vector& GapStartDir(TrickListEntry* gap) { return Field<Mth::Vector>(gap, 0x50); }
+Maths::Vector& GapStartPos(TrickListEntry* gap) { return Field<Maths::Vector>(gap, 0x40); }
+Maths::Vector& GapStartDir(TrickListEntry* gap) { return Field<Maths::Vector>(gap, 0x50); }
 
 uint32_t& TrickGapId(TrickNameEntry* trick) { return Field<uint32_t>(trick, 0x20); }
 int& TrickNode(TrickNameEntry* trick) { return Field<int>(trick, 0x24); }
@@ -92,35 +92,35 @@ uint32_t& TrickFrame(TrickNameEntry* trick) { return Field<uint32_t>(trick, 0x30
 
 // A list's first entry and the one after `node` (null at the head: its data is -1).
 template <typename T>
-T* EntryOf(Mem::ListNode* node)
+T* EntryOf(MemSys::ListNode* node)
 {
     return reinterpret_cast<intptr_t>(node->data) == -1 ? nullptr : reinterpret_cast<T*>(node);
 }
 template <typename T>
-T* First(Mem::ListNode& head)
+T* First(MemSys::ListNode& head)
 {
     return EntryOf<T>(head.next);
 }
 template <typename T>
 T* Next(T* entry)
 {
-    return EntryOf<T>(reinterpret_cast<Mem::ListNode*>(entry)->next);
+    return EntryOf<T>(reinterpret_cast<MemSys::ListNode*>(entry)->next);
 }
 // An entry deleted through its vtable (the scalar deleting destructor).
 void Delete(void* entry)
 {
-    auto* node = static_cast<Mem::ListNode*>(entry);
+    auto* node = static_cast<MemSys::ListNode*>(entry);
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
 }
 // `node` at the front of the list `head`.
-void AddToFront(Mem::ListNode& head, Mem::ListNode* node)
+void AddToFront(MemSys::ListNode& head, MemSys::ListNode* node)
 {
     node->prev = &head;
     node->next = head.next;
     head.next->prev = node;
     head.next = node;
 }
-void InitHead(Mem::ListNode& head, void** vtable)
+void SetupListSentinel(MemSys::ListNode& head, void** vtable)
 {
     head.vtable = vtable;
     head.next = &head;
@@ -131,39 +131,39 @@ void InitHead(Mem::ListNode& head, void** vtable)
 
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
 // rewritten yet.
-Game::CGapChecklist* GapChecklist()
+GoalSystem::CGapTally* GapChecklist()
 {
-    return static_cast<Game::CGapChecklist*>(Mdl::Skate::Instance()->GetGapChecklist());
+    return static_cast<GoalSystem::CGapTally*>(GameModules::Skate::Instance()->FetchGapList());
 }
-CSkaterCareer* Career() { return *reinterpret_cast<CSkaterCareer**>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x20); }
+CRiderStoryProgress* Career() { return *reinterpret_cast<CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x20); }
 
-// The score (Mdl::Score; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
+// The score (GameModules::Score; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"
 // for the tricks= arrays); a gap's points and text (0x00563990).
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountKeyComboRepeats(keyCombo, spin, taps);
+    return reinterpret_cast<GameModules::Score*>(score)->CountKeyComboRepeats(keyCombo, spin, taps);
 }
 int TrickCount(uint8_t* score, uint32_t trick, int spin, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountTrickRepeats(trick, spin, taps);
+    return reinterpret_cast<GameModules::Score*>(score)->CountTrickRepeats(trick, spin, taps);
 }
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountKeyCombo(keyCombo, spin, reinterpret_cast<bool&>(perfect), taps);
+    return reinterpret_cast<GameModules::Score*>(score)->CountKeyCombo(keyCombo, spin, reinterpret_cast<bool&>(perfect), taps);
 }
 int TrickCount(uint8_t* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, spin, reinterpret_cast<bool&>(perfect), taps);
+    return reinterpret_cast<GameModules::Score*>(score)->CountTrickAfterTaps(trick, spin, reinterpret_cast<bool&>(perfect), taps);
 }
-int TricksArrayCount(uint8_t* /*score*/, Script::CArray* tricks, uint32_t since)
+int TricksArrayCount(uint8_t* /*score*/, Scripts::CArray* tricks, uint32_t since)
 {
     // (the shared "0": a stdcall stub of two stack arguments; the score is only in ECX)
     return Stubs::ReturnZero2(static_cast<int>(reinterpret_cast<intptr_t>(tricks)), static_cast<int>(since));
 }
 void AddGapScore(uint8_t* score, const char* text, int points, int flags)
 {
-    reinterpret_cast<Mdl::Score*>(score)->Trigger(text, points, static_cast<uint32_t>(flags));
+    reinterpret_cast<GameModules::Score*>(score)->Trigger(text, points, static_cast<uint32_t>(flags));
 }
 
 // The state component (the physics control's +0x2C): +0x118 driving, +0x1C walking.
@@ -177,19 +177,19 @@ int HalfTurns(int degrees) { return degrees / 180; }
 } // namespace
 
 // 0x00512C60
-CBaseComponent* __cdecl CSkaterGapComponent::Create()
+CObjectModule* __cdecl CRiderGapTracker::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterGapComponent));
-    return memory ? static_cast<CSkaterGapComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderGapTracker));
+    return memory ? static_cast<CRiderGapTracker*>(memory)->Construct() : nullptr;
 }
 
 // 0x005122A0
-CSkaterGapComponent* CSkaterGapComponent::Construct()
+CRiderGapTracker* CRiderGapTracker::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
-    InitHead(m_gaps, kGapHeadVtable);
-    InitHead(m_gapTricks, kGapTrickHeadVtable);
+    SetupListSentinel(m_gaps, kGapHeadVtable);
+    SetupListSentinel(m_gapTricks, kGapTrickHeadVtable);
     m_type = kSkaterGap;
     m_corePhysics = nullptr;
     m_balanceTrick = nullptr;
@@ -197,28 +197,28 @@ CSkaterGapComponent* CSkaterGapComponent::Construct()
 }
 
 // 0x00511F10
-void CSkaterGapComponent::DestroyBody()
+void CRiderGapTracker::DestroyBody()
 {
     m_vtable = kVtable;
     m_gapTricks.UnlinkAs(g_gapTrickNodeVtable);
     m_gaps.UnlinkAs(g_gapNodeVtable);
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x005122F0
-CSkaterGapComponent* CSkaterGapComponent::Destroy(unsigned int flags)
+CRiderGapTracker* CRiderGapTracker::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00511BB0
-void CSkaterGapComponent::InitFromStructure(Script::CStruct* /*params*/) { m_frame = 0; }
+void CRiderGapTracker::ConfigureFromData(Scripts::CStruct* /*params*/) { m_frame = 0; }
 
 // 0x00511BC0
-void CSkaterGapComponent::Finalize()
+void CRiderGapTracker::Finalize()
 {
     m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
     m_balanceTrick = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterBalanceTrick));
@@ -227,16 +227,16 @@ void CSkaterGapComponent::Finalize()
 }
 
 // 0x00512320
-void CSkaterGapComponent::Update()
+void CRiderGapTracker::Update()
 {
     ++m_frame;
     uint32_t cancel, require;
     GetStateFlags(&cancel, &require);
-    CheckGaps(cancel, require);
+    ScanForGaps(cancel, require);
 }
 
 // 0x00511C80
-void CSkaterGapComponent::GetStateFlags(uint32_t* cancel, uint32_t* require)
+void CRiderGapTracker::GetStateFlags(uint32_t* cancel, uint32_t* require)
 {
     *require = 0;
     *cancel = 0;
@@ -250,8 +250,8 @@ void CSkaterGapComponent::GetStateFlags(uint32_t* cancel, uint32_t* require)
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
-        CCompositeObject* vehicle =
-            static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(kPlayerVehicle));
+        CGameEntity* vehicle =
+            static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(kPlayerVehicle));
         uint8_t* physics = reinterpret_cast<uint8_t*>(vehicle->GetComponent(kVehicle));
         set(Field<uint32_t>(physics, 0x114) != 0 ? kGapGround : kGapAir);
         return;
@@ -292,7 +292,7 @@ void CSkaterGapComponent::GetStateFlags(uint32_t* cancel, uint32_t* require)
 }
 
 // 0x00511F60
-void CSkaterGapComponent::CheckGaps(uint32_t cancel, uint32_t require)
+void CRiderGapTracker::ScanForGaps(uint32_t cancel, uint32_t require)
 {
     for (TrickListEntry* gap = First<TrickListEntry>(m_gaps); gap;) {
         TrickListEntry* next = Next(gap);
@@ -314,46 +314,46 @@ void CSkaterGapComponent::CheckGaps(uint32_t cancel, uint32_t require)
 }
 
 // 0x00512030
-void CSkaterGapComponent::ClearGaps()
+void CRiderGapTracker::ClearGaps()
 {
     reinterpret_cast<ListHead*>(&m_gaps)->DeleteAllNodes();
     reinterpret_cast<ListHead*>(&m_gapTricks)->DeleteAllNodes();
 }
 
 // 0x00512050
-void CSkaterGapComponent::StartGapTrick(Script::CStruct* params, Script::CScript* script)
+void CRiderGapTracker::StartGapTrick(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    void* memory = Mem::Calloc(sizeof(TrickNameEntry));
+    void* memory = MemSys::AllocZeroed(sizeof(TrickNameEntry));
     auto* trick = memory ? static_cast<TrickNameEntry*>(memory)->Construct() : nullptr;
-    AddToFront(m_gapTricks, &trick->m_node);
-    TrickNode(trick) = script->m_node;
+    AddToFront(m_gapTricks, &trick->m_listLink);
+    TrickNode(trick) = script->m_listLink;
     TrickDone(trick) = 0;
     TrickFrame(trick) = m_frame;
     uint32_t gapId = 0;
-    params->GetChecksum(kGapID, &gapId, 0);
+    params->ReadHashValue(kGapID, &gapId, 0);
     TrickGapId(trick) = gapId;
     const char* text = nullptr;
     params->GetString(kTrickText, &text, 0);
     trick->m_name = text;
     TrickScript(trick) = 0;
-    params->GetChecksum(kTrickscript, &TrickScript(trick), 1);
+    params->ReadHashValue(kTrickscript, &TrickScript(trick), 1);
 }
 
 // 0x00512140
-void CSkaterGapComponent::CheckGapTricks(Script::CStruct* /*params*/)
+void CRiderGapTracker::CheckGapTricks(Scripts::CStruct* /*params*/)
 {
     for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapTricks); trick;) {
         TrickNameEntry* next = Next(trick);
         if (TrickDone(trick))
-            m_object->SpawnAndRunScript(TrickScript(trick), TrickNode(trick), false, false, nullptr);
+            m_object->StartScriptTask(TrickScript(trick), TrickNode(trick), false, false, nullptr);
         trick = next;
     }
 }
 
 // 0x005121A0
-void CSkaterGapComponent::ClearGapTricks(Script::CStruct* params)
+void CRiderGapTracker::ClearGapTricks(Scripts::CStruct* params)
 {
-    bool notThisFrame = params->ContainsFlag(kNotInSameFrame);
+    bool notThisFrame = params->HasBareFlag(kNotInSameFrame);
     for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapTricks); trick;) {
         TrickNameEntry* next = Next(trick);
         if (!notThisFrame || TrickFrame(trick) != m_frame)
@@ -363,30 +363,30 @@ void CSkaterGapComponent::ClearGapTricks(Script::CStruct* params)
 }
 
 // 0x00512360
-void CSkaterGapComponent::StartGap(Script::CStruct* params, Script::CScript* script)
+void CRiderGapTracker::StartGap(Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (Field<uint8_t>(CoreState(m_corePhysics), 0x70))
         return;
     uint32_t gapId = 0;
-    params->GetChecksum(kGapID, &gapId, 0);
+    params->ReadHashValue(kGapID, &gapId, 0);
     // A gap of the same GapID and node is started again.
     for (TrickListEntry* gap = First<TrickListEntry>(m_gaps); gap;) {
         TrickListEntry* next = Next(gap);
-        if (GapId(gap) == gapId && GapNode(gap) == script->m_node)
+        if (GapId(gap) == gapId && GapNode(gap) == script->m_listLink)
             Delete(gap);
         gap = next;
     }
-    void* memory = Mem::Calloc(sizeof(TrickListEntry));
+    void* memory = MemSys::AllocZeroed(sizeof(TrickListEntry));
     auto* gap = memory ? static_cast<TrickListEntry*>(memory)->Construct() : nullptr;
-    AddToFront(m_gaps, &gap->m_node);
+    AddToFront(m_gaps, &gap->m_listLink);
     GapId(gap) = gapId;
-    GapNode(gap) = script->m_node;
+    GapNode(gap) = script->m_listLink;
     GapTrickText(gap) = 0;
     // Where the skater starts: its camera's position, and facing back along the camera's at row.
-    auto* skater = static_cast<CSkater*>(m_object);
-    GapStartPos(gap) = static_cast<CCompositeObject*>(skater->GetSkaterCamera())->m_pos;
-    const Mth::Vector& at = static_cast<CCompositeObject*>(skater->GetSkaterCamera())->m_matrix.row[2];
-    Mth::Vector& dir = GapStartDir(gap);
+    auto* skater = static_cast<CRider*>(m_object);
+    GapStartPos(gap) = static_cast<CGameEntity*>(skater->GetSkaterCamera())->m_pos;
+    const Maths::Vector& at = static_cast<CGameEntity*>(skater->GetSkaterCamera())->m_basisFrame.row[2];
+    Maths::Vector& dir = GapStartDir(gap);
     dir.z = -at.z;
     dir.x = -at.x;
     dir.y = -at.y;
@@ -394,74 +394,74 @@ void CSkaterGapComponent::StartGap(Script::CStruct* params, Script::CScript* scr
 
     // The trick it needs.
     uint32_t trickScript;
-    if (params->GetChecksum(kTrickscript, &trickScript, 0)) {
+    if (params->ReadHashValue(kTrickscript, &trickScript, 0)) {
         GapTrickScript(gap) = trickScript;
         uint32_t keyCombo;
         const char* text;
-        Script::CArray* tricks;
+        Scripts::CArray* tricks;
         auto readSpin = [&]() {
             int spin;
-            if (params->GetInteger(kSpin, &spin, 0)) {
-                GapPerfect(gap) = params->ContainsFlag(kPerfect) ? 1 : 0;
+            if (params->FetchIntValue(kSpin, &spin, 0)) {
+                GapPerfect(gap) = params->HasBareFlag(kPerfect) ? 1 : 0;
                 GapSpin(gap) = HalfTurns(spin);
             }
-            params->GetInteger(kNumTaps, &GapTaps(gap), 0);
+            params->FetchIntValue(kNumTaps, &GapTaps(gap), 0);
         };
-        if (params->GetChecksum(kKeycombo, &keyCombo, 0)) {
+        if (params->ReadHashValue(kKeycombo, &keyCombo, 0)) {
             GapKeyCombo(gap) = keyCombo;
             readSpin();
-            GapTrickCount(gap) = KeyComboCount(m_score, keyCombo, GapSpin(gap), GapTaps(gap));
+            GapTrickCount(gap) = KeyComboCount(m_pointsHeld, keyCombo, GapSpin(gap), GapTaps(gap));
         } else if (params->GetString(kTrickText, &text, 0)) {
-            GapTrickText(gap) = Crc::GenerateCRCFromString(text);
+            GapTrickText(gap) = Checksums::HashFromText(text);
             readSpin();
-            GapTrickCount(gap) = TrickCount(m_score, GapTrickText(gap), GapSpin(gap), GapTaps(gap));
+            GapTrickCount(gap) = TrickCount(m_pointsHeld, GapTrickText(gap), GapSpin(gap), GapTaps(gap));
         } else if (params->GetArray(kTricks, &tricks, 0)) {
-            Script::CopyArray(gap->m_array, tricks);
-            GapTricksCount(gap) = Field<uint32_t>(m_score, 0x5C);
+            Scripts::DuplicateArray(gap->m_elementList, tricks);
+            GapTricksCount(gap) = Field<uint32_t>(m_pointsHeld, 0x5C);
         }
         StartGapTrick(params, script);
     }
 
     // Its flags.
     GapFlags(gap) = 0;
-    Script::CArray* flags = nullptr;
+    Scripts::CArray* flags = nullptr;
     params->GetArray(kFlags, &flags, 0);
     if (flags) {
         for (uint32_t i = 0; i < flags->m_size; ++i)
-            GapFlags(gap) |= Script::GetInteger(flags->GetElement(i));
+            GapFlags(gap) |= Scripts::FetchIntValue(flags->GetElement(i));
     } else {
         uint32_t flag;
-        if (params->GetChecksum(kFlags, &flag, 0))
-            GapFlags(gap) |= Script::GetInteger(flag);
+        if (params->ReadHashValue(kFlags, &flag, 0))
+            GapFlags(gap) |= Scripts::FetchIntValue(flag);
     }
     uint32_t combined = 0;
-    if (params->GetChecksum(kCombinedFlags, &combined, 0))
+    if (params->ReadHashValue(kCombinedFlags, &combined, 0))
         GapFlags(gap) |= combined;
-    if (params->ContainsFlag(kCarGap))
+    if (params->HasBareFlag(kCarGap))
         GapFlags(gap) |= kGapSkating | kGapWalking;
-    else if (!params->ContainsFlag(kNotOnlyCar) && !(GapFlags(gap) & (kGapSkating | kGapWalking)))
+    else if (!params->HasBareFlag(kNotOnlyCar) && !(GapFlags(gap) & (kGapSkating | kGapWalking)))
         GapFlags(gap) |= kGapDriving;
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
     bool drivingMatters = Field<uint8_t>(StateOf(m_physicsControl), 0x118) && (GapFlags(gap) & kGapDriving);
-    if (!drivingMatters && Field<uint32_t>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor), 0x40) == kOff)
+    if (!drivingMatters && Field<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) == kOff)
         return;
     uint32_t cancel, require;
     GetStateFlags(&cancel, &require);
-    CheckGaps(cancel, require);
+    ScanForGaps(cancel, require);
 }
 
 // 0x00512770
-void CSkaterGapComponent::EndGap(Script::CStruct* params, Script::CScript* script)
+void CRiderGapTracker::EndGap(Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (Field<uint8_t>(CoreState(m_corePhysics), 0x70))
         return;
     uint32_t gapId = 0;
-    params->GetChecksum(kGapID, &gapId, 0);
+    params->ReadHashValue(kGapID, &gapId, 0);
     for (TrickListEntry* gap = First<TrickListEntry>(m_gaps); gap;) {
         TrickListEntry* next = Next(gap);
         // Its GapID - without one, a gap started at a node that links to this script's.
-        if (GapId(gap) != gapId || (gapId == 0 && !SkateScript::IsLinkedTo(GapNode(gap), script->m_node))) {
+        if (GapId(gap) != gapId || (gapId == 0 && !LevelNodes::HasLinkTo(GapNode(gap), script->m_listLink))) {
             gap = next;
             continue;
         }
@@ -471,13 +471,13 @@ void CSkaterGapComponent::EndGap(Script::CStruct* params, Script::CScript* scrip
             gap = next;
             continue;
         }
-        if (params->ContainsComponentNamed(kRequirePerfect)) {
-            Script::CStruct* results = Script::NewStruct();
+        if (params->HasEntryNamed(kRequirePerfect)) {
+            Scripts::CStruct* results = Scripts::NewStruct();
             if (results)
                 results = results->Init();
-            Script::RunScriptOnce(kDoPerfectCheck2, nullptr, m_object, results);
-            int perfect = 0; // (not initialised in the original: GetInteger asserts it's there)
-            results->GetInteger(kPerfect, &perfect, 1);
+            Scripts::RunScriptOnce(kDoPerfectCheck2, nullptr, m_object, results);
+            int perfect = 0; // (not initialised in the original: FetchIntValue asserts it's there)
+            results->FetchIntValue(kPerfect, &perfect, 1);
             if (perfect != 1) {
                 Delete(gap); // (the results structure isn't freed here: the original leaks it)
                 gap = next;
@@ -485,7 +485,7 @@ void CSkaterGapComponent::EndGap(Script::CStruct* params, Script::CScript* scrip
             }
             if (results) {
                 results->Clear();
-                Script::DeleteStruct(results);
+                Scripts::DeleteStruct(results);
             }
         }
         const char* text;
@@ -497,18 +497,18 @@ void CSkaterGapComponent::EndGap(Script::CStruct* params, Script::CScript* scrip
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
         if (GapTrickScript(gap)) {
             bool done;
-            if (!GapKeyCombo(gap) && !GapTrickText(gap) && gap->m_array->m_size == 0) {
+            if (!GapKeyCombo(gap) && !GapTrickText(gap) && gap->m_elementList->m_size == 0) {
                 done = true;
             } else {
                 done = false;
-                if (GapKeyCombo(gap) && GapTrickCount(gap) < KeyComboCount(m_score, GapKeyCombo(gap), GapSpin(gap),
+                if (GapKeyCombo(gap) && GapTrickCount(gap) < KeyComboCount(m_pointsHeld, GapKeyCombo(gap), GapSpin(gap),
                                                                            GapPerfect(gap), GapTaps(gap)))
                     done = true;
-                else if (GapTrickText(gap) && GapTrickCount(gap) < TrickCount(m_score, GapTrickText(gap), GapSpin(gap),
+                else if (GapTrickText(gap) && GapTrickCount(gap) < TrickCount(m_pointsHeld, GapTrickText(gap), GapSpin(gap),
                                                                                GapPerfect(gap), GapTaps(gap)))
                     done = true;
-                else if (gap->m_array->m_size > 0 &&
-                         TricksArrayCount(m_score, gap->m_array, GapTricksCount(gap)) > 0)
+                else if (gap->m_elementList->m_size > 0 &&
+                         TricksArrayCount(m_pointsHeld, gap->m_elementList, GapTricksCount(gap)) > 0)
                     done = true;
             }
             if (done) {
@@ -524,22 +524,22 @@ void CSkaterGapComponent::EndGap(Script::CStruct* params, Script::CScript* scrip
         }
         GapChecklist()->SetGapPositions(text, GapStartPos(gap), GapStartDir(gap));
         int points = 0;
-        if (params->GetInteger(kScore, &points, 0) && m_object->m_unknownBC) {
-            AddGapScore(m_score, coloured, points, 0x10);
+        if (params->FetchIntValue(kScore, &points, 0) && m_object->m_unknownBC) {
+            AddGapScore(m_pointsHeld, coloured, points, 0x10);
             Field<uint8_t>(m_object->GetComponent(kTrick), 0x13A8) = 1;
-            GapChecklist()->GotGap(text);
-            m_object->SpawnAndRunScript(kDefaultGapScript, 0, false, false, nullptr);
+            GapChecklist()->RegisterGapHit(text);
+            m_object->StartScriptTask(kDefaultGapScript, 0, false, false, nullptr);
         }
         uint32_t gapScript;
-        if (params->GetChecksum(kGapScript, &gapScript, 0)) {
-            bool permanent = params->ContainsFlag(kPermanent);
-            bool netEnabled = params->ContainsFlag(kNetEnabled);
-            m_object->SpawnAndRunScript(gapScript, script->m_node, netEnabled, permanent, nullptr);
+        if (params->ReadHashValue(kGapScript, &gapScript, 0)) {
+            bool permanent = params->HasBareFlag(kPermanent);
+            bool replicateFlag = params->HasBareFlag(kNetEnabled);
+            m_object->StartScriptTask(gapScript, script->m_listLink, replicateFlag, permanent, nullptr);
         }
-        Script::CStruct* continuation = nullptr;
-        if (params->GetStructure(kContinue, &continuation, 0))
+        Scripts::CStruct* continuation = nullptr;
+        if (params->ReadSubStruct(kContinue, &continuation, 0))
             StartGap(continuation, script);
-        uint32_t success = Crc::ExtendCRCWithString(gapId, "_Success");
+        uint32_t success = Checksums::FoldTextIntoChecksum(gapId, "_Success");
         Tracker()->LaunchEvent(success, 0xFFFFFFFF, m_object->m_id, params, true, -1.0f);
         // The gap deleted if it's still in the list; then the walk begins again.
         for (TrickListEntry* other = First<TrickListEntry>(m_gaps); other; other = Next(other)) {
@@ -553,19 +553,19 @@ void CSkaterGapComponent::EndGap(Script::CStruct* params, Script::CScript* scrip
 }
 
 // 0x00512CC0
-int CSkaterGapComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+int CRiderGapTracker::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     switch (name) {
     case kDuplicateTrigger: {
-        int node = script->m_node;
+        int node = script->m_listLink;
         if (!node)
             return 1;
-        int links = static_cast<int>(SkateScript::GetLinkCount(static_cast<uint32_t>(node)));
+        int links = static_cast<int>(LevelNodes::GetLinkCount(static_cast<uint32_t>(node)));
         for (int i = 0; i < links; ++i) {
-            Script::CStruct* linked = SkateScript::GetLinkedNode(static_cast<uint32_t>(node), i);
+            Scripts::CStruct* linked = LevelNodes::GetLinkedNode(static_cast<uint32_t>(node), i);
             uint32_t triggerScript = 0;
-            if (linked->GetChecksum(kTriggerScript, &triggerScript, 0)) {
-                m_object->SpawnAndRunScript(triggerScript, script->m_node, false, false, nullptr);
+            if (linked->ReadHashValue(kTriggerScript, &triggerScript, 0)) {
+                m_object->StartScriptTask(triggerScript, script->m_listLink, false, false, nullptr);
                 return 1;
             }
         }
@@ -587,7 +587,7 @@ GapListNode* GapListNode::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 // 0x00512240
@@ -600,60 +600,60 @@ GapTrickListNode* GapTrickListNode::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 // 0x00512270
 GapTrickListNode* GapTrickListNode::DestroyHead(unsigned int flags) { return Destroy(flags); }
 
 // 0x00511C10
-void __cdecl ClearPendingGaps() { GapChecklist()->ClearPending(); }
+void __cdecl DiscardQueuedGaps() { GapChecklist()->ClearPending(); }
 
 // 0x00511C30
-void __cdecl AwardPendingGaps()
+void __cdecl PayOutQueuedGaps()
 {
-    GapChecklist()->AwardPendingGaps();
+    GapChecklist()->PayOutQueuedGaps();
     if (Career()->AllGapsGot())
-        Script::SpawnScript(kProcessAllGapsReward, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+        Scripts::SpawnScript(kProcessAllGapsReward, nullptr, 0, nullptr, 0, 0, false, false, false, false);
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterGapComponent::Destroy,
-         &Obj::CSkaterGapComponent::Update,
-         &Obj::CSkaterGapComponent::InitFromStructure,
-         &Obj::CSkaterGapComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderGapTracker::Destroy,
+         &GameObjects::CRiderGapTracker::Update,
+         &GameObjects::CRiderGapTracker::ConfigureFromData,
+         &GameObjects::CRiderGapTracker::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CSkaterGapComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CRiderGapTracker::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
-static VtableSlot kGapHeadVtable_slots[] = {&Obj::GapListNode::DestroyHead};
+static VtableSlot kGapHeadVtable_slots[] = {&GameObjects::GapListNode::DestroyHead};
 void** const kGapHeadVtable = reinterpret_cast<void**>(kGapHeadVtable_slots);
-static VtableSlot kGapTrickHeadVtable_slots[] = {&Obj::GapTrickListNode::DestroyHead};
+static VtableSlot kGapTrickHeadVtable_slots[] = {&GameObjects::GapTrickListNode::DestroyHead};
 void** const kGapTrickHeadVtable = reinterpret_cast<void**>(kGapTrickHeadVtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 
-static VtableSlot g_gapNodeVtable_slots[] = {&Obj::GapListNode::Destroy};
+static VtableSlot g_gapNodeVtable_slots[] = {&GameObjects::GapListNode::Destroy};
 void** const g_gapNodeVtable = reinterpret_cast<void**>(g_gapNodeVtable_slots);
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 
-static VtableSlot g_gapTrickNodeVtable_slots[] = {&Obj::GapTrickListNode::Destroy};
+static VtableSlot g_gapTrickNodeVtable_slots[] = {&GameObjects::GapTrickListNode::Destroy};
 void** const g_gapTrickNodeVtable = reinterpret_cast<void**>(g_gapTrickNodeVtable_slots);
 
 } // namespace Obj

@@ -25,7 +25,7 @@ public:
     // 0x005BDCC0: once a frame. PartyMod's (see device.cpp).
     void Process(int unused);
     // 0x005BCC60
-    bool IsPluggedIn() const { return m_pluggedIn; }
+    bool IsAttached() const { return m_pluggedIn; }
     // 0x005BCC70: start looking for a pad, if idle and one is there.
     void Acquire();
     // 0x005BD8B0: a pad is there: an analogue pad with two motors (type 7); settle, then ready.
@@ -40,13 +40,13 @@ public:
 
     // 0x005BDA20: run motor `actuator` at `percent` of its maximum. PartyMod removes the original's first
     // step, reading the pad (see device.cpp).
-    void ActivateActuator(int actuator, int percent);
+    void FireActuator(int actuator, int percent);
     // 0x005BCCB0: allow vibration again (the motors stay as they are).
     void EnableActuators() { m_actuatorsDisabled = 0; }
     // 0x005BDAD0: stop the motors and refuse further vibration.
-    void DisableActuators();
+    void StopRumble();
     // 0x005BDB30: stop the motors. Ends disabled if it was disabled, else enabled (see device.cpp).
-    void ResetActuators();
+    void ClearRumble();
     // 0x005BDB60 / 0x005BDBD0: stop the motors, remembering their levels / restore them (counted: pauses
     // nest).
     void PauseActuators();
@@ -55,13 +55,13 @@ public:
     void StopActuators();
 
     void** m_vtable;
-    Mem::ListNode* m_node; // in the manager's device list
+    MemSys::ListNode* m_listLink; // in the manager's device list
     int m_type;
     int m_port;
-    int m_slot;
-    uint8_t m_valid;
+    int m_seat;
+    uint8_t m_isUsable;
     uint8_t m_pad15[3];
-    uint32_t m_buffer; // m_bufferRaw rounded up to 64
+    uint32_t m_octets; // m_bufferRaw rounded up to 64
     uint8_t m_controlData[32]; // PS2 format: buttons (inverted bits), sticks, pressures
     uint8_t m_alignData[32];
     uint8_t m_actuatorDirect[32]; // each motor's level
@@ -81,7 +81,7 @@ public:
     uint8_t m_padE1[3];
     int m_unpluggedCounter;
     int m_unpluggedRetry; // rand() & 63
-    uint8_t m_pressed; // any button down
+    uint8_t m_heldDown; // any button down
     uint8_t m_keyboardControl; // set by the original read (start, the keyboard's char 0x19...)
     uint8_t m_padEE[2];
 };
@@ -137,22 +137,22 @@ public:
     Manager* Destroy(unsigned int flags);
 
     // 0x005BE3F0: process each device (the first is told so).
-    void ProcessDevices();
+    void PollPads();
     // 0x005BE490 / 0x005BE4F0: the device on that port and slot / with that index (null if none).
     Device* GetDevice(int port, int slot);
-    Device* GetDeviceByIndex(int index);
+    Device* GetPadAtSlot(int index);
     // 0x005BE550 / 0x005BE5E0: pause / unpause every device's motors.
     void PauseDevices();
     void UnpauseDevices();
 
     void** m_vtable;
-    Mem::ListNode m_devices; // the list's head
-    void* m_task;            // Tsk::Task running ProcessTask with the list as its data
+    MemSys::ListNode m_devices; // the list's head
+    void* m_task;            // TaskList::Task running ProcessTask with the list as its data
 };
 static_assert(offsetof(Manager, m_task) == 0x18 && sizeof(Manager) == 0x1C, "layout must match the original");
 
-// 0x005BE110: the scalar deleting destructor of a device's list node (Lst::Node<Device>, vtable 0x00658A70).
-Mem::ListNode* DestroyDeviceNode(Mem::ListNode* node, unsigned int flags);
+// 0x005BE110: the scalar deleting destructor of a device's list node (ListKit::Node<Device>, vtable 0x00658A70).
+MemSys::ListNode* DestroyDeviceNode(MemSys::ListNode* node, unsigned int flags);
 
 // 0x005BE140: the manager's task - processes each device in the list it was given.
 void __cdecl ProcessTask(void* task);

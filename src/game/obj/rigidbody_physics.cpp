@@ -18,7 +18,7 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/timer.h"
 
-namespace Obj {
+namespace GameObjects {
 
 bool g_rigidBodyDrawShape;
 bool g_rigidBodyDrawDetails;
@@ -47,24 +47,24 @@ bool DrawShape() { return g_rigidBodyDrawShape; }
 bool DrawDetails() { return g_rigidBodyDrawDetails; }
 
 // Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
-void QuatMultiply(Mth::Quat* quat, const Mth::Quat* other) { *quat *= *other; }
-void QuatToMatrix(const Mth::Quat* quat, Mth::Matrix* matrix) { quat->GetMatrix(matrix); }
+void QuatMultiply(Maths::QuatRotation* quat, const Maths::QuatRotation* other) { *quat *= *other; }
+void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Matrix* matrix) { quat->GetMatrix(matrix); }
 
-void MarkAsDead(CCompositeObject* object)
+void FlagAsDead(CGameEntity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(object->m_vtable[6])(object);
+    reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[6])(object);
 }
 
 // The matrix's element at row `r`, column `c`.
-double At(const Mth::Matrix& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
+double At(const Maths::Matrix& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
 
 } // namespace
 
 // 0x0042CEE0: 1 / (n . (n + (m (r x n)) x r)) - m the mass over the moment.
-double CRigidBodyComponent::ImpulseScale(const Mth::Vector* normal, const Mth::Vector* offset) const
+double CBodyDynamicsModule::ImpulseScale(const Maths::Vector* normal, const Maths::Vector* offset) const
 {
-    const Mth::Vector& n = *normal;
-    const Mth::Vector& r = *offset;
+    const Maths::Vector& n = *normal;
+    const Maths::Vector& r = *offset;
     const double m = m_massOverMoment;
     // a = m (r x n): x rounded, y and z not (z from its rounded cross product)
     float ax = Narrow((Wide(r.y) * n.z - Wide(r.z) * n.y) * m);
@@ -78,9 +78,9 @@ double CRigidBodyComponent::ImpulseScale(const Mth::Vector* normal, const Mth::V
 }
 
 // 0x0042CF90
-void CRigidBodyComponent::ApplySprings()
+void CBodyDynamicsModule::ApplySprings()
 {
-    const Mth::Vector* world = WorldSpringPoints();
+    const Maths::Vector* world = WorldSpringPoints();
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
     bool settled;
@@ -90,12 +90,12 @@ void CRigidBodyComponent::ApplySprings()
             --i;
             if (!mp_springs[i].active)
                 continue;
-            const Mth::Vector& r = world[i];
+            const Maths::Vector& r = world[i];
             // its velocity: vel + rotvel x r
             double cx = Wide(r.z) * m_rotVel.y - Wide(r.y) * m_rotVel.z;
             double cy = Wide(m_rotVel.z) * r.x - Wide(r.z) * m_rotVel.x;
             float cz = Narrow(Wide(r.y) * m_rotVel.x - Wide(m_rotVel.y) * r.x);
-            Mth::Vector v = {Narrow(cx + m_vel.x), Narrow(cy + m_vel.y), Narrow(Wide(cz) + m_vel.z), m_vel.w};
+            Maths::Vector v = {Narrow(cx + m_vel.x), Narrow(cy + m_vel.y), Narrow(Wide(cz) + m_vel.z), m_vel.w};
             double length = std::sqrt((Wide(v.z) * v.z + Wide(v.y) * v.y) + Wide(v.x) * v.x);
             float lengthF = Narrow(length);
             if (length < kSpringMinSpeed)
@@ -124,13 +124,13 @@ void CRigidBodyComponent::ApplySprings()
     } while (++round != kMaxRounds && m_springCount != 1 && !settled);
 
     // Each point pulled towards its anchor.
-    float dt = Narrow(Tmr::GetSlomoFrameSeconds());
+    float dt = Narrow(FrameClock::GetSlomoFrameSeconds());
     for (int i = m_springCount; i != 0;) {
         --i;
         const Spring& spring = mp_springs[i];
         if (!spring.active)
             continue;
-        const Mth::Vector& r = world[i];
+        const Maths::Vector& r = world[i];
         float px = Narrow(Wide(m_pos.x) + r.x);
         double py = Wide(m_pos.y) + r.y, pz = Wide(m_pos.z) + r.z;
         float pw = Narrow(Wide(m_pos.w) + r.w);
@@ -150,14 +150,14 @@ void CRigidBodyComponent::ApplySprings()
         float fz = Narrow(Wide(nz) * forceF), fw = Narrow(Wide(nw) * forceF);
         double tx = Wide(fz) * r.y - fy * r.z, ty = fx * r.z - Wide(fz) * r.x;
         float tz = Narrow(fy * r.x - fx * r.y);
-        Mth::Vector turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
+        Maths::Vector turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
         m_vel = {Narrow(fx + m_vel.x), Narrow(fy + m_vel.y), Narrow(Wide(fz) + m_vel.z), Narrow(Wide(fw) + m_vel.w)};
         m_rotVel = {Add(turn.x, m_rotVel.x), Add(turn.y, m_rotVel.y), Add(turn.z, m_rotVel.z), Add(turn.w, m_rotVel.w)};
     }
 }
 
 // 0x0042D9D0
-void CRigidBodyComponent::DebugDraw()
+void CBodyDynamicsModule::DebugDraw()
 {
     uint32_t colour = 0;
     switch (m_state) {
@@ -165,36 +165,36 @@ void CRigidBodyComponent::DebugDraw()
     case STATE_AWAKE: colour = m_pushCooldown > kZero ? 0xFF00C800 : 0xFF0000C8; break;
     case STATE_DISABLED: colour = 0xFF640064; break;
     }
-    auto at = [this](const Mth::Vector& p) {
-        return Mth::Vector{p.x + m_pos.x, p.y + m_pos.y, p.z + m_pos.z, p.w + m_pos.w};
+    auto at = [this](const Maths::Vector& p) {
+        return Maths::Vector{p.x + m_pos.x, p.y + m_pos.y, p.z + m_pos.z, p.w + m_pos.w};
     };
     // Every pair of contact points.
-    const Mth::Vector* points = WorldContactPoints();
+    const Maths::Vector* points = WorldContactPoints();
     for (int i = m_contactCount - 1; i > 0; --i)
         for (int j = 0; j < i; ++j) {
-            Mth::Vector from = at(points[i]), to = at(points[j]);
-            Gfx::AddDebugLine(&from, &to, colour, 0, 1);
+            Maths::Vector from = at(points[i]), to = at(points[j]);
+            Gfx2D::PushDiagLine(&from, &to, colour, 0, 1);
         }
-    const Mth::Vector* centers = WorldSphereCenters();
+    const Maths::Vector* centers = WorldSphereCenters();
     for (int i = m_sphereCount; i != 0;) {
         --i;
-        Mth::Vector center = at(centers[i]);
-        Gfx::AddDebugSphere(&center, mp_spheres[i].radius, &m_matrix, 12, colour, 1);
+        Maths::Vector center = at(centers[i]);
+        Gfx2D::AddDebugSphere(&center, mp_spheres[i].radius, &m_basisFrame, 12, colour, 1);
     }
     if (DrawDetails())
-        Gfx::AddDebugStar(m_pos, 36.0f, 0xFFC800C8, 1);
-    const Mth::Vector* springs = WorldSpringPoints();
+        Gfx2D::PushDiagMarker(m_pos, 36.0f, 0xFFC800C8, 1);
+    const Maths::Vector* springs = WorldSpringPoints();
     for (int i = m_springCount; i != 0;) {
         --i;
         if (!mp_springs[i].active)
             continue;
-        Gfx::AddDebugStar(at(springs[i]), 24.0f, 0xFFC86400, 1);
-        Gfx::AddDebugStar(mp_springs[i].anchor, 24.0f, 0xFFC80064, 1);
+        Gfx2D::PushDiagMarker(at(springs[i]), 24.0f, 0xFFC86400, 1);
+        Gfx2D::PushDiagMarker(mp_springs[i].anchor, 24.0f, 0xFFC80064, 1);
     }
 }
 
 // 0x0042E540
-void CRigidBodyComponent::Integrate(float dt)
+void CBodyDynamicsModule::Integrate(float dt)
 {
     if (m_unknown191 < 3) {
         // Moved by its velocity and half a step of acceleration, then accelerated.
@@ -217,21 +217,21 @@ void CRigidBodyComponent::Integrate(float dt)
     }
 
     // Turned: q += (q * (-rotvel / 2, 0)) dt, normalised.
-    Mth::Quat spin = {Narrow(Wide(m_rotVel.x) * kTurnRate), Narrow(Wide(m_rotVel.y) * kTurnRate),
+    Maths::QuatRotation spin = {Narrow(Wide(m_rotVel.x) * kTurnRate), Narrow(Wide(m_rotVel.y) * kTurnRate),
                       Narrow(Wide(m_rotVel.z) * kTurnRate), 0.0f};
-    Mth::Quat change = m_orientation;
+    Maths::QuatRotation change = m_orientation;
     QuatMultiply(&change, &spin);
     float cz = Narrow(Wide(change.z) * dt), cw = Narrow(Wide(change.w) * dt);
     m_orientation = {Narrow(Wide(change.x) * dt + m_orientation.x), Narrow(Wide(change.y) * dt + m_orientation.y),
                      Add(cz, m_orientation.z), Add(cw, m_orientation.w)};
     m_orientation.Normalize(1.0f);
-    QuatToMatrix(&m_orientation, &m_matrix);
+    QuatToMatrix(&m_orientation, &m_basisFrame);
 
     // The shape turned to the world (each set of points adds its terms in its own order).
-    const Mth::Matrix& t = m_matrix;
+    const Maths::Matrix& t = m_basisFrame;
     for (int i = m_contactCount; i != 0;) {
         --i;
-        const Mth::Vector& c = mp_contacts[i];
+        const Maths::Vector& c = mp_contacts[i];
         const double x = c.x, y = c.y, z = c.z;
         WorldContactPoints()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + At(t, 0, 0) * x),
                                    Narrow((At(t, 0, 1) * x + At(t, 2, 1) * z) + y * At(t, 1, 1)),
@@ -239,7 +239,7 @@ void CRigidBodyComponent::Integrate(float dt)
     }
     for (int i = m_sphereCount; i != 0;) {
         --i;
-        const Mth::Vector& c = mp_spheres[i].center;
+        const Maths::Vector& c = mp_spheres[i].center;
         const double x = c.x, y = c.y, z = c.z;
         WorldSphereCenters()[i] = {Narrow((y * At(t, 1, 0) + At(t, 2, 0) * z) + x * At(t, 0, 0)),
                                    Narrow((x * At(t, 0, 1) + At(t, 2, 1) * z) + y * At(t, 1, 1)),
@@ -249,7 +249,7 @@ void CRigidBodyComponent::Integrate(float dt)
         --i;
         if (!mp_springs[i].active)
             continue;
-        const Mth::Vector& c = mp_springs[i].point;
+        const Maths::Vector& c = mp_springs[i].point;
         const double x = c.x, y = c.y, z = c.z;
         WorldSpringPoints()[i] = {Narrow((At(t, 2, 0) * z + At(t, 1, 0) * y) + x * At(t, 0, 0)),
                                   Narrow((At(t, 2, 1) * z + At(t, 1, 1) * y) + At(t, 0, 1) * x),
@@ -258,36 +258,36 @@ void CRigidBodyComponent::Integrate(float dt)
 }
 
 // 0x0042E980
-void CRigidBodyComponent::OnBounce(float speed, const Mth::Vector* point)
+void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vector* point)
 {
     if (!(speed > m_bounceCallbackThreshold))
         return;
     if (m_bounceScript) {
-        Script::CStruct* params = Script::NewStruct();
+        Scripts::CStruct* params = Scripts::NewStruct();
         if (params)
             params = params->Init();
         if (mp_callbackParams)
-            params->AppendStructure(mp_callbackParams); // (out of memory: through null, as the original)
-        params->AddVector(0x43F454D0, Script::VectorValue{point->x, point->y, point->z, point->w});
+            params->MergeStructure(mp_callbackParams); // (out of memory: through null, as the original)
+        params->PutVec3(0x43F454D0, Scripts::VectorValue{point->x, point->y, point->z, point->w});
         m_object->SpawnScript(m_bounceScript, params, 0, false)->Update();
         if (params) {
             params->Clear();
-            Script::DeleteStruct(params);
+            Scripts::DeleteStruct(params);
         }
     }
-    if (mp_soundComponent && mp_bounceSound && 48 - Sfx::CountPlayingVoices() > 12) {
-        float percent = Mth::Clamp(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
-        mp_bounceSound->AddFloat(0x9E497FC6, percent); // Percent
+    if (mp_soundComponent && mp_bounceSound && 48 - SoundFx::CountPlayingVoices() > 12) {
+        float percent = Maths::Clamp(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
+        mp_bounceSound->PushFloat(0x9E497FC6, percent); // Percent
         mp_soundComponent->PlaySound(mp_bounceSound);
     }
 }
 
 // 0x00430140
-void CRigidBodyComponent::ResolveContacts()
+void CBodyDynamicsModule::ResolveContacts()
 {
     Contact* contacts = Contacts();
     // The velocities before the impulses (friction works from these).
-    Mth::Vector vel0 = m_vel, rot0 = m_rotVel;
+    Maths::Vector vel0 = m_vel, firstTurn = m_rotVel;
     float fastest = 0.0f; // the fastest approach
 
     // Impulses along the normals until nothing approaches.
@@ -297,8 +297,8 @@ void CRigidBodyComponent::ResolveContacts()
             Contact& c = contacts[--i];
             if (!c.active)
                 continue;
-            const Mth::Vector& r = c.offset;
-            const Mth::Vector& n = c.normal;
+            const Maths::Vector& r = c.offset;
+            const Maths::Vector& n = c.normal;
             double cx = Wide(m_rotVel.y) * r.z - Wide(m_rotVel.z) * r.y;
             float cy = Narrow(Wide(m_rotVel.z) * r.x - Wide(m_rotVel.x) * r.z);
             float cz = Narrow(Wide(m_rotVel.x) * r.y - Wide(m_rotVel.y) * r.x);
@@ -347,21 +347,21 @@ void CRigidBodyComponent::ResolveContacts()
         Contact& c = contacts[--i];
         if (!c.active)
             continue;
-        const Mth::Vector& r = c.offset;
-        const Mth::Vector& n = c.normal;
-        double cx = Wide(rot0.y) * r.z - Wide(rot0.z) * r.y;
-        double cy = Wide(rot0.z) * r.x - Wide(rot0.x) * r.z;
-        float cz = Narrow(Wide(rot0.x) * r.y - Wide(rot0.y) * r.x);
+        const Maths::Vector& r = c.offset;
+        const Maths::Vector& n = c.normal;
+        double cx = Wide(firstTurn.y) * r.z - Wide(firstTurn.z) * r.y;
+        double cy = Wide(firstTurn.z) * r.x - Wide(firstTurn.x) * r.z;
+        float cz = Narrow(Wide(firstTurn.x) * r.y - Wide(firstTurn.y) * r.x);
         float vx = Narrow(cx + vel0.x);
         double vy = cy + vel0.y, vz = Wide(cz) + vel0.z;
         double back = -((vz * n.z + Wide(vx) * n.x) + vy * n.y);
-        Mth::Vector across = {Narrow(back * n.x + vx), Narrow(Wide(Narrow(back * n.y)) + vy),
+        Maths::Vector across = {Narrow(back * n.x + vx), Narrow(Wide(Narrow(back * n.y)) + vy),
                               Narrow(Wide(Narrow(back * n.z)) + vz), Narrow(Wide(Narrow(back * n.w)) + vel0.w)};
         if (mp_directedFriction) {
             const DirectedFriction& friction = mp_directedFriction[c.friction];
             if (friction.active) {
-                Mth::Vector d;
-                m_matrix.RotateVector(d, friction.direction);
+                Maths::Vector d;
+                m_basisFrame.RotateVector(d, friction.direction);
                 double dn = (Wide(d.x) * n.x + Wide(d.z) * n.z) + Wide(d.y) * n.y;
                 float dny = Narrow(dn * n.y), dnz = Narrow(dn * n.z), dnw = Narrow(dn * n.w);
                 d = {Narrow(d.x - dn * n.x), Sub(d.y, dny), Sub(d.z, dnz), Sub(d.w, dnw)};
@@ -381,30 +381,30 @@ void CRigidBodyComponent::ResolveContacts()
         across = {Narrow(across.x * inverse), Narrow(across.y * inverse), Narrow(across.z * inverse),
                   Narrow(across.w * inverse)};
         double stop = ImpulseScale(&across, &c.offset) * lengthF;
-        float most = Narrow(Wide(c.impulse) * m_friction);
+        float most = Narrow(Wide(c.impulse) * m_dragFactor);
         double f = -(stop > most ? most : stop);
         double jx = across.x * f;
         float jy = Narrow(across.y * f), jz = Narrow(across.z * f), jw = Narrow(across.w * f);
         double tx = Wide(jz) * r.y - Wide(jy) * r.z, ty = jx * r.z - Wide(jz) * r.x;
         float tz = Narrow(Wide(jy) * r.x - jx * r.y);
         const double m = m_massOverMoment;
-        Mth::Vector turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
+        Maths::Vector turn = {Narrow(tx * m), Narrow(ty * m), Narrow(tz * m), Narrow(m * kZero)};
         m_vel = {Narrow(jx + m_vel.x), Add(jy, m_vel.y), Add(jz, m_vel.z), Add(jw, m_vel.w)};
         m_rotVel = {Add(turn.x, m_rotVel.x), Add(turn.y, m_rotVel.y), Add(turn.z, m_rotVel.z), Add(turn.w, m_rotVel.w)};
         vel0 = {Narrow(jx + vel0.x), Add(jy, vel0.y), Add(jz, vel0.z), Add(jw, vel0.w)};
-        rot0 = {Add(turn.x, rot0.x), Add(turn.y, rot0.y), Add(turn.z, rot0.z), Add(turn.w, rot0.w)};
+        firstTurn = {Add(turn.x, firstTurn.x), Add(turn.y, firstTurn.y), Add(turn.z, firstTurn.z), Add(turn.w, firstTurn.w)};
     }
 
     // Pushed out of the world by each contact's depth.
-    float dt = Narrow(Tmr::GetSlomoFrameSeconds());
+    float dt = Narrow(FrameClock::GetSlomoFrameSeconds());
     for (int i = m_contactsHit; i != 0;) {
         Contact& c = contacts[--i];
         if (!c.active)
             continue;
-        const Mth::Vector& r = c.offset;
-        const Mth::Vector& n = c.normal;
+        const Maths::Vector& r = c.offset;
+        const Maths::Vector& n = c.normal;
         double k = -((Wide(c.depth) * m_springConst) * dt);
-        Mth::Vector push = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), Narrow(k * n.w)};
+        Maths::Vector push = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), Narrow(k * n.w)};
         double tx = Wide(push.z) * r.y - Wide(push.y) * r.z, ty = Wide(push.x) * r.z - Wide(push.z) * r.x;
         float tz = Narrow(Wide(push.y) * r.x - Wide(push.x) * r.y);
         const double m = m_massOverMoment;
@@ -412,10 +412,10 @@ void CRigidBodyComponent::ResolveContacts()
         m_rotVel = {Add(Narrow(tx * m), m_rotVel.x), Narrow(ty * m + m_rotVel.y), Narrow(Wide(tz) * m + m_rotVel.z),
                     Add(Narrow(m * kZero), m_rotVel.w)};
         if (DrawDetails()) {
-            Mth::Vector from = {r.x + m_pos.x, m_pos.y + r.y, m_pos.z + r.z, m_pos.w + r.w};
-            Mth::Vector to = {from.x + push.x * kDebugImpulseScale, from.y + push.y * kDebugImpulseScale,
+            Maths::Vector from = {r.x + m_pos.x, m_pos.y + r.y, m_pos.z + r.z, m_pos.w + r.w};
+            Maths::Vector to = {from.x + push.x * kDebugImpulseScale, from.y + push.y * kDebugImpulseScale,
                               from.z + push.z * kDebugImpulseScale, from.w + push.w * kDebugImpulseScale};
-            Gfx::AddDebugLine(&to, &from, 0xFF00FFFF, 0, 1);
+            Gfx2D::PushDiagLine(&to, &from, 0xFF00FFFF, 0, 1);
         }
     }
 
@@ -423,7 +423,7 @@ void CRigidBodyComponent::ResolveContacts()
     for (int i = m_contactsHit; i != 0;) {
         const Contact& c = contacts[--i];
         if (c.active) {
-            Mth::Vector point = {Add(c.offset.x, m_pos.x), Add(c.offset.y, m_pos.y), Add(c.offset.z, m_pos.z),
+            Maths::Vector point = {Add(c.offset.x, m_pos.x), Add(c.offset.y, m_pos.y), Add(c.offset.z, m_pos.z),
                                  Add(c.offset.w, m_pos.w)};
             OnBounce(fastest, &point);
             return;
@@ -432,13 +432,13 @@ void CRigidBodyComponent::ResolveContacts()
 }
 
 // 0x00430BE0
-void CRigidBodyComponent::Collide(Nx::CFeeler* feeler)
+void CBodyDynamicsModule::Collide(Engine3D::CProbeRay* feeler)
 {
-    const Mth::Vector& n = feeler->m_normal;
+    const Maths::Vector& n = feeler->m_surfaceDir;
     double along = (Wide(m_vel.z) * n.z + Wide(m_vel.y) * n.y) + Wide(m_vel.x) * n.x;
     // The bounce: -(1 + restitution) of the speed along the normal.
     double k = -((Wide(m_restitution) + 1.0f) * along);
-    Mth::Vector bounce = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), 0.0f};
+    Maths::Vector bounce = {Narrow(k * n.x), Narrow(k * n.y), Narrow(k * n.z), 0.0f};
     double bounceW = k * n.w;
     // Friction against what's across the normal.
     float tx = Narrow(m_vel.x - along * n.x);
@@ -453,33 +453,33 @@ void CRigidBodyComponent::Collide(Nx::CFeeler* feeler)
         double uw = tw * inverse;
         float most = Narrow(std::sqrt((Wide(bounce.z) * bounce.z + Wide(bounce.y) * bounce.y) +
                                       Wide(bounce.x) * bounce.x) *
-                            m_friction);
+                            m_dragFactor);
         double f = -(lengthF > most ? most : lengthF);
         m_vel = {Narrow(ux * f + m_vel.x), Add(Narrow(uy * f), m_vel.y), Add(Narrow(uz * f), m_vel.z),
                  Add(Narrow(uw * f), m_vel.w)};
     }
     m_vel = {Add(bounce.x, m_vel.x), Add(bounce.y, m_vel.y), Add(bounce.z, m_vel.z), Narrow(bounceW + m_vel.w)};
-    OnBounce(Narrow(-along), &feeler->m_point);
+    OnBounce(Narrow(-along), &feeler->m_contactPos);
 }
 
 // 0x00430E20
-void CRigidBodyComponent::Update()
+void CBodyDynamicsModule::Update()
 {
     if (m_state == STATE_DISABLED)
         return;
-    float frame = Narrow(Tmr::GetSlomoFrameSeconds());
+    float frame = Narrow(FrameClock::GetSlomoFrameSeconds());
     if (m_pushCooldown > kZero)
         m_pushCooldown = Sub(m_pushCooldown, frame);
     else if (!(m_flags & FLAG_NO_PLAYER_COLLISION))
         FeelPushers();
     if (m_dieTimer >= kZero) {
         if (m_dieTimer <= frame)
-            MarkAsDead(m_object);
+            FlagAsDead(m_object);
         else
             m_dieTimer = Sub(m_dieTimer, frame);
     }
     if (m_state == STATE_ASLEEP) {
-        m_object->m_displayMatrix = m_matrix;
+        m_object->m_displayMatrix = m_basisFrame;
         return;
     }
 
@@ -488,7 +488,7 @@ void CRigidBodyComponent::Update()
     float remaining = frame;
     for (int step = 0;;) {
         float length = remaining;
-        Nx::CFeeler feeler;
+        Engine3D::CProbeRay feeler;
         feeler.Construct();
         double vx = Wide(remaining) * m_vel.x, vy = Wide(remaining) * m_vel.y, vz = Wide(remaining) * m_vel.z,
                vw = Wide(remaining) * m_vel.w;
@@ -498,14 +498,14 @@ void CRigidBodyComponent::Update()
                              Narrow(Wide(Narrow(half * m_constAcc.y)) + (Wide(Narrow(vy)) + m_pos.y)),
                              Narrow(Wide(Narrow(half * m_constAcc.z)) + (vz + m_pos.z)),
                              Narrow(Wide(Narrow(half * m_constAcc.w)) + Narrow(vw + m_pos.w))};
-        bool hit = feeler.GetCollision(false, false) != 0;
+        bool hit = feeler.GetHitShape(false, false) != 0;
         if (hit) {
-            const Mth::Line& line = feeler.m_line;
+            const Maths::Line& line = feeler.m_line;
             double dx = Wide(line.end.x) - line.start.x, dy = Wide(line.end.y) - line.start.y,
                    dz = Wide(line.end.z) - line.start.z;
             double path = std::sqrt((dx * dx + dy * dy) + dz * dz);
             double speed = std::sqrt((Wide(m_vel.x) * m_vel.x + Wide(m_vel.y) * m_vel.y) + Wide(m_vel.z) * m_vel.z);
-            length = Narrow((path * feeler.m_distance - kHitBackOff) / speed);
+            length = Narrow((path * feeler.m_reach - kHitBackOff) / speed);
             if (length < kZero)
                 length = 0.0f;
         }
@@ -528,11 +528,11 @@ void CRigidBodyComponent::Update()
     Damp();
     CheckSleep();
 
-    Mth::Vector offset;
-    m_matrix.RotateVector(offset, m_modelOffset);
+    Maths::Vector offset;
+    m_basisFrame.RotateVector(offset, m_modelOffset);
     m_object->m_pos = {Add(m_pos.x, offset.x), Add(m_pos.y, offset.y), Add(m_pos.z, offset.z), Add(m_pos.w, offset.w)};
-    m_object->m_matrix = m_matrix;
-    m_object->m_displayMatrix = m_matrix;
+    m_object->m_basisFrame = m_basisFrame;
+    m_object->m_displayMatrix = m_basisFrame;
     m_object->m_vel = m_vel;
     if (DrawShape())
         DebugDraw();

@@ -5,7 +5,7 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -15,24 +15,24 @@ class CStruct;
 // with a volume by the speed. The finalize physics component keeps its terrain and slide flag up to date. From the
 // disassembly of 0x00518C80-0x00519129 (0x00518EA0-0x00518FA0 aren't Ghidra functions).
 //
-// Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 InitFromStructure, 12 CallMemberFunction.
-namespace Obj {
+// Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 ConfigureFromData, 12 InvokeMethodByName.
+namespace GameObjects {
 
-class CSkaterSoundComponent : public CBaseComponent {
+class CRiderSfxPlayer : public CObjectModule {
 public:
     // 0x00518E20 (registered by RegisterComponentTypes): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00518C80: the destructor body (the base's).
     void DestroyBody();
     // 0x00518C90 (vtable slot 0)
-    CSkaterSoundComponent* Destroy(unsigned int flags);
+    CRiderSfxPlayer* Destroy(unsigned int flags);
     // 0x00518CC0 (vtable +0x08): volume_mult.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x00518FD0 (vtable +0x30): PlayJumpSound / PlayLandSound (on the ground or in the air, or on a rail: the speed
     // - |vy| for a landing on the ground -, else nothing), PlayBonkSound, PlayCessSound (the speed) - 1; 2 for any
     // other name.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // `speed` (a fraction of full speed) as a percentage: the volume times volume_mult; the sound of `terrain` in
     // the state's table played at the skater:
@@ -52,17 +52,17 @@ public:
     void PlayCessHere(float speed);
 
     int m_state;           // +0x18 the skater's state (0 ground, 1 air, 4 rail)
-    uint8_t m_terrain;     // +0x1C
+    uint8_t m_surfaceType;     // +0x1C
     uint8_t m_lastGround;  // +0x1D the terrain the ground and air sounds use
     uint8_t m_sliding;     // +0x1E on a rail: a slide, not a grind
     uint8_t pad1F;
     float m_fullSpeed;     // +0x20 the speed that counts as 1
     float m_volumeMult;    // +0x24 volume_mult
 };
-static_assert(offsetof(CSkaterSoundComponent, m_state) == 0x18 && offsetof(CSkaterSoundComponent, m_terrain) == 0x1C &&
-                  offsetof(CSkaterSoundComponent, m_sliding) == 0x1E &&
-                  offsetof(CSkaterSoundComponent, m_fullSpeed) == 0x20 &&
-                  offsetof(CSkaterSoundComponent, m_volumeMult) == 0x24 && sizeof(CSkaterSoundComponent) == 0x28,
+static_assert(offsetof(CRiderSfxPlayer, m_state) == 0x18 && offsetof(CRiderSfxPlayer, m_surfaceType) == 0x1C &&
+                  offsetof(CRiderSfxPlayer, m_sliding) == 0x1E &&
+                  offsetof(CRiderSfxPlayer, m_fullSpeed) == 0x20 &&
+                  offsetof(CRiderSfxPlayer, m_volumeMult) == 0x24 && sizeof(CRiderSfxPlayer) == 0x28,
               "layout must match the original (0x00518E20 allocates 0x28 bytes)");
 
 } // namespace Obj

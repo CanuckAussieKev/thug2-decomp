@@ -1,10 +1,10 @@
 #pragma once
 
-// Neversoft's Spt::SingletonPtr<T>: a reference to one of the reference-counted singletons (the managers and
-// modules Sys::Main makes), taken when it's constructed - T's Create(create): with `create` the first one makes
+// Neversoft's Singletons::LazyInstance<T>: a reference to one of the reference-counted singletons (the managers and
+// modules SystemCore::Main makes), taken when it's constructed - T's Create(create): with `create` the first one makes
 // the instance - and dropped when it's destroyed (T's Release: the last one deletes the instance).
 //
-// The game's SingletonPtr objects are locals (Sys::Main, the movie player, the network code...): their
+// The game's LazyInstance objects are locals (SystemCore::Main, the movie player, the network code...): their
 // constructors are inline (only one isn't, 0x004E1A90), and what's left out of line are each instance's
 // destructor (called from the exception-unwind code of the functions with such a local) and its scalar deleting
 // destructor, the only entry of each instance's vtable. Each instance here is named by a Singleton type:
@@ -20,10 +20,10 @@
 
 #include "game/core/manager.h"
 
-namespace Spt {
+namespace Singletons {
 
 template <typename Singleton>
-struct SingletonPtr {
+struct LazyInstance {
     using Type = typename Singleton::Type;
 
     void** m_vtable;
@@ -32,7 +32,7 @@ struct SingletonPtr {
     static void** Vtable() { return Singleton::Vtable(); }
 
     // The constructor: a reference taken (and the instance made if `create` and there's none). Returns this.
-    SingletonPtr* Construct(bool create)
+    LazyInstance* Construct(bool create)
     {
         m_vtable = Vtable();
         m_instance = Singleton::Create(create);
@@ -45,17 +45,17 @@ struct SingletonPtr {
         Singleton::Release();
     }
     // The scalar deleting destructor (vtable slot 0).
-    SingletonPtr* Destroy(unsigned int flags)
+    LazyInstance* Destroy(unsigned int flags)
     {
         DestroyBody();
         if (flags & 1)
-            Mem::Manager::Get()->Free(this);
+            MemSys::Manager::Get()->Free(this);
         return this;
     }
 };
 
 // 0x004E1970: the constructor of a one-pointer member (store it, return this). The linker folded the
-// constructors of several such classes into this one: SingletonPtr's out-of-line constructor (0x004E1A90) builds
+// constructors of several such classes into this one: LazyInstance's out-of-line constructor (0x004E1A90) builds
 // its instance pointer with it, the network code (0x00597740-0x0059D410, 17 calls) its smart pointers.
 struct PointerMember {
     void* m_pointer;

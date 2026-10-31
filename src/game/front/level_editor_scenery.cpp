@@ -40,7 +40,7 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_geom.h"
 
-namespace Front::LevelEditor {
+namespace MenuSystem::LevelEditor {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -102,15 +102,15 @@ bool SectorSizeMovable(V3 min, V3 max, float limit)
     return max.x - min.x <= limit && max.y - min.y <= limit && max.z - min.z <= limit;
 }
 
-void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax)
+void GrowBox(V3* min, V3* max, bool have, V3 boundsLow, V3 boundsHigh)
 {
     if (!have) {
-        *min = boxMin;
-        *max = boxMax;
+        *min = boundsLow;
+        *max = boundsHigh;
         return;
     }
-    *min = {std::min(min->x, boxMin.x), std::min(min->y, boxMin.y), std::min(min->z, boxMin.z)};
-    *max = {std::max(max->x, boxMax.x), std::max(max->y, boxMax.y), std::max(max->z, boxMax.z)};
+    *min = {std::min(min->x, boundsLow.x), std::min(min->y, boundsLow.y), std::min(min->z, boundsLow.z)};
+    *max = {std::max(max->x, boundsHigh.x), std::max(max->y, boundsHigh.y), std::max(max->z, boundsHigh.z)};
 }
 
 void BoundsOf(const OrientedBox& box, V3* min, V3* max)
@@ -130,10 +130,10 @@ bool PieceFits(V3 min, V3 max, V3 groupMin, V3 groupMax)
     return volume <= groupVolume && size.x <= across && size.z <= across;
 }
 
-bool PieceTouches(V3 min, V3 max, V3 boxMin, V3 boxMax, float margin)
+bool PieceTouches(V3 min, V3 max, V3 boundsLow, V3 boundsHigh, float margin)
 {
-    return min.x <= boxMax.x + margin && max.x >= boxMin.x - margin && min.z <= boxMax.z + margin &&
-           max.z >= boxMin.z - margin && min.y <= boxMax.y + margin && max.y > boxMin.y + 5.0f;
+    return min.x <= boundsHigh.x + margin && max.x >= boundsLow.x - margin && min.z <= boundsHigh.z + margin &&
+           max.z >= boundsLow.z - margin && min.y <= boundsHigh.y + margin && max.y > boundsLow.y + 5.0f;
 }
 
 void SegmentBox(V3 a, V3 b, V3* min, V3* max)
@@ -183,7 +183,7 @@ bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scen
 template <typename F>
 void ForEachScene(F fn)
 {
-    SceneNode* node = reinterpret_cast<SceneNode*>(Nx::g_sceneList.next);
+    SceneNode* node = reinterpret_cast<SceneNode*>(Engine3D::g_sceneList.next);
     for (int guard = 0; node && !IsEnd(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (node->scene && !node->scene[0x8D])
@@ -218,7 +218,7 @@ void ForEachSector(uint8_t* scene, F fn)
 
 uint8_t* LookupSector(uint8_t* scene, uint32_t checksum)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<Nx::CScene*>(scene)->GetSector(checksum));
+    return static_cast<uint8_t*>(reinterpret_cast<Engine3D::CWorldScene*>(scene)->LookUpSector(checksum));
 }
 
 // The sector of that checksum in the first (non-sky) scene having one.
@@ -260,12 +260,12 @@ bool GeomBox(uint8_t* geom, V3* min, V3* max)
 // The geometry's world position (vfunc +0x4C, 0x004B46A0: the first mesh's; 0 when never moved).
 V3 GeomPosition(uint8_t* geom)
 {
-    const Mth::Vector* v = reinterpret_cast<const Mth::Vector*(__thiscall*)(void*)>(&Nx::VirtualSlot19Jump)(geom);
+    const Maths::Vector* v = reinterpret_cast<const Maths::Vector*(__thiscall*)(void*)>(&Engine3D::VirtualSlot19Jump)(geom);
     return {v->x, v->y, v->z};
 }
 
 // The meshes' vertices can be moved: each vertex buffer has its own CPU copy (+0x0C) holding exactly the mesh's
-// vertices (+0x22 count, +0x18 stride) - what sMesh::SetPosition walks and uploads.
+// vertices (+0x22 count, +0x18 stride) - what meshRef::SetPosition walks and uploads.
 const char* MeshesMovable(uint8_t* geom)
 {
     auto** meshes = *reinterpret_cast<uint8_t***>(geom + 0x3C);
@@ -375,10 +375,10 @@ void MarkDirty(uint8_t* scene)
         g_dirtyScenes.push_back(scene);
 }
 
-// The engine brought to the track's placement: the turn (CSector::SetYRotation 0x0049E760, about the geometry's
-// world position as it is), then the position (the geometry's SetWorldPosition, vfunc +0x48 through 0x0048DEC0; the
+// The engine brought to the track's placement: the turn (CWorldCell::SpinAroundUp 0x0049E760, about the geometry's
+// world position as it is), then the position (the geometry's PlaceAtAbsolutePoint, vfunc +0x48 through 0x0048DEC0; the
 // collision's, vfunc +0x14 - handed its own origin (vfunc +0x1C) plus the change: it translates by the difference),
-// the sector flagged for the super sectors' update as CSector::SetWorldPosition (0x0049E6C0) does.
+// the sector flagged for the super sectors' update as CWorldCell::PlaceAtAbsolutePoint (0x0049E6C0) does.
 // A scale (level_editor_scale.h): the first time, the sector's vertices and collision are kept as they are; from then
 // on, after the engine's turn and move, they're written again from that copy, scaled.
 void ApplyTrack(Track* track)
@@ -397,12 +397,12 @@ void ApplyTrack(Track* track)
     V3 position;
     EngineState(track->quarters0, track->position0, track->placement, &quarters, &position);
     if (quarters != track->quarters) {
-        reinterpret_cast<Nx::CSector*>(track->sector)->SetYRotation(quarters);
+        reinterpret_cast<Engine3D::CWorldCell*>(track->sector)->SpinAroundUp(quarters);
         track->quarters = quarters;
     }
     if (!SameV3(position, track->position)) {
-        Mth::Vector to = {position.x, position.y, position.z, 1.0f};
-        reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*)>(&Nx::VirtualSlot18Jump)(track->geom, &to);
+        Maths::Vector to = {position.x, position.y, position.z, 1.0f};
+        reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*)>(&Engine3D::VirtualSlot18Jump)(track->geom, &to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
         // drag) would let the tree drift away from its faces; on sixteenths every step is exact and moving back gives
@@ -411,10 +411,10 @@ void ApplyTrack(Track* track)
         V3 collisionMoved = Walls::OnGrid(position - track->position0);
         uint8_t* coll = CollOf(track->sector);
         if (coll && !SameV3(collisionMoved, track->collisionMoved)) {
-            const Mth::Vector* origin = Method<const Mth::Vector*(__thiscall*)(void*)>(coll, 0x1C)(coll);
+            const Maths::Vector* origin = Method<const Maths::Vector*(__thiscall*)(void*)>(coll, 0x1C)(coll);
             V3 change = collisionMoved - track->collisionMoved;
-            Mth::Vector moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
-            Method<void(__thiscall*)(void*, const Mth::Vector*)>(coll, 0x14)(coll, &moved);
+            Maths::Vector moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
+            Method<void(__thiscall*)(void*, const Maths::Vector*)>(coll, 0x14)(coll, &moved);
         }
         track->collisionMoved = collisionMoved;
         track->position = position;
@@ -432,9 +432,9 @@ void ApplyTrack(Track* track)
 
 const char* NameOf(uint32_t checksum)
 {
-    if (const char* name = Script::KeptQbName(checksum))
+    if (const char* name = Scripts::KeptQbName(checksum))
         return name;
-    return Script::FindChecksumName(checksum);
+    return Scripts::LookUpHashName(checksum);
 }
 
 std::string Label(uint32_t checksum)
@@ -460,17 +460,17 @@ uint32_t ClusterOf(uint32_t checksum)
     auto it = g_clusters.find(checksum);
     if (it != g_clusters.end())
         return it->second;
-    auto* node = SkateScript::GetNode(checksum, false);
+    auto* node = LevelNodes::GetNode(checksum, false);
     uint32_t cluster = 0;
     if (node)
-        node->GetChecksum(kCluster, &cluster, 0);
+        node->ReadHashValue(kCluster, &cluster, 0);
     g_clusters.emplace(checksum, cluster);
     return cluster;
 }
 
 // --- grind rails ---
 //
-// The level's rails: the rail manager of Mdl::Skate (0x007CE478, +0x24) - filled from the node array's RailNodes and
+// The level's rails: the rail manager of GameModules::Skate (0x007CE478, +0x24) - filled from the node array's RailNodes and
 // ClimbingNodes by 0x0057E960 (from CFunc_ParseNodeArray 0x005A34E0): +0x40 its nodes, +0x48 their count, +0x50 set
 // when its rails ride an object (positions in the object's space, 0x0057CB60 - never the level's).
 // A node (0x54 bytes, 0x0057D090): +0x00 / +0x10 the box of its segment (to the next node; its own point when it has
@@ -489,7 +489,7 @@ static_assert(sizeof(RailNode) == 0x54, "a rail node is 0x54 bytes");
 
 bool RailNodes(RailNode** nodes, int* count)
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     uint8_t* manager = skate ? *reinterpret_cast<uint8_t**>(skate + 0x24) : nullptr;
     if (!manager || manager[0x50])
         return false;
@@ -780,7 +780,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
             continue;
         uint32_t owner = 0;
         for (const std::string& candidate : Shadows::OwnerNames(name)) {
-            uint32_t crc = Crc::GenerateCRCFromString(candidate.c_str());
+            uint32_t crc = Checksums::HashFromText(candidate.c_str());
             if (crc != source && LookupSector(scene, crc)) {
                 owner = crc;
                 break;
@@ -841,9 +841,9 @@ std::vector<uint32_t> g_hoverGroup;
 bool CastStatic(V3 from, V3 to, V3* point, uint32_t* checksum)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
@@ -861,12 +861,12 @@ namespace {
 // sphere.
 bool RayMeshes(uint8_t* geom, V3 origin, V3 dir, float maxT, float* t)
 {
-    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     bool found = false;
     float best = maxT;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        Nx::sMesh* mesh = meshes[i];
+        Engine3D::meshRef* mesh = meshes[i];
         if (!mesh)
             continue;
         float hit;
@@ -878,8 +878,8 @@ bool RayMeshes(uint8_t* geom, V3 origin, V3 dir, float maxT, float* t)
             }
             continue;
         }
-        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Nx::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         if (Picking::RayStrip(origin, dir, vertices->data, mesh->stride, mesh->vertexCount, indices->indices,
@@ -897,7 +897,7 @@ bool RayMeshes(uint8_t* geom, V3 origin, V3 dir, float maxT, float* t)
 // pass's flags, 0x40 the scene's transparent sort - and +0x80, its blend mode; the scene loader 0x004D3390 fills both).
 bool GeomSeeThrough(uint8_t* geom)
 {
-    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     if (!meshes || count == 0 || count > 4096)
         return false;
@@ -920,14 +920,14 @@ float GeomLevelShare(uint32_t checksum, uint8_t* geom)
     if (it != g_levelShares.end() && it->second.first == geom)
         return it->second.second;
     Picking::TopArea area;
-    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        Nx::sMesh* mesh = meshes[i];
+        Engine3D::meshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Nx::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         Picking::AddTopStrip(&area, vertices->data, mesh->stride, mesh->vertexCount, indices->indices,
@@ -1201,7 +1201,7 @@ void LogMeshes()
             i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
             *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material), material ? m[2] & 0xFFFFFFF : 0,
             material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0, material ? m[0x11] : 0,
-            material ? m[0x12] : 0, static_cast<uint8_t>(Nx::g_shadersAvailable));
+            material ? m[0x12] : 0, static_cast<uint8_t>(Engine3D::g_shadersAvailable));
     }
 }
 
@@ -1444,10 +1444,10 @@ void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* 
 
 namespace {
 
-// CSector::SetActive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
+// CWorldCell::SetActive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
 // "off" flag 4) / IsActive (0x0049E9E0).
-void SetActive(uint8_t* sector, bool active) { reinterpret_cast<Nx::CSector*>(sector)->SetActive(active); }
-bool IsActive(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector)->IsActive(); }
+void SetActive(uint8_t* sector, bool active) { reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(active); }
+bool IsActive(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsActive(); }
 
 } // namespace
 
@@ -1563,7 +1563,7 @@ uint32_t SceneName(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>
 
 // --- copies of sectors ---
 //
-// CScene::CloneSector (0x0049DF30, thiscall, RET 0x14: the source's checksum, the scene to put it in, instance,
+// CWorldScene::DuplicateSceneSector (0x0049DF30, thiscall, RET 0x14: the source's checksum, the scene to put it in, instance,
 // add-to-collision, the new checksum - 0: a new one; returns the new checksum) as the park editor makes its pieces
 // (0x00594730): not an instance (its own meshes and vertex buffers, added to the scene's render lists - so it moves
 // as any level sector), flagged 4 to be added to the super sectors (Commit). The copy is made of the source as it is
@@ -1595,8 +1595,8 @@ uint32_t Duplicate(uint32_t source)
     Placement sourcePlacement = PlacementOf(source, GeomOf(sector));
     // (the source's shared collision gathered before the copy is there to tie with it)
     auto sharedFaces = SharedCollision::PrepareCopy(source);
-    uint32_t made = reinterpret_cast<Nx::CScene*>(scene)->CloneSectorNamed(
-        source, reinterpret_cast<Nx::CScene*>(scene), 0, true, 0);
+    uint32_t made = reinterpret_cast<Engine3D::CWorldScene*>(scene)->CloneSectorNamed(
+        source, reinterpret_cast<Engine3D::CWorldScene*>(scene), 0, true, 0);
     uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
     uint8_t* geom = copy ? GeomOf(copy) : nullptr;
     if (!geom || *reinterpret_cast<void***>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
@@ -1615,7 +1615,7 @@ uint32_t Duplicate(uint32_t source)
     Clones().push_back({made, source, sourcePlacement});
     char name[96];
     std::snprintf(name, sizeof(name), "%s copy", Label(source).c_str());
-    Script::NoteQbName(made, name);
+    Scripts::NoteQbName(made, name);
     if (DebugEnabled())
         Log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
             Label(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
@@ -1819,17 +1819,17 @@ void Commit()
         return;
     // As the park editor does (0x00592090): the scene's UpdateSuperSectors (thiscall, a list of sectors to add - none)
     // with the bottom-up heap current.
-    Mem::Manager* manager = Mem::Manager::Get();
+    MemSys::Manager* manager = MemSys::Manager::Get();
     for (uint8_t* scene : g_dirtyScenes) {
         bool live = false;
         ForEachScene([&](uint8_t* s) { live |= s == scene; });
         if (!live || !*reinterpret_cast<void**>(scene + 0xD4))
             continue;
         if (manager)
-            manager->PushContext(manager->m_bottomUpHeap);
-        reinterpret_cast<Nx::CScene*>(scene)->UpdateSuperSectors(nullptr);
+            manager->EnterHeapScope(manager->m_bottomUpHeap);
+        reinterpret_cast<Engine3D::CWorldScene*>(scene)->UpdateSuperSectors(nullptr);
         if (manager)
-            manager->PopContext();
+            manager->LeaveHeapScope();
         SharedCollision::Commit(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
     }
     if (DebugEnabled())
@@ -1845,7 +1845,7 @@ void NoteCollisionMoved(uint32_t checksum)
     if (!sector)
         return;
     if (FlagsOf(sector) & 0x40)
-        FlagsOf(sector) |= 0x20; // (as ApplyTrack / CSector::SetWorldPosition 0x0049E6C0)
+        FlagsOf(sector) |= 0x20; // (as ApplyTrack / CWorldCell::PlaceAtAbsolutePoint 0x0049E6C0)
     MarkDirty(scene);
 }
 
@@ -1860,7 +1860,7 @@ int MovedCount()
 void LogCensus()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    SceneNode* node = reinterpret_cast<SceneNode*>(Nx::g_sceneList.next);
+    SceneNode* node = reinterpret_cast<SceneNode*>(Engine3D::g_sceneList.next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         bool end = IsEnd(node);
         uint8_t* scene = end ? nullptr : node->scene;
@@ -1887,4 +1887,4 @@ void LogCensus()
 }
 
 } // namespace Scenery
-} // namespace Front::LevelEditor
+} // namespace MenuSystem::LevelEditor

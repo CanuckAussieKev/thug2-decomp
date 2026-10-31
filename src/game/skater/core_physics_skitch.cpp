@@ -44,13 +44,13 @@ constexpr float kSkitchStep = 6.0f;                // 0x00646284
 constexpr float kSkitchReach = 120.0f;             // 0x0064BD2C
 constexpr float kSkitchLostDistanceSqr = 32400.0f; // 0x0064BD28 (180 squared)
 
-Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
+GameObjects::CGameEntity* SkaterObject(void* component) { return static_cast<GameObjects::CGameEntity*>(ObjectOf(component)); }
 
-// 0x0051BA70 (Obj::CSkitchComponent::GetNearestHookPoint): the index of its skitch point nearest `from` (-1 if none),
+// 0x0051BA70 (GameObjects::CTowRideHandler::GetNearestHookPoint): the index of its skitch point nearest `from` (-1 if none),
 // its position in `point`.
-int NearestSkitchPoint(void* skitch, Mth::Vector* point, Mth::Vector* from)
+int NearestSkitchPoint(void* skitch, Maths::Vector* point, Maths::Vector* from)
 {
-    return static_cast<Obj::CSkitchComponent*>(skitch)->GetNearestHookPoint(point, from);
+    return static_cast<GameObjects::CTowRideHandler*>(skitch)->GetNearestHookPoint(point, from);
 }
 
 } // namespace
@@ -66,19 +66,19 @@ void CorePhysicsComponent::TryStartSkitch()
     if (FlagsOf(this)[0x88] || !hold[0])
         return;
     uint32_t held = static_cast<uint32_t>(TimeSincePress(hold));
-    if (held <= static_cast<uint32_t>(Script::GetInteger(kSkitchHoldTime)) || At<int>(FlagsOf(this), kState) != 0)
+    if (held <= static_cast<uint32_t>(Scripts::FetchIntValue(kSkitchHoldTime)) || At<int>(FlagsOf(this), kState) != 0)
         return;
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
-    float nearest = Script::GetFloat(kSkitchMaxDistance);
-    Obj::CCompositeObject* found = nullptr;
-    for (Obj::CBaseComponent* skitch = Obj::CompositeObjectManager()->GetFirstComponentByType(kSkitch); skitch;
+    float nearest = Scripts::GetFloat(kSkitchMaxDistance);
+    GameObjects::CGameEntity* found = nullptr;
+    for (GameObjects::CObjectModule* skitch = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kSkitch); skitch;
          skitch = skitch->mp_nextOfType) {
         if (!At<uint8_t>(skitch, 0x18))
             continue;
-        Obj::CCompositeObject* car = skitch->m_object;
+        GameObjects::CGameEntity* car = skitch->m_object;
         if (car == ObjectOf(this))
             continue;
-        Mth::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
+        Maths::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
         int index = NearestSkitchPoint(skitch, &point, &VectorAt(ObjectOf(this), kPosition));
         if (index == -1)
             continue;
@@ -94,9 +94,9 @@ void CorePhysicsComponent::TryStartSkitch()
     TakePress(button + 0x80);
     TakePress(button + 0xE0);
     // (0x0041D1D0: the smart pointer set)
-    At<Obj::CSmtPtr<Obj::CRefCounted>>(this, kSkitchCar).AssignObject(reinterpret_cast<Obj::CRefCounted*>(found));
-    found->SelfEvent(kSkitched, nullptr);
-    SkaterObject(this)->SelfEvent(kSkitched, nullptr);
+    At<GameObjects::CSharedRef<GameObjects::CSharedBase>>(this, kSkitchCar).AssignObject(reinterpret_cast<GameObjects::CSharedBase*>(found));
+    found->PostOwnEvent(kSkitched, nullptr);
+    SkaterObject(this)->PostOwnEvent(kSkitched, nullptr);
 }
 
 // 0x00501DB0
@@ -104,9 +104,9 @@ void CorePhysicsComponent::Skitch()
 {
     void* rider = At<void*>(At<void*>(this, kRide), 0x18);
     uint8_t* pad = InputOf(this) + 0x20;
-    Obj::CCompositeObject* car = rider ? *static_cast<Obj::CCompositeObject**>(rider) : nullptr;
+    GameObjects::CGameEntity* car = rider ? *static_cast<GameObjects::CGameEntity**>(rider) : nullptr;
     if (!car) {
-        SkaterObject(this)->SelfEvent(kOffMeterBottom, nullptr);
+        SkaterObject(this)->PostOwnEvent(kOffMeterBottom, nullptr);
         return;
     }
     void* skitch = car->GetComponent(kSkitch);
@@ -139,24 +139,24 @@ void CorePhysicsComponent::Skitch()
         double next;
         do {
             void* object = ObjectOf(this);
-            const Mth::Vector& side = VectorAt(object, kMatrix);
-            const Mth::Vector& position = VectorAt(object, kPosition);
+            const Maths::Vector& side = VectorAt(object, kMatrix);
+            const Maths::Vector& position = VectorAt(object, kPosition);
             float scale = reach * direction;
             float x = static_cast<float>(static_cast<double>(side.x) * scale);
             float y = static_cast<float>(static_cast<double>(side.y) * scale);
             float z = static_cast<float>(static_cast<double>(side.z) * scale);
-            Mth::Vector target;
+            Maths::Vector target;
             target.w = static_cast<float>(static_cast<double>(side.w) * scale + position.w);
             target.z = z + position.z;
             target.y = y + position.y;
             target.x = x + position.x;
-            Mth::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
+            Maths::Vector point = {0.0f, 0.0f, 0.0f, 1.0f};
             int index = NearestSkitchPoint(skitch, &point, &target);
             if (index != At<int>(this, kSkitchPoint)) {
                 At<int>(this, kSkitchPoint) = index;
                 At<uint8_t>(this, kSkitchMoving) = 1;
                 At<float>(this, kSkitchDirection) = direction;
-                SkaterObject(this)->SelfEvent(direction == 1.0f ? kSkitchLeft : kSkitchRight, nullptr);
+                SkaterObject(this)->PostOwnEvent(direction == 1.0f ? kSkitchLeft : kSkitchRight, nullptr);
                 break;
             }
             next = static_cast<double>(reach) + kSkitchStep;
@@ -168,23 +168,23 @@ void CorePhysicsComponent::Skitch()
     // at skitch_suck_speed (let go of when 180 or more away).
     if (!At<void*>(At<void*>(this, kRide), 0x18) || !FlagsOf(this)[0x88])
         return;
-    Mth::Vector point;
-    if (!static_cast<Obj::CSkitchComponent*>(skitch)->GetHookPoint(&point, At<int>(this, kSkitchPoint)))
+    Maths::Vector point;
+    if (!static_cast<GameObjects::CTowRideHandler*>(skitch)->GetHookPoint(&point, At<int>(this, kSkitchPoint)))
         return;
     void* object = ObjectOf(this);
     VectorAt(object, kPosition).w = 0.0f;
-    Mth::Vector back = -VectorAt(car, kForward);
-    float offset = Script::GetFloat(kSkitchOffset);
-    Mth::Vector target = point + offset * back;
+    Maths::Vector back = -VectorAt(car, kForward);
+    float offset = Scripts::GetFloat(kSkitchOffset);
+    Maths::Vector target = point + offset * back;
     if (At<uint8_t>(this, kSkitchMoving)) {
-        Mth::Vector moved = VectorAt(At<void*>(At<void*>(this, kRide), 0x18), 0x5C); // (the ride's last move)
+        Maths::Vector moved = VectorAt(At<void*>(At<void*>(this, kRide), 0x18), 0x5C); // (the ride's last move)
         VectorAt(ObjectOf(this), kPosition) += moved;
-        Mth::Vector toward = target - VectorAt(ObjectOf(this), kPosition);
+        Maths::Vector toward = target - VectorAt(ObjectOf(this), kPosition);
         float lengthSqr = static_cast<float>(LengthSqrUnrounded(toward));
         float suck = static_cast<float>(static_cast<double>(PhysicsFloat(kSkitchSuckSpeed, object)) *
                                         At<float>(this, kFrameLength));
         if (lengthSqr > kSkitchLostDistanceSqr) {
-            SkaterObject(this)->SelfEvent(kOffMeterBottom, nullptr);
+            SkaterObject(this)->PostOwnEvent(kOffMeterBottom, nullptr);
             return;
         }
         if (static_cast<double>(suck) * suck >= lengthSqr) {
@@ -197,8 +197,8 @@ void CorePhysicsComponent::Skitch()
     } else {
         VectorAt(ObjectOf(this), kPosition) = target;
     }
-    At<Mth::Matrix>(ObjectOf(this), kMatrix) = At<Mth::Matrix>(car, 0xC0); // (the car's display matrix)
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+    At<Maths::Matrix>(ObjectOf(this), kMatrix) = At<Maths::Matrix>(car, 0xC0); // (the car's display matrix)
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
 }
 
 } // namespace Skater

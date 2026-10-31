@@ -5,7 +5,7 @@
 
 // Light glows (Nx engine, PC): halos at light positions (the table 0x007CA9D8) that grow while occlusion queries
 // see them and fade otherwise.
-namespace Nx {
+namespace Engine3D {
 
 struct sGlow {
     float position[3];

@@ -17,25 +17,25 @@
 //   pointer +0x98, its id +0xA4) and the collision cache to use (+0xAC; null: the current one, 0x00691974).
 // - CollData (feeler +0x24): +0x00 normal, +0x10 point, +0x20 face index, +0x24 distance (0..1 along the line),
 //   +0x28 ignore_1 (u16: faces with any of these flags are skipped), +0x2A ignore_0 (faces lacking any of these
-//   are skipped), +0x2C the face's flags, +0x2E its terrain (byte), +0x30 the collision object (CCollObj) hit,
-//   +0x34 that object's checksum (CCollObj +0x04: the sector's name), +0x3C a callback (called with the CollData on
+//   are skipped), +0x2C the face's flags, +0x2E its terrain (byte), +0x30 the collision object (CHitMesh) hit,
+//   +0x34 that object's checksum (CHitMesh +0x04: the sector's name), +0x3C a callback (called with the CollData on
 //   each accepted face), +0x48 hit, +0x49 the face is a trigger (flags & 0x40).
-// - 0x004172F0 GetCollision(movables, reverse): the static query 0x004106C0 (0x00410930 for reverse: farthest
+// - 0x004172F0 GetHitShape(movables, reverse): the static query 0x004106C0 (0x00410930 for reverse: farthest
 //   first), then with `movables` the composite objects' (0x004118C0 / 0x00411AE0); true if either hit.
 // - Every accepted face goes through 0x004131F0: the face's flags come from the collision object's vtable +0x08
-//   (CCollStatic, vtables 0x00645C18 / 0x00645C78: 0x00410BF0, straight from the face array of the .col data - the
+//   (CStaticCollider, vtables 0x00645C18 / 0x00645C78: 0x00410BF0, straight from the face array of the .col data - the
 //   u16 at face +0, faces of 8 bytes when the geometry's "small faces" byte (+0x0A) is set, else 10); the face
 //   is skipped if (flags & ignore_1) || (~flags & ignore_0). A movable's collision object (vtable 0x00645BC0) has
 //   one set of flags for all its faces (+0xC4, terrain +0xC8).
 // - Ignore flags: both constructors set ignore_1 = 0x0010, ignore_0 = 0 - faces flagged 0x10 (non-collidable) are
-//   skipped by every feeler that doesn't change them. SetIgnore (0x004170F0) is called by 19 places: the skater's
+//   skipped by every feeler that doesn't change them. SetExcluded (0x004170F0) is called by 19 places: the skater's
 //   feeler check 0x005003A0 takes them from its callers, and all of those that can be read pass (0x10, 0); others:
 //   (0x810, 0) 0x004F8698, (0x90, 0) 0x004E4425, (0x3000, 0) 0x0051DF71 / 0x0051E74B (0x10 NOT ignored there, but
 //   0x1000 is), (0, 0x20) - only faces with 0x20 - 0x00422F51 / 0x004F8341 / 0x0052716D, (0, 0x50) 0x0043B4C4 /
 //   0x00434E83 / 0x004E5405. Trigger faces (0x40) are not treated apart in the query: a feeler hits them unless
 //   it ignores 0x10 and they have 0x10 (THUG2's pass-through triggers are 0x10|0x40...); the hit only notes
 //   flags & 0x40 (+0x49).
-// - Collision objects have flags of their own (CCollObj +0x08): 2 and 4 (4 = killed: Kill on a LevelGeometry
+// - Collision objects have flags of their own (CHitMesh +0x08): 2 and 4 (4 = killed: Kill on a LevelGeometry
 //   node, 0x005A32C0 -> the sector's 0x0049E9B0(false) sets it on the sector's collision object, sector +0x18).
 //   The world query (no cache, 0x004188C0's grid lists) skips objects with 2 or 4. The collision cache
 //   (0x0040ABA0 fills it from the same lists, so also without them) is NOT re-checked when queried
@@ -44,7 +44,7 @@
 // - Shatter (0x005A5090) on a LevelGeometry node: the sector made invisible (0x005A3B80) and shattered (sector
 //   vtable +0x04, 0x004A1090); it doesn't touch the collision. Kill on it: the killed flag above, plus 0x004D8C90.
 //
-// Nx::CFeeler::GetCollision (0x004172F0, src/game/nx/feeler.cpp) calls NoteFeelerQuery after each query; nothing
+// Engine3D::CProbeRay::GetHitShape (0x004172F0, src/game/nx/feeler.cpp) calls NoteFeelerQuery after each query; nothing
 // else changes.
 
 #include <cmath>
@@ -76,9 +76,9 @@ int Mode()
 
 const char* NameOf(uint32_t checksum, char* buffer, size_t size)
 {
-    const char* name = Script::KeptQbName(checksum);
+    const char* name = Scripts::KeptQbName(checksum);
     if (!name)
-        name = Script::FindChecksumName(checksum);
+        name = Scripts::LookUpHashName(checksum);
     if (name)
         std::snprintf(buffer, size, "%s (%08X)", name, checksum);
     else
@@ -180,7 +180,7 @@ void LogHit(const void* feeler, uint32_t caller)
 
 } // namespace
 
-// Called by Nx::CFeeler::GetCollision (0x004172F0) after each query.
+// Called by Engine3D::CProbeRay::GetHitShape (0x004172F0) after each query.
 void NoteFeelerQuery(const void* feeler, int hit, uint32_t caller)
 {
     if (Mode() == 0)

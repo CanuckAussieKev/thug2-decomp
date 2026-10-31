@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Mth {
+namespace Maths {
 
 class Matrix;
 
@@ -22,7 +22,7 @@ public:
     Vector& operator/=(float divisor);
     // 0x004FC370 (written out with the skater's core physics): all four components 0 when shorter than `length`
     // (x, y and z). Returns this.
-    Vector& ZeroIfShorterThan(float length);
+    Vector& ClampTinyToNothing(float length);
     // 0x004A86D0: any of the four components differs (or is NaN).
     bool operator!=(const Vector& other) const;
     // 0x0040AED0: all four components equal (NaN is unequal).
@@ -30,10 +30,10 @@ public:
 
     // Removes the part of this vector that lies along `normal` (all four components are adjusted by
     // dot(xyz, normal.xyz) * normal). With a unit-length normal this projects onto the plane.
-    Vector& ProjectToPlane(const Vector& normal);
+    Vector& FlattenOntoPlane(const Vector& normal);
     // Turn this vector into the plane with unit normal `normal`, keeping its length (x, y, z; w becomes 0).
     // If it points straight along the normal, (-normal.z, normal.x, -normal.y) is used as the direction.
-    Vector& RotateToPlane(const Vector& normal);
+    Vector& AlignToPlane(const Vector& normal);
     // Point along `direction` (assumed unit length), keeping this vector's length. w is scaled too.
     Vector& SetDirection(const Vector& direction);
     // Keep only the part along unit vector `axis`: axis * dot(this, axis). w is scaled too.
@@ -41,9 +41,9 @@ public:
     // Debug output: "[x y z w]".
     void Print() const;
     // The x, y or z component with the largest magnitude (ties favour x, then y); `axis` gets 0, 1 or 2.
-    float GetMaxAxis(int* axis) const;
+    float DominantAxisIndex(int* axis) const;
 
-    float LengthSqr() const;
+    float MagnitudeSquared() const;
     float Length() const;
     // Scales x, y, z to length 1. A zero-length vector is left unchanged.
     Vector& Normalize();
@@ -51,11 +51,11 @@ public:
     Vector* SetLength(float length);
 
     // Rotate about the Y axis by 1, 2 or 3 quarter turns (other values do nothing).
-    Vector& RotateY90(int quarter_turns);
+    Vector& TurnQuarterAboutY(int quarter_turns);
     // Unit conversions applied to x, y, z (w is unchanged).
-    void DegreesToRadians();
-    void RadiansToDegrees();
-    void FeetToInches();
+    void DegreeToRadianConv();
+    void ConvertToDegrees();
+    void FeetAsInches();
     // x = -x, y = -z, z = y. Purpose not identified yet (looks like a coordinate-system conversion).
     void NegateXRotateX90();
 
@@ -65,7 +65,7 @@ public:
     Vector& RotateAboutY(float angle);
     // 0x004882D0 (vector_rotate_z.cpp): the same about the Z axis.
     Vector& RotateAboutZ(float angle);
-    // 0x00421440: turn by `angle` radians about `axis` (through a quaternion: w becomes what Quat::Rotate leaves).
+    // 0x00421440: turn by `angle` radians about `axis` (through a quaternion: w becomes what QuatRotation::Rotate leaves).
     Vector& RotateAboutAxis(const Vector& axis, float angle);
 
     // 0x00434200 (vector_transform.cpp): this = this * `matrix`, all four components (w too: a full 4x4 product,
@@ -95,10 +95,10 @@ bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees);
 double DistanceSquared(const Vector& a, const Vector& b);
 
 // The angle between a and b in degrees (0 to 180; a zero vector counts as itself).
-double GetAngle(const Vector& a, const Vector& b);
+double ReadTurnAngle(const Vector& a, const Vector& b);
 // The angle in radians (-pi to pi) from a to b seen along `axis`: both projected onto the plane across it,
 // negative when b is clockwise of a.
-double GetAngleAbout(const Vector& a, const Vector& b, const Vector& axis);
+double GetTurnAroundAxis(const Vector& a, const Vector& b, const Vector& axis);
 
 // A pair of points. Name not confirmed yet: only its constructor (0x00402600) has been seen so far.
 struct Line {

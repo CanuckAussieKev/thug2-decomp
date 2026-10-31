@@ -17,7 +17,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/score.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
@@ -30,90 +30,90 @@ constexpr uint32_t kRadius = 0xC48391A5;        // "radius"
 constexpr uint32_t kTeam = 0x3B1F59E0;          // "team"
 constexpr uint32_t kPlayer = 0x67E6859A;        // "player"
 
-Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
-Obj::CSkater* SkaterAt(int index) { return static_cast<Obj::CSkater*>(Skate()->GetSkater(index)); }
-bool IsLocal(Obj::CSkater* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
+GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
+GameObjects::CRider* SkaterAt(int index) { return static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(index)); }
+bool IsLocal(GameObjects::CRider* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
 
 // The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
 // its total, 0x00564860 resets its pot (bail style or not). None has source yet.
-void* ScoreOf(Obj::CSkater* skater) { return skater->GetScore(); }
+void* ScoreOf(GameObjects::CRider* skater) { return skater->GetPointsTotal(); }
 
 // The game mode's name (0x005532A0, no source yet).
 uint32_t GameModeName()
 {
-    return static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->GetNameChecksum();
+    return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey();
 }
 
 } // namespace
 
 // 0x005B5770: InitializeSkaters: each skater - a local one's input reset first (vtable slot 14, ResetInput) - taken
 // out of the world (the skate module's 0x00564C60 with false). Always true.
-bool __cdecl CFunc_InitializeSkaters(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_InitializeSkaters(Scripts::CStruct*, Scripts::CScript*)
 {
-    for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
-        Obj::CSkater* skater = SkaterAt(i);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
         if (IsLocal(skater)) {
             auto** vtable = *reinterpret_cast<void***>(skater);
-            reinterpret_cast<void(__thiscall*)(Obj::CSkater*)>(vtable[14])(skater);
+            reinterpret_cast<void(__thiscall*)(GameObjects::CRider*)>(vtable[14])(skater);
         }
-        Skate()->HideSkater(skater, false);
+        Skate()->ConcealSkater(skater, false);
     }
     return true;
 }
 
 // 0x005B57E0: ReinsertSkaters: each skater shown again, in its own skater heap. Always true.
-bool __cdecl CFunc_ReinsertSkaters(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ReinsertSkaters(Scripts::CStruct*, Scripts::CScript*)
 {
-    for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
-        Obj::CSkater* skater = SkaterAt(i);
-        Mem::Manager* manager = Mem::Manager::Get();
-        manager->PushContext(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        MemSys::Manager* manager = MemSys::Manager::Get();
+        manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
         skater->ShowSkater();
-        Mem::Manager::Get()->PopContext();
+        MemSys::Manager::Get()->LeaveHeapScope();
     }
     return true;
 }
 
 // 0x005B5860: ResetScore [reset_all]: the local skaters' scores (with reset_all, every skater's) reset and their
 // score text shown as "0" - "0:00" in king of the hill. Always true.
-bool __cdecl CFunc_ResetScore(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ResetScore(Scripts::CStruct* params, Scripts::CScript*)
 {
-    bool all = params->ContainsComponentNamed(kResetAll);
-    for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
-        Obj::CSkater* skater = SkaterAt(i);
+    bool all = params->HasEntryNamed(kResetAll);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
         if (!IsLocal(skater) && !all)
             continue;
-        static_cast<Mdl::Score*>(ScoreOf(skater))->Reset();
+        static_cast<GameModules::Score*>(ScoreOf(skater))->Reset();
         if (GameModeName() == kNetKing || GameModeName() == kKing)
-            Front::SetScoreText("0:00", skater->GetSkaterNumber()); // "0:00"
+            MenuSystem::SetScoreText("0:00", skater->GetSkaterNumber()); // "0:00"
         else
-            Front::SetScoreText("0", skater->GetSkaterNumber()); // "0"
+            MenuSystem::SetScoreText("0", skater->GetSkaterNumber()); // "0"
     }
     return true;
 }
 
 // 0x005B5950: UpdateScore: each local skater's score total set again to itself (so it's shown). Always true.
-bool __cdecl CFunc_UpdateScore(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_UpdateScore(Scripts::CStruct*, Scripts::CScript*)
 {
-    for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
-        Obj::CSkater* skater = SkaterAt(i);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
         if (!IsLocal(skater))
             continue;
         void* score = ScoreOf(skater);
-        static_cast<Mdl::Score*>(score)->SetTotalScore(static_cast<Mdl::Score*>(score)->GetTotalScore());
+        static_cast<GameModules::Score*>(score)->SetGrandTotal(static_cast<GameModules::Score*>(score)->GetTotalScore());
     }
     return true;
 }
 
 // 0x005B59C0: ResetScorePot [UseBailStyle]: each local skater's score pot reset (0x00564860 with true unless
 // UseBailStyle). Always true.
-bool __cdecl CFunc_ResetScorePot(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ResetScorePot(Scripts::CStruct* params, Scripts::CScript*)
 {
-    bool bailStyle = params->ContainsFlag(kUseBailStyle);
-    for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
-        Obj::CSkater* skater = SkaterAt(i);
+    bool bailStyle = params->HasBareFlag(kUseBailStyle);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
         if (IsLocal(skater))
-            static_cast<Mdl::Score*>(ScoreOf(skater))->Bail(!bailStyle);
+            static_cast<GameModules::Score*>(ScoreOf(skater))->Bail(!bailStyle);
     }
     return true;
 }
@@ -121,25 +121,25 @@ bool __cdecl CFunc_ResetScorePot(Script::CStruct* params, Script::CScript*)
 // 0x005B5A40: GetCollidingPlayerAndTeam exclude_team=t radius=feet: player, the skater nearest the script's object
 // within the radius (in inches: * 12) that is in another team without the flag or in team t with it, and team, its
 // team (-1 for both if none). Always true.
-bool __cdecl CFunc_GetCollidingPlayerAndTeam(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetCollidingPlayerAndTeam(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::CStruct* results = script->m_params;
-    auto* object = static_cast<Obj::CCompositeObject*>(script->m_object.mp_object);
+    Scripts::CStruct* results = script->m_params;
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_object.m_ownerObject);
     int team = -1;
     uint32_t player = 0xFFFFFFFF;
     float nearest = 1000000.0f;
     int excludeTeam;
-    params->GetInteger(kExcludeTeam, &excludeTeam, 1);
+    params->FetchIntValue(kExcludeTeam, &excludeTeam, 1);
     float radius;
     params->GetFloat(kRadius, &radius, 1);
     double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
     float radiusSquared = static_cast<float>(inches * inches);
-    GameNet::Manager* net = GameNet::g_gameNetManager;
-    for (int i = 0; i < Skate()->GetNumSkaters(); ++i) {
-        Obj::CSkater* skater = SkaterAt(i);
+    OnlinePlay::Manager* net = OnlinePlay::g_gameNetManager;
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
         if (!skater)
             continue;
-        auto* info = reinterpret_cast<GameNet::PlayerInfo*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)));
+        auto* info = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id)));
         if (!info)
             continue;
         if (info->m_team == excludeTeam && !info->IsCarryingFlag())
@@ -156,10 +156,10 @@ bool __cdecl CFunc_GetCollidingPlayerAndTeam(Script::CStruct* params, Script::CS
         }
     }
     if (static_cast<int>(player) > -1)
-        team = reinterpret_cast<GameNet::PlayerInfo*>(net->PlayerByObjectId(static_cast<uint16_t>(player)))->m_team;
-    results->AddInteger(kTeam, team);
-    results->AddInteger(kPlayer, static_cast<int>(player));
+        team = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(player)))->m_team;
+    results->PutInt(kTeam, team);
+    results->PutInt(kPlayer, static_cast<int>(player));
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

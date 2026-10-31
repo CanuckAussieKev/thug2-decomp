@@ -12,7 +12,7 @@
 // box - clear of the loading bar, which is centred) shows:
 //   LOADING 12.3 s                    last activity 0.4 s ago
 //   [the last lines of what is being loaded, oldest first, each with its time since the load began]
-// The lines: files opened (File::Open - archives, the data overlay, the data folder - by file name and size),
+// The lines: files opened (FileLoad::Open - archives, the data overlay, the data folder - by file name and size),
 // files loaded whole (the PIP loader: from an archive, the cache or disk, with their size), .prx archives loaded,
 // the script commands that load or build things (Load* / Add* scene and collision / Create* / Parse* / Init* /
 // Preload*: scenes, collision, node arrays, QB files, assets, objects, the skater), the scripts called meanwhile
@@ -36,11 +36,11 @@
 //
 // thug2-decomp.ini [features] loading_console=0 turns it off (default 1): the loading screen exactly as the
 // original's (the same timer, the same picture, no extra timer).
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
-namespace Gfx::LoadingConsole {
+namespace Gfx2D::LoadingConsole {
 
 // [features] loading_console (read once).
 bool Enabled();
@@ -60,7 +60,7 @@ void Note(const char* format, ...);
 void NoteFile(const char* what, const char* path, long long size);
 // A script command or script being run (by checksum; only the interesting ones are kept - see above), with what it
 // loads or makes if its parameters say (an unnamed string, scene= / file= / name=...).
-void NoteScriptCall(uint32_t name, bool cfunction, Script::CStruct* params);
+void NoteScriptCall(uint32_t name, bool cfunction, Scripts::CStruct* params);
 // A line of the game log (thug2-decomp.log), filtered.
 void NoteLogLine(const char* line);
 
@@ -95,4 +95,4 @@ struct Ring {
     std::vector<std::string> Last(size_t n) const;
 };
 
-} // namespace Gfx::LoadingConsole
+} // namespace Gfx2D::LoadingConsole

@@ -5,7 +5,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -23,7 +23,7 @@ struct Painter;
 // Cheap enough for a frame: each sector's faces classified once (cached, made again when its collision's box or first /
 // last vertex changes, as the collision view's cache), the nearest sectors within 3000 units first, at most 12000
 // faces drawn, under the lines (ImGui's background list) - and the collision view (C) can be on with it.
-namespace Front::LevelEditor::SkateView {
+namespace MenuSystem::LevelEditor::SkateView {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -47,4 +47,4 @@ void AddOverlay(const Overlays::Painter& painter);
 void Legend(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
 void Stop(); // (the caches dropped)
 
-} // namespace Front::LevelEditor::SkateView
+} // namespace MenuSystem::LevelEditor::SkateView

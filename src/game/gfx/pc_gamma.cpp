@@ -11,7 +11,7 @@
 
 #include "game/gfx/device.h"
 
-namespace Nx {
+namespace Engine3D {
 
 float g_gammas[3]{1.0f, 1.0f, 1.0f};
 uint16_t g_gammaRamp[768];

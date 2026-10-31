@@ -7,9 +7,9 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 struct Overlay;
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui
 
 // NOT ORIGINAL - the level editor's arrange tools (ours; see level_editor.h):
 //   - Align / distribute (Roblox Studio's Align tool): the selection's pieces (each object, each scenery piece with
@@ -34,7 +34,7 @@ struct Overlay;
 //     faces where the surface falls away (convex lips), from its meshes' triangles - drawn; a click on one lays a grind
 //     rail exactly along it (level_editor_chains.h's points: one undo step).
 // The window: F2 (the command search: "Arrange"); the keys are in the action registry (level_editor_actions.h).
-namespace Front::LevelEditor::Arrange {
+namespace MenuSystem::LevelEditor::Arrange {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
@@ -151,4 +151,4 @@ void RunQueued();
 // A new level / the editor stopping: caches dropped.
 void Forget();
 
-} // namespace Front::LevelEditor::Arrange
+} // namespace MenuSystem::LevelEditor::Arrange

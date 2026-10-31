@@ -12,8 +12,8 @@ namespace Platform {
 
 namespace {
 
-IDirect3D9*& Direct3D() { return Nx::g_direct3D; }
-IDirect3DDevice9*& Device() { return Nx::g_d3dDevice; }
+IDirect3D9*& Direct3D() { return Engine3D::g_direct3D; }
+IDirect3DDevice9*& Device() { return Engine3D::g_d3dDevice; }
 
 IDirect3DVertexBuffer9* g_dynamicVertices;
 uint8_t* g_dynamicVerticesLocked;
@@ -26,7 +26,7 @@ IDirect3DVertexBuffer9*& DynamicVertices() { return g_dynamicVertices; }
 uint32_t& DynamicVerticesSize() { return g_dynamicVerticesSize; }
 uint32_t& DynamicVerticesUsed() { return g_dynamicVerticesUsed; }
 uint8_t*& DynamicVerticesLocked() { return g_dynamicVerticesLocked; }
-IDirect3DIndexBuffer9*& QuadIndices() { return Nx::g_quadIndices; }
+IDirect3DIndexBuffer9*& QuadIndices() { return Engine3D::g_quadIndices; }
 
 // The occlusion query in progress, and the ended ones by key (the original's stdext::hash_map at 0x007D69FC,
 // built and torn down by the exe's own static initialisers - unused now).

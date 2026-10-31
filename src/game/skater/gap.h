@@ -6,7 +6,7 @@
 #include "game/core/alloc.h"
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -24,24 +24,24 @@ class CStruct;
 // manual, 0x80 / 0x100 walking states 2 / 3, 0x200 skating, 0x400 walking, 0x800 driving; the high half (the same
 // bits << 16) are states the gap requires: cleared when the state is seen, and a gap ending with any left fails.
 //
-// Vtable: 0 Destroy, 1 Update, 2 InitFromStructure, 3 Finalize, 12 CallMemberFunction.
-namespace Obj {
+// Vtable: 0 Destroy, 1 Update, 2 ConfigureFromData, 3 Finalize, 12 InvokeMethodByName.
+namespace GameObjects {
 
 struct TrickListEntry;
 struct TrickNameEntry;
 
-class CSkaterGapComponent : public CBaseComponent {
+class CRiderGapTracker : public CObjectModule {
 public:
     // 0x00512C60 (registered by RegisterComponentTypes): a new one (0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x005122A0: the base, its vtable and type, two empty lists, no core physics or balance trick yet. Returns this.
-    CSkaterGapComponent* Construct();
+    CRiderGapTracker* Construct();
     // 0x00511F10: the two lists' heads unlinked (their entries aren't freed: ClearGaps), then the base's.
     void DestroyBody();
     // 0x005122F0 (vtable slot 0)
-    CSkaterGapComponent* Destroy(unsigned int flags);
+    CRiderGapTracker* Destroy(unsigned int flags);
     // 0x00511BB0 (vtable +0x08): the frame count reset. `params` isn't read.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x00511BC0 (vtable +0x0C): the core physics, balance trick, physics control and walk components found.
     void Finalize();
     // 0x00512320 (vtable +0x04): one more frame; the gaps checked against the skater's state.
@@ -49,76 +49,76 @@ public:
     // 0x00512CC0 (vtable +0x30): StartGap, EndGap, StartGapTrick, CheckGapTricks, ClearGapTricks, DuplicateTrigger (the
     // TriggerScript of the first node the script's node links to that has one, run on the skater) - 1; 2 for any
     // other name.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00511C80: the flags of the skater's state now: `cancel` the low ones (one state bit, and 0x200 skating / 0x400
     // walking / 0x800 driving), `require` the same << 16.
     void GetStateFlags(uint32_t* cancel, uint32_t* require);
     // 0x00511F60: each gap's required states seen now cleared; the gaps the state cancels deleted, with their gap
     // trick (the first one of the same GapID, node and trickscript that isn't done).
-    void CheckGaps(uint32_t cancel, uint32_t require);
+    void ScanForGaps(uint32_t cancel, uint32_t require);
     // 0x00512030: every gap and gap trick deleted.
     void ClearGaps();
     // 0x00512050 (StartGapTrick): a gap trick added at the front: GapID, TrickText, trickscript, the script's node and
     // this frame.
-    void StartGapTrick(Script::CStruct* params, Script::CScript* script);
+    void StartGapTrick(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00512140 (CheckGapTricks): each done gap trick's trickscript run on the skater (at its node). `params` isn't
     // read.
-    void CheckGapTricks(Script::CStruct* params);
+    void CheckGapTricks(Scripts::CStruct* params);
     // 0x005121A0 (ClearGapTricks): the gap tricks deleted - with NotInSameFrame only those not added this frame.
-    void ClearGapTricks(Script::CStruct* params);
+    void ClearGapTricks(Scripts::CStruct* params);
     // 0x00512360 (StartGap): unless the skater's state says not to (+0x70), a gap (any of the same GapID and node
     // replaced) at the front: where the skater (its camera) is and faces; the trick it needs (trickscript with a
     // Keycombo, a TrickText or tricks; spin, Perfect, num_taps; the score's count of that trick now) - also a gap
     // trick then; the flags (flags - one or an array of script integers -, combined_flags, CarGap: only driving;
     // otherwise not driving unless 0xE3ED4ADE). Then checked against the state at once (unless gap checks are Off
     // and nothing about driving applies).
-    void StartGap(Script::CStruct* params, Script::CScript* script);
+    void StartGap(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00512770 (EndGap): each gap of the GapID (none: one started at a node linked to the script's) ends: failed
     // (deleted) with requirements left, or without a perfect landing when Require_Perfect; else its gap trick is
     // done if the trick was done since (or none was needed), the checklist gets the skater's start for the text,
     // a local skater with a score gets it (and the checklist the gap, DefaultGapScript run), the GapScript is run
     // (NetEnabled, permanent), Continue starts a new gap, <GapID>_Success is sent, and the gap deleted. The walk
     // begins again after each.
-    void EndGap(Script::CStruct* params, Script::CScript* script);
+    void EndGap(Scripts::CStruct* params, Scripts::CScript* script);
 
-    Mem::ListNode m_gaps;      // +0x18 Lst::Head<TrickListEntry> (vtable 0x0064BEC4)
-    Mem::ListNode m_gapTricks; // +0x2C Lst::Head<TrickNameEntry> (vtable 0x0064BEC8)
+    MemSys::ListNode m_gaps;      // +0x18 ListKit::Head<TrickListEntry> (vtable 0x0064BEC4)
+    MemSys::ListNode m_gapTricks; // +0x2C ListKit::Head<TrickNameEntry> (vtable 0x0064BEC8)
     uint32_t m_frame;          // +0x40 counted by Update
-    uint8_t* m_score;          // +0x44 the skater's score (Mdl::Score; set by the skater)
+    uint8_t* m_pointsHeld;          // +0x44 the skater's score (GameModules::Score; set by the skater)
     uint8_t* m_corePhysics;    // +0x48 SkaterCorePhysics (0x5BD63B29)
     uint8_t* m_balanceTrick;   // +0x4C SkaterBalanceTrick (0x589E5FB3)
     uint8_t* m_physicsControl; // +0x50 SkaterPhysicsControl (0xD9151D4D)
     uint8_t* m_walk;           // +0x54 Walk (0x726E85AA)
 };
-static_assert(offsetof(CSkaterGapComponent, m_gaps) == 0x18 && offsetof(CSkaterGapComponent, m_gapTricks) == 0x2C &&
-                  offsetof(CSkaterGapComponent, m_frame) == 0x40 && offsetof(CSkaterGapComponent, m_score) == 0x44 &&
-                  offsetof(CSkaterGapComponent, m_corePhysics) == 0x48 &&
-                  offsetof(CSkaterGapComponent, m_walk) == 0x54 && sizeof(CSkaterGapComponent) == 0x58,
+static_assert(offsetof(CRiderGapTracker, m_gaps) == 0x18 && offsetof(CRiderGapTracker, m_gapTricks) == 0x2C &&
+                  offsetof(CRiderGapTracker, m_frame) == 0x40 && offsetof(CRiderGapTracker, m_pointsHeld) == 0x44 &&
+                  offsetof(CRiderGapTracker, m_corePhysics) == 0x48 &&
+                  offsetof(CRiderGapTracker, m_walk) == 0x54 && sizeof(CRiderGapTracker) == 0x58,
               "layout must match the original (0x00512C60 allocates 0x58 bytes)");
 
-// The two lists' node types (Lst::Node<TrickListEntry>, vtable 0x0064BE88; Lst::Node<TrickNameEntry>, 0x0064BE8C) and
-// heads (Lst::Head<...>, 0x0064BEC4 / 0x0064BEC8): the destructor bodies unlink.
-struct GapListNode : Mem::ListNode {
-    // 0x00511E50 / 0x00511E90: Lst::Node<TrickListEntry>'s destructor body and scalar deleting destructor.
+// The two lists' node types (ListKit::Node<TrickListEntry>, vtable 0x0064BE88; ListKit::Node<TrickNameEntry>, 0x0064BE8C) and
+// heads (ListKit::Head<...>, 0x0064BEC4 / 0x0064BEC8): the destructor bodies unlink.
+struct GapListNode : MemSys::ListNode {
+    // 0x00511E50 / 0x00511E90: ListKit::Node<TrickListEntry>'s destructor body and scalar deleting destructor.
     void DestroyBody();
     GapListNode* Destroy(unsigned int flags);
-    // 0x00512240: Lst::Head<TrickListEntry>'s scalar deleting destructor.
+    // 0x00512240: ListKit::Head<TrickListEntry>'s scalar deleting destructor.
     GapListNode* DestroyHead(unsigned int flags);
 };
-struct GapTrickListNode : Mem::ListNode {
+struct GapTrickListNode : MemSys::ListNode {
     // 0x00511E70 / 0x00511ED0 / 0x00512270: the same for TrickNameEntry.
     void DestroyBody();
     GapTrickListNode* Destroy(unsigned int flags);
     GapTrickListNode* DestroyHead(unsigned int flags);
 };
 
-// The current level's gap checklist (Mdl::Skate 0x005656C0) - called from the trick component:
+// The current level's gap checklist (GameModules::Skate 0x005656C0) - called from the trick component:
 // 0x00511C10: the pending landings dropped (ClearPending).
-void __cdecl ClearPendingGaps();
-// 0x00511C30: the pending landings counted (AwardPendingGaps); once every level's gaps are got (the career's
+void __cdecl DiscardQueuedGaps();
+// 0x00511C30: the pending landings counted (PayOutQueuedGaps); once every level's gaps are got (the career's
 // AllGapsGot), ProcessAllGapsReward is spawned.
-void __cdecl AwardPendingGaps();
+void __cdecl PayOutQueuedGaps();
 
 // 0x0064BE88: gapNodeVtable (defined where the class's functions are).
 extern void** const g_gapNodeVtable;

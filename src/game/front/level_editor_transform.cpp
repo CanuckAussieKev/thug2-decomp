@@ -9,7 +9,7 @@
 
 #include "game/front/level_editor_prefs.h"
 
-namespace Front::LevelEditor::Transform {
+namespace MenuSystem::LevelEditor::Transform {
 
 namespace {
 
@@ -22,26 +22,26 @@ Repeat g_repeat;
 
 Settings& Current() { return g_settings; }
 
-bool FlyAlways() { return Prefs::Get().wasdFlies; }
+bool FlyAlways() { return OptionStore::Get().wasdFlies; }
 void SetFlyAlways(bool always)
 {
-    Prefs::Values v = Prefs::Get();
+    OptionStore::Values v = OptionStore::Get();
     v.wasdFlies = always;
-    Prefs::Set(v);
+    OptionStore::Set(v);
 }
-float Grid() { return static_cast<float>(Prefs::Get().snapMove); }
+float Grid() { return static_cast<float>(OptionStore::Get().snapMove); }
 void SetGrid(float grid)
 {
-    Prefs::Values v = Prefs::Get();
+    OptionStore::Values v = OptionStore::Get();
     v.snapMove = static_cast<int>(grid);
-    Prefs::Set(v);
+    OptionStore::Set(v);
 }
-float AngleStep() { return static_cast<float>(Prefs::Get().snapTurn); }
+float AngleStep() { return static_cast<float>(OptionStore::Get().snapTurn); }
 void SetAngleStep(float degrees)
 {
-    Prefs::Values v = Prefs::Get();
+    OptionStore::Values v = OptionStore::Get();
     v.snapTurn = static_cast<int>(degrees);
-    Prefs::Set(v);
+    OptionStore::Set(v);
 }
 
 const std::vector<float>& GridSizes()
@@ -353,4 +353,4 @@ V3 RepeatTarget(V3 from, const RepeatStep& step)
 
 Repeat& LastDuplicate() { return g_repeat; }
 
-} // namespace Front::LevelEditor::Transform
+} // namespace MenuSystem::LevelEditor::Transform

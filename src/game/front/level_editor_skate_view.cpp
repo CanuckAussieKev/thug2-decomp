@@ -23,7 +23,7 @@
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 
-namespace Front::LevelEditor::SkateView {
+namespace MenuSystem::LevelEditor::SkateView {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ constexpr int kMaxFaces = 12000;
 constexpr uint32_t kRail = 0xF040F0FF;
 
 struct Cached {
-    const Nx::CCollObjTriData* tri = nullptr;
+    const Engine3D::CTriMeshSource* tri = nullptr;
     V3 min = {}, max = {}, first = {}, last = {};
     int faces = 0;
     float threshold = -1.0f;
@@ -112,25 +112,25 @@ bool g_capped;
 int g_railSegments;
 float g_threshold = -1.0f;
 
-V3 ToV3(const Mth::Vector& v) { return {v.x, v.y, v.z}; }
+V3 ToV3(const Maths::Vector& v) { return {v.x, v.y, v.z}; }
 
 float GameThreshold()
 {
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
-        float angle = Script::GetFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
-        float factor = ::CFuncs::g_degreesToRadians;
+        float angle = Scripts::GetFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
+        float factor = ::ScriptCommands::g_degreesToRadians;
         g_threshold = Threshold(angle, factor);
     }
     return g_threshold;
 }
 
-const Cached& CacheOf(uint32_t checksum, const Nx::CCollObjTriData* tri, int trigger)
+const Cached& CacheOf(uint32_t checksum, const Engine3D::CTriMeshSource* tri, int trigger)
 {
-    V3 min = ToV3(tri->m_min), max = ToV3(tri->m_max), first = {}, last = {};
+    V3 min = ToV3(tri->m_lowerLimit), max = ToV3(tri->m_upperLimit), first = {}, last = {};
     if (tri->m_vertices && tri->m_numVertices) {
-        first = ToV3(tri->GetRawVertexPos(0));
-        last = ToV3(tri->GetRawVertexPos(tri->m_numVertices - 1));
+        first = ToV3(tri->ReadStoredVertex(0));
+        last = ToV3(tri->ReadStoredVertex(tri->m_numVertices - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     float threshold = GameThreshold();
@@ -150,7 +150,7 @@ const Cached& CacheOf(uint32_t checksum, const Nx::CCollObjTriData* tri, int tri
             uint32_t index = tri->FaceVertex(f, k);
             ok = index < tri->m_numVertices;
             if (ok)
-                p[k] = ToV3(tri->GetRawVertexPos(static_cast<int>(index)));
+                p[k] = ToV3(tri->ReadStoredVertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
@@ -188,7 +188,7 @@ void AddOverlay(const Overlays::Painter& painter)
     }
     struct Candidate {
         uint32_t checksum;
-        const Nx::CCollObjTriData* tri;
+        const Engine3D::CTriMeshSource* tri;
         float distance;
     };
     struct Walk {
@@ -201,10 +201,10 @@ void AddOverlay(const Overlays::Painter& painter)
             uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
             if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable || (coll[0x08] & 4))
                 return; // (no collision, or switched off)
-            const auto* tri = *reinterpret_cast<const Nx::CCollObjTriData* const*>(coll + 0x0C);
+            const auto* tri = *reinterpret_cast<const Engine3D::CTriMeshSource* const*>(coll + 0x0C);
             if (!tri || !tri->m_numFaces || View::HiddenSector(checksum))
                 return;
-            float distance = View::DistanceToBox(w->camera, ToV3(tri->m_min), ToV3(tri->m_max));
+            float distance = View::DistanceToBox(w->camera, ToV3(tri->m_lowerLimit), ToV3(tri->m_upperLimit));
             if (distance <= kRadius)
                 w->found.push_back({checksum, tri, distance});
         },
@@ -273,13 +273,13 @@ void AddOverlay(const Overlays::Painter& painter)
             painter.Line(corner[e[0]], corner[e[1]], colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
-    auto* rails = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    auto* rails = skate ? *reinterpret_cast<GameObjects::CGrindRailHub**>(skate + 0x24) : nullptr;
     if (rails && !rails->m_onObject && rails->m_nodes) {
         int drawn = 0;
         for (int i = 0; i < rails->m_count; ++i) {
-            const Obj::CRailNode& node = rails->m_nodes[i];
-            if (!node.m_next || (node.m_flags & Obj::RAIL_FLAG_CLIMBING) || !(node.m_flags & Obj::RAIL_FLAG_ACTIVE))
+            const GameObjects::CGrindPoint& node = rails->m_nodes[i];
+            if (!node.m_next || (node.m_flags & GameObjects::RAIL_FLAG_CLIMBING) || !(node.m_flags & GameObjects::RAIL_FLAG_ACTIVE))
                 continue;
             V3 a = {node.m_pos.x, node.m_pos.y, node.m_pos.z}, b = {node.m_next->m_pos.x, node.m_next->m_pos.y,
                                                                    node.m_next->m_pos.z};
@@ -328,4 +328,4 @@ void Legend(float viewX, float viewY, float viewWidth, float viewHeight, float s
     ImGui::End();
 }
 
-} // namespace Front::LevelEditor::SkateView
+} // namespace MenuSystem::LevelEditor::SkateView

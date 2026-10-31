@@ -17,7 +17,7 @@
 #include "game/front/level_editor_prefs.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Camera {
+namespace MenuSystem::LevelEditor::Camera {
 
 namespace {
 constexpr float kPi = 3.14159265f;
@@ -94,7 +94,7 @@ void AxisYawPitch(View view, float* yaw, float* pitch)
     switch (view) {
     case View::Top: *pitch = -kTopPitch; break;     // (looking down; up the screen +z)
     case View::Bottom: *pitch = kTopPitch; break;
-    case View::Front: *yaw = 0.0f; break;           // (looking along +z)
+    case View::MenuSystem: *yaw = 0.0f; break;           // (looking along +z)
     case View::Back: *yaw = kPi; break;
     case View::Right: *yaw = -kPi * 0.5f; break;    // (from +x, looking along -x)
     case View::Left: *yaw = kPi * 0.5f; break;
@@ -107,7 +107,7 @@ const char* ViewName(View view)
     switch (view) {
     case View::Top: return "Top";
     case View::Bottom: return "Bottom";
-    case View::Front: return "Front";
+    case View::MenuSystem: return "Front";
     case View::Back: return "Back";
     case View::Right: return "Right";
     case View::Left: return "Left";
@@ -398,7 +398,7 @@ void ApplyOrbit(const Rig& rig)
 {
     if (!g_orbit.orbiting && g_orbit.dx == 0.0f && g_orbit.dy == 0.0f && g_orbit.wheel == 0)
         return;
-    const Prefs::Values& prefs = Prefs::Get();
+    const OptionStore::Values& prefs = OptionStore::Get();
     float sensitivity = 0.0035f * static_cast<float>(prefs.lookPct) / 100.0f;
     float dy = prefs.invertY ? -g_orbit.dy : g_orbit.dy;
     Frame before = FrameFromYawPitch(*rig.yaw, *rig.pitch);
@@ -446,7 +446,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
                 Frame frame = FrameFromYawPitch(*rig.yaw, *rig.pitch);
                 FlyTo(rig, {rig.target + frame.back * distance, *rig.yaw, *rig.pitch});
             }
-            if (Prefs::Get().speedBySelection)
+            if (OptionStore::Get().speedBySelection)
                 *rig.speed = SpeedForRadius(rig.radius);
         }
     }
@@ -509,7 +509,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
             }
             continue;
         }
-        static const View kViews[3][2] = {{View::Top, View::Bottom}, {View::Front, View::Back}, {View::Right, View::Left}};
+        static const View kViews[3][2] = {{View::Top, View::Bottom}, {View::MenuSystem, View::Back}, {View::Right, View::Left}};
         View view = kViews[i][opposite ? 1 : 0];
         V3 pivot = Ortho() ? (rig.haveSelection ? rig.target : g_ortho.pivot) : LookPoint(rig);
         V3 d = pivot - *rig.pos;
@@ -585,7 +585,7 @@ void AfterUpdate(const Rig& rig, int wheel, bool interrupted)
 float FlyFactor(bool held, double seconds)
 {
     g_flyHeld = held ? g_flyHeld + static_cast<float>(seconds) : 0.0f;
-    return FlyRamp(g_flyHeld, Prefs::Get().flyAccelMs);
+    return FlyRamp(g_flyHeld, OptionStore::Get().flyAccelMs);
 }
 
-} // namespace Front::LevelEditor::Camera
+} // namespace MenuSystem::LevelEditor::Camera

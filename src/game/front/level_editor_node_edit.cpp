@@ -24,7 +24,7 @@
 #include "game/gfx/light_manager.h"
 #include "game/gfx/scene_lights.h"
 
-namespace Front::LevelEditor::NodeEdit {
+namespace MenuSystem::LevelEditor::NodeEdit {
 
 namespace {
 
@@ -114,7 +114,7 @@ constexpr uint32_t kShape = 0x22CF0027;  // Shape
 struct Touched {
     uint32_t name;
     Values origin;
-    Script::CStruct* node;
+    Scripts::CStruct* node;
 };
 std::vector<Touched> g_touched;
 std::unordered_map<uint32_t, size_t> g_touchedIndex;
@@ -123,25 +123,25 @@ std::unordered_map<uint32_t, Values> g_railOrigins;
 
 // The node's own pos= / angles= component (the last, as CStruct::Search reads them - never one in an included
 // structure, which the game doesn't read for these either).
-Script::CComponent* OwnVector(Script::CStruct* node, uint32_t name)
+Scripts::CComponent* OwnVector(Scripts::CStruct* node, uint32_t name)
 {
-    Script::CComponent* found = nullptr;
-    for (Script::CComponent* c = node->m_head; c; c = c->next) {
-        if (c->name == name && c->Type() == Script::ESYMBOLTYPE_VECTOR && c->vector)
+    Scripts::CComponent* found = nullptr;
+    for (Scripts::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == name && c->Type() == Scripts::QBVAL_VECTOR && c->vector)
             found = c;
     }
     return found;
 }
 
-void WriteVector(Script::CStruct* node, uint32_t name, V3 value)
+void WriteVector(Scripts::CStruct* node, uint32_t name, V3 value)
 {
-    if (Script::CComponent* c = OwnVector(node, name)) {
+    if (Scripts::CComponent* c = OwnVector(node, name)) {
         c->vector->x = value.x;
         c->vector->y = value.y;
         c->vector->z = value.z;
         return;
     }
-    node->AddVector(name, value.x, value.y, value.z);
+    node->PutVec3(name, value.x, value.y, value.z);
 }
 
 // The light lists 0x00490570 fills (by the node's name; read in 0x0048FCA0, which takes a light away): the dynamic
@@ -150,23 +150,23 @@ void WriteVector(Script::CStruct* node, uint32_t name, V3 value)
 // +0x00 and the name at +0x18.
 void MoveLights(uint32_t name, V3 pos)
 {
-    auto** dynamic = reinterpret_cast<uint8_t**>(Nx::g_dynamicLights);
-    int dynamicCount = Nx::g_dynamicLightCount;
+    auto** dynamic = reinterpret_cast<uint8_t**>(Engine3D::g_dynamicLights);
+    int dynamicCount = Engine3D::g_dynamicLightCount;
     for (int i = 0; i < dynamicCount && i < 256; ++i) {
         uint8_t* light = dynamic[i];
         if (light && *reinterpret_cast<uint32_t*>(light + 0x28) == name) {
-            auto* place = reinterpret_cast<Mth::Vector*>(light + 0x04);
+            auto* place = reinterpret_cast<Maths::Vector*>(light + 0x04);
             place->x = pos.x;
             place->y = pos.y;
             place->z = pos.z;
         }
     }
-    auto* level = reinterpret_cast<uint8_t*>(Nx::g_sceneLights);
-    int levelCount = Nx::g_sceneLightCount;
+    auto* level = reinterpret_cast<uint8_t*>(Engine3D::g_sceneLights);
+    int levelCount = Engine3D::g_sceneLightCount;
     for (int i = 0; i < levelCount && i < 150; ++i) {
         uint8_t* entry = level + i * 0x24;
         if (*reinterpret_cast<uint32_t*>(entry + 0x18) == name) {
-            auto* place = reinterpret_cast<Mth::Vector*>(entry);
+            auto* place = reinterpret_cast<Maths::Vector*>(entry);
             place->x = pos.x;
             place->y = pos.y;
             place->z = pos.z;
@@ -177,36 +177,36 @@ void MoveLights(uint32_t name, V3 pos)
 // What the game keeps of the node, brought up to date (level_editor_node_edit.h's list).
 void ApplyLive(const Nodes::Node* node, uint32_t name, const Values& values)
 {
-    Mth::Vector pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
+    Maths::Vector pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
     Nodes::Family family = node ? node->family : Nodes::Family::Other;
-    if (family == Nodes::Family::Trigger && reinterpret_cast<Obj::ProximManager*>(Obj::g_proximManager)) {
-        if (Obj::ProximNode* proxim = Obj::Proxim_GetNode(name))
+    if (family == Nodes::Family::Trigger && reinterpret_cast<GameObjects::ProximManager*>(GameObjects::g_proximManager)) {
+        if (GameObjects::ProximNode* proxim = GameObjects::Proxim_GetNode(name))
             proxim->m_pos = pos;
     }
-    if (family == Nodes::Family::Sound && Obj::g_emitterTable) {
-        if (Obj::EmitterNode* emitter = Obj::Emitter_GetNode(name))
+    if (family == Nodes::Family::Sound && GameObjects::g_emitterTable) {
+        if (GameObjects::EmitterNode* emitter = GameObjects::Emitter_GetNode(name))
             emitter->m_pos = pos;
     }
     if (family == Nodes::Family::Light)
         MoveLights(name, values.pos);
     // Its object (a flag a CTF or team game made; any object of the node's name): moved and turned as the node.
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
-    if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD)) {
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(name));
+    if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD)) {
         Objects::State state = Objects::Save(object);
         state.pos = pos;
-        Mth::Matrix matrix;
-        Mth::Vector angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
+        Maths::Matrix matrix;
+        Maths::Vector angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
         matrix.InitFromAngles(angles);
         for (int r = 0; r < 3; ++r)
-            state.matrix.row[r] = state.displayMatrix.row[r] = matrix.row[r];
+            state.matrix.row[r] = state.drawMatrix.row[r] = matrix.row[r];
         Objects::Restore(state);
     }
 }
 
 // The level's node named `name` (the node manager's: the one the game finds), null if none or no level.
-Script::CStruct* StructNamed(uint32_t name)
+Scripts::CStruct* StructNamed(uint32_t name)
 {
-    return name && SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
 }
 
 const Nodes::Node* NodeNamed(uint32_t name)
@@ -243,9 +243,9 @@ bool Movable(const Nodes::Node& node)
 
 const char* WhenApplied(const Nodes::Node& node)
 {
-    Script::CStruct* s = Nodes::StructOf(node);
+    Scripts::CStruct* s = Nodes::StructOf(node);
     uint32_t shape = 0;
-    bool sectorShape = s && s->GetChecksum(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
+    bool sectorShape = s && s->ReadHashValue(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
     case Nodes::Family::Rail:
         return "Live";
@@ -281,14 +281,14 @@ bool IsRail(uint32_t name)
 
 bool IsChain(uint32_t name) { return IsRail(name) || Chains::IsPath(name); }
 
-std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail)
+std::vector<uint32_t> MovedWith(uint32_t name, bool entireRail)
 {
-    if (wholeRail && IsRail(name)) {
+    if (entireRail && IsRail(name)) {
         std::vector<uint32_t> rail = Scenery::RailOf(name);
         if (!rail.empty())
             return rail;
     }
-    if (wholeRail && Chains::IsPath(name))
+    if (entireRail && Chains::IsPath(name))
         return Chains::ChainOf(name); // (a path: its waypoints linked either way)
     return {name};
 }
@@ -302,12 +302,12 @@ bool Read(uint32_t name, Values* values)
         values->angles = {0.0f, 0.0f, 0.0f};
         return true;
     }
-    Script::CStruct* node = StructNamed(name);
+    Scripts::CStruct* node = StructNamed(name);
     if (!node)
         return false;
-    Mth::Vector pos, angles;
-    SkateScript::GetPosition(node, &pos);
-    SkateScript::GetAngles(node, &angles);
+    Maths::Vector pos, angles;
+    LevelNodes::GetPosition(node, &pos);
+    LevelNodes::ReadTurnAngles(node, &angles);
     values->pos = {pos.x, pos.y, pos.z};
     values->angles = {angles.x, angles.y, angles.z};
     return true;
@@ -355,7 +355,7 @@ bool Set(uint32_t name, const Values& values)
             Nodes::Reread(index);
         return true;
     }
-    Script::CStruct* node = StructNamed(name);
+    Scripts::CStruct* node = StructNamed(name);
     if (!node)
         return false;
     NoteOrigin(name);
@@ -404,7 +404,7 @@ void ForgetLevel()
     // (a level whose node array stays loaded - the same structures under the same names - gets its places back: the
     // layout puts them in again; another level's nodes of the same name aren't touched)
     for (const Touched& t : g_touched) {
-        Script::CStruct* node = StructNamed(t.name);
+        Scripts::CStruct* node = StructNamed(t.name);
         if (node && node == t.node) {
             WriteVector(node, kPos, t.origin.pos);
             WriteVector(node, kAngles, t.origin.angles);
@@ -415,4 +415,4 @@ void ForgetLevel()
     g_railOrigins.clear();
 }
 
-} // namespace Front::LevelEditor::NodeEdit
+} // namespace MenuSystem::LevelEditor::NodeEdit

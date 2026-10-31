@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace Pcm {
+namespace AudioStream {
 
 struct CachedStreamFile {
     uint32_t key;

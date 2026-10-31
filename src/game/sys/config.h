@@ -6,7 +6,7 @@
 
 // The PC settings: thug2-decomp.ini next to the exe ([features] and the others). Window, graphics, input, glyph, online and logging options are read from its
 // sections below at start-up. (Not the game's own registry settings.)
-namespace Config {
+namespace BuildInfo {
 
 constexpr const char* kFileName = "thug2-decomp.ini";
 

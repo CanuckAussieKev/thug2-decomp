@@ -14,7 +14,7 @@
 #include "game/sys/game_config.h"
 #include "game/sys/crt.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 namespace {
 
@@ -37,13 +37,13 @@ void* StreamBuffer(int slot) { return g_streamBuffers + slot * 0x14000; }
 const char* DataRoot() { return GameConfig::GetBootstrapPrefix(); }
 // The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a
 // method of the manager; it reads a global).
-void CreateSoundManager() { Sfx::CreateManager(false); }
-void ReleaseSoundManager() { Sfx::ReleaseManager(); }
-float SoundVolume() { return Sfx::GetMainVolume(); }
+void CreateSoundManager() { SoundFx::CreateManager(false); }
+void ReleaseSoundManager() { SoundFx::ReleaseManager(); }
+float SoundVolume() { return SoundFx::FetchMasterLoudness(); }
 
-void BinkGoto(Nx::Bink* bink, uint32_t frame, int flags)
+void BinkGoto(Engine3D::Bink* bink, uint32_t frame, int flags)
 {
-    reinterpret_cast<void(__stdcall*)(Nx::Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
+    reinterpret_cast<void(__stdcall*)(Engine3D::Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
 }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -87,7 +87,7 @@ void Stop(StreamSlot& slot)
 
 } // namespace
 
-// The original calls 0x0047C790, a linker-folded `return -1` (also Sfx::GroupCount).
+// The original calls 0x0047C790, a linker-folded `return -1` (also SoundFx::GroupCount).
 Handle __cdecl OpenUserTrack(int, int) { return INVALID_HANDLE_VALUE; }
 
 // --- The music ---------------------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ bool __cdecl LoadMusicTrackByName(const char* path)
         path = slash + 1;
     if (const char* slash = std::strrchr(path, '/'))
         path = slash + 1;
-    return LoadMusicTrack(Crc::GenerateCRCFromString(path));
+    return LoadMusicTrack(Checksums::HashFromText(path));
 }
 
 // 0x00453DB0
@@ -197,7 +197,7 @@ void __cdecl SyncMusicToTime(float seconds)
     if (!MusicSlot().Playing())
         return;
     WaitForSingleObject(StreamLock(), INFINITE);
-    Nx::Bink* bink = MusicSlot().bink->m_bink; // (a WadStream, or a paused Bink stream, would crash here)
+    Engine3D::Bink* bink = MusicSlot().bink->m_bink; // (a WadStream, or a paused Bink stream, would crash here)
     int frame = Ftol(static_cast<double>(bink->frameRate) * seconds / static_cast<double>(bink->frameRateDiv));
     uint32_t off = bink->frameNum - static_cast<uint32_t>(frame);
     if (static_cast<int>(off) < 0)
@@ -210,7 +210,7 @@ void __cdecl SyncMusicToTime(float seconds)
 // --- The sound streams -------------------------------------------------------------------------------------
 
 // 0x00453DF0
-bool __cdecl SetStreamVolume(const StreamVolume* volume, int slotIndex)
+bool __cdecl ChangeStreamLoudness(const StreamVolume* volume, int slotIndex)
 {
     WaitForSingleObject(StreamLock(), INFINITE);
     StreamSlot& slot = StreamSlots()[slotIndex];
@@ -278,7 +278,7 @@ bool __cdecl LoadStream(uint32_t checksum, int slotIndex, const StreamVolume* vo
         return false;
     }
     if (volume)
-        SetStreamVolume(volume, slotIndex);
+        ChangeStreamLoudness(volume, slotIndex);
     ReleaseMutex(StreamLock());
     return true;
 }
@@ -299,7 +299,7 @@ bool __cdecl StartPreloadedStream(int slot, const StreamVolume* volume)
     if (!StreamSlots()[slot].Playing())
         return false;
     SetStarted(StreamSlots()[slot], true);
-    SetStreamVolume(volume, slot);
+    ChangeStreamLoudness(volume, slot);
     return true;
 }
 
@@ -310,7 +310,7 @@ void __cdecl StopStream(int slot, int)
 }
 
 // 0x00453BD0
-void __cdecl StopStreams()
+void __cdecl HaltStreams()
 {
     for (int i = 0; i < kNumStreams; ++i)
         StopStream(i, 0);

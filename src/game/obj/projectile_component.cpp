@@ -1,4 +1,4 @@
-// The projectile component (Obj::CProjectileComponent): see projectile_component.h.
+// The projectile component (GameObjects::CProjectileComponent): see projectile_component.h.
 
 #include "game/obj/projectile_component.h"
 
@@ -19,13 +19,13 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/trigger_events.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
 extern void** const kVtable;
 
-// The local skater's projectile slots (CSkater +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
+// The local skater's projectile slots (CRider +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
 constexpr uint32_t kSlots = 0x1C0;
 constexpr uint32_t kSlotSize = 0x18;
 constexpr int kSlotCount = 5;
@@ -42,7 +42,7 @@ uint8_t& SlotTaken(uint8_t* skater, int slot) { return skater[kSlots + 4 + slot 
 
 // One feeler's end x / z, as the original's x87 code: the cosine of the angle as computed (53 bits), the sine of it
 // rounded to float; z adds (sin + float(cos)) * 12 rounded to float first.
-void FeelerEnd(int index, float x, float z, float* endX, float* endZ)
+void FeelerEnd(int index, float x, float z, float* lastColumn, float* endZ)
 {
     float angleF;
     float slot;
@@ -67,7 +67,7 @@ void FeelerEnd(int index, float x, float z, float* endX, float* endZ)
         fadd slot
         fxch st(1)
         fadd x
-        mov eax, endX
+        mov eax, lastColumn
         fstp dword ptr [eax]
         mov eax, endZ
         fstp dword ptr [eax]
@@ -77,13 +77,13 @@ void FeelerEnd(int index, float x, float z, float* endX, float* endZ)
 } // namespace
 
 // 0x004F3890
-CBaseComponent* __cdecl CProjectileComponent::Create()
+CObjectModule* __cdecl CProjectileComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CProjectileComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CProjectileComponent));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CProjectileComponent*>(memory);
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     component->m_rest = 0;
@@ -94,8 +94,8 @@ CBaseComponent* __cdecl CProjectileComponent::Create()
 void CProjectileComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    SlotTaken(mp_skater, m_slot) = 0;
-    CBaseComponent::DestroyBody();
+    SlotTaken(m_riderRef, m_seat) = 0;
+    CObjectModule::DestroyBody();
 }
 
 // 0x004F37D0
@@ -103,38 +103,38 @@ CProjectileComponent* CProjectileComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004F3800
-void CProjectileComponent::InitFromStructure(Script::CStruct* /*params*/)
+void CProjectileComponent::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
-    auto* skater = reinterpret_cast<uint8_t*>(SkateCalls::GetLocalSkater());
-    mp_skater = skater;
+    auto* skater = reinterpret_cast<uint8_t*>(SkateCalls::GetHomeRider());
+    m_riderRef = skater;
     uint32_t name = m_object->m_id;
-    m_slot = -1;
+    m_seat = -1;
     for (int i = 0; i < kSlotCount; ++i) {
         if (name == *reinterpret_cast<uint32_t*>(skater + kSlots + i * kSlotSize)) {
-            m_slot = i;
+            m_seat = i;
             break;
         }
     }
-    SlotTaken(skater, m_slot) = 1;
+    SlotTaken(skater, m_seat) = 1;
 }
 
 // 0x004F3860
 void CProjectileComponent::Finalize()
 {
-    auto* skater = SkateCalls::GetLocalSkater();
+    auto* skater = SkateCalls::GetHomeRider();
     if (skater)
-        mp_trigger = static_cast<CTriggerComponent*>(skater->GetComponent(CTriggerComponent::kType));
+        mp_trigger = static_cast<CActivationZoneModule*>(skater->GetComponent(CActivationZoneModule::kType));
 }
 
 // 0x004F3A90
 void CProjectileComponent::Update()
 {
-    *reinterpret_cast<Mth::Vector*>(mp_skater + kSlots + 8 + m_slot * static_cast<int>(kSlotSize)) = m_object->m_pos;
+    *reinterpret_cast<Maths::Vector*>(m_riderRef + kSlots + 8 + m_seat * static_cast<int>(kSlotSize)) = m_object->m_pos;
     CheckTriggers();
 }
 
@@ -145,16 +145,16 @@ void CProjectileComponent::CheckTriggers()
         --m_rest;
         return;
     }
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    const Mth::Vector pos = m_object->m_pos;
+    const Maths::Vector pos = m_object->m_pos;
     float endW = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {
         feeler.m_line.start = pos;
         feeler.m_line.end.y = pos.y;
         feeler.m_line.end.w = endW;
         FeelerEnd(i, pos.x, pos.z, &feeler.m_line.end.x, &feeler.m_line.end.z);
-        if (feeler.GetCollision(true, false) && mp_trigger->CheckFeeler(TouchEvents(), &feeler))
+        if (feeler.GetHitShape(true, false) && mp_trigger->CheckFeeler(TouchEvents(), &feeler))
             m_rest = kRestFrames;
     }
     feeler.m_object.Release();
@@ -162,22 +162,22 @@ void CProjectileComponent::CheckTriggers()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CProjectileComponent::Destroy,
-         &Obj::CProjectileComponent::Update,
-         &Obj::CProjectileComponent::InitFromStructure,
-         &Obj::CProjectileComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CProjectileComponent::Destroy,
+         &GameObjects::CProjectileComponent::Update,
+         &GameObjects::CProjectileComponent::ConfigureFromData,
+         &GameObjects::CProjectileComponent::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

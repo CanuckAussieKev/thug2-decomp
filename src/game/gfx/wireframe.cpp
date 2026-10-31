@@ -7,7 +7,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
-namespace Nx::Wireframe {
+namespace Engine3D::Wireframe {
 
 namespace {
 
@@ -31,4 +31,4 @@ void EndWorld()
     s_wire = false;
 }
 
-} // namespace Nx::Wireframe
+} // namespace Engine3D::Wireframe

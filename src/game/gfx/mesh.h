@@ -8,7 +8,7 @@
 // A scene mesh (Nx engine, PC): what its vertex and index buffers hold and the operations on it that live here -
 // moving and turning it in place, copying it, making it a billboard. Most of its code (drawing, the buffers
 // themselves) is elsewhere and not rewritten yet.
-namespace Nx {
+namespace Engine3D {
 
 // A vertex buffer (0x24 bytes, constructor 0x004D3FF0; made by 0x004D5760): the size, the Direct3D buffer - its own,
 // or a share of an arena's (flag 4) -, a copy of the vertices in memory (none with flag 1) written to the card when
@@ -47,7 +47,7 @@ static_assert(offsetof(sVertexBuffer, data) == 0xC && offsetof(sVertexBuffer, lo
               "layout must match the original");
 
 struct sVertexArena; // (pc_scene.h)
-struct sScene;       // (mesh_list.h)
+struct sceneRef;       // (mesh_list.h)
 
 // An index buffer (0x18 bytes, constructor 0x004D4270): the size, the Direct3D buffer and a copy of the indices in
 // memory, written to the card when unlocked; on a list (0x007865E8) as the vertex buffers are.
@@ -79,7 +79,7 @@ struct sBillboard {
     float axis[4];
 };
 
-struct sMesh {
+struct meshRef {
     uint32_t flags;            // 1: shares another mesh's buffers; 0x10: a billboard
     float centre[3];           // the bounding sphere
     float radius;
@@ -121,7 +121,7 @@ struct sMesh {
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
     // primitive type 5. Returns this.
-    sMesh* Construct();
+    meshRef* Construct();
     // 0x004D69E0: the destructor's body - off the billboards (0x10), its transform freed, and unless it shares
     // another mesh's buffers (1) its index and vertex buffers destroyed (the device's stream let go of if it is one),
     // its per-vertex data and billboard freed; its positions and triangles freed; all of it cleared.
@@ -135,7 +135,7 @@ struct sMesh {
     // needs, and the strip written to the card.
     void CleanStrip();
     // 0x004D5900: the bounding sphere (the two stack arguments after are unused).
-    void SetBoundingSphere(const float* centre, float radius, int unused1, int unused2);
+    void ChangeBoundSphere(const float* centre, float radius, int unused1, int unused2);
     // 0x004D5C30: its first vertex buffer made (a share of `arena`'s, whose size grows by it, 32-byte aligned) and
     // filled with `bytes` of `vertices`.
     void CreateVertexBuffer(const void* vertices, uint32_t bytes, sVertexArena* arena);
@@ -153,8 +153,8 @@ struct sMesh {
     // offsets in a vertex, per-vertex colour bytes (dynamic, no arena share), levels of detail, its material from
     // `scene` and its pixel shader; the first vertex buffer made (or, without a format, unpacked for skinning).
     // `dynamic` (the file's only): its buffers dynamic.
-    void LoadFromMemory(uint8_t** cursor, uint32_t materialChecksum, sScene* scene, sVertexArena* arena);
-    void LoadFromFile(void* file, uint32_t materialChecksum, sScene* scene, sVertexArena* arena, bool dynamic);
+    void ReadFromRamBlock(uint8_t** cursor, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena);
+    void LoadFromFile(void* file, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic);
     // 0x004D5940: the packed skinned vertices unpacked into perVertexData (normals and weights in 11/11/10 bits,
     // bones / 3), the bones a vertex counted, its format, stride and a vertex buffer without a copy made for them.
     void SetUpSkinning(const uint8_t* packed, uint32_t bytes, sVertexArena* arena);
@@ -175,24 +175,24 @@ struct sMesh {
     void AddVertexBuffers(int count);
     // 0x004D6E00: move it so its transform's position is `position` (vertices, positions and sphere moved by the
     // difference).
-    void MoveTo(const Mth::Vector* position);
+    void MoveTo(const Maths::Vector* position);
     // 0x004D6FB0 (Ghidra starts it at 0x004D6FBA): turn the vertices `turns` quarter turns about the transform's
     // position (about y; 1-3 only) - and the sphere's centre once per vertex buffer.
     void TurnY(int turns);
     // 0x004D71F0: a copy - sharing the buffers (flag 1) or with copies of them. Returns the copy.
-    sMesh* Clone(bool share);
+    meshRef* Clone(bool share);
     // 0x004D7580: make it a billboard of `type` (1: facing the camera; 2: about `axis`, or as 1 when the axis is
     // nearly vertical) about `pivot`: its quad's vertices turned into the billboard's own axes.
-    void MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector* axis);
+    void MakeBillboard(int type, const Maths::Vector* pivot, const Maths::Vector* axis);
 };
-static_assert(offsetof(sMesh, material) == 0x14 && offsetof(sMesh, vertexBufferCount) == 0x1A &&
-                  offsetof(sMesh, indexCounts) == 0x24 && offsetof(sMesh, billboard) == 0x4C &&
-                  offsetof(sMesh, indexBuffers) == 0x54 && offsetof(sMesh, depth) == 0x7C &&
-                  offsetof(sMesh, perVertexBytes) == 0x8C && offsetof(sMesh, perVertexData) == 0x94 &&
-                  offsetof(sMesh, unknownA4) == 0xA4 && offsetof(sMesh, positionCount) == 0xAC &&
-                  offsetof(sMesh, triangles) == 0xB8 && offsetof(sMesh, vertexBuffers) == 0xCC &&
-                  offsetof(sMesh, pixelShader) == 0x44 && offsetof(sMesh, bufferFlags) == 0x78 &&
-                  offsetof(sMesh, extraBuffers) == 0xBC && sizeof(sMesh) == 0xD8,
+static_assert(offsetof(meshRef, material) == 0x14 && offsetof(meshRef, vertexBufferCount) == 0x1A &&
+                  offsetof(meshRef, indexCounts) == 0x24 && offsetof(meshRef, billboard) == 0x4C &&
+                  offsetof(meshRef, indexBuffers) == 0x54 && offsetof(meshRef, depth) == 0x7C &&
+                  offsetof(meshRef, perVertexBytes) == 0x8C && offsetof(meshRef, perVertexData) == 0x94 &&
+                  offsetof(meshRef, unknownA4) == 0xA4 && offsetof(meshRef, positionCount) == 0xAC &&
+                  offsetof(meshRef, triangles) == 0xB8 && offsetof(meshRef, vertexBuffers) == 0xCC &&
+                  offsetof(meshRef, pixelShader) == 0x44 && offsetof(meshRef, bufferFlags) == 0x78 &&
+                  offsetof(meshRef, extraBuffers) == 0xBC && sizeof(meshRef) == 0xD8,
               "layout must match the original");
 
 // 0x004D47F0 / 0x004D4350: a vertex buffer's positions from records of three weighted bones each (a bone's position

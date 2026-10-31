@@ -21,9 +21,9 @@
 #include "game/gfx/device.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
-Lst::HashTable* g_shadowCasters;
+ListKit::HashTable* g_shadowCasters;
 bool g_pixelShadersMade;
 void* g_pixelShaders[kPixelShaderCount];
 
@@ -32,8 +32,8 @@ namespace {
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 void*& Handle(int slot) { return g_pixelShaders[slot]; }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
-Lst::HashTable g_shaderCache{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
-Lst::HashTable& Cache() { return g_shaderCache; }
+ListKit::HashTable g_shaderCache{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
+ListKit::HashTable& Cache() { return g_shaderCache; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
 void* BufferPointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
@@ -47,7 +47,7 @@ long AssembleShader(const char* source, uint32_t length, void** shader, void** e
 
 // Per-pass flags of a material (not rewritten yet; thiscall): bit n set for passes that take their alpha from the
 // texture alone.
-uint32_t PassAlphaFlags(const void* material) { return static_cast<const sMaterial*>(material)->TextureAlphaPasses(); }
+uint32_t PassAlphaFlags(const void* material) { return static_cast<const materialRef*>(material)->TextureAlphaPasses(); }
 uint32_t PassCount(const void* material) { return *reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 8); }
 uint32_t BlendMode(const void* material, uint32_t pass)
 {
@@ -132,8 +132,8 @@ void __cdecl CreatePixelShaders()
                 Release(errors);
         }
     }
-    void* table = Mem::New(sizeof(Lst::HashTable));
-    g_shadowCasters = table ? new (table) Lst::HashTable(8) : nullptr; // the shadow casters
+    void* table = MemSys::New(sizeof(ListKit::HashTable));
+    g_shadowCasters = table ? new (table) ListKit::HashTable(8) : nullptr; // the shadow casters
 }
 
 // 0x004DD2C0
@@ -153,8 +153,8 @@ void* __cdecl GeneratedPixelShader(const void* material)
     uint32_t alphaFlags = PassAlphaFlags(material);
     key |= (present * 8 | alphaFlags) << 22;
     // In the cache? (the first item with the key and a shader)
-    Lst::HashTable& cache = Cache();
-    for (Lst::HashTable::Item* item = cache.m_buckets + (key & ((1u << cache.m_bits) - 1)); item; item = item->next) {
+    ListKit::HashTable& cache = Cache();
+    for (ListKit::HashTable::Item* item = cache.m_buckets + (key & ((1u << cache.m_bits) - 1)); item; item = item->next) {
         if (item->key == key && item->value)
             return item->value;
     }
@@ -235,7 +235,7 @@ void* __cdecl GeneratedPixelShader(const void* material)
                                 reinterpret_cast<IDirect3DPixelShader9**>(&handle));
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     ViewMode::NoteShaderSource(handle, text.buffer);
-    cache.PutItem(key, handle);
+    cache.StoreEntry(key, handle);
     if (shader)
         Release(shader);
     if (errors)
@@ -263,9 +263,9 @@ void __cdecl MaterialPixelShader(const void* material, void** shader)
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640DF0 (a static initialiser): the generated pixel shaders' cache, 256 buckets.
-void ConstructShaderCache() { new (&g_shaderCache) Lst::HashTable(8); }
+void ConstructShaderCache() { new (&g_shaderCache) ListKit::HashTable(8); }
 
 } // namespace Nx

@@ -7,7 +7,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_vehicleWheelMemberFunctions[60]{
             0x93B713A6, 0xE47F1B79, 0, 0, 0, 0,
@@ -40,17 +40,17 @@ T& At(uint8_t* wheel, uint32_t offset)
 }
 
 // A grip velocity in miles an hour, kept in inches a second (rounded once, as the x87 does).
-void ReadMilesPerHour(Script::CStruct* params, uint32_t name, float& value)
+void ReadMilesPerHour(Scripts::CStruct* params, uint32_t name, float& value)
 {
-    if (!params->ContainsComponentNamed(name))
+    if (!params->HasEntryNamed(name))
         return;
     params->GetFloat(name, &value, 0);
     value = static_cast<float>(static_cast<double>(value) * kInchesPerMile * kHoursPerSecond);
 }
 
-void ReadFeet(Script::CStruct* params, uint32_t name, float& value)
+void ReadFeet(Scripts::CStruct* params, uint32_t name, float& value)
 {
-    if (!params->ContainsComponentNamed(name))
+    if (!params->HasEntryNamed(name))
         return;
     params->GetFloat(name, &value, 0);
     value = value * kInchesPerFoot;
@@ -61,17 +61,17 @@ void ReadFeet(Script::CStruct* params, uint32_t name, float& value)
 // 0x00434F00
 void __cdecl RegisterVehicleMemberFunctions()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicle), g_vehicleWheelMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicle), g_vehicleWheelMemberFunctions, 0x18);
 }
 
 // 0x00434F20
-void __stdcall ReadWheelSettings(uint8_t* wheel, Script::CStruct* params)
+void __stdcall ReadWheelSettings(uint8_t* wheel, Scripts::CStruct* params)
 {
     // (each checksum is read into the parameters' own argument slot: a steering= that isn't a name leaves the
     // pointer's value there)
     uint32_t choice = reinterpret_cast<uint32_t>(params);
-    if (params->ContainsComponentNamed(kSteering)) {
-        params->GetChecksum(kSteering, &choice, 0);
+    if (params->HasEntryNamed(kSteering)) {
+        params->ReadHashValue(kSteering, &choice, 0);
         if (choice == kRight)
             At<int>(wheel, 0xB0) = 2;
         else if (choice == kFixed)
@@ -79,8 +79,8 @@ void __stdcall ReadWheelSettings(uint8_t* wheel, Script::CStruct* params)
         else if (choice == kLeft)
             At<int>(wheel, 0xB0) = 1;
     }
-    if (params->ContainsComponentNamed(kDrive)) {
-        params->GetChecksum(kDrive, &choice, 0);
+    if (params->HasEntryNamed(kDrive)) {
+        params->ReadHashValue(kDrive, &choice, 0);
         if (choice == kYes)
             At<bool>(wheel, 0xB4) = true;
         else if (choice == kNo)
@@ -89,7 +89,7 @@ void __stdcall ReadWheelSettings(uint8_t* wheel, Script::CStruct* params)
     params->GetFloat(0x9E931FDF, &At<float>(wheel, 0xC8), 0); // spring_rate
     params->GetFloat(0xAFA960FF, &At<float>(wheel, 0xCC), 0); // damping_rate
     params->GetFloat(0xC48391A5, &At<float>(wheel, 0xC0), 0); // radius
-    if (params->ContainsComponentNamed(0xCA73775D)) {         // moment
+    if (params->HasEntryNamed(0xCA73775D)) {         // moment
         float& moment = At<float>(wheel, 0xC4);
         params->GetFloat(0xCA73775D, &moment, 0);
         moment = kGravity / moment;

@@ -11,7 +11,7 @@
 #include "game/gfx/material.h"
 #include "game/lst/hashtable.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -26,13 +26,13 @@ struct MemoryReader {
     void Skip(int bytes) { cursor += bytes; }
 };
 struct FileReader {
-    File::Handle file;
-    void Read(void* out, int size, int count) { File::Read(out, size, count, file); }
-    void Skip(int bytes) { File::Seek(file, bytes, 1); }
+    FileLoad::Handle file;
+    void Read(void* out, int size, int count) { FileLoad::Read(out, size, count, file); }
+    void Skip(int bytes) { FileLoad::Seek(file, bytes, 1); }
 };
 
 // A texture table's entry for the checksum (its texture at +0x10, or behind it with flag 1), or null.
-uint8_t* FindTexture(const Lst::HashTable* textures, uint32_t checksum)
+uint8_t* FindTexture(const ListKit::HashTable* textures, uint32_t checksum)
 {
     auto* entry = static_cast<uint8_t*>(textures->GetItem(checksum));
     if (!entry)
@@ -64,16 +64,16 @@ int TableBits(uint32_t count)
 }
 
 template <typename Reader>
-Lst::HashTable* LoadMaterials(Reader& reader, const Lst::HashTable* textures)
+ListKit::HashTable* ReadMaterials(Reader& reader, const ListKit::HashTable* textures)
 {
     uint32_t count = Get<uint32_t>(reader);
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    auto* table = memory ? new (memory) Lst::HashTable(TableBits(count)) : nullptr;
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    auto* table = memory ? new (memory) ListKit::HashTable(TableBits(count)) : nullptr;
     for (uint32_t index = 0; index < count; ++index) {
-        void* at = Mem::New(sizeof(sMaterial));
-        sMaterial* m = at ? static_cast<sMaterial*>(at)->Construct() : nullptr;
+        void* at = MemSys::New(sizeof(materialRef));
+        materialRef* m = at ? static_cast<materialRef*>(at)->Construct() : nullptr;
         reader.Read(&m->checksum, 4, 1);
-        reader.Read(&m->nameChecksum, 4, 1);
+        reader.Read(&m->nameHash, 4, 1);
         reader.Read(&m->passCount, 4, 1);
         m->alphaRef = static_cast<uint8_t>(Get<uint32_t>(reader));
         reader.Read(&m->sortFlag, 1, 1);
@@ -113,7 +113,7 @@ Lst::HashTable* LoadMaterials(Reader& reader, const Lst::HashTable* textures)
             reader.Read(&m->unknownC0[pass], 4, 1);
             if (m->passFlags[pass] & 1) {
                 m->hasUVWibble = true;
-                void* w = Mem::New(sizeof(sUVWibble));
+                void* w = MemSys::New(sizeof(sUVWibble));
                 sUVWibble* wibble = w ? static_cast<sUVWibble*>(w)->Construct() : nullptr;
                 m->uvWibble[pass] = wibble;
                 reader.Read(wibble, 0x20, 1);
@@ -121,20 +121,20 @@ Lst::HashTable* LoadMaterials(Reader& reader, const Lst::HashTable* textures)
             if (pass == 0 && (m->passFlags[0] & 2)) {
                 uint32_t anims = Get<uint32_t>(reader);
                 m->colorAnimCount = anims;
-                m->colorAnims = static_cast<sColorAnim*>(Mem::New(anims * sizeof(sColorAnim)));
-                m->animColors = static_cast<uint32_t*>(Mem::New(anims * 4));
+                m->colorAnims = static_cast<sColorAnim*>(MemSys::New(anims * sizeof(sColorAnim)));
+                m->animColors = static_cast<uint32_t*>(MemSys::New(anims * 4));
                 for (uint32_t i = 0; i < anims; ++i) {
                     uint32_t keys = Get<uint32_t>(reader);
                     int phase = Get<int>(reader);
                     m->colorAnims[i].keyCount = keys;
                     m->colorAnims[i].phase = phase;
-                    m->colorAnims[i].keys = static_cast<sColorKey*>(Mem::New(keys * sizeof(sColorKey)));
+                    m->colorAnims[i].keys = static_cast<sColorKey*>(MemSys::New(keys * sizeof(sColorKey)));
                     reader.Read(m->colorAnims[i].keys, 8, static_cast<int>(keys));
                 }
             }
             if (m->passFlags[pass] & 0x800) {
                 if (!m->textureAnim) {
-                    m->textureAnim = static_cast<sTextureAnim*>(Mem::New(sizeof(sTextureAnim)));
+                    m->textureAnim = static_cast<sTextureAnim*>(MemSys::New(sizeof(sTextureAnim)));
                     std::memset(m->textureAnim, 0, sizeof(sTextureAnim));
                     m->hasTextureAnim = true;
                 }
@@ -145,7 +145,7 @@ Lst::HashTable* LoadMaterials(Reader& reader, const Lst::HashTable* textures)
                 m->textureAnim->keyCounts[pass] = static_cast<uint32_t>(keys);
                 m->textureAnim->phases[pass] = phase;
                 m->textureAnim->loops[pass] = loops;
-                m->textureAnim->keys[pass] = static_cast<sTextureKey*>(Mem::New(static_cast<uint32_t>(keys) * 8));
+                m->textureAnim->keys[pass] = static_cast<sTextureKey*>(MemSys::New(static_cast<uint32_t>(keys) * 8));
                 for (int k = 0; k < keys; ++k) {
                     sTextureKey& key = m->textureAnim->keys[pass][k];
                     reader.Read(&key.time, 4, 1);
@@ -176,7 +176,7 @@ Lst::HashTable* LoadMaterials(Reader& reader, const Lst::HashTable* textures)
         if (m->specularPower > 0.0f)
             m->passFlags[0] |= 0x100;
         if (!table->GetItem(m->checksum))
-            table->PutItem(m->checksum, m);
+            table->StoreEntry(m->checksum, m);
     }
     return table;
 }
@@ -184,19 +184,19 @@ Lst::HashTable* LoadMaterials(Reader& reader, const Lst::HashTable* textures)
 } // namespace
 
 // 0x004D2CB0
-Lst::HashTable* __cdecl LoadMaterialsFromMemory(uint8_t** cursor, const Lst::HashTable* textures)
+ListKit::HashTable* __cdecl ReadMaterialsFromBuffer(uint8_t** cursor, const ListKit::HashTable* textures)
 {
     MemoryReader reader{*cursor};
-    Lst::HashTable* table = LoadMaterials(reader, textures);
+    ListKit::HashTable* table = ReadMaterials(reader, textures);
     *cursor = reader.cursor;
     return table;
 }
 
 // 0x004D3390
-Lst::HashTable* __cdecl LoadMaterialsFromFile(File::Handle file, const Lst::HashTable* textures)
+ListKit::HashTable* __cdecl LoadMaterialsFromFile(FileLoad::Handle file, const ListKit::HashTable* textures)
 {
     FileReader reader{file};
-    return LoadMaterials(reader, textures);
+    return ReadMaterials(reader, textures);
 }
 
 } // namespace Nx

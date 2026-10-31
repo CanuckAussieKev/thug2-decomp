@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Str {
+namespace TextUtil {
 
 // The engine's owning string. Memory comes from the game's allocator.
 class String {
@@ -13,12 +13,12 @@ public:
     String& operator=(const char* text);
     String& operator=(const String& other);
 
-    const char* c_str() const { return m_buffer; }
+    const char* c_str() const { return m_octets; }
 
     // Number of live String objects when this one was created; the destructor decrements the same global
     // counter. Probably a leak-tracking aid.
     int m_serial;
-    char* m_buffer;
+    char* m_octets;
     int m_capacity;
 
 protected:

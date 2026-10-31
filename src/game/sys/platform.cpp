@@ -68,21 +68,21 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
     g_forceResolutions[2] = 0;
     g_forceResolutions[3] = 0;
     std::memset(Platform::g_keyBindings, 0xFF, sizeof(Platform::g_keyBindings));
-    Nx::g_antialiasing = false;
-    Nx::g_hqShadows = 0;
-    Nx::g_fogSetting = false;
+    Engine3D::g_antialiasing = false;
+    Engine3D::g_hqShadows = 0;
+    Engine3D::g_fogSetting = false;
     g_option37 = 0;
     g_forceAxisCounts[0] = 0;
     // (the original clears dwords here across byte-sized settings; each is written by name)
     g_options38And39 = 0;
-    Nx::g_distanceClipping = false;
+    Engine3D::g_distanceClipping = false;
     g_unknown643B = 0;
     g_forceAxisCounts[1] = 0;
-    reinterpret_cast<uint32_t&>(Nx::g_resolutionSetting) = 0;
+    reinterpret_cast<uint32_t&>(Engine3D::g_resolutionSetting) = 0;
     g_distanceSetting = 0;
-    reinterpret_cast<uint32_t&>(Gfx::g_drawDistanceSetting) = 0;
+    reinterpret_cast<uint32_t&>(Gfx2D::g_drawDistanceSetting) = 0;
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).
-    Nx::WriteGraphicsSettings();
+    Engine3D::WriteGraphicsSettings();
     // Originally from PartyMod Fixes: SDL input (game controllers, the key bindings) in place of the original's
     //     DirectInput8Create(instance, 0x800, IID_IDirectInput8A, &directInput, nullptr);
     //     directInput->EnumDevices(0, 0x005F31D0 /* adds each joystick */, nullptr, DIEDFL_ATTACHEDONLY);

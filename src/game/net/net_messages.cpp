@@ -1,5 +1,5 @@
-// The net library's queued messages (QueuedMsg, SeqQueuedMsg), the links that queue them on a connection, and
-// the Lst::Node<T> destructors of the message lists and the Manager's app lists. See net_messages.h.
+// The net library's queued messages (PendingMsg, SeqQueuedMsg), the links that queue them on a connection, and
+// the ListKit::Node<T> destructors of the message lists and the Manager's app lists. See net_messages.h.
 
 #include "game/net/net_messages.h"
 
@@ -13,39 +13,39 @@
 #include "game/net/net_compress.h"
 #include "game/core/code_address.h"
 
-namespace Net {
+namespace NetLink {
 
 // The queue links' and app lists' vtables (each holds only the scalar deleting destructor).
-static VtableSlot kStreamLinkNodeVtable_slots[] = {&Net::StreamLinkNode::Destroy};
+static VtableSlot kStreamLinkNodeVtable_slots[] = {&NetLink::StreamLinkNode::Destroy};
 void** const kStreamLinkNodeVtable = reinterpret_cast<void**>(kStreamLinkNodeVtable_slots);
-static VtableSlot kMsgNormalNodeVtable_slots[] = {&Net::MsgNormalNode::Destroy};
+static VtableSlot kMsgNormalNodeVtable_slots[] = {&NetLink::MsgNormalNode::Destroy};
 void** const kMsgNormalNodeVtable = reinterpret_cast<void**>(kMsgNormalNodeVtable_slots);
-static VtableSlot kMsgImpNodeVtable_slots[] = {&Net::MsgImpNode::Destroy};
+static VtableSlot kMsgImpNodeVtable_slots[] = {&NetLink::MsgImpNode::Destroy};
 void** const kMsgImpNodeVtable = reinterpret_cast<void**>(kMsgImpNodeVtable_slots);
-static VtableSlot kMsgSeqNodeVtable_slots[] = {&Net::MsgSeqNode::Destroy};
+static VtableSlot kMsgSeqNodeVtable_slots[] = {&NetLink::MsgSeqNode::Destroy};
 void** const kMsgSeqNodeVtable = reinterpret_cast<void**>(kMsgSeqNodeVtable_slots);
-static VtableSlot kAppListNodeVtable_slots[] = {&Net::AppNode::Destroy};
+static VtableSlot kAppListNodeVtable_slots[] = {&NetLink::AppNode::Destroy};
 void** const kAppListNodeVtable = reinterpret_cast<void**>(kAppListNodeVtable_slots);
-static VtableSlot kAppListHeadVtable_slots[] = {&Net::AppNode::DestroyHead};
+static VtableSlot kAppListHeadVtable_slots[] = {&NetLink::AppNode::DestroyHead};
 void** const kAppListHeadVtable = reinterpret_cast<void**>(kAppListHeadVtable_slots);
-static VtableSlot kMsgNormalLinkVtable_slots[] = {&Net::MsgNormalLink::Destroy};
+static VtableSlot kMsgNormalLinkVtable_slots[] = {&NetLink::MsgNormalLink::Destroy};
 void** const kMsgNormalLinkVtable = reinterpret_cast<void**>(kMsgNormalLinkVtable_slots);
-static VtableSlot kMsgImpLinkVtable_slots[] = {&Net::MsgImpLink::Destroy};
+static VtableSlot kMsgImpLinkVtable_slots[] = {&NetLink::ReliableMsgNode::Destroy};
 void** const kMsgImpLinkVtable = reinterpret_cast<void**>(kMsgImpLinkVtable_slots);
-static VtableSlot kMsgSeqLinkVtable_slots[] = {&Net::MsgSeqLink::Destroy};
+static VtableSlot kMsgSeqLinkVtable_slots[] = {&NetLink::OrderedMsgNode::Destroy};
 void** const kMsgSeqLinkVtable = reinterpret_cast<void**>(kMsgSeqLinkVtable_slots);
-static VtableSlot kStreamLinkVtable_slots[] = {&Net::StreamLink::Destroy};
+static VtableSlot kStreamLinkVtable_slots[] = {&NetLink::BulkStreamNode::Destroy};
 void** const kStreamLinkVtable = reinterpret_cast<void**>(kStreamLinkVtable_slots);
 
 namespace {
 
-void ReleaseMemory(void* memory) { Mem::Manager::Get()->Free(memory); }
+void ReleaseMemory(void* memory) { MemSys::Manager::Get()->Free(memory); }
 
 // `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a message header; null (and
 // nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)
 char* CompressMessage(uint8_t* id, uint16_t* length, void* data, uint8_t method)
 {
-    return reinterpret_cast<char*>(Net::CompressMessage(id, length, data, static_cast<char>(method)));
+    return reinterpret_cast<char*>(NetLink::CompressMessage(id, length, data, static_cast<char>(method)));
 }
 
 // The data a queued message keeps: a copy, compressed if asked and smaller (then the id and length change).
@@ -57,14 +57,14 @@ char* CopyData(uint8_t* id, uint16_t* length, void* data, uint8_t compression)
         if (compressed)
             data = compressed;
     }
-    auto* copy = static_cast<char*>(Mem::New(*length));
+    auto* copy = static_cast<char*>(MemSys::New(*length));
     std::memcpy(copy, data, *length);
     if (compressed)
         ReleaseMemory(compressed);
     return copy;
 }
 
-void InitNode(Mem::ListNode* node, void** vtable)
+void InitNode(MemSys::ListNode* node, void** vtable)
 {
     node->data = node;
     node->priority = 0;
@@ -73,39 +73,39 @@ void InitNode(Mem::ListNode* node, void** vtable)
     node->vtable = vtable;
 }
 
-// -> the links' destructor bodies (Lst::Node<T>'s, Conn's range: wt/netF)
+// -> the links' destructor bodies (ListKit::Node<T>'s, Conn's range: wt/netF)
 
 } // namespace
 
 // --- Queued messages -----------------------------------------------------------------------------------------
 
 // 0x00454FA0
-QueuedMsg* QueuedMsg::Construct(uint8_t id, uint16_t length, void* data, uint8_t compression)
+PendingMsg* PendingMsg::Construct(uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
-    m_refCount = 0;
+    m_shareCount = 0;
     m_data = nullptr;
     if (length > 0)
         m_data = CopyData(&id, &length, data, compression);
     m_id = id;
-    m_length = length;
+    m_byteCount = length;
     return this;
 }
 
 // 0x00455040
 SeqQueuedMsg* SeqQueuedMsg::Construct(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression)
 {
-    m_refCount = 0;
+    m_shareCount = 0;
     m_data = nullptr;
     if (length > 0)
         m_data = CopyData(&id, &length, data, compression);
     m_id = id;
-    m_length = length;
+    m_byteCount = length;
     m_byte8 = byte8;
     return this;
 }
 
 // 0x004550F0
-void QueuedMsg::DestroyBody()
+void PendingMsg::DestroyBody()
 {
     if (m_data)
         ReleaseMemory(m_data);
@@ -114,80 +114,80 @@ void QueuedMsg::DestroyBody()
 // --- Links -----------------------------------------------------------------------------------------------------
 
 // 0x004555F0
-MsgNormalLink* MsgNormalLink::Construct(QueuedMsg* msg)
+MsgNormalLink* MsgNormalLink::Construct(PendingMsg* msg)
 {
-    InitNode(&m_node, kMsgNormalLinkVtable);
-    m_QMsg = msg;
-    m_SendTime = 0;
+    InitNode(&m_listLink, kMsgNormalLinkVtable);
+    m_sharedMsg = msg;
+    m_dueTime = 0;
     return this;
 }
 
 // 0x00455620
-MsgImpLink* MsgImpLink::Construct(QueuedMsg* msg)
+ReliableMsgNode* ReliableMsgNode::Construct(PendingMsg* msg)
 {
-    InitNode(&m_node, kMsgImpLinkVtable);
-    m_QMsg = msg;
-    m_SendTime = 0;
-    m_NumResends = 0;
+    InitNode(&m_listLink, kMsgImpLinkVtable);
+    m_sharedMsg = msg;
+    m_dueTime = 0;
+    m_retryCount = 0;
     return this;
 }
 
 // 0x00455650
-MsgSeqLink* MsgSeqLink::Construct(SeqQueuedMsg* msg)
+OrderedMsgNode* OrderedMsgNode::Construct(SeqQueuedMsg* msg)
 {
-    InitNode(&m_node, kMsgSeqLinkVtable);
-    m_StreamMessage = 0;
-    m_SendTime = 0;
-    m_QMsg = msg;
-    m_NumResends = 0;
+    InitNode(&m_listLink, kMsgSeqLinkVtable);
+    m_bulkMsg = 0;
+    m_dueTime = 0;
+    m_sharedMsg = msg;
+    m_retryCount = 0;
     return this;
 }
 
 // 0x00455680
-StreamLink* StreamLink::Construct(StreamDesc* desc)
+BulkStreamNode* BulkStreamNode::Construct(StreamDesc* desc)
 {
-    InitNode(&m_node, kStreamLinkVtable);
-    m_Desc = desc;
+    InitNode(&m_listLink, kStreamLinkVtable);
+    m_msgMeta = desc;
     return this;
 }
 
 // 0x004557C0
 MsgNormalLink* MsgNormalLink::Destroy(unsigned int flags)
 {
-    reinterpret_cast<MsgNormalNode*>(&m_node)->DestroyBody();
+    reinterpret_cast<MsgNormalNode*>(&m_listLink)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
 }
 
 // 0x004557F0
-MsgImpLink* MsgImpLink::Destroy(unsigned int flags)
+ReliableMsgNode* ReliableMsgNode::Destroy(unsigned int flags)
 {
-    reinterpret_cast<MsgImpNode*>(&m_node)->DestroyBody();
+    reinterpret_cast<MsgImpNode*>(&m_listLink)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
 }
 
 // 0x00455820
-MsgSeqLink* MsgSeqLink::Destroy(unsigned int flags)
+OrderedMsgNode* OrderedMsgNode::Destroy(unsigned int flags)
 {
-    reinterpret_cast<MsgSeqNode*>(&m_node)->DestroyBody();
+    reinterpret_cast<MsgSeqNode*>(&m_listLink)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
 }
 
 // 0x00455850
-StreamLink* StreamLink::Destroy(unsigned int flags)
+BulkStreamNode* BulkStreamNode::Destroy(unsigned int flags)
 {
-    reinterpret_cast<StreamLinkNode*>(&m_node)->DestroyBody();
+    reinterpret_cast<StreamLinkNode*>(&m_listLink)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
 }
 
-// --- Lst::Node<T> --------------------------------------------------------------------------------------------
+// --- ListKit::Node<T> --------------------------------------------------------------------------------------------
 
 // 0x00455130
 StreamLinkNode* StreamLinkNode::Destroy(unsigned int flags)

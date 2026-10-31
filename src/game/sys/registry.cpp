@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 
-namespace Sys {
+namespace SystemCore {
 
 namespace {
 const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Settings";

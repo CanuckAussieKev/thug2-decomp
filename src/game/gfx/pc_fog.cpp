@@ -14,7 +14,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 

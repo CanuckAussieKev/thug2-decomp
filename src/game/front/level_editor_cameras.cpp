@@ -29,7 +29,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Cameras {
+namespace MenuSystem::LevelEditor::Cameras {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -259,15 +259,15 @@ const Camera* Find(const std::vector<Camera>& all, uint32_t name)
 // The node's offsets written when they're not those of its place (it was moved / turned since).
 void KeepOffsets(const Camera& c)
 {
-    Script::CStruct* node = SkateScript::NodeManagerInstance() ? SkateScript::GetNode(NodeCreate::Checksum(c.name), false)
+    Scripts::CStruct* node = LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(NodeCreate::Checksum(c.name), false)
                                                                : nullptr;
     if (!node)
         return;
     struct Key {
         uint32_t key;
         V3 value;
-    } keys[2] = {{Fields::NameChecksum("targetOffset"), TargetOf(c.pos, c.angles, c.distance)},
-                 {Fields::NameChecksum("positionOffset"), PositionOffset(c.pos, c.angles, c.distance)}};
+    } keys[2] = {{Fields::HashOfName("targetOffset"), TargetOf(c.pos, c.angles, c.distance)},
+                 {Fields::HashOfName("positionOffset"), PositionOffset(c.pos, c.angles, c.distance)}};
     for (const Key& k : keys) {
         Fields::Own own = Fields::OwnIn(node, k.key, false);
         bool same = own.present && own.value.kind == Fields::Kind::Vector && own.value.numbers[0] == k.value.x &&
@@ -319,13 +319,13 @@ std::vector<Camera> All()
 
 namespace {
 
-uint32_t Crc(const char* text) { return Fields::NameChecksum(text); }
+uint32_t Checksums(const char* text) { return Fields::HashOfName(text); }
 
 // When the last shot ends (steady clock seconds; 0: none played).
 double g_shotUntil;
 double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
-using CFunction = bool(__cdecl*)(Script::CStruct*, Script::CScript*);
+using CFunction = bool(__cdecl*)(Scripts::CStruct*, Scripts::CScript*);
 
 // The offsets of the camera `name` (false: no such node).
 bool ShotOffsets(uint32_t name, V3* target, V3* position)
@@ -336,20 +336,20 @@ bool ShotOffsets(uint32_t name, V3* target, V3* position)
         *position = PositionOffset(c->pos, c->angles, c->distance);
         return true;
     }
-    Script::CStruct* node = SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    Scripts::CStruct* node = LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
     if (!node)
         return false;
-    Script::VectorValue t, p;
-    if (node->GetVector(Crc("targetOffset"), &t, 0) && node->GetVector(Crc("positionOffset"), &p, 0)) {
+    Scripts::VectorValue t, p;
+    if (node->GetVector(Checksums("targetOffset"), &t, 0) && node->GetVector(Checksums("positionOffset"), &p, 0)) {
         *target = {t.x, t.y, t.z};
         *position = {p.x, p.y, p.z};
         return true;
     }
-    Mth::Vector at;
-    if (!SkateScript::GetPosition(node, &at))
+    Maths::Vector at;
+    if (!LevelNodes::GetPosition(node, &at))
         return false;
-    Script::VectorValue a = {};
-    node->GetVector(Crc("Angles"), &a, 0);
+    Scripts::VectorValue a = {};
+    node->GetVector(Checksums("Angles"), &a, 0);
     V3 pos = {at.x, at.y, at.z}, angles = {a.x, a.y, a.z};
     *target = TargetOf(pos, angles, kDefaultDistance);
     *position = PositionOffset(pos, angles, kDefaultDistance);
@@ -358,10 +358,10 @@ bool ShotOffsets(uint32_t name, V3* target, V3* position)
 
 } // namespace
 
-bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_PlayCamera(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
-    if (!params || !params->GetChecksum(Crc("camera"), &name, 0) || !name) {
+    if (!params || !params->ReadHashValue(Checksums("camera"), &name, 0) || !name) {
         Log("level editor: LevelEditor_PlayCamera needs camera=<node>");
         return false;
     }
@@ -374,31 +374,31 @@ bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script)
     }
     float seconds = kShotDefaultSeconds;
     int whole = 0;
-    if (!params->GetFloat(Crc("time"), &seconds, 0) && params->GetInteger(Crc("time"), &whole, 0))
+    if (!params->GetFloat(Checksums("time"), &seconds, 0) && params->FetchIntValue(Checksums("time"), &whole, 0))
         seconds = static_cast<float>(whole);
-    const uint32_t shot = Crc("ed_camera_shot");
+    const uint32_t shot = Checksums("ed_camera_shot");
     double now = Now();
     if (now < g_shotUntil) {
         // (the last shot still playing: killed first, as the goals kill theirs)
-        Script::CStruct* kill = Script::NewStruct()->Init();
-        kill->AddChecksum(Crc("name"), shot);
-        CFuncs::CFunc_KillSkaterCamAnim(kill, script);
+        Scripts::CStruct* kill = Scripts::NewStruct()->Init();
+        kill->PutNameKey(Checksums("name"), shot);
+        ScriptCommands::CFunc_KillSkaterCamAnim(kill, script);
         kill->Clear();
-        Script::DeleteStruct(kill);
+        Scripts::DeleteStruct(kill);
     }
     // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
-    Script::CStruct* anim = Script::NewStruct()->Init();
-    anim->AddChecksum(Crc("name"), shot);
-    anim->AddChecksum(0u, Crc("virtual_cam"));
-    anim->AddChecksum(Crc("targetid"), Crc("world"));
-    anim->AddVector(Crc("targetOffset"), target.x, target.y, target.z);
-    anim->AddVector(Crc("positionOffset"), position.x, position.y, position.z);
+    Scripts::CStruct* anim = Scripts::NewStruct()->Init();
+    anim->PutNameKey(Checksums("name"), shot);
+    anim->PutNameKey(0u, Checksums("virtual_cam"));
+    anim->PutNameKey(Checksums("targetid"), Checksums("world"));
+    anim->PutVec3(Checksums("targetOffset"), target.x, target.y, target.z);
+    anim->PutVec3(Checksums("positionOffset"), position.x, position.y, position.z);
     int frames = ShotFrames(seconds);
-    anim->AddInteger(Crc("frames"), frames);
-    anim->AddInteger(Crc("skippable"), 1);
-    CFuncs::CFunc_PlaySkaterCamAnim(anim, script);
+    anim->PutInt(Checksums("frames"), frames);
+    anim->PutInt(Checksums("skippable"), 1);
+    ScriptCommands::CFunc_PlaySkaterCamAnim(anim, script);
     anim->Clear();
-    Script::DeleteStruct(anim);
+    Scripts::DeleteStruct(anim);
     g_shotUntil = now + frames / 60.0;
     if (DebugEnabled())
         Log("level editor: camera %s played for %d frames", Nodes::Label(name).c_str(), frames);
@@ -477,7 +477,7 @@ bool SetPitch(uint32_t name, float degrees, bool done)
     return true;
 }
 
-bool SetDistance(uint32_t name, float distance, bool done)
+bool PlaceAtRange(uint32_t name, float distance, bool done)
 {
     std::vector<Camera> all = All();
     const Camera* c = Find(all, name);
@@ -623,7 +623,7 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
     if (ImGui::DragFloat("Target##camera", &distance, 5.0f, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
         float value = distance;
-        g_queue.push_back([node, value] { SetDistance(node, value, false); });
+        g_queue.push_back([node, value] { PlaceAtRange(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
         g_queue.push_back([] { g_dragging = false; });
@@ -677,4 +677,4 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     ImGui::PopFont();
 }
 
-} // namespace Front::LevelEditor::Cameras
+} // namespace MenuSystem::LevelEditor::Cameras

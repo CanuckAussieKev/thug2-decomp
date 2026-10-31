@@ -6,12 +6,12 @@
 // and streamed sounds, each doing nothing when there's no sound system (0x007D6A38), the sound is off
 // (0x007CEFA8 == 2) or music (0x0067D7E0) / streams (0x0067D7E1) are switched off. The platform layer under it
 // (PCMAudio_*, 0x00453xxx-0x00454xxx) isn't rewritten yet.
-namespace Pcm {
+namespace AudioStream {
 
 // 0x004505F0 / 0x00450620: whether music / streamed sounds are unavailable (no sound system, sound off, or
 // switched off).
-bool __cdecl NoMusicPlease();
-bool __cdecl StreamsDisabled();
+bool __cdecl MusicOffRequested();
+bool __cdecl StreamsOff();
 
 // 0x00450D60: the music system set up - the owners of the streams forgotten; if music or streams are on, the
 // platform's set up (0x00453670), the default music and stream volumes from the script globals (0x73F8E03B and
@@ -19,13 +19,13 @@ bool __cdecl StreamsDisabled();
 void __cdecl Init();
 // 0x00450EB0: only with the debug flag 0x00684FA8 (the PS2's "streaming from the CD") and once set up: the
 // music and the streams stopped. Always false (no load needs to be skipped).
-bool __cdecl UsingCD();
+bool __cdecl DiscModeActive();
 
 // 0x00450500: whether `name` is a stream in the stream index (0x004533E0).
 bool __cdecl StreamExists(uint32_t name);
 // 0x00450520 / 0x00450530: the track playing (the script's GetCurrentTrack; PlayNextTrack sets it).
 int __cdecl GetCurrentTrack();
-void __cdecl SetCurrentTrack(int track);
+void __cdecl PickTrack(int track);
 
 // 0x00450650: the music stopped (0x00453AA0(true)); no music stream; the next track looked for next frame.
 void __cdecl StopMusic();
@@ -38,20 +38,20 @@ bool __cdecl PlayTrackByName(const char* name, float volume);
 // counts as playing. (`name` isn't used: the platform stream isn't started here.)
 void __cdecl PlayMusicStream(uint32_t name, float volume);
 // 0x004509E0: the music stopped and the music stream `name` preloaded (0x00453DB0). True if it is.
-bool __cdecl PreLoadMusicStream(uint32_t name);
+bool __cdecl PrimeMusicTrack(uint32_t name);
 // 0x00450A50: whether the preloaded music stream is ready (0x00453220).
-bool __cdecl PreLoadMusicStreamDone();
+bool __cdecl IsMusicTrackPrimed();
 // 0x00450A80: start the preloaded music stream (0x00453BF0) at `volume` (the default when negative).
-bool __cdecl StartPreLoadedMusicStream(float volume);
+bool __cdecl BeginPrimedMusicTrack(float volume);
 
 // The streams (by id, or the name playing - see FindPlayingStream).
 // 0x00450690: stop stream `which` (an index), or all of them for -1.
-void __cdecl StopStreams(int which);
+void __cdecl HaltStreams(int which);
 // 0x004506D0: stop the stream with this id (or name): the platform's stopped, then the first owner slot naming it
 // (an owner's +0x18 words, then the owner) cleared.
 void __cdecl StopStream(uint32_t idOrName);
 // 0x00450780: the stream's volume (0x00453DF0). False if no such stream plays (true when streams are off).
-bool __cdecl SetStreamVolume(uint32_t idOrName, void* volume);
+bool __cdecl ChangeStreamLoudness(uint32_t idOrName, void* volume);
 // 0x004507D0: the stream's pitch - nothing on PC (the platform call is a stub returning true). The same results.
 bool __cdecl SetStreamPitch(uint32_t idOrName, float pitch);
 // 0x00450940: whether the stream's preload is done (0x004531D0).

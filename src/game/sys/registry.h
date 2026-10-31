@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Sys {
+namespace SystemCore {
 
 // 0x004E1810: WinMain's default settings, kept in HKEY_CURRENT_USER\Software\Activision\Tony Hawk's
 // Underground 2\Settings as DWORDs. If the key exists, `name` is written only when it isn't there yet. If the

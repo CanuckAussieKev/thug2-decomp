@@ -7,7 +7,7 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -16,33 +16,33 @@ constexpr uint32_t kAbsolute = 0x592089A9; // absolute
 constexpr uint32_t kConvert = 0x26AF9DC9;  // FLAG_MAX_COORDS: the angles converted (z negated, NegateXRotateX90)
 
 // The angles given as `name`, in radians (false if not given).
-bool GetAngles(Script::CStruct* params, uint32_t name, Mth::Vector* angles)
+bool ReadTurnAngles(Scripts::CStruct* params, uint32_t name, Maths::Vector* angles)
 {
     *angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (!params->GetVector(name, reinterpret_cast<Script::VectorValue*>(angles), 0))
+    if (!params->GetVector(name, reinterpret_cast<Scripts::VectorValue*>(angles), 0))
         return false;
-    if (params->ContainsFlag(kConvert)) {
+    if (params->HasBareFlag(kConvert)) {
         angles->z = -angles->z;
         angles->NegateXRotateX90();
     }
-    angles->DegreesToRadians();
+    angles->DegreeToRadianConv();
     return true;
 }
 
 } // namespace
 
 // 0x00425600
-void CMotionComponent::RotateTo(Script::CStruct* params)
+void CKinematicsModule::RotateTo(Scripts::CStruct* params)
 {
-    Mth::Vector angles;
-    Mth::Matrix target;
-    if (GetAngles(params, kRelative, &angles)) {
-        target = m_object->m_matrix;
-        target.RotateLocal(angles);
+    Maths::Vector angles;
+    Maths::Matrix target;
+    if (ReadTurnAngles(params, kRelative, &angles)) {
+        target = m_object->m_basisFrame;
+        target.TurnInOwnFrame(angles);
         StartRotation(params, &target);
         return;
     }
-    if (GetAngles(params, kAbsolute, &angles)) {
+    if (ReadTurnAngles(params, kAbsolute, &angles)) {
         target.SetFromEulerAngles(angles.x, angles.y, angles.z);
         StartRotation(params, &target);
     }

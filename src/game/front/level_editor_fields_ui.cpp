@@ -17,7 +17,7 @@
 #include "game/front/level_editor_ui.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 
 namespace {
 
@@ -524,4 +524,4 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
     }
 }
 
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui

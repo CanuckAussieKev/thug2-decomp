@@ -6,7 +6,7 @@
 #include "game/mth/matrix.h"
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -16,17 +16,17 @@ class CStruct;
 // of the core physics' matrix taken each frame. From the disassembly of 0x00513FD0-0x005144A1 (0x00514040 isn't a
 // Ghidra function).
 //
-// Vtable: 0 Destroy, 1 Update, 3 Finalize, 12 CallMemberFunction.
-namespace Obj {
+// Vtable: 0 Destroy, 1 Update, 3 Finalize, 12 InvokeMethodByName.
+namespace GameObjects {
 
-class CSkaterMatrixQueriesComponent : public CBaseComponent {
+class CRiderFrameLookups : public CObjectModule {
 public:
     // 0x00514430 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00513FD0: the destructor body (the base's).
     void DestroyBody();
     // 0x00513FE0 (vtable slot 0)
-    CSkaterMatrixQueriesComponent* Destroy(unsigned int flags);
+    CRiderFrameLookups* Destroy(unsigned int flags);
     // 0x00514010 (vtable +0x0C): the core physics component found.
     void Finalize();
     // 0x00514030 (vtable +0x04): the core physics' matrix (+0x18) copied.
@@ -39,16 +39,16 @@ public:
     // into the plane across that vector more than the angle away), YawingLeft / YawingRight (the velocity, turned
     // into the up row's plane, to that side of the at row), YawBetween (more than the pair's first angle and not
     // more than its second away from the at row). 1 / 0; 2 for any other name.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
-    Mth::Matrix m_matrix;   // +0x18 the core physics' (rows: right, up, at, position)
+    Maths::Matrix m_basisFrame;   // +0x18 the core physics' (rows: right, up, at, position)
     float m_lastSlope;      // +0x58 GetSlope's last
     uint8_t* m_corePhysics; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(CSkaterMatrixQueriesComponent, m_matrix) == 0x18 &&
-                  offsetof(CSkaterMatrixQueriesComponent, m_lastSlope) == 0x58 &&
-                  offsetof(CSkaterMatrixQueriesComponent, m_corePhysics) == 0x5C &&
-                  sizeof(CSkaterMatrixQueriesComponent) == 0x60,
+static_assert(offsetof(CRiderFrameLookups, m_basisFrame) == 0x18 &&
+                  offsetof(CRiderFrameLookups, m_lastSlope) == 0x58 &&
+                  offsetof(CRiderFrameLookups, m_corePhysics) == 0x5C &&
+                  sizeof(CRiderFrameLookups) == 0x60,
               "layout must match the original (0x00514430 allocates 0x60 bytes)");
 
 } // namespace Obj

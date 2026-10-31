@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Mem {
+namespace MemSys {
 class Heap;
 class Region;
 struct PoolPair;
@@ -13,7 +13,7 @@ struct PoolPair;
 // map list and clipboard, and the "memory used" figures its menu shows as bars - how full the main heap, the
 // top-down heap, the park heap, the script component / vector / array pools and the DMA piece budget are.
 // Sizes and pads come from the script (ParkEditorMemoryValue).
-namespace Ed {
+namespace ParkEditing {
 
 // The figures (0x007CE618, 0x6C bytes, copied out by GetMemoryStats).
 struct MemoryStats {
@@ -50,16 +50,16 @@ static_assert(sizeof(MemoryStats) == 0x6C && offsetof(MemoryStats, maxUsage) == 
               "layout must match the original");
 
 MemoryStats& Stats();            // 0x007CE618
-Mem::PoolPair& ClipboardPools(); // 0x007CE5B4 (CClipboard's CPoolable pools)
-Mem::Region*& ParkRegion();      // 0x007CE684
-Mem::Heap*& ParkHeap();          // 0x007CE688
+MemSys::PoolPair& ClipboardPools(); // 0x007CE5B4 (CClipboard's CPoolable pools)
+MemSys::Region*& ParkRegion();      // 0x007CE684
+MemSys::Heap*& ParkHeap();          // 0x007CE688
 int& DmaPieces();                // 0x007CE690 the DMA pieces the park's pieces use
 bool& CountsDirty();             // 0x007CE694 the piece counts need counting again
 
 // 0x0059E100
-Mem::Heap* __cdecl GetParkHeap();
+MemSys::Heap* __cdecl GetParkHeap();
 // 0x0059E180: the memory manager's bottom-up heap.
-Mem::Heap* __cdecl GetMainHeap();
+MemSys::Heap* __cdecl GetMainHeap();
 // 0x0059E110: all figures 0, no DMA pieces.
 void __cdecl ClearStats();
 // 0x0059E170: the piece counts are counted again at the next GetMemoryStats.
@@ -68,7 +68,7 @@ void __cdecl SetCountsDirty();
 // 0x9547DA8D, 1 if missing) added / taken away (pieces with flag bit 8 don't count; taking away needs bit 2).
 void __cdecl AddPieceDma(const void* piece);
 void __cdecl RemovePieceDma(const void* piece);
-void __cdecl RemoveDma(uint32_t pieceType);
+void __cdecl RemoveDma(uint32_t segmentKind);
 // 0x0059E210 / 0x0059E290 / 0x0059E310: the item pools of CMapListNode (12 bytes, 0x007CE5F0), CClipboardEntry
 // (0x18, 0x007CE5C4) and CClipboard (0x18, 0x007CE5B4), made in the current pool slot.
 void __cdecl CreateMapListNodePool(int count, const char* name);
@@ -93,6 +93,6 @@ bool __cdecl PiecesFit(int first, int last);
 // else in the bottom-up one) and the three pools in it; figures cleared.
 void __cdecl Init(uint32_t level);
 
-extern Mem::Heap* g_parkHeap;
+extern MemSys::Heap* g_parkHeap;
 
 } // namespace Ed

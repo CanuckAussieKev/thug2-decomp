@@ -8,13 +8,13 @@
 
 #include "game/goals/goal.h"
 
-namespace Game {
+namespace GoalSystem {
 
-class CSkateLineGoal : public CGoal {
+class CSkateLineGoal : public CObjective {
 public:
-    // 0x005691F0: the constructor (CGoal's). Returns this. 0x00569210 / 0x00569290 (vtable +0x00): the destructor
+    // 0x005691F0: the constructor (CObjective's). Returns this. 0x00569210 / 0x00569290 (vtable +0x00): the destructor
     // body / the scalar deleting destructor.
-    CSkateLineGoal* Construct(Script::CStruct* params);
+    CSkateLineGoal* Construct(Scripts::CStruct* params);
     void DestroyBody();
     CSkateLineGoal* Destroy(uint8_t flags);
     // 0x00569220: the skater landed: with a combo required (and 0x7100155D), won when every flag is set, else lost.

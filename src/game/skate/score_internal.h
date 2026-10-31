@@ -16,7 +16,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skater/skater.h"
 
-namespace Mdl {
+namespace GameModules {
 namespace ScoreInternal {
 
 constexpr uint32_t kTheTrickText = 0x44727DAE;        // the_trick_text (+ the skater's number)
@@ -46,24 +46,24 @@ inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] :
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-inline Game::CGameMode* GameMode() { return Game::g_gameMode; }
-inline GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
-inline Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
-inline Obj::CSkater* SkaterById(int id)
+inline GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
+inline OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
+inline GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickObjectManager; }
+inline GameObjects::CRider* SkaterById(int id)
 {
-    return static_cast<Obj::CSkater*>(SkateCalls::GetSkaterById(static_cast<uint32_t>(id)));
+    return static_cast<GameObjects::CRider*>(SkateCalls::GetRiderByNumber(static_cast<uint32_t>(id)));
 }
 
 // The screen element with this id (its smart pointer let go at once: the raw pointer kept, as the original).
-inline Front::CScreenElement* FindElement(uint32_t id)
+inline MenuSystem::CUiWidget* FindElement(uint32_t id)
 {
-    Front::ElementPtr found;
-    return Front::CScreenElementManager::Instance()->GetElement(&found, id, 0)->mp_object;
+    MenuSystem::ElementPtr found;
+    return MenuSystem::CUiTree::Instance()->GetElement(&found, id, 0)->m_ownerObject;
 }
 
 // A structure from the pool (null if that fails: the original goes on with it) / deleted.
-Script::CStruct* NewStructure();
-void DeleteStructure(Script::CStruct* structure);
+Scripts::CStruct* NewStructure();
+void DeleteStructure(Scripts::CStruct* structure);
 
 } // namespace ScoreInternal
 } // namespace Mdl

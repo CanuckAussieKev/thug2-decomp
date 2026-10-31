@@ -13,7 +13,7 @@
 // IsBigLevel (x and z: its The Mall, z_ma) or IsTallLevel (y). Ours: the same, decided by the level select's entry for
 // the current level (tools/pipeline/menu_level/level_select.ts marks the levels named in tools/pipeline/compat/thugpro/thaw_levels.json
 // "net_position_scale"); off outside network games.
-namespace GameNet::Thugpro {
+namespace OnlinePlay::Thugpro {
 
 struct PositionScale {
     bool big = false;  // x and z in whole units (else halves)
@@ -35,4 +35,4 @@ int16_t PackHeight(float value);     // y
 float UnpackHorizontal(int value);
 float UnpackHeight(int value);
 
-} // namespace GameNet::Thugpro
+} // namespace OnlinePlay::Thugpro

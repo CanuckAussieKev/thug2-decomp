@@ -10,7 +10,7 @@
 #include "game/front/level_editor_ui.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Adjust {
+namespace MenuSystem::LevelEditor::Adjust {
 
 namespace {
 constexpr float kPi = 3.14159265f;
@@ -241,4 +241,4 @@ void Forget()
     g_applying = false;
 }
 
-} // namespace Front::LevelEditor::Adjust
+} // namespace MenuSystem::LevelEditor::Adjust

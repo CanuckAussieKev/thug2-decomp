@@ -17,21 +17,21 @@
 #include "game/sys/timer.h"
 #include "game/gfx/engine_effects.h"
 
-namespace Nx {
+namespace Engine3D {
 
-Mem::PoolPair g_spawnedPolyPools;
+MemSys::PoolPair g_spawnedPolyPools;
 
 namespace {
 
-Lst::HashTable* SpawnedPolys() { return g_spawnedPolys; }
+ListKit::HashTable* SpawnedPolys() { return g_spawnedPolys; }
 
-void* NextValue(Lst::HashTable* table)
+void* NextValue(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstValue(Lst::HashTable* table)
+void* FirstValue(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -46,7 +46,7 @@ void PrimitiveVirtual(CPcPrimitive* primitive, int slot, A... args)
 {
     reinterpret_cast<void(__thiscall*)(CPcPrimitive*, A...)>(primitive->vtable[slot])(primitive, args...);
 }
-void SetCorner(CPcPrimitive* primitive, int corner, const Mth::Vector& at)
+void SetCorner(CPcPrimitive* primitive, int corner, const Maths::Vector& at)
 {
     PrimitiveVirtual(primitive, 7, corner, at.x, at.y, at.z);
 }
@@ -58,7 +58,7 @@ void SetCornerColour(CPcPrimitive* primitive, int corner, const uint8_t* colour)
 }
 
 // Four corners turned by the polygon's matrix and moved to its position.
-void PlaceCorners(sSpawnedPoly* poly, Mth::Vector* corners)
+void PlaceCorners(sSpawnedPoly* poly, Maths::Vector* corners)
 {
     for (int i = 0; i < 4; ++i)
         corners[i].MultiplyBy(poly->matrix);
@@ -75,8 +75,8 @@ void PlaceCorners(sSpawnedPoly* poly, Mth::Vector* corners)
 sSpawnedPoly* sSpawnedPoly::Construct()
 {
     std::memset(this, 0, sizeof(*this));
-    justX = 0.0f;
-    justY = 0.0f;
+    alignH = 0.0f;
+    alignV = 0.0f;
     blendMode = 0x54628ED7;
     return this;
 }
@@ -84,18 +84,18 @@ sSpawnedPoly* sSpawnedPoly::Construct()
 namespace Engine {
 
 // 0x00492450
-void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* up)
+void __cdecl SpawnPoly(sSpawnedPoly* poly, Maths::Vector* direction, Maths::Vector* up)
 {
-    void* memory = Mem::New(0x158);
+    void* memory = MemSys::New(0x158);
     poly->primitive = memory ? static_cast<CPcPrimitive*>(memory)->Construct(1) : nullptr;
-    Mth::Matrix& m = poly->matrix;
+    Maths::Matrix& m = poly->matrix;
     std::memset(&m, 0, sizeof(m));
     m.row[0].x = m.row[1].y = m.row[2].z = m.row[3].w = 1.0f;
     direction->Normalize();
     up->Normalize();
     m.row[0] = *direction;
     // Row 2 across the direction and up, row 1 across row 2 and the direction.
-    const Mth::Vector& r0 = m.row[0];
+    const Maths::Vector& r0 = m.row[0];
     double s0 = static_cast<double>(r0.z) * up->y - static_cast<double>(r0.y) * up->z;
     double s1 = static_cast<double>(up->z) * r0.x - static_cast<double>(r0.z) * up->x;
     double s2 = static_cast<double>(r0.y) * up->x - static_cast<double>(up->y) * r0.x;
@@ -103,7 +103,7 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* 
     m.row[2].z = static_cast<float>(s2);
     m.row[2].x = static_cast<float>(s0);
     m.row[2].y = static_cast<float>(s1);
-    const Mth::Vector& r2 = m.row[2];
+    const Maths::Vector& r2 = m.row[2];
     double t0 = static_cast<double>(r2.y) * r0.z - static_cast<double>(r2.z) * r0.y;
     double t1 = static_cast<double>(r0.x) * r2.z - static_cast<double>(r2.x) * r0.z;
     double t2 = static_cast<double>(r2.x) * r0.y - static_cast<double>(r0.x) * r2.y;
@@ -129,7 +129,7 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* 
     double top = height * -0.5;
     double right = width * 0.5;
     double bottom = height * 0.5;
-    Mth::Vector corners[4] = {{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
+    Maths::Vector corners[4] = {{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(bottom), 0.0f, 0.0f},
                               {static_cast<float>(left), static_cast<float>(bottom), 0.0f, 0.0f}};
@@ -149,13 +149,13 @@ void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* 
     reinterpret_cast<uint8_t*>(poly->primitive)[0x14] = (poly->flags >> 1) & 1;
     reinterpret_cast<CPrimitive*>(poly->primitive)->Ready();
     uint32_t key = reinterpret_cast<uint32_t>(poly);
-    SpawnedPolys()->PutItem(key, poly);
+    SpawnedPolys()->StoreEntry(key, poly);
 }
 
 // 0x004919C0
 void __cdecl UpdateSpawnedPolys()
 {
-    float elapsed = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    float elapsed = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     for (void* value = FirstValue(SpawnedPolys()); value;) {
         auto* poly = static_cast<sSpawnedPoly*>(value);
         if (poly->flags & 1) {
@@ -173,8 +173,8 @@ void __cdecl UpdateSpawnedPolys()
                 PrimitiveVirtual(poly->primitive, 0, 1u);
             poly->primitive = nullptr;
             uint32_t key = reinterpret_cast<uint32_t>(poly);
-            SpawnedPolys()->FlushItem(key);
-            CFuncs::FreeSpawnedPolyDetails(poly);
+            SpawnedPolys()->EraseEntry(key);
+            ScriptCommands::FreeSpawnedPolyDetails(poly);
             continue;
         }
         double t = age / poly->lifetime;
@@ -192,20 +192,20 @@ void __cdecl UpdateSpawnedPolys()
             SetCornerColour(poly->primitive, c, poly->colours[c]);
         // Where the corners go, by the justification: right / bottom of the position, centred, or left / top.
         float xOffset = 0.0f;
-        if (poly->justX > 0.0f)
+        if (poly->alignH > 0.0f)
             xOffset = poly->dims[0];
-        else if (poly->justX == 0.0f)
+        else if (poly->alignH == 0.0f)
             xOffset = static_cast<float>(poly->dims[0] * 0.5);
         double yOffset = 0.0;
-        if (poly->justY > 0.0f)
+        if (poly->alignV > 0.0f)
             yOffset = poly->dims[1];
-        else if (poly->justY == 0.0f)
+        else if (poly->alignV == 0.0f)
             yOffset = poly->dims[1] * 0.5;
         float left = -xOffset;
         float top = static_cast<float>(-yOffset);
         float right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
         float bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
-        Mth::Vector corners[4] = {{left, top, 0.0f, 0.0f},
+        Maths::Vector corners[4] = {{left, top, 0.0f, 0.0f},
                                   {right, top, 0.0f, 0.0f},
                                   {right, bottom, 0.0f, 0.0f},
                                   {left, bottom, 0.0f, 0.0f}};
@@ -226,7 +226,7 @@ void __cdecl KillAllSpawnedPolys()
             PrimitiveVirtual(poly->primitive, 0, 1u);
         poly->primitive = nullptr;
         uint32_t key = reinterpret_cast<uint32_t>(poly);
-        SpawnedPolys()->FlushItem(key);
+        SpawnedPolys()->EraseEntry(key);
         g_spawnedPolyPools.Free(poly);
     }
 }

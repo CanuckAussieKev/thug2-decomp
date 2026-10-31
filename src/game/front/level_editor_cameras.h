@@ -29,7 +29,7 @@ struct ImFont;
 //
 // Layout record (version 2 still; an older reader skips the kind):
 //   camera <name> pos=x,y,z angles=x,y,z dist=d
-namespace Front::LevelEditor::Cameras {
+namespace MenuSystem::LevelEditor::Cameras {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ int ShotFrames(float seconds);
 // The cameras there are now (their nodes' places).
 std::vector<Camera> All();
 // LevelEditor_PlayCamera (registered with the editor's other commands - level_editor.h's RegisterScriptFunctions).
-bool __cdecl CFunc_PlayCamera(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_PlayCamera(Scripts::CStruct* params, Scripts::CScript* script);
 bool IsCamera(uint32_t name);
 // A camera made where the editor's view is, looking its way - one undo step (its name; "" when it couldn't be).
 std::string CreateFromView();
@@ -89,7 +89,7 @@ bool Preview(uint32_t name);
 bool AimFromView(uint32_t name);
 // Its pitch (degrees) / target distance set (one undo step a change, `done` false while a field is dragged).
 bool SetPitch(uint32_t name, float degrees, bool done);
-bool SetDistance(uint32_t name, float distance, bool done);
+bool PlaceAtRange(uint32_t name, float distance, bool done);
 // Removed (one undo step).
 bool Remove(uint32_t name);
 // Layouts: the cameras now; records made (how many); every camera removed; a new level (forgotten).
@@ -107,4 +107,4 @@ void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32
 void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont);
 void ListSection(ImFont* mono, ImFont* smallFont);
 
-} // namespace Front::LevelEditor::Cameras
+} // namespace MenuSystem::LevelEditor::Cameras

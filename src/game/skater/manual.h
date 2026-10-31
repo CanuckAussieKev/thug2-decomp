@@ -8,10 +8,10 @@
 // (m_leanSpeed); the player's two buttons push it back. Each start repeats the last lean harder (Repeat_Multiplier,
 // Lean_Repeat_Multiplier); a grind on the same rail adds time (Same_Grind_Add_Time), a new one takes it off; past
 // Lean_Bail_Angle the skater falls (an event). The skater's balance meter shows it.
-namespace Obj {
+namespace GameObjects {
 
-class CCompositeObject;
-class CBaseComponent;
+class CGameEntity;
+class CObjectModule;
 
 class CBalance {
 public:
@@ -22,7 +22,7 @@ public:
     void DestroyBody();
     CBalance* Destroy(unsigned int flags);
     // 0x00579860: the skater and its components SkaterBalanceTrick, SkaterScore, input.
-    void Init(CCompositeObject* skater);
+    void Init(CGameEntity* skater);
     // 0x005798A0: reset_balance_indicator (if the script integer 0x5D07E2BE is set); the lean, its speed, the
     // times cleared; not on a rail (-1).
     void Reset();
@@ -49,12 +49,12 @@ public:
     void ShowMeter();
 
     void** m_vtable;
-    CCompositeObject* m_skater;    // +0x04
+    CGameEntity* m_skater;    // +0x04
     uint8_t* m_balanceTrick;       // +0x08 SkaterBalanceTrick (+0x18 the balance trick's type)
-    uint8_t* m_score;              // +0x0C SkaterScore (+0x18 the score)
+    uint8_t* m_pointsHeld;              // +0x0C SkaterScore (+0x18 the score)
     uint8_t* m_input;              // +0x10 input (+0x20 its control data)
     uint8_t m_unknown14[0x10];
-    float m_time;                  // +0x24
+    float m_clock;                  // +0x24
     float m_railTime;              // +0x28
     float m_bestTime;              // +0x2C
     float m_lean;                  // +0x30
@@ -69,10 +69,10 @@ public:
     int m_rail;                    // +0x50 the rail of the last grind (-1: none)
     bool m_showMeter;              // +0x54
     bool m_hideDisplay;            // +0x55
-    bool m_flipped;                // +0x56
+    bool m_mirrored;                // +0x56
     bool m_flip;                   // +0x57
 };
-static_assert(offsetof(CBalance, m_time) == 0x24 && offsetof(CBalance, m_cheese) == 0x38 &&
+static_assert(offsetof(CBalance, m_clock) == 0x24 && offsetof(CBalance, m_cheese) == 0x38 &&
                   offsetof(CBalance, m_startTime) == 0x40 && offsetof(CBalance, m_rail) == 0x50 &&
                   offsetof(CBalance, m_flip) == 0x57 && sizeof(CBalance) == 0x58,
               "layout must match the original");

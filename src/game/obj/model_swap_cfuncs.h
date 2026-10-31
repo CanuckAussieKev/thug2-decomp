@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -11,10 +11,10 @@ class CScript;
 // skeletons, shadows - a skater wearing another object's model), all swaps undone, and whether a skater's model is
 // swapped. The swaps are recorded in a table of five entries at 0x007CEDE0 (0x005AA930 keeps it). All are cdecl
 // (params, script) and return whether the script's `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
-bool __cdecl CFunc_SwapObjectModels(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_RestoreAllSwappedObjectModels(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetSkaterModelIsSwapped(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SwapObjectModels(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_RestoreAllSwappedObjectModels(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetSkaterModelIsSwapped(Scripts::CStruct* params, Scripts::CScript* script);
 
-} // namespace CFuncs
+} // namespace ScriptCommands

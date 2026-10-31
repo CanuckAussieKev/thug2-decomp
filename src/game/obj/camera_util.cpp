@@ -8,7 +8,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -17,43 +17,43 @@ namespace {
 class Feeler {
 public:
     Feeler() { AsFeeler()->Construct(); }
-    ~Feeler() { reinterpret_cast<CSmtPtr<CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr(); }
+    ~Feeler() { reinterpret_cast<CSharedRef<CSharedBase>*>(m_bytes + 0x98)->~CSharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     // 0x004170F0: faces with any of `skip` (or without all of `need`) are passed through.
-    void SetIgnore(uint32_t skip, uint32_t need)
+    void SetExcluded(uint32_t skip, uint32_t need)
     {
-        AsFeeler()->SetIgnore(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
+        AsFeeler()->SetExcluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
     // 0x004171D0
-    void SetLine(const Mth::Vector& start, const Mth::Vector& end)
+    void SetLine(const Maths::Vector& start, const Maths::Vector& end)
     {
         AsFeeler()->SetLine(&start, &end);
     }
     // 0x004172F0
-    bool GetCollision(int a, int b) { return AsFeeler()->GetCollision(a != 0, b != 0) != 0; }
-    // 0x00417710: the line set, then GetCollision.
-    bool GetCollision(const Mth::Vector& start, const Mth::Vector& end, int a)
+    bool GetHitShape(int a, int b) { return AsFeeler()->GetHitShape(a != 0, b != 0) != 0; }
+    // 0x00417710: the line set, then GetHitShape.
+    bool GetHitShape(const Maths::Vector& start, const Maths::Vector& end, int a)
     {
         return AsFeeler()->GetCollisionAlong(&start, &end, a != 0) != 0;
     }
-    const Mth::Vector& Start() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes); }
-    const Mth::Vector& End() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes + 0x10); }
+    const Maths::Vector& Start() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes); }
+    const Maths::Vector& End() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x10); }
     float Fraction() const { return *reinterpret_cast<const float*>(m_bytes + 0x74); }
-    const Mth::Vector& Point() const { return *reinterpret_cast<const Mth::Vector*>(m_bytes + 0x78); }
+    const Maths::Vector& Point() const { return *reinterpret_cast<const Maths::Vector*>(m_bytes + 0x78); }
 
 private:
-    Nx::CFeeler* AsFeeler() { return reinterpret_cast<Nx::CFeeler*>(m_bytes); }
+    Engine3D::CProbeRay* AsFeeler() { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes); }
     alignas(16) uint8_t m_bytes[0xB0];
 };
 
 // 0x0042BBF0: x, y and z scaled to `length` (left alone at length 0).
-void SetLength(Mth::Vector& v, float length) { v.SetLength(length); }
+void SetLength(Maths::Vector& v, float length) { v.SetLength(length); }
 
 // 0x00402550's maths (each component in double precision; w 0).
-Mth::Vector Cross(const Mth::Vector& a, const Mth::Vector& b)
+Maths::Vector Cross(const Maths::Vector& a, const Maths::Vector& b)
 {
-    Mth::Vector out;
+    Maths::Vector out;
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -74,10 +74,10 @@ double __cdecl FrameBlend(float rate, float seconds)
 }
 
 // 0x004E4360
-void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, const Mth::Vector* target,
-                                   const Mth::Vector* focus, bool sideways, bool refocus)
+void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matrix, const Maths::Vector* target,
+                                   const Maths::Vector* focus, bool sideways, bool refocus)
 {
-    Mth::Vector& pos = *position;
+    Maths::Vector& pos = *position;
     // The direction from the target, normalised (z unrounded until then); w's difference as it is.
     float dw = pos.w - target->w;
     double dz = static_cast<double>(pos.z) - target->z;
@@ -92,17 +92,17 @@ void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, c
         dirZ = static_cast<float>(dz * inverse);
     }
     Feeler feeler;
-    feeler.SetIgnore(0x90, 0);
+    feeler.SetExcluded(0x90, 0);
     // From the target to 2 beyond the camera.
-    Mth::Vector beyond;
+    Maths::Vector beyond;
     beyond.x = static_cast<float>(dirX + dirX) + pos.x;
     beyond.y = static_cast<float>(dirY + dirY) + pos.y;
     beyond.z = static_cast<float>(dirZ + dirZ) + pos.z;
     beyond.w = static_cast<float>(static_cast<double>(dw) + dw + pos.w);
     feeler.SetLine(*target, beyond);
-    if (feeler.GetCollision(1, 0)) {
-        const Mth::Vector& s = feeler.Start();
-        const Mth::Vector& e = feeler.End();
+    if (feeler.GetHitShape(1, 0)) {
+        const Maths::Vector& s = feeler.Start();
+        const Maths::Vector& e = feeler.End();
         double lx = static_cast<double>(e.x) - s.x, ly = static_cast<double>(e.y) - s.y,
                lz = static_cast<double>(e.z) - s.z;
         float lineLength = static_cast<float>(std::sqrt((lx * lx + ly * ly) + lz * lz));
@@ -122,16 +122,16 @@ void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, c
     if (!sideways)
         return;
     // Off a wall 8 to the right, else to the left.
-    const Mth::Vector& right = matrix->row[0];
-    Mth::Vector probe = {right.x, 0.0f, right.z, 0.0f};
+    const Maths::Vector& right = matrix->row[0];
+    Maths::Vector probe = {right.x, 0.0f, right.z, 0.0f};
     SetLength(probe, kSideProbe);
     probe.x += pos.x;
     probe.y += pos.y;
     probe.z += pos.z;
     probe.w += pos.w;
-    bool hit = feeler.GetCollision(pos, probe, 1);
+    bool hit = feeler.GetHitShape(pos, probe, 1);
     if (hit) {
-        const Mth::Vector& p = feeler.Point();
+        const Maths::Vector& p = feeler.Point();
         probe.x -= p.x;
         probe.y -= p.y;
         probe.z -= p.z;
@@ -147,9 +147,9 @@ void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, c
         probe.y += pos.y;
         probe.z += pos.z;
         probe.w += pos.w;
-        hit = feeler.GetCollision(pos, probe, 1);
+        hit = feeler.GetHitShape(pos, probe, 1);
         if (hit) {
-            const Mth::Vector& p = feeler.Point();
+            const Maths::Vector& p = feeler.Point();
             double ox = static_cast<double>(probe.x) - p.x, oy = static_cast<double>(probe.y) - p.y;
             float oz = probe.z - p.z, ow = probe.w - p.w;
             pos.x = static_cast<float>(pos.x - ox);
@@ -161,9 +161,9 @@ void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, c
     if (!refocus || !hit)
         return;
     // Look from the new position at the focus.
-    Mth::Vector& at = matrix->row[2];
-    Mth::Vector& up = matrix->row[1];
-    Mth::Vector& across = matrix->row[0];
+    Maths::Vector& at = matrix->row[2];
+    Maths::Vector& up = matrix->row[1];
+    Maths::Vector& across = matrix->row[0];
     at = {focus->x - pos.x, focus->y - pos.y, focus->z - pos.z, 1.0f};
     at.Normalize();
     across = Cross(up, at);

@@ -27,7 +27,7 @@
 #include "game/core/code_address.h"
 #include "game/gfx/device.h"
 
-namespace Nx {
+namespace Engine3D {
 
 // The rain / snow grid's rows (sWeatherRow, one more than the grid is deep: at most 302) and, right after them, the
 // columns' height indices (a 16-bit offset into them).
@@ -83,7 +83,7 @@ int ClampColumn(const sWeatherRow& row, int x)
 // 0x004CC560
 CPcWeather* CPcWeather::Construct()
 {
-    reinterpret_cast<CWeather*>(this)->CWeather::Construct();
+    reinterpret_cast<CWeatherSystem*>(this)->CWeatherSystem::Construct();
     vtable = reinterpret_cast<void**>(kWeatherVtable);
     columns = nullptr;
     splashTexture = nullptr; // (the snow's texture left as it was)
@@ -99,7 +99,7 @@ CPcWeather* CPcWeather::Construct()
 void CPcWeather::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kWeatherVtable);
-    reinterpret_cast<CWeather*>(this)->CWeather::DestroyBody();
+    reinterpret_cast<CWeatherSystem*>(this)->CWeatherSystem::DestroyBody();
 }
 
 // 0x004CC600
@@ -107,7 +107,7 @@ CPcWeather* CPcWeather::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -148,8 +148,8 @@ void CPcWeather::Update(int /*unused*/)
         if (slot != 0xFF)
             return;
         slot = static_cast<uint8_t>(0xFE - static_cast<uint8_t>(frames));
-        offsetX[next] = static_cast<uint8_t>(Mth::Rnd(0xFF));
-        offsetZ[next] = static_cast<uint8_t>(Mth::Rnd(0xFF));
+        offsetX[next] = static_cast<uint8_t>(Maths::Rnd(0xFF));
+        offsetZ[next] = static_cast<uint8_t>(Maths::Rnd(0xFF));
         ++drops;
         StepSlot(next);
     }
@@ -191,12 +191,12 @@ void CPcWeather::RenderRain(float x, float z)
         return;
     uint32_t top = Argb(rainTop), bottom = Argb(rainBottom);
     if ((rainBlend & 0xFFFFFF) == 10) { // (drawn as mode 9 with the mode's alpha)
-        SetBlendMode(9);
+        ChooseBlendMode(9);
         uint32_t alpha = rainBlend & 0xFF000000;
         top = (top & 0xFFFFFF) | alpha;
         bottom = (bottom & 0xFFFFFF) | alpha;
     } else {
-        SetBlendMode(rainBlend);
+        ChooseBlendMode(rainBlend);
     }
     SetState(kAlphaRef, 0);
     SetPixelShader(nullptr, nullptr);
@@ -280,10 +280,10 @@ void CPcWeather::RenderSnow(float x, float z)
     int minX = cellX - 16, maxX = cellX + 16, minZ = cellZ - 16, maxZ = cellZ + 16;
     if (maxZ < 0 || minZ > depth - 1)
         return;
-    SetBlendMode(snowBlend);
+    ChooseBlendMode(snowBlend);
     SetState(kAlphaRef, 0);
     SetState(kAddressMode0, 0);
-    static_cast<sTexture*>(snowTexture)->Set(0);
+    static_cast<textureRef*>(snowTexture)->Set(0);
     Device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
     Device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
     Device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snowSize));
@@ -364,20 +364,20 @@ void CPcWeather::RenderSplashes(float x, float z)
     if (Ftol(total) - Ftol(before) != 0) {
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
         // 2048 either side - alternately - nearer in), its landing the splash's.
-        CFeeler feeler;
+        CProbeRay feeler;
         feeler.Construct();
         const float* camera = &g_camera.position[0];
-        Mth::Vector heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
+        Maths::Vector heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
                                static_cast<float>(static_cast<double>(z) - camera[2]), 1.0f};
-        Mth::Vector at = {camera[0], 50000.0f, camera[2], 1.0f};
+        Maths::Vector at = {camera[0], 50000.0f, camera[2], 1.0f};
         heading.Normalize();
-        float along = static_cast<float>(Mth::Rnd(0x8000) * (1.0 / 32768.0));
+        float along = static_cast<float>(Maths::Rnd(0x8000) * (1.0 / 32768.0));
         double out = static_cast<double>(along) * 2048.0f;
         at.x = static_cast<float>(heading.x * out + at.x);
         at.y = static_cast<float>(at.y + heading.y * out);
         at.z = static_cast<float>(at.z + heading.z * out);
         at.w = static_cast<float>(at.w + heading.w * out);
-        double side = (1.0 - Mth::Rnd(0x8000) * (1.0 / 32768.0)) * along;
+        double side = (1.0 - Maths::Rnd(0x8000) * (1.0 / 32768.0)) * along;
         side *= nextSplash & 1 ? 2048.0f : -2048.0f;
         float across = static_cast<float>(-static_cast<double>(heading.x)); // (stored, as the original)
         at.x = static_cast<float>(heading.z * side + at.x);
@@ -387,7 +387,7 @@ void CPcWeather::RenderSplashes(float x, float z)
         feeler.SetStart(&at);
         at.y = -50000.0f;
         feeler.SetEnd(&at);
-        float landing = feeler.GetCollision(false, false) ? feeler.m_point.y : 50000.0f;
+        float landing = feeler.GetHitShape(false, false) ? feeler.m_contactPos.y : 50000.0f;
         splashX[nextSplash] = at.x;
         splashY[nextSplash] = static_cast<float>(static_cast<double>(landing) + 4.0f);
         splashZ[nextSplash] = at.z;
@@ -395,10 +395,10 @@ void CPcWeather::RenderSplashes(float x, float z)
         nextSplash = (nextSplash + 1) % 0x20;
         feeler.m_object.Release();
     }
-    SetBlendMode(splashBlend);
+    ChooseBlendMode(splashBlend);
     SetState(kAlphaRef, 0);
     SetState(kAddressMode0, 0);
-    static_cast<sTexture*>(splashTexture)->Set(0);
+    static_cast<textureRef*>(splashTexture)->Set(0);
     SetPixelShader(nullptr, nullptr);
     Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
     Device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
@@ -443,7 +443,7 @@ void CPcWeather::RenderSplashes(float x, float z)
 }
 
 // 0x004CD1A0
-void CPcWeather::UpdateGrid()
+void CPcWeather::TickGrid()
 {
     active = false;
     auto* box = reinterpret_cast<const float*>(GetFirstCollGrid()); // (the scene's collision's box)
@@ -470,11 +470,11 @@ void CPcWeather::UpdateGrid()
     originX = static_cast<float>(minX << 7);
     width = maxX - minX + 1;
     originZ = static_cast<float>(minZ << 7);
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_topDownHeap);
-    auto* grid = static_cast<uint8_t*>(Mem::New(static_cast<uint32_t>(width * depth)));
-    Mem::Manager::Get()->PopContext();
-    CFeeler feeler;
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_topDownHeap);
+    auto* grid = static_cast<uint8_t*>(MemSys::New(static_cast<uint32_t>(width * depth)));
+    MemSys::Manager::Get()->LeaveHeapScope();
+    CProbeRay feeler;
     feeler.Construct();
     int levels = 0;
     int* level = heights; // (no limit on the levels, as the original: past 256 they run on over the fields after)
@@ -482,11 +482,11 @@ void CPcWeather::UpdateGrid()
         float atZ = static_cast<float>(z << 7);
         for (int x = minX; x <= maxX; ++x) {
             int index = width * r - minX + x;
-            Mth::Vector at = {static_cast<float>(x << 7), 50000.0f, atZ, 1.0f};
+            Maths::Vector at = {static_cast<float>(x << 7), 50000.0f, atZ, 1.0f};
             feeler.SetStart(&at);
             at.y = -50000.0f;
             feeler.SetEnd(&at);
-            int height = feeler.GetCollision(false, false) ? Ftol(static_cast<double>(feeler.m_point.y) * 16.0f)
+            int height = feeler.GetHitShape(false, false) ? Ftol(static_cast<double>(feeler.m_contactPos.y) * 16.0f)
                                                            : kNoGround;
             int found = -1;
             for (int i = 0; i < levels; ++i) {
@@ -544,21 +544,21 @@ void CPcWeather::UpdateGrid()
             rows[r] = {0x4000, 0, 0};
         }
     }
-    Mem::Manager::Get()->Free(grid);
+    MemSys::Manager::Get()->Free(grid);
     for (int i = 0; i < 0x400; ++i) {
         stage[i] = 0xFF;
-        offsetX[i] = static_cast<uint8_t>(Mth::Rnd(0xFF));
-        offsetZ[i] = static_cast<uint8_t>(Mth::Rnd(0xFF));
+        offsetX[i] = static_cast<uint8_t>(Maths::Rnd(0xFF));
+        offsetZ[i] = static_cast<uint8_t>(Maths::Rnd(0xFF));
     }
     drops = 0;
     next = 0x19B;
     splashTexture = nullptr;
     auto* dictionary = reinterpret_cast<void*>(g_particleTextureDict);
-    auto* splash = reinterpret_cast<uint8_t*>(static_cast<CTexDict*>(dictionary)->GetTexture(0x45C7EB0F));
+    auto* splash = reinterpret_cast<uint8_t*>(static_cast<CTextureSet*>(dictionary)->GetTexture(0x45C7EB0F));
     if (splash)
         splashTexture = splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
     auto* snow = reinterpret_cast<uint8_t*>(
-        static_cast<CTexDict*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(0xC97C5A4C));
+        static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(0xC97C5A4C));
     if (snow)
         snowTexture = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
     active = true;
@@ -568,9 +568,9 @@ void CPcWeather::UpdateGrid()
 }
 
 namespace {
-static VtableSlot kWeatherVtable_slots[] = {&Nx::CPcWeather::Destroy, &Nx::CPcWeather::UpdateGrid,
-                &Nx::CPcWeather::Update, &Nx::CPcWeather::Render, &Nx::CPcWeather::SetRainBlendMode,
-                &Nx::CPcWeather::SetSplashBlendMode, &Nx::CPcWeather::SetSnowBlendMode};
+static VtableSlot kWeatherVtable_slots[] = {&Engine3D::CPcWeather::Destroy, &Engine3D::CPcWeather::TickGrid,
+                &Engine3D::CPcWeather::Update, &Engine3D::CPcWeather::Render, &Engine3D::CPcWeather::SetRainBlendMode,
+                &Engine3D::CPcWeather::SetSplashBlendMode, &Engine3D::CPcWeather::SetSnowBlendMode};
 void** const kWeatherVtable = reinterpret_cast<void**>(kWeatherVtable_slots);
 } // namespace
 

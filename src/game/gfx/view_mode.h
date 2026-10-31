@@ -15,10 +15,10 @@
 //     (the stand-in texture stages, 0x00786AB8 false) there is no twin: Unlit draws as Lit.
 //   - Wireframe: the game's render mode (0x006FA734, game/gfx/wireframe.h) set to 1 while the mode is on, 0 again when it
 //     goes (only if the editor set it).
-//   - Collision only: the scenes (the level and its sky: Nx::RenderScene, game/gfx/scene_render.cpp) not drawn; the
+//   - Collision only: the scenes (the level and its sky: Engine3D::DrawScene, game/gfx/scene_render.cpp) not drawn; the
 //     frame's target cleared to a dark grey first, so the editor's collision view (level_editor_view.h) is all that
 //     shows of the level. Objects, peds and the skater drawn as usual.
-namespace Nx::ViewMode {
+namespace Engine3D::ViewMode {
 
 enum class Mode { kLit, kUnlit, kWireframe, kCollisionOnly, kCount };
 const char* Name(Mode mode);
@@ -26,7 +26,7 @@ const char* Name(Mode mode);
 Mode Current();
 void Set(Mode mode);
 
-// The frame's 3D passes starting / ending (Nx::RenderWorld, beside Wireframe::BeginWorld / EndWorld).
+// The frame's 3D passes starting / ending (Engine3D::DrawWorld, beside Wireframe::BeginWorld / EndWorld).
 void BeginWorld();
 void EndWorld();
 // Between BeginWorld and EndWorld in Collision only: the scenes aren't drawn.
@@ -47,4 +47,4 @@ void ForgetShaders();
 constexpr int kUnlitConstant = 7; // (c7: the game's shaders use c0-c4 and def c1 / c2)
 std::string UnlitShaderSource(const std::string& source);
 
-} // namespace Nx::ViewMode
+} // namespace Engine3D::ViewMode

@@ -20,7 +20,7 @@
 #include "game/obj/control_pad.h"
 #include "game/obj/trigger_events.h"
 
-namespace Obj {
+namespace GameObjects {
 
 using namespace Vehicle;
 
@@ -97,7 +97,7 @@ double X87Atan2(double y, double x)
 float StoppingTorque(double perStep, float spin) { return static_cast<float>(std::fabs(-1.0 / perStep * spin)); }
 
 // A torque on the wheel (already times its inverse moment): its spin changed over the step, and summed.
-void SpinWheel(CVehicleComponent::Wheel& wheel, double torque, float timestep)
+void SpinWheel(CDrivableModule::Wheel& wheel, double torque, float timestep)
 {
     wheel.spin = static_cast<float>(torque * timestep + wheel.spin);
     wheel.torque = static_cast<float>(torque + wheel.torque);
@@ -105,7 +105,7 @@ void SpinWheel(CVehicleComponent::Wheel& wheel, double torque, float timestep)
 
 // The steering angles for a steering input `steering` (-1..1): the wheel on the inside of the turn (by Ackermann)
 // as a float, the outer one unrounded.
-void SteeringAngles(const CVehicleComponent* vehicle, float steering, float* inner, double* outer)
+void SteeringAngles(const CDrivableModule* vehicle, float steering, float* inner, double* outer)
 {
     if (!(std::fabs(steering) > kNoSteering)) {
         *inner = 0.0f;
@@ -127,25 +127,25 @@ void SteeringAngles(const CVehicleComponent* vehicle, float steering, float* inn
 } // namespace
 
 // 0x00435B60
-void CVehicleComponent::UpdateWheelFriction()
+void CDrivableModule::UpdateWheelFriction()
 {
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         if (wheel.state == kWheelInAir)
             continue;
         // The velocity at the wheel along the ground.
-        Mth::Vector vel = wheel.vel;
-        vel.ProjectToPlane(wheel.normal);
+        Maths::Vector vel = wheel.vel;
+        vel.FlattenOntoPlane(wheel.normal);
         // The tyre's sideways direction: the body's right turned by the steering, along the ground, unit.
         double c = X87Cos(wheel.steering);
         float s = static_cast<float>(X87Sin(wheel.steering));
-        const Mth::Vector* rows = m_matrix.row;
-        Mth::Vector sideways;
+        const Maths::Vector* rows = m_basisFrame.row;
+        Maths::Vector sideways;
         sideways.x = static_cast<float>((c * rows[2].x + static_cast<double>(s) * rows[0].x) + rows[1].x * 0.0);
         sideways.y = static_cast<float>((static_cast<double>(s) * rows[0].y + c * rows[2].y) + rows[1].y * 0.0);
         sideways.z = static_cast<float>((static_cast<double>(s) * rows[0].z + c * rows[2].z) + rows[1].z * 0.0);
         sideways.w = 1.0f;
-        sideways.ProjectToPlane(wheel.normal);
+        sideways.FlattenOntoPlane(wheel.normal);
         double length = std::sqrt((static_cast<double>(sideways.z) * sideways.z + static_cast<double>(sideways.y) * sideways.y) +
                                   static_cast<double>(sideways.x) * sideways.x);
         if (length > 0.0) {
@@ -172,20 +172,20 @@ void CVehicleComponent::UpdateWheelFriction()
 }
 
 // 0x00435DA0
-void CVehicleComponent::UpdateCollisionCache()
+void CDrivableModule::UpdateCollisionCache()
 {
-    Mth::BBox box;
+    Maths::BBox box;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         box.AddPoint(m_wheels[i].feelerStart);
         box.AddPoint(m_wheels[i].feelerEnd);
     }
     for (int i = 1; i >= 0; --i) {
         const Collider& c = m_colliders[i];
-        const Mth::Vector& o = c.worldCorner;
-        const Mth::Vector& a = c.worldEdges[0];
-        const Mth::Vector& b = c.worldEdges[1];
+        const Maths::Vector& o = c.worldCorner;
+        const Maths::Vector& a = c.worldEdges[0];
+        const Maths::Vector& b = c.worldEdges[1];
         box.AddPoint(o);
-        Mth::Vector p;
+        Maths::Vector p;
         p = {static_cast<float>(static_cast<double>(o.x) + a.x), static_cast<float>(static_cast<double>(a.y) + o.y),
              static_cast<float>(static_cast<double>(o.z) + a.z), static_cast<float>(static_cast<double>(o.w) + a.w)};
         box.AddPoint(p);
@@ -204,11 +204,11 @@ void CVehicleComponent::UpdateCollisionCache()
 }
 
 // 0x00435F00
-void CVehicleComponent::UpdateSteering()
+void CDrivableModule::UpdateSteering()
 {
     double previous = m_displaySteering;
     float display = static_cast<float>((static_cast<double>(m_steering) - previous) *
-                                           (static_cast<double>(m_timestep) * kSteeringRate) +
+                                           (static_cast<double>(m_stepLength) * kSteeringRate) +
                                        previous);
     m_displaySteering = display;
     float inner, displayInner;
@@ -225,7 +225,7 @@ void CVehicleComponent::UpdateSteering()
 }
 
 // 0x004360C0
-void CVehicleComponent::ApplyDamping()
+void CDrivableModule::ApplyDamping()
 {
     if (m_handbrake && static_cast<uint32_t>(m_wheelsInContact) > 2)
         return;
@@ -235,13 +235,13 @@ void CVehicleComponent::ApplyDamping()
         return;
     // The spin damped by a part growing with its square; all of it when that's more than there is.
     double x = m_rotmom.x, y = m_rotmom.y, z = m_rotmom.z;
-    double damping = ((x * x + y * y) + z * z) * m_spinDamping * m_timestep;
+    double damping = ((x * x + y * y) + z * z) * m_spinDamping * m_stepLength;
     float dampingRounded = static_cast<float>(damping);
     double length = std::sqrt((x * x + y * y) + z * z);
     if (damping > length) {
         m_rotmom = {0.0f, 0.0f, 0.0f, 1.0f};
     } else {
-        Mth::Vector axis = m_rotmom;
+        Maths::Vector axis = m_rotmom;
         axis.Normalize();
         float dz = static_cast<float>(static_cast<double>(axis.z) * dampingRounded);
         float dw = static_cast<float>(static_cast<double>(axis.w) * dampingRounded);
@@ -251,8 +251,8 @@ void CVehicleComponent::ApplyDamping()
         m_rotmom.w = static_cast<float>(static_cast<double>(m_rotmom.w) - dw);
     }
     // Upright on three or more wheels and not steering: the turning about up damped towards 0.
-    if (m_steering == 0.0f && static_cast<uint32_t>(m_wheelsInContact) > 2 && m_matrix.row[1].y > kHalf) {
-        double yaw = static_cast<double>(m_yawDamping) * m_timestep;
+    if (m_steering == 0.0f && static_cast<uint32_t>(m_wheelsInContact) > 2 && m_basisFrame.row[1].y > kHalf) {
+        double yaw = static_cast<double>(m_yawDamping) * m_stepLength;
         if (std::fabs(static_cast<double>(m_rotmom.y)) < std::fabs(yaw)) {
             m_rotmom.y = 0.0f;
             return;
@@ -264,10 +264,10 @@ void CVehicleComponent::ApplyDamping()
 }
 
 // 0x00436280
-void CVehicleComponent::ApplyGravity()
+void CDrivableModule::ApplyGravity()
 {
     double gravity;
-    if (m_righting && static_cast<uint32_t>(Tmr::GameClockElapsed()) +
+    if (m_righting && static_cast<uint32_t>(FrameClock::GameClockElapsed()) +
                               (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(m_rightingStart)) >
                           300)
         gravity = static_cast<double>(m_gravityScale) / m_invMass * kRightingGravity;
@@ -275,14 +275,14 @@ void CVehicleComponent::ApplyGravity()
         gravity = static_cast<double>(m_gravityScale) / m_invMass * kGravity;
     m_force.y = static_cast<float>(m_force.y - gravity);
     if (m_debugMode) {
-        Mth::Vector down{m_pos.x, static_cast<float>(-static_cast<double>(kGravity) / m_invMass * 0.05f + m_pos.y),
+        Maths::Vector down{m_pos.x, static_cast<float>(-static_cast<double>(kGravity) / m_invMass * 0.05f + m_pos.y),
                          m_pos.z, static_cast<float>(static_cast<double>(m_pos.w) + 0.05f)};
-        Gfx::AddDebugLine(&m_pos, &down, 0xFF003232, 0xFF003232, 1);
+        Gfx2D::PushDiagLine(&m_pos, &down, 0xFF003232, 0xFF003232, 1);
     }
 }
 
 // 0x00436340
-void CVehicleComponent::ApplySuspension()
+void CDrivableModule::ApplySuspension()
 {
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
@@ -293,15 +293,15 @@ void CVehicleComponent::ApplySuspension()
             continue;
         }
         // The spring (by how far the suspension is compressed along the ground's normal) and the damper.
-        const Mth::Vector& n = wheel.normal;
-        const Mth::Vector& up = m_matrix.row[1];
+        const Maths::Vector& n = wheel.normal;
+        const Maths::Vector& up = m_basisFrame.row[1];
         double upAlongNormal = (static_cast<double>(up.z) * n.z + static_cast<double>(up.y) * n.y) + static_cast<double>(up.x) * n.x;
         double spring = -(upAlongNormal * (static_cast<double>(wheel.restY) - wheel.y) * wheel.springRate);
         double closing = (static_cast<double>(wheel.vel.z) * n.z + static_cast<double>(wheel.vel.y) * n.y) +
                          static_cast<double>(wheel.vel.x) * n.x;
         double force = spring - closing * wheel.dampingRate;
         float forceRounded = static_cast<float>(force);
-        Mth::Vector push{static_cast<float>(force * n.x), static_cast<float>(static_cast<double>(forceRounded) * n.y),
+        Maths::Vector push{static_cast<float>(force * n.x), static_cast<float>(static_cast<double>(forceRounded) * n.y),
                          static_cast<float>(static_cast<double>(forceRounded) * n.z),
                          static_cast<float>(static_cast<double>(forceRounded) * n.w)};
         AddForceAtPoint(&push, &wheel.pos, 0xFF006464);
@@ -317,19 +317,19 @@ void CVehicleComponent::ApplySuspension()
 }
 
 // 0x004364B0
-void CVehicleComponent::ApplyTyreForces()
+void CDrivableModule::ApplyTyreForces()
 {
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         if (wheel.state == kWheelInAir)
             continue;
         // The slip velocity: the ground velocity less the tyre's rolling (as UpdateWheelFriction).
-        const Mth::Vector side = wheel.sideways;
+        const Maths::Vector side = wheel.sideways;
         double rolling = static_cast<double>(wheel.spin) * wheel.radius;
         float rollY = static_cast<float>(side.y * rolling);
         float rollZ = static_cast<float>(side.z * rolling);
         float rollW = static_cast<float>(side.w * rolling);
-        Mth::Vector slip;
+        Maths::Vector slip;
         slip.x = static_cast<float>(wheel.contactVel.x - side.x * rolling);
         slip.y = static_cast<float>(static_cast<double>(wheel.contactVel.y) - rollY);
         slip.z = static_cast<float>(static_cast<double>(wheel.contactVel.z) - rollZ);
@@ -352,24 +352,24 @@ void CVehicleComponent::ApplyTyreForces()
         }
         float scale = static_cast<float>(-(static_cast<double>(wheel.friction) * wheel.load));
         double frictionX = dirX * scale;
-        Mth::Vector friction{0.0f, static_cast<float>(static_cast<double>(dirY) * scale),
+        Maths::Vector friction{0.0f, static_cast<float>(static_cast<double>(dirY) * scale),
                              static_cast<float>(static_cast<double>(dirZ) * scale),
                              static_cast<float>(static_cast<double>(slip.w) * scale)};
         // The torque that would stop the slip along the tyre this step, and the friction's own torque on it: the
         // smaller one acts on the wheel; when it's the stopping one, the rest of it pushes the body.
         float stop = static_cast<float>(
             ((static_cast<double>(slip.z) * side.z + static_cast<double>(slip.y) * side.y) + static_cast<double>(slip.x) * side.x) /
-            wheel.radius / (static_cast<double>(m_timestep) * wheel.invMoment));
+            wheel.radius / (static_cast<double>(m_stepLength) * wheel.invMoment));
         double along = (static_cast<double>(friction.z) * side.z + static_cast<double>(friction.y) * side.y) + frictionX * side.x;
         double frictionTorque = -(along * wheel.radius);
         float wheelTorque;
-        Mth::Vector push;
+        Maths::Vector push;
         if (std::fabs(static_cast<double>(stop)) > std::fabs(frictionTorque)) {
             push = {static_cast<float>(frictionX), friction.y, friction.z, friction.w};
             wheelTorque = static_cast<float>(frictionTorque);
         } else {
             double rest = -1.0 / wheel.radius * stop - along;
-            Mth::Vector extra{static_cast<float>(side.x * rest), static_cast<float>(side.y * rest),
+            Maths::Vector extra{static_cast<float>(side.x * rest), static_cast<float>(side.y * rest),
                               static_cast<float>(side.z * rest), static_cast<float>(side.w * rest)};
             push = {static_cast<float>(frictionX + extra.x), static_cast<float>(static_cast<double>(extra.y) + friction.y),
                     static_cast<float>(static_cast<double>(extra.z) + friction.z),
@@ -377,12 +377,12 @@ void CVehicleComponent::ApplyTyreForces()
             wheelTorque = stop;
         }
         AddForceAtPoint(&push, &wheel.pos, 0xFFFF0000);
-        SpinWheel(wheel, static_cast<double>(wheelTorque) * wheel.invMoment, m_timestep);
+        SpinWheel(wheel, static_cast<double>(wheelTorque) * wheel.invMoment, m_stepLength);
     }
 }
 
 // 0x004367E0
-void CVehicleComponent::ApplyEngineBraking()
+void CDrivableModule::ApplyEngineBraking()
 {
     if (m_throttle || m_reverse || m_brake)
         return;
@@ -393,20 +393,20 @@ void CVehicleComponent::ApplyEngineBraking()
         int gear = GetGear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
         double ratio = m_gearRatios[gear];
         double braking = ratio * m_engineBraking * ratio / Unsigned(m_driveWheelCount);
-        float stop = StoppingTorque(static_cast<double>(wheel.invMoment) * m_timestep, wheel.spin);
+        float stop = StoppingTorque(static_cast<double>(wheel.invMoment) * m_stepLength, wheel.spin);
         if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
             braking = -braking;
-        SpinWheel(wheel, braking * wheel.invMoment, m_timestep);
+        SpinWheel(wheel, braking * wheel.invMoment, m_stepLength);
     }
 }
 
 // 0x00436900
-void CVehicleComponent::ApplyDriveTorque()
+void CDrivableModule::ApplyDriveTorque()
 {
     // Less drive on a slope (up.y squared / 0.9, at most 1).
-    double upright = static_cast<double>(m_matrix.row[1].y) * m_matrix.row[1].y * kUprightBoost;
+    double upright = static_cast<double>(m_basisFrame.row[1].y) * m_basisFrame.row[1].y * kUprightBoost;
     float grip = upright > 1.0 ? 1.0f : static_cast<float>(upright);
     if (!(m_throttle || m_reverse) || m_brake)
         return;
@@ -426,19 +426,19 @@ void CVehicleComponent::ApplyDriveTorque()
             torque = -(torque * m_reverseRatio);
         if (m_handbrake && m_driveWheelCount == 4)
             torque = torque + torque;
-        SpinWheel(wheel, torque * wheel.invMoment, m_timestep);
+        SpinWheel(wheel, torque * wheel.invMoment, m_stepLength);
     }
 }
 
 // 0x00436A90
-void CVehicleComponent::ApplyBrakes()
+void CDrivableModule::ApplyBrakes()
 {
     if (!m_brake)
         return;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         double braking = wheel.brakeTorque;
-        float stop = StoppingTorque(static_cast<double>(m_timestep) * wheel.invMoment, wheel.spin);
+        float stop = StoppingTorque(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
         if (braking > stop) {
             wheel.brakeExcess = static_cast<float>(braking - stop);
             braking = stop;
@@ -447,17 +447,17 @@ void CVehicleComponent::ApplyBrakes()
         }
         if (!(wheel.spin < 0.0f))
             braking = -braking;
-        SpinWheel(wheel, braking * wheel.invMoment, m_timestep);
+        SpinWheel(wheel, braking * wheel.invMoment, m_stepLength);
     }
 }
 
 // 0x00436B60
-void CVehicleComponent::ApplyHandbrake(float scale)
+void CDrivableModule::ApplyHandbrake(float scale)
 {
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         double braking = static_cast<double>(scale) * wheel.handbrakeTorque;
-        float stop = StoppingTorque(static_cast<double>(m_timestep) * wheel.invMoment, wheel.spin);
+        float stop = StoppingTorque(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
         if (braking > stop) {
             wheel.brakeExcess = static_cast<float>(braking - stop);
             braking = stop;
@@ -466,12 +466,12 @@ void CVehicleComponent::ApplyHandbrake(float scale)
         }
         if (!(wheel.spin < 0.0f))
             braking = -braking;
-        SpinWheel(wheel, braking * wheel.invMoment, m_timestep);
+        SpinWheel(wheel, braking * wheel.invMoment, m_stepLength);
     }
 }
 
 // 0x00436C20
-void CVehicleComponent::ApplyBrakeExcess()
+void CDrivableModule::ApplyBrakeExcess()
 {
     if (!m_brake)
         return;
@@ -480,31 +480,31 @@ void CVehicleComponent::ApplyBrakeExcess()
         if (wheel.brakeExcess == 0.0f)
             continue;
         double braking = wheel.brakeExcess;
-        float stop = StoppingTorque(static_cast<double>(m_timestep) * wheel.invMoment, wheel.spin);
+        float stop = StoppingTorque(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
         if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
             braking = -braking;
-        SpinWheel(wheel, braking * wheel.invMoment, m_timestep);
+        SpinWheel(wheel, braking * wheel.invMoment, m_stepLength);
     }
 }
 
 // 0x00438A20
-void CVehicleComponent::UpdateInertia()
+void CDrivableModule::UpdateInertia()
 {
     // R * diag(inverse moments) * R^T.
     for (int r = 0; r < 3; ++r) {
-        (&m_invInertia.row[r].x)[0] = static_cast<float>(static_cast<double>((&m_matrix.row[r].x)[0]) * m_invMoments[0]);
-        (&m_invInertia.row[r].x)[1] = static_cast<float>(static_cast<double>((&m_matrix.row[r].x)[1]) * m_invMoments[1]);
-        (&m_invInertia.row[r].x)[2] = static_cast<float>(static_cast<double>((&m_matrix.row[r].x)[2]) * m_invMoments[2]);
+        (&m_invInertia.row[r].x)[0] = static_cast<float>(static_cast<double>((&m_basisFrame.row[r].x)[0]) * m_invMoments[0]);
+        (&m_invInertia.row[r].x)[1] = static_cast<float>(static_cast<double>((&m_basisFrame.row[r].x)[1]) * m_invMoments[1]);
+        (&m_invInertia.row[r].x)[2] = static_cast<float>(static_cast<double>((&m_basisFrame.row[r].x)[2]) * m_invMoments[2]);
     }
-    Nx::MatrixTranspose transposed;
-    transposed.TransposeFrom(&m_matrix);
+    Engine3D::MatrixTranspose transposed;
+    transposed.TransposeFrom(&m_basisFrame);
     MatrixMultiply(&m_invInertia, &m_invInertia, &transposed);
 }
 
 // 0x00438AE0
-void CVehicleComponent::ApplyWheelForces()
+void CDrivableModule::ApplyWheelForces()
 {
     ApplyGravity();
     ApplySuspension();
@@ -533,19 +533,19 @@ void CVehicleComponent::ApplyWheelForces()
 }
 
 // 0x0043AE10
-void CVehicleComponent::UpdateDependents()
+void CDrivableModule::UpdateDependents()
 {
-    QuatToMatrix(&m_orientation, &m_matrix);
-    m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Vector turned;
-    m_comOffset = m_matrix.RotateVector(turned, m_centerOfMass);
+    QuatToMatrix(&m_orientation, &m_basisFrame);
+    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vector turned;
+    m_comOffset = m_basisFrame.RotateVector(turned, m_centerOfMass);
     UpdateInertia();
     UpdateVelocities();
-    const Mth::Vector* r = m_matrix.row;
+    const Maths::Vector* r = m_basisFrame.row;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         // The suspension's top: the wheel's place turned and moved (x summed unrounded).
-        const Mth::Vector& o = wheel.offset;
+        const Maths::Vector& o = wheel.offset;
         double x = (static_cast<double>(r[1].x) * o.y + static_cast<double>(r[2].x) * o.z) + static_cast<double>(r[0].x) * o.x;
         float y = static_cast<float>((static_cast<double>(r[1].y) * o.y + static_cast<double>(r[0].y) * o.x) +
                                      static_cast<double>(r[2].y) * o.z);
@@ -557,7 +557,7 @@ void CVehicleComponent::UpdateDependents()
         wheel.feelerStart.x = static_cast<float>(x + m_pos.x);
         wheel.feelerStart.y = static_cast<float>(static_cast<double>(y) + m_pos.y);
         // The bottom: the place lowered to its rest less the radius.
-        Mth::Vector e = o;
+        Maths::Vector e = o;
         e.y = static_cast<float>((static_cast<double>(wheel.restY) - wheel.radius) + e.y);
         wheel.feelerEnd = e;
         x = (static_cast<double>(e.x) * r[0].x + static_cast<double>(r[2].x) * e.z) + static_cast<double>(r[1].x) * e.y;
@@ -574,7 +574,7 @@ void CVehicleComponent::UpdateDependents()
     for (int i = 1; i >= 0; --i) {
         Collider& c = m_colliders[i];
         // The corner turned and moved; the edges turned (each with its own order of sums, as the original).
-        const Mth::Vector& o = c.corner;
+        const Maths::Vector& o = c.corner;
         double x = (static_cast<double>(r[2].x) * o.z + static_cast<double>(r[1].x) * o.y) + static_cast<double>(o.x) * r[0].x;
         float y = static_cast<float>((static_cast<double>(r[0].y) * o.x + static_cast<double>(r[2].y) * o.z) +
                                      static_cast<double>(r[1].y) * o.y);
@@ -585,7 +585,7 @@ void CVehicleComponent::UpdateDependents()
         c.worldCorner.w = static_cast<float>(static_cast<double>(w) + m_pos.w);
         c.worldCorner.x = static_cast<float>(x + m_pos.x);
         c.worldCorner.y = static_cast<float>(static_cast<double>(y) + m_pos.y);
-        const Mth::Vector& a = c.edges[0];
+        const Maths::Vector& a = c.edges[0];
         c.worldEdges[0].z = static_cast<float>((static_cast<double>(r[2].z) * a.z + static_cast<double>(r[0].z) * a.x) +
                                                static_cast<double>(r[1].z) * a.y);
         c.worldEdges[0].w = a.w;
@@ -593,7 +593,7 @@ void CVehicleComponent::UpdateDependents()
                                                static_cast<double>(a.x) * r[0].x);
         c.worldEdges[0].y = static_cast<float>((static_cast<double>(r[2].y) * a.z + static_cast<double>(r[0].y) * a.x) +
                                                static_cast<double>(r[1].y) * a.y);
-        const Mth::Vector& b = c.edges[1];
+        const Maths::Vector& b = c.edges[1];
         float bw = b.w;
         c.worldEdges[1].z = static_cast<float>((static_cast<double>(r[2].z) * b.z + static_cast<double>(r[1].z) * b.y) +
                                                static_cast<double>(b.x) * r[0].z);
@@ -604,7 +604,7 @@ void CVehicleComponent::UpdateDependents()
                                                static_cast<double>(r[0].y) * b.x);
         for (int k = 0; k < 2; ++k) {
             double inverse = 1.0 / c.lengths[k];
-            const Mth::Vector& edge = c.worldEdges[k];
+            const Maths::Vector& edge = c.worldEdges[k];
             c.directions[k] = {static_cast<float>(inverse * edge.x), static_cast<float>(inverse * edge.y),
                                static_cast<float>(inverse * edge.z), static_cast<float>(inverse * edge.w)};
         }
@@ -613,62 +613,62 @@ void CVehicleComponent::UpdateDependents()
 }
 
 // 0x0043B240
-void CVehicleComponent::UpdateWheelContacts()
+void CDrivableModule::UpdateWheelContacts()
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    feeler.mp_cache = &m_collCache;
+    feeler.m_hitCache = &m_collCache;
     m_wheelsInContact = 0;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         feeler.m_line.start = wheel.feelerStart;
         feeler.m_line.end = wheel.feelerEnd;
-        feeler.SetIgnore(0x10, 0);
-        if (feeler.GetCollision(false, false)) {
+        feeler.SetExcluded(0x10, 0);
+        if (feeler.GetHitShape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 TriggerFeeler(mp_trigger, g_wheelLandsEvents, &feeler);
-                if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                if (m_cutShort || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return; // (the feeler's destructor lets go of its object)
             } else if (feeler.m_hit.object != wheel.feeler.m_hit.object) {
                 // Onto another collision object: off the old, onto the new.
                 TriggerFeeler(mp_trigger, g_wheelLeavesEvents, &wheel.feeler);
-                if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                if (m_cutShort || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
                 TriggerFeeler(mp_trigger, g_wheelLandsEvents, &feeler);
-                if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                if (m_cutShort || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
             // Touching: the suspension's extension where the ground is, the feeler kept, its line ending there.
             wheel.feeler.Assign(feeler);
             wheel.state = kWheelOnGround;
-            wheel.normal = feeler.m_normal;
-            wheel.y = static_cast<float>((static_cast<double>(wheel.restY) - wheel.radius) * feeler.m_distance + wheel.radius);
+            wheel.normal = feeler.m_surfaceDir;
+            wheel.y = static_cast<float>((static_cast<double>(wheel.restY) - wheel.radius) * feeler.m_reach + wheel.radius);
             ++m_wheelsInContact;
-            feeler.m_line.end = feeler.m_point;
+            feeler.m_line.end = feeler.m_contactPos;
         } else {
             if (wheel.state != kWheelInAir) {
                 TriggerFeeler(mp_trigger, g_wheelLeavesEvents, &wheel.feeler);
-                if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                if (m_cutShort || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
             wheel.state = kWheelInAir;
             wheel.y = wheel.restY;
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
-        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(Ed::g_parkEditor) + 0x40) != kParkEditorOff) {
-            feeler.SetIgnore(0, 0x50);
-            if (feeler.GetCollision(false, false)) {
+        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) != kParkEditorOff) {
+            feeler.SetExcluded(0, 0x50);
+            if (feeler.GetHitShape(false, false)) {
                 TriggerFeeler(mp_trigger, g_crossingEvents, &feeler);
-                if (m_interrupted || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
+                if (m_cutShort || (m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                     return;
             }
         }
     }
     // The contact points (relative to the body's position, turned) and the body's velocity there.
-    const Mth::Vector* r = m_matrix.row;
+    const Maths::Vector* r = m_basisFrame.row;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
-        Mth::Vector& p = wheel.pos;
+        Maths::Vector& p = wheel.pos;
         p = wheel.offset;
         p.y = static_cast<float>((static_cast<double>(wheel.y) - wheel.radius) + p.y);
         double x = (static_cast<double>(p.x) * r[0].x + static_cast<double>(r[2].x) * p.z) + static_cast<double>(r[1].x) * p.y;
@@ -678,13 +678,13 @@ void CVehicleComponent::UpdateWheelContacts()
         p.z = z;
         p.x = static_cast<float>(x);
         p.y = static_cast<float>(y);
-        Mth::Vector vel;
+        Maths::Vector vel;
         wheel.vel = *GetPointVelocity(&vel, &p);
     }
 }
 
 // 0x00437550
-void CVehicleComponent::CheckSleep()
+void CDrivableModule::CheckSleep()
 {
     int still = m_stillFrames;
     m_stillFrames = 0;
@@ -707,17 +707,17 @@ void CVehicleComponent::CheckSleep()
     m_stillFrames = still + 1;
     if (m_stillFrames < 3)
         return;
-    m_mom = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_linearMomentum = {0.0f, 0.0f, 0.0f, 1.0f};
     m_rotmom = {0.0f, 0.0f, 0.0f, 1.0f};
     m_force = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_torque = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_twistForce = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int i = m_wheelCount - 1; i >= 0; --i)
         m_wheels[i].torque = 0.0f;
     m_awake = 0;
 }
 
 // 0x004376B0
-void CVehicleComponent::ReadControls()
+void CDrivableModule::ReadControls()
 {
     uint8_t* input = mp_input;
     // The stick squared (its sign kept); else the d-pad's left / right.
@@ -738,7 +738,7 @@ void CVehicleComponent::ReadControls()
     bool pressed, other = false;
     if (input[0x180]) {
         pressed = true;
-    } else if (m_exitable && input[0x1A0]) {
+    } else if (m_canDismount && input[0x1A0]) {
         pressed = true;
         other = true;
     } else {
@@ -746,7 +746,7 @@ void CVehicleComponent::ReadControls()
     }
     if (pressed) {
         bool brake;
-        const Mth::Vector& at = m_matrix.row[2];
+        const Maths::Vector& at = m_basisFrame.row[2];
         if (!m_reverse &&
             (!((static_cast<double>(m_vel.z) * at.z + static_cast<double>(m_vel.y) * at.y) + static_cast<double>(at.x) * m_vel.x <
                kReverseSpeed) ||
@@ -781,20 +781,20 @@ void CVehicleComponent::ReadControls()
 }
 
 // 0x004378B0
-void CVehicleComponent::UpdateSkater()
+void CDrivableModule::UpdateSkater()
 {
-    CCompositeObject* object = m_object;
-    CCompositeObject* skater = mp_skater;
-    Mth::Vector place;
-    object->m_matrix.RotateVector(place, m_skaterPos);
+    CGameEntity* object = m_object;
+    CGameEntity* skater = m_riderRef;
+    Maths::Vector place;
+    object->m_basisFrame.RotateVector(place, m_skaterPos);
     skater->m_pos.z = static_cast<float>(static_cast<double>(object->m_pos.z) + place.z);
     skater->m_pos.w = static_cast<float>(static_cast<double>(object->m_pos.w) + place.w);
     skater->m_pos.x = static_cast<float>(static_cast<double>(place.x) + object->m_pos.x);
     skater->m_pos.y = static_cast<float>(static_cast<double>(object->m_pos.y) + place.y);
-    skater->m_matrix = object->m_matrix;
+    skater->m_basisFrame = object->m_basisFrame;
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
     uint8_t* core = reinterpret_cast<uint8_t*>(mp_skaterCorePhysics);
-    *reinterpret_cast<Mth::Matrix*>(core + 0x18) = reinterpret_cast<CBaseComponent*>(core)->m_object->m_matrix;
+    *reinterpret_cast<Maths::Matrix*>(core + 0x18) = reinterpret_cast<CObjectModule*>(core)->m_object->m_basisFrame;
     skater->m_vel = object->m_vel;
     if (!m_skaterVisible)
         return;
@@ -806,7 +806,7 @@ void CVehicleComponent::UpdateSkater()
     float frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     uint32_t frameBits = std::bit_cast<uint32_t>(frame);
     uint32_t blend = std::bit_cast<uint32_t>(1000.0f);
-    if (!GameNet::g_gameNetManager->InNetGame()) {
+    if (!OnlinePlay::g_gameNetManager->InNetGame()) {
         blender->PlayAnimationEx(m_skaterAnim, 0, frameBits, blend, 1, 0, 0);
         return;
     }
@@ -822,7 +822,7 @@ void CVehicleComponent::UpdateSkater()
 
 namespace {
 
-void __fastcall UpdateSteeringOf(CVehicleComponent* vehicle) { vehicle->UpdateSteering(); }
+void __fastcall UpdateSteeringOf(CDrivableModule* vehicle) { vehicle->UpdateSteering(); }
 
 // 0x00435F00 as the game calls it: the original update (0x0043C1D0) calls ApplyDamping right after it without
 // loading ECX again - kept.

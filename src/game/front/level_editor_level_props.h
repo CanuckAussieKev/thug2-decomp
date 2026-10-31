@@ -8,10 +8,10 @@
 
 #include "game/front/level_editor_fields.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
-namespace Gfx {
+namespace Gfx2D {
 struct TODParams;
 }
 
@@ -24,7 +24,7 @@ struct TODParams;
 //     once the edited copy is up;
 //   - the time of day it starts in (tod_state: morning, afternoon, evening, night) and whether time passes
 //     (tod_manager_active) - load_level reads both from the level structure (Levels.qb: TODManager_SetTODInstant
-//     <tod_state>, TODManager_SetActive); the state also changes at once in the editor (Gfx::CTODManager::
+//     <tod_state>, TODManager_SetActive); the state also changes at once in the editor (Gfx2D::CTODManager::
 //     SetTODInstant);
 //   - its ambient light colour and fog (colour, alpha, distance) - live in the editor and on load (map4). Studied
 //     (the reference build): nothing reads a level structure's ambient_red / _green / _blue or fog_* keys - the checksums appear
@@ -34,14 +34,14 @@ struct TODParams;
 //     and do nothing (no level structure has fog_*). The engine's ambient light and fog come from the manager:
 //     ApplyTODParams (0x00572A10) sends the state's ambient_* / fog_* (SetAmbientColor 0x0048E8F0, the fog's 0x00490DE0 /
 //     0x00490E20 / 0x00490E00 - what the SetFogColor / SetFogDistance / EnableFog script commands call) whenever the
-//     state changes or is refreshed. So the edited copy's are put over the state's there (Gfx::SetTODParamsFilter -
+//     state changes or is refreshed. So the edited copy's are put over the state's there (Gfx2D::SetTODParamsFilter -
 //     Override below), and sent again at once when they change (Reapply: the manager's ApplyTODParams with its current
 //     parameters). Kept in the level structure as ed_ambient=[r g b] / ed_fog=[r g b alpha distance] (keys of ours -
 //     a bake writes the same: tools/pipeline/game/apply_layout.ts), read once a level is up (OnLevelUp) - offline only;
 //     the edited copy's own record wins over them;
 //   - its sky (the feature map's "sky" row): another level's sky scene - the level structure's sky= ("TR_Sky"), which
 //     load_level loads before the level's own scene (Levels.qb: `if gotparam sky { LoadScene scene=<sky> }`; a scene
-//     whose name holds "_sky" is the sky - Nx::CFunc_LoadScene's is_sky). The skies are loose files
+//     whose name holds "_sky" is the sky - Engine3D::CFunc_LoadScene's is_sky). The skies are loose files
 //     (Data\levels\<X>_Sky\<X>_Sky.scn / .tex / .col, the ported levels' in the data overlay), so any level's loads
 //     with any other: Skies() lists the sky= of every level structure the game has (THUG2's 21 and the ported ones) -
 //     on reload (the sky scene is loaded with the level, before it).
@@ -55,7 +55,7 @@ struct TODParams;
 //   level [name=<text>] [start=<node>] [tod=<state>] [time=0|1] [ambient=r,g,b] [fog=r,g,b,alpha,distance]
 //         [sky=<scene>]
 // <text> and <scene> %-escaped (level_editor_fields.h); <node> 8 hex digits.
-namespace Front::LevelEditor::LevelProps {
+namespace MenuSystem::LevelEditor::LevelProps {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -84,7 +84,7 @@ bool ReadRecord(std::istringstream& in, Props* props);
 // The level structure's keys the properties set, with their values (in this order).
 std::vector<std::pair<const char*, Fields::Value>> StructureValues(const Props& props);
 // Whether a sky scene's name may be kept (1-64 characters, letters, digits, '_', and holding "_sky" - what the load
-// takes as a sky: Nx::CFunc_LoadScene).
+// takes as a sky: Engine3D::CFunc_LoadScene).
 bool ValidSky(const std::string& sky);
 // A colour channel / distance typed in, kept in range.
 int Channel(int value);
@@ -92,10 +92,10 @@ int Distance(int value);
 // (map4) The ambient light and fog in effect put over a time-of-day state's parameters: the edited copy's (`edited`)
 // where it sets them, else the level structure's ed_ambient / ed_fog (`level` - a bake's); channels and the distance
 // kept in range. True when a fog is put there (the fog then shown even where the manager's is off).
-bool Override(const Props& edited, const Props& level, Gfx::TODParams* params);
+bool Override(const Props& edited, const Props& level, Gfx2D::TODParams* params);
 // The level structure's ed_ambient=[r g b] / ed_fog=[r g b alpha distance] read into `out` (hasAmbient / hasFog: the
 // key there with the right count of integers).
-void ReadOverrideKeys(Script::CStruct* level, Props* out);
+void ReadOverrideKeys(Scripts::CStruct* level, Props* out);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -117,7 +117,7 @@ bool LevelDefaults(Props* props);
 void ForgetLevel();
 // The edited copy chosen (`level`: its level structure): its properties written into the structure (the old values
 // kept); Restore puts them back (once the level is up, or when another level is chosen).
-void WriteIntoStructure(Script::CStruct* level, const Props& props);
+void ExportToStruct(Scripts::CStruct* level, const Props& props);
 void RestoreStructure();
 // The edited copy is up: the skater put at its start.
 void OnEditedCopyUp(const Props& props);
@@ -125,4 +125,4 @@ void OnEditedCopyUp(const Props& props);
 // (case doesn't matter), sorted - made once a level.
 const std::vector<std::string>& Skies();
 
-} // namespace Front::LevelEditor::LevelProps
+} // namespace MenuSystem::LevelEditor::LevelProps

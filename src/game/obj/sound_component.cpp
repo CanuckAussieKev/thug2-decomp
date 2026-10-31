@@ -23,7 +23,7 @@
 #include "game/gfx/weather.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_soundComponentMemberFunctions[12]{
             0xAFA20E18, 0x07713C7B, 0, 0, 0, 0,
@@ -47,17 +47,17 @@ constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
 constexpr uint32_t kRetryDelay = 0x14D;                // (ms)
 constexpr uint32_t kWaitTime = 2000;                   // (ms)
 
-Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
-CObject* AsSoundObject(CSoundComponent* component) { return reinterpret_cast<CObject*>(component); }
+SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+CObject* AsSoundObject(CAudioEmitterModule* component) { return reinterpret_cast<CObject*>(component); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
-void* NearestCamera(const Mth::Vector* position, float* distance)
+void* NearestCamera(const Maths::Vector* position, float* distance)
 {
-    return Nx::GetClosestCamera(position, distance);
+    return Engine3D::GetClosestCamera(position, distance);
 }
-const Mth::Vector* CameraPosition(void* camera)
+const Maths::Vector* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
 }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -74,23 +74,23 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-CBaseComponent* __cdecl CSoundComponent::Create()
+CObjectModule* __cdecl CAudioEmitterModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSoundComponent));
-    return memory ? static_cast<CSoundComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CAudioEmitterModule));
+    return memory ? static_cast<CAudioEmitterModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x00432C80
-void __cdecl CSoundComponent::RegisterMemberFunctions()
+void __cdecl CAudioEmitterModule::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_soundComponentMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_soundComponentMemberFunctions, 0x18);
 }
 
 // 0x00432D90
-CSoundComponent* CSoundComponent::Construct()
+CAudioEmitterModule* CAudioEmitterModule::Construct()
 {
-    CBaseComponent::Construct();
-    mp_emitter = nullptr;
+    CObjectModule::Construct();
+    m_spewer = nullptr;
     mp_proxim = nullptr;
     m_vtable = kVtable;
     m_type = kType;
@@ -100,32 +100,32 @@ CSoundComponent* CSoundComponent::Construct()
 }
 
 // 0x00432DF0
-void CSoundComponent::DestroyBody()
+void CAudioEmitterModule::DestroyBody()
 {
     m_vtable = kVtable;
     SfxManager()->StopObjectSounds(AsSoundObject(this));
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00433160
-CSoundComponent* CSoundComponent::Destroy(unsigned int flags)
+CAudioEmitterModule* CAudioEmitterModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00432CA0
-void CSoundComponent::InitFromStructure(Script::CStruct* params)
+void CAudioEmitterModule::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
-    if (params->GetChecksum(0x08470F2E, &node, 0)) // ProximNode
+    if (params->ReadHashValue(0x08470F2E, &node, 0)) // ProximNode
         mp_proxim = Proxim_GetNode(node);
 }
 
 // 0x004335D0
-void CSoundComponent::Update()
+void CAudioEmitterModule::Update()
 {
     m_lastPos = m_pos;
     m_pos = m_object->m_pos;
@@ -133,7 +133,7 @@ void CSoundComponent::Update()
 }
 
 // 0x00433190
-int CSoundComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+int CAudioEmitterModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (name == kObjAdjustSound) {
         AdjustSound(params, script);
@@ -141,8 +141,8 @@ int CSoundComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
     }
     if (name == kObjStopSound) {
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
-        params->GetChecksum(0u, &sound, 0);
-        SfxManager()->StopObjectSound(AsSoundObject(this), sound);
+        params->ReadHashValue(0u, &sound, 0);
+        SfxManager()->HaltObjectSound(AsSoundObject(this), sound);
         if (m_waiting[0].props.checksum == sound)
             m_waiting[0].props.checksum = 0;
         if (m_waiting[1].props.checksum == sound)
@@ -150,14 +150,14 @@ int CSoundComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         return 1;
     }
     if (name == kObjSetSound) {
-        SetSound(params);
+        AssignSoundCue(params);
         return 1;
     }
     return 2;
 }
 
 // 0x00432D40
-void CSoundComponent::KeepLoopingSound(const Sfx::PlaybackProps* props, uint32_t time)
+void CAudioEmitterModule::KeepLoopingSound(const SoundFx::PlaybackProps* props, uint32_t time)
 {
     for (WaitingSound& waiting : m_waiting) {
         if (waiting.props.checksum)
@@ -170,10 +170,10 @@ void CSoundComponent::KeepLoopingSound(const Sfx::PlaybackProps* props, uint32_t
 }
 
 // 0x00432E50
-Mth::Vector* CSoundComponent::GetSoundPosition(Mth::Vector* out, void* camera)
+Maths::Vector* CAudioEmitterModule::GetSoundPosition(Maths::Vector* out, void* camera)
 {
-    if (mp_emitter && camera) {
-        mp_emitter->GetClosestPoint(out, CameraPosition(camera));
+    if (m_spewer && camera) {
+        m_spewer->NearestPointOn(out, ViewerLocation(camera));
         return out;
     }
     *out = m_pos;
@@ -181,10 +181,10 @@ Mth::Vector* CSoundComponent::GetSoundPosition(Mth::Vector* out, void* camera)
 }
 
 // 0x00432EB0
-Mth::Vector* CSoundComponent::GetPreviousSoundPosition(Mth::Vector* out, void* camera)
+Maths::Vector* CAudioEmitterModule::GetPreviousSoundPosition(Maths::Vector* out, void* camera)
 {
-    if (mp_emitter && camera) {
-        mp_emitter->GetClosestPoint(out, CameraPosition(camera));
+    if (m_spewer && camera) {
+        m_spewer->NearestPointOn(out, ViewerLocation(camera));
         return out;
     }
     *out = m_lastPos;
@@ -192,34 +192,34 @@ Mth::Vector* CSoundComponent::GetPreviousSoundPosition(Mth::Vector* out, void* c
 }
 
 // 0x00432F10
-bool CSoundComponent::GetSoundExtent(void* camera, Mth::Vector* out)
+bool CAudioEmitterModule::GetSoundExtent(void* camera, Maths::Vector* out)
 {
     if (!camera || !mp_proxim)
         return false;
-    Mth::Vector nearest;
-    *out = *mp_proxim->GetClosestPoint(&nearest, CameraPosition(camera));
+    Maths::Vector nearest;
+    *out = *mp_proxim->NearestPointOn(&nearest, ViewerLocation(camera));
     return true;
 }
 
 // 0x00432F70
-void CSoundComponent::UpdateProps(Sfx::PlaybackProps* props)
+void CAudioEmitterModule::UpdateProps(SoundFx::PlaybackProps* props)
 {
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
-        float step = static_cast<float>(Tmr::GetSlomoFrameSeconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown20));
-        props->pitch = Mth::KeepWithin(props->pitch3, props->pitch, step);
+        float step = static_cast<float>(FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown20));
+        props->pitch = Maths::KeepWithin(props->pitch3, props->pitch, step);
     }
     if (props->volume3 != props->volume) {
-        float step = static_cast<float>(Tmr::GetSlomoFrameSeconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown24));
-        props->volume = Mth::KeepWithin(props->volume3, props->volume, step);
+        float step = static_cast<float>(FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown24));
+        props->volume = Maths::KeepWithin(props->volume3, props->volume, step);
     }
 }
 
 // 0x00433480
-void CSoundComponent::UpdateWaitingSounds()
+void CAudioEmitterModule::UpdateWaitingSounds()
 {
-    uint32_t now = Tmr::GetTime();
+    uint32_t now = FrameClock::GetTime();
     for (WaitingSound& waiting : m_waiting) {
-        Sfx::PlaybackProps& props = waiting.props;
+        SoundFx::PlaybackProps& props = waiting.props;
         if (!props.checksum)
             continue;
         UpdateProps(&props);
@@ -234,7 +234,7 @@ void CSoundComponent::UpdateWaitingSounds()
             uint32_t id = SfxManager()->PlayObjectSound(props.checksum, &params, AsSoundObject(this), false, true);
             if (!id)
                 continue;
-            if (Sfx::PlaybackProps* playing = SfxManager()->GetPositionalProps(AsSoundObject(this), id, false)) {
+            if (SoundFx::PlaybackProps* playing = SfxManager()->GetPositionalProps(AsSoundObject(this), id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
@@ -252,20 +252,20 @@ void CSoundComponent::UpdateWaitingSounds()
 }
 
 // 0x00433240
-void CSoundComponent::PlaySound(Script::CStruct* params)
+void CAudioEmitterModule::PlaySound(Scripts::CStruct* params)
 {
     uint32_t sound = 0;
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
     uint32_t emitter = 0;
-    bool noPosUpdate = false;
+    bool keepPlacement = false;
     int falloff = 0;
-    params->GetChecksum(0u, &sound, 0);
+    params->ReadHashValue(0u, &sound, 0);
     params->GetFloat(0xF6A36814, &volume, 0); // vol
     params->GetFloat(0xD8604126, &pitch, 0);  // pitch
-    if (params->ContainsComponentNamed(0x9E497FC6)) { // Percent: between the min and max
+    if (params->HasEntryNamed(0x9E497FC6)) { // Percent: between the min and max
         float minVolume = 0.0f, maxVolume = 100.0f, minPitch = 100.0f, maxPitch = 100.0f, percent = 0.0f;
         params->GetFloat(0x0693DAAF, &maxVolume, 0); // maxVol
-        params->GetFloat(0x4391992D, &minVolume, 0); // minVol
+        params->GetFloat(0x4391992D, &minVolume, 0); // floorLoudness
         params->GetFloat(0xFA3E14C5, &maxPitch, 0);  // maxPitch
         params->GetFloat(0x1C5EBB24, &minPitch, 0);  // minPitch
         params->GetFloat(0x9E497FC6, &percent, 1);   // Percent
@@ -276,38 +276,38 @@ void CSoundComponent::PlaySound(Script::CStruct* params)
     if (params->GetFloat(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0; // (the original's slot holds Percent's value, or garbage)
-    if (params->GetChecksum(0x0C6AC50A, &function, 0)) // dropoff_function
-        falloff = Sfx::FalloffFromChecksum(function);
-    if (params->ContainsFlag(0xBB39837F)) // NoPosUpdate
-        noPosUpdate = true;
-    if (params->GetChecksum(0x8A7132CE, &emitter, 0)) // emitter
-        mp_emitter = Emitter_GetNode(emitter);
+    if (params->ReadHashValue(0x0C6AC50A, &function, 0)) // dropoff_function
+        falloff = SoundFx::FalloffFromChecksum(function);
+    if (params->HasBareFlag(0xBB39837F)) // NoPosUpdate
+        keepPlacement = true;
+    if (params->ReadHashValue(0x8A7132CE, &emitter, 0)) // emitter
+        m_spewer = Emitter_GetNode(emitter);
     else
-        mp_emitter = nullptr;
+        m_spewer = nullptr;
     if (!sound) {
         // The sound set for a type (Obj_SetSound). (Read into the parameters' own argument slot.)
         int type = -1;
-        params->GetInteger("Type", &type, 0);
+        params->FetchIntValue("Type", &type, 0);
         if (type == -1 || type > 8)
             return;
-        sound = m_sounds[type]; // (type 8 reads the first waiting sound's checksum, as the original)
+        sound = m_soundCues[type]; // (type 8 reads the first waiting sound's checksum, as the original)
         if (!sound)
             return;
     }
-    reinterpret_cast<void(__thiscall*)(CSoundComponent*, uint32_t, float, float)>(m_vtable[13])(this, sound, volume,
+    reinterpret_cast<void(__thiscall*)(CAudioEmitterModule*, uint32_t, float, float)>(m_vtable[13])(this, sound, volume,
                                                                                                pitch);
     SoundParams play = {pitch, volume, dropoff, falloff};
-    SfxManager()->PlayObjectSound(sound, &play, AsSoundObject(this), noPosUpdate, false);
+    SfxManager()->PlayObjectSound(sound, &play, AsSoundObject(this), keepPlacement, false);
 }
 
 // 0x00432FF0
-void CSoundComponent::AdjustSound(Script::CStruct* params, Script::CScript* /*script*/)
+void CAudioEmitterModule::AdjustSound(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    float volumePercent = 100.0f, pitchPercent = 100.0f;
+    float loudnessPercent = 100.0f, pitchPercent = 100.0f;
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = reinterpret_cast<uint32_t>(params);
-    params->GetChecksum(0u, &sound, 0);
-    Sfx::PlaybackProps* props = SfxManager()->GetPositionalProps(AsSoundObject(this), sound, true);
+    params->ReadHashValue(0u, &sound, 0);
+    SoundFx::PlaybackProps* props = SfxManager()->GetPositionalProps(AsSoundObject(this), sound, true);
     if (!props) {
         for (WaitingSound& waiting : m_waiting) {
             if (waiting.props.checksum == sound) {
@@ -318,8 +318,8 @@ void CSoundComponent::AdjustSound(Script::CStruct* params, Script::CScript* /*sc
         if (!props)
             return;
     }
-    if (params->GetFloat(0x330F3415, &volumePercent, 0)) { // volumePercent
-        props->volume3 = static_cast<float>(static_cast<double>(volumePercent) * props->volume2 * kPercent);
+    if (params->GetFloat(0x330F3415, &loudnessPercent, 0)) { // loudnessPercent
+        props->volume3 = static_cast<float>(static_cast<double>(loudnessPercent) * props->volume2 * kPercent);
         if (!params->GetFloat(0xDAA9A3C2, reinterpret_cast<float*>(&props->unknown24), 0)) // volumeStep
             props->volume = props->volume3;
     }
@@ -331,18 +331,18 @@ void CSoundComponent::AdjustSound(Script::CStruct* params, Script::CScript* /*sc
 }
 
 // 0x00432CE0
-void CSoundComponent::SetSound(Script::CStruct* params)
+void CAudioEmitterModule::AssignSoundCue(Scripts::CStruct* params)
 {
     int type = -1;
     uint32_t sound = 0;
-    params->GetInteger(0x7321A8D6, &type, 0); // type
-    params->GetChecksum(0u, &sound, 0);
+    params->FetchIntValue(0x7321A8D6, &type, 0); // type
+    params->ReadHashValue(0u, &sound, 0);
     if (type != -1 && sound && type <= 8)
-        m_sounds[type] = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
+        m_soundCues[type] = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
 }
 
 // 0x00433630
-bool CSoundComponent::Obj_PlaySound(Script::CStruct* params, Script::CScript* /*script*/)
+bool CAudioEmitterModule::Obj_PlaySound(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     PlaySound(params);
     return true;
@@ -350,22 +350,22 @@ bool CSoundComponent::Obj_PlaySound(Script::CStruct* params, Script::CScript* /*
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSoundComponent::Destroy,
-         &Obj::CSoundComponent::Update,
-         &Obj::CSoundComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAudioEmitterModule::Destroy,
+         &GameObjects::CAudioEmitterModule::Update,
+         &GameObjects::CAudioEmitterModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
-         Nx::VirtualSlot1Jump,
+         Engine3D::VirtualSlot1Jump,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::CSoundComponent::CallMemberFunction,
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CAudioEmitterModule::InvokeMethodByName,
          Stubs::IgnoreArguments3};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

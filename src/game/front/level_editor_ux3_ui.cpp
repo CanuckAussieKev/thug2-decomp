@@ -21,7 +21,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
-namespace Front::LevelEditor::Ux3 {
+namespace MenuSystem::LevelEditor::Ux3 {
 
 namespace {
 
@@ -960,4 +960,4 @@ void RememberSections()
     }
 }
 
-} // namespace Front::LevelEditor::Ux3
+} // namespace MenuSystem::LevelEditor::Ux3

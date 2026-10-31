@@ -7,7 +7,7 @@
 
 namespace DebugCollision {
 
-// After a feeler's query (Nx::CFeeler::GetCollision): `hit` is its result, `caller` the return address into the
+// After a feeler's query (Engine3D::CProbeRay::GetHitShape): `hit` is its result, `caller` the return address into the
 // code that asked. Logs the hit when the feature is on.
 void NoteFeelerQuery(const void* feeler, int hit, uint32_t caller);
 

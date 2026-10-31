@@ -27,7 +27,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_statsManagerMemberFunctions[60]{
             0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0,
@@ -86,34 +86,34 @@ T& Field(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-void RunScript(uint32_t name, Script::CStruct* params = nullptr) { Script::RunScript(name, params, nullptr, false, nullptr); }
+void LaunchScript(uint32_t name, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(name, params, nullptr, false, nullptr); }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
-void* SkateModule() { return static_cast<void*>(Mdl::g_skateModule); }
-CSkaterProfile* FirstProfile() { return static_cast<Mdl::Skate*>(SkateModule())->GetProfile(static_cast<int>(0)); }
-void* GameFlow() { return Game::GetGoalManager(); }
+void* SkateModule() { return static_cast<void*>(GameModules::g_skateModule); }
+CRiderIdentity* FirstProfile() { return static_cast<GameModules::Skate*>(SkateModule())->GetProfile(static_cast<int>(0)); }
+void* GameFlow() { return GoalSystem::GetObjectiveBoard(); }
 
 // The skater's score component and its counts.
-void* Score(CCompositeObject* skater) { return reinterpret_cast<CSkater*>(skater)->GetScore(); }
+void* Score(CGameEntity* skater) { return reinterpret_cast<CRider*>(skater)->GetPointsTotal(); }
 int CountTricks(void* score, uint32_t trick, int a, int b, int c)
 {
-    return static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, a, reinterpret_cast<bool&>(b), c);
+    return static_cast<GameModules::Score*>(score)->CountTrickAfterTaps(trick, a, reinterpret_cast<bool&>(b), c);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
-double Distance(const Mth::Vector& a, const Mth::Vector& b)
+double Distance(const Maths::Vector& a, const Maths::Vector& b)
 {
     double dx = static_cast<double>(a.x) - b.x, dy = static_cast<double>(a.y) - b.y, dz = static_cast<double>(a.z) - b.z;
     return std::sqrt((dz * dz + dx * dx) + dy * dy);
@@ -128,22 +128,22 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0051CB90
-CBaseComponent* __cdecl CStatsManagerComponent::Create()
+CObjectModule* __cdecl CAttributeTracker::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CStatsManagerComponent));
-    return memory ? static_cast<CStatsManagerComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CAttributeTracker));
+    return memory ? static_cast<CAttributeTracker*>(memory)->Construct() : nullptr;
 }
 
 // 0x0051C440
-void __cdecl CStatsManagerComponent::RegisterMemberFunctions()
+void __cdecl CAttributeTracker::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_statsManagerMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_statsManagerMemberFunctions, 0x18);
 }
 
 // 0x0051C5A0
-CStatsManagerComponent* CStatsManagerComponent::Construct()
+CAttributeTracker* CAttributeTracker::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_skater = nullptr;
     m_skaterState = nullptr;
     m_physicsControl = nullptr;
@@ -159,26 +159,26 @@ CStatsManagerComponent* CStatsManagerComponent::Construct()
 }
 
 // 0x0051C460
-void CStatsManagerComponent::DestroyBody()
+void CAttributeTracker::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0051C640
-CStatsManagerComponent* CStatsManagerComponent::Destroy(unsigned int flags)
+CAttributeTracker* CAttributeTracker::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0051C470
-int CStatsManagerComponent::GetGoalStatus(int index) { return m_goals[index].m_status; }
+int CAttributeTracker::GetGoalStatus(int index) { return m_goals[index].m_status; }
 
 // 0x0051C480
-void CStatsManagerComponent::SetGoalStatus(int index, int status)
+void CAttributeTracker::SetGoalStatus(int index, int status)
 {
     m_goals[index].m_status = status;
     if (status == 1)
@@ -186,7 +186,7 @@ void CStatsManagerComponent::SetGoalStatus(int index, int status)
 }
 
 // 0x0051C670
-void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
+void CAttributeTracker::ConfigureFromData(Scripts::CStruct*)
 {
     m_goalDone = false;
     m_activated = false;
@@ -202,7 +202,7 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
     m_countA84 = 0;
     m_airScore = 0;
     m_firstUpdate = true;
-    m_skater = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(m_object->m_id));
+    m_skater = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_object->m_id));
     if (!m_skater) {
         m_skaterState = nullptr;
         m_physicsControl = nullptr;
@@ -210,52 +210,52 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
         m_skaterState = m_skater->GetComponent(kSkaterState);
         m_physicsControl = m_skater->GetComponent(kSkaterPhysicsControl);
     }
-    m_difficulty = static_cast<Game::CGoalManager*>(GameFlow())->GetDifficultyLevel(true);
-    Dbg::Printf("STATSManager: difficulty ====================== %i\n", m_difficulty); // "STATSManager: difficulty ... %i"
-    if (Script::GetInteger(0xB8688A8Au) == 1)
+    m_difficulty = static_cast<GoalSystem::CGoalManager*>(GameFlow())->GetSkillTier(true);
+    DebugOut::Printf("STATSManager: difficulty ====================== %i\n", m_difficulty); // "STATSManager: difficulty ... %i"
+    if (Scripts::FetchIntValue(0xB8688A8Au) == 1)
         m_raiseStats = true;
 
-    Script::CArray* goals = Script::GetArray(0x4E46CC28u);
+    Scripts::CArray* goals = Scripts::GetArray(0x4E46CC28u);
     int count = static_cast<int>(goals->m_size);
     for (int i = 0; i < count; ++i) {
-        auto* source = reinterpret_cast<Script::CStruct*>(goals->GetElement(static_cast<uint32_t>(i)));
+        auto* source = reinterpret_cast<Scripts::CStruct*>(goals->GetElement(static_cast<uint32_t>(i)));
         Goal& goal = m_goals[i];
         uint32_t checksum;
-        if (source->ContainsComponentNamed(0x0FFD7BBEu)) {
-            source->GetChecksum(0x0FFD7BBEu, &checksum, 1);
+        if (source->HasEntryNamed(0x0FFD7BBEu)) {
+            source->ReadHashValue(0x0FFD7BBEu, &checksum, 1);
             goal.m_kind = checksum;
         }
-        if (source->ContainsComponentNamed(0xC2455018u)) {
-            source->GetChecksum(0xC2455018u, &checksum, 1);
-            goal.m_stat = checksum;
+        if (source->HasEntryNamed(0xC2455018u)) {
+            source->ReadHashValue(0xC2455018u, &checksum, 1);
+            goal.m_attrKey = checksum;
         }
-        Script::CArray* byDifficulty;
-        if (source->ContainsComponentNamed(0xE288A7CBu)) {
+        Scripts::CArray* byDifficulty;
+        if (source->HasEntryNamed(0xE288A7CBu)) {
             byDifficulty = nullptr;
             source->GetArray(0xE288A7CBu, &byDifficulty, 1);
-            goal.m_target = static_cast<int>(byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty)));
+            goal.m_aimPoint = static_cast<int>(byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty)));
         }
-        if (source->ContainsComponentNamed(0xCD021293u)) {
+        if (source->HasEntryNamed(0xCD021293u)) {
             byDifficulty = nullptr;
             source->GetArray(0xCD021293u, &byDifficulty, 1);
-            goal.m_text = byDifficulty->GetLocalString(static_cast<uint32_t>(m_difficulty));
+            goal.m_text = byDifficulty->FindInlineText(static_cast<uint32_t>(m_difficulty));
         }
-        if (source->ContainsComponentNamed(0xC4745838u)) {
+        if (source->HasEntryNamed(0xC4745838u)) {
             const char* name = ""; // ""
             source->GetString(0xC4745838u, &name, 1);
             goal.m_name = name;
         }
-        if (source->ContainsComponentNamed(0xBD982FDCu)) {
+        if (source->HasEntryNamed(0xBD982FDCu)) {
             int ignored;
-            source->GetInteger(0xBD982FDCu, &ignored, 1);
+            source->FetchIntValue(0xBD982FDCu, &ignored, 1);
             goal.m_status = 0;
         }
-        if (source->ContainsComponentNamed(0xD8A9D3CAu)) {
+        if (source->HasEntryNamed(0xD8A9D3CAu)) {
             byDifficulty = nullptr;
             source->GetArray(0xD8A9D3CAu, &byDifficulty, 1);
             goal.m_trick = byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty));
         }
-        if (source->ContainsComponentNamed(0x3C2FB496u)) {
+        if (source->HasEntryNamed(0x3C2FB496u)) {
             byDifficulty = nullptr;
             source->GetArray(0x3C2FB496u, &byDifficulty, 1);
             goal.m_value20 = byDifficulty->GetElement(static_cast<uint32_t>(m_difficulty));
@@ -265,34 +265,34 @@ void CStatsManagerComponent::InitFromStructure(Script::CStruct*)
 }
 
 // 0x0051C950
-bool CStatsManagerComponent::IsActive()
+bool CAttributeTracker::IsActive()
 {
     if (!m_skater)
         return false;
     void* skate = SkateModule();
-    if (!static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->IsTrue(0x1DED1EA4))
+    if (!static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsTrue(0x1DED1EA4))
         return false;
     if (!m_activated || Field<uint32_t>(skate, 0x378) == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = reinterpret_cast<uint32_t>(this);
-    reinterpret_cast<Script::CStruct*>(FirstProfile()->m_info)->GetChecksum(0xA1DC81F9u, &name, 1);
+    reinterpret_cast<Scripts::CStruct*>(FirstProfile()->m_info)->ReadHashValue(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
 
 // 0x0051C9D0
-void CStatsManagerComponent::Set10(int a, int b, int)
+void CAttributeTracker::Set10(int a, int b, int)
 {
     if (IsActive() && b != m_value14)
         m_value10 = a;
 }
 
 // 0x0051CA00
-void CStatsManagerComponent::Reset()
+void CAttributeTracker::Reset()
 {
     if (!IsActive())
         return;
-    RunScript(0xD44EA68F);
+    LaunchScript(0xD44EA68F);
     for (Goal& goal : m_goals)
         if (goal.m_status == 0 && goal.m_met)
             goal.m_met = false;
@@ -305,14 +305,14 @@ void CStatsManagerComponent::Reset()
 }
 
 // 0x0051CAC0
-void CStatsManagerComponent::SetValue58(float value)
+void CAttributeTracker::SetValue58(float value)
 {
     if (IsActive())
         m_value58 = value;
 }
 
 // 0x0051CAE0
-void CStatsManagerComponent::Count(uint32_t name)
+void CAttributeTracker::Count(uint32_t name)
 {
     if (!IsActive())
         return;
@@ -323,21 +323,21 @@ void CStatsManagerComponent::Count(uint32_t name)
 }
 
 // 0x0051CBF0
-void CStatsManagerComponent::AnnounceMetGoals()
+void CAttributeTracker::AnnounceMetGoals()
 {
     if (!IsActive())
         return;
-    CSkaterProfile* profile = FirstProfile();
-    Script::CStruct* params = NewParams();
+    CRiderIdentity* profile = FirstProfile();
+    Scripts::CStruct* params = NewParams();
     bool announced = false;
     for (Goal& goal : m_goals) {
         if (goal.m_status != 0 || !goal.m_met)
             continue;
         if (!announced) {
-            RunScript(0x750BCF49);
+            LaunchScript(0x750BCF49);
             announced = true;
         }
-        uint32_t stat = goal.m_stat;
+        uint32_t stat = goal.m_attrKey;
         goal.m_status = 1;
         // The stat's name (a global string per stat).
         uint32_t text;
@@ -355,20 +355,20 @@ void CStatsManagerComponent::AnnounceMetGoals()
         default: text = 0; break;
         }
         if (text)
-            params->AddString(0xC4745838u, Script::GetString(text));
-        params->AddInteger(0x2044BAAFu, 1);
-        RunScript(0x55E516C8, params);
+            params->AddString(0xC4745838u, Scripts::GetString(text));
+        params->PutInt(0x2044BAAFu, 1);
+        LaunchScript(0x55E516C8, params);
         if (m_raiseStats)
-            profile->SetStat(stat, profile->GetStat(stat) + 1);
+            profile->SetAbilityLevel(stat, profile->GetStat(stat) + 1);
     }
     if (announced) {
-        Dbg::Printf("updating skater stats\n"); // "updating skater stats"
-        reinterpret_cast<CSkater*>(m_skater)->SetStatsFromProfile(profile);
-        if (!m_goalDone && static_cast<Game::CGoalManager*>(GameFlow())->CanStartGoal()) {
-            RunScript(0xEF3A4EE5);
+        DebugOut::Printf("updating skater stats\n"); // "updating skater stats"
+        reinterpret_cast<CRider*>(m_skater)->SetStatsFromProfile(profile);
+        if (!m_goalDone && static_cast<GoalSystem::CGoalManager*>(GameFlow())->MayBeginObjective()) {
+            LaunchScript(0xEF3A4EE5);
             m_goalDone = true;
         }
-        RunScript(0x5A90FB86);
+        LaunchScript(0x5A90FB86);
     }
     DeleteParams(params);
     m_countA80 = 0;
@@ -376,24 +376,24 @@ void CStatsManagerComponent::AnnounceMetGoals()
 }
 
 // 0x0051CE80
-void CStatsManagerComponent::MeetGoal(int index)
+void CAttributeTracker::MeetGoal(int index)
 {
     if (!IsActive())
         return;
-    Script::CStruct* params = NewParams();
+    Scripts::CStruct* params = NewParams();
     Goal& goal = m_goals[index];
     params->AddString(0x61414D56u, goal.m_name);
-    params->AddInteger(0xE288A7CBu, goal.m_target);
+    params->PutInt(0xE288A7CBu, goal.m_aimPoint);
     if (goal.m_text)
         params->AddString(0xC257D69Au, goal.m_text);
-    params->AddInteger(0x7F8C98FEu, index);
-    RunScript(0x55E516C8, params);
+    params->PutInt(0x7F8C98FEu, index);
+    LaunchScript(0x55E516C8, params);
     goal.m_met = true;
     DeleteParams(params);
 }
 
 // 0x0051CF90
-void CStatsManagerComponent::Update()
+void CAttributeTracker::Update()
 {
     if (!IsActive())
         return;
@@ -404,15 +404,15 @@ void CStatsManagerComponent::Update()
         return;
     }
     void* score = Score(m_skater);
-    m_score = Truncate(Field<int>(score, 0x14) * static_cast<double>(Field<float>(score, 0x60)));
+    m_pointsHeld = Truncate(Field<int>(score, 0x14) * static_cast<double>(Field<float>(score, 0x60)));
     float multiplier = Field<float>(score, 0x60);
     m_multiplier = multiplier;
-    m_points = multiplier == 0.0f ? 0 : Truncate(m_score / static_cast<double>(multiplier));
+    m_pathVertices = multiplier == 0.0f ? 0 : Truncate(m_pointsHeld / static_cast<double>(multiplier));
 
     int physicsState = Field<int>(m_skaterState, 0x18);
     m_state = kStateOther;
     uint8_t* controlState = Field<uint8_t*>(m_physicsControl, 0x2C);
-    const Mth::Vector& pos = m_object->m_pos;
+    const Maths::Vector& pos = m_object->m_pos;
     if (!Field<bool>(controlState, 0x118) && Field<int>(controlState, 0x1C) == 0) {
         if (Field<bool>(m_skaterState, 0x30)) {
             m_state = kStateLaunched;
@@ -420,15 +420,15 @@ void CStatsManagerComponent::Update()
                 m_airPhase = 1;
                 m_airHeight = 0.0f;
                 m_airStart = pos;
-                m_airStartPoints = m_points;
+                m_airStartPoints = m_pathVertices;
                 m_airStartMultiplier = m_multiplier;
-                Dbg::Printf("vert_start_score = %i\n", m_score); // "vert_start_score = %i"
+                DebugOut::Printf("vert_start_score = %i\n", m_pointsHeld); // "vert_start_score = %i"
                 m_airBest = 0;
             } else {
                 double height = static_cast<double>(pos.y) - m_airStart.y;
                 if (height > m_airHeight)
                     m_airHeight = static_cast<float>(height);
-                m_airScore = Truncate((static_cast<double>(multiplier) - m_airStartMultiplier) * Minus(m_points, m_airStartPoints));
+                m_airScore = Truncate((static_cast<double>(multiplier) - m_airStartMultiplier) * Minus(m_pathVertices, m_airStartPoints));
                 if (m_airScore >= m_airBest)
                     m_airBest = m_airScore;
             }
@@ -436,7 +436,7 @@ void CStatsManagerComponent::Update()
             if (m_airPhase == 1) {
                 m_airEnd = pos;
                 double gained = static_cast<double>(m_multiplier) - m_airStartMultiplier;
-                int airScore = Truncate(Minus(m_points, m_airStartPoints) * gained);
+                int airScore = Truncate(Minus(m_pathVertices, m_airStartPoints) * gained);
                 m_airScore = airScore;
                 m_airPhase = 2;
                 if (gained > 1.0f && airScore != 0)
@@ -477,41 +477,41 @@ void CStatsManagerComponent::Update()
         switch (goal.m_kind) {
         case kRise:
             meets = m_jumpPhase == 2 &&
-                    goal.m_target * static_cast<double>(kFeet) <= static_cast<double>(m_jumpEnd.y) - m_jumpStart.y;
+                    goal.m_aimPoint * static_cast<double>(kFeet) <= static_cast<double>(m_jumpEnd.y) - m_jumpStart.y;
             break;
         case kDrop:
             meets = m_jumpPhase == 2 &&
-                    goal.m_target * static_cast<double>(kFeet) <= static_cast<double>(m_jumpStart.y) - m_jumpEnd.y;
+                    goal.m_aimPoint * static_cast<double>(kFeet) <= static_cast<double>(m_jumpStart.y) - m_jumpEnd.y;
             break;
         case kAirCombo:
-            if (m_airPhase == 2 && m_airBest >= goal.m_target) {
-                Script::CStruct* params = NewParams();
-                params->AddInteger(0xCD66C8AEu, m_airBest);
-                RunScript(0x7C9C7232, params);
+            if (m_airPhase == 2 && m_airBest >= goal.m_aimPoint) {
+                Scripts::CStruct* params = NewParams();
+                params->PutInt(0xCD66C8AEu, m_airBest);
+                LaunchScript(0x7C9C7232, params);
                 DeleteParams(params);
                 meets = true;
             }
             break;
         case kAirHeight:
-            meets = m_airPhase != 0 && goal.m_target * static_cast<double>(kFeet) <= m_airHeight;
+            meets = m_airPhase != 0 && goal.m_aimPoint * static_cast<double>(kFeet) <= m_airHeight;
             break;
         case kAirValue58:
-            meets = m_airPhase != 0 && goal.m_target <= static_cast<double>(m_value58);
+            meets = m_airPhase != 0 && goal.m_aimPoint <= static_cast<double>(m_value58);
             break;
         case kComboScore:
-            meets = m_score >= goal.m_target;
+            meets = m_pointsHeld >= goal.m_aimPoint;
             break;
         case kMultiplier:
-            meets = goal.m_target <= static_cast<double>(m_multiplier);
+            meets = goal.m_aimPoint <= static_cast<double>(m_multiplier);
             break;
         case kCountA80:
-            meets = m_countA80 >= goal.m_target;
+            meets = m_countA80 >= goal.m_aimPoint;
             break;
         case kCountA84:
-            meets = m_countA84 >= goal.m_target;
+            meets = m_countA84 >= goal.m_aimPoint;
             break;
         case kTrickCount: {
-            int target = goal.m_target;
+            int target = goal.m_aimPoint;
             uint32_t trick = goal.m_trick;
             if (CountTricks(score, trick, 0, 0, static_cast<int>(goal.m_value20)) >= target) {
                 meets = true;
@@ -523,15 +523,15 @@ void CStatsManagerComponent::Update()
         }
         case kJumpDistance:
             if (m_jumpPhase == 2) {
-                Mth::Vector start = {m_jumpStart.x, 0.0f, m_jumpStart.z, 1.0f};
-                Mth::Vector end = {m_jumpEnd.x, 0.0f, m_jumpEnd.z, 1.0f};
+                Maths::Vector start = {m_jumpStart.x, 0.0f, m_jumpStart.z, 1.0f};
+                Maths::Vector end = {m_jumpEnd.x, 0.0f, m_jumpEnd.z, 1.0f};
                 double distance = Distance(end, start);
-                meets = goal.m_target * static_cast<double>(kFeet) <= distance;
+                meets = goal.m_aimPoint * static_cast<double>(kFeet) <= distance;
             }
             break;
         case kAirDistance:
             if (m_airPhase == 2) {
-                float target = static_cast<float>(goal.m_target);
+                float target = static_cast<float>(goal.m_aimPoint);
                 m_airEnd.y = 0.0f;
                 m_airStart.y = 0.0f;
                 double distance = Distance(m_airEnd, m_airStart);
@@ -540,8 +540,8 @@ void CStatsManagerComponent::Update()
             break;
         case kScore562370:
             // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = static_cast<Mdl::Score*>(score)->CountTricksNamed(goal.m_text) >=
-                    goal.m_target;
+            meets = static_cast<GameModules::Score*>(score)->CountTricksNamed(goal.m_text) >=
+                    goal.m_aimPoint;
             break;
         default:
             break;
@@ -552,16 +552,16 @@ void CStatsManagerComponent::Update()
         }
     }
     if (met)
-        RunScript(0x41B03551);
+        LaunchScript(0x41B03551);
     m_lastState = m_state;
     m_value58 = 0.0f;
-    m_lastScore = m_score;
-    m_lastPoints = m_points;
+    m_lastScore = m_pointsHeld;
+    m_lastPoints = m_pathVertices;
     m_lastMultiplier = m_multiplier;
 }
 
 // 0x0051D6A0
-void CStatsManagerComponent::CheckBalanceTime(uint32_t trickType, float time, int)
+void CAttributeTracker::CheckBalanceTime(uint32_t trickType, float time, int)
 {
     if (!IsActive())
         return;
@@ -570,7 +570,7 @@ void CStatsManagerComponent::CheckBalanceTime(uint32_t trickType, float time, in
         Goal& goal = m_goals[i];
         if (goal.m_status != 0 || goal.m_met)
             continue;
-        int target = goal.m_target;
+        int target = goal.m_aimPoint;
         uint32_t kind;
         if (trickType == kSlide || trickType == kGrind)
             kind = kGrindTime;
@@ -586,52 +586,52 @@ void CStatsManagerComponent::CheckBalanceTime(uint32_t trickType, float time, in
         met = true;
     }
     if (met)
-        RunScript(0x41B03551);
+        LaunchScript(0x41B03551);
 }
 
 // --- member functions ---
 
 // 0x0051C4A0
-bool CStatsManagerComponent::ReInit(Script::CStruct* params, Script::CScript*)
+bool CAttributeTracker::ReInit(Scripts::CStruct* params, Scripts::CScript*)
 {
-    reinterpret_cast<void(__thiscall*)(CStatsManagerComponent*, Script::CStruct*)>(m_vtable[5])(this, params);
+    reinterpret_cast<void(__thiscall*)(CAttributeTracker*, Scripts::CStruct*)>(m_vtable[5])(this, params);
     return true;
 }
 
 // 0x0051CB20
-bool CStatsManagerComponent::ResetGoals(Script::CStruct*, Script::CScript*)
+bool CAttributeTracker::ResetGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     Reset();
     return true;
 }
 
 // 0x0051C4C0
-bool CStatsManagerComponent::ActivateGoals(Script::CStruct*, Script::CScript*)
+bool CAttributeTracker::ActivateGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     m_activated = true;
-    RunScript(0x7EC5F3E0);
+    LaunchScript(0x7EC5F3E0);
     return true;
 }
 
 // 0x0051C4F0
-bool CStatsManagerComponent::DeactivateGoals(Script::CStruct*, Script::CScript*)
+bool CAttributeTracker::DeactivateGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     m_activated = false;
-    RunScript(0x3CB06807);
+    LaunchScript(0x3CB06807);
     return true;
 }
 
 // 0x0051CB30
-bool CStatsManagerComponent::GetGoalStatusMember(Script::CStruct* params, Script::CScript* script)
+bool CAttributeTracker::GetGoalStatusMember(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int index;
-    params->GetInteger(0u, &index, 1);
-    Field<Script::CStruct*>(script, 0x14)->AddInteger(0x84FF9AE3u, m_goals[index].m_status);
+    params->FetchIntValue(0u, &index, 1);
+    Field<Scripts::CStruct*>(script, 0x14)->PutInt(0x84FF9AE3u, m_goals[index].m_status);
     return true;
 }
 
 // 0x0051C520
-bool CStatsManagerComponent::UnlockAmGoals(Script::CStruct*, Script::CScript*)
+bool CAttributeTracker::UnlockAmGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     for (Goal& goal : m_goals)
         if (goal.m_status == 2)
@@ -640,7 +640,7 @@ bool CStatsManagerComponent::UnlockAmGoals(Script::CStruct*, Script::CScript*)
 }
 
 // 0x0051C550
-bool CStatsManagerComponent::UnlockProGoals(Script::CStruct*, Script::CScript*)
+bool CAttributeTracker::UnlockProGoals(Scripts::CStruct*, Scripts::CScript*)
 {
     for (Goal& goal : m_goals)
         if (goal.m_status == 3)
@@ -649,14 +649,14 @@ bool CStatsManagerComponent::UnlockProGoals(Script::CStruct*, Script::CScript*)
 }
 
 // 0x0051CB70
-bool CStatsManagerComponent::GetLastAirComboScore(Script::CStruct*, Script::CScript* script)
+bool CAttributeTracker::GetLastAirComboScore(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Field<Script::CStruct*>(script, 0x14)->AddInteger(0x2D3B766Bu, m_lastAirComboScore);
+    Field<Scripts::CStruct*>(script, 0x14)->PutInt(0x2D3B766Bu, m_lastAirComboScore);
     return true;
 }
 
 // 0x0051C580
-bool CStatsManagerComponent::ClearLastAirComboScore(Script::CStruct*, Script::CScript*)
+bool CAttributeTracker::ClearLastAirComboScore(Scripts::CStruct*, Scripts::CScript*)
 {
     m_lastAirComboScore = 0;
     return true;
@@ -664,22 +664,22 @@ bool CStatsManagerComponent::ClearLastAirComboScore(Script::CStruct*, Script::CS
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CStatsManagerComponent::Destroy,
-         &Obj::CStatsManagerComponent::Update,
-         &Obj::CStatsManagerComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CAttributeTracker::Destroy,
+         &GameObjects::CAttributeTracker::Update,
+         &GameObjects::CAttributeTracker::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

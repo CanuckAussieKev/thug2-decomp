@@ -29,7 +29,7 @@
 #include "game/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
@@ -71,31 +71,31 @@ constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-void* NewModel(int) { return Nx::CreateModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
-void DeleteModel(void* model) { Nx::Engine::DeleteGeomObject(model); }
+void* NewModel(int) { return Engine3D::SpawnModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
+void DeleteModel(void* model) { Engine3D::Engine::DeleteGeomObject(model); }
 void LoadModel(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
-    static_cast<Nx::CModel*>(model)->AddFileGeom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
+    static_cast<Engine3D::CRenderModel*>(model)->AddFileGeom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
-Str::String* ModelPath(void* out, const char* name, const char* extension)
+TextUtil::String* ModelPath(void* out, const char* name, const char* extension)
 {
-    return Gfx::MakeModelPath(static_cast<Str::String*>(out), name, extension);
+    return Gfx2D::MakeModelPath(static_cast<TextUtil::String*>(out), name, extension);
 }
 // 0x0048BFE0 (cdecl): a model file's base name (without its extension) into `base`.
-void BaseName(const char* name, char* base) { Nx::Engine::SplitSkinName(name, base); }
+void BaseName(const char* name, char* base) { Engine3D::Engine::SplitSkinName(name, base); }
 
 // 0x00565BB0: the skate module's: whether a node isn't for this game (its own 0x68910AC6 test).
-bool SkipNode(Script::CStruct* node)
+bool SkipNode(Scripts::CStruct* node)
 {
-    return Mdl::Skate::ShouldBeAbsent(node) != 0;
+    return GameModules::Skate::ShouldBeAbsent(node) != 0;
 }
 
 // 0x005AAAA0 (gamenet-2's range: the list's name in EAX): every part of a global CAS part list with allow_random
 // preloaded (its mesh kept in memory).
 void PreloadPartList(uint32_t list)
 {
-    void* stub = CodeAddress(CFuncs::PreloadMeshesStub);
+    void* stub = CodeAddress(ScriptCommands::PreloadMeshesStub);
     __asm {
         mov eax, list
         mov ecx, stub
@@ -103,18 +103,18 @@ void PreloadPartList(uint32_t list)
     }
 }
 
-// The CAS option lists (no source yet): 0x00485CF0 the option `descId` of a slot's global list; 0x00485D70 the
+// The CAS option lists (no source yet): 0x00485CF0 the option `descriptorId` of a slot's global list; 0x00485D70 the
 // options of a slot's list matching a filter (0: any of them allowed to pick) into `out`, their count in `count`.
-Script::CStruct* CasOption(uint32_t part, uint32_t descId, bool assert)
+Scripts::CStruct* CasOption(uint32_t part, uint32_t descriptorId, bool assert)
 {
-    return Obj::FindCasOption(part, descId, assert);
+    return GameObjects::FindCasOption(part, descriptorId, assert);
 }
-void MatchingOptions(uint32_t part, uint32_t filter, Script::CStruct** out, int* count)
+void MatchingOptions(uint32_t part, uint32_t filter, Scripts::CStruct** out, int* count)
 {
-    Obj::GetMatchingCasOptions(part, filter, out, count);
+    GameObjects::GetMatchingCasOptions(part, filter, out, count);
 }
 
-// The appearance a pedestrian profile describes (Gfx::CModelAppearance, 0x5C bytes: constructor 0x00488EA0,
+// The appearance a pedestrian profile describes (Gfx2D::CModelLook, 0x5C bytes: constructor 0x00488EA0,
 // SetAppearance 0x00488F40, destructor body 0x004890F0) and the model builder (constructor 0x004897D0 with (1, 8),
 // its build 0x0048A2F0, destroyed as the CObject it is - 0x004615D0).
 struct Appearance {
@@ -124,16 +124,16 @@ struct ModelBuilder {
     alignas(4) uint8_t m_bytes[0x54];
 };
 
-Script::CStruct* Element(Script::CArray* array, uint32_t index)
+Scripts::CStruct* Element(Scripts::CArray* array, uint32_t index)
 {
-    return reinterpret_cast<Script::CStruct*>(array->GetElement(index));
+    return reinterpret_cast<Scripts::CStruct*>(array->GetElement(index));
 }
 // A pedestrian part chosen at random: allowed, not to be picked again, its place among the random choices.
-void Choose(Script::CStruct* option, int index)
+void Choose(Scripts::CStruct* option, int index)
 {
-    option->AddInteger(kAllowRandom, 1);
-    option->AddInteger(kAllowedToPick, 0);
-    option->AddInteger(kRandomIndex, index);
+    option->PutInt(kAllowRandom, 1);
+    option->PutInt(kAllowedToPick, 0);
+    option->PutInt(kRandomIndex, index);
 }
 
 } // namespace
@@ -141,16 +141,16 @@ void Choose(Script::CStruct* option, int index)
 // 0x005AAFA0: PreloadModels - every vehicle and game object node's model (not "none"; a flag's only in a game of
 // more than one player) loaded and dropped, keeping its data: AllowReplaceTex passed on; unless nocollision, its
 // .col file too; a vehicle's .qb too.
-bool __cdecl CFunc_PreloadModels(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_PreloadModels(Scripts::CStruct*, Scripts::CScript*)
 {
-    Mem::PushMemProfile("PreLoadModels");
-    SkateScript::StartNodeWalk(0);
-    for (Script::CStruct* node = SkateScript::NextNode(); node; node = SkateScript::NextNode()) {
+    MemSys::PushMemProfile("PreLoadModels");
+    LevelNodes::StartNodeWalk(0);
+    for (Scripts::CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
         if (SkipNode(node))
             continue;
         uint32_t nodeClass = 0, type = 0;
-        node->GetChecksum(kClass, &nodeClass, 0);
-        node->GetChecksum(kType, &type, 0);
+        node->ReadHashValue(kClass, &nodeClass, 0);
+        node->ReadHashValue(kType, &type, 0);
         if (!IsMultiplayer()) {
             bool flag = false;
             for (uint32_t flagType : kFlagTypes)
@@ -166,70 +166,70 @@ bool __cdecl CFunc_PreloadModels(Script::CStruct*, Script::CScript*)
         node->GetString(kModel, &model, 1);
         if (_stricmp("none", model) == 0)
             continue;
-        Str::String path;
+        TextUtil::String path;
         {
-            alignas(4) uint8_t storage[sizeof(Str::String)];
-            Str::String* made = ModelPath(storage, model, ".mdl");
+            alignas(4) uint8_t storage[sizeof(TextUtil::String)];
+            TextUtil::String* made = ModelPath(storage, model, ".mdl");
             path = *made;
             made->~String();
         }
         void* nxModel = NewModel(1);
-        LoadModel(nxModel, path.c_str(), 0, 1, 0, node->ContainsFlag(kAllowReplaceTex), 0, 1, 0);
-        if (!node->ContainsFlag(kNoCollision)) {
+        LoadModel(nxModel, path.c_str(), 0, 1, 0, node->HasBareFlag(kAllowReplaceTex), 0, 1, 0);
+        if (!node->HasBareFlag(kNoCollision)) {
             const char* file = path.c_str();
             char name[0x100];
             std::memcpy(name, file, std::strlen(file) + 1); // (no bound: as the original)
-            Str::LowerCase(name);
+            TextUtil::ToLowerText(name);
             if (std::strstr(name, ".mdl")) {
                 BaseName(file, name);
                 std::memcpy(name + std::strlen(name), ".col", 5);
-                Ass::CAssMan* assets = Ass::AssetManager();
+                AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
                 bool permanent = assets->GetPermanentByDefault();
-                assets->LoadOrGetAsset(name, 8, 0, Crc::GenerateCRCFromString(file), false, false, permanent, nullptr, 0);
+                assets->FetchOrLoadResource(name, 8, 0, Checksums::HashFromText(file), false, false, permanent, nullptr, 0);
             }
         }
         if (nodeClass == kVehicle) {
             char script[0x100];
             BaseName(path.c_str(), script);
             std::memcpy(script + std::strlen(script), ".qb", 4);
-            Ass::CAssMan* assets = Ass::AssetManager();
+            AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
             bool permanent = assets->GetPermanentByDefault();
-            assets->LoadOrGetAsset(script, 0xA, 0, 0, false, false, permanent, nullptr, 0);
+            assets->FetchOrLoadResource(script, 0xA, 0, 0, false, false, permanent, nullptr, 0);
         }
         DeleteModel(nxModel);
     }
-    SkateScript::EndNodeWalk();
-    Mem::PopMemProfile();
+    LevelNodes::EndNodeWalk();
+    MemSys::PopMemProfile();
     return true;
 }
 
 // 0x005AB300: PreloadPedestrians [no_random] - not in a network game, nor with the global 0x2CAA92ED set (false):
 // the pedestrians' CAS part lists (unless no_random), every pedestrian node's .skin and second (.mdl) models, and the
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
-bool __cdecl CFunc_PreloadPedestrians(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (GameNet::g_gameNetManager->InNetGame())
+    if (OnlinePlay::g_gameNetManager->InNetGame())
         return false;
-    if (Script::GetInteger(kNoPedestrians))
+    if (Scripts::FetchIntValue(kNoPedestrians))
         return false;
-    Mem::PushMemProfile("Random Ped Parts");
-    if (!params->ContainsFlag(kNoRandom)) {
+    MemSys::PushMemProfile("Random Ped Parts");
+    if (!params->HasBareFlag(kNoRandom)) {
         for (uint32_t list : kPedPartLists)
             PreloadPartList(list);
     }
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("Unique Ped Parts");
-    SkateScript::StartNodeWalk(0);
-    for (Script::CStruct* node = SkateScript::NextNode(); node; node = SkateScript::NextNode()) {
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("Unique Ped Parts");
+    LevelNodes::StartNodeWalk(0);
+    for (Scripts::CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
         uint32_t nodeClass = 0;
-        node->GetChecksum(kClass, &nodeClass, 0);
+        node->ReadHashValue(kClass, &nodeClass, 0);
         if (nodeClass != kPedestrian)
             continue;
         const char* model;
-        if (node->GetString(kModel, &model, 0) && Crc::GenerateCRCFromString(model) != kNone) {
-            Str::String path;
-            alignas(4) uint8_t storage[sizeof(Str::String)];
-            Str::String* made = ModelPath(storage, model, ".skin");
+        if (node->GetString(kModel, &model, 0) && Checksums::HashFromText(model) != kNone) {
+            TextUtil::String path;
+            alignas(4) uint8_t storage[sizeof(TextUtil::String)];
+            TextUtil::String* made = ModelPath(storage, model, ".skin");
             path = *made;
             made->~String();
             void* nxModel = NewModel(1);
@@ -237,9 +237,9 @@ bool __cdecl CFunc_PreloadPedestrians(Script::CStruct* params, Script::CScript*)
             DeleteModel(nxModel);
         }
         if (node->GetString(kSecondModel, &model, 0)) {
-            Str::String path;
-            alignas(4) uint8_t storage[sizeof(Str::String)];
-            Str::String* made = ModelPath(storage, model, ".mdl");
+            TextUtil::String path;
+            alignas(4) uint8_t storage[sizeof(TextUtil::String)];
+            TextUtil::String* made = ModelPath(storage, model, ".mdl");
             path = *made;
             made->~String();
             void* nxModel = NewModel(1);
@@ -247,26 +247,26 @@ bool __cdecl CFunc_PreloadPedestrians(Script::CStruct* params, Script::CScript*)
             DeleteModel(nxModel);
         }
         uint32_t profileName;
-        if (!node->GetChecksum(kProfile, &profileName, 0))
+        if (!node->ReadHashValue(kProfile, &profileName, 0))
             continue;
-        Script::CStruct* profile = Script::GetStructure(profileName);
+        Scripts::CStruct* profile = Scripts::ReadSubStruct(profileName);
         if (!profile)
             continue;
         void* nxModel = NewModel(1);
         Appearance appearance;
-        auto* gfxAppearance = reinterpret_cast<Gfx::CModelAppearance*>(&appearance);
+        auto* gfxAppearance = reinterpret_cast<Gfx2D::CModelLook*>(&appearance);
         gfxAppearance->Construct();
         gfxAppearance->Load(profile, false);
         ModelBuilder builder;
-        auto* gfxBuilder = reinterpret_cast<Gfx::CModelBuilder*>(&builder);
+        auto* gfxBuilder = reinterpret_cast<Gfx2D::CModelAssembler*>(&builder);
         gfxBuilder->Construct(true, 8);
-        gfxBuilder->Build(gfxAppearance, static_cast<Nx::CModel*>(nxModel), nullptr, kPreloadModelFromAppearance);
+        gfxBuilder->Build(gfxAppearance, static_cast<Engine3D::CRenderModel*>(nxModel), nullptr, kPreloadModelFromAppearance);
         DeleteModel(nxModel);
-        reinterpret_cast<Obj::CObject*>(&builder)->DestroyBody();
+        reinterpret_cast<GameObjects::CObject*>(&builder)->DestroyBody();
         gfxAppearance->DestroyBody();
     }
-    SkateScript::EndNodeWalk();
-    Mem::PopMemProfile();
+    LevelNodes::EndNodeWalk();
+    MemSys::PopMemProfile();
     return true;
 }
 
@@ -275,97 +275,97 @@ bool __cdecl CFunc_PreloadPedestrians(Script::CStruct* params, Script::CScript*)
 // candidates; the pedestrian nodes' own parts are taken; then one option of any kind (failing that one light, one
 // tan and one dark) and the rest at random among the candidates, n (the candidates) in all, numbered by
 // random_index. (No candidate left while choosing: the original loops for ever - kept.)
-bool __cdecl CFunc_PreselectRandomPedestrians(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t part = 0; // (uninitialised in the original when missing)
-    params->GetChecksum(kPart, &part, 1);
-    Script::CArray* list = Script::GetArray(part);
+    params->ReadHashValue(kPart, &part, 1);
+    Scripts::CArray* list = Scripts::GetArray(part);
     uint32_t size = list->m_size;
     uint32_t level = SkateField<uint32_t>(0x374); // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
-        Script::CStruct* option = Element(list, i);
+        Scripts::CStruct* option = Element(list, i);
         option->RemoveComponent(kAllowedToPick);
-        option->AddInteger(kAllowRandom, 0);
-        option->AddInteger(kAlreadySelected, 0);
-        option->AddInteger(kRandomIndex, -1);
+        option->PutInt(kAllowRandom, 0);
+        option->PutInt(kAlreadySelected, 0);
+        option->PutInt(kRandomIndex, -1);
     }
     int candidates = 0;
     for (uint32_t i = 0; i < size; ++i) {
-        Script::CStruct* option = Element(list, i);
-        Script::CStruct* levels;
+        Scripts::CStruct* option = Element(list, i);
+        Scripts::CStruct* levels;
         bool candidate;
-        if (option->ContainsComponentNamed(kNoRandom)) {
-            if (option->GetStructure(kLevelSpecific, &levels, 0))
-                Script::PrintContents(option);
+        if (option->HasEntryNamed(kNoRandom)) {
+            if (option->ReadSubStruct(kLevelSpecific, &levels, 0))
+                Scripts::DumpToLog(option);
             candidate = false;
-        } else if (option->GetStructure(kLevelSpecific, &levels, 0)) {
-            candidate = levels->ContainsComponentNamed(level);
-        } else if (option->GetStructure(kExcludeFromLevels, &levels, 0)) {
-            candidate = !levels->ContainsComponentNamed(level);
+        } else if (option->ReadSubStruct(kLevelSpecific, &levels, 0)) {
+            candidate = levels->HasEntryNamed(level);
+        } else if (option->ReadSubStruct(kExcludeFromLevels, &levels, 0)) {
+            candidate = !levels->HasEntryNamed(level);
         } else {
             candidate = true;
         }
         if (candidate) {
             ++candidates;
-            option->AddInteger(kAllowedToPick, 1);
+            option->PutInt(kAllowedToPick, 1);
         } else {
-            option->AddInteger(kAllowedToPick, 0);
-            Script::GetInteger(kCasArtist); // (read and not used)
+            option->PutInt(kAllowedToPick, 0);
+            Scripts::FetchIntValue(kCasArtist); // (read and not used)
         }
     }
-    SkateScript::StartNodeWalk(0);
-    for (Script::CStruct* node = SkateScript::NextNode(); node; node = SkateScript::NextNode()) {
+    LevelNodes::StartNodeWalk(0);
+    for (Scripts::CStruct* node = LevelNodes::NextNode(); node; node = LevelNodes::NextNode()) {
         uint32_t nodeClass = 0;
-        node->GetChecksum(kClass, &nodeClass, 0);
+        node->ReadHashValue(kClass, &nodeClass, 0);
         if (nodeClass != kPedestrian)
             continue;
         uint32_t profileName;
-        if (!node->GetChecksum(kProfile, &profileName, 0))
+        if (!node->ReadHashValue(kProfile, &profileName, 0))
             continue;
-        Script::CStruct* profile = Script::GetStructure(profileName);
+        Scripts::CStruct* profile = Scripts::ReadSubStruct(profileName);
         if (!profile)
             continue;
-        Script::CStruct* slot;
-        if (!profile->GetStructure(part, &slot, 0))
+        Scripts::CStruct* slot;
+        if (!profile->ReadSubStruct(part, &slot, 0))
             continue;
-        uint32_t descId;
-        if (!slot->GetChecksum(kDescId, &descId, 0))
+        uint32_t descriptorId;
+        if (!slot->ReadHashValue(kDescId, &descriptorId, 0))
             continue;
-        Script::CStruct* option = CasOption(part, descId, false);
-        if (!option || option->ContainsComponentNamed(kNoRandom))
+        Scripts::CStruct* option = CasOption(part, descriptorId, false);
+        if (!option || option->HasEntryNamed(kNoRandom))
             continue;
-        Script::GetInteger(kCasArtist); // (read and not used)
-        option->AddInteger(kAllowRandom, 1);
-        option->AddInteger(kAllowedToPick, 1);
-        option->AddInteger(kAlreadySelected, 1);
+        Scripts::FetchIntValue(kCasArtist); // (read and not used)
+        option->PutInt(kAllowRandom, 1);
+        option->PutInt(kAllowedToPick, 1);
+        option->PutInt(kAlreadySelected, 1);
     }
-    SkateScript::EndNodeWalk();
+    LevelNodes::EndNodeWalk();
     int wanted = candidates;
-    params->GetInteger(kNum, &wanted, 0);
+    params->FetchIntValue(kNum, &wanted, 0);
     if (wanted > candidates)
         wanted = candidates;
-    Script::CStruct* matching[64];
+    Scripts::CStruct* matching[64];
     int count = 0;
     MatchingOptions(part, 0, matching, &count);
     if (count) {
-        Choose(matching[Mth::Rnd(count)], wanted - 1);
+        Choose(matching[Maths::Rnd(count)], wanted - 1);
     } else {
         MatchingOptions(part, kLight, matching, &count);
-        Choose(matching[Mth::Rnd(count)], wanted - 1);
+        Choose(matching[Maths::Rnd(count)], wanted - 1);
         --wanted;
         MatchingOptions(part, kTan, matching, &count);
-        Choose(matching[Mth::Rnd(count)], wanted - 1);
+        Choose(matching[Maths::Rnd(count)], wanted - 1);
         --wanted;
         MatchingOptions(part, kDark, matching, &count);
-        Choose(matching[Mth::Rnd(count)], wanted - 1);
+        Choose(matching[Maths::Rnd(count)], wanted - 1);
     }
     --wanted;
     for (int n = 0; n < wanted; ++n) {
         int allowed = 0;
-        Script::CStruct* option;
+        Scripts::CStruct* option;
         do {
-            option = Element(list, static_cast<uint32_t>(Mth::Rnd(static_cast<int>(size))));
-            option->GetInteger(kAllowedToPick, &allowed, 1);
+            option = Element(list, static_cast<uint32_t>(Maths::Rnd(static_cast<int>(size))));
+            option->FetchIntValue(kAllowedToPick, &allowed, 1);
         } while (!allowed);
         Choose(option, n);
     }
@@ -374,21 +374,21 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Script::CStruct* params, Script::C
 
 // 0x005ABB20: ReplaceCarTextures ... - every car's model component whose geoms use a texture dictionary not met yet
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
-bool __cdecl CFunc_ReplaceCarTextures(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_ReplaceCarTextures(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    auto* objects = Obj::g_compositeObjectManager;
+    auto* objects = GameObjects::g_compositeObjectManager;
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
     uint32_t seen[32];
     int seenCount = 0;
-    for (Obj::CBaseComponent* component = objects->GetFirstComponentByType(kModel); component;
+    for (GameObjects::CObjectModule* component = objects->FindFirstModuleOfKind(kModel); component;
          component = component->mp_nextOfType) {
         if (component->m_object->m_type != kCarType)
             continue;
         void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
         bool added = false;
-        for (int i = 0; i < static_cast<Nx::CModel*>(model)->GetNumGeoms(); ++i) {
+        for (int i = 0; i < static_cast<Engine3D::CRenderModel*>(model)->FetchGeomTotal(); ++i) {
             uint32_t textures =
-                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(static_cast<Nx::CModel*>(model)->GetGeomTextures(i)));
+                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(static_cast<Engine3D::CRenderModel*>(model)->GetGeomTextures(i)));
             bool found = false;
             for (int k = 0; k < seenCount; ++k) {
                 if (seen[k] == textures)
@@ -400,9 +400,9 @@ bool __cdecl CFunc_ReplaceCarTextures(Script::CStruct* params, Script::CScript* 
             }
         }
         if (added)
-            component->CallMemberFunction(kObjReplaceTexture, params, script);
+            component->InvokeMethodByName(kObjReplaceTexture, params, script);
     }
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

@@ -1,4 +1,4 @@
-// The park editor's piece menu (Ed::CUpperMenuManager).
+// The park editor's piece menu (ParkEditing::CTopBarMenus).
 
 #include <cstdint>
 
@@ -12,9 +12,9 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 
-namespace Ed {
+namespace ParkEditing {
 
-CUpperMenuManager* g_upperMenuManager;
+CTopBarMenus* g_upperMenuManager;
 
 namespace {
 
@@ -39,75 +39,75 @@ constexpr uint32_t kPieceMenuName = 0x84A689EB;     // "piece_menu_name_text"
 constexpr float kSliderLength = 375.0f;             // 0x0064F7B8
 constexpr float kSliderScale = 0.25f;               // 0x006467AC
 
-void RunScript(uint32_t name, Script::CStruct* params = nullptr)
+void LaunchScript(uint32_t name, Scripts::CStruct* params = nullptr)
 {
-    Script::RunScript(name, params, nullptr, false, nullptr);
+    Scripts::LaunchScript(name, params, nullptr, false, nullptr);
 }
 
 // The object tracker (0x006F0FC0): whether there's an object `id` (0x00462120), and an event sent to it
 // (0x00462F00).
-void* Tracker() { return static_cast<void*>(Obj::g_tracker); }
+void* Tracker() { return static_cast<void*>(GameObjects::g_tracker); }
 bool ObjectExists(void* tracker, uint32_t id)
 {
-    return static_cast<Obj::CTracker*>(tracker)->LookUpObject(id) != nullptr;
+    return static_cast<GameObjects::CEventWaitBoard*>(tracker)->LookUpObject(id) != nullptr;
 }
 void LaunchEvent(void* tracker, uint32_t type, uint32_t target, uint32_t source)
 {
-    static_cast<Obj::CTracker*>(tracker)->LaunchEvent(type, target, source, nullptr, false, -1.0f);
+    static_cast<GameObjects::CEventWaitBoard*>(tracker)->LaunchEvent(type, target, source, nullptr, false, -1.0f);
 }
 
 // The screen elements (the manager 0x00701440's lookup, asserting; 0x004A87C0 their position, 0x004A9100 set it,
 // 0x004A94A0 their scale, 0x004AF8C0 a text element's text).
-void GetElement(void* manager, Front::ElementPtr* out, uint32_t id)
+void GetElement(void* manager, MenuSystem::ElementPtr* out, uint32_t id)
 {
-    static_cast<Front::CScreenElementManager*>(manager)->GetElement(out, id, 1);
+    static_cast<MenuSystem::CUiTree*>(manager)->GetElement(out, id, 1);
 }
-void GetPos(Front::CScreenElement* element, float* x, float* y)
+void GetPos(MenuSystem::CUiWidget* element, float* x, float* y)
 {
     element->GetPos(x, y);
 }
-void SetPos(Front::CScreenElement* element, float x, float y, int flag)
+void SetPos(MenuSystem::CUiWidget* element, float x, float y, int flag)
 {
     element->SetPos(x, y, flag);
 }
-void SetScale(Front::CScreenElement* element, float x, float y, int a, int b)
+void ChangeScale(MenuSystem::CUiWidget* element, float x, float y, int a, int b)
 {
-    element->SetScale(x, y, a != 0, b);
+    element->ChangeScale(x, y, a != 0, b);
 }
-void SetText(Front::CScreenElement* element, const char* text)
+void SetText(MenuSystem::CUiWidget* element, const char* text)
 {
-    static_cast<Front::CTextElement*>(element)->SetText(text);
+    static_cast<MenuSystem::CLabelWidget*>(element)->SetText(text);
 }
 
 // The names of a metapiece's sectors, into `out`
-void GetSectorNames(CMetaPiece* meta, Script::CArray* out) { meta->GetPieceList(out); }
+void GetSectorNames(CPieceGroup* meta, Scripts::CArray* out) { meta->GetPieceList(out); }
 
 } // namespace
 
 // 0x00598DA0
-void CUpperMenuManager::DeleteInstance()
+void CTopBarMenus::DeleteInstance()
 {
-    CUpperMenuManager* menu = Instance();
+    CTopBarMenus* menu = Instance();
     if (!menu)
         return;
-    RunScript(kDestroyPieceMenu);
-    RunScript(kDestroySetMenu);
+    LaunchScript(kDestroyPieceMenu);
+    LaunchScript(kDestroySetMenu);
     menu->mp_set = nullptr;
-    Mem::Free(menu);
+    MemSys::Free(menu);
     Instance() = nullptr;
 }
 
 // 0x0059A9E0
-void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumber)
+void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int familyNumber)
 {
     bool clipboards = false;
     int clipboardCount = 0;
     if (set->m_isClipboard) {
         clipboards = true;
-        CCursor* cursor = CCursor::Instance();
-        for (CClipboard* clipboard = cursor->mp_clipboards; clipboard; clipboard = clipboard->mp_next)
+        CBuildPointer* cursor = CBuildPointer::Instance();
+        for (CClipboard* clipboard = cursor->m_copyBuffers; clipboard; clipboard = clipboard->m_following)
             ++clipboardCount;
-        cursor->ClearAreaSelection();
+        cursor->DropAreaMarquee();
     }
     void* tracker = Tracker();
     if (mp_set) {
@@ -118,44 +118,44 @@ void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumbe
 
     // A new set: its piece menu (each clipboard, sector or piece), the set menu, the menus locked.
     if (set != mp_set) {
-        RunScript(kMakePieceMenu);
-        for (int i = 0; i < set->m_numEntries; ++i) {
+        LaunchScript(kMakePieceMenu);
+        for (int i = 0; i < set->m_entryTotal; ++i) {
             uint32_t checksum = set->m_entries[i].checksum;
-            Script::CStruct params;
+            Scripts::CStruct params;
             params.Init();
-            params.AddChecksum(kMetapieceId, checksum);
+            params.PutNameKey(kMetapieceId, checksum);
             if (clipboards) {
                 if (i < clipboardCount)
-                    params.AddInteger(kClipBoardIndex, i + 1);
+                    params.PutInt(kClipBoardIndex, i + 1);
                 else
-                    params.AddChecksum(0u, kEmptyClipBoard); // (a bare flag)
-                RunScript(kMakePieceMenuItem, &params);
+                    params.PutNameKey(0u, kEmptyClipBoard); // (a bare flag)
+                LaunchScript(kMakePieceMenuItem, &params);
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
-                CMetaPiece* meta = mp_manager->GetAbstractMeta(checksum);
-                if (meta->m_flags & CMetaPiece::kSector) {
-                    params.AddChecksum(kSector, checksum);
-                    RunScript(kMakePieceMenuItem, &params);
+                CPieceGroup* meta = m_parkOwner->FindPieceTemplate(checksum);
+                if (meta->m_flags & CPieceGroup::kSector) {
+                    params.PutNameKey(kSector, checksum);
+                    LaunchScript(kMakePieceMenuItem, &params);
                 } else {
-                    Script::CArray sectors;
+                    Scripts::CArray sectors;
                     sectors.Init();
                     GetSectorNames(meta, &sectors);
-                    params.AddArray(kSectors, &sectors);
-                    RunScript(kMakePieceMenuItem, &params);
-                    Script::CleanUpArray(&sectors);
+                    params.AppendArrayValue(kSectors, &sectors);
+                    LaunchScript(kMakePieceMenuItem, &params);
+                    Scripts::ReleaseArrayStorage(&sectors);
                     sectors.Clear();
                 }
             }
             params.Clear();
         }
-        RunScript(kMakeSetMenu);
-        Script::CStruct params;
+        LaunchScript(kMakeSetMenu);
+        Scripts::CStruct params;
         params.Init();
-        params.AddInteger(kSetNumber, setNumber);
-        params.AddInteger(kLastSetNumber, m_setNumber);
-        RunScript(kLockMenus, &params);
+        params.PutInt(kSetNumber, familyNumber);
+        params.PutInt(kLastSetNumber, m_setNumber);
+        LaunchScript(kLockMenus, &params);
         mp_set = set;
-        m_setNumber = setNumber;
+        m_setNumber = familyNumber;
         params.Clear();
     }
 
@@ -165,7 +165,7 @@ void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumbe
     m_selected = set->m_selected;
 
     // The slider: the seven entries round the selected one (all of them when there are no more).
-    int count = set->m_numEntries;
+    int count = set->m_entryTotal;
     int first = m_selected - 3;
     int last = m_selected + 3;
     if (count <= 7) {
@@ -178,18 +178,18 @@ void CUpperMenuManager::SetPieceSet(CPieceSet* set, int /*unused*/, int setNumbe
         first = first + (count - last) - 1;
         last = count - 1;
     }
-    void* elements = Front::g_screenElementManager;
-    Front::ElementPtr slider;
+    void* elements = MenuSystem::g_screenElementManager;
+    MenuSystem::ElementPtr slider;
     GetElement(elements, &slider, kPieceSlider);
     float x;
     float y;
     GetPos(slider.Get(), &x, &y);
-    float start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->m_numEntries);
-    float end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->m_numEntries);
+    float start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->m_entryTotal);
+    float end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->m_entryTotal);
     SetPos(slider.Get(), start, y, 1);
-    SetScale(slider.Get(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0f, 0, 1);
+    ChangeScale(slider.Get(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0f, 0, 1);
 
-    Front::ElementPtr text;
+    MenuSystem::ElementPtr text;
     GetElement(elements, &text, kPieceMenuName);
     const char* name = set->m_entries[m_selected].name;
     SetText(text.Get(), name ? name : "---");

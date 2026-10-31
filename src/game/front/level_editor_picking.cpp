@@ -4,7 +4,7 @@
 #include <cmath>
 
 // NOT ORIGINAL - the level editor's picking rules (ours; level_editor_picking.h).
-namespace Front::LevelEditor::Picking {
+namespace MenuSystem::LevelEditor::Picking {
 
 bool IsStructure(V3 min, V3 max, V3 camera, float levelShare)
 {
@@ -251,4 +251,4 @@ const std::vector<Lock>& Locks() { return g_locks; }
 void ClearLocks() { g_locks.clear(); }
 void SetLocks(const std::vector<Lock>& locks) { g_locks = locks; }
 
-} // namespace Front::LevelEditor::Picking
+} // namespace MenuSystem::LevelEditor::Picking

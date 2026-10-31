@@ -18,7 +18,7 @@
 #include "game/nx/feeler.h"
 #include "game/core/game_vtables.h"
 
-namespace Front::LevelEditor::Ruler {
+namespace MenuSystem::LevelEditor::Ruler {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -58,7 +58,7 @@ std::string Describe(const Measure& m)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic; // (CCollStatic)
+void** const& kCollStaticVtable = Vt::kCollStatic; // (CStaticCollider)
 
 bool g_armed;
 int g_ends;        // (0, 1 or 2 ends placed)
@@ -66,13 +66,13 @@ V3 g_a, g_b;
 bool g_haveHover, g_hoverSnapped;
 V3 g_hover;
 
-// The game's collision ray (a CFeeler as level_editor_arcs.cpp's): the point hit and the collision object's checksum.
+// The game's collision ray (a CProbeRay as level_editor_arcs.cpp's): the point hit and the collision object's checksum.
 bool CastFeeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -91,12 +91,12 @@ std::vector<V3> CornersNear(uint32_t checksum, V3 near, float reach)
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
     if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return corners;
-    const auto* tri = *reinterpret_cast<const Nx::CCollObjTriData* const*>(coll + 0x0C);
+    const auto* tri = *reinterpret_cast<const Engine3D::CTriMeshSource* const*>(coll + 0x0C);
     if (!tri || !tri->m_vertices)
         return corners;
     int count = tri->m_numVertices < 20000 ? tri->m_numVertices : 20000;
     for (int i = 0; i < count; ++i) {
-        Mth::Vector v = tri->GetRawVertexPos(i);
+        Maths::Vector v = tri->ReadStoredVertex(i);
         V3 p = {v.x, v.y, v.z};
         V3 d = p - near;
         if (Dot(d, d) <= reach * reach)
@@ -214,4 +214,4 @@ std::string Describe()
     return "ruler: " + Describe(MeasureOf(g_a, g_b));
 }
 
-} // namespace Front::LevelEditor::Ruler
+} // namespace MenuSystem::LevelEditor::Ruler

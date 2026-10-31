@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
@@ -13,10 +13,10 @@ class HashTable;
 // (The groups: +4 the distance below which they're themselves, +0x58 a frame count, +0x5C the imposter made; slots
 // [1] make the imposter, [2] drop it, [3] bring it up to date (whether it did), [4] draw it, [5] the distance (ST0),
 // [6] updated.)
-namespace Nx {
+namespace Engine3D {
 
 struct CImposterManager {
-    Lst::HashTable* mp_groups;
+    ListKit::HashTable* mp_groups;
     int m_maxPerFrame;
 
     // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame. Returns this.

@@ -10,7 +10,7 @@
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
 
-namespace Obj {
+namespace GameObjects {
 
 // Follows an object (0xB0 bytes; our name): its position and orientation when last updated, and how far a point on
 // it was carried by the last update - the object's move, plus the point turned about the object's old position
@@ -18,18 +18,18 @@ namespace Obj {
 struct CRideTracker {
     // 0x00416E70: following `object` (not null): its orientation and position now, nothing carried yet (0, 0, 0,
     // 1), not turned. Returns this.
-    CRideTracker* Construct(CCompositeObject* object);
+    CRideTracker* Construct(CGameEntity* object);
     // 0x00416F00: the object's move since the last update into m_carried (w included), plus - when its
     // orientation changed - how `point` turns with it about its old position (m_turn: the orientation change
     // without translation; m_turned set). Then the position and orientation kept. False (nothing done) when the
     // object is gone.
-    bool Update(const Mth::Vector* point);
+    bool Update(const Maths::Vector* point);
 
-    CSmtPtr<CCompositeObject> m_object;  // +0x00
-    Mth::Matrix m_lastMatrix;            // +0x0C
-    Mth::Vector m_lastPos;               // +0x4C
-    Mth::Vector m_carried;               // +0x5C
-    Mth::Matrix m_turn;                  // +0x6C
+    CSharedRef<CGameEntity> m_object;  // +0x00
+    Maths::Matrix m_lastMatrix;            // +0x0C
+    Maths::Vector m_lastPos;               // +0x4C
+    Maths::Vector m_carried;               // +0x5C
+    Maths::Matrix m_turn;                  // +0x6C
     bool m_turned;                       // +0xAC
     uint8_t m_padAD[3];
 };

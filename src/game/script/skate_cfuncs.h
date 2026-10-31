@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -10,7 +10,7 @@ class CScript;
 // Script commands (CFunctions) of the skate game, 0x0059EDF0-0x0059F610: controller debounce, fake lights,
 // nodes, the viewer, spawning and killing scripts, the loading screen, Omnigon, the level name, DumpScripts.
 // All are cdecl (params, script) and return whether the script's `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
 // The controller's input state (the object at the controller's +0x18): one byte per button, non-zero = held.
 struct ControllerInput {
@@ -42,28 +42,28 @@ uint32_t* DebounceTimes();
 // debounced. A diagonal is held when both its directions are. Unknown buttons: false.
 bool __cdecl ControllerPressed(const void* controller, uint32_t button);
 
-bool __cdecl CFunc_ControllerDebounce(Script::CStruct* params, Script::CScript* script);   // 0x0059EDF0
-bool __cdecl CFunc_FakeLights(Script::CStruct* params, Script::CScript* script);           // 0x0059F0F0
-bool __cdecl CFunc_UpdateFxLighting(Script::CStruct* params, Script::CScript* script);     // 0x0059F1B0
-bool __cdecl CFunc_NodeExists(Script::CStruct* params, Script::CScript* script);           // 0x0059F1C0
-bool __cdecl CFunc_LoadNodeArray(Script::CStruct* params, Script::CScript* script);        // 0x0059F1F0
-bool __cdecl CFunc_ResetCamera(Script::CStruct* params, Script::CScript* script);          // 0x0059F260
-bool __cdecl CFunc_SetMovementVelocity(Script::CStruct* params, Script::CScript* script);  // 0x0059F290
-bool __cdecl CFunc_SetRotateVelocity(Script::CStruct* params, Script::CScript* script);    // 0x0059F2C0
-bool __cdecl CFunc_ClearViewerObject(Script::CStruct* params, Script::CScript* script);    // 0x0059F2F0
-bool __cdecl CFunc_CasArtist(Script::CStruct* params, Script::CScript* script);            // 0x0059F310
-bool __cdecl CFunc_SpawnScript(Script::CStruct* params, Script::CScript* script);          // 0x0059F330
-bool __cdecl CFunc_UnBlockInterruptedScript(Script::CStruct* params, Script::CScript* script); // 0x0059F440
-bool __cdecl CFunc_KillSpawnedScript(Script::CStruct* params, Script::CScript* script);    // 0x0059F450
-bool __cdecl CFunc_PauseSpawnedScripts(Script::CStruct* params, Script::CScript* script);  // 0x0059F4C0
-bool __cdecl CFunc_UnPauseSpawnedScripts(Script::CStruct* params, Script::CScript* script); // 0x0059F4D0
-bool __cdecl CFunc_DisplayLoadingScreen(Script::CStruct* params, Script::CScript* script); // 0x0059F4E0
-bool __cdecl CFunc_HideLoadingScreen(Script::CStruct* params, Script::CScript* script);    // 0x0059F550
-bool __cdecl CFunc_LastBroadcastedOmnigonWas(Script::CStruct* params, Script::CScript* script); // 0x0059F560
-bool __cdecl CFunc_OmnigonAllowed(Script::CStruct* params, Script::CScript* script);       // 0x0059F590
-bool __cdecl CFunc_SetLevelName(Script::CStruct* params, Script::CScript* script);         // 0x0059F5B0
-bool __cdecl CFunc_DumpScripts(Script::CStruct* params, Script::CScript* script);          // 0x0059F5E0
+bool __cdecl CFunc_ControllerDebounce(Scripts::CStruct* params, Scripts::CScript* script);   // 0x0059EDF0
+bool __cdecl CFunc_FakeLights(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0059F0F0
+bool __cdecl CFunc_UpdateFxLighting(Scripts::CStruct* params, Scripts::CScript* script);     // 0x0059F1B0
+bool __cdecl CFunc_NodeExists(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0059F1C0
+bool __cdecl CFunc_LoadNodeArray(Scripts::CStruct* params, Scripts::CScript* script);        // 0x0059F1F0
+bool __cdecl CFunc_ResetCamera(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0059F260
+bool __cdecl CFunc_SetMovementVelocity(Scripts::CStruct* params, Scripts::CScript* script);  // 0x0059F290
+bool __cdecl CFunc_SetRotateVelocity(Scripts::CStruct* params, Scripts::CScript* script);    // 0x0059F2C0
+bool __cdecl CFunc_ClearViewerObject(Scripts::CStruct* params, Scripts::CScript* script);    // 0x0059F2F0
+bool __cdecl CFunc_CasArtist(Scripts::CStruct* params, Scripts::CScript* script);            // 0x0059F310
+bool __cdecl CFunc_SpawnScript(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0059F330
+bool __cdecl CFunc_UnBlockInterruptedScript(Scripts::CStruct* params, Scripts::CScript* script); // 0x0059F440
+bool __cdecl CFunc_KillSpawnedScript(Scripts::CStruct* params, Scripts::CScript* script);    // 0x0059F450
+bool __cdecl CFunc_PauseSpawnedScripts(Scripts::CStruct* params, Scripts::CScript* script);  // 0x0059F4C0
+bool __cdecl CFunc_UnPauseSpawnedScripts(Scripts::CStruct* params, Scripts::CScript* script); // 0x0059F4D0
+bool __cdecl CFunc_DisplayLoadingScreen(Scripts::CStruct* params, Scripts::CScript* script); // 0x0059F4E0
+bool __cdecl CFunc_HideLoadingScreen(Scripts::CStruct* params, Scripts::CScript* script);    // 0x0059F550
+bool __cdecl CFunc_LastBroadcastedOmnigonWas(Scripts::CStruct* params, Scripts::CScript* script); // 0x0059F560
+bool __cdecl CFunc_OmnigonAllowed(Scripts::CStruct* params, Scripts::CScript* script);       // 0x0059F590
+bool __cdecl CFunc_SetLevelName(Scripts::CStruct* params, Scripts::CScript* script);         // 0x0059F5B0
+bool __cdecl CFunc_DumpScripts(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0059F5E0
 
 extern char g_nodeArrayName[128];
 
-} // namespace CFuncs
+} // namespace ScriptCommands

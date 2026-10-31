@@ -12,7 +12,7 @@
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -21,14 +21,14 @@ extern void** const kModelVtable;
 void* GeomOf(const sModelGeomNode* node) { return *node->entry; }
 
 // The engine's CGeom calls (jumps through the geom's vtable).
-Mth::Vector* GetGeomBoundingSphere(void* geom, Mth::Vector* out)
+Maths::Vector* GetGeomBoundingSphere(void* geom, Maths::Vector* out)
 {
-    return static_cast<CGeom*>(geom)->GetBoundingSphere(out);
+    return static_cast<CGeom*>(geom)->FetchBoundSphere(out);
 }
-void SetGeomBoundingSphere(void* geom, const Mth::Vector* sphere)
+void SetGeomBoundingSphere(void* geom, const Maths::Vector* sphere)
 {
     // (slot 16, through the jump 0x0048DEB0)
-    reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*)>((*static_cast<void***>(geom))[16])(geom, sphere);
+    reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*)>((*static_cast<void***>(geom))[16])(geom, sphere);
 }
 
 } // namespace
@@ -36,7 +36,7 @@ void SetGeomBoundingSphere(void* geom, const Mth::Vector* sphere)
 // 0x004BAD90
 CPcModel* CPcModel::Construct()
 {
-    reinterpret_cast<CModel*>(this)->CModel::Construct();
+    reinterpret_cast<CRenderModel*>(this)->CRenderModel::Construct();
     vtable = reinterpret_cast<void**>(kModelVtable);
     unknown4C = 0;
     return this;
@@ -46,7 +46,7 @@ CPcModel* CPcModel::Construct()
 void CPcModel::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
-    reinterpret_cast<CModel*>(this)->CModel::DestroyBody();
+    reinterpret_cast<CRenderModel*>(this)->CRenderModel::DestroyBody();
 }
 
 // 0x004BADC0
@@ -54,12 +54,12 @@ CPcModel* CPcModel::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004BADF0
-void CPcModel::SetBoundingSphere(const Mth::Vector* sphere)
+void CPcModel::ChangeBoundSphere(const Maths::Vector* sphere)
 {
     sModelGeomNode* head = geoms;
     for (sModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
@@ -67,7 +67,7 @@ void CPcModel::SetBoundingSphere(const Mth::Vector* sphere)
 }
 
 // 0x004BAE30
-Mth::Vector* CPcModel::GetBoundingSphere(Mth::Vector* out)
+Maths::Vector* CPcModel::FetchBoundSphere(Maths::Vector* out)
 {
     if (geomCount == 0) {
         *out = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -75,10 +75,10 @@ Mth::Vector* CPcModel::GetBoundingSphere(Mth::Vector* out)
     }
     sModelGeomNode* head = geoms;
     sModelGeomNode* node = head ? head->next : nullptr;
-    Mth::Vector scratch;
-    Mth::Vector sphere = *GetGeomBoundingSphere(GeomOf(node), &scratch);
+    Maths::Vector scratch;
+    Maths::Vector sphere = *GetGeomBoundingSphere(GeomOf(node), &scratch);
     for (node = node->next; node != head; node = node->next) {
-        Mth::Vector other = *GetGeomBoundingSphere(GeomOf(node), &scratch);
+        Maths::Vector other = *GetGeomBoundingSphere(GeomOf(node), &scratch);
         float dx = static_cast<float>(static_cast<double>(other.x) - sphere.x);
         float dy = static_cast<float>(static_cast<double>(other.y) - sphere.y);
         float dz = static_cast<float>(static_cast<double>(other.z) - sphere.z);
@@ -114,10 +114,10 @@ Mth::Vector* CPcModel::GetBoundingSphere(Mth::Vector* out)
 }
 
 namespace {
-static VtableSlot kModelVtable_slots[] = {&Nx::CPcModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
-                &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
-                &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
-                Stubs::ReturnTrue, &Nx::CPcModel::GetBoundingSphere, &Nx::CPcModel::SetBoundingSphere};
+static VtableSlot kModelVtable_slots[] = {&Engine3D::CPcModel::Destroy, &MemCard::Card::AlwaysTrue, Stubs::ReturnZero1,
+                &MemCard::Card::AlwaysTrue, &Engine3D::CRenderModel::VirtualTrue4, &MemCard::Card::AlwaysTrue, &MemCard::Card::AlwaysTrue,
+                &MemCard::Card::AlwaysTrue, Stubs::ReturnTrue2, &NetLink::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+                Stubs::ReturnTrue, &Engine3D::CPcModel::FetchBoundSphere, &Engine3D::CPcModel::ChangeBoundSphere};
 void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
 } // namespace
 

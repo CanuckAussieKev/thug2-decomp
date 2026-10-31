@@ -26,7 +26,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_suspendComponentMemberFunctions[12]{
             0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0,
@@ -66,32 +66,32 @@ void SetNoLod(float* distances)
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
-uint8_t* ModelOf(CBaseComponent* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
-void SetModelActive(uint8_t* model, bool active) { reinterpret_cast<Nx::CModel*>(model)->SetActive(active); }
+uint8_t* ModelOf(CObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
+void SetModelActive(uint8_t* model, bool active) { reinterpret_cast<Engine3D::CRenderModel*>(model)->SetActive(active); }
 
 } // namespace
 
 // 0x00434290
-CBaseComponent* __cdecl CSuspendComponent::Create()
+CObjectModule* __cdecl CDormancyModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSuspendComponent));
-    return memory ? static_cast<CSuspendComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CDormancyModule));
+    return memory ? static_cast<CDormancyModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x00434610
-void __cdecl CSuspendComponent::RegisterMemberFunctions()
+void __cdecl CDormancyModule::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_suspendComponentMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_suspendComponentMemberFunctions, 0x18);
     CreateSuspendTask();
 }
 
 // 0x00433F50
-CSuspendComponent* CSuspendComponent::Construct()
+CDormancyModule* CDormancyModule::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_type = kType;
-    double distance = static_cast<double>(Script::GetFloat(kDefaultSuspendDistance)) * kInchesPerFoot;
+    double distance = static_cast<double>(Scripts::GetFloat(kDefaultSuspendDistance)) * kInchesPerFoot;
     m_suspendDistance = static_cast<float>(distance);
     m_neverSuspend = true;
     m_framesBeforeCheck = kCheckFrames;
@@ -101,38 +101,38 @@ CSuspendComponent* CSuspendComponent::Construct()
 }
 
 // 0x00433E10
-void CSuspendComponent::DestroyBody()
+void CDormancyModule::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00433FD0
-CSuspendComponent* CSuspendComponent::Destroy(unsigned int flags)
+CDormancyModule* CDormancyModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00433E50
-void CSuspendComponent::Update() { CBaseComponent::Suspend(true); }
+void CDormancyModule::Update() { CObjectModule::Suspend(true); }
 
 // 0x00434000
-void CSuspendComponent::InitFromStructure(Script::CStruct* params)
+void CDormancyModule::ConfigureFromData(Scripts::CStruct* params)
 {
     if (params->GetFloat(kSuspendDistance, &m_suspendDistance, 0)) {
         if (m_suspendDistance == 0.0f && !params->GetFloat(kLodDist[0], &m_suspendDistance, 0))
-            m_suspendDistance = Script::GetFloat(kDefaultSuspendDistance);
+            m_suspendDistance = Scripts::GetFloat(kDefaultSuspendDistance);
         m_neverSuspend = false;
         double distance = static_cast<double>(m_suspendDistance) * kInchesPerFoot;
         m_suspendDistance = static_cast<float>(distance);
         m_suspendDistanceSquared = static_cast<float>(distance * distance);
     }
-    if (params->ContainsFlag(kNeverSuspend))
+    if (params->HasBareFlag(kNeverSuspend))
         m_neverSuspend = true;
-    if (Script::GetInteger(kNoLod)) {
+    if (Scripts::FetchIntValue(kNoLod)) {
         SetNoLod(m_lodDistances);
         return;
     }
@@ -152,37 +152,37 @@ void CSuspendComponent::InitFromStructure(Script::CStruct* params)
     lod[3] = lod[3] * kInchesPerFoot;
     // Distances out of order are reported (compiled out of this build).
     if (!(first < second))
-        Script::PrintContents(params, 0);
+        Scripts::DumpToLog(params, 0);
     if (!(lod[1] < lod[2]))
-        Script::PrintContents(params, 0);
+        Scripts::DumpToLog(params, 0);
     if (!(lod[2] < lod[3]))
-        Script::PrintContents(params, 0);
-    lod[0] = Script::GetFloat(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
-    lod[1] = Script::GetFloat(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
+        Scripts::DumpToLog(params, 0);
+    lod[0] = Scripts::GetFloat(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
+    lod[1] = Scripts::GetFloat(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
     // NOT ORIGINAL - [Graphics] lod_distance_scale (game/gfx/graphics_options.h): animated and drawn further out.
-    float scale = Nx::GraphicsOptions::Get().lodDistanceScale;
-    lod[0] = Nx::GraphicsOptions::Scaled(lod[0], scale);
-    lod[1] = Nx::GraphicsOptions::Scaled(lod[1], scale);
+    float scale = Engine3D::GraphicsOptions::Get().lodDistanceScale;
+    lod[0] = Engine3D::GraphicsOptions::Scaled(lod[0], scale);
+    lod[1] = Engine3D::GraphicsOptions::Scaled(lod[1], scale);
 }
 
 // 0x004341C0
-void CSuspendComponent::Finalize() { mp_model = m_object->GetComponent(kModel); }
+void CDormancyModule::Finalize() { m_meshInstance = m_object->GetComponent(kModel); }
 
 // 0x00433E60
-void CSuspendComponent::ResetCounts()
+void CDormancyModule::ResetCounts()
 {
     m_framesBeforeLod = kCheckFrames;
     m_framesBeforeCheck = kCheckFrames;
 }
 
 // 0x00433E70
-void CSuspendComponent::DisableLod() { SetNoLod(m_lodDistances); }
+void CDormancyModule::DisableLod() { SetNoLod(m_lodDistances); }
 
 // 0x00433E90
-bool CSuspendComponent::IsFar() { return m_far; }
+bool CDormancyModule::IsFar() { return m_far; }
 
 // 0x00433EA0
-bool CSuspendComponent::ShouldAnimate(float* distanceSquared)
+bool CDormancyModule::WantsAnimating(float* distanceSquared)
 {
     const float d = m_distanceSquared;
     if (distanceSquared)
@@ -192,10 +192,10 @@ bool CSuspendComponent::ShouldAnimate(float* distanceSquared)
     if (d > lod * lod) { // (not a number: as within)
         animate = false;
     } else {
-        float interleave2 = Script::GetFloat(0xDB120FB5); // AnimLODInterleave2
-        double interleave4 = Script::GetFloat(0x3271AA80); // AnimLODInterleave4
-        float within2 = static_cast<float>(static_cast<double>(interleave2) * interleave2);
-        if (d > interleave4 * interleave4)
+        float skipEvery2 = Scripts::GetFloat(0xDB120FB5); // AnimLODInterleave2
+        double skipEvery4 = Scripts::GetFloat(0x3271AA80); // AnimLODInterleave4
+        float within2 = static_cast<float>(static_cast<double>(skipEvery2) * skipEvery2);
+        if (d > skipEvery4 * skipEvery4)
             animate = (++Interleave4Count() & 3) == 0;
         else if (d > within2)
             animate = (++Interleave2Count() & 1) == 0;
@@ -204,41 +204,41 @@ bool CSuspendComponent::ShouldAnimate(float* distanceSquared)
 }
 
 // 0x004342F0
-void CSuspendComponent::UpdateVisibility()
+void CDormancyModule::UpdateVisibility()
 {
-    if (!mp_model || !ModelOf(mp_model))
+    if (!m_meshInstance || !ModelOf(m_meshInstance))
         return;
     bool visible = false;
-    if (!(m_object->m_objectFlags & OBJECT_FLAG_INVISIBLE)) {
-        uint8_t* model = ModelOf(mp_model);
+    if (!(m_object->m_objectFlags & ENTITY_HIDDEN_BIT)) {
+        uint8_t* model = ModelOf(m_meshInstance);
         if (reinterpret_cast<const uint32_t*>(m_lodDistances)[2] == kNoLodBits[2]) {
             visible = true;
-        } else if (Mdl::g_viewportCount > 1) {
+        } else if (GameModules::g_viewportCount > 1) {
             visible = true;
-        } else if (reinterpret_cast<uint8_t*>(mp_model)[0x234]) { // (the model component's)
+        } else if (reinterpret_cast<uint8_t*>(m_meshInstance)[0x234]) { // (the model component's)
             visible = true;
         } else {
             double lod = m_lodDistances[1];
             if (m_distanceSquared < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 float sphere[4];
-                reinterpret_cast<Nx::CModel*>(model)->GetBoundingSphere(reinterpret_cast<Mth::Vector*>(sphere));
-                Mth::Vector centre = {sphere[0], sphere[1], sphere[2], 1.0f};
-                centre.MultiplyBy(m_object->m_matrix);
+                reinterpret_cast<Engine3D::CRenderModel*>(model)->FetchBoundSphere(reinterpret_cast<Maths::Vector*>(sphere));
+                Maths::Vector centre = {sphere[0], sphere[1], sphere[2], 1.0f};
+                centre.MultiplyBy(m_object->m_basisFrame);
                 centre += m_object->m_pos;
-                visible = Nx::Engine::SphereVisibleInOneViewport(&centre, sphere[3]) == 0;
+                visible = Engine3D::Engine::SphereVisibleInOneViewport(&centre, sphere[3]) == 0;
             }
         }
     }
-    uint8_t flags = ModelOf(mp_model)[0x44];
+    uint8_t flags = ModelOf(m_meshInstance)[0x44];
     bool shown = (flags & 0x2) && !(flags & 0x4);
-    SetModelActive(ModelOf(mp_model), visible);
+    SetModelActive(ModelOf(m_meshInstance), visible);
     if (visible && !shown)
-        mp_model->Update();
+        m_meshInstance->Update();
 }
 
 // 0x004341E0
-bool CSuspendComponent::Obj_ResetNoSuspendCount(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+bool CDormancyModule::Obj_ResetNoSuspendCount(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
     m_framesBeforeLod = kCheckFrames;
     m_framesBeforeCheck = kCheckFrames;
@@ -259,22 +259,22 @@ void __cdecl NextSuspendFrame()
 // 0x00434520
 SuspendTaskHolder* SuspendTaskHolder::Construct()
 {
-    auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
+    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->Construct(kTaskPriority);
         task->m_vtable = GameCode::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&SuspendTask); // +0x18 the callback
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
     }
-    mp_task = task;
-    reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04)->AddTask(task); // the logic tasks
+    m_jobHandle = task;
+    reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04)->AddTask(task); // the logic tasks
     return this;
 }
 
 // 0x004345B0
 void __cdecl CreateSuspendTask()
 {
-    void* memory = Mem::Calloc(sizeof(SuspendTaskHolder));
+    void* memory = MemSys::AllocZeroed(sizeof(SuspendTaskHolder));
     g_suspendTaskHolder = memory ? static_cast<SuspendTaskHolder*>(memory)->Construct() : nullptr;
 }
 
@@ -283,9 +283,9 @@ void __cdecl SuspendTask(void* /*task*/)
 {
     // The camera the distances are measured from: the skate module's +0x3DC (a flag that turns the checks off, then
     // the position).
-    const uint8_t* camera = reinterpret_cast<uint8_t*>(Mdl::g_skateModule) + 0x3DC;
+    const uint8_t* camera = reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x3DC;
     auto* component =
-        static_cast<CSuspendComponent*>(CompositeObjectManager()->GetFirstComponentByType(CSuspendComponent::kType));
+        static_cast<CDormancyModule*>(CompositeObjectManager()->FindFirstModuleOfKind(CDormancyModule::kType));
     while (component) {
         component->m_distanceSquared = 0.0f;
         component->m_far = false;
@@ -298,7 +298,7 @@ void __cdecl SuspendTask(void* /*task*/)
             if (component->m_framesBeforeLod) {
                 --component->m_framesBeforeLod;
             } else {
-                const Mth::Vector& pos = component->m_object->m_pos;
+                const Maths::Vector& pos = component->m_object->m_pos;
                 const float* at = reinterpret_cast<const float*>(camera + 4);
                 double dx = static_cast<double>(pos.x) - at[0], dy = static_cast<double>(pos.y) - at[1],
                        dz = static_cast<double>(pos.z) - at[2];
@@ -307,13 +307,13 @@ void __cdecl SuspendTask(void* /*task*/)
                 component->m_far = distanceSquared > component->m_suspendDistanceSquared;
             }
         }
-        CCompositeObject* object = component->m_object;
+        CGameEntity* object = component->m_object;
         bool suspended = (object->m_compositeFlags & COMPOSITE_FLAG_SUSPENDED) != 0;
         if (component->m_far && !suspended)
             object->Suspend(true);
         else if (!component->m_far && suspended)
             object->Suspend(false);
-        if (CBaseComponent* model = component->mp_model) {
+        if (CObjectModule* model = component->m_meshInstance) {
             if (component->m_framesBeforeLod) {
                 if (ModelOf(model))
                     SetModelActive(ModelOf(model), true);
@@ -321,28 +321,28 @@ void __cdecl SuspendTask(void* /*task*/)
                 component->UpdateVisibility();
             }
         }
-        component = static_cast<CSuspendComponent*>(component->mp_nextOfType);
+        component = static_cast<CDormancyModule*>(component->mp_nextOfType);
     }
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSuspendComponent::Destroy,
-         &Obj::CSuspendComponent::Update,
-         &Obj::CSuspendComponent::InitFromStructure,
-         &Obj::CSuspendComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CDormancyModule::Destroy,
+         &GameObjects::CDormancyModule::Update,
+         &GameObjects::CDormancyModule::ConfigureFromData,
+         &GameObjects::CDormancyModule::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
          Stubs::IgnoreArgument,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

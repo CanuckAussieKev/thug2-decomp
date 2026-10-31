@@ -20,14 +20,14 @@
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
-void* Malloc(size_t size) { return Crt::Malloc(size); }
+void* AllocBlock(size_t size) { return Crt::AllocBlock(size); }
 void Free(void* memory) { Crt::Free(memory); }
 
 // The buffers' lists' nodes (as pc_buffers.cpp's): the buffer, the previous and the next node.
@@ -41,24 +41,24 @@ sBufferNode* IndexBufferList() { return reinterpret_cast<sBufferNode*>(g_indexBu
 
 // The engine's scenes (a list: +4 the scene, +0xC the next node; the head's +4 is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
-uint8_t* FirstSceneNodeBytes() { return reinterpret_cast<uint8_t*>(Nx::FirstSceneNode()); }
+uint8_t* FirstSceneNodeBytes() { return reinterpret_cast<uint8_t*>(Engine3D::FirstSceneNode()); }
 uint8_t* NextSceneNode(uint8_t* node)
 {
     uint8_t* next = *reinterpret_cast<uint8_t**>(node + 0xC);
     return *reinterpret_cast<int*>(next + 4) == -1 ? nullptr : next;
 }
-sScene* SceneMeshes(uint8_t* node)
+sceneRef* SceneMeshes(uint8_t* node)
 {
     uint8_t* scene = *reinterpret_cast<uint8_t**>(node + 4);
-    return scene ? *reinterpret_cast<sScene**>(scene + 0x280) : nullptr;
+    return scene ? *reinterpret_cast<sceneRef**>(scene + 0x280) : nullptr;
 }
 
-IDirect3DVertexBuffer9*& ArenaBuffer(sScene* meshes) { return reinterpret_cast<IDirect3DVertexBuffer9*&>(meshes->comObject); }
+IDirect3DVertexBuffer9*& ArenaBuffer(sceneRef* meshes) { return reinterpret_cast<IDirect3DVertexBuffer9*&>(meshes->comObject); }
 
 } // namespace
 
 // 0x004D4BE0
-sMesh* sMesh::Construct()
+meshRef* meshRef::Construct()
 {
     flags = 0;
     vertexBufferCount = 1;
@@ -98,7 +98,7 @@ sMesh* sMesh::Construct()
 }
 
 // 0x004D4CA0
-long sMesh::ApplyVertexColors()
+long meshRef::ApplyVertexColors()
 {
     if (!perVertexBytes)
         return 0;
@@ -108,7 +108,7 @@ long sMesh::ApplyVertexColors()
     vb->lockOffset = 0;
     vb->lockFlags = 0;
     uint8_t* out = data + unknown1C[0];
-    const uint32_t* colors = reinterpret_cast<sMaterial*>(material)->animColors;
+    const uint32_t* colors = reinterpret_cast<materialRef*>(material)->animColors;
     for (uint32_t i = 0; i < vertexCount; ++i) {
         int index = static_cast<int8_t>(perVertexBytes[i]);
         if (index)
@@ -119,7 +119,7 @@ long sMesh::ApplyVertexColors()
 }
 
 // 0x004D4D30
-void sMesh::GetPosition(float* out) const
+void meshRef::GetPosition(float* out) const
 {
     if (!transform) {
         out[0] = out[1] = out[2] = 0;
@@ -132,12 +132,12 @@ void sMesh::GetPosition(float* out) const
 // 0x004D5760
 sVertexBuffer* __cdecl NewVertexBuffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
-    void* memory = Malloc(sizeof(sVertexBuffer));
+    void* memory = AllocBlock(sizeof(sVertexBuffer));
     return memory ? static_cast<sVertexBuffer*>(memory)->Construct(bytes, usage, flags) : nullptr;
 }
 
 // 0x004D57D0
-void sMesh::CleanStrip()
+void meshRef::CleanStrip()
 {
     uint16_t* strip = indexBuffers[0]->indices;
     uint32_t a = strip[0], b = strip[1];
@@ -174,7 +174,7 @@ void sMesh::CleanStrip()
 }
 
 // 0x004D5900
-void sMesh::SetBoundingSphere(const float* centreIn, float radiusIn, int, int)
+void meshRef::ChangeBoundSphere(const float* centreIn, float radiusIn, int, int)
 {
     centre[0] = centreIn[0];
     centre[1] = centreIn[1];
@@ -183,7 +183,7 @@ void sMesh::SetBoundingSphere(const float* centreIn, float radiusIn, int, int)
 }
 
 // 0x004D5C30
-void sMesh::CreateVertexBuffer(const void* vertices, uint32_t bytes, sVertexArena* arena)
+void meshRef::CreateVertexBuffer(const void* vertices, uint32_t bytes, sVertexArena* arena)
 {
     if (arena)
         bufferFlags |= 4; // (a share of the arena's buffer)
@@ -243,7 +243,7 @@ void __cdecl ReleaseBuffers()
     }
     for (uint8_t* node = FirstSceneNodeBytes(); node;) {
         uint8_t* next = NextSceneNode(node);
-        if (sScene* meshes = SceneMeshes(node))
+        if (sceneRef* meshes = SceneMeshes(node))
             if (IDirect3DVertexBuffer9* arena = ArenaBuffer(meshes))
                 arena->Release();
         node = next;
@@ -263,7 +263,7 @@ void __cdecl RecreateBuffers()
 {
     for (uint8_t* node = FirstSceneNodeBytes(); node;) {
         uint8_t* next = NextSceneNode(node);
-        sScene* meshes = SceneMeshes(node);
+        sceneRef* meshes = SceneMeshes(node);
         if (meshes && ArenaBuffer(meshes)) {
             IDirect3DVertexBuffer9* old = ArenaBuffer(meshes);
             Device()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &ArenaBuffer(meshes),
@@ -294,11 +294,11 @@ void __cdecl RecreateBuffers()
 }
 
 // 0x004D69E0
-void sMesh::DestroyBody()
+void meshRef::DestroyBody()
 {
     if (flags & 0x10)
         g_billboardManager.RemoveMesh(this);
-    Mem::Manager* heap = Mem::Manager::Get();
+    MemSys::Manager* heap = MemSys::Manager::Get();
     if (transform)
         heap->Free(transform);
     if (!(flags & 1)) { // (its own buffers, not another mesh's)

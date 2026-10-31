@@ -10,12 +10,12 @@
 #include "game/script/struct.h"
 #include "game/sys/log.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
-using Script::CArray;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CStruct;
 
 constexpr uint32_t kArray = 0x5EF31148;      // "array"
 constexpr uint32_t kContains = 0x71059581;   // "contains"
@@ -30,47 +30,47 @@ constexpr uint32_t kVal = 0x6820459A;        // "val"
 CArray* ElementArray(CArray* array, uint32_t index) { return reinterpret_cast<CArray*>(array->GetElement(index)); }
 
 // The array named `name`: one in the calling script's parameters, else the global one.
-CArray* FindArray(Script::CScript* script, uint32_t name)
+CArray* FindArray(Scripts::CScript* script, uint32_t name)
 {
     CArray* array = nullptr;
     if (!script->m_params->GetArray(name, &array, 0))
-        array = Script::GetArray(name);
+        array = Scripts::GetArray(name);
     return array;
 }
 
-// `array`'s element `index` added to `results` as val, by the array's type (strings through GetLocalString; types
+// `array`'s element `index` added to `results` as val, by the array's type (strings through FindInlineText; types
 // with no case - scripts, functions... - add nothing).
 void AddElement(CStruct* results, CArray* array, uint32_t index)
 {
     switch (array->m_type) {
-    case Script::ESYMBOLTYPE_INTEGER:
-        results->AddInteger(kVal, static_cast<int>(array->GetElement(index)));
+    case Scripts::QBVAL_INTEGER:
+        results->PutInt(kVal, static_cast<int>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_FLOAT:
-        results->AddFloat(kVal, array->GetFloat(index));
+    case Scripts::QBVAL_FLOAT:
+        results->PushFloat(kVal, array->GetFloat(index));
         break;
-    case Script::ESYMBOLTYPE_STRING:
-    case Script::ESYMBOLTYPE_LOCALSTRING:
-        results->AddString(kVal, array->GetLocalString(index));
+    case Scripts::QBVAL_STRING:
+    case Scripts::QBVAL_INLINE_TEXT:
+        results->AddString(kVal, array->FindInlineText(index));
         break;
-    case Script::ESYMBOLTYPE_PAIR: {
-        auto* pair = reinterpret_cast<Script::CPair*>(array->GetElement(index));
-        results->AddPair(kVal, pair->x, pair->y);
-        break;
-    }
-    case Script::ESYMBOLTYPE_VECTOR: {
-        auto* vector = reinterpret_cast<Script::CVector*>(array->GetElement(index));
-        results->AddVector(kVal, vector->x, vector->y, vector->z);
+    case Scripts::QBVAL_PAIR: {
+        auto* pair = reinterpret_cast<Scripts::CPair*>(array->GetElement(index));
+        results->InsertPair(kVal, pair->x, pair->y);
         break;
     }
-    case Script::ESYMBOLTYPE_STRUCTURE:
-        results->AddStructure(kVal, reinterpret_cast<CStruct*>(array->GetElement(index)));
+    case Scripts::QBVAL_VECTOR: {
+        auto* vector = reinterpret_cast<Scripts::CVector*>(array->GetElement(index));
+        results->PutVec3(kVal, vector->x, vector->y, vector->z);
         break;
-    case Script::ESYMBOLTYPE_ARRAY:
-        results->AddArray(kVal, ElementArray(array, index));
+    }
+    case Scripts::QBVAL_STRUCT:
+        results->PutSubStruct(kVal, reinterpret_cast<CStruct*>(array->GetElement(index)));
         break;
-    case Script::ESYMBOLTYPE_NAME:
-        results->AddChecksum(kVal, array->GetElement(index));
+    case Scripts::QBVAL_ARRAY:
+        results->AppendArrayValue(kVal, ElementArray(array, index));
+        break;
+    case Scripts::QBVAL_NAME:
+        results->PutNameKey(kVal, array->GetElement(index));
         break;
     default:
         break;
@@ -81,30 +81,30 @@ void AddElement(CStruct* results, CArray* array, uint32_t index)
 
 // 0x0044AF50: ArrayContains array=[...] contains=<value>: whether an element equals the value - integer arrays by
 // value, string arrays ignoring case, name arrays by checksum (any other array: false).
-bool __cdecl CFunc_ArrayContains(CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ArrayContains(CStruct* params, Scripts::CScript*)
 {
     CArray* array = nullptr;
     params->GetArray(kArray, &array, 1);
-    Script::ESymbolType type = array->m_type;
+    Scripts::EQbValueKind type = array->m_type;
     for (uint32_t i = 0; i < array->m_size; ++i) {
         switch (type) {
-        case Script::ESYMBOLTYPE_INTEGER: {
+        case Scripts::QBVAL_INTEGER: {
             int value = 0;
-            params->GetInteger(kContains, &value, 1);
+            params->FetchIntValue(kContains, &value, 1);
             if (static_cast<uint32_t>(value) == array->GetElement(i))
                 return true;
             break;
         }
-        case Script::ESYMBOLTYPE_STRING: {
+        case Scripts::QBVAL_STRING: {
             const char* value = "";
             params->GetString(kContains, &value, 1);
-            if (_stricmp(value, array->GetLocalString(i)) == 0)
+            if (_stricmp(value, array->FindInlineText(i)) == 0)
                 return true;
             break;
         }
-        case Script::ESYMBOLTYPE_NAME: {
+        case Scripts::QBVAL_NAME: {
             uint32_t value = 0;
-            params->GetChecksum(kContains, &value, 1);
+            params->ReadHashValue(kContains, &value, 1);
             if (value == array->GetElement(i))
                 return true;
             break;
@@ -118,16 +118,16 @@ bool __cdecl CFunc_ArrayContains(CStruct* params, Script::CScript*)
 
 // 0x0044B030: GetArraySize <array> [Index1=i [index2=j [index3=k]]]: array_size = the size of the array, or of the
 // element array the indices lead to.
-bool __cdecl CFunc_GetArraySize(CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetArraySize(CStruct* params, Scripts::CScript* script)
 {
     CArray* array = nullptr;
     params->GetArray(0u, &array, 1);
     int index = 0;
-    if (params->GetInteger(kIndex1, &index, 0)) {
+    if (params->FetchIntValue(kIndex1, &index, 0)) {
         array = ElementArray(array, static_cast<uint32_t>(index));
-        if (params->GetInteger(kIndex2, &index, 0)) {
+        if (params->FetchIntValue(kIndex2, &index, 0)) {
             array = ElementArray(array, static_cast<uint32_t>(index));
-            if (params->GetInteger(kIndex3, &index, 0))
+            if (params->FetchIntValue(kIndex3, &index, 0))
                 array = ElementArray(array, static_cast<uint32_t>(index));
         }
     }
@@ -135,38 +135,38 @@ bool __cdecl CFunc_GetArraySize(CStruct* params, Script::CScript* script)
     // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
     if (!array)
         Log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
-            Script::FindChecksumNameOrUnknown(script->m_scriptName));
-    script->m_params->AddInteger(kArraySize, static_cast<int>(array->m_size));
+            Scripts::FindChecksumNameOrUnknown(script->m_scriptTitle));
+    script->m_params->PutInt(kArraySize, static_cast<int>(array->m_size));
     return true;
 }
 
 // 0x0044B0F0: Get2DArrayData arrayName=<name> Index1=i index2=j: val = array[i][j] (the array the calling script's
 // own parameters name, else the global).
-bool __cdecl CFunc_Get2DArrayData(CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_Get2DArrayData(CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(kArrayName, &name, 1);
+    params->ReadHashValue(kArrayName, &name, 1);
     CArray* array = FindArray(script, name);
     int i = 0;
-    params->GetInteger(kIndex1, &i, 1);
+    params->FetchIntValue(kIndex1, &i, 1);
     int j = 0;
-    params->GetInteger(kIndex2, &j, 1);
+    params->FetchIntValue(kIndex2, &j, 1);
     AddElement(script->m_params, ElementArray(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
     return true;
 }
 
 // 0x0044B300: Get3DArrayData arrayName=<name> Index1=i index2=j index3=k: val = array[i][j][k].
-bool __cdecl CFunc_Get3DArrayData(CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_Get3DArrayData(CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(kArrayName, &name, 1);
+    params->ReadHashValue(kArrayName, &name, 1);
     CArray* array = FindArray(script, name);
     int i = 0;
-    params->GetInteger(kIndex1, &i, 1);
+    params->FetchIntValue(kIndex1, &i, 1);
     int j = 0;
-    params->GetInteger(kIndex2, &j, 1);
+    params->FetchIntValue(kIndex2, &j, 1);
     int k = 0;
-    params->GetInteger(kIndex3, &k, 1);
+    params->FetchIntValue(kIndex3, &k, 1);
     CArray* plane = ElementArray(ElementArray(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
     AddElement(script->m_params, plane, static_cast<uint32_t>(k));
     return true;
@@ -175,10 +175,10 @@ bool __cdecl CFunc_Get3DArrayData(CStruct* params, Script::CScript* script)
 // 0x0044B530: GetNDArrayData arrayName=<name>: val = the element the calling script's own `indices` array leads
 // to (read from the script's parameters, not the command's). An empty indices array runs off the end, as in the
 // original.
-bool __cdecl CFunc_GetNDArrayData(CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetNDArrayData(CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(kArrayName, &name, 1);
+    params->ReadHashValue(kArrayName, &name, 1);
     CArray* array = FindArray(script, name);
     CArray* indices = nullptr;
     script->m_params->GetArray(kIndices, &indices, 1);
@@ -189,4 +189,4 @@ bool __cdecl CFunc_GetNDArrayData(CStruct* params, Script::CScript* script)
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

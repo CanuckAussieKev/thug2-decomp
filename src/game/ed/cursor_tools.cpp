@@ -8,29 +8,29 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 
-namespace Ed {
+namespace ParkEditing {
 
-Mem::PoolPair g_clipboardPools;
-CCursor* g_cursor;
+MemSys::PoolPair g_clipboardPools;
+CBuildPointer* g_cursor;
 
 namespace {
 
-// The gap manager in use's SetGapInfo.
-void SetGapInfo(int tab, GapInfo* info) { CGapManager::Instance()->SetGapInfo(tab, info); }
+// The gap manager in use's StoreGapDetails.
+void StoreGapDetails(int tab, SGapDetails* info) { CGapRegistry::Instance()->StoreGapDetails(tab, info); }
 
 } // namespace
 
 void CClipboard::Free(void* item) { g_clipboardPools.Free(item); }
 
-CCursor* CCursor::sInstance() { return g_cursor; }
+CBuildPointer* CBuildPointer::sSingleton() { return g_cursor; }
 
-void CCursor::HideClipboards()
+void CBuildPointer::HideClipboards()
 {
-    for (CClipboard* clipboard = mp_clipboards; clipboard; clipboard = clipboard->mp_next)
-        clipboard->DestroyMetas();
+    for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
+        clipboard->FreeAllPieceGroups();
 }
 
-void CCursor::SetGapNameAndScore(const char* name, int score)
+void CBuildPointer::SetGapLabelAndPoints(const char* name, int score)
 {
     if (name) {
         if (*name == '\0') {
@@ -43,49 +43,49 @@ void CCursor::SetGapNameAndScore(const char* name, int score)
         }
     }
     if (score >= 0)
-        m_gap.m_score = score;
-    SetGapInfo(m_gap.m_tabIndex, &m_gap);
+        m_gap.m_pointsHeld = score;
+    StoreGapDetails(m_gap.m_tabIndex, &m_gap);
 }
 
-void CCursor::SetGapCancelFlags(Script::CStruct* flags)
+void CBuildPointer::SetGapVoidMask(Scripts::CStruct* flags)
 {
     if (!flags)
         return;
     uint32_t cancel = 0;
-    for (Script::CComponent* component = flags->GetNextComponent(nullptr); component;
-         component = flags->GetNextComponent(component))
-        cancel |= static_cast<uint32_t>(Script::GetInteger(component->checksum));
+    for (Scripts::CComponent* component = flags->StepToEntry(nullptr); component;
+         component = flags->StepToEntry(component))
+        cancel |= static_cast<uint32_t>(Scripts::FetchIntValue(component->checksum));
     m_gap.m_cancelFlags = cancel;
-    SetGapInfo(m_gap.m_tabIndex, &m_gap);
+    StoreGapDetails(m_gap.m_tabIndex, &m_gap);
 }
 
-void CCursor::ShowClipboard()
+void CBuildPointer::ShowClipboard()
 {
     if (mp_clipboard)
         mp_clipboard->ShowAt(this);
 }
 
-void CCursor::SelectClipboard(int index)
+void CBuildPointer::SelectClipboard(int index)
 {
     HideClipboards();
-    CClipboard* clipboard = mp_clipboards;
+    CClipboard* clipboard = m_copyBuffers;
     for (int i = 0; i < index && clipboard; ++i)
-        clipboard = clipboard->mp_next;
+        clipboard = clipboard->m_following;
     mp_clipboard = clipboard;
 }
 
-void CCursor::SetVisibility(bool visible)
+void CBuildPointer::ToggleShown(bool visible)
 {
-    if (mp_meta)
-        mp_meta->SetVisibility(visible);
+    if (m_pieceGroup)
+        m_pieceGroup->ToggleShown(visible);
     if (!visible && mp_clipboard)
-        mp_clipboard->DestroyMetas();
+        mp_clipboard->FreeAllPieceGroups();
     m_areaHighlighted = false;
 }
 
-void CCursor::OnModeChanged()
+void CBuildPointer::OnModeChanged()
 {
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
     uint32_t mode;
     if (m_mode == kModeGapAdjust)
@@ -96,12 +96,12 @@ void CCursor::OnModeChanged()
         mode = 0xFFD81C08; // rail_placement
     else
         mode = 0xB58EFC2B; // regular
-    params.AddChecksum(0x6835B854, mode); // mode
-    Script::RunScript(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
+    params.PutNameKey(0x6835B854, mode); // mode
+    Scripts::LaunchScript(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
     params.Clear();
 }
 
-void CCursor::GetAreaSelectDims(GridDims* area)
+void CBuildPointer::GetMarqueeBounds(SCellBox* area)
 {
     if (m_areaSelect == 0) {
         area->Set(0, 0, 0, 0, 0, 0);
@@ -125,28 +125,28 @@ void CCursor::GetAreaSelectDims(GridDims* area)
     area->l = static_cast<uint8_t>(highZ - lowZ + 1);
 }
 
-void CCursor::RemoveOldestClipboard()
+void CBuildPointer::RemoveOldestClipboard()
 {
     CClipboard* previous = nullptr;
-    CClipboard* last = mp_clipboards;
+    CClipboard* last = m_copyBuffers;
     if (!last)
         return;
-    while (last->mp_next) {
+    while (last->m_following) {
         previous = last;
-        last = last->mp_next;
+        last = last->m_following;
     }
     last->Destroy();
     CClipboard::Free(last);
     if (previous)
-        previous->mp_next = nullptr;
+        previous->m_following = nullptr;
     else
-        mp_clipboards = nullptr;
+        m_copyBuffers = nullptr;
 }
 
-void CCursor::ClampToPark()
+void CBuildPointer::ClampToPark()
 {
-    const GridDims& bounds = mp_manager->m_parkBounds;
-    GridDims& pos = m_cell_area;
+    const SCellBox& bounds = m_parkOwner->m_parkBounds;
+    SCellBox& pos = m_cellFootprint;
     if (pos.x < bounds.x)
         pos.x = bounds.x;
     if (pos.w + pos.x > bounds.w + bounds.x)
@@ -159,7 +159,7 @@ void CCursor::ClampToPark()
     if (m_mode != kModePaste || !mp_clipboard)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
-    GridDims area;
+    SCellBox area;
     area.Set(0, 0, 0, 0, 0, 0);
     mp_clipboard->GetArea(this, &area);
     int last = bounds.w + bounds.x - 1;
@@ -180,11 +180,11 @@ void CCursor::ClampToPark()
     pos.z = static_cast<uint8_t>(pos.z + shift);
 }
 
-void CCursor::DestroyClipboards()
+void CBuildPointer::DestroyClipboards()
 {
-    CClipboard* clipboard = mp_clipboards;
+    CClipboard* clipboard = m_copyBuffers;
     while (clipboard) {
-        CClipboard* next = clipboard->mp_next;
+        CClipboard* next = clipboard->m_following;
         clipboard->Destroy();
         CClipboard::Free(clipboard);
         clipboard = next;
@@ -192,11 +192,11 @@ void CCursor::DestroyClipboards()
     mp_clipboard = nullptr;
 }
 
-void CCursor::ForgetGapAt(CMetaPiece* meta)
+void CBuildPointer::ForgetGapAt(CPieceGroup* meta)
 {
-    GridDims area = meta->m_cell_area;
+    SCellBox area = meta->m_cellFootprint;
     int half;
-    GapInfo* gap = mp_manager->GetGapInfo(&area, &half);
+    SGapDetails* gap = m_parkOwner->GetGapInfo(&area, &half);
     if (!gap)
         return;
     if (m_gap.m_numCompleteHalves != 1 ||
@@ -205,19 +205,19 @@ void CCursor::ForgetGapAt(CMetaPiece* meta)
         m_gap.m_numCompleteHalves = 0;
 }
 
-int CCursor::AdvanceAreaSelection()
+int CBuildPointer::AdvanceAreaSelection()
 {
     if (m_areaSelect == 0) {
-        m_areaStart = m_cell_area;
-        m_areaLast = m_cell_area;
+        m_areaStart = m_cellFootprint;
+        m_areaLast = m_cellFootprint;
         m_areaSelect = 1;
         m_areaHighlighted = false;
         return m_areaSelect;
     }
     if (m_areaSelect == 1) {
-        GridDims area;
+        SCellBox area;
         area.Set(0, 0, 0, 0, 0, 0);
-        GetAreaSelectDims(&area);
+        GetMarqueeBounds(&area);
         if (area.w <= 10 && area.l <= 10)
             m_areaSelect = 2;
     }
@@ -226,4 +226,4 @@ int CCursor::AdvanceAreaSelection()
 
 } // namespace Ed
 
-using Ed::CCursor;
+using ParkEditing::CBuildPointer;

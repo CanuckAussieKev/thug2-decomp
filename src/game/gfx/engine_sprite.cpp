@@ -11,7 +11,7 @@
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -31,91 +31,91 @@ void Notify(T* object, int slot)
 // --- the sprite ---------------------------------------------------------------------------------------------
 
 // 0x0049ED60
-CSprite* CSprite::Construct(void* window)
+CBillboardQuad* CBillboardQuad::Construct(void* window)
 {
-    m_x = -1.0f;
+    m_posX = -1.0f;
     m_y = -1.0f;
     m_hotX = -1.0f;
     m_hotY = -1.0f;
     vtable = reinterpret_cast<void**>(kSpriteVtable);
-    mp_texture = nullptr;
-    m_xscale = 1.0f;
-    m_yscale = 1.0f;
-    m_rotation = 0.0f;
+    m_bitmap = nullptr;
+    m_scaleH = 1.0f;
+    m_scaleV = 1.0f;
+    m_orientationTurn = 0.0f;
     m_priority = 0.0f;
-    m_width = 0;
-    m_height = 0;
-    std::memset(m_rgba, 0x80, sizeof(m_rgba));
-    mp_window = window;
-    m_hidden = true;
+    m_span = 0;
+    m_levelY = 0;
+    std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));
+    m_viewWindow = window;
+    m_invisible = true;
     m_useDepth = false;
     m_flipV = false;
     m_flipU = false;
-    m_blend = kBlend;
+    m_mixMode = kBlend;
     return this;
 }
 
 // 0x0049EBA0
-void CSprite::DestroyBody() { vtable = reinterpret_cast<void**>(kSpriteVtable); }
+void CBillboardQuad::DestroyBody() { vtable = reinterpret_cast<void**>(kSpriteVtable); }
 
 // 0x0049EDD0
-CSprite* CSprite::Destroy(unsigned int freeFlags)
+CBillboardQuad* CBillboardQuad::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x0049EBB0
-void CSprite::SetHidden(bool hidden)
+void CBillboardQuad::SetHidden(bool hidden)
 {
-    m_hidden = hidden;
+    m_invisible = hidden;
     Notify(this, 2);
 }
 
 // 0x0049EBC0
-void CSprite::SetTexture(uint8_t* texture)
+void CBillboardQuad::SetTexture(uint8_t* texture)
 {
-    mp_texture = texture;
+    m_bitmap = texture;
     if (texture) {
-        m_width = TextureWidth(texture);
-        m_height = TextureHeight(texture);
+        m_span = TextureWidth(texture);
+        m_levelY = TextureHeight(texture);
     }
     Notify(this, 3);
 }
 
 // 0x0049EC00
-void CSprite::SetBlendMode(uint32_t blend)
+void CBillboardQuad::ChooseBlendMode(uint32_t blend)
 {
-    m_blend = blend;
+    m_mixMode = blend;
     Notify(this, 3);
 }
 
 // 0x0049EC10
-void CSprite::SetPos(float x, float y)
+void CBillboardQuad::SetPos(float x, float y)
 {
-    m_x = x;
+    m_posX = x;
     m_y = y;
     Notify(this, 3);
 }
 
 // 0x0049EC30
-void CSprite::SetSize(uint16_t width, uint16_t height)
+void CBillboardQuad::SetSize(uint16_t width, uint16_t height)
 {
-    m_width = width;
-    m_height = height;
+    m_span = width;
+    m_levelY = height;
     Notify(this, 3);
 }
 
 // 0x0049EE00 (the products at 53 bits - exact for floats -, the quotients rounded to floats once)
-void CSprite::SetScale(float xscale, float yscale)
+void CBillboardQuad::ChangeScale(float xscale, float yscale)
 {
     float width = 1.0f;
     float height = 1.0f;
-    if (mp_texture) {
-        width = static_cast<float>(TextureWidth(mp_texture));
-        height = static_cast<float>(TextureHeight(mp_texture));
+    if (m_bitmap) {
+        width = static_cast<float>(TextureWidth(m_bitmap));
+        height = static_cast<float>(TextureHeight(m_bitmap));
     }
     constexpr float kMinWidth = 1.25f;                                // 0x00649AC4
     constexpr float kMinHeight = std::bit_cast<float>(0x3F955326u); // 0x00649AC0: 1.1666
@@ -123,13 +123,13 @@ void CSprite::SetScale(float xscale, float yscale)
         xscale = static_cast<float>(static_cast<double>(kMinWidth) / width);
     if (yscale > 0.0f && static_cast<double>(height) * yscale <= kMinHeight)
         yscale = static_cast<float>(static_cast<double>(kMinHeight) / height);
-    m_yscale = yscale;
-    m_xscale = xscale;
+    m_scaleV = yscale;
+    m_scaleH = xscale;
     Notify(this, 3);
 }
 
 // 0x0049EC50
-void CSprite::SetFlip(bool flipV, bool flipU)
+void CBillboardQuad::SetFlip(bool flipV, bool flipU)
 {
     m_flipV = flipV;
     m_flipU = flipU;
@@ -137,7 +137,7 @@ void CSprite::SetFlip(bool flipV, bool flipU)
 }
 
 // 0x0049EC70
-void CSprite::SetHotSpot(float x, float y)
+void CBillboardQuad::SetHotSpot(float x, float y)
 {
     m_hotX = x;
     m_hotY = y;
@@ -145,14 +145,14 @@ void CSprite::SetHotSpot(float x, float y)
 }
 
 // 0x0049EC90
-void CSprite::SetRotation(float rotation)
+void CBillboardQuad::SetRotation(float rotation)
 {
-    m_rotation = rotation;
+    m_orientationTurn = rotation;
     Notify(this, 3);
 }
 
 // 0x0049ECA0
-void CSprite::SetPriority(float priority)
+void CBillboardQuad::SetPriority(float priority)
 {
     m_priority = priority;
     m_useDepth = false;
@@ -160,24 +160,24 @@ void CSprite::SetPriority(float priority)
 }
 
 // 0x0049ECC0
-void CSprite::SetDepth(uint32_t depth)
+void CBillboardQuad::SetDepth(uint32_t depth)
 {
-    m_depth = depth;
+    m_layer = depth;
     m_useDepth = true;
     Notify(this, 4);
 }
 
 // 0x0049ECE0
-void CSprite::SetZWrite(bool zWrite)
+void CBillboardQuad::SetZWrite(bool zWrite)
 {
     m_zWrite = zWrite;
     Notify(this, 3);
 }
 
 // 0x0049ECF0
-void CSprite::SetRGBA(uint32_t rgba)
+void CBillboardQuad::ChangeRgba(uint32_t rgba)
 {
-    std::memcpy(m_rgba, &rgba, sizeof(m_rgba));
+    std::memcpy(m_rgbaValue, &rgba, sizeof(m_rgbaValue));
     Notify(this, 3);
 }
 
@@ -186,11 +186,11 @@ void CSprite::SetRGBA(uint32_t rgba)
 // 0x0049EED0
 CTexturedQuad* CTexturedQuad::Construct(void* window)
 {
-    mp_window = window;
+    m_viewWindow = window;
     vtable = reinterpret_cast<void**>(kQuadVtable);
-    mp_texture = nullptr;
-    std::memset(m_rgba, 0x80, sizeof(m_rgba));
-    m_hidden = true;
+    m_bitmap = nullptr;
+    std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));
+    m_invisible = true;
     m_useDepth = false;
     return this;
 }
@@ -200,35 +200,35 @@ CTexturedQuad* CTexturedQuad::Destroy(unsigned int freeFlags)
 {
     vtable = reinterpret_cast<void**>(kQuadVtable);
     if (freeFlags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x0049EF30
 CTexturedQuad* CTexturedQuad::Create()
 {
-    void* memory = Mem::New(sizeof(CTexturedQuad));
+    void* memory = MemSys::New(sizeof(CTexturedQuad));
     return memory ? static_cast<CTexturedQuad*>(memory)->Construct(nullptr) : nullptr;
 }
 
 // 0x0049ED10
 void CTexturedQuad::SetHidden(bool hidden)
 {
-    m_hidden = hidden;
+    m_invisible = hidden;
     Notify(this, 4);
 }
 
 // 0x0049ED40
 void CTexturedQuad::SetTexture(uint8_t* texture)
 {
-    mp_texture = texture;
+    m_bitmap = texture;
     Notify(this, 5);
 }
 
 // 0x0049ED00
-void CTexturedQuad::SetBlendMode(uint32_t blend)
+void CTexturedQuad::ChooseBlendMode(uint32_t blend)
 {
-    m_blend = blend;
+    m_mixMode = blend;
     Notify(this, 5);
 }
 
@@ -241,17 +241,17 @@ void CTexturedQuad::SetPriority(float priority)
 }
 
 // 0x0049ED50
-void CTexturedQuad::SetRGBA(uint32_t rgba)
+void CTexturedQuad::ChangeRgba(uint32_t rgba)
 {
-    std::memcpy(m_rgba, &rgba, sizeof(m_rgba));
+    std::memcpy(m_rgbaValue, &rgba, sizeof(m_rgbaValue));
     Notify(this, 5);
 }
 
 namespace {
-static VtableSlot kSpriteVtable_slots[] = {&Nx::CSprite::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CBillboardQuad::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
                 Stubs::DoNothing, Stubs::DoNothing};
 void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
-static VtableSlot kQuadVtable_slots[] = {&Nx::CTexturedQuad::Destroy, &Nx::CTexturedQuad::Create, Stubs::DoNothing,
+static VtableSlot kQuadVtable_slots[] = {&Engine3D::CTexturedQuad::Destroy, &Engine3D::CTexturedQuad::Create, Stubs::DoNothing,
                 Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
                 Stubs::IgnoreArgument, Stubs::IgnoreArgument};
 void** const kQuadVtable = reinterpret_cast<void**>(kQuadVtable_slots);

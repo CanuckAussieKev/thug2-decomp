@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
@@ -18,7 +18,7 @@ public:
     // 0x0051F4C0: from a control script's parameters, the structure for this platform: "xbox" (0xCE42EE1A) on
     // platform 7, 0xCB0E600C on platform 5, else the default (0xE594F0A2, asserted). PC is platform 7; with
     // PartyMod's PS2 controls the Xbox structure is skipped (the 7 becomes a 5). `this` isn't used.
-    Script::CStruct* PlatformStructure(Script::CStruct* params);
+    Scripts::CStruct* PlatformStructure(Scripts::CStruct* params);
     // 0x00527510 / 0x00527600: start an acid drop from walking (when the physics finds one,
     // 0x00502240): two buttons held (+0xC0, and +0x120 of the input). PartyMod's PS2 controls drop the first
     // (that's nollie, which centres the camera).

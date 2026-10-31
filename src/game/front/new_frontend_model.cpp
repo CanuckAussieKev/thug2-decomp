@@ -12,7 +12,7 @@
 #include <map>
 #include <memory>
 
-namespace Front::NewFrontend {
+namespace MenuSystem::NewFrontend {
 
 namespace {
 
@@ -33,7 +33,7 @@ struct Json {
                 return &value;
         return nullptr;
     }
-    std::string Str(const char* key) const
+    std::string TextUtil(const char* key) const
     {
         const Json* v = Get(key);
         return v && v->kind == String ? v->text : std::string();
@@ -48,7 +48,7 @@ public:
         if (!Value(out, 0))
             return false;
         Space();
-        return m_at == m_text.size() || Fail("text after the value");
+        return m_lookAt == m_text.size() || Fail("text after the value");
     }
     const std::string& Error() const { return m_error; }
 
@@ -56,20 +56,20 @@ private:
     bool Fail(const char* why)
     {
         if (m_error.empty())
-            m_error = std::string(why) + " at character " + std::to_string(m_at);
+            m_error = std::string(why) + " at character " + std::to_string(m_lookAt);
         return false;
     }
     void Space()
     {
-        while (m_at < m_text.size() && std::isspace(static_cast<unsigned char>(m_text[m_at])))
-            ++m_at;
+        while (m_lookAt < m_text.size() && std::isspace(static_cast<unsigned char>(m_text[m_lookAt])))
+            ++m_lookAt;
     }
     bool Literal(const char* word)
     {
         size_t n = std::strlen(word);
-        if (m_text.compare(m_at, n, word) != 0)
+        if (m_text.compare(m_lookAt, n, word) != 0)
             return false;
-        m_at += n;
+        m_lookAt += n;
         return true;
     }
     static void AppendUtf8(std::string* out, unsigned code)
@@ -87,18 +87,18 @@ private:
     }
     bool StringValue(std::string* out)
     {
-        ++m_at; // (the opening quote)
-        while (m_at < m_text.size()) {
-            char c = m_text[m_at++];
+        ++m_lookAt; // (the opening quote)
+        while (m_lookAt < m_text.size()) {
+            char c = m_text[m_lookAt++];
             if (c == '"')
                 return true;
             if (c != '\\') {
                 out->push_back(c);
                 continue;
             }
-            if (m_at >= m_text.size())
+            if (m_lookAt >= m_text.size())
                 break;
-            char e = m_text[m_at++];
+            char e = m_text[m_lookAt++];
             switch (e) {
             case '"': case '\\': case '/': out->push_back(e); break;
             case 'b': out->push_back('\b'); break;
@@ -107,10 +107,10 @@ private:
             case 'r': out->push_back('\r'); break;
             case 't': out->push_back('\t'); break;
             case 'u': {
-                if (m_at + 4 > m_text.size())
+                if (m_lookAt + 4 > m_text.size())
                     return Fail("a short \\u escape");
-                unsigned code = static_cast<unsigned>(std::strtoul(m_text.substr(m_at, 4).c_str(), nullptr, 16));
-                m_at += 4;
+                unsigned code = static_cast<unsigned>(std::strtoul(m_text.substr(m_lookAt, 4).c_str(), nullptr, 16));
+                m_lookAt += 4;
                 AppendUtf8(out, code);
                 break;
             }
@@ -124,39 +124,39 @@ private:
         if (depth > 32)
             return Fail("nesting too deep");
         Space();
-        if (m_at >= m_text.size())
+        if (m_lookAt >= m_text.size())
             return Fail("the end of the text where a value should be");
-        char c = m_text[m_at];
+        char c = m_text[m_lookAt];
         if (c == '{') {
             out->kind = Json::Object;
-            ++m_at;
+            ++m_lookAt;
             Space();
-            if (m_at < m_text.size() && m_text[m_at] == '}') {
-                ++m_at;
+            if (m_lookAt < m_text.size() && m_text[m_lookAt] == '}') {
+                ++m_lookAt;
                 return true;
             }
             for (;;) {
                 Space();
-                if (m_at >= m_text.size() || m_text[m_at] != '"')
+                if (m_lookAt >= m_text.size() || m_text[m_lookAt] != '"')
                     return Fail("an object's key isn't a string");
                 std::string key;
                 if (!StringValue(&key))
                     return false;
                 Space();
-                if (m_at >= m_text.size() || m_text[m_at] != ':')
+                if (m_lookAt >= m_text.size() || m_text[m_lookAt] != ':')
                     return Fail("no ':' after a key");
-                ++m_at;
+                ++m_lookAt;
                 Json value;
                 if (!Value(&value, depth + 1))
                     return false;
                 out->members.emplace_back(std::move(key), std::move(value));
                 Space();
-                if (m_at < m_text.size() && m_text[m_at] == ',') {
-                    ++m_at;
+                if (m_lookAt < m_text.size() && m_text[m_lookAt] == ',') {
+                    ++m_lookAt;
                     continue;
                 }
-                if (m_at < m_text.size() && m_text[m_at] == '}') {
-                    ++m_at;
+                if (m_lookAt < m_text.size() && m_text[m_lookAt] == '}') {
+                    ++m_lookAt;
                     return true;
                 }
                 return Fail("an object not closed");
@@ -164,10 +164,10 @@ private:
         }
         if (c == '[') {
             out->kind = Json::Array;
-            ++m_at;
+            ++m_lookAt;
             Space();
-            if (m_at < m_text.size() && m_text[m_at] == ']') {
-                ++m_at;
+            if (m_lookAt < m_text.size() && m_text[m_lookAt] == ']') {
+                ++m_lookAt;
                 return true;
             }
             for (;;) {
@@ -176,12 +176,12 @@ private:
                     return false;
                 out->items.push_back(std::move(value));
                 Space();
-                if (m_at < m_text.size() && m_text[m_at] == ',') {
-                    ++m_at;
+                if (m_lookAt < m_text.size() && m_text[m_lookAt] == ',') {
+                    ++m_lookAt;
                     continue;
                 }
-                if (m_at < m_text.size() && m_text[m_at] == ']') {
-                    ++m_at;
+                if (m_lookAt < m_text.size() && m_text[m_lookAt] == ']') {
+                    ++m_lookAt;
                     return true;
                 }
                 return Fail("an array not closed");
@@ -203,20 +203,20 @@ private:
         if (Literal("null"))
             return true;
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
-            const char* start = m_text.c_str() + m_at;
+            const char* start = m_text.c_str() + m_lookAt;
             char* end = nullptr;
             out->number = std::strtod(start, &end);
             if (end == start)
                 return Fail("a bad number");
             out->kind = Json::Number;
-            m_at += static_cast<size_t>(end - start);
+            m_lookAt += static_cast<size_t>(end - start);
             return true;
         }
         return Fail("an unexpected character");
     }
 
     const std::string& m_text;
-    size_t m_at = 0;
+    size_t m_lookAt = 0;
     std::string m_error;
 };
 
@@ -298,10 +298,10 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
         if (s.kind != Json::Object)
             return fail("a section isn't an object");
         Section section;
-        section.id = s.Str("id");
-        section.tab = s.Str("tab");
-        section.title = s.Str("title");
-        section.colour = ParseColour(s.Str("colour"), 0xFFC9CBD0);
+        section.id = s.TextUtil("id");
+        section.tab = s.TextUtil("tab");
+        section.title = s.TextUtil("title");
+        section.colour = ParseColour(s.TextUtil("colour"), 0xFFC9CBD0);
         if (section.tab.empty())
             section.tab = section.id;
         const Json* levels = s.Get("levels");
@@ -311,9 +311,9 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
             if (l.kind != Json::Object)
                 return fail("a level isn't an object");
             Level level;
-            level.name = l.Str("name");
-            level.load = l.Str("load");
-            level.art = l.Str("art");
+            level.name = l.TextUtil("name");
+            level.load = l.TextUtil("load");
+            level.art = l.TextUtil("art");
             if (const Json* variants = l.Get("art_variants"); variants && variants->kind == Json::Array)
                 for (const Json& v : variants->items)
                     if (v.kind == Json::String && !v.text.empty())
@@ -324,12 +324,12 @@ bool ParseCatalogue(const std::string& json, Catalogue* out, std::string* error)
                         level.artLabels.push_back(v.text);
             if (level.artLabels.size() != level.artVariants.size())
                 level.artLabels.clear();
-            level.flag = l.Str("flag");
-            level.seenFlag = l.Str("seen_flag");
-            level.gameTag = l.Str("game_tag");
+            level.flag = l.TextUtil("flag");
+            level.seenFlag = l.TextUtil("seen_flag");
+            level.gameTag = l.TextUtil("game_tag");
             if (const Json* num = l.Get("level_num")) {
                 if (num->kind == Json::Number)
-                    level.levelNum = static_cast<int>(num->number);
+                    level.levelIndex = static_cast<int>(num->number);
                 else if (num->kind == Json::String)
                     level.levelNumName = num->text;
             }
@@ -583,7 +583,7 @@ void Menu::SetOptionGroup(int group)
 {
     int count = static_cast<int>(Options::Groups().size());
     if (count > 0)
-        m_group = ((group % count) + count) % count;
+        m_bundle = ((group % count) + count) % count;
     m_optionRow = 0;
 }
 
@@ -602,7 +602,7 @@ const std::vector<int>& Menu::OptionRows() const
 {
     static const std::vector<int> none;
     const std::vector<Options::Group>& groups = Options::Groups();
-    return m_group >= 0 && m_group < static_cast<int>(groups.size()) ? groups[m_group].rows : none;
+    return m_bundle >= 0 && m_bundle < static_cast<int>(groups.size()) ? groups[m_bundle].rows : none;
 }
 
 int Menu::OptionChoice(int option) const
@@ -660,7 +660,7 @@ float Menu::RowAmount(int row) const
 
 float Menu::Pan() const
 {
-    float phase = std::fmod(m_time, kPanSeconds * 2.0f) / kPanSeconds; // 0..2
+    float phase = std::fmod(m_clock, kPanSeconds * 2.0f) / kPanSeconds; // 0..2
     float linear = phase <= 1.0f ? phase : 2.0f - phase;
     return 0.5f - 0.5f * std::cos(linear * 3.14159265f); // (eased at both ends)
 }
@@ -863,14 +863,14 @@ Action Menu::Press(Input input)
         return levels ? SetSection(m_section + 1) : options ? ChangeOption(1, false) : Action{};
     case Input::PrevTab:
         if (options) {
-            SetOptionGroup(m_group - 1);
+            SetOptionGroup(m_bundle - 1);
             ResetRows();
             return {ActionKind::MoveSound};
         }
         return levels ? SetSection(m_section - 1) : Action{};
     case Input::NextTab:
         if (options) {
-            SetOptionGroup(m_group + 1);
+            SetOptionGroup(m_bundle + 1);
             ResetRows();
             return {ActionKind::MoveSound};
         }
@@ -919,7 +919,7 @@ Action Menu::ClickTab(int section)
     if (Busy())
         return {};
     if (m_shown == Screen::Options) {
-        if (section == m_group)
+        if (section == m_bundle)
             return {};
         SetOptionGroup(section);
         ResetRows();
@@ -1016,7 +1016,7 @@ bool Menu::SelectId(const std::string& id)
                                  ? SameText(spec.key, id)
                                  : SameText(spec.section, id.substr(0, dot)) && SameText(spec.key, id.substr(dot + 1));
                 if (match) {
-                    if (static_cast<int>(g) != m_group) {
+                    if (static_cast<int>(g) != m_bundle) {
                         SetOptionGroup(static_cast<int>(g));
                         ResetRows();
                     }
@@ -1048,7 +1048,7 @@ std::string Menu::SelectedId() const
 Action Menu::Tick(float dt)
 {
     dt = std::clamp(dt, 0.0f, 0.1f); // (a long frame - a load, a hitch - doesn't skip the motion)
-    m_time += dt;
+    m_clock += dt;
     if (m_wipe >= 0.0f) {
         m_wipe += dt;
         if (!m_switched && m_wipe >= kWipeSeconds * 0.5f) {
@@ -1089,7 +1089,7 @@ Action Menu::Tick(float dt)
 void Cover::Start(Over over)
 {
     m_over = over;
-    m_time = m_still = 0.0f;
+    m_clock = m_still = 0.0f;
     m_screen = 0;
     m_seen = false;
 }
@@ -1104,7 +1104,7 @@ bool Cover::Update(const Now& now, float dt, const char** why)
     };
     if (m_over == Over::None)
         return false;
-    m_time += dt;
+    m_clock += dt;
     if (now.targetReady)
         return end("the screen it goes to is up");
     if (now.gameplay)
@@ -1118,9 +1118,9 @@ bool Cover::Update(const Now& now, float dt, const char** why)
     }
     if (now.leftOriginal && m_still >= kSettleSeconds)
         return end("an original screen that stays original is up");
-    if (m_time >= kMaxSeconds)
+    if (m_clock >= kMaxSeconds)
         return end("nothing came up in time");
     return true;
 }
 
-} // namespace Front::NewFrontend
+} // namespace MenuSystem::NewFrontend

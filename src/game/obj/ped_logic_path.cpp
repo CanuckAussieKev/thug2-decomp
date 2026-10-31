@@ -1,4 +1,4 @@
-// The PedLogic component (Obj::CPedLogicComponent): see ped_logic.h. Its path - the waypoints, the choice of the node
+// The PedLogic component (GameObjects::CPedestrianBrainModule): see ped_logic.h. Its path - the waypoints, the choice of the node
 // after next, each waypoint's actions - and the skating peds' tricks (the states a node's SkateAction starts, the
 // jumps' parameters); from the disassembly of 0x004ED0E0-0x004F2780 (0x004EDEC0, 0x004F1E80 and 0x004F2770 aren't
 // Ghidra functions). The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
@@ -20,7 +20,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/terrain.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -53,7 +53,7 @@ constexpr uint32_t kHitDeadEnd = 0xA80F965E;        // ped_walker_hit_dead_end (
 constexpr uint32_t kAdjustSpeed = 0x74E4BBA5;       // (a node flag: its speed changed)
 constexpr uint32_t kAdjustSpeedWeight = 0x922C5B59;
 constexpr uint32_t kAdjustSpeedPercent = 0xA04D16EC; // AdjustSpeedPercent
-constexpr uint32_t kRunScript = 0x55D98ED7;         // RunScript
+constexpr uint32_t kRunScript = 0x55D98ED7;         // LaunchScript
 constexpr uint32_t kRunScriptWeight = 0x86C9CCCE;   // RunScriptWeight
 constexpr uint32_t kRunScriptName = 0x64B4CD9D;     // RunScriptName
 constexpr uint32_t kTerrainType = 0x54CF8532;       // TerrainType
@@ -94,13 +94,13 @@ constexpr float kMinusTwo = -2.0f;                  // 0x00646970
 constexpr float kHalf = 0.5f;                       // 0x006453BC
 constexpr float kSpinRound = 0.01f;                 // 0x0064544C
 
-CMotionComponent* Motion(CCompositeObject* object) { return static_cast<CMotionComponent*>(object->GetComponent(kMotion)); }
+CKinematicsModule* Motion(CGameEntity* object) { return static_cast<CKinematicsModule*>(object->GetComponent(kMotion)); }
 
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
@@ -116,49 +116,49 @@ int Truncate(double value)
 } // namespace
 
 // 0x004ED080
-bool CPedLogicComponent::IsVertNode(uint32_t node)
+bool CPedestrianBrainModule::IsVertNode(uint32_t node)
 {
     // The action is read into the argument's own slot; a missing node is read through a null (original).
     uint32_t action = node;
-    if (!SkateScript::GetNode(node, true)->GetChecksum(kSkateAction, &action, 0))
+    if (!LevelNodes::GetNode(node, true)->ReadHashValue(kSkateAction, &action, 0))
         return false;
     return action == kVertGrab || action == kVertLip || action == kVertGrind || action == kVertOther ||
            action == kVertFlip || action == kVertJump;
 }
 
 // 0x004ED0E0
-bool CPedLogicComponent::Chance(Script::CStruct* node, uint32_t weightName)
+bool CPedestrianBrainModule::Chance(Scripts::CStruct* node, uint32_t weightName)
 {
     // (The weight is read over the `weightName` argument: missing - it's asserted - it stays the name's bits.)
     float weight = std::bit_cast<float>(weightName);
     node->GetFloat(weightName, &weight, 1);
     if (weight > kAlwaysAbove)
         return true;
-    int roll = Mth::Rnd(1000);
+    int roll = Maths::Rnd(1000);
     return static_cast<double>(weight) * kThousand > roll;
 }
 
 // 0x004ED8A0
-void CPedLogicComponent::ChooseNodeAfter()
+void CPedestrianBrainModule::ChooseNodeAfter()
 {
     bool fromStop = false;
     uint32_t action;
-    if (SkateScript::GetNode(m_node, true)->GetChecksum(kSkateAction, &action, 0) && action == kStopAction)
+    if (LevelNodes::GetNode(m_listLink, true)->ReadHashValue(kSkateAction, &action, 0) && action == kStopAction)
         fromStop = true;
-    int count = static_cast<int>(SkateScript::GetLinkCount(m_nextNode));
+    int count = static_cast<int>(LevelNodes::GetLinkCount(m_nextNode));
     uint32_t chosen;
     if (count == 0) {
-        chosen = m_node;
+        chosen = m_listLink;
     } else if (count == 1) {
-        chosen = SkateScript::GetLink(m_nextNode, 0);
-        if (chosen == m_node) {
+        chosen = LevelNodes::GetLink(m_nextNode, 0);
+        if (chosen == m_listLink) {
             // A dead end, unless the node is a vert grab: back the way it came.
             uint32_t nextAction;
-            if (SkateScript::GetNode(m_nextNode, true)->GetChecksum(kSkateAction, &nextAction, 0) && nextAction == kVertGrab)
+            if (LevelNodes::GetNode(m_nextNode, true)->ReadHashValue(kSkateAction, &nextAction, 0) && nextAction == kVertGrab)
                 chosen = m_nextNode;
         }
     } else {
-        Mth::Vector incoming = {m_nextNodePos.x - m_nodePos.x, m_nextNodePos.y - m_nodePos.y,
+        Maths::Vector incoming = {m_nextNodePos.x - m_nodePos.x, m_nextNodePos.y - m_nodePos.y,
                                 m_nextNodePos.z - m_nodePos.z, m_nextNodePos.w - m_nodePos.w};
         int lows[20], normals[20];
         for (int i = 0; i < count; ++i) {
@@ -166,27 +166,27 @@ void CPedLogicComponent::ChooseNodeAfter()
             lows[i] = i;
         }
         int lowCount = 0, normalCount = 0;
-        int minAngle = Script::GetInteger(kMinInnerPathAngle);
+        int minAngle = Scripts::FetchIntValue(kMinInnerPathAngle);
         float bestAngle = 0.0f;
         int best = 0;
         for (int i = 0; i < count; ++i) {
-            uint32_t link = SkateScript::GetLink(m_nextNode, i);
-            if (link == m_node)
+            uint32_t link = LevelNodes::GetLink(m_nextNode, i);
+            if (link == m_listLink)
                 continue;
-            Script::CStruct* linked = SkateScript::GetNode(link, true);
+            Scripts::CStruct* linked = LevelNodes::GetNode(link, true);
             uint32_t linkClass = 0, linkType = 0;
-            linked->GetChecksum(kClass, &linkClass, 0);
-            linked->GetChecksum(kTypeName, &linkType, 0);
+            linked->ReadHashValue(kClass, &linkClass, 0);
+            linked->ReadHashValue(kTypeName, &linkType, 0);
             if (linkClass != kWaypoint || linkType != kPedAI)
                 continue;
             uint32_t linkAction;
-            if (!fromStop && linked->GetChecksum(kSkateAction, &linkAction, 0) && linkAction == kStopAction)
+            if (!fromStop && linked->ReadHashValue(kSkateAction, &linkAction, 0) && linkAction == kStopAction)
                 continue;
-            Mth::Vector linkPos;
-            SkateScript::GetPosition(link, &linkPos);
-            Mth::Vector outgoing = {m_nextNodePos.x - linkPos.x, m_nextNodePos.y - linkPos.y,
+            Maths::Vector linkPos;
+            LevelNodes::GetPosition(link, &linkPos);
+            Maths::Vector outgoing = {m_nextNodePos.x - linkPos.x, m_nextNodePos.y - linkPos.y,
                                     m_nextNodePos.z - linkPos.z, m_nextNodePos.w - linkPos.w};
-            double angle = Mth::GetAngle(incoming, outgoing);
+            double angle = Maths::ReadTurnAngle(incoming, outgoing);
             if (angle > kFullTurnDegrees)
                 angle -= static_cast<double>(Truncate(angle * kInverseFullTurn)) * kFullTurnDegrees;
             if (angle > bestAngle) {
@@ -196,83 +196,83 @@ void CPedLogicComponent::ChooseNodeAfter()
             if (!(angle >= minAngle))
                 continue;
             uint32_t priority;
-            linked->GetChecksum(kPriority, &priority, 1);
+            linked->ReadHashValue(kPriority, &priority, 1);
             if (priority == kLow)
                 lows[lowCount++] = i;
             else if (priority == kNormal)
                 normals[normalCount++] = i;
         }
         if (normalCount == 0 && lowCount == 0) {
-            chosen = SkateScript::GetLink(m_nextNode, best);
+            chosen = LevelNodes::GetLink(m_nextNode, best);
         } else {
             bool low = normalCount == 0;
             if (!low) {
                 low = lowCount != 0;
                 if (low) {
-                    float probability = Script::GetFloat("ped_low_priority_waypoint_probability");
-                    int roll = Mth::Rnd(100);
+                    float probability = Scripts::GetFloat("ped_low_priority_waypoint_probability");
+                    int roll = Maths::Rnd(100);
                     low = !(static_cast<double>(probability) * kHundred < roll);
                 }
             }
             if (low)
-                chosen = SkateScript::GetLink(m_nextNode, lows[Mth::Rnd(lowCount)]);
+                chosen = LevelNodes::GetLink(m_nextNode, lows[Maths::Rnd(lowCount)]);
             else
-                chosen = SkateScript::GetLink(m_nextNode, normals[Mth::Rnd(normalCount)]);
+                chosen = LevelNodes::GetLink(m_nextNode, normals[Maths::Rnd(normalCount)]);
         }
     }
     if (chosen) {
         m_nodeAfter = chosen;
-        SkateScript::GetPosition(chosen, &m_nodeAfterPos);
+        LevelNodes::GetPosition(chosen, &m_nodeAfterPos);
     }
 }
 
 // 0x004EEFA0
-void CPedLogicComponent::RunWaypointActions(Script::CStruct* node)
+void CPedestrianBrainModule::RunWaypointActions(Scripts::CStruct* node)
 {
     // (Both values are read over the `node` argument's slot - missing, both are asserted, it keeps what it held: the
     // pointer's bits, or the percent read before.)
     uint32_t slot = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(node));
-    if (node->ContainsFlag(kAdjustSpeed) && Chance(node, kAdjustSpeedWeight)) {
+    if (node->HasBareFlag(kAdjustSpeed) && Chance(node, kAdjustSpeedWeight)) {
         node->GetFloat(kAdjustSpeedPercent, reinterpret_cast<float*>(&slot), 1);
         float percent = std::bit_cast<float>(slot);
-        CMotionComponent* motion = Motion(m_object);
+        CKinematicsModule* motion = Motion(m_object);
         motion->m_pathMaxSpeed = percent * motion->m_pathMaxSpeed;
     }
-    if (node->ContainsFlag(kRunScript) && Chance(node, kRunScriptWeight)) {
-        node->GetChecksum(kRunScriptName, &slot, 1);
-        Script::CScript* script = Script::SpawnScript(slot, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+    if (node->HasBareFlag(kRunScript) && Chance(node, kRunScriptWeight)) {
+        node->ReadHashValue(kRunScriptName, &slot, 1);
+        Scripts::CScript* script = Scripts::SpawnScript(slot, nullptr, 0, nullptr, 0, 0, false, false, false, false);
         script->m_object.Set(m_object);
     }
 }
 
 // 0x004EFD50
-Script::CStruct* CPedLogicComponent::JumpParams(Script::CStruct* params, bool toNode)
+Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, bool toNode)
 {
     m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     m_vertRotation = 0.0f;
     m_vertRotationTarget = 0.0f;
-    m_spin = 0.0f;
-    Script::CStruct* out = StateParams(params);
+    m_twistRate = 0.0f;
+    Scripts::CStruct* out = StateParams(params);
     // (The height is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float height = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
     params->GetFloat(kJumpHeight, &height, 1);
-    float gravity = Script::GetFloat(kJumpGravity);
+    float gravity = Scripts::GetFloat(kJumpGravity);
     float jumpTime;
     int spin = 0;
-    if (!toNode && !params->ContainsFlag(kJumpToNextNode)) {
+    if (!toNode && !params->HasBareFlag(kJumpToNextNode)) {
         // Straight up: the take-off speed for the height, and the time up and down.
-        out->AddFloat(kJumpSpeed, static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo)));
+        out->PushFloat(kJumpSpeed, static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo)));
         double up = std::sqrt(static_cast<double>(gravity) * height * kMinusTwo);
         jumpTime = static_cast<float>(up + up);
     } else {
         // To the next node: up to its height (and a slop above it) and across to it.
-        CCompositeObject* object = m_object;
+        CGameEntity* object = m_object;
         float dw = m_nextNodePos.w - object->m_pos.w;
         float dz = m_nextNodePos.z - object->m_pos.z;
         float dx = m_nextNodePos.x - object->m_pos.x;
-        Mth::Vector across = {dx, 0.0f, dz, dw};
+        Maths::Vector across = {dx, 0.0f, dz, dw};
         if (static_cast<double>(height) + object->m_pos.y < m_nextNodePos.y) {
-            double slop = Script::GetFloat(kHeightSlop);
+            double slop = Scripts::GetFloat(kHeightSlop);
             height = static_cast<float>(slop + (static_cast<double>(m_nextNodePos.y) - object->m_pos.y));
         }
         double inverseGravity = 1.0 / gravity;
@@ -284,7 +284,7 @@ Script::CStruct* CPedLogicComponent::JumpParams(Script::CStruct* params, bool to
         double down = std::sqrt(std::fabs(((static_cast<double>(height) + m_object->m_pos.y) - m_nextNodePos.y) *
                                           inverseGravity) * 2.0);
         jumpTime = static_cast<float>(down + up);
-        const Mth::Vector& direction = across.Normalize();
+        const Maths::Vector& direction = across.Normalize();
         double speedAcross = std::sqrt(static_cast<double>(acrossSqr)) / jumpTime;
         float ax = static_cast<float>(speedAcross * direction.x), ay = static_cast<float>(speedAcross * direction.y),
               az = static_cast<float>(speedAcross * direction.z);
@@ -293,20 +293,20 @@ Script::CStruct* CPedLogicComponent::JumpParams(Script::CStruct* params, bool to
         double vx = static_cast<double>(upX) + ax, vy = static_cast<double>(upSpeed) + ay,
                vz = static_cast<double>(upZ) + az;
         float velX = static_cast<float>(vx), velY = static_cast<float>(vy), velZ = static_cast<float>(vz);
-        Mth::Vector heading = {velX, velY, velZ, static_cast<float>(upSpeed + aw)};
+        Maths::Vector heading = {velX, velY, velZ, static_cast<float>(upSpeed + aw)};
         heading.Normalize();
-        out->AddVector(kHeading, Script::VectorValue{heading.x, heading.y, heading.z, heading.w});
-        out->AddFloat(kJumpSpeed, static_cast<float>(std::sqrt((static_cast<double>(velX) * velX +
+        out->PutVec3(kHeading, Scripts::VectorValue{heading.x, heading.y, heading.z, heading.w});
+        out->PushFloat(kJumpSpeed, static_cast<float>(std::sqrt((static_cast<double>(velX) * velX +
                                                                 static_cast<double>(velZ) * velZ) +
                                                                static_cast<double>(velY) * velY)));
-        out->AddFloat(kJumpTime, jumpTime);
+        out->PushFloat(kJumpTime, jumpTime);
     }
     // The spin.
-    if (params->ContainsFlag(kRandomSpin)) {
-        int halfTurns = Truncate(jumpTime / static_cast<double>(Script::GetFloat(kMinSpinTime)));
+    if (params->HasBareFlag(kRandomSpin)) {
+        int halfTurns = Truncate(jumpTime / static_cast<double>(Scripts::GetFloat(kMinSpinTime)));
         if (halfTurns > 4)
             halfTurns = 4;
-        spin = Mth::Rnd(halfTurns + 1) * 180;
+        spin = Maths::Rnd(halfTurns + 1) * 180;
     } else {
         float angle;
         if (params->GetFloat(kSpinAngle, &angle, 0))
@@ -316,7 +316,7 @@ Script::CStruct* CPedLogicComponent::JumpParams(Script::CStruct* params, bool to
     if (spin > 0) {
         // (Read over a slot that held the distance across, squared: missing - it's asserted - that stays.)
         uint32_t direction = 0;
-        params->GetChecksum(kSpinDirection, &direction, 1);
+        params->ReadHashValue(kSpinDirection, &direction, 1);
         bool flag = static_cast<CAnimBlenderComponent*>(m_object->GetComponent(kAnimBlender))->AllChannelsFlag29();
         if (direction == kBS) {
             if (flag)
@@ -324,46 +324,46 @@ Script::CStruct* CPedLogicComponent::JumpParams(Script::CStruct* params, bool to
         } else if (direction == kFS) {
             if (!flag)
                 spin = -spin;
-        } else if (direction == kRand && Mth::Rnd(2) == 1) {
+        } else if (direction == kRand && Maths::Rnd(2) == 1) {
             spin = -spin;
         }
         m_spinAngle = spin;
         m_flags |= PED_FLAG_SPINNING;
     }
     // A spine transfer turns it round over the top.
-    bool spine = params->ContainsFlag(kSpineTransfer);
+    bool spine = params->HasBareFlag(kSpineTransfer);
     bool turn = false;
     if (spin % 360 == 0) {
         if (spine)
             turn = true;
         else
-            out->AddChecksum(0u, kShouldFlip);
+            out->PutNameKey(0u, kShouldFlip);
     } else if (spine) {
-        out->AddChecksum(0u, kShouldFlip);
+        out->PutNameKey(0u, kShouldFlip);
         turn = true;
     }
     if (turn) {
         m_flags |= PED_FLAG_VERT_ROTATING;
-        const Mth::Vector up = {0.0f, 1.0f, 0.0f, 1.0f};
-        float angle = static_cast<float>(Mth::GetAngle(m_savedMatrix.row[2], up));
-        m_vertRotationTarget = static_cast<float>(static_cast<double>(Script::GetFloat(kSpineSlop)) + angle);
+        const Maths::Vector up = {0.0f, 1.0f, 0.0f, 1.0f};
+        float angle = static_cast<float>(Maths::ReadTurnAngle(m_savedMatrix.row[2], up));
+        m_vertRotationTarget = static_cast<float>(static_cast<double>(Scripts::GetFloat(kSpineSlop)) + angle);
     }
     if (m_flags & (PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) {
         m_jumpMatrix = m_savedMatrix;
         m_spinElapsed = 0.0f;
-        m_spinTime = static_cast<float>(static_cast<double>(Script::GetFloat(kVertTimeSlop)) * jumpTime);
+        m_spinTime = static_cast<float>(static_cast<double>(Scripts::GetFloat(kVertTimeSlop)) * jumpTime);
     }
-    if (params->ContainsFlag(kJumpToNextNode))
-        out->AddFloat(kLandHeight, m_nextNodePos.y);
+    if (params->HasBareFlag(kJumpToNextNode))
+        out->PushFloat(kLandHeight, m_nextNodePos.y);
     return out;
 }
 
 // 0x004EFBC0
-void CPedLogicComponent::LipTrickUpdate()
+void CPedestrianBrainModule::LipTrickUpdate()
 {
-    Mth::Matrix matrix = m_object->m_displayMatrix;
+    Maths::Matrix matrix = m_object->m_displayMatrix;
     matrix.row[2] = {0.0f, 1.0f, 0.0f, 1.0f};
-    const Mth::Vector& up = m_up.Normalize();
+    const Maths::Vector& up = m_upDir.Normalize();
     // Across: up x (0, 1, 0), normalised (x and z kept as floats too).
     float zero = static_cast<float>(static_cast<double>(up.y) * 0.0f);
     float upX = up.x, upZ = up.z;
@@ -401,19 +401,19 @@ void CPedLogicComponent::LipTrickUpdate()
 // --- the states a node's SkateAction starts ---
 
 // 0x004F1A90
-void CPedLogicComponent::StartGrind(Script::CStruct* node)
+void CPedestrianBrainModule::StartGrind(Scripts::CStruct* node)
 {
     m_flags = (m_flags & ~(PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_GRINDING;
     uint32_t terrain;
-    if (node->GetChecksum(kTerrainType, &terrain, 0))
+    if (node->ReadHashValue(kTerrainType, &terrain, 0))
         SetSoundTerrain(Terrain::GetTerrainIndex(terrain));
-    Script::CStruct* params = StateParams(node);
+    Scripts::CStruct* params = StateParams(node);
     SetState(kStateGrind, kTable, nullptr); // (the parameters aren't passed)
     DeleteParams(params);
 }
 
 // 0x004F1B10
-void CPedLogicComponent::EndGrind(Script::CStruct*)
+void CPedestrianBrainModule::EndGrind(Scripts::CStruct*)
 {
     if (m_flags & PED_FLAG_GRINDING) {
         m_flags &= ~PED_FLAG_GRINDING;
@@ -422,17 +422,17 @@ void CPedLogicComponent::EndGrind(Script::CStruct*)
 }
 
 // 0x004F1B40
-void CPedLogicComponent::Jump(Script::CStruct* node, bool vert)
+void CPedestrianBrainModule::Jump(Scripts::CStruct* node, bool vert)
 {
     m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
-    Script::CStruct* params;
+    Scripts::CStruct* params;
     uint32_t state;
     if (vert) {
         m_flags &= ~PED_FLAG_MOVING;
         params = JumpParams(node, vert);
         state = kStateJumpVert;
     } else {
-        if (node->ContainsFlag(kJumpToNextNode)) {
+        if (node->HasBareFlag(kJumpToNextNode)) {
             m_flags &= ~PED_FLAG_MOVING;
             params = JumpParams(node, false);
             m_flags |= PED_FLAG_JUMPING_TO_NODE;
@@ -446,103 +446,103 @@ void CPedLogicComponent::Jump(Script::CStruct* node, bool vert)
 }
 
 // 0x004F1BF0
-void CPedLogicComponent::LipTrick(Script::CStruct* node)
+void CPedestrianBrainModule::LipTrick(Scripts::CStruct* node)
 {
     m_flags &= ~(PED_FLAG_MOVING | PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     LipTrickUpdate();
-    Script::CStruct* params = StateParams(node);
+    Scripts::CStruct* params = StateParams(node);
     SetState(kStateLip, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1C40
-void CPedLogicComponent::Manual(Script::CStruct* node)
+void CPedestrianBrainModule::Manual(Scripts::CStruct* node)
 {
     m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
-    Script::CStruct* params = StateParams(node);
+    Scripts::CStruct* params = StateParams(node);
     SetState(kStateManual, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1C90
-void CPedLogicComponent::ManualDown(Script::CStruct* node)
+void CPedestrianBrainModule::ManualDown(Scripts::CStruct* node)
 {
     m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
-    Script::CStruct* params = StateParams(node);
+    Scripts::CStruct* params = StateParams(node);
     SetState(kStateManualDown, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1CE0
-void CPedLogicComponent::GrabTrick(Script::CStruct* node, bool vert)
+void CPedestrianBrainModule::GrabTrick(Scripts::CStruct* node, bool vert)
 {
-    Script::CStruct* params;
+    Scripts::CStruct* params;
     if (vert) {
         m_flags &= ~PED_FLAG_MOVING;
         params = JumpParams(node, vert);
-        params->AddChecksum(0u, kIsVert);
+        params->PutNameKey(0u, kIsVert);
     } else {
         params = StateParams(node);
         bool jumping = (Motion(m_object)->m_motionFlags & 0x100) != 0;
         if (!jumping) {
-            float speed = Script::GetFloat(kJumpSpeedGlobal);
-            double gravity = Script::GetFloat(kJumpGravity);
+            float speed = Scripts::GetFloat(kJumpSpeedGlobal);
+            double gravity = Scripts::GetFloat(kJumpGravity);
             double time = std::sqrt(static_cast<double>(speed) * speed / (gravity * gravity));
-            params->AddInteger(kJumpTime, Truncate(time + time));
+            params->PutInt(kJumpTime, Truncate(time + time));
         }
-        params->AddInteger(kIsJumping, jumping ? 1 : 0);
+        params->PutInt(kIsJumping, jumping ? 1 : 0);
     }
     SetState(kStateGrab, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1DC0
-void CPedLogicComponent::Stop(Script::CStruct* node)
+void CPedestrianBrainModule::Stop(Scripts::CStruct* node)
 {
     m_flags = (m_flags & ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_STOPPING;
-    Script::CStruct* params = StateParams(node);
+    Scripts::CStruct* params = StateParams(node);
     SetState(kStateStop, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1F30
-void CPedLogicComponent::RollOff(Script::CStruct*) { SetState(kStateRollOff, kTable, nullptr); }
+void CPedestrianBrainModule::RollOff(Scripts::CStruct*) { SetState(kStateRollOff, kTable, nullptr); }
 
 // 0x004F1F50
-void CPedLogicComponent::FlipTrick(Script::CStruct* node, bool vert)
+void CPedestrianBrainModule::FlipTrick(Scripts::CStruct* node, bool vert)
 {
     m_flags &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
-    CMotionComponent* motion = Motion(m_object);
-    Script::CStruct* params = StateParams(node);
-    Script::CStruct* jump = JumpParams(node, vert);
+    CKinematicsModule* motion = Motion(m_object);
+    Scripts::CStruct* params = StateParams(node);
+    Scripts::CStruct* jump = JumpParams(node, vert);
     params->AppendStructureIfAny(jump);
     DeleteParams(jump);
     if (vert) {
         m_flags &= ~PED_FLAG_MOVING;
-        params->AddChecksum(0u, kIsVert);
+        params->PutNameKey(0u, kIsVert);
     }
-    params->AddInteger(kIsJumping, (motion->m_motionFlags & 0x100) ? 1 : 0);
-    if (node->ContainsFlag(kJumpToNextNode))
+    params->PutInt(kIsJumping, (motion->m_motionFlags & 0x100) ? 1 : 0);
+    if (node->HasBareFlag(kJumpToNextNode))
         m_flags = (m_flags & ~PED_FLAG_MOVING) | PED_FLAG_JUMPING_TO_NODE;
     SetState(kStateFlip, kTable, params);
     DeleteParams(params);
 }
 
 // 0x004F1E80
-bool CPedLogicComponent::BailFromGrind()
+bool CPedestrianBrainModule::BailFromGrind()
 {
     if (!(m_flags & PED_FLAG_GRINDING))
         return false;
     m_flags = (m_flags & ~PED_FLAG_GRINDING) | PED_FLAG_GRIND_BAILING;
-    int count = static_cast<int>(SkateScript::GetLinkCount(m_nextNode));
+    int count = static_cast<int>(LevelNodes::GetLinkCount(m_nextNode));
     if (count > 1) {
         // Off the grind the way its stop link goes.
         for (int i = 0; i < count; ++i) {
-            uint32_t link = SkateScript::GetLink(m_nextNode, i);
+            uint32_t link = LevelNodes::GetLink(m_nextNode, i);
             uint32_t action;
-            if (SkateScript::GetNode(link, true)->GetChecksum(kSkateAction, &action, 0) && action == kStopAction) {
+            if (LevelNodes::GetNode(link, true)->ReadHashValue(kSkateAction, &action, 0) && action == kStopAction) {
                 m_nodeAfter = link;
-                SkateScript::GetPosition(link, &m_nodeAfterPos);
+                LevelNodes::GetPosition(link, &m_nodeAfterPos);
                 break;
             }
         }
@@ -552,12 +552,12 @@ bool CPedLogicComponent::BailFromGrind()
 }
 
 // 0x004F2340
-void CPedLogicComponent::DoSkateAction(Script::CStruct* node)
+void CPedestrianBrainModule::DoSkateAction(Scripts::CStruct* node)
 {
     if (m_flags & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING))
         return;
     uint32_t action;
-    if (!node->GetChecksum(kSkateAction, &action, 0))
+    if (!node->ReadHashValue(kSkateAction, &action, 0))
         return;
     switch (action) {
     case kManualDown: ManualDown(node); break;
@@ -579,32 +579,32 @@ void CPedLogicComponent::DoSkateAction(Script::CStruct* node)
 }
 
 // 0x004F2570
-void CPedLogicComponent::HitWaypoint()
+void CPedestrianBrainModule::ReachWaypoint()
 {
-    uint32_t reached = m_nextNode, left = m_node;
+    uint32_t reached = m_nextNode, left = m_listLink;
     m_flags &= ~(PED_FLAG_VERT_LAST | PED_FLAG_VERT_AFTER);
     if (m_flags & PED_FLAG_VERT_NEXT)
         m_flags |= PED_FLAG_VERT_LAST;
     m_nextNode = m_nodeAfter;
-    m_node = reached;
+    m_listLink = reached;
     m_flags &= ~PED_FLAG_JUMPING_TO_NODE;
     m_nodePos = m_nextNodePos;
     m_nextNodePos = m_nodeAfterPos;
     if (m_kind == 0 && left == m_nextNode)
         ActivateAuxScript(kHitDeadEnd, nullptr);
     m_flags &= ~PED_FLAG_VERT_NEXT;
-    Script::CStruct* next = SkateScript::GetNode(m_nextNode, true);
+    Scripts::CStruct* next = LevelNodes::GetNode(m_nextNode, true);
     m_flags &= ~PED_FLAG_VERT_LIP;
     uint32_t pedType;
-    if (next->GetChecksum(kPedType, &pedType, 0) && pedType == kSkate) {
+    if (next->ReadHashValue(kPedType, &pedType, 0) && pedType == kSkate) {
         // (Read over a slot holding a stale value: SkateAction is asserted.)
         uint32_t action = 0;
-        next->GetChecksum(kSkateAction, &action, 1);
+        next->ReadHashValue(kSkateAction, &action, 1);
         if (IsVertNode(m_nextNode))
             m_flags |= PED_FLAG_VERT_NEXT;
         if (action == kVertGrab || action == kJump) {
             uint32_t reachedAction;
-            if (SkateScript::GetNode(m_node, true)->GetChecksum(kSkateAction, &reachedAction, 1) &&
+            if (LevelNodes::GetNode(m_listLink, true)->ReadHashValue(kSkateAction, &reachedAction, 1) &&
                 reachedAction != kGrind && !(m_flags & (PED_FLAG_GRINDING | PED_FLAG_VERT_LAST)))
                 m_flags |= PED_FLAG_CROUCH;
         }
@@ -614,13 +614,13 @@ void CPedLogicComponent::HitWaypoint()
     ChooseNodeAfter();
     if (IsVertNode(m_nodeAfter))
         m_flags |= PED_FLAG_VERT_AFTER;
-    Script::CStruct* leftNode = SkateScript::GetNode(left, true);
-    Script::CStruct* reachedNode = SkateScript::GetNode(reached, true);
+    Scripts::CStruct* leftNode = LevelNodes::GetNode(left, true);
+    Scripts::CStruct* reachedNode = LevelNodes::GetNode(reached, true);
     RunWaypointActions(reachedNode);
     uint32_t leftAction;
-    if (!leftNode->GetChecksum(kSkateAction, &leftAction, 0) || leftAction != kVertGrab) {
+    if (!leftNode->ReadHashValue(kSkateAction, &leftAction, 0) || leftAction != kVertGrab) {
         uint32_t reachedType;
-        if (reachedNode->GetChecksum(kPedType, &reachedType, 0) && reachedType == kSkate)
+        if (reachedNode->ReadHashValue(kPedType, &reachedType, 0) && reachedType == kSkate)
             DoSkateAction(reachedNode);
     }
     m_turnFrames = 0;
@@ -630,10 +630,10 @@ void CPedLogicComponent::HitWaypoint()
 // --- script member functions ---
 
 // 0x004F0740
-bool CPedLogicComponent::Ped_InitPath(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_InitPath(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_nextNode = SkateScript::GetLink(SkateScript::GetNode(m_node, true), 0);
-    SkateScript::GetPosition(m_nextNode, &m_nextNodePos);
+    m_nextNode = LevelNodes::GetLink(LevelNodes::GetNode(m_listLink, true), 0);
+    LevelNodes::GetPosition(m_nextNode, &m_nextNodePos);
     ChooseNodeAfter();
     m_flags |= PED_FLAG_MOVING;
     mp_peds = CPathManager::Instance()->AddToExtraGroup(m_object, m_nextNode);
@@ -648,32 +648,32 @@ bool CPedLogicComponent::Ped_InitPath(Script::CStruct*, Script::CScript*)
         dy = static_cast<float>(dy * inverse);
         dz = static_cast<float>(dz * inverse);
     }
-    Mth::Matrix matrix = m_object->m_displayMatrix;
+    Maths::Matrix matrix = m_object->m_displayMatrix;
     matrix.row[2] = {dx, dy, dz, dw};
-    matrix.OrthoNormalizeAbout(2);
+    matrix.SquareUpAxes(2);
     m_object->m_displayMatrix = matrix;
     m_savedMatrix = matrix;
-    for (Mth::Vector& position : m_history)
+    for (Maths::Vector& position : m_pastFrames)
         position = m_object->m_pos;
     return true;
 }
 
 // 0x004F2770
-bool CPedLogicComponent::Ped_HitWaypoint(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_HitWaypoint(Scripts::CStruct*, Scripts::CScript*)
 {
-    HitWaypoint();
+    ReachWaypoint();
     return true;
 }
 
 // 0x004EDEC0
-bool CPedLogicComponent::Ped_GetJumpToNextNode(Script::CStruct* params, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetJumpToNextNode(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float height;
     params->GetFloat(kHeight, &height, 1);
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float gravity = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
     params->GetFloat(kGravity, &gravity, 1);
-    const Mth::Vector& at = m_object->m_pos;
+    const Maths::Vector& at = m_object->m_pos;
     float dx = m_nextNodePos.x - at.x, dy = m_nextNodePos.y - at.y, dz = m_nextNodePos.z - at.z,
           dw = m_nextNodePos.w - at.w;
     double rise = std::sqrt(static_cast<double>(height) / gravity * kMinusTwo);
@@ -681,7 +681,7 @@ bool CPedLogicComponent::Ped_GetJumpToNextNode(Script::CStruct* params, Script::
     float upSpeed = static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo));
     float distance = static_cast<float>(std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) +
                                                   static_cast<double>(dx) * dx));
-    double across = Script::GetFloat(kJumpSpeedScale) * (static_cast<double>(distance) * kHalf);
+    double across = Scripts::GetFloat(kJumpSpeedScale) * (static_cast<double>(distance) * kHalf);
     if (distance > 0.0f) {
         double inverse = 1.0 / distance;
         dx = static_cast<float>(dx * inverse);
@@ -707,9 +707,9 @@ bool CPedLogicComponent::Ped_GetJumpToNextNode(Script::CStruct* params, Script::
         hy = sy * inverse;
         hz = static_cast<float>(sz * inverse);
     }
-    script->m_params->AddVector(kHeading, Script::VectorValue{static_cast<float>(hx), static_cast<float>(hy), hz, sw});
-    script->m_params->AddFloat(kJumpSpeed, speed);
-    script->m_params->AddFloat(kJumpTime, time);
+    script->m_params->PutVec3(kHeading, Scripts::VectorValue{static_cast<float>(hx), static_cast<float>(hy), hz, sw});
+    script->m_params->PushFloat(kJumpSpeed, speed);
+    script->m_params->PushFloat(kJumpTime, time);
     return true;
 }
 

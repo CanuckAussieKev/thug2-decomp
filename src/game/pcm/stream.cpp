@@ -12,7 +12,7 @@
 #include "game/pcm/stream_commands.h"
 #include "game/sys/startup_init.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 void* g_wadFile{INVALID_HANDLE_VALUE};
 WadEntry* g_wadEntries;
@@ -68,9 +68,9 @@ Result OpenBinkFromWad(BinkStream* bink, uint32_t checksum, const char* path, ui
 bool UsesOverlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 {
     if (slot.wad)
-        return slot.wad->m_overlapped == overlapped;
+        return slot.wad->m_asyncCtl == overlapped;
     if (slot.bink)
-        return slot.bink->m_overlapped == overlapped;
+        return slot.bink->m_asyncCtl == overlapped;
     return false;
 }
 
@@ -116,10 +116,10 @@ StreamSlot& MusicSlot() { return g_musicSlot; }
 void StreamSlot::Create(int type, bool unknown, int plays)
 {
     if (type == 0) {
-        void* memory = Mem::Calloc(sizeof(WadStream));
+        void* memory = MemSys::AllocZeroed(sizeof(WadStream));
         wad = memory ? static_cast<WadStream*>(memory)->Construct(unknown) : nullptr;
     } else if (type == 1) {
-        void* memory = Mem::Calloc(sizeof(BinkStream));
+        void* memory = MemSys::AllocZeroed(sizeof(BinkStream));
         bink = memory ? ConstructBinkStream(memory, unknown, plays) : nullptr;
     }
 }
@@ -148,12 +148,12 @@ void StreamSlot::Free()
 {
     if (WadStream* stream = wad) {
         stream->Destruct();
-        Mem::Free(stream);
+        MemSys::Free(stream);
         wad = nullptr;
     }
     if (BinkStream* stream = bink) {
         stream->Destruct();
-        Mem::Free(stream);
+        MemSys::Free(stream);
         bink = nullptr;
     }
 }
@@ -230,7 +230,7 @@ void __cdecl InitPlatform()
     if (index != INVALID_HANDLE_VALUE) {
         DWORD read;
         ReadFile(index, &WadEntryCount(), 4, &read, nullptr);
-        WadEntries() = static_cast<WadEntry*>(Mem::New(WadEntryCount() * sizeof(WadEntry)));
+        WadEntries() = static_cast<WadEntry*>(MemSys::New(WadEntryCount() * sizeof(WadEntry)));
         ReadFile(index, WadEntries(), WadEntryCount() * sizeof(WadEntry), &read, nullptr);
         CloseHandle(index);
     }
@@ -385,7 +385,7 @@ int __cdecl UserSoundtrackTracks(int index)
 
 } // namespace Pcm
 
-namespace Pcm {
+namespace AudioStream {
 
 // 0x006409D0 (a static initialiser): the streams' lock, a mutex nobody owns.
 void CreateStreamLock() { g_streamLock = CreateMutexA(nullptr, FALSE, nullptr); }

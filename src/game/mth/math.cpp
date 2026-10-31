@@ -6,7 +6,7 @@
 
 #include "game/mth/x87_math.h"
 
-namespace Mth {
+namespace Maths {
 
 namespace {
 
@@ -85,9 +85,9 @@ float FastAtan2(float y, float x)
         return X87::Atan2F(y, x);
 
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
-    bool x_negative = x < 0.0f;
+    bool xBelowZero = x < 0.0f;
     bool y_not_positive = y <= 0.0f;
-    double ratio = X87::Divide(y_not_positive ? -static_cast<double>(y) : y, x_negative ? -static_cast<double>(x) : x);
+    double ratio = X87::Divide(y_not_positive ? -static_cast<double>(y) : y, xBelowZero ? -static_cast<double>(x) : x);
     double t = (ratio - 1.0) / (ratio + 1.0);
     double t2 = t * t;
     double p = (t * kAtanC15 * t2 + t * kAtanC13) * t2 - t * kAtanC11;
@@ -96,7 +96,7 @@ float FastAtan2(float y, float x)
     p = p * t2 + t * kAtanC1;
 
     double result;
-    if (x_negative)
+    if (xBelowZero)
         result = y_not_positive ? (p + kQuarterPi) - kPiF : kThreeQuarterPi - p;
     else
         result = y_not_positive ? kMinusQuarterPi - p : p + kQuarterPi;
@@ -153,7 +153,7 @@ float FastCos(float angle)
 }
 
 // 0x00403F70
-void InitSinLookupTable()
+void FillSineTable()
 {
     SinCosEntry* table = SinTable();
     for (int i = 0; i < kSinTableSize; ++i) {

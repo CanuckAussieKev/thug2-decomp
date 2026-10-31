@@ -15,7 +15,7 @@
 #include "game/nx/coll_tri.h"
 #include "game/core/code_address.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -27,10 +27,10 @@ uint32_t Align(uint32_t value, uint32_t to) { return (value + to - 1) & ~(to - 1
 } // namespace
 
 // 0x00490A60
-CMesh* CMesh::Construct()
+CSubMesh* CSubMesh::Construct()
 {
     m_vtable = reinterpret_cast<void**>(kMeshVtable);
-    new (&m_box) Mth::BBox();
+    new (&m_box) Maths::BBox();
     m_unknownB0 = 0;
     mp_hierarchy = nullptr;
     m_hierarchyCount = 0;
@@ -39,49 +39,49 @@ CMesh* CMesh::Construct()
 }
 
 // 0x00490A90
-void CMesh::RemoveCollision()
+void CSubMesh::RemoveCollision()
 {
     if (m_collisionName[0]) {
-        Pip::Unload(m_collisionName);
+        Packs::Unload(m_collisionName);
         m_collisionName[0] = 0;
     }
 }
 
 // 0x00490B60
-void CMesh::DestroyBody()
+void CSubMesh::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kMeshVtable);
     RemoveCollision();
 }
 
 // 0x00490C90
-CMesh* CMesh::Destroy(unsigned int flags)
+CSubMesh* CSubMesh::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00490AB0
-void* CMesh::GetHierarchy()
+void* CSubMesh::FetchBoneTree()
 {
     return mp_hierarchy;
 }
 
 // 0x00490AC0
-uint32_t CMesh::GetHierarchyCount()
+uint32_t CSubMesh::GetHierarchyCount()
 {
     return m_hierarchyCount;
 }
 
 // 0x00490B80
-bool CMesh::AddCollision(const uint8_t* data)
+bool CSubMesh::AddCollision(const uint8_t* data)
 {
     auto word = [data](int offset) { return *reinterpret_cast<const uint32_t*>(data + offset); };
     m_collisionCount = static_cast<int>(word(4));
-    mp_collision = const_cast<uint8_t*>(data) + 0x20;
-    uint32_t objects = reinterpret_cast<uint32_t>(mp_collision);
+    m_hitShape = const_cast<uint8_t*>(data) + 0x20;
+    uint32_t objects = reinterpret_cast<uint32_t>(m_hitShape);
     uint32_t vertices = Align((static_cast<uint32_t>(m_collisionCount) << 6) + objects, 16);
     uint32_t vertexBytes = vertices + 2 * (3 * (word(0x18) + 2 * word(0x14)));
     uint32_t faces = Align(word(8) + vertexBytes, 4);
@@ -89,11 +89,11 @@ bool CMesh::AddCollision(const uint8_t* data)
     uint32_t nodes = afterFaces + 4;
     uint32_t faceLists = *reinterpret_cast<const uint32_t*>(afterFaces) + nodes;
     for (int i = 0; i < static_cast<int>(word(4)); ++i) {
-        auto* object = reinterpret_cast<CCollObjTriData*>(mp_collision + i * kObjectSize);
+        auto* object = reinterpret_cast<CTriMeshSource*>(m_hitShape + i * kObjectSize);
         object->Relocate(0, vertices, vertexBytes, faces, nodes, faceLists);
         object->SetUpAllFaces();
-        m_box.AddPoint(*reinterpret_cast<const Mth::Vector*>(mp_collision + i * kObjectSize + 0x10));
-        m_box.AddPoint(*reinterpret_cast<const Mth::Vector*>(mp_collision + i * kObjectSize + 0x20));
+        m_box.AddPoint(*reinterpret_cast<const Maths::Vector*>(m_hitShape + i * kObjectSize + 0x10));
+        m_box.AddPoint(*reinterpret_cast<const Maths::Vector*>(m_hitShape + i * kObjectSize + 0x20));
     }
     return true;
 }
@@ -147,7 +147,7 @@ void sVertexStack::Push(const uint8_t* in)
 }
 
 namespace {
-static VtableSlot kMeshVtable_slots[] = {&Nx::CMesh::Destroy};
+static VtableSlot kMeshVtable_slots[] = {&Engine3D::CSubMesh::Destroy};
 void** const kMeshVtable = reinterpret_cast<void**>(kMeshVtable_slots);
 } // namespace
 

@@ -1,6 +1,6 @@
-// The scene side of the park (Ed::CParkGenerator, first part: 0x00591C70-0x00592740): the source pieces and the
+// The scene side of the park (ParkEditing::CParkAssembler, first part: 0x00591C70-0x00592740): the source pieces and the
 // pieces cloned from them into the park's scene, the park's restart points' slots, its lights, its scene's bounds and
-// collision; and the lists of metapieces the park manager hands out (CMapListNode, CMapListTemp).
+// collision; and the lists of metapieces the park manager hands out (CMapListNode, CCellChainScratch).
 
 #include "game/ed/park.h"
 
@@ -17,7 +17,7 @@
 #include "game/script/struct.h"
 #include "game/ed/park_editor.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 int g_cloningPiece;
 
@@ -32,31 +32,31 @@ int& CloningPiece() { return g_cloningPiece; }
 inline void DestroyEmptyMember(void* /*member*/) {}
 
 // 0x0049F4B0 (a folded `return false`): a colour to give a new piece's geometry - never.
-inline bool GetPieceColor(CPiece* /*piece*/, uint32_t* /*rgba*/) { return false; }
+inline bool GetPieceColor(CParkTile* /*piece*/, uint32_t* /*rgba*/) { return false; }
 
 // The park's main memory a player takes (the bottom-up heap's free memory per player, 0x0008EF1C).
 constexpr int kMemoryPerPlayer = 585500;
 
 } // namespace
 
-// --- CMapListNode / CMapListTemp ---------------------------------------------------------------------------------
+// --- CMapListNode / CCellChainScratch ---------------------------------------------------------------------------------
 
-void CMapListTemp::PrintContents()
+void CCellChainScratch::DumpToLog()
 {
-    Dbg::Printf("contents of map list:\n"); // "contents of map list:\n"
-    for (const CMapListNode* node = list; node; node = node->mp_next) {
-        Dbg::Printf("   address=%p area=", node->mp_meta); // "   address=%p area="
-        node->mp_meta->m_cell_area.PrintContents();
+    DebugOut::Printf("contents of map list:\n"); // "contents of map list:\n"
+    for (const CMapListNode* node = list; node; node = node->m_following) {
+        DebugOut::Printf("   address=%p area=", node->m_pieceGroup); // "   address=%p area="
+        node->m_pieceGroup->m_cellFootprint.DumpToLog();
     }
 }
 
-void CMapListTemp::Destroy()
+void CCellChainScratch::Destroy()
 {
     if (list)
-        CMapListNode::DestroyList(list);
+        CMapListNode::FreeNodeChain(list);
 }
 
-// --- CParkGenerator ---------------------------------------------------------------------------------------------
+// --- CParkAssembler ---------------------------------------------------------------------------------------------
 
 namespace {
 
@@ -64,30 +64,30 @@ uint8_t* SceneOf(void* scene) { return static_cast<uint8_t*>(scene); }
 
 } // namespace
 
-void CParkGenerator::DestroyBody()
+void CParkAssembler::DestroyBody()
 {
-    if (mp_scene)
-        mp_scene = nullptr;
+    if (m_sceneHandle)
+        m_sceneHandle = nullptr;
     if (mp_sourceScene)
         mp_sourceScene = nullptr;
-    // (the node array's owner: 0x00407810 is CAsset's destructor body, folded with CNodeArrayAsset's)
-    reinterpret_cast<Ass::CAsset*>(m_nodeArray)->Destruct();
+    // (the node array's owner: 0x00407810 is CResource's destructor body, folded with CNodeTableResource's)
+    reinterpret_cast<AssetStore::CResource*>(m_nodeArray)->Destruct();
     DestroyEmptyMember(&m_rails);
     DestroyEmptyMember(&m_sourceRails);
 }
 
-void CParkGenerator::HighlightAllPieces(bool on)
+void CParkAssembler::GlowEveryPiece(bool on)
 {
-    for (CPiece* piece = mp_pieces; piece;) {
-        CPiece* next = piece->mp_next;
+    for (CParkTile* piece = mp_pieces; piece;) {
+        CParkTile* next = piece->m_following;
         piece->SetHighlight(on, false);
         piece = next;
     }
 }
 
-void CParkGenerator::SetMaxPlayers(int count) { m_maxPlayers = count; }
+void CParkAssembler::SetPlayerCap(int count) { m_maxPlayers = count; }
 
-int CParkGenerator::GetMaxPlayersPossible()
+int CParkAssembler::GetPlayerCapLimit()
 {
     MemoryStats stats;
     GetMemoryStats(&stats);
@@ -99,30 +99,30 @@ int CParkGenerator::GetMaxPlayersPossible()
     return memory / kMemoryPerPlayer + 1;
 }
 
-CSourcePiece* CParkGenerator::GetPieceSource(uint32_t name)
+CTileTemplate* CParkAssembler::GetPieceSource(uint32_t name)
 {
-    for (CSourcePiece* source = mp_sources; source; source = source->mp_next) {
+    for (CTileTemplate* source = mp_sources; source; source = source->m_following) {
         if (source->m_name == name)
             return source;
     }
     return nullptr;
 }
 
-bool CParkGenerator::DeleteSector(uint32_t name, int /*unused*/)
+bool CParkAssembler::RemoveSceneSector(uint32_t name, int /*unused*/)
 {
-    return Scene::DeleteSector(SceneOf(mp_scene), name);
+    return Scene::RemoveSceneSector(SceneOf(m_sceneHandle), name);
 }
 
-void CParkGenerator::DestroyRails()
+void CParkAssembler::DestroyRails()
 {
     m_rails.Clear();
     m_rails.FreePools();
 }
 
-void CParkGenerator::SetLights(int count, float ambientR, float ambientG, float ambientB, float falloffR,
+void CParkAssembler::ConfigureLighting(int count, float ambientR, float ambientG, float ambientB, float falloffR,
                                float falloffG, float falloffB, float cursorAmbience)
 {
-    m_numLights = count;
+    m_lightTotal = count;
     m_ambient[0] = ambientR;
     m_ambient[1] = ambientG;
     m_ambient[2] = ambientB;
@@ -132,7 +132,7 @@ void CParkGenerator::SetLights(int count, float ambientR, float ambientG, float 
     std::memcpy(&m_43C, &cursorAmbience, 4); // (the cursor's ambience)
 }
 
-void CParkGenerator::GetRestartSlots(int type, int* first, int* last)
+void CParkAssembler::GetRestartSlots(int type, int* first, int* last)
 {
     switch (type) {
     case RestartPoint::kPlayer1:
@@ -163,7 +163,7 @@ void CParkGenerator::GetRestartSlots(int type, int* first, int* last)
     }
 }
 
-bool CParkGenerator::HasFreeRestartSlot(int type)
+bool CParkAssembler::HasFreeRestartSlot(int type)
 {
     int first = 0;
     int last = 0;
@@ -175,13 +175,13 @@ bool CParkGenerator::HasFreeRestartSlot(int type)
     return false;
 }
 
-void CParkGenerator::ClearRestarts()
+void CParkAssembler::ClearRestarts()
 {
     for (RestartPoint& slot : m_restarts)
         slot.m_type = RestartPoint::kFree;
 }
 
-void CParkGenerator::ClearAutomaticRestarts()
+void CParkAssembler::PurgeAutoRestartPoints()
 {
     for (RestartPoint& slot : m_restarts) {
         if (slot.m_automatic)
@@ -189,148 +189,148 @@ void CParkGenerator::ClearAutomaticRestarts()
     }
 }
 
-void CParkGenerator::SetUpBounds()
+void CParkAssembler::SetUpBounds()
 {
     // The most the park can take up: 56 x 56 cells, 16 steps down and 66 up.
-    Mth::BBox box;
-    Mth::Vector low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
+    Maths::BBox box;
+    Maths::Vector low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
     box.AddPoint(low);
-    Mth::Vector high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
+    Maths::Vector high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
     box.AddPoint(high);
-    Scene::SetBoundingBox(SceneOf(mp_scene), &box);
+    Scene::AssignSceneBounds(SceneOf(m_sceneHandle), &box);
 }
 
-void CParkGenerator::RebuildCollision()
+void CParkAssembler::RebuildCollision()
 {
     if (!RebuildsCollision())
         return;
-    m_flags &= ~CParkGenerator::kSceneChanged;
-    Mem::PushContext(Mem::BottomUpHeap());
-    Scene::UpdateSuperSectors(SceneOf(mp_scene), nullptr);
-    Mem::PopContext();
-    m_flags |= CParkGenerator::kSuperSectorsUpdated;
+    m_flags &= ~CParkAssembler::kSceneChanged;
+    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
+    Scene::UpdateSuperSectors(SceneOf(m_sceneHandle), nullptr);
+    MemSys::LeaveHeapScope();
+    m_flags |= CParkAssembler::kSuperSectorsUpdated;
 }
 
-void CParkGenerator::UpdateBounds(uint32_t /*unused*/)
+void CParkAssembler::UpdateBounds(uint32_t /*unused*/)
 {
-    CParkManager* manager = CParkManager::sInstance();
-    uint8_t* shell = Scene::GetScene(manager->GetShellChecksum());
+    CParkLayout* manager = CParkLayout::sSingleton();
+    uint8_t* shell = Scene::LookUpScene(manager->GetShellChecksum());
     if (!shell)
         return;
     // The shell's first box: as big as can be.
-    Mth::Vector far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
-    Mth::Vector near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
-    Mth::Line everything(near, far);
+    Maths::Vector far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
+    Maths::Vector near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
+    Maths::Line everything(near, far);
     Scene::SetBox(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
-    GridDims area;
+    SCellBox area;
     area.Set(0, 0, 0, 0, 0, 0);
-    area = CParkManager::sInstance()->m_parkBounds;
-    Mth::Vector corner = CParkManager::sInstance()->GridCoordinatesToWorld(area, nullptr);
+    area = CParkLayout::sSingleton()->m_parkBounds;
+    Maths::Vector corner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));
-    Mth::Vector farCorner = CParkManager::sInstance()->GridCoordinatesToWorld(area, nullptr);
+    Maths::Vector farCorner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
     corner.x = static_cast<float>(static_cast<double>(corner.x) + 60.0);
     corner.y = -100000.0f;
     corner.z = static_cast<float>(static_cast<double>(corner.z) + 60.0);
     farCorner.y = 100000.0f;
     farCorner.x = static_cast<float>(static_cast<double>(farCorner.x) + 60.0);
     farCorner.z = static_cast<float>(static_cast<double>(farCorner.z) + 60.0);
-    Mth::Line park(corner, farCorner);
+    Maths::Line park(corner, farCorner);
     Scene::SetBox(shell, &park, 0, 0);
 }
 
-void CParkGenerator::SetPiecesHighlighted(int on)
+void CParkAssembler::SetPiecesHighlighted(int on)
 {
-    for (CPiece* piece = mp_pieces; piece;) {
-        CPiece* next = piece->mp_next;
-        if (piece->m_flags & CPiece::kGap)
+    for (CParkTile* piece = mp_pieces; piece;) {
+        CParkTile* next = piece->m_following;
+        if (piece->m_flags & CParkTile::kGap)
             piece->SetVisible(on != 0);
         piece = next;
     }
 }
 
-void CParkGenerator::SetRestartPiecesActive(bool active)
+void CParkAssembler::SetRestartPiecesActive(bool active)
 {
-    for (CPiece* piece = mp_pieces; piece;) {
-        CPiece* next = piece->mp_next;
-        if (CParkManager::sInstance()->GetRestartIndex(piece->mp_source->m_name))
+    for (CParkTile* piece = mp_pieces; piece;) {
+        CParkTile* next = piece->m_following;
+        if (CParkLayout::sSingleton()->GetRestartIndex(piece->mp_source->m_name))
             piece->SetActive(active);
         piece = next;
     }
 }
 
-uint32_t CParkGenerator::CloneSector(uint32_t name, int a, int b, int /*unused*/)
+uint32_t CParkAssembler::DuplicateSceneSector(uint32_t name, int a, int b, int /*unused*/)
 {
-    m_flags |= CParkGenerator::kSceneChanged;
-    Mem::PushContext(Mem::BottomUpHeap());
-    uint32_t clone = Scene::CloneSector(SceneOf(mp_sourceScene), name, SceneOf(mp_scene), a, b, 0);
-    Mem::PopContext();
+    m_flags |= CParkAssembler::kSceneChanged;
+    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
+    uint32_t clone = Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), a, b, 0);
+    MemSys::LeaveHeapScope();
     return clone;
 }
 
-bool CParkGenerator::DestroySector(uint32_t name, int /*unused*/)
+bool CParkAssembler::DestroySector(uint32_t name, int /*unused*/)
 {
-    bool deleted = Scene::DeleteSector(SceneOf(mp_scene), name);
+    bool deleted = Scene::RemoveSceneSector(SceneOf(m_sceneHandle), name);
     RebuildCollision();
     return deleted;
 }
 
-CPiece* CParkGenerator::CreatePiece(CPiece* source, uint32_t flags)
+CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
 {
-    flags &= CPiece::kCursor | CPiece::kNoNode20 | CPiece::kNoRails | CPiece::kDestroyNow;
-    CSourcePiece* from = (source->m_flags & CPiece::kSource) ? reinterpret_cast<CSourcePiece*>(source) : source->mp_source;
+    flags &= CParkTile::kCursor | CParkTile::kNoNode20 | CParkTile::kNoRails | CParkTile::kDestroyNow;
+    CTileTemplate* from = (source->m_flags & CParkTile::kSource) ? reinterpret_cast<CTileTemplate*>(source) : source->mp_source;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     CloningPiece() = 1;
     const uint32_t name = from->m_name;
-    m_flags |= CParkGenerator::kSceneChanged;
-    Mem::PushContext(Mem::BottomUpHeap());
-    uint32_t clone = (flags & CPiece::kCursor)
-                         ? Scene::CloneSector(SceneOf(mp_sourceScene), name, SceneOf(mp_scene), 1, 0, 0)
-                         : Scene::CloneSector(SceneOf(mp_sourceScene), name, SceneOf(mp_scene), 0, 1, 0);
-    Mem::PopContext();
+    m_flags |= CParkAssembler::kSceneChanged;
+    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
+    uint32_t clone = (flags & CParkTile::kCursor)
+                         ? Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), 1, 0, 0)
+                         : Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), 0, 1, 0);
+    MemSys::LeaveHeapScope();
     CloningPiece() = 0;
     // The piece itself on the park editor's heap.
-    Mem::PushContext(GetParkHeap());
-    void* memory = Mem::New(sizeof(CClonedPiece));
-    CClonedPiece* piece = memory ? static_cast<CClonedPiece*>(memory)->Construct() : nullptr;
-    Mem::PopContext();
+    MemSys::EnterHeapScope(GetParkHeap());
+    void* memory = MemSys::New(sizeof(CCopiedPiece));
+    CCopiedPiece* piece = memory ? static_cast<CCopiedPiece*>(memory)->Construct() : nullptr;
+    MemSys::LeaveHeapScope();
     piece->m_sector = clone; // (out of memory crashes, as in the original)
     piece->m_id = m_nextPieceId++;
     piece->mp_source = from;
-    piece->SetRot(0, 0);
+    piece->SetQuarterTurns(0, 0);
     piece->m_flags |= flags;
     uint32_t rgba;
     if (GetPieceColor(piece, &rgba)) { // (never)
-        if (uint8_t* sector = Scene::GetSector(clone)) {
+        if (uint8_t* sector = Scene::LookUpSector(clone)) {
             if (uint8_t* geometry = Scene::GetGeometry(sector))
                 Scene::SetColor(geometry, rgba);
         }
     }
     SetCountsDirty();
-    m_flags |= CParkGenerator::kPiecesCreated;
+    m_flags |= CParkAssembler::kPiecesCreated;
     return piece;
 }
 
-void CParkGenerator::AddPiece(CPiece* piece)
+void CParkAssembler::AddPiece(CParkTile* piece)
 {
-    piece->m_flags |= CPiece::kInList;
-    piece->mp_next = mp_pieces;
+    piece->m_flags |= CParkTile::kInList;
+    piece->m_following = mp_pieces;
     mp_pieces = piece;
-    m_flags |= CParkGenerator::kHasPieces;
+    m_flags |= CParkAssembler::kHasPieces;
 }
 
-void CParkGenerator::DeletePiece(CPiece* piece, int keepSector)
+void CParkAssembler::DeletePiece(CParkTile* piece, int keepSector)
 {
-    if (!(piece->m_flags & CPiece::kCursor)) {
-        CPiece* previous = nullptr;
-        for (CPiece* p = mp_pieces; p; previous = p, p = p->mp_next) {
+    if (!(piece->m_flags & CParkTile::kCursor)) {
+        CParkTile* previous = nullptr;
+        for (CParkTile* p = mp_pieces; p; previous = p, p = p->m_following) {
             if (p != piece)
                 continue;
             if (previous)
-                previous->mp_next = p->mp_next;
+                previous->m_following = p->m_following;
             else
-                mp_pieces = p->mp_next;
+                mp_pieces = p->m_following;
             break;
         }
     }
@@ -339,31 +339,31 @@ void CParkGenerator::DeletePiece(CPiece* piece, int keepSector)
     SetCountsDirty();
     piece->Delete();
     if (!mp_pieces)
-        m_flags &= ~CParkGenerator::kHasPieces;
+        m_flags &= ~CParkAssembler::kHasPieces;
 }
 
-void CParkGenerator::ReadPieceFlags(Script::CArray* nodes)
+void CParkAssembler::ReadPieceFlags(Scripts::CArray* nodes)
 {
     for (uint32_t i = 0; i < nodes->m_size; ++i) {
-        auto* node = reinterpret_cast<Script::CStruct*>(nodes->GetElement(i));
+        auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(i));
         uint32_t nodeClass = 0;
-        node->GetChecksum(0x12B4E660u, &nodeClass, 0); // Class
+        node->ReadHashValue(0x12B4E660u, &nodeClass, 0); // Class
         if (nodeClass != 0xBF4D3536u && nodeClass != 0xEF59C100u) // LevelGeometry, GameObject
             continue;
         uint32_t name = 0;
-        node->GetChecksum(0xA1DC81F9u, &name, 0); // name
+        node->ReadHashValue(0xA1DC81F9u, &name, 0); // name
         if (!name)
             continue;
-        CSourcePiece* source = GetPieceSource(name);
+        CTileTemplate* source = GetPieceSource(name);
         if (!source)
             continue;
         if (nodeClass == 0xEF59C100u) {
-            source->m_flags |= CSourcePiece::kGameObject;
-            if (node->ContainsFlag(0x68910AC6u))
-                source->m_flags |= CSourcePiece::kAbsentInNetGames;
+            source->m_flags |= CTileTemplate::kGameObject;
+            if (node->HasBareFlag(0x68910AC6u))
+                source->m_flags |= CTileTemplate::kAbsentInNetGames;
         }
         uint32_t script = 0;
-        node->GetChecksum(0x2CA8A299u, &script, 0); // TriggerScript
+        node->ReadHashValue(0x2CA8A299u, &script, 0); // TriggerScript
         if (!script)
             continue;
         source->m_triggerScript = script;
@@ -372,7 +372,7 @@ void CParkGenerator::ReadPieceFlags(Script::CArray* nodes)
         case 0x22C20ED8u:
         case 0x28673697u:
         case 0xF6187E48u:
-            source->m_flags |= CSourcePiece::kRebuilt;
+            source->m_flags |= CTileTemplate::kRebuilt;
             break;
         default:
             break;
@@ -382,6 +382,6 @@ void CParkGenerator::ReadPieceFlags(Script::CArray* nodes)
 
 } // namespace Ed
 
-using Ed::CMapListNode;
-using Ed::CMapListTemp;
-using Ed::CParkGenerator;
+using ParkEditing::CMapListNode;
+using ParkEditing::CCellChainScratch;
+using ParkEditing::CParkAssembler;

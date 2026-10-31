@@ -26,7 +26,7 @@
 #include "game/sys/game_config.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 IDirect3DDevice9* g_d3dDevice;
 D3DPRESENT_PARAMETERS g_presentParameters;
@@ -74,7 +74,7 @@ IDirect3DSurface9* g_depthTextureTarget;
 uint32_t g_backBufferFormat;
 uint32_t g_screenSurfaceFormat;
 uint32_t g_depthBits;
-SFont* g_debugFont;
+STypeface* g_debugFont;
 
 IDirect3D9*& Direct3D() { return g_direct3D; }
 IDirect3DDevice9*& Device() { return g_d3dDevice; }
@@ -118,7 +118,7 @@ void InitDirect3D()
     pp = {};
     pp.hDeviceWindow = Window();
     // Originally from PartyMod Fixes (its byte at 0x004D8720, written when its Windowed setting is on). The original: always full screen.
-    pp.Windowed = Sys::Windowed() ? TRUE : FALSE;
+    pp.Windowed = SystemCore::Windowed() ? TRUE : FALSE;
     pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
     pp.BackBufferCount = 1;
     pp.EnableAutoDepthStencil = TRUE;
@@ -127,11 +127,11 @@ void InitDirect3D()
     if (first > 3)
         first = 3;
     // Originally from PartyMod Fixes (its DWords at 0x004D8776 / 0x004D8792): the smallest, 640x480, is its window's size.
-    const int widths[4] = {1280, 1024, 800, Sys::WindowWidth()};
-    const int heights[4] = {1024, 768, 600, Sys::WindowHeight()};
+    const int widths[4] = {1280, 1024, 800, SystemCore::WindowWidth()};
+    const int heights[4] = {1024, 768, 600, SystemCore::WindowHeight()};
     bool multisample = g_antialiasing;
     // NOT ORIGINAL - [Graphics] msaa (game/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
-    GraphicsOptions::ChooseMultisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, Sys::Windowed());
+    GraphicsOptions::ChooseMultisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, SystemCore::Windowed());
     if (GraphicsOptions::ChosenSamples())
         multisample = true;
     DeviceWidth() = widths[first];
@@ -191,8 +191,8 @@ void InitDirect3D()
     //   if (!pp.Windowed) while (ShowCursor(FALSE) > 0) {}
     LoadGamma();
     // the debug font (none on PC: the original calls the shared `return 0` stub)
-    g_debugFont = reinterpret_cast<SFont*>(static_cast<uintptr_t>(Stubs::ReturnZero()));
-    Tmr::SetFlags();
+    g_debugFont = reinterpret_cast<STypeface*>(static_cast<uintptr_t>(Stubs::ReturnZero()));
+    FrameClock::SetFlags();
 }
 
 namespace {
@@ -351,7 +351,7 @@ void __cdecl LoadGamma()
         RegQueryValueExA(key, "B", nullptr, nullptr, reinterpret_cast<BYTE*>(&blue), &size);
         // (the key is left open)
     }
-    Nx::SetDeviceGamma(red, green, blue); // the gamma ramp
+    Engine3D::SetDeviceGamma(red, green, blue); // the gamma ramp
 }
 
 // 0x004D89C0
@@ -382,8 +382,8 @@ void __cdecl ShowDiscError()
         second = g_discErrorEnglish2;
         break;
     }
-    alignas(4) uint8_t storage[sizeof(SText)];
-    SText* text = reinterpret_cast<SText*>(storage);
+    alignas(4) uint8_t storage[sizeof(SGlyphRun)];
+    SGlyphRun* text = reinterpret_cast<SGlyphRun*>(storage);
     text->Construct(0.0f);
     text->font = g_debugFont;
     text->x = 48.0f;
@@ -399,7 +399,7 @@ void __cdecl ShowDiscError()
     for (;;) {
         Device()->Present(nullptr, nullptr, nullptr, nullptr);
         Device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
-        SetBlendMode(5);
+        ChooseBlendMode(5);
         SetTexture(0, nullptr);
         SetState(kAddressMode0, 0x10001);
         SetState(kDepthBias, 0);

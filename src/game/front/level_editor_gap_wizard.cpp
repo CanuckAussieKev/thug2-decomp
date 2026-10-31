@@ -20,7 +20,7 @@
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 
-namespace Front::LevelEditor::GapWizard {
+namespace MenuSystem::LevelEditor::GapWizard {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -143,13 +143,13 @@ struct Hit {
     uint16_t flags;
 };
 
-// The game's collision ray (a CFeeler, as level_editor_ruler.cpp's): the point, the face's normal and flags.
+// The game's collision ray (a CProbeRay, as level_editor_ruler.cpp's): the point, the face's normal and flags.
 bool Cast(V3 from, V3 to, Hit* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
@@ -161,24 +161,24 @@ bool Cast(V3 from, V3 to, Hit* hit)
     return true;
 }
 
-Obj::CRailManager* Rails()
+GameObjects::CGrindRailHub* Rails()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
-    auto* manager = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    auto* manager = skate ? *reinterpret_cast<GameObjects::CGrindRailHub**>(skate + 0x24) : nullptr;
     return manager && !manager->m_onObject && manager->m_nodes ? manager : nullptr;
 }
 
 // The rail segment nearest the cursor within 14 pixels (and not behind what the ray hits first): the point on it.
 bool RailNear(V3 origin, V3 unitDir, float x, float y, float maxT, Spot* spot)
 {
-    Obj::CRailManager* rails = Rails();
+    GameObjects::CGrindRailHub* rails = Rails();
     if (!rails)
         return false;
     float best = 14.0f;
     bool found = false;
     for (int i = 0; i < rails->m_count; ++i) {
-        const Obj::CRailNode& node = rails->m_nodes[i];
-        if (!node.m_next || (node.m_flags & Obj::RAIL_FLAG_CLIMBING) || !(node.m_flags & Obj::RAIL_FLAG_ACTIVE))
+        const GameObjects::CGrindPoint& node = rails->m_nodes[i];
+        if (!node.m_next || (node.m_flags & GameObjects::RAIL_FLAG_CLIMBING) || !(node.m_flags & GameObjects::RAIL_FLAG_ACTIVE))
             continue;
         V3 a = {node.m_pos.x, node.m_pos.y, node.m_pos.z};
         V3 b = {node.m_next->m_pos.x, node.m_next->m_pos.y, node.m_next->m_pos.z};
@@ -386,4 +386,4 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
         g_queue.push_back([] { SetArmed(false); });
 }
 
-} // namespace Front::LevelEditor::GapWizard
+} // namespace MenuSystem::LevelEditor::GapWizard

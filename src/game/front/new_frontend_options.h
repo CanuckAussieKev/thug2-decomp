@@ -6,7 +6,7 @@
 // NOT ORIGINAL - the new front end's Options screen (ours; see new_frontend.h): the settings of thug2-decomp.ini it
 // offers (docs/design/frontend/Options.dc.html's groups and keys, plus new_frontend and thaw_bmx), and the ini text
 // read and changed in place - pure (no files, no game).
-namespace Front::NewFrontend::Options {
+namespace MenuSystem::NewFrontend::Options {
 
 // When a change is seen.
 enum class Apply {
@@ -57,4 +57,4 @@ bool IniGet(const std::string& text, const std::string& section, const std::stri
 std::string IniSet(const std::string& text, const std::string& section, const std::string& key,
                    const std::string& value);
 
-} // namespace Front::NewFrontend::Options
+} // namespace MenuSystem::NewFrontend::Options

@@ -21,7 +21,7 @@
 #include "game/script/cscript.h"
 #include "game/sys/log.h"
 
-namespace Script {
+namespace Scripts {
 
 static_assert(offsetof(CStoredRandom, m_count) == 8, "layout must match the original");
 static_assert(offsetof(CStoredRandom, m_order) == 0x12, "layout must match the original");
@@ -29,7 +29,7 @@ static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom,
               "layout must match the original");
 static_assert(sizeof(CStoredRandom) == 0x60, "layout must match the original");
 
-Mem::PoolPair g_storedRandomPools;
+MemSys::PoolPair g_storedRandomPools;
 int g_pendingSymbolCount;
 uint32_t g_permanentStringsFree;
 
@@ -47,7 +47,7 @@ ScriptChecksumName*& ScriptNames() { return g_scriptNames; }
 char* CopyString(const char* string)
 {
     size_t size = std::strlen(string) + 1;
-    auto* copy = static_cast<char*>(Mem::Malloc(static_cast<unsigned int>(size)));
+    auto* copy = static_cast<char*>(MemSys::AllocBlock(static_cast<unsigned int>(size)));
     std::memcpy(copy, string, size);
     return copy;
 }
@@ -55,18 +55,18 @@ char* CopyString(const char* string)
 } // namespace
 
 // Create a pool of `count` items of `item_size` as the current pool of `pools`.
-void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name)
+void CreatePool(MemSys::PoolPair& pools, int item_size, int count, const char* name)
 {
-    if (!Mem::g_managerReady)
-        Mem::EnsureManager();
-    void* memory = Mem::Manager::Get()->Allocate(sizeof(Mem::Pool), 1, nullptr);
-    Mem::Pool* pool = memory ? new (memory) Mem::Pool(item_size, count, name) : nullptr;
+    if (!MemSys::g_managerReady)
+        MemSys::EnsureManager();
+    void* memory = MemSys::Manager::Get()->Allocate(sizeof(MemSys::Pool), 1, nullptr);
+    MemSys::Pool* pool = memory ? new (memory) MemSys::Pool(item_size, count, name) : nullptr;
     pools.pools[pools.current] = pool;
     reinterpret_cast<uint8_t*>(&pools.unknown4)[pools.current] = 1;
 }
 
 // 0x0046F690
-const uint8_t* SkipToken(const uint8_t* token)
+const uint8_t* StepOverToken(const uint8_t* token)
 {
     switch (*token) {
     case 0x01: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07: case 0x08: case 0x09: case 0x0A:
@@ -79,7 +79,7 @@ const uint8_t* SkipToken(const uint8_t* token)
     case 0x02: case 0x16: case 0x17: case 0x18: case 0x1A: case 0x2E: case 0x43: case 0x44: case 0x46:
         return token + 5;
     case 0x1B: case 0x1C: // strings: the length, then the text
-        return token + 5 + Read4Bytes(token + 1);
+        return token + 5 + FetchWord32(token + 1);
     case 0x1E: // vector
         return token + 13;
     case 0x1F: // pair
@@ -91,7 +91,7 @@ const uint8_t* SkipToken(const uint8_t* token)
         return p + 1;
     }
     case 0x2F: case 0x37: case 0x40: case 0x41: // tables of 6-byte entries
-        return token + 5 + Read4Bytes(token + 1) * 6;
+        return token + 5 + FetchWord32(token + 1) * 6;
     case 0x47: case 0x48: case 0x49:
         return token + 3;
     default: // (0x00, 0x10, 0x19, 0x1D, 0x2A, 0x31 and unknown tokens: no step)
@@ -100,19 +100,19 @@ const uint8_t* SkipToken(const uint8_t* token)
 }
 
 // 0x0046F7E0
-uint32_t Read4Bytes(const uint8_t* p)
+uint32_t FetchWord32(const uint8_t* p)
 {
     return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24);
 }
 
 // 0x0046F800
-uint16_t Read2Bytes(const uint8_t* p)
+uint16_t FetchWord16(const uint8_t* p)
 {
     return static_cast<uint16_t>(p[0] | (p[1] << 8));
 }
 
 // 0x0046F810
-uint8_t* Write4Bytes(uint8_t* p, uint32_t value)
+uint8_t* StoreWord32(uint8_t* p, uint32_t value)
 {
     p[0] = static_cast<uint8_t>(value);
     p[1] = static_cast<uint8_t>(value >> 8);
@@ -122,7 +122,7 @@ uint8_t* Write4Bytes(uint8_t* p, uint32_t value)
 }
 
 // 0x0046F840
-uint8_t* Write2Bytes(uint8_t* p, uint16_t value)
+uint8_t* StoreWord16(uint8_t* p, uint16_t value)
 {
     p[0] = static_cast<uint8_t>(value);
     p[1] = static_cast<uint8_t>(value >> 8);
@@ -130,7 +130,7 @@ uint8_t* Write2Bytes(uint8_t* p, uint16_t value)
 }
 
 // 0x0046F850
-const uint8_t* SkipEndOfLines(const uint8_t* token)
+const uint8_t* SkipNewlineTokens(const uint8_t* token)
 {
     for (;;) {
         if (*token == 0x01)
@@ -161,8 +161,8 @@ const uint8_t* SkipToEndOfStatement(const uint8_t* token)
         if (t == 0x0F)
             --parentheses;
         if (braces == 0 && brackets == 0 && parentheses == 0 && (t == 0x01 || t == 0x02 || t == 0x00))
-            return SkipToken(token);
-        token = SkipToken(token);
+            return StepOverToken(token);
+        token = StepOverToken(token);
     }
 }
 
@@ -170,10 +170,10 @@ const uint8_t* SkipToEndOfStatement(const uint8_t* token)
 const uint8_t* SkipToEndOfScript(const uint8_t* token)
 {
     while (*token != 0x24)
-        token = SkipToken(token);
-    token = SkipToken(token);
+        token = StepOverToken(token);
+    token = StepOverToken(token);
     if (*token == 0x02)
-        return SkipToken(token);
+        return StepOverToken(token);
     return token;
 }
 
@@ -182,16 +182,16 @@ uint32_t CalculateScriptChecksum(const uint8_t* token)
 {
     uint32_t checksum = 0xFFFFFFFF;
     while (*token != 0x24) {
-        const uint8_t* next = SkipToken(token);
+        const uint8_t* next = StepOverToken(token);
         if (*token != 0x01 && *token != 0x02)
-            checksum = Crc::ExtendCRCWithBuffer(token, static_cast<int>(next - token), checksum);
+            checksum = Checksums::ExtendCRCWithBuffer(token, static_cast<int>(next - token), checksum);
         token = next;
     }
     return checksum;
 }
 
 // 0x0046FF00
-void PreProcessScript(uint8_t* token)
+void PrepareScriptTokens(uint8_t* token)
 {
     token = const_cast<uint8_t*>(SkipToEndOfStatement(token));
     while (*token != 0x24) {
@@ -199,13 +199,13 @@ void PreProcessScript(uint8_t* token)
             // A statement starting with a name: a call?
             uint8_t* name = token;
             token += 5;
-            if (CSymbolTableEntry* symbol = LookUpSymbol(Read4Bytes(name + 1))) {
-                if (symbol->type == ESYMBOLTYPE_CFUNCTION) {
+            if (CSymbolTableEntry* symbol = ResolveSymbol(FetchWord32(name + 1))) {
+                if (symbol->type == QBVAL_NATIVE_FUNC) {
                     name[0] = 0x43;
-                    Write4Bytes(name + 1, symbol->raw);
-                } else if (symbol->type == ESYMBOLTYPE_MEMBERFUNCTION) {
+                    StoreWord32(name + 1, symbol->raw);
+                } else if (symbol->type == QBVAL_NATIVE_METHOD) {
                     if (symbol->raw) {
-                        Write4Bytes(name + 1, symbol->raw);
+                        StoreWord32(name + 1, symbol->raw);
                         name[0] = 0x46;
                     } else {
                         name[0] = 0x44;
@@ -214,7 +214,7 @@ void PreProcessScript(uint8_t* token)
             }
             token = const_cast<uint8_t*>(SkipToEndOfStatement(token));
         } else if (*token == 0x47) {
-            token = const_cast<uint8_t*>(SkipToken(token));
+            token = const_cast<uint8_t*>(StepOverToken(token));
             if (*token == 0x39)
                 ++token;
         } else {
@@ -244,14 +244,14 @@ void FreeScriptChecksumNames()
         ScriptChecksumName& bucket = ScriptNames()[i];
         for (ScriptChecksumName* entry = bucket.next; entry;) {
             ScriptChecksumName* next = entry->next;
-            Mem::FreeMalloc(entry->name);
-            Mem::FreeMalloc(entry);
+            MemSys::FreeMalloc(entry->name);
+            MemSys::FreeMalloc(entry);
             entry = next;
         }
         if (bucket.name)
-            Mem::FreeMalloc(bucket.name);
+            MemSys::FreeMalloc(bucket.name);
     }
-    Mem::FreeMalloc(ScriptNames());
+    MemSys::FreeMalloc(ScriptNames());
     ScriptNames() = nullptr;
 }
 
@@ -283,7 +283,7 @@ void AddScriptChecksumName(uint32_t checksum, const char* name)
 {
     ScriptChecksumName& bucket = ScriptNames()[checksum & 0xFFF];
     if (bucket.name) {
-        auto* entry = static_cast<ScriptChecksumName*>(Mem::Malloc(sizeof(ScriptChecksumName)));
+        auto* entry = static_cast<ScriptChecksumName*>(MemSys::AllocBlock(sizeof(ScriptChecksumName)));
         entry->checksum = checksum;
         entry->name = CopyString(name);
         entry->next = bucket.next;
@@ -293,7 +293,7 @@ void AddScriptChecksumName(uint32_t checksum, const char* name)
         bucket.name = CopyString(name);
         bucket.next = nullptr;
     }
-    AddChecksumName(checksum, name);
+    RegisterNameHash(checksum, name);
 }
 
 // 0x0046F870
@@ -312,14 +312,14 @@ void CStoredRandom::Shuffle(bool avoidRepeat)
 {
     uint8_t last = m_order[m_count - 1];
     for (int swaps = m_count * 10; swaps; --swaps) {
-        int a = Mth::Rnd(m_count);
-        int b = Mth::Rnd(m_count);
+        int a = Maths::Rnd(m_count);
+        int b = Maths::Rnd(m_count);
         uint8_t swapped = m_order[a];
         m_order[a] = m_order[b];
         m_order[b] = swapped;
     }
     if (avoidRepeat && m_order[0] == last) {
-        int other = Mth::Rnd(m_count - 1) + 1;
+        int other = Maths::Rnd(m_count - 1) + 1;
         uint8_t swapped = m_order[0];
         m_order[0] = m_order[other];
         m_order[other] = swapped;
@@ -331,10 +331,10 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
 {
     g_permanentStringsSize = size;
     g_permanentStringsFree = count;
-    char* strings = static_cast<char*>(Mem::Malloc(size));
+    char* strings = static_cast<char*>(MemSys::AllocBlock(size));
     g_permanentStringsStart = strings;
     g_permanentStringsNext = strings;
-    reinterpret_cast<void*&>(g_permanentStringTable) = Mem::Malloc(count * 8);
+    reinterpret_cast<void*&>(g_permanentStringTable) = MemSys::AllocBlock(count * 8);
     g_permanentStringCount = 0;
 }
 
@@ -342,53 +342,53 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
 void CreateScriptPools()
 {
     // Not original - the counts are ours (game/core/memory_sizes.h: pool sizes as THUGPRO's, thug2-decomp.ini
-    // [memory]); the script region they come from is grown to match (Mem::Manager::InitStandardHeaps).
+    // [memory]); the script region they come from is grown to match (MemSys::Manager::InitStandardHeaps).
     // Original behaviour: CScriptCacheEntry 300, CComponent 86000, CStruct 19800, CVector 9500, CPair 800, CArray
     // 7000, CSymbolTableEntry 12500, CScript 300, CStoredRandom 100, the string heap 190000 bytes / 7000 strings.
-    const Mem::Sizes::Pools& sizes = Mem::Sizes::Current();
-    Mem::PushMemProfile("AllocateChecksumNameLookupTables");
+    const MemSys::Sizes::Pools& sizes = MemSys::Sizes::Current();
+    MemSys::PushMemProfile("AllocateChecksumNameLookupTables");
     AllocateChecksumNameLookupTables();
-    Mem::PopMemProfile();
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    MemSys::PopMemProfile();
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
-    Mem::PushMemProfile("CScriptCacheEntry");
+    MemSys::PushMemProfile("CScriptCacheEntry");
     CreatePool(g_cacheEntryPools, 0x14, sizes.scriptCacheEntries, "CScriptCacheEntry");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CComponent and Reserve CComponent");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CComponent and Reserve CComponent");
     CreatePool(g_componentPools, 0x10, sizes.components, "CComponent");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CStruct");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CStruct");
     CreatePool(g_structPools, 0x08, sizes.structs, "CStruct");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CVector");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CVector");
     CreatePool(g_vectorPools, 0x10, sizes.vectors, "CVector");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CPair");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CPair");
     CreatePool(g_pairPools, 0x0C, sizes.pairs, "CPair");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CArray");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CArray");
     CreatePool(g_arrayPools, 0x0C, sizes.arrays, "CArray");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CSymbolTableEntry");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CSymbolTableEntry");
     CreatePool(g_symbolPools, 0x14, sizes.symbols, "CSymbolTableEntry");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CScript");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CScript");
     CreatePool(g_scriptPools, 0xF4, sizes.scripts, "CScript");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("CStoredRandom");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("CStoredRandom");
     CreatePool(g_storedRandomPools, 0x60, sizes.storedRandoms, "CStoredRandom");
-    Mem::PopMemProfile();
-    Mem::PushMemProfile("AllocatePermanentStringHeap");
+    MemSys::PopMemProfile();
+    MemSys::PushMemProfile("AllocatePermanentStringHeap");
     AllocatePermanentStringHeap(sizes.stringBytes, sizes.strings);
-    Mem::PopMemProfile();
-    Mem::PopContext();
+    MemSys::PopMemProfile();
+    MemSys::LeaveHeapScope();
     // (not original either: the sizes in the log)
     Log("script pools: CComponent %d, CStruct %d, CVector %d, CPair %d, CArray %d, CSymbolTableEntry %d, CScript %d, "
         "CScriptCacheEntry %d, strings %u bytes / %u (thug2-decomp.ini [memory]; the original's CComponent 86000); "
         "script region %u bytes",
         sizes.components, sizes.structs, sizes.vectors, sizes.pairs, sizes.arrays, sizes.symbols, sizes.scripts,
-        sizes.scriptCacheEntries, sizes.stringBytes, sizes.strings, Mem::Sizes::ScriptRegionSize());
+        sizes.scriptCacheEntries, sizes.stringBytes, sizes.strings, MemSys::Sizes::ScriptRegionSize());
 }
 
 void LogScriptPoolUse(const char* when)
@@ -396,7 +396,7 @@ void LogScriptPoolUse(const char* when)
     // Not original (log only).
     struct Named {
         const char* name;
-        Mem::PoolPair* pair;
+        MemSys::PoolPair* pair;
     };
     const Named kPools[] = {{"CComponent", &g_componentPools}, {"CStruct", &g_structPools},
                             {"CVector", &g_vectorPools},       {"CPair", &g_pairPools},
@@ -405,7 +405,7 @@ void LogScriptPoolUse(const char* when)
     std::string line;
     for (const Named& p : kPools) {
         int used = 0, peak = 0, count = 0;
-        for (Mem::Pool* pool : p.pair->pools) {
+        for (MemSys::Pool* pool : p.pair->pools) {
             if (!pool)
                 continue;
             used += pool->m_used;
@@ -418,7 +418,7 @@ void LogScriptPoolUse(const char* when)
         line += part;
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
-    if (Mem::Pool* items = Mem::PoolManager::GetPool(0)) {
+    if (MemSys::Pool* items = MemSys::SlotPoolSetup::GetPool(0)) {
         char part[96];
         std::snprintf(part, sizeof(part), ", HashItem %d (peak %d) of %d", items->m_used, items->m_peakUsed,
                       items->m_count);
@@ -433,7 +433,7 @@ namespace {
 
 // The per-class pool creators (cdecl: count, name).
 #define POOL_CREATOR(function, pools, itemSize)                                                                \
-    void function(int count, const char* name) { Script::CreatePool(Script::pools, itemSize, count, name); }
+    void function(int count, const char* name) { Scripts::CreatePool(Scripts::pools, itemSize, count, name); }
 POOL_CREATOR(CreateCacheEntryPool, g_cacheEntryPools, 0x14)
 POOL_CREATOR(CreateComponentPool, g_componentPools, 0x10)
 POOL_CREATOR(CreateStructPool, g_structPools, 0x08)
@@ -449,10 +449,10 @@ POOL_CREATOR(CreateStoredRandomPool, g_storedRandomPools, 0x60)
 
 // --- symbol bookkeeping for the loader --------------------------------------------------------------------
 
-namespace Script {
+namespace Scripts {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-CScriptCache* ScriptCache() { return g_scriptCache; }
+CScriptStore* ScriptCache() { return g_scriptCache; }
 
 void RemoveFromScriptCache(uint32_t name) { ScriptCache()->Invalidate(name); }
 
@@ -473,7 +473,7 @@ void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
     pending.symbol = symbol;
     pending.owned = owned;
     ++PendingSymbolCount();
-    if (symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCache())
+    if (symbol->type == QBVAL_SCRIPT_BODY && ScriptCache())
         RemoveFromScriptCache(symbol->name);
 }
 
@@ -486,11 +486,11 @@ void SetScriptFlag6F2564() { g_evaluator.m_unknown1F4 = true; }
 // 0x00470010
 void AllocateScriptChecksumNames(bool debugHeap)
 {
-    Mem::Manager* manager = Mem::Manager::Get();
-    Mem::PushContext(debugHeap ? manager->m_debugHeap : manager->m_scriptHeap);
-    auto* names = static_cast<uint32_t*>(Mem::Malloc(0x1000 * 12));
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::EnterHeapScope(debugHeap ? manager->m_debugHeap : manager->m_scriptHeap);
+    auto* names = static_cast<uint32_t*>(MemSys::AllocBlock(0x1000 * 12));
     reinterpret_cast<uint32_t*&>(g_scriptNames) = names;
-    Mem::PopContext();
+    MemSys::LeaveHeapScope();
     for (uint32_t i = 0; i < 0x1000 * 3; ++i)
         names[i] = 0;
 }
@@ -508,27 +508,27 @@ void CleanUpAndRemoveSymbol(CSymbolTableEntry* symbol)
     if (symbol->unknown0 & 4) // (kept: not owned by the table?)
         return;
     switch (symbol->type) {
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         FreeString(reinterpret_cast<const char*>(symbol->raw));
         break;
-    case ESYMBOLTYPE_PAIR:
+    case QBVAL_PAIR:
         FreePair(reinterpret_cast<void*>(symbol->raw));
         break;
-    case ESYMBOLTYPE_VECTOR:
+    case QBVAL_VECTOR:
         FreeVector(reinterpret_cast<void*>(symbol->raw));
         break;
-    case ESYMBOLTYPE_QSCRIPT:
-        Mem::FreeMalloc(reinterpret_cast<void*>(symbol->raw));
+    case QBVAL_SCRIPT_BODY:
+        MemSys::FreeMalloc(reinterpret_cast<void*>(symbol->raw));
         break;
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         if (CStruct* structure = symbol->structure) {
             structure->Clear();
             DeleteStruct(structure);
         }
         break;
-    case ESYMBOLTYPE_ARRAY:
-        CleanUpArray(reinterpret_cast<CArray*>(symbol->raw));
+    case QBVAL_ARRAY:
+        ReleaseArrayStorage(reinterpret_cast<CArray*>(symbol->raw));
         if (auto* array = reinterpret_cast<CArray*>(symbol->raw)) {
             array->Clear();
             DeleteArray(array);
@@ -558,7 +558,7 @@ void ProcessPendingSymbols()
             LinkSymbol(pending.symbol);
         }
         // (reads the symbol even when it has just been freed, as the original does)
-        if (pending.symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCache())
+        if (pending.symbol->type == QBVAL_SCRIPT_BODY && ScriptCache())
             RemoveFromScriptCache(pending.symbol->name);
     }
     PendingSymbolCount() = 0;

@@ -15,7 +15,7 @@
 #include "game/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -42,172 +42,172 @@ constexpr uint32_t kStatList = 0x61EB6BA9;       // the global array of stats (e
 constexpr uint32_t kOwnedStructure = 11;         // a component type: a structure it owns, by pointer
 
 // The appearance's code (0x00488xxx-0x00489xxx).
-void FreeFaceTexture(CSkaterProfile* p) { reinterpret_cast<Gfx::CModelAppearance*>(p)->FreeFaceTexture(); }
-void ResetAppearance(CSkaterProfile* p) { reinterpret_cast<Gfx::CModelAppearance*>(p)->Reset(); }
-void LoadAppearance(CSkaterProfile* p, uint32_t name, bool update)
+void FreeFaceTexture(CRiderIdentity* p) { reinterpret_cast<Gfx2D::CModelLook*>(p)->FreeFaceTexture(); }
+void ResetAppearance(CRiderIdentity* p) { reinterpret_cast<Gfx2D::CModelLook*>(p)->Reset(); }
+void LoadAppearance(CRiderIdentity* p, uint32_t name, bool update)
 {
-    reinterpret_cast<Gfx::CModelAppearance*>(p)->LoadByName(name, update);
+    reinterpret_cast<Gfx2D::CModelLook*>(p)->LoadByName(name, update);
 }
-void MakeFaceTexture(CSkaterProfile* p) { reinterpret_cast<Gfx::CModelAppearance*>(p)->MakeFaceTexture(); }
+void MakeFaceTexture(CRiderIdentity* p) { reinterpret_cast<Gfx2D::CModelLook*>(p)->MakeFaceTexture(); }
 
 // A new empty structure (pooled; null if none) / one cleared and freed.
-Script::CStruct* NewEmptyStruct()
+Scripts::CStruct* NewEmptyStruct()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void FreeStruct(Script::CStruct* s)
+void FreeStruct(Scripts::CStruct* s)
 {
     if (s) {
         s->Clear();
-        Script::DeleteStruct(s);
+        Scripts::DeleteStruct(s);
     }
 }
 
 // The script structure written to / read from a buffer (0x00479E20 returns the bytes, 0x0047A0C0 the end).
-int WriteStruct(Script::CStruct* s, uint8_t* buffer, int size)
+int WriteStruct(Scripts::CStruct* s, uint8_t* buffer, int size)
 {
-    return static_cast<int>(Script::WriteToBuffer(s, buffer, static_cast<uint32_t>(size), 1, nullptr));
+    return static_cast<int>(Scripts::EmitIntoBuffer(s, buffer, static_cast<uint32_t>(size), 1, nullptr));
 }
-uint8_t* ReadStruct(Script::CStruct* s, uint8_t* buffer)
+uint8_t* ReadStruct(Scripts::CStruct* s, uint8_t* buffer)
 {
-    return const_cast<uint8_t*>(Script::ReadFromBuffer(s, buffer));
+    return const_cast<uint8_t*>(Scripts::DecodeFromBytes(s, buffer));
 }
 
-void PushSkaterInfoHeap() { Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_skaterInfoHeap); }
-void PushScriptHeap() { Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_scriptHeap); }
-void PopHeap() { Mem::Manager::Get()->PopContext(); }
+void PushSkaterInfoHeap() { MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_skaterInfoHeap); }
+void PushScriptHeap() { MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap); }
+void PopHeap() { MemSys::Manager::Get()->LeaveHeapScope(); }
 
 } // namespace
 
 // 0x00585ED0
-CSkaterProfile* CSkaterProfile::CopyFrom(CSkaterProfile* other)
+CRiderIdentity* CRiderIdentity::CopyFrom(CRiderIdentity* other)
 {
     if (other != this) {
-        reinterpret_cast<Gfx::CModelAppearance*>(this)->CopyFrom(reinterpret_cast<Gfx::CModelAppearance*>(other)); // the appearance
+        reinterpret_cast<Gfx2D::CModelLook*>(this)->CopyFrom(reinterpret_cast<Gfx2D::CModelLook*>(other)); // the appearance
         InfoStructure()->Assign(other->InfoStructure());
     }
     return this;
 }
 
 // 0x00585F00
-void CSkaterProfile::ReadFromSave(uint32_t name, Script::CStruct* save)
+void CRiderIdentity::ReadFromSave(uint32_t name, Scripts::CStruct* save)
 {
-    Script::CStruct* mine = nullptr;
-    save->GetStructure(name, &mine, 0);
+    Scripts::CStruct* mine = nullptr;
+    save->ReadSubStruct(name, &mine, 0);
     if (!mine)
         return;
-    Script::CStruct* part = nullptr;
-    if (mine->GetStructure(kAppearance, &part, 0))
+    Scripts::CStruct* part = nullptr;
+    if (mine->ReadSubStruct(kAppearance, &part, 0))
         SetAppearance(part, true);
     part = nullptr;
-    mine->GetStructure(kInfo, &part, 0);
+    mine->ReadSubStruct(kInfo, &part, 0);
     InfoStructure()->Clear();
     InfoStructure()->AppendStructureIfAny(part);
     int deckFlags = 1; // (read, unused)
-    mine->GetInteger(kDeckFlags, &deckFlags, 0);
+    mine->FetchIntValue(kDeckFlags, &deckFlags, 0);
 }
 
 // 0x00585FB0 / 0x00585FD0
-int CSkaterProfile::GetStat(uint32_t name)
+int CRiderIdentity::GetStat(uint32_t name)
 {
     int value;
-    InfoStructure()->GetInteger(name, &value, 1);
+    InfoStructure()->FetchIntValue(name, &value, 1);
     return value;
 }
-bool CSkaterProfile::SetStat(uint32_t name, int value)
+bool CRiderIdentity::SetAbilityLevel(uint32_t name, int value)
 {
     if (value < 0 || value > 10)
         return false;
-    InfoStructure()->AddInteger(name, value);
+    InfoStructure()->PutInt(name, value);
     return true;
 }
 
 // 0x00586000 / 0x00586040
-bool CSkaterProfile::AddToInfo471FC4DD(int amount)
+bool CRiderIdentity::AddToInfo471FC4DD(int amount)
 {
     int value;
-    InfoStructure()->GetInteger(0x471FC4DD, &value, 1);
-    InfoStructure()->AddComponentOfType(0x471FC4DD, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(value + amount));
+    InfoStructure()->FetchIntValue(0x471FC4DD, &value, 1);
+    InfoStructure()->AddComponentOfType(0x471FC4DD, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(value + amount));
     return true;
 }
-int CSkaterProfile::GetInfo471FC4DD()
+int CRiderIdentity::GetInfo471FC4DD()
 {
     int value;
-    InfoStructure()->GetInteger(0x471FC4DD, &value, 1);
+    InfoStructure()->FetchIntValue(0x471FC4DD, &value, 1);
     return value;
 }
 
 // 0x00586060 / 0x005860A0
-bool CSkaterProfile::AddMaxSpecials(int amount)
+bool CRiderIdentity::AddMaxSpecials(int amount)
 {
     int value;
-    InfoStructure()->GetInteger(kMaxSpecials, &value, 1);
-    InfoStructure()->AddComponentOfType(kMaxSpecials, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(value + amount));
+    InfoStructure()->FetchIntValue(kMaxSpecials, &value, 1);
+    InfoStructure()->AddComponentOfType(kMaxSpecials, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(value + amount));
     return true;
 }
-int CSkaterProfile::GetMaxSpecials()
+int CRiderIdentity::GetMaxSpecials()
 {
     int value;
-    InfoStructure()->GetInteger(kMaxSpecials, &value, 1);
+    InfoStructure()->FetchIntValue(kMaxSpecials, &value, 1);
     return value;
 }
 
 // 0x005860C0
-uint32_t CSkaterProfile::GetChecksumValue(uint32_t name)
+uint32_t CRiderIdentity::GetNameKeyField(uint32_t name)
 {
     uint32_t value = 0;
     if (name == kStance || name == kPushStyle)
-        InfoStructure()->GetChecksum(name, &value, 1);
+        InfoStructure()->ReadHashValue(name, &value, 1);
     return value;
 }
 
 // 0x00586110 / 0x00586130
-Script::CStruct* CSkaterProfile::GetInfoStructure(uint32_t name)
+Scripts::CStruct* CRiderIdentity::GetInfoStructure(uint32_t name)
 {
-    Script::CStruct* structure;
-    InfoStructure()->GetStructure(name, &structure, 1);
+    Scripts::CStruct* structure;
+    InfoStructure()->ReadSubStruct(name, &structure, 1);
     return structure;
 }
-Script::CStruct* CSkaterProfile::GetSpecials()
+Scripts::CStruct* CRiderIdentity::GetSpecials()
 {
-    Script::CStruct* specials;
-    InfoStructure()->GetStructure(kSpecials, &specials, 1);
+    Scripts::CStruct* specials;
+    InfoStructure()->ReadSubStruct(kSpecials, &specials, 1);
     return specials;
 }
 
 // 0x00586150 / 0x00586170
-uint32_t CSkaterProfile::GetName()
+uint32_t CRiderIdentity::GetName()
 {
     uint32_t name;
-    InfoStructure()->GetChecksum(kName, &name, 1);
+    InfoStructure()->ReadHashValue(kName, &name, 1);
     return name;
 }
-bool CSkaterProfile::IsPro()
+bool CRiderIdentity::IsPro()
 {
     int pro;
-    InfoStructure()->GetInteger(kIsPro, &pro, 1);
+    InfoStructure()->FetchIntValue(kIsPro, &pro, 1);
     return pro != 0;
 }
 
 // 0x00586190 / 0x005861A0
-bool CSkaterProfile::HasFlagF3149AC5() { return InfoStructure()->ContainsFlag(0xF3149AC5); }
-void CSkaterProfile::SetValue09F350E5(uint8_t value)
+bool CRiderIdentity::HasFlagF3149AC5() { return InfoStructure()->HasBareFlag(0xF3149AC5); }
+void CRiderIdentity::SetValue09F350E5(uint8_t value)
 {
-    InfoStructure()->AddComponentOfType(0x09F350E5, Script::ESYMBOLTYPE_INTEGER, value);
+    InfoStructure()->AddComponentOfType(0x09F350E5, Scripts::QBVAL_INTEGER, value);
 }
 
 // 0x005861C0 / 0x005861F0
-const char* CSkaterProfile::GetStringF36C1878()
+const char* CRiderIdentity::GetStringF36C1878()
 {
     const char* text = "Unimplemented";
     InfoStructure()->GetString(0xF36C1878, &text, 0);
     return text;
 }
-void CSkaterProfile::SetStringF36C1878(const char* text) { InfoStructure()->AddString(0xF36C1878, text); }
+void CRiderIdentity::SetStringF36C1878(const char* text) { InfoStructure()->AddString(0xF36C1878, text); }
 
 // 0x00586210
-const char* CSkaterProfile::GetDisplayName()
+const char* CRiderIdentity::GetDisplayName()
 {
     const char* name;
     InfoStructure()->GetString(kDisplayName, &name, 1);
@@ -215,13 +215,13 @@ const char* CSkaterProfile::GetDisplayName()
 }
 
 // 0x00586630
-CSkaterProfile::SpecialTrick* CSkaterProfile::GetSpecialTrick(SpecialTrick* out, int index)
+CRiderIdentity::SpecialTrick* CRiderIdentity::GetSpecialTrick(SpecialTrick* out, int index)
 {
     SpecialTrick trick;
     trick.Construct();
-    Script::CStruct* specials;
-    InfoStructure()->GetStructure(kSpecials, &specials, 1);
-    Script::CArray* slots;
+    Scripts::CStruct* specials;
+    InfoStructure()->ReadSubStruct(kSpecials, &specials, 1);
+    Scripts::CArray* slots;
     specials->GetArray(0u, &slots, 1);
     if (index < 0 || index >= static_cast<int>(slots->m_size)) {
         // (asserts, compiled out)
@@ -229,11 +229,11 @@ CSkaterProfile::SpecialTrick* CSkaterProfile::GetSpecialTrick(SpecialTrick* out,
         Stubs::DoNothing();
         Stubs::DoNothing();
     }
-    auto* slot = reinterpret_cast<Script::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
-    slot->GetChecksum(kTrickSlot, &trick.trick, 1);
-    slot->GetChecksum(kTrickKeys, &trick.keys, 1);
+    auto* slot = reinterpret_cast<Scripts::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
+    slot->ReadHashValue(kTrickSlot, &trick.trick, 1);
+    slot->ReadHashValue(kTrickKeys, &trick.keys, 1);
     int flag = 0;
-    slot->GetInteger(kTrickFlag, &flag, 0);
+    slot->FetchIntValue(kTrickFlag, &flag, 0);
     if (flag)
         trick.flag = true;
     *out = trick;
@@ -241,40 +241,40 @@ CSkaterProfile::SpecialTrick* CSkaterProfile::GetSpecialTrick(SpecialTrick* out,
 }
 
 // 0x00586710
-bool CSkaterProfile::SetSpecialTrick(int index, SpecialTrick* trick, bool apply)
+bool CRiderIdentity::SetSpecialTrick(int index, SpecialTrick* trick, bool apply)
 {
-    Script::CStruct* specials;
-    InfoStructure()->GetStructure(kSpecials, &specials, 1);
-    Script::CArray* slots;
+    Scripts::CStruct* specials;
+    InfoStructure()->ReadSubStruct(kSpecials, &specials, 1);
+    Scripts::CArray* slots;
     specials->GetArray(0u, &slots, 1);
     if (index < 0 || index >= static_cast<int>(slots->m_size))
         return false;
     uint32_t name = trick->trick, keys = trick->keys;
     if (trick->IsEmpty())
         name = keys = kEmptyTrick;
-    auto* slot = reinterpret_cast<Script::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
-    slot->AddComponentOfType(kTrickSlot, Script::ESYMBOLTYPE_NAME, name);
-    slot->AddComponentOfType(kTrickKeys, Script::ESYMBOLTYPE_NAME, keys);
+    auto* slot = reinterpret_cast<Scripts::CStruct*>(slots->GetElement(static_cast<uint32_t>(index)));
+    slot->AddComponentOfType(kTrickSlot, Scripts::QBVAL_NAME, name);
+    slot->AddComponentOfType(kTrickKeys, Scripts::QBVAL_NAME, keys);
     if (trick->flag)
-        slot->AddInteger(kTrickFlag, 1);
+        slot->PutInt(kTrickFlag, 1);
     else
         slot->RemoveComponent(kTrickFlag);
     if (apply) {
         // The current skater's trick state told.
-        auto* skater = reinterpret_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
+        auto* skater = reinterpret_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
         if (skater)
-            static_cast<CTrickComponent*>(skater->GetComponent(0x270F56E1))->SetTrickMappings(this);
+            static_cast<CMoveExecutor*>(skater->GetComponent(0x270F56E1))->SetTrickMappings(this);
     }
     return true;
 }
 
 // 0x00587100 / 0x00587110
-CSkaterProfile::SpecialTrick* CSkaterProfile::SpecialTrick::Construct()
+CRiderIdentity::SpecialTrick* CRiderIdentity::SpecialTrick::Construct()
 {
     flag = false;
     return this;
 }
-bool CSkaterProfile::SpecialTrick::IsEmpty() { return trick == kEmptyTrick; }
+bool CRiderIdentity::SpecialTrick::IsEmpty() { return trick == kEmptyTrick; }
 
 // 0x00587120
 ChecksumSet* ChecksumSet::Construct()
@@ -287,7 +287,7 @@ ChecksumSet* ChecksumSet::Construct()
 void ChecksumSet::Fill()
 {
     m_count = 0;
-    Script::CArray* array = Script::GetArray(0x5004A967);
+    Scripts::CArray* array = Scripts::GetArray(0x5004A967);
     for (uint32_t i = 0; i < array->m_size; ++i) {
         uint32_t item = array->GetElement(i);
         int j = 0;
@@ -301,7 +301,7 @@ void ChecksumSet::Fill()
 }
 
 // 0x00586230
-bool CSkaterProfile::SetFromParams(Script::CStruct* params, bool info, bool specials)
+bool CRiderIdentity::SetFromParams(Scripts::CStruct* params, bool info, bool specials)
 {
     if (!params)
         return true;
@@ -311,34 +311,34 @@ bool CSkaterProfile::SetFromParams(Script::CStruct* params, bool info, bool spec
     uint32_t statName = specials;
     const char* text = nullptr;
     int stat = 0;
-    Script::CStruct* mine = InfoStructure();
+    Scripts::CStruct* mine = InfoStructure();
     if (info) {
         FreeFaceTexture(this);
         ResetAppearance(this);
         uint32_t appearance = 0;
-        params->GetChecksum(kAppearanceName, &appearance, 1);
+        params->ReadHashValue(kAppearanceName, &appearance, 1);
         LoadAppearance(this, appearance, true);
         for (uint32_t name : {kDisplayName, 0x562E3ECDu, 0x2820E997u, 0x6C375B95u}) {
             params->GetString(name, &text, 1);
             mine->AddString(name, text);
         }
         for (uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
-            params->GetInteger(name, reinterpret_cast<int*>(&number), name != 0x27EB9B9D);
-            mine->AddInteger(name, static_cast<int>(number));
+            params->FetchIntValue(name, reinterpret_cast<int*>(&number), name != 0x27EB9B9D);
+            mine->PutInt(name, static_cast<int>(number));
         }
-        params->GetChecksum(kName, &checksum, 1);
-        mine->AddChecksum(kName, checksum);
+        params->ReadHashValue(kName, &checksum, 1);
+        mine->PutNameKey(kName, checksum);
         if (checksum == kCustomSkater) {
-            params->GetInteger(0xB78D4AAE, reinterpret_cast<int*>(&number), 1);
-            mine->AddInteger(0xB78D4AAE, static_cast<int>(number));
+            params->FetchIntValue(0xB78D4AAE, reinterpret_cast<int*>(&number), 1);
+            mine->PutInt(0xB78D4AAE, static_cast<int>(number));
         }
         for (uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
-            params->GetChecksum(name, &checksum, 1);
-            mine->AddChecksum(name, checksum);
+            params->ReadHashValue(name, &checksum, 1);
+            mine->PutNameKey(name, checksum);
         }
         // A custom skater (not a pro) gets a face texture, in the skater info heap.
         int pro;
-        mine->GetInteger(kIsPro, &pro, 1);
+        mine->FetchIntValue(kIsPro, &pro, 1);
         if (!pro) {
             PushSkaterInfoHeap();
             MakeFaceTexture(this);
@@ -347,66 +347,66 @@ bool CSkaterProfile::SetFromParams(Script::CStruct* params, bool info, bool spec
     }
     if (!specials)
         return true;
-    params->GetStructure(kSpecials, reinterpret_cast<Script::CStruct**>(&checksum), 1);
-    mine->AddStructure(kSpecials, reinterpret_cast<Script::CStruct*>(checksum));
+    params->ReadSubStruct(kSpecials, reinterpret_cast<Scripts::CStruct**>(&checksum), 1);
+    mine->PutSubStruct(kSpecials, reinterpret_cast<Scripts::CStruct*>(checksum));
     int maxSpecials;
-    params->GetInteger(kMaxSpecials, &maxSpecials, 1);
-    mine->AddInteger(kMaxSpecials, maxSpecials);
+    params->FetchIntValue(kMaxSpecials, &maxSpecials, 1);
+    mine->PutInt(kMaxSpecials, maxSpecials);
     uint32_t styleName;
-    params->GetChecksum(kTrickStyleName, &styleName, 1);
-    Script::CStruct* style = Script::GetStructure(styleName);
-    mine->GetStructure(kTrickStyle, reinterpret_cast<Script::CStruct**>(&number), 1);
-    reinterpret_cast<Script::CStruct*>(number)->Clear();
-    reinterpret_cast<Script::CStruct*>(number)->AppendStructureIfAny(style);
+    params->ReadHashValue(kTrickStyleName, &styleName, 1);
+    Scripts::CStruct* style = Scripts::ReadSubStruct(styleName);
+    mine->ReadSubStruct(kTrickStyle, reinterpret_cast<Scripts::CStruct**>(&number), 1);
+    reinterpret_cast<Scripts::CStruct*>(number)->Clear();
+    reinterpret_cast<Scripts::CStruct*>(number)->AppendStructureIfAny(style);
     // Every stat in the global list.
-    Script::CArray* stats = Script::GetArray(kStatList);
+    Scripts::CArray* stats = Scripts::GetArray(kStatList);
     for (uint32_t i = 0; i < stats->m_size; ++i) {
-        reinterpret_cast<Script::CStruct*>(stats->GetElement(i))->GetChecksum(kName, &statName, 1);
-        params->GetInteger(statName, &stat, 1);
-        mine->AddInteger(statName, stat);
+        reinterpret_cast<Scripts::CStruct*>(stats->GetElement(i))->ReadHashValue(kName, &statName, 1);
+        params->FetchIntValue(statName, &stat, 1);
+        mine->PutInt(statName, stat);
     }
     int points;
-    params->GetInteger(0x471FC4DD, &points, 1);
-    mine->AddInteger(0x471FC4DD, points);
+    params->FetchIntValue(0x471FC4DD, &points, 1);
+    mine->PutInt(0x471FC4DD, points);
     return true;
 }
 
 // 0x00586810
-bool CSkaterProfile::Reset(Script::CStruct* params)
+bool CRiderIdentity::Reset(Scripts::CStruct* params)
 {
     PushSkaterInfoHeap();
     FreeFaceTexture(this);
     ResetAppearance(this);
-    Script::CStruct* mine = InfoStructure();
+    Scripts::CStruct* mine = InfoStructure();
     mine->Clear();
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     mine->AddComponentOfType(kTrickStyle, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->Init() : nullptr));
-    memory = Script::NewStruct();
+    memory = Scripts::NewStruct();
     mine->AddComponentOfType(kSpecials, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->Init() : nullptr));
     PopHeap();
     if (!params)
         return true;
     uint32_t appearance = reinterpret_cast<uint32_t>(memory); // (the slot's last value, if there's none)
-    params->GetChecksum(kAppearanceName, &appearance, 1);
+    params->ReadHashValue(kAppearanceName, &appearance, 1);
     LoadAppearance(this, appearance, true);
     mine->Clear();
     mine->AppendStructureIfAny(params);
     int pro;
-    mine->GetInteger(kIsPro, &pro, 1);
+    mine->FetchIntValue(kIsPro, &pro, 1);
     if (!pro) {
         PushSkaterInfoHeap();
         MakeFaceTexture(this);
         PopHeap();
     }
     uint32_t styleName;
-    params->GetChecksum(kTrickStyleName, &styleName, 1);
-    Script::CStruct* style = Script::GetStructure(styleName);
-    Script::CStruct* mineStyle = params; // (the argument's slot)
-    mine->GetStructure(kTrickStyle, &mineStyle, 1);
+    params->ReadHashValue(kTrickStyleName, &styleName, 1);
+    Scripts::CStruct* style = Scripts::ReadSubStruct(styleName);
+    Scripts::CStruct* mineStyle = params; // (the argument's slot)
+    mine->ReadSubStruct(kTrickStyle, &mineStyle, 1);
     mineStyle->Clear();
     mineStyle->AppendStructureIfAny(style);
     uint32_t name;
-    mine->GetChecksum(kName, &name, 1);
+    mine->ReadHashValue(kName, &name, 1);
     if (name != kCustomSkater) {
         const char* unused; // (read, unused)
         mine->GetString(0x37F745A5, &unused, 1);
@@ -415,55 +415,55 @@ bool CSkaterProfile::Reset(Script::CStruct* params)
 }
 
 // 0x00586B00
-void CSkaterProfile::WriteToSave(Script::CStruct* save)
+void CRiderIdentity::WriteToSave(Scripts::CStruct* save)
 {
-    Script::CStruct* mine = NewEmptyStruct();
-    mine->AddComponentOfType(0x1902C8F0, Script::ESYMBOLTYPE_INTEGER, 2); // the version
+    Scripts::CStruct* mine = NewEmptyStruct();
+    mine->AddComponentOfType(0x1902C8F0, Scripts::QBVAL_INTEGER, 2); // the version
     int pro = static_cast<int>(reinterpret_cast<uint32_t>(mine)); // (the slot's last value, if is_pro isn't there)
-    InfoStructure()->GetInteger(kIsPro, &pro, 1);
+    InfoStructure()->FetchIntValue(kIsPro, &pro, 1);
     if (!pro) {
-        Script::CStruct* appearance = NewEmptyStruct();
-        appearance->AppendStructureIfAny(reinterpret_cast<Script::CStruct*>(m_appearance + 0x4C));
+        Scripts::CStruct* appearance = NewEmptyStruct();
+        appearance->AppendStructureIfAny(reinterpret_cast<Scripts::CStruct*>(m_lookData + 0x4C));
         mine->AddComponentOfType(kAppearance, kOwnedStructure, reinterpret_cast<uint32_t>(appearance));
     }
-    void* face = *reinterpret_cast<void**>(m_appearance + 0x54); // (the appearance's face: 0x00576E60, a folded getter)
-    if (face && static_cast<Gfx::CFaceTexture*>(face)->IsValid()) {
-        Script::CStruct* texture = NewEmptyStruct();
-        static_cast<Gfx::CFaceTexture*>(face)->SaveToStructure(texture);
+    void* face = *reinterpret_cast<void**>(m_lookData + 0x54); // (the appearance's face: 0x00576E60, a folded getter)
+    if (face && static_cast<Gfx2D::CFaceSkin*>(face)->IsValid()) {
+        Scripts::CStruct* texture = NewEmptyStruct();
+        static_cast<Gfx2D::CFaceSkin*>(face)->SaveToStructure(texture);
         mine->AddComponentOfType(0xF0D3BC94, kOwnedStructure, reinterpret_cast<uint32_t>(texture));
     }
-    Script::CStruct* info = NewEmptyStruct();
+    Scripts::CStruct* info = NewEmptyStruct();
     info->AppendStructureIfAny(InfoStructure());
     mine->AddComponentOfType(kInfo, kOwnedStructure, reinterpret_cast<uint32_t>(info));
     uint32_t name;
-    InfoStructure()->GetChecksum(kName, &name, 1);
-    mine->AddComponentOfType(kDeckFlags, Script::ESYMBOLTYPE_INTEGER, 0);
+    InfoStructure()->ReadHashValue(kName, &name, 1);
+    mine->AddComponentOfType(kDeckFlags, Scripts::QBVAL_INTEGER, 0);
     save->AddComponentOfType(name, kOwnedStructure, reinterpret_cast<uint32_t>(mine));
 }
 
 // 0x00586D60
-CSkaterProfile* CSkaterProfile::Construct()
+CRiderIdentity* CRiderIdentity::Construct()
 {
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->Construct(); // the appearance
+    reinterpret_cast<Gfx2D::CModelLook*>(this)->Construct(); // the appearance
     InfoStructure()->Init();
     Reset(nullptr);
     return this;
 }
 
 // 0x00586DC0
-uint8_t* CSkaterProfile::ReadFromBuffer(uint8_t* buffer)
+uint8_t* CRiderIdentity::DecodeFromBytes(uint8_t* buffer)
 {
     PushScriptHeap();
-    uint8_t* at = reinterpret_cast<Gfx::CModelAppearance*>(this)->ReadFromBuffer(buffer); // the appearance
+    uint8_t* at = reinterpret_cast<Gfx2D::CModelLook*>(this)->DecodeFromBytes(buffer); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
-    AppearanceGuard::Sanitise(reinterpret_cast<Script::CStruct*>(m_appearance + 0x4C));
-    Script::CStruct* part = reinterpret_cast<Script::CStruct*>(buffer); // (the argument's slot)
-    InfoStructure()->GetStructure(kTrickStyle, &part, 1);
+    AppearanceGuard::Sanitise(reinterpret_cast<Scripts::CStruct*>(m_lookData + 0x4C));
+    Scripts::CStruct* part = reinterpret_cast<Scripts::CStruct*>(buffer); // (the argument's slot)
+    InfoStructure()->ReadSubStruct(kTrickStyle, &part, 1);
     part->Clear();
-    InfoStructure()->GetStructure(kTrickStyle, &part, 1);
+    InfoStructure()->ReadSubStruct(kTrickStyle, &part, 1);
     at = ReadStruct(part, at);
-    InfoStructure()->GetStructure(kSpecials, &part, 1);
+    InfoStructure()->ReadSubStruct(kSpecials, &part, 1);
     part->Clear();
     at = ReadStruct(part, at);
     uint8_t* end = ReadInfoFromBuffer(at);
@@ -472,9 +472,9 @@ uint8_t* CSkaterProfile::ReadFromBuffer(uint8_t* buffer)
 }
 
 // 0x00586A40
-uint8_t* CSkaterProfile::ReadInfoFromBuffer(uint8_t* buffer)
+uint8_t* CRiderIdentity::ReadInfoFromBuffer(uint8_t* buffer)
 {
-    Script::CStruct* read = NewEmptyStruct();
+    Scripts::CStruct* read = NewEmptyStruct();
     uint8_t* end = ReadStruct(read, buffer);
     InfoStructure()->AppendStructureIfAny(read);
     FreeStruct(read);
@@ -482,19 +482,19 @@ uint8_t* CSkaterProfile::ReadInfoFromBuffer(uint8_t* buffer)
 }
 
 // 0x00587050
-int CSkaterProfile::WriteToBuffer(uint8_t* buffer, int size, int flags)
+int CRiderIdentity::EmitIntoBuffer(uint8_t* buffer, int size, int flags)
 {
     PushScriptHeap();
-    int total = reinterpret_cast<Gfx::CModelAppearance*>(this)->WriteToBuffer(buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
+    int total = reinterpret_cast<Gfx2D::CModelLook*>(this)->EmitIntoBuffer(buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
     size -= total;
     buffer += total;
-    Script::CStruct* part = reinterpret_cast<Script::CStruct*>(flags); // (the argument's slot)
-    InfoStructure()->GetStructure(kTrickStyle, &part, 1);
+    Scripts::CStruct* part = reinterpret_cast<Scripts::CStruct*>(flags); // (the argument's slot)
+    InfoStructure()->ReadSubStruct(kTrickStyle, &part, 1);
     int written = WriteStruct(part, buffer, size);
     total += written;
     size -= written;
     buffer += written;
-    InfoStructure()->GetStructure(kSpecials, &part, 1);
+    InfoStructure()->ReadSubStruct(kSpecials, &part, 1);
     written = WriteStruct(part, buffer, size);
     size -= written;
     total += written;
@@ -504,24 +504,24 @@ int CSkaterProfile::WriteToBuffer(uint8_t* buffer, int size, int flags)
 }
 
 // 0x00586E70: the info's names sent over the network (strings, checksums, integers); the rest stays here.
-int CSkaterProfile::WriteInfoToBuffer(uint8_t* buffer, int size)
+int CRiderIdentity::WriteInfoToBuffer(uint8_t* buffer, int size)
 {
-    Script::CStruct* sent = NewEmptyStruct();
-    Script::CStruct* mine = InfoStructure();
-    for (Script::CComponent* c = mine->GetNextComponent(nullptr); c;) {
-        Script::CComponent* next = mine->GetNextComponent(c);
+    Scripts::CStruct* sent = NewEmptyStruct();
+    Scripts::CStruct* mine = InfoStructure();
+    for (Scripts::CComponent* c = mine->StepToEntry(nullptr); c;) {
+        Scripts::CComponent* next = mine->StepToEntry(c);
         switch (c->name) {
         case 0x4FA8DF27:
         case kDisplayName:
         case 0x130618A0:
         case 0x2820E997:
         case 0x562E3ECD:
-            sent->AddString(c->name, Script::ESYMBOLTYPE_STRING, c->string);
+            sent->AddString(c->name, Scripts::QBVAL_STRING, c->string);
             break;
         case kStance:
         case kPushStyle:
         case kName:
-            sent->AddComponentOfType(c->name, Script::ESYMBOLTYPE_NAME, c->checksum);
+            sent->AddComponentOfType(c->name, Scripts::QBVAL_NAME, c->checksum);
             break;
         case 0x9B65D7B8:
         case 0x3F813177:
@@ -536,7 +536,7 @@ int CSkaterProfile::WriteInfoToBuffer(uint8_t* buffer, int size)
         case kIsPro:
         case 0xEDF5DB70:
         case 0xF73A13E3:
-            sent->AddComponentOfType(c->name, Script::ESYMBOLTYPE_INTEGER, c->raw);
+            sent->AddComponentOfType(c->name, Scripts::QBVAL_INTEGER, c->raw);
             break;
         default:
             break;

@@ -10,13 +10,13 @@
 #include "game/core/code_address.h"
 #include "game/mc/save_types.h"
 
-namespace Mc {
+namespace MemCard {
 
-static VtableSlot kFileVtable_slots[] = {&Mc::ListDestructors::OtherDestroy};
+static VtableSlot kFileVtable_slots[] = {&MemCard::ListDestructors::OtherDestroy};
 void** const kFileVtable = reinterpret_cast<void**>(kFileVtable_slots);
 
-static_assert(offsetof(File, m_name) == 0x14 && offsetof(File, m_second) == 0x3C && offsetof(File, m_year) == 0x42 &&
-                  offsetof(File, m_size) == 0x44 && offsetof(File, m_handle) == 0x8C && sizeof(File) == 0x94,
+static_assert(offsetof(FileLoad, m_name) == 0x14 && offsetof(FileLoad, m_second) == 0x3C && offsetof(FileLoad, m_year) == 0x42 &&
+                  offsetof(FileLoad, m_size) == 0x44 && offsetof(FileLoad, m_handle) == 0x8C && sizeof(FileLoad) == 0x94,
               "layout must match the original");
 
 Manager* g_theCard;
@@ -32,62 +32,62 @@ char* PathBuffer() { return g_pathBuffer; }
 char* FilenameBuffer() { return g_filenameBuffer; }
 
 Manager*& Instance() { return g_theCard; }
-int& References() { return g_memcardReferences; }
+int& RefTally() { return g_memcardReferences; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.
-File* NewFile(HANDLE handle, Card* card)
+FileLoad* NewFile(HANDLE handle, Card* card)
 {
-    auto* file = static_cast<File*>(Mem::Calloc(sizeof(File)));
+    auto* file = static_cast<FileLoad*>(MemSys::AllocZeroed(sizeof(FileLoad)));
     if (!file)
         return nullptr;
     file->m_handle = handle;
-    file->m_node.data = file;
-    file->m_node.priority = 0;
-    file->m_node.next = &file->m_node;
-    file->m_node.prev = &file->m_node;
-    file->m_node.vtable = kFileVtable;
-    file->m_card = card;
+    file->m_listLink.data = file;
+    file->m_listLink.priority = 0;
+    file->m_listLink.next = &file->m_listLink;
+    file->m_listLink.prev = &file->m_listLink;
+    file->m_listLink.vtable = kFileVtable;
+    file->m_saveDevice = card;
     return file;
 }
 
 } // namespace
 
 // 0x005BC800
-DWORD File::Seek(LONG offset, int origin)
+DWORD FileLoad::Seek(LONG offset, int origin)
 {
     DWORD method = origin == 0 ? FILE_BEGIN : origin == 1 ? FILE_CURRENT : FILE_END;
     return SetFilePointer(m_handle, offset, nullptr, method);
 }
 
 // 0x005BC840
-bool File::Flush()
+bool FileLoad::Flush()
 {
     FlushFileBuffers(m_handle);
     return true;
 }
 
 // 0x005BC850
-int File::Write(const void* data, int size)
+int FileLoad::Write(const void* data, int size)
 {
     DWORD written;
     return WriteFile(m_handle, data, static_cast<DWORD>(size), &written, nullptr) ? static_cast<int>(written) : 0;
 }
 
 // 0x005BC880
-int File::Read(void* buffer, int size)
+int FileLoad::Read(void* buffer, int size)
 {
     DWORD read;
     return ReadFile(m_handle, buffer, static_cast<DWORD>(size), &read, nullptr) ? static_cast<int>(read) : 0;
 }
 
 // 0x005BC8B0
-bool File::Close()
+bool FileLoad::Close()
 {
     return CloseHandle(m_handle) != 0;
 }
 
 // 0x005BC9B0
-File* Card::Open(const char* name, int mode, int)
+FileLoad* Card::Open(const char* name, int mode, int)
 {
     m_error = 0;
     // (with '/' turned into '\')
@@ -113,7 +113,7 @@ File* Card::Open(const char* name, int mode, int)
             m_error = 2;
         return nullptr;
     }
-    File* file = NewFile(handle, this);
+    FileLoad* file = NewFile(handle, this);
     WIN32_FILE_ATTRIBUTE_DATA attributes; // (asked for, not used)
     GetFileAttributesExA(path, GetFileExInfoStandard, &attributes);
     return file;
@@ -144,7 +144,7 @@ int Card::GetFreeBlocks()
 }
 
 // 0x005BCAE0
-bool Card::GetFileList(const char* pattern, File* list)
+bool Card::ListSaveFiles(const char* pattern, FileLoad* list)
 {
     char* path = PathBuffer();
     std::snprintf(path, MAX_PATH, "Save\\%s", pattern);
@@ -155,7 +155,7 @@ bool Card::GetFileList(const char* pattern, File* list)
     do {
         if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             continue;
-        File* file = NewFile(nullptr, this);
+        FileLoad* file = NewFile(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
         std::memcpy(file->m_name, found.cFileName, std::strlen(found.cFileName) + 1);
         FILETIME local;
@@ -171,10 +171,10 @@ bool Card::GetFileList(const char* pattern, File* list)
         file->m_size = found.nFileSizeLow;
         file->m_unknown48 = 0;
         // At the end of the list.
-        file->m_node.prev = list->m_node.prev;
-        file->m_node.next = &list->m_node;
-        list->m_node.prev->next = &file->m_node;
-        list->m_node.prev = &file->m_node;
+        file->m_listLink.prev = list->m_listLink.prev;
+        file->m_listLink.next = &list->m_listLink;
+        list->m_listLink.prev->next = &file->m_listLink;
+        list->m_listLink.prev = &file->m_listLink;
     } while (FindNextFileA(search, &found));
     FindClose(search);
     return true;
@@ -195,43 +195,43 @@ Manager* Manager::Init()
             m_slots[port][slot].port = port;
         }
     }
-    m_card.m_present = 0x75;
+    m_saveDevice.m_present = 0x75;
     return this;
 }
 
 // 0x005BC730 (one card, whichever port and slot)
-Card* Manager::GetCard(int, int)
+Card* Manager::GetStorageSlot(int, int)
 {
-    return &m_card;
+    return &m_saveDevice;
 }
 
 // 0x005BC900
 Manager* CreateManager(bool create)
 {
     if (!Instance() && create) {
-        auto* manager = static_cast<Manager*>(Mem::Calloc(sizeof(Manager), nullptr, 1));
+        auto* manager = static_cast<Manager*>(MemSys::AllocZeroed(sizeof(Manager), nullptr, 1));
         if (manager) {
             Instance() = manager->Init();
-            ++References();
+            ++RefTally();
             return Instance();
         }
         Instance() = nullptr;
     }
-    ++References();
+    ++RefTally();
     return Instance();
 }
 
 // 0x005BC950
 void ReleaseManager()
 {
-    if (References() > 1) {
-        --References();
+    if (RefTally() > 1) {
+        --RefTally();
         return;
     }
     if (Instance())
-        Mem::Manager::Get()->Free(Instance());
+        MemSys::Manager::Get()->Free(Instance());
     Instance() = nullptr;
-    References() = 0;
+    RefTally() = 0;
 }
 
 } // namespace Mc

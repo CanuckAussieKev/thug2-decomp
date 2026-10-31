@@ -5,34 +5,34 @@
 
 #include "game/core/pool.h"
 
-// The script system's data: structures of named components (Script::CStruct - also every script function's
+// The script system's data: structures of named components (Scripts::CStruct - also every script function's
 // parameters), and the global symbol table they can refer to.
 //
 // A component's name is the checksum of the name used in the script (0 for an unnamed one). A structure can
 // include a global structure by an unnamed name component that names it: lookups search those too.
-namespace Script {
+namespace Scripts {
 
 class CArray;
 class CStruct;
-struct SStructScript;
+struct SParamScript;
 
 // The types of components and symbols.
-enum ESymbolType : uint8_t {
-    ESYMBOLTYPE_NONE = 0,
-    ESYMBOLTYPE_INTEGER = 1,
-    ESYMBOLTYPE_FLOAT = 2,
-    ESYMBOLTYPE_STRING = 3,
-    ESYMBOLTYPE_LOCALSTRING = 4,
-    ESYMBOLTYPE_PAIR = 5,
-    ESYMBOLTYPE_VECTOR = 6,
-    ESYMBOLTYPE_QSCRIPT = 7,
-    ESYMBOLTYPE_CFUNCTION = 8,
-    ESYMBOLTYPE_MEMBERFUNCTION = 9,
-    ESYMBOLTYPE_STRUCTURE = 10,
-    ESYMBOLTYPE_ARRAY = 12,
-    ESYMBOLTYPE_NAME = 13,
-    // A component referring to a structure / array it doesn't own (made by CopyComponent when asked to).
-    ESYMBOLTYPE_STRUCTUREPOINTER = 20,
+enum EQbValueKind : uint8_t {
+    QBVAL_NONE = 0,
+    QBVAL_INTEGER = 1,
+    QBVAL_FLOAT = 2,
+    QBVAL_STRING = 3,
+    QBVAL_INLINE_TEXT = 4,
+    QBVAL_PAIR = 5,
+    QBVAL_VECTOR = 6,
+    QBVAL_SCRIPT_BODY = 7,
+    QBVAL_NATIVE_FUNC = 8,
+    QBVAL_NATIVE_METHOD = 9,
+    QBVAL_STRUCT = 10,
+    QBVAL_ARRAY = 12,
+    QBVAL_NAME = 13,
+    // A component referring to a structure / array it doesn't own (made by DuplicateComponent when asked to).
+    QBVAL_STRUCT_REF = 20,
     ESYMBOLTYPE_ARRAYPOINTER = 21,
 };
 
@@ -42,11 +42,11 @@ public:
     CArray* Init();
     void Clear();
     // The elements (for one element, the value stored in the array itself).
-    uint32_t* GetArrayPointer();
+    uint32_t* FindArrayValue();
     // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
-    void SetSizeAndType(uint32_t size, ESymbolType type);
+    void ConfigureSizeKind(uint32_t size, EQbValueKind type);
     // Only the type (the elements are left as they are).
-    void SetType(ESymbolType type);
+    void SetType(EQbValueKind type);
     // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
     void Resize(uint32_t size);
 
@@ -55,12 +55,12 @@ public:
     void SetFloat(uint32_t index, float value);
     uint32_t GetElement(uint32_t index);
     const char* GetString(uint32_t index);
-    const char* GetLocalString(uint32_t index);
+    const char* FindInlineText(uint32_t index);
     // An integer array's elements are converted.
     float GetFloat(uint32_t index);
 
     uint8_t m_unknown0;
-    ESymbolType m_type;
+    EQbValueKind m_type;
     uint16_t m_unknown2;
     uint32_t m_size;
     union {
@@ -108,7 +108,7 @@ struct CComponent {
     };
     CComponent* next;
 
-    ESymbolType Type() const { return static_cast<ESymbolType>(typeAndFlag >> 1); }
+    EQbValueKind Type() const { return static_cast<EQbValueKind>(typeAndFlag >> 1); }
 };
 static_assert(sizeof(CComponent) == 0x10, "layout must match the original");
 
@@ -116,7 +116,7 @@ struct CSymbolTableEntry {
     CSymbolTableEntry* Init();
 
     uint8_t unknown0; // bit 0: in use
-    ESymbolType type;
+    EQbValueKind type;
     uint16_t unknown2;
     uint32_t name;
     uint32_t unknown8;
@@ -131,7 +131,7 @@ struct CSymbolTableEntry {
 };
 
 // 0x00478CF0: the global symbol `name` (following names that just name another symbol), or null.
-CSymbolTableEntry* LookUpSymbol(uint32_t name);
+CSymbolTableEntry* ResolveSymbol(uint32_t name);
 // The global symbol `name` itself, or null.
 CSymbolTableEntry* FindSymbol(uint32_t name);
 // Make the (empty) symbol table: 0x1000 buckets, from the current heap.
@@ -146,16 +146,16 @@ CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous);
 
 // The values of global symbols (by checksum or name). Integers and floats convert to each other; missing ones
 // (or the wrong type) give 0 / 0.0 / null; GetSymbolValue gives the raw value of any type; strings give "".
-int GetInteger(uint32_t name);
-int GetInteger(const char* name);
+int FetchIntValue(uint32_t name);
+int FetchIntValue(const char* name);
 float GetFloat(uint32_t name);
 float GetFloat(const char* name);
 uint32_t GetSymbolValue(uint32_t name);
 uint32_t GetSymbolValue(const char* name);
 const char* GetString(uint32_t name);
 const char* GetString(const char* name);
-CStruct* GetStructure(uint32_t name);
-CStruct* GetStructure(const char* name);
+CStruct* ReadSubStruct(uint32_t name);
+CStruct* ReadSubStruct(const char* name);
 CArray* GetArray(uint32_t name);
 CArray* GetArray(const char* name);
 
@@ -165,7 +165,7 @@ bool ComponentsEqual(CComponent* a, CComponent* b);
 
 // Debug output of a structure's contents, indented by `indent` levels. Compiled out of this build (the empty
 // function at 0x005480A0): the typed getters still call it on a miss when asked to assert.
-inline void PrintContents(const CStruct* /*structure*/, int /*indent*/ = 0) {}
+inline void DumpToLog(const CStruct* /*structure*/, int /*indent*/ = 0) {}
 
 // Strings owned by components: copied to the script heap (or, while the permanent string cache is on, shared
 // in its block).
@@ -182,13 +182,13 @@ char* GetScriptString(int index);
 
 struct CComponent;
 // Free whatever a component's value owns and make it empty (keeps its name and flag bit).
-void CleanUpComponent(CComponent* component);
+void ReleaseComponent(CComponent* component);
 // Free an array's elements (whatever they own too) and empty it.
-void CleanUpArray(CArray* array);
+void ReleaseArrayStorage(CArray* array);
 // Make `dest` a deep copy of `source` (with `reference`, structures and arrays are referred to, not copied).
-void CopyComponent(CComponent* dest, CComponent* source, int reference);
+void DuplicateComponent(CComponent* dest, CComponent* source, int reference);
 // Make `dest` a deep copy of `source`.
-void CopyArray(CArray* dest, CArray* source);
+void DuplicateArray(CArray* dest, CArray* source);
 // Deep copies of `count` elements of `type` (null elements are skipped).
 void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, uint32_t type);
 
@@ -215,7 +215,7 @@ public:
     CStruct* InitCopy(CStruct* source);
     bool IsEmpty();
     // The next component after `component` (null: the first).
-    CComponent* GetNextComponent(CComponent* component);
+    CComponent* StepToEntry(CComponent* component);
     // The component `name` - the last one there is, also in included structures.
     CComponent* FindLastComponent(uint32_t name);
     // The first component named `name`, or the flag `name`, also in included structures.
@@ -224,13 +224,13 @@ public:
     // naming a global symbol of the type count too), into `out` (4 bytes).
     bool Search(uint32_t name, uint32_t type, void* out);
 
-    bool ContainsComponentNamed(uint32_t name);
-    bool ContainsComponentNamed(const char* name);
+    bool HasEntryNamed(uint32_t name);
+    bool HasEntryNamed(const char* name);
     // Whether the bare name `flag` is among the components.
-    bool ContainsFlag(uint32_t flag);
-    bool ContainsFlag(const char* flag);
+    bool HasBareFlag(uint32_t flag);
+    bool HasBareFlag(const char* flag);
     // Whether `other` is this structure or one of its structure components (recursively).
-    bool References(CStruct* other);
+    bool RefTally(CStruct* other);
     // Whether every component of this structure is in `other` too (by name and value).
     bool IsSubsetOf(CStruct* other);
 
@@ -248,62 +248,62 @@ public:
     void AddComponent(CComponent* component);
     void AddString(uint32_t name, const char* value);
     void AddString(const char* name, const char* value);
-    void AddLocalString(uint32_t name, const char* value);
+    void AppendInlineText(uint32_t name, const char* value);
     void AddString(uint32_t name, uint32_t type, const char* value); // string or local string
-    void AddInteger(uint32_t name, int value);
-    void AddInteger(const char* name, int value);
-    void AddFloat(uint32_t name, float value);
-    void AddFloat(const char* name, float value);
-    void AddChecksum(uint32_t name, uint32_t value);
-    void AddChecksum(const char* name, uint32_t value);
-    void AddVector(uint32_t name, float x, float y, float z);
-    void AddVector(const char* name, float x, float y, float z);
-    void AddVector(uint32_t name, VectorValue value);
-    void AddVector(const char* name, VectorValue value);
-    void AddPair(uint32_t name, float x, float y);
+    void PutInt(uint32_t name, int value);
+    void PutInt(const char* name, int value);
+    void PushFloat(uint32_t name, float value);
+    void PushFloat(const char* name, float value);
+    void PutNameKey(uint32_t name, uint32_t value);
+    void PutNameKey(const char* name, uint32_t value);
+    void PutVec3(uint32_t name, float x, float y, float z);
+    void PutVec3(const char* name, float x, float y, float z);
+    void PutVec3(uint32_t name, VectorValue value);
+    void PutVec3(const char* name, VectorValue value);
+    void InsertPair(uint32_t name, float x, float y);
     // Arrays and structures added by pointer (the structure takes them over).
-    void AddArrayPointer(uint32_t name, CArray* value);
-    void AddArrayPointer(const char* name, CArray* value);
-    void AddStructurePointer(uint32_t name, CStruct* value);
-    void AddStructurePointer(const char* name, CStruct* value);
+    void AppendArrayRef(uint32_t name, CArray* value);
+    void AppendArrayRef(const char* name, CArray* value);
+    void AppendStructRef(uint32_t name, CStruct* value);
+    void AppendStructRef(const char* name, CStruct* value);
     // A copy of `value`.
-    void AddStructure(uint32_t name, CStruct* value);
-    void AddStructure(const char* name, CStruct* value);
-    void AddArray(uint32_t name, CArray* value);
-    void AddArray(const char* name, CArray* value);
+    void PutSubStruct(uint32_t name, CStruct* value);
+    void PutSubStruct(const char* name, CStruct* value);
+    void AppendArrayValue(uint32_t name, CArray* value);
+    void AppendArrayValue(const char* name, CArray* value);
     // A compiled script, copied to the script heap.
     void AddScript(uint32_t name, const uint8_t* code, uint32_t size);
     // By type: integer, float, 11 structure pointer, 12 array pointer, 13 checksum (others are ignored).
     void AddComponentOfType(uint32_t name, uint32_t type, uint32_t value);
 
     // Copies of all `source`'s components, added.
-    CStruct* AppendStructure(CStruct* source);
+    CStruct* MergeStructure(CStruct* source);
     void AppendStructureIfAny(CStruct* source);
     // Become a copy of `source`.
     CStruct* Assign(CStruct* source);
     // Copies of this structure's components added to `dest`, with included global structures expanded.
-    void ExpandInto(CStruct* dest, int depth);
+    void InlineInto(CStruct* dest, int depth);
 
-    // The typed getters: false if missing. With `assert` set, a miss also prints the structure (PrintContents -
+    // The typed getters: false if missing. With `assert` set, a miss also prints the structure (DumpToLog -
     // compiled out of this build) before a compiled-out assert.
     bool GetString(uint32_t name, const char** out, int assert);
     bool GetString(const char* name, const char** out, int assert);
-    bool GetInteger(uint32_t name, int* out, int assert);
-    bool GetInteger(const char* name, int* out, int assert);
+    bool FetchIntValue(uint32_t name, int* out, int assert);
+    bool FetchIntValue(const char* name, int* out, int assert);
     bool GetFloat(uint32_t name, float* out, int assert);
     bool GetFloat(const char* name, float* out, int assert);
-    bool GetPair(uint32_t name, float* x, float* y, int assert);
-    bool GetPair(uint32_t name, CPair* out, bool assert);
-    bool GetStructure(uint32_t name, CStruct** out, int assert);
-    bool GetStructure(const char* name, CStruct** out, int assert);
+    bool FetchPair(uint32_t name, float* x, float* y, int assert);
+    bool FetchPair(uint32_t name, CPair* out, bool assert);
+    bool ReadSubStruct(uint32_t name, CStruct** out, int assert);
+    bool ReadSubStruct(const char* name, CStruct** out, int assert);
     bool GetArray(uint32_t name, CArray** out, int assert);
     bool GetArray(const char* name, CArray** out, int assert);
     // A script component: its name and code into `out`.
-    bool GetScript(uint32_t name, SStructScript* out, int assert);
-    bool GetChecksum(uint32_t name, uint32_t* out, int assert);
-    bool GetChecksum(const char* name, uint32_t* out, int assert);
+    bool GetScript(uint32_t name, SParamScript* out, int assert);
+    bool ReadHashValue(uint32_t name, uint32_t* out, int assert);
+    bool ReadHashValue(const char* name, uint32_t* out, int assert);
     // The checksum `name`, or else the checksum of the string `name`.
-    bool GetChecksumOrStringChecksum(uint32_t name, uint32_t* out, int assert);
+    bool HashFromNameOrText(uint32_t name, uint32_t* out, int assert);
     bool GetVector(uint32_t name, VectorValue* out, int assert);
     bool GetVector(const char* name, VectorValue* out, int assert);
 
@@ -315,16 +315,16 @@ public:
 static_assert(sizeof(CStruct) == 8, "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
-extern Mem::PoolPair g_structPools;
-extern Mem::PoolPair g_arrayPools;
-extern Mem::PoolPair g_componentPools;
+extern MemSys::PoolPair g_structPools;
+extern MemSys::PoolPair g_arrayPools;
+extern MemSys::PoolPair g_componentPools;
 extern char* g_permanentStringsStart;
 extern char* g_permanentStringsNext;
 extern uint32_t g_permanentStringsSize;
 extern uint32_t g_permanentStringCount;
-extern Mem::PoolPair g_symbolPools;
-extern Mem::PoolPair g_pairPools;
-extern Mem::PoolPair g_vectorPools;
+extern MemSys::PoolPair g_symbolPools;
+extern MemSys::PoolPair g_pairPools;
+extern MemSys::PoolPair g_vectorPools;
 
 struct PermanentString;
 extern PermanentString* g_permanentStringTable;

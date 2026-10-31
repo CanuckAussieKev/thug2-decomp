@@ -13,7 +13,7 @@
 #include "game/pcm/stream_files.h"
 #include "game/sys/crt.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 bool g_binkSoundSet;
 uint32_t g_streamFileUses;
@@ -34,7 +34,7 @@ FILE* CrtFopen(const char* path, const char* mode) { return Crt::Fopen(path, mod
 int CrtFseek(FILE* file, long offset, int origin) { return Crt::Fseek(file, offset, origin); }
 size_t CrtFread(void* buffer, size_t size, size_t count, FILE* file) { return Crt::Fread(buffer, size, count, file); }
 int CrtFclose(FILE* file) { return Crt::Fclose(file); }
-void* CrtMalloc(size_t size) { return Crt::Malloc(size); }
+void* CrtMalloc(size_t size) { return Crt::AllocBlock(size); }
 void CrtFree(void* block) { Crt::Free(block); }
 
 // The Bink SDK (binkw32.dll), through the game's import table.
@@ -44,7 +44,7 @@ int BinkSetSoundSystem(void* open, void* param)
 }
 // the function, passed to the above
 void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); }
-void* BinkOpen(const void* source, uint32_t flags)
+void* VideoOpen(const void* source, uint32_t flags)
 {
     return reinterpret_cast<void*(__stdcall*)(const void*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(source, flags);
 }
@@ -134,14 +134,14 @@ long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t si
 {
     if (!BinkSoundSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), g_soundDevice))
-            Dbg::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+            DebugOut::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         BinkSoundSet() = true;
     }
     int slot = LoadStreamFile(key, path, offset, size);
     if (slot < 0)
         return kInvalidArg;
     void* data = StreamFiles()[slot].data;
-    void* bink = BinkOpen(data, kBinkFromMemory);
+    void* bink = VideoOpen(data, kBinkFromMemory);
     At<void*>(0x28) = bink;
     if (!bink)
         return kInvalidArg;

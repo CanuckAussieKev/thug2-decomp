@@ -30,7 +30,7 @@ namespace Skater::ThawBmx {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 template <typename T>
 T& Field(const void* object, uint32_t offset)
@@ -78,16 +78,16 @@ std::unordered_map<const void*, BikeState>& States()
     return states;
 }
 
-bool RunIfThere(const char* name, Obj::CObject* object)
+bool RunIfThere(const char* name, GameObjects::CObject* object)
 {
     uint32_t checksum = Checksum(name);
-    if (!Script::ScriptExists(checksum)) {
+    if (!Scripts::ScriptExists(checksum)) {
         Log("thaw_bmx: the script %s isn't loaded - make the overlay with tools/pipeline/menu_level/make_menu_level.ts after "
             "tools/pipeline/thaw_bmx/convert.ts",
             name);
         return false;
     }
-    Script::RunScript(checksum, nullptr, object, false, name);
+    Scripts::LaunchScript(checksum, nullptr, object, false, name);
     return true;
 }
 
@@ -95,7 +95,7 @@ bool RunIfThere(const char* name, Obj::CObject* object)
 // own start-up loads): LoadAnim skips one already there, LoadSkeleton wouldn't - each set only when missing.
 bool LoadAssets()
 {
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     if (!assets)
         return false;
     const uint32_t skeleton = Checksum(kSkeleton);
@@ -105,7 +105,7 @@ bool LoadAssets()
         return true;
     bool permanent = assets->GetPermanentByDefault();
     assets->SetPermanentByDefault(true);
-    Mem::PushContext(Mem::BottomUpHeap());
+    MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     bool ok = true;
     if (!assets->AssetExists(skeleton))
         ok &= RunIfThere(kSkeletonScript, nullptr);
@@ -113,7 +113,7 @@ bool LoadAssets()
         ok &= RunIfThere(kRiderScript, nullptr);
     if (!assets->AssetExists(bike))
         ok &= RunIfThere(kBikeScript, nullptr);
-    Mem::PopContext();
+    MemSys::LeaveHeapScope();
     assets->SetPermanentByDefault(permanent);
     ok = ok && assets->AssetExists(skeleton) && assets->AssetExists(rider) && assets->AssetExists(bike);
     Log("thaw_bmx: the bike's skeleton and animations %s", ok ? "loaded" : "NOT loaded (see above)");
@@ -121,20 +121,20 @@ bool LoadAssets()
 }
 
 // ThawBmx_Available: the feature on (and the overlay's scripts there) - the pause menu's RIDE BMX item.
-bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_Available(Scripts::CStruct*, Scripts::CScript*)
 {
-    return Enabled() && Script::ScriptExists(Checksum(kToggleScript));
+    return Enabled() && Scripts::ScriptExists(Checksum(kToggleScript));
 }
 
 // ThawBmx_LoadTexture "<folder/name>": LoadTexture unless the texture is loaded already (THAW's bike manual meter
 // script, create_bike_manual_meter, loads its converted pictures with it each time a manual starts - THAW has them
 // loaded from start-up). True when the texture is there.
-bool __cdecl CFunc_LoadTexture(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_LoadTexture(Scripts::CStruct* params, Scripts::CScript* script)
 {
     const char* file = nullptr;
     if (!params->GetString(0u, &file, 0) || !file)
         return false;
-    return CFuncs::TextureLoaded(file) || CFuncs::CFunc_LoadTexture(params, script);
+    return ScriptCommands::TextureLoaded(file) || ScriptCommands::CFunc_LoadTexture(params, script);
 }
 
 int g_key = SDL_SCANCODE_F7;
@@ -179,12 +179,12 @@ uint32_t BikeSkaterScript(uint32_t name, uint32_t callerName, bool bikeScriptLoa
     return bikeScriptLoaded ? kBikeKnockDown : name;
 }
 
-uint32_t SkaterScript(const Obj::CSkater* skater, uint32_t name, const Script::CScript* caller)
+uint32_t SkaterScript(const GameObjects::CRider* skater, uint32_t name, const Scripts::CScript* caller)
 {
     if (!Enabled() || !skater || !OnBike(skater->m_corePhysics))
         return name;
     static const uint32_t kBikeKnockDown = Checksum("bike_PedKnockDown");
-    uint32_t chosen = BikeSkaterScript(name, caller ? caller->m_scriptName : 0, Script::ScriptExists(kBikeKnockDown));
+    uint32_t chosen = BikeSkaterScript(name, caller ? caller->m_scriptTitle : 0, Scripts::ScriptExists(kBikeKnockDown));
     if (chosen == 0)
         Log("thaw_bmx: a ped's knock-down on the bike - not knocked over (THAW's STATESCRIPT_knockdown)");
     else if (chosen != name)
@@ -202,7 +202,7 @@ bool HalfStickKey()
     return false;
 }
 
-Script::CStruct* PhysicsStructure(const void* core)
+Scripts::CStruct* PhysicsStructure(const void* core)
 {
     static int s_logged = -1; // (what was logged last: -1 nothing, 0 the skater's, 1 the bike's, 2 the bike's missing)
     if (!OnBike(core)) {
@@ -212,7 +212,7 @@ Script::CStruct* PhysicsStructure(const void* core)
         }
         return nullptr;
     }
-    Script::CStruct* physics = Script::GetStructure(Checksum(kPhysics));
+    Scripts::CStruct* physics = Scripts::ReadSubStruct(Checksum(kPhysics));
     int now = physics ? 1 : 2;
     if (now != s_logged) {
         Log(physics ? "thaw_bmx: on the bike - %s in use"
@@ -223,7 +223,7 @@ Script::CStruct* PhysicsStructure(const void* core)
     return physics;
 }
 
-void SetWheelPoints(BikeState& state, const Mth::Vector& position, const Mth::Vector& facing)
+void SetWheelPoints(BikeState& state, const Maths::Vector& position, const Maths::Vector& facing)
 {
     // (THAW: the front one along the facing, the rear one back; w as the sum's)
     state.frontWheel = {position.x + facing.x * kWheelOffset, position.y + facing.y * kWheelOffset,
@@ -232,7 +232,7 @@ void SetWheelPoints(BikeState& state, const Mth::Vector& position, const Mth::Ve
                        position.z - facing.z * kWheelOffset, position.w - facing.w * kWheelOffset};
 }
 
-int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Script::CScript* script)
+int InvokeMethodByName(void* core, uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     // (the names THAW's members have; ThawBmxLoadAssets is ours)
     static const uint32_t kOn = Checksum("SkaterOnBike"), kOff = Checksum("SkaterOffBike"),
@@ -248,7 +248,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
                           kManualAngle = Checksum("manual_angle"), kNose = Checksum("nose");
     auto nose = [&](bool set) {
         if (set && script && script->m_params)
-            script->m_params->AddInteger(kNose, 1);
+            script->m_params->PutInt(kNose, 1);
     };
     if (name == kIsOn)
         return OnBike(core) ? 1 : 0;
@@ -258,7 +258,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
         return EnterWheelieFromAir(core, params);
     static const uint32_t kSteerAnim = Checksum("ThawBmxSteerAnim"), kOffFlag = Checksum("off");
     if (name == kSteerAnim) { // (ours: `on` / `off`)
-        SetSteerAnim(core, !(params && params->ContainsFlag(kOffFlag)));
+        SetSteerAnim(core, !(params && params->HasBareFlag(kOffFlag)));
         return 1;
     }
     // (the rest read or change the state; one is made on first use)
@@ -272,7 +272,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
     if (name == kOn) { // 0x005C98E0
         state.on = true;
         void* skater = Field<void*>(core, kObject);
-        SetWheelPoints(state, Field<Mth::Vector>(skater, kPosition), Field<Mth::Vector>(skater, kFacing));
+        SetWheelPoints(state, Field<Maths::Vector>(skater, kPosition), Field<Maths::Vector>(skater, kFacing));
         return 1;
     }
     if (name == kOff) { // 0x005C74C0 (THAW clears only the flag; ours the bike's other states too)
@@ -288,7 +288,7 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
         return state.overGrind ? 1 : 0;
     if (name == kGetAngle) { // 0x005C74F0: manual_angle into the script's parameters
         if (script && script->m_params)
-            script->m_params->AddFloat(kManualAngle, state.manualAngle);
+            script->m_params->PushFloat(kManualAngle, state.manualAngle);
         return 1;
     }
     if (name == kResetAngle) { // 0x005C7510
@@ -340,25 +340,25 @@ int CallMemberFunction(void* core, uint32_t name, Script::CStruct* params, Scrip
 
 void RegisterScriptFunctions()
 {
-    static const Script::CFunctionEntry functions[] = {
+    static const Scripts::CFunctionEntry functions[] = {
         {"ThawBmx_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"ThawBmx_LoadTexture", reinterpret_cast<void*>(&CFunc_LoadTexture)},
     };
-    Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
     if (!Enabled())
         return;
-    Script::RegisterMemberFunctions(kMembers, sizeof(kMembers) / sizeof(kMembers[0]));
+    Scripts::PublishMethodTable(kMembers, sizeof(kMembers) / sizeof(kMembers[0]));
     RegisterParkedFunctions(); // (the parked bikes: thaw_bmx_parked.h)
-    Nx::SetShadowCompanion(&ShadowCompanion);
+    Engine3D::SetShadowCompanion(&ShadowCompanion);
     char setting[64] = "";
-    Config::GetString(Config::kKeybinds, "ThawBmx", "", setting, sizeof(setting));
+    BuildInfo::GetString(BuildInfo::kKeybinds, "ThawBmx", "", setting, sizeof(setting));
     auto byName = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
-    g_key = Sys::Screenshot::ParseKey(setting, SDL_SCANCODE_F7, byName);
+    g_key = SystemCore::Screenshot::ParseKey(setting, SDL_SCANCODE_F7, byName);
     Log("thaw_bmx: on - %s gets on / off THAW's BMX in a level (also the pause menu, or the script %s)",
         SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)), kToggleScript);
 }
 
-void OnSkaterReset(Obj::CSkater* skater)
+void OnSkaterReset(GameObjects::CRider* skater)
 {
     BikeState* state = StateOf(skater->m_corePhysics, false);
     if (!state || !state->on)
@@ -371,14 +371,14 @@ void OnSkaterReset(Obj::CSkater* skater)
     RunIfThere(kAfterResetScript, skater);
 }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
     if (!Enabled())
         return;
     UpdateParked(frontEnd); // (the level's bike: thaw_bmx_parked.h)
     // Left for the front end (no level) with the bike's d-pad camera on - no bike script turned it off: the menus get
     // the stick back (bike_start's SetAnalogStickActiveForMenus 0 undone).
-    if (DPadCameraNoted() && Nx::CurrentLevel() == 0 && frontEnd) {
+    if (DPadCameraNoted() && Engine3D::CurrentLevel() == 0 && frontEnd) {
         frontEnd->SetAnalogStickActiveForMenus(true);
         NoteDPadCamera(false);
         Log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
@@ -387,8 +387,8 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
     bool pressed = down && g_keyUp;
     g_keyUp = !down;
-    if (!pressed || Mlp::FramesRun() == 0 || Front::LevelEditor::Active() || (frontEnd && frontEnd->m_paused) ||
-        Nx::CurrentLevel() == 0)
+    if (!pressed || FrameLoop::FramesRun() == 0 || MenuSystem::LevelEditor::Active() || (frontEnd && frontEnd->m_isHalted) ||
+        Engine3D::CurrentLevel() == 0)
         return;
     RunIfThere(kToggleScript, nullptr);
 }

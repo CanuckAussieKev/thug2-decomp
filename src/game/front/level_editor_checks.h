@@ -9,8 +9,8 @@
 
 struct ImFont;
 
-namespace Front::LevelEditor::Layout {
-struct File;
+namespace MenuSystem::LevelEditor::Layout {
+struct FileLoad;
 }
 
 // NOT ORIGINAL - the level editor's problem checker (ours; see level_editor.h - the UX research's #1, after Hammer's
@@ -21,8 +21,8 @@ struct File;
 //
 // The rules (each row says which; "as shipped" rows - problems the level has without the editor's edits - are hidden
 // unless "Show the level's own" is on):
-//   Placement - spawns, crowns, flags (and the editor's trigger volumes): probed with the game's collision ray (a CFeeler,
-//     static collision; it meets only the FRONT of a face - Nx::RayHitsTriangle 0x0040B420 refuses a determinant below
+//   Placement - spawns, crowns, flags (and the editor's trigger volumes): probed with the game's collision ray (a CProbeRay,
+//     static collision; it meets only the FRONT of a face - Engine3D::RayHitsTriangle 0x0040B420 refuses a determinant below
 //     0.03). From the point, lifted kLift units (a spawn standing on the floor is on it, not in it), six directions are
 //     probed: going out (the first face facing the point) and coming back in from kReach away (a face facing away from
 //     the point, met from outside). A direction is "behind a surface" when a face facing away is nearer than any face
@@ -40,7 +40,7 @@ struct File;
 //   Triggers - the editor's trigger volumes that do nothing yet (Triggers::Problem), whose centre is inside solid or
 //     below the ground; gap starts with no end anywhere (the editor's triggers or a level trigger with the same GapID)
 //     and ends with no start; proximity nodes and level triggers whose TriggerScript (or the editor's enter / exit
-//     script) isn't a script the game has (Script::ScriptExists 0x00472DE0), proximity nodes without one, a level's
+//     script) isn't a script the game has (Scripts::ScriptExists 0x00472DE0), proximity nodes without one, a level's
 //     trigger faces with no node of their name (the trigger component finds no node - nothing runs).
 //   Online parity - in a level shared with THUGPRO (a ported level), each spawn, crown or flag the editor moved, added
 //     or hid (THUGPRO players have it as shipped; edited copies never go online, but a bake would change it).
@@ -50,9 +50,9 @@ struct File;
 //     Yellow complete or not there at all.
 //   Layout records - a record of the loaded layout whose thing (a node, a scenery piece, an object, a source) isn't in
 //     the level (a level / DLL update, a hand-edited file): logged when the layout goes in, listed here, and KEPT - the
-//     next save writes it again (Layout::File::carried) unless Fix (Drop record) drops it, so an update that brings
+//     next save writes it again (Layout::FileLoad::carried) unless Fix (Drop record) drops it, so an update that brings
 //     the thing back finds its edit again. Never silently dropped.
-namespace Front::LevelEditor::Checks {
+namespace MenuSystem::LevelEditor::Checks {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -146,7 +146,7 @@ void ProbeEach(V3 point, const float reach[6], Probe probes[6]);
 
 // The layout put in place (Layout's Apply, after it): its records that don't resolve to anything in the level - logged
 // and listed; their lines kept for the next save (`CarriedRecords`) unless dropped. A new level / Reset level: none.
-void NoteLayoutApplied(const Layout::File& file);
+void NoteLayoutApplied(const Layout::FileLoad& file);
 void ForgetLayoutRecords();
 // The lines to write again (Layout's Capture: `captured` its text so far - lines it has of a record's kind and key
 // aren't repeated).
@@ -171,4 +171,4 @@ void OpenWindow(int tab);
 void ToggleWindow();
 void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono);
 
-} // namespace Front::LevelEditor::Checks
+} // namespace MenuSystem::LevelEditor::Checks

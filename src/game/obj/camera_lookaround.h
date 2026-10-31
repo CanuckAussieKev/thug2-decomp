@@ -5,30 +5,30 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
 // The CameraLookAround component (type 0x81C7122D, vtable 0x0064B28C, 0x44 bytes; made by 0x004E42E0): the
 // camera's look-around angles from the pad's right stick (heading and tilt eased toward the stick each frame), or
 // turned over a time to a heading and tilt a script asks for.
 //
-// Vtable: 0 the scalar deleting destructor, 1 Update, 2 InitFromStructure, 3 Finalize, 5 0x004E3F90 (the base
-// classes' "refresh from a structure": InitFromStructure again), the base's Suspend and CallMemberFunction by
-// entry, 12 CallMemberFunction.
-class CCameraLookAroundComponent : public CBaseComponent {
+// Vtable: 0 the scalar deleting destructor, 1 Update, 2 ConfigureFromData, 3 Finalize, 5 0x004E3F90 (the base
+// classes' "refresh from a structure": ConfigureFromData again), the base's Suspend and InvokeMethodByName by
+// entry, 12 InvokeMethodByName.
+class CFreeLookModule : public CObjectModule {
 public:
     // 0x004E42E0: a new one (0 if out of memory): the base's constructor, its vtable and type.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x004E3F60: the destructor body (the base's).
     void DestroyBody();
     // 0x004E4010 (vtable slot 0)
-    CCameraLookAroundComponent* Destroy(unsigned int flags);
+    CFreeLookModule* Destroy(unsigned int flags);
     // 0x004E3F70 (slot 2): looking ahead, not locked, nothing in progress, the factor 1. `params` isn't read.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x004E4040 (slot 3): the object's Input component.
     void Finalize();
     // 0x004E4060 (slot 1): the pad (the second one's state when the global 0x702247A5 is set): unless the
@@ -41,7 +41,7 @@ public:
     // 0x004E4220 (slot 12): 0xB8F23899 turns to heading=, tilt= over time= (floats, asserted) with the factor
     // 0x48D4868B (1 by default); 0xE3B327C0 stops turning. 2 for anything else. (NOT ORIGINAL, the feature on:
     // THAW's LookaroundOnDPad_On / _Off too.)
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004E3FA0 (not a Ghidra function): turn to `heading` and `tilt` over `time` (straight away without one).
     void TurnTo(float heading, float tilt, float time, float factor);
     // 0x004E4000: lock (or unlock) the angles where they are.
@@ -55,23 +55,23 @@ public:
     bool m_dpadLook;    // +0x1A
     uint8_t pad1B;
     float m_factor;     // +0x1C
-    float m_tilt;       // +0x20
+    float m_leanAngle;       // +0x20
     float m_heading;    // +0x24
     float m_modeHeading;    // +0x28 the skater camera's mode's heading (its SetMode; its frame adds m_heading)
     float m_targetTilt;     // +0x2C
     float m_targetHeading;  // +0x30
     float m_tiltRate;       // +0x34 per second
     float m_headingRate;    // +0x38
-    float m_timeLeft;       // +0x3C
+    float m_secondsRemaining;       // +0x3C
     uint8_t* mp_input;      // +0x40 the Input component
 };
-static_assert(offsetof(CCameraLookAroundComponent, m_locked) == 0x18 &&
-                  offsetof(CCameraLookAroundComponent, m_factor) == 0x1C &&
-                  offsetof(CCameraLookAroundComponent, m_targetTilt) == 0x2C &&
-                  offsetof(CCameraLookAroundComponent, mp_input) == 0x40 && sizeof(CCameraLookAroundComponent) == 0x44,
+static_assert(offsetof(CFreeLookModule, m_locked) == 0x18 &&
+                  offsetof(CFreeLookModule, m_factor) == 0x1C &&
+                  offsetof(CFreeLookModule, m_targetTilt) == 0x2C &&
+                  offsetof(CFreeLookModule, mp_input) == 0x40 && sizeof(CFreeLookModule) == 0x44,
               "layout must match the original");
 
 // 0x004E3F90: a tail jump to a component's slot 2 (the compiler folded it into several components' tables).
-void RefreshFromStructure();
+void ReapplyFromData();
 
 } // namespace Obj

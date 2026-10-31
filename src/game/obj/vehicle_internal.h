@@ -15,7 +15,7 @@
 #include "game/obj/object.h"
 #include "game/obj/trigger_component.h"
 
-namespace Obj::Vehicle {
+namespace GameObjects::Vehicle {
 
 inline const float kGravity = std::bit_cast<float>(0x43C13333u); // 0x006466A4: 386.4 (inches a second squared)
 
@@ -25,39 +25,39 @@ inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp";   // "o
 
 // The trigger component's 0x00434BF0 / 0x00434CE0: a feeler / a rect feeler reported for
 // `events` (const int[3]).
-inline void TriggerFeeler(CBaseComponent* trigger, const int* events, Nx::CFeeler* feeler)
+inline void TriggerFeeler(CObjectModule* trigger, const int* events, Engine3D::CProbeRay* feeler)
 {
-    static_cast<CTriggerComponent*>(trigger)->CheckFeeler(events, feeler);
+    static_cast<CActivationZoneModule*>(trigger)->CheckFeeler(events, feeler);
 }
-inline void TriggerRect(CBaseComponent* trigger, const int* events, Nx::CRectFeeler* feeler)
+inline void TriggerRect(CObjectModule* trigger, const int* events, Engine3D::CBoxProbe* feeler)
 {
     // (TriggerHits reads the rect feeler's hit flags)
-    static_cast<CTriggerComponent*>(trigger)->TriggerHits(events, reinterpret_cast<const uint8_t*>(feeler));
+    static_cast<CActivationZoneModule*>(trigger)->TriggerHits(events, reinterpret_cast<const uint8_t*>(feeler));
 }
 
 // Quaternions: 0x0042BC40 a quaternion's rotation matrix (its 3x3), 0x0042E1F0 a matrix's
 // quaternion, 0x0042E310 normalised to a length, 0x00420140 *=.
-inline void QuatToMatrix(const Mth::Vector* quat, Mth::Matrix* matrix)
+inline void QuatToMatrix(const Maths::Vector* quat, Maths::Matrix* matrix)
 {
-    reinterpret_cast<const Mth::Quat*>(quat)->GetMatrix(matrix);
+    reinterpret_cast<const Maths::QuatRotation*>(quat)->GetMatrix(matrix);
 }
-inline void MatrixToQuat(Mth::Vector* quat, const Mth::Matrix* matrix)
+inline void MatrixToQuat(Maths::Vector* quat, const Maths::Matrix* matrix)
 {
-    reinterpret_cast<Mth::Quat*>(quat)->FromMatrix(*matrix);
+    reinterpret_cast<Maths::QuatRotation*>(quat)->FromMatrix(*matrix);
 }
-inline void QuatNormalize(Mth::Vector* quat, float length)
+inline void QuatNormalize(Maths::Vector* quat, float length)
 {
-    reinterpret_cast<Mth::Quat*>(quat)->Normalize(length);
+    reinterpret_cast<Maths::QuatRotation*>(quat)->Normalize(length);
 }
-inline void QuatMultiply(Mth::Vector* a, const Mth::Vector* b)
+inline void QuatMultiply(Maths::Vector* a, const Maths::Vector* b)
 {
-    *reinterpret_cast<Mth::Quat*>(a) *= *reinterpret_cast<const Mth::Quat*>(b);
+    *reinterpret_cast<Maths::QuatRotation*>(a) *= *reinterpret_cast<const Maths::QuatRotation*>(b);
 }
 
 // D3DXMatrixMultiply (linked library code; stdcall).
-inline void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+inline void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
-} // namespace Obj::Vehicle
+} // namespace GameObjects::Vehicle

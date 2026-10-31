@@ -10,7 +10,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 
-namespace Script {
+namespace Scripts {
 
 namespace {
 
@@ -60,17 +60,17 @@ uint8_t* WriteNameAndType(uint8_t* buffer, uint8_t type, uint32_t name)
     for (int i = 0; i < static_cast<int>(mediumNames->m_size); ++i) {
         if (mediumNames->GetElement(i) == name) {
             buffer[0] = type | 0x40;
-            return Write2Bytes(buffer + 1, static_cast<uint16_t>(i));
+            return StoreWord16(buffer + 1, static_cast<uint16_t>(i));
         }
     }
     buffer[0] = type;
-    return Write4Bytes(buffer + 1, name);
+    return StoreWord32(buffer + 1, name);
 }
 
 // 0x004798F0
 uint32_t WriteInteger(uint32_t name, int value, uint8_t* buffer, uint32_t size)
 {
-    uint8_t type = ESYMBOLTYPE_INTEGER;
+    uint8_t type = QBVAL_INTEGER;
     if (value == 0)
         type = kZeroInteger;
     else if (value > 0 && value <= 0xFF)
@@ -85,8 +85,8 @@ uint32_t WriteInteger(uint32_t name, int value, uint8_t* buffer, uint32_t size)
     uint8_t scratch[0x14];
     uint8_t* end = WriteNameAndType(scratch, type, name);
     switch (type) {
-    case ESYMBOLTYPE_INTEGER:
-        end = Write4Bytes(end, static_cast<uint32_t>(value));
+    case QBVAL_INTEGER:
+        end = StoreWord32(end, static_cast<uint32_t>(value));
         break;
     case kSignedByte:
     case kUnsignedByte:
@@ -94,7 +94,7 @@ uint32_t WriteInteger(uint32_t name, int value, uint8_t* buffer, uint32_t size)
         break;
     case kSignedShort:
     case kUnsignedShort:
-        end = Write2Bytes(end, static_cast<uint16_t>(value));
+        end = StoreWord16(end, static_cast<uint16_t>(value));
         break;
     default:
         break;
@@ -132,7 +132,7 @@ uint32_t WriteFloat(uint8_t* buffer, uint32_t name, uint32_t size, float value)
     }
     if (size < 9)
         return 0;
-    return Written(Write4Bytes(WriteNameAndType(buffer, ESYMBOLTYPE_FLOAT, name), FloatBits(value)), buffer);
+    return Written(StoreWord32(WriteNameAndType(buffer, QBVAL_FLOAT, name), FloatBits(value)), buffer);
 }
 
 // The buffer in ECX, the name in EDX, the size in ESI; the value on the stack (the caller pops it).
@@ -168,13 +168,13 @@ uint32_t WriteStringOfType(uint8_t* buffer, const char* string, uint32_t name, u
 // 0x00479AC0
 uint32_t WriteString(uint8_t* buffer, const char* string, uint32_t name, uint32_t size)
 {
-    return WriteStringOfType(buffer, string, name, size, ESYMBOLTYPE_STRING);
+    return WriteStringOfType(buffer, string, name, size, QBVAL_STRING);
 }
 
 // 0x00479B20
 uint32_t WriteLocalString(uint8_t* buffer, const char* string, uint32_t name, uint32_t size)
 {
-    return WriteStringOfType(buffer, string, name, size, ESYMBOLTYPE_LOCALSTRING);
+    return WriteStringOfType(buffer, string, name, size, QBVAL_INLINE_TEXT);
 }
 
 // The buffer in EAX, the string in ECX; the name and size on the stack (the caller pops them).
@@ -211,24 +211,24 @@ uint32_t WriteArrayToBuffer(CArray* array, uint8_t* buffer, uint32_t size, int a
     uint8_t type = array->m_type;
     uint32_t count = array->m_size;
     buffer[0] = type;
-    uint8_t* p = Write2Bytes(buffer + 1, static_cast<uint16_t>(count));
+    uint8_t* p = StoreWord16(buffer + 1, static_cast<uint16_t>(count));
     uint32_t remaining = size - 3;
     switch (type) {
-    case ESYMBOLTYPE_INTEGER:
-    case ESYMBOLTYPE_FLOAT:
-    case ESYMBOLTYPE_NAME: {
+    case QBVAL_INTEGER:
+    case QBVAL_FLOAT:
+    case QBVAL_NAME: {
         uint32_t bytes = count * 4;
         if (bytes > remaining)
             return 0;
-        const uint32_t* elements = array->GetArrayPointer();
+        const uint32_t* elements = array->FindArrayValue();
         for (uint32_t i = 0; i < count; ++i)
-            p = Write4Bytes(p, elements[i]);
+            p = StoreWord32(p, elements[i]);
         remaining -= bytes;
         break;
     }
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING: {
-        const uint32_t* elements = array->GetArrayPointer();
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT: {
+        const uint32_t* elements = array->FindArrayValue();
         for (uint32_t i = 0; i < count; ++i) {
             for (const char* c = reinterpret_cast<const char*>(elements[i]); *c; ++c) {
                 if (remaining == 0)
@@ -243,35 +243,35 @@ uint32_t WriteArrayToBuffer(CArray* array, uint8_t* buffer, uint32_t size, int a
         }
         break;
     }
-    case ESYMBOLTYPE_PAIR: {
+    case QBVAL_PAIR: {
         uint32_t bytes = count * 8;
         if (bytes > remaining)
             return 0;
-        auto** pairs = reinterpret_cast<CPair**>(array->GetArrayPointer());
+        auto** pairs = reinterpret_cast<CPair**>(array->FindArrayValue());
         for (uint32_t i = 0; i < count; ++i) {
-            p = Write4Bytes(p, FloatBits(pairs[i]->x));
-            p = Write4Bytes(p, FloatBits(pairs[i]->y));
+            p = StoreWord32(p, FloatBits(pairs[i]->x));
+            p = StoreWord32(p, FloatBits(pairs[i]->y));
         }
         remaining -= bytes;
         break;
     }
-    case ESYMBOLTYPE_VECTOR: {
+    case QBVAL_VECTOR: {
         uint32_t bytes = count * 12;
         if (bytes > remaining)
             return 0;
-        auto** vectors = reinterpret_cast<CVector**>(array->GetArrayPointer());
+        auto** vectors = reinterpret_cast<CVector**>(array->FindArrayValue());
         for (uint32_t i = 0; i < count; ++i) {
-            p = Write4Bytes(p, FloatBits(vectors[i]->x));
-            p = Write4Bytes(p, FloatBits(vectors[i]->y));
-            p = Write4Bytes(p, FloatBits(vectors[i]->z));
+            p = StoreWord32(p, FloatBits(vectors[i]->x));
+            p = StoreWord32(p, FloatBits(vectors[i]->y));
+            p = StoreWord32(p, FloatBits(vectors[i]->z));
         }
         remaining -= bytes;
         break;
     }
-    case ESYMBOLTYPE_STRUCTURE: {
-        auto** structures = reinterpret_cast<CStruct**>(array->GetArrayPointer());
+    case QBVAL_STRUCT: {
+        auto** structures = reinterpret_cast<CStruct**>(array->FindArrayValue());
         for (uint32_t i = 0; i < count; ++i) {
-            uint32_t written = WriteToBuffer(structures[i], p, remaining, assert, nullptr);
+            uint32_t written = EmitIntoBuffer(structures[i], p, remaining, assert, nullptr);
             if (written == 0)
                 return 0;
             remaining -= written;
@@ -279,8 +279,8 @@ uint32_t WriteArrayToBuffer(CArray* array, uint8_t* buffer, uint32_t size, int a
         }
         break;
     }
-    case ESYMBOLTYPE_ARRAY: {
-        auto** arrays = reinterpret_cast<CArray**>(array->GetArrayPointer());
+    case QBVAL_ARRAY: {
+        auto** arrays = reinterpret_cast<CArray**>(array->FindArrayValue());
         for (uint32_t i = 0; i < count; ++i) {
             uint32_t written = WriteArrayToBuffer(arrays[i], p, remaining, assert);
             if (written == 0)
@@ -297,71 +297,71 @@ uint32_t WriteArrayToBuffer(CArray* array, uint8_t* buffer, uint32_t size, int a
 }
 
 // 0x00479E20
-uint32_t WriteToBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)())
+uint32_t EmitIntoBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int assert, void (*callback)())
 {
     uint32_t remaining = size;
     uint8_t* p = buffer;
     if (structure) {
-        for (CComponent* component = structure->GetNextComponent(nullptr); component;
-             component = structure->GetNextComponent(component)) {
+        for (CComponent* component = structure->StepToEntry(nullptr); component;
+             component = structure->StepToEntry(component)) {
             if (callback)
                 callback();
             uint32_t written;
             switch (component->Type()) {
-            case ESYMBOLTYPE_INTEGER:
+            case QBVAL_INTEGER:
                 written = WriteInteger(component->name, component->integer, p, remaining);
                 break;
-            case ESYMBOLTYPE_FLOAT:
+            case QBVAL_FLOAT:
                 written = WriteFloat(p, component->name, remaining, component->floatValue);
                 break;
-            case ESYMBOLTYPE_STRING:
+            case QBVAL_STRING:
                 written = WriteString(p, component->string, component->name, remaining);
                 break;
-            case ESYMBOLTYPE_LOCALSTRING:
+            case QBVAL_INLINE_TEXT:
                 written = WriteLocalString(p, component->string, component->name, remaining);
                 break;
-            case ESYMBOLTYPE_PAIR: {
+            case QBVAL_PAIR: {
                 if (remaining < 13)
                     return 0;
-                uint8_t* end = WriteNameAndType(p, ESYMBOLTYPE_PAIR, component->name);
-                end = Write4Bytes(end, FloatBits(component->pair->x));
-                end = Write4Bytes(end, FloatBits(component->pair->y));
+                uint8_t* end = WriteNameAndType(p, QBVAL_PAIR, component->name);
+                end = StoreWord32(end, FloatBits(component->pair->x));
+                end = StoreWord32(end, FloatBits(component->pair->y));
                 written = Written(end, p);
                 break;
             }
-            case ESYMBOLTYPE_VECTOR: {
+            case QBVAL_VECTOR: {
                 if (remaining < 17)
                     return 0;
-                uint8_t* end = WriteNameAndType(p, ESYMBOLTYPE_VECTOR, component->name);
-                end = Write4Bytes(end, FloatBits(component->vector->x));
-                end = Write4Bytes(end, FloatBits(component->vector->y));
-                end = Write4Bytes(end, FloatBits(component->vector->z));
+                uint8_t* end = WriteNameAndType(p, QBVAL_VECTOR, component->name);
+                end = StoreWord32(end, FloatBits(component->vector->x));
+                end = StoreWord32(end, FloatBits(component->vector->y));
+                end = StoreWord32(end, FloatBits(component->vector->z));
                 written = Written(end, p);
                 break;
             }
-            case ESYMBOLTYPE_QSCRIPT: {
+            case QBVAL_SCRIPT_BODY: {
                 // (a script can't be sent: a placeholder name instead)
                 if (remaining < 9)
                     return 0;
-                uint8_t* end = WriteNameAndType(p, ESYMBOLTYPE_NAME, component->name);
-                written = Written(Write4Bytes(end, kScriptPlaceholder), p);
+                uint8_t* end = WriteNameAndType(p, QBVAL_NAME, component->name);
+                written = Written(StoreWord32(end, kScriptPlaceholder), p);
                 break;
             }
-            case ESYMBOLTYPE_STRUCTURE: {
+            case QBVAL_STRUCT: {
                 if (remaining < 5)
                     return 0;
-                uint8_t* end = WriteNameAndType(p, ESYMBOLTYPE_STRUCTURE, component->name);
+                uint8_t* end = WriteNameAndType(p, QBVAL_STRUCT, component->name);
                 uint32_t header = Written(end, p);
-                uint32_t inner = WriteToBuffer(component->structure, end, remaining - header, assert, nullptr);
+                uint32_t inner = EmitIntoBuffer(component->structure, end, remaining - header, assert, nullptr);
                 if (inner == 0)
                     return 0;
                 written = inner + header;
                 break;
             }
-            case ESYMBOLTYPE_ARRAY: {
+            case QBVAL_ARRAY: {
                 if (remaining < 5)
                     return 0;
-                uint8_t* end = WriteNameAndType(p, ESYMBOLTYPE_ARRAY, component->name);
+                uint8_t* end = WriteNameAndType(p, QBVAL_ARRAY, component->name);
                 uint32_t header = Written(end, p);
                 uint32_t inner = WriteArrayToBuffer(component->array, end, remaining - header, assert);
                 if (inner == 0)
@@ -369,11 +369,11 @@ uint32_t WriteToBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int a
                 written = inner + header;
                 break;
             }
-            case ESYMBOLTYPE_NAME: {
+            case QBVAL_NAME: {
                 if (remaining < 9)
                     return 0;
-                uint8_t* end = WriteNameAndType(p, ESYMBOLTYPE_NAME, component->name);
-                written = Written(Write4Bytes(end, component->checksum), p);
+                uint8_t* end = WriteNameAndType(p, QBVAL_NAME, component->name);
+                written = Written(StoreWord32(end, component->checksum), p);
                 break;
             }
             default:
@@ -392,23 +392,23 @@ uint32_t WriteToBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int a
 }
 
 // 0x0047A070
-uint32_t CalculateBufferSize(CStruct* structure, uint32_t maxSize)
+uint32_t MeasureBufferBytes(CStruct* structure, uint32_t maxSize)
 {
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_topDownHeap);
-    auto* scratch = static_cast<uint8_t*>(Mem::Malloc(maxSize));
-    uint32_t size = WriteToBuffer(structure, scratch, maxSize, 1, nullptr);
-    Mem::FreeMalloc(scratch);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_topDownHeap);
+    auto* scratch = static_cast<uint8_t*>(MemSys::AllocBlock(maxSize));
+    uint32_t size = EmitIntoBuffer(structure, scratch, maxSize, 1, nullptr);
+    MemSys::FreeMalloc(scratch);
+    MemSys::Manager::Get()->LeaveHeapScope();
     return size;
 }
 
 // 0x0047A0C0
-const uint8_t* ReadFromBuffer(CStruct* structure, const uint8_t* buffer)
+const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
 {
     structure->Clear();
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_scriptHeap);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_scriptHeap);
     const uint8_t* p = buffer;
     for (uint8_t type = *p++; type != 0; type = *p++) {
         uint32_t name;
@@ -418,155 +418,155 @@ const uint8_t* ReadFromBuffer(CStruct* structure, const uint8_t* buffer)
             p += 1;
         } else if (type & 0x40) {
             CArray* names = GetArray(kMediumNames);
-            name = names->GetElement(Read2Bytes(p));
+            name = names->GetElement(FetchWord16(p));
             p += 2;
         } else {
-            name = Read4Bytes(p);
+            name = FetchWord32(p);
             p += 4;
         }
         switch (type & 0x3F) {
-        case ESYMBOLTYPE_INTEGER:
-            structure->AddInteger(name, static_cast<int>(Read4Bytes(p)));
+        case QBVAL_INTEGER:
+            structure->PutInt(name, static_cast<int>(FetchWord32(p)));
             p += 4;
             break;
-        case ESYMBOLTYPE_FLOAT:
-            structure->AddFloat(name, BitsFloat(Read4Bytes(p)));
+        case QBVAL_FLOAT:
+            structure->PushFloat(name, BitsFloat(FetchWord32(p)));
             p += 4;
             break;
-        case ESYMBOLTYPE_STRING:
+        case QBVAL_STRING:
             structure->AddString(name, reinterpret_cast<const char*>(p));
             p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
             break;
-        case ESYMBOLTYPE_LOCALSTRING:
-            structure->AddLocalString(name, reinterpret_cast<const char*>(p));
+        case QBVAL_INLINE_TEXT:
+            structure->AppendInlineText(name, reinterpret_cast<const char*>(p));
             p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
             break;
-        case ESYMBOLTYPE_PAIR: {
-            uint32_t x = Read4Bytes(p);
-            uint32_t y = Read4Bytes(p + 4);
+        case QBVAL_PAIR: {
+            uint32_t x = FetchWord32(p);
+            uint32_t y = FetchWord32(p + 4);
             p += 8;
-            structure->AddPair(name, BitsFloat(x), BitsFloat(y));
+            structure->InsertPair(name, BitsFloat(x), BitsFloat(y));
             break;
         }
-        case ESYMBOLTYPE_VECTOR: {
-            uint32_t x = Read4Bytes(p);
-            uint32_t y = Read4Bytes(p + 4);
-            uint32_t z = Read4Bytes(p + 8);
+        case QBVAL_VECTOR: {
+            uint32_t x = FetchWord32(p);
+            uint32_t y = FetchWord32(p + 4);
+            uint32_t z = FetchWord32(p + 8);
             p += 12;
-            structure->AddVector(name, BitsFloat(x), BitsFloat(y), BitsFloat(z));
+            structure->PutVec3(name, BitsFloat(x), BitsFloat(y), BitsFloat(z));
             break;
         }
-        case ESYMBOLTYPE_STRUCTURE: {
+        case QBVAL_STRUCT: {
             CStruct* inner = NewStruct();
             if (inner)
                 inner->Init();
-            p = ReadFromBuffer(inner, p);
-            structure->AddStructurePointer(name, inner);
+            p = DecodeFromBytes(inner, p);
+            structure->AppendStructRef(name, inner);
             break;
         }
-        case ESYMBOLTYPE_ARRAY: {
+        case QBVAL_ARRAY: {
             CArray* inner = NewArray();
             if (inner)
                 inner->Init();
             p = ReadArrayFromBuffer(inner, p);
-            structure->AddArrayPointer(name, inner);
+            structure->AppendArrayRef(name, inner);
             break;
         }
-        case ESYMBOLTYPE_NAME:
-            structure->AddChecksum(name, Read4Bytes(p));
+        case QBVAL_NAME:
+            structure->PutNameKey(name, FetchWord32(p));
             p += 4;
             break;
         case kSignedByte:
-            structure->AddInteger(name, static_cast<int8_t>(*p));
+            structure->PutInt(name, static_cast<int8_t>(*p));
             p += 1;
             break;
         case kSignedShort:
-            structure->AddInteger(name, static_cast<int16_t>(Read2Bytes(p)));
+            structure->PutInt(name, static_cast<int16_t>(FetchWord16(p)));
             p += 2;
             break;
         case kUnsignedByte:
-            structure->AddInteger(name, *p);
+            structure->PutInt(name, *p);
             p += 1;
             break;
         case kUnsignedShort:
-            structure->AddInteger(name, Read2Bytes(p));
+            structure->PutInt(name, FetchWord16(p));
             p += 2;
             break;
         case kZeroInteger:
-            structure->AddInteger(name, 0);
+            structure->PutInt(name, 0);
             break;
         case kZeroFloat:
-            structure->AddFloat(name, 0.0f);
+            structure->PushFloat(name, 0.0f);
             break;
         default:
             break; // (no value: just the name was read)
         }
     }
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     return p;
 }
 
 // 0x0047A440
 const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
 {
-    CleanUpArray(array);
+    ReleaseArrayStorage(array);
     uint8_t type = buffer[0];
     uint32_t count = buffer[1] | static_cast<uint32_t>(buffer[2]) << 8;
     const uint8_t* p = buffer + 3;
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_scriptHeap);
-    array->SetSizeAndType(count, static_cast<ESymbolType>(type));
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_scriptHeap);
+    array->ConfigureSizeKind(count, static_cast<EQbValueKind>(type));
+    MemSys::Manager::Get()->LeaveHeapScope();
     switch (type) {
-    case ESYMBOLTYPE_INTEGER:
-    case ESYMBOLTYPE_NAME:
+    case QBVAL_INTEGER:
+    case QBVAL_NAME:
         for (uint32_t i = 0; i < count; ++i, p += 4)
-            array->SetElement(i, Read4Bytes(p));
+            array->SetElement(i, FetchWord32(p));
         break;
-    case ESYMBOLTYPE_FLOAT:
+    case QBVAL_FLOAT:
         for (uint32_t i = 0; i < count; ++i, p += 4)
-            array->SetFloat(i, BitsFloat(Read4Bytes(p)));
+            array->SetFloat(i, BitsFloat(FetchWord32(p)));
         break;
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         for (uint32_t i = 0; i < count; ++i) {
             array->SetElement(i, reinterpret_cast<uint32_t>(CreateString(reinterpret_cast<const char*>(p))));
             p += std::strlen(reinterpret_cast<const char*>(p)) + 1;
         }
         break;
-    case ESYMBOLTYPE_PAIR:
+    case QBVAL_PAIR:
         for (uint32_t i = 0; i < count; ++i) {
             CPair* pair = NewPair();
             if (pair)
                 pair->Init();
-            pair->x = BitsFloat(Read4Bytes(p));
-            pair->y = BitsFloat(Read4Bytes(p + 4));
+            pair->x = BitsFloat(FetchWord32(p));
+            pair->y = BitsFloat(FetchWord32(p + 4));
             p += 8;
             array->SetElement(i, reinterpret_cast<uint32_t>(pair));
         }
         break;
-    case ESYMBOLTYPE_VECTOR:
+    case QBVAL_VECTOR:
         for (uint32_t i = 0; i < count; ++i) {
             CVector* vector = NewVector();
             if (vector)
                 vector->Init();
-            vector->x = BitsFloat(Read4Bytes(p));
-            vector->y = BitsFloat(Read4Bytes(p + 4));
-            vector->z = BitsFloat(Read4Bytes(p + 8));
+            vector->x = BitsFloat(FetchWord32(p));
+            vector->y = BitsFloat(FetchWord32(p + 4));
+            vector->z = BitsFloat(FetchWord32(p + 8));
             p += 12;
             array->SetElement(i, reinterpret_cast<uint32_t>(vector));
         }
         break;
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         for (uint32_t i = 0; i < count; ++i) {
             CStruct* inner = NewStruct();
             if (inner)
                 inner->Init();
-            p = ReadFromBuffer(inner, p);
+            p = DecodeFromBytes(inner, p);
             array->SetElement(i, reinterpret_cast<uint32_t>(inner));
         }
         break;
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_ARRAY:
         for (uint32_t i = 0; i < count; ++i) {
             CArray* inner = NewArray();
             if (inner)

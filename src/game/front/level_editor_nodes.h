@@ -6,7 +6,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
@@ -15,7 +15,7 @@ class CStruct;
 // class and type, with what the gizmos need (position, heading, links, colour, radius), and the pure parts of
 // classifying and picking them. Read here; point nodes are moved and
 // turned by level_editor_node_edit.h (phase 2 of the plan).
-namespace Front::LevelEditor::Nodes {
+namespace MenuSystem::LevelEditor::Nodes {
 
 // The families, as the Outliner groups them and the chips filter them.
 enum class Family : uint8_t {
@@ -46,7 +46,7 @@ enum class Shape : uint8_t { Point, Chain, Volume, None };
 Shape ShapeOf(Family family);
 
 // A restart's restart_types as bits.
-enum RestartType : uint32_t {
+enum SpawnPointKind : uint32_t {
     kPlayer1 = 1,
     kPlayer2 = 2,
     kMultiplayer = 4,
@@ -56,7 +56,7 @@ enum RestartType : uint32_t {
     kKing = 64,
     kGeneric = 128,
 };
-uint32_t RestartTypeBit(uint32_t typeChecksum);
+uint32_t RestartTypeBit(uint32_t kindHash);
 // A team colour named in a node's name or type (_Red, _Blue, _Green, _Yellow; ARGB), 0 if none.
 uint32_t TeamColour(const char* text);
 // A spawn's gizmo colour: its team's (CTF / team restarts), else by type - multiplayer blue, player 1 green, player 2
@@ -105,7 +105,7 @@ void Invalidate();
 // The node named `name` (its index in All(), -1 if none).
 int Find(uint32_t name);
 // The node's structure (null if the arrays changed).
-Script::CStruct* StructOf(const Node& node);
+Scripts::CStruct* StructOf(const Node& node);
 // Node `index`'s place read again from its structure (pos, angles, heading) - after the editor moved it: the scan is
 // made again only when the arrays' names or sizes change.
 void Reread(int index);
@@ -153,4 +153,4 @@ struct Occluder {
 // -1 if none.
 int PickNearest(const std::vector<Pickable>& pickables, float x, float y, float radius, const Occluder& occluder = {});
 
-} // namespace Front::LevelEditor::Nodes
+} // namespace MenuSystem::LevelEditor::Nodes

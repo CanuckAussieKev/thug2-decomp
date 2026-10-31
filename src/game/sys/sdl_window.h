@@ -6,9 +6,9 @@ struct SDL_Window;
 
 // The game's window on PC: an SDL window ([Graphics] in thug2-decomp.ini: ResolutionX / ResolutionY - 0 = the
 // desktop's -, Windowed, Borderless) in place of the original's Win32 one (CreateGameWindow 0x005F5860, 640x480
-// full screen). Its handle goes where the game keeps its window (0x007D6A28); Nx::InitDirect3D makes the device
+// full screen). Its handle goes where the game keeps its window (0x007D6A28); Engine3D::InitDirect3D makes the device
 // at its size, windowed or not.
-namespace Sys {
+namespace SystemCore {
 
 // Read the settings, make the window (WinMain) and show it; the cursor hidden. Its focus events set the game's
 // focus flag (0x007CCBE4) and allow / stop device recreation (0x00786AB4).

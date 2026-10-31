@@ -11,7 +11,7 @@
 
 union SDL_Event;
 struct ImFont;
-namespace Front::LevelEditor::Ux8 {
+namespace MenuSystem::LevelEditor::Ux8 {
 struct Fonts;
 }
 
@@ -29,12 +29,12 @@ struct Fonts;
 //     rules: level_editor_ui_backend.h).
 //   - Input: over a panel (or while ImGui holds the mouse or wants the keyboard) ImGui gets it; in the viewport the
 //     editor's camera, picking and keys work as before (level_editor_ui_layout.h's Decide).
-//   - Drawn after the game's 2D pass, where the editor draws (Nx::RenderWorld -> LevelEditor::Draw); nothing is drawn
-//     and nothing runs while the editor is closed. Device lost / reset (alt-tab): Mlp::ResetDeviceIfLost drops
+//   - Drawn after the game's 2D pass, where the editor draws (Engine3D::DrawWorld -> LevelEditor::Draw); nothing is drawn
+//     and nothing runs while the editor is closed. Device lost / reset (alt-tab): FrameLoop::ResetDeviceIfLost drops
 //     ImGui's device objects first (DeviceLost), the next frame makes them again; a new window size re-sizes the fonts.
 // thug2-decomp.ini [features] editor_ui=0 brings back the old HUD (cheap to keep: the HUD is a few script calls the
 // editor already makes); the UI also falls back to it when ImGui can't start on the game's window or device.
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 
 // [features] editor_ui (default 1; read once).
 bool& Enabled();
@@ -44,7 +44,7 @@ bool Running();
 // False (the old HUD then) when off or when it can't start.
 bool Start();
 void Stop();
-// Mlp::ResetDeviceIfLost, before the device is reset.
+// FrameLoop::ResetDeviceIfLost, before the device is reset.
 void DeviceLost();
 
 // An SDL event while the editor runs: given to ImGui as the routing decides (level_editor_ui_layout.h);
@@ -191,7 +191,7 @@ struct Model {
         std::string whyNoHide;
         bool crownUp = false, crownDown = false;
         // A rail node: it moves with its whole rail (else alone - L), how many points that is.
-        bool rail = false, wholeRail = true;
+        bool rail = false, entireRail = true;
         int railPoints = 0;
         const char* chainNoun = "rail"; // (phase 4: "rail", "ladder" or "path" - the Whole ... checkbox)
     } nodes;
@@ -360,4 +360,4 @@ int PreviewPixels();
 // The frame (LevelEditor::Draw): the overlay (under the panels), the panels from the model, drawn.
 void Frame(const Model& model, const Overlay& overlay);
 
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui

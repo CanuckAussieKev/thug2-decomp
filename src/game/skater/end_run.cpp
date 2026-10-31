@@ -1,4 +1,4 @@
-// The skater's end-of-run component (Obj::CSkaterEndRunComponent): see end_run.h.
+// The skater's end-of-run component (GameObjects::CRiderSessionEnd): see end_run.h.
 
 #include "game/skater/end_run.h"
 
@@ -17,7 +17,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -31,39 +31,39 @@ constexpr uint32_t kIsInEndOfRun = 0x95BDCFCD, kEndOfRunStarted = 0x962DEA01, kE
 // Events and scripts
 constexpr uint32_t kRunHasEnded = 0x822E13A9, kGoalHasEnded = 0xAB676175, kForceEndOfRun = 0xF4CE3E97;
 
-// Mdl::Skate (0x007CE478) and its 0x005651F0: a multiplayer game (a network game, or a game mode for more than one
+// GameModules::Skate (0x007CE478) and its 0x005651F0: a multiplayer game (a network game, or a game mode for more than one
 // player). Not rewritten yet.
-bool IsMultiplayerGame()
+bool IsVersusSession()
 {
-    return Mdl::Skate::IsMultiplayer() != 0;
+    return GameModules::Skate::IsMultiplayer() != 0;
 }
 // The game mode (0x007CE470)'s 0x00553550: whether a run is over at its end here (multiplayer, and the mode's
 // stop_at_zero if it has the setting). Not rewritten yet.
 bool GameModeEndsRuns()
 {
-    return static_cast<Game::CGameMode*>(static_cast<void*>(Game::g_gameMode))->ShouldStopAtZero();
+    return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->ClockHaltsAtZero();
 }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).
 bool ServerToldRunEnded()
 {
-    return GameNet::g_gameNetManager->GameEndedSent();
+    return OnlinePlay::g_gameNetManager->GameEndedSent();
 }
-void TellServerRunEnded() { GameNet::g_gameNetManager->SendGameEnded(); }
+void TellServerRunEnded() { OnlinePlay::g_gameNetManager->SendGameEnded(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
-bool IsLocalSkater(CCompositeObject* object) { return object->m_unknownBC != 0; }
+bool IsLocalSkater(CGameEntity* object) { return object->m_unknownBC != 0; }
 
 } // namespace
 
 // 0x00510F90
-CBaseComponent* __cdecl CSkaterEndRunComponent::Create()
+CObjectModule* __cdecl CRiderSessionEnd::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterEndRunComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderSessionEnd));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterEndRunComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderSessionEnd*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_flags = 0;
     component->m_type = kSkaterEndRun;
@@ -71,25 +71,25 @@ CBaseComponent* __cdecl CSkaterEndRunComponent::Create()
 }
 
 // 0x00510D20
-void CSkaterEndRunComponent::DestroyBody()
+void CRiderSessionEnd::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00510D40
-CSkaterEndRunComponent* CSkaterEndRunComponent::Destroy(unsigned int flags)
+CRiderSessionEnd* CRiderSessionEnd::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00510D70
-void CSkaterEndRunComponent::Update()
+void CRiderSessionEnd::Update()
 {
-    if (!IsMultiplayerGame()) {
+    if (!IsVersusSession()) {
         VirtualSuspend(true);
         return;
     }
@@ -98,8 +98,8 @@ void CSkaterEndRunComponent::Update()
 }
 
 // 0x00510DC0
-int CSkaterEndRunComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*params*/,
-                                               Script::CScript* /*script*/)
+int CRiderSessionEnd::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/,
+                                               Scripts::CScript* /*script*/)
 {
     switch (name) {
     case kIsInEndOfRun:
@@ -131,65 +131,65 @@ int CSkaterEndRunComponent::CallMemberFunction(uint32_t name, Script::CStruct* /
 }
 
 // 0x00510D30
-uint32_t* CSkaterEndRunComponent::GetFlags(uint32_t* out)
+uint32_t* CRiderSessionEnd::GetFlags(uint32_t* out)
 {
     *out = m_flags;
     return out;
 }
 
 // 0x00510EA0
-void CSkaterEndRunComponent::EndRun(bool force)
+void CRiderSessionEnd::EndRun(bool force)
 {
     if (!force && !GameModeEndsRuns()) {
-        m_object->SelfEvent(kRunHasEnded, nullptr);
+        m_object->PostOwnEvent(kRunHasEnded, nullptr);
         m_flags &= ~END_RUN_DONE;
         return;
     }
     if (!(m_flags & END_RUN_FORCED) && !(m_flags & END_RUN_DONE)) {
         m_flags |= END_RUN_FORCED;
         if (IsLocalSkater(m_object))
-            Script::RunScript(kForceEndOfRun, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(kForceEndOfRun, nullptr, m_object, false, nullptr);
     }
 }
 
 // 0x00510F10
-void CSkaterEndRunComponent::EndGoalRun(void* /*unused*/)
+void CRiderSessionEnd::FinishObjectiveRun(void* /*unused*/)
 {
     m_flags &= ~END_RUN_GOAL_DONE;
-    m_object->SelfEvent(kGoalHasEnded, nullptr);
+    m_object->PostOwnEvent(kGoalHasEnded, nullptr);
 }
 
 // 0x00510F30
-bool CSkaterEndRunComponent::RunDone() { return (m_flags & END_RUN_DONE) != 0; }
+bool CRiderSessionEnd::RunDone() { return (m_flags & END_RUN_DONE) != 0; }
 // 0x00510F40
-bool CSkaterEndRunComponent::GoalRunDone() { return (m_flags & END_RUN_GOAL_DONE) != 0; }
+bool CRiderSessionEnd::GoalRunDone() { return (m_flags & END_RUN_GOAL_DONE) != 0; }
 // 0x00510F50
-bool CSkaterEndRunComponent::EndOfRunStarted() { return (m_flags & END_RUN_STARTED) != 0; }
+bool CRiderSessionEnd::EndOfRunStarted() { return (m_flags & END_RUN_STARTED) != 0; }
 // 0x00510F60
-void CSkaterEndRunComponent::ClearEndOfRunStarted() { m_flags &= ~END_RUN_STARTED; }
+void CRiderSessionEnd::ClearEndOfRunStarted() { m_flags &= ~END_RUN_STARTED; }
 // 0x00510F70
-void CSkaterEndRunComponent::ClearGoalEndOfRunStarted() { m_flags &= ~END_RUN_GOAL_STARTED; }
+void CRiderSessionEnd::ClearGoalEndOfRunStarted() { m_flags &= ~END_RUN_GOAL_STARTED; }
 // 0x00510F80
-void CSkaterEndRunComponent::ClearForced() { m_flags &= ~END_RUN_FORCED; }
+void CRiderSessionEnd::ClearForced() { m_flags &= ~END_RUN_FORCED; }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterEndRunComponent::Destroy,
-         &Obj::CSkaterEndRunComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderSessionEnd::Destroy,
+         &GameObjects::CRiderSessionEnd::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CSkaterEndRunComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CRiderSessionEnd::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

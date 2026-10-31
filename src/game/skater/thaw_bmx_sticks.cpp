@@ -26,7 +26,7 @@ const char* const kTrickNames[2][8] = {
      "rightdownright"},
 };
 
-uint32_t Name(const char* text) { return Crc::GenerateCRCFromString(text); }
+uint32_t Name(const char* text) { return Checksums::HashFromText(text); }
 
 constexpr uint8_t kMiddle = 0x80;
 // THAW 0x435530: the right stick's direction past these (about 60% over; the left stick's: any way off the middle).
@@ -34,7 +34,7 @@ constexpr uint8_t kRightOver = 0xCB, kRightUnder = 0x35;
 
 // A pad's eight stick buttons (THAW's pad +0x200..+0x2E0), beside it.
 struct PadSticks {
-    Obj::CControlButton buttons[8] = {};
+    GameObjects::CControlButton buttons[8] = {};
 };
 std::unordered_map<const void*, PadSticks>& Pads()
 {
@@ -51,10 +51,10 @@ PadSticks& SticksOf(const void* pad)
 }
 
 // The trick component's pad (the input component's, at its +0x20).
-const void* TrickPad(const Obj::CTrickComponent* trick) { return trick->m_input + 0x20; }
+const void* TrickPad(const GameObjects::CMoveExecutor* trick) { return trick->m_input + 0x20; }
 
 // The bike state of `trick`'s skater while it rides the bike, else null.
-BikeState* RidingState(const Obj::CTrickComponent* trick)
+BikeState* RidingState(const GameObjects::CMoveExecutor* trick)
 {
     const void* core = trick->m_corePhysics;
     if (!core || !Active(core))
@@ -62,9 +62,9 @@ BikeState* RidingState(const Obj::CTrickComponent* trick)
     return StateOf(core, false);
 }
 
-// A press / release of a stick direction, as CTrickComponent::UpdateButton (0x0051F8F0) makes one for THUG2's
+// A press / release of a stick direction, as CMoveExecutor::UpdateButton (0x0051F8F0) makes one for THUG2's
 // buttons: not for an ignored button.
-void AddStickEvent(Obj::CTrickComponent* trick, uint32_t name, bool pressed)
+void AddStickEvent(GameObjects::CMoveExecutor* trick, uint32_t name, bool pressed)
 {
     for (int i = 0; i < trick->m_ignoredCount; ++i)
         if (trick->m_ignored[i] == name)
@@ -130,7 +130,7 @@ int StickDirection(uint32_t directions, bool right)
 {
     int base = right ? kRightUp : kLeftUp;
     auto bit = [&](int k) -> uint8_t { return (directions >> (base + k)) & 1; };
-    return Obj::DPadDirection(bit(0), bit(1), bit(2), bit(3));
+    return GameObjects::DPadDirection(bit(0), bit(1), bit(2), bit(3));
 }
 
 uint32_t TrickStickName(bool right, int direction)
@@ -146,7 +146,7 @@ uint32_t TrickStickName(bool right, int direction)
 
 void UpdateTrickSticks(void* trickComponent)
 {
-    auto* trick = static_cast<Obj::CTrickComponent*>(trickComponent);
+    auto* trick = static_cast<GameObjects::CMoveExecutor*>(trickComponent);
     const void* core = trick->m_corePhysics;
     BikeState* state = core ? StateOf(core, false) : nullptr;
     if (!state)
@@ -156,7 +156,7 @@ void UpdateTrickSticks(void* trickComponent)
     if (riding) {
         PadSticks& sticks = SticksOf(TrickPad(trick));
         for (int i = 0; i < 8; ++i)
-            if (sticks.buttons[i].m_pressed)
+            if (sticks.buttons[i].m_heldDown)
                 bits |= 1u << i;
     }
     for (int s = 0; s < 2; ++s) {
@@ -184,7 +184,7 @@ int TrickStickHeld(const void* trickComponent, uint32_t name)
         for (int d = 1; d <= 8; ++d) {
             if (TrickStickName(s == 1, d) != name)
                 continue;
-            const BikeState* state = RidingState(static_cast<const Obj::CTrickComponent*>(trickComponent));
+            const BikeState* state = RidingState(static_cast<const GameObjects::CMoveExecutor*>(trickComponent));
             if (!state)
                 return -1;
             return state->trickStick[s] == d ? 1 : 0;
@@ -196,7 +196,7 @@ int TrickStickHeld(const void* trickComponent, uint32_t name)
 void EndTrickUpdate(void* trickComponent)
 {
     // THAW 0x4723D0 (the end of the trick component's update): centred while none of the right stick's eight is down
-    BikeState* state = RidingState(static_cast<const Obj::CTrickComponent*>(trickComponent));
+    BikeState* state = RidingState(static_cast<const GameObjects::CMoveExecutor*>(trickComponent));
     if (state)
         state->rightStickCentred = state->trickStick[1] == 0;
 }
@@ -208,7 +208,7 @@ bool BikePressMayCount(uint32_t lastButton, uint32_t button, bool rightStickCent
 
 bool RightStickCentred(const void* trickComponent)
 {
-    const BikeState* state = RidingState(static_cast<const Obj::CTrickComponent*>(trickComponent));
+    const BikeState* state = RidingState(static_cast<const GameObjects::CMoveExecutor*>(trickComponent));
     return !state || state->rightStickCentred;
 }
 

@@ -26,7 +26,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Ux9 {
+namespace MenuSystem::LevelEditor::Ux9 {
 
 namespace {
 
@@ -51,9 +51,9 @@ V3 Snapped(V3 p) { return {Ground::SnapTo(p.x, g_grid), p.y, Ground::SnapTo(p.z,
 bool Cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -72,7 +72,7 @@ float GroundAt(V3 p, float fallback)
     return fallback;
 }
 
-void SetStage(Stage stage)
+void ChangeStage(Stage stage)
 {
     g_stage = stage;
     g_haveHover = false;
@@ -125,7 +125,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
-            g_queue.push_back([] { SetStage(Stage::Off); });
+            g_queue.push_back([] { ChangeStage(Stage::Off); });
         return;
     }
     Ground::Spec& d = g_draft;
@@ -184,15 +184,15 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
             g_queue.push_back([] {
                 Ground::Remove(g_draft.name);
                 ShowMessage("Removed ground piece " + g_draft.name);
-                SetStage(Stage::Off);
+                ChangeStage(Stage::Off);
             });
     }
     ImGui::SameLine();
     if (ImGui::Button("New Rectangle"))
-        g_queue.push_back([] { SetStage(Stage::First); });
+        g_queue.push_back([] { ChangeStage(Stage::First); });
     ImGui::SameLine();
     if (ImGui::Button("Close"))
-        g_queue.push_back([] { SetStage(Stage::Off); });
+        g_queue.push_back([] { ChangeStage(Stage::Off); });
     // (the pieces of this level)
     if (!Ground::All().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const Ground::Spec& s : Ground::All()) {
@@ -213,7 +213,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     }
     ImGui::End();
     if (!open)
-        g_queue.push_back([] { SetStage(Stage::Off); });
+        g_queue.push_back([] { ChangeStage(Stage::Off); });
 }
 
 void GroundHover(V3 origin, V3 unitDir)
@@ -263,7 +263,7 @@ bool GroundClick(V3 origin, V3 unitDir)
     std::string why;
     if (!Ground::ChooseMaterial(g_floor, &spec, &why)) {
         ShowMessage("Ground Tool: " + why, 8.0);
-        SetStage(Stage::Off);
+        ChangeStage(Stage::Off);
         return true;
     }
     OpenForm(spec, false);
@@ -332,9 +332,9 @@ void Update()
     if (g_groundAction >= 0 && Actions::Pressed(g_groundAction)) {
         GapWizard::SetArmed(false);
         if (g_stage == Stage::Off)
-            SetStage(Stage::First);
+            ChangeStage(Stage::First);
         else {
-            SetStage(Stage::Off);
+            ChangeStage(Stage::Off);
             ShowMessage("Ground Tool off");
         }
     }
@@ -360,7 +360,7 @@ bool Cancel()
         return true;
     if (g_stage == Stage::Off)
         return false;
-    SetStage(Stage::Off);
+    ChangeStage(Stage::Off);
     ShowMessage("Ground Tool off");
     return true;
 }
@@ -420,4 +420,4 @@ std::string Describe()
     return text;
 }
 
-} // namespace Front::LevelEditor::Ux9
+} // namespace MenuSystem::LevelEditor::Ux9

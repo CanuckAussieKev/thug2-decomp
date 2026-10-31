@@ -9,15 +9,15 @@
 #include "game/front/level_editor.h"
 #include "game/mth/vector.h"
 
-namespace Nx {
-class CCollObj;
-struct CCollObjTriData;
-struct CCollBSPNode;
-struct sMesh;
+namespace Engine3D {
+class CHitMesh;
+struct CTriMeshSource;
+struct CHitTreeNode;
+struct meshRef;
 struct sVertexBuffer;
 } // namespace Nx
-namespace Obj {
-class CCompositeObject;
+namespace GameObjects {
+class CGameEntity;
 }
 
 // NOT ORIGINAL - the level editor's scaling (ours, added at the user's request; see level_editor.h): scenery and
@@ -35,10 +35,10 @@ class CCompositeObject;
 // piece (the engine's own quarter turns leave normals as they are; a scaled piece gets them right). Textures stretch
 // with the faces (a known look: a stretched brick wall has stretched bricks).
 //
-// The collision (Nx::CCollObjTriData, coll_tri.h): vertices are floats, or - "compressed" - 16-bit offsets from the
+// The collision (Engine3D::CTriMeshSource, coll_tri.h): vertices are floats, or - "compressed" - 16-bit offsets from the
 // box's minimum in sixteenths of a unit (at most 4095.9 units across on each axis); its BSP tree's splits are in
 // sixteenths too. It is put back from the copy (vertices, box, tree, face-rejection scale) and scaled (the game's own
-// CCollObjTriData::Scale 0x00416730 takes a vector: per axis, the tree's splits on each axis too) / turned / moved with
+// CTriMeshSource::Scale 0x00416730 takes a vector: per axis, the tree's splits on each axis too) / turned / moved with
 // the game's own code (as the park editor's pieces are), so a compressed geometry keeps its format: its scale is limited
 // to what fits (CompressedLimit, per axis). Scale and RotateY clear the face-rejection scale (+0x3C): line tests then
 // reject nothing by distance - correct, a little slower. The sector is flagged for the super sectors' update (as moves
@@ -46,14 +46,14 @@ class CCompositeObject;
 // same placement.
 //
 // Objects (level objects, game objects, cars - anything with a model): about the object's own position, along its own
-// axes. The model's scale (CModel::SetScale 0x00492EE0: drawn scaled) and the object's collision: the collision
-// component (Obj::CCollisionComponent, game/obj/collision_component.h) keeps a movable collision object - a triangle
-// object (Nx::CCollMovTri; several under a CCollMulti) or a box (CCollMovBBox) - whose geometry is the model's, shared
+// axes. The model's scale (CRenderModel::ChangeScale 0x00492EE0: drawn scaled) and the object's collision: the collision
+// component (GameObjects::CContactShapeModule, game/obj/collision_component.h) keeps a movable collision object - a triangle
+// object (Engine3D::CHitMovingTriangles; several under a CHitMeshGroup) or a box (CHitMovingBox) - whose geometry is the model's, shared
 // by every object of that model and kept in the object's own space. So the first time an object is scaled each of its
-// triangle objects gets a geometry of its own (CCollObjTriData::Clone, owned by the collision object: deleted with it,
+// triangle objects gets a geometry of its own (CTriMeshSource::Clone, owned by the collision object: deleted with it,
 // kOwnsGeometry), kept as copied, and every scale is written from that copy (Scale about the object's origin); a box is
 // scaled from its first box. Scale 1 puts the copies' numbers back exactly.
-namespace Front::LevelEditor::Scale {
+namespace MenuSystem::LevelEditor::Scale {
 
 constexpr float kMin = 0.25f;
 constexpr float kMax = 4.0f;
@@ -114,33 +114,33 @@ V3 ScaledNormal(V3 n, V3 scale, int quarters);
 // The normals (at `offset` in each vertex) written from `original` as ScaledNormal.
 void RewriteNormals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
                     int quarters);
-// Where a mesh's vertices keep their normal (-1: none): its vertex format (sMesh +0x38) a Direct3D FVF with XYZ
+// Where a mesh's vertices keep their normal (-1: none): its vertex format (meshRef +0x38) a Direct3D FVF with XYZ
 // positions and NORMAL (0x10) - the normal's three floats after the position - in a vertex of `stride` bytes. (Meshes
 // with one of the built-in vertex shaders have a handle there, not an FVF: none.)
-int NormalOffset(uint32_t fvf, uint32_t stride);
+int SurfaceNudge(uint32_t fvf, uint32_t stride);
 // A layout record's scale: " scale=<s>" (uniform) or " scale=<x>,<y>,<z>" after a record (nothing when 1, 1, 1), and
 // reading a field "scale=<s>" / "scale=<x>,<y>,<z>" (false: not that field, or not positive numbers).
 std::string Token(V3 scale);
 bool ReadToken(const std::string& field, V3* scale);
 
-// --- the collision's copy (pure too: our CCollObjTriData code on any geometry) -----------------------------------
+// --- the collision's copy (pure too: our CTriMeshSource code on any geometry) -----------------------------------
 
 struct CollisionCopy {
-    Nx::CCollObjTriData* data = nullptr;
+    Engine3D::CTriMeshSource* data = nullptr;
     uint16_t numVertices = 0;
     bool compressed = false;
     void* vertexArray = nullptr;
     std::vector<uint8_t> vertices;
-    Mth::Vector min = {}, max = {};
+    Maths::Vector min = {}, max = {};
     uint32_t rejection = 0;
     struct Node {
-        Nx::CCollBSPNode* node;
+        Engine3D::CHitTreeNode* node;
         int32_t split;
         uint32_t link;
     };
     std::vector<Node> nodes; // (the tree's split nodes; leaves don't change)
 };
-CollisionCopy CopyCollision(Nx::CCollObjTriData* data);
+CollisionCopy CopyCollision(Engine3D::CTriMeshSource* data);
 // Whether the geometry is still the one copied (its arrays, count and format).
 bool SameCollision(const CollisionCopy& copy);
 // The geometry put back as copied, then scaled by `scale` (along its axes as copied) about `from`, turned `quarters`
@@ -148,13 +148,13 @@ bool SameCollision(const CollisionCopy& copy);
 void RebuildCollision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale);
 // The largest scale on each of its axes a geometry allows (kMax unless compressed), its scale along them now being
 // `scale`.
-V3 CollisionLimit(const Nx::CCollObjTriData* data, V3 scale);
+V3 CollisionLimit(const Engine3D::CTriMeshSource* data, V3 scale);
 
 // --- the game side: scenery --------------------------------------------------------------------------------------
 
 // A sector's meshes and collision as they were when it was first scaled, with the engine's state then.
 struct Original;
-// Kept for a sector (CSector) and its geometry (the PC CGeom) with the engine at `quarters` (CSector +0x10) and
+// Kept for a sector (CWorldCell) and its geometry (the PC CGeom) with the engine at `quarters` (CWorldCell +0x10) and
 // `position` (the geometry's world position); null if its meshes can't be copied.
 std::shared_ptr<Original> Capture(uint8_t* sector, uint8_t* geom, int quarters, V3 position);
 // The sector's meshes (uploaded) and collision written for the engine now at `quarters` / `position`, scaled by `scale`
@@ -169,15 +169,15 @@ V3 Limit(uint8_t* sector, V3 worldScale);
 // --- the game side: objects --------------------------------------------------------------------------------------
 
 // An object's scale as the editor set it (along its own axes; 1, 1, 1 when it hasn't).
-V3 ObjectScale(Obj::CCompositeObject* object);
+V3 ObjectScale(GameObjects::CGameEntity* object);
 // Whether the object can be scaled: it has a model.
-bool ObjectScalable(Obj::CCompositeObject* object);
+bool ObjectScalable(GameObjects::CGameEntity* object);
 // The object's model and collision scaled to `scale` (its own axes, about its position; each axis within kMin and
 // what its compressed collision allows). False when it can't be (no model, or its collision couldn't be copied).
-bool SetObjectScale(Obj::CCompositeObject* object, V3 scale);
+bool SetObjectScale(GameObjects::CGameEntity* object, V3 scale);
 // The largest scale on each of the object's axes its collision allows (kMax unless compressed).
-V3 ObjectLimit(Obj::CCompositeObject* object);
+V3 ObjectLimit(GameObjects::CGameEntity* object);
 // A new level: the objects' records forgotten (their collision copies belong to the objects).
 void ForgetObjects();
 
-} // namespace Front::LevelEditor::Scale
+} // namespace MenuSystem::LevelEditor::Scale

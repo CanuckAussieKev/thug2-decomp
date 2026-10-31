@@ -22,7 +22,7 @@
 //     up to keep the depth buffer's precision - NearPlane), so the game's culling, the picking rays and every gizmo
 //     stay right without a projection of our own (the renderer-independence rules: nothing Direct3D here).
 // Flying's acceleration ([editor] fly_accel_ms) is FlyRamp's.
-namespace Front::LevelEditor::Camera {
+namespace MenuSystem::LevelEditor::Camera {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ float FlyRamp(float heldSeconds, int accelMs);
 
 // Ortho views. `equivalent`: the distance the picture's size matches in perspective (what the zoom changes); the eye
 // is EyeDistance(equivalent) back along the view, the lens narrowed by equivalent / eye.
-enum class View { None, Top, Bottom, Front, Back, Right, Left, Free };
+enum class View { None, Top, Bottom, MenuSystem, Back, Right, Left, Free };
 float EyeDistance(float equivalent);
 float OrthoAngle(float baseDegrees, float equivalent);
 // The near plane for that eye (the default 2 when not ortho): 40% of the way to the pivot.
@@ -132,10 +132,10 @@ View CurrentView();
 // A distance from the camera as the picture shows it: in an ortho view the far eye's distances scaled down to the
 // view's equivalent (the move arrows' length, the gizmos' cut-offs); the distance itself otherwise.
 float Apparent(float distance);
-// The renderer's hooks (Nx::RenderViewport, for the editor's camera only): the field of view and the near plane.
+// The renderer's hooks (Engine3D::DrawViewport, for the editor's camera only): the field of view and the near plane.
 float ViewAngle(float baseDegrees);
 float NearPlane();
 // For the status bar: "Top (ortho)", "flying to the selection"... (empty: nothing to say).
 std::string Status();
 
-} // namespace Front::LevelEditor::Camera
+} // namespace MenuSystem::LevelEditor::Camera

@@ -21,7 +21,7 @@
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -46,10 +46,10 @@ double RandomBetween(float min, float max)
     return t * (static_cast<double>(max) - min) + min;
 }
 
-int ViewportCount() { return Mdl::g_viewportCount; }
-void* ViewportCamera(int viewport) { return GetActiveCamera(viewport); }
+int ViewportCount() { return GameModules::g_viewportCount; }
+void* ViewportCamera(int viewport) { return FetchLiveCamera(viewport); }
 // 0x0048C490: whether a sphere is out of the camera's view.
-int SphereHidden(const Mth::Vector* centre, float radius)
+int SphereHidden(const Maths::Vector* centre, float radius)
 {
     return Engine::SphereVisibleInOneViewport(centre, radius);
 }
@@ -70,7 +70,7 @@ int NumColours(CParticleSystem* system)
 
 float* PositionOf(CParticleSystem* system, int particle, int step)
 {
-    return system->mp_positions + 3 * (system->m_maxParticles * step + particle);
+    return system->m_positionArray + 3 * (system->m_maxParticles * step + particle);
 }
 
 // The member functions' names and parameters.
@@ -131,9 +131,9 @@ const uint32_t kMidChannels[4] = {0xD07EE8FA, 0xBDA30C11, 0xCDC9F89E, 0x54C0A924
 const uint32_t kStartChannels[4] = {0x043FD725, 0x69E233CE, 0x1988C741, 0x808196FB}; // sr, sg, sb, sa
 
 // A vector parameter, or x, y and z ones.
-void GetVectorOrXyz(Script::CStruct* params, uint32_t name, float& x, float& y, float& z)
+void GetVectorOrXyz(Scripts::CStruct* params, uint32_t name, float& x, float& y, float& z)
 {
-    Script::VectorValue v;
+    Scripts::VectorValue v;
     if (params->GetVector(name, &v, 0)) {
         x = v.x;
         y = v.y;
@@ -165,20 +165,20 @@ void SetSizes(CParticleSystem* system, sFlexibleParticle& p)
 // 0x00496FE0
 void CParticleSystem::Emit(int count)
 {
-    if (m_dying)
+    if (m_fadingOut)
         return;
     int first = m_unknown8C;
     int total = count + first;
     m_unknown8C = total > m_maxParticles ? m_maxParticles : total;
     int last = m_unknown8C;
-    Mth::Matrix m;
+    Maths::Matrix m;
     GetEmitMatrix(&m);
     for (int i = first; i < last; ++i) {
-        sFlexibleParticle& p = mp_particles[i];
+        sFlexibleParticle& p = m_particleList[i];
         if (!m_moving) {
             SetSizes(this, p);
             p.age = 0.0f;
-            p.lifetime = static_cast<float>(RandomBetween(m_life[0], m_life[1]));
+            p.lifetime = static_cast<float>(RandomBetween(m_ageLeft[0], m_ageLeft[1]));
             for (int step = 0; step < NumVertexLists(this); ++step) {
                 float* pos = PositionOf(this, i, step);
                 pos[0] = 0.0f;
@@ -253,7 +253,7 @@ void CParticleSystem::Emit(int count)
             p.force[k] = m_force[k];
         SetSizes(this, p);
         p.age = 0.0f;
-        p.lifetime = static_cast<float>(RandomBetween(m_life[0], m_life[1]));
+        p.lifetime = static_cast<float>(RandomBetween(m_ageLeft[0], m_ageLeft[1]));
         for (int k = 0; k < 3; ++k)
             p.velocity[k] = velocity[k];
         for (int step = 0; step < NumVertexLists(this); ++step) {
@@ -274,7 +274,7 @@ void CParticleSystem::Emit(int count)
 }
 
 // 0x00497B00
-bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     switch (name) {
     case kSetEmitAngle: { // (degrees)
@@ -321,7 +321,7 @@ bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params,
     }
     case kSetColor: {
         int first, last, value;
-        if (params->GetInteger(kCorner, &value, 0)) {
+        if (params->FetchIntValue(kCorner, &value, 0)) {
             first = last = value;
         } else {
             first = 0;
@@ -335,19 +335,19 @@ bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params,
                 uint8_t* mid = mp_midColour + i * 4;
                 uint8_t* start = mp_startColour + i * 4;
                 for (int k = 0; k < 4; ++k) {
-                    if (params->GetInteger(kEndChannels[k], &value, 0)) {
+                    if (params->FetchIntValue(kEndChannels[k], &value, 0)) {
                         end[k] = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
                                         : static_cast<uint8_t>(value);
                         m_endColourSet = true;
                     }
                 }
                 for (int k = 0; k < 4; ++k) {
-                    if (params->GetInteger(kMidChannels[k], &value, 0))
+                    if (params->FetchIntValue(kMidChannels[k], &value, 0))
                         mid[k] = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
                                         : static_cast<uint8_t>(value);
                 }
                 for (int k = 0; k < 4; ++k) { // (the end too, unless it was given)
-                    if (params->GetInteger(kStartChannels[k], &value, 0)) {
+                    if (params->FetchIntValue(kStartChannels[k], &value, 0)) {
                         uint8_t byte = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
                                               : static_cast<uint8_t>(value);
                         start[k] = byte;
@@ -374,7 +374,7 @@ bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params,
     }
     case kEmit: {
         int count = 1;
-        params->GetInteger(kNum, &count, 0);
+        params->FetchIntValue(kNum, &count, 0);
         Emit(count);
         break;
     }
@@ -385,7 +385,7 @@ bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params,
         break;
     }
     case kApplyEnvBrightness:
-        if (params->ContainsFlag(kEveryUpdate)) {
+        if (params->HasBareFlag(kEveryUpdate)) {
             m_updateBrightness = true;
         } else {
             m_updateBrightness = false;
@@ -420,34 +420,34 @@ bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params,
         params->GetFloat(kMin, &min, 0);
         float max = min;
         params->GetFloat(kMax, &max, 0);
-        m_life[0] = min;
-        m_life[1] = max;
+        m_ageLeft[0] = min;
+        m_ageLeft[1] = max;
         m_moving = true;
         break;
     }
     case kSetEmitterIndependent: {
         int value = 0;
-        params->GetInteger(0u, &value, 0);
+        params->FetchIntValue(0u, &value, 0);
         m_emitterIndependent = value == 1;
         break;
     }
     case kRandomSpread: {
         int value = 0;
-        params->GetInteger(kRandom, &value, 0);
+        params->FetchIntValue(kRandom, &value, 0);
         SetFlag(4, value > 0);
         m_randomDirection = value > 0;
         break;
     }
     case kSetCircularEmit: {
         int value = 0;
-        params->GetInteger(kCircular, &value, 0);
+        params->FetchIntValue(kCircular, &value, 0);
         SetFlag(8, value > 0);
         m_circularEmit = value > 0;
         break;
     }
     case kSetLODParams: {
         int minParticles = 0;
-        params->GetInteger(kMinParticles, &minParticles, 0); // (the bool-assert getter, 0x00476CB0)
+        params->FetchIntValue(kMinParticles, &minParticles, 0); // (the bool-assert getter, 0x00476CB0)
         float near = 0.0f, far = 0.0f;
         params->GetFloat(kLodDist1, &near, 0);
         params->GetFloat(kLodDist2, &far, 0);
@@ -464,12 +464,12 @@ bool CParticleSystem::CallMemberFunction(uint32_t name, Script::CStruct* params,
 
 void CParticleSystem::UpdateGroundBrightness(bool movables)
 {
-    CFeeler feeler;
+    CProbeRay feeler;
     feeler.Construct();
     float y = m_pos.y;
     feeler.m_line.start = {m_pos.x, static_cast<float>(static_cast<double>(y) + 1.0), m_pos.z, m_pos.w};
     feeler.m_line.end = {m_pos.x, static_cast<float>(static_cast<double>(y) - 4800.0), m_pos.z, m_pos.w};
-    if (feeler.GetCollision(movables, false)) {
+    if (feeler.GetHitShape(movables, false)) {
         double value = feeler.GetHitVertexValue();
         m_unknownEC = std::bit_cast<uint32_t>(static_cast<float>(value + value));
     }
@@ -479,7 +479,7 @@ void CParticleSystem::UpdateGroundBrightness(bool movables)
 void CParticleSystem::RemoveParticle(int index, bool throughAccessors)
 {
     --m_unknown8C;
-    mp_particles[index] = mp_particles[m_unknown8C];
+    m_particleList[index] = m_particleList[m_unknown8C];
     for (int step = 0; step < NumVertexLists(this); ++step) {
         if (throughAccessors) {
             float x, y, z;
@@ -502,11 +502,11 @@ void CParticleSystem::RemoveParticle(int index, bool throughAccessors)
 // 0x004987F0
 void CParticleSystem::Update(float time, bool skip)
 {
-    if (m_dying && m_unknown8C == 0) {
+    if (m_fadingOut && m_unknown8C == 0) {
         DeleteSystem(this);
         return;
     }
-    if (m_unknown78 && !Obj::FindObject(m_unknown78)) { // (following an object that's gone)
+    if (m_unknown78 && !GameObjects::FindObject(m_unknown78)) { // (following an object that's gone)
         DeleteSystem(this);
         return;
     }
@@ -519,7 +519,7 @@ void CParticleSystem::Update(float time, bool skip)
         m_unknown130 = false;
         if (m_emitRate == 0.0f) { // out of view and not emitting: the particles only age
             for (int i = 0; i < m_unknown8C; ++i) {
-                sFlexibleParticle& p = mp_particles[i];
+                sFlexibleParticle& p = m_particleList[i];
                 double age = static_cast<double>(time) + p.age;
                 p.age = static_cast<float>(age);
                 if (age > p.lifetime) {
@@ -547,7 +547,7 @@ void CParticleSystem::Update(float time, bool skip)
         UpdateGroundBrightness(false);
     float dt = static_cast<float>(static_cast<double>(g_frameTimeScale) * time);
     for (int i = 0; i < m_unknown8C; ++i) {
-        sFlexibleParticle& p = mp_particles[i];
+        sFlexibleParticle& p = m_particleList[i];
         p.age = static_cast<float>(static_cast<double>(time) + p.age);
         for (int k = 0; k < 3; ++k)
             p.velocity[k] = static_cast<float>(static_cast<double>(dt) * p.force[k] + p.velocity[k]);
@@ -563,7 +563,7 @@ void CParticleSystem::Update(float time, bool skip)
             pos[k] = static_cast<float>(static_cast<double>(dt) * p.velocity[k] + pos[k]);
     }
     for (int i = 0; i < m_unknown8C; ++i) { // the expired
-        if (mp_particles[i].age > mp_particles[i].lifetime) {
+        if (m_particleList[i].age > m_particleList[i].lifetime) {
             RemoveParticle(i, false);
             --i;
         }

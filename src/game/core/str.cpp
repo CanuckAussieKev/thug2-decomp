@@ -5,10 +5,10 @@
 
 #include "game/sys/game_config.h"
 
-namespace Str {
+namespace TextUtil {
 
 // 0x00402080
-void LowerCase(char* string)
+void ToLowerText(char* string)
 {
     for (; *string; ++string) {
         if (*string >= 'A' && *string <= 'Z')
@@ -17,7 +17,7 @@ void LowerCase(char* string)
 }
 
 // 0x004020B0
-void UpperCase(char* string)
+void ToCapitals(char* string)
 {
     for (; *string; ++string) {
         if (*string >= 'a' && *string <= 'z')
@@ -107,7 +107,7 @@ int CompareCaseless(const char* a, const char* b)
 }
 
 // 0x004020E0
-int DehexifyDigit(const char* digit)
+int HexDigitValue(const char* digit)
 {
     char c = *digit;
     if (c >= '0' && c <= '9')

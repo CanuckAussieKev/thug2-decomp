@@ -26,7 +26,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 extern void** const kCPcNewFlatParticlesSecondaryVtable;
@@ -69,11 +69,11 @@ uint32_t& DrawnTriangles() { return reinterpret_cast<uint32_t&>(g_drawnTriangles
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-void SetMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->Submit(); } // (its set-up)
+void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->Submit(); } // (its set-up)
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
-// and u = r x (a, b, c), then normalised (Mth::Vector::Normalize).
-void CameraAxes(Mth::Vector& r, Mth::Vector& u)
+// and u = r x (a, b, c), then normalised (Maths::Vector::Normalize).
+void CameraAxes(Maths::Vector& r, Maths::Vector& u)
 {
     double a = g_viewMatrix.row[0].z;
     double b = g_viewMatrix.row[1].z;
@@ -173,7 +173,7 @@ void CPcFlexibleParticles::DestroyParts(void** primary, void** secondary, sSimpl
     secondaryVtable = secondary;
     if (material) {
         material->DestroyBody();
-        Mem::Manager::Get()->Free(material);
+        MemSys::Manager::Get()->Free(material);
     }
     engineDestructor(this);
 }
@@ -184,7 +184,7 @@ namespace {
 // history; the shaded class only the first five; the engine's model class its model name instead of the texture.
 struct sConstructArgs {
     uint32_t name;
-    int maxParticles;
+    int particleCap;
     uint32_t texture;
     uint32_t blendMode;
     int fixedAlpha;
@@ -196,30 +196,30 @@ struct sConstructArgs {
 template <typename T>
 void* MakePlain(void* memory, const sConstructArgs& a)
 {
-    return static_cast<T*>(memory)->Construct(a.name, a.maxParticles, a.texture, a.blendMode, a.fixedAlpha, a.segments,
+    return static_cast<T*>(memory)->Construct(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha, a.segments,
                                               a.unknown);
 }
 template <typename T>
 void* MakeWithHistory(void* memory, const sConstructArgs& a)
 {
-    return static_cast<T*>(memory)->Construct(a.name, a.maxParticles, a.texture, a.blendMode, a.fixedAlpha, a.segments,
+    return static_cast<T*>(memory)->Construct(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha, a.segments,
                                               a.unknown, a.history);
 }
 template <typename T>
 void* MakeFive(void* memory, const sConstructArgs& a)
 {
-    return static_cast<T*>(memory)->Construct(a.name, a.maxParticles, a.texture, a.blendMode, a.fixedAlpha);
+    return static_cast<T*>(memory)->Construct(a.name, a.particleCap, a.texture, a.blendMode, a.fixedAlpha);
 }
 void* MakeModel(void* memory, const sConstructArgs& a)
 {
-    return static_cast<CModelParticles*>(memory)->Construct(a.name, a.maxParticles, a.model, a.blendMode, a.fixedAlpha,
+    return static_cast<CModelParticles*>(memory)->Construct(a.name, a.particleCap, a.model, a.blendMode, a.fixedAlpha,
                                                             a.segments, a.unknown, a.history);
 }
 
 } // namespace
 
 // 0x004BCEF0
-void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParticles, int, uint32_t texture,
+void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int particleCap, int, uint32_t texture,
                                       uint32_t blendMode, int fixedAlpha, int segments, float unknown, int history,
                                       const char* model)
 {
@@ -247,24 +247,24 @@ void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParti
     for (const sType& t : kTypes)
         if (t.type == type)
             chosen = &t;
-    void* memory = Mem::Manager::Get()->AllocateZeroed(chosen->size, g_allocAssertFlag, nullptr);
+    void* memory = MemSys::Manager::Get()->AllocateZeroed(chosen->size, g_allocAssertFlag, nullptr);
     if (!memory)
         return nullptr;
-    const sConstructArgs args{name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown, history, model};
+    const sConstructArgs args{name, particleCap, texture, blendMode, fixedAlpha, segments, unknown, history, model};
     return chosen->construct(memory, args);
 }
 
 // --- newflat ---
 
 // 0x004BD3A0
-CPcNewFlatParticles* CPcNewFlatParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
+CPcNewFlatParticles* CPcNewFlatParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
                                                     uint32_t blendMode, int fixedAlpha, int segments, float unknown)
 {
-    reinterpret_cast<CNewFlatParticles*>(this)->CNewFlatParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segments, unknown, 0);
+    reinterpret_cast<CNewFlatParticles*>(this)->CNewFlatParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segments, unknown, 0);
     vtable = kCPcNewFlatParticlesVtable;
     secondaryVtable = kCPcNewFlatParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 1, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 1, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -278,7 +278,7 @@ CPcNewFlatParticles* CPcNewFlatParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -292,7 +292,7 @@ static CPcNewFlatParticles* __fastcall DestroyNewFlatSecondary(uint8_t* secondar
 void CPcNewFlatParticles::Render()
 {
     if (count > 0) {
-        Mth::Vector r, u;
+        Maths::Vector r, u;
         CameraAxes(r, u);
         SetMaterial(material->material);
         SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
@@ -422,15 +422,15 @@ void Across(const float p0[3], const float p1[3], double a, double b, double c, 
 } // namespace
 
 // 0x004BDC80
-CPcFlatRibbonParticles* CPcFlatRibbonParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
+CPcFlatRibbonParticles* CPcFlatRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
                                                           uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                           float ribbonWidth, int history)
 {
-    reinterpret_cast<CFlatRibbonParticles*>(this)->CFlatRibbonParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, ribbonWidth, history);
+    reinterpret_cast<CFlatRibbonParticles*>(this)->CFlatRibbonParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, ribbonWidth, history);
     vtable = kCPcFlatRibbonParticlesVtable;
     secondaryVtable = kCPcFlatRibbonParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 0xB, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 0xB, texture, blendMode,
                                                                           fixedAlpha, segmentCount, history)
                       : nullptr;
     width = ribbonWidth;
@@ -445,7 +445,7 @@ CPcFlatRibbonParticles* CPcFlatRibbonParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -463,7 +463,7 @@ void CPcFlatRibbonParticles::Render()
     double a = g_viewMatrix.row[0].z;
     double b = g_viewMatrix.row[1].z;
     double c = g_viewMatrix.row[2].z;
-    Mth::Vector r, u;
+    Maths::Vector r, u;
     CameraAxes(r, u);
     uint32_t particleBytes = (segments - 1) * 16;
     SetMaterial(material->material);
@@ -631,14 +631,14 @@ void CPcFlatRibbonParticles::Render()
 // --- glow ---
 
 // 0x004BED10
-CPcGlowParticles* CPcGlowParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+CPcGlowParticles* CPcGlowParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CGlowParticles*>(this)->CGlowParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CGlowParticles*>(this)->CGlowParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcGlowParticlesVtable;
     secondaryVtable = kCPcGlowParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 4, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 4, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -652,7 +652,7 @@ CPcGlowParticles* CPcGlowParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -667,7 +667,7 @@ void CPcGlowParticles::Render()
 {
     if (count <= 0)
         return;
-    Mth::Vector r, u;
+    Maths::Vector r, u;
     CameraAxes(r, u);
     uint32_t particleWords = segments * 9 * 4; // (nine vertices of four words a segment)
     uint32_t remaining = count * particleWords;
@@ -777,14 +777,14 @@ void CPcGlowParticles::Render()
 // --- line ---
 
 // 0x004C09F0
-CPcLineParticles* CPcLineParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+CPcLineParticles* CPcLineParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CLineParticles*>(this)->CLineParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CLineParticles*>(this)->CLineParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcLineParticlesVtable;
     secondaryVtable = kCPcLineParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 0, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 0, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -798,7 +798,7 @@ CPcLineParticles* CPcLineParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -857,15 +857,15 @@ void CPcLineParticles::Render()
 // --- ribbon ---
 
 // 0x004C0EB0
-CPcRibbonParticles* CPcRibbonParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
+CPcRibbonParticles* CPcRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
                                                   uint32_t blendMode, int fixedAlpha, int segmentCount, float unknown,
                                                   int history)
 {
-    reinterpret_cast<CRibbonParticles*>(this)->CRibbonParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CRibbonParticles*>(this)->CRibbonParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcRibbonParticlesVtable;
     secondaryVtable = kCPcRibbonParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 7, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 7, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -879,7 +879,7 @@ CPcRibbonParticles* CPcRibbonParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1010,15 +1010,15 @@ uint32_t CPcRibbonTrailParticles::HeadColour(uint32_t from, uint32_t to, float t
 }
 
 // 0x004C1720
-CPcRibbonTrailParticles* CPcRibbonTrailParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
+CPcRibbonTrailParticles* CPcRibbonTrailParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
                                                             uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                             float unknown, int history)
 {
-    reinterpret_cast<CRibbonTrailParticles*>(this)->CRibbonTrailParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CRibbonTrailParticles*>(this)->CRibbonTrailParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcRibbonTrailParticlesVtable;
     secondaryVtable = kCPcRibbonTrailParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 9, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 9, texture, blendMode,
                                                                           fixedAlpha, segmentCount, history)
                       : nullptr;
     return this;
@@ -1032,7 +1032,7 @@ CPcRibbonTrailParticles* CPcRibbonTrailParticles::Destroy(unsigned int freeFlags
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1156,7 +1156,7 @@ void CPcRibbonTrailParticles::Render()
 
 // --- shaded ---
 
-void CPcFlexibleParticles::AlignedAxes(Mth::Vector& r, Mth::Vector& u) const
+void CPcFlexibleParticles::AlignedAxes(Maths::Vector& r, Maths::Vector& u) const
 {
     double ax = alignTo.x, ay = alignTo.y, az = alignTo.z;
     double p = 0.0f, q = 1.0f; // (up: y - or x when alignTo is y itself)
@@ -1176,14 +1176,14 @@ void CPcFlexibleParticles::AlignedAxes(Mth::Vector& r, Mth::Vector& u) const
 }
 
 // 0x004C21A0
-CPcShadedParticles* CPcShadedParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+CPcShadedParticles* CPcShadedParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                                   int fixedAlpha)
 {
-    reinterpret_cast<CShadedParticles*>(this)->CShadedParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, 0, 0, 0);
+    reinterpret_cast<CShadedParticles*>(this)->CShadedParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, 0, 0, 0);
     vtable = kCPcShadedParticlesVtable;
     secondaryVtable = kCPcShadedParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 2, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 2, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -1197,7 +1197,7 @@ CPcShadedParticles* CPcShadedParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1212,7 +1212,7 @@ void CPcShadedParticles::Render()
 {
     if (count <= 0)
         return;
-    Mth::Vector r, u;
+    Maths::Vector r, u;
     if (aligned)
         AlignedAxes(r, u);
     else
@@ -1309,14 +1309,14 @@ void CPcShadedParticles::Render()
 // --- smooth ---
 
 // 0x004C2B30
-CPcSmoothParticles* CPcSmoothParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+CPcSmoothParticles* CPcSmoothParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                                   int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CSmoothParticles*>(this)->CSmoothParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CSmoothParticles*>(this)->CSmoothParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcSmoothParticlesVtable;
     secondaryVtable = kCPcSmoothParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 3, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 3, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -1330,7 +1330,7 @@ CPcSmoothParticles* CPcSmoothParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1345,7 +1345,7 @@ void CPcSmoothParticles::Render()
 {
     if (count <= 0)
         return;
-    Mth::Vector r, u;
+    Maths::Vector r, u;
     if (aligned)
         AlignedAxes(r, u);
     else
@@ -1432,15 +1432,15 @@ void CPcSmoothParticles::Render()
 // --- smoothribbon ---
 
 // 0x004C3550
-CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
+CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
                                                               uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                               float unknown, int history)
 {
-    reinterpret_cast<CSmoothRibbonParticles*>(this)->CSmoothRibbonParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CSmoothRibbonParticles*>(this)->CSmoothRibbonParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcSmoothRibbonParticlesVtable;
     secondaryVtable = kCPcSmoothRibbonParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 8, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 8, texture, blendMode,
                                                                           fixedAlpha, 0, 0)
                       : nullptr;
     return this;
@@ -1454,7 +1454,7 @@ CPcSmoothRibbonParticles* CPcSmoothRibbonParticles::Destroy(unsigned int freeFla
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1569,15 +1569,15 @@ void CPcSmoothRibbonParticles::Render()
 // --- smoothstar ---
 
 // 0x004C3D80
-CPcSmoothStarParticles* CPcSmoothStarParticles::Construct(uint32_t name, int maxParticles, uint32_t texture,
+CPcSmoothStarParticles* CPcSmoothStarParticles::Construct(uint32_t name, int particleCap, uint32_t texture,
                                                           uint32_t blendMode, int fixedAlpha, int segmentCount,
                                                           float unknown)
 {
-    reinterpret_cast<CSmoothStarParticles*>(this)->CSmoothStarParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CSmoothStarParticles*>(this)->CSmoothStarParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcSmoothStarParticlesVtable;
     secondaryVtable = kCPcSmoothStarParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 6, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 6, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -1591,7 +1591,7 @@ CPcSmoothStarParticles* CPcSmoothStarParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1606,7 +1606,7 @@ void CPcSmoothStarParticles::Render()
 {
     if (count <= 0)
         return;
-    Mth::Vector r, u;
+    Maths::Vector r, u;
     CameraAxes(r, u);
     SetMaterial(material->material);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
@@ -1757,14 +1757,14 @@ void CPcSmoothStarParticles::Render()
 // --- star ---
 
 // 0x004C48C0
-CPcStarParticles* CPcStarParticles::Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+CPcStarParticles* CPcStarParticles::Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                               int fixedAlpha, int segmentCount, float unknown)
 {
-    reinterpret_cast<CStarParticles*>(this)->CStarParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
+    reinterpret_cast<CStarParticles*>(this)->CStarParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, 0);
     vtable = kCPcStarParticlesVtable;
     secondaryVtable = kCPcStarParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 5, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 5, texture, blendMode,
                                                                           fixedAlpha, segmentCount, 0)
                       : nullptr;
     return this;
@@ -1778,7 +1778,7 @@ CPcStarParticles* CPcStarParticles::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1793,7 +1793,7 @@ void CPcStarParticles::Render()
 {
     if (count <= 0)
         return;
-    Mth::Vector r, u;
+    Maths::Vector r, u;
     CameraAxes(r, u);
     SetMaterial(material->material);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
@@ -1930,16 +1930,16 @@ uint32_t CPcGlowRibbonTrailParticles::FineColour(uint32_t from, uint32_t to, dou
 }
 
 // 0x004BF720
-CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Construct(uint32_t name, int maxParticles,
+CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Construct(uint32_t name, int particleCap,
                                                                     uint32_t texture, uint32_t blendMode,
                                                                     int fixedAlpha, int segmentCount, float unknown,
                                                                     int history)
 {
-    reinterpret_cast<CGlowRibbonTrailParticles*>(this)->CGlowRibbonTrailParticles::Construct(name, maxParticles, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
+    reinterpret_cast<CGlowRibbonTrailParticles*>(this)->CGlowRibbonTrailParticles::Construct(name, particleCap, texture, blendMode, fixedAlpha, segmentCount, unknown, history);
     vtable = kCPcGlowRibbonTrailParticlesVtable;
     secondaryVtable = kCPcGlowRibbonTrailParticlesSecondaryVtable;
-    void* memory = Mem::New(sizeof(sSimpleMaterial));
-    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(maxParticles, 10, texture, blendMode,
+    void* memory = MemSys::New(sizeof(sSimpleMaterial));
+    material = memory ? static_cast<sSimpleMaterial*>(memory)->Construct(particleCap, 10, texture, blendMode,
                                                                           fixedAlpha, segmentCount, history)
                       : nullptr;
     return this;
@@ -1953,7 +1953,7 @@ CPcGlowRibbonTrailParticles* CPcGlowRibbonTrailParticles::Destroy(unsigned int f
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -2178,68 +2178,68 @@ void CPcGlowRibbonTrailParticles::Render()
 }
 
 namespace {
-static VtableSlot kCPcNewFlatParticlesSecondaryVtable_slots[] = {Nx::DestroyNewFlatSecondary};
+static VtableSlot kCPcNewFlatParticlesSecondaryVtable_slots[] = {Engine3D::DestroyNewFlatSecondary};
 void** const kCPcNewFlatParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcNewFlatParticlesSecondaryVtable_slots);
-static VtableSlot kCPcNewFlatParticlesVtable_slots[] = {&Nx::CPcNewFlatParticles::Destroy,
-                &Nx::CPcNewFlatParticles::Render, GameNet::HandleNothing, GameNet::HandleNothing};
+static VtableSlot kCPcNewFlatParticlesVtable_slots[] = {&Engine3D::CPcNewFlatParticles::Destroy,
+                &Engine3D::CPcNewFlatParticles::Render, OnlinePlay::HandleNothing, OnlinePlay::HandleNothing};
 void** const kCPcNewFlatParticlesVtable = reinterpret_cast<void**>(kCPcNewFlatParticlesVtable_slots);
-static VtableSlot kCPcFlatRibbonParticlesSecondaryVtable_slots[] = {Nx::DestroyFlatRibbonSecondary};
+static VtableSlot kCPcFlatRibbonParticlesSecondaryVtable_slots[] = {Engine3D::DestroyFlatRibbonSecondary};
 void** const kCPcFlatRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcFlatRibbonParticlesSecondaryVtable_slots);
-static VtableSlot kCPcFlatRibbonParticlesVtable_slots[] = {&Nx::CPcFlatRibbonParticles::Destroy,
-                &Nx::CPcFlatRibbonParticles::Render, &Nx::CParticleCounts::Field134,
-                &Nx::CFlatRibbonParticles::GetNumColours};
+static VtableSlot kCPcFlatRibbonParticlesVtable_slots[] = {&Engine3D::CPcFlatRibbonParticles::Destroy,
+                &Engine3D::CPcFlatRibbonParticles::Render, &Engine3D::CParticleCounts::Field134,
+                &Engine3D::CFlatRibbonParticles::GetNumColours};
 void** const kCPcFlatRibbonParticlesVtable = reinterpret_cast<void**>(kCPcFlatRibbonParticlesVtable_slots);
-static VtableSlot kCPcGlowParticlesSecondaryVtable_slots[] = {Nx::DestroyGlowSecondary};
+static VtableSlot kCPcGlowParticlesSecondaryVtable_slots[] = {Engine3D::DestroyGlowSecondary};
 void** const kCPcGlowParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcGlowParticlesSecondaryVtable_slots);
-static VtableSlot kCPcGlowParticlesVtable_slots[] = {&Nx::CPcGlowParticles::Destroy, &Nx::CPcGlowParticles::Render,
-                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+static VtableSlot kCPcGlowParticlesVtable_slots[] = {&Engine3D::CPcGlowParticles::Destroy, &Engine3D::CPcGlowParticles::Render,
+                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCPcGlowParticlesVtable = reinterpret_cast<void**>(kCPcGlowParticlesVtable_slots);
-static VtableSlot kCPcGlowRibbonTrailParticlesSecondaryVtable_slots[] = {Nx::DestroyGlowRibbonTrailSecondary};
+static VtableSlot kCPcGlowRibbonTrailParticlesSecondaryVtable_slots[] = {Engine3D::DestroyGlowRibbonTrailSecondary};
 void** const kCPcGlowRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcGlowRibbonTrailParticlesSecondaryVtable_slots);
-static VtableSlot kCPcGlowRibbonTrailParticlesVtable_slots[] = {&Nx::CPcGlowRibbonTrailParticles::Destroy,
-                &Nx::CPcGlowRibbonTrailParticles::Render, &Nx::CGlowRibbonTrailParticles::GetNumVertexLists,
-                &Nx::CGlowRibbonTrailParticles::GetNumColours};
+static VtableSlot kCPcGlowRibbonTrailParticlesVtable_slots[] = {&Engine3D::CPcGlowRibbonTrailParticles::Destroy,
+                &Engine3D::CPcGlowRibbonTrailParticles::Render, &Engine3D::CGlowRibbonTrailParticles::GetNumVertexLists,
+                &Engine3D::CGlowRibbonTrailParticles::GetNumColours};
 void** const kCPcGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCPcGlowRibbonTrailParticlesVtable_slots);
-static VtableSlot kCPcLineParticlesSecondaryVtable_slots[] = {Nx::DestroyLineSecondary};
+static VtableSlot kCPcLineParticlesSecondaryVtable_slots[] = {Engine3D::DestroyLineSecondary};
 void** const kCPcLineParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcLineParticlesSecondaryVtable_slots);
-static VtableSlot kCPcLineParticlesVtable_slots[] = {&Nx::CPcLineParticles::Destroy, &Nx::CPcLineParticles::Render,
-                &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+static VtableSlot kCPcLineParticlesVtable_slots[] = {&Engine3D::CPcLineParticles::Destroy, &Engine3D::CPcLineParticles::Render,
+                &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
 void** const kCPcLineParticlesVtable = reinterpret_cast<void**>(kCPcLineParticlesVtable_slots);
-static VtableSlot kCPcRibbonParticlesSecondaryVtable_slots[] = {Nx::DestroyRibbonSecondary};
+static VtableSlot kCPcRibbonParticlesSecondaryVtable_slots[] = {Engine3D::DestroyRibbonSecondary};
 void** const kCPcRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcRibbonParticlesSecondaryVtable_slots);
-static VtableSlot kCPcRibbonParticlesVtable_slots[] = {&Nx::CPcRibbonParticles::Destroy,
-                &Nx::CPcRibbonParticles::Render, &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::TwoColours};
+static VtableSlot kCPcRibbonParticlesVtable_slots[] = {&Engine3D::CPcRibbonParticles::Destroy,
+                &Engine3D::CPcRibbonParticles::Render, &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::TwoColours};
 void** const kCPcRibbonParticlesVtable = reinterpret_cast<void**>(kCPcRibbonParticlesVtable_slots);
-static VtableSlot kCPcRibbonTrailParticlesSecondaryVtable_slots[] = {Nx::DestroyRibbonTrailSecondary};
+static VtableSlot kCPcRibbonTrailParticlesSecondaryVtable_slots[] = {Engine3D::DestroyRibbonTrailSecondary};
 void** const kCPcRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcRibbonTrailParticlesSecondaryVtable_slots);
-static VtableSlot kCPcRibbonTrailParticlesVtable_slots[] = {&Nx::CPcRibbonTrailParticles::Destroy,
-                &Nx::CPcRibbonTrailParticles::Render, &Nx::CParticleCounts::Field134, &Nx::CParticleCounts::Field134};
+static VtableSlot kCPcRibbonTrailParticlesVtable_slots[] = {&Engine3D::CPcRibbonTrailParticles::Destroy,
+                &Engine3D::CPcRibbonTrailParticles::Render, &Engine3D::CParticleCounts::Field134, &Engine3D::CParticleCounts::Field134};
 void** const kCPcRibbonTrailParticlesVtable = reinterpret_cast<void**>(kCPcRibbonTrailParticlesVtable_slots);
-static VtableSlot kCPcShadedParticlesSecondaryVtable_slots[] = {Nx::DestroyShadedSecondary};
+static VtableSlot kCPcShadedParticlesSecondaryVtable_slots[] = {Engine3D::DestroyShadedSecondary};
 void** const kCPcShadedParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcShadedParticlesSecondaryVtable_slots);
-static VtableSlot kCPcShadedParticlesVtable_slots[] = {&Nx::CPcShadedParticles::Destroy,
-                &Nx::CPcShadedParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::FourColours};
+static VtableSlot kCPcShadedParticlesVtable_slots[] = {&Engine3D::CPcShadedParticles::Destroy,
+                &Engine3D::CPcShadedParticles::Render, OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::FourColours};
 void** const kCPcShadedParticlesVtable = reinterpret_cast<void**>(kCPcShadedParticlesVtable_slots);
-static VtableSlot kCPcSmoothParticlesSecondaryVtable_slots[] = {Nx::DestroySmoothSecondary};
+static VtableSlot kCPcSmoothParticlesSecondaryVtable_slots[] = {Engine3D::DestroySmoothSecondary};
 void** const kCPcSmoothParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothParticlesSecondaryVtable_slots);
-static VtableSlot kCPcSmoothParticlesVtable_slots[] = {&Nx::CPcSmoothParticles::Destroy,
-                &Nx::CPcSmoothParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::TwoColours};
+static VtableSlot kCPcSmoothParticlesVtable_slots[] = {&Engine3D::CPcSmoothParticles::Destroy,
+                &Engine3D::CPcSmoothParticles::Render, OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::TwoColours};
 void** const kCPcSmoothParticlesVtable = reinterpret_cast<void**>(kCPcSmoothParticlesVtable_slots);
-static VtableSlot kCPcSmoothRibbonParticlesSecondaryVtable_slots[] = {Nx::DestroySmoothRibbonSecondary};
+static VtableSlot kCPcSmoothRibbonParticlesSecondaryVtable_slots[] = {Engine3D::DestroySmoothRibbonSecondary};
 void** const kCPcSmoothRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothRibbonParticlesSecondaryVtable_slots);
-static VtableSlot kCPcSmoothRibbonParticlesVtable_slots[] = {&Nx::CPcSmoothRibbonParticles::Destroy,
-                &Nx::CPcSmoothRibbonParticles::Render, &Nx::CPcSmoothRibbonParticles::GetSegments,
-                &Nx::CParticleCounts::FourColours};
+static VtableSlot kCPcSmoothRibbonParticlesVtable_slots[] = {&Engine3D::CPcSmoothRibbonParticles::Destroy,
+                &Engine3D::CPcSmoothRibbonParticles::Render, &Engine3D::CPcSmoothRibbonParticles::GetSegments,
+                &Engine3D::CParticleCounts::FourColours};
 void** const kCPcSmoothRibbonParticlesVtable = reinterpret_cast<void**>(kCPcSmoothRibbonParticlesVtable_slots);
-static VtableSlot kCPcSmoothStarParticlesSecondaryVtable_slots[] = {Nx::DestroySmoothStarSecondary};
+static VtableSlot kCPcSmoothStarParticlesSecondaryVtable_slots[] = {Engine3D::DestroySmoothStarSecondary};
 void** const kCPcSmoothStarParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcSmoothStarParticlesSecondaryVtable_slots);
-static VtableSlot kCPcSmoothStarParticlesVtable_slots[] = {&Nx::CPcSmoothStarParticles::Destroy,
-                &Nx::CPcSmoothStarParticles::Render, GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+static VtableSlot kCPcSmoothStarParticlesVtable_slots[] = {&Engine3D::CPcSmoothStarParticles::Destroy,
+                &Engine3D::CPcSmoothStarParticles::Render, OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCPcSmoothStarParticlesVtable = reinterpret_cast<void**>(kCPcSmoothStarParticlesVtable_slots);
-static VtableSlot kCPcStarParticlesSecondaryVtable_slots[] = {Nx::DestroyStarSecondary};
+static VtableSlot kCPcStarParticlesSecondaryVtable_slots[] = {Engine3D::DestroyStarSecondary};
 void** const kCPcStarParticlesSecondaryVtable = reinterpret_cast<void**>(kCPcStarParticlesSecondaryVtable_slots);
-static VtableSlot kCPcStarParticlesVtable_slots[] = {&Nx::CPcStarParticles::Destroy, &Nx::CPcStarParticles::Render,
-                GameNet::HandleNothing, &Nx::CParticleCounts::ThreeColours};
+static VtableSlot kCPcStarParticlesVtable_slots[] = {&Engine3D::CPcStarParticles::Destroy, &Engine3D::CPcStarParticles::Render,
+                OnlinePlay::HandleNothing, &Engine3D::CParticleCounts::ThreeColours};
 void** const kCPcStarParticlesVtable = reinterpret_cast<void**>(kCPcStarParticlesVtable_slots);
 } // namespace
 

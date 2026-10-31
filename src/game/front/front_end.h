@@ -1,6 +1,6 @@
 #pragma once
 
-// The front end module (Mdl::FrontEnd, 0x164 bytes, vtable 0x0064D724): turns the controllers' presses into the
+// The front end module (GameModules::FrontEnd, 0x164 bytes, vtable 0x0064D724): turns the controllers' presses into the
 // menus' pad events (pad_up, pad_choose, pad_back...), sent through the event tracker to the screen elements, and
 // the typed keys into the script handle_keyboard_input. It also pauses and unpauses the game, and once a frame
 // updates the spawned scripts and decides whether a menu is up.
@@ -21,18 +21,18 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Mdl {
+namespace GameModules {
 
 struct FrontEnd;
 
-// Tsk::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
+// TaskList::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
 struct FrontEndTask {
-    uint8_t m_node[0x18];   // the task list node (0x00406890 constructs it, with the priority)
+    uint8_t m_listLink[0x18];   // the task list node (0x00406890 constructs it, with the priority)
     void(__cdecl* m_code)(FrontEndTask*);
     FrontEnd* m_data;
 };
@@ -48,9 +48,9 @@ struct InputControlData {
     uint32_t m_makes; // +0x20: the buttons pressed (with the manager's auto-repeat)
 };
 
-// Inp::Handler<FrontEnd> (0x2C bytes, vtable 0x0064D7D8): gets one controller's presses once a frame.
+// PadInput::Handler<FrontEnd> (0x2C bytes, vtable 0x0064D7D8): gets one controller's presses once a frame.
 struct FrontEndInputHandler {
-    uint8_t m_node[0x18];               // the handler list node (0x00406890)
+    uint8_t m_listLink[0x18];               // the handler list node (0x00406890)
     InputControlData* m_controlData;    // +0x18: set when it's added to a controller's handler list
     uint8_t* m_device;                  // +0x1C: the Sio device (its number at +0x0C)
     int m_index;                        // +0x20: which of the front end's two handlers
@@ -83,13 +83,13 @@ struct FrontEnd {
     static constexpr int kMaxButtonEvents = 32;
 
     void** m_vtable;
-    uint8_t m_module[0x14 - 4];          // Mdl::Module's fields
+    uint8_t m_owningModule[0x14 - 4];          // GameModules::Module's fields
     FrontEndTask* m_logicTask;           // +0x14: LogicTask, priority -2000
-    FrontEndTask* m_keyboardTask;        // +0x18: KeyboardTask, priority -1000 (added by AddKeyboardHandler)
+    FrontEndTask* m_keyboardTask;        // +0x18: KeyboardTask, priority -1000 (added by RegisterKeyListener)
     uint32_t m_unknown1C;
     FrontEndInputHandler* m_inputHandlers[2]; // +0x20: InputLogic, priority -1000
     int m_deviceServerMap[2];            // +0x28: which controller each handler listens to (0, 1)
-    bool m_paused;                       // +0x30
+    bool m_isHalted;                       // +0x30
     int m_autoRepeatDelay;               // +0x34: ms (300)
     int m_autoRepeatRate;                // +0x38: ms (50)
     int m_keyboardDevice;                // +0x3C: the device_num the typed keys are reported with
@@ -116,16 +116,16 @@ struct FrontEnd {
     // 0x0054ECA0: whether either handler's controller is plugged in (the script command PadsPluggedIn).
     bool PadsPluggedIn();
     // 0x0054ECD0: no more typed keys (the keyboard task out of the logic tasks; StopKeyboardHandler).
-    void RemoveKeyboardHandler();
+    void UnregisterKeyListener();
     // 0x0054ECE0: the auto-repeat of a held direction for controller `deviceIndex` (InputLogic's first event): the
     // direction's event when it's first held, then after m_autoRepeatDelay ms, then every m_autoRepeatRate ms; 0
     // in between. Controller 0 with the on-screen keyboard up also takes the PC keyboard's arrows. Always 0 while
     // the startup script runs (it's unpaused each time until it ends).
     uint32_t AutoRepeat(uint32_t held, int deviceIndex);
     // 0x0054EF60: typed keys are reported for `device` from now on (the keyboard task joins the logic tasks).
-    void AddKeyboardHandler(int device);
+    void RegisterKeyListener(int device);
     // 0x0054EF80: the button-event pairs from the `xbox` array of `params` (see the top of this file).
-    void UpdateButtonEventMappings(Script::CStruct* params);
+    void UpdateButtonEventMappings(Scripts::CStruct* params);
     // 0x0054F380: once a frame (LogicTask): whether a menu / the keyboard is up, the music, the spawned scripts.
     void Update(bool gamePaused);
     // 0x0054F600: the `index`-th pad event of the pressed buttons, else pad_start for Start, else (controller 0,
@@ -146,7 +146,7 @@ struct FrontEnd {
     static void __cdecl InputLogic(FrontEndInputHandler* handler);
 };
 static_assert(offsetof(FrontEnd, m_logicTask) == 0x14 && offsetof(FrontEnd, m_inputHandlers) == 0x20 &&
-                  offsetof(FrontEnd, m_paused) == 0x30 && offsetof(FrontEnd, m_keyboardDevice) == 0x3C &&
+                  offsetof(FrontEnd, m_isHalted) == 0x30 && offsetof(FrontEnd, m_keyboardDevice) == 0x3C &&
                   offsetof(FrontEnd, m_padMappings) == 0x40 && offsetof(FrontEnd, m_blockMenuInput) == 0x58 &&
                   offsetof(FrontEnd, m_buttonEvents) == 0x5C && offsetof(FrontEnd, m_checkStartupScript) == 0x15C &&
                   offsetof(FrontEnd, m_startupScriptId) == 0x160 && sizeof(FrontEnd) == 0x164,
@@ -161,16 +161,16 @@ void ReleaseFrontEnd();
 
 // The script commands.
 // 0x0054F0F0: SetMenuAutoRepeatTimes (delay rate) - seconds.
-bool __cdecl CFunc_SetMenuAutoRepeatTimes(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SetMenuAutoRepeatTimes(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x0054F150: SetMenuPadMappings [inactive|active|use_as_first x2].
-bool __cdecl CFunc_SetMenuPadMappings(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SetMenuPadMappings(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x0054F1B0: SetButtonEventMappings xbox=[...] block_menu_input / unblock_menu_input.
-bool __cdecl CFunc_SetButtonEventMappings(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SetButtonEventMappings(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x0054FDC0: SetAnalogStickActiveForMenus (an integer, default 1).
-bool __cdecl CFunc_SetAnalogStickActiveForMenus(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SetAnalogStickActiveForMenus(Scripts::CStruct* params, Scripts::CScript* script);
 
 extern bool g_menusActive;
 extern bool g_pendingScript;
 
-extern Mdl::FrontEnd* g_frontEndInstance;
+extern GameModules::FrontEnd* g_frontEndInstance;
 } // namespace Mdl

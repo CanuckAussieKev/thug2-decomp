@@ -1,11 +1,11 @@
-// List searches (Lst::Search<T>): the iteration is inline (search.h); here are the destructors.
+// List searches (ListKit::Search<T>): the iteration is inline (search.h); here are the destructors.
 
 #include "game/lst/search.h"
 
 #include "game/core/manager.h"
 #include "game/core/code_address.h"
 
-namespace Lst {
+namespace ListKit {
 
 namespace {
 extern void** const kSearchVtable;
@@ -19,12 +19,12 @@ SearchDestructors* SearchDestructors::Destroy(unsigned int flags)
 {
     m_vtable = kSearchVtable;
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 namespace {
-static VtableSlot kSearchVtable_slots[] = {&Lst::SearchDestructors::Destroy};
+static VtableSlot kSearchVtable_slots[] = {&ListKit::SearchDestructors::Destroy};
 void** const kSearchVtable = reinterpret_cast<void**>(kSearchVtable_slots);
 } // namespace
 

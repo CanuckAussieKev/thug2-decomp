@@ -8,7 +8,7 @@
 
 #include "game/obj/motion.h"
 
-namespace Obj::MotionDetail {
+namespace GameObjects::MotionDetail {
 
 // --- checksums ---
 constexpr uint32_t kName = 0xA1DC81F9;        // Name
@@ -48,4 +48,4 @@ inline double X87Sin(double angle)
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 inline int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-} // namespace Obj::MotionDetail
+} // namespace GameObjects::MotionDetail

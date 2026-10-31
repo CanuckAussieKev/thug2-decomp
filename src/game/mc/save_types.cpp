@@ -27,11 +27,11 @@
 #include "game/goals/goal.h"
 #include "game/gfx/skeleton.h"
 
-namespace Mc {
+namespace MemCard {
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 constexpr uint32_t kGoalManagerParams = 0xAC7C2B62; // "GoalManagerParams"
 
@@ -57,7 +57,7 @@ int CardBlock()
 }
 
 // The goal manager (0x005591B0) and its calls used here (no source yet).
-Game::CGoalManager* GoalManager() { return Game::GetGoalManager(); }
+GoalSystem::CGoalManager* ObjectiveBoard() { return GoalSystem::GetObjectiveBoard(); }
 
 // The loaded contents kept for later (0x007CECD4) and their type (0x007CECD8).
 CStruct*& KeptContents() { return g_keptParams; }
@@ -79,7 +79,7 @@ SaveDate ReadDate(CStruct* summary)
     };
     SaveDate date = {};
     for (int i = 0; i < 6; ++i)
-        summary->GetInteger(kNames[i], &date.fields[i], 0);
+        summary->FetchIntValue(kNames[i], &date.fields[i], 0);
     return date;
 }
 
@@ -88,7 +88,7 @@ SaveDate ReadDate(CStruct* summary)
 // 0x005A5F70
 char* MakeFileName(const char* name, char* buffer, uint32_t type)
 {
-    uint32_t value = Crc::GenerateCRCFromString(name);
+    uint32_t value = Checksums::HashFromText(name);
     for (int i = 0; i < 8; ++i) {
         buffer[i] = static_cast<char>('a' + value % 26);
         value /= 26;
@@ -125,12 +125,12 @@ uint32_t TypeFromLetter(char letter)
 int IconSpaceRequired(uint32_t type)
 {
     switch (type) {
-    case kSaveCreatedGoals: return Script::GetInteger(0x3205BC07u);    // CreatedGoalsIconSpaceRequired
-    case kSaveCat: return Script::GetInteger(0x46B0EF40u);             // CATIconSpaceRequired
-    case kSavePark: return Script::GetInteger(0x82AAF8DCu);            // ParkIconSpaceRequired
-    case kSaveCreatedGraphic: return Script::GetInteger(0xD85D78F9u);  // CreatedGraphicIconSpaceRequired
-    case kSaveNetworkSettings: return Script::GetInteger(0xF3431F63u); // NetworkSettingsIconSpaceRequired
-    case kSaveOptionsAndPros: return Script::GetInteger(0x4925ED9Eu);  // OptionsProsIconSpaceRequired
+    case kSaveCreatedGoals: return Scripts::FetchIntValue(0x3205BC07u);    // CreatedGoalsIconSpaceRequired
+    case kSaveCat: return Scripts::FetchIntValue(0x46B0EF40u);             // CATIconSpaceRequired
+    case kSavePark: return Scripts::FetchIntValue(0x82AAF8DCu);            // ParkIconSpaceRequired
+    case kSaveCreatedGraphic: return Scripts::FetchIntValue(0xD85D78F9u);  // CreatedGraphicIconSpaceRequired
+    case kSaveNetworkSettings: return Scripts::FetchIntValue(0xF3431F63u); // NetworkSettingsIconSpaceRequired
+    case kSaveOptionsAndPros: return Scripts::FetchIntValue(0x4925ED9Eu);  // OptionsProsIconSpaceRequired
     default: return 0;
     }
 }
@@ -139,12 +139,12 @@ int IconSpaceRequired(uint32_t type)
 int TypeVersion(uint32_t type)
 {
     switch (type) {
-    case kSaveCreatedGoals: return Script::GetInteger("VERSION_CREATEDGOALS");
-    case kSaveCat: return Script::GetInteger("VERSION_CAT");
-    case kSavePark: return Script::GetInteger("VERSION_PARK");
-    case kSaveCreatedGraphic: return Script::GetInteger("VERSION_CREATEDGRAPHIC");
-    case kSaveNetworkSettings: return Script::GetInteger("VERSION_NETWORKSETTINGS");
-    case kSaveOptionsAndPros: return Script::GetInteger("VERSION_OPTIONSANDPROS");
+    case kSaveCreatedGoals: return Scripts::FetchIntValue("VERSION_CREATEDGOALS");
+    case kSaveCat: return Scripts::FetchIntValue("VERSION_CAT");
+    case kSavePark: return Scripts::FetchIntValue("VERSION_PARK");
+    case kSaveCreatedGraphic: return Scripts::FetchIntValue("VERSION_CREATEDGRAPHIC");
+    case kSaveNetworkSettings: return Scripts::FetchIntValue("VERSION_NETWORKSETTINGS");
+    case kSaveOptionsAndPros: return Scripts::FetchIntValue("VERSION_OPTIONSANDPROS");
     default: return -1;
     }
 }
@@ -206,12 +206,12 @@ int TypeFileSize(uint32_t type)
 {
     int size = 0;
     switch (type) {
-    case kSaveCreatedGoals: size = Script::GetInteger(0x3308EFC0u); break;    // SaveSize_CreatedGoals
-    case kSaveCat: size = Script::GetInteger(0x9EECDEC9u); break;             // SaveSize_Cat
-    case kSavePark: size = Script::GetInteger(0x2CB071EDu); break;            // SaveSize_Park
-    case kSaveCreatedGraphic: size = Script::GetInteger(0x2E3F4E50u); break;  // SaveSize_CreatedGraphic
-    case kSaveNetworkSettings: size = Script::GetInteger(0x651C978Du); break; // SaveSize_NetworkSettings
-    case kSaveOptionsAndPros: size = Script::GetInteger(0xE7F51FFEu); break;  // SaveSize_OptionsAndPros
+    case kSaveCreatedGoals: size = Scripts::FetchIntValue(0x3308EFC0u); break;    // SaveSize_CreatedGoals
+    case kSaveCat: size = Scripts::FetchIntValue(0x9EECDEC9u); break;             // SaveSize_Cat
+    case kSavePark: size = Scripts::FetchIntValue(0x2CB071EDu); break;            // SaveSize_Park
+    case kSaveCreatedGraphic: size = Scripts::FetchIntValue(0x2E3F4E50u); break;  // SaveSize_CreatedGraphic
+    case kSaveNetworkSettings: size = Scripts::FetchIntValue(0x651C978Du); break; // SaveSize_NetworkSettings
+    case kSaveOptionsAndPros: size = Scripts::FetchIntValue(0xE7F51FFEu); break;  // SaveSize_OptionsAndPros
     default: break;
     }
     return RoundUpToCardBlock(size + 0x14);
@@ -243,10 +243,10 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     constexpr uint32_t kTotalScore = 0x0E145E9C, kTotalScorePotential = 0x851B0904;
     constexpr uint32_t kIsMale = 0x3F813177;         // "is_male"
     const char* const kEmpty = ""; // ""
-    Ed::CParkEditor* editor = Ed::CParkEditor::Instance();
+    ParkEditing::CParkBuilderMode* editor = ParkEditing::CParkBuilderMode::Instance();
     // The park map's numbers, in GetMapInfo's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
-    auto addMapInfo = [&](const Ed::CompressedMap* map) {
+    auto addMapInfo = [&](const ParkEditing::CompressedMap* map) {
         int gaps = 0;
         int pieces = 0;
         uint16_t theme = 0;
@@ -254,19 +254,19 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
         int width = 0;
         int length = 0;
         editor->GetMapInfo(map, &gaps, &pieces, &theme, &todScript, &width, &length);
-        summary->AddInteger(0xE6121ED0u, gaps);   // num_gaps
-        summary->AddInteger(0xFFF3DC35u, pieces); // num_pieces
-        summary->AddInteger(0x688A18F7u, theme);  // theme
-        summary->AddChecksum(0x4C72ED98u, todScript); // tod_script
-        summary->AddInteger(0x73E5BAD0u, width);  // width
-        summary->AddInteger(0xFE82614Du, length); // length
+        summary->PutInt(0xE6121ED0u, gaps);   // num_gaps
+        summary->PutInt(0xFFF3DC35u, pieces); // num_pieces
+        summary->PutInt(0x688A18F7u, theme);  // theme
+        summary->PutNameKey(0x4C72ED98u, todScript); // tod_script
+        summary->PutInt(0x73E5BAD0u, width);  // width
+        summary->PutInt(0xFE82614Du, length); // length
     };
 
     if (saved) {
         switch (type) {
         case kSaveCat: {
             CStruct* other = nullptr;
-            saved->GetStructure(0x4137CB14u, &other, 1); // other_params
+            saved->ReadSubStruct(0x4137CB14u, &other, 1); // other_params
             const char* name = kEmpty;
             other->GetString(kName, &name, 1);
             summary->AddString(kName, name);
@@ -274,61 +274,61 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
         }
         case kSavePark: {
             CStruct* goals = nullptr;
-            saved->GetStructure(0xD8EB825Eu, &goals, 0); // Park_editor_goals
+            saved->ReadSubStruct(0xD8EB825Eu, &goals, 0); // Park_editor_goals
             int count = 0;
             if (goals) {
-                Script::CArray* array = nullptr;
+                Scripts::CArray* array = nullptr;
                 goals->GetArray(kGoals, &array, 0);
                 if (array)
                     count = static_cast<int>(array->m_size);
             }
-            summary->AddInteger(kNumEditedGoals, count);
+            summary->PutInt(kNumEditedGoals, count);
             int maxPlayers = 1;
-            saved->GetInteger(kMaxPlayers, &maxPlayers, 0);
-            summary->AddInteger(kMaxPlayers, maxPlayers);
-            Script::CArray* map = nullptr;
+            saved->FetchIntValue(kMaxPlayers, &maxPlayers, 0);
+            summary->PutInt(kMaxPlayers, maxPlayers);
+            Scripts::CArray* map = nullptr;
             saved->GetArray(0x337C5289u, &map, 1); // Park_editor_map
-            addMapInfo(reinterpret_cast<const Ed::CompressedMap*>(map->GetArrayPointer()));
+            addMapInfo(reinterpret_cast<const ParkEditing::CompressedMap*>(map->FindArrayValue()));
             break;
         }
         case kSaveCreatedGoals: {
-            Script::CArray* goals = nullptr;
+            Scripts::CArray* goals = nullptr;
             saved->GetArray(kGoals, &goals, 0);
-            summary->AddInteger(kNumEditedGoals, goals ? static_cast<int>(goals->m_size) : 0);
+            summary->PutInt(kNumEditedGoals, goals ? static_cast<int>(goals->m_size) : 0);
             break;
         }
         case kSaveOptionsAndPros: {
             CStruct* story = nullptr;
-            saved->GetStructure(0x14A9FBC7u, &story, 1); // Story
+            saved->ReadSubStruct(0x14A9FBC7u, &story, 1); // Story
             CStruct* goalManager = nullptr;
-            story->GetStructure(kGoalManagerParams, &goalManager, 1);
+            story->ReadSubStruct(kGoalManagerParams, &goalManager, 1);
             CStruct* goalManagerParams = nullptr; // (read, not used)
-            goalManager->GetStructure(0x23D4170Au, &goalManagerParams, 1); // GoalManager_Params
+            goalManager->ReadSubStruct(0x23D4170Au, &goalManagerParams, 1); // GoalManager_Params
             CStruct* global = nullptr;
-            saved->GetStructure(0xF55CBD13u, &global, 0); // GlobalInfo
+            saved->ReadSubStruct(0xF55CBD13u, &global, 0); // GlobalInfo
             if (global) {
                 CStruct* career = nullptr;
-                global->GetStructure(0x4DA4937Bu, &career, 0); // career
+                global->ReadSubStruct(0x4DA4937Bu, &career, 0); // career
                 int value; // (not initialised: a missing field after the first repeats the one before)
-                if (career && career->GetInteger(0x6C1A5E39u, &value, 0)) {
-                    summary->AddInteger(kTotalGoalsComplete, value);
-                    career->GetInteger(0x7A6BF912u, &value, 0);
-                    summary->AddInteger(kTotalGoalsPossible, value);
-                    career->GetInteger(0x0444419Au, &value, 0);
-                    summary->AddInteger(kTotalScore, value);
-                    career->GetInteger(0x95947B61u, &value, 0);
-                    summary->AddInteger(kTotalScorePotential, value);
+                if (career && career->FetchIntValue(0x6C1A5E39u, &value, 0)) {
+                    summary->PutInt(kTotalGoalsComplete, value);
+                    career->FetchIntValue(0x7A6BF912u, &value, 0);
+                    summary->PutInt(kTotalGoalsPossible, value);
+                    career->FetchIntValue(0x0444419Au, &value, 0);
+                    summary->PutInt(kTotalScore, value);
+                    career->FetchIntValue(0x95947B61u, &value, 0);
+                    summary->PutInt(kTotalScorePotential, value);
                 }
             }
             CStruct* customSkater = nullptr;
-            saved->GetStructure(0x12BFAC82u, &customSkater, 1); // CustomSkater
+            saved->ReadSubStruct(0x12BFAC82u, &customSkater, 1); // CustomSkater
             CStruct* custom = nullptr;
-            customSkater->GetStructure(0x0A7BE964u, &custom, 1); // custom
+            customSkater->ReadSubStruct(0x0A7BE964u, &custom, 1); // custom
             CStruct* info = nullptr;
-            custom->GetStructure(0x3476CEA8u, &info, 1); // info
+            custom->ReadSubStruct(0x3476CEA8u, &info, 1); // info
             int male = 0;
-            info->GetInteger(kIsMale, &male, 0);
-            summary->AddInteger(kIsMale, male);
+            info->FetchIntValue(kIsMale, &male, 0);
+            summary->PutInt(kIsMale, male);
             const char* name = kEmpty;
             info->GetString(0x2AB66CB8u, &name, 0); // display_name
             summary->AddString(kName, name);
@@ -345,50 +345,50 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
 
     switch (type) {
     case kSaveCat: {
-        auto* skater = static_cast<Obj::CSkater*>(Mdl::Skate::Instance()->GetSkater(0));
-        CStruct* trickInfo = *reinterpret_cast<CStruct**>(skater->m_trickInfo[0] + 4);
+        auto* skater = static_cast<GameObjects::CRider*>(GameModules::Skate::Instance()->GetRiderAt(0));
+        CStruct* trickRecord = *reinterpret_cast<CStruct**>(skater->m_trickInfo[0] + 4);
         const char* name = kEmpty;
-        trickInfo->GetString(kName, &name, 1);
+        trickRecord->GetString(kName, &name, 1);
         summary->AddString(kName, name);
         break;
     }
     case kSavePark:
     case kSaveCreatedGoals: {
         constexpr uint32_t kGoalEditor = 0x81F01058; // "GoalEditor": the object and its component
-        Obj::CObject* object = Obj::g_tracker->LookUpObject(kGoalEditor);
-        Obj::CBaseComponent* component = static_cast<Obj::CCompositeObject*>(object)->GetComponent(kGoalEditor);
+        GameObjects::CObject* object = GameObjects::g_tracker->LookUpObject(kGoalEditor);
+        GameObjects::CObjectModule* component = static_cast<GameObjects::CGameEntity*>(object)->GetComponent(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
-        int edited = static_cast<Ed::CGoalEditorComponent*>(component)->CountUsedGoals();
-        summary->AddInteger(kNumEditedGoals, edited);
+        int edited = static_cast<ParkEditing::CObjectiveAuthoring*>(component)->CountUsedGoals();
+        summary->PutInt(kNumEditedGoals, edited);
         if (type != kSavePark)
             break;
-        summary->AddInteger(kMaxPlayers, Ed::CParkEditor::GetMaxPlayers());
-        Ed::CParkEditor::Instance()->WriteCompressedMapIfBuilt();
-        editor = Ed::CParkEditor::Instance();
-        addMapInfo(editor->GetCompressedMapBuffer(false));
+        summary->PutInt(kMaxPlayers, ParkEditing::CParkBuilderMode::GetPlayerLimit());
+        ParkEditing::CParkBuilderMode::Instance()->WriteCompressedMapIfBuilt();
+        editor = ParkEditing::CParkBuilderMode::Instance();
+        addMapInfo(editor->GetPackedParkData(false));
         break;
     }
     case kSaveNetworkSettings: {
         auto* preferences = reinterpret_cast<uint8_t*>(
-            GameNet::g_gameNetManager->GetNetworkPreferences());
+            OnlinePlay::g_gameNetManager->GetOnlineSettings());
         auto* settings = reinterpret_cast<CStruct*>(preferences + 4);
         CStruct* networkId = nullptr;
-        settings->GetStructure(0xCBED746Eu, &networkId, 0); // network_id
+        settings->ReadSubStruct(0xCBED746Eu, &networkId, 0); // network_id
         const char* text = kEmpty;
         networkId->GetString(0x96875C0Fu, &text, 0); // ui_string
         summary->AddString(0xCBED746Eu, text);
         break;
     }
     case kSaveOptionsAndPros: {
-        auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(GoalManager());
+        auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(ObjectiveBoard());
         CStruct* goalManagerParams = nullptr; // (read, not used)
-        own->GetStructure(0x23D4170Au, &goalManagerParams, 0);
-        Obj::CSkaterCareer* career = *reinterpret_cast<Obj::CSkaterCareer**>(
-            reinterpret_cast<uint8_t*>(Mdl::Skate::Instance()) + 0x20);
-        summary->AddInteger(kTotalScore, career->m_totalCash);
-        summary->AddInteger(kTotalScorePotential, career->m_totalAmount);
-        summary->AddInteger(kTotalGoalsComplete, career->m_totalCounter);
-        summary->AddInteger(kTotalGoalsPossible, career->m_flag5EF);
+        own->ReadSubStruct(0x23D4170Au, &goalManagerParams, 0);
+        GameObjects::CRiderStoryProgress* career = *reinterpret_cast<GameObjects::CRiderStoryProgress**>(
+            reinterpret_cast<uint8_t*>(GameModules::Skate::Instance()) + 0x20);
+        summary->PutInt(kTotalScore, career->m_lifetimeFunds);
+        summary->PutInt(kTotalScorePotential, career->m_totalAmount);
+        summary->PutInt(kTotalGoalsComplete, career->m_totalCounter);
+        summary->PutInt(kTotalGoalsPossible, career->m_flag5EF);
         break;
     }
     default:
@@ -400,11 +400,11 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
 void __fastcall ApplyGoalManagerParams(CStruct* saved)
 {
     CStruct* params = nullptr;
-    saved->GetStructure(kGoalManagerParams, &params, 0);
-    Game::CGoalManager* goalManager = GoalManager();
+    saved->ReadSubStruct(kGoalManagerParams, &params, 0);
+    GoalSystem::CGoalManager* goalManager = ObjectiveBoard();
     goalManager->ResetGoalData(0); // reset the career (mode 0)
     // its parameters (a folded getter, +0x14)
-    auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(goalManager);
+    auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(goalManager);
     own->Clear();
     own->AppendStructureIfAny(params);
     goalManager->RestoreGoalData(); // the level's goals loaded
@@ -413,11 +413,11 @@ void __fastcall ApplyGoalManagerParams(CStruct* saved)
 // 0x005A6C80
 bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
 {
-    Obj::CPlayerProfileManager* profiles = Obj::g_profileManager;
-    Mdl::Skate* skate = Mdl::Skate::Instance();
+    GameObjects::CProfileRoster* profiles = GameObjects::g_profileManager;
+    GameModules::Skate* skate = GameModules::Skate::Instance();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Game::CGoal::GetParams))(profiles);
-    auto* skater = static_cast<Obj::CSkater*>(skate->GetSkater(index));
+    int index = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::GetParams))(profiles);
+    auto* skater = static_cast<GameObjects::CRider*>(skate->GetRiderAt(index));
     skater->LoadCATInfo(loaded);
     skater->LoadList44B66A9F(loaded);
     skater->ReadChapterInfo(loaded);
@@ -429,14 +429,14 @@ const uint8_t* KeepLoadedContents(const uint8_t* data, uint32_t type)
 {
     if (CStruct* kept = KeptContents()) {
         kept->Clear();
-        Script::DeleteStruct(kept);
+        Scripts::DeleteStruct(kept);
         KeptContents() = nullptr;
     }
-    CStruct* contents = Script::NewStruct();
+    CStruct* contents = Scripts::NewStruct();
     if (contents)
         contents = contents->Init();
     KeptContents() = contents;
-    const uint8_t* end = Script::ReadFromBuffer(contents, data);
+    const uint8_t* end = Scripts::DecodeFromBytes(contents, data);
     KeptType() = type;
     return end;
 }
@@ -444,22 +444,22 @@ const uint8_t* KeepLoadedContents(const uint8_t* data, uint32_t type)
 // --- the destructors of two list types of the memory card code ---
 
 // 0x005A7520
-Mem::ListNode* ListDestructors::NodeDestroy(unsigned int flags)
+MemSys::ListNode* ListDestructors::NodeDestroy(unsigned int flags)
 {
-    auto* node = reinterpret_cast<Mem::ListNode*>(this);
+    auto* node = reinterpret_cast<MemSys::ListNode*>(this);
     node->UnlinkAs(Vt::kSaveNode);
     if (flags & 1)
-        Mem::Manager::Get()->Free(node);
+        MemSys::Manager::Get()->Free(node);
     return node;
 }
 
 // 0x005A8E80
-Mem::ListNode* ListDestructors::OtherDestroy(unsigned int flags)
+MemSys::ListNode* ListDestructors::OtherDestroy(unsigned int flags)
 {
-    auto* node = reinterpret_cast<Mem::ListNode*>(this);
+    auto* node = reinterpret_cast<MemSys::ListNode*>(this);
     node->UnlinkAs(Vt::kSaveNode); // (the body 0x005BC990)
     if (flags & 1)
-        Mem::Manager::Get()->Free(node);
+        MemSys::Manager::Get()->Free(node);
     return node;
 }
 

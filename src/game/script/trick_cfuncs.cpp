@@ -27,13 +27,13 @@
 #include "game/core/code_address.h"
 #include "game/goals/goal_manager.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
-using Obj::CSkaterProfile;
-using Script::CArray;
-using Script::CStruct;
+using GameObjects::CRiderIdentity;
+using Scripts::CArray;
+using Scripts::CStruct;
 
 constexpr uint32_t kProfile = 0x7EA855F0;            // "profile"
 constexpr uint32_t kCat = 0x61A1BC57;                // "cat"
@@ -84,56 +84,56 @@ constexpr uint32_t kSlot = 0x53F1DF98;               // "slot"
 constexpr uint32_t kTrickName = 0xEF6FB249;          // "trick_name"
 constexpr uint32_t kKeyCombo = 0xACFDB27A;           // "key_combo"
 
-Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
-Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
-Inp::Manager* InputManager() { return Inp::g_inputManager; }
+GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
+GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
+PadInput::Manager* InputManager() { return PadInput::g_inputManager; }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
-Obj::CCompositeObject* LocalSkater()
+GameObjects::CGameEntity* LocalSkater()
 {
-    return Skate()->GetLocalSkater();
+    return Skate()->GetHomeRider();
 }
 // Whether a skater is a local one (its byte at +0xBC, as 0x00566520 reads it).
-bool IsLocalSkater(Obj::CCompositeObject* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
+bool IsLocalSkater(GameObjects::CGameEntity* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
 // The skater's score (0x00580480: its score component's object).
-void* SkaterScore(Obj::CCompositeObject* skater) { return static_cast<Obj::CSkater*>(skater)->GetScore(); }
+void* SkaterScore(GameObjects::CGameEntity* skater) { return static_cast<GameObjects::CRider*>(skater)->GetPointsTotal(); }
 
 // 0x00564F80 (no source yet; a skate module method that ignores the module): the profile of `params`' Skater, or the
 // current one (no params or no Skater).
-CSkaterProfile* ProfileFor(CStruct* params)
+CRiderIdentity* ProfileFor(CStruct* params)
 {
     return Skate()->GetProfile(params);
 }
 
-// 0x005A9D90 (CFuncs::FindNameOfValue): the key combo in `mapping` bound to `trick` (0 if none).
-uint32_t KeyComboForTrick(CStruct* mapping, uint32_t trick) { return CFuncs::FindNameOfValue(mapping, trick, 0); }
+// 0x005A9D90 (ScriptCommands::FindNameOfValue): the key combo in `mapping` bound to `trick` (0 if none).
+uint32_t KeyComboForTrick(CStruct* mapping, uint32_t trick) { return ScriptCommands::FindNameOfValue(mapping, trick, 0); }
 
-// 0x005A9E30 (CFuncs::FindNameOfInteger; in the original the structure goes in EBX): the key combo in `mapping` bound
+// 0x005A9E30 (ScriptCommands::FindNameOfInteger; in the original the structure goes in EBX): the key combo in `mapping` bound
 // to the created trick `cat` (the name of its last integer component of that value; 0 if none).
 uint32_t KeyComboForCat(CStruct* mapping, int cat)
 {
-    return CFuncs::FindNameOfInteger(mapping, static_cast<uint32_t>(cat));
+    return ScriptCommands::FindNameOfInteger(mapping, static_cast<uint32_t>(cat));
 }
 
-// `new Script::CArray` (the array pool, constructed).
+// `new Scripts::CArray` (the array pool, constructed).
 CArray* NewArray()
 {
-    CArray* array = Script::NewArray();
+    CArray* array = Scripts::NewArray();
     return array ? array->Init() : nullptr;
 }
 
-// The profile manager's template table: its count (0x00469490, Spt::PointerMember::Get folded) and the template at
+// The profile manager's template table: its count (0x00469490, Singletons::PointerMember::Get folded) and the template at
 // `index` (0x00557FB0, no source yet).
-int TemplateCount(Obj::CPlayerProfileManager* manager) { return static_cast<int>(manager->m_templates.m_count); }
-CSkaterProfile* TemplateAt(Obj::CPlayerProfileManager* manager, int index)
+int TemplateCount(GameObjects::CProfileRoster* manager) { return static_cast<int>(manager->m_templates.m_count); }
+CRiderIdentity* TemplateAt(GameObjects::CProfileRoster* manager, int index)
 {
-    return reinterpret_cast<CSkaterProfile*(__thiscall*)(Obj::CPlayerProfileManager*, int)>(CodeAddress(&Game::CGoalManager::GetGoalByIndex))(manager, index);
+    return reinterpret_cast<CRiderIdentity*(__thiscall*)(GameObjects::CProfileRoster*, int)>(CodeAddress(&GoalSystem::CGoalManager::GetObjectiveAt))(manager, index);
 }
 
 // A trick structure's type: its trickType, else its scr, else GrindTrick.
 uint32_t TrickTypeOf(CStruct* trick, uint32_t* type)
 {
-    if (!trick->GetChecksum(kTrickType, type, 0) && !trick->GetChecksum(kScr, type, 0))
+    if (!trick->ReadHashValue(kTrickType, type, 0) && !trick->ReadHashValue(kScr, type, 0))
         *type = kGrindTrick;
     return *type;
 }
@@ -141,9 +141,9 @@ uint32_t TrickTypeOf(CStruct* trick, uint32_t* type)
 } // namespace
 
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
-bool __cdecl CFunc_FlushDeadObjects(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_FlushDeadObjects(Scripts::CStruct*, Scripts::CScript*)
 {
-    reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager)->FlushDeadObjects();
+    reinterpret_cast<GameObjects::CMiscHub*>(GameObjects::g_compositeObjectManager)->FlushDeadObjects();
     return true;
 }
 
@@ -151,63 +151,63 @@ bool __cdecl CFunc_FlushDeadObjects(Script::CStruct*, Script::CScript*)
 // [special index=n [cat]]: in the profile (the named template, else the current one) either the special trick slot
 // `index` set (the trick, the keys, whether it's a CAT; false without index) or the trick_mapping's key combo bound
 // to the trick. True otherwise.
-bool __cdecl CFunc_BindTrickToKeyCombo(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_BindTrickToKeyCombo(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t keyCombo;
-    params->GetChecksum("key_combo", &keyCombo, 1);
+    params->ReadHashValue("key_combo", &keyCombo, 1);
     uint32_t trickName = 0;
-    params->GetChecksum("trick", &trickName, 0);
+    params->ReadHashValue("trick", &trickName, 0);
     int trickNumber = 0;
-    bool isNumber = params->GetInteger("trick", &trickNumber, 0);
+    bool isNumber = params->FetchIntValue("trick", &trickNumber, 0);
     bool update = true;
     int updateMappings = 1;
-    params->GetInteger("update_mappings", &updateMappings, 0);
+    params->FetchIntValue("update_mappings", &updateMappings, 0);
     if (updateMappings == 0)
         update = false;
 
-    CSkaterProfile* profile;
-    if (params->ContainsComponentNamed(kProfile)) {
+    CRiderIdentity* profile;
+    if (params->HasEntryNamed(kProfile)) {
         uint32_t name;
-        params->GetChecksum(kProfile, &name, 1);
+        params->ReadHashValue(kProfile, &name, 1);
         profile = ProfileManager()->GetTemplate(name);
     } else {
         profile = ProfileFor(nullptr);
     }
 
-    if (params->ContainsFlag("special")) {
+    if (params->HasBareFlag("special")) {
         int index;
-        if (!params->GetInteger("index", &index, 0))
+        if (!params->FetchIntValue("index", &index, 0))
             return false;
-        CSkaterProfile::SpecialTrick trick;
+        CRiderIdentity::SpecialTrick trick;
         trick.Construct();
         trick.keys = keyCombo;
         trick.trick = isNumber ? static_cast<uint32_t>(trickNumber) : trickName;
-        trick.flag = params->ContainsFlag(kCat);
+        trick.flag = params->HasBareFlag(kCat);
         profile->SetSpecialTrick(index, &trick, update);
         return true;
     }
     CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
     mapping->RemoveComponent(keyCombo);
     if (isNumber)
-        mapping->AddInteger(keyCombo, trickNumber);
+        mapping->PutInt(keyCombo, trickNumber);
     else
-        mapping->AddChecksum(keyCombo, trickName);
+        mapping->PutNameKey(keyCombo, trickName);
     return true;
 }
 
 // 0x005B0C00: GetKeyComboBoundToTrick trick=<name> [special] | cat_num=n [profile=<name>]: the key combo bound to
 // the trick (the profile's trick_mapping, or with `special` its special trick slots - then also current_index, the
 // slot) or to the created trick cat_num, as current_key_combo. False if none.
-bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetKeyComboBoundToTrick(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t trick = 0;
     int catNumber = 0; // (uninitialised in the original when cat_num is missing too: an asserting get)
-    if (!params->GetChecksum(kTrick, &trick, 0))
-        params->GetInteger(kCatNum, &catNumber, 1);
-    CSkaterProfile* profile;
-    if (params->ContainsComponentNamed(kProfile)) {
+    if (!params->ReadHashValue(kTrick, &trick, 0))
+        params->FetchIntValue(kCatNum, &catNumber, 1);
+    CRiderIdentity* profile;
+    if (params->HasEntryNamed(kProfile)) {
         uint32_t name;
-        params->GetChecksum(kProfile, &name, 1);
+        params->ReadHashValue(kProfile, &name, 1);
         profile = ProfileManager()->GetTemplate(name);
     } else {
         profile = ProfileFor(nullptr);
@@ -217,19 +217,19 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
     int slot = 0;
     uint32_t keyCombo;
     if (trick) {
-        if (!params->ContainsFlag(kSpecial)) {
+        if (!params->HasBareFlag(kSpecial)) {
             CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
             keyCombo = KeyComboForTrick(mapping, trick);
             uint32_t bound = 0;
-            if (!mapping->GetChecksum(keyCombo, &bound, 0) || bound != trick)
+            if (!mapping->ReadHashValue(keyCombo, &bound, 0) || bound != trick)
                 return false;
         } else {
-            if (!params->ContainsFlag(kSpecial))
+            if (!params->HasBareFlag(kSpecial))
                 return false;
             int count = profile->GetMaxSpecials();
             if (count <= 0)
                 return false;
-            CSkaterProfile::SpecialTrick special;
+            CRiderIdentity::SpecialTrick special;
             for (slot = 0;; ++slot) {
                 if (slot >= count)
                     return false;
@@ -237,7 +237,7 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
                 if (special.trick == trick)
                     break;
             }
-            Dbg::Printf("GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
+            DebugOut::Printf("GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
             keyCombo = special.keys;
             foundSpecial = true;
         }
@@ -247,10 +247,10 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
     }
     if (!keyCombo)
         return false;
-    script->m_params->AddChecksum("current_key_combo", keyCombo);
+    script->m_params->PutNameKey("current_key_combo", keyCombo);
     if (foundSpecial) {
-        Dbg::Printf("current_index: %i\n", slot); // "current_index: %i\n"
-        script->m_params->AddInteger("current_index", slot);
+        DebugOut::Printf("current_index: %i\n", slot); // "current_index: %i\n"
+        script->m_params->PutInt("current_index", slot);
     }
     return true;
 }
@@ -258,24 +258,24 @@ bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScr
 // 0x005B0DA0: UpdateTrickMappings [Skater=n]: the skater's trick component given its profile's mappings - online the
 // local skater and the first profile (not checked for null), otherwise skater n's and profile n's (nothing if either
 // is missing). Always true.
-bool __cdecl CFunc_UpdateTrickMappings(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_UpdateTrickMappings(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Mdl::Skate* skate = Skate();
-    Obj::CPlayerProfileManager* manager = ProfileManager();
-    Obj::CCompositeObject* skater;
-    CSkaterProfile* profile;
-    if (GameNet::g_gameNetManager->InNetGame()) {
+    GameModules::Skate* skate = Skate();
+    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CGameEntity* skater;
+    CRiderIdentity* profile;
+    if (OnlinePlay::g_gameNetManager->InNetGame()) {
         skater = LocalSkater();
         profile = manager->GetProfile(0);
     } else {
         int index;
-        params->GetInteger(kSkater, &index, 1);
-        skater = skate->GetSkater(index);
+        params->FetchIntValue(kSkater, &index, 1);
+        skater = skate->GetRiderAt(index);
         profile = manager->GetProfile(index);
         if (!skater || !profile)
             return true;
     }
-    static_cast<Obj::CTrickComponent*>(skater->GetComponent(kTrick))->SetTrickMappings(profile);
+    static_cast<GameObjects::CMoveExecutor*>(skater->GetComponent(kTrick))->SetTrickMappings(profile);
     return true;
 }
 
@@ -283,41 +283,41 @@ bool __cdecl CFunc_UpdateTrickMappings(Script::CStruct* params, Script::CScript*
 // ConfigurableTricks whose type (trickType, else scr, else GrindTrick) is `type` (with `special` and no type: any)
 // and whose params are IsSpecial or not as `special` asks; for grab and flip tricks also ConfigurableCats, the local
 // skater's created trick slots (1-10) that are full. False if no trick matched.
-bool __cdecl CFunc_GetConfigurableTricksFromType(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetConfigurableTricksFromType(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t tricks[128];
     int cats[128];
     uint32_t type = 0;
-    params->GetChecksum(kType, &type, 0);
-    bool special = params->ContainsFlag(kSpecial);
+    params->ReadHashValue(kType, &type, 0);
+    bool special = params->HasBareFlag(kSpecial);
     int trickCount = 0;
     int catCount = 0;
-    CArray* configurable = Script::GetArray(kConfigurableTricks);
+    CArray* configurable = Scripts::GetArray(kConfigurableTricks);
     int size = static_cast<int>(configurable->m_size);
     uint32_t trickType;
     for (int i = 0; i < size; ++i) {
         uint32_t name = configurable->GetElement(i);
-        CStruct* trick = Script::GetStructure(name);
+        CStruct* trick = Scripts::ReadSubStruct(name);
         if (!trick)
             continue;
         TrickTypeOf(trick, &trickType);
         if ((!special || type) && trickType != type)
             continue;
         CStruct* trickParams;
-        trick->GetStructure(kParams, &trickParams, 1);
-        if (trickParams->ContainsFlag(kIsSpecial) != special)
+        trick->ReadSubStruct(kParams, &trickParams, 1);
+        if (trickParams->HasBareFlag(kIsSpecial) != special)
             continue;
         tricks[trickCount++] = name;
     }
     if (type == kGrabTrick || type == kFlipTrick) {
-        Obj::CCompositeObject* skater = LocalSkater();
+        GameObjects::CGameEntity* skater = LocalSkater();
         if (skater) {
             // the skater's created tricks (+0x180: 10 pointers to objects with their structure at +4)
             auto** created = reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + 0x180);
             for (int slot = 1; slot < 11; ++slot) {
                 int full = 0;
                 if (reinterpret_cast<CStruct*>(*reinterpret_cast<uint32_t*>(created[slot - 1] + 4))
-                        ->GetInteger(kFull, &full, 0) &&
+                        ->FetchIntValue(kFull, &full, 0) &&
                     full)
                     cats[catCount++] = slot;
             }
@@ -326,16 +326,16 @@ bool __cdecl CFunc_GetConfigurableTricksFromType(Script::CStruct* params, Script
     if (trickCount == 0)
         return false;
     CArray* trickArray = NewArray();
-    trickArray->SetSizeAndType(trickCount, Script::ESYMBOLTYPE_NAME);
+    trickArray->ConfigureSizeKind(trickCount, Scripts::QBVAL_NAME);
     for (int i = 0; i < trickCount; ++i)
         trickArray->SetElement(i, tricks[i]);
-    script->m_params->AddArrayPointer(kConfigurableTricks, trickArray);
+    script->m_params->AppendArrayRef(kConfigurableTricks, trickArray);
     if (catCount > 0) {
         CArray* catArray = NewArray();
-        catArray->SetSizeAndType(catCount, Script::ESYMBOLTYPE_INTEGER);
+        catArray->ConfigureSizeKind(catCount, Scripts::QBVAL_INTEGER);
         for (int i = 0; i < catCount; ++i)
             catArray->SetElement(i, static_cast<uint32_t>(cats[i]));
-        script->m_params->AddArrayPointer(kConfigurableCats, catArray);
+        script->m_params->AppendArrayRef(kConfigurableCats, catArray);
     }
     return true;
 }
@@ -343,29 +343,29 @@ bool __cdecl CFunc_GetConfigurableTricksFromType(Script::CStruct* params, Script
 // 0x005B1140: TrickIsLocked trick=<name>: whether the trick (a global structure whose params name a Skater) is
 // locked: with the flag 0x7ABFD5B4 unless the current profile is that skater; otherwise if that skater's template is
 // hidden (is_hidden). False without the structure, its params or Skater, or with no such template.
-bool __cdecl CFunc_TrickIsLocked(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_TrickIsLocked(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t trick;
-    params->GetChecksum(kTrick, &trick, 1);
-    CStruct* structure = Script::GetStructure(trick);
+    params->ReadHashValue(kTrick, &trick, 1);
+    CStruct* structure = Scripts::ReadSubStruct(trick);
     if (!structure)
         return false;
     CStruct* trickParams = nullptr; // (uninitialised in the original: an asserting get)
-    structure->GetStructure(kParams, &trickParams, 1);
+    structure->ReadSubStruct(kParams, &trickParams, 1);
     if (!trickParams)
         return false;
     uint32_t skater;
-    if (!trickParams->GetChecksum(kSkater, &skater, 0))
+    if (!trickParams->ReadHashValue(kSkater, &skater, 0))
         return false;
-    Obj::CPlayerProfileManager* manager = ProfileManager();
-    if (trickParams->ContainsFlag(kLockedForOthers))
+    GameObjects::CProfileRoster* manager = ProfileManager();
+    if (trickParams->HasBareFlag(kLockedForOthers))
         return manager->GetCurrentProfile()->GetName() != skater;
     int count = TemplateCount(manager);
     for (int i = 0; i < count; ++i) {
-        CSkaterProfile* profile = TemplateAt(manager, i);
+        CRiderIdentity* profile = TemplateAt(manager, i);
         if (profile->GetName() == skater) {
             int hidden = 0;
-            profile->InfoStructure()->GetInteger(kIsHidden, &hidden, 0);
+            profile->InfoStructure()->FetchIntValue(kIsHidden, &hidden, 0);
             return hidden != 0;
         }
     }
@@ -375,87 +375,87 @@ bool __cdecl CFunc_TrickIsLocked(Script::CStruct* params, Script::CScript*)
 // 0x005B1250: GetTrickDisplayText trick=<name>: trick_display_text, its params' name; if it has ExtraTricks (a name,
 // or an array's first) also extra_trick_string (the first extra trick's params' name) and 0xD0BCFC62 (the extra
 // tricks' name). False without the trick structure.
-bool __cdecl CFunc_GetTrickDisplayText(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetTrickDisplayText(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t trick;
-    params->GetChecksum(kTrick, &trick, 1);
-    CStruct* structure = Script::GetStructure(trick);
+    params->ReadHashValue(kTrick, &trick, 1);
+    CStruct* structure = Scripts::ReadSubStruct(trick);
     if (!structure)
         return false;
     CStruct* trickParams;
-    structure->GetStructure(kParams, &trickParams, 1);
+    structure->ReadSubStruct(kParams, &trickParams, 1);
     const char* name;
     trickParams->GetString(kName, &name, 1);
     script->m_params->AddString(kTrickDisplayText, name);
     uint32_t extra = 0;
-    if (!trickParams->GetChecksum(kExtraTricks, &extra, 0)) {
+    if (!trickParams->ReadHashValue(kExtraTricks, &extra, 0)) {
         CArray* extras;
         if (trickParams->GetArray(kExtraTricks, &extras, 0))
             extra = extras->GetElement(0);
     }
     if (extra) {
-        auto* first = reinterpret_cast<CStruct*>(Script::GetArray(extra)->GetElement(0));
+        auto* first = reinterpret_cast<CStruct*>(Scripts::GetArray(extra)->GetElement(0));
         CStruct* extraParams;
-        first->GetStructure(kParams, &extraParams, 1);
+        first->ReadSubStruct(kParams, &extraParams, 1);
         const char* extraName;
         extraParams->GetString(kName, &extraName, 1);
         script->m_params->AddString(kExtraTrickString, extraName);
-        script->m_params->AddChecksum(kExtraTrickName, extra);
+        script->m_params->PutNameKey(kExtraTrickName, extra);
     }
     return true;
 }
 
 // 0x005B1380: GetSpecialTrickInfo index=n: the current profile's special trick slot n: special_trickslot (its keys),
 // special_trickname (a CAT's number as an integer, else the trick's name) and isCat. Always true.
-bool __cdecl CFunc_GetSpecialTrickInfo(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetSpecialTrickInfo(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int index;
-    params->GetInteger(kIndex, &index, 1);
-    CSkaterProfile::SpecialTrick trick;
+    params->FetchIntValue(kIndex, &index, 1);
+    CRiderIdentity::SpecialTrick trick;
     ProfileFor(nullptr)->GetSpecialTrick(&trick, index);
-    script->m_params->AddChecksum(kSpecialTrickSlot, trick.keys);
+    script->m_params->PutNameKey(kSpecialTrickSlot, trick.keys);
     if (trick.flag)
-        script->m_params->AddInteger(kSpecialTrickName, static_cast<int>(trick.trick));
+        script->m_params->PutInt(kSpecialTrickName, static_cast<int>(trick.trick));
     else
-        script->m_params->AddChecksum(kSpecialTrickName, trick.trick);
-    script->m_params->AddInteger(kIsCat, trick.flag);
+        script->m_params->PutNameKey(kSpecialTrickName, trick.trick);
+    script->m_params->PutInt(kIsCat, trick.flag);
     return true;
 }
 
 // 0x005B1420: GetTrickType trick=<name>: trick_type, the trick structure's type (trickType, else scr, else
 // GrindTrick). Always true.
-bool __cdecl CFunc_GetTrickType(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetTrickType(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t trick;
-    params->GetChecksum(kTrick, &trick, 1);
+    params->ReadHashValue(kTrick, &trick, 1);
     uint32_t type;
-    TrickTypeOf(Script::GetStructure(trick), &type);
-    script->m_params->AddChecksum(kTrickTypeOut, type);
+    TrickTypeOf(Scripts::ReadSubStruct(trick), &type);
+    script->m_params->PutNameKey(kTrickTypeOut, type);
     return true;
 }
 
 // 0x005B14A0: GetIndexOfItemContaining array=<global array> name=<component> value=<checksum> [index=start]: index,
 // the first structure from `start` whose component `name` is `value`. False if none.
-bool __cdecl CFunc_GetIndexOfItemContaining(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetIndexOfItemContaining(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t arrayName;
-    params->GetChecksum(kArray, &arrayName, 1);
-    CArray* array = Script::GetArray(arrayName);
+    params->ReadHashValue(kArray, &arrayName, 1);
+    CArray* array = Scripts::GetArray(arrayName);
     uint32_t name;
-    params->GetChecksum(kName, &name, 1);
+    params->ReadHashValue(kName, &name, 1);
     int index = 0;
-    params->GetInteger(kIndex, &index, 0);
+    params->FetchIntValue(kIndex, &index, 0);
     uint32_t value;
-    params->GetChecksum(kValue, &value, 1);
+    params->ReadHashValue(kValue, &value, 1);
     int size = static_cast<int>(array->m_size);
     for (; index < size; ++index) {
         auto* item = reinterpret_cast<CStruct*>(array->GetElement(index));
-        if (!item->ContainsComponentNamed(name))
+        if (!item->HasEntryNamed(name))
             continue;
         uint32_t found;
-        item->GetChecksum(name, &found, 1);
+        item->ReadHashValue(name, &found, 1);
         if (value == found) {
-            script->m_params->AddInteger(kIndex, index);
+            script->m_params->PutInt(kIndex, index);
             return true;
         }
     }
@@ -464,64 +464,64 @@ bool __cdecl CFunc_GetIndexOfItemContaining(Script::CStruct* params, Script::CSc
 
 // 0x005B1590: GetLevelRecords [level=n]: the level's records (default: the career's level) written to the script's
 // parameters. Always true.
-bool __cdecl CFunc_GetLevelRecords(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetLevelRecords(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Mdl::Skate* skate = Skate();
+    GameModules::Skate* skate = Skate();
     int level;
-    if (!params->GetInteger(kLevel, &level, 0))
-        level = (*reinterpret_cast<Obj::CSkaterCareer**>(reinterpret_cast<uint8_t*>(skate) + 0x20))->GetLevel();
-    Records::g_gameRecords->GetLevelRecords(level)->WriteToStructure(script->m_params);
+    if (!params->FetchIntValue(kLevel, &level, 0))
+        level = (*reinterpret_cast<GameObjects::CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(skate) + 0x20))->GetLevel();
+    Highscores::g_gameRecords->GetLevelRecords(level)->WriteToStructure(script->m_params);
     return true;
 }
 
 // 0x005B15F0: ResetComboRecords: the local skater's score's three combo records (0x00561400: +0x2C, +0x30, +0x34)
 // zeroed. Always true.
-bool __cdecl CFunc_ResetComboRecords(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ResetComboRecords(Scripts::CStruct*, Scripts::CScript*)
 {
-    Obj::CCompositeObject* skater = LocalSkater();
+    GameObjects::CGameEntity* skater = LocalSkater();
     if (skater)
-        static_cast<Mdl::Score*>(SkaterScore(skater))->ResetBests();
+        static_cast<GameModules::Score*>(SkaterScore(skater))->ResetBests();
     return true;
 }
 
 // 0x005B1610: GetNumberOfTrickOccurrences TrickText="text": Number_Of_Occurrences, how often the local skater's score
 // has the trick (0x005624C0 with the text's checksum, 0, 0, 1; no local skater is not checked). Always true.
-bool __cdecl CFunc_GetNumberOfTrickOccurrences(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetNumberOfTrickOccurrences(Scripts::CStruct* params, Scripts::CScript* script)
 {
     const char* text;
     params->GetString(kTrickText, &text, 1);
-    uint32_t trick = Crc::GenerateCRCFromString(text);
+    uint32_t trick = Checksums::HashFromText(text);
     void* score = SkaterScore(LocalSkater());
-    int count = static_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, 0, false, 1);
-    script->m_params->AddInteger(kNumberOfOccurrences, count);
+    int count = static_cast<GameModules::Score*>(score)->CountTrickAfterTaps(trick, 0, false, 1);
+    script->m_params->PutInt(kNumberOfOccurrences, count);
     return true;
 }
 
 // 0x005B1670: GetNumSoundtracks: numsoundtracks. Always true.
-bool __cdecl CFunc_GetNumSoundtracks(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetNumSoundtracks(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddInteger(kNumSoundtracks, Pcm::GetNumSoundtracks());
+    script->m_params->PutInt(kNumSoundtracks, AudioStream::GetNumSoundtracks());
     return true;
 }
 
 // 0x005B1690: GetSoundtrackName <n>: soundtrackname, user soundtrack n's name. Always true.
-bool __cdecl CFunc_GetSoundtrackName(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetSoundtrackName(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int index;
-    params->GetInteger(0u, &index, 1);
-    script->m_params->AddString(kSoundtrackName, Pcm::GetSoundtrackName(index));
+    params->FetchIntValue(0u, &index, 1);
+    script->m_params->AddString(kSoundtrackName, AudioStream::GetSoundtrackName(index));
     return true;
 }
 
 // 0x005B16D0: BindControllerToSkater controller=c skater_heap_index=n: player n reads controller c; the skate module's
 // local skaters' input components told (0x00567090). Always true.
-bool __cdecl CFunc_BindControllerToSkater(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_BindControllerToSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     int controller;
-    params->GetInteger(kController, &controller, 1);
+    params->FetchIntValue(kController, &controller, 1);
     int skater;
-    params->GetInteger(kSkaterHeapIndex, &skater, 1);
-    Mdl::Skate* skate = Skate();
+    params->FetchIntValue(kSkaterHeapIndex, &skater, 1);
+    GameModules::Skate* skate = Skate();
     InputManager()->SetPlayerController(skater, controller);
     skate->BindControllers();
     return true;
@@ -529,15 +529,15 @@ bool __cdecl CFunc_BindControllerToSkater(Script::CStruct* params, Script::CScri
 
 // 0x005B1730: BindFrontEndToController controller=c front_end_pad=n: the front end's pad n listens to controller c
 // (the pad that had c takes n's old controller); its input mappings updated. Always true.
-bool __cdecl CFunc_BindFrontEndToController(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_BindFrontEndToController(Scripts::CStruct* params, Scripts::CScript*)
 {
     int controller;
-    params->GetInteger(kController, &controller, 1);
+    params->FetchIntValue(kController, &controller, 1);
     int pad;
-    params->GetInteger(kFrontEndPad, &pad, 1);
+    params->FetchIntValue(kFrontEndPad, &pad, 1);
     // "attempting to bind front end %i to controller %i\n"
-    Dbg::Printf("attempting to bind front end %i to controller %i\n", pad, controller);
-    Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
+    DebugOut::Printf("attempting to bind front end %i to controller %i\n", pad, controller);
+    GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
     int* map = frontEnd->m_deviceServerMap;
     int old = map[pad];
     if (map[0] == controller)
@@ -551,17 +551,17 @@ bool __cdecl CFunc_BindFrontEndToController(Script::CStruct* params, Script::CSc
 
 // 0x005B17C0: ControllerBoundToDifferentSkater Skater=n controller=c: whether a local skater other than n (0-7) reads
 // controller c.
-bool __cdecl CFunc_ControllerBoundToDifferentSkater(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ControllerBoundToDifferentSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     int skater;
-    params->GetInteger(kSkater, &skater, 1);
+    params->FetchIntValue(kSkater, &skater, 1);
     int controller;
-    params->GetInteger(kController, &controller, 1);
-    Mdl::Skate* skate = Skate();
+    params->FetchIntValue(kController, &controller, 1);
+    GameModules::Skate* skate = Skate();
     for (int i = 0; i < 8; ++i) {
         if (i == skater)
             continue;
-        Obj::CCompositeObject* other = skate->GetSkater(i);
+        GameObjects::CGameEntity* other = skate->GetRiderAt(i);
         if (!other || !IsLocalSkater(other))
             continue;
         if (InputManager()->GetPlayerController(i) == controller)
@@ -571,34 +571,34 @@ bool __cdecl CFunc_ControllerBoundToDifferentSkater(Script::CStruct* params, Scr
 }
 
 // 0x005B1840: ControllerBoundToSkater controller=c Skater=n: whether player n reads controller c.
-bool __cdecl CFunc_ControllerBoundToSkater(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ControllerBoundToSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     int controller;
-    params->GetInteger(kController, &controller, 1);
+    params->FetchIntValue(kController, &controller, 1);
     int skater;
-    params->GetInteger(kSkater, &skater, 1);
+    params->FetchIntValue(kSkater, &skater, 1);
     return InputManager()->GetPlayerController(skater) == controller;
 }
 
 // 0x005B1890: GetKeyComboArrayFromTrickArray tricks=[...]: 0x1A4F3519, the key combo of each trick (the current
 // profile's trick_mapping, else its special trick slots; 0 if none) - a copy: the array made for it isn't freed (a
 // leak in the original). Always true.
-bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Scripts::CStruct* params, Scripts::CScript* script)
 {
     CArray* tricks;
     params->GetArray(kTricks, &tricks, 1);
-    CSkaterProfile* profile = ProfileFor(nullptr);
+    CRiderIdentity* profile = ProfileFor(nullptr);
     CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
     int size = static_cast<int>(tricks->m_size);
     CArray* keyCombos = NewArray();
-    keyCombos->SetSizeAndType(size, Script::ESYMBOLTYPE_NAME);
+    keyCombos->ConfigureSizeKind(size, Scripts::QBVAL_NAME);
     for (int i = 0; i < size; ++i) {
         uint32_t trick = tricks->GetElement(i);
         uint32_t keyCombo = KeyComboForTrick(mapping, trick);
         if (!keyCombo) {
             int count = profile->GetMaxSpecials();
             for (int slot = 0; slot < count; ++slot) {
-                CSkaterProfile::SpecialTrick special;
+                CRiderIdentity::SpecialTrick special;
                 profile->GetSpecialTrick(&special, slot);
                 if (special.trick == trick) {
                     keyCombo = special.keys;
@@ -608,12 +608,12 @@ bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Script::CStruct* params, Scrip
         }
         keyCombos->SetElement(i, keyCombo);
     }
-    script->m_params->AddArray(kKeyCombos, keyCombos);
+    script->m_params->AppendArrayValue(kKeyCombos, keyCombos);
     return true;
 }
 
 // 0x005B1A00: FirstInputReceived: the skate module's flag (+0x3C) set (0x00564DA0). Always true.
-bool __cdecl CFunc_FirstInputReceived(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_FirstInputReceived(Scripts::CStruct*, Scripts::CScript*)
 {
     Skate()->CheckControllers();
     return true;
@@ -621,44 +621,44 @@ bool __cdecl CFunc_FirstInputReceived(Script::CStruct*, Script::CScript*)
 
 // 0x005B1A10: VibrateController port=p Actuator=a Percent=n: the device's actuator a at n percent. False without the
 // device.
-bool __cdecl CFunc_VibrateController(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_VibrateController(Scripts::CStruct* params, Scripts::CScript*)
 {
     int port;
-    params->GetInteger(kPort, &port, 1);
+    params->FetchIntValue(kPort, &port, 1);
     int actuator;
-    params->GetInteger(kActuator, &actuator, 1);
+    params->FetchIntValue(kActuator, &actuator, 1);
     int percent;
-    params->GetInteger(kPercent, &percent, 1);
+    params->FetchIntValue(kPercent, &percent, 1);
     Sio::Device* device = Sio::ManagerInstance()->GetDevice(port, 0);
     if (!device)
         return false;
-    device->ActivateActuator(actuator, percent);
+    device->FireActuator(actuator, percent);
     return true;
 }
 
 // 0x005B1A90: LockCurrentSkaterProfileIndex [<n> (1)]: the profile manager's lock set (n != 0). Always true.
-bool __cdecl CFunc_LockCurrentSkaterProfileIndex(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_LockCurrentSkaterProfileIndex(Scripts::CStruct* params, Scripts::CScript*)
 {
     int lock = 1;
-    params->GetInteger(0u, &lock, 1);
+    params->FetchIntValue(0u, &lock, 1);
     ProfileManager()->SetLocked(lock != 0);
     return true;
 }
 
 // 0x005B1AD0: SetSpecialTrickInfo slot=n trick_name=<name> key_combo=<keys>: the current profile's special trick slot
 // n set (not a CAT; the skater not told). False without a current profile.
-bool __cdecl CFunc_SetSpecialTrickInfo(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetSpecialTrickInfo(Scripts::CStruct* params, Scripts::CScript*)
 {
     int slot;
-    params->GetInteger(kSlot, &slot, 1);
+    params->FetchIntValue(kSlot, &slot, 1);
     uint32_t name;
-    params->GetChecksum(kTrickName, &name, 1);
+    params->ReadHashValue(kTrickName, &name, 1);
     uint32_t keys;
-    params->GetChecksum(kKeyCombo, &keys, 1);
-    CSkaterProfile* profile = ProfileManager()->GetCurrentProfile();
+    params->ReadHashValue(kKeyCombo, &keys, 1);
+    CRiderIdentity* profile = ProfileManager()->GetCurrentProfile();
     if (!profile)
         return false;
-    CSkaterProfile::SpecialTrick trick;
+    CRiderIdentity::SpecialTrick trick;
     trick.Construct();
     trick.trick = name;
     trick.keys = keys;
@@ -666,4 +666,4 @@ bool __cdecl CFunc_SetSpecialTrickInfo(Script::CStruct* params, Script::CScript*
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

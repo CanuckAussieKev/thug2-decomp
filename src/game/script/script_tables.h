@@ -2,7 +2,7 @@
 
 #include "game/script/names.h"
 
-namespace Script {
+namespace Scripts {
 
 // The script CFunction table (script_tables.cpp, generated): 1254 {name, function} entries, and the 250 member-function
 // names. AllocatePools registers both as script symbols.

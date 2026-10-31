@@ -22,7 +22,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_vehicleSoundMemberFunctions[24]{
             0xB8451886, 0x1859F772, 0, 0, 0, 0,
@@ -52,20 +52,20 @@ T& Field(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
+SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
-int Clock() { return Tmr::GameClockElapsed(); }
+int Clock() { return FrameClock::GameClockElapsed(); }
 int ClockOffset() { return g_clockOffset; }
 
 // A float of the global structure kRates (asserted).
 float Rate(uint32_t name)
 {
     float value;
-    Script::GetStructure(kRates)->GetFloat(name, &value, 1);
+    Scripts::ReadSubStruct(kRates)->GetFloat(name, &value, 1);
     return value;
 }
-float Setting(Script::CStruct* settings, uint32_t name)
+float Setting(Scripts::CStruct* settings, uint32_t name)
 {
     float value;
     settings->GetFloat(name, &value, 1);
@@ -73,7 +73,7 @@ float Setting(Script::CStruct* settings, uint32_t name)
 }
 
 // The object's speed as the original computes it (x, y, then z), unrounded, times 3.
-double Speed(const Mth::Vector& vel)
+double Speed(const Maths::Vector& vel)
 {
     double x = vel.x, y = vel.y, z = vel.z;
     return std::sqrt((x * x + y * y) + z * z) * kSpeedScale;
@@ -101,25 +101,25 @@ float Fraction(double value)
 } // namespace
 
 // 0x0051ADC0
-int ComponentWithoutMemberFunctions::CallMemberFunction(uint32_t, Script::CStruct*, Script::CScript*) { return 2; }
+int ComponentWithoutMemberFunctions::InvokeMethodByName(uint32_t, Scripts::CStruct*, Scripts::CScript*) { return 2; }
 
 // 0x0051B880
-CBaseComponent* __cdecl CSkaterVehicleSoundComponent::Create()
+CObjectModule* __cdecl CSkaterVehicleSoundComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterVehicleSoundComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CSkaterVehicleSoundComponent));
     return memory ? static_cast<CSkaterVehicleSoundComponent*>(memory)->Construct() : nullptr;
 }
 
 // 0x0051AD90
-void __cdecl CSkaterVehicleSoundComponent::RegisterMemberFunctions()
+void __cdecl CSkaterVehicleSoundComponent::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vehicleSoundMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vehicleSoundMemberFunctions, 0x18);
 }
 
 // 0x0051ADD0
 CSkaterVehicleSoundComponent* CSkaterVehicleSoundComponent::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_sound = nullptr;
     m_settings = nullptr;
     m_parkEditorLevel = false;
@@ -142,7 +142,7 @@ CSkaterVehicleSoundComponent* CSkaterVehicleSoundComponent::Construct()
 void CSkaterVehicleSoundComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0051AE30
@@ -150,14 +150,14 @@ CSkaterVehicleSoundComponent* CSkaterVehicleSoundComponent::Destroy(unsigned int
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0051AE60
-void CSkaterVehicleSoundComponent::InitFromStructure(Script::CStruct*)
+void CSkaterVehicleSoundComponent::ConfigureFromData(Scripts::CStruct*)
 {
-    m_parkEditorLevel = Field<uint32_t>(static_cast<void*>(Ed::g_parkEditor), 0x40) != kParkEditorOff;
+    m_parkEditorLevel = Field<uint32_t>(static_cast<void*>(ParkEditing::g_parkEditor), 0x40) != kParkEditorOff;
 }
 
 // 0x0051B8E0
@@ -174,7 +174,7 @@ void CSkaterVehicleSoundComponent::Update()
 {
     if (!Field<bool>(m_corePhysics, 0x2ED) || m_silenced || !m_settings)
         return;
-    UpdateEngine();
+    TickEngine();
     UpdateSkid();
     UpdateUnused();
 }
@@ -182,32 +182,32 @@ void CSkaterVehicleSoundComponent::Update()
 // 0x0051B670
 void CSkaterVehicleSoundComponent::ReadSettings()
 {
-    Script::GetStructure(kAllSettings)->GetStructure(m_settingsName, &m_settings, 1);
-    m_settings->GetChecksum(0x306F8A9F, &m_engineSoundName, 0);
-    m_settings->GetChecksum(0x667FA96A, &m_skidSoundName, 0);
-    Script::CArray* gears;
+    Scripts::ReadSubStruct(kAllSettings)->ReadSubStruct(m_settingsName, &m_settings, 1);
+    m_settings->ReadHashValue(0x306F8A9F, &m_engineSoundName, 0);
+    m_settings->ReadHashValue(0x667FA96A, &m_skidSoundName, 0);
+    Scripts::CArray* gears;
     m_settings->GetArray(0x83273E6B, &gears, 1);
     m_gearCount = static_cast<int>(gears->m_size);
     for (int i = 0; i < m_gearCount; ++i) {
-        auto* gear = reinterpret_cast<Script::CStruct*>(gears->GetElement(static_cast<uint32_t>(i)));
-        gear->GetFloat(0xFAD20901, &m_gears[i].upAt, 1);
-        gear->GetFloat(0xFCF5C8A2, &m_gears[i].downAt, 1);
-        gear->GetFloat(0x735B5CE4, &m_gears[i].lowRpm, 1);
-        gear->GetFloat(0xE59A89A6, &m_gears[i].highRpm, 1);
+        auto* gear = reinterpret_cast<Scripts::CStruct*>(gears->GetElement(static_cast<uint32_t>(i)));
+        gear->GetFloat(0xFAD20901, &m_gearSteps[i].upAt, 1);
+        gear->GetFloat(0xFCF5C8A2, &m_gearSteps[i].downAt, 1);
+        gear->GetFloat(0x735B5CE4, &m_gearSteps[i].lowRpm, 1);
+        gear->GetFloat(0xE59A89A6, &m_gearSteps[i].highRpm, 1);
     }
-    m_settings->GetStructure(0xBF8E0ACE, &m_extra, 1);
+    m_settings->ReadSubStruct(0xBF8E0ACE, &m_extra, 1);
     if (m_parkEditorLevel) {
-        Script::CStruct* park = Script::GetStructure(kRates);
-        park->GetChecksum(0xF5406E1A, &m_engineSoundName, 1);
-        park->GetChecksum(0x060E93A2, &m_skidSoundName, 1);
-        park->GetStructure(0x22995285, &m_extra, 1);
+        Scripts::CStruct* park = Scripts::ReadSubStruct(kRates);
+        park->ReadHashValue(0xF5406E1A, &m_engineSoundName, 1);
+        park->ReadHashValue(0x060E93A2, &m_skidSoundName, 1);
+        park->ReadSubStruct(0x22995285, &m_extra, 1);
     }
 }
 
 // 0x0051AE80
-void CSkaterVehicleSoundComponent::UpdateEngine()
+void CSkaterVehicleSoundComponent::TickEngine()
 {
-    float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     float speed = static_cast<float>(Speed(m_object->m_vel) * kToMph);
     if (!Field<bool>(m_input, 0x1C0) || Field<bool>(m_input, 0x40))
         speed = static_cast<float>(Rate(0xEC67BC97) * static_cast<double>(speed));
@@ -236,10 +236,10 @@ void CSkaterVehicleSoundComponent::UpdateEngine()
             m_gear = 0;
     } else {
         int gear = m_gear;
-        if (gear < m_gearCount - 1 && m_speed > m_gears[gear].upAt) {
+        if (gear < m_gearCount - 1 && m_speed > m_gearSteps[gear].upAt) {
             m_gear = gear + 1;
             m_shiftTime = Now(Clock(), ClockOffset());
-        } else if (gear > 0 && m_speed < m_gears[gear].downAt) {
+        } else if (gear > 0 && m_speed < m_gearSteps[gear].downAt) {
             m_gear = gear - 1;
             m_shiftTime = Now(Clock(), ClockOffset());
         }
@@ -257,23 +257,23 @@ void CSkaterVehicleSoundComponent::UpdateEngine()
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
     int gear = m_gear;
-    double low = gear ? m_gears[gear - 1].upAt : 0.0;
-    double across = (static_cast<double>(m_speed) - low) / (static_cast<double>(m_gears[gear].upAt) - low);
-    float target = static_cast<float>((static_cast<double>(m_gears[gear].highRpm) - m_gears[gear].lowRpm) * across +
-                                      m_gears[gear].lowRpm);
+    double low = gear ? m_gearSteps[gear - 1].upAt : 0.0;
+    double across = (static_cast<double>(m_speed) - low) / (static_cast<double>(m_gearSteps[gear].upAt) - low);
+    float target = static_cast<float>((static_cast<double>(m_gearSteps[gear].highRpm) - m_gearSteps[gear].lowRpm) * across +
+                                      m_gearSteps[gear].lowRpm);
     double ease = static_cast<double>(Rate(0x3DD9C040)) * frame;
     m_rpm = static_cast<float>((static_cast<double>(target) - m_rpm) * ease + m_rpm);
     float highRpm = Setting(m_settings, 0x95DF9449);
     float lowRpm = Setting(m_settings, 0x05AC84A3);
     float rpm = Fraction((static_cast<double>(m_rpm) - lowRpm) / (static_cast<double>(highRpm) - lowRpm));
 
-    Sfx::sVolume volume;
+    SoundFx::volumeRef volume;
     volume.Init();
-    Sfx::CSfxManager* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = SfxManager();
     sfx->GetVolume(&volume, &m_object->m_pos, sfx->GetDropoffDistance(m_engineSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x288B029D);
     float quiet = Setting(m_settings, 0xB8F81277);
-    volume.PercentageAdjustment(
+    volume.PercentTweak(
         static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
     float highPitch = Setting(m_settings, 0x9F46344A);
     float lowPitch = Setting(m_settings, 0x2660AF3B);
@@ -282,7 +282,7 @@ void CSkaterVehicleSoundComponent::UpdateEngine()
         m_engineSound = sfx->PlaySound(m_engineSoundName, &volume, pitch, 0, nullptr, 0);
     else
         sfx->SetSoundParamsScaled(m_engineSound, &volume, pitch);
-    // (sVolume's destructor is empty: 0x005480A0)
+    // (volumeRef's destructor is empty: 0x005480A0)
 }
 
 // 0x0051B3E0
@@ -295,22 +295,22 @@ void CSkaterVehicleSoundComponent::UpdateSkid()
             skid = static_cast<float>(speed);
     }
     float rate = Rate(0x95FBE774);
-    double ease = Tmr::GetSlomoFrameSeconds() * rate;
+    double ease = FrameClock::GetSlomoFrameSeconds() * rate;
     m_skid = static_cast<float>((static_cast<double>(skid) - m_skid) * ease + m_skid);
     float loudestAt = Setting(m_settings, 0x28F1AAD0);
     float level = Fraction(static_cast<double>(m_skid) / loudestAt);
 
-    Sfx::sVolume volume;
+    SoundFx::volumeRef volume;
     volume.Init();
-    Sfx::CSfxManager* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = SfxManager();
     sfx->GetVolume(&volume, &m_object->m_pos, sfx->GetDropoffDistance(m_skidSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x42EA5746);
     float quiet = Setting(m_settings, 0x43E6CDF2);
-    volume.PercentageAdjustment(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
+    volume.PercentTweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
     float highPitch = Setting(m_settings, 0xE68BE784);
     float lowPitch = Setting(m_settings, 0x76F8F76E);
     float pitch = static_cast<float>((static_cast<double>(highPitch) - lowPitch) * level + lowPitch);
-    if (!volume.IsSilent()) {
+    if (!volume.IsAudioOff()) {
         if (!m_skidSound)
             m_skidSound = sfx->PlaySound(m_skidSoundName, &volume, pitch, 0, nullptr, 0);
         else
@@ -329,9 +329,9 @@ void CSkaterVehicleSoundComponent::UpdateUnused()
 }
 
 // 0x0051B7C0
-bool CSkaterVehicleSoundComponent::SetSkaterVehicleSounds(Script::CStruct* params, Script::CScript*)
+bool CSkaterVehicleSoundComponent::SetSkaterVehicleSounds(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetChecksum(0u, &m_settingsName, 0);
+    params->ReadHashValue(0u, &m_settingsName, 0);
     if (m_engineSound)
         SfxManager()->StopSound(m_engineSound);
     m_engineSound = 0;
@@ -345,7 +345,7 @@ bool CSkaterVehicleSoundComponent::SetSkaterVehicleSounds(Script::CStruct* param
 }
 
 // 0x0051B820
-bool CSkaterVehicleSoundComponent::NoSkaterVehicleSounds(Script::CStruct*, Script::CScript*)
+bool CSkaterVehicleSoundComponent::NoSkaterVehicleSounds(Scripts::CStruct*, Scripts::CScript*)
 {
     if (m_engineSound)
         SfxManager()->StopSound(m_engineSound);
@@ -359,7 +359,7 @@ bool CSkaterVehicleSoundComponent::NoSkaterVehicleSounds(Script::CStruct*, Scrip
 }
 
 // 0x0051B860
-bool CSkaterVehicleSoundComponent::StopSkaterVehicleSounds(Script::CStruct*, Script::CScript*)
+bool CSkaterVehicleSoundComponent::StopSkaterVehicleSounds(Scripts::CStruct*, Scripts::CScript*)
 {
     if (m_engineSound)
         SfxManager()->StopSound(m_engineSound);
@@ -368,22 +368,22 @@ bool CSkaterVehicleSoundComponent::StopSkaterVehicleSounds(Script::CStruct*, Scr
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterVehicleSoundComponent::Destroy,
-         &Obj::CSkaterVehicleSoundComponent::Update,
-         &Obj::CSkaterVehicleSoundComponent::InitFromStructure,
-         &Obj::CSkaterVehicleSoundComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CSkaterVehicleSoundComponent::Destroy,
+         &GameObjects::CSkaterVehicleSoundComponent::Update,
+         &GameObjects::CSkaterVehicleSoundComponent::ConfigureFromData,
+         &GameObjects::CSkaterVehicleSoundComponent::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

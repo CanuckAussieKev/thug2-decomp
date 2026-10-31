@@ -25,7 +25,7 @@ decompiled: the game built from this source links IGN's open-source release of t
 identical functions together. Called on a PEER it is peerGetChat (whether the chat connection exists: the lobby's
 think task asks before peerThink). Called on an SBServer it is SBServerGetPublicInetAddress.
 
-Callbacks the SDK calls in the game: the 28 PEERCallbacks (LobbyMan::InitPeer fills 16 of them by offset), the
+Callbacks the SDK calls in the game: the 28 PEERCallbacks (RoomManager::InitPeer fills 16 of them by offset), the
 listing / group-room / join / enum-players / room-keys / nick-error / connect callbacks, qr2's key / key-list / count /
 add-error callbacks, NAT negotiation's completed callback, gcd's auth callback, GP's callbacks (error, buddy request,
 buddy status, buddy message: the argument structures GPErrorArg, GPConnectResponseArg, GPRecvBuddyStatusArg,
@@ -76,7 +76,7 @@ Behaviour:
   treat 6 as "in use".
 - **NNBeginNegotiationWithSocket**: the exe's opens a socket of its own next to the game's. The 2007 one sends
   everything through the game's socket. The game already passes NAT negotiation packets from that socket to
-  NNProcessData (LobbyMan::QueryTask). The 2007 SDK also speaks a newer NAT negotiation protocol (version 3, the
+  NNProcessData (RoomManager::QueryTask). The 2007 SDK also speaks a newer NAT negotiation protocol (version 3, the
   report packets) than the exe's.
 - **qr2 query challenge**: the 2007 qr2 answers a "pre-query IP verify" and, if the master server sets the option, asks
   clients for it before replying to queries. Old clients (the original game) don't send it. Only relevant if OpenSpy
@@ -88,7 +88,7 @@ Behaviour:
   `cmake/gamespy_sdk.cmake` makes it a variable (peerChatServerAddress). gcd_hostname stays key.gamespy.com: the game
   never changed it. WinMain's first availability check runs before the PC set-up reads OnlineDomain, so it still asks
   gamespy.com.
-- **Game key** (OnlineGameKey, src/game/net/online_identity.cpp): Net::GameKey() is passed to qr2_init, peerSetTitle
+- **Game key** (OnlineGameKey, src/game/net/online_identity.cpp): NetLink::GameKey() is passed to qr2_init, peerSetTitle
   and gcd_secret_key.
 
 ## Modules built (cmake/gamespy_sdk.cmake)

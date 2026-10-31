@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -11,13 +11,13 @@ class CScript;
 // in a workspace texture, and the workspace synced back from a skater's tag), a 2D position from a vector's length
 // and angle, and the custom skater's head bone groups. All are cdecl (params, script) and return whether the script's
 // `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
-bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_SyncCAGWorkspace(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_Get2DPosFrom2DVec(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ResolveHeadBoneScale(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_SyncCAGWorkspace(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ResolveHeadBoneScale(Scripts::CStruct* params, Scripts::CScript* script);
 
 extern float g_degreesToRadians; // pi / 180
 
-} // namespace CFuncs
+} // namespace ScriptCommands

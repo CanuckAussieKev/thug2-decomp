@@ -5,24 +5,24 @@
 
 #include "game/core/alloc.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace Tsk {
-class BaseTask;
+namespace TaskList {
+class SchedulerTask;
 } // namespace Tsk
 
-// The online profile and buddy list ("homies"): GameNet::Manager's m_buddyMan (+0x18), a wrapper of the GameSpy
+// The online profile and buddy list ("homies"): OnlinePlay::Manager's m_buddyMan (+0x18), a wrapper of the GameSpy
 // presence SDK (GP: library code, not decompiled - called by address). The profile is created or logged into from
 // a thread; the GP callbacks keep the buddy list and the buddy messages up to date and run the lobby menus' scripts.
 // 0x00548560-0x0054A660 (the rest of the class, 0x00548040-0x00548560, is with the lobby code before it).
-namespace GameNet {
+namespace OnlinePlay {
 
-// A buddy (0x24C bytes, Mem::Calloc'd): an Lst::Node<Buddy> (vtable 0x0064D140, its scalar deleting destructor
+// A buddy (0x24C bytes, MemSys::AllocZeroed'd): an ListKit::Node<Buddy> (vtable 0x0064D140, its scalar deleting destructor
 // 0x00548CF0) carrying the GP buddy's details.
 struct Buddy {
-    Mem::ListNode m_node;   // +0x00 data = this
+    MemSys::ListNode m_listLink;   // +0x00 data = this
     char m_nick[32];        // +0x14
     int m_profile;          // +0x34 the GameSpy profile id
     int m_status;           // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
@@ -42,11 +42,11 @@ static_assert(sizeof(Buddy) == 0x24C && offsetof(Buddy, m_profile) == 0x34 && of
                   offsetof(Buddy, m_location) == 0x4C && offsetof(Buddy, m_statusText) == 0x14C,
               "layout must match the original");
 
-// A buddy message waiting to be shown (0x68 bytes): an Lst::Node<BuddyMessage> (vtable 0x0064D14C, its scalar
+// A buddy message waiting to be shown (0x68 bytes): an ListKit::Node<BuddyMessage> (vtable 0x0064D14C, its scalar
 // deleting destructor 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
 struct BuddyMessage {
-    Mem::ListNode m_node;   // +0x00 data = this
+    MemSys::ListNode m_listLink;   // +0x00 data = this
     int m_profile;          // +0x14 the sender
     char m_nick[16];        // +0x18
     char m_text[64];        // +0x28
@@ -61,12 +61,12 @@ static_assert(sizeof(BuddyMessage) == 0x68 && offsetof(BuddyMessage, m_nick) == 
                   offsetof(BuddyMessage, m_text) == 0x28,
               "layout must match the original");
 
-class BuddyMan {
+class FriendsManager {
 public:
     // 0x0054A480: GP set up (product 0x2880) with this as the connection and the callbacks (error, buddy request -
     // 0x00548100, buddy status, buddy message; two ignored), on the network heap; the task (BuddyTask, not added
     // yet). Returns this.
-    BuddyMan* Construct();
+    FriendsManager* Construct();
     // 0x005488B0 (destructor body): the task deleted, the two list heads unlinked (the buddies themselves aren't
     // freed).
     void DestroyBody();
@@ -104,27 +104,27 @@ public:
     // The GP callbacks (cdecl: the connection, the callback's argument, this).
     // 0x00549ED0: errors: login failed (0x107: logged off, CreateBuddyLoginFailedDialog), wrong password (0x202),
     // the nick taken by a new user (0x201: state 3, log in instead), already a buddy (0x603).
-    static void __cdecl OnError(void* connection, const void* arg, BuddyMan* man);
+    static void __cdecl OnError(void* connection, const void* arg, FriendsManager* man);
     // 0x00548F50: a buddy's status: the buddy updated (a pending one becomes a buddy: added_buddy, and it goes into
     // the buddy_array preference) or a new buddy made (its nick from buddy_array); update_buddy_status run.
-    static void __cdecl OnBuddyStatus(void* connection, const void* arg, BuddyMan* man);
+    static void __cdecl OnBuddyStatus(void* connection, const void* arg, FriendsManager* man);
     // 0x005496F0: a buddy message (at most 21 kept): "nick\ntext", or a buddy's text with its nick (from someone
     // else: dropped). Script 0x10C3647C run for a new one.
-    static void __cdecl OnBuddyMessage(void* connection, const void* arg, BuddyMan* man);
+    static void __cdecl OnBuddyMessage(void* connection, const void* arg, FriendsManager* man);
     // 0x0054A2C0: gpConnectNewUser's answer: success (0) -> logged in (0x005482A0); the nick taken (4) while a new
     // profile is being made -> log in instead.
-    static void __cdecl OnConnectNewUser(void* connection, const void* arg, BuddyMan* man);
+    static void __cdecl OnConnectNewUser(void* connection, const void* arg, FriendsManager* man);
 
     // 0x0054A300: the task: state 1 / 2 (creating / logging in): GP processed, or after 10 s logged off and
     // CreateBuddyLoginFailedDialog; state 3: LogIn; state 4 (logged in): GP processed once a second.
-    static void __cdecl BuddyTask(Tsk::BaseTask* task);
+    static void __cdecl BuddyTask(TaskList::SchedulerTask* task);
     // 0x0054A3D0 (thread, stdcall): gpConnectNewUser for nick "proskater" with the profile_email / profile_password
     // preferences. Returns 0.
     static unsigned long __stdcall CreateProfileThread(void* man);
 
     // --- buddy_status.cpp (0x00548100-0x00548560) ---
     // 0x00548100 (GP's buddy request callback): the request accepted (gpAuthBuddyRequest, 0x006001A0).
-    static void __cdecl OnBuddyRequest(void* connection, const void* arg, BuddyMan* man);
+    static void __cdecl OnBuddyRequest(void* connection, const void* arg, FriendsManager* man);
     // 0x00548140 (thread, stdcall): gpConnect for nick "proskater" with the profile_email / profile_password
     // preferences (or the command line's, 0x007CCA90 / 0x007CCB90, when 0x007CC260 or 0x007CCA80 is set),
     // OnConnectNewUser for the answer. Returns 0.
@@ -139,31 +139,31 @@ public:
     void* m_connection;       // +0x00 GPConnection (this object is passed as its address)
     int m_profile;            // +0x04 the logged-in profile id
     int m_state;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
-    Tsk::BaseTask* m_task;    // +0x0C Tsk::Task<BuddyMan> (BuddyTask)
+    TaskList::SchedulerTask* m_task;    // +0x0C TaskList::Task<FriendsManager> (BuddyTask)
     bool m_loggedIn;          // +0x10
     uint8_t m_pad11[3];
-    Mem::ListNode m_buddies;  // +0x14 Lst::Head<Buddy>
-    Mem::ListNode m_messages; // +0x28 Lst::Head<BuddyMessage>
+    MemSys::ListNode m_buddies;  // +0x14 ListKit::Head<Buddy>
+    MemSys::ListNode m_messages; // +0x28 ListKit::Head<BuddyMessage>
 };
-static_assert(offsetof(BuddyMan, m_loggedIn) == 0x10 && offsetof(BuddyMan, m_buddies) == 0x14 &&
-                  offsetof(BuddyMan, m_messages) == 0x28 && sizeof(BuddyMan) == 0x3C,
+static_assert(offsetof(FriendsManager, m_loggedIn) == 0x10 && offsetof(FriendsManager, m_buddies) == 0x14 &&
+                  offsetof(FriendsManager, m_messages) == 0x28 && sizeof(FriendsManager) == 0x3C,
               "layout must match the original");
 
 // The script commands (CFunctions: the parameters, the script).
-bool __cdecl SetUniqueId(Script::CStruct* params, Script::CScript* script);            // 0x00548940
-bool __cdecl JoinBuddy(Script::CStruct* params, Script::CScript* script);              // 0x00548A40
-bool __cdecl AddBuddy(Script::CStruct* params, Script::CScript* script);               // 0x00548E40
-bool __cdecl HasBuddies(Script::CStruct* params, Script::CScript* script);             // 0x00548E90
-bool __cdecl BuddyListFull(Script::CStruct* params, Script::CScript* script);          // 0x00548ED0
-bool __cdecl AnyBuddyMessagesLeft(Script::CStruct* params, Script::CScript* script);   // 0x00548F10
-bool __cdecl ProfileLogOff(Script::CStruct* params, Script::CScript* script);          // 0x00549D10
-bool __cdecl FillBuddyList(Script::CStruct* params, Script::CScript* script);          // 0x00549D20
-bool __cdecl CancelAddBuddy(Script::CStruct* params, Script::CScript* script);         // 0x00549D80
-bool __cdecl RemoveBuddy(Script::CStruct* params, Script::CScript* script);            // 0x00549D90
-bool __cdecl ShowNextBuddyMessage(Script::CStruct* params, Script::CScript* script);   // 0x00549DC0
-bool __cdecl IsAlreadyMyBuddy(Script::CStruct* params, Script::CScript* script);       // 0x00549EA0
-bool __cdecl ProfileLogIn(Script::CStruct* params, Script::CScript* script);           // 0x0054A250
-bool __cdecl FillProspectiveBuddyList(Script::CStruct* params, Script::CScript* script); // 0x0054A2B0
-bool __cdecl CreateProfile(Script::CStruct* params, Script::CScript* script);          // 0x0054A650
+bool __cdecl SetUniqueId(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00548940
+bool __cdecl JoinBuddy(Scripts::CStruct* params, Scripts::CScript* script);              // 0x00548A40
+bool __cdecl AddBuddy(Scripts::CStruct* params, Scripts::CScript* script);               // 0x00548E40
+bool __cdecl HasBuddies(Scripts::CStruct* params, Scripts::CScript* script);             // 0x00548E90
+bool __cdecl BuddyListFull(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00548ED0
+bool __cdecl AnyBuddyMessagesLeft(Scripts::CStruct* params, Scripts::CScript* script);   // 0x00548F10
+bool __cdecl ProfileLogOff(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00549D10
+bool __cdecl FillBuddyList(Scripts::CStruct* params, Scripts::CScript* script);          // 0x00549D20
+bool __cdecl CancelAddBuddy(Scripts::CStruct* params, Scripts::CScript* script);         // 0x00549D80
+bool __cdecl RemoveBuddy(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00549D90
+bool __cdecl ShowNextBuddyMessage(Scripts::CStruct* params, Scripts::CScript* script);   // 0x00549DC0
+bool __cdecl IsAlreadyMyBuddy(Scripts::CStruct* params, Scripts::CScript* script);       // 0x00549EA0
+bool __cdecl ProfileLogIn(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0054A250
+bool __cdecl FillProspectiveBuddyList(Scripts::CStruct* params, Scripts::CScript* script); // 0x0054A2B0
+bool __cdecl CreateProfile(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0054A650
 
-} // namespace GameNet
+} // namespace OnlinePlay

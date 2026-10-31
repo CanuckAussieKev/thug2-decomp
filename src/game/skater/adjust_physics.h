@@ -12,26 +12,26 @@
 
 #include "game/obj/object.h"
 
-namespace Nx {
-class CFeeler;
+namespace Engine3D {
+class CProbeRay;
 }
 
-namespace Obj {
+namespace GameObjects {
 
-class CModelComponent;
-class CMovableContactComponent;
-class CShadowComponent;
-class CSkaterStateComponent;
+class CMeshInstanceModule;
+class CMovingSurfaceModule;
+class CGroundShadowModule;
+class CRiderPoseState;
 
-class CSkaterAdjustPhysicsComponent : public CBaseComponent {
+class CRiderPhysicsTweaks : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x9F9CC949;
 
     // 0x004F80E0 (registered by RegisterComponentTypes): a new one (0 if out of memory): no components, not frigged.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x004F8040: the destructor body (the base's). 0x004F8050 (vtable slot 0): the scalar deleting destructor.
     void DestroyBody();
-    CSkaterAdjustPhysicsComponent* Destroy(unsigned int flags);
+    CRiderPhysicsTweaks* Destroy(unsigned int flags);
     // 0x004F8080 (vtable slot 3): the core physics, model, shadow, movable contact and state components.
     void Finalize();
     // 0x004F8C40 (vtable slot 1): the component's frame: on the ground or falling (state 0, or moving down), the
@@ -47,23 +47,23 @@ public:
     // 0x004F82F0: the model lit by the ground: the feeler `ground` asked again (no movables, nearest), a copy of it
     // from 12 higher down to just under its hit (or nowhere: no hit) asked for faces flagged 0x20 - the model's
     // brightness from that hit, else from the ground's (ApplyBrightness, lerped at rate 1).
-    void UpdateBrightness(Nx::CFeeler* ground);
+    void UpdateBrightness(Engine3D::CProbeRay* ground);
 
     int m_uberFrigTries;                 // +0x18 the uber frig's tries in a row (0-5: its offsets from the frame's start)
     uint8_t m_uberFrigged;               // +0x1C set while the uber frig put the skater back this frame
     uint8_t m_pad1D[3];
     void* mp_core;                       // +0x20 the skater's core physics component
-    CModelComponent* mp_model;           // +0x24 the model component (UpdateBrightness)
-    CShadowComponent* mp_shadow;         // +0x28
-    CMovableContactComponent* mp_ride;   // +0x2C
-    CSkaterStateComponent* mp_state;     // +0x30
+    CMeshInstanceModule* m_meshInstance;           // +0x24 the model component (UpdateBrightness)
+    CGroundShadowModule* m_shadowHandle;         // +0x28
+    CMovingSurfaceModule* mp_ride;   // +0x2C
+    CRiderPoseState* mp_state;     // +0x30
 };
-static_assert(offsetof(CSkaterAdjustPhysicsComponent, m_uberFrigTries) == 0x18 &&
-                  offsetof(CSkaterAdjustPhysicsComponent, m_uberFrigged) == 0x1C &&
-                  offsetof(CSkaterAdjustPhysicsComponent, mp_core) == 0x20 &&
-                  offsetof(CSkaterAdjustPhysicsComponent, mp_shadow) == 0x28 &&
-                  offsetof(CSkaterAdjustPhysicsComponent, mp_ride) == 0x2C &&
-                  offsetof(CSkaterAdjustPhysicsComponent, mp_state) == 0x30,
+static_assert(offsetof(CRiderPhysicsTweaks, m_uberFrigTries) == 0x18 &&
+                  offsetof(CRiderPhysicsTweaks, m_uberFrigged) == 0x1C &&
+                  offsetof(CRiderPhysicsTweaks, mp_core) == 0x20 &&
+                  offsetof(CRiderPhysicsTweaks, m_shadowHandle) == 0x28 &&
+                  offsetof(CRiderPhysicsTweaks, mp_ride) == 0x2C &&
+                  offsetof(CRiderPhysicsTweaks, mp_state) == 0x30,
               "layout must match the original");
 
 } // namespace Obj

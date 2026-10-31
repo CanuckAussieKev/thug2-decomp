@@ -21,7 +21,7 @@
 //     level_editor_arcs.h), the grind-line preview (level_editor_grind_preview.h) and the ruler (M,
 //     level_editor_ruler.h). Every key that switched one before still does.
 // Also here: Painter, which the overlay modules draw with (world lines, labels and dots projected to the view).
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 
 enum Bit : uint32_t {
     kLabels = 1u << 0,        // texts over the view (gizmo labels, trigger names, the feature map's numbers)
@@ -54,7 +54,7 @@ void Set(uint32_t bit, bool on);
 // The editor starting / stopping (Stop: the view mode back to Lit; Collision only's forced collision view undone).
 void Start();
 void Stop();
-// The view mode (Nx::ViewMode::Mode as an int; 0 Lit .. 3 Collision only) - Alt+1..4 and the View menu. Collision
+// The view mode (Engine3D::ViewMode::Mode as an int; 0 Lit .. 3 Collision only) - Alt+1..4 and the View menu. Collision
 // only turns the collision view on for as long as it lasts.
 int ViewMode();
 void SetViewMode(int mode);
@@ -113,4 +113,4 @@ std::vector<GridLine> GridLines(V3 centre, float y, float radius, float spacing)
 // The ini's overlays= value read back (unknown bits dropped; a missing value: kDefaultBits).
 uint32_t ParseBits(int value, bool present);
 
-} // namespace Front::LevelEditor::Overlays
+} // namespace MenuSystem::LevelEditor::Overlays

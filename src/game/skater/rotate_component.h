@@ -5,7 +5,7 @@
 
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -15,10 +15,10 @@ class CStruct;
 // over a duration (seconds, or ms by default, or frames), by an angle or to face a Node, one step each frame. From
 // the disassembly of 0x00517CC0-0x0051823C.
 //
-// Vtable: 0 Destroy, 1 Update, 2 InitFromStructure, 3 Finalize, 12 CallMemberFunction.
-namespace Obj {
+// Vtable: 0 Destroy, 1 Update, 2 ConfigureFromData, 3 Finalize, 12 InvokeMethodByName.
+namespace GameObjects {
 
-class CSkaterRotateComponent : public CBaseComponent {
+class CRiderTurning : public CObjectModule {
 public:
     // A turn about one axis over time.
     struct Turn {
@@ -31,13 +31,13 @@ public:
     };
 
     // 0x00517D40 (registered by RegisterComponentTypes): a new one (0 if out of memory), no core physics yet.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00517CC0: the destructor body (the base's).
     void DestroyBody();
     // 0x00517CF0 (vtable slot 0)
-    CSkaterRotateComponent* Destroy(unsigned int flags);
+    CRiderTurning* Destroy(unsigned int flags);
     // 0x00517CD0 (vtable +0x08): no turns. `params` isn't read.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x00517D20 (vtable +0x0C): the core physics component found.
     void Finalize();
     // 0x00517DC0 (vtable +0x04): each active turn steps by the frame's time (the last step cut to end exactly), the
@@ -45,13 +45,13 @@ public:
     // itself.
     void Update();
     // 0x00517EA0 (vtable +0x30): Rotate (1); 2 for any other name.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     Turn m_turns[3];        // +0x18 about x, y, z
     uint8_t* m_corePhysics; // +0x54 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(sizeof(CSkaterRotateComponent::Turn) == 0x14 && offsetof(CSkaterRotateComponent, m_turns) == 0x18 &&
-                  offsetof(CSkaterRotateComponent, m_corePhysics) == 0x54 && sizeof(CSkaterRotateComponent) == 0x58,
+static_assert(sizeof(CRiderTurning::Turn) == 0x14 && offsetof(CRiderTurning, m_turns) == 0x18 &&
+                  offsetof(CRiderTurning, m_corePhysics) == 0x54 && sizeof(CRiderTurning) == 0x58,
               "layout must match the original (0x00517D40 allocates 0x58 bytes)");
 
 } // namespace Obj

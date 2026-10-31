@@ -1,4 +1,4 @@
-// Net::App's socket I/O, connection list and message queues (Neversoft's Net library). See net_app.h.
+// NetLink::App's socket I/O, connection list and message queues (Neversoft's Net library). See net_app.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "game/net/net_app.h"
@@ -20,7 +20,7 @@
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_messages.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
@@ -31,9 +31,9 @@ constexpr uint32_t kHandleFlags2 = 2;
 constexpr uint32_t kHandleFlags3 = 3;
 constexpr uint32_t kHighPriority = 0x80;
 
-// (Net::MsgHandlerContext: net_dispatcher.h)
+// (NetLink::InboundMsgCtx: net_dispatcher.h)
 
-void Free(void* memory) { Mem::Manager::Get()->Free(memory); }
+void Free(void* memory) { MemSys::Manager::Get()->Free(memory); }
 
 // An object deleted through its vtable's scalar deleting destructor (in `slot`).
 void DeleteVirtual(void* object, int slot)
@@ -43,10 +43,10 @@ void DeleteVirtual(void* object, int slot)
 }
 
 // Conn's methods (net_conn.cpp)
-uint32_t SendInterval(Conn* conn) { return conn->GetSendInterval(); }
-bool SendNow(Conn* conn) { return conn->GetForceSendThisFrame(); }
+uint32_t SendInterval(Conn* conn) { return conn->GetTransmitPeriod(); }
+bool SendNow(Conn* conn) { return conn->IsSendForced(); }
 // twice the average latency, at least 500 ms (1000 ms with status bit 2)
-uint32_t ResendThreshold(Conn* conn) { return conn->GetResendThreshold(); }
+uint32_t ResendThreshold(Conn* conn) { return conn->GetRetryDelay(); }
 void DeleteConn(Conn* conn)
 {
     if (conn) {
@@ -55,34 +55,34 @@ void DeleteConn(Conn* conn)
     }
 }
 
-// QueuedMsg's destructor (frees the data)
+// PendingMsg's destructor (frees the data)
 void DeleteMsg(void* msg)
 {
-    static_cast<QueuedMsg*>(msg)->DestroyBody();
+    static_cast<PendingMsg*>(msg)->DestroyBody();
     Free(msg);
 }
 
 // The Dispatcher (net_dispatcher.h) the App's handler lists are.
 void DispatcherInit(HandlerLists* dispatcher) { static_cast<Dispatcher*>(dispatcher)->Init(); }
-void DispatcherDeinit(HandlerLists* dispatcher) { static_cast<Dispatcher*>(dispatcher)->Deinit(); }
-void AddHandler(HandlerLists* dispatcher, uint32_t id, MsgHandlerCode handler, uint32_t flags, uint32_t priority)
+void DispatcherDeinit(HandlerLists* dispatcher) { static_cast<Dispatcher*>(dispatcher)->TearDownState(); }
+void AddHandler(HandlerLists* dispatcher, uint32_t id, HandlerSlotValue handler, uint32_t flags, uint32_t priority)
 {
     static_cast<Dispatcher*>(dispatcher)->AddHandler(static_cast<uint8_t>(id), handler, flags, nullptr,
                                                      static_cast<int>(priority));
 }
-int DispatchMessage(HandlerLists* dispatcher, MsgHandlerContext* context)
+int DispatchMessage(HandlerLists* dispatcher, InboundMsgCtx* context)
 {
     return static_cast<Dispatcher*>(dispatcher)->DispatchMsg(context);
 }
 
 uint16_t Checksum(const uint8_t* data, int length)
 {
-    uint32_t crc = Crc::GenerateCRCFromBuffer(data, length);
+    uint32_t crc = Checksums::GenerateCRCFromBuffer(data, length);
     return static_cast<uint16_t>(crc + (crc >> 16));
 }
 
 // `node` out of its list (and linked to itself; its vtable stays).
-void Remove(Mem::ListNode* node)
+void Remove(MemSys::ListNode* node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
@@ -136,7 +136,7 @@ void App::ReportError()
 bool App::IsSendDue(Conn* conn)
 {
     uint32_t interval = SendInterval(conn);
-    if (m_time - conn->m_lastSendTime >= interval)
+    if (m_clock - conn->m_lastSendTime >= interval)
         return true;
     return SendNow(conn);
 }
@@ -151,7 +151,7 @@ __declspec(naked) void VirtualSlot5Jump()
 }
 
 // 0x00456B40
-void App::AliasConnections(Conn* first, Conn* second)
+void App::LinkDuplicateConns(Conn* first, Conn* second)
 {
     first->m_aliasConn = second;
     second->m_aliasConn = first;
@@ -165,7 +165,7 @@ bool App::Bind(uint32_t /*address*/, uint16_t port)
     local.sin_port = htons(port);
     // (The original asks the manager for its +0x128 value and sets the address to INADDR_ANY unless it's 1 - it's
     // INADDR_ANY already either way.)
-    if (static_cast<Manager*>(m_manager)->GetConnectionType() != Manager::kConnectionModem)
+    if (static_cast<Manager*>(m_supervisor)->GetNetLinkKind() != Manager::kConnectionModem)
         local.sin_addr.s_addr = INADDR_ANY;
     if (bind(m_socket, reinterpret_cast<sockaddr*>(&local), sizeof(local)) < 0) {
         if (WSAGetLastError() != WSAEADDRINUSE) {
@@ -190,7 +190,7 @@ bool App::Bind(uint32_t /*address*/, uint16_t port)
 // 0x00456D90
 SeqQueuedMsg* App::NewQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t arg4, uint8_t arg5)
 {
-    void* memory = Mem::New(sizeof(SeqQueuedMsg));
+    void* memory = MemSys::New(sizeof(SeqQueuedMsg));
     if (!memory)
         return nullptr;
     // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
@@ -274,7 +274,7 @@ bool App::Init()
 }
 
 // 0x00457280
-bool App::SendMessageTo(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
+bool App::DeliverTo(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
 {
     uint8_t packet[kMaxPacketSize];
     packet[0] = id;
@@ -292,20 +292,20 @@ void App::TerminateConnection(Conn* conn)
 }
 
 // 0x004573D0
-Conn* App::NextConnection(ConnSearch* search)
+Conn* App::StepConnWalk(ConnSearch* search)
 {
-    Mem::ListNode* next = search->m_node->next;
-    search->m_node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
-    return search->m_node ? static_cast<Conn*>(search->m_node->data) : nullptr;
+    MemSys::ListNode* next = search->m_listLink->next;
+    search->m_listLink = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return search->m_listLink ? static_cast<Conn*>(search->m_listLink->data) : nullptr;
 }
 
 // 0x00457400
-void App::BanConnection(Conn* conn)
+void App::BlockConnection(Conn* conn)
 {
-    auto* banned = static_cast<BannedConn*>(Mem::Calloc(sizeof(BannedConn)));
+    auto* banned = static_cast<BlockedConnEntry*>(MemSys::AllocZeroed(sizeof(BlockedConnEntry)));
     if (banned)
-        *static_cast<Mem::ListNode*>(banned) = {kBannedConnVtable, banned, 0, banned, banned};
-    banned->m_ip = conn->m_ip; // (an allocation failure crashes here, as in the original)
+        *static_cast<MemSys::ListNode*>(banned) = {kBannedConnVtable, banned, 0, banned, banned};
+    banned->m_hostAddr = conn->m_hostAddr; // (an allocation failure crashes here, as in the original)
     // at the end of the list
     banned->prev = m_banned.prev;
     banned->next = &m_banned;
@@ -314,13 +314,13 @@ void App::BanConnection(Conn* conn)
 }
 
 // 0x00457490
-void App::Deinit()
+void App::TearDownState()
 {
     if (!(m_flags & kLocal))
         closesocket(m_socket);
     DispatcherDeinit(&m_dispatcher);
-    Lst::Search<Conn> search;
-    for (Conn *conn = search.FirstItem(&m_connections), *next; conn; conn = next) {
+    ListKit::Search<Conn> search;
+    for (Conn *conn = search.HeadElement(&m_connections), *next; conn; conn = next) {
         next = search.NextItem();
         DeleteConn(conn);
     }
@@ -329,22 +329,22 @@ void App::Deinit()
 // 0x00457560
 bool App::DispatchQueuedSequencedMessages(Conn* conn)
 {
-    MsgHandlerContext context;
+    InboundMsgCtx context;
     context.Construct();
-    for (Mem::ListNode& queue : conn->m_receivedQueues) {
-        Lst::Search<MsgLink> search;
-        for (MsgLink *link = search.FirstItem(&queue), *next; link; link = next) {
+    for (MemSys::ListNode& queue : conn->m_receivedQueues) {
+        ListKit::Search<TimedMsgNode> search;
+        for (TimedMsgNode *link = search.HeadElement(&queue), *next; link; link = next) {
             next = search.NextItem();
             uint8_t group = link->At<uint8_t>(0x15);
             if (link->At<uint32_t>(0x20) != conn->m_sequenceNumbers[group])
                 break; // not its turn yet
             auto* msg = link->At<SeqQueuedMsg*>(0x28);
-            context.m_Conn = static_cast<Conn*>(conn);
-            context.m_Msg = msg->m_data;
-            context.m_App = static_cast<App*>(this);
-            context.m_PacketFlags = 0;
-            context.m_MsgId = msg->m_id;
-            context.m_MsgLength = msg->m_length;
+            context.m_senderConn = static_cast<Conn*>(conn);
+            context.m_body = msg->m_data;
+            context.m_receiverApp = static_cast<App*>(this);
+            context.m_wireOptions = 0;
+            context.m_typeCode = msg->m_id;
+            context.m_bodySize = msg->m_byteCount;
             ++conn->m_sequenceNumbers[group];
             int result = DispatchMessage(&m_dispatcher, &context);
             if (result == kHandlerKeep)
@@ -365,8 +365,8 @@ bool App::DispatchQueuedSequencedMessages(Conn* conn)
 void App::DestroyBody()
 {
     m_vtable = kAppVtable;
-    Lst::Search<BannedConn> search;
-    for (BannedConn *banned = search.FirstItem(&m_banned), *next; banned; banned = next) {
+    ListKit::Search<BlockedConnEntry> search;
+    for (BlockedConnEntry *banned = search.HeadElement(&m_banned), *next; banned; banned = next) {
         next = search.NextItem();
         if (banned)
             DeleteVirtual(banned, 0);
@@ -382,21 +382,21 @@ void App::DestroyBody()
 }
 
 // 0x004578B0
-Conn* App::GetConnectionByAddress(uint32_t ip, uint16_t port)
+Conn* App::FindConnAtAddress(uint32_t ip, uint16_t port)
 {
-    Lst::Search<Conn> search;
-    for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
-        if (conn->m_ip == ip && conn->m_port == port)
+    ListKit::Search<Conn> search;
+    for (Conn* conn = search.HeadElement(&m_connections); conn; conn = search.NextItem()) {
+        if (conn->m_hostAddr == ip && conn->m_port == port)
             return conn;
     }
     return nullptr;
 }
 
 // 0x00457910
-Conn* App::GetConnectionByHandle(int handle)
+Conn* App::FindConnWithId(int handle)
 {
-    Lst::Search<Conn> search;
-    for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
+    ListKit::Search<Conn> search;
+    for (Conn* conn = search.HeadElement(&m_connections); conn; conn = search.NextItem()) {
         if (conn->m_handle == handle)
             return conn;
     }
@@ -406,16 +406,16 @@ Conn* App::GetConnectionByHandle(int handle)
 // 0x00457970
 bool App::ImportantMessagesDue(Conn* conn)
 {
-    Lst::Search<MsgLink> important;
-    for (MsgLink* link = important.FirstItem(&conn->m_importantMsgs); link; link = important.NextItem()) {
+    ListKit::Search<TimedMsgNode> important;
+    for (TimedMsgNode* link = important.HeadElement(&conn->m_importantMsgs); link; link = important.NextItem()) {
         uint32_t sent = link->At<uint32_t>(0x14);
-        if (!sent || m_time - sent > ResendThreshold(conn))
+        if (!sent || m_clock - sent > ResendThreshold(conn))
             return true;
     }
-    Lst::Search<MsgLink> sequenced;
-    for (MsgLink* link = sequenced.FirstItem(&conn->m_sequencedMsgs); link; link = sequenced.NextItem()) {
+    ListKit::Search<TimedMsgNode> sequenced;
+    for (TimedMsgNode* link = sequenced.HeadElement(&conn->m_sequencedMsgs); link; link = sequenced.NextItem()) {
         uint32_t sent = link->At<uint32_t>(0x1C);
-        if (!sent || m_time - sent > ResendThreshold(conn))
+        if (!sent || m_clock - sent > ResendThreshold(conn))
             return true;
     }
     return false;
@@ -424,21 +424,21 @@ bool App::ImportantMessagesDue(Conn* conn)
 // 0x00457AC0
 bool App::MessagesDue(Conn* conn)
 {
-    Lst::Search<MsgLink> normal;
-    for (MsgLink* link = normal.FirstItem(&conn->m_normalMsgs); link; link = normal.NextItem()) {
-        if (m_time >= link->At<uint32_t>(0x18))
+    ListKit::Search<TimedMsgNode> normal;
+    for (TimedMsgNode* link = normal.HeadElement(&conn->m_normalMsgs); link; link = normal.NextItem()) {
+        if (m_clock >= link->At<uint32_t>(0x18))
             return true;
     }
-    Lst::Search<MsgLink> important;
-    for (MsgLink* link = important.FirstItem(&conn->m_importantMsgs); link; link = important.NextItem()) {
+    ListKit::Search<TimedMsgNode> important;
+    for (TimedMsgNode* link = important.HeadElement(&conn->m_importantMsgs); link; link = important.NextItem()) {
         uint32_t sent = link->At<uint32_t>(0x14);
-        if (!sent || m_time < link->At<uint32_t>(0x24) || m_time - sent > ResendThreshold(conn))
+        if (!sent || m_clock < link->At<uint32_t>(0x24) || m_clock - sent > ResendThreshold(conn))
             return true;
     }
-    Lst::Search<MsgLink> sequenced;
-    for (MsgLink* link = sequenced.FirstItem(&conn->m_sequencedMsgs); link; link = sequenced.NextItem()) {
+    ListKit::Search<TimedMsgNode> sequenced;
+    for (TimedMsgNode* link = sequenced.HeadElement(&conn->m_sequencedMsgs); link; link = sequenced.NextItem()) {
         uint32_t sent = link->At<uint32_t>(0x1C);
-        if (!sent || m_time < link->At<uint32_t>(0x24) || m_time - sent > ResendThreshold(conn))
+        if (!sent || m_clock < link->At<uint32_t>(0x24) || m_clock - sent > ResendThreshold(conn))
             return true;
     }
     return false;
@@ -447,7 +447,7 @@ bool App::MessagesDue(Conn* conn)
 // 0x00457C80
 void App::FreeMessages(Conn* conn, int queue, uint8_t id)
 {
-    Mem::ListNode* list;
+    MemSys::ListNode* list;
     uint32_t msgOffset;
     switch (queue) {
     case 0:
@@ -465,14 +465,14 @@ void App::FreeMessages(Conn* conn, int queue, uint8_t id)
     default:
         return;
     }
-    Lst::Search<MsgLink> search;
-    for (MsgLink *link = search.FirstItem(list), *next; link; link = next) {
+    ListKit::Search<TimedMsgNode> search;
+    for (TimedMsgNode *link = search.HeadElement(list), *next; link; link = next) {
         next = search.NextItem();
         void* msg = link->At<void*>(msgOffset);
-        if (static_cast<QueuedMsg*>(msg)->m_id != id)
+        if (static_cast<PendingMsg*>(msg)->m_id != id)
             continue;
         int& refCount =
-            queue == 2 ? static_cast<SeqQueuedMsg*>(msg)->m_refCount : static_cast<QueuedMsg*>(msg)->m_refCount;
+            queue == 2 ? static_cast<SeqQueuedMsg*>(msg)->m_shareCount : static_cast<PendingMsg*>(msg)->m_shareCount;
         if (--refCount == 0)
             DeleteMsg(msg);
         DeleteVirtual(link, 0);

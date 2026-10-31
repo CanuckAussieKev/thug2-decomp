@@ -1,4 +1,4 @@
-// The skater's physics control component (Obj::CSkaterPhysicsControlComponent): see physics_control.h.
+// The skater's physics control component (GameObjects::CRiderBoardPhysics): see physics_control.h.
 
 #include "game/skater/physics_control.h"
 
@@ -25,7 +25,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_physicsControlMemberFunctions[66]{
             0x3522D612, 0xD9151D4D, 0, 0, 0, 0,
@@ -59,12 +59,12 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-int Clock() { return Tmr::GameClockElapsed() + g_clockOffset; }
+int Clock() { return FrameClock::GameClockElapsed() + g_clockOffset; }
 
 // Milliseconds as unsigned seconds (the original's unsigned conversion through the x87), rounded once to float.
 float Seconds(int ms) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs); }
 
-void SuspendComponent(CBaseComponent* component, bool suspend) { component->VirtualSuspend(suspend); }
+void SuspendComponent(CObjectModule* component, bool suspend) { component->VirtualSuspend(suspend); }
 
 // Calls into the other components: the core physics told it's leaving (0x004FDD50, not rewritten yet) / given the
 // walk's state on coming back (ResumeSkating), the state component's physics mode (1: walking), the walk component
@@ -78,38 +78,38 @@ void CoreReturning(uint8_t* core, bool onGround, void* hold1, void* hold2)
 }
 void SetWalking(uint8_t* state, bool walking)
 {
-    reinterpret_cast<CSkaterStateComponent*>(state)->SetPhysicsMode(walking ? 1 : 0);
+    reinterpret_cast<CRiderPoseState*>(state)->SetPhysicsMode(walking ? 1 : 0);
 }
-void WalkStarting(CBaseComponent* walk, bool fromGround) { static_cast<CWalkComponent*>(walk)->Begin(fromGround); }
-void WalkLeaving(CBaseComponent* walk) { static_cast<CWalkComponent*>(walk)->ClearModelOffset(); }
+void WalkStarting(CObjectModule* walk, bool fromGround) { static_cast<CFootMovement*>(walk)->Begin(fromGround); }
+void WalkLeaving(CObjectModule* walk) { static_cast<CFootMovement*>(walk)->ClearModelOffset(); }
 // The skater camera's 0x004FA420 (save) / 0x004F9A40 (set), the walk camera's 0x00525060 (save) / 0x00524FF0 (restore).
-void SkaterCameraSave(CBaseComponent* camera, void* state)
+void SkaterCameraSave(CObjectModule* camera, void* state)
 {
-    static_cast<CSkaterCameraComponent*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
+    static_cast<CRiderChaseView*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
 }
-void SkaterCameraSet(CBaseComponent* camera, void* state)
+void SkaterCameraSet(CObjectModule* camera, void* state)
 {
-    static_cast<CSkaterCameraComponent*>(camera)->SetState(static_cast<const WalkCameraState*>(state));
+    static_cast<CRiderChaseView*>(camera)->SetState(static_cast<const WalkCameraState*>(state));
 }
-void WalkCameraSave(CBaseComponent* camera, void* state)
+void WalkCameraSave(CObjectModule* camera, void* state)
 {
-    static_cast<CWalkCameraComponent*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
+    static_cast<CFootView*>(camera)->SaveState(static_cast<WalkCameraState*>(state));
 }
-void WalkCameraRestore(CBaseComponent* camera, void* state)
+void WalkCameraRestore(CObjectModule* camera, void* state)
 {
-    static_cast<CWalkCameraComponent*>(camera)->RestoreState(static_cast<const WalkCameraState*>(state));
+    static_cast<CFootView*>(camera)->RestoreState(static_cast<const WalkCameraState*>(state));
 }
 
 } // namespace
 
 // 0x00517830
-CBaseComponent* __cdecl CSkaterPhysicsControlComponent::Create()
+CObjectModule* __cdecl CRiderBoardPhysics::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterPhysicsControlComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderBoardPhysics));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterPhysicsControlComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderBoardPhysics*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kSkaterPhysicsControl;
     component->m_corePhysics = nullptr;
@@ -117,33 +117,33 @@ CBaseComponent* __cdecl CSkaterPhysicsControlComponent::Create()
 }
 
 // 0x005176A0
-void __cdecl CSkaterPhysicsControlComponent::RegisterMemberFunctions()
+void __cdecl CRiderBoardPhysics::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterPhysicsControl),
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterPhysicsControl),
                                         g_physicsControlMemberFunctions, 0x18);
 }
 
 // 0x005176C0
-void CSkaterPhysicsControlComponent::DestroyBody()
+void CRiderBoardPhysics::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00517740
-CSkaterPhysicsControlComponent* CSkaterPhysicsControlComponent::Destroy(unsigned int flags)
+CRiderBoardPhysics* CRiderBoardPhysics::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x005176D0
-void CSkaterPhysicsControlComponent::InitFromStructure(Script::CStruct* /*params*/) { m_paused = false; }
+void CRiderBoardPhysics::ConfigureFromData(Scripts::CStruct* /*params*/) { m_isHalted = false; }
 
 // 0x00517770
-void CSkaterPhysicsControlComponent::Finalize()
+void CRiderBoardPhysics::Finalize()
 {
     m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
     m_state = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
@@ -151,14 +151,14 @@ void CSkaterPhysicsControlComponent::Finalize()
 }
 
 // 0x005178B0
-void CSkaterPhysicsControlComponent::SetPaused(bool paused)
+void CRiderBoardPhysics::SetFrozen(bool paused)
 {
-    m_paused = paused;
+    m_isHalted = paused;
     if (!paused && (m_object->m_compositeFlags & COMPOSITE_FLAG_SUSPENDED))
         return;
     switch (Field<int>(m_state, 0x1C)) {
     case kSkating:
-        SuspendComponent(reinterpret_cast<CBaseComponent*>(m_corePhysics), paused);
+        SuspendComponent(reinterpret_cast<CObjectModule*>(m_corePhysics), paused);
         SuspendComponent(m_object->GetComponent(kSkaterRotate), paused);
         SuspendComponent(m_object->GetComponent(kSkaterAdjustPhysics), paused);
         SuspendComponent(m_object->GetComponent(kSkaterFinalizePhysics), paused);
@@ -172,19 +172,19 @@ void CSkaterPhysicsControlComponent::SetPaused(bool paused)
 }
 
 // 0x00517940
-void CSkaterPhysicsControlComponent::SwitchSkatingToWalking()
+void CRiderBoardPhysics::SwitchSkatingToWalking()
 {
     if (Field<int>(m_state, 0x1C) == kWalking)
         return;
     m_previousDuration = Clock() - m_switchTime;
     m_switchTime = Clock();
-    CBaseComponent* walk = m_object->GetComponent(kWalk);
-    auto* camera = static_cast<CCompositeObject*>(static_cast<CSkater*>(m_object)->GetSkaterCamera());
-    CBaseComponent* skaterCamera = camera->GetComponent(kSkaterCamera);
-    CBaseComponent* walkCamera = camera->GetComponent(kWalkCamera);
+    CObjectModule* walk = m_object->GetComponent(kWalk);
+    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_object)->GetSkaterCamera());
+    CObjectModule* skaterCamera = camera->GetComponent(kSkaterCamera);
+    CObjectModule* walkCamera = camera->GetComponent(kWalkCamera);
     int skaterState = Field<int>(Field<uint8_t*>(m_corePhysics, 0x1528), 0x18);
     CoreLeaving(m_corePhysics);
-    SuspendComponent(reinterpret_cast<CBaseComponent*>(m_corePhysics), true);
+    SuspendComponent(reinterpret_cast<CObjectModule*>(m_corePhysics), true);
     SuspendComponent(m_object->GetComponent(kSkaterRotate), true);
     SuspendComponent(m_object->GetComponent(kSkaterAdjustPhysics), true);
     SuspendComponent(m_object->GetComponent(kSkaterFinalizePhysics), true);
@@ -196,26 +196,26 @@ void CSkaterPhysicsControlComponent::SwitchSkatingToWalking()
     alignas(16) uint8_t cameraState[0x60];
     SkaterCameraSave(skaterCamera, cameraState);
     WalkCameraRestore(walkCamera, cameraState);
-    if (m_paused)
-        SetPaused(m_paused);
+    if (m_isHalted)
+        SetFrozen(m_isHalted);
 }
 
 // 0x00517B20
-void CSkaterPhysicsControlComponent::SwitchWalkingToSkating()
+void CRiderBoardPhysics::SwitchWalkingToSkating()
 {
     if (Field<int>(m_state, 0x1C) == kSkating)
         return;
     m_previousDuration = Clock() - m_switchTime;
     m_switchTime = Clock();
-    CBaseComponent* walk = m_object->GetComponent(kWalk);
-    auto* camera = static_cast<CCompositeObject*>(static_cast<CSkater*>(m_object)->GetSkaterCamera());
-    CBaseComponent* skaterCamera = camera->GetComponent(kSkaterCamera);
-    CBaseComponent* walkCamera = camera->GetComponent(kWalkCamera);
+    CObjectModule* walk = m_object->GetComponent(kWalk);
+    auto* camera = static_cast<CGameEntity*>(static_cast<CRider*>(m_object)->GetSkaterCamera());
+    CObjectModule* skaterCamera = camera->GetComponent(kSkaterCamera);
+    CObjectModule* walkCamera = camera->GetComponent(kWalkCamera);
     WalkLeaving(walk);
     SuspendComponent(walk, true);
     SuspendComponent(walkCamera, true);
     SetWalking(m_state, false);
-    SuspendComponent(reinterpret_cast<CBaseComponent*>(m_corePhysics), false);
+    SuspendComponent(reinterpret_cast<CObjectModule*>(m_corePhysics), false);
     // The walk's ground state (+0x18 0) and what it holds (+0x748: 1 - its +0x74C -, or 2 - its +0x768).
     int hold = Field<int>(walk, 0x748);
     void* hold2 = hold == 2 ? reinterpret_cast<uint8_t*>(walk) + 0x768 : nullptr;
@@ -228,28 +228,28 @@ void CSkaterPhysicsControlComponent::SwitchWalkingToSkating()
     alignas(16) uint8_t cameraState[0x60];
     WalkCameraSave(walkCamera, cameraState);
     SkaterCameraSet(skaterCamera, cameraState);
-    if (m_paused)
-        SetPaused(m_paused);
+    if (m_isHalted)
+        SetFrozen(m_isHalted);
 }
 
 // 0x00517AC0
-void CSkaterPhysicsControlComponent::Update()
+void CRiderBoardPhysics::Update()
 {
     m_flag26 = 0;
-    if (!m_paused)
+    if (!m_isHalted)
         return;
     switch (Field<int>(m_state, 0x1C)) {
-    case kSkating: m_object->m_displayMatrix = Field<Mth::Matrix>(m_corePhysics, 0x18); break;
-    case kWalking: m_object->m_displayMatrix = m_object->m_matrix; break;
+    case kSkating: m_object->m_displayMatrix = Field<Maths::Matrix>(m_corePhysics, 0x18); break;
+    case kWalking: m_object->m_displayMatrix = m_object->m_basisFrame; break;
     default: break;
     }
-    if (!(reinterpret_cast<CBaseComponent*>(m_corePhysics)->m_flags & COMPONENT_FLAG_SUSPENDED))
-        SetPaused(true);
+    if (!(reinterpret_cast<CObjectModule*>(m_corePhysics)->m_flags & COMPONENT_FLAG_SUSPENDED))
+        SetFrozen(true);
 }
 
 // 0x00517C80
-int CSkaterPhysicsControlComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*params*/,
-                                                       Script::CScript* /*script*/)
+int CRiderBoardPhysics::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/,
+                                                       Scripts::CScript* /*script*/)
 {
     switch (name) {
     case kSwitchWalkingToSkating: SwitchWalkingToSkating(); return 1;
@@ -259,80 +259,80 @@ int CSkaterPhysicsControlComponent::CallMemberFunction(uint32_t name, Script::CS
 }
 
 // 0x00517A80
-bool CSkaterPhysicsControlComponent::PausePhysics(Script::CStruct*, Script::CScript*)
+bool CRiderBoardPhysics::PausePhysics(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (!m_paused)
-        SetPaused(true);
+    if (!m_isHalted)
+        SetFrozen(true);
     return true;
 }
 // 0x00517AA0
-bool CSkaterPhysicsControlComponent::UnPausePhysics(Script::CStruct*, Script::CScript*)
+bool CRiderBoardPhysics::UnPausePhysics(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (m_paused)
-        SetPaused(false);
+    if (m_isHalted)
+        SetFrozen(false);
     return true;
 }
 // 0x005177A0
-bool CSkaterPhysicsControlComponent::GetTimeSincePhysicsSwitch(Script::CStruct*, Script::CScript* script)
+bool CRiderBoardPhysics::GetTimeSincePhysicsSwitch(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddFloat(kTimeSincePhysicsSwitch, Seconds(Clock() - m_switchTime));
+    script->m_params->PushFloat(kTimeSincePhysicsSwitch, Seconds(Clock() - m_switchTime));
     return true;
 }
 // 0x005177F0
-bool CSkaterPhysicsControlComponent::GetPreviousPhysicsStateDuration(Script::CStruct*, Script::CScript* script)
+bool CRiderBoardPhysics::GetPreviousPhysicsStateDuration(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddFloat(kPreviousPhysicsStateDuration, Seconds(m_previousDuration));
+    script->m_params->PushFloat(kPreviousPhysicsStateDuration, Seconds(m_previousDuration));
     return true;
 }
 // 0x005176E0
-bool CSkaterPhysicsControlComponent::SetBoardMissing(Script::CStruct*, Script::CScript*)
+bool CRiderBoardPhysics::SetBoardMissing(Scripts::CStruct*, Scripts::CScript*)
 {
     m_boardMissing = true;
     return true;
 }
 // 0x005176F0
-bool CSkaterPhysicsControlComponent::UnsetBoardMissing(Script::CStruct*, Script::CScript*)
+bool CRiderBoardPhysics::UnsetBoardMissing(Scripts::CStruct*, Scripts::CScript*)
 {
     m_boardMissing = false;
     return true;
 }
 // 0x00517700
-bool CSkaterPhysicsControlComponent::IsBoardMissing(Script::CStruct*, Script::CScript*) { return m_boardMissing; }
+bool CRiderBoardPhysics::IsBoardMissing(Scripts::CStruct*, Scripts::CScript*) { return m_boardMissing; }
 // 0x00517710
-bool CSkaterPhysicsControlComponent::SetForceWalk(Script::CStruct*, Script::CScript*)
+bool CRiderBoardPhysics::SetForceWalk(Scripts::CStruct*, Scripts::CScript*)
 {
     m_boardMissing = true;
     m_forceWalk = true;
     return true;
 }
 // 0x00517720
-bool CSkaterPhysicsControlComponent::UnSetForceWalk(Script::CStruct*, Script::CScript*)
+bool CRiderBoardPhysics::UnSetForceWalk(Scripts::CStruct*, Scripts::CScript*)
 {
     m_boardMissing = false;
     m_forceWalk = false;
     return true;
 }
 // 0x00517730
-bool CSkaterPhysicsControlComponent::IsForceWalkOn(Script::CStruct*, Script::CScript*) { return m_forceWalk; }
+bool CRiderBoardPhysics::IsForceWalkOn(Scripts::CStruct*, Scripts::CScript*) { return m_forceWalk; }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterPhysicsControlComponent::Destroy,
-         &Obj::CSkaterPhysicsControlComponent::Update,
-         &Obj::CSkaterPhysicsControlComponent::InitFromStructure,
-         &Obj::CSkaterPhysicsControlComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderBoardPhysics::Destroy,
+         &GameObjects::CRiderBoardPhysics::Update,
+         &GameObjects::CRiderBoardPhysics::ConfigureFromData,
+         &GameObjects::CRiderBoardPhysics::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::CSkaterPhysicsControlComponent::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CRiderBoardPhysics::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

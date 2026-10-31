@@ -1,7 +1,7 @@
 #pragma once
 
 // The short names of the keyboard's special keys, by scan code (shown in the controller setup).
-namespace Sys {
+namespace SystemCore {
 
 // 0x004E0DA0: the names in English (also French's).
 void __cdecl SetKeyNames();

@@ -8,7 +8,7 @@
 #include "game/script/struct.h"
 #include "game/core/code_address.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -28,7 +28,7 @@ void Platform(CScreenEffects* effects, int slot, A argument)
 }
 
 // An [r g b] array as RGBA bytes, alpha 0 (each element's low byte).
-uint32_t ArrayColour(Script::CArray* array)
+uint32_t ArrayColour(Scripts::CArray* array)
 {
     uint8_t r = static_cast<uint8_t>(array->GetElement(0));
     uint8_t g = static_cast<uint8_t>(array->GetElement(1));
@@ -54,37 +54,37 @@ CScreenEffects* CScreenEffects::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x0049E320
-bool CScreenEffects::SetOn(Script::CStruct*, Script::CScript*)
+bool CScreenEffects::SetOn(Scripts::CStruct*, Scripts::CScript*)
 {
     m_on = true;
     return true;
 }
 
 // 0x0049E310
-bool CScreenEffects::SetOff(Script::CStruct*, Script::CScript*)
+bool CScreenEffects::SetOff(Scripts::CStruct*, Scripts::CScript*)
 {
     m_on = false;
     return true;
 }
 
 // 0x0049E360
-bool CScreenEffects::SetBloomParams(Script::CStruct* params, int)
+bool CScreenEffects::SetBloomParams(Scripts::CStruct* params, int)
 {
     int on = -1;
     int alpha1 = -1;
     int alpha2 = -1;
-    if (params->GetInteger(kOn, &on, 0))
+    if (params->FetchIntValue(kOn, &on, 0))
         Platform(this, 2, on);
-    params->GetInteger(kBloomAlpha1, &alpha1, 0);
-    params->GetInteger(kBloomAlpha2, &alpha2, 0);
+    params->FetchIntValue(kBloomAlpha1, &alpha1, 0);
+    params->FetchIntValue(kBloomAlpha2, &alpha2, 0);
     if (alpha1 != -1 || alpha2 != -1)
         reinterpret_cast<void(__thiscall*)(CScreenEffects*, int, int)>(vtable[4])(this, alpha1, alpha2);
-    Script::CArray* array = nullptr;
+    Scripts::CArray* array = nullptr;
     if (params->GetArray(kColour, &array, 0))
         Platform(this, 5, ArrayColour(array));
     array = nullptr;
@@ -95,10 +95,10 @@ bool CScreenEffects::SetBloomParams(Script::CStruct* params, int)
 
 // 0x0049E4B0 (the first float is uninitialised in the original when it isn't given; 0 here - only slot 9, which
 // ignores its argument on PC, would see it)
-bool CScreenEffects::SetDOFParams(Script::CStruct* params, Script::CScript*)
+bool CScreenEffects::SetDOFParams(Scripts::CStruct* params, Scripts::CScript*)
 {
     int on;
-    if (params->GetInteger(kOn, &on, 0))
+    if (params->FetchIntValue(kOn, &on, 0))
         Platform(this, 6, on);
     float a = 0.0f;
     if (params->GetFloat(kDofFloatA, &a, 0))
@@ -112,7 +112,7 @@ bool CScreenEffects::SetDOFParams(Script::CStruct* params, Script::CScript*)
     float d;
     if (params->GetFloat(kDofFloatD, &d, 0))
         Platform(this, 12, d);
-    Script::CArray* array;
+    Scripts::CArray* array;
     if (params->GetArray(kDofColourA, &array, 0))
         Platform(this, 8, ArrayColour(array));
     if (params->GetArray(kDofColourB, &array, 0))
@@ -121,7 +121,7 @@ bool CScreenEffects::SetDOFParams(Script::CStruct* params, Script::CScript*)
 }
 
 namespace {
-static VtableSlot kScreenEffectsVtable_slots[] = {&Nx::CScreenEffects::Destroy, &_purecall,
+static VtableSlot kScreenEffectsVtable_slots[] = {&Engine3D::CScreenEffects::Destroy, &_purecall,
                 &_purecall, &_purecall, &_purecall,
                 &_purecall, &_purecall, &_purecall,
                 &_purecall, &_purecall, &_purecall,

@@ -4,7 +4,7 @@
 
 #include "game/sys/log.h"
 
-namespace Nx::HdUi {
+namespace Engine3D::HdUi {
 
 namespace {
 int s_images = 0;
@@ -32,4 +32,4 @@ void NoteFont(const char* name, uint32_t scale, uint32_t width, uint32_t height)
     Log("hd ui: font %s upscaled x%u (glyph page %ux%u)", name ? name : "(from memory)", scale, width, height);
 }
 
-} // namespace Nx::HdUi
+} // namespace Engine3D::HdUi

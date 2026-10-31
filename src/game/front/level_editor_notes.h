@@ -21,7 +21,7 @@ struct ImFont;
 //   note <name> pos=x,y,z color=RRGGBB text="..."
 // The text is percent-encoded where the line needs it: % " # (the layout's comment mark), control characters (a new
 // line is %0A) - everything else as typed (UTF-8). At most kMaxText bytes; text= comes last.
-namespace Front::LevelEditor::Notes {
+namespace MenuSystem::LevelEditor::Notes {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -70,4 +70,4 @@ void AddOverlay(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32
 void OutlinerSection(ImFont* mono, const char* search);
 void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale);
 
-} // namespace Front::LevelEditor::Notes
+} // namespace MenuSystem::LevelEditor::Notes

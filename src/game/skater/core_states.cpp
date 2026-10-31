@@ -46,22 +46,22 @@ void CorePhysicsComponent::DoLipPhysics()
     SetFlag(this, 0x80, 0);
     At<uint8_t>(this, 0x2E4) = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
-    if (Obj::CRideTracker* tracker = Tracker(this)) {
-        if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+    if (GameObjects::CRideTracker* tracker = Tracker(this)) {
+        if (!tracker->m_object.m_ownerObject || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
             StopRiding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
-            auto* contact = At<Obj::CMovableContactComponent*>(this, kRide);
-            Mth::Vector where;
+            auto* contact = At<GameObjects::CMovingSurfaceModule*>(this, kRide);
+            Maths::Vector where;
             void* object = ObjectOf(this);
             contact->GetContactPoint(&where);
             VectorAt(object, kPosition) = where;
-            At<Obj::CMovableContactComponent*>(this, kRide)->GetContactPoint(&where);
+            At<GameObjects::CMovingSurfaceModule*>(this, kRide)->GetContactPoint(&where);
             VectorAt(this, 0x258) = where;
             if (Tracker(this)->m_turned) {
                 auto multiply =
                     D3dx::MatrixMultiply;
-                Mth::Matrix& matrix = MatrixAt(ObjectOf(this), kMatrix);
+                Maths::Matrix& matrix = MatrixAt(ObjectOf(this), kMatrix);
                 multiply(&matrix, &matrix, &Tracker(this)->m_turn);
                 multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
             }
@@ -69,14 +69,14 @@ void CorePhysicsComponent::DoLipPhysics()
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
     if (At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18) == kLipKind) {
-        auto career = [] { return At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20); };
-        if (career()->GetCheat(kPerfectRail)) {
-            career()->SetGlobalFlag(Script::GetInteger(kPerfectRail));
+        auto career = [] { return At<GameObjects::CRiderStoryProgress*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); };
+        if (career()->IsCodeOn(kPerfectRail)) {
+            career()->SetGlobalFlag(Scripts::FetchIntValue(kPerfectRail));
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0x104) = 0;
             At<uint32_t>(At<void*>(this, kBalanceTrick), 0x108) = 0;
-            reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
+            reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
         }
-        reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0xD4)->Update();
+        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0xD4)->Update();
     }
     if (!Flag(this, 0x20) && InputOf(this)[0x1C0])
         SetFlag(this, 0x20, 1);
@@ -86,11 +86,11 @@ void CorePhysicsComponent::DoLipPhysics()
         TriggerRailScript(g_lipOffEvents);
         TriggerRailScript(g_offLipEvents);
     }
-    auto* node = At<Obj::CRailNode*>(this, kRailNode);
-    if (node && At<Obj::CRailManager*>(this, kRailManager)->m_nodeArray) {
-        Script::CStruct* script = SkateScript::GetNode(node->m_name, true);
-        script->GetChecksum(kName, &At<uint32_t>(this, kRailScriptNode), 1);
-        static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))
+    auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
+    if (node && At<GameObjects::CGrindRailHub*>(this, kRailManager)->m_nodeArray) {
+        Scripts::CStruct* script = LevelNodes::GetNode(node->m_name, true);
+        script->ReadHashValue(kName, &At<uint32_t>(this, kRailScriptNode), 1);
+        static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))
             ->PassToTrickObjects(At<uint32_t>(this, kRailScriptNode));
     }
     At<int>(this, 0x238) = Now();
@@ -139,17 +139,17 @@ void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, vo
         auto* rail = const_cast<uint8_t*>(grind);
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         void* ride = At<void*>(this, kRide);
-        if (Obj::CRideTracker* tracker = At<Obj::CRideTracker*>(ride, 0x18)) {
-            At<void*>(ride, 0x6C) = tracker->m_object.mp_object;
-            reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(&tracker->m_object)->Release();
-            Mem::Manager::Get()->Free(tracker);
-            At<Obj::CRideTracker*>(ride, 0x18) = nullptr;
+        if (GameObjects::CRideTracker* tracker = At<GameObjects::CRideTracker*>(ride, 0x18)) {
+            At<void*>(ride, 0x6C) = tracker->m_object.m_ownerObject;
+            reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_object)->Release();
+            MemSys::Manager::Get()->Free(tracker);
+            At<GameObjects::CRideTracker*>(ride, 0x18) = nullptr;
             At<int>(ride, 0x70) = Now();
         }
         if (void* object = At<void*>(rail, 0x18))
-            At<Walk::MovableContact*>(this, kRide)->StartRiding(static_cast<Obj::CCompositeObject*>(object));
-        StartGrind(reinterpret_cast<const Mth::Vector*>(grind), At<Obj::CRailNode*>(rail, 0x14),
-                   At<Obj::CRailManager*>(rail, 0x10), true, true);
+            At<Walk::MovableContact*>(this, kRide)->StartRiding(static_cast<GameObjects::CGameEntity*>(object));
+        StartGrind(reinterpret_cast<const Maths::Vector*>(grind), At<GameObjects::CGrindPoint*>(rail, 0x14),
+                   At<GameObjects::CGrindRailHub*>(rail, 0x10), true, true);
         VectorAt(this, 0x98) = VectorAt(ObjectOf(this), kPosition);
         VectorAt(ObjectOf(this), kOldPosition) = VectorAt(this, 0x98);
     } else if (acidDrop) {

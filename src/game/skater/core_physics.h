@@ -4,13 +4,13 @@
 
 #include "game/mth/vector.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
-namespace Obj {
-struct CRailNode;
-class CRailManager;
+namespace GameObjects {
+struct CGrindPoint;
+class CGrindRailHub;
 } // namespace Obj
 
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
@@ -20,8 +20,8 @@ namespace Skater {
 
 // What the acid drop search (CorePhysicsComponent::FindAcidDrop) finds (0x28 bytes).
 struct AcidDrop {
-    Mth::Vector point;  // +0x00 where on the wall the skater drops to
-    Mth::Vector normal; // +0x10 the wall's normal there
+    Maths::Vector point;  // +0x00 where on the wall the skater drops to
+    Maths::Vector normal; // +0x10 the wall's normal there
     float hitHeight;    // +0x20 the height the search first hit it at
     bool objectHit;     // +0x24 (the feeler's hit object was still there)
     uint8_t pad25[3];
@@ -51,14 +51,14 @@ public:
     // both triggers (+0xC0 and +0x120 of the input; either one under PartyMod's PS2 controls) or button +0x60
     // held long enough - along the facing; +0x20 or +0x40 held long enough - sideways one way or the other.
     // Button +0x80 held, or nothing pushed: returns 0 and leaves the velocity alone. 1 otherwise.
-    int LipPushOff(Script::CStruct* params, Script::CScript* script);
+    int LipPushOff(Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x004FCE90 (the script member function SetSpeed): the skater's speed set to the unnamed float (0 without one)
     // - the velocity's direction kept; with almost none (its length squared below 0.001), the facing's instead
     // (the object's matrix row at +0x8C, all four components). The fourth component is scaled with the rest. 1.
     // Not original: [features] debug_rail_speed=1 logs the calls of the rail speed-up loops (the THAW ports'
     // RailAccelerate2, the level editor's ed_RailSpeedLoop) - when one starts, then once a second.
-    int SetSpeed(Script::CStruct* params, Script::CScript* script);
+    int SetSpeed(Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00509BD0: keep to the ground while skating. A feeler along the skater's up axis looks for the ground
     // below; on a hit the skater sticks to it (unless it's too steep or too far for a hit on a wall), otherwise
@@ -78,7 +78,7 @@ public:
 
     // --- core_jump.cpp: jumping, skitching, the script member functions around them, the wallplant state ---
     // 0x005092E0: the TriggerScript of the rail node being ground (+0x22C) - or of the nearest one before it (back
-    // along m_prev, stopping at a loop) that has one - run for the three `events` (const int[3]); its name kept
+    // along m_lastValue, stopping at a loop) that has one - run for the three `events` (const int[3]); its name kept
     // (+0x240 / +0x244), the flag +0xC8 telling whether it's a different node than last time. Nothing without a
     // rail node, its script node or a TriggerScript.
     void TriggerRailScript(const int* events);
@@ -87,7 +87,7 @@ public:
     // (boneless or not, from vert or not) between their min and max by how long the jump was held (+0x378, up to
     // the max tense time) - or `params`' speed; off vert pushed off the ramp instead (going down: stopped first);
     // then into the air (+0x4EC the time, the event SkaterJump).
-    void DoJump(Script::CStruct* params);
+    void PerformLeap(Scripts::CStruct* params);
     // 0x00509920 / 0x00509990: start skitching on the object at +0x364 (riding it, flag +0x88, the event
     // 0x35224F25 to it) / stop (the event 0x2739B86D, the pointer and the ride let go).
     void BeginSkitch();
@@ -95,18 +95,18 @@ public:
     // 0x00509050: the wallplant state's update: after Physics_Wallplant_Duration into the air (a feeler along the
     // facing for a trigger), else carried along by what the skater rides on.
     void DoWallplantPhysics();
-    // The script member functions (all return 1; neither argument used unless said): 0x00509A40 Jump (DoJump with
-    // `params`), 0x00509A60 StartSkitch, 0x00509A70 StopSkitch, 0x00509A80 SetState (`params`' unnamed checksum:
+    // The script member functions (all return 1; neither argument used unless said): 0x00509A40 Jump (PerformLeap with
+    // `params`), 0x00509A60 StartSkitch, 0x00509A70 EndTowRide, 0x00509A80 SetState (`params`' unnamed checksum:
     // AIR, Ground or Lip; off a lip runs the rail's TriggerScript, wall riding the up set straight), 0x00509B70
     // TriggerGrindOff (the rail's TriggerScript for grinding off), 0x00509B90 (0x675CF35E: break out of vert, forced,
     // and 0x00504DF0), 0x00509BB0 WalkingWallplant (0x00507500 with 0, 0, 1).
-    int Jump(Script::CStruct* params, Script::CScript* script);
-    int StartSkitch(Script::CStruct* params, Script::CScript* script);
-    int StopSkitch(Script::CStruct* params, Script::CScript* script);
-    int SetState(Script::CStruct* params, Script::CScript* script);
-    int TriggerGrindOff(Script::CStruct* params, Script::CScript* script);
-    int ForceBreakVert(Script::CStruct* params, Script::CScript* script);
-    int WalkingWallplant(Script::CStruct* params, Script::CScript* script);
+    int Jump(Scripts::CStruct* params, Scripts::CScript* script);
+    int StartSkitch(Scripts::CStruct* params, Scripts::CScript* script);
+    int EndTowRide(Scripts::CStruct* params, Scripts::CScript* script);
+    int SetState(Scripts::CStruct* params, Scripts::CScript* script);
+    int TriggerGrindOff(Scripts::CStruct* params, Scripts::CScript* script);
+    int ForceBreakVert(Scripts::CStruct* params, Scripts::CScript* script);
+    int WalkingWallplant(Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- core_collision.cpp: the skater against walls ahead and to the sides ---
     // 0x00508780 (from the air update): a feeler from `from` to past the new position (raised by
@@ -116,7 +116,7 @@ public:
     // pushed back off the wall (Skater_Min_Distance_To_Wall) and turned along it; otherwise (no wallplant, no
     // 0x00508140) a bonk: the trigger, the sound, the velocity along the wall, the facing turned away from it, and a
     // moving object's push. False when nothing stopped the skater.
-    bool CheckAirForwardCollision(const Mth::Vector* from);
+    bool CheckAirForwardCollision(const Maths::Vector* from);
     // 0x0050A2C0: a feeler from the skater's side height (Skater_side_collide_height) out to one side (`side` -1 or
     // 1 along the right) `length` long (more in the air: Skater_air_extra_side_col). Never while wall riding. In the air the
     // skater is pushed out of what it hit (a tenth of the overlap) - true only when 0x00508140 took over; otherwise
@@ -135,7 +135,7 @@ public:
     // coin toss when across it; nothing at the rail's end), Rail_Speed_Boost, the bad ledge feelers either side, and
     // the grind trick picked from the pad. `fromObject` (from a car plant or a vehicle): the velocity isn't
     // flattened, and too slow against the facing it starts from the facing.
-    void StartGrind(const Mth::Vector* point, Obj::CRailNode* node, Obj::CRailManager* manager, bool noLipTrick,
+    void StartGrind(const Maths::Vector* point, GameObjects::CGrindPoint* node, GameObjects::CGrindRailHub* manager, bool noLipTrick,
                     bool fromObject);
     // 0x0050DAE0: in the air (or `always`), grind button (+0x1A0) held, not after a wallplant for
     // Physics_Wallplant_Disallow_Grind_Duration: a rail along the last move (soon after leaving a rail, only one
@@ -170,7 +170,7 @@ public:
     // the skater is between its two nodes - or, outside the park editor, when the move is at least as long as its
     // segment (then onto its middle) - the velocity along it, the skater at its point; else off the rail into the
     // air (OffRail).
-    void TransferOrLeaveRail(const Mth::Vector* end);
+    void TransferOrLeaveRail(const Maths::Vector* end);
 
     // --- core_ground.cpp ---
     // 0x0050EE70: the ground state's update (state 0). Off vert, no rail, the heading (+0x348, degrees from the facing,
@@ -204,7 +204,7 @@ public:
 
     // --- core_physics_state.cpp: the component made, reset and destroyed; timers ---
     // (Fields: core_physics_fields.h. The component is 0x153C bytes, type 0x5BD63B29 SkaterCorePhysics, vtable
-    // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 CallMemberFunction 0x00501600.)
+    // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 InvokeMethodByName 0x00501600.)
     // 0x00505440 (the component type's maker): a new one (0 if out of memory).
     static void* __cdecl Create();
     // 0x00500CA0: the base's constructor, then its vtable and type; its two feelers (+0xA8, +0x158) and its collision
@@ -221,7 +221,7 @@ public:
     void SetLastGroundFeeler(const void* feeler);
     // 0x00506BD0 (the script member function CancelRotateDisplayandUpdateMatrix): the model's rotations applied and
     // reset (ApplyModelRotations); whether any was on, 1 or 0.
-    int CancelRotateDisplayandUpdateMatrix(Script::CStruct* params, Script::CScript* script);
+    int CancelRotateDisplayandUpdateMatrix(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00500670 (from the frame's update): the collision cache (+0x4F4) refilled for a box round the skater - 180
     // either way along x and z, 204 below and 96 above - and made the feelers' current cache (0x00691974).
     void UpdateCollisionCache();
@@ -244,12 +244,12 @@ public:
     // 0x00500DE0 (the script member function GetAirTimeLeft): AirTimeLeft = the time until the skater falls back
     // to the height it took off from (+0x11C of the flags block), from its upward speed and the gravity: 0 if
     // that's in the past, 0.00001 if it never gets there. Added to the script's parameters. 1.
-    int GetAirTimeLeft(Script::CStruct* params, Script::CScript* script);
+    int GetAirTimeLeft(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00500E80 (the script member function CanKick): whether the skater may push off now (0x004FE490), 1 or 0.
-    int CanKick(Script::CStruct* params, Script::CScript* script);
+    int CanKick(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00500E90 (the script member function OrientToNormal): the ground normals (+0x58, +0x68) set to the skater's
     // up, then the skater turned onto the feeler's last hit normal (+0x130: 0x004FE860). 1.
-    int OrientToNormal(Script::CStruct* params, Script::CScript* script);
+    int OrientToNormal(Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x005004B0: a grind's trick: on the motoskateboard (+0x302) Trick_Motoskateboard_Grind, else
     // GrindTrickList[`railType` (0-8, else 0)][the four buttons as bits]; set on the skater's script (made if it
@@ -285,31 +285,31 @@ public:
     bool CanGrindRail(const void* rail, const void* unused, bool anyTime);
     // 0x005012B0 (the script member function NearGround): whether there's ground within 20 above or below a point
     // 16 to the skater's side (with Right: the other side). 1 or 0.
-    int NearGround(Script::CStruct* params, Script::CScript* script);
+    int NearGround(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00500F10 (the script member function SkateInAble): whether there's vert (+0x229) to skate into. With Lip: a
     // feeler down SkateInAble_LipDownOffset from the position less SkateInAble_LipHorizOffset along up, then (missed)
     // one down SkateInAble_LipExtraCheckDownOffset from the position less SkateInAble_LipExtraCheckHorizOffset along
     // up; else one across the skater, from SkateInAble_HorizOffset along its side row (and SkateInAble_DownOffset
     // down) to as far the other way - towards that side with left. 1 or 0.
-    int SkateInAble(Script::CStruct* params, Script::CScript* script);
+    int SkateInAble(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x005013E0 (the script member function SetAmmo): the projectile count (+0x2F8) set to the unnamed integer (kept
     // without one); ammo_meter_change respawned on the skater with count = the change.
-    int SetAmmo(Script::CStruct* params, Script::CScript* script);
+    int SetAmmo(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x005014E0 (the script member function CheckNatasExitDirection): the skater's matrix set to its camera's,
     // turned about Y for `dir` (the D-pad's eight ways): Down not at all, Right / left a quarter turn, DownRight /
     // DownLeft an eighth, UpRight / UpLeft three eighths, Up and anything else half a turn. 1.
-    int CheckNatasExitDirection(Script::CStruct* params, Script::CScript* script);
+    int CheckNatasExitDirection(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00501600 (vtable slot 12: a member function by name): Ledge - +0x248; Obj_MoveToNode - the motion
     // component moves the skater, then the display matrix, the shadow, +0x98, the old position and the camera follow
     // (teleported); without NoReset it stops and lands, with orient its horizontal speed turns to the new facing.
     // 2 for any other name.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x005009C0: which end or side of the board (nose / tail 12 along the forward row, left / Right 12 along the
     // side row) has the nearest wall: +0x2D4 (0 if none).
     void FindNearestWallSide();
     // 0x00501C90: one side collision feeler (`side` 0-3) from `start` to `end`, unless the opposite side hit more
     // than 500 ms ago: a hit's normal added to +0x2AC, its distance kept in +0x2BC if nearer, the side's time noted.
-    void CheckSideFeeler(const Mth::Vector* start, const Mth::Vector* end, uint32_t side);
+    void CheckSideFeeler(const Maths::Vector* start, const Maths::Vector* end, uint32_t side);
     // 0x005055B0: the side collisions (+0x2C0 the reach and +0x2C4 the push, both set): four feelers at
     // Skater_side_collide_height, both ways along the side and forward rows; with a hit, the skater pushed off (the
     // nearer, the harder) and turned (+0x2C8 a second) along a wall it faces into.
@@ -338,7 +338,7 @@ public:
     // 0x005039F0: bouncing off a wall of normal `normal`: the angle between the side row and the normal (acos;
     // past 90 degrees, less 180) times Wall_Bounce_Angle_Multiplier and `scale` turns the velocity and the matrices
     // (`turn` = the turn). Returns the angle.
-    float BounceOffWall(const Mth::Vector* normal, float* turn, float scale);
+    float BounceOffWall(const Maths::Vector* normal, float* turn, float scale);
     // 0x00501B00: when the skater may (0x004FE420), turned towards straight down the slope at
     // Skater_Slow_Turn_on_slopes (along the velocity, or the facing when hardly moving). Whether it did.
     bool TurnDownSlope();
@@ -377,7 +377,7 @@ public:
     // 0x005059D0: bouncing off a wall ahead of normal `normal` (unless 0x004FF670): turned (BounceOffWall), slowed
     // the more head-on (beyond Wall_Bounce_Dont_Slow_Angle; a flail beyond Wall_Bounce_Dont_Flail_Speed), moved
     // back out 6 along the normal; another wall ahead then: turned back, half as fast.
-    void BounceOffWallAhead(const Mth::Vector* normal);
+    void BounceOffWallAhead(const Maths::Vector* normal);
 
     // --- core_physics_wallplant.cpp: wall plants and wall rides ---
     // 0x00507500: a wall plant off what the feeler hit: in the air, not too soon after the last (the
@@ -402,7 +402,7 @@ public:
     // (`pop`: at least Physics_Acid_Drop_Pop_Speed up; at most twice that), high enough and long enough in the air
     // (Physics_Acid_Drop_Min_Air_Time), and a point up the wall (24 at a time) reached with nothing in the way: `drop`.
     // Whether one was found (`velocity` is put back if not).
-    bool FindAcidDrop(bool pop, const Mth::Vector* position, const Mth::Vector* lastPosition, Mth::Vector* velocity,
+    bool FindAcidDrop(bool pop, const Maths::Vector* position, const Maths::Vector* lastPosition, Maths::Vector* velocity,
                       AcidDrop* drop);
     // 0x00502F20: starting the acid drop to `drop`: the horizontal speed to get there in the fall's time (flags block
     // +0xE4), the wall's orientation (+0x3B0, +0x490) and the slerp to it (+0x3F0) over that time; flags +0x78 (in the
@@ -422,10 +422,10 @@ public:
     // each returns 1 unless said otherwise, and uses neither argument unless said) ---
     // 0x004FBE80 (registered with Create): the table made member-function symbols (0x18-byte entries, put in by the
     // static initialiser at 0x006417D0).
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
     // 0x004FBEA0 (`this` isn't used): an air time from `params` - the unnamed float, in milliseconds; with seconds /
     // second times 1000, with frames / frame times 16 - truncated to an integer.
-    int AirTimeThreshold(Script::CStruct* params);
+    int AirTimeThreshold(Scripts::CStruct* params);
     // Bytes of the component set or read: CanBrakeOff / CanBrakeOn (+0x311 0 / 1), CanKickOn / CanKickOff (+0x310 0 /
     // 1: kicking forbidden), ForceAutoKickOn / ForceAutoKickOff / AutoKickIsOff (+0x2D9), SkaterVehicleOn / Off /
     // IsSkaterOnVehicle (+0x2ED), Canspin (+0x370 0), BailOn / Bailoff / BailIsOn (+0x371), BadLedge (+0x249),
@@ -436,140 +436,140 @@ public:
     // ResetIsFlipping (+0x2DB), SetThrowingProjectile / Unset / IsThrowingProjectile (+0x14C8), EndManualTurnaround
     // (+0x304 0), EnterTantrum / ExitTantrum / InTantrum (+0x1508), EnterTagging / ExitTagging / IsTagging (+0x1509);
     // ResetProjectileInput (+0x308 = -1). The queries return 1 or 0.
-    int CanBrakeOff(Script::CStruct* params, Script::CScript* script);           // 0x004FBF40
-    int CanBrakeOn(Script::CStruct* params, Script::CScript* script);            // 0x004FBF50
-    int CanKickOn(Script::CStruct* params, Script::CScript* script);             // 0x004FBF60
-    int CanKickOff(Script::CStruct* params, Script::CScript* script);            // 0x004FBF70
-    int ForceAutoKickOn(Script::CStruct* params, Script::CScript* script);       // 0x004FBF80
-    int ForceAutoKickOff(Script::CStruct* params, Script::CScript* script);      // 0x004FBF90
-    int AutoKickIsOff(Script::CStruct* params, Script::CScript* script);         // 0x004FBFA0
-    int SkaterVehicleOn(Script::CStruct* params, Script::CScript* script);       // 0x004FBFB0
-    int SkaterVehicleOff(Script::CStruct* params, Script::CScript* script);      // 0x004FBFC0
-    int IsSkaterOnVehicle(Script::CStruct* params, Script::CScript* script);     // 0x004FBFD0
-    int CanSpin(Script::CStruct* params, Script::CScript* script);               // 0x004FC000
-    int BailOn(Script::CStruct* params, Script::CScript* script);                // 0x004FC010
-    int BailOff(Script::CStruct* params, Script::CScript* script);               // 0x004FC020
-    int BailIsOn(Script::CStruct* params, Script::CScript* script);              // 0x004FC030
-    int BadLedge(Script::CStruct* params, Script::CScript* script);              // 0x004FC080
-    int LandedFromSpine(Script::CStruct* params, Script::CScript* script);       // 0x004FC090
-    int LandedFromVert(Script::CStruct* params, Script::CScript* script);        // 0x004FC0A0
-    int SetLandedFromVert(Script::CStruct* params, Script::CScript* script);     // 0x004FC0B0
-    int ResetLandedFromVert(Script::CStruct* params, Script::CScript* script);   // 0x004FC0C0
-    int AllowLipNoGrind(Script::CStruct* params, Script::CScript* script);       // 0x004FC0D0
-    int ClearAllowLipNoGrind(Script::CStruct* params, Script::CScript* script);  // 0x004FC0E0
-    int NoRailTricks(Script::CStruct* params, Script::CScript* script);          // 0x004FC0F0
-    int AllowRailTricks(Script::CStruct* params, Script::CScript* script);       // 0x004FC100
-    int InRevert(Script::CStruct* params, Script::CScript* script);              // 0x004FC1A0
-    int OutRevert(Script::CStruct* params, Script::CScript* script);             // 0x004FC1B0
-    int IsInRevert(Script::CStruct* params, Script::CScript* script);            // 0x004FC1C0
-    int ProjectilesOn(Script::CStruct* params, Script::CScript* script);         // 0x004FC1D0
-    int ProjectilesOff(Script::CStruct* params, Script::CScript* script);        // 0x004FC1E0
-    int FocusOn(Script::CStruct* params, Script::CScript* script);               // 0x004FC1F0
-    int IsSkaterFocused(Script::CStruct* params, Script::CScript* script);       // 0x004FC200
-    int ResetProjectileInput(Script::CStruct* params, Script::CScript* script);  // 0x004FC210
-    int EnterPowerslide(Script::CStruct* params, Script::CScript* script);       // 0x004FC230
-    int ExitPowerslide(Script::CStruct* params, Script::CScript* script);        // 0x004FC240
-    int MotoSkateboardOn(Script::CStruct* params, Script::CScript* script);      // 0x004FC250
-    int MotoSkateboardOff(Script::CStruct* params, Script::CScript* script);     // 0x004FC260
-    int IsOnMotoskateboard(Script::CStruct* params, Script::CScript* script);    // 0x004FC270
-    int SkaterIsFlipping(Script::CStruct* params, Script::CScript* script);      // 0x004FC280
-    int ResetIsFlipping(Script::CStruct* params, Script::CScript* script);       // 0x004FC290
-    int SetThrowingProjectile(Script::CStruct* params, Script::CScript* script); // 0x004FC2A0
-    int UnsetThrowingProjectile(Script::CStruct* params, Script::CScript* script); // 0x004FC2B0
-    int IsThrowingProjectile(Script::CStruct* params, Script::CScript* script);  // 0x004FC2C0
-    int EndManualTurnaround(Script::CStruct* params, Script::CScript* script);   // 0x004FC2D0
-    int EnterTantrum(Script::CStruct* params, Script::CScript* script);          // 0x004FC2E0
-    int ExitTantrum(Script::CStruct* params, Script::CScript* script);           // 0x004FC2F0
-    int InTantrum(Script::CStruct* params, Script::CScript* script);             // 0x004FC300
-    int EnterTagging(Script::CStruct* params, Script::CScript* script);          // 0x004FC310
-    int ExitTagging(Script::CStruct* params, Script::CScript* script);           // 0x004FC320
-    int IsTagging(Script::CStruct* params, Script::CScript* script);             // 0x004FC330
-    int Braking(Script::CStruct* params, Script::CScript* script);               // 0x004FC9B0
+    int CanBrakeOff(Scripts::CStruct* params, Scripts::CScript* script);           // 0x004FBF40
+    int CanBrakeOn(Scripts::CStruct* params, Scripts::CScript* script);            // 0x004FBF50
+    int CanKickOn(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FBF60
+    int CanKickOff(Scripts::CStruct* params, Scripts::CScript* script);            // 0x004FBF70
+    int ForceAutoKickOn(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FBF80
+    int ForceAutoKickOff(Scripts::CStruct* params, Scripts::CScript* script);      // 0x004FBF90
+    int AutoKickIsOff(Scripts::CStruct* params, Scripts::CScript* script);         // 0x004FBFA0
+    int SkaterVehicleOn(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FBFB0
+    int SkaterVehicleOff(Scripts::CStruct* params, Scripts::CScript* script);      // 0x004FBFC0
+    int IsSkaterOnVehicle(Scripts::CStruct* params, Scripts::CScript* script);     // 0x004FBFD0
+    int CanSpin(Scripts::CStruct* params, Scripts::CScript* script);               // 0x004FC000
+    int BailOn(Scripts::CStruct* params, Scripts::CScript* script);                // 0x004FC010
+    int BailOff(Scripts::CStruct* params, Scripts::CScript* script);               // 0x004FC020
+    int BailIsOn(Scripts::CStruct* params, Scripts::CScript* script);              // 0x004FC030
+    int BadLedge(Scripts::CStruct* params, Scripts::CScript* script);              // 0x004FC080
+    int LandedFromSpine(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FC090
+    int LandedFromVert(Scripts::CStruct* params, Scripts::CScript* script);        // 0x004FC0A0
+    int SetLandedFromVert(Scripts::CStruct* params, Scripts::CScript* script);     // 0x004FC0B0
+    int ResetLandedFromVert(Scripts::CStruct* params, Scripts::CScript* script);   // 0x004FC0C0
+    int AllowLipNoGrind(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FC0D0
+    int ClearAllowLipNoGrind(Scripts::CStruct* params, Scripts::CScript* script);  // 0x004FC0E0
+    int NoRailTricks(Scripts::CStruct* params, Scripts::CScript* script);          // 0x004FC0F0
+    int AllowRailTricks(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FC100
+    int InRevert(Scripts::CStruct* params, Scripts::CScript* script);              // 0x004FC1A0
+    int OutRevert(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FC1B0
+    int IsInRevert(Scripts::CStruct* params, Scripts::CScript* script);            // 0x004FC1C0
+    int ProjectilesOn(Scripts::CStruct* params, Scripts::CScript* script);         // 0x004FC1D0
+    int ProjectilesOff(Scripts::CStruct* params, Scripts::CScript* script);        // 0x004FC1E0
+    int FocusOn(Scripts::CStruct* params, Scripts::CScript* script);               // 0x004FC1F0
+    int IsSkaterFocused(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FC200
+    int ResetProjectileInput(Scripts::CStruct* params, Scripts::CScript* script);  // 0x004FC210
+    int EnterPowerslide(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FC230
+    int ExitPowerslide(Scripts::CStruct* params, Scripts::CScript* script);        // 0x004FC240
+    int MotoSkateboardOn(Scripts::CStruct* params, Scripts::CScript* script);      // 0x004FC250
+    int MotoSkateboardOff(Scripts::CStruct* params, Scripts::CScript* script);     // 0x004FC260
+    int IsOnMotoskateboard(Scripts::CStruct* params, Scripts::CScript* script);    // 0x004FC270
+    int SkaterIsFlipping(Scripts::CStruct* params, Scripts::CScript* script);      // 0x004FC280
+    int ResetIsFlipping(Scripts::CStruct* params, Scripts::CScript* script);       // 0x004FC290
+    int SetThrowingProjectile(Scripts::CStruct* params, Scripts::CScript* script); // 0x004FC2A0
+    int UnsetThrowingProjectile(Scripts::CStruct* params, Scripts::CScript* script); // 0x004FC2B0
+    int IsThrowingProjectile(Scripts::CStruct* params, Scripts::CScript* script);  // 0x004FC2C0
+    int EndManualTurnaround(Scripts::CStruct* params, Scripts::CScript* script);   // 0x004FC2D0
+    int EnterTantrum(Scripts::CStruct* params, Scripts::CScript* script);          // 0x004FC2E0
+    int ExitTantrum(Scripts::CStruct* params, Scripts::CScript* script);           // 0x004FC2F0
+    int InTantrum(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FC300
+    int EnterTagging(Scripts::CStruct* params, Scripts::CScript* script);          // 0x004FC310
+    int ExitTagging(Scripts::CStruct* params, Scripts::CScript* script);           // 0x004FC320
+    int IsTagging(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FC330
+    int Braking(Scripts::CStruct* params, Scripts::CScript* script);               // 0x004FC9B0
     // The timed flags read or set (the time noted when one changes): flipped (+0x28), switched (flipped, inverted
     // unless the skater's +0x110 is set), Crouched (+0x20), FirstTimeOnThisRail (+0xC8), SKITCHING (+0x88), InVertAir
     // (+0x30), IsInBail (+0x70); CancelWallpush (+0xB8 on), InBail / NotInBail (+0x70), 0x004FD630 (checksum
     // 0x2A547E37, name not recovered: +0x30 on), OverrideCancelGround (+0x90: on unless Off), NoSpin (+0x370 = 1 and
     // +0x68 off).
-    int Flipped(Script::CStruct* params, Script::CScript* script);               // 0x004FC780
-    int Switched(Script::CStruct* params, Script::CScript* script);              // 0x004FC7A0
-    int Crouched(Script::CStruct* params, Script::CScript* script);              // 0x004FC7E0
-    int FirstTimeOnThisRail(Script::CStruct* params, Script::CScript* script);   // 0x004FC800
-    int Skitching(Script::CStruct* params, Script::CScript* script);             // 0x004FC820
-    int CancelWallpush(Script::CStruct* params, Script::CScript* script);        // 0x004FC840
-    int NoSpin(Script::CStruct* params, Script::CScript* script);                // 0x004FCF90
-    int InBail(Script::CStruct* params, Script::CScript* script);                // 0x004FCFC0
-    int NotInBail(Script::CStruct* params, Script::CScript* script);             // 0x004FCFF0
-    int IsInBail(Script::CStruct* params, Script::CScript* script);              // 0x004FD020
-    int InVertAir(Script::CStruct* params, Script::CScript* script);             // 0x004FD1C0
-    int OverrideCancelGround(Script::CStruct* params, Script::CScript* script);  // 0x004FD530
-    int SetVertAir(Script::CStruct* params, Script::CScript* script);            // 0x004FD630
+    int Flipped(Scripts::CStruct* params, Scripts::CScript* script);               // 0x004FC780
+    int Switched(Scripts::CStruct* params, Scripts::CScript* script);              // 0x004FC7A0
+    int Crouched(Scripts::CStruct* params, Scripts::CScript* script);              // 0x004FC7E0
+    int FirstTimeOnThisRail(Scripts::CStruct* params, Scripts::CScript* script);   // 0x004FC800
+    int Skitching(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FC820
+    int CancelWallpush(Scripts::CStruct* params, Scripts::CScript* script);        // 0x004FC840
+    int NoSpin(Scripts::CStruct* params, Scripts::CScript* script);                // 0x004FCF90
+    int InBail(Scripts::CStruct* params, Scripts::CScript* script);                // 0x004FCFC0
+    int NotInBail(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FCFF0
+    int IsInBail(Scripts::CStruct* params, Scripts::CScript* script);              // 0x004FD020
+    int InVertAir(Scripts::CStruct* params, Scripts::CScript* script);             // 0x004FD1C0
+    int OverrideCancelGround(Scripts::CStruct* params, Scripts::CScript* script);  // 0x004FD530
+    int SetVertAir(Scripts::CStruct* params, Scripts::CScript* script);            // 0x004FD630
     // 0x004FBFE0 SetSkaterVehicle: the vehicle (+0x2F0) from the unnamed checksum (asserted). 0x004FC180
     // SetAmmoType: the projectile type (+0x2FC) from the unnamed checksum, if any. 0x004FC060 SetGrindTweak: +0x3A8
     // from the unnamed integer, if any. 0x004FC040 LockVelocityDirection: +0x388 = whether `on` is there.
-    int SetSkaterVehicle(Script::CStruct* params, Script::CScript* script);      // 0x004FBFE0
-    int LockVelocityDirection(Script::CStruct* params, Script::CScript* script); // 0x004FC040
-    int SetGrindTweak(Script::CStruct* params, Script::CScript* script);         // 0x004FC060
-    int SetAmmoType(Script::CStruct* params, Script::CScript* script);           // 0x004FC180
+    int SetSkaterVehicle(Scripts::CStruct* params, Scripts::CScript* script);      // 0x004FBFE0
+    int LockVelocityDirection(Scripts::CStruct* params, Scripts::CScript* script); // 0x004FC040
+    int SetGrindTweak(Scripts::CStruct* params, Scripts::CScript* script);         // 0x004FC060
+    int SetAmmoType(Scripts::CStruct* params, Scripts::CScript* script);           // 0x004FC180
     // 0x004FC110 SetExtraPush: radius (+0x2C0, 48), speed (+0x2C4, 100) and 0xDFDFEAB8 (+0x2C8, 6) from `params`.
-    int SetExtraPush(Script::CStruct* params, Script::CScript* script);
+    int SetExtraPush(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FC340 DoingFlip: whether a timed model rotation is on (+0x2DB) with more than 10 left (+0x2E0). 1 or 0.
-    int DoingFlip(Script::CStruct* params, Script::CScript* script);
+    int DoingFlip(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FC880 / 0x004FC8E0 AirTimeLessThan / AirTimeGreaterThan: the time in the air (in the air or on a wall: since
     // +0x380; otherwise the last one, +0x384 - +0x380) against AirTimeThreshold(params), unsigned. 1 or 0.
-    int AirTimeLessThan(Script::CStruct* params, Script::CScript* script);
-    int AirTimeGreaterThan(Script::CStruct* params, Script::CScript* script);
+    int AirTimeLessThan(Scripts::CStruct* params, Scripts::CScript* script);
+    int AirTimeGreaterThan(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FC940 GetAirtime: that time in seconds (as unsigned) added to the script's parameters as 0xAD6BCDB4.
-    int GetAirtime(Script::CStruct* params, Script::CScript* script);
+    int GetAirtime(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FC9C0 RestoreAutoKick: +0x2D9 back to the skater's profile's (the byte at +0x395 of entry +0x2BC of the
     // table at *0x007CE478, 8 bytes each).
-    int RestoreAutoKick(Script::CStruct* params, Script::CScript* script);
+    int RestoreAutoKick(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FC9F0 DoCarPlantBoost: no downward speed, CarPlant_Upward_boost added upwards, then CarPlant_Forward_boost
     // along the horizontal velocity (the facing when slower than 10; (1, 0, 1) when that's under 0.01 too) made unit.
-    int DoCarPlantBoost(Script::CStruct* params, Script::CScript* script);
+    int DoCarPlantBoost(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD040 SetRailSound: slide (the unnamed checksum, asserted) or not: flag +0x58 and the sound component's +0x1E.
-    int SetRailSound(Script::CStruct* params, Script::CScript* script);
+    int SetRailSound(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD0D0 SetRollingFriction: +0x314 from the unnamed float, if any; with Default and no special friction timer
     // (+0x320 at 0) Physics_Rolling_Friction.
-    int SetRollingFriction(Script::CStruct* params, Script::CScript* script);
+    int SetRollingFriction(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD140 LastSpinWas: backside / Frontside against the last spin's way (+0x3A5) and flipped; 1 with neither.
-    int LastSpinWas(Script::CStruct* params, Script::CScript* script);
+    int LastSpinWas(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD1E0 TurnToFaceVelocity: unless barely moving, the skater's facing along its velocity, the right row
     // up x facing and the up row facing x right (each normalized), the display matrix the object's.
-    int TurnToFaceVelocity(Script::CStruct* params, Script::CScript* script);
+    int TurnToFaceVelocity(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD360 overridelimits: 0xC6F342D9 or end cancel it (+0x350 = 0); while one is fixed for the level (+0x350
     // -2) nothing else changes. Otherwise max (asserted; +0x354, and 0x73A19E3A +0x358, the same by default), time
     // (+0x350, 1e13 by default), Friction (+0x35C, 2e-6), gravity (+0x360, Physics_Ground_Gravity); 0xDF312928 makes
     // the time -1, CurrentLevel -2.
-    int OverrideLimits(Script::CStruct* params, Script::CScript* script);
+    int OverrideLimits(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD4A0 SetSpecialFriction: the next of the unnamed array's frictions (+0x318 counts them, kept at the last;
     // +0x31C the time of the first) into +0x314; duration (+0x320) if given.
-    int SetSpecialFriction(Script::CStruct* params, Script::CScript* script);
+    int SetSpecialFriction(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD580 GetMatrixNormal (x, y, z: the skater's up), 0x004FD5E0 GetLastGroundPos (Pos: +0x338), 0x004FD610
     // GetLastGroundHeading (last_heading: +0x348), 0x004FDC30 GetAmmo (ammo: +0x2F8), 0x004FDC50 GetAmmoType
     // (ammo_type: +0x2FC), 0x004FDC70 GetPitchBailDir (pitch_bail_dir: +0x2D4): added to the script's parameters.
-    int GetMatrixNormal(Script::CStruct* params, Script::CScript* script);
-    int GetLastGroundPos(Script::CStruct* params, Script::CScript* script);
-    int GetLastGroundHeading(Script::CStruct* params, Script::CScript* script);
-    int GetAmmo(Script::CStruct* params, Script::CScript* script);
-    int GetAmmoType(Script::CStruct* params, Script::CScript* script);
-    int GetPitchBailDir(Script::CStruct* params, Script::CScript* script);
+    int GetMatrixNormal(Scripts::CStruct* params, Scripts::CScript* script);
+    int GetLastGroundPos(Scripts::CStruct* params, Scripts::CScript* script);
+    int GetLastGroundHeading(Scripts::CStruct* params, Scripts::CScript* script);
+    int GetAmmo(Scripts::CStruct* params, Scripts::CScript* script);
+    int GetAmmoType(Scripts::CStruct* params, Scripts::CScript* script);
+    int GetPitchBailDir(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD660 IsFacingWall: a feeler from the skater along its facing (made unit) for the unnamed distance (200):
     // a hit on something not vert (face flag 8) whose normal's y is within 0.1 of 0. 1 or 0.
-    int IsFacingWall(Script::CStruct* params, Script::CScript* script);
+    int IsFacingWall(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FD840 (checksum 0xA038260D, name not recovered): the same feeler; on such a wall the velocity and the
     // facing turned to point along its normal (SetDirection), the skater flipped (SkaterFlipAndRotate), the display
     // matrix the object's. 1 then, else 0.
-    int TurnFromWall(Script::CStruct* params, Script::CScript* script);
+    int TurnFromWall(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FDA80 IsFacingVert: the same feeler from 50 higher; a hit on vert. 1 or 0.
-    int IsFacingVert(Script::CStruct* params, Script::CScript* script);
+    int IsFacingVert(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FDC90 FocusOff: +0x301 off, the skater camera's look-around unlocked.
-    int FocusOff(Script::CStruct* params, Script::CScript* script);
+    int FocusOff(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FDCC0 GetFocusTimeLeft (focus_time: the score's first float), 0x004FDCF0 GetFocusTimesAllowed
     // (focus_allowed: the score's +4) - added to the script's parameters -, 0x004FDD20 SetFocusTimesAllowed (the
     // score's +4 from the unnamed integer, if any). 0 when the skater has no score.
-    int GetFocusTimeLeft(Script::CStruct* params, Script::CScript* script);
-    int GetFocusTimesAllowed(Script::CStruct* params, Script::CScript* script);
-    int SetFocusTimesAllowed(Script::CStruct* params, Script::CScript* script);
+    int GetFocusTimeLeft(Scripts::CStruct* params, Scripts::CScript* script);
+    int GetFocusTimesAllowed(Scripts::CStruct* params, Scripts::CScript* script);
+    int SetFocusTimesAllowed(Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- core_physics_life.cpp: set up, taken down, the state changed ---
     // 0x004FC500: the destructor body: its vtable, the collision cache (+0x4F4) taken down, the smart pointers at
@@ -578,7 +578,7 @@ public:
     // 0x004FC5C0 (vtable slot 2; `params` isn't used): the rolling friction (+0x314) from Physics_Rolling_Friction;
     // the skater at the origin with no turn, the display matrix the same; the ground normals (+0x58, +0x68, +0x78)
     // straight up; +0x2EC and the projectile count cleared.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x004FC690 (vtable slot 3): the object's components it works with, +0x150C Input to +0x1538 (0x380D909A).
     void Finalize();
     // 0x004FC3C0: the projectile button (the script value projectile_control) released then pressed (the Trick
@@ -586,9 +586,9 @@ public:
     bool ProjectileButtonPressed();
     // 0x004FC440: the skater riding switch: flipped (the state's +0x28 byte, as it is) when the skater's +0x110 is
     // set, else not flipped (1 or 0).
-    int IsSwitched();
+    int IsSidesSwapped();
     // 0x004FC470: the terrain under the skater (`terrain`'s low byte) told to the state and sound components.
-    void SetTerrain(uint32_t terrain);
+    void SetSurfaceKind(uint32_t terrain);
     // 0x004FDD50 (when the skater gets off its board): the pending event (+0x4F0: 0x5E27200A broadcast), the rail
     // wait (+0x23C) from 0xE4412EB7, +0x234 at least +0x238; leaving the lip for the air: the state's +0x50 off; the
     // state to the ground (0), and the state's vectors +0xF8 / +0x108 straight up, +0xE4 (0, 0, 0, 1), +0xF4 off.
@@ -635,7 +635,7 @@ public:
     // facing up has a feeler 72 along it from the skater - a hit makes it straight up. A new normal becomes the
     // ground normal (+0x68; the old +0x58 kept at +0x78 and the blend +0x88 restarted at 1) and the skater's up,
     // the matrix made orthonormal about it.
-    void TurnToNormal(Mth::Vector normal);
+    void TurnToNormal(Maths::Vector normal);
     // 0x004FEA50: the drawn ground normal (+0x58) blended from the old (+0x78) to the new (+0x68) as +0x88 runs down
     // at 0xD8120182 a second (a script value); the display matrix's up made it, orthonormal about it, its right and
     // facing the skater's.
@@ -652,8 +652,8 @@ public:
     // vert face (normal y under 0.707) whose horizontal normal is at most 0.95 along `facing`. Found: its point and
     // normal, whether its object is still there (`objectAlive`) and whether that normal is more than -0.866 along
     // `facing` (`notOpposite`; rounded to a float first). Whether one was found.
-    bool FindVertTarget(const Mth::Vector* direction, const Mth::Vector* facing, bool* notOpposite, Mth::Vector* point,
-                        Mth::Vector* normal, bool* objectAlive);
+    bool FindVertTarget(const Maths::Vector* direction, const Maths::Vector* facing, bool* notOpposite, Maths::Vector* point,
+                        Maths::Vector* normal, bool* objectAlive);
     // 0x004FF200: the speed override (+0x3AC, a factor; 1 when off): turned on (+0x255, not in an acid drop or a
     // bail) when faster than 1.25 times the 0x2EACDDB3 stat - the factor the speed over that (at most 0xC6B38BE0),
     // the limits (+0x354, +0x358) lifted. Running down at 0xF9B006AA a second; while above 1 the max speed (+0x354)
@@ -666,7 +666,7 @@ public:
     double GetGravity();
     // 0x004FF590 (RET 4): `velocity` made to point along the facing (or against it, when it was going backwards),
     // keeping its length - unless it's barely moving.
-    void AlongFacing(Mth::Vector* velocity);
+    void AlongFacing(Maths::Vector* velocity);
     // 0x004FF670: a wall push-off: the button (pad +0x1A0) held, 0x0017D543 ms (a script value) since the last one
     // (+0x4E4) and since +0x4E0, facing into the wall (+0x130) more than the angle 0x1483FD01 - 1 degree allows:
     // event 0x4C03635B, then (unless cancelled, flag +0xB8: cleared) the velocity bounced off the wall, its speed
@@ -690,12 +690,12 @@ public:
     // the skater and the point) to the lower, hitting ground (normal y over 0.5), then one across from above the
     // point to above the hit (the normal added): clear - the skater put there, 0.1 up. Not while bailing. Whether
     // it stepped up.
-    bool StepUp(const Mth::Vector* point);
+    bool StepUp(const Maths::Vector* point);
 
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
-    void GrindAlong(Obj::CRailNode* startNode, Obj::CRailNode* goOnTo, bool noNextSegment, float overshoot);
+    void GrindAlong(GameObjects::CGrindPoint* startNode, GameObjects::CGrindPoint* goOnTo, bool noNextSegment, float overshoot);
     void FinishRail();
     // (Parts of 0x0050DDF0: on a moving rail, carried along with it; a grind's or a slide's balance.)
     void RideMovingRail();
@@ -703,7 +703,7 @@ private:
     // Not original: THAW's stall state's update (THAW 0x005E2E30 - core_rail.cpp, game/skater/thaw_bmx.h).
     void DoBikeStallPhysics();
     // (Part of 0x0050EE70: the move along the ground, once more for the rest when stopped short.)
-    void MoveOnGround(Mth::Vector step);
+    void MoveOnGround(Maths::Vector step);
     // (Part of 0x0050F830: off the wall's edge - the up straight, pushed out 18, into the air.)
     void OffWallEdge(bool resetDisplay);
 
@@ -713,9 +713,9 @@ private:
 };
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
-void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b);
+void __cdecl TrackingPrint(int index, const Maths::Vector* a, const Maths::Vector* b);
 
-extern Mth::Vector g_acidHold;
+extern Maths::Vector g_acidHold;
 
 // 0x0064BC48: corePhysicsVtable (defined where the class's functions are).
 extern void** const g_corePhysicsVtable;

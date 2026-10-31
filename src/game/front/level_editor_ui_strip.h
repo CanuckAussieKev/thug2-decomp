@@ -16,7 +16,7 @@
 //
 // Only ImGui's own API and plain state here: the UI fills a State from the editor and its modules and applies the
 // Events; both can be laid out headless at any window size and scale.
-namespace Front::LevelEditor::UiStrip {
+namespace MenuSystem::LevelEditor::UiStrip {
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
@@ -105,4 +105,4 @@ void Draw(const State& state, float x, float y, float width, float scale, Output
 void StatusRow(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
                const std::string& right, float x, float y, float width, const Ux8::Fonts& fonts);
 
-} // namespace Front::LevelEditor::UiStrip
+} // namespace MenuSystem::LevelEditor::UiStrip

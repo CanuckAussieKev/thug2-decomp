@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -10,7 +10,7 @@ class CScript;
 // The screen's shape and full-screen effects (Nx engine, PC): aspect ratio, field-of-view factor, letterbox and
 // motion blur. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes most
 // of these: widescreen support, blur off by default.
-namespace Nx {
+namespace Engine3D {
 
 
 // The career's current level (0 = the front end); 0 without the skate module (0x007CE478, its career +0x20,
@@ -45,7 +45,7 @@ void SetScreenBlur(uint32_t amount);
 void SetLetterbox(bool letterbox);
 
 // 0x0048C170: SetScreenBlur <amount>
-bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SetScreenBlur(Scripts::CStruct* params, Scripts::CScript* script);
 
 extern float g_defaultAngle;
 extern float g_angleFactor;

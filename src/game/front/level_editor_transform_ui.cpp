@@ -6,7 +6,7 @@
 #include "game/front/level_editor_transform.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Transform {
+namespace MenuSystem::LevelEditor::Transform {
 
 void OptionsMenuItems()
 {
@@ -52,4 +52,4 @@ void OptionsMenuItems()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Fly without holding the right mouse button");
 }
-} // namespace Front::LevelEditor::Transform
+} // namespace MenuSystem::LevelEditor::Transform

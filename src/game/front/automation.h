@@ -4,13 +4,13 @@
 #include <string>
 #include <vector>
 
-namespace Front {
-class CScreenElement;
+namespace MenuSystem {
+class CUiWidget;
 }
-namespace Mdl {
+namespace GameModules {
 struct FrontEnd;
 }
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
@@ -113,20 +113,20 @@ class CStruct;
 //   is refused.
 // - a refusal is logged ("automation: REFUSED ...") and ends the batch.
 // - keys and controllers keep working as ever: commands only add to them.
-namespace Front::Automation {
+namespace MenuSystem::Automation {
 
 // [features] automation (read once).
 bool& Enabled();
 // Once a frame from the front end's input logic (MouseMenus::Update): the command file, the running command, the
 // status file; and the -run script.
-void Update(Mdl::FrontEnd* frontEnd);
+void Update(GameModules::FrontEnd* frontEnd);
 // The buttons a `press` holds, added to port 0's PS2-format control data (Sio's ProcessSdlDevice, before the bits
 // are inverted: a set bit is a button down).
 void AddPadButtons(int port, uint8_t* data);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-enum class Op { Run, Choose, Focus, Press, Hold, Wait, WaitFor, Level, Echo, Quit, Teleport, Camera, Capture, LogTricks, Crash, Trace, Frontend };
+enum class Op { Run, Choose, Focus, Press, Hold, Wait, WaitFor, Level, Echo, Quit, JumpTo, Camera, Capture, LogTricks, Crash, Trace, Frontend };
 enum class Condition { None, Ready, FrontEnd, InGame, Level, Menu, Focus, NewFrontend };
 
 struct Param {
@@ -175,10 +175,10 @@ bool ChecksumDenied(uint32_t checksum);
 // An id `choose` / `focus` refuses (its checksum; `name` too if known, "" if not).
 bool IdDenied(uint32_t id, const std::string& name);
 // Whether a script's parameters name a denied script or id anywhere (names, structures, arrays).
-bool ParamsDenied(Script::CStruct* params);
+bool ParamsDenied(Scripts::CStruct* params);
 // Why choosing the element is refused ("" if it isn't): a denied id, its event handlers running or naming a denied
 // script, or its menus' (parents') pad_choose / pad_start handlers doing so.
-std::string ElementRefusal(const Front::CScreenElement* element);
+std::string ElementRefusal(const MenuSystem::CUiWidget* element);
 // Why the command is refused by its words alone (a script, a parameter, an id), or "" - before any game state.
 std::string RefusalByName(const Command& command);
 // The name of a checksum if known (the tables and the names commands used), else 0x<hex>.
@@ -200,4 +200,4 @@ struct Status {
 std::string StatusJson(const Status& status);
 
 
-} // namespace Front::Automation
+} // namespace MenuSystem::Automation

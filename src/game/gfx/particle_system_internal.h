@@ -5,7 +5,7 @@
 #include "game/gfx/particle_system.h"
 
 // What the flexible particle types' engine constructors and destructors share (particle_system.cpp).
-namespace Nx::ParticleParts {
+namespace Engine3D::ParticleParts {
 
 // The particles: `count` after their count (the compiler's array new; null if no memory) / freed.
 sFlexibleParticle* NewParticles(int count);
@@ -15,9 +15,9 @@ void DeleteParticles(sFlexibleParticle* particles);
 bool NewColours(CParticleSystem* system, int count);
 // After the base's constructor: the name and the maximum, no particles yet; the particles, then the positions
 // (`positionsZeroed`: zeroed memory), then `colours` colours. Whether everything was allocated.
-bool ConstructParts(CParticleSystem* system, uint32_t name, int maxParticles, unsigned int positionsSize,
+bool ConstructParts(CParticleSystem* system, uint32_t name, int particleCap, unsigned int positionsSize,
                     bool positionsZeroed, int colours);
 // The system's vtable and its node's.
 void SetVtables(CParticleSystem* system, void** primary, void** node);
 
-} // namespace Nx::ParticleParts
+} // namespace Engine3D::ParticleParts

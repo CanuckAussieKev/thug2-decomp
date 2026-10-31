@@ -1,4 +1,4 @@
-// The content vault and HTTP file transfers (GameNet::VaultMan). See vault_man.h.
+// The content vault and HTTP file transfers (OnlinePlay::VaultMan). See vault_man.h.
 
 #include "game/net/vault_man.h"
 #include "game/net/gamespy.h"
@@ -29,26 +29,26 @@
 #include "game/net/task_vtable.h"
 #include "game/sys/crt.h"
 
-namespace GameNet {
+namespace OnlinePlay {
 
 namespace {
 
 using Detail::DeleteParams;
 using Detail::NewParams;
 
-static VtableSlot kItemVtable_slots[] = {&GameNet::VaultItem::Destroy};
+static VtableSlot kItemVtable_slots[] = {&OnlinePlay::VaultItem::Destroy};
 void** const kItemVtable = reinterpret_cast<void**>(kItemVtable_slots); // VaultItem (and a category's items head)
-static VtableSlot kCategoriesHeadVtable_slots[] = {&GameNet::VaultNode::DeleteCategoriesHead};
+static VtableSlot kCategoriesHeadVtable_slots[] = {&OnlinePlay::VaultNode::DeleteCategoriesHead};
 void** const kCategoriesHeadVtable = reinterpret_cast<void**>(kCategoriesHeadVtable_slots); // the vault's categories head
-static VtableSlot kCategoryVtable_slots[] = {&GameNet::VaultCategory::Destroy};
+static VtableSlot kCategoryVtable_slots[] = {&OnlinePlay::VaultCategory::Destroy};
 void** const kCategoryVtable = reinterpret_cast<void**>(kCategoryVtable_slots); // VaultCategory
-static VtableSlot kItemNodeVtable_slots[] = {&GameNet::VaultNode::DeleteItemNode};
-void** const kItemNodeVtable = reinterpret_cast<void**>(kItemNodeVtable_slots); // Lst::Node<VaultItem>
-static VtableSlot kCategoryNodeVtable_slots[] = {&GameNet::VaultNode::DeleteCategoryNode};
-void** const kCategoryNodeVtable = reinterpret_cast<void**>(kCategoryNodeVtable_slots); // Lst::Node<VaultCategory>
-static VtableSlot kCategorySearchVtable_slots[] = {&GameNet::VaultSearch::DestroyCategorySearchAndFree};
+static VtableSlot kItemNodeVtable_slots[] = {&OnlinePlay::VaultNode::DeleteItemNode};
+void** const kItemNodeVtable = reinterpret_cast<void**>(kItemNodeVtable_slots); // ListKit::Node<VaultItem>
+static VtableSlot kCategoryNodeVtable_slots[] = {&OnlinePlay::VaultNode::DeleteCategoryNode};
+void** const kCategoryNodeVtable = reinterpret_cast<void**>(kCategoryNodeVtable_slots); // ListKit::Node<VaultCategory>
+static VtableSlot kCategorySearchVtable_slots[] = {&OnlinePlay::VaultSearch::DestroyCategorySearchAndFree};
 void** const kCategorySearchVtable = reinterpret_cast<void**>(kCategorySearchVtable_slots);
-static VtableSlot kItemSearchVtable_slots[] = {&GameNet::VaultSearch::DestroyItemSearchAndFree};
+static VtableSlot kItemSearchVtable_slots[] = {&OnlinePlay::VaultSearch::DestroyItemSearchAndFree};
 void** const kItemSearchVtable = reinterpret_cast<void**>(kItemSearchVtable_slots);
 
 constexpr uint32_t kTimeout = 25000;     // ms without progress
@@ -66,25 +66,25 @@ constexpr uint32_t kErrorScript = 0xCF040665;
 
 Manager* NetManager() { return g_gameNetManager; }
 VaultMan* Vault() { return reinterpret_cast<VaultMan*>(NetManager()->m_vaultMan); }
-Mem::Manager* Memory() { return Mem::Manager::Get(); }
-void PushTopDown() { Memory()->PushContext(Memory()->m_internetTopDownHeap); }
-void PushBottomUp() { Memory()->PushContext(Memory()->m_internetBottomUpHeap); }
-void PopHeap() { Memory()->PopContext(); }
-Tsk::Stack* LogicTasks() { return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager) + 0x04); }
+MemSys::Manager* Memory() { return MemSys::Manager::Get(); }
+void PushTopDown() { Memory()->EnterHeapScope(Memory()->m_internetTopDownHeap); }
+void PushBottomUp() { Memory()->EnterHeapScope(Memory()->m_internetBottomUpHeap); }
+void PopHeap() { Memory()->LeaveHeapScope(); }
+TaskList::Stack* LogicTasks() { return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
 
-uint32_t Crc(const char* name) { return Crc::GenerateCRCFromString(name); }
-void Run(const char* script, Script::CStruct* params = nullptr) { Script::RunScript(script, params, nullptr, false); }
-void Run(uint32_t script, Script::CStruct* params = nullptr) { Script::RunScript(script, params, nullptr, false, nullptr); }
+uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
+void Run(const char* script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false); }
+void Run(uint32_t script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false, nullptr); }
 
 // The semaphore (the threads set their request up while holding it).
 void Wait(void* semaphore) { WaitForSingleObject(static_cast<HANDLE>(semaphore), INFINITE); }
 void Release(void* semaphore) { ReleaseSemaphore(static_cast<HANDLE>(semaphore), 1, nullptr); }
-// A thread made suspended; the manager notes its id (SetLobbyId) before it starts.
+// A thread made suspended; the manager notes its id (SetRoomId) before it starts.
 HANDLE StartThread(LPTHREAD_START_ROUTINE thread, void* param)
 {
     DWORD id;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, param, CREATE_SUSPENDED, &id);
-    NetManager()->SetLobbyId(id);
+    NetManager()->SetRoomId(id);
     return handle; // (never closed)
 }
 
@@ -122,7 +122,7 @@ const char* GameSpyUniqueId() { return GameSpy::UniqueId(); }
 // 0x005A8EB0: a downloaded item loaded from `buffer` by the type's script (not rewritten yet).
 void LoadDownloadedItem(char* buffer, uint32_t script)
 {
-    Mc::KeepLoadedContents(reinterpret_cast<const uint8_t*>(buffer), script);
+    MemCard::KeepLoadedContents(reinterpret_cast<const uint8_t*>(buffer), script);
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).
@@ -148,12 +148,12 @@ const char* UploadFileType(uint32_t type)
     }
 }
 
-void DeleteNode(void* node)
+void UnlinkListNode(void* node)
 {
     auto* vtable = *static_cast<void***>(node);
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
 }
-void InitNode(Mem::ListNode* node, void** vtable)
+void InitNode(MemSys::ListNode* node, void** vtable)
 {
     node->data = node;
     node->priority = 0;
@@ -161,7 +161,7 @@ void InitNode(Mem::ListNode* node, void** vtable)
     node->prev = node;
     node->vtable = vtable;
 }
-void InitHead(Mem::ListNode* head, void** vtable)
+void SetupListSentinel(MemSys::ListNode* head, void** vtable)
 {
     head->data = reinterpret_cast<void*>(-1);
     head->priority = 0;
@@ -170,7 +170,7 @@ void InitHead(Mem::ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 // `node` at the front of the list (the lists of the vault are built that way: the last line first).
-void Prepend(Mem::ListNode* head, Mem::ListNode* node)
+void Prepend(MemSys::ListNode* head, MemSys::ListNode* node)
 {
     node->prev = head;
     node->next = head->next;
@@ -178,9 +178,9 @@ void Prepend(Mem::ListNode* head, Mem::ListNode* node)
     head->next = node;
 }
 // The list walk's step: `node`'s successor, or null at the head.
-Mem::ListNode* NextNode(Mem::ListNode* node)
+MemSys::ListNode* NextNode(MemSys::ListNode* node)
 {
-    Mem::ListNode* next = node->next;
+    MemSys::ListNode* next = node->next;
     return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
 }
 
@@ -206,10 +206,10 @@ int NumberField(char** rest)
 // --- the list nodes, items and categories ---
 
 // 0x0054B2D0
-void VaultNode::DestroyItemNode() { m_node.UnlinkAs(kItemNodeVtable); }
+void VaultNode::DestroyItemNode() { m_listLink.UnlinkAs(kItemNodeVtable); }
 
 // 0x0054B2B0
-void VaultNode::DestroyCategoryNode() { m_node.UnlinkAs(kCategoryNodeVtable); }
+void VaultNode::DestroyCategoryNode() { m_listLink.UnlinkAs(kCategoryNodeVtable); }
 
 // 0x0054B2F0
 VaultNode* VaultNode::DeleteItemNode(unsigned int flags)
@@ -241,22 +241,22 @@ VaultNode* VaultNode::DeleteCategoriesHead(unsigned int flags)
 // 0x0054B570
 VaultItem* VaultItem::Construct()
 {
-    InitNode(&m_node, kItemVtable);
+    InitNode(&m_listLink, kItemVtable);
     m_url[0] = '\0';
     m_name[0] = '\0';
     m_creator[0] = '\0';
     m_size[0] = '\0';
     m_unknownCC[0] = '\0';
-    m_description[0] = '\0';
-    m_score = 0;
+    m_summaryText[0] = '\0';
+    m_pointsHeld = 0;
     m_numPieces = 0;
     m_numGaps = 0;
     m_numGoals = 0;
-    m_theme = 0;
+    m_styleSet = 0;
     m_todScript = 0;
-    m_isMale = 0;
-    m_width = 0;
-    m_height = 0;
+    m_hasMaleBody = 0;
+    m_span = 0;
+    m_levelY = 0;
     return this;
 }
 
@@ -272,8 +272,8 @@ VaultItem* VaultItem::Destroy(unsigned int flags)
 // 0x0054B670
 VaultCategory* VaultCategory::Construct()
 {
-    InitNode(&m_node, kCategoryVtable);
-    InitHead(&m_items, kItemVtable);
+    InitNode(&m_listLink, kCategoryVtable);
+    SetupListSentinel(&m_items, kItemVtable);
     m_skip = false;
     return this;
 }
@@ -281,14 +281,14 @@ VaultCategory* VaultCategory::Construct()
 // 0x0054C890
 void VaultCategory::DestroyBody()
 {
-    m_node.vtable = kCategoryVtable;
-    for (Mem::ListNode* node = NextNode(&m_items); node;) {
-        Mem::ListNode* next = NextNode(node);
-        DeleteNode(node->data);
+    m_listLink.vtable = kCategoryVtable;
+    for (MemSys::ListNode* node = NextNode(&m_items); node;) {
+        MemSys::ListNode* next = NextNode(node);
+        UnlinkListNode(node->data);
         node = next;
     }
     m_items.UnlinkAs(kItemNodeVtable);
-    m_node.UnlinkAs(kCategoryNodeVtable);
+    m_listLink.UnlinkAs(kCategoryNodeVtable);
 }
 
 // 0x0054C980
@@ -301,17 +301,17 @@ VaultCategory* VaultCategory::Destroy(unsigned int flags)
 }
 
 // 0x0054B6B0
-void* VaultSearch::FirstItem(Mem::ListNode* head)
+void* VaultSearch::HeadElement(MemSys::ListNode* head)
 {
-    m_node = head;
+    m_listLink = head;
     return NextItem();
 }
 
 // 0x0054B640
 void* VaultSearch::NextItem()
 {
-    m_node = NextNode(m_node);
-    return m_node ? m_node->data : nullptr;
+    m_listLink = NextNode(m_listLink);
+    return m_listLink ? m_listLink->data : nullptr;
 }
 
 // 0x0054A770 / 0x0054A760
@@ -341,13 +341,13 @@ VaultSearch* VaultSearch::DestroyItemSearchAndFree(unsigned int flags)
 // 0x0054C1D0
 VaultMan* VaultMan::Construct()
 {
-    InitHead(&m_categories, kCategoriesHeadVtable);
+    SetupListSentinel(&m_categories, kCategoriesHeadVtable);
     m_search.m_vtable = kCategorySearchVtable;
-    m_search.m_node = nullptr;
+    m_search.m_listLink = nullptr;
     m_transfer = kNone;
     m_progress = 0;
     m_startTime = 0;
-    auto* task = static_cast<Tsk::BaseTask*>(Mem::Calloc(0x20));
+    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->Construct(0);
         task->m_vtable = GameCode::kTaskVtable;
@@ -364,7 +364,7 @@ void VaultMan::DestroyBody()
 {
     Release(m_semaphore);
     if (m_task) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(Tsk::BaseTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
+        reinterpret_cast<void*(__thiscall*)(TaskList::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
     m_search.m_vtable = kCategorySearchVtable;
     m_categories.UnlinkAs(kCategoryNodeVtable);
 }
@@ -378,7 +378,7 @@ void VaultMan::Download(const DownloadRequest* request)
     vault->m_result = 0;
     LogicTasks()->AddTask(vault->m_task);
     vault->m_progress = 0;
-    vault->m_startTime = Tmr::GetTime();
+    vault->m_startTime = FrameClock::GetTime();
     vault->m_bufferSize = request->bufferSize;
     vault->m_failScript = request->failScript;
     vault->m_doneScript = request->doneScript;
@@ -399,7 +399,7 @@ void VaultMan::StartList(const char* url)
     // (the original uses `url` as sprintf's format)
     std::snprintf(m_url, sizeof(m_url), "%s", url);
     m_progress = 0;
-    m_startTime = Tmr::GetTime();
+    m_startTime = FrameClock::GetTime();
     m_doneScript = kDoneScript;
     m_failScript = kFailScript;
     m_errorScript = kErrorScript;
@@ -432,21 +432,21 @@ void VaultMan::ListCategories()
 // 0x0054C130
 void VaultMan::FreeDirectoryListing()
 {
-    for (Mem::ListNode* node = NextNode(&m_categories); node;) {
-        Mem::ListNode* next = NextNode(node);
-        DeleteNode(node->data);
+    for (MemSys::ListNode* node = NextNode(&m_categories); node;) {
+        MemSys::ListNode* next = NextNode(node);
+        UnlinkListNode(node->data);
         node = next;
     }
     GhttpCleanup();
 }
 
 // 0x0054B6E0
-void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
+void __cdecl VaultMan::VaultTask(TaskList::SchedulerTask* task)
 {
     auto* vault = reinterpret_cast<VaultMan*>(reinterpret_cast<void**>(task)[7]);
-    if (Tmr::GetTime() - vault->m_startTime > kTimeout) {
+    if (FrameClock::GetTime() - vault->m_startTime > kTimeout) {
         if (vault->m_transfer != kNone)
-            Memory()->Free(vault->m_buffer);
+            Memory()->Free(vault->m_octets);
         GhttpCancelRequest(vault->m_request);
         Run(vault->m_failScript);
         vault->m_transfer = kNone;
@@ -462,15 +462,15 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
         if (transfer == kDownload || transfer == kDownload6) {
             char text[16];
             std::snprintf(text, sizeof(text), "%d%%", vault->m_progress);
-            Script::CStruct* params = NewParams();
-            params->AddString(Crc("text"), Script::ESYMBOLTYPE_STRING, text);
+            Scripts::CStruct* params = NewParams();
+            params->AddString(Checksums("text"), Scripts::QBVAL_STRING, text);
             Run(vault->m_progressScript, params);
             DeleteParams(params);
         }
         return;
     }
     if (transfer == kDownload || transfer == kDownload6)
-        Memory()->Free(vault->m_buffer);
+        Memory()->Free(vault->m_octets);
 
     switch (transfer) {
     case kDownload:
@@ -479,8 +479,8 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
         vault->m_task->Remove();
         vault->m_transfer = kNone;
         if (vault->m_result == 1) {
-            Script::CStruct* params = NewParams();
-            params->AddChecksum("type", vault->m_type);
+            Scripts::CStruct* params = NewParams();
+            params->PutNameKey("type", vault->m_type);
             if (transfer == kUpload)
                 Run("LaunchUploadCompleteDialog", params);
             else
@@ -490,33 +490,33 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
             Run(vault->m_error == kErrorScriptResult ? vault->m_errorScript : vault->m_failScript);
         }
         if (transfer == kUpload)
-            Memory()->Free(vault->m_buffer);
+            Memory()->Free(vault->m_octets);
         return;
     }
     case kCategories: {
         if (vault->m_result != 1) {
             vault->m_transfer = kNone;
             vault->m_task->Remove();
-            Mem::Free(vault->m_buffer);
+            MemSys::Free(vault->m_octets);
             Run(vault->m_failScript);
             return;
         }
         PushBottomUp();
         // (an empty list leaves the transfer as it is: it's read again next time)
-        char* line = Text::Token(vault->m_buffer, "\r\n");
+        char* line = Text::Token(vault->m_octets, "\r\n");
         if (line) {
             do {
-                void* memory = Mem::Calloc(sizeof(VaultCategory));
+                void* memory = MemSys::AllocZeroed(sizeof(VaultCategory));
                 VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->Construct() : nullptr;
-                Prepend(&vault->m_categories, &category->m_node);
+                Prepend(&vault->m_categories, &category->m_listLink);
                 Text::Copy(category->m_name, line);
                 line = Text::Token(nullptr, "\r\n");
             } while (line);
-            vault->m_category = static_cast<VaultCategory*>(vault->m_search.FirstItem(&vault->m_categories));
+            vault->m_category = static_cast<VaultCategory*>(vault->m_search.HeadElement(&vault->m_categories));
             if (vault->m_category->m_skip)
                 vault->m_category = static_cast<VaultCategory*>(vault->m_search.NextItem());
             vault->m_transfer = kNone;
-            Mem::Free(vault->m_buffer);
+            MemSys::Free(vault->m_octets);
             vault->ListItems(vault->m_category);
         }
         PopHeap();
@@ -527,16 +527,16 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
         if (vault->m_result != 1) {
             vault->m_transfer = kNone;
             vault->m_task->Remove();
-            Mem::Free(vault->m_buffer);
+            MemSys::Free(vault->m_octets);
             Run(vault->m_failScript);
             PopHeap();
             return;
         }
         // Each line: file:name:creator[:park, trick, skater or goal fields]:...:description
-        for (char* line = Text::Token(vault->m_buffer, "\r\n"); line; line = Text::Token(nullptr, "\r\n")) {
-            void* memory = Mem::Calloc(sizeof(VaultItem));
+        for (char* line = Text::Token(vault->m_octets, "\r\n"); line; line = Text::Token(nullptr, "\r\n")) {
+            void* memory = MemSys::AllocZeroed(sizeof(VaultItem));
             VaultItem* item = memory ? static_cast<VaultItem*>(memory)->Construct() : nullptr;
-            Prepend(&vault->m_category->m_items, &item->m_node);
+            Prepend(&vault->m_category->m_items, &item->m_listLink);
             char* rest = line;
             char file[1024];
             Text::Copy(file, Field(&rest));
@@ -550,30 +550,30 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
                 item->m_numPieces = NumberField(&rest);
                 item->m_numGaps = NumberField(&rest);
                 item->m_numGoals = NumberField(&rest);
-                item->m_theme = NumberField(&rest);
+                item->m_styleSet = NumberField(&rest);
                 item->m_todScript = static_cast<uint32_t>(NumberField(&rest));
             }
             if (vault->m_type == kVaultTricks)
-                item->m_score = NumberField(&rest);
+                item->m_pointsHeld = NumberField(&rest);
             if (vault->m_type == kVaultSkaters)
-                item->m_isMale = NumberField(&rest);
+                item->m_hasMaleBody = NumberField(&rest);
             if (vault->m_type == kVaultGoals)
                 item->m_numGoals = NumberField(&rest);
             Text::Copy(item->m_unknownCC, Field(&rest));
-            Text::Copy(item->m_description, rest);
+            Text::Copy(item->m_summaryText, rest);
         }
         vault->m_transfer = kNone;
-        Mem::Free(vault->m_buffer);
+        MemSys::Free(vault->m_octets);
         vault->m_category = static_cast<VaultCategory*>(vault->m_search.NextItem());
         if (vault->m_category && !vault->m_category->m_skip) {
             vault->ListItems(vault->m_category); // the next category's
         } else {
             // All in: the menu.
-            vault->m_category = static_cast<VaultCategory*>(vault->m_search.FirstItem(&vault->m_categories));
+            vault->m_category = static_cast<VaultCategory*>(vault->m_search.HeadElement(&vault->m_categories));
             vault->m_task->Remove();
-            Script::CStruct* params = NewParams();
+            Scripts::CStruct* params = NewParams();
             params->AddString("category", vault->m_category->m_name);
-            params->AddChecksum("type", vault->m_type);
+            params->PutNameKey("type", vault->m_type);
             Run("net_vault_menu_create", params);
             DeleteParams(params);
         }
@@ -583,10 +583,10 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
     case kUploads: {
         PushBottomUp();
         // Each line: file:creator:size:...:description (the whole line also makes the URL).
-        for (char* line = Text::Token(vault->m_buffer, "\r\n"); line; line = Text::Token(nullptr, "\r\n")) {
-            void* memory = Mem::Calloc(sizeof(VaultItem));
+        for (char* line = Text::Token(vault->m_octets, "\r\n"); line; line = Text::Token(nullptr, "\r\n")) {
+            void* memory = MemSys::AllocZeroed(sizeof(VaultItem));
             VaultItem* item = memory ? static_cast<VaultItem*>(memory)->Construct() : nullptr;
-            Prepend(&vault->m_category->m_items, &item->m_node);
+            Prepend(&vault->m_category->m_items, &item->m_listLink);
             std::snprintf(item->m_url, sizeof(item->m_url) + 0x80, "http://www.thugonline.com/%s/%s", vault->m_folder,
                           line);
             char* rest = line;
@@ -594,11 +594,11 @@ void __cdecl VaultMan::VaultTask(Tsk::BaseTask* task)
             Text::Copy(item->m_creator, Field(&rest));
             Text::Copy(item->m_size, Field(&rest));
             Text::Copy(item->m_unknownCC, Field(&rest));
-            Text::Copy(item->m_description, rest);
+            Text::Copy(item->m_summaryText, rest);
         }
         vault->m_transfer = kNone;
         vault->m_task->Remove();
-        Mem::Free(vault->m_buffer);
+        MemSys::Free(vault->m_octets);
         vault->ListCategories();
         PopHeap();
         return;
@@ -614,10 +614,10 @@ unsigned long __stdcall VaultMan::ListThread(void* param)
     auto* vault = static_cast<VaultMan*>(param);
     Wait(vault->m_semaphore);
     PushBottomUp();
-    auto* buffer = static_cast<char*>(Mem::New(kListBufferSize));
-    vault->m_buffer = buffer;
+    auto* buffer = static_cast<char*>(MemSys::New(kListBufferSize));
+    vault->m_octets = buffer;
     std::memset(buffer, 0, kListBufferSize);
-    vault->m_request = GhttpGetEx(vault->m_url, nullptr, vault->m_buffer, kListBufferSize, nullptr, 0, 0,
+    vault->m_request = GhttpGetEx(vault->m_url, nullptr, vault->m_octets, kListBufferSize, nullptr, 0, 0,
                                   reinterpret_cast<const void*>(&OnProgress),
                                   reinterpret_cast<const void*>(&OnTransferDone), vault);
     PopHeap();
@@ -633,8 +633,8 @@ unsigned long __stdcall VaultMan::DownloadThread(void* url)
     Wait(vault->m_semaphore);
     PushBottomUp();
     uint32_t size = vault->m_bufferSize;
-    auto* buffer = static_cast<char*>(Mem::New(size));
-    vault->m_buffer = buffer;
+    auto* buffer = static_cast<char*>(MemSys::New(size));
+    vault->m_octets = buffer;
     int request = GhttpGetEx(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
                              reinterpret_cast<const void*>(&OnProgress), vault->m_callback, vault);
     reinterpret_cast<VaultMan*>(manager->m_vaultMan)->m_request = request;
@@ -648,9 +648,9 @@ unsigned long __stdcall VaultMan::DownloadThread(void* url)
 unsigned long __stdcall VaultMan::UploadThread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    Prefs::Preferences* prefs = NetManager()->GetNetworkPreferences();
+    OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
     const char* networkId;
-    prefs->GetPreference(Crc("network_id"))->GetString("ui_string", &networkId, 1);
+    prefs->GetPreference(Checksums("network_id"))->GetString("ui_string", &networkId, 1);
     Wait(vault->m_semaphore);
     PushBottomUp();
     void* post = GhttpNewPost();
@@ -658,14 +658,14 @@ unsigned long __stdcall VaultMan::UploadThread(void* param)
     char fileName[0x80] = {}; // (left unset in the original for an unknown type)
     char* buffer = nullptr;
     uint32_t size = 0;
-    // The item's data written to a buffer (from the current heap: Mem::New for a trick, its steps inlined for the
+    // The item's data written to a buffer (from the current heap: MemSys::New for a trick, its steps inlined for the
     // others).
     auto writeData = [&]() {
-        size = Script::CalculateBufferSize(vault->m_data, kListBufferSize);
-        buffer = static_cast<char*>(Mem::New(size));
-        Script::WriteToBuffer(vault->m_data, reinterpret_cast<uint8_t*>(buffer), size, 1, nullptr);
-        uint32_t checksum = Crc::GenerateCRCCaseless(buffer, static_cast<int>(size));
-        Text::Copy(fileName, vault->m_fileName);
+        size = Scripts::MeasureBufferBytes(vault->m_data, kListBufferSize);
+        buffer = static_cast<char*>(MemSys::New(size));
+        Scripts::EmitIntoBuffer(vault->m_data, reinterpret_cast<uint8_t*>(buffer), size, 1, nullptr);
+        uint32_t checksum = Checksums::GenerateCRCCaseless(buffer, static_cast<int>(size));
+        Text::Copy(fileName, vault->m_sourcePath);
         return checksum;
     };
     auto addNumber = [&](const char* name, int value) {
@@ -678,10 +678,10 @@ unsigned long __stdcall VaultMan::UploadThread(void* param)
     case kVaultGoals: {
         if (vault->m_type == kVaultTricks) {
             GhttpPostAddString(post, "filetype", "cat");
-            addNumber("score", vault->m_score);
+            addNumber("score", vault->m_pointsHeld);
         } else if (vault->m_type == kVaultSkaters) {
             GhttpPostAddString(post, "filetype", "cas");
-            addNumber("is_male", vault->m_isMale);
+            addNumber("is_male", vault->m_hasMaleBody);
         } else {
             GhttpPostAddString(post, "filetype", "cag");
             addNumber("num_goals", vault->m_numGoals);
@@ -694,13 +694,13 @@ unsigned long __stdcall VaultMan::UploadThread(void* param)
     case kVaultParks: {
         uint32_t checksum = writeData();
         GhttpPostAddString(post, "player", networkId);
-        addNumber("width", vault->m_width);
-        addNumber("height", vault->m_length);
+        addNumber("width", vault->m_span);
+        addNumber("height", vault->m_byteCount);
         addNumber("checksum", static_cast<int>(checksum));
         addNumber("num_pieces", vault->m_numPieces);
         addNumber("num_gaps", vault->m_numGaps);
         addNumber("num_goals", vault->m_numGoals);
-        addNumber("theme", vault->m_theme);
+        addNumber("theme", vault->m_styleSet);
         std::snprintf(number, sizeof(number), "0x%x", vault->m_todScript);
         GhttpPostAddString(post, "tod_script", number);
         break;
@@ -708,11 +708,11 @@ unsigned long __stdcall VaultMan::UploadThread(void* param)
     default:
         break;
     }
-    vault->m_buffer = buffer;
+    vault->m_octets = buffer;
     vault->m_bufferSize = size;
     GhttpPostAddFileFromMemory(post, "filename", buffer, size, fileName, nullptr);
     char description[0x400];
-    std::snprintf(description, sizeof(description), "%s", vault->m_description);
+    std::snprintf(description, sizeof(description), "%s", vault->m_summaryText);
     GhttpPostAddString(post, "description", description);
     GhttpPostAddString(post, "uniqueid", GameSpyUniqueId());
     if (const char* fileType = UploadFileType(vault->m_type)) // (a trick, skater or goal gets it twice)
@@ -733,7 +733,7 @@ void __cdecl VaultMan::OnProgress(void*, int state, const char*, int64_t, int64_
     // (states 3 and 7: receiving the file / posting)
     if ((state == 7 || state == 3) && total > 0)
         vault->m_progress = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0f);
-    vault->m_startTime = Tmr::GetTime();
+    vault->m_startTime = FrameClock::GetTime();
 }
 
 // 0x0054A740
@@ -770,7 +770,7 @@ int __cdecl VaultMan::OnFileDownloaded(void*, int result, char* buffer, int64_t,
 // --- the script commands ---
 
 // 0x0054AA10: DownloadFile file=<url>: the item, loaded when it comes (OnFileDownloaded).
-bool __cdecl DownloadFile(Script::CStruct* params, Script::CScript*)
+bool __cdecl DownloadFile(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* file = "";
     params->GetString("file", &file, 0);
@@ -789,32 +789,32 @@ bool __cdecl DownloadFile(Script::CStruct* params, Script::CScript*)
 
 // 0x0054B060: UploadFile type data description filename [score width length num_pieces num_gaps num_goals theme
 // tod_script is_male]: the upload on a thread (UploadThread).
-bool __cdecl UploadFile(Script::CStruct* params, Script::CScript*)
+bool __cdecl UploadFile(Scripts::CStruct* params, Scripts::CScript*)
 {
     VaultMan* vault = Vault();
     vault->m_transfer = VaultMan::kUpload;
     vault->m_result = 0;
     LogicTasks()->AddTask(vault->m_task);
     vault->m_progress = 0;
-    vault->m_startTime = Tmr::GetTime();
+    vault->m_startTime = FrameClock::GetTime();
     vault->m_failScript = kFailScript;
-    params->GetChecksum("type", &vault->m_type, 1);
-    params->GetStructure("data", &vault->m_data, 0);
+    params->ReadHashValue("type", &vault->m_type, 1);
+    params->ReadSubStruct("data", &vault->m_data, 0);
     const char* description;
     const char* fileName;
     params->GetString("description", &description, 1);
     params->GetString("filename", &fileName, 1);
-    Text::Copy(vault->m_fileName, fileName);
-    Text::Copy(vault->m_description, description);
-    params->GetInteger("score", &vault->m_score, 0);
-    params->GetInteger("width", &vault->m_width, 0);
-    params->GetInteger("length", &vault->m_length, 0);
-    params->GetInteger("num_pieces", &vault->m_numPieces, 0);
-    params->GetInteger("num_gaps", &vault->m_numGaps, 0);
-    params->GetInteger("num_goals", &vault->m_numGoals, 0);
-    params->GetInteger("theme", &vault->m_theme, 0);
-    params->GetChecksum("tod_script", &vault->m_todScript, 0);
-    params->GetInteger("is_male", &vault->m_isMale, 0);
+    Text::Copy(vault->m_sourcePath, fileName);
+    Text::Copy(vault->m_summaryText, description);
+    params->FetchIntValue("score", &vault->m_pointsHeld, 0);
+    params->FetchIntValue("width", &vault->m_span, 0);
+    params->FetchIntValue("length", &vault->m_byteCount, 0);
+    params->FetchIntValue("num_pieces", &vault->m_numPieces, 0);
+    params->FetchIntValue("num_gaps", &vault->m_numGaps, 0);
+    params->FetchIntValue("num_goals", &vault->m_numGoals, 0);
+    params->FetchIntValue("theme", &vault->m_styleSet, 0);
+    params->ReadHashValue("tod_script", &vault->m_todScript, 0);
+    params->FetchIntValue("is_male", &vault->m_hasMaleBody, 0);
     HANDLE thread = StartThread(&VaultMan::UploadThread, vault);
     Wait(vault->m_semaphore);
     ResumeThread(thread);
@@ -823,11 +823,11 @@ bool __cdecl UploadFile(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x0054B240
-bool __cdecl CancelFileTransfer(Script::CStruct*, Script::CScript*)
+bool __cdecl CancelFileTransfer(Scripts::CStruct*, Scripts::CScript*)
 {
     VaultMan* vault = Vault();
     if (vault->m_transfer != VaultMan::kNone) {
-        Memory()->Free(vault->m_buffer);
+        Memory()->Free(vault->m_octets);
         GhttpCancelRequest(vault->m_request);
         vault->m_transfer = VaultMan::kNone;
         vault->m_task->Remove();
@@ -837,12 +837,12 @@ bool __cdecl CancelFileTransfer(Script::CStruct*, Script::CScript*)
 
 // 0x0054C290: DownloadDirectoryList <type>: the type's categories and their items (for profile 0x011B0C16, first
 // the uploads list, as an "Uploads" category).
-bool __cdecl DownloadDirectoryList(Script::CStruct* params, Script::CScript*)
+bool __cdecl DownloadDirectoryList(Scripts::CStruct* params, Scripts::CScript*)
 {
     Manager* manager = NetManager();
     VaultMan* vault = reinterpret_cast<VaultMan*>(manager->m_vaultMan);
-    BuddyMan* buddies = static_cast<BuddyMan*>(manager->m_buddyMan);
-    params->GetChecksum(0u, &vault->m_type, 1);
+    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_buddyMan);
+    params->ReadHashValue(0u, &vault->m_type, 1);
     if (const char* folder = TypeFolder(vault->m_type)) // (an unknown type keeps the folder)
         std::snprintf(vault->m_folder, sizeof(vault->m_folder), "%s", folder);
     if (buddies->m_profile != kUploadsProfile) {
@@ -850,12 +850,12 @@ bool __cdecl DownloadDirectoryList(Script::CStruct* params, Script::CScript*)
         return true;
     }
     PushBottomUp();
-    void* memory = Mem::Calloc(sizeof(VaultCategory));
+    void* memory = MemSys::AllocZeroed(sizeof(VaultCategory));
     VaultCategory* category = memory ? static_cast<VaultCategory*>(memory)->Construct() : nullptr;
     category->m_skip = true;
-    Prepend(&vault->m_categories, &category->m_node);
+    Prepend(&vault->m_categories, &category->m_listLink);
     std::memcpy(category->m_name, "Uploads", 8);
-    vault->m_category = static_cast<VaultCategory*>(vault->m_search.FirstItem(&vault->m_categories));
+    vault->m_category = static_cast<VaultCategory*>(vault->m_search.HeadElement(&vault->m_categories));
     vault->m_transfer = VaultMan::kUploads;
     vault->m_result = 0;
     char url[128];
@@ -867,7 +867,7 @@ bool __cdecl DownloadDirectoryList(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x0054C460
-bool __cdecl FreeDirectoryListing(Script::CStruct*, Script::CScript*)
+bool __cdecl FreeDirectoryListing(Scripts::CStruct*, Scripts::CScript*)
 {
     Vault()->FreeDirectoryListing();
     return true;
@@ -875,31 +875,31 @@ bool __cdecl FreeDirectoryListing(Script::CStruct*, Script::CScript*)
 
 // 0x0054C470: a menu item for each item of the current category (net_vault_menu_add_park / goal / skater / trick),
 // its details as parameters, choosing it gets the file.
-bool __cdecl FillVaultMenu(Script::CStruct*, Script::CScript*)
+bool __cdecl FillVaultMenu(Scripts::CStruct*, Scripts::CScript*)
 {
     VaultMan* vault = Vault();
     PushTopDown();
-    for (Mem::ListNode* node = NextNode(&vault->m_category->m_items); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = NextNode(&vault->m_category->m_items); node; node = NextNode(node)) {
         auto* item = static_cast<VaultItem*>(node->data);
         if (!item)
             break;
-        Script::CStruct* params = NewParams();
+        Scripts::CStruct* params = NewParams();
         params->AddString("name", item->m_name);
         params->AddString("creator", item->m_creator);
         params->AddString("size", item->m_size);
-        params->AddInteger("score", item->m_score);
-        params->AddInteger("num_pieces", item->m_numPieces);
-        params->AddInteger("num_gaps", item->m_numGaps);
-        params->AddInteger("width", item->m_width);
-        params->AddInteger("height", item->m_height);
-        params->AddInteger("num_goals", item->m_numGoals);
-        params->AddInteger("theme", item->m_theme);
-        params->AddChecksum("tod_script", item->m_todScript);
-        params->AddInteger("is_male", item->m_isMale);
-        params->AddString("description", item->m_description);
-        Script::CStruct* choose = NewParams();
+        params->PutInt("score", item->m_pointsHeld);
+        params->PutInt("num_pieces", item->m_numPieces);
+        params->PutInt("num_gaps", item->m_numGaps);
+        params->PutInt("width", item->m_span);
+        params->PutInt("height", item->m_levelY);
+        params->PutInt("num_goals", item->m_numGoals);
+        params->PutInt("theme", item->m_styleSet);
+        params->PutNameKey("tod_script", item->m_todScript);
+        params->PutInt("is_male", item->m_hasMaleBody);
+        params->AddString("description", item->m_summaryText);
+        Scripts::CStruct* choose = NewParams();
         choose->AddString("file", item->m_url);
-        params->AddStructure("pad_choose_params", choose);
+        params->PutSubStruct("pad_choose_params", choose);
         const char* script = nullptr;
         switch (vault->m_type) {
         case kVaultParks: script = "net_vault_menu_add_park"; break;
@@ -919,11 +919,11 @@ bool __cdecl FillVaultMenu(Script::CStruct*, Script::CScript*)
 
 namespace {
 // The category after / before the current one (round to the first / last), its name into the script's parameters.
-void MoveCategory(Script::CScript* script, bool forward)
+void MoveCategory(Scripts::CScript* script, bool forward)
 {
     VaultMan* vault = Vault();
-    Mem::ListNode*& node = vault->m_search.m_node;
-    Mem::ListNode* step = forward ? node->next : node->prev;
+    MemSys::ListNode*& node = vault->m_search.m_listLink;
+    MemSys::ListNode* step = forward ? node->next : node->prev;
     node = step->data == reinterpret_cast<void*>(-1) ? nullptr : step;
     vault->m_category = node ? static_cast<VaultCategory*>(node->data) : nullptr;
     if (!vault->m_category) {
@@ -937,19 +937,19 @@ void MoveCategory(Script::CScript* script, bool forward)
 } // namespace
 
 // 0x0054C770
-bool __cdecl NextVaultCategory(Script::CStruct*, Script::CScript* script)
+bool __cdecl NextVaultCategory(Scripts::CStruct*, Scripts::CScript* script)
 {
     MoveCategory(script, true);
     return true;
 }
 
 // 0x0054C800
-bool __cdecl PrevVaultCategory(Script::CStruct*, Script::CScript* script)
+bool __cdecl PrevVaultCategory(Scripts::CStruct*, Scripts::CScript* script)
 {
     MoveCategory(script, false);
     return true;
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay
 
-using GameNet::VaultMan;
+using OnlinePlay::VaultMan;

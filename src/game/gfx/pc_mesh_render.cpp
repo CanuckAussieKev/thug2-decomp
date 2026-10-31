@@ -22,7 +22,7 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -71,7 +71,7 @@ void AddBone(float* blended, const sSkinVertex& v, uint8_t bone, float weight)
 
 // The vertices skinned with up to `bones` bones each: the first bone's transform, then - unless its weight is
 // exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0).
-void Skin(sMesh* mesh, uint8_t* out, int bones)
+void Skin(meshRef* mesh, uint8_t* out, int bones)
 {
     const auto* v = reinterpret_cast<const sSkinVertex*>(mesh->perVertexData);
     for (uint32_t i = 0; i < mesh->vertexCount; ++i, ++v) {
@@ -96,11 +96,11 @@ void Skin(sMesh* mesh, uint8_t* out, int bones)
 
 // The index buffers and their counts by level (a level past the eighth reads on into the fields after them, as the
 // original does).
-sIndexBuffer* IndexBufferAt(sMesh* mesh, int level)
+sIndexBuffer* IndexBufferAt(meshRef* mesh, int level)
 {
     return *reinterpret_cast<sIndexBuffer**>(reinterpret_cast<uint8_t*>(mesh) + 0x54 + 4 * level);
 }
-uint16_t IndexCountAt(sMesh* mesh, int level)
+uint16_t IndexCountAt(meshRef* mesh, int level)
 {
     return *reinterpret_cast<uint16_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x24 + 2 * level);
 }
@@ -114,12 +114,12 @@ void CountDraw(uint32_t primitives)
 } // namespace
 
 // 0x004D4D70 / 0x004D4E50 / 0x004D5020
-void sMesh::SkinOneBone(uint8_t* out) { Skin(this, out, 1); }
-void sMesh::SkinTwoBones(uint8_t* out) { Skin(this, out, 2); }
-void sMesh::SkinThreeBones(uint8_t* out) { Skin(this, out, 3); }
+void meshRef::SkinOneBone(uint8_t* out) { Skin(this, out, 1); }
+void meshRef::SkinTwoBones(uint8_t* out) { Skin(this, out, 2); }
+void meshRef::SkinThreeBones(uint8_t* out) { Skin(this, out, 3); }
 
 // 0x004D5290
-void sMesh::Render()
+void meshRef::Render()
 {
     if (g_skipRender || BeyondClipDistance(this))
         return;
@@ -144,7 +144,7 @@ void sMesh::Render()
     }
     ApplyVertexColors();
     SetVertexFormat(fvf);
-    auto* mat = reinterpret_cast<sMaterial*>(material);
+    auto* mat = reinterpret_cast<materialRef*>(material);
     if (PixelShaders()) {
         mat->Submit();
         if (!g_instanceColourOn && !(flags & 4))
@@ -163,7 +163,7 @@ void sMesh::Render()
     if (flags & 0x100) {
         Device()->GetRenderState(D3DRS_ZWRITEENABLE, &zWrite);
         if (zWrite == 1)
-            Nx::SetRenderState(D3DRS_ZWRITEENABLE, 0);
+            Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, 0);
     }
     sVertexBuffer* vb = vertexBuffers[currentVertexBuffer];
     if (perVertexData && (unknown9C != g_framesRendered ||
@@ -187,7 +187,7 @@ void sMesh::Render()
     Device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arenaOffset, stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
-        SphereInView(reinterpret_cast<const Mth::Vector*>(centre), radius);
+        SphereInView(reinterpret_cast<const Maths::Vector*>(centre), radius);
         float distance = LastSphereDistance();
         for (; level < 8; ++level) {
             if (!indexBuffers[level]) {

@@ -32,12 +32,12 @@
 #include "game/obj/movie_manager.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
-Mth::Vector g_shatterVelocity;
+Maths::Vector g_shatterVelocity;
 float g_shatterSpeed;
-Lst::HashTable* g_splatSets;
-Lst::HashTable* g_spawnedPolys;
+ListKit::HashTable* g_splatSets;
+ListKit::HashTable* g_spawnedPolys;
 float g_shatterVelocityScale{1.0f};
 namespace {
 
@@ -53,45 +53,45 @@ float g_shatterLifetime{4.0f};
 float g_shatterFloor{-10000.0f};
 float g_shatterBounce{0.8f};
 uint32_t g_fogColor{0x66806060};
-Lst::HashTable* g_flashes;
-Lst::HashTable* g_recentSplats;
+ListKit::HashTable* g_flashes;
+ListKit::HashTable* g_recentSplats;
 uint32_t g_shatterTexture;
 uint32_t g_shatterValueAF1A;
 int g_shatterValue33DF;
 bool g_fogEnabled;
-Mth::Vector g_shatterVector210E;
+Maths::Vector g_shatterVector210E;
 float g_levelColor[4];
 void* g_lineSectors[128];
-CCollObj* g_lineObjects[128];
+CHitMesh* g_lineObjects[128];
 
 // The tables.
-Lst::HashTable*& Flashes() { return g_flashes; }
-Lst::HashTable*& SpawnedPolys() { return g_spawnedPolys; }
-Lst::HashTable*& SplatSets() { return g_splatSets; }
-Lst::HashTable*& RecentSplats() { return g_recentSplats; }
-Lst::HashTable*& Shatters() { return g_shatters; }
+ListKit::HashTable*& Flashes() { return g_flashes; }
+ListKit::HashTable*& SpawnedPolys() { return g_spawnedPolys; }
+ListKit::HashTable*& SplatSets() { return g_splatSets; }
+ListKit::HashTable*& RecentSplats() { return g_recentSplats; }
+ListKit::HashTable*& Shatters() { return g_shatters; }
 
-// A table's first value and the next (null at the end) - the original's inlined iteration (IterateNext).
-void* NextValue(Lst::HashTable* table)
+// A table's first value and the next (null at the end) - the original's inlined iteration (StepIterator).
+void* NextValue(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstValue(Lst::HashTable* table)
+void* FirstValue(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
     return NextValue(table);
 }
 // A value taken out of its table (keyed by its address).
-void Remove(Lst::HashTable* table, void* value)
+void Remove(ListKit::HashTable* table, void* value)
 {
     uint32_t key = reinterpret_cast<uint32_t>(value);
-    table->FlushItem(key);
+    table->EraseEntry(key);
 }
 
-bool Paused() { return Obj::g_gamePaused; }
+bool Paused() { return GameObjects::g_gamePaused; }
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int Rand() { return Crt::Rand(); }
@@ -99,7 +99,7 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u);
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);
 
 // The frame's time in milliseconds (truncated, the original's _ftol).
-int FrameMilliseconds() { return static_cast<int>(static_cast<int64_t>(Tmr::GetSlomoFrameSeconds() * 1000.0f)); }
+int FrameMilliseconds() { return static_cast<int>(static_cast<int64_t>(FrameClock::GetSlomoFrameSeconds() * 1000.0f)); }
 
 // The platform's fog exponent: compiled out on PC (the empty 0x005480A0).
 void PlatSetFogExponent(float /*exponent*/) {}
@@ -107,10 +107,10 @@ void PlatSetFogExponent(float /*exponent*/) {}
 void CompiledOut() {}
 
 // A new table of 16 buckets on the default heap (none when out of memory).
-Lst::HashTable* NewTable()
+ListKit::HashTable* NewTable()
 {
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    return memory ? new (memory) Lst::HashTable(4) : nullptr;
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    return memory ? new (memory) ListKit::HashTable(4) : nullptr;
 }
 
 } // namespace
@@ -147,9 +147,9 @@ sSplatParams* sSplatParams::Construct()
 CShatter* CShatter::Construct(int count)
 {
     vtable = reinterpret_cast<void**>(kShatterVtable);
-    centres = static_cast<Mth::Vector*>(Mem::New(count << 4));
-    velocities = static_cast<Mth::Vector*>(Mem::New(count << 4));
-    rotations = static_cast<Mth::Matrix*>(Mem::New(count << 6));
+    centres = static_cast<Maths::Vector*>(MemSys::New(count << 4));
+    velocities = static_cast<Maths::Vector*>(MemSys::New(count << 4));
+    rotations = static_cast<Maths::Matrix*>(MemSys::New(count << 6));
     triangleCount = static_cast<uint16_t>(count);
     unknown28 = g_shatterValueAF1A;
     gravity = 128.0f;
@@ -163,9 +163,9 @@ CShatter* CShatter::Construct(int count)
 void CShatter::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kShatterVtable);
-    Mem::Manager::Get()->Free(centres);
-    Mem::Manager::Get()->Free(velocities);
-    Mem::Manager::Get()->Free(rotations);
+    MemSys::Manager::Get()->Free(centres);
+    MemSys::Manager::Get()->Free(velocities);
+    MemSys::Manager::Get()->Free(rotations);
 }
 
 // 0x00491380
@@ -173,15 +173,15 @@ CShatter* CShatter::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004913D0
 void CShatter::Step(int index, float step)
 {
-    Mth::Vector& velocity = velocities[index];
-    Mth::Vector& centre = centres[index];
+    Maths::Vector& velocity = velocities[index];
+    Maths::Vector& centre = centres[index];
     double moveX = static_cast<double>(step) * velocity.x;
     double moveY = static_cast<double>(step) * velocity.y;
     float moveZ = static_cast<float>(static_cast<double>(step) * velocity.z);
@@ -197,14 +197,14 @@ void CShatter::Step(int index, float step)
         float a1 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
         float a2 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
         float a3 = static_cast<float>(Rand() * kPerRandTwice - 1.0f);
-        Mth::Vector axis = {a3, a2, a1, 1.0f};
+        Maths::Vector axis = {a3, a2, a1, 1.0f};
         axis.Normalize();
-        Mth::Matrix& rotation = rotations[index];
+        Maths::Matrix& rotation = rotations[index];
         std::memset(&rotation, 0, sizeof(rotation));
         rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
         float turnAngle = static_cast<float>(Rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
-        Mth::Matrix turn;
-        Mth::CreateRotateMatrix(turn, axis, turnAngle);
+        Maths::Matrix turn;
+        Maths::BuildAxisAngleMatrix(turn, axis, turnAngle);
         // D3DX (linked library code): rotation = rotation * turn
         D3dx::MatrixMultiply(
             &rotation, &rotation, &turn);
@@ -220,14 +220,14 @@ namespace Engine {
 void __cdecl EnableFog(bool on)
 {
     g_fogEnabled = on;
-    Nx::SetFogEnabled(on);
+    Engine3D::SetFogEnabled(on);
 }
 
 // 0x00490E00
 void __cdecl SetFogDistance(float distance)
 {
     g_fogDistance = distance;
-    Nx::SetFogDistance(distance);
+    Engine3D::SetFogDistance(distance);
 }
 
 // 0x00490E10
@@ -241,14 +241,14 @@ void __cdecl SetFogExponent(float exponent)
 void __cdecl SetFogColor(uint32_t rgba)
 {
     g_fogColor = rgba;
-    Nx::SetFogColor(rgba);
+    Engine3D::SetFogColor(rgba);
 }
 
 // 0x00491290
 void __cdecl SetLevelColor(const float* color) { std::memcpy(g_levelColor, color, 16); }
 
 // 0x00491110
-void __cdecl SetShatterParams(const Mth::Vector* velocity, const Mth::Vector* vector210E, float valueC483, float area,
+void __cdecl SetShatterParams(const Maths::Vector* velocity, const Maths::Vector* vector210E, float valueC483, float area,
                               float speed, float velocityScale, float lifetime, float floor, float bounce,
                               float value2E1C, uint32_t texture, uint32_t valueAF1A, int value33DF)
 {
@@ -272,7 +272,7 @@ void __cdecl ShatterGeom(void* geom)
 {
     // (the PC's ShatterGeom - shatter.cpp - only reads the geom: the original also looked up the particles' texture
     // 0x007004BC and passed it, unused)
-    Nx::ShatterGeom(static_cast<uint8_t*>(geom));
+    Engine3D::ShatterGeom(static_cast<uint8_t*>(geom));
 }
 
 // --- texture splats ---
@@ -377,10 +377,10 @@ void __cdecl KillAllTextureSplats()
     for (void* recent = FirstValue(RecentSplats()); recent;) {
         void* next = NextValue(RecentSplats());
         Remove(RecentSplats(), recent);
-        Mem::Manager::Get()->Free(recent);
+        MemSys::Manager::Get()->Free(recent);
         recent = next;
     }
-    Nx::KillAllTextureSplats();
+    Engine3D::KillAllTextureSplats();
 }
 
 // 0x00491630
@@ -392,7 +392,7 @@ void __cdecl KillTextureSplatsInBox(const float* box)
             recent[1] <= box[5] && recent[2] <= box[6])
             recent[5] = 0.0f;
     }
-    Nx::KillTextureSplatsInBox(box);
+    Engine3D::KillTextureSplatsInBox(box);
 }
 
 // 0x004916F0
@@ -402,29 +402,29 @@ void __cdecl KillTextureSplatsOfTexture(uint32_t texture)
         void* next = NextValue(SplatSets());
         if (static_cast<sTextureSplats*>(value)->texture == texture) {
             Remove(SplatSets(), value);
-            Mem::Manager::Get()->Free(value);
+            MemSys::Manager::Get()->Free(value);
         }
         value = next;
     }
 }
 
-// A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (Tmr::GetTime).
+// A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (FrameClock::GetTime).
 struct RecentSplat {
-    Mth::Vector pos;
+    Maths::Vector pos;
     uint32_t follow; // +0x10
     uint32_t time;   // +0x14
 };
 
 // 0x004928A0
-bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to, float size, float depth, float angle,
-                                  float coneAngle, float lifetime, const char* textureName, uint32_t unknown38,
+bool __cdecl CreateTextureSplatAt(const Maths::Vector* from, const Maths::Vector* to, float size, float depth, float angle,
+                                  float coneAngle, float lifetime, const char* imageLabel, uint32_t unknown38,
                                   uint32_t follow, uint8_t unknown40, uint8_t* texture)
 {
-    g_splatReserve = Script::GetInteger(0x26FCB7BE); // (asserted)
+    g_splatReserve = Scripts::FetchIntValue(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
     if (follow) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
-        uint32_t now = Tmr::GetTime();
+        uint32_t now = FrameClock::GetTime();
         for (void* value = FirstValue(RecentSplats()); value && !recent;) {
             auto* candidate = static_cast<RecentSplat*>(value);
             RecentSplat* dead = nullptr;
@@ -442,29 +442,29 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
             value = NextValue(RecentSplats());
             if (dead) {
                 Remove(RecentSplats(), dead);
-                Mem::Manager::Get()->Free(dead);
+                MemSys::Manager::Get()->Free(dead);
             }
         }
         if (!recent) {
             // None: only remembered.
-            auto* added = static_cast<RecentSplat*>(Mem::New(sizeof(RecentSplat)));
+            auto* added = static_cast<RecentSplat*>(MemSys::New(sizeof(RecentSplat)));
             added->follow = follow;
             added->pos = *from;
             added->time = now;
             uint32_t key = reinterpret_cast<uint32_t>(added);
-            RecentSplats()->PutItem(key, added);
+            RecentSplats()->StoreEntry(key, added);
             return true;
         }
     }
     if (!texture) {
-        auto* textures = static_cast<CTexDict*>(reinterpret_cast<void*>(g_particleTextureDict)); // (the particles' dictionary)
-        texture = reinterpret_cast<uint8_t*>(textures->GetTexture(Crc::GenerateCRCFromString(textureName)));
+        auto* textures = static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict)); // (the particles' dictionary)
+        texture = reinterpret_cast<uint8_t*>(textures->GetTexture(Checksums::HashFromText(imageLabel)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
-    Mth::Line line(*from, *to);
-    Mth::BBox lineBox(line.start);
+    Maths::Line line(*from, *to);
+    Maths::BBox lineBox(line.start);
     lineBox.AddPoint(line.end);
-    Mth::BBox box;
+    Maths::BBox box;
     box.min = {static_cast<float>(static_cast<double>(lineBox.min.x) - size),
                  static_cast<float>(static_cast<double>(lineBox.min.y) - size),
                  static_cast<float>(static_cast<double>(lineBox.min.z) - size), 1.0f};
@@ -478,18 +478,18 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
     auto* objects = g_lineObjects;
     int count = 0;
     for (CCollGrid** grid = grids; *grid; ++grid) {
-        CCollObj** inBox = (*grid)->ObjectsInBox(&box);
+        CHitMesh** inBox = (*grid)->ObjectsInBox(&box);
         if (!inBox)
             continue;
         for (; *inBox; ++inBox) {
-            CCollObj* object = *inBox;
+            CHitMesh* object = *inBox;
             // (slot 21: its geometry, a box first; NaN doesn't rule it out)
-            auto* bounds = reinterpret_cast<const Mth::BBox*(__thiscall*)(CCollObj*)>(
+            auto* bounds = reinterpret_cast<const Maths::BBox*(__thiscall*)(CHitMesh*)>(
                 (*reinterpret_cast<void***>(object))[21])(object);
             if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) &&
                 !(bounds->min.z > box.max.z) && !(box.min.z > bounds->max.z) &&
                 !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
-                void* sector = Nx::Engine::GetSector(object->m_checksum);
+                void* sector = Engine3D::Engine::LookUpSector(object->m_checksum);
                 objects[count] = object;
                 sectors[count] = sector;
                 ++count;
@@ -517,17 +517,17 @@ bool __cdecl CreateTextureSplatAt(const Mth::Vector* from, const Mth::Vector* to
         params.unknown38 = unknown38;
         params.up = recent ? &recent->pos.x : nullptr;
         params.unknown40 = unknown40;
-        sTextureSplats* splats = Nx::CreateTextureSplat(sectors, reinterpret_cast<int>(objects), &params);
+        sTextureSplats* splats = Engine3D::CreateTextureSplat(sectors, reinterpret_cast<int>(objects), &params);
         made = splats != nullptr;
         if (!follow && splats) {
             AgeTextureSplats(splats, FrameMilliseconds());
             LightTextureSplats(splats);
-            splats->texture = reinterpret_cast<GameNet::FoldedGetters*>(texture)->Word04();
+            splats->texture = reinterpret_cast<OnlinePlay::FoldedGetters*>(texture)->Word04();
         }
     }
     if (recent) {
         recent->pos = *from;
-        recent->time = Tmr::GetTime();
+        recent->time = FrameClock::GetTime();
     }
     return made;
 }
@@ -539,7 +539,7 @@ void __cdecl UpdateShatters()
 {
     if (Paused() || !Shatters())
         return;
-    float elapsed = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    float elapsed = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     for (void* value = FirstValue(Shatters()); value;) {
         auto* shatter = static_cast<CShatter*>(value);
         double left = static_cast<double>(shatter->lifetime) - elapsed;
@@ -572,7 +572,7 @@ void __cdecl DrawShatters()
 void __cdecl AddFlash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
                       const char* /*texture*/)
 {
-    auto* flash = static_cast<Flash*>(Mem::New(sizeof(Flash)));
+    auto* flash = static_cast<Flash*>(MemSys::New(sizeof(Flash)));
     std::memcpy(flash->start, &start, 4);
     std::memcpy(flash->end, &end, 4);
     flash->duration = duration;
@@ -582,13 +582,13 @@ void __cdecl AddFlash(int viewport, uint32_t start, uint32_t end, float duration
     flash->texture = nullptr;
     flash->viewport = viewport;
     uint32_t key = reinterpret_cast<uint32_t>(flash);
-    Flashes()->PutItem(key, flash);
+    Flashes()->StoreEntry(key, flash);
 }
 
 // 0x00491790
 void __cdecl UpdateFlashes()
 {
-    float elapsed = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    float elapsed = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     if (!Flashes())
         return;
     for (void* value = FirstValue(Flashes()); value;) {
@@ -612,7 +612,7 @@ void __cdecl UpdateFlashes()
         value = NextValue(Flashes());
         if (dead) {
             Remove(Flashes(), dead);
-            Mem::Manager::Get()->Free(dead);
+            MemSys::Manager::Get()->Free(dead);
         }
     }
 }
@@ -656,7 +656,7 @@ void __cdecl KillAllEffects()
     for (void* flash = FirstValue(Flashes()); flash;) {
         void* next = NextValue(Flashes());
         Remove(Flashes(), flash);
-        Mem::Manager::Get()->Free(flash);
+        MemSys::Manager::Get()->Free(flash);
         flash = next;
     }
     KillAllSpawnedPolys();
@@ -667,7 +667,7 @@ void __cdecl KillAllEffects()
 } // namespace Engine
 
 namespace {
-static VtableSlot kShatterVtable_slots[] = {&Nx::CShatter::Destroy};
+static VtableSlot kShatterVtable_slots[] = {&Engine3D::CShatter::Destroy};
 void** const kShatterVtable = reinterpret_cast<void**>(kShatterVtable_slots);
 } // namespace
 

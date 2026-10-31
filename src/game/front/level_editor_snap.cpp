@@ -13,7 +13,7 @@
 #include "game/mth/vector.h"
 #include "game/nx/feeler.h"
 
-namespace Front::LevelEditor::Snap {
+namespace MenuSystem::LevelEditor::Snap {
 
 int Nearest(const std::vector<V3>& points, V3 to)
 {
@@ -80,9 +80,9 @@ namespace {
 bool Cast(V3 from, V3 to, SurfaceHit* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* normal = reinterpret_cast<const float*>(feeler + 0x24);
@@ -124,13 +124,13 @@ std::vector<V3> SectorVertices(uint32_t checksum, size_t limit)
         return out;
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's RayMeshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
-    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     for (uint32_t i = 0; meshes && i < count && i < 4096 && out.size() < limit; ++i) {
-        Nx::sMesh* mesh = meshes[i];
+        Engine3D::meshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
         if (!vertices || !vertices->data || mesh->stride < 12)
             continue;
         for (uint32_t v = 0; v < mesh->vertexCount && out.size() < limit; ++v) {
@@ -141,4 +141,4 @@ std::vector<V3> SectorVertices(uint32_t checksum, size_t limit)
     return out;
 }
 
-} // namespace Front::LevelEditor::Snap
+} // namespace MenuSystem::LevelEditor::Snap

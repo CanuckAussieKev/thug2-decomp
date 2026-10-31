@@ -44,11 +44,11 @@
 #include "game/script/names.h"
 #include "game/core/code_address.h"
 
-namespace Ed {
+namespace ParkEditing {
 extern uint32_t g_goalEditorMemberFunctions[216];
 } // namespace Ed
 
-namespace Obj {
+namespace GameObjects {
 extern uint32_t g_motionPathMemberFunctions[294];
 extern uint32_t g_animBlenderMemberFunctions[180];
 extern uint32_t g_objectProximityMemberFunctions[42];
@@ -86,115 +86,115 @@ namespace Skater {
 extern uint32_t g_coreMemberFunctions[660];
 } // namespace Skater
 
-namespace Script {
+namespace Scripts {
 
 namespace {
 
-// 0x00640E30: Obj::g_motionPathMemberFunctions (0x00681EB8), 48 functions.
+// 0x00640E30: GameObjects::g_motionPathMemberFunctions (0x00681EB8), 48 functions.
 void FillMotionPathMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CMotionPathMembers::IsMovingFromScript),
-        CodeAddress(&Obj::CMotionPathMembers::IsRotatingFromScript),
-        CodeAddress(&Obj::CMotionComponent::Obj_StorePos),
-        CodeAddress(&Obj::CMotionComponent::Obj_StoreNode),
-        CodeAddress(&Obj::CMotionPathMembers::StopMoving),
-        CodeAddress(&Obj::CMotionPathMembers::StopRotating),
-        CodeAddress(&Obj::CMotionPathMembers::SetPathVelocity),
-        CodeAddress(&Obj::CMotionPathMembers::SetPathMinStopVel),
-        CodeAddress(&Obj::CMotionPathMembers::SetPathAcceleration),
-        CodeAddress(&Obj::CMotionPathMembers::SetPathDeceleration),
-        CodeAddress(&Obj::CMotionComponent::Obj_Rotate),
-        CodeAddress(&Obj::CMotionComponent::Obj_RotX),
-        CodeAddress(&Obj::CMotionComponent::Obj_RotY),
-        CodeAddress(&Obj::CMotionComponent::Obj_RotZ),
-        CodeAddress(&Obj::CMotionPathMembers::PathHeading),
-        CodeAddress(&Obj::CMotionComponent::Obj_SetConstantHeight),
-        CodeAddress(&Obj::CMotionComponent::Obj_GetNextObjOnPath),
-        CodeAddress(&Obj::CMotionComponent::Obj_GetRandomLink),
-        CodeAddress(&Obj::CMotionPathMembers::RandomPathMode),
-        CodeAddress(&Obj::CMotionComponent::Obj_SetPathTurnDist),
-        CodeAddress(&Obj::CMotionComponent::Obj_FollowPath),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtObject),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtNode),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtNodeLinked),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtNodeStored),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtPos),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtPosStored),
-        CodeAddress(&Obj::CMotionComponent::Obj_LookAtRelPos),
-        CodeAddress(&Obj::CMotionPathMembers::StopAlongPath),
-        CodeAddress(&Obj::CMotionPathMembers::StartAlongPath),
-        CodeAddress(&Obj::CMotionComponent::Obj_FollowPathLinked),
-        CodeAddress(&Obj::CMotionComponent::Obj_FollowPathStored),
-        CodeAddress(&Obj::CMotionComponent::Obj_MoveToPosStored),
-        CodeAddress(&Obj::CMotionComponent::Obj_MoveForward),
-        CodeAddress(&Obj::CMotionComponent::Obj_MoveLeft),
-        CodeAddress(&Obj::CMotionComponent::Obj_MoveToPos),
-        CodeAddress(&Obj::CMotionComponent::Obj_MoveToRelPos),
-        CodeAddress(&Obj::CMotionComponent::Obj_MoveToLink),
-        CodeAddress(&Obj::CMotionComponent::Obj_StickToGround),
-        CodeAddress(&Obj::CMotionPathMembers::WaitJumpFinished),
-        CodeAddress(&Obj::CMotionPathMembers::WaitRotate),
-        CodeAddress(&Obj::CMotionPathMembers::WaitMove),
-        CodeAddress(&Obj::CMotionPathMembers::WaitStop),
-        CodeAddress(&Obj::CMotionComponent::Obj_SkipToRestart),
-        CodeAddress(&Obj::CMotionComponent::Obj_Hover),
-        CodeAddress(&Obj::CMotionComponent::Obj_GetSpeed),
-        CodeAddress(&Obj::CMotionComponent::Obj_Jump),
-        CodeAddress(&Obj::CMotionComponent::Obj_FollowLeader),
+        CodeAddress(&GameObjects::CMotionPathMembers::IsMovingFromScript),
+        CodeAddress(&GameObjects::CMotionPathMembers::IsRotatingFromScript),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_StorePos),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_StoreNode),
+        CodeAddress(&GameObjects::CMotionPathMembers::StopMoving),
+        CodeAddress(&GameObjects::CMotionPathMembers::StopRotating),
+        CodeAddress(&GameObjects::CMotionPathMembers::SetPathVelocity),
+        CodeAddress(&GameObjects::CMotionPathMembers::SetPathMinStopVel),
+        CodeAddress(&GameObjects::CMotionPathMembers::SetPathAcceleration),
+        CodeAddress(&GameObjects::CMotionPathMembers::SetPathDeceleration),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_Rotate),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_RotX),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_RotY),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_RotZ),
+        CodeAddress(&GameObjects::CMotionPathMembers::PathHeading),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_SetConstantHeight),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_GetNextObjOnPath),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_GetRandomLink),
+        CodeAddress(&GameObjects::CMotionPathMembers::RandomPathMode),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_SetPathTurnDist),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_FollowPath),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtObject),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtNode),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtNodeLinked),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtNodeStored),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtPos),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtPosStored),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_LookAtRelPos),
+        CodeAddress(&GameObjects::CMotionPathMembers::StopAlongPath),
+        CodeAddress(&GameObjects::CMotionPathMembers::StartAlongPath),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_FollowPathLinked),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_FollowPathStored),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_MoveToPosStored),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_MoveForward),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_MoveLeft),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_MoveToPos),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_MoveToRelPos),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_MoveToLink),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_StickToGround),
+        CodeAddress(&GameObjects::CMotionPathMembers::WaitJumpFinished),
+        CodeAddress(&GameObjects::CMotionPathMembers::WaitRotate),
+        CodeAddress(&GameObjects::CMotionPathMembers::WaitMove),
+        CodeAddress(&GameObjects::CMotionPathMembers::WaitStop),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_SkipToRestart),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_Hover),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_GetSpeed),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_Jump),
+        CodeAddress(&GameObjects::CKinematicsModule::Obj_FollowLeader),
     };
-    FillMemberFunctionCode(Obj::g_motionPathMemberFunctions, code, 48);
+    FillMemberFunctionCode(GameObjects::g_motionPathMemberFunctions, code, 48);
 }
 
-// 0x006413A0: Obj::g_animBlenderMemberFunctions (0x00682350), 29 functions.
+// 0x006413A0: GameObjects::g_animBlenderMemberFunctions (0x00682350), 29 functions.
 void FillAnimBlenderMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CAnimBlenderComponent::AddChannelFromScript),
-        CodeAddress(&Obj::CAnimBlenderComponent::WaitOnChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::RemoveChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::BlendChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::ChannelExists),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
-        CodeAddress(&Obj::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::AddChannelFromScript),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::WaitOnChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::RemoveChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::BlendChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::ChannelExists),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
+        CodeAddress(&GameObjects::CAnimBlenderComponent::PassToChannel),
     };
-    FillMemberFunctionCode(Obj::g_animBlenderMemberFunctions, code, 29);
+    FillMemberFunctionCode(GameObjects::g_animBlenderMemberFunctions, code, 29);
 }
 
-// 0x00641700: Obj::g_objectProximityMemberFunctions (0x00682620), 6 functions.
+// 0x00641700: GameObjects::g_objectProximityMemberFunctions (0x00682620), 6 functions.
 void FillObjectProximityMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CObjectProximityComponent::Obj_SetInnerRadius),
-        CodeAddress(&Obj::CObjectProximityComponent::Obj_SetOuterRadius),
-        CodeAddress(&Obj::CObjectProximityComponent::Obj_SetInnerAvoidRadius),
-        CodeAddress(&Obj::CObjectProximityComponent::Obj_SetOuterAvoidRadius),
-        CodeAddress(&Obj::CObjectProximityComponent::Obj_SetAttentionRadius),
-        CodeAddress(&Obj::CObjectProximityComponent::Obj_ObjectInAttentionRadius),
+        CodeAddress(&GameObjects::CObjectProximityComponent::Obj_SetInnerRadius),
+        CodeAddress(&GameObjects::CObjectProximityComponent::Obj_SetOuterRadius),
+        CodeAddress(&GameObjects::CObjectProximityComponent::Obj_SetInnerAvoidRadius),
+        CodeAddress(&GameObjects::CObjectProximityComponent::Obj_SetOuterAvoidRadius),
+        CodeAddress(&GameObjects::CObjectProximityComponent::Obj_SetAttentionRadius),
+        CodeAddress(&GameObjects::CObjectProximityComponent::Obj_ObjectInAttentionRadius),
     };
-    FillMemberFunctionCode(Obj::g_objectProximityMemberFunctions, code, 6);
+    FillMemberFunctionCode(GameObjects::g_objectProximityMemberFunctions, code, 6);
 }
 
 // 0x006417D0: Skater::g_coreMemberFunctions (0x006826C8), 109 functions.
@@ -208,7 +208,7 @@ void FillCoreMemberFunctions()
         CodeAddress(&Skater::CorePhysicsComponent::FirstTimeOnThisRail),
         CodeAddress(&Skater::CorePhysicsComponent::StartSkitch),
         CodeAddress(&Skater::CorePhysicsComponent::Skitching),
-        CodeAddress(&Skater::CorePhysicsComponent::StopSkitch),
+        CodeAddress(&Skater::CorePhysicsComponent::EndTowRide),
         CodeAddress(&Skater::CorePhysicsComponent::CancelWallpush),
         CodeAddress(&Skater::CorePhysicsComponent::AirTimeLessThan),
         CodeAddress(&Skater::CorePhysicsComponent::AirTimeGreaterThan),
@@ -314,525 +314,525 @@ void FillCoreMemberFunctions()
     FillMemberFunctionCode(Skater::g_coreMemberFunctions, code, 109);
 }
 
-// 0x006423F0: Obj::g_soundComponentMemberFunctions (0x00683118), 1 functions.
+// 0x006423F0: GameObjects::g_soundComponentMemberFunctions (0x00683118), 1 functions.
 void FillSoundComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSoundComponent::Obj_PlaySound),
+        CodeAddress(&GameObjects::CAudioEmitterModule::Obj_PlaySound),
     };
-    FillMemberFunctionCode(Obj::g_soundComponentMemberFunctions, code, 1);
+    FillMemberFunctionCode(GameObjects::g_soundComponentMemberFunctions, code, 1);
 }
 
-// 0x00642440: Obj::g_trickComponentMemberFunctions (0x00683148), 3 functions.
+// 0x00642440: GameObjects::g_trickComponentMemberFunctions (0x00683148), 3 functions.
 void FillTrickComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CTrickComponent::Pressed),
-        CodeAddress(&Obj::CTrickComponent::GetCurrentBailEndpose),
-        CodeAddress(&Obj::CTrickComponent::SetCurrentBailEndpose),
+        CodeAddress(&GameObjects::CMoveExecutor::Pressed),
+        CodeAddress(&GameObjects::CMoveExecutor::GetCurrentBailEndpose),
+        CodeAddress(&GameObjects::CMoveExecutor::SetCurrentBailEndpose),
     };
-    FillMemberFunctionCode(Obj::g_trickComponentMemberFunctions, code, 3);
+    FillMemberFunctionCode(GameObjects::g_trickComponentMemberFunctions, code, 3);
 }
 
-// 0x006424C0: Obj::g_pagerMessageMemberFunctions (0x006831A8), 5 functions.
+// 0x006424C0: GameObjects::g_pagerMessageMemberFunctions (0x006831A8), 5 functions.
 void FillPagerMessageMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CPagerMessageComponent::SendPagerMessage),
-        CodeAddress(&Obj::CPagerMessageComponent::GetPagerMessage),
-        CodeAddress(&Obj::CPagerMessageComponent::GetPagerMessageCount),
-        CodeAddress(&Obj::CPagerMessageComponent::GetFirstUnreadMessageNum),
-        CodeAddress(&Obj::CPagerMessageComponent::ClearPagerMessages),
+        CodeAddress(&GameObjects::CPagerMessageComponent::SendPagerMessage),
+        CodeAddress(&GameObjects::CPagerMessageComponent::GetPagerMessage),
+        CodeAddress(&GameObjects::CPagerMessageComponent::GetPagerMessageCount),
+        CodeAddress(&GameObjects::CPagerMessageComponent::GetFirstUnreadMessageNum),
+        CodeAddress(&GameObjects::CPagerMessageComponent::ClearPagerMessages),
     };
-    FillMemberFunctionCode(Obj::g_pagerMessageMemberFunctions, code, 5);
+    FillMemberFunctionCode(GameObjects::g_pagerMessageMemberFunctions, code, 5);
 }
 
-// 0x00642580: Obj::g_balanceTrickMemberFunctions (0x00683238), 1 functions.
+// 0x00642580: GameObjects::g_balanceTrickMemberFunctions (0x00683238), 1 functions.
 void FillBalanceTrickMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSkaterBalanceTrickComponent::DoingBalanceTrick),
+        CodeAddress(&GameObjects::CRiderTeeterMoves::InBalanceMove),
     };
-    FillMemberFunctionCode(Obj::g_balanceTrickMemberFunctions, code, 1);
+    FillMemberFunctionCode(GameObjects::g_balanceTrickMemberFunctions, code, 1);
 }
 
-// 0x006425D0: Obj::g_compositeObjectMemberFunctions (0x00683268), 30 functions.
+// 0x006425D0: GameObjects::g_compositeObjectMemberFunctions (0x00683268), 30 functions.
 void FillCompositeObjectMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CCompositeObject::Obj_GetPosition),
-        CodeAddress(&Obj::CCompositeObject::Obj_PrintDetails),
-        CodeAddress(&Obj::CCompositeObject::Obj_CreateComponent),
-        CodeAddress(&Obj::CCompositeObject::Obj_ComponentExists),
-        CodeAddress(&Obj::CCompositeObject::Obj_SetPosition),
-        CodeAddress(&Obj::CCompositeObject::Obj_SetOrientation),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetQuat),
-        CodeAddress(&Obj::CCompositeObject::Obj_ForceUpdate),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetVelocity),
-        CodeAddress(&Obj::CCompositeObject::GetSpeed),
-        CodeAddress(&Obj::CCompositeObject::Obj_Hide),
-        CodeAddress(&Obj::CCompositeObject::Obj_Unhide),
-        CodeAddress(&Obj::CCompositeObject::Obj_IsHidden),
-        CodeAddress(&Obj::CCompositeObject::Obj_MoveLocal),
-        CodeAddress(&Obj::CCompositeObject::Obj_Suspend),
-        CodeAddress(&Obj::CCompositeObject::Obj_Unsuspend),
-        CodeAddress(&Obj::CCompositeObject::Obj_Pause),
-        CodeAddress(&Obj::CCompositeObject::Obj_Unpause),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetCollision),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetOrientation),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetDistToNode),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetDistanceToObject),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetOrientationToObject),
-        CodeAddress(&Obj::CCompositeObject::Obj_MovingBackward),
-        CodeAddress(&Obj::CCompositeObject::Obj_SpeedNear),
-        CodeAddress(&Obj::CCompositeObject::Obj_SpeedAbove),
-        CodeAddress(&Obj::CCompositeObject::Obj_SpeedBelow),
-        CodeAddress(&Obj::CCompositeObject::Obj_NearestOutsideAngle),
-        CodeAddress(&Obj::CCompositeObject::Obj_GetType),
-        CodeAddress(&Obj::CCompositeObject::Obj_HasComponent),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetPosition),
+        CodeAddress(&GameObjects::CGameEntity::Obj_PrintDetails),
+        CodeAddress(&GameObjects::CGameEntity::Obj_CreateComponent),
+        CodeAddress(&GameObjects::CGameEntity::Obj_ComponentExists),
+        CodeAddress(&GameObjects::CGameEntity::Obj_SetPosition),
+        CodeAddress(&GameObjects::CGameEntity::Obj_SetOrientation),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetQuat),
+        CodeAddress(&GameObjects::CGameEntity::Obj_ForceUpdate),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetVelocity),
+        CodeAddress(&GameObjects::CGameEntity::GetSpeed),
+        CodeAddress(&GameObjects::CGameEntity::Obj_Hide),
+        CodeAddress(&GameObjects::CGameEntity::Obj_Unhide),
+        CodeAddress(&GameObjects::CGameEntity::Obj_IsHidden),
+        CodeAddress(&GameObjects::CGameEntity::Obj_MoveLocal),
+        CodeAddress(&GameObjects::CGameEntity::Obj_Suspend),
+        CodeAddress(&GameObjects::CGameEntity::Obj_Unsuspend),
+        CodeAddress(&GameObjects::CGameEntity::Obj_Pause),
+        CodeAddress(&GameObjects::CGameEntity::Obj_Unpause),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetCollision),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetOrientation),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetDistToNode),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetDistanceToObject),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetOrientationToObject),
+        CodeAddress(&GameObjects::CGameEntity::Obj_MovingBackward),
+        CodeAddress(&GameObjects::CGameEntity::Obj_SpeedNear),
+        CodeAddress(&GameObjects::CGameEntity::Obj_SpeedAbove),
+        CodeAddress(&GameObjects::CGameEntity::Obj_SpeedBelow),
+        CodeAddress(&GameObjects::CGameEntity::Obj_NearestOutsideAngle),
+        CodeAddress(&GameObjects::CGameEntity::Obj_GetType),
+        CodeAddress(&GameObjects::CGameEntity::Obj_HasComponent),
     };
-    FillMemberFunctionCode(Obj::g_compositeObjectMemberFunctions, code, 30);
+    FillMemberFunctionCode(GameObjects::g_compositeObjectMemberFunctions, code, 30);
 }
 
-// 0x00642940: Obj::g_objectMemberFunctions (0x00683550), 16 functions.
+// 0x00642940: GameObjects::g_objectMemberFunctions (0x00683550), 16 functions.
 void FillObjectMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CObject::Obj_GetTags),
-        CodeAddress(&Obj::CObject::Obj_GetSingleTag),
-        CodeAddress(&Obj::CObject::Obj_GetNamedTags),
-        CodeAddress(&Obj::CObject::Obj_SetTags),
-        CodeAddress(&Obj::CObject::Obj_RemoveTags),
-        CodeAddress(&Obj::CObject::Obj_LeaveScript),
-        CodeAddress(&Obj::CObject::Obj_GetId),
-        CodeAddress(&Obj::CObject::Obj_FlagSet),
-        CodeAddress(&Obj::CObject::Obj_FlagNotSet),
-        CodeAddress(&Obj::CObject::Obj_ClearFlag),
-        CodeAddress(&Obj::CObject::Obj_SetFlag),
-        CodeAddress(&Obj::CObject::Obj_KillSpawnedScript),
-        CodeAddress(&Obj::CObject::Obj_SpawnScript),
-        CodeAddress(&Obj::CObject::Obj_SwitchScript),
-        CodeAddress(&Obj::CObject::Obj_Visible),
-        CodeAddress(&Obj::CObject::Obj_Invisible),
+        CodeAddress(&GameObjects::CObject::Obj_GetTags),
+        CodeAddress(&GameObjects::CObject::Obj_GetSingleTag),
+        CodeAddress(&GameObjects::CObject::Obj_GetNamedTags),
+        CodeAddress(&GameObjects::CObject::Obj_SetTags),
+        CodeAddress(&GameObjects::CObject::Obj_RemoveTags),
+        CodeAddress(&GameObjects::CObject::Obj_LeaveScript),
+        CodeAddress(&GameObjects::CObject::Obj_GetId),
+        CodeAddress(&GameObjects::CObject::Obj_FlagSet),
+        CodeAddress(&GameObjects::CObject::Obj_FlagNotSet),
+        CodeAddress(&GameObjects::CObject::Obj_ClearFlag),
+        CodeAddress(&GameObjects::CObject::Obj_SetFlag),
+        CodeAddress(&GameObjects::CObject::Obj_KillSpawnedScript),
+        CodeAddress(&GameObjects::CObject::Obj_SpawnScript),
+        CodeAddress(&GameObjects::CObject::Obj_SwitchScript),
+        CodeAddress(&GameObjects::CObject::Obj_Visible),
+        CodeAddress(&GameObjects::CObject::Obj_Invisible),
     };
-    FillMemberFunctionCode(Obj::g_objectMemberFunctions, code, 16);
+    FillMemberFunctionCode(GameObjects::g_objectMemberFunctions, code, 16);
 }
 
-// 0x00642B30: Obj::g_famMemberFunctions (0x006836E8), 2 functions.
+// 0x00642B30: GameObjects::g_famMemberFunctions (0x006836E8), 2 functions.
 void FillFamMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CFamComponent::Obj_PlayFam),
-        CodeAddress(&Obj::CFamComponent::Obj_StopLastFam),
+        CodeAddress(&GameObjects::CFamComponent::Obj_PlayFam),
+        CodeAddress(&GameObjects::CFamComponent::Obj_StopLastFam),
     };
-    FillMemberFunctionCode(Obj::g_famMemberFunctions, code, 2);
+    FillMemberFunctionCode(GameObjects::g_famMemberFunctions, code, 2);
 }
 
-// 0x00642B90: Obj::g_pedLogicMemberFunctions (0x00683730), 28 functions.
+// 0x00642B90: GameObjects::g_pedLogicMemberFunctions (0x00683730), 28 functions.
 void FillPedLogicMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CPedLogicComponent::Ped_SetLogicState),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetLogicState),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_InitPath),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_StartMoving),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_StopMoving),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_IsMoving),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_SetStickDistances),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_SetIsGrinding),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetCurrentVelocity),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_StoreMaxVelocity),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetOriginalMaxVelocity),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_ApplySpeedBoost),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_RemoveSpeedBoost),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_Bail),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_SetIsBailing),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetJumpToNextNode),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_HitWaypoint),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_SetIsSkater),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_NearVertNode),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_PlayJumpSound),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_PlayLandSound),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetCurrentNodeNames),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_TurnToCurrentWaypointOrientation),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetGender),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_ActivateAuxScript),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_DeactivateAuxScript),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_HideBoard),
-        CodeAddress(&Obj::CPedLogicComponent::Ped_GetVoicePrefix),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_SetLogicState),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetLogicState),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_InitPath),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_StartMoving),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_StopMoving),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_IsMoving),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_SetStickDistances),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_SetIsGrinding),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetCurrentVelocity),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_StoreMaxVelocity),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetOriginalMaxVelocity),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_ApplySpeedBoost),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_RemoveSpeedBoost),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_Bail),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_SetIsBailing),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetJumpToNextNode),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_HitWaypoint),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_SetIsSkater),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_NearVertNode),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_PlayJumpSound),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_PlayLandSound),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetCurrentNodeNames),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_TurnToCurrentWaypointOrientation),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetGender),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_ActivateAuxScript),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_DeactivateAuxScript),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_HideBoard),
+        CodeAddress(&GameObjects::CPedestrianBrainModule::Ped_GetVoicePrefix),
     };
-    FillMemberFunctionCode(Obj::g_pedLogicMemberFunctions, code, 28);
+    FillMemberFunctionCode(GameObjects::g_pedLogicMemberFunctions, code, 28);
 }
 
-// 0x00642ED0: Obj::g_avoidMemberFunctions (0x006839E8), 8 functions.
+// 0x00642ED0: GameObjects::g_avoidMemberFunctions (0x006839E8), 8 functions.
 void FillAvoidMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CAvoidComponent::Jump),
-        CodeAddress(&Obj::CAvoidComponent::DebugBox),
-        CodeAddress(&Obj::CAvoidComponent::StepJump),
-        CodeAddress(&Obj::CAvoidComponent::JumpFinished),
-        CodeAddress(&Obj::CAvoidComponent::StorePosition),
-        CodeAddress(&Obj::CAvoidComponent::StoreTarget),
-        CodeAddress(&Obj::CAvoidComponent::HoldMotion),
-        CodeAddress(&Obj::CAvoidComponent::RestoreMotion),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::Jump),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::DebugBox),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::StepJump),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::JumpFinished),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::StorePosition),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::StoreTarget),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::HoldMotion),
+        CodeAddress(&GameObjects::CObstacleDodgeModule::RestoreMotion),
     };
-    FillMemberFunctionCode(Obj::g_avoidMemberFunctions, code, 8);
+    FillMemberFunctionCode(GameObjects::g_avoidMemberFunctions, code, 8);
 }
 
-// 0x00642FE0: Obj::g_flexibleParticleMemberFunctions (0x00683AC0), 25 functions.
+// 0x00642FE0: GameObjects::g_flexibleParticleMemberFunctions (0x00683AC0), 25 functions.
 void FillFlexibleParticleMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::PassToSystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::DestroyParticles),
-        CodeAddress(&Obj::CFlexibleParticleComponent::EmptySystem),
-        CodeAddress(&Obj::CFlexibleParticleComponent::SetScripts),
-        CodeAddress(&Obj::CFlexibleParticleComponent::SetScripts),
-        CodeAddress(&Obj::CFlexibleParticleComponent::ShouldEmit),
-        CodeAddress(&Obj::CFlexibleParticleComponent::EmitOn),
-        CodeAddress(&Obj::CFlexibleParticleComponent::EmitOff),
-        CodeAddress(&Obj::CFlexibleParticleComponent::DestroySystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::PassToSystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::DestroyParticles),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::EmptySystem),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::SetScripts),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::SetScripts),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::ShouldEmit),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::EmitOn),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::EmitOff),
+        CodeAddress(&GameObjects::CFlexibleParticleComponent::DestroySystem),
     };
-    FillMemberFunctionCode(Obj::g_flexibleParticleMemberFunctions, code, 25);
+    FillMemberFunctionCode(GameObjects::g_flexibleParticleMemberFunctions, code, 25);
 }
 
-// 0x006432D0: Obj::g_particleComponentMemberFunctions (0x00683D30), 20 functions.
+// 0x006432D0: GameObjects::g_particleComponentMemberFunctions (0x00683D30), 20 functions.
 void FillParticleComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CParticleComponent::SetStartPos),
-        CodeAddress(&Obj::CParticleComponent::SetMidPos),
-        CodeAddress(&Obj::CParticleComponent::SetEndPos),
-        CodeAddress(&Obj::CParticleComponent::SetStartBox),
-        CodeAddress(&Obj::CParticleComponent::SetMidBox),
-        CodeAddress(&Obj::CParticleComponent::SetEndBox),
-        CodeAddress(&Obj::CParticleComponent::SetEmitTarget),
-        CodeAddress(&Obj::CParticleComponent::SetEmitRate),
-        CodeAddress(&Obj::CParticleComponent::SetLifetime),
-        CodeAddress(&Obj::CParticleComponent::SetFloat19AF74D1),
-        CodeAddress(&Obj::CParticleComponent::SetMidPointPct),
-        CodeAddress(&Obj::CParticleComponent::SetStartRadius),
-        CodeAddress(&Obj::CParticleComponent::SetMidRadius),
-        CodeAddress(&Obj::CParticleComponent::SetEndRadius),
-        CodeAddress(&Obj::CParticleComponent::SetStartColor),
-        CodeAddress(&Obj::CParticleComponent::SetMidColor),
-        CodeAddress(&Obj::CParticleComponent::SetEndColor),
-        CodeAddress(&Obj::CParticleComponent::SetFlag5446AF14),
-        CodeAddress(&Obj::CParticleComponent::SetColor55835CF2),
-        CodeAddress(&Obj::CParticleComponent::GetParticleParams),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetStartPos),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetMidPos),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetEndPos),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetStartBox),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetMidBox),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetEndBox),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetEmitTarget),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetEmitRate),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetLifespan),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetFloat19AF74D1),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetMidPointPct),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetStartRadius),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetMidRadius),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetEndRadius),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetStartColor),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetMidColor),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetEndColor),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetFlag5446AF14),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::SetColor55835CF2),
+        CodeAddress(&GameObjects::CEffectsEmitterModule::GetParticleParams),
     };
-    FillMemberFunctionCode(Obj::g_particleComponentMemberFunctions, code, 20);
+    FillMemberFunctionCode(GameObjects::g_particleComponentMemberFunctions, code, 20);
 }
 
-// 0x00643530: Obj::g_rigidBodyMemberFunctions (0x00683F28), 12 functions.
+// 0x00643530: GameObjects::g_rigidBodyMemberFunctions (0x00683F28), 12 functions.
 void FillRigidBodyMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_IgnoreSkater),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_Wake),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_Sleep),
-        CodeAddress(&Obj::CRigidBodyComponent::Rigidbody_Kick),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_SetVelocities),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_Disable),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_Enable),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_Reset),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_DisablePlayerCollision),
-        CodeAddress(&Obj::CRigidBodyComponent::RigidBody_EnablePlayerCollision),
-        CodeAddress(&Obj::CRigidBodyComponent::GetCenterOfMassPos),
-        CodeAddress(&Obj::CRigidBodyComponent::Rigidbody_MatchVelocityTo),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_IgnoreSkater),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_Wake),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_Sleep),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::Rigidbody_Kick),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_SetVelocities),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_Disable),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_Enable),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_Reset),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_DisablePlayerCollision),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::RigidBody_EnablePlayerCollision),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::GetCenterOfMassPos),
+        CodeAddress(&GameObjects::CBodyDynamicsModule::Rigidbody_MatchVelocityTo),
     };
-    FillMemberFunctionCode(Obj::g_rigidBodyMemberFunctions, code, 12);
+    FillMemberFunctionCode(GameObjects::g_rigidBodyMemberFunctions, code, 12);
 }
 
-// 0x006436B0: Obj::g_vehicleWheelMemberFunctions (0x00684060), 9 functions.
+// 0x006436B0: GameObjects::g_vehicleWheelMemberFunctions (0x00684060), 9 functions.
 void FillVehicleWheelMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CVehicleComponent::Kick),
-        CodeAddress(&Obj::CVehicleComponent::Wake),
-        CodeAddress(&Obj::CVehicleComponent::MoveToRestart),
-        CodeAddress(&Obj::CVehicleComponent::PlaceBeforeCamera),
-        CodeAddress(&Obj::CVehicleComponent::AdjustGravity),
-        CodeAddress(&Obj::CVehicleComponent::HandbrakeActive),
-        CodeAddress(&Obj::CVehicleComponent::AllWheelsAreInContact),
-        CodeAddress(&Obj::CVehicleComponent::KickRandomly),
-        CodeAddress(&Obj::CVehicleComponent::IsSkaterVisible),
+        CodeAddress(&GameObjects::CDrivableModule::Kick),
+        CodeAddress(&GameObjects::CDrivableModule::Wake),
+        CodeAddress(&GameObjects::CDrivableModule::TeleportToSpawn),
+        CodeAddress(&GameObjects::CDrivableModule::PlaceBeforeCamera),
+        CodeAddress(&GameObjects::CDrivableModule::AdjustGravity),
+        CodeAddress(&GameObjects::CDrivableModule::HandbrakeActive),
+        CodeAddress(&GameObjects::CDrivableModule::AllWheelsAreInContact),
+        CodeAddress(&GameObjects::CDrivableModule::KickRandomly),
+        CodeAddress(&GameObjects::CDrivableModule::IsSkaterVisible),
     };
-    FillMemberFunctionCode(Obj::g_vehicleWheelMemberFunctions, code, 9);
+    FillMemberFunctionCode(GameObjects::g_vehicleWheelMemberFunctions, code, 9);
 }
 
-// 0x006437E0: Obj::g_vehicleCameraMemberFunctions (0x00684150), 1 functions.
+// 0x006437E0: GameObjects::g_vehicleCameraMemberFunctions (0x00684150), 1 functions.
 void FillVehicleCameraMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CVehicleCameraComponent::VehicleCamera_Reset),
+        CodeAddress(&GameObjects::CCarView::VehicleCamera_Reset),
     };
-    FillMemberFunctionCode(Obj::g_vehicleCameraMemberFunctions, code, 1);
+    FillMemberFunctionCode(GameObjects::g_vehicleCameraMemberFunctions, code, 1);
 }
 
-// 0x00643830: Obj::g_statsManagerMemberFunctions (0x00684180), 9 functions.
+// 0x00643830: GameObjects::g_statsManagerMemberFunctions (0x00684180), 9 functions.
 void FillStatsManagerMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CStatsManagerComponent::ReInit),
-        CodeAddress(&Obj::CStatsManagerComponent::ResetGoals),
-        CodeAddress(&Obj::CStatsManagerComponent::ActivateGoals),
-        CodeAddress(&Obj::CStatsManagerComponent::DeactivateGoals),
-        CodeAddress(&Obj::CStatsManagerComponent::GetGoalStatusMember),
-        CodeAddress(&Obj::CStatsManagerComponent::UnlockAmGoals),
-        CodeAddress(&Obj::CStatsManagerComponent::UnlockProGoals),
-        CodeAddress(&Obj::CStatsManagerComponent::GetLastAirComboScore),
-        CodeAddress(&Obj::CStatsManagerComponent::ClearLastAirComboScore),
+        CodeAddress(&GameObjects::CAttributeTracker::ReInit),
+        CodeAddress(&GameObjects::CAttributeTracker::ResetGoals),
+        CodeAddress(&GameObjects::CAttributeTracker::ActivateGoals),
+        CodeAddress(&GameObjects::CAttributeTracker::DeactivateGoals),
+        CodeAddress(&GameObjects::CAttributeTracker::GetGoalStatusMember),
+        CodeAddress(&GameObjects::CAttributeTracker::UnlockAmGoals),
+        CodeAddress(&GameObjects::CAttributeTracker::UnlockProGoals),
+        CodeAddress(&GameObjects::CAttributeTracker::GetLastAirComboScore),
+        CodeAddress(&GameObjects::CAttributeTracker::ClearLastAirComboScore),
     };
-    FillMemberFunctionCode(Obj::g_statsManagerMemberFunctions, code, 9);
+    FillMemberFunctionCode(GameObjects::g_statsManagerMemberFunctions, code, 9);
 }
 
-// 0x00643960: Ed::g_goalEditorMemberFunctions (0x00684270), 35 functions.
+// 0x00643960: ParkEditing::g_goalEditorMemberFunctions (0x00684270), 35 functions.
 void FillGoalEditorMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Ed::CGoalEditorComponent::EditedGoalAddGap),
-        CodeAddress(&Ed::CGoalEditorComponent::EditedGoalRemoveGap),
-        CodeAddress(&Ed::CGoalEditorComponent::EditedGoalGotGap),
-        CodeAddress(&Ed::CGoalEditorComponent::AddKeyComboSet),
-        CodeAddress(&Ed::CGoalEditorComponent::RemoveKeyComboSet),
-        CodeAddress(&Ed::CGoalEditorComponent::GetKeyComboSet),
-        CodeAddress(&Ed::CGoalEditorComponent::RemoveGoalSpecificFlag),
-        CodeAddress(&Ed::CGoalEditorComponent::SetGoalSpecificParams),
-        CodeAddress(&Ed::CGoalEditorComponent::FlagGoalAsWon),
-        CodeAddress(&Ed::CGoalEditorComponent::FindUnfinishedGoal),
-        CodeAddress(&Ed::CGoalEditorComponent::GoalExists),
-        CodeAddress(&Ed::CGoalEditorComponent::NewEditorGoal),
-        CodeAddress(&Ed::CGoalEditorComponent::RemovedCreatedGoal),
-        CodeAddress(&Ed::CGoalEditorComponent::GoalHasAllPositionsSet),
-        CodeAddress(&Ed::CGoalEditorComponent::SetCurrentEditorGoal),
-        CodeAddress(&Ed::CGoalEditorComponent::SetEditorGoalType),
-        CodeAddress(&Ed::CGoalEditorComponent::SetEditorGoalDescription),
-        CodeAddress(&Ed::CGoalEditorComponent::SetEditorGoalWinMessage),
-        CodeAddress(&Ed::CGoalEditorComponent::GetCurrentEditedGoalInfo),
-        CodeAddress(&Ed::CGoalEditorComponent::GetEditedGoalsInfo),
-        CodeAddress(&Ed::CGoalEditorComponent::GetNumEditedGoals),
-        CodeAddress(&Ed::CGoalEditorComponent::GetCurrentEditedGoalId),
-        CodeAddress(&Ed::CGoalEditorComponent::WriteEditedGoalNodePositions),
-        CodeAddress(&Ed::CGoalEditorComponent::AddEditedGoalToGoalManager),
-        CodeAddress(&Ed::CGoalEditorComponent::SetEditorGoalName),
-        CodeAddress(&Ed::CGoalEditorComponent::SetEditorPedName),
-        CodeAddress(&Ed::CGoalEditorComponent::MaxEditedGoalsReached),
-        CodeAddress(&Ed::CGoalEditorComponent::EditGoal),
-        CodeAddress(&Ed::CGoalEditorComponent::NukeAllGoals),
-        CodeAddress(&Ed::CGoalEditorComponent::GetMaxGoalsPerLevel),
-        CodeAddress(&Ed::CGoalEditorComponent::SetGoalScore),
-        CodeAddress(&Ed::CGoalEditorComponent::SetGoalTimeLimit),
-        CodeAddress(&Ed::CGoalEditorComponent::SetGoalControlType),
-        CodeAddress(&Ed::CGoalEditorComponent::RefreshGoalCursorPosition),
-        CodeAddress(&Ed::CGoalEditorComponent::GetCreatedGoals),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::EditedGoalAddGap),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::EditedGoalRemoveGap),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::EditedGoalGotGap),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::AddKeyComboSet),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::RemoveKeyComboSet),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetKeyComboSet),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::RemoveGoalSpecificFlag),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetGoalSpecificParams),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::FlagGoalAsWon),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::FindUnfinishedGoal),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GoalExists),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::NewEditorGoal),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::RemovedCreatedGoal),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GoalHasAllPositionsSet),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetCurrentEditorGoal),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetEditorGoalType),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetEditorGoalDescription),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetEditorGoalWinMessage),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetCurrentEditedGoalInfo),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetEditedGoalsInfo),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetNumEditedGoals),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetCurrentEditedGoalId),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::WriteEditedGoalNodePositions),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::AddEditedGoalToGoalManager),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetEditorGoalName),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetEditorPedName),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::MaxEditedGoalsReached),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::EditGoal),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::NukeAllGoals),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetMaxGoalsPerLevel),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetGoalScore),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetGoalTimeLimit),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::SetGoalControlType),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::RefreshGoalCursorPosition),
+        CodeAddress(&ParkEditing::CObjectiveAuthoring::GetCreatedGoals),
     };
-    FillMemberFunctionCode(Ed::g_goalEditorMemberFunctions, code, 35);
+    FillMemberFunctionCode(ParkEditing::g_goalEditorMemberFunctions, code, 35);
 }
 
-// 0x00643D60: Obj::g_colorCycleMemberFunctions (0x006845D0), 4 functions.
+// 0x00643D60: GameObjects::g_colorCycleMemberFunctions (0x006845D0), 4 functions.
 void FillColorCycleMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CColorCycleComponent::On),
-        CodeAddress(&Obj::CColorCycleComponent::Off),
-        CodeAddress(&Obj::CColorCycleComponent::SetPeriodFromScript),
-        CodeAddress(&Obj::CColorCycleComponent::SetColorsFromScript),
+        CodeAddress(&GameObjects::CColorCycleComponent::On),
+        CodeAddress(&GameObjects::CColorCycleComponent::Off),
+        CodeAddress(&GameObjects::CColorCycleComponent::SetPeriodFromScript),
+        CodeAddress(&GameObjects::CColorCycleComponent::SetColorsFromScript),
     };
-    FillMemberFunctionCode(Obj::g_colorCycleMemberFunctions, code, 4);
+    FillMemberFunctionCode(GameObjects::g_colorCycleMemberFunctions, code, 4);
 }
 
-// 0x00643E00: Obj::g_vehicleSoundMemberFunctions (0x00684648), 3 functions.
+// 0x00643E00: GameObjects::g_vehicleSoundMemberFunctions (0x00684648), 3 functions.
 void FillVehicleSoundMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSkaterVehicleSoundComponent::SetSkaterVehicleSounds),
-        CodeAddress(&Obj::CSkaterVehicleSoundComponent::NoSkaterVehicleSounds),
-        CodeAddress(&Obj::CSkaterVehicleSoundComponent::StopSkaterVehicleSounds),
+        CodeAddress(&GameObjects::CSkaterVehicleSoundComponent::SetSkaterVehicleSounds),
+        CodeAddress(&GameObjects::CSkaterVehicleSoundComponent::NoSkaterVehicleSounds),
+        CodeAddress(&GameObjects::CSkaterVehicleSoundComponent::StopSkaterVehicleSounds),
     };
-    FillMemberFunctionCode(Obj::g_vehicleSoundMemberFunctions, code, 3);
+    FillMemberFunctionCode(GameObjects::g_vehicleSoundMemberFunctions, code, 3);
 }
 
-// 0x00643E80: Obj::g_carPhysicsMemberFunctions (0x006846A8), 2 functions.
+// 0x00643E80: GameObjects::g_carPhysicsMemberFunctions (0x006846A8), 2 functions.
 void FillCarPhysicsMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CCarPhysicsComponent::ShowBody),
-        CodeAddress(&Obj::CCarPhysicsComponent::DoNothing),
+        CodeAddress(&GameObjects::CAutomobileDynamicsModule::ShowBody),
+        CodeAddress(&GameObjects::CAutomobileDynamicsModule::DoNothing),
     };
-    FillMemberFunctionCode(Obj::g_carPhysicsMemberFunctions, code, 2);
+    FillMemberFunctionCode(GameObjects::g_carPhysicsMemberFunctions, code, 2);
 }
 
-// 0x00643EE0: Obj::g_physicsControlMemberFunctions (0x006846F0), 10 functions.
+// 0x00643EE0: GameObjects::g_physicsControlMemberFunctions (0x006846F0), 10 functions.
 void FillPhysicsControlMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::PausePhysics),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::UnPausePhysics),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::GetTimeSincePhysicsSwitch),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::GetPreviousPhysicsStateDuration),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::SetBoardMissing),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::UnsetBoardMissing),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::IsBoardMissing),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::SetForceWalk),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::UnSetForceWalk),
-        CodeAddress(&Obj::CSkaterPhysicsControlComponent::IsForceWalkOn),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::PausePhysics),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::UnPausePhysics),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::GetTimeSincePhysicsSwitch),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::GetPreviousPhysicsStateDuration),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::SetBoardMissing),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::UnsetBoardMissing),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::IsBoardMissing),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::SetForceWalk),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::UnSetForceWalk),
+        CodeAddress(&GameObjects::CRiderBoardPhysics::IsForceWalkOn),
     };
-    FillMemberFunctionCode(Obj::g_physicsControlMemberFunctions, code, 10);
+    FillMemberFunctionCode(GameObjects::g_physicsControlMemberFunctions, code, 10);
 }
 
-// 0x00644020: Obj::g_walkMemberFunctions (0x006847F8), 18 functions.
+// 0x00644020: GameObjects::g_walkMemberFunctions (0x006847F8), 18 functions.
 void FillWalkMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CWalkComponent::Walk_Ground),
-        CodeAddress(&Obj::CSkaterStateComponent::InAir),
-        CodeAddress(&Obj::CSkaterStateComponent::OnWall),
-        CodeAddress(&Obj::CSkaterStateComponent::OnLip),
-        CodeAddress(&Obj::CSkaterStateComponent::OnRail),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetStateTime),
-        CodeAddress(&Obj::CWalkComponent::ReleaseHang),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetSpeedScale),
-        CodeAddress(&Obj::CWalkComponent::Walk_ScaleAnimSpeed),
-        CodeAddress(&Obj::CWalkComponent::AnimWaitComplete),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetHangInitAnimType),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetStateDuration),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetPreviousState),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetState),
-        CodeAddress(&Obj::CWalkComponent::Walk_GetHangAngle),
-        CodeAddress(&Obj::CWalkComponent::Walk_ReleaseHang),
-        CodeAddress(&Obj::CWalkComponent::Walk_SetForwardControlLock),
-        CodeAddress(&Obj::CWalkComponent::ForceToAirFromHang),
+        CodeAddress(&GameObjects::CFootMovement::Walk_Ground),
+        CodeAddress(&GameObjects::CRiderPoseState::InAir),
+        CodeAddress(&GameObjects::CRiderPoseState::OnWall),
+        CodeAddress(&GameObjects::CRiderPoseState::OnLip),
+        CodeAddress(&GameObjects::CRiderPoseState::OnRail),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetStateTime),
+        CodeAddress(&GameObjects::CFootMovement::ReleaseHang),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetSpeedScale),
+        CodeAddress(&GameObjects::CFootMovement::Walk_ScaleAnimSpeed),
+        CodeAddress(&GameObjects::CFootMovement::AnimWaitComplete),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetHangInitAnimType),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetStateDuration),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetPreviousState),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetState),
+        CodeAddress(&GameObjects::CFootMovement::Walk_GetHangAngle),
+        CodeAddress(&GameObjects::CFootMovement::Walk_ReleaseHang),
+        CodeAddress(&GameObjects::CFootMovement::Walk_SetForwardControlLock),
+        CodeAddress(&GameObjects::CFootMovement::ForceToAirFromHang),
     };
-    FillMemberFunctionCode(Obj::g_walkMemberFunctions, code, 18);
+    FillMemberFunctionCode(GameObjects::g_walkMemberFunctions, code, 18);
 }
 
-// 0x00644240: Obj::g_runTimerMemberFunctions (0x006849C0), 6 functions.
+// 0x00644240: GameObjects::g_runTimerMemberFunctions (0x006849C0), 6 functions.
 void FillRunTimerMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSkaterRunTimerComponent::Pause),
-        CodeAddress(&Obj::CSkaterRunTimerComponent::Unpause),
-        CodeAddress(&Obj::CSkaterRunTimerComponent::GetFactorComplete),
-        CodeAddress(&Obj::CSkaterRunTimerComponent::GetRunTimerControllerId),
-        CodeAddress(&Obj::CSkaterRunTimerComponent::GetRunTimerId),
-        CodeAddress(&Obj::CSkaterRunTimerComponent::ComboStarted),
+        CodeAddress(&GameObjects::CRiderRunClock::Pause),
+        CodeAddress(&GameObjects::CRiderRunClock::Unpause),
+        CodeAddress(&GameObjects::CRiderRunClock::GetFactorComplete),
+        CodeAddress(&GameObjects::CRiderRunClock::GetRunTimerControllerId),
+        CodeAddress(&GameObjects::CRiderRunClock::GetRunTimerId),
+        CodeAddress(&GameObjects::CRiderRunClock::ChainBegan),
     };
-    FillMemberFunctionCode(Obj::g_runTimerMemberFunctions, code, 6);
+    FillMemberFunctionCode(GameObjects::g_runTimerMemberFunctions, code, 6);
 }
 
-// 0x00644310: Obj::g_loopingSoundMemberFunctions (0x00684A68), 0 functions.
+// 0x00644310: GameObjects::g_loopingSoundMemberFunctions (0x00684A68), 0 functions.
 void FillLoopingSoundMemberFunctions()
 {
-    FillMemberFunctionCode(Obj::g_loopingSoundMemberFunctions, nullptr, 0);
+    FillMemberFunctionCode(GameObjects::g_loopingSoundMemberFunctions, nullptr, 0);
 }
 
-// 0x00644340: Obj::g_skaterStateMemberFunctions (0x00684A80), 18 functions.
+// 0x00644340: GameObjects::g_skaterStateMemberFunctions (0x00684A80), 18 functions.
 void FillSkaterStateMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CWalkComponent::Walk_Ground),
-        CodeAddress(&Obj::CSkaterStateComponent::InAir),
-        CodeAddress(&Obj::CSkaterStateComponent::OnWall),
-        CodeAddress(&Obj::CSkaterStateComponent::OnLip),
-        CodeAddress(&Obj::CSkaterStateComponent::OnRail),
-        CodeAddress(&Obj::CSkaterStateComponent::InWallplant),
-        CodeAddress(&Obj::CSkaterStateComponent::InBailState),
-        CodeAddress(&Obj::CSkaterStateComponent::Walking),
-        CodeAddress(&Obj::CSkaterStateComponent::Skating),
-        CodeAddress(&Obj::CSkaterStateComponent::Driving),
-        CodeAddress(&Obj::CSkaterStateComponent::SetDriving),
-        CodeAddress(&Obj::CSkaterStateComponent::UnsetDriving),
-        CodeAddress(&Obj::CSkaterStateComponent::DoingTrick),
-        CodeAddress(&Obj::CSkaterStateComponent::HasPowerup),
-        CodeAddress(&Obj::CSkaterStateComponent::PickedUpPowerup),
-        CodeAddress(&Obj::CSkaterStateComponent::GetTerrain),
-        CodeAddress(&Obj::CSkaterStateComponent::GetSparksPos),
-        CodeAddress(&Obj::CSkaterStateComponent::SetSparksPos),
+        CodeAddress(&GameObjects::CFootMovement::Walk_Ground),
+        CodeAddress(&GameObjects::CRiderPoseState::InAir),
+        CodeAddress(&GameObjects::CRiderPoseState::OnWall),
+        CodeAddress(&GameObjects::CRiderPoseState::OnLip),
+        CodeAddress(&GameObjects::CRiderPoseState::OnRail),
+        CodeAddress(&GameObjects::CRiderPoseState::InWallplant),
+        CodeAddress(&GameObjects::CRiderPoseState::InBailState),
+        CodeAddress(&GameObjects::CRiderPoseState::Walking),
+        CodeAddress(&GameObjects::CRiderPoseState::Skating),
+        CodeAddress(&GameObjects::CRiderPoseState::Driving),
+        CodeAddress(&GameObjects::CRiderPoseState::SetDriving),
+        CodeAddress(&GameObjects::CRiderPoseState::UnsetDriving),
+        CodeAddress(&GameObjects::CRiderPoseState::InAirMove),
+        CodeAddress(&GameObjects::CRiderPoseState::HasPowerup),
+        CodeAddress(&GameObjects::CRiderPoseState::PickedUpPowerup),
+        CodeAddress(&GameObjects::CRiderPoseState::GetSurfaceKind),
+        CodeAddress(&GameObjects::CRiderPoseState::GetSparksPos),
+        CodeAddress(&GameObjects::CRiderPoseState::SetSparksPos),
     };
-    FillMemberFunctionCode(Obj::g_skaterStateMemberFunctions, code, 18);
+    FillMemberFunctionCode(GameObjects::g_skaterStateMemberFunctions, code, 18);
 }
 
-// 0x00644560: Obj::g_suspendComponentMemberFunctions (0x00684C48), 1 functions.
+// 0x00644560: GameObjects::g_suspendComponentMemberFunctions (0x00684C48), 1 functions.
 void FillSuspendComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSuspendComponent::Obj_ResetNoSuspendCount),
+        CodeAddress(&GameObjects::CDormancyModule::Obj_ResetNoSuspendCount),
     };
-    FillMemberFunctionCode(Obj::g_suspendComponentMemberFunctions, code, 1);
+    FillMemberFunctionCode(GameObjects::g_suspendComponentMemberFunctions, code, 1);
 }
 
-// 0x006445B0: Obj::g_inputComponentMemberFunctions (0x00684C78), 14 functions.
+// 0x006445B0: GameObjects::g_inputComponentMemberFunctions (0x00684C78), 14 functions.
 void FillInputComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CInputComponent::LockButtonFromScript),
-        CodeAddress(&Obj::CInputComponent::DisablePlayerInput),
-        CodeAddress(&Obj::CInputComponent::EnablePlayerInput),
-        CodeAddress(&Obj::CInputComponent::NetDisablePlayerInput),
-        CodeAddress(&Obj::CInputComponent::NetEnablePlayerInput),
-        CodeAddress(&Obj::CInputComponent::PlayerInputIsDisabled),
-        CodeAddress(&Obj::CInputComponent::LeftPressed),
-        CodeAddress(&Obj::CInputComponent::RightPressed),
-        CodeAddress(&Obj::CInputComponent::UpPressed),
-        CodeAddress(&Obj::CInputComponent::DownPressed),
-        CodeAddress(&Obj::CInputComponent::GetSticks),
-        CodeAddress(&Obj::CInputComponent::HeldLongerThan),
-        CodeAddress(&Obj::CInputComponent::EnableInputEvents),
-        CodeAddress(&Obj::CInputComponent::DisableInputEvents),
+        CodeAddress(&GameObjects::CPadInputModule::LockButtonFromScript),
+        CodeAddress(&GameObjects::CPadInputModule::DisablePlayerInput),
+        CodeAddress(&GameObjects::CPadInputModule::EnablePlayerInput),
+        CodeAddress(&GameObjects::CPadInputModule::NetDisablePlayerInput),
+        CodeAddress(&GameObjects::CPadInputModule::NetEnablePlayerInput),
+        CodeAddress(&GameObjects::CPadInputModule::PlayerInputIsDisabled),
+        CodeAddress(&GameObjects::CPadInputModule::LeftPressed),
+        CodeAddress(&GameObjects::CPadInputModule::RightPressed),
+        CodeAddress(&GameObjects::CPadInputModule::UpPressed),
+        CodeAddress(&GameObjects::CPadInputModule::DownPressed),
+        CodeAddress(&GameObjects::CPadInputModule::GetSticks),
+        CodeAddress(&GameObjects::CPadInputModule::HeldLongerThan),
+        CodeAddress(&GameObjects::CPadInputModule::EnableInputEvents),
+        CodeAddress(&GameObjects::CPadInputModule::DisableInputEvents),
     };
-    FillMemberFunctionCode(Obj::g_inputComponentMemberFunctions, code, 14);
+    FillMemberFunctionCode(GameObjects::g_inputComponentMemberFunctions, code, 14);
 }
 
-// 0x00644760: Obj::g_skeletonComponentMemberFunctions (0x00684DE0), 5 functions.
+// 0x00644760: GameObjects::g_skeletonComponentMemberFunctions (0x00684DE0), 5 functions.
 void FillSkeletonComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CSkeletonComponent::Obj_SetBoneActive),
-        CodeAddress(&Obj::CSkeletonComponent::Obj_SetBoneScale),
-        CodeAddress(&Obj::CSkeletonComponent::Obj_GetBonePosition),
-        CodeAddress(&Obj::CSkeletonComponent::TextureSplat),
-        CodeAddress(&Obj::CSkeletonComponent::Skeleton_SpawnCompositeObject),
+        CodeAddress(&GameObjects::CBoneRigModule::Obj_SetBoneActive),
+        CodeAddress(&GameObjects::CBoneRigModule::Obj_SetBoneScale),
+        CodeAddress(&GameObjects::CBoneRigModule::Obj_GetBonePosition),
+        CodeAddress(&GameObjects::CBoneRigModule::TextureSplat),
+        CodeAddress(&GameObjects::CBoneRigModule::Skeleton_SpawnCompositeObject),
     };
-    FillMemberFunctionCode(Obj::g_skeletonComponentMemberFunctions, code, 5);
+    FillMemberFunctionCode(GameObjects::g_skeletonComponentMemberFunctions, code, 5);
 }
 
-// 0x00644820: Obj::g_streamComponentMemberFunctions (0x00684E70), 4 functions.
+// 0x00644820: GameObjects::g_streamComponentMemberFunctions (0x00684E70), 4 functions.
 void FillStreamComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CStreamComponent::Obj_PlayStream),
-        CodeAddress(&Obj::CStreamComponent::Obj_AddStream),
-        CodeAddress(&Obj::CStreamComponent::Obj_RemoveStream),
-        CodeAddress(&Obj::CStreamComponent::Obj_StopStream),
+        CodeAddress(&GameObjects::CAudioStreamModule::Obj_PlayStream),
+        CodeAddress(&GameObjects::CAudioStreamModule::Obj_AddStream),
+        CodeAddress(&GameObjects::CAudioStreamModule::Obj_RemoveStream),
+        CodeAddress(&GameObjects::CAudioStreamModule::Obj_StopStream),
     };
-    FillMemberFunctionCode(Obj::g_streamComponentMemberFunctions, code, 4);
+    FillMemberFunctionCode(GameObjects::g_streamComponentMemberFunctions, code, 4);
 }
 
-// 0x006448C0: Obj::g_vibrationComponentMemberFunctions (0x00684EE8), 1 functions.
+// 0x006448C0: GameObjects::g_vibrationComponentMemberFunctions (0x00684EE8), 1 functions.
 void FillVibrationComponentMemberFunctions()
 {
     void* const code[] = {
-        CodeAddress(&Obj::CVibrationComponent::Vibrate),
+        CodeAddress(&GameObjects::CPadRumbleModule::Vibrate),
     };
-    FillMemberFunctionCode(Obj::g_vibrationComponentMemberFunctions, code, 1);
+    FillMemberFunctionCode(GameObjects::g_vibrationComponentMemberFunctions, code, 1);
 }
 
 } // namespace

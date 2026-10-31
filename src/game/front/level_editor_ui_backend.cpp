@@ -19,11 +19,11 @@
 #include "game/gfx/device.h"
 #include "game/gfx/render.h"
 
-namespace Front::LevelEditor::UiBackend {
+namespace MenuSystem::LevelEditor::UiBackend {
 
 namespace {
 
-IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
+IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
 
 // Whether the backends are started for the current ImGui context: each context (the editor's, the new front end's -
 // game/front/new_frontend.h) has its own backend data, which the backends keep in its IO.
@@ -97,7 +97,7 @@ bool Init()
 {
     if (ContextReady())
         return true;
-    SDL_Window* window = Sys::SdlWindow();
+    SDL_Window* window = SystemCore::SdlWindow();
     IDirect3DDevice9* device = Device();
     if (!window || !device) {
         if (!g_failedLogged)
@@ -205,14 +205,14 @@ void ReleaseTexture(uint64_t id)
 void WindowSize(int* width, int* height)
 {
     *width = *height = 0;
-    if (SDL_Window* window = Sys::SdlWindow())
+    if (SDL_Window* window = SystemCore::SdlWindow())
         SDL_GetWindowSize(window, width, height);
 }
 
 void BackBufferSize(int* width, int* height)
 {
-    *width = Nx::g_backBufferWidth;
-    *height = Nx::g_backBufferHeight;
+    *width = Engine3D::g_backBufferWidth;
+    *height = Engine3D::g_backBufferHeight;
 }
 
 uint64_t TextureId(void* rendererTexture)
@@ -399,4 +399,4 @@ void FreeAtlas()
     ReleaseAtlas();
 }
 
-} // namespace Front::LevelEditor::UiBackend
+} // namespace MenuSystem::LevelEditor::UiBackend

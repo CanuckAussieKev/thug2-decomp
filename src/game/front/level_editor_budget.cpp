@@ -30,7 +30,7 @@
 #include "game/script/cscript.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Budget {
+namespace MenuSystem::LevelEditor::Budget {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -118,26 +118,26 @@ std::string AddedText(const Meter& meter)
 
 namespace {
 
-// The script pools (Script::CreateScriptPools): their pool pairs and names (the counts are the pools' own -
+// The script pools (Scripts::CreateScriptPools): their pool pairs and names (the counts are the pools' own -
 // ours are bigger than the original's: game/core/memory_sizes.h).
 struct PoolInfo {
-    Mem::PoolPair& (*pair)(); // (a function: the globals are set up after this table)
+    MemSys::PoolPair& (*pair)(); // (a function: the globals are set up after this table)
     const char* name;
     const char* where;
 };
 const PoolInfo kPools[] = {
-    {[]() -> Mem::PoolPair& { return Script::g_structPools; }, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
-    {[]() -> Mem::PoolPair& { return Script::g_componentPools; }, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
-    {[]() -> Mem::PoolPair& { return Script::g_vectorPools; }, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
-    {[]() -> Mem::PoolPair& { return Script::g_arrayPools; }, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
-    {[]() -> Mem::PoolPair& { return Script::g_symbolPools; }, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
-    {[]() -> Mem::PoolPair& { return Script::g_scriptPools; }, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
+    {[]() -> MemSys::PoolPair& { return Scripts::g_structPools; }, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
+    {[]() -> MemSys::PoolPair& { return Scripts::g_componentPools; }, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
+    {[]() -> MemSys::PoolPair& { return Scripts::g_vectorPools; }, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
+    {[]() -> MemSys::PoolPair& { return Scripts::g_arrayPools; }, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
+    {[]() -> MemSys::PoolPair& { return Scripts::g_symbolPools; }, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
+    {[]() -> MemSys::PoolPair& { return Scripts::g_scriptPools; }, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 };
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
-bool PoolUse(Mem::PoolPair& pools, int* used, int* count)
+bool PoolUse(MemSys::PoolPair& pools, int* used, int* count)
 {
-    Mem::Pool* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
+    MemSys::Pool* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
     if (!pool)
         return false;
     *used = pool->m_used;
@@ -146,12 +146,12 @@ bool PoolUse(Mem::PoolPair& pools, int* used, int* count)
 }
 
 // A region's bytes and what's free in it: between its two allocators' tops, and their free blocks.
-bool RegionUse(Mem::Region* region, double* size, double* used)
+bool RegionUse(MemSys::Region* region, double* size, double* used)
 {
     if (!region)
         return false;
-    double free = region->MemAvailable();
-    for (Mem::Allocator* allocator : region->m_allocators) {
+    double free = region->FreeByteCount();
+    for (MemSys::Allocator* allocator : region->m_allocators) {
         if (allocator)
             free += allocator->m_freeSize;
     }
@@ -163,7 +163,7 @@ bool RegionUse(Mem::Region* region, double* size, double* used)
 bool LevelUp()
 {
     constexpr uint32_t kSkater = 0x5B8AB877; // Skater
-    return Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) && Scenery::MainScene();
+    return Engine3D::CurrentLevel() != 0 && GameObjects::FindObject(kSkater) && Scenery::MainScene();
 }
 
 // The baseline: taken in the first frame a level (each load) is up.
@@ -177,7 +177,7 @@ Baseline g_base;
 
 void TakeBaseline()
 {
-    Mem::Manager* manager = Mem::Manager::Get();
+    MemSys::Manager* manager = MemSys::Manager::Get();
     double size = 0.0;
     g_base.main = g_base.script = 0.0;
     if (manager) {
@@ -212,8 +212,8 @@ std::vector<Meter> Meters()
         return meters;
     // Counted as the game counts them now, and as the level has them (no added node; hidden ones counted).
     int crownsShipped = 0, restartsShipped = 0, addedNodes = 0;
-    static const uint32_t kRestart = Crc::GenerateCRCFromString("Restart"),
-                          kCrown = Crc::GenerateCRCFromString("Crown");
+    static const uint32_t kRestart = Checksums::HashFromText("Restart"),
+                          kCrown = Checksums::HashFromText("Crown");
     for (const Nodes::Node& n : nodes) {
         if (n.added) {
             ++addedNodes;
@@ -243,11 +243,11 @@ std::vector<Meter> Meters()
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
     count("Dynamic lights", counts.dynamicLights, NodeCreate::kMaxDynamicLights, 0,
           "the light manager's dynamic light list (count 0x006FAEF0)");
-    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(Mem::Sizes::NodeHashSlots()), addedNodes,
+    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(MemSys::Sizes::NodeHashSlots()), addedNodes,
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
-    if (SkateScript::CNodeManager* manager = SkateScript::NodeManagerInstance())
-        count("Node arrays", manager->m_count, SkateScript::CNodeManager::kMaxArrays, 0,
+    if (LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance())
+        count("Node arrays", manager->m_count, LevelNodes::CNodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
     count("Editor trigger volumes", static_cast<double>(Triggers::AddedTriggers().size()), 0,
           static_cast<double>(Triggers::AddedTriggers().size()), "the movable collision list (no fixed limit)");
@@ -273,7 +273,7 @@ std::vector<Meter> Meters()
         m.where = kPools[i].where;
         meters.push_back(m);
     }
-    if (Mem::Manager* manager = Mem::Manager::Get()) {
+    if (MemSys::Manager* manager = MemSys::Manager::Get()) {
         double size = 0.0, used = 0.0;
         if (RegionUse(manager->m_scriptRegion, &size, &used)) {
             Meter m;
@@ -390,4 +390,4 @@ void Table()
     ImGui::EndTable();
 }
 
-} // namespace Front::LevelEditor::Budget
+} // namespace MenuSystem::LevelEditor::Budget

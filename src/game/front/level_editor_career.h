@@ -3,14 +3,14 @@
 #include <string>
 #include <vector>
 
-namespace Game {
-class CGapChecklist;
+namespace GoalSystem {
+class CGapTally;
 }
 
 // NOT ORIGINAL - the level editor and the career save (ours; see level_editor.h). An edited copy of a level
 // (level_editor_layout.h) is a level of its own: playing it must never change the user's career.
 //
-// The career's gap checklists (one per level, Obj::CSkaterCareer +0x63C; the skate module's 0x005656C0 is the current
+// The career's gap checklists (one per level, GameObjects::CRiderStoryProgress +0x63C; the skate module's 0x005656C0 is the current
 // level's) are what the save keeps of gaps: the game save's builder (0x005A7560, the memory card / save game's
 // structure) calls the career's WriteToStructure (0x00585550, ours: src/game/skate/career.cpp - also the script command
 // GetCareerSaveInfo, 0x00585E20), which writes each built checklist's gaps (name, times landed, score, the skater's
@@ -26,12 +26,12 @@ class CGapChecklist;
 //     gaps added again, as the career's load does), so a save made later doesn't get them either;
 //   - with no baseline (none taken - no checklist then), the save still leaves out the editor's gaps (by name: not a
 //     level gap of that name) of the checklist they went into;
-//   - the career replaced (a save loaded: ReadFromStructure; a new career: Reset with the gaps) while a baseline is
+//   - the career replaced (a save loaded: DecodeFromStruct; a new career: Reset with the gaps) while a baseline is
 //     kept: the baseline is taken again from the career as it now is (the old one would bring back the old career).
 // What isn't covered: goals completed in an edited copy (the career's goal / flag
 // words, cash, stat points - the goal manager's), the goal manager told of gaps landed (gap goals), the level's high
 // scores (Records, 0x0057FC50).
-namespace Front::LevelEditor::Career {
+namespace MenuSystem::LevelEditor::Career {
 
 // A gap as the save writes it (pos / dir only when landed; zero, w 1 otherwise).
 struct Gap {
@@ -57,13 +57,13 @@ bool EditorGap(const std::string& name, const std::vector<std::string>& editorGa
 
 // The game side.
 // The checklist as it is now.
-Checklist Read(Game::CGapChecklist* checklist);
+Checklist Read(GoalSystem::CGapTally* checklist);
 // The level became its edited copy (true: the baseline taken from the current level's checklist) or stopped being it
 // (false: that checklist put back as the baseline, the baseline dropped). Repeats are ignored.
 void EditedCopy(bool on);
 // The career's gaps were replaced (a save loaded, a career reset): a baseline kept is taken again.
 void CareerReplaced();
 // The save's view of `checklist` (career.cpp's WriteToStructure): false - write it as it is; true - write `out`.
-bool SaveView(Game::CGapChecklist* checklist, Checklist* out);
+bool SaveView(GoalSystem::CGapTally* checklist, Checklist* out);
 
-} // namespace Front::LevelEditor::Career
+} // namespace MenuSystem::LevelEditor::Career

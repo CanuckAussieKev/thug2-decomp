@@ -1,4 +1,4 @@
-// The motion component (Obj::CMotionComponent, motion.h): jumping, sticking to the ground, and moving to points
+// The motion component (GameObjects::CKinematicsModule, motion.h): jumping, sticking to the ground, and moving to points
 // (Obj_MoveTo*, Obj_MoveForward / Left, Obj_SkipToRestart).
 
 #include <cmath>
@@ -16,7 +16,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 
-namespace Obj {
+namespace GameObjects {
 
 using namespace MotionDetail;
 
@@ -37,10 +37,10 @@ constexpr float kInchesPerMile = Bits(0x47778000);
 constexpr float kHoursPerSecond = Bits(0x3991A2B4);
 
 // A vertex of a collision object (its vtable slot 9).
-Mth::Vector VertexPos(Nx::CCollObj* object, int vertex)
+Maths::Vector VertexPos(Engine3D::CHitMesh* object, int vertex)
 {
-    Mth::Vector pos;
-    reinterpret_cast<Mth::Vector*(__thiscall*)(Nx::CCollObj*, Mth::Vector*, int)>(
+    Maths::Vector pos;
+    reinterpret_cast<Maths::Vector*(__thiscall*)(Engine3D::CHitMesh*, Maths::Vector*, int)>(
         (*reinterpret_cast<void***>(object))[9])(object, &pos, vertex);
     return pos;
 }
@@ -48,14 +48,14 @@ Mth::Vector VertexPos(Nx::CCollObj* object, int vertex)
 } // namespace
 
 // 0x00425CB0
-bool __cdecl GroundHit(Mth::Vector* triangle, const Mth::Vector* end, const Mth::Vector* start, Mth::Vector* out)
+bool __cdecl GroundHit(Maths::Vector* triangle, const Maths::Vector* end, const Maths::Vector* start, Maths::Vector* out)
 {
-    Mth::Vector along = {static_cast<float>(static_cast<double>(end->x) - start->x),
+    Maths::Vector along = {static_cast<float>(static_cast<double>(end->x) - start->x),
                          static_cast<float>(static_cast<double>(end->y) - start->y),
                          static_cast<float>(static_cast<double>(end->z) - start->z),
                          static_cast<float>(static_cast<double>(end->w) - start->w)};
     float t = 0.0f;
-    if (Nx::RayHitsTriangle(*start, along, triangle[0], triangle[1], triangle[2], &t)) {
+    if (Engine3D::RayHitsTriangle(*start, along, triangle[0], triangle[1], triangle[2], &t)) {
         // (x through the unrounded product, the others rounded first)
         double x = static_cast<double>(along.x) * t;
         float y = static_cast<float>(static_cast<double>(along.y) * t);
@@ -67,13 +67,13 @@ bool __cdecl GroundHit(Mth::Vector* triangle, const Mth::Vector* end, const Mth:
         out->y = static_cast<float>(static_cast<double>(y) + start->y);
         return true;
     }
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
     if (!feeler.GetCollisionAlong(start, end, false))
         return false;
     // (the face hit becomes the triangle tried first next time)
-    Nx::CCollObj* object = feeler.m_hit.object;
-    Nx::CCollObjTriData* geometry = object->m_geometry;
+    Engine3D::CHitMesh* object = feeler.m_hit.object;
+    Engine3D::CTriMeshSource* geometry = object->m_geometry;
     int face = static_cast<int>(feeler.m_hit.face);
     for (int corner = 0; corner < 3; ++corner) {
         int vertex;
@@ -83,7 +83,7 @@ bool __cdecl GroundHit(Mth::Vector* triangle, const Mth::Vector* end, const Mth:
             vertex = *reinterpret_cast<const uint16_t*>(geometry->m_faces + face * 10 + 4 + 2 * corner);
         triangle[corner] = VertexPos(object, vertex);
     }
-    *out = feeler.m_point;
+    *out = feeler.m_contactPos;
     return true;
 }
 
@@ -103,9 +103,9 @@ __declspec(naked) void GroundHitStub()
 }
 
 // 0x00424870
-void CMotionComponent::UpdateJump()
+void CKinematicsModule::UpdateJump()
 {
-    const Mth::Vector& pos = m_object->m_pos;
+    const Maths::Vector& pos = m_object->m_pos;
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
@@ -132,12 +132,12 @@ void CMotionComponent::UpdateJump()
                 y = m_jumpLandHeight;
             }
         } else {
-            Nx::CFeeler feeler;
+            Engine3D::CProbeRay feeler;
             feeler.Construct();
             float above = static_cast<float>(static_cast<double>(w) + 1.0f);
             feeler.m_line.start = {x, static_cast<float>(static_cast<double>(y) + m_jumpColAbove), z, above};
             feeler.m_line.end = {x, static_cast<float>(static_cast<double>(y) + -m_jumpColBelow), z, above};
-            if (feeler.GetCollision(true, false))
+            if (feeler.GetHitShape(true, false))
                 m_motionFlags &= ~MOTION_JUMPING;
         }
     }
@@ -145,16 +145,16 @@ void CMotionComponent::UpdateJump()
 }
 
 // 0x00425F40
-bool CMotionComponent::StickToGround()
+bool CKinematicsModule::StickToGround()
 {
     if (m_groundAbove == 0.0f && m_groundBelow == 0.0f)
         return false;
-    Mth::Matrix& matrix = m_object->m_matrix;
-    Mth::Vector& pos = m_object->m_pos;
+    Maths::Matrix& matrix = m_object->m_basisFrame;
+    Maths::Vector& pos = m_object->m_pos;
     if (m_groundHeightOnly) {
         // The right axis from up and at, then the ground under it: the height to make up (Update eases it in).
-        const Mth::Vector& up = matrix.row[1];
-        const Mth::Vector& at = matrix.row[2];
+        const Maths::Vector& up = matrix.row[1];
+        const Maths::Vector& at = matrix.row[2];
         float rightX = static_cast<float>(static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z);
         float rightY = static_cast<float>(static_cast<double>(up.z) * at.x - static_cast<double>(at.z) * up.x);
         float rightZ = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(up.y) * at.x);
@@ -163,9 +163,9 @@ bool CMotionComponent::StickToGround()
         float above = static_cast<float>(std::fabs(static_cast<double>(m_groundAbove)) * 12.0f);
         float below = -static_cast<float>(std::fabs(static_cast<double>(m_groundBelow)) * 12.0f);
         float w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
-        Mth::Vector start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
-        Mth::Vector end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
-        Mth::Vector hit;
+        Maths::Vector start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
+        Maths::Vector end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
+        Maths::Vector hit;
         if (!GroundHit(m_groundTriangle, &end, &start, &hit))
             return false;
         m_groundOffset = static_cast<float>(static_cast<double>(hit.y) - pos.y);
@@ -174,11 +174,11 @@ bool CMotionComponent::StickToGround()
 
     // Three feelers - behind on the right, behind on the left, ahead in the middle (72 back or ahead, 30 to the
     // side): the ground's points give the height and the orientation.
-    Nx::CFeeler feeler; // (made and never used)
+    Engine3D::CProbeRay feeler; // (made and never used)
     feeler.Construct();
-    Mth::Vector& right = matrix.row[0];
-    Mth::Vector& up = matrix.row[1];
-    Mth::Vector& at = matrix.row[2];
+    Maths::Vector& right = matrix.row[0];
+    Maths::Vector& up = matrix.row[1];
+    Maths::Vector& at = matrix.row[2];
     up = {0.0f, 1.0f, 0.0f, 1.0f};
     {
         float z = static_cast<float>(static_cast<double>(up.x) * at.y - static_cast<double>(up.y) * at.x);
@@ -201,12 +201,12 @@ bool CMotionComponent::StickToGround()
             p[i] = static_cast<float>(static_cast<double>(p[i]) + by[i] * scale);
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)
-    auto line = [&](Mth::Vector* start, Mth::Vector* end) {
+    auto line = [&](Maths::Vector* start, Maths::Vector* end) {
         float x = pos.x, y = pos.y, z = pos.z, w = pos.w;
         *start = {x, static_cast<float>(static_cast<double>(m_groundAbove) * 12.0f + y), z, w};
         *end = {x, static_cast<float>(static_cast<double>(y) - static_cast<double>(m_groundBelow) * 12.0f), z, w};
     };
-    Mth::Vector start, end, backRight, backLeft, front;
+    Maths::Vector start, end, backRight, backLeft, front;
     move(ahead, -1.0);
     move(side, 1.0);
     line(&start, &end);
@@ -236,23 +236,23 @@ bool CMotionComponent::StickToGround()
     pos.y = static_cast<float>(static_cast<double>(pos.y) * 0.5f);
     pos.y = static_cast<float>(static_cast<double>(front.y) + pos.y);
     pos.y = static_cast<float>(static_cast<double>(pos.y) * 0.5f);
-    Mth::Vector back = backRight + backLeft;
+    Maths::Vector back = backRight + backLeft;
     back /= 2.0f;
     back -= front;
     back *= -1.0f;
     back.Normalize();
     at += back;
     at /= 2.0f;
-    up = Mth::CrossProduct(at, right);
+    up = Maths::CrossProduct(at, right);
     up.Normalize();
     return true;
 }
 
 // 0x004269F0
-bool CMotionComponent::MoveTo(Script::CStruct* params, Script::CScript*, Mth::Vector target, uint32_t node)
+bool CKinematicsModule::MoveTo(Scripts::CStruct* params, Scripts::CScript*, Maths::Vector target, uint32_t node)
 {
     m_moveTarget = target;
-    const Mth::Vector& pos = m_object->m_pos;
+    const Maths::Vector& pos = m_object->m_pos;
     double dx = static_cast<double>(m_moveTarget.x) - pos.x;
     double dy = static_cast<double>(m_moveTarget.y) - pos.y;
     double dz = static_cast<double>(m_moveTarget.z) - pos.z;
@@ -272,16 +272,16 @@ bool CMotionComponent::MoveTo(Script::CStruct* params, Script::CScript*, Mth::Ve
         // (no speed or time: there at once)
         m_object->m_pos = m_moveTarget;
         m_motionFlags &= ~MOTION_MOVING;
-        if (node && params->ContainsFlag(kOrient))
-            OrientToNode(SkateScript::GetNode(node, true));
+        if (node && params->HasBareFlag(kOrient))
+            FaceNode(LevelNodes::GetNode(node, true));
         return true;
     }
     int units = 2; // (miles per hour)
-    if (params->ContainsFlag(kMph))
+    if (params->HasBareFlag(kMph))
         units = 2;
-    else if (params->ContainsFlag(kFps))
+    else if (params->HasBareFlag(kFps))
         units = 1;
-    else if (params->ContainsFlag(kIps))
+    else if (params->HasBareFlag(kIps))
         units = 0;
     params->GetFloat(kAcceleration, &m_moveAcceleration, 0);
     double inches = speed; // (kept unrounded)
@@ -302,14 +302,14 @@ bool CMotionComponent::MoveTo(Script::CStruct* params, Script::CScript*, Mth::Ve
 }
 
 // 0x00426C10
-void CMotionComponent::MoveToNode(Script::CStruct* params, Script::CScript* script)
+void CKinematicsModule::GlideToNode(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(kName, &name, 0);
+    params->ReadHashValue(kName, &name, 0);
     if (!name)
         return;
-    Mth::Vector pos;
-    SkateScript::GetPosition(name, &pos);
+    Maths::Vector pos;
+    LevelNodes::GetPosition(name, &pos);
     if (MoveTo(params, script, pos, name))
         ArriveAtNode(name);
     else
@@ -317,34 +317,34 @@ void CMotionComponent::MoveToNode(Script::CStruct* params, Script::CScript* scri
 }
 
 // 0x00426CB0
-void CMotionComponent::MoveToPosition(Script::CStruct* params, Script::CScript* script, bool absolute)
+void CKinematicsModule::MoveToPosition(Scripts::CStruct* params, Scripts::CScript* script, bool absolute)
 {
-    Mth::Vector pos = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetVector(0u, reinterpret_cast<Script::VectorValue*>(&pos), 0);
-    if (params->ContainsFlag(kMaxCoords))
+    Maths::Vector pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->GetVector(0u, reinterpret_cast<Scripts::VectorValue*>(&pos), 0);
+    if (params->HasBareFlag(kMaxCoords))
         pos.NegateXRotateX90();
     if (!absolute) {
-        const Mth::Vector& at = m_object->m_pos;
+        const Maths::Vector& at = m_object->m_pos;
         pos = {pos.x + at.x, pos.y + at.y, pos.z + at.z, pos.w + at.w};
     }
     MoveTo(params, script, pos, 0);
 }
 
 // 0x00426D80
-void CMotionComponent::MoveToLink(Script::CStruct* params, Script::CScript* script)
+void CKinematicsModule::MoveToLink(Scripts::CStruct* params, Scripts::CScript* script)
 {
     int link = 0;
-    int links = static_cast<int>(SkateScript::GetLinkCount(m_node));
+    int links = static_cast<int>(LevelNodes::GetLinkCount(m_listLink));
     if (!links)
         return;
-    if (params->GetInteger(kLinkNum, &link, 0))
+    if (params->FetchIntValue(kLinkNum, &link, 0))
         link -= 1;
-    else if (links > 1 && params->ContainsFlag(kRandomLink))
-        link = Mth::Rnd(links);
-    Script::CStruct* node = SkateScript::GetLinkedNode(m_node, link);
-    uint32_t name = SkateScript::GetNodeName(node);
-    Mth::Vector pos;
-    SkateScript::GetPosition(node, &pos);
+    else if (links > 1 && params->HasBareFlag(kRandomLink))
+        link = Maths::Rnd(links);
+    Scripts::CStruct* node = LevelNodes::GetLinkedNode(m_listLink, link);
+    uint32_t name = LevelNodes::GetNodeName(node);
+    Maths::Vector pos;
+    LevelNodes::GetPosition(node, &pos);
     if (MoveTo(params, script, pos, 0))
         ArriveAtNode(name);
     else
@@ -353,16 +353,16 @@ void CMotionComponent::MoveToLink(Script::CStruct* params, Script::CScript* scri
 
 // The body of Obj_MoveForward / Obj_MoveLeft: `dist` along the matrix row (x, y, z through rounded products, w
 // through an unrounded one).
-void CMotionComponent::MoveAlong(Script::CStruct* params, Script::CScript* script, const Mth::Vector& direction)
+void CKinematicsModule::MoveAlong(Scripts::CStruct* params, Scripts::CScript* script, const Maths::Vector& direction)
 {
     float distance = 0.0f;
     params->GetFloat(kDist, &distance, 0);
-    const Mth::Vector& pos = m_object->m_pos;
+    const Maths::Vector& pos = m_object->m_pos;
     double w = static_cast<double>(distance) * direction.w;
     float z = static_cast<float>(static_cast<double>(distance) * direction.z);
     float y = static_cast<float>(static_cast<double>(distance) * direction.y);
     float x = static_cast<float>(static_cast<double>(distance) * direction.x);
-    Mth::Vector target = {static_cast<float>(static_cast<double>(x) + pos.x),
+    Maths::Vector target = {static_cast<float>(static_cast<double>(x) + pos.x),
                           static_cast<float>(static_cast<double>(y) + pos.y),
                           static_cast<float>(static_cast<double>(z) + pos.z), static_cast<float>(w + pos.w)};
     MoveTo(params, script, target, 0);
@@ -371,11 +371,11 @@ void CMotionComponent::MoveAlong(Script::CStruct* params, Script::CScript* scrip
 // --- script member functions ---
 
 // 0x004268C0
-bool CMotionComponent::Obj_StickToGround(Script::CStruct* params, Script::CScript*)
+bool CKinematicsModule::Obj_StickToGround(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->GetFloat(kDistAbove, &m_groundAbove, 0);
     params->GetFloat(kDistBelow, &m_groundBelow, 0);
-    if (params->ContainsFlag(kOff)) {
+    if (params->HasBareFlag(kOff)) {
         m_motionFlags2 &= ~MOTION2_STICK_TO_GROUND;
         return true;
     }
@@ -387,58 +387,58 @@ bool CMotionComponent::Obj_StickToGround(Script::CStruct* params, Script::CScrip
 }
 
 // 0x00426960
-bool CMotionComponent::Obj_SkipToRestart(Script::CStruct* params, Script::CScript*)
+bool CKinematicsModule::Obj_SkipToRestart(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    Script::CStruct* node = SkateScript::GetNode(name, true);
-    Mth::Vector pos;
-    SkateScript::GetPosition(node, &pos);
+    params->ReadHashValue(0u, &name, 0);
+    Scripts::CStruct* node = LevelNodes::GetNode(name, true);
+    Maths::Vector pos;
+    LevelNodes::GetPosition(node, &pos);
     m_object->m_pos = pos;
-    OrientToNode(node);
+    FaceNode(node);
     // (its model brought up to date: a crash without a model component)
-    CBaseComponent* model = m_object->GetComponent(kModel);
+    CObjectModule* model = m_object->GetComponent(kModel);
     model->Update();
     return true;
 }
 
 // 0x004272D0
-bool CMotionComponent::Obj_MoveToPosStored(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_MoveToPosStored(Scripts::CStruct* params, Scripts::CScript* script)
 {
     MoveTo(params, script, m_storedPos, 0);
     return true;
 }
 
 // 0x00427320
-bool CMotionComponent::Obj_MoveForward(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_MoveForward(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    MoveAlong(params, script, m_object->m_matrix.row[2]);
+    MoveAlong(params, script, m_object->m_basisFrame.row[2]);
     return true;
 }
 
 // 0x004273D0
-bool CMotionComponent::Obj_MoveLeft(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_MoveLeft(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    MoveAlong(params, script, m_object->m_matrix.row[0]);
+    MoveAlong(params, script, m_object->m_basisFrame.row[0]);
     return true;
 }
 
 // 0x00427470
-bool CMotionComponent::Obj_MoveToPos(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_MoveToPos(Scripts::CStruct* params, Scripts::CScript* script)
 {
     MoveToPosition(params, script, true);
     return true;
 }
 
 // 0x00427490
-bool CMotionComponent::Obj_MoveToRelPos(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_MoveToRelPos(Scripts::CStruct* params, Scripts::CScript* script)
 {
     MoveToPosition(params, script, false);
     return true;
 }
 
 // 0x004274B0
-bool CMotionComponent::Obj_MoveToLink(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_MoveToLink(Scripts::CStruct* params, Scripts::CScript* script)
 {
     MoveToLink(params, script);
     return true;
@@ -446,4 +446,4 @@ bool CMotionComponent::Obj_MoveToLink(Script::CStruct* params, Script::CScript* 
 
 } // namespace Obj
 
-using Obj::CMotionComponent;
+using GameObjects::CKinematicsModule;

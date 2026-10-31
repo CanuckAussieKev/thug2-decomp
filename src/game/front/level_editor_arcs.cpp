@@ -24,7 +24,7 @@
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 
-namespace Front::LevelEditor::Arcs {
+namespace MenuSystem::LevelEditor::Arcs {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -280,7 +280,7 @@ constexpr uint32_t kMaxSpeed = 0x2EACDDB3;            // Skater_Max_Speed_Stat
 constexpr uint32_t kMaxMaxSpeed = 0xCC5F87AA;         // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kDefaultStats = 0x6357D57C;        // Skater_Default_Stats
 constexpr uint32_t kLimit = 0x8069179F;               // limit
-void** const& kCollStaticVtable = Vt::kCollStatic;    // (CCollStatic)
+void** const& kCollStaticVtable = Vt::kCollStatic;    // (CStaticCollider)
 constexpr int kStatOllie = 2, kStatSpeed = 3;         // (STATS_OLLIE, STATS_SPEED)
 
 Physics g_physics = ArcsFallback();
@@ -288,16 +288,16 @@ bool g_haveRead;
 
 // A stat structure's value at `stat` (its pair, its limit), from the physics structure or the global one; false:
 // not found.
-bool StatValue(Script::CStruct* physics, uint32_t name, float stat, float* value)
+bool StatValue(Scripts::CStruct* physics, uint32_t name, float stat, float* value)
 {
-    Script::CStruct* params = nullptr;
-    if (!physics || !physics->GetStructure(name, &params, 0))
-        params = Script::GetStructure(name);
+    Scripts::CStruct* params = nullptr;
+    if (!physics || !physics->ReadSubStruct(name, &params, 0))
+        params = Scripts::ReadSubStruct(name);
     if (!params)
         return false;
-    Script::CPair pair;
+    Scripts::CPair pair;
     pair.Init();
-    if (!params->GetPair(0u, &pair, false))
+    if (!params->FetchPair(0u, &pair, false))
         return false;
     float limit = 0.0f;
     bool hasLimit = params->GetFloat(kLimit, &limit, 0);
@@ -308,17 +308,17 @@ bool StatValue(Script::CStruct* physics, uint32_t name, float stat, float* value
 void ReadPhysics()
 {
     Physics p = ArcsFallback();
-    auto* skater = static_cast<Obj::CSkater*>(Obj::FindObject(kSkater));
-    Script::CStruct* physics = Obj::GetPhysicsStructure(skater);
+    auto* skater = static_cast<GameObjects::CRider*>(GameObjects::FindObject(kSkater));
+    Scripts::CStruct* physics = GameObjects::GetPhysicsStructure(skater);
     if (!physics) {
         g_physics = p;
         return;
     }
-    float defaultStat = Script::GetFloat(kDefaultStats);
+    float defaultStat = Scripts::GetFloat(kDefaultStats);
     p.speedStat = skater ? skater->GetStat(kStatSpeed) : defaultStat;
     p.ollieStat = skater ? skater->GetStat(kStatOllie) : defaultStat;
-    float gravity = Obj::GetPhysicsFloat(kAirGravity, 0, skater);
-    float airHang = Script::GetFloat(kAirHang), vertHang = Script::GetFloat(kVertHang);
+    float gravity = GameObjects::ReadTuningFloat(kAirGravity, 0, skater);
+    float airHang = Scripts::GetFloat(kAirHang), vertHang = Scripts::GetFloat(kVertHang);
     if (gravity < 0.0f) {
         p.airGravity = airHang > 0.0f ? gravity / airHang : gravity;
         p.vertGravity = vertHang > 0.0f ? gravity / vertHang : gravity;
@@ -343,7 +343,7 @@ void SectorFaces(uint32_t checksum, std::vector<Face>* out)
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
     if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable || (coll[0x08] & 4))
         return;
-    const auto* tri = *reinterpret_cast<const Nx::CCollObjTriData* const*>(coll + 0x0C);
+    const auto* tri = *reinterpret_cast<const Engine3D::CTriMeshSource* const*>(coll + 0x0C);
     if (!tri || !tri->m_faces || !tri->m_vertices)
         return;
     for (int f = 0; f < tri->m_numFaces && out->size() < 20000; ++f) {
@@ -355,7 +355,7 @@ void SectorFaces(uint32_t checksum, std::vector<Face>* out)
                 ok = false;
                 break;
             }
-            Mth::Vector v = tri->GetRawVertexPos(static_cast<int>(index));
+            Maths::Vector v = tri->ReadStoredVertex(static_cast<int>(index));
             p[k] = {v.x, v.y, v.z};
         }
         if (!ok)
@@ -365,15 +365,15 @@ void SectorFaces(uint32_t checksum, std::vector<Face>* out)
     }
 }
 
-// The game's collision ray (a CFeeler: constructor 0x00417760, cast 0x00417710 - static collision only, ignoring
+// The game's collision ray (a CProbeRay: constructor 0x00417760, cast 0x00417710 - static collision only, ignoring
 // faces flagged 0x10 as every feeler does; the hit's normal at +0x24, its point at +0x34, the collision object hit
 // at +0x54 and its checksum at +0x58).
 bool CastFeeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
@@ -551,4 +551,4 @@ std::string Describe()
     return text;
 }
 
-} // namespace Front::LevelEditor::Arcs
+} // namespace MenuSystem::LevelEditor::Arcs

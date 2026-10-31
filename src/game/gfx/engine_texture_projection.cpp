@@ -24,7 +24,7 @@
 #include "game/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -34,23 +34,23 @@ void** const& kProjectionNodeVtable = Vt::kProjectionNode;
 float F(double value) { return static_cast<float>(value); }
 
 // The camera of the first active viewport (0x004A09C0; null if none) and its position (0x00485A00).
-void* FirstCamera() { return GetActiveCamera(0); }
-const Mth::Vector* CameraPosition(void* camera)
+void* FirstCamera() { return FetchLiveCamera(0); }
+const Maths::Vector* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
 }
 // Whether a sphere is out of the camera's view (0x0048C490).
-bool SphereOutOfView(const Mth::Vector* centre, float radius)
+bool SphereOutOfView(const Maths::Vector* centre, float radius)
 {
     return Engine::SphereVisibleInOneViewport(centre, radius) != 0;
 }
 // The collision grids a line reaches (0x0048C980: null-terminated), and the sector of a name in any scene
 // (0x0048C510).
-CCollGrid** GridsAlongLine(const Mth::Line* line)
+CCollGrid** GridsAlongLine(const Maths::Line* line)
 {
     return GetCollGridsOnLine(line);
 }
-void* FindSector(uint32_t name) { return Engine::GetSector(name); }
+void* FindSector(uint32_t name) { return Engine::LookUpSector(name); }
 
 void* g_projectedSectors[128];
 void* g_projectedCollision[128];
@@ -64,13 +64,13 @@ void** ProjectedCollision() { return g_projectedCollision; }
 // 0x0049FE20
 CTextureProjection* CTextureProjection::Construct()
 {
-    m_nodeData = reinterpret_cast<Mem::ListNode*>(this);
+    m_nodeData = reinterpret_cast<MemSys::ListNode*>(this);
     m_nodePriority = 0;
-    m_next = reinterpret_cast<Mem::ListNode*>(this);
-    m_prev = reinterpret_cast<Mem::ListNode*>(this);
+    m_next = reinterpret_cast<MemSys::ListNode*>(this);
+    m_lastValue = reinterpret_cast<MemSys::ListNode*>(this);
     vtable = reinterpret_cast<void**>(kProjectionVtable);
     m_name = 0;
-    mp_texture = nullptr;
+    m_bitmap = nullptr;
     m_blendMode = 0;
     m_fineness = 0;
     m_projection.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -78,13 +78,13 @@ CTextureProjection* CTextureProjection::Construct()
     m_projection.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     m_projection.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     m_size = 0.0f;
-    m_fov = 0.0f;
+    m_viewAngle = 0.0f;
     m_aspect = 0.0f;
     m_direction = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_position = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_anchorPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     m_range = 0.0f;
     m_unknownA4 = 0;
-    m_offset = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_shift = {0.0f, 0.0f, 0.0f, 1.0f};
     m_angle = 0.0f;
     m_unknownBC = 0.0f;
     m_viewDistance = 0.0f;
@@ -93,20 +93,20 @@ CTextureProjection* CTextureProjection::Construct()
 }
 
 // 0x004A04A0
-void CTextureProjection::DestroyBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(kProjectionNodeVtable); }
+void CTextureProjection::DestroyBody() { reinterpret_cast<MemSys::ListNode*>(this)->UnlinkAs(kProjectionNodeVtable); }
 
 // 0x0049FE10
 void CTextureProjection::PlatProject(void**, void**)
 {
-    Dbg::Printf("STUB: plat_update\n"); // "STUB: plat_update..."
+    DebugOut::Printf("STUB: plat_update\n"); // "STUB: plat_update..."
 }
 
 // 0x004A04C0
-void CTextureProjection::InitFromStructure(Script::CStruct* params)
+void CTextureProjection::ConfigureFromData(Scripts::CStruct* params)
 {
-    auto vector = [](Mth::Vector* v) { return reinterpret_cast<Script::VectorValue*>(v); };
+    auto vector = [](Maths::Vector* v) { return reinterpret_cast<Scripts::VectorValue*>(v); };
     m_size = 0.0f;
-    m_fov = 60.0f;
+    m_viewAngle = 60.0f;
     m_aspect = 1.0f;
     m_direction = {0.0f, 0.0f, 0.0f, 1.0f};
     params->GetVector(0xB1DE1E91, vector(&m_direction), 1);
@@ -116,27 +116,27 @@ void CTextureProjection::InitFromStructure(Script::CStruct* params)
     params->GetFloat(0xDF61A4BD, &m_range, 1);
     if (params->GetFloat(0x083FDB95, &m_size, 0)) {
         m_flags = (m_flags & ~kProjectionPerspective) | kProjectionOrthographic;
-    } else if (params->GetFloat(0x17E7321E, &m_fov, 0)) {
+    } else if (params->GetFloat(0x17E7321E, &m_viewAngle, 0)) {
         params->GetFloat(0x0F7C3CAA, &m_aspect, 0);
         m_flags = (m_flags & ~kProjectionOrthographic) | kProjectionPerspective;
     }
     m_unknownA4 = 0;
-    params->GetChecksum(0xDC46BA66, &m_unknownA4, 0);
-    m_offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    params->GetVector(0xA6F5352F, vector(&m_offset), 0);
+    params->ReadHashValue(0xDC46BA66, &m_unknownA4, 0);
+    m_shift = {0.0f, 0.0f, 0.0f, 1.0f};
+    params->GetVector(0xA6F5352F, vector(&m_shift), 0);
     m_angle = 0.0f;
     params->GetFloat(0xFF7EBAF6, &m_angle, 0);
     m_angle = F(static_cast<double>(m_angle) * 0.0174532924f); // degrees to radians (0x00645464)
     uint32_t texture = 0;
-    params->GetChecksum(0x7D99F28D, &texture, 1);
+    params->ReadHashValue(0x7D99F28D, &texture, 1);
     m_blendMode = 0x54628ED7; // "blend"
-    params->GetChecksum(0xDD6BB3D5, &m_blendMode, 0);
+    params->ReadHashValue(0xDD6BB3D5, &m_blendMode, 0);
     int fineness = 0;
-    params->GetInteger(0x12602598, &fineness, 0);
+    params->FetchIntValue(0x12602598, &fineness, 0);
     m_fineness = static_cast<uint32_t>(fineness);
-    mp_texture = reinterpret_cast<uint8_t*>(g_particleTextureDict->GetTexture(texture));
+    m_bitmap = reinterpret_cast<uint8_t*>(g_particleTextureDict->GetTexture(texture));
     int flag = 0;
-    params->GetInteger(0xAF06447B, &flag, 0);
+    params->FetchIntValue(0xAF06447B, &flag, 0);
     if (flag)
         m_flags |= kProjectionFlag1;
     else
@@ -151,18 +151,18 @@ void CTextureProjection::InitFromStructure(Script::CStruct* params)
 // 0x0049FEF0
 void CTextureProjection::UpdateMatrix()
 {
-    Mth::Vector target = {F(static_cast<double>(m_worldDirection.x) + m_position.x),
-                          F(static_cast<double>(m_worldDirection.y) + m_position.y),
-                          F(static_cast<double>(m_worldDirection.z) + m_position.z),
-                          F(static_cast<double>(m_worldDirection.w) + m_position.w)};
-    Mth::Vector up = {0.0f, 1.0f, 0.0f, 0.0f};
-    Mth::Matrix view;
-    Mth::CreateLookAtMatrix(view, m_position, target, up);
-    Mth::Matrix lens;
+    Maths::Vector target = {F(static_cast<double>(m_worldDirection.x) + m_anchorPoint.x),
+                          F(static_cast<double>(m_worldDirection.y) + m_anchorPoint.y),
+                          F(static_cast<double>(m_worldDirection.z) + m_anchorPoint.z),
+                          F(static_cast<double>(m_worldDirection.w) + m_anchorPoint.w)};
+    Maths::Vector up = {0.0f, 1.0f, 0.0f, 0.0f};
+    Maths::Matrix view;
+    Maths::CreateLookAtMatrix(view, m_anchorPoint, target, up);
+    Maths::Matrix lens;
     if (m_flags & kProjectionOrthographic)
-        Mth::CreateOrthographicMatrix(lens, m_size, m_size, 0.1f, m_range);
+        Maths::CreateOrthographicMatrix(lens, m_size, m_size, 0.1f, m_range);
     else if (m_flags & kProjectionPerspective)
-        Mth::CreatePerspectiveMatrix(lens, m_fov, m_aspect, 0.1f, m_range);
+        Maths::CreatePerspectiveMatrix(lens, m_viewAngle, m_aspect, 0.1f, m_range);
     else
         return;
     // (D3DXMatrixMultiply)
@@ -171,12 +171,12 @@ void CTextureProjection::UpdateMatrix()
 }
 
 // 0x0049FFE0
-void CTextureProjection::Update(Obj::CCompositeObject* object)
+void CTextureProjection::Update(GameObjects::CGameEntity* object)
 {
-    Mth::Matrix m;
+    Maths::Matrix m;
     m = object->m_displayMatrix;
-    const Mth::Vector& pos = object->m_pos;
-    double ox = m_offset.x, oy = m_offset.y, oz = m_offset.z;
+    const Maths::Vector& pos = object->m_pos;
+    double ox = m_shift.x, oy = m_shift.y, oz = m_shift.z;
     // the position: the object's plus the offset through its matrix (x kept at 53 bits but for the third row's
     // term; y, z, w rounded at each step; w's third term unrounded)
     double x = static_cast<double>(m.row[0].x) * ox + pos.x;
@@ -190,50 +190,50 @@ void CTextureProjection::Update(Obj::CCompositeObject* object)
     float y = F(static_cast<double>(rounded(1)) + F(static_cast<double>(m.row[2].y) * oz));
     float z = F(static_cast<double>(rounded(2)) + F(static_cast<double>(m.row[2].z) * oz));
     float w = F(static_cast<double>(rounded(3)) + static_cast<double>(m.row[2].w) * oz);
-    m_position = {F(x), y, z, w};
+    m_anchorPoint = {F(x), y, z, w};
     m_worldDirection = m_direction * m;
 
-    if (Mdl::g_viewportCount == 1 && FirstCamera()) {
-        const Mth::Vector* camera = CameraPosition(FirstCamera());
-        double dx = static_cast<double>(m_position.x) - camera->x;
-        double dy = static_cast<double>(m_position.y) - camera->y;
-        double dz = static_cast<double>(m_position.z) - camera->z;
+    if (GameModules::g_viewportCount == 1 && FirstCamera()) {
+        const Maths::Vector* camera = ViewerLocation(FirstCamera());
+        double dx = static_cast<double>(m_anchorPoint.x) - camera->x;
+        double dy = static_cast<double>(m_anchorPoint.y) - camera->y;
+        double dz = static_cast<double>(m_anchorPoint.z) - camera->z;
         double reach = m_viewDistance;
         if (!(reach * reach > dx * dx + dz * dz + dy * dy))
             return; // (too far, or NaN)
         // a sphere half the range ahead - along the object-space direction, as the original -, as big as that plus
         // the size
         double half = static_cast<double>(m_range) * 0.5f;
-        Mth::Vector centre = {F(static_cast<double>(F(half * m_direction.x)) + m_position.x),
-                              F(static_cast<double>(F(half * m_direction.y)) + m_position.y),
-                              F(static_cast<double>(F(half * m_direction.z)) + m_position.z),
-                              F(half * m_direction.w + m_position.w)};
+        Maths::Vector centre = {F(static_cast<double>(F(half * m_direction.x)) + m_anchorPoint.x),
+                              F(static_cast<double>(F(half * m_direction.y)) + m_anchorPoint.y),
+                              F(static_cast<double>(F(half * m_direction.z)) + m_anchorPoint.z),
+                              F(half * m_direction.w + m_anchorPoint.w)};
         if (SphereOutOfView(&centre, F(half + m_size)))
             return;
     }
     UpdateMatrix();
     // the line along the range, its box grown by 2.5 sizes
     double range = m_range;
-    Mth::Vector end = {F(range * m_worldDirection.x + m_position.x),
-                       F(static_cast<double>(F(range * m_worldDirection.y)) + m_position.y),
-                       F(static_cast<double>(F(range * m_worldDirection.z)) + m_position.z),
-                       F(static_cast<double>(F(range * m_worldDirection.w)) + m_position.w)};
-    Mth::Line line(m_position, end);
-    Mth::BBox box(line.start);
+    Maths::Vector end = {F(range * m_worldDirection.x + m_anchorPoint.x),
+                       F(static_cast<double>(F(range * m_worldDirection.y)) + m_anchorPoint.y),
+                       F(static_cast<double>(F(range * m_worldDirection.z)) + m_anchorPoint.z),
+                       F(static_cast<double>(F(range * m_worldDirection.w)) + m_anchorPoint.w)};
+    Maths::Line line(m_anchorPoint, end);
+    Maths::BBox box(line.start);
     box.AddPoint(line.end);
     double grow = static_cast<double>(m_size) * 2.5f; // (0x00649C1C)
-    Mth::BBox reach;
+    Maths::BBox reach;
     reach.min = {F(box.min.x - grow), F(box.min.y - grow), F(box.min.z - grow), 1.0f};
     grow = static_cast<double>(m_size) * 2.5f;
     reach.max = {F(box.max.x + grow), F(box.max.y + grow), F(box.max.z + grow), 1.0f};
     CCollGrid** grids = GridsAlongLine(&line);
     int count = 0;
     for (CCollGrid** grid = grids; *grid; ++grid) {
-        CCollObj** objects = (*grid)->ObjectsInBox(&reach);
+        CHitMesh** objects = (*grid)->ObjectsInBox(&reach);
         if (!objects)
             return; // (nothing projected - even what earlier grids found)
-        for (CCollObj** found = objects; *found; ++found) {
-            const auto* bounds = (*found)->Call<const Mth::BBox*>(21);
+        for (CHitMesh** found = objects; *found; ++found) {
+            const auto* bounds = (*found)->Call<const Maths::BBox*>(21);
             // (touching: no comparison says apart - NaNs count as touching)
             if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x ||
                 bounds->min.z > reach.max.z || reach.min.z > bounds->max.z ||
@@ -254,13 +254,13 @@ void CTextureProjection::Update(Obj::CCompositeObject* object)
 }
 
 namespace {
-static VtableSlot kProjectionVtable_slots[] = {&Nx::CPcTextureProjection::Destroy, &Nx::CTextureProjection::PlatProject};
+static VtableSlot kProjectionVtable_slots[] = {&Engine3D::CPcTextureProjection::Destroy, &Engine3D::CTextureProjection::PlatProject};
 void** const kProjectionVtable = reinterpret_cast<void**>(kProjectionVtable_slots);
 } // namespace
 
 } // namespace Nx
 
 namespace Vt {
-static VtableSlot kProjectionNode_slots[] = {&Obj::CTextureProjectionComponent::ProjectionList::Destroy};
+static VtableSlot kProjectionNode_slots[] = {&GameObjects::CTextureProjectionComponent::ProjectionList::Destroy};
 void** const kProjectionNode = reinterpret_cast<void**>(kProjectionNode_slots);
 } // namespace Vt

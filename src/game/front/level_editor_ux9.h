@@ -4,7 +4,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -17,7 +17,7 @@ struct Painter;
 //     piece; a click on a piece with the tool armed edits it (Apply / Remove). Pieces are saved as `ground` records (the
 //     layout's extension records) and baked by tools/pipeline/game/apply_layout.ts.
 // The keys are the action registry's (level_editor_actions.h: gap_wizard, skateability, ground_tool - rebindable).
-namespace Front::LevelEditor::Ux9 {
+namespace MenuSystem::LevelEditor::Ux9 {
 
 // The actions and the layout records registered (once, from LevelEditor::Init).
 void Init();
@@ -41,4 +41,4 @@ void Windows(float viewX, float viewY, float viewWidth, float viewHeight, float 
 // For the screenshot sidecar: a line ("" when nothing to say).
 std::string Describe();
 
-} // namespace Front::LevelEditor::Ux9
+} // namespace MenuSystem::LevelEditor::Ux9

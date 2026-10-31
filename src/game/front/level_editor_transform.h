@@ -27,7 +27,7 @@
 // While dragging (or in that modal transform): X / Y / Z constrain it to an axis (again: free), digits with - and .
 // type an exact amount (Move: units along the axis - X when none; Rotate: degrees of heading; Scale: a factor - on the
 // axis, else all three), Backspace erases, Enter applies, Escape cancels. The status bar shows what's typed.
-namespace Front::LevelEditor::Transform {
+namespace MenuSystem::LevelEditor::Transform {
 
 enum class Mode : uint8_t { Move, Rotate, Scale };
 enum class Space : uint8_t { World, Local };
@@ -161,4 +161,4 @@ Repeat& LastDuplicate();
 // grid are on the tool strip: level_editor_ui_strip.h.)
 void OptionsMenuItems();
 
-} // namespace Front::LevelEditor::Transform
+} // namespace MenuSystem::LevelEditor::Transform

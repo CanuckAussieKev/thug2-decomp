@@ -9,7 +9,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/x87_math.h"
 
-namespace Mth {
+namespace Maths {
 
 namespace {
 
@@ -19,7 +19,7 @@ double At(const Matrix& m, int r, int c) { return reinterpret_cast<const float*>
 } // namespace
 
 // 0x00420AC0
-Quat* Quat::InitFromAxisAngle(const Vector& axis, float angle)
+QuatRotation* QuatRotation::InitFromAxisAngle(const Vector& axis, float angle)
 {
     double ax = axis.x, ay = axis.y, az = axis.z;
     float length = static_cast<float>(std::sqrt(ax * ax + ay * ay + az * az));
@@ -34,7 +34,7 @@ Quat* Quat::InitFromAxisAngle(const Vector& axis, float angle)
 }
 
 // 0x00420140
-Quat& Quat::operator*=(const Quat& q)
+QuatRotation& QuatRotation::operator*=(const QuatRotation& q)
 {
     double ax = x, ay = y, az = z, aw = w;
     double bx = q.x, by = q.y, bz = q.z, bw = q.w;
@@ -52,11 +52,11 @@ Quat& Quat::operator*=(const Quat& q)
 }
 
 // 0x00420B50
-Vector* Quat::Rotate(Vector* out, const Vector& v) const
+Vector* QuatRotation::Rotate(Vector* out, const Vector& v) const
 {
-    Quat conjugate = {-x, -y, -z, w};
-    Quat point = {v.x, v.y, v.z, 1.0f};
-    Quat result = *this;
+    QuatRotation conjugate = {-x, -y, -z, w};
+    QuatRotation point = {v.x, v.y, v.z, 1.0f};
+    QuatRotation result = *this;
     result *= point;
     result *= conjugate;
     *out = {result.x, result.y, result.z, result.w};
@@ -88,7 +88,7 @@ Vector& Vector::RotateAboutY(float angle)
 // 0x00421440
 Vector& Vector::RotateAboutAxis(const Vector& axis, float angle)
 {
-    Quat rotation;
+    QuatRotation rotation;
     rotation.InitFromAxisAngle(axis, angle);
     Vector turned;
     *this = *rotation.Rotate(&turned, *this);
@@ -96,7 +96,7 @@ Vector& Vector::RotateAboutAxis(const Vector& axis, float angle)
 }
 
 // 0x0042E1F0 (the x87 sums in double; the first branch's 0.5 / s is stored as a float, the second's isn't)
-Quat* Quat::FromMatrix(const Matrix& m)
+QuatRotation* QuatRotation::FromMatrix(const Matrix& m)
 {
     double trace = (At(m, 1, 1) + At(m, 0, 0)) + At(m, 2, 2);
     if (trace > 0.0) {
@@ -124,7 +124,7 @@ Quat* Quat::FromMatrix(const Matrix& m)
 }
 
 // 0x0042E310
-Quat* Quat::Normalize(float length)
+QuatRotation* QuatRotation::Normalize(float length)
 {
     double current = std::sqrt(((static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z) +
                                static_cast<double>(w) * w);

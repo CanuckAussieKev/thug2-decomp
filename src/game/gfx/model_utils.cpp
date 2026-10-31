@@ -18,11 +18,11 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 constexpr uint32_t kCycle = 0x4F792E6C;    // cycle
 constexpr uint32_t kPingPong = 0x3153E314; // pingpong
@@ -48,7 +48,7 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 void NamedTime(CStruct* params, uint32_t name, float current, float duration, float* time)
 {
     uint32_t which = 0;
-    if (!params->GetChecksum(name, &which, 0))
+    if (!params->ReadHashValue(name, &which, 0))
         return;
     if (which == kMiddle)
         *time = duration * 0.5f;
@@ -66,20 +66,20 @@ void NumberTime(CStruct* params, uint32_t name, float* time)
     float value = 0.0f;
     if (!params->GetFloat(name, &value, 0))
         return;
-    if (params->ContainsFlag(kSeconds))
+    if (params->HasBareFlag(kSeconds))
         *time = value;
     else
         *time = static_cast<float>(Ftol(value) * static_cast<double>(kSixtieth));
 }
 
 // A model component's object's id and its model.
-uint32_t ObjectId(Obj::CModelComponent* component)
+uint32_t ObjectId(GameObjects::CMeshInstanceModule* component)
 {
-    return reinterpret_cast<Obj::CObject*>(component->m_object)->m_id;
+    return reinterpret_cast<GameObjects::CObject*>(component->m_object)->m_id;
 }
-bool Hideable(Obj::CModelComponent* component)
+bool Hideable(GameObjects::CMeshInstanceModule* component)
 {
-    return ObjectId(component) && !(component->mp_model->m_flags & Nx::kModelHidden);
+    return ObjectId(component) && !(component->m_meshInstance->m_flags & Engine3D::kModelHidden);
 }
 
 } // namespace
@@ -88,21 +88,21 @@ bool Hideable(Obj::CModelComponent* component)
 bool __cdecl GetAnimLoopType(int* loopType, CStruct* params)
 {
     *loopType = 0;
-    if (params->ContainsFlag(kCycle)) {
+    if (params->HasBareFlag(kCycle)) {
         *loopType = 1;
         return true;
     }
-    if (params->ContainsFlag(kPingPong)) {
+    if (params->HasBareFlag(kPingPong)) {
         *loopType = 2;
         return true;
     }
-    if (params->ContainsFlag(kWobble))
+    if (params->HasBareFlag(kWobble))
         *loopType = 3;
     return true;
 }
 
 // 0x004877E0
-bool __cdecl GetAnimTimes(float* start, float* end, float current, float duration, CStruct* params)
+bool __cdecl FetchAnimDurations(float* start, float* end, float current, float duration, CStruct* params)
 {
     float from = 0.0f;
     float to = duration;
@@ -110,7 +110,7 @@ bool __cdecl GetAnimTimes(float* start, float* end, float current, float duratio
     NamedTime(params, kTo, current, duration, &to);
     NumberTime(params, kFrom, &from);
     NumberTime(params, kTo, &to);
-    if (params->ContainsFlag(kBackwards)) {
+    if (params->HasBareFlag(kBackwards)) {
         *start = to;
         *end = from;
     } else {
@@ -121,11 +121,11 @@ bool __cdecl GetAnimTimes(float* start, float* end, float current, float duratio
 }
 
 // 0x004879D0
-Str::String* __cdecl MakeModelPath(Str::String* out, const char* name, const char* extension)
+TextUtil::String* __cdecl MakeModelPath(TextUtil::String* out, const char* name, const char* extension)
 {
     char path[512];
     MakeModelFileName(name, extension, path);
-    return new (out) Str::String(path);
+    return new (out) TextUtil::String(path);
 }
 
 // 0x00487A70
@@ -148,9 +148,9 @@ float __cdecl LeastOf(float a, float b, float c)
 }
 
 // 0x00487B00
-bool __cdecl GetScaleFromParams(Mth::Vector* scale, CStruct* params)
+bool __cdecl ScaleFromArgs(Maths::Vector* scale, CStruct* params)
 {
-    if (params->ContainsComponentNamed(kScale)) {
+    if (params->HasEntryNamed(kScale)) {
         float uniform;
         if (params->GetFloat(kScale, &uniform, 0)) {
             scale->x = uniform;
@@ -159,7 +159,7 @@ bool __cdecl GetScaleFromParams(Mth::Vector* scale, CStruct* params)
             scale->w = 1.0f;
             return true;
         }
-        if (params->GetVector(kScale, reinterpret_cast<Script::VectorValue*>(scale), 0))
+        if (params->GetVector(kScale, reinterpret_cast<Scripts::VectorValue*>(scale), 0))
             return true;
     }
     bool x = params->GetFloat(kX, &scale->x, 0);
@@ -171,29 +171,29 @@ bool __cdecl GetScaleFromParams(Mth::Vector* scale, CStruct* params)
 // 0x00487BD0
 void SHiddenModels::Hide()
 {
-    auto* manager = Obj::CompositeObjectManager();
+    auto* manager = GameObjects::CompositeObjectManager();
     auto first = [manager] {
-        return static_cast<Obj::CModelComponent*>(manager->GetFirstComponentByType(Obj::CModelComponent::kType));
+        return static_cast<GameObjects::CMeshInstanceModule*>(manager->FindFirstModuleOfKind(GameObjects::CMeshInstanceModule::kType));
     };
     int count = 0;
-    for (auto* component = first(); component; component = static_cast<Obj::CModelComponent*>(component->mp_nextOfType)) {
+    for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->mp_nextOfType)) {
         if (Hideable(component))
             ++count;
     }
     if (!count)
         return;
-    if (!Mem::g_managerReady)
-        Mem::EnsureManager();
-    mp_ids = static_cast<uint32_t*>(Mem::Manager::Get()->Allocate(count * 4, 1, nullptr));
+    if (!MemSys::g_managerReady)
+        MemSys::EnsureManager();
+    mp_ids = static_cast<uint32_t*>(MemSys::Manager::Get()->Allocate(count * 4, 1, nullptr));
     m_count = 0;
-    for (auto* component = first(); component; component = static_cast<Obj::CModelComponent*>(component->mp_nextOfType)) {
+    for (auto* component = first(); component; component = static_cast<GameObjects::CMeshInstanceModule*>(component->mp_nextOfType)) {
         if (Hideable(component)) {
             mp_ids[m_count] = ObjectId(component);
-            component->mp_model->Hide(1);
+            component->m_meshInstance->Hide(1);
             ++m_count;
         }
     }
-    Dbg::Printf("Hid %d objects\n", m_count);
+    DebugOut::Printf("Hid %d objects\n", m_count);
 }
 
 // 0x00487CB0
@@ -201,12 +201,12 @@ void SHiddenModels::Show()
 {
     if (mp_ids) {
         for (int i = 0; i < m_count; ++i) {
-            if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(mp_ids[i]))) {
-                auto* component = static_cast<Obj::CModelComponent*>(object->GetComponent(Obj::CModelComponent::kType));
-                component->mp_model->Hide(0);
+            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(mp_ids[i]))) {
+                auto* component = static_cast<GameObjects::CMeshInstanceModule*>(object->GetComponent(GameObjects::CMeshInstanceModule::kType));
+                component->m_meshInstance->Hide(0);
             }
         }
-        Mem::Manager::Get()->Free(mp_ids);
+        MemSys::Manager::Get()->Free(mp_ids);
         mp_ids = nullptr;
     }
     m_count = 0;

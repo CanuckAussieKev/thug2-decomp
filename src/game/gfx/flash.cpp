@@ -10,7 +10,7 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/viewport_list.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -54,7 +54,7 @@ void DrawFlash(const Flash* flash)
     } else {
         SetTexture(0, nullptr);
     }
-    SetBlendMode(5);
+    ChooseBlendMode(5);
     SetSamplerState(1, 0);
     SetSamplerState(2, 0);
     SetPixelShader(nullptr, nullptr); // (no pixel shader)

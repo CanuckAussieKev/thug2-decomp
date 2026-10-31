@@ -10,20 +10,20 @@
 // NOT ORIGINAL - the level editor's scenery (ours; see level_editor.h): picking, outlining and moving the level's
 // static scene sectors.
 //
-// What a sector is (Nx::CSector, 0x1C bytes, vtable 0x00649A40): +0x08 flags (0x40: its collision is in the scene's
+// What a sector is (Engine3D::CWorldCell, 0x1C bytes, vtable 0x00649A40): +0x08 flags (0x40: its collision is in the scene's
 // super sectors, 0x20: moved - the super sectors to be updated), +0x10 its quarter turns, +0x14 its geometry (the PC
 // CGeom, vtable 0x0064A368: +0x14 / +0x24 the bounding box's min / max as loaded, +0x3C / +0x40 its meshes and their
-// count, +0x48 active, +0x4C an instance - null for level geometry), +0x18 its collision (CCollStatic, vtable
+// count, +0x48 active, +0x4C an instance - null for level geometry), +0x18 its collision (CStaticCollider, vtable
 // 0x00645C18: +0x04 the sector's checksum). A scene (0x006FA7EC's list) finds its sectors by checksum in a hash
 // table at +0xD0 (0x0049CB00).
 //
-// Moving one is what the park editor does with its pieces (0x00594730): the geometry's SetWorldPosition (vfunc +0x48,
-// 0x004B55D0: every mesh's sMesh::SetPosition 0x004D6E00 moves its vertices by the change and uploads them), the
-// collision moved by the same change (CCollStatic::SetWorldPosition 0x00410C20 translates by the position given
+// Moving one is what the park editor does with its pieces (0x00594730): the geometry's PlaceAtAbsolutePoint (vfunc +0x48,
+// 0x004B55D0: every mesh's meshRef::SetPosition 0x004D6E00 moves its vertices by the change and uploads them), the
+// collision moved by the same change (CStaticCollider::PlaceAtAbsolutePoint 0x00410C20 translates by the position given
 // minus a constant origin, so it is handed the change), the sector flagged 0x20, and later the scene's
-// UpdateSuperSectors (0x0049D780) puts its collision where it now is. Quarter turns: CSector::SetYRotation
+// UpdateSuperSectors (0x0049D780) puts its collision where it now is. Quarter turns: CWorldCell::SpinAroundUp
 // (0x0049E760: collision and meshes turned about the geometry's world position).
-namespace Front::LevelEditor::Scenery {
+namespace MenuSystem::LevelEditor::Scenery {
 
 // The sectors under a ray up to `maxT` along the (unit) direction: the game's collision ray (static collision only,
 // skipping collision without geometry - invisible walls) and every shown piece's meshes' triangles (their boxes only to
@@ -149,7 +149,7 @@ int MovedCount();
 
 // The selection's state: which sectors are selected, where the editor has put each (relative to where the level has
 // it) and whether it's hidden, and the same for its rails. Undo / redo save it before a change and restore it; reset
-// is every placement back to none, hiding is every piece hidden (CSector::SetActive: neither drawn nor collided with -
+// is every placement back to none, hiding is every piece hidden (CWorldCell::SetActive: neither drawn nor collided with -
 // its rails turned off too).
 struct SectorState {
     uint32_t checksum;
@@ -179,7 +179,7 @@ uint8_t* MainScene();
 bool SceneLive(uint8_t* scene);
 uint32_t SceneName(uint8_t* scene);
 
-// Copies of sectors (Ctrl+D, the browser): a full copy (CScene::CloneSector 0x0049DF30, as the park editor makes its
+// Copies of sectors (Ctrl+D, the browser): a full copy (CWorldScene::DuplicateSceneSector 0x0049DF30, as the park editor makes its
 // pieces) of the source as it is now, in its scene, ready to move like any sector. Its checksum (0: not made).
 uint32_t Duplicate(uint32_t source);
 // The copies made this level: the copy, its source, and where the source had been put when it was copied (a copy's
@@ -228,4 +228,4 @@ bool Tintable(void* geom); // (the PC geometry class)
 void Tint(TintOwner owner, void* geom, uint32_t rgba);
 void EndTints(void* (*resolve)(TintOwner), bool all);
 
-} // namespace Front::LevelEditor::Scenery
+} // namespace MenuSystem::LevelEditor::Scenery

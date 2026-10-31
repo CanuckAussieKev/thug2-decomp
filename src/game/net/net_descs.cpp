@@ -1,5 +1,5 @@
-// The network library's small message structures: MsgDesc (net_app.h), StreamDesc (net_app.h) and
-// MsgHandlerContext (net_dispatcher.h) - their constructors and StreamDesc's destructor.
+// The network library's small message structures: NetMessageInfo (net_app.h), StreamDesc (net_app.h) and
+// InboundMsgCtx (net_dispatcher.h) - their constructors and StreamDesc's destructor.
 
 #include <cstdint>
 #include <cstring>
@@ -9,14 +9,14 @@
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
 
-namespace Net {
+namespace NetLink {
 
 // 0x004549F0
-MsgDesc* MsgDesc::Construct()
+NetMessageInfo* NetMessageInfo::Construct()
 {
     m_id = 0;
-    m_stream = 0;
-    m_length = 0;
+    m_feed = 0;
+    m_byteCount = 0;
     m_data = nullptr;
     m_priority = 0x80;
     m_queue = kQueueDefault;
@@ -43,20 +43,20 @@ StreamDesc* StreamDesc::Construct()
 void StreamDesc::DestroyBody()
 {
     if (m_data && !m_sendInPlace) {
-        Dbg::Printf("Destroying StreamDesc's Data\n");
-        Mem::Free(m_data);
+        DebugOut::Printf("Destroying StreamDesc's Data\n");
+        MemSys::Free(m_data);
     }
 }
 
 // 0x00454A20
-MsgHandlerContext* MsgHandlerContext::Construct()
+InboundMsgCtx* InboundMsgCtx::Construct()
 {
-    m_Msg = nullptr;
-    m_MsgId = 0;
-    m_MsgLength = 0;
-    m_App = nullptr;
-    m_Conn = nullptr;
-    m_PacketFlags = 0;
+    m_body = nullptr;
+    m_typeCode = 0;
+    m_bodySize = 0;
+    m_receiverApp = nullptr;
+    m_senderConn = nullptr;
+    m_wireOptions = 0;
     m_data = nullptr;
     m_NumSequencesToAck = 0;
     m_Acknowledge = false;

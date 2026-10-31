@@ -21,7 +21,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_vibrationComponentMemberFunctions[12]{
             0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
@@ -39,18 +39,18 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-bool GamePaused() { return g_gamePaused; }
+bool IsGameHalted() { return g_gamePaused; }
 
 } // namespace
 
 // 0x0043D670
-CBaseComponent* __cdecl CVibrationComponent::Create()
+CObjectModule* __cdecl CPadRumbleModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CVibrationComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CPadRumbleModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CVibrationComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CPadRumbleModule*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     component->m_active = false;
@@ -60,33 +60,33 @@ CBaseComponent* __cdecl CVibrationComponent::Create()
 }
 
 // 0x0043D490
-void __cdecl CVibrationComponent::RegisterMemberFunctions()
+void __cdecl CPadRumbleModule::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vibrationComponentMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_vibrationComponentMemberFunctions, 0x18);
 }
 
 // 0x0043D4B0
-void CVibrationComponent::DestroyBody()
+void CPadRumbleModule::DestroyBody()
 {
     m_vtable = kVtable;
     if (mp_device) {
         for (int i = kActuators - 1; i >= 0; --i)
-            mp_device->ActivateActuator(i, 0);
+            mp_device->FireActuator(i, 0);
     }
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0043D5E0
-CVibrationComponent* CVibrationComponent::Destroy(unsigned int flags)
+CPadRumbleModule* CPadRumbleModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0043D610
-void CVibrationComponent::Update()
+void CPadRumbleModule::Update()
 {
     if (!m_active) {
         VirtualSuspend(true);
@@ -96,38 +96,38 @@ void CVibrationComponent::Update()
 }
 
 // 0x0043D61F
-void CVibrationComponent::UpdateTimers()
+void CPadRumbleModule::UpdateTimers()
 {
     for (int i = kActuators - 1; i >= 0; --i) {
         Timer& timer = m_timers[i];
         if (!timer.running)
             continue;
         int start = timer.start;
-        int clock = Tmr::GameClockElapsed();
+        int clock = FrameClock::GameClockElapsed();
         uint32_t elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clockOffset) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
-            mp_device->ActivateActuator(i, 0);
+            mp_device->FireActuator(i, 0);
             timer.running = false;
         }
     }
 }
 
 // 0x0043D520
-void CVibrationComponent::StopAll()
+void CPadRumbleModule::StopAll()
 {
     if (!m_active)
         return;
     for (int i = kActuators - 1; i >= 0; --i) {
-        mp_device->ActivateActuator(i, 0);
+        mp_device->FireActuator(i, 0);
         m_timers[i].running = false;
     }
 }
 
 // 0x0043D550
-void CVibrationComponent::ResetDevice() { mp_device->ResetActuators(); }
+void CPadRumbleModule::ResetDevice() { mp_device->ClearRumble(); }
 
 // 0x0043D560
-void CVibrationComponent::SetActive(bool active)
+void CPadRumbleModule::SetActive(bool active)
 {
     if (active == m_active)
         return;
@@ -136,7 +136,7 @@ void CVibrationComponent::SetActive(bool active)
         VirtualSuspend(true);
         if (mp_device) {
             mp_device->StopActuators();
-            mp_device->DisableActuators();
+            mp_device->StopRumble();
         }
     } else {
         m_active = true;
@@ -147,38 +147,38 @@ void CVibrationComponent::SetActive(bool active)
 }
 
 // 0x0043D5C0
-void CVibrationComponent::SetDevice(Sio::Device* device)
+void CPadRumbleModule::SetDevice(Sio::Device* device)
 {
     mp_device = device;
     if (m_active)
         device->EnableActuators();
     else
-        device->DisableActuators();
+        device->StopRumble();
 }
 
 // 0x0043D6F0
-bool CVibrationComponent::Vibrate(Script::CStruct* params, Script::CScript*)
+bool CPadRumbleModule::Vibrate(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (!params->ContainsFlag(kOff) && (GamePaused() || (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)))
+    if (!params->HasBareFlag(kOff) && (IsGameHalted() || (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)))
         return true;
     if (!m_active)
         return true;
     int actuator = 0;
-    params->GetInteger(kActuator, &actuator, 0);
+    params->FetchIntValue(kActuator, &actuator, 0);
     float percent = 0.0f;
     params->GetFloat(kPercent, &percent, 0);
-    if (params->ContainsFlag(kOff)) {
+    if (params->HasBareFlag(kOff)) {
         mp_device->StopActuators();
         for (int i = kActuators - 1; i >= 0; --i)
             m_timers[i].running = false;
     } else {
-        mp_device->ActivateActuator(actuator, Ftol(percent));
+        mp_device->FireActuator(actuator, Ftol(percent));
     }
     float duration = 0.0f;
     if (params->GetFloat(kDuration, &duration, 0)) {
         m_timers[actuator].running = true;
         m_timers[actuator].duration = static_cast<uint32_t>(Ftol(static_cast<double>(duration) * kMilliseconds));
-        int clock = Tmr::GameClockElapsed();
+        int clock = FrameClock::GameClockElapsed();
         m_timers[actuator].start = clock + g_clockOffset;
     } else {
         m_timers[actuator].running = false;
@@ -188,22 +188,22 @@ bool CVibrationComponent::Vibrate(Script::CStruct* params, Script::CScript*)
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CVibrationComponent::Destroy,
-         &Obj::CVibrationComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPadRumbleModule::Destroy,
+         &GameObjects::CPadRumbleModule::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

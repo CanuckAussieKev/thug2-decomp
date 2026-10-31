@@ -1,4 +1,4 @@
-// The floating text component (Obj::CFloatingTextComponent): see floating_text.h. From the disassembly of
+// The floating text component (GameObjects::CFloatingTextComponent): see floating_text.h. From the disassembly of
 // 0x0041E270-0x0041E6DE.
 
 #include "game/obj/floating_text.h"
@@ -23,14 +23,14 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Front {
+namespace MenuSystem {
 
 // 0x0041E2A0
-CScreenElementManager* __cdecl GetScreenElementManager() { return CScreenElementManager::Instance(); }
+CUiTree* __cdecl GetScreenElementManager() { return CUiTree::Instance(); }
 
 } // namespace Front
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -64,34 +64,34 @@ void CopyText(char* out, const char* in, size_t size)
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     return params ? params->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear(); // (the destructor)
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
 } // namespace
 
 // 0x0041E3C0
-CBaseComponent* __cdecl CFloatingTextComponent::Create()
+CObjectModule* __cdecl CFloatingTextComponent::Create()
 {
-    auto* component = static_cast<CFloatingTextComponent*>(Mem::Calloc(sizeof(CFloatingTextComponent)));
+    auto* component = static_cast<CFloatingTextComponent*>(MemSys::AllocZeroed(sizeof(CFloatingTextComponent)));
     if (!component)
         return nullptr;
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_text[0] = 0;
     component->m_id = 0;
     component->m_endTime = 0;
     component->m_vtable = kVtable;
     component->m_type = kType;
-    component->m_color = 2;
+    component->m_tint = 2;
     component->m_yOffset = 120.0f;
     return component;
 }
@@ -100,11 +100,11 @@ CBaseComponent* __cdecl CFloatingTextComponent::Create()
 void CFloatingTextComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    Script::CStruct* params = NewParams();
-    params->AddChecksum(kId, m_id);
-    Script::RunScript(kDestroyScript, params, nullptr, false, nullptr);
+    Scripts::CStruct* params = NewParams();
+    params->PutNameKey(kId, m_id);
+    Scripts::LaunchScript(kDestroyScript, params, nullptr, false, nullptr);
     DeleteParams(params);
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0041E6C0
@@ -112,98 +112,98 @@ CFloatingTextComponent* CFloatingTextComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0041E2B0
-void CFloatingTextComponent::InitFromStructure(Script::CStruct* params)
+void CFloatingTextComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     if (!m_id)
         m_id = m_object->m_id - kIdBase;
     const char* text;
     if (params->GetString(kString, &text, 0)) {
         if (!text[0]) {
-            m_endTime = static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset);
+            m_endTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
         } else {
             CopyText(m_text, text, sizeof(m_text)); // (the original: the game's strncpy, 0x006239E0)
             m_endTime = 0;
         }
     }
-    params->GetInteger(kColor, &m_color, 0);
+    params->FetchIntValue(kColor, &m_tint, 0);
     params->GetFloat(kYOffset, &m_yOffset, 0);
-    params->GetChecksum(kElementId, &m_id, 0);
-    if (params->ContainsComponentNamed(kDuration)) {
+    params->ReadHashValue(kElementId, &m_id, 0);
+    if (params->HasEntryNamed(kDuration)) {
         float duration;
         params->GetFloat(kDuration, &duration, 0);
-        int elapsed = Tmr::GameClockElapsed();
+        int elapsed = FrameClock::GameClockElapsed();
         int milliseconds = Truncated(static_cast<double>(duration) * kMinusMilliseconds);
         m_endTime = static_cast<uint32_t>(elapsed + (g_clockOffset - milliseconds));
     }
 }
 
 // 0x0041E3A0
-void CFloatingTextComponent::Finalize() { mp_model = m_object->GetComponent(kModel); }
+void CFloatingTextComponent::Finalize() { m_meshInstance = m_object->GetComponent(kModel); }
 
 // 0x0041E450
 void CFloatingTextComponent::Update()
 {
-    uint8_t* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(mp_model) + 0x208);
+    uint8_t* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(m_meshInstance) + 0x208);
     if (!model || !(model[0x44] & 2) || (model[0x44] & 4))
         return;
     if (!m_text[0])
         return;
-    if (m_endTime && m_endTime < static_cast<uint32_t>(Tmr::GameClockElapsed() + g_clockOffset)) {
+    if (m_endTime && m_endTime < static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset)) {
         m_text[0] = 0;
         m_endTime = 0;
     }
-    Script::CStruct* params = NewParams();
-    params->AddChecksum(kId, m_id);
+    Scripts::CStruct* params = NewParams();
+    params->PutNameKey(kId, m_id);
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)
     char text[0x40];
-    std::snprintf(text, sizeof(text), "\\c%d%s", m_color, m_text);
+    std::snprintf(text, sizeof(text), "\\c%d%s", m_tint, m_text);
     params->AddString(kText, text);
-    const Mth::Vector& pos = m_object->m_pos;
-    params->AddVector(kPos3D, pos.x, pos.y + m_yOffset, pos.z);
-    Front::ElementPtr found;
-    Front::CScreenElementManager::Instance()->GetElement(&found, m_id, 0);
-    Front::CScreenElement* element = found.Get();
+    const Maths::Vector& pos = m_object->m_pos;
+    params->PutVec3(kPos3D, pos.x, pos.y + m_yOffset, pos.z);
+    MenuSystem::ElementPtr found;
+    MenuSystem::CUiTree::Instance()->GetElement(&found, m_id, 0);
+    MenuSystem::CUiWidget* element = found.Get();
     found.Release();
     if (element)
-        reinterpret_cast<void(__thiscall*)(Front::CScreenElement*, Script::CStruct*)>(element->m_vtable[1])(element, params);
+        reinterpret_cast<void(__thiscall*)(MenuSystem::CUiWidget*, Scripts::CStruct*)>(element->m_vtable[1])(element, params);
     else
-        Script::RunScript(kCreateScript, params, nullptr, false, nullptr);
+        Scripts::LaunchScript(kCreateScript, params, nullptr, false, nullptr);
     DeleteParams(params);
 }
 
 // 0x0041E270
-int CFloatingTextComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+int CFloatingTextComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     if (name != kReinit)
         return 2;
-    reinterpret_cast<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>(m_vtable[5])(this, params);
+    reinterpret_cast<void(__thiscall*)(CObjectModule*, Scripts::CStruct*)>(m_vtable[5])(this, params);
     return 1;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CFloatingTextComponent::Destroy,
-         &Obj::CFloatingTextComponent::Update,
-         &Obj::CFloatingTextComponent::InitFromStructure,
-         &Obj::CFloatingTextComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFloatingTextComponent::Destroy,
+         &GameObjects::CFloatingTextComponent::Update,
+         &GameObjects::CFloatingTextComponent::ConfigureFromData,
+         &GameObjects::CFloatingTextComponent::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CFloatingTextComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CFloatingTextComponent::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

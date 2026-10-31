@@ -101,19 +101,19 @@ constexpr float kQuarterTurn = 1.57079637f;        // 0x3FC90FDB
 constexpr float kThreeEighthsTurn = 2.3561945f;    // 0x4016CBE4
 constexpr float kHalfTurn = 3.14159274f;           // 0x40490FDB
 
-Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::CCompositeObject*>(ObjectOf(component)); }
+GameObjects::CGameEntity* SkaterObject(void* component) { return static_cast<GameObjects::CGameEntity*>(ObjectOf(component)); }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
-// 0x0057CB60 (Obj::CRailManager::GetWorldPos): a rail node's position.
-Mth::Vector RailNodePosition(void* manager, const void* node)
+// 0x0057CB60 (GameObjects::CGrindRailHub::GetAbsolutePos): a rail node's position.
+Maths::Vector RailNodePosition(void* manager, const void* node)
 {
-    Mth::Vector position;
-    static_cast<Obj::CRailManager*>(manager)->GetWorldPos(&position, static_cast<const Obj::CRailNode*>(node));
+    Maths::Vector position;
+    static_cast<GameObjects::CGrindRailHub*>(manager)->GetAbsolutePos(&position, static_cast<const GameObjects::CGrindPoint*>(node));
     return position;
 }
 
@@ -122,10 +122,10 @@ Mth::Vector RailNodePosition(void* manager, const void* node)
 // 0x005003A0
 bool CorePhysicsComponent::CheckFeeler(uint32_t ignore, uint32_t require)
 {
-    auto* feeler = reinterpret_cast<Nx::CFeeler*>(&At<uint8_t>(this, kFeeler));
+    auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kFeeler));
     feeler->SetLine(&VectorAt(this, kFeelerStart), &VectorAt(this, kFeelerEnd));
-    feeler->SetIgnore(static_cast<uint16_t>(ignore), static_cast<uint16_t>(require));
-    uint8_t hit = static_cast<uint8_t>(feeler->GetCollision(true, false));
+    feeler->SetExcluded(static_cast<uint16_t>(ignore), static_cast<uint16_t>(require));
+    uint8_t hit = static_cast<uint8_t>(feeler->GetHitShape(true, false));
     if (!hit)
         return false;
     if (At<uint32_t>(this, kHitObjectChecksum) && At<uint8_t>(this, kHitFaceFlag40))
@@ -147,7 +147,7 @@ bool CorePhysicsComponent::CheckFeeler(uint32_t ignore, uint32_t require)
         return true;
     } else {
         // Neither: skatable unless steeper than Wall_Non_Skatable_Angle (its sine above the normal's y).
-        double limit = X87Sin(static_cast<double>(Script::GetFloat(kWallNonSkatableAngle)) * kDegreesToRadians);
+        double limit = X87Sin(static_cast<double>(Scripts::GetFloat(kWallNonSkatableAngle)) * kDegreesToRadians);
         skatable = !(limit > normalY);
     }
     At<uint8_t>(this, kHitSkatable) = skatable ? 1 : 0;
@@ -176,22 +176,22 @@ bool CorePhysicsComponent::CanGrindRail(const void* rail, const void*, bool anyT
     } else if (!sameRail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        uint8_t* park = reinterpret_cast<uint8_t*>(Ed::g_parkEditor); // (the park editor)
+        uint8_t* park = reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor); // (the park editor)
         if (At<uint32_t>(park, 0x40) == kOff || !last->previous || !node->previous) {
             newRail = true;
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
             auto between = [this](const void* from, const void* to) {
-                Mth::Vector a = RailNodePosition(At<void*>(this, kRailManager), from);
-                Mth::Vector b = RailNodePosition(At<void*>(this, kRailManager), to);
+                Maths::Vector a = RailNodePosition(At<void*>(this, kRailManager), from);
+                Maths::Vector b = RailNodePosition(At<void*>(this, kRailManager), to);
                 return b - a;
             };
-            Mth::Vector d1 = between(node, At<const RailNode*>(this, kLastRail));
-            Mth::Vector d2 = between(node->previous, At<const RailNode*>(this, kLastRail));
+            Maths::Vector d1 = between(node, At<const RailNode*>(this, kLastRail));
+            Maths::Vector d2 = between(node->previous, At<const RailNode*>(this, kLastRail));
             const RailNode* lastPrevious = At<const RailNode*>(this, kLastRail)->previous;
-            Mth::Vector d3 = between(node, lastPrevious);
+            Maths::Vector d3 = between(node, lastPrevious);
             lastPrevious = At<const RailNode*>(this, kLastRail)->previous;
-            Mth::Vector d4 = between(node->previous, lastPrevious);
+            Maths::Vector d4 = between(node->previous, lastPrevious);
             newRail = std::fabs(LengthUnrounded(d1)) > kRailEndDistance && std::fabs(LengthUnrounded(d2)) > kRailEndDistance &&
                       std::fabs(LengthUnrounded(d3)) > kRailEndDistance && std::fabs(LengthUnrounded(d4)) > kRailEndDistance;
         }
@@ -214,31 +214,31 @@ bool CorePhysicsComponent::CanGrindRail(const void* rail, const void*, bool anyT
 }
 
 // 0x005012B0
-int CorePhysicsComponent::NearGround(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::NearGround(Scripts::CStruct* params, Scripts::CScript*)
 {
     bool right = params->FindComponent(kRight) != nullptr;
     void* object = ObjectOf(this);
-    const Mth::Vector& side = VectorAt(object, kMatrix);
-    const Mth::Vector& position = VectorAt(object, kPosition);
+    const Maths::Vector& side = VectorAt(object, kMatrix);
+    const Maths::Vector& position = VectorAt(object, kPosition);
     double x = static_cast<double>(side.x) * kNearGroundReach; // (left unrounded)
     float y = side.y * kNearGroundReach, z = side.z * kNearGroundReach, w = side.w * kNearGroundReach;
-    Mth::Vector& start = VectorAt(this, kFeelerStart);
-    Mth::Vector& end = VectorAt(this, kFeelerEnd);
+    Maths::Vector& start = VectorAt(this, kFeelerStart);
+    Maths::Vector& end = VectorAt(this, kFeelerEnd);
     // A feeler 20 up and down, a little to the side (Right: the other way).
-    float startX, startY;
+    float originCoordX, originCoordY;
     if (right) {
-        startX = static_cast<float>(position.x - x);
-        startY = position.y - y;
+        originCoordX = static_cast<float>(position.x - x);
+        originCoordY = position.y - y;
         start.z = position.z - z;
         start.w = position.w - w;
     } else {
-        startX = static_cast<float>(x + position.x);
-        startY = y + position.y;
+        originCoordX = static_cast<float>(x + position.x);
+        originCoordY = y + position.y;
         start.z = z + position.z;
         start.w = w + position.w;
     }
-    start.x = startX;
-    start.y = startY;
+    start.x = originCoordX;
+    start.y = originCoordY;
     start.y = start.y + kNearGroundHeight;
     end = start;
     end.y = end.y - kNearGroundHeight;
@@ -246,19 +246,19 @@ int CorePhysicsComponent::NearGround(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x00500F10
-int CorePhysicsComponent::SkateInAble(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SkateInAble(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
-    Mth::Vector& start = VectorAt(this, kFeelerStart);
-    Mth::Vector& end = VectorAt(this, kFeelerEnd);
+    Maths::Vector& start = VectorAt(this, kFeelerStart);
+    Maths::Vector& end = VectorAt(this, kFeelerEnd);
     // (each line's x - and across the skater its y - from an unrounded product, as the original's FPU code has them)
-    if (params->ContainsFlag(kLip)) {
+    if (params->HasBareFlag(kLip)) {
         // Down from just behind the position (back along up), then from a little further.
         float back = PhysicsFloat(kLipHorizOffset, object);
         float down = PhysicsFloat(kLipDownOffset, object);
         end = VectorAt(ObjectOf(this), kPosition);
         end.y = end.y - down;
-        const Mth::Vector& up = VectorAt(ObjectOf(this), kUp);
+        const Maths::Vector& up = VectorAt(ObjectOf(this), kUp);
         start.x = static_cast<float>(end.x - static_cast<double>(back) * up.x);
         start.y = end.y - back * up.y;
         start.z = end.z - back * up.z;
@@ -266,8 +266,8 @@ int CorePhysicsComponent::SkateInAble(Script::CStruct* params, Script::CScript*)
         if (!CheckFeeler(0x10, 0)) {
             back = PhysicsFloat(kLipExtraHorizOffset, object);
             down = PhysicsFloat(kLipExtraDownOffset, object);
-            const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
-            const Mth::Vector& up2 = VectorAt(ObjectOf(this), kUp);
+            const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
+            const Maths::Vector& up2 = VectorAt(ObjectOf(this), kUp);
             start.x = static_cast<float>(position.x - static_cast<double>(back) * up2.x);
             start.y = position.y - back * up2.y;
             start.z = position.z - back * up2.z;
@@ -281,23 +281,23 @@ int CorePhysicsComponent::SkateInAble(Script::CStruct* params, Script::CScript*)
     }
     // Across the skater: from `across` to one side (lowered) to as far to the other.
     float across = PhysicsFloat(kHorizOffset, object);
-    const Mth::Vector& side = VectorAt(ObjectOf(this), kMatrix);
-    const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
-    Mth::Vector nearSide;
+    const Maths::Vector& side = VectorAt(ObjectOf(this), kMatrix);
+    const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
+    Maths::Vector nearSide;
     nearSide.x = static_cast<float>(static_cast<double>(across) * side.x + position.x);
     nearSide.y = static_cast<float>(static_cast<double>(across) * side.y + position.y);
     nearSide.z = across * side.z + position.z;
     nearSide.w = across * side.w + position.w;
     float down = PhysicsFloat(kDownOffset, object);
     nearSide.y = nearSide.y - down;
-    const Mth::Vector& side2 = VectorAt(ObjectOf(this), kMatrix);
+    const Maths::Vector& side2 = VectorAt(ObjectOf(this), kMatrix);
     const double twice = static_cast<double>(across) + across;
-    Mth::Vector farSide;
+    Maths::Vector farSide;
     farSide.x = static_cast<float>(nearSide.x - twice * side2.x);
     farSide.y = nearSide.y - static_cast<float>(twice * side2.y);
     farSide.z = nearSide.z - static_cast<float>(twice * side2.z);
     farSide.w = nearSide.w - static_cast<float>(twice * side2.w);
-    if (params->ContainsFlag(kLeft)) {
+    if (params->HasBareFlag(kLeft)) {
         start = nearSide;
         end = farSide;
     } else {
@@ -310,32 +310,32 @@ int CorePhysicsComponent::SkateInAble(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x005013E0
-int CorePhysicsComponent::SetAmmo(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetAmmo(Scripts::CStruct* params, Scripts::CScript*)
 {
     int& ammo = At<int>(this, kProjectileCount);
     int before = ammo;
-    params->GetInteger(uint32_t{0}, &ammo, 0); // (the unnamed integer)
+    params->FetchIntValue(uint32_t{0}, &ammo, 0); // (the unnamed integer)
     int change = ammo - before;
-    Script::CStruct* changed = Script::NewStruct();
+    Scripts::CStruct* changed = Scripts::NewStruct();
     changed = changed ? changed->Init() : nullptr;
-    changed->AddInteger(kCount, change); // (on a null structure if out of memory, as the original)
-    Script::KillSpawnedScriptsWithObjectAndName(SkaterObject(this), kAmmoMeterChange, nullptr);
+    changed->PutInt(kCount, change); // (on a null structure if out of memory, as the original)
+    Scripts::EndChildScriptsOfEntityByName(SkaterObject(this), kAmmoMeterChange, nullptr);
     SkaterObject(this)->SpawnScript(kAmmoMeterChange, changed, 0, false);
     if (changed) {
         changed->Clear();
-        Script::DeleteStruct(changed);
+        Scripts::DeleteStruct(changed);
     }
     return 1;
 }
 
 // 0x005014E0 (some turns by Matrix::RotateY, the others by a rotation matrix and D3DXMatrixMultiply, as the original
 // has them)
-int CorePhysicsComponent::CheckNatasExitDirection(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::CheckNatasExitDirection(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
-    params->GetChecksum(kDir, &dir, 1);
-    Mth::Matrix m;
-    m = At<Mth::Matrix>(static_cast<Obj::CSkater*>(SkaterObject(this))->GetSkaterCamera(), kMatrix);
+    params->ReadHashValue(kDir, &dir, 1);
+    Maths::Matrix m;
+    m = At<Maths::Matrix>(static_cast<GameObjects::CRider*>(SkaterObject(this))->GetSkaterCamera(), kMatrix);
     switch (dir) {
     case kDownRight:
         m.RotateY(kEighthTurn);
@@ -354,17 +354,17 @@ int CorePhysicsComponent::CheckNatasExitDirection(Script::CStruct* params, Scrip
         break;
     default: { // UpLeft, DownLeft; Up and anything else half a turn
         float turn = dir == kUpLeft ? -kThreeEighthsTurn : dir == kDownLeft ? -kEighthTurn : kHalfTurn;
-        Mth::Matrix rotation;
-        MatrixMultiply(&m, &m, &Mth::CreateRotateYMatrix(rotation, turn));
+        Maths::Matrix rotation;
+        MatrixMultiply(&m, &m, &Maths::MakeYawMatrix(rotation, turn));
         break;
     }
     }
-    At<Mth::Matrix>(ObjectOf(this), kMatrix) = m;
+    At<Maths::Matrix>(ObjectOf(this), kMatrix) = m;
     return 1;
 }
 
 // 0x00501600
-int CorePhysicsComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+int CorePhysicsComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (name == kLedge)
         return At<uint8_t>(this, kOnLedge) ? 1 : 0;
@@ -373,36 +373,36 @@ int CorePhysicsComponent::CallMemberFunction(uint32_t name, Script::CStruct* par
         // while [features] thaw_bmx is on.
         // Original behaviour: any other name isn't this component's (2).
         if (ThawBmx::Enabled())
-            return ThawBmx::CallMemberFunction(this, name, params, script);
+            return ThawBmx::InvokeMethodByName(this, name, params, script);
         return 2;
     }
     // Obj_MoveToNode: the motion component moves the skater; then everything that follows the position is put there.
-    Obj::CCompositeObject* object = SkaterObject(this);
-    Obj::CBaseComponent* motion = object->GetComponent(kMotion);
-    bool moved = motion->CallMemberFunction(kObjMoveToNode, params, script) != 0;
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-    auto* shadow = static_cast<Obj::CShadowComponent*>(SkaterObject(this)->GetComponent(kShadow));
+    GameObjects::CGameEntity* object = SkaterObject(this);
+    GameObjects::CObjectModule* motion = object->GetComponent(kMotion);
+    bool moved = motion->InvokeMethodByName(kObjMoveToNode, params, script) != 0;
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    auto* shadow = static_cast<GameObjects::CGroundShadowModule*>(SkaterObject(this)->GetComponent(kShadow));
     shadow->SetPosition(&VectorAt(ObjectOf(this), kPosition));
     shadow->SetNormal(&VectorAt(ObjectOf(this), kUp));
     VectorAt(this, kSafePosition) = VectorAt(ObjectOf(this), kPosition);
     VectorAt(ObjectOf(this), kOldPosition) = VectorAt(ObjectOf(this), kPosition);
-    SkaterObject(this)->SetTeleported(true);
+    SkaterObject(this)->MarkJumpedAhead(true);
     if (At<uint8_t>(ObjectOf(this), 0xBC)) {
         // (the skater's camera follows at once)
-        void* camera = static_cast<Obj::CSkater*>(ObjectOf(this))->GetSkaterCamera();
+        void* camera = static_cast<GameObjects::CRider*>(ObjectOf(this))->GetSkaterCamera();
         if (camera)
-            static_cast<Obj::CCompositeObject*>(camera)->Update();
+            static_cast<GameObjects::CGameEntity*>(camera)->Update();
     }
-    if (!params->ContainsFlag(kNoReset)) {
+    if (!params->HasBareFlag(kNoReset)) {
         At<uint8_t>(this, 0x1C5) = 0;
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         Physics::SetState(this, 0);
         SetTimedFlag(this, 0x28, At<uint8_t>(ObjectOf(this), 0x110) == 0);
-        static_cast<Obj::CSkaterFlipAndRotateComponent*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))
+        static_cast<GameObjects::CRiderSpinAndFlip*>(SkaterObject(this)->GetComponent(kSkaterFlipAndRotate))
             ->ApplyFlipToAnims();
-    } else if (params->ContainsFlag(kOrient)) {
+    } else if (params->HasBareFlag(kOrient)) {
         // The horizontal speed kept, along the new facing.
-        Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+        Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
         float upward = velocity.y;
         velocity.y = 0.0f;
         void* o = ObjectOf(this);
@@ -416,7 +416,7 @@ int CorePhysicsComponent::CallMemberFunction(uint32_t name, Script::CStruct* par
 // 0x005009C0
 void CorePhysicsComponent::FindNearestWallSide()
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
     At<uint32_t>(this, kNearestSide) = 0;
     feeler.m_line.start = VectorAt(ObjectOf(this), kPosition);
@@ -428,23 +428,23 @@ void CorePhysicsComponent::FindNearestWallSide()
         float distance;
     } kSides[4] = {{kNose, kAxisZ, 12.0f}, {kTail, kAxisZ, -12.0f}, {kLeft, kAxisX, 12.0f}, {kRight, kAxisX, -12.0f}};
     for (const auto& side : kSides) {
-        const Mth::Vector& row = VectorAt(ObjectOf(this), side.axis == kAxisX ? kMatrix : kForward);
-        const Mth::Vector& start = feeler.m_line.start;
+        const Maths::Vector& row = VectorAt(ObjectOf(this), side.axis == kAxisX ? kMatrix : kForward);
+        const Maths::Vector& start = feeler.m_line.start;
         double distance = side.distance;
-        Mth::Vector& end = feeler.m_line.end;
+        Maths::Vector& end = feeler.m_line.end;
         end.x = static_cast<float>(distance * row.x + start.x);
         end.y = static_cast<float>(distance * row.y + start.y);
         end.z = static_cast<float>(distance * row.z + start.z);
         end.w = static_cast<float>(distance * row.w + start.w);
-        if (feeler.GetCollision(true, false) && feeler.m_distance < nearest) {
-            nearest = feeler.m_distance;
+        if (feeler.GetHitShape(true, false) && feeler.m_reach < nearest) {
+            nearest = feeler.m_reach;
             At<uint32_t>(this, kNearestSide) = side.side;
         }
     }
 }
 
 // 0x00501C90
-void CorePhysicsComponent::CheckSideFeeler(const Mth::Vector* start, const Mth::Vector* end, uint32_t side)
+void CorePhysicsComponent::CheckSideFeeler(const Maths::Vector* start, const Maths::Vector* end, uint32_t side)
 {
     // (The original's loop over the other three sides checks the opposite side's time each time round.)
     for (uint32_t other = 0; other < 4; ++other) {
@@ -455,8 +455,8 @@ void CorePhysicsComponent::CheckSideFeeler(const Mth::Vector* start, const Mth::
     VectorAt(this, kFeelerEnd) = *end;
     if (!CheckFeeler(0x10, 0))
         return;
-    Mth::Vector& sum = VectorAt(this, kSideNormalSum);
-    const Mth::Vector& normal = VectorAt(this, kHitNormal);
+    Maths::Vector& sum = VectorAt(this, kSideNormalSum);
+    const Maths::Vector& normal = VectorAt(this, kHitNormal);
     sum.x = normal.x + sum.x;
     sum.y = normal.y + sum.y;
     sum.z = normal.z + sum.z;
@@ -475,23 +475,23 @@ void CorePhysicsComponent::CheckSideFeelers()
     At<float>(this, kSideNearest) = 1.0f;
     // The feelers start at the side collision height up the skater.
     void* object = ObjectOf(this);
-    double height = Script::GetFloat(kSideCollideHeight);
-    const Mth::Vector& up = VectorAt(object, kUp);
-    const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
-    Mth::Vector base;
+    double height = Scripts::GetFloat(kSideCollideHeight);
+    const Maths::Vector& up = VectorAt(object, kUp);
+    const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
+    Maths::Vector base;
     base.x = static_cast<float>(height * up.x + position.x);
     base.y = static_cast<float>(height * up.y) + position.y;
     base.z = static_cast<float>(height * up.z) + position.z;
     base.w = static_cast<float>(height * up.w) + position.w;
-    Mth::Vector start = base;
+    Maths::Vector start = base;
     // Sides 0 and 1: along the side row and back; 2 and 3: along the forward row and back.
     for (uint32_t side = 0; side < 4; ++side) {
-        const Mth::Vector& row = VectorAt(ObjectOf(this), side < 2 ? kMatrix : kForward);
+        const Maths::Vector& row = VectorAt(ObjectOf(this), side < 2 ? kMatrix : kForward);
         double reach = At<float>(this, kSideDistance);
         float x = static_cast<float>(reach * row.x), y = static_cast<float>(reach * row.y),
               z = static_cast<float>(reach * row.z);
         double w = reach * row.w; // (left unrounded)
-        Mth::Vector end;
+        Maths::Vector end;
         if (side % 2 == 0) {
             end.x = x + base.x;
             end.y = y + base.y;
@@ -508,31 +508,31 @@ void CorePhysicsComponent::CheckSideFeelers()
     if (At<uint32_t>(this, kSideNearest) == 0x3F800000u) // (nothing hit: still 1)
         return;
     // Pushed off by the walls hit, the nearer the harder; turned along a wall it faces into.
-    Mth::Vector& push = VectorAt(this, kSideNormalSum);
+    Maths::Vector& push = VectorAt(this, kSideNormalSum);
     SetLength(push, static_cast<float>((1.0 - At<float>(this, kSideNearest)) * At<float>(this, kSidePush)));
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x = push.x + velocity.x;
     velocity.y = push.y + velocity.y;
     velocity.z = push.z + velocity.z;
     velocity.w = push.w + velocity.w;
-    VectorAt(ObjectOf(this), kVelocity).RotateToPlane(VectorAt(this, kGroundNormal));
+    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kGroundNormal));
     object = ObjectOf(this);
-    const Mth::Vector& forward = VectorAt(object, kForward);
-    const Mth::Vector& normal = VectorAt(this, kHitNormal);
+    const Maths::Vector& forward = VectorAt(object, kForward);
+    const Maths::Vector& normal = VectorAt(this, kHitNormal);
     double into = static_cast<double>(forward.z) * normal.z + static_cast<double>(forward.y) * normal.y +
                   static_cast<double>(forward.x) * normal.x;
     if (!(into < 0.0))
         return;
-    Mth::Vector along = forward;
-    along.RotateToPlane(normal);
-    float angle = static_cast<float>(Mth::GetAngleAbout(VectorAt(ObjectOf(this), kForward), along,
+    Maths::Vector along = forward;
+    along.AlignToPlane(normal);
+    float angle = static_cast<float>(Maths::GetTurnAroundAxis(VectorAt(ObjectOf(this), kForward), along,
                                                         VectorAt(ObjectOf(this), kUp)));
-    double turn = static_cast<double>(Mth::Sign(angle)) * At<float>(this, kSideTurn) * At<float>(this, kFrameLength);
+    double turn = static_cast<double>(Maths::Sign(angle)) * At<float>(this, kSideTurn) * At<float>(this, kFrameLength);
     float step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
-    At<Mth::Matrix>(ObjectOf(this), kMatrix).RotateYLocal(step);
-    At<Mth::Matrix>(this, kDisplayMatrix).RotateYLocal(step);
+    At<Maths::Matrix>(ObjectOf(this), kMatrix).YawLocally(step);
+    At<Maths::Matrix>(this, kDisplayMatrix).YawLocally(step);
 }
 
 // 0x005054A0
@@ -542,22 +542,22 @@ bool CorePhysicsComponent::ApplyModelRotations()
     if (!At<uint8_t>(model, 0xC8) && !At<uint8_t>(model, 0x15C) && !At<uint8_t>(model, 0x1F0))
         return false;
     void* object = ObjectOf(this);
-    Mth::Vector axis = VectorAt(object, kUp);
-    static_cast<Obj::CModelComponent*>(model)->GetDisplayMatrix(&At<Mth::Matrix>(object, kMatrix));
-    auto* yRotation = &At<Obj::CModelSpinAxis>(model, 0xCC);
+    Maths::Vector axis = VectorAt(object, kUp);
+    static_cast<GameObjects::CMeshInstanceModule*>(model)->GetDrawMatrix(&At<Maths::Matrix>(object, kMatrix));
+    auto* yRotation = &At<GameObjects::CModelSpinAxis>(model, 0xCC);
     float angle = yRotation->Angle();
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
-        Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+        Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
         alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
-        auto* quat = reinterpret_cast<Mth::Quat*>(rotation);
+        auto* quat = reinterpret_cast<Maths::QuatRotation*>(rotation);
         quat->InitFromAxisAngle(axis, angle);
         velocity = *quat->Rotate(&axis, velocity);
     }
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
-    At<Obj::CModelSpinAxis>(model, 0x38).Clear();
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
+    At<GameObjects::CModelSpinAxis>(model, 0x38).Clear();
     yRotation->Clear();
-    At<Obj::CModelSpinAxis>(model, 0x160).Clear();
+    At<GameObjects::CModelSpinAxis>(model, 0x160).Clear();
     return true;
 }
 

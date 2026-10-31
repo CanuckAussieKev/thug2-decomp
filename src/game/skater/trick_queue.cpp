@@ -1,4 +1,4 @@
-// The Trick component's tricks, button buffer and trick object list (Obj::CTrickComponent): see trick_component.h. From
+// The Trick component's tricks, button buffer and trick object list (GameObjects::CMoveExecutor): see trick_component.h. From
 // the disassembly of 0x00521BA0-0x00524411 (0x005222F0 and 0x005232E0 aren't Ghidra functions).
 
 #include "game/skater/trick_component.h"
@@ -32,7 +32,7 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/sys/crt.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -99,83 +99,83 @@ constexpr float kPercent = 0.01f;              // 0x0064544C (0.0099999998f)
 constexpr double kMashedFastEnough = 1.5;      // 0x0064C578
 
 // The rest of the component (trick_component.cpp), under the names this code uses.
-bool TrickHasScript(CTrickComponent* self, Script::CStruct* trick) { return self->IsTrickEntry(trick); }
-bool TriggerDone(CTrickComponent* self, Script::CStruct* trigger, uint32_t kind, int ignore, bool option)
+bool TrickHasScript(CMoveExecutor* self, Scripts::CStruct* trick) { return self->IsTrickEntry(trick); }
+bool TriggerDone(CMoveExecutor* self, Scripts::CStruct* trigger, uint32_t kind, int ignore, bool option)
 {
     return self->CheckTrigger(trigger, kind, static_cast<uint32_t>(ignore), option);
 }
 // (TrickNamed: `ignore` is the trick name to compare, a string pointer kept in a word)
-bool MatchesIgnore(CTrickComponent* self, Script::CStruct* trick, uint32_t ignore)
+bool MatchesIgnore(CMoveExecutor* self, Scripts::CStruct* trick, uint32_t ignore)
 {
     return self->TrickNamed(trick, reinterpret_cast<const char*>(static_cast<uintptr_t>(ignore)));
 }
-void SetButton(CTrickComponent* self, int button, bool pressed) { self->UpdateButton(button, pressed); }
-void CheckManualTricks(CTrickComponent* self, uint32_t array, int ignore, bool special)
+void SetButton(CMoveExecutor* self, int button, bool pressed) { self->UpdateButton(button, pressed); }
+void CheckManualTricks(CMoveExecutor* self, uint32_t array, int ignore, bool special)
 {
     self->SetPendingTrick(array, static_cast<uint32_t>(ignore), special);
 }
-bool PressedWithin(CTrickComponent* self, uint32_t button, int ms, int ignore)
+bool PressedWithin(CMoveExecutor* self, uint32_t button, int ms, int ignore)
 {
     return self->FindPress(button, static_cast<uint32_t>(ms), static_cast<uint32_t>(ignore));
 }
 
-void* Component(CTrickComponent* self, uint32_t offset) { return At<void*>(self, offset); }
+void* Component(CMoveExecutor* self, uint32_t offset) { return At<void*>(self, offset); }
 // SkaterFlipAndRotate's DoAfterAnim (before a trick's script starts).
-void PrepareFlipAndRotate(CTrickComponent* self)
+void PrepareFlipAndRotate(CMoveExecutor* self)
 {
-    static_cast<CSkaterFlipAndRotateComponent*>(Component(self, kFlipAndRotate))->DoAfterAnim();
+    static_cast<CRiderSpinAndFlip*>(Component(self, kFlipAndRotate))->DoAfterAnim();
 }
 // The state component told a trick started.
-void TrickStarted(CTrickComponent* self) { At<bool>(Component(self, kState), 0xE0) = true; }
+void TrickStarted(CMoveExecutor* self) { At<bool>(Component(self, kState), 0xE0) = true; }
 
-Script::CScript* ObjectScript(CTrickComponent* self) { return self->m_object->m_script; }
+Scripts::CScript* ObjectScript(CMoveExecutor* self) { return self->m_object->m_runScript; }
 
 // A new structure, as the original's inlined `new CStruct` (from the structure pool; null if that fails).
-Script::CStruct* MakeStruct()
+Scripts::CStruct* MakeStruct()
 {
-    Script::CStruct* structure = Script::NewStruct();
+    Scripts::CStruct* structure = Scripts::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
-Script::CStruct* NewStructCopy(Script::CStruct* source)
+Scripts::CStruct* NewStructCopy(Scripts::CStruct* source)
 {
-    Script::CStruct* structure = Script::NewStruct();
+    Scripts::CStruct* structure = Scripts::NewStruct();
     return structure ? structure->InitCopy(source) : nullptr;
 }
-void FreeStruct(Script::CStruct* structure)
+void FreeStruct(Scripts::CStruct* structure)
 {
     structure->Clear();
-    Script::DeleteStruct(structure);
+    Scripts::DeleteStruct(structure);
 }
 
 // The goal manager told a mapped trick is about to start (0x005591B0 / 0x0055E790).
-void TellGoalManager(Script::CStruct* trick)
+void TellGoalManager(Scripts::CStruct* trick)
 {
-    Game::GetGoalManager()->TrickLanded(trick);
+    GoalSystem::GetObjectiveBoard()->TrickLanded(trick);
 }
 
 // A trick's mapped structure: its trickSlot's checksum in the trick mappings, as a global structure (null if any
 // step finds nothing).
-Script::CStruct* MappedTrick(CTrickComponent* self, Script::CStruct* trick)
+Scripts::CStruct* MappedTrick(CMoveExecutor* self, Scripts::CStruct* trick)
 {
     uint32_t slot = 0;
-    trick->GetChecksum(kTrickSlot, &slot, 0);
+    trick->ReadHashValue(kTrickSlot, &slot, 0);
     if (!slot)
         return nullptr;
     uint32_t mapped = 0;
-    At<Script::CStruct*>(self, kTrickMappings)->GetChecksum(slot, &mapped, 0);
+    At<Scripts::CStruct*>(self, kTrickMappings)->ReadHashValue(slot, &mapped, 0);
     if (!mapped)
         return nullptr;
-    return Script::GetStructure(mapped);
+    return Scripts::ReadSubStruct(mapped);
 }
 
 // The button buffer from the newest event back, while `period` ms hasn't passed: `visit(event)` for each.
 template <typename Visit>
-void ForRecentEvents(CTrickComponent* self, uint32_t period, Visit visit)
+void ForRecentEvents(CMoveExecutor* self, uint32_t period, Visit visit)
 {
     int index = At<uint16_t>(self, kEventNewest);
     for (int i = 0; i < At<uint16_t>(self, kEventCount); ++i) {
         uint8_t* event = reinterpret_cast<uint8_t*>(self) + kEventRing + index * 0x18;
-        if (Tmr::GetTime() - At<uint32_t>(event, 0) >= period)
+        if (FrameClock::GetTime() - At<uint32_t>(event, 0) >= period)
             break;
         visit(event);
         if (--index < 0)
@@ -186,18 +186,18 @@ void ForRecentEvents(CTrickComponent* self, uint32_t period, Visit visit)
 } // namespace
 
 // 0x00523490
-CBaseComponent* __cdecl CTrickComponent::Create()
+CObjectModule* __cdecl CMoveExecutor::Create()
 {
-    void* memory = Mem::Calloc(0x1BC0);
+    void* memory = MemSys::AllocZeroed(0x1BC0);
     if (!memory)
         return nullptr;
-    return static_cast<CTrickComponent*>(memory)->Construct();
+    return static_cast<CMoveExecutor*>(memory)->Construct();
 }
 
 // 0x00522390
-CTrickComponent* CTrickComponent::Construct()
+CMoveExecutor* CMoveExecutor::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     At<CTrickObjectList>(this, kTrickObjects).Construct();
     m_type = kTrick;
@@ -209,43 +209,43 @@ CTrickComponent* CTrickComponent::Construct()
 }
 
 // 0x005234F0
-void CTrickComponent::DestroyBody()
+void CMoveExecutor::DestroyBody()
 {
     m_vtable = kVtable;
-    if (Script::CStruct* mappings = At<Script::CStruct*>(this, kTrickMappings))
+    if (Scripts::CStruct* mappings = At<Scripts::CStruct*>(this, kTrickMappings))
         FreeStruct(mappings);
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x005243F0
-CTrickComponent* CTrickComponent::Destroy(unsigned int flags)
+CMoveExecutor* CMoveExecutor::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00522410
-void CTrickComponent::SetTrickMappings(CSkaterProfile* profile)
+void CMoveExecutor::SetTrickMappings(CRiderIdentity* profile)
 {
-    Script::CStruct*& mappings = At<Script::CStruct*>(this, kTrickMappings);
+    Scripts::CStruct*& mappings = At<Scripts::CStruct*>(this, kTrickMappings);
     if (!mappings)
         mappings = MakeStruct();
     mappings->Clear();
     for (int i = 0; i < 12; ++i) {
-        CSkaterProfile::SpecialTrick special;
+        CRiderIdentity::SpecialTrick special;
         profile->GetSpecialTrick(&special, i);
         if (!special.IsEmpty())
-            mappings->AddComponentOfType(special.keys, special.flag ? Script::ESYMBOLTYPE_INTEGER
-                                                                     : Script::ESYMBOLTYPE_NAME,
+            mappings->AddComponentOfType(special.keys, special.flag ? Scripts::QBVAL_INTEGER
+                                                                     : Scripts::QBVAL_NAME,
                                          special.trick);
     }
     mappings->AppendStructureIfAny(profile->GetInfoStructure(kTrickMapping));
 }
 
 // 0x00521E50
-void CTrickComponent::UpdateButtons()
+void CMoveExecutor::UpdateButtons()
 {
     uint32_t mask = At<uint32_t>(Component(this, kInput), 0x1C);
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
@@ -266,9 +266,9 @@ void CTrickComponent::UpdateButtons()
 }
 
 // 0x00522030
-double CTrickComponent::GetBashSpeed()
+double CMoveExecutor::GetBashSpeed()
 {
-    uint32_t period = static_cast<uint32_t>(Script::GetInteger(kBashPeriod));
+    uint32_t period = static_cast<uint32_t>(Scripts::FetchIntValue(kBashPeriod));
     int mashes = 0;
     ForRecentEvents(this, period, [&](uint8_t* event) {
         int kind = At<int>(event, 4);
@@ -277,15 +277,15 @@ double CTrickComponent::GetBashSpeed()
             At<uint32_t>(event, 0x14) = 0xFFFFFFFF;
         }
     });
-    float speed = static_cast<float>(static_cast<double>(Script::GetFloat(kBashSpeedupFactor)) * mashes);
-    double most = static_cast<double>(Script::GetFloat(kBashMaxPercentSpeedup)) * kPercent;
+    float speed = static_cast<float>(static_cast<double>(Scripts::GetFloat(kBashSpeedupFactor)) * mashes);
+    double most = static_cast<double>(Scripts::GetFloat(kBashMaxPercentSpeedup)) * kPercent;
     return (speed > most ? most : speed) + 1.0f;
 }
 
 // 0x00522170
-double CTrickComponent::CountTriangleBashes()
+double CMoveExecutor::CountTriangleBashes()
 {
-    uint32_t period = static_cast<uint32_t>(Script::GetInteger(kBashPeriod));
+    uint32_t period = static_cast<uint32_t>(Scripts::FetchIntValue(kBashPeriod));
     int mashes = 0;
     ForRecentEvents(this, period, [&](uint8_t* event) {
         int kind = At<int>(event, 4);
@@ -298,41 +298,41 @@ double CTrickComponent::CountTriangleBashes()
 }
 
 // 0x00522280
-int CTrickComponent::Pressed(Script::CStruct* params, Script::CScript* /*script*/)
+int CMoveExecutor::Pressed(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     uint32_t button = 0;
     int duration = 15;
-    params->GetChecksum(0u, &button, 0);
-    params->GetInteger("dur", &duration, 0);
+    params->ReadHashValue(0u, &button, 0);
+    params->FetchIntValue("dur", &duration, 0);
     if (!button)
         return 0;
     return PressedWithin(this, button, duration, -1) ? 1 : 0;
 }
 
 // 0x005222F0
-int CTrickComponent::GetCurrentBailEndpose(Script::CStruct* /*params*/, Script::CScript* script)
+int CMoveExecutor::GetCurrentBailEndpose(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
     uint32_t endpose = At<uint32_t>(this, kBailEndpose);
-    script->m_params->AddChecksum(kCurrentBailEndpose, endpose ? endpose : kNone);
+    script->m_params->PutNameKey(kCurrentBailEndpose, endpose ? endpose : kNone);
     return 1;
 }
 
 // 0x00522340
-void CTrickComponent::CountTrick()
+void CMoveExecutor::CountTrick()
 {
     if (++At<int>(this, kTrickCount) > 3)
         m_object->BroadcastEvent(kTricksDone, nullptr, 0.0f);
 }
 
 // 0x00522370
-void CTrickComponent::PassToTrickObjects(uint32_t value)
+void CMoveExecutor::PassToTrickObjects(uint32_t value)
 {
     if (At<bool>(this, kTrickObjectsOn))
         At<CTrickObjectList>(this, kTrickObjects).Add(value);
 }
 
 // 0x005232A0
-void CTrickComponent::SetTrickObjects(bool on)
+void CMoveExecutor::SetTrickObjects(bool on)
 {
     At<bool>(this, kTrickObjectsOn) = on;
     CTrickObjectList& list = At<CTrickObjectList>(this, kTrickObjects);
@@ -344,7 +344,7 @@ void CTrickComponent::SetTrickObjects(bool on)
 }
 
 // 0x005232E0
-void CTrickComponent::ResetTrickObjects()
+void CMoveExecutor::ResetTrickObjects()
 {
     At<int>(this, kTrickCount) = 0;
     At<bool>(this, kFlag13A9) = false;
@@ -356,7 +356,7 @@ void CTrickComponent::ResetTrickObjects()
 }
 
 // 0x00523310
-uint32_t CTrickComponent::EndTrickObjects(uint32_t a, uint32_t b)
+uint32_t CMoveExecutor::EndTrickObjects(uint32_t a, uint32_t b)
 {
     CTrickObjectList& list = At<CTrickObjectList>(this, kTrickObjects);
     uint32_t result = list.CopyClusterNames(reinterpret_cast<uint32_t*>(a), b);
@@ -366,33 +366,33 @@ uint32_t CTrickComponent::EndTrickObjects(uint32_t a, uint32_t b)
 }
 
 // 0x00522520
-bool CTrickComponent::TryTrick(Script::CStruct* trick, uint32_t flag, Script::CStruct* extraParams)
+bool CMoveExecutor::TryTrick(Scripts::CStruct* trick, uint32_t flag, Scripts::CStruct* extraParams)
 {
     uint32_t script = 0;
-    trick->GetChecksum(kScr, &script, 0);
+    trick->ReadHashValue(kScr, &script, 0);
     if (script == kGrind) {
         uint8_t* rail = At<uint8_t*>(Component(this, kCorePhysics), 0x22C);
         if (!rail || !At<void*>(rail, 0x4C))
             return false;
     }
-    Script::CStruct* params;
-    if (trick->GetStructure(kParams, &params, 0) && !params->ContainsComponentNamed(kIsExtra))
-        static_cast<CStatsManagerComponent*>(Component(this, kComponent34))->Count(script);
+    Scripts::CStruct* params;
+    if (trick->ReadSubStruct(kParams, &params, 0) && !params->HasEntryNamed(kIsExtra))
+        static_cast<CAttributeTracker*>(Component(this, kComponent34))->Count(script);
     if (!script)
         return false;
     ++At<int>(this, kBusy);
     At<bool>(this, kManualPending) = false;
     At<bool>(this, kGrindPending) = false;
     At<uint32_t>(this, 0x1234) = 0;
-    Script::CStruct* trickParams = nullptr;
-    trick->GetStructure(kParams, &trickParams, 0);
+    Scripts::CStruct* trickParams = nullptr;
+    trick->ReadSubStruct(kParams, &trickParams, 0);
     PrepareFlipAndRotate(this);
     CObject* object = m_object;
-    object->SwitchScript(script, trickParams);
+    object->ReplaceScript(script, trickParams);
     if (flag)
-        object->m_script->m_params->AddChecksum(0u, flag);
-    object->m_script->m_params->AppendStructureIfAny(extraParams);
-    object->m_script->Update();
+        object->m_runScript->m_params->PutNameKey(0u, flag);
+    object->m_runScript->m_params->AppendStructureIfAny(extraParams);
+    object->m_runScript->Update();
     TrickStarted(this);
     CountTrick();
     --At<int>(this, kBusy);
@@ -400,7 +400,7 @@ bool CTrickComponent::TryTrick(Script::CStruct* trick, uint32_t flag, Script::CS
 }
 
 // 0x00522670
-void CTrickComponent::DoNextTrick(uint32_t first, Script::CStruct* params, Script::CStruct* trickParams)
+void CMoveExecutor::DoNextTrick(uint32_t first, Scripts::CStruct* params, Scripts::CStruct* trickParams)
 {
     At<bool>(Component(this, kState), 0xE0) = false;
     At<bool>(this, kIsSpecial) = false;
@@ -431,36 +431,36 @@ void CTrickComponent::DoNextTrick(uint32_t first, Script::CStruct* params, Scrip
     }
     if (first) {
         m_object->CreateScriptIfNeeded();
-        m_object->m_script->Interrupt(first, params);
+        m_object->m_runScript->Interrupt(first, params);
     }
-    auto* trick = reinterpret_cast<Script::CStruct*>(Script::GetArray(array)->GetElement(index));
+    auto* trick = reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(array)->GetElement(index));
     if (TryTrick(trick, 0, trickParams))
         return;
     uint32_t slot = 0;
-    trick->GetChecksum(kTrickSlot, &slot, 0);
+    trick->ReadHashValue(kTrickSlot, &slot, 0);
     if (!slot)
         return;
-    Script::CStruct* mappings = At<Script::CStruct*>(this, kTrickMappings);
+    Scripts::CStruct* mappings = At<Scripts::CStruct*>(this, kTrickMappings);
     int created = 0;
-    if (mappings->GetInteger(slot, &created, 0)) {
+    if (mappings->FetchIntValue(slot, &created, 0)) {
         // A created trick: CreateATrick with its index.
-        Script::CStruct* createParams = MakeStruct();
-        createParams->AddInteger(kTrickIndex, created);
+        Scripts::CStruct* createParams = MakeStruct();
+        createParams->PutInt(kTrickIndex, created);
         createParams->AppendStructureIfAny(trickParams);
         CObject* object = m_object;
-        object->SwitchScript(kCreateATrick, createParams);
+        object->ReplaceScript(kCreateATrick, createParams);
         if (createParams)
             FreeStruct(createParams);
-        object->m_script->Update();
+        object->m_runScript->Update();
         TrickStarted(this);
         CountTrick();
         return;
     }
     uint32_t mapped = 0;
-    mappings->GetChecksum(slot, &mapped, 0);
+    mappings->ReadHashValue(slot, &mapped, 0);
     if (!mapped)
         return;
-    Script::CStruct* structure = Script::GetStructure(mapped);
+    Scripts::CStruct* structure = Scripts::ReadSubStruct(mapped);
     if (!structure)
         return;
     TellGoalManager(structure);
@@ -468,69 +468,69 @@ void CTrickComponent::DoNextTrick(uint32_t first, Script::CStruct* params, Scrip
 }
 
 // 0x005228B0
-void CTrickComponent::DoNextManualTrick(Script::CStruct* params)
+void CMoveExecutor::DoNextManualTrick(Scripts::CStruct* params)
 {
     uint32_t first = 0;
-    Script::CStruct* firstParams = nullptr;
-    params->GetChecksum(kScriptToRunFirst, &first, 0);
-    params->GetStructure(kParams, &firstParams, 0);
+    Scripts::CStruct* firstParams = nullptr;
+    params->ReadHashValue(kScriptToRunFirst, &first, 0);
+    params->ReadSubStruct(kParams, &firstParams, 0);
     At<bool>(this, kIsSpecial) = false;
     if (!At<bool>(this, kManualPending))
         return;
     At<bool>(this, kManualPending) = false;
     if (first) {
-        Script::CStruct copy;
+        Scripts::CStruct copy;
         copy.InitCopy(params);
         m_object->CreateScriptIfNeeded();
-        m_object->m_script->Interrupt(first, firstParams);
+        m_object->m_runScript->Interrupt(first, firstParams);
         params->Assign(&copy);
         copy.Clear();
     }
-    Script::CArray* array = Script::GetArray(At<uint32_t>(this, kManualArray));
+    Scripts::CArray* array = Scripts::GetArray(At<uint32_t>(this, kManualArray));
     if (!array)
         return;
-    auto* trick = reinterpret_cast<Script::CStruct*>(array->GetElement(At<uint32_t>(this, kManualIndex)));
-    if (Script::CStruct* mapped = MappedTrick(this, trick))
+    auto* trick = reinterpret_cast<Scripts::CStruct*>(array->GetElement(At<uint32_t>(this, kManualIndex)));
+    if (Scripts::CStruct* mapped = MappedTrick(this, trick))
         trick = mapped;
     uint32_t script = 0;
-    trick->GetChecksum(kScr, &script, 0);
+    trick->ReadHashValue(kScr, &script, 0);
     if (!script)
         return;
     PrepareFlipAndRotate(this);
     At<bool>(this, kIsSpecial) = At<bool>(this, kManualIsSpecial);
-    Script::CStruct* trickParams = nullptr;
-    trick->GetStructure(kParams, &trickParams, 0);
+    Scripts::CStruct* trickParams = nullptr;
+    trick->ReadSubStruct(kParams, &trickParams, 0);
     CObject* object = m_object;
     if (params) {
         params->AppendStructureIfAny(trickParams);
-        object->SwitchScript(script, params);
+        object->ReplaceScript(script, params);
     } else {
-        object->SwitchScript(script, trickParams);
+        object->ReplaceScript(script, trickParams);
     }
-    object->m_script->Update();
+    object->m_runScript->Update();
     TrickStarted(this);
     if (++At<int>(this, kTrickCount) > 3)
         m_object->BroadcastEvent(kTricksDone, nullptr, 0.0f);
 }
 
 // 0x00522E80
-bool CTrickComponent::DoExtraGrindTrick(bool a, bool b, bool c, bool d)
+bool CMoveExecutor::DoExtraGrindTrick(bool a, bool b, bool c, bool d)
 {
     if (!At<bool>(this, kGrindPending))
         return false;
     At<bool>(this, kGrindPending) = false;
-    Script::CArray* array = Script::GetArray(At<uint32_t>(this, kGrindArray));
+    Scripts::CArray* array = Scripts::GetArray(At<uint32_t>(this, kGrindArray));
     if (!array)
         return false;
-    auto* trick = reinterpret_cast<Script::CStruct*>(array->GetElement(At<uint32_t>(this, kGrindIndex)));
-    Script::CArray* scripts = nullptr;
-    Script::CArray* templates = nullptr;
+    auto* trick = reinterpret_cast<Scripts::CStruct*>(array->GetElement(At<uint32_t>(this, kGrindIndex)));
+    Scripts::CArray* scripts = nullptr;
+    Scripts::CArray* templates = nullptr;
     const char* prefix = nullptr;
     trick->GetArray(kScripts, &scripts, 0);
     trick->GetArray(kTemplate, &templates, 0);
     trick->GetString(kPrefix, &prefix, 0);
     if (!scripts && !templates) {
-        if (Script::CStruct* mapped = MappedTrick(this, trick)) {
+        if (Scripts::CStruct* mapped = MappedTrick(this, trick)) {
             mapped->GetArray(kScripts, &scripts, 0);
             mapped->GetArray(kTemplate, &templates, 0);
             mapped->GetString(kPrefix, &prefix, 0);
@@ -543,18 +543,18 @@ bool CTrickComponent::DoExtraGrindTrick(bool a, bool b, bool c, bool d)
     } else {
         char name[100];
         Crt::Sprintf(name, "%s%s", prefix,
-                                                                           templates->GetLocalString(which));
-        script = Crc::GenerateCRCFromString(name);
+                                                                           templates->FindInlineText(which));
+        script = Checksums::HashFromText(name);
     }
-    Script::CStruct* trickParams = nullptr;
-    trick->GetStructure(kParams, &trickParams, 0);
+    Scripts::CStruct* trickParams = nullptr;
+    trick->ReadSubStruct(kParams, &trickParams, 0);
     CObject* object = m_object;
     if (object->m_type == kSkaterType)
         At<uint32_t>(Component(this, kCorePhysics), 0x3A8) = 0;
     At<bool>(this, kIsSpecial) = At<bool>(this, kGrindIsSpecial);
     PrepareFlipAndRotate(this);
-    object->SwitchScript(script, trickParams);
-    object->m_script->Update();
+    object->ReplaceScript(script, trickParams);
+    object->m_runScript->Update();
     TrickStarted(this);
     if (++At<int>(this, kTrickCount) > 3)
         m_object->BroadcastEvent(kTricksDone, nullptr, 0.0f);
@@ -562,7 +562,7 @@ bool CTrickComponent::DoExtraGrindTrick(bool a, bool b, bool c, bool d)
 }
 
 // 0x00521BA0
-void CTrickComponent::UpdateManualTricks()
+void CMoveExecutor::UpdateManualTricks()
 {
     uint32_t special = At<uint32_t>(this, kManualSpecial);
     if (special && At<bool>(Component(this, kFlags1C), 0x74)) {
@@ -575,33 +575,33 @@ void CTrickComponent::UpdateManualTricks()
 }
 
 // 0x00521C10
-void CTrickComponent::CheckExtraGrindTricks(uint32_t array, bool special)
+void CMoveExecutor::CheckExtraGrindTricks(uint32_t array, bool special)
 {
-    Script::CArray* tricks = Script::GetArray(array);
+    Scripts::CArray* tricks = Scripts::GetArray(array);
     if (!tricks)
         return;
     int count = static_cast<int>(tricks->m_size);
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(i));
+        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(i));
         if (!TrickHasScript(this, trick))
             continue;
-        Script::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Script::CStruct* altTrigger = nullptr;
-        trick->GetStructure(kAltTrigger, &altTrigger, 0);
+        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
+        Scripts::CStruct* altTrigger = nullptr;
+        trick->ReadSubStruct(kAltTrigger, &altTrigger, 0);
         if (!TriggerDone(this, trigger, 8, -5, false) && !TriggerDone(this, altTrigger, 8, -5, false))
             continue;
         At<uint32_t>(this, kGrindArray) = array;
         At<int>(this, kGrindIndex) = i;
-        At<uint32_t>(this, kGrindTime) = Tmr::GetTime();
+        At<uint32_t>(this, kGrindTime) = FrameClock::GetTime();
         At<bool>(this, kGrindIsSpecial) = special;
         At<int>(this, kGrindDuration) = -1;
-        trick->GetInteger(kDuration, &At<int>(this, kGrindDuration), 0);
+        trick->FetchIntValue(kDuration, &At<int>(this, kGrindDuration), 0);
         At<bool>(this, kGrindPending) = true;
     }
 }
 
 // 0x00521D20
-void CTrickComponent::UpdateExtraGrindTricks()
+void CMoveExecutor::UpdateExtraGrindTricks()
 {
     uint32_t special = At<uint32_t>(this, kGrindSpecial);
     if (special && At<bool>(Component(this, kFlags1C), 0x74))
@@ -611,20 +611,20 @@ void CTrickComponent::UpdateExtraGrindTricks()
 }
 
 // 0x00521D80
-uint32_t CTrickComponent::GetIgnoreMask(uint32_t array, uint32_t ignore)
+uint32_t CMoveExecutor::GetIgnoreMask(uint32_t array, uint32_t ignore)
 {
-    Script::CArray* tricks = Script::GetArray(array);
+    Scripts::CArray* tricks = Scripts::GetArray(array);
     int count = static_cast<int>(tricks->m_size); // (the original doesn't check the array exists)
     uint32_t mask = 0;
     for (int i = 0; i < count; ++i) {
-        if (MatchesIgnore(this, reinterpret_cast<Script::CStruct*>(tricks->GetElement(i)), ignore))
+        if (MatchesIgnore(this, reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(i)), ignore))
             mask |= 1u << i;
     }
     return mask;
 }
 
 // 0x00521DF0
-void CTrickComponent::IgnoreTricks(uint32_t ignore)
+void CMoveExecutor::IgnoreTricks(uint32_t ignore)
 {
     for (int i = 0; i < At<int>(this, kExtraArrayCount); ++i)
         At<uint32_t>(this, kExtraMasks + 4 * i) |= GetIgnoreMask(At<uint32_t>(this, kExtraArrays + 4 * i), ignore);
@@ -633,33 +633,33 @@ void CTrickComponent::IgnoreTricks(uint32_t ignore)
 }
 
 // 0x00522AA0
-bool CTrickComponent::TryExtraTricks(uint32_t array, uint32_t skip)
+bool CMoveExecutor::TryExtraTricks(uint32_t array, uint32_t skip)
 {
     bool started = false;
-    Script::CArray* tricks = Script::GetArray(array);
+    Scripts::CArray* tricks = Scripts::GetArray(array);
     if (!tricks)
         return false;
     int count = static_cast<int>(tricks->m_size);
     for (int i = 0; i < count; ++i) {
         if (skip & (1u << i))
             continue;
-        auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(i));
+        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(i));
         if (!TrickHasScript(this, trick))
             continue;
-        Script::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Script::CStruct* altTrigger = nullptr;
-        trick->GetStructure(kAltTrigger, &altTrigger, 0);
+        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
+        Scripts::CStruct* altTrigger = nullptr;
+        trick->ReadSubStruct(kAltTrigger, &altTrigger, 0);
         if (TriggerDone(this, trigger, 2, -5, false) || TriggerDone(this, altTrigger, 2, -5, false)) {
             if (TryTrick(trick, kIsExtra, nullptr)) {
                 started = true;
             } else {
                 uint32_t slot = 0;
-                trick->GetChecksum(kTrickSlot, &slot, 0);
+                trick->ReadHashValue(kTrickSlot, &slot, 0);
                 if (slot) {
                     uint32_t mapped = 0;
-                    At<Script::CStruct*>(this, kTrickMappings)->GetChecksum(slot, &mapped, 0);
+                    At<Scripts::CStruct*>(this, kTrickMappings)->ReadHashValue(slot, &mapped, 0);
                     if (mapped) {
-                        Script::CStruct* structure = Script::GetStructure(mapped);
+                        Scripts::CStruct* structure = Scripts::ReadSubStruct(mapped);
                         if (structure && TryTrick(structure, kIsExtra, nullptr))
                             started = true;
                     }
@@ -673,12 +673,12 @@ bool CTrickComponent::TryExtraTricks(uint32_t array, uint32_t skip)
 }
 
 // 0x00522C00
-void CTrickComponent::UpdateExtraTricks()
+void CMoveExecutor::UpdateExtraTricks()
 {
     if (!At<bool>(this, kExtraOn))
         return;
     if (!At<bool>(this, kExtraForever) &&
-        Tmr::GetTime() - At<uint32_t>(this, kExtraStart) > At<uint32_t>(this, kExtraDuration)) {
+        FrameClock::GetTime() - At<uint32_t>(this, kExtraStart) > At<uint32_t>(this, kExtraDuration)) {
         At<bool>(this, kExtraOn) = false;
         return;
     }
@@ -702,31 +702,31 @@ void CTrickComponent::UpdateExtraTricks()
 }
 
 // 0x00522CD0
-void CTrickComponent::SetExtraTricks(Script::CStruct* params, Script::CScript* /*script*/)
+void CMoveExecutor::SetExtraTricks(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     At<bool>(this, kExtraOn) = true;
     At<bool>(this, kExtraForever) = true;
     float duration = 0.0f;
     if (params->GetFloat(kDuration, &duration, 0)) {
         At<bool>(this, kExtraForever) = false;
-        At<uint32_t>(this, kExtraStart) = Tmr::GetTime();
+        At<uint32_t>(this, kExtraStart) = FrameClock::GetTime();
         At<int>(this, kExtraDuration) = static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
     }
     int& count = At<int>(this, kExtraArrayCount);
     count = 0;
     uint32_t tricks = 0;
-    if (params->GetChecksum(kTricks, &tricks, 0)) {
+    if (params->ReadHashValue(kTricks, &tricks, 0)) {
         count = 1;
         At<uint32_t>(this, kExtraArrays) = tricks;
     } else {
-        for (Script::CComponent* c = params->GetNextComponent(nullptr); c; c = params->GetNextComponent(c)) {
-            if (c->name == 0 && (c->typeAndFlag & 0xFE) == Script::ESYMBOLTYPE_NAME << 1)
+        for (Scripts::CComponent* c = params->StepToEntry(nullptr); c; c = params->StepToEntry(c)) {
+            if (c->name == 0 && (c->typeAndFlag & 0xFE) == Scripts::QBVAL_NAME << 1)
                 At<uint32_t>(this, kExtraArrays + 4 * count++) = c->checksum;
         }
     }
     uint32_t& special = At<uint32_t>(this, kExtraSpecial);
     special = 0;
-    params->GetChecksum(kSpecial, &special, 0);
+    params->ReadHashValue(kSpecial, &special, 0);
     for (int i = 0; i < 10; ++i)
         At<uint32_t>(this, kExtraMasks + 4 * i) = 0;
     At<uint32_t>(this, kExtraSpecialMask) = 0;
@@ -735,7 +735,7 @@ void CTrickComponent::SetExtraTricks(Script::CStruct* params, Script::CScript* /
         IgnoreTricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
         return;
     }
-    Script::CArray* ignored = nullptr;
+    Scripts::CArray* ignored = nullptr;
     if (params->GetArray(kIgnore, &ignored, 0)) {
         int n = static_cast<int>(ignored->m_size);
         for (int i = 0; i < n; ++i)
@@ -744,7 +744,7 @@ void CTrickComponent::SetExtraTricks(Script::CStruct* params, Script::CScript* /
 }
 
 // 0x005230E0
-void CTrickComponent::UpdateBash()
+void CMoveExecutor::UpdateBash()
 {
     if (!At<bool>(this, kBashOn))
         return;
@@ -759,11 +759,11 @@ void CTrickComponent::UpdateBash()
             blender->FirstChannel47E850(2.0f, one, 0.0f, 0.0f);
             return;
         }
-        Script::RunScript(kTantrumOff, nullptr, m_object, false, nullptr);
+        Scripts::LaunchScript(kTantrumOff, nullptr, m_object, false, nullptr);
         if (At<uint32_t>(this, kBailEndpose) && !At<bool>(this, kQuickGetupDone)) {
-            Dbg::Printf("ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
+            DebugOut::Printf("ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
             At<bool>(this, kQuickGetupDone) = true;
-            Script::RunScript(kBailQuickGetup, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(kBailQuickGetup, nullptr, m_object, false, nullptr);
             return;
         }
     }
@@ -774,25 +774,25 @@ void CTrickComponent::UpdateBash()
 }
 
 // 0x005231D0
-void CTrickComponent::Update()
+void CMoveExecutor::Update()
 {
-    if (!reinterpret_cast<CCompositeObject*>(m_object)->m_unknownBC) {
+    if (!reinterpret_cast<CGameEntity*>(m_object)->m_unknownBC) {
         VirtualSuspend(true);
         return;
     }
     UpdateButtons();
-    static_cast<CSkaterBalanceTrickComponent*>(Component(this, kBalanceTrick))
+    static_cast<CRiderTeeterMoves*>(Component(this, kBalanceTrick))
         ->GetButtons(&At<int>(this, kButtonsHeld), reinterpret_cast<uint32_t*>(&At<int>(this, kButtonsHeld + 4)));
     UpdateExtraTricks();
     QueueAllDoneTricks();
     UpdateManualTricks();
     if (At<bool>(this, kManualPending) && At<int>(this, kManualDuration) != -1 &&
-        static_cast<uint32_t>(Tmr::GameClockElapsed() + (g_clockOffset - At<int>(this, kManualTime))) >
+        static_cast<uint32_t>(FrameClock::GameClockElapsed() + (g_clockOffset - At<int>(this, kManualTime))) >
             At<uint32_t>(this, kManualDuration))
         At<bool>(this, kManualPending) = false;
     UpdateExtraGrindTricks();
     if (At<bool>(this, kGrindPending) && At<int>(this, kGrindDuration) != -1 &&
-        Tmr::GetTime() - At<uint32_t>(this, kGrindTime) > At<uint32_t>(this, kGrindDuration))
+        FrameClock::GetTime() - At<uint32_t>(this, kGrindTime) > At<uint32_t>(this, kGrindDuration))
         At<bool>(this, kGrindPending) = false;
     UpdateBash();
     // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x4723D0 ends its update): the right stick centred or not, for
@@ -802,21 +802,21 @@ void CTrickComponent::Update()
 }
 
 // 0x00523350
-bool __cdecl CFunc_DoNextTrick(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_DoNextTrick(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    auto* trick = static_cast<CTrickComponent*>(
-        reinterpret_cast<CCompositeObject*>(script->m_object.Get())->GetComponent(kTrick));
+    auto* trick = static_cast<CMoveExecutor*>(
+        reinterpret_cast<CGameEntity*>(script->m_object.Get())->GetComponent(kTrick));
     uint32_t first = 0;
-    Script::CStruct* firstParams = nullptr;
-    params->GetChecksum(kScriptToRunFirst, &first, 0);
-    params->GetStructure(kParams, &firstParams, 0);
-    Script::CStruct* trickParams = nullptr;
-    params->GetStructure(kTrickParams, &trickParams, 0);
+    Scripts::CStruct* firstParams = nullptr;
+    params->ReadHashValue(kScriptToRunFirst, &first, 0);
+    params->ReadSubStruct(kParams, &firstParams, 0);
+    Scripts::CStruct* trickParams = nullptr;
+    params->ReadSubStruct(kTrickParams, &trickParams, 0);
     if (!trickParams) {
         trick->DoNextTrick(first, firstParams, nullptr);
         return true;
     }
-    Script::CStruct* copy = NewStructCopy(trickParams);
+    Scripts::CStruct* copy = NewStructCopy(trickParams);
     trick->DoNextTrick(first, firstParams, copy);
     if (copy)
         FreeStruct(copy);
@@ -825,22 +825,22 @@ bool __cdecl CFunc_DoNextTrick(Script::CStruct* params, Script::CScript* script)
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CTrickComponent::Destroy,
-         &Obj::CTrickComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CMoveExecutor::Destroy,
+         &GameObjects::CMoveExecutor::Update,
          Stubs::IgnoreArgument,
-         &Obj::CTrickComponent::Finalize,
+         &GameObjects::CMoveExecutor::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::CTrickComponent::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CMoveExecutor::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

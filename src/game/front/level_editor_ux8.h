@@ -37,7 +37,7 @@ struct ImFont;
 //     game's collision ray) - W A S D walk (the fly keys), Space / E jump, Shift runs, the mouse looks; Shift+` or Esc
 //     stops (the camera stays). For judging a level's scale without a test run.
 // Every key is the registry's (level_editor_actions.h: rebindable; registered here with Actions::Register).
-namespace Front::LevelEditor::Ux8 {
+namespace MenuSystem::LevelEditor::Ux8 {
 
 // --- the editor's hooks (level_editor.cpp) --------------------------------------------------------------------------
 
@@ -139,4 +139,4 @@ void HintRow(const std::vector<std::pair<std::string, std::string>>& hints, cons
 // The preferences window's section (controller mode).
 void PrefsSection();
 
-} // namespace Front::LevelEditor::Ux8
+} // namespace MenuSystem::LevelEditor::Ux8

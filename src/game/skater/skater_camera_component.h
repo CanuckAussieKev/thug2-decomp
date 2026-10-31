@@ -7,18 +7,18 @@
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 
-namespace Mth {
-class SlerpInterpolator;
+namespace Maths {
+class ArcRotationBlender;
 } // namespace Mth
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
-class CCameraLookAroundComponent;
+class CFreeLookModule;
 struct WalkCameraState;
 
 // The skater camera component (type 0x5E43A604 "skatercamera", vtable 0x0064BA74, 0x17C bytes; made by 0x004FA800):
@@ -27,33 +27,33 @@ struct WalkCameraState;
 // lip, with a shake, kept clear of the world. Its camera mode (Skater_Camera_Array) sets the distances, rates, zooms
 // and tilts.
 //
-// Vtable: 0 the scalar deleting destructor (0x004FA590), 1 Update (0x004FA860), 2 InitFromStructure (0x004FA5C0),
-// 3 Finalize (0x004F9A20), 12 CallMemberFunction (0x004FA680).
-class CSkaterCameraComponent : public CBaseComponent {
+// Vtable: 0 the scalar deleting destructor (0x004FA590), 1 Update (0x004FA860), 2 ConfigureFromData (0x004FA5C0),
+// 3 Finalize (0x004F9A20), 12 InvokeMethodByName (0x004FA680).
+class CRiderChaseView : public CObjectModule {
 public:
     // 0x004FA800: a new one (0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x004FA4B0: the base's constructor, its vtable and type, the interpolator (0x98 bytes), the zooms and rates at
     // their defaults, no skater. Returns this.
-    CSkaterCameraComponent* Construct();
+    CRiderChaseView* Construct();
     // 0x004F99F0: the destructor body: the interpolator freed, the base's.
     void DestroyBody();
     // 0x004FA590 (slot 0): the destructor body, then freed with `flags` bit 0. Returns this.
-    CSkaterCameraComponent* Destroy(unsigned int flags);
+    CRiderChaseView* Destroy(unsigned int flags);
     // 0x004FA5C0 (slot 2): the camera object's matrix made the identity and its orientation the same; the skater
     // from 0x4C48DA58 (an object id, asserted).
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x004F9A20 (slot 3): the camera lookaround component (0x81C7122D).
     void Finalize();
     // 0x004FA680 (slot 12): 0x75A516D3 - a shake from duration, vert_amp, horiz_amp, vert_vel, horiz_vel;
     // 0xD7867FFE - the camera mode from 0x6835B854 (asserted). 1, or 2 for anything else.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004FA860 (slot 1): one frame (skater_camera_update.cpp).
     void Update();
 
     // 0x004FA3C0: the skater followed, its SkaterState and SkaterPhysicsControl components (none: all null); 3
     // instant frames.
-    void SetSkater(CCompositeObject* skater);
+    void BindRider(CGameEntity* skater);
     // 0x004FA420: its orientation, target, turn cosine and zoom kept in `state` (as the walk camera's).
     void SaveState(WalkCameraState* state);
     // 0x004F9A40: taken over from another camera: its orientation's first three rows, target, turn cosine and zoom;
@@ -67,19 +67,19 @@ public:
     void SetMode(int mode, float time);
     // 0x004FA7C0 / 0x004FA7D0: the current camera mode set again / the next one (1 to 4, round again; nothing from 5
     // up) - SetMode with a blend of 1.
-    void ResetMode();
+    void RestoreDefaultState();
     void NextMode();
     // 0x004F9EB0: whether to look straight down: a skater whose state's +0x1C is clear, on a lip (state 3), in vert air
     // or with the state's +0xF4 set.
     bool LookDown();
     // 0x004F9F00 (RET 8): the shake applied to `position` along the orientation's first two rows; its time run down
     // by the frame.
-    void ApplyShake(Mth::Vector* position, const Mth::Matrix* orientation);
+    void ApplyShake(Maths::Vector* position, const Maths::Matrix* orientation);
     // 0x004FA020 (RET 8): the point followed: the skater's position (at once with `instant` or when the state's +0xA0
     // says so), else eased toward it - across at m_lerpXZ (in vert air m_vertAirLerpXZ), up at m_lerpY
     // (m_vertAirLerpY; at once when the state's +0x98), both scaled by m_rateScale (rising back to 1 over m_rateTime
     // seconds at m_rateRise). Into `out`.
-    void GetTarget(Mth::Vector* out, bool instant);
+    void GetTarget(Maths::Vector* out, bool instant);
     // 0x004FA230 (RET 8): the height above the skater (m_above, on a lip m_lipTrickAbove, from 3 while zoomed in) and
     // the distance behind (m_behind x the zoom, which eases at m_zoomLerp toward 1 - in vert air m_bigAirTrickZoom, on
     // a rail m_grindZoom, on a lip m_lipTrickZoom - times the look-around's zoom; nearer as the look-around tilts
@@ -90,11 +90,11 @@ public:
     int m_mode;                      // +0x24 the camera mode (an index of Skater_Camera_Array)
     int m_instantFrames;             // +0x28 frames that jump straight to the target
     float m_turnCosine;              // +0x2C the last turn's cosine (the new facing against the old)
-    Mth::Vector m_target;            // +0x30 the point followed
-    Mth::Vector m_orientation[3];    // +0x40 (the view's first three rows)
+    Maths::Vector m_aimPoint;            // +0x30 the point followed
+    Maths::Vector m_orientation[3];    // +0x40 (the view's first three rows)
     int m_wallRideFrames;            // +0x70
-    Mth::Matrix m_skaterMatrix;      // +0x74 the skater's orientation last frame
-    Mth::Vector m_wallFacing;        // +0xB4 the wall's facing when the wall ride began (flat)
+    Maths::Matrix m_skaterMatrix;      // +0x74 the skater's orientation last frame
+    Maths::Vector m_wallFacing;        // +0xB4 the wall's facing when the wall ride began (flat)
     float m_behind;                  // +0xC4 behind (inches)
     float m_behindTime;              // +0xC8 left to lerp
     float m_behindStep;              // +0xCC a frame's
@@ -122,7 +122,7 @@ public:
     int m_lipState;                  // +0x120 0 none, 1 looking along the lip, 2 blocked: the other way
     float m_wallrideOffsetAngle;     // +0x124 wallride_offset_angle
     float m_roll;                    // +0x128
-    float m_tilt;                    // +0x12C tilt
+    float m_leanAngle;                    // +0x12C tilt
     float m_airTilt;                 // +0x130
     float m_lipTrickTilt;            // +0x134 lip_trick_tilt
     float m_lipTrickAbove;           // +0x138 lip_trick_above
@@ -137,50 +137,50 @@ public:
     float m_shakeAmpY;               // +0x15C
     float m_shakeRateX;              // +0x160 rates
     float m_shakeRateY;              // +0x164
-    CCameraLookAroundComponent* mp_lookAround; // +0x168
-    Mth::SlerpInterpolator* mp_slerp; // +0x16C
-    CCompositeObject* mp_skater;     // +0x170
+    CFreeLookModule* mp_lookAround; // +0x168
+    Maths::ArcRotationBlender* m_arcBlender; // +0x16C
+    CGameEntity* m_riderRef;     // +0x170
     uint8_t* mp_state;               // +0x174 the skater's SkaterState (+0x18 the state, flags as bytes)
     uint8_t* mp_control;             // +0x178 the skater's SkaterPhysicsControl (+0x18 paused, +0x2C its state)
 };
-static_assert(offsetof(CSkaterCameraComponent, m_mode) == 0x24 && offsetof(CSkaterCameraComponent, m_target) == 0x30 &&
-                  offsetof(CSkaterCameraComponent, m_orientation) == 0x40 &&
-                  offsetof(CSkaterCameraComponent, m_skaterMatrix) == 0x74 &&
-                  offsetof(CSkaterCameraComponent, m_wallFacing) == 0xB4 &&
-                  offsetof(CSkaterCameraComponent, m_behind) == 0xC4 &&
-                  offsetof(CSkaterCameraComponent, m_horizFov) == 0xE0 &&
-                  offsetof(CSkaterCameraComponent, m_vertZoomOn) == 0x104 &&
-                  offsetof(CSkaterCameraComponent, m_zoom) == 0x108 &&
-                  offsetof(CSkaterCameraComponent, m_lipState) == 0x120 &&
-                  offsetof(CSkaterCameraComponent, m_tilt) == 0x12C &&
-                  offsetof(CSkaterCameraComponent, m_slerp) == 0x140 &&
-                  offsetof(CSkaterCameraComponent, m_shakeLeft) == 0x150 &&
-                  offsetof(CSkaterCameraComponent, mp_lookAround) == 0x168 &&
-                  offsetof(CSkaterCameraComponent, mp_slerp) == 0x16C &&
-                  offsetof(CSkaterCameraComponent, mp_control) == 0x178 && sizeof(CSkaterCameraComponent) == 0x17C,
+static_assert(offsetof(CRiderChaseView, m_mode) == 0x24 && offsetof(CRiderChaseView, m_aimPoint) == 0x30 &&
+                  offsetof(CRiderChaseView, m_orientation) == 0x40 &&
+                  offsetof(CRiderChaseView, m_skaterMatrix) == 0x74 &&
+                  offsetof(CRiderChaseView, m_wallFacing) == 0xB4 &&
+                  offsetof(CRiderChaseView, m_behind) == 0xC4 &&
+                  offsetof(CRiderChaseView, m_horizFov) == 0xE0 &&
+                  offsetof(CRiderChaseView, m_vertZoomOn) == 0x104 &&
+                  offsetof(CRiderChaseView, m_zoom) == 0x108 &&
+                  offsetof(CRiderChaseView, m_lipState) == 0x120 &&
+                  offsetof(CRiderChaseView, m_leanAngle) == 0x12C &&
+                  offsetof(CRiderChaseView, m_slerp) == 0x140 &&
+                  offsetof(CRiderChaseView, m_shakeLeft) == 0x150 &&
+                  offsetof(CRiderChaseView, mp_lookAround) == 0x168 &&
+                  offsetof(CRiderChaseView, m_arcBlender) == 0x16C &&
+                  offsetof(CRiderChaseView, mp_control) == 0x178 && sizeof(CRiderChaseView) == 0x17C,
               "layout must match the original");
 
 // The skater's cleanup-state component (type 0xD8CC3428 "SkaterCleanupState", vtable 0x0064BB48, 0x1C bytes; made
-// by 0x004FBE20): each frame the skater's shadow and light follow it (CSkater::UpdateShadowLight).
-class CSkaterCleanupStateComponent : public CBaseComponent {
+// by 0x004FBE20): each frame the skater's shadow and light follow it (CRider::UpdateShadowLight).
+class CRiderStateReset : public CObjectModule {
 public:
     // 0x004FBE20: a new one (the constructor inlined: the base's, its vtable and type; 0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x004FBD90: the destructor body (its vtable, then the base's). 0x004FBDB0 (slot 0): the scalar deleting
     // destructor.
     void DestroyBody();
-    CSkaterCleanupStateComponent* Destroy(unsigned int flags);
+    CRiderStateReset* Destroy(unsigned int flags);
     // 0x004FBDA0 (slot 2; `params` isn't used): the state cleared. (Two other components' vtables, 0x0064BEF8 and
     // 0x0064C054, share this function.)
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x004FBDE0 (slot 3): the object's SkaterState component.
     void Finalize();
-    // 0x004FBE00 (slot 1): CSkater::UpdateShadowLight with the object's position and matrix.
+    // 0x004FBE00 (slot 1): CRider::UpdateShadowLight with the object's position and matrix.
     void Update();
 
-    CBaseComponent* mp_state;        // +0x18 the object's SkaterState
+    CObjectModule* mp_state;        // +0x18 the object's SkaterState
 };
-static_assert(sizeof(CSkaterCleanupStateComponent) == 0x1C, "layout must match the original");
+static_assert(sizeof(CRiderStateReset) == 0x1C, "layout must match the original");
 
 // 0x0064BA74: skaterCameraVtable (defined where the class's functions are).
 extern void** const g_skaterCameraVtable;

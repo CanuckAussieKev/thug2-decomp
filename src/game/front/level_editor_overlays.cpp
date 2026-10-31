@@ -20,7 +20,7 @@
 #include "game/obj/object.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ void Start()
     Read();
     g_viewMode = 0;
     g_forcedCollision = false;
-    Nx::ViewMode::Set(Nx::ViewMode::Mode::kLit);
+    Engine3D::ViewMode::Set(Engine3D::ViewMode::Mode::kLit);
 }
 
 void Stop() { SetViewMode(0); }
@@ -123,7 +123,7 @@ void SetViewMode(int mode)
 {
     if (mode < 0 || mode >= kViewModes || mode == g_viewMode)
         return;
-    constexpr int kCollisionOnly = static_cast<int>(Nx::ViewMode::Mode::kCollisionOnly);
+    constexpr int kCollisionOnly = static_cast<int>(Engine3D::ViewMode::Mode::kCollisionOnly);
     if (mode == kCollisionOnly && !View::ShowCollision()) {
         View::SetShowCollision(true);
         g_forcedCollision = true;
@@ -133,10 +133,10 @@ void SetViewMode(int mode)
         g_forcedCollision = false;
     }
     g_viewMode = mode;
-    Nx::ViewMode::Set(static_cast<Nx::ViewMode::Mode>(mode));
+    Engine3D::ViewMode::Set(static_cast<Engine3D::ViewMode::Mode>(mode));
 }
 
-const char* ViewModeName(int mode) { return Nx::ViewMode::Name(static_cast<Nx::ViewMode::Mode>(mode)); }
+const char* ViewModeName(int mode) { return Engine3D::ViewMode::Name(static_cast<Engine3D::ViewMode::Mode>(mode)); }
 
 // --- drawing ----------------------------------------------------------------------------------------------------
 
@@ -203,14 +203,14 @@ bool PainterNow(Ui::Overlay* overlay, Painter* painter)
 
 namespace {
 
-// The ground's height below a point (the game's collision ray: a CFeeler, constructor 0x00417760, cast 0x00417710 -
+// The ground's height below a point (the game's collision ray: a CProbeRay, constructor 0x00417760, cast 0x00417710 -
 // static collision only; the hit's point at +0x34), as level_editor.cpp's GroundBelow.
 bool GroundY(V3 from, float* y)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     *y = reinterpret_cast<const float*>(feeler + 0x34)[1];
@@ -241,9 +241,9 @@ void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool have
     if (Shown(kCarryHints) && moving) {
         constexpr uint32_t kCarried = 0xE060F080;
         for (uint32_t id : Carry::CarriedObjects()) {
-            auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+            auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
             OrientedBox box;
-            if (!object || (object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) || !Objects::ModelBox(object, &box))
+            if (!object || (object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) || !Objects::ModelBox(object, &box))
                 continue;
             V3 corners[8];
             BoxCorners(box.origin, box.axes, box.min, box.max, corners);
@@ -262,4 +262,4 @@ void AddOverlay(const Painter& painter, bool moving, V3 selectionBase, bool have
     }
 }
 
-} // namespace Front::LevelEditor::Overlays
+} // namespace MenuSystem::LevelEditor::Overlays

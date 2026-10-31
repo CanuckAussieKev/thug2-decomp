@@ -1,4 +1,4 @@
-// The skater's looping sound component (Obj::CSkaterLoopingSoundComponent): see looping_sound.h.
+// The skater's looping sound component (GameObjects::CRiderRollingAudio): see looping_sound.h.
 
 #include "game/skater/looping_sound.h"
 
@@ -20,7 +20,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_loopingSoundMemberFunctions[6]{0, 0xB5F1E9D2, 0, 0, 0, 0};
 
@@ -48,7 +48,7 @@ T& Field(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
+SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
 
 // The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
 // entry's volume for a percentage.
@@ -63,7 +63,7 @@ double SoundVolume(uint8_t* entry, float percent)
     return Terrain::GetScaledVolume(reinterpret_cast<const Terrain::SoundInfo*>(entry), percent, false);
 }
 
-uint32_t SoundChecksum(uint8_t* entry) { return Field<uint32_t>(entry, 0x68); }
+uint32_t SoundNameKey(uint8_t* entry) { return Field<uint32_t>(entry, 0x68); }
 float FullSpeedPitch(uint8_t* entry) { return Field<float>(entry, 0x6C); }
 float RestPitch(uint8_t* entry) { return Field<float>(entry, 0x70); }
 
@@ -83,30 +83,30 @@ const uint8_t* AirSound() { return reinterpret_cast<const uint8_t*>(&g_airSoundE
 } // namespace
 
 // 0x00513990
-LoopingSoundVolume* LoopingSoundVolume::Assign(const Sfx::sVolume* other)
+LoopingSoundVolume* LoopingSoundVolume::Assign(const SoundFx::volumeRef* other)
 {
-    std::memcpy(static_cast<Sfx::sVolume*>(this), other, sizeof(Sfx::sVolume));
+    std::memcpy(static_cast<SoundFx::volumeRef*>(this), other, sizeof(SoundFx::volumeRef));
     return this;
 }
 
 // 0x00513AD0
-CBaseComponent* __cdecl CSkaterLoopingSoundComponent::Create()
+CObjectModule* __cdecl CRiderRollingAudio::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterLoopingSoundComponent));
-    return memory ? static_cast<CSkaterLoopingSoundComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderRollingAudio));
+    return memory ? static_cast<CRiderRollingAudio*>(memory)->Construct() : nullptr;
 }
 
 // 0x00513860
-void __cdecl CSkaterLoopingSoundComponent::RegisterMemberFunctions()
+void __cdecl CRiderRollingAudio::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterLoopingSound),
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterLoopingSound),
                                         g_loopingSoundMemberFunctions, 0x18);
 }
 
 // 0x005138E0
-CSkaterLoopingSoundComponent* CSkaterLoopingSoundComponent::Construct()
+CRiderRollingAudio* CRiderRollingAudio::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_lastVolume.Init();
     m_soundChanged = 1;
@@ -122,7 +122,7 @@ CSkaterLoopingSoundComponent* CSkaterLoopingSoundComponent::Construct()
 }
 
 // 0x00513AB0
-void CSkaterLoopingSoundComponent::StopSound()
+void CRiderRollingAudio::StopSound()
 {
     if (m_soundId) {
         SfxManager()->StopSound(m_soundId);
@@ -131,25 +131,25 @@ void CSkaterLoopingSoundComponent::StopSound()
 }
 
 // 0x00513B30
-void CSkaterLoopingSoundComponent::DestroyBody()
+void CRiderRollingAudio::DestroyBody()
 {
     m_vtable = kVtable;
     StopSound();
     // (m_lastVolume's destructor: nothing)
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00513FA0
-CSkaterLoopingSoundComponent* CSkaterLoopingSoundComponent::Destroy(unsigned int flags)
+CRiderRollingAudio* CRiderRollingAudio::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00513880
-void CSkaterLoopingSoundComponent::InitFromStructure(Script::CStruct* params)
+void CRiderRollingAudio::ConfigureFromData(Scripts::CStruct* params)
 {
     m_airPitchFall = kAirPitchFall;
     m_airPitchFloor = kAirPitchFloor;
@@ -157,7 +157,7 @@ void CSkaterLoopingSoundComponent::InitFromStructure(Script::CStruct* params)
 }
 
 // 0x005138B0
-void CSkaterLoopingSoundComponent::SetSpeedFraction(float fraction)
+void CRiderRollingAudio::SetPaceRatio(float fraction)
 {
     m_speedFraction = fraction;
     if (fraction > 1.0f)
@@ -165,15 +165,15 @@ void CSkaterLoopingSoundComponent::SetSpeedFraction(float fraction)
 }
 
 // 0x00513970
-void CSkaterLoopingSoundComponent::Finalize()
+void CRiderRollingAudio::Finalize()
 {
     m_physicsControl = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterPhysicsControl));
 }
 
 // 0x00513F60
-void CSkaterLoopingSoundComponent::Suspend(bool suspend)
+void CRiderRollingAudio::Suspend(bool suspend)
 {
-    CBaseComponent::Suspend(suspend);
+    CObjectModule::Suspend(suspend);
     if (suspend)
         StopSound();
     else
@@ -181,8 +181,8 @@ void CSkaterLoopingSoundComponent::Suspend(bool suspend)
 }
 
 // 0x005139E0
-int CSkaterLoopingSoundComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*params*/,
-                                                     Script::CScript* /*script*/)
+int CRiderRollingAudio::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/,
+                                                     Scripts::CScript* /*script*/)
 {
     switch (name) {
     case kTurnOn:
@@ -199,11 +199,11 @@ int CSkaterLoopingSoundComponent::CallMemberFunction(uint32_t name, Script::CStr
         return 1;
     case kPlayAnim: {
         // Turned on again by the walk-to-skate animation (its animTags in the skater's tags).
-        Script::CStruct* tags = m_object->mp_tags;
+        Scripts::CStruct* tags = m_object->m_tagTable;
         uint8_t* state = Field<uint8_t*>(m_physicsControl, 0x2C);
-        Script::CStruct* animTags;
+        Scripts::CStruct* animTags;
         if (tags && !Field<uint8_t>(state, 0x118) && !Field<int>(state, 0x1C) &&
-            tags->GetStructure(kAnimTags, &animTags, 0) && animTags->ContainsFlag(kWalkToSkateTransition)) {
+            tags->ReadSubStruct(kAnimTags, &animTags, 0) && animTags->HasBareFlag(kWalkToSkateTransition)) {
             VirtualSuspend(false);
             m_on = 1;
         }
@@ -215,7 +215,7 @@ int CSkaterLoopingSoundComponent::CallMemberFunction(uint32_t name, Script::CStr
 }
 
 // 0x00513BB0
-void CSkaterLoopingSoundComponent::Update()
+void CRiderRollingAudio::Update()
 {
     if (!m_on) {
         VirtualSuspend(true);
@@ -242,7 +242,7 @@ void CSkaterLoopingSoundComponent::Update()
     switch (bike >= 0 ? -1 : m_state) {
     case kStateGround:
         if (m_soundChanged) {
-            m_haveSound = TerrainSound(m_sound, m_terrain, SoundTable(kTableWheelroll)) ? 1 : 0;
+            m_haveSound = TerrainSound(m_sound, m_surfaceType, SoundTable(kTableWheelroll)) ? 1 : 0;
             m_soundChanged = 0;
         }
         break;
@@ -259,7 +259,7 @@ void CSkaterLoopingSoundComponent::Update()
         } else {
             uint32_t table = m_sliding ? kTableSlide : kTableGrind;
             if (m_soundChanged) {
-                m_haveSound = TerrainSound(m_sound, m_terrain, SoundTable(table)) ? 1 : 0;
+                m_haveSound = TerrainSound(m_sound, m_surfaceType, SoundTable(table)) ? 1 : 0;
                 m_soundChanged = 0;
             }
         }
@@ -267,7 +267,7 @@ void CSkaterLoopingSoundComponent::Update()
     default:
         break;
     }
-    if (m_soundId && (!m_haveSound || m_playingChecksum != SoundChecksum(m_sound))) {
+    if (m_soundId && (!m_haveSound || m_playingChecksum != SoundNameKey(m_sound))) {
         SfxManager()->StopSound(m_soundId);
         m_soundId = 0;
     }
@@ -275,9 +275,9 @@ void CSkaterLoopingSoundComponent::Update()
         return;
 
     // Its volume from where the skater is - stopped while the skater hasn't moved.
-    Sfx::CSfxManager* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = SfxManager();
     if (m_object->m_pos != m_lastPos) {
-        float dropoff = sfx->GetDropoffDistance(SoundChecksum(m_sound));
+        float dropoff = sfx->GetDropoffDistance(SoundNameKey(m_sound));
         sfx->GetVolume(&volume, &m_object->m_pos, dropoff, 0, nullptr, nullptr);
     } else {
         sfx->StopSound(m_soundId);
@@ -288,12 +288,12 @@ void CSkaterLoopingSoundComponent::Update()
     float pitch;
     if (m_state == kStateAir && m_soundId) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
-        if (m_pitch > m_airPitchFloor) {
-            m_pitch = static_cast<float>(m_pitch - static_cast<double>(Tmr::GetSlomoFrameSeconds()) * m_airPitchFall);
-            pitch = m_pitch;
+        if (m_tiltAngle > m_airPitchFloor) {
+            m_tiltAngle = static_cast<float>(m_tiltAngle - static_cast<double>(FrameClock::GetSlomoFrameSeconds()) * m_airPitchFall);
+            pitch = m_tiltAngle;
         } else {
-            volume.SetSilent();
-            pitch = m_pitch;
+            volume.ChangeMuted();
+            pitch = m_tiltAngle;
         }
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
@@ -302,29 +302,29 @@ void CSkaterLoopingSoundComponent::Update()
             m_speedFraction = kCapsizedFraction;
         if (m_speedFraction > 0.0f) {
             float percent = static_cast<float>(static_cast<double>(m_volumeMult) * m_speedFraction * kPercent);
-            volume.PercentageAdjustment(static_cast<float>(SoundVolume(m_sound, percent)));
+            volume.PercentTweak(static_cast<float>(SoundVolume(m_sound, percent)));
             pitch = static_cast<float>((static_cast<double>(FullSpeedPitch(m_sound)) - RestPitch(m_sound)) *
                                            m_speedFraction +
                                        RestPitch(m_sound));
-            m_pitch = pitch;
+            m_tiltAngle = pitch;
         } else {
-            volume.SetSilent();
+            volume.ChangeMuted();
             pitch = 0.0f;
-            m_pitch = 0.0f;
+            m_tiltAngle = 0.0f;
         }
     }
 
-    if (volume.IsSilent()) {
+    if (volume.IsAudioOff()) {
         StopSound();
         return;
     }
     if (!m_soundId) {
         static_cast<LoopingSoundVolume*>(&m_lastVolume)->Assign(&volume);
         m_lastPitch = pitch;
-        m_soundId = sfx->PlaySound(SoundChecksum(m_sound), &volume, pitch, 0, nullptr,
+        m_soundId = sfx->PlaySound(SoundNameKey(m_sound), &volume, pitch, 0, nullptr,
                                    static_cast<int>(reinterpret_cast<uintptr_t>(m_sound)));
         if (m_soundId)
-            m_playingChecksum = SoundChecksum(m_sound);
+            m_playingChecksum = SoundNameKey(m_sound);
         return;
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
@@ -340,22 +340,22 @@ void CSkaterLoopingSoundComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterLoopingSoundComponent::Destroy,
-         &Obj::CSkaterLoopingSoundComponent::Update,
-         &Obj::CSkaterLoopingSoundComponent::InitFromStructure,
-         &Obj::CSkaterLoopingSoundComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRollingAudio::Destroy,
+         &GameObjects::CRiderRollingAudio::Update,
+         &GameObjects::CRiderRollingAudio::ConfigureFromData,
+         &GameObjects::CRiderRollingAudio::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CSkaterLoopingSoundComponent::Suspend,
+         &GameObjects::CRiderRollingAudio::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::CSkaterLoopingSoundComponent::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CRiderRollingAudio::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

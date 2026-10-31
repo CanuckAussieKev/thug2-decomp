@@ -16,7 +16,7 @@
 #include "game/script/struct.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Carry {
+namespace MenuSystem::LevelEditor::Carry {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -116,14 +116,14 @@ Placement PlacementOf(uint32_t sector)
     return placement;
 }
 
-// The game's collision ray (as level_editor_scenery.cpp's CastStatic: a CFeeler, constructor 0x00417760, cast
+// The game's collision ray (as level_editor_scenery.cpp's CastStatic: a CProbeRay, constructor 0x00417760, cast
 // 0x00417710 - static collision only; the collision object hit at +0x54, its checksum at +0x58): what it meets first.
 uint32_t FirstHit(V3 from, V3 to, V3* point)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return 0;
     if (!*reinterpret_cast<void* const*>(feeler + 0x54))
@@ -133,7 +133,7 @@ uint32_t FirstHit(V3 from, V3 to, V3* point)
     return *reinterpret_cast<const uint32_t*>(feeler + 0x58);
 }
 
-Script::CStruct* NodeStruct(uint32_t name, const Nodes::Node** out)
+Scripts::CStruct* NodeStruct(uint32_t name, const Nodes::Node** out)
 {
     int index = name ? Nodes::Find(name) : -1;
     if (index < 0)
@@ -147,8 +147,8 @@ Script::CStruct* NodeStruct(uint32_t name, const Nodes::Node** out)
 uint32_t ClusterOf(uint32_t name)
 {
     uint32_t cluster = 0;
-    if (Script::CStruct* s = NodeStruct(name, nullptr))
-        s->GetChecksum(kCluster, &cluster, 0);
+    if (Scripts::CStruct* s = NodeStruct(name, nullptr))
+        s->ReadHashValue(kCluster, &cluster, 0);
     return cluster;
 }
 
@@ -196,8 +196,8 @@ Attachment AttachmentOf(const Gather& g, uint32_t name, V3 pos)
 {
     const Nodes::Node* node = nullptr;
     uint32_t cluster = 0;
-    if (Script::CStruct* s = NodeStruct(name, &node))
-        s->GetChecksum(kCluster, &cluster, 0);
+    if (Scripts::CStruct* s = NodeStruct(name, &node))
+        s->ReadHashValue(kCluster, &cluster, 0);
     std::vector<uint32_t> links = LinkNames(node);
     Attachment a = Attached(cluster, links, 0, g.members, g.clusters);
     if (a != Attachment::kNone)
@@ -205,17 +205,17 @@ Attachment AttachmentOf(const Gather& g, uint32_t name, V3 pos)
     return Attached(0, {}, GroundUnder(g, pos), g.members, g.clusters);
 }
 
-void __cdecl GatherObject(Obj::CObject* object, void* data)
+void __cdecl GatherObject(GameObjects::CObject* object, void* data)
 {
     auto* g = static_cast<Gather*>(data);
-    auto* composite = static_cast<Obj::CCompositeObject*>(object);
+    auto* composite = static_cast<GameObjects::CGameEntity*>(object);
     OrientedBox box;
     if (!Objects::ModelBox(composite, &box))
         return;
     uint32_t cls = 0;
     const Nodes::Node* node = nullptr;
-    if (Script::CStruct* s = NodeStruct(composite->m_id, &node))
-        s->GetChecksum(kClass, &cls, 0);
+    if (Scripts::CStruct* s = NodeStruct(composite->m_id, &node))
+        s->ReadHashValue(kClass, &cls, 0);
     if (cls == kPedestrian)
         return; // (peds walk their paths: not carried)
     if (node && node->family == Nodes::Family::Flag)
@@ -224,10 +224,10 @@ void __cdecl GatherObject(Obj::CObject* object, void* data)
         g->objects.push_back(composite->m_id);
 }
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
 } // namespace
@@ -265,11 +265,11 @@ Taken Arm()
         if (Scenery::Box(member, &box) && !Scenery::IsShadow(member))
             g.boxes.push_back({member, box});
     }
-    if (Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager())
+    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
         manager->ForEach(GatherObject, &g);
     g_carried.objects = g.objects;
     for (uint32_t id : g_carried.objects) {
-        if (Obj::CCompositeObject* object = LiveObject(id))
+        if (GameObjects::CGameEntity* object = LiveObject(id))
             g_carried.taken.objects.push_back(Objects::Save(object));
     }
     for (const Nodes::Node& node : Nodes::All()) {
@@ -304,7 +304,7 @@ void Follow(void (*onNode)(uint32_t name))
         return;
     float angle = static_cast<float>(step.quarters & 3) * 1.57079633f;
     for (uint32_t id : g_carried.objects) {
-        Obj::CCompositeObject* object = LiveObject(id);
+        GameObjects::CGameEntity* object = LiveObject(id);
         if (!object)
             continue;
         if (std::find(g_carried.noted.begin(), g_carried.noted.end(), id) == g_carried.noted.end()) {
@@ -354,4 +354,4 @@ std::vector<uint32_t> CarriedObjects() { return g_carried.armed ? g_carried.obje
 
 std::vector<uint32_t> CarriedNodes() { return g_carried.armed ? g_carried.nodes : std::vector<uint32_t>{}; }
 
-} // namespace Front::LevelEditor::Carry
+} // namespace MenuSystem::LevelEditor::Carry

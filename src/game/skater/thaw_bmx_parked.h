@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Mdl {
+namespace GameModules {
 struct FrontEnd;
 }
 
@@ -59,6 +59,6 @@ void StartSpotCandidates(Point pos, float heading, float distance, Point out[4])
 void RegisterParkedFunctions();
 // From Update, every frame in a level: the start spot noted once a level is up, the level's bike made again when it's
 // missing and the skater is off the bike.
-void UpdateParked(Mdl::FrontEnd* frontEnd);
+void UpdateParked(GameModules::FrontEnd* frontEnd);
 
 } // namespace Skater::ThawBmx

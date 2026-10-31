@@ -1,7 +1,7 @@
 #pragma once
 
-// The net library's list types (Neversoft's Lst::Node<T> / Lst::Head<T> / Lst::Search<T> instances): their
-// destructors, and BannedConn (an address an App refuses connections from). Each type has its own vtable
+// The net library's list types (Neversoft's ListKit::Node<T> / ListKit::Head<T> / ListKit::Search<T> instances): their
+// destructors, and BlockedConnEntry (an address an App refuses connections from). Each type has its own vtable
 // holding only its scalar deleting destructor; the linker folded identical vtables, so one may stand for a
 // node type and a head type at once.
 
@@ -10,20 +10,20 @@
 
 #include "game/core/alloc.h"
 
-namespace Net {
+namespace NetLink {
 
-extern void** const kConnNodeVtable;       // Lst::Node<Conn>
-extern void** const kConnHeadVtable;       // Lst::Head<Conn>
-extern void** const kBannedConnNodeVtable; // Lst::Node<BannedConn>
-extern void** const kBannedConnVtable;     // BannedConn, Lst::Head<BannedConn>
-extern void** const kMsgHandlerNodeVtable; // Lst::Node<MsgHandler>
-extern void** const kMsgHandlerHeadVtable; // Lst::Head<MsgHandler>
-extern void** const kConnSearchVtable;       // Lst::Search<Conn>
-extern void** const kBannedConnSearchVtable; // Lst::Search<BannedConn>
+extern void** const kConnNodeVtable;       // ListKit::Node<Conn>
+extern void** const kConnHeadVtable;       // ListKit::Head<Conn>
+extern void** const kBannedConnNodeVtable; // ListKit::Node<BlockedConnEntry>
+extern void** const kBannedConnVtable;     // BlockedConnEntry, ListKit::Head<BlockedConnEntry>
+extern void** const kMsgHandlerNodeVtable; // ListKit::Node<MsgHandler>
+extern void** const kMsgHandlerHeadVtable; // ListKit::Head<MsgHandler>
+extern void** const kConnSearchVtable;       // ListKit::Search<Conn>
+extern void** const kBannedConnSearchVtable; // ListKit::Search<BlockedConnEntry>
 
-// A node (or head) of a Dispatcher's handler lists (Lst::Node<MsgHandler>).
-struct MsgHandlerNode : Mem::ListNode {
-    // 0x00457010: a head's constructor (Lst::Head<MsgHandler>, vtable 0x006475E8): an empty list.
+// A node (or head) of a Dispatcher's handler lists (ListKit::Node<MsgHandler>).
+struct MsgHandlerNode : MemSys::ListNode {
+    // 0x00457010: a head's constructor (ListKit::Head<MsgHandler>, vtable 0x006475E8): an empty list.
     MsgHandlerNode* ConstructHead();
     // 0x00457030: the destructor body: out of its list (and linked to itself).
     void DestroyBody();
@@ -42,8 +42,8 @@ struct HandlerLists {
 };
 static_assert(sizeof(HandlerLists) == 0x13EC, "layout must match the original");
 
-// A connection's node in its App's connection list, and that list's head (Lst::Node<Conn> / Lst::Head<Conn>).
-struct ConnNode : Mem::ListNode {
+// A connection's node in its App's connection list, and that list's head (ListKit::Node<Conn> / ListKit::Head<Conn>).
+struct ConnNode : MemSys::ListNode {
     // 0x00457050: the destructor body.
     void DestroyBody();
     // 0x004573A0: the head's scalar deleting destructor.
@@ -52,28 +52,28 @@ struct ConnNode : Mem::ListNode {
     ConnNode* Destroy(unsigned int flags);
 };
 
-// Lst::Node<BannedConn> (the head of an App's banned list is one too).
-struct BannedConnNode : Mem::ListNode {
+// ListKit::Node<BlockedConnEntry> (the head of an App's banned list is one too).
+struct BannedConnNode : MemSys::ListNode {
     // 0x00457070: the destructor body.
     void DestroyBody();
     // 0x004570D0: the scalar deleting destructor.
     BannedConnNode* Destroy(unsigned int flags);
 };
 
-// An address an App doesn't accept connections from: a node whose data is itself (made by App::BanConnection).
-struct BannedConn : BannedConnNode {
-    uint32_t m_ip; // +0x14
+// An address an App doesn't accept connections from: a node whose data is itself (made by App::BlockConnection).
+struct BlockedConnEntry : BannedConnNode {
+    uint32_t m_hostAddr; // +0x14
 
-    // 0x00457460: the scalar deleting destructor (BannedConn's and Lst::Head<BannedConn>'s).
-    BannedConn* DestroyBanned(unsigned int flags);
+    // 0x00457460: the scalar deleting destructor (BlockedConnEntry's and ListKit::Head<BlockedConnEntry>'s).
+    BlockedConnEntry* DestroyBanned(unsigned int flags);
 };
-static_assert(offsetof(BannedConn, m_ip) == 0x14 && sizeof(BannedConn) == 0x18, "layout must match the original");
+static_assert(offsetof(BlockedConnEntry, m_hostAddr) == 0x14 && sizeof(BlockedConnEntry) == 0x18, "layout must match the original");
 
 // A list search as the game lays it out: the vtable (its virtual destructor), then the current node (see
-// Lst::Search). The destructors only reset the vtable.
+// ListKit::Search). The destructors only reset the vtable.
 struct ConnSearch {
     void** m_vtable;
-    Mem::ListNode* m_node;
+    MemSys::ListNode* m_listLink;
 
     // 0x00456B80
     void DestroyBody();
@@ -82,7 +82,7 @@ struct ConnSearch {
 };
 struct BannedConnSearch {
     void** m_vtable;
-    Mem::ListNode* m_node;
+    MemSys::ListNode* m_listLink;
 
     // 0x00456B90
     void DestroyBody();

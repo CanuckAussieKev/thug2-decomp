@@ -15,7 +15,7 @@
 #include "stb_image_write.h"
 #pragma warning(pop)
 
-namespace Sys::Screenshot {
+namespace SystemCore::Screenshot {
 
 int DefaultKey(bool snippingTakesPrintScreen) { return snippingTakesPrintScreen ? kF12 : kPrintScreen; }
 
@@ -230,4 +230,4 @@ std::string FormatSidecar(const std::string& heading, const std::vector<Section>
     return text;
 }
 
-} // namespace Sys::Screenshot
+} // namespace SystemCore::Screenshot

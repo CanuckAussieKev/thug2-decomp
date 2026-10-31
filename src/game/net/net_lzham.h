@@ -11,7 +11,7 @@
 // (CMakeLists.txt, THIRD_PARTY_NOTICES.md). Register: tools/pipeline/compat/thugpro/README.md, TP-R11.
 //
 // Unlike THUGPRO's, both directions here are bounded: the output never goes past the buffer it's given.
-namespace Net::Lzham {
+namespace NetLink::Lzham {
 
 constexpr uint8_t kMethod = 3;
 constexpr uint32_t kDictionarySizeLog2 = 15;
@@ -22,4 +22,4 @@ size_t Compress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity);
 // untouched) if the stream is bad, ends early, or expands to more than `capacity` bytes.
 bool Decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, size_t* outSize);
 
-} // namespace Net::Lzham
+} // namespace NetLink::Lzham

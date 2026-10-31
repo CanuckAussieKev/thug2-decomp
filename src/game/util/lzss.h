@@ -19,8 +19,8 @@ int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats);
 uint8_t* Decode(const uint8_t* in, uint8_t* out, int size);
 
 // Encoder internals (exposed for the replacement table and tests).
-void InitTree();
-void InsertNode(int r);
-void DeleteNode(int p);
+void ResetMatchTree();
+void AddMatchNode(int r);
+void UnlinkListNode(int p);
 
 } // namespace Lzss

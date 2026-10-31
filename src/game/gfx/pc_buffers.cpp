@@ -17,7 +17,7 @@
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t g_skinScalingOn;
 void* g_vertexBufferList; // the first node of each list (sBufferNode)
@@ -30,7 +30,7 @@ namespace {
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 
 // The game's C runtime heap (the nodes and copies are freed by code that is still the game's).
-void* Malloc(size_t size) { return Crt::Malloc(size); }
+void* AllocBlock(size_t size) { return Crt::AllocBlock(size); }
 void Free(void* memory) { Crt::Free(memory); }
 
 // A node of the buffers' lists: the buffer, the previous and the next node.
@@ -44,7 +44,7 @@ sBufferNode*& IndexBuffers() { return reinterpret_cast<sBufferNode*&>(g_indexBuf
 
 void Enlist(sBufferNode*& head, void* buffer)
 {
-    auto* node = static_cast<sBufferNode*>(Malloc(sizeof(sBufferNode)));
+    auto* node = static_cast<sBufferNode*>(AllocBlock(sizeof(sBufferNode)));
     node->buffer = buffer;
     node->next = head;
     node->prev = nullptr;
@@ -93,7 +93,7 @@ sVertexBuffer* sVertexBuffer::Construct(uint32_t bytes, uint32_t usageFlags, uin
                                      reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
     size = bytes;
     usage = usageFlags;
-    data = (bufferFlags & kNoCopy) ? nullptr : static_cast<uint8_t*>(Malloc(bytes));
+    data = (bufferFlags & kNoCopy) ? nullptr : static_cast<uint8_t*>(AllocBlock(bytes));
     flags = bufferFlags;
     arenaOffset = 0;
     lockFlags = 0xFFFFFFFF;
@@ -102,7 +102,7 @@ sVertexBuffer* sVertexBuffer::Construct(uint32_t bytes, uint32_t usageFlags, uin
 }
 
 // 0x004D3BE0
-void sVertexBuffer::Unlist() { Nx::Unlist(VertexBuffers(), this); }
+void sVertexBuffer::Unlist() { Engine3D::Unlist(VertexBuffers(), this); }
 
 // 0x004D4090
 long sVertexBuffer::Lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint32_t flagsForLock)
@@ -166,13 +166,13 @@ sIndexBuffer* sIndexBuffer::Construct(uint32_t bytes, uint32_t usageFlags, uint3
     size = bytes;
     usage = usageFlags;
     format = indexFormat;
-    indices = static_cast<uint16_t*>(Malloc(bytes));
+    indices = static_cast<uint16_t*>(AllocBlock(bytes));
     Enlist(IndexBuffers(), this);
     return this;
 }
 
 // 0x004D3C40
-void sIndexBuffer::Unlist() { Nx::Unlist(IndexBuffers(), this); }
+void sIndexBuffer::Unlist() { Engine3D::Unlist(IndexBuffers(), this); }
 
 // 0x004D42F0
 long sIndexBuffer::Lock(uint32_t /*offset*/, uint32_t /*bytes*/, uint16_t** out, uint32_t /*lockFlags*/)
@@ -193,13 +193,13 @@ long sIndexBuffer::Unlock()
 }
 
 // 0x004D3FC0
-sVertexBuffer* sMesh::GetVertexBuffer(int index) { return vertexBuffers[index]; }
+sVertexBuffer* meshRef::GetVertexBuffer(int index) { return vertexBuffers[index]; }
 
 // 0x004D3FD0
-void sMesh::SetVertexBuffer(int index, sVertexBuffer* vb) { vertexBuffers[index] = vb; }
+void meshRef::SetVertexBuffer(int index, sVertexBuffer* vb) { vertexBuffers[index] = vb; }
 
 // 0x004D3E50
-void sMesh::MoveIntoArena(sVertexArena* arena)
+void meshRef::MoveIntoArena(sVertexArena* arena)
 {
     sVertexBuffer* vb = vertexBuffers[0];
     if (vb->buffer)
@@ -212,7 +212,7 @@ void sMesh::MoveIntoArena(sVertexArena* arena)
 }
 
 // 0x004D3D10
-void sMesh::SetPixelShaderColored()
+void meshRef::SetPixelShaderColored()
 {
     uint8_t* mat = material;
     uint32_t bytes = *reinterpret_cast<uint32_t*>(mat + 8) << 4; // 16 a pass

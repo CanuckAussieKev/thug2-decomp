@@ -7,7 +7,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -24,14 +24,14 @@ struct Painter;
 // The launch: the skater leaves the lip at its speed along the surface there (the lip's tangent, up the slope) and
 // ollies on it: 0x00509450 (the jump) clamps a falling velocity.y to 0 and adds the jump speed to velocity.y - the
 // full charge's Physics_Jump_Speed_Stat (414 - 450 by the ollie stat). The speeds, each by the skater's speed stat
-// (CSkater::GetStat 3; Skater_Default_Stats without a skater) on its (low, high) pair as GetScaledValue 0x005805B0
+// (CRider::GetStat 3; Skater_Default_Stats without a skater) on its (low, high) pair as GetScaledValue 0x005805B0
 // scales it (low + (high - low) stat / 10, then its limit=) - the switch and difficulty factors left out:
 //   push: Skater_Max_Crouched_Kick_Speed_Stat (532 - 675, limit 900): what pushing reaches on the flat;
 //   top:  Skater_Max_Speed_Stat (757 - 900): the most rolling downhill reaches;
 //   max:  Skater_Max_Max_Speed_Stat (957 - 1100): the cap (speed boosts, transfers).
-// The values are read from the game's own script structures (skater_physics or the ridden vehicle's - GetPhysicsFloat
+// The values are read from the game's own script structures (skater_physics or the ridden vehicle's - ReadTuningFloat
 // 0x00580400) each time the selection changes; ArcsFallback below when there is no level.
-namespace Front::LevelEditor::Arcs {
+namespace MenuSystem::LevelEditor::Arcs {
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -111,4 +111,4 @@ void AddOverlay(const Overlays::Painter& painter, const std::vector<uint32_t>& s
 // For the status bar / help: what the arcs show now ("2 lips, lands 812 (67.7 ft) at top speed").
 std::string Describe();
 
-} // namespace Front::LevelEditor::Arcs
+} // namespace MenuSystem::LevelEditor::Arcs

@@ -5,8 +5,8 @@
 
 #include "game/obj/object.h"
 
-namespace Net {
-struct MsgHandlerContext;
+namespace NetLink {
+struct InboundMsgCtx;
 }
 
 // The skater's state history component (SkaterStateHistory, type 0x18223FD6, vtable 0x0064C174, 0x1108 bytes; made by
@@ -15,16 +15,16 @@ struct MsgHandlerContext;
 // collisions: each frame the skate module checks every pair of skaters (0x00566BE0), and a hit tells both players.
 //
 // Vtable: 0 the scalar deleting destructor (0x00519840); Update 0x0051B970 (shared: suspends the component), the
-// empty 0x005BAB90 / 0x005480A0, the base's Suspend and member function entry, CallMemberFunction 0x0051ADC0 (shared:
+// empty 0x005BAB90 / 0x005480A0, the base's Suspend and member function entry, InvokeMethodByName 0x0051ADC0 (shared:
 // "not mine").
-namespace Obj {
+namespace GameObjects {
 
 // One of the history's other messages (0x54 bytes, 20 of them at +0xA70; the newest at +0xA6C % 20): the message's
 // id first, then its time stamp as two halves.
 struct StateHistoryMessage {
     uint8_t m_id;        // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
     uint8_t pad01[3];
-    uint16_t m_time;     // +0x04 the low half of the 32-bit time stamp
+    uint16_t m_clock;     // +0x04 the low half of the 32-bit time stamp
     uint16_t m_timeHigh; // +0x06 the high half
     uint8_t m_data[0x4C];
 
@@ -33,28 +33,28 @@ struct StateHistoryMessage {
     // 0x00519810: the time stamp set (its two halves).
     void SetTime(uint32_t time);
 };
-static_assert(offsetof(StateHistoryMessage, m_time) == 0x04 && sizeof(StateHistoryMessage) == 0x54,
+static_assert(offsetof(StateHistoryMessage, m_clock) == 0x04 && sizeof(StateHistoryMessage) == 0x54,
               "layout must match the original");
 
-class CSkaterStateHistoryComponent : public CBaseComponent {
+class CRiderFrameLog : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x18223FD6;
     static constexpr int kEntries = 20;
 
     // 0x0051AD30 (registered with the composite object manager): a new one (0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x0051ACB0: the base's constructor, its vtable and type, every entry and the counts cleared. Returns this.
-    CSkaterStateHistoryComponent* Construct();
+    CRiderFrameLog* Construct();
     // 0x00519840 (vtable slot 0): the destructor body (0x005197C0), then freed with flags & 1.
-    CSkaterStateHistoryComponent* Destroy(unsigned int flags);
+    CRiderFrameLog* Destroy(unsigned int flags);
     // 0x005197C0: the destructor body (the base's; in skater_state.cpp).
     void DestroyBody();
 
     // 0x00519FA0: how far the object moves this frame: its velocity times the frame's length (w from the unrounded
     // frame length, x / y / z from it rounded).
-    void GetFrameMovement(Mth::Vector* out);
+    void GetFrameMovement(Maths::Vector* out);
     // 0x00519FF0: the object's position.
-    void GetPosition(Mth::Vector* out);
+    void GetPosition(Maths::Vector* out);
     // 0x0051A020: how far ahead of a skater a collision is looked for: the script float 0x25F78481 (0x0D24273B when
     // the object's +0xBC is set), with `driving` times 1 + the script float 0x0A49FF23. Unrounded (x87).
     double GetCollisionReach(bool driving);
@@ -80,18 +80,18 @@ public:
     // `msg+4` the score to lose): knocked back away from it (300 * 1.5 horizontally, 200 up), into a bail on foot or
     // driving, and its score lowered (to 0 at least: then unbind_fireball_tricks). 0x85 - this skater hit another.
     // Each is an event to the skater with the other's name (0x915E5E39 / 0xA1021AF0). Returns kHandlerMsgDone.
-    static int __cdecl HandleHitMessages(Net::MsgHandlerContext* context);
+    static int __cdecl HandleHitMessages(NetLink::InboundMsgCtx* context);
     // 0x00519C10: 0x43 - this skater was run into (`msg[0]` the other's object id, bit 7: it was driving; cleared in
     // the message; `msg+4` the push): knocked back unless driving, the push as a vector in the event 0x915E5E39.
     // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kHandlerContinue.
-    static int __cdecl HandleCollisionMessages(Net::MsgHandlerContext* context);
+    static int __cdecl HandleCollisionMessages(NetLink::InboundMsgCtx* context);
 };
-static_assert(sizeof(CSkaterStateHistoryComponent) == 0x18, "fields are reached by offset");
+static_assert(sizeof(CRiderFrameLog) == 0x18, "fields are reached by offset");
 
-// The destructors behind Lst::Search<PlayerInfo>'s vtable (0x0064C1A8: the network manager's player searches).
+// The destructors behind ListKit::Search<PlayerRecord>'s vtable (0x0064C1A8: the network manager's player searches).
 struct PlayerSearchDestructors {
     void** m_vtable;
-    void* m_node;
+    void* m_listLink;
 
     // 0x00519830 (only resets the vtable)
     void DestroyBody();

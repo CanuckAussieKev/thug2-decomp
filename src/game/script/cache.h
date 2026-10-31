@@ -5,11 +5,11 @@
 #include <new>
 #include "game/core/pool.h"
 
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
-namespace Script {
+namespace Scripts {
 
 // The script cache (one instance, 0x006F3558, reference counted by 0x006F355C): the scripts' code, decompressed
 // and pre-processed, by script name. Scripts are stored compressed in the symbol table (see CreateScriptSymbol);
@@ -35,15 +35,15 @@ struct CScriptCacheEntry {
 };
 static_assert(sizeof(CScriptCacheEntry) == 0x14, "allocated as 0x14 bytes by the original");
 
-// An engine module (Mdl::Module: registered and started with the module manager, but its Start and Stop do
+// An engine module (GameModules::Module: registered and started with the module manager, but its Start and Stop do
 // nothing).
-struct CScriptCache {
+struct CScriptStore {
     // 0x00475DD0
-    CScriptCache* Construct();
+    CScriptStore* Construct();
     // 0x00476090 (destructor body): every entry and its code is freed, then the table.
     void DestroyBody();
     // 0x004761E0 (scalar deleting destructor, vtable slot 0)
-    CScriptCache* Destroy(unsigned int flags);
+    CScriptStore* Destroy(unsigned int flags);
 
     // 0x00475E80: the code of script `name` (a name naming another symbol is followed), taking a use of it;
     // null if `name` isn't a script. Decompressed and pre-processed on first use.
@@ -68,20 +68,20 @@ struct CScriptCache {
     void MakeRoom(int size, uint32_t name);
 
     void** m_vtable;            // 0x00648468: {Destroy, Start, Stop}
-    uint8_t m_module[0x14 - 4]; // Mdl::Module's fields
-    Lst::HashTable* m_entries;  // 8 bits, from the script heap
+    uint8_t m_owningModule[0x14 - 4]; // GameModules::Module's fields
+    ListKit::HashTable* m_entries;  // 8 bits, from the script heap
     CScriptCacheEntry* m_newestUnused;
     CScriptCacheEntry* m_oldestUnused;
     bool m_deleteUnused;        // never set in this game
 };
-static_assert(sizeof(CScriptCache) == 0x24, "allocated as 0x24 bytes by the original");
+static_assert(sizeof(CScriptStore) == 0x24, "allocated as 0x24 bytes by the original");
 
 // 0x00476040: with `create`, make the cache if there's none; either way take a reference. Returns the cache.
-CScriptCache* CreateScriptCache(bool create);
+CScriptStore* CreateScriptCache(bool create);
 // 0x00475A00: give back a reference; the last one destroys the cache.
 void ReleaseScriptCache();
 
-extern Script::CScriptCache* g_scriptCache;
-extern Mem::PoolPair g_cacheEntryPools;
+extern Scripts::CScriptStore* g_scriptCache;
+extern MemSys::PoolPair g_cacheEntryPools;
 
 } // namespace Script

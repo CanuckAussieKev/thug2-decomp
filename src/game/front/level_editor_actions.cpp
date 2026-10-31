@@ -11,7 +11,7 @@
 
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Actions {
+namespace MenuSystem::LevelEditor::Actions {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -774,4 +774,4 @@ void CancelCapture() { g_capture = -1; }
 bool Capturing() { return g_capture >= 0; }
 int CapturingIndex() { return g_capture; }
 
-} // namespace Front::LevelEditor::Actions
+} // namespace MenuSystem::LevelEditor::Actions

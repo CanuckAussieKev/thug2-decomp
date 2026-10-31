@@ -6,10 +6,10 @@
 #include "game/mth/geometry.h"
 
 // The PC scene and sector (Nx engine), and the PC screen effects object's setters.
-namespace Nx {
+namespace Engine3D {
 
 
-struct sScene;
+struct sceneRef;
 
 // What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
 struct sVertexArena {
@@ -19,7 +19,7 @@ struct sVertexArena {
     void* data;    // +0x0C: while locked
 };
 
-// The PC sector (0x34 bytes, vtable 0x0064A718; the engine's CSector - constructor 0x0049E900, destructor body
+// The PC sector (0x34 bytes, vtable 0x0064A718; the engine's CWorldCell - constructor 0x0049E900, destructor body
 // 0x0049E630 - for its first 0x20 bytes: +0x14 its geometry).
 struct CPcSector {
     void** vtable;
@@ -43,23 +43,23 @@ struct CPcSector {
     CPcSector* Clone(int unused1, int unused2);
     // 0x004C6650: loaded from a scene file in memory (moved past it): its checksum, flags, box, billboard and
     // meshes (each made, its vertices loaded by 0x004D5CC0, its index lists read and dropped). True.
-    bool LoadFromMemory(uint8_t** cursor);
+    bool ReadFromRamBlock(uint8_t** cursor);
     // 0x004C6B10: the same from a file (the vertices by 0x004D6100, given `unknown` unless a billboard). True.
     bool LoadFromFile(void* file, uint32_t unknown);
     // 0x004C64E0 (virtual [9]): an empty box (a static one, made the first time).
-    const Mth::BBox* GetBoundingBox();
+    const Maths::BBox* GetBoundingBox();
 };
 static_assert(offsetof(CPcSector, geom) == 0x14 && offsetof(CPcSector, unknown20) == 0x20 && sizeof(CPcSector) == 0x34,
               "layout must match the original");
 
-// The PC scene (0x284 bytes, vtable 0x0064A6B8; the engine's CScene - constructor 0x0049D390, destructor body
+// The PC scene (0x284 bytes, vtable 0x0064A6B8; the engine's CWorldScene - constructor 0x0049D390, destructor body
 // 0x0049DD10 - for its first 0x280 bytes: +0xD0 the sectors' hash table).
 struct CPcScene {
     void** vtable;
     uint8_t engine04[0xCC];
-    void* sectors;           // +0xD0: Lst::HashTable of the sectors
+    void* sectors;           // +0xD0: ListKit::HashTable of the sectors
     uint8_t engine0D4[0x1AC];
-    sScene* meshes;          // +0x280: its mesh list
+    sceneRef* meshes;          // +0x280: its mesh list
 
     // 0x004C6130: construct (`arg` for the engine's constructor). Returns this.
     CPcScene* Construct(int arg);
@@ -72,7 +72,7 @@ struct CPcScene {
     // meshes added to it and sorted.
     void PostLoad(sVertexArena* arena);
     // 0x004C6190 (virtual [7]): a new sector. Null if no memory.
-    CPcSector* CreateSector();
+    CPcSector* SpawnSector();
     // 0x004C6200: the sectors gone through (nothing done with them - stripped).
     void UnloadSectors();
 };

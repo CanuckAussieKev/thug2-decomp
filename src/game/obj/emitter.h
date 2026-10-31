@@ -14,11 +14,11 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
-namespace Obj {
+namespace GameObjects {
 
 enum EEmitterShape : int {
     EMITTER_SHAPE_BOX = 0,     // the sector's box (Shape 0xE460ABDE)
@@ -28,26 +28,26 @@ enum EEmitterShape : int {
 
 struct EmitterNode {
     // 0x00468120: whether `point` is in the shape.
-    bool IsInside(const Mth::Vector* point);
+    bool IsWithin(const Maths::Vector* point);
     // 0x004681A0: `point` itself when it's inside, else the shape's nearest point (the box's surface, the
     // sphere's). The other shape leaves `out` as it was (the original copies its uninitialised locals).
-    Mth::Vector* GetClosestPoint(Mth::Vector* out, const Mth::Vector* point);
+    Maths::Vector* NearestPointOn(Maths::Vector* out, const Maths::Vector* point);
 
     uint32_t m_name;          // +0x00
-    Mth::Vector m_pos;        // +0x04
+    Maths::Vector m_pos;        // +0x04
     uint8_t m_unknown14[0x10];
     bool m_active;            // +0x24
     uint8_t m_unknown25[3];
-    int m_shape;              // +0x28 EEmitterShape
+    int m_form;              // +0x28 EEmitterShape
     float m_radius;           // +0x2C
     float m_radiusSquared;    // +0x30
     void* m_sector;           // +0x34
-    Mth::BBox m_box;          // +0x38
+    Maths::BBox m_box;          // +0x38
     uint32_t m_unknown58;
-    uint32_t m_script;        // +0x5C
+    uint32_t m_runScript;        // +0x5C
 };
 static_assert(offsetof(EmitterNode, m_active) == 0x24 && offsetof(EmitterNode, m_sector) == 0x34 &&
-                  offsetof(EmitterNode, m_box) == 0x38 && offsetof(EmitterNode, m_script) == 0x5C &&
+                  offsetof(EmitterNode, m_box) == 0x38 && offsetof(EmitterNode, m_runScript) == 0x5C &&
                   sizeof(EmitterNode) == 0x60,
               "layout must match the original");
 
@@ -69,22 +69,22 @@ public:
     void Reset();
     // 0x00468610: the followed object's position added once it's over 40 units (1600 squared) from the last.
     void Update();
-    // 0x00468730: the point m_distance back along the trail (from the object's position through the trail,
+    // 0x00468730: the point m_reach back along the trail (from the object's position through the trail,
     // newest first) and, in `matrix`, a facing along it: the old facing's front x10 plus the direction, made
     // level (y = 0) unless m_freeFacing, with up (0, 1, 0) - nothing when the trail is empty or that point's
     // segment has no length.
-    void GetPosition(Mth::Vector* position, Mth::Matrix* matrix);
+    void GetPosition(Maths::Vector* position, Maths::Matrix* matrix);
 
-    Mth::Vector m_points[64];  // +0x000: a ring, newest at m_head
+    Maths::Vector m_pathVertices[64];  // +0x000: a ring, newest at m_head
     int m_count;               // +0x400
     int m_head;                // +0x404
-    uint32_t m_objectId;       // +0x408
-    Mth::Vector m_target;      // +0x40C: the object's position at the last Update
-    float m_distance;          // +0x41C
+    uint32_t m_entityKey;       // +0x408
+    Maths::Vector m_aimPoint;      // +0x40C: the object's position at the last Update
+    float m_reach;          // +0x41C
     bool m_freeFacing;         // +0x420
 };
-static_assert(offsetof(CFollowTrail, m_count) == 0x400 && offsetof(CFollowTrail, m_target) == 0x40C &&
-                  offsetof(CFollowTrail, m_distance) == 0x41C && offsetof(CFollowTrail, m_freeFacing) == 0x420,
+static_assert(offsetof(CFollowTrail, m_count) == 0x400 && offsetof(CFollowTrail, m_aimPoint) == 0x40C &&
+                  offsetof(CFollowTrail, m_reach) == 0x41C && offsetof(CFollowTrail, m_freeFacing) == 0x420,
               "layout must match the original");
 
 extern void* g_emitterTable;

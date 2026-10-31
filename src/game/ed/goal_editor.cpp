@@ -1,4 +1,4 @@
-// The goal editor component (Ed::CGoalEditorComponent): see goal_editor.h. From the disassembly of 0x004E6FB0-
+// The goal editor component (ParkEditing::CObjectiveAuthoring): see goal_editor.h. From the disassembly of 0x004E6FB0-
 // 0x004EBC3D (the component's own code; the edited goals' is in edited_goal.cpp / edited_goal_io.cpp).
 
 #include <cmath>
@@ -26,7 +26,7 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/crt.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 uint32_t g_goalEditorMemberFunctions[216]{
             0x0AB710F3, 0x81F01058, 0, 0, 0, 0,
@@ -68,19 +68,19 @@ uint32_t g_goalEditorMemberFunctions[216]{
 
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Ed::CGoalEditorComponent::Destroy,
-         &Ed::CGoalEditorComponent::Update,
+static VtableSlot kVtable_slots[] = {&ParkEditing::CObjectiveAuthoring::Destroy,
+         &ParkEditing::CObjectiveAuthoring::Update,
          Stubs::IgnoreArgument,
-         &Ed::CGoalEditorComponent::Finalize,
+         &ParkEditing::CObjectiveAuthoring::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
-         &Ed::CGoalEditorComponent::Hide,
+         &GameObjects::CObjectModule::Suspend,
+         &ParkEditing::CObjectiveAuthoring::Hide,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
@@ -102,31 +102,31 @@ char* CreatedGoalName() { return g_createdGoalName; }
 uint32_t CreatedGoalId(int index)
 {
     Sprintf(CreatedGoalName(), "CreatedGoal%d", index);
-    return Crc::GenerateCRCFromString(CreatedGoalName());
+    return Checksums::HashFromText(CreatedGoalName());
 }
 
 // The current level, the park editor's gameplay level counting as the park editor's.
 uint32_t CurrentLevel()
 {
-    uint32_t level = Mdl::Skate::Instance()->m_level;
+    uint32_t level = GameModules::Skate::Instance()->m_level;
     return level == kParkEditorGameplayLevel ? kParkEditorLevel : level;
 }
 
-Obj::CEditorCameraComponent* Camera(Obj::CBaseComponent* camera)
+GameObjects::CEditorViewModule* Camera(GameObjects::CObjectModule* camera)
 {
-    return static_cast<Obj::CEditorCameraComponent*>(camera);
+    return static_cast<GameObjects::CEditorViewModule*>(camera);
 }
 
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    Script::CStruct* structure = Script::NewStruct();
+    Scripts::CStruct* structure = Scripts::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
-void DeleteStructure(Script::CStruct* structure)
+void DeleteStructure(Scripts::CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
 
@@ -139,22 +139,22 @@ bool Outside(float x, float z, float x0, float z0, float x1, float z1)
 } // namespace
 
 // 0x004EB7F0
-Obj::CBaseComponent* __cdecl CGoalEditorComponent::Create()
+GameObjects::CObjectModule* __cdecl CObjectiveAuthoring::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CGoalEditorComponent));
-    return memory ? static_cast<CGoalEditorComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CObjectiveAuthoring));
+    return memory ? static_cast<CObjectiveAuthoring*>(memory)->Construct() : nullptr;
 }
 
 // 0x004E6FB0
-void __cdecl CGoalEditorComponent::RegisterMemberFunctions()
+void __cdecl CObjectiveAuthoring::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kGoalEditor), g_goalEditorMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kGoalEditor), g_goalEditorMemberFunctions, 0x18);
 }
 
 // 0x004EA230
-CGoalEditorComponent* CGoalEditorComponent::Construct()
+CObjectiveAuthoring* CObjectiveAuthoring::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     for (CEditedGoal& goal : m_goals)
         goal.Construct();
@@ -162,45 +162,45 @@ CGoalEditorComponent* CGoalEditorComponent::Construct()
     ClearLevelGoals();
     ClearParkGoals();
     mp_input = nullptr;
-    mp_camera = nullptr;
+    m_viewCamera = nullptr;
     return this;
 }
 
 // 0x004E6FD0
-void CGoalEditorComponent::DestroyBody()
+void CObjectiveAuthoring::DestroyBody()
 {
     m_vtable = kVtable;
-    Script::RunScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+    Scripts::LaunchScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
     // (the goals' destructors are empty)
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004E7B20
-CGoalEditorComponent* CGoalEditorComponent::Destroy(unsigned int flags)
+CObjectiveAuthoring* CObjectiveAuthoring::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004E8210
-void CGoalEditorComponent::Finalize()
+void CObjectiveAuthoring::Finalize()
 {
     mp_input = m_object->GetComponent(kInput);
-    mp_camera = m_object->GetComponent(kEditorCamera);
+    m_viewCamera = m_object->GetComponent(kEditorCamera);
 }
 
 // 0x004E8470
-CGoalEditorComponent* __cdecl CGoalEditorComponent::Get()
+CObjectiveAuthoring* __cdecl CObjectiveAuthoring::Get()
 {
-    auto* manager = reinterpret_cast<Obj::CBaseManager*>(Obj::CompositeObjectManager());
-    auto* object = reinterpret_cast<Obj::CCompositeObject*>(manager->GetObjectByID(kGoalEditor));
-    return static_cast<CGoalEditorComponent*>(object->GetComponent(kGoalEditor));
+    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::CompositeObjectManager());
+    auto* object = reinterpret_cast<GameObjects::CGameEntity*>(manager->LookUpEntity(kGoalEditor));
+    return static_cast<CObjectiveAuthoring*>(object->GetComponent(kGoalEditor));
 }
 
 // 0x004E7BE0
-CEditedGoal* CGoalEditorComponent::FindGoalByName(const char* name)
+CEditedGoal* CObjectiveAuthoring::FindGoalByName(const char* name)
 {
     uint32_t level = CurrentLevel();
     for (CEditedGoal& goal : m_goals) {
@@ -211,7 +211,7 @@ CEditedGoal* CGoalEditorComponent::FindGoalByName(const char* name)
 }
 
 // 0x004E7C60
-CEditedGoal* CGoalEditorComponent::FindGoalById(uint32_t id)
+CEditedGoal* CObjectiveAuthoring::FindGoalById(uint32_t id)
 {
     uint32_t level = CurrentLevel();
     for (CEditedGoal& goal : m_goals) {
@@ -222,16 +222,16 @@ CEditedGoal* CGoalEditorComponent::FindGoalById(uint32_t id)
 }
 
 // 0x004E7D00
-CEditedGoal* CGoalEditorComponent::GetGoalFromParams(Script::CStruct* params)
+CEditedGoal* CObjectiveAuthoring::GetGoalFromParams(Scripts::CStruct* params)
 {
     uint32_t id = 0;
-    if (params->GetChecksum(0x9982E501, &id, 0))
+    if (params->ReadHashValue(0x9982E501, &id, 0))
         return FindGoalById(id);
     const char* name = nullptr;
     if (params->GetString(0xBFECC45B, &name, 0))
         return FindGoalByName(name);
     int index = 0;
-    if (params->GetInteger(0x474A6A7F, &index, 0)) {
+    if (params->FetchIntValue(0x474A6A7F, &index, 0)) {
         uint32_t level = CurrentLevel();
         for (CEditedGoal& goal : m_goals) {
             if (goal.m_used && goal.m_level == level && goal.m_goalIndex == index)
@@ -239,11 +239,11 @@ CEditedGoal* CGoalEditorComponent::GetGoalFromParams(Script::CStruct* params)
         }
         return nullptr;
     }
-    return mp_current;
+    return m_activeNode;
 }
 
 // 0x004E7E00
-int CGoalEditorComponent::CountUsedGoals()
+int CObjectiveAuthoring::CountUsedGoals()
 {
     int count = 0;
     for (CEditedGoal& goal : m_goals) {
@@ -254,25 +254,25 @@ int CGoalEditorComponent::CountUsedGoals()
 }
 
 // 0x004E7E50
-int CGoalEditorComponent::CountCompleteGoals(uint32_t level)
+int CObjectiveAuthoring::CountCompleteGoals(uint32_t level)
 {
     int count = 0;
     for (CEditedGoal& goal : m_goals) {
-        if (goal.m_used && (!level || goal.m_level == level) && goal.m_numPoints >= goal.m_minPoints)
+        if (goal.m_used && (!level || goal.m_level == level) && goal.m_vertexTotal >= goal.m_minPoints)
             ++count;
     }
     return count;
 }
 
 // 0x004E8130
-bool CGoalEditorComponent::PointNearAnyGoal(const Mth::Vector& pos, float height, uint32_t level, int index)
+bool CObjectiveAuthoring::PointNearAnyGoal(const Maths::Vector& pos, float height, uint32_t level, int index)
 {
     float x = pos.x, y = pos.y + height, z = pos.z;
-    float radius = Script::GetFloat(0x71B20276);
+    float radius = Scripts::GetFloat(0x71B20276);
     for (CEditedGoal& goal : m_goals) {
-        if (!goal.m_used || goal.m_level != level || goal.m_numPoints <= index)
+        if (!goal.m_used || goal.m_level != level || goal.m_vertexTotal <= index)
             continue;
-        const EditedGoalPoint& point = goal.m_points[index];
+        const EditedGoalPoint& point = goal.m_pathVertices[index];
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         float dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         double dy = (static_cast<double>(point.pos.y) + point.height) - y;
@@ -284,57 +284,57 @@ bool CGoalEditorComponent::PointNearAnyGoal(const Mth::Vector& pos, float height
 }
 
 // 0x004E8240
-void CGoalEditorComponent::ClearLevelGoals()
+void CObjectiveAuthoring::ClearLevelGoals()
 {
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_used && goal.m_level != kParkEditorLevel)
             InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
     }
-    mp_current = nullptr;
+    m_activeNode = nullptr;
 }
 
 // 0x004E8280
-void CGoalEditorComponent::ClearParkGoals()
+void CObjectiveAuthoring::ClearParkGoals()
 {
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_used && goal.m_level == kParkEditorLevel)
             InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
     }
-    mp_current = nullptr;
+    m_activeNode = nullptr;
 }
 
 // 0x004E82C0
-void CGoalEditorComponent::ClearIncompleteGoals()
+void CObjectiveAuthoring::ClearIncompleteGoals()
 {
     for (CEditedGoal& goal : m_goals) {
-        if (goal.m_used && goal.m_numPoints < goal.m_minPoints)
+        if (goal.m_used && goal.m_vertexTotal < goal.m_minPoints)
             InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
     }
 }
 
 // 0x004E8300
-bool CGoalEditorComponent::AnyParkGoalOutside(float x0, float z0, float x1, float z1)
+bool CObjectiveAuthoring::AnyParkGoalOutside(float x0, float z0, float x1, float z1)
 {
     for (CEditedGoal& goal : m_goals) {
-        if (goal.m_used && goal.m_level == kParkEditorLevel && goal.m_numPoints > 1 &&
-            Outside(goal.m_points[1].pos.x, goal.m_points[1].pos.z, x0, z0, x1, z1))
+        if (goal.m_used && goal.m_level == kParkEditorLevel && goal.m_vertexTotal > 1 &&
+            Outside(goal.m_pathVertices[1].pos.x, goal.m_pathVertices[1].pos.z, x0, z0, x1, z1))
             return true;
     }
     return false;
 }
 
 // 0x004E8390
-void CGoalEditorComponent::RemoveParkGoalsOutside(float x0, float z0, float x1, float z1)
+void CObjectiveAuthoring::RemoveParkGoalsOutside(float x0, float z0, float x1, float z1)
 {
     for (CEditedGoal& goal : m_goals) {
-        if (goal.m_used && goal.m_level == kParkEditorLevel && goal.m_numPoints > 1 &&
-            Outside(goal.m_points[1].pos.x, goal.m_points[1].pos.z, x0, z0, x1, z1))
-            RemoveGoal(&goal);
+        if (goal.m_used && goal.m_level == kParkEditorLevel && goal.m_vertexTotal > 1 &&
+            Outside(goal.m_pathVertices[1].pos.x, goal.m_pathVertices[1].pos.z, x0, z0, x1, z1))
+            DropObjective(&goal);
     }
 }
 
 // 0x004E8420
-void CGoalEditorComponent::RemoveGapFromParkGoals(int gap)
+void CObjectiveAuthoring::RemoveGapFromParkGoals(int gap)
 {
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_used && goal.m_level == kParkEditorLevel && goal.m_type == kGoalTypeGap)
@@ -343,58 +343,58 @@ void CGoalEditorComponent::RemoveGapFromParkGoals(int gap)
 }
 
 // 0x004E8090
-void CGoalEditorComponent::RemoveGoal(CEditedGoal* goal)
+void CObjectiveAuthoring::DropObjective(CEditedGoal* goal)
 {
     if (goal->m_used) {
-        Game::CGoalManager* manager = Game::GetGoalManager();
+        GoalSystem::CGoalManager* manager = GoalSystem::GetObjectiveBoard();
         if (manager->GoalExists(CreatedGoalId(goal->m_goalIndex)))
-            manager->RemoveGoal(CreatedGoalId(goal->m_goalIndex));
+            manager->DropObjective(CreatedGoalId(goal->m_goalIndex));
     }
     InitEditedGoal(reinterpret_cast<uint8_t*>(goal));
-    if (mp_current == goal)
-        mp_current = nullptr;
+    if (m_activeNode == goal)
+        m_activeNode = nullptr;
 }
 
 // 0x004E7B50
-void CGoalEditorComponent::UpdateCameraCollision()
+void CObjectiveAuthoring::UpdateCameraCollision()
 {
-    CEditedGoal* goal = mp_current;
-    int kind = goal->m_numPoints ? goal->m_points[goal->m_currentPoint].kind : kPointPro;
+    CEditedGoal* goal = m_activeNode;
+    int kind = goal->m_vertexTotal ? goal->m_pathVertices[goal->m_currentPoint].kind : kPointPro;
     if (kind != kPointPro && kind != kPointStart) {
-        Camera(mp_camera)->m_simpleCollision = true;
+        Camera(m_viewCamera)->m_simpleCollision = true;
         return;
     }
-    Camera(mp_camera)->m_simpleCollision = Mdl::Skate::Instance()->m_level == kParkEditorLevel;
+    Camera(m_viewCamera)->m_simpleCollision = GameModules::Skate::Instance()->m_level == kParkEditorLevel;
 }
 
 // 0x004E7F30
-void CGoalEditorComponent::MoveCursorToCurrentPoint()
+void CObjectiveAuthoring::MoveCursorToCurrentPoint()
 {
-    const EditedGoalPoint& point = mp_current->m_points[mp_current->m_currentPoint];
-    Obj::CEditorCameraComponent* camera = Camera(mp_camera);
-    camera->m_height = point.height;
+    const EditedGoalPoint& point = m_activeNode->m_pathVertices[m_activeNode->m_currentPoint];
+    GameObjects::CEditorViewModule* camera = Camera(m_viewCamera);
+    camera->m_levelY = point.height;
     camera->m_heading = point.angle;
     camera->m_cursor = point.pos;
 }
 
 // 0x004E7FC0
-void CGoalEditorComponent::RunCursorScript()
+void CObjectiveAuthoring::RunCursorScript()
 {
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
-    Obj::CEditorCameraComponent* camera = Camera(mp_camera);
-    const Mth::Vector& cursor = camera->m_cursor;
-    params.AddVector(0x7F261953, cursor.x, cursor.y + camera->m_height, cursor.z);
-    params.AddFloat(0xFF7EBAF6, camera->m_heading);
-    Script::RunScript(0xDEA7FE56, &params, nullptr, false, nullptr);
+    GameObjects::CEditorViewModule* camera = Camera(m_viewCamera);
+    const Maths::Vector& cursor = camera->m_cursor;
+    params.PutVec3(0x7F261953, cursor.x, cursor.y + camera->m_levelY, cursor.z);
+    params.PushFloat(0xFF7EBAF6, camera->m_heading);
+    Scripts::LaunchScript(0xDEA7FE56, &params, nullptr, false, nullptr);
     params.Clear();
 }
 
 // 0x004EA580
-void CGoalEditorComponent::RefreshCursor()
+void CObjectiveAuthoring::RefreshCursor()
 {
-    CEditedGoal* goal = mp_current;
-    int kind = goal->m_numPoints ? goal->m_points[goal->m_currentPoint].kind : kPointPro;
+    CEditedGoal* goal = m_activeNode;
+    int kind = goal->m_vertexTotal ? goal->m_pathVertices[goal->m_currentPoint].kind : kPointPro;
     const char* model;
     if (kind == kPointStart) {
         model = "gameobjects\\p1_cursor\\p1_cursor.mdl";
@@ -406,22 +406,22 @@ void CGoalEditorComponent::RefreshCursor()
     } else {
         model = "gameobjects\\goal_cursor\\goal_cursor.mdl";
     }
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
-    goal = mp_current;
-    kind = goal->m_numPoints ? goal->m_points[goal->m_currentPoint].kind : kPointPro;
+    goal = m_activeNode;
+    kind = goal->m_vertexTotal ? goal->m_pathVertices[goal->m_currentPoint].kind : kPointPro;
     if (kind == kPointPro)
-        params.AddChecksum(0x7321A8D6, 0x061A741E);
+        params.PutNameKey(0x7321A8D6, 0x061A741E);
     else if (kind == kPointCheckpoint)
-        params.AddChecksum(0x7321A8D6, 0xF0FF0841);
+        params.PutNameKey(0x7321A8D6, 0xF0FF0841);
     params.AddString(0x286A8D26, model);
-    Script::RunScript(0x36791E3C, &params, m_object, false, nullptr);
+    Scripts::LaunchScript(0x36791E3C, &params, m_object, false, nullptr);
     UpdateCameraCollision();
     params.Clear();
 }
 
 // 0x004EA6C0
-void CGoalEditorComponent::NewGoal()
+void CObjectiveAuthoring::BeginFreshObjective()
 {
     ClearIncompleteGoals();
     uint32_t level = CurrentLevel();
@@ -430,7 +430,7 @@ void CGoalEditorComponent::NewGoal()
     for (bool taken = true; taken;) {
         taken = false;
         for (CEditedGoal& goal : m_goals) {
-            if (goal.m_used && goal.m_numPoints >= goal.m_minPoints && goal.m_level == level &&
+            if (goal.m_used && goal.m_vertexTotal >= goal.m_minPoints && goal.m_level == level &&
                 goal.m_goalIndex == index) {
                 ++index;
                 taken = true;
@@ -441,18 +441,18 @@ void CGoalEditorComponent::NewGoal()
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_used)
             continue;
-        mp_current = &goal;
+        m_activeNode = &goal;
         InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
-        mp_current->m_used = true;
-        mp_current->m_level = level;
-        mp_current->m_goalIndex = index;
+        m_activeNode->m_used = true;
+        m_activeNode->m_level = level;
+        m_activeNode->m_goalIndex = index;
         RefreshCursor();
         return;
     }
 }
 
 // 0x004EA780
-void CGoalEditorComponent::PlaceParkGoalsOnGround()
+void CObjectiveAuthoring::PlaceParkGoalsOnGround()
 {
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_used && goal.m_level == kParkEditorLevel)
@@ -461,47 +461,47 @@ void CGoalEditorComponent::PlaceParkGoalsOnGround()
 }
 
 // 0x004EA470
-void CGoalEditorComponent::ReadGoals(Script::CStruct* params, int parkOnly)
+void CObjectiveAuthoring::ReadGoals(Scripts::CStruct* params, int parkOnly)
 {
     if (parkOnly)
         ClearParkGoals();
     else
         ClearLevelGoals();
-    Script::CArray* goals = nullptr;
+    Scripts::CArray* goals = nullptr;
     params->GetArray(kGoalsArray, &goals, 0);
     if (!goals)
         return;
     uint32_t count = goals->m_size;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(goals->GetElement(i));
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(goals->GetElement(i));
         uint32_t level = 0;
-        entry->GetChecksum(0x651533EC, &level, 0);
+        entry->ReadHashValue(0x651533EC, &level, 0);
         bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
         if (park != (parkOnly != 0))
             continue;
         for (CEditedGoal& goal : m_goals) {
             if (!goal.m_used) {
-                goal.ReadFromStructure(entry);
+                goal.DecodeFromStruct(entry);
                 break;
             }
         }
     }
-    mp_current = nullptr;
+    m_activeNode = nullptr;
 }
 
 // 0x004EA2C0
-const uint8_t* CGoalEditorComponent::ReadLevelGoalsFromBuffer(uint32_t level, const uint8_t* buffer)
+const uint8_t* CObjectiveAuthoring::ReadLevelGoalsFromBuffer(uint32_t level, const uint8_t* buffer)
 {
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    Script::CStruct* params = NewStructure();
-    const uint8_t* end = Script::ReadFromBuffer(params, buffer);
+    Scripts::CStruct* params = NewStructure();
+    const uint8_t* end = Scripts::DecodeFromBytes(params, buffer);
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_used && goal.m_level == level)
             InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
     }
-    mp_current = nullptr;
-    Script::CArray* goals = nullptr;
+    m_activeNode = nullptr;
+    Scripts::CArray* goals = nullptr;
     params->GetArray(kGoalsArray, &goals, 1);
     uint32_t left = goals->m_size;
     uint32_t next = 0;
@@ -510,7 +510,7 @@ const uint8_t* CGoalEditorComponent::ReadLevelGoalsFromBuffer(uint32_t level, co
             break;
         if (goal.m_used)
             continue;
-        goal.ReadFromStructure(reinterpret_cast<Script::CStruct*>(goals->GetElement(next++)));
+        goal.DecodeFromStruct(reinterpret_cast<Scripts::CStruct*>(goals->GetElement(next++)));
         goal.m_level = level;
         --left;
     }
@@ -519,7 +519,7 @@ const uint8_t* CGoalEditorComponent::ReadLevelGoalsFromBuffer(uint32_t level, co
 }
 
 // 0x004EB850
-void CGoalEditorComponent::WriteGoals(Script::CStruct* out)
+void CObjectiveAuthoring::WriteGoals(Scripts::CStruct* out)
 {
     uint32_t count = 0;
     for (CEditedGoal& goal : m_goals) {
@@ -528,57 +528,57 @@ void CGoalEditorComponent::WriteGoals(Script::CStruct* out)
     }
     if (!count)
         return;
-    Script::CArray* goals = Script::NewArray();
+    Scripts::CArray* goals = Scripts::NewArray();
     goals = goals ? goals->Init() : nullptr;
-    goals->SetSizeAndType(count, Script::ESYMBOLTYPE_STRUCTURE);
+    goals->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     uint32_t index = 0;
     for (CEditedGoal& goal : m_goals) {
         if (!goal.m_used || goal.m_level == kParkEditorLevel)
             continue;
-        Script::CStruct* entry = NewStructure();
-        goal.WriteIntoStructure(entry);
+        Scripts::CStruct* entry = NewStructure();
+        goal.ExportToStruct(entry);
         goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
     }
-    out->AddArrayPointer(kGoalsArray, goals);
+    out->AppendArrayRef(kGoalsArray, goals);
 }
 
 // 0x004EBA10
-void CGoalEditorComponent::WriteLevelGoals(uint32_t level, Script::CStruct* out)
+void CObjectiveAuthoring::WriteLevelGoals(uint32_t level, Scripts::CStruct* out)
 {
     // (sized by the complete goals, filled with every used one: as the original)
     uint32_t count = static_cast<uint32_t>(CountCompleteGoals(level));
-    Script::CArray* goals = Script::NewArray();
+    Scripts::CArray* goals = Scripts::NewArray();
     goals = goals ? goals->Init() : nullptr;
-    goals->SetSizeAndType(count, Script::ESYMBOLTYPE_STRUCTURE);
+    goals->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     uint32_t index = 0;
     for (CEditedGoal& goal : m_goals) {
         if (!goal.m_used || goal.m_level != level)
             continue;
-        Script::CStruct* entry = NewStructure();
-        goal.WriteIntoStructure(entry);
+        Scripts::CStruct* entry = NewStructure();
+        goal.ExportToStruct(entry);
         goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
     }
-    out->AddArrayPointer(kGoalsArray, goals);
+    out->AppendArrayRef(kGoalsArray, goals);
 }
 
 // 0x004EBB70
-uint32_t CGoalEditorComponent::WriteLevelGoalsToBuffer(uint32_t level, uint8_t* buffer, uint32_t size)
+uint32_t CObjectiveAuthoring::WriteLevelGoalsToBuffer(uint32_t level, uint8_t* buffer, uint32_t size)
 {
-    Script::CStruct* params = NewStructure();
+    Scripts::CStruct* params = NewStructure();
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     WriteLevelGoals(level, params);
-    uint32_t written = Script::WriteToBuffer(params, buffer, size, 1, nullptr);
+    uint32_t written = Scripts::EmitIntoBuffer(params, buffer, size, 1, nullptr);
     DeleteStructure(params);
     return written;
 }
 
 // 0x004EA7C0
-bool CGoalEditorComponent::NewEditorGoal(Script::CStruct* /*params*/, Script::CScript* script)
+bool CObjectiveAuthoring::NewEditorGoal(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
-    NewGoal();
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", mp_current->m_goalIndex);
-    script->m_params->AddChecksum("goal_id", Crc::GenerateCRCFromString(CreatedGoalName()));
+    BeginFreshObjective();
+    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_activeNode->m_goalIndex);
+    script->m_params->PutNameKey("goal_id", Checksums::HashFromText(CreatedGoalName()));
     return true;
 }
 
@@ -586,106 +586,106 @@ namespace {
 
 // Whether a point can't go at the cursor: the start too near another goal's pro, or the pro too near another
 // goal's start.
-bool NearOtherGoals(CGoalEditorComponent* editor, const Mth::Vector& pos, float height)
+bool NearOtherGoals(CObjectiveAuthoring* editor, const Maths::Vector& pos, float height)
 {
-    CEditedGoal* goal = editor->mp_current;
-    if (goal->m_numPoints && goal->m_points[goal->m_currentPoint].kind == kPointStart &&
+    CEditedGoal* goal = editor->m_activeNode;
+    if (goal->m_vertexTotal && goal->m_pathVertices[goal->m_currentPoint].kind == kPointStart &&
         editor->PointNearAnyGoal(pos, height, goal->m_level, 0))
         return true;
-    goal = editor->mp_current;
-    if (!goal->m_numPoints || goal->m_points[goal->m_currentPoint].kind == kPointPro)
+    goal = editor->m_activeNode;
+    if (!goal->m_vertexTotal || goal->m_pathVertices[goal->m_currentPoint].kind == kPointPro)
         return editor->PointNearAnyGoal(pos, height, goal->m_level, 1);
     return false;
 }
 
-Obj::CControlButton* Button(Obj::CBaseComponent* input, uint32_t offset)
+GameObjects::CControlButton* Button(GameObjects::CObjectModule* input, uint32_t offset)
 {
-    return reinterpret_cast<Obj::CControlButton*>(reinterpret_cast<uint8_t*>(input) + offset);
+    return reinterpret_cast<GameObjects::CControlButton*>(reinterpret_cast<uint8_t*>(input) + offset);
 }
 
 } // namespace
 
 // 0x004EBD30
-void CGoalEditorComponent::Update()
+void CObjectiveAuthoring::Update()
 {
-    if (!mp_current) {
+    if (!m_activeNode) {
         RunCursorScript();
         return;
     }
-    Obj::CControlButton* place = Button(mp_input, 0x1C0);
-    if (place->m_triggered) {
-        place->ClearTrigger();
-        Obj::CEditorCameraComponent* camera = Camera(mp_camera);
-        Mth::Vector pos = camera->m_cursor;
-        float height = camera->m_height, angle = camera->m_heading;
+    GameObjects::CControlButton* place = Button(mp_input, 0x1C0);
+    if (place->m_fired) {
+        place->ResetActivation();
+        GameObjects::CEditorViewModule* camera = Camera(m_viewCamera);
+        Maths::Vector pos = camera->m_cursor;
+        float height = camera->m_levelY, angle = camera->m_heading;
         if (NearOtherGoals(this, pos, height)) {
-            Script::RunScript(0xAEBC7020, nullptr, m_object, false, nullptr);
-        } else if (mp_current->PlacePoint(pos, height, angle)) {
-            Script::RunScript(0x718B071B, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(0xAEBC7020, nullptr, m_object, false, nullptr);
+        } else if (m_activeNode->PlacePoint(pos, height, angle)) {
+            Scripts::LaunchScript(0x718B071B, nullptr, m_object, false, nullptr);
             RefreshCursor();
             MoveCursorToCurrentPoint();
         } else {
-            Script::RunScript(0xAEBC7020, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(0xAEBC7020, nullptr, m_object, false, nullptr);
         }
-        if (mp_current->m_lastPointPlaced)
-            Script::RunScript(0xC05E7E20, nullptr, m_object, false, nullptr);
+        if (m_activeNode->m_lastPointPlaced)
+            Scripts::LaunchScript(0xC05E7E20, nullptr, m_object, false, nullptr);
     }
-    Obj::CControlButton* back = Button(mp_input, 0x1A0);
-    if (back->m_triggered) {
-        back->ClearTrigger();
-        Obj::CEditorCameraComponent* camera = Camera(mp_camera);
-        Mth::Vector pos = camera->m_cursor;
-        float height = camera->m_height, angle = camera->m_heading;
-        if (!NearOtherGoals(this, pos, height) && mp_current->PlacePointAndStepBack(pos, height, angle)) {
-            Script::RunScript(0xFA275CC5, nullptr, m_object, false, nullptr);
+    GameObjects::CControlButton* back = Button(mp_input, 0x1A0);
+    if (back->m_fired) {
+        back->ResetActivation();
+        GameObjects::CEditorViewModule* camera = Camera(m_viewCamera);
+        Maths::Vector pos = camera->m_cursor;
+        float height = camera->m_levelY, angle = camera->m_heading;
+        if (!NearOtherGoals(this, pos, height) && m_activeNode->PlacePointAndStepBack(pos, height, angle)) {
+            Scripts::LaunchScript(0xFA275CC5, nullptr, m_object, false, nullptr);
             RefreshCursor();
             MoveCursorToCurrentPoint();
         } else {
-            Script::RunScript(0xADE100D6, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(0xADE100D6, nullptr, m_object, false, nullptr);
         }
     }
     RunCursorScript();
 }
 
 // 0x004EBC40
-void CGoalEditorComponent::Hide(bool hide)
+void CObjectiveAuthoring::Hide(bool hide)
 {
     if (hide) {
-        Script::RunScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
         return;
     }
-    Script::CStruct* params = NewStructure();
-    params->AddInteger(0x67E6859A, 0);
-    mp_input->InitFromStructure(params);
+    Scripts::CStruct* params = NewStructure();
+    params->PutInt(0x67E6859A, 0);
+    mp_input->ConfigureFromData(params);
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
     RefreshCursor();
 }
 
 // 0x004EC010
-bool CGoalEditorComponent::GetEditedGoalsInfo(Script::CStruct* params, Script::CScript* script)
+bool CObjectiveAuthoring::GetEditedGoalsInfo(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t level = 0;
-    params->GetChecksum(0x651533EC, &level, 0);
+    params->ReadHashValue(0x651533EC, &level, 0);
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     int count = CountCompleteGoals(level);
     if (!count)
         return true;
-    Script::CArray* goals = Script::NewArray();
+    Scripts::CArray* goals = Scripts::NewArray();
     goals = goals ? goals->Init() : nullptr;
-    goals->SetSizeAndType(static_cast<uint32_t>(count), Script::ESYMBOLTYPE_STRUCTURE);
+    goals->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
     uint32_t index = 0;
     for (CEditedGoal& goal : m_goals) {
-        if (!goal.m_used || (level && goal.m_level != level) || goal.m_numPoints < goal.m_minPoints)
+        if (!goal.m_used || (level && goal.m_level != level) || goal.m_vertexTotal < goal.m_minPoints)
             continue;
-        Script::CStruct* entry = NewStructure();
-        goal.WriteIntoStructure(entry);
+        Scripts::CStruct* entry = NewStructure();
+        goal.ExportToStruct(entry);
         goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
     }
-    script->m_params->AddArrayPointer("EditedGoalsInfo", goals);
+    script->m_params->AppendArrayRef("EditedGoalsInfo", goals);
     return true;
 }
 

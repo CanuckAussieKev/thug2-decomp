@@ -1,4 +1,4 @@
-// Collision geometry (CCollObjTriData) and its BSP tree (CCollBSPNode).
+// Collision geometry (CTriMeshSource) and its BSP tree (CHitTreeNode).
 
 #include "game/nx/coll_tri.h"
 
@@ -10,7 +10,7 @@
 #include "game/core/mem.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -33,29 +33,29 @@ int& s_faceBufferSize = g_faceBufferSize;
 // The compiler's float-to-integer conversion (_ftol: toward zero, the low 32 bits of the 64-bit result).
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-float Component(const Mth::Vector* v, int axis) { return (&v->x)[axis]; }
+float Component(const Maths::Vector* v, int axis) { return (&v->x)[axis]; }
 
 } // namespace
 
 // 0x0040B230
-Mth::Vector CCollObjTriData::GetRawVertexPos(int index) const
+Maths::Vector CTriMeshSource::ReadStoredVertex(int index) const
 {
     if (m_compressed) {
         const uint16_t* v = static_cast<const uint16_t*>(m_vertices) + 3 * index;
-        return {v[0] * 0.0625f + m_min.x, v[1] * 0.0625f + m_min.y, v[2] * 0.0625f + m_min.z, 0.0f};
+        return {v[0] * 0.0625f + m_lowerLimit.x, v[1] * 0.0625f + m_lowerLimit.y, v[2] * 0.0625f + m_lowerLimit.z, 0.0f};
     }
     const float* v = static_cast<const float*>(m_vertices) + 3 * index;
     return {v[0], v[1], v[2], 0.0f};
 }
 
 // 0x0040B2D0 (the uncompressed vertex copied as raw words)
-void CCollObjTriData::GetRawVertexPos(int index, Mth::Vector* out) const
+void CTriMeshSource::ReadStoredVertex(int index, Maths::Vector* out) const
 {
     if (m_compressed) {
         const uint16_t* v = static_cast<const uint16_t*>(m_vertices) + 3 * index;
-        out->x = v[0] * 0.0625f + m_min.x;
-        out->y = v[1] * 0.0625f + m_min.y;
-        out->z = v[2] * 0.0625f + m_min.z;
+        out->x = v[0] * 0.0625f + m_lowerLimit.x;
+        out->y = v[1] * 0.0625f + m_lowerLimit.y;
+        out->z = v[2] * 0.0625f + m_lowerLimit.z;
         out->w = 0.0f;
         return;
     }
@@ -64,12 +64,12 @@ void CCollObjTriData::GetRawVertexPos(int index, Mth::Vector* out) const
 }
 
 // 0x00414EE0 (x's offset isn't rounded to a float before it's scaled; y's and z's are)
-void CCollObjTriData::SetRawVertexPos(int index, const Mth::Vector* position)
+void CTriMeshSource::WriteStoredVertex(int index, const Maths::Vector* position)
 {
     if (m_compressed) {
-        double x = static_cast<double>(position->x) - m_min.x;
-        float y = static_cast<float>(static_cast<double>(position->y) - m_min.y);
-        float z = static_cast<float>(static_cast<double>(position->z) - m_min.z);
+        double x = static_cast<double>(position->x) - m_lowerLimit.x;
+        float y = static_cast<float>(static_cast<double>(position->y) - m_lowerLimit.y);
+        float z = static_cast<float>(static_cast<double>(position->z) - m_lowerLimit.z);
         uint16_t* v = static_cast<uint16_t*>(m_vertices) + 3 * index;
         v[0] = static_cast<uint16_t>(Truncate(x * kSixteen));
         v[1] = static_cast<uint16_t>(Truncate(static_cast<double>(y) * kSixteen));
@@ -80,30 +80,30 @@ void CCollObjTriData::SetRawVertexPos(int index, const Mth::Vector* position)
 }
 
 // 0x00414F90
-void CCollObjTriData::GetRawVertices(Mth::Vector* out) const
+void CTriMeshSource::GetStoredVertexArray(Maths::Vector* out) const
 {
     for (int i = 0; i < m_numVertices; ++i)
-        out[i] = GetRawVertexPos(i);
+        out[i] = ReadStoredVertex(i);
 }
 
 // 0x00415C10
-void CCollObjTriData::SetRawVertices(const Mth::Vector* positions)
+void CTriMeshSource::ChooseRawVerts(const Maths::Vector* positions)
 {
-    auto* box = reinterpret_cast<Mth::BBox*>(&m_min);
+    auto* box = reinterpret_cast<Maths::BBox*>(&m_lowerLimit);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     for (int i = 0; i < m_numVertices; ++i)
         box->AddPoint(positions[i]);
     for (int i = 0; i < m_numVertices; ++i)
-        SetRawVertexPos(i, &positions[i]);
+        WriteStoredVertex(i, &positions[i]);
 }
 
 // 0x00414D80 (one of the edge's z kept unrounded for the normal's x, as the original's x87 code does)
-Mth::Vector CCollObjTriData::GetFaceNormal(int face) const
+Maths::Vector CTriMeshSource::GetTriangleNormal(int face) const
 {
-    Mth::Vector v0 = GetRawVertexPos(FaceVertex(face, 0));
-    Mth::Vector v1 = GetRawVertexPos(FaceVertex(face, 1));
-    Mth::Vector v2 = GetRawVertexPos(FaceVertex(face, 2));
+    Maths::Vector v0 = ReadStoredVertex(FaceVertex(face, 0));
+    Maths::Vector v1 = ReadStoredVertex(FaceVertex(face, 1));
+    Maths::Vector v2 = ReadStoredVertex(FaceVertex(face, 2));
     float ax = static_cast<float>(static_cast<double>(v1.x) - v0.x);
     float ay = static_cast<float>(static_cast<double>(v1.y) - v0.y);
     float az = static_cast<float>(static_cast<double>(v1.z) - v0.z);
@@ -125,29 +125,29 @@ Mth::Vector CCollObjTriData::GetFaceNormal(int face) const
 }
 
 // 0x00415B70
-CCollObjTriData* CCollObjTriData::CopyFrom(const CCollObjTriData* other)
+CTriMeshSource* CTriMeshSource::CopyFrom(const CTriMeshSource* other)
 {
     *this = *other;
     return this;
 }
 
 // 0x00416BF0 (a failed allocation of the copy itself crashes, as in the original; so does a missing tree)
-CCollObjTriData* CCollObjTriData::Clone(int bspArgument, bool needVertices) const
+CTriMeshSource* CTriMeshSource::Clone(int bspArgument, bool needVertices) const
 {
     if (needVertices && m_numVertices == 0)
         return nullptr;
-    void* memory = Mem::New(sizeof(CCollObjTriData));
-    CCollObjTriData* copy = memory ? static_cast<CCollObjTriData*>(memory)->CopyFrom(this) : nullptr;
+    void* memory = MemSys::New(sizeof(CTriMeshSource));
+    CTriMeshSource* copy = memory ? static_cast<CTriMeshSource*>(memory)->CopyFrom(this) : nullptr;
     uint32_t vertexSize = m_numVertices * (m_compressed ? 6u : 12u);
-    copy->m_vertices = Mem::New(vertexSize);
+    copy->m_vertices = MemSys::New(vertexSize);
     uint32_t faceSize = m_numFaces * (m_smallFaces ? 8u : 10u);
-    copy->m_faces = static_cast<uint8_t*>(Mem::New(faceSize));
+    copy->m_faces = static_cast<uint8_t*>(MemSys::New(faceSize));
     if (!copy->m_vertices || !copy->m_faces)
         return nullptr;
     std::memcpy(copy->m_vertices, m_vertices, vertexSize);
     std::memcpy(copy->m_faces, m_faces, faceSize);
     if (m_vertexBytes) {
-        copy->m_vertexBytes = static_cast<uint8_t*>(Mem::New(m_numVertices));
+        copy->m_vertexBytes = static_cast<uint8_t*>(MemSys::New(m_numVertices));
         std::memcpy(copy->m_vertexBytes, m_vertexBytes, m_numVertices);
     }
     copy->m_bsp = m_bsp->Clone(bspArgument);
@@ -155,44 +155,44 @@ CCollObjTriData* CCollObjTriData::Clone(int bspArgument, bool needVertices) cons
 }
 
 // 0x00416970
-void CCollObjTriData::Destruct()
+void CTriMeshSource::Destruct()
 {
     if (m_vertices)
-        Mem::Manager::Get()->Free(m_vertices);
+        MemSys::Manager::Get()->Free(m_vertices);
     if (m_vertexBytes)
-        Mem::Manager::Get()->Free(m_vertexBytes);
+        MemSys::Manager::Get()->Free(m_vertexBytes);
     if (m_faces)
-        Mem::Manager::Get()->Free(m_faces);
+        MemSys::Manager::Get()->Free(m_faces);
     DeleteBSP();
 }
 
 // 0x00416080 (the nodes' destructor - 0x005480A0, run by delete[] for each - is empty)
-bool CCollObjTriData::DeleteBSP()
+bool CTriMeshSource::DeleteBSP()
 {
     if (!m_bsp)
         return false;
     if (uint16_t* faces = m_bsp->FirstFaceList())
-        Mem::Manager::Get()->Free(faces);
+        MemSys::Manager::Get()->Free(faces);
     if (m_bsp)
-        Mem::Manager::Get()->Free(reinterpret_cast<uint8_t*>(m_bsp) - 4);
+        MemSys::Manager::Get()->Free(reinterpret_cast<uint8_t*>(m_bsp) - 4);
     m_bsp = nullptr;
     return true;
 }
 
 // 0x004169C0
-bool CCollObjTriData::Relocate(uint32_t, uint32_t vertexBase, uint32_t vertexByteBase, uint32_t faceBase,
+bool CTriMeshSource::Relocate(uint32_t, uint32_t vertexBase, uint32_t vertexByteBase, uint32_t faceBase,
                                uint32_t nodeBase, uint32_t faceListBase)
 {
     m_vertices = reinterpret_cast<void*>(reinterpret_cast<uint32_t>(m_vertices) + vertexBase);
     m_vertexBytes = reinterpret_cast<uint8_t*>(reinterpret_cast<uint32_t>(m_vertexBytes) + vertexByteBase);
     m_faces = reinterpret_cast<uint8_t*>(reinterpret_cast<uint32_t>(m_faces) + faceBase);
-    m_bsp = reinterpret_cast<CCollBSPNode*>(reinterpret_cast<uint32_t>(m_bsp) + nodeBase);
-    CCollBSPNode::Relocate(m_bsp, nodeBase, faceListBase);
+    m_bsp = reinterpret_cast<CHitTreeNode*>(reinterpret_cast<uint32_t>(m_bsp) + nodeBase);
+    CHitTreeNode::Relocate(m_bsp, nodeBase, faceListBase);
     return true;
 }
 
 // 0x00416400
-void CCollObjTriData::Translate(const Mth::Vector* delta)
+void CTriMeshSource::Translate(const Maths::Vector* delta)
 {
     if (m_bsp)
         m_bsp->Translate(delta);
@@ -204,77 +204,77 @@ void CCollObjTriData::Translate(const Mth::Vector* delta)
             v[2] = static_cast<float>(static_cast<double>(delta->z) + v[2]);
         }
     }
-    auto moved = [delta](const Mth::Vector& p) {
-        return Mth::Vector{static_cast<float>(static_cast<double>(p.x) + delta->x),
+    auto moved = [delta](const Maths::Vector& p) {
+        return Maths::Vector{static_cast<float>(static_cast<double>(p.x) + delta->x),
                            static_cast<float>(static_cast<double>(p.y) + delta->y),
                            static_cast<float>(static_cast<double>(p.z) + delta->z),
                            static_cast<float>(static_cast<double>(p.w) + delta->w)};
     };
-    Mth::Vector min = moved(m_min);
-    Mth::Vector max = moved(m_max);
-    m_min = min;
-    m_max = max;
+    Maths::Vector min = moved(m_lowerLimit);
+    Maths::Vector max = moved(m_upperLimit);
+    m_lowerLimit = min;
+    m_upperLimit = max;
 }
 
 // 0x004164F0 (a failed allocation of the temporary array crashes - the vertices are read into null - as in the
 // original; the array's element constructor, 0x005902E0, does nothing)
-void CCollObjTriData::RotateY(const Mth::Vector* centre, int quarterTurns)
+void CTriMeshSource::RotateY(const Maths::Vector* centre, int quarterTurns)
 {
-    Mth::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
+    Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
     Translate(&back);
     if (m_bsp)
         m_bsp->RotateY(centre, quarterTurns, false);
-    Mth::Vector* positions = nullptr;
+    Maths::Vector* positions = nullptr;
     if (m_compressed) {
-        Mem::PushContext(Mem::TopDownHeap());
-        positions = static_cast<Mth::Vector*>(Mem::New(m_numVertices * sizeof(Mth::Vector)));
-        Mem::PopContext();
-        GetRawVertices(positions);
+        MemSys::EnterHeapScope(MemSys::TopDownHeap());
+        positions = static_cast<Maths::Vector*>(MemSys::New(m_numVertices * sizeof(Maths::Vector)));
+        MemSys::LeaveHeapScope();
+        GetStoredVertexArray(positions);
     }
     for (int i = 0; i < m_numVertices; ++i) {
         if (positions) {
-            positions[i].RotateY90(quarterTurns);
+            positions[i].TurnQuarterAboutY(quarterTurns);
             continue;
         }
-        Mth::Vector v;
-        GetRawVertexPos(i, &v);
-        v.RotateY90(quarterTurns);
+        Maths::Vector v;
+        ReadStoredVertex(i, &v);
+        v.TurnQuarterAboutY(quarterTurns);
         float* stored = static_cast<float*>(m_vertices) + 3 * i;
         stored[0] = v.x;
         stored[1] = v.y;
         stored[2] = v.z;
     }
-    Mth::Vector min = m_min;
-    Mth::Vector max = m_max;
-    min.RotateY90(quarterTurns);
-    max.RotateY90(quarterTurns);
-    auto* box = reinterpret_cast<Mth::BBox*>(&m_min);
+    Maths::Vector min = m_lowerLimit;
+    Maths::Vector max = m_upperLimit;
+    min.TurnQuarterAboutY(quarterTurns);
+    max.TurnQuarterAboutY(quarterTurns);
+    auto* box = reinterpret_cast<Maths::BBox*>(&m_lowerLimit);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     box->AddPoint(min);
     box->AddPoint(max);
     if (positions) {
         for (int i = 0; i < m_numVertices; ++i)
-            SetRawVertexPos(i, &positions[i]);
-        Mem::Manager::Get()->Free(positions);
+            WriteStoredVertex(i, &positions[i]);
+        MemSys::Manager::Get()->Free(positions);
     }
     Translate(centre);
     m_unknown3C = 0;
 }
 
 // 0x00416730 (a failed allocation crashes, as in RotateY)
-void CCollObjTriData::Scale(const Mth::Vector* centre, const Mth::Vector* scale)
+void CTriMeshSource::Scale(const Maths::Vector* centre, const Maths::Vector* scale)
 {
-    Mth::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
+    Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
     Translate(&back);
     if (m_bsp)
         m_bsp->Scale(centre, scale, false);
-    Mth::Vector* positions = nullptr;
+    Maths::Vector* positions = nullptr;
     if (m_compressed) {
-        Mem::PushContext(Mem::TopDownHeap());
-        positions = static_cast<Mth::Vector*>(Mem::New(m_numVertices * sizeof(Mth::Vector)));
-        Mem::PopContext();
-        GetRawVertices(positions);
+        MemSys::EnterHeapScope(MemSys::TopDownHeap());
+        positions = static_cast<Maths::Vector*>(MemSys::New(m_numVertices * sizeof(Maths::Vector)));
+        MemSys::LeaveHeapScope();
+        GetStoredVertexArray(positions);
     }
     for (int i = 0; i < m_numVertices; ++i) {
         float* v = positions ? &positions[i].x : static_cast<float*>(m_vertices) + 3 * i;
@@ -282,19 +282,19 @@ void CCollObjTriData::Scale(const Mth::Vector* centre, const Mth::Vector* scale)
         v[1] *= scale->y;
         v[2] *= scale->z;
     }
-    m_min = {m_min.x * scale->x, m_min.y * scale->y, m_min.z * scale->z, m_min.w};
-    m_max = {m_max.x * scale->x, m_max.y * scale->y, m_max.z * scale->z, m_max.w};
+    m_lowerLimit = {m_lowerLimit.x * scale->x, m_lowerLimit.y * scale->y, m_lowerLimit.z * scale->z, m_lowerLimit.w};
+    m_upperLimit = {m_upperLimit.x * scale->x, m_upperLimit.y * scale->y, m_upperLimit.z * scale->z, m_upperLimit.w};
     if (positions) {
         for (int i = 0; i < m_numVertices; ++i)
-            SetRawVertexPos(i, &positions[i]);
-        Mem::Manager::Get()->Free(positions);
+            WriteStoredVertex(i, &positions[i]);
+        MemSys::Manager::Get()->Free(positions);
     }
     Translate(centre);
     m_unknown3C = 0;
 }
 
 // 0x00414D30
-bool CCollObjTriData::SetUpAllFaces()
+bool CTriMeshSource::SetUpAllFaces()
 {
     uint16_t* table = AllFaces();
     if (table[0] != 0) {
@@ -306,10 +306,10 @@ bool CCollObjTriData::SetUpAllFaces()
 
 // 0x00414FE0 (the original also reads each face's flags and tests a sign they can't have, and reads the first
 // face's corners before each pass; neither has an effect)
-void CCollObjTriData::AddOcclusionPolys()
+void CTriMeshSource::AddOcclusionPolys()
 {
     constexpr float kSameDirection = 0.05f;
-    Mth::Vector points[4];
+    Maths::Vector points[4];
     for (int i = 0; i < m_numFaces - 1; ++i) {
         for (int j = i + 1; j < m_numFaces; ++j) {
             // the corners shared: shared[k] is face i's corner k if face j has it, other[m] face j's corner m if
@@ -331,9 +331,9 @@ void CCollObjTriData::AddOcclusionPolys()
             if (matches != 2)
                 continue;
             // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
-            Mth::Vector a = GetRawVertexPos(FaceVertex(i, 0));
-            Mth::Vector b = GetRawVertexPos(FaceVertex(i, 1));
-            Mth::Vector c = GetRawVertexPos(FaceVertex(i, 2));
+            Maths::Vector a = ReadStoredVertex(FaceVertex(i, 0));
+            Maths::Vector b = ReadStoredVertex(FaceVertex(i, 1));
+            Maths::Vector c = ReadStoredVertex(FaceVertex(i, 2));
             double cx = static_cast<double>(c.x) - a.x;
             double cy = static_cast<double>(c.y) - a.y;
             double cz = static_cast<double>(c.z) - a.z;
@@ -343,9 +343,9 @@ void CCollObjTriData::AddOcclusionPolys()
             float n1x = static_cast<float>(by * cz - bz * cy);
             float n1y = static_cast<float>(bz * cx - cz * bx);
             float n1z = static_cast<float>(cy * bx - by * cx);
-            Mth::Vector a2 = GetRawVertexPos(FaceVertex(j, 0));
-            Mth::Vector b2 = GetRawVertexPos(FaceVertex(j, 1));
-            Mth::Vector c2 = GetRawVertexPos(FaceVertex(j, 2));
+            Maths::Vector a2 = ReadStoredVertex(FaceVertex(j, 0));
+            Maths::Vector b2 = ReadStoredVertex(FaceVertex(j, 1));
+            Maths::Vector c2 = ReadStoredVertex(FaceVertex(j, 2));
             points[0] = a2;
             points[1] = b2;
             points[2] = c2;
@@ -382,22 +382,22 @@ void CCollObjTriData::AddOcclusionPolys()
                     break;
                 }
             }
-            auto corner = [this, i](int k) { return GetRawVertexPos(FaceVertex(i, k)); };
+            auto corner = [this, i](int k) { return ReadStoredVertex(FaceVertex(i, k)); };
             if (shared[0] >= 0 && shared[1] >= 0) {
                 points[0] = corner(0);
-                points[1] = GetRawVertexPos(extra);
+                points[1] = ReadStoredVertex(extra);
                 points[2] = corner(1);
                 points[3] = corner(2);
             } else if (shared[0] < 0 && shared[1] >= 0 && shared[2] >= 0) {
                 points[0] = corner(0);
                 points[1] = corner(1);
-                points[2] = GetRawVertexPos(extra);
+                points[2] = ReadStoredVertex(extra);
                 points[3] = corner(2);
             } else if (shared[0] >= 0 && shared[2] >= 0) {
                 points[0] = corner(0);
                 points[1] = corner(1);
                 points[2] = corner(2);
-                points[3] = GetRawVertexPos(extra);
+                points[3] = ReadStoredVertex(extra);
             }
             // (otherwise - not possible with two shared corners - face j's corners as they are)
             AddDebugShape(4, points, m_checksum);
@@ -407,7 +407,7 @@ void CCollObjTriData::AddOcclusionPolys()
 }
 
 // 0x00416320
-uint16_t* CCollObjTriData::GetFacesInBox(const Mth::BBox* box, int* count, uint16_t* buffer, int bufferSize)
+uint16_t* CTriMeshSource::GetFacesInBox(const Maths::BBox* box, int* count, uint16_t* buffer, int bufferSize)
 {
     if (!m_bsp) {
         *count = m_numFaces;
@@ -432,9 +432,9 @@ uint16_t* CCollObjTriData::GetFacesInBox(const Mth::BBox* box, int* count, uint1
 
 // 0x004160E0 (the less side when the box starts strictly below the split, the greater when it ends at or
 // above it; NaN takes neither; too many faces mark the count -1)
-void CCollObjTriData::GatherFaces(const CCollBSPNode* node, const Mth::BBox* box)
+void CTriMeshSource::GatherFaces(const CHitTreeNode* node, const Maths::BBox* box)
 {
-    while (!node->IsLeaf()) {
+    while (!node->IsEndNode()) {
         int axis = node->Axis();
         float split = static_cast<float>(node->Split() * static_cast<double>(kSixteenth));
         if (Component(&box->min, axis) < split)
@@ -456,7 +456,7 @@ void CCollObjTriData::GatherFaces(const CCollBSPNode* node, const Mth::BBox* box
 }
 
 // 0x004163B0
-bool CCollObjTriData::IsPointBehindFaces(const Mth::Vector* point, int unused)
+bool CTriMeshSource::IsPointBehindFaces(const Maths::Vector* point, int unused)
 {
     if (!m_bsp)
         return false;
@@ -468,9 +468,9 @@ bool CCollObjTriData::IsPointBehindFaces(const Mth::Vector* point, int unused)
 
 // 0x004161D0 (a point at or above a split ends the walk; in a leaf, the count stops at the first face the point
 // is in front of)
-bool CCollObjTriData::CountFacesBehind(const CCollBSPNode* node, const Mth::Vector* point, int unused)
+bool CTriMeshSource::CountFacesBehind(const CHitTreeNode* node, const Maths::Vector* point, int unused)
 {
-    if (!node->IsLeaf()) {
+    if (!node->IsEndNode()) {
         if (!(node->Split() * static_cast<double>(kSixteenth) > Component(point, node->Axis())))
             return true;
         return CountFacesBehind(node->LessChild(), point, unused);
@@ -478,8 +478,8 @@ bool CCollObjTriData::CountFacesBehind(const CCollBSPNode* node, const Mth::Vect
     uint32_t n = node->LeafFaceCount();
     for (uint32_t i = 0; i < n; ++i) {
         int face = node->LeafFaces()[i];
-        Mth::Vector normal = GetFaceNormal(face);
-        Mth::Vector corner = GetRawVertexPos(FaceVertex(node->LeafFaces()[i], 0));
+        Maths::Vector normal = GetTriangleNormal(face);
+        Maths::Vector corner = ReadStoredVertex(FaceVertex(node->LeafFaces()[i], 0));
         float dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
         double dy = static_cast<double>(point->y) - corner.y;
         double dz = static_cast<double>(point->z) - corner.z;
@@ -492,35 +492,35 @@ bool CCollObjTriData::CountFacesBehind(const CCollBSPNode* node, const Mth::Vect
 }
 
 // 0x00414D70
-CCollBSPNode* CCollBSPNode::Construct()
+CHitTreeNode* CHitTreeNode::Construct()
 {
-    m_split = 0;
-    m_link = 0;
+    m_axisTag = 0;
+    m_chainLink = 0;
     return this;
 }
 
 // 0x00415C90
-int CCollBSPNode::CountNodes() const
+int CHitTreeNode::TallyNodes() const
 {
-    if (IsLeaf())
+    if (IsEndNode())
         return 1;
-    int greater = GreaterChild()->CountNodes();
-    return greater + LessChild()->CountNodes() + 1;
+    int greater = GreaterChild()->TallyNodes();
+    return greater + LessChild()->TallyNodes() + 1;
 }
 
 // 0x00415CE0
-int CCollBSPNode::CountFaces() const
+int CHitTreeNode::CountFaces() const
 {
-    if (IsLeaf())
+    if (IsEndNode())
         return LeafFaceCount();
     int greater = GreaterChild()->CountFaces();
     return LessChild()->CountFaces() + greater;
 }
 
 // 0x00415D30
-uint16_t* CCollBSPNode::FirstFaceList() const
+uint16_t* CHitTreeNode::FirstFaceList() const
 {
-    if (IsLeaf())
+    if (IsEndNode())
         return LeafFaces();
     uint16_t* less = LessChild()->FirstFaceList();
     uint16_t* greater = GreaterChild()->FirstFaceList();
@@ -528,10 +528,10 @@ uint16_t* CCollBSPNode::FirstFaceList() const
 }
 
 // 0x00415D80
-void CCollBSPNode::Translate(const Mth::Vector* delta)
+void CHitTreeNode::Translate(const Maths::Vector* delta)
 {
-    CCollBSPNode* node = this;
-    while (!node->IsLeaf()) {
+    CHitTreeNode* node = this;
+    while (!node->IsEndNode()) {
         double at = node->Split() * static_cast<double>(kSixteenth) + Component(delta, node->Axis());
         node->SetSplit(Truncate(at * kSixteen));
         node->LessChild()->Translate(delta);
@@ -540,25 +540,25 @@ void CCollBSPNode::Translate(const Mth::Vector* delta)
 }
 
 // 0x00415E00
-void CCollBSPNode::RotateY(const Mth::Vector* centre, int quarterTurns, bool moveToCentre)
+void CHitTreeNode::RotateY(const Maths::Vector* centre, int quarterTurns, bool moveToCentre)
 {
     if (moveToCentre) {
-        Mth::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
+        Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
         Translate(&back);
     }
-    if (!IsLeaf()) {
+    if (!IsEndNode()) {
         int axis = Axis();
         if (axis != 1) {
             int swapped = axis == 0 ? 2 : 0;
             auto negate = [this]() {
                 SetSplit(-Split());
-                m_link ^= 1; // the sides swap
+                m_chainLink ^= 1; // the sides swap
             };
             switch (quarterTurns) {
             case 1:
                 if (axis == 0)
                     negate();
-                m_split = (m_split & ~3) | swapped;
+                m_axisTag = (m_axisTag & ~3) | swapped;
                 break;
             case 2:
                 negate();
@@ -566,7 +566,7 @@ void CCollBSPNode::RotateY(const Mth::Vector* centre, int quarterTurns, bool mov
             case 3:
                 if (axis == 2)
                     negate();
-                m_split = (m_split & ~3) | swapped;
+                m_axisTag = (m_axisTag & ~3) | swapped;
                 break;
             default:
                 break;
@@ -580,13 +580,13 @@ void CCollBSPNode::RotateY(const Mth::Vector* centre, int quarterTurns, bool mov
 }
 
 // 0x00415F30
-void CCollBSPNode::Scale(const Mth::Vector* centre, const Mth::Vector* scale, bool moveToCentre)
+void CHitTreeNode::Scale(const Maths::Vector* centre, const Maths::Vector* scale, bool moveToCentre)
 {
     if (moveToCentre) {
-        Mth::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
+        Maths::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
         Translate(&back);
     }
-    if (!IsLeaf()) {
+    if (!IsEndNode()) {
         double at = static_cast<double>(Split()) * Component(scale, Axis()) * kSixteenth;
         SetSplit(Truncate(at * kSixteen));
         LessChild()->Scale(centre, scale, false);
@@ -597,46 +597,46 @@ void CCollBSPNode::Scale(const Mth::Vector* centre, const Mth::Vector* scale, bo
 }
 
 // 0x00416000
-bool CCollBSPNode::Relocate(CCollBSPNode* node, uint32_t nodeBase, uint32_t faceBase)
+bool CHitTreeNode::Relocate(CHitTreeNode* node, uint32_t nodeBase, uint32_t faceBase)
 {
-    if (node->IsLeaf()) {
-        node->m_link = faceBase + node->m_link * 2;
+    if (node->IsEndNode()) {
+        node->m_chainLink = faceBase + node->m_chainLink * 2;
         return true;
     }
-    node->m_link = ((node->m_link & ~3u) + nodeBase) | (node->m_link & 3);
+    node->m_chainLink = ((node->m_chainLink & ~3u) + nodeBase) | (node->m_chainLink & 3);
     Relocate(node->LessChild(), nodeBase, faceBase);
     Relocate(node->GreaterChild(), nodeBase, faceBase);
     return true;
 }
 
 // 0x00416A10 (a failed allocation crashes, as in the original)
-CCollBSPNode* CCollBSPNode::Clone(int) const
+CHitTreeNode* CHitTreeNode::Clone(int) const
 {
-    int nodes = CountNodes();
+    int nodes = TallyNodes();
     int faces = CountFaces();
     if (nodes <= 0)
         return nullptr;
     uint16_t* oldFaces = FirstFaceList();
-    // new CCollBSPNode[nodes]: the count, then the nodes
-    auto* memory = static_cast<uint32_t*>(Mem::New(nodes * 8 + 4));
-    CCollBSPNode* copy = nullptr;
+    // new CHitTreeNode[nodes]: the count, then the nodes
+    auto* memory = static_cast<uint32_t*>(MemSys::New(nodes * 8 + 4));
+    CHitTreeNode* copy = nullptr;
     if (memory) {
         *memory = nodes;
-        copy = reinterpret_cast<CCollBSPNode*>(memory + 1);
+        copy = reinterpret_cast<CHitTreeNode*>(memory + 1);
         for (int i = 0; i < nodes; ++i)
             copy[i].Construct();
     }
-    auto* newFaces = static_cast<uint16_t*>(Mem::New(faces * 2));
+    auto* newFaces = static_cast<uint16_t*>(MemSys::New(faces * 2));
     std::memcpy(copy, this, nodes * 8);
     std::memcpy(newFaces, oldFaces, faces * 2);
     uint32_t nodeDelta = reinterpret_cast<uint32_t>(copy) - reinterpret_cast<uint32_t>(this);
     uint32_t faceDelta = reinterpret_cast<uint32_t>(newFaces) - reinterpret_cast<uint32_t>(oldFaces);
     for (int i = 0; i < nodes; ++i) {
-        CCollBSPNode& node = copy[i];
-        if (node.IsLeaf())
-            node.m_link += faceDelta;
+        CHitTreeNode& node = copy[i];
+        if (node.IsEndNode())
+            node.m_chainLink += faceDelta;
         else
-            node.m_link = ((node.m_link & ~3u) + nodeDelta) | (node.m_link & 3);
+            node.m_chainLink = ((node.m_chainLink & ~3u) + nodeDelta) | (node.m_chainLink & 3);
     }
     return copy;
 }

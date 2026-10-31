@@ -27,7 +27,7 @@
 #include "game/gfx/engine.h"
 #include "game/gfx/glow.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t g_shadowTriangles[20480];
 bool g_twoSidedStencil;
@@ -36,12 +36,12 @@ float g_shadowViewport[4]{256.0f, 256.0f, 256.0f, 256.0f};
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-Lst::HashTable* Casters() { return g_shadowCasters; }
+ListKit::HashTable* Casters() { return g_shadowCasters; }
 float* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
 float* ProjectionMatrix() { return reinterpret_cast<float*>(&g_projectionMatrix); }
 const float* WorldMatrix() { return reinterpret_cast<float*>(&g_worldMatrix); }
 uint8_t& CustomTransforms() { return g_camera.customTransforms; } // the view / projection aren't the camera's
-bool SkipRender() { return g_skipRender; }
+bool OmitFromDraw() { return g_skipRender; }
 uint32_t& Fog() { return g_fogEnabled; }
 uint32_t& DepthBias() { return g_depthBias; }
 uint32_t& CullMode() { return g_cullMode; }
@@ -90,11 +90,11 @@ void MatrixOrtho(float* out, float width, float height, float nearZ, float farZ)
 }
 
 // The models' meshes (not rewritten yet; thiscall).
-int MeshCount(void* model) { return static_cast<CModel*>(model)->GetNumGeoms(); }
-void* Mesh(void* model, int index) { return static_cast<CModel*>(model)->GetGeom(index); }
-void DrawMesh(void* mesh, int flags) { RenderInstance(static_cast<sInstance*>(mesh), static_cast<uint32_t>(flags)); }
+int MeshCount(void* model) { return static_cast<CRenderModel*>(model)->FetchGeomTotal(); }
+void* Mesh(void* model, int index) { return static_cast<CRenderModel*>(model)->FetchGeom(index); }
+void DrawMesh(void* mesh, int flags) { RenderInstance(static_cast<sSingleton*>(mesh), static_cast<uint32_t>(flags)); }
 // A scene mesh's draw (thiscall).
-void DrawSceneMesh(void* mesh) { static_cast<sMesh*>(mesh)->Render(); }
+void DrawSceneMesh(void* mesh) { static_cast<meshRef*>(mesh)->Render(); }
 
 void Identity(float* m)
 {
@@ -105,8 +105,8 @@ void Identity(float* m)
 // The caster with this key (the table's own inlined lookup: the first item with the key and a value).
 ShadowCaster* FindCaster(uint32_t key)
 {
-    Lst::HashTable* table = Casters();
-    Lst::HashTable::Item* item = table->m_buckets + (key & ((1u << table->m_bits) - 1));
+    ListKit::HashTable* table = Casters();
+    ListKit::HashTable::Item* item = table->m_buckets + (key & ((1u << table->m_bits) - 1));
     for (; item; item = item->next) {
         if (item->key == key && item->value)
             return static_cast<ShadowCaster*>(item->value);
@@ -117,14 +117,14 @@ ShadowCaster* FindCaster(uint32_t key)
 // Iterate the casters: the first (or next) one, or null at the end (an empty slot's null ends it too).
 ShadowCaster* NextCaster()
 {
-    Lst::HashTable* table = Casters();
-    if (!table->IterateNext() || !table->m_iterItem)
+    ListKit::HashTable* table = Casters();
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return static_cast<ShadowCaster*>(table->m_iterItem->value);
 }
 ShadowCaster* FirstCaster()
 {
-    Lst::HashTable* table = Casters();
+    ListKit::HashTable* table = Casters();
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
     return NextCaster();
@@ -222,18 +222,18 @@ void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
         uint32_t flags = *reinterpret_cast<uint32_t*>(mesh);
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
-        if (!SphereInView(reinterpret_cast<const Mth::Vector*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
+        if (!SphereInView(reinterpret_cast<const Maths::Vector*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
             continue;
         if (!TwoSidedStencil()) {
             // One side's faces, then the other's.
             SetState(kCullMode, D3DCULL_CW);
-            SetBlendMode(0x10000002);
+            ChooseBlendMode(0x10000002);
             DrawSceneMesh(mesh);
             SetState(kCullMode, D3DCULL_CCW);
-            SetBlendMode(0x10000004);
+            ChooseBlendMode(0x10000004);
         } else {
             SetState(kCullMode, D3DCULL_NONE);
-            SetBlendMode(0x30000006);
+            ChooseBlendMode(0x30000006);
         }
         DrawSceneMesh(mesh);
     }
@@ -246,7 +246,7 @@ void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
 // 0x004DBBD0
 void __cdecl RenderShadowTextures()
 {
-    if (SkipRender())
+    if (OmitFromDraw())
         return;
     float savedView[16], savedProjection[16];
     std::memcpy(savedView, ViewMatrix(), sizeof(savedView));
@@ -258,7 +258,7 @@ void __cdecl RenderShadowTextures()
     Device()->GetDepthStencilSurface(&depth);
     if (Fog()) {
         Fog() = 0;
-        Nx::SetRenderState(D3DRS_FOGENABLE, FALSE);
+        Engine3D::SetRenderState(D3DRS_FOGENABLE, FALSE);
     }
     for (ShadowCaster* caster = FirstCaster(); caster; caster = NextCaster()) {
         if (!caster->model)
@@ -319,7 +319,7 @@ void __cdecl RenderShadowTextures()
 // 0x004DBF50
 void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
 {
-    if (SkipRender())
+    if (OmitFromDraw())
         return;
     DWORD savedMinFilter;
     Device()->GetSamplerState(0, D3DSAMP_MINFILTER, &savedMinFilter);
@@ -329,7 +329,7 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
     uint32_t savedFog = Fog();
     if (Fog()) {
         Fog() = 0;
-        Nx::SetRenderState(D3DRS_FOGENABLE, FALSE);
+        Engine3D::SetRenderState(D3DRS_FOGENABLE, FALSE);
     }
     for (ShadowCaster* caster = FirstCaster(); caster; caster = NextCaster()) {
         float savedView[16], savedProjection[16];
@@ -364,7 +364,7 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
         float identity[16];
         Identity(identity);
         Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(identity));
-        SetBlendMode(0xF);
+        ChooseBlendMode(0xF);
         std::memcpy(ViewMatrix(), caster->view, sizeof(caster->view));
         std::memcpy(ProjectionMatrix(), caster->projection, sizeof(caster->projection));
         CustomTransforms() = 1;
@@ -376,7 +376,7 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
             auto* mesh = static_cast<uint8_t*>(meshes[i]);
             if (mesh[0] & 2)
                 continue;
-            if (!SphereInView(reinterpret_cast<const Mth::Vector*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
+            if (!SphereInView(reinterpret_cast<const Maths::Vector*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
                 continue;
             SetVertexFormat(D3DFVF_XYZ | D3DFVF_TEX1);
             ProjectShadowVertices(*reinterpret_cast<const float**>(mesh + 0xB0), *reinterpret_cast<uint32_t*>(mesh + 0xAC),
@@ -419,8 +419,8 @@ void __cdecl RemoveShadowCaster(uint32_t key)
     ShadowCaster* caster = FindCaster(key);
     if (!caster)
         return;
-    Casters()->FlushItem(key);
-    Mem::Manager::Instance()->Free(caster);
+    Casters()->EraseEntry(key);
+    MemSys::Manager::Instance()->Free(caster);
 }
 
 // 0x004DB100
@@ -443,14 +443,14 @@ void __cdecl AimShadowCaster(uint32_t key, const float* position, const float* t
 // 0x004DDC90
 void __cdecl AddShadowCaster(uint8_t* target, void* model, uint32_t unknown)
 {
-    auto* caster = static_cast<ShadowCaster*>(Mem::New(sizeof(ShadowCaster)));
+    auto* caster = static_cast<ShadowCaster*>(MemSys::New(sizeof(ShadowCaster)));
     caster->unknown8 = unknown;
     caster->model = model;
     caster->target = target;
     Identity(caster->view);
     Identity(caster->projection);
     uint32_t key = reinterpret_cast<uint32_t>(target);
-    Casters()->PutItem(key, caster);
+    Casters()->StoreEntry(key, caster);
 }
 
 // NOT ORIGINAL

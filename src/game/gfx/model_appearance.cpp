@@ -1,4 +1,4 @@
-// The model appearance (Gfx::CModelAppearance): see model_appearance.h. From the disassembly of
+// The model appearance (Gfx2D::CModelLook): see model_appearance.h. From the disassembly of
 // 0x00488DB0-0x004897BE (and 0x004890E0 / 0x004891F0, which Ghidra didn't make functions).
 
 #include "game/gfx/model_appearance.h"
@@ -17,7 +17,7 @@
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 namespace {
 
@@ -60,210 +60,210 @@ const uint32_t kTattoos[] = {
     0x609432CA, // right_leg_tattoo
 };
 
-// The CAS part lists (not rewritten yet, cdecl): the option `descId` of the slot `part`'s list; a random option of
+// The CAS part lists (not rewritten yet, cdecl): the option `descriptorId` of the slot `part`'s list; a random option of
 // it (made with `randomSet`); the option at `index`.
-Script::CStruct* CasOption(uint32_t part, uint32_t descId, bool assert)
+Scripts::CStruct* CasOption(uint32_t part, uint32_t descriptorId, bool assert)
 {
-    return Obj::FindCasOption(part, descId, assert);
+    return GameObjects::FindCasOption(part, descriptorId, assert);
 }
-Script::CStruct* RandomCasOption(uint32_t part, uint32_t randomSet)
+Scripts::CStruct* RandomCasOption(uint32_t part, uint32_t randomSet)
 {
-    return Obj::PickRandomCasOption(part, randomSet);
+    return GameObjects::PickRandomCasOption(part, randomSet);
 }
-Script::CStruct* CasOptionAt(uint32_t part, int index, uint32_t randomSet)
+Scripts::CStruct* CasOptionAt(uint32_t part, int index, uint32_t randomSet)
 {
-    return Obj::GetCasOptionByIndex(part, index, randomSet);
+    return GameObjects::GetCasOptionByIndex(part, index, randomSet);
 }
 
 // A face texture constructed (0x004875C0, returns this).
 // Whether a face texture holds one (0x00487510) / set so (0x00487520) - called through the game (the tests script them).
-bool FaceTextureIsValid(CFaceTexture* face) { return face->IsValid(); }
-void SetFaceTextureValid(CFaceTexture* face, bool valid)
+bool FaceTextureIsValid(CFaceSkin* face) { return face->IsValid(); }
+void SetFaceTextureValid(CFaceSkin* face, bool valid)
 {
-    face->SetValid(valid);
+    face->MarkUsable(valid);
 }
 
-CFaceTexture* ConstructFaceTexture(void* memory)
+CFaceSkin* ConstructFaceTexture(void* memory)
 {
-    return static_cast<CFaceTexture*>(memory)->Construct();
+    return static_cast<CFaceSkin*>(memory)->Construct();
 }
 
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.
-Script::CStruct* NewTempStruct()
+Scripts::CStruct* NewTempStruct()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteTempStruct(Script::CStruct* s)
+void DeleteTempStruct(Scripts::CStruct* s)
 {
     if (s) {
         s->Clear();
-        Script::DeleteStruct(s);
+        Scripts::DeleteStruct(s);
     }
 }
 
 } // namespace
 
 // 0x00488EA0
-CModelAppearance* CModelAppearance::Construct()
+CModelLook* CModelLook::Construct()
 {
     CObject::Construct();
     m_vtable = kVtable;
     m_structure.Init();
-    mp_faceTexture = nullptr;
+    m_faceSkin = nullptr;
     m_hasFaceTexture = false;
     return this;
 }
 
 // 0x004890F0
-void CModelAppearance::DestroyBody()
+void CModelLook::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_faceTexture) {
-        Mem::Manager::Get()->Free(mp_faceTexture);
-        mp_faceTexture = nullptr;
+    if (m_faceSkin) {
+        MemSys::Manager::Get()->Free(m_faceSkin);
+        m_faceSkin = nullptr;
     }
     m_structure.Clear();
     CObject::DestroyBody();
 }
 
 // 0x00489370
-CModelAppearance* CModelAppearance::Destroy(unsigned int flags)
+CModelLook* CModelLook::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00488F00
-bool CModelAppearance::Reset()
+bool CModelLook::Reset()
 {
     m_structure.Clear();
-    if (mp_faceTexture)
-        SetFaceTextureValid(mp_faceTexture, false);
-    if (Script::CStruct* defaults = Script::GetStructure(kAppearanceInitStructure))
+    if (m_faceSkin)
+        SetFaceTextureValid(m_faceSkin, false);
+    if (Scripts::CStruct* defaults = Scripts::ReadSubStruct(kAppearanceInitStructure))
         m_structure.AppendStructureIfAny(defaults);
     m_hasFaceTexture = false;
     return true;
 }
 
 // 0x00488F40
-bool CModelAppearance::Load(Script::CStruct* appearance, bool resolve)
+bool CModelLook::Load(Scripts::CStruct* appearance, bool resolve)
 {
     m_structure.Clear();
-    if (mp_faceTexture)
-        SetFaceTextureValid(mp_faceTexture, false);
-    if (Script::CStruct* defaults = Script::GetStructure(kAppearanceInitStructure))
+    if (m_faceSkin)
+        SetFaceTextureValid(m_faceSkin, false);
+    if (Scripts::CStruct* defaults = Scripts::ReadSubStruct(kAppearanceInitStructure))
         m_structure.AppendStructureIfAny(defaults);
     m_hasFaceTexture = false;
-    appearance->ExpandInto(&m_structure, 0);
+    appearance->InlineInto(&m_structure, 0);
     if (resolve)
         ResolveRandomParts();
     return true;
 }
 
-// 0x00488FA0 (the global's lookup asserts: Script::GetStructure(name, 1) - the assert compiled out)
-bool CModelAppearance::LoadByName(uint32_t name, bool resolve) { return Load(Script::GetStructure(name), resolve); }
+// 0x00488FA0 (the global's lookup asserts: Scripts::ReadSubStruct(name, 1) - the assert compiled out)
+bool CModelLook::LoadByName(uint32_t name, bool resolve) { return Load(Scripts::ReadSubStruct(name), resolve); }
 
 // 0x00488DB0
-void CModelAppearance::ResolveRandomParts()
+void CModelLook::ResolveRandomParts()
 {
     uint32_t randomSet = 0; // (the last choice's random_set, carried on to the next)
-    Script::CComponent* next;
-    for (Script::CComponent* component = m_structure.GetNextComponent(nullptr); component; component = next) {
-        next = m_structure.GetNextComponent(component);
-        if (component->Type() != Script::ESYMBOLTYPE_STRUCTURE)
+    Scripts::CComponent* next;
+    for (Scripts::CComponent* component = m_structure.StepToEntry(nullptr); component; component = next) {
+        next = m_structure.StepToEntry(component);
+        if (component->Type() != Scripts::QBVAL_STRUCT)
             continue;
         uint32_t part = component->name;
-        Script::CStruct* option;
-        if (component->structure->ContainsFlag(kRandomizedDescId)) {
+        Scripts::CStruct* option;
+        if (component->structure->HasBareFlag(kRandomizedDescId)) {
             option = RandomCasOption(part, randomSet);
         } else {
             int index;
-            if (!component->structure->GetInteger(kRandomIndex, &index, 0))
+            if (!component->structure->FetchIntValue(kRandomIndex, &index, 0))
                 continue;
             option = CasOptionAt(part, index, randomSet);
         }
-        option->GetChecksum(kRandomSet, &randomSet, 0);
+        option->ReadHashValue(kRandomSet, &randomSet, 0);
         component->structure->Clear();
-        uint32_t descId = 0;
-        option->GetChecksum(kDescId, &descId, 0);
-        component->structure->AddChecksum(kDescId, descId);
+        uint32_t descriptorId = 0;
+        option->ReadHashValue(kDescId, &descriptorId, 0);
+        component->structure->PutNameKey(kDescId, descriptorId);
     }
 }
 
 // 0x00488FD0
-void RemoveTattoos(Script::CStruct* appearance)
+void RemoveTattoos(Scripts::CStruct* appearance)
 {
     for (uint32_t tattoo : kTattoos)
         appearance->RemoveComponent(tattoo);
 }
 
 // 0x00489050
-Script::CStruct* CModelAppearance::GetPartOption(uint32_t part)
+Scripts::CStruct* CModelLook::GetPartOption(uint32_t part)
 {
-    Script::CStruct* slot;
-    if (!m_structure.GetStructure(part, &slot, 0))
+    Scripts::CStruct* slot;
+    if (!m_structure.ReadSubStruct(part, &slot, 0))
         return nullptr;
-    uint32_t descId = 0;
-    slot->GetChecksum(kDescId, &descId, 0);
-    return CasOption(part, descId, false);
+    uint32_t descriptorId = 0;
+    slot->ReadHashValue(kDescId, &descriptorId, 0);
+    return CasOption(part, descriptorId, false);
 }
 
 // 0x004890B0
-Script::CStruct* CModelAppearance::GetPart(uint32_t part)
+Scripts::CStruct* CModelLook::GetPart(uint32_t part)
 {
-    Script::CStruct* slot = nullptr;
-    m_structure.GetStructure(part, &slot, 0);
+    Scripts::CStruct* slot = nullptr;
+    m_structure.ReadSubStruct(part, &slot, 0);
     return slot;
 }
 
 // 0x004890E0
-bool CModelAppearance::HasFaceTexture() { return m_hasFaceTexture; }
+bool CModelLook::HasFaceTexture() { return m_hasFaceTexture; }
 
 // 0x004891F0
-void CModelAppearance::SetPart(uint32_t part, uint32_t descId, Script::CStruct* params)
+void CModelLook::SetPart(uint32_t part, uint32_t descriptorId, Scripts::CStruct* params)
 {
-    Script::CStruct* slot;
-    if (!m_structure.GetStructure(part, &slot, 0)) {
+    Scripts::CStruct* slot;
+    if (!m_structure.ReadSubStruct(part, &slot, 0)) {
         slot = NewTempStruct();
         m_structure.AddComponentOfType(part, kOwnedStructure, reinterpret_cast<uint32_t>(slot));
     }
     slot->Clear();
     int useDefaultHsv = 1;
-    params->GetInteger(kUseDefaultHsv, &useDefaultHsv, 0);
+    params->FetchIntValue(kUseDefaultHsv, &useDefaultHsv, 0);
     if (!useDefaultHsv) {
         // (asserted; missing, h is what the original's stack slot held - `params` itself - and s / v garbage)
         int h = static_cast<int>(reinterpret_cast<uintptr_t>(params)), s = 0, v = 0;
-        params->GetInteger(kH, &h, 1);
-        params->GetInteger(kS, &s, 1);
-        params->GetInteger(kV, &v, 1);
-        slot->AddInteger(kUseDefaultHsv, 0);
-        slot->AddInteger(kH, h);
-        slot->AddInteger(kS, s);
-        slot->AddInteger(kV, v);
+        params->FetchIntValue(kH, &h, 1);
+        params->FetchIntValue(kS, &s, 1);
+        params->FetchIntValue(kV, &v, 1);
+        slot->PutInt(kUseDefaultHsv, 0);
+        slot->PutInt(kH, h);
+        slot->PutInt(kS, s);
+        slot->PutInt(kV, v);
     }
-    slot->AddChecksum(kDescId, descId);
+    slot->PutNameKey(kDescId, descriptorId);
 }
 
 // 0x004894D0. The names are asserted; a missing one is what the original's stack slot held (the `params` or
 // `script` argument's).
-bool CModelAppearance::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+bool CModelLook::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     auto slotOf = [](const void* argument) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(argument)); };
     switch (name) {
     case kSetPart: {
-        uint32_t part = slotOf(script), descId = slotOf(params);
-        params->GetChecksum(kPart, &part, 1);
-        params->GetChecksum(kDescId, &descId, 1);
-        SetPart(part, descId, params);
+        uint32_t part = slotOf(script), descriptorId = slotOf(params);
+        params->ReadHashValue(kPart, &part, 1);
+        params->ReadHashValue(kDescId, &descriptorId, 1);
+        SetPart(part, descriptorId, params);
         return true;
     }
     case kGetPart: {
         uint32_t part = slotOf(params);
-        params->GetChecksum(kPart, &part, 1);
-        Script::CStruct* slot = GetPart(part);
+        params->ReadHashValue(kPart, &part, 1);
+        Scripts::CStruct* slot = GetPart(part);
         if (!slot)
             return false;
         script->m_params->AppendStructureIfAny(slot);
@@ -271,61 +271,61 @@ bool CModelAppearance::CallMemberFunction(uint32_t name, Script::CStruct* params
     }
     case kClearPart: {
         uint32_t part = slotOf(params);
-        params->GetChecksum(kPart, &part, 1);
+        params->ReadHashValue(kPart, &part, 1);
         m_structure.RemoveComponent(part);
         return true;
     }
     case kGotPart: {
         uint32_t part = slotOf(params);
-        params->GetChecksum(kPart, &part, 1);
+        params->ReadHashValue(kPart, &part, 1);
         return GetPartOption(part) != nullptr;
     }
     case kPartGotFlag: {
         uint32_t part = slotOf(params), flag = slotOf(script);
-        params->GetChecksum(kPart, &part, 1);
-        params->GetChecksum(kFlag, &flag, 1);
-        Script::CStruct* option = GetPartOption(part);
+        params->ReadHashValue(kPart, &part, 1);
+        params->ReadHashValue(kFlag, &flag, 1);
+        Scripts::CStruct* option = GetPartOption(part);
         if (!option)
             return false;
-        return option->ContainsFlag(flag);
+        return option->HasBareFlag(flag);
     }
     case kSetChecksum: {
         uint32_t field = slotOf(script), value = slotOf(params);
-        params->GetChecksum(kField, &field, 1);
-        params->GetChecksum(kValue, &value, 1);
-        m_structure.AddChecksum(field, value);
+        params->ReadHashValue(kField, &field, 1);
+        params->ReadHashValue(kValue, &value, 1);
+        m_structure.PutNameKey(field, value);
         return true;
     }
     default:
-        return CObject::CallMemberFunction(name, params, script);
+        return CObject::InvokeMethodByName(name, params, script);
     }
 }
 
 // 0x00489160
-void CModelAppearance::MakeFaceTexture()
+void CModelLook::MakeFaceTexture()
 {
-    void* memory = Mem::Calloc(sizeof(CFaceTexture));
-    mp_faceTexture = memory ? ConstructFaceTexture(memory) : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CFaceSkin));
+    m_faceSkin = memory ? ConstructFaceTexture(memory) : nullptr;
 }
 
 // 0x004891D0
-void CModelAppearance::FreeFaceTexture()
+void CModelLook::FreeFaceTexture()
 {
-    if (mp_faceTexture) {
-        Mem::Manager::Get()->Free(mp_faceTexture);
-        mp_faceTexture = nullptr;
+    if (m_faceSkin) {
+        MemSys::Manager::Get()->Free(m_faceSkin);
+        m_faceSkin = nullptr;
     }
 }
 
 // 0x004893A0
-CModelAppearance* CModelAppearance::CopyFrom(CModelAppearance* other)
+CModelLook* CModelLook::CopyFrom(CModelLook* other)
 {
     if (other != this) {
         m_structure.Assign(&other->m_structure);
         FreeFaceTexture();
-        if (other->mp_faceTexture) {
+        if (other->m_faceSkin) {
             MakeFaceTexture();
-            std::memcpy(mp_faceTexture, other->mp_faceTexture, sizeof(CFaceTexture));
+            std::memcpy(m_faceSkin, other->m_faceSkin, sizeof(CFaceSkin));
         }
         m_hasFaceTexture = other->m_hasFaceTexture;
     }
@@ -333,29 +333,29 @@ CModelAppearance* CModelAppearance::CopyFrom(CModelAppearance* other)
 }
 
 // 0x004896A0
-int CModelAppearance::WriteToBuffer(uint8_t* buffer, int size, bool noFaceTexture)
+int CModelLook::EmitIntoBuffer(uint8_t* buffer, int size, bool noFaceTexture)
 {
-    Script::CStruct* copy = NewTempStruct();
+    Scripts::CStruct* copy = NewTempStruct();
     copy->AppendStructureIfAny(&m_structure); // (no memory: a crash, as the original)
-    auto bytes = Script::WriteToBuffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
+    auto bytes = Scripts::EmitIntoBuffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
     if (bytes > static_cast<uint32_t>(kMaxBufferBytes)) {
         RemoveTattoos(copy);
-        bytes = Script::WriteToBuffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
+        bytes = Scripts::EmitIntoBuffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
     }
     DeleteTempStruct(copy);
     uint8_t* end = buffer + bytes;
     if (noFaceTexture)
         *end = 0;
     else
-        *end = (mp_faceTexture && FaceTextureIsValid(mp_faceTexture)) || m_hasFaceTexture;
+        *end = (m_faceSkin && FaceTextureIsValid(m_faceSkin)) || m_hasFaceTexture;
     return static_cast<int>(bytes) + 1;
 }
 
 // 0x00489400
-uint8_t* CModelAppearance::ReadFromBuffer(uint8_t* buffer)
+uint8_t* CModelLook::DecodeFromBytes(uint8_t* buffer)
 {
-    Script::CStruct* read = NewTempStruct();
-    uint8_t* end = const_cast<uint8_t*>(Script::ReadFromBuffer(read, buffer));
+    Scripts::CStruct* read = NewTempStruct();
+    uint8_t* end = const_cast<uint8_t*>(Scripts::DecodeFromBytes(read, buffer));
     m_structure.Clear();
     m_structure.AppendStructureIfAny(read);
     DeleteTempStruct(read);
@@ -364,10 +364,10 @@ uint8_t* CModelAppearance::ReadFromBuffer(uint8_t* buffer)
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Gfx::CModelAppearance::Destroy, &Obj::CObject::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &Gfx::CModelAppearance::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue};
+static VtableSlot kVtable_slots[] = {&Gfx2D::CModelLook::Destroy, &GameObjects::CObject::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &Gfx2D::CModelLook::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

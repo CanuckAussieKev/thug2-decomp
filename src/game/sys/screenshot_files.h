@@ -8,7 +8,7 @@
 
 // NOT ORIGINAL - the screenshot key's pure parts (ours; see game/sys/screenshot.h): the file names, the back buffer's
 // pixels made RGB, the PNG (stb_image_write) and the sidecar text. No game state, no renderer.
-namespace Sys::Screenshot {
+namespace SystemCore::Screenshot {
 
 // --- the key -----------------------------------------------------------------------------------------------------
 
@@ -85,4 +85,4 @@ struct Section {
 std::string FormatSidecar(const std::string& heading, const std::vector<Section>& sections,
                           const std::vector<std::string>& logTail);
 
-} // namespace Sys::Screenshot
+} // namespace SystemCore::Screenshot

@@ -9,7 +9,7 @@
 #include "game/front/level_editor_hud.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Goals {
+namespace MenuSystem::LevelEditor::Goals {
 
 namespace {
 
@@ -156,7 +156,7 @@ void Settings(const Goal& goal, ImFont* mono)
                 g.accelPercent = percent / 100.0f;
                 changed = true;
             }
-            if (IntField("Trick time##goal", &g.trickTime, 5.0f, 5, 3000, "%d", &done))
+            if (IntField("Trick time##goal", &g.comboTime, 5.0f, 5, 3000, "%d", &done))
                 changed = true;
             if (IntField("Stop adding at##goal", &g.stopAt, 0.5f, 5, std::max(5, g.time - 5), "%d s", &done))
                 changed = true;
@@ -315,4 +315,4 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     ImGui::PopFont();
 }
 
-} // namespace Front::LevelEditor::Goals
+} // namespace MenuSystem::LevelEditor::Goals

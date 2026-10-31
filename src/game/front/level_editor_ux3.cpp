@@ -19,7 +19,7 @@
 #include "game/front/level_editor_ui.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Ux3 {
+namespace MenuSystem::LevelEditor::Ux3 {
 
 namespace {
 
@@ -279,4 +279,4 @@ void Revert(const ChangeRow& row)
     });
 }
 
-} // namespace Front::LevelEditor::Ux3
+} // namespace MenuSystem::LevelEditor::Ux3

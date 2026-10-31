@@ -43,7 +43,7 @@
 #include "game/sys/log.h"
 #include "game/skate/skate_module.h"
 
-namespace Front::LevelEditor::Chains {
+namespace MenuSystem::LevelEditor::Chains {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
@@ -528,8 +528,8 @@ std::vector<uint8_t> SpeedBody(uint32_t original, float rate)
         out.push_back(0x2C); // (<...>: its arguments passed on)
         out.push_back(0x01);
     }
-    PutName(&out, Crc::GenerateCRCFromString("ed_RailSpeed"));
-    PutName(&out, Crc::GenerateCRCFromString("rate"));
+    PutName(&out, Checksums::HashFromText("ed_RailSpeed"));
+    PutName(&out, Checksums::HashFromText("rate"));
     out.push_back(0x07);
     out.push_back(0x1A);
     uint32_t bits;
@@ -544,7 +544,7 @@ std::vector<uint8_t> SpeedQbFile(const std::vector<SpeedScript>& scripts)
     std::vector<uint8_t> out;
     for (const SpeedScript& s : scripts) {
         out.push_back(0x23);
-        PutName(&out, Crc::GenerateCRCFromString(SpeedScriptName(s.node).c_str()));
+        PutName(&out, Checksums::HashFromText(SpeedScriptName(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = SpeedBody(s.original, s.rate);
         out.insert(out.end(), body.begin(), body.end());
@@ -554,7 +554,7 @@ std::vector<uint8_t> SpeedQbFile(const std::vector<SpeedScript>& scripts)
     for (const SpeedScript& s : scripts) {
         std::string name = SpeedScriptName(s.node);
         out.push_back(0x2B);
-        Put4(&out, Crc::GenerateCRCFromString(name.c_str()));
+        Put4(&out, Checksums::HashFromText(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);
     }
@@ -781,26 +781,26 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;   // links
 constexpr uint32_t kPos = 0x7F261953;     // pos
 constexpr uint32_t kTerrainType = 0x54CF8532; // TerrainType
 
-uint32_t Checksum(const std::string& text) { return Crc::GenerateCRCFromString(text.c_str()); }
+uint32_t Checksum(const std::string& text) { return Checksums::HashFromText(text.c_str()); }
 
-bool InLevel() { return SkateScript::NodeManagerInstance() != nullptr && Scenery::MainScene() != nullptr; }
+bool InLevel() { return LevelNodes::NodeManagerInstance() != nullptr && Scenery::MainScene() != nullptr; }
 
-Script::CStruct* NodeStruct(uint32_t name)
+Scripts::CStruct* NodeStruct(uint32_t name)
 {
-    return name && SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
 }
 
-// The level's rail manager (Mdl::Skate +0x24; null when there is none or its rails ride an object).
-Obj::CRailManager* Rails()
+// The level's rail manager (GameModules::Skate +0x24; null when there is none or its rails ride an object).
+GameObjects::CGrindRailHub* Rails()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
-    auto* manager = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
+    auto* manager = skate ? *reinterpret_cast<GameObjects::CGrindRailHub**>(skate + 0x24) : nullptr;
     return manager && !manager->m_onObject ? manager : nullptr;
 }
 
-Obj::CRailNode* RailNodeNamed(uint32_t name)
+GameObjects::CGrindPoint* RailNodeNamed(uint32_t name)
 {
-    Obj::CRailManager* rails = Rails();
+    GameObjects::CGrindRailHub* rails = Rails();
     if (!rails || !rails->m_nodes)
         return nullptr;
     for (int i = 0; i < rails->m_count; ++i) {
@@ -811,13 +811,13 @@ Obj::CRailNode* RailNodeNamed(uint32_t name)
 }
 
 // A structure's own links= (not an included structure's) as names.
-std::vector<uint32_t> OwnLinks(Script::CStruct* node)
+std::vector<uint32_t> OwnLinks(Scripts::CStruct* node)
 {
     std::vector<uint32_t> links;
     if (!node)
         return links;
-    for (Script::CComponent* c = node->m_head; c; c = c->next) {
-        if (c->name == kLinks && (c->Type() == Script::ESYMBOLTYPE_ARRAY || c->Type() == Script::ESYMBOLTYPE_ARRAYPOINTER) &&
+    for (Scripts::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kLinks && (c->Type() == Scripts::QBVAL_ARRAY || c->Type() == Scripts::ESYMBOLTYPE_ARRAYPOINTER) &&
             c->array) {
             links.clear();
             for (uint32_t i = 0; i < c->array->m_size; ++i)
@@ -828,11 +828,11 @@ std::vector<uint32_t> OwnLinks(Script::CStruct* node)
 }
 
 // A level structure's own links= set (in place when it has one; removed for none).
-void SetOwnLinks(Script::CStruct* node, const std::vector<uint32_t>& links)
+void SetOwnLinks(Scripts::CStruct* node, const std::vector<uint32_t>& links)
 {
-    Script::CComponent* own = nullptr;
-    for (Script::CComponent* c = node->m_head; c; c = c->next) {
-        if (c->name == kLinks && (c->Type() == Script::ESYMBOLTYPE_ARRAY || c->Type() == Script::ESYMBOLTYPE_ARRAYPOINTER) &&
+    Scripts::CComponent* own = nullptr;
+    for (Scripts::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kLinks && (c->Type() == Scripts::QBVAL_ARRAY || c->Type() == Scripts::ESYMBOLTYPE_ARRAYPOINTER) &&
             c->array)
             own = c;
     }
@@ -842,27 +842,27 @@ void SetOwnLinks(Script::CStruct* node, const std::vector<uint32_t>& links)
         return;
     }
     if (own) {
-        own->array->SetSizeAndType(static_cast<uint32_t>(links.size()), Script::ESYMBOLTYPE_NAME);
+        own->array->ConfigureSizeKind(static_cast<uint32_t>(links.size()), Scripts::QBVAL_NAME);
         for (size_t i = 0; i < links.size(); ++i)
             own->array->SetElement(static_cast<uint32_t>(i), links[i]);
         return;
     }
-    Script::CArray* array = Script::NewArray();
+    Scripts::CArray* array = Scripts::NewArray();
     if (!array)
         return;
     array->Init();
-    array->SetSizeAndType(static_cast<uint32_t>(links.size()), Script::ESYMBOLTYPE_NAME);
+    array->ConfigureSizeKind(static_cast<uint32_t>(links.size()), Scripts::QBVAL_NAME);
     for (size_t i = 0; i < links.size(); ++i)
         array->SetElement(static_cast<uint32_t>(i), links[i]);
-    node->AddArrayPointer(kLinks, array);
+    node->AppendArrayRef(kLinks, array);
 }
 
 // A structure's own pos= set (the one the game reads: the last).
-void WritePos(Script::CStruct* node, V3 pos)
+void WritePos(Scripts::CStruct* node, V3 pos)
 {
-    Script::CComponent* own = nullptr;
-    for (Script::CComponent* c = node->m_head; c; c = c->next) {
-        if (c->name == kPos && c->Type() == Script::ESYMBOLTYPE_VECTOR && c->vector)
+    Scripts::CComponent* own = nullptr;
+    for (Scripts::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kPos && c->Type() == Scripts::QBVAL_VECTOR && c->vector)
             own = c;
     }
     if (own) {
@@ -870,17 +870,17 @@ void WritePos(Script::CStruct* node, V3 pos)
         own->vector->y = pos.y;
         own->vector->z = pos.z;
     } else {
-        node->AddVector(kPos, pos.x, pos.y, pos.z);
+        node->PutVec3(kPos, pos.x, pos.y, pos.z);
     }
 }
 
 // A structure's own angles= set (as WritePos).
-void WriteAngles(Script::CStruct* node, V3 angles)
+void WriteAngles(Scripts::CStruct* node, V3 angles)
 {
     constexpr uint32_t kAngles = 0x9D2D0915; // angles
-    Script::CComponent* own = nullptr;
-    for (Script::CComponent* c = node->m_head; c; c = c->next) {
-        if (c->name == kAngles && c->Type() == Script::ESYMBOLTYPE_VECTOR && c->vector)
+    Scripts::CComponent* own = nullptr;
+    for (Scripts::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kAngles && c->Type() == Scripts::QBVAL_VECTOR && c->vector)
             own = c;
     }
     if (own) {
@@ -888,15 +888,15 @@ void WriteAngles(Script::CStruct* node, V3 angles)
         own->vector->y = angles.y;
         own->vector->z = angles.z;
     } else {
-        node->AddVector(kAngles, angles.x, angles.y, angles.z);
+        node->PutVec3(kAngles, angles.x, angles.y, angles.z);
     }
 }
 
-uint32_t ClassOf(Script::CStruct* node)
+uint32_t ClassOf(Scripts::CStruct* node)
 {
     uint32_t cls = 0;
     if (node)
-        node->GetChecksum(kClass, &cls, 0);
+        node->ReadHashValue(kClass, &cls, 0);
     return cls;
 }
 
@@ -911,13 +911,13 @@ uint32_t VehicleClass() { static const uint32_t c = Checksum("Vehicle"); return 
 bool KnownTerrain(uint32_t terrain)
 {
     static const uint32_t kChecksumKey = Checksum("checksum");
-    Script::CArray* types = Script::GetArray("Terrain_Types");
-    if (!types || types->m_type != Script::ESYMBOLTYPE_STRUCTURE)
+    Scripts::CArray* types = Scripts::GetArray("Terrain_Types");
+    if (!types || types->m_type != Scripts::QBVAL_STRUCT)
         return false;
     for (uint32_t i = 0; i < types->m_size; ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(types->GetElement(i));
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(types->GetElement(i));
         uint32_t value = 0;
-        if (entry && entry->GetChecksum(kChecksumKey, &value, 0) && value == terrain)
+        if (entry && entry->ReadHashValue(kChecksumKey, &value, 0) && value == terrain)
             return true;
     }
     return false;
@@ -934,7 +934,7 @@ bool TerrainByte(const std::string& name, uint8_t* value)
 // What the editor has done to the level's own nodes: links= as the level had them (the structure, to know it's still
 // the level loaded), the dropped points (and whether their rail node was on), terrains set (and the level's bytes).
 struct OriginalLinks {
-    Script::CStruct* node;
+    Scripts::CStruct* node;
     std::vector<uint32_t> links;
 };
 std::map<uint32_t, OriginalLinks> g_originalLinks;
@@ -947,7 +947,7 @@ struct TerrainSet {
 std::map<uint32_t, TerrainSet> g_terrains;
 // The rail manager's node arrays replaced by RebuildRails (freed with the level).
 std::vector<void*> g_retired;
-Obj::CRailNode* g_built; // (the node array RebuildRails made last)
+GameObjects::CGrindPoint* g_built; // (the node array RebuildRails made last)
 // Objects to make again from their nodes (their path changed) once the game has removed them.
 std::vector<uint32_t> g_remake;
 // Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
@@ -973,7 +973,7 @@ std::map<uint32_t, float> g_levelSpeeds;
 // The speed-ups in place: each node's structure, its own TriggerScript before ours (to put back) and the script that
 // counted then (called first by ours); the per-point scripts last defined.
 struct SpeedApplied {
-    Script::CStruct* node = nullptr;
+    Scripts::CStruct* node = nullptr;
     Fields::Own original;
     uint32_t originalScript = 0;
 };
@@ -982,7 +982,7 @@ std::vector<uint8_t> g_speedDefined;
 // The level's own speed-ups (a RailAccelerate in a rail point's TriggerScript): found once for each rail manager
 // array (name, rate).
 struct LevelSpeedCache {
-    const Obj::CRailNode* nodes = nullptr;
+    const GameObjects::CGrindPoint* nodes = nullptr;
     int count = -1;
     std::vector<std::pair<uint32_t, float>> found;
 };
@@ -991,7 +991,7 @@ std::unordered_map<uint32_t, Extras> g_extras;
 // Level ladder points turned: their facing and the rail manager's orientation as the level had it.
 struct FacingSet {
     float facing;
-    Mth::Vector original;
+    Maths::Vector original;
 };
 std::map<uint32_t, FacingSet> g_facings;
 // Level rail points marked grindable on flat ground.
@@ -1001,10 +1001,10 @@ std::map<uint32_t, uint32_t> g_trick;
 // RailClear's override (FlatGrindable): the rail manager's nodes whose segment to the next is grindable on flat
 // ground, found again when the nodes or the marks change.
 struct FlatCache {
-    const Obj::CRailNode* nodes = nullptr;
+    const GameObjects::CGrindPoint* nodes = nullptr;
     int count = -1;
     unsigned generation = ~0u;
-    std::vector<const Obj::CRailNode*> marked;
+    std::vector<const GameObjects::CGrindPoint*> marked;
 };
 FlatCache g_flatCache;
 unsigned g_flatGeneration;
@@ -1041,7 +1041,7 @@ std::vector<Point> AddedPoints()
             p.speed = extras->second.speed;
         }
         // (a rail point: where the rail manager has it - a sector moved with it takes it along)
-        if (const Obj::CRailNode* node = RailNodeNamed(Checksum(spec.name)))
+        if (const GameObjects::CGrindPoint* node = RailNodeNamed(Checksum(spec.name)))
             p.pos = {node->m_pos.x, node->m_pos.y, node->m_pos.z};
         points.push_back(p);
     }
@@ -1074,33 +1074,33 @@ NodeCreate::Spec SpecOf(const Point& p)
 }
 
 // A climbing node's orientation (the rail manager's quaternion, as AddNode makes it from Angles) for a heading.
-Mth::Vector ClimbOf(float facing)
+Maths::Vector ClimbOf(float facing)
 {
-    Mth::Matrix matrix;
+    Maths::Matrix matrix;
     matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Vector angles = {0.0f, facing, 0.0f, 1.0f};
-    Mth::Matrix* built = &matrix.InitFromAngles(angles);
-    Mth::Vector quat = {};
-    reinterpret_cast<Mth::Quat*>(&quat)->FromMatrix(*built);
+    Maths::Vector angles = {0.0f, facing, 0.0f, 1.0f};
+    Maths::Matrix* built = &matrix.InitFromAngles(angles);
+    Maths::Vector quat = {};
+    reinterpret_cast<Maths::QuatRotation*>(&quat)->FromMatrix(*built);
     return quat;
 }
 
 // The heading of a climbing node's orientation: its at row, flat.
-float HeadingOfClimb(const Mth::Vector& climb)
+float HeadingOfClimb(const Maths::Vector& climb)
 {
-    Mth::Matrix matrix;
-    reinterpret_cast<const Mth::Quat*>(&climb)->GetMatrix(&matrix);
+    Maths::Matrix matrix;
+    reinterpret_cast<const Maths::QuatRotation*>(&climb)->GetMatrix(&matrix);
     return std::atan2(matrix.row[2].x, matrix.row[2].z);
 }
 
 // A ladder point's heading now (the rail manager's; 0: not one).
 float FacingNow(uint32_t name)
 {
-    const Obj::CRailNode* node = RailNodeNamed(name);
-    return node && (node->m_flags & Obj::RAIL_FLAG_CLIMBING) ? HeadingOfClimb(node->m_climb) : 0.0f;
+    const GameObjects::CGrindPoint* node = RailNodeNamed(name);
+    return node && (node->m_flags & GameObjects::RAIL_FLAG_CLIMBING) ? HeadingOfClimb(node->m_climb) : 0.0f;
 }
 
 // A level ladder point's heading as the level has it.
@@ -1121,7 +1121,7 @@ std::vector<uint32_t> LevelLinksOriginal(uint32_t name)
 
 void SetLevelLinks(uint32_t name, const std::vector<uint32_t>& links)
 {
-    Script::CStruct* node = NodeStruct(name);
+    Scripts::CStruct* node = NodeStruct(name);
     if (!node || NodeCreate::IsAdded(name))
         return;
     if (!g_originalLinks.count(name))
@@ -1131,18 +1131,18 @@ void SetLevelLinks(uint32_t name, const std::vector<uint32_t>& links)
 }
 
 // The rail manager node's box: to its next node, or its own point.
-void Box(Obj::CRailNode* node)
+void Box(GameObjects::CGrindPoint* node)
 {
-    Mth::Vector here = node->m_pos;
-    Mth::Vector there = node->m_next ? node->m_next->m_pos : node->m_pos;
-    Obj::BoxOf(&here, &there, &node->m_min, &node->m_max);
+    Maths::Vector here = node->m_pos;
+    Maths::Vector there = node->m_next ? node->m_next->m_pos : node->m_pos;
+    GameObjects::BoxOf(&here, &there, &node->m_lowerLimit, &node->m_upperLimit);
 }
 
 void Remake(uint32_t name)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
-    if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
-        object->MarkAsDead();
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(name));
+    if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD))
+        object->FlagAsDead();
     if (std::find(g_remake.begin(), g_remake.end(), name) == g_remake.end())
         g_remake.push_back(name);
     Log("level editor: %s's path changed - it is made again from its node", Objects::Label(name).c_str());
@@ -1150,10 +1150,10 @@ void Remake(uint32_t name)
 
 // The drawn rails' trick objects registered with the trick object manager (0x007CE500) as AddFromNodeArray registers
 // the level's TrickObject rails (0x005896D0 the cluster, 0x00589080 the node's name mapped to it); those no longer
-// wanted (or of another cluster now) taken out of its name map (+0x20, a Lst::HashTable).
+// wanted (or of another cluster now) taken out of its name map (+0x20, a ListKit::HashTable).
 void RegisterTrickObjects()
 {
-    uint8_t* manager = reinterpret_cast<uint8_t*>(Obj::g_trickObjectManager);
+    uint8_t* manager = reinterpret_cast<uint8_t*>(GameObjects::g_trickObjectManager);
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;
@@ -1163,17 +1163,17 @@ void RegisterTrickObjects()
         if (SameText(spec.cls, "RailNode") && extras != g_extras.end() && extras->second.cluster && RailNodeNamed(name))
             want[name] = extras->second.cluster;
     }
-    auto* objects = reinterpret_cast<Lst::HashTable*>(manager + 0x20);
+    auto* objects = reinterpret_cast<ListKit::HashTable*>(manager + 0x20);
     for (const auto& entry : g_trick) {
         auto it = want.find(entry.first);
         if (it == want.end() || it->second != entry.second)
-            objects->FlushItem(entry.first);
+            objects->EraseEntry(entry.first);
     }
     for (const auto& entry : want) {
         auto it = g_trick.find(entry.first);
         if (it != g_trick.end() && it->second == entry.second)
             continue;
-        auto* trickObjects = reinterpret_cast<Obj::CTrickObjectManager*>(manager);
+        auto* trickObjects = reinterpret_cast<GameObjects::CTrickSpotHub*>(manager);
         trickObjects->AddCluster(entry.second); // (false: there already)
         trickObjects->AddObjectToCluster(entry.first, entry.second);
     }
@@ -1186,10 +1186,10 @@ void RegisterTrickObjects()
 
 void RebuildRails()
 {
-    Obj::CRailManager* rails = Rails();
+    GameObjects::CGrindRailHub* rails = Rails();
     if (!rails)
         return;
-    Obj::CRailNode* old = rails->m_nodes;
+    GameObjects::CGrindPoint* old = rails->m_nodes;
     int oldCount = old ? rails->m_count : 0;
     // The nodes: the ones it has whose node is still there (a dropped one too - kept switched off, so the editor's
     // moves of it stay), then the overlay's new rail points.
@@ -1198,10 +1198,10 @@ void RebuildRails()
         if (NodeStruct(old[i].m_name))
             kept.push_back(i);
     }
-    std::vector<std::pair<uint32_t, Script::CStruct*>> added;
+    std::vector<std::pair<uint32_t, Scripts::CStruct*>> added;
     for (const NodeCreate::Spec& spec : NodeCreate::Current()) {
         uint32_t name = Checksum(spec.name);
-        Script::CStruct* node = NodeStruct(name);
+        Scripts::CStruct* node = NodeStruct(name);
         uint32_t cls = ClassOf(node);
         if (!node || (cls != RailNodeClass() && cls != ClimbingNodeClass()))
             continue;
@@ -1212,12 +1212,12 @@ void RebuildRails()
             added.push_back({name, node});
     }
     int count = static_cast<int>(kept.size() + added.size());
-    Obj::CRailNode* nodes = nullptr;
+    GameObjects::CGrindPoint* nodes = nullptr;
     if (count) {
-        Mem::Manager* manager = Mem::Manager::Get();
-        manager->PushContext(manager->m_bottomUpHeap);
-        nodes = static_cast<Obj::CRailNode*>(Mem::Malloc(count * sizeof(Obj::CRailNode)));
-        Mem::Manager::Get()->PopContext();
+        MemSys::Manager* manager = MemSys::Manager::Get();
+        manager->EnterHeapScope(manager->m_bottomUpHeap);
+        nodes = static_cast<GameObjects::CGrindPoint*>(MemSys::AllocBlock(count * sizeof(GameObjects::CGrindPoint)));
+        MemSys::Manager::Get()->LeaveHeapScope();
         if (!nodes) {
             Log("level editor: no memory for the rail manager's nodes - rails not rebuilt");
             return;
@@ -1235,17 +1235,17 @@ void RebuildRails()
     // On / off: dropped points off (their state noted first), shown ones back as they were.
     std::unordered_map<uint32_t, int> index;
     for (int i = 0; i < count; ++i) {
-        Obj::CRailNode* node = &nodes[i];
+        GameObjects::CGrindPoint* node = &nodes[i];
         index.emplace(node->m_name, i);
-        node->m_next = node->m_prev = nullptr;
+        node->m_next = node->m_lastValue = nullptr;
         bool dropped = std::find(g_dropped.begin(), g_dropped.end(), node->m_name) != g_dropped.end();
         auto was = g_dropActive.find(node->m_name);
         if (dropped) {
             if (was == g_dropActive.end())
-                g_dropActive[node->m_name] = (node->m_flags & Obj::RAIL_FLAG_ACTIVE) != 0;
-            node->m_flags &= ~Obj::RAIL_FLAG_ACTIVE;
+                g_dropActive[node->m_name] = (node->m_flags & GameObjects::RAIL_FLAG_ACTIVE) != 0;
+            node->m_flags &= ~GameObjects::RAIL_FLAG_ACTIVE;
         } else if (was != g_dropActive.end()) {
-            node->m_flags = was->second ? node->m_flags | Obj::RAIL_FLAG_ACTIVE : node->m_flags & ~Obj::RAIL_FLAG_ACTIVE;
+            node->m_flags = was->second ? node->m_flags | GameObjects::RAIL_FLAG_ACTIVE : node->m_flags & ~GameObjects::RAIL_FLAG_ACTIVE;
             g_dropActive.erase(was);
         }
     }
@@ -1253,18 +1253,18 @@ void RebuildRails()
     // node's previous likewise. Dropped points take no part.
     auto isDropped = [&](uint32_t name) { return std::find(g_dropped.begin(), g_dropped.end(), name) != g_dropped.end(); };
     for (int i = 0; i < count; ++i) {
-        Obj::CRailNode* node = &nodes[i];
+        GameObjects::CGrindPoint* node = &nodes[i];
         if (isDropped(node->m_name))
             continue;
         for (uint32_t link : OwnLinks(NodeStruct(node->m_name))) {
             auto it = index.find(link);
             if (it == index.end() || isDropped(link))
                 continue;
-            Obj::CRailNode* other = &nodes[it->second];
-            if (!node->m_next || (other->m_flags & Obj::RAIL_FLAG_DEFAULT_LINE))
+            GameObjects::CGrindPoint* other = &nodes[it->second];
+            if (!node->m_next || (other->m_flags & GameObjects::RAIL_FLAG_DEFAULT_LINE))
                 node->m_next = other;
-            if (!other->m_prev || (node->m_flags & Obj::RAIL_FLAG_DEFAULT_LINE))
-                other->m_prev = node;
+            if (!other->m_lastValue || (node->m_flags & GameObjects::RAIL_FLAG_DEFAULT_LINE))
+                other->m_lastValue = node;
         }
     }
     for (int i = 0; i < count; ++i)
@@ -1272,28 +1272,28 @@ void RebuildRails()
     // An added point's terrain from its node (it is made again when its terrain changes, but its rail manager node was
     // kept); terrains the editor set on the level's points (copied nodes keep theirs).
     for (size_t i = 0; i < kept.size(); ++i) {
-        Obj::CRailNode* node = &nodes[i];
+        GameObjects::CGrindPoint* node = &nodes[i];
         uint32_t terrain = 0;
-        Script::CStruct* params = NodeCreate::IsAdded(node->m_name) ? NodeStruct(node->m_name) : nullptr;
-        if (params && !(node->m_flags & Obj::RAIL_FLAG_CLIMBING) && params->GetChecksum(kTerrainType, &terrain, 0) &&
+        Scripts::CStruct* params = NodeCreate::IsAdded(node->m_name) ? NodeStruct(node->m_name) : nullptr;
+        if (params && !(node->m_flags & GameObjects::RAIL_FLAG_CLIMBING) && params->ReadHashValue(kTerrainType, &terrain, 0) &&
             KnownTerrain(terrain))
-            node->m_terrain = Terrain::GetTerrainIndex(terrain);
+            node->m_surfaceType = Terrain::GetTerrainIndex(terrain);
     }
     for (const auto& entry : g_terrains) {
         auto it = index.find(entry.first);
         uint8_t value = 0;
         if (it != index.end() && TerrainByte(entry.second.terrain, &value))
-            nodes[it->second].m_terrain = value;
+            nodes[it->second].m_surfaceType = value;
     }
     // Ladders: an added point's orientation from its node's Angles (turned since it was made), a level point's as the
     // editor turned it.
     for (int i = 0; i < count; ++i) {
-        Obj::CRailNode* node = &nodes[i];
-        if (!(node->m_flags & Obj::RAIL_FLAG_CLIMBING))
+        GameObjects::CGrindPoint* node = &nodes[i];
+        if (!(node->m_flags & GameObjects::RAIL_FLAG_CLIMBING))
             continue;
         if (NodeCreate::IsAdded(node->m_name)) {
-            Mth::Vector angles;
-            SkateScript::GetAngles(NodeStruct(node->m_name), &angles);
+            Maths::Vector angles;
+            LevelNodes::ReadTurnAngles(NodeStruct(node->m_name), &angles);
             node->m_climb = ClimbOf(angles.y);
         } else if (g_facings.count(node->m_name)) {
             node->m_climb = ClimbOf(g_facings[node->m_name].facing);
@@ -1318,7 +1318,7 @@ State Current()
         return state;
     state.points = AddedPoints();
     for (const auto& entry : g_originalLinks) {
-        Script::CStruct* node = NodeStruct(entry.first);
+        Scripts::CStruct* node = NodeStruct(entry.first);
         if (node != entry.second.node)
             continue;
         std::vector<uint32_t> now = OwnLinks(node);
@@ -1377,13 +1377,13 @@ bool SetState(const State& target)
     for (const Point& t : target.points) {
         uint32_t name = Checksum(t.name);
         NodeCreate::SetLinks(name, t.links);
-        if (Script::CStruct* node = NodeStruct(name)) {
-            Mth::Vector pos;
-            SkateScript::GetPosition(node, &pos);
+        if (Scripts::CStruct* node = NodeStruct(name)) {
+            Maths::Vector pos;
+            LevelNodes::GetPosition(node, &pos);
             if (pos.x != t.pos.x || pos.y != t.pos.y || pos.z != t.pos.z)
                 WritePos(node, t.pos);
-            Mth::Vector angles;
-            SkateScript::GetAngles(node, &angles);
+            Maths::Vector angles;
+            LevelNodes::ReadTurnAngles(node, &angles);
             if (SameText(t.cls, "ClimbingNode") && (angles.x != 0.0f || angles.y != t.facing || angles.z != 0.0f))
                 WriteAngles(node, {0.0f, t.facing, 0.0f}); // (a ladder turned: RebuildRails turns its rail node)
         }
@@ -1405,7 +1405,7 @@ bool SetState(const State& target)
         for (const FacingEdit& f : target.facings)
             wanted = wanted || f.name == it->first;
         if (!wanted) {
-            if (Obj::CRailNode* node = RailNodeNamed(it->first))
+            if (GameObjects::CGrindPoint* node = RailNodeNamed(it->first))
                 node->m_climb = it->second.original;
             it = g_facings.erase(it);
         } else {
@@ -1413,8 +1413,8 @@ bool SetState(const State& target)
         }
     }
     for (const FacingEdit& f : target.facings) {
-        Obj::CRailNode* node = RailNodeNamed(f.name);
-        if (!node || !(node->m_flags & Obj::RAIL_FLAG_CLIMBING) || NodeCreate::IsAdded(f.name))
+        GameObjects::CGrindPoint* node = RailNodeNamed(f.name);
+        if (!node || !(node->m_flags & GameObjects::RAIL_FLAG_CLIMBING) || NodeCreate::IsAdded(f.name))
             continue;
         if (!g_facings.count(f.name))
             g_facings[f.name] = {f.facing, node->m_climb};
@@ -1464,20 +1464,20 @@ bool SetState(const State& target)
         for (const TerrainEdit& t : target.terrains)
             wanted = wanted || t.name == it->first;
         if (!wanted) {
-            if (Obj::CRailNode* node = RailNodeNamed(it->first))
-                node->m_terrain = it->second.original;
+            if (GameObjects::CGrindPoint* node = RailNodeNamed(it->first))
+                node->m_surfaceType = it->second.original;
             it = g_terrains.erase(it);
         } else {
             ++it;
         }
     }
     for (const TerrainEdit& t : target.terrains) {
-        Obj::CRailNode* node = RailNodeNamed(t.name);
+        GameObjects::CGrindPoint* node = RailNodeNamed(t.name);
         uint8_t value = 0;
         if (!node || !TerrainByte(t.terrain, &value))
             continue;
         if (!g_terrains.count(t.name))
-            g_terrains[t.name] = {t.terrain, node->m_terrain};
+            g_terrains[t.name] = {t.terrain, node->m_surfaceType};
         g_terrains[t.name].terrain = t.terrain;
     }
     RebuildRails();
@@ -1494,7 +1494,7 @@ bool SetState(const State& target)
 void ForgetLevel()
 {
     for (const auto& entry : g_originalLinks) {
-        Script::CStruct* node = NodeStruct(entry.first);
+        Scripts::CStruct* node = NodeStruct(entry.first);
         if (node && node == entry.second.node)
             SetOwnLinks(node, entry.second.links);
     }
@@ -1515,7 +1515,7 @@ void ForgetLevel()
     ++g_flatGeneration;
     // (the speed-ups' TriggerScripts: the level's nodes put back while its array is the one loaded)
     for (const auto& entry : g_speedApplied) {
-        Script::CStruct* node = NodeStruct(entry.first);
+        Scripts::CStruct* node = NodeStruct(entry.first);
         if (node && node == entry.second.node)
             Fields::PutIn(node, kTriggerScriptKey, false, entry.second.original);
     }
@@ -1528,7 +1528,7 @@ namespace {
 
 // The rail manager's nodes whose segment to the next is grindable on flat ground: an added point marked so, a level
 // point marked so, or a node carrying the flag ed_grind_flat (a level baked by apply_layout.ts).
-void RefreshFlat(Obj::CRailManager* rails)
+void RefreshFlat(GameObjects::CGrindRailHub* rails)
 {
     if (g_flatCache.nodes == rails->m_nodes && g_flatCache.count == rails->m_count &&
         g_flatCache.generation == g_flatGeneration)
@@ -1537,19 +1537,19 @@ void RefreshFlat(Obj::CRailManager* rails)
     g_flatCache.count = rails->m_count;
     g_flatCache.generation = g_flatGeneration;
     g_flatCache.marked.clear();
-    if (!rails->m_nodes || !SkateScript::NodeManagerInstance())
+    if (!rails->m_nodes || !LevelNodes::NodeManagerInstance())
         return;
     static const uint32_t kFlag = Checksum("ed_grind_flat");
     for (int i = 0; i < rails->m_count; ++i) {
-        const Obj::CRailNode* node = &rails->m_nodes[i];
-        if ((node->m_flags & Obj::RAIL_FLAG_CLIMBING) || !node->m_next)
+        const GameObjects::CGrindPoint* node = &rails->m_nodes[i];
+        if ((node->m_flags & GameObjects::RAIL_FLAG_CLIMBING) || !node->m_next)
             continue;
         auto extras = g_extras.find(node->m_name);
         bool marked = (extras != g_extras.end() && extras->second.grindFlat) ||
                       std::find(g_levelFlat.begin(), g_levelFlat.end(), node->m_name) != g_levelFlat.end();
         if (!marked) {
-            Script::CStruct* params = NodeStruct(node->m_name);
-            marked = params && params->ContainsFlag(kFlag);
+            Scripts::CStruct* params = NodeStruct(node->m_name);
+            marked = params && params->HasBareFlag(kFlag);
         }
         if (marked)
             g_flatCache.marked.push_back(node);
@@ -1558,7 +1558,7 @@ void RefreshFlat(Obj::CRailManager* rails)
         Log("level editor: %u rail segments grindable on flat ground", static_cast<unsigned>(g_flatCache.marked.size()));
 }
 
-bool FlatHook(const Mth::Vector* a, const Mth::Vector* b) { return FlatGrindable({a->x, a->y, a->z}, {b->x, b->y, b->z}); }
+bool FlatHook(const Maths::Vector* a, const Maths::Vector* b) { return FlatGrindable({a->x, a->y, a->z}, {b->x, b->y, b->z}); }
 
 } // namespace
 
@@ -1571,7 +1571,7 @@ bool IsLedgeNode(uint32_t name)
 
 void ApplySpeeds()
 {
-    if (!SkateScript::NodeManagerInstance() || (g_speedApplied.empty() && g_extras.empty() && g_levelSpeeds.empty()))
+    if (!LevelNodes::NodeManagerInstance() || (g_speedApplied.empty() && g_extras.empty() && g_levelSpeeds.empty()))
         return;
     // What's wanted (none in a network session: the edited level's changes are offline only).
     std::map<uint32_t, float> want;
@@ -1586,7 +1586,7 @@ void ApplySpeeds()
     // Those no longer wanted put back; a node whose structure was made again (the overlay registered again) forgotten
     // (its new structure has no TriggerScript of ours).
     for (auto it = g_speedApplied.begin(); it != g_speedApplied.end();) {
-        Script::CStruct* node = NodeStruct(it->first);
+        Scripts::CStruct* node = NodeStruct(it->first);
         if (node != it->second.node) {
             it = g_speedApplied.erase(it);
             continue;
@@ -1600,7 +1600,7 @@ void ApplySpeeds()
     }
     std::vector<SpeedScript> scripts;
     for (const auto& w : want) {
-        Script::CStruct* node = NodeStruct(w.first);
+        Scripts::CStruct* node = NodeStruct(w.first);
         if (!node)
             continue;
         uint32_t ours = Checksum(SpeedScriptName(w.first));
@@ -1609,7 +1609,7 @@ void ApplySpeeds()
             SpeedApplied a;
             a.node = node;
             a.original = Fields::OwnIn(node, kTriggerScriptKey, false);
-            node->GetChecksum(kTriggerScriptKey, &a.originalScript, 0);
+            node->ReadHashValue(kTriggerScriptKey, &a.originalScript, 0);
             if (a.originalScript == ours)
                 a.originalScript = 0;
             it = g_speedApplied.emplace(w.first, a).first;
@@ -1620,21 +1620,21 @@ void ApplySpeeds()
         return;
     // The scripts: the fixed two (once - they stay defined), the points' when they change.
     static const uint32_t kRailSpeed = Checksum("ed_RailSpeed");
-    Script::CSymbolTableEntry* fixed = Script::LookUpSymbol(kRailSpeed);
-    if (!fixed || fixed->type != Script::ESYMBOLTYPE_QSCRIPT)
-        Script::LoadQBData("editor\\thug2_decomp_railspeed.qb", RailSpeedQb().data(), 0, 0, 0);
+    Scripts::CSymbolTableEntry* fixed = Scripts::ResolveSymbol(kRailSpeed);
+    if (!fixed || fixed->type != Scripts::QBVAL_SCRIPT_BODY)
+        Scripts::LoadQBData("editor\\thug2_decomp_railspeed.qb", RailSpeedQb().data(), 0, 0, 0);
     std::vector<uint8_t> file = SpeedQbFile(scripts);
     if (file != g_speedDefined) {
-        Script::LoadQBData("editor\\thug2_decomp_railspeeds.qb", file.data(), 0, 0, 0);
+        Scripts::LoadQBData("editor\\thug2_decomp_railspeeds.qb", file.data(), 0, 0, 0);
         g_speedDefined = file;
         if (DebugEnabled())
             Log("level editor: %u rail speed-up scripts defined", static_cast<unsigned>(scripts.size()));
     }
     // Each node's TriggerScript ours (its own component, after any shared one: it counts).
     for (const SpeedScript& s : scripts) {
-        Script::CStruct* node = NodeStruct(s.node);
+        Scripts::CStruct* node = NodeStruct(s.node);
         uint32_t ours = Checksum(SpeedScriptName(s.node)), now = 0;
-        if (!node || (node->GetChecksum(kTriggerScriptKey, &now, 0) && now == ours))
+        if (!node || (node->ReadHashValue(kTriggerScriptKey, &now, 0) && now == ours))
             continue;
         Fields::Own own;
         own.present = true;
@@ -1648,8 +1648,8 @@ void ApplySpeeds()
 std::vector<SpeedSegment> SpeedSegments(V3 near, float radius)
 {
     std::vector<SpeedSegment> out;
-    Obj::CRailManager* rails = Rails();
-    if (!rails || !rails->m_nodes || !SkateScript::NodeManagerInstance())
+    GameObjects::CGrindRailHub* rails = Rails();
+    if (!rails || !rails->m_nodes || !LevelNodes::NodeManagerInstance())
         return out;
     // (the level's own RailAccelerate points: found once for each rail manager array)
     if (g_levelSpeedCache.nodes != rails->m_nodes || g_levelSpeedCache.count != rails->m_count) {
@@ -1657,10 +1657,10 @@ std::vector<SpeedSegment> SpeedSegments(V3 near, float radius)
         g_levelSpeedCache.count = rails->m_count;
         g_levelSpeedCache.found.clear();
         for (int i = 0; i < rails->m_count; ++i) {
-            const Obj::CRailNode* node = &rails->m_nodes[i];
-            Script::CStruct* params = node->m_next ? NodeStruct(node->m_name) : nullptr;
+            const GameObjects::CGrindPoint* node = &rails->m_nodes[i];
+            Scripts::CStruct* params = node->m_next ? NodeStruct(node->m_name) : nullptr;
             uint32_t script = 0;
-            if (!params || !params->GetChecksum(kTriggerScriptKey, &script, 0) || !script)
+            if (!params || !params->ReadHashValue(kTriggerScriptKey, &script, 0) || !script)
                 continue;
             auto applied = g_speedApplied.find(node->m_name);
             if (applied != g_speedApplied.end())
@@ -1671,8 +1671,8 @@ std::vector<SpeedSegment> SpeedSegments(V3 near, float radius)
         }
     }
     float r2 = radius * radius;
-    auto add = [&](const Obj::CRailNode* node, float rate, bool level) {
-        if (!node || !node->m_next || (node->m_flags & Obj::RAIL_FLAG_CLIMBING))
+    auto add = [&](const GameObjects::CGrindPoint* node, float rate, bool level) {
+        if (!node || !node->m_next || (node->m_flags & GameObjects::RAIL_FLAG_CLIMBING))
             return;
         V3 a = {node->m_pos.x, node->m_pos.y, node->m_pos.z};
         V3 b = {node->m_next->m_pos.x, node->m_next->m_pos.y, node->m_next->m_pos.z};
@@ -1697,12 +1697,12 @@ std::vector<SpeedSegment> SpeedSegments(V3 near, float radius)
 
 bool FlatGrindable(V3 a, V3 b)
 {
-    Obj::CRailManager* rails = Rails();
+    GameObjects::CGrindRailHub* rails = Rails();
     if (!rails)
         return false;
     RefreshFlat(rails);
-    for (const Obj::CRailNode* node : g_flatCache.marked) {
-        const Obj::CRailNode* next = node->m_next;
+    for (const GameObjects::CGrindPoint* node : g_flatCache.marked) {
+        const GameObjects::CGrindPoint* next = node->m_next;
         if (next && SameSegment(a, b, {node->m_pos.x, node->m_pos.y, node->m_pos.z},
                                 {next->m_pos.x, next->m_pos.y, next->m_pos.z}, 0.01f))
             return true;
@@ -1714,16 +1714,16 @@ void Tick()
 {
     static bool hooked;
     if (!hooked) {
-        Obj::SetRailClearOverride(&FlatHook); // (RailClear asks it - see the top)
+        GameObjects::SetRailClearOverride(&FlatHook); // (RailClear asks it - see the top)
         hooked = true;
     }
     // The rail manager's old node arrays: freed once the level's rails are no longer the ones built here (the game
     // made a new level's - its Cleanup freed ours - or there are none).
     if (!g_retired.empty()) {
-        Obj::CRailManager* rails = Rails();
+        GameObjects::CGrindRailHub* rails = Rails();
         if (!rails || rails->m_nodes != g_built) {
             for (void* nodes : g_retired)
-                Mem::FreeMalloc(nodes);
+                MemSys::FreeMalloc(nodes);
             g_retired.clear();
             g_built = nullptr;
         }
@@ -1736,12 +1736,12 @@ void Tick()
         return;
     }
     for (auto it = g_remake.begin(); it != g_remake.end();) {
-        if (Obj::FindObject(*it)) {
+        if (GameObjects::FindObject(*it)) {
             ++it; // (not removed yet: the game deletes dead objects in its update)
             continue;
         }
-        if (Script::CStruct* node = NodeStruct(*it))
-            CFuncs::CreateFromNode(node);
+        if (Scripts::CStruct* node = NodeStruct(*it))
+            ScriptCommands::CreateFromNode(node);
         Log("level editor: %s made again (its path from its links)", Objects::Label(*it).c_str());
         it = g_remake.erase(it);
     }
@@ -1778,17 +1778,17 @@ bool IsAddedPoint(uint32_t name)
 
 bool MoveAddedPoint(uint32_t name, V3 pos)
 {
-    Script::CStruct* node = NodeCreate::IsAdded(name) ? NodeStruct(name) : nullptr;
+    Scripts::CStruct* node = NodeCreate::IsAdded(name) ? NodeStruct(name) : nullptr;
     if (!node)
         return false;
-    Mth::Vector now;
-    SkateScript::GetPosition(node, &now);
+    Maths::Vector now;
+    LevelNodes::GetPosition(node, &now);
     if (now.x != pos.x || now.y != pos.y || now.z != pos.z)
         WritePos(node, pos);
-    if (Obj::CRailNode* rail = RailNodeNamed(name)) {
+    if (GameObjects::CGrindPoint* rail = RailNodeNamed(name)) {
         if (rail->m_pos.x != pos.x || rail->m_pos.y != pos.y || rail->m_pos.z != pos.z) {
             rail->m_pos = {pos.x, pos.y, pos.z, 1.0f};
-            Obj::CRailManager* rails = Rails();
+            GameObjects::CGrindRailHub* rails = Rails();
             for (int i = 0; i < rails->m_count; ++i) {
                 if (&rails->m_nodes[i] == rail || rails->m_nodes[i].m_next == rail)
                     Box(&rails->m_nodes[i]);
@@ -1921,11 +1921,11 @@ Point NewPoint(Nodes::Family family, uint32_t from, V3 pos, const State& state)
         }
         if (!added && family == Nodes::Family::Rail) {
             // (a level rail's point: its cluster when it's a trick object, as the level registers it)
-            Script::CStruct* node = NodeStruct(from);
+            Scripts::CStruct* node = NodeStruct(from);
             static const uint32_t kTrickObject = Checksum("TrickObject"), kCluster = Checksum("Cluster");
-            if (node && node->ContainsComponentNamed(kTrickObject)) {
+            if (node && node->HasEntryNamed(kTrickObject)) {
                 p.cluster = from;
-                node->GetChecksum(kCluster, &p.cluster, 0);
+                node->ReadHashValue(kCluster, &p.cluster, 0);
             }
             p.grindFlat = std::find(state.grindFlat.begin(), state.grindFlat.end(), from) != state.grindFlat.end();
         }
@@ -2270,7 +2270,7 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         std::vector<uint32_t> points = op == kOpSpeedRail ? ChainOf(name) : std::vector<uint32_t>{name};
         int changed = 0;
         for (uint32_t point : points) {
-            const Obj::CRailNode* rail = RailNodeNamed(point);
+            const GameObjects::CGrindPoint* rail = RailNodeNamed(point);
             if (op == kOpSpeedRail && (!rail || !rail->m_next))
                 continue; // (a rail's last point has no segment of its own)
             bool added = false;
@@ -2447,15 +2447,15 @@ bool AddRail(const std::vector<V3>& points, uint32_t cluster, std::string* messa
 
 namespace {
 
-// The game's collision ray (as level_editor.cpp's: a CFeeler, 0x00417760 / 0x00417710; the hit's normal at +0x24, its
+// The game's collision ray (as level_editor.cpp's: a CProbeRay, 0x00417760 / 0x00417710; the hit's normal at +0x24, its
 // point at +0x34, the collision object hit at +0x54 and its checksum - the scenery piece's - at +0x58, as
 // level_editor_scenery.cpp's CastStatic reads them).
 bool CastRay(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* n = reinterpret_cast<const float*>(feeler + 0x24);
@@ -2691,9 +2691,9 @@ View ViewOf(uint32_t name)
                 if (Checksum(p.name) == name)
                     view.hang = p.hang;
             }
-        } else if (Script::CStruct* params = NodeStruct(name)) {
+        } else if (Scripts::CStruct* params = NodeStruct(name)) {
             static const uint32_t kLeft = Checksum("HangLeft"), kRight = Checksum("HangRight");
-            view.hang = params->ContainsFlag(kLeft) ? kHangLeft : params->ContainsFlag(kRight) ? kHangRight : 0;
+            view.hang = params->HasBareFlag(kLeft) ? kHangLeft : params->HasBareFlag(kRight) ? kHangRight : 0;
         }
     }
     if (view.rail) {
@@ -2702,13 +2702,13 @@ View ViewOf(uint32_t name)
         view.speed = speed != g_extras.end() ? speed->second.speed
                      : levelSpeed != g_levelSpeeds.end() ? levelSpeed->second
                                                          : 0.0f;
-        Script::CStruct* own = NodeStruct(name);
+        Scripts::CStruct* own = NodeStruct(name);
         uint32_t script = 0;
         auto applied = g_speedApplied.find(name);
         if (applied != g_speedApplied.end())
             script = applied->second.originalScript;
         else if (own)
-            own->GetChecksum(kTriggerScriptKey, &script, 0);
+            own->ReadHashValue(kTriggerScriptKey, &script, 0);
         if (script) {
             Triggers::Calls calls = Triggers::ScriptCalls(script);
             view.levelSpeed = calls.railSpeed;
@@ -2724,19 +2724,19 @@ View ViewOf(uint32_t name)
         } else {
             view.trickObject = node.trickObject;
             static const uint32_t kCluster = Checksum("Cluster"), kFlag = Checksum("ed_grind_flat");
-            Script::CStruct* params = NodeStruct(name);
+            Scripts::CStruct* params = NodeStruct(name);
             uint32_t cluster = name;
             if (params)
-                params->GetChecksum(kCluster, &cluster, 0);
+                params->ReadHashValue(kCluster, &cluster, 0);
             if (view.trickObject)
                 view.cluster = Objects::Label(cluster);
             view.grindFlat = std::find(g_levelFlat.begin(), g_levelFlat.end(), name) != g_levelFlat.end() ||
-                             (params && params->ContainsFlag(kFlag));
+                             (params && params->HasBareFlag(kFlag));
         }
-        if (const Obj::CRailNode* rail = RailNodeNamed(name)) {
+        if (const GameObjects::CGrindPoint* rail = RailNodeNamed(name)) {
             for (size_t i = 0; i < view.terrains.size(); ++i) {
                 uint8_t value = 0;
-                if (TerrainByte(view.terrains[i], &value) && value == rail->m_terrain) {
+                if (TerrainByte(view.terrains[i], &value) && value == rail->m_surfaceType) {
                     view.terrain = static_cast<int>(i);
                     break;
                 }
@@ -2746,4 +2746,4 @@ View ViewOf(uint32_t name)
     return view;
 }
 
-} // namespace Front::LevelEditor::Chains
+} // namespace MenuSystem::LevelEditor::Chains

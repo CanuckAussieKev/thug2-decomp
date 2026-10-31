@@ -5,7 +5,7 @@
 
 #include "game/core/mem.h"
 
-namespace Str {
+namespace TextUtil {
 
 namespace {
 
@@ -16,7 +16,7 @@ int& LiveStrings() { return g_liveStrings; }
 } // namespace
 
 // 0x00401D80
-String::String() : m_serial(LiveStrings()++), m_buffer(nullptr), m_capacity(0)
+String::String() : m_serial(LiveStrings()++), m_octets(nullptr), m_capacity(0)
 {
     // The original leaves m_capacity unset; CopyRange sets it before it's ever read.
 }
@@ -28,19 +28,19 @@ String::String(const char* text) : String()
 }
 
 // 0x00401FA0
-String::String(const String& other) : m_serial(0), m_buffer(nullptr), m_capacity(0)
+String::String(const String& other) : m_serial(0), m_octets(nullptr), m_capacity(0)
 {
     // Same as the original's order: copy first, then take a serial number.
-    CopyRange(other.m_buffer, 0, LastIndex(other.m_buffer));
+    CopyRange(other.m_octets, 0, LastIndex(other.m_octets));
     m_serial = LiveStrings()++;
 }
 
 // 0x00401DA0
 String::~String()
 {
-    if (m_buffer) {
-        Mem::Free(m_buffer);
-        m_buffer = nullptr;
+    if (m_octets) {
+        MemSys::Free(m_octets);
+        m_octets = nullptr;
     }
     --LiveStrings();
 }
@@ -55,7 +55,7 @@ String& String::operator=(const char* text)
 // 0x00401F10
 String& String::operator=(const String& other)
 {
-    CopyRange(other.m_buffer, 0, LastIndex(other.m_buffer));
+    CopyRange(other.m_octets, 0, LastIndex(other.m_octets));
     return *this;
 }
 
@@ -72,19 +72,19 @@ int String::LastIndex(const char* text)
 void String::CopyRange(const char* text, int first, int last)
 {
     if (!text || first > last) {
-        if (m_buffer) {
-            Mem::Free(m_buffer);
-            m_buffer = nullptr;
+        if (m_octets) {
+            MemSys::Free(m_octets);
+            m_octets = nullptr;
         }
         return;
     }
 
     if (text[first] == '\0') {
         // Empty string: a fresh 1-byte allocation. (The original records a capacity of 2 here.)
-        if (m_buffer)
-            Mem::Free(m_buffer);
-        m_buffer = static_cast<char*>(Mem::New(1));
-        m_buffer[0] = '\0';
+        if (m_octets)
+            MemSys::Free(m_octets);
+        m_octets = static_cast<char*>(MemSys::New(1));
+        m_octets[0] = '\0';
         m_capacity = 2;
         return;
     }
@@ -92,18 +92,18 @@ void String::CopyRange(const char* text, int first, int last)
     int needed = last - first + 2;
     if (needed < 4)
         needed = 4;
-    if (m_buffer && m_capacity < needed) {
-        Mem::Free(m_buffer);
-        m_buffer = nullptr;
+    if (m_octets && m_capacity < needed) {
+        MemSys::Free(m_octets);
+        m_octets = nullptr;
     }
-    if (!m_buffer) {
+    if (!m_octets) {
         m_capacity = needed;
-        m_buffer = static_cast<char*>(Mem::New(needed));
+        m_octets = static_cast<char*>(MemSys::New(needed));
     }
     int out = 0;
     for (int i = first; i <= last; ++i)
-        m_buffer[out++] = text[i];
-    m_buffer[out] = '\0';
+        m_octets[out++] = text[i];
+    m_octets[out] = '\0';
 }
 
 } // namespace Str
@@ -111,7 +111,7 @@ void String::CopyRange(const char* text, int first, int last)
 // --- replacements -------------------------------------------------------------------------------------
 namespace {
 
-using Str::String;
+using TextUtil::String;
 
 // Constructors and destructors can't be pointed to directly; these adapters keep the original __thiscall
 // shape (object in ECX, constructors return it in EAX).

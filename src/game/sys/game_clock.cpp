@@ -7,13 +7,13 @@
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
 
-namespace Tmr {
+namespace FrameClock {
 
 namespace {
 
 // The game time up to the last change of speed (callers add GameClockElapsed to it), the real time of that
 // change, and the speed since.
-int& Offset() { return Obj::g_clockOffset; }
+int& Offset() { return GameObjects::g_clockOffset; }
 
 float g_speed{1.0f};
 uint32_t g_lastChange;
@@ -50,7 +50,7 @@ int GameClockTime() { return GameClockElapsed() + Offset(); }
 void PauseGameClock(bool pause)
 {
     CatchUp();
-    Speed() = pause ? 0.0f : GetSlomo();
+    Speed() = pause ? 0.0f : GetTimeScale();
 }
 
 // 0x0044ED70

@@ -6,7 +6,7 @@
 
 // The script expression evaluator: a stack machine for the expressions in scripts' parentheses. Values and
 // operators are fed in as the expression is read; operators of higher precedence run first.
-namespace Script {
+namespace Scripts {
 
 // Whether a component refers to a structure / array it doesn't own (types 20 / 21).
 bool IsReference(const CComponent* component);
@@ -39,22 +39,22 @@ enum EOperator : int {
     OPERATOR_AND = 51,
 };
 
-class CExpressionEvaluator {
+class CValueResolver {
 public:
-    CExpressionEvaluator* Init(); // the constructor
+    CValueResolver* Init(); // the constructor
 
     // Free the values and empty both stacks (and the error).
     void Clear();
-    void ClearIfNeeded();
-    void SetTokenPointer(const uint8_t* token) { m_token = token; }
+    void ResetIfDirty();
+    void SetReadCursor(const uint8_t* token) { m_token = token; }
     void SetError(const char* error);
 
     void Input(const CComponent* value);
     // An operator: pending operators of higher or equal precedence (in the same parentheses) run first.
     void Input(int op);
-    void OpenParenthesis();
+    void OpenBracket();
     // Runs the operators inside the parentheses.
-    void CloseParenthesis();
+    void CloseBracket();
     // Run what's left, and copy the result to `result`. False (with an error) if the expression is incomplete.
     bool GetResult(CComponent* result);
 

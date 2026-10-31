@@ -19,7 +19,7 @@
 #include "game/obj/object.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Links {
+namespace MenuSystem::LevelEditor::Links {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
@@ -204,10 +204,10 @@ struct Remake {
 };
 std::vector<Remake> g_remakes;
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
 Placement PlacementOf(uint32_t sector)
@@ -305,7 +305,7 @@ void PropagateScenery(const Group& group)
 
 void PropagateObjects(const Group& group)
 {
-    Obj::CCompositeObject* source = LiveObject(group.source);
+    GameObjects::CGameEntity* source = LiveObject(group.source);
     if (!source)
         return;
     Watch& w = g_watch[group.source];
@@ -319,7 +319,7 @@ void PropagateObjects(const Group& group)
         V3 f = Ratio(scale, w.scale);
         w.scale = scale;
         for (const Member& m : group.members) {
-            if (Obj::CCompositeObject* copy = LiveObject(m.id); copy && Scale::ObjectScalable(copy))
+            if (GameObjects::CGameEntity* copy = LiveObject(m.id); copy && Scale::ObjectScalable(copy))
                 Scale::SetObjectScale(copy, PerAxis(Scale::ObjectScale(copy), f));
         }
     }
@@ -327,7 +327,7 @@ void PropagateObjects(const Group& group)
         w.fields = fields;
         // (each copy made again from the source's node as it is now - where it stood, as it was turned and scaled)
         for (const Member& m : group.members) {
-            Obj::CCompositeObject* copy = LiveObject(m.id);
+            GameObjects::CGameEntity* copy = LiveObject(m.id);
             if (!copy || !Objects::IsCopy(m.id))
                 continue;
             g_remakes.push_back({m.id, group.source, Objects::Save(copy)});
@@ -342,10 +342,10 @@ void RunRemakes()
     for (size_t i = 0; i < g_remakes.size();) {
         Remake& r = g_remakes[i];
         ++r.frames;
-        bool gone = Obj::FindObject(r.name) == nullptr;
+        bool gone = GameObjects::FindObject(r.name) == nullptr;
         if (gone) {
             V3 pos = {r.state.pos.x, r.state.pos.y, r.state.pos.z};
-            if (Obj::CCompositeObject* made = Objects::MakeCopy(r.source, pos, r.name)) {
+            if (GameObjects::CGameEntity* made = Objects::MakeCopy(r.source, pos, r.name)) {
                 Objects::State state = r.state;
                 state.id = made->m_id;
                 Objects::Restore(state);
@@ -463,7 +463,7 @@ std::vector<Record> Capture(const std::vector<uint32_t>& clones)
         *ref = Ref{};
         if (!scenery) {
             ref->id = id;
-            return Obj::FindObject(id) != nullptr;
+            return GameObjects::FindObject(id) != nullptr;
         }
         if (Scenery::IsClone(id)) {
             auto it = std::find(clones.begin(), clones.end(), id);
@@ -528,4 +528,4 @@ void ResetAll()
 
 void ForgetLevel() { ResetAll(); }
 
-} // namespace Front::LevelEditor::Links
+} // namespace MenuSystem::LevelEditor::Links

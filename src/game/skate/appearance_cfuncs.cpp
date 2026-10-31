@@ -20,7 +20,7 @@
 #include "game/skate/cas_options.h"
 #include "game/obj/compositemgr.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
@@ -56,28 +56,28 @@ constexpr uint32_t kSetUvFromAppearance = 0x091D6261;      // set_uv_from_appear
 
 // The profile of the player a command names (player=<n>; 0 if missing - uninitialised in the original where the
 // parameter is asserted).
-Obj::CSkaterProfile* PlayerProfile(Script::CStruct* params, int assert = 1)
+GameObjects::CRiderIdentity* PlayerProfile(Scripts::CStruct* params, int assert = 1)
 {
     int player = 0;
-    params->GetInteger(kPlayer, &player, assert);
+    params->FetchIntValue(kPlayer, &player, assert);
     return GetProfile(player);
 }
 
 // The appearance's parts (no source yet): 0x00489050 the part a slot was given as built (its CAS option's structure),
-// 0x004890B0 the slot's own structure in the appearance; null if none. 0x00485CF0 (cdecl): the CAS option `descId` of
+// 0x004890B0 the slot's own structure in the appearance; null if none. 0x00485CF0 (cdecl): the CAS option `descriptorId` of
 // the slot's global part list. The appearance's own structure is at +0x4C.
-Gfx::CModelAppearance* Appearance(Obj::CSkaterProfile* profile) { return reinterpret_cast<Gfx::CModelAppearance*>(profile); } // (its first member)
-Script::CStruct* ActualPart(Obj::CSkaterProfile* profile, uint32_t part)
+Gfx2D::CModelLook* Appearance(GameObjects::CRiderIdentity* profile) { return reinterpret_cast<Gfx2D::CModelLook*>(profile); } // (its first member)
+Scripts::CStruct* ActualPart(GameObjects::CRiderIdentity* profile, uint32_t part)
 {
     return Appearance(profile)->GetPartOption(part);
 }
-Script::CStruct* AppearancePart(Obj::CSkaterProfile* profile, uint32_t part)
+Scripts::CStruct* AppearancePart(GameObjects::CRiderIdentity* profile, uint32_t part)
 {
     return Appearance(profile)->GetPart(part);
 }
-Script::CStruct* AppearanceStructure(Obj::CSkaterProfile* profile)
+Scripts::CStruct* AppearanceStructure(GameObjects::CRiderIdentity* profile)
 {
-    return reinterpret_cast<Script::CStruct*>(profile->m_appearance + 0x4C);
+    return reinterpret_cast<Scripts::CStruct*>(profile->m_lookData + 0x4C);
 }
 // RefreshSkaterModel's call between the heap switch and the model's build: compiled out of this build (0x0048C1B0, a
 // jump to the empty 0x005480A0; no arguments).
@@ -86,15 +86,15 @@ inline void ModelBuildHook() {}
 int Truncate(float value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // RefreshSkater*: skater=<n>'s model rebuilt from profile=<n>'s appearance with a build script.
-bool RefreshSkater(Script::CStruct* params, uint32_t buildScript)
+bool RefreshSkater(Scripts::CStruct* params, uint32_t buildScript)
 {
     int profileIndex = 0;
     int skaterIndex = 0;
-    params->GetInteger(kProfile, &profileIndex, 1);
-    params->GetInteger(kSkater, &skaterIndex, 1);
-    Obj::CCompositeObject* skater = GetSkater(skaterIndex);
-    Obj::CSkaterProfile* profile = GetProfile(profileIndex);
-    static_cast<Obj::CModelComponent*>(skater->GetComponent(kModel))->RebuildFromProfile(profile, buildScript);
+    params->FetchIntValue(kProfile, &profileIndex, 1);
+    params->FetchIntValue(kSkater, &skaterIndex, 1);
+    GameObjects::CGameEntity* skater = GetRiderAt(skaterIndex);
+    GameObjects::CRiderIdentity* profile = GetProfile(profileIndex);
+    static_cast<GameObjects::CMeshInstanceModule*>(skater->GetComponent(kModel))->RebuildFromProfile(profile, buildScript);
     return true;
 }
 
@@ -102,34 +102,34 @@ bool RefreshSkater(Script::CStruct* params, uint32_t buildScript)
 // returned), 0x00487570 set; 0x00487380 its texture (a file, maybe with its path), 0x00487590 the overlay's;
 // 0x00487520 marked valid or not; 0x00487510 whether valid. 0x00487000 / 0x004869D0 (cdecl): the points written
 // to / read from a structure (false: something missing).
-void* FaceOf(Obj::CSkaterProfile* profile) { return Obj::AppearanceFace(profile); }
-FacePoints* GetFacePoints(void* face, FacePoints* out)
+void* FaceOf(GameObjects::CRiderIdentity* profile) { return GameObjects::AppearanceFace(profile); }
+FacePoints* GetFaceVertexCount(void* face, FacePoints* out)
 {
     return reinterpret_cast<FacePoints*>(
-        static_cast<Gfx::CFaceTexture*>(face)->GetPoints(reinterpret_cast<Gfx::SFacePoints*>(out)));
+        static_cast<Gfx2D::CFaceSkin*>(face)->GetPoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(out)));
 }
-void SetFacePoints(void* face, FacePoints* points)
+void SetFaceVertexCount(void* face, FacePoints* points)
 {
-    static_cast<Gfx::CFaceTexture*>(face)->SetPoints(reinterpret_cast<const Gfx::SFacePoints*>(points));
+    static_cast<Gfx2D::CFaceSkin*>(face)->SetPoints(reinterpret_cast<const Gfx2D::SFaceAnchors*>(points));
 }
-bool WriteFacePoints(FacePoints* points, Script::CStruct* to)
+bool WriteFacePoints(FacePoints* points, Scripts::CStruct* to)
 {
-    return Gfx::WriteFacePoints(reinterpret_cast<const Gfx::SFacePoints*>(points), to);
+    return Gfx2D::WriteFacePoints(reinterpret_cast<const Gfx2D::SFaceAnchors*>(points), to);
 }
-bool ReadFacePoints(FacePoints* points, Script::CStruct* from)
+bool ReadFacePoints(FacePoints* points, Scripts::CStruct* from)
 {
-    return Gfx::ReadFacePoints(reinterpret_cast<Gfx::SFacePoints*>(points), from);
+    return Gfx2D::ReadFacePoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(points), from);
 }
 
 } // namespace
 
 // 0x005AE550: SetPlayerAppearance player=<n> appearance_structure=<s> - the player's profile's appearance set (and
 // applied).
-bool __cdecl CFunc_SetPlayerAppearance(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerAppearance(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params);
-    Script::CStruct* appearance = nullptr; // (uninitialised in the original when missing)
-    params->GetStructure("appearance_structure", &appearance, 1);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params);
+    Scripts::CStruct* appearance = nullptr; // (uninitialised in the original when missing)
+    params->ReadSubStruct("appearance_structure", &appearance, 1);
     profile->SetAppearance(appearance, true);
     return true;
 }
@@ -137,25 +137,25 @@ bool __cdecl CFunc_SetPlayerAppearance(Script::CStruct* params, Script::CScript*
 // 0x005AE5B0: GetPlayerFacePoints player=<n> - the player's face points written into the script's
 // current_face_points structure (a new one added if there's none). A failed write prints the parameters (compiled
 // out).
-bool __cdecl CFunc_GetPlayerFacePoints(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPlayerFacePoints(Scripts::CStruct* params, Scripts::CScript* script)
 {
     void* face = FaceOf(PlayerProfile(params));
-    Script::CStruct* points = nullptr;
+    Scripts::CStruct* points = nullptr;
     bool made = false;
-    if (!script->m_params->GetStructure(kCurrentFacePoints, &points, 0)) {
-        Script::CStruct* memory = Script::NewStruct();
+    if (!script->m_params->ReadSubStruct(kCurrentFacePoints, &points, 0)) {
+        Scripts::CStruct* memory = Scripts::NewStruct();
         points = memory ? memory->Init() : nullptr;
         made = true;
     }
     FacePoints scratch;
-    FacePoints copy = *GetFacePoints(face, &scratch);
+    FacePoints copy = *GetFaceVertexCount(face, &scratch);
     if (!WriteFacePoints(&copy, points))
-        Script::PrintContents(params);
+        Scripts::DumpToLog(params);
     if (made) {
-        script->m_params->AddStructure(kCurrentFacePoints, points);
+        script->m_params->PutSubStruct(kCurrentFacePoints, points);
         if (points) {
             points->Clear();
-            Script::DeleteStruct(points);
+            Scripts::DeleteStruct(points);
         }
     }
     return true;
@@ -163,139 +163,139 @@ bool __cdecl CFunc_GetPlayerFacePoints(Script::CStruct* params, Script::CScript*
 
 // 0x005AE710: SetPlayerFacePoints player=<n> [face_points=<s>] - the player's face points from the structure (or
 // the parameters themselves). A failed read prints the parameters (compiled out); the points are set anyway.
-bool __cdecl CFunc_SetPlayerFacePoints(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerFacePoints(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* face = FaceOf(PlayerProfile(params));
-    Script::CStruct* from;
-    if (!params->GetStructure("face_points", &from, 0))
+    Scripts::CStruct* from;
+    if (!params->ReadSubStruct("face_points", &from, 0))
         from = params;
     FacePoints points;
     if (!ReadFacePoints(&points, from))
-        Script::PrintContents(params);
-    SetFacePoints(face, &points);
+        Scripts::DumpToLog(params);
+    SetFaceVertexCount(face, &points);
     return true;
 }
 
 // 0x005AE7A0: SetPlayerFaceTexture player=<n> texture=<file> [fullPathIncluded].
-bool __cdecl CFunc_SetPlayerFaceTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerFaceTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->GetString(kTexture, &texture, 1);
-    bool fullPath = params->ContainsFlag(kFullPathIncluded);
-    static_cast<Gfx::CFaceTexture*>(FaceOf(profile))->LoadImageFile(texture, fullPath);
+    bool fullPath = params->HasBareFlag(kFullPathIncluded);
+    static_cast<Gfx2D::CFaceSkin*>(FaceOf(profile))->LoadImageFile(texture, fullPath);
     return true;
 }
 
 // 0x005AE820: SetPlayerFaceOverlayTexture player=<n> texture=<file>.
-bool __cdecl CFunc_SetPlayerFaceOverlayTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerFaceOverlayTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->GetString(kTexture, &texture, 1);
-    static_cast<Gfx::CFaceTexture*>(FaceOf(profile))->SetOverlayName(texture);
+    static_cast<Gfx2D::CFaceSkin*>(FaceOf(profile))->SetOverlayName(texture);
     return true;
 }
 
 // 0x005AE880: ClearPlayerFaceTexture player=<n> - the face marked not valid.
-bool __cdecl CFunc_ClearPlayerFaceTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ClearPlayerFaceTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
-    static_cast<Gfx::CFaceTexture*>(FaceOf(PlayerProfile(params)))->SetValid(false);
+    static_cast<Gfx2D::CFaceSkin*>(FaceOf(PlayerProfile(params)))->MarkUsable(false);
     return true;
 }
 
 // 0x005AE8C0: PlayerFaceIsValid player=<n> (false without a face).
-bool __cdecl CFunc_PlayerFaceIsValid(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PlayerFaceIsValid(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* face = FaceOf(PlayerProfile(params));
-    return face && static_cast<Gfx::CFaceTexture*>(face)->IsValid();
+    return face && static_cast<Gfx2D::CFaceSkin*>(face)->IsValid();
 }
 
 // 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0: RefreshSkaterColors / Scale / Visibility / UV profile=<n>
 // skater=<n> - the model rebuilt with color_model_from_appearance / scale_ / hide_ / set_uv_from_appearance.
-bool __cdecl CFunc_RefreshSkaterColors(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_RefreshSkaterColors(Scripts::CStruct* params, Scripts::CScript*)
 {
     return RefreshSkater(params, kColorModelFromAppearance);
 }
-bool __cdecl CFunc_RefreshSkaterScale(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_RefreshSkaterScale(Scripts::CStruct* params, Scripts::CScript*)
 {
     return RefreshSkater(params, kScaleModelFromAppearance);
 }
-bool __cdecl CFunc_RefreshSkaterVisibility(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_RefreshSkaterVisibility(Scripts::CStruct* params, Scripts::CScript*)
 {
     return RefreshSkater(params, kHideModelFromAppearance);
 }
-bool __cdecl CFunc_RefreshSkaterUV(Script::CStruct* params, Script::CScript*) { return RefreshSkater(params, kSetUvFromAppearance); }
+bool __cdecl CFunc_RefreshSkaterUV(Scripts::CStruct* params, Scripts::CScript*) { return RefreshSkater(params, kSetUvFromAppearance); }
 
 // 0x005AFD80: RefreshSkaterModel [<n>] [profile=<p>] [skater=<s>] [no_board=...] - skater s's (n) model built again
 // from profile p's (n) appearance in the skater's geometry heap (the first viewport's skater: the BailBoard object
 // killed first), then in its own heap its stats, trick mappings and looks from the profile; no_board: the board geom
 // hidden.
-bool __cdecl CFunc_RefreshSkaterModel(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_RefreshSkaterModel(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index = 0;
-    params->GetInteger(0u, &index, 0);
+    params->FetchIntValue(0u, &index, 0);
     int profileIndex = index;
     int skaterIndex = index;
-    params->GetInteger(kProfile, &profileIndex, 0);
-    params->GetInteger(kSkater, &skaterIndex, 0);
-    auto* skater = static_cast<Obj::CSkater*>(GetSkater(skaterIndex));
-    if (skater->m_viewport == 0) {
-        auto* objects = reinterpret_cast<Obj::CGeneralManager*>(Obj::g_compositeObjectManager);
-        if (Obj::CObject* board = objects->GetObjectByID(kBailBoard)) {
-            reinterpret_cast<void(__thiscall*)(Obj::CObject*)>(board->m_vtable[6])(board); // (MarkAsDead)
+    params->FetchIntValue(kProfile, &profileIndex, 0);
+    params->FetchIntValue(kSkater, &skaterIndex, 0);
+    auto* skater = static_cast<GameObjects::CRider*>(GetRiderAt(skaterIndex));
+    if (skater->m_viewSlot == 0) {
+        auto* objects = reinterpret_cast<GameObjects::CMiscHub*>(GameObjects::g_compositeObjectManager);
+        if (GameObjects::CObject* board = objects->LookUpEntity(kBailBoard)) {
+            reinterpret_cast<void(__thiscall*)(GameObjects::CObject*)>(board->m_vtable[6])(board); // (FlagAsDead)
             objects->FlushDeadObjects();
         }
     }
-    Obj::CSkaterProfile* profile = GetProfile(profileIndex);
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_skaterGeomHeaps[skater->GetSkaterNumber()]);
+    GameObjects::CRiderIdentity* profile = GetProfile(profileIndex);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_skaterGeomHeaps[skater->GetSkaterNumber()]);
     ModelBuildHook();
-    Obj::CBaseComponent* model = skater->GetComponent(kModel);
-    reinterpret_cast<void(__thiscall*)(Obj::CBaseComponent*, void*, bool, int, uint32_t)>(model->m_vtable[13])(
-        model, profile, false, skater->GetSkaterNumber(), 0); // (InitModelFromProfile)
-    Mem::Manager::Get()->PopContext();
-    manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
+    GameObjects::CObjectModule* model = skater->GetComponent(kModel);
+    reinterpret_cast<void(__thiscall*)(GameObjects::CObjectModule*, void*, bool, int, uint32_t)>(model->m_vtable[13])(
+        model, profile, false, skater->GetSkaterNumber(), 0); // (SetUpMeshFromProfile)
+    MemSys::Manager::Get()->LeaveHeapScope();
+    manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
     skater->SetStatsFromProfile(profile);
-    static_cast<Obj::CTrickComponent*>(skater->GetComponent(kTrick))->SetTrickMappings(profile);
+    static_cast<GameObjects::CMoveExecutor*>(skater->GetComponent(kTrick))->SetTrickMappings(profile);
     skater->UpdateFromProfile(profile);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     uint32_t noBoard;
-    if (params->GetChecksum(kNoBoard, &noBoard, 0)) {
-        auto* skaterModel = static_cast<Obj::CModelComponent*>(skater->GetComponent(kModel));
-        skaterModel->HideGeom(kBoard, true, true);
-        static_cast<Obj::CBaseComponent*>(skaterModel)->Update(); // (through the vtable: slot 1)
+    if (params->ReadHashValue(kNoBoard, &noBoard, 0)) {
+        auto* skaterModel = static_cast<GameObjects::CMeshInstanceModule*>(skater->GetComponent(kModel));
+        skaterModel->ConcealMesh(kBoard, true, true);
+        static_cast<GameObjects::CObjectModule*>(skaterModel)->Update(); // (through the vtable: slot 1)
     }
     return true;
 }
 
 // 0x005AFF30: EditPlayerAppearance [<n>] [profile=<p>] target=<script> [targetParams=<s>] - the target script run
 // with the parameters on profile p's (n) profile (passed as the script's object, as the original does).
-bool __cdecl CFunc_EditPlayerAppearance(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_EditPlayerAppearance(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index = 0;
-    params->GetInteger(0u, &index, 0);
+    params->FetchIntValue(0u, &index, 0);
     int profileIndex = index;
-    params->GetInteger(kProfile, &profileIndex, 0);
-    Obj::CSkaterProfile* profile = GetProfile(profileIndex);
+    params->FetchIntValue(kProfile, &profileIndex, 0);
+    GameObjects::CRiderIdentity* profile = GetProfile(profileIndex);
     uint32_t target = 0; // (uninitialised in the original when missing)
-    params->GetChecksum(kTarget, &target, 1);
-    Script::CStruct* targetParams = nullptr;
-    params->GetStructure(kTargetParams, &targetParams, 0);
-    Script::RunScript(target, targetParams, reinterpret_cast<Obj::CObject*>(profile), false, nullptr);
+    params->ReadHashValue(kTarget, &target, 1);
+    Scripts::CStruct* targetParams = nullptr;
+    params->ReadSubStruct(kTargetParams, &targetParams, 0);
+    Scripts::LaunchScript(target, targetParams, reinterpret_cast<GameObjects::CObject*>(profile), false, nullptr);
     return true;
 }
 
 // 0x005B0420: GetActualCASOptionStruct part=<slot> desc_id=<id> - the CAS option's structure added to the script's
 // parameters. Always false.
-bool __cdecl CFunc_GetActualCASOptionStruct(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetActualCASOptionStruct(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    uint32_t part = 0, descId = 0; // (uninitialised in the original when missing)
-    params->GetChecksum(kPart, &part, 1);
-    params->GetChecksum(kDescId, &descId, 1);
-    Script::CStruct* option =
-        Obj::FindCasOption(part, descId, true);
+    uint32_t part = 0, descriptorId = 0; // (uninitialised in the original when missing)
+    params->ReadHashValue(kPart, &part, 1);
+    params->ReadHashValue(kDescId, &descriptorId, 1);
+    Scripts::CStruct* option =
+        GameObjects::FindCasOption(part, descriptorId, true);
     script->m_params->AppendStructureIfAny(option);
     return false;
 }
@@ -303,26 +303,26 @@ bool __cdecl CFunc_GetActualCASOptionStruct(Script::CStruct* params, Script::CSc
 // 0x005B0480 / 0x005B0500: GetActualPlayerAppearancePart / GetPlayerAppearancePart [player=<n>] part=<slot> - the
 // part as built (its CAS option) / the appearance's own slot structure added to the script's parameters (false
 // without).
-bool __cdecl CFunc_GetActualPlayerAppearancePart(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetActualPlayerAppearancePart(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params, 0);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params, 0);
     uint32_t part;
-    if (!params->GetChecksum(kPart, &part, 0))
+    if (!params->ReadHashValue(kPart, &part, 0))
         return false;
-    Script::CStruct* structure = ActualPart(profile, part);
+    Scripts::CStruct* structure = ActualPart(profile, part);
     if (!structure)
         return false;
     script->m_params->AppendStructureIfAny(structure);
     return true;
 }
 
-bool __cdecl CFunc_GetPlayerAppearancePart(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPlayerAppearancePart(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params, 0);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params, 0);
     uint32_t part;
-    if (!params->GetChecksum(kPart, &part, 0))
+    if (!params->ReadHashValue(kPart, &part, 0))
         return false;
-    Script::CStruct* structure = AppearancePart(profile, part);
+    Scripts::CStruct* structure = AppearancePart(profile, part);
     if (!structure)
         return false;
     script->m_params->AppendStructureIfAny(structure);
@@ -330,75 +330,75 @@ bool __cdecl CFunc_GetPlayerAppearancePart(Script::CStruct* params, Script::CScr
 }
 
 // 0x005B0580: GetPlayerAppearance [player=<n>] - a copy of the appearance's structure as profile.
-bool __cdecl CFunc_GetPlayerAppearance(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_GetPlayerAppearance(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params, 0);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params, 0);
     if (reinterpret_cast<uintptr_t>(profile) + 0x4C == 0) // (the original's check of the structure's address)
         return false;
-    Script::CStruct* memory = Script::NewStruct();
-    Script::CStruct* copy = memory ? memory->Init() : nullptr;
+    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* copy = memory ? memory->Init() : nullptr;
     copy->AppendStructureIfAny(AppearanceStructure(profile));
-    script->m_params->AddStructurePointer("profile", copy);
+    script->m_params->AppendStructRef("profile", copy);
     return true;
 }
 
 // 0x005B0670: SetPlayerAppearanceColor [player=<n>] part=<slot> h= s= v= use_default_hsv= - the slot's colour (the
 // floats truncated to integers); nothing if the appearance hasn't the slot.
-bool __cdecl CFunc_SetPlayerAppearanceColor(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerAppearanceColor(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params, 0);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing, as the values)
-    params->GetChecksum(kPart, &part, 1);
-    Script::CStruct* slot = AppearancePart(profile, part);
+    params->ReadHashValue(kPart, &part, 1);
+    Scripts::CStruct* slot = AppearancePart(profile, part);
     if (slot) {
         float h = 0.0f, s = 0.0f, v = 0.0f;
         int useDefault = 0;
         params->GetFloat(kH, &h, 1);
         params->GetFloat(kS, &s, 1);
         params->GetFloat(kV, &v, 1);
-        params->GetInteger(kUseDefaultHsv, &useDefault, 1);
-        slot->AddInteger(kH, Truncate(h));
-        slot->AddInteger(kS, Truncate(s));
-        slot->AddInteger(kV, Truncate(v));
-        slot->AddInteger(kUseDefaultHsv, useDefault);
+        params->FetchIntValue(kUseDefaultHsv, &useDefault, 1);
+        slot->PutInt(kH, Truncate(h));
+        slot->PutInt(kS, Truncate(s));
+        slot->PutInt(kV, Truncate(v));
+        slot->PutInt(kUseDefaultHsv, useDefault);
     }
     return true;
 }
 
 // 0x005B0780: SetPlayerAppearanceScale [player=<n>] part=<slot> [x=] [y=] [z=] [use_default_scale=] - the values
 // given set in the slot (made in the appearance if it hasn't the slot); the floats truncated.
-bool __cdecl CFunc_SetPlayerAppearanceScale(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerAppearanceScale(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params, 0);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing)
-    params->GetChecksum(kPart, &part, 1);
-    Script::CStruct* slot = AppearancePart(profile, part);
+    params->ReadHashValue(kPart, &part, 1);
+    Scripts::CStruct* slot = AppearancePart(profile, part);
     if (!slot) {
-        Script::CStruct* memory = Script::NewStruct();
+        Scripts::CStruct* memory = Scripts::NewStruct();
         slot = memory ? memory->Init() : nullptr;
-        AppearanceStructure(profile)->AddStructurePointer(part, slot);
+        AppearanceStructure(profile)->AppendStructRef(part, slot);
     }
     float value;
     if (params->GetFloat(kX, &value, 0))
-        slot->AddInteger(kX, Truncate(value));
+        slot->PutInt(kX, Truncate(value));
     if (params->GetFloat(kY, &value, 0))
-        slot->AddInteger(kY, Truncate(value));
+        slot->PutInt(kY, Truncate(value));
     if (params->GetFloat(kZ, &value, 0))
-        slot->AddInteger(kZ, Truncate(value));
+        slot->PutInt(kZ, Truncate(value));
     int useDefault;
-    if (params->GetInteger(kUseDefaultScale, &useDefault, 0))
-        slot->AddInteger(kUseDefaultScale, useDefault);
+    if (params->FetchIntValue(kUseDefaultScale, &useDefault, 0))
+        slot->PutInt(kUseDefaultScale, useDefault);
     return true;
 }
 
 // 0x005B0920: SetPlayerAppearanceUV [player=<n>] part=<slot> uv_u= uv_v= uv_scale= uv_rot= use_default_uv= - the
 // slot's texture placement; nothing if the appearance hasn't the slot.
-bool __cdecl CFunc_SetPlayerAppearanceUV(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetPlayerAppearanceUV(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Obj::CSkaterProfile* profile = PlayerProfile(params, 0);
+    GameObjects::CRiderIdentity* profile = PlayerProfile(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing, as the values)
-    params->GetChecksum(kPart, &part, 1);
-    Script::CStruct* slot = AppearancePart(profile, part);
+    params->ReadHashValue(kPart, &part, 1);
+    Scripts::CStruct* slot = AppearancePart(profile, part);
     if (slot) {
         float u = 0.0f, v = 0.0f, scale = 0.0f, rotation = 0.0f;
         int useDefault = 0;
@@ -406,14 +406,14 @@ bool __cdecl CFunc_SetPlayerAppearanceUV(Script::CStruct* params, Script::CScrip
         params->GetFloat(kUvV, &v, 1);
         params->GetFloat(kUvScale, &scale, 1);
         params->GetFloat(kUvRot, &rotation, 1);
-        params->GetInteger(kUseDefaultUv, &useDefault, 1);
-        slot->AddFloat(kUvU, u);
-        slot->AddFloat(kUvV, v);
-        slot->AddFloat(kUvScale, scale);
-        slot->AddFloat(kUvRot, rotation);
-        slot->AddInteger(kUseDefaultUv, useDefault);
+        params->FetchIntValue(kUseDefaultUv, &useDefault, 1);
+        slot->PushFloat(kUvU, u);
+        slot->PushFloat(kUvV, v);
+        slot->PushFloat(kUvScale, scale);
+        slot->PushFloat(kUvRot, rotation);
+        slot->PutInt(kUseDefaultUv, useDefault);
     }
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

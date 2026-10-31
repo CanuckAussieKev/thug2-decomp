@@ -12,7 +12,7 @@
 #include "game/gfx/settings.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 OcclusionPoly g_occlusionPolys[512];
 Occluder g_occluders[8];
@@ -29,7 +29,7 @@ OcclusionPoly* Polys() { return g_occlusionPolys; }
 uint32_t& PolyCount() { return g_occlusionPolyCount; }
 uint32_t& NextPoly() { return g_occlusionNextPoly; } // where AddOccluders carries on
 int& Frame() { return g_occlusionFrame; }
-Occluder* Occluders() { return g_occluders; }
+Occluder* OccluderArray() { return g_occluders; }
 uint32_t& OccluderCount() { return g_occluderCount; }
 constexpr uint32_t kMaxOccluders = 8;
 
@@ -142,9 +142,9 @@ void __cdecl SortOccluders()
     uint32_t count = OccluderCount();
     if (count == 0)
         return;
-    Qsort(Occluders(), count, sizeof(Occluder), &CompareOccluders);
+    Qsort(OccluderArray(), count, sizeof(Occluder), &CompareOccluders);
     for (int i = static_cast<int>(OccluderCount()) - 1; i >= 0; --i) {
-        Occluder& occluder = Occluders()[i];
+        Occluder& occluder = OccluderArray()[i];
         if (occluder.hidden[1] + occluder.hidden[0] == 0) {
             // Hid nothing: its polygon is free again (the list is sorted, so it's at the end).
             occluder.poly->inUse = 0;
@@ -156,7 +156,7 @@ void __cdecl SortOccluders()
 }
 
 // 0x004D8C90
-void __cdecl EnableOcclusionPoly(uint32_t checksum, bool enabled)
+void __cdecl ActivateOccluderPoly(uint32_t checksum, bool enabled)
 {
     for (uint32_t i = 0; i < PolyCount(); ++i) {
         if (Polys()[i].checksum == checksum)
@@ -165,7 +165,7 @@ void __cdecl EnableOcclusionPoly(uint32_t checksum, bool enabled)
 }
 
 // 0x004D8CC0
-void __cdecl RemoveAllOcclusionPolys()
+void __cdecl ClearOccluderPolys()
 {
     OccluderCount() = 0;
     PolyCount() = 0;
@@ -185,7 +185,7 @@ void __cdecl AddOccluders()
         OcclusionPoly& poly = Polys()[next++];
         if (!poly.inUse && poly.enabled) {
             if (occluders < kMaxOccluders) {
-                Occluder& occluder = Occluders()[occluders++];
+                Occluder& occluder = OccluderArray()[occluders++];
                 occluder.poly = &poly;
                 poly.inUse = 1;
                 occluder.hidden[0] = 0;
@@ -204,14 +204,14 @@ void __cdecl AddOccluders()
 }
 
 // 0x004D8D70
-void __cdecl AddOcclusionPoly(const Mth::Vector* p0, const Mth::Vector* p1, const Mth::Vector* p2,
-                              const Mth::Vector* p3, uint32_t checksum)
+void __cdecl InsertOccluderPoly(const Maths::Vector* p0, const Maths::Vector* p1, const Maths::Vector* p2,
+                              const Maths::Vector* p3, uint32_t checksum)
 {
     OcclusionPoly& poly = Polys()[PolyCount()];
     poly.inUse = 0;
     poly.enabled = 1;
     poly.checksum = checksum;
-    const Mth::Vector* corners[4] = {p0, p1, p2, p3};
+    const Maths::Vector* corners[4] = {p0, p1, p2, p3};
     for (int i = 0; i < 4; ++i) {
         poly.corners[i][0] = corners[i]->x;
         poly.corners[i][1] = corners[i]->y;
@@ -229,12 +229,12 @@ void __cdecl AddOcclusionPoly(const Mth::Vector* p0, const Mth::Vector* p1, cons
     poly.normal[1] = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
     poly.normal[2] = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
     poly.normal[3] = 0.0f;
-    reinterpret_cast<Mth::Vector*>(poly.normal)->Normalize();
+    reinterpret_cast<Maths::Vector*>(poly.normal)->Normalize();
     ++PolyCount();
 }
 
 // 0x004D8ED0
-void __cdecl BuildOccluders(const Mth::Vector* eye, int frame)
+void __cdecl CollectOccluders(const Maths::Vector* eye, int frame)
 {
     Frame() = frame;
     SortOccluders();
@@ -243,7 +243,7 @@ void __cdecl BuildOccluders(const Mth::Vector* eye, int frame)
     using L = LengthOrder;
     using D = DotOrder;
     for (uint32_t i = 0; i < OccluderCount(); ++i) {
-        Occluder& occluder = Occluders()[i];
+        Occluder& occluder = OccluderArray()[i];
         const OcclusionPoly& poly = *occluder.poly;
         const float* p0 = poly.corners[0];
         const float* p1 = poly.corners[1];
@@ -276,7 +276,7 @@ bool& OcclusionOff()
 }
 
 // 0x004D9AC0
-bool __cdecl SphereOccluded(const Mth::Vector* centre, float radius, int weight)
+bool __cdecl SphereOccluded(const Maths::Vector* centre, float radius, int weight)
 {
     if (OcclusionOff()) // (NOT ORIGINAL: the level editor's switch)
         return false;
@@ -288,7 +288,7 @@ bool __cdecl SphereOccluded(const Mth::Vector* centre, float radius, int weight)
     }
     float limit = -radius;
     for (uint32_t i = 0; i < OccluderCount(); ++i) {
-        Occluder& occluder = Occluders()[i];
+        Occluder& occluder = OccluderArray()[i];
         int plane = 0;
         for (; plane < 5; ++plane) {
             const float* p = occluder.planes[plane];
@@ -305,7 +305,7 @@ bool __cdecl SphereOccluded(const Mth::Vector* centre, float radius, int weight)
 }
 
 // 0x004DB570
-int __cdecl SphereOutsideView(const Mth::Vector* centre, float radius)
+int __cdecl SphereOutsideView(const Maths::Vector* centre, float radius)
 {
     float view[4];
     Transform(view, &centre->x, ViewMatrix());
@@ -313,7 +313,7 @@ int __cdecl SphereOutsideView(const Mth::Vector* centre, float radius)
 }
 
 // 0x004DB790
-bool __cdecl SphereInView(const Mth::Vector* centre, float radius)
+bool __cdecl SphereInView(const Maths::Vector* centre, float radius)
 {
     float moved[4];
     const float* point = &centre->x;

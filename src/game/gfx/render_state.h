@@ -5,7 +5,7 @@
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (ResetRenderState)
 // when the device is created and pushed to the device again (ApplyRenderState) after a reset.
-namespace Nx {
+namespace Engine3D {
 
 // The renderer's own render state numbering (SetState's `state`).
 enum RenderStateId {
@@ -35,7 +35,7 @@ void __cdecl SetTexture(int stage, void* texture);
 // 0x004DA760: the blend mode - the low 24 bits pick the source / destination factors and operation (a table of
 // the game's modes), the high 8 bits the blend factor's alpha (x2, saturating). An override (0x00786F34) wins if
 // set.
-void __cdecl SetBlendMode(uint32_t mode);
+void __cdecl ChooseBlendMode(uint32_t mode);
 // 0x004D9DE0: the texture stages that stand in for a pixel shader (the shader handles at 0x007CA944-64) when
 // the device has no pixel shaders; `factor` is the texture factor colour some of them use.
 void __cdecl SetFixedFunctionStages(void* shader, uint32_t factor);

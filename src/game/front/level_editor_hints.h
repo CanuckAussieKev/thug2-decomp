@@ -16,7 +16,7 @@
 // A hint's keys are tokens joined by '+': a key cap ("Ctrl", "G", "WASD"), a mouse glyph ("LMB", "RMB", "MMB", "Wheel",
 // "Mouse", "2xLMB" a double click) or a controller glyph ("PadA", "PadB", "PadX", "PadY", "LS", "RS", "LT", "RT", "LB",
 // "RB", "DPad", "Back", "R3", "L3"). The UI (level_editor_ux8_ui.cpp) draws each as its glyph.
-namespace Front::LevelEditor::Hints {
+namespace MenuSystem::LevelEditor::Hints {
 
 // --- the pieces (pure) ---------------------------------------------------------------------------------------------
 
@@ -74,4 +74,4 @@ enum class Glyph : uint8_t { Key, Mouse, MouseLeft, MouseRight, MouseMiddle, Whe
                              PadOther };
 Glyph GlyphOf(const std::string& token);
 
-} // namespace Front::LevelEditor::Hints
+} // namespace MenuSystem::LevelEditor::Hints

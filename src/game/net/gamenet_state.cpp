@@ -1,4 +1,4 @@
-// The network manager's small members (GameNet::Manager, 0x00532AA0-0x005333F0): its flags and saved values, the
+// The network manager's small members (OnlinePlay::Manager, 0x00532AA0-0x005333F0): its flags and saved values, the
 // network preferences it reads, and the few messages it sends on its own.
 
 #include <cstddef>
@@ -14,7 +14,7 @@
 #include "game/sys/timer.h"
 #include "game/ed/goal_editor.h"
 
-namespace GameNet {
+namespace OnlinePlay {
 
 namespace {
 
@@ -34,9 +34,9 @@ constexpr uint32_t kDrawNames = 0x47;        // bool
 constexpr uint32_t kStartInfoWords = 0x48;   // 8 words
 constexpr uint32_t kCrownSpawnPoint = 0x68;
 constexpr uint32_t kCrown = 0x6C;
-constexpr uint32_t kHostTask = 0xF4;         // Tsk::BaseTask*
-constexpr uint32_t kNetworkPrefs = 0x104;    // Prefs::Preferences
-constexpr uint32_t kTauntPrefs = 0x110;      // Prefs::Preferences
+constexpr uint32_t kHostTask = 0xF4;         // TaskList::SchedulerTask*
+constexpr uint32_t kNetworkPrefs = 0x104;    // OptionStore::Preferences
+constexpr uint32_t kTauntPrefs = 0x110;      // OptionStore::Preferences
 constexpr uint32_t kLastLeader = 0x1D0;
 constexpr uint32_t kLastLeadingTeam = 0x1D4;
 constexpr uint32_t kGoalsMessage = 0x1D8;    // the level, then the goals (6000 bytes)
@@ -90,9 +90,9 @@ constexpr uint32_t kNetCtf = 0x6C5FF266;             // netctf
 // function is called) the original reads its uninitialised local: the slot ECX was pushed into - the manager.
 uint32_t PreferenceChecksum(Manager* manager, uint32_t name)
 {
-    Script::CStruct* preference = manager->GetNetworkPreferences()->GetPreference(name);
+    Scripts::CStruct* preference = manager->GetOnlineSettings()->GetPreference(name);
     auto value = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(manager));
-    preference->GetChecksum(kChecksum, &value, 1);
+    preference->ReadHashValue(kChecksum, &value, 1);
     return value;
 }
 
@@ -107,7 +107,7 @@ int NumberOf(uint32_t value, int first, int last, int bias, int otherwise)
 }
 
 // 0x004E8470: the goal editor module.
-Ed::CGoalEditorComponent* GoalEditor() { return Ed::CGoalEditorComponent::Get(); }
+ParkEditing::CObjectiveAuthoring* GoalEditor() { return ParkEditing::CObjectiveAuthoring::Get(); }
 
 } // namespace
 
@@ -119,10 +119,10 @@ void Manager::SetJoinMode(int mode)
 }
 
 // 0x00532AC0
-int Manager::GetJoinMode() { return m_joinMode; }
+int Manager::GetEntryMode() { return m_joinMode; }
 
 // 0x00532AD0
-int Manager::GetHostMode() { return m_hostMode; }
+int Manager::GetHostingRole() { return m_hostMode; }
 
 // 0x00532AE0
 int Manager::GetRankTest()
@@ -137,10 +137,10 @@ int Manager::GetRankTest()
 int Manager::GetRankLimit() { return NumberOf(PreferenceChecksum(this, kRankLimit), 1, 9, -1, 9); }
 
 // 0x00532BE0
-int Manager::GetSkillLevel() { return NumberOf(PreferenceChecksum(this, kSkillLevel), 1, 5, -1, 2); }
+int Manager::GetDifficultyTier() { return NumberOf(PreferenceChecksum(this, kSkillLevel), 1, 5, -1, 2); }
 
 // 0x00532C50
-int Manager::GetMaxPlayers() { return NumberOf(PreferenceChecksum(this, kNumPlayers), 2, 8, 0, 2); }
+int Manager::GetPlayerLimit() { return NumberOf(PreferenceChecksum(this, kNumPlayers), 2, 8, 0, 2); }
 
 // 0x00532CF0
 int Manager::GetNumTeams()
@@ -156,24 +156,24 @@ int Manager::GetNumTeams()
 }
 
 // 0x00532D60
-int Manager::GetMaxObservers() { return NumberOf(PreferenceChecksum(this, kNumObservers), 0, 8, 0, 2); }
+int Manager::GetSpectatorLimit() { return NumberOf(PreferenceChecksum(this, kNumObservers), 0, 8, 0, 2); }
 
 // 0x00532E30
-void Manager::RemoveHostTask() { Field<Tsk::BaseTask*>(this, kHostTask)->Remove(); }
+void Manager::RemoveHostTask() { Field<TaskList::SchedulerTask*>(this, kHostTask)->Remove(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
 uint32_t Manager::GetJoinIp() { return m_joinIp; }
 uint32_t Manager::GetJoinPrivateIp() { return m_joinPrivateIp; }
-int Manager::GetJoinPort() { return m_joinPort; }
+int Manager::GetEntryPort() { return m_joinPort; }
 void Manager::SetJoinIp(uint32_t ip) { m_joinIp = ip; }
 void Manager::SetJoinPrivateIp(uint32_t ip) { m_joinPrivateIp = ip; }
-void Manager::SetJoinPort(int port) { m_joinPort = port; }
+void Manager::SetEntryPort(int port) { m_joinPort = port; }
 
 // 0x00532EA0 (+0x08 + index * 4: the two clients lie side by side)
-Net::App* Manager::GetClient(int index) { return ClientSlot(index); }
+NetLink::App* Manager::GetClient(int index) { return ClientSlot(index); }
 
 // 0x00532EB0
-Net::App* Manager::GetMatchClient() { return m_matchClient; }
+NetLink::App* Manager::GetMatchmakingClient() { return m_matchClient; }
 
 // 0x00532EC0
 void* Manager::GetCamPlayer() { return m_camPlayer; }
@@ -186,22 +186,22 @@ void Manager::FindServersOnLan()
     if (!m_matchClient)
         return;
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
-    uint32_t message[3] = {Tmr::GetTime(), 0, 0};
+    uint32_t message[3] = {FrameClock::GetTime(), 0, 0};
     uint32_t& askedFor = g_askedFor;
     if (askedFor) {
-        m_matchClient->SendMessageTo(kMsgFindServer, sizeof(message), message, askedFor, kLanPort, 0);
+        m_matchClient->DeliverTo(kMsgFindServer, sizeof(message), message, askedFor, kLanPort, 0);
         askedFor = 0;
         return;
     }
-    m_matchClient->SendMessageTo(kMsgFindServer, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
+    m_matchClient->DeliverTo(kMsgFindServer, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
     uint32_t commandLine = g_commandLineServer; // (ParseNetworkParams)
     if (commandLine != 0xFFFFFFFF)
-        m_matchClient->SendMessageTo(kMsgFindServer, sizeof(message), message, commandLine, kLanPort, 0);
+        m_matchClient->DeliverTo(kMsgFindServer, sizeof(message), message, commandLine, kLanPort, 0);
 }
 
 // 0x00532F70 / 0x00532F80
-Prefs::Preferences* Manager::GetNetworkPreferences() { return &Field<Prefs::Preferences>(this, kNetworkPrefs); }
-Prefs::Preferences* Manager::GetTauntPreferences() { return &Field<Prefs::Preferences>(this, kTauntPrefs); }
+OptionStore::Preferences* Manager::GetOnlineSettings() { return &Field<OptionStore::Preferences>(this, kNetworkPrefs); }
+OptionStore::Preferences* Manager::GetTauntSettings() { return &Field<OptionStore::Preferences>(this, kTauntPrefs); }
 
 // 0x00532F90
 void Manager::SetStartInfoWords(const uint32_t* words)
@@ -221,7 +221,7 @@ bool Manager::IsUntimedGame()
         return true;
     if (!InNetGame())
         return false;
-    Prefs::Preferences* prefs = GetNetworkPreferences();
+    OptionStore::Preferences* prefs = GetOnlineSettings();
     if (mode == kNetCtf && prefs->GetPreferenceChecksum(kCtfGameType, kChecksum) != kTimedCtf)
         return true;
     return prefs->GetPreferenceChecksum(kStopAtZero, kChecksum) == kBooleanTrue;
@@ -241,10 +241,10 @@ int Manager::GetFireballLevel() { return NumberOf(PreferenceChecksum(this, kFire
 void Manager::TogglePlayerNames() { Field<uint8_t>(this, kDrawNames) ^= 1; }
 
 // 0x00533140
-bool Manager::ShouldDrawPlayerNames()
+bool Manager::WantsNameTags()
 {
     uint32_t value = 0;
-    GetNetworkPreferences()->GetPreference(kShowNames)->GetChecksum(kChecksum, &value, 0);
+    GetOnlineSettings()->GetPreference(kShowNames)->ReadHashValue(kChecksum, &value, 0);
     return value == kBooleanTrue;
 }
 
@@ -262,30 +262,30 @@ void Manager::SetFinalScoresReceived(bool received) { Field<bool>(this, kFinalSc
 bool Manager::FinalScoresReceived() { return Field<bool>(this, kFinalScores); }
 
 // 0x005331F0 / 0x00533200
-void Manager::SetJoinState(int state) { m_joinState = state; }
-int Manager::GetJoinState() { return m_joinState; }
+void Manager::SetEntryPhase(int state) { m_joinState = state; }
+int Manager::GetEntryPhase() { return m_joinState; }
 
 // 0x00533210 / 0x00533220
-void* Manager::GetCrown() { return Field<void*>(this, kCrown); }
+void* Manager::GetCrownHolder() { return Field<void*>(this, kCrown); }
 void Manager::ClearCrown() { Field<void*>(this, kCrown) = nullptr; }
 
 // 0x00533230
-void Manager::SetCrownSpawnPoint(char point) { Field<int>(this, kCrownSpawnPoint) = point; }
+void Manager::SetCrownStartSpot(char point) { Field<int>(this, kCrownSpawnPoint) = point; }
 
 // 0x00533240
-void Manager::SetLobbyId(uint32_t id) { Field<uint32_t>(this, kLobbyId) = id; }
+void Manager::SetRoomId(uint32_t id) { Field<uint32_t>(this, kLobbyId) = id; }
 
 // 0x00533250
 void Manager::SendGameEnded()
 {
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
     desc.m_data = &Field<uint8_t>(this, kGameId);
-    desc.m_length = 1;
+    desc.m_byteCount = 1;
     desc.m_id = kMsgGameEnded;
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
-    static_cast<Net::Client*>(m_client)->EnqueueMessageToServer(&desc);
+    static_cast<NetLink::Client*>(m_clientApp)->SendToHost(&desc);
     Field<uint8_t>(this, kEndedGameId) = Field<uint8_t>(this, kGameId);
 }
 
@@ -295,7 +295,7 @@ bool Manager::GameEndedSent() { return Field<uint8_t>(this, kEndedGameId) == Fie
 // 0x005332B0 / 0x005332C0 / 0x005332D0
 bool Manager::IsGameOver() { return m_gameOver; }
 void Manager::SetGameOver() { m_gameOver = true; }
-void Manager::ClearGameOver() { m_gameOver = false; }
+void Manager::ResetMatchEnded() { m_gameOver = false; }
 
 // 0x005332E0 / 0x005332F0
 bool Manager::CheatingNoted() { return Field<bool>(this, kCheatingNoted); }
@@ -304,16 +304,16 @@ void Manager::NoteCheating() { Field<bool>(this, kCheatingNoted) = true; }
 // 0x00533300
 void Manager::SendReadyResponse()
 {
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
     uint32_t id = m_latestReadyQuery;
     desc.m_data = &id;
-    desc.m_length = sizeof(id);
+    desc.m_byteCount = sizeof(id);
     desc.m_id = kMsgReadyResponse;
-    desc.m_queue = Net::MsgDesc::kQueueImportant;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueImportant;
     for (int i = 0; i < 2; ++i) {
-        if (Net::App* client = GetClient(i))
-            static_cast<Net::Client*>(client)->EnqueueMessageToServer(&desc);
+        if (NetLink::App* client = GetClient(i))
+            static_cast<NetLink::Client*>(client)->SendToHost(&desc);
     }
 }
 
@@ -335,7 +335,7 @@ void Manager::PrepareCreatedGoals(uint32_t level)
 {
     Field<uint32_t>(this, kGoalsLevel) = level;
     Field<uint32_t>(this, kGoalsMessage) = level;
-    Ed::CGoalEditorComponent* editor = GoalEditor();
+    ParkEditing::CObjectiveAuthoring* editor = GoalEditor();
     int size = static_cast<int>(editor->WriteLevelGoalsToBuffer(
         level, &Field<uint8_t>(this, kGoalsMessage + 4), static_cast<uint32_t>(kGoalsBufferSize)));
     Field<int>(this, kGoalsSize) = size + 4;
@@ -345,6 +345,6 @@ void Manager::PrepareCreatedGoals(uint32_t level)
 void* Manager::GetCreatedGoalsMessage() { return &Field<uint8_t>(this, kGoalsMessage); }
 uint32_t Manager::GetCreatedGoalsSize() { return Field<uint32_t>(this, kGoalsSize); }
 
-} // namespace GameNet
+} // namespace OnlinePlay
 
-using GameNet::Manager;
+using OnlinePlay::Manager;

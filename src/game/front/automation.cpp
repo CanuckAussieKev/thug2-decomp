@@ -46,7 +46,7 @@
 #include "game/sys/crash.h"
 #include "game/sys/log.h"
 
-namespace Front::Automation {
+namespace MenuSystem::Automation {
 
 namespace {
 
@@ -54,8 +54,8 @@ namespace {
 
 constexpr uint32_t kSystem = 0x36B2EE74;       // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516;   // "focus"
-constexpr uint32_t kPadChoose = Mdl::FrontEnd::kPadChoose;
-constexpr uint32_t kPadStart = Mdl::FrontEnd::kPadStart;
+constexpr uint32_t kPadChoose = GameModules::FrontEnd::kPadChoose;
+constexpr uint32_t kPadStart = GameModules::FrontEnd::kPadStart;
 constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
 
@@ -66,13 +66,13 @@ constexpr int kDefaultChooseSeconds = 10;
 constexpr int kDefaultWaitSeconds = 90;
 constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the condition must hold
 constexpr int kPartialLineFrames = 30;
-constexpr int kMaxCaptureFrames = Sys::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
+constexpr int kMaxCaptureFrames = SystemCore::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
 constexpr int kMaxTraceFrames = 36000;   // trace: ten minutes at 60 frames a second
 constexpr uint32_t kSkaterStateComponent = 0x43686585; // SkaterState
 constexpr uint32_t kSkaterScoreComponent = 0xD262802F; // SkaterScore
 constexpr uint32_t kSkaterCorePhysicsComponent = 0x5BD63B29; // SkaterCorePhysics
 
-uint32_t Checksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
+uint32_t Checksum(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
 
 std::string Lower(std::string text)
 {
@@ -256,7 +256,7 @@ std::unordered_map<uint32_t, std::string>& Names()
 {
     static std::unordered_map<uint32_t, std::string>* names = [] {
         auto* table = new std::unordered_map<uint32_t, std::string>;
-        auto add = [table](const char* name) { table->emplace(Crc::GenerateCRCFromString(name), name); };
+        auto add = [table](const char* name) { table->emplace(Checksums::HashFromText(name), name); };
         for (const char* name : kKnownNames)
             add(name);
         for (const char* name : kDeniedScripts)
@@ -286,9 +286,9 @@ const std::unordered_map<uint32_t, bool>& DeniedChecksums()
     static std::unordered_map<uint32_t, bool>* denied = [] {
         auto* table = new std::unordered_map<uint32_t, bool>;
         for (const char* name : kDeniedScripts)
-            (*table)[Crc::GenerateCRCFromString(name)] = true;
+            (*table)[Checksums::HashFromText(name)] = true;
         for (const char* name : kDeniedIds)
-            (*table)[Crc::GenerateCRCFromString(name)] = true;
+            (*table)[Checksums::HashFromText(name)] = true;
         return table;
     }();
     return *denied;
@@ -415,8 +415,8 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
             return fail("level <name>");
         command.target = tokens[1];
     } else if (keyword == "teleport") {
-        command.op = Op::Teleport;
-        // (a last word `board`: the skater put on its board instead of standing - TestView::Teleport's onBoard)
+        command.op = Op::JumpTo;
+        // (a last word `board`: the skater put on its board instead of standing - TestView::JumpTo's onBoard)
         std::vector<std::string> words = tokens;
         if (words.size() >= 5 && Lower(words.back()) == "board") {
             command.target = "board";
@@ -595,17 +595,17 @@ std::string Describe(const Command& command)
     case Op::Frontend: return "fe " + command.target;
     case Op::Quit: return "quit";
     case Op::Crash: return "crash " + command.target;
-    case Op::Teleport:
+    case Op::JumpTo:
     case Op::Camera: {
         if (command.target == "off")
             return "camera off";
-        std::string text = command.op == Op::Teleport ? "teleport" : "camera";
+        std::string text = command.op == Op::JumpTo ? "teleport" : "camera";
         for (float number : command.numbers) {
             char value[32];
             std::snprintf(value, sizeof(value), " %g", static_cast<double>(number));
             text += value;
         }
-        if (command.op == Op::Teleport && command.target == "board")
+        if (command.op == Op::JumpTo && command.target == "board")
             text += " board";
         return text;
     }
@@ -655,70 +655,70 @@ using MouseMenus::ChildCount;
 using MouseMenus::IsMenu;
 using MouseMenus::SelectedIndex;
 
-uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
-uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
-bool InFrontEnd() { return LevelLoad() == kLoadMainMenu; }
+uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
+bool InFrontEnd() { return CurrentLoadState() == kLoadMainMenu; }
 
-CScreenElement* FirstChild(const CScreenElement* element) { return element->mp_firstChild.Get(); }
-CScreenElement* NextSibling(const CScreenElement* element) { return element->mp_next.Get(); }
-CScreenElement* Parent(const CScreenElement* element) { return element->mp_parent.Get(); }
-uint32_t Id(const CScreenElement* element) { return element->m_id; }
+CUiWidget* FirstChild(const CUiWidget* element) { return element->mp_firstChild.Get(); }
+CUiWidget* NextSibling(const CUiWidget* element) { return element->m_following.Get(); }
+CUiWidget* Parent(const CUiWidget* element) { return element->m_container.Get(); }
+uint32_t Id(const CUiWidget* element) { return element->m_id; }
 
-CScreenElement* ChildAt(const CScreenElement* menu, int index)
+CUiWidget* ChildAt(const CUiWidget* menu, int index)
 {
     if (index < 0)
         return nullptr;
-    CScreenElement* child = FirstChild(menu);
+    CUiWidget* child = FirstChild(menu);
     for (; child && index > 0; --index)
         child = NextSibling(child);
     return child;
 }
 
-int IndexOf(const CScreenElement* menu, const CScreenElement* item)
+int IndexOf(const CUiWidget* menu, const CUiWidget* item)
 {
     int index = 0;
-    for (CScreenElement* child = FirstChild(menu); child; child = NextSibling(child), ++index)
+    for (CUiWidget* child = FirstChild(menu); child; child = NextSibling(child), ++index)
         if (child == item)
             return index;
     return -1;
 }
 
-bool HiddenInChain(const CScreenElement* element)
+bool HiddenInChain(const CUiWidget* element)
 {
     for (; element; element = Parent(element))
-        if (element->m_objectFlags & CScreenElement::kHidden)
+        if (element->m_objectFlags & CUiWidget::kHidden)
             return true;
     return false;
 }
 
 // The element `id` if it exists (null if not); `holder` keeps it alive.
-CScreenElement* FindElement(uint32_t id, ElementPtr* holder)
+CUiWidget* FindElement(uint32_t id, ElementPtr* holder)
 {
     holder->Release();
-    if (!CScreenElementManager::Instance())
+    if (!CUiTree::Instance())
         return nullptr;
     GetElement(holder, id);
     return holder->Get();
 }
 
 // Whether a script's parameters name a denied script or id (structures and arrays too).
-bool StructDenied(Script::CStruct* params, int depth);
+bool StructDenied(Scripts::CStruct* params, int depth);
 
 bool ValueDenied(uint32_t type, uint32_t value, int depth)
 {
     switch (type) {
-    case Script::ESYMBOLTYPE_NAME:
+    case Scripts::QBVAL_NAME:
         return ChecksumDenied(value);
-    case Script::ESYMBOLTYPE_STRUCTURE:
-    case Script::ESYMBOLTYPE_STRUCTUREPOINTER:
-        return StructDenied(reinterpret_cast<Script::CStruct*>(value), depth + 1);
-    case Script::ESYMBOLTYPE_ARRAY:
-    case Script::ESYMBOLTYPE_ARRAYPOINTER: {
-        auto* array = reinterpret_cast<Script::CArray*>(value);
+    case Scripts::QBVAL_STRUCT:
+    case Scripts::QBVAL_STRUCT_REF:
+        return StructDenied(reinterpret_cast<Scripts::CStruct*>(value), depth + 1);
+    case Scripts::QBVAL_ARRAY:
+    case Scripts::ESYMBOLTYPE_ARRAYPOINTER: {
+        auto* array = reinterpret_cast<Scripts::CArray*>(value);
         if (!array || depth > 8)
             return false;
-        uint32_t* elements = array->GetArrayPointer();
+        uint32_t* elements = array->FindArrayValue();
         for (uint32_t i = 0; elements && i < array->m_size; ++i)
             if (ValueDenied(array->m_type, elements[i], depth + 1))
                 return true;
@@ -729,12 +729,12 @@ bool ValueDenied(uint32_t type, uint32_t value, int depth)
     }
 }
 
-bool StructDenied(Script::CStruct* params, int depth)
+bool StructDenied(Scripts::CStruct* params, int depth)
 {
     if (!params || depth > 8)
         return false;
-    for (Script::CComponent* component = params->GetNextComponent(nullptr); component;
-         component = params->GetNextComponent(component)) {
+    for (Scripts::CComponent* component = params->StepToEntry(nullptr); component;
+         component = params->StepToEntry(component)) {
         if (ChecksumDenied(component->name) || ValueDenied(component->Type(), component->raw, depth))
             return true;
     }
@@ -742,15 +742,15 @@ bool StructDenied(Script::CStruct* params, int depth)
 }
 
 // Whether an element's event handlers (all, or only pad_choose / pad_start ones) run or name a denied script.
-bool HandlersDenied(const CScreenElement* element, bool chooseOnly)
+bool HandlersDenied(const CUiWidget* element, bool chooseOnly)
 {
-    Script::CScript* script = element->m_script;
+    Scripts::CScript* script = element->m_runScript;
     if (!script || !script->m_eventHandlers)
         return false;
-    const Obj::CEventHandlerTable* table = script->m_eventHandlers;
+    const GameObjects::CSignalRouteTable* table = script->m_eventHandlers;
     for (int i = 0; i < table->m_count; ++i) {
-        const Obj::CEventHandlerTable::Entry& entry = table->m_entries[i];
-        if (entry.script == Obj::kNullScript)
+        const GameObjects::CSignalRouteTable::Entry& entry = table->m_entries[i];
+        if (entry.script == GameObjects::kNullScript)
             continue;
         if (chooseOnly && entry.type != kPadChoose && entry.type != kPadStart)
             continue;
@@ -762,33 +762,33 @@ bool HandlersDenied(const CScreenElement* element, bool chooseOnly)
 
 // Why choosing this element would be refused ("" if it wouldn't): its id, its own handlers, its parents' choose
 // handlers.
-std::string RefusalOfElement(const CScreenElement* element)
+std::string RefusalOfElement(const CUiWidget* element)
 {
     if (ChecksumDenied(Id(element)))
         return "the element " + NameOf(Id(element)) + " is online / network";
     if (HandlersDenied(element, false))
         return "the element " + NameOf(Id(element)) + "'s handlers lead online / to the network";
-    for (const CScreenElement* parent = Parent(element); parent; parent = Parent(parent))
+    for (const CUiWidget* parent = Parent(element); parent; parent = Parent(parent))
         if (HandlersDenied(parent, true))
             return "the menu " + NameOf(Id(parent)) + "'s choose handlers lead online / to the network";
     return {};
 }
 
 // The focused elements (controller 0's focus list) and the selected items of the focused menus.
-void FocusedElements(std::vector<CScreenElement*>* focused, std::vector<CScreenElement*>* selected)
+void FocusedElements(std::vector<CUiWidget*>* focused, std::vector<CUiWidget*>* selected)
 {
-    CScreenElementManager* manager = CScreenElementManager::Instance();
+    CUiTree* manager = CUiTree::Instance();
     if (!manager)
         return;
     int guard = 0;
-    for (CScreenElementManager::FocusEntry* entry = manager->mp_focusLists[0]; entry && guard < 64;
+    for (CUiTree::FocusEntry* entry = manager->mp_focusLists[0]; entry && guard < 64;
          entry = entry->next, ++guard) {
-        CScreenElement* element = entry->element.Get();
+        CUiWidget* element = entry->element.Get();
         if (!element)
             continue;
         focused->push_back(element);
         if (IsMenu(element))
-            if (CScreenElement* item = ChildAt(element, SelectedIndex(element)))
+            if (CUiWidget* item = ChildAt(element, SelectedIndex(element)))
                 selected->push_back(item);
     }
 }
@@ -796,14 +796,14 @@ void FocusedElements(std::vector<CScreenElement*>* focused, std::vector<CScreenE
 // Why the game state refuses actions ("" if it doesn't): online, a network game, a network game mode.
 std::string NetRefusal()
 {
-    if (Net::Manager* net = Net::Manager::Instance())
+    if (NetLink::Manager* net = NetLink::Manager::Instance())
         if (net->IsOnline())
             return "the game is online";
-    if (void* gameNet = GameNet::g_gameNetManager)
-        if (static_cast<GameNet::Manager*>(gameNet)->InNetGame())
+    if (void* gameNet = OnlinePlay::g_gameNetManager)
+        if (static_cast<OnlinePlay::Manager*>(gameNet)->InNetGame())
             return "a network game runs";
-    if (void* mode = reinterpret_cast<void*>(Game::g_gameMode)) {
-        std::string name = NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum());
+    if (void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode)) {
+        std::string name = NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey());
         if (name.rfind("net", 0) == 0)
             return "the game mode is a network one (" + name + ")";
     }
@@ -812,22 +812,22 @@ std::string NetRefusal()
 
 std::string GameModeName()
 {
-    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
-    return mode ? NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum()) : "";
+    void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
+    return mode ? NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey()) : "";
 }
 
 // The main menu: its menu up and taking pad events, in the front end.
 bool MainMenuUp()
 {
-    static const uint32_t kMainVMenu = Crc::GenerateCRCFromString("main_vmenu");
+    static const uint32_t kMainVMenu = Checksums::HashFromText("main_vmenu");
     if (!InFrontEnd())
         return false;
     ElementPtr holder;
-    CScreenElement* menu = FindElement(kMainVMenu, &holder);
+    CUiWidget* menu = FindElement(kMainVMenu, &holder);
     return menu && IsMenu(menu) && MouseMenus::MenuGetsPadEvents(menu);
 }
 
-bool SkaterUp() { return Obj::FindObject(kSkater) != nullptr; }
+bool SkaterUp() { return GameObjects::FindObject(kSkater) != nullptr; }
 
 // --- trace: the skater frame by frame ---------------------------------------------------------------------------
 
@@ -870,7 +870,7 @@ void TraceFrame()
     Trace& trace = TraceState();
     if (!trace.file)
         return;
-    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
     if (skater) {
         auto* state = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterStateComponent));
         int where = state ? *reinterpret_cast<int*>(state + 0x18) : -1;
@@ -888,10 +888,10 @@ void TraceFrame()
         unsigned groundFlags = core ? *reinterpret_cast<uint16_t*>(core + 0x158 + 0x50) : 0;
         unsigned groundObject = core ? *reinterpret_cast<uint32_t*>(core + 0x158 + 0x58) : 0;
         std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
-                     Mlp::FramesRun(), static_cast<double>(skater->m_pos.x), static_cast<double>(skater->m_pos.y),
+                     FrameLoop::FramesRun(), static_cast<double>(skater->m_pos.x), static_cast<double>(skater->m_pos.y),
                      static_cast<double>(skater->m_pos.z), static_cast<double>(skater->m_vel.x),
                      static_cast<double>(skater->m_vel.y), static_cast<double>(skater->m_vel.z),
-                     static_cast<double>(skater->m_matrix.row[1].y), where, physics, bailing, trick, pot,
+                     static_cast<double>(skater->m_basisFrame.row[1].y), where, physics, bailing, trick, pot,
                      static_cast<double>(multiplier), landed, groundFlags, groundObject);
         std::fflush(trace.file);
     }
@@ -1073,16 +1073,16 @@ bool TimedOut(const Runner& runner, int seconds)
     return GetTickCount() - runner.started > static_cast<DWORD>(seconds) * 1000u;
 }
 
-Script::CStruct* MakeParams(const std::vector<Param>& params)
+Scripts::CStruct* MakeParams(const std::vector<Param>& params)
 {
-    Script::CStruct* out = Script::NewStruct()->Init();
+    Scripts::CStruct* out = Scripts::NewStruct()->Init();
     for (const Param& param : params) {
         switch (param.kind) {
-        case Param::Flag: out->AddChecksum(0u, Checksum(param.text)); break;
-        case Param::Integer: out->AddInteger(Checksum(param.name), param.integer); break;
-        case Param::Float: out->AddFloat(Checksum(param.name), param.real); break;
+        case Param::Flag: out->PutNameKey(0u, Checksum(param.text)); break;
+        case Param::Integer: out->PutInt(Checksum(param.name), param.integer); break;
+        case Param::Float: out->PushFloat(Checksum(param.name), param.real); break;
         case Param::String: out->AddString(Checksum(param.name), param.text.c_str()); break;
-        case Param::Name: out->AddChecksum(Checksum(param.name), IdChecksum(param.text)); break;
+        case Param::Name: out->PutNameKey(Checksum(param.name), IdChecksum(param.text)); break;
         }
     }
     return out;
@@ -1090,8 +1090,8 @@ Script::CStruct* MakeParams(const std::vector<Param>& params)
 
 bool ScriptExists(uint32_t name)
 {
-    Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(name);
-    return symbol && (symbol->type == Script::ESYMBOLTYPE_QSCRIPT || symbol->type == Script::ESYMBOLTYPE_CFUNCTION);
+    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(name);
+    return symbol && (symbol->type == Scripts::QBVAL_SCRIPT_BODY || symbol->type == Scripts::QBVAL_NATIVE_FUNC);
 }
 
 // Spawn a script (run's and -run's); "" if it ran, else why not.
@@ -1100,10 +1100,10 @@ std::string SpawnNamed(const std::string& name, const std::vector<Param>& params
     uint32_t checksum = Checksum(name);
     if (!ScriptExists(checksum))
         return "no script " + name;
-    Script::CStruct* structure = MakeParams(params);
-    Script::SpawnScript(checksum, structure, 0, nullptr, 0, 0, false, false, false, false);
+    Scripts::CStruct* structure = MakeParams(params);
+    Scripts::SpawnScript(checksum, structure, 0, nullptr, 0, 0, false, false, false, false);
     structure->Clear();
-    Script::DeleteStruct(structure);
+    Scripts::DeleteStruct(structure);
     return {};
 }
 
@@ -1111,35 +1111,35 @@ int ReadTarget(void* /*context*/) { return TargetMenu() ? SelectedIndex(TargetMe
 
 void SendStep(void* context, int direction)
 {
-    auto* frontEnd = static_cast<Mdl::FrontEnd*>(context);
+    auto* frontEnd = static_cast<GameModules::FrontEnd*>(context);
     bool vertical = TargetMenu() && MouseMenus::IsVerticalMenu(TargetMenu().Get());
-    uint32_t event = vertical ? (direction < 0 ? Mdl::FrontEnd::kPadUp : Mdl::FrontEnd::kPadDown)
-                              : (direction < 0 ? Mdl::FrontEnd::kPadLeft : Mdl::FrontEnd::kPadRight);
+    uint32_t event = vertical ? (direction < 0 ? GameModules::FrontEnd::kPadUp : GameModules::FrontEnd::kPadDown)
+                              : (direction < 0 ? GameModules::FrontEnd::kPadLeft : GameModules::FrontEnd::kPadRight);
     MouseMenus::SendMenuPadEvent(frontEnd, event);
 }
 
 // Whether the front end drops menu pad events now (as InputLogic / SendMenuPadEvent check): the first controller's
 // mapping inactive, menu input blocked, no input device.
-bool MenuInputBlocked(Mdl::FrontEnd* frontEnd)
+bool MenuInputBlocked(GameModules::FrontEnd* frontEnd)
 {
     if (!frontEnd || frontEnd->m_padMappings[0].m_mapping == 0 || frontEnd->m_blockMenuInput)
         return true;
-    Mdl::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
+    GameModules::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
     return !handler || !handler->m_device;
 }
 
 // Whether a pad press would be lost on the menus now: in the front end or the pause menu, menu input blocked, or a
 // menu has the focus but none of the focused menus takes pad events (a menu still coming in).
-bool MenusIgnorePad(Mdl::FrontEnd* frontEnd)
+bool MenusIgnorePad(GameModules::FrontEnd* frontEnd)
 {
-    if (!InFrontEnd() && !(frontEnd && frontEnd->m_paused))
+    if (!InFrontEnd() && !(frontEnd && frontEnd->m_isHalted))
         return false;
     if (MenuInputBlocked(frontEnd))
         return true;
-    std::vector<CScreenElement*> focused, selected;
+    std::vector<CUiWidget*> focused, selected;
     FocusedElements(&focused, &selected);
     bool anyMenu = false;
-    for (CScreenElement* element : focused) {
+    for (CUiWidget* element : focused) {
         if (!IsMenu(element))
             continue;
         anyMenu = true;
@@ -1155,10 +1155,10 @@ std::string PressRefusal(const Button& button)
 {
     if (!ButtonChooses(button))
         return {};
-    std::vector<CScreenElement*> focused, selected;
+    std::vector<CUiWidget*> focused, selected;
     FocusedElements(&focused, &selected);
     for (auto* list : {&selected, &focused}) {
-        for (CScreenElement* element : *list) {
+        for (CUiWidget* element : *list) {
             std::string refusal = RefusalOfElement(element);
             if (!refusal.empty())
                 return refusal;
@@ -1174,31 +1174,31 @@ std::string PressRefusal(const Button& button)
 // logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
 bool LoadingScreenUp()
 {
-    return Nx::g_loadingScreenShown != 0 || Nx::g_loadingBarTimer != 0 ||
-           static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0;
+    return Engine3D::g_loadingScreenShown != 0 || Engine3D::g_loadingBarTimer != 0 ||
+           static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0;
 }
 
 // choose / focus, once a frame until done.
-void StepChoose(Runner& runner, Mdl::FrontEnd* frontEnd)
+void StepChoose(Runner& runner, GameModules::FrontEnd* frontEnd)
 {
     bool choose = runner.command.op == Op::Choose;
     uint32_t id = IdChecksum(runner.command.target);
     ElementPtr holder;
-    CScreenElement* item = FindElement(id, &holder);
+    CUiWidget* item = FindElement(id, &holder);
     if (!item || HiddenInChain(item)) {
         if (TimedOut(runner, runner.command.seconds))
             Fail(runner, item ? "the element is hidden" : "no element " + runner.command.target, false);
         return;
     }
     // A menu given: its selected item (choose) - or the focus event to the menu (focus).
-    CScreenElement* menu = nullptr;
-    CScreenElement* chosen = item;
+    CUiWidget* menu = nullptr;
+    CUiWidget* chosen = item;
     if (IsMenu(item)) {
         if (!choose) {
             std::string why = RefusalOfElement(item);
             if (!why.empty())
                 return Fail(runner, why, true);
-            Obj::Tracker()->LaunchEvent(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+            GameObjects::Tracker()->LaunchEvent(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
             return Finish(runner, "ok (focus sent to the menu)");
         }
         menu = item;
@@ -1216,11 +1216,11 @@ void StepChoose(Runner& runner, Mdl::FrontEnd* frontEnd)
         return Fail(runner, why, true);
     if (!menu || !IsMenu(menu)) {
         // Not a menu's item: the event goes to it.
-        Obj::Tracker()->LaunchEvent(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+        GameObjects::Tracker()->LaunchEvent(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
         return Finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
     }
     int index = IndexOf(menu, chosen);
-    CScreenElement* current = ChildAt(menu, SelectedIndex(menu));
+    CUiWidget* current = ChildAt(menu, SelectedIndex(menu));
     // (nothing sent while the menu doesn't take pad events, the front end blocks menu input - SetButtonEventMappings
     // block_menu_input, TemporarilyDisableInput - or the menu is on an item it passes over by itself)
     bool wait = !MouseMenus::MenuGetsPadEvents(menu) || MenuInputBlocked(frontEnd) ||
@@ -1253,16 +1253,16 @@ bool ConditionHolds(const Command& command)
     switch (command.condition) {
     case Condition::Ready: return State().menuSettled;
     case Condition::FrontEnd: return InFrontEnd();
-    case Condition::NewFrontend: return Front::NewFrontend::AutomationScreenUp(command.target);
+    case Condition::NewFrontend: return MenuSystem::NewFrontend::AutomationScreenUp(command.target);
     case Condition::InGame: {
-        auto* frontEnd = Mdl::g_frontEndInstance;
-        return LevelLoad() && !InFrontEnd() && SkaterUp() && !(frontEnd && frontEnd->m_paused);
+        auto* frontEnd = GameModules::g_frontEndInstance;
+        return CurrentLoadState() && !InFrontEnd() && SkaterUp() && !(frontEnd && frontEnd->m_isHalted);
     }
     case Condition::Level: {
         std::string name = command.target;
         if (_strnicmp(name.c_str(), "load_", 5) != 0)
             name = "Load_" + name;
-        return LevelLoad() == Checksum(name) && SkaterUp();
+        return CurrentLoadState() == Checksum(name) && SkaterUp();
     }
     case Condition::Menu: {
         ElementPtr holder;
@@ -1270,12 +1270,12 @@ bool ConditionHolds(const Command& command)
     }
     case Condition::Focus: {
         uint32_t id = IdChecksum(command.target);
-        std::vector<CScreenElement*> focused, selected;
+        std::vector<CUiWidget*> focused, selected;
         FocusedElements(&focused, &selected);
-        for (CScreenElement* element : focused)
+        for (CUiWidget* element : focused)
             if (Id(element) == id)
                 return true;
-        for (CScreenElement* element : selected)
+        for (CUiWidget* element : selected)
             if (Id(element) == id)
                 return true;
         return false;
@@ -1302,16 +1302,16 @@ bool ConditionMet(Runner& runner)
 // object manager's LogTrickObjects as a skater's trick goes - more than THUG2's own mask held crashed there.
 std::string LogTricks(int count, std::string* failed)
 {
-    auto* manager = Obj::g_trickObjectManager;
+    auto* manager = GameObjects::g_trickObjectManager;
     if (!manager) {
         *failed = "no trick object manager";
         return "";
     }
     std::vector<uint32_t> objects;
     std::vector<void*> clusters;
-    const Lst::HashTable& table = manager->m_objectClusters;
+    const ListKit::HashTable& table = manager->m_objectClusters;
     for (int bucket = 0; bucket < (1 << table.m_bits); ++bucket) {
-        for (const Lst::HashTable::Item* item = &table.m_buckets[bucket]; item; item = item->next) {
+        for (const ListKit::HashTable::Item* item = &table.m_buckets[bucket]; item; item = item->next) {
             if (!item->value)
                 continue;
             objects.push_back(item->key);
@@ -1338,7 +1338,7 @@ std::string LogTricks(int count, std::string* failed)
 // Start the next command; true if it's done already (the next can start this frame).
 void WriteStatus(Runner& runner);
 
-bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
+bool Start(Runner& runner, GameModules::FrontEnd* frontEnd)
 {
     Line line = runner.queue.front();
     runner.queue.pop_front();
@@ -1386,7 +1386,7 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
     }
     case Op::Level: {
         std::string failed;
-        if (StartLevel::Load(command.target.c_str(), &failed))
+        if (BeginLevel::Load(command.target.c_str(), &failed))
             Finish(runner, "ok");
         else
             Fail(runner, failed, false);
@@ -1397,7 +1397,7 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         return true;
     case Op::Frontend: {
         bool done = true;
-        std::string result = Front::NewFrontend::AutomationCommand(command.target, &done);
+        std::string result = MenuSystem::NewFrontend::AutomationCommand(command.target, &done);
         if (!done)
             return false; // (Continue: once its screen is up)
         if (result.rfind("refused", 0) == 0)
@@ -1408,14 +1408,14 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
             Finish(runner, result);
         return true;
     }
-    case Op::Teleport: {
-        if (!LevelLoad() || InFrontEnd() || !SkaterUp()) {
+    case Op::JumpTo: {
+        if (!CurrentLoadState() || InFrontEnd() || !SkaterUp()) {
             Fail(runner, "not in a level with the skater", false);
             return true;
         }
         const std::vector<float>& n = command.numbers;
-        Front::TestView::Vec3 at = {};
-        std::string failed = Front::TestView::Teleport({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
+        MenuSystem::TestView::Vec3 at = {};
+        std::string failed = MenuSystem::TestView::JumpTo({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
                                                        command.target == "board");
         if (!failed.empty()) {
             Fail(runner, failed, false);
@@ -1432,20 +1432,20 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
     }
     case Op::Camera:
         if (command.target == "off")
-            Front::TestView::UnlockCamera();
-        else if (!Front::TestView::LockCamera(
+            MenuSystem::TestView::UnlockCamera();
+        else if (!MenuSystem::TestView::LockCamera(
                      {command.numbers[0], command.numbers[1], command.numbers[2]},
                      {command.numbers[3], command.numbers[4], command.numbers[5]},
                      command.numbers.size() > 6
-                         ? Front::TestView::Vec3{command.numbers[6], command.numbers[7], command.numbers[8]}
-                         : Front::TestView::Vec3{0.0f, 0.0f, 0.0f})) {
+                         ? MenuSystem::TestView::Vec3{command.numbers[6], command.numbers[7], command.numbers[8]}
+                         : MenuSystem::TestView::Vec3{0.0f, 0.0f, 0.0f})) {
             Fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
         }
         Finish(runner, "ok");
         return true;
     case Op::Capture: {
-        std::string failed = Sys::Screenshot::StartSeries(command.frames, command.target);
+        std::string failed = SystemCore::Screenshot::StartSeries(command.frames, command.target);
         if (!failed.empty()) {
             Fail(runner, failed, false);
             return true;
@@ -1461,7 +1461,7 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         return true;
     }
     case Op::LogTricks: {
-        if (!LevelLoad() || InFrontEnd() || !SkaterUp()) {
+        if (!CurrentLoadState() || InFrontEnd() || !SkaterUp()) {
             Fail(runner, "not in a level with the skater", false);
             return true;
         }
@@ -1533,7 +1533,7 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
 }
 
 // The running command's frame.
-void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
+void Continue(Runner& runner, GameModules::FrontEnd* frontEnd)
 {
     switch (runner.command.op) {
     case Op::Press:
@@ -1564,12 +1564,12 @@ void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
             Finish(runner, "ok");
         return;
     case Op::Frontend: {
-        std::string result = Front::NewFrontend::AutomationResult();
+        std::string result = MenuSystem::NewFrontend::AutomationResult();
         if (result.empty()) {
             if (TimedOut(runner, runner.command.seconds)) {
-                Front::NewFrontend::AutomationCancel();
+                MenuSystem::NewFrontend::AutomationCancel();
                 Fail(runner, "fe " + runner.command.target + ": its screen wasn't up in " +
-                                 std::to_string(runner.command.seconds) + " s (" + Front::NewFrontend::AutomationStatus() + ")",
+                                 std::to_string(runner.command.seconds) + " s (" + MenuSystem::NewFrontend::AutomationStatus() + ")",
                      false);
             }
             return;
@@ -1593,12 +1593,12 @@ void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
         StepChoose(runner, frontEnd);
         return;
     case Op::Capture:
-        if (Sys::Screenshot::SeriesRunning())
+        if (SystemCore::Screenshot::SeriesRunning())
             return;
-        if (Sys::Screenshot::SeriesResult().rfind("ok", 0) == 0)
-            Finish(runner, Sys::Screenshot::SeriesResult());
+        if (SystemCore::Screenshot::SeriesResult().rfind("ok", 0) == 0)
+            Finish(runner, SystemCore::Screenshot::SeriesResult());
         else
-            Fail(runner, Sys::Screenshot::SeriesResult(), false);
+            Fail(runner, SystemCore::Screenshot::SeriesResult(), false);
         return;
     default:
         Finish(runner, "ok");
@@ -1609,23 +1609,23 @@ void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
 void WriteStatus(Runner& runner)
 {
     Status status = {};
-    status.frames = Mlp::FramesRun();
+    status.frames = FrameLoop::FramesRun();
     status.ready = runner.ready;
     status.mainMenu = runner.menuSettled;
-    auto* frontEnd = Mdl::g_frontEndInstance;
-    status.paused = frontEnd && frontEnd->m_paused;
+    auto* frontEnd = GameModules::g_frontEndInstance;
+    status.paused = frontEnd && frontEnd->m_isHalted;
     status.loading = LoadingScreenUp();
-    uint32_t load = LevelLoad();
+    uint32_t load = CurrentLoadState();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
     status.level = load ? NameOf(load) : "";
     if (_strnicmp(status.level.c_str(), "load_", 5) == 0)
         status.level.erase(0, 5);
     status.gameMode = GameModeName();
-    std::vector<CScreenElement*> focused, selected;
+    std::vector<CUiWidget*> focused, selected;
     FocusedElements(&focused, &selected);
-    for (CScreenElement* element : focused)
+    for (CUiWidget* element : focused)
         status.focus.push_back(NameOf(Id(element)));
-    for (CScreenElement* element : selected)
+    for (CUiWidget* element : selected)
         status.selected.push_back(NameOf(Id(element)));
     status.linesRead = runner.linesRead;
     status.linesDone = runner.linesDone;
@@ -1635,15 +1635,15 @@ void WriteStatus(Runner& runner)
     status.result = runner.result;
     status.errors = runner.errors;
     status.refusals = runner.refusals;
-    status.frontend = Front::NewFrontend::AutomationStatus();
+    status.frontend = MenuSystem::NewFrontend::AutomationStatus();
     // Written when anything but the frame count changed, or every half second.
     status.frames = 0;
     std::string key = StatusJson(status);
-    if (key == runner.written && Mlp::FramesRun() - runner.writtenFrames < 30)
+    if (key == runner.written && FrameLoop::FramesRun() - runner.writtenFrames < 30)
         return;
     runner.written = key;
-    runner.writtenFrames = Mlp::FramesRun();
-    status.frames = Mlp::FramesRun();
+    runner.writtenFrames = FrameLoop::FramesRun();
+    status.frames = FrameLoop::FramesRun();
     std::string text = StatusJson(status);
     std::string path = GameFolderPath("thug2-decomp-status.json");
     HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -1710,10 +1710,10 @@ bool& Enabled()
     return on;
 }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
     // (not before the game's first frame: the early self-tests run the front end's input logic on stand-in state)
-    if (Mlp::FramesRun() == 0)
+    if (FrameLoop::FramesRun() == 0)
         return;
     if (!Enabled() && RequestedRun().empty())
         return;
@@ -1721,7 +1721,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     static bool s_named = false;
     if (!s_named) { // (-level's level by name in the status)
         s_named = true;
-        std::string level = StartLevel::Requested();
+        std::string level = BeginLevel::Requested();
         if (!level.empty())
             Remember(_strnicmp(level.c_str(), "load_", 5) == 0 ? level : "Load_" + level);
     }
@@ -1731,7 +1731,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     runner.menuSettled = runner.menuFrames >= kSettleFrames;
     if (!runner.ready && runner.menuSettled) {
         runner.ready = true;
-        Log("automation: the main menu is up (frame %u)", Mlp::FramesRun());
+        Log("automation: the main menu is up (frame %u)", FrameLoop::FramesRun());
     }
     UpdateRun(runner);
     if (!Enabled())
@@ -1748,9 +1748,9 @@ void Update(Mdl::FrontEnd* frontEnd)
     WriteStatus(runner);
 }
 
-bool ParamsDenied(Script::CStruct* params) { return StructDenied(params, 0); }
+bool ParamsDenied(Scripts::CStruct* params) { return StructDenied(params, 0); }
 
-std::string ElementRefusal(const CScreenElement* element) { return RefusalOfElement(element); }
+std::string ElementRefusal(const CUiWidget* element) { return RefusalOfElement(element); }
 
 void AddPadButtons(int port, uint8_t* data)
 {
@@ -1765,4 +1765,4 @@ void AddPadButtons(int port, uint8_t* data)
     }
 }
 
-} // namespace Front::Automation
+} // namespace MenuSystem::Automation

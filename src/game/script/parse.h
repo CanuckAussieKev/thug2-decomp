@@ -8,13 +8,13 @@
 
 // Parsing compiled script tokens (see qb.h) into values: parameters of structures, arrays, expressions and
 // the arguments of calls. `args` is the calling script's parameters, which <name> and <...> refer to.
-namespace Script {
+namespace Scripts {
 
 class CScript;
 
 // The script running now (0x006F3530), and the list of scripts (null: the first).
-CScript* GetCurrentScript();
-CScript* GetNextScript(CScript* script);
+CScript* GetRunningScript();
+CScript* StepScriptList(CScript* script);
 
 // Follow jumps and choose the branch of Random() blocks (weighted, no-repeat and permute) until a token
 // that is neither.
@@ -29,7 +29,7 @@ CStoredRandom* NewStoredRandom();
 // numbers, else a float; `deterministic` uses the second random stream.
 const uint8_t* ParseRandomRange(const uint8_t* token, CComponent* out, bool deterministic);
 // If `component` names a global symbol of a value type, it becomes that value.
-void ResolveNameComponent(CComponent* component);
+void EvaluateNameToken(CComponent* component);
 
 // One value into `out`.
 const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out);
@@ -55,6 +55,6 @@ extern float g_parseNudge;
 extern CStoredRandom* g_storedRandomsNewest;
 
 // The script parser's expression evaluator (script/parse.cpp).
-extern CExpressionEvaluator g_evaluator;
+extern CValueResolver g_evaluator;
 
 } // namespace Script

@@ -16,7 +16,7 @@
 #include "game/core/game_vtables.h"
 #include "game/gfx/engine_geom.h"
 
-namespace Front::LevelEditor::Walls {
+namespace MenuSystem::LevelEditor::Walls {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -35,15 +35,15 @@ Step StepBetween(const Placement& from, const Placement& to)
     return step;
 }
 
-void StepCollision(Nx::CCollObjTriData* tri, const Placement& from, const Placement& to)
+void StepCollision(Engine3D::CTriMeshSource* tri, const Placement& from, const Placement& to)
 {
     Step step = StepBetween(from, to);
     if (step.turns) {
-        Mth::Vector centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
+        Maths::Vector centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
         tri->RotateY(&centre, step.turns);
     }
     if (step.delta.x != 0.0f || step.delta.y != 0.0f || step.delta.z != 0.0f) {
-        Mth::Vector delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
+        Maths::Vector delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
         tri->Translate(&delta);
     }
 }
@@ -89,24 +89,24 @@ void** const& kCollStaticVtable = Vt::kCollStatic;
 
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 
-// The sector's level collision (CCollStatic) and its geometry, whether on or off.
+// The sector's level collision (CStaticCollider) and its geometry, whether on or off.
 uint8_t* CollOf(uint8_t* sector)
 {
     uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
     return coll && *reinterpret_cast<void***>(coll) == kCollStaticVtable ? coll : nullptr;
 }
-Nx::CCollObjTriData* TriOf(uint8_t* coll) { return *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C); }
+Engine3D::CTriMeshSource* TriOf(uint8_t* coll) { return *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C); }
 bool FlagOff(uint8_t* coll) { return (coll[0x08] & 4) != 0; }
 
-// CSector::SetActive (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
+// CWorldCell::SetActive (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
 void SetActive(uint8_t* sector, bool active)
 {
-    reinterpret_cast<Nx::CSector*>(sector)->SetActive(active);
+    reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(active);
 }
-// The geometry's IsActive (0x0048DE70, as CSector::IsActive 0x0049E9E0 asks it).
-bool GeomActive(uint8_t* geom) { return reinterpret_cast<bool(__thiscall*)(void*)>(&Nx::VirtualSlot14Jump)(geom); }
+// The geometry's IsActive (0x0048DE70, as CWorldCell::IsActive 0x0049E9E0 asks it).
+bool GeomActive(uint8_t* geom) { return reinterpret_cast<bool(__thiscall*)(void*)>(&Engine3D::VirtualSlot14Jump)(geom); }
 
-bool SameV(const Mth::Vector& a, const Mth::Vector& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
+bool SameV(const Maths::Vector& a, const Maths::Vector& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 // What the editor has done to a sector's collision: where it put it (walls), whether it switched it off, how it was
 // when first touched; the box after its last step (a wall's: anything else moving it - another level at the same
@@ -114,11 +114,11 @@ bool SameV(const Mth::Vector& a, const Mth::Vector& b) { return a.x == b.x && a.
 struct Track {
     uint8_t* sector;
     uint8_t* coll;
-    Nx::CCollObjTriData* tri;
+    Engine3D::CTriMeshSource* tri;
     bool wall;
     Placement placement;
     bool off0, off;
-    Mth::Vector min, max;
+    Maths::Vector min, max;
 };
 std::map<uint32_t, Track> g_tracks;
 
@@ -127,20 +127,20 @@ bool Current(uint32_t checksum, const Track& t)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? CollOf(sector) : nullptr;
-    Nx::CCollObjTriData* tri = coll ? TriOf(coll) : nullptr;
+    Engine3D::CTriMeshSource* tri = coll ? TriOf(coll) : nullptr;
     if (!tri)
         return false;
     bool wall = GeomOf(sector) == nullptr;
     // (a drawn piece's collision box moves with the piece - Scenery's moves: only its pointers checked)
     return t.sector == sector && t.coll == coll && t.tri == tri && t.wall == wall &&
-           (!wall || (SameV(t.min, tri->m_min) && SameV(t.max, tri->m_max)));
+           (!wall || (SameV(t.min, tri->m_lowerLimit) && SameV(t.max, tri->m_upperLimit)));
 }
 
 Track* TrackOf(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? CollOf(sector) : nullptr;
-    Nx::CCollObjTriData* tri = coll ? TriOf(coll) : nullptr;
+    Engine3D::CTriMeshSource* tri = coll ? TriOf(coll) : nullptr;
     if (!tri)
         return nullptr;
     bool wall = GeomOf(sector) == nullptr;
@@ -158,8 +158,8 @@ Track* TrackOf(uint32_t checksum)
     t.placement = {0, {0.0f, 0.0f, 0.0f}};
     // (a drawn piece hidden - not active - has its collision off with it: that isn't this switch)
     t.off0 = t.off = FlagOff(coll) && (wall || GeomActive(GeomOf(sector)));
-    t.min = tri->m_min;
-    t.max = tri->m_max;
+    t.min = tri->m_lowerLimit;
+    t.max = tri->m_upperLimit;
     return &g_tracks.emplace(checksum, t).first->second;
 }
 
@@ -189,8 +189,8 @@ void Place(uint32_t checksum, Track* t, const Placement& to)
     target.scale = {1.0f, 1.0f, 1.0f};
     StepCollision(t->tri, t->placement, target);
     t->placement = target;
-    t->min = t->tri->m_min;
-    t->max = t->tri->m_max;
+    t->min = t->tri->m_lowerLimit;
+    t->max = t->tri->m_upperLimit;
     Scenery::NoteCollisionMoved(checksum);
 }
 
@@ -207,11 +207,11 @@ bool Box(uint32_t checksum, V3* min, V3* max)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     uint8_t* coll = sector ? CollOf(sector) : nullptr;
-    Nx::CCollObjTriData* tri = coll ? TriOf(coll) : nullptr;
+    Engine3D::CTriMeshSource* tri = coll ? TriOf(coll) : nullptr;
     if (!tri)
         return false;
-    *min = {tri->m_min.x, tri->m_min.y, tri->m_min.z};
-    *max = {tri->m_max.x, tri->m_max.y, tri->m_max.z};
+    *min = {tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z};
+    *max = {tri->m_upperLimit.x, tri->m_upperLimit.y, tri->m_upperLimit.z};
     return true;
 }
 
@@ -362,4 +362,4 @@ std::string DescribeState(uint32_t checksum)
     return text;
 }
 
-} // namespace Front::LevelEditor::Walls
+} // namespace MenuSystem::LevelEditor::Walls

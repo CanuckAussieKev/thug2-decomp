@@ -29,7 +29,7 @@
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint32_t g_particleRandomB{0x12B9B0A1};
 uint32_t g_particleRandomC{0xAA2FB3F};
@@ -48,17 +48,17 @@ int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The materials' code (0x004D1A90-0x004D3390).
-uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()); }
-void DestroyMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->DestroyBody(); }
-void SetMaterialStates(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->SubmitStates(); }
+uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->Construct()); }
+void DestroyMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->DestroyBody(); }
+void SetMaterialStates(uint8_t* material) { reinterpret_cast<materialRef*>(material)->SubmitStates(); }
 void SetMaterialPass(uint8_t* material, int pass, int flags)
 {
-    reinterpret_cast<sMaterial*>(material)->SubmitPass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
+    reinterpret_cast<materialRef*>(material)->SubmitPass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* FindTexture(uint32_t checksum)
 {
-    return reinterpret_cast<const uint8_t*>(static_cast<CTexDict*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(checksum));
+    return reinterpret_cast<const uint8_t*>(static_cast<CTextureSet*>(reinterpret_cast<void*>(g_particleTextureDict))->GetTexture(checksum));
 }
 uint32_t TextureKey(const uint8_t* texture)
 {
@@ -224,10 +224,10 @@ void sParticleBurst::Skip(int particles)
 // 0x004BCE90
 CPcParticleSystem* __fastcall CPcParticleSystem::Create(void*)
 {
-    void* memory = Mem::Calloc(sizeof(CPcParticleSystem));
+    void* memory = MemSys::AllocZeroed(sizeof(CPcParticleSystem));
     if (!memory)
         return nullptr;
-    auto* system = reinterpret_cast<CPcParticleSystem*>(static_cast<CParticle*>(memory)->Construct());
+    auto* system = reinterpret_cast<CPcParticleSystem*>(static_cast<CSparkle*>(memory)->Construct());
     system->vtable = reinterpret_cast<void**>(kSystemVtable);
     return system;
 }
@@ -240,7 +240,7 @@ CPcParticleSystem* CPcParticleSystem::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -250,12 +250,12 @@ void CPcParticleSystem::Initialise()
     rate = static_cast<float>(static_cast<double>(rate) * 0.75f); // (0x0064A4EC)
     capacity = 5;
     live = 0;
-    bursts = static_cast<sParticleBurst*>(Mem::New(0x8C));
+    bursts = static_cast<sParticleBurst*>(MemSys::New(0x8C));
     newest = bursts + capacity - 1;
     oldest = bursts;
     emitting = false;
 
-    void* memory = Mem::New(0x110);
+    void* memory = MemSys::New(0x110);
     material = memory ? ConstructMaterial(memory) : nullptr;
     std::memset(material, 0, 0x110);
     *reinterpret_cast<uint32_t*>(material + 0x20) = 0x44; // (its flags)
@@ -320,10 +320,10 @@ bool CPcParticleSystem::IsEmitting() { return live > 0; }
 void CPcParticleSystem::Release()
 {
     if (bursts)
-        Mem::Manager::Get()->Free(bursts);
+        MemSys::Manager::Get()->Free(bursts);
     if (uint8_t* own = material) {
         DestroyMaterial(own);
-        Mem::Manager::Get()->Free(own);
+        MemSys::Manager::Get()->Free(own);
     }
 }
 
@@ -352,7 +352,7 @@ void CPcParticleSystem::Render(bool advance)
     if (advance) {
         sParticleBurst* burst = oldest;
         for (int i = 0; i < live; ++i) {
-            burst->age = static_cast<float>(Tmr::GetSlomoFrameSeconds() + burst->age);
+            burst->age = static_cast<float>(FrameClock::GetSlomoFrameSeconds() + burst->age);
             burst = Next(this, burst);
         }
     }
@@ -374,7 +374,7 @@ void CPcParticleSystem::Render(bool advance)
         }
     }
     if (!localPositions) {
-        Mth::Vector centre = {bounds.x, bounds.y, bounds.z, 0.0f};
+        Maths::Vector centre = {bounds.x, bounds.y, bounds.z, 0.0f};
         bool visible = cullOutside ? SphereOutsideView(&centre, bounds.w) != 0 : SphereInView(&centre, bounds.w);
         if (!visible)
             return;
@@ -519,9 +519,9 @@ void CPcParticleSystem::Render(bool advance)
 }
 
 namespace {
-static VtableSlot kSystemVtable_slots[] = {&Nx::CPcParticleSystem::Destroy, &Nx::CPcParticleSystem::Initialise,
-                &Nx::CPcParticleSystem::Release, Stubs::IgnoreArgument, &Nx::CPcParticleSystem::Render,
-                &Nx::CPcParticleSystem::Update, Stubs::DoNothing, &Nx::CPcParticleSystem::IsEmitting};
+static VtableSlot kSystemVtable_slots[] = {&Engine3D::CPcParticleSystem::Destroy, &Engine3D::CPcParticleSystem::Initialise,
+                &Engine3D::CPcParticleSystem::Release, Stubs::IgnoreArgument, &Engine3D::CPcParticleSystem::Render,
+                &Engine3D::CPcParticleSystem::Update, Stubs::DoNothing, &Engine3D::CPcParticleSystem::IsEmitting};
 void** const kSystemVtable = reinterpret_cast<void**>(kSystemVtable_slots);
 } // namespace
 

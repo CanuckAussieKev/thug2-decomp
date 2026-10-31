@@ -15,7 +15,7 @@
 #include "game/skate/thugpro_cas.h"
 #include "game/sys/log.h"
 
-namespace Front::DataOverlay {
+namespace MenuSystem::DataOverlay {
 
 namespace {
 
@@ -93,7 +93,7 @@ bool OverlayPath(const char* name, char (&path)[260])
     std::string full;
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (game/gfx/hd_ui.h), in the hd_ui folder
     // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
-    if (overlay && Nx::HdUi::Enabled()) {
+    if (overlay && Engine3D::HdUi::Enabled()) {
         std::string candidate = Folder() + "\\hd_ui\\" + relative;
         if (IsFile(candidate))
             full = candidate;
@@ -107,7 +107,7 @@ bool OverlayPath(const char* name, char (&path)[260])
     }
     // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, game/skate/thugpro_cas.h).
     if (full.empty())
-        return Obj::ThugproCas::FilePath(relative, path);
+        return GameObjects::ThugproCas::FilePath(relative, path);
     if (full.size() >= sizeof(path))
         return false;
     std::memcpy(path, full.c_str(), full.size() + 1);
@@ -120,4 +120,4 @@ bool OverlayPath(const char* name, char (&path)[260])
     return true;
 }
 
-} // namespace Front::DataOverlay
+} // namespace MenuSystem::DataOverlay

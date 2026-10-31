@@ -42,6 +42,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, in
     LogOpen();
     Log("thug2-decomp standalone");
     LoadSystemDirectInput();
-    Sys::RunStartupInitialisers();
-    return Sys::WinMain(instance, previous, commandLine, show);
+    SystemCore::RunStartupInitialisers();
+    return SystemCore::WinMain(instance, previous, commandLine, show);
 }

@@ -13,7 +13,7 @@ union SDL_Event;
 //   - a texture handed to ImGui goes through TextureId.
 // ImGui's coordinates are the window's pixels (what SDL's mouse events are in); Render scales its draw data to the
 // back buffer when the two differ.
-namespace Front::LevelEditor::UiBackend {
+namespace MenuSystem::LevelEditor::UiBackend {
 
 // The backends started on the game's window and device (once; false - logged - while either is missing or a
 // backend refuses). An ImGui context must be current.
@@ -26,7 +26,7 @@ bool ProcessEvent(const SDL_Event* event);
 void NewFrame();
 // ImGui's draw data (after ImGui::Render) drawn on the device, scaled from the window's pixels to the back buffer's.
 void Render();
-// Before the device is reset (Mlp::ResetDeviceIfLost: alt-tab, a lost device): ImGui's default-pool objects dropped;
+// Before the device is reset (FrameLoop::ResetDeviceIfLost: alt-tab, a lost device): ImGui's default-pool objects dropped;
 // NewFrame makes them again. Also after the fonts change (the font texture is made again).
 void InvalidateDeviceObjects();
 // The window's size in pixels (ImGui's display size) and the back buffer's.
@@ -72,4 +72,4 @@ uint64_t AtlasTexture();
 uint32_t AtlasGeneration();
 void FreeAtlas();
 
-} // namespace Front::LevelEditor::UiBackend
+} // namespace MenuSystem::LevelEditor::UiBackend

@@ -9,12 +9,12 @@
 
 #include "game/obj/smtptr.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 }
 
-namespace Obj {
+namespace GameObjects {
 
 class CObject;
 
@@ -33,7 +33,7 @@ public:
     // 0x004695D0: `object` into the first empty slot (nothing if they're all taken).
     void Add(CObject* object);
 
-    CSmtPtr<CObject>* m_slots;
+    CSharedRef<CObject>* m_slots;
     int m_size;
 };
 static_assert(sizeof(CObjectGroup) == 8, "layout must match the original");
@@ -64,6 +64,6 @@ static_assert(sizeof(CPathManager) == 0x10, "layout must match the original");
 
 // 0x00469A80: the script command AllocatePathManMemory (0x0C230B04 groups, default 200; 0xF6A4081D slots each,
 // default 20; 0x13AFFFF9 extra slots, default 200). True.
-bool __cdecl CFunc_AllocatePathManMemory(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_AllocatePathManMemory(Scripts::CStruct* params, Scripts::CScript* script);
 
 } // namespace Obj

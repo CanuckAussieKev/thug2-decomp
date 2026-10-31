@@ -8,11 +8,11 @@
 //  - the process's Windows audio session (the default endpoint's GUID_NULL session, the one DirectSound and Bink's
 //    DirectSound output play into) is muted right after DirectSound is made (Platform::InitDirectSound) and
 //    unmuted when it's released (Windows keeps a session's mute for the exe's next run otherwise);
-//  - the volume paths in our source: a voice's DirectSound attenuation (Sfx SetVoiceParameters) is -100 dB and
-//    every BinkSetVolume (music / ambient streams, voice, movies) is 0. The game's own volume settings (and what
+//  - the volume paths in our source: a voice's DirectSound attenuation (Sfx ApplyVoiceSettings) is -100 dB and
+//    every VideoSetLoudness (music / ambient streams, voice, movies) is 0. The game's own volume settings (and what
 //    the save stores) are left alone.
 
-namespace Sfx {
+namespace SoundFx {
 
 // The switch (read from the ini once).
 bool& AudioMuted();

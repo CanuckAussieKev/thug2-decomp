@@ -25,10 +25,10 @@ bool g_ntscFlag;
 int& Language() { return g_language; }
 int& Territory() { return g_territory; }
 int& Hardware() { return g_platform; }
-int& DisplayType() { return CFuncs::g_configNtsc; }
+int& DisplayType() { return ScriptCommands::g_configNtsc; }
 int& FrameRate() { return g_frameRate; }
 bool& FromCD() { return g_fromCD; }
-bool& ExtraMemory() { return CFuncs::g_gotExtraMemory; }
+bool& ExtraMemory() { return ScriptCommands::g_gotExtraMemory; }
 bool& Bootstrap() { return g_configBootstrap; }
 bool& NtscFlag() { return g_ntscFlag; }
 
@@ -135,7 +135,7 @@ bool __cdecl GotArgument(const char* option, int argc, char** argv)
 const char* __cdecl GetPathPrefix() { return PathPrefix(); }
 
 // 0x005B5F20
-const char* __cdecl GetLanguageName()
+const char* __cdecl GetLocaleLabel()
 {
     switch (Language()) {
     case 1: return "Japanese"; // "Japanese"
@@ -151,7 +151,7 @@ const char* __cdecl GetLanguageName()
 }
 
 // 0x005B5F90
-const char* __cdecl GetTerritoryName()
+const char* __cdecl GetRegionLabel()
 {
     switch (Territory()) {
     case 1: return "Europe"; // "Europe"
@@ -162,7 +162,7 @@ const char* __cdecl GetTerritoryName()
 }
 
 // 0x005B5FC0
-const char* __cdecl GetHardwareName()
+const char* __cdecl GetPlatformLabel()
 {
     switch (Hardware()) {
     case 1: return "PS2"; // "PS2"
@@ -176,7 +176,7 @@ const char* __cdecl GetHardwareName()
 }
 
 // 0x005B6020
-const char* __cdecl GetDisplayTypeName()
+const char* __cdecl GetScreenModeLabel()
 {
     switch (DisplayType()) {
     case 0: return "PAL"; // "PAL"
@@ -226,7 +226,7 @@ void __cdecl Init(int argc, char** argv)
             else
                 CopyString(BootstrapArgument(), "THUG2"); // "THUG2" (the original's sprintf)
             // "This bootstrap demo will return to %s passing back: %s\n"
-            Dbg::Printf("This bootstrap demo will return to %s passing back: %s\n", BootstrapReturn(), BootstrapArgument());
+            DebugOut::Printf("This bootstrap demo will return to %s passing back: %s\n", BootstrapReturn(), BootstrapArgument());
         }
     }
     if (GotArgument("NotBootstrap", argc, argv)) // "NotBootstrap"

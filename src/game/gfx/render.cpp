@@ -48,7 +48,7 @@
 #include "game/obj/particle_component.h"
 #include "game/skate/skate_module.h"
 
-namespace Nx {
+namespace Engine3D {
 
 DeviceViewport g_deviceViewport;
 RenderCamera g_camera;
@@ -56,10 +56,10 @@ ViewShape g_viewShape;
 
 bool g_radeon8500;
 int g_framesRendered;
-Mth::Matrix g_worldMatrix;
-Mth::Matrix g_viewMatrix;
-Mth::Matrix g_projectionMatrix;
-Mth::Matrix g_headingMatrix;
+Maths::Matrix g_worldMatrix;
+Maths::Matrix g_viewMatrix;
+Maths::Matrix g_projectionMatrix;
+Maths::Matrix g_headingMatrix;
 int g_frameTime;
 int g_screenCopyIndex;
 int g_backBufferWidth;
@@ -76,7 +76,7 @@ namespace {
 // A render state by the renderer's own numbering (1-0x24), cached.
 void SetRenderState(int state, int value) { SetState(state, static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
-void SetFog(bool on) { Engine::EnableFog(on); }
+void ChangeFog(bool on) { Engine::EnableFog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
@@ -84,7 +84,7 @@ void* Device() { return reinterpret_cast<void*>(g_d3dDevice); }
 template <typename F>
 F Method(void* object, int offset) { return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]); }
 
-void SetTransform(int type, const Mth::Matrix* m) { Method<long(__stdcall*)(void*, int, const void*)>(Device(), 0xB0)(Device(), type, m); }
+void SetTransform(int type, const Maths::Matrix* m) { Method<long(__stdcall*)(void*, int, const void*)>(Device(), 0xB0)(Device(), type, m); }
 void SetRenderTarget(void* surface) { Method<long(__stdcall*)(void*, int, void*)>(Device(), 0x94)(Device(), 0, surface); }
 void SetDepthStencilSurface(void* surface) { Method<long(__stdcall*)(void*, void*)>(Device(), 0x9C)(Device(), surface); }
 void SetTextureStageState(int stage, int type, int value)
@@ -114,23 +114,23 @@ void DrawPrimitiveUP(int type, unsigned int count, const void* vertices, unsigne
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
 
-void MatrixLookAt(Mth::Matrix* out, const float* eye, const float* at, const float* up)
+void MatrixLookAt(Maths::Matrix* out, const float* eye, const float* at, const float* up)
 {
     D3dx::MatrixLookAtRH(out, eye, at, up);
 }
-void MatrixPerspective(Mth::Matrix* out, float width, float height, float nearZ, float farZ)
+void MatrixPerspective(Maths::Matrix* out, float width, float height, float nearZ, float farZ)
 {
     D3dx::MatrixPerspectiveRH(out, width, height, nearZ, farZ);
 }
-void MatrixScaling(Mth::Matrix* out, float x, float y, float z)
+void MatrixScaling(Maths::Matrix* out, float x, float y, float z)
 {
     D3dx::MatrixScaling(out, x, y, z);
 }
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
-void MatrixRotationY(Mth::Matrix* out, float angle)
+void MatrixRotationY(Maths::Matrix* out, float angle)
 {
     D3dx::MatrixRotationY(out, angle);
 }
@@ -250,11 +250,11 @@ void Draw2DWithBlackBars()
 }
 
 // Not original - the level editor's ortho views (game/front/level_editor_camera.h): the near plane brought up for the
-// editor's camera while RenderViewport draws the world with it (2, the original's, otherwise).
+// editor's camera while DrawViewport draws the world with it (2, the original's, otherwise).
 static float s_nearZ = 2.0f;
 
 // 0x004DB200
-void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, float angle, float aspect, float zoom,
+void ChooseCamera(const Maths::Matrix* orientation, const Maths::Vector* position, float angle, float aspect, float zoom,
                bool infinite)
 {
     auto& camera = g_camera;
@@ -273,7 +273,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     camera.up[2] = orientation->row[1].z;
     float target[3] = {camera.position[0] - camera.backward[0], camera.position[1] - camera.backward[1],
                        camera.position[2] - camera.backward[2]};
-    world = Mth::Matrix{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
+    world = Maths::Matrix{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
     MatrixLookAt(&view, camera.position, target, camera.up);
 
     // (not original: s_nearZ - the original: camera.nearZ = 2.0f;)
@@ -283,7 +283,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     camera.farZ = 96000.0f;
     camera.angle = angle;
     if (g_distanceClipping) // distance clipping (setting 0x007D6444: 100-595)
-        camera.farZ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(Gfx::g_drawDistanceSetting)) * 18.0);
+        camera.farZ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(Gfx2D::g_drawDistanceSetting)) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.farZ = GraphicsOptions::Scaled(camera.farZ, GraphicsOptions::Get().drawDistanceScale);
@@ -295,7 +295,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     float height = heightFactor * width;
     MatrixPerspective(&projection, width, height, camera.nearZ, camera.farZ);
     if (zoom != 1.0f) {
-        Mth::Matrix scale;
+        Maths::Matrix scale;
         MatrixScaling(&scale, zoom, zoom, 1.0f);
         MatrixMultiply(&projection, &projection, &scale);
     }
@@ -342,7 +342,7 @@ void DrawScreenBlur()
 {
     if (!g_screenCopyInUse) // blur available
         return;
-    SetFog(false);
+    ChangeFog(false);
     SetRenderState(0x15, 0);
     SetRenderState(0x16, 0);
     SetRenderState(0x10, 1);
@@ -371,13 +371,13 @@ void DrawScreenBlur()
     void* other = textures[(current + 1) % 2];
     uint32_t desc[8]; // D3DSURFACE_DESC
     Method<long(__stdcall*)(void*, unsigned int, uint32_t*)>(texture, 0x44)(texture, 0, desc); // GetLevelDesc
-    uint32_t textureWidth = desc[6], textureHeight = desc[7];
+    uint32_t texelsWide = desc[6], texelsHigh = desc[7];
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
     uint32_t amount = g_screenBlur;
     float inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
-    double insetU = inset / static_cast<double>(textureWidth); // (the u's are rounded from this, unrounded)
-    float insetV = static_cast<float>(inset / static_cast<double>(textureHeight));
+    double insetU = inset / static_cast<double>(texelsWide); // (the u's are rounded from this, unrounded)
+    float insetV = static_cast<float>(inset / static_cast<double>(texelsHigh));
     float screenWidth = static_cast<float>(g_presentParameters.BackBufferWidth);
     float screenHeight = static_cast<float>(g_presentParameters.BackBufferHeight);
     uint32_t color = 0x80808080;
@@ -394,12 +394,12 @@ void DrawScreenBlur()
     //   quad[0].v = quad[1].v = insetV + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
     if (amount) {
-        SetBlendMode(g_screenBlurFrames > 2 ? 5 : 0);
+        ChooseBlendMode(g_screenBlurFrames > 2 ? 5 : 0);
         color = amount << 24 | 0x808080;
         for (ScreenVertex& v : quad)
             v.color = color;
     } else {
-        SetBlendMode(0);
+        ChooseBlendMode(0);
     }
 
     // Draw into `texture`: the other texture (if the blur level, 0x0078732C, is above 2)...
@@ -443,7 +443,7 @@ void DrawScreenBlur()
         SetSamplerState(i, 5, magFilter[i]);
     }
     g_screenCopyIndex = (g_screenCopyIndex + 1) % 2;
-    SetFog(true);
+    ChangeFog(true);
 }
 
 namespace {
@@ -517,19 +517,19 @@ void FullScreenViewport()
 }
 
 // The camera (a game object).
-float CameraAngle(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetAdjustedHFOV(); }
-const Mth::Vector* CameraPosition(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetPos(); }
-const Mth::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetMatrix(); }
+float CameraAngle(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->FetchEffectiveHFov(); }
+const Maths::Vector* ViewerLocation(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->GetPos(); }
+const Maths::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->GetMatrix(); }
 
 void DrawSceneGroup(Scene* scene, int pass, int viewport)
 {
-    RenderScene(reinterpret_cast<sScene*>(scene->group), static_cast<uint32_t>(pass), viewport);
+    DrawScene(reinterpret_cast<sceneRef*>(scene->group), static_cast<uint32_t>(pass), viewport);
 }
 void SetPass(int pass) { RenderInstances(static_cast<uint32_t>(pass), 0); }
 // No world transform (SetWorldTransform's null: the original passes 0).
 void ClearWorldTransform() { SetWorldTransform(nullptr); }
 
-void RenderViewport(int index)
+void DrawViewport(int index)
 {
     const Viewport* view = reinterpret_cast<const Viewport*>(GetActiveViewport(index));
     void* camera = view->camera;
@@ -538,10 +538,10 @@ void RenderViewport(int index)
     // Not original - the level editor (game/front/level_editor.h): while it runs, the first viewport's camera is put
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
-    Front::LevelEditor::PlaceCamera(static_cast<Gfx::Camera*>(camera));
+    MenuSystem::LevelEditor::PlaceCamera(static_cast<Gfx2D::Camera*>(camera));
     // Not original - the automation channel's camera lock (game/front/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
-    Front::TestView::PlaceCamera(static_cast<Gfx::Camera*>(camera), index);
+    MenuSystem::TestView::PlaceCamera(static_cast<Gfx2D::Camera*>(camera), index);
     g_drawnViewport = index; // the viewport being drawn
     double width = g_backBufferWidth;
     double height = static_cast<float>(g_backBufferHeight);
@@ -563,40 +563,40 @@ void RenderViewport(int index)
     }
     SetViewport();
     ClearWorldTransform();
-    float aspect = reinterpret_cast<CViewport*>(const_cast<Viewport*>(view))->GetAspectRatio();
+    float aspect = reinterpret_cast<CViewRegion*>(const_cast<Viewport*>(view))->GetAspectRatio();
 
     // Not original - the level editor's ortho views (game/front/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
     // Original behaviour: the camera's own angle, the near plane at 2.
-    auto* editorCamera = static_cast<Gfx::Camera*>(camera);
-    float editorNear = Front::LevelEditor::NearPlane(static_cast<Gfx::Camera*>(camera));
+    auto* editorCamera = static_cast<Gfx2D::Camera*>(camera);
+    float editorNear = MenuSystem::LevelEditor::NearPlane(static_cast<Gfx2D::Camera*>(camera));
 
     // The world: every scene but the sky.
     {
-        float angle = Front::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
         s_nearZ = editorNear;
-        const Mth::Vector* position = CameraPosition(camera);
-        SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        const Maths::Vector* position = ViewerLocation(camera);
+        ChooseCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
-        Front::LevelEditor::NoteView(static_cast<Gfx::Camera*>(camera), angle, aspect, &vp.x);
+        MenuSystem::LevelEditor::NoteView(static_cast<Gfx2D::Camera*>(camera), angle, aspect, &vp.x);
         // Not original - the screenshot key's sidecar (game/sys/screenshot.h): the camera noted.
-        const Mth::Matrix* frame = CameraMatrix(camera);
+        const Maths::Matrix* frame = CameraMatrix(camera);
         const float at[3] = {position->x, position->y, position->z};
         const float forward[3] = {-frame->row[2].x, -frame->row[2].y, -frame->row[2].z};
-        Sys::Screenshot::NoteView(index, at, forward);
+        SystemCore::Screenshot::NoteView(index, at, forward);
     }
     ForEachScene([&](Scene* scene) {
         if (scene->sky)
             return;
-        BuildOccluders(CameraPosition(camera), index);
+        CollectOccluders(ViewerLocation(camera), index);
         SetRenderState(1, 1);
         SetRenderState(2, 1);
         MeshGroup* group = scene->group;
         if (!(group->flags & 0x100)) {
             group->flags |= 0x100;
             for (int i = 0; i < group->meshCount; ++i)
-                reinterpret_cast<sMesh*>(group->meshes[i])->BuildCollision();
+                reinterpret_cast<meshRef*>(group->meshes[i])->BuildCollision();
         }
         DrawSceneGroup(scene, 0x55, index);
     });
@@ -610,10 +610,10 @@ void RenderViewport(int index)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
-        Mth::Vector origin = {0.0f, 0.0f, 0.0f, 1.0f};
-        float angle = Front::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        Maths::Vector origin = {0.0f, 0.0f, 0.0f, 1.0f};
+        float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
         s_nearZ = 2.0f;
-        SetCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
+        ChooseCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
     }
     float& fogStart = g_fogStart;
     float& fogEnd = g_fogEnd;
@@ -623,7 +623,7 @@ void RenderViewport(int index)
     SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogStart)); // D3DRS_FOGSTART
     SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd)); // D3DRS_FOGEND
     bool fog = g_fogEnabled != 0;
-    SetFog(false);
+    ChangeFog(false);
     SetRenderState(1, 0);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
@@ -642,21 +642,21 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     SetRenderState(1, 0);
     if (g_radeon8500)
-        Sun::Render(static_cast<Gfx::Camera*>(camera));
+        Sun::Render(static_cast<Gfx2D::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     fogStart = savedFogStart;
     fogEnd = savedFogEnd;
     SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogStart));
     SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd));
-    SetFog(fog);
+    ChangeFog(fog);
 
     // The world again, for the later passes.
     {
-        float angle = Front::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
-        const Mth::Vector* position = CameraPosition(camera);
+        float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        const Maths::Vector* position = ViewerLocation(camera);
         s_nearZ = editorNear;
-        SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        ChooseCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
         s_nearZ = 2.0f;
     }
     SetPass(0x82);
@@ -670,7 +670,7 @@ void RenderViewport(int index)
     IssueOcclusionQueries();
     SetRenderState(1, 0);
     static_cast<CFlexibleParticleManager*>(g_flexibleParticleManager)->RenderSystems(index > 0);
-    static_cast<CParticleManager*>(reinterpret_cast<void*>(Obj::g_particleManager))->RenderParticles();
+    static_cast<CParticleManager*>(reinterpret_cast<void*>(GameObjects::g_particleManager))->DrawParticles();
     {
         // (the weather's slot 3, through the jump 0x004A10A0)
         void* weather = g_weather;
@@ -680,7 +680,7 @@ void RenderViewport(int index)
     Engine::DrawShatters();
     SetRenderState(1, 0);
     if (!g_radeon8500)
-        Sun::Render(static_cast<Gfx::Camera*>(camera));
+        Sun::Render(static_cast<Gfx2D::Camera*>(camera));
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     RenderPrimitives();
@@ -693,26 +693,26 @@ void RenderViewport(int index)
 } // namespace
 
 // 0x004B2D80
-void RenderWorld()
+void DrawWorld()
 {
     // Not original - the level editor (game/front/level_editor.h): its frame (flying, picking, dragging) - it runs
     // while the game is paused.
     // Original behaviour: nothing.
-    Front::LevelEditor::Update();
+    MenuSystem::LevelEditor::Update();
     ++g_framesRendered; // frames rendered
     if (!g_loadingScreenUp) { // (nothing while the device is lost)
-        g_frameTime = static_cast<int>(Tmr::GetTime());
+        g_frameTime = static_cast<int>(FrameClock::GetTime());
         SetRenderState(1, 1);
         SetRenderState(2, 1);
         RenderShadowTextures();
         BeginScreenEffects();
-        int count = Mdl::g_viewportCount;
+        int count = GameModules::g_viewportCount;
         // Not original - the wireframe render mode (game/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
         Wireframe::BeginWorld();
         ViewMode::BeginWorld(); // (not original either: the editor's view modes - game/gfx/view_mode.h)
         for (int i = 0; i < count; ++i)
-            RenderViewport(i);
+            DrawViewport(i);
         ViewMode::EndWorld();
         Wireframe::EndWorld();
 
@@ -729,17 +729,17 @@ void RenderWorld()
         CopyScreenQuarter();
         DrawScreenBlur();
         bool fog = g_fogEnabled != 0;
-        SetFog(false);
+        ChangeFog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
         Draw2DWithBlackBars();
         // Not original - the level editor: the hovered and selected objects outlined over everything.
         // Original behaviour: nothing more is drawn.
-        Front::LevelEditor::Draw();
+        MenuSystem::LevelEditor::Draw();
         // Not original either - the new front end ([features] new_frontend, game/front/new_frontend.h): over
         // everything while it's up in the front end.
-        Front::NewFrontend::Draw();
-        SetFog(fog);
+        MenuSystem::NewFrontend::Draw();
+        ChangeFog(fog);
     }
     FullScreenViewport();
     SetViewport();

@@ -21,13 +21,13 @@
 #include "game/sys/mlp.h"
 #include "game/sys/log.h"
 
-namespace Front::RestartTester {
+namespace MenuSystem::RestartTester {
 
 namespace {
 
 constexpr SDL_Scancode kKey = SDL_SCANCODE_F8;
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 // A restart type's name (THUG2's and the ported games' restart_types).
 const char* TypeName(uint32_t type)
@@ -39,7 +39,7 @@ const char* TypeName(uint32_t type)
         if (Checksum(name) == type)
             return name;
     }
-    const char* known = Script::FindChecksumName(type);
+    const char* known = Scripts::LookUpHashName(type);
     return known ? known : "?";
 }
 
@@ -47,7 +47,7 @@ struct Restart {
     uint32_t name;
     std::string text;  // the name as the node array has it (its checksum when it has no string)
     std::string types; // restart_types
-    Script::VectorValue pos;
+    Scripts::VectorValue pos;
 };
 
 // The restarts of the loaded node arrays (the node manager's walk: the level's, in their order).
@@ -56,21 +56,21 @@ std::vector<Restart> LevelRestarts()
     std::vector<Restart> out;
     const uint32_t kClass = Checksum("Class"), kRestart = Checksum("Restart"), kName = Checksum("Name"),
                    kPos = Checksum("Pos"), kTypes = Checksum("restart_types"), kRestartName = Checksum("RestartName");
-    SkateScript::StartNodeWalk(0);
-    while (Script::CStruct* node = SkateScript::NextNode()) {
+    LevelNodes::StartNodeWalk(0);
+    while (Scripts::CStruct* node = LevelNodes::NextNode()) {
         uint32_t cls = 0, name = 0;
-        if (!node->GetChecksum(kClass, &cls, 0) || cls != kRestart || !node->GetChecksum(kName, &name, 0))
+        if (!node->ReadHashValue(kClass, &cls, 0) || cls != kRestart || !node->ReadHashValue(kName, &name, 0))
             continue;
         Restart r{name, {}, {}, {0, 0, 0, 1}};
         // (its name when the game knows it - level names mostly aren't -, else its RestartName text and checksum)
-        const char* text = Script::FindChecksumName(name);
+        const char* text = Scripts::LookUpHashName(name);
         const char* label = nullptr;
         node->GetString(kRestartName, &label, 0);
         char hex[16];
         std::snprintf(hex, sizeof(hex), "#%08X", name);
         r.text = text ? text : (label && *label ? std::string(label) + " (" + hex + ")" : std::string(hex));
         node->GetVector(kPos, &r.pos, 0);
-        Script::CArray* types = nullptr;
+        Scripts::CArray* types = nullptr;
         if (node->GetArray(kTypes, &types, 0) && types) {
             for (uint32_t t = 0; t < types->m_size; ++t) {
                 const char* type = TypeName(types->GetElement(t));
@@ -81,7 +81,7 @@ std::vector<Restart> LevelRestarts()
         }
         out.push_back(r);
     }
-    SkateScript::EndNodeWalk();
+    LevelNodes::EndNodeWalk();
     return out;
 }
 
@@ -89,14 +89,14 @@ std::vector<Restart> LevelRestarts()
 // (A text element has no line breaks: a second line is a second message.)
 void Message(const char* text, const char* id = "restart_tester_message", float y = 70.0f)
 {
-    Script::CStruct* params = Script::NewStruct()->Init();
+    Scripts::CStruct* params = Scripts::NewStruct()->Init();
     params->AddString(Checksum("text"), text);
-    params->AddChecksum(Checksum("id"), Checksum(id));
-    params->AddPair(Checksum("pos"), 320.0f, y);
-    params->AddInteger(Checksum("time"), 4000);
-    Script::SpawnScript(Checksum("create_panel_message"), params, 0, nullptr, 0, 0, false, false, false, false);
+    params->PutNameKey(Checksum("id"), Checksum(id));
+    params->InsertPair(Checksum("pos"), 320.0f, y);
+    params->PutInt(Checksum("time"), 4000);
+    Scripts::SpawnScript(Checksum("create_panel_message"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
-    Script::DeleteStruct(params);
+    Scripts::DeleteStruct(params);
 }
 
 uint32_t s_level;             // the level (its restarts' names) the visited set is for
@@ -126,11 +126,11 @@ void Next()
         if (s_visited.count(r.name))
             continue;
         s_visited.insert(r.name);
-        Script::CStruct* params = Script::NewStruct()->Init();
-        params->AddChecksum(Checksum("node_name"), r.name);
-        Script::RunScript(Checksum("ResetSkaters"), params, nullptr, false, "ResetSkaters");
+        Scripts::CStruct* params = Scripts::NewStruct()->Init();
+        params->PutNameKey(Checksum("node_name"), r.name);
+        Scripts::LaunchScript(Checksum("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
         Log("restart tester: %u / %u %s at (%.0f, %.0f, %.0f), types [%s]%s", static_cast<unsigned>(s_visited.size()),
             static_cast<unsigned>(restarts.size()), r.text.c_str(), r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
             s_visited.size() == restarts.size() ? " - all restarts visited" : "");
@@ -152,7 +152,7 @@ bool& Enabled()
     return on;
 }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
     if (!Enabled())
         return;
@@ -160,9 +160,9 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool down = keys && keys[kKey];
     bool pressed = down && s_keyUp;
     s_keyUp = !down;
-    if (!pressed || Mlp::FramesRun() == 0 || Front::LevelEditor::Active() || (frontEnd && frontEnd->m_paused) || Nx::CurrentLevel() == 0)
+    if (!pressed || FrameLoop::FramesRun() == 0 || MenuSystem::LevelEditor::Active() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
         return;
     Next();
 }
 
-} // namespace Front::RestartTester
+} // namespace MenuSystem::RestartTester

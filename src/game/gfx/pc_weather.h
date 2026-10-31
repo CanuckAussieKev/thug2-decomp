@@ -3,12 +3,12 @@
 #include <cstddef>
 #include <cstdint>
 
-// The PC weather (Nx engine: the engine's CWeather - constructor 0x004A14C0, destructor body 0x004A1080, its script
+// The PC weather (Nx engine: the engine's CWeatherSystem - constructor 0x004A14C0, destructor body 0x004A1080, its script
 // setters 0x004A10B0-0x004A1450 - over it; made by StartEngine, 0x006FA7C8): rain (lines, with splashes where drops
 // land) or snow (point sprites) over a grid of the ground's heights about the camera - 128-unit cells, the heights
 // found by casting down through the scene's collision when the grid is updated, the drops cycled through 1024 slots
 // by a linear-feedback step.
-namespace Nx {
+namespace Engine3D {
 
 // A row of the grid (6 bytes; at 0x00764330, the rows' columns' height indices after them): the first and last
 // columns with ground (0x4000: none) and where its height indices start.
@@ -44,8 +44,8 @@ struct CPcWeather {
     uint8_t engine54[4];
     bool raining;               // +0x58 (else snow)
     uint8_t pad59[3];
-    void* splashTexture;        // +0x5C sTexture* (0x45C7EB0F)
-    void* snowTexture;          // +0x60 sTexture* (0xC97C5A4C)
+    void* splashTexture;        // +0x5C textureRef* (0x45C7EB0F)
+    void* snowTexture;          // +0x60 textureRef* (0xC97C5A4C)
     uint8_t* columns;           // +0x64 the rows' columns' height indices
     sWeatherRow* rows;          // +0x68
     int heights[0x100];         // +0x6C the ground's heights (16ths), by index
@@ -80,7 +80,7 @@ struct CPcWeather {
     // cell's height cast for and put in a list of levels (within 30 units of one: the same), each cell then taking
     // the highest of itself and its right, lower and lower-right neighbours; the rows' ground spans kept; the slots
     // emptied with random places; the textures found.
-    void UpdateGrid();
+    void TickGrid();
     // 0x004CBDB0 (virtual [2]): the frame's new drops started (the rate, at most one a frame per slot freed), each
     // in the next free slot (none free: no more).
     void Update(int unused);

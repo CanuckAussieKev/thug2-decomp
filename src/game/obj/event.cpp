@@ -15,14 +15,14 @@
 #include "game/script/struct.h"
 #include "game/core/code_address.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
 extern void** const kEventListenerVtable;
 
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 // Handler structure components (AddHandlers): `params`, `group`, `exception`.
 constexpr uint32_t kParamsName = 0x7031F10C;
@@ -33,32 +33,32 @@ constexpr uint32_t kExceptionFlag = 0x80367192;
 // event log.
 void TrackerAddListener(uint32_t type, CScript* script) { Tracker()->AddListener(type, script); }
 void TrackerRemoveListener(uint32_t type, CScript* script) { Tracker()->RemoveListener(type, script); }
-void TrackerRegisterListener(CEventListener* listener)
+void TrackerRegisterListener(CSignalReceiver* listener)
 {
-    Tracker()->RegisterEventListener(listener);
+    Tracker()->SubscribeReceiver(listener);
 }
-void TrackerUnregisterListener(CEventListener* listener) { Tracker()->RemoveEventListener(listener); }
-void TrackerLogEventHandled(CEvent* event, uint32_t how, uint32_t script) { Tracker()->LogHandled(event, how, script); }
-void TrackerLogEventRead(CEvent* event, uint32_t how, uint32_t script) { Tracker()->LogRead(event, how, script); }
+void TrackerUnregisterListener(CSignalReceiver* listener) { Tracker()->RemoveEventListener(listener); }
+void TrackerLogEventHandled(CSignal* event, uint32_t how, uint32_t script) { Tracker()->LogHandled(event, how, script); }
+void TrackerLogEventRead(CSignal* event, uint32_t how, uint32_t script) { Tracker()->LogRead(event, how, script); }
 
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
 CStruct* NewEmptyStruct()
 {
-    CStruct* structure = Script::NewStruct();
+    CStruct* structure = Scripts::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
 CStruct* NewStructCopy(CStruct* source)
 {
-    CStruct* structure = Script::NewStruct();
+    CStruct* structure = Scripts::NewStruct();
     return structure ? structure->InitCopy(source) : nullptr;
 }
 void FreeStruct(CStruct* structure)
 {
     structure->Clear();
-    Script::DeleteStruct(structure);
+    Scripts::DeleteStruct(structure);
 }
 // An entry's parameters go (and the pointer is cleared).
-void FreeParams(CEventHandlerTable::Entry& entry)
+void FreeParams(CSignalRouteTable::Entry& entry)
 {
     if (entry.params) {
         FreeStruct(entry.params);
@@ -69,84 +69,84 @@ void FreeParams(CEventHandlerTable::Entry& entry)
 } // namespace
 
 // 0x0045F7F0
-CEvent* CEvent::Construct(uint32_t type, uint32_t source, uint32_t target, CStruct* data)
+CSignal* CSignal::Construct(uint32_t type, uint32_t source, uint32_t target, CStruct* data)
 {
     m_type = type;
     m_source = source;
-    m_target = target;
+    m_aimPoint = target;
     m_flags = 0;
-    mp_data = data;
+    m_payload = data;
     return this;
 }
 
 // 0x0045F980
-void CEvent::MarkRead(uint32_t how, uint32_t script)
+void CSignal::SetEventConsumed(uint32_t how, uint32_t script)
 {
     TrackerLogEventRead(this, how, script);
     m_flags |= FLAG_READ;
 }
 
 // 0x0045F9B0
-void CEvent::MarkHandled(uint32_t how, uint32_t script)
+void CSignal::SetEventHandled(uint32_t how, uint32_t script)
 {
     TrackerLogEventHandled(this, how, script);
     m_flags |= FLAG_HANDLED;
 }
 
 // 0x0045F9E0
-int __cdecl EventController(CEvent* event)
+int __cdecl EventController(CSignal* event)
 {
     int controller = 0;
-    if (event->mp_data)
-        event->mp_data->GetInteger(0xB30D9965, &controller, 0); // "controller"
+    if (event->m_payload)
+        event->m_payload->FetchIntValue(0xB30D9965, &controller, 0); // "controller"
     return controller;
 }
 
 // 0x00460150
-void CEvent::Destroy()
+void CSignal::Destroy()
 {
-    if ((m_flags & FLAG_OWNS_DATA) && mp_data)
-        FreeStruct(mp_data);
+    if ((m_flags & FLAG_OWNS_DATA) && m_payload)
+        FreeStruct(m_payload);
 }
 
 // 0x0045FAA0
-CEventListener* CEventListener::Construct()
+CSignalReceiver* CSignalReceiver::Construct()
 {
     m_vtable = kEventListenerVtable;
-    mp_object.mp_prev = nullptr;
-    mp_object.mp_next = nullptr;
-    mp_object.mp_object = nullptr;
-    m_registered = false;
+    m_ownerObject.m_preceding = nullptr;
+    m_ownerObject.m_following = nullptr;
+    m_ownerObject.m_ownerObject = nullptr;
+    m_onBoard = false;
     m_busy = 0;
     return this;
 }
 
 // 0x0045FAC0
-void CEventListener::Destroy()
+void CSignalReceiver::Destroy()
 {
     m_vtable = kEventListenerVtable;
     TrackerUnregisterListener(this);
-    mp_object.Release();
+    m_ownerObject.Release();
 }
 
 // 0x00460170
-CEventListener* CEventListener::DeletingDestructor(unsigned int flags)
+CSignalReceiver* CSignalReceiver::DeletingDestructor(unsigned int flags)
 {
     Destroy();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0045FB30
-void CEventListener::RegisterWithTracker(CObject* object)
+void CSignalReceiver::EnterWaitBoard(CObject* object)
 {
-    mp_object.Set(object);
+    m_ownerObject.Set(object);
     TrackerRegisterListener(this);
 }
 
 // 0x0045F820
-CEventHandlerTable* CEventHandlerTable::Construct()
+CSignalRouteTable* CSignalRouteTable::Construct()
 {
     m_count = 0;
     m_entries = nullptr;
@@ -157,7 +157,7 @@ CEventHandlerTable* CEventHandlerTable::Construct()
 }
 
 // 0x0045FB70
-void CEventHandlerTable::Destroy()
+void CSignalRouteTable::Destroy()
 {
     if (!m_entries)
         return;
@@ -165,11 +165,11 @@ void CEventHandlerTable::Destroy()
         if (CStruct* params = m_entries[i].params)
             FreeStruct(params);
     }
-    Mem::Manager::Get()->Free(m_entries);
+    MemSys::Manager::Get()->Free(m_entries);
 }
 
 // 0x0045F840
-void CEventHandlerTable::MarkGroup(uint32_t group)
+void CSignalRouteTable::MarkGroup(uint32_t group)
 {
     for (int i = 0; i < m_count; ++i) {
         Entry& entry = m_entries[i];
@@ -179,31 +179,31 @@ void CEventHandlerTable::MarkGroup(uint32_t group)
 }
 
 // 0x0045F880
-int CEventHandlerTable::PrintTable(CEventHandlerTable* table)
+int CSignalRouteTable::PrintTable(CSignalRouteTable* table)
 {
-    Dbg::Printf("====================================\n");
-    Dbg::Printf("Event Handler Table:\n");
+    DebugOut::Printf("====================================\n");
+    DebugOut::Printf("Event Handler Table:\n");
     if (!table) {
-        Dbg::Printf("  Emtpy\n");
+        DebugOut::Printf("  Emtpy\n");
     } else {
         for (int i = 0; i < table->m_count; ++i) {
             Entry& entry = table->m_entries[i];
-            Dbg::Printf("------------------------------------\n");
-            Dbg::Printf("  Type     : %s\n", Script::FindChecksumNameOrUnknown(entry.type));
-            Dbg::Printf("  Script   : %s\n", Script::FindChecksumNameOrUnknown(entry.script));
-            Dbg::Printf("  Group    : %s\n", Script::FindChecksumNameOrUnknown(entry.group));
-            Dbg::Printf("  Exception: %s\n", (entry.flags & Entry::FLAG_EXCEPTION) ? "yes" : "no");
+            DebugOut::Printf("------------------------------------\n");
+            DebugOut::Printf("  Type     : %s\n", Scripts::FindChecksumNameOrUnknown(entry.type));
+            DebugOut::Printf("  Script   : %s\n", Scripts::FindChecksumNameOrUnknown(entry.script));
+            DebugOut::Printf("  Group    : %s\n", Scripts::FindChecksumNameOrUnknown(entry.group));
+            DebugOut::Printf("  Exception: %s\n", (entry.flags & Entry::FLAG_EXCEPTION) ? "yes" : "no");
             if (entry.params) {
-                Dbg::Printf("  Params   :\n");
-                Script::PrintContents(entry.params, 13);
+                DebugOut::Printf("  Params   :\n");
+                Scripts::DumpToLog(entry.params, 13);
             }
         }
     }
-    return Dbg::Printf("====================================\n");
+    return DebugOut::Printf("====================================\n");
 }
 
 // 0x0045FA10
-void CEventHandlerTable::RegisterWithTracker(CScript* script)
+void CSignalRouteTable::EnterWaitBoard(CScript* script)
 {
     for (int i = 0; i < m_count; ++i) {
         Entry& entry = m_entries[i];
@@ -213,7 +213,7 @@ void CEventHandlerTable::RegisterWithTracker(CScript* script)
 }
 
 // 0x0045FA60 (removed entries included, as long as they still have a type)
-void CEventHandlerTable::UnregisterWithTracker(CScript* script)
+void CSignalRouteTable::UnregisterWithTracker(CScript* script)
 {
     for (int i = 0; i < m_count; ++i) {
         if (uint32_t type = m_entries[i].type)
@@ -222,14 +222,14 @@ void CEventHandlerTable::UnregisterWithTracker(CScript* script)
 }
 
 // 0x0045FBC0
-void CEventHandlerTable::AddHandler(CScript* script, uint32_t type, uint32_t scriptName, uint32_t group,
+void CSignalRouteTable::AddHandler(CScript* script, uint32_t type, uint32_t scriptName, uint32_t group,
                                     bool exception, CStruct* params)
 {
     bool tellTracker = true;
     Entry* entry = nullptr;
     if (!m_entries) {
         m_count = 1;
-        m_entries = static_cast<Entry*>(Mem::New(sizeof(Entry)));
+        m_entries = static_cast<Entry*>(MemSys::New(sizeof(Entry)));
         entry = m_entries;
     } else {
         // The entry of that type (live or removed by group): reused; the tracker already knows a live one.
@@ -254,10 +254,10 @@ void CEventHandlerTable::AddHandler(CScript* script, uint32_t type, uint32_t scr
         // Else a bigger array (on the current heap), the new entry at the end.
         if (!entry) {
             Entry* old = m_entries;
-            m_entries = static_cast<Entry*>(Mem::New((m_count + 1) * sizeof(Entry)));
+            m_entries = static_cast<Entry*>(MemSys::New((m_count + 1) * sizeof(Entry)));
             for (int i = 0; i < m_count; ++i)
                 m_entries[i] = old[i];
-            Mem::Manager::Get()->Free(old);
+            MemSys::Manager::Get()->Free(old);
             entry = &m_entries[m_count++];
         }
     }
@@ -273,7 +273,7 @@ void CEventHandlerTable::AddHandler(CScript* script, uint32_t type, uint32_t scr
 }
 
 // 0x0045FDF0
-void CEventHandlerTable::RemoveType(uint32_t type)
+void CSignalRouteTable::RemoveType(uint32_t type)
 {
     for (int i = 0; i < m_count; ++i) {
         Entry& entry = m_entries[i];
@@ -286,7 +286,7 @@ void CEventHandlerTable::RemoveType(uint32_t type)
 }
 
 // 0x0045FE60
-void CEventHandlerTable::RemoveGroup(uint32_t group)
+void CSignalRouteTable::RemoveGroup(uint32_t group)
 {
     for (int i = 0; i < m_count; ++i) {
         Entry& entry = m_entries[i];
@@ -298,7 +298,7 @@ void CEventHandlerTable::RemoveGroup(uint32_t group)
 }
 
 // 0x004600E0 (already removed entries are told to the tracker again)
-void CEventHandlerTable::RemoveGroup(CScript* script, uint32_t group)
+void CSignalRouteTable::RemoveGroup(CScript* script, uint32_t group)
 {
     Entry* entries = m_entries;
     for (int i = 0; i < m_count; ++i) {
@@ -313,7 +313,7 @@ void CEventHandlerTable::RemoveGroup(CScript* script, uint32_t group)
 }
 
 // 0x0045FED0 (the mark stays)
-void CEventHandlerTable::RemoveMarked(CScript* script)
+void CSignalRouteTable::RemoveMarked(CScript* script)
 {
     for (int i = 0; i < m_count; ++i) {
         Entry& entry = m_entries[i];
@@ -327,7 +327,7 @@ void CEventHandlerTable::RemoveMarked(CScript* script)
 }
 
 // 0x0045FF50
-void CEventHandlerTable::Compact()
+void CSignalRouteTable::Compact()
 {
     if (!m_entries || m_count <= 0)
         return;
@@ -343,14 +343,14 @@ void CEventHandlerTable::Compact()
     if (live == 0) {
         for (int i = 0; i < m_count; ++i)
             FreeParams(m_entries[i]);
-        Mem::Manager::Get()->Free(m_entries);
+        MemSys::Manager::Get()->Free(m_entries);
         m_entries = nullptr;
         m_count = 0;
         return;
     }
-    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_frontEndHeap);
-    auto* entries = static_cast<Entry*>(Mem::New(live * sizeof(Entry)));
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    auto* entries = static_cast<Entry*>(MemSys::New(live * sizeof(Entry)));
+    MemSys::Manager::Get()->LeaveHeapScope();
     Entry* out = entries;
     for (int i = 0; i < m_count; ++i) {
         Entry& entry = m_entries[i];
@@ -359,13 +359,13 @@ void CEventHandlerTable::Compact()
         else
             FreeParams(entry);
     }
-    Mem::Manager::Get()->Free(m_entries);
+    MemSys::Manager::Get()->Free(m_entries);
     m_count = live;
     m_entries = entries;
 }
 
 // 0x004601A0
-void CEventHandlerTable::AddHandlers(Script::CArray* handlers, bool replace)
+void CSignalRouteTable::AddHandlers(Scripts::CArray* handlers, bool replace)
 {
     int count = static_cast<int>(handlers->m_size);
     if (replace && count == 0) {
@@ -376,28 +376,28 @@ void CEventHandlerTable::AddHandlers(Script::CArray* handlers, bool replace)
             if (CStruct* params = m_entries[i].params)
                 FreeStruct(params);
         }
-        Mem::Manager::Get()->Free(m_entries);
+        MemSys::Manager::Get()->Free(m_entries);
         m_entries = nullptr;
         m_count = 0;
         m_changed = true;
         return;
     }
-    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_frontEndHeap);
-    auto* entries = static_cast<Entry*>(Mem::New((m_count + count) * sizeof(Entry)));
+    MemSys::Manager::Get()->EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    auto* entries = static_cast<Entry*>(MemSys::New((m_count + count) * sizeof(Entry)));
     int used = 0;
     for (int i = 0; i < count; ++i) {
         auto* handler = reinterpret_cast<CStruct*>(handlers->GetElement(static_cast<uint32_t>(i)));
-        Script::CComponent* type = handler->GetNextComponent(nullptr);
-        Script::CComponent* script = handler->GetNextComponent(type);
+        Scripts::CComponent* type = handler->StepToEntry(nullptr);
+        Scripts::CComponent* script = handler->StepToEntry(type);
         if (replace)
             RemoveType(type->checksum);
         Entry& entry = entries[used++];
         CStruct* params;
-        entry.params = handler->GetStructure(kParamsName, &params, 0) ? NewStructCopy(params) : nullptr;
-        if (!handler->GetChecksum(kGroupName, &entry.group, 0))
+        entry.params = handler->ReadSubStruct(kParamsName, &params, 0) ? NewStructCopy(params) : nullptr;
+        if (!handler->ReadHashValue(kGroupName, &entry.group, 0))
             entry.group = kDefaultGroup;
         entry.flags = static_cast<uint8_t>((entry.flags & ~(Entry::FLAG_EXCEPTION | Entry::FLAG_MARKED)) |
-                                           (handler->ContainsFlag(kExceptionFlag) & Entry::FLAG_EXCEPTION));
+                                           (handler->HasBareFlag(kExceptionFlag) & Entry::FLAG_EXCEPTION));
         entry.type = type->checksum;
         entry.script = script->checksum;
         m_changed = true;
@@ -407,14 +407,14 @@ void CEventHandlerTable::AddHandlers(Script::CArray* handlers, bool replace)
         for (int i = 0; i < m_count; ++i)
             entries[used++] = m_entries[i];
     }
-    Mem::Manager::Get()->Free(m_entries);
+    MemSys::Manager::Get()->Free(m_entries);
     m_entries = entries;
     m_count = used;
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
 }
 
 // 0x00460470
-void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
+void CSignalRouteTable::PassEvent(CSignal* event, CScript* script)
 {
     bool wasChanged = m_changed;
     m_changed = false;
@@ -426,11 +426,11 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
             // The event's data is added over the handler's own parameters, in a structure of its own.
             CStruct* merged = nullptr;
             CStruct* params;
-            if (event->mp_data) {
+            if (event->m_payload) {
                 merged = NewEmptyStruct();
                 if (entry->params)
-                    merged->AppendStructure(entry->params);
-                merged->AppendStructure(event->mp_data);
+                    merged->MergeStructure(entry->params);
+                merged->MergeStructure(event->m_payload);
                 params = merged;
             } else {
                 params = entry->params;
@@ -441,7 +441,7 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
                 if (script->GetOnExceptionScript()) {
                     CStruct* exceptionParams = NewEmptyStruct();
-                    exceptionParams->AddComponentOfType(0, Script::ESYMBOLTYPE_NAME, entry->flags & Entry::FLAG_EXCEPTION);
+                    exceptionParams->AddComponentOfType(0, Scripts::QBVAL_NAME, entry->flags & Entry::FLAG_EXCEPTION);
                     uint32_t onException = script->GetOnExceptionScript();
                     script->SetOnExceptionScript(0);
                     script->Interrupt(onException, exceptionParams);
@@ -450,14 +450,14 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
                 }
                 // (The entry may have been removed by the OnExceptionRun script - or its array freed [bug].)
                 if (entry->script != kNullScript) {
-                    script->SetScript(entry->script, params, script->m_object.Get());
+                    script->BindScript(entry->script, params, script->m_object.Get());
                     script->Update();
                 }
             } else if (CObject* object = script->m_object.Get();
-                       object && (object->m_objectFlags & Obj::OBJECT_FLAG_SPAWN_HANDLERS)) {
+                       object && (object->m_objectFlags & GameObjects::OBJECT_FLAG_SPAWN_HANDLERS)) {
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).
-                CScript* spawned = Script::SpawnScript(entry->script, params, 0, nullptr, 0, 0, false, false, false,
+                CScript* spawned = Scripts::SpawnScript(entry->script, params, 0, nullptr, 0, 0, false, false, false,
                                                        false);
                 spawned->m_object.Set(script->m_object.Get());
                 spawned->Update();
@@ -468,13 +468,13 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
             if (merged)
                 FreeStruct(merged);
             // (entry->script is read again: a stale entry if the handler changed the table [bug, harmless].)
-            event->MarkHandled(0, entry->script);
+            event->SetEventHandled(0, entry->script);
         }
         if (!m_alive) {
             // The script was destroyed by a handler: the last PassEvent out frees the table.
             if (--m_inUse == 0) {
                 Destroy();
-                Mem::Manager::Get()->Free(this);
+                MemSys::Manager::Get()->Free(this);
             }
             return;
         }
@@ -489,10 +489,10 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kEventListenerVtable_slots[] = {&Obj::CEventListener::DeletingDestructor,
+static VtableSlot kEventListenerVtable_slots[] = {&GameObjects::CSignalReceiver::DeletingDestructor,
          &_purecall};
 void** const kEventListenerVtable = reinterpret_cast<void**>(kEventListenerVtable_slots);
 

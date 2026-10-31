@@ -23,9 +23,9 @@
 
 namespace Pre {
 
-static_assert(sizeof(PreFile::FileInfo) == 0x14, "allocated as 0x14 bytes by the original");
-static_assert(offsetof(PreFile, m_openCount) == 0x10 && offsetof(PreFile, m_bottomUpHeap) == 0x14 &&
-                  sizeof(PreFile) == 0x18,
+static_assert(sizeof(ArchiveFile::FileInfo) == 0x14, "allocated as 0x14 bytes by the original");
+static_assert(offsetof(ArchiveFile, m_openCount) == 0x10 && offsetof(ArchiveFile, m_bottomUpHeap) == 0x14 &&
+                  sizeof(ArchiveFile) == 0x18,
               "layout must match the original");
 
 namespace {
@@ -34,8 +34,8 @@ constexpr int kRingSize = 4096;
 constexpr int kMaxMatch = 18;
 
 uint8_t g_ring[kRingSize];
-PreMgr* g_managerSlot;
-PreMgr* g_instanceSlot;
+ArchiveManager* g_managerSlot;
+ArchiveManager* g_instanceSlot;
 int g_instanceRefs;
 
 uint8_t* Ring() { return g_ring; }
@@ -47,7 +47,7 @@ uint8_t* Ring() { return g_ring; }
         Sleep(INFINITE);
 }
 
-Mem::Heap* FileHeap(bool bottom_up) { return bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap(); }
+MemSys::Heap* FileHeap(bool bottom_up) { return bottom_up ? MemSys::BottomUpHeap() : MemSys::TopDownHeap(); }
 
 // An entry header in the archive block; the name (name_size bytes) and then the data follow it.
 struct Entry {
@@ -107,24 +107,24 @@ void Decode(const uint8_t* in, uint8_t* out, int size)
 }
 
 // 0x005B8820
-PreFile::PreFile(uint8_t* block, bool bottom_up)
+ArchiveFile::ArchiveFile(uint8_t* block, bool bottom_up)
 {
     m_bottomUpHeap = bottom_up;
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    m_files = memory ? new (memory) Lst::HashTable(4) : nullptr;
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    m_files = memory ? new (memory) ListKit::HashTable(4) : nullptr;
     m_block = block;
-    m_numFiles = *reinterpret_cast<int*>(block + 8);
+    m_entryCount = *reinterpret_cast<int*>(block + 8);
 
     auto* entry = reinterpret_cast<Entry*>(block + 12);
-    for (int i = 0; i < m_numFiles; ++i) {
+    for (int i = 0; i < m_entryCount; ++i) {
         int stored = entry->compressed_size ? entry->compressed_size : entry->size;
-        auto* info = static_cast<FileInfo*>(Mem::Allocate(sizeof(FileInfo), 1, FileHeap(m_bottomUpHeap)));
+        auto* info = static_cast<FileInfo*>(MemSys::Allocate(sizeof(FileInfo), 1, FileHeap(m_bottomUpHeap)));
         const char* name = reinterpret_cast<const char*>(entry + 1);
-        if (m_files->GetItem(Crc::GenerateCRCFromString(name))) {
-            Mem::Free(info); // the same name twice: the first one wins
+        if (m_files->GetItem(Checksums::HashFromText(name))) {
+            MemSys::Free(info); // the same name twice: the first one wins
         } else {
-            uint32_t checksum = Crc::GenerateCRCFromString(name);
-            m_files->PutItem(checksum, info);
+            uint32_t checksum = Checksums::HashFromText(name);
+            m_files->StoreEntry(checksum, info);
             info->data = reinterpret_cast<uint8_t*>(entry + 1) + entry->name_size;
             info->unpacked = nullptr;
             info->position = 0;
@@ -139,26 +139,26 @@ PreFile::PreFile(uint8_t* block, bool bottom_up)
 }
 
 // 0x005B9410 (the scalar deleting destructor: frees `this` too when bit 0 of its argument is set)
-PreFile::~PreFile()
+ArchiveFile::~ArchiveFile()
 {
-    Mem::Free(m_block);
-    m_files->HandleCallback([](void* info, void*) { Mem::Free(info); }, nullptr);
-    m_files->FlushAllItems();
-    if (Lst::HashTable* files = m_files) {
+    MemSys::Free(m_block);
+    m_files->HandleCallback([](void* info, void*) { MemSys::Free(info); }, nullptr);
+    m_files->EmptyTable();
+    if (ListKit::HashTable* files = m_files) {
         files->~HashTable();
-        Mem::Free(files);
+        MemSys::Free(files);
     }
 }
 
 // 0x005B8230
-uint8_t* PreFile::LoadContainedFile(const char* name, int* size, uint8_t* out)
+uint8_t* ArchiveFile::ReadEntryFromArchive(const char* name, int* size, uint8_t* out)
 {
-    auto* info = static_cast<FileInfo*>(m_files->GetItem(Crc::GenerateCRCFromString(name)));
+    auto* info = static_cast<FileInfo*>(m_files->GetItem(Checksums::HashFromText(name)));
     if (!info)
         return nullptr;
     *size = info->size;
     if (!out)
-        out = static_cast<uint8_t*>(Mem::Malloc(static_cast<unsigned int>(info->size)));
+        out = static_cast<uint8_t*>(MemSys::AllocBlock(static_cast<unsigned int>(info->size)));
     if (info->unpacked)
         CopyBytes(out, info->unpacked, static_cast<unsigned int>(info->size));
     else if (info->compressedSize == 0)
@@ -169,11 +169,11 @@ uint8_t* PreFile::LoadContainedFile(const char* name, int* size, uint8_t* out)
 }
 
 // 0x005B8310
-uint8_t* PreFile::GetContainedFileByHandle(FileInfo* handle)
+uint8_t* ArchiveFile::FindEntryByKey(FileInfo* handle)
 {
     m_files->m_iterBucket = -1;
     m_files->m_iterItem = nullptr;
-    while (m_files->IterateNext() && m_files->m_iterItem) {
+    while (m_files->StepIterator() && m_files->m_iterItem) {
         auto* info = static_cast<FileInfo*>(m_files->m_iterItem->value);
         if (!info)
             break;
@@ -186,24 +186,24 @@ uint8_t* PreFile::GetContainedFileByHandle(FileInfo* handle)
 }
 
 // 0x005B8A00
-PreFile::FileInfo* PreFile::GetContainedFile(const char* name)
+ArchiveFile::FileInfo* ArchiveFile::FindEntryInArchive(const char* name)
 {
-    auto* info = static_cast<FileInfo*>(m_files->GetItem(Crc::GenerateCRCFromString(name)));
+    auto* info = static_cast<FileInfo*>(m_files->GetItem(Checksums::HashFromText(name)));
     if (!info)
         return nullptr;
-    GetContainedFileByHandle(info);
+    FindEntryByKey(info);
     if (!m_activeFile->unpacked && m_activeFile->compressedSize != 0) {
-        Mem::PushMemProfile(name);
+        MemSys::PushMemProfile(name);
         m_activeFile->unpacked = static_cast<uint8_t*>(
-            Mem::Allocate(static_cast<unsigned int>(m_activeFile->size), 1, FileHeap(m_bottomUpHeap)));
-        Mem::PopMemProfile();
+            MemSys::Allocate(static_cast<unsigned int>(m_activeFile->size), 1, FileHeap(m_bottomUpHeap)));
+        MemSys::PopMemProfile();
         Decode(m_activeFile->data, m_activeFile->unpacked, m_activeFile->compressedSize);
     }
     return info;
 }
 
 // 0x005B7F00
-int PreFile::Read(void* out, unsigned int count)
+int ArchiveFile::Read(void* out, unsigned int count)
 {
     FileInfo* file = m_activeFile;
     unsigned int left = static_cast<unsigned int>(file->size - file->position);
@@ -215,7 +215,7 @@ int PreFile::Read(void* out, unsigned int count)
 }
 
 // 0x005B7F60
-int PreFile::Seek(int offset, int origin)
+int ArchiveFile::Seek(int offset, int origin)
 {
     FileInfo* file = m_activeFile;
     int previous = file->position;
@@ -233,19 +233,19 @@ int PreFile::Seek(int offset, int origin)
     return -1;
 }
 
-// --- PreMgr ---------------------------------------------------------------------------------------------
+// --- ArchiveManager ---------------------------------------------------------------------------------------------
 
-static_assert(offsetof(PreMgr, m_pres) == 0x10 && offsetof(PreMgr, m_blockPreLoading) == 0x14 &&
-                  offsetof(PreMgr, m_pending) == 0x18 && offsetof(PreMgr, m_numPending) == 0x238 &&
-                  sizeof(PreMgr) == 0x23C,
+static_assert(offsetof(ArchiveManager, m_pres) == 0x10 && offsetof(ArchiveManager, m_holdArchiveLoads) == 0x14 &&
+                  offsetof(ArchiveManager, m_pending) == 0x18 && offsetof(ArchiveManager, m_numPending) == 0x238 &&
+                  sizeof(ArchiveManager) == 0x23C,
               "layout must match the original");
 
 namespace {
 
-PreMgr*& ManagerSlot() { return g_managerSlot; } // set by the constructor
-PreMgr*& InstanceSlot() { return g_instanceSlot; } // the one CreateManager made
+ArchiveManager*& ManagerSlot() { return g_managerSlot; } // set by the constructor
+ArchiveManager*& InstanceSlot() { return g_instanceSlot; } // the one CreateManager made
 int& InstanceRefs() { return g_instanceRefs; }
-bool& Handled() { return File::g_handledByArchive; } // see File:: - "this call was ours"
+bool& Handled() { return FileLoad::g_handledByArchive; } // see FileLoad:: - "this call was ours"
 int Language() { return GameConfig::g_language; }
 
 // Names inside archives use backslashes. The original copies into a 128-byte buffer with no limit; this
@@ -261,12 +261,12 @@ void NormaliseName(char (&out)[128], const char* name)
 // Calls `visit` for each loaded archive, in table order, until it returns something non-null (returned), or
 // the table runs out. Uses the table's own iterator, like the original.
 template <typename Visit>
-auto ForEachPre(Lst::HashTable* pres, Visit visit) -> decltype(visit(static_cast<PreFile*>(nullptr)))
+auto ForEachPre(ListKit::HashTable* pres, Visit visit) -> decltype(visit(static_cast<ArchiveFile*>(nullptr)))
 {
     pres->m_iterBucket = -1;
     pres->m_iterItem = nullptr;
-    while (pres->IterateNext() && pres->m_iterItem && pres->m_iterItem->value) {
-        if (auto result = visit(static_cast<PreFile*>(pres->m_iterItem->value)))
+    while (pres->StepIterator() && pres->m_iterItem && pres->m_iterItem->value) {
+        if (auto result = visit(static_cast<ArchiveFile*>(pres->m_iterItem->value)))
             return result;
     }
     return {};
@@ -274,14 +274,14 @@ auto ForEachPre(Lst::HashTable* pres, Visit visit) -> decltype(visit(static_cast
 
 } // namespace
 
-PreMgr* Manager() { return ManagerSlot(); }
-PreMgr* Instance() { return InstanceSlot(); }
+ArchiveManager* Manager() { return ManagerSlot(); }
+ArchiveManager* Instance() { return InstanceSlot(); }
 
 // 0x005B8D20
-PreMgr::PreMgr()
+ArchiveManager::ArchiveManager()
 {
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    m_pres = memory ? new (memory) Lst::HashTable(4) : nullptr;
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    m_pres = memory ? new (memory) ListKit::HashTable(4) : nullptr;
     ManagerSlot() = this;
     m_activeHandle = nullptr;
     m_activeData = nullptr;
@@ -290,11 +290,11 @@ PreMgr::PreMgr()
 }
 
 // 0x005B8E90 (returns the instance in EAX: the caller keeps it)
-PreMgr* CreateManager(bool create)
+ArchiveManager* CreateManager(bool create)
 {
     if (!InstanceSlot() && create) {
-        void* memory = Mem::Calloc(sizeof(PreMgr), nullptr, 1);
-        InstanceSlot() = memory ? new (memory) PreMgr() : nullptr;
+        void* memory = MemSys::AllocZeroed(sizeof(ArchiveManager), nullptr, 1);
+        InstanceSlot() = memory ? new (memory) ArchiveManager() : nullptr;
     }
     ++InstanceRefs();
     return InstanceSlot();
@@ -307,12 +307,12 @@ void DestroyManager()
         --InstanceRefs();
         return;
     }
-    if (PreMgr* manager = InstanceSlot()) {
-        if (Lst::HashTable* pres = manager->m_pres) {
+    if (ArchiveManager* manager = InstanceSlot()) {
+        if (ListKit::HashTable* pres = manager->m_pres) {
             pres->~HashTable();
-            Mem::Free(pres);
+            MemSys::Free(pres);
         }
-        Mem::Free(manager);
+        MemSys::Free(manager);
     }
     InstanceSlot() = nullptr;
     InstanceRefs() = 0;
@@ -320,17 +320,17 @@ void DestroyManager()
 
 namespace {
 
-// The script global block_pre_loading (Script::GetInteger by name - not decompiled yet).
+// The script global block_pre_loading (Scripts::FetchIntValue by name - not decompiled yet).
 bool PreLoadingBlocked()
 {
-    return Script::GetInteger("block_pre_loading") != 0;
+    return Scripts::FetchIntValue("block_pre_loading") != 0;
 }
 // Always false in this build; only does debugging work when the debug flag is set.
-bool SkipSynchronousLoad() { return Pcm::UsingCD(); }
-int TimeMilliseconds() { return static_cast<int>(Tmr::GetTime()); }
+bool SkipSynchronousLoad() { return AudioStream::DiscModeActive(); }
+int TimeMilliseconds() { return static_cast<int>(FrameClock::GetTime()); }
 bool DebugChecks() { return GameConfig::g_fromCD; }
 
-Mem::Heap* LoadHeap(bool bottom_up) { return bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap(); }
+MemSys::Heap* LoadHeap(bool bottom_up) { return bottom_up ? MemSys::BottomUpHeap() : MemSys::TopDownHeap(); }
 
 // A localised archive patch (.ppf/.ppd): the patched archive's size, a record count, then the records -
 // {offset, length, `length` bytes to write at that offset}.
@@ -349,19 +349,19 @@ void ApplyPatch(uint8_t* archive, const uint32_t* patch)
 } // namespace
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
-void __cdecl OnAsyncPreLoaded(File::AsyncFile* file, int event, int size, void* manager, void* data)
+void __cdecl OnAsyncPreLoaded(FileLoad::AsyncFile* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
-        static_cast<PreMgr*>(manager)->FinishLoad(reinterpret_cast<int>(file), static_cast<uint8_t*>(data), size);
+        static_cast<ArchiveManager*>(manager)->FinishLoad(reinterpret_cast<int>(file), static_cast<uint8_t*>(data), size);
 }
 
 // 0x005B8EE0
-void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bottom_up)
+void ArchiveManager::LoadPre(const char* name, bool async, bool report_missing, bool bottom_up)
 {
-    m_blockPreLoading = PreLoadingBlocked();
-    if (m_blockPreLoading)
+    m_holdArchiveLoads = PreLoadingBlocked();
+    if (m_holdArchiveLoads)
         return;
-    if (!File::AsyncLoadingAvailable())
+    if (!FileLoad::AsyncLoadingAvailable())
         async = false;
     if (!async && SkipSynchronousLoad())
         return;
@@ -373,32 +373,32 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
     int start = TimeMilliseconds();
 
     if (async) {
-        if (File::AsyncFile* file = File::AsyncOpen(path)) {
+        if (FileLoad::AsyncFile* file = FileLoad::AsyncOpen(path)) {
             PendingLoad& pending = m_pending[m_numPending];
             // The original copies with no limit; the field holds 63 characters.
             strncpy_s(pending.name, name, _TRUNCATE);
             pending.handle = reinterpret_cast<int>(file);
             ++m_numPending;
-            int size = File::AsyncGetFileSize(file);
-            Gfx::LoadingConsole::NoteFile("read (async)", path, size); // (not original: the loading console)
-            Mem::PushMemProfile(path);
-            void* data = Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up));
-            Mem::PopMemProfile();
-            File::AsyncSetCallback(file, OnAsyncPreLoaded, this, data);
-            File::AsyncRead(file, data, size);
+            int size = FileLoad::AsyncGetFileSize(file);
+            Gfx2D::LoadingConsole::NoteFile("read (async)", path, size); // (not original: the loading console)
+            MemSys::PushMemProfile(path);
+            void* data = MemSys::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up));
+            MemSys::PopMemProfile();
+            FileLoad::AsyncSetCallback(file, OnAsyncPreLoaded, this, data);
+            FileLoad::StartBackgroundRead(file, data, size);
             return;
         }
         // Couldn't start an async load: load it now instead.
     }
 
     uint8_t* data;
-    int size = File::CachedFileSize(path);
+    int size = FileLoad::CachedFileSize(path);
     if (size != 0) {
-        Mem::PushMemProfile(path);
-        data = static_cast<uint8_t*>(Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up)));
-        Mem::PopMemProfile();
-        if (!File::LoadCachedFile(path, data))
-            Dbg::Printf("pre file %s failed to load quickly.\n", path);
+        MemSys::PushMemProfile(path);
+        data = static_cast<uint8_t*>(MemSys::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up)));
+        MemSys::PopMemProfile();
+        if (!FileLoad::LoadCachedFile(path, data))
+            DebugOut::Printf("pre file %s failed to load quickly.\n", path);
     } else {
         // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
         // English archive (.ppf/.ppd).
@@ -408,14 +408,14 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
         char letter = Language() == 3 ? 'f' : Language() == 5 ? 'd' : '\0';
         if (letter) {
             path[length - 1] = letter;
-            if (!File::Exist(path)) {
+            if (!FileLoad::Exist(path)) {
                 path[length - 2] = 'p';
-                if (File::Exist(path)) {
-                    File::Handle file = File::Open(path, "rb");
-                    uint32_t patch_size = File::GetFileSize(file);
-                    patch = static_cast<uint32_t*>(Mem::New(patch_size));
-                    File::Read(patch, 1, static_cast<int>(patch_size), file);
-                    File::Close(file);
+                if (FileLoad::Exist(path)) {
+                    FileLoad::Handle file = FileLoad::Open(path, "rb");
+                    uint32_t patch_size = FileLoad::GetFileSize(file);
+                    patch = static_cast<uint32_t*>(MemSys::New(patch_size));
+                    FileLoad::Read(patch, 1, static_cast<int>(patch_size), file);
+                    FileLoad::Close(file);
                     patched = true;
                 }
                 path[length - 2] = 'r'; // back to .pre (opened as .prx)
@@ -423,59 +423,59 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
             }
         }
 
-        File::Handle file = File::Open(path, "rb");
+        FileLoad::Handle file = FileLoad::Open(path, "rb");
         if (!file && (report_missing || DebugChecks())) {
-            Dbg::Printf("couldn't open %s.  Make sure the, if this is a level PRE file, that the name in "
+            DebugOut::Printf("couldn't open %s.  Make sure the, if this is a level PRE file, that the name in "
                         "levels.q matches the file on disk\n",
                         path);
             return;
         }
-        uint32_t file_size = File::GetFileSize(file);
-        Mem::PushMemProfile(path);
+        uint32_t file_size = FileLoad::GetFileSize(file);
+        MemSys::PushMemProfile(path);
         size = static_cast<int>(file_size);
         uint32_t allocated = file_size;
         if (patched && file_size <= patch[0])
             allocated = patch[0]; // room for the patched archive
-        data = static_cast<uint8_t*>(Mem::Allocate(allocated, 1, LoadHeap(bottom_up)));
-        Mem::PopMemProfile();
-        File::Read(data, 1, static_cast<int>(file_size), file);
+        data = static_cast<uint8_t*>(MemSys::Allocate(allocated, 1, LoadHeap(bottom_up)));
+        MemSys::PopMemProfile();
+        FileLoad::Read(data, 1, static_cast<int>(file_size), file);
         if (DebugChecks() && file_size != *reinterpret_cast<uint32_t*>(data))
-            Dbg::Printf("%s has incorrect file size\n", path);
-        File::Close(file);
+            DebugOut::Printf("%s has incorrect file size\n", path);
+        FileLoad::Close(file);
         if (patched) {
             if (allocated > file_size)
                 std::memset(data + file_size, 0, allocated - file_size);
             ApplyPatch(data, patch);
-            Mem::Free(patch);
+            MemSys::Free(patch);
         }
     }
 
-    Dbg::Printf("load time for file %s size %d is %d ms\n", name, size, TimeMilliseconds() - start);
-    void* memory = Mem::Calloc(sizeof(PreFile), LoadHeap(bottom_up), 1);
-    PreFile* pre = memory ? new (memory) PreFile(data, bottom_up) : nullptr;
-    m_pres->PutItem(Crc::GenerateCRCFromString(name), pre);
+    DebugOut::Printf("load time for file %s size %d is %d ms\n", name, size, TimeMilliseconds() - start);
+    void* memory = MemSys::AllocZeroed(sizeof(ArchiveFile), LoadHeap(bottom_up), 1);
+    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, bottom_up) : nullptr;
+    m_pres->StoreEntry(Checksums::HashFromText(name), pre);
 }
 
 // 0x005B8750
-uint8_t* PreMgr::LoadFile(const char* name, int* size, uint8_t* out)
+uint8_t* ArchiveManager::LoadFile(const char* name, int* size, uint8_t* out)
 {
     char path[128];
     NormaliseName(path, name);
-    return ForEachPre(m_pres, [&](PreFile* pre) { return pre->LoadContainedFile(path, size, out); });
+    return ForEachPre(m_pres, [&](ArchiveFile* pre) { return pre->ReadEntryFromArchive(path, size, out); });
 }
 
 // 0x005B8390
-bool PreMgr::FileExists(const char* name)
+bool ArchiveManager::IsFilePresent(const char* name)
 {
     char path[128];
     NormaliseName(path, name);
-    return ForEachPre(m_pres, [&](PreFile* pre) {
-        return pre->m_files->GetItem(Crc::GenerateCRCFromString(path)) != nullptr;
+    return ForEachPre(m_pres, [&](ArchiveFile* pre) {
+        return pre->m_files->GetItem(Checksums::HashFromText(path)) != nullptr;
     });
 }
 
 // 0x005B8AD0
-PreFile::FileInfo* PreMgr::OpenFile(const char* name)
+ArchiveFile::FileInfo* ArchiveManager::OpenFile(const char* name)
 {
     char path[128];
     NormaliseName(path, name);
@@ -486,26 +486,26 @@ PreFile::FileInfo* PreMgr::OpenFile(const char* name)
         int language = Language();
         path[length - 1] = language >= 3 && language <= 6 ? kLetters[language - 3] : 'e';
     }
-    return ForEachPre(m_pres, [&](PreFile* pre) -> PreFile::FileInfo* {
-        PreFile::FileInfo* handle = pre->GetContainedFile(path);
+    return ForEachPre(m_pres, [&](ArchiveFile* pre) -> ArchiveFile::FileInfo* {
+        ArchiveFile::FileInfo* handle = pre->FindEntryInArchive(path);
         if (!handle)
             return nullptr;
         m_activePre = pre;
         m_activeHandle = handle;
-        m_activeData = pre->GetContainedFileByHandle(handle);
+        m_activeData = pre->FindEntryByKey(handle);
         return handle;
     });
 }
 
 // 0x005B84A0
-uint8_t* PreMgr::GetContainedFile(PreFile::FileInfo* handle)
+uint8_t* ArchiveManager::FindEntryInArchive(ArchiveFile::FileInfo* handle)
 {
     if (m_missingHandle == handle)
         return nullptr;
     if (m_activeHandle == handle)
         return m_activeData;
-    uint8_t* data = ForEachPre(m_pres, [&](PreFile* pre) -> uint8_t* {
-        uint8_t* found = pre->GetContainedFileByHandle(handle);
+    uint8_t* data = ForEachPre(m_pres, [&](ArchiveFile* pre) -> uint8_t* {
+        uint8_t* found = pre->FindEntryByKey(handle);
         if (found) {
             m_activePre = pre;
             m_activeHandle = handle;
@@ -519,13 +519,13 @@ uint8_t* PreMgr::GetContainedFile(PreFile::FileInfo* handle)
 }
 
 // 0x005B8540
-bool PreMgr::IsLoaded(const char* name)
+bool ArchiveManager::IsLoaded(const char* name)
 {
-    return m_pres->GetItem(Crc::GenerateCRCFromString(name)) != nullptr;
+    return m_pres->GetItem(Checksums::HashFromText(name)) != nullptr;
 }
 
 // 0x005B7FD0
-bool PreMgr::IsLoadFinished(const char* name)
+bool ArchiveManager::IsLoadFinished(const char* name)
 {
     for (int i = 0; i < m_numPending; ++i) {
         if (std::strcmp(m_pending[i].name, name) == 0)
@@ -535,60 +535,60 @@ bool PreMgr::IsLoadFinished(const char* name)
 }
 
 // 0x005B8DB0
-void PreMgr::FinishLoad(int handle, uint8_t* data, int /*size*/)
+void ArchiveManager::FinishLoad(int handle, uint8_t* data, int /*size*/)
 {
     int i = 0;
     while (i < m_numPending && m_pending[i].handle != handle)
         ++i;
     if (i == m_numPending)
         return;
-    void* memory = Mem::Calloc(sizeof(PreFile), Mem::TopDownHeap(), 1);
-    PreFile* pre = memory ? new (memory) PreFile(data, false) : nullptr;
-    m_pres->PutItem(Crc::GenerateCRCFromString(m_pending[i].name), pre);
+    void* memory = MemSys::AllocZeroed(sizeof(ArchiveFile), MemSys::TopDownHeap(), 1);
+    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, false) : nullptr;
+    m_pres->StoreEntry(Checksums::HashFromText(m_pending[i].name), pre);
     --m_numPending;
     m_pending[i] = m_pending[m_numPending]; // the last pending load takes this one's place
 }
 
 // 0x005B9570
-void PreMgr::UnloadPre(const char* name, bool only_if_loaded)
+void ArchiveManager::UnloadPre(const char* name, bool only_if_loaded)
 {
-    if (m_blockPreLoading)
+    if (m_holdArchiveLoads)
         return;
-    auto* pre = static_cast<PreFile*>(m_pres->GetItem(Crc::GenerateCRCFromString(name)));
+    auto* pre = static_cast<ArchiveFile*>(m_pres->GetItem(Checksums::HashFromText(name)));
     if (!pre && only_if_loaded)
         return;
-    m_pres->FlushItem(Crc::GenerateCRCFromString(name));
+    m_pres->EraseEntry(Checksums::HashFromText(name));
     if (pre) {
-        pre->~PreFile();
-        Mem::Free(pre);
+        pre->~ArchiveFile();
+        MemSys::Free(pre);
     }
 }
 
-// --- the archive side of File:: -----------------------------------------------------------------------
+// --- the archive side of FileLoad:: -----------------------------------------------------------------------
 
 // 0x005B85A0
 bool Exist(const char* name)
 {
-    Handled() = Manager()->FileExists(name);
+    Handled() = Manager()->IsFilePresent(name);
     return Handled();
 }
 
 // 0x005B8C70
-PreFile::FileInfo* Open(const char* name, const char* mode, bool count_open)
+ArchiveFile::FileInfo* Open(const char* name, const char* mode, bool count_open)
 {
-    PreFile::FileInfo* handle = Manager()->OpenFile(name);
+    ArchiveFile::FileInfo* handle = Manager()->OpenFile(name);
     if (!handle) {
         Handled() = false;
         return nullptr;
     }
     if (count_open)
         ++Manager()->m_activePre->m_openCount;
-    // Archives are read-only: any mode other than r/b gives the file up (and leaves it to File::).
+    // Archives are read-only: any mode other than r/b gives the file up (and leaves it to FileLoad::).
     for (const char* c = mode; *c; ++c) {
         if (*c != 'r' && *c != 'b') {
-            PreFile* pre = Manager()->m_activePre;
+            ArchiveFile* pre = Manager()->m_activePre;
             if (pre->m_activeFile->unpacked)
-                Mem::Free(pre->m_activeFile->unpacked);
+                MemSys::Free(pre->m_activeFile->unpacked);
             pre->m_activeFile->unpacked = nullptr;
             if (count_open)
                 --pre->m_openCount;
@@ -602,15 +602,15 @@ PreFile::FileInfo* Open(const char* name, const char* mode, bool count_open)
 }
 
 // 0x005B85D0
-int Close(PreFile::FileInfo* file, bool count_open)
+int Close(ArchiveFile::FileInfo* file, bool count_open)
 {
-    if (!Manager()->GetContainedFile(file)) {
+    if (!Manager()->FindEntryInArchive(file)) {
         Handled() = false;
         return 0;
     }
-    PreFile* pre = Manager()->m_activePre;
+    ArchiveFile* pre = Manager()->m_activePre;
     if (pre->m_activeFile->unpacked)
-        Mem::Free(pre->m_activeFile->unpacked);
+        MemSys::Free(pre->m_activeFile->unpacked);
     pre->m_activeFile->unpacked = nullptr;
     if (count_open)
         --pre->m_openCount;
@@ -619,9 +619,9 @@ int Close(PreFile::FileInfo* file, bool count_open)
 }
 
 // 0x005B8630
-int Read(void* buffer, int size, int count, PreFile::FileInfo* file)
+int Read(void* buffer, int size, int count, ArchiveFile::FileInfo* file)
 {
-    if (!Manager()->GetContainedFile(file)) {
+    if (!Manager()->FindEntryInArchive(file)) {
         Handled() = false;
         return 0;
     }
@@ -630,17 +630,17 @@ int Read(void* buffer, int size, int count, PreFile::FileInfo* file)
 }
 
 // 0x005B8680
-int Write(const void* /*buffer*/, int /*size*/, int /*count*/, PreFile::FileInfo* file)
+int Write(const void* /*buffer*/, int /*size*/, int /*count*/, ArchiveFile::FileInfo* file)
 {
-    Manager()->GetContainedFile(file);
+    Manager()->FindEntryInArchive(file);
     Handled() = false;
     return 0;
 }
 
 // 0x005B86A0
-int Seek(PreFile::FileInfo* file, int offset, int origin)
+int Seek(ArchiveFile::FileInfo* file, int offset, int origin)
 {
-    if (!Manager()->GetContainedFile(file)) {
+    if (!Manager()->FindEntryInArchive(file)) {
         Handled() = false;
         return 0;
     }
@@ -649,14 +649,14 @@ int Seek(PreFile::FileInfo* file, int offset, int origin)
 }
 
 // 0x005B86E0
-int GetFileSize(PreFile::FileInfo* file)
+int GetFileSize(ArchiveFile::FileInfo* file)
 {
-    if (!Manager()->GetContainedFile(file)) {
+    if (!Manager()->FindEntryInArchive(file)) {
         Handled() = false;
         return 0;
     }
     Handled() = true;
-    PreFile::FileInfo* active = Manager()->m_activePre->m_activeFile;
+    ArchiveFile::FileInfo* active = Manager()->m_activePre->m_activeFile;
     return active ? active->size : 0;
 }
 
@@ -669,72 +669,72 @@ constexpr uint32_t kFlagBottomUpHeap = 0xA44C770F;
 constexpr uint32_t kFlagReportMissing = 0x3D92465E;
 constexpr uint32_t kFlagAsync = 0x90E07C79;
 
-const char* ArchiveName(Script::CStruct* params)
+const char* ArchiveName(Scripts::CStruct* params)
 {
     const char* name = nullptr;
-    Script::GetString(params, 0, &name, true);
+    Scripts::GetString(params, 0, &name, true);
     return name;
 }
 
 } // namespace
 
 // 0x005B9470: LoadPreFile <name> [flags]
-bool __cdecl CFunc_LoadPreFile(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_LoadPreFile(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     const char* name = ArchiveName(params);
-    PreMgr* manager = Instance();
-    bool bottom_up = Script::ContainsFlag(params, kFlagBottomUpHeap);
-    bool report_missing = Script::ContainsFlag(params, kFlagReportMissing);
-    bool async = Script::ContainsFlag(params, kFlagAsync);
-    Mem::PushContext(bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap());
+    ArchiveManager* manager = Instance();
+    bool bottom_up = Scripts::HasBareFlag(params, kFlagBottomUpHeap);
+    bool report_missing = Scripts::HasBareFlag(params, kFlagReportMissing);
+    bool async = Scripts::HasBareFlag(params, kFlagAsync);
+    MemSys::EnterHeapScope(bottom_up ? MemSys::BottomUpHeap() : MemSys::TopDownHeap());
     manager->LoadPre(name, async, report_missing, bottom_up);
-    Mem::PopContext();
+    MemSys::LeaveHeapScope();
     return true;
 }
 
 // 0x005B9600: UnloadPreFile <name> [dont_assert]
-bool __cdecl CFunc_UnloadPreFile(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_UnloadPreFile(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    PreMgr* manager = Instance();
+    ArchiveManager* manager = Instance();
     const char* name = ArchiveName(params);
-    manager->UnloadPre(name, Script::ContainsFlag(params, "dont_assert"));
+    manager->UnloadPre(name, Scripts::HasBareFlag(params, "dont_assert"));
     return true;
 }
 
 // 0x005B8160: IsLoadPreFinished <name>
-bool __cdecl CFunc_IsLoadPreFinished(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_IsLoadPreFinished(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    PreMgr* manager = Instance();
+    ArchiveManager* manager = Instance();
     return manager->IsLoadFinished(ArchiveName(params));
 }
 
 // 0x005B8190: AllLoadPreFinished
-bool __cdecl CFunc_AllLoadPreFinished(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+bool __cdecl CFunc_AllLoadPreFinished(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
     return Instance()->m_numPending == 0;
 }
 
 // 0x005B81B0: WaitLoadPre <name>
-bool __cdecl CFunc_WaitLoadPre(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_WaitLoadPre(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    PreMgr* manager = Instance();
+    ArchiveManager* manager = Instance();
     const char* name = ArchiveName(params);
     while (!manager->IsLoadFinished(name))
-        File::AsyncWaitForIO();
+        FileLoad::AsyncWaitForIO();
     return true;
 }
 
 // 0x005B8200: WaitAllLoadPre
-bool __cdecl CFunc_WaitAllLoadPre(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+bool __cdecl CFunc_WaitAllLoadPre(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
-    PreMgr* manager = Instance();
+    ArchiveManager* manager = Instance();
     while (manager->m_numPending != 0)
-        File::AsyncWaitForIO();
+        FileLoad::AsyncWaitForIO();
     return true;
 }
 
 // 0x005B8720: InPreFile <name> - whether the archive is loaded
-bool __cdecl CFunc_InPreFile(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_InPreFile(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     return Instance()->IsLoaded(ArchiveName(params));
 }
@@ -744,19 +744,19 @@ bool __cdecl CFunc_InPreFile(Script::CStruct* params, Script::CScript* /*script*
 namespace {
 
 struct PreFileAdapter {
-    Pre::PreFile* Construct(uint8_t* block, bool bottom_up) { return new (this) Pre::PreFile(block, bottom_up); }
-    Pre::PreFile* Destroy(unsigned int flags)
+    Pre::ArchiveFile* Construct(uint8_t* block, bool bottom_up) { return new (this) Pre::ArchiveFile(block, bottom_up); }
+    Pre::ArchiveFile* Destroy(unsigned int flags)
     {
-        auto* self = reinterpret_cast<Pre::PreFile*>(this);
-        self->~PreFile();
+        auto* self = reinterpret_cast<Pre::ArchiveFile*>(this);
+        self->~ArchiveFile();
         if (flags & 1)
-            Mem::Free(self);
+            MemSys::Free(self);
         return self;
     }
 };
 
 struct PreMgrAdapter {
-    Pre::PreMgr* Construct() { return new (this) Pre::PreMgr(); }
+    Pre::ArchiveManager* Construct() { return new (this) Pre::ArchiveManager(); }
 };
 
 } // namespace

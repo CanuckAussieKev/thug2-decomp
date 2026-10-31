@@ -6,7 +6,7 @@
 #include "game/core/dbg.h"
 #include "game/mth/x87_math.h"
 
-namespace Mth {
+namespace Maths {
 
 // 0x00402320
 Vector& Vector::operator=(const Vector& other)
@@ -45,7 +45,7 @@ Vector& Vector::operator-=(const Vector& other)
 }
 
 // 0x00406080
-Vector& Vector::ProjectToPlane(const Vector& normal)
+Vector& Vector::FlattenOntoPlane(const Vector& normal)
 {
     // All products are taken before writing, so this also works when `normal` is this vector. As the original's x87
     // code: the dot product and x's part along the normal stay in double; the other parts are rounded to floats
@@ -63,11 +63,11 @@ Vector& Vector::ProjectToPlane(const Vector& normal)
 }
 
 // 0x004060F0
-// (The original relies on ProjectToPlane leaving EDX alone; with both rewritten that no longer matters.)
-Vector& Vector::RotateToPlane(const Vector& normal)
+// (The original relies on FlattenOntoPlane leaving EDX alone; with both rewritten that no longer matters.)
+Vector& Vector::AlignToPlane(const Vector& normal)
 {
     float length = Length();
-    ProjectToPlane(normal);
+    FlattenOntoPlane(normal);
     if (Length() == 0.0f) {
         x = -normal.z;
         y = normal.x;
@@ -102,11 +102,11 @@ Vector& Vector::ProjectOnto(const Vector& axis)
 // 0x00405FA0
 void Vector::Print() const
 {
-    Dbg::Printf("[%f %f %f %f]\n", x, y, z, w);
+    DebugOut::Printf("[%f %f %f %f]\n", x, y, z, w);
 }
 
 // 0x00406260
-float Vector::GetMaxAxis(int* axis) const
+float Vector::DominantAxisIndex(int* axis) const
 {
     int index;
     if (std::fabs(y) <= std::fabs(x))
@@ -129,7 +129,7 @@ Vector& Vector::operator*=(float scale)
 }
 
 // 0x004023A0
-float Vector::LengthSqr() const
+float Vector::MagnitudeSquared() const
 {
     return x * x + y * y + z * z;
 }
@@ -137,7 +137,7 @@ float Vector::LengthSqr() const
 // 0x004023C0
 float Vector::Length() const
 {
-    return std::sqrt(LengthSqr());
+    return std::sqrt(MagnitudeSquared());
 }
 
 // 0x004023F0
@@ -156,7 +156,7 @@ Vector& Vector::Normalize()
 }
 
 // 0x00405EB0
-Vector& Vector::RotateY90(int quarter_turns)
+Vector& Vector::TurnQuarterAboutY(int quarter_turns)
 {
     float old_x = x;
     switch (quarter_turns) {
@@ -177,7 +177,7 @@ Vector& Vector::RotateY90(int quarter_turns)
 }
 
 // 0x00405EF0
-void Vector::DegreesToRadians()
+void Vector::DegreeToRadianConv()
 {
     constexpr float kScale = 0.0174532925f; // pi / 180
     x *= kScale;
@@ -186,7 +186,7 @@ void Vector::DegreesToRadians()
 }
 
 // 0x00405F20
-void Vector::RadiansToDegrees()
+void Vector::ConvertToDegrees()
 {
     constexpr float kScale = 57.2957763671875f; // 180 / pi as the exe stores it (0x00645468: 0x42652EE0, one below
                                                 // the nearest float, 57.2957795f)
@@ -196,7 +196,7 @@ void Vector::RadiansToDegrees()
 }
 
 // 0x00405F50
-void Vector::FeetToInches()
+void Vector::FeetAsInches()
 {
     x *= 12.0f;
     y *= 12.0f;
@@ -206,10 +206,10 @@ void Vector::FeetToInches()
 // 0x00405F80
 void Vector::NegateXRotateX90()
 {
-    float old_y = y;
+    float prevY = y;
     x = -x;
     y = -z;
-    z = old_y;
+    z = prevY;
 }
 
 // 0x00402440
@@ -335,7 +335,7 @@ double ClampedCosine(double dot)
 
 // 0x00406460 (x87 code: the lengths, the unit vectors and the dot product in double, the dot product rounded to a
 // float; the result is returned unrounded in ST0)
-double GetAngle(const Vector& a, const Vector& b)
+double ReadTurnAngle(const Vector& a, const Vector& b)
 {
     double ax = a.x, ay = a.y, az = a.z;
     double length = std::sqrt((az * az + ax * ax) + ay * ay);
@@ -357,7 +357,7 @@ double GetAngle(const Vector& a, const Vector& b)
 }
 
 // 0x00406630
-double GetAngleAbout(const Vector& a, const Vector& b, const Vector& axis)
+double GetTurnAroundAxis(const Vector& a, const Vector& b, const Vector& axis)
 {
     Vector normal = axis;
     double length = std::sqrt((static_cast<double>(normal.z) * normal.z + static_cast<double>(normal.y) * normal.y) +
@@ -370,8 +370,8 @@ double GetAngleAbout(const Vector& a, const Vector& b, const Vector& axis)
     }
     Vector from = a;
     Vector to = b;
-    from.ProjectToPlane(normal);
-    to.ProjectToPlane(normal);
+    from.FlattenOntoPlane(normal);
+    to.FlattenOntoPlane(normal);
     length = std::sqrt((static_cast<double>(from.z) * from.z + static_cast<double>(from.y) * from.y) +
                        static_cast<double>(from.x) * from.x);
     if (length > 0.0) {
@@ -414,7 +414,7 @@ double DistanceSquared(const Vector& a, const Vector& b)
 // originals. Free functions returning a Vector use the hidden result pointer, as the originals do.
 namespace {
 
-using Mth::Vector;
+using Maths::Vector;
 
 struct VectorAdapter {
     Vector* ConstructPoint(float x, float y, float z)
@@ -425,9 +425,9 @@ struct VectorAdapter {
 };
 
 struct LineAdapter {
-    Mth::Line* Construct(const Vector& start, const Vector& end)
+    Maths::Line* Construct(const Vector& start, const Vector& end)
     {
-        return new (this) Mth::Line(start, end);
+        return new (this) Maths::Line(start, end);
     }
 };
 

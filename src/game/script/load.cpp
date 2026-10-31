@@ -19,7 +19,7 @@
 #include "game/util/lzss.h"
 #include "game/sys/game_config.h"
 
-namespace Script {
+namespace Scripts {
 
 uint32_t g_loadingFile;
 
@@ -48,7 +48,7 @@ void Replace(CSymbolTableEntry* existing, int temporary)
 const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const char* filename)
 {
     CSymbolTableEntry* symbol = CreateSymbol(name);
-    symbol->unknown8 = Crc::GenerateCRCFromString(filename);
+    symbol->unknown8 = Checksums::HashFromText(filename);
     switch (*token) {
     case 0x0E:
     case 0x16: case 0x17: case 0x1A: case 0x1B: case 0x1C: case 0x1E: case 0x1F: {
@@ -61,14 +61,14 @@ const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const 
         return end;
     }
     case 0x03: {
-        symbol->type = ESYMBOLTYPE_STRUCTURE;
+        symbol->type = QBVAL_STRUCT;
         CStruct* structure = NewStruct();
         structure = structure ? structure->Init() : nullptr;
         symbol->structure = structure;
         return ParseStructure(structure, token, nullptr);
     }
     case 0x05: {
-        symbol->type = ESYMBOLTYPE_ARRAY;
+        symbol->type = QBVAL_ARRAY;
         CArray* array = NewArray();
         array = array ? array->Init() : nullptr;
         symbol->raw = reinterpret_cast<uint32_t>(array);
@@ -84,8 +84,8 @@ CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32
                                       const char* filename)
 {
     CSymbolTableEntry* symbol = CreateSymbol(name);
-    symbol->type = ESYMBOLTYPE_QSCRIPT;
-    auto* buffer = static_cast<uint8_t*>(Mem::Malloc(20000));
+    symbol->type = QBVAL_SCRIPT_BODY;
+    auto* buffer = static_cast<uint8_t*>(MemSys::AllocBlock(20000));
     int stored = Lzss::Encode(code, buffer, static_cast<int>(size), false);
     if (stored >= static_cast<int>(size)) {
         // (no smaller: kept as it is)
@@ -94,7 +94,7 @@ CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32
         stored = static_cast<int>(size);
     }
     // {checksum, size, stored size, the code}
-    auto* block = static_cast<uint32_t*>(Mem::Malloc(static_cast<unsigned int>(stored + 12)));
+    auto* block = static_cast<uint32_t*>(MemSys::AllocBlock(static_cast<unsigned int>(stored + 12)));
     block[0] = checksum;
     block[1] = size;
     block[2] = static_cast<uint32_t>(stored);
@@ -102,15 +102,15 @@ CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32
     for (int i = 0; i < stored; ++i)
         bytes[i] = buffer[i];
     symbol->raw = reinterpret_cast<uint32_t>(block);
-    Mem::FreeMalloc(buffer);
+    MemSys::FreeMalloc(buffer);
     if (ScriptCache())
         RemoveFromScriptCache(name);
-    symbol->unknown8 = Crc::GenerateCRCFromString(filename);
+    symbol->unknown8 = Checksums::HashFromText(filename);
     return symbol;
 }
 
 // 0x00472420
-void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary)
+void ReadQbFile(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary)
 {
     (void)unused; // (line numbers are skipped either way)
     FreeScriptChecksumNames();
@@ -120,35 +120,35 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
     // First the checksums' names.
     for (const uint8_t* p = data; *p;) {
         if (*p == 0x2B) {
-            uint32_t checksum = Read4Bytes(p + 1);
+            uint32_t checksum = FetchWord32(p + 1);
             const char* name = reinterpret_cast<const char*>(p + 5);
             if (useQbNames)
                 AddScriptChecksumName(checksum, name);
             else
-                AddChecksumName(checksum, name);
+                RegisterNameHash(checksum, name);
             NoteQbName(checksum, name); // (ours: kept for the level editor when it's on)
             p = reinterpret_cast<const uint8_t*>(name + std::strlen(name) + 1);
         } else {
-            p = SkipToken(p);
+            p = StepOverToken(p);
         }
     }
-    AddChecksumName(Crc::GenerateCRCFromString(filename), filename);
-    LoadingFile() = Crc::GenerateCRCFromString(filename);
+    RegisterNameHash(Checksums::HashFromText(filename), filename);
+    LoadingFile() = Checksums::HashFromText(filename);
 
-    Mem::Manager* manager = Mem::Manager::Get();
-    Mem::PushContext(manager->m_scriptHeap);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    MemSys::EnterHeapScope(manager->m_scriptHeap);
     const uint8_t* p = data;
     for (;;) {
-        p = SkipEndOfLines(p);
+        p = SkipNewlineTokens(p);
         switch (*p) {
         case 0x00:
-            Mem::PopContext();
+            MemSys::LeaveHeapScope();
             LoadingFile() = 0;
             return;
         case 0x16: { // name = value
-            uint32_t name = Read4Bytes(p + 1);
-            p = SkipEndOfLines(p + 5);
-            p = SkipEndOfLines(p + 1); // (past the '=')
+            uint32_t name = FetchWord32(p + 1);
+            p = SkipNewlineTokens(p + 5);
+            p = SkipNewlineTokens(p + 1); // (past the '=')
             CSymbolTableEntry* existing = FindSymbol(name);
             if (existing)
                 Replace(existing, temporary);
@@ -158,7 +158,7 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
             break;
         }
         case 0x23: { // script name ... endscript
-            uint32_t name = Read4Bytes(p + 2);
+            uint32_t name = FetchWord32(p + 2);
             const uint8_t* start = p + 6;
             p = SkipToEndOfScript(start);
             uint32_t size = static_cast<uint32_t>(p - start);
@@ -166,7 +166,7 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
             CSymbolTableEntry* existing = FindSymbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type == ESYMBOLTYPE_QSCRIPT && checksum == *reinterpret_cast<uint32_t*>(existing->raw))
+                if (existing->type == QBVAL_SCRIPT_BODY && checksum == *reinterpret_cast<uint32_t*>(existing->raw))
                     break;
                 Replace(existing, temporary);
                 CreateScriptSymbol(size, start, name, checksum, filename);
@@ -178,23 +178,23 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
             break;
         }
         case 0x2B:
-            p = SkipToken(p);
+            p = StepOverToken(p);
             break;
         case 0x45: { // a section marker
-            uint32_t marker = Read4Bytes(p + 2);
+            uint32_t marker = FetchWord32(p + 2);
             p += 6;
             if (marker == 0x0FA33D9B) {
                 // The end of a debug section.
-                Mem::PopContext();
-                Mem::PushContext(manager->m_scriptHeap);
+                MemSys::LeaveHeapScope();
+                MemSys::EnterHeapScope(manager->m_scriptHeap);
             } else if (marker == 0x70CB0238) {
                 // A debug section: kept (on the debug heap) only while checksum names are.
                 if (ChecksumNamesEnabled()) {
-                    Mem::PopContext();
-                    Mem::PushContext(manager->m_debugHeap);
+                    MemSys::LeaveHeapScope();
+                    MemSys::EnterHeapScope(manager->m_debugHeap);
                 } else {
                     while (*p != 0x45 && *p != 0x00)
-                        p = SkipToken(p);
+                        p = StepOverToken(p);
                 }
             }
             break;
@@ -209,11 +209,11 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
 // 0x00472C50
 bool ScriptRefersTo(const CScript* script, uint32_t name)
 {
-    if (script->m_scriptName == name)
+    if (script->m_scriptTitle == name)
         return true;
     // The calls it's in the middle of.
     for (int i = 0; i < script->m_numReturnAddresses; ++i) {
-        if (script->m_returnAddresses[i].mScriptName == name)
+        if (script->m_returnAddresses[i].m_scriptId == name)
             return true;
     }
     return false;
@@ -224,8 +224,8 @@ void RestartChangedScripts()
 {
     for (CSymbolTableEntry* symbol = GetNextSymbol(nullptr); symbol; symbol = GetNextSymbol(symbol)) {
         // (byte 0 bit 0: new since the last time - CreateSymbol sets it)
-        if ((symbol->unknown0 & 1) && symbol->type == ESYMBOLTYPE_QSCRIPT) {
-            for (CScript* script = GetNextScript(nullptr); script; script = GetNextScript(script)) {
+        if ((symbol->unknown0 & 1) && symbol->type == QBVAL_SCRIPT_BODY) {
+            for (CScript* script = StepScriptList(nullptr); script; script = StepScriptList(script)) {
                 if (ScriptRefersTo(script, symbol->name))
                     script->Restart();
             }
@@ -237,10 +237,10 @@ void RestartChangedScripts()
 // 0x0046ED90
 void LoadQBData(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary)
 {
-    if (Read4Bytes(data) == 0xB075EF6F)
+    if (FetchWord32(data) == 0xB075EF6F)
         ParsePrecompiledQB(filename, const_cast<uint8_t*>(data), unused); // (relocated in place)
     else
-        ParseQB(filename, data, unused, useQbNames, temporary);
+        ReadQbFile(filename, data, unused, useQbNames, temporary);
     RestartChangedScripts();
 }
 
@@ -249,22 +249,22 @@ void LoadQB(const char* filename, int unused, int temporary)
 {
     size_t length = std::strlen(filename);
     const char* extension = PrecompiledExtension();
-    Mem::Manager* manager = Mem::Manager::Get();
+    MemSys::Manager* manager = MemSys::Manager::Get();
     if (filename[length - 4] == '.' && _stricmp(filename + length - 3, extension) == 0) {
         // Pre-compiled: kept loaded.
-        Mem::PushContext(manager->m_scriptHeap);
-        auto* data = static_cast<uint8_t*>(Pip::Load(filename, false, nullptr, nullptr, nullptr));
-        Mem::PopContext();
+        MemSys::EnterHeapScope(manager->m_scriptHeap);
+        auto* data = static_cast<uint8_t*>(Packs::Load(filename, false, nullptr, nullptr, nullptr));
+        MemSys::LeaveHeapScope();
         ParsePrecompiledQB(filename, data, unused);
         LoadChecksumNames(filename);
     } else {
-        Mem::PushContext(manager->m_topDownHeap);
-        // Originally from PartyMod Fixes (its call at 0x0046EE80): Pip::Load, then the binary patch for the file if there is one
-        // (scripts\engine\menu\keyboard.qb), in place of the original's plain Pip::Load.
+        MemSys::EnterHeapScope(manager->m_topDownHeap);
+        // Originally from PartyMod Fixes (its call at 0x0046EE80): Packs::Load, then the binary patch for the file if there is one
+        // (scripts\engine\menu\keyboard.qb), in place of the original's plain Packs::Load.
         auto* data = LoadPatchedScript(filename);
-        Mem::PopContext();
-        ParseQB(filename, data, unused, 0, temporary);
-        Pip::Unload(filename);
+        MemSys::LeaveHeapScope();
+        ReadQbFile(filename, data, unused, 0, temporary);
+        Packs::Unload(filename);
     }
     RestartChangedScripts();
 }
@@ -281,9 +281,9 @@ void UnloadQB(uint32_t fileChecksum)
             ++count;
     }
     if (count) {
-        Mem::PushContext(Mem::Manager::Get()->m_topDownHeap);
-        auto** symbols = static_cast<CSymbolTableEntry**>(Mem::Malloc(static_cast<unsigned int>(count) * 4));
-        Mem::PopContext();
+        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_topDownHeap);
+        auto** symbols = static_cast<CSymbolTableEntry**>(MemSys::AllocBlock(static_cast<unsigned int>(count) * 4));
+        MemSys::LeaveHeapScope();
         CSymbolTableEntry** next = symbols;
         for (CSymbolTableEntry* symbol = GetNextSymbol(nullptr); symbol; symbol = GetNextSymbol(symbol)) {
             if (symbol->unknown8 == fileChecksum)
@@ -291,17 +291,17 @@ void UnloadQB(uint32_t fileChecksum)
         }
         for (int i = 0; i < count; ++i)
             CleanUpAndRemoveSymbol(symbols[i]);
-        Mem::FreeMalloc(symbols);
+        MemSys::FreeMalloc(symbols);
     }
     // Scripts left running code that's gone are stopped.
-    for (CScript* script = GetNextScript(nullptr); script; script = GetNextScript(script)) {
+    for (CScript* script = StepScriptList(nullptr); script; script = StepScriptList(script)) {
         if (!script->AllScriptsStillDefined()) {
-            script->ClearScript();
+            script->ResetScriptState();
             script->ReportStopped();
         }
     }
     // (a pre-compiled file stays loaded until now)
-    Pip::Unload(fileChecksum);
+    Packs::Unload(fileChecksum);
 }
 
 } // namespace Script
@@ -312,18 +312,18 @@ namespace {
 
 const uint8_t* __cdecl ParseSymbolDefinitionRegisters(const uint8_t* token, uint32_t name, const char* filename)
 {
-    return Script::ParseSymbolDefinition(token, name, filename);
+    return Scripts::ParseSymbolDefinition(token, name, filename);
 }
-Script::CSymbolTableEntry* __cdecl CreateScriptSymbolRegisters(uint32_t size, const uint8_t* code, uint32_t name,
+Scripts::CSymbolTableEntry* __cdecl CreateScriptSymbolRegisters(uint32_t size, const uint8_t* code, uint32_t name,
                                                                uint32_t checksum, const char* filename)
 {
-    return Script::CreateScriptSymbol(size, code, name, checksum, filename);
+    return Scripts::CreateScriptSymbol(size, code, name, checksum, filename);
 }
 
 } // namespace
 
 // 0x00472240: the token in ECX, the name and file name on the stack (the caller pops them).
-__declspec(naked) void Script::ParseSymbolDefinitionStub()
+__declspec(naked) void Scripts::ParseSymbolDefinitionStub()
 {
     __asm {
         push dword ptr [esp + 8]
@@ -337,7 +337,7 @@ __declspec(naked) void Script::ParseSymbolDefinitionStub()
 
 // 0x0046FE40: the size in EAX, the code in EBX, the name, checksum and file name on the stack (the caller pops
 // them).
-__declspec(naked) void Script::CreateScriptSymbolStub()
+__declspec(naked) void Scripts::CreateScriptSymbolStub()
 {
     __asm {
         push dword ptr [esp + 12]
@@ -353,6 +353,6 @@ __declspec(naked) void Script::CreateScriptSymbolStub()
 
 namespace {
 struct ScriptAdapter {
-    bool RefersTo(uint32_t name) { return Script::ScriptRefersTo(reinterpret_cast<Script::CScript*>(this), name); }
+    bool RefersTo(uint32_t name) { return Scripts::ScriptRefersTo(reinterpret_cast<Scripts::CScript*>(this), name); }
 };
 } // namespace

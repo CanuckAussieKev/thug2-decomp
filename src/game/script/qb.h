@@ -16,16 +16,16 @@
 //   0x2F / 0x37 / 0x40 / 0x41 jump tables (4-byte count, then 6 bytes each)
 //   0x43 / 0x44 / 0x46 a name already looked up: C function / member function (4-byte value)
 //   0x47 / 0x48 / 0x49 short jumps (2-byte offset)
-namespace Mem {
+namespace MemSys {
 struct PoolPair;
 }
 
-namespace Script {
+namespace Scripts {
 
 // The token after `token`.
-const uint8_t* SkipToken(const uint8_t* token);
+const uint8_t* StepOverToken(const uint8_t* token);
 // Past any end-of-line tokens.
-const uint8_t* SkipEndOfLines(const uint8_t* token);
+const uint8_t* SkipNewlineTokens(const uint8_t* token);
 // Past the end of the statement starting at `token` (its end of line, outside any brackets).
 const uint8_t* SkipToEndOfStatement(const uint8_t* token);
 // Past the script's '$' end token (and a line number after it).
@@ -34,20 +34,20 @@ const uint8_t* SkipToEndOfScript(const uint8_t* token);
 uint32_t CalculateScriptChecksum(const uint8_t* token);
 // Replace the names at the starts of statements that name C functions / member functions with direct
 // references (tokens 0x43 / 0x46, or 0x44 for a member function without a table entry).
-void PreProcessScript(uint8_t* token);
+void PrepareScriptTokens(uint8_t* token);
 
 // Little-endian values in the token stream; the writers return the position after the value.
-uint32_t Read4Bytes(const uint8_t* p);
-uint16_t Read2Bytes(const uint8_t* p);
-uint8_t* Write4Bytes(uint8_t* p, uint32_t value);
-uint8_t* Write2Bytes(uint8_t* p, uint16_t value);
+uint32_t FetchWord32(const uint8_t* p);
+uint16_t FetchWord16(const uint8_t* p);
+uint8_t* StoreWord32(uint8_t* p, uint32_t value);
+uint8_t* StoreWord16(uint8_t* p, uint16_t value);
 
 // The names of checksums given in the .qb files themselves (tokens 0x2B): a table of 0x1000 buckets.
 void AddScriptChecksumName(uint32_t checksum, const char* name);
 const char* FindScriptChecksumName(uint32_t checksum);
 void FreeScriptChecksumNames();
 // NOT ORIGINAL - every .qb's checksum names kept for our tools (the level editor's HUD: node names such as
-// Fire_Tender), once KeepQbNames(true) - ParseQB notes each (the game only keeps them with its debug names on).
+// Fire_Tender), once KeepQbNames(true) - ReadQbFile notes each (the game only keeps them with its debug names on).
 void KeepQbNames(bool keep);
 void NoteQbName(uint32_t checksum, const char* name);
 const char* KeptQbName(uint32_t checksum);
@@ -58,7 +58,7 @@ void ForgetStoredRandomsOf(uint32_t owner);
 // Create all the script system's item pools (from the script heap) and the permanent string heap.
 void CreateScriptPools();
 // Create a pool of `count` items of `item_size` as `pools`' current pool (0x0046F090.. one per class).
-void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name);
+void CreatePool(MemSys::PoolPair& pools, int item_size, int count, const char* name);
 // NOT ORIGINAL - the script pools' use logged (`script pools in use <when>: CComponent <used> (peak <peak>) of
 // <count>, CStruct ...`): what a level costs them (game/front/start_level.cpp logs it once the level is up).
 void LogScriptPoolUse(const char* when);
@@ -66,8 +66,8 @@ void LogScriptPoolUse(const char* when);
 void AllocatePermanentStringHeap(uint32_t size, uint32_t count);
 
 // The script cache (null when there isn't one), and telling it a script has changed (call only with a cache).
-struct CScriptCache;
-CScriptCache* ScriptCache();
+struct CScriptStore;
+CScriptStore* ScriptCache();
 void RemoveFromScriptCache(uint32_t name);
 
 // Symbol bookkeeping while loading .qb files.
@@ -93,7 +93,7 @@ struct CStoredRandom {
     void Shuffle(bool avoidRepeat);
 
     uint32_t m_owner;         // the script using it
-    const uint8_t* m_table;   // the random table's offsets in the script
+    const uint8_t* m_lookupTable;   // the random table's offsets in the script
     uint16_t m_count;
     uint16_t unknownA;
     uint32_t m_type;          // the token: 0x40 no-repeat, 0x41 permute
@@ -104,6 +104,6 @@ struct CStoredRandom {
     CStoredRandom* m_previous; // newer
 };
 
-extern Mem::PoolPair g_storedRandomPools;
+extern MemSys::PoolPair g_storedRandomPools;
 
 } // namespace Script

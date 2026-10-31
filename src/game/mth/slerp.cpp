@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <new>
 
-namespace Mth {
+namespace Maths {
 
-static_assert(offsetof(SlerpInterpolator, axis) == 0x80 && offsetof(SlerpInterpolator, angle) == 0x90 &&
-                  offsetof(SlerpInterpolator, small_rotation) == 0x94,
+static_assert(offsetof(ArcRotationBlender, axis) == 0x80 && offsetof(ArcRotationBlender, angle) == 0x90 &&
+                  offsetof(ArcRotationBlender, small_rotation) == 0x94,
               "layout must match the original");
 
 float g_slerpSmallRotationThreshold{0.034906585f};
@@ -20,13 +20,13 @@ float SmallRotationThreshold() { return g_slerpSmallRotationThreshold; }
 } // namespace
 
 // 0x00405E90
-SlerpInterpolator::SlerpInterpolator(const Matrix& from, const Matrix& to)
+ArcRotationBlender::ArcRotationBlender(const Matrix& from, const Matrix& to)
 {
     SetMatrices(from, to);
 }
 
 // 0x00405990
-int SlerpInterpolator::SetMatrices(const Matrix& from, const Matrix& to)
+int ArcRotationBlender::SetMatrices(const Matrix& from, const Matrix& to)
 {
     start = from;
     end = to;
@@ -39,14 +39,14 @@ int SlerpInterpolator::SetMatrices(const Matrix& from, const Matrix& to)
 }
 
 // 0x004058E0
-void SlerpInterpolator::InvertDirection()
+void ArcRotationBlender::InvertDirection()
 {
     axis = -axis;
     angle = 6.28318548f - angle; // 2 pi
 }
 
 // 0x00405A20
-void SlerpInterpolator::GetMatrix(Matrix& out, float t) const
+void ArcRotationBlender::GetMatrix(Matrix& out, float t) const
 {
     if (t <= 0.0f) {
         out = start;
@@ -87,9 +87,9 @@ void SlerpInterpolator::GetMatrix(Matrix& out, float t) const
 namespace {
 
 struct SlerpAdapter {
-    Mth::SlerpInterpolator* Construct(const Mth::Matrix& from, const Mth::Matrix& to)
+    Maths::ArcRotationBlender* Construct(const Maths::Matrix& from, const Maths::Matrix& to)
     {
-        return new (this) Mth::SlerpInterpolator(from, to);
+        return new (this) Maths::ArcRotationBlender(from, to);
     }
 };
 

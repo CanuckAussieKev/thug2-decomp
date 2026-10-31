@@ -10,14 +10,14 @@
 // The engine's spawned polygons (the SpawnPoly script command): textured or plain quads at a place, turned to face a
 // direction, their size and corner colours moved from a start to an end over their lifetime, each drawn by a PC
 // primitive of its own; kept in the table 0x007004AC (keyed by address).
-namespace Nx {
+namespace Engine3D {
 
 struct CPcPrimitive;
 
 // A spawned polygon (0xB8 bytes; the script command's SpawnedPolyDetails, from the pool pair 0x00700500).
 struct sSpawnedPoly {
-    Mth::Vector pos;            // +0x00
-    Mth::Matrix matrix;         // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
+    Maths::Vector pos;            // +0x00
+    Maths::Matrix matrix;         // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
     float dims[2];              // +0x50: the size now
     float startDims[2];         // +0x58
     float endDims[2];           // +0x60
@@ -30,8 +30,8 @@ struct sSpawnedPoly {
     uint8_t* texture;           // +0xA4 (null: untextured)
     CPcPrimitive* primitive;    // +0xA8
     uint32_t blendMode;         // +0xAC
-    float justX;                // +0xB0 (-1 left, 0 centre, 1 right)
-    float justY;                // +0xB4 (-1 top, 0 centre, 1 bottom)
+    float alignH;                // +0xB0 (-1 left, 0 centre, 1 right)
+    float alignV;                // +0xB4 (-1 top, 0 centre, 1 bottom)
 
     // 0x00491990: construct: zeroed, blend mode 0x54628ED7. Returns this.
     sSpawnedPoly* Construct();
@@ -47,7 +47,7 @@ namespace Engine {
 // colours and size, its four corners about its centre (the turn applied - each corner's w as the stack left it in the
 // original, 0 here: row 3 is (0, 0, 0, 1)) - with texture coordinates when textured - then readied and put in the
 // table.
-void __cdecl SpawnPoly(sSpawnedPoly* poly, Mth::Vector* direction, Mth::Vector* up);
+void __cdecl SpawnPoly(sSpawnedPoly* poly, Maths::Vector* direction, Maths::Vector* up);
 // 0x004919C0: each polygon not done aged: past its lifetime it's done (its primitive destroyed, taken out of the table
 // and freed - 0x004472D0); else its colours and size moved on and its corners set again, placed by its
 // justification.
@@ -57,5 +57,5 @@ void __cdecl KillAllSpawnedPolys();
 
 } // namespace Engine
 
-extern Mem::PoolPair g_spawnedPolyPools;
+extern MemSys::PoolPair g_spawnedPolyPools;
 } // namespace Nx

@@ -19,13 +19,13 @@
 #include "game/gfx/shader_slots.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-Lst::HashTable g_glowTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
-Lst::HashTable& Glows() { return g_glowTable; }
+ListKit::HashTable g_glowTable{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
+ListKit::HashTable& Glows() { return g_glowTable; }
 uint8_t g_glowQueriesInUse[0x400]; // (a byte per query: DrawGlows looks through 0x400)
 float g_glowQuad[16];
 
@@ -42,8 +42,8 @@ int QueryResult(uint32_t query, uint32_t* pixels)
 
 sGlow* NextGlow()
 {
-    Lst::HashTable& table = Glows();
-    if (!table.IterateNext() || !table.m_iterItem)
+    ListKit::HashTable& table = Glows();
+    if (!table.StepIterator() || !table.m_iterItem)
         return nullptr;
     return static_cast<sGlow*>(table.m_iterItem->value);
 }
@@ -93,7 +93,7 @@ void __cdecl UpdateGlows(bool queries)
                 w[i] = static_cast<float>(w[i] * inverse);
         }
     }
-    Lst::HashTable& table = Glows();
+    ListKit::HashTable& table = Glows();
     table.m_iterBucket = -1;
     table.m_iterItem = nullptr;
     sGlow* glow = NextGlow();
@@ -101,7 +101,7 @@ void __cdecl UpdateGlows(bool queries)
     if (queries) {
         // Each glow gets an occlusion query (up to three outstanding).
         Device()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-        SetBlendMode(0);
+        ChooseBlendMode(0);
         SetTexture(0, nullptr);
         SetPixelShader(nullptr, nullptr);
         Device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
@@ -130,7 +130,7 @@ void __cdecl UpdateGlows(bool queries)
     }
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
-    SetBlendMode(5);
+    ChooseBlendMode(5);
     SetPixelShader(g_pixelShaders[kPixelShader94C], nullptr);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (; glow; glow = NextGlow()) {
@@ -165,9 +165,9 @@ void __cdecl UpdateGlows(bool queries)
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
-void ConstructGlowTable() { new (&g_glowTable) Lst::HashTable(8); }
+void ConstructGlowTable() { new (&g_glowTable) ListKit::HashTable(8); }
 
 } // namespace Nx

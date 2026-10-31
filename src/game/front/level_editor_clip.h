@@ -20,7 +20,7 @@
 //   - In the Inspector (Ctrl+Shift+C / Ctrl+Shift+V, or its buttons): the selection's transform (position, heading,
 //     scale) and the inspected node's own editable fields, given to another selection (Paste transform: one undo step;
 //     Paste fields: on every selected node, one undo step).
-namespace Front::LevelEditor::Clip {
+namespace MenuSystem::LevelEditor::Clip {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ struct PasteHooks {
     std::function<bool(uint32_t id)> idTaken;
     std::function<std::string(uint32_t checksum)> label;
 };
-int Merge(const Layout::File& fragment, Layout::File* into, const PasteHooks& hooks, std::vector<std::string>* missing,
+int Merge(const Layout::FileLoad& fragment, Layout::FileLoad* into, const PasteHooks& hooks, std::vector<std::string>* missing,
           std::vector<uint32_t>* copyNames);
 
 // --- the game side ------------------------------------------------------------------------------------------------
@@ -54,4 +54,4 @@ bool HaveTransform();
 int FieldCount();
 std::string Describe();
 
-} // namespace Front::LevelEditor::Clip
+} // namespace MenuSystem::LevelEditor::Clip

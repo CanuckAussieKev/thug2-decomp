@@ -1,4 +1,4 @@
-// The model component (Obj::CModelComponent): its display turns (CModelSpin / CModelSpinAxis), the display matrix and
+// The model component (GameObjects::CMeshInstanceModule): its display turns (CModelSpin / CModelSpinAxis), the display matrix and
 // the smaller members - see model_component.h. From the disassembly of 0x00420070-0x00420A46 and 0x004213E0-0x004219EC.
 // The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps on the FPU stack are
 // worked in double.
@@ -24,7 +24,7 @@
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -53,24 +53,24 @@ double X87Sin(double angle)
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// Nx::CModel (not rewritten yet): hide it (0x00494B70), a geom hidden or shown (0x00494800), its texture `src`
+// Engine3D::CRenderModel (not rewritten yet): hide it (0x00494B70), a geom hidden or shown (0x00494800), its texture `src`
 // replaced (0x00493E80), geom `index` (0x00494640), the bone volumes (0x00492FC0) and a line tested against them
 // (0x004939E0), and its lights (+0x2C, the folded getter 0x00532EB0).
-void ModelHide(Nx::CModel* model, bool hide) { model->Hide(hide); }
-void ModelHideGeom(Nx::CModel* model, uint32_t name, bool hide)
+void ModelHide(Engine3D::CRenderModel* model, bool hide) { model->Hide(hide); }
+void ModelHideGeom(Engine3D::CRenderModel* model, uint32_t name, bool hide)
 {
-    model->HideGeom(name, hide);
+    model->ConcealMesh(name, hide);
 }
-bool ModelReplaceTexture(Nx::CModel* model, uint32_t mesh, const char* src, const char* dest)
+bool ModelReplaceTexture(Engine3D::CRenderModel* model, uint32_t mesh, const char* src, const char* dest)
 {
     return model->ReplaceTextureWith(mesh, src, reinterpret_cast<uint32_t>(dest));
 }
-void** ModelGeom(Nx::CModel* model, int index)
+void** ModelGeom(Engine3D::CRenderModel* model, int index)
 {
-    return static_cast<void**>(model->GetGeom(index));
+    return static_cast<void**>(model->FetchGeom(index));
 }
-void* ModelBoneVolumes(Nx::CModel* model) { return model->GetBoneVolumes(); }
-int ModelTestCollision(Nx::CModel* model, Mth::Vector* line, void* skeleton, Mth::Matrix* matrix, uint32_t a,
+void* ModelBoneVolumes(Engine3D::CRenderModel* model) { return model->GetBoneVolumes(); }
+int ModelTestCollision(Engine3D::CRenderModel* model, Maths::Vector* line, void* skeleton, Maths::Matrix* matrix, uint32_t a,
                        uint32_t b, uint32_t c, uint32_t d)
 {
     // (the original's seven stack arguments: the line, skeleton and matrix pointers, then a, b, c and d - the extra
@@ -78,60 +78,60 @@ int ModelTestCollision(Nx::CModel* model, Mth::Vector* line, void* skeleton, Mth
     return model->TestBoneVolumes(reinterpret_cast<uint32_t>(line), reinterpret_cast<uint32_t>(skeleton),
                                   reinterpret_cast<uint32_t>(matrix), a, b, c, reinterpret_cast<uint32_t*>(d));
 }
-void* ModelLights(Nx::CModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
+void* ModelLights(Engine3D::CRenderModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
 // or lerped towards (0x0048E830); without model lights, the global brightness (0x0048EDB0).
-void LightsUpdateBrightness(void* lights) { static_cast<Nx::CModelLights*>(lights)->UpdateBrightness(); }
+void LightsUpdateBrightness(void* lights) { static_cast<Engine3D::CModelLights*>(lights)->UpdateBrightness(); }
 void LightsSetBrightness(void* lights, float brightness)
 {
-    static_cast<Nx::CModelLights*>(lights)->SetBrightness(brightness);
+    static_cast<Engine3D::CModelLights*>(lights)->ChangeBrightness(brightness);
 }
 void LightsLerpBrightness(void* lights, float brightness, float rate)
 {
-    static_cast<Nx::CModelLights*>(lights)->MoveBrightness(brightness, rate);
+    static_cast<Engine3D::CModelLights*>(lights)->MoveBrightness(brightness, rate);
 }
-void SetGlobalBrightness(float brightness) { Nx::SetWorldBrightness(brightness); }
+void SetGlobalBrightness(float brightness) { Engine3D::SetWorldBrightness(brightness); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* SkeletonOf(CBaseComponent* component)
+void* SkeletonOf(CObjectModule* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-void* NetManager() { return reinterpret_cast<void*>(GameNet::g_gameNetManager); }
+void* NetManager() { return reinterpret_cast<void*>(OnlinePlay::g_gameNetManager); }
 void* PlayerByObjectId(uint32_t id)
 {
-    return static_cast<GameNet::Manager*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
+    return static_cast<OnlinePlay::Manager*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
 }
-bool IsLocalPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player)->IsLocalPlayer() != 0; }
-int PlayerSkaterIndex(void* player) { return static_cast<int>(static_cast<GameNet::PlayerInfo*>(player)->GetSkaterValue2BC()); }
-Net::Client* ClientApp(void* manager, int index)
+bool IsOwnPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player)->IsOwnPlayer() != 0; }
+int PlayerSkaterIndex(void* player) { return static_cast<int>(static_cast<OnlinePlay::PlayerRecord*>(player)->GetSkaterValue2BC()); }
+NetLink::Client* ClientApp(void* manager, int index)
 {
-    return static_cast<Net::Client*>(static_cast<GameNet::Manager*>(manager)->GetClient(index));
+    return static_cast<NetLink::Client*>(static_cast<OnlinePlay::Manager*>(manager)->GetClient(index));
 }
 
 // A message about `object` to the server, when its player is this machine's.
-void SendToServer(CCompositeObject* object, uint8_t id, uint16_t length, void* data)
+void SendToServer(CGameEntity* object, uint8_t id, uint16_t length, void* data)
 {
     void* manager = NetManager();
     void* player = PlayerByObjectId(object->m_id);
-    if (!player || !IsLocalPlayer(player))
+    if (!player || !IsOwnPlayer(player))
         return;
-    Net::MsgDesc message;
+    NetLink::NetMessageInfo message;
     message.Construct();
-    Net::Client* app = ClientApp(manager, PlayerSkaterIndex(player));
+    NetLink::Client* app = ClientApp(manager, PlayerSkaterIndex(player));
     message.m_data = data;
-    message.m_length = length;
+    message.m_byteCount = length;
     message.m_id = id;
-    app->EnqueueMessageToServer(&message);
+    app->SendToHost(&message);
 }
 
 } // namespace
@@ -141,8 +141,8 @@ double CModelSpin::Angle()
 {
     if (!(m_flags & MODEL_SPIN_ON))
         return 0.0;
-    int elapsed = m_flags & MODEL_SPIN_REAL_TIME ? static_cast<int>(Tmr::GetTime() - m_start)
-                                                  : Tmr::GameClockTimeSince(static_cast<int>(m_start));
+    int elapsed = m_flags & MODEL_SPIN_REAL_TIME ? static_cast<int>(FrameClock::GetTime() - m_start)
+                                                  : FrameClock::GameClockTimeSince(static_cast<int>(m_start));
     double t = static_cast<double>(elapsed);
     if (elapsed < 0)
         t += kTwoTo32; // (as unsigned)
@@ -207,7 +207,7 @@ float CModelSpinAxis::Angle()
 }
 
 // 0x004215F0
-void CModelComponent::GetDisplayMatrix(Mth::Matrix* out)
+void CMeshInstanceModule::GetDrawMatrix(Maths::Matrix* out)
 {
     *out = m_object->m_displayMatrix;
     out->row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -216,95 +216,95 @@ void CModelComponent::GetDisplayMatrix(Mth::Matrix* out)
         out->row[0] = {-out->row[0].x, -out->row[0].y, -out->row[0].z, -out->row[0].w};
     }
     // The spins: about X, then Y, then Z (each one that isn't 0 multiplied in).
-    Mth::Matrix rotation;
+    Maths::Matrix rotation;
     bool none = true;
-    using CreateFn = Mth::Matrix& (*)(Mth::Matrix&, float);
-    static const CreateFn kCreate[3] = {Mth::CreateRotateXMatrix, Mth::CreateRotateYMatrix, Mth::CreateRotateZMatrix};
+    using CreateFn = Maths::Matrix& (*)(Maths::Matrix&, float);
+    static const CreateFn kCreate[3] = {Maths::MakePitchMatrix, Maths::MakeYawMatrix, Maths::MakeRollMatrix};
     for (int axis = 0; axis < 3; ++axis) {
-        if (!m_spin[axis].m_active)
+        if (!m_twistRate[axis].m_active)
             continue;
-        float angle = m_spin[axis].Angle();
+        float angle = m_twistRate[axis].Angle();
         if (angle == 0.0f)
             continue;
         if (none)
-            rotation.Ident();
+            rotation.ResetToIdentity();
         none = false;
-        Mth::Matrix turn;
+        Maths::Matrix turn;
         MatrixMultiply(&rotation, &rotation, &kCreate[axis](turn, angle * kDegreesToRadians));
     }
-    Mth::Vector shift = {0.0f, 0.0f, 0.0f, 0.0f};
+    Maths::Vector shift = {0.0f, 0.0f, 0.0f, 0.0f};
     if (!none) {
         // About the pivot: the pivot less where the turn takes it, in the display's frame.
         shift = m_pivot;
         if (shift.x != 0.0f || shift.y != 0.0f || shift.z != 0.0f) {
-            Mth::Vector turned = shift * rotation;
+            Maths::Vector turned = shift * rotation;
             shift = {shift.x - turned.x, shift.y - turned.y, shift.z - turned.z, shift.w - turned.w};
             shift = shift * *out;
         }
         MatrixMultiply(out, &rotation, out);
     }
-    Mth::Vector& pos = out->row[3];
+    Maths::Vector& pos = out->row[3];
     pos = m_object->m_pos;
     pos.x = shift.x + pos.x;
     pos.y = shift.y + pos.y;
     pos.z = shift.z + pos.z;
     pos.w = shift.w + pos.w;
-    pos.x = m_offset.x + pos.x;
-    pos.y = m_offset.y + pos.y;
-    pos.z = m_offset.z + pos.z;
-    pos.w = m_offset.w + pos.w;
+    pos.x = m_shift.x + pos.x;
+    pos.y = m_shift.y + pos.y;
+    pos.z = m_shift.z + pos.z;
+    pos.w = m_shift.w + pos.w;
     pos.w = 1.0f;
 }
 
 // 0x00421960
-int CModelComponent::TestCollision(Mth::Vector* line, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+int CMeshInstanceModule::TestCollision(Maths::Vector* line, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
-    void* skeleton = SkeletonOf(mp_skeleton); // (read before the check: the original's crashes without one)
-    void* volumes = ModelBoneVolumes(mp_model);
-    if (!mp_skeleton)
+    void* skeleton = SkeletonOf(m_boneRig); // (read before the check: the original's crashes without one)
+    void* volumes = ModelBoneVolumes(m_meshInstance);
+    if (!m_boneRig)
         return 0;
     if (!volumes) {
-        Dbg::Printf("No collision data for %s model\n", Script::FindChecksumNameOrUnknown(m_object->m_id));
+        DebugOut::Printf("No collision data for %s model\n", Scripts::FindChecksumNameOrUnknown(m_object->m_id));
         return 0;
     }
-    Mth::Matrix matrix;
-    GetDisplayMatrix(&matrix);
-    return ModelTestCollision(mp_model, line, skeleton, &matrix, a, b, c, d);
+    Maths::Matrix matrix;
+    GetDrawMatrix(&matrix);
+    return ModelTestCollision(m_meshInstance, line, skeleton, &matrix, a, b, c, d);
 }
 
 // 0x00420070
-void CModelComponent::Hide(bool hide)
+void CMeshInstanceModule::Hide(bool hide)
 {
-    if (mp_model)
-        ModelHide(mp_model, hide);
+    if (m_meshInstance)
+        ModelHide(m_meshInstance, hide);
 }
 
 // 0x00420090
-void CModelComponent::SetColorValue(int index, float value)
+void CMeshInstanceModule::SetColorValue(int index, float value)
 {
-    if (mp_model && index >= 1 && index <= m_colorValueCount)
+    if (m_meshInstance && index >= 1 && index <= m_colorValueCount)
         m_colorValues[index - 1] = value;
 }
 
 // 0x004200C0
-void CModelComponent::UpdateBrightness() { LightsUpdateBrightness(ModelLights(mp_model)); }
+void CMeshInstanceModule::UpdateBrightness() { LightsUpdateBrightness(ModelLights(m_meshInstance)); }
 
 // 0x004200E0
-void CModelComponent::RebuildFromProfile(void* profile, uint32_t buildScript)
+void CMeshInstanceModule::RebuildFromProfile(void* profile, uint32_t buildScript)
 {
-    if (mp_model)
-        reinterpret_cast<void(__thiscall*)(CModelComponent*, void*, bool, int, uint32_t)>(m_vtable[13])(
+    if (m_meshInstance)
+        reinterpret_cast<void(__thiscall*)(CMeshInstanceModule*, void*, bool, int, uint32_t)>(m_vtable[13])(
             this, profile, true, 0, buildScript);
 }
 
 // 0x00420110
-bool CModelComponent::ReplaceTexture(uint32_t mesh, const char* src, const char* dest)
+bool CMeshInstanceModule::SwapTexture(uint32_t mesh, const char* src, const char* dest)
 {
-    return mp_model && ModelReplaceTexture(mp_model, mesh, src, dest);
+    return m_meshInstance && ModelReplaceTexture(m_meshInstance, mesh, src, dest);
 }
 
 // 0x004202A0
-bool CModelComponent::HideGeom(uint32_t name, bool hide, bool send)
+bool CMeshInstanceModule::ConcealMesh(uint32_t name, bool hide, bool send)
 {
     if (send) {
         struct {
@@ -318,17 +318,17 @@ bool CModelComponent::HideGeom(uint32_t name, bool hide, bool send)
         data.object = static_cast<uint8_t>(m_object->m_id);
         SendToServer(m_object, kMsgHideGeom, 8, &data);
     }
-    if (mp_model)
-        ModelHideGeom(mp_model, name, hide);
+    if (m_meshInstance)
+        ModelHideGeom(m_meshInstance, name, hide);
     return true;
 }
 
 // 0x00420670
-void CModelComponent::ApplyBrightness(Nx::CFeeler* feeler, bool lerp, float rate)
+void CMeshInstanceModule::ApplyBrightness(Engine3D::CProbeRay* feeler, bool lerp, float rate)
 {
     if (!feeler->IsHitTriangleCollision())
         return;
-    void* lights = ModelLights(mp_model);
+    void* lights = ModelLights(m_meshInstance);
     double value = feeler->GetHitVertexValue();
     if (!lights) {
         SetGlobalBrightness(static_cast<float>(value));
@@ -343,27 +343,27 @@ void CModelComponent::ApplyBrightness(Nx::CFeeler* feeler, bool lerp, float rate
 }
 
 // 0x00420700
-void CModelComponent::SetColor(uint32_t color)
+void CMeshInstanceModule::SetColor(uint32_t color)
 {
     if (!m_sectorModel)
         return;
-    void** geom = ModelGeom(mp_model, 0);
+    void** geom = ModelGeom(m_meshInstance, 0);
     reinterpret_cast<void(__thiscall*)(void**, uint32_t)>((*reinterpret_cast<void***>(geom))[6])(geom, color);
 }
 
 // 0x00420730
-void CModelComponent::RotateDisplay(float duration, float start, float end, int power, bool hold, bool x, bool y,
+void CMeshInstanceModule::RotateDisplay(float duration, float start, float end, int power, bool hold, bool x, bool y,
                                     bool z)
 {
     float period = duration * kFramesToMs;
     m_pivot = {0.0f, 30.0f, 0.0f, 1.0f};
-    uint32_t now = static_cast<uint32_t>(Tmr::GameClockTime());
+    uint32_t now = static_cast<uint32_t>(FrameClock::GameClockTime());
     uint8_t axes = 0;
     bool flags[3] = {x, y, z};
     for (int axis = 0; axis < 3; ++axis) {
         if (!flags[axis])
             continue;
-        m_spin[axis].Add(period, now, start, end - start, power, hold, false);
+        m_twistRate[axis].Add(period, now, start, end - start, power, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
     struct {
@@ -378,11 +378,11 @@ void CModelComponent::RotateDisplay(float duration, float start, float end, int 
     } data;
     void* manager = NetManager();
     void* player = PlayerByObjectId(m_object->m_id);
-    if (!player || !IsLocalPlayer(player))
+    if (!player || !IsOwnPlayer(player))
         return;
-    Net::MsgDesc message;
+    NetLink::NetMessageInfo message;
     message.Construct();
-    Net::Client* app = ClientApp(manager, PlayerSkaterIndex(player));
+    NetLink::Client* app = ClientApp(manager, PlayerSkaterIndex(player));
     data.period = Truncated(period);
     data.start = static_cast<int16_t>(Truncated(start));
     data.range = static_cast<int16_t>(Truncated(static_cast<double>(end) - start));
@@ -391,15 +391,15 @@ void CModelComponent::RotateDisplay(float duration, float start, float end, int 
     message.m_data = &data;
     data.hold = hold;
     data.axes = axes;
-    message.m_length = 0x10;
+    message.m_byteCount = 0x10;
     message.m_id = kMsgRotateDisplay;
-    app->EnqueueMessageToServer(&message);
+    app->SendToHost(&message);
 }
 
 // 0x004208D0
-void CModelComponent::CancelRotateDisplay()
+void CMeshInstanceModule::CancelRotateDisplay()
 {
-    for (CModelSpinAxis& axis : m_spin) {
+    for (CModelSpinAxis& axis : m_twistRate) {
         for (CModelSpin& spin : axis.m_spins)
             spin.m_flags &= ~(MODEL_SPIN_ON | MODEL_SPIN_HOLD);
         axis.m_active = false;
@@ -410,9 +410,9 @@ void CModelComponent::CancelRotateDisplay()
 
 } // namespace Obj
 
-namespace Tmr {
+namespace FrameClock {
 
 // 0x00420250
-int GameClockTimeSince(int start) { return GameClockElapsed() + (Obj::g_clockOffset - start); }
+int GameClockTimeSince(int start) { return GameClockElapsed() + (GameObjects::g_clockOffset - start); }
 
 } // namespace Tmr

@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-namespace Sys {
+namespace SystemCore {
 
 // 0x004E2680: the program's entry point (called by the C runtime's start-up). Unless another copy of the game
 // is running (then that one's window is brought to the front): the network command line, the window, the

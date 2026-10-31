@@ -14,7 +14,7 @@
 //     near the camera drawn over the view as see-through triangles (ImGui's background draw list, as the gizmos - not
 //     the renderer), each face coloured by what it is for the skater (Classify below). Collision with nothing to draw
 //     (a sector whose geometry is null - invisible walls, blockers) in a strong magenta, with its edges. Read from each
-//     sector's collision (CCollStatic, vtable 0x00645C18: +0x08 flags - 4 off -, +0x0C its CCollObjTriData, whose
+//     sector's collision (CStaticCollider, vtable 0x00645C18: +0x08 flags - 4 off -, +0x0C its CTriMeshSource, whose
 //     vertices are where the sector is now: moving collision moves them), cached per sector and made again when its
 //     box changes (the editor moved it). The nearest sectors first, up to kMaxTriangles drawn, within kRadius (the
 //     collision-only ones within kWallRadius).
@@ -24,18 +24,18 @@
 //     Collision switched off (a wall, or a drawn piece's by the Inspector's Collision) stays drawn faded, a wall's edges
 //     dashed, so it can be found and switched on again.
 //   - Hide (H) / Isolate (I or /) / Show all (Alt+H): the selected scenery and objects hidden from the view and from
-//     clicks, or everything else hidden; while editing only. Scenery: the sector's visibility mask (CSector::
-//     SetVisibility 0x0049E680 / GetVisibility 0x0049E690 -> the geometry's +0x44 and each mesh's viewport bits +0x1B,
+//     clicks, or everything else hidden; while editing only. Scenery: the sector's visibility mask (CWorldCell::
+//     ToggleShown 0x0049E680 / GetVisibility 0x0049E690 -> the geometry's +0x44 and each mesh's viewport bits +0x1B,
 //     which the scene render tests - what the LevelGeometry Visible / Invisible node commands set, 0x005A3B80) - not
-//     its active flag (CSector::SetActive also turns its collision off, and is what the editor's Delete and the layouts
+//     its active flag (CWorldCell::SetActive also turns its collision off, and is what the editor's Delete and the layouts
 //     use). Objects: their model's geometries turned off (the geometry's SetActive, vfunc +0x34 - for an instance its
 //     +0x4C; the model's suspend pass 0x00493C60 turns them on and off when its decision changes, so Tick turns hidden
 //     ones off again every frame) - their collision and logic untouched.
-namespace Front::LevelEditor::View {
+namespace MenuSystem::LevelEditor::View {
 
 // --- the pieces (pure) --------------------------------------------------------------------------------------------
 
-// What a collision face is for the skater, from its face flags (CCollObjTriData face +0: u16) - in this order (the
+// What a collision face is for the skater, from its face flags (CTriMeshSource face +0: u16) - in this order (the
 // first that applies):
 //   kInvisibleWall: the sector has collision but nothing drawn (its geometry is null);
 //   kTrigger:       0x40 - a trigger face (0x004131F0 notes it in the hit, +0x49); with 0x10 a trigger volume the
@@ -52,7 +52,7 @@ Surface Classify(uint32_t faceFlags, bool collisionOnly);
 uint32_t SurfaceColour(Surface surface);
 const char* SurfaceName(Surface surface);
 // Face flags other passes read (the legend's notes, not coloured): 0x80 the camera's feeler ignores (0x004E4425:
-// SetIgnore(0x90) - the camera goes through), 0x1000 / 0x2000 the graffiti feelers ignore (0x0051DF71: 0x3000 - not
+// SetExcluded(0x90) - the camera goes through), 0x1000 / 0x2000 the graffiti feelers ignore (0x0051DF71: 0x3000 - not
 // taggable), 0x800 one skater feeler ignores (0x004F8698: 0x810), 0x20 three feelers ask for (0x00422F51 / 0x004F8341
 // / 0x0052716D: only 0x20 faces).
 
@@ -167,4 +167,4 @@ int HiddenCount();
 // What is hidden while editing: the sectors' checksums and the objects' ids (the Outliner's markers).
 std::vector<uint32_t> HiddenIds();
 
-} // namespace Front::LevelEditor::View
+} // namespace MenuSystem::LevelEditor::View

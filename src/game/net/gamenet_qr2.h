@@ -4,7 +4,7 @@
 // callbacks qr2 calls to answer queries (gamenet_qr2.cpp). The network manager is the singleton 0x007CCE14; qr2's
 // userdata is unused.
 
-namespace GameNet {
+namespace OnlinePlay {
 
 // 0x0053B9C0: a server key: hostname (the server_name preference's ui_string), gamename (the online identity's game
 // name - the original's "thps6pc"), gamever "1.00", hostport 5153, mapname (the level select's name, else the level's
@@ -24,4 +24,4 @@ void __cdecl StartQueryReporting(bool keepMapName);
 
 extern int g_lobbyGroupId;
 
-} // namespace GameNet
+} // namespace OnlinePlay

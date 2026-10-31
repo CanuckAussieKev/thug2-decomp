@@ -1,10 +1,10 @@
 #pragma once
 
-// The park editor (Create-A-Park): the park manager (Ed::CParkManager, the one instance at 0x007CE604) holds the
+// The park editor (Create-A-Park): the park manager (ParkEditing::CParkLayout, the one instance at 0x007CE604) holds the
 // park being edited - the metapieces placed on a 58 x 58 grid of cells, the floor heights, the piece sets the
-// menus show and the compressed map that is saved; the cursor (Ed::CCursor, 0x007CE608) is what the player moves
-// over the grid; the upper menu (Ed::CUpperMenuManager, 0x007CE60C) shows the pieces. Positions on the grid are
-// GridDims (a cell and a size, in cells; y counts floor steps).
+// menus show and the compressed map that is saved; the cursor (ParkEditing::CBuildPointer, 0x007CE608) is what the player moves
+// over the grid; the upper menu (ParkEditing::CTopBarMenus, 0x007CE60C) shows the pieces. Positions on the grid are
+// SCellBox (a cell and a size, in cells; y counts floor steps).
 //
 // The pieces: an abstract metapiece is a kind of piece (the palette, from Ed_standard_metapieces, named by a
 // checksum); a concrete metapiece is one placed in the park (or under the cursor), made from an abstract one. Both
@@ -21,18 +21,18 @@
 #include "game/mth/vector.h"
 #include "game/core/pool.h"
 
-namespace Script {
+namespace Scripts {
 class CArray;
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Ed {
+namespace ParkEditing {
 
-class CParkGenerator; // the scene side of the park (0x4A4 bytes, 0x00593460 constructs it)
-class CCursor;
-class CPiece;
-class CMetaPiece;
+class CParkAssembler; // the scene side of the park (0x4A4 bytes, 0x00593460 constructs it)
+class CBuildPointer;
+class CParkTile;
+class CPieceGroup;
 
 // A class's vtable as the original's code and the self-tests name it: an address, or the table (the vtable objects below).
 struct VtableRef {
@@ -48,7 +48,7 @@ extern void** const kAbstractMetaPieceVtable; // 0x0064F3E4
 extern void** const kPieceVtable; // 0x0064F3B4
 extern void** const kSourcePieceVtable; // 0x0064F3C8
 extern void** const kClonedPieceVtable; // 0x0064F3D0
-class CParkManager;
+class CParkLayout;
 struct RailNodeInfo;
 
 // The grid's cells in the world (the exe's constants): 120 x 48 x 120, the 58 x 58 grid centred on the origin.
@@ -65,7 +65,7 @@ inline void MarkProgress(const char* /*label*/) {}
 
 // A box of cells: the corner (x, y, z) and the size (w, h, l). y is signed (floor steps below 0 are dug in).
 // Passed by value in two stack slots.
-struct GridDims {
+struct SCellBox {
     uint8_t x;
     int8_t y;
     uint8_t z;
@@ -73,45 +73,45 @@ struct GridDims {
     uint8_t h;
     uint8_t l;
 
-    static GridDims Make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l) { return {x, y, z, w, h, l}; }
+    static SCellBox Make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l) { return {x, y, z, w, h, l}; }
     // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
-    GridDims* Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_);
+    SCellBox* Set(uint8_t x_, int8_t y_, uint8_t z_, uint8_t w_, uint8_t h_, uint8_t l_);
     // 0x005901E0: byte `index` (x y z w h l)
     uint8_t& operator[](int index) { return reinterpret_cast<uint8_t*>(this)[index]; }
     uint8_t* Byte(int index);
     // 0x005901F0: make the box reach the top of the world (h = 127 - y)
-    void MakeInfiniteOnY();
+    void StretchVertically();
     // 0x00590200: every height (-100 up 200)
-    void MakeInfinitelyHigh();
+    void RaiseCeilingToLimit();
     // 0x00590210: debug output ("pos=(x,y,z) dims=(w,h,l)")
-    void PrintContents() const;
+    void DumpToLog() const;
 };
-static_assert(sizeof(GridDims) == 6, "passed by value in two stack slots");
+static_assert(sizeof(SCellBox) == 6, "passed by value in two stack slots");
 
 // One piece of a metapiece (12 bytes): its cell offset and rotation within the metapiece, and the piece.
-struct SMetaDescriptor {
+struct SPieceGroupDesc {
     uint8_t x;
     int8_t y;
     uint8_t z;
     uint8_t rot;
     bool setsFloor;  // +0x04: from the palette entry's flag 0x0CD75A3F: the piece counts as floor - only
-                     //        these set the cells' floor heights (SetMetaInCells), CMetaPiece::Intersects' precise
+                     //        these set the cells' floor heights (SetMetaInCells), CPieceGroup::Intersects' precise
                      //        test leaves them out, and their metapiece is kFloorLocked
-    uint8_t pad5[3];
+    uint8_t spareSlot5[3];
     void* piece;     // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
 };
-static_assert(sizeof(SMetaDescriptor) == 12, "layout must match the original");
+static_assert(sizeof(SPieceGroupDesc) == 12, "layout must match the original");
 
 // A metapiece (abstract or concrete; 0x3C bytes; park_metapieces.cpp). Vtable slot 0: piece `index` (__thiscall);
 // slot 1: the scalar deleting destructor; slot 2: add a piece. The base's vtable is 0x0064F3BC.
-class CMetaPiece {
+class CPieceGroup {
 public:
     static inline const VtableRef kVtable{&kMetaPieceVtable};
     // The flags (m_flags).
     enum : uint32_t {
-        kConcrete = 0x1,            // a CConcreteMetaPiece (only these are highlighted by an area selection)
+        kConcrete = 0x1,            // a CPlacedPieceGroup (only these are highlighted by an area selection)
         kFlag1 = kConcrete,
-        kAbstract = 0x2,            // a CAbstractMetaPiece (a palette entry)
+        kAbstract = 0x2,            // a CPieceBlueprint (a palette entry)
         kInPark = 0x4,              // placed in the park (not the cursor's own piece)
         kInnerShell = 0x8,          // part of the floor / shell the park builds itself (risers, walls); is_riser
         kFlag20 = 0x20,             // being moved by a floor change (kept when an area is cleared with flag 4)
@@ -130,35 +130,35 @@ public:
     };
 
     void** m_vtable;
-    GridDims m_cell_area;            // +0x04
+    SCellBox m_cellFootprint;            // +0x04
     uint8_t pad0A[2];
     uint32_t m_flags;                // +0x0C
-    int m_rot;                       // +0x10: quarter turns
-    SMetaDescriptor m_desc[2];       // +0x14: the first two pieces
-    SMetaDescriptor* mp_extra_desc;  // +0x2C: the others (piece 2 is mp_extra_desc[0])
+    int m_quarterTurns;                       // +0x10: quarter turns
+    SPieceGroupDesc m_desc[2];       // +0x14: the first two pieces
+    SPieceGroupDesc* mp_extra_desc;  // +0x2C: the others (piece 2 is mp_extra_desc[0])
     uint32_t m_max_entries;          // +0x30
-    uint32_t m_num_used_entries;     // +0x34
-    uint32_t m_name_checksum;        // +0x38: the abstract metapiece's name
+    uint32_t m_filledSlots;     // +0x34
+    uint32_t m_nameKey;        // +0x38: the abstract metapiece's name
 
     // 0x005902E0 (returns this; folded with many empty constructors): a metapiece as a concrete one
-    CMetaPiece* CastToConcreteMeta() { return this; }
-    CMetaPiece* Cast() { return this; }
+    CPieceGroup* AsPlacedPiece() { return this; }
+    CPieceGroup* Cast() { return this; }
     // 0x005902F0: one of the eight restart pieces (by its name)
-    bool IsRestartPiece();
+    bool IsSpawnMarker();
     // 0x00590340: descriptor `index` (signed: below 2 the first two)
-    SMetaDescriptor* GetDescriptor(int index);
+    SPieceGroupDesc* GetDescriptor(int index);
     // 0x00591A50: each of its cloned pieces tinted (purple with `gap`) or back to normal
     void Highlight(int on, int gap);
     // 0x00591800: its pieces put at `position`, turned by `angle` degrees about it
-    void SetPosition(Mth::Vector position, float angle);
+    void SetPosition(Maths::Vector position, float angle);
     // 0x005907B0: turned to `rot` quarter turns: its area and every descriptor turned about its corner
-    void SetRot(int rot);
+    void SetQuarterTurns(int rot);
     // 0x005909C0: piece `index`'s centre relative to the metapiece's (returns `out`)
-    Mth::Vector* GetRelativePosition(Mth::Vector* out, uint32_t index);
+    Maths::Vector* GetRelativePosition(Maths::Vector* out, uint32_t index);
     // 0x00590750: whether the metapiece lies within `area` (x and z)
-    bool IsCompletelyWithinArea(GridDims* area);
+    bool FitsInsideRegion(SCellBox* area);
     // 0x00590340 (as GetDescriptor)
-    SMetaDescriptor* GetEntry(int index) { return GetDescriptor(index); }
+    SPieceGroupDesc* GetEntry(int index) { return GetDescriptor(index); }
     // 0x00590400: how many pieces, a palette entry of several pieces counted by its pieces (an abstract metapiece)
     int CountPieces();
     // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
@@ -166,81 +166,81 @@ public:
     // 0x00591AB0: its cell area from its pieces' bounds, and the pieces centred on it
     void FinishPieces();
     // 0x005903A0: its pieces' sectors drawn and collided with, or neither
-    void SetVisibility(bool visible);
+    void ToggleShown(bool visible);
     // 0x00590CE0: does it take up any of `area`? With `precise` (its low byte), by the cells of its pieces that
     // aren't flagged setsFloor (when any is)
-    bool Intersects(GridDims area, uint32_t precise);
+    bool Intersects(SCellBox area, uint32_t precise);
     // 0x00590B90: the box round its pieces (from each one's position and size)
-    void GetBounds(Mth::Vector* max, Mth::Vector* min);
+    void GetBounds(Maths::Vector* max, Maths::Vector* min);
     // 0x00591670: the scalar deleting destructor of the base (the extra descriptors freed)
-    CMetaPiece* Destroy(unsigned int flags);
+    CPieceGroup* Destroy(unsigned int flags);
     // 0x005917E0: the destructor's body
     void DestroyBody();
     // 0x005916B0: its pieces as an array of structures (each piece's checksum and position)
-    void GetPieceList(Script::CArray* out);
+    void GetPieceList(Scripts::CArray* out);
     // Vtable slot 0: piece `index` (its scene piece)
-    CPiece* GetPiece(uint32_t index)
+    CParkTile* GetPiece(uint32_t index)
     {
-        return reinterpret_cast<CPiece*(__thiscall*)(CMetaPiece*, uint32_t)>(m_vtable[0])(this, index);
+        return reinterpret_cast<CParkTile*(__thiscall*)(CPieceGroup*, uint32_t)>(m_vtable[0])(this, index);
     }
     // Vtable slot 1: the scalar deleting destructor
-    void Delete() { reinterpret_cast<void(__thiscall*)(CMetaPiece*, int)>(m_vtable[1])(this, 1); }
+    void Delete() { reinterpret_cast<void(__thiscall*)(CPieceGroup*, int)>(m_vtable[1])(this, 1); }
     // Vtable slot 2: add a piece at `pos`
-    void AddPiece(void* piece, GridDims* pos, int rot, bool setsFloor)
+    void AddPiece(void* piece, SCellBox* pos, int rot, bool setsFloor)
     {
-        reinterpret_cast<void(__thiscall*)(CMetaPiece*, void*, GridDims*, int, bool)>(m_vtable[2])(this, piece, pos, rot,
+        reinterpret_cast<void(__thiscall*)(CPieceGroup*, void*, SCellBox*, int, bool)>(m_vtable[2])(this, piece, pos, rot,
                                                                                                     setsFloor);
     }
 };
-static_assert(offsetof(CMetaPiece, m_flags) == 0x0C && offsetof(CMetaPiece, m_desc) == 0x14 &&
-                  offsetof(CMetaPiece, mp_extra_desc) == 0x2C && offsetof(CMetaPiece, m_num_used_entries) == 0x34 &&
-                  offsetof(CMetaPiece, m_name_checksum) == 0x38 && sizeof(CMetaPiece) == 0x3C,
+static_assert(offsetof(CPieceGroup, m_flags) == 0x0C && offsetof(CPieceGroup, m_desc) == 0x14 &&
+                  offsetof(CPieceGroup, mp_extra_desc) == 0x2C && offsetof(CPieceGroup, m_filledSlots) == 0x34 &&
+                  offsetof(CPieceGroup, m_nameKey) == 0x38 && sizeof(CPieceGroup) == 0x3C,
               "layout must match the original");
 
 // A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
-class CConcreteMetaPiece : public CMetaPiece {
+class CPlacedPieceGroup : public CPieceGroup {
 public:
     static inline const VtableRef kVtable{&kConcreteMetaPieceVtable};
     // 0x00590B60: an empty one (kConcrete, unturned). Returns this.
-    CConcreteMetaPiece* Construct();
+    CPlacedPieceGroup* Construct();
     // 0x00590360 (vtable slot 0): piece `index` (null past the end)
-    CPiece* GetPiece(uint32_t index);
+    CParkTile* GetPiece(uint32_t index);
     // 0x00590ED0 (vtable slot 2): `piece` added at the cells `pos` (x y z), turned `rot`; the piece's position set to
     // its centre there
-    void AddPiece(CPiece* piece, GridDims* pos, int rot, bool setsFloor);
+    void AddPiece(CParkTile* piece, SCellBox* pos, int rot, bool setsFloor);
     // 0x00591BB0 (vtable slot 1, also the abstract metapiece's): the scalar deleting destructor
-    CConcreteMetaPiece* Destroy(unsigned int flags);
+    CPlacedPieceGroup* Destroy(unsigned int flags);
 };
 
 // A palette entry: its descriptors name source pieces or other palette entries.
-class CAbstractMetaPiece : public CMetaPiece {
+class CPieceBlueprint : public CPieceGroup {
 public:
     static inline const VtableRef kVtable{&kAbstractMetaPieceVtable};
     // 0x00590FA0: an empty one (kAbstract). Returns this.
-    CAbstractMetaPiece* Construct();
+    CPieceBlueprint* Construct();
     // 0x00590FD0 (vtable slot 0): piece `index`'s source piece (from the generator; null past the end)
-    CPiece* GetPiece(uint32_t index);
+    CParkTile* GetPiece(uint32_t index);
     // 0x00591020 (vtable slot 2): a source piece added by name (anything else only counted), the area grown to take
     // it in (at least 1 high)
-    void AddPiece(CPiece* piece, GridDims* pos, int rot, uint8_t setsFloor);
+    void AddPiece(CParkTile* piece, SCellBox* pos, int rot, uint8_t setsFloor);
     // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
-    void AddMetaPiece(CMetaPiece* meta, GridDims* pos, int rot, uint8_t setsFloor);
+    void AddMetaPiece(CPieceGroup* meta, SCellBox* pos, int rot, uint8_t setsFloor);
     // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
     // and turned in this one); returns `out`
-    SMetaDescriptor* GetEntry(SMetaDescriptor* out, int index);
+    SPieceGroupDesc* GetEntry(SPieceGroupDesc* out, int index);
 };
 
-class CSourcePiece;
+class CTileTemplate;
 
 // A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds share the first 0x10 bytes: a source
-// piece (CSourcePiece, kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed
+// piece (CTileTemplate, kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed
 // piece (kCloned: a clone of its source's sector in the "cloned" scene - this class's layout; park_scene.h calls it
-// ClonedPiece). Vtable slot 0: the size (GetDims); slot 1: the scalar deleting destructor.
-class CPiece {
+// ClonedPiece). Vtable slot 0: the size (MeasureSpan); slot 1: the scalar deleting destructor.
+class CParkTile {
 public:
-    // m_flags (a placed piece's; CSourcePiece has its own)
+    // m_flags (a placed piece's; CTileTemplate has its own)
     enum : uint32_t {
-        kSource = 0x1,         // a CSourcePiece
+        kSource = 0x1,         // a CTileTemplate
         kCloned = 0x2,         // a placed (cloned) piece
         kCursor = 0x4,         // the cursor's (never in the generator's list: not unlinked when deleted)
         kInList = 0x8,         // in the generator's list
@@ -256,38 +256,38 @@ public:
     void** m_vtable;
     uint32_t m_sector;         // +0x04: its sector in the "cloned" scene
     uint32_t m_flags;          // +0x08
-    CPiece* mp_next;           // +0x0C: the generator's list
+    CParkTile* m_following;           // +0x0C: the generator's list
     uint32_t m_id;             // +0x10: the generator's piece counter when made (the cluster of its rails)
-    CSourcePiece* mp_source;   // +0x14
-    Mth::Vector m_pos;         // +0x18
-    int m_rot;                 // +0x28: quarter turns
+    CTileTemplate* mp_source;   // +0x14
+    Maths::Vector m_pos;         // +0x18
+    int m_quarterTurns;                 // +0x28: quarter turns
 
     // Vtable slot 0: its size (a placed piece's turned by its rotation); returns `out`
-    Mth::Vector* GetDims(Mth::Vector* out)
+    Maths::Vector* MeasureSpan(Maths::Vector* out)
     {
-        return reinterpret_cast<Mth::Vector*(__thiscall*)(CPiece*, Mth::Vector*)>(m_vtable[0])(this, out);
+        return reinterpret_cast<Maths::Vector*(__thiscall*)(CParkTile*, Maths::Vector*)>(m_vtable[0])(this, out);
     }
     // Vtable slot 1: the scalar deleting destructor
-    void Delete() { reinterpret_cast<void(__thiscall*)(CPiece*, int)>(m_vtable[1])(this, 1); }
+    void Delete() { reinterpret_cast<void(__thiscall*)(CParkTile*, int)>(m_vtable[1])(this, 1); }
 
     // 0x00590240: the destructor's body (only the vtable)
     void DestroyBody();
     // 0x00590490: the scalar deleting destructor (freed if `flags` bit 0). Returns this.
-    CPiece* Destroy(unsigned int flags);
+    CParkTile* Destroy(unsigned int flags);
     // 0x00590250 (folded with other +0x10 getters)
     uint32_t GetId();
     // 0x00590670: put it at `position` (and move its sector if `update` is 1)
-    void SetPosition(Mth::Vector* position, int update);
+    void SetPosition(Maths::Vector* position, int update);
     // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
-    void SetRot(int rot, int update);
+    void SetQuarterTurns(int rot, int update);
     // 0x00590290: its sector drawn and collided with (or neither)
     void SetActive(bool active);
     // 0x005902B0: its sector shown in every viewport (or none)
     void SetVisible(bool visible);
     // 0x005904C0: its size in cells (w h l; the rest of `dims` as it was)
-    void GetCellDims(GridDims* dims);
+    void GetFootprintSize(SCellBox* dims);
     // 0x00590530: its source's size with x and z swapped for an odd `rot`; returns `out`
-    Mth::Vector* GetDimsTurned(Mth::Vector* out, int rot);
+    Maths::Vector* GetDimsTurned(Maths::Vector* out, int rot);
     // 0x005906B0: its sector stretched to `length` along its own x (z when turned a quarter)
     void SetLength(float length);
     // 0x00591510: its sector's geometry turned `degrees` about y
@@ -295,14 +295,14 @@ public:
     // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
     void SetHighlight(bool on, bool gap);
 };
-static_assert(offsetof(CPiece, m_id) == 0x10 && offsetof(CPiece, mp_source) == 0x14 && offsetof(CPiece, m_pos) == 0x18 &&
-                  offsetof(CPiece, m_rot) == 0x28 && sizeof(CPiece) == 0x2C,
+static_assert(offsetof(CParkTile, m_id) == 0x10 && offsetof(CParkTile, mp_source) == 0x14 && offsetof(CParkTile, m_pos) == 0x18 &&
+                  offsetof(CParkTile, m_quarterTurns) == 0x28 && sizeof(CParkTile) == 0x2C,
               "layout must match the original (a placed piece: 0x2C bytes)");
 
 // A source piece (0x30 bytes; park_scene.h calls it SourcePiece): a piece type, one sector of the "sk5ed" scene.
-class CSourcePiece {
+class CTileTemplate {
 public:
-    // m_flags (besides CPiece::kSource)
+    // m_flags (besides CParkTile::kSource)
     enum : uint32_t {
         kGameObject = 0x400,       // the node is a GameObject (ReadPieceFlags, from the pieces' node array)
         kAbsentInNetGames = 0x800, // (with kGameObject)
@@ -313,51 +313,51 @@ public:
     void** m_vtable;           // slot 1: the scalar deleting destructor
     uint32_t m_name;           // +0x04: its sector's checksum
     uint32_t m_flags;          // +0x08 (1 when made)
-    CSourcePiece* mp_next;     // +0x0C
-    Mth::Vector m_size;        // +0x10: in world units (x and z whole cells); w = 1
+    CTileTemplate* m_following;     // +0x0C
+    Maths::Vector m_size;        // +0x10: in world units (x and z whole cells); w = 1
     int m_20;                  // +0x20 (1 when made)
     uint32_t m_triggerScript;  // +0x24
     int m_numRailPoints;       // +0x28: the points of the rails its node array gives it
     int m_numRailSegments;     // +0x2C
 
-    CPiece* AsPiece() { return reinterpret_cast<CPiece*>(this); }
+    CParkTile* AsPiece() { return reinterpret_cast<CParkTile*>(this); }
     // 0x005905C0: an empty source piece. Returns this.
-    CSourcePiece* Construct();
+    CTileTemplate* Construct();
     // 0x00590600 (vtable slot 0): its size; returns `out`
-    Mth::Vector* GetDims(Mth::Vector* out);
+    Maths::Vector* MeasureSpan(Maths::Vector* out);
     // 0x00590640 (vtable slot 1, also the placed piece's): the scalar deleting destructor. Returns this.
-    CSourcePiece* Destroy(unsigned int flags);
+    CTileTemplate* Destroy(unsigned int flags);
 };
-static_assert(offsetof(CSourcePiece, m_size) == 0x10 && offsetof(CSourcePiece, m_triggerScript) == 0x24 &&
-                  sizeof(CSourcePiece) == 0x30,
+static_assert(offsetof(CTileTemplate, m_size) == 0x10 && offsetof(CTileTemplate, m_triggerScript) == 0x24 &&
+                  sizeof(CTileTemplate) == 0x30,
               "layout must match the original");
 
-// A cloned piece's own functions (its layout is CPiece's).
-class CClonedPiece : public CPiece {
+// A cloned piece's own functions (its layout is CParkTile's).
+class CCopiedPiece : public CParkTile {
 public:
     static inline const VtableRef kVtable{&kClonedPieceVtable};
     // 0x00590620: an empty cloned piece. Returns this.
-    CClonedPiece* Construct();
+    CCopiedPiece* Construct();
     // 0x00590710 (vtable slot 0): the source's size, x and z swapped when turned a quarter; returns `out`
-    Mth::Vector* GetDims(Mth::Vector* out);
+    Maths::Vector* MeasureSpan(Maths::Vector* out);
 };
 
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
 struct CMapListNode {
     int m_dy;              // in the floor change's list: how far the metapiece moves up (down if negative)
-    CMetaPiece* mp_meta;   // +0x04
-    CMapListNode* mp_next; // +0x08
+    CPieceGroup* m_pieceGroup;   // +0x04
+    CMapListNode* m_following; // +0x08
 
     // 0x005480C0 (one of many getters folded together there)
-    CMetaPiece* GetMeta() const { return mp_meta; }
-    CMetaPiece* GetConcreteMeta() { return mp_meta->CastToConcreteMeta(); }
+    CPieceGroup* GetPieceGroup() const { return m_pieceGroup; }
+    CPieceGroup* GetPlacedPiece() { return m_pieceGroup->AsPlacedPiece(); }
 
     // A new node from the pools (or the heap), zeroed; null if out of memory.
     static CMapListNode* Create();
     // 0x005914B0: back to the pools (operator delete).
     static void Free(void* node);
     // 0x00591BE0: free a list (the nodes, not the metapieces; null is fine)
-    static void __fastcall DestroyList(CMapListNode* list); // (__fastcall: the list in ECX, as the original)
+    static void __fastcall FreeNodeChain(CMapListNode* list); // (__fastcall: the list in ECX, as the original)
     // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
     static void __fastcall VerifyIntegrity(const CMapListNode* list); // (__fastcall: the list in ECX)
 };
@@ -371,88 +371,88 @@ struct MapListHolder {
     ~MapListHolder()
     {
         if (list)
-            CMapListNode::DestroyList(list);
+            CMapListNode::FreeNodeChain(list);
     }
     MapListHolder(const MapListHolder&) = delete;
     MapListHolder& operator=(const MapListHolder&) = delete;
 };
 // The same holder as plain data, for code that frees the list itself (0x00591C60).
-struct CMapListTemp {
+struct CCellChainScratch {
     CMapListNode* list;
 
     // 0x00591450: debug output of the list (each metapiece's address and cells)
-    void PrintContents();
+    void DumpToLog();
     // 0x00591C60: the destructor (the list freed)
     void Destroy();
 };
 
 // A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how the gap manager keeps one.
-struct GapInfo {
-    GridDims m_pos[2];         // +0x00: the cells of its two halves
-    int m_rot[2];              // +0x0C (0-3; 4 bits each in the map)
+struct SGapDetails {
+    SCellBox m_pos[2];         // +0x00: the cells of its two halves
+    int m_quarterTurns[2];              // +0x0C (0-3; 4 bits each in the map)
     int m_leftExtent[2];       // +0x14 (0-6 cells)
     int m_rightExtent[2];      // +0x1C
     char m_text[0x20];         // +0x24: its name ("gap", "gap2"...)
-    int m_score;               // +0x44
+    int m_pointsHeld;               // +0x44
     int m_numCompleteHalves;   // +0x48: how many of its halves are placed (2 for a whole gap)
     int m_tabIndex;            // +0x4C: the gap manager's index (-1 none)
     uint32_t m_cancelFlags;    // +0x50
 
     // 0x0058CBC0: the halves' cells cleared (the rest isn't touched). Returns this.
-    GapInfo* Construct();
+    SGapDetails* Construct();
     // 0x0058CBF0: the length of half `half` across the gap, in the world's units: its extents and its piece's length
     // (turned 0 / 2) or width (1 / 3); 0 for another turn.
     float GetLength(int half);
 };
-static_assert(offsetof(GapInfo, m_text) == 0x24 && offsetof(GapInfo, m_numCompleteHalves) == 0x48 &&
-                  sizeof(GapInfo) == 0x54,
+static_assert(offsetof(SGapDetails, m_text) == 0x24 && offsetof(SGapDetails, m_numCompleteHalves) == 0x48 &&
+                  sizeof(SGapDetails) == 0x54,
               "layout must match the original");
-using GapDescriptor = GapInfo;
+using GapRecord = SGapDetails;
 
 // A metapiece copied into a clipboard (0x18 bytes, pooled: the pool pair 0x007CE5C4; clipboard.cpp): the palette
 // piece it was made from, its cell and size where it was copied (raised so the lowest piece of the copy is at 0), its
 // turn, and the preview shown at the cursor. `centreX` / `centreZ` below are the copy's centre cell.
 struct CClipboardEntry {
-    CMetaPiece* mp_meta;            // +0x00: the abstract metapiece
-    uint8_t m_x;                    // +0x04
+    CPieceGroup* m_pieceGroup;            // +0x00: the abstract metapiece
+    uint8_t m_posX;                    // +0x04
     int8_t m_y;                     // +0x05
-    uint8_t m_z;                    // +0x06
+    uint8_t m_depthCell;                    // +0x06
     uint8_t pad07;
-    int m_rot;                      // +0x08: quarter turns
+    int m_quarterTurns;                      // +0x08: quarter turns
     uint8_t m_w;                    // +0x0C
     uint8_t m_l;                    // +0x0D
     uint8_t pad0E[2];
-    CMetaPiece* mp_preview;         // +0x10: shown at the cursor (kCursor)
-    CClipboardEntry* mp_next;       // +0x14
+    CPieceGroup* mp_preview;         // +0x10: shown at the cursor (kCursor)
+    CClipboardEntry* m_following;       // +0x14
 
     // 0x0058B800: the cells it would take with the cursor's copy (turned with the cursor; one high, at its height).
-    void GetArea(GridDims* area, uint8_t centreX, uint8_t centreZ, CCursor* cursor);
+    void GetArea(SCellBox* area, uint8_t centreX, uint8_t centreZ, CBuildPointer* cursor);
     // 0x0058B940: whether the floor under it can be changed there
-    bool CanPlace(uint8_t centreX, uint8_t centreZ, CCursor* cursor);
+    bool CanPlace(uint8_t centreX, uint8_t centreZ, CBuildPointer* cursor);
     // 0x0058B9C0: pasted: the floor raised to its height plus `height` (at most 15; an inner-shell piece's own height
     // on top), then (unless it's of the inner shell) a new metapiece turned with the cursor put there
-    void Paste(uint8_t centreX, int height, uint8_t centreZ, CCursor* cursor);
+    void Paste(uint8_t centreX, int height, uint8_t centreZ, CBuildPointer* cursor);
     // 0x0058BB20: the floor height under it
-    int GetHeight(uint8_t centreX, uint8_t centreZ, CCursor* cursor);
+    int GetHeight(uint8_t centreX, uint8_t centreZ, CBuildPointer* cursor);
     // 0x0058BBA0: highlight (or not) the metapieces (not the inner shell's) in its cells
-    void HighlightIntersectingMetas(uint8_t centreX, uint8_t centreZ, CCursor* cursor, int on);
+    void GlowOverlappingPieces(uint8_t centreX, uint8_t centreZ, CBuildPointer* cursor, int on);
     // 0x0058BCA0: its preview (made the first time) placed at `position` turned by `angle` degrees
-    void ShowPreview(uint8_t centreX, int height, uint8_t centreZ, Mth::Vector position, float angle);
+    void ShowPreview(uint8_t centreX, int height, uint8_t centreZ, Maths::Vector position, float angle);
 };
-static_assert(offsetof(CClipboardEntry, m_rot) == 0x08 && offsetof(CClipboardEntry, mp_preview) == 0x10 &&
+static_assert(offsetof(CClipboardEntry, m_quarterTurns) == 0x08 && offsetof(CClipboardEntry, mp_preview) == 0x10 &&
                   sizeof(CClipboardEntry) == 0x18,
               "pool item");
 
 // A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4; clipboard.cpp): the metapieces (and rails) copied from
 // it.
 struct CClipboard {
-    GridDims m_area;           // +0x00
-    uint8_t m_min_x, m_min_z;  // +0x06: the cells its entries cover
-    uint8_t m_max_x, m_max_z;  // +0x08
+    SCellBox m_editSpan;           // +0x00
+    uint8_t m_loCellX, m_loCellZ;  // +0x06: the cells its entries cover
+    uint8_t m_hiCellX, m_hiCellZ;  // +0x08
     uint8_t pad0A[2];
     CClipboardEntry* mp_metas; // +0x0C: its entries (the newest first)
-    void* mp_rails;            // +0x10: the rail editor's copies of the rails over it (linked by their first word)
-    CClipboard* mp_next;       // +0x14: the cursor's list
+    void* m_railGroups;            // +0x10: the rail editor's copies of the rails over it (linked by their first word)
+    CClipboard* m_following;       // +0x14: the cursor's list
 
     // 0x0058BDF0
     CClipboard* Construct();
@@ -464,29 +464,29 @@ struct CClipboard {
     bool IsEmpty();
     // 0x0058C590: copy the metapieces wholly in `area` (not restart points or risers below) and its rails; false
     // (and emptied) when the entries' pool is full
-    bool CopySelectionToClipboard(GridDims area);
+    bool CopySelectionToClipboard(SCellBox area);
     // 0x0058C270: `meta` added (raised by `dy`), unless the same piece is in it already; false when the pool is full
-    bool AddEntry(CMetaPiece* meta, int dy);
+    bool AddEntry(CPieceGroup* meta, int dy);
     // 0x0058BE30: the floor height under the copy at the cursor (the highest under any entry; 0 without entries)
-    int GetHeight(CCursor* cursor);
+    int GetHeight(CBuildPointer* cursor);
     // 0x0058BEB0: highlight the metapieces the copy would replace
-    void HighlightIntersectingMetas(CCursor* cursor, int on);
+    void GlowOverlappingPieces(CBuildPointer* cursor, int on);
     // 0x0058C050: the world position of the middle of its centre cell (at its floor). Returns `centre`.
-    Mth::Vector* GetCentre(Mth::Vector* centre);
+    Maths::Vector* GetCentre(Maths::Vector* centre);
     // 0x0058C130: show the copy at `position`, turned by `angle` (its rails too)
-    void ShowMetas(Mth::Vector position, float angle, int height);
-    // 0x0058C200: remove what ShowMetas made
-    void DestroyMetas();
+    void PreviewPieces(Maths::Vector position, float angle, int height);
+    // 0x0058C200: remove what PreviewPieces made
+    void FreeAllPieceGroups();
     // 0x0058C780: paste the copy at the cursor: false (nothing changed) if the park memory has no room for it, the
     // floor can't be changed under an entry or there aren't enough free rail points
-    bool ShowAt(CCursor* cursor);
+    bool ShowAt(CBuildPointer* cursor);
     // 0x0058BF10: the area it covers placed at the cursor (turned with it)
-    void GetArea(CCursor* cursor, GridDims* area);
+    void GetArea(CBuildPointer* cursor, SCellBox* area);
 };
 static_assert(sizeof(CClipboard) == 0x18, "pool item");
 
 // A piece set: the entries of one of the piece menu's sets (0x154 bytes, Ed_piece_sets).
-struct CPieceSet {
+struct CPieceFamily {
     struct Entry {
         uint32_t checksum;  // the abstract metapiece (or sector)
         const char* name;   // shown in the menu (null: "---")
@@ -494,20 +494,20 @@ struct CPieceSet {
     uint32_t m_nameChecksum; // +0x000
     const char* m_name;      // +0x004: shown in the set menu (set_name)
     Entry m_entries[40];     // +0x008
-    int m_numEntries;        // +0x148
+    int m_entryTotal;        // +0x148
     int m_selected;          // +0x14C
-    bool m_visible;          // +0x150: has a menu entry
+    bool m_isDisplayed;          // +0x150: has a menu entry
     bool m_isClipboard;      // +0x151: the clipboard set
     uint8_t pad152[2];
 };
-static_assert(offsetof(CPieceSet, m_numEntries) == 0x148 && offsetof(CPieceSet, m_visible) == 0x150 &&
-                  sizeof(CPieceSet) == 0x154,
+static_assert(offsetof(CPieceFamily, m_entryTotal) == 0x148 && offsetof(CPieceFamily, m_isDisplayed) == 0x150 &&
+                  sizeof(CPieceFamily) == 0x154,
               "layout must match the original");
-using PieceSet = CPieceSet;
+using PieceSet = CPieceFamily;
 
 // A cell of the floor (16 bytes).
 struct FloorCell {
-    int m_height;           // in floor steps (-16 to 15)
+    int m_levelY;           // in floor steps (-16 to 15)
     uint32_t m_heightsUsed; // +0x04: bit (y + 17) for each level a piece fills
     bool m_touched;         // +0x08: changed by the floor change under way
     uint8_t pad9[3];
@@ -523,12 +523,12 @@ struct CompressedMap {
     uint16_t m_version;      // +0x06: kVersion (gaps 0x30 bytes); older parks have 0x2C-byte gaps
     uint16_t m_shellSize;    // +0x08: the park manager's m_shellSize (the shell model, the bounds)
     uint16_t unknown0A;
-    uint8_t m_x, m_z, m_w, m_l; // +0x0C: the park's bounds
+    uint8_t m_posX, m_depthCell, m_w, m_l; // +0x0C: the park's bounds
     uint16_t m_numMetas;     // +0x10
     uint16_t m_numGaps;      // +0x12
     uint8_t m_maxPlayers;    // +0x14
     uint8_t pad15[3];
-    uint32_t m_theme;        // +0x18: the park editor's (+0x78); 0 reads as "Default"
+    uint32_t m_styleSet;        // +0x18: the park editor's (+0x78); 0 reads as "Default"
     char m_name[0x40];       // +0x1C
     int8_t m_floorHeights[kFloorSize * kFloorSize]; // +0x5C
     uint8_t m_rest[0x3A98 - 0x5C - kFloorSize * kFloorSize];
@@ -540,75 +540,75 @@ static_assert(offsetof(CompressedMap, m_numMetas) == 0x10 && offsetof(Compressed
               "layout must match the original");
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
-class CGapManager;
-extern CGapManager* g_gapManager;
+class CGapRegistry;
+extern CGapRegistry* g_gapManager;
 
-class CGapManager {
+class CGapRegistry {
 public:
-    static CGapManager*& Instance() { return g_gapManager; }
+    static CGapRegistry*& Instance() { return g_gapManager; }
 
     // --- gap_slots.cpp (0x0058C990-0x0058CD3F) ---
     // 0x0058CBB0 (the getter the game calls)
-    static CGapManager* sInstance();
+    static CGapRegistry* sSingleton();
     // 0x0058CA10: the gap `meta` is an end of (its slot into `index`, if given)
-    bool GetGapIndex(CMetaPiece* meta, int* index);
+    bool GetGapIndex(CPieceGroup* meta, int* index);
     // 0x0058CA60: the trigger name ("EditorTrgGap<slot>") of the gap end whose trigger piece is `piece` (0 if none);
     // with the script integer PrintGaps, an odd slot's gap is printed
-    uint32_t GetGapTriggerName(CPiece* piece);
+    uint32_t GetGapTriggerName(CParkTile* piece);
     // 0x0058CB20: slot `index`'s gap info (null if empty; its name copied into the text first), and which end (`half`)
-    GapInfo* GetGapInfo(int index, int* half);
+    SGapDetails* GetGapInfo(int index, int* half);
     // 0x0058CB70: the gap shown: both ends' trigger pieces highlighted
     void SetCurrentGap(int index);
     // 0x0058C990: a free slot (-1 none)
-    int GetFreeGapIndex();
+    int FindEmptyGapSlot();
     // 0x0058C9B0: gap `index`'s second end in a free slot (none free: nothing), given the next GapID
-    void EndGap(void* piece, CMetaPiece* meta, int index);
+    void EndGap(void* piece, CPieceGroup* meta, int index);
     // 0x0058CCC0: the constructor (no gaps, the counter at 2000, in `manager`'s park; makes itself the instance).
     // Returns this.
-    CGapManager* Construct(CParkManager* manager);
+    CGapRegistry* Construct(CParkLayout* manager);
 
     // 0x0058CDA0 (gap_manager.cpp): gap `index`'s info (its name, the rest copied); the checklist made again
-    void SetGapInfo(int index, GapInfo* info);
+    void StoreGapDetails(int index, SGapDetails* info);
     // 0x0058D070 (gap_manager.cpp): the gap's first end (its trigger piece and metapiece)
-    void StartGap(void* piece, CMetaPiece* meta, int index);
+    void StartGap(void* piece, CPieceGroup* meta, int index);
     // 0x0058CDF0 (gap_manager.cpp): remove gap `index` (its trigger pieces deleted; with `forget`, also from the
     // goal editor's gaps)
-    void RemoveGap(int index, bool forget);
+    void DropGapEntry(int index, bool forget);
     // 0x0058CE90: remove every gap
-    void RemoveAllGaps();
+    void ClearGapEntries();
     // 0x0058CF30: a copy of `other`'s gaps (without their pieces; no park manager)
-    void CopyFrom(CGapManager* other);
+    void CopyFrom(CGapRegistry* other);
     // 0x0058CF20: the destructor (also clears the singleton)
     void Destroy();
 
     // --- gap_manager.cpp (0x0058CD40-0x0058D290) ---
     // One gap (0xEC bytes, made by StartGap / EndGap): the ids of its two ends, their trigger pieces and
-    // metapieces, its name and its GapInfo.
+    // metapieces, its name and its SGapDetails.
     struct Gap {
         uint32_t m_ids[2];        // +0x00: each end's GapID (the manager's counter when it was made)
-        CPiece* mp_pieces[2];     // +0x08: the trigger pieces
-        CMetaPiece* mp_metas[2];  // +0x10
+        CParkTile* mp_pieces[2];     // +0x08: the trigger pieces
+        CPieceGroup* mp_metas[2];  // +0x10
         char m_name[0x80];        // +0x18: the text of the gap's EndGap
-        GapInfo m_info;           // +0x98
+        SGapDetails m_info;           // +0x98
     };
     static constexpr int kMaxGaps = 32;
 
     // 0x0058CD40: the current level's gap checklist made again from the gaps (each never landed)
     void UpdateChecklist();
     // 0x0058CEC0: `piece`'s trigger length (cells) from the gap it's an end of (0 if none)
-    void SetTriggerLength(CPiece* piece);
+    void SetTriggerLength(CParkTile* piece);
     // 0x0058D120: run StartGap / EndGap on `script`'s object for gap `index`'s two ends (GapID, score, text; the
     // start also with combined_flags), the end placed first first
-    void FireGap(int index, Script::CScript* script);
+    void FireGap(int index, Scripts::CScript* script);
 
     uint32_t m_nextId;               // +0x00: the next end's GapID
     Gap* mp_gaps[kMaxGaps];          // +0x04
     bool m_startedFirst[kMaxGaps];   // +0x84: the gap's first half (StartGap) was placed first
-    CParkManager* mp_manager;        // +0xA4: the park it's in (null in a copy)
+    CParkLayout* m_parkOwner;        // +0xA4: the park it's in (null in a copy)
 };
-static_assert(sizeof(CGapManager::Gap) == 0xEC && offsetof(CGapManager::Gap, m_info) == 0x98 &&
-                  offsetof(CGapManager, mp_gaps) == 4 && offsetof(CGapManager, m_startedFirst) == 0x84 &&
-                  offsetof(CGapManager, mp_manager) == 0xA4 && sizeof(CGapManager) == 0xA8,
+static_assert(sizeof(CGapRegistry::Gap) == 0xEC && offsetof(CGapRegistry::Gap, m_info) == 0x98 &&
+                  offsetof(CGapRegistry, mp_gaps) == 4 && offsetof(CGapRegistry, m_startedFirst) == 0x84 &&
+                  offsetof(CGapRegistry, m_parkOwner) == 0xA4 && sizeof(CGapRegistry) == 0xA8,
               "layout must match the original");
 
 // A restart point of the park generator (0x24 bytes).
@@ -622,15 +622,15 @@ struct RestartPoint {
         kRedFlag = 5, // 5-8 the CTF flags: red, green, blue, yellow
         kYellowFlag = 8,
     };
-    Mth::Vector m_pos;        // +0x00
-    int m_rot;                // +0x10
-    GridDims m_area;          // +0x14
+    Maths::Vector m_pos;        // +0x00
+    int m_quarterTurns;                // +0x10
+    SCellBox m_editSpan;          // +0x14
     uint8_t pad1A[2];
     int m_type;               // +0x1C
     uint8_t m_automatic;      // +0x20: put down by the park itself (GenerateNodeArray), not placed (the byte given)
     uint8_t pad21[3];
 };
-static_assert(offsetof(RestartPoint, m_area) == 0x14 && offsetof(RestartPoint, m_type) == 0x1C &&
+static_assert(offsetof(RestartPoint, m_editSpan) == 0x14 && offsetof(RestartPoint, m_type) == 0x1C &&
                   sizeof(RestartPoint) == 0x24,
               "layout must match the original");
 
@@ -638,7 +638,7 @@ static_assert(offsetof(RestartPoint, m_area) == 0x14 && offsetof(RestartPoint, m
 struct PieceNodeInfo;
 
 // The park generator (0x4A4 bytes): the scene side of the park editor (park_scene.h).
-class CParkGenerator {
+class CParkAssembler {
 public:
     // m_flags
     enum : uint32_t {
@@ -654,7 +654,7 @@ public:
 
     // --- park_scene.cpp, park_nodes.cpp (0x00592740-0x00595030; their types: park_scene.h) ---
     // 0x005933F0: take away the restart point of type `player` at `area` (its cell x, y, z)
-    void RemoveRestart(GridDims* area, int player);
+    void UnplantRestartPoint(SCellBox* area, int player);
     // 0x005935F0: mark a piece for CleanUpOutRefs (taken out at once if it has ClonedPiece::kDestroyNow)
     void DestroyPiece(void* piece);
     // 0x00593610: take out and delete the pieces marked by DestroyPiece
@@ -664,21 +664,21 @@ public:
     void RebuildAll();
     void RebuildMarked();
     // 0x00593460: the constructor (no pieces, restarts or rails; 2 players). Returns this.
-    CParkGenerator* Construct();
+    CParkAssembler* Construct();
     // 0x00592FE0: light `index` at `position`
-    void SetLightPosition(const Mth::Vector* position, int index);
+    void MoveLightSource(const Maths::Vector* position, int index);
     // 0x00593010: `rgba`'s red, green and blue (0-255) lit at `position`: the ambient part plus the falloff part of
     // the lights' sum of 1 / (160000 + squared distance in x and z); over 255 is 255.
-    void CalculateLighting(const Mth::Vector* position, uint8_t* rgba);
+    void SampleLightColour(const Maths::Vector* position, uint8_t* rgba);
     // 0x00594410: a piece's vertex colours (from its source's) and its collision's vertex intensities lit
-    void LightPiece(CPiece* piece);
+    void LightPiece(CParkTile* piece);
     // 0x00593370: how many restart points of `type` there are
     int CountRestarts(int type);
     // 0x00593500: a gap's trigger piece (the type 0xC0341DF7) at `position` turned `rot` quarter turns, added
-    void* CreateGapPiece(Mth::Vector* position, float length, int rot);
+    void* MakeGapMarkerPiece(Maths::Vector* position, float length, int rot);
     // 0x00594730: a piece's sector cloned from its source into the scene, placed, lit (a gap piece told the gap
     // manager)
-    void AddPieceToScene(CPiece* piece);
+    void AddPieceToScene(CParkTile* piece);
     // 0x00594610: every piece taken out and deleted (with the rail editor's rails taken out of the scene first),
     // then every source piece deleted
     void UnloadPieces();
@@ -690,7 +690,7 @@ public:
     void LoadPieces(uint32_t level, int unused);
     // 0x00592A10: the point of the placed pieces' rails nearest to `position` (and the squared distance); false if
     // none is nearer than 1e8 squared units
-    bool FindNearestRailPoint(const Mth::Vector* position, Mth::Vector* point, float* distanceSquared);
+    bool FindNearestRailPoint(const Maths::Vector* position, Maths::Vector* point, float* distanceSquared);
     // 0x00592AB0: the node array's sizes: [0] nodes, [1] rail points, [2] rail segments, [3] / [4] memory
     // estimates, [5] rail points again
     void GetNodeCounts(int* counts);
@@ -702,44 +702,44 @@ public:
     void BuildRails(CMapListNode* metas);
     // 0x00592ED0 / 0x005949F0 / 0x00593AC0: the pieces', the rails', the restart points' nodes written into `nodes`
     // from node `*index` on (`*index` counts them)
-    void WritePieceNodes(Script::CArray* nodes, int* index);
-    void WriteRailNodes(Script::CArray* nodes, int* index);
-    void WriteRestartNodes(Script::CArray* nodes, int* index);
+    void WritePieceNodes(Scripts::CArray* nodes, int* index);
+    void WriteRailNodes(Scripts::CArray* nodes, int* index);
+    void WriteRestartNodes(Scripts::CArray* nodes, int* index);
     // 0x00592740: the name of the next LevelGeometry node from `*index` on (0 at the end); `*index` past it
-    uint32_t NextGeometryNode(Script::CArray* nodes, int* index);
+    uint32_t NextGeometryNode(Scripts::CArray* nodes, int* index);
     // 0x005927D0: the next unused rail node of the piece `geometry` (after the node named `previous`, or a first
     // one: one with no links, else a linked one - `*isLoop` set); its name (0 if none)
-    uint32_t NextRailNode(Script::CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info, bool* isLoop);
+    uint32_t NextRailNode(Scripts::CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info, bool* isLoop);
     // 0x005936E0: the source rails from the pieces' node array (each source piece's rail point and segment counts)
-    void BuildSourceRails(Script::CArray* nodes);
+    void BuildSourceRails(Scripts::CArray* nodes);
     // --- park_generator.cpp (0x00591C70-0x00592740) ---
     // 0x00591C70: the destructor's body (the scenes forgotten, the node array's asset destroyed)
     void DestroyBody();
     void Destroy() { DestroyBody(); }
     // 0x00591CF0: every piece tinted red, or back to normal
-    void HighlightAllPieces(bool on);
+    void GlowEveryPiece(bool on);
     // 0x00591D20
-    void SetMaxPlayers(int count);
+    void SetPlayerCap(int count);
     // The most players the park is set up for (a whole int; the compressed map keeps its low byte)
-    int GetMaxPlayers() { return m_maxPlayers; }
+    int GetPlayerLimit() { return m_maxPlayers; }
     // 0x00591D30: the most players the park has room for: one more for each 585500 bytes the main heap has free
     // (counting those already set up)
-    int GetMaxPlayersPossible();
+    int GetPlayerCapLimit();
     // 0x00591D90: the piece type named `name` (null if none)
-    CSourcePiece* GetPieceSource(uint32_t name);
+    CTileTemplate* GetPieceSource(uint32_t name);
     // 0x00591DD0: delete the park's sector `name` (false if there's none)
-    bool DeleteSector(uint32_t name, int unused);
+    bool RemoveSceneSector(uint32_t name, int unused);
     // 0x00591DE0: the placed pieces' rails emptied and their pools freed
     void DestroyRails();
     // 0x00591E00: the lights' count, ambient and falloff colours and the cursor's ambience
-    void SetLights(int count, float ambientR, float ambientG, float ambientB, float falloffR, float falloffG,
+    void ConfigureLighting(int count, float ambientR, float ambientG, float ambientB, float falloffR, float falloffG,
                    float falloffB, float cursorAmbience);
     // 0x00591E60: the restart slots (first to last) a restart type uses (unknown types: left as they were)
     void GetRestartSlots(int type, int* first, int* last);
     // 0x00591F50: whether a slot of `type`'s is free (or holds one put down automatically)
     bool HasFreeRestartSlot(int type);
     // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
-    void ClearAutomaticRestarts();
+    void PurgeAutoRestartPoints();
     void ClearRestarts();
     // 0x00592010: the "cloned" scene's bounding box (as big as a park can be)
     void SetUpBounds();
@@ -747,26 +747,26 @@ public:
     void RebuildCollision();
     // 0x005920D0: the shell's two boxes: everything, and the park's bounds (`unused`: the callers' argument)
     void UpdateBounds(uint32_t unused);
-    // 0x00592290: the gaps' trigger pieces (CPiece::kGap) shown or hidden
+    // 0x00592290: the gaps' trigger pieces (CParkTile::kGap) shown or hidden
     void SetPiecesHighlighted(int on);
     // 0x005922D0: the restart points' pieces drawn and collided with, or neither
     void SetRestartPiecesActive(bool active);
     // 0x00592320: a copy of the "sk5ed" sector `name` in the "cloned" scene (its name)
-    uint32_t CloneSector(uint32_t name, int a, int b, int unused);
+    uint32_t DuplicateSceneSector(uint32_t name, int a, int b, int unused);
     // 0x00592370: delete the park's sector `name`, then rebuild the collision (false if there was none)
     bool DestroySector(uint32_t name, int unused);
     // 0x005923C0: a new placed piece of `source` (or of its source), with `flags` (0x324 of them)
-    CPiece* CreatePiece(CPiece* source, uint32_t flags);
+    CParkTile* CreatePiece(CParkTile* source, uint32_t flags);
     // 0x00592550: a placed piece onto the front of the generator's list (LightPiece, 0x00594410, then lights it)
-    void AddPiece(CPiece* piece);
+    void AddPiece(CParkTile* piece);
     // 0x00592570: a piece taken off the list (not the cursor's), its sector deleted (unless `keepSector`), deleted
-    void DeletePiece(CPiece* piece, int keepSector);
+    void DeletePiece(CParkTile* piece, int keepSector);
     // 0x005925E0: the piece types' flags and trigger scripts from the pieces' node array
-    void ReadPieceFlags(Script::CArray* nodes);
+    void ReadPieceFlags(Scripts::CArray* nodes);
     // 0x00593200: a restart point of `type` at `position` (the cells `area`) in the first free slot of its type (or,
     // when `automatic`, one put down automatically before); with `automatic` and `keepPlaced`, where a placed one
     // of the type is. False when there's no room.
-    bool AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic, uint32_t keepPlaced);
+    bool PlantRestartPoint(Maths::Vector* position, int rot, SCellBox* area, int type, int automatic, uint32_t keepPlaced);
     // 0x005933D0: whether there are fewer than `count` restart points of `type`
     bool NeedsRestarts(int type, int count);
     // 0x00594EA0: the level's node array from the park (the pieces, their rails, the rail editor's, the restart
@@ -779,10 +779,10 @@ public:
 
     uint32_t m_flags;               // +0x000
     uint32_t m_04;
-    CPiece* mp_pieces;              // +0x008
-    CSourcePiece* mp_sources;       // +0x00C
+    CParkTile* mp_pieces;              // +0x008
+    CTileTemplate* mp_sources;       // +0x00C
     void* mp_sourceScene;           // +0x010: "sk5ed"
-    void* mp_scene;                 // +0x014: "cloned"
+    void* m_sceneHandle;                 // +0x014: "cloned"
     uint32_t m_18;
     uint32_t m_nextPieceId;         // +0x01C (from 0x20)
     int m_maxPlayers;               // +0x020
@@ -793,17 +793,17 @@ public:
     int m_numUsedNodes;             // +0x094
     RestartPoint m_restarts[kNumRestarts]; // +0x098: by type - 0 player 2, 1 player 1, 2-7 horse, 8-13 king of
                                     // the hill, 14-17 the flags (RestartSlots)
-    int m_numLights;                // +0x320
+    int m_lightTotal;                // +0x320
     float m_ambient[3];             // +0x324 (rgb)
     float m_falloff[3];             // +0x330 (rgb)
-    Mth::Vector m_lights[kMaxLights]; // +0x33C
+    Maths::Vector m_lights[kMaxLights]; // +0x33C
     uint32_t m_43C;
-    uint8_t m_nodeArray[0x64];      // +0x440: an Ass::CNodeArrayAsset (the node array's owner)
+    uint8_t m_nodeArray[0x64];      // +0x440: an AssetStore::CNodeTableResource (the node array's owner)
 };
-static_assert(offsetof(CParkGenerator, m_sourceRails) == 0x24 && offsetof(CParkGenerator, m_rails) == 0x58 &&
-                  offsetof(CParkGenerator, mp_nodeInfo) == 0x8C && offsetof(CParkGenerator, m_restarts) == 0x98 &&
-                  offsetof(CParkGenerator, m_numLights) == 0x320 && offsetof(CParkGenerator, m_lights) == 0x33C &&
-                  offsetof(CParkGenerator, m_nodeArray) == 0x440 && sizeof(CParkGenerator) == 0x4A4,
+static_assert(offsetof(CParkAssembler, m_sourceRails) == 0x24 && offsetof(CParkAssembler, m_rails) == 0x58 &&
+                  offsetof(CParkAssembler, mp_nodeInfo) == 0x8C && offsetof(CParkAssembler, m_restarts) == 0x98 &&
+                  offsetof(CParkAssembler, m_lightTotal) == 0x320 && offsetof(CParkAssembler, m_lights) == 0x33C &&
+                  offsetof(CParkAssembler, m_nodeArray) == 0x440 && sizeof(CParkAssembler) == 0x4A4,
               "layout must match the original");
 
 // What RebuildFloorPiece is asked (0x1C bytes): the cell and its floor height; it says where the top piece went.
@@ -817,9 +817,9 @@ struct FloorPieceRequest {
     int height;
 };
 
-extern CParkManager* g_parkManager;
+extern CParkLayout* g_parkManager;
 
-class CParkManager {
+class CParkLayout {
 public:
     // m_flags: the compressed map's state (meanings partly guessed from where they're set)
     enum : uint32_t {
@@ -836,17 +836,17 @@ public:
     static constexpr int kNumRestartPieces = 8;
 
     // The one instance.
-    static CParkManager*& Instance() { return g_parkManager; }
+    static CParkLayout*& Instance() { return g_parkManager; }
     // 0x00595200 (the getter the game calls)
-    static CParkManager* sInstance();
+    static CParkLayout* sSingleton();
 
     // --- park_accessors.cpp (0x00595030-0x00595D40) ---
-    // 0x00595030: the compressed map; `markSaved` clears kMapNotSavedLocal.
-    CompressedMap* GetCompressedMapBuffer(bool markSaved);
+    // 0x00595030: the compressed map; `flagClean` clears kMapNotSavedLocal.
+    CompressedMap* GetPackedParkData(bool flagClean);
     // 0x00595050: take a whole compressed map (loaded or received).
-    void SetCompressedMapBuffer(const CompressedMap* map, bool markNotSaved);
+    void SetPackedParkData(const CompressedMap* map, bool flagDirty);
     // 0x00595090: the compressed map is valid and saved.
-    bool IsMapSavedLocally();
+    bool HasLocalParkCopy();
     // 0x005950B0: the compressed map's shell size (0 when it isn't readable).
     int GetShellSize();
     // 0x005950D0: the compressed map's park name (null if it isn't a map of this version).
@@ -859,9 +859,9 @@ public:
     // 0x00595170: the checksum of the park's shell model ("sk5ed_shell" or "sk5ed<size+1>_shell").
     uint32_t GetShellChecksum();
     // 0x005951E0
-    CMapListNode* GetMapListNode(int x, int z);
+    CMapListNode* GetCellChain(int x, int z);
     // 0x00595210: piece set `index`; `menuIndex` gets how many sets before it are shown.
-    CPieceSet* GetPieceSet(int index, int* menuIndex);
+    CPieceFamily* GetPieceFamily(int index, int* menuIndex);
     // 0x00595250: header fields of a compressed map.
     void GetMapInfo(const CompressedMap* map, int* numGaps, int* numMetas, uint16_t* shellSize, uint32_t* theme,
                     int* width, int* length);
@@ -870,20 +870,20 @@ public:
     // 0x00595300: which restart piece (1 to 8) has this name; 0 if none.
     int GetRestartIndex(uint32_t name);
     // 0x00595620: the palette metapiece with this name; `index` gets its position counted from the end.
-    CMetaPiece* GetAbstractMetaPiece(uint32_t name, int* index);
+    CPieceGroup* GetAbstractMetaPiece(uint32_t name, int* index);
     // 0x00595990: is there memory for the park grown or shrunk to `area` (w x l)?
-    bool CanResizeTo(GridDims area);
+    bool CanResizeTo(SCellBox area);
     // 0x005959D0: the highest floor in `area`; `isFlat` (if given) says whether it's all one height
-    int GetFloorHeight(GridDims area, bool* isFlat);
+    int GetGroundLevel(SCellBox area, bool* isFlat);
     // 0x00595A90: the world position of `area`'s corner (w = 1), and its size (if given)
-    Mth::Vector GridCoordinatesToWorld(const GridDims& area, Mth::Vector* size);
-    Mth::Vector* GridDimsToWorld(Mth::Vector* out, GridDims* area, Mth::Vector* size)
+    Maths::Vector CellToWorldPos(const SCellBox& area, Maths::Vector* size);
+    Maths::Vector* GridDimsToWorld(Maths::Vector* out, SCellBox* area, Maths::Vector* size)
     {
-        *out = GridCoordinatesToWorld(*area, size);
+        *out = CellToWorldPos(*area, size);
         return out;
     }
     // 0x00595B30: whether `area` overlaps one of the blocked areas (the road mask)
-    bool IsAreaBlocked(GridDims area);
+    bool IsAreaBlocked(SCellBox area);
     // 0x00595BC0: a copy of the gap manager in use (on the script heap); the one in use stays current
     void CreateGapManagerCopy();
     // 0x00595C70: make the copy the gap manager in use
@@ -891,15 +891,15 @@ public:
     // 0x00595C80
     void DestroyGapManagerCopy();
     // 0x00595CB0: highlight the pieces a gap can attach to (and, when highlighting, make `gap` current)
-    void HighlightGapPieces(bool on, GapInfo* gap);
+    void HighlightGapPieces(bool on, SGapDetails* gap);
     // 0x00595D40: clear the marks (and every metapiece's kFlag20)
     void ClearFloorChangeMarks();
     // The abstract metapiece named `checksum` (null if none) - inline in the original.
-    CMetaPiece* GetAbstractMeta(uint32_t checksum)
+    CPieceGroup* FindPieceTemplate(uint32_t checksum)
     {
-        for (CMapListNode* node = mp_abstract_metas; node; node = node->mp_next) {
-            CMetaPiece* meta = node->GetConcreteMeta();
-            if (meta->m_name_checksum == checksum)
+        for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following) {
+            CPieceGroup* meta = node->GetPlacedPiece();
+            if (meta->m_nameKey == checksum)
                 return meta;
         }
         return nullptr;
@@ -908,35 +908,35 @@ public:
     // --- park_lists.cpp: the map of metapieces ---
     // 0x00595670: a new concrete metapiece (on the park heap) made from the palette's `source`, its pieces made by
     // the generator with `flags`; added to the list of concrete metapieces
-    CMetaPiece* CreateConcreteMeta(CMetaPiece* source, uint32_t flags);
+    CPieceGroup* MakePlacedPiece(CPieceGroup* source, uint32_t flags);
     // 0x005958B0: is a placed piece (not the inner shell) not wholly inside `area` (x and z)?
-    bool HasPiecesOutside(GridDims area);
+    bool HasPiecesOutside(SCellBox area);
     // 0x00595DF0: add `meta` to the front of `list` unless it's in it already
-    void AddMetaToList(CMetaPiece* meta, CMapListNode** list);
+    void AddMetaToList(CPieceGroup* meta, CMapListNode** list);
     // 0x00595E80: unlink `meta` from `list`
-    void RemoveMetaFromList(CMetaPiece* meta, CMapListNode** list);
+    void RemoveMetaFromList(CPieceGroup* meta, CMapListNode** list);
     // 0x00595EE0: list `meta` in the cell lists under it
-    void AddMetaToCells(CMetaPiece* meta);
+    void AddMetaToCells(CPieceGroup* meta);
     // 0x00595FC0: take `meta` out of the cell lists under it
-    void RemoveMetaFromCells(CMetaPiece* meta);
+    void RemoveMetaFromCells(CPieceGroup* meta);
     // 0x00597740: the metapieces intersecting `area` (or, given `shape` turned to `rot` for the moment, those its
     // pieces would touch with its corner at `area`); `skipInnerShell` (its low byte; the whole value is passed on to
-    // CMetaPiece::Intersects) leaves out risers and counts only real
+    // CPieceGroup::Intersects) leaves out risers and counts only real
     // pieces' cells. A new list the caller frees.
-    CMapListNode* GetIntersectingMetas(GridDims area, int rot, CMetaPiece* shape, uint32_t skipInnerShell);
+    CMapListNode* GetIntersectingMetas(SCellBox area, int rot, CPieceGroup* shape, uint32_t skipInnerShell);
     // 0x00597A00: every metapiece with a piece in a cell of `area` (a new list the caller frees)
-    CMapListNode* GetAreaMetaPieces(GridDims area);
+    CMapListNode* CollectPiecesInRegion(SCellBox area);
     // 0x00597AC0: the gap at the metapiece in cell `pos` (made 1x1x1), and which of its ends (`half`)
-    GapInfo* GetGapInfo(GridDims* pos, int* half);
+    SGapDetails* GetGapInfo(SCellBox* pos, int* half);
     // 0x005983D0: whether a metapiece over `area` (at any height) has kFloorLocked
-    bool HasFloorLockedMeta(GridDims area);
+    bool HasFloorLockedMeta(SCellBox area);
     // 0x005984A0: change the floor cells of `area` (from height `y`: up or down a step, or to `target`; `mode` 1:
     // to the target, 2: up / exactly, 4: every height counts), marking them; the metapieces on it go on `list` and
     // their own areas change with them. False if a cell would leave -16..15.
-    bool BuildRiserList(GridDims area, int y, int target, uint32_t mode, CMapListNode** list);
+    bool BuildRiserList(SCellBox area, int y, int target, uint32_t mode, CMapListNode** list);
     // 0x00598150: `meta` placed (or taken away): raise the floor under its real pieces to their tops (or lower it
     // to their bottoms where nothing's left above) and mark (or clear) the levels they fill
-    void SetMetaInCells(CMetaPiece* meta, int add);
+    void SetMetaInCells(CPieceGroup* meta, int add);
 
     // --- park_io.cpp: set-up and saving ---
     // 0x005960D0: the palette from Ed_standard_metapieces (single pieces, multiple pieces, and ones made of other
@@ -955,28 +955,28 @@ public:
     // 0x005975A0
     void WriteCompressedMapIfBuilt();
     // 0x005975B0: the park into `params` (Park_editor_map, Park_editor_goals, the rails, MaxPlayers)
-    void WriteIntoStructure(Script::CStruct* params);
+    void ExportToStruct(Scripts::CStruct* params);
     // 0x00597720
     void SetShellSize(int size);
     // 0x005987A0: an empty park in the compressed map
     void ClearCompressedMap();
     // 0x00597BD0: a gap made from `gap` (the gap manager makes its triggers)
-    bool AddGap(GapInfo* gap);
+    bool RegisterGapEntry(SGapDetails* gap);
     // 0x00597FC0: delete a gap
-    void RemoveGap(GapInfo* gap);
-    // 0x00591450: debug output of a list (CMapListTemp::PrintContents)
+    void DropGapEntry(SGapDetails* gap);
+    // 0x00591450: debug output of a list (CCellChainScratch::DumpToLog)
     static void PrintMapList(const CMapListNode* list);
 
     // --- park_manager.cpp, park_map.cpp, park_floor.cpp (0x00598E00-0x0059C900) ---
     // 0x00598E00: the constructor (an empty park; the generator made). Returns this.
-    CParkManager* Construct();
+    CParkLayout* Construct();
     // 0x00599BF0 / 0x00599C70: make / delete the instance
     static void CreateInstance();
     static void DeleteInstance();
     // 0x00598FC0: a park from a script structure (its goals, rails, player count and map)
-    void ReadFromStructure(Script::CStruct* params, bool applyToEditor);
+    void DecodeFromStruct(Scripts::CStruct* params, bool applyToEditor);
     // 0x00599140: save the park to, or load it from, CustomParks\custom<slot>.prk
-    void AccessDisk(bool save, int slot);
+    void TransferParkFile(bool save, int slot);
     // 0x00599EB0 / 0x0059B750: the park built from the compressed map
     void ReadFromOldCompressedMap();
     void ReadFromCompressedMap();
@@ -985,16 +985,16 @@ public:
     // 0x005993E0: the restart points every park has, then the node array
     void GenerateNodeArray();
     // 0x00599A20: put `meta` in the park at `pos` (x, y, z)
-    void AddMetaPieceToPark(GridDims pos, CMetaPiece* meta);
+    void PlaceMetaPieceInPark(SCellBox pos, CPieceGroup* meta);
     // 0x00599CD0: whether the floor of `area` can be raised or lowered (not with pieces on it; without `uneven`,
     // only where it's flat at area.y)
-    bool CanChangeFloorHere(GridDims area, bool uneven);
+    bool CanChangeFloorHere(SCellBox area, bool uneven);
     // 0x00599E20: delete what's in the layer under `area` (counted in m_riserMetas / m_riserPieces)
-    void DestroyMetasBelow(GridDims area);
+    void DestroyMetasBelow(SCellBox area);
     // 0x0059B020: delete every placed metapiece (`keepRails` is passed to the generator)
     void DestroyConcreteMetas(int keepRails);
     // 0x0059B090: `meta` deleted and made again (dx, dy, dz) cells away, with its gap. Returns the new one.
-    CMetaPiece* RelocateMetaPiece(CMetaPiece* meta, int dx, int dy, int dz);
+    CPieceGroup* ShiftPlacedPiece(CPieceGroup* meta, int dx, int dy, int dz);
     // 0x0059B280: put the floor and the moved metapieces back
     void UndoFloorChange();
     // 0x0059B2C0: move each metapiece of `list` by its m_dy
@@ -1004,19 +1004,19 @@ public:
     // 0x0059BD40: take the park down (the map brought up to date first)
     void Destroy(int keepRails);
     // 0x0059BED0: the park's bounds become `bounds`: what's outside goes, the fence goes round it
-    void RebuildInnerShell(GridDims bounds);
+    void RebuildInnerShell(SCellBox bounds);
     // 0x0059C520: raise or lower (or with `level`, set to `target`) the floor of `area` and what's on it
-    bool ChangeFloorHeight(GridDims area, int y, int target, bool raise, bool level);
+    bool RaiseOrLowerFloor(SCellBox area, int y, int target, bool raise, bool level);
     // 0x0059C600: the floor pieces of `area` and round it (null: the whole park, after clearing what's outside)
-    bool RebuildFloor(GridDims* area, int unused); // (the callers pass 0 as `unused`)
+    bool RegenerateGround(SCellBox* area, int unused); // (the callers pass 0 as `unused`)
     // 0x00599880: delete the metapieces intersecting `area` (`flags`: 2 not the inner shell, 4 not kFlag20 ones;
-    // passed on to DestroyConcreteMeta). Returns the count of metapieces << 16 | the count of their pieces.
-    uint32_t DestroyMetasInArea(GridDims area, uint32_t flags);
+    // passed on to FreePlacedPiece). Returns the count of metapieces << 16 | the count of their pieces.
+    uint32_t FreePieceGroupsInRegion(SCellBox area, uint32_t flags);
     // 0x00599960: highlight (or not) the metapieces wholly within `area`
-    void HighlightMetasWithinArea(GridDims area, int on);
+    void HighlightMetasWithinArea(SCellBox area, int on);
     // 0x0059AE90: take `meta` out of the park and delete it (the cursor's own piece stays). `flags` 1: also
     // delete what stands on it (2: not the inner shell).
-    void DestroyConcreteMeta(CMetaPiece* meta, uint32_t flags);
+    void FreePlacedPiece(CPieceGroup* meta, uint32_t flags);
 
     // --- src/game/park/park_editor.cpp, park_cursor.cpp (0x0059C900-0x0059E0F7) ---
     // 0x0059CB10: rebuild the whole park: tear down what's built, then (for a new park - `how` 0x1A4E0EF9 - or one
@@ -1025,16 +1025,16 @@ public:
     void RebuildPark(uint32_t how);
     // 0x0059CC70: rebuild the pieces in `area` (0x0059C600); with `checkMemory`, false if the park is now over its
     // memory budget.
-    bool RebuildArea(const GridDims* area, bool checkMemory);
+    bool RebuildArea(const SCellBox* area, bool checkMemory);
     // 0x0059CD20: destroy the metapieces in `area` (not the floor's: flag 8) - with `skipRestarts` not restart
     // points, with `onlyWithin` only those wholly inside, with `skipLocked` not those with flag 0x100; the area's
     // scene updated. True (and the area rebuilt) if any went.
-    bool DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts, bool onlyWithin, bool skipLocked);
+    bool DestroyMetasInAreaAndRebuild(SCellBox area, bool skipRestarts, bool onlyWithin, bool skipLocked);
     // 0x0059CEC0: flatten `area`: each piece in it (not the floor's) moved down by its height and the floor under
     // it set to 0, then the area's floor; rebuilt.
-    void ClearArea(GridDims area);
+    void ClearArea(SCellBox area);
     // 0x0059D080: raise (dir > 0) or lower the floor in `area`; if it won't fit in memory it's undone. True if done.
-    bool ChangeFloorHeight(GridDims area, int dir);
+    bool RaiseOrLowerFloor(SCellBox area, int dir);
     // 0x0059DCD0: set up once for `level`: the park memory (Init), an empty grid, the park's map (0x0058CCC0), the
     // generator, the whole park built, and the palette's piece sets from Ed_piece_sets / Ed_standard_metapieces.
     void Initialize(uint32_t level);
@@ -1045,13 +1045,13 @@ public:
     T& At(uint32_t offset) { return *reinterpret_cast<T*>(Bytes() + offset); }
     void*& Generator() { return At<void*>(0x0); }       // the park's piece generator
     bool& FloorBuilt() { return At<bool>(0x5); }
-    GridDims& ParkDims() { return At<GridDims>(0x3520); }
+    SCellBox& ParkDims() { return At<SCellBox>(0x3520); }
     uint32_t& Flags() { return At<uint32_t>(0x17728); }
     int& NumSets() { return At<int>(0x13C8C); }
     // A grid cell (16 bytes): +0 the floor height there.
     uint32_t& CellHeight(int x, int z) { return At<uint32_t>(0x352C + (x * kGridSize + z) * 0x10); }
 
-    CParkGenerator* mp_generator;        // +0x00
+    CParkAssembler* m_builder;        // +0x00
     bool m_parkBuilt;                    // +0x04: the park is built (its changes go into the map when asked)
     bool m_05;                           // +0x05: the floor is built
     uint8_t pad06[2];
@@ -1067,40 +1067,40 @@ public:
     int m_numAbstractMetas;              // +0x88
     CMapListNode* m_cellMetas[kFloorSize][kFloorSize]; // +0x8C: [x][z] the metapieces with pieces in each cell
     int m_shellSize;                     // +0x351C: picks the shell model (sk5ed%d_shell) and the bounds' update
-    GridDims m_parkBounds;               // +0x3520: the park's area (inside the shell)
-    GridDims m_shellBounds;              // +0x3526: everything that may be built on
+    SCellBox m_parkBounds;               // +0x3520: the park's area (inside the shell)
+    SCellBox m_shellBounds;              // +0x3526: everything that may be built on
     FloorCell m_floor[kFloorSize][kFloorSize]; // +0x352C: [x][z]
-    CPieceSet m_sets[kMaxSets];          // +0x1076C
+    CPieceFamily m_sets[kMaxSets];          // +0x1076C
     int m_numSets;                       // +0x13C8C
     CompressedMap m_map;                 // +0x13C90
     uint32_t m_flags;                    // +0x17728
     char m_parkName[0x40];               // +0x1772C
-    GridDims m_blockedAreas[8];          // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
+    SCellBox m_blockedAreas[8];          // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)
     uint32_t m_numBlockedAreas;          // +0x1779C
     uint32_t unknown177A0;
     uint32_t m_restartPieces[kNumRestartPieces]; // +0x177A4: restart_1, restart_multi, restart_horse, king_of_hill,
                                                  // and the red, green, blue, yellow flags
-    CGapManager* mp_gapManager;          // +0x177C4
-    CGapManager* mp_gapManagerCopy;      // +0x177C8: see CreateGapManagerCopy
+    CGapRegistry* mp_gapManager;          // +0x177C4
+    CGapRegistry* mp_gapManagerCopy;      // +0x177C8: see CreateGapManagerCopy
 
 private:
-    void ReadCompressedMap(Script::CArray* names, bool current);
+    void ReadCompressedMap(Scripts::CArray* names, bool current);
 };
-static_assert(offsetof(CParkManager, m_shellBlocks) == 0x14 && offsetof(CParkManager, mp_concrete_metas) == 0x7C &&
-                  offsetof(CParkManager, m_cellMetas) == 0x8C && offsetof(CParkManager, m_shellSize) == 0x351C &&
-                  offsetof(CParkManager, m_floor) == 0x352C && offsetof(CParkManager, m_sets) == 0x1076C &&
-                  offsetof(CParkManager, m_numSets) == 0x13C8C && offsetof(CParkManager, m_map) == 0x13C90 &&
-                  offsetof(CParkManager, m_flags) == 0x17728 && offsetof(CParkManager, m_blockedAreas) == 0x1776C &&
-                  offsetof(CParkManager, m_numBlockedAreas) == 0x1779C &&
-                  offsetof(CParkManager, m_restartPieces) == 0x177A4 && offsetof(CParkManager, mp_gapManager) == 0x177C4 &&
-                  sizeof(CParkManager) == 0x177CC,
+static_assert(offsetof(CParkLayout, m_shellBlocks) == 0x14 && offsetof(CParkLayout, mp_concrete_metas) == 0x7C &&
+                  offsetof(CParkLayout, m_cellMetas) == 0x8C && offsetof(CParkLayout, m_shellSize) == 0x351C &&
+                  offsetof(CParkLayout, m_floor) == 0x352C && offsetof(CParkLayout, m_sets) == 0x1076C &&
+                  offsetof(CParkLayout, m_numSets) == 0x13C8C && offsetof(CParkLayout, m_map) == 0x13C90 &&
+                  offsetof(CParkLayout, m_flags) == 0x17728 && offsetof(CParkLayout, m_blockedAreas) == 0x1776C &&
+                  offsetof(CParkLayout, m_numBlockedAreas) == 0x1779C &&
+                  offsetof(CParkLayout, m_restartPieces) == 0x177A4 && offsetof(CParkLayout, mp_gapManager) == 0x177C4 &&
+                  sizeof(CParkLayout) == 0x177CC,
               "layout must match the original");
-inline CPieceSet* Sets(CParkManager* manager) { return manager->m_sets; }
+inline CPieceFamily* Sets(CParkLayout* manager) { return manager->m_sets; }
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
-extern CCursor* g_cursor;
+extern CBuildPointer* g_cursor;
 
-class CCursor {
+class CBuildPointer {
 public:
     enum Mode {
         kModeNone = 0,
@@ -1113,25 +1113,25 @@ public:
     };
 
     // The one instance.
-    static CCursor*& Instance() { return g_cursor; }
+    static CBuildPointer*& Instance() { return g_cursor; }
     // 0x00595330 (the getter the game calls)
-    static CCursor* sInstance();
+    static CBuildPointer* sSingleton();
 
     // --- cursor_tools.cpp (0x00595330-0x005989C0) ---
     // 0x00595340: take every clipboard's preview out of the park
     void HideClipboards();
     // 0x00595360: the gap's name ("" makes it "x") and score (unless negative), handed to the gap manager
-    void SetGapNameAndScore(const char* name, int score);
+    void SetGapLabelAndPoints(const char* name, int score);
     // 0x005953C0: the gap's cancel flags, from the names in `flags` (each a global integer), handed to the gap manager
-    void SetGapCancelFlags(Script::CStruct* flags);
+    void SetGapVoidMask(Scripts::CStruct* flags);
     // 0x00595430
-    char* GetGapName() { return m_gap.m_text; }
+    char* GetGapTitle() { return m_gap.m_text; }
     // 0x00595440: show the current clipboard's preview here
     void ShowClipboard();
     // 0x00595450: hide every preview and make clipboard `index` the current one (none past the end)
     void SelectClipboard(int index);
     // 0x005954A0
-    void SetVisibility(bool visible);
+    void ToggleShown(bool visible);
     // 0x005954D0: tell the scripts the mode changed (parked_set_helper_text_mode)
     void OnModeChanged();
     // 0x00597100: back to the first corner of the area selection
@@ -1141,7 +1141,7 @@ public:
         m_areaHighlighted = false;
     }
     // 0x00597110: the selected area (one level high; all zero without a selection)
-    void GetAreaSelectDims(GridDims* out);
+    void GetMarqueeBounds(SCellBox* out);
     // 0x00597190: delete the oldest clipboard (the last in the list)
     void RemoveOldestClipboard();
     // 0x005971E0: keep the cursor (or the paste) within the park
@@ -1149,27 +1149,27 @@ public:
     // 0x005988A0: destroy every clipboard (the list head is left as it was)
     void DestroyClipboards();
     // 0x00598940: forget the gap being placed if `meta` is (one of) its pieces
-    void ForgetGapAt(CMetaPiece* meta);
+    void ForgetGapAt(CPieceGroup* meta);
     // 0x005989C0: the next step of the area selection: start it at the cursor, or finish it when it's at most
     // 11 x 11; the state after (0 none, 1 first corner set, 2 done)
     int AdvanceAreaSelection();
 
     // --- cursor.cpp (0x00598A60-0x0059C860) ---
     // 0x0059C7A0: the constructor (on the first piece of set 0). Returns this.
-    CCursor* Construct();
+    CBuildPointer* Construct();
     // 0x0059C860: make the instance (on the park editor's heap) if there isn't one
     static void CreateInstance();
     // 0x00598A60: highlight (or not) the metapieces under the cursor (or under the paste)
-    void HighlightIntersectingMetas(int on);
-    // 0x00598B40: whether the cursor is over a gap's piece (the lookup shrinks m_cell_area to 1x1x1)
+    void GlowOverlappingPieces(int on);
+    // 0x00598B40: whether the cursor is over a gap's piece (the lookup shrinks m_cellFootprint to 1x1x1)
     bool IsOverGap();
     // 0x00598B60: move by (dx, dz) cells (kept in the park), then follow the floor and the gap state
     void Move(int dx, int dz);
-    // 0x0059A1F0: one frame: turn by `rotInc` quarter turns, step on the stick (shiftX, shiftZ), slide towards the
+    // 0x0059A1F0: one frame: turn by `turnStep` quarter turns, step on the stick (offsetCellX, offsetCellZ), slide towards the
     // target and show the piece there
-    void Update(float shiftX, float shiftZ, int rotInc);
+    void Update(float offsetCellX, float offsetCellZ, int turnStep);
     // 0x0059A5A0: drop the area selection (and its highlight)
-    void ClearAreaSelection();
+    void DropAreaMarquee();
     // 0x0059A610: whether the selected area can't be copied (bigger than 10 x 10, or the editor says no)
     bool IsAreaSelectionInvalid();
     // 0x0059A6D0: copy the selected area into a new clipboard (the oldest goes when there are 6). False if it
@@ -1204,7 +1204,7 @@ public:
     bool DestroySelection();
     void FlattenSelection();
     // 0x0059D9F0: raise / lower `area` (at most 10 x 10) to `height` + dir; undone if out of memory.
-    bool RaiseArea(GridDims area, int height, int dir, char level);
+    bool RaiseArea(SCellBox area, int height, int dir, char level);
     // 0x0059DAA0: raise / lower the cursor's area (the selection, the clipboard's), widened by the pieces on it;
     // not above 17 or below -16.
     bool RaiseLower(int dir);
@@ -1212,20 +1212,20 @@ public:
     static void __cdecl Destroy();
     // 0x0059C950: the next (dir 1) / previous (-1) piece of the current set, wrapping; a clipboard set selects a
     // clipboard instead.
-    void ChangePieceInSet(int dir);
+    void StepPieceChoice(int dir);
     // 0x0059C9B0: the next / previous visible set (if any); a clipboard set selects its clipboard and drops the
     // cursor's piece (mode 5).
-    void ChangeSet(int dir);
+    void StepPieceFamily(int dir);
 
     // Offset accessors (src/game/park).
     uint8_t* Bytes() { return reinterpret_cast<uint8_t*>(this); }
     template <typename T>
     T& At(uint32_t offset) { return *reinterpret_cast<T*>(Bytes() + offset); }
-    CParkManager*& Manager() { return At<CParkManager*>(0x0); }
-    GridDims& Area() { return At<GridDims>(0x4); }        // the cells under the cursor
+    CParkLayout*& Manager() { return At<CParkLayout*>(0x0); }
+    SCellBox& Area() { return At<SCellBox>(0x4); }        // the cells under the cursor
     int& Rotation() { return At<int>(0x38); }
     bool& Selecting() { return At<bool>(0x48); }          // an area is selected
-    GapInfo& Gap() { return At<GapInfo>(0x70); }          // the gap being made
+    SGapDetails& Gap() { return At<SGapDetails>(0x70); }          // the gap being made
     uint32_t& GapCounter() { return At<uint32_t>(0xC4); }
     uint8_t*& Meta() { return At<uint8_t*>(0x44); }       // the piece the cursor holds (flag 0x200 while it does)
     uint8_t*& Clipboards() { return At<uint8_t*>(0x58); } // the clipboards (next at +0x14)
@@ -1234,52 +1234,52 @@ public:
     int& MenuSetNumber() { return At<int>(0x68); }        // the set's place among the visible ones
     int& Mode() { return At<int>(0x6C); }                 // 4: area selection, 5: clipboard
 
-    CParkManager* mp_manager;    // +0x00
-    GridDims m_cell_area;        // +0x04
+    CParkLayout* m_parkOwner;    // +0x00
+    SCellBox m_cellFootprint;        // +0x04
     uint8_t pad0A[2];
     float m_moveTime;            // +0x0C: of the slide to the target (1 when a step starts)
     int unknown10;
-    Mth::Vector m_target;        // +0x14
-    Mth::Vector m_pos;           // +0x24
+    Maths::Vector m_aimPoint;        // +0x14
+    Maths::Vector m_pos;           // +0x24
     uint8_t unknown34[4];
-    int m_rot;                   // +0x38: quarter turns
+    int m_quarterTurns;                   // +0x38: quarter turns
     float m_targetAngle;         // +0x3C: degrees
     float m_angle;               // +0x40
-    CMetaPiece* mp_meta;         // +0x44: the piece shown at the cursor
+    CPieceGroup* m_pieceGroup;         // +0x44: the piece shown at the cursor
     uint8_t m_areaSelect;        // +0x48: the area selection (0 none, 1 first corner set, 2 done)
-    GridDims m_areaStart;        // +0x49: its first corner
-    GridDims m_areaLast;         // +0x4F: the cursor's cell when the highlight was made (the other corner)
+    SCellBox m_areaStart;        // +0x49: its first corner
+    SCellBox m_areaLast;         // +0x4F: the cursor's cell when the highlight was made (the other corner)
     bool m_areaHighlighted;      // +0x55
     uint8_t pad56[2];
-    CClipboard* mp_clipboards;   // +0x58: the newest first
+    CClipboard* m_copyBuffers;   // +0x58: the newest first
     CClipboard* mp_clipboard;    // +0x5C: the one being pasted
     int m_clipboardHeight;       // +0x60
     int m_clipboardSet;          // +0x64: the clipboard set's index
     int m_menuIndex;             // +0x68
     int m_mode;                  // +0x6C
-    GapInfo m_gap;               // +0x70
+    SGapDetails m_gap;               // +0x70
     uint32_t m_gapCounter;       // +0xC4: names the next gap
 };
-static_assert(offsetof(CCursor, m_target) == 0x14 && offsetof(CCursor, mp_meta) == 0x44 &&
-                  offsetof(CCursor, m_areaStart) == 0x49 && offsetof(CCursor, m_areaHighlighted) == 0x55 &&
-                  offsetof(CCursor, mp_clipboards) == 0x58 && offsetof(CCursor, m_mode) == 0x6C &&
-                  offsetof(CCursor, m_gap) == 0x70 && sizeof(CCursor) == 200,
+static_assert(offsetof(CBuildPointer, m_aimPoint) == 0x14 && offsetof(CBuildPointer, m_pieceGroup) == 0x44 &&
+                  offsetof(CBuildPointer, m_areaStart) == 0x49 && offsetof(CBuildPointer, m_areaHighlighted) == 0x55 &&
+                  offsetof(CBuildPointer, m_copyBuffers) == 0x58 && offsetof(CBuildPointer, m_mode) == 0x6C &&
+                  offsetof(CBuildPointer, m_gap) == 0x70 && sizeof(CBuildPointer) == 200,
               "layout must match the original");
 
 // Park editor script commands (park_cfuncs.cpp).
 // 0x0058E120 GetParkEditorMaxPlayers: <MaxPlayers> = the park's player count.
-bool __cdecl CFunc_GetParkEditorMaxPlayers(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_GetParkEditorMaxPlayers(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
-bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Scripts::CStruct* params, Scripts::CScript* script);
 
 extern float g_parkCellSizeX;
 extern float g_parkCellSizeY;
 extern float g_parkCellSizeZ;
-extern Mth::Vector g_railOrigin;
-extern Mem::PoolPair g_railPools;
-extern Mem::PoolPair g_clipboardPools;
-extern Mem::PoolPair g_clipboardEntryPools;
-extern Mem::PoolPair g_nodePools;
+extern Maths::Vector g_railOrigin;
+extern MemSys::PoolPair g_railPools;
+extern MemSys::PoolPair g_clipboardPools;
+extern MemSys::PoolPair g_clipboardEntryPools;
+extern MemSys::PoolPair g_nodePools;
 
 extern bool g_railEditorFlag;
 } // namespace Ed

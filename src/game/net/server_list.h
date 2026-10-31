@@ -5,27 +5,27 @@
 
 #include "game/core/alloc.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace Net {
-struct MsgHandlerContext;
+namespace NetLink {
+struct InboundMsgCtx;
 } // namespace Net
 
 // The network manager's server list (0x005451B0-0x00548040): the servers found (on the LAN through the server-list
 // client, on the internet through GameSpy's server browser - the SDK is a library, called by address), shown in
 // the server list menu, described and chosen; and the online service's download threads (the news, the message of
 // the day) with their state (the manager's +0x1B8).
-namespace GameNet {
+namespace OnlinePlay {
 
-extern void** const kServerSearchVtable; // 0x0064CD70: Lst::Search<ServerInfo>
+extern void** const kServerSearchVtable; // 0x0064CD70: ListKit::Search<HostListing>
 
 // A server found (0xA8 bytes, vtable 0x0064CDFC): a node of the manager's server list (+0x158) or of the servers
 // waiting to be shown (+0x16C).
-struct ServerInfo : Mem::ListNode {
+struct HostListing : MemSys::ListNode {
     char m_name[16];              // +0x14
-    uint32_t m_ip;                // +0x24
+    uint32_t m_hostAddr;                // +0x24
     int m_port;                   // +0x28
     int m_ping;                   // +0x2C (9999: not known)
     int m_numPlayers;             // +0x30
@@ -47,34 +47,34 @@ struct ServerInfo : Mem::ListNode {
     bool m_detailed;              // +0x8D the full details have come
     uint8_t pad8E[2];
     void* m_sbServer;             // +0x90 GameSpy's SBServer (internet)
-    Mem::ListNode m_players;      // +0x94 (Lst::Head<PlayerInfo>, vtable 0x0064C9F0): its players' names and ratings
+    MemSys::ListNode m_players;      // +0x94 (ListKit::Head<PlayerRecord>, vtable 0x0064C9F0): its players' names and ratings
 
     // 0x00545F60: an empty one: one of eight players, one of one observer, skill level 2, mode and level "None",
     // reachable. Returns this.
-    ServerInfo* Construct();
+    HostListing* Construct();
     // 0x00546640: its players freed (0x005465A0), then the heads' destructors.
     void DestroyBody();
     // 0x00547F70 (vtable slot 0): the scalar deleting destructor.
-    ServerInfo* Destroy(unsigned int flags);
-    // 0x00545790: a player (a PlayerInfo with only its name - 15 characters - and rating) added (on the internet
+    HostListing* Destroy(unsigned int flags);
+    // 0x00545790: a player (a PlayerRecord with only its name - 15 characters - and rating) added (on the internet
     // or the network heap).
-    void AddPlayer(const char* name, int rating);
+    void EnrollPlayer(const char* name, int rating);
     // 0x005465A0: each player destroyed by the manager (0x0053C950).
     void ClearPlayers();
     // 0x005466D0 / 0x00546730: player `index`'s name / rating (null / 0 past the end).
-    const char* GetPlayerName(int index);
-    int GetPlayerRating(int index);
+    const char* GetEntrantName(int index);
+    int GetEntrantRank(int index);
 };
-static_assert(offsetof(ServerInfo, m_ip) == 0x24 && offsetof(ServerInfo, m_level) == 0x40 &&
-                  offsetof(ServerInfo, m_hostMode) == 0x84 && offsetof(ServerInfo, m_sbServer) == 0x90 &&
-                  offsetof(ServerInfo, m_players) == 0x94 && sizeof(ServerInfo) == 0xA8,
+static_assert(offsetof(HostListing, m_hostAddr) == 0x24 && offsetof(HostListing, m_level) == 0x40 &&
+                  offsetof(HostListing, m_hostMode) == 0x84 && offsetof(HostListing, m_sbServer) == 0x90 &&
+                  offsetof(HostListing, m_players) == 0x94 && sizeof(HostListing) == 0xA8,
               "layout must match the original");
 
-// Lst::Search<ServerInfo> (vtable 0x0064CD70): 0x005451D0 the destructor body (the vtable reset), 0x00545460 the
+// ListKit::Search<HostListing> (vtable 0x0064CD70): 0x005451D0 the destructor body (the vtable reset), 0x00545460 the
 // scalar deleting one.
 struct ServerSearch {
     void** m_vtable;
-    Mem::ListNode* m_node;
+    MemSys::ListNode* m_listLink;
     void DestroyBody();
     ServerSearch* Destroy(unsigned int flags);
 };
@@ -84,7 +84,7 @@ struct ServerSearch {
 // servers are shown as ShowFoundServers does (update_lobby_server_list by checksum).
 void __cdecl ServerListTask(void* task);
 
-// The online service's download threads (stdcall, the manager as the argument; started by Net::ServiceTask).
+// The online service's download threads (stdcall, the manager as the argument; started by NetLink::ServiceTask).
 // 0x00545540: the news (state 7): motd.dat (testmotd.dat when 0x007CE441 is set) from www.thug2online.com into
 // the manager's buffer (+0x99F4, 25600 bytes cleared first), NewsCallback when done. 0x00545620: the message of the
 // day (state 9): GameSpy's usage report (ptTrackUsage, which asks motd.<domain>/motd/motd.asp: product 10368,
@@ -101,21 +101,21 @@ int __cdecl NewsCallback(void* request, int result, uint8_t* buffer, uint32_t si
 bool __cdecl IsThug2Location(const char* location);
 
 // The script commands.
-bool __cdecl CFunc_PostGame(Script::CStruct* params, Script::CScript* script);            // 0x00545440
-bool __cdecl CFunc_NumServersInLobby(Script::CStruct* params, Script::CScript* script);   // 0x00545F20
+bool __cdecl CFunc_PostGame(Scripts::CStruct* params, Scripts::CScript* script);            // 0x00545440
+bool __cdecl CFunc_NumServersInLobby(Scripts::CStruct* params, Scripts::CScript* script);   // 0x00545F20
 
 // --- server_browser.cpp ---
 class Manager;
 // 0x00546790 / 0x005470D0 / 0x00547FA0: the chosen server described / joined / its details asked for (see the .cpp).
-bool __cdecl CFunc_DescribeServer(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ChooseServer(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_RetrieveServerInfo(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_DescribeServer(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ChooseServer(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_RetrieveServerInfo(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005475C0: the server-list client's handler for a LAN server's reply (a Net message handler).
-int __cdecl HandleServerResponse(Net::MsgHandlerContext* context);
+int __cdecl HandleServerResponse(NetLink::InboundMsgCtx* context);
 // 0x00547750: GameSpy's game listing callback (add / update / remove / clear), the manager its parameter.
 void __cdecl ListingGamesCallback(void* peer, int success, const char* name, void* sb, int staging, int message,
                                   int progress, Manager* manager);
 
 extern uint32_t g_newsMessageCount;
 
-} // namespace GameNet
+} // namespace OnlinePlay

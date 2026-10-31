@@ -9,7 +9,7 @@
 #include "game/front/level_editor_ui.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 
 namespace {
 
@@ -115,7 +115,7 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
         if (ImGui::BeginCombo("##terrain", ("Terrain: " + current).c_str())) {
             for (int i = 0; i < static_cast<int>(chain.terrains.size()); ++i) {
                 if (ImGui::Selectable(TerrainLabel(chain.terrains[i]).c_str(), i == chain.terrain))
-                    Ask(requests, Chains::kOpTerrain, Crc::GenerateCRCFromString(chain.terrains[i].c_str()));
+                    Ask(requests, Chains::kOpTerrain, Checksums::HashFromText(chain.terrains[i].c_str()));
             }
             ImGui::EndCombo();
         }
@@ -196,4 +196,4 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
         ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
 }
 
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui

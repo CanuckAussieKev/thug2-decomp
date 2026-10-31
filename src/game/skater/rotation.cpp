@@ -98,7 +98,7 @@ static_assert(std::bit_cast<uint32_t>(kPi) == 0x40490FDB && std::bit_cast<uint32
               "the original's constants");
 
 // The game clock (ms) plus the offset at 0x00696D60: the time a flag or button changed.
-int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
+int Now() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
 
 // Clear a state flag (noting when).
 void ClearFlag(void* component, uint32_t flag)
@@ -114,37 +114,37 @@ void ClearFlag(void* component, uint32_t flag)
 // global (asserted when `required`).
 double PhysicsFloat(uint32_t name, int required, void* object)
 {
-    return Obj::GetPhysicsFloat(name, required, static_cast<Obj::CCompositeObject*>(object));
+    return GameObjects::ReadTuningFloat(name, required, static_cast<GameObjects::CGameEntity*>(object));
 }
 int PhysicsInt(uint32_t name, int required, void* object)
 {
-    return Obj::GetPhysicsInt(name, required, static_cast<Obj::CCompositeObject*>(object));
+    return GameObjects::ReadTuningInt(name, required, static_cast<GameObjects::CGameEntity*>(object));
 }
 // A value set by the skater's stats (0x00580790: script range scaled by the stat level, unrounded).
 double StatValue(void* object, uint32_t name)
 {
-    return static_cast<Obj::CSkater*>(object)->GetScaledPhysics(name); // (rounded to a float by ours)
+    return static_cast<GameObjects::CRider*>(object)->GetScaledPhysics(name); // (rounded to a float by ours)
 }
 
 // How long a button has been down - read as unsigned by the first pair of spin buttons, signed by
 // the second.
-int HeldTime(uint8_t* button) { return reinterpret_cast<Obj::CControlButton*>(button)->GetPressedTime(); }
+int HeldTime(uint8_t* button) { return reinterpret_cast<GameObjects::CControlButton*>(button)->GetHeldMillis(); }
 float HeldSeconds(uint8_t* button) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(HeldTime(button)))); }
 // Forget a button's press this frame.
-void TakePress(uint8_t* button) { reinterpret_cast<Obj::CControlButton*>(button)->ClearTrigger(); }
+void TakePress(uint8_t* button) { reinterpret_cast<GameObjects::CControlButton*>(button)->ResetActivation(); }
 
-Mth::Matrix& ObjectMatrix(void* object) { return At<Mth::Matrix>(object, kMatrix); }
+Maths::Matrix& ObjectMatrix(void* object) { return At<Maths::Matrix>(object, kMatrix); }
 
 // The skater's matrix turned so that it faces along its velocity (x and z), kept upright about that.
 void FaceAlongVelocity(void* object)
 {
-    Mth::Vector direction = At<Mth::Vector>(object, kVelocity);
+    Maths::Vector direction = At<Maths::Vector>(object, kVelocity);
     direction.Normalize();
-    Mth::Vector& forward = At<Mth::Vector>(object, kForward);
+    Maths::Vector& forward = At<Maths::Vector>(object, kForward);
     forward.x = direction.x;
     forward.z = direction.z;
     forward.Normalize();
-    ObjectMatrix(object).OrthoNormalizeAbout(2);
+    ObjectMatrix(object).SquareUpAxes(2);
 }
 
 } // namespace
@@ -243,16 +243,16 @@ void CorePhysicsComponent::Spin()
         // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
         flags = At<uint8_t*>(this, kFlags);
         if (flags[kFlag30] && flags[kCanFaceRamp]) {
-            float tilt = Mth::Clamp(At<float>(object, kForward + 4), -1.0f, 1.0f);
+            float tilt = Maths::Clamp(At<float>(object, kForward + 4), -1.0f, 1.0f);
             float angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
             if (PhysicsFloat(kFaceRampMaxTilt, 1, object) * kDegreesToRadians > angle) {
                 ClearFlag(this, kCanFaceRamp);
             } else {
-                float off = static_cast<float>(Mth::GetAngleAbout(At<Mth::Vector>(object, kForward),
-                                                                  At<Mth::Vector>(this, kRampDirection),
-                                                                  At<Mth::Vector>(object, kUp)));
+                float off = static_cast<float>(Maths::GetTurnAroundAxis(At<Maths::Vector>(object, kForward),
+                                                                  At<Maths::Vector>(this, kRampDirection),
+                                                                  At<Maths::Vector>(object, kUp)));
                 float rate = static_cast<float>(PhysicsFloat(kFaceRampSpeed, 1, object));
-                double turn = static_cast<double>(Mth::Sign(off)) * rate;
+                double turn = static_cast<double>(Maths::Sign(off)) * rate;
                 speed = static_cast<float>(turn);
                 if (std::fabs(off) < std::fabs(turn * frameLength())) {
                     // (the last bit: exactly what's left)
@@ -267,8 +267,8 @@ void CorePhysicsComponent::Spin()
 
     At<bool>(this, kSpinningLeft) = speed > 0.0f;
     float step = static_cast<float>(static_cast<double>(speed) * frameLength());
-    ObjectMatrix(object).RotateYLocal(step);
-    At<Mth::Matrix>(this, kDisplayMatrix).RotateYLocal(step);
+    ObjectMatrix(object).YawLocally(step);
+    At<Maths::Matrix>(this, kDisplayMatrix).YawLocally(step);
     float& total = At<float>(At<uint8_t*>(this, kTrick), 0x13A4);
     total = static_cast<float>(static_cast<double>(step) * kRadiansToDegrees + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
@@ -281,7 +281,7 @@ void CorePhysicsComponent::Spin()
             return;
     }
     void* display = At<void*>(At<void*>(this, kRotationDisplay), 0x18);
-    static_cast<Mdl::Score*>(display)->UpdateSpin(static_cast<int>(static_cast<int64_t>(total)));
+    static_cast<GameModules::Score*>(display)->AdvanceTurn(static_cast<int>(static_cast<int64_t>(total)));
 }
 
 // 0x00507120
@@ -312,12 +312,12 @@ void CorePhysicsComponent::BreakVert(bool force)
     float* velocity = &At<float>(object, kVelocity);
     if (triggers() || At<bool>(this, kBreakVertFlag) || (bike && ThawBmx::VertTapHeld(this))) {
         if (TrySpineTransfer()) {
-            At<Mth::Matrix>(this, kDisplayMatrix) = ObjectMatrix(object);
+            At<Maths::Matrix>(this, kDisplayMatrix) = ObjectMatrix(object);
             return;
         }
         velocity[0] = static_cast<float>(velocity[0] - static_cast<double>(At<float>(this, kWallNormalX)) * kBreakVertPush);
         velocity[2] = static_cast<float>(velocity[2] - static_cast<double>(At<float>(this, kWallNormalZ)) * kBreakVertPush);
-        ObjectMatrix(object).RotateXLocal(
+        ObjectMatrix(object).PitchLocally(
             static_cast<float>(PhysicsFloat(kBreakVertPitch, 1, object) * kDegreesToRadians));
         ClearFlag(this, kFlag30);
         ClearFlag(this, kFlag38);
@@ -339,13 +339,13 @@ void CorePhysicsComponent::BreakVert(bool force)
     velocity[0] = static_cast<float>(velocity[0] - slow * At<float>(this, kWallNormalX));
     velocity[2] = static_cast<float>(velocity[2] - slow * At<float>(this, kWallNormalZ));
     velocity[1] = static_cast<float>(PhysicsFloat(kBreakVertUpScale, 1, object) * velocity[1]);
-    ObjectMatrix(object).RotateXLocal(static_cast<float>(PhysicsFloat(kBreakVertPitch, 1, object) * kDegreesToRadians));
+    ObjectMatrix(object).PitchLocally(static_cast<float>(PhysicsFloat(kBreakVertPitch, 1, object) * kDegreesToRadians));
     ClearFlag(this, kFlag30);
     ClearFlag(this, kFlag38);
     ClearFlag(this, kFlag48);
     ClearFlag(this, kFlagB0);
     FaceAlongVelocity(object);
-    At<Mth::Matrix>(this, kDisplayMatrix) = ObjectMatrix(object);
+    At<Maths::Matrix>(this, kDisplayMatrix) = ObjectMatrix(object);
 }
 
 } // namespace Skater

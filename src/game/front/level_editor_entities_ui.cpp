@@ -16,7 +16,7 @@
 #include "game/script/struct.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Entities {
+namespace MenuSystem::LevelEditor::Entities {
 
 namespace {
 
@@ -29,8 +29,8 @@ const char* ShortName(const std::string& path)
 
 bool Live(uint32_t id)
 {
-    Obj::CObject* object = Obj::FindObject(id);
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD);
+    GameObjects::CObject* object = GameObjects::FindObject(id);
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD);
 }
 
 // The rigid body's fields (THUG2's bouncy objects), in the order the levels write them.
@@ -54,9 +54,9 @@ void FieldRequest(std::vector<Ui::Request>* requests, uint32_t node, uint32_t ke
     requests->push_back(r);
 }
 
-void ModelSection(uint32_t id, Script::CStruct* s, std::vector<Ui::Request>* requests)
+void ModelSection(uint32_t id, Scripts::CStruct* s, std::vector<Ui::Request>* requests)
 {
-    static const uint32_t kModel = Crc::GenerateCRCFromString("model");
+    static const uint32_t kModel = Checksums::HashFromText("model");
     const char* model = nullptr;
     if (!s || !s->GetString(kModel, &model, 0) || !model || !Live(id))
         return;
@@ -83,19 +83,19 @@ void ModelSection(uint32_t id, Script::CStruct* s, std::vector<Ui::Request>* req
     ImGui::TextDisabled("Models already loaded by this level");
 }
 
-void PhysicsSection(uint32_t name, Script::CStruct* s, std::vector<Ui::Request>* requests)
+void PhysicsSection(uint32_t name, Scripts::CStruct* s, std::vector<Ui::Request>* requests)
 {
-    static const uint32_t kBouncy = Crc::GenerateCRCFromString("bouncy");
-    static const uint32_t kContacts = Crc::GenerateCRCFromString("contacts");
+    static const uint32_t kBouncy = Checksums::HashFromText("bouncy");
+    static const uint32_t kContacts = Checksums::HashFromText("contacts");
     int index = Nodes::Find(name);
-    if (!s || index < 0 || !s->ContainsFlag(kBouncy))
+    if (!s || index < 0 || !s->HasBareFlag(kBouncy))
         return;
     ImGui::Spacing();
     ImGui::SeparatorText("Physics");
     std::vector<Fields::Row> rows = Fields::RowsOf(Nodes::All()[index]);
     if (ImGui::BeginTable("##physics", 2, ImGuiTableFlags_SizingStretchProp)) {
         for (const char* field : kPhysics) {
-            uint32_t key = Crc::GenerateCRCFromString(field);
+            uint32_t key = Checksums::HashFromText(field);
             auto row = std::find_if(rows.begin(), rows.end(), [&](const Fields::Row& r) { return r.key == key; });
             if (row == rows.end())
                 continue;
@@ -119,7 +119,7 @@ void PhysicsSection(uint32_t name, Script::CStruct* s, std::vector<Ui::Request>*
                 ImGui::SetTooltip("Applies on reload");
             ImGui::PopID();
         }
-        Script::CArray* contacts = nullptr;
+        Scripts::CArray* contacts = nullptr;
         if (s->GetArray(kContacts, &contacts, 0) && contacts) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
@@ -245,7 +245,7 @@ void InspectorSection(int node, uint32_t object, ImFont* mono, std::vector<Ui::R
         family = static_cast<int>(all[index].family);
     if (!name)
         return;
-    Script::CStruct* s = SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    Scripts::CStruct* s = LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
     if (object) {
         ModelSection(object, s, requests);
         PhysicsSection(object, s, requests);
@@ -274,4 +274,4 @@ void ViewOptions()
         ImGui::SetTooltip("Show objects created later by scripts");
 }
 
-} // namespace Front::LevelEditor::Entities
+} // namespace MenuSystem::LevelEditor::Entities

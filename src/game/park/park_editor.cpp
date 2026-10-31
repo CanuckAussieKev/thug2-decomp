@@ -10,7 +10,7 @@
 #include "game/park/park_memory.h"
 #include "game/ed/rail_editor.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -21,38 +21,38 @@ constexpr uint32_t kMetaLocked = 0x100;    // (not destroyed by an area's deleti
 constexpr uint32_t kMetaInCursor = 0x200;  // held by the cursor
 
 uint32_t& MetaFlags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0xC); }
-GridDims& MetaArea(void* meta) { return *reinterpret_cast<GridDims*>(static_cast<uint8_t*>(meta) + 0x4); }
+SCellBox& MetaArea(void* meta) { return *reinterpret_cast<SCellBox*>(static_cast<uint8_t*>(meta) + 0x4); }
 
 // The scene is rebuilt while this is set (0x0067F398; cleared around the floor's rebuild).
 bool& SceneUpdates() { return g_collisionAllowed; }
 
-void CallDestroyConcreteMeta(CParkManager* manager, void* meta, int flags)
+void CallDestroyConcreteMeta(CParkLayout* manager, void* meta, int flags)
 {
-    manager->DestroyConcreteMeta(static_cast<CMetaPiece*>(meta), static_cast<uint32_t>(flags));
+    manager->FreePlacedPiece(static_cast<CPieceGroup*>(meta), static_cast<uint32_t>(flags));
 }
-void RebuildFloorAndPieces(CParkManager* manager, const GridDims* area, int flags)
+void RebuildFloorAndPieces(CParkLayout* manager, const SCellBox* area, int flags)
 {
-    manager->RebuildFloor(const_cast<GridDims*>(area), flags);
+    manager->RegenerateGround(const_cast<SCellBox*>(area), flags);
 }
-CMapListNode* GetMetasWithin(CParkManager* manager, GridDims area) { return manager->GetAreaMetaPieces(area); }
+CMapListNode* GetMetasWithin(CParkLayout* manager, SCellBox area) { return manager->CollectPiecesInRegion(area); }
 // The generator's update of the pieces it builds and its rebuild of the scene.
-void UpdatePieces(void* generator) { static_cast<CParkGenerator*>(generator)->CleanUpOutRefs(); }
-void RebuildScene(void* generator) { static_cast<CParkGenerator*>(generator)->RebuildCollision(); }
+void UpdatePieces(void* generator) { static_cast<CParkAssembler*>(generator)->CleanUpOutRefs(); }
+void RebuildScene(void* generator) { static_cast<CParkAssembler*>(generator)->RebuildCollision(); }
 // The engine's scene (0x004F4970).
-Ed::CRailEditorComponent* Engine() { return Ed::CRailEditorComponent::Instance(); }
+ParkEditing::CRailAuthoring* Engine() { return ParkEditing::CRailAuthoring::Instance(); }
 
 // A meta piece of a list node (0x005480C0: the node's +4; then the concrete piece - the same pointer).
 void* NodeMeta(CMapListNode* node)
 {
-    void* meta = node->GetMeta();
-    return static_cast<CMetaPiece*>(meta)->Cast();
+    void* meta = node->GetPieceGroup();
+    return static_cast<CPieceGroup*>(meta)->Cast();
 }
-void DestroyList(CMapListTemp& temp) { temp.Destroy(); }
+void FreeNodeChain(CCellChainScratch& temp) { temp.Destroy(); }
 
 } // namespace
 
 // 0x0059CB10
-void CParkManager::RebuildPark(uint32_t how)
+void CParkLayout::RebuildPark(uint32_t how)
 {
     SetUpLights();
     if (!(Flags() & 5) && FloorBuilt())
@@ -96,7 +96,7 @@ void CParkManager::RebuildPark(uint32_t how)
 }
 
 // 0x0059CC70
-bool CParkManager::RebuildArea(const GridDims* area, bool checkMemory)
+bool CParkLayout::RebuildArea(const SCellBox* area, bool checkMemory)
 {
     RebuildFloorAndPieces(this, area, 0);
     if (!checkMemory)
@@ -104,24 +104,24 @@ bool CParkManager::RebuildArea(const GridDims* area, bool checkMemory)
     MemoryStats stats;
     GetMemoryStats(&stats);
     // The park editor's singleton (a reference taken and dropped): is the park over its budget?
-    bool full = CParkEditor::Create(false)->IsParkFull() != 0;
-    CParkEditor::Release();
+    bool full = CParkBuilderMode::Create(false)->IsParkFull() != 0;
+    CParkBuilderMode::Release();
     return !full;
 }
 
 // 0x0059CD20
-bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts, bool onlyWithin, bool skipLocked)
+bool CParkLayout::DestroyMetasInAreaAndRebuild(SCellBox area, bool skipRestarts, bool onlyWithin, bool skipLocked)
 {
     bool destroyed = false;
-    CMapListTemp metas = {GetMetasWithin(this, area)};
+    CCellChainScratch metas = {GetMetasWithin(this, area)};
     if (metas.list) {
-        for (CMapListNode* node = metas.list; node; node = node->mp_next) {
+        for (CMapListNode* node = metas.list; node; node = node->m_following) {
             void* meta = NodeMeta(node);
             if (MetaFlags(meta) & kMetaFloor)
                 continue;
-            if (skipRestarts && static_cast<CMetaPiece*>(meta)->IsRestartPiece())
+            if (skipRestarts && static_cast<CPieceGroup*>(meta)->IsSpawnMarker())
                 continue;
-            if (onlyWithin && !static_cast<CMetaPiece*>(meta)->IsCompletelyWithinArea(&area))
+            if (onlyWithin && !static_cast<CPieceGroup*>(meta)->FitsInsideRegion(&area))
                 continue;
             if (skipLocked && (MetaFlags(meta) & kMetaLocked))
                 continue;
@@ -129,8 +129,8 @@ bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts
             destroyed = true;
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
-        Mth::Vector size; // (x, y and z written)
-        Mth::Vector corner = Instance()->GridCoordinatesToWorld(area, &size);
+        Maths::Vector size; // (x, y and z written)
+        Maths::Vector corner = Instance()->CellToWorldPos(area, &size);
         float x0 = corner.x;
         float z0 = corner.z;
         float z1 = static_cast<float>(static_cast<double>(size.z) + z0);
@@ -139,24 +139,24 @@ bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts
         UpdatePieces(Generator());
         if (destroyed) {
             RebuildFloorAndPieces(this, &area, 0);
-            DestroyList(metas);
+            FreeNodeChain(metas);
             return true;
         }
     }
-    DestroyList(metas);
+    FreeNodeChain(metas);
     return false;
 }
 
 // 0x0059CEC0
-void CParkManager::ClearArea(GridDims area)
+void CParkLayout::ClearArea(SCellBox area)
 {
-    CMapListTemp metas = {GetMetasWithin(this, area)};
-    for (CMapListNode* node = metas.list; node; node = node->mp_next) {
+    CCellChainScratch metas = {GetMetasWithin(this, area)};
+    for (CMapListNode* node = metas.list; node; node = node->m_following) {
         void* meta = NodeMeta(node);
         if (MetaFlags(meta) & kMetaFloor)
             continue;
-        GridDims at = MetaArea(meta);
-        RelocateMetaPiece(static_cast<CMetaPiece*>(meta), 0, -at.y, 0);
+        SCellBox at = MetaArea(meta);
+        ShiftPlacedPiece(static_cast<CPieceGroup*>(meta), 0, -at.y, 0);
         for (int x = at.x; x < at.x + at.w; ++x) {
             for (int z = at.z; z < at.z + at.l; ++z)
                 CellHeight(x, z) = 0;
@@ -168,16 +168,16 @@ void CParkManager::ClearArea(GridDims area)
     }
     Flags() &= ~5u;
     RebuildFloorAndPieces(this, &area, 0);
-    DestroyList(metas);
+    FreeNodeChain(metas);
 }
 
 // 0x0059D080
-bool CParkManager::ChangeFloorHeight(GridDims area, int dir)
+bool CParkLayout::RaiseOrLowerFloor(SCellBox area, int dir)
 {
     // The area's highest floor, and whether it's all at one height.
     bool level = false;
-    int height = GetFloorHeight(area, &level);
-    bool changed = ChangeFloorHeight(area, area.y, height, dir > 0, !level);
+    int height = GetGroundLevel(area, &level);
+    bool changed = RaiseOrLowerFloor(area, area.y, height, dir > 0, !level);
     if (!changed)
         return false;
     if (RebuildArea(&area, true)) {
@@ -190,28 +190,28 @@ bool CParkManager::ChangeFloorHeight(GridDims area, int dir)
 }
 
 // 0x0059C900
-void __cdecl CCursor::Destroy()
+void __cdecl CBuildPointer::Destroy()
 {
-    CCursor* cursor = Instance();
+    CBuildPointer* cursor = Instance();
     if (!cursor)
         return;
     if (cursor->Meta()) {
         MetaFlags(cursor->Meta()) &= ~kMetaInCursor;
         CallDestroyConcreteMeta(cursor->Manager(), cursor->Meta(), 0);
     }
-    cursor->DestroyClipboards(); // ~CCursor
-    Mem::Manager::Get()->Free(cursor);
+    cursor->DestroyClipboards(); // ~CBuildPointer
+    MemSys::Manager::Get()->Free(cursor);
     Instance() = nullptr;
 }
 
 // 0x0059C950
-void CCursor::ChangePieceInSet(int dir)
+void CBuildPointer::StepPieceChoice(int dir)
 {
-    PieceSet* set = Manager()->GetPieceSet(SetIndex(), &MenuSetNumber());
+    PieceSet* set = Manager()->GetPieceFamily(SetIndex(), &MenuSetNumber());
     int selected = set->m_selected + dir;
     if (selected < 0)
-        selected = set->m_numEntries - 1;
-    else if (selected >= set->m_numEntries)
+        selected = set->m_entryTotal - 1;
+    else if (selected >= set->m_entryTotal)
         selected = 0;
     set->m_selected = selected;
     if (set->m_isClipboard)
@@ -221,13 +221,13 @@ void CCursor::ChangePieceInSet(int dir)
 }
 
 // 0x0059C9B0
-void CCursor::ChangeSet(int dir)
+void CBuildPointer::StepPieceFamily(int dir)
 {
     // The number of visible sets before the current one.
     auto countVisible = [this]() {
         int visible = 0;
         for (int i = 0; i < SetIndex(); ++i) {
-            if (Sets(Manager())[i].m_visible)
+            if (Sets(Manager())[i].m_isDisplayed)
                 ++visible;
         }
         MenuSetNumber() = visible;
@@ -239,7 +239,7 @@ void CCursor::ChangeSet(int dir)
         if (SetIndex() >= Manager()->NumSets())
             SetIndex() = 0;
         countVisible();
-        if (Sets(Manager())[SetIndex()].m_visible)
+        if (Sets(Manager())[SetIndex()].m_isDisplayed)
             break;
     }
     countVisible();
@@ -250,7 +250,7 @@ void CCursor::ChangeSet(int dir)
     }
     int selected = set.m_selected;
     for (uint8_t* clipboard = Clipboards(); clipboard; clipboard = *reinterpret_cast<uint8_t**>(clipboard + 0x14))
-        reinterpret_cast<CClipboard*>(clipboard)->DestroyMetas();
+        reinterpret_cast<CClipboard*>(clipboard)->FreeAllPieceGroups();
     uint8_t* clipboard = Clipboards();
     for (int i = 0; i < selected && clipboard; ++i)
         clipboard = *reinterpret_cast<uint8_t**>(clipboard + 0x14);

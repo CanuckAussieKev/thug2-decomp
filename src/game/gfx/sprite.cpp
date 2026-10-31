@@ -21,7 +21,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 extern void** const kSSpriteVtable;
@@ -67,7 +67,7 @@ struct Vector4 {
     float x, y, z, w;
 };
 // 0x004882D0 (a Vector member, thiscall, not rewritten yet): rotate about z by `angle` radians (x87 fsin/fcos).
-void RotateZ(Vector4& v, float angle) { reinterpret_cast<Mth::Vector*>(&v)->RotateAboutZ(angle); }
+void SpinAroundZ(Vector4& v, float angle) { reinterpret_cast<Maths::Vector*>(&v)->RotateAboutZ(angle); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, as a 64-bit integer.
 int64_t Truncated(double value) { return static_cast<int64_t>(value); }
@@ -84,7 +84,7 @@ int64_t Truncated(double value) { return static_cast<int64_t>(value); }
 // the screen's right edge - the menus' bands and panels. Each edge on its own, and only for sprites overlapping the
 // layout (one wholly outside it is drawn where it is); heights unchanged; rotated sprites only when they stay upright
 // or on their side (the bottom band is turned by 180 degrees).
-void SSprite::Draw()
+void SQuadSprite::Draw()
 {
     float u0 = 0.0f, vTop = 1.0f, u1, vBottom;
     if (texture) {
@@ -175,7 +175,7 @@ void SSprite::Draw()
                               {right, bottom, 0.0f, 0.0f}};
         // (in the original's order: top left, top right, bottom left, bottom right)
         for (int i : {0, 2, 1, 3})
-            RotateZ(corners[i], rotation);
+            SpinAroundZ(corners[i], rotation);
         // Still (nearly) upright or on its side: within 0.01 radians of a multiple of 90 degrees. (The menus' bottom
         // band is turned by pi + 0.001, so its corners don't line up exactly.)
         double quarterTurns = static_cast<double>(rotation) / 1.5707963267948966;
@@ -217,14 +217,14 @@ void SSprite::Draw()
             reachLeft = x - reachLeft;
         }
         static uint32_t s_seen[256];
-        static int s_count = 0;
+        static int tally = 0;
         uint32_t key = static_cast<uint32_t>(x * 16.0f) * 2654435761u ^ static_cast<uint32_t>(y * 16.0f) ^
                        static_cast<uint32_t>(width) << 20;
         bool seen = false;
-        for (int i = 0; i < s_count; ++i)
+        for (int i = 0; i < tally; ++i)
             seen |= s_seen[i] == key;
-        if (!seen && s_count < 256 && (reachLeft <= 0.0 || reachRight >= kLayoutWidth)) {
-            s_seen[s_count++] = key;
+        if (!seen && tally < 256 && (reachLeft <= 0.0 || reachRight >= kLayoutWidth)) {
+            s_seen[tally++] = key;
             Log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x %.1f %.1f "
                 "%.1f %.1f, y %.1f %.1f",
                 x, y, width, height, xscale, yscale, hotX, hotY, rotation, flipU, flipV, vertices[0].x,
@@ -255,9 +255,9 @@ void SSprite::Draw()
 }
 
 // 0x004DFC50
-SSprite* SSprite::Construct(float priority)
+SQuadSprite* SQuadSprite::Construct(float priority)
 {
-    auto* draw = reinterpret_cast<SDraw2D*>(this);
+    auto* draw = reinterpret_cast<SOverlayDraw*>(this);
     draw->priority = priority;
     draw->hidden = true;
     z = 0.0f;
@@ -268,49 +268,49 @@ SSprite* SSprite::Construct(float priority)
 }
 
 // 0x004DFC80
-void SSprite::DestroyBody()
+void SQuadSprite::DestroyBody()
 {
     vtable = kSSpriteVtable;
-    reinterpret_cast<SDraw2D*>(this)->DestroyBody();
+    reinterpret_cast<SOverlayDraw*>(this)->DestroyBody();
 }
 
 // 0x004DFCC0
-SSprite* SSprite::Destroy(unsigned int flags)
+SQuadSprite* SQuadSprite::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Instance()->Free(this);
+        MemSys::Manager::Instance()->Free(this);
     return this;
 }
 
 // 0x004DF990
-void SSprite::BeginDraw()
+void SQuadSprite::BeginDraw()
 {
-    Nx::SetVertexFormat(0x144); // xyzrhw, diffuse, one texture
+    Engine3D::SetVertexFormat(0x144); // xyzrhw, diffuse, one texture
     SetPixelShader(nullptr, nullptr);
     if (texture) {
         SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        Nx::SetTexture(0, *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(texture) + 0x10));
+        Engine3D::SetTexture(0, *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(texture) + 0x10));
     } else {
         SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
         SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        Nx::SetTexture(0, nullptr);
+        Engine3D::SetTexture(0, nullptr);
     }
     SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_CURRENT);
     SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
 }
 
 // 0x004DFA40
-void SSprite::EndDraw()
+void SQuadSprite::EndDraw()
 {
     SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 namespace {
-static VtableSlot kSSpriteVtable_slots[] = {&Nx::SSprite::Destroy, &Nx::SSprite::BeginDraw, &Nx::SSprite::Draw,
-                &Nx::SSprite::EndDraw};
+static VtableSlot kSSpriteVtable_slots[] = {&Engine3D::SQuadSprite::Destroy, &Engine3D::SQuadSprite::BeginDraw, &Engine3D::SQuadSprite::Draw,
+                &Engine3D::SQuadSprite::EndDraw};
 void** const kSSpriteVtable = reinterpret_cast<void**>(kSSpriteVtable_slots);
 } // namespace
 

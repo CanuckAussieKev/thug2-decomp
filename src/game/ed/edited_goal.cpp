@@ -1,4 +1,4 @@
-// An edited goal's own code (Ed::CEditedGoal): see goal_editor.h. From the disassembly of 0x004E6B80-0x004E7B1E and
+// An edited goal's own code (ParkEditing::CEditedGoal): see goal_editor.h. From the disassembly of 0x004E6B80-0x004E7B1E and
 // 0x004E93C0.
 
 #include <cmath>
@@ -18,7 +18,7 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
-namespace Ed {
+namespace ParkEditing {
 
 char g_goalNameBuffer[104];
 
@@ -37,7 +37,7 @@ int Sprintf(char* out, const char* format, Args... args)
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
 char* NameBuffer() { return g_goalNameBuffer; }
 
-uint32_t CurrentLevel() { return Mdl::Skate::Instance()->m_level; }
+uint32_t CurrentLevel() { return GameModules::Skate::Instance()->m_level; }
 
 } // namespace
 
@@ -49,7 +49,7 @@ CEditedGoal* CEditedGoal::Construct()
 }
 
 // 0x004E6B80
-void CEditedGoal::RemoveGap(uint8_t gap)
+void CEditedGoal::DropGapEntry(uint8_t gap)
 {
     for (int i = 0; i < m_numGaps; ++i) {
         if (m_gaps[i] != gap)
@@ -64,7 +64,7 @@ void CEditedGoal::RemoveGap(uint8_t gap)
 // 0x004E6BF0
 void CEditedGoal::RemoveGapAndRenumber(uint8_t gap)
 {
-    RemoveGap(gap);
+    DropGapEntry(gap);
     for (int i = 0; i < m_numGaps; ++i) {
         if (m_gaps[i] > gap)
             --m_gaps[i];
@@ -72,7 +72,7 @@ void CEditedGoal::RemoveGapAndRenumber(uint8_t gap)
 }
 
 // 0x004E7390
-void CEditedGoal::AddGap(uint8_t gap)
+void CEditedGoal::RegisterGapEntry(uint8_t gap)
 {
     uint8_t count = m_numGaps;
     for (int i = 0; i < m_numGaps; ++i) {
@@ -80,7 +80,7 @@ void CEditedGoal::AddGap(uint8_t gap)
             return;
     }
     if (count >= 10) {
-        Dbg::Printf("Warning! MAX_GAPS limit reached!\n");
+        DebugOut::Printf("Warning! MAX_GAPS limit reached!\n");
         return;
     }
     m_gaps[count] = gap;
@@ -88,7 +88,7 @@ void CEditedGoal::AddGap(uint8_t gap)
 }
 
 // 0x004E6C40
-void CEditedGoal::AddKeyComboSet(int set, int requirePerfect, int spin, int numTaps)
+void CEditedGoal::AddKeyComboSet(int set, int mustBeFlawless, int spin, int tapTotal)
 {
     int index = m_numKeyComboSets;
     bool found = false;
@@ -102,8 +102,8 @@ void CEditedGoal::AddKeyComboSet(int set, int requirePerfect, int spin, int numT
     if (!found)
         m_numKeyComboSets = index + 1;
     KeyComboSet& entry = m_keyComboSets[index];
-    entry.numTaps = static_cast<uint8_t>(numTaps);
-    entry.requirePerfect = static_cast<uint8_t>(requirePerfect);
+    entry.tapTotal = static_cast<uint8_t>(tapTotal);
+    entry.mustBeFlawless = static_cast<uint8_t>(mustBeFlawless);
     entry.set = static_cast<uint8_t>(set);
     entry.spin = static_cast<uint8_t>(spin / 180);
 }
@@ -136,34 +136,34 @@ KeyComboSet* CEditedGoal::FindKeyComboSet(int set)
 void CEditedGoal::SetType(uint32_t type)
 {
     m_type = type;
-    m_points[0].kind = kPointPro;
-    m_points[0].height = 0.0f;
-    m_points[1].kind = kPointStart;
-    m_points[1].height = 0.0f;
-    Script::CStruct* defaults = GoalTypeStructure(type);
+    m_pathVertices[0].kind = kPointPro;
+    m_pathVertices[0].height = 0.0f;
+    m_pathVertices[1].kind = kPointStart;
+    m_pathVertices[1].height = 0.0f;
+    Scripts::CStruct* defaults = GoalTypeStructure(type);
     switch (m_type) {
     case kGoalTypeRace:
         m_minPoints = 4;
         m_maxPoints = 12;
         for (int i = 2; i < 13; ++i) {
-            m_points[i].kind = kPointCheckpoint;
-            m_points[i].height = 0.0f;
+            m_pathVertices[i].kind = kPointCheckpoint;
+            m_pathVertices[i].height = 0.0f;
         }
         break;
     case kGoalTypeCombo:
         m_minPoints = 7;
         m_maxPoints = 7;
         for (int i = 2; i < m_minPoints; ++i) {
-            m_points[i].kind = kPointObject;
-            m_points[i].height = 0.0f;
+            m_pathVertices[i].kind = kPointObject;
+            m_pathVertices[i].height = 0.0f;
         }
         break;
     case kGoalTypeSkate:
         m_minPoints = 7;
         m_maxPoints = 7;
         for (int i = 2; i < 13; ++i) {
-            m_points[i].kind = kPointObject;
-            m_points[i].height = 0.0f;
+            m_pathVertices[i].kind = kPointObject;
+            m_pathVertices[i].height = 0.0f;
         }
         break;
     case kGoalTypeComboTricks:
@@ -176,22 +176,22 @@ void CEditedGoal::SetType(uint32_t type)
         m_minPoints = 2;
         m_maxPoints = 2;
         if (m_type == kGoalTypeKeyCombo)
-            m_spin = 0;
+            m_twistRate = 0;
         break;
     default:
         break;
     }
     if (!defaults)
         return;
-    defaults->GetInteger(0xC51BF6E3, &m_timeLimit, 0);
-    defaults->GetInteger(0xCD66C8AE, &m_score, 0);
+    defaults->FetchIntValue(0xC51BF6E3, &m_timeLimit, 0);
+    defaults->FetchIntValue(0xCD66C8AE, &m_pointsHeld, 0);
     const char* text = ""; // ""
     defaults->GetString(0x4BC5229D, &text, 0);
     std::strcpy(m_name, text);
 }
 
 // 0x004E6F70
-void CEditedGoal::SetTimeLimit(int seconds)
+void CEditedGoal::SetCountdownSeconds(int seconds)
 {
     m_timeLimit = seconds;
     if (m_type == kGoalTypeComboTricks || m_type == kGoalTypeTrickAttack || m_type == kGoalTypeTricktris) {
@@ -203,58 +203,58 @@ void CEditedGoal::SetTimeLimit(int seconds)
 // 0x004E7050
 void CEditedGoal::CreateMarker(int index)
 {
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
-    switch (m_points[index].kind) {
+    switch (m_pathVertices[index].kind) {
     case kPointPro:
-        params.AddChecksum(0x7321A8D6, 0x061A741E);
+        params.PutNameKey(0x7321A8D6, 0x061A741E);
         break;
     case kPointStart:
-        params.AddChecksum(0x7321A8D6, 0x1806DDF8);
+        params.PutNameKey(0x7321A8D6, 0x1806DDF8);
         params.AddString(0x286A8D26, "gameobjects\\p1_cursor\\p1_cursor.mdl");
         break;
     case kPointObject:
-        params.AddChecksum(0x7321A8D6, 0x71FD11F5);
+        params.PutNameKey(0x7321A8D6, 0x71FD11F5);
         params.AddString(0x286A8D26, GoalObjectModel(m_type, index - 2));
-        params.AddChecksum(0u, 0x3BD176D9u); // (a flag: no name)
+        params.PutNameKey(0u, 0x3BD176D9u); // (a flag: no name)
         break;
     case kPointCheckpoint:
-        params.AddChecksum(0x7321A8D6, 0xF0FF0841);
+        params.PutNameKey(0x7321A8D6, 0xF0FF0841);
         params.AddString(0x286A8D26, GoalObjectModel(m_type, index - 2));
         break;
     default:
         break;
     }
     Sprintf(NameBuffer(), "GoalEditorMarkerObject%d", index);
-    params.AddChecksum(0xA1DC81F9, Crc::GenerateCRCFromString(NameBuffer()));
-    const EditedGoalPoint& point = m_points[index];
-    params.AddVector(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
-    params.AddFloat(0xFF7EBAF6, point.angle * kRadiansToDegrees);
-    Script::RunScript(0xEFC08BAE, &params, nullptr, false, nullptr);
+    params.PutNameKey(0xA1DC81F9, Checksums::HashFromText(NameBuffer()));
+    const EditedGoalPoint& point = m_pathVertices[index];
+    params.PutVec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
+    params.PushFloat(0xFF7EBAF6, point.angle * kRadiansToDegrees);
+    Scripts::LaunchScript(0xEFC08BAE, &params, nullptr, false, nullptr);
     params.Clear();
 }
 
 // 0x004E7780
 void CEditedGoal::CreateMarkers()
 {
-    for (int i = 1; i < m_numPoints; ++i)
+    for (int i = 1; i < m_vertexTotal; ++i)
         CreateMarker(i);
     m_currentPoint = 0;
     m_won = false;
 }
 
 // 0x004E7210
-bool CEditedGoal::NearOtherPoint(const Mth::Vector& pos)
+bool CEditedGoal::NearOtherPoint(const Maths::Vector& pos)
 {
-    float radius = Script::GetFloat(0x71B20276);
-    float startToObjectRadius = Script::GetFloat(0x3F6E9739);
-    int count = m_numPoints;
+    float radius = Scripts::GetFloat(0x71B20276);
+    float startToObjectRadius = Scripts::GetFloat(0x3F6E9739);
+    int count = m_vertexTotal;
     int current = m_currentPoint;
     for (int i = 0; i < count; ++i) {
         if (i == current)
             continue;
-        const EditedGoalPoint& point = m_points[i];
-        int currentKind = m_points[current].kind;
+        const EditedGoalPoint& point = m_pathVertices[i];
+        int currentKind = m_pathVertices[current].kind;
         double within = radius;
         if ((currentKind == kPointObject && point.kind == kPointStart) ||
             (currentKind == kPointStart && point.kind == kPointObject))
@@ -271,77 +271,77 @@ bool CEditedGoal::NearOtherPoint(const Mth::Vector& pos)
 }
 
 // 0x004E7300
-bool CEditedGoal::CanPlacePoint(const Mth::Vector& pos, float height)
+bool CEditedGoal::CanPlacePoint(const Maths::Vector& pos, float height)
 {
-    if (CurrentLevel() == kParkEditorLevel && !CParkEditor::IsInsidePark(pos, 30.0f))
+    if (CurrentLevel() == kParkEditorLevel && !CParkBuilderMode::IsInsidePark(pos, 30.0f))
         return false;
-    Mth::Vector raised = pos;
+    Maths::Vector raised = pos;
     raised.y = pos.y + height;
     return !NearOtherPoint(raised);
 }
 
 // 0x004E77C0
-bool CEditedGoal::PlacePoint(const Mth::Vector& pos, float height, float angle)
+bool CEditedGoal::PlacePoint(const Maths::Vector& pos, float height, float angle)
 {
     m_lastPointPlaced = false;
     if (!CanPlacePoint(pos, height))
         return false;
-    EditedGoalPoint& point = m_points[m_currentPoint];
+    EditedGoalPoint& point = m_pathVertices[m_currentPoint];
     point.pos = pos;
-    m_points[m_currentPoint].height = height;
-    m_points[m_currentPoint].angle = angle;
+    m_pathVertices[m_currentPoint].height = height;
+    m_pathVertices[m_currentPoint].angle = angle;
     if (m_currentPoint == m_maxPoints - 1)
         m_lastPointPlaced = true;
     if (m_currentPoint == 0)
-        Script::RunScript(0xD066A889, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(0xD066A889, nullptr, nullptr, false, nullptr);
     CreateMarker(m_currentPoint);
     ++m_currentPoint;
     RunMarkerObjectScript(m_currentPoint);
-    if (m_currentPoint < m_numPoints)
+    if (m_currentPoint < m_vertexTotal)
         return true;
-    m_numPoints = m_currentPoint;
+    m_vertexTotal = m_currentPoint;
     if (m_currentPoint == m_maxPoints) {
         m_currentPoint = static_cast<uint8_t>(m_maxPoints - 1);
         return true;
     }
     // The next point starts where this one is.
-    m_points[m_currentPoint].pos = pos;
-    m_points[m_currentPoint].height = height;
-    m_points[m_currentPoint].angle = angle;
+    m_pathVertices[m_currentPoint].pos = pos;
+    m_pathVertices[m_currentPoint].height = height;
+    m_pathVertices[m_currentPoint].angle = angle;
     if ((m_type == kGoalTypeCombo || m_type == kGoalTypeSkate) && m_currentPoint == 2) {
-        float& next = m_points[2].height;
-        next = static_cast<float>(static_cast<double>(Script::GetFloat(0x71EC75E9)) + next);
+        float& next = m_pathVertices[2].height;
+        next = static_cast<float>(static_cast<double>(Scripts::GetFloat(0x71EC75E9)) + next);
     }
     return true;
 }
 
 // 0x004E7960
-bool CEditedGoal::GetCurrentPoint(Mth::Vector* pos, float* height, float* angle)
+bool CEditedGoal::GetCurrentPoint(Maths::Vector* pos, float* height, float* angle)
 {
-    *pos = m_points[m_currentPoint].pos;
-    *height = m_points[m_currentPoint].height;
-    *angle = m_points[m_currentPoint].angle;
+    *pos = m_pathVertices[m_currentPoint].pos;
+    *height = m_pathVertices[m_currentPoint].height;
+    *angle = m_pathVertices[m_currentPoint].angle;
     return true;
 }
 
 // 0x004E79C0
 void CEditedGoal::WriteNodePosition(int index, uint32_t nodeName)
 {
-    Script::CStruct* node = SkateScript::GetNode(nodeName, true);
-    const EditedGoalPoint& point = m_points[index];
-    node->AddVector(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
-    node->AddVector(0x9D2D0915, 0.0f, point.angle - kPi, 0.0f);
+    Scripts::CStruct* node = LevelNodes::GetNode(nodeName, true);
+    const EditedGoalPoint& point = m_pathVertices[index];
+    node->PutVec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
+    node->PutVec3(0x9D2D0915, 0.0f, point.angle - kPi, 0.0f);
     if (static_cast<uint32_t>(index) >= 2) {
-        node->AddChecksum(0x7321A8D6, GoalObjectName(m_type, index - 2));
+        node->PutNameKey(0x7321A8D6, GoalObjectName(m_type, index - 2));
         node->AddString(0x286A8D26, GoalObjectModel(m_type, index - 2));
     }
 }
 
 // 0x004E7A80
-void CEditedGoal::WriteNodePositions()
+void CEditedGoal::EmitNodeCoords()
 {
     char name[100];
-    for (int i = 0; i < m_numPoints; ++i) {
+    for (int i = 0; i < m_vertexTotal; ++i) {
         name[0] = '\0';
         if (i == 0)
             Sprintf(name, "TRG_EditedGoal%d_Pro", m_goalIndex);
@@ -349,56 +349,56 @@ void CEditedGoal::WriteNodePositions()
             Sprintf(name, "TRG_EditedGoal%d_Restart", m_goalIndex);
         else
             Sprintf(name, "TRG_EditedGoal%d_Object_%d", m_goalIndex, i - 2);
-        WriteNodePosition(i, Crc::GenerateCRCFromString(name));
+        WriteNodePosition(i, Checksums::HashFromText(name));
     }
 }
 
 // 0x004E73F0
-void CEditedGoal::ReadKeyComboSets(Script::CStruct* params)
+void CEditedGoal::ReadKeyComboSets(Scripts::CStruct* params)
 {
-    Script::CArray* sets = nullptr;
+    Scripts::CArray* sets = nullptr;
     if (!params->GetArray(0x0490F171, &sets, 0))
         return;
     m_numKeyComboSets = static_cast<int>(sets->m_size);
     for (int i = 0; i < m_numKeyComboSets; ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
         KeyComboSet& set = m_keyComboSets[i];
         int value = 0;
-        entry->GetInteger(0xEB7D6498, &value, 0);
+        entry->FetchIntValue(0xEB7D6498, &value, 0);
         set.set = static_cast<uint8_t>(value);
         value = 0;
-        entry->GetInteger(0xEDF5DB70, &value, 0);
+        entry->FetchIntValue(0xEDF5DB70, &value, 0);
         set.spin = static_cast<uint8_t>(value / 180);
         value = 0;
-        entry->GetInteger(0xA4BEE6A1, &value, 0);
-        set.numTaps = static_cast<uint8_t>(value);
-        set.requirePerfect = entry->ContainsFlag(0x687E2C25);
+        entry->FetchIntValue(0xA4BEE6A1, &value, 0);
+        set.tapTotal = static_cast<uint8_t>(value);
+        set.mustBeFlawless = entry->HasBareFlag(0x687E2C25);
     }
 }
 
 // 0x004E74F0
-void CEditedGoal::ReadTrickSettings(Script::CStruct* params)
+void CEditedGoal::ReadTrickSettings(Scripts::CStruct* params)
 {
-    params->GetInteger(0x01181B29, &m_accelerationInterval, 0);
+    params->FetchIntValue(0x01181B29, &m_accelerationInterval, 0);
     params->GetFloat(0x076F65C8, &m_accelerationPercent, 0);
-    params->GetInteger(0xDED8540A, &m_trickTime, 0);
-    params->GetInteger(0xA6D96603, &m_timeToStopAddingTricks, 0);
-    params->GetInteger(0x89473DB7, &m_maxTricks, 0);
-    params->GetInteger(0xEDF5DB70, &m_spin, 0);
+    params->FetchIntValue(0xDED8540A, &m_trickTime, 0);
+    params->FetchIntValue(0xA6D96603, &m_timeToStopAddingTricks, 0);
+    params->FetchIntValue(0x89473DB7, &m_maxTricks, 0);
+    params->FetchIntValue(0xEDF5DB70, &m_twistRate, 0);
     ReadKeyComboSets(params);
 }
 
 // 0x004E7590
-void CEditedGoal::ReadSpecificParams(Script::CStruct* params)
+void CEditedGoal::ReadSpecificParams(Scripts::CStruct* params)
 {
     switch (m_type) {
     case kGoalTypeRace:
-        params->GetInteger(0x1DAAE95B, &m_raceTotalLaps, 0);
-        params->GetInteger(0xD9426372, &m_racePerCheckpointTime, 0);
+        params->FetchIntValue(0x1DAAE95B, &m_raceTotalLaps, 0);
+        params->FetchIntValue(0xD9426372, &m_racePerCheckpointTime, 0);
         break;
     case kGoalTypeComboTricks:
-        params->GetInteger(0x67DD90CA, &m_comboSize, 0);
-        if (params->ContainsFlag(0xDF47B144))
+        params->FetchIntValue(0x67DD90CA, &m_comboSize, 0);
+        if (params->HasBareFlag(0xDF47B144))
             m_singleCombo = true;
         ReadTrickSettings(params);
         break;
@@ -406,7 +406,7 @@ void CEditedGoal::ReadSpecificParams(Script::CStruct* params)
         const char* trick = nullptr;
         if (params->GetString(0x730844A3, &trick, 0))
             std::strcpy(m_requiredTrick, trick);
-        Script::CArray* gaps = nullptr;
+        Scripts::CArray* gaps = nullptr;
         params->GetArray(0xD76C173E, &gaps, 0);
         if (!gaps)
             break;
@@ -417,7 +417,7 @@ void CEditedGoal::ReadSpecificParams(Script::CStruct* params)
     }
     case kGoalTypeScore:
     case kGoalTypeHighCombo:
-        params->GetInteger(0xCD66C8AE, &m_score, 0);
+        params->FetchIntValue(0xCD66C8AE, &m_pointsHeld, 0);
         break;
     case kGoalTypeTrickAttack:
         ReadTrickSettings(params);
@@ -426,8 +426,8 @@ void CEditedGoal::ReadSpecificParams(Script::CStruct* params)
         ReadKeyComboSets(params);
         break;
     case kGoalTypeTricktris:
-        params->GetInteger(0x45A375C9, &m_tricktrisBlockSize, 0);
-        params->GetInteger(0xBFD3A831, &m_tricktrisTotalToWin, 0);
+        params->FetchIntValue(0x45A375C9, &m_tricktrisBlockSize, 0);
+        params->FetchIntValue(0xBFD3A831, &m_tricktrisTotalToWin, 0);
         ReadTrickSettings(params);
         break;
     default:

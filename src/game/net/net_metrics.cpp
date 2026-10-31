@@ -1,10 +1,10 @@
-// A connection's traffic counts (Net::Metrics). See net_metrics.h.
+// A connection's traffic counts (NetLink::Metrics). See net_metrics.h.
 
 #include <cstdint>
 
 #include "game/net/net_metrics.h"
 
-namespace Net {
+namespace NetLink {
 
 // 0x004544E0
 Metrics* Metrics::Construct()
@@ -27,10 +27,10 @@ void Metrics::AddMessage(int msgId, int size)
 }
 
 // 0x00454D90
-void Metrics::AddPacket(int size, int time)
+void Metrics::CountPacket(int size, int time)
 {
-    Packet& packet = m_packets[m_numPackets % kNumPackets]; // (a signed remainder, like the original's)
-    packet.m_time = time;
+    Packet& packet = m_packetTally[m_numPackets % kNumPackets]; // (a signed remainder, like the original's)
+    packet.m_clock = time;
     packet.m_size = size;
     m_totalBytes += size;
     ++m_numPackets;
@@ -41,9 +41,9 @@ void Metrics::CalculateUsage(int time)
 {
     int total = 0;
     for (int i = 0; i < kNumPackets && i < m_numPackets; ++i) {
-        int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(m_packets[i].m_time));
+        int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(m_packetTally[i].m_clock));
         if (age < kUsagePeriod) // (a packet "from the future" counts too)
-            total += m_packets[i].m_size;
+            total += m_packetTally[i].m_size;
     }
     m_bytesPerSec = total;
 }

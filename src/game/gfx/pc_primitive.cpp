@@ -23,7 +23,7 @@
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 // The game's buffer for the vertices of a primitive drawn without one of its own.
 uint8_t g_primitiveVertexBuffer[0x100];
@@ -54,7 +54,7 @@ CPcPrimitive* CPcPrimitive::Construct(int own)
 {
     reinterpret_cast<CPrimitive*>(this)->CPrimitive::Construct(own);
     vtable = reinterpret_cast<void**>(kVtable);
-    reinterpret_cast<sMaterial*>(material)->Construct();
+    reinterpret_cast<materialRef*>(material)->Construct();
     uint32_t made = flags | 1;
     vertexFormat = 2;
     vertices = nullptr;
@@ -82,8 +82,8 @@ void CPcPrimitive::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kVtable);
     if (ownsVertices == 1 && vertices)
-        Mem::Manager::Get()->Free(vertices);
-    reinterpret_cast<sMaterial*>(material)->DestroyBody();
+        MemSys::Manager::Get()->Free(vertices);
+    reinterpret_cast<materialRef*>(material)->DestroyBody();
     reinterpret_cast<CPrimitive*>(this)->CPrimitive::DestroyBody();
 }
 
@@ -92,7 +92,7 @@ CPcPrimitive* CPcPrimitive::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -117,7 +117,7 @@ void CPcPrimitive::SetTexture(const uint8_t* texture, int, int)
 }
 
 // 0x004C5310
-void CPcPrimitive::SetColour(uint32_t rgba) { colour = rgba; }
+void CPcPrimitive::ChangeColour(uint32_t rgba) { colour = rgba; }
 
 // 0x004C5F00
 void CPcPrimitive::Init(uint32_t layoutFlags, int primitiveType, int count)
@@ -140,8 +140,8 @@ void CPcPrimitive::Init(uint32_t layoutFlags, int primitiveType, int count)
         default: break;
         }
         if (size) {
-            // (the 0x102 layout's allocation is Mem::New's inline; the others through it)
-            vertices = static_cast<uint8_t*>(Mem::New(count * size));
+            // (the 0x102 layout's allocation is MemSys::New's inline; the others through it)
+            vertices = static_cast<uint8_t*>(MemSys::New(count * size));
             stride = size;
         }
     }
@@ -162,7 +162,7 @@ void CPcPrimitive::Ready()
 void CPcPrimitive::Render()
 {
     At<uint32_t>(material, 0x80) = BlendModeFromName(blendMode);
-    reinterpret_cast<sMaterial*>(material)->Submit(); // (its set-up)
+    reinterpret_cast<materialRef*>(material)->Submit(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t firstVertex = 0, room = 0;
     SetVertexFormat(vertexFormat);
@@ -272,7 +272,7 @@ void CPcPrimitive::SetUV(int index, float u, float v)
     }
 }
 // 0x004C57C0
-void CPcPrimitive::SetU(int index, float u)
+void CPcPrimitive::ChooseU(int index, float u)
 {
     if (vertexFormat == 0x142)
         At<float>(vertices, index * 0x18 + 0x10) = u;
@@ -280,7 +280,7 @@ void CPcPrimitive::SetU(int index, float u)
         At<float>(vertices, index * 0x24 + 0x1C) = u;
 }
 // 0x004C5800
-void CPcPrimitive::SetV(int index, float v)
+void CPcPrimitive::ChooseV(int index, float v)
 {
     if (vertexFormat == 0x142)
         At<float>(vertices, index * 0x18 + 0x14) = v;
@@ -289,11 +289,11 @@ void CPcPrimitive::SetV(int index, float v)
 }
 
 // 0x004C5C50
-float CPcPrimitive::GetX(int index) { return At<float>(vertices, stride * index); }
+float CPcPrimitive::FetchPosX(int index) { return At<float>(vertices, stride * index); }
 // 0x004C5C70
-float CPcPrimitive::GetY(int index) { return At<float>(vertices, stride * index + 4); }
+float CPcPrimitive::FetchPosY(int index) { return At<float>(vertices, stride * index + 4); }
 // 0x004C5C90
-float CPcPrimitive::GetZ(int index) { return At<float>(vertices, stride * index + 8); }
+float CPcPrimitive::FetchPosZ(int index) { return At<float>(vertices, stride * index + 8); }
 // 0x004C5CB0
 float CPcPrimitive::GetNormalX(int index) { return At<float>(vertices, index * 0x24 + 0xC); }
 // 0x004C5CD0
@@ -418,18 +418,18 @@ void __cdecl SetPrimitiveDepthTest(int state, int value)
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Nx::CPcPrimitive::Destroy, &Nx::CPcPrimitive::SetTexture,
-                &Nx::CPcPrimitive::SetColour, &Nx::CPcPrimitive::Init, &Nx::CPcPrimitive::Ready,
-                &Nx::CPcPrimitive::Render, &Nx::CPcPrimitive::Draw, &Nx::CPcPrimitive::SetPosition,
-                &Nx::CPcPrimitive::SetX, &Nx::CPcPrimitive::SetY, &Nx::CPcPrimitive::SetZ, &Nx::CPcPrimitive::SetNormal,
-                &Nx::CPcPrimitive::SetNormalX, &Nx::CPcPrimitive::SetNormalY, &Nx::CPcPrimitive::SetNormalZ,
-                &Nx::CPcPrimitive::SetVertexColour, &Nx::CPcPrimitive::SetUV, &Nx::CPcPrimitive::SetU,
-                &Nx::CPcPrimitive::SetV, &Nx::CPcPrimitive::GetX, &Nx::CPcPrimitive::GetY, &Nx::CPcPrimitive::GetZ,
-                &Nx::CPcPrimitive::GetNormalX, &Nx::CPcPrimitive::GetNormalY, &Nx::CPcPrimitive::GetNormalZ,
-                &Nx::CPcPrimitive::GetVertexColour, &Nx::CPcPrimitive::GetU, &Nx::CPcPrimitive::GetV,
-                &Nx::CPcPrimitive::Translate, &Nx::CPcPrimitive::TranslateX, &Nx::CPcPrimitive::TranslateY,
-                &Nx::CPcPrimitive::TranslateZ, &Nx::CPcPrimitive::ScrollUV, &Nx::CPcPrimitive::ScrollU,
-                &Nx::CPcPrimitive::ScrollV, &Nx::CPcPrimitive::Compare};
+static VtableSlot kVtable_slots[] = {&Engine3D::CPcPrimitive::Destroy, &Engine3D::CPcPrimitive::SetTexture,
+                &Engine3D::CPcPrimitive::ChangeColour, &Engine3D::CPcPrimitive::Init, &Engine3D::CPcPrimitive::Ready,
+                &Engine3D::CPcPrimitive::Render, &Engine3D::CPcPrimitive::Draw, &Engine3D::CPcPrimitive::SetPosition,
+                &Engine3D::CPcPrimitive::SetX, &Engine3D::CPcPrimitive::SetY, &Engine3D::CPcPrimitive::SetZ, &Engine3D::CPcPrimitive::SetNormal,
+                &Engine3D::CPcPrimitive::SetNormalX, &Engine3D::CPcPrimitive::SetNormalY, &Engine3D::CPcPrimitive::SetNormalZ,
+                &Engine3D::CPcPrimitive::SetVertexColour, &Engine3D::CPcPrimitive::SetUV, &Engine3D::CPcPrimitive::ChooseU,
+                &Engine3D::CPcPrimitive::ChooseV, &Engine3D::CPcPrimitive::FetchPosX, &Engine3D::CPcPrimitive::FetchPosY, &Engine3D::CPcPrimitive::FetchPosZ,
+                &Engine3D::CPcPrimitive::GetNormalX, &Engine3D::CPcPrimitive::GetNormalY, &Engine3D::CPcPrimitive::GetNormalZ,
+                &Engine3D::CPcPrimitive::GetVertexColour, &Engine3D::CPcPrimitive::GetU, &Engine3D::CPcPrimitive::GetV,
+                &Engine3D::CPcPrimitive::Translate, &Engine3D::CPcPrimitive::TranslateX, &Engine3D::CPcPrimitive::TranslateY,
+                &Engine3D::CPcPrimitive::TranslateZ, &Engine3D::CPcPrimitive::ScrollUV, &Engine3D::CPcPrimitive::ScrollU,
+                &Engine3D::CPcPrimitive::ScrollV, &Engine3D::CPcPrimitive::Compare};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

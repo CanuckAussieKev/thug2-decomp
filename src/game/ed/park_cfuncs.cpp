@@ -15,21 +15,21 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 // 0x0058E120
-bool __cdecl CFunc_GetParkEditorMaxPlayers(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetParkEditorMaxPlayers(Scripts::CStruct*, Scripts::CScript* script)
 {
-    CParkGenerator* generator = CParkManager::sInstance()->mp_generator;
-    script->m_params->AddInteger("MaxPlayers", generator->GetMaxPlayers()); // 0xB7E39B53
+    CParkAssembler* generator = CParkLayout::sSingleton()->m_builder;
+    script->m_params->PutInt("MaxPlayers", generator->GetPlayerLimit()); // 0xB7E39B53
     return true;
 }
 
 // 0x0058E140
-bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Scripts::CStruct*, Scripts::CScript* script)
 {
-    CParkGenerator* generator = CParkManager::sInstance()->mp_generator;
-    script->m_params->AddInteger("MaxPlayersPossible", generator->GetMaxPlayersPossible()); // 0x1FD6359C
+    CParkAssembler* generator = CParkLayout::sSingleton()->m_builder;
+    script->m_params->PutInt("MaxPlayersPossible", generator->GetPlayerCapLimit()); // 0x1FD6359C
     return true;
 }
 

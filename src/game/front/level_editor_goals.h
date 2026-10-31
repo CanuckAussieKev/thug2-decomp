@@ -36,7 +36,7 @@ struct ImFont;
 //     max_tricks, spin, single_combo, combo_size, tricktris_block_size, tricktris_total_to_win, +0x2CC ten key combo
 //     sets {set, require_perfect, spin / 180, num_taps} counted at +0x2F4, +0x2F8 ten gap numbers counted at +0x302,
 //     +0x303 required_trick_name. InitEditedGoal 0x004E69D0 (game/ed/goal_editor_util.h) gives its defaults,
-//     SetType 0x004E6DA0 its points' kinds and counts; ReadFromStructure 0x004E96D0 / WriteIntoStructure 0x004EB260 turn
+//     SetType 0x004E6DA0 its points' kinds and counts; DecodeFromStruct 0x004E96D0 / ExportToStruct 0x004EB260 turn
 //     it into a script structure and back (GetEditedGoalsInfo's entries - and the CreatedGoals save, memcard.qb's own
 //     save type, version 5).
 //   - Playing one: the level's load script (levels.qb) adds the goal editor's nodes only in create-a-goal mode, net
@@ -85,7 +85,7 @@ struct ImFont;
 //        tricktime=<ms> stopat=<s> maxtricks=<n> single=<0|1> combo=<n> block=<n> towin=<n>]
 // A text holds no '"', '#' (the layout's comment) or control characters (cleaned when set). Unknown keys skipped; a key
 // twice, a bad number or a point missing refuses the file (as the other records).
-namespace Front::LevelEditor::Goals {
+namespace MenuSystem::LevelEditor::Goals {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ enum class Type : uint8_t { Skate, Combo, HighScore, HighCombo, Skatetris, Combo
 constexpr int kTypes = 10;
 const char* TypeName(Type type);    // the record's word: the type's checksum name ("Skate"...)
 const char* TypeTitle(Type type);   // Create-a-Goal's menu name ("SKATE letters"...)
-uint32_t TypeChecksum(Type type);   // 0x54166ACD...
+uint32_t KindHash(Type type);   // 0x54166ACD...
 bool TypeOf(const std::string& name, Type* type);
 bool TypeOfChecksum(uint32_t checksum, Type* type);
 // Whether the type is one of the trick goals (key combo sets, spin...): Skatetris, ComboSkatetris, TrickTris, TrickBeat.
@@ -114,7 +114,7 @@ int PointKind(Type type, int index);
 std::string PointLabel(Type type, int index);
 std::string PointSuffix(Type type, int index);
 // The default height of a point above its node (letters: GoalEditor_ObjectHeight, 27; others 0).
-float DefaultHeight(Type type, int index);
+float StartingHeight(Type type, int index);
 
 struct Point {
     V3 pos = {};          // its node's place (on the ground)
@@ -138,7 +138,7 @@ struct Goal {
     int spin = 360;                   // 0..900 (Trick to the Beat: 0)
     int accelInterval = 5;            // 1..10
     float accelPercent = 0.1f;        // 0.01..1
-    int trickTime = 3000;             // 5..3000
+    int comboTime = 3000;             // 5..3000
     int stopAt = 5;                   // time_to_stop_adding_tricks
     int maxTricks = 11;               // 1..15
     bool singleCombo = false;         // Combo Skate-Tricks
@@ -160,7 +160,7 @@ std::string CleanText(const std::string& text, size_t limit);
 std::string WriteRecord(const Goal& goal);
 bool ReadRecord(const std::string& text, Goal* out);
 
-// The 0x338-byte created-goal record (CEditGoal) the game's own functions take: filled from a goal as ReadFromStructure
+// The 0x338-byte created-goal record (CEditGoal) the game's own functions take: filled from a goal as DecodeFromStruct
 // (0x004E96D0) fills it from the goal's structure - InitEditedGoal's defaults, used, its level, its level_goal_index,
 // SetType's points, then every field; `gapNumbers` the gaps' numbers in the level's gap list now (those not found
 // left out).
@@ -234,4 +234,4 @@ void Select(const std::string& id, int point);
 bool InPlay();
 std::vector<std::string> LevelGaps();
 
-} // namespace Front::LevelEditor::Goals
+} // namespace MenuSystem::LevelEditor::Goals

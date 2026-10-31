@@ -22,7 +22,7 @@ struct ImFont;
 //                          UX2's; this window shows it)
 //   speed_by_selection=0   F (frame the selection) sets the flying speed from the selection's size (Unreal's)
 //   tips_seen=0            the first-run tips were dismissed (the help's "Show tips" shows them again)
-namespace Front::LevelEditor::Prefs {
+namespace MenuSystem::LevelEditor::OptionStore {
 
 struct Values {
     int flySpeed = 800;
@@ -66,4 +66,4 @@ void Window(float scale, ImFont* heading, ImFont* small);
 void ShowTips();
 void TipsWindow(float scale, ImFont* heading, ImFont* mono);
 
-} // namespace Front::LevelEditor::Prefs
+} // namespace MenuSystem::LevelEditor::OptionStore

@@ -29,7 +29,7 @@ constexpr uint32_t kGroundNormal = 0x68;      // (and +0x58, +0x78: copies of th
 constexpr uint32_t kFrameLength = 0x8C;       // the frame's length (seconds)
 constexpr uint32_t kFrameStart = 0x90;        // (the clock when the physics was reset)
 constexpr uint32_t kSafePosition = 0x98;      // (the object's position when reset)
-constexpr uint32_t kFeeler = 0xA8;            // a collision feeler (Nx::CFeeler, 0xB0 bytes)
+constexpr uint32_t kFeeler = 0xA8;            // a collision feeler (Engine3D::CProbeRay, 0xB0 bytes)
 constexpr uint32_t kHitFlags = 0xF8;          // the feeler's hit face's flags (16 bits)
 constexpr uint32_t kHitPoint = 0x120;         // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
@@ -58,18 +58,18 @@ constexpr uint32_t kVelocity = 0xAC;
 // --- the timed flags (offsets into the flags block) ---
 constexpr uint32_t kState = 0x18;             // an int: 0 on the ground, 1 in the air, ...
 
-inline Mth::Vector& VectorAt(void* object, uint32_t offset) { return At<Mth::Vector>(object, offset); }
+inline Maths::Vector& VectorAt(void* object, uint32_t offset) { return At<Maths::Vector>(object, offset); }
 inline void* ObjectOf(void* component) { return At<void*>(component, kObject); }
 inline uint8_t* FlagsOf(void* component) { return At<uint8_t*>(component, kTimedFlags); }
 inline uint8_t* InputOf(void* component) { return At<uint8_t*>(component, kInput); }
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
-inline int Now() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
+inline int Now() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
 // The time since `stamp` (unsigned, as the original compares it): the clock, plus (the offset - stamp).
 inline uint32_t Since(uint32_t stamp)
 {
-    uint32_t now = static_cast<uint32_t>(Tmr::GameClockElapsed());
-    return now + (static_cast<uint32_t>(Obj::g_clockOffset) - stamp);
+    uint32_t now = static_cast<uint32_t>(FrameClock::GameClockElapsed());
+    return now + (static_cast<uint32_t>(GameObjects::g_clockOffset) - stamp);
 }
 
 // A timed flag set to `value` (the time noted if it changes).
@@ -86,17 +86,17 @@ inline void SetTimedFlag(void* component, uint32_t flag, uint8_t value)
 // (asserted when `required`). The float comes back on the x87 stack, rounded (it's a stored float).
 inline float PhysicsFloat(uint32_t name, void* object, int required = 1)
 {
-    return Obj::GetPhysicsFloat(name, required, static_cast<Obj::CCompositeObject*>(object));
+    return GameObjects::ReadTuningFloat(name, required, static_cast<GameObjects::CGameEntity*>(object));
 }
 inline int PhysicsInteger(uint32_t name, void* object, int required = 1)
 {
-    return Obj::GetPhysicsInt(name, required, static_cast<Obj::CCompositeObject*>(object));
+    return GameObjects::ReadTuningInt(name, required, static_cast<GameObjects::CGameEntity*>(object));
 }
 // A value set by the skater's stats (0x00580790, thiscall on the object: a script range scaled by the stat level).
 // (Ours returns a float.)
 inline double StatValue(void* object, uint32_t name)
 {
-    return static_cast<Obj::CSkater*>(object)->GetScaledPhysics(name);
+    return static_cast<GameObjects::CRider*>(object)->GetScaledPhysics(name);
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
@@ -107,17 +107,17 @@ inline void SetState(void* component, int state)
     static_cast<Skater::CorePhysicsComponent*>(component)->SetPhysicsState(state);
 }
 
-// 0x0042BBF0 (Mth::Vector::SetLength): x, y and z scaled to `length` (left alone at length 0).
-inline void SetLength(Mth::Vector& v, float length) { v.SetLength(length); }
+// 0x0042BBF0 (Maths::Vector::SetLength): x, y and z scaled to `length` (left alone at length 0).
+inline void SetLength(Maths::Vector& v, float length) { v.SetLength(length); }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900); its press this frame taken
 // (0x0046B7E0).
-inline int TimeSincePress(uint8_t* button) { return reinterpret_cast<Obj::CControlButton*>(button)->GetPressedTime(); }
+inline int TimeSincePress(uint8_t* button) { return reinterpret_cast<GameObjects::CControlButton*>(button)->GetHeldMillis(); }
 inline int TimeSinceRelease(uint8_t* button)
 {
-    return reinterpret_cast<Obj::CControlButton*>(button)->GetReleasedTime();
+    return reinterpret_cast<GameObjects::CControlButton*>(button)->ReadLetGoTime();
 }
-inline void TakePress(uint8_t* button) { reinterpret_cast<Obj::CControlButton*>(button)->ClearTrigger(); }
+inline void TakePress(uint8_t* button) { reinterpret_cast<GameObjects::CControlButton*>(button)->ResetActivation(); }
 
 // x87 sine and cosine (fsin / fcos), as the original computes them inline.
 inline double X87Sin(double angle)
@@ -141,14 +141,14 @@ inline double X87Cos(double angle)
     return result;
 }
 
-// A vector's squared length and length as the original's Vector::LengthSqr (0x004023A0) / Length (0x004023C0)
+// A vector's squared length and length as the original's Vector::MagnitudeSquared (0x004023A0) / Length (0x004023C0)
 // leave them on the x87 stack: x * x + y * y + z * z, unrounded.
-inline double LengthSqrUnrounded(const Mth::Vector& v)
+inline double LengthSqrUnrounded(const Maths::Vector& v)
 {
     double x = v.x, y = v.y, z = v.z;
     return x * x + y * y + z * z;
 }
-inline double LengthUnrounded(const Mth::Vector& v) { return std::sqrt(LengthSqrUnrounded(v)); }
+inline double LengthUnrounded(const Maths::Vector& v) { return std::sqrt(LengthSqrUnrounded(v)); }
 
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, the low half kept.
 inline uint32_t Ftol(double value) { return static_cast<uint32_t>(static_cast<int64_t>(value)); }

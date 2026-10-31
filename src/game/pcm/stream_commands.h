@@ -4,9 +4,9 @@
 #include <cstdint>
 
 // Streams: sounds streamed from data\streams\pcm\pcm.wad (speech, effects) on the three stream channels; the
-// records of what each plays are Pcm::Stream (music.h). Each command does nothing (returns 0 / false) while
+// records of what each plays are AudioStream::Stream (music.h). Each command does nothing (returns 0 / false) while
 // streamed sound is off: no sound, the null sound platform (0x007CEFA8 == 2), or the stream header not loaded.
-namespace Pcm {
+namespace AudioStream {
 
 // A stream's frame amplitudes (data\fam\<checksum>.fam: one byte a frame, for lip sync), loaded by
 // LoadStreamFrameAmp. One slot (at 0x0069BAC8); a checksum of 0 marks it free.
@@ -35,7 +35,7 @@ bool __cdecl FreeStreamFrameAmp(uint32_t checksum);
 
 // 0x00451770: start stream `checksum` on a free channel or else on the one playing the lowest priority (the
 // oldest of those) if `priority` is at least that - stopped first; preloaded only, or played at `volume`
-// (an Sfx::sVolume) and `pitch`. Records it (under `name`, with a new id from `name` up); the channel, or -1.
+// (an SoundFx::volumeRef) and `pitch`. Records it (under `name`, with a new id from `name` up); the channel, or -1.
 int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
                         bool preload);
 // 0x00451960: the PlayStream command: play stream `checksum` (volume 100, dropoff 1020, one name) under `id` (0:
@@ -44,18 +44,18 @@ int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int 
 // argument it ignores.)
 uint32_t __cdecl PlayStream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id);
 // 0x00451A50: preload stream `checksum` (silent, under its own checksum); its id, or 0.
-uint32_t __cdecl PreLoadStream(uint32_t checksum, int priority);
+uint32_t __cdecl PrimeStream(uint32_t checksum, int priority);
 // 0x00451B80: the AddStream command: give stream `stream` (the one `owner` played, or for no owner the one playing
 // with that id or name) another name, with that name's frame amplitudes. False if it isn't playing.
 // (Original quirk: no limit on the 8 names a stream has room for.)
 bool __cdecl AddStream(uint32_t stream, uint32_t name, void* owner);
 // 0x00451E20 (Ghidra splits it at 0x00451E7D): play stream `checksum` from an object's stream component (an
-// Obj::CStreamComponent: its object at +0xC, the ids it plays at +0x18): with `usePosInfo`, at the volume the
-// sound manager gives the nearest emitter's position (`dropoff`, `dropoffFunction`) - unless it's under 2 and
+// GameObjects::CAudioStreamModule: its object at +0xC, the ids it plays at +0x18): with `usePosInfo`, at the volume the
+// sound manager gives the nearest emitter's position (`dropoff`, `falloffCurve`) - unless it's under 2 and
 // the manager says it isn't audible; else at `volume`. The component becomes the stream's owner (the one before
 // lets go). A volume other than 100 scales the stream's and sets its dropoff. The id, or 0.
-uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
-                                      int option, int priority, int usePosInfo, int dropoffFunction, uint32_t id);
+uint32_t __cdecl PlayStreamAtObject(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
+                                      int option, int priority, int usePosInfo, int falloffCurve, uint32_t id);
 
 // The PC's streams are Bink files (sound only) opened from memory.
 

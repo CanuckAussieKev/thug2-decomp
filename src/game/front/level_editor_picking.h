@@ -26,7 +26,7 @@
 //   - Locks (L, the Inspector's Lock): a locked scenery piece or object is never taken by a click, Alt+click too (a
 //     locked piece still hides what's behind it from a plain click - click again or Alt reach past); the Inspector
 //     lists them (Unlock), layouts keep them (`lock` records).
-namespace Front::LevelEditor::Picking {
+namespace MenuSystem::LevelEditor::Picking {
 
 // The filter's bits.
 constexpr uint32_t kNodes = 1, kObjects = 2, kScenery = 4, kAll = 7;
@@ -178,4 +178,4 @@ const std::vector<Lock>& Locks();
 void ClearLocks();
 void SetLocks(const std::vector<Lock>& locks);
 
-} // namespace Front::LevelEditor::Picking
+} // namespace MenuSystem::LevelEditor::Picking

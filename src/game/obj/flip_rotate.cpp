@@ -1,4 +1,4 @@
-// The FlipRotate component (Obj::CFlipRotateComponent): construction, destruction and its parameters.
+// The FlipRotate component (GameObjects::CFlipRotateComponent): construction, destruction and its parameters.
 
 #include "game/obj/flip_rotate.h"
 #include "game/gfx/anim_controller.h"
@@ -17,7 +17,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/car_physics.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -26,15 +26,15 @@ extern void** const kVtable;
 // The base component (no source yet).
 void ConstructBase(CFlipRotateComponent* component, void* object)
 {
-    reinterpret_cast<Gfx::CAnimController*>(component)->Construct(static_cast<Gfx::CAnimTimeline*>(object));
+    reinterpret_cast<Gfx2D::CAnimController*>(component)->Construct(static_cast<Gfx2D::CAnimTimeline*>(object));
 }
 void DestroyBase(CFlipRotateComponent* component)
 {
-    reinterpret_cast<Gfx::CAnimController*>(component)->DestroyBody();
+    reinterpret_cast<Gfx2D::CAnimController*>(component)->DestroyBody();
 }
-void InitBaseFromStructure(CFlipRotateComponent* component, Script::CStruct* params)
+void InitBaseFromStructure(CFlipRotateComponent* component, Scripts::CStruct* params)
 {
-    reinterpret_cast<Gfx::CAnimController*>(component)->InitFromStructure(params);
+    reinterpret_cast<Gfx2D::CAnimController*>(component)->ConfigureFromData(params);
 }
 
 constexpr uint32_t kFlipped = 0x0C7A712C; // "flipped"
@@ -46,8 +46,8 @@ constexpr uint32_t kRotated = 0x6EA3704A; // "rotated"
 CFlipRotateComponent* CFlipRotateComponent::Construct(void* object)
 {
     ConstructBase(this, object);
-    m_flipped = false;
-    m_rotated = false;
+    m_mirrored = false;
+    m_hasPivoted = false;
     m_vtable = kVtable;
     return this;
 }
@@ -64,43 +64,43 @@ CFlipRotateComponent* CFlipRotateComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004E2C90
-void CFlipRotateComponent::InitFromStructure(Script::CStruct* params)
+void CFlipRotateComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     InitBaseFromStructure(this, params);
     int value;
-    if (params->GetInteger(kFlipped, &value, 0))
-        m_flipped = value != 0;
-    if (params->GetInteger(kRotated, &value, 0))
-        m_rotated = value != 0;
+    if (params->FetchIntValue(kFlipped, &value, 0))
+        m_mirrored = value != 0;
+    if (params->FetchIntValue(kRotated, &value, 0))
+        m_hasPivoted = value != 0;
 }
 
 // 0x004E2D20
-bool CFlipRotateComponent::GetPose(uint8_t* pose)
+bool CFlipRotateComponent::FetchPose(uint8_t* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
-    uint8_t* skeleton = reinterpret_cast<Gfx::CAnimController*>(this)->GetSkeleton();
+    uint8_t* skeleton = reinterpret_cast<Gfx2D::CAnimController*>(this)->FetchRig();
     void* bones = *reinterpret_cast<void**>(skeleton + 8);
-    auto* object = reinterpret_cast<Gfx::CAnimController*>(this)->GetObject();
-    CBaseComponent* flipAndRotate = object->GetComponent(0x488AF07A);
+    auto* object = reinterpret_cast<Gfx2D::CAnimController*>(this)->GetObject();
+    CObjectModule* flipAndRotate = object->GetComponent(0x488AF07A);
     if (flipAndRotate && reinterpret_cast<uint8_t*>(flipAndRotate)[0x18]) {
-        int bone = reinterpret_cast<Gfx::CSkeleton*>(skeleton)->GetBoneIndex(0x98971FAF);
+        int bone = reinterpret_cast<Gfx2D::CRig*>(skeleton)->FetchBoneSlot(0x98971FAF);
         if (bone != -1) {
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
             float product[4];
-            const float* result = reinterpret_cast<const float*>(QuatProduct(reinterpret_cast<Mth::Vector*>(product),
-                                                                             reinterpret_cast<const Mth::Vector*>(turn),
-                                                                             reinterpret_cast<const Mth::Vector*>(rotation)));
+            const float* result = reinterpret_cast<const float*>(QuatProduct(reinterpret_cast<Maths::Vector*>(product),
+                                                                             reinterpret_cast<const Maths::Vector*>(turn),
+                                                                             reinterpret_cast<const Maths::Vector*>(rotation)));
             std::memcpy(rotation, result, 16);
-            reinterpret_cast<Mth::Quat*>(rotation)->Normalize(1.0f); // (to length 1)
+            reinterpret_cast<Maths::QuatRotation*>(rotation)->Normalize(1.0f); // (to length 1)
         }
     }
-    if (!m_flipped)
+    if (!m_mirrored)
         return true;
     // The pose as it was (rotations past the bone count: no turn), then each bone from its mirror image.
     float rotations[64][4], translations[64][4];
@@ -108,11 +108,11 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
         r[0] = r[1] = r[2] = 0.0f;
         r[3] = 1.0f;
     }
-    int count = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Gfx::CSkeleton::GetNumBones))(skeleton);
+    int count = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(skeleton);
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {
-        int mirror = static_cast<Gfx::CSkeletonData*>(bones)->GetFlipIndex(i);
+        int mirror = static_cast<Gfx2D::CRigData*>(bones)->FetchMirrorSlot(i);
         int from = mirror == -1 ? i : mirror;
         auto* rotation = reinterpret_cast<float*>(pose + 0x10 * i);
         auto* translation = reinterpret_cast<float*>(pose + 0x400 + 0x10 * i);
@@ -127,14 +127,14 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CFlipRotateComponent::Destroy,
-         &Obj::CFlipRotateComponent::GetPose,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFlipRotateComponent::Destroy,
+         &GameObjects::CFlipRotateComponent::FetchPose,
          Stubs::IgnoreArgument,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-         &Obj::CFlipRotateComponent::InitFromStructure,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
+         &GameObjects::CFlipRotateComponent::ConfigureFromData,
          Stubs::DoNothing};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

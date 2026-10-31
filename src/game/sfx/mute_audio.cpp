@@ -8,7 +8,7 @@
 
 #include "game/sys/log.h"
 
-namespace Sfx {
+namespace SoundFx {
 
 bool& AudioMuted()
 {

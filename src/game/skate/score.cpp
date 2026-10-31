@@ -1,4 +1,4 @@
-// Mdl::Score's queries and displays, and the trick log's table (see score.h).
+// GameModules::Score's queries and displays, and the trick log's table (see score.h).
 
 #include "game/skate/score.h"
 
@@ -19,14 +19,14 @@
 #include "game/skate/score_internal.h"
 #include "game/gfx/viewport_list.h"
 
-namespace Lst {
+namespace ListKit {
 
 // 0x00561470
 DynamicTable* DynamicTable::Construct(int capacity, int grow)
 {
     m_capacity = capacity;
     m_grow = grow;
-    m_items = static_cast<void**>(Mem::Malloc(static_cast<unsigned int>(capacity) * 4));
+    m_items = static_cast<void**>(MemSys::AllocBlock(static_cast<unsigned int>(capacity) * 4));
     for (int i = 0; i < m_capacity; ++i)
         m_items[i] = nullptr;
     m_count = 0;
@@ -34,19 +34,19 @@ DynamicTable* DynamicTable::Construct(int capacity, int grow)
 }
 
 // 0x005614C0
-void DynamicTable::DestroyBody() { Mem::FreeMalloc(m_items); }
+void DynamicTable::DestroyBody() { MemSys::FreeMalloc(m_items); }
 
 // 0x005614D0
 void DynamicTable::Add(void* item)
 {
     if (m_capacity <= m_count) {
         int capacity = m_capacity + m_grow;
-        auto** items = static_cast<void**>(Mem::Malloc(static_cast<unsigned int>(capacity) * 4));
+        auto** items = static_cast<void**>(MemSys::AllocBlock(static_cast<unsigned int>(capacity) * 4));
         for (int i = 0; i < m_capacity; ++i)
             items[i] = m_items[i];
         for (int i = m_capacity; i < capacity; ++i)
             items[i] = nullptr;
-        Mem::FreeMalloc(m_items);
+        MemSys::FreeMalloc(m_items);
         m_items = items;
         m_capacity = capacity;
     }
@@ -54,34 +54,34 @@ void DynamicTable::Add(void* item)
 }
 
 // 0x00562920
-void DynamicTableDestroyer::DeleteTableContents()
+void TableReleaser::EmptyTableItems()
 {
-    int count = m_table->m_count;
+    int count = m_lookupTable->m_count;
     for (int i = 0; i < count; ++i)
-        Mem::Free(m_table->m_items[i]);
-    m_table->m_count = 0;
+        MemSys::Free(m_lookupTable->m_items[i]);
+    m_lookupTable->m_count = 0;
 }
 
 } // namespace Lst
 
-namespace Mdl {
+namespace GameModules {
 
 namespace ScoreInternal {
 
 int g_trickReduction[5]{100, 75, 50, 25, 10};
 int g_spinMultiplier[6]{2, 3, 4, 5, 6, 7};
 
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    Script::CStruct* made = Script::NewStruct();
+    Scripts::CStruct* made = Scripts::NewStruct();
     return made ? made->Init() : nullptr;
 }
 
-void DeleteStructure(Script::CStruct* structure)
+void DeleteStructure(Scripts::CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
 
@@ -130,18 +130,18 @@ struct ScoreGoal {
 };
 
 // The screen mode (0x004A0710: 1 a vertical split).
-int ScreenMode() { return Nx::GetScreenMode(); }
+int ScreenMode() { return Engine3D::GetViewLayout(); }
 
 // The created trick `index`'s name (the local skater's; 0 without one).
 uint32_t CreatedTrickName(int index)
 {
-    auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
+    auto* skater = static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider());
     if (!skater)
         return 0;
     const char* name;
-    reinterpret_cast<Script::CStruct*>(*reinterpret_cast<uint32_t*>(skater->m_trickInfo[index] + 4))
+    reinterpret_cast<Scripts::CStruct*>(*reinterpret_cast<uint32_t*>(skater->m_trickInfo[index] + 4))
         ->GetString(kName, &name, 1);
-    return Crc::GenerateCRCFromString(name);
+    return Checksums::HashFromText(name);
 }
 
 // A trick key combo's name for the counts: the mapped trick, else the created trick in that slot (0: none of
@@ -161,11 +161,11 @@ bool KeyComboName(uint32_t keyCombo, int taps, uint32_t* name)
 // The trick text script `script` with the skater number's ids.
 void RunTrickTextScript(uint32_t script, int skater)
 {
-    Script::CStruct* params = NewStructure();
-    params->AddChecksum(kTrickTextContainerId, kTrickTextContainer + static_cast<uint32_t>(skater));
-    params->AddChecksum(kTheTrickTextId, kTheTrickText + static_cast<uint32_t>(skater));
-    params->AddChecksum(kTheScorePotTextId, kTheScorePotText + static_cast<uint32_t>(skater));
-    Script::RunScript(script, params, nullptr, false, nullptr);
+    Scripts::CStruct* params = NewStructure();
+    params->PutNameKey(kTrickTextContainerId, kTrickTextContainer + static_cast<uint32_t>(skater));
+    params->PutNameKey(kTheTrickTextId, kTheTrickText + static_cast<uint32_t>(skater));
+    params->PutNameKey(kTheScorePotTextId, kTheScorePotText + static_cast<uint32_t>(skater));
+    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
     DeleteStructure(params);
 }
 
@@ -199,7 +199,7 @@ __declspec(naked) int ScoreIncrementStub()
 }
 
 // 0x00561290
-void Score::SetSkaterId(int16_t id) { m_skaterId = id; }
+void Score::SetRiderNumber(int16_t id) { m_riderNo = id; }
 
 // 0x005612A0
 void Score::EscapeSpaces(char* out, const char* text)
@@ -218,37 +218,37 @@ void Score::EscapeSpaces(char* out, const char* text)
 // 0x005612D0
 void Score::SetSpecialBarColors()
 {
-    Script::CArray* colors = Script::GetArray(kSpecialBarColors);
+    Scripts::CArray* colors = Scripts::GetArray(kSpecialBarColors);
     for (uint32_t i = 0; i < 3; ++i) {
-        auto* color = reinterpret_cast<Script::CArray*>(colors->GetElement(i));
+        auto* color = reinterpret_cast<Scripts::CArray*>(colors->GetElement(i));
         for (uint32_t c = 0; c < 4; ++c)
             m_barColors[i][c] = static_cast<uint8_t>(color->GetElement(c));
     }
-    m_specialRate = Script::GetFloat(kSpecialBarInterpolatorRate);
+    m_specialRate = Scripts::GetFloat(kSpecialBarInterpolatorRate);
 }
 
 // 0x00561360
 uint32_t Score::TrickNameAfterTaps(uint32_t trick, int taps)
 {
-    Script::CStruct* params;
-    Script::GetStructure(trick)->GetStructure(kParams, &params, 1);
+    Scripts::CStruct* params;
+    Scripts::ReadSubStruct(trick)->ReadSubStruct(kParams, &params, 1);
     if (taps > 1) {
         uint32_t extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
         for (int left = taps - 1; left; --left) {
-            params->GetChecksum(kExtraTricks, &extra, 0);
-            reinterpret_cast<Script::CStruct*>(Script::GetArray(extra)->GetElement(0))->GetStructure(kParams, &params, 1);
+            params->ReadHashValue(kExtraTricks, &extra, 0);
+            reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(extra)->GetElement(0))->ReadSubStruct(kParams, &params, 1);
         }
     }
     const char* name;
     params->GetString(kName, &name, 1);
-    return Crc::GenerateCRCFromString(name);
+    return Checksums::HashFromText(name);
 }
 
 // 0x00561400
 void Score::ResetBests()
 {
     m_bestTricks = 0;
-    m_bestCombo = 0;
+    m_topChain = 0;
     m_bestComboSent = 0;
 }
 
@@ -268,8 +268,8 @@ int Score::GetScoreOfRange(int first, int last)
         if (trick->m_flags & kTrickNoSpin)
             spin = 2;
         else if (i == 0 || (Trick(i - 1)->m_flags & kTrickNoSpin))
-            spin = SpinMultiplier(trick->m_spin);
-        int points = trick->m_score * Reduction(trick->m_repeats) * spin / 200; // (percent times half the multiplier)
+            spin = SpinMultiplier(trick->m_twistRate);
+        int points = trick->m_pointsHeld * Reduction(trick->m_repeats) * spin / 200; // (percent times half the multiplier)
         if (trick->m_kind)
             points = points * 120 / 100;
         total += points;
@@ -286,9 +286,9 @@ uint32_t Score::GetTrickName(int index) { return Trick(index)->m_name; }
 // 0x00561670
 void Score::DispatchTrickSequence(bool clear)
 {
-    Obj::CSkater* skater = SkaterById(m_skaterId);
+    GameObjects::CRider* skater = SkaterById(m_riderNo);
     int number = skater ? skater->GetSkaterNumber() : 0;
-    auto* text = static_cast<Front::CTextBlockElement*>(FindElement(kTheTrickText + static_cast<uint32_t>(number)));
+    auto* text = static_cast<MenuSystem::CParagraphWidget*>(FindElement(kTheTrickText + static_cast<uint32_t>(number)));
     if (!text)
         return;
     const char* lines[0xFD];
@@ -299,52 +299,52 @@ void Score::DispatchTrickSequence(bool clear)
     } else {
         text->SetText(lines, 0);
     }
-    Script::RunScript(kUpdateTrickText, nullptr, nullptr, false, nullptr);
+    Scripts::LaunchScript(kUpdateTrickText, nullptr, nullptr, false, nullptr);
 }
 
 // 0x00561730
 void Score::SetupBalanceMeter()
 {
-    Script::CStruct* info = Script::GetStructure(kBalanceMeterInfo);
-    Script::CArray* arrows = nullptr;
+    Scripts::CStruct* info = Scripts::ReadSubStruct(kBalanceMeterInfo);
+    Scripts::CArray* arrows = nullptr;
     info->GetArray(kArrowPositions, &arrows, 0);
     m_arrowCount = static_cast<int>(arrows->m_size); // (no check: as the original)
     for (int i = 0; i < m_arrowCount; ++i)
-        m_arrows[i] = *reinterpret_cast<Script::CPair*>(arrows->GetElement(static_cast<uint32_t>(i)));
+        m_arrows[i] = *reinterpret_cast<Scripts::CPair*>(arrows->GetElement(static_cast<uint32_t>(i)));
     m_arrows[m_arrowCount] = m_arrows[m_arrowCount - 1];
     m_arrowStep = static_cast<float>(1.0 / m_arrowCount);
-    Script::CArray* bars = nullptr;
+    Scripts::CArray* bars = nullptr;
     uint32_t name = kBarPositions;
-    if (static_cast<uint8_t>(CFuncs::CFunc_InSplitScreenGame(nullptr, nullptr)) && GameMode()->GetNameChecksum() != kHorse &&
-        GameMode()->GetNameChecksum() != kNetHorse)
+    if (static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr)) && GameMode()->GetNameKey() != kHorse &&
+        GameMode()->GetNameKey() != kNetHorse)
         name = ScreenMode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
     info->GetArray(name, &bars, 0);
     for (uint32_t i = 0; i < 2; ++i)
-        m_bars[i] = *reinterpret_cast<Script::CPair*>(bars->GetElement(i));
+        m_bars[i] = *reinterpret_cast<Scripts::CPair*>(bars->GetElement(i));
 }
 
 // 0x00561890
 void Score::DispatchScorePot(int points, float multiplier)
 {
-    Obj::CSkater* skater = SkaterById(m_skaterId);
+    GameObjects::CRider* skater = SkaterById(m_riderNo);
     int number = skater ? skater->GetSkaterNumber() : 0;
-    auto* text = static_cast<Front::CTextElement*>(FindElement(kTheScorePotText + static_cast<uint32_t>(number)));
+    auto* text = static_cast<MenuSystem::CLabelWidget*>(FindElement(kTheScorePotText + static_cast<uint32_t>(number)));
     char shown[0x80];
     if (!points) {
         shown[0] = ' ';
         shown[1] = 0;
     } else if (multiplier == 0.0f) {
-        std::snprintf(shown, sizeof(shown), "%s", Str::FormatWithSeparators(points)); // "%s"
+        std::snprintf(shown, sizeof(shown), "%s", TextUtil::FormatWithSeparators(points)); // "%s"
     } else {
         int whole = Ftol(multiplier);
         if (static_cast<double>(whole) == multiplier)
-            std::snprintf(shown, sizeof(shown), "%s X %d", Str::FormatWithSeparators(points), whole); // "%s X %d"
+            std::snprintf(shown, sizeof(shown), "%s X %d", TextUtil::FormatWithSeparators(points), whole); // "%s X %d"
         else
-            std::snprintf(shown, sizeof(shown), "%s X %.1f", Str::FormatWithSeparators(points),
+            std::snprintf(shown, sizeof(shown), "%s X %.1f", TextUtil::FormatWithSeparators(points),
                           static_cast<double>(multiplier)); // "%s X %.1f"
     }
     text->SetText(shown); // (no check: as the original)
-    Script::RunScript(kUpdateScorepot, nullptr, nullptr, false, nullptr);
+    Scripts::LaunchScript(kUpdateScorepot, nullptr, nullptr, false, nullptr);
 }
 
 // 0x005619E0
@@ -361,51 +361,51 @@ void Score::CheckHighScore(int before, int after)
         if (!score || before >= score || after < score || SkateCalls::Career()->GetGoal(goal, -1))
             continue;
         SkateCalls::Career()->SetGoal(goal, -1);
-        SkaterById(m_skaterId)->SpawnAndRunScript(script, 0, false, false, nullptr);
+        SkaterById(m_riderNo)->StartScriptTask(script, 0, false, false, nullptr);
     }
 }
 
 // 0x00561A80
-void Score::SetTotalScore(int total)
+void Score::SetGrandTotal(int total)
 {
     m_total = total;
-    Obj::CSkater* skater = SkaterById(m_skaterId);
+    GameObjects::CRider* skater = SkaterById(m_riderNo);
     if (!skater->m_unknownBC) // (no check: as the original)
         return;
     char shown[0x40];
-    if (GameMode()->GetNameChecksum() == kNetKing || GameMode()->GetNameChecksum() == kKing) {
+    if (GameMode()->GetNameKey() == kNetKing || GameMode()->GetNameKey() == kKing) {
         uint32_t seconds = static_cast<uint32_t>(m_total) / 1000;
         std::snprintf(shown, sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
         std::snprintf(shown, sizeof(shown), "%d", m_total); // "%d"
     }
-    Front::SetScoreText(shown, skater->GetSkaterNumber());
+    MenuSystem::SetScoreText(shown, skater->GetSkaterNumber());
 }
 
 // 0x00561B40
 int Score::GetTotalScore()
 {
-    if (NetManager()->OnServer() && (Script::GetInteger(kScoreByClusters) || GameMode()->IsTrue(kShouldModulateColor)))
-        return TrickObjects()->CountClustersHeldBy(m_skaterId);
+    if (NetManager()->OnServer() && (Scripts::FetchIntValue(kScoreByClusters) || GameMode()->IsTrue(kShouldModulateColor)))
+        return TrickObjects()->CountClustersHeldBy(m_riderNo);
     return m_total;
 }
 
 // 0x00562080
 uint32_t Score::TrickFromKeyCombo(uint32_t keyCombo, int taps)
 {
-    Obj::CSkaterProfile* profile = SkateCalls::GetProfileFromParams(nullptr);
-    Script::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
+    GameObjects::CRiderIdentity* profile = SkateCalls::GetProfileFromParams(nullptr);
+    Scripts::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
     uint32_t trick = 0;
-    if (!mapping->GetChecksum(keyCombo, &trick, 0)) {
-        Script::CArray* specials;
+    if (!mapping->ReadHashValue(keyCombo, &trick, 0)) {
+        Scripts::CArray* specials;
         profile->GetSpecials()->GetArray(0u, &specials, 1);
         int count = static_cast<int>(specials->m_size);
         for (int i = 0; i < count; ++i) {
-            auto* special = reinterpret_cast<Script::CStruct*>(specials->GetElement(static_cast<uint32_t>(i)));
+            auto* special = reinterpret_cast<Scripts::CStruct*>(specials->GetElement(static_cast<uint32_t>(i)));
             uint32_t slot;
-            special->GetChecksum(kTrickSlot, &slot, 1);
+            special->ReadHashValue(kTrickSlot, &slot, 1);
             if (slot == keyCombo) {
-                special->GetChecksum(kTrickName, &trick, 1);
+                special->ReadHashValue(kTrickName, &trick, 1);
                 break;
             }
         }
@@ -418,25 +418,25 @@ uint32_t Score::TrickFromKeyCombo(uint32_t keyCombo, int taps)
 // 0x00562150
 int Score::CreatedTrickFromKeyCombo(uint32_t keyCombo)
 {
-    Obj::CSkaterProfile* profile = SkateCalls::GetProfileFromParams(nullptr);
-    Script::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
+    GameObjects::CRiderIdentity* profile = SkateCalls::GetProfileFromParams(nullptr);
+    Scripts::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
     int index = -1;
-    if (mapping->GetInteger(keyCombo, &index, 0))
+    if (mapping->FetchIntValue(keyCombo, &index, 0))
         return index;
-    Script::CArray* specials;
+    Scripts::CArray* specials;
     profile->GetSpecials()->GetArray(0u, &specials, 1);
     int count = static_cast<int>(specials->m_size);
     for (int i = 0; i < count; ++i) {
-        auto* special = reinterpret_cast<Script::CStruct*>(specials->GetElement(static_cast<uint32_t>(i)));
+        auto* special = reinterpret_cast<Scripts::CStruct*>(specials->GetElement(static_cast<uint32_t>(i)));
         int isCat = 0;
-        special->GetInteger(kIsCat, &isCat, 0);
+        special->FetchIntValue(kIsCat, &isCat, 0);
         if (!isCat)
             continue;
         uint32_t slot;
-        special->GetChecksum(kTrickSlot, &slot, 1);
+        special->ReadHashValue(kTrickSlot, &slot, 1);
         if (slot == keyCombo) {
             uint32_t name;
-            special->GetChecksum(kTrickName, &name, 1);
+            special->ReadHashValue(kTrickName, &name, 1);
             return static_cast<int>(name);
         }
     }
@@ -453,7 +453,7 @@ bool Score::IsTrickAt(int index, uint32_t name, int spin, bool perfect)
         return false;
     if (!spin)
         return true;
-    if (spin != trick->m_spin)
+    if (spin != trick->m_twistRate)
         return false;
     if (!perfect)
         return true;
@@ -461,7 +461,7 @@ bool Score::IsTrickAt(int index, uint32_t name, int spin, bool perfect)
     int off = degrees - spin * 180;
     if (off < 0)
         off = -off;
-    return off < Script::GetInteger(kPerfectLandingSlop);
+    return off < Scripts::FetchIntValue(kPerfectLandingSlop);
 }
 
 // 0x005622C0
@@ -474,7 +474,7 @@ int Score::CountTrick(uint32_t name, int spin, bool perfect)
         if (trick->m_flags & kTrickNoSpin)
             shared = 1;
         else if (i == 0 || (Trick(i - 1)->m_flags & kTrickNoSpin))
-            shared = trick->m_spin;
+            shared = trick->m_twistRate;
         if (trick->m_name != name)
             continue;
         if (spin) {
@@ -485,7 +485,7 @@ int Score::CountTrick(uint32_t name, int spin, bool perfect)
                 int off = degrees - spin * 180;
                 if (off < 0)
                     off = -off;
-                if (off >= Script::GetInteger(kPerfectLandingSlop))
+                if (off >= Scripts::FetchIntValue(kPerfectLandingSlop))
                     continue;
             }
         }
@@ -499,7 +499,7 @@ int Score::CountTricksNamed(const char* text)
 {
     int count = 0;
     for (int i = 0; i < m_tricks; ++i)
-        if (Str::FindCaseless(Trick(i)->m_text, text))
+        if (TextUtil::FindCaseless(Trick(i)->m_text, text))
             ++count;
     return count;
 }
@@ -559,7 +559,7 @@ int CountRepeats(Score* score, uint32_t name, int spin)
     for (int i = 0; i < score->m_tricks; ++i) {
         STrickLog* trick = score->Trick(i);
         if (trick->m_name == name) {
-            if (!spin || spin == trick->m_spin) {
+            if (!spin || spin == trick->m_twistRate) {
                 ++count;
                 latest = true;
             }
@@ -602,12 +602,12 @@ void Score::SetSpecialActive(bool active)
     if (active == m_specialActive)
         return;
     m_specialActive = active;
-    if (Obj::CSkater* skater = SkaterById(m_skaterId))
+    if (GameObjects::CRider* skater = SkaterById(m_riderNo))
         skater->BroadcastEvent(m_specialActive ? kSkaterEnterSpecial : kSkaterExitSpecial, nullptr, 0.0f);
 }
 
 // 0x005627B0
-void Score::UpdateRobotDetection(int line)
+void Score::RefreshBotCheck(int line)
 {
     if (line >= 2500) {
         m_robotFactor = 1.0f;
@@ -627,7 +627,7 @@ void Score::UpdateRobotDetection(int line)
         ++m_robotComboFirstLines;
     if (comboCount < 0xFF)
         ++comboCount;
-    int kickIn = Script::GetInteger(kRobotKickInCount);
+    int kickIn = Scripts::FetchIntValue(kRobotKickInCount);
     if (comboCount <= kickIn) {
         m_robotFactor = 1.0f;
         return;
@@ -651,10 +651,10 @@ void Score::TrimLog()
     }
     if (end > m_spinTrick || end > m_lastNoSpin)
         return;
-    merged.m_score = GetScoreOfRange(0, end);
+    merged.m_pointsHeld = GetScoreOfRange(0, end);
     // (entries 1 to `end` taken out - one more than the points summed, as the original)
     for (int left = end; left > 0; --left) {
-        Mem::Free(m_log.m_items[1]);
+        MemSys::Free(m_log.m_items[1]);
         for (int i = 1; i < m_log.m_count - 1; ++i)
             m_log.m_items[i] = m_log.m_items[i + 1];
         m_log.m_items[m_log.m_count - 1] = nullptr;
@@ -668,16 +668,16 @@ void Score::TrimLog()
 }
 
 // 0x00562B20
-void Score::TrickTextCountdown(int skater) { RunTrickTextScript(kTrickTextCountdown, skater); }
+void Score::MoveCaptionTimer(int skater) { RunTrickTextScript(kTrickTextCountdown, skater); }
 
 // 0x00562C10
-void Score::TrickTextLanded(int skater) { RunTrickTextScript(kTrickTextLanded, skater); }
+void Score::MoveCaptionLanded(int skater) { RunTrickTextScript(kTrickTextLanded, skater); }
 
 // 0x00562D00
-void Score::TrickTextBail(int skater) { RunTrickTextScript(kTrickTextBail, skater); }
+void Score::MoveCaptionWipeout(int skater) { RunTrickTextScript(kTrickTextBail, skater); }
 
 // 0x005638A0
-void Score::TrickTextPulse(int skater) { RunTrickTextScript(kTrickTextPulse, skater); }
+void Score::MoveCaptionPulse(int skater) { RunTrickTextScript(kTrickTextPulse, skater); }
 
 // 0x00562DF0
 void Score::FillSpecial()

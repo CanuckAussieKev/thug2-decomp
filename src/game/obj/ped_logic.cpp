@@ -1,4 +1,4 @@
-// The PedLogic component (Obj::CPedLogicComponent): see ped_logic.h. Its making, states, settings and script member
+// The PedLogic component (GameObjects::CPedestrianBrainModule): see ped_logic.h. Its making, states, settings and script member
 // functions; from the disassembly of 0x004ED140-0x004F2560 (the member functions 0x004ED150, 0x004ED160, 0x004ED1D0,
 // 0x004ED220, 0x004ED2A0, 0x004EDD80, 0x004EDDA0, 0x004EDE00, 0x004EDE20, 0x004EDEA0, 0x004EDEC0, 0x004EE100,
 // 0x004EE230, 0x004EE280, 0x004F20E0, 0x004F24E0 and 0x004F2770, and 0x004EDC10, aren't Ghidra functions).
@@ -29,7 +29,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_pedLogicMemberFunctions[174]{
             0x3685B765, 0x6EFDDFB8, 0, 0, 0, 0,
@@ -78,7 +78,7 @@ constexpr uint32_t kProfile = 0x7EA855F0;           // profile
 constexpr uint32_t kBoard = 0xA7A9D4B8;             // board
 constexpr uint32_t kDescId = 0x4BB2084E;            // desc_id
 constexpr uint32_t kName = 0xA1DC81F9;              // Name
-constexpr uint32_t kDistAbove = 0x367C4A1B, kDistBelow = 0x86F46E7B; // (InitFromStructure's)
+constexpr uint32_t kDistAbove = 0x367C4A1B, kDistBelow = 0x86F46E7B; // (ConfigureFromData's)
 constexpr uint32_t kDistAboveCmd = 0xA8A5A3C7, kDistBelowCmd = 0x182D87A7; // DistAbove / DistBelow
 constexpr uint32_t kStickAbove = 0x379D93D2;        // ped_skater_stick_dist_above
 constexpr uint32_t kStickBelow = 0x8715B7B2;        // ped_skater_stick_dist_below
@@ -130,25 +130,25 @@ constexpr float kMaxBoostedSpeed = 1100.0f;         // 0x0064A8CC
 constexpr float kDefaultBoost = 1.25f;
 constexpr float kPercentScale = 0.01f;              // 0x0064544C
 
-CMotionComponent* Motion(CCompositeObject* object) { return static_cast<CMotionComponent*>(object->GetComponent(kMotion)); }
+CKinematicsModule* Motion(CGameEntity* object) { return static_cast<CKinematicsModule*>(object->GetComponent(kMotion)); }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
 
 // How the original makes and frees its scripts (the pooled operator new and Construct; Destroy and the pooled
 // operator delete).
-Script::CScript* NewScript()
+Scripts::CScript* NewScript()
 {
-    void* memory = Script::CScript::operator new(sizeof(Script::CScript));
-    return memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
+    return memory ? static_cast<Scripts::CScript*>(memory)->Construct() : nullptr;
 }
-void DeleteScript(Script::CScript* script)
+void DeleteScript(Scripts::CScript* script)
 {
     script->Destroy();
-    Script::CScript::operator delete(script);
+    Scripts::CScript::operator delete(script);
 }
 
 } // namespace
@@ -162,165 +162,165 @@ GroundTriangle& GroundTriangle::Assign(const GroundTriangle& source)
 }
 
 // 0x004F0B10
-CBaseComponent* __cdecl CPedLogicComponent::Create()
+CObjectModule* __cdecl CPedestrianBrainModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CPedLogicComponent));
-    return memory ? static_cast<CPedLogicComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CPedestrianBrainModule));
+    return memory ? static_cast<CPedestrianBrainModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x004ECFB0
-void __cdecl CPedLogicComponent::RegisterMemberFunctions()
+void __cdecl CPedestrianBrainModule::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_pedLogicMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_pedLogicMemberFunctions, 0x18);
 }
 
 // 0x004ECFD0
-int CPedLogicComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*params*/, Script::CScript* /*script*/)
+int CPedestrianBrainModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
     return name == kLedgeMember ? 1 : 2;
 }
 
 // 0x004EE4F0
-CPedLogicComponent* CPedLogicComponent::Construct()
+CPedestrianBrainModule* CPedestrianBrainModule::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_type = kType;
     for (float& bias : m_bias)
         bias = 0.0f;
-    for (Mth::Vector& position : m_history)
+    for (Maths::Vector& position : m_pastFrames)
         position = {0.0f, 0.0f, 0.0f, 1.0f};
     for (float& avoid : m_avoid)
         avoid = 0.0f;
     m_turnFrame = 0;
     m_turnFrames = 0;
     mp_peds = nullptr;
-    m_stickAbove = Script::GetFloat(kStickAbove);
-    m_stickBelow = Script::GetFloat(kStickBelow);
+    m_stickAbove = Scripts::GetFloat(kStickAbove);
+    m_stickBelow = Scripts::GetFloat(kStickBelow);
     m_flags = 0;
     m_storedMaxVelocity = 0.0f;
-    m_state = Crc::GenerateCRCFromString("NULL");
-    m_stateTable = Crc::GenerateCRCFromString("NULL");
-    m_updateType = Crc::GenerateCRCFromString("NULL");
+    m_state = Checksums::HashFromText("NULL");
+    m_stateTable = Checksums::HashFromText("NULL");
+    m_updateType = Checksums::HashFromText("NULL");
     mp_auxScript = nullptr;
     m_nextNodePos = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
 }
 
 // 0x004F2120
-void CPedLogicComponent::DestroyBody()
+void CPedestrianBrainModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (Script::CScript* script = mp_auxScript) {
+    if (Scripts::CScript* script = mp_auxScript) {
         DeleteScript(script);
         mp_auxScript = nullptr;
     }
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004F2540
-CPedLogicComponent* CPedLogicComponent::Destroy(unsigned int flags)
+CPedestrianBrainModule* CPedestrianBrainModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004ED2C0
-void CPedLogicComponent::InitFromStructure(Script::CStruct* params)
+void CPedestrianBrainModule::ConfigureFromData(Scripts::CStruct* params)
 {
     m_kind = 0;
     m_female = 0;
     uint32_t skeleton = 0;
-    if (params->GetChecksum(kSkeletonName, &skeleton, 0) && skeleton == kPedFemale)
+    if (params->ReadHashValue(kSkeletonName, &skeleton, 0) && skeleton == kPedFemale)
         m_female = 1;
-    Script::CStruct* profile = nullptr;
-    params->GetStructure(kProfile, &profile, 0);
+    Scripts::CStruct* profile = nullptr;
+    params->ReadSubStruct(kProfile, &profile, 0);
     if (profile) {
-        Script::CStruct* board = nullptr;
-        profile->GetStructure(kBoard, &board, 0);
+        Scripts::CStruct* board = nullptr;
+        profile->ReadSubStruct(kBoard, &board, 0);
         if (board) {
-            uint32_t descId = 0;
-            if (board->GetChecksum(kDescId, &descId, 0))
+            uint32_t descriptorId = 0;
+            if (board->ReadHashValue(kDescId, &descriptorId, 0))
                 m_flags |= PED_FLAG_BOARD_HIDEABLE;
         }
     }
-    params->GetChecksum(kName, &m_node, 1);
-    SkateScript::GetPosition(m_node, &m_nodePos);
+    params->ReadHashValue(kName, &m_listLink, 1);
+    LevelNodes::GetPosition(m_listLink, &m_nodePos);
     m_upBlend = 0.0f;
-    m_upTarget = m_object->m_matrix.row[1];
-    m_up = m_upTarget;
-    m_upShown = m_up;
+    m_upTarget = m_object->m_basisFrame.row[1];
+    m_upDir = m_upTarget;
+    m_upShown = m_upDir;
     params->GetFloat(kDistAbove, &m_stickAbove, 0);
     params->GetFloat(kDistBelow, &m_stickBelow, 0);
     m_savedMatrix = m_object->m_displayMatrix;
 }
 
 // 0x004ED460
-void CPedLogicComponent::InitializeMovement()
+void CPedestrianBrainModule::InitializeMovement()
 {
-    Script::RunScript(kPedInitializeMovement, nullptr, m_object, false, nullptr);
+    Scripts::LaunchScript(kPedInitializeMovement, nullptr, m_object, false, nullptr);
     if (m_updateType == kGenericMoveUpdate || m_updateType == kSkaterMoveUpdate)
         m_flags |= PED_FLAG_MOVING;
 }
 
 // 0x004ED4A0
-void CPedLogicComponent::NoMoveUpdate()
+void CPedestrianBrainModule::NoMoveUpdate()
 {
-    CCompositeObject* object = m_object;
-    if (reinterpret_cast<CMotionPathMembers*>(Motion(object))->IsRotating())
-        m_savedMatrix = object->m_matrix;
+    CGameEntity* object = m_object;
+    if (reinterpret_cast<CMotionPathMembers*>(Motion(object))->IsSpinning())
+        m_savedMatrix = object->m_basisFrame;
     else
         object->m_displayMatrix = m_savedMatrix;
 }
 
 // 0x004ED4F0
-void CPedLogicComponent::PushPosition()
+void CPedestrianBrainModule::PushPosition()
 {
     for (int i = 0; i < 4; ++i)
-        m_history[i] = m_history[i + 1];
-    m_history[4] = m_object->m_pos;
+        m_pastFrames[i] = m_pastFrames[i + 1];
+    m_pastFrames[4] = m_object->m_pos;
 }
 
 // 0x004EDC60
-void CPedLogicComponent::SetSoundState(int state)
+void CPedestrianBrainModule::SetSoundState(int state)
 {
-    if (auto* looping = static_cast<CSkaterLoopingSoundComponent*>(m_object->GetComponent(kSkaterLoopingSound))) {
+    if (auto* looping = static_cast<CRiderRollingAudio*>(m_object->GetComponent(kSkaterLoopingSound))) {
         looping->m_soundChanged |= looping->m_state != state;
         looping->m_state = state;
     }
-    if (auto* sound = static_cast<CSkaterSoundComponent*>(m_object->GetComponent(kSkaterSound)))
+    if (auto* sound = static_cast<CRiderSfxPlayer*>(m_object->GetComponent(kSkaterSound)))
         sound->m_state = state;
 }
 
 // 0x004EDCB0
-void CPedLogicComponent::SetSoundTerrain(uint8_t terrain)
+void CPedestrianBrainModule::SetSoundTerrain(uint8_t terrain)
 {
-    if (auto* looping = static_cast<CSkaterLoopingSoundComponent*>(m_object->GetComponent(kSkaterLoopingSound))) {
-        looping->m_soundChanged |= looping->m_terrain != terrain;
-        looping->m_terrain = terrain;
+    if (auto* looping = static_cast<CRiderRollingAudio*>(m_object->GetComponent(kSkaterLoopingSound))) {
+        looping->m_soundChanged |= looping->m_surfaceType != terrain;
+        looping->m_surfaceType = terrain;
     }
-    if (auto* sound = static_cast<CSkaterSoundComponent*>(m_object->GetComponent(kSkaterSound))) {
-        sound->m_terrain = terrain;
+    if (auto* sound = static_cast<CRiderSfxPlayer*>(m_object->GetComponent(kSkaterSound))) {
+        sound->m_surfaceType = terrain;
         sound->m_lastGround = terrain;
     }
 }
 
 // 0x004EDD00
-bool CPedLogicComponent::HideBoard(int hide)
+bool CPedestrianBrainModule::HideBoard(int hide)
 {
     if (!(m_flags & PED_FLAG_BOARD_HIDEABLE))
         return false;
-    if (auto* model = static_cast<CModelComponent*>(m_object->GetComponent(kModel))) {
+    if (auto* model = static_cast<CMeshInstanceModule*>(m_object->GetComponent(kModel))) {
         if (hide) {
             if (!(m_flags & PED_FLAG_BOARD_HIDDEN)) {
-                model->HideGeom(kBoard, true, true);
+                model->ConcealMesh(kBoard, true, true);
                 m_flags |= PED_FLAG_BOARD_HIDDEN;
                 return true;
             }
         } else if (m_flags & PED_FLAG_BOARD_HIDDEN) {
-            model->HideGeom(kBoard, false, true);
+            model->ConcealMesh(kBoard, false, true);
             m_flags &= ~PED_FLAG_BOARD_HIDDEN;
         }
     }
@@ -328,61 +328,61 @@ bool CPedLogicComponent::HideBoard(int hide)
 }
 
 // 0x004EFB10
-Script::CStruct* CPedLogicComponent::StateParams(Script::CStruct* params)
+Scripts::CStruct* CPedestrianBrainModule::StateParams(Scripts::CStruct* params)
 {
-    Script::CStruct* out = NewParams();
+    Scripts::CStruct* out = NewParams();
     out->AppendStructureIfAny(params);
-    out->AppendStructureIfAny(m_object->mp_tags);
+    out->AppendStructureIfAny(m_object->m_tagTable);
     return out;
 }
 
 // 0x004F0B70
-bool CPedLogicComponent::SetState(uint32_t state, uint32_t table, Script::CStruct* params)
+bool CPedestrianBrainModule::SetState(uint32_t state, uint32_t table, Scripts::CStruct* params)
 {
     int pedInit = 0;
-    m_object->GetIntegerTag(kPedInit, &pedInit);
+    m_object->ReadIntTag(kPedInit, &pedInit);
     if (!pedInit)
         return false;
-    if (!table && !m_object->GetChecksumTag(kUniqueStateTable, &table))
+    if (!table && !m_object->ReadHashTag(kUniqueStateTable, &table))
         table = kPedStateLogicTable;
-    Script::CStruct* tableStruct = Script::GetStructure(table);
+    Scripts::CStruct* tableStruct = Scripts::ReadSubStruct(table);
     if (!tableStruct)
         return false;
-    Script::CStruct* stateStruct = nullptr;
-    if (!tableStruct->GetStructure(state, &stateStruct, 0)) {
+    Scripts::CStruct* stateStruct = nullptr;
+    if (!tableStruct->ReadSubStruct(state, &stateStruct, 0)) {
         if (table == kPedStateLogicTable)
             return false;
         // Not in its own table: the common one's (looked for without a null check).
         table = kPedStateLogicTable;
-        if (!Script::GetStructure(kPedStateLogicTable)->GetStructure(state, &stateStruct, 0))
+        if (!Scripts::ReadSubStruct(kPedStateLogicTable)->ReadSubStruct(state, &stateStruct, 0))
             return false;
     }
     uint32_t script = 0;
-    stateStruct->GetChecksum(kScriptPedState, &script, 1);
+    stateStruct->ReadHashValue(kScriptPedState, &script, 1);
     uint32_t updateType = kNoMoveUpdate;
-    stateStruct->GetChecksum(kPedUpdateType, &updateType, 0);
+    stateStruct->ReadHashValue(kPedUpdateType, &updateType, 0);
     // Leaving the old state.
     if (m_state != kNull) {
-        if (Script::CStruct* oldTable = Script::GetStructure(m_stateTable)) {
-            Script::CStruct* oldState = nullptr;
-            if (oldTable->GetStructure(m_state, &oldState, 0)) {
+        if (Scripts::CStruct* oldTable = Scripts::ReadSubStruct(m_stateTable)) {
+            Scripts::CStruct* oldState = nullptr;
+            if (oldTable->ReadSubStruct(m_state, &oldState, 0)) {
                 uint32_t exitAction;
-                if (oldState->GetChecksum(kExitStateAction, &exitAction, 0)) {
+                if (oldState->ReadHashValue(kExitStateAction, &exitAction, 0)) {
                     if (exitAction == kWaitAnimFinished) {
-                        if (!stateStruct->ContainsFlag(kHighPriority)) {
+                        if (!stateStruct->HasBareFlag(kHighPriority)) {
                             // The new state waits for the animation to finish.
-                            m_object->SetChecksumTag(kDelayedState, state);
-                            m_object->SetChecksumTag(kDelayedTable, table);
+                            m_object->WriteHashTag(kDelayedState, state);
+                            m_object->WriteHashTag(kDelayedTable, table);
                             table = kPedStateLogicTable;
                             state = kDelayWaitAnim;
                             script = kDelayWaitAnimScript;
                             updateType = kNoMoveUpdate;
                         }
-                    } else if (Script::ScriptExists(exitAction)) {
-                        Script::RunScript(exitAction, nullptr, m_object, false, nullptr);
+                    } else if (Scripts::ScriptExists(exitAction)) {
+                        Scripts::LaunchScript(exitAction, nullptr, m_object, false, nullptr);
                     }
                 }
-                if (oldState->ContainsFlag(kHideBoardGeom))
+                if (oldState->HasBareFlag(kHideBoardGeom))
                     HideBoard(0);
             }
         }
@@ -390,39 +390,39 @@ bool CPedLogicComponent::SetState(uint32_t state, uint32_t table, Script::CStruc
     m_stateTable = table;
     m_state = state;
     m_updateType = updateType;
-    m_object->SwitchScript(script, params);
-    if (Script::CScript* aux = mp_auxScript) {
+    m_object->ReplaceScript(script, params);
+    if (Scripts::CScript* aux = mp_auxScript) {
         DeleteScript(aux);
         mp_auxScript = nullptr;
     }
     InitializeMovement();
-    if (stateStruct->ContainsFlag(kHideBoardGeom))
+    if (stateStruct->HasBareFlag(kHideBoardGeom))
         HideBoard(1);
-    if (m_object->m_script)
-        m_object->m_script->Update();
+    if (m_object->m_runScript)
+        m_object->m_runScript->Update();
     return true;
 }
 
 // 0x004F2240
-void CPedLogicComponent::ActivateAuxScript(uint32_t script, Script::CStruct* params)
+void CPedestrianBrainModule::ActivateAuxScript(uint32_t script, Scripts::CStruct* params)
 {
     if (!script)
         return;
     if (!mp_auxScript)
         mp_auxScript = NewScript();
-    mp_auxScript->SetScript(script, params, m_object);
-    if (mp_auxScript->GotScript()) {
+    mp_auxScript->BindScript(script, params, m_object);
+    if (mp_auxScript->HasAttachedScript()) {
         mp_auxScript->Update();
         return;
     }
-    if (Script::CScript* aux = mp_auxScript) {
+    if (Scripts::CScript* aux = mp_auxScript) {
         DeleteScript(aux);
         mp_auxScript = nullptr;
     }
 }
 
 // 0x004F1E10
-bool CPedLogicComponent::Bail()
+bool CPedestrianBrainModule::Bail()
 {
     if (Motion(m_object)->m_motionFlags & 0x100)
         return false;
@@ -436,20 +436,20 @@ bool CPedLogicComponent::Bail()
 // 0x004EE2C0
 const char* ProfileVoice()
 {
-    CSkaterProfile* profile = g_profileManager->GetCurrentProfile();
-    auto* info = reinterpret_cast<Script::CStruct*>(profile->m_info);
+    CRiderIdentity* profile = g_profileManager->GetCurrentProfile();
+    auto* info = reinterpret_cast<Scripts::CStruct*>(profile->m_info);
     uint32_t voice;
-    if (!info->GetChecksum(kVoice, &voice, 0)) {
+    if (!info->ReadHashValue(kVoice, &voice, 0)) {
         int male = 0; // (the original's is uninitialised: is_male is asserted)
-        info->GetInteger(kIsMale, &male, 1);
+        info->FetchIntValue(kIsMale, &male, 1);
         return male == 1 ? "Male1" : "Female1";
     }
-    Script::CArray* voices = Script::GetArray(kPlayerVoices);
+    Scripts::CArray* voices = Scripts::GetArray(kPlayerVoices);
     int count = static_cast<int>(voices->m_size);
     for (int i = 0; i < count; ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(voices->GetElement(static_cast<uint32_t>(i)));
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(voices->GetElement(static_cast<uint32_t>(i)));
         uint32_t id;
-        entry->GetChecksum(kId, &id, 1);
+        entry->ReadHashValue(kId, &id, 1);
         if (id == voice) {
             const char* name = nullptr;
             entry->GetString(kStreamName, &name, 1);
@@ -462,28 +462,28 @@ const char* ProfileVoice()
 // --- script member functions ---
 
 // 0x004F2040
-bool CPedLogicComponent::Ped_SetLogicState(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_SetLogicState(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t state = 0, table = 0;
-    params->GetChecksum(0u, &state, 1);
+    params->ReadHashValue(0u, &state, 1);
     if (state == m_state)
         return true;
-    params->GetChecksum(kTable, &table, 0);
-    Script::CStruct* stateParams = nullptr;
+    params->ReadHashValue(kTable, &table, 0);
+    Scripts::CStruct* stateParams = nullptr;
     if (params)
-        params->GetStructure(kStateParams, &stateParams, 0);
+        params->ReadSubStruct(kStateParams, &stateParams, 0);
     return SetState(state, table, stateParams);
 }
 
 // 0x004EDD80
-bool CPedLogicComponent::Ped_GetLogicState(Script::CStruct*, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetLogicState(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(kLogicState, m_state);
+    script->m_params->PutNameKey(kLogicState, m_state);
     return true;
 }
 
 // 0x004F24B0
-bool CPedLogicComponent::Ped_StartMoving(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_StartMoving(Scripts::CStruct*, Scripts::CScript*)
 {
     if (m_flags & PED_FLAG_STOPPING) {
         ActivateAuxScript(kStartMoving, nullptr);
@@ -494,30 +494,30 @@ bool CPedLogicComponent::Ped_StartMoving(Script::CStruct*, Script::CScript*)
 }
 
 // 0x004ED150
-bool CPedLogicComponent::Ped_StopMoving(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_StopMoving(Scripts::CStruct*, Scripts::CScript*)
 {
     m_flags &= ~PED_FLAG_MOVING;
     return true;
 }
 
 // 0x004ED160
-bool CPedLogicComponent::Ped_IsMoving(Script::CStruct*, Script::CScript*) { return (m_flags & PED_FLAG_MOVING) != 0; }
+bool CPedestrianBrainModule::Ped_IsMoving(Scripts::CStruct*, Scripts::CScript*) { return (m_flags & PED_FLAG_MOVING) != 0; }
 
 // 0x004ED170
-bool CPedLogicComponent::Ped_SetStickDistances(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_SetStickDistances(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->GetFloat(kDistAboveCmd, &m_stickAbove, 0);
     params->GetFloat(kDistBelowCmd, &m_stickBelow, 0);
-    Dbg::Printf("StickToGround distances set to %f (above), %f (below)\n", static_cast<double>(m_stickAbove),
+    DebugOut::Printf("StickToGround distances set to %f (above), %f (below)\n", static_cast<double>(m_stickAbove),
                 static_cast<double>(m_stickBelow));
     return true;
 }
 
 // 0x004ED1D0
-bool CPedLogicComponent::Ped_SetIsGrinding(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_SetIsGrinding(Scripts::CStruct* params, Scripts::CScript*)
 {
     int grinding = 0;
-    params->GetInteger(0u, &grinding, 1);
+    params->FetchIntValue(0u, &grinding, 1);
     if (grinding)
         m_flags |= PED_FLAG_GRINDING;
     else
@@ -526,12 +526,12 @@ bool CPedLogicComponent::Ped_SetIsGrinding(Script::CStruct* params, Script::CScr
 }
 
 // 0x004ED220
-bool CPedLogicComponent::Ped_SetIsBailing(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_SetIsBailing(Scripts::CStruct* params, Scripts::CScript*)
 {
     // (The original reads the value over its `params` argument: missing - it's asserted - it stays that pointer.)
     int bailing = static_cast<int>(reinterpret_cast<uintptr_t>(params));
-    params->GetInteger(0u, &bailing, 1);
-    if (params->ContainsFlag(kGrind)) {
+    params->FetchIntValue(0u, &bailing, 1);
+    if (params->HasBareFlag(kGrind)) {
         if (bailing)
             m_flags |= PED_FLAG_GRIND_BAILING;
         else
@@ -545,39 +545,39 @@ bool CPedLogicComponent::Ped_SetIsBailing(Script::CStruct* params, Script::CScri
 }
 
 // 0x004ED2A0
-bool CPedLogicComponent::Ped_NearVertNode(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_NearVertNode(Scripts::CStruct*, Scripts::CScript*)
 {
     return (m_flags & (PED_FLAG_VERT_NEXT | PED_FLAG_VERT_LAST | PED_FLAG_VERT_AFTER)) != 0;
 }
 
 // 0x004EDDA0
-bool CPedLogicComponent::Ped_GetCurrentVelocity(Script::CStruct*, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetCurrentVelocity(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddFloat(kVelocity, Motion(m_object)->m_pathSpeed);
+    script->m_params->PushFloat(kVelocity, Motion(m_object)->m_pathSpeed);
     return true;
 }
 
 // 0x004EDDD0
-bool CPedLogicComponent::Ped_StoreMaxVelocity(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_StoreMaxVelocity(Scripts::CStruct*, Scripts::CScript*)
 {
     m_storedMaxVelocity = Motion(m_object)->m_pathMaxSpeed;
     return true;
 }
 
 // 0x004EDE00
-bool CPedLogicComponent::Ped_GetOriginalMaxVelocity(Script::CStruct*, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetOriginalMaxVelocity(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddFloat(kOriginalMaxVelocity, m_storedMaxVelocity);
+    script->m_params->PushFloat(kOriginalMaxVelocity, m_storedMaxVelocity);
     return true;
 }
 
 // 0x004EDE20
-bool CPedLogicComponent::Ped_ApplySpeedBoost(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_ApplySpeedBoost(Scripts::CStruct* params, Scripts::CScript*)
 {
     float boost = kDefaultBoost;
     if (params->GetFloat(kPercent, &boost, 0))
         boost = static_cast<float>(static_cast<double>(boost) * kPercentScale + 1.0);
-    if (CMotionComponent* motion = Motion(m_object)) {
+    if (CKinematicsModule* motion = Motion(m_object)) {
         double speed = static_cast<double>(boost) * motion->m_pathMaxSpeed;
         motion->m_pathMaxSpeed = static_cast<float>(speed);
         if (speed > kMaxBoostedSpeed)
@@ -587,79 +587,79 @@ bool CPedLogicComponent::Ped_ApplySpeedBoost(Script::CStruct* params, Script::CS
 }
 
 // 0x004EDEA0
-bool CPedLogicComponent::Ped_RemoveSpeedBoost(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_RemoveSpeedBoost(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (CMotionComponent* motion = Motion(m_object))
+    if (CKinematicsModule* motion = Motion(m_object))
         motion->m_pathSpeed = motion->m_pathMaxSpeed;
     return true;
 }
 
 // 0x004EE100
-bool CPedLogicComponent::Ped_SetIsSkater(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_SetIsSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     // (The value is read over the `params` argument: missing - it's asserted - it stays that pointer.)
     int skater = static_cast<int>(reinterpret_cast<uintptr_t>(params));
-    params->GetInteger(0u, &skater, 1);
+    params->FetchIntValue(0u, &skater, 1);
     if (!skater) {
         m_kind = 0;
         return true;
     }
     m_kind = 2;
-    if (CMotionComponent* motion = Motion(m_object)) {
-        motion->m_pathAcceleration = Script::GetFloat(kDeltaV);
-        motion->m_pathDeceleration = Script::GetFloat(kDeltaV);
+    if (CKinematicsModule* motion = Motion(m_object)) {
+        motion->m_pathAcceleration = Scripts::GetFloat(kDeltaV);
+        motion->m_pathDeceleration = Scripts::GetFloat(kDeltaV);
     }
     return true;
 }
 
 // 0x004EE180
-bool CPedLogicComponent::Ped_PlayJumpSound(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_PlayJumpSound(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (auto* sound = static_cast<CSkaterSoundComponent*>(m_object->GetComponent(kSkaterSound)))
+    if (auto* sound = static_cast<CRiderSfxPlayer*>(m_object->GetComponent(kSkaterSound)))
         sound->PlayJumpHere(m_speedFraction);
     return true;
 }
 
 // 0x004EE1B0
-bool CPedLogicComponent::Ped_PlayLandSound(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_PlayLandSound(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (auto* sound = static_cast<CSkaterSoundComponent*>(m_object->GetComponent(kSkaterSound)))
+    if (auto* sound = static_cast<CRiderSfxPlayer*>(m_object->GetComponent(kSkaterSound)))
         sound->PlayLandHere(m_speedFraction);
     return true;
 }
 
 // 0x004EE1E0
-bool CPedLogicComponent::Ped_GetCurrentNodeNames(Script::CStruct*, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetCurrentNodeNames(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(kNodeTo, m_nextNode);
-    script->m_params->AddChecksum(kNodeFrom, m_node);
-    script->m_params->AddChecksum(kNodeAfter, m_nodeAfter);
+    script->m_params->PutNameKey(kNodeTo, m_nextNode);
+    script->m_params->PutNameKey(kNodeFrom, m_listLink);
+    script->m_params->PutNameKey(kNodeAfter, m_nodeAfter);
     return true;
 }
 
 // 0x004EE230
-bool CPedLogicComponent::Ped_GetGender(Script::CStruct*, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetGender(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(kGender, m_female == 1 ? kFemale : kMale);
+    script->m_params->PutNameKey(kGender, m_female == 1 ? kFemale : kMale);
     return true;
 }
 
 // 0x004F24E0
-bool CPedLogicComponent::Ped_ActivateAuxScript(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_ActivateAuxScript(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(kName, &name, 1)) {
-        Script::CStruct* scriptParams = nullptr;
-        params->GetStructure(kParams, &scriptParams, 0);
+    if (params->ReadHashValue(kName, &name, 1)) {
+        Scripts::CStruct* scriptParams = nullptr;
+        params->ReadSubStruct(kParams, &scriptParams, 0);
         ActivateAuxScript(name, scriptParams);
     }
     return true;
 }
 
 // 0x004F20F0
-bool CPedLogicComponent::Ped_DeactivateAuxScript(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_DeactivateAuxScript(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (Script::CScript* aux = mp_auxScript) {
+    if (Scripts::CScript* aux = mp_auxScript) {
         DeleteScript(aux);
         mp_auxScript = nullptr;
     }
@@ -667,38 +667,38 @@ bool CPedLogicComponent::Ped_DeactivateAuxScript(Script::CStruct*, Script::CScri
 }
 
 // 0x004EE280
-bool CPedLogicComponent::Ped_HideBoard(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_HideBoard(Scripts::CStruct* params, Scripts::CScript*)
 {
     int hide = 0;
-    params->GetInteger(0u, &hide, 0);
+    params->FetchIntValue(0u, &hide, 0);
     return HideBoard(hide);
 }
 
 // 0x004F20E0
-bool CPedLogicComponent::Ped_Bail(Script::CStruct*, Script::CScript*)
+bool CPedestrianBrainModule::Ped_Bail(Scripts::CStruct*, Scripts::CScript*)
 {
     Bail();
     return true;
 }
 
 // 0x004EE3A0
-bool CPedLogicComponent::Ped_GetVoicePrefix(Script::CStruct*, Script::CScript* script)
+bool CPedestrianBrainModule::Ped_GetVoicePrefix(Scripts::CStruct*, Scripts::CScript* script)
 {
-    CCompositeObject* object = m_object;
+    CGameEntity* object = m_object;
     uint32_t profileName;
-    if (object->mp_tags && object->mp_tags->GetChecksum(kProfileName, &profileName, 0)) {
+    if (object->m_tagTable && object->m_tagTable->ReadHashValue(kProfileName, &profileName, 0)) {
         if (profileName == kCustom) {
             if (const char* voice = ProfileVoice()) {
                 script->m_params->AddString(kVoicePrefix, voice);
                 return true;
             }
         } else {
-            Script::CArray* skaters = Script::GetArray(kMasterSkaterList);
+            Scripts::CArray* skaters = Scripts::GetArray(kMasterSkaterList);
             int count = static_cast<int>(skaters->m_size);
             for (int i = 0; i < count; ++i) {
-                auto* skater = reinterpret_cast<Script::CStruct*>(skaters->GetElement(static_cast<uint32_t>(i)));
+                auto* skater = reinterpret_cast<Scripts::CStruct*>(skaters->GetElement(static_cast<uint32_t>(i)));
                 uint32_t name;
-                skater->GetChecksum(kName, &name, 1);
+                skater->ReadHashValue(kName, &name, 1);
                 if (name == profileName) {
                     // (Read over the slot that held `this`: missing - it's asserted - it stays that pointer.)
                     const char* lastName = reinterpret_cast<const char*>(this);
@@ -710,9 +710,9 @@ bool CPedLogicComponent::Ped_GetVoicePrefix(Script::CStruct*, Script::CScript* s
         }
     }
     // The ped's node's profile's voice_prefix.
-    if (Script::CStruct* node = SkateScript::GetNode(m_object->m_id, true)) {
-        Script::CStruct* profile = nullptr;
-        node->GetStructure(kProfile, &profile, 0);
+    if (Scripts::CStruct* node = LevelNodes::GetNode(m_object->m_id, true)) {
+        Scripts::CStruct* profile = nullptr;
+        node->ReadSubStruct(kProfile, &profile, 0);
         if (profile) {
             const char* prefix = nullptr;
             profile->GetString(kVoicePrefixParam, &prefix, 0);
@@ -727,25 +727,25 @@ bool CPedLogicComponent::Ped_GetVoicePrefix(Script::CStruct*, Script::CScript* s
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CPedLogicComponent::Destroy,
-         &Obj::CPedLogicComponent::Update,
-         &Obj::CPedLogicComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPedestrianBrainModule::Destroy,
+         &GameObjects::CPedestrianBrainModule::Update,
+         &GameObjects::CPedestrianBrainModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::CPedLogicComponent::CallMemberFunction,
-         &Obj::CPedLogicComponent::GenericMoveUpdate,
-         &Obj::CPedLogicComponent::SkaterMoveUpdate,
-         &Obj::CPedLogicComponent::NoMoveUpdate};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CPedestrianBrainModule::InvokeMethodByName,
+         &GameObjects::CPedestrianBrainModule::GenericMoveUpdate,
+         &GameObjects::CPedestrianBrainModule::SkaterMoveUpdate,
+         &GameObjects::CPedestrianBrainModule::NoMoveUpdate};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

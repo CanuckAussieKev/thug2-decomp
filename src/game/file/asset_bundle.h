@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-namespace Mem {
+namespace MemSys {
 class Heap;
 }
 
-namespace File {
+namespace FileLoad {
 
 class AsyncFileHandle;
 
@@ -30,14 +30,14 @@ public:
     AssetBundle* Destroy(unsigned int flags);
 
     // The heap the bundle file is loaded into (`fileHeap`), and the heap each asset is copied out to.
-    void SetHeaps(Mem::Heap* fileHeap, Mem::Heap* assetHeap);
+    void SetHeaps(MemSys::Heap* fileHeap, MemSys::Heap* assetHeap);
     // Load `name` and split it. `unused` arguments are ignored (as in the original).
     bool Load(const char* name, int unused1, int unused2);
     // Split the loaded file (`size` bytes at m_loadedData) into the assets.
     bool Split(int unused, int size);
 
     bool IsLoaded();
-    void* GetAsset(int index);
+    void* ObtainLoadedItem(int index);
     Entry* GetEntry(int index);
     Entry* FindEntry(uint32_t name, uint32_t type, int unused);
     void* FindAsset(uint32_t name, uint32_t type, int unused);
@@ -53,10 +53,10 @@ public:
     int m_unknown14;
     Entry m_entries[kMaxEntries];
     void* m_assets[kMaxEntries];     // each asset's own copy
-    bool m_loaded;
+    bool m_readyFlag;
     uint8_t m_pad2341[3];
-    Mem::Heap* m_assetHeap;
-    Mem::Heap* m_fileHeap;
+    MemSys::Heap* m_assetHeap;
+    MemSys::Heap* m_fileHeap;
     int m_unknown234C;
     int m_unknown2350;
 };

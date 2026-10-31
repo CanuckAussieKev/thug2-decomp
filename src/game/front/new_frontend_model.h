@@ -9,7 +9,7 @@
 // NOT ORIGINAL - the new front end's pure parts (ours; see new_frontend.h): its data file, its small state file, the
 // layout's frame, and the menus' state machine with their animation - no game, no renderer: they run
 // offline.
-namespace Front::NewFrontend {
+namespace MenuSystem::NewFrontend {
 
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------
 
@@ -26,7 +26,7 @@ struct Level {
         return variant >= 0 && variant < static_cast<int>(artVariants.size()) ? artVariants[variant] : art;
     }
     std::string levelNumName; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
-    int levelNum = -1;        // level_num as a number (-1: a name - resolved by the game)
+    int levelIndex = -1;        // level_num as a number (-1: a name - resolved by the game)
     std::string flag;         // its unlock flag's script name ("LEVEL_UNLOCKED_BO")
     std::string seenFlag;     // its seen flag's ("LEVEL_SEEN_BO"; "" none): outside a career the game's select locks by it
     bool hideWhenLocked = false;
@@ -225,7 +225,7 @@ public:
     const Catalogue* Data() const { return m_catalogue; }
     // Options: the group shown, its rows (indices into Options::Specs()) and the selected row (rows.size(): the
     // Game options row).
-    int OptionGroup() const { return m_group; }
+    int OptionGroup() const { return m_bundle; }
     const std::vector<int>& OptionRows() const;
     int OptionRow() const { return m_optionRow; }
     int OptionChoice(int option) const;
@@ -281,7 +281,7 @@ private:
     LevelsFor m_levelsFor = LevelsFor::FreeSkate;
     int m_section = 0;
     std::vector<int> m_options;
-    int m_group = 0;
+    int m_bundle = 0;
     int m_optionRow = 0;
     float m_scroll = 0.0f, m_scrollTarget = 0.0f;
     int m_visibleRows = 13;
@@ -292,7 +292,7 @@ private:
     float m_launch = -1.0f;
     std::string m_launchLoad;
     bool m_launchFired = false;
-    float m_time = 0.0f;
+    float m_clock = 0.0f;
 };
 
 // --- covering a change of screen -----------------------------------------------------------------------------------
@@ -319,13 +319,13 @@ public:
     bool Update(const Now& now, float dt, const char** why = nullptr);
     bool On() const { return m_over != Over::None; }
     Over Drawn() const { return m_over; }
-    float Time() const { return m_time; }
+    float Time() const { return m_clock; }
 
 private:
     Over m_over = Over::None;
-    float m_time = 0.0f, m_still = 0.0f;
+    float m_clock = 0.0f, m_still = 0.0f;
     uintptr_t m_screen = 0;
     bool m_seen = false;
 };
 
-} // namespace Front::NewFrontend
+} // namespace MenuSystem::NewFrontend

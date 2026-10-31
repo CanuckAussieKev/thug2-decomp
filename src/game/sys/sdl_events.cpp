@@ -15,7 +15,7 @@ namespace {
 
 std::vector<EventHandler>* s_handlers = nullptr; // (made by InitEvents, never freed)
 
-bool& QuitRequested() { return Nx::g_quitRequested; }
+bool& QuitRequested() { return Engine3D::g_quitRequested; }
 
 void HandleQuit(SDL_Event* event)
 {

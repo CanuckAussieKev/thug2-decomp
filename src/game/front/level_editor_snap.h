@@ -16,7 +16,7 @@
 //   - Ctrl+Alt: a vertex - the selection's box corner nearest the cursor (chosen when snapping starts) goes onto the
 //     nearest vertex of the piece under the cursor (its drawn meshes', or an object's box corner).
 // Alt alone still leaves what scenery carries (level_editor_carry.h); Shift alone still drags up / down.
-namespace Front::LevelEditor::Snap {
+namespace MenuSystem::LevelEditor::Snap {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -44,4 +44,4 @@ bool Surface(V3 origin, V3 dir, float maxT, const std::vector<uint32_t>& skip, S
 // The vertices of a sector's drawn meshes where it is now (at most `limit`; none for an unknown sector).
 std::vector<V3> SectorVertices(uint32_t checksum, size_t limit);
 
-} // namespace Front::LevelEditor::Snap
+} // namespace MenuSystem::LevelEditor::Snap

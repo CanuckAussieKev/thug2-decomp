@@ -8,14 +8,14 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Gfx {
+namespace Gfx2D {
 
 // A user's place in a cached animation (0x1E4 bytes, from the item pools 0x006F92B8): a key position per bone for
 // the rotations and the translations, and its time.
 struct CAnimCacheSlot {
     uint32_t m_rotationKeys[60];    // +0x000
     uint32_t m_translationKeys[60]; // +0x0F0
-    uint16_t m_time;                // +0x1E0 (15 bits, signed; bit 15 kept)
+    uint16_t m_clock;                // +0x1E0 (15 bits, signed; bit 15 kept)
     uint16_t m_pad1E2;
 
     // 0x00480A70 (cdecl): back to whichever item pool holds it, or freed.
@@ -23,7 +23,7 @@ struct CAnimCacheSlot {
     // Its key positions cleared and its time 0x8000 (the code that frees a slot does this first).
     void Clear();
 };
-static_assert(offsetof(CAnimCacheSlot, m_time) == 0x1E0 && sizeof(CAnimCacheSlot) == 0x1E4,
+static_assert(offsetof(CAnimCacheSlot, m_clock) == 0x1E0 && sizeof(CAnimCacheSlot) == 0x1E4,
               "layout must match the original");
 
 // One cached animation (0x168 bytes).
@@ -70,7 +70,7 @@ struct CAnimCacheEntry {
     uint32_t m_key;                      // +0x000 the animation (0: free)
     uint32_t m_lastUsed;                 // +0x004
     int m_type;                          // +0x008 (0: not in use)
-    uint8_t* mp_data;                    // +0x00C
+    uint8_t* m_payload;                    // +0x00C
     uint32_t m_allocated;                // +0x010
     uint32_t m_size;                     // +0x014
     uint8_t* mp_rotationKeys;            // +0x018
@@ -91,10 +91,10 @@ static_assert(offsetof(CAnimCacheEntry, mp_slots) == 0x28 && offsetof(CAnimCache
                   offsetof(CAnimCacheEntry, m_flags) == 0x164 && sizeof(CAnimCacheEntry) == 0x168,
               "layout must match the original");
 
-class CAnimCache {
+class CClipStore {
 public:
     // 0x00480660: the cache (0x006F92B0).
-    static CAnimCache* __cdecl Get();
+    static CClipStore* __cdecl Get();
     // 0x00480D10: made once - the AnimHeap of `heapSize` bytes ("Initializing CAnimCacheManager at %dk"), then
     // Init(`granularity`, `type`) (on a null cache too: a crash, as in the original).
     static void __cdecl Create(uint32_t heapSize, uint32_t granularity, int type);
@@ -114,7 +114,7 @@ public:
     // 0x00480980: a new entry for `key` in the first entry not in use (none if `key` comes first or none is free, or
     // the heap hasn't room).
     CAnimCacheEntry* AddEntry(uint32_t key, int16_t bones, int rotationKeys, int translationKeys, int type);
-    // 0x004806C0: the key of the least recently used entry (before Tmr::GetTime) of at least `size` that may go,
+    // 0x004806C0: the key of the least recently used entry (before FrameClock::GetTime) of at least `size` that may go,
     // its users in `users` (0 with none).
     uint32_t FindOldest(uint32_t size, uint32_t* users);
     // 0x00480ED0: that entry given back if it has fewer than `maxUsers` users.
@@ -131,7 +131,7 @@ public:
     // heap; everything given back when that can't be had). Always 0.
     int Defragment();
 
-    CAnimCacheEntry* mp_entries[50]; // +0x00
+    CAnimCacheEntry* m_slotArray[50]; // +0x00
     int m_count;                     // +0xC8
     uint32_t m_used;                 // +0xCC bytes
     uint32_t m_granularity;          // +0xD0
@@ -140,8 +140,8 @@ public:
     bool m_evictUnused;              // +0xDC
     uint8_t m_padDD[3];
 };
-static_assert(offsetof(CAnimCache, m_count) == 0xC8 && offsetof(CAnimCache, m_evictUnused) == 0xDC &&
-                  sizeof(CAnimCache) == 0xE0,
+static_assert(offsetof(CClipStore, m_count) == 0xC8 && offsetof(CClipStore, m_evictUnused) == 0xDC &&
+                  sizeof(CClipStore) == 0xE0,
               "layout must match the original");
 
 } // namespace Gfx

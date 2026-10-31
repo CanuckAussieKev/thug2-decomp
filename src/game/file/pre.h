@@ -2,17 +2,17 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
 
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
 // .pre archives ("pre files", .prx on PC): many data files packed into one, loaded into memory in one go.
-// Files inside are found by the checksum of their name and read through the same File:: calls as files on
+// Files inside are found by the checksum of their name and read through the same FileLoad:: calls as files on
 // disk (see game/file/file.h), which offer every call to the pre manager first.
 namespace Pre {
 
@@ -21,9 +21,9 @@ namespace Pre {
 void Decode(const uint8_t* in, uint8_t* out, int size);
 
 // One loaded archive.
-class PreFile {
+class ArchiveFile {
 public:
-    // One file inside the archive. Also the "file handle" the File:: calls get for it.
+    // One file inside the archive. Also the "file handle" the FileLoad:: calls get for it.
     struct FileInfo {
         int compressedSize;   // 0 if stored uncompressed
         uint8_t* data;        // inside the archive's block (compressed, or the file itself)
@@ -32,27 +32,27 @@ public:
         int size;             // uncompressed size
     };
 
-    // `block` is the whole archive as loaded (the PreFile owns it from now on). `bottom_up` picks the heap
+    // `block` is the whole archive as loaded (the ArchiveFile owns it from now on). `bottom_up` picks the heap
     // that file information and decompressed files are allocated from.
-    PreFile(uint8_t* block, bool bottom_up);
+    ArchiveFile(uint8_t* block, bool bottom_up);
     // Frees the block and all file information.
-    ~PreFile();
+    ~ArchiveFile();
 
-    // Copy (decompressing if needed) the file called `name` to `out`, or to a new Mem::Malloc block if `out`
+    // Copy (decompressing if needed) the file called `name` to `out`, or to a new MemSys::AllocBlock block if `out`
     // is null. Sets `*size` to its size. Returns the buffer, or null if the file isn't in this archive.
-    uint8_t* LoadContainedFile(const char* name, int* size, uint8_t* out);
+    uint8_t* ReadEntryFromArchive(const char* name, int* size, uint8_t* out);
     // Make `handle` the active file and return its data, or null if it isn't one of this archive's files.
-    uint8_t* GetContainedFileByHandle(FileInfo* handle);
+    uint8_t* FindEntryByKey(FileInfo* handle);
     // Open the file called `name`: make it active and decompress it if needed. Returns its handle or null.
-    FileInfo* GetContainedFile(const char* name);
+    FileInfo* FindEntryInArchive(const char* name);
     // Read from / seek in the active file. Read returns the number of bytes copied; Seek returns 0, or -1
     // (position unchanged) if the new position would be outside the file. Origins: 0 start, 1 current, 2 end.
     int Read(void* out, unsigned int count);
     int Seek(int offset, int origin);
 
     uint8_t* m_block;
-    int m_numFiles;
-    Lst::HashTable* m_files; // FileInfo by name checksum
+    int m_entryCount;
+    ListKit::HashTable* m_files; // FileInfo by name checksum
     FileInfo* m_activeFile;
     int m_openCount;
     bool m_bottomUpHeap;
@@ -60,9 +60,9 @@ public:
 
 // The pre manager: every loaded archive, searched in turn when a file is opened. There is one, created and
 // destroyed with reference counting (CreateManager / DestroyManager).
-class PreMgr {
+class ArchiveManager {
 public:
-    PreMgr();
+    ArchiveManager();
 
     // Load the archive pre\<name> (.prx on disk) and add it to the loaded archives, asynchronously if
     // `async` (finishing in FinishLoad). French and German use a localised archive (.prf/.prd) if there is
@@ -70,15 +70,15 @@ public:
     // there; `bottom_up` picks the heap. Does nothing while the script global block_pre_loading is set.
     void LoadPre(const char* name, bool async, bool report_missing, bool bottom_up);
 
-    // Load the file `name` from whichever archive has it (see PreFile::LoadContainedFile).
+    // Load the file `name` from whichever archive has it (see ArchiveFile::ReadEntryFromArchive).
     uint8_t* LoadFile(const char* name, int* size, uint8_t* out);
     // True if some archive contains `name`.
-    bool FileExists(const char* name);
+    bool IsFilePresent(const char* name);
     // Open `name` from whichever archive has it and make it the active file. Language-specific script
     // archives ("...scripts.pre") are redirected to the current language's version.
-    PreFile::FileInfo* OpenFile(const char* name);
+    ArchiveFile::FileInfo* OpenFile(const char* name);
     // Make the file behind `handle` active and return its data, or null if no archive has it.
-    uint8_t* GetContainedFile(PreFile::FileInfo* handle);
+    uint8_t* FindEntryInArchive(ArchiveFile::FileInfo* handle);
 
     // Whether the archive `name` is loaded / still waiting to finish loading.
     bool IsLoaded(const char* name);
@@ -95,41 +95,41 @@ public:
         char name[64];
     };
 
-    PreFile* m_activePre;
-    PreFile::FileInfo* m_activeHandle;
+    ArchiveFile* m_activePre;
+    ArchiveFile::FileInfo* m_activeHandle;
     uint8_t* m_activeData;
-    PreFile::FileInfo* m_missingHandle; // the last handle no archive had (a quick "no" next time)
-    Lst::HashTable* m_pres;             // PreFile by archive name checksum
-    bool m_blockPreLoading;
+    ArchiveFile::FileInfo* m_missingHandle; // the last handle no archive had (a quick "no" next time)
+    ListKit::HashTable* m_pres;             // ArchiveFile by archive name checksum
+    bool m_holdArchiveLoads;
     PendingLoad m_pending[8];
     int m_numPending;
 };
 
 // The pre manager, if one exists (set by its constructor), and the one CreateManager made - the same object.
-PreMgr* Manager();
-PreMgr* Instance();
+ArchiveManager* Manager();
+ArchiveManager* Instance();
 // Reference-counted creation: the first call with `create` makes the manager, the last DestroyManager
 // deletes it. Returns the instance (null if there is none).
-PreMgr* CreateManager(bool create);
+ArchiveManager* CreateManager(bool create);
 void DestroyManager();
 
-// The archive side of the File:: calls. Each sets File's "handled" flag: whether the file was in an archive
-// (if not, File:: goes to disk). `count_open` keeps the archive's count of open files.
+// The archive side of the FileLoad:: calls. Each sets File's "handled" flag: whether the file was in an archive
+// (if not, FileLoad:: goes to disk). `count_open` keeps the archive's count of open files.
 bool Exist(const char* name);
-PreFile::FileInfo* Open(const char* name, const char* mode, bool count_open);
-int Close(PreFile::FileInfo* file, bool count_open);
-int Read(void* buffer, int size, int count, PreFile::FileInfo* file);
-int Write(const void* buffer, int size, int count, PreFile::FileInfo* file);
-int Seek(PreFile::FileInfo* file, int offset, int origin);
-int GetFileSize(PreFile::FileInfo* file);
+ArchiveFile::FileInfo* Open(const char* name, const char* mode, bool count_open);
+int Close(ArchiveFile::FileInfo* file, bool count_open);
+int Read(void* buffer, int size, int count, ArchiveFile::FileInfo* file);
+int Write(const void* buffer, int size, int count, ArchiveFile::FileInfo* file);
+int Seek(ArchiveFile::FileInfo* file, int offset, int origin);
+int GetFileSize(ArchiveFile::FileInfo* file);
 
 // Script functions (in the CFunction table)
-bool __cdecl CFunc_LoadPreFile(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_UnloadPreFile(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_IsLoadPreFinished(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_AllLoadPreFinished(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_WaitLoadPre(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_WaitAllLoadPre(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_InPreFile(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_LoadPreFile(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_UnloadPreFile(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_IsLoadPreFinished(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_AllLoadPreFinished(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_WaitLoadPre(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_WaitAllLoadPre(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_InPreFile(Scripts::CStruct* params, Scripts::CScript* script);
 
 } // namespace Pre

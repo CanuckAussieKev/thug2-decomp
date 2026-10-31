@@ -1,9 +1,9 @@
 #pragma once
 
-// Mdl::Score (0x1550 bytes, 0x00561240-0x00564BFF): a skater's score - its total, the combo being built (the trick
+// GameModules::Score (0x1550 bytes, 0x00561240-0x00564BFF): a skater's score - its total, the combo being built (the trick
 // log: each trick's points, its repeats, its spin, its name and the text shown), the multiplier, the special meter,
 // the balance / manual meter's on-screen positions and the "robot" detection (the same lines skated over and over
-// earn less). The SkaterScore component holds one (+0x18); CSkater::GetScore returns it.
+// earn less). The SkaterScore component holds one (+0x18); CRider::GetPointsTotal returns it.
 //
 // A trick's points: its base times a reduction for how often it was done already (100, 75, 50, 25 then 10 percent:
 // 0x0064E280), times half its spin multiplier (2 for no spin, 3 for a 180, ... 7 past 900: 0x0064E268; a no-spin
@@ -18,21 +18,21 @@
 #include "game/lst/lookup_table.h"
 #include "game/script/struct.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
-namespace Net {
-struct MsgHandlerContext;
+namespace NetLink {
+struct InboundMsgCtx;
 }
 
-namespace Mdl {
+namespace GameModules {
 
 // A trick in the log (0x9C bytes).
 struct STrickLog {
-    int m_score;          // +0x00 its base points
+    int m_pointsHeld;          // +0x00 its base points
     int m_repeats;        // +0x04 how often done before (the reduction's index)
-    int m_spin;           // +0x08 in half turns
+    int m_twistRate;           // +0x08 in half turns
     int m_spinDegrees;    // +0x0C as spun (signed)
     uint32_t m_name;      // +0x10 its name's checksum
     int m_kind;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
@@ -67,7 +67,7 @@ class Score {
 public:
     float m_focusTimeLimit;      // +0x00 focus_time_limit
     int m_focusMaxTimes;         // +0x04 focus_max_times_in_combo
-    int16_t m_skaterId;          // +0x08 the skater's object id
+    int16_t m_riderNo;          // +0x08 the skater's object id
     uint8_t pad0A[2];
     int m_total;                 // +0x0C the total score
     int m_potState;              // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
@@ -78,10 +78,10 @@ public:
     int m_potSpecial;            // +0x24 the points already put into the special meter
     int m_bonus;                 // +0x28
     int m_bestTricks;            // +0x2C the most tricks in a combo
-    int m_bestCombo;             // +0x30 the best combo's points
+    int m_topChain;             // +0x30 the best combo's points
     int m_bestComboSent;         // +0x34 the best combo the server was told about
-    Lst::LookupTable m_seen;     // +0x38 STrickSeen by trick name
-    Lst::DynamicTable m_log;     // +0x4C STrickLog*
+    ListKit::LookupTable m_seen;     // +0x38 STrickSeen by trick name
+    ListKit::DynamicTable m_log;     // +0x4C STrickLog*
     int m_tricks;                // +0x5C the tricks in the combo (the log's used entries)
     float m_multiplier;          // +0x60
     int m_comboTricks;           // +0x64 the tricks in this combo (for m_bestTricks)
@@ -93,14 +93,14 @@ public:
     uint8_t pad81[3];
     float m_specialPhase;        // +0x84 the flashing's phase
     float m_specialRate;         // +0x88 special_bar_interpolator_rate
-    bool m_debug;                // +0x8C (0x1EDC33F1: the points printed)
+    bool m_verbosePrint;                // +0x8C (0x1EDC33F1: the points printed)
     uint8_t pad8D[3];
     int m_arrowCount;            // +0x90 balance_meter_info's arrow_positions
-    Script::CPair m_arrows[20];  // +0x94 (one more: the last repeated)
+    Scripts::CPair m_arrows[20];  // +0x94 (one more: the last repeated)
     float m_arrowStep;           // +0x184 1 / the arrow count
-    Script::CPair m_meterOffset; // +0x188 the arrow's offset from the meter
+    Scripts::CPair m_meterOffset; // +0x188 the arrow's offset from the meter
     float m_meterRotation;       // +0x194
-    Script::CPair m_bars[2];     // +0x198 bar_positions (balance, manual)
+    Scripts::CPair m_bars[2];     // +0x198 bar_positions (balance, manual)
     uint8_t m_lineCounts[2500];  // +0x1B0 robot detection: how often each line was skated since the robot reset
     uint8_t m_comboLineCounts[2500]; // +0xB74 ... in this combo
     int m_robotLines;            // +0x1538
@@ -115,7 +115,7 @@ public:
     // 1000).
     static int ScoreIncrement(int value);
     // 0x00561290
-    void SetSkaterId(int16_t id);
+    void SetRiderNumber(int16_t id);
     // 0x005612A0: `text` into `out` with each space as "\_" (`this` unused).
     void EscapeSpaces(char* out, const char* text);
     // 0x005612D0: special_bar_colors and special_bar_interpolator_rate.
@@ -144,7 +144,7 @@ public:
     // went past from `before` to `after` - each done once, its script run on the skater.
     void CheckHighScore(int before, int after);
     // 0x00561A80: the total; shown (as minutes:seconds in king of the hill) for a local skater.
-    void SetTotalScore(int total);
+    void SetGrandTotal(int total);
     // 0x00561B40: the total - on the server in a game scored by clusters, the clusters the skater holds.
     int GetTotalScore();
     // 0x00562080 (cdecl): the trick mapped to key combo `keyCombo` (the profile's trick_mapping, else a special in
@@ -178,16 +178,16 @@ public:
     void SetSpecialActive(bool active);
     // 0x005627B0: line `line` skated: its counts up (to 255), and the factor the points are cut by once it was
     // skated more than robot_kick_in_count times in the combo (1 for lines past the 2500).
-    void UpdateRobotDetection(int line);
+    void RefreshBotCheck(int line);
     // 0x005629D0: the log's oldest landed tricks (those up to the first unnamed one, at most to the spin trick and
     // the last no-spin one) merged into its first entry (their points, no spin).
     void TrimLog();
     // 0x00562B20 / 0x00562C10 / 0x00562D00 / 0x005638A0: trick_text_countdown / _landed / _bail / _pulse with the
     // skater number's container, trick text and score pot ids.
-    void TrickTextCountdown(int skater);
-    void TrickTextLanded(int skater);
-    void TrickTextBail(int skater);
-    void TrickTextPulse(int skater);
+    void MoveCaptionTimer(int skater);
+    void MoveCaptionLanded(int skater);
+    void MoveCaptionWipeout(int skater);
+    void MoveCaptionPulse(int skater);
     // 0x00562DF0: the special on, its meter full.
     void FillSpecial();
     // 0x005633B0: the combo's tricks that aren't gaps.
@@ -203,8 +203,8 @@ public:
     // and angle for `lean`).
     void PositionBalanceMeter(bool on, float lean, bool manual);
     // 0x00563370 / 0x00563390
-    void SetBalanceMeter(bool on, float lean);
-    void SetManualMeter(bool on, float lean);
+    void SetTeeterGauge(bool on, float lean);
+    void SetWheelieGauge(bool on, float lean);
     // 0x00563440: the constructor. Returns this.
     Score* Construct();
     // 0x00564B80: the destructor body.
@@ -216,7 +216,7 @@ public:
     // last one's points just grow), how often it was seen, the multiplier, the trick string and pot shown.
     void Trigger(const char* text, int score, uint32_t flags);
     // 0x00563F30: the spin trick's spin (the "FS" / "BS" and Cab names; ollies' sides swapped on odd half turns).
-    void SetSpin(int degrees);
+    void SetTurnAmount(int degrees);
     // 0x00564270: points added to the last trick while it is being held (no more than 10 tricks since the last
     // no-spin one; a no-spin trick only up to 20000).
     void TweakTrick(int points);
@@ -227,18 +227,18 @@ public:
     void Bail(bool clear);
     // 0x00564A10: everything back to the start of a run.
     void Reset();
-    // 0x00564BE0: SetSpin while the spin trick isn't a no-spin one.
-    void UpdateSpin(int degrees);
+    // 0x00564BE0: SetTurnAmount while the spin trick isn't a no-spin one.
+    void AdvanceTurn(int degrees);
 
     // --- the network (score_net.cpp) ---
     // 0x00561BA0: the server asked to log the trick objects the skater just scored on (message 0x3B).
-    void LogTrickObjectRequest(int score);
+    void NoteTaggedPropAsk(int score);
     // 0x00561CB0: `count` trick objects scored on by skater `skaterId` (`score` points; on the server, `send`):
     // logged, the players whose clusters were taken told, the objects sent to every player and observer; each
     // object's cluster coloured for the skater (or the skater's team).
-    void LogTrickObject(int skaterId, int score, uint32_t count, uint32_t* objects, bool send);
+    void NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_t* objects, bool send);
     // 0x005626F0 (cdecl, the net handler): a trick objects message for this game logged by the skater's score.
-    static int __cdecl HandleScoreMessage(Net::MsgHandlerContext* context);
+    static int __cdecl HandleScoreMessage(NetLink::InboundMsgCtx* context);
 
     // (the trick log's entry `index`; the last one)
     STrickLog* Trick(int index) { return static_cast<STrickLog*>(m_log.m_items[index]); }

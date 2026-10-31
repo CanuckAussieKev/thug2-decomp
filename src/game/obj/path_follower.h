@@ -11,13 +11,13 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 
-namespace Obj {
+namespace GameObjects {
 
-class CCompositeObject;
+class CGameEntity;
 
 class CPathFollower {
 public:
-    enum EState : int {
+    enum EFollowPhase : int {
         STATE_START = 0,     // the segment set up on the next update
         STATE_STRAIGHT = 1,  // along the segment
         STATE_ARC = 2,       // round the corner on the arc
@@ -31,25 +31,25 @@ public:
     };
 
     // 0x0046A1D0: the constructor (returns this): `owner`, an identity frame, the points at the origin.
-    CPathFollower* Construct(CCompositeObject* owner);
+    CPathFollower* Construct(CGameEntity* owner);
     // 0x00469B50 (vtable slot 0): the scalar deleting destructor.
     CPathFollower* Destroy(unsigned int flags);
 
     // 0x0046A3F0: start at `position`, heading for the node `node` (or past it, to the first one at least a unit
     // away); the heading set.
-    void Start(uint32_t node, const Mth::Vector* position);
+    void Start(uint32_t node, const Maths::Vector* position);
     // 0x0046A640: `distance` further (times the heading's dot product with `direction`, if given - 1 when that's
     // 0). True at the end of the path.
-    bool Update(float distance, const Mth::Vector* direction);
+    bool Update(float distance, const Maths::Vector* direction);
     // 0x0046A1B0: the heading.
-    void GetHeading(Mth::Vector* out);
+    void GetHeading(Maths::Vector* out);
 
     // 0x00469B00: the target node's position, and whether the path ends there.
     void ReadNodePosition();
     // 0x0046A120: on to the next node (a random link, or the first); false if there's none.
     bool NextNode();
     // 0x00469F60: the position the distance along the segment.
-    void UpdatePosition();
+    void RefreshPlacement();
     // 0x0046A000: whether (and by how much) the corner at the target node is cut; true unless the node has no
     // link to see the corner by.
     bool CheckCorner();
@@ -64,24 +64,24 @@ public:
     void StartCorner();
 
     void** m_vtable;               // +0x00 0x00647A84
-    Mth::Vector m_pos;             // +0x04
-    CCompositeObject* m_owner;     // +0x14
-    Mth::Matrix m_frame;           // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
+    Maths::Vector m_pos;             // +0x04
+    CGameEntity* m_owner;     // +0x14
+    Maths::Matrix m_frame;           // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
     uint32_t m_lastNode;           // +0x58
-    uint32_t m_node;               // +0x5C: the node headed for
+    uint32_t m_listLink;               // +0x5C: the node headed for
     uint32_t m_unknown60;
-    Mth::Vector m_from;            // +0x64: the segment's start
-    Mth::Vector m_to;              // +0x74: the node's position
-    Mth::Vector m_unknown84;       // +0x84 (0, 0, 0, 1)
+    Maths::Vector m_startPoint;            // +0x64: the segment's start
+    Maths::Vector m_endPoint;              // +0x74: the node's position
+    Maths::Vector m_unknown84;       // +0x84 (0, 0, 0, 1)
     float m_cornerDistance;        // +0x94 (none: 0)
     uint32_t m_unknown98;
     float m_cut;                   // +0x9C: how far before the node the corner is left
-    float m_length;                // +0xA0: the segment's
+    float m_byteCount;                // +0xA0: the segment's
     float m_along;                 // +0xA4
     uint32_t m_flags;              // +0xA8
     float m_carry;                 // +0xAC: the distance past the last segment's end
-    Mth::Vector m_center;          // +0xB0: the arc's centre (the blend's start)
-    Mth::Vector m_corner;          // +0xC0: the point on the next segment as far from the node as the cut
+    Maths::Vector m_center;          // +0xB0: the arc's centre (the blend's start)
+    Maths::Vector m_bendPoint;          // +0xC0: the point on the next segment as far from the node as the cut
     float m_arcAngle;              // +0xD0
     float m_arcLength;             // +0xD4
     float m_radius;                // +0xD8
@@ -89,7 +89,7 @@ public:
     float m_step;                  // +0xE0: the last arc step's angle
 };
 static_assert(offsetof(CPathFollower, m_owner) == 0x14 && offsetof(CPathFollower, m_frame) == 0x18 &&
-                  offsetof(CPathFollower, m_lastNode) == 0x58 && offsetof(CPathFollower, m_from) == 0x64 &&
+                  offsetof(CPathFollower, m_lastNode) == 0x58 && offsetof(CPathFollower, m_startPoint) == 0x64 &&
                   offsetof(CPathFollower, m_cornerDistance) == 0x94 && offsetof(CPathFollower, m_flags) == 0xA8 &&
                   offsetof(CPathFollower, m_center) == 0xB0 && offsetof(CPathFollower, m_state) == 0xDC &&
                   offsetof(CPathFollower, m_step) == 0xE0,

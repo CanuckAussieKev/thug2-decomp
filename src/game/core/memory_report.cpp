@@ -14,7 +14,7 @@
 #include "game/core/memory_sizes.h"
 #include "game/sys/log.h"
 
-namespace Mem {
+namespace MemSys {
 
 namespace {
 
@@ -50,9 +50,9 @@ void LogMemoryUse(const char* when)
     std::string line;
     char part[160];
     std::snprintf(part, sizeof(part), "main block %d KB, free %d KB (least %d KB); heaps:", Kb(Sizes::MainBlockSize()),
-                  Kb(main->MemAvailable()), Kb(main->m_minAvailable));
+                  Kb(main->FreeByteCount()), Kb(main->m_minAvailable));
     line += part;
-    for (Allocator* heap = manager->FirstHeap(); heap; heap = manager->NextHeap(heap)) {
+    for (Allocator* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
         if (heap->m_maxUsedSize < 64 * 1024)
             continue; // (the small ones: themes, skater info...)
         std::snprintf(part, sizeof(part), " %s %d KB (peak %d KB)", heap->m_name ? heap->m_name : "?",

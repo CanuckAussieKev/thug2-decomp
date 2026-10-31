@@ -5,7 +5,7 @@
 // Shadows (Nx engine, PC): a shadow caster renders its model into a texture from a light's point of view (in
 // the table at 0x007CA970, keyed by its target's address); the meshes around it are drawn again with that texture projected on them.
 // Also the stencil shadow volumes of a scene's meshes.
-namespace Nx {
+namespace Engine3D {
 
 // A shadow caster (the table's values).
 struct ShadowCaster {

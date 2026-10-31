@@ -10,7 +10,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Prefs {
+namespace MenuSystem::LevelEditor::OptionStore {
 
 Values Clamped(Values v)
 {
@@ -319,4 +319,4 @@ void TipsWindow(float scale, ImFont* heading, ImFont* mono)
     }
 }
 
-} // namespace Front::LevelEditor::Prefs
+} // namespace MenuSystem::LevelEditor::OptionStore

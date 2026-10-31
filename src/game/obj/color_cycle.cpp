@@ -1,4 +1,4 @@
-// The colour cycle component (Obj::CColorCycleComponent): see color_cycle.h. From the disassembly of
+// The colour cycle component (GameObjects::CColorCycleComponent): see color_cycle.h. From the disassembly of
 // 0x0041B280-0x0041B57F.
 
 #include "game/obj/color_cycle.h"
@@ -20,7 +20,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_colorCycleMemberFunctions[30]{
             0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0,
@@ -39,39 +39,39 @@ constexpr float kMilliseconds = 1000.0f; // 0x006453C0
 
 // 0x005A3E80 (cdecl; no source yet): the colour of the object `id` from `params` (color=), as the script command
 // SetObjectColor does.
-void SetObjectColor(uint32_t id, Script::CStruct* params)
+void SetObjectColor(uint32_t id, Scripts::CStruct* params)
 {
-    CFuncs::SetNodeColor(id, params);
+    ScriptCommands::SetNodeColor(id, params);
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     return params ? params->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear(); // (the destructor)
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
 } // namespace
 
 // 0x0041B3C0
-CBaseComponent* __cdecl CColorCycleComponent::Create()
+CObjectModule* __cdecl CColorCycleComponent::Create()
 {
-    auto* component = static_cast<CColorCycleComponent*>(Mem::Calloc(sizeof(CColorCycleComponent)));
+    auto* component = static_cast<CColorCycleComponent*>(MemSys::AllocZeroed(sizeof(CColorCycleComponent)));
     if (!component)
         return nullptr;
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_colorCount = 0;
     component->m_current = 0;
-    component->m_time = 0.0f;
+    component->m_clock = 0.0f;
     component->m_on = false;
     component->m_vtable = kVtable;
     component->m_type = kType;
@@ -79,16 +79,16 @@ CBaseComponent* __cdecl CColorCycleComponent::Create()
 }
 
 // 0x0041B280
-void __cdecl CColorCycleComponent::RegisterMemberFunctions()
+void __cdecl CColorCycleComponent::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_colorCycleMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_colorCycleMemberFunctions, 0x18);
 }
 
 // 0x0041B2A0
 void CColorCycleComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0041B2E0
@@ -96,12 +96,12 @@ CColorCycleComponent* CColorCycleComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0041B310
-void CColorCycleComponent::SetColors(Script::CArray* colors)
+void CColorCycleComponent::ChangeColors(Scripts::CArray* colors)
 {
     int count = static_cast<int>(colors->m_size);
     m_colorCount = count;
@@ -116,9 +116,9 @@ void CColorCycleComponent::SetColors(Script::CArray* colors)
 void CColorCycleComponent::SetOn(bool on)
 {
     if (m_on && !on) {
-        Script::CStruct* params = NewParams();
-        params->AddChecksum(kName, m_object->m_id);
-        params->AddInteger(kColor, kNeutralColor);
+        Scripts::CStruct* params = NewParams();
+        params->PutNameKey(kName, m_object->m_id);
+        params->PutInt(kColor, kNeutralColor);
         SetObjectColor(m_object->m_id, params);
         DeleteParams(params);
     }
@@ -128,7 +128,7 @@ void CColorCycleComponent::SetOn(bool on)
     }
     m_on = on;
     if (on) {
-        m_time = 0.0f;
+        m_clock = 0.0f;
         m_current = 0;
     }
 }
@@ -138,42 +138,42 @@ void CColorCycleComponent::Update()
 {
     if (!m_on)
         return;
-    Script::CStruct* params = NewParams();
-    const Mth::Vector& color = m_colors[m_current];
+    Scripts::CStruct* params = NewParams();
+    const Maths::Vector& color = m_colors[m_current];
     uint32_t rgb = static_cast<uint32_t>(Truncated(color.z)) << 8;
     rgb = (rgb + static_cast<uint32_t>(Truncated(color.y))) << 8;
     rgb += static_cast<uint32_t>(Truncated(color.x));
-    params->AddInteger(kColor, static_cast<int>(rgb));
-    params->AddChecksum(kName, m_object->m_id);
-    Script::PrintContents(params, 0);
+    params->PutInt(kColor, static_cast<int>(rgb));
+    params->PutNameKey(kName, m_object->m_id);
+    Scripts::DumpToLog(params, 0);
     SetObjectColor(m_object->m_id, params);
     DeleteParams(params);
     // (compared before rounding, as the original keeps the sum on the FPU stack)
-    double time = Tmr::GetSlomoFrameSeconds() * kMilliseconds + m_time;
-    m_time = static_cast<float>(time);
+    double time = FrameClock::GetSlomoFrameSeconds() * kMilliseconds + m_clock;
+    m_clock = static_cast<float>(time);
     if (time >= m_period) {
-        m_time = 0.0f;
+        m_clock = 0.0f;
         if (++m_current >= m_colorCount)
             m_current = 0;
     }
 }
 
 // 0x0041B560
-int CColorCycleComponent::On(Script::CStruct*, Script::CScript*)
+int CColorCycleComponent::On(Scripts::CStruct*, Scripts::CScript*)
 {
     SetOn(true);
     return 1;
 }
 
 // 0x0041B570
-int CColorCycleComponent::Off(Script::CStruct*, Script::CScript*)
+int CColorCycleComponent::Off(Scripts::CStruct*, Scripts::CScript*)
 {
     SetOn(false);
     return 1;
 }
 
 // 0x0041B2B0
-int CColorCycleComponent::SetPeriodFromScript(Script::CStruct* params, Script::CScript*)
+int CColorCycleComponent::SetPeriodFromScript(Scripts::CStruct* params, Scripts::CScript*)
 {
     float period;
     std::memcpy(&period, &params, sizeof(period)); // (the original's slot for it: the params argument)
@@ -183,32 +183,32 @@ int CColorCycleComponent::SetPeriodFromScript(Script::CStruct* params, Script::C
 }
 
 // 0x0041B390
-int CColorCycleComponent::SetColorsFromScript(Script::CStruct* params, Script::CScript*)
+int CColorCycleComponent::SetColorsFromScript(Scripts::CStruct* params, Scripts::CScript*)
 {
-    auto* colors = reinterpret_cast<Script::CArray*>(params); // (the original's slot for it: the params argument)
+    auto* colors = reinterpret_cast<Scripts::CArray*>(params); // (the original's slot for it: the params argument)
     params->GetArray(0u, &colors, 1);
-    SetColors(colors);
+    ChangeColors(colors);
     return 1;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CColorCycleComponent::Destroy,
-         &Obj::CColorCycleComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CColorCycleComponent::Destroy,
+         &GameObjects::CColorCycleComponent::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -34,7 +34,7 @@
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
 
-namespace Nx {
+namespace Engine3D {
 
 using namespace ModelGeoms;
 
@@ -57,26 +57,26 @@ constexpr uint32_t kFaceImage = 0xB00B0DC0; // the face texture's name in the di
 
 // A geom list node (std::list<sModelGeom*>, the game's): one inserted before `where` (0x004964A0), a range erased
 // (0x004ECC30; the result iterator out).
-void InsertGeom(CModel* model, sModelGeomNode* where, sModelGeom** entry)
+void InsertGeom(CRenderModel* model, sModelGeomNode* where, sModelGeom** entry)
 {
-    reinterpret_cast<Obj::PointerList*>(&model->m_geoms)
-        ->Insert(reinterpret_cast<Obj::PointerListNode*>(where), reinterpret_cast<void* const*>(entry));
+    reinterpret_cast<GameObjects::PointerList*>(&model->m_geoms)
+        ->Insert(reinterpret_cast<GameObjects::PointerListNode*>(where), reinterpret_cast<void* const*>(entry));
 }
-void EraseGeoms(CModel* model, sModelGeomNode* first, sModelGeomNode* last)
+void EraseGeoms(CRenderModel* model, sModelGeomNode* first, sModelGeomNode* last)
 {
     sModelGeomNode* result;
-    reinterpret_cast<Obj::PointerList*>(&model->m_geoms)
-        ->Erase(reinterpret_cast<Obj::PointerListNode**>(&result), reinterpret_cast<Obj::PointerListNode*>(first),
-                reinterpret_cast<Obj::PointerListNode*>(last));
+    reinterpret_cast<GameObjects::PointerList*>(&model->m_geoms)
+        ->Erase(reinterpret_cast<GameObjects::PointerListNode**>(&result), reinterpret_cast<GameObjects::PointerListNode*>(first),
+                reinterpret_cast<GameObjects::PointerListNode*>(last));
 }
 
 // A node's memory: from the default heap, or the current one (0x00658555: whether to assert when out of it).
 sModelGeom* NewEntry(bool defaultHeap)
 {
     if (defaultHeap)
-        return static_cast<sModelGeom*>(Mem::New(sizeof(sModelGeom)));
+        return static_cast<sModelGeom*>(MemSys::New(sizeof(sModelGeom)));
     return static_cast<sModelGeom*>(
-        Mem::Manager::Get()->Allocate(sizeof(sModelGeom), g_allocAssertFlag, nullptr));
+        MemSys::Manager::Get()->Allocate(sizeof(sModelGeom), g_allocAssertFlag, nullptr));
 }
 
 // A scene's texture dictionary (its +4).
@@ -86,7 +86,7 @@ uint8_t* TexturesOf(uint8_t* scene) { return *reinterpret_cast<uint8_t**>(scene 
 void DeleteOwnScene(uint8_t* scene)
 {
     uint8_t* textures = TexturesOf(scene);
-    DeleteScene(scene, 1);
+    DiscardScene(scene, 1);
     UnloadTextures(textures);
 }
 
@@ -101,7 +101,7 @@ uint8_t* LoadScene(const char* fileName, void* textures, int texDictOffset, bool
 {
     return static_cast<uint8_t*>(Engine::LoadModelFile(fileName, textures, texDictOffset, shadowVolume));
 }
-void ReleaseBoneVolumes(void* volumes) { Gfx::ReleaseBoneVolumes(reinterpret_cast<uint32_t>(volumes)); }
+void ReleaseBoneVolumes(void* volumes) { Gfx2D::ReleaseBoneVolumes(reinterpret_cast<uint32_t>(volumes)); }
 
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
@@ -109,15 +109,15 @@ void ReleaseBoneVolumes(void* volumes) { Gfx::ReleaseBoneVolumes(reinterpret_cas
 void* Textures() { return reinterpret_cast<void*>(g_gameTextureDict); }
 void* FindTexture(uint32_t checksum)
 {
-    return static_cast<CTexDict*>(Textures())->GetTexture(checksum);
+    return static_cast<CTextureSet*>(Textures())->GetTexture(checksum);
 }
-void RemoveTexture(void* texture)
+void DetachTexture(void* texture)
 {
-    static_cast<CTexDict*>(Textures())->UnloadTexture(static_cast<CTexture*>(texture));
+    static_cast<CTextureSet*>(Textures())->UnloadTexture(static_cast<CBitmapTexture*>(texture));
 }
 
 // The texture's checksum (+4, the folded getter 0x005480C0).
-uint32_t TextureChecksum(void* texture) { return static_cast<GameNet::FoldedGetters*>(texture)->Word04(); }
+uint32_t TextureHash(void* texture) { return static_cast<OnlinePlay::FoldedGetters*>(texture)->Word04(); }
 
 // A colour channel (0-1) as a byte: x * 255 + 0.5, truncated (the original's x87 and _ftol).
 uint32_t ColorByte(float value)
@@ -139,7 +139,7 @@ void AppendString(char* into, const char* from) { CopyString(into + std::strlen(
 void PngName(char* into, const char* name)
 {
     CopyString(into, name);
-    Str::LowerCase(into);
+    TextUtil::ToLowerText(into);
     if (!std::strstr(into, ".png"))
         AppendString(into, ".png");
 }
@@ -147,54 +147,54 @@ void PngName(char* into, const char* name)
 } // namespace
 
 // 0x00494C40
-CModel* CModel::Construct()
+CRenderModel* CRenderModel::Construct()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
     m_geomListSize = 0;
     // The list's head: a node linked to itself (none when out of memory).
-    auto* head = static_cast<sModelGeomNode*>(Mem::New(sizeof(sModelGeomNode)));
+    auto* head = static_cast<sModelGeomNode*>(MemSys::New(sizeof(sModelGeomNode)));
     if (head)
         head->next = head->prev = head;
     m_geoms = head;
-    m_numBones = 0;
+    m_boneTotal = 0;
     m_boneMatrices = nullptr;
     if (m_displayMode != 6 && ModelVirtual<bool>(this, 3, 6))
         m_displayMode = 6;
-    m_numGeoms = 0;
-    m_fileName = kNone;
+    m_geomTotal = 0;
+    m_sourcePath = kNone;
     m_flags = static_cast<uint8_t>((m_flags & ~kModelHidden) | kModelActive);
-    m_scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    m_sizeFactor = {1.0f, 1.0f, 1.0f, 1.0f};
     m_flags &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
     mp_lights = nullptr;
     return this;
 }
 
 // 0x00494D00
-void CModel::DestroyBody()
+void CRenderModel::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kModelVtable);
     if (mp_lights)
-        DeleteScene(mp_lights);
+        DiscardScene(mp_lights);
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         if (uint8_t* volumes = Entry(node)->boneVolumes)
             ReleaseBoneVolumes(*reinterpret_cast<void**>(volumes + 4));
     }
-    ClearGeoms();
+    DropGeoms();
     EraseGeoms(this, First(this), m_geoms);
-    Mem::Manager::Get()->Free(m_geoms);
+    MemSys::Manager::Get()->Free(m_geoms);
 }
 
 // 0x00494DC0
-CModel* CModel::Destroy(unsigned int flags)
+CRenderModel* CRenderModel::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00494BA0
-void CModel::ClearGeoms()
+void CRenderModel::DropGeoms()
 {
     sModelGeomNode* head = m_geoms;
     for (sModelGeomNode* node = First(this); node != head; node = node->next) {
@@ -202,23 +202,23 @@ void CModel::ClearGeoms()
         DeleteGeomObject(entry->geom);
         if (entry->scene)
             DeleteOwnScene(entry->scene);
-        Mem::Manager::Get()->Free(entry);
+        MemSys::Manager::Get()->Free(entry);
     }
     EraseGeoms(this, First(this), m_geoms);
-    m_numGeoms = 0;
+    m_geomTotal = 0;
     m_numFileGeoms = 0;
     m_numAssetGeoms = 0;
 }
 
 // 0x00494730
-void CModel::RemoveGeom(uint32_t name)
+void CRenderModel::DetachGeom(uint32_t name)
 {
     sModelGeomNode* node = First(this);
     while (node != m_geoms && Entry(node)->name != name)
         node = node->next;
     if (node == m_geoms)
         return;
-    Dbg::Printf("Uninitializing geometry named %s\n", Script::FindChecksumNameOrUnknown(name));
+    DebugOut::Printf("Uninitializing geometry named %s\n", Scripts::FindChecksumNameOrUnknown(name));
     sModelGeom* entry = Entry(node);
     DeleteGeomObject(entry->geom);
     if (entry->scene)
@@ -227,21 +227,21 @@ void CModel::RemoveGeom(uint32_t name)
         --m_numFileGeoms;
     else
         --m_numAssetGeoms;
-    --m_numGeoms;
-    Mem::Manager::Get()->Free(entry);
+    --m_geomTotal;
+    MemSys::Manager::Get()->Free(entry);
     if (node != m_geoms) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
-        Mem::Manager::Get()->Free(node);
+        MemSys::Manager::Get()->Free(node);
         --m_geomListSize;
     }
 }
 
 // 0x004934A0
-bool CModel::AddAssetGeom(uint32_t assetName, uint32_t name, bool multicolor, bool defaultHeap)
+bool CRenderModel::AddAssetGeom(uint32_t assetName, uint32_t name, bool multicolor, bool defaultHeap)
 {
     m_flags &= ~kModelSphereValid;
-    auto* scene = static_cast<uint8_t*>(Ass::AssetManager()->GetAssetData(assetName, 0));
+    auto* scene = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(assetName, 0));
     sModelGeom* entry = NewEntry(defaultHeap);
     if (!defaultHeap && !entry)
         return false;
@@ -255,37 +255,37 @@ bool CModel::AddAssetGeom(uint32_t assetName, uint32_t name, bool multicolor, bo
     entry->textures = TexturesOf(scene);
     SetGeomShadow(entry->geom, (m_flags >> 4) & 1);
     entry->name = name;
-    m_visibleGeoms |= GeomBit(m_numGeoms);
+    m_visibleGeoms |= GeomBit(m_geomTotal);
     if (mp_lights)
         SetGeomLights(entry->geom, mp_lights);
-    ++m_numGeoms;
+    ++m_geomTotal;
     if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
         m_displayMode = 0;
     entry->boneVolumes = nullptr;
     InsertGeom(this, m_geoms, &entry);
-    if (m_numGeoms == 1)
-        m_fileName = kFirstAssetGeom;
+    if (m_geomTotal == 1)
+        m_sourcePath = kFirstAssetGeom;
     return true;
 }
 
 // 0x004935E0
-bool CModel::AddFileGeom(const char* fileName, uint32_t name, bool useAssetManager, int texDictOffset,
+bool CRenderModel::AddFileGeom(const char* fileName, uint32_t name, bool viaResourceStore, int texDictOffset,
                          bool forceTexDict, bool multicolor, bool defaultHeap, bool byName)
 {
     m_flags &= ~kModelSphereValid;
-    Ass::CAssMan* assets = Ass::AssetManager();
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
     sModelGeom* entry = NewEntry(defaultHeap);
     if (!defaultHeap && !entry)
         return false;
     uint8_t* scene;
-    if (useAssetManager) {
+    if (viaResourceStore) {
         // The textures first ("<file without its .skin / .mdl>.tex"), then the file itself: the texture
         // dictionary's parameters (only these fields set - the rest as the stack left it in the original).
         struct TexDictParams {
             uint8_t flag0;
             uint8_t pad01[3];
             int texDictOffset;
-            uint8_t isSkin;
+            uint8_t hasSkinning;
             uint8_t forceTexDict;
             uint8_t rest[0x42];
         } texParams;
@@ -294,30 +294,30 @@ bool CModel::AddFileGeom(const char* fileName, uint32_t name, bool useAssetManag
         texParams.flag0 = 0;
         texParams.texDictOffset = texDictOffset;
         texParams.forceTexDict = forceTexDict;
-        texParams.isSkin = Engine::SplitSkinName(fileName, texName);
+        texParams.hasSkinning = Engine::SplitSkinName(fileName, texName);
         AppendString(texName, ".tex");
         if (byName)
             assets->GetAssetDataByName(texName, 1);
         else
-            assets->LoadOrGetAsset(texName, 0, 0, 0, false, false, assets->GetPermanentByDefault(), &texParams, 0);
-        Ass::SkinParams skinParams;
+            assets->FetchOrLoadResource(texName, 0, 0, 0, false, false, assets->GetPermanentByDefault(), &texParams, 0);
+        AssetStore::SkinParams skinParams;
         skinParams.Clear();
         skinParams.flag0 = (m_flags >> 5) & 1;
         skinParams.value = texDictOffset;
         if (byName)
             scene = static_cast<uint8_t*>(assets->GetAssetDataByName(fileName, 1));
         else
-            scene = static_cast<uint8_t*>(assets->LoadOrGetAsset(fileName, 0, 0, Crc::GenerateCRCFromString(texName),
+            scene = static_cast<uint8_t*>(assets->FetchOrLoadResource(fileName, 0, 0, Checksums::HashFromText(texName),
                                                                  false, false, assets->GetPermanentByDefault(),
                                                                  &skinParams, 0));
-        entry->assetName = Crc::GenerateCRCFromString(fileName);
+        entry->assetName = Checksums::HashFromText(fileName);
         ++m_numAssetGeoms;
         entry->scene = nullptr;
     } else {
-        Mem::PushMemProfile(fileName);
+        MemSys::PushMemProfile(fileName);
         void* textures = LoadTextures(fileName, texDictOffset, forceTexDict);
         scene = LoadScene(fileName, textures, texDictOffset, (m_flags >> 5) & 1);
-        Mem::PopMemProfile();
+        MemSys::PopMemProfile();
         entry->scene = scene;
         ++m_numFileGeoms;
         entry->assetName = 0;
@@ -329,21 +329,21 @@ bool CModel::AddFileGeom(const char* fileName, uint32_t name, bool useAssetManag
     entry->textures = TexturesOf(scene);
     SetGeomShadow(entry->geom, (m_flags >> 4) & 1);
     entry->name = name;
-    m_visibleGeoms |= GeomBit(m_numGeoms);
+    m_visibleGeoms |= GeomBit(m_geomTotal);
     if (mp_lights)
         SetGeomLights(entry->geom, mp_lights);
-    ++m_numGeoms;
+    ++m_geomTotal;
     if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
         m_displayMode = 0;
     entry->boneVolumes = nullptr;
     InsertGeom(this, m_geoms, &entry);
-    if (m_numGeoms == 1)
-        m_fileName = Crc::GenerateCRCFromString(fileName);
+    if (m_geomTotal == 1)
+        m_sourcePath = Checksums::HashFromText(fileName);
     return true;
 }
 
 // 0x004938E0
-bool CModel::AddGeom(void* geom, uint32_t name, bool defaultHeap)
+bool CRenderModel::AddGeom(void* geom, uint32_t name, bool defaultHeap)
 {
     m_flags &= ~kModelSphereValid;
     sModelGeom* entry = NewEntry(defaultHeap);
@@ -352,7 +352,7 @@ bool CModel::AddGeom(void* geom, uint32_t name, bool defaultHeap)
     entry->geom = geom;
     SetGeomShadow(geom, (m_flags >> 4) & 1);
     entry->name = name;
-    m_visibleGeoms |= GeomBit(m_numGeoms);
+    m_visibleGeoms |= GeomBit(m_geomTotal);
     entry->textures = nullptr;
     if (mp_lights)
         SetGeomLights(entry->geom, mp_lights);
@@ -360,16 +360,16 @@ bool CModel::AddGeom(void* geom, uint32_t name, bool defaultHeap)
     entry->scene = nullptr;
     entry->assetName = 0;
     InsertGeom(this, m_geoms, &entry);
-    ++m_numGeoms;
+    ++m_geomTotal;
     if (m_displayMode != 0 && ModelVirtual<bool>(this, 3, 0))
         m_displayMode = 0;
-    if (m_numGeoms == 1)
-        m_fileName = kFirstAddedGeom;
+    if (m_geomTotal == 1)
+        m_sourcePath = kFirstAddedGeom;
     return true;
 }
 
 // 0x00493090
-bool CModel::Render(Mth::Matrix* matrix, bool noBones, uint8_t* skeleton)
+bool CRenderModel::Render(Maths::Matrix* matrix, bool noBones, uint8_t* skeleton)
 {
     bool normal = m_displayMode == 0;
     int index = 0;
@@ -379,7 +379,7 @@ bool CModel::Render(Mth::Matrix* matrix, bool noBones, uint8_t* skeleton)
     }
     if (m_flags & kModelScaled) {
         for (int row = 0; row < 3; ++row) {
-            float factor = (&m_scale.x)[row];
+            float factor = (&m_sizeFactor.x)[row];
             for (int i = 0; i < 4; ++i)
                 (*matrix)[row][i] *= factor;
         }
@@ -405,7 +405,7 @@ bool CModel::Render(Mth::Matrix* matrix, bool noBones, uint8_t* skeleton)
     case 1:
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
-            reinterpret_cast<Gfx::CSkeleton*>(skeleton)->Draw(matrix, std::bit_cast<uint32_t>(0.5f),
+            reinterpret_cast<Gfx2D::CRig*>(skeleton)->Draw(matrix, std::bit_cast<uint32_t>(0.5f),
                                                               std::bit_cast<uint32_t>(0.5f),
                                                               std::bit_cast<int>(1.0f));
         break;
@@ -416,11 +416,11 @@ bool CModel::Render(Mth::Matrix* matrix, bool noBones, uint8_t* skeleton)
         break;
     default: {
         // A box about the position (compiled out).
-        Mth::Matrix orientation = *matrix;
-        Mth::Vector position = (*matrix)[3];
+        Maths::Matrix orientation = *matrix;
+        Maths::Vector position = (*matrix)[3];
         orientation[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        Mth::Vector box[2] = {{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}};
-        Gfx::AddDebugBox(&orientation, &position, box, 0, 1, 0, 0xFF0000C8);
+        Maths::Vector box[2] = {{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}};
+        Gfx2D::DrawDebugCube(&orientation, &position, box, 0, 1, 0, 0xFF0000C8);
         break;
     }
     }
@@ -428,7 +428,7 @@ bool CModel::Render(Mth::Matrix* matrix, bool noBones, uint8_t* skeleton)
 }
 
 // 0x004939E0
-int CModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t* out)
+int CRenderModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t* out)
 {
     int hit = 0;
     uint32_t hitExtra = 0;
@@ -439,9 +439,9 @@ int CModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint
         if (!volumes)
             continue;
         float distance = nearest;
-        int result = reinterpret_cast<Gfx::CBoneVolumes*>(volumes)->TestLine(
-            reinterpret_cast<const Mth::Line*>(a), reinterpret_cast<Gfx::CSkeleton*>(b),
-            reinterpret_cast<const Mth::Matrix*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
+        int result = reinterpret_cast<Gfx2D::CBoneVolumes*>(volumes)->TestLine(
+            reinterpret_cast<const Maths::Line*>(a), reinterpret_cast<Gfx2D::CRig*>(b),
+            reinterpret_cast<const Maths::Matrix*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
             reinterpret_cast<float*>(&extra));
         if (!hit || distance < nearest) {
             nearest = distance;
@@ -455,22 +455,22 @@ int CModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint
 }
 
 // 0x00493AB0
-float CModel::GetBoneVolume(uint32_t a, uint32_t b, uint32_t bone)
+float CRenderModel::GetBoneVolume(uint32_t a, uint32_t b, uint32_t bone)
 {
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         uint8_t* volumes = Entry(node)->boneVolumes;
         if (!volumes)
             continue;
         float value = 0.0f;
-        if (reinterpret_cast<Gfx::CBoneVolumes*>(volumes)->GetBoneVolume(
-                reinterpret_cast<Gfx::CSkeleton*>(a), reinterpret_cast<const Mth::Matrix*>(b), bone, &value))
+        if (reinterpret_cast<Gfx2D::CBoneVolumes*>(volumes)->GetBoneVolume(
+                reinterpret_cast<Gfx2D::CRig*>(a), reinterpret_cast<const Maths::Matrix*>(b), bone, &value))
             return value;
     }
     return 0.0f;
 }
 
 // 0x00493D10
-bool CModel::ReplaceTexture(uint32_t name, const char* source, const char* dest)
+bool CRenderModel::SwapTexture(uint32_t name, const char* source, const char* dest)
 {
     bool all = name == kAllGeoms;
     bool replaced = false;
@@ -479,23 +479,23 @@ bool CModel::ReplaceTexture(uint32_t name, const char* source, const char* dest)
     PngName(from, source);
     char to[0x200];
     CopyString(to, dest);
-    Str::LowerCase(to);
+    TextUtil::ToLowerText(to);
     if (char* extension = std::strstr(to, ".png"))
         *extension = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         sModelGeom* entry = Entry(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
-            reinterpret_cast<CTexDict*>(entry->textures)->ReplaceTextureFromFile(from, to))
+            reinterpret_cast<CTextureSet*>(entry->textures)->ReplaceTextureFromFile(from, to))
             replaced = true;
     }
     if (!replaced)
-        Script::GetInteger(kTextureReplaceDebug);
+        Scripts::FetchIntValue(kTextureReplaceDebug);
     ModelVirtual<bool>(this, 11);
     return replaced;
 }
 
 // 0x00493E80
-bool CModel::ReplaceTextureWith(uint32_t name, const char* source, uint32_t dest)
+bool CRenderModel::ReplaceTextureWith(uint32_t name, const char* source, uint32_t dest)
 {
     bool all = name == kAllGeoms;
     bool replaced = false;
@@ -506,17 +506,17 @@ bool CModel::ReplaceTextureWith(uint32_t name, const char* source, uint32_t dest
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
         sModelGeom* entry = Entry(node);
         if ((name == entry->name || all) && entry->textures &&
-            reinterpret_cast<CTexDict*>(entry->textures)->ReplaceTexture(from, static_cast<CTexture*>(texture)))
+            reinterpret_cast<CTextureSet*>(entry->textures)->SwapTexture(from, static_cast<CBitmapTexture*>(texture)))
             replaced = true;
     }
     if (!replaced)
-        Script::GetInteger(kTextureReplaceDebug);
+        Scripts::FetchIntValue(kTextureReplaceDebug);
     ModelVirtual<bool>(this, 11);
     return replaced;
 }
 
 // 0x00494010
-bool CModel::SetGeomColorHsv(uint32_t name, float h, float s, float v)
+bool CRenderModel::SetGeomColorHsv(uint32_t name, float h, float s, float v)
 {
     bool all = name == kAllGeoms;
     bool any = false;
@@ -530,11 +530,11 @@ bool CModel::SetGeomColorHsv(uint32_t name, float h, float s, float v)
 }
 
 // 0x00494200
-bool CModel::SetColorFromScript(Script::CStruct* params, float h, float s, float v)
+bool CRenderModel::SetColorFromScript(Scripts::CStruct* params, float h, float s, float v)
 {
     bool any = false;
     uint32_t name;
-    params->GetChecksum(kName, &name, 1);
+    params->ReadHashValue(kName, &name, 1);
     uint32_t rgba = RgbaFromHsv(h, s, v);
     bool all = name == kAllGeoms;
     uint32_t material = 0; // (uninitialised in the original; kept from one geom and pass to the next)
@@ -549,20 +549,20 @@ bool CModel::SetColorFromScript(Script::CStruct* params, float h, float s, float
             continue;
         }
         // A multicolour geom: its material passes.
-        Script::CArray* materials;
+        Scripts::CArray* materials;
         if (params->GetArray(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->m_size; ++i) {
-                auto* entry = reinterpret_cast<Script::CStruct*>(materials->GetElement(i));
-                entry->GetChecksum(0u, &material, 1);
-                entry->GetInteger(0u, &pass, 1);
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(materials->GetElement(i));
+                entry->ReadHashValue(0u, &material, 1);
+                entry->FetchIntValue(0u, &pass, 1);
                 any |= SetGeomMaterialColor(geom, material, pass, rgba);
             }
-        } else if (params->GetChecksum(kMaterial, &material, 0)) {
-            Script::CArray* passes;
+        } else if (params->ReadHashValue(kMaterial, &material, 0)) {
+            Scripts::CArray* passes;
             if (params->GetArray(kPass, &passes, 0)) {
                 for (uint32_t i = 0; i < passes->m_size; ++i)
                     any |= SetGeomMaterialColor(geom, material, static_cast<int>(passes->GetElement(i)), rgba);
-            } else if (params->GetInteger(kPass, &pass, 1)) {
+            } else if (params->FetchIntValue(kPass, &pass, 1)) {
                 any |= SetGeomMaterialColor(geom, material, pass, rgba);
             }
         }
@@ -571,12 +571,12 @@ bool CModel::SetColorFromScript(Script::CStruct* params, float h, float s, float
 }
 
 // 0x00494450
-bool CModel::ClearColorFromScript(Script::CStruct* params)
+bool CRenderModel::ClearColorFromScript(Scripts::CStruct* params)
 {
     constexpr uint32_t kGray = 0x80808080;
     bool any = false;
     uint32_t name;
-    params->GetChecksum(kName, &name, 1);
+    params->ReadHashValue(kName, &name, 1);
     bool all = name == kAllGeoms;
     uint32_t material = 0; // (as SetColorFromScript)
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next) {
@@ -589,20 +589,20 @@ bool CModel::ClearColorFromScript(Script::CStruct* params)
             }
             continue;
         }
-        Script::CArray* materials;
+        Scripts::CArray* materials;
         if (params->GetArray(kMaterials, &materials, 0)) {
             for (uint32_t i = 0; i < materials->m_size; ++i) {
-                auto* entry = reinterpret_cast<Script::CStruct*>(materials->GetElement(i));
-                entry->GetChecksum(0u, &material, 1);
-                entry->GetInteger(0u, &pass, 1);
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(materials->GetElement(i));
+                entry->ReadHashValue(0u, &material, 1);
+                entry->FetchIntValue(0u, &pass, 1);
                 any |= SetGeomMaterialColor(geom, material, pass, kGray);
             }
-        } else if (params->GetChecksum(kMaterial, &material, 0)) {
-            Script::CArray* passes;
+        } else if (params->ReadHashValue(kMaterial, &material, 0)) {
+            Scripts::CArray* passes;
             if (params->GetArray(kPass, &passes, 0)) {
                 for (uint32_t i = 0; i < passes->m_size; ++i)
                     any |= SetGeomMaterialColor(geom, material, static_cast<int>(passes->GetElement(i)), kGray);
-            } else if (params->GetInteger(kPass, &pass, 1)) {
+            } else if (params->FetchIntValue(kPass, &pass, 1)) {
                 any |= SetGeomMaterialColor(geom, material, pass, kGray);
             }
         }
@@ -611,44 +611,44 @@ bool CModel::ClearColorFromScript(Script::CStruct* params)
 }
 
 // 0x00494A00
-bool CModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
+bool CRenderModel::ReplaceFaceTexture(void* face, const char* source, uint32_t name)
 {
     // The face texture: its image's size (0x00487540) and data (0x00487530), its overlay's file name (0x004875B0),
     // its colour parameters (0x00487550, into a buffer).
-    auto* faceTexture = static_cast<Gfx::CFaceTexture*>(face);
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_topDownHeap);
+    auto* faceTexture = static_cast<Gfx2D::CFaceSkin*>(face);
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_topDownHeap);
     int size = faceTexture->GetImageSize();
     void* data = faceTexture->GetImage();
-    void* image = static_cast<CTexDict*>(Textures())
-                      ->LoadTextureFromBuffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
-    void* overlay = static_cast<CTexDict*>(Textures())->LoadTexture(faceTexture->GetOverlayName(), 1, 1, true);
-    Mem::Manager::Get()->PopContext();
+    void* image = static_cast<CTextureSet*>(Textures())
+                      ->ReadTextureBuffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
+    void* overlay = static_cast<CTextureSet*>(Textures())->LoadTexture(faceTexture->GetOverlayName(), 1, 1, true);
+    MemSys::Manager::Get()->LeaveHeapScope();
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.
     uint8_t color[0x30];
-    Gfx::ReadFacePoints(reinterpret_cast<Gfx::SFacePoints*>(color), Script::GetStructure(kSkinColor));
-    Gfx::SetModelFacePoints(reinterpret_cast<const Gfx::SFacePoints*>(color));
-    Gfx::SetFaceOverlay(static_cast<CTexture*>(overlay));
+    Gfx2D::ReadFacePoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(color), Scripts::ReadSubStruct(kSkinColor));
+    Gfx2D::SetModelFacePoints(reinterpret_cast<const Gfx2D::SFaceAnchors*>(color));
+    Gfx2D::SetFaceOverlay(static_cast<CBitmapTexture*>(overlay));
     uint8_t parameters[0x38];
     auto getParameters = [faceTexture](uint8_t* out) {
-        return reinterpret_cast<uint8_t*>(faceTexture->GetPoints(reinterpret_cast<Gfx::SFacePoints*>(out)));
+        return reinterpret_cast<uint8_t*>(faceTexture->GetPoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(out)));
     };
     uint8_t generatePalette = getParameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
-    Gfx::MassageFaceTexture(static_cast<CTexture*>(image),
-                            reinterpret_cast<const Gfx::SFacePoints*>(getParameters(parameters)), generatePalette,
+    Gfx2D::MassageFaceTexture(static_cast<CBitmapTexture*>(image),
+                            reinterpret_cast<const Gfx2D::SFaceAnchors*>(getParameters(parameters)), generatePalette,
                             false, 0x80808080);
-    bool replaced = ReplaceTextureWith(name, source, TextureChecksum(image));
-    RemoveTexture(image);
-    RemoveTexture(overlay);
+    bool replaced = ReplaceTextureWith(name, source, TextureHash(image));
+    DetachTexture(image);
+    DetachTexture(overlay);
     return replaced;
 }
 
 namespace {
-static VtableSlot kModelVtable_slots[] = {&Nx::CModel::Destroy, &Mc::Card::AlwaysTrue, Stubs::ReturnZero1,
-                &Mc::Card::AlwaysTrue, &Nx::CModel::VirtualTrue4, &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue,
-                &Mc::Card::AlwaysTrue, Stubs::ReturnTrue2, &Net::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
-                Stubs::ReturnTrue, &Nx::CModel::PlatGetBoundingSphere, Stubs::IgnoreArgument};
+static VtableSlot kModelVtable_slots[] = {&Engine3D::CRenderModel::Destroy, &MemCard::Card::AlwaysTrue, Stubs::ReturnZero1,
+                &MemCard::Card::AlwaysTrue, &Engine3D::CRenderModel::VirtualTrue4, &MemCard::Card::AlwaysTrue, &MemCard::Card::AlwaysTrue,
+                &MemCard::Card::AlwaysTrue, Stubs::ReturnTrue2, &NetLink::Manager::LoadNetworkDrivers, Stubs::ReturnTrue,
+                Stubs::ReturnTrue, &Engine3D::CRenderModel::PlatGetBoundingSphere, Stubs::IgnoreArgument};
 void** const kModelVtable = reinterpret_cast<void**>(kModelVtable_slots);
 } // namespace
 

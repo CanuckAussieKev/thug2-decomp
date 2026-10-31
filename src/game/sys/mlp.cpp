@@ -1,4 +1,4 @@
-// The main loop (Mlp::Manager), with PartyMod's per-level letterbox built in.
+// The main loop (FrameLoop::Manager), with PartyMod's per-level letterbox built in.
 // (The letterbox per level contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md)
 
 #include "game/sys/mlp.h"
@@ -35,7 +35,7 @@
 #include "game/ass/assman.h"
 #include "game/gfx/render.h"
 
-namespace Mlp {
+namespace FrameLoop {
 
 uint32_t& FramesRun()
 {
@@ -47,14 +47,14 @@ namespace {
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
-bool& SkipRender() { return Nx::g_skipRender; }
-bool& Flag6F1158() { return Obj::g_cutscenePlaying; } // cleared every frame (read by the pad code)
-bool AppActive() { return Sys::g_appActive; }
-bool TextEntry() { return GameNet::g_textEntry; } // keeps the loop running while the window is inactive
-bool QuitRequested() { return Nx::g_quitRequested; }
-bool& DeviceLost() { return Nx::g_deviceLost; }
-IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
-D3DPRESENT_PARAMETERS* PresentParameters() { return &Nx::g_presentParameters; }
+bool& OmitFromDraw() { return Engine3D::g_skipRender; }
+bool& Flag6F1158() { return GameObjects::g_cutscenePlaying; } // cleared every frame (read by the pad code)
+bool AppActive() { return SystemCore::g_appActive; }
+bool TextEntry() { return OnlinePlay::g_textEntry; } // keeps the loop running while the window is inactive
+bool QuitRequested() { return Engine3D::g_quitRequested; }
+bool& DeviceLost() { return Engine3D::g_deviceLost; }
+IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+D3DPRESENT_PARAMETERS* PresentParameters() { return &Engine3D::g_presentParameters; }
 
 uint32_t g_mlpReferences;
 int g_skippedTotal;
@@ -64,31 +64,31 @@ int g_skippedInARow;
 int& SkippedInARow() { return g_skippedInARow; }
 int& SkippedTotal() { return g_skippedTotal; }
 
-void ServiceNetwork() { GameNet::Manager::ServiceGameSpy(); }
+void ServiceNetwork() { OnlinePlay::Manager::ServiceGameSpy(); }
 // Around a device Reset: the device objects released first (default pool) and made again after.
 void ReleaseDeviceObjects()
 {
-    Nx::ReleaseRenderTargetTextures();
-    Nx::ReleaseBuffers();
-    Nx::ReleaseRenderTargets();
+    Engine3D::ReleaseRenderTargetTextures();
+    Engine3D::ReleaseBuffers();
+    Engine3D::ReleaseRenderTargets();
 }
 void RestoreDeviceObjects()
 {
-    Nx::RestoreRenderTargetTextures();
-    Nx::RecreateBuffers();
-    Nx::CreateRenderTargets();
+    Engine3D::RestoreRenderTargetTextures();
+    Engine3D::RecreateBuffers();
+    Engine3D::CreateRenderTargets();
 }
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
-void RunTasks(Tsk::Stack& list, bool profiling)
+void RunTasks(TaskList::Stack& list, bool profiling)
 {
     list.Process(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
-void BeginScene() { Nx::StartRender(); }      // the device's BeginScene
-void RenderFrame() { Nx::Engine::RenderFrame(); }     // the world, then the 2D
-void AfterRender() { Mdl::Skate::DebugRails(); }     // (uses the skate module)
-void EndScene() { Nx::Engine::EndRender(); }        // EndScene, Present
+void BeginScene() { Engine3D::StartRender(); }      // the device's BeginScene
+void RenderFrame() { Engine3D::Engine::RenderFrame(); }     // the world, then the 2D
+void AfterRender() { GameModules::Skate::DebugRails(); }     // (uses the skate module)
+void EndScene() { Engine3D::Engine::EndRender(); }        // EndScene, Present
 
-uint8_t LetterboxActive() { return Nx::g_camera.letterboxActive; }
+uint8_t LetterboxActive() { return Engine3D::g_camera.letterboxActive; }
 
 } // namespace
 
@@ -98,22 +98,22 @@ uint8_t LetterboxActive() { return Nx::g_camera.letterboxActive; }
 void RenderFrameLetterboxed()
 {
     RenderFrame();
-    if (Nx::CurrentLevel() == 0) {
+    if (Engine3D::CurrentLevel() == 0) {
         if (LetterboxActive() != 1)
-            Nx::SetLetterbox(true);
+            Engine3D::SetLetterbox(true);
     } else if (LetterboxActive() != 0) {
-        Nx::SetLetterbox(false);
+        Engine3D::SetLetterbox(false);
     }
 }
 
 namespace {
 
 // The task lists (Lst-style lists of tasks, 0x3C bytes each).
-void ConstructTaskList(Tsk::Stack& list) { list.Construct(); }
-void DestroyTaskList(Tsk::Stack& list) { list.Destruct(); }
+void ConstructTaskList(TaskList::Stack& list) { list.Construct(); }
+void DestroyTaskList(TaskList::Stack& list) { list.Destruct(); }
 
-Manager*& Instance() { return Ass::g_mainLoopManager; }
-uint32_t& References() { return g_mlpReferences; }
+Manager*& Instance() { return AssetStore::g_mainLoopManager; }
+uint32_t& RefTally() { return g_mlpReferences; }
 
 } // namespace
 
@@ -125,7 +125,7 @@ Manager* Manager::Construct()
     ConstructTaskList(m_systemTasks);
     m_unknownB8 = 0;
     m_unknownBC = 0;
-    m_done = false;
+    m_isFinished = false;
     return this;
 }
 
@@ -147,8 +147,8 @@ void Manager::ResetDeviceIfLost()
     // Not original - the level editor's UI (game/front/level_editor_ui.h): ImGui's default-pool objects dropped before
     // the reset (made again on its next frame).
     // Original behaviour: only the game's own.
-    Front::LevelEditor::Ui::DeviceLost();
-    Front::NewFrontend::DeviceLost(); // (not original either: the new front end's - game/front/new_frontend.h)
+    MenuSystem::LevelEditor::Ui::DeviceLost();
+    MenuSystem::NewFrontend::DeviceLost(); // (not original either: the new front end's - game/front/new_frontend.h)
     ReleaseDeviceObjects();
     if (Device()->Reset(PresentParameters()) < 0)
         return;
@@ -164,36 +164,36 @@ void Manager::ProfileFrames(int frames)
 }
 
 // 0x0044F240
-void Manager::StopLoop() { m_done = true; }
+void Manager::StopLoop() { m_isFinished = true; }
 
 // 0x0044F260
 Manager* CreateManager(bool create)
 {
     if (!Instance() && create) {
-        if (void* memory = Mem::Calloc(sizeof(Manager), nullptr, 1)) {
+        if (void* memory = MemSys::AllocZeroed(sizeof(Manager), nullptr, 1)) {
             Instance() = static_cast<Manager*>(memory)->Construct();
-            ++References();
+            ++RefTally();
             return Instance();
         }
         Instance() = nullptr;
     }
-    ++References();
+    ++RefTally();
     return Instance();
 }
 
 // 0x0044F2B0
 void ReleaseManager()
 {
-    if (References() > 1) {
-        --References();
+    if (RefTally() > 1) {
+        --RefTally();
         return;
     }
     if (Manager* manager = Instance()) {
         manager->DestroyBody();
-        Mem::Manager::Get()->Free(manager);
+        MemSys::Manager::Get()->Free(manager);
     }
     Instance() = nullptr;
-    References() = 0;
+    RefTally() = 0;
 }
 
 // 0x0044EEF0
@@ -201,7 +201,7 @@ void Manager::MainLoop()
 {
     // The test runner's EngineStarted stage: every engine module exists, the first frame is next.
 
-    uint8_t doneOnEntry = m_done;
+    uint8_t doneOnEntry = m_isFinished;
     // The screen saver's timeout is set again every 201 frames, which restarts its idle time.
     UINT screenSaverTimeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screenSaverTimeout, 0);
@@ -212,22 +212,22 @@ void Manager::MainLoop()
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     uint64_t frameStart = static_cast<uint64_t>(counter.QuadPart);
-    m_done = false;
+    m_isFinished = false;
     do {
         ++FramesRun(); // (not original - see FramesRun)
         if (screenSaverTimeout && framesSinceScreenSaver++ >= 200) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screenSaverTimeout, nullptr, 0);
             framesSinceScreenSaver = 0;
         }
-        SkipRender() = false;
+        OmitFromDraw() = false;
         Flag6F1158() = false;
         Sio::ReadKeyboard();
         Platform::ProcessWindowEvents();
         ServiceNetwork();
         // Not original - THUGPRO's big-level positions in network games (TP-R6, game/net/thugpro_compat.h).
-        GameNet::Thugpro::RefreshPositionScale();
+        OnlinePlay::Thugpro::RefreshPositionScale();
         // Not original - THUGPRO's own CAS parts from the user's install, once the CAS lists are loaded (TP-R10).
-        Obj::ThugproCas::LoadOnce();
+        GameObjects::ThugproCas::LoadOnce();
         if (!AppActive()) {
             if (!TextEntry()) {
                 // Inactive: idle until the window is active again (nothing else runs meanwhile).
@@ -237,13 +237,13 @@ void Manager::MainLoop()
                 } while (!AppActive());
                 continue;
             }
-            SkipRender() = true;
+            OmitFromDraw() = true;
         }
         if (QuitRequested())
             break;
         if (DeviceLost()) {
             ResetDeviceIfLost(); // (inline in the original)
-            SkipRender() = true;
+            OmitFromDraw() = true;
         }
 
         // Wait for the frame's time (60 a second).
@@ -268,40 +268,40 @@ void Manager::MainLoop()
             SkippedInARow() = 0;
         } else {
             ++SkippedTotal();
-            SkipRender() = true;
+            OmitFromDraw() = true;
             ++SkippedInARow();
         }
         frameStart += frameTicks;
 
-        Tmr::CountVblank();
-        Tmr::OncePerRender();
+        FrameClock::CountVblank();
+        FrameClock::OnceEveryDraw();
         if (m_profileFrames) {
-            Dbg::Printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"
+            DebugOut::Printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"
             --m_profileFrames;
             m_profiling = 1;
         }
         RunTasks(m_systemTasks, m_profiling != 0);
         RunTasks(m_logicTasks, m_profiling != 0);
-        if (!SkipRender())
+        if (!OmitFromDraw())
             BeginScene();
         RenderFrameLetterboxed();
         AfterRender();
         // Not original - the screenshot key (game/sys/screenshot.h): the frame read just before it's presented.
         // Original behaviour: the scene is ended and presented.
-        Sys::Screenshot::BeforePresent(!SkipRender());
-        if (!SkipRender())
+        SystemCore::Screenshot::BeforePresent(!OmitFromDraw());
+        if (!OmitFromDraw())
             EndScene();
         // Not original - a frame series (game/sys/screenshot.h): the capture's time isn't counted, so no frame is
         // skipped to catch up - every logic frame is drawn and taken.
         // Original behaviour: the next frame is due a frame after this one was (late ones skip drawing).
-        if (Sys::Screenshot::SeriesRunning()) {
+        if (SystemCore::Screenshot::SeriesRunning()) {
             QueryPerformanceCounter(&counter);
             frameStart = static_cast<uint64_t>(counter.QuadPart);
         }
-        Tmr::UpdateFrameLength();
+        FrameClock::UpdateFrameLength();
         m_profiling = 0;
-    } while (!m_done);
-    m_done = doneOnEntry;
+    } while (!m_isFinished);
+    m_isFinished = doneOnEntry;
 }
 
 } // namespace Mlp

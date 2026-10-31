@@ -5,15 +5,15 @@
 #include <cstdint>
 #include <cstring>
 
-namespace Script {
+namespace Scripts {
 
-static_assert(offsetof(CExpressionEvaluator, m_valueTop) == 0x140, "layout must match the original");
-static_assert(offsetof(CExpressionEvaluator, m_operators) == 0x144, "layout must match the original");
-static_assert(offsetof(CExpressionEvaluator, m_operatorTop) == 0x1E4, "layout must match the original");
-static_assert(offsetof(CExpressionEvaluator, m_hasOperators) == 0x1E8, "layout must match the original");
-static_assert(offsetof(CExpressionEvaluator, m_token) == 0x1EC, "layout must match the original");
-static_assert(offsetof(CExpressionEvaluator, m_error) == 0x1F0, "layout must match the original");
-static_assert(offsetof(CExpressionEvaluator, m_unknown1F4) == 0x1F4, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_valueTop) == 0x140, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_operators) == 0x144, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_operatorTop) == 0x1E4, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_hasOperators) == 0x1E8, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_token) == 0x1EC, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_error) == 0x1F0, "layout must match the original");
+static_assert(offsetof(CValueResolver, m_unknown1F4) == 0x1F4, "layout must match the original");
 
 float g_evalDivisorMinimum{0.000001f};
 CComponent g_evalResult;
@@ -36,7 +36,7 @@ CComponent& Result() { return g_evalResult; }
 
 // The error messages are the game's own strings.
 
-void SetResultType(ESymbolType type)
+void SetResultType(EQbValueKind type)
 {
     Result().typeAndFlag = static_cast<uint8_t>((Result().typeAndFlag & 1) | (type << 1));
 }
@@ -48,18 +48,18 @@ float Rounded(double value) { return static_cast<float>(value); }
 
 void SetResultFloat(double value)
 {
-    SetResultType(ESYMBOLTYPE_FLOAT);
+    SetResultType(QBVAL_FLOAT);
     Result().floatValue = Rounded(value);
 }
 void SetResultInteger(uint32_t value)
 {
-    SetResultType(ESYMBOLTYPE_INTEGER);
+    SetResultType(QBVAL_INTEGER);
     Result().raw = value;
 }
 
 CPair* NewResultPair()
 {
-    SetResultType(ESYMBOLTYPE_PAIR);
+    SetResultType(QBVAL_PAIR);
     CPair* pair = NewPair();
     pair = pair ? pair->Init() : nullptr;
     Result().pair = pair;
@@ -67,7 +67,7 @@ CPair* NewResultPair()
 }
 CVector* NewResultVector()
 {
-    SetResultType(ESYMBOLTYPE_VECTOR);
+    SetResultType(QBVAL_VECTOR);
     CVector* vector = NewVector();
     vector = vector ? vector->Init() : nullptr;
     Result().vector = vector;
@@ -75,18 +75,18 @@ CVector* NewResultVector()
 }
 CStruct* NewResultStructure()
 {
-    SetResultType(ESYMBOLTYPE_STRUCTURE);
+    SetResultType(QBVAL_STRUCT);
     CStruct* structure = NewStruct();
     structure = structure ? structure->Init() : nullptr;
     Result().structure = structure;
     return structure;
 }
 
-bool IsStructure(uint32_t type) { return type == ESYMBOLTYPE_STRUCTURE || type == ESYMBOLTYPE_STRUCTUREPOINTER; }
-bool IsArray(uint32_t type) { return type == ESYMBOLTYPE_ARRAY || type == ESYMBOLTYPE_ARRAYPOINTER; }
+bool IsStructure(uint32_t type) { return type == QBVAL_STRUCT || type == QBVAL_STRUCT_REF; }
+bool IsArray(uint32_t type) { return type == QBVAL_ARRAY || type == ESYMBOLTYPE_ARRAYPOINTER; }
 
 // Two strings joined (at most 200 characters with the terminator), or null if too long.
-bool JoinStrings(const char* a, const char* b, ESymbolType type)
+bool JoinStrings(const char* a, const char* b, EQbValueKind type)
 {
     size_t lengthA = std::strlen(a);
     size_t lengthB = std::strlen(b);
@@ -107,17 +107,17 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
 {
     to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (array->m_type << 1));
     switch (array->m_type) {
-    case ESYMBOLTYPE_INTEGER:
-    case ESYMBOLTYPE_NAME:
+    case QBVAL_INTEGER:
+    case QBVAL_NAME:
         to->raw = array->GetElement(index);
         break;
-    case ESYMBOLTYPE_FLOAT:
+    case QBVAL_FLOAT:
         to->floatValue = array->GetFloat(index);
         break;
-    case ESYMBOLTYPE_STRING:
-        to->string = CreateString(array->GetLocalString(index));
+    case QBVAL_STRING:
+        to->string = CreateString(array->FindInlineText(index));
         break;
-    case ESYMBOLTYPE_PAIR: {
+    case QBVAL_PAIR: {
         auto* from = reinterpret_cast<const CPair*>(array->GetElement(index));
         CPair* pair = NewPair();
         pair = pair ? pair->Init() : nullptr;
@@ -126,7 +126,7 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
         to->pair->y = from->y;
         break;
     }
-    case ESYMBOLTYPE_VECTOR: {
+    case QBVAL_VECTOR: {
         auto* from = reinterpret_cast<const CVector*>(array->GetElement(index));
         CVector* vector = NewVector();
         vector = vector ? vector->Init() : nullptr;
@@ -136,9 +136,9 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
         to->vector->z = from->z;
         break;
     }
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         if (reference) {
-            to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (ESYMBOLTYPE_STRUCTUREPOINTER << 1));
+            to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (QBVAL_STRUCT_REF << 1));
             to->raw = array->GetElement(index);
         } else {
             CStruct* structure = NewStruct();
@@ -146,14 +146,14 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
             to->structure->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->GetElement(index)));
         }
         break;
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_ARRAY:
         if (reference) {
             to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
             to->raw = array->GetElement(index);
         } else {
             CArray* copy = NewArray();
             to->array = copy ? copy->Init() : nullptr;
-            CopyArray(to->array, reinterpret_cast<CArray*>(array->GetElement(index)));
+            DuplicateArray(to->array, reinterpret_cast<CArray*>(array->GetElement(index)));
         }
         break;
     default:
@@ -171,8 +171,8 @@ void ResolvedValue(const CComponent* component, uint32_t* type, uint32_t* value)
 {
     *type = component->Type();
     *value = component->raw;
-    if (*type == ESYMBOLTYPE_NAME) {
-        if (CSymbolTableEntry* symbol = LookUpSymbol(*value)) {
+    if (*type == QBVAL_NAME) {
+        if (CSymbolTableEntry* symbol = ResolveSymbol(*value)) {
             *value = symbol->raw;
             *type = symbol->type;
         }
@@ -191,21 +191,21 @@ double AsInteger(uint32_t bits) { return static_cast<double>(static_cast<int32_t
 bool Less(uint32_t typeA, uint32_t a, uint32_t typeB, uint32_t b)
 {
     switch (typeA) {
-    case ESYMBOLTYPE_INTEGER:
-        if (typeB == ESYMBOLTYPE_FLOAT)
+    case QBVAL_INTEGER:
+        if (typeB == QBVAL_FLOAT)
             return AsInteger(a) < AsFloat(b);
-        return typeB == ESYMBOLTYPE_INTEGER && static_cast<int32_t>(a) < static_cast<int32_t>(b);
-    case ESYMBOLTYPE_FLOAT:
-        if (typeB == ESYMBOLTYPE_INTEGER)
+        return typeB == QBVAL_INTEGER && static_cast<int32_t>(a) < static_cast<int32_t>(b);
+    case QBVAL_FLOAT:
+        if (typeB == QBVAL_INTEGER)
             return AsFloat(a) < AsInteger(b);
-        return typeB == ESYMBOLTYPE_FLOAT && AsFloat(a) < AsFloat(b);
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+        return typeB == QBVAL_FLOAT && AsFloat(a) < AsFloat(b);
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         return typeB == typeA &&
                std::strlen(reinterpret_cast<const char*>(a)) < std::strlen(reinterpret_cast<const char*>(b));
-    case ESYMBOLTYPE_STRUCTURE:
-    case ESYMBOLTYPE_STRUCTUREPOINTER:
-        return (typeB == ESYMBOLTYPE_STRUCTURE || typeB == ESYMBOLTYPE_STRUCTUREPOINTER) &&
+    case QBVAL_STRUCT:
+    case QBVAL_STRUCT_REF:
+        return (typeB == QBVAL_STRUCT || typeB == QBVAL_STRUCT_REF) &&
                reinterpret_cast<CStruct*>(a)->IsSubsetOf(reinterpret_cast<CStruct*>(b));
     default:
         return false;
@@ -231,22 +231,22 @@ bool GreaterThan(CComponent* a, CComponent* b)
     ResolvedValue(b, &typeB, &valueB);
     // (the same cases, decided by a's type)
     switch (typeA) {
-    case ESYMBOLTYPE_INTEGER:
-    case ESYMBOLTYPE_FLOAT:
-        if (typeB != ESYMBOLTYPE_INTEGER && typeB != ESYMBOLTYPE_FLOAT)
+    case QBVAL_INTEGER:
+    case QBVAL_FLOAT:
+        if (typeB != QBVAL_INTEGER && typeB != QBVAL_FLOAT)
             return false;
-        if (typeA == ESYMBOLTYPE_INTEGER && typeB == ESYMBOLTYPE_INTEGER)
+        if (typeA == QBVAL_INTEGER && typeB == QBVAL_INTEGER)
             return static_cast<int32_t>(valueA) > static_cast<int32_t>(valueB);
-        return (typeA == ESYMBOLTYPE_INTEGER ? AsInteger(valueA) : AsFloat(valueA)) >
-               (typeB == ESYMBOLTYPE_INTEGER ? AsInteger(valueB) : AsFloat(valueB));
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+        return (typeA == QBVAL_INTEGER ? AsInteger(valueA) : AsFloat(valueA)) >
+               (typeB == QBVAL_INTEGER ? AsInteger(valueB) : AsFloat(valueB));
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         return typeB == typeA && std::strlen(reinterpret_cast<const char*>(valueA)) >
                                      std::strlen(reinterpret_cast<const char*>(valueB));
-    case ESYMBOLTYPE_STRUCTURE:
-    case ESYMBOLTYPE_STRUCTUREPOINTER:
+    case QBVAL_STRUCT:
+    case QBVAL_STRUCT_REF:
         // b is a subset of a
-        return (typeB == ESYMBOLTYPE_STRUCTURE || typeB == ESYMBOLTYPE_STRUCTUREPOINTER) &&
+        return (typeB == QBVAL_STRUCT || typeB == QBVAL_STRUCT_REF) &&
                reinterpret_cast<CStruct*>(valueB)->IsSubsetOf(reinterpret_cast<CStruct*>(valueA));
     default:
         return false;
@@ -256,39 +256,39 @@ bool GreaterThan(CComponent* a, CComponent* b)
 // 0x0046D160
 bool IsReference(const CComponent* component)
 {
-    return component->Type() == ESYMBOLTYPE_STRUCTUREPOINTER || component->Type() == ESYMBOLTYPE_ARRAYPOINTER;
+    return component->Type() == QBVAL_STRUCT_REF || component->Type() == ESYMBOLTYPE_ARRAYPOINTER;
 }
 
 // 0x0046D180
 void MakeReference(CComponent* component)
 {
-    if (component->Type() == ESYMBOLTYPE_STRUCTURE)
-        component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (ESYMBOLTYPE_STRUCTUREPOINTER << 1));
-    else if (component->Type() == ESYMBOLTYPE_ARRAY)
+    if (component->Type() == QBVAL_STRUCT)
+        component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (QBVAL_STRUCT_REF << 1));
+    else if (component->Type() == QBVAL_ARRAY)
         component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
 }
 
 // 0x0046D1A0
 void MakeOwning(CComponent* component)
 {
-    if (component->Type() == ESYMBOLTYPE_STRUCTUREPOINTER)
-        component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (ESYMBOLTYPE_STRUCTURE << 1));
+    if (component->Type() == QBVAL_STRUCT_REF)
+        component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (QBVAL_STRUCT << 1));
     else if (component->Type() == ESYMBOLTYPE_ARRAYPOINTER)
-        component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAY << 1));
+        component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (QBVAL_ARRAY << 1));
 }
 
 // 0x0046D280
 int GetBool(const CComponent* component)
 {
-    if (component->Type() == ESYMBOLTYPE_INTEGER)
+    if (component->Type() == QBVAL_INTEGER)
         return component->integer;
-    if (component->Type() == ESYMBOLTYPE_FLOAT && component->floatValue != 0.0f)
+    if (component->Type() == QBVAL_FLOAT && component->floatValue != 0.0f)
         return 1;
     return 0;
 }
 
 // 0x0046D380
-CExpressionEvaluator* CExpressionEvaluator::Init()
+CValueResolver* CValueResolver::Init()
 {
     for (CComponent& value : m_values)
         ConstructComponent(&value);
@@ -298,10 +298,10 @@ CExpressionEvaluator* CExpressionEvaluator::Init()
 }
 
 // 0x0046D1C0
-void CExpressionEvaluator::Clear()
+void CValueResolver::Clear()
 {
     for (CComponent& value : m_values)
-        CleanUpComponent(&value);
+        ReleaseComponent(&value);
     m_valueTop = 0;
     m_operatorTop = 0;
     for (Operator& op : m_operators) {
@@ -313,21 +313,21 @@ void CExpressionEvaluator::Clear()
 }
 
 // 0x0046D220
-void CExpressionEvaluator::ClearIfNeeded()
+void CValueResolver::ResetIfDirty()
 {
     if (m_valueTop || (m_values[0].typeAndFlag & 0xFE) || m_operatorTop || m_error)
         Clear();
 }
 
 // 0x0046D260
-void CExpressionEvaluator::SetError(const char* error)
+void CValueResolver::SetError(const char* error)
 {
     Clear();
     m_error = error;
 }
 
 // 0x0046D2B0
-void CExpressionEvaluator::PushOperator(int op)
+void CValueResolver::PushOperator(int op)
 {
     if (++m_operatorTop >= 20) {
         Clear();
@@ -340,7 +340,7 @@ void CExpressionEvaluator::PushOperator(int op)
 }
 
 // 0x0046D310
-void CExpressionEvaluator::Input(const CComponent* value)
+void CValueResolver::Input(const CComponent* value)
 {
     // (the first value goes in the bottom slot)
     if (m_valueTop || (m_values[0].typeAndFlag & 0xFE)) {
@@ -350,17 +350,17 @@ void CExpressionEvaluator::Input(const CComponent* value)
             return;
         }
     }
-    CopyComponent(&m_values[m_valueTop], const_cast<CComponent*>(value), 0);
+    DuplicateComponent(&m_values[m_valueTop], const_cast<CComponent*>(value), 0);
 }
 
 // 0x0046D370
-void CExpressionEvaluator::OpenParenthesis()
+void CValueResolver::OpenBracket()
 {
     ++m_operators[m_operatorTop].openParentheses;
 }
 
 // 0x0046EB70
-void CExpressionEvaluator::Input(int op)
+void CValueResolver::Input(int op)
 {
     if (m_hasOperators) {
         while (m_operators[m_operatorTop].openParentheses == 0) {
@@ -376,7 +376,7 @@ void CExpressionEvaluator::Input(int op)
 }
 
 // 0x0046EBF0
-void CExpressionEvaluator::CloseParenthesis()
+void CValueResolver::CloseBracket()
 {
     while (m_operators[m_operatorTop].openParentheses == 0) {
         Execute();
@@ -387,7 +387,7 @@ void CExpressionEvaluator::CloseParenthesis()
 }
 
 // 0x0046EC40
-bool CExpressionEvaluator::GetResult(CComponent* result)
+bool CValueResolver::GetResult(CComponent* result)
 {
     while (m_operators[m_operatorTop].openParentheses == 0) {
         if (m_valueTop == 0) {
@@ -399,12 +399,12 @@ bool CExpressionEvaluator::GetResult(CComponent* result)
             // A reference result is copied as what it refers to.
             if (IsReference(&m_values[0])) {
                 MakeOwning(&m_values[0]);
-                CopyComponent(result, &m_values[0], 0);
+                DuplicateComponent(result, &m_values[0], 0);
                 MakeReference(&m_values[0]);
             } else {
-                CopyComponent(result, &m_values[0], 0);
+                DuplicateComponent(result, &m_values[0], 0);
             }
-            CleanUpComponent(&m_values[0]);
+            ReleaseComponent(&m_values[0]);
             return true;
         }
         Execute();
@@ -417,7 +417,7 @@ bool CExpressionEvaluator::GetResult(CComponent* result)
 }
 
 // 0x0046D450
-void CExpressionEvaluator::Execute()
+void CValueResolver::Execute()
 {
     if (m_valueTop < 1) {
         Clear();
@@ -447,55 +447,55 @@ void CExpressionEvaluator::Execute()
 
     switch (op) {
     case OPERATOR_OR:
-        SetResultType(ESYMBOLTYPE_INTEGER);
+        SetResultType(QBVAL_INTEGER);
         result.raw = static_cast<uint32_t>(GetBool(b) | GetBool(a));
         break;
     case OPERATOR_AND:
-        SetResultType(ESYMBOLTYPE_INTEGER);
+        SetResultType(QBVAL_INTEGER);
         result.raw = static_cast<uint32_t>(GetBool(b) & GetBool(a));
         break;
     case OPERATOR_EQUALS:
-        SetResultType(ESYMBOLTYPE_INTEGER);
+        SetResultType(QBVAL_INTEGER);
         result.raw = ComponentsEqual(a, b) ? 1 : 0;
         break;
     case OPERATOR_LESS_THAN:
-        SetResultType(ESYMBOLTYPE_INTEGER);
+        SetResultType(QBVAL_INTEGER);
         result.raw = LessThan(a, b) ? 1 : 0;
         break;
     case OPERATOR_GREATER_THAN:
-        SetResultType(ESYMBOLTYPE_INTEGER);
+        SetResultType(QBVAL_INTEGER);
         result.raw = GreaterThan(a, b) ? 1 : 0;
         break;
 
     case OPERATOR_ADD:
         switch (typeA) {
-        case ESYMBOLTYPE_INTEGER:
-            if (typeB == ESYMBOLTYPE_INTEGER)
+        case QBVAL_INTEGER:
+            if (typeB == QBVAL_INTEGER)
                 SetResultInteger(static_cast<uint32_t>(a->integer) + static_cast<uint32_t>(b->integer));
-            else if (typeB == ESYMBOLTYPE_FLOAT)
+            else if (typeB == QBVAL_FLOAT)
                 SetResultFloat(AsDouble(a->integer) + AsDouble(b->floatValue));
             else
                 error("Second arg cannot be added to an integer"); // "Second arg cannot be added to an integer"
             break;
-        case ESYMBOLTYPE_FLOAT:
-            if (typeB == ESYMBOLTYPE_INTEGER)
+        case QBVAL_FLOAT:
+            if (typeB == QBVAL_INTEGER)
                 SetResultFloat(AsDouble(b->integer) + AsDouble(a->floatValue));
-            else if (typeB == ESYMBOLTYPE_FLOAT)
+            else if (typeB == QBVAL_FLOAT)
                 SetResultFloat(AsDouble(a->floatValue) + AsDouble(b->floatValue));
             else
                 error("Second arg cannot be added to a float"); // "Second arg cannot be added to a float"
             break;
-        case ESYMBOLTYPE_NAME:
+        case QBVAL_NAME:
             // A checksum plus an integer or checksum is a checksum.
-            if (typeB == ESYMBOLTYPE_INTEGER || typeB == ESYMBOLTYPE_NAME) {
-                SetResultType(ESYMBOLTYPE_NAME);
+            if (typeB == QBVAL_INTEGER || typeB == QBVAL_NAME) {
+                SetResultType(QBVAL_NAME);
                 result.raw = b->raw + a->raw;
             } else {
                 error("Second arg cannot be added to a checksum"); // "Second arg cannot be added to a checksum"
             }
             break;
-        case ESYMBOLTYPE_VECTOR:
-            if (typeB == ESYMBOLTYPE_VECTOR) {
+        case QBVAL_VECTOR:
+            if (typeB == QBVAL_VECTOR) {
                 CVector* vector = NewResultVector();
                 vector->x = a->vector->x + b->vector->x;
                 result.vector->y = a->vector->y + b->vector->y;
@@ -504,8 +504,8 @@ void CExpressionEvaluator::Execute()
                 error("Second arg cannot be added to a vector"); // "Second arg cannot be added to a vector"
             }
             break;
-        case ESYMBOLTYPE_PAIR:
-            if (typeB == ESYMBOLTYPE_PAIR) {
+        case QBVAL_PAIR:
+            if (typeB == QBVAL_PAIR) {
                 CPair* pair = NewResultPair();
                 pair->x = a->pair->x + b->pair->x;
                 result.pair->y = a->pair->y + b->pair->y;
@@ -513,20 +513,20 @@ void CExpressionEvaluator::Execute()
                 error("Second arg cannot be added to a pair"); // "Second arg cannot be added to a pair"
             }
             break;
-        case ESYMBOLTYPE_STRING:
-            if (typeB != ESYMBOLTYPE_STRING)
+        case QBVAL_STRING:
+            if (typeB != QBVAL_STRING)
                 error("Second arg cannot be added to a string"); // "Second arg cannot be added to a string"
-            else if (!JoinStrings(a->string, b->string, ESYMBOLTYPE_STRING))
+            else if (!JoinStrings(a->string, b->string, QBVAL_STRING))
                 error("Result of string addition too long"); // "Result of string addition too long"
             break;
-        case ESYMBOLTYPE_LOCALSTRING:
-            if (typeB != ESYMBOLTYPE_LOCALSTRING)
+        case QBVAL_INLINE_TEXT:
+            if (typeB != QBVAL_INLINE_TEXT)
                 error("Second arg cannot be added to a local-string"); // "Second arg cannot be added to a local-string"
-            else if (!JoinStrings(a->string, b->string, ESYMBOLTYPE_LOCALSTRING))
+            else if (!JoinStrings(a->string, b->string, QBVAL_INLINE_TEXT))
                 error("Result of local-string addition too long"); // "Result of local-string addition too long"
             break;
-        case ESYMBOLTYPE_STRUCTURE:
-        case ESYMBOLTYPE_STRUCTUREPOINTER:
+        case QBVAL_STRUCT:
+        case QBVAL_STRUCT_REF:
             if (IsStructure(typeB)) {
                 CStruct* structure = NewResultStructure();
                 structure->AppendStructureIfAny(a->structure);
@@ -535,7 +535,7 @@ void CExpressionEvaluator::Execute()
                 error("Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
             }
             break;
-        case ESYMBOLTYPE_ARRAY:
+        case QBVAL_ARRAY:
         case ESYMBOLTYPE_ARRAYPOINTER: {
             if (!IsArray(typeB)) {
                 error("Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
@@ -543,20 +543,20 @@ void CExpressionEvaluator::Execute()
             }
             CArray* array = NewArray();
             array = array ? array->Init() : nullptr;
-            SetResultType(ESYMBOLTYPE_ARRAY);
+            SetResultType(QBVAL_ARRAY);
             result.array = array;
             uint32_t sizeA = a->array->m_size;
             uint32_t sizeB = b->array->m_size;
             if (sizeA == 0) {
-                CopyArray(array, b->array);
+                DuplicateArray(array, b->array);
             } else if (sizeB == 0) {
-                CopyArray(array, a->array);
+                DuplicateArray(array, a->array);
             } else {
                 // (the elements are all taken to be of the first array's type)
-                ESymbolType type = a->array->m_type;
-                array->SetSizeAndType(sizeA + sizeB, type);
-                CopyArrayElements(array->GetArrayPointer(), a->array->GetArrayPointer(), sizeA, type);
-                CopyArrayElements(array->GetArrayPointer() + sizeA, b->array->GetArrayPointer(), sizeB, type);
+                EQbValueKind type = a->array->m_type;
+                array->ConfigureSizeKind(sizeA + sizeB, type);
+                CopyArrayElements(array->FindArrayValue(), a->array->FindArrayValue(), sizeA, type);
+                CopyArrayElements(array->FindArrayValue() + sizeA, b->array->FindArrayValue(), sizeB, type);
             }
             break;
         }
@@ -568,24 +568,24 @@ void CExpressionEvaluator::Execute()
 
     case OPERATOR_MINUS:
         switch (typeA) {
-        case ESYMBOLTYPE_INTEGER:
-            if (typeB == ESYMBOLTYPE_INTEGER)
+        case QBVAL_INTEGER:
+            if (typeB == QBVAL_INTEGER)
                 SetResultInteger(static_cast<uint32_t>(a->integer) - static_cast<uint32_t>(b->integer));
-            else if (typeB == ESYMBOLTYPE_FLOAT)
+            else if (typeB == QBVAL_FLOAT)
                 SetResultFloat(AsDouble(a->integer) - AsDouble(b->floatValue));
             else
                 error("Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
             break;
-        case ESYMBOLTYPE_FLOAT:
-            if (typeB == ESYMBOLTYPE_INTEGER)
+        case QBVAL_FLOAT:
+            if (typeB == QBVAL_INTEGER)
                 SetResultFloat(AsDouble(a->floatValue) - AsDouble(b->integer));
-            else if (typeB == ESYMBOLTYPE_FLOAT)
+            else if (typeB == QBVAL_FLOAT)
                 SetResultFloat(AsDouble(a->floatValue) - AsDouble(b->floatValue));
             else
                 error("Second arg cannot be subtracted from a float"); // "Second arg cannot be subtracted from a float"
             break;
-        case ESYMBOLTYPE_PAIR:
-            if (typeB == ESYMBOLTYPE_PAIR) {
+        case QBVAL_PAIR:
+            if (typeB == QBVAL_PAIR) {
                 CPair* pair = NewResultPair();
                 pair->x = a->pair->x - b->pair->x;
                 result.pair->y = a->pair->y - b->pair->y;
@@ -593,8 +593,8 @@ void CExpressionEvaluator::Execute()
                 error("Second arg cannot be subtracted from a pair"); // "Second arg cannot be subtracted from a pair"
             }
             break;
-        case ESYMBOLTYPE_VECTOR:
-            if (typeB == ESYMBOLTYPE_VECTOR) {
+        case QBVAL_VECTOR:
+            if (typeB == QBVAL_VECTOR) {
                 CVector* vector = NewResultVector();
                 vector->x = a->vector->x - b->vector->x;
                 result.vector->y = a->vector->y - b->vector->y;
@@ -603,9 +603,9 @@ void CExpressionEvaluator::Execute()
                 error("Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
             }
             break;
-        case ESYMBOLTYPE_STRUCTURE:
-        case ESYMBOLTYPE_STRUCTUREPOINTER:
-            if (typeB == ESYMBOLTYPE_NAME) {
+        case QBVAL_STRUCT:
+        case QBVAL_STRUCT_REF:
+            if (typeB == QBVAL_NAME) {
                 // Without the name (as a parameter or a flag).
                 CStruct* structure = NewResultStructure();
                 structure->AppendStructureIfAny(a->structure);
@@ -614,7 +614,7 @@ void CExpressionEvaluator::Execute()
             } else if (IsArray(typeB)) {
                 // Without each name in the array.
                 CArray* names = b->array;
-                if (names->m_type != ESYMBOLTYPE_NAME && names->m_type != ESYMBOLTYPE_NONE) {
+                if (names->m_type != QBVAL_NAME && names->m_type != QBVAL_NONE) {
                     // "Subtracting an array from a structure requires the array to be an array of names"
                     error("Subtracting an array from a structure requires the array to be an array of names");
                     break;
@@ -630,10 +630,10 @@ void CExpressionEvaluator::Execute()
                 CStruct* structure = NewResultStructure();
                 structure->AppendStructureIfAny(a->structure);
                 CStruct* other = b->structure;
-                for (CComponent* each = other->GetNextComponent(nullptr); each; each = other->GetNextComponent(each)) {
+                for (CComponent* each = other->StepToEntry(nullptr); each; each = other->StepToEntry(each)) {
                     if (each->name) {
                         result.structure->RemoveComponentOfType(each->name, each->Type());
-                    } else if (each->Type() == ESYMBOLTYPE_NAME) {
+                    } else if (each->Type() == QBVAL_NAME) {
                         result.structure->RemoveComponent(each->checksum);
                         result.structure->RemoveFlag(each->checksum);
                     }
@@ -651,22 +651,22 @@ void CExpressionEvaluator::Execute()
 
     case OPERATOR_MULTIPLY:
         switch (typeA) {
-        case ESYMBOLTYPE_INTEGER:
+        case QBVAL_INTEGER:
             switch (typeB) {
-            case ESYMBOLTYPE_INTEGER:
+            case QBVAL_INTEGER:
                 SetResultInteger(static_cast<uint32_t>(b->integer) * static_cast<uint32_t>(a->integer));
                 break;
-            case ESYMBOLTYPE_FLOAT:
+            case QBVAL_FLOAT:
                 SetResultFloat(AsDouble(a->integer) * AsDouble(b->floatValue));
                 break;
-            case ESYMBOLTYPE_VECTOR: {
+            case QBVAL_VECTOR: {
                 CVector* vector = NewResultVector();
                 vector->x = Rounded(AsDouble(a->integer) * AsDouble(b->vector->x));
                 result.vector->y = Rounded(AsDouble(a->integer) * AsDouble(b->vector->y));
                 result.vector->z = Rounded(AsDouble(a->integer) * AsDouble(b->vector->z));
                 break;
             }
-            case ESYMBOLTYPE_PAIR: {
+            case QBVAL_PAIR: {
                 CPair* pair = NewResultPair();
                 pair->x = Rounded(AsDouble(a->integer) * AsDouble(b->pair->x));
                 result.pair->y = Rounded(AsDouble(a->integer) * AsDouble(b->pair->y));
@@ -677,22 +677,22 @@ void CExpressionEvaluator::Execute()
                 break;
             }
             break;
-        case ESYMBOLTYPE_FLOAT:
+        case QBVAL_FLOAT:
             switch (typeB) {
-            case ESYMBOLTYPE_INTEGER:
+            case QBVAL_INTEGER:
                 SetResultFloat(AsDouble(b->integer) * AsDouble(a->floatValue));
                 break;
-            case ESYMBOLTYPE_FLOAT:
+            case QBVAL_FLOAT:
                 SetResultFloat(AsDouble(b->floatValue) * AsDouble(a->floatValue));
                 break;
-            case ESYMBOLTYPE_VECTOR: {
+            case QBVAL_VECTOR: {
                 CVector* vector = NewResultVector();
                 vector->x = b->vector->x * a->floatValue;
                 result.vector->y = b->vector->y * a->floatValue;
                 result.vector->z = b->vector->z * a->floatValue;
                 break;
             }
-            case ESYMBOLTYPE_PAIR: {
+            case QBVAL_PAIR: {
                 CPair* pair = NewResultPair();
                 pair->x = b->pair->x * a->floatValue;
                 result.pair->y = b->pair->y * a->floatValue;
@@ -703,12 +703,12 @@ void CExpressionEvaluator::Execute()
                 break;
             }
             break;
-        case ESYMBOLTYPE_PAIR:
-            if (typeB == ESYMBOLTYPE_INTEGER) {
+        case QBVAL_PAIR:
+            if (typeB == QBVAL_INTEGER) {
                 CPair* pair = NewResultPair();
                 pair->x = Rounded(AsDouble(b->integer) * AsDouble(a->pair->x));
                 result.pair->y = Rounded(AsDouble(b->integer) * AsDouble(a->pair->y));
-            } else if (typeB == ESYMBOLTYPE_FLOAT) {
+            } else if (typeB == QBVAL_FLOAT) {
                 CPair* pair = NewResultPair();
                 pair->x = a->pair->x * b->floatValue;
                 result.pair->y = a->pair->y * b->floatValue;
@@ -716,18 +716,18 @@ void CExpressionEvaluator::Execute()
                 error("Pair cannot be multiplied by second arg"); // "Pair cannot be multiplied by second arg"
             }
             break;
-        case ESYMBOLTYPE_VECTOR:
-            if (typeB == ESYMBOLTYPE_INTEGER) {
+        case QBVAL_VECTOR:
+            if (typeB == QBVAL_INTEGER) {
                 CVector* vector = NewResultVector();
                 vector->x = Rounded(AsDouble(b->integer) * AsDouble(a->vector->x));
                 result.vector->y = Rounded(AsDouble(b->integer) * AsDouble(a->vector->y));
                 result.vector->z = Rounded(AsDouble(b->integer) * AsDouble(a->vector->z));
-            } else if (typeB == ESYMBOLTYPE_FLOAT) {
+            } else if (typeB == QBVAL_FLOAT) {
                 CVector* vector = NewResultVector();
                 vector->x = a->vector->x * b->floatValue;
                 result.vector->y = a->vector->y * b->floatValue;
                 result.vector->z = a->vector->z * b->floatValue;
-            } else if (typeB == ESYMBOLTYPE_VECTOR) {
+            } else if (typeB == QBVAL_VECTOR) {
                 // The cross product (each coordinate computed as the x87 does: in one go, then rounded).
                 const CVector* u = a->vector;
                 const CVector* v = b->vector;
@@ -746,40 +746,40 @@ void CExpressionEvaluator::Execute()
         break;
 
     case OPERATOR_DIVIDE:
-        if (typeB == ESYMBOLTYPE_INTEGER) {
+        if (typeB == QBVAL_INTEGER) {
             if (b->integer == 0) {
                 error("Integer division by zero"); // "Integer division by zero"
                 break;
             }
-        } else if (typeB == ESYMBOLTYPE_FLOAT) {
+        } else if (typeB == QBVAL_FLOAT) {
             if (std::fabs(b->floatValue) < g_evalDivisorMinimum) {
                 error("Float division by zero"); // "Float division by zero"
                 break;
             }
         }
         switch (typeA) {
-        case ESYMBOLTYPE_INTEGER:
-            if (typeB == ESYMBOLTYPE_INTEGER)
+        case QBVAL_INTEGER:
+            if (typeB == QBVAL_INTEGER)
                 SetResultInteger(static_cast<uint32_t>(a->integer / b->integer));
-            else if (typeB == ESYMBOLTYPE_FLOAT)
+            else if (typeB == QBVAL_FLOAT)
                 SetResultFloat(AsDouble(a->integer) / AsDouble(b->floatValue));
             else
                 error("Integer cannot be divided by second arg"); // "Integer cannot be divided by second arg"
             break;
-        case ESYMBOLTYPE_FLOAT:
-            if (typeB == ESYMBOLTYPE_INTEGER)
+        case QBVAL_FLOAT:
+            if (typeB == QBVAL_INTEGER)
                 SetResultFloat(AsDouble(a->floatValue) / AsDouble(b->integer));
-            else if (typeB == ESYMBOLTYPE_FLOAT)
+            else if (typeB == QBVAL_FLOAT)
                 SetResultFloat(AsDouble(a->floatValue) / AsDouble(b->floatValue));
             else
                 error("Float cannot be divided by second arg"); // "Float cannot be divided by second arg"
             break;
-        case ESYMBOLTYPE_PAIR:
-            if (typeB == ESYMBOLTYPE_INTEGER) {
+        case QBVAL_PAIR:
+            if (typeB == QBVAL_INTEGER) {
                 CPair* pair = NewResultPair();
                 pair->x = Rounded(AsDouble(a->pair->x) / AsDouble(b->integer));
                 result.pair->y = Rounded(AsDouble(a->pair->y) / AsDouble(b->integer));
-            } else if (typeB == ESYMBOLTYPE_FLOAT) {
+            } else if (typeB == QBVAL_FLOAT) {
                 CPair* pair = NewResultPair();
                 pair->x = a->pair->x / b->floatValue;
                 result.pair->y = a->pair->y / b->floatValue;
@@ -787,13 +787,13 @@ void CExpressionEvaluator::Execute()
                 error("Pair cannot be divided by second arg"); // "Pair cannot be divided by second arg"
             }
             break;
-        case ESYMBOLTYPE_VECTOR:
-            if (typeB == ESYMBOLTYPE_INTEGER) {
+        case QBVAL_VECTOR:
+            if (typeB == QBVAL_INTEGER) {
                 CVector* vector = NewResultVector();
                 vector->x = Rounded(AsDouble(a->vector->x) / AsDouble(b->integer));
                 result.vector->y = Rounded(AsDouble(a->vector->y) / AsDouble(b->integer));
                 result.vector->z = Rounded(AsDouble(a->vector->z) / AsDouble(b->integer));
-            } else if (typeB == ESYMBOLTYPE_FLOAT) {
+            } else if (typeB == QBVAL_FLOAT) {
                 CVector* vector = NewResultVector();
                 vector->x = a->vector->x / b->floatValue;
                 result.vector->y = a->vector->y / b->floatValue;
@@ -810,8 +810,8 @@ void CExpressionEvaluator::Execute()
 
     case OPERATOR_DOT:
         switch (typeA) {
-        case ESYMBOLTYPE_VECTOR:
-            if (typeB == ESYMBOLTYPE_VECTOR) {
+        case QBVAL_VECTOR:
+            if (typeB == QBVAL_VECTOR) {
                 const CVector* u = a->vector;
                 const CVector* v = b->vector;
                 SetResultFloat(AsDouble(v->z) * u->z + AsDouble(v->y) * u->y + AsDouble(v->x) * u->x);
@@ -819,8 +819,8 @@ void CExpressionEvaluator::Execute()
                 error("Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
             }
             break;
-        case ESYMBOLTYPE_PAIR:
-            if (typeB == ESYMBOLTYPE_PAIR) {
+        case QBVAL_PAIR:
+            if (typeB == QBVAL_PAIR) {
                 const CPair* u = a->pair;
                 const CPair* v = b->pair;
                 SetResultFloat(AsDouble(v->y) * u->y + AsDouble(v->x) * u->x);
@@ -828,12 +828,12 @@ void CExpressionEvaluator::Execute()
                 error("Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"
             }
             break;
-        case ESYMBOLTYPE_STRUCTURE:
-        case ESYMBOLTYPE_STRUCTUREPOINTER:
+        case QBVAL_STRUCT:
+        case QBVAL_STRUCT_REF:
             // A structure's member: copied (a referenced structure's members are referred to).
-            if (typeB == ESYMBOLTYPE_NAME) {
+            if (typeB == QBVAL_NAME) {
                 if (CComponent* member = a->structure->FindLastComponent(b->checksum))
-                    CopyComponent(&result, member, typeA == ESYMBOLTYPE_STRUCTUREPOINTER);
+                    DuplicateComponent(&result, member, typeA == QBVAL_STRUCT_REF);
             } else {
                 error("Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
             }
@@ -847,7 +847,7 @@ void CExpressionEvaluator::Execute()
     case OPERATOR_ARRAY_ELEMENT:
         if (!IsArray(typeA)) {
             error("Array element operator not supported for this type"); // "Array element operator not supported for this type"
-        } else if (typeB != ESYMBOLTYPE_INTEGER) {
+        } else if (typeB != QBVAL_INTEGER) {
             error("[] index must be an integer"); // "[] index must be an integer"
         } else if (b->raw >= a->array->m_size) {
             error("[] index out of range"); // "[] index out of range"
@@ -865,8 +865,8 @@ void CExpressionEvaluator::Execute()
     }
 
     // The result replaces the two values (also after an error, which has emptied the stacks).
-    CleanUpComponent(a);
-    CleanUpComponent(b);
+    ReleaseComponent(a);
+    ReleaseComponent(b);
     a->typeAndFlag = static_cast<uint8_t>((a->typeAndFlag & 1) | (result.typeAndFlag & 0xFE));
     a->raw = result.raw;
     result.typeAndFlag &= 1;
@@ -883,18 +883,18 @@ void CExpressionEvaluator::Execute()
 
 namespace {
 
-using Script::CExpressionEvaluator;
+using Scripts::CValueResolver;
 
 struct ComponentAdapters {
-    bool LessThan(Script::CComponent* other) { return Script::LessThan(reinterpret_cast<Script::CComponent*>(this), other); }
-    bool GreaterThan(Script::CComponent* other)
+    bool LessThan(Scripts::CComponent* other) { return Scripts::LessThan(reinterpret_cast<Scripts::CComponent*>(this), other); }
+    bool GreaterThan(Scripts::CComponent* other)
     {
-        return Script::GreaterThan(reinterpret_cast<Script::CComponent*>(this), other);
+        return Scripts::GreaterThan(reinterpret_cast<Scripts::CComponent*>(this), other);
     }
-    bool IsReference() { return Script::IsReference(reinterpret_cast<Script::CComponent*>(this)); }
-    void MakeReference() { Script::MakeReference(reinterpret_cast<Script::CComponent*>(this)); }
-    void MakeOwning() { Script::MakeOwning(reinterpret_cast<Script::CComponent*>(this)); }
-    int GetBool() { return Script::GetBool(reinterpret_cast<Script::CComponent*>(this)); }
+    bool IsReference() { return Scripts::IsReference(reinterpret_cast<Scripts::CComponent*>(this)); }
+    void MakeReference() { Scripts::MakeReference(reinterpret_cast<Scripts::CComponent*>(this)); }
+    void MakeOwning() { Scripts::MakeOwning(reinterpret_cast<Scripts::CComponent*>(this)); }
+    int GetBool() { return Scripts::GetBool(reinterpret_cast<Scripts::CComponent*>(this)); }
 };
 
 } // namespace

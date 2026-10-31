@@ -29,7 +29,7 @@
 #include "game/gfx/viewport.h"
 #include "game/core/stubs.h"
 
-namespace Front::LevelEditor::Scale {
+namespace MenuSystem::LevelEditor::Scale {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -182,7 +182,7 @@ void RewriteNormals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t off
     }
 }
 
-int NormalOffset(uint32_t fvf, uint32_t stride)
+int SurfaceNudge(uint32_t fvf, uint32_t stride)
 {
     constexpr uint32_t kPositionMask = 0x400E, kXyz = 0x002, kNormal = 0x010;
     // (an FVF's texture coordinate size bits are 0 for the scene's 2D coordinates: a larger value is a shader handle)
@@ -233,22 +233,22 @@ bool ReadToken(const std::string& field, V3* scale)
 
 namespace {
 
-void SplitNodes(Nx::CCollBSPNode* node, std::vector<CollisionCopy::Node>* out, int depth)
+void SplitNodes(Engine3D::CHitTreeNode* node, std::vector<CollisionCopy::Node>* out, int depth)
 {
     // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
-    while (node && !node->IsLeaf() && depth < 256) {
-        out->push_back({node, node->m_split, node->m_link});
+    while (node && !node->IsEndNode() && depth < 256) {
+        out->push_back({node, node->m_axisTag, node->m_chainLink});
         SplitNodes(node->LessChild(), out, depth + 1);
         node = node->GreaterChild();
         ++depth;
     }
 }
 
-uint32_t VertexBytes(const Nx::CCollObjTriData* data) { return data->m_numVertices * (data->m_compressed ? 6u : 12u); }
+uint32_t VertexBytes(const Engine3D::CTriMeshSource* data) { return data->m_numVertices * (data->m_compressed ? 6u : 12u); }
 
 } // namespace
 
-CollisionCopy CopyCollision(Nx::CCollObjTriData* data)
+CollisionCopy CopyCollision(Engine3D::CTriMeshSource* data)
 {
     CollisionCopy copy;
     copy.data = data;
@@ -261,8 +261,8 @@ CollisionCopy CopyCollision(Nx::CCollObjTriData* data)
         const auto* bytes = static_cast<const uint8_t*>(data->m_vertices);
         copy.vertices.assign(bytes, bytes + VertexBytes(data));
     }
-    copy.min = data->m_min;
-    copy.max = data->m_max;
+    copy.min = data->m_lowerLimit;
+    copy.max = data->m_upperLimit;
     copy.rejection = data->m_unknown3C;
     SplitNodes(data->m_bsp, &copy.nodes, 0);
     return copy;
@@ -270,49 +270,49 @@ CollisionCopy CopyCollision(Nx::CCollObjTriData* data)
 
 bool SameCollision(const CollisionCopy& copy)
 {
-    const Nx::CCollObjTriData* data = copy.data;
+    const Engine3D::CTriMeshSource* data = copy.data;
     return data && data->m_vertices == copy.vertexArray && data->m_numVertices == copy.numVertices &&
            data->m_compressed == copy.compressed && copy.vertices.size() == VertexBytes(data);
 }
 
 void RebuildCollision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale)
 {
-    Nx::CCollObjTriData* data = copy.data;
+    Engine3D::CTriMeshSource* data = copy.data;
     if (!data || !data->m_vertices)
         return;
     std::memcpy(data->m_vertices, copy.vertices.data(), copy.vertices.size());
-    data->m_min = copy.min;
-    data->m_max = copy.max;
+    data->m_lowerLimit = copy.min;
+    data->m_upperLimit = copy.max;
     data->m_unknown3C = copy.rejection;
     for (const CollisionCopy::Node& n : copy.nodes) {
-        n.node->m_split = n.split;
-        n.node->m_link = n.link;
+        n.node->m_axisTag = n.split;
+        n.node->m_chainLink = n.link;
     }
-    Mth::Vector centre = {from.x, from.y, from.z, 0.0f};
+    Maths::Vector centre = {from.x, from.y, from.z, 0.0f};
     if (!IsUnitScale(scale)) {
-        Mth::Vector factor = {scale.x, scale.y, scale.z, 1.0f};
+        Maths::Vector factor = {scale.x, scale.y, scale.z, 1.0f};
         data->Scale(&centre, &factor);
     }
     if (quarters & 3)
         data->RotateY(&centre, quarters & 3);
     V3 delta = to - from;
     if (delta.x != 0.0f || delta.y != 0.0f || delta.z != 0.0f) {
-        Mth::Vector by = {delta.x, delta.y, delta.z, 0.0f};
+        Maths::Vector by = {delta.x, delta.y, delta.z, 0.0f};
         data->Translate(&by);
     }
 }
 
-V3 CollisionLimit(const Nx::CCollObjTriData* data, V3 scale)
+V3 CollisionLimit(const Engine3D::CTriMeshSource* data, V3 scale)
 {
     V3 limit = Uniform(kMax);
     if (!data || !data->m_compressed)
         return limit;
     if (scale.x > 0.0f)
-        limit.x = CompressedLimit((data->m_max.x - data->m_min.x) / scale.x);
+        limit.x = CompressedLimit((data->m_upperLimit.x - data->m_lowerLimit.x) / scale.x);
     if (scale.y > 0.0f)
-        limit.y = CompressedLimit((data->m_max.y - data->m_min.y) / scale.y);
+        limit.y = CompressedLimit((data->m_upperLimit.y - data->m_lowerLimit.y) / scale.y);
     if (scale.z > 0.0f)
-        limit.z = CompressedLimit((data->m_max.z - data->m_min.z) / scale.z);
+        limit.z = CompressedLimit((data->m_upperLimit.z - data->m_lowerLimit.z) / scale.z);
     return limit;
 }
 
@@ -321,14 +321,14 @@ V3 CollisionLimit(const Nx::CCollObjTriData* data, V3 scale)
 namespace {
 
 // A mesh's copy: each vertex buffer's positions (and normals, when its format has them), its bounding sphere and its
-// position list (+0xAC / +0xB0 - moved with the mesh by sMesh::MoveTo, not turned by TurnY: rewritten the same way,
+// position list (+0xAC / +0xB0 - moved with the mesh by meshRef::MoveTo, not turned by TurnY: rewritten the same way,
 // scaled).
 struct MeshCopy {
-    Nx::sMesh* mesh;
+    Engine3D::meshRef* mesh;
     uint16_t vertexCount;
     uint8_t stride;
     int normalOffset;
-    std::vector<Nx::sVertexBuffer*> buffers;
+    std::vector<Engine3D::sVertexBuffer*> buffers;
     std::vector<uint8_t*> data;
     std::vector<std::vector<float>> positions; // (per buffer: x, y, z a vertex)
     std::vector<std::vector<float>> normals;   // (per buffer, when normalOffset >= 0)
@@ -340,17 +340,17 @@ struct MeshCopy {
 };
 
 uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
-Nx::CCollObjTriData* CollisionData(uint8_t* sector)
+Engine3D::CTriMeshSource* CollisionData(uint8_t* sector)
 {
-    auto* coll = reinterpret_cast<Nx::CCollObj*>(CollOf(sector));
+    auto* coll = reinterpret_cast<Engine3D::CHitMesh*>(CollOf(sector));
     return coll ? coll->m_geometry : nullptr;
 }
 
 // The mesh's vertex format (+0x38: a Direct3D FVF, or a built-in vertex shader's handle).
-uint32_t VertexFormat(const Nx::sMesh* mesh) { return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38); }
+uint32_t VertexFormat(const Engine3D::meshRef* mesh) { return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38); }
 
-// The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as sMesh::MoveTo).
-void Upload(Nx::sVertexBuffer* buffer)
+// The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as meshRef::MoveTo).
+void Upload(Engine3D::sVertexBuffer* buffer)
 {
     buffer->lockOffset = 0;
     buffer->lockSize = buffer->size;
@@ -365,7 +365,7 @@ float Largest(V3 s) { return std::max({s.x, s.y, s.z}); }
 
 struct Original {
     uint8_t* geom;
-    Nx::sMesh** meshList;
+    Engine3D::meshRef** meshList;
     uint32_t meshCount;
     int quarters;
     V3 position;
@@ -378,21 +378,21 @@ std::shared_ptr<Original> Capture(uint8_t* sector, uint8_t* geom, int quarters, 
 {
     auto original = std::make_shared<Original>();
     original->geom = geom;
-    original->meshList = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    original->meshList = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     original->meshCount = *reinterpret_cast<uint32_t*>(geom + 0x40);
     original->quarters = quarters;
     original->position = position;
     if (!original->meshList || original->meshCount == 0 || original->meshCount > 4096)
         return nullptr;
     for (uint32_t i = 0; i < original->meshCount; ++i) {
-        Nx::sMesh* mesh = original->meshList[i];
+        Engine3D::meshRef* mesh = original->meshList[i];
         if (!mesh || mesh->stride < 12 || mesh->vertexBufferCount > 3)
             return nullptr;
-        MeshCopy copy = {mesh, mesh->vertexCount, mesh->stride, NormalOffset(VertexFormat(mesh), mesh->stride),
+        MeshCopy copy = {mesh, mesh->vertexCount, mesh->stride, SurfaceNudge(VertexFormat(mesh), mesh->stride),
                          {}, {}, {}, {}, {mesh->centre[0], mesh->centre[1], mesh->centre[2]}, mesh->radius,
                          mesh->positionCount, mesh->positions, {}};
         for (int b = 0; b < mesh->vertexBufferCount; ++b) {
-            Nx::sVertexBuffer* buffer = mesh->vertexBuffers[b];
+            Engine3D::sVertexBuffer* buffer = mesh->vertexBuffers[b];
             if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertexCount) * mesh->stride)
                 return nullptr;
             std::vector<float> positions(3u * mesh->vertexCount);
@@ -412,7 +412,7 @@ std::shared_ptr<Original> Capture(uint8_t* sector, uint8_t* geom, int quarters, 
             copy.listCopy.assign(mesh->positions, mesh->positions + 3u * mesh->positionCount);
         original->meshes.push_back(std::move(copy));
     }
-    Nx::CCollObjTriData* data = CollisionData(sector);
+    Engine3D::CTriMeshSource* data = CollisionData(sector);
     original->haveCollision = data && data->m_vertices;
     if (original->haveCollision)
         original->collision = CopyCollision(data);
@@ -423,12 +423,12 @@ bool Rebuild(const Original& original, uint8_t* sector, uint8_t* geom, int quart
              int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || *reinterpret_cast<Nx::sMesh***>(geom + 0x3C) != original.meshList ||
+    if (geom != original.geom || *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C) != original.meshList ||
         *reinterpret_cast<uint32_t*>(geom + 0x40) != original.meshCount)
         return false;
     for (uint32_t i = 0; i < original.meshCount; ++i) {
         const MeshCopy& copy = original.meshes[i];
-        Nx::sMesh* mesh = original.meshList[i];
+        Engine3D::meshRef* mesh = original.meshList[i];
         if (mesh != copy.mesh || mesh->vertexCount != copy.vertexCount || mesh->stride != copy.stride ||
             mesh->vertexBufferCount != copy.buffers.size() || mesh->positions != copy.list ||
             mesh->positionCount != copy.listCount)
@@ -438,13 +438,13 @@ bool Rebuild(const Original& original, uint8_t* sector, uint8_t* geom, int quart
                 return false;
         }
     }
-    Nx::CCollObjTriData* data = CollisionData(sector);
+    Engine3D::CTriMeshSource* data = CollisionData(sector);
     if (original.haveCollision && (data != original.collision.data || !SameCollision(original.collision)))
         return false;
 
     RebuildFrame f = FrameFor(original.quarters, original.position, quarters0, quarters, position, scale);
     for (const MeshCopy& copy : original.meshes) {
-        Nx::sMesh* mesh = copy.mesh;
+        Engine3D::meshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
             RewritePositions(copy.buffers[b]->data, copy.stride, copy.vertexCount, copy.positions[b].data(), f.from,
                              f.to, f.turns, f.copyScale);
@@ -490,43 +490,43 @@ void* const kListHeadData = reinterpret_cast<void*>(-1);
 // and its boxes as they were, and the scale.
 struct ObjectEntry {
     uint32_t id;
-    Obj::CCompositeObject* object;
-    Nx::CCollObj* collision;
+    GameObjects::CGameEntity* object;
+    Engine3D::CHitMesh* collision;
     V3 scale;
     struct Tri {
-        Nx::CCollMovTri* tri;
+        Engine3D::CHitMovingTriangles* tri;
         CollisionCopy copy;
         uint32_t rejection; // (the triangle object's own copy of the face-rejection scale, +0xD0)
     };
     std::vector<Tri> tris;
     struct Box {
-        Nx::CCollMovBBox* box;
-        Mth::BBox original;
+        Engine3D::CHitMovingBox* box;
+        Maths::BBox original;
     };
     std::vector<Box> boxes;
 };
 std::vector<ObjectEntry> g_objects;
 
-uint8_t* ModelOf(Obj::CCompositeObject* object)
+uint8_t* ModelOf(GameObjects::CGameEntity* object)
 {
-    Obj::CBaseComponent* component = object->GetComponent(kModelComponent);
+    GameObjects::CObjectModule* component = object->GetComponent(kModelComponent);
     return component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
 }
 
-Nx::CCollObj* CollisionOf(Obj::CCompositeObject* object)
+Engine3D::CHitMesh* CollisionOf(GameObjects::CGameEntity* object)
 {
-    auto* component = static_cast<Obj::CCollisionComponent*>(object->GetComponent(Obj::CCollisionComponent::kType));
-    return component ? component->mp_collision : nullptr;
+    auto* component = static_cast<GameObjects::CContactShapeModule*>(object->GetComponent(GameObjects::CContactShapeModule::kType));
+    return component ? component->m_hitShape : nullptr;
 }
 
-bool Alive(Obj::CCompositeObject* object)
+bool Alive(GameObjects::CGameEntity* object)
 {
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) &&
-           !(object->m_compositeFlags & Obj::COMPOSITE_FLAG_DESTROYING);
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) &&
+           !(object->m_compositeFlags & GameObjects::COMPOSITE_FLAG_DESTROYING);
 }
 
 // The entry of an object, if it's still the object (and the collision) it was made for.
-ObjectEntry* EntryOf(Obj::CCompositeObject* object)
+ObjectEntry* EntryOf(GameObjects::CGameEntity* object)
 {
     for (size_t i = 0; i < g_objects.size(); ++i) {
         ObjectEntry& entry = g_objects[i];
@@ -544,40 +544,40 @@ ObjectEntry* EntryOf(Obj::CCompositeObject* object)
 }
 
 // A triangle object given a geometry of its own (unless it owns one already) and kept as copied.
-bool TakeTri(Nx::CCollMovTri* tri, ObjectEntry* entry)
+bool TakeTri(Engine3D::CHitMovingTriangles* tri, ObjectEntry* entry)
 {
-    Nx::CCollObjTriData* geometry = tri->m_geometry;
+    Engine3D::CTriMeshSource* geometry = tri->m_geometry;
     if (!geometry)
         return true;
-    bool owns = (tri->m_flags & Nx::CCollObj::kOwnsGeometry) && !(tri->m_flags & Nx::CCollObj::kSharedGeometry);
+    bool owns = (tri->m_flags & Engine3D::CHitMesh::kOwnsGeometry) && !(tri->m_flags & Engine3D::CHitMesh::kSharedGeometry);
     if (!owns) {
-        Nx::CCollObjTriData* own = geometry->Clone(0, false);
+        Engine3D::CTriMeshSource* own = geometry->Clone(0, false);
         if (!own)
             return false;
-        tri->m_flags = static_cast<uint16_t>((tri->m_flags | Nx::CCollObj::kOwnsGeometry) & ~Nx::CCollObj::kSharedGeometry);
-        tri->SetGeometry(own);
+        tri->m_flags = static_cast<uint16_t>((tri->m_flags | Engine3D::CHitMesh::kOwnsGeometry) & ~Engine3D::CHitMesh::kSharedGeometry);
+        tri->AssignShapeData(own);
         geometry = own;
     }
     entry->tris.push_back({tri, CopyCollision(geometry), tri->m_unknownD0});
     return true;
 }
 
-bool TakeCollision(Nx::CCollObj* collision, ObjectEntry* entry)
+bool TakeCollision(Engine3D::CHitMesh* collision, ObjectEntry* entry)
 {
     if (!collision)
         return true;
     if (collision->m_vtable == kMovTriVtable)
-        return TakeTri(static_cast<Nx::CCollMovTri*>(collision), entry);
+        return TakeTri(static_cast<Engine3D::CHitMovingTriangles*>(collision), entry);
     if (collision->m_vtable == kMovBBoxVtable) {
-        auto* box = static_cast<Nx::CCollMovBBox*>(collision);
+        auto* box = static_cast<Engine3D::CHitMovingBox*>(collision);
         entry->boxes.push_back({box, box->m_box});
         return true;
     }
     if (collision->m_vtable == kMultiVtable) {
-        Mem::ListNode* head = static_cast<Nx::CCollMulti*>(collision)->m_children;
-        for (Mem::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
+        MemSys::ListNode* head = static_cast<Engine3D::CHitMeshGroup*>(collision)->m_subNodes;
+        for (MemSys::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
              node = node->next) {
-            if (!TakeCollision(static_cast<Nx::CCollObj*>(node->data), entry))
+            if (!TakeCollision(static_cast<Engine3D::CHitMesh*>(node->data), entry))
                 return false;
         }
         return true;
@@ -590,36 +590,36 @@ void ApplyCollision(ObjectEntry& entry)
 {
     for (ObjectEntry::Tri& t : entry.tris) {
         RebuildCollision(t.copy, 0, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, entry.scale);
-        t.tri->SetGeometry(t.copy.data); // (its radius from the vertices; its box made again)
+        t.tri->AssignShapeData(t.copy.data); // (its radius from the vertices; its box made again)
         t.tri->m_unknownD0 = IsUnitScale(entry.scale) ? t.rejection : t.copy.data->m_unknown3C;
     }
     for (ObjectEntry::Box& b : entry.boxes) {
-        const Mth::Vector& lo = b.original.min;
-        const Mth::Vector& hi = b.original.max;
+        const Maths::Vector& lo = b.original.min;
+        const Maths::Vector& hi = b.original.max;
         b.box->m_box.min = {lo.x * entry.scale.x, lo.y * entry.scale.y, lo.z * entry.scale.z, lo.w};
         b.box->m_box.max = {hi.x * entry.scale.x, hi.y * entry.scale.y, hi.z * entry.scale.z, hi.w};
     }
     if (entry.collision && entry.collision->m_vtable == kMultiVtable)
-        static_cast<Nx::CCollMulti*>(entry.collision)->m_dirty = true;
+        static_cast<Engine3D::CHitMeshGroup*>(entry.collision)->m_dirty = true;
 }
 
 } // namespace
 
-V3 ObjectScale(Obj::CCompositeObject* object)
+V3 ObjectScale(GameObjects::CGameEntity* object)
 {
     ObjectEntry* entry = object ? EntryOf(object) : nullptr;
     return entry ? entry->scale : Uniform(1.0f);
 }
 
-bool ObjectScalable(Obj::CCompositeObject* object) { return object && Alive(object) && ModelOf(object); }
+bool ObjectScalable(GameObjects::CGameEntity* object) { return object && Alive(object) && ModelOf(object); }
 
-V3 ObjectLimit(Obj::CCompositeObject* object)
+V3 ObjectLimit(GameObjects::CGameEntity* object)
 {
     V3 limit = Uniform(kMax);
     if (!object)
         return limit;
     ObjectEntry* entry = EntryOf(object);
-    auto narrow = [&limit](const Nx::CCollObjTriData* data, V3 scale) {
+    auto narrow = [&limit](const Engine3D::CTriMeshSource* data, V3 scale) {
         V3 l = CollisionLimit(data, scale);
         limit = {std::min(limit.x, l.x), std::min(limit.y, l.y), std::min(limit.z, l.z)};
     };
@@ -628,25 +628,25 @@ V3 ObjectLimit(Obj::CCompositeObject* object)
             narrow(t.copy.data, entry->scale);
         return limit;
     }
-    std::vector<Nx::CCollObj*> pending = {CollisionOf(object)};
+    std::vector<Engine3D::CHitMesh*> pending = {CollisionOf(object)};
     while (!pending.empty()) {
-        Nx::CCollObj* c = pending.back();
+        Engine3D::CHitMesh* c = pending.back();
         pending.pop_back();
         if (!c)
             continue;
         if (c->m_vtable == kMovTriVtable && c->m_geometry)
             narrow(c->m_geometry, Uniform(1.0f));
         if (c->m_vtable == kMultiVtable) {
-            Mem::ListNode* head = static_cast<Nx::CCollMulti*>(c)->m_children;
-            for (Mem::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
+            MemSys::ListNode* head = static_cast<Engine3D::CHitMeshGroup*>(c)->m_subNodes;
+            for (MemSys::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
                  node = node->next)
-                pending.push_back(static_cast<Nx::CCollObj*>(node->data));
+                pending.push_back(static_cast<Engine3D::CHitMesh*>(node->data));
         }
     }
     return limit;
 }
 
-bool SetObjectScale(Obj::CCompositeObject* object, V3 scale)
+bool SetObjectScale(GameObjects::CGameEntity* object, V3 scale)
 {
     if (!ObjectScalable(object))
         return false;
@@ -666,44 +666,44 @@ bool SetObjectScale(Obj::CCompositeObject* object, V3 scale)
     scale = {std::max(kMin, std::min(limit.x, Clamp(scale.x))), std::max(kMin, std::min(limit.y, Clamp(scale.y))),
              std::max(kMin, std::min(limit.z, Clamp(scale.z)))};
     entry->scale = scale;
-    // The model drawn scaled (CModel::SetScale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
-    Mth::Vector factor = {scale.x, scale.y, scale.z, 1.0f};
-    reinterpret_cast<Nx::CModel*>(ModelOf(object))->SetScale(&factor);
+    // The model drawn scaled (CRenderModel::ChangeScale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
+    Maths::Vector factor = {scale.x, scale.y, scale.z, 1.0f};
+    reinterpret_cast<Engine3D::CRenderModel*>(ModelOf(object))->ChangeScale(&factor);
     ApplyCollision(*entry);
-    object->SetTeleported(true); // (its components placed again at once)
+    object->MarkJumpedAhead(true); // (its components placed again at once)
     return true;
 }
 
 void ForgetObjects() { g_objects.clear(); }
 
-} // namespace Front::LevelEditor::Scale
+} // namespace MenuSystem::LevelEditor::Scale
 
 namespace Vt {
-static VtableSlot kCollMulti_slots[] = {&Nx::CCollMulti::ScalarDelete, &Nx::CCollMulti::IsTriangleCollision,
-                Stubs::ReturnZero1, &Nx::CollObjStubs::NoTerrain, &Nx::CCollMulti::SetGeometryAll,
-                &Nx::CCollMulti::SetWorldPosition, &Nx::CCollMulti::SetOrientation, &Nx::CCollMulti::GetWorldPosition,
-                &Nx::CCollMulti::GetOrientation, &Nx::CCollMulti::GetVertexPos, &Nx::CCollMulti::GetValue38,
-                &Nx::CCollMulti::SetValue38, &Nx::CCollMulti::Clone, &Nx::CCollMulti::WithinBBox,
-                &Nx::CCollMulti::CollideWithLine, &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryPoint,
-                &Nx::CViewport::QueryPoint, &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CCollMulti::PassDown,
-                &Nx::CCollMulti::GetBBox};
+static VtableSlot kCollMulti_slots[] = {&Engine3D::CHitMeshGroup::ScalarDelete, &Engine3D::CHitMeshGroup::IsTriangleHit,
+                Stubs::ReturnZero1, &Engine3D::CollObjStubs::NoTerrain, &Engine3D::CHitMeshGroup::SetGeometryAll,
+                &Engine3D::CHitMeshGroup::PlaceAtAbsolutePoint, &Engine3D::CHitMeshGroup::SetOrientation, &Engine3D::CHitMeshGroup::GetAbsolutePoint,
+                &Engine3D::CHitMeshGroup::GetOrientation, &Engine3D::CHitMeshGroup::ReadVertexPoint, &Engine3D::CHitMeshGroup::GetValue38,
+                &Engine3D::CHitMeshGroup::SetValue38, &Engine3D::CHitMeshGroup::Clone, &Engine3D::CHitMeshGroup::InsideBounds,
+                &Engine3D::CHitMeshGroup::CollideWithLine, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint,
+                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CHitMeshGroup::PassDown,
+                &Engine3D::CHitMeshGroup::GetLocalBounds};
 void** const kCollMulti = reinterpret_cast<void**>(kCollMulti_slots);
-static VtableSlot kCollMovBBox_slots[] = {&Nx::CCollMovBBox::ScalarDelete, Stubs::ReturnFalse,
-                &Nx::CCollMovBBox::GetFaceFlags, &Nx::CCollMovBBox::GetFaceTerrain, &Nx::CCollMovBBox::SetGeometry,
-                &Nx::CFeeler::SetEnd, &Nx::CCollMovable::SetOrientation, &Nx::CCollMovable::GetWorldPosition,
-                &Nx::CCollMovable::GetOrientation, &Nx::CCollMovable::GetVertexPos, &Nx::CCollMovable::GetValueA0,
-                &Nx::CCollMovable::SetValueA0, &Nx::CCollMovBBox::Clone, &Mc::Card::AlwaysTrue,
-                &Nx::CCollMovBBox::CollideWithLine, &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryPoint,
-                &Nx::CViewport::QueryPoint, &Nx::CollGeometryForwarders::IsPointBehindFaces,
-                &Nx::CCollMovBBox::DebugRender, Stubs::ReturnZero};
+static VtableSlot kCollMovBBox_slots[] = {&Engine3D::CHitMovingBox::ScalarDelete, Stubs::ReturnFalse,
+                &Engine3D::CHitMovingBox::GetTriangleAttrs, &Engine3D::CHitMovingBox::GetFaceTerrain, &Engine3D::CHitMovingBox::AssignShapeData,
+                &Engine3D::CProbeRay::SetEnd, &Engine3D::CHitMovingMesh::SetOrientation, &Engine3D::CHitMovingMesh::GetAbsolutePoint,
+                &Engine3D::CHitMovingMesh::GetOrientation, &Engine3D::CHitMovingMesh::ReadVertexPoint, &Engine3D::CHitMovingMesh::GetValueA0,
+                &Engine3D::CHitMovingMesh::SetValueA0, &Engine3D::CHitMovingBox::Clone, &MemCard::Card::AlwaysTrue,
+                &Engine3D::CHitMovingBox::CollideWithLine, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint,
+                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces,
+                &Engine3D::CHitMovingBox::DrawDiagnostic, Stubs::ReturnZero};
 void** const kCollMovBBox = reinterpret_cast<void**>(kCollMovBBox_slots);
-static VtableSlot kCollMovTri_slots[] = {&Nx::CCollMovTri::ScalarDelete, Stubs::ReturnTrue,
-                &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollMovTri::SetGeometry,
-                &Nx::CCollMovTri::SetWorldPosition, &Nx::CCollMovable::SetOrientation,
-                &Nx::CCollMovable::GetWorldPosition, &Nx::CCollMovable::GetOrientation, &Nx::CCollMovable::GetVertexPos,
-                &Nx::CCollMovable::GetValueA0, &Nx::CCollMovable::SetValueA0, &Nx::CCollMovTri::Clone,
-                &Nx::CCollMovTri::WithinBBox, &Nx::CCollMovTri::CollideWithLine, &Nx::CViewport::QueryPoint,
-                &Nx::CViewport::QueryPoint, &Nx::CViewport::QueryPoint, &Nx::CollGeometryForwarders::IsPointBehindFaces,
-                &Nx::CCollMovTri::DebugRender, &Nx::CCollMovTri::GetBBox};
+static VtableSlot kCollMovTri_slots[] = {&Engine3D::CHitMovingTriangles::ScalarDelete, Stubs::ReturnTrue,
+                &Engine3D::CollFaceAccess::GetTriangleAttrs, &Engine3D::CollFaceAccess::GetFaceTerrain, &Engine3D::CHitMovingTriangles::AssignShapeData,
+                &Engine3D::CHitMovingTriangles::PlaceAtAbsolutePoint, &Engine3D::CHitMovingMesh::SetOrientation,
+                &Engine3D::CHitMovingMesh::GetAbsolutePoint, &Engine3D::CHitMovingMesh::GetOrientation, &Engine3D::CHitMovingMesh::ReadVertexPoint,
+                &Engine3D::CHitMovingMesh::GetValueA0, &Engine3D::CHitMovingMesh::SetValueA0, &Engine3D::CHitMovingTriangles::Clone,
+                &Engine3D::CHitMovingTriangles::InsideBounds, &Engine3D::CHitMovingTriangles::CollideWithLine, &Engine3D::CViewRegion::QueryPoint,
+                &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces,
+                &Engine3D::CHitMovingTriangles::DrawDiagnostic, &Engine3D::CHitMovingTriangles::GetLocalBounds};
 void** const kCollMovTri = reinterpret_cast<void**>(kCollMovTri_slots);
 } // namespace Vt

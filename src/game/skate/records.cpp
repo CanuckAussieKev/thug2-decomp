@@ -14,9 +14,9 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/log.h"
 
-namespace Records {
+namespace Highscores {
 
-Records::CGameRecords* g_gameRecords;
+Highscores::CBestResults* g_gameRecords;
 uint32_t g_recordsReferences;
 
 namespace {
@@ -35,11 +35,11 @@ constexpr uint32_t kLongestLipTrick = 0x40590191; // longestliptrick
 constexpr uint32_t kLongestManual = 0x82883251;   // longestmanual
 constexpr uint32_t kGameRecordsArray = 0xE764EDF2; // (the game records' array, as written)
 constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, as written)
-// The type the records' structures are added with (11: not one of Script::ESymbolType's named ones).
+// The type the records' structures are added with (11: not one of Scripts::EQbValueKind's named ones).
 constexpr uint32_t kStructureComponent = 11;
 
-CGameRecords*& Instance() { return g_gameRecords; }
-uint32_t& References() { return g_recordsReferences; }
+CBestResults*& Instance() { return g_gameRecords; }
+uint32_t& RefTally() { return g_recordsReferences; }
 
 void CopyInitials(char* to, const char* from)
 {
@@ -52,32 +52,32 @@ void CopyInitials(char* to, const char* from)
 // A 4-byte buffer for initials (zeroed if it was made).
 char* NewInitials()
 {
-    auto* memory = static_cast<uint32_t*>(Mem::Calloc(4));
+    auto* memory = static_cast<uint32_t*>(MemSys::AllocZeroed(4));
     if (memory)
         *memory = 0;
     return reinterpret_cast<char*>(memory);
 }
 
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
 
 // A record as a structure: value, number, initials.
-Script::CStruct* RecordStructure(const CRecord* record)
+Scripts::CStruct* RecordStructure(const CBestEntry* record)
 {
-    Script::CStruct* structure = NewStructure();
-    structure->AddComponentOfType(kValue, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(record->m_value));
-    structure->AddComponentOfType(kNumber, Script::ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(record->m_number));
-    structure->AddString(kInitials, Script::ESYMBOLTYPE_STRING, record->m_initials);
+    Scripts::CStruct* structure = NewStructure();
+    structure->AddComponentOfType(kValue, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(record->m_value));
+    structure->AddComponentOfType(kNumber, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(record->m_slotNo));
+    structure->AddString(kInitials, Scripts::QBVAL_STRING, record->m_tag);
     return structure;
 }
 
 // A new longest record (its value 0).
-CRecord* NewLongestRecord()
+CBestEntry* NewLongestRecord()
 {
-    auto* record = static_cast<CRecord*>(Mem::Calloc(sizeof(CRecord)));
+    auto* record = static_cast<CBestEntry*>(MemSys::AllocZeroed(sizeof(CBestEntry)));
     if (record)
         record->Construct();
     record->m_value = 0;
@@ -85,21 +85,21 @@ CRecord* NewLongestRecord()
 }
 
 // A new table of `count` records.
-CRecordTable* NewTable(int count)
+CBestEntryList* NewTable(int count)
 {
-    auto* table = static_cast<CRecordTable*>(Mem::Calloc(sizeof(CRecordTable)));
+    auto* table = static_cast<CBestEntryList*>(MemSys::AllocZeroed(sizeof(CBestEntryList)));
     return table ? table->Construct(count) : nullptr;
 }
 
-void DeleteRecord(CRecord* record)
+void DeleteRecord(CBestEntry* record)
 {
     if (record) {
-        Mem::Manager::Get()->Free(record->m_initials);
-        Mem::Manager::Get()->Free(record);
+        MemSys::Manager::Get()->Free(record->m_tag);
+        MemSys::Manager::Get()->Free(record);
     }
 }
 
-void DeleteTable(CRecordTable* table)
+void DeleteTable(CBestEntryList* table)
 {
     if (table)
         table->Delete();
@@ -108,75 +108,75 @@ void DeleteTable(CRecordTable* table)
 } // namespace
 
 // 0x0057EF20
-CRecord* CRecord::Construct()
+CBestEntry* CBestEntry::Construct()
 {
-    m_initials = NewInitials();
-    CopyInitials(m_initials, "XXX");
+    m_tag = NewInitials();
+    CopyInitials(m_tag, "XXX");
     m_value = 1000;
-    m_number = 0;
+    m_slotNo = 0;
     return this;
 }
 
 // 0x0057ECD0
-bool CRecord::MaybeNewRecord(int value, int number)
+bool CBestEntry::TryBeatRecord(int value, int number)
 {
     if (value > m_value) {
         m_value = value;
-        m_number = number;
-        m_new = true;
+        m_slotNo = number;
+        m_isFresh = true;
         return true;
     }
-    m_new = false;
+    m_isFresh = false;
     return false;
 }
 
-void CRecord::SetInitials(const char* initials) { CopyInitials(m_initials, initials); }
+void CBestEntry::SetPlayerTag(const char* initials) { CopyInitials(m_tag, initials); }
 
 // 0x0057ED00
-void CRecord::ReadFromStructure(Script::CStruct* params)
+void CBestEntry::DecodeFromStruct(Scripts::CStruct* params)
 {
-    params->GetInteger(kValue, &m_value, 0);
-    if (!params->GetInteger(kNumber, &m_number, 0))
-        m_number = 0;
+    params->FetchIntValue(kValue, &m_value, 0);
+    if (!params->FetchIntValue(kNumber, &m_slotNo, 0))
+        m_slotNo = 0;
     const char* initials = "XXX";
     params->GetString(kInitials, &initials, 0);
-    SetInitials(initials);
+    SetPlayerTag(initials);
 }
 
 // 0x0057EF60
-CRecordTable* CRecordTable::Construct(int count)
+CBestEntryList* CBestEntryList::Construct(int count)
 {
     m_count = count;
     // (as new[]: the count before the records)
-    auto* memory = static_cast<int*>(Mem::Calloc(count * sizeof(CRecord) + 4));
+    auto* memory = static_cast<int*>(MemSys::AllocZeroed(count * sizeof(CBestEntry) + 4));
     if (!memory) {
         m_records = nullptr;
         return this;
     }
     *memory = count;
-    auto* records = reinterpret_cast<CRecord*>(memory + 1);
+    auto* records = reinterpret_cast<CBestEntry*>(memory + 1);
     for (int i = 0; i < count; ++i)
         records[i].Construct();
     m_records = records;
     return this;
 }
 
-void CRecordTable::Delete()
+void CBestEntryList::Delete()
 {
-    if (CRecord* records = m_records) {
+    if (CBestEntry* records = m_records) {
         int* memory = reinterpret_cast<int*>(records) - 1;
         for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
-            Mem::Free(records[i].m_initials);
-        Mem::Manager::Get()->Free(memory);
+            MemSys::Free(records[i].m_tag);
+        MemSys::Manager::Get()->Free(memory);
     }
-    Mem::Manager::Get()->Free(this);
+    MemSys::Manager::Get()->Free(this);
 }
 
 // 0x0057EFE0
-int CRecordTable::MaybeNewEntry(int value, int number)
+int CBestEntryList::TryInsertEntry(int value, int number)
 {
     for (int i = 0; i < m_count; ++i)
-        m_records[i].m_new = false;
+        m_records[i].m_isFresh = false;
     int count = m_count;
     int index = 0;
     for (; index < count; ++index) {
@@ -187,55 +187,55 @@ int CRecordTable::MaybeNewEntry(int value, int number)
         return -1;
     // The ones after it moved down (the last dropped).
     for (int i = count - 1; i > index; --i) {
-        CopyInitials(m_records[i].m_initials, m_records[i - 1].m_initials);
+        CopyInitials(m_records[i].m_tag, m_records[i - 1].m_tag);
         m_records[i].m_value = m_records[i - 1].m_value;
-        m_records[i].m_number = m_records[i - 1].m_number;
+        m_records[i].m_slotNo = m_records[i - 1].m_slotNo;
     }
     m_records[index].m_value = value;
-    m_records[index].m_number = number;
-    CopyInitials(m_records[index].m_initials, "XXX");
-    m_records[index].m_new = true;
+    m_records[index].m_slotNo = number;
+    CopyInitials(m_records[index].m_tag, "XXX");
+    m_records[index].m_isFresh = true;
     return index;
 }
 
 // 0x0057ED80
-void CRecordTable::UpdateInitials(const char* initials)
+void CBestEntryList::UpdateInitials(const char* initials)
 {
     for (int i = 0; i < m_count; ++i) {
-        if (m_records[i].m_new)
-            m_records[i].SetInitials(initials);
+        if (m_records[i].m_isFresh)
+            m_records[i].SetPlayerTag(initials);
     }
 }
 
 // 0x0057F0C0
-void CRecordTable::ReadFromStructure(Script::CStruct* params)
+void CBestEntryList::DecodeFromStruct(Scripts::CStruct* params)
 {
-    Script::CArray* array = nullptr;
+    Scripts::CArray* array = nullptr;
     params->GetArray("RecordTable", &array, 0);
     if (m_count != static_cast<int>(array->m_size))
         return;
     for (int i = 0; i < m_count; ++i)
-        m_records[i].ReadFromStructure(reinterpret_cast<Script::CStruct*>(array->GetElement(i)));
+        m_records[i].DecodeFromStruct(reinterpret_cast<Scripts::CStruct*>(array->GetElement(i)));
 }
 
 // 0x0057F4E0
-void CRecordTable::WriteToStructure(Script::CStruct* params)
+void CBestEntryList::WriteToStructure(Scripts::CStruct* params)
 {
-    Script::CArray* memory = Script::NewArray();
-    Script::CArray* array = memory ? memory->Init() : nullptr;
-    array->SetSizeAndType(m_count, Script::ESYMBOLTYPE_STRUCTURE);
+    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* array = memory ? memory->Init() : nullptr;
+    array->ConfigureSizeKind(m_count, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < m_count; ++i)
         array->SetElement(i, reinterpret_cast<uint32_t>(RecordStructure(&m_records[i])));
-    params->AddComponentOfType(kRecordTable, Script::ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(array));
+    params->AddComponentOfType(kRecordTable, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(array));
 }
 
 // 0x0057F120
-CLevelRecords* CLevelRecords::Construct()
+CStageBests* CStageBests::Construct()
 {
     m_highScores = NewTable(5);
     m_bestCombos = NewTable(5);
     m_arcadeScores = NewTable(10);
-    m_longestCombo = NewLongestRecord();
+    m_biggestChain = NewLongestRecord();
     m_longestGrind = NewLongestRecord();
     m_longestLipTrick = NewLongestRecord();
     m_longestManual = NewLongestRecord();
@@ -243,53 +243,53 @@ CLevelRecords* CLevelRecords::Construct()
 }
 
 // 0x0057F670
-void CLevelRecords::DestroyBody()
+void CStageBests::DestroyBody()
 {
     DeleteRecord(m_longestManual);
     DeleteRecord(m_longestLipTrick);
     DeleteRecord(m_longestGrind);
-    DeleteRecord(m_longestCombo);
+    DeleteRecord(m_biggestChain);
     DeleteTable(m_bestCombos);
     DeleteTable(m_highScores);
     DeleteTable(m_arcadeScores);
 }
 
 // 0x0057EDD0
-void CLevelRecords::UpdateInitials(const char* initials)
+void CStageBests::UpdateInitials(const char* initials)
 {
-    for (CRecord* record : {m_longestManual, m_longestLipTrick, m_longestGrind, m_longestCombo}) {
-        if (record->m_new)
-            record->SetInitials(initials);
+    for (CBestEntry* record : {m_longestManual, m_longestLipTrick, m_longestGrind, m_biggestChain}) {
+        if (record->m_isFresh)
+            record->SetPlayerTag(initials);
     }
     m_bestCombos->UpdateInitials(initials);
     m_highScores->UpdateInitials(initials);
 }
 
 // 0x0057F340
-void CLevelRecords::ReadFromStructure(Script::CStruct* params)
+void CStageBests::DecodeFromStruct(Scripts::CStruct* params)
 {
     // (one structure pointer for all: a missing one leaves the one before)
-    Script::CStruct* structure = nullptr;
-    params->GetStructure(kHighScores, &structure, 0);
-    m_highScores->ReadFromStructure(structure);
-    params->GetStructure(kBestCombos, &structure, 0);
-    m_bestCombos->ReadFromStructure(structure);
-    if (params->GetStructure(kArcadeScores, &structure, 0))
-        m_arcadeScores->ReadFromStructure(structure);
-    params->GetStructure(kLongestCombo, &structure, 0);
-    m_longestCombo->ReadFromStructure(structure);
-    params->GetStructure(kLongestGrind, &structure, 0);
-    m_longestGrind->ReadFromStructure(structure);
-    params->GetStructure(kLongestLipTrick, &structure, 0);
-    m_longestLipTrick->ReadFromStructure(structure);
-    params->GetStructure(kLongestManual, &structure, 0);
-    m_longestManual->ReadFromStructure(structure);
+    Scripts::CStruct* structure = nullptr;
+    params->ReadSubStruct(kHighScores, &structure, 0);
+    m_highScores->DecodeFromStruct(structure);
+    params->ReadSubStruct(kBestCombos, &structure, 0);
+    m_bestCombos->DecodeFromStruct(structure);
+    if (params->ReadSubStruct(kArcadeScores, &structure, 0))
+        m_arcadeScores->DecodeFromStruct(structure);
+    params->ReadSubStruct(kLongestCombo, &structure, 0);
+    m_biggestChain->DecodeFromStruct(structure);
+    params->ReadSubStruct(kLongestGrind, &structure, 0);
+    m_longestGrind->DecodeFromStruct(structure);
+    params->ReadSubStruct(kLongestLipTrick, &structure, 0);
+    m_longestLipTrick->DecodeFromStruct(structure);
+    params->ReadSubStruct(kLongestManual, &structure, 0);
+    m_longestManual->DecodeFromStruct(structure);
 }
 
 // 0x0057F7B0
-void CLevelRecords::WriteToStructure(Script::CStruct* params)
+void CStageBests::WriteToStructure(Scripts::CStruct* params)
 {
-    Script::CStruct* structure = NewStructure();
+    Scripts::CStruct* structure = NewStructure();
     m_highScores->WriteToStructure(structure);
     params->AddComponentOfType(kHighScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
     structure = NewStructure();
@@ -300,7 +300,7 @@ void CLevelRecords::WriteToStructure(Script::CStruct* params)
         m_arcadeScores->WriteToStructure(structure);
         params->AddComponentOfType(kArcadeScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
     }
-    params->AddComponentOfType(kLongestCombo, kStructureComponent, reinterpret_cast<uint32_t>(RecordStructure(m_longestCombo)));
+    params->AddComponentOfType(kLongestCombo, kStructureComponent, reinterpret_cast<uint32_t>(RecordStructure(m_biggestChain)));
     params->AddComponentOfType(kLongestGrind, kStructureComponent, reinterpret_cast<uint32_t>(RecordStructure(m_longestGrind)));
     params->AddComponentOfType(kLongestLipTrick, kStructureComponent,
                                reinterpret_cast<uint32_t>(RecordStructure(m_longestLipTrick)));
@@ -309,98 +309,98 @@ void CLevelRecords::WriteToStructure(Script::CStruct* params)
 }
 
 // 0x0057EE70
-CGameRecords* CGameRecords::Construct()
+CBestResults* CBestResults::Construct()
 {
     m_levelCount = 0;
-    m_defaultInitials = static_cast<char*>(Mem::Calloc(4));
+    m_defaultInitials = static_cast<char*>(MemSys::AllocZeroed(4));
     CopyInitials(m_defaultInitials, "ABC");
     return this;
 }
 
 // 0x0057EEA0 / 0x0057EEC0
-void CGameRecords::SetDefaultInitials(const char* initials) { CopyInitials(m_defaultInitials, initials); }
-CLevelRecords* CGameRecords::GetLevelRecords(int level) { return &m_levels[level]; }
+void CBestResults::SetStockInitials(const char* initials) { CopyInitials(m_defaultInitials, initials); }
+CStageBests* CBestResults::GetLevelRecords(int level) { return &m_levels[level]; }
 
 // 0x0057FBC0
-void CGameRecords::InitLevels(int count)
+void CBestResults::InitLevels(int count)
 {
     m_levelCount = count;
-    auto* memory = static_cast<int*>(Mem::Calloc(count * sizeof(CLevelRecords) + 4));
+    auto* memory = static_cast<int*>(MemSys::AllocZeroed(count * sizeof(CStageBests) + 4));
     if (!memory) {
         m_levels = nullptr;
         return;
     }
     *memory = count;
-    auto* levels = reinterpret_cast<CLevelRecords*>(memory + 1);
+    auto* levels = reinterpret_cast<CStageBests*>(memory + 1);
     for (int i = 0; i < count; ++i)
         levels[i].Construct();
     m_levels = levels;
 }
 
 // 0x0057F440
-void CGameRecords::ReadFromStructure(Script::CStruct* params)
+void CBestResults::DecodeFromStruct(Scripts::CStruct* params)
 {
-    Script::CArray* array = nullptr;
+    Scripts::CArray* array = nullptr;
     params->GetArray("GameRecords", &array, 0);
     if (m_levelCount != static_cast<int>(array->m_size))
         return;
     for (int i = 0; i < m_levelCount; ++i)
-        m_levels[i].ReadFromStructure(reinterpret_cast<Script::CStruct*>(array->GetElement(i)));
+        m_levels[i].DecodeFromStruct(reinterpret_cast<Scripts::CStruct*>(array->GetElement(i)));
     const char* initials = "ABC";
     params->GetString("DefaultInitials", &initials, 0);
     CopyInitials(m_defaultInitials, initials);
 }
 
 // 0x0057FC50
-void CGameRecords::WriteToStructure(Script::CStruct* params)
+void CBestResults::WriteToStructure(Scripts::CStruct* params)
 {
-    Script::CArray* memory = Script::NewArray();
-    Script::CArray* array = memory ? memory->Init() : nullptr;
-    array->SetSizeAndType(m_levelCount, Script::ESYMBOLTYPE_STRUCTURE);
+    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* array = memory ? memory->Init() : nullptr;
+    array->ConfigureSizeKind(m_levelCount, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < m_levelCount; ++i) {
-        Script::CStruct* structure = NewStructure();
+        Scripts::CStruct* structure = NewStructure();
         m_levels[i].WriteToStructure(structure);
         array->SetElement(i, reinterpret_cast<uint32_t>(structure));
     }
-    params->AddComponentOfType(kGameRecordsArray, Script::ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(array));
-    params->AddString(kDefaultInitialsName, Script::ESYMBOLTYPE_STRING, m_defaultInitials);
+    params->AddComponentOfType(kGameRecordsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(array));
+    params->AddString(kDefaultInitialsName, Scripts::QBVAL_STRING, m_defaultInitials);
 }
 
 // 0x0057EED0
-CGameRecords* CGameRecords::Create(bool create)
+CBestResults* CBestResults::Create(bool create)
 {
     if (!Instance() && create) {
-        void* memory = Mem::Calloc(sizeof(CGameRecords), nullptr, 1);
-        Instance() = memory ? static_cast<CGameRecords*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::AllocZeroed(sizeof(CBestResults), nullptr, 1);
+        Instance() = memory ? static_cast<CBestResults*>(memory)->Construct() : nullptr;
     }
-    ++References();
+    ++RefTally();
     return Instance();
 }
 
 // 0x0057FDB0
-void CGameRecords::Release()
+void CBestResults::Release()
 {
-    if (References() > 1) {
-        --References();
+    if (RefTally() > 1) {
+        --RefTally();
         return;
     }
-    if (CGameRecords* records = Instance()) {
-        if (CLevelRecords* levels = records->m_levels) {
+    if (CBestResults* records = Instance()) {
+        if (CStageBests* levels = records->m_levels) {
             int* memory = reinterpret_cast<int*>(levels) - 1;
             for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
                 levels[i].DestroyBody();
-            Mem::Manager::Get()->Free(memory);
+            MemSys::Manager::Get()->Free(memory);
         }
-        Mem::Manager::Get()->Free(records->m_defaultInitials);
-        Mem::Manager::Get()->Free(records);
+        MemSys::Manager::Get()->Free(records->m_defaultInitials);
+        MemSys::Manager::Get()->Free(records);
     }
     Instance() = nullptr;
-    References() = 0;
+    RefTally() = 0;
 }
 
 bool UpdateRecords(bool editedCopy)
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     if (editedCopy) {
         if (skate)
             skate[0x384] = 0; // (no record new: as 0x00566F40 sets it before comparing)
@@ -408,36 +408,36 @@ bool UpdateRecords(bool editedCopy)
             "records or the save)");
         return true;
     }
-    reinterpret_cast<Mdl::Skate*>(skate)->UpdateRecords();
+    reinterpret_cast<GameModules::Skate*>(skate)->UpdateRecords();
     return true;
 }
 
 // 0x005AEBC0
-bool __cdecl CFunc_UpdateRecords(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_UpdateRecords(Scripts::CStruct*, Scripts::CScript*)
 {
-    return UpdateRecords(Front::LevelEditor::Layout::EditingCopy());
+    return UpdateRecords(MenuSystem::LevelEditor::Layout::EditingCopy());
 }
 
 // 0x005AEBD0
-bool __cdecl CFunc_UpdateArcadeScores(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_UpdateArcadeScores(Scripts::CStruct* params, Scripts::CScript*)
 {
     int level = 0; // (uninitialised in the original; always set below)
-    if (!params->GetInteger("level", &level, 0))
+    if (!params->FetchIntValue("level", &level, 0))
         level = SkateCalls::Career()->GetLevel();
-    Instance()->GetLevelRecords(level)->m_arcadeScores->ReadFromStructure(params);
+    Instance()->GetLevelRecords(level)->m_arcadeScores->DecodeFromStruct(params);
     return true;
 }
 
 // 0x005AFAF0
-bool __cdecl CFunc_UpdateInitials(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_UpdateInitials(Scripts::CStruct*, Scripts::CScript*)
 {
     int level = SkateCalls::Career()->GetLevel();
-    CGameRecords* records = Instance();
+    CBestResults* records = Instance();
     records->GetLevelRecords(level)->UpdateInitials(records->m_defaultInitials);
     return true;
 }
 
 // 0x005AFB30
-bool __cdecl CFunc_NewRecord(Script::CStruct*, Script::CScript*) { return SkateCalls::SkateField<bool>(0x384); }
+bool __cdecl CFunc_NewRecord(Scripts::CStruct*, Scripts::CScript*) { return SkateCalls::SkateField<bool>(0x384); }
 
 } // namespace Records

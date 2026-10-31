@@ -1,4 +1,4 @@
-// The VehicleCamera component (Obj::CVehicleCameraComponent): see vehicle_camera.h. From the disassembly of
+// The VehicleCamera component (GameObjects::CCarView): see vehicle_camera.h. From the disassembly of
 // 0x00524420-0x00524C1E (0x00524420 isn't a Ghidra function).
 
 #include "game/skater/vehicle_camera.h"
@@ -23,7 +23,7 @@
 #include "game/obj/object.h"
 #include "game/skater/vehicle_sound.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_vehicleCameraMemberFunctions[12]{
     0x000469FD, 0x2C747D8A, 0, 0, 0, 0,
@@ -46,22 +46,22 @@ constexpr float kHalfPi = 1.5707963705062866f;        // 0x00645484
 constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to radians)
 
 // Its Camera component's camera (+0x18).
-Gfx::Camera* CameraOf(CCompositeObject* object)
+Gfx2D::Camera* CameraOf(CGameEntity* object)
 {
-    return *reinterpret_cast<Gfx::Camera**>(reinterpret_cast<uint8_t*>(object->GetComponent(kCamera)) + 0x18);
+    return *reinterpret_cast<Gfx2D::Camera**>(reinterpret_cast<uint8_t*>(object->GetComponent(kCamera)) + 0x18);
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 // The camera position the collision check pulls toward: `distance` along the orientation's at-row before
 // `position` (x with the product unrounded, as the original).
-Mth::Vector Behind(const Mth::Vector& position, float distance, const Mth::Matrix& orientation)
+Maths::Vector Behind(const Maths::Vector& position, float distance, const Maths::Matrix& orientation)
 {
-    const Mth::Vector& at = orientation.row[2];
+    const Maths::Vector& at = orientation.row[2];
     double x = static_cast<double>(distance) * at.x;
     float y = distance * at.y;
     float z = distance * at.z;
@@ -72,76 +72,76 @@ Mth::Vector Behind(const Mth::Vector& position, float distance, const Mth::Matri
 } // namespace
 
 // 0x005248C0
-CBaseComponent* __cdecl CVehicleCameraComponent::Create()
+CObjectModule* __cdecl CCarView::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CVehicleCameraComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CCarView));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CVehicleCameraComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CCarView*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kVehicleCamera;
-    component->m_height = 60.0f;
-    component->m_distance = 144.0f;
+    component->m_levelY = 60.0f;
+    component->m_reach = 144.0f;
     component->m_lerp = 3.0f;
     return component;
 }
 
 // 0x00524420
-void __cdecl CVehicleCameraComponent::RegisterMemberFunctions()
+void __cdecl CCarView::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicleCamera),
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kVehicleCamera),
                                         g_vehicleCameraMemberFunctions, 0x18);
 }
 
 // 0x00524440
-void CVehicleCameraComponent::DestroyBody()
+void CCarView::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00524470
-CVehicleCameraComponent* CVehicleCameraComponent::Destroy(unsigned int flags)
+CCarView* CCarView::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x005244A0
-void CVehicleCameraComponent::InitFromStructure(Script::CStruct* params)
+void CCarView::ConfigureFromData(Scripts::CStruct* params)
 {
-    if (params->ContainsComponentNamed(kSubject)) {
+    if (params->HasEntryNamed(kSubject)) {
         uint32_t id;
-        params->GetChecksum(kSubject, &id, 1);
-        m_subject = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(id));
+        params->ReadHashValue(kSubject, &id, 1);
+        m_subject = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id));
         m_vehicle = reinterpret_cast<uint8_t*>(m_subject->GetComponent(kVehicle));
     }
     params->GetFloat(kLerp, &m_lerp, 0);
-    params->GetFloat(kHeight, &m_height, 0);
-    params->GetFloat(kDistance, &m_distance, 0);
+    params->GetFloat(kHeight, &m_levelY, 0);
+    params->GetFloat(kDistance, &m_reach, 0);
     params->GetFloat(kAngle, &m_angle, 0);
 }
 
 // 0x00524C00
-void CVehicleCameraComponent::Finalize()
+void CCarView::Finalize()
 {
-    m_lookAround = static_cast<CCameraLookAroundComponent*>(m_object->GetComponent(kCameraLookAround));
+    m_lookAround = static_cast<CFreeLookModule*>(m_object->GetComponent(kCameraLookAround));
     Reset();
 }
 
 // 0x00524450
-bool CVehicleCameraComponent::VehicleCamera_Reset(Script::CStruct* params, Script::CScript* /*script*/)
+bool CCarView::VehicleCamera_Reset(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    reinterpret_cast<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>(m_vtable[5])(this, params);
-    reinterpret_cast<void(__thiscall*)(CBaseComponent*)>(m_vtable[3])(this);
+    reinterpret_cast<void(__thiscall*)(CObjectModule*, Scripts::CStruct*)>(m_vtable[5])(this, params);
+    reinterpret_cast<void(__thiscall*)(CObjectModule*)>(m_vtable[3])(this);
     return true;
 }
 
 // 0x00524550
-void CVehicleCameraComponent::UpdateTargetDirection()
+void CCarView::UpdateTargetDirection()
 {
     const float* velocity = reinterpret_cast<const float*>(m_vehicle + 0xA4);
     float x = -velocity[0];
@@ -164,7 +164,7 @@ void CVehicleCameraComponent::UpdateTargetDirection()
     double scale = static_cast<double>(speed) * kSpeedScale;
     if (scale > 1.0)
         scale = 1.0;
-    const Mth::Vector& at = m_subject->m_matrix.row[2];
+    const Maths::Vector& at = m_subject->m_basisFrame.row[2];
     double a = -at.x, b = -at.y, c = -at.z;
     float along = static_cast<float>((c * z + b * y + a * x) * scale);
     m_targetDirection = {-at.x, -at.y, -at.z, -at.w};
@@ -180,19 +180,19 @@ void CVehicleCameraComponent::UpdateTargetDirection()
 }
 
 // 0x00524720
-void CVehicleCameraComponent::ApplyToCamera()
+void CCarView::ApplyToCamera()
 {
-    m_position.w = 1.0f;
+    m_anchorPoint.w = 1.0f;
     m_orientation.row[0].w = 0.0f;
     m_orientation.row[1].w = 0.0f;
     m_orientation.row[2].w = 0.0f;
-    m_object->m_pos = m_position;
-    m_object->m_matrix = m_orientation;
+    m_object->m_pos = m_anchorPoint;
+    m_object->m_basisFrame = m_orientation;
     m_object->m_displayMatrix = m_orientation;
 }
 
 // 0x00524780
-void CVehicleCameraComponent::UpdateOrientation()
+void CCarView::UpdateOrientation()
 {
     double heading = m_lookAround->m_heading;
     double rotatedX, rotatedZ;
@@ -203,24 +203,24 @@ void CVehicleCameraComponent::UpdateOrientation()
     m_orientation.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     m_orientation.row[2] = {forward, m_direction.y, right, m_direction.w};
     m_orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    const Mth::Vector& subject = m_subject->m_pos;
-    float back = right * m_distance;
-    m_position.x = static_cast<float>(static_cast<double>(forward) * m_distance + subject.x);
-    m_position.y = m_height + subject.y;
-    m_position.z = back + subject.z;
-    m_position.w = subject.w + 1.0f;
-    Mth::Matrix tilt;
-    Mth::CreateRotateZMatrix(tilt, m_angle * kDegrees);
+    const Maths::Vector& subject = m_subject->m_pos;
+    float back = right * m_reach;
+    m_anchorPoint.x = static_cast<float>(static_cast<double>(forward) * m_reach + subject.x);
+    m_anchorPoint.y = m_levelY + subject.y;
+    m_anchorPoint.z = back + subject.z;
+    m_anchorPoint.w = subject.w + 1.0f;
+    Maths::Matrix tilt;
+    Maths::MakeRollMatrix(tilt, m_angle * kDegrees);
     MatrixMultiply(&m_orientation, &tilt, &m_orientation);
 }
 
 // 0x00524B40
-void CVehicleCameraComponent::Reset()
+void CCarView::Reset()
 {
     m_lookAround->m_heading = 0.0f;
-    m_lookAround->m_tilt = 0.0f;
+    m_lookAround->m_leanAngle = 0.0f;
     m_lookAround->m_locked = false;
-    const Mth::Vector& at = m_subject->m_matrix.row[2];
+    const Maths::Vector& at = m_subject->m_basisFrame.row[2];
     m_targetDirection = {-at.x, -at.y, -at.z, -at.w};
     m_targetDirection.y = 0.0f;
     m_targetDirection.Normalize();
@@ -232,9 +232,9 @@ void CVehicleCameraComponent::Reset()
 }
 
 // 0x00524940
-void CVehicleCameraComponent::Update()
+void CCarView::Update()
 {
-    CameraOf(m_object)->StoreOldPos();
+    CameraOf(m_object)->RememberPrevPos();
     UpdateTargetDirection();
     double dot = static_cast<double>(m_direction.z) * m_targetDirection.z +
                  static_cast<double>(m_direction.y) * m_targetDirection.y +
@@ -251,7 +251,7 @@ void CVehicleCameraComponent::Update()
     bool left = static_cast<double>(m_direction.z) * m_targetDirection.x -
                     static_cast<double>(m_targetDirection.z) * m_direction.x >
                 0.0;
-    double step = Tmr::GetSlomoFrameSeconds() * m_lerp * angle;
+    double step = FrameClock::GetSlomoFrameSeconds() * m_lerp * angle;
     if (step > angle)
         step = angle;
     double turn = (left ? 1.0f : -1.0f) * step;
@@ -261,30 +261,30 @@ void CVehicleCameraComponent::Update()
     m_direction.z = static_cast<float>(z);
     m_direction.Normalize();
     UpdateOrientation();
-    Mth::Vector focus = Behind(m_position, m_distance, m_orientation);
-    Mth::Vector target = Behind(m_position, m_distance, m_orientation);
-    AvoidCameraCollisions(&m_position, &m_orientation, &target, &focus, false, false);
+    Maths::Vector focus = Behind(m_anchorPoint, m_reach, m_orientation);
+    Maths::Vector target = Behind(m_anchorPoint, m_reach, m_orientation);
+    AvoidCameraCollisions(&m_anchorPoint, &m_orientation, &target, &focus, false, false);
     ApplyToCamera();
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CVehicleCameraComponent::Destroy,
-         &Obj::CVehicleCameraComponent::Update,
-         &Obj::CVehicleCameraComponent::InitFromStructure,
-         &Obj::CVehicleCameraComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CCarView::Destroy,
+         &GameObjects::CCarView::Update,
+         &GameObjects::CCarView::ConfigureFromData,
+         &GameObjects::CCarView::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

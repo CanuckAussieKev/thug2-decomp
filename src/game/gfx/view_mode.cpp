@@ -18,7 +18,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine.h"
 
-namespace Nx::ViewMode {
+namespace Engine3D::ViewMode {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -203,4 +203,4 @@ void ForgetShaders()
     g_twins.clear();
 }
 
-} // namespace Nx::ViewMode
+} // namespace Engine3D::ViewMode

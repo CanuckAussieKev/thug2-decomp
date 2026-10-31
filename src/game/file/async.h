@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace Pre {
-class PreFile;
+class ArchiveFile;
 }
 
 // The asynchronous file system: up to 16 open file handles, with reads completed by a platform I/O thread and
@@ -13,13 +13,13 @@ class PreFile;
 // AsyncFileHandle is the game's CAsyncFileHandle. Its virtual methods are called through the object's own
 // (game) vtable, so the platform subclass - CPcAsyncFileHandle, which reads with Win32, overlapped on newer
 // Windows - works whichever of its methods are rewritten.
-namespace File {
+namespace FileLoad {
 
 class AsyncFileHandle;
 
 // Called (on the main thread) when an operation completes, if its event is in the handle's callback mask:
 // `event` is the operation (1 open, 3 read, 6 close, ...), `value` its result.
-using AsyncCallback = void(__cdecl*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
+using IoCompletionHook = void(__cdecl*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
 
 // Operations, also the events passed to callbacks.
 enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kAsyncRead = 3, kAsyncClose = 6, kAsyncCancel = 7 };
@@ -28,7 +28,7 @@ class AsyncFileHandle {
 public:
     // Non-virtual methods.
     bool Init();
-    void SetCallback(AsyncCallback callback, void* arg0, void* arg1);
+    void SetCallback(IoCompletionHook callback, void* arg0, void* arg1);
     int GetFileSize();
     bool Cancel();
     bool IsBusy();
@@ -54,19 +54,19 @@ public:
 
     void** m_vtable;
     int m_result;            // result of the last operation (size read, error, ...)
-    AsyncCallback m_callback;
+    IoCompletionHook m_callback;
     void* m_arg0;
     void* m_arg1;
     uint32_t m_callbackMask; // bit N set: operation N calls back (all, by default)
     int m_operation;         // the operation in progress (AsyncOperation)
     int m_unknown1C;
-    bool m_stream;
+    bool m_feed;
     bool m_blocking;
     int m_bufferSize;
     int m_priority;
-    volatile int m_fileSize; // -1 until the platform knows it
-    int m_position;
-    void* m_preFile;         // Pre::PreFile::FileInfo* when the file is inside a loaded .pre archive
+    volatile int m_payloadBytes; // -1 until the platform knows it
+    int m_anchorPoint;
+    void* m_preFile;         // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
     volatile int m_busyCount;
 };
 
@@ -74,7 +74,7 @@ public:
 void ConstructAsyncFileHandle(AsyncFileHandle* file);
 // The PC handle's platform methods, in vtable slot order where they override (for tests).
 struct PcAsyncMethods {
-    void* io_callback;
+    void* onIoDone;
     void* init;
     void* open;
     void* close;
@@ -113,11 +113,11 @@ void AsyncSwapCallbackLists();
 inline AsyncFileHandle* AsyncOpen(const char* name) { return AsyncOpen(name, false, 100); }
 inline int AsyncGetFileSize(AsyncFileHandle* file) { return file->GetFileSize(); }
 inline void AsyncSetCallbackMask(AsyncFileHandle* file, uint32_t mask) { file->m_callbackMask = mask; }
-inline void AsyncSetCallback(AsyncFileHandle* file, AsyncCallback callback, void* arg0, void* arg1)
+inline void AsyncSetCallback(AsyncFileHandle* file, IoCompletionHook callback, void* arg0, void* arg1)
 {
     file->SetCallback(callback, arg0, arg1);
 }
-inline void AsyncRead(AsyncFileHandle* file, void* buffer, int size) { file->Read(buffer, 1, size); }
+inline void StartBackgroundRead(AsyncFileHandle* file, void* buffer, int size) { file->Read(buffer, 1, size); }
 inline void AsyncWaitForIO() { AsyncWaitForIO(false); }
 // Whether asynchronous loading can be used at all (a stub: always true on PC).
 // (0x005B6570: a jump to the folded stub returning true)

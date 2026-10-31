@@ -15,7 +15,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Play {
+namespace MenuSystem::LevelEditor::Play {
 
 Step OnKey(bool pressed, bool inLevel, bool paused, bool offered)
 {
@@ -53,8 +53,8 @@ bool g_keyUp = true;
 // The overlay's level_editor_enter is loaded (tools/pipeline/menu_level/make_menu_level.ts).
 bool EnterScriptLoaded()
 {
-    Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(Crc::GenerateCRCFromString("level_editor_enter"));
-    return symbol && symbol->type == Script::ESYMBOLTYPE_QSCRIPT;
+    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(Checksums::HashFromText("level_editor_enter"));
+    return symbol && symbol->type == Scripts::QBVAL_SCRIPT_BODY;
 }
 
 } // namespace
@@ -88,16 +88,16 @@ bool TakeResume(Resume* resume, int levelLoad)
     return true;
 }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
-    if (!LevelEditor::Enabled() || Mlp::FramesRun() == 0)
+    if (!LevelEditor::Enabled() || FrameLoop::FramesRun() == 0)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool down = KeyDown(keys);
     bool pressed = down && g_keyUp;
     g_keyUp = !down;
-    bool paused = frontEnd && frontEnd->m_paused;
-    bool inLevel = Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) != nullptr;
+    bool paused = frontEnd && frontEnd->m_isHalted;
+    bool inLevel = Engine3D::CurrentLevel() != 0 && GameObjects::FindObject(kSkater) != nullptr;
     switch (g_phase) {
     case Phase::Unpause:
         // (level_editor_exit brought the pause menu back: closed as its CONTINUE closes it)
@@ -106,7 +106,7 @@ void Update(Mdl::FrontEnd* frontEnd)
         g_phase = Phase::Idle;
         if (paused && inLevel) {
             Log("level editor: play from here - the pause menu closed");
-            Script::RunScript("exit_pause_menu", nullptr, nullptr, false);
+            Scripts::LaunchScript("exit_pause_menu", nullptr, nullptr, false);
         }
         return;
     case Phase::WaitPause:
@@ -133,7 +133,7 @@ void Update(Mdl::FrontEnd* frontEnd)
             return;
         g_phase = Phase::Idle;
         Log("level editor: back to the editor (the play key) - running level_editor_enter");
-        Script::RunScript("level_editor_enter", nullptr, nullptr, false);
+        Scripts::LaunchScript("level_editor_enter", nullptr, nullptr, false);
         return;
     case Phase::Idle:
         break;
@@ -148,9 +148,9 @@ void Update(Mdl::FrontEnd* frontEnd)
     }
     // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
     Log("level editor: back to the editor (the play key) - pausing");
-    MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadStart);
+    MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadStart);
     g_phase = Phase::WaitPause;
     g_frames = 0;
 }
 
-} // namespace Front::LevelEditor::Play
+} // namespace MenuSystem::LevelEditor::Play

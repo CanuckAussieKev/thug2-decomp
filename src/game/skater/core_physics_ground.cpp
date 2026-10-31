@@ -21,7 +21,7 @@ namespace Skater {
 
 using namespace Physics;
 
-void __cdecl TrackingPrint(int index, const Mth::Vector* a, const Mth::Vector* b);
+void __cdecl TrackingPrint(int index, const Maths::Vector* a, const Maths::Vector* b);
 
 namespace {
 
@@ -80,25 +80,25 @@ constexpr uint32_t kRightButton = 0x80;
 constexpr uint32_t kKickButton = 0x180;
 
 bool IsCrouched(void* component) { return FlagsOf(component)[kFlagCrouched] != 0; }
-double SpeedOf(const Mth::Vector& v) { return LengthUnrounded(v); }
+double SpeedOf(const Maths::Vector& v) { return LengthUnrounded(v); }
 
 } // namespace
 
 // 0x004FE1F0
 void CorePhysicsComponent::ApplyFriction(float friction)
 {
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
     float lengthSquared = static_cast<float>(LengthSqrUnrounded(velocity));
     if (lengthSquared < kBarelyMovingSquared)
         return;
     float slowing = static_cast<float>(static_cast<double>(lengthSquared) * At<float>(this, kFrameLength) * friction *
                                        kFramesPerSecond);
-    Mth::Vector change = velocity;
+    Maths::Vector change = velocity;
     change.SetLength(slowing);
     double changeSquared = (static_cast<double>(change.z) * change.z + static_cast<double>(change.x) * change.x) +
                            static_cast<double>(change.y) * change.y;
     if (changeSquared > lengthSquared) {
-        velocity = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        velocity = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
     velocity.x -= change.x;
@@ -120,8 +120,8 @@ bool CorePhysicsComponent::ShouldBrake()
     if (!input[kRightButton] && !input[kLeftButton])
         return true;
     void* object = ObjectOf(this);
-    const Mth::Vector& v = VectorAt(object, kVelocity);
-    const Mth::Vector& f = VectorAt(object, kForward);
+    const Maths::Vector& v = VectorAt(object, kVelocity);
+    const Maths::Vector& f = VectorAt(object, kForward);
     double along = (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
     return along < 0.0;
 }
@@ -130,9 +130,9 @@ bool CorePhysicsComponent::ShouldBrake()
 bool CorePhysicsComponent::MayTurnOnSlope()
 {
     float speed = static_cast<float>(SpeedOf(VectorAt(ObjectOf(this), kVelocity)));
-    if (!(Script::GetFloat(kSlopeTurnSpeed) > speed))
+    if (!(Scripts::GetFloat(kSlopeTurnSpeed) > speed))
         return false;
-    return Script::GetFloat(kSlopeTurnNormal) > At<float>(this, kGroundNormal + 4);
+    return Scripts::GetFloat(kSlopeTurnNormal) > At<float>(this, kGroundNormal + 4);
 }
 
 // 0x004FE490
@@ -155,10 +155,10 @@ bool CorePhysicsComponent::CanPushOff()
 void CorePhysicsComponent::PushOff()
 {
     void* object = ObjectOf(this);
-    Mth::Vector direction;
+    Maths::Vector direction;
     if (At<uint8_t>(this, kLockVelocity)) {
         direction = VectorAt(object, kVelocity);
-        const Mth::Vector& v = direction;
+        const Maths::Vector& v = direction;
         double speed = std::sqrt((static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y) +
                                  static_cast<double>(v.x) * v.x);
         if (speed < kLockedSlow)
@@ -175,7 +175,7 @@ void CorePhysicsComponent::PushOff()
     double y = static_cast<double>(direction.y) * push * frame;
     double z = static_cast<double>(static_cast<float>(static_cast<double>(direction.z) * push)) * frame;
     float w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(direction.w) * push)) * frame);
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x += x;
     velocity.y = static_cast<float>(velocity.y + y);
     velocity.z = static_cast<float>(velocity.z + z);
@@ -198,7 +198,7 @@ void CorePhysicsComponent::ApplyStanceFriction()
 // 0x004FE730
 void CorePhysicsComponent::ApplyRollingFriction()
 {
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
     double x = velocity.x;
     double w = velocity.w;
     float vy = velocity.y;
@@ -206,7 +206,7 @@ void CorePhysicsComponent::ApplyRollingFriction()
     double speed = std::sqrt((static_cast<double>(vz) * vz + static_cast<double>(vy) * vy) + x * x);
     float speedRounded = static_cast<float>(speed);
     if (speed < kStill) {
-        velocity = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        velocity = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
     double k = static_cast<double>(At<float>(this, kFrameLength)) / speedRounded * At<float>(this, kRollingFrictionValue) *
@@ -217,7 +217,7 @@ void CorePhysicsComponent::ApplyRollingFriction()
     double dw = w * k;
     double changeSquared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
     if (static_cast<double>(speedRounded) * speedRounded < changeSquared) {
-        velocity = Mth::Vector(0.0f, 0.0f, 0.0f, 1.0f);
+        velocity = Maths::Vector(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
     velocity.x -= dx;
@@ -227,27 +227,27 @@ void CorePhysicsComponent::ApplyRollingFriction()
 }
 
 // 0x004FE860
-void CorePhysicsComponent::TurnToNormal(Mth::Vector normal)
+void CorePhysicsComponent::TurnToNormal(Maths::Vector normal)
 {
-    uint8_t* settings = reinterpret_cast<uint8_t*>(Ed::g_parkEditor);
+    uint8_t* settings = reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor);
     if (At<uint32_t>(settings, 0x40) != kOff && normal.y > 0.0f) {
-        const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
-        Mth::Vector end;
+        const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vector end;
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);
         end.y = static_cast<float>(static_cast<float>(normal.y * static_cast<double>(kNormalFeeler)) + position.y);
         end.z = static_cast<float>(static_cast<float>(normal.z * static_cast<double>(kNormalFeeler)) + position.z);
         end.w = static_cast<float>(normal.w * static_cast<double>(kNormalFeeler) + position.w);
-        Nx::CFeeler feeler;
+        Engine3D::CProbeRay feeler;
         feeler.Construct(&position, &end);
-        if (feeler.GetCollision(true, false))
-            normal = Mth::Vector(0.0f, 1.0f, 0.0f, 1.0f);
+        if (feeler.GetHitShape(true, false))
+            normal = Maths::Vector(0.0f, 1.0f, 0.0f, 1.0f);
     }
     if (VectorAt(this, kGroundNormal) != normal) {
         VectorAt(this, kGroundNormal) = normal;
         VectorAt(this, kOldNormal) = VectorAt(this, kDrawnNormal);
         At<float>(this, kNormalBlend) = 1.0f;
         VectorAt(ObjectOf(this), kUp) = normal;
-        At<Mth::Matrix>(ObjectOf(this), kMatrix).OrthoNormalizeAbout(1);
+        At<Maths::Matrix>(ObjectOf(this), kMatrix).SquareUpAxes(1);
     }
 }
 
@@ -259,12 +259,12 @@ void CorePhysicsComponent::UpdateGroundNormal()
         if (VectorAt(this, kOldNormal) == VectorAt(this, kGroundNormal)) {
             blend = 0.0f;
         } else {
-            double left = blend - static_cast<double>(Script::GetFloat(kNormalBlendRate)) * At<float>(this, kFrameLength) *
+            double left = blend - static_cast<double>(Scripts::GetFloat(kNormalBlendRate)) * At<float>(this, kFrameLength) *
                                       kFramesPerSecond;
             float t = static_cast<float>(left);
             blend = t;
             if (left > 0.0 || left != left) {
-                Mth::Vector blended;
+                Maths::Vector blended;
                 Walk::Lerp(&blended, &VectorAt(this, kGroundNormal), &VectorAt(this, kOldNormal), t);
                 VectorAt(this, kDrawnNormal) = blended;
                 VectorAt(this, kDrawnNormal).Normalize();
@@ -276,8 +276,8 @@ void CorePhysicsComponent::UpdateGroundNormal()
     }
     if (VectorAt(this, kDisplayUp) != VectorAt(this, kDrawnNormal)) {
         VectorAt(this, kDisplayUp) = VectorAt(this, kDrawnNormal);
-        Mth::Matrix& display = At<Mth::Matrix>(this, kDisplayMatrix);
-        display.OrthoNormalizeAbout(1);
+        Maths::Matrix& display = At<Maths::Matrix>(this, kDisplayMatrix);
+        display.SquareUpAxes(1);
         display.row[0] = VectorAt(ObjectOf(this), kMatrix);
         VectorAt(this, kDisplayFacing) = VectorAt(ObjectOf(this), kForward);
     }
@@ -292,7 +292,7 @@ void CorePhysicsComponent::StartVertAir()
     }
     void* object = ObjectOf(this);
     TrackingPrint(3, &VectorAt(object, kOldPosition), &VectorAt(object, kPosition));
-    Mth::Vector across = VectorAt(this, kGroundNormal);
+    Maths::Vector across = VectorAt(this, kGroundNormal);
     VectorAt(this, kWallNormal) = VectorAt(this, kGroundNormal);
     VectorAt(this, kTakeOffPoint) = VectorAt(ObjectOf(this), kOldPosition);
     At<float>(this, kTakeOffPoint + 4) = static_cast<float>(At<float>(this, kTakeOffPoint + 4) - 1.0);
@@ -302,12 +302,12 @@ void CorePhysicsComponent::StartVertAir()
         return;
     }
     across.Normalize();
-    VectorAt(ObjectOf(this), kVelocity).RotateToPlane(across);
+    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(across);
     TurnToNormal(across);
     VectorAt(this, kVertFacing) = VectorAt(ObjectOf(this), kForward);
     At<float>(this, kVertFacing + 4) = -At<float>(this, kVertFacing + 4);
-    double out = Script::GetFloat(kVertPushOut);
-    Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
+    double out = Scripts::GetFloat(kVertPushOut);
+    Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
     float y = static_cast<float>(across.y * out);
     float z = static_cast<float>(across.z * out);
     float w = static_cast<float>(across.w * out);

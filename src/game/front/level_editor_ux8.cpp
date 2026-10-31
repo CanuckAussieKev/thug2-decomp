@@ -20,7 +20,7 @@
 #include "game/front/level_editor_ux8_pie.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Ux8 {
+namespace MenuSystem::LevelEditor::Ux8 {
 
 namespace {
 
@@ -560,4 +560,4 @@ void NoteViewCentre(float x, float y)
 }
 bool PadOwnsCursor() { return g_padMode && g_padOwns; }
 
-} // namespace Front::LevelEditor::Ux8
+} // namespace MenuSystem::LevelEditor::Ux8

@@ -1,4 +1,4 @@
-// SkateScript's node functions: a node's name, links, position, angles and orientation, by its structure or by its
+// LevelNodes's node functions: a node's name, links, position, angles and orientation, by its structure or by its
 // name (nodes.h).
 
 #include "game/script/nodes.h"
@@ -18,11 +18,11 @@
 #include "game/script/struct.h"
 #include "game/core/code_address.h"
 
-namespace SkateScript {
+namespace LevelNodes {
 
-using Script::CArray;
-using Script::CStruct;
-using Script::VectorValue;
+using Scripts::CArray;
+using Scripts::CStruct;
+using Scripts::VectorValue;
 
 namespace {
 
@@ -36,7 +36,7 @@ constexpr uint32_t kScr = 0xA6D2D890;         // scr (SetEventHandler's script)
 constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
 // SetEventHandler (the C function, as tokens 0x43 hold it: the game's address)
-const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(CodeAddress(&CFuncs::CFunc_SetEventHandler));
+const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(CodeAddress(&ScriptCommands::CFunc_SetEventHandler));
 constexpr int kMaxDepth = 5;
 
 // Script tokens (qb.h).
@@ -53,10 +53,10 @@ constexpr uint8_t kTokenIf = 0x47;               // (a short jump)
 
 CNodeManager* Manager() { return NodeManagerInstance(); }
 
-VectorValue* AsValue(Mth::Vector* v) { return reinterpret_cast<VectorValue*>(v); }
+VectorValue* AsValue(Maths::Vector* v) { return reinterpret_cast<VectorValue*>(v); }
 
-// A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, Mth::Quat::GetMatrix).
-void QuatToMatrix(const float* quat, Mth::Matrix* matrix) { reinterpret_cast<const Mth::Quat*>(quat)->GetMatrix(matrix); }
+// A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, Maths::QuatRotation::GetMatrix).
+void QuatToMatrix(const float* quat, Maths::Matrix* matrix) { reinterpret_cast<const Maths::QuatRotation*>(quat)->GetMatrix(matrix); }
 
 } // namespace
 
@@ -64,7 +64,7 @@ void QuatToMatrix(const float* quat, Mth::Matrix* matrix) { reinterpret_cast<con
 uint32_t GetNodeName(CStruct* node)
 {
     uint32_t name = 0;
-    node->GetChecksum(kName, &name, 0);
+    node->ReadHashValue(kName, &name, 0);
     return name;
 }
 
@@ -88,7 +88,7 @@ uint32_t GetLink(CStruct* node, int index)
 CStruct* GetLinkedNode(CStruct* node, int index) { return Manager()->GetNode(GetLink(node, index), true); }
 
 // 0x0045C4B0
-bool IsLinkedTo(CStruct* node, CStruct* target)
+bool HasLinkTo(CStruct* node, CStruct* target)
 {
     CArray* links = nullptr;
     node->GetArray(kLinks, &links, 0);
@@ -103,7 +103,7 @@ bool IsLinkedTo(CStruct* node, CStruct* target)
 }
 
 // 0x0045C050
-bool GetPosition(CStruct* node, Mth::Vector* out)
+bool GetPosition(CStruct* node, Maths::Vector* out)
 {
     if (node->GetVector(kPos, AsValue(out), 0))
         return true;
@@ -116,14 +116,14 @@ bool GetPosition(CStruct* node, Mth::Vector* out)
 }
 
 // 0x0045C180
-bool GetAngles(CStruct* node, Mth::Vector* out)
+bool ReadTurnAngles(CStruct* node, Maths::Vector* out)
 {
     *out = {0.0f, 0.0f, 0.0f, 1.0f};
     return node->GetVector(kAngles, AsValue(out), 0);
 }
 
 // 0x0045C0B0
-void GetOrientation(CStruct* node, Mth::Matrix* out)
+void GetOrientation(CStruct* node, Maths::Matrix* out)
 {
     VectorValue v;
     if (!node->GetVector(kOrientation, &v, 0)) {
@@ -159,20 +159,20 @@ CStruct* GetLinkedNode(uint32_t name, int index)
 }
 
 // 0x0045C560
-bool GetPosition(uint32_t name, Mth::Vector* out) { return GetPosition(Manager()->GetNode(name, true), out); }
+bool GetPosition(uint32_t name, Maths::Vector* out) { return GetPosition(Manager()->GetNode(name, true), out); }
 
 // 0x0045C590
-bool GetAngles(uint32_t name, Mth::Vector* out) { return GetAngles(Manager()->GetNode(name, true), out); }
+bool ReadTurnAngles(uint32_t name, Maths::Vector* out) { return ReadTurnAngles(Manager()->GetNode(name, true), out); }
 
 // 0x0045C520
-bool IsLinkedTo(uint32_t name, uint32_t target)
+bool HasLinkTo(uint32_t name, uint32_t target)
 {
     CStruct* node = Manager()->GetNode(name, true);
-    return IsLinkedTo(node, Manager()->GetNode(target, true));
+    return HasLinkTo(node, Manager()->GetNode(target, true));
 }
 
 // 0x0045C2D0
-CStruct* GetNearestNodeByPrefix(uint32_t prefix, const Mth::Vector* pos)
+CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vector* pos)
 {
     CStruct* nearest = nullptr;
     float best = 1e20f;
@@ -205,12 +205,12 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
 {
     if (depth > kMaxDepth)
         return;
-    Script::CScriptCache* cache = Script::g_scriptCache;
+    Scripts::CScriptStore* cache = Scripts::g_scriptCache;
     const uint8_t* token = cache->GetScript(script);
     CStruct* params = nullptr;
-    if (void* memory = Script::NewStruct())
+    if (void* memory = Scripts::NewStruct())
         params = static_cast<CStruct*>(memory)->Init();
-    token = Script::SkipToEndOfStatement(token); // (past the script's first line)
+    token = Scripts::SkipToEndOfStatement(token); // (past the script's first line)
     for (;;) {
         const uint8_t* call = token;
         switch (*token) {
@@ -220,44 +220,44 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
             uint32_t name = *token == kTokenMemberFunctionEntry
-                                ? *reinterpret_cast<const uint32_t*>(Script::Read4Bytes(token + 1))
-                                : Script::Read4Bytes(token + 1);
+                                ? *reinterpret_cast<const uint32_t*>(Scripts::FetchWord32(token + 1))
+                                : Scripts::FetchWord32(token + 1);
             token += 5;
             if (*token == kTokenEquals)
                 break;
-            Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(name);
+            Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(name);
             if (!symbol)
                 break;
             switch (symbol->type) {
-            case Script::ESYMBOLTYPE_QSCRIPT:
+            case Scripts::QBVAL_SCRIPT_BODY:
                 params->Clear();
-                token = Script::ParseArguments(params, token, parentParams);
+                token = Scripts::ParseArguments(params, token, parentParams);
                 if (name == target)
                     callback(params, call);
                 else
-                    token = Script::SkipToEndOfStatement(token);
+                    token = Scripts::SkipToEndOfStatement(token);
                 ForEachScriptCall(name, target, callback, params, depth + 1);
                 break;
-            case Script::ESYMBOLTYPE_CFUNCTION:
+            case Scripts::QBVAL_NATIVE_FUNC:
                 if (name != target) {
-                    token = Script::SkipToEndOfStatement(token);
+                    token = Scripts::SkipToEndOfStatement(token);
                     break;
                 }
                 params->Clear();
-                token = Script::ParseArguments(params, token, parentParams);
+                token = Scripts::ParseArguments(params, token, parentParams);
                 callback(params, call);
                 break;
-            case Script::ESYMBOLTYPE_MEMBERFUNCTION:
+            case Scripts::QBVAL_NATIVE_METHOD:
                 if (name != target) {
-                    token = Script::SkipToEndOfStatement(token);
+                    token = Scripts::SkipToEndOfStatement(token);
                     break;
                 }
                 params->Clear();
-                token = Script::ParseArguments(params, token, parentParams);
+                token = Scripts::ParseArguments(params, token, parentParams);
                 callback(params, call);
                 if (name == kEndGap) {
                     uint32_t gapScript = 0;
-                    if (params->GetChecksum(kGapScript, &gapScript, 0))
+                    if (params->ReadHashValue(kGapScript, &gapScript, 0))
                         ForEachScriptCall(gapScript, target, callback, nullptr, depth + 1);
                 }
                 break;
@@ -268,41 +268,41 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
         }
         case kTokenCFunction: {
             // A C function already looked up: SetEventHandler's scr= is followed.
-            uint32_t function = Script::Read4Bytes(token + 1);
+            uint32_t function = Scripts::FetchWord32(token + 1);
             token += 5;
             // (the game's CFunction table holds the game's address; a table of ours would hold our function)
             if (function != kSetEventHandler &&
-                function != reinterpret_cast<uint32_t>(&CFuncs::CFunc_SetEventHandler)) {
-                token = Script::SkipToEndOfStatement(token);
+                function != reinterpret_cast<uint32_t>(&ScriptCommands::CFunc_SetEventHandler)) {
+                token = Scripts::SkipToEndOfStatement(token);
                 break;
             }
             params->Clear();
-            token = Script::ParseArguments(params, token, parentParams);
+            token = Scripts::ParseArguments(params, token, parentParams);
             uint32_t handler = 0;
-            params->GetChecksum(kScr, &handler, 0);
+            params->ReadHashValue(kScr, &handler, 0);
             if (handler)
                 ForEachScriptCall(handler, target, callback, nullptr, depth + 1);
             break;
         }
         case kTokenRepeat:
-            token = Script::SkipToEndOfStatement(Script::SkipToken(token));
+            token = Scripts::SkipToEndOfStatement(Scripts::StepOverToken(token));
             break;
         case kTokenIf:
-            token = Script::SkipToken(token);
+            token = Scripts::StepOverToken(token);
             if (*token == kTokenNot)
-                token = Script::SkipToken(token);
+                token = Scripts::StepOverToken(token);
             if (*token == kTokenOpenParenthesis)
-                token = Script::SkipToEndOfStatement(token);
+                token = Scripts::SkipToEndOfStatement(token);
             break;
         case kTokenEndOfScript:
             cache->ReleaseScript(script);
             if (params) {
                 params->Clear();
-                Script::DeleteStruct(params);
+                Scripts::DeleteStruct(params);
             }
             return;
         default:
-            token = Script::SkipToken(token);
+            token = Scripts::StepOverToken(token);
             break;
         }
     }
@@ -311,15 +311,15 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
 // 0x0045CCA0
 void ForEachNodeScriptCall(uint32_t scriptParam, uint32_t target, ScriptCallCallback callback)
 {
-    Script::ClearScriptFlag6F2564();
+    Scripts::ClearScriptFlag6F2564();
     Manager()->StartWalk(0);
     while (CStruct* node = Manager()->NextNode()) {
         uint32_t script = 0;
-        if (node->GetChecksum(scriptParam, &script, 0))
+        if (node->ReadHashValue(scriptParam, &script, 0))
             ForEachScriptCall(script, target, callback, nullptr, 0);
     }
     Manager()->EndWalk();
-    Script::SetScriptFlag6F2564();
+    Scripts::SetScriptFlag6F2564();
 }
 
 // 0x0045C1D0
@@ -335,4 +335,4 @@ uint32_t GetNodeOwnerValue58() { return Manager()->GetOwnerValue58(); }
 // 0x0045C230
 uint32_t GetLastNodeArrayName() { return Manager()->GetLastNodeArrayName(); }
 
-} // namespace SkateScript
+} // namespace LevelNodes

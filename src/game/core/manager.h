@@ -7,12 +7,12 @@
 
 // The memory manager: owns the game's regions and heaps, keeps a stack of "current" heaps (where allocations
 // without an explicit heap go), and finds heaps by name checksum. One instance (0x007D1800).
-namespace Mem {
+namespace MemSys {
 
 class Manager {
 public:
     // A heap created at run time by name (CFunc_MemInitHeap and friends).
-    struct NamedHeap {
+    struct LabeledZone {
         Region* region;
         Heap* heap;
         uint32_t name;    // checksum
@@ -20,7 +20,7 @@ public:
         bool used;
         uint8_t pad[3];
     };
-    static_assert(sizeof(NamedHeap) == 0x90, "layout must match the original");
+    static_assert(sizeof(LabeledZone) == 0x90, "layout must match the original");
     static constexpr int kMaxHeaps = 48;
     static constexpr int kMaxNamedHeaps = 7;
     static constexpr int kMaxSkaters = 8;
@@ -34,43 +34,43 @@ public:
     void InitStandardHeaps();
     // A new heap in `region`, registered.
     Heap* AddHeap(Region* region, int direction, const char* name);
-    void InitNetMiscHeap();
+    void CreateNetScratchZone();
     void InitInternetHeaps();
     void InitCutsceneHeaps(uint32_t size);
     // Heaps for skaters 1 to count-1 (multiplayer; at most 8 skaters).
     void InitExtraSkaterHeaps(int count);
     // A heap of its own region, found by name checksum.
-    void InitNamedHeap(uint32_t name, uint32_t size, const char* text, int unused);
+    void CreateLabeledZone(uint32_t name, uint32_t size, const char* text, int unused);
 
-    // Allocation through a heap (null: the current one); `assertOnFail` reaches the heap as is.
-    void* Allocate(uint32_t size, int assertOnFail, Allocator* heap);
-    void* AllocateZeroed(uint32_t size, int assertOnFail, Allocator* heap);
-    void* ReallocateUp(uint32_t size, void* block, Allocator* heap);
-    void* ReallocateShrink(uint32_t size, void* block, Allocator* heap);
+    // Allocation through a heap (null: the current one); `haltIfExhausted` reaches the heap as is.
+    void* Allocate(uint32_t size, int haltIfExhausted, Allocator* heap);
+    void* AllocateZeroed(uint32_t size, int haltIfExhausted, Allocator* heap);
+    void* ExtendBlockUpward(uint32_t size, void* block, Allocator* heap);
+    void* TrimBlockEnd(uint32_t size, void* block, Allocator* heap);
     void Free(void* block);
     // The current heap's largest possible allocation.
     uint32_t Available();
 
     // The current-heap stack.
-    void PushContext(Allocator* heap);
-    void PopContext();
+    void EnterHeapScope(Allocator* heap);
+    void LeaveHeapScope();
     const char* CurrentHeapName();
 
     // The registry of all heaps.
-    Allocator* FirstHeap();
-    Allocator* NextHeap(Allocator* heap);
+    Allocator* FirstZone();
+    Allocator* FollowingZone(Allocator* heap);
     // Take it out of the registry and delete it.
     void DeleteHeap(Allocator* heap);
 
     // Heaps by name checksum.
-    NamedHeap* FindNamedHeap(uint32_t name);
+    LabeledZone* FindNamedHeap(uint32_t name);
     Heap* GetNamedHeap(uint32_t name, int unused);
-    bool DeleteNamedHeap(uint32_t name, int unused);
-    Heap* GetHeap(uint32_t name);
-    const char* GetHeapName(uint32_t name);
+    bool ReleaseLabeledZone(uint32_t name, int unused);
+    Heap* GetMemoryPool(uint32_t name);
+    const char* GetZoneLabel(uint32_t name);
 
     // Deleting the optional heaps.
-    void DeleteNetMiscHeap();
+    void ReleaseNetScratchZone();
     void DeleteCutsceneHeaps();
     void DeleteExtraSkaterHeaps();
     void DeleteStandardHeaps();
@@ -106,7 +106,7 @@ public:
     Heap* m_skaterHeaps[kMaxSkaters];
     Region* m_skaterGeomRegions[kMaxSkaters];
     Heap* m_skaterGeomHeaps[kMaxSkaters];
-    NamedHeap m_namedHeaps[kMaxNamedHeaps];
+    LabeledZone m_namedHeaps[kMaxNamedHeaps];
     Region* m_skaterInfoRegion;
     Heap* m_skaterInfoHeap;
     Region* m_themeRegion;

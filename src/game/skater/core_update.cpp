@@ -32,7 +32,7 @@ constexpr uint32_t kLeftAir = 0x5E27200A;
 // 0x00510830
 void CorePhysicsComponent::Update()
 {
-    At<float>(this, kFrameLength) = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    At<float>(this, kFrameLength) = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     CollisionEvents::Checkpoint(this, "update-start"); // (not original)
     bool bike = ThawBmx::Active(this); // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike)
@@ -95,13 +95,13 @@ void CorePhysicsComponent::Update()
     uint8_t& airFromJump = At<uint8_t>(this, kAirFromJump);
     if (airFromJump != inAir) {
         airFromJump = !airFromJump;
-        static_cast<Obj::CObject*>(ObjectOf(this))->BroadcastEvent(airFromJump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
+        static_cast<GameObjects::CObject*>(ObjectOf(this))->BroadcastEvent(airFromJump ? kEnteredAir : kLeftAir, nullptr, 0.0f);
     }
     if (StateOf(this) != kAir)
         At<int>(this, kAirTimer) = 0;
     if (bike && ThawBmx::Active(this))
         ThawBmx::EndFrame(this); // (not original: THAW 0x005C9210, the x-up let go)
-    reinterpret_cast<void*&>(Nx::g_currentCache) = nullptr;
+    reinterpret_cast<void*&>(Engine3D::g_currentCache) = nullptr;
     CollisionEvents::EndFrame(this); // (not original: [debug] collision_events)
 }
 

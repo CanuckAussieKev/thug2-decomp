@@ -24,7 +24,7 @@
 //   - A level's chain node relinked: its own links= array is rewritten in place (its links as the level had them kept
 //     to put back). A level's point deleted: hidden with phase 3's marker class (`drop`), the points before it linked
 //     on to the one after it.
-//   - Rails: the game makes the rail manager's nodes only at the level's load (0x0057E960 CRailManager::AddFromNodeArray
+//   - Rails: the game makes the rail manager's nodes only at the level's load (0x0057E960 CGrindRailHub::AddFromNodeArray
 //     from CFunc_ParseNodeArray 0x005A34E0, after 0x0057C330 Cleanup - the only other caller is a moving object's rail
 //     manager 0x0042B880) and has no way to add one later, so the editor builds it again the same way (RebuildRails):
 //     every node it has is kept as it is (moved places, terrain, on / off - RemoveOverlaps' choices), new rail points
@@ -39,7 +39,7 @@
 //     reload: the layout applies a second after the level is up, and does the same).
 //   - Ladders (phase 4b): two ClimbingNodes of Type Ladder (CreatedAtStart, the same Angles (0, a, 0) - THUG2's own
 //     ladders: AP's palms, PH's and NO's buildings), the foot linked to the top. The rail manager keeps a climbing
-//     node's orientation as a quaternion (CRailNode::m_climb, from its Angles in AddNode); the skater climbing it
+//     node's orientation as a quaternion (CGrindPoint::m_climb, from its Angles in AddNode); the skater climbing it
 //     stands back from it against its at row (0x004413E0: the point minus at * a script distance), so the at row -
 //     (sin a, 0, cos a) - points into the wall: measured on the levels' ladders against their collision (the nearer
 //     front face is along +at for buildings). Drawn: the foot clicked on a wall (4 out from it, down to the ground
@@ -52,11 +52,11 @@
 //     combo's trick objects (0x00588A20 through 0x00588380 - graffiti / trick-object scoring). A drawn rail is
 //     registered the same way when the rail manager is built again: its cluster the scenery piece the first click hit
 //     (as the levels name their rails' clusters), else its first point; Inspector "Trick object" off takes its points
-//     out of the map again (Lst::HashTable::FlushItem). Gaps aren't trick objects: a level's gaps are its nodes'
+//     out of the map again (ListKit::HashTable::EraseEntry). Gaps aren't trick objects: a level's gaps are its nodes'
 //     scripts (StartGap / EndGap) - a drawn rail has none.
 //   - Grindable on flat ground (phase 4b): the game has no node flag for it - RailClear (0x0057C600, all its callers:
 //     the rail manager's finds and the skater's 0x0043E29F, 0x0050E5FB, 0x00516ABF...) passes every rail only in the
-//     park editor's level. Ours lets a rail the editor marks pass too (Obj::SetRailClearOverride: its segments by their
+//     park editor's level. Ours lets a rail the editor marks pass too (GameObjects::SetRailClearOverride: its segments by their
 //     ends' places): an added point's `grindflat=1`, a level point's `grindflat` record, and in a baked level
 //     (tools/pipeline/game/apply_layout.ts) the node flag ed_grind_flat, which only this game reads.
 //   - Ledges (the feature map): ClimbingNode chains of Type Ledge (THUG2's own form: CreatedAtStart, Type=Ledge, and
@@ -66,7 +66,7 @@
 //     their own tools (a ledge isn't turned or deleted whole).
 //   - Rail speed-ups (the feature map; THAW's RailAccelerate, which the THAW ports carry in their scripts - skutils.qb's:
 //     while the skater grinds a rail and climbs, more speed each frame): a rail point's TriggerScript runs when the
-//     skater lands on its segment (the skater's rail code calls CTriggerComponent::TriggerNode 0x00434A60, which reads
+//     skater lands on its segment (the skater's rail code calls CActivationZoneModule::TriggerNode 0x00434A60, which reads
 //     the node's TriggerScript then - so a change shows at once). A point given a speed-up gets a script of the
 //     editor's as its TriggerScript (its own component, over any shared one; the node's script before is kept and
 //     called first, its arguments passed on): ed_railspeed_<node> = `[<its script> <...>]` + `ed_RailSpeed rate=<r>`,
@@ -88,7 +88,7 @@
 //   grindflat <node>                                         a level rail point grindable on flat ground
 //   railspeed <node> <rate>                                  a level rail point given a speed-up (rate 0.005 - 0.5)
 // Nodes are 8 hex digits (their checksums), terrains their names (TERRAIN_GRINDMETAL).
-namespace Front::LevelEditor::Chains {
+namespace MenuSystem::LevelEditor::Chains {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -300,7 +300,7 @@ struct SpeedSegment {
 std::vector<SpeedSegment> SpeedSegments(V3 near, float radius);
 // A click while drawing a ladder: the ray from `from` along `dir`. True: the ladder was made (drawing stops).
 bool LadderClick(V3 from, V3 dir, float maxT, std::string* message, uint32_t* select);
-// The rail manager's RailClear override (Obj::SetRailClearOverride): a segment of a rail marked grindable on flat
+// The rail manager's RailClear override (GameObjects::SetRailClearOverride): a segment of a rail marked grindable on flat
 // ground.
 bool FlatGrindable(V3 a, V3 b);
 void StartDrawing(Draw kind);
@@ -350,4 +350,4 @@ struct View {
 };
 View ViewOf(uint32_t name);
 
-} // namespace Front::LevelEditor::Chains
+} // namespace MenuSystem::LevelEditor::Chains

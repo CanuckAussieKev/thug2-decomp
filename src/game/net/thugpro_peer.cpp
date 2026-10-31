@@ -42,16 +42,16 @@
 #include "game/net/buddy_man.h"
 #include "game/net/stats_man.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
-namespace CFuncs {
-bool __cdecl CFunc_Create(Script::CStruct* params, Script::CScript* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
-bool __cdecl CFunc_Kill(Script::CStruct* params, Script::CScript* script);   // 0x005A5030
-} // namespace CFuncs
+namespace ScriptCommands {
+bool __cdecl CFunc_Create(Scripts::CStruct* params, Scripts::CScript* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
+bool __cdecl CFunc_Kill(Scripts::CStruct* params, Scripts::CScript* script);   // 0x005A5030
+} // namespace ScriptCommands
 
-namespace GameNet::Thugpro {
+namespace OnlinePlay::Thugpro {
 
 namespace {
 
@@ -78,15 +78,15 @@ int g_override = -1;
 
 bool ReadPeerMode()
 {
-    if (_stricmp(Net::GameName(), "thugpro") == 0)
+    if (_stricmp(NetLink::GameName(), "thugpro") == 0)
         return true;
-    return Config::GetBool("online", "thugpro_peer", false);
+    return BuildInfo::GetBool("online", "thugpro_peer", false);
 }
 
 uint32_t ReadMachineId()
 {
     char text[32];
-    Config::GetString("online", "thugpro_machine_id", "", text, sizeof(text));
+    BuildInfo::GetString("online", "thugpro_machine_id", "", text, sizeof(text));
     uint32_t id = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     std::random_device random;
     while (id == 0)
@@ -186,18 +186,18 @@ bool DecodeChat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* ou
     return true;
 }
 
-uint8_t LevelOptions(const ServerInfo& info) { return static_cast<uint8_t>(info.flags & 0xFF); }
-uint8_t ProSets(const ServerInfo& info) { return static_cast<uint8_t>((info.flags >> 8) & 0xFF); }
+uint8_t LevelOptions(const HostListing& info) { return static_cast<uint8_t>(info.flags & 0xFF); }
+uint8_t ProSets(const HostListing& info) { return static_cast<uint8_t>((info.flags >> 8) & 0xFF); }
 uint64_t MakeFlags(uint8_t levelOptions, uint8_t proSets)
 {
     return static_cast<uint64_t>(levelOptions) | (static_cast<uint64_t>(proSets) << 8);
 }
 
-bool DecodeServerInfo(const uint8_t* data, uint32_t length, ServerInfo* out)
+bool DecodeServerInfo(const uint8_t* data, uint32_t length, HostListing* out)
 {
-    if (!data || length < sizeof(ServerInfo))
+    if (!data || length < sizeof(HostListing))
         return false;
-    std::memcpy(out, data, sizeof(ServerInfo));
+    std::memcpy(out, data, sizeof(HostListing));
     return true;
 }
 
@@ -224,12 +224,12 @@ void ExtendChangeLevel(const uint8_t* message, const char* name, uint8_t out[kCh
 
 // --- Effects ---
 
-bool IsTimeOfDay(uint32_t state) { return Gfx::NextTODState(state) != 0; }
+bool IsTimeOfDay(uint32_t state) { return Gfx2D::NextTODState(state) != 0; }
 
 bool ProSetLevel(uint32_t levelLoad)
 {
     for (const char* load : kProSetLevels)
-        if (Crc::GenerateCRCFromString(load) == levelLoad)
+        if (Checksums::HashFromText(load) == levelLoad)
             return true;
     return false;
 }
@@ -255,11 +255,11 @@ void ApplyProSet(int index, bool on, uint32_t levelLoad, Effects& effects)
     effects.KillPrefix(p.geoNot);
     effects.KillPrefix(p.trgNot);
     effects.KillPrefix("TRG_G_COMP_Spectator");
-    if (levelLoad == Crc::GenerateCRCFromString("Load_sch"))
-        effects.KillName(Crc::GenerateCRCFromString("G_COMP_Ramp04"));
+    if (levelLoad == Checksums::HashFromText("Load_sch"))
+        effects.KillName(Checksums::HashFromText("G_COMP_Ramp04"));
 }
 
-void ApplyServerInfo(const ServerInfo& info, const char* levelPrefix, uint32_t levelLoad, Effects& effects)
+void ApplyServerInfo(const HostListing& info, const char* levelPrefix, uint32_t levelLoad, Effects& effects)
 {
     effects.SetTimeOfDay(info.timeOfDay);
     effects.SetWeather(info.weather);
@@ -273,7 +273,7 @@ void ApplyServerInfo(const ServerInfo& info, const char* levelPrefix, uint32_t l
                 continue;
             char name[96];
             std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", levelPrefix, n);
-            effects.RunScript(Crc::GenerateCRCFromString(name), true);
+            effects.LaunchScript(Checksums::HashFromText(name), true);
         }
     }
     // The pro sets: in THUGPRO's THPS4 levels and New York all eight toggled by their flags (THUGPRO's
@@ -293,8 +293,8 @@ public:
     void SetTimeOfDay(uint32_t state) override
     {
         if (!IsTimeOfDay(state))
-            state = Gfx::kAfternoon; // (THUGPRO's thugpro_change_time_of_day: anything else is afternoon)
-        Gfx::CTODManager* manager = Gfx::TODManager();
+            state = Gfx2D::kAfternoon; // (THUGPRO's thugpro_change_time_of_day: anything else is afternoon)
+        Gfx2D::CTODManager* manager = Gfx2D::TODManager();
         if (!manager || !manager->CanSetTODInstant(state)) {
             Log("thugpro: time of day %08X not set (no time-of-day states in this level)", state);
             return;
@@ -310,7 +310,7 @@ public:
         // (THUGPRO clears it: it has its own per-level weather settings - ours are THUG2's).
         if (weather == kWeatherDefault)
             return;
-        uint8_t* object = reinterpret_cast<uint8_t*>(Nx::g_weather);
+        uint8_t* object = reinterpret_cast<uint8_t*>(Engine3D::g_weather);
         if (!object)
             return;
         float& rainRate = *reinterpret_cast<float*>(object + 0x10);
@@ -329,63 +329,63 @@ public:
             snowRate = 0.0f;
         }
     }
-    bool RunScript(uint32_t script, bool on) override
+    bool LaunchScript(uint32_t script, bool on) override
     {
-        if (!Script::ScriptExists(script))
+        if (!Scripts::ScriptExists(script))
             return false;
-        Script::CStruct* params = NewParams();
-        params->AddChecksum(0u, on ? kOn : kOff);
-        Script::RunScript(script, params, nullptr, false, nullptr);
+        Scripts::CStruct* params = NewParams();
+        params->PutNameKey(0u, on ? kOn : kOff);
+        Scripts::LaunchScript(script, params, nullptr, false, nullptr);
         DeleteParams(params);
         return true;
     }
-    void KillPrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(CFuncs::CFunc_Kill)), kPrefix, prefix, 0); }
-    void CreatePrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(CFuncs::CFunc_Create)), kPrefix, prefix, 0); }
-    void KillName(uint32_t name) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(CFuncs::CFunc_Kill)), kName, nullptr, name); }
+    void KillPrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(ScriptCommands::CFunc_Kill)), kPrefix, prefix, 0); }
+    void CreatePrefix(const char* prefix) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(ScriptCommands::CFunc_Create)), kPrefix, prefix, 0); }
+    void KillName(uint32_t name) override { ObjectCommand(reinterpret_cast<uint32_t>(CodeAddress(ScriptCommands::CFunc_Kill)), kName, nullptr, name); }
 
 private:
-    static Script::CStruct* NewParams()
+    static Scripts::CStruct* NewParams()
     {
-        Script::CStruct* params = Script::NewStruct();
+        Scripts::CStruct* params = Scripts::NewStruct();
         return params ? params->Init() : nullptr;
     }
-    static void DeleteParams(Script::CStruct* params)
+    static void DeleteParams(Scripts::CStruct* params)
     {
         if (!params)
             return;
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
     // The script commands Kill (0x005A5030) and Create (0x005A4FF0) - prefix= or name= - run from a spawned
     // NullScript (Kill reads its script's object for some classes: it needs a real script).
     static void ObjectCommand(uint32_t command, uint32_t key, const char* text, uint32_t checksum)
     {
-        if (!Script::ScriptExists(kNullScript)) {
+        if (!Scripts::ScriptExists(kNullScript)) {
             Log("thugpro: no NullScript - pro sets not changed");
             return;
         }
-        Script::CScript* script = Script::SpawnScript(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false,
+        Scripts::CScript* script = Scripts::SpawnScript(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false,
                                                       false);
         if (!script)
             return;
-        Script::CStruct* params = NewParams();
+        Scripts::CStruct* params = NewParams();
         if (text)
             params->AddString(key, text);
         else
-            params->AddChecksum(key, checksum);
-        reinterpret_cast<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(command)(params, script);
+            params->PutNameKey(key, checksum);
+        reinterpret_cast<bool(__cdecl*)(Scripts::CStruct*, Scripts::CScript*)>(command)(params, script);
         DeleteParams(params);
-        Script::KillSpawnedScript(script);
+        Scripts::KillSpawnedScript(script);
     }
 };
 
 // The level structure being played: its `level` (the skate module's +0x380: the structure's name).
 const char* CurrentLevelPrefix()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     if (!skate)
         return nullptr;
-    Script::CStruct* structure = Script::GetStructure(*reinterpret_cast<uint32_t*>(skate + 0x380));
+    Scripts::CStruct* structure = Scripts::ReadSubStruct(*reinterpret_cast<uint32_t*>(skate + 0x380));
     const char* prefix = nullptr;
     if (!structure || !structure->GetString(kLevel, &prefix, 0))
         return nullptr;
@@ -396,7 +396,7 @@ const char* CurrentLevelPrefix()
 struct Session {
     bool have = false;      // server info (or an update) received
     bool applied = false;   // applied since the level's last load
-    ServerInfo info = {Gfx::kAfternoon, kWeatherDefault, 0};
+    HostListing info = {Gfx2D::kAfternoon, kWeatherDefault, 0};
     uint32_t level = 0;     // the network level (load script) and the skater it was applied with
     void* skater = nullptr;
     int settle = 0;         // frames the level has been up
@@ -423,34 +423,34 @@ void ApplySession()
 {
     GameEffects effects;
     const char* prefix = CurrentLevelPrefix();
-    const ServerInfo& info = g_session.info;
+    const HostListing& info = g_session.info;
     Log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
         prefix ? prefix : "(no level structure)", info.timeOfDay, info.weather, LevelOptions(info), ProSets(info));
     ApplyServerInfo(info, prefix, NetManager()->m_level, effects);
     g_session.applied = true;
 }
 
-uint32_t Word(Net::MsgHandlerContext* context)
+uint32_t Word(NetLink::InboundMsgCtx* context)
 {
     uint32_t value = 0;
-    if (context->m_MsgLength >= 4)
-        std::memcpy(&value, context->m_Msg, 4);
+    if (context->m_bodySize >= 4)
+        std::memcpy(&value, context->m_body, 4);
     return value;
 }
 
 // Server info for `app`'s connection `handle`, before THUG2's start info.
-void SendServerInfo(Net::App* app, int handle)
+void SendServerInfo(NetLink::App* app, int handle)
 {
-    ServerInfo info = HostServerInfo();
-    Net::MsgDesc desc;
+    HostListing info = HostServerInfo();
+    NetLink::NetMessageInfo desc;
     desc.Construct();
     desc.m_id = kMsgServerInfo;
-    desc.m_length = sizeof(info);
+    desc.m_byteCount = sizeof(info);
     desc.m_data = &info;
     desc.m_priority = 0xFF;
-    desc.m_queue = Net::MsgDesc::kQueueImportant;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueImportant;
     desc.m_groupId = kGroupPlayerMessages;
-    app->EnqueueMessage(handle, &desc);
+    app->PutOnOutbox(handle, &desc);
 }
 
 // A 4-byte update to every player (the host's own client ignores it).
@@ -459,18 +459,18 @@ void Broadcast(uint8_t id, uint32_t value)
     Manager* manager = NetManager();
     if (!IsHostOfNetGame(manager) || !manager->m_server)
         return;
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
     desc.m_id = id;
-    desc.m_length = 4;
+    desc.m_byteCount = 4;
     desc.m_data = &value;
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupPlayerMessages;
-    manager->m_server->EnqueueMessage(kHandleBroadcast, &desc);
+    manager->m_server->PutOnOutbox(kHandleBroadcast, &desc);
 }
 
-// NOT ORIGINAL - App::EnqueueMessage's filter (net_app.h): what THUGPRO's EnqueueMessage hook adds when we host.
-bool FilterOutgoing(Net::App* app, int handle, Net::MsgDesc* desc)
+// NOT ORIGINAL - App::PutOnOutbox's filter (net_app.h): what THUGPRO's PutOnOutbox hook adds when we host.
+bool FilterOutgoing(NetLink::App* app, int handle, NetLink::NetMessageInfo* desc)
 {
     if (!PeerMode())
         return false;
@@ -481,16 +481,16 @@ bool FilterOutgoing(Net::App* app, int handle, Net::MsgDesc* desc)
         SendServerInfo(app, handle);
         return false;
     }
-    if (desc->m_id == kMsgChangeLevel && desc->m_length == kChangeLevelSize && desc->m_data) {
+    if (desc->m_id == kMsgChangeLevel && desc->m_byteCount == kChangeLevelSize && desc->m_data) {
         uint8_t message[kChangeLevelThugproSize];
         const auto* data = static_cast<const uint8_t*>(desc->m_data);
         uint32_t level;
         std::memcpy(&level, data, 4);
         ExtendChangeLevel(data, ChangeLevelName(level, Manager::LevelListName(level)), message);
-        Net::MsgDesc extended = *desc;
+        NetLink::NetMessageInfo extended = *desc;
         extended.m_data = message;
-        extended.m_length = kChangeLevelThugproSize;
-        app->EnqueueMessage(handle, &extended);
+        extended.m_byteCount = kChangeLevelThugproSize;
+        app->PutOnOutbox(handle, &extended);
         return true;
     }
     return false;
@@ -508,34 +508,34 @@ bool UnlockTimeOfDay()
 struct Install {
     Install()
     {
-        Net::SetEnqueueFilter(FilterOutgoing);
-        Gfx::SetMultiplayerUnlock(UnlockTimeOfDay);
+        NetLink::SetEnqueueFilter(FilterOutgoing);
+        Gfx2D::SetMultiplayerUnlock(UnlockTimeOfDay);
     }
 } g_install;
 
 } // namespace
 
-const ServerInfo* ReceivedServerInfo() { return g_session.have ? &g_session.info : nullptr; }
+const HostListing* ReceivedServerInfo() { return g_session.have ? &g_session.info : nullptr; }
 bool TimeOfDayUnlocked() { return UnlockTimeOfDay(); }
-bool FilterOutgoingMessage(Net::App* app, int handle, Net::MsgDesc* desc) { return FilterOutgoing(app, handle, desc); }
+bool FilterOutgoingMessage(NetLink::App* app, int handle, NetLink::NetMessageInfo* desc) { return FilterOutgoing(app, handle, desc); }
 
 // --- The handlers ---
 
-void AddClientHandlers(Net::App* client, void* skate)
+void AddClientHandlers(NetLink::App* client, void* skate)
 {
-    Net::Dispatcher& dispatcher = client->m_dispatcher;
+    NetLink::Dispatcher& dispatcher = client->m_dispatcher;
     dispatcher.AddHandler(kMsgServerInfo, HandleServerInfo, 0, skate, 0x80);
     dispatcher.AddHandler(kMsgModsAllowed, HandleModsAllowed, 0, skate, 0x80);
-    dispatcher.AddHandler(kMsgUpdateTimeOfDay, HandleUpdateTimeOfDay, Net::kPacketLate, skate, 0x80);
-    dispatcher.AddHandler(kMsgUpdateWeather, HandleUpdateWeather, Net::kPacketLate, skate, 0x80);
-    dispatcher.AddHandler(kMsgUpdateLevelOption, HandleUpdateLevelOption, Net::kPacketLate, skate, 0x80);
+    dispatcher.AddHandler(kMsgUpdateTimeOfDay, HandleUpdateTimeOfDay, NetLink::kPacketLate, skate, 0x80);
+    dispatcher.AddHandler(kMsgUpdateWeather, HandleUpdateWeather, NetLink::kPacketLate, skate, 0x80);
+    dispatcher.AddHandler(kMsgUpdateLevelOption, HandleUpdateLevelOption, NetLink::kPacketLate, skate, 0x80);
 }
 
-int __cdecl HandleServerInfo(Net::MsgHandlerContext* context)
+int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context)
 {
-    ServerInfo info;
+    HostListing info;
     if (!PeerMode() || !IsClientOfNetGame(NetManager()) ||
-        !DecodeServerInfo(reinterpret_cast<const uint8_t*>(context->m_Msg), context->m_MsgLength, &info))
+        !DecodeServerInfo(reinterpret_cast<const uint8_t*>(context->m_body), context->m_bodySize, &info))
         return 1;
     g_session.have = true;
     g_session.applied = false;
@@ -545,9 +545,9 @@ int __cdecl HandleServerInfo(Net::MsgHandlerContext* context)
     return 1;
 }
 
-int __cdecl HandleUpdateTimeOfDay(Net::MsgHandlerContext* context)
+int __cdecl HandleUpdateTimeOfDay(NetLink::InboundMsgCtx* context)
 {
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_MsgLength < 4)
+    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_bodySize < 4)
         return 1;
     g_session.have = true;
     g_session.info.timeOfDay = Word(context);
@@ -558,9 +558,9 @@ int __cdecl HandleUpdateTimeOfDay(Net::MsgHandlerContext* context)
     return 1;
 }
 
-int __cdecl HandleUpdateWeather(Net::MsgHandlerContext* context)
+int __cdecl HandleUpdateWeather(NetLink::InboundMsgCtx* context)
 {
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_MsgLength < 4)
+    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_bodySize < 4)
         return 1;
     g_session.have = true;
     g_session.info.weather = Word(context);
@@ -572,18 +572,18 @@ int __cdecl HandleUpdateWeather(Net::MsgHandlerContext* context)
 }
 
 // (THUGPRO registers it and does nothing; no THUGPRO code sends it)
-int __cdecl HandleUpdateLevelOption(Net::MsgHandlerContext* /*context*/) { return 1; }
+int __cdecl HandleUpdateLevelOption(NetLink::InboundMsgCtx* /*context*/) { return 1; }
 
-int __cdecl HandleModsAllowed(Net::MsgHandlerContext* context)
+int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_MsgLength < 4 || Word(context) == 1)
+    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_bodySize < 4 || Word(context) == 1)
         return 1;
     Log("thugpro: the host allows no modified scripts (message 159) - leaving");
-    Net::MsgHandlerContext removed = *context;
-    removed.m_MsgId = 'Q';
-    return Mdl::SkateNet::HandleServerRemovedYou(&removed);
+    NetLink::InboundMsgCtx removed = *context;
+    removed.m_typeCode = 'Q';
+    return GameModules::SkateNet::HandleServerRemovedYou(&removed);
 }
 
 void Update()
@@ -595,10 +595,10 @@ void Update()
         g_session = Session();
         return;
     }
-    uint32_t now = Tmr::GetTime();
+    uint32_t now = FrameClock::GetTime();
     bool loaded = g_session.lastTime != 0 && now - g_session.lastTime > kLoadGapMs;
     g_session.lastTime = now;
-    void* skater = Obj::FindObject(kSkater);
+    void* skater = GameObjects::FindObject(kSkater);
     if (loaded || !skater || manager->m_level == kLoadMainMenu || manager->m_level != g_session.level ||
         skater != g_session.skater) {
         if (loaded || manager->m_level != g_session.level || skater != g_session.skater)
@@ -619,10 +619,10 @@ void Update()
 
 // --- Hosting ---
 
-ServerInfo HostServerInfo()
+HostListing HostServerInfo()
 {
-    ServerInfo info = {Gfx::kAfternoon, g_host.weather, MakeFlags(g_host.levelOptions, g_host.proSets)};
-    if (Gfx::CTODManager* manager = Gfx::TODManager()) {
+    HostListing info = {Gfx2D::kAfternoon, g_host.weather, MakeFlags(g_host.levelOptions, g_host.proSets)};
+    if (Gfx2D::CTODManager* manager = Gfx2D::TODManager()) {
         uint32_t state = manager->CurrentState();
         if (IsTimeOfDay(state))
             info.timeOfDay = state;
@@ -637,7 +637,7 @@ uint32_t StateNamed(const char* word, const char* const* names, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
         if (_stricmp(word, names[i]) == 0)
-            return Crc::GenerateCRCFromString(names[i]);
+            return Checksums::HashFromText(names[i]);
     return 0;
 }
 
@@ -669,7 +669,7 @@ bool HandleChatCommand(const char* text)
     bool client = IsClientOfNetGame(manager);
     char line[160];
     if (_stricmp(command, "thugpro") == 0) {
-        const ServerInfo& info = g_session.info;
+        const HostListing& info = g_session.info;
         std::snprintf(line, sizeof(line),
                       "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
                       "%02X",
@@ -727,7 +727,7 @@ bool HandleChatCommand(const char* text)
         const char* prefix = CurrentLevelPrefix();
         char name[96];
         std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
-        bool ran = prefix && effects.RunScript(Crc::GenerateCRCFromString(name), on);
+        bool ran = prefix && effects.LaunchScript(Checksums::HashFromText(name), on);
         std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
                       ran ? "" : " (this level has no such option)");
     } else {
@@ -742,4 +742,4 @@ bool HandleChatCommand(const char* text)
     return true;
 }
 
-} // namespace GameNet::Thugpro
+} // namespace OnlinePlay::Thugpro

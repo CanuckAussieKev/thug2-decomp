@@ -14,7 +14,7 @@
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
-namespace Nx {
+namespace Engine3D {
 
 char g_metaButtonMap[32];
 FontSlot g_fontSlots[16];
@@ -24,7 +24,7 @@ namespace {
 extern void** const kFontVtable;
 
 FontSlot* Slots() { return g_fontSlots; }
-Lst::HashTable& FontTable() { return g_fontTable; }
+ListKit::HashTable& FontTable() { return g_fontTable; }
 char* MetaButtonMap() { return g_metaButtonMap; }
 
 template <typename R = void, typename... A>
@@ -54,7 +54,7 @@ CFont* CFont::Destroy(unsigned int flags)
 {
     m_vtable = reinterpret_cast<void**>(kFontVtable);
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -66,21 +66,21 @@ void CFont::Unload()
 }
 
 // 0x0048D070
-void CFont::PlatSetSpacings(int /*charSpacing*/, int /*spaceSpacing*/)
+void CFont::PlatSetSpacings(int /*glyphGap*/, int /*blankGap*/)
 {
-    Dbg::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
+    DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D080
 void CFont::PlatSetColors(const uint32_t* /*colors*/)
 {
-    Dbg::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
+    DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
 
 // 0x0048D6A0
 char __cdecl ButtonGlyph(const char* digit)
 {
-    return MetaButtonMap()[Str::DehexifyDigit(digit)];
+    return MetaButtonMap()[TextUtil::HexDigitValue(digit)];
 }
 
 // 0x0048D6C0
@@ -92,8 +92,8 @@ void __cdecl UnloadFont(const char* name)
         if (++index >= kFontSlots)
             return;
     }
-    uint32_t key = Crc::GenerateCRCFromString(name);
-    FontTable().FlushItem(key);
+    uint32_t key = Checksums::HashFromText(name);
+    FontTable().EraseEntry(key);
     UnloadPcFont(reinterpret_cast<CPcFont*>(slots[index].font));
     slots[index].font = nullptr;
 }
@@ -106,7 +106,7 @@ CFont* __cdecl GetFont(uint32_t name)
 }
 
 // 0x0048D7B0
-bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_UnloadFont(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
     params->GetString(0u, &name, 0);
@@ -115,8 +115,8 @@ bool __cdecl CFunc_UnloadFont(Script::CStruct* params, Script::CScript* /*script
 }
 
 namespace {
-static VtableSlot kFontVtable_slots[] = {&Nx::CFont::Destroy, Stubs::ReturnFalse1, &Nx::CFont::PlatSetSpacings,
-                &Nx::CFont::PlatSetColors, &Nx::CFont::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
+static VtableSlot kFontVtable_slots[] = {&Engine3D::CFont::Destroy, Stubs::ReturnFalse1, &Engine3D::CFont::PlatSetSpacings,
+                &Engine3D::CFont::PlatSetColors, &Engine3D::CFont::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
                 Stubs::ReturnZero, Stubs::IgnoreArguments3};
 void** const kFontVtable = reinterpret_cast<void**>(kFontVtable_slots);
 } // namespace

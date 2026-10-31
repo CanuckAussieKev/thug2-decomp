@@ -15,14 +15,14 @@
 #include "game/core/mem.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 // The vertex buffers (not rewritten yet): a new one of `size` bytes, and Unlock (thiscall).
 sVertexBuffer* NewVertexBuffer(uint32_t size)
 {
-    return Nx::NewVertexBuffer(size, 0, 0);
+    return Engine3D::NewVertexBuffer(size, 0, 0);
 }
 void Unlock(sVertexBuffer* buffer) { buffer->Unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
@@ -37,7 +37,7 @@ uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
 sIndexBuffer* NewIndexBuffer(uint32_t bytes)
 {
-    void* memory = Crt::Malloc(0x18);
+    void* memory = Crt::AllocBlock(0x18);
     if (!memory)
         return nullptr;
     return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
@@ -52,12 +52,12 @@ void UploadIndices(sIndexBuffer* buffer)
     std::memcpy(locked, buffer->indices, buffer->size);
     d3d->Unlock();
 }
-void* Malloc(size_t size) { return Crt::Malloc(size); } // the game's C runtime
+void* AllocBlock(size_t size) { return Crt::AllocBlock(size); } // the game's C runtime
 
-// 0x00402550's maths (Mth::CrossProduct as the original computes it: each component in double precision).
-Mth::Vector Cross(const Mth::Vector& a, const Mth::Vector& b)
+// 0x00402550's maths (Maths::CrossProduct as the original computes it: each component in double precision).
+Maths::Vector Cross(const Maths::Vector& a, const Maths::Vector& b)
 {
-    Mth::Vector out;
+    Maths::Vector out;
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -74,7 +74,7 @@ void Identity(float* m)
 } // namespace
 
 // 0x004D6D40
-void sMesh::AddVertexBuffers(int count)
+void meshRef::AddVertexBuffers(int count)
 {
     sVertexBuffer* first = vertexBuffers[0];
     const uint8_t* source = Lock(first, 0x10);
@@ -90,10 +90,10 @@ void sMesh::AddVertexBuffers(int count)
 }
 
 // 0x004D6E00
-void sMesh::MoveTo(const Mth::Vector* position)
+void meshRef::MoveTo(const Maths::Vector* position)
 {
     if (!transform) {
-        transform = static_cast<float*>(Mem::New(0x40));
+        transform = static_cast<float*>(MemSys::New(0x40));
         Identity(transform);
     }
     float dx = static_cast<float>(static_cast<double>(position->x) - transform[12]);
@@ -124,12 +124,12 @@ void sMesh::MoveTo(const Mth::Vector* position)
 }
 
 // 0x004D6FB0
-void sMesh::TurnY(int turns)
+void meshRef::TurnY(int turns)
 {
     if (turns <= 0)
         return;
     if (!transform) {
-        transform = static_cast<float*>(Mem::New(0x40));
+        transform = static_cast<float*>(MemSys::New(0x40));
         Identity(transform);
     }
     for (int b = 0; b < vertexBufferCount; ++b) {
@@ -190,11 +190,11 @@ void sMesh::TurnY(int turns)
 }
 
 // 0x004D71F0
-sMesh* sMesh::Clone(bool share)
+meshRef* meshRef::Clone(bool share)
 {
-    void* memory = Mem::New(sizeof(sMesh));
-    auto* copy = memory ? static_cast<sMesh*>(memory)->Construct() : nullptr; // (constructor)
-    std::memcpy(copy, this, sizeof(sMesh));
+    void* memory = MemSys::New(sizeof(meshRef));
+    auto* copy = memory ? static_cast<meshRef*>(memory)->Construct() : nullptr; // (constructor)
+    std::memcpy(copy, this, sizeof(meshRef));
     if (share) {
         copy->flags |= 1;
     } else {
@@ -216,7 +216,7 @@ sMesh* sMesh::Clone(bool share)
         copy->unknownA4 = unknownA4;
         copy->unknownA8 = unknownA8;
         if (perVertexData) {
-            copy->perVertexData = static_cast<uint8_t*>(Malloc(vertexCount * 0x4C));
+            copy->perVertexData = static_cast<uint8_t*>(AllocBlock(vertexCount * 0x4C));
             std::memcpy(copy->perVertexData, perVertexData, vertexCount * 0x4C);
             copy->unknown9C = -1;
         }
@@ -225,23 +225,23 @@ sMesh* sMesh::Clone(bool share)
             copy->AddVertexBuffers(vertexBufferCount - 1);
         }
         if (perVertexBytes) {
-            copy->perVertexBytes = static_cast<uint8_t*>(Mem::New(copy->vertexCount));
+            copy->perVertexBytes = static_cast<uint8_t*>(MemSys::New(copy->vertexCount));
             std::memcpy(copy->perVertexBytes, perVertexBytes, vertexCount);
         }
     }
     if (positionCount) {
-        copy->triangles = static_cast<uint16_t*>(Malloc(triangleCount * 6));
+        copy->triangles = static_cast<uint16_t*>(AllocBlock(triangleCount * 6));
         std::memcpy(copy->triangles, triangles, triangleCount * 6);
-        copy->positions = static_cast<float*>(Malloc(positionCount * 12));
+        copy->positions = static_cast<float*>(AllocBlock(positionCount * 12));
         std::memcpy(copy->positions, positions, positionCount * 12);
     }
     return copy;
 }
 
 // 0x004D7580
-void sMesh::MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector* axis)
+void meshRef::MakeBillboard(int type, const Maths::Vector* pivot, const Maths::Vector* axis)
 {
-    auto* info = static_cast<sBillboard*>(Mem::New(sizeof(sBillboard)));
+    auto* info = static_cast<sBillboard*>(MemSys::New(sizeof(sBillboard)));
     billboard = info;
     if (type == 1) {
         info->type = 0;
@@ -280,7 +280,7 @@ void sMesh::MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector*
         ny = static_cast<float>(ny * inverse);
         nz = static_cast<float>(nzExact * inverse);
     }
-    Mth::Vector normal;
+    Maths::Vector normal;
     normal.x = nx;
     normal.y = ny;
     normal.z = nz;
@@ -294,7 +294,7 @@ void sMesh::MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector*
     case 0:
     case 1:
     case 3: {
-        Mth::Vector across;
+        Maths::Vector across;
         across.x = static_cast<float>(static_cast<double>(ny) * 0.0f - nz);
         across.y = static_cast<float>(static_cast<double>(nz) * 0.0f - static_cast<double>(nx) * 0.0f);
         across.z = static_cast<float>(nx - static_cast<double>(ny) * 0.0f);
@@ -303,7 +303,7 @@ void sMesh::MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector*
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        Mth::Vector up;
+        Maths::Vector up;
         up.x = static_cast<float>(static_cast<double>(r0[1]) * nz - static_cast<double>(r0[2]) * ny);
         up.y = static_cast<float>(static_cast<double>(r0[2]) * nx - static_cast<double>(nz) * r0[0]);
         up.z = static_cast<float>(static_cast<double>(ny) * r0[0] - static_cast<double>(r0[1]) * nx);
@@ -315,12 +315,12 @@ void sMesh::MakeBillboard(int type, const Mth::Vector* pivot, const Mth::Vector*
         break;
     }
     case 2: {
-        Mth::Vector across = Cross(normal, *axis);
+        Maths::Vector across = Cross(normal, *axis);
         across.Normalize();
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        Mth::Vector up = Cross(across, normal);
+        Maths::Vector up = Cross(across, normal);
         up.Normalize();
         r1x = up.x;
         r1y = up.y;

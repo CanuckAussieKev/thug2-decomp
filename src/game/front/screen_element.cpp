@@ -1,4 +1,4 @@
-// Screen elements: CScreenElement, the base of every front-end element (its states, placement, morphs, the tree,
+// Screen elements: CUiWidget, the base of every front-end element (its states, placement, morphs, the tree,
 // the layout pass, its properties and member functions).
 
 #include "game/front/screen_element.h"
@@ -21,7 +21,7 @@
 #include "game/front/screen_constants.h"
 #include "game/gfx/weather.h"
 
-namespace Front {
+namespace MenuSystem {
 
 namespace {
 extern void** const kCScreenElementVtable;
@@ -47,19 +47,19 @@ static_assert(offsetof(SElementState, pos3d) == 0x04 && offsetof(SElementState, 
                   offsetof(SElementState, scaleX) == 0x28 && offsetof(SElementState, baseScaleX) == 0x30 &&
                   offsetof(SElementState, angle) == 0x38 && offsetof(SElementState, rgba) == 0x3C,
               "layout must match the original");
-static_assert(offsetof(CScreenElement, mp_parent) == 0x4C && offsetof(CScreenElement, mp_firstChild) == 0x58 &&
-                  offsetof(CScreenElement, mp_next) == 0x64 && offsetof(CScreenElement, mp_prev) == 0x70 &&
-                  offsetof(CScreenElement, m_shown) == 0x7C && offsetof(CScreenElement, m_target) == 0xC0 &&
-                  offsetof(CScreenElement, m_morphStart) == 0x104 && offsetof(CScreenElement, m_morphDone) == 0x110 &&
-                  offsetof(CScreenElement, m_summed) == 0x114 && offsetof(CScreenElement, m_justX) == 0x158 &&
-                  offsetof(CScreenElement, m_width) == 0x160 && offsetof(CScreenElement, m_rgba168) == 0x168 &&
-                  offsetof(CScreenElement, m_zPriority) == 0x16C && offsetof(CScreenElement, m_priority) == 0x174 &&
-                  sizeof(CScreenElement) == 0x178,
+static_assert(offsetof(CUiWidget, m_container) == 0x4C && offsetof(CUiWidget, mp_firstChild) == 0x58 &&
+                  offsetof(CUiWidget, m_following) == 0x64 && offsetof(CUiWidget, m_preceding) == 0x70 &&
+                  offsetof(CUiWidget, m_shown) == 0x7C && offsetof(CUiWidget, m_aimPoint) == 0xC0 &&
+                  offsetof(CUiWidget, m_morphStart) == 0x104 && offsetof(CUiWidget, m_morphDone) == 0x110 &&
+                  offsetof(CUiWidget, m_summed) == 0x114 && offsetof(CUiWidget, m_justX) == 0x158 &&
+                  offsetof(CUiWidget, m_span) == 0x160 && offsetof(CUiWidget, m_rgba168) == 0x168 &&
+                  offsetof(CUiWidget, m_zPriority) == 0x16C && offsetof(CUiWidget, m_priority) == 0x174 &&
+                  sizeof(CUiWidget) == 0x178,
               "layout must match the original");
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kSetProps = 0x6C63C7C5, kDoMorph = 0xDD0C8DF3, kDie = 0xC6870028, kGetProps = 0x9492F814;
@@ -80,9 +80,9 @@ constexpr uint32_t kWindowElement = 0xA13ADBB7;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 constexpr uint32_t kDeadBeef = 0xDEADBEEF;
 
-float Degrees() { return ::CFuncs::g_degreesToRadians; }       // pi / 180
-float RotationOffset() { return ::Game::g_goalLifeSecondsPerMillisecond; } // 0.001 (added to a rotation in radians)
-float RadiansToDegrees() { return ::CFuncs::g_scriptRadiansToDegrees; }
+float Degrees() { return ::ScriptCommands::g_degreesToRadians; }       // pi / 180
+float RotationOffset() { return ::GoalSystem::g_goalLifeSecondsPerMillisecond; } // 0.001 (added to a rotation in radians)
+float ConvertToDegrees() { return ::ScriptCommands::g_scriptRadiansToDegrees; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -110,13 +110,13 @@ double X87Cos(double angle)
 
 void LaunchEvent(uint32_t type, uint32_t target)
 {
-    Obj::Tracker()->LaunchEvent(type, target, kSystem, nullptr, false, -1.0f);
+    GameObjects::Tracker()->LaunchEvent(type, target, kSystem, nullptr, false, -1.0f);
 }
 
 void* Manager() { return g_screenElementManager; }
 
 // The screen element manager's pieces.
-CScreenElementManager* Elements(void* manager) { return static_cast<CScreenElementManager*>(manager); }
+CUiTree* Elements(void* manager) { return static_cast<CUiTree*>(manager); }
 bool ManagerUsesPriorities(void* manager) { return Elements(manager)->HasPriorities(); }
 bool ResolveElementId(void* manager, CStruct* params, uint32_t name, uint32_t* id)
 {
@@ -130,34 +130,34 @@ void ManagerSetParent(void* manager, ElementPtr* parent, ElementPtr* child, int 
 {
     Elements(manager)->SetParent(parent, child, unknown);
 }
-void ManagerDestroyElement(void* manager, uint32_t id, int recurse, int unknown, Script::CScript* script)
+void ManagerDestroyElement(void* manager, uint32_t id, int recurse, int unknown, Scripts::CScript* script)
 {
     Elements(manager)->DestroyElement(id, recurse, unknown, script);
 }
 
 // The element's vtable slots (0x0064A090).
-void VSetProperties(CScreenElement* e, CStruct* params)
+void VSetProperties(CUiWidget* e, CStruct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CScreenElement*, CStruct*)>(e->m_vtable[1])(e, params);
+    reinterpret_cast<void(__thiscall*)(CUiWidget*, CStruct*)>(e->m_vtable[1])(e, params);
 }
-void VGetProperties(CScreenElement* e, CStruct* out)
+void VGetProperties(CUiWidget* e, CStruct* out)
 {
-    reinterpret_cast<void(__thiscall*)(CScreenElement*, CStruct*)>(e->m_vtable[8])(e, out);
+    reinterpret_cast<void(__thiscall*)(CUiWidget*, CStruct*)>(e->m_vtable[8])(e, out);
 }
-void VSetMorph(CScreenElement* e, CStruct* params)
+void VSetMorph(CUiWidget* e, CStruct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CScreenElement*, CStruct*)>(e->m_vtable[9])(e, params);
+    reinterpret_cast<void(__thiscall*)(CUiWidget*, CStruct*)>(e->m_vtable[9])(e, params);
 }
-void VUpdate(CScreenElement* e) { reinterpret_cast<void(__thiscall*)(CScreenElement*)>(e->m_vtable[10])(e); }
+void VUpdate(CUiWidget* e) { reinterpret_cast<void(__thiscall*)(CUiWidget*)>(e->m_vtable[10])(e); }
 
 // A state's top left from its position: the justification point (-1..1 across the size) at x, y. Two operand
 // orders occur in the original (the x87 products round differently): dims then scale, or scale then dims.
-void TopLeftDimsFirst(const CScreenElement* e, SElementState* s)
+void TopLeftDimsFirst(const CUiWidget* e, SElementState* s)
 {
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->m_justY) + 1.0) * e->m_height * s->scaleY * 0.5);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->m_justX) + 1.0) * e->m_width * s->scaleX * 0.5);
+    s->top = static_cast<float>(s->y - (static_cast<double>(e->m_justY) + 1.0) * e->m_levelY * s->scaleY * 0.5);
+    s->left = static_cast<float>(s->x - (static_cast<double>(e->m_justX) + 1.0) * e->m_span * s->scaleX * 0.5);
 }
-void TopLeftScaleFirst(const CScreenElement* e, SElementState* s, double width, double height)
+void TopLeftScaleFirst(const CUiWidget* e, SElementState* s, double width, double height)
 {
     s->top = static_cast<float>(s->y - (static_cast<double>(e->m_justY) + 1.0) * s->scaleY * height * 0.5);
     s->left = static_cast<float>(s->x - (static_cast<double>(e->m_justX) + 1.0) * s->scaleX * width * 0.5);
@@ -173,7 +173,7 @@ void SetRgbaBytes(uint8_t* bytes, uint32_t value) { std::memcpy(bytes, &value, 4
 
 // x87 FSIN / FCOS of a parent's angle and the rotated, scaled offset of a child's point: the parent's top left
 // plus (px cos - py sin, px sin + py cos), px / py scaled by the parent's summed scale.
-void Rotated(const CScreenElement* parent, float x, float y, double c, double s, float* outX, float* outY)
+void Rotated(const CUiWidget* parent, float x, float y, double c, double s, float* outX, float* outY)
 {
     double py = static_cast<double>(parent->m_summed.scaleY) * y;
     double px = static_cast<double>(parent->m_summed.scaleX) * x;
@@ -194,18 +194,18 @@ SElementState* SElementState::Assign(const SElementState* other)
 // --- construction ---------------------------------------------------------------------------------------------
 
 // 0x004A8F90
-CScreenElement* CScreenElement::Construct()
+CUiWidget* CUiWidget::Construct()
 {
-    Obj::CObject::Construct();
+    GameObjects::CObject::Construct();
     m_vtable = kCScreenElementVtable;
-    mp_parent.mp_prev = mp_parent.mp_next = nullptr;
-    mp_parent.mp_object = nullptr;
-    mp_firstChild.mp_prev = mp_firstChild.mp_next = nullptr;
-    mp_firstChild.mp_object = nullptr;
-    mp_next.mp_prev = mp_next.mp_next = nullptr;
-    mp_next.mp_object = nullptr;
-    mp_prev.mp_prev = mp_prev.mp_next = nullptr;
-    mp_prev.mp_object = nullptr;
+    m_container.m_preceding = m_container.m_following = nullptr;
+    m_container.m_ownerObject = nullptr;
+    mp_firstChild.m_preceding = mp_firstChild.m_following = nullptr;
+    mp_firstChild.m_ownerObject = nullptr;
+    m_following.m_preceding = m_following.m_following = nullptr;
+    m_following.m_ownerObject = nullptr;
+    m_preceding.m_preceding = m_preceding.m_following = nullptr;
+    m_preceding.m_ownerObject = nullptr;
     m_morphLength = 0;
     m_shown.scaleX = m_shown.scaleY = 1.0f;
     m_shown.baseScaleX = m_shown.baseScaleY = 1.0f;
@@ -214,10 +214,10 @@ CScreenElement* CScreenElement::Construct()
     m_shown.pos3d = {0.0f, 0.0f, 0.0f, 1.0f};
     m_shown.rgba[0] = m_shown.rgba[1] = m_shown.rgba[2] = m_shown.rgba[3] = 0x80;
     m_shown.alpha = 1.0f;
-    m_target.Assign(&m_shown);
+    m_aimPoint.Assign(&m_shown);
     m_summed.Assign(&m_shown);
     m_objectFlags |= kNew | kDirty;
-    m_width = m_height = 0.0f;
+    m_span = m_levelY = 0.0f;
     m_rgba168[0] = m_rgba168[1] = m_rgba168[2] = m_rgba168[3] = 0x80;
     m_priority = 0;
     m_zPriority = 0.0f;
@@ -226,7 +226,7 @@ CScreenElement* CScreenElement::Construct()
 }
 
 // 0x004AAB30
-void CScreenElement::DestroyBody()
+void CUiWidget::DestroyBody()
 {
     m_vtable = kCScreenElementVtable;
     {
@@ -234,83 +234,83 @@ void CScreenElement::DestroyBody()
         SetParent(&none, 0);
     }
     m_id = kDeadBeef;
-    mp_prev.Release();
-    mp_next.Release();
+    m_preceding.Release();
+    m_following.Release();
     mp_firstChild.Release();
-    mp_parent.Release();
-    Obj::CObject::DestroyBody();
+    m_container.Release();
+    GameObjects::CObject::DestroyBody();
 }
 
 // 0x004AAC90
-CScreenElement* CScreenElement::Destroy(uint8_t flags)
+CUiWidget* CUiWidget::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // --- simple accessors -----------------------------------------------------------------------------------------
 
 // 0x004A8610
-void CScreenElement::GetJust(float* x, float* y) const
+void CUiWidget::FetchAlignment(float* x, float* y) const
 {
     *x = m_justX;
     *y = m_justY;
 }
 
 // 0x004A87C0
-void CScreenElement::GetPos(float* x, float* y) const
+void CUiWidget::GetPos(float* x, float* y) const
 {
-    *x = m_target.x;
-    *y = m_target.y;
+    *x = m_aimPoint.x;
+    *y = m_aimPoint.y;
 }
 
 // 0x004A87E0
-void CScreenElement::GetTopLeft(float* x, float* y) const
+void CUiWidget::GetTopLeft(float* x, float* y) const
 {
-    *x = m_target.left;
-    *y = m_target.top;
+    *x = m_aimPoint.left;
+    *y = m_aimPoint.top;
 }
 
 // 0x004A86C0
-int CScreenElement::GetPriority() const { return m_priority; }
+int CUiWidget::GetPriority() const { return m_priority; }
 
 // 0x004A86B0
-bool CScreenElement::ManagerUsesPriorities() const { return Front::ManagerUsesPriorities(mp_manager); }
+bool CUiWidget::ManagerUsesPriorities() const { return MenuSystem::ManagerUsesPriorities(m_parkOwner); }
 
 // 0x004A87A0
-double CScreenElement::GetLayoutWidth() const { return static_cast<double>(m_width) * m_summed.baseScaleX; }
+double CUiWidget::GetLayoutWidth() const { return static_cast<double>(m_span) * m_summed.baseScaleX; }
 
 // 0x004A87B0
-double CScreenElement::GetLayoutHeight() const { return static_cast<double>(m_height) * m_summed.baseScaleY; }
+double CUiWidget::GetLayoutHeight() const { return static_cast<double>(m_levelY) * m_summed.baseScaleY; }
 
 // 0x004A8F00
-bool CScreenElement::EventsBlocked() const
+bool CUiWidget::InputSuppressed() const
 {
     if (m_objectFlags & kBlockEvents)
         return true;
-    return mp_parent.mp_object && mp_parent.mp_object->EventsBlocked();
+    return m_container.m_ownerObject && m_container.m_ownerObject->InputSuppressed();
 }
 
 // 0x004A8F20
-bool CScreenElement::HasPriority() const
+bool CUiWidget::HasPriority() const
 {
     if (m_objectFlags & kPriority)
         return true;
-    return mp_parent.mp_object && mp_parent.mp_object->HasPriority();
+    return m_container.m_ownerObject && m_container.m_ownerObject->HasPriority();
 }
 
 // 0x004A8F40
-bool CScreenElement::IsHidden() const
+bool CUiWidget::IsHidden() const
 {
     if (m_objectFlags & kHidden)
         return true;
-    return mp_parent.mp_object && mp_parent.mp_object->IsHidden();
+    return m_container.m_ownerObject && m_container.m_ownerObject->IsHidden();
 }
 
 // 0x004A8680
-void CScreenElement::SetPaused(bool pause)
+void CUiWidget::SetFrozen(bool pause)
 {
     if (pause)
         m_objectFlags |= kPauseAsked;
@@ -319,7 +319,7 @@ void CScreenElement::SetPaused(bool pause)
 }
 
 // 0x004A8940
-void CScreenElement::SetFocusSent(int sent)
+void CUiWidget::SetFocusSent(int sent)
 {
     int now = (m_objectFlags & kFocusSent) ? 1 : 0;
     if (sent == now)
@@ -334,16 +334,16 @@ void CScreenElement::SetFocusSent(int sent)
 // --- placement ------------------------------------------------------------------------------------------------
 
 // 0x004A8C30
-void CScreenElement::PlaceTopLeft(SElementState* s) { TopLeftDimsFirst(this, s); }
+void CUiWidget::PlaceTopLeft(SElementState* s) { TopLeftDimsFirst(this, s); }
 
 // 0x004A9100
-void CScreenElement::SetPos(float x, float y, int now)
+void CUiWidget::SetPos(float x, float y, int now)
 {
-    if (x != m_target.x || y != m_target.y) {
-        m_target.x = x;
-        m_target.y = y;
+    if (x != m_aimPoint.x || y != m_aimPoint.y) {
+        m_aimPoint.x = x;
+        m_aimPoint.y = y;
         m_objectFlags |= kDirty;
-        TopLeftDimsFirst(this, &m_target);
+        TopLeftDimsFirst(this, &m_aimPoint);
     }
     if (now && (x != m_shown.x || y != m_shown.y)) {
         m_shown.x = x;
@@ -353,12 +353,12 @@ void CScreenElement::SetPos(float x, float y, int now)
 }
 
 // 0x004A91F0
-void CScreenElement::SetPos3d(const Mth::Vector* pos, int now)
+void CUiWidget::SetPos3d(const Maths::Vector* pos, int now)
 {
-    if (m_target.pos3d != *pos) {
-        m_target.pos3d = *pos;
+    if (m_aimPoint.pos3d != *pos) {
+        m_aimPoint.pos3d = *pos;
         m_objectFlags |= kDirty;
-        TopLeftDimsFirst(this, &m_target);
+        TopLeftDimsFirst(this, &m_aimPoint);
     }
     if (now && m_shown.pos3d != *pos) {
         m_shown.pos3d = *pos;
@@ -368,13 +368,13 @@ void CScreenElement::SetPos3d(const Mth::Vector* pos, int now)
 }
 
 // 0x004A92D0
-void CScreenElement::SetDims(float w, float h, int lock)
+void CUiWidget::FitToSize(float w, float h, int lock)
 {
-    if (w != m_width || h != m_height) {
+    if (w != m_span || h != m_levelY) {
         m_objectFlags |= kDirty;
-        m_width = w;
-        m_height = h;
-        TopLeftScaleFirst(this, &m_target, w, h);
+        m_span = w;
+        m_levelY = h;
+        TopLeftScaleFirst(this, &m_aimPoint, w, h);
     }
     if (lock)
         m_objectFlags |= kDimsLocked;
@@ -383,40 +383,40 @@ void CScreenElement::SetDims(float w, float h, int lock)
 }
 
 // 0x004A9390: the position moves by the justification's change so the element stays where it was.
-void CScreenElement::SetJust(float x, float y)
+void CUiWidget::ChangeAlignment(float x, float y)
 {
     if (x == m_justX && y == m_justY)
         return;
-    double dx = (static_cast<double>(x) - m_justX) * m_shown.scaleX * m_width * 0.5;
-    double dy = (static_cast<double>(y) - m_justY) * m_shown.scaleY * m_height * 0.5;
+    double dx = (static_cast<double>(x) - m_justX) * m_shown.scaleX * m_span * 0.5;
+    double dy = (static_cast<double>(y) - m_justY) * m_shown.scaleY * m_levelY * 0.5;
     float shownY = m_shown.y;
     m_shown.x = static_cast<float>(dx + m_shown.x);
     m_shown.y = static_cast<float>(shownY + dy);
-    float targetY = m_target.y;
-    m_target.x = static_cast<float>(dx + m_target.x);
-    m_target.y = static_cast<float>(targetY + dy);
+    float targetY = m_aimPoint.y;
+    m_aimPoint.x = static_cast<float>(dx + m_aimPoint.x);
+    m_aimPoint.y = static_cast<float>(targetY + dy);
     m_justX = x;
     m_justY = y;
     m_objectFlags |= kDirty;
-    m_target.top = static_cast<float>(m_target.y - (static_cast<double>(y) + 1.0) * m_target.scaleY * m_height * 0.5);
-    m_target.left = static_cast<float>(m_target.x - (static_cast<double>(x) + 1.0) * m_target.scaleX * m_width * 0.5);
+    m_aimPoint.top = static_cast<float>(m_aimPoint.y - (static_cast<double>(y) + 1.0) * m_aimPoint.scaleY * m_levelY * 0.5);
+    m_aimPoint.left = static_cast<float>(m_aimPoint.x - (static_cast<double>(x) + 1.0) * m_aimPoint.scaleX * m_span * 0.5);
 }
 
 // 0x004A94A0
-void CScreenElement::SetScale(float x, float y, bool relative, int now)
+void CUiWidget::ChangeScale(float x, float y, bool relative, int now)
 {
-    bool same = x == m_target.scaleX && y == m_target.scaleY;
+    bool same = x == m_aimPoint.scaleX && y == m_aimPoint.scaleY;
     if (!same || relative) {
         if (relative) {
-            x = static_cast<float>(static_cast<double>(x) * m_target.baseScaleX);
-            y = static_cast<float>(static_cast<double>(y) * m_target.baseScaleY);
+            x = static_cast<float>(static_cast<double>(x) * m_aimPoint.baseScaleX);
+            y = static_cast<float>(static_cast<double>(y) * m_aimPoint.baseScaleY);
         } else {
-            m_target.baseScaleX = x;
-            m_target.baseScaleY = y;
+            m_aimPoint.baseScaleX = x;
+            m_aimPoint.baseScaleY = y;
         }
-        m_target.scaleX = x;
-        m_target.scaleY = y;
-        TopLeftDimsFirst(this, &m_target);
+        m_aimPoint.scaleX = x;
+        m_aimPoint.scaleY = y;
+        TopLeftDimsFirst(this, &m_aimPoint);
         m_objectFlags |= kDirty;
     }
     if (now && (x != m_shown.scaleX || y != m_shown.scaleY)) {
@@ -427,10 +427,10 @@ void CScreenElement::SetScale(float x, float y, bool relative, int now)
 }
 
 // 0x004A8630
-void CScreenElement::SetAlpha(float alpha, int now)
+void CUiWidget::SetAlpha(float alpha, int now)
 {
-    if (alpha != m_target.alpha) {
-        m_target.alpha = alpha;
+    if (alpha != m_aimPoint.alpha) {
+        m_aimPoint.alpha = alpha;
         m_objectFlags |= kDirty;
     }
     if (now && alpha != m_shown.alpha) {
@@ -440,11 +440,11 @@ void CScreenElement::SetAlpha(float alpha, int now)
 }
 
 // 0x004A8800 (the angle is compared unrounded, stored as a float)
-void CScreenElement::SetRotation(float degrees, int now)
+void CUiWidget::SetRotation(float degrees, int now)
 {
     double radians = static_cast<double>(degrees) * Degrees() + RotationOffset();
-    if (radians != m_target.angle) {
-        m_target.angle = static_cast<float>(radians);
+    if (radians != m_aimPoint.angle) {
+        m_aimPoint.angle = static_cast<float>(radians);
         m_objectFlags |= kDirty;
     }
     if (now && radians != m_shown.angle) {
@@ -454,10 +454,10 @@ void CScreenElement::SetRotation(float degrees, int now)
 }
 
 // 0x004A88C0 (the shown colour is set without comparing)
-void CScreenElement::SetRGBA(uint32_t rgba, int now)
+void CUiWidget::ChangeRgba(uint32_t rgba, int now)
 {
-    if (Rgba(m_target.rgba) != rgba) {
-        SetRgbaBytes(m_target.rgba, rgba);
+    if (Rgba(m_aimPoint.rgba) != rgba) {
+        SetRgbaBytes(m_aimPoint.rgba, rgba);
         m_objectFlags |= kDirty;
     }
     if (now) {
@@ -467,108 +467,108 @@ void CScreenElement::SetRGBA(uint32_t rgba, int now)
 }
 
 // 0x004A8870
-void CScreenElement::StartMorph(int ms)
+void CUiWidget::StartMorph(int ms)
 {
-    m_morphStart = Tmr::GetTime();
+    m_morphStart = FrameClock::GetTime();
     m_morphLength = ms;
     m_morphCurveDone = 0.0f;
     m_morphDone = 0.0f;
     if (ms == 0)
-        m_shown.Assign(&m_target);
+        m_shown.Assign(&m_aimPoint);
     m_objectFlags = (m_objectFlags & ~(kPauseAsked | kPaused)) | kDirty;
 }
 
 // 0x004AA390
-void CScreenElement::SetZPriority(float z)
+void CUiWidget::ChangeDrawDepth(float z)
 {
     if (!(m_objectFlags & kZPriority)) {
         m_objectFlags |= kVisibleNow;
         m_zPriority = z;
     }
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     if (child) {
         float next = static_cast<float>(static_cast<double>(z) + 1.0);
         while (child) {
-            child->SetZPriority(next);
-            child.Set(child->mp_next.mp_object);
+            child->ChangeDrawDepth(next);
+            child.Set(child->m_following.m_ownerObject);
         }
     }
 }
 
 // 0x004AA470
-void CScreenElement::SetChildrenPriority(int priority)
+void CUiWidget::SetChildrenPriority(int priority)
 {
     m_objectFlags |= kPriority;
     m_priority = priority;
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     while (child) {
         child->SetChildrenPriority(priority);
-        child.Set(child->mp_next.mp_object);
+        child.Set(child->m_following.m_ownerObject);
     }
 }
 
 // --- the tree -------------------------------------------------------------------------------------------------
 
 // 0x004A8B80
-ElementPtr* CScreenElement::GetParent(ElementPtr* out) const
+ElementPtr* CUiWidget::GetParent(ElementPtr* out) const
 {
-    out->mp_prev = nullptr;
-    out->mp_next = nullptr;
-    out->mp_object = mp_parent.mp_object;
-    if (out->mp_object)
-        reinterpret_cast<Obj::CRefCounted*>(out->mp_object)
-            ->AddSmartPointer(reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(out));
+    out->m_preceding = nullptr;
+    out->m_following = nullptr;
+    out->m_ownerObject = m_container.m_ownerObject;
+    if (out->m_ownerObject)
+        reinterpret_cast<GameObjects::CSharedBase*>(out->m_ownerObject)
+            ->AttachSharedRef(reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(out));
     return out;
 }
 
 // 0x004A8BB0
-CScreenElement* CScreenElement::GetWindow() const
+CUiWidget* CUiWidget::GetWindow() const
 {
-    CScreenElement* element;
+    CUiWidget* element;
     {
         ElementPtr parent;
-        element = GetParent(&parent)->mp_object;
+        element = GetParent(&parent)->m_ownerObject;
     }
     while (element) {
         if (element->m_type == kWindowElement)
             return element;
         ElementPtr parent;
-        element = element->GetParent(&parent)->mp_object;
+        element = element->GetParent(&parent)->m_ownerObject;
     }
     return nullptr;
 }
 
 // 0x004A95E0
-CScreenElement* CScreenElement::GetLastChild() const
+CUiWidget* CUiWidget::GetLastChild() const
 {
-    CScreenElement* child = mp_firstChild.mp_object;
+    CUiWidget* child = mp_firstChild.m_ownerObject;
     if (!child)
         return nullptr;
-    while (child->mp_next.mp_object)
-        child = child->mp_next.mp_object;
+    while (child->m_following.m_ownerObject)
+        child = child->m_following.m_ownerObject;
     return child;
 }
 
 // 0x004A9600
-int CScreenElement::CountChildren() const
+int CUiWidget::ChildTotal() const
 {
     int count = 0;
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     while (child) {
-        child.Set(child->mp_next.mp_object);
+        child.Set(child->m_following.m_ownerObject);
         ++count;
     }
     return count;
 }
 
 // 0x004AA2A0
-ElementPtr* CScreenElement::GetChild(ElementPtr* out, uint32_t id, int* index)
+ElementPtr* CUiWidget::GetChild(ElementPtr* out, uint32_t id, int* index)
 {
     ElementPtr child;
-    child.Set(mp_firstChild.mp_object);
+    child.Set(mp_firstChild.m_ownerObject);
     for (int i = 0; child; ++i) {
         if (id == 0) {
             if (*index == i)
@@ -578,81 +578,81 @@ ElementPtr* CScreenElement::GetChild(ElementPtr* out, uint32_t id, int* index)
                 *index = i;
             break;
         }
-        child.Set(child->mp_next.mp_object);
+        child.Set(child->m_following.m_ownerObject);
     }
-    out->mp_prev = nullptr;
-    out->mp_next = nullptr;
-    out->mp_object = nullptr;
-    out->Set(child.mp_object);
+    out->m_preceding = nullptr;
+    out->m_following = nullptr;
+    out->m_ownerObject = nullptr;
+    out->Set(child.m_ownerObject);
     return out;
 }
 
 // 0x004AA690
-CScreenElement* CScreenElement::GetChildById(uint32_t id, int* index)
+CUiWidget* CUiWidget::FindChildWithId(uint32_t id, int* index)
 {
     ElementPtr child;
-    return GetChild(&child, id, index)->mp_object;
+    return GetChild(&child, id, index)->m_ownerObject;
 }
 
 // 0x004AA6D0
-CScreenElement* CScreenElement::GetChildByIndex(int index)
+CUiWidget* CUiWidget::FindChildAtSlot(int index)
 {
     ElementPtr child;
-    return GetChild(&child, 0, &index)->mp_object;
+    return GetChild(&child, 0, &index)->m_ownerObject;
 }
 
 // 0x004AA8E0
-void CScreenElement::SetParent(const ElementPtr* parent, int)
+void CUiWidget::SetParent(const ElementPtr* parent, int)
 {
-    if (mp_parent) {
+    if (m_container) {
         // out of the old parent's children
         ElementPtr child;
-        child.Set(mp_parent->mp_firstChild.mp_object);
-        while (child && child.mp_object != this)
-            child.Set(child->mp_next.mp_object);
+        child.Set(m_container->mp_firstChild.m_ownerObject);
+        while (child && child.m_ownerObject != this)
+            child.Set(child->m_following.m_ownerObject);
         if (child) {
-            if (mp_prev)
-                mp_prev->mp_next.Set(mp_next.mp_object);
+            if (m_preceding)
+                m_preceding->m_following.Set(m_following.m_ownerObject);
             else
-                mp_parent->mp_firstChild.Set(mp_next.mp_object);
-            if (mp_next)
-                mp_next->mp_prev.Set(mp_prev.mp_object);
+                m_container->mp_firstChild.Set(m_following.m_ownerObject);
+            if (m_following)
+                m_following->m_preceding.Set(m_preceding.m_ownerObject);
         }
     }
-    mp_parent.Set(parent->mp_object);
-    if (mp_parent) {
+    m_container.Set(parent->m_ownerObject);
+    if (m_container) {
         // last among the new parent's children
         ElementPtr last;
-        last.Set(mp_parent->mp_firstChild.mp_object);
+        last.Set(m_container->mp_firstChild.m_ownerObject);
         ElementPtr* slot;
         if (last) {
-            while (last->mp_next)
-                last.Set(last->mp_next.mp_object);
-            slot = &last->mp_next;
+            while (last->m_following)
+                last.Set(last->m_following.m_ownerObject);
+            slot = &last->m_following;
         } else {
-            slot = &mp_parent->mp_firstChild;
+            slot = &m_container->mp_firstChild;
         }
         slot->Set(this);
-        mp_prev.Set(last.mp_object);
+        m_preceding.Set(last.m_ownerObject);
     } else {
-        mp_prev.Release();
+        m_preceding.Release();
     }
-    mp_next.Release();
-    if (CScreenElement* newParent = parent->mp_object) {
+    m_following.Release();
+    if (CUiWidget* newParent = parent->m_ownerObject) {
         if (newParent->HasPriority())
             SetChildrenPriority(newParent->m_priority);
-        SetZPriority(static_cast<float>(static_cast<double>(parent->mp_object->m_zPriority) + 1.0));
+        ChangeDrawDepth(static_cast<float>(static_cast<double>(parent->m_ownerObject->m_zPriority) + 1.0));
     } else {
-        SetZPriority(0.0f);
+        ChangeDrawDepth(0.0f);
     }
 }
 
 // --- the layout pass ------------------------------------------------------------------------------------------
 
 // 0x004A9D30
-void CScreenElement::UpdateLayout()
+void CUiWidget::UpdateLayout()
 {
-    int now = Tmr::GetTime();
+    int now = FrameClock::GetTime();
     ++m_aliasCount; // (the object's use count while the pass runs)
     if (!(m_objectFlags & kFocusSent)) {
         m_objectFlags |= kFocusSent;
@@ -662,23 +662,23 @@ void CScreenElement::UpdateLayout()
     if (m_objectFlags & kPos3d) {
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
-        void* camera = Nx::GetActiveViewport(0);
+        void* camera = Engine3D::GetActiveViewport(0);
         float x, y, z;
-        float scale = reinterpret_cast<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(&Nx::VirtualSlot1Jump)(
-            camera, &m_target.pos3d, &x, &y, &z);
+        float scale = reinterpret_cast<float(__thiscall*)(void*, const Maths::Vector*, float*, float*, float*)>(&Engine3D::VirtualSlot1Jump)(
+            camera, &m_aimPoint.pos3d, &x, &y, &z);
         if (scale < 0.0f) {
-            m_target.x = -320.0f;
-            m_target.y = -224.0f;
+            m_aimPoint.x = -320.0f;
+            m_aimPoint.y = -224.0f;
             m_objectFlags |= kOffScreen;
         } else {
-            m_target.x = x;
-            m_target.y = y;
-            m_target.z = z;
+            m_aimPoint.x = x;
+            m_aimPoint.y = y;
+            m_aimPoint.z = z;
             if (!(m_objectFlags & kKeepScale))
-                SetScale(scale, scale, true, 0);
+                ChangeScale(scale, scale, true, 0);
             m_objectFlags &= ~kOffScreen;
         }
-        TopLeftScaleFirst(this, &m_target, m_width, m_height);
+        TopLeftScaleFirst(this, &m_aimPoint, m_span, m_levelY);
         m_objectFlags |= kDirty;
     }
     if ((m_objectFlags & kDirty) && !(m_objectFlags & kPaused)) {
@@ -710,30 +710,30 @@ void CScreenElement::UpdateLayout()
             float kt = static_cast<float>((static_cast<double>(t) - m_morphDone) / (1.0 - m_morphDone));
             SElementState& s = m_shown;
             float shownY = s.y;
-            s.x = static_cast<float>((static_cast<double>(m_target.x) - s.x) * k + s.x);
-            s.y = static_cast<float>((static_cast<double>(m_target.y) - shownY) * k + shownY);
+            s.x = static_cast<float>((static_cast<double>(m_aimPoint.x) - s.x) * k + s.x);
+            s.y = static_cast<float>((static_cast<double>(m_aimPoint.y) - shownY) * k + shownY);
             float shownScaleY = s.scaleY;
-            s.scaleX = static_cast<float>((static_cast<double>(m_target.scaleX) - s.scaleX) * kt + s.scaleX);
-            s.scaleY = static_cast<float>((static_cast<double>(m_target.scaleY) - shownScaleY) * kt + shownScaleY);
-            s.angle = static_cast<float>((static_cast<double>(m_target.angle) - s.angle) * kt + s.angle);
-            s.alpha = static_cast<float>((static_cast<double>(m_target.alpha) - s.alpha) * kt + s.alpha);
+            s.scaleX = static_cast<float>((static_cast<double>(m_aimPoint.scaleX) - s.scaleX) * kt + s.scaleX);
+            s.scaleY = static_cast<float>((static_cast<double>(m_aimPoint.scaleY) - shownScaleY) * kt + shownScaleY);
+            s.angle = static_cast<float>((static_cast<double>(m_aimPoint.angle) - s.angle) * kt + s.angle);
+            s.alpha = static_cast<float>((static_cast<double>(m_aimPoint.alpha) - s.alpha) * kt + s.alpha);
             PlaceTopLeft(&s);
             uint8_t rgba[4];
             for (int i = 0; i < 4; ++i) {
                 int from = s.rgba[i];
                 rgba[i] = static_cast<uint8_t>(
-                    Truncated(static_cast<double>(m_target.rgba[i] - from) * kt + static_cast<double>(from)));
+                    Truncated(static_cast<double>(m_aimPoint.rgba[i] - from) * kt + static_cast<double>(from)));
             }
             std::memcpy(s.rgba, rgba, 4);
             m_morphCurveDone = curve;
             m_morphDone = t;
         } else {
-            m_shown.Assign(&m_target);
+            m_shown.Assign(&m_aimPoint);
             m_objectFlags &= ~kDirty;
         }
         changed = true;
     }
-    CScreenElement* parent = mp_parent.mp_object;
+    CUiWidget* parent = m_container.m_ownerObject;
     if (parent && (parent->m_objectFlags & kChildrenDirty))
         changed = true;
     m_objectFlags &= ~kChildrenDirty;
@@ -741,12 +741,12 @@ void CScreenElement::UpdateLayout()
         if (parent && !(m_objectFlags & kPos3d)) {
             m_summed.scaleX = static_cast<float>(static_cast<double>(parent->m_summed.scaleX) * m_shown.scaleX);
             m_summed.scaleY = static_cast<float>(static_cast<double>(parent->m_summed.scaleY) * m_shown.scaleY);
-            parent = mp_parent.mp_object;
+            parent = m_container.m_ownerObject;
             m_summed.angle = static_cast<float>(static_cast<double>(m_shown.angle) + parent->m_summed.angle);
             double c = X87Cos(parent->m_summed.angle);
             double s = X87Sin(parent->m_summed.angle);
             Rotated(parent, m_shown.x, m_shown.y, c, s, &m_summed.x, &m_summed.y);
-            parent = mp_parent.mp_object;
+            parent = m_container.m_ownerObject;
             m_summed.alpha = static_cast<float>(static_cast<double>(parent->m_summed.alpha) * m_shown.alpha);
             Rotated(parent, m_shown.left, m_shown.top, c, s, &m_summed.left, &m_summed.top);
         } else {
@@ -758,7 +758,7 @@ void CScreenElement::UpdateLayout()
     m_objectFlags &= ~kVisibleNow;
     if (m_objectFlags & kPauseAsked)
         m_objectFlags |= kPaused;
-    for (CScreenElement* child = mp_firstChild.mp_object; child; child = child->mp_next.mp_object)
+    for (CUiWidget* child = mp_firstChild.m_ownerObject; child; child = child->m_following.m_ownerObject)
         child->UpdateLayout();
     if (static_cast<int>(m_aliasCount) > 0)
         --m_aliasCount;
@@ -767,30 +767,30 @@ void CScreenElement::UpdateLayout()
 // --- parameters -----------------------------------------------------------------------------------------------
 
 // 0x004A8C80 (a Pos structure with neither flag gives true but leaves x, y alone)
-bool CScreenElement::ResolvePos(Script::CStruct* params, float* x, float* y)
+bool CUiWidget::ResolvePos(Scripts::CStruct* params, float* x, float* y)
 {
-    Script::CPair pair;
+    Scripts::CPair pair;
     pair.Init();
     CStruct* pos;
-    if (params->GetStructure(kPos, &pos, 0)) {
-        pos->GetPair(0, &pair, true);
-        if (pos->ContainsFlag(kRelative)) {
-            *x = static_cast<float>(static_cast<double>(pair.x) + m_target.x);
-            *y = static_cast<float>(static_cast<double>(pair.y) + m_target.y);
+    if (params->ReadSubStruct(kPos, &pos, 0)) {
+        pos->FetchPair(0, &pair, true);
+        if (pos->HasBareFlag(kRelative)) {
+            *x = static_cast<float>(static_cast<double>(pair.x) + m_aimPoint.x);
+            *y = static_cast<float>(static_cast<double>(pair.y) + m_aimPoint.y);
             return true;
         }
-        if (pos->ContainsFlag(kProportional)) {
-            *x = static_cast<float>(static_cast<double>(pair.x) * mp_parent->m_width);
-            *y = static_cast<float>(static_cast<double>(pair.y) * mp_parent->m_height);
+        if (pos->HasBareFlag(kProportional)) {
+            *x = static_cast<float>(static_cast<double>(pair.x) * m_container->m_span);
+            *y = static_cast<float>(static_cast<double>(pair.y) * m_container->m_levelY);
         }
         return true;
     }
-    if (params->GetPair(kPos, &pair, false)) {
+    if (params->FetchPair(kPos, &pair, false)) {
         *x = pair.x;
         *y = pair.y;
         return true;
     }
-    Script::VectorValue v;
+    Scripts::VectorValue v;
     if (params->GetVector(kPos, &v, 0)) {
         *x = v.x;
         *y = v.y;
@@ -800,15 +800,15 @@ bool CScreenElement::ResolvePos(Script::CStruct* params, float* x, float* y)
 }
 
 // 0x004A8DC0
-bool CScreenElement::ResolveJust(Script::CStruct* params, uint32_t name, float* x, float* y)
+bool CUiWidget::ResolveJust(Scripts::CStruct* params, uint32_t name, float* x, float* y)
 {
-    Script::CArray* array;
+    Scripts::CArray* array;
     if (!params->GetArray(name, &array, 0))
         return false;
-    if (array->m_type == Script::ESYMBOLTYPE_FLOAT) {
+    if (array->m_type == Scripts::QBVAL_FLOAT) {
         *x = array->GetFloat(0);
         *y = array->GetFloat(1);
-    } else if (array->m_type == Script::ESYMBOLTYPE_NAME) {
+    } else if (array->m_type == Scripts::QBVAL_NAME) {
         float just[2];
         for (int i = 0; i < 2; ++i) {
             uint32_t side = array->GetElement(i);
@@ -826,9 +826,9 @@ bool CScreenElement::ResolveJust(Script::CStruct* params, uint32_t name, float* 
 }
 
 // 0x004A8E90 (shifts past 31 bits wrap, as x86 SHL does)
-bool CScreenElement::ResolveRGBA(Script::CStruct* params, uint32_t name, uint32_t* rgba)
+bool CUiWidget::ResolveRGBA(Scripts::CStruct* params, uint32_t name, uint32_t* rgba)
 {
-    Script::CArray* array;
+    Scripts::CArray* array;
     if (!params->GetArray(name, &array, 0))
         return false;
     uint32_t count = array->m_size;
@@ -842,27 +842,27 @@ bool CScreenElement::ResolveRGBA(Script::CStruct* params, uint32_t name, uint32_
 // --- the vtable -----------------------------------------------------------------------------------------------
 
 // 0x004A96B0
-void CScreenElement::SetProperties(Script::CStruct* params)
+void CUiWidget::SetProperties(Scripts::CStruct* params)
 {
-    void* manager = mp_manager;
-    Script::CPair pair;
+    void* manager = m_parkOwner;
+    Scripts::CPair pair;
     pair.Init();
-    Script::VectorValue v;
-    if (params->GetPair(kPos, &pair, false))
+    Scripts::VectorValue v;
+    if (params->FetchPair(kPos, &pair, false))
         SetPos(pair.x, pair.y, 1);
     else if (params->GetVector(kPos, &v, 0))
         SetPos(v.x, v.y, 1);
-    Script::VectorValue pos3d;
+    Scripts::VectorValue pos3d;
     if (params->GetVector(kPos3dName, &pos3d, 0)) {
         pos3d.w = 1.0f;
-        SetPos3d(reinterpret_cast<const Mth::Vector*>(&pos3d), 1);
+        SetPos3d(reinterpret_cast<const Maths::Vector*>(&pos3d), 1);
     }
-    if (params->ContainsFlag(kKeepScaleName))
+    if (params->HasBareFlag(kKeepScaleName))
         m_objectFlags |= kKeepScale;
-    Script::CPair dims;
+    Scripts::CPair dims;
     dims.Init();
-    if (params->GetPair(kDims, &dims, false))
-        SetDims(dims.x, dims.y, 1);
+    if (params->FetchPair(kDims, &dims, false))
+        FitToSize(dims.x, dims.y, 1);
     uint32_t parentId;
     if (ResolveElementId(manager, params, kParent, &parentId)) {
         ElementPtr parent;
@@ -871,26 +871,26 @@ void CScreenElement::SetProperties(Script::CStruct* params)
         self.Set(this);
         ManagerSetParent(manager, &parent, &self, 1);
     }
-    float justX = 0.0f, justY = 0.0f;
-    if (ResolveJust(params, kJust, &justX, &justY))
-        SetJust(justX, justY);
+    float alignH = 0.0f, alignV = 0.0f;
+    if (ResolveJust(params, kJust, &alignH, &alignV))
+        ChangeAlignment(alignH, alignV);
     uint32_t rgba;
     if (ResolveRGBA(params, kRgba, &rgba))
-        SetRGBA(rgba, 1);
+        ChangeRgba(rgba, 1);
     float degrees = 0.0f;
     if (params->GetFloat(kRotAngle, &degrees, 0)) {
         double radians = static_cast<double>(degrees) * Degrees();
         m_objectFlags |= kDirty;
         m_shown.angle = static_cast<float>(radians);
-        m_target.angle = static_cast<float>(radians);
+        m_aimPoint.angle = static_cast<float>(radians);
     }
-    if (params->ContainsFlag(kFlag1000000Name))
+    if (params->HasBareFlag(kFlag1000000Name))
         m_objectFlags |= kFlag1000000;
-    if (params->ContainsFlag(kFlipHName))
+    if (params->HasBareFlag(kFlipHName))
         m_objectFlags |= kFlipH;
     else
         m_objectFlags &= ~kFlipH;
-    if (params->ContainsFlag(kFlipVName))
+    if (params->HasBareFlag(kFlipVName))
         m_objectFlags |= kFlipV;
     else
         m_objectFlags &= ~kFlipV;
@@ -899,33 +899,33 @@ void CScreenElement::SetProperties(Script::CStruct* params)
         m_zPriority = z;
         m_objectFlags |= kZPriority | kVisibleNow;
     }
-    if (params->ContainsFlag(kNotFocusable))
-        SetChecksumTag(0, kTagNotFocusable);
-    else if (params->ContainsFlag(kFocusable))
+    if (params->HasBareFlag(kNotFocusable))
+        WriteHashTag(0, kTagNotFocusable);
+    else if (params->HasBareFlag(kFocusable))
         RemoveTagFlag(kTagNotFocusable);
     uint32_t localId;
-    if (params->GetChecksum(kLocalId, &localId, 0))
-        SetChecksumTag(kTagLocalId, localId);
-    if (params->ContainsFlag(kUnpause))
+    if (params->ReadHashValue(kLocalId, &localId, 0))
+        WriteHashTag(kTagLocalId, localId);
+    if (params->HasBareFlag(kUnpause))
         m_objectFlags &= ~(kPauseAsked | kPaused);
-    if (params->ContainsFlag(kBlockEventsName))
+    if (params->HasBareFlag(kBlockEventsName))
         m_objectFlags |= kBlockEvents;
-    else if (params->ContainsFlag(kUnblockEvents))
+    else if (params->HasBareFlag(kUnblockEvents))
         m_objectFlags &= ~kBlockEvents;
-    if (params->ContainsFlag(kHide))
+    if (params->HasBareFlag(kHide))
         m_objectFlags |= kHidden;
-    else if (params->ContainsFlag(kUnHide))
+    else if (params->HasBareFlag(kUnHide))
         m_objectFlags = (m_objectFlags & ~kHidden) | kVisibleNow;
     int priority;
-    if (params->GetInteger(kPriorityName, &priority, 0) && priority > 0) {
+    if (params->FetchIntValue(kPriorityName, &priority, 0) && priority > 0) {
         m_priority = priority;
         m_objectFlags |= kPriority;
     }
-    Obj::CObject::SetProperties(params);
+    GameObjects::CObject::SetProperties(params);
 }
 
 // 0x004A89B0
-bool CScreenElement::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+bool CUiWidget::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (name == kSetProps) {
         VSetProperties(this, params);
@@ -942,7 +942,7 @@ bool CScreenElement::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         // the parent's focus flag dropped (its event sent) while the element goes, and set again after
         void* manager = Manager();
         ElementPtr parent;
-        parent.Set(mp_parent.mp_object);
+        parent.Set(m_container.m_ownerObject);
         if (parent->m_objectFlags & kFocusSent) {
             parent->m_objectFlags &= ~kFocusSent;
             LaunchEvent(kFocusClearedEvent, parent->m_id);
@@ -958,74 +958,74 @@ bool CScreenElement::CallMemberFunction(uint32_t name, Script::CStruct* params, 
         VGetProperties(this, script->m_params);
         return true;
     }
-    return Obj::CObject::CallMemberFunction(name, params, script);
+    return GameObjects::CObject::InvokeMethodByName(name, params, script);
 }
 
 // 0x004AA710
-void CScreenElement::GetProperties(Script::CStruct* out)
+void CUiWidget::GetProperties(Scripts::CStruct* out)
 {
-    out->AddFloat(kAlpha, m_shown.alpha);
+    out->PushFloat(kAlpha, m_shown.alpha);
     uint8_t rgba[4];
     std::memcpy(rgba, m_shown.rgba, 4);
-    Script::CArray* array = Script::NewArray();
+    Scripts::CArray* array = Scripts::NewArray();
     if (array)
         array = array->Init();
-    array->SetSizeAndType(4, Script::ESYMBOLTYPE_INTEGER);
+    array->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
     for (int i = 0; i < 4; ++i)
         array->SetElement(i, rgba[i]);
-    out->AddArray(kRgba, array);
-    Script::CleanUpArray(array);
+    out->AppendArrayValue(kRgba, array);
+    Scripts::ReleaseArrayStorage(array);
     if (array) {
         array->Clear();
-        Script::DeleteArray(array);
+        Scripts::DeleteArray(array);
     }
     float scaleX = m_shown.scaleX, scaleY = m_shown.scaleY;
     if (scaleX == scaleY)
-        out->AddFloat(kScale, scaleX);
+        out->PushFloat(kScale, scaleX);
     else
-        out->AddPair(kScale, scaleX, scaleY);
-    out->AddPair(kPos, m_shown.x, m_shown.y);
-    out->AddFloat(kRotAngle, static_cast<float>(static_cast<double>(m_shown.angle) * RadiansToDegrees()));
-    out->AddInteger(kEventsBlocked, EventsBlocked() ? 1 : 0);
+        out->InsertPair(kScale, scaleX, scaleY);
+    out->InsertPair(kPos, m_shown.x, m_shown.y);
+    out->PushFloat(kRotAngle, static_cast<float>(static_cast<double>(m_shown.angle) * ConvertToDegrees()));
+    out->PutInt(kEventsBlocked, InputSuppressed() ? 1 : 0);
 }
 
 // 0x004A9AA0
-void CScreenElement::SetMorph(Script::CStruct* params)
+void CUiWidget::BlendTowards(Scripts::CStruct* params)
 {
     // (ResolvePos may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
     float x = 0.0f, y;
     std::memcpy(&y, &params, sizeof(y));
     if (ResolvePos(params, &x, &y))
         SetPos(x, y, 0);
-    if (params->ContainsFlag(kRestoreAlpha)) {
+    if (params->HasBareFlag(kRestoreAlpha)) {
         float alpha = m_rememberedAlpha;
-        if (alpha != m_target.alpha) {
-            m_target.alpha = alpha;
+        if (alpha != m_aimPoint.alpha) {
+            m_aimPoint.alpha = alpha;
             m_objectFlags |= kDirty;
         }
     }
     float alpha;
     if (params->GetFloat(kAlpha, &alpha, 0)) {
-        if (params->ContainsFlag(kRememberAlpha))
+        if (params->HasBareFlag(kRememberAlpha))
             m_rememberedAlpha = m_shown.alpha;
-        if (alpha != m_target.alpha) {
-            m_target.alpha = alpha;
+        if (alpha != m_aimPoint.alpha) {
+            m_aimPoint.alpha = alpha;
             m_objectFlags |= kDirty;
         }
     }
-    bool relative = params->ContainsFlag(kRelativeScale);
+    bool relative = params->HasBareFlag(kRelativeScale);
     float scale;
     if (params->GetFloat(kScale, &scale, 0))
-        SetScale(scale, scale, relative, 0);
-    Script::CPair pair;
+        ChangeScale(scale, scale, relative, 0);
+    Scripts::CPair pair;
     pair.Init();
-    if (params->GetPair(kScale, &pair, false))
-        SetScale(pair.x, pair.y, relative, 0);
+    if (params->FetchPair(kScale, &pair, false))
+        ChangeScale(pair.x, pair.y, relative, 0);
     float degrees;
     if (params->GetFloat(kRotAngle, &degrees, 0)) {
         double radians = static_cast<double>(degrees) * Degrees() + RotationOffset();
-        if (radians != m_target.angle) {
-            m_target.angle = static_cast<float>(radians);
+        if (radians != m_aimPoint.angle) {
+            m_aimPoint.angle = static_cast<float>(radians);
             m_objectFlags |= kDirty;
         }
     }
@@ -1034,7 +1034,7 @@ void CScreenElement::SetMorph(Script::CStruct* params)
     StartMorph(ms);
     m_objectFlags &= ~kMorphCurve;
     uint32_t anim = 0;
-    if (params->GetChecksum(kAnim, &anim, 0)) {
+    if (params->ReadHashValue(kAnim, &anim, 0)) {
         if (anim == kEaseOut)
             m_objectFlags |= 0x100;
         else if (anim == kFastIn)
@@ -1043,8 +1043,8 @@ void CScreenElement::SetMorph(Script::CStruct* params)
             m_objectFlags |= 0x300;
     }
     uint32_t rgba;
-    if (ResolveRGBA(params, kRgba, &rgba) && Rgba(m_target.rgba) != rgba) {
-        SetRgbaBytes(m_target.rgba, rgba);
+    if (ResolveRGBA(params, kRgba, &rgba) && Rgba(m_aimPoint.rgba) != rgba) {
+        SetRgbaBytes(m_aimPoint.rgba, rgba);
         m_objectFlags |= kDirty;
     }
 }
@@ -1052,15 +1052,15 @@ void CScreenElement::SetMorph(Script::CStruct* params)
 void GetElement(ElementPtr* out, uint32_t id) { LookUp(Manager(), out, id, 0); }
 
 namespace {
-static VtableSlot kCScreenElementVtable_slots[] = {&CScreenElement::Destroy, &CScreenElement::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+static VtableSlot kCScreenElementVtable_slots[] = {&CUiWidget::Destroy, &CUiWidget::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
                 Stubs::DoNothing};
 void** const kCScreenElementVtable = reinterpret_cast<void**>(kCScreenElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
-using Front::CScreenElement;
-using Front::SElementState;
+using MenuSystem::CUiWidget;
+using MenuSystem::SElementState;

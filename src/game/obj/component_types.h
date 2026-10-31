@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Obj {
+namespace GameObjects {
 
 // 0x004E4860: every component type (81: the skater's, peds', vehicles', cameras', the model, skeleton, animation
 // blender, sound, collision, motion, input, ...) registered with the composite object manager, with the function

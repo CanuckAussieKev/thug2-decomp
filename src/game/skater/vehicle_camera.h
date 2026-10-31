@@ -7,14 +7,14 @@
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
-class CCameraLookAroundComponent;
+class CFreeLookModule;
 
 // The VehicleCamera component (type 0x2C747D8A, vtable 0x0064C5A0, 0xA4 bytes; made by 0x005248C0, its member
 // function table 0x00684150 registered by 0x00524420): the camera behind a driven vehicle (its subject). Each
@@ -23,20 +23,20 @@ class CCameraLookAroundComponent;
 // and `height` above the vehicle, tilted by `angle` degrees, turned further by the look-around component's
 // heading, and kept clear of the world.
 //
-// Vtable: 0 the scalar deleting destructor, 1 Update, 2 InitFromStructure, 3 Finalize; the base's others.
-class CVehicleCameraComponent : public CBaseComponent {
+// Vtable: 0 the scalar deleting destructor, 1 Update, 2 ConfigureFromData, 3 Finalize; the base's others.
+class CCarView : public CObjectModule {
 public:
     // 0x005248C0: a new one (0 if out of memory): the base's constructor, its vtable and type, height 60,
     // distance 144, lerp 3.
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x00524420: its member function table (0x00684150) registered.
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
     // 0x00524440: the destructor body (the base's). 0x00524470 (slot 0): the scalar deleting destructor.
     void DestroyBody();
-    CVehicleCameraComponent* Destroy(unsigned int flags);
+    CCarView* Destroy(unsigned int flags);
     // 0x005244A0 (slot 2): subject= (an object id: the object and its Vehicle component), then 0x9213625F (lerp),
     // 0x14849B6D (height), 0xBD3D3CA9 (distance) and angle= - each kept when not given.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x00524C00 (slot 3): the object's CameraLookAround component, then Reset.
     void Finalize();
     // 0x00524B40: the look-around component back to straight ahead; looking along the vehicle's heading; the
@@ -47,7 +47,7 @@ public:
     void Update();
     // 0x00524450 (VehicleCamera_Reset, by its member function record): its structure read again (vtable +0x14)
     // and Finalize (vtable +0x0C). True.
-    bool VehicleCamera_Reset(Script::CStruct* params, Script::CScript* script);
+    bool VehicleCamera_Reset(Scripts::CStruct* params, Scripts::CScript* script);
 
     // 0x00524550: the target direction: the vehicle's heading (the subject's at-row negated, flat, normalised),
     // turned toward its velocity by the speed (x 0.0037879, at most 1) along the heading when it has two wheels or
@@ -59,23 +59,23 @@ public:
     // 0x00524720: the position and the orientation given to the camera object (its matrix and display matrix).
     void ApplyToCamera();
 
-    CCompositeObject* m_subject;          // +0x18 the vehicle
+    CGameEntity* m_subject;          // +0x18 the vehicle
     uint8_t* m_vehicle;                   // +0x1C its Vehicle component (+0xA4 its velocity, +0x114 wheels down)
-    Mth::Vector m_direction;              // +0x20 where the camera looks (flat, normalised)
-    Mth::Vector m_targetDirection;        // +0x30
-    Mth::Vector m_position;               // +0x40
-    Mth::Matrix m_orientation;            // +0x50
-    float m_height;                       // +0x90 (0x14849B6D)
-    float m_distance;                     // +0x94 (0xBD3D3CA9)
+    Maths::Vector m_direction;              // +0x20 where the camera looks (flat, normalised)
+    Maths::Vector m_targetDirection;        // +0x30
+    Maths::Vector m_anchorPoint;               // +0x40
+    Maths::Matrix m_orientation;            // +0x50
+    float m_levelY;                       // +0x90 (0x14849B6D)
+    float m_reach;                     // +0x94 (0xBD3D3CA9)
     float m_angle;                        // +0x98 degrees (angle)
     float m_lerp;                         // +0x9C (0x9213625F) a second
-    CCameraLookAroundComponent* m_lookAround; // +0xA0
+    CFreeLookModule* m_lookAround; // +0xA0
 };
-static_assert(offsetof(CVehicleCameraComponent, m_subject) == 0x18 &&
-                  offsetof(CVehicleCameraComponent, m_direction) == 0x20 &&
-                  offsetof(CVehicleCameraComponent, m_orientation) == 0x50 &&
-                  offsetof(CVehicleCameraComponent, m_lerp) == 0x9C &&
-                  sizeof(CVehicleCameraComponent) == 0xA4,
+static_assert(offsetof(CCarView, m_subject) == 0x18 &&
+                  offsetof(CCarView, m_direction) == 0x20 &&
+                  offsetof(CCarView, m_orientation) == 0x50 &&
+                  offsetof(CCarView, m_lerp) == 0x9C &&
+                  sizeof(CCarView) == 0xA4,
               "layout must match the original");
 
 } // namespace Obj

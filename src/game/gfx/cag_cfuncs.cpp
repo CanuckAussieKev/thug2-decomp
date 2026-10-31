@@ -14,12 +14,12 @@
 #include "game/skate/skate_module.h"
 #include "game/skater/tagging.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 namespace {
 
-using Script::CArray;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CStruct;
 
 constexpr uint32_t kInfoArray = 0x54AAD4BD;      // "info_array"
 constexpr uint32_t kCustomTag = 0xAA286543;      // (name unknown) the custom tag texture (in the dictionary 0x00700F20)
@@ -52,15 +52,15 @@ constexpr uint32_t kHeadBoneGroups[4] = {
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
-void* Textures() { return reinterpret_cast<void*>(Nx::g_gameTextureDict); }
-void* SkaterTextures() { return reinterpret_cast<void*>(Nx::g_particleTextureDict); }
+void* Textures() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
+void* SkaterTextures() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
 void* FindTexture(void* dictionary, uint32_t name)
 {
-    return static_cast<Nx::CTexDict*>(dictionary)->GetTexture(name);
+    return static_cast<Engine3D::CTextureSet*>(dictionary)->GetTexture(name);
 }
 void* NewTexture(uint32_t name, int width, int height, int a, int b)
 {
-    return static_cast<Nx::CTexDict*>(Textures())->CreateTexture(name, width, height, a, b, 1, true);
+    return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, a, b, 1, true);
 }
 
 // A texture's methods (each a jump through its vtable).
@@ -74,7 +74,7 @@ R TextureCall(uint32_t slot, void* texture, A... args)
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-Mdl::Skate* Skate() { return Mdl::Skate::Instance(); }
+GameModules::Skate* Skate() { return GameModules::Skate::Instance(); }
 
 } // namespace
 
@@ -86,7 +86,7 @@ float g_degreesToRadians{0.017453292f}; // pi / 180
 // tinted, and blended onto the tag; the tag's palette made again (kept to opaque when no layer was translucent and
 // it's an 8-bit tag); the workspace thrown away. Player 0's skater's tag is then marked custom and put on its graffiti
 // texture; with Test, the result also shown on cag_workspace_sprite. Always true.
-bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
     CArray* layers = nullptr;
@@ -105,7 +105,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
     for (uint32_t i = 0; i < count; ++i) {
         auto* info = reinterpret_cast<CStruct*>(layers->GetElement(i));
         uint32_t textureId;
-        info->GetChecksum(kTextureId, &textureId, 1);
+        info->ReadHashValue(kTextureId, &textureId, 1);
         void* source = FindTexture(Textures(), textureId);
         TextureCall<void>(8, source, 0, 0);
         TextureCall<void>(10, workspace);
@@ -117,9 +117,9 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
         info->GetFloat(kScale, &scale, 1);
         TextureCall<void>(16, workspace, scale, scale);
         int flipH;
-        info->GetInteger(kFlipH, &flipH, 1);
+        info->FetchIntValue(kFlipH, &flipH, 1);
         int flipV;
-        info->GetInteger(kFlipV, &flipV, 1);
+        info->FetchIntValue(kFlipV, &flipV, 1);
         if (flipH)
             TextureCall<void>(13, workspace);
         if (flipV)
@@ -148,7 +148,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
         if (a < 0x80)
             translucent = true;
         int layer;
-        info->GetInteger(kLayerId, &layer, 1);
+        info->FetchIntValue(kLayerId, &layer, 1);
         if (lastLayer != layer)
             lastLayer = layer; // (kept, never used)
         TextureCall<void>(9, workspace, 1, static_cast<void*>(nullptr));
@@ -160,17 +160,17 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
         TextureCall<void>(9, tag, 0, static_cast<void*>(palette));
     else
         TextureCall<void>(9, tag, 1, static_cast<void*>(nullptr));
-    static_cast<Nx::CTexDict*>(Textures())->UnloadTexture(static_cast<Nx::CTexture*>(workspace));
+    static_cast<Engine3D::CTextureSet*>(Textures())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(workspace));
 
     int player;
-    params->GetInteger(kPlayer, &player, 1);
+    params->FetchIntValue(kPlayer, &player, 1);
     if (player == 0) {
-        auto* tagging = static_cast<Obj::CTaggingComponent*>(Skate()->GetSkater(0)->GetComponent(Obj::CTaggingComponent::kType));
+        auto* tagging = static_cast<GameObjects::CTaggingComponent*>(Skate()->GetRiderAt(0)->GetComponent(GameObjects::CTaggingComponent::kType));
         tagging->m_customTag = true; // (0x004E4000, a setter folded with others)
         tagging->ApplyCustomTagTexture();
     }
     int test = 0;
-    params->GetInteger(kTest, &test, 0);
+    params->FetchIntValue(kTest, &test, 0);
     if (test) {
         void* sprite = NewTexture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
         TextureCall<void>(4, sprite, tag);
@@ -180,13 +180,13 @@ bool __cdecl CFunc_GenerateCAGTexture(Script::CStruct* params, Script::CScript*)
 
 // 0x005B3ED0: SyncCAGWorkspace Skater=n: the custom tag texture copied from skater n's graffiti texture, if it has one
 // (the current profile is fetched and not used). Always true.
-bool __cdecl CFunc_SyncCAGWorkspace(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SyncCAGWorkspace(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index;
-    params->GetInteger(kSkater, &index, 1);
-    Obj::CCompositeObject* skater = Skate()->GetSkater(index);
+    params->FetchIntValue(kSkater, &index, 1);
+    GameObjects::CGameEntity* skater = Skate()->GetRiderAt(index);
     Skate()->GetProfile(static_cast<CStruct*>(nullptr));
-    auto* tagging = static_cast<Obj::CTaggingComponent*>(skater->GetComponent(Obj::CTaggingComponent::kType));
+    auto* tagging = static_cast<GameObjects::CTaggingComponent*>(skater->GetComponent(GameObjects::CTaggingComponent::kType));
     void* graffiti = tagging->m_graffiti; // (0x00553E90, a getter folded with others)
     if (graffiti)
         TextureCall<void>(4, FindTexture(SkaterTextures(), kCustomTag), graffiti);
@@ -196,7 +196,7 @@ bool __cdecl CFunc_SyncCAGWorkspace(Script::CStruct* params, Script::CScript*)
 // 0x005B3F40: Get2DPosFrom2DVec magnitude=m theta=degrees: x and Y, the vector's components (theta brought into the
 // first quadrant first, the signs put back after; the axes exactly for 0, 90, 180, 270 and 360; otherwise the fast
 // sine and cosine). Always true.
-bool __cdecl CFunc_Get2DPosFrom2DVec(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float magnitude;
     params->GetFloat(kMagnitude, &magnitude, 1);
@@ -233,32 +233,32 @@ bool __cdecl CFunc_Get2DPosFrom2DVec(Script::CStruct* params, Script::CScript* s
         negateY = true;
     } else {
         float radians = static_cast<float>(static_cast<double>(theta) * g_degreesToRadians); // pi / 180
-        y = static_cast<float>(static_cast<double>(Mth::FastSin(radians)) * magnitude);
-        x = static_cast<float>(static_cast<double>(Mth::FastCos(radians)) * magnitude);
+        y = static_cast<float>(static_cast<double>(Maths::FastSin(radians)) * magnitude);
+        x = static_cast<float>(static_cast<double>(Maths::FastCos(radians)) * magnitude);
     }
     if (negateX)
         x = x * -1.0f;
     if (negateY)
         y = y * -1.0f;
-    script->m_params->AddFloat(kX, x);
-    script->m_params->AddFloat(kY, y);
+    script->m_params->PushFloat(kX, x);
+    script->m_params->PushFloat(kY, y);
     return true;
 }
 
 // 0x005B4150: ResolveHeadBoneScale player=n: player n's profile's appearance given each head bone group (head, nose,
 // jaw, headtop) it lacks, from its head part (skater_m_head, else skater_f_head). False without a head part; true
 // otherwise (also without a profile).
-bool __cdecl CFunc_ResolveHeadBoneScale(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ResolveHeadBoneScale(Scripts::CStruct* params, Scripts::CScript*)
 {
     int player = 0;
-    params->GetInteger(kPlayer, &player, 1);
+    params->FetchIntValue(kPlayer, &player, 1);
     auto* profile = Skate()->GetProfile(player);
     if (!profile)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
     auto partOf = [&](uint32_t name) {
-        return reinterpret_cast<Gfx::CModelAppearance*>(profile)->GetPartOption(name);
+        return reinterpret_cast<Gfx2D::CModelLook*>(profile)->GetPartOption(name);
     };
     CStruct* head = partOf(kSkaterMHead);
     if (!head) {
@@ -268,16 +268,16 @@ bool __cdecl CFunc_ResolveHeadBoneScale(Script::CStruct* params, Script::CScript
     }
     void* has[4];
     for (int i = 0; i < 4; ++i)
-        has[i] = reinterpret_cast<Gfx::CModelAppearance*>(profile)->GetPart(kHeadBoneGroups[i]);
-    auto* appearance = reinterpret_cast<CStruct*>(profile->m_appearance + 0x4C);
+        has[i] = reinterpret_cast<Gfx2D::CModelLook*>(profile)->GetPart(kHeadBoneGroups[i]);
+    auto* appearance = reinterpret_cast<CStruct*>(profile->m_lookData + 0x4C);
     for (int i = 0; i < 4; ++i) {
         if (has[i])
             continue;
         CStruct* group;
-        if (head->GetStructure(kHeadBoneGroups[i], &group, 0))
-            appearance->AddStructure(kHeadBoneGroups[i], group);
+        if (head->ReadSubStruct(kHeadBoneGroups[i], &group, 0))
+            appearance->PutSubStruct(kHeadBoneGroups[i], group);
     }
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

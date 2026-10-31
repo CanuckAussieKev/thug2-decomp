@@ -21,21 +21,21 @@
 #include "game/core/stubs.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 int g_keyMultipliers[8]{2, 3, 4, 6, 12, 8, 24, -1};
 
 // The game's texture dictionaries: the textures every level shares, and the particles'.
-CTexDict* g_gameTextureDict;
-CTexDict* g_particleTextureDict;
+CTextureSet* g_gameTextureDict;
+CTextureSet* g_particleTextureDict;
 
 namespace {
 
 extern void** const kTexDictVtable;
 
 // The loaded dictionaries, by checksum (a static hash table).
-Lst::HashTable g_loadedTexDicts{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(4) at start-up)
-Lst::HashTable& LoadedTexDicts() { return g_loadedTexDicts; }
+ListKit::HashTable g_loadedTexDicts{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(4) at start-up)
+ListKit::HashTable& LoadedTexDicts() { return g_loadedTexDicts; }
 
 // The multipliers FindTexture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
 const int* KeyMultipliers() { return g_keyMultipliers; }
@@ -46,241 +46,241 @@ uint32_t FileNameChecksum(const char* name)
     int start = static_cast<int>(std::strlen(name));
     while (start > 0 && name[start - 1] != '\\' && name[start - 1] != '/')
         --start;
-    return Crc::GenerateCRCFromString(name + start);
+    return Checksums::HashFromText(name + start);
 }
 
 template <typename R, typename... A>
-R Slot(CTexDict* dict, int slot, A... args)
+R Slot(CTextureSet* dict, int slot, A... args)
 {
-    return reinterpret_cast<R(__thiscall*)(CTexDict*, A...)>(dict->vtable[slot])(dict, args...);
+    return reinterpret_cast<R(__thiscall*)(CTextureSet*, A...)>(dict->vtable[slot])(dict, args...);
 }
 template <typename R, typename... A>
-R TextureSlot(CTexture* texture, int slot, A... args)
+R TextureSlot(CBitmapTexture* texture, int slot, A... args)
 {
-    return reinterpret_cast<R(__thiscall*)(CTexture*, A...)>(texture->vtable[slot])(texture, args...);
+    return reinterpret_cast<R(__thiscall*)(CBitmapTexture*, A...)>(texture->vtable[slot])(texture, args...);
 }
 
 // (0x0048C1B0: an empty call - compiled-out debug code - each unload makes before the platform's)
 void DebugBeforeUnload() {}
 
 // A new texture: kept on flushes or not, and added under its checksum.
-CTexture* AddTexture(CTexDict* dict, CTexture* texture, bool permanent)
+CBitmapTexture* InsertTexture(CTextureSet* dict, CBitmapTexture* texture, bool permanent)
 {
     if (texture) {
-        texture->SetPermanent(permanent);
+        texture->PinResident(permanent);
         uint32_t key = texture->m_checksum;
-        dict->mp_textures->PutItem(key, texture);
+        dict->mp_textures->StoreEntry(key, texture);
     }
     return texture;
 }
 
 // A new table of 32 buckets (none without memory).
-Lst::HashTable* NewTextureTable()
+ListKit::HashTable* NewTextureTable()
 {
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    return memory ? new (memory) Lst::HashTable(5) : nullptr;
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    return memory ? new (memory) ListKit::HashTable(5) : nullptr;
 }
 
 } // namespace
 
 // 0x0049F830
-CTexDict* CTexDict::Construct(uint32_t checksum, bool makeTable)
+CTextureSet* CTextureSet::Construct(uint32_t checksum, bool makeTable)
 {
     m_checksum = checksum;
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    m_refCount = 1;
+    m_shareCount = 1;
     mp_textures = makeTable ? NewTextureTable() : nullptr;
     return this;
 }
 
 // 0x0049F8F0
-CTexDict* CTexDict::ConstructNamed(const char* name, bool makeTable)
+CTextureSet* CTextureSet::ConstructNamed(const char* name, bool makeTable)
 {
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    m_checksum = Crc::GenerateCRCFromString(name);
-    m_refCount = 1;
+    m_checksum = Checksums::HashFromText(name);
+    m_shareCount = 1;
     mp_textures = makeTable ? NewTextureTable() : nullptr;
     return this;
 }
 
 // 0x0049FC70
-void CTexDict::DestroyBody()
+void CTextureSet::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kTexDictVtable);
-    FlushTextures(true);
-    if (Lst::HashTable* table = mp_textures) {
+    DropTextures(true);
+    if (ListKit::HashTable* table = mp_textures) {
         if (table->m_buckets) {
-            table->FlushAllItems();
-            Mem::Free(table->m_buckets);
+            table->EmptyTable();
+            MemSys::Free(table->m_buckets);
             table->m_buckets = nullptr;
         }
-        Mem::Free(table);
+        MemSys::Free(table);
     }
 }
 
 // 0x0049FCC0
-CTexDict* CTexDict::Destroy(unsigned int freeFlags)
+CTextureSet* CTextureSet::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x0049F540
-CTexture* CTexDict::GetTexture(uint32_t checksum)
+CBitmapTexture* CTextureSet::GetTexture(uint32_t checksum)
 {
     if (!mp_textures)
         return nullptr;
-    return static_cast<CTexture*>(mp_textures->GetItem(checksum, true));
+    return static_cast<CBitmapTexture*>(mp_textures->GetItem(checksum, true));
 }
 
 // 0x0049F560
-CTexture* CTexDict::GetTextureByName(const char* name)
+CBitmapTexture* CTextureSet::GetTextureByName(const char* name)
 {
     uint32_t checksum = FileNameChecksum(name);
     if (!mp_textures)
         return nullptr;
-    return static_cast<CTexture*>(mp_textures->GetItem(checksum, true));
+    return static_cast<CBitmapTexture*>(mp_textures->GetItem(checksum, true));
 }
 
 // 0x0049F660 (the original copies the name into 512 bytes unbounded)
-CTexture* CTexDict::FindTexture(const char* name)
+CBitmapTexture* CTextureSet::FindTexture(const char* name)
 {
-    auto find = [this](uint32_t checksum) -> CTexture* {
+    auto find = [this](uint32_t checksum) -> CBitmapTexture* {
         for (const int* multiplier = KeyMultipliers(); *multiplier > 0; ++multiplier) {
             uint32_t key = static_cast<uint32_t>(*multiplier) * checksum;
-            CTexture* texture = mp_textures ? static_cast<CTexture*>(mp_textures->GetItem(key)) : nullptr;
+            CBitmapTexture* texture = mp_textures ? static_cast<CBitmapTexture*>(mp_textures->GetItem(key)) : nullptr;
             if (texture)
                 return texture;
         }
         return nullptr;
     };
-    if (CTexture* texture = find(Crc::GenerateCRCFromString(name)))
+    if (CBitmapTexture* texture = find(Checksums::HashFromText(name)))
         return texture;
     char other[0x200];
     std::snprintf(other, sizeof(other), "%s", name);
     size_t length = std::strlen(other);
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
         std::memcpy(other + length - 4, "_auto32m0.png", 14);
-    return find(Crc::GenerateCRCFromString(other));
+    return find(Checksums::HashFromText(other));
 }
 
 // 0x0049F9B0
-CTexture* CTexDict::LoadTexture(const char* name, uint32_t a1, uint32_t a2, bool permanent)
+CBitmapTexture* CTextureSet::LoadTexture(const char* name, uint32_t a1, uint32_t a2, bool permanent)
 {
-    Mem::PushMemProfile(name);
-    auto* texture = Slot<CTexture*>(this, 1, name, a1, a2);
-    AddTexture(this, texture, permanent);
-    Mem::PopMemProfile();
+    MemSys::PushMemProfile(name);
+    auto* texture = Slot<CBitmapTexture*>(this, 1, name, a1, a2);
+    InsertTexture(this, texture, permanent);
+    MemSys::PopMemProfile();
     return texture;
 }
 
 // 0x0049FA20
-CTexture* CTexDict::LoadTextureFromBuffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
+CBitmapTexture* CTextureSet::ReadTextureBuffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
                                           uint32_t a4, bool permanent, uint32_t a6)
 {
-    Mem::PushMemProfile("texture from buffer"); // "texture from buf"
-    auto* texture = Slot<CTexture*>(this, 2, data, size, checksum, a3, a4, a6);
-    AddTexture(this, texture, permanent);
-    Mem::PopMemProfile();
+    MemSys::PushMemProfile("texture from buffer"); // "texture from buf"
+    auto* texture = Slot<CBitmapTexture*>(this, 2, data, size, checksum, a3, a4, a6);
+    InsertTexture(this, texture, permanent);
+    MemSys::PopMemProfile();
     return texture;
 }
 
 // 0x0049FAA0
-CTexture* CTexDict::CreateTexture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel,
+CBitmapTexture* CTextureSet::CreateTexture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel,
                                   uint32_t a4, uint32_t a5, bool permanent)
 {
-    Mem::PushMemProfile("created texture"); // "created texture"
-    auto* texture = Slot<CTexture*>(this, 3, checksum, width, height, bitsPerPixel, a4, a5);
-    AddTexture(this, texture, permanent);
-    Mem::PopMemProfile();
+    MemSys::PushMemProfile("created texture"); // "created texture"
+    auto* texture = Slot<CBitmapTexture*>(this, 3, checksum, width, height, bitsPerPixel, a4, a5);
+    InsertTexture(this, texture, permanent);
+    MemSys::PopMemProfile();
     return texture;
 }
 
 // 0x0049F500
-bool CTexDict::UnloadTexture(CTexture* texture)
+bool CTextureSet::UnloadTexture(CBitmapTexture* texture)
 {
     uint32_t key = texture->m_checksum;
     DebugBeforeUnload();
     if (!Slot<bool>(this, 5, texture))
         return false;
-    mp_textures->FlushItem(key);
+    mp_textures->EraseEntry(key);
     return true;
 }
 
 // 0x0049F5C0 (the next texture found before this one goes)
-void CTexDict::FlushTextures(bool all)
+void CTextureSet::DropTextures(bool all)
 {
-    Lst::HashTable* table = mp_textures;
+    ListKit::HashTable* table = mp_textures;
     if (!table)
         return;
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return;
-    auto* texture = static_cast<CTexture*>(table->m_iterItem->value);
+    auto* texture = static_cast<CBitmapTexture*>(table->m_iterItem->value);
     while (texture) {
-        CTexture* next = nullptr;
-        if (mp_textures->IterateNext() && mp_textures->m_iterItem)
-            next = static_cast<CTexture*>(mp_textures->m_iterItem->value);
+        CBitmapTexture* next = nullptr;
+        if (mp_textures->StepIterator() && mp_textures->m_iterItem)
+            next = static_cast<CBitmapTexture*>(mp_textures->m_iterItem->value);
         if (all || !(texture->m_flags & kTexturePermanent)) {
             uint32_t key = texture->m_checksum;
             TextureSlot<void*>(texture, 0, 1u);
-            mp_textures->FlushItem(key);
+            mp_textures->EraseEntry(key);
         }
         texture = next;
     }
 }
 
 // 0x0049F800
-bool CTexDict::ReplaceTexture(const char* name, CTexture* source)
+bool CTextureSet::SwapTexture(const char* name, CBitmapTexture* source)
 {
-    CTexture* texture = FindTexture(name);
+    CBitmapTexture* texture = FindTexture(name);
     if (!texture)
         return false;
     return TextureSlot<bool>(texture, 4, source);
 }
 
 // 0x0049FB20 (no texture loaded: the original reads through null)
-bool CTexDict::ReplaceTextureFromFile(const char* name, const char* file)
+bool CTextureSet::ReplaceTextureFromFile(const char* name, const char* file)
 {
-    CTexture* texture = FindTexture(name);
+    CBitmapTexture* texture = FindTexture(name);
     if (!texture)
         return false;
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_topDownHeap);
-    Mem::PushMemProfile(file);
-    auto* loaded = Slot<CTexture*>(this, 1, file, 0u, 0u);
-    AddTexture(this, loaded, true);
-    Mem::PopMemProfile();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_topDownHeap);
+    MemSys::PushMemProfile(file);
+    auto* loaded = Slot<CBitmapTexture*>(this, 1, file, 0u, 0u);
+    InsertTexture(this, loaded, true);
+    MemSys::PopMemProfile();
     bool replaced = TextureSlot<bool>(texture, 4, loaded);
     uint32_t key = loaded->m_checksum;
     DebugBeforeUnload();
     if (Slot<bool>(this, 5, loaded))
-        mp_textures->FlushItem(key);
-    Mem::Manager::Get()->PopContext();
+        mp_textures->EraseEntry(key);
+    MemSys::Manager::Get()->LeaveHeapScope();
     return replaced;
 }
 
 // 0x0049FBE0
-CTexture* CTexDict::CopyTexture(uint32_t checksum, CTexture* source)
+CBitmapTexture* CTextureSet::CopyTexture(uint32_t checksum, CBitmapTexture* source)
 {
-    auto* texture = Slot<CTexture*>(this, 8, checksum, source);
+    auto* texture = Slot<CBitmapTexture*>(this, 8, checksum, source);
     if (texture) {
         texture->m_checksum = checksum;
-        mp_textures->PutItem(checksum, texture);
+        mp_textures->StoreEntry(checksum, texture);
     }
     return texture;
 }
 
 // 0x0049FC20
-CTexture* CTexDict::CopyTextureWithOverlay(uint32_t checksum, CTexture* source, CTexture* overlay, uint32_t argument)
+CBitmapTexture* CTextureSet::CopyTextureWithOverlay(uint32_t checksum, CBitmapTexture* source, CBitmapTexture* overlay, uint32_t argument)
 {
-    auto* texture = Slot<CTexture*>(this, 8, checksum, source);
+    auto* texture = Slot<CBitmapTexture*>(this, 8, checksum, source);
     if (texture) {
         texture->m_checksum = checksum;
-        mp_textures->PutItem(checksum, texture);
+        mp_textures->StoreEntry(checksum, texture);
         TextureSlot<bool>(texture, 41, overlay, argument);
     }
     return texture;
@@ -289,47 +289,47 @@ CTexture* CTexDict::CopyTextureWithOverlay(uint32_t checksum, CTexture* source, 
 // --- the loaded dictionaries --------------------------------------------------------------------------------------
 
 // 0x0049F010
-CTexDict* __cdecl FindTexDict(uint32_t checksum) { return static_cast<CTexDict*>(LoadedTexDicts().GetItem(checksum)); }
+CTextureSet* __cdecl FindTexDict(uint32_t checksum) { return static_cast<CTextureSet*>(LoadedTexDicts().GetItem(checksum)); }
 
 // 0x0049F0C0
-CTexDict* __cdecl LoadTexDict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
+CTextureSet* __cdecl LoadTexDict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
 {
     char file[0x80];
     std::snprintf(file, sizeof(file), "%s.%s", path, PlatformExtension());
-    Mem::PushMemProfile(path);
-    uint32_t key = Crc::GenerateCRCFromString(path) + offset;
-    CTexDict* dict = FindTexDict(key);
+    MemSys::PushMemProfile(path);
+    uint32_t key = Checksums::HashFromText(path) + offset;
+    CTextureSet* dict = FindTexDict(key);
     if (dict) {
-        ++dict->m_refCount;
+        ++dict->m_shareCount;
     } else {
         // (the original passes level, offset, a3 and a4 too: the PC's reads the name alone)
-        dict = reinterpret_cast<CTexDict*>(LoadTexDictFile(file));
+        dict = reinterpret_cast<CTextureSet*>(LoadTexDictFile(file));
         dict->m_checksum = key;
-        LoadedTexDicts().PutItem(key, dict);
+        LoadedTexDicts().StoreEntry(key, dict);
     }
-    Mem::PopMemProfile();
+    MemSys::PopMemProfile();
     return dict;
 }
 
 // 0x0049F050
-CTexDict* __cdecl LoadTexDictFromMemory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/, uint32_t /*a3*/,
+CTextureSet* __cdecl LoadTexDictFromMemory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/, uint32_t /*a3*/,
                                         uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
-    Mem::PushMemProfile("TEX_data_buffer"); // "TEX_data_buffer"
+    MemSys::PushMemProfile("TEX_data_buffer"); // "TEX_data_buffer"
     uint32_t key = checksum + offset;
-    CTexDict* dict = FindTexDict(key);
+    CTextureSet* dict = FindTexDict(key);
     if (!dict) {
         // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone)
-        dict = reinterpret_cast<CTexDict*>(LoadTexDictMemory(key, data));
+        dict = reinterpret_cast<CTextureSet*>(LoadTexDictMemory(key, data));
         dict->m_checksum = key;
-        LoadedTexDicts().PutItem(key, dict);
+        LoadedTexDicts().StoreEntry(key, dict);
     }
-    Mem::PopMemProfile();
+    MemSys::PopMemProfile();
     return dict;
 }
 
 // 0x0049F180 (the skin flag is pushed as a whole word in the original - stack noise above its byte)
-CTexDict* __cdecl LoadModelTextures(const char* name, uint32_t offset, uint32_t a4)
+CTextureSet* __cdecl LoadModelTextures(const char* name, uint32_t offset, uint32_t a4)
 {
     char base[0x200];
     bool skin = Engine::SplitSkinName(name, base);
@@ -339,12 +339,12 @@ CTexDict* __cdecl LoadModelTextures(const char* name, uint32_t offset, uint32_t 
 }
 
 // 0x0049EFD0
-bool __cdecl UnloadTexDict(CTexDict* dict)
+bool __cdecl UnloadTexDict(CTextureSet* dict)
 {
-    if (--dict->m_refCount != 0)
+    if (--dict->m_shareCount != 0)
         return false;
     uint32_t key = dict->m_checksum;
-    LoadedTexDicts().FlushItem(key);
+    LoadedTexDicts().EraseEntry(key);
     DeleteModelLights(reinterpret_cast<CPcModelLights*>(dict)); // (deleted through its vtable)
     return true;
 }
@@ -356,10 +356,10 @@ void __cdecl TexDictFileName(char* out, const char* name)
 }
 
 // 0x0049EFB0
-void __cdecl FlushParticleTextures(bool all) { g_particleTextureDict->FlushTextures(all); }
+void __cdecl DropParticleTextures(bool all) { g_particleTextureDict->DropTextures(all); }
 
 namespace {
-static VtableSlot kTexDictVtable_slots[] = {&Nx::CTexDict::Destroy, Stubs::ReturnZero3, Stubs::ReturnZero6,
+static VtableSlot kTexDictVtable_slots[] = {&Engine3D::CTextureSet::Destroy, Stubs::ReturnZero3, Stubs::ReturnZero6,
                 Stubs::ReturnZero6, Stubs::ReturnZero1, Stubs::ReturnFalse1, Stubs::IgnoreArgument, Stubs::ReturnFalse1,
                 Stubs::ReturnZero2};
 void** const kTexDictVtable = reinterpret_cast<void**>(kTexDictVtable_slots);
@@ -367,36 +367,36 @@ void** const kTexDictVtable = reinterpret_cast<void**>(kTexDictVtable_slots);
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 // A table (2 buckets) nothing uses but its static initialiser and exit function.
-Lst::HashTable g_spareTexDictTable{Lst::HashTable::Unconstructed{}};
+ListKit::HashTable g_spareTexDictTable{ListKit::HashTable::Unconstructed{}};
 
 // The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
-CTexDict* SharedTexDict(const char* name)
+CTextureSet* SharedTexDict(const char* name)
 {
-    uint32_t checksum = Crc::GenerateCRCFromString(name);
-    if (CTexDict* dict = FindTexDict(checksum)) {
-        ++dict->m_refCount;
+    uint32_t checksum = Checksums::HashFromText(name);
+    if (CTextureSet* dict = FindTexDict(checksum)) {
+        ++dict->m_shareCount;
         return dict;
     }
-    auto* dict = reinterpret_cast<CTexDict*>(CreateTexDict(checksum));
-    LoadedTexDicts().PutItem(checksum, dict);
+    auto* dict = reinterpret_cast<CTextureSet*>(CreateTexDict(checksum));
+    LoadedTexDicts().StoreEntry(checksum, dict);
     return dict;
 }
 
 } // namespace
 
 // 0x00640BF0 (a static initialiser): the loaded dictionaries' table, 16 buckets.
-void ConstructLoadedTexDicts() { new (&g_loadedTexDicts) Lst::HashTable(4); }
+void ConstructLoadedTexDicts() { new (&g_loadedTexDicts) ListKit::HashTable(4); }
 
 // 0x00640C10, 0x00640C60 (static initialisers): the dictionaries of the sprites and the particles.
 void SetUpGameTextureDict() { g_gameTextureDict = SharedTexDict("sprite"); }
 void SetUpParticleTextureDict() { g_particleTextureDict = SharedTexDict("particle"); }
 
 // 0x00640CB0 (a static initialiser)
-void ConstructSpareTexDictTable() { new (&g_spareTexDictTable) Lst::HashTable(1); }
+void ConstructSpareTexDictTable() { new (&g_spareTexDictTable) ListKit::HashTable(1); }
 
 } // namespace Nx

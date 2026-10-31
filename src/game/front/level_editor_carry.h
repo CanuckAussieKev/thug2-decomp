@@ -7,8 +7,8 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
 
-namespace Obj {
-class CCompositeObject;
+namespace GameObjects {
+class CGameEntity;
 }
 
 // NOT ORIGINAL - the level editor's carrying (ours, added at the user's request; see level_editor.h): when a scenery
@@ -33,7 +33,7 @@ class CCompositeObject;
 //   - Undo / Home / layouts: each kind records its own moves - objects as the editor's moved objects (Touch, their first
 //     place noted), nodes through NodeEdit::Set (their `set` records); the scenery's undo step carries their places
 //     before the change (level_editor.cpp's UndoStep).
-namespace Front::LevelEditor::Carry {
+namespace MenuSystem::LevelEditor::Carry {
 
 constexpr float kMargin = 10.0f;  // (units round a member's footprint)
 constexpr float kAbove = 400.0f;  // (how far over a member's top something can be and still stand on it)
@@ -88,4 +88,4 @@ int Count();
 std::vector<uint32_t> CarriedObjects();
 std::vector<uint32_t> CarriedNodes();
 
-} // namespace Front::LevelEditor::Carry
+} // namespace MenuSystem::LevelEditor::Carry

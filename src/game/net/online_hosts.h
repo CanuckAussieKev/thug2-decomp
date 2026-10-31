@@ -4,7 +4,7 @@
 
 // The online service's host names: GameSpy's servers (*.gamespy.com) replaced by [Miscellaneous] OnlineDomain
 // in thug2-decomp.ini (openspy.net by default), as PartyMod has it.
-namespace Net {
+namespace NetLink {
 
 // Make the host names for the domain and write them into the GameSpy SDK's code (once, at start-up).
 void SetUpOnlineHosts();

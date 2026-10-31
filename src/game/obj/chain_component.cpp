@@ -1,4 +1,4 @@
-// The chain component (Obj::CChainComponent, chain_component.h): ropes of links hung from an object's bones.
+// The chain component (GameObjects::CChainComponent, chain_component.h): ropes of links hung from an object's bones.
 
 #include "game/obj/chain_component.h"
 #include "game/gfx/engine_primitive.h"
@@ -24,7 +24,7 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/gfx/weather.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -71,12 +71,12 @@ constexpr uint32_t kFirstLink = 0x3EA1D93A;
 constexpr uint32_t kNotLastLink = 0x5F78A252;
 constexpr uint32_t kHidden = 0x5B6634D4;
 
-bool ManagerReady() { return Mem::g_managerReady; }
+bool ManagerReady() { return MemSys::g_managerReady; }
 void* Allocate(uint32_t size)
 {
     if (!ManagerReady())
-        Mem::EnsureManager();
-    return Mem::Manager::Get()->Allocate(size, 1, nullptr);
+        MemSys::EnsureManager();
+    return MemSys::Manager::Get()->Allocate(size, 1, nullptr);
 }
 
 // A line's virtual functions (the Nx line object, vtable 0x0064A628; no source yet).
@@ -86,31 +86,31 @@ void LineCall(void* line, int slot, A... args)
     reinterpret_cast<void(__thiscall*)(void*, A...)>((*reinterpret_cast<void***>(line))[slot])(line, args...);
 }
 void SetLineColour(void* line, int vertex, uint32_t colour) { LineCall(line, 15, vertex, colour); }
-void SetLineVertex(void* line, int vertex, const Mth::Vector& pos) { LineCall(line, 7, vertex, pos.x, pos.y, pos.z); }
+void SetLineVertex(void* line, int vertex, const Maths::Vector& pos) { LineCall(line, 7, vertex, pos.x, pos.y, pos.z); }
 
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
-void BoneWorldPosition(CBaseComponent* skeleton, uint32_t bone, Mth::Vector* out)
+void BoneWorldPosition(CObjectModule* skeleton, uint32_t bone, Maths::Vector* out)
 {
-    static_cast<CSkeletonComponent*>(skeleton)->GetBonePosition(bone, out);
+    static_cast<CBoneRigModule*>(skeleton)->GetBonePosition(bone, out);
 }
-void BonePosition(CBaseComponent* skeleton, uint32_t bone, Mth::Vector* out)
+void BonePosition(CObjectModule* skeleton, uint32_t bone, Maths::Vector* out)
 {
-    static_cast<CSkeletonComponent*>(skeleton)->GetLocalBonePosition(bone, out);
+    static_cast<CBoneRigModule*>(skeleton)->GetLocalBonePosition(bone, out);
 }
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
-void BoneMatrix(CBaseComponent* skeleton, uint32_t bone, Mth::Matrix* out)
+void BoneMatrix(CObjectModule* skeleton, uint32_t bone, Maths::Matrix* out)
 {
-    auto* data = reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(skeleton)->Word18());
-    static_cast<Gfx::CSkeleton*>(data)->GetBoneMatrix(bone, out);
+    auto* data = reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(skeleton)->Word18());
+    static_cast<Gfx2D::CRig*>(data)->ReadJointMatrix(bone, out);
 }
 
 // std::list<CChain*>::erase(first, last) (0x004ECC30, the game's).
 void EraseNodes(CChainComponent::ChainList* list, CChainComponent::Node* first, CChainComponent::Node* last)
 {
     CChainComponent::Node* result;
-    reinterpret_cast<Obj::PointerList*>(list)->Erase(reinterpret_cast<Obj::PointerListNode**>(&result),
-                                                     reinterpret_cast<Obj::PointerListNode*>(first),
-                                                     reinterpret_cast<Obj::PointerListNode*>(last));
+    reinterpret_cast<GameObjects::PointerList*>(list)->Erase(reinterpret_cast<GameObjects::PointerListNode**>(&result),
+                                                     reinterpret_cast<GameObjects::PointerListNode*>(first),
+                                                     reinterpret_cast<GameObjects::PointerListNode*>(last));
 }
 CChainComponent::Node* First(CChainComponent::Node* head) { return head ? head->next : nullptr; }
 
@@ -121,7 +121,7 @@ float Rounded(double value) { return static_cast<float>(value); }
 // --- a line, a link and a chain ---
 
 // 0x00428270
-void CLineObject::SetBlendMode(uint32_t mode) { m_blendMode = mode; }
+void CLineObject::ChooseBlendMode(uint32_t mode) { m_blendMode = mode; }
 
 // 0x00428280
 CChainLink* CChainLink::Construct()
@@ -142,7 +142,7 @@ void CChainLink::DestroyBody()
 // 0x00428290
 CChain* CChain::Construct()
 {
-    for (CChainLink& link : m_link)
+    for (CChainLink& link : m_chainLink)
         link.Construct();
     m_id = 0;
     m_boneStart = 0;
@@ -155,7 +155,7 @@ CChain* CChain::Construct()
     m_collideEnd = 0;
     m_iterations = 0;
     m_damping = 0.0f;
-    m_gravity = 0.0f;
+    m_pullDown = 0.0f;
     m_collideBelow = false;
     m_moveWithObject = true;
     return this;
@@ -165,28 +165,28 @@ CChain* CChain::Construct()
 void CChain::UpdateLines()
 {
     for (uint32_t i = 1; i < static_cast<uint32_t>(m_links); ++i) {
-        void* line = m_link[i - 1].mp_line;
+        void* line = m_chainLink[i - 1].mp_line;
         static_cast<uint8_t*>(line)[0x15] = 1;
         SetLineColour(line, 0, kLineBlack);
-        SetLineVertex(line, 0, m_link[i - 1].m_pos);
+        SetLineVertex(line, 0, m_chainLink[i - 1].m_pos);
         SetLineColour(line, 1, kLineBlack);
-        SetLineVertex(line, 1, m_link[i].m_pos);
+        SetLineVertex(line, 1, m_chainLink[i].m_pos);
     }
 }
 
 // --- life ---
 
 // 0x004298B0
-CBaseComponent* __cdecl CChainComponent::Create()
+CObjectModule* __cdecl CChainComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CChainComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CChainComponent));
     return memory ? static_cast<CChainComponent*>(memory)->Construct() : nullptr;
 }
 
 // 0x004296E0
 CChainComponent* CChainComponent::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_chains.size = 0;
     auto* head = static_cast<Node*>(Allocate(sizeof(Node)));
@@ -197,15 +197,15 @@ CChainComponent* CChainComponent::Construct()
     m_chains.head = head;
     m_type = kType;
     mp_suspend = nullptr;
-    mp_skeleton = nullptr;
-    mp_model = nullptr;
+    m_boneRig = nullptr;
+    m_meshInstance = nullptr;
     m_steps = 0;
     m_stepTime = 0.0f;
-    m_lastFrame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    m_finalFrame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     m_axisFromBone = 0;
     m_axisToBone = 0;
     m_planeBone = 0;
-    m_hidden = false;
+    m_invisible = false;
     return this;
 }
 
@@ -217,15 +217,15 @@ void CChainComponent::DestroyBody()
         for (Node* node = First(m_chains.head); node != m_chains.head;) {
             if (CChain* chain = node->chain) {
                 for (int i = CChain::kMaxLinks - 1; i >= 0; --i)
-                    chain->m_link[i].DestroyBody();
-                Mem::Manager::Get()->Free(chain);
+                    chain->m_chainLink[i].DestroyBody();
+                MemSys::Manager::Get()->Free(chain);
                 node->chain = nullptr;
             }
             Node* next = node->next;
             if (node != m_chains.head) {
                 node->prev->next = next;
                 node->next->prev = node->prev;
-                Mem::Manager::Get()->Free(node);
+                MemSys::Manager::Get()->Free(node);
                 --m_chains.size;
             }
             node = next;
@@ -233,8 +233,8 @@ void CChainComponent::DestroyBody()
         EraseNodes(&m_chains, First(m_chains.head), m_chains.head);
     }
     EraseNodes(&m_chains, First(m_chains.head), m_chains.head);
-    Mem::Manager::Get()->Free(m_chains.head);
-    CBaseComponent::DestroyBody();
+    MemSys::Manager::Get()->Free(m_chains.head);
+    CObjectModule::DestroyBody();
 }
 
 // 0x00429910
@@ -242,7 +242,7 @@ CChainComponent* CChainComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -250,60 +250,60 @@ CChainComponent* CChainComponent::Destroy(unsigned int flags)
 void CChainComponent::ChainList::Destroy()
 {
     EraseNodes(this, First(head), head);
-    Mem::Manager::Get()->Free(head);
+    MemSys::Manager::Get()->Free(head);
 }
 
 // 0x00428370
 void CChainComponent::Finalize()
 {
     mp_suspend = m_object->GetComponent(kSuspend);
-    mp_skeleton = m_object->GetComponent(kSkeleton);
-    mp_model = m_object->GetComponent(kModel);
+    m_boneRig = m_object->GetComponent(kSkeleton);
+    m_meshInstance = m_object->GetComponent(kModel);
 }
 
 // 0x004283B0
-void CChainComponent::InitFromStructure(Script::CStruct* params)
+void CChainComponent::ConfigureFromData(Scripts::CStruct* params)
 {
-    Script::CArray* chains = nullptr;
-    Script::CStruct* info = nullptr;
-    if (params->GetStructure(kCollisionInfo, &info, 1)) {
-        info->GetChecksum(kAxisFrom, &m_axisFromBone, 0);
-        info->GetChecksum(kAxisTo, &m_axisToBone, 0);
-        info->GetChecksum(kPlanePoint, &m_planeBone, 0);
+    Scripts::CArray* chains = nullptr;
+    Scripts::CStruct* info = nullptr;
+    if (params->ReadSubStruct(kCollisionInfo, &info, 1)) {
+        info->ReadHashValue(kAxisFrom, &m_axisFromBone, 0);
+        info->ReadHashValue(kAxisTo, &m_axisToBone, 0);
+        info->ReadHashValue(kPlanePoint, &m_planeBone, 0);
     }
     params->GetArray(kChains, &chains, 1);
     for (uint32_t i = 0; i < chains->m_size; ++i) {
-        auto* description = reinterpret_cast<Script::CStruct*>(chains->GetElement(i));
+        auto* description = reinterpret_cast<Scripts::CStruct*>(chains->GetElement(i));
         int segments = 0;
-        description->GetInteger(kSegments, &segments, 1);
+        description->FetchIntValue(kSegments, &segments, 1);
         float length = 0.0f;
         description->GetFloat(kLength, &length, 1);
         uint32_t id = 0;
-        description->GetChecksum(kChainId, &id, 1);
+        description->ReadHashValue(kChainId, &id, 1);
         void* memory = Allocate(sizeof(CChain));
         CChain* chain = memory ? static_cast<CChain*>(memory)->Construct() : nullptr;
         int value = 0;
         chain->m_id = id;
         chain->m_links = segments + 1;
-        chain->m_moveWithObject = description->ContainsFlag(kMoveWithObject);
-        description->GetChecksum(kBoneStart, &chain->m_boneStart, 0);
-        description->GetVector(kStartOffset, reinterpret_cast<Script::VectorValue*>(&chain->m_startOffset), 1);
-        description->GetChecksum(kBoneEnd, &chain->m_boneEnd, 1);
-        description->GetChecksum(kObjEnd, &chain->m_objEnd, 1);
-        description->GetFloat(kGravityForce, &chain->m_gravity, 1);
+        chain->m_moveWithObject = description->HasBareFlag(kMoveWithObject);
+        description->ReadHashValue(kBoneStart, &chain->m_boneStart, 0);
+        description->GetVector(kStartOffset, reinterpret_cast<Scripts::VectorValue*>(&chain->m_startOffset), 1);
+        description->ReadHashValue(kBoneEnd, &chain->m_boneEnd, 1);
+        description->ReadHashValue(kObjEnd, &chain->m_objEnd, 1);
+        description->GetFloat(kGravityForce, &chain->m_pullDown, 1);
         description->GetFloat(kDampForce, &chain->m_damping, 1);
-        description->GetInteger(kIterations, &value, 1);
+        description->FetchIntValue(kIterations, &value, 1);
         chain->m_iterations = value;
-        chain->m_collideBelow = description->ContainsFlag(kCollideBelow);
+        chain->m_collideBelow = description->HasBareFlag(kCollideBelow);
         description->GetFloat(kPlaneOffset, &chain->m_planeOffset, 0);
-        description->GetInteger(kCollideFirst, &value, 0); // (not given: the value before)
+        description->FetchIntValue(kCollideFirst, &value, 0); // (not given: the value before)
         chain->m_collideFirst = value;
-        description->GetInteger(kCollideEnd, &value, 0);
+        description->FetchIntValue(kCollideEnd, &value, 0);
         chain->m_collideEnd = value;
         for (int j = 0; j < chain->m_links; ++j) {
-            CChainLink& link = chain->m_link[j];
+            CChainLink& link = chain->m_chainLink[j];
             link.m_value40 = 3.0f;
-            link.m_length = static_cast<float>(static_cast<double>(length) / segments);
+            link.m_byteCount = static_cast<float>(static_cast<double>(length) / segments);
             link.m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
             link.m_lastPos = link.m_pos;
             link.m_nextPos = link.m_pos;
@@ -311,16 +311,16 @@ void CChainComponent::InitFromStructure(Script::CStruct* params)
                 continue;
             // (a grey line to the next link)
             void* lineMemory = Allocate(0x158);
-            void* line = lineMemory ? static_cast<Nx::CPcPrimitive*>(lineMemory)->Construct(1) : nullptr;
+            void* line = lineMemory ? static_cast<Engine3D::CPcPrimitive*>(lineMemory)->Construct(1) : nullptr;
             link.mp_line = line;
             static_cast<uint32_t*>(line)[3] = kLineBlend;
-            reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&Nx::VirtualSlot3Jump)(line, 1, 0, 2);
+            reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&Engine3D::VirtualSlot3Jump)(line, 1, 0, 2);
             SetLineColour(line, 0, kLineGrey);
             SetLineVertex(line, 0, link.m_pos);
             SetLineColour(line, 1, kLineGrey);
             SetLineVertex(line, 1, link.m_pos);
             static_cast<uint8_t*>(line)[0x14] = 1;
-            static_cast<Nx::CPrimitive*>(line)->Ready();
+            static_cast<Engine3D::CPrimitive*>(line)->Ready();
         }
         // (onto the end of the list)
         Node* head = m_chains.head;
@@ -337,46 +337,46 @@ void CChainComponent::InitFromStructure(Script::CStruct* params)
 }
 
 // 0x004294C0
-int CChainComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+int CChainComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     if (name == kSetCollision) {
         uint32_t id = 0;
-        params->GetChecksum(kChainId, &id, 1);
+        params->ReadHashValue(kChainId, &id, 1);
         for (Node* node = First(m_chains.head); node != m_chains.head; node = node->next) {
             CChain* chain = node->chain;
             if (chain->m_id != id)
                 continue;
             int value = 0;
             params->GetFloat(kDist, &chain->m_planeOffset, 0);
-            if (params->GetInteger(kCollisionFirst, &value, 0))
+            if (params->FetchIntValue(kCollisionFirst, &value, 0))
                 chain->m_collideFirst = value;
-            if (params->GetInteger(kCollisionEnd, &value, 0))
+            if (params->FetchIntValue(kCollisionEnd, &value, 0))
                 chain->m_collideEnd = value;
         }
         return 1;
     }
     if (name == kSetLink) {
         uint32_t id = 0;
-        params->GetChecksum(kChainId, &id, 1);
-        Mth::Vector pos;
-        params->GetVector(kLinkPos, reinterpret_cast<Script::VectorValue*>(&pos), 1);
+        params->ReadHashValue(kChainId, &id, 1);
+        Maths::Vector pos;
+        params->GetVector(kLinkPos, reinterpret_cast<Scripts::VectorValue*>(&pos), 1);
         for (Node* node = First(m_chains.head); node != m_chains.head; node = node->next) {
             CChain* chain = node->chain;
             if (chain->m_id != id)
                 continue;
             int index = 0;
-            if (!params->GetInteger(kLinkIndex, &index, 0)) {
-                if (params->ContainsFlag(kFirstLink))
+            if (!params->FetchIntValue(kLinkIndex, &index, 0)) {
+                if (params->HasBareFlag(kFirstLink))
                     index = 0;
-                else if (!params->ContainsFlag(kNotLastLink))
+                else if (!params->HasBareFlag(kNotLastLink))
                     index = chain->m_links - 1;
             }
-            chain->m_link[index].m_pos = pos;
+            chain->m_chainLink[index].m_pos = pos;
         }
         return 1;
     }
     if (name == kSetHidden) {
-        m_hidden = params->ContainsFlag(kHidden);
+        m_invisible = params->HasBareFlag(kHidden);
         return 1;
     }
     return 2;
@@ -395,12 +395,12 @@ int CChainComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, 
 // roundings are the original's.
 void CChainComponent::Update()
 {
-    float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
-    const Mth::Vector velocity = m_object->m_vel;
-    Mth::Vector planePoint, axisFrom, axisTo;
-    BoneWorldPosition(mp_skeleton, m_planeBone, &planePoint);
-    BoneWorldPosition(mp_skeleton, m_axisFromBone, &axisFrom);
-    BoneWorldPosition(mp_skeleton, m_axisToBone, &axisTo);
+    float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
+    const Maths::Vector velocity = m_object->m_vel;
+    Maths::Vector planePoint, axisFrom, axisTo;
+    BoneWorldPosition(m_boneRig, m_planeBone, &planePoint);
+    BoneWorldPosition(m_boneRig, m_axisFromBone, &axisFrom);
+    BoneWorldPosition(m_boneRig, m_axisToBone, &axisTo);
     // The plane's axis (y rounded before it's squared; w the rounded difference).
     double ax = static_cast<double>(axisTo.x) - axisFrom.x;
     float ay = Rounded(static_cast<double>(axisTo.y) - axisFrom.y);
@@ -419,7 +419,7 @@ void CChainComponent::Update()
         CChain* chain = node->chain;
         // The steps.
         for (int i = chain->m_links - 1; i >= 0; --i) {
-            CChainLink& link = chain->m_link[i];
+            CChainLink& link = chain->m_chainLink[i];
             if (chain->m_moveWithObject) {
                 double vx = static_cast<double>(velocity.x) * frame;
                 double vy = static_cast<double>(velocity.y) * frame;
@@ -439,7 +439,7 @@ void CChainComponent::Update()
             double dy = static_cast<double>(link.m_pos.y) - link.m_lastPos.y;
             float dz = Rounded(static_cast<double>(link.m_pos.z) - link.m_lastPos.z);
             float dw = Rounded(static_cast<double>(link.m_pos.w) - link.m_lastPos.w);
-            float inverse = Rounded(1.0 / m_lastFrame);
+            float inverse = Rounded(1.0 / m_finalFrame);
             float vx = Rounded(dx * inverse);
             double vy = dy * inverse;
             double vz = static_cast<double>(inverse) * dz;
@@ -461,21 +461,21 @@ void CChainComponent::Update()
             link.m_nextPos.z = Rounded(static_cast<double>(stepZ) + link.m_pos.z);
             link.m_nextPos.w = Rounded(stepW + link.m_pos.w);
             link.m_nextPos.y = Rounded(static_cast<double>(link.m_nextPos.y) -
-                                       static_cast<double>(frame) * chain->m_gravity * frame);
+                                       static_cast<double>(frame) * chain->m_pullDown * frame);
         }
 
         // The start: bone_start's position plus start_offset turned by the bone, into the world.
-        Mth::Vector start;
-        BonePosition(mp_skeleton, chain->m_boneStart, &start);
-        Mth::Matrix bone;
-        BoneMatrix(mp_skeleton, chain->m_boneStart, &bone);
+        Maths::Vector start;
+        BonePosition(m_boneRig, chain->m_boneStart, &start);
+        Maths::Matrix bone;
+        BoneMatrix(m_boneRig, chain->m_boneStart, &bone);
         bone.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
-        Mth::Vector turned = chain->m_startOffset * bone;
+        Maths::Vector turned = chain->m_startOffset * bone;
         start = {Rounded(static_cast<double>(start.x) + turned.x), Rounded(static_cast<double>(start.y) + turned.y),
                  Rounded(static_cast<double>(start.z) + turned.z), Rounded(static_cast<double>(start.w) + turned.w)};
         {
-            const Mth::Matrix& m = m_object->m_displayMatrix;
-            const Mth::Vector& at = m_object->m_pos;
+            const Maths::Matrix& m = m_object->m_displayMatrix;
+            const Maths::Vector& at = m_object->m_pos;
             double x = (static_cast<double>(start.z) * m.row[2].x + static_cast<double>(start.y) * m.row[1].x) +
                        static_cast<double>(start.x) * m.row[0].x;
             double y = (static_cast<double>(start.z) * m.row[2].y + static_cast<double>(start.y) * m.row[1].y) +
@@ -489,11 +489,11 @@ void CChainComponent::Update()
         }
         // The end: bone_end of obj_end, into that object's world, plus this object's velocity over the last frame.
         // (no obj_end: the original's end is whatever its stack held - zero here)
-        Mth::Vector end = {0.0f, 0.0f, 0.0f, 0.0f};
-        if (auto* other = static_cast<CCompositeObject*>(FindObject(chain->m_objEnd))) {
+        Maths::Vector end = {0.0f, 0.0f, 0.0f, 0.0f};
+        if (auto* other = static_cast<CGameEntity*>(FindObject(chain->m_objEnd))) {
             BonePosition(other->GetComponent(kSkeleton), chain->m_boneEnd, &end);
-            const Mth::Matrix& m = other->m_displayMatrix;
-            const Mth::Vector& at = other->m_pos;
+            const Maths::Matrix& m = other->m_displayMatrix;
+            const Maths::Vector& at = other->m_pos;
             double x = (static_cast<double>(end.y) * m.row[1].x + static_cast<double>(end.z) * m.row[2].x) +
                        static_cast<double>(end.x) * m.row[0].x;
             double y = (static_cast<double>(end.y) * m.row[1].y + static_cast<double>(end.z) * m.row[2].y) +
@@ -504,7 +504,7 @@ void CChainComponent::Update()
             end.y = Rounded(y + at.y);
             end.z = Rounded(static_cast<double>(z) + at.z);
             double w = static_cast<double>(end.w) + at.w;
-            double lastFrame = m_lastFrame;
+            double lastFrame = m_finalFrame;
             double carriedX = static_cast<double>(velocity.x) * lastFrame;
             float carriedY = Rounded(static_cast<double>(velocity.y) * lastFrame);
             float carriedZ = Rounded(static_cast<double>(velocity.z) * lastFrame);
@@ -531,14 +531,14 @@ void CChainComponent::Update()
             m_steps -= chain->m_iterations;
         }
         for (int pass = passes; pass != 0; --pass) {
-            CChainLink* link = chain->m_link;
+            CChainLink* link = chain->m_chainLink;
             int last = chain->m_links - 1;
             link[0].m_nextPos = start;
             link[last].m_nextPos = end;
             // Each pair pulled (or pushed) half way to its rest length.
             for (int i = 1; i < last; ++i) {
-                Mth::Vector& prev = link[i - 1].m_nextPos;
-                Mth::Vector& cur = link[i].m_nextPos;
+                Maths::Vector& prev = link[i - 1].m_nextPos;
+                Maths::Vector& cur = link[i].m_nextPos;
                 double dx = static_cast<double>(cur.x) - prev.x;
                 double dy = static_cast<double>(cur.y) - prev.y;
                 double dz = static_cast<double>(cur.z) - prev.z;
@@ -550,7 +550,7 @@ void CChainComponent::Update()
                 float ny = Rounded(static_cast<double>(inverse) * dy);
                 float nz = Rounded(static_cast<double>(inverse) * dzf);
                 float nw = Rounded(static_cast<double>(inverse) * dwf);
-                float half = Rounded((static_cast<double>(link[i].m_length) - length) * 0.5);
+                float half = Rounded((static_cast<double>(link[i].m_byteCount) - length) * 0.5);
                 float cx = Rounded(static_cast<double>(nx) * half);
                 double cy = static_cast<double>(half) * ny;
                 double cz = static_cast<double>(half) * nz;
@@ -568,8 +568,8 @@ void CChainComponent::Update()
             }
             // The last pair: only the link before the end moves.
             {
-                Mth::Vector& prev = link[last - 1].m_nextPos;
-                Mth::Vector& cur = link[last].m_nextPos;
+                Maths::Vector& prev = link[last - 1].m_nextPos;
+                Maths::Vector& cur = link[last].m_nextPos;
                 double dx = static_cast<double>(cur.x) - prev.x;
                 double dy = static_cast<double>(cur.y) - prev.y;
                 double dz = static_cast<double>(cur.z) - prev.z;
@@ -581,7 +581,7 @@ void CChainComponent::Update()
                 double ny = dy * inverse;
                 float nz = Rounded(static_cast<double>(inverse) * dzf);
                 float nw = Rounded(static_cast<double>(inverse) * dwf);
-                float half = Rounded((static_cast<double>(link[last].m_length) - length) * 0.5);
+                float half = Rounded((static_cast<double>(link[last].m_byteCount) - length) * 0.5);
                 float cx = Rounded(static_cast<double>(nx) * half);
                 double cy = static_cast<double>(half) * ny;
                 double cz = static_cast<double>(half) * nz;
@@ -598,7 +598,7 @@ void CChainComponent::Update()
                 double px = static_cast<double>(axis[0]) * offset + planePoint.x;
                 double py = static_cast<double>(planePoint.y) + Rounded(offset * axis[1]);
                 float pz = Rounded(static_cast<double>(planePoint.z) + Rounded(offset * axis[2]));
-                Mth::Vector& cur = link[i].m_nextPos;
+                Maths::Vector& cur = link[i].m_nextPos;
                 float dx = Rounded(static_cast<double>(cur.x) - px);
                 float dy = Rounded(static_cast<double>(cur.y) - py);
                 float dz = Rounded(static_cast<double>(cur.z) - pz);
@@ -633,42 +633,42 @@ void CChainComponent::Update()
 
         // Each link moved to its step.
         for (int i = chain->m_links - 1; i >= 0; --i) {
-            CChainLink& link = chain->m_link[i];
+            CChainLink& link = chain->m_chainLink[i];
             link.m_lastPos = link.m_pos;
             link.m_pos = link.m_nextPos;
         }
-        if (!(m_object->m_compositeFlags & COMPOSITE_FLAG_HIDDEN) && !m_hidden) {
+        if (!(m_object->m_compositeFlags & COMPOSITE_FLAG_HIDDEN) && !m_invisible) {
             chain->UpdateLines();
         } else {
             for (uint32_t i = 1; i < static_cast<uint32_t>(chain->m_links); ++i)
-                static_cast<uint8_t*>(chain->m_link[i - 1].mp_line)[0x15] = 0;
+                static_cast<uint8_t*>(chain->m_chainLink[i - 1].mp_line)[0x15] = 0;
         }
     }
-    m_lastFrame = frame;
+    m_finalFrame = frame;
 }
 
 } // namespace Obj
 
-using Obj::CChain;
-using Obj::CChainComponent;
-using Obj::CChainLink;
+using GameObjects::CChain;
+using GameObjects::CChainComponent;
+using GameObjects::CChainLink;
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
 static VtableSlot kVtable_slots[] = {&CChainComponent::Destroy,
          &CChainComponent::Update,
-         &CChainComponent::InitFromStructure,
+         &CChainComponent::ConfigureFromData,
          &CChainComponent::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &CChainComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &CChainComponent::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

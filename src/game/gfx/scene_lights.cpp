@@ -23,7 +23,7 @@
 #include "game/obj/movie_manager.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 int g_sceneLightCount;
 sSceneLight g_sceneLights[150]; // (kMaxSceneLights)
@@ -33,7 +33,7 @@ int g_queuedCount;
 int g_queueDone;
 int g_queueFrames;
 int g_queueFrame;
-Script::CStruct* g_queueParams;
+Scripts::CStruct* g_queueParams;
 
 namespace {
 
@@ -49,16 +49,16 @@ int& QueuedCount() { return g_queuedCount; }
 int& QueueDone() { return g_queueDone; }
 int& QueueFrames() { return g_queueFrames; }
 int& QueueFrame() { return g_queueFrame; }
-Script::CStruct*& QueueParams() { return g_queueParams; }
+Scripts::CStruct*& QueueParams() { return g_queueParams; }
 
 // The table's iteration, inlined in the original: the first / next value (null at the end).
-void* NextValue(Lst::HashTable* table)
+void* NextValue(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstValue(Lst::HashTable* table)
+void* FirstValue(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -74,9 +74,9 @@ sSceneLight* FindSceneLight(uint32_t name)
     return nullptr;
 }
 
-CGeom* GeomOf(const CSector* sector) { return static_cast<CGeom*>(sector->mp_geom); }
+CGeom* GeomOf(const CWorldCell* sector) { return static_cast<CGeom*>(sector->m_geomHandle); }
 uint32_t VertexCount(CGeom* geom) { return reinterpret_cast<uint32_t(__thiscall*)(CGeom*)>(geom->m_vtable[36])(geom); }
-void GetVertices(CGeom* geom, Mth::Vector* out) { reinterpret_cast<void(__thiscall*)(CGeom*, Mth::Vector*)>(geom->m_vtable[37])(geom, out); }
+void GetVertices(CGeom* geom, Maths::Vector* out) { reinterpret_cast<void(__thiscall*)(CGeom*, Maths::Vector*)>(geom->m_vtable[37])(geom, out); }
 void SetColours(CGeom* geom, const uint32_t* in) { reinterpret_cast<void(__thiscall*)(CGeom*, const uint32_t*)>(geom->m_vtable[40])(geom, in); }
 
 // What a light adds at a vertex: (radius - distance) / radius x its intensity - when the vertex is within its radius
@@ -90,8 +90,8 @@ struct Sums {
         double radius = light.m_radius;
         if (!(d2 < radius * radius))
             return;
-        double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.m_intensity;
-        const auto* colour = reinterpret_cast<const uint8_t*>(&light.m_colour);
+        double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.m_strength;
+        const auto* colour = reinterpret_cast<const uint8_t*>(&light.m_shade);
         r += colour[0] * f;
         g += colour[1] * f;
         b += colour[2] * f;
@@ -114,12 +114,12 @@ struct Sums {
 };
 
 // A position's offset from a light, squared: the original's two orders of summing.
-double OffsetSquaredZXY(const float* p, const Mth::Vector& l)
+double OffsetSquaredZXY(const float* p, const Maths::Vector& l)
 {
     double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y, dz = static_cast<double>(p[2]) - l.z;
     return dz * dz + dx * dx + dy * dy;
 }
-double OffsetSquaredZYX(const float* p, const Mth::Vector& l)
+double OffsetSquaredZYX(const float* p, const Maths::Vector& l)
 {
     double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y, dz = static_cast<double>(p[2]) - l.z;
     return dz * dz + dy * dy + dx * dx;
@@ -130,19 +130,19 @@ double OffsetSquaredZYX(const float* p, const Mth::Vector& l)
 // 0x0048FF40
 sSceneLight* sSceneLight::Construct()
 {
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    mp_sectors = memory ? new (memory) Lst::HashTable(4) : nullptr;
-    auto* colour = reinterpret_cast<uint8_t*>(&m_colour);
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    mp_sectors = memory ? new (memory) ListKit::HashTable(4) : nullptr;
+    auto* colour = reinterpret_cast<uint8_t*>(&m_shade);
     colour[0] = 0x80;
     colour[1] = 0x80;
     colour[2] = 0x80;
     m_radius = 0.0f;
-    m_intensity = 0.0f;
+    m_strength = 0.0f;
     return this;
 }
 
 // 0x0048F1A0
-void sSceneLight::SetRadius(float radius)
+void sSceneLight::SetReach(float radius)
 {
     if (radius == m_radius) // (NaN: set)
         return;
@@ -155,7 +155,7 @@ void sSceneLight::SetRadius(float radius)
 }
 
 // 0x0048F200
-bool sSceneLight::AffectsSector(const CSector* sector)
+bool sSceneLight::TouchesSector(const CWorldCell* sector)
 {
     return mp_sectors->GetItem(reinterpret_cast<uint32_t>(sector)) != nullptr;
 }
@@ -163,24 +163,24 @@ bool sSceneLight::AffectsSector(const CSector* sector)
 // 0x0048FFD0
 void sSceneLight::ClearSectors()
 {
-    mp_sectors->FlushAllItems();
+    mp_sectors->EmptyTable();
 }
 
 // 0x0048FFE0
-void sSceneLight::FindSectors(Script::CArray* excluded)
+void sSceneLight::FindSectors(Scripts::CArray* excluded)
 {
-    mp_sectors->FlushAllItems();
-    CScene* scene = GetMainScene();
+    mp_sectors->EmptyTable();
+    CWorldScene* scene = GetMainScene();
     if (!scene)
         return;
-    Lst::HashTable* sectors = scene->mp_sectors;
+    ListKit::HashTable* sectors = scene->mp_sectors;
     if (!sectors)
         return;
-    for (auto* sector = static_cast<CSector*>(FirstValue(sectors)); sector;
-         sector = static_cast<CSector*>(NextValue(sectors))) {
-        if (sector->m_terrain == 0xED82767B || sector->m_terrain == 0xEC6542D3 || !sector->mp_geom)
+    for (auto* sector = static_cast<CWorldCell*>(FirstValue(sectors)); sector;
+         sector = static_cast<CWorldCell*>(NextValue(sectors))) {
+        if (sector->m_surfaceType == 0xED82767B || sector->m_surfaceType == 0xEC6542D3 || !sector->m_geomHandle)
             continue;
-        const Mth::BBox* box = sector->GetBoundingBox();
+        const Maths::BBox* box = sector->GetBoundingBox();
         // The box's centre (x and y rounded to floats, z not), its half-diagonal, the distance to the light (its z
         // offset squared against itself rounded to a float).
         auto cx = static_cast<float>((static_cast<double>(box->max.x) + box->min.x) * 0.5);
@@ -203,12 +203,12 @@ void sSceneLight::FindSectors(Script::CArray* excluded)
         if (skip)
             continue;
         uint32_t key = reinterpret_cast<uint32_t>(sector);
-        mp_sectors->PutItem(key, sector);
+        mp_sectors->StoreEntry(key, sector);
     }
 }
 
 // 0x0048F250
-void __cdecl ApplySceneLightsToSector(CSector* sector)
+void __cdecl ApplySceneLightsToSector(CWorldCell* sector)
 {
     CGeom* geom = GeomOf(sector);
     if (!geom)
@@ -217,7 +217,7 @@ void __cdecl ApplySceneLightsToSector(CSector* sector)
     int found = 0;
     for (int i = 0; i < SceneLightCount(); ++i) {
         sSceneLight& light = SceneLights()[i];
-        if (light.m_intensity > 0.0f && light.AffectsSector(sector)) {
+        if (light.m_strength > 0.0f && light.TouchesSector(sector)) {
             lights[found] = i;
             if (++found >= 8)
                 break;
@@ -227,14 +227,14 @@ void __cdecl ApplySceneLightsToSector(CSector* sector)
     if (count <= 0)
         return;
     if (found == 0) { // its own colours back
-        auto* colours = static_cast<uint32_t*>(Mem::New(count * 4));
+        auto* colours = static_cast<uint32_t*>(MemSys::New(count * 4));
         geom->GetColors(colours);
         SetColours(geom, colours);
-        Mem::Free(colours);
+        MemSys::Free(colours);
         return;
     }
-    auto* vertices = static_cast<Mth::Vector*>(Mem::New(count * 16));
-    auto* colours = static_cast<uint32_t*>(Mem::New(count * 4));
+    auto* vertices = static_cast<Maths::Vector*>(MemSys::New(count * 16));
+    auto* colours = static_cast<uint32_t*>(MemSys::New(count * 4));
     GetVertices(geom, vertices);
     geom->GetColors(colours);
     for (int v = 0; v < count; ++v) {
@@ -247,13 +247,13 @@ void __cdecl ApplySceneLightsToSector(CSector* sector)
             colours[v] = sums.Apply(colours[v]);
     }
     SetColours(geom, colours);
-    Mem::Free(vertices);
-    Mem::Free(colours);
+    MemSys::Free(vertices);
+    MemSys::Free(colours);
 }
 
 // 0x0048F620
-void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Mth::Vector* positions,
-                                const Mth::Vector* normal, uint32_t count)
+void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Maths::Vector* positions,
+                                const Maths::Vector* normal, uint32_t count)
 {
     int lights[3];
     int found = 0;
@@ -266,7 +266,7 @@ void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Mth::Ve
             double dz = static_cast<double>(positions->z) - light.m_pos.z;
             facing = dz * normal->z + dy * normal->y + dx * normal->x <= 0.0; // (NaN: not)
         }
-        if (!(light.m_intensity > 0.0f))
+        if (!(light.m_strength > 0.0f))
             continue;
         double rr = static_cast<double>(light.m_radius) * light.m_radius;
         double d2 = OffsetSquaredZYX(&positions->x, light.m_pos);
@@ -290,17 +290,17 @@ void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Mth::Ve
 }
 
 // 0x0048FC00
-void __cdecl ApplySceneLight(CScene* /*scene*/, uint32_t name)
+void __cdecl ApplySceneLight(CWorldScene* /*scene*/, uint32_t name)
 {
     if (!name)
         return;
     sSceneLight* light = FindSceneLight(name);
     if (!light || !light->mp_sectors)
         return;
-    Lst::HashTable* sectors = light->mp_sectors;
-    for (auto* sector = static_cast<CSector*>(FirstValue(sectors)); sector;
-         sector = static_cast<CSector*>(NextValue(sectors))) {
-        if (sector->mp_geom)
+    ListKit::HashTable* sectors = light->mp_sectors;
+    for (auto* sector = static_cast<CWorldCell*>(FirstValue(sectors)); sector;
+         sector = static_cast<CWorldCell*>(NextValue(sectors))) {
+        if (sector->m_geomHandle)
             ApplySceneLightsToSector(sector);
     }
 }
@@ -312,7 +312,7 @@ void __cdecl DeleteSceneLight(uint32_t name)
     int& dynamicCount = g_dynamicLightCount;
     for (int i = 0; i < dynamicCount; ++i) {
         if (dynamic[i]->owner == name) { // (no null check, as the original)
-            Mem::Manager::Get()->Free(dynamic[i]);
+            MemSys::Manager::Get()->Free(dynamic[i]);
             dynamic[i] = dynamic[dynamicCount - 1];
             --dynamicCount;
             dynamic[dynamicCount] = nullptr;
@@ -341,31 +341,31 @@ void __cdecl DeleteAllSceneLights()
 void __cdecl ClearSceneLightQueue()
 {
     if (QueuedNodes()) {
-        Mem::FreeMalloc(QueuedNodes());
+        MemSys::FreeMalloc(QueuedNodes());
         QueuedNodes() = nullptr;
     }
     QueuedCount() = 0;
     QueueDone() = 0;
     QueueFrames() = 0;
     QueueFrame() = 0;
-    if (Script::CStruct* params = QueueParams()) {
+    if (Scripts::CStruct* params = QueueParams()) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
         QueueParams() = nullptr;
     }
 }
 
 // 0x0048FE40
-void __cdecl QueueSceneLights(const uint32_t* nodes, int count, int frames, Script::CStruct* params)
+void __cdecl QueueSceneLights(const uint32_t* nodes, int count, int frames, Scripts::CStruct* params)
 {
     ClearSceneLightQueue();
-    Script::CStruct* copy = Script::NewStruct();
+    Scripts::CStruct* copy = Scripts::NewStruct();
     if (copy)
         copy->Init();
     QueueParams() = copy;
     copy->AppendStructureIfAny(params);
     if (count) {
-        QueuedNodes() = static_cast<uint32_t*>(Mem::Malloc(count * 4));
+        QueuedNodes() = static_cast<uint32_t*>(MemSys::AllocBlock(count * 4));
         for (int i = 0; i < count; ++i)
             QueuedNodes()[i] = nodes[i];
     }
@@ -376,7 +376,7 @@ void __cdecl QueueSceneLights(const uint32_t* nodes, int count, int frames, Scri
 // 0x004904E0
 void __cdecl UpdateSceneLightQueue()
 {
-    if (!QueuedNodes() || Obj::g_gamePaused) // (paused)
+    if (!QueuedNodes() || GameObjects::g_gamePaused) // (paused)
         return;
     if (QueueFrame() > QueueFrames()) {
         ClearSceneLightQueue();
@@ -384,38 +384,38 @@ void __cdecl UpdateSceneLightQueue()
     }
     int target = QueueFrames() ? QueuedCount() * QueueFrame() / QueueFrames() : QueuedCount();
     for (; QueueDone() < target; ++QueueDone()) {
-        Script::CStruct* node = SkateScript::GetNode(QueuedNodes()[QueueDone()], true);
-        UpdateSceneLight(SkateScript::GetNodeName(node), QueueParams());
+        Scripts::CStruct* node = LevelNodes::GetNode(QueuedNodes()[QueueDone()], true);
+        UpdateSceneLight(LevelNodes::GetNodeName(node), QueueParams());
     }
     ++QueueFrame();
 }
 
 // 0x004901D0
-void __cdecl UpdateSceneLight(uint32_t name, Script::CStruct* params)
+void __cdecl UpdateSceneLight(uint32_t name, Scripts::CStruct* params)
 {
-    CScene* scene = GetMainScene();
+    CWorldScene* scene = GetMainScene();
     sSceneLight* light = FindSceneLight(name);
     float value;
     int red, green = 0, blue = 0; // (the original leaves green and blue unset when they're missing)
     if (light) {
         if (params->GetFloat(0x9E497FC6u, &value, 0)) {
             value = static_cast<float>(value * static_cast<double>(kPercent));
-            if (value != light->m_intensity) { // (NaN: set)
-                light->m_intensity = value;
+            if (value != light->m_strength) { // (NaN: set)
+                light->m_strength = value;
                 if (CDynamicLightBase** slot = FindDynamicLight(light->m_name))
                     (*slot)->intensity = value;
             }
         }
         if (params->GetFloat(0x0999151Bu, &value, 0)) {
-            light->SetRadius(value);
+            light->SetReach(value);
             light->FindSectors(nullptr);
         }
-        if (params->GetInteger(0x059EA070u, &red, 0)) {
-            params->GetInteger(0x2F6511DEu, &green, 1);
-            params->GetInteger(0x61C9354Bu, &blue, 1);
+        if (params->FetchIntValue(0x059EA070u, &red, 0)) {
+            params->FetchIntValue(0x2F6511DEu, &green, 1);
+            params->FetchIntValue(0x61C9354Bu, &blue, 1);
             uint32_t colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
                               static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
-            light->m_colour = colour;
+            light->m_shade = colour;
             if (CDynamicLightBase** slot = FindDynamicLight(light->m_name))
                 (*slot)->colour = colour;
         }
@@ -430,18 +430,18 @@ void __cdecl UpdateSceneLight(uint32_t name, Script::CStruct* params)
         (*slot)->intensity = value;
     }
     if (params->GetFloat(0x0999151Bu, &value, 0))
-        reinterpret_cast<CDynamicLight*>(*slot)->SetRadius(value);
-    if (params->GetInteger(0x059EA070u, &red, 0)) {
-        params->GetInteger(0x2F6511DEu, &green, 1);
-        params->GetInteger(0x61C9354Bu, &blue, 1);
+        reinterpret_cast<CDynamicLight*>(*slot)->SetReach(value);
+    if (params->FetchIntValue(0x059EA070u, &red, 0)) {
+        params->FetchIntValue(0x2F6511DEu, &green, 1);
+        params->FetchIntValue(0x61C9354Bu, &blue, 1);
         (*slot)->colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
                           static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
     }
 }
 
 // 0x00490400
-sSceneLight* __cdecl AddSceneLight(uint32_t name, const Mth::Vector* pos, float brightness, uint32_t colour,
-                                   float radius, Script::CArray* excluded)
+sSceneLight* __cdecl AddSceneLight(uint32_t name, const Maths::Vector* pos, float brightness, uint32_t colour,
+                                   float radius, Scripts::CArray* excluded)
 {
     if (SceneLightCount() >= kMaxSceneLights)
         return nullptr;
@@ -449,15 +449,15 @@ sSceneLight* __cdecl AddSceneLight(uint32_t name, const Mth::Vector* pos, float 
     sSceneLight* light = &SceneLights()[SceneLightCount()++];
     light->m_name = name;
     light->m_pos = *pos;
-    if (light->m_intensity != intensity) { // (the slot's old value; NaN: set)
-        light->m_intensity = static_cast<float>(intensity);
+    if (light->m_strength != intensity) { // (the slot's old value; NaN: set)
+        light->m_strength = static_cast<float>(intensity);
         if (CDynamicLightBase** slot = FindDynamicLight(name))
             (*slot)->intensity = static_cast<float>(intensity);
     }
-    light->m_colour = colour;
+    light->m_shade = colour;
     if (CDynamicLightBase** slot = FindDynamicLight(light->m_name))
         (*slot)->colour = colour;
-    light->SetRadius(radius);
+    light->SetReach(radius);
     light->FindSectors(excluded);
     if (brightness > 0.0f)
         ApplySceneLight(GetMainScene(), name);
@@ -465,22 +465,22 @@ sSceneLight* __cdecl AddSceneLight(uint32_t name, const Mth::Vector* pos, float 
 }
 
 // 0x00490570
-void __cdecl CreateLightFromNode(Script::CStruct* node)
+void __cdecl CreateLightFromNode(Scripts::CStruct* node)
 {
-    bool dynamic = !node->ContainsFlag(0xE1509E4Fu);
-    bool scene = !node->ContainsFlag(0x6F050E18u);
-    uint32_t name = SkateScript::GetNodeName(node);
-    Mth::Vector pos;
-    SkateScript::GetPosition(node, &pos);
+    bool dynamic = !node->HasBareFlag(0xE1509E4Fu);
+    bool scene = !node->HasBareFlag(0x6F050E18u);
+    uint32_t name = LevelNodes::GetNodeName(node);
+    Maths::Vector pos;
+    LevelNodes::GetPosition(node, &pos);
     float brightness = 100.0f;
     float unused = 300.0f; // (read and not used)
     float radius = 300.0f;
     node->GetFloat(0x2689291Cu, &brightness, 0);
     node->GetFloat(0x8D2C287Fu, &unused, 0);
     node->GetFloat(0x833950CCu, &radius, 0);
-    node->ContainsFlag(0x7C2552B9u); // (the result isn't used)
+    node->HasBareFlag(0x7C2552B9u); // (the result isn't used)
     uint32_t colour = 0x00FFFFFF;
-    Script::CArray* colourArray = nullptr;
+    Scripts::CArray* colourArray = nullptr;
     node->GetArray(0x99A9B716u, &colourArray, 0);
     if (colourArray) {
         auto* bytes = reinterpret_cast<uint8_t*>(&colour);
@@ -489,7 +489,7 @@ void __cdecl CreateLightFromNode(Script::CStruct* node)
         bytes[2] = static_cast<uint8_t>(colourArray->GetElement(2));
     }
     uint32_t type = 0x485A0CDB;
-    node->GetChecksum(0xC2737050u, &type, 0);
+    node->ReadHashValue(0xC2737050u, &type, 0);
     if (dynamic) {
         if (CDynamicLightBase* light = NewDynamicLight(type == 0x485A0CDB ? 1 : 0)) {
             light->owner = name;
@@ -502,7 +502,7 @@ void __cdecl CreateLightFromNode(Script::CStruct* node)
         }
     }
     if (scene) {
-        Script::CArray* excluded = nullptr;
+        Scripts::CArray* excluded = nullptr;
         node->GetArray(0xAF3F7288u, &excluded, 0);
         AddSceneLight(name, &pos, brightness, colour, radius, excluded);
     }
@@ -510,7 +510,7 @@ void __cdecl CreateLightFromNode(Script::CStruct* node)
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640BC0 (a static initialiser): the 150 scene lights (each with its table of sectors).
 void ConstructSceneLights()

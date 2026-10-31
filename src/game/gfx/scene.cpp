@@ -11,7 +11,7 @@
 #include "game/front/level_editor_layout.h"
 #include "game/script/params.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -24,7 +24,7 @@ constexpr uint32_t kAddSuperSectors = 0x9E6EA452; // add_super_sectors
 constexpr uint32_t kTexDict = 0xDC8116B2;         // tex_dict
 
 // 0x0049F0C0 (cdecl): a texture dictionary from its file; the 1 marks a level's.
-void* LoadTextureDictionary(const char* path, int level, int unknown2, int unknown3, int unknown4)
+void* ReadTextureDictionary(const char* path, int level, int unknown2, int unknown3, int unknown4)
 {
     return LoadTexDict(path, level, static_cast<uint32_t>(unknown2), static_cast<uint32_t>(unknown3),
                        static_cast<uint32_t>(unknown4));
@@ -34,51 +34,51 @@ void* LoadTextureDictionary(const char* path, int level, int unknown2, int unkno
 // put in the scene list); returns the scene.
 void* LoadSceneFile(const char* name, void* texDict, bool addSuperSectors, bool isSky, bool isDictionary, bool isNet)
 {
-    return LoadScene(name, static_cast<CTexDict*>(texDict), addSuperSectors, isSky, isDictionary, isNet);
+    return LoadScene(name, static_cast<CTextureSet*>(texDict), addSuperSectors, isSky, isDictionary, isNet);
 }
 
 } // namespace
 
 // 0x00445130
-bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_LoadScene(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    bool isDictionary = params->ContainsFlag(kIsDictionary);
-    bool isSky = params->ContainsFlag(kIsSky);
-    bool isNet = params->ContainsFlag(kIsNet);
-    bool addSuperSectors = !params->ContainsFlag(kNoSuperSectors);
+    bool isDictionary = params->HasBareFlag(kIsDictionary);
+    bool isSky = params->HasBareFlag(kIsSky);
+    bool isNet = params->HasBareFlag(kIsNet);
+    bool addSuperSectors = !params->HasBareFlag(kNoSuperSectors);
     const char* name = nullptr;
     params->GetString(kScene, &name, 1);
-    Dbg::Printf("Loading Scene %s ...", name);
+    DebugOut::Printf("Loading Scene %s ...", name);
 
     // (the original sprintf's into the 128 bytes unchecked; the empty string is a platform suffix)
     char texturePath[128];
     std::snprintf(texturePath, sizeof(texturePath), "levels\\%s\\%s%s.tex", name, name, "");
-    void* texDict = LoadTextureDictionary(texturePath, 1, 0, 0, 0);
+    void* texDict = ReadTextureDictionary(texturePath, 1, 0, 0, 0);
 
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) uint8_t memory[8];
-    Script::CStruct* description = reinterpret_cast<Script::CStruct*>(memory)->Init();
-    description->AddChecksum(kTexDict, Crc::GenerateCRCFromString(texturePath));
-    if (Str::FindCaseless(name, "_sky") || isSky) {
+    Scripts::CStruct* description = reinterpret_cast<Scripts::CStruct*>(memory)->Init();
+    description->PutNameKey(kTexDict, Checksums::HashFromText(texturePath));
+    if (TextUtil::FindCaseless(name, "_sky") || isSky) {
         isSky = true;
         addSuperSectors = false;
-        description->AddChecksum(0u, kIsSky);
+        description->PutNameKey(0u, kIsSky);
     }
     if (isDictionary) {
         addSuperSectors = false;
-        description->AddChecksum(0u, kIsDictionary);
+        description->PutNameKey(0u, kIsDictionary);
     } else if (addSuperSectors) {
-        description->AddChecksum(0u, kAddSuperSectors);
+        description->PutNameKey(0u, kAddSuperSectors);
     }
     if (isNet)
-        description->AddChecksum(0u, kIsNet);
+        description->PutNameKey(0u, kIsNet);
 
     LoadSceneFile(name, texDict, addSuperSectors, isSky, isDictionary, isNet);
-    Dbg::Printf("... done\n");
+    DebugOut::Printf("... done\n");
     description->Clear();
 
     // Not original - the level editor's saved layouts (level_editor_layout.h): put back once the level is up.
-    Front::LevelEditor::Layout::OnSceneLoaded(name, isNet);
+    MenuSystem::LevelEditor::Layout::OnSceneLoaded(name, isNet);
     return true;
 }
 

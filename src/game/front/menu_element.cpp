@@ -16,7 +16,7 @@
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
 
-namespace Front {
+namespace MenuSystem {
 
 namespace {
 extern void** const kCBaseMenuVtable;
@@ -25,7 +25,7 @@ extern void** const kCContainerElementVtable;
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kVMenu = 0x130EF802, kHMenu = 0xCCDED1E1, kContainerElement = 0x5B9DA842;
@@ -39,16 +39,16 @@ constexpr uint32_t kController = 0xB30D9965, kGridIndex = 0xFACF9A8B, kChildId =
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3, kFocusSentEvent = 0x3056434F;
 constexpr uint32_t kPadUp = 0x30A4F836, kPadDown = 0x0FD1AC26, kPadLeft = 0x6949DB75, kPadRight = 0x05DDD87C;
 
-float RegularSpaceMinimum() { return ::Mdl::g_competitionTiny; } // 0.0001
+float RegularSpaceMinimum() { return ::GameModules::g_competitionTiny; } // 0.0001
 
 void Launch(uint32_t type, uint32_t target, CStruct* data)
 {
-    Obj::Tracker()->LaunchEvent(type, target, kSystem, data, false, -1.0f);
+    GameObjects::Tracker()->LaunchEvent(type, target, kSystem, data, false, -1.0f);
 }
 
 // The screen element manager (0x00701440) and its pieces.
 void* Manager() { return g_screenElementManager; }
-CScreenElementManager* Elements(void* manager) { return static_cast<CScreenElementManager*>(manager); }
+CUiTree* Elements(void* manager) { return static_cast<CUiTree*>(manager); }
 bool UsesPriorities(void* manager) { return Elements(manager)->HasPriorities(); }
 bool IsPriorityEvent(void* manager, uint32_t type) { return Elements(manager)->IsPadEvent(type); }
 bool IsTopPriority(void* manager, uint32_t id) { return Elements(manager)->IsTopPriority(id); }
@@ -62,9 +62,9 @@ void SendFocus(uint32_t id, int controller, int gridIndex)
 {
     CStruct data;
     data.Init();
-    data.AddInteger(kController, controller);
+    data.PutInt(kController, controller);
     if (gridIndex != -1)
-        data.AddInteger(kGridIndex, gridIndex);
+        data.PutInt(kGridIndex, gridIndex);
     Launch(kFocus, id, &data);
     data.Clear();
 }
@@ -74,9 +74,9 @@ void SendFocus(uint32_t id, int controller, int gridIndex)
 // --- the menu -------------------------------------------------------------------------------------------------
 
 // 0x004A74E0
-CBaseMenu* CBaseMenu::Construct()
+CMenuBase* CMenuBase::Construct()
 {
-    CScreenElement::Construct();
+    CUiWidget::Construct();
     m_selectedId = 0;
     m_focused = false;
     m_controller = 0;
@@ -94,7 +94,7 @@ CBaseMenu* CBaseMenu::Construct()
 }
 
 // 0x004A75C0
-CBaseMenu* CBaseMenu::ConstructVMenu()
+CMenuBase* CMenuBase::ConstructVMenu()
 {
     Construct();
     m_vtable = kCBaseMenuVtable;
@@ -104,7 +104,7 @@ CBaseMenu* CBaseMenu::ConstructVMenu()
 }
 
 // 0x004A7630
-CBaseMenu* CBaseMenu::ConstructHMenu()
+CMenuBase* CMenuBase::ConstructHMenu()
 {
     Construct();
     m_vtable = kCBaseMenuVtable;
@@ -114,82 +114,82 @@ CBaseMenu* CBaseMenu::ConstructHMenu()
 }
 
 // 0x004A7620
-void CBaseMenu::DestroyBody()
+void CMenuBase::DestroyBody()
 {
     m_vtable = kCBaseMenuVtable;
-    CScreenElement::DestroyBody();
+    CUiWidget::DestroyBody();
 }
 
 // 0x004A76C0
-CBaseMenu* CBaseMenu::Destroy(uint8_t flags)
+CMenuBase* CMenuBase::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004A7550
-int CBaseMenu::GetRegularSpace(float* out) const
+int CMenuBase::GetRegularSpace(float* out) const
 {
     *out = m_regularSpace;
     return m_regularSpace > RegularSpaceMinimum() ? 1 : 0;
 }
 
 // 0x004A7580
-void CBaseMenu::SetSelectionTags()
+void CMenuBase::SetSelectionTags()
 {
-    SetChecksumTag(kTagSelectedId, m_selectedId);
-    SetIntegerTag(kTagSelectedIndex, m_selectedIndex);
-    SetIntegerTag(kTagGridIndex, m_gridIndex);
+    WriteHashTag(kTagSelectedId, m_selectedId);
+    StoreIntTag(kTagSelectedIndex, m_selectedIndex);
+    StoreIntTag(kTagGridIndex, m_gridIndex);
 }
 
 // 0x004A76F0
-void CBaseMenu::SetProperties(Script::CStruct* params)
+void CMenuBase::SetProperties(Scripts::CStruct* params)
 {
-    float justX = 0.0f, justY = 0.0f;
-    if (ResolveJust(params, kInternalJust, &justX, &justY)) {
-        m_internalJustX = justX;
-        m_internalJustY = justY;
+    float alignH = 0.0f, alignV = 0.0f;
+    if (ResolveJust(params, kInternalJust, &alignH, &alignV)) {
+        m_internalJustX = alignH;
+        m_internalJustY = alignV;
     }
     int space = 0;
-    if (params->GetInteger(kRegularSpaceAmount, &space, 0))
+    if (params->FetchIntValue(kRegularSpaceAmount, &space, 0))
         m_regularSpace = static_cast<float>(space);
     params->GetFloat(kPaddingScale, &m_paddingScale, 0);
     int between = 0;
-    if (params->GetInteger(kSpacingBetween, &between, 0))
+    if (params->FetchIntValue(kSpacingBetween, &between, 0))
         m_spacingBetween = static_cast<float>(between);
-    if (params->ContainsFlag(kEnablePadHandling))
+    if (params->HasBareFlag(kEnablePadHandling))
         m_padHandling = true;
-    else if (params->ContainsFlag(kDisablePadHandling))
+    else if (params->HasBareFlag(kDisablePadHandling))
         m_padHandling = false;
-    if (params->ContainsFlag(kAllowWrap))
+    if (params->HasBareFlag(kAllowWrap))
         m_allowWrap = true;
-    else if (params->ContainsFlag(kDontAllowWrap))
+    else if (params->HasBareFlag(kDontAllowWrap))
         m_allowWrap = false;
-    CScreenElement::SetProperties(params);
+    CUiWidget::SetProperties(params);
 }
 
 // 0x004A7850 (each item gets two chances: twice the item count of tries)
-void CBaseMenu::MoveSelection(int direction, bool stay, bool gridX)
+void CMenuBase::MoveSelection(int direction, bool stay, bool gridX)
 {
-    int tries = CountChildren() * 2;
+    int tries = ChildTotal() * 2;
     if (m_selectedIndex < 0)
         m_selectedIndex = 0;
     while (tries != 0) {
         if (!stay) {
             int index = m_selectedIndex + direction;
             m_selectedIndex = index;
-            if (index >= CountChildren()) {
+            if (index >= ChildTotal()) {
                 if (m_allowWrap) {
                     m_selectedIndex = 0;
                 } else {
                     direction = -direction;
-                    m_selectedIndex = CountChildren() - 1;
+                    m_selectedIndex = ChildTotal() - 1;
                 }
             } else if (index < 0) {
                 if (m_allowWrap) {
-                    m_selectedIndex = CountChildren() - 1;
+                    m_selectedIndex = ChildTotal() - 1;
                 } else {
                     direction = -direction;
                     m_selectedIndex = 0;
@@ -198,13 +198,13 @@ void CBaseMenu::MoveSelection(int direction, bool stay, bool gridX)
         }
         stay = false;
         ElementPtr item;
-        item.Set(GetChildByIndex(m_selectedIndex));
+        item.Set(FindChildAtSlot(m_selectedIndex));
         m_selectedId = item->m_id;
         if (gridX) {
             m_gridIndex = -1;
-            item->GetIntegerTag(kTagGridX, &m_gridIndex);
+            item->ReadIntTag(kTagGridX, &m_gridIndex);
         }
-        if (!item->ContainsTagFlag(kTagNotFocusable) && !item->EventsBlocked()) {
+        if (!item->ContainsTagFlag(kTagNotFocusable) && !item->InputSuppressed()) {
             item.Release();
             if (tries == 0)
                 break;
@@ -218,17 +218,17 @@ void CBaseMenu::MoveSelection(int direction, bool stay, bool gridX)
 }
 
 // 0x004A7A40
-void CBaseMenu::Step(int direction)
+void CMenuBase::Step(int direction)
 {
     int gridIndex = -1;
     if (m_selectedId) {
-        CScreenElement* item;
+        CUiWidget* item;
         {
             ElementPtr found;
-            item = LookUp(Manager(), &found, m_selectedId, 0)->mp_object;
+            item = LookUp(Manager(), &found, m_selectedId, 0)->m_ownerObject;
         }
         if (item)
-            item->GetIntegerTag(kTagGridIndex, &gridIndex);
+            item->ReadIntTag(kTagGridIndex, &gridIndex);
         Launch(kUnfocus, m_selectedId, nullptr);
     }
     MoveSelection(direction, false, true);
@@ -237,30 +237,30 @@ void CBaseMenu::Step(int direction)
 }
 
 // 0x004A7B80
-void CBaseMenu::Arrange()
+void CMenuBase::Arrange()
 {
     float total = 0.0f, largest = 0.0f;
     bool regular = m_regularSpace > RegularSpaceMinimum();
     {
         ElementPtr item;
-        item.Set(mp_firstChild.mp_object);
+        item.Set(mp_firstChild.m_ownerObject);
         if (regular) {
-            for (; item; item.Set(item->mp_next.mp_object)) {
-                double across = m_vertical ? static_cast<double>(item->m_width) * item->m_shown.scaleX
-                                           : static_cast<double>(item->m_height) * item->m_shown.scaleY;
+            for (; item; item.Set(item->m_following.m_ownerObject)) {
+                double across = m_vertical ? static_cast<double>(item->m_span) * item->m_shown.scaleX
+                                           : static_cast<double>(item->m_levelY) * item->m_shown.scaleY;
                 total = static_cast<float>(static_cast<double>(total) + m_regularSpace);
                 if (across > largest)
                     largest = static_cast<float>(across);
             }
         } else {
-            for (; item; item.Set(item->mp_next.mp_object)) {
+            for (; item; item.Set(item->m_following.m_ownerObject)) {
                 double across, along;
                 if (m_vertical) {
-                    across = static_cast<double>(item->m_width) * m_paddingScale;
-                    along = item->m_height;
+                    across = static_cast<double>(item->m_span) * m_paddingScale;
+                    along = item->m_levelY;
                 } else {
-                    across = static_cast<double>(item->m_height) * m_paddingScale;
-                    along = item->m_width;
+                    across = static_cast<double>(item->m_levelY) * m_paddingScale;
+                    along = item->m_span;
                 }
                 total = static_cast<float>(along * m_paddingScale + m_spacingBetween + total);
                 if (across > largest)
@@ -272,58 +272,58 @@ void CBaseMenu::Arrange()
     if (m_objectFlags & kDimsLocked) {
         // the size only grows
         if (m_vertical) {
-            if (total > m_height)
-                m_height = total;
-        } else if (total > m_width) {
-            m_width = total;
+            if (total > m_levelY)
+                m_levelY = total;
+        } else if (total > m_span) {
+            m_span = total;
         }
     } else if (m_vertical) {
-        m_width = largest;
-        m_height = total;
+        m_span = largest;
+        m_levelY = total;
     } else {
-        m_height = largest;
-        m_width = total;
+        m_levelY = largest;
+        m_span = total;
     }
-    PlaceTopLeft(&m_target);
+    PlaceTopLeft(&m_aimPoint);
     m_objectFlags |= kDirty;
     // where the first item goes: the free space split by internal_just
     float offset = m_vertical
-                       ? static_cast<float>((static_cast<double>(m_height) - total) *
+                       ? static_cast<float>((static_cast<double>(m_levelY) - total) *
                                             (static_cast<double>(m_internalJustY) + 1.0) * 0.5)
-                       : static_cast<float>((static_cast<double>(m_width) - total) *
+                       : static_cast<float>((static_cast<double>(m_span) - total) *
                                             (static_cast<double>(m_internalJustX) + 1.0) * 0.5);
     {
         ElementPtr item;
-        item.Set(mp_firstChild.mp_object);
+        item.Set(mp_firstChild.m_ownerObject);
         if (regular) {
             offset = static_cast<float>(static_cast<double>(m_regularSpace) * 0.5 + offset);
-            for (; item; item.Set(item->mp_next.mp_object)) {
+            for (; item; item.Set(item->m_following.m_ownerObject)) {
                 if (m_vertical) {
-                    item->SetJust(m_internalJustX, 0.0f);
-                    item->SetPos(static_cast<float>((static_cast<double>(m_internalJustX) + 1.0) * m_width * 0.5),
+                    item->ChangeAlignment(m_internalJustX, 0.0f);
+                    item->SetPos(static_cast<float>((static_cast<double>(m_internalJustX) + 1.0) * m_span * 0.5),
                                  offset, 1);
                 } else {
-                    item->SetJust(0.0f, m_internalJustY);
+                    item->ChangeAlignment(0.0f, m_internalJustY);
                     item->SetPos(offset,
-                                 static_cast<float>((static_cast<double>(m_internalJustY) + 1.0) * m_height * 0.5), 1);
+                                 static_cast<float>((static_cast<double>(m_internalJustY) + 1.0) * m_levelY * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(offset) + m_regularSpace);
             }
         } else {
-            for (; item; item.Set(item->mp_next.mp_object)) {
+            for (; item; item.Set(item->m_following.m_ownerObject)) {
                 // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
-                double half = (m_vertical ? static_cast<double>(item->m_height) : static_cast<double>(item->m_width)) *
+                double half = (m_vertical ? static_cast<double>(item->m_levelY) : static_cast<double>(item->m_span)) *
                               m_paddingScale * 0.5;
                 float halfStored = static_cast<float>(half);
                 offset = static_cast<float>(half + offset);
                 if (m_vertical) {
-                    item->SetJust(m_internalJustX, 0.0f);
-                    item->SetPos(static_cast<float>((static_cast<double>(m_internalJustX) + 1.0) * m_width * 0.5),
+                    item->ChangeAlignment(m_internalJustX, 0.0f);
+                    item->SetPos(static_cast<float>((static_cast<double>(m_internalJustX) + 1.0) * m_span * 0.5),
                                  offset, 1);
                 } else {
-                    item->SetJust(0.0f, m_internalJustY);
+                    item->ChangeAlignment(0.0f, m_internalJustY);
                     item->SetPos(offset,
-                                 static_cast<float>((static_cast<double>(m_internalJustY) + 1.0) * m_height * 0.5), 1);
+                                 static_cast<float>((static_cast<double>(m_internalJustY) + 1.0) * m_levelY * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(halfStored) + offset + m_spacingBetween);
                 if (item->m_objectFlags & kDirty)
@@ -340,14 +340,14 @@ void CBaseMenu::Arrange()
 }
 
 // 0x004A8100
-bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
+bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
 {
-    void* manager = mp_manager;
+    void* manager = m_parkOwner;
     if (ManagerUsesPriorities() && IsPriorityEvent(manager, event->m_type)) {
         if (!HasPriority() || !IsTopPriority(manager, m_id))
             return false;
     }
-    if (!Obj::CObject::PassEventToScript(event))
+    if (!GameObjects::CObject::PassEventToScript(event))
         return false;
     if (event->m_type == kFocusSentEvent) {
         // find the selected item again (by id, else by index), lay the items out
@@ -355,10 +355,10 @@ bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
         if (m_selectedId) {
             int index;
             ElementPtr item;
-            item.Set(GetChildById(m_selectedId, &index));
+            item.Set(FindChildWithId(m_selectedId, &index));
             if (!item) {
                 ElementPtr byIndex;
-                byIndex.Set(GetChildByIndex(m_selectedIndex));
+                byIndex.Set(FindChildAtSlot(m_selectedIndex));
                 if (byIndex) {
                     m_selectedId = byIndex->m_id;
                     SetSelectionTags();
@@ -381,22 +381,22 @@ bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
                 SendFocus(m_selectedId, m_controller, -1);
         }
         Arrange();
-        event->MarkHandled(m_id, 0);
+        event->SetEventHandled(m_id, 0);
     }
     if (event->m_type == kFocus && !m_focused) {
-        m_controller = Obj::EventController(event);
+        m_controller = GameObjects::EventController(event);
         // the item to focus: grid_index (the last item whose tag_grid_x is at most it), child_id
         int grid = -1;
-        if (event->mp_data && event->mp_data->GetInteger(kGridIndex, &grid, 0)) {
+        if (event->m_payload && event->m_payload->FetchIntValue(kGridIndex, &grid, 0)) {
             m_gridIndex = grid;
             ElementPtr item;
-            item.Set(mp_firstChild.mp_object);
+            item.Set(mp_firstChild.m_ownerObject);
             int found = -1;
             for (int i = 0; item; ++i) {
                 int x = -1;
-                if (item->GetIntegerTag(kTagGridX, &x) && x <= grid)
+                if (item->ReadIntTag(kTagGridX, &x) && x <= grid)
                     found = i;
-                item.Set(item->mp_next.mp_object);
+                item.Set(item->m_following.m_ownerObject);
             }
             if (found != -1) {
                 m_selectedIndex = found;
@@ -404,41 +404,41 @@ bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
             }
         }
         uint32_t childId;
-        if (event->mp_data && event->mp_data->GetChecksum(kChildId, &childId, 0)) {
+        if (event->m_payload && event->m_payload->ReadHashValue(kChildId, &childId, 0)) {
             ElementPtr item;
-            item.Set(mp_firstChild.mp_object);
+            item.Set(mp_firstChild.m_ownerObject);
             for (int i = 0; item; ++i) {
                 if (childId == item->m_id) {
                     m_selectedId = childId;
                     m_selectedIndex = i;
                     break;
                 }
-                item.Set(item->mp_next.mp_object);
+                item.Set(item->m_following.m_ownerObject);
             }
         }
         m_focused = true;
         if (m_selectedId) {
             MoveSelection(1, true, false);
             if (m_selectedId)
-                Launch(kFocus, m_selectedId, event->mp_data);
+                Launch(kFocus, m_selectedId, event->m_payload);
         }
-        event->MarkHandled(m_id, 0);
+        event->SetEventHandled(m_id, 0);
     }
     if (event->m_type == kUnfocus && m_focused) {
         m_focused = false;
         if (m_selectedId)
             Launch(kUnfocus, m_selectedId, nullptr);
-        event->MarkHandled(m_id, 0);
+        event->SetEventHandled(m_id, 0);
     }
     uint32_t type = event->m_type;
     if (((type == kPadUp && m_vertical) || (type == kPadLeft && !m_vertical)) && m_focused && m_padHandling) {
         Step(-1);
-        event->MarkHandled(m_id, 0);
+        event->SetEventHandled(m_id, 0);
     }
     type = event->m_type;
     if (((type == kPadDown && m_vertical) || (type == kPadRight && !m_vertical)) && m_focused && m_padHandling) {
         Step(1);
-        event->MarkHandled(m_id, 0);
+        event->SetEventHandled(m_id, 0);
     }
     return true;
 }
@@ -446,9 +446,9 @@ bool CBaseMenu::PassEventToScript(Obj::CEvent* event)
 // --- the container element ------------------------------------------------------------------------------------
 
 // 0x004AAC20
-CContainerElement* CContainerElement::Construct()
+CGroupWidget* CGroupWidget::Construct()
 {
-    CScreenElement::Construct();
+    CUiWidget::Construct();
     m_vtable = kCContainerElementVtable;
     m_focusableChild = 0;
     SetType(kContainerElement);
@@ -456,67 +456,67 @@ CContainerElement* CContainerElement::Construct()
 }
 
 // 0x004AAC80
-void CContainerElement::DestroyBody()
+void CGroupWidget::DestroyBody()
 {
     m_vtable = kCContainerElementVtable;
-    CScreenElement::DestroyBody();
+    CUiWidget::DestroyBody();
 }
 
 // 0x004AACC0
-CContainerElement* CContainerElement::Destroy(uint8_t flags)
+CGroupWidget* CGroupWidget::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x004AA530
-void CContainerElement::SetProperties(Script::CStruct* params)
+void CGroupWidget::SetProperties(Scripts::CStruct* params)
 {
-    params->GetChecksum(kFocusableChild, &m_focusableChild, 0);
-    CScreenElement::SetProperties(params);
+    params->ReadHashValue(kFocusableChild, &m_focusableChild, 0);
+    CUiWidget::SetProperties(params);
 }
 
 // 0x004AA560
-bool CContainerElement::PassEventToScript(Obj::CEvent* event)
+bool CGroupWidget::PassEventToScript(GameObjects::CSignal* event)
 {
-    void* manager = mp_manager;
+    void* manager = m_parkOwner;
     if (UsesPriorities(manager) && IsPriorityEvent(manager, event->m_type)) {
         if (!HasPriority() || !IsTopPriority(manager, m_id))
             return false;
     }
-    if (!Obj::CObject::PassEventToScript(event))
+    if (!GameObjects::CObject::PassEventToScript(event))
         return false;
     if (event->m_type == kFocus || event->m_type == kUnfocus) {
         if (m_focusableChild) {
             CStruct data;
             data.Init();
-            data.AddInteger(kController, Obj::EventController(event));
+            data.PutInt(kController, GameObjects::EventController(event));
             Launch(event->m_type, m_focusableChild, &data);
             data.Clear();
         }
-        event->MarkHandled(m_id, 0);
+        event->SetEventHandled(m_id, 0);
     }
     return true;
 }
 
 namespace {
-static VtableSlot kCBaseMenuVtable_slots[] = {&CBaseMenu::Destroy, &CBaseMenu::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CBaseMenu::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+static VtableSlot kCBaseMenuVtable_slots[] = {&CMenuBase::Destroy, &CMenuBase::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &CMenuBase::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
                 Stubs::DoNothing};
 void** const kCBaseMenuVtable = reinterpret_cast<void**>(kCBaseMenuVtable_slots);
-static VtableSlot kCContainerElementVtable_slots[] = {&CContainerElement::Destroy, &CContainerElement::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &CContainerElement::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+static VtableSlot kCContainerElementVtable_slots[] = {&CGroupWidget::Destroy, &CGroupWidget::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &CUiWidget::InvokeMethodByName, Stubs::IgnoreArgument, &CGroupWidget::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue, &CUiWidget::GetProperties, &CUiWidget::BlendTowards,
                 Stubs::DoNothing};
 void** const kCContainerElementVtable = reinterpret_cast<void**>(kCContainerElementVtable_slots);
 } // namespace
 
 } // namespace Front
 
-using Front::CBaseMenu;
-using Front::CContainerElement;
+using MenuSystem::CMenuBase;
+using MenuSystem::CGroupWidget;

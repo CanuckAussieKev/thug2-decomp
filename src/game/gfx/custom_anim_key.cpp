@@ -15,7 +15,7 @@
 #include "game/core/game_vtables.h"
 #include "game/mc/memcard.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 namespace {
 
@@ -34,13 +34,13 @@ constexpr uint32_t kStructureScript = 0xBDF7F843; // (name unknown) the script a
 constexpr uint32_t kName = 0xA1DC81F9;            // name
 
 // Each Process reads the global 0x2F510F45 first (compiled-out debug output, presumably).
-void ReadDebugGlobal() { Script::GetInteger(kDebugGlobal); }
+void ReadDebugGlobal() { Scripts::FetchIntValue(kDebugGlobal); }
 
-// A key of `size` bytes with its frame, inactive (from Mem::New; null without memory).
+// A key of `size` bytes with its frame, inactive (from MemSys::New; null without memory).
 template <typename T>
 T* NewKey(void** vtable, int frame, uint32_t size = sizeof(T))
 {
-    auto* key = static_cast<T*>(Mem::New(size));
+    auto* key = static_cast<T*>(MemSys::New(size));
     if (!key)
         return nullptr;
     key->m_frame = frame;
@@ -52,7 +52,7 @@ T* NewKey(void** vtable, int frame, uint32_t size = sizeof(T))
 } // namespace
 
 // 0x004860C0
-bool CCustomAnimKey::WithinRange(float start, float end, bool inclusive)
+bool CUserClipKey::InsideRange(float start, float end, bool inclusive)
 {
     double frame = m_frame;
     if (inclusive) {
@@ -66,23 +66,23 @@ bool CCustomAnimKey::WithinRange(float start, float end, bool inclusive)
 }
 
 // 0x00486150
-void CCustomAnimKey::SetActive(bool active) { m_armed = active; }
+void CUserClipKey::SetActive(bool active) { m_armed = active; }
 
 // 0x00486160
-bool CCustomAnimKey::ProcessIfActive(void* object)
+bool CUserClipKey::ProcessIfActive(void* object)
 {
     if (!m_armed)
         return false;
     m_armed = false;
-    return reinterpret_cast<bool(__thiscall*)(CCustomAnimKey*, void*)>(m_vtable[2])(this, object);
+    return reinterpret_cast<bool(__thiscall*)(CUserClipKey*, void*)>(m_vtable[2])(this, object);
 }
 
 // 0x00486460
-CCustomAnimKey* CCustomAnimKey::Destroy(unsigned int flags)
+CUserClipKey* CUserClipKey::Destroy(unsigned int flags)
 {
     reinterpret_cast<CAnimEventBase*>(this)->DestroyBody(); // (the base's destructor body: its vtable)
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
@@ -90,13 +90,13 @@ CCustomAnimKey* CCustomAnimKey::Destroy(unsigned int flags)
 bool CCameraFovKey::Process(void* camera)
 {
     ReadDebugGlobal();
-    Script::CStruct* memory = Script::NewStruct();
-    Script::CStruct* params = memory ? memory->Init() : nullptr;
-    params->AddFloat(0u, m_fov);
-    Script::RunScript(kSetHFOVRadians, params, static_cast<Obj::CObject*>(camera), false, nullptr);
+    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+    params->PushFloat(0u, m_viewAngle);
+    Scripts::LaunchScript(kSetHFOVRadians, params, static_cast<GameObjects::CObject*>(camera), false, nullptr);
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
     return true;
 }
@@ -105,11 +105,11 @@ bool CCameraFovKey::Process(void* camera)
 bool CScriptKey::Process(void* object)
 {
     ReadDebugGlobal();
-    if (m_script == 0x4E917BDA)
-        m_script = 0x69F35FA0;
-    else if (m_script == 0x208D7A0D)
-        m_script = 0x04D887B1;
-    Script::RunScript(m_script, nullptr, static_cast<Obj::CObject*>(object), false, nullptr);
+    if (m_runScript == 0x4E917BDA)
+        m_runScript = 0x69F35FA0;
+    else if (m_runScript == 0x208D7A0D)
+        m_runScript = 0x04D887B1;
+    Scripts::LaunchScript(m_runScript, nullptr, static_cast<GameObjects::CObject*>(object), false, nullptr);
     return true;
 }
 
@@ -117,8 +117,8 @@ bool CScriptKey::Process(void* object)
 bool CStructureScriptKey::Process(void*)
 {
     ReadDebugGlobal();
-    if (Script::CStruct* structure = Script::GetStructure(m_structure))
-        Script::RunScript(kStructureScript, structure, nullptr, false, nullptr);
+    if (Scripts::CStruct* structure = Scripts::ReadSubStruct(m_structure))
+        Scripts::LaunchScript(kStructureScript, structure, nullptr, false, nullptr);
     return true;
 }
 
@@ -126,28 +126,28 @@ bool CStructureScriptKey::Process(void*)
 bool CKillObjectKey::Process(void*)
 {
     ReadDebugGlobal();
-    if (Script::CStruct* structure = Script::GetStructure(m_structure)) {
+    if (Scripts::CStruct* structure = Scripts::ReadSubStruct(m_structure)) {
         uint32_t name = 0; // (the original's is its own argument slot)
-        structure->GetChecksum(kName, &name, 1);
-        Obj::CObject* object = Obj::FindObject(name);
-        reinterpret_cast<void(__thiscall*)(Obj::CObject*)>((*reinterpret_cast<void***>(object))[6])(object);
+        structure->ReadHashValue(kName, &name, 1);
+        GameObjects::CObject* object = GameObjects::FindObject(name);
+        reinterpret_cast<void(__thiscall*)(GameObjects::CObject*)>((*reinterpret_cast<void***>(object))[6])(object);
     }
     return true;
 }
 
 // 0x00486490
-CCameraKey* CCameraKey::Construct(int frame, const Mth::Quat* rotation, const Mth::Vector* pos, bool cut)
+CCameraKey* CCameraKey::Construct(int frame, const Maths::QuatRotation* rotation, const Maths::Vector* pos, bool cut)
 {
     m_frame = frame;
     m_armed = false;
     m_vtable = kCameraVtable;
-    m_rotation = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Vector axis = {1.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Quat quarterTurn;
+    m_orientationTurn = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vector axis = {1.0f, 0.0f, 0.0f, 1.0f};
+    Maths::QuatRotation quarterTurn;
     quarterTurn.InitFromAxisAngle(axis, 1.57079637f); // (0x3FC90FDB)
-    Mth::Quat turned = *rotation;
+    Maths::QuatRotation turned = *rotation;
     turned *= quarterTurn;
-    m_rotation = turned;
+    m_orientationTurn = turned;
     m_pos.x = pos->x;
     m_pos.y = pos->z;
     m_pos.z = -pos->y;
@@ -157,7 +157,7 @@ CCameraKey* CCameraKey::Construct(int frame, const Mth::Quat* rotation, const Mt
 }
 
 // 0x004861D0
-bool CCameraKey::WithinRange(float start, float end, bool inclusive)
+bool CCameraKey::InsideRange(float start, float end, bool inclusive)
 {
     double frame = m_frame;
     if (start < end) {
@@ -179,23 +179,23 @@ bool CCameraKey::Process(void* object)
         return false;
     ReadDebugGlobal();
     auto* camera = static_cast<Camera*>(object);
-    Mth::Vector* pos = camera->GetPos();
-    Mth::Matrix* matrix = camera->GetMatrix();
+    Maths::Vector* pos = camera->GetPos();
+    Maths::Matrix* matrix = camera->GetMatrix();
     *pos = m_pos;
-    float rotation[4] = {m_rotation.x, m_rotation.y, m_rotation.z, m_rotation.w};
+    float rotation[4] = {m_orientationTurn.x, m_orientationTurn.y, m_orientationTurn.z, m_orientationTurn.w};
     const float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Obj::QuatToMatrix(rotation, origin, reinterpret_cast<float*>(matrix));
+    GameObjects::QuatToMatrix(rotation, origin, reinterpret_cast<float*>(matrix));
     m_armed = true;
     return true;
 }
 
 // 0x004865D0
-void CAnimScriptKey::Set(int frame, uint32_t event, Script::CStruct* params)
+void CAnimScriptKey::Set(int frame, uint32_t event, Scripts::CStruct* params)
 {
     m_frame = frame;
     m_armed = false;
     m_type = event;
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     mp_params = memory ? memory->Init() : nullptr;
     mp_params->AppendStructureIfAny(params);
 }
@@ -204,9 +204,9 @@ void CAnimScriptKey::Set(int frame, uint32_t event, Script::CStruct* params)
 void CAnimScriptKey::DestroyBody()
 {
     m_vtable = kScriptKeyVtable;
-    if (Script::CStruct* params = mp_params) {
+    if (Scripts::CStruct* params = mp_params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
         mp_params = nullptr;
     }
     m_vtable = kBaseVtable;
@@ -215,12 +215,12 @@ void CAnimScriptKey::DestroyBody()
 // 0x00486440
 bool CAnimScriptKey::Process(void* object)
 {
-    static_cast<Obj::CObject*>(object)->SelfEvent(m_type, mp_params);
+    static_cast<GameObjects::CObject*>(object)->PostOwnEvent(m_type, mp_params);
     return true;
 }
 
 // 0x00486680
-CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
+CUserClipKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
 {
     auto* header = reinterpret_cast<const uint32_t*>(*cursor);
     int frame = static_cast<int>(header[0]);
@@ -235,23 +235,23 @@ CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
         auto* key = NewKey<CCameraFovKey>(kFovVtable, frame);
         if (!key)
             return nullptr;
-        *reinterpret_cast<uint32_t*>(&key->m_fov) = fov;
+        *reinterpret_cast<uint32_t*>(&key->m_viewAngle) = fov;
         return key;
     }
     case 2:
     case 7: {
-        Mth::Vector pos = *reinterpret_cast<const Mth::Vector*>(data);
+        Maths::Vector pos = *reinterpret_cast<const Maths::Vector*>(data);
         *cursor = reinterpret_cast<const uint8_t*>(data + 4);
-        Mth::Quat rotation = *reinterpret_cast<const Mth::Quat*>(data + 4);
+        Maths::QuatRotation rotation = *reinterpret_cast<const Maths::QuatRotation*>(data + 4);
         *cursor = reinterpret_cast<const uint8_t*>(data + 8);
-        auto* key = static_cast<CCameraKey*>(Mem::New(sizeof(CCameraKey)));
+        auto* key = static_cast<CCameraKey*>(MemSys::New(sizeof(CCameraKey)));
         if (!key)
             return nullptr;
         return key->Construct(frame, &rotation, &pos, kind == 7);
     }
     case 3: {
         *cursor = reinterpret_cast<const uint8_t*>(data + 8); // (32 bytes skipped)
-        return NewKey<CCustomAnimKey>(kMarkerVtable, frame);
+        return NewKey<CUserClipKey>(kMarkerVtable, frame);
     }
     case 4:
     case 5:
@@ -262,7 +262,7 @@ CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
         auto* key = NewKey<CScriptKey>(vtables[kind - 4], frame);
         if (!key)
             return nullptr;
-        key->m_script = value; // (each kind's one word)
+        key->m_runScript = value; // (each kind's one word)
         return key;
     }
     default:
@@ -272,23 +272,23 @@ CCustomAnimKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
 }
 
 namespace {
-static VtableSlot kFovVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-                &Gfx::CCameraFovKey::Process};
+static VtableSlot kFovVtable_slots[] = {&Gfx2D::CUserClipKey::Destroy, &Gfx2D::CUserClipKey::InsideRange,
+                &Gfx2D::CCameraFovKey::Process};
 void** const kFovVtable = reinterpret_cast<void**>(kFovVtable_slots);
-static VtableSlot kScriptVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-                &Gfx::CScriptKey::Process};
+static VtableSlot kScriptVtable_slots[] = {&Gfx2D::CUserClipKey::Destroy, &Gfx2D::CUserClipKey::InsideRange,
+                &Gfx2D::CScriptKey::Process};
 void** const kScriptVtable = reinterpret_cast<void**>(kScriptVtable_slots);
-static VtableSlot kMarkerVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-                &Mc::Card::AlwaysTrue};
+static VtableSlot kMarkerVtable_slots[] = {&Gfx2D::CUserClipKey::Destroy, &Gfx2D::CUserClipKey::InsideRange,
+                &MemCard::Card::AlwaysTrue};
 void** const kMarkerVtable = reinterpret_cast<void**>(kMarkerVtable_slots);
-static VtableSlot kStructureVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-                &Gfx::CStructureScriptKey::Process};
+static VtableSlot kStructureVtable_slots[] = {&Gfx2D::CUserClipKey::Destroy, &Gfx2D::CUserClipKey::InsideRange,
+                &Gfx2D::CStructureScriptKey::Process};
 void** const kStructureVtable = reinterpret_cast<void**>(kStructureVtable_slots);
-static VtableSlot kKillVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCustomAnimKey::WithinRange,
-                &Gfx::CKillObjectKey::Process};
+static VtableSlot kKillVtable_slots[] = {&Gfx2D::CUserClipKey::Destroy, &Gfx2D::CUserClipKey::InsideRange,
+                &Gfx2D::CKillObjectKey::Process};
 void** const kKillVtable = reinterpret_cast<void**>(kKillVtable_slots);
-static VtableSlot kCameraVtable_slots[] = {&Gfx::CCustomAnimKey::Destroy, &Gfx::CCameraKey::WithinRange,
-                &Gfx::CCameraKey::Process};
+static VtableSlot kCameraVtable_slots[] = {&Gfx2D::CUserClipKey::Destroy, &Gfx2D::CCameraKey::InsideRange,
+                &Gfx2D::CCameraKey::Process};
 void** const kCameraVtable = reinterpret_cast<void**>(kCameraVtable_slots);
 } // namespace
 

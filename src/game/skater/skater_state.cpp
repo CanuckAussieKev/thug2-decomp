@@ -1,4 +1,4 @@
-// The skater's state component (Obj::CSkaterStateComponent) and three functions of its state history: see
+// The skater's state component (GameObjects::CRiderPoseState) and three functions of its state history: see
 // skater_state.h.
 
 #include "game/skater/skater_state.h"
@@ -21,7 +21,7 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/state_history.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_powerupNames[1]{0xD039432C};
 uint32_t g_skaterStateMemberFunctions[114]{
@@ -58,11 +58,11 @@ constexpr int kPowerups = 1;
 const uint32_t* PowerupNames() { return g_powerupNames; }
 
 // The powerup the unnamed checksum names (asserted), or -1.
-int FindPowerup(Script::CStruct* params)
+int FindPowerup(Scripts::CStruct* params)
 {
     // (without one the original's variable keeps the params pointer: the stack slot it reuses)
     auto name = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
-    params->GetChecksum(uint32_t{0}, &name, 1);
+    params->ReadHashValue(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
         if (PowerupNames()[i] == name)
             return i;
@@ -73,151 +73,151 @@ int FindPowerup(Script::CStruct* params)
 } // namespace
 
 // 0x00519740
-CBaseComponent* __cdecl CSkaterStateComponent::Create()
+CObjectModule* __cdecl CRiderPoseState::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterStateComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderPoseState));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterStateComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderPoseState*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kSkaterState;
-    component->m_powerups[0] = 0;
+    component->m_boostItems[0] = 0;
     return component;
 }
 
 // 0x00519430
-void __cdecl CSkaterStateComponent::RegisterMemberFunctions()
+void __cdecl CRiderPoseState::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterState), g_skaterStateMemberFunctions,
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterState), g_skaterStateMemberFunctions,
                                         0x18);
 }
 
 // 0x00519450
-void CSkaterStateComponent::DestroyBody()
+void CRiderPoseState::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00519620
-CSkaterStateComponent* CSkaterStateComponent::Destroy(unsigned int flags)
+CRiderPoseState* CRiderPoseState::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00519460
-void CSkaterStateComponent::InitFromStructure(Script::CStruct* /*params*/) { m_state = AIR; }
+void CRiderPoseState::ConfigureFromData(Scripts::CStruct* /*params*/) { m_state = AIR; }
 
 // 0x00519660
-void CSkaterStateComponent::SetState(int state)
+void CRiderPoseState::SetState(int state)
 {
     if (state == m_state)
         return;
     m_state = state;
-    m_object->SelfEvent(kOnSkaterStateChange, nullptr);
+    m_object->PostOwnEvent(kOnSkaterStateChange, nullptr);
 }
 
 // 0x00519680
-void CSkaterStateComponent::SetPhysicsMode(int mode)
+void CRiderPoseState::SetPhysicsMode(int mode)
 {
     if (mode == m_physicsMode)
         return;
     m_physicsMode = mode;
-    m_object->SelfEvent(kOnSkaterPhysicsStateChange, nullptr);
+    m_object->PostOwnEvent(kOnSkaterPhysicsStateChange, nullptr);
 }
 
 // 0x005196A0
-void CSkaterStateComponent::SetTerrain(uint8_t terrain)
+void CRiderPoseState::SetSurfaceKind(uint8_t terrain)
 {
-    if (terrain == m_terrain)
+    if (terrain == m_surfaceType)
         return;
-    m_terrain = terrain;
-    m_object->SelfEvent(kOnSkaterTerrainChange, nullptr);
+    m_surfaceType = terrain;
+    m_object->PostOwnEvent(kOnSkaterTerrainChange, nullptr);
 }
 
 // 0x00519470
-void CSkaterStateComponent::ClearPowerups() { m_powerups[0] = 0; }
+void CRiderPoseState::ClearPowerups() { m_boostItems[0] = 0; }
 
 // 0x00519650
-void CSkaterStateComponent::ClearDoingTrick() { m_doingTrick = 0; }
+void CRiderPoseState::ClearDoingTrick() { m_doingTrick = 0; }
 
 // 0x00519480
-bool CSkaterStateComponent::InAir(Script::CStruct*, Script::CScript*) { return m_state == AIR; }
+bool CRiderPoseState::InAir(Scripts::CStruct*, Scripts::CScript*) { return m_state == AIR; }
 // 0x00519490
-bool CSkaterStateComponent::OnWall(Script::CStruct*, Script::CScript*) { return m_state == WALL; }
+bool CRiderPoseState::OnWall(Scripts::CStruct*, Scripts::CScript*) { return m_state == WALL; }
 // 0x005194A0
-bool CSkaterStateComponent::OnLip(Script::CStruct*, Script::CScript*) { return m_state == LIP; }
+bool CRiderPoseState::OnLip(Scripts::CStruct*, Scripts::CScript*) { return m_state == LIP; }
 // 0x005194B0
-bool CSkaterStateComponent::OnRail(Script::CStruct*, Script::CScript*) { return m_state == RAIL; }
+bool CRiderPoseState::OnRail(Scripts::CStruct*, Scripts::CScript*) { return m_state == RAIL; }
 // 0x005194C0
-bool CSkaterStateComponent::InWallplant(Script::CStruct*, Script::CScript*) { return m_state == WALLPLANT; }
+bool CRiderPoseState::InWallplant(Scripts::CStruct*, Scripts::CScript*) { return m_state == WALLPLANT; }
 // 0x005196D0
-bool CSkaterStateComponent::InBailState(Script::CStruct*, Script::CScript*) { return m_bailing != 0; }
+bool CRiderPoseState::InBailState(Scripts::CStruct*, Scripts::CScript*) { return m_bailing != 0; }
 // 0x005194D0
-bool CSkaterStateComponent::Walking(Script::CStruct*, Script::CScript*)
+bool CRiderPoseState::Walking(Scripts::CStruct*, Scripts::CScript*)
 {
-    return !m_driving && m_physicsMode == WALKING;
+    return !m_inVehicle && m_physicsMode == WALKING;
 }
 // 0x005194F0
-bool CSkaterStateComponent::Skating(Script::CStruct*, Script::CScript*)
+bool CRiderPoseState::Skating(Scripts::CStruct*, Scripts::CScript*)
 {
-    return !m_driving && m_physicsMode == SKATING;
+    return !m_inVehicle && m_physicsMode == SKATING;
 }
 // 0x00519510
-bool CSkaterStateComponent::Driving(Script::CStruct*, Script::CScript*) { return m_driving != 0; }
+bool CRiderPoseState::Driving(Scripts::CStruct*, Scripts::CScript*) { return m_inVehicle != 0; }
 // 0x00519520
-bool CSkaterStateComponent::SetDriving(Script::CStruct*, Script::CScript*)
+bool CRiderPoseState::SetDriving(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_driving = 1;
+    m_inVehicle = 1;
     return true;
 }
 // 0x00519530
-bool CSkaterStateComponent::UnsetDriving(Script::CStruct*, Script::CScript*)
+bool CRiderPoseState::UnsetDriving(Scripts::CStruct*, Scripts::CScript*)
 {
-    m_driving = 0;
+    m_inVehicle = 0;
     return true;
 }
 // 0x005196E0
-bool CSkaterStateComponent::DoingTrick(Script::CStruct*, Script::CScript*) { return m_doingTrick != 0; }
+bool CRiderPoseState::InAirMove(Scripts::CStruct*, Scripts::CScript*) { return m_doingTrick != 0; }
 
 // 0x00519540
-bool CSkaterStateComponent::HasPowerup(Script::CStruct* params, Script::CScript*)
+bool CRiderPoseState::HasPowerup(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index = FindPowerup(params);
-    return index != -1 && m_powerups[index] != 0;
+    return index != -1 && m_boostItems[index] != 0;
 }
 
 // 0x005195B0
-bool CSkaterStateComponent::PickedUpPowerup(Script::CStruct* params, Script::CScript*)
+bool CRiderPoseState::PickedUpPowerup(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index = FindPowerup(params);
     if (index != -1)
-        m_powerups[index] = 1;
+        m_boostItems[index] = 1;
     return true;
 }
 
 // 0x005196F0
-bool CSkaterStateComponent::GetTerrain(Script::CStruct*, Script::CScript* script)
+bool CRiderPoseState::GetSurfaceKind(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddInteger(kTerrain, m_terrain);
+    script->m_params->PutInt(kTerrain, m_surfaceType);
     return true;
 }
 
 // 0x00519720
-bool CSkaterStateComponent::GetSparksPos(Script::CStruct*, Script::CScript* script)
+bool CRiderPoseState::GetSparksPos(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(kSparksPos, m_sparksPos);
+    script->m_params->PutNameKey(kSparksPos, m_sparksPos);
     return true;
 }
 
 // 0x00519600
-bool CSkaterStateComponent::SetSparksPos(Script::CStruct* params, Script::CScript*)
+bool CRiderPoseState::SetSparksPos(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetChecksum(uint32_t{0}, &m_sparksPos, 0);
+    params->ReadHashValue(uint32_t{0}, &m_sparksPos, 0);
     return true;
 }
 
@@ -238,50 +238,50 @@ void SkaterStateHistoryFrame::SetTime(uint32_t time)
 }
 
 // 0x005197C0
-void CSkaterStateHistoryComponent::DestroyBody()
+void CRiderFrameLog::DestroyBody()
 {
     m_vtable = g_stateHistoryVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterStateComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
-         &Obj::CSkaterStateComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPoseState::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
+         &GameObjects::CRiderPoseState::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 
-static VtableSlot g_stateHistoryVtable_slots[] = {&Obj::CSkaterStateHistoryComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
+static VtableSlot g_stateHistoryVtable_slots[] = {&GameObjects::CRiderFrameLog::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const g_stateHistoryVtable = reinterpret_cast<void**>(g_stateHistoryVtable_slots);
 
 } // namespace Obj

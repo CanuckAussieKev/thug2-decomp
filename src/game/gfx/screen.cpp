@@ -15,7 +15,7 @@
 #include "game/gfx/device.h"
 #include "game/skate/skate_module.h"
 
-namespace Nx {
+namespace Engine3D {
 
 float g_screenAspect;
 float g_defaultAngle;
@@ -48,7 +48,7 @@ uint32_t BackBufferHeight() { return reinterpret_cast<uint32_t&>(g_backBufferHei
 
 uint8_t CurrentLevel()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* skate = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     if (!skate)
         return 0;
     return (*reinterpret_cast<uint8_t**>(skate + 0x20))[0x630];
@@ -57,8 +57,8 @@ uint8_t CurrentLevel()
 float DesiredAspectRatio()
 {
     // (the window's size as unsigned numbers)
-    auto width = static_cast<uint32_t>(Sys::WindowWidth());
-    auto height = static_cast<uint32_t>(Sys::WindowHeight());
+    auto width = static_cast<uint32_t>(SystemCore::WindowWidth());
+    auto height = static_cast<uint32_t>(SystemCore::WindowHeight());
     if (CurrentLevel() == 0)
         return 4.0f / 3.0f;
     return static_cast<float>(width) / static_cast<float>(height);
@@ -76,8 +76,8 @@ float Desired3DAspectRatio()
 {
     if (!FrontEndWidescreen())
         return DesiredAspectRatio();
-    auto width = static_cast<uint32_t>(Sys::WindowWidth());
-    auto height = static_cast<uint32_t>(Sys::WindowHeight());
+    auto width = static_cast<uint32_t>(SystemCore::WindowWidth());
+    auto height = static_cast<uint32_t>(SystemCore::WindowHeight());
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
@@ -164,10 +164,10 @@ void SetLetterbox(bool letterbox)
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
 // when DisableBlur is off - some patched executables "in the wild" remove the blur here.)
-bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SetScreenBlur(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     int amount = 0;
-    params->GetInteger(0u, &amount, false); // the unnamed integer
+    params->FetchIntValue(0u, &amount, false); // the unnamed integer
     ScriptScreenBlur() = amount;
     SetScreenBlur(static_cast<uint32_t>(amount));
     return true;

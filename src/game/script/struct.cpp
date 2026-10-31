@@ -11,11 +11,11 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 
-namespace Script {
+namespace Scripts {
 
 int g_structCopyPeak{18000};
-Mem::PoolPair g_arrayPools;
-Mem::PoolPair g_componentPools;
+MemSys::PoolPair g_arrayPools;
+MemSys::PoolPair g_componentPools;
 bool g_usePermanentStrings;
 char* g_permanentStringsStart;
 char* g_permanentStringsNext;
@@ -23,11 +23,11 @@ uint32_t g_permanentStringsSize;
 uint32_t g_permanentStringCount;
 int g_structCopyCount;
 CSymbolTableEntry** g_symbolTable;
-Mem::PoolPair g_symbolPools;
+MemSys::PoolPair g_symbolPools;
 CSymbolTableEntry* g_iteratorEntry;
 uint32_t g_iteratorBucket;
-Mem::PoolPair g_pairPools;
-Mem::PoolPair g_vectorPools;
+MemSys::PoolPair g_pairPools;
+MemSys::PoolPair g_vectorPools;
 
 namespace {
 
@@ -50,21 +50,21 @@ namespace {
 // The global structure an unnamed name component includes, or null.
 CStruct* IncludedStructure(const CComponent* component)
 {
-    if (component->name != 0 || component->Type() != ESYMBOLTYPE_NAME)
+    if (component->name != 0 || component->Type() != QBVAL_NAME)
         return nullptr;
-    CSymbolTableEntry* symbol = LookUpSymbol(component->checksum);
-    return symbol && symbol->type == ESYMBOLTYPE_STRUCTURE ? symbol->structure : nullptr;
+    CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
+    return symbol && symbol->type == QBVAL_STRUCT ? symbol->structure : nullptr;
 }
 
 } // namespace
 
 // 0x00478CF0
-CSymbolTableEntry* LookUpSymbol(uint32_t name)
+CSymbolTableEntry* ResolveSymbol(uint32_t name)
 {
     CSymbolTableEntry* entry = FindSymbol(name);
     if (!entry)
         return nullptr;
-    while (entry->type == ESYMBOLTYPE_NAME) {
+    while (entry->type == QBVAL_NAME) {
         CSymbolTableEntry* target = FindSymbol(entry->checksum);
         if (!target)
             return entry;
@@ -88,7 +88,7 @@ bool CStruct::IsEmpty()
 }
 
 // 0x00476490
-CComponent* CStruct::GetNextComponent(CComponent* component)
+CComponent* CStruct::StepToEntry(CComponent* component)
 {
     return component ? component->next : m_head;
 }
@@ -114,11 +114,11 @@ CComponent* CStruct::FindComponent(uint32_t name)
     for (CComponent* component = m_head; component; component = component->next) {
         if (component->name == name)
             return component;
-        if (component->name == 0 && component->Type() == ESYMBOLTYPE_NAME) {
+        if (component->name == 0 && component->Type() == QBVAL_NAME) {
             if (component->checksum == name)
                 return component;
-            CSymbolTableEntry* symbol = LookUpSymbol(component->checksum);
-            if (symbol && symbol->type == ESYMBOLTYPE_STRUCTURE) {
+            CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
+            if (symbol && symbol->type == QBVAL_STRUCT) {
                 if (CComponent* inner = symbol->structure->FindComponent(name))
                     return inner;
             }
@@ -134,21 +134,21 @@ bool CStruct::Search(uint32_t name, uint32_t type, void* out)
     bool found = false;
     for (CComponent* component = m_head; component; component = component->next) {
         if (component->name == name) {
-            ESymbolType componentType = component->Type();
+            EQbValueKind componentType = component->Type();
             if (componentType == type) {
                 *value = component->raw;
                 found = true;
-            } else if (componentType == ESYMBOLTYPE_INTEGER && type == ESYMBOLTYPE_FLOAT) {
+            } else if (componentType == QBVAL_INTEGER && type == QBVAL_FLOAT) {
                 *static_cast<float*>(out) = static_cast<float>(component->integer);
                 found = true;
-            } else if (componentType == ESYMBOLTYPE_NAME) {
+            } else if (componentType == QBVAL_NAME) {
                 // A name standing for a global value.
-                CSymbolTableEntry* symbol = LookUpSymbol(component->checksum);
+                CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
                 if (symbol) {
                     if (symbol->type == type) {
                         *value = symbol->raw;
                         found = true;
-                    } else if (symbol->type == ESYMBOLTYPE_INTEGER && type == ESYMBOLTYPE_FLOAT) {
+                    } else if (symbol->type == QBVAL_INTEGER && type == QBVAL_FLOAT) {
                         *static_cast<float*>(out) = static_cast<float>(symbol->integer);
                         found = true;
                     }
@@ -166,45 +166,45 @@ bool CStruct::Search(uint32_t name, uint32_t type, void* out)
 }
 
 // 0x00476AF0
-bool CStruct::ContainsComponentNamed(uint32_t name)
+bool CStruct::HasEntryNamed(uint32_t name)
 {
     return FindComponent(name) != nullptr;
 }
 
 // 0x00476B10
-bool CStruct::ContainsComponentNamed(const char* name)
+bool CStruct::HasEntryNamed(const char* name)
 {
-    return FindComponent(Crc::GenerateCRCFromString(name)) != nullptr;
+    return FindComponent(Checksums::HashFromText(name)) != nullptr;
 }
 
 // 0x00476B40
-bool CStruct::ContainsFlag(uint32_t flag)
+bool CStruct::HasBareFlag(uint32_t flag)
 {
     for (CComponent* component = m_head; component; component = component->next) {
-        if (component->name != 0 || component->Type() != ESYMBOLTYPE_NAME)
+        if (component->name != 0 || component->Type() != QBVAL_NAME)
             continue;
         if (component->checksum == flag)
             return true;
-        CSymbolTableEntry* symbol = LookUpSymbol(component->checksum);
-        if (symbol && symbol->type == ESYMBOLTYPE_STRUCTURE && symbol->structure->ContainsFlag(flag))
+        CSymbolTableEntry* symbol = ResolveSymbol(component->checksum);
+        if (symbol && symbol->type == QBVAL_STRUCT && symbol->structure->HasBareFlag(flag))
             return true;
     }
     return false;
 }
 
 // 0x00476BA0
-bool CStruct::ContainsFlag(const char* flag)
+bool CStruct::HasBareFlag(const char* flag)
 {
-    return ContainsFlag(Crc::GenerateCRCFromString(flag));
+    return HasBareFlag(Checksums::HashFromText(flag));
 }
 
 // 0x00476BC0
-bool CStruct::References(CStruct* other)
+bool CStruct::RefTally(CStruct* other)
 {
     if (other == this)
         return true;
     for (CComponent* component = m_head; component; component = component->next) {
-        if (component->Type() == ESYMBOLTYPE_STRUCTURE && component->structure->References(other))
+        if (component->Type() == QBVAL_STRUCT && component->structure->RefTally(other))
             return true;
     }
     return false;
@@ -229,9 +229,9 @@ bool CStruct::IsSubsetOf(CStruct* other)
 bool CStruct::GetString(uint32_t name, const char** out, int assert)
 {
     const char* value;
-    if (!Search(name, ESYMBOLTYPE_STRING, &value) && !Search(name, ESYMBOLTYPE_LOCALSTRING, &value)) {
+    if (!Search(name, QBVAL_STRING, &value) && !Search(name, QBVAL_INLINE_TEXT, &value)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     *out = value;
@@ -241,16 +241,16 @@ bool CStruct::GetString(uint32_t name, const char** out, int assert)
 // 0x004765F0
 bool CStruct::GetString(const char* name, const char** out, int assert)
 {
-    return GetString(Crc::GenerateCRCFromString(name), out, assert);
+    return GetString(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476630
-bool CStruct::GetInteger(uint32_t name, int* out, int assert)
+bool CStruct::FetchIntValue(uint32_t name, int* out, int assert)
 {
     int value;
-    if (!Search(name, ESYMBOLTYPE_INTEGER, &value)) {
+    if (!Search(name, QBVAL_INTEGER, &value)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     *out = value;
@@ -258,18 +258,18 @@ bool CStruct::GetInteger(uint32_t name, int* out, int assert)
 }
 
 // 0x00476680
-bool CStruct::GetInteger(const char* name, int* out, int assert)
+bool CStruct::FetchIntValue(const char* name, int* out, int assert)
 {
-    return GetInteger(Crc::GenerateCRCFromString(name), out, assert);
+    return FetchIntValue(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x004766D0
 bool CStruct::GetFloat(uint32_t name, float* out, int assert)
 {
     float value;
-    if (!Search(name, ESYMBOLTYPE_FLOAT, &value)) {
+    if (!Search(name, QBVAL_FLOAT, &value)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     *out = value;
@@ -279,16 +279,16 @@ bool CStruct::GetFloat(uint32_t name, float* out, int assert)
 // 0x00476720
 bool CStruct::GetFloat(const char* name, float* out, int assert)
 {
-    return GetFloat(Crc::GenerateCRCFromString(name), out, assert);
+    return GetFloat(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476770
-bool CStruct::GetPair(uint32_t name, float* x, float* y, int assert)
+bool CStruct::FetchPair(uint32_t name, float* x, float* y, int assert)
 {
     CPair* pair;
-    if (!Search(name, ESYMBOLTYPE_PAIR, &pair)) {
+    if (!Search(name, QBVAL_PAIR, &pair)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     *x = pair->x;
@@ -297,28 +297,28 @@ bool CStruct::GetPair(uint32_t name, float* x, float* y, int assert)
 }
 
 // 0x00476DF0 (zero if missing)
-bool CStruct::GetPair(uint32_t name, CPair* out, bool assert)
+bool CStruct::FetchPair(uint32_t name, CPair* out, bool assert)
 {
     CPair* pair;
-    if (Search(name, ESYMBOLTYPE_PAIR, &pair)) {
+    if (Search(name, QBVAL_PAIR, &pair)) {
         out->x = pair->x;
         out->y = pair->y;
         return true;
     }
     if (assert)
-        PrintContents(this);
+        DumpToLog(this);
     out->x = 0.0f;
     out->y = 0.0f;
     return false;
 }
 
 // 0x004767C0
-bool CStruct::GetStructure(uint32_t name, CStruct** out, int assert)
+bool CStruct::ReadSubStruct(uint32_t name, CStruct** out, int assert)
 {
     CStruct* value;
-    if (!Search(name, ESYMBOLTYPE_STRUCTURE, &value)) {
+    if (!Search(name, QBVAL_STRUCT, &value)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     *out = value;
@@ -326,18 +326,18 @@ bool CStruct::GetStructure(uint32_t name, CStruct** out, int assert)
 }
 
 // 0x00476810
-bool CStruct::GetStructure(const char* name, CStruct** out, int assert)
+bool CStruct::ReadSubStruct(const char* name, CStruct** out, int assert)
 {
-    return GetStructure(Crc::GenerateCRCFromString(name), out, assert);
+    return ReadSubStruct(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476860
 bool CStruct::GetArray(uint32_t name, CArray** out, int assert)
 {
     CArray* value;
-    if (!Search(name, ESYMBOLTYPE_ARRAY, &value)) {
+    if (!Search(name, QBVAL_ARRAY, &value)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     *out = value;
@@ -347,62 +347,62 @@ bool CStruct::GetArray(uint32_t name, CArray** out, int assert)
 // 0x004768B0
 bool CStruct::GetArray(const char* name, CArray** out, int assert)
 {
-    return GetArray(Crc::GenerateCRCFromString(name), out, assert);
+    return GetArray(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476900
-bool CStruct::GetScript(uint32_t name, SStructScript* out, int assert)
+bool CStruct::GetScript(uint32_t name, SParamScript* out, int assert)
 {
     const uint8_t* code;
-    if (!Search(name, ESYMBOLTYPE_QSCRIPT, &code)) {
+    if (!Search(name, QBVAL_SCRIPT_BODY, &code)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
-    out->mNameChecksum = name;
-    out->mpScriptTokens = code;
+    out->m_ownNameHash = name;
+    out->m_codeStream = code;
     return true;
 }
 
 // 0x00476950 (the last match wins; an unnamed name that includes a global structure isn't a value)
-bool CStruct::GetChecksum(uint32_t name, uint32_t* out, int assert)
+bool CStruct::ReadHashValue(uint32_t name, uint32_t* out, int assert)
 {
     bool found = false;
     for (CComponent* component = m_head; component; component = component->next) {
         if (component->name == name) {
-            if (component->Type() == ESYMBOLTYPE_NAME) {
+            if (component->Type() == QBVAL_NAME) {
                 CSymbolTableEntry* symbol = nullptr;
-                if (name != 0 || !(symbol = LookUpSymbol(component->checksum)) ||
-                    symbol->type != ESYMBOLTYPE_STRUCTURE) {
+                if (name != 0 || !(symbol = ResolveSymbol(component->checksum)) ||
+                    symbol->type != QBVAL_STRUCT) {
                     *out = component->checksum;
                     found = true;
                 }
             }
         } else if (CStruct* included = IncludedStructure(component)) {
-            if (included->GetChecksum(name, out, 0))
+            if (included->ReadHashValue(name, out, 0))
                 found = true;
         }
     }
     if (assert && !found)
-        PrintContents(this);
+        DumpToLog(this);
     return found;
 }
 
 // 0x00476A00
-bool CStruct::GetChecksum(const char* name, uint32_t* out, int assert)
+bool CStruct::ReadHashValue(const char* name, uint32_t* out, int assert)
 {
-    return GetChecksum(Crc::GenerateCRCFromString(name), out, assert);
+    return ReadHashValue(Checksums::HashFromText(name), out, assert);
 }
 
 // 0x00476A30
-bool CStruct::GetChecksumOrStringChecksum(uint32_t name, uint32_t* out, int assert)
+bool CStruct::HashFromNameOrText(uint32_t name, uint32_t* out, int assert)
 {
-    if (GetChecksum(name, out, assert))
+    if (ReadHashValue(name, out, assert))
         return true;
     const char* string = nullptr;
     if (!GetString(name, &string, assert))
         return false;
-    *out = Crc::GenerateCRCFromString(string);
+    *out = Checksums::HashFromText(string);
     return true;
 }
 
@@ -410,9 +410,9 @@ bool CStruct::GetChecksumOrStringChecksum(uint32_t name, uint32_t* out, int asse
 bool CStruct::GetVector(uint32_t name, VectorValue* out, int assert)
 {
     CVector* vector;
-    if (!Search(name, ESYMBOLTYPE_VECTOR, &vector)) {
+    if (!Search(name, QBVAL_VECTOR, &vector)) {
         if (assert)
-            PrintContents(this);
+            DumpToLog(this);
         return false;
     }
     out->x = vector->x;
@@ -425,29 +425,29 @@ bool CStruct::GetVector(uint32_t name, VectorValue* out, int assert)
 // 0x00477010
 bool CStruct::GetVector(const char* name, VectorValue* out, int assert)
 {
-    return GetVector(Crc::GenerateCRCFromString(name), out, assert);
+    return GetVector(Checksums::HashFromText(name), out, assert);
 }
 
 } // namespace Script
 
 namespace {
 
-using Script::CArray;
-using Script::CStruct;
-using Script::VectorValue;
+using Scripts::CArray;
+using Scripts::CStruct;
+using Scripts::VectorValue;
 
 // The overloads taking the assert flag as a bool (they pass it on as 0 or 1).
 struct BoolAssertGetters {
     CStruct* Self() { return reinterpret_cast<CStruct*>(this); }
     bool GetString(uint32_t name, const char** out, bool assert) { return Self()->GetString(name, out, assert); }
     bool GetStringNamed(const char* name, const char** out, bool assert) { return Self()->GetString(name, out, assert); }
-    bool GetInteger(uint32_t name, int* out, bool assert) { return Self()->GetInteger(name, out, assert); }
-    bool GetIntegerNamed(const char* name, int* out, bool assert) { return Self()->GetInteger(name, out, assert); }
+    bool FetchIntValue(uint32_t name, int* out, bool assert) { return Self()->FetchIntValue(name, out, assert); }
+    bool GetIntegerNamed(const char* name, int* out, bool assert) { return Self()->FetchIntValue(name, out, assert); }
     bool GetFloat(uint32_t name, float* out, bool assert) { return Self()->GetFloat(name, out, assert); }
     bool GetFloatNamed(const char* name, float* out, bool assert) { return Self()->GetFloat(name, out, assert); }
-    bool GetStructure(uint32_t name, CStruct** out, bool assert) { return Self()->GetStructure(name, out, assert); }
-    bool GetChecksum(uint32_t name, uint32_t* out, bool assert) { return Self()->GetChecksum(name, out, assert); }
-    bool GetChecksumNamed(const char* name, uint32_t* out, bool assert) { return Self()->GetChecksum(name, out, assert); }
+    bool ReadSubStruct(uint32_t name, CStruct** out, bool assert) { return Self()->ReadSubStruct(name, out, assert); }
+    bool ReadHashValue(uint32_t name, uint32_t* out, bool assert) { return Self()->ReadHashValue(name, out, assert); }
+    bool GetChecksumNamed(const char* name, uint32_t* out, bool assert) { return Self()->ReadHashValue(name, out, assert); }
     bool GetArray(uint32_t name, CArray** out, bool assert) { return Self()->GetArray(name, out, assert); }
     bool GetArrayNamed(const char* name, CArray** out, bool assert) { return Self()->GetArray(name, out, assert); }
     bool GetVector(uint32_t name, VectorValue* out, bool assert) { return Self()->GetVector(name, out, assert); }
@@ -461,10 +461,10 @@ using Method = R (CStruct::*)(A...);
 
 // --- owning values: strings, pooled objects, cleaning up and copying ------------------------------------------
 
-namespace Script {
+namespace Scripts {
 
 // The CStruct pool pair (the current pool's index, then the two pools).
-Mem::PoolPair g_structPools;
+MemSys::PoolPair g_structPools;
 
 // A permanent string table entry: the string's checksum and the string.
 struct PermanentString {
@@ -475,11 +475,11 @@ PermanentString* g_permanentStringTable;
 namespace {
 
 // The pool pairs of the script's value objects.
-Mem::PoolPair& ComponentPools() { return g_componentPools; }
-Mem::PoolPair& StructPools() { return g_structPools; }
-Mem::PoolPair& ArrayPools() { return g_arrayPools; }
-Mem::PoolPair& PairPools() { return g_pairPools; }
-Mem::PoolPair& VectorPools() { return g_vectorPools; }
+MemSys::PoolPair& ComponentPools() { return g_componentPools; }
+MemSys::PoolPair& StructPools() { return g_structPools; }
+MemSys::PoolPair& ArrayPools() { return g_arrayPools; }
+MemSys::PoolPair& PairPools() { return g_pairPools; }
+MemSys::PoolPair& VectorPools() { return g_vectorPools; }
 
 // The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
 bool& UsePermanentStrings() { return g_usePermanentStrings; }
@@ -493,7 +493,7 @@ uint32_t& PermanentStringCount() { return g_permanentStringCount; }
 char* CreatePermanentString(const char* string)
 {
     int length = static_cast<int>(std::strlen(string));
-    uint32_t checksum = Crc::GenerateCRCFromBuffer(string, length);
+    uint32_t checksum = Checksums::GenerateCRCFromBuffer(string, length);
     PermanentString* table = PermanentStringTable();
     for (uint32_t i = 0; i < PermanentStringCount(); ++i) {
         if (table[i].checksum == checksum)
@@ -510,7 +510,7 @@ char* CreatePermanentString(const char* string)
 void DeletePair(CPair* pair) { PairPools().Free(pair); }
 void DeleteVector(CVector* vector) { VectorPools().Free(vector); }
 
-void AppendStructure(CStruct* to, CStruct* from) { to->AppendStructure(from); }
+void MergeStructure(CStruct* to, CStruct* from) { to->MergeStructure(from); }
 
 } // namespace
 
@@ -519,11 +519,11 @@ char* CreateString(const char* string)
 {
     if (UsePermanentStrings())
         return CreatePermanentString(string);
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
     size_t size = std::strlen(string) + 1;
-    auto* copy = static_cast<char*>(Mem::Malloc(static_cast<unsigned int>(size)));
+    auto* copy = static_cast<char*>(MemSys::AllocBlock(static_cast<unsigned int>(size)));
     std::memcpy(copy, string, size);
-    Mem::PopContext();
+    MemSys::LeaveHeapScope();
     return copy;
 }
 
@@ -535,7 +535,7 @@ void EndPermanentStrings()
 {
     UsePermanentStrings() = false;
     if (PermanentStringTable()) {
-        Mem::FreeMalloc(PermanentStringTable());
+        MemSys::FreeMalloc(PermanentStringTable());
         PermanentStringTable() = nullptr;
     }
 }
@@ -561,7 +561,7 @@ void FreeString(const char* string)
     const char* start = PermanentStringsStart();
     if (string >= start && string < start + PermanentStringsSize())
         return;
-    Mem::FreeMalloc(const_cast<char*>(string));
+    MemSys::FreeMalloc(const_cast<char*>(string));
 }
 
 // 0x00409030 / 0x00409070
@@ -575,7 +575,7 @@ void FreeComponent(CComponent* component) { ComponentPools().Free(component); }
 // 0x0046CAA0
 CArray* CArray::Init()
 {
-    m_type = ESYMBOLTYPE_NONE;
+    m_type = QBVAL_NONE;
     m_elements = nullptr;
     m_size = 0;
     m_unknown0 = 0;
@@ -588,58 +588,58 @@ void CArray::Clear()
     if (m_size == 1) {
         // (the single element is in place: nothing to free)
         m_size = 0;
-        m_type = ESYMBOLTYPE_NONE;
+        m_type = QBVAL_NONE;
         if (m_elements)
             m_elements = nullptr;
         return;
     }
     if (m_elements) {
-        Mem::FreeMalloc(m_elements);
+        MemSys::FreeMalloc(m_elements);
         m_elements = nullptr;
     }
-    m_type = ESYMBOLTYPE_NONE;
+    m_type = QBVAL_NONE;
     m_size = 0;
 }
 
 // 0x0046CAF0
-void CArray::SetType(ESymbolType type) { m_type = type; }
+void CArray::SetType(EQbValueKind type) { m_type = type; }
 
 // 0x0046CB00
-uint32_t* CArray::GetArrayPointer()
+uint32_t* CArray::FindArrayValue()
 {
     return m_size == 1 ? &m_single : m_elements;
 }
 
 // 0x00477140
-void CleanUpArray(CArray* array)
+void ReleaseArrayStorage(CArray* array)
 {
     uint32_t count = array->m_size;
-    ESymbolType type = array->m_type;
-    uint32_t* elements = array->GetArrayPointer();
+    EQbValueKind type = array->m_type;
+    uint32_t* elements = array->FindArrayValue();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t& element = elements[i];
         if (!element)
             continue;
         switch (type) {
-        case ESYMBOLTYPE_STRING:
-        case ESYMBOLTYPE_LOCALSTRING:
+        case QBVAL_STRING:
+        case QBVAL_INLINE_TEXT:
             FreeString(reinterpret_cast<const char*>(element));
             break;
-        case ESYMBOLTYPE_PAIR:
+        case QBVAL_PAIR:
             DeletePair(reinterpret_cast<CPair*>(element));
             break;
-        case ESYMBOLTYPE_VECTOR:
+        case QBVAL_VECTOR:
             DeleteVector(reinterpret_cast<CVector*>(element));
             break;
-        case ESYMBOLTYPE_STRUCTURE: {
+        case QBVAL_STRUCT: {
             auto* structure = reinterpret_cast<CStruct*>(element);
             structure->Clear();
             DeleteStruct(structure);
             break;
         }
-        case ESYMBOLTYPE_ARRAY: {
+        case QBVAL_ARRAY: {
             auto* inner = reinterpret_cast<CArray*>(element);
-            CleanUpArray(inner);
+            ReleaseArrayStorage(inner);
             inner->Clear();
             DeleteArray(inner);
             break;
@@ -653,36 +653,36 @@ void CleanUpArray(CArray* array)
 }
 
 // 0x004772A0
-void CleanUpComponent(CComponent* component)
+void ReleaseComponent(CComponent* component)
 {
     switch (component->Type()) {
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         if (component->string)
             FreeString(component->string);
         break;
-    case ESYMBOLTYPE_PAIR:
+    case QBVAL_PAIR:
         if (component->pair)
             DeletePair(component->pair);
         break;
-    case ESYMBOLTYPE_VECTOR:
+    case QBVAL_VECTOR:
         if (component->vector)
             DeleteVector(component->vector);
         break;
-    case ESYMBOLTYPE_QSCRIPT:
+    case QBVAL_SCRIPT_BODY:
         if (component->raw)
-            Mem::FreeMalloc(reinterpret_cast<void*>(component->raw));
+            MemSys::FreeMalloc(reinterpret_cast<void*>(component->raw));
         component->unknown2 = 0; // the script's size
         break;
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         if (CStruct* structure = component->structure) {
             structure->Clear();
             DeleteStruct(structure);
         }
         break;
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_ARRAY:
         if (CArray* array = component->array) {
-            CleanUpArray(array);
+            ReleaseArrayStorage(array);
             array->Clear();
             DeleteArray(array);
         }
@@ -695,18 +695,18 @@ void CleanUpComponent(CComponent* component)
 }
 
 // 0x004773E0
-void CopyComponent(CComponent* dest, CComponent* source, int reference)
+void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
 {
     if (dest->raw)
-        CleanUpComponent(dest);
+        ReleaseComponent(dest);
     dest->typeAndFlag = static_cast<uint8_t>((source->typeAndFlag & ~1) | (dest->typeAndFlag & 1));
     dest->name = source->name;
     switch (source->Type()) {
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         dest->string = CreateString(source->string);
         break;
-    case ESYMBOLTYPE_PAIR: {
+    case QBVAL_PAIR: {
         auto* pair = static_cast<CPair*>(PairPools().Allocate(sizeof(CPair)));
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
@@ -719,7 +719,7 @@ void CopyComponent(CComponent* dest, CComponent* source, int reference)
         dest->pair->y = source->pair->y;
         break;
     }
-    case ESYMBOLTYPE_VECTOR: {
+    case QBVAL_VECTOR: {
         auto* vector = static_cast<CVector*>(VectorPools().Allocate(sizeof(CVector)));
         if (vector) {
             vector->z = 0.0f;
@@ -733,21 +733,21 @@ void CopyComponent(CComponent* dest, CComponent* source, int reference)
         dest->vector->z = source->vector->z;
         break;
     }
-    case ESYMBOLTYPE_QSCRIPT: {
+    case QBVAL_SCRIPT_BODY: {
         // The compiled script, `unknown2` bytes.
-        Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
-        dest->raw = reinterpret_cast<uint32_t>(Mem::Malloc(source->unknown2));
+        MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+        dest->raw = reinterpret_cast<uint32_t>(MemSys::AllocBlock(source->unknown2));
         dest->unknown2 = source->unknown2;
-        Mem::PopContext();
+        MemSys::LeaveHeapScope();
         auto* from = reinterpret_cast<const uint8_t*>(source->raw);
         auto* to = reinterpret_cast<uint8_t*>(dest->raw);
         for (uint32_t i = 0; i < source->unknown2; ++i)
             to[i] = from[i];
         break;
     }
-    case ESYMBOLTYPE_STRUCTURE: {
+    case QBVAL_STRUCT: {
         if (reference) {
-            dest->typeAndFlag = static_cast<uint8_t>((dest->typeAndFlag & 1) | (ESYMBOLTYPE_STRUCTUREPOINTER << 1));
+            dest->typeAndFlag = static_cast<uint8_t>((dest->typeAndFlag & 1) | (QBVAL_STRUCT_REF << 1));
             dest->structure = source->structure;
             break;
         }
@@ -757,27 +757,27 @@ void CopyComponent(CComponent* dest, CComponent* source, int reference)
         dest->structure = structure;
         if (source->structure != structure) {
             structure->Clear();
-            AppendStructure(structure, source->structure);
+            MergeStructure(structure, source->structure);
         }
         break;
     }
-    case ESYMBOLTYPE_ARRAY: {
+    case QBVAL_ARRAY: {
         if (!reference) {
             CArray* array = NewArray();
             if (array)
                 array->Init();
             dest->array = array;
-            CopyArray(array, source->array);
+            DuplicateArray(array, source->array);
             break;
         }
         dest->typeAndFlag = static_cast<uint8_t>((dest->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
         dest->raw = source->raw;
         break;
     }
-    case ESYMBOLTYPE_INTEGER:
-    case ESYMBOLTYPE_FLOAT:
-    case ESYMBOLTYPE_NAME:
-    case ESYMBOLTYPE_STRUCTUREPOINTER:
+    case QBVAL_INTEGER:
+    case QBVAL_FLOAT:
+    case QBVAL_NAME:
+    case QBVAL_STRUCT_REF:
     case ESYMBOLTYPE_ARRAYPOINTER:
         dest->raw = source->raw;
         break;
@@ -792,7 +792,7 @@ void CStruct::Clear()
     CComponent* component = m_head;
     while (component) {
         CComponent* next = component->next;
-        CleanUpComponent(component);
+        ReleaseComponent(component);
         FreeComponent(component);
         component = next;
     }
@@ -811,7 +811,7 @@ void CStruct::RemoveComponent(uint32_t name)
                 previous->next = next;
             else
                 m_head = next;
-            CleanUpComponent(component);
+            ReleaseComponent(component);
             FreeComponent(component);
         } else {
             previous = component;
@@ -823,7 +823,7 @@ void CStruct::RemoveComponent(uint32_t name)
 // 0x00477770
 void CStruct::RemoveComponent(const char* name)
 {
-    RemoveComponent(Crc::GenerateCRCFromString(name));
+    RemoveComponent(Checksums::HashFromText(name));
 }
 
 // 0x00477790
@@ -838,7 +838,7 @@ void CStruct::RemoveComponentOfType(uint32_t name, uint8_t type)
                 previous->next = next;
             else
                 m_head = next;
-            CleanUpComponent(component);
+            ReleaseComponent(component);
             FreeComponent(component);
         } else {
             previous = component;
@@ -851,7 +851,7 @@ void CStruct::RemoveComponentOfType(uint32_t name, uint8_t type)
 
 // --- adding components ---------------------------------------------------------------------------------------
 
-namespace Script {
+namespace Scripts {
 
 // 0x0046D140 (the constructor: the second byte is left as it was)
 CComponent* ConstructComponent(CComponent* component)
@@ -866,7 +866,7 @@ CComponent* ConstructComponent(CComponent* component)
 
 namespace {
 
-CComponent* NewTypedComponent(uint32_t name, ESymbolType type)
+CComponent* NewTypedComponent(uint32_t name, EQbValueKind type)
 {
     CComponent* component = NewComponent();
     component->name = name;
@@ -895,7 +895,7 @@ void CStruct::RemoveFlag(uint32_t flag)
                 previous->next = next;
             else
                 m_head = next;
-            CleanUpComponent(component);
+            ReleaseComponent(component);
             FreeComponent(component);
         } else {
             previous = component;
@@ -912,13 +912,13 @@ void CStruct::AddComponent(CComponent* added)
     while (component) {
         bool replace = false;
         if (component->name == added->name) {
-            ESymbolType mine = component->Type();
-            ESymbolType theirs = added->Type();
+            EQbValueKind mine = component->Type();
+            EQbValueKind theirs = added->Type();
             if (mine == theirs)
-                replace = !(mine == ESYMBOLTYPE_NAME && component->name == 0) || component->raw == added->raw;
+                replace = !(mine == QBVAL_NAME && component->name == 0) || component->raw == added->raw;
             else
-                replace = (mine == ESYMBOLTYPE_FLOAT && theirs == ESYMBOLTYPE_INTEGER) ||
-                          (mine == ESYMBOLTYPE_INTEGER && theirs == ESYMBOLTYPE_FLOAT);
+                replace = (mine == QBVAL_FLOAT && theirs == QBVAL_INTEGER) ||
+                          (mine == QBVAL_INTEGER && theirs == QBVAL_FLOAT);
         }
         if (replace) {
             CComponent* next = component->next;
@@ -926,7 +926,7 @@ void CStruct::AddComponent(CComponent* added)
                 last->next = next;
             else
                 m_head = next;
-            CleanUpComponent(component);
+            ReleaseComponent(component);
             FreeComponent(component);
             component = next;
         } else {
@@ -944,7 +944,7 @@ void CStruct::AddComponent(CComponent* added)
 // 0x004779D0
 void CStruct::AddString(uint32_t name, const char* value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_STRING);
+    CComponent* component = NewTypedComponent(name, QBVAL_STRING);
     component->string = CreateString(value);
     AddComponent(component);
 }
@@ -952,13 +952,13 @@ void CStruct::AddString(uint32_t name, const char* value)
 // 0x00477A90
 void CStruct::AddString(const char* name, const char* value)
 {
-    AddString(Crc::GenerateCRCFromString(name), value);
+    AddString(Checksums::HashFromText(name), value);
 }
 
 // 0x00477AC0
-void CStruct::AddLocalString(uint32_t name, const char* value)
+void CStruct::AppendInlineText(uint32_t name, const char* value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_LOCALSTRING);
+    CComponent* component = NewTypedComponent(name, QBVAL_INLINE_TEXT);
     component->string = CreateString(value);
     AddComponent(component);
 }
@@ -966,58 +966,58 @@ void CStruct::AddLocalString(uint32_t name, const char* value)
 // 0x00478390
 void CStruct::AddString(uint32_t name, uint32_t type, const char* value)
 {
-    if (type == ESYMBOLTYPE_STRING)
+    if (type == QBVAL_STRING)
         AddString(name, value);
     else
-        AddLocalString(name, value);
+        AppendInlineText(name, value);
 }
 
 // 0x00477B80
-void CStruct::AddInteger(uint32_t name, int value)
+void CStruct::PutInt(uint32_t name, int value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_INTEGER);
+    CComponent* component = NewTypedComponent(name, QBVAL_INTEGER);
     component->integer = value;
     AddComponent(component);
 }
 
 // 0x00477C30
-void CStruct::AddInteger(const char* name, int value)
+void CStruct::PutInt(const char* name, int value)
 {
-    AddInteger(Crc::GenerateCRCFromString(name), value);
+    PutInt(Checksums::HashFromText(name), value);
 }
 
 // 0x00477C60
-void CStruct::AddFloat(uint32_t name, float value)
+void CStruct::PushFloat(uint32_t name, float value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_FLOAT);
+    CComponent* component = NewTypedComponent(name, QBVAL_FLOAT);
     component->floatValue = value;
     AddComponent(component);
 }
 
 // 0x00477D10
-void CStruct::AddFloat(const char* name, float value)
+void CStruct::PushFloat(const char* name, float value)
 {
-    AddFloat(Crc::GenerateCRCFromString(name), value);
+    PushFloat(Checksums::HashFromText(name), value);
 }
 
 // 0x00477D40
-void CStruct::AddChecksum(uint32_t name, uint32_t value)
+void CStruct::PutNameKey(uint32_t name, uint32_t value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_NAME);
+    CComponent* component = NewTypedComponent(name, QBVAL_NAME);
     component->checksum = value;
     AddComponent(component);
 }
 
 // 0x00477DF0
-void CStruct::AddChecksum(const char* name, uint32_t value)
+void CStruct::PutNameKey(const char* name, uint32_t value)
 {
-    AddChecksum(Crc::GenerateCRCFromString(name), value);
+    PutNameKey(Checksums::HashFromText(name), value);
 }
 
 // 0x00477E20
-void CStruct::AddVector(uint32_t name, float x, float y, float z)
+void CStruct::PutVec3(uint32_t name, float x, float y, float z)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_VECTOR);
+    CComponent* component = NewTypedComponent(name, QBVAL_VECTOR);
     auto* vector = static_cast<CVector*>(VectorPools().Allocate(sizeof(CVector)));
     if (vector) {
         vector->z = 0.0f;
@@ -1033,27 +1033,27 @@ void CStruct::AddVector(uint32_t name, float x, float y, float z)
 }
 
 // 0x00477F40
-void CStruct::AddVector(const char* name, float x, float y, float z)
+void CStruct::PutVec3(const char* name, float x, float y, float z)
 {
-    AddVector(Crc::GenerateCRCFromString(name), x, y, z);
+    PutVec3(Checksums::HashFromText(name), x, y, z);
 }
 
 // 0x00477F70
-void CStruct::AddVector(uint32_t name, VectorValue value)
+void CStruct::PutVec3(uint32_t name, VectorValue value)
 {
-    AddVector(name, value.x, value.y, value.z);
+    PutVec3(name, value.x, value.y, value.z);
 }
 
 // 0x00477F90
-void CStruct::AddVector(const char* name, VectorValue value)
+void CStruct::PutVec3(const char* name, VectorValue value)
 {
-    AddVector(Crc::GenerateCRCFromString(name), value.x, value.y, value.z);
+    PutVec3(Checksums::HashFromText(name), value.x, value.y, value.z);
 }
 
 // 0x00477FC0
-void CStruct::AddPair(uint32_t name, float x, float y)
+void CStruct::InsertPair(uint32_t name, float x, float y)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_PAIR);
+    CComponent* component = NewTypedComponent(name, QBVAL_PAIR);
     auto* pair = static_cast<CPair*>(PairPools().Allocate(sizeof(CPair)));
     if (pair) {
         pair->y = 0.0f;
@@ -1067,62 +1067,62 @@ void CStruct::AddPair(uint32_t name, float x, float y)
 }
 
 // 0x004780D0
-void CStruct::AddArrayPointer(uint32_t name, CArray* value)
+void CStruct::AppendArrayRef(uint32_t name, CArray* value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_ARRAY);
+    CComponent* component = NewTypedComponent(name, QBVAL_ARRAY);
     component->array = value;
     AddComponent(component);
 }
 
 // 0x00478180
-void CStruct::AddArrayPointer(const char* name, CArray* value)
+void CStruct::AppendArrayRef(const char* name, CArray* value)
 {
-    AddArrayPointer(Crc::GenerateCRCFromString(name), value);
+    AppendArrayRef(Checksums::HashFromText(name), value);
 }
 
 // 0x004781B0
-void CStruct::AddStructurePointer(uint32_t name, CStruct* value)
+void CStruct::AppendStructRef(uint32_t name, CStruct* value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_STRUCTURE);
+    CComponent* component = NewTypedComponent(name, QBVAL_STRUCT);
     component->structure = value;
     AddComponent(component);
 }
 
 // 0x00478260
-void CStruct::AddStructurePointer(const char* name, CStruct* value)
+void CStruct::AppendStructRef(const char* name, CStruct* value)
 {
-    AddStructurePointer(Crc::GenerateCRCFromString(name), value);
+    AppendStructRef(Checksums::HashFromText(name), value);
 }
 
 // 0x00478670
-void CStruct::AddStructure(uint32_t name, CStruct* value)
+void CStruct::PutSubStruct(uint32_t name, CStruct* value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_STRUCTURE);
+    CComponent* component = NewTypedComponent(name, QBVAL_STRUCT);
     CStruct* copy = NewStruct();
     if (copy)
         copy->Init();
     component->structure = copy;
     if (value != copy) {
         copy->Clear();
-        copy->AppendStructure(value);
+        copy->MergeStructure(value);
     }
     AddComponent(component);
 }
 
 // 0x00478770
-void CStruct::AddStructure(const char* name, CStruct* value)
+void CStruct::PutSubStruct(const char* name, CStruct* value)
 {
-    AddStructure(Crc::GenerateCRCFromString(name), value);
+    PutSubStruct(Checksums::HashFromText(name), value);
 }
 
 // 0x00478290
 void CStruct::AddScript(uint32_t name, const uint8_t* code, uint32_t size)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_QSCRIPT);
+    CComponent* component = NewTypedComponent(name, QBVAL_SCRIPT_BODY);
     component->unknown2 = static_cast<uint16_t>(size);
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
-    auto* copy = static_cast<uint8_t*>(Mem::Malloc(size));
-    Mem::PopContext();
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    auto* copy = static_cast<uint8_t*>(MemSys::AllocBlock(size));
+    MemSys::LeaveHeapScope();
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = code[i];
     component->raw = reinterpret_cast<uint32_t>(copy);
@@ -1133,23 +1133,23 @@ void CStruct::AddScript(uint32_t name, const uint8_t* code, uint32_t size)
 void CStruct::AddComponentOfType(uint32_t name, uint32_t type, uint32_t value)
 {
     switch (type) {
-    case ESYMBOLTYPE_INTEGER:
-        AddInteger(name, static_cast<int>(value));
+    case QBVAL_INTEGER:
+        PutInt(name, static_cast<int>(value));
         break;
-    case ESYMBOLTYPE_FLOAT: {
+    case QBVAL_FLOAT: {
         float number;
         std::memcpy(&number, &value, 4);
-        AddFloat(name, number);
+        PushFloat(name, number);
         break;
     }
     case 11:
-        AddStructurePointer(name, reinterpret_cast<CStruct*>(value));
+        AppendStructRef(name, reinterpret_cast<CStruct*>(value));
         break;
-    case ESYMBOLTYPE_ARRAY:
-        AddArrayPointer(name, reinterpret_cast<CArray*>(value));
+    case QBVAL_ARRAY:
+        AppendArrayRef(name, reinterpret_cast<CArray*>(value));
         break;
-    case ESYMBOLTYPE_NAME:
-        AddChecksum(name, value);
+    case QBVAL_NAME:
+        PutNameKey(name, value);
         break;
     default:
         break;
@@ -1157,11 +1157,11 @@ void CStruct::AddComponentOfType(uint32_t name, uint32_t type, uint32_t value)
 }
 
 // 0x00478480
-CStruct* CStruct::AppendStructure(CStruct* source)
+CStruct* CStruct::MergeStructure(CStruct* source)
 {
     for (CComponent* component = source->m_head; component; component = component->next) {
         CComponent* copy = NewComponent();
-        CopyComponent(copy, component, 0);
+        DuplicateComponent(copy, component, 0);
         AddComponent(copy);
     }
     return this;
@@ -1171,7 +1171,7 @@ CStruct* CStruct::AppendStructure(CStruct* source)
 void CStruct::AppendStructureIfAny(CStruct* source)
 {
     if (source)
-        AppendStructure(source);
+        MergeStructure(source);
 }
 
 // 0x00478650
@@ -1179,21 +1179,21 @@ CStruct* CStruct::Assign(CStruct* source)
 {
     if (source != this) {
         Clear();
-        AppendStructure(source);
+        MergeStructure(source);
     }
     return this;
 }
 
 // 0x00478560
-void CStruct::ExpandInto(CStruct* dest, int depth)
+void CStruct::InlineInto(CStruct* dest, int depth)
 {
     for (CComponent* component = m_head; component; component = component->next) {
         if (CStruct* included = IncludedStructure(component)) {
-            included->ExpandInto(dest, depth + 1);
+            included->InlineInto(dest, depth + 1);
             continue;
         }
         CComponent* copy = NewComponent();
-        CopyComponent(copy, component, 0);
+        DuplicateComponent(copy, component, 0);
         dest->AddComponent(copy);
     }
 }
@@ -1202,34 +1202,34 @@ void CStruct::ExpandInto(CStruct* dest, int depth)
 
 namespace {
 
-using Script::CArray;
-using Script::CStruct;
-using Script::VectorValue;
+using Scripts::CArray;
+using Scripts::CStruct;
+using Scripts::VectorValue;
 template <typename... A>
 using AddMethod = void (CStruct::*)(A...);
 
 // 0x0044C170: free a component (pooled)
-void DeleteComponentAdapter(Script::CComponent* component) { Script::FreeComponent(component); }
+void DeleteComponentAdapter(Scripts::CComponent* component) { Scripts::FreeComponent(component); }
 // 0x0044C130: operator new (the size is always 16)
-void* NewComponentMemory(unsigned int size) { return Script::g_componentPools.Allocate(size); }
+void* NewComponentMemory(unsigned int size) { return Scripts::g_componentPools.Allocate(size); }
 struct ComponentAdapter {
-    Script::CComponent* Construct() { return Script::ConstructComponent(reinterpret_cast<Script::CComponent*>(this)); }
+    Scripts::CComponent* Construct() { return Scripts::ConstructComponent(reinterpret_cast<Scripts::CComponent*>(this)); }
 };
 
 } // namespace
 
 // --- arrays: sizing, elements, copying ------------------------------------------------------------------------
 
-namespace Script {
+namespace Scripts {
 
 namespace {
 
 // Allocate `count` elements on the script heap.
 uint32_t* AllocateElements(uint32_t count)
 {
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
-    auto* elements = static_cast<uint32_t*>(Mem::Malloc(count * 4));
-    Mem::PopContext();
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    auto* elements = static_cast<uint32_t*>(MemSys::AllocBlock(count * 4));
+    MemSys::LeaveHeapScope();
     return elements;
 }
 
@@ -1266,20 +1266,20 @@ CVector* CVector::Init()
 }
 
 // 0x0046CC50
-void CArray::SetSizeAndType(uint32_t size, ESymbolType type)
+void CArray::ConfigureSizeKind(uint32_t size, EQbValueKind type)
 {
     if (m_size == 1) {
         // (the single element is in place: nothing to free)
         if (m_elements)
             m_elements = nullptr;
     } else if (m_elements) {
-        Mem::FreeMalloc(m_elements);
+        MemSys::FreeMalloc(m_elements);
         m_elements = nullptr;
     }
     m_type = type;
     m_size = size;
     if (size == 0) {
-        m_type = ESYMBOLTYPE_NONE;
+        m_type = QBVAL_NONE;
         return;
     }
     if (size == 1)
@@ -1295,13 +1295,13 @@ void CArray::Resize(uint32_t size)
     if (size == m_size)
         return;
     uint32_t* elements = AllocateElements(size);
-    const uint32_t* from = GetArrayPointer();
+    const uint32_t* from = FindArrayValue();
     for (uint32_t i = 0; i < m_size; ++i)
         elements[i] = from[i];
     for (uint32_t i = m_size; i < size; ++i)
         elements[i] = 0;
     if (m_size > 1)
-        Mem::FreeMalloc(m_elements);
+        MemSys::FreeMalloc(m_elements);
     // (growing to one element leaves the block's pointer in place of the single value, as the original does)
     m_elements = elements;
     m_size = size;
@@ -1338,7 +1338,7 @@ const char* CArray::GetString(uint32_t index)
 }
 
 // 0x0046CB70
-const char* CArray::GetLocalString(uint32_t index)
+const char* CArray::FindInlineText(uint32_t index)
 {
     return reinterpret_cast<const char*>(GetElement(index));
 }
@@ -1347,7 +1347,7 @@ const char* CArray::GetLocalString(uint32_t index)
 float CArray::GetFloat(uint32_t index)
 {
     uint32_t bits = GetElement(index);
-    if (m_type == ESYMBOLTYPE_FLOAT) {
+    if (m_type == QBVAL_FLOAT) {
         float value;
         std::memcpy(&value, &bits, 4);
         return value;
@@ -1361,17 +1361,17 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t element = source[i];
         switch (type) {
-        case ESYMBOLTYPE_INTEGER:
-        case ESYMBOLTYPE_FLOAT:
-        case ESYMBOLTYPE_NAME:
+        case QBVAL_INTEGER:
+        case QBVAL_FLOAT:
+        case QBVAL_NAME:
             dest[i] = element;
             break;
-        case ESYMBOLTYPE_STRING:
-        case ESYMBOLTYPE_LOCALSTRING:
+        case QBVAL_STRING:
+        case QBVAL_INLINE_TEXT:
             if (element)
                 dest[i] = reinterpret_cast<uint32_t>(CreateString(reinterpret_cast<const char*>(element)));
             break;
-        case ESYMBOLTYPE_PAIR:
+        case QBVAL_PAIR:
             if (element) {
                 auto* from = reinterpret_cast<const CPair*>(element);
                 CPair* pair = NewPair();
@@ -1381,7 +1381,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
                 dest[i] = reinterpret_cast<uint32_t>(pair);
             }
             break;
-        case ESYMBOLTYPE_VECTOR:
+        case QBVAL_VECTOR:
             if (element) {
                 auto* from = reinterpret_cast<const CVector*>(element);
                 CVector* vector = NewVector();
@@ -1392,7 +1392,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
                 dest[i] = reinterpret_cast<uint32_t>(vector);
             }
             break;
-        case ESYMBOLTYPE_STRUCTURE:
+        case QBVAL_STRUCT:
             if (element) {
                 auto* from = reinterpret_cast<CStruct*>(element);
                 CStruct* structure = NewStruct();
@@ -1400,17 +1400,17 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
                     structure->Init();
                 if (from != structure) {
                     structure->Clear();
-                    structure->AppendStructure(from);
+                    structure->MergeStructure(from);
                 }
                 dest[i] = reinterpret_cast<uint32_t>(structure);
             }
             break;
-        case ESYMBOLTYPE_ARRAY:
+        case QBVAL_ARRAY:
             if (element) {
                 CArray* array = NewArray();
                 if (array)
                     array = array->Init();
-                CopyArray(array, reinterpret_cast<CArray*>(element));
+                DuplicateArray(array, reinterpret_cast<CArray*>(element));
                 dest[i] = reinterpret_cast<uint32_t>(array);
             }
             break;
@@ -1422,14 +1422,14 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
 }
 
 // 0x00478A60
-void CopyArray(CArray* dest, CArray* source)
+void DuplicateArray(CArray* dest, CArray* source)
 {
-    CleanUpArray(dest);
-    ESymbolType type = source->m_type;
+    ReleaseArrayStorage(dest);
+    EQbValueKind type = source->m_type;
     uint32_t size = source->m_size;
-    dest->SetSizeAndType(size, type);
+    dest->ConfigureSizeKind(size, type);
     if (size)
-        CopyArrayElements(dest->GetArrayPointer(), source->GetArrayPointer(), size, type);
+        CopyArrayElements(dest->FindArrayValue(), source->FindArrayValue(), size, type);
 }
 
 // 0x00478AB0
@@ -1439,7 +1439,7 @@ CStruct* CStruct::InitCopy(CStruct* source)
     m_unknown1 = 0;
     if (source != this) {
         Clear();
-        AppendStructure(source);
+        MergeStructure(source);
     }
     if (++StructCopyCount() > StructCopyPeak())
         StructCopyPeak() = StructCopyCount();
@@ -1450,17 +1450,17 @@ CStruct* CStruct::InitCopy(CStruct* source)
 
 namespace {
 
-using Script::CArray;
+using Scripts::CArray;
 
 // 0x0046D410 / 0x0046D3D0 take the size (always the object's).
-void* NewPairMemory(unsigned int) { return Script::NewPair(); }
-void* NewVectorMemory(unsigned int) { return Script::NewVector(); }
+void* NewPairMemory(unsigned int) { return Scripts::NewPair(); }
+void* NewVectorMemory(unsigned int) { return Scripts::NewVector(); }
 
 } // namespace
 
 // --- the symbol table and global values; comparing components; adding array copies --------------------------
 
-namespace Script {
+namespace Scripts {
 
 namespace {
 
@@ -1472,9 +1472,9 @@ uint32_t& IteratorBucket() { return g_iteratorBucket; }
 int SymbolInteger(CSymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type == ESYMBOLTYPE_INTEGER)
+        if (entry->type == QBVAL_INTEGER)
             return entry->integer;
-        if (entry->type == ESYMBOLTYPE_FLOAT)
+        if (entry->type == QBVAL_FLOAT)
             return static_cast<int>(entry->floatValue);
     }
     return 0;
@@ -1482,14 +1482,14 @@ int SymbolInteger(CSymbolTableEntry* entry)
 float SymbolFloat(CSymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type == ESYMBOLTYPE_INTEGER)
+        if (entry->type == QBVAL_INTEGER)
             return static_cast<float>(entry->integer);
-        if (entry->type == ESYMBOLTYPE_FLOAT)
+        if (entry->type == QBVAL_FLOAT)
             return entry->floatValue;
     }
     return 0.0f;
 }
-uint32_t SymbolValueOfType(CSymbolTableEntry* entry, ESymbolType type)
+uint32_t SymbolValueOfType(CSymbolTableEntry* entry, EQbValueKind type)
 {
     return entry && entry->type == type ? entry->raw : 0;
 }
@@ -1502,7 +1502,7 @@ const char* EmptyString() { return ""; }
 // 0x00478C90
 void CreateSymbolTable()
 {
-    auto* table = static_cast<CSymbolTableEntry**>(Mem::Malloc(0x1000 * sizeof(CSymbolTableEntry*)));
+    auto* table = static_cast<CSymbolTableEntry**>(MemSys::AllocBlock(0x1000 * sizeof(CSymbolTableEntry*)));
     g_symbolTable = table;
     for (uint32_t i = 0; i < 0x1000; ++i)
         table[i] = nullptr;
@@ -1513,7 +1513,7 @@ CSymbolTableEntry* CSymbolTableEntry::Init()
 {
     unknown0 &= 0xF8;
     name = 0;
-    type = ESYMBOLTYPE_NONE;
+    type = QBVAL_NONE;
     raw = 0;
     next = nullptr;
     unknown8 = 0;
@@ -1579,37 +1579,37 @@ CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous)
 }
 
 // 0x00478F60 / 0x004790C0 (an unused second argument)
-int GetInteger(uint32_t name) { return SymbolInteger(LookUpSymbol(name)); }
-int GetInteger(const char* name) { return GetInteger(Crc::GenerateCRCFromString(name)); }
+int FetchIntValue(uint32_t name) { return SymbolInteger(ResolveSymbol(name)); }
+int FetchIntValue(const char* name) { return FetchIntValue(Checksums::HashFromText(name)); }
 // 0x00478F00 / 0x00478F30
-float GetFloat(uint32_t name) { return SymbolFloat(LookUpSymbol(name)); }
-float GetFloat(const char* name) { return GetFloat(Crc::GenerateCRCFromString(name)); }
+float GetFloat(uint32_t name) { return SymbolFloat(ResolveSymbol(name)); }
+float GetFloat(const char* name) { return GetFloat(Checksums::HashFromText(name)); }
 // 0x00478F90 / 0x00478FB0
 uint32_t GetSymbolValue(uint32_t name)
 {
-    CSymbolTableEntry* entry = LookUpSymbol(name);
+    CSymbolTableEntry* entry = ResolveSymbol(name);
     return entry ? entry->raw : 0;
 }
-uint32_t GetSymbolValue(const char* name) { return GetSymbolValue(Crc::GenerateCRCFromString(name)); }
+uint32_t GetSymbolValue(const char* name) { return GetSymbolValue(Checksums::HashFromText(name)); }
 // 0x00478FD0 / 0x00478FF0 (any type: the raw value)
 const char* GetString(uint32_t name)
 {
-    CSymbolTableEntry* entry = LookUpSymbol(name);
+    CSymbolTableEntry* entry = ResolveSymbol(name);
     return entry ? reinterpret_cast<const char*>(entry->raw) : EmptyString();
 }
-const char* GetString(const char* name) { return GetString(Crc::GenerateCRCFromString(name)); }
+const char* GetString(const char* name) { return GetString(Checksums::HashFromText(name)); }
 // 0x00479020 / 0x00479040
-CStruct* GetStructure(uint32_t name)
+CStruct* ReadSubStruct(uint32_t name)
 {
-    return reinterpret_cast<CStruct*>(SymbolValueOfType(LookUpSymbol(name), ESYMBOLTYPE_STRUCTURE));
+    return reinterpret_cast<CStruct*>(SymbolValueOfType(ResolveSymbol(name), QBVAL_STRUCT));
 }
-CStruct* GetStructure(const char* name) { return GetStructure(Crc::GenerateCRCFromString(name)); }
+CStruct* ReadSubStruct(const char* name) { return ReadSubStruct(Checksums::HashFromText(name)); }
 // 0x00479070 / 0x00479090
 CArray* GetArray(uint32_t name)
 {
-    return reinterpret_cast<CArray*>(SymbolValueOfType(LookUpSymbol(name), ESYMBOLTYPE_ARRAY));
+    return reinterpret_cast<CArray*>(SymbolValueOfType(ResolveSymbol(name), QBVAL_ARRAY));
 }
-CArray* GetArray(const char* name) { return GetArray(Crc::GenerateCRCFromString(name)); }
+CArray* GetArray(const char* name) { return GetArray(Checksums::HashFromText(name)); }
 
 // 0x004791A0
 bool ComponentsEqual(CComponent* a, CComponent* b)
@@ -1618,8 +1618,8 @@ bool ComponentsEqual(CComponent* a, CComponent* b)
     auto resolve = [](CComponent* component, uint32_t* type, uint32_t* value) {
         *type = component->Type();
         *value = component->raw;
-        if (*type == ESYMBOLTYPE_NAME) {
-            if (CSymbolTableEntry* symbol = LookUpSymbol(*value)) {
+        if (*type == QBVAL_NAME) {
+            if (CSymbolTableEntry* symbol = ResolveSymbol(*value)) {
                 *value = symbol->raw;
                 *type = symbol->type;
             }
@@ -1636,37 +1636,37 @@ bool ComponentsEqual(CComponent* a, CComponent* b)
     // (integers are compared with floats exactly, as the x87 does)
     auto as_integer = [](uint32_t bits) { return static_cast<double>(static_cast<int32_t>(bits)); };
     switch (typeA) {
-    case ESYMBOLTYPE_INTEGER:
-        if (typeB == ESYMBOLTYPE_FLOAT)
+    case QBVAL_INTEGER:
+        if (typeB == QBVAL_FLOAT)
             return as_integer(valueA) == as_float(valueB);
-        return typeB == ESYMBOLTYPE_INTEGER && valueA == valueB;
-    case ESYMBOLTYPE_FLOAT:
-        if (typeB == ESYMBOLTYPE_INTEGER)
+        return typeB == QBVAL_INTEGER && valueA == valueB;
+    case QBVAL_FLOAT:
+        if (typeB == QBVAL_INTEGER)
             return as_float(valueA) == as_integer(valueB);
-        return typeB == ESYMBOLTYPE_FLOAT && as_float(valueA) == as_float(valueB);
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+        return typeB == QBVAL_FLOAT && as_float(valueA) == as_float(valueB);
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         return typeB == typeA &&
                std::strcmp(reinterpret_cast<const char*>(valueA), reinterpret_cast<const char*>(valueB)) == 0;
-    case ESYMBOLTYPE_PAIR: {
-        if (typeB != ESYMBOLTYPE_PAIR)
+    case QBVAL_PAIR: {
+        if (typeB != QBVAL_PAIR)
             return false;
         auto* pa = reinterpret_cast<const CPair*>(valueA);
         auto* pb = reinterpret_cast<const CPair*>(valueB);
         return pa->x == pb->x && pa->y == pb->y;
     }
-    case ESYMBOLTYPE_VECTOR: {
-        if (typeB != ESYMBOLTYPE_VECTOR)
+    case QBVAL_VECTOR: {
+        if (typeB != QBVAL_VECTOR)
             return false;
         auto* va = reinterpret_cast<const CVector*>(valueA);
         auto* vb = reinterpret_cast<const CVector*>(valueB);
         return va->x == vb->x && va->y == vb->y && va->z == vb->z;
     }
-    case ESYMBOLTYPE_QSCRIPT:
-    case ESYMBOLTYPE_NAME:
+    case QBVAL_SCRIPT_BODY:
+    case QBVAL_NAME:
         return typeB == typeA && valueA == valueB;
-    case ESYMBOLTYPE_STRUCTURE:
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_STRUCT:
+    case QBVAL_ARRAY:
         // (different arrays are never equal: their comparison 0x0049F4B0 just returns false)
         return typeB == typeA && valueA == valueB;
     default:
@@ -1675,37 +1675,37 @@ bool ComponentsEqual(CComponent* a, CComponent* b)
 }
 
 // 0x00478B00
-void CStruct::AddArray(uint32_t name, CArray* value)
+void CStruct::AppendArrayValue(uint32_t name, CArray* value)
 {
-    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_ARRAY);
+    CComponent* component = NewTypedComponent(name, QBVAL_ARRAY);
     CArray* array = NewArray();
     if (array)
         array = array->Init();
     component->array = array;
-    CopyArray(array, value);
+    DuplicateArray(array, value);
     AddComponent(component);
 }
 
 // 0x00478C50
-void CStruct::AddArray(const char* name, CArray* value)
+void CStruct::AppendArrayValue(const char* name, CArray* value)
 {
-    AddArray(Crc::GenerateCRCFromString(name), value);
+    AppendArrayValue(Checksums::HashFromText(name), value);
 }
 
 } // namespace Script
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 // 0x00479190: the type-name lookup was compiled out: it gives a "(Hey, don't use this...)" message.
 const char* GetTypeName() { return "(Hey, don't use GetTypeName on the CD!)"; }
 
 // ComponentsEqual is a member of the first component in the game.
 struct ComponentEqualsAdapter {
-    bool Equals(Script::CComponent* other)
+    bool Equals(Scripts::CComponent* other)
     {
-        return Script::ComponentsEqual(reinterpret_cast<Script::CComponent*>(this), other);
+        return Scripts::ComponentsEqual(reinterpret_cast<Scripts::CComponent*>(this), other);
     }
 };
 

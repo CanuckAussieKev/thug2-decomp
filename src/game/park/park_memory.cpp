@@ -16,13 +16,13 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 double g_parkMemoryFullUsage{0.95};
 double g_parkMemoryNearlyFullUsage{0.9};
 MemoryStats g_parkMemoryStats;
-Mem::Region* g_parkRegion;
-Mem::Heap* g_parkHeap;
+MemSys::Region* g_parkRegion;
+MemSys::Heap* g_parkHeap;
 int g_parkMemoryUnknown7CE68C;
 int g_dmaPieces;
 bool g_countsDirty;
@@ -46,41 +46,41 @@ struct PieceView {
 };
 
 // The script's object pools (CPoolable pairs): components, vectors, arrays.
-Mem::PoolPair& ComponentPools() { return Script::g_componentPools; }
-Mem::PoolPair& VectorPools() { return Script::g_vectorPools; }
-Mem::PoolPair& ArrayPools() { return Script::g_arrayPools; }
+MemSys::PoolPair& ComponentPools() { return Scripts::g_componentPools; }
+MemSys::PoolPair& VectorPools() { return Scripts::g_vectorPools; }
+MemSys::PoolPair& ArrayPools() { return Scripts::g_arrayPools; }
 // The park editor's: CClipboard, CClipboardEntry, CMapListNode. The second word's bytes say whether each pool
 // was made here (and is deleted by ShutDown).
-Mem::PoolPair& ClipboardEntryPools() { return g_clipboardEntryPools; }
-Mem::PoolPair& MapListNodePools() { return g_nodePools; }
-uint8_t& PoolMadeHere(Mem::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
-Mem::Pool* CurrentPool(Mem::PoolPair& pair) { return pair.pools[pair.current]; }
+MemSys::PoolPair& ClipboardEntryPools() { return g_clipboardEntryPools; }
+MemSys::PoolPair& MapListNodePools() { return g_nodePools; }
+uint8_t& PoolMadeHere(MemSys::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
+MemSys::Pool* CurrentPool(MemSys::PoolPair& pair) { return pair.pools[pair.current]; }
 
 int& Unknown7CE68C() { return g_parkMemoryUnknown7CE68C; }
 
 // The park manager and its generator, whose +0x20 is the most players the park is set up for.
-Ed::CParkGenerator* ParkGenerator() { return Ed::CParkManager::sInstance()->mp_generator; }
-int ParkMaxPlayers() { return ParkGenerator()->GetMaxPlayers(); }
+ParkEditing::CParkAssembler* ParkGenerator() { return ParkEditing::CParkLayout::sSingleton()->m_builder; }
+int ParkMaxPlayers() { return ParkGenerator()->GetPlayerLimit(); }
 
 // A heap's free memory: its region's unclaimed space and its free blocks.
-int FreeMemory(Mem::Heap* heap) { return heap->m_region->MemAvailable() + heap->m_freeSize; }
+int FreeMemory(MemSys::Heap* heap) { return heap->m_region->FreeByteCount() + heap->m_freeSize; }
 
-void MakePool(Mem::PoolPair& pair, int itemSize, int count, const char* name)
+void MakePool(MemSys::PoolPair& pair, int itemSize, int count, const char* name)
 {
-    void* memory = Mem::New(sizeof(Mem::Pool));
-    Mem::Pool* pool = memory ? new (memory) Mem::Pool(itemSize, count, name) : nullptr;
+    void* memory = MemSys::New(sizeof(MemSys::Pool));
+    MemSys::Pool* pool = memory ? new (memory) MemSys::Pool(itemSize, count, name) : nullptr;
     pair.pools[pair.current] = pool;
     PoolMadeHere(pair) = 1;
 }
 
-void DeletePool(Mem::PoolPair& pair)
+void DeletePool(MemSys::PoolPair& pair)
 {
-    Mem::Pool* pool = CurrentPool(pair);
+    MemSys::Pool* pool = CurrentPool(pair);
     if (!pool)
         return;
     if (PoolMadeHere(pair)) {
-        Mem::Free(pool->m_start); // ~Pool (0x005BA4E0)
-        Mem::Manager::Get()->Free(pool);
+        MemSys::Free(pool->m_start); // ~Pool (0x005BA4E0)
+        MemSys::Manager::Get()->Free(pool);
     }
     pair.pools[pair.current] = nullptr;
 }
@@ -96,9 +96,9 @@ void UpdateMax(MemoryStats& stats, double value, float stored)
 
 // A pool's figure: the park's items over the pool's room left (less a base the script gives); the pool is read
 // before the script runs, the park's count after.
-float PoolUsage(Mem::PoolPair& pair, const char* baseName, const int& items)
+float PoolUsage(MemSys::PoolPair& pair, const char* baseName, const int& items)
 {
-    Mem::Pool* pool = CurrentPool(pair);
+    MemSys::Pool* pool = CurrentPool(pair);
     int count = pool->m_count;
     int used = pool->m_used;
     int base = GetMemoryValue(baseName, -1);
@@ -107,18 +107,18 @@ float PoolUsage(Mem::PoolPair& pair, const char* baseName, const int& items)
 
 } // namespace
 
-Mem::PoolPair& ClipboardPools() { return g_clipboardPools; }
+MemSys::PoolPair& ClipboardPools() { return g_clipboardPools; }
 MemoryStats& Stats() { return g_parkMemoryStats; }
-Mem::Region*& ParkRegion() { return g_parkRegion; }
-Mem::Heap*& ParkHeap() { return g_parkHeap; }
+MemSys::Region*& ParkRegion() { return g_parkRegion; }
+MemSys::Heap*& ParkHeap() { return g_parkHeap; }
 int& DmaPieces() { return g_dmaPieces; }
 bool& CountsDirty() { return g_countsDirty; }
 
 // 0x0059E100
-Mem::Heap* __cdecl GetParkHeap() { return ParkHeap(); }
+MemSys::Heap* __cdecl GetParkHeap() { return ParkHeap(); }
 
 // 0x0059E180
-Mem::Heap* __cdecl GetMainHeap() { return Mem::Manager::Get()->m_bottomUpHeap; }
+MemSys::Heap* __cdecl GetMainHeap() { return MemSys::Manager::Get()->m_bottomUpHeap; }
 
 // 0x0059E110
 void __cdecl ClearStats()
@@ -131,11 +131,11 @@ void __cdecl ClearStats()
 void __cdecl SetCountsDirty() { CountsDirty() = true; }
 
 // 0x0059E130
-void __cdecl RemoveDma(uint32_t pieceType)
+void __cdecl RemoveDma(uint32_t segmentKind)
 {
-    Script::CStruct* table = Script::GetStructure(kPieceDmaTable);
+    Scripts::CStruct* table = Scripts::ReadSubStruct(kPieceDmaTable);
     int pieces = 1;
-    table->GetInteger(pieceType, &pieces, 0);
+    table->FetchIntValue(segmentKind, &pieces, 0);
     DmaPieces() -= pieces;
 }
 
@@ -146,9 +146,9 @@ void __cdecl AddPieceDma(const void* piece)
     if (view->flags & 0x100)
         return;
     uint32_t type = view->type;
-    Script::CStruct* table = Script::GetStructure(kPieceDmaTable);
+    Scripts::CStruct* table = Scripts::ReadSubStruct(kPieceDmaTable);
     int pieces = 1;
-    table->GetInteger(type, &pieces, 0);
+    table->FetchIntValue(type, &pieces, 0);
     DmaPieces() += pieces;
 }
 
@@ -175,7 +175,7 @@ void __cdecl CreateClipboardPool(int count, const char* name) { MakePool(Clipboa
 // 0x0059E390
 void __cdecl Marker(uint32_t marker)
 {
-    Mem::Heap* heap = Mem::Manager::Get()->m_bottomUpHeap;
+    MemSys::Heap* heap = MemSys::Manager::Get()->m_bottomUpHeap;
     MemoryStats& stats = Stats();
     switch (marker) {
     case 0xAF6240B2:
@@ -186,14 +186,14 @@ void __cdecl Marker(uint32_t marker)
         break;
     case 0x7DE18688:
         stats.outerShellMem -= FreeMemory(heap);
-        Dbg::Printf("OUTER SHELL MEM = %d !!!!!!!!!!!!!!!!!!!!!\n", stats.outerShellMem); // "OUTER SHELL MEM = %d !!!..."
+        DebugOut::Printf("OUTER SHELL MEM = %d !!!!!!!!!!!!!!!!!!!!!\n", stats.outerShellMem); // "OUTER SHELL MEM = %d !!!..."
         break;
     case 0xAFFF3067:
         stats.netAnimsMem = FreeMemory(heap);
         break;
     case 0x65B63305:
         stats.netAnimsMem -= FreeMemory(heap);
-        Dbg::Printf("NETANIMS MEM = %d !!!!!!!!!!!!!!!!!!!!!\n", stats.netAnimsMem); // "NETANIMS MEM = %d !!!..."
+        DebugOut::Printf("NETANIMS MEM = %d !!!!!!!!!!!!!!!!!!!!!\n", stats.netAnimsMem); // "NETANIMS MEM = %d !!!..."
         break;
     case 0x9BF91DBE:
         stats.marker48 = FreeMemory(heap);
@@ -218,9 +218,9 @@ void __cdecl ShutDown()
     DeletePool(ClipboardPools());
     DeletePool(ClipboardEntryPools());
     DeletePool(MapListNodePools());
-    Mem::Manager::Get()->DeleteHeap(reinterpret_cast<Mem::Allocator*>(ParkHeap()));
-    if (Mem::Region* region = ParkRegion()) // its scalar deleting destructor (vtable slot 0)
-        reinterpret_cast<void(__thiscall*)(Mem::Region*, int)>(region->m_vtable[0])(region, 1);
+    MemSys::Manager::Get()->DeleteHeap(reinterpret_cast<MemSys::Allocator*>(ParkHeap()));
+    if (MemSys::Region* region = ParkRegion()) // its scalar deleting destructor (vtable slot 0)
+        reinterpret_cast<void(__thiscall*)(MemSys::Region*, int)>(region->m_vtable[0])(region, 1);
     ParkHeap() = nullptr;
     ParkRegion() = nullptr;
 }
@@ -228,25 +228,25 @@ void __cdecl ShutDown()
 // 0x0059E5C0
 int __cdecl GetMemoryValue(const char* name, int index)
 {
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
         params->Init();
-    Script::CStruct* results = Script::NewStruct();
+    Scripts::CStruct* results = Scripts::NewStruct();
     if (results)
         results->Init();
     int value = 0;
-    params->AddChecksum(kValueName, Crc::GenerateCRCFromString(name));
+    params->PutNameKey(kValueName, Checksums::HashFromText(name));
     if (index > -1)
-        params->AddInteger(kValueIndex, index);
-    Script::RunScriptOnce(kMemoryValueScript, params, nullptr, results);
-    results->GetInteger(kValueResult, &value, 1);
+        params->PutInt(kValueIndex, index);
+    Scripts::RunScriptOnce(kMemoryValueScript, params, nullptr, results);
+    results->FetchIntValue(kValueResult, &value, 1);
     if (results) {
         results->Clear();
-        Script::DeleteStruct(results);
+        Scripts::DeleteStruct(results);
     }
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
     return value;
 }
@@ -259,16 +259,16 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
         CountsDirty() = false;
         ParkGenerator()->GetNodeCounts(stats.pieceCounts);
     }
-    Mem::Heap* mainHeap = Mem::Manager::Get()->m_bottomUpHeap;
-    Mem::Region* mainRegion = mainHeap->m_region;
+    MemSys::Heap* mainHeap = MemSys::Manager::Get()->m_bottomUpHeap;
+    MemSys::Region* mainRegion = mainHeap->m_region;
     // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
     int mainPad = GetMemoryValue("main_heap_pad", -1); // "main_heap_pad"
     mainPad += ParkMaxPlayers() * 0x8EF1C - 0x8EF1C;
-    stats.mainHeapFree = mainRegion->MemAvailable() + mainHeap->m_freeSize;
+    stats.mainHeapFree = mainRegion->FreeByteCount() + mainHeap->m_freeSize;
     stats.mainHeapFree -= GetMemoryValue("anim_set_mem", -1) + mainPad; // "anim_set_mem"
     int parkPad = GetMemoryValue("park_heap_pad", -1); // "park_heap_pad"
     stats.parkHeapUsed = ParkHeap()->m_usedSize;
-    stats.parkHeapFree = ParkRegion()->MemAvailable() + (ParkHeap()->m_freeSize - parkPad);
+    stats.parkHeapFree = ParkRegion()->FreeByteCount() + (ParkHeap()->m_freeSize - parkPad);
 
     // Fragmented: the largest block is all that can be counted on.
     if (static_cast<int>(mainHeap->LargestFree()) < stats.mainHeapFree &&
@@ -278,7 +278,7 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     } else {
         stats.mainHeapFragmented = false;
     }
-    int theme = Ed::CParkManager::sInstance()->GetShellSize();
+    int theme = ParkEditing::CParkLayout::sSingleton()->GetShellSize();
     stats.mainHeapFree -= GetMemoryValue("theme_pad", theme); // "theme_pad"
 
     float mainUsage = 1.0f;
@@ -296,7 +296,7 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     stats.parkHeapUsage = static_cast<float>(park);
     UpdateMax(stats, park, stats.parkHeapUsage);
 
-    float topDownFree = static_cast<float>(Mem::Manager::Get()->m_topDownHeap->m_region->MemAvailable());
+    float topDownFree = static_cast<float>(MemSys::Manager::Get()->m_topDownHeap->m_region->FreeByteCount());
     double topDown = 2.0 - static_cast<double>(topDownFree) /
                                GetMemoryValue("top_down_required", -1); // "top_down_required"
     stats.topDownUsage = static_cast<float>(topDown);
@@ -354,29 +354,29 @@ bool __cdecl PiecesFit(int first, int last)
 // 0x0059EC00
 void __cdecl Init(uint32_t level)
 {
-    Mem::Manager* manager = Mem::Manager::Get();
+    MemSys::Manager* manager = MemSys::Manager::Get();
     const char* name = "Park Editor"; // "Park Editor"
     int direction;
     if (level == kTopDownLevel) {
-        manager->PushContext(manager->m_topDownHeap);
+        manager->EnterHeapScope(manager->m_topDownHeap);
         direction = -1;
     } else {
-        manager->PushContext(manager->m_bottomUpHeap);
+        manager->EnterHeapScope(manager->m_bottomUpHeap);
         direction = 1;
     }
-    void* memory = Mem::Calloc(sizeof(Mem::AllocRegion));
-    Mem::AllocRegion* region = nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
+    MemSys::MemoryArena* region = nullptr;
     if (memory) {
         int size = GetMemoryValue("park_heap_size", -1); // "park_heap_size"
-        region = new (memory) Mem::AllocRegion(static_cast<uint32_t>(size));
+        region = new (memory) MemSys::MemoryArena(static_cast<uint32_t>(size));
     }
     ParkRegion() = region;
     ParkHeap() = manager->AddHeap(region, direction, name);
     CreateMapListNodePool(16000, "CMapListNode"); // "CMapListNode"
-    Dbg::Printf("pool is at %p\n", CurrentPool(MapListNodePools())); // "pool is at %p\n"
+    DebugOut::Printf("pool is at %p\n", CurrentPool(MapListNodePools())); // "pool is at %p\n"
     CreateClipboardEntryPool(1000, "CClipboardEntry"); // "CClipboardEntry"
     CreateClipboardPool(6, "CClipboard");         // "CClipboard"
-    manager->PopContext();
+    manager->LeaveHeapScope();
     Unknown7CE68C() = 0;
     DmaPieces() = 0;
     std::memset(&Stats(), 0, sizeof(MemoryStats));

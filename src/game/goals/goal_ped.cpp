@@ -1,4 +1,4 @@
-// Game::CGoalPed: a goal's pro, 0x0055EB40-0x005600CF (see goal_ped.h).
+// GoalSystem::CObjectiveNpc: a goal's pro, 0x0055EB40-0x005600CF (see goal_ped.h).
 
 #include "game/goals/goal_ped.h"
 
@@ -25,7 +25,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 
-namespace Game {
+namespace GoalSystem {
 
 namespace {
 
@@ -72,9 +72,9 @@ const char* const kCamAnimSuffix = "%s_camAnim%02i_%s"; // "%s_camAnim%02i_%s"
 const char* const kLip = "%s_lip";        // "%s_lip"
 const char* const kFar = "Far";        // "Far"
 
-CGoalManager* Manager() { return GetGoalManager(); }
-Script::CStruct* GoalParams(uint32_t id) { return Manager()->GetGoalParams(id); }
-Obj::CSkaterProfile* CurrentProfile() { return SkateCalls::GetProfileFromParams(nullptr); }
+CGoalManager* Manager() { return GetObjectiveBoard(); }
+Scripts::CStruct* GoalParams(uint32_t id) { return Manager()->GetObjectiveArgs(id); }
+GameObjects::CRiderIdentity* CurrentProfile() { return SkateCalls::GetProfileFromParams(nullptr); }
 
 // `text` with `format` applied to itself (sprintf onto its own buffer: _f, _success).
 void AppendFormat(char* text, size_t size, const char* format)
@@ -85,48 +85,48 @@ void AppendFormat(char* text, size_t size, const char* format)
 }
 
 // The object `id` names: the skater, or the composite object with that id.
-Obj::CCompositeObject* ObjectNamed(uint32_t id)
+GameObjects::CGameEntity* ObjectNamed(uint32_t id)
 {
     if (id == kSkater)
-        return SkateCalls::GetLocalSkater();
-    return static_cast<Obj::CCompositeObject*>(Obj::CompositeObjectManager()->GetObjectByID(id));
+        return SkateCalls::GetHomeRider();
+    return static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id));
 }
 
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    Script::CStruct* made = Script::NewStruct();
+    Scripts::CStruct* made = Scripts::NewStruct();
     return made ? made->Init() : nullptr;
 }
-void DeleteStructure(Script::CStruct* structure)
+void DeleteStructure(Scripts::CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
-Script::CArray* NewArray()
+Scripts::CArray* NewArray()
 {
-    Script::CArray* made = Script::NewArray();
+    Scripts::CArray* made = Scripts::NewArray();
     return made ? made->Init() : nullptr;
 }
-void FreeArray(Script::CArray* array)
+void FreeArray(Scripts::CArray* array)
 {
-    Script::CleanUpArray(array);
+    Scripts::ReleaseArrayStorage(array);
     if (array) {
         array->Clear();
-        Script::DeleteArray(array);
+        Scripts::DeleteArray(array);
     }
 }
 
 // The numbers 1..count shuffled (each slot swapped with a random one).
-Script::CArray* ShuffledNumbers(int count)
+Scripts::CArray* ShuffledNumbers(int count)
 {
-    Script::CArray* numbers = NewArray();
-    numbers->SetSizeAndType(static_cast<uint32_t>(count), Script::ESYMBOLTYPE_INTEGER);
+    Scripts::CArray* numbers = NewArray();
+    numbers->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_INTEGER);
     for (int i = 0; i < count; ++i)
         numbers->SetElement(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {
-        int other = Mth::Rnd(count);
+        int other = Maths::Rnd(count);
         uint32_t value = numbers->GetElement(static_cast<uint32_t>(other));
         numbers->SetElement(static_cast<uint32_t>(other), numbers->GetElement(static_cast<uint32_t>(i)));
         numbers->SetElement(static_cast<uint32_t>(i), value);
@@ -137,18 +137,18 @@ Script::CArray* ShuffledNumbers(int count)
 } // namespace
 
 // 0x0055EB40
-CGoalPed* CGoalPed::Construct(Script::CStruct* params)
+CObjectiveNpc* CObjectiveNpc::Construct(Scripts::CStruct* params)
 {
-    params->GetChecksum(kGoalIdChecksum, &m_goalId, 1);
+    params->ReadHashValue(kGoalIdChecksum, &m_objectiveKey, 1);
     m_suspended = false;
     m_fam = 0;
     m_animObject = 0;
-    m_stream = 0;
+    m_feed = 0;
     return this;
 }
 
 // 0x0055EB70
-void CGoalPed::ParseFirstName(char* out, const char** name, int)
+void CObjectiveNpc::ParseFirstName(char* out, const char** name, int)
 {
     if (!std::strstr(*name, " ")) { // " "
         for (const char* from = *name; (*out++ = *from++) != 0;) {
@@ -161,25 +161,25 @@ void CGoalPed::ParseFirstName(char* out, const char** name, int)
 }
 
 // 0x0055EBC0
-void CGoalPed::AddSuccessSuffix(bool add, char* text, int)
+void CObjectiveNpc::AddSuccessSuffix(bool add, char* text, int)
 {
     if (add)
         AppendFormat(text, 0x100, kSuccess);
 }
 
 // 0x0055EBF0
-const char* CGoalPed::GetProFirstName()
+const char* CObjectiveNpc::GetProGivenName()
 {
-    Script::CStruct* params = GoalParams(m_goalId);
+    Scripts::CStruct* params = GoalParams(m_objectiveKey);
     const char* pro;
     if (!params->GetString(kPro, &pro, false))
         return nullptr;
-    Obj::CSkaterProfile* profile = CurrentProfile();
+    GameObjects::CRiderIdentity* profile = CurrentProfile();
     const char* display = profile->GetDisplayName();
     if (profile->IsPro()) {
         char first[0x80];
         ParseFirstName(first, &display, sizeof(first));
-        if (profile->IsPro() && Crc::GenerateCRCFromString(pro) == Crc::GenerateCRCFromString(first)) {
+        if (profile->IsPro() && Checksums::HashFromText(pro) == Checksums::HashFromText(first)) {
             const char* alternative;
             return params->GetString(kProAlternative, &alternative, false) ? alternative : nullptr;
         }
@@ -188,10 +188,10 @@ const char* CGoalPed::GetProFirstName()
 }
 
 // 0x0055ED00
-bool CGoalPed::GetStreamChecksum(uint32_t* out, int index, bool success, const char* suffix, bool noCamAnim)
+bool CObjectiveNpc::GetVoiceClipKey(uint32_t* out, int index, bool success, const char* suffix, bool noCamAnim)
 {
-    Script::CStruct* params = GoalParams(m_goalId);
-    const char* pro = GetProFirstName();
+    Scripts::CStruct* params = GoalParams(m_objectiveKey);
+    const char* pro = GetProGivenName();
     if (!pro)
         return false;
     const char* goalName;
@@ -199,16 +199,16 @@ bool CGoalPed::GetStreamChecksum(uint32_t* out, int index, bool success, const c
     char base[0x200];
     std::snprintf(base, sizeof(base), kFormatTwo, pro, goalName);
     const char* difficulty;
-    switch (Manager()->GetDifficultyLevel(false)) {
+    switch (Manager()->GetSkillTier(false)) {
     case 0: difficulty = "easy"; break; // "easy"
     case 1: difficulty = "medium"; break; // "medium"
     case 2: difficulty = "hard"; break; // "hard"
     default: return false;
     }
     bool female = false;
-    if (suffix && Crc::GenerateCRCFromString(suffix) == kSkater) {
+    if (suffix && Checksums::HashFromText(suffix) == kSkater) {
         int male;
-        reinterpret_cast<Script::CStruct*>(CurrentProfile()->m_info)->GetInteger(kIsMale, &male, 1);
+        reinterpret_cast<Scripts::CStruct*>(CurrentProfile()->m_info)->FetchIntValue(kIsMale, &male, 1);
         if (!male)
             female = true;
     }
@@ -263,14 +263,14 @@ bool CGoalPed::GetStreamChecksum(uint32_t* out, int index, bool success, const c
             continue;
         char lipName[0x100];
         std::snprintf(lipName, sizeof(lipName), kLip, name);
-        uint32_t lipStream = Crc::GenerateCRCFromString(lipName);
-        if (Pcm::StreamExists(lipStream)) {
+        uint32_t lipStream = Checksums::HashFromText(lipName);
+        if (AudioStream::StreamExists(lipStream)) {
             found = lipStream;
             lip = true;
             break;
         }
-        uint32_t stream = Crc::GenerateCRCFromString(name);
-        if (Pcm::StreamExists(stream)) {
+        uint32_t stream = Checksums::HashFromText(name);
+        if (AudioStream::StreamExists(stream)) {
             found = stream;
             break;
         }
@@ -280,7 +280,7 @@ bool CGoalPed::GetStreamChecksum(uint32_t* out, int index, bool success, const c
 }
 
 // 0x0055F170
-void CGoalPed::GetPlayerFirstName(char* out, int size)
+void CObjectiveNpc::GetSkaterGivenName(char* out, int size)
 {
     const char* display = CurrentProfile()->GetDisplayName();
     out[0] = 0;
@@ -288,212 +288,212 @@ void CGoalPed::GetPlayerFirstName(char* out, int size)
 }
 
 // 0x0055F1B0
-void CGoalPed::StopLastStream()
+void CObjectiveNpc::CutPreviousVoiceLine()
 {
-    if (!m_stream)
+    if (!m_feed)
         return;
     if (m_animObject)
-        Script::StopScriptsUsingObjectThatReferTo(ObjectNamed(m_animObject), kGoalPlayStream);
-    Pcm::StopStream(m_stream);
-    m_stream = 0;
+        Scripts::StopScriptsUsingObjectThatReferTo(ObjectNamed(m_animObject), kGoalPlayStream);
+    AudioStream::StopStream(m_feed);
+    m_feed = 0;
 }
 
 // 0x0055F210
-void CGoalPed::StopCurrentStream()
+void CObjectiveNpc::CutVoiceLine()
 {
-    Script::CStruct* params = GoalParams(m_goalId);
+    Scripts::CStruct* params = GoalParams(m_objectiveKey);
     uint32_t stream = 0;
-    if (!params->GetChecksum(kCurrentStream, &stream, 0))
+    if (!params->ReadHashValue(kCurrentStream, &stream, 0))
         return;
     params->RemoveComponent(kCurrentStream);
     if (stream)
-        Pcm::StopStream(stream);
+        AudioStream::StopStream(stream);
 }
 
 // 0x0055F270
-uint32_t CGoalPed::GetGoalAnimations(const char* type)
+uint32_t CObjectiveNpc::GetObjectiveAnimSets(const char* type)
 {
     const char* goalName;
-    GoalParams(m_goalId)->GetString(kGoalName, &goalName, 1);
+    GoalParams(m_objectiveKey)->GetString(kGoalName, &goalName, 1);
     char name[0x80];
     std::snprintf(name, sizeof(name), kFormatTwo, goalName, type);
-    if (Script::GetArray(name))
-        return Crc::GenerateCRCFromString(name);
+    if (Scripts::GetArray(name))
+        return Checksums::HashFromText(name);
     if (!type)
         return 0;
     char proName[0x80];
-    std::snprintf(proName, sizeof(proName), "%s_goal_%s", GetProFirstName(), type); // "%s_goal_%s"
-    if (Script::GetArray(proName))
-        return Crc::GenerateCRCFromString(proName);
+    std::snprintf(proName, sizeof(proName), "%s_goal_%s", GetProGivenName(), type); // "%s_goal_%s"
+    if (Scripts::GetArray(proName))
+        return Checksums::HashFromText(proName);
     char generic[0x80];
     std::snprintf(generic, sizeof(generic), "generic_pro_anims_%s", type); // "generic_pro_anims_%s"
-    Script::GetArray(generic);
-    return Crc::GenerateCRCFromString(generic);
+    Scripts::GetArray(generic);
+    return Checksums::HashFromText(generic);
 }
 
 // 0x0055F3D0
-void CGoalPed::DestroyGoalPed()
+void CObjectiveNpc::RemoveObjectiveNpc()
 {
     uint32_t trigger = 0;
-    GoalParams(m_goalId)->GetChecksum(kTriggerObjId, &trigger, 0);
+    GoalParams(m_objectiveKey)->ReadHashValue(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (Obj::CObject* object = Obj::CompositeObjectManager()->GetObjectByID(trigger))
-        reinterpret_cast<void(__thiscall*)(Obj::CObject*)>(object->m_vtable[6])(object); // (MarkAsDead)
+    if (GameObjects::CObject* object = GameObjects::CompositeObjectManager()->LookUpEntity(trigger))
+        reinterpret_cast<void(__thiscall*)(GameObjects::CObject*)>(object->m_vtable[6])(object); // (FlagAsDead)
 }
 
 // 0x0055F420
-void CGoalPed::SuspendGoalLogic(bool suspend)
+void CObjectiveNpc::HaltObjectiveUpdates(bool suspend)
 {
     m_suspended = suspend;
     if (!suspend)
         return;
-    Script::RunScript(kGoalProStopAnimScripts, GoalParams(m_goalId), nullptr, false, nullptr);
-    StopCurrentStream();
+    Scripts::LaunchScript(kGoalProStopAnimScripts, GoalParams(m_objectiveKey), nullptr, false, nullptr);
+    CutVoiceLine();
 }
 
 // 0x0055F460
-void CGoalPed::UnloadLastFam()
+void CObjectiveNpc::UnloadAnimBank()
 {
     if (!m_fam)
         return;
     if (m_animObject) {
-        Obj::CCompositeObject* object = ObjectNamed(m_animObject);
-        Script::StopScriptsUsingObjectThatReferTo(object, kGoalPlayStream);
-        Script::CStruct* params = NewStructure();
-        params->AddChecksum(kType, kPartialAnim);
-        params->AddChecksum(kId, kJawRotation);
+        GameObjects::CGameEntity* object = ObjectNamed(m_animObject);
+        Scripts::StopScriptsUsingObjectThatReferTo(object, kGoalPlayStream);
+        Scripts::CStruct* params = NewStructure();
+        params->PutNameKey(kType, kPartialAnim);
+        params->PutNameKey(kId, kJawRotation);
         if (object)
-            object->GetComponent(kAnimBlender)->CallMemberFunction(kRemoveAnimController, params, nullptr);
+            object->GetComponent(kAnimBlender)->InvokeMethodByName(kRemoveAnimController, params, nullptr);
         DeleteStructure(params);
         m_animObject = 0;
     }
-    Ass::CAssMan* assets = Ass::AssetManager();
-    if (Ass::CAsset* asset = assets->GetAsset(m_fam, 0))
-        assets->UnloadAsset(asset);
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
+    if (AssetStore::CResource* asset = assets->ObtainLoadedItem(m_fam, 0))
+        assets->DiscardLoadedItem(asset);
     m_fam = 0;
 }
 
 // 0x0055F5B0
-void CGoalPed::Hide(bool hide)
+void CObjectiveNpc::Hide(bool hide)
 {
-    Script::CStruct* params = GoalParams(m_goalId);
-    if (params->ContainsFlag(kNullGoal))
+    Scripts::CStruct* params = GoalParams(m_objectiveKey);
+    if (params->HasBareFlag(kNullGoal))
         return;
     uint32_t trigger = 0;
-    params->GetChecksum(kTriggerObjId, &trigger, 0);
+    params->ReadHashValue(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::CompositeObjectManager()->GetObjectByID(trigger)))
+    if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(trigger)))
         object->Hide(hide);
-    Script::CStruct* arrow = NewStructure();
-    arrow->AddChecksum(kGoalIdChecksum, m_goalId);
+    Scripts::CStruct* arrow = NewStructure();
+    arrow->PutNameKey(kGoalIdChecksum, m_objectiveKey);
     if (hide) {
-        Script::RunScript(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
+        Scripts::LaunchScript(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
     } else {
-        CGoal* goal = Manager()->GetGoal(m_goalId, 0);
-        if (!goal || !Virtual<bool>(goal, CGoal::kVtHasWon))
-            Script::RunScript(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
+        CObjective* goal = Manager()->GetGoal(m_objectiveKey, 0);
+        if (!goal || !Virtual<bool>(goal, CObjective::kVtHasWon))
+            Scripts::LaunchScript(kGoalAddPedArrow, arrow, nullptr, false, nullptr);
     }
     DeleteStructure(arrow);
 }
 
 // 0x0055F710
-void CGoalPed::LoadFam(uint32_t stream, uint32_t animSet)
+void CObjectiveNpc::LoadAnimBank(uint32_t stream, uint32_t animSet)
 {
-    UnloadLastFam();
+    UnloadAnimBank();
     char path[0x20];
     std::snprintf(path, sizeof(path), "fam\\%08x.fam", stream); // "fam\%08x.fam"
-    Ass::CAssMan* assets = Ass::AssetManager();
-    int previous = static_cast<int>(reinterpret_cast<GameNet::FoldedGetters*>(assets)->Word18());
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
+    int previous = static_cast<int>(reinterpret_cast<OnlinePlay::FoldedGetters*>(assets)->Word18());
     if (assets->LoadAnim(path, stream, animSet, false, false))
-        m_fam = Crc::GenerateCRCFromString(path);
+        m_fam = Checksums::HashFromText(path);
     assets->SetUnknown18(previous);
 }
 
 // 0x0055F7A0
-void CGoalPed::PlayStream(uint32_t stream, bool noAnim, uint32_t objectId, bool loadFam)
+void CObjectiveNpc::PlayStream(uint32_t stream, bool noAnim, uint32_t objectId, bool loadFam)
 {
-    if (m_suspended || !Pcm::StreamExists(stream))
+    if (m_suspended || !AudioStream::StreamExists(stream))
         return;
-    Script::CStruct* params = GoalParams(m_goalId);
+    Scripts::CStruct* params = GoalParams(m_objectiveKey);
     uint32_t id = objectId;
     if (!id)
-        params->GetChecksum(kTriggerObjId, &id, 1);
-    Obj::CCompositeObject* object = ObjectNamed(id);
+        params->ReadHashValue(kTriggerObjId, &id, 1);
+    GameObjects::CGameEntity* object = ObjectNamed(id);
     if (!object)
         return;
-    Script::CStruct* playParams = NewStructure();
-    playParams->AddChecksum(kStreamChecksum, stream);
+    Scripts::CStruct* playParams = NewStructure();
+    playParams->PutNameKey(kStreamChecksum, stream);
     if (!noAnim) {
-        playParams->AddInteger(kUsePosInfo, 0);
-        uint32_t animSet = static_cast<Obj::CAnimBlenderComponent*>(object->GetComponent(kAnimBlender))->GetAnimSet();
+        playParams->PutInt(kUsePosInfo, 0);
+        uint32_t animSet = static_cast<GameObjects::CAnimBlenderComponent*>(object->GetComponent(kAnimBlender))->GetAnimSet();
         if (loadFam)
-            LoadFam(stream, animSet);
-        uint32_t handle = Pcm::PreLoadStream(stream, 0x66);
-        playParams->AddChecksum(kStreamId, handle);
-        m_stream = handle;
-        if (Ass::AssetManager()->GetAssetData(animSet + stream, 0)) {
-            playParams->AddChecksum(0u, kPlayAnim);
+            LoadAnimBank(stream, animSet);
+        uint32_t handle = AudioStream::PrimeStream(stream, 0x66);
+        playParams->PutNameKey(kStreamId, handle);
+        m_feed = handle;
+        if (AssetStore::AssetManager()->GetAssetData(animSet + stream, 0)) {
+            playParams->PutNameKey(0u, kPlayAnim);
             m_animObject = id;
         }
     }
-    Script::CScript* script = Script::SpawnScript(kGoalPlayStream, playParams, 0, nullptr, 0, 0, false, false, false, false);
+    Scripts::CScript* script = Scripts::SpawnScript(kGoalPlayStream, playParams, 0, nullptr, 0, 0, false, false, false, false);
     script->m_object.AssignObject(object);
     DeleteStructure(playParams);
 }
 
 // 0x0055F960
-void CGoalPed::PlayGoalStartStream(Script::CStruct* params)
+void CObjectiveNpc::PlayOpeningVoiceLine(Scripts::CStruct* params)
 {
-    if (m_suspended || GoalParams(m_goalId)->ContainsFlag(kNoStream))
+    if (m_suspended || GoalParams(m_objectiveKey)->HasBareFlag(kNoStream))
         return;
     int index = -1;
-    params->GetInteger(kCamAnimIndex, &index, 0);
+    params->FetchIntValue(kCamAnimIndex, &index, 0);
     const char* speaker = nullptr;
     params->GetString(kSpeakerName, &speaker, 0);
-    bool lastAnim = params->ContainsFlag(kLastAnim);
+    bool lastAnim = params->HasBareFlag(kLastAnim);
     // (without a stream found the slot keeps what was there: the original's held last_anim's byte)
     uint32_t stream = lastAnim ? 1u : 0u;
-    bool lip = GetStreamChecksum(&stream, index, false, speaker, lastAnim);
+    bool lip = GetVoiceClipKey(&stream, index, false, speaker, lastAnim);
     if (!stream)
         return;
-    StopCurrentStream();
+    CutVoiceLine();
     uint32_t speakerObject = 0;
-    params->GetChecksum(kSpeakerObjId, &speakerObject, 0);
+    params->ReadHashValue(kSpeakerObjId, &speakerObject, 0);
     PlayStream(stream, false, speakerObject, lip);
 }
 
 // 0x0055FA60
-void CGoalPed::PlayGoalWinStream(Script::CStruct* params)
+void CObjectiveNpc::PlayVictoryVoiceLine(Scripts::CStruct* params)
 {
     if (m_suspended)
         return;
     const char* speaker = nullptr;
     params->GetString(kSpeakerName, &speaker, 0);
     uint32_t stream = 0;
-    bool lip = GetStreamChecksum(&stream, -1, true, speaker, true);
+    bool lip = GetVoiceClipKey(&stream, -1, true, speaker, true);
     uint32_t speakerObject = 0;
-    params->GetChecksum(kSpeakerObjId, &speakerObject, 0);
+    params->ReadHashValue(kSpeakerObjId, &speakerObject, 0);
     if (stream)
         PlayStream(stream, false, speakerObject, lip);
 }
 
 // 0x0055FB00
-void CGoalPed::PlayGoalProStream(const char* kind, int count, bool callByName, bool noAnim)
+void CObjectiveNpc::PlayProVoiceLine(const char* kind, int count, bool callByName, bool noAnim)
 {
     if (m_suspended)
         return;
-    StopCurrentStream();
-    const char* pro = GetProFirstName();
+    CutVoiceLine();
+    const char* pro = GetProGivenName();
     if (!pro)
         return;
-    Obj::CSkaterProfile* profile = CurrentProfile();
+    GameObjects::CRiderIdentity* profile = CurrentProfile();
     const char* display = profile->GetDisplayName();
     char player[0x80];
     ParseFirstName(player, &display, sizeof(player));
     int total = callByName ? count + 20 : count;
-    Script::CArray* order = ShuffledNumbers(total);
+    Scripts::CArray* order = ShuffledNumbers(total);
     for (int i = 0; i < total; ++i) {
         int n = static_cast<int>(order->GetElement(static_cast<uint32_t>(i)));
         char name[0x80];
@@ -504,8 +504,8 @@ void CGoalPed::PlayGoalProStream(const char* kind, int count, bool callByName, b
         } else {
             std::snprintf(name, sizeof(name), "%s_%s%02i", pro, kind, n); // "%s_%s%02i"
         }
-        if (Pcm::StreamExists(Crc::GenerateCRCFromString(name))) {
-            PlayStream(Crc::GenerateCRCFromString(name), noAnim, 0, false);
+        if (AudioStream::StreamExists(Checksums::HashFromText(name))) {
+            PlayStream(Checksums::HashFromText(name), noAnim, 0, false);
             break;
         }
     }
@@ -513,38 +513,38 @@ void CGoalPed::PlayGoalProStream(const char* kind, int count, bool callByName, b
 }
 
 // 0x0055FDF0
-void CGoalPed::PlayGoalWaitStream()
+void CObjectiveNpc::PlayIdleVoiceLine()
 {
     if (!m_suspended)
-        PlayGoalProStream(kFar, 10, true, true);
+        PlayProVoiceLine(kFar, 10, true, true);
 }
 
 // 0x0055FE10
-void CGoalPed::PlayGoalStream(const char* type, Script::CStruct* params)
+void CObjectiveNpc::PlayObjectiveVoiceLine(const char* type, Scripts::CStruct* params)
 {
     if (m_suspended)
         return;
-    bool random = params->ContainsFlag(kPlayRandom);
-    bool byName = params->ContainsFlag(kCallPlayerByName);
+    bool random = params->HasBareFlag(kPlayRandom);
+    bool byName = params->HasBareFlag(kCallPlayerByName);
     uint32_t vo;
-    if (params->GetChecksum(kVO, &vo, 0)) {
+    if (params->ReadHashValue(kVO, &vo, 0)) {
         PlayStream(vo, true, 0, false);
         return;
     }
     if (!random && !byName)
         return;
     if (CurrentProfile()->IsPro()) {
-        const char* pro = GetProFirstName();
+        const char* pro = GetProGivenName();
         char player[0x80];
-        GetPlayerFirstName(player, sizeof(player));
-        Script::CArray* order = ShuffledNumbers(5); // (shuffled, and not used: the names go in order)
+        GetSkaterGivenName(player, sizeof(player));
+        Scripts::CArray* order = ShuffledNumbers(5); // (shuffled, and not used: the names go in order)
         bool played = false;
         for (int n = 1; n <= 5; ++n) {
             char name[0x80];
             std::snprintf(name, sizeof(name), "%s_Far%s%02i", pro, player, n); // "%s_Far%s%02i"
-            if (Pcm::StreamExists(Crc::GenerateCRCFromString(name))) {
+            if (AudioStream::StreamExists(Checksums::HashFromText(name))) {
                 played = true;
-                PlayStream(Crc::GenerateCRCFromString(name), true, 0, false);
+                PlayStream(Checksums::HashFromText(name), true, 0, false);
                 break;
             }
         }
@@ -552,16 +552,16 @@ void CGoalPed::PlayGoalStream(const char* type, Script::CStruct* params)
         if (played)
             return;
     }
-    switch (Crc::GenerateCRCFromString(type)) {
+    switch (Checksums::HashFromText(type)) {
     case kMidgoal:
         if (!m_suspended)
-            PlayGoalProStream("Midgoal", 10, false, true); // "Midgoal"
+            PlayProVoiceLine("Midgoal", 10, false, true); // "Midgoal"
         break;
     case kWait:
         if (!m_suspended)
-            PlayGoalProStream(kFar, 10, true, true);
+            PlayProVoiceLine(kFar, 10, true, true);
         break;
-    default: PlayGoalProStream(type, 10, false, true); break;
+    default: PlayProVoiceLine(type, 10, false, true); break;
     }
 }
 

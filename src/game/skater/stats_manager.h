@@ -6,7 +6,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
@@ -17,11 +17,11 @@ class CStruct;
 // counted, a manual or grind held long enough. Each frame the skater's state and score are watched; a goal met is
 // announced (script 0x55E516C8) and, when the stats are announced (0x0051CBF0), raises a stat in the profile.
 //
-// Vtable: 0 Destroy, 1 Update, 2 InitFromStructure, 3 the empty 0x005480A0, 5 0x004E3F90 (shared), 11 0x0042BB20
+// Vtable: 0 Destroy, 1 Update, 2 ConfigureFromData, 3 the empty 0x005480A0, 5 0x004E3F90 (shared), 11 0x0042BB20
 // (member function entries by table: the StatsManager_ functions, the table at 0x00684180), 12 0x0051ADC0 (shared).
-namespace Obj {
+namespace GameObjects {
 
-class CStatsManagerComponent : public CBaseComponent {
+class CAttributeTracker : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x4FF8DAC6;
     static constexpr int kGoals = 70;
@@ -29,8 +29,8 @@ public:
     // A stat challenge (0x24 bytes from +0x1C).
     struct Goal {
         uint32_t m_kind;          // +0x00 (0x0FFD7BBE of its structure) what's checked
-        uint32_t m_stat;          // +0x04 (0xC2455018) the stat it raises
-        int m_target;             // +0x08 (0xE288A7CB, by difficulty)
+        uint32_t m_attrKey;          // +0x04 (0xC2455018) the stat it raises
+        int m_aimPoint;             // +0x08 (0xE288A7CB, by difficulty)
         bool m_met;               // +0x0C met (until announced or reset)
         uint8_t pad0D[3];
         int m_status;             // +0x10 0 open, 1 done, 2 / 3 locked until the am / pro goals unlock
@@ -42,17 +42,17 @@ public:
     static_assert(sizeof(Goal) == 0x24, "layout must match the original");
 
     // 0x0051CB90 (registered with the composite object manager): a new one (0 if out of memory).
-    static CBaseComponent* __cdecl Create();
+    static CObjectModule* __cdecl Create();
     // 0x0051C440 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684180) registered.
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
     // 0x0051C5A0: the base's constructor, its vtable and type; no skater, the positions and the last air combo's
     // score cleared. Returns this.
-    CStatsManagerComponent* Construct();
+    CAttributeTracker* Construct();
     // 0x0051C460: the destructor body (the base's).
     void DestroyBody();
     // 0x0051C640 (vtable slot 0)
-    CStatsManagerComponent* Destroy(unsigned int flags);
+    CAttributeTracker* Destroy(unsigned int flags);
 
     // 0x0051C470 / 0x0051C480: goal `index`'s status; set (1 also marks that one was done, +0x9F6).
     int GetGoalStatus(int index);
@@ -61,7 +61,7 @@ public:
     // 0x0051C670 (vtable slot 2): everything reset; the skater (the object's id in the object manager) and its
     // state and physics control components; the difficulty; the goals read from the global array 0x4E46CC28 (`params`
     // isn't read).
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x0051C950: whether the goals are checked: a skater, the game mode's flag 0x1DED1EA4, activated, the skate
     // module not in mode 0xE92ECAFE, and the first profile's name 0x0A7BE964.
     bool IsActive();
@@ -85,15 +85,15 @@ public:
     void CheckBalanceTime(uint32_t trickType, float time, int unused);
 
     // --- script member functions (the table at 0x00684180) ---
-    bool ReInit(Script::CStruct* params, Script::CScript* script);          // 0x0051C4A0 StatsManager_ReInit
-    bool ResetGoals(Script::CStruct* params, Script::CScript* script);      // 0x0051CB20 StatsManager_Reset
-    bool ActivateGoals(Script::CStruct* params, Script::CScript* script);   // 0x0051C4C0 (script 0x7EC5F3E0)
-    bool DeactivateGoals(Script::CStruct* params, Script::CScript* script); // 0x0051C4F0 (script 0x3CB06807)
-    bool GetGoalStatusMember(Script::CStruct* params, Script::CScript* script); // 0x0051CB30 StatsManager_GetGoalStatus
-    bool UnlockAmGoals(Script::CStruct* params, Script::CScript* script);   // 0x0051C520 (status 2 -> 0)
-    bool UnlockProGoals(Script::CStruct* params, Script::CScript* script);  // 0x0051C550 (status 3 -> 0)
-    bool GetLastAirComboScore(Script::CStruct* params, Script::CScript* script);   // 0x0051CB70
-    bool ClearLastAirComboScore(Script::CStruct* params, Script::CScript* script); // 0x0051C580
+    bool ReInit(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0051C4A0 StatsManager_ReInit
+    bool ResetGoals(Scripts::CStruct* params, Scripts::CScript* script);      // 0x0051CB20 StatsManager_Reset
+    bool ActivateGoals(Scripts::CStruct* params, Scripts::CScript* script);   // 0x0051C4C0 (script 0x7EC5F3E0)
+    bool DeactivateGoals(Scripts::CStruct* params, Scripts::CScript* script); // 0x0051C4F0 (script 0x3CB06807)
+    bool GetGoalStatusMember(Scripts::CStruct* params, Scripts::CScript* script); // 0x0051CB30 StatsManager_GetGoalStatus
+    bool UnlockAmGoals(Scripts::CStruct* params, Scripts::CScript* script);   // 0x0051C520 (status 2 -> 0)
+    bool UnlockProGoals(Scripts::CStruct* params, Scripts::CScript* script);  // 0x0051C550 (status 3 -> 0)
+    bool GetLastAirComboScore(Scripts::CStruct* params, Scripts::CScript* script);   // 0x0051CB70
+    bool ClearLastAirComboScore(Scripts::CStruct* params, Scripts::CScript* script); // 0x0051C580
 
     bool m_firstUpdate;          // +0x18 the next update only clears the phases
     uint8_t pad19[3];
@@ -102,9 +102,9 @@ public:
     bool m_raiseStats;           // +0x9F5 (the global integer 0xB8688A8A is 1)
     bool m_goalDone;             // +0x9F6 a goal's status was set to 1
     uint8_t pad9F7;
-    int m_score;                 // +0x9F8 the combo's points times its multiplier
+    int m_pointsHeld;                 // +0x9F8 the combo's points times its multiplier
     int m_lastScore;             // +0x9FC
-    int m_points;                // +0xA00 the score over the multiplier
+    int m_pathVertices;                // +0xA00 the score over the multiplier
     int m_lastPoints;            // +0xA04
     float m_multiplier;          // +0xA08
     float m_lastMultiplier;      // +0xA0C
@@ -113,34 +113,34 @@ public:
     int m_difficulty;            // +0xA18
     uint32_t m_state;            // +0xA1C this frame's (0x26A7CADF, 0xB39B4F1B, 0x439F4704)
     uint32_t m_lastState;        // +0xA20
-    Mth::Vector m_airStart;      // +0xA24 where the skater left the ground (state +0x30)
-    Mth::Vector m_airEnd;        // +0xA34 where it landed
+    Maths::Vector m_airStart;      // +0xA24 where the skater left the ground (state +0x30)
+    Maths::Vector m_airEnd;        // +0xA34 where it landed
     int m_airStartPoints;        // +0xA44
     float m_airStartMultiplier;  // +0xA48
     int m_airBest;               // +0xA4C the best combo score made in the air
     int m_airPhase;              // +0xA50 0, 1 in the air, 2 landed
     float m_airHeight;           // +0xA54 the most above the start
     float m_value58;             // +0xA58 (cleared after each update)
-    Mth::Vector m_jumpStart;     // +0xA5C
-    Mth::Vector m_jumpEnd;       // +0xA6C
+    Maths::Vector m_jumpStart;     // +0xA5C
+    Maths::Vector m_jumpEnd;       // +0xA6C
     int m_jumpPhase;             // +0xA7C 0, 1 in the air, 2 landed
     int m_countA80;              // +0xA80 (0xBA15FC7F)
     int m_countA84;              // +0xA84 (0xB9AE26D2)
     int m_airScore;              // +0xA88
     int m_lastAirComboScore;     // +0xA8C
-    CCompositeObject* m_skater;  // +0xA90
-    CBaseComponent* m_skaterState;   // +0xA94
-    CBaseComponent* m_physicsControl; // +0xA98
+    CGameEntity* m_skater;  // +0xA90
+    CObjectModule* m_skaterState;   // +0xA94
+    CObjectModule* m_physicsControl; // +0xA98
     uint32_t m_unknownA9C;
 };
-static_assert(offsetof(CStatsManagerComponent, m_goals) == 0x1C &&
-                  offsetof(CStatsManagerComponent, m_activated) == 0x9F4 &&
-                  offsetof(CStatsManagerComponent, m_score) == 0x9F8 &&
-                  offsetof(CStatsManagerComponent, m_difficulty) == 0xA18 &&
-                  offsetof(CStatsManagerComponent, m_airStart) == 0xA24 &&
-                  offsetof(CStatsManagerComponent, m_jumpStart) == 0xA5C &&
-                  offsetof(CStatsManagerComponent, m_lastAirComboScore) == 0xA8C &&
-                  offsetof(CStatsManagerComponent, m_skater) == 0xA90 && sizeof(CStatsManagerComponent) == 0xAA0,
+static_assert(offsetof(CAttributeTracker, m_goals) == 0x1C &&
+                  offsetof(CAttributeTracker, m_activated) == 0x9F4 &&
+                  offsetof(CAttributeTracker, m_pointsHeld) == 0x9F8 &&
+                  offsetof(CAttributeTracker, m_difficulty) == 0xA18 &&
+                  offsetof(CAttributeTracker, m_airStart) == 0xA24 &&
+                  offsetof(CAttributeTracker, m_jumpStart) == 0xA5C &&
+                  offsetof(CAttributeTracker, m_lastAirComboScore) == 0xA8C &&
+                  offsetof(CAttributeTracker, m_skater) == 0xA90 && sizeof(CAttributeTracker) == 0xAA0,
               "layout must match the original");
 
 } // namespace Obj

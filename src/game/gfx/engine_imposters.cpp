@@ -9,7 +9,7 @@
 #include "game/gfx/primitive_states.h"
 #include "game/lst/hashtable.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -25,13 +25,13 @@ int& FrameCount(void* group) { return *reinterpret_cast<int*>(static_cast<uint8_
 bool HasImposter(void* group) { return *(static_cast<uint8_t*>(group) + 0x5C) != 0; }
 
 // The table's iteration, inlined in the original: the first / next value (null at the end).
-void* NextGroup(Lst::HashTable* table)
+void* NextGroup(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstGroup(Lst::HashTable* table)
+void* FirstGroup(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -43,8 +43,8 @@ void* FirstGroup(Lst::HashTable* table)
 // 0x0048E3E0
 CImposterManager* CImposterManager::Construct()
 {
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    mp_groups = memory ? new (memory) Lst::HashTable(8) : nullptr;
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    mp_groups = memory ? new (memory) ListKit::HashTable(8) : nullptr;
     m_maxPerFrame = 1;
     return this;
 }
@@ -57,7 +57,7 @@ void CImposterManager::DeleteAll()
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(group))[0])(group, 1);
         group = next;
     }
-    mp_groups->FlushAllItems();
+    mp_groups->EmptyTable();
 }
 
 // 0x0048E2D0

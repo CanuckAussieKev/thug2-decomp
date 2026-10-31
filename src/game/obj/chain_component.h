@@ -6,17 +6,17 @@
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
 // The Nx line object (0x158 bytes, vtable 0x0064A628; no source yet): its blend mode.
 struct CLineObject {
-    // 0x00428270 (the chain's InitFromStructure has it inline; called by 0x00443743, 0x0054DB41): +0xC.
-    void SetBlendMode(uint32_t mode);
+    // 0x00428270 (the chain's ConfigureFromData has it inline; called by 0x00443743, 0x0054DB41): +0xC.
+    void ChooseBlendMode(uint32_t mode);
 
     void** m_vtable;
     uint8_t unknown04[8];
@@ -30,12 +30,12 @@ struct CChainLink {
     // 0x00428250: its line deleted (its vtable slot 0).
     void DestroyBody();
 
-    Mth::Vector m_pos;       // +0x00
-    Mth::Vector m_lastPos;   // +0x10
-    Mth::Vector m_unused20;  // +0x20
-    Mth::Vector m_nextPos;   // +0x30 this frame's step
+    Maths::Vector m_pos;       // +0x00
+    Maths::Vector m_lastPos;   // +0x10
+    Maths::Vector m_unused20;  // +0x20
+    Maths::Vector m_nextPos;   // +0x30 this frame's step
     float m_value40;         // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
-    float m_length;          // +0x44 the rest length to the link before it
+    float m_byteCount;          // +0x44 the rest length to the link before it
     uint32_t m_unused48;     // +0x48
     void* mp_line;           // +0x4C the line drawn to the next link (0x158 bytes, vtable 0x0064A628)
 };
@@ -54,14 +54,14 @@ struct CChain {
 
     uint32_t m_id;            // +0x000 chainid
     uint32_t m_boneStart;     // +0x004 bone_start (its object's skeleton)
-    Mth::Vector m_startOffset; // +0x008 start_offset (in the bone's space)
+    Maths::Vector m_startOffset; // +0x008 start_offset (in the bone's space)
     uint32_t m_boneEnd;       // +0x018 bone_end
     uint32_t m_objEnd;        // +0x01C obj_end (the object whose bone_end the chain ends at)
     int m_links;              // +0x020 segments + 1
-    CChainLink m_link[kMaxLinks]; // +0x024
+    CChainLink m_chainLink[kMaxLinks]; // +0x024
     int m_iterations;         // +0x664 (0x41E56E7B): constraint passes a second
     float m_damping;          // +0x668 damp_force
-    float m_gravity;          // +0x66C gravity_force
+    float m_pullDown;          // +0x66C gravity_force
     bool m_moveWithObject;    // +0x670 (0xC96BA2C1): the links carried by the object's velocity
     uint8_t pad671[3];
     float m_planeOffset;      // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
@@ -70,7 +70,7 @@ struct CChain {
     bool m_collideBelow;      // +0x680 (0x4BFBDC28): kept on the plane's other side
     uint8_t pad681[3];
 };
-static_assert(offsetof(CChain, m_link) == 0x24 && offsetof(CChain, m_iterations) == 0x664 &&
+static_assert(offsetof(CChain, m_chainLink) == 0x24 && offsetof(CChain, m_iterations) == 0x664 &&
                   offsetof(CChain, m_moveWithObject) == 0x670 && offsetof(CChain, m_collideBelow) == 0x680 &&
                   sizeof(CChain) == 0x684,
               "layout must match the original (0x004283B0 allocates 0x684 bytes)");
@@ -80,10 +80,10 @@ static_assert(offsetof(CChain, m_link) == 0x24 && offsetof(CChain, m_iterations)
 // and drawn as lines. Its parameters' names (chains, chainid, segments, length, bone_start, start_offset, bone_end,
 // obj_end, gravity_force, damp_force, collision_info) are from their checksums.
 //
-// Vtable: 0 Destroy, 1 Update (0x004287A0), 2 InitFromStructure (0x004283B0), 3 Finalize, 4 / 9 the empty 0x005480A0,
+// Vtable: 0 Destroy, 1 Update (0x004287A0), 2 ConfigureFromData (0x004283B0), 3 Finalize, 4 / 9 the empty 0x005480A0,
 // 5 0x004E3F90, 6 0x0048DCD0, 7 the base's Suspend, 8 / 10 the empty 0x005BAB90, 11 the base's 0x0045D720, 12
-// CallMemberFunction.
-class CChainComponent : public CBaseComponent {
+// InvokeMethodByName.
+class CChainComponent : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x6DCFEC46;
 
@@ -101,8 +101,8 @@ public:
         int size;
     };
 
-    // 0x004298B0 (registered with the component types): a new one (Mem::Calloc, the constructor).
-    static CBaseComponent* __cdecl Create();
+    // 0x004298B0 (registered with the component types): a new one (MemSys::AllocZeroed, the constructor).
+    static CObjectModule* __cdecl Create();
     // 0x004296E0: the constructor (returns this): the base's, its vtable and type, an empty list, nothing found yet,
     // the last frame's length (the slow motion frame) taken now.
     CChainComponent* Construct();
@@ -116,28 +116,28 @@ public:
     // 0x004283B0 (slot 2): collision_info (the three bones of the collision plane: its point, and the two its axis
     // runs between), then a chain made for each structure of `chains` (each a new line between each link and the
     // next), appended to the list.
-    void InitFromStructure(Script::CStruct* params);
+    void ConfigureFromData(Scripts::CStruct* params);
     // 0x004287A0 (slot 1): each chain stepped (see chain_component.cpp).
     void Update();
     // 0x004294C0 (slot 12): 0x286BA49C (the chain chainid's dist=, 0xE4D4B316 / 0x98382F87 its collision range),
     // 0x317A113A (a link of the chain chainid put at the vector 0xEC13B28C: 0xD037C420 its index, else the first with
     // 0x3EA1D93A, else - without 0x5F78A252 - the last), 0x982C70E5 (hidden or not: 0x5B6634D4) - 1; anything else 2.
-    int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     ChainList m_chains;           // +0x18
-    CBaseComponent* mp_suspend;   // +0x20
-    CBaseComponent* mp_skeleton;  // +0x24
-    CBaseComponent* mp_model;     // +0x28
-    float m_lastFrame;            // +0x2C the last frame's length
+    CObjectModule* mp_suspend;   // +0x20
+    CObjectModule* m_boneRig;  // +0x24
+    CObjectModule* m_meshInstance;     // +0x28
+    float m_finalFrame;            // +0x2C the last frame's length
     float m_stepTime;             // +0x30 the second's part done
     int m_steps;                  // +0x34 the constraint passes done this second
     uint32_t m_axisFromBone;      // +0x38 collision_info's 0x0078395B: the plane's axis runs from it ...
     uint32_t m_axisToBone;        // +0x3C collision_info's 0xD962E451: ... to it
     uint32_t m_planeBone;         // +0x40 collision_info's 0x94291927: the plane's point
-    bool m_hidden;                // +0x44
+    bool m_invisible;                // +0x44
     uint8_t pad45[3];
 };
-static_assert(offsetof(CChainComponent, m_chains) == 0x18 && offsetof(CChainComponent, m_hidden) == 0x44 &&
+static_assert(offsetof(CChainComponent, m_chains) == 0x18 && offsetof(CChainComponent, m_invisible) == 0x44 &&
                   sizeof(CChainComponent) == 0x48,
               "layout must match the original (0x004298B0 allocates 0x48 bytes)");
 

@@ -24,7 +24,7 @@
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 
-namespace Front::LevelEditor::View {
+namespace MenuSystem::LevelEditor::View {
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
@@ -187,30 +187,30 @@ F Method(void* object, int offset)
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
 
-// The sector's collision geometry, whether its collision is on or off (CCollStatic; `off`: its flag 4 - the game's
+// The sector's collision geometry, whether its collision is on or off (CStaticCollider; `off`: its flag 4 - the game's
 // switch, level_editor_walls.h).
-Nx::CCollObjTriData* AnyTriDataOf(uint8_t* sector, bool* off)
+Engine3D::CTriMeshSource* AnyTriDataOf(uint8_t* sector, bool* off)
 {
     uint8_t* coll = CollOf(sector);
     if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable)
         return nullptr;
     if (off)
         *off = (coll[0x08] & 4) != 0;
-    return *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C);
+    return *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C);
 }
 
 // The collision drawn for a sector (null: none): on, or switched off by the editor's switch (an invisible wall, or a
 // drawn piece's collision by itself - shown faded so it can be switched on again). A piece hidden (its geometry off,
 // its collision with it) isn't drawn.
-Nx::CCollObjTriData* DrawnTriDataOf(uint32_t checksum, uint8_t* sector, bool* off)
+Engine3D::CTriMeshSource* DrawnTriDataOf(uint32_t checksum, uint8_t* sector, bool* off)
 {
-    Nx::CCollObjTriData* tri = AnyTriDataOf(sector, off);
+    Engine3D::CTriMeshSource* tri = AnyTriDataOf(sector, off);
     if (tri && *off && GeomOf(sector) && !Walls::Off(checksum))
         return nullptr;
     return tri;
 }
 
-V3 ToV3(const Mth::Vector& v) { return {v.x, v.y, v.z}; }
+V3 ToV3(const Maths::Vector& v) { return {v.x, v.y, v.z}; }
 
 bool g_showCollision;
 bool g_settingRead;
@@ -219,7 +219,7 @@ bool g_settingRead;
 // geometry, its box or its first and last vertices change (moved, or turned - a quarter turn can keep the box).
 struct Cached {
     uint8_t* sector = nullptr;
-    const Nx::CCollObjTriData* tri = nullptr;
+    const Engine3D::CTriMeshSource* tri = nullptr;
     V3 min = {}, max = {}, first = {}, last = {};
     int faces = 0;
     bool collisionOnly = false;
@@ -231,13 +231,13 @@ struct Cached {
 };
 std::unordered_map<uint32_t, Cached> g_cache;
 
-const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Nx::CCollObjTriData* tri)
+const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Engine3D::CTriMeshSource* tri)
 {
-    V3 min = ToV3(tri->m_min), max = ToV3(tri->m_max);
+    V3 min = ToV3(tri->m_lowerLimit), max = ToV3(tri->m_upperLimit);
     V3 first = {}, last = {};
     if (tri->m_vertices && tri->m_numVertices) {
-        first = ToV3(tri->GetRawVertexPos(0));
-        last = ToV3(tri->GetRawVertexPos(tri->m_numVertices - 1));
+        first = ToV3(tri->ReadStoredVertex(0));
+        last = ToV3(tri->ReadStoredVertex(tri->m_numVertices - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     bool collisionOnly = GeomOf(sector) == nullptr;
@@ -270,7 +270,7 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Nx::CCollObjTriD
                 ok = false;
                 break;
             }
-            p[k] = ToV3(tri->GetRawVertexPos(static_cast<int>(index)));
+            p[k] = ToV3(tri->ReadStoredVertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
@@ -310,21 +310,21 @@ struct HiddenObjectRec {
 std::vector<HiddenSectorRec> g_hiddenSectors;
 std::vector<HiddenObjectRec> g_hiddenObjects;
 
-// CSector::SetVisibility (0x0049E680, thiscall, RET 4) / GetVisibility (0x0049E690): the viewports it shows in.
-void SetVisibility(uint8_t* sector, uint32_t mask)
+// CWorldCell::ToggleShown (0x0049E680, thiscall, RET 4) / GetVisibility (0x0049E690): the viewports it shows in.
+void ToggleShown(uint8_t* sector, uint32_t mask)
 {
-    reinterpret_cast<Nx::CSector*>(sector)->SetVisibility(mask);
+    reinterpret_cast<Engine3D::CWorldCell*>(sector)->ToggleShown(mask);
 }
-uint32_t GetVisibility(uint8_t* sector) { return reinterpret_cast<Nx::CSector*>(sector)->GetVisibility(); }
+uint32_t GetVisibility(uint8_t* sector) { return reinterpret_cast<Engine3D::CWorldCell*>(sector)->GetVisibility(); }
 
 // A geometry's SetActive (vfunc +0x34) / IsActive (vfunc +0x38).
 void SetGeomActive(void* geom, bool on) { Method<void(__thiscall*)(void*, bool)>(geom, 0x34)(geom, on); }
 bool GeomActive(void* geom) { return Method<bool(__thiscall*)(void*)>(geom, 0x38)(geom); }
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
 bool HideSector(uint32_t checksum)
@@ -335,7 +335,7 @@ bool HideSector(uint32_t checksum)
     if (!sector || !GeomOf(sector))
         return false; // (collision only: nothing drawn to hide)
     g_hiddenSectors.push_back({checksum, sector, GetVisibility(sector)});
-    SetVisibility(sector, 0);
+    ToggleShown(sector, 0);
     return true;
 }
 
@@ -343,7 +343,7 @@ bool HideObject(uint32_t id)
 {
     if (HiddenObject(id))
         return false;
-    Obj::CCompositeObject* object = LiveObject(id);
+    GameObjects::CGameEntity* object = LiveObject(id);
     if (!object)
         return false;
     HiddenObjectRec rec = {id, {}};
@@ -363,9 +363,9 @@ bool HideObject(uint32_t id)
 struct ObjectWalk {
     std::vector<uint32_t> ids;
 };
-void __cdecl CollectObject(Obj::CObject* object, void* data)
+void __cdecl CollectObject(GameObjects::CObject* object, void* data)
 {
-    auto* composite = static_cast<Obj::CCompositeObject*>(object);
+    auto* composite = static_cast<GameObjects::CGameEntity*>(object);
     OrientedBox box;
     if (Objects::ModelBox(composite, &box))
         static_cast<ObjectWalk*>(data)->ids.push_back(composite->m_id);
@@ -400,7 +400,7 @@ void Tick()
     // (the model's suspend pass turns its geometries on when its decision changes: off again)
     for (size_t i = 0; i < g_hiddenObjects.size();) {
         HiddenObjectRec& rec = g_hiddenObjects[i];
-        Obj::CCompositeObject* object = LiveObject(rec.id);
+        GameObjects::CGameEntity* object = LiveObject(rec.id);
         if (!object) {
             g_hiddenObjects.erase(g_hiddenObjects.begin() + static_cast<long>(i));
             continue;
@@ -436,7 +436,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
     struct Candidate {
         uint32_t checksum;
         uint8_t* sector;
-        Nx::CCollObjTriData* tri;
+        Engine3D::CTriMeshSource* tri;
         float order;
         bool off;
     };
@@ -450,11 +450,11 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
         [](void* context, uint32_t checksum, uint8_t* sector) {
             auto* w = static_cast<Walk*>(context);
             bool off = false;
-            Nx::CCollObjTriData* tri = DrawnTriDataOf(checksum, sector, &off);
+            Engine3D::CTriMeshSource* tri = DrawnTriDataOf(checksum, sector, &off);
             if (!tri || tri->m_numFaces == 0 || HiddenSector(checksum))
                 return;
             bool wall = GeomOf(sector) == nullptr;
-            V3 min = ToV3(tri->m_min), max = ToV3(tri->m_max);
+            V3 min = ToV3(tri->m_lowerLimit), max = ToV3(tri->m_upperLimit);
             float distance = DistanceToBox(w->camera, min, max);
             if (distance > (wall ? kWallRadius : kRadius) && checksum != g_wall)
                 return;
@@ -574,13 +574,13 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
     SharedCollision::ForEachCompanion(
         [](void* context, uint32_t checksum, const SharedCollision::Companion& companion) {
             auto* w = static_cast<CompanionWalk*>(context);
-            const Nx::CCollObjTriData& tri = companion.Geometry();
-            if (DistanceToBox(w->camera, ToV3(tri.m_min), ToV3(tri.m_max)) <= kRadius && !HiddenSector(checksum))
+            const Engine3D::CTriMeshSource& tri = companion.Geometry();
+            if (DistanceToBox(w->camera, ToV3(tri.m_lowerLimit), ToV3(tri.m_upperLimit)) <= kRadius && !HiddenSector(checksum))
                 w->near.push_back({checksum, &companion});
         },
         &companions);
     for (const auto& entry : companions.near) {
-        const Nx::CCollObjTriData& tri = entry.second->Geometry();
+        const Engine3D::CTriMeshSource& tri = entry.second->Geometry();
         bool any = false;
         for (int f = 0; f < tri.m_numFaces && tri.m_faces && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             V3 p[3];
@@ -661,7 +661,7 @@ void ClearWall() { g_wall = 0; }
 std::string DescribeWall(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
-    Nx::CCollObjTriData* tri = sector ? AnyTriDataOf(sector, nullptr) : nullptr;
+    Engine3D::CTriMeshSource* tri = sector ? AnyTriDataOf(sector, nullptr) : nullptr;
     if (!tri)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
@@ -678,9 +678,9 @@ std::string DescribeWall(uint32_t checksum)
     std::snprintf(text, sizeof(text),
                   "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
                   "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
-                  tri->m_numFaces, tri->m_numVertices, tri->m_min.x, tri->m_min.y, tri->m_min.z, tri->m_max.x,
-                  tri->m_max.y, tri->m_max.z, tri->m_max.x - tri->m_min.x, tri->m_max.y - tri->m_min.y,
-                  tri->m_max.z - tri->m_min.z);
+                  tri->m_numFaces, tri->m_numVertices, tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z, tri->m_upperLimit.x,
+                  tri->m_upperLimit.y, tri->m_upperLimit.z, tri->m_upperLimit.x - tri->m_lowerLimit.x, tri->m_upperLimit.y - tri->m_lowerLimit.y,
+                  tri->m_upperLimit.z - tri->m_lowerLimit.z);
     std::string out = text;
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
         std::snprintf(text, sizeof(text), " 0x%04X x%d", counts[i].first, counts[i].second);
@@ -728,7 +728,7 @@ int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
         },
         &sectorWalk);
     ObjectWalk objectWalk;
-    if (Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager())
+    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
         manager->ForEach(CollectObject, &objectWalk);
     return Hide(IsolateOthers(sectorWalk.ids, sectors), IsolateOthers(objectWalk.ids, objects));
 }
@@ -737,7 +737,7 @@ void ShowAll()
 {
     for (const HiddenSectorRec& rec : g_hiddenSectors) {
         if (Scenery::SectorOf(rec.checksum) == rec.sector && GeomOf(rec.sector))
-            SetVisibility(rec.sector, rec.mask);
+            ToggleShown(rec.sector, rec.mask);
     }
     g_hiddenSectors.clear();
     // (a copy made of a hidden piece - picked in the Outliner - copied its visibility too: shown as its source is)
@@ -745,10 +745,10 @@ void ShowAll()
         uint8_t* copy = Scenery::SectorOf(clone.checksum);
         uint8_t* source = Scenery::SectorOf(clone.source);
         if (copy && source && GeomOf(copy) && GeomOf(source) && GetVisibility(copy) == 0 && GetVisibility(source) != 0)
-            SetVisibility(copy, GetVisibility(source));
+            ToggleShown(copy, GetVisibility(source));
     }
     for (const HiddenObjectRec& rec : g_hiddenObjects) {
-        Obj::CCompositeObject* object = LiveObject(rec.id);
+        GameObjects::CGameEntity* object = LiveObject(rec.id);
         for (int g = 0; object && g < static_cast<int>(rec.geoms.size()); ++g) {
             void* geom = Objects::Geometry(object, g);
             if (geom && geom == rec.geoms[g].first)
@@ -767,7 +767,7 @@ int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& obje
             continue;
         }
         if (Scenery::SectorOf(it->checksum) == it->sector && GeomOf(it->sector))
-            SetVisibility(it->sector, it->mask);
+            ToggleShown(it->sector, it->mask);
         it = g_hiddenSectors.erase(it);
         ++shown;
     }
@@ -776,7 +776,7 @@ int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& obje
             ++it;
             continue;
         }
-        Obj::CCompositeObject* object = LiveObject(it->id);
+        GameObjects::CGameEntity* object = LiveObject(it->id);
         for (int g = 0; object && g < static_cast<int>(it->geoms.size()); ++g) {
             void* geom = Objects::Geometry(object, g);
             if (geom && geom == it->geoms[g].first)
@@ -800,4 +800,4 @@ std::vector<uint32_t> HiddenIds()
     return ids;
 }
 
-} // namespace Front::LevelEditor::View
+} // namespace MenuSystem::LevelEditor::View

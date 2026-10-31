@@ -1,4 +1,4 @@
-// The Walk component's movement (Obj::CWalkComponent, see walk_physics.h): its control, speed and facing, the
+// The Walk component's movement (GameObjects::CFootMovement, see walk_physics.h): its control, speed and facing, the
 // push-back, the jump's steering, the collision cache, and its object's position, orientation and velocity. From the
 // disassembly of 0x00526260-0x00529F62.
 
@@ -20,7 +20,7 @@
 #include "game/sys/timer.h"
 #include "game/sys/crt.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -72,22 +72,22 @@ float AcosDegrees(float value)
 }
 
 // a + (b - a) * t.
-Mth::Vector* Lerp(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b, float t) { return Walk::Lerp(out, a, b, t); }
+Maths::Vector* Lerp(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b, float t) { return Walk::Lerp(out, a, b, t); }
 
 double FrameLength(void* walk) { return At<float>(walk, kFrameLength); }
 
 } // namespace
 
 // 0x00526260
-void CWalkComponent::TurnFacingToVelocity()
+void CFootMovement::TurnFacingToVelocity()
 {
-    const Mth::Vector& vel = At<Mth::Vector>(this, kVel);
+    const Maths::Vector& vel = At<Maths::Vector>(this, kVel);
     float speed = static_cast<float>(
         X87::Sqrt((static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
                   static_cast<double>(vel.z) * vel.z));
     if (speed < WalkParameter(kWallTurnSpeedThreshold))
         return;
-    Mth::Vector direction = vel;
+    Maths::Vector direction = vel;
     direction.Normalize();
     // The turn this frame: wall_turn_factor a second at max_wall_turn_speed_threshold and above, less from the
     // threshold up.
@@ -101,27 +101,27 @@ void CWalkComponent::TurnFacingToVelocity()
         rate = (static_cast<double>(speed) - least) / (static_cast<double>(most) - least) *
                (static_cast<double>(factor) * FrameLength(this));
     }
-    Mth::Vector& facing = At<Mth::Vector>(this, kFacing);
+    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
     if (rate >= kOne) {
         facing = direction;
         return;
     }
     // (below 1 - or NaN - the rate rounded to float)
-    Mth::Vector turned;
+    Maths::Vector turned;
     facing = *Lerp(&turned, &facing, &direction, static_cast<float>(rate));
     facing.Normalize();
 }
 
 // 0x00526430
-double CWalkComponent::AdjustSpeedForSlope(float speed, const Mth::Vector* direction)
+double CFootMovement::AdjustSpeedForSlope(float speed, const Maths::Vector* direction)
 {
-    const Mth::Vector& normal = At<Mth::Vector>(this, kGroundNormal);
+    const Maths::Vector& normal = At<Maths::Vector>(this, kGroundNormal);
     if (normal.y > kSteepSlope)
         return speed;
     if (speed <= WalkParameter(kWalkSpeed))
         return speed;
     // On a steep slope, faster than walking: slowed by how much the direction runs up or down it.
-    Mth::Vector downhill = {normal.x, 0.0f, normal.z, normal.w};
+    Maths::Vector downhill = {normal.x, 0.0f, normal.z, normal.w};
     downhill.Normalize();
     double along = std::fabs((static_cast<double>(downhill.z) * direction->z +
                               static_cast<double>(downhill.y) * direction->y) +
@@ -130,9 +130,9 @@ double CWalkComponent::AdjustSpeedForSlope(float speed, const Mth::Vector* direc
 }
 
 // 0x00527420
-void CWalkComponent::UpdateUpright()
+void CFootMovement::UpdateUpright()
 {
-    Mth::Vector& up = At<Mth::Vector>(this, kUp);
+    Maths::Vector& up = At<Maths::Vector>(this, kUp);
     if (At<uint32_t>(this, kUp + 4) == 0x3F800000) // (up.y exactly 1)
         return;
     if (up.y > kNearlyUpright) {
@@ -143,64 +143,64 @@ void CWalkComponent::UpdateUpright()
     if (!(At<float>(this, kUpright) == 0.0f))
         return;
     float rate = WalkParameter(kLerpUprightRate);
-    Mth::Vector upright = {0.0f, 1.0f, 0.0f, 1.0f};
-    Mth::Vector eased;
-    up = *Lerp(&eased, &up, &upright, static_cast<float>(Tmr::GetSlomoFrameSeconds() * rate));
+    Maths::Vector upright = {0.0f, 1.0f, 0.0f, 1.0f};
+    Maths::Vector eased;
+    up = *Lerp(&eased, &up, &upright, static_cast<float>(FrameClock::GetSlomoFrameSeconds() * rate));
     up.Normalize();
 }
 
 // 0x00527720
-void CWalkComponent::SetTransitionFacing(const Mth::Vector* facing, float rate)
+void CFootMovement::SetTransitionFacing(const Maths::Vector* facing, float rate)
 {
-    const Mth::Vector& current = At<Mth::Vector>(this, kFacing);
+    const Maths::Vector& current = At<Maths::Vector>(this, kFacing);
     double turn = X87::Atan2Difference(facing->x, facing->z, current.x, current.z);
     At<float>(this, kTransitionTurn) = static_cast<float>(turn);
     if (std::fabs(turn) > kPi) // the shorter way round
         At<float>(this, kTransitionTurn) = static_cast<float>(turn - (turn < 0.0 ? -1.0f : kOne) * kTwoPi);
-    At<Mth::Vector>(this, kTransitionFacing) = *facing;
+    At<Maths::Vector>(this, kTransitionFacing) = *facing;
     At<float>(this, kTransitionRate) = rate;
 }
 
 // 0x005277B0
-void CWalkComponent::UpdateCollisionCache()
+void CFootMovement::UpdateCollisionCache()
 {
     float reach = static_cast<float>(static_cast<double>(WalkParameter(kFeelerLength)) + kOne);
     float height = WalkParameter(kWalkerHeight);
     float below = WalkParameter(kSnapDownHeight);
     float above = static_cast<float>(static_cast<double>(height) + kOne);
-    const Mth::Vector& pos = static_cast<CCompositeObject*>(m_object)->m_pos;
-    Mth::BBox box;
+    const Maths::Vector& pos = static_cast<CGameEntity*>(m_object)->m_pos;
+    Maths::BBox box;
     box.max = {pos.x + reach, pos.y + above, pos.z + reach, pos.w};
     below = static_cast<float>(static_cast<double>(below) + kOne);
     box.min = {pos.x - reach, pos.y - below, pos.z - reach, pos.w};
-    Nx::CCollCache& cache = At<Nx::CCollCache>(this, kCollCache);
+    Engine3D::CHitMeshCache& cache = At<Engine3D::CHitMeshCache>(this, kCollCache);
     cache.Update(box);
-    Nx::g_currentCache = &cache; // the feelers' current cache
+    Engine3D::g_currentCache = &cache; // the feelers' current cache
 }
 
 // 0x00527BE0
-void CWalkComponent::RestoreDisplayOffset()
+void CFootMovement::RestoreDisplayOffset()
 {
     int state = At<int>(this, kState);
     if (state == 2 || state == 4)
         return;
     float rate = WalkParameter(kDisplayOffsetRestoreRate);
-    double step = Tmr::GetSlomoFrameSeconds() * rate;
+    double step = FrameClock::GetSlomoFrameSeconds() * rate;
     float& offset = At<float>(this, kDisplayOffset);
     offset = static_cast<float>(-static_cast<double>(offset) * step + offset);
 }
 
 // 0x00527C50
-void CWalkComponent::UpdatePush()
+void CFootMovement::UpdatePush()
 {
     if (!At<bool>(this, kPushing))
         return;
-    Mth::Vector& pos = At<Mth::Vector>(this, kPos);
+    Maths::Vector& pos = At<Maths::Vector>(this, kPos);
     if (pos.y > At<float>(this, kPushHeight)) {
         At<bool>(this, kPushing) = false;
         return;
     }
-    const Mth::Vector& normal = At<Mth::Vector>(this, kPushNormal);
+    const Maths::Vector& normal = At<Maths::Vector>(this, kPushNormal);
     float distance = static_cast<float>(((static_cast<double>(normal.z) * pos.z + static_cast<double>(normal.y) * pos.y) +
                                          static_cast<double>(normal.x) * pos.x) -
                                         At<float>(this, kPushPlaneDistance));
@@ -216,34 +216,34 @@ void CWalkComponent::UpdatePush()
     pos.y = pos.y - pushY;
     pos.z = pos.z - pushZ;
     pos.w = pos.w - pushW;
-    Mth::Vector& vel = At<Mth::Vector>(this, kVel);
+    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
     double into = (static_cast<double>(normal.z) * vel.z + static_cast<double>(normal.y) * vel.y) +
                   static_cast<double>(vel.x) * normal.x;
     if (into == 0.0)
         return;
-    vel -= Mth::operator*(static_cast<float>(into), normal);
+    vel -= Maths::operator*(static_cast<float>(into), normal);
 }
 
 // 0x00527DB0
-void CWalkComponent::CopyFromObject()
+void CFootMovement::CopyFromObject()
 {
-    auto* object = static_cast<CCompositeObject*>(m_object);
-    At<Mth::Vector>(this, kPos) = object->m_pos;
-    Mth::Vector& vel = At<Mth::Vector>(this, kVel);
+    auto* object = static_cast<CGameEntity*>(m_object);
+    At<Maths::Vector>(this, kPos) = object->m_pos;
+    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
     vel = object->m_vel;
     vel.y = 0.0f;
     At<float>(this, kVerticalVel) = object->m_vel.y;
-    Mth::Vector& up = At<Mth::Vector>(this, kUp);
-    up = object->m_matrix.row[1];
-    Mth::Vector& facing = At<Mth::Vector>(this, kFacing);
-    facing = object->m_matrix.row[2];
+    Maths::Vector& up = At<Maths::Vector>(this, kUp);
+    up = object->m_basisFrame.row[1];
+    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
+    facing = object->m_basisFrame.row[2];
     At<float>(this, kFacingY) = facing.y;
     facing.y = 0.0f;
     double length = X87::Sqrt((static_cast<double>(facing.x) * facing.x + static_cast<double>(facing.y) * facing.y) +
                               static_cast<double>(facing.z) * facing.z);
     if (length < kMinFacingLength) {
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
-        const Mth::Vector& objectUp = object->m_matrix.row[1];
+        const Maths::Vector& objectUp = object->m_basisFrame.row[1];
         facing = {-objectUp.x, -objectUp.y, -objectUp.z, -objectUp.w};
         facing.y = 0.0f;
         facing.Normalize();
@@ -259,12 +259,12 @@ void CWalkComponent::CopyFromObject()
 }
 
 // 0x00527F20
-void CWalkComponent::UpdateControl()
+void CFootMovement::UpdateControl()
 {
     // The camera's flat forward (its at-row backwards), turned by the stick's angle - straight ahead within
     // forward_tolerance degrees.
-    const Mth::Vector& at = At<CCompositeObject*>(this, kCamera)->m_matrix.row[2];
-    auto* pad = reinterpret_cast<CControlPad*>(At<uint8_t*>(this, kInput) + 0x20);
+    const Maths::Vector& at = At<CGameEntity*>(this, kCamera)->m_basisFrame.row[2];
+    auto* pad = reinterpret_cast<CPadState*>(At<uint8_t*>(this, kInput) + 0x20);
     float forwardX = -at.x;
     float forwardZ = -at.z;
     double length = X87::Sqrt(static_cast<double>(forwardZ) * forwardZ + static_cast<double>(forwardX) * forwardX);
@@ -278,7 +278,7 @@ void CWalkComponent::UpdateControl()
         angle = 0.0f;
     double turnedZ, turnedX;
     X87::Rotate(angle, forwardZ, forwardX, &turnedZ, &turnedX);
-    Mth::Vector& control = At<Mth::Vector>(this, kControlDirection);
+    Maths::Vector& control = At<Maths::Vector>(this, kControlDirection);
     control.x = static_cast<float>(turnedX);
     control.z = static_cast<float>(turnedZ);
 
@@ -302,7 +302,7 @@ void CWalkComponent::UpdateControl()
         if (pad->m_polar[1].length == 0.0f) {
             magnitude = 0.0f;
             full = false;
-        } else if (At<int>(this, kState) == 0 && !pad->m_x.m_pressed) {
+        } else if (At<int>(this, kState) == 0 && !pad->m_posX.m_heldDown) {
             magnitude = WalkParameter(kWalkPoint);
             full = true;
         } else {
@@ -311,11 +311,11 @@ void CWalkComponent::UpdateControl()
         }
     }
     if (At<int>(this, kState) == 0 && At<bool>(this, kForwardControlLock))
-        control = At<Mth::Vector>(this, kFacing);
+        control = At<Maths::Vector>(this, kFacing);
 }
 
 // 0x00528120
-double CWalkComponent::GetControlSpeed()
+double CFootMovement::GetControlSpeed()
 {
     float magnitude = At<float>(this, kControlMagnitude);
     if (magnitude == 0.0f)
@@ -336,7 +336,7 @@ double CWalkComponent::GetControlSpeed()
 }
 
 // 0x00526850
-void CWalkComponent::SteerJump()
+void CFootMovement::SteerJump()
 {
     float& delay = At<float>(this, kJumpTime);
     if (!(delay == 0.0f)) {
@@ -347,11 +347,11 @@ void CWalkComponent::SteerJump()
     }
     // The velocity apart from what the jump carries along unsteered, eased toward what the push asks for: across
     // the jump's direction and along it.
-    Mth::Vector& vel = At<Mth::Vector>(this, kVel);
-    const Mth::Vector& carried = At<Mth::Vector>(this, kJumpBaseVel);
+    Maths::Vector& vel = At<Maths::Vector>(this, kVel);
+    const Maths::Vector& carried = At<Maths::Vector>(this, kJumpBaseVel);
     vel = {vel.x - carried.x, vel.y - carried.y, vel.z - carried.z, vel.w - carried.w};
-    const Mth::Vector& dir = At<Mth::Vector>(this, kJumpDirection);
-    const Mth::Vector& control = At<Mth::Vector>(this, kControlDirection);
+    const Maths::Vector& dir = At<Maths::Vector>(this, kJumpDirection);
+    const Maths::Vector& control = At<Maths::Vector>(this, kControlDirection);
     float magnitude = At<float>(this, kControlMagnitude);
     float sideX = -dir.z, sideZ = dir.x; // (the jump's sideways direction: y 0, w 1)
     float sideTarget = static_cast<float>(((static_cast<double>(sideZ) * control.z + static_cast<double>(sideX) * control.x) +
@@ -395,7 +395,7 @@ void CWalkComponent::SteerJump()
 }
 
 // 0x00528950
-void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
+void CFootMovement::UpdateGroundVelocity(Maths::Vector* velocity)
 {
     float speed = static_cast<float>(std::sqrt(
         (static_cast<double>(velocity->x) * velocity->x + static_cast<double>(velocity->y) * velocity->y) +
@@ -407,7 +407,7 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
     // The way it's going: the velocity's (past ignore_velocity_threshold), else the push's, else the velocity's
     // (past 0.01), else the facing.
     float magnitude = At<float>(this, kControlMagnitude);
-    Mth::Vector direction;
+    Maths::Vector direction;
     double directionW;
     if (speed > WalkParameter(kIgnoreVelocityThreshold)) {
         double inverse = kOne / static_cast<double>(speed);
@@ -415,21 +415,21 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
         direction = {inverseF * velocity->x, inverseF * velocity->y, inverseF * velocity->z, 0.0f};
         directionW = inverse * velocity->w;
     } else if (!(magnitude == 0.0f)) {
-        direction = At<Mth::Vector>(this, kControlDirection);
+        direction = At<Maths::Vector>(this, kControlDirection);
         directionW = direction.w;
     } else if (speed > kMinMoveSpeed) {
-        direction = Mth::operator/(*velocity, speed);
+        direction = Maths::operator/(*velocity, speed);
         directionW = direction.w;
     } else {
-        direction = At<Mth::Vector>(this, kFacing);
+        direction = At<Maths::Vector>(this, kFacing);
         directionW = direction.w;
     }
     direction.w = static_cast<float>(directionW);
-    Mth::Vector result = direction;
+    Maths::Vector result = direction;
 
     if (magnitude > 0.0f) {
-        const Mth::Vector& control = At<Mth::Vector>(this, kControlDirection);
-        Mth::Vector& facing = At<Mth::Vector>(this, kFacing);
+        const Maths::Vector& control = At<Maths::Vector>(this, kControlDirection);
+        Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
         // Pushed against the way it's going: no speed asked for.
         if ((static_cast<double>(direction.z) * control.z + static_cast<double>(direction.y) * control.y) +
                 static_cast<double>(direction.x) * control.x <=
@@ -443,7 +443,7 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
             // Far off the facing: turned in place at rotate_in_place_rate (walking: x walk_rotate_factor; against a
             // wall, or a wall where it turns to: x wall_rotate_factor), going the pushed way.
             float rate = WalkParameter(kRotateInPlaceRate);
-            float turn = static_cast<float>(Tmr::GetSlomoFrameSeconds() * At<float>(this, kControlMagnitude) * rate *
+            float turn = static_cast<float>(FrameClock::GetSlomoFrameSeconds() * At<float>(this, kControlMagnitude) * rate *
                                             kDegreesToRadians);
             bool left = static_cast<double>(facing.x) * control.z - static_cast<double>(control.x) * facing.z < 0.0;
             if (!At<bool>(this, kRunning))
@@ -454,16 +454,16 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
                 double turnedX, turnedZ;
                 X87::Rotate(left ? turn : -turn, facing.x, facing.z, &turnedX, &turnedZ);
                 float aheadX = static_cast<float>(turnedX), aheadZ = static_cast<float>(turnedZ);
-                Nx::CFeeler feeler;
+                Engine3D::CProbeRay feeler;
                 feeler.Construct();
-                Mth::Vector& start = feeler.m_line.start;
-                start = At<Mth::Vector>(this, kPos);
+                Maths::Vector& start = feeler.m_line.start;
+                start = At<Maths::Vector>(this, kPos);
                 start.y = static_cast<float>(static_cast<double>(start.y) + WalkParameter(kFeelerHeight));
                 float reach = WalkParameter(kFeelerLength);
                 float none = reach * 0.0f;
                 feeler.m_line.end = {aheadX * reach + start.x, none + start.y, aheadZ * reach + start.z, none + start.w};
                 // (the original reads wall_rotate_factor through 0x0043DA70)
-                if (feeler.GetCollision(false, false))
+                if (feeler.GetHitShape(false, false))
                     turn = static_cast<float>(static_cast<double>(WalkParameter(kWallRotateFactor)) * turn);
             }
             double newX, newZ;
@@ -486,11 +486,11 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
             float worse = WalkParameter(kWorseTurnFactor);
             float worst = WalkParameter(kWorseWorseTurnFactor);
             float rate = static_cast<float>(((static_cast<double>(worse) - worst) * k + worst) * At<float>(this, kControlMagnitude));
-            double step = Tmr::GetSlomoFrameSeconds() * rate;
+            double step = FrameClock::GetSlomoFrameSeconds() * rate;
             if (step >= kOne) {
                 facing = control;
             } else {
-                Mth::Vector eased;
+                Maths::Vector eased;
                 facing = *Lerp(&eased, &facing, &control, static_cast<float>(step));
                 facing.Normalize();
             }
@@ -507,10 +507,10 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
         float factor = WalkParameter(kDecelFactor);
         if (allowed == 0.0f && !(speed > WalkParameter(kWalkSpeed)))
             factor = WalkParameter(kLowSpeedDecelFactor);
-        newSpeed = (static_cast<double>(allowed) - speed) * (Tmr::GetSlomoFrameSeconds() * factor) + speed;
+        newSpeed = (static_cast<double>(allowed) - speed) * (FrameClock::GetSlomoFrameSeconds() * factor) + speed;
     } else {
         float accel = WalkParameter(At<bool>(this, kRunning) ? kRunAccelRate : kWalkAccelRate);
-        newSpeed = Tmr::GetSlomoFrameSeconds() * accel + speed;
+        newSpeed = FrameClock::GetSlomoFrameSeconds() * accel + speed;
         if (newSpeed > allowed)
             newSpeed = allowed;
     }
@@ -519,7 +519,7 @@ void CWalkComponent::UpdateGroundVelocity(Mth::Vector* velocity)
 }
 
 // 0x00529800
-void CWalkComponent::UpdateRotateUpright()
+void CFootMovement::UpdateRotateUpright()
 {
     float& left = At<float>(this, kUprightTime);
     if (left == 0.0f)
@@ -527,32 +527,32 @@ void CWalkComponent::UpdateRotateUpright()
     // This frame's share of the turn (+0x730 about +0x734) over rotate_upright_duration.
     float duration = WalkParameter(kRotateUprightDuration);
     float angle = static_cast<float>(FrameLength(this) / duration * At<float>(this, kUprightAngle));
-    Mth::Matrix rotation;
-    Mth::CreateRotateMatrix(rotation, At<Mth::Vector>(this, kUprightAxis), angle);
-    auto* object = static_cast<CCompositeObject*>(m_object);
+    Maths::Matrix rotation;
+    Maths::BuildAxisAngleMatrix(rotation, At<Maths::Vector>(this, kUprightAxis), angle);
+    auto* object = static_cast<CGameEntity*>(m_object);
     // D3DXMatrixMultiply (0x005BFA8C)
     D3dx::MatrixMultiply(
-        &object->m_matrix, &object->m_matrix, &rotation);
-    object->m_displayMatrix = object->m_matrix;
+        &object->m_basisFrame, &object->m_basisFrame, &rotation);
+    object->m_displayMatrix = object->m_basisFrame;
     double remaining = static_cast<double>(left) - FrameLength(this);
     left = remaining < 0.0 ? 0.0f : static_cast<float>(remaining);
 }
 
 // 0x005298D0
-void CWalkComponent::ApplyTransition()
+void CFootMovement::ApplyTransition()
 {
-    auto* object = static_cast<CCompositeObject*>(m_object);
-    const Mth::Vector& at = At<Mth::Vector>(this, kTransitionPos);
-    const Mth::Vector& offset = At<Mth::Vector>(this, kClimbOffset);
+    auto* object = static_cast<CGameEntity*>(m_object);
+    const Maths::Vector& at = At<Maths::Vector>(this, kTransitionPos);
+    const Maths::Vector& offset = At<Maths::Vector>(this, kClimbOffset);
     object->m_pos = {at.x + offset.x, at.y + offset.y, at.z + offset.z, at.w + offset.w};
     // Upright, facing the transition's facing (row 0's w 1, as the original).
-    const Mth::Vector& facing = At<Mth::Vector>(this, kTransitionFacing);
-    Mth::Matrix matrix;
+    const Maths::Vector& facing = At<Maths::Vector>(this, kTransitionFacing);
+    Maths::Matrix matrix;
     matrix.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     matrix.row[2] = facing;
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    object->m_matrix = matrix;
+    object->m_basisFrame = matrix;
     At<float>(this, kDisplayOffset) = At<float>(this, kTransitionDisplayOffset);
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
     auto callback = At<void(__thiscall*)(void*)>(this, kTransitionCallback);
@@ -561,20 +561,20 @@ void CWalkComponent::ApplyTransition()
 }
 
 // 0x00529CE0
-void CWalkComponent::CopyToObject()
+void CFootMovement::CopyToObject()
 {
     // The facing tilted back up by its y (+0x744), keeping it unit.
     float facingY = At<float>(this, kFacingY);
     double flat = kOne - static_cast<double>(facingY) * facingY;
     double k = flat > 0.0 ? std::sqrt(flat) : static_cast<double>(kNoFlat);
-    Mth::Vector& facing = At<Mth::Vector>(this, kFacing);
+    Maths::Vector& facing = At<Maths::Vector>(this, kFacing);
     facing = {static_cast<float>(k * facing.x), static_cast<float>(k * facing.y), static_cast<float>(k * facing.z),
               static_cast<float>(k * facing.w)};
     facing.y = facingY;
     // The orientation from the up vector and the facing.
-    const Mth::Vector& up = At<Mth::Vector>(this, kUp);
-    Mth::Matrix matrix;
-    Mth::Vector& right = matrix.row[0];
+    const Maths::Vector& up = At<Maths::Vector>(this, kUp);
+    Maths::Matrix matrix;
+    Maths::Vector& right = matrix.row[0];
     right = {static_cast<float>(static_cast<double>(up.y) * facing.z - static_cast<double>(up.z) * facing.y),
              static_cast<float>(static_cast<double>(up.z) * facing.x - static_cast<double>(up.x) * facing.z),
              static_cast<float>(static_cast<double>(up.x) * facing.y - static_cast<double>(up.y) * facing.x), 0.0f};
@@ -584,16 +584,16 @@ void CWalkComponent::CopyToObject()
                      static_cast<float>(static_cast<double>(up.x) * right.z - static_cast<double>(up.z) * right.x),
                      static_cast<float>(static_cast<double>(up.y) * right.x - static_cast<double>(up.x) * right.y), 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    auto* object = static_cast<CCompositeObject*>(m_object);
-    object->m_pos = At<Mth::Vector>(this, kPos);
-    object->m_matrix = matrix;
+    auto* object = static_cast<CGameEntity*>(m_object);
+    object->m_pos = At<Maths::Vector>(this, kPos);
+    object->m_basisFrame = matrix;
     object->m_displayMatrix = matrix;
     // The object's velocity by state.
-    Mth::Vector& vel = object->m_vel;
+    Maths::Vector& vel = object->m_vel;
     switch (At<int>(this, kState)) {
     case 0: // on the ground, in the air
     case 1:
-        vel = At<Mth::Vector>(this, kVel);
+        vel = At<Maths::Vector>(this, kVel);
         vel.y = At<float>(this, kVerticalVel);
         break;
     case 2: { // hanging: sideways along the ledge
@@ -610,7 +610,7 @@ void CWalkComponent::CopyToObject()
     }
     // The model raised along the up vector by the display offset.
     float offset = At<float>(this, kDisplayOffset);
-    At<Mth::Vector>(At<void*>(this, kModel), 0x1F8) = {matrix.row[1].x * offset, matrix.row[1].y * offset,
+    At<Maths::Vector>(At<void*>(this, kModel), 0x1F8) = {matrix.row[1].x * offset, matrix.row[1].y * offset,
                                                        matrix.row[1].z * offset, matrix.row[1].w * offset};
 }
 

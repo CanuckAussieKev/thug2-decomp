@@ -26,7 +26,7 @@
 #include "game/sys/log.h"
 #include "game/gfx/pc_instance.h"
 
-namespace Front::LevelEditor::Preview {
+namespace MenuSystem::LevelEditor::Preview {
 
 // --- the pieces ---
 
@@ -75,41 +75,41 @@ constexpr uint32_t kBackground = 0xFF2A2C30;
 constexpr float kRadiansPerPixel = 0.01f;
 
 Kind g_kind = Kind::kNone;
-uint32_t g_id;
+uint32_t gId;
 Orbit g_orbit;
 bool g_haveTime;
 std::chrono::steady_clock::time_point g_lastFrame, g_lastDrag;
 bool g_failedLogged;
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).
-void SetMaterial(uint8_t* material) { reinterpret_cast<Nx::sMaterial*>(material)->Submit(); }
-void DrawMesh(uint8_t* mesh) { reinterpret_cast<Nx::sMesh*>(mesh)->Render(); }
+void SetMaterial(uint8_t* material) { reinterpret_cast<Engine3D::materialRef*>(material)->Submit(); }
+void DrawMesh(uint8_t* mesh) { reinterpret_cast<Engine3D::meshRef*>(mesh)->Render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void DrawInstance(uint8_t* instance) { Nx::RenderInstance(reinterpret_cast<Nx::sInstance*>(instance), 8); }
+void DrawInstance(uint8_t* instance) { Engine3D::RenderInstance(reinterpret_cast<Engine3D::sSingleton*>(instance), 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void UpdateFrustum() { Nx::g_billboardManager.SetupAxes(); }
+void UpdateFrustum() { Engine3D::g_billboardManager.SetupAxes(); }
 
-// The camera's globals Nx::SetCamera and the instance render change, saved and put back.
+// The camera's globals Engine3D::ChooseCamera and the instance render change, saved and put back.
 struct SavedRange {
     void* (*address)(); // (a function: the globals are set up after this table)
     uint32_t size;
 };
 constexpr SavedRange kSaved[] = {
-    {[]() -> void* { return &Nx::g_worldMatrix; }, sizeof(Mth::Matrix)},
-    {[]() -> void* { return &Nx::g_viewMatrix; }, sizeof(Mth::Matrix)},
-    {[]() -> void* { return &Nx::g_projectionMatrix; }, sizeof(Mth::Matrix)},
-    {[]() -> void* { return &Nx::g_headingMatrix; }, sizeof(Mth::Matrix)},
-    {[]() -> void* { return &Nx::g_deviceViewport; }, sizeof(Nx::DeviceViewport)},
-    {[]() -> void* { return &Nx::g_camera; }, sizeof(Nx::RenderCamera)},
-    {[]() -> void* { return &Nx::g_viewShape; }, sizeof(Nx::ViewShape)}, // (the view's shape: culling)
-    {[]() -> void* { return &Nx::g_worldTransform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
-    {[]() -> void* { return &Nx::g_worldTransformCopy; }, sizeof(float[16])},
+    {[]() -> void* { return &Engine3D::g_worldMatrix; }, sizeof(Maths::Matrix)},
+    {[]() -> void* { return &Engine3D::g_viewMatrix; }, sizeof(Maths::Matrix)},
+    {[]() -> void* { return &Engine3D::g_projectionMatrix; }, sizeof(Maths::Matrix)},
+    {[]() -> void* { return &Engine3D::g_headingMatrix; }, sizeof(Maths::Matrix)},
+    {[]() -> void* { return &Engine3D::g_deviceViewport; }, sizeof(Engine3D::DeviceViewport)},
+    {[]() -> void* { return &Engine3D::g_camera; }, sizeof(Engine3D::RenderCamera)},
+    {[]() -> void* { return &Engine3D::g_viewShape; }, sizeof(Engine3D::ViewShape)}, // (the view's shape: culling)
+    {[]() -> void* { return &Engine3D::g_worldTransform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
+    {[]() -> void* { return &Engine3D::g_worldTransformCopy; }, sizeof(float[16])},
 };
-constexpr uint32_t kSavedBytes = 4 * sizeof(Mth::Matrix) + sizeof(Nx::DeviceViewport) + sizeof(Nx::RenderCamera) +
-                                 sizeof(Nx::ViewShape) + sizeof(void*) + sizeof(float[16]);
+constexpr uint32_t kSavedBytes = 4 * sizeof(Maths::Matrix) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) +
+                                 sizeof(Engine3D::ViewShape) + sizeof(void*) + sizeof(float[16]);
 // (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
-static_assert(4 * sizeof(Mth::Matrix) + sizeof(Nx::DeviceViewport) + sizeof(Nx::RenderCamera) == 0x164 &&
-                  sizeof(Nx::ViewShape) == 0x18,
+static_assert(4 * sizeof(Maths::Matrix) + sizeof(Engine3D::DeviceViewport) + sizeof(Engine3D::RenderCamera) == 0x164 &&
+                  sizeof(Engine3D::ViewShape) == 0x18,
               "the saved camera globals");
 struct SavedView {
     uint8_t bytes[kSavedBytes];
@@ -176,10 +176,10 @@ bool BoxOf(Kind kind, uint32_t id, OrientedBox* box)
         return Scenery::SectorGeometry(id) && Scenery::Box(id, box);
     if (kind != Kind::kObject)
         return false;
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, box);
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, box);
 }
-bool SubjectBox(OrientedBox* box) { return BoxOf(g_kind, g_id, box); }
+bool SubjectBox(OrientedBox* box) { return BoxOf(g_kind, gId, box); }
 
 void DrawSubject(Kind kind, uint32_t id)
 {
@@ -188,7 +188,7 @@ void DrawSubject(Kind kind, uint32_t id)
             DrawMeshes(geom);
         return;
     }
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
     for (int i = 0; object && i < 16; ++i) {
         auto* geom = static_cast<uint8_t*>(Objects::Geometry(object, i));
         if (!geom)
@@ -202,10 +202,10 @@ void DrawSubject(Kind kind, uint32_t id)
 
 void Show(Kind kind, uint32_t id)
 {
-    if (kind == g_kind && id == g_id)
+    if (kind == g_kind && id == gId)
         return;
     g_kind = kind;
-    g_id = id;
+    gId = id;
     g_orbit = Orbit{};
     g_lastDrag = {};
 }
@@ -241,7 +241,7 @@ uint64_t Render(int size)
         g_failedLogged = true;
         return 0;
     }
-    DrawView(g_kind, g_id, g_orbit);
+    DrawView(g_kind, gId, g_orbit);
     UiBackend::EndOffscreen();
     return UiBackend::OffscreenTexture();
 }
@@ -261,29 +261,29 @@ bool DrawView(Kind kind, uint32_t id, const Orbit& orbit)
     Eye eye = OrbitEye(centre, FitDistance(radius, halfAngle, kMargin) / orbit.zoom, orbit);
     SavedView saved;
     saved.Save();
-    Mth::Matrix orientation = {};
+    Maths::Matrix orientation = {};
     orientation.row[0] = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
     orientation.row[1] = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
     orientation.row[2] = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
     orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Vector position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
-    Nx::SetCamera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
-    Nx::SetWorldTransform(nullptr);
-    Nx::SetState(Nx::kZWrite, 1);
-    Nx::SetState(Nx::kZTest, 1);
+    Maths::Vector position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
+    Engine3D::ChooseCamera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
+    Engine3D::SetWorldTransform(nullptr);
+    Engine3D::SetState(Engine3D::kZWrite, 1);
+    Engine3D::SetState(Engine3D::kZTest, 1);
     DrawSubject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
     saved.Restore();
     UpdateFrustum();
-    Nx::g_lastBones = nullptr;
+    Engine3D::g_lastBones = nullptr;
     return true;
 }
 
 void Hide()
 {
     g_kind = Kind::kNone;
-    g_id = 0;
+    gId = 0;
     g_haveTime = false;
     UiBackend::FreeOffscreen();
 }
@@ -318,4 +318,4 @@ void Frame(Ui::Model* model)
     view.texture = Render(Ui::PreviewPixels());
 }
 
-} // namespace Front::LevelEditor::Preview
+} // namespace MenuSystem::LevelEditor::Preview

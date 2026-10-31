@@ -12,7 +12,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 
-namespace Front::LevelEditor::Hud {
+namespace MenuSystem::LevelEditor::Hud {
 namespace {
 
 constexpr size_t kMaxText = 90;
@@ -41,10 +41,10 @@ void SetText(const std::string& id, const std::string& full)
         return;
     g_shown[id] = text;
     alignas(4) uint8_t memory[8];
-    Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();
-    params->AddChecksum(kId, Crc::GenerateCRCFromString(id.c_str()));
+    Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->Init();
+    params->PutNameKey(kId, Checksums::HashFromText(id.c_str()));
     params->AddString(kText, text.c_str());
-    Script::RunScript("level_editor_hud_set", params, nullptr, false);
+    Scripts::LaunchScript("level_editor_hud_set", params, nullptr, false);
     params->Clear();
 }
 
@@ -89,12 +89,12 @@ void ShowPanel(const std::vector<std::string>& lines, float x, float y, float wi
         return;
     if (!g_panel || g_panelX != x || g_panelY != y || g_panelWidth != width || g_panelLines != lines.size()) {
         alignas(4) uint8_t memory[8];
-        Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();
+        Scripts::CStruct* params = reinterpret_cast<Scripts::CStruct*>(memory)->Init();
         float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
-        params->AddPair(Crc::GenerateCRCFromString("pos"), x, y);
-        params->AddPair(Crc::GenerateCRCFromString("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
-        params->AddInteger(Crc::GenerateCRCFromString("lines"), static_cast<int>(lines.size()));
-        Script::RunScript("level_editor_panel_show", params, nullptr, false);
+        params->InsertPair(Checksums::HashFromText("pos"), x, y);
+        params->InsertPair(Checksums::HashFromText("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
+        params->PutInt(Checksums::HashFromText("lines"), static_cast<int>(lines.size()));
+        Scripts::LaunchScript("level_editor_panel_show", params, nullptr, false);
         params->Clear();
         for (auto it = g_shown.begin(); it != g_shown.end();)
             it = it->first.rfind("level_editor_panel_", 0) == 0 ? g_shown.erase(it) : std::next(it);
@@ -115,7 +115,7 @@ void HidePanel()
 {
     if (!g_panel)
         return;
-    Script::RunScript("level_editor_panel_hide", nullptr, nullptr, false);
+    Scripts::LaunchScript("level_editor_panel_hide", nullptr, nullptr, false);
     for (auto it = g_shown.begin(); it != g_shown.end();)
         it = it->first.rfind("level_editor_panel_", 0) == 0 ? g_shown.erase(it) : std::next(it);
     g_panel = false;
@@ -125,4 +125,4 @@ bool PanelShown() { return g_panel; }
 
 std::string Key(const char* keys) { return std::string("\\c1") + keys + "\\c0"; }
 
-} // namespace Front::LevelEditor::Hud
+} // namespace MenuSystem::LevelEditor::Hud

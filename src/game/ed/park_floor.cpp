@@ -1,4 +1,4 @@
-// The park manager's floor (Ed::CParkManager): the risers under raised and lowered cells, the fence round the
+// The park manager's floor (ParkEditing::CParkLayout): the risers under raised and lowered cells, the fence round the
 // park, changing the floor's height, and the restart points put on a new park.
 
 #include "game/ed/park.h"
@@ -12,7 +12,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/smtptr.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -21,38 +21,38 @@ constexpr uint32_t kRiserFloorBelow = 0x14FD33E4; // "riser_floor_below"
 constexpr uint32_t kRiserBelow = 0x4A0D22DB;      // "riser_below"
 constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
 
-// A collision probe along a line (Nx::CFeeler, 0xB0 bytes): constructed by 0x00417760, its ends set by
+// A collision probe along a line (Engine3D::CProbeRay, 0xB0 bytes): constructed by 0x00417760, its ends set by
 // 0x00417190 / 0x004171B0, tested by 0x004172F0; what it hit is held by a smart pointer.
 struct Feeler {
     uint8_t unknown00[0x78];
-    Mth::Vector m_point;              // +0x78: where it hit
+    Maths::Vector m_contactPos;              // +0x78: where it hit
     uint8_t unknown88[0x10];
-    Obj::CSmtPtr<Obj::CRefCounted> m_object; // +0x98
+    GameObjects::CSharedRef<GameObjects::CSharedBase> m_object; // +0x98
     uint8_t unknownA4[0xC];
 
-    Nx::CFeeler* Ours() { return reinterpret_cast<Nx::CFeeler*>(this); }
+    Engine3D::CProbeRay* Ours() { return reinterpret_cast<Engine3D::CProbeRay*>(this); }
     Feeler* Construct() { return reinterpret_cast<Feeler*>(Ours()->Construct()); }
-    void SetStart(Mth::Vector* start) { Ours()->SetStart(start); }
-    void SetEnd(Mth::Vector* end) { Ours()->SetEnd(end); }
+    void SetStart(Maths::Vector* start) { Ours()->SetStart(start); }
+    void SetEnd(Maths::Vector* end) { Ours()->SetEnd(end); }
     // (the original's result is read from AL)
-    bool GetCollision(bool movables, bool farthest) { return Ours()->GetCollision(movables, farthest) != 0; }
+    bool GetHitShape(bool movables, bool farthest) { return Ours()->GetHitShape(movables, farthest) != 0; }
 };
 static_assert(offsetof(Feeler, m_object) == 0x98);
 static_assert(sizeof(Feeler) == 0xB0);
 
 // The park editor (a reference taken here, let go by ReleaseParkEditor): whether the park is full.
-bool ParkIsFull() { return CParkEditor::Create(false)->IsParkFull() != 0; }
-void ReleaseParkEditor() { CParkEditor::Release(); }
+bool ParkIsFull() { return CParkBuilderMode::Create(false)->IsParkFull() != 0; }
+void ReleaseParkEditor() { CParkBuilderMode::Release(); }
 
 } // namespace
 
 // 0x005993E0
-void CParkManager::GenerateNodeArray()
+void CParkLayout::GenerateNodeArray()
 {
-    mp_generator->ClearAutomaticRestarts();
+    m_builder->PurgeAutoRestartPoints();
     for (int i = 0; i < 18; ++i) {
         // Round the middle of the park: player 1 and 2's restarts, four more, six of type 3, six of type 4.
-        GridDims pos = GridDims::Make(0, 0, 0, 0, 0, 0);
+        SCellBox pos = SCellBox::Make(0, 0, 0, 0, 0, 0);
         pos = m_parkBounds;
         pos.x = static_cast<uint8_t>(pos.x + (m_parkBounds.w >> 1));
         pos.y = 0;
@@ -95,50 +95,50 @@ void CParkManager::GenerateNodeArray()
             count = 6;
             type = 4;
         }
-        if (!mp_generator->NeedsRestarts(type, count))
+        if (!m_builder->NeedsRestarts(type, count))
             continue;
 
         // On the floor (or the metapiece standing there), then down onto whatever is below a feeler's line.
-        pos.y = static_cast<int8_t>(GetFloorHeight(pos, nullptr));
+        pos.y = static_cast<int8_t>(GetGroundLevel(pos, nullptr));
         {
             MapListHolder metas(GetIntersectingMetas(pos, 0, nullptr, 0));
             if (metas.list)
-                pos.y = static_cast<int8_t>(metas.list->GetConcreteMeta()->m_cell_area.h + pos.y);
+                pos.y = static_cast<int8_t>(metas.list->GetPlacedPiece()->m_cellFootprint.h + pos.y);
         }
-        Mth::Vector point;
+        Maths::Vector point;
         point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kCellWidth) + kCellWidth * 0.5);
         point.y = static_cast<float>(pos.y * static_cast<double>(kCellHeight));
         point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kCellLength) + kCellLength * 0.5);
         point.w = 1.0f;
         Feeler feeler;
         feeler.Construct();
-        Mth::Vector start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
+        Maths::Vector start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
                              static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.SetStart(&start);
-        Mth::Vector end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
+        Maths::Vector end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
                            static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.SetEnd(&end);
-        if (feeler.GetCollision(true, false)) {
+        if (feeler.GetHitShape(true, false)) {
             if (i >= 2 && i <= 5)
-                point.y = feeler.m_point.y;
+                point.y = feeler.m_contactPos.y;
             else
-                point.y = static_cast<float>(static_cast<double>(feeler.m_point.y) + kCellHeight);
+                point.y = static_cast<float>(static_cast<double>(feeler.m_contactPos.y) + kCellHeight);
         }
-        mp_generator->AddRestart(&point, 0, &pos, type, 1, flag);
+        m_builder->PlantRestartPoint(&point, 0, &pos, type, 1, flag);
         // (the feeler's destructor lets go of what it hit)
     }
-    mp_generator->BuildNodeArray(mp_concrete_metas);
+    m_builder->BuildNodeArray(mp_concrete_metas);
 }
 
 // 0x00599CD0
-bool CParkManager::CanChangeFloorHere(GridDims area, bool uneven)
+bool CParkLayout::CanChangeFloorHere(SCellBox area, bool uneven)
 {
     bool ok = false;
     if (!ParkIsFull()) {
-        MapListHolder metas(GetAreaMetaPieces(area));
+        MapListHolder metas(CollectPiecesInRegion(area));
         bool clear = true;
-        for (CMapListNode* node = metas.list; node; node = node->mp_next) {
-            if (!(node->GetConcreteMeta()->m_flags & CMetaPiece::kInnerShell)) {
+        for (CMapListNode* node = metas.list; node; node = node->m_following) {
+            if (!(node->GetPlacedPiece()->m_flags & CPieceGroup::kInnerShell)) {
                 clear = false;
                 break;
             }
@@ -148,7 +148,7 @@ bool CParkManager::CanChangeFloorHere(GridDims area, bool uneven)
             bool level = true;
             if (!uneven) {
                 bool flat;
-                level = GetFloorHeight(area, &flat) == area.y && flat;
+                level = GetGroundLevel(area, &flat) == area.y && flat;
             }
             if (level && !IsAreaBlocked(area))
                 ok = true;
@@ -159,42 +159,42 @@ bool CParkManager::CanChangeFloorHere(GridDims area, bool uneven)
 }
 
 // 0x00599E20
-void CParkManager::DestroyMetasBelow(GridDims area)
+void CParkLayout::DestroyMetasBelow(SCellBox area)
 {
-    GridDims below = area;
+    SCellBox below = area;
     below.y = static_cast<int8_t>(area.y - 1);
     below.h = 1;
-    uint32_t destroyed = DestroyMetasInArea(below, 4);
+    uint32_t destroyed = FreePieceGroupsInRegion(below, 4);
     m_riserMetas += destroyed >> 16;
     m_riserPieces += destroyed & 0xFFFF;
 }
 
 // 0x0059B280
-void CParkManager::UndoFloorChange()
+void CParkLayout::UndoFloorChange()
 {
     RestoreFloorHeights();
-    for (CMapListNode* node = mp_riserList; node; node = node->mp_next)
-        node->mp_meta = RelocateMetaPiece(node->GetConcreteMeta(), 0, -node->m_dy, 0);
+    for (CMapListNode* node = mp_riserList; node; node = node->m_following)
+        node->m_pieceGroup = ShiftPlacedPiece(node->GetPlacedPiece(), 0, -node->m_dy, 0);
 }
 
 // 0x0059B2C0
-void CParkManager::MoveRiserList(CMapListNode* list)
+void CParkLayout::MoveRiserList(CMapListNode* list)
 {
-    for (CMapListNode* node = list; node; node = node->mp_next) {
-        CMetaPiece* meta = node->GetConcreteMeta();
+    for (CMapListNode* node = list; node; node = node->m_following) {
+        CPieceGroup* meta = node->GetPlacedPiece();
         if (node->m_dy < 0)
-            DestroyMetasBelow(meta->m_cell_area);
-        node->mp_meta = RelocateMetaPiece(meta, 0, node->m_dy, 0);
+            DestroyMetasBelow(meta->m_cellFootprint);
+        node->m_pieceGroup = ShiftPlacedPiece(meta, 0, node->m_dy, 0);
     }
 }
 
 // 0x0059B320
-void CParkManager::RebuildFloorPiece(FloorPieceRequest* request)
+void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
 {
     int x = request->x;
     int z = request->z;
     FloorCell* cells = &m_floor[0][0];
-    auto heightAt = [&](int cx, int cz) { return cells[cx * kFloorSize + cz].m_height; };
+    auto heightAt = [&](int cx, int cz) { return cells[cx * kFloorSize + cz].m_levelY; };
 
     // The lowest neighbour (outside the shell counts as 0).
     int lowest = 10000;
@@ -237,7 +237,7 @@ void CParkManager::RebuildFloorPiece(FloorPieceRequest* request)
     if (height > 0) {
         char name[128];
         std::snprintf(name, sizeof(name), "riser_above%d", request->index);
-        top = Crc::GenerateCRCFromString(name);
+        top = Checksums::HashFromText(name);
         request->y = 0;
         inPark = lowest >= 0;
         if (!inPark)
@@ -269,47 +269,47 @@ void CParkManager::RebuildFloorPiece(FloorPieceRequest* request)
     }
 
     // Keep what's there already, delete the rest of the inner shell in the cell.
-    GridDims cell = GridDims::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
+    SCellBox cell = SCellBox::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
                                    static_cast<uint8_t>(request->z), 1, 1, 1);
-    MapListHolder metas(GetAreaMetaPieces(cell));
+    MapListHolder metas(CollectPiecesInRegion(cell));
     for (CMapListNode* node = metas.list; node;) {
-        CMetaPiece* meta = node->GetConcreteMeta();
-        node = node->mp_next;
-        if (!(meta->m_flags & CMetaPiece::kInnerShell))
+        CPieceGroup* meta = node->GetPlacedPiece();
+        node = node->m_following;
+        if (!(meta->m_flags & CPieceGroup::kInnerShell))
             continue;
-        if (top && meta->m_name_checksum == top && meta->m_cell_area.y == request->y) {
+        if (top && meta->m_nameKey == top && meta->m_cellFootprint.y == request->y) {
             top = 0;
-        } else if (below && meta->m_name_checksum == below &&
-                   (static_cast<uint8_t>(meta->m_cell_area.y) == static_cast<uint8_t>(request->y) ||
-                    meta->m_cell_area.y == static_cast<int8_t>(belowY))) {
+        } else if (below && meta->m_nameKey == below &&
+                   (static_cast<uint8_t>(meta->m_cellFootprint.y) == static_cast<uint8_t>(request->y) ||
+                    meta->m_cellFootprint.y == static_cast<int8_t>(belowY))) {
             below = 0;
         } else {
-            DestroyConcreteMeta(meta, 0);
-            mp_generator->CleanUpOutRefs();
+            FreePlacedPiece(meta, 0);
+            m_builder->CleanUpOutRefs();
         }
     }
     if (top) {
-        CMetaPiece* meta = CreateConcreteMeta(GetAbstractMeta(top), 0);
-        AddMetaPieceToPark(GridDims::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
+        CPieceGroup* meta = MakePlacedPiece(FindPieceTemplate(top), 0);
+        PlaceMetaPieceInPark(SCellBox::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
                                           static_cast<uint8_t>(request->z), 0, 0, 0),
                            meta);
     }
     if (below) {
-        CMetaPiece* meta = CreateConcreteMeta(GetAbstractMeta(below), 0);
+        CPieceGroup* meta = MakePlacedPiece(FindPieceTemplate(below), 0);
         if (request->x < m_parkBounds.x || request->x >= m_parkBounds.x + m_parkBounds.w ||
             request->z < m_parkBounds.z || request->z >= m_parkBounds.z + m_parkBounds.l)
-            meta->m_flags |= CMetaPiece::kRiserBelow | CMetaPiece::kFlag400;
-        AddMetaPieceToPark(GridDims::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(belowY),
+            meta->m_flags |= CPieceGroup::kRiserBelow | CPieceGroup::kFlag400;
+        PlaceMetaPieceInPark(SCellBox::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(belowY),
                                           static_cast<uint8_t>(request->z), 0, 0, 0),
                            meta);
     }
 }
 
 // 0x0059BED0
-void CParkManager::RebuildInnerShell(GridDims bounds)
+void CParkLayout::RebuildInnerShell(SCellBox bounds)
 {
     m_parkBounds = bounds;
-    GridDims& park = m_parkBounds;
+    SCellBox& park = m_parkBounds;
     // The four strips round the park (where the walls go).
     m_blockedAreas[0].x = static_cast<uint8_t>(park.x - 1);
     m_blockedAreas[0].z = static_cast<uint8_t>(park.z - 1);
@@ -330,45 +330,45 @@ void CParkManager::RebuildInnerShell(GridDims bounds)
 
     // Out go the fences and the player's metapieces no longer (wholly) in the park.
     for (CMapListNode* node = mp_concrete_metas; node;) {
-        CMapListNode* next = node->mp_next;
-        GridDims area = node->GetConcreteMeta()->m_cell_area;
-        uint32_t flags = node->GetConcreteMeta()->m_flags;
+        CMapListNode* next = node->m_following;
+        SCellBox area = node->GetPlacedPiece()->m_cellFootprint;
+        uint32_t flags = node->GetPlacedPiece()->m_flags;
         bool destroy;
-        if (flags & CMetaPiece::kFence)
+        if (flags & CPieceGroup::kFence)
             destroy = true;
-        else if ((flags & CMetaPiece::kInnerShell) || !(flags & CMetaPiece::kInPark))
+        else if ((flags & CPieceGroup::kInnerShell) || !(flags & CPieceGroup::kInPark))
             destroy = false;
         else
             destroy = area.x < park.x || area.z < park.z || area.w + area.x > park.w + park.x ||
                       area.l + area.z > park.l + park.z;
         if (destroy)
-            DestroyConcreteMeta(node->GetConcreteMeta(), 0);
+            FreePlacedPiece(node->GetPlacedPiece(), 0);
         node = next;
     }
-    mp_generator->CleanUpOutRefs();
+    m_builder->CleanUpOutRefs();
     MarkProgress("RebuildInnerShell-After any inner shell clipping");
 
     // The fence: two-cell pieces along each side, facing in, wherever the strip isn't blocked.
-    CMetaPiece* fence = GetAbstractMeta(kFence);
-    auto addFence = [&](GridDims test, GridDims at, int rot) {
+    CPieceGroup* fence = FindPieceTemplate(kFence);
+    auto addFence = [&](SCellBox test, SCellBox at, int rot) {
         if (IsAreaBlocked(test))
             return;
-        CMetaPiece* meta = CreateConcreteMeta(fence, 0);
-        meta->SetRot(rot);
-        meta->m_flags |= CMetaPiece::kFence;
-        AddMetaPieceToPark(at, meta);
+        CPieceGroup* meta = MakePlacedPiece(fence, 0);
+        meta->SetQuarterTurns(rot);
+        meta->m_flags |= CPieceGroup::kFence;
+        PlaceMetaPieceInPark(at, meta);
     };
     for (int x = park.x; x < park.w + park.x; x += 2) {
         uint8_t px = static_cast<uint8_t>(x);
-        addFence(GridDims::Make(px, 0, park.z, 2, 1, 1), GridDims::Make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0), 0);
+        addFence(SCellBox::Make(px, 0, park.z, 2, 1, 1), SCellBox::Make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0), 0);
         uint8_t far = static_cast<uint8_t>(park.z + park.l);
-        addFence(GridDims::Make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1), GridDims::Make(px, 0, far, 0, 0, 0), 2);
+        addFence(SCellBox::Make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1), SCellBox::Make(px, 0, far, 0, 0, 0), 2);
     }
     for (int z = park.z; z < park.l + park.z; z += 2) {
         uint8_t pz = static_cast<uint8_t>(z);
-        addFence(GridDims::Make(park.x, 0, pz, 1, 1, 2), GridDims::Make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0), 1);
+        addFence(SCellBox::Make(park.x, 0, pz, 1, 1, 2), SCellBox::Make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0), 1);
         uint8_t far = static_cast<uint8_t>(park.w + park.x);
-        addFence(GridDims::Make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2), GridDims::Make(far, 0, pz, 0, 0, 0), 3);
+        addFence(SCellBox::Make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2), SCellBox::Make(far, 0, pz, 0, 0, 0), 3);
     }
     MarkProgress("RebuildInnerShell-After adding fence pieces");
 
@@ -376,22 +376,22 @@ void CParkManager::RebuildInnerShell(GridDims bounds)
     for (int x = 0; x < 56; ++x) {
         for (int z = 0; z < 56; ++z) {
             if (x < park.x || z < park.z || x >= park.w + park.x || z >= park.l + park.z)
-                m_floor[x][z].m_height = 0;
+                m_floor[x][z].m_levelY = 0;
         }
     }
-    mp_generator->UpdateBounds((m_flags & kMapLoaded) ? m_map.m_shellSize : 0);
+    m_builder->UpdateBounds((m_flags & kMapLoaded) ? m_map.m_shellSize : 0);
     MarkProgress("RebuildInnerShell-End");
 }
 
 // 0x0059C520
-bool CParkManager::ChangeFloorHeight(GridDims area, int y, int target, bool raise, bool level)
+bool CParkLayout::RaiseOrLowerFloor(SCellBox area, int y, int target, bool raise, bool level)
 {
     uint32_t mode = raise ? 6 : 4;
     if (level)
         mode |= 1;
     ClearFloorChangeMarks();
     if (mp_riserList)
-        CMapListNode::DestroyList(mp_riserList);
+        CMapListNode::FreeNodeChain(mp_riserList);
     mp_riserList = nullptr;
     m_riserMetas = 0;
     m_riserPieces = 0;
@@ -408,21 +408,21 @@ bool CParkManager::ChangeFloorHeight(GridDims area, int y, int target, bool rais
 }
 
 // 0x0059C600
-bool CParkManager::RebuildFloor(GridDims* area, int /*unused*/)
+bool CParkLayout::RegenerateGround(SCellBox* area, int /*unused*/)
 {
     if (!area) {
         // The inner shell's pieces outside the park go first.
-        for (CMapListNode* node = mp_concrete_metas; node; node = node->mp_next) {
-            CMetaPiece* meta = node->GetMeta();
-            if (!(meta->m_flags & CMetaPiece::kInnerShell))
+        for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
+            CPieceGroup* meta = node->GetPieceGroup();
+            if (!(meta->m_flags & CPieceGroup::kInnerShell))
                 continue;
-            GridDims d = meta->m_cell_area;
+            SCellBox d = meta->m_cellFootprint;
             if (d.x >= m_parkBounds.x && d.z >= m_parkBounds.z && d.w + d.x <= m_parkBounds.w + m_parkBounds.x &&
                 d.l + d.z <= m_parkBounds.l + m_parkBounds.z)
                 continue;
-            DestroyConcreteMeta(node->GetConcreteMeta(), 0);
+            FreePlacedPiece(node->GetPlacedPiece(), 0);
         }
-        mp_generator->CleanUpOutRefs();
+        m_builder->CleanUpOutRefs();
         area = &m_parkBounds;
     }
     // Every cell of the area and the ring round it.
@@ -430,7 +430,7 @@ bool CParkManager::RebuildFloor(GridDims* area, int /*unused*/)
     for (int x = area->x - 1; x < area->w + 1 + area->x; ++x) {
         for (int z = area->z - 1; z < area->l + 1 + area->z; ++z) {
             FloorPieceRequest request;
-            request.height = cells[x * kFloorSize + z].m_height;
+            request.height = cells[x * kFloorSize + z].m_levelY;
             request.index = request.height - 1;
             request.x = x;
             request.z = z;

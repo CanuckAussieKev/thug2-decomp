@@ -8,22 +8,22 @@
 // just got), cash and a second per-level amount with their totals, a per-level counter, global flags (256 bits: the
 // cheats are among them), the current level, each level's gap checklist, whether each level was visited, and an
 // info structure.
-namespace Game {
-class CGapChecklist;
+namespace GoalSystem {
+class CGapTally;
 }
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 }
 
-namespace Obj {
+namespace GameObjects {
 
-class CSkaterCareer {
+class CRiderStoryProgress {
 public:
     static constexpr int kLevels = 21;
 
     // 0x00584110: level `level`'s gap checklist (-1: the current level's). 0x00584130: the current level.
-    Game::CGapChecklist* GetGapChecklist(int level);
+    GoalSystem::CGapTally* FetchGapList(int level);
     int GetLevel();
     // 0x00584140 / 0x00584180 / 0x005841D0: goal `goal` of `level` (-1: the current one) set / cleared (also from
     // the level-start copy) / asked. 0x00584210: whether the current level's goal changed since the level started.
@@ -52,7 +52,7 @@ public:
     void AddToInfo471FC4DD(int amount);
     // 0x005845C0: cash added to the current level's and the total; the level's amount returned (as the original: a
     // pointer to it). 0x005845F0: the current level's second amount set (the total changed by the difference).
-    uint16_t* AddCash(int amount);
+    uint16_t* DepositMoney(int amount);
     void SetLevelAmount(int amount);
     // 0x00584620: the current level's counter and the total counter increased; the level's returned. 0x00584640:
     // a level's counter. 0x00584650: the flag at +0x5EF set.
@@ -71,20 +71,20 @@ public:
     // 0x00584BC0: whether every level listed in 0xEB1A4BC9 was visited and has all its gaps.
     bool AllGapsGot();
     // 0x00584C60: level `level` started (-1: the current one): visited; its goals and flags copied for JustGot*.
-    void StartLevel(int level);
+    void BeginLevel(int level);
     // 0x00584CC0: the global flag a script integer names (a cheat); also left at 0x007CE4FD.
-    bool GetCheat(uint32_t name);
+    bool IsCodeOn(uint32_t name);
     // 0x00585270: the constructor: a gap checklist per level (none visited), an info structure, Reset(true, 0).
     // 0x00585E40: the destructor body (the checklists and the info freed). 0x00585EA0: the scalar deleting one.
-    CSkaterCareer* Construct();
+    CRiderStoryProgress* Construct();
     void DestroyBody();
-    CSkaterCareer* Destroy(unsigned int flags);
+    CRiderStoryProgress* Destroy(unsigned int flags);
     // 0x00584D00: read from a save's career structure (0x4DA4937B): goals, flags, global flags, each level's gaps
     // (got ones with their positions), visited levels, cash / amounts and totals, counters (an older save without the
     // counter total: it's summed), +0x634 / +0x638, the info. 0x00585550: written there the same way (with the skate
     // module's +0x378 and the game mode).
-    void ReadFromStructure(Script::CStruct* save);
-    void WriteToStructure(Script::CStruct* save);
+    void DecodeFromStruct(Scripts::CStruct* save);
+    void WriteToStructure(Scripts::CStruct* save);
 
     // The goal / flag words of every level, in one run (level * 8 + word).
     uint32_t* GoalWords() { return &m_goals[0][0]; }
@@ -95,9 +95,9 @@ public:
     uint32_t m_flags[kLevels][8];        // +0x2A4
     uint32_t m_startGoals[8];            // +0x544
     uint32_t m_startFlags[8];            // +0x564
-    uint16_t m_cash[kLevels];            // +0x584
+    uint16_t m_funds[kLevels];            // +0x584
     uint16_t m_amount[kLevels];          // +0x5AE
-    uint16_t m_totalCash;                // +0x5D8
+    uint16_t m_lifetimeFunds;                // +0x5D8
     uint16_t m_totalAmount;              // +0x5DA
     uint8_t m_counter[18];               // +0x5DC
     uint8_t m_totalCounter;              // +0x5EE
@@ -106,19 +106,19 @@ public:
     int m_level;                         // +0x630
     int m_value634;                      // +0x634
     int m_maxValue634;                   // +0x638
-    Game::CGapChecklist* m_gaps[kLevels]; // +0x63C
+    GoalSystem::CGapTally* m_gaps[kLevels]; // +0x63C
     bool m_visited[kLevels];             // +0x690
     uint8_t pad6A5[3];
-    Script::CStruct* m_info;             // +0x6A8
+    Scripts::CStruct* m_info;             // +0x6A8
 };
-static_assert(offsetof(CSkaterCareer, m_flags) == 0x2A4 && offsetof(CSkaterCareer, m_startGoals) == 0x544 &&
-                  offsetof(CSkaterCareer, m_cash) == 0x584 && offsetof(CSkaterCareer, m_totalCash) == 0x5D8 &&
-                  offsetof(CSkaterCareer, m_counter) == 0x5DC && offsetof(CSkaterCareer, m_globalFlags) == 0x5F0 &&
-                  offsetof(CSkaterCareer, m_level) == 0x630 && offsetof(CSkaterCareer, m_gaps) == 0x63C &&
-                  offsetof(CSkaterCareer, m_visited) == 0x690 && offsetof(CSkaterCareer, m_info) == 0x6A8,
+static_assert(offsetof(CRiderStoryProgress, m_flags) == 0x2A4 && offsetof(CRiderStoryProgress, m_startGoals) == 0x544 &&
+                  offsetof(CRiderStoryProgress, m_funds) == 0x584 && offsetof(CRiderStoryProgress, m_lifetimeFunds) == 0x5D8 &&
+                  offsetof(CRiderStoryProgress, m_counter) == 0x5DC && offsetof(CRiderStoryProgress, m_globalFlags) == 0x5F0 &&
+                  offsetof(CRiderStoryProgress, m_level) == 0x630 && offsetof(CRiderStoryProgress, m_gaps) == 0x63C &&
+                  offsetof(CRiderStoryProgress, m_visited) == 0x690 && offsetof(CRiderStoryProgress, m_info) == 0x6A8,
               "layout must match the original");
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
-bool __cdecl CFunc_GetCareerSaveInfo(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_GetCareerSaveInfo(Scripts::CStruct* params, Scripts::CScript* script);
 
 } // namespace Obj

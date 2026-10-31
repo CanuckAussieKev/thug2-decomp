@@ -32,7 +32,7 @@
 #include "game/sys/winmain.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 // (device.h declares this too; not included here, its SetRenderState is another one than the one below)
 extern IDirect3DDevice9* g_d3dDevice;
@@ -128,7 +128,7 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
 {
     if (!texture)
         return;
-    SetBlendMode(0);
+    ChooseBlendMode(0);
     SetState(kAddressMode0, 0x10001); // (clamp)
     SetVertexFormat(0x144);
     Method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(Device(), 22, 1); // D3DRS_CULLMODE: none
@@ -173,18 +173,18 @@ namespace {
 // The Bink SDK (binkw32.dll), through the game's import table.
 int BinkSetSoundSystem(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
 void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the above
-Bink* BinkOpen(const char* path, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(path, flags); }
-void BinkSetSoundOnOff(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink, on); }
-void BinkSetVolume(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
+Bink* VideoOpen(const char* path, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(path, flags); }
+void VideoToggleSound(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink, on); }
+void VideoSetLoudness(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, SoundFx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
 void BinkPause(Bink* bink, int pause) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkPause@8"))(bink, pause); }
-int BinkWait(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
-void BinkDoFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
-void BinkCopyToBuffer(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
+int VideoWaitReady(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
+void VideoDecodeFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
+void VideoCopyFrame(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
 {
     reinterpret_cast<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkCopyToBuffer@28"))(bink, bits, pitch, height, x, y, flags);
 }
-void BinkNextFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
-void BinkClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
+void VideoAdvanceFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
+void VideoClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
 
 Bink*& CurrentMovie() { return g_currentMovie; }
 bool& MoviePlaying() { return g_moviePlaying; }
@@ -269,7 +269,7 @@ void __cdecl DrawMovie(Bink* bink, void* texture)
     DrawMovieFrame(texture, 0.0f, 0.0f, g_movieDrawWidth, g_movieDrawHeight, 1.0f);
     Method<long(__stdcall*)(void*)>(0xA8 / 4)(Device()); // EndScene
     Method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(Device(), nullptr, nullptr, nullptr, nullptr); // Present
-    BinkNextFrame(bink);
+    VideoAdvanceFrame(bink);
 }
 
 // 0x0044F840
@@ -300,12 +300,12 @@ __declspec(naked) void ButtonPressedAgainStub()
 namespace {
 // The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a method
 // of the manager; it reads a global), and the music's. 0-100.
-void CreateSoundManager() { Sfx::CreateManager(false); }
-void ReleaseSoundManager() { Sfx::ReleaseManager(); }
-float SoundVolume() { return Sfx::GetMainVolume(); }
-float MusicVolume() { return Pcm::GetMusicVolume(); }
-void SetFogEnabled(bool on) { Nx::Engine::EnableFog(on); }
-bool AppActive() { return Sys::g_appActive; }
+void CreateSoundManager() { SoundFx::CreateManager(false); }
+void ReleaseSoundManager() { SoundFx::ReleaseManager(); }
+float SoundVolume() { return SoundFx::FetchMasterLoudness(); }
+float MusicVolume() { return AudioStream::GetMusicVolume(); }
+void SetFogEnabled(bool on) { Engine3D::Engine::EnableFog(on); }
+bool AppActive() { return SystemCore::g_appActive; }
 bool QuitRequested() { return g_quitRequested; }
 bool DeviceLost() { return g_deviceLost; }
 
@@ -315,8 +315,8 @@ enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 
 // 0x0044FDC0
 void __cdecl PlayMovieFile(const char* name)
 {
-    if (!BinkSetSoundSystem(BinkOpenDirectSound(), Pcm::g_soundDevice))
-        Dbg::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+    if (!BinkSetSoundSystem(BinkOpenDirectSound(), AudioStream::g_soundDevice))
+        DebugOut::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
     CreateSoundManager();
     float music = MusicVolume();
     float effects = SoundVolume();
@@ -337,9 +337,9 @@ void __cdecl PlayMovieFile(const char* name)
     std::strncpy(path + 16, name + start, length - start);
     std::memcpy(path + std::strlen(path), ".bik", 5);
 
-    Pcm::StopMusic();
-    Pcm::StopStreams(-1); // (all of them)
-    CurrentMovie() = BinkOpen(path, 0);
+    AudioStream::StopMusic();
+    AudioStream::HaltStreams(-1); // (all of them)
+    CurrentMovie() = VideoOpen(path, 0);
     if (!CurrentMovie()) {
         ReleaseSoundManager();
         return;
@@ -354,8 +354,8 @@ void __cdecl PlayMovieFile(const char* name)
     if (texture) {
         Sio::Manager* input = Sio::CreateManager(false);
         uint16_t seenUp[4] = {};
-        BinkSetSoundOnOff(CurrentMovie(), 1);
-        BinkSetVolume(CurrentMovie(), 0,
+        VideoToggleSound(CurrentMovie(), 1);
+        VideoSetLoudness(CurrentMovie(), 0,
                       static_cast<int>(static_cast<double>(volume) * g_onePercent // 0.01
                                        * g_float16384));                         // 16384
         int frames = 0;
@@ -375,7 +375,7 @@ void __cdecl PlayMovieFile(const char* name)
             if (QuitRequested())
                 break;
             if (DeviceLost()) {
-                Mlp::Manager::ResetDeviceIfLost(); // (through the jump at 0x0044F250)
+                FrameLoop::Manager::ResetDeviceIfLost(); // (through the jump at 0x0044F250)
                 if (DeviceLost()) {
                     // Not original - the original (0x00450053-0x00450066) tries again at once, without handling the
                     // window's messages: with the device lost (another full-screen program on the display) it
@@ -387,14 +387,14 @@ void __cdecl PlayMovieFile(const char* name)
                 }
                 BinkPause(CurrentMovie(), 0);
             }
-            if (BinkWait(CurrentMovie()))
+            if (VideoWaitReady(CurrentMovie()))
                 continue;
             Bink* bink = CurrentMovie();
-            BinkDoFrame(bink);
+            VideoDecodeFrame(bink);
             LockedRect locked;
             if (TextureMethod<long(__stdcall*)(void*, uint32_t, LockedRect*, const void*, uint32_t)>(texture, 0x4C / 4)(
                     texture, 0, &locked, nullptr, 0) >= 0) {
-                BinkCopyToBuffer(bink, locked.bits, locked.pitch, bink->height, 0, 0,
+                VideoCopyFrame(bink, locked.bits, locked.pitch, bink->height, 0, 0,
                                  g_movieSurfaceType | 0x80000000); // the surface type, copy all
                 TextureMethod<long(__stdcall*)(void*, uint32_t)>(texture, 0x50 / 4)(texture, 0);
             }
@@ -406,10 +406,10 @@ void __cdecl PlayMovieFile(const char* name)
                 Platform::ProcessWindowEvents();
             // PartyMod NOPs the original's "if (frames % 5 != 0) continue;" (0x00450121): the pads are read
             // every frame, so skipping reacts at once.
-            input->ProcessDevices();
+            input->PollPads();
             bool skip = false;
             for (int port = 0; port < 4 && !skip; ++port) {
-                Sio::Device* device = input->GetDeviceByIndex(port);
+                Sio::Device* device = input->GetPadAtSlot(port);
                 if (!device)
                     continue;
                 const uint8_t* data = device->m_controlData;
@@ -428,7 +428,7 @@ void __cdecl PlayMovieFile(const char* name)
     MoviePlaying() = false;
     SetFogEnabled(fog);
     EndMovie(texture);
-    BinkClose(CurrentMovie());
+    VideoClose(CurrentMovie());
     CurrentMovie() = nullptr;
     SetTextureStageState(0, 4, 4); // alpha: modulate
     ReleaseSoundManager();
@@ -455,21 +455,21 @@ bool IsIntroMovie(const char* name)
 // (tools/anteara), while the same movie from GAME MOVIES still plays.
 bool FromStartUpScript(void* script)
 {
-    static const uint32_t startUp = Crc::GenerateCRCFromString("startup_loading_screen");
-    return script && static_cast<Script::CScript*>(script)->m_scriptName == startUp;
+    static const uint32_t startUp = Checksums::HashFromText("startup_loading_screen");
+    return script && static_cast<Scripts::CScript*>(script)->m_scriptTitle == startUp;
 }
 } // namespace
 
 bool& SkipIntroMovies()
 {
     // (not original either: -edit implies it - straight into the level editor)
-    static bool skip = ConfigInt("features", "skip_intro_movies", 0) != 0 || Front::StartLevel::EditRequested();
+    static bool skip = ConfigInt("features", "skip_intro_movies", 0) != 0 || MenuSystem::BeginLevel::EditRequested();
     return skip;
 }
 
 // 0x0059F0C0: the PlayMovie script command: play the movie named by the unnamed string (through the jump at
 // 0x0044F830).
-bool __cdecl PlayMovie(Script::CStruct* params, void* script)
+bool __cdecl PlayMovie(Scripts::CStruct* params, void* script)
 {
     const char* name = nullptr;
     if (!params->GetString(0u, &name, 1))

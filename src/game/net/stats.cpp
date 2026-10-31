@@ -27,7 +27,7 @@
 #include "game/net/buddy_man.h"
 #include "game/net/stats_man.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
@@ -58,13 +58,13 @@ const char* StatsFile(int index)
 } // namespace
 
 // 0x0054DCB0
-bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
+bool __cdecl RetrieveTopStats(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint8_t* manager = reinterpret_cast<uint8_t*>(GameNet::g_gameNetManager);
+    uint8_t* manager = reinterpret_cast<uint8_t*>(OnlinePlay::g_gameNetManager);
     uint8_t* stats = *reinterpret_cast<uint8_t**>(manager + 0x1C);
     int& current = *reinterpret_cast<int*>(stats + 0x90);
     int index = 0;
-    if (params->GetInteger(0x7360C9EF, &index, 0))
+    if (params->FetchIntValue(0x7360C9EF, &index, 0))
         current = index;
     else
         ++current;
@@ -77,11 +77,11 @@ bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
     request.unknown108 = 0x1C049404;
     request.unknown110 = 0x74E0CD35;
     request.timeout = 0x25800;
-    request.callback = reinterpret_cast<uint32_t>(CodeAddress(GameNet::StatsMan::OnTopStats));
+    request.callback = reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::RankingsManager::OnTopStats));
     request.unknown10C = current == 4 ? 0x7346E8E7 : 0xD932B07B;
     // (the vault, +0x14; the request is its DownloadRequest - the same 0x118 bytes)
-    static_cast<GameNet::VaultMan*>(*reinterpret_cast<void**>(manager + 0x14))
-        ->Download(reinterpret_cast<const GameNet::DownloadRequest*>(&request));
+    static_cast<OnlinePlay::VaultMan*>(*reinterpret_cast<void**>(manager + 0x14))
+        ->Download(reinterpret_cast<const OnlinePlay::DownloadRequest*>(&request));
     stats[0x1FC] = 0;
     return true;
 }

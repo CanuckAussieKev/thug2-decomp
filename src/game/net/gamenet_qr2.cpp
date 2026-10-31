@@ -2,7 +2,7 @@
 // address): its set-up and the callbacks that answer the master server's queries (0x0053B9C0-0x0053BEC5). See
 // gamenet_qr2.h.
 //
-// NOT ORIGINAL: the game name reported is the online identity's (Net::GameName(), [Miscellaneous] OnlineGameName -
+// NOT ORIGINAL: the game name reported is the online identity's (NetLink::GameName(), [Miscellaneous] OnlineGameName -
 // online_identity.h); the original pushes "thps6pc" here and online_identity.cpp wrote the configured name over those
 // pushes (0x0053BE86, 0x0053BA1F), which this source replaces. The secret key is still read from where the identity
 // writes it (0x0067F120, stored bitwise-NOT).
@@ -38,7 +38,7 @@
 
 #pragma warning(disable : 4996) // (strcpy: the original's copy of the level's name)
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -75,7 +75,7 @@ void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, t
 void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
 
 Manager* NetManager() { return g_gameNetManager; }
-Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Prefs::Preferences*>(m->m_networkPreferences); }
+OptionStore::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
 
 char g_fallbackMapName[128]{"Boston"};
 
@@ -98,7 +98,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
         return;
     }
     case kKeyGamename:
-        BufferAdd(buffer, Net::GameName()); // (the original: "thps6pc")
+        BufferAdd(buffer, NetLink::GameName()); // (the original: "thps6pc")
         return;
     case kKeyGamever:
         BufferAdd(buffer, "1.00");
@@ -107,7 +107,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
         BufferAddInt(buffer, kHostPort);
         return;
     case kKeyMapname: {
-        const char* name = manager->GetLevelName(true);
+        const char* name = manager->GetMapName(true);
         BufferAdd(buffer, name ? name : FallbackMapName());
         return;
     }
@@ -121,7 +121,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
         BufferAddInt(buffer, manager->GetNumTeams());
         return;
     case kKeyMaxplayers:
-        BufferAddInt(buffer, manager->GetMaxPlayers());
+        BufferAddInt(buffer, manager->GetPlayerLimit());
         return;
     case kKeyGamemode:
         if (g_gameReported)
@@ -167,7 +167,7 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
         BufferAdd(buffer, PlayerName(player));
         return;
     case kKeyPing: {
-        Net::Conn* conn = Field<Net::Conn*>(player, 0x18);
+        NetLink::Conn* conn = Field<NetLink::Conn*>(player, 0x18);
         BufferAddInt(buffer, conn->IsLocal() ? 0 : conn->m_latencyTest.m_averageLatency);
         return;
     }
@@ -201,12 +201,12 @@ void __cdecl StartQueryReporting(bool keepMapName)
     bool& reporting = g_queryReporting;
     if (reporting)
         return;
-    const char* key = Net::GameKey(); // (given to the SDK: nothing written into data)
-    int error = GameSpy::Qr2Init(nullptr, nullptr, kQueryPort, Net::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
-                        CodeAddress(GameNet::PlayerTeamKeyCallback), CodeAddress(GameNet::KeyListCallback), &CountCallback,
-                        CodeAddress(GameNet::AddErrorCallback), nullptr);
+    const char* key = NetLink::GameKey(); // (given to the SDK: nothing written into data)
+    int error = GameSpy::Qr2Init(nullptr, nullptr, kQueryPort, NetLink::GameName(), key, 1, 0, &ServerKeyCallback, &PlayerKeyCallback,
+                        CodeAddress(OnlinePlay::PlayerTeamKeyCallback), CodeAddress(OnlinePlay::KeyListCallback), &CountCallback,
+                        CodeAddress(OnlinePlay::AddErrorCallback), nullptr);
     if (error == 0)
         reporting = true;
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

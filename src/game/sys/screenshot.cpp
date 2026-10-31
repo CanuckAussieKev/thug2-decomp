@@ -47,7 +47,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Sys::Screenshot {
+namespace SystemCore::Screenshot {
 
 namespace {
 
@@ -87,18 +87,18 @@ float g_messageY = 40.0f; // (ShowNotice's lower, clear of the score: 100)
 
 // --- the game's state ---
 
-uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
+uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
 bool LoadingScreenUp()
 {
-    return Nx::g_loadingScreenShown != 0 || Nx::g_loadingBarTimer != 0 ||
-           static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0;
+    return Engine3D::g_loadingScreenShown != 0 || Engine3D::g_loadingBarTimer != 0 ||
+           static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0;
 }
-Mdl::FrontEnd* TheFrontEnd() { return Mdl::g_frontEndInstance; }
+GameModules::FrontEnd* TheFrontEnd() { return GameModules::g_frontEndInstance; }
 std::string NameOf(uint32_t checksum)
 {
-    if (const char* name = Script::FindChecksumName(checksum))
+    if (const char* name = Scripts::LookUpHashName(checksum))
         return name;
     char text[16];
     std::snprintf(text, sizeof(text), "0x%08X", checksum);
@@ -106,13 +106,13 @@ std::string NameOf(uint32_t checksum)
 }
 std::string GameModeName()
 {
-    void* mode = reinterpret_cast<void*>(Game::g_gameMode);
-    return mode ? NameOf(static_cast<Game::CGameMode*>(mode)->GetNameChecksum()) : "";
+    void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
+    return mode ? NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).
-Obj::CCompositeObject* LocalSkater()
+GameObjects::CGameEntity* LocalSkater()
 {
-    return SkateModule() ? reinterpret_cast<Mdl::Skate*>(SkateModule())->GetLocalSkater() : nullptr;
+    return SkateModule() ? reinterpret_cast<GameModules::Skate*>(SkateModule())->GetHomeRider() : nullptr;
 }
 
 std::string Vec(const float v[3], const char* format = "(%.1f, %.1f, %.1f)")
@@ -152,7 +152,7 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
     std::snprintf(text, sizeof(text), "%d x %d (%s)", frame.width, frame.height, FormatName(frame.format));
     shot.fields.push_back({"image", text});
     int w = 0, h = 0;
-    if (SDL_Window* window = Sys::SdlWindow())
+    if (SDL_Window* window = SystemCore::SdlWindow())
         SDL_GetWindowSize(window, &w, &h);
     if (w > 0 && h > 0) {
         std::snprintf(text, sizeof(text), "%d x %d", w, h);
@@ -179,27 +179,27 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
     sections.push_back(build);
 
     Section game{"game", {}};
-    uint32_t load = LevelLoad();
+    uint32_t load = CurrentLoadState();
     bool inLevel = load && load != kLoadMainMenu;
     bool loading = LoadingScreenUp();
     game.fields.push_back({"where", !load ? "starting up" : inLevel ? "level" : "front end"});
     game.fields.push_back({"level load script", load ? NameOf(load) : ""});
-    uint32_t scene = Front::LevelEditor::Scenery::SceneName(Front::LevelEditor::Scenery::MainScene());
+    uint32_t scene = MenuSystem::LevelEditor::Scenery::SceneName(MenuSystem::LevelEditor::Scenery::MainScene());
     game.fields.push_back({"scene", scene ? NameOf(scene) : ""});
     game.fields.push_back({"game mode", GameModeName()});
-    Mdl::FrontEnd* frontEnd = TheFrontEnd();
-    game.fields.push_back({"paused", frontEnd ? (frontEnd->m_paused ? "yes" : "no") : ""});
+    GameModules::FrontEnd* frontEnd = TheFrontEnd();
+    game.fields.push_back({"paused", frontEnd ? (frontEnd->m_isHalted ? "yes" : "no") : ""});
     game.fields.push_back({"loading screen", loading ? "yes" : "no"});
-    game.fields.push_back({"level editor", Front::LevelEditor::Active() ? "open" : "closed"});
-    game.fields.push_back({"frames run", std::to_string(Mlp::FramesRun())});
+    game.fields.push_back({"level editor", MenuSystem::LevelEditor::Active() ? "open" : "closed"});
+    game.fields.push_back({"frames run", std::to_string(FrameLoop::FramesRun())});
     sections.push_back(game);
 
     Section skater{"skater", {}};
     if (inLevel && !loading) {
-        if (Obj::CCompositeObject* s = LocalSkater()) {
+        if (GameObjects::CGameEntity* s = LocalSkater()) {
             float pos[3] = {s->m_pos.x, s->m_pos.y, s->m_pos.z};
             skater.fields.push_back({"position", Vec(pos)});
-            const Mth::Vector& at = s->m_matrix.row[2];
+            const Maths::Vector& at = s->m_basisFrame.row[2];
             double heading = std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             std::snprintf(text, sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
             skater.fields.push_back({"heading", text});
@@ -208,15 +208,15 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
     sections.push_back(skater);
 
     Section camera{"camera", {}};
-    if (g_view.noted && Mlp::FramesRun() - g_view.frame < 10) {
+    if (g_view.noted && FrameLoop::FramesRun() - g_view.frame < 10) {
         camera.fields.push_back({"position", Vec(g_view.pos)});
         camera.fields.push_back({"looking along", Vec(g_view.forward, "(%.3f, %.3f, %.3f)")});
     }
     sections.push_back(camera);
 
-    if (Front::LevelEditor::Active()) {
+    if (MenuSystem::LevelEditor::Active()) {
         Section editor{"level editor", {}};
-        for (auto& [key, value] : Front::LevelEditor::DescribeForScreenshot())
+        for (auto& [key, value] : MenuSystem::LevelEditor::DescribeForScreenshot())
             editor.fields.push_back({key, value});
         sections.push_back(editor);
     }
@@ -227,23 +227,23 @@ std::vector<Section> GatherSections(const Frame& frame, const std::string& png, 
 
 void ShowMessage(const std::string& text)
 {
-    if (Front::LevelEditor::Active()) {
-        Front::LevelEditor::Hud::Message(text, kMessageMs / 1000.0);
+    if (MenuSystem::LevelEditor::Active()) {
+        MenuSystem::LevelEditor::Hud::Message(text, kMessageMs / 1000.0);
         return;
     }
     // A panel message (as the restart tester's), once the game's scripts are up.
-    static const uint32_t kScript = Crc::GenerateCRCFromString("create_panel_message");
-    if (!LevelLoad() || !Script::ScriptExists(kScript))
+    static const uint32_t kScript = Checksums::HashFromText("create_panel_message");
+    if (!CurrentLoadState() || !Scripts::ScriptExists(kScript))
         return;
-    auto crc = [](const char* name) { return Crc::GenerateCRCFromString(name); };
-    Script::CStruct* params = Script::NewStruct()->Init();
+    auto crc = [](const char* name) { return Checksums::HashFromText(name); };
+    Scripts::CStruct* params = Scripts::NewStruct()->Init();
     params->AddString(crc("text"), text.c_str());
-    params->AddChecksum(crc("id"), crc("thug2_decomp_screenshot_message"));
-    params->AddPair(crc("pos"), 320.0f, g_messageY);
-    params->AddInteger(crc("time"), static_cast<int>(kMessageMs));
-    Script::SpawnScript(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    params->PutNameKey(crc("id"), crc("thug2_decomp_screenshot_message"));
+    params->InsertPair(crc("pos"), 320.0f, g_messageY);
+    params->PutInt(crc("time"), static_cast<int>(kMessageMs));
+    Scripts::SpawnScript(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
-    Script::DeleteStruct(params);
+    Scripts::DeleteStruct(params);
 }
 
 void TickMessage()
@@ -306,7 +306,7 @@ void Write(std::shared_ptr<Job> job)
 std::string FolderPath()
 {
     char setting[MAX_PATH] = "";
-    Config::GetString("features", "screenshot_dir", "", setting, sizeof(setting));
+    BuildInfo::GetString("features", "screenshot_dir", "", setting, sizeof(setting));
     std::string folder = setting;
     while (!folder.empty() && (folder.back() == ' ' || folder.back() == '\t'))
         folder.pop_back();
@@ -341,7 +341,7 @@ void Take()
 {
     Frame frame;
     std::string error;
-    if (!Gfx::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
+    if (!Gfx2D::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
         Log("screenshot: not taken - %s", error.c_str());
         g_message = "Screenshot failed: " + error;
         g_messageSince = SDL_GetTicks();
@@ -371,7 +371,7 @@ void Take()
     // The mouse, in the image's pixels (the window may be scaled to the back buffer): marked on the picture and noted.
     std::string mouse;
     int mx = 0, my = 0, w = 0, h = 0;
-    SDL_Window* window = Sys::SdlWindow();
+    SDL_Window* window = SystemCore::SdlWindow();
     if (window && (SDL_GetMouseFocus() == window)) {
         SDL_GetMouseState(&mx, &my);
         SDL_GetWindowSize(window, &w, &h);
@@ -452,7 +452,7 @@ void TakeSeriesFrame()
     std::shared_ptr<Series> series = g_series;
     Frame frame;
     std::string error;
-    if (!Gfx::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
+    if (!Gfx2D::ScreenshotCapture::CaptureBackBuffer(&frame, &error)) {
         std::lock_guard<std::mutex> lock(series->mutex);
         if (series->error.empty())
             series->error = "frame " + std::to_string(series->taken + 1) + " not taken - " + error;
@@ -477,8 +477,8 @@ void TakeSeriesFrame()
     ++series->inFlight;
     int number = ++series->taken;
     char line[96];
-    std::snprintf(line, sizeof(line), "%5d  %10u  %10llu  %10u\n", number, Mlp::FramesRun(),
-                  static_cast<unsigned long long>(Tmr::GetVblanks()), Tmr::GetTime());
+    std::snprintf(line, sizeof(line), "%5d  %10u  %10llu  %10u\n", number, FrameLoop::FramesRun(),
+                  static_cast<unsigned long long>(FrameClock::FetchRetraceCount()), FrameClock::GetTime());
     series->times += line;
     std::thread(WriteSeriesFrame, series, std::move(frame), number).detach();
 }
@@ -542,7 +542,7 @@ void Init()
     }
     bool snipping = SnippingTakesPrintScreen();
     char setting[64] = "";
-    Config::GetString(Config::kKeybinds, "Screenshot", "", setting, sizeof(setting));
+    BuildInfo::GetString(BuildInfo::kKeybinds, "Screenshot", "", setting, sizeof(setting));
     int fallback = DefaultKey(snipping);
     auto byName = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
     g_key = ParseKey(setting, fallback, byName);
@@ -649,7 +649,7 @@ std::string SeriesResult() { return g_seriesResult; }
 
 bool LastView(float position[3], float forward[3])
 {
-    if (!g_view.noted || Mlp::FramesRun() - g_view.frame >= 10)
+    if (!g_view.noted || FrameLoop::FramesRun() - g_view.frame >= 10)
         return false;
     for (int i = 0; i < 3; ++i) {
         position[i] = g_view.pos[i];
@@ -666,8 +666,8 @@ void NoteView(int viewport, const float position[3], const float forward[3])
         g_view.pos[i] = position[i];
         g_view.forward[i] = forward[i];
     }
-    g_view.frame = Mlp::FramesRun();
+    g_view.frame = FrameLoop::FramesRun();
     g_view.noted = true;
 }
 
-} // namespace Sys::Screenshot
+} // namespace SystemCore::Screenshot

@@ -1,13 +1,13 @@
-// Intrusive list heads (Lst::Head<T>). See head.h.
+// Intrusive list heads (ListKit::Head<T>). See head.h.
 
 #include "game/lst/head.h"
 
-namespace Lst {
+namespace ListKit {
 
 namespace {
 
 // `node` linked in before `next`.
-void InsertBefore(Mem::ListNode* next, Mem::ListNode* node)
+void InsertBefore(MemSys::ListNode* next, MemSys::ListNode* node)
 {
     node->prev = next->prev;
     node->next = next;
@@ -16,7 +16,7 @@ void InsertBefore(Mem::ListNode* next, Mem::ListNode* node)
 }
 
 // `node` linked in after `prev`.
-void InsertAfter(Mem::ListNode* prev, Mem::ListNode* node)
+void InsertAfter(MemSys::ListNode* prev, MemSys::ListNode* node)
 {
     node->prev = prev;
     node->next = prev->next;
@@ -27,10 +27,10 @@ void InsertAfter(Mem::ListNode* prev, Mem::ListNode* node)
 } // namespace
 
 // 0x0045A540
-void Head::AddNode(Mem::ListNode* node)
+void Head::AddNode(MemSys::ListNode* node)
 {
     int priority = node->priority;
-    for (Mem::ListNode* next = m_node.next;; next = next->next) {
+    for (MemSys::ListNode* next = m_listLink.next;; next = next->next) {
         if (next->data == reinterpret_cast<void*>(-1) || !next)
             break;
         if (next->priority <= priority) {
@@ -38,14 +38,14 @@ void Head::AddNode(Mem::ListNode* node)
             return;
         }
     }
-    InsertBefore(&m_node, node); // at the end
+    InsertBefore(&m_listLink, node); // at the end
 }
 
 // 0x0045AEB0
-bool Head::AddUniqueSequence(Mem::ListNode* node)
+bool Head::InsertByUniqueOrder(MemSys::ListNode* node)
 {
     int priority = node->priority;
-    for (Mem::ListNode* next = m_node.next;; next = next->next) {
+    for (MemSys::ListNode* next = m_listLink.next;; next = next->next) {
         if (next->data == reinterpret_cast<void*>(-1) || !next)
             break;
         if (next->priority == priority)
@@ -55,15 +55,15 @@ bool Head::AddUniqueSequence(Mem::ListNode* node)
             return true;
         }
     }
-    InsertBefore(&m_node, node); // at the end
+    InsertBefore(&m_listLink, node); // at the end
     return true;
 }
 
 // 0x00457350
-void Head::AddNodeFromTail(Mem::ListNode* node)
+void Head::AppendNode(MemSys::ListNode* node)
 {
     int priority = node->priority;
-    for (Mem::ListNode* prev = m_node.prev;; prev = prev->prev) {
+    for (MemSys::ListNode* prev = m_listLink.prev;; prev = prev->prev) {
         if (prev->data == reinterpret_cast<void*>(-1) || !prev)
             break;
         if (prev->priority >= priority) {
@@ -71,7 +71,7 @@ void Head::AddNodeFromTail(Mem::ListNode* node)
             return;
         }
     }
-    InsertAfter(&m_node, node); // at the front
+    InsertAfter(&m_listLink, node); // at the front
 }
 
 } // namespace Lst

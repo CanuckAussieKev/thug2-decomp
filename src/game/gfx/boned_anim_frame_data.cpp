@@ -18,7 +18,7 @@
 #include "game/mth/vector.h"
 #include "game/obj/walk_hang.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 // The shared key tables (256 entries of four shorts), loaded from files at start-up.
 int16_t g_quatTable[1024];
@@ -55,24 +55,24 @@ float QuatW(float x, float y, float z, uint16_t time, bool nanToZero)
 }
 
 // The frame cache (0x006F92B0) and its members (not rewritten here).
-void* FrameCache() { return CAnimCache::Get(); }
-void CacheRemove(void* cache, CBonedAnimFrameData* data)
+void* FrameCache() { return CClipStore::Get(); }
+void CacheRemove(void* cache, CJointClipFrames* data)
 {
-    static_cast<CAnimCache*>(cache)->Remove(reinterpret_cast<uint32_t>(data));
+    static_cast<CClipStore*>(cache)->Remove(reinterpret_cast<uint32_t>(data));
 }
-int CacheAcquire(void* cache, CBonedAnimFrameData* data)
+int CacheAcquire(void* cache, CJointClipFrames* data)
 {
-    return static_cast<CAnimCache*>(cache)->AddUser(reinterpret_cast<uint32_t>(data));
+    return static_cast<CClipStore*>(cache)->AddUser(reinterpret_cast<uint32_t>(data));
 }
-void CacheRelease(void* cache, CBonedAnimFrameData* data, int index)
+void CacheRelease(void* cache, CJointClipFrames* data, int index)
 {
-    static_cast<CAnimCache*>(cache)->RemoveUser(reinterpret_cast<uint32_t>(data), index);
+    static_cast<CClipStore*>(cache)->RemoveUser(reinterpret_cast<uint32_t>(data), index);
 }
 // The events' arming and firing.
-void ArmEvent(CAnimEvent* e, bool armed) { reinterpret_cast<CCustomAnimKey*>(e)->SetActive(armed); }
+void ArmEvent(CAnimEvent* e, bool armed) { reinterpret_cast<CUserClipKey*>(e)->SetActive(armed); }
 bool FireEvent(CAnimEvent* e, void* target)
 {
-    return reinterpret_cast<CCustomAnimKey*>(e)->ProcessIfActive(target);
+    return reinterpret_cast<CUserClipKey*>(e)->ProcessIfActive(target);
 }
 
 template <typename R, typename... A>
@@ -97,7 +97,7 @@ bool __cdecl ReadKeyTable(void* file, int16_t* table)
 {
     for (int i = 0; i < 256; ++i, table += 4) {
         for (int k = 0; k < 4; ++k) {
-            if (!File::Read(table + k, 2, 1, static_cast<File::Handle>(file)))
+            if (!FileLoad::Read(table + k, 2, 1, static_cast<FileLoad::Handle>(file)))
                 return false;
         }
     }
@@ -108,10 +108,10 @@ bool __cdecl ReadKeyTable(void* file, int16_t* table)
 bool __cdecl LoadQuatTable(const char* name)
 {
     bool loaded = false;
-    File::Handle file = File::Open(name, "rb");
+    FileLoad::Handle file = FileLoad::Open(name, "rb");
     if (file)
         loaded = ReadKeyTable(file, g_quatTable);
-    File::Close(file); // (even when it didn't open)
+    FileLoad::Close(file); // (even when it didn't open)
     return loaded;
 }
 
@@ -119,10 +119,10 @@ bool __cdecl LoadQuatTable(const char* name)
 bool __cdecl LoadTransTable(const char* name)
 {
     bool loaded = false;
-    File::Handle file = File::Open(name, "rb");
+    FileLoad::Handle file = FileLoad::Open(name, "rb");
     if (file)
         loaded = ReadKeyTable(file, g_transTable);
-    File::Close(file);
+    FileLoad::Close(file);
     return loaded;
 }
 
@@ -317,11 +317,11 @@ void __cdecl InterpolateTrans(float* out, const void* a, const void* b, float t,
         GetTrans(b, out, floats);
         return;
     }
-    Mth::Vector from, to, result;
+    Maths::Vector from, to, result;
     GetTrans(a, &from.x, floats);
     GetTrans(b, &to.x, floats);
-    const Mth::Vector* lerped = Walk::Lerp(&result, &from, &to, t);
-    std::memcpy(out, lerped, sizeof(Mth::Vector));
+    const Maths::Vector* lerped = Walk::Lerp(&result, &from, &to, t);
+    std::memcpy(out, lerped, sizeof(Maths::Vector));
 }
 
 // 0x00483E10
@@ -353,11 +353,11 @@ void __cdecl InterpolateShortTrans(float* out, const CShortKey* a, const CShortK
         GetShortTrans(b, out);
         return;
     }
-    Mth::Vector from, to, result;
+    Maths::Vector from, to, result;
     GetShortTrans(a, &from.x);
     GetShortTrans(b, &to.x);
-    const Mth::Vector* lerped = Walk::Lerp(&result, &from, &to, t);
-    std::memcpy(out, lerped, sizeof(Mth::Vector));
+    const Maths::Vector* lerped = Walk::Lerp(&result, &from, &to, t);
+    std::memcpy(out, lerped, sizeof(Maths::Vector));
 }
 
 float g_tinyLength{0.00001f};
@@ -419,7 +419,7 @@ void __cdecl InterpolateFloatTrans(float* out, const CFloatKey* a, const CFloatK
 // --- the frame data -----------------------------------------------------------------------------------------
 
 // 0x00482AF0
-CBonedAnimFrameData* CBonedAnimFrameData::Construct()
+CJointClipFrames* CJointClipFrames::Construct()
 {
     m_bits &= 0xFE00;
     m_unknown00 = 0;
@@ -428,7 +428,7 @@ CBonedAnimFrameData* CBonedAnimFrameData::Construct()
     mp_quatKeys = nullptr;
     mp_transKeys = nullptr;
     mp_keyCounts = nullptr;
-    mp_boneNames = nullptr;
+    m_boneLabels = nullptr;
     mp_quatSizes = nullptr;
     mp_transSizes = nullptr;
     m_eventCount = 0;
@@ -439,14 +439,14 @@ CBonedAnimFrameData* CBonedAnimFrameData::Construct()
 }
 
 // 0x00482B30
-void CBonedAnimFrameData::DestroyBody()
+void CJointClipFrames::DestroyBody()
 {
     for (int i = 0; i < m_eventCount; ++i) {
         if (CAnimEvent* event = mp_events[i])
             Virtual<void*>(event, 0, 1);
     }
     if (mp_events)
-        Mem::FreeMalloc(mp_events);
+        MemSys::FreeMalloc(mp_events);
     if (mp_cacheEntry) {
         if (void* cache = FrameCache())
             CacheRemove(cache, this);
@@ -454,21 +454,21 @@ void CBonedAnimFrameData::DestroyBody()
 }
 
 // 0x00482B90
-void __cdecl CBonedAnimFrameData::ForgetCacheEntry(CBonedAnimFrameData* data)
+void __cdecl CJointClipFrames::ForgetCacheEntry(CJointClipFrames* data)
 {
     if (data)
         data->mp_cacheEntry = nullptr;
 }
 
 // 0x00482BA0
-int CBonedAnimFrameData::AcquireCacheIndex()
+int CJointClipFrames::AcquireCacheIndex()
 {
     m_bits = ReferenceBits(m_bits, 1);
     return CacheAcquire(FrameCache(), this);
 }
 
 // 0x00482BD0
-void CBonedAnimFrameData::ReleaseCacheIndex(int index)
+void CJointClipFrames::ReleaseCacheIndex(int index)
 {
     // (the count as a signed byte)
     if (static_cast<int8_t>((m_bits >> 1) & 0xFF) <= 0)
@@ -478,10 +478,10 @@ void CBonedAnimFrameData::ReleaseCacheIndex(int index)
 }
 
 // 0x00482F00
-uint32_t CBonedAnimFrameData::GetBoneName(int index) { return mp_boneNames[index]; }
+uint32_t CJointClipFrames::GetBoneName(int index) { return m_boneLabels[index]; }
 
 // 0x00482F10
-bool CBonedAnimFrameData::ArmEvents()
+bool CJointClipFrames::ArmEvents()
 {
     int count = m_eventCount;
     for (int i = 0; i < count; ++i)
@@ -490,7 +490,7 @@ bool CBonedAnimFrameData::ArmEvents()
 }
 
 // 0x00482F40
-bool CBonedAnimFrameData::FireEvents(float from, float to, void* target, int flag)
+bool CJointClipFrames::FireEvents(float from, float to, void* target, int flag)
 {
     float fromFrame = static_cast<float>(static_cast<double>(from) * 60.0);
     float toFrame = static_cast<float>(static_cast<double>(to) * 60.0);
@@ -801,14 +801,14 @@ CAnimEvent* ReadEvent(uint8_t** at)
 } // namespace
 
 // The events after the keys, then their count (not when one fails).
-bool CBonedAnimFrameData::ReadEvents(const uint32_t* header, uint8_t* at)
+bool CJointClipFrames::ReadEvents(const uint32_t* header, uint8_t* at)
 {
     if (!header[3]) {
         mp_events = nullptr;
         m_eventCount = static_cast<int16_t>(header[3]);
         return true;
     }
-    mp_events = static_cast<CAnimEvent**>(Mem::Malloc(header[3] * 4));
+    mp_events = static_cast<CAnimEvent**>(MemSys::AllocBlock(header[3] * 4));
     for (uint32_t i = 0; i < header[3]; ++i) {
         CAnimEvent* event = ReadEvent(&at);
         if (!event)
@@ -820,7 +820,7 @@ bool CBonedAnimFrameData::ReadEvents(const uint32_t* header, uint8_t* at)
 }
 
 // 0x00484200
-bool CBonedAnimFrameData::SetUpCompressed(uint8_t* data)
+bool CJointClipFrames::SetUpCompressed(uint8_t* data)
 {
     const auto* header = reinterpret_cast<const uint32_t*>(data);
     m_boneCount = static_cast<int>(header[0]);
@@ -834,7 +834,7 @@ bool CBonedAnimFrameData::SetUpCompressed(uint8_t* data)
     mp_transSizes = reinterpret_cast<uint16_t*>(p);
     p = Aligned(p + m_boneCount * 2);
     uint32_t flags = m_flags;
-    mp_boneNames = nullptr;
+    m_boneLabels = nullptr;
     if (flags & 0x2000) {
         mp_keyTable = p;
         p += 0x600;
@@ -853,7 +853,7 @@ bool CBonedAnimFrameData::SetUpCompressed(uint8_t* data)
 }
 
 // 0x00484370
-bool CBonedAnimFrameData::SetUpFloatKeys(uint8_t* data)
+bool CJointClipFrames::SetUpFloatKeys(uint8_t* data)
 {
     const auto* header = reinterpret_cast<const uint32_t*>(data);
     m_boneCount = static_cast<int>(header[0]);
@@ -862,10 +862,10 @@ bool CBonedAnimFrameData::SetUpFloatKeys(uint8_t* data)
     m_transKeyCount = static_cast<int16_t>(header[2]);
     uint8_t* p = data + 0x10;
     if (flags & 0x1000000) {
-        mp_boneNames = reinterpret_cast<uint32_t*>(p);
+        m_boneLabels = reinterpret_cast<uint32_t*>(p);
         p += m_boneCount * 4;
     } else {
-        mp_boneNames = nullptr;
+        m_boneLabels = nullptr;
     }
     if (flags & 0x80000) {
         mp_partialBones = reinterpret_cast<uint32_t*>(p);
@@ -881,7 +881,7 @@ bool CBonedAnimFrameData::SetUpFloatKeys(uint8_t* data)
 }
 
 // 0x004844C0
-bool CBonedAnimFrameData::GetFloatKeyPose(float* rotations, float* translations, void*, float time, int)
+bool CJointClipFrames::GetFloatKeyPose(float* rotations, float* translations, void*, float time, int)
 {
     float quatFrame = static_cast<float>(static_cast<double>(time) * 60.0);
     float transFrame = quatFrame;
@@ -954,7 +954,7 @@ int16_t CacheDirection(uint8_t* entry, int cursor, int time)
 } // namespace
 
 // 0x00484760
-bool CBonedAnimFrameData::GetPose(float* rotations, float* translations, uint8_t* valid, float time, int cursor,
+bool CJointClipFrames::FetchPose(float* rotations, float* translations, uint8_t* valid, float time, int cursor,
                                   CFrameSource* source)
 {
     float quatFrame = static_cast<float>(static_cast<double>(time) * 60.0);
@@ -1049,20 +1049,20 @@ bool CBonedAnimFrameData::GetPose(float* rotations, float* translations, uint8_t
                         float from = static_cast<float>(TransKeyTime(first));
                         float to = static_cast<float>(TransKeyTime(second));
                         bool add = (m_flags & 0x4000) && (m_flags & 0x20000);
-                        Mth::Vector before = *reinterpret_cast<Mth::Vector*>(translations);
+                        Maths::Vector before = *reinterpret_cast<Maths::Vector*>(translations);
                         if (from == to) {
                             InterpolateFloatTrans(translations, reinterpret_cast<CFloatKey*>(first),
                                                   reinterpret_cast<CFloatKey*>(second), 0.0f);
                             if (add)
-                                *reinterpret_cast<Mth::Vector*>(translations) += before;
+                                *reinterpret_cast<Maths::Vector*>(translations) += before;
                         } else if (transFrame >= from) { // (before the first key: left as it was)
-                            transFrame = Mth::Clamp(transFrame, from, to);
+                            transFrame = Maths::Clamp(transFrame, from, to);
                             float t = static_cast<float>((static_cast<double>(transFrame) - from) /
                                                          (static_cast<double>(to) - from));
                             InterpolateFloatTrans(translations, reinterpret_cast<CFloatKey*>(first),
                                                   reinterpret_cast<CFloatKey*>(second), t);
                             if (add)
-                                *reinterpret_cast<Mth::Vector*>(translations) += before;
+                                *reinterpret_cast<Maths::Vector*>(translations) += before;
                         }
                         done = true;
                     }

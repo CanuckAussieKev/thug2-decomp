@@ -11,10 +11,10 @@ namespace {
 #include "JetBrainsMono_Regular.inc"
 } // namespace
 
-namespace Front::LevelEditor::UiFonts {
+namespace MenuSystem::LevelEditor::UiFonts {
 
 CompressedFont Inter() { return {Inter_Regular_compressed_data, Inter_Regular_compressed_size}; }
 CompressedFont InterSemiBold() { return {Inter_SemiBold_compressed_data, Inter_SemiBold_compressed_size}; }
 CompressedFont Mono() { return {JetBrainsMono_Regular_compressed_data, JetBrainsMono_Regular_compressed_size}; }
 
-} // namespace Front::LevelEditor::UiFonts
+} // namespace MenuSystem::LevelEditor::UiFonts

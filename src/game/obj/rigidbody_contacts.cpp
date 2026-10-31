@@ -12,7 +12,7 @@
 #include "game/nx/feeler.h"
 #include "game/obj/rigidbody_component.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -20,7 +20,7 @@ double Wide(float value) { return value; }
 float Narrow(double value) { return static_cast<float>(value); }
 
 // The rigid bodies' collision cache (0x006939E0), refilled for each body's box before it looks.
-Nx::CCollCache* BodyCache() { return reinterpret_cast<Nx::CCollCache*>(&g_rigidBodyCache); }
+Engine3D::CHitMeshCache* BodyCache() { return reinterpret_cast<Engine3D::CHitMeshCache*>(&g_rigidBodyCache); }
 
 } // namespace
 
@@ -31,10 +31,10 @@ Nx::CCollCache* BodyCache() { return reinterpret_cast<Nx::CCollCache*>(&g_rigidB
 // each sphere (last first) by a sphere query - each face it touches (last first) facing it and not behind its
 // centre is one: the hit point, the normal from the hit to the centre, the depth the distance less the radius, the
 // sphere's number as the friction. Whether any is touching.
-bool CRigidBodyComponent::FindContacts()
+bool CBodyDynamicsModule::FindContacts()
 {
     const float r = m_radius;
-    Mth::BBox box;
+    Maths::BBox box;
     box.min = {Narrow(Wide(m_pos.x) - r), Narrow(Wide(m_pos.y) - r), Narrow(Wide(m_pos.z) - r),
                Narrow(Wide(m_pos.w) - 1.0f)};
     box.max = {Narrow(Wide(r) + m_pos.x), Narrow(Wide(r) + m_pos.y), Narrow(Wide(r) + m_pos.z),
@@ -44,25 +44,25 @@ bool CRigidBodyComponent::FindContacts()
     m_unknown191 = 0;
 
     if (m_contactCount != 0) {
-        Nx::CFeeler feeler;
+        Engine3D::CProbeRay feeler;
         feeler.Construct();
-        feeler.mp_cache = BodyCache();
+        feeler.m_hitCache = BodyCache();
         for (int i = m_contactCount - 1; i >= 0; --i) {
-            const Mth::Vector& point = WorldContactPoints()[i];
+            const Maths::Vector& point = WorldContactPoints()[i];
             Contact& contact = Contacts()[m_contactsHit];
             feeler.m_line.start = m_pos;
             feeler.m_line.end = {Narrow(Wide(m_pos.x) + point.x), Narrow(Wide(m_pos.y) + point.y),
                                  Narrow(Wide(m_pos.z) + point.z), Narrow(Wide(m_pos.w) + point.w)};
-            contact.active = feeler.GetCollision(false, false) != 0;
+            contact.active = feeler.GetHitShape(false, false) != 0;
             if (!contact.active)
                 continue;
-            const Mth::Line& line = feeler.m_line;
+            const Maths::Line& line = feeler.m_line;
             double dz = Wide(line.end.z) - line.start.z;
             double dy = Wide(line.end.y) - line.start.y;
             float dx = Narrow(Wide(line.end.x) - line.start.x);
-            float rest = Narrow(1.0 - feeler.m_distance);
+            float rest = Narrow(1.0 - feeler.m_reach);
             contact.offset = point;
-            contact.normal = feeler.m_normal;
+            contact.normal = feeler.m_surfaceDir;
             contact.scaled = false;
             float az = Narrow(dz * rest);
             contact.impulse = 0.0f;
@@ -78,19 +78,19 @@ bool CRigidBodyComponent::FindContacts()
     }
 
     for (int j = m_sphereCount - 1; j >= 0; --j) {
-        const Mth::Vector& centre = WorldSphereCenters()[j];
+        const Maths::Vector& centre = WorldSphereCenters()[j];
         const Sphere& sphere = mp_spheres[j];
-        Mth::Vector at = {Narrow(Wide(centre.x) + m_pos.x), Narrow(Wide(centre.y) + m_pos.y),
+        Maths::Vector at = {Narrow(Wide(centre.x) + m_pos.x), Narrow(Wide(centre.y) + m_pos.y),
                           Narrow(Wide(m_pos.z) + centre.z), Narrow(Wide(centre.w) + m_pos.w)};
-        Nx::CSphereFeeler feeler;
+        Engine3D::CSphereFeeler feeler;
         feeler.Construct(&at, sphere.radius);
-        feeler.mp_cache = BodyCache();
+        feeler.m_hitCache = BodyCache();
         if (!feeler.Query(0))
             continue;
         for (int k = feeler.m_hits.count - 1; k >= 0; --k) {
-            const Nx::SphereHit& hit = feeler.m_hits.hits[k];
+            const Engine3D::SphereHit& hit = feeler.m_hits.hits[k];
             Contact& contact = Contacts()[m_contactsHit];
-            const Mth::Vector& c = feeler.m_sphere.centre;
+            const Maths::Vector& c = feeler.m_boundBall.centre;
             double ox = Wide(hit.point.x) - m_pos.x;
             double oy = Wide(hit.point.y) - m_pos.y;
             contact.offset.z = Narrow(Wide(hit.point.z) - m_pos.z);
@@ -103,7 +103,7 @@ bool CRigidBodyComponent::FindContacts()
             contact.normal.w = Narrow(Wide(hit.point.w) - c.w);
             contact.normal.x = Narrow(nx);
             contact.normal.y = Narrow(ny);
-            Mth::Vector& n = contact.normal;
+            Maths::Vector& n = contact.normal;
             float length = Narrow(std::sqrt((Wide(n.x) * n.x + Wide(n.y) * n.y) + Wide(n.z) * n.z));
             if (length == 0.0f) {
                 n = {0.0f, 1.0f, 0.0f, 1.0f};
@@ -115,7 +115,7 @@ bool CRigidBodyComponent::FindContacts()
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
             if ((Wide(hit.normal.z) * n.z + Wide(hit.normal.x) * n.x) + Wide(n.y) * hit.normal.y < 0.0)
                 continue;
-            const Mth::Vector& o = contact.offset;
+            const Maths::Vector& o = contact.offset;
             if ((Wide(n.z) * o.z + Wide(n.y) * o.y) + Wide(n.x) * o.x > 0.0)
                 continue;
             contact.scaled = false;

@@ -13,10 +13,10 @@
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 static_assert(offsetof(Camera, m_oldPos) == 0x4C && offsetof(Camera, m_pos) == 0x5C &&
-                  offsetof(Camera, m_matrix) == 0x6C && offsetof(Camera, m_hFov) == 0xAC &&
+                  offsetof(Camera, m_basisFrame) == 0x6C && offsetof(Camera, m_hFov) == 0xAC &&
                   offsetof(Camera, m_adjustedHFov) == 0xB0 && offsetof(Camera, m_unknownB4) == 0xB4 &&
                   offsetof(Camera, m_nearClip) == 0xB8 && offsetof(Camera, m_farClip) == 0xBC &&
                   offsetof(Camera, m_unknownC0) == 0xC0 && sizeof(Camera) == 0xC4,
@@ -48,18 +48,18 @@ int g_drawDistanceSetting;
 // 0x00485BA0
 Camera* Camera::Construct()
 {
-    Obj::CObject::Construct();
+    GameObjects::CObject::Construct();
     *reinterpret_cast<void***>(this) = kVtable;
     m_unknownC0 = 1.0f;
-    m_hFov = Nx::GetScreenAngle();
-    UpdateAdjustedHFOV();
-    m_matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    m_matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    m_matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_hFov = Engine3D::GetScreenAngle();
+    RefreshEffectiveHFov();
+    m_basisFrame.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
+    m_basisFrame.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    m_basisFrame.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
+    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     m_nearClip = 12.0f;
     m_farClip = 12000.0f;
-    if (Nx::g_distanceClipping) { // distance clipping (setting 0x007D6444)
+    if (Engine3D::g_distanceClipping) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         double distance = static_cast<double>(g_drawDistanceSetting);
         if (g_drawDistanceSetting < 0)
@@ -67,7 +67,7 @@ Camera* Camera::Construct()
         m_farClip = static_cast<float>(distance * 30.0);
     }
     // NOT ORIGINAL - [Graphics] draw_distance_scale (game/gfx/graphics_options.h).
-    m_farClip = Nx::GraphicsOptions::Scaled(m_farClip, Nx::GraphicsOptions::Get().drawDistanceScale);
+    m_farClip = Engine3D::GraphicsOptions::Scaled(m_farClip, Engine3D::GraphicsOptions::Get().drawDistanceScale);
     m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
     m_oldPos = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
@@ -77,7 +77,7 @@ Camera* Camera::Construct()
 void Camera::DestroyBody()
 {
     *reinterpret_cast<void***>(this) = kVtable;
-    Obj::CObject::DestroyBody();
+    GameObjects::CObject::DestroyBody();
 }
 
 // 0x00485A20 (vtable slot 0)
@@ -85,14 +85,14 @@ Camera* Camera::ScalarDelete(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x00485AA0 (x87 as the original, so results round the same): the angle as drawn is the 4:3 one widened by the
 // screen's angle factor (and divided by m_unknownC0); m_unknownB4 is tan(half that) over tan(half the cameras'
 // default angle).
-void Camera::UpdateAdjustedHFOV()
+void Camera::RefreshEffectiveHFov()
 {
     const float toHalfRadians = kDegreesToHalfRadians, toDegrees = kHalfRadiansToDegrees, half = kHalf,
                 toRadians = kDegreesToRadians;
@@ -103,7 +103,7 @@ void Camera::UpdateAdjustedHFOV()
         fmul toHalfRadians
         fstp halfAngle
     }
-    float factor = Nx::GetScreenAngleFactor();
+    float factor = Engine3D::GetScreenAngleFactor();
     float divisor = m_unknownC0;
     float adjusted, tanAdjusted;
     __asm {
@@ -123,7 +123,7 @@ void Camera::UpdateAdjustedHFOV()
         fstp tanAdjusted
     }
     m_adjustedHFov = adjusted;
-    float defaultAngle = Nx::GetScreenAngle();
+    float defaultAngle = Engine3D::GetScreenAngle();
     float ratio;
     __asm {
         fld defaultAngle
@@ -138,57 +138,57 @@ void Camera::UpdateAdjustedHFOV()
 }
 
 // 0x00485B40
-bool Camera::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script)
+bool Camera::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (name != kSetHFOVRadians)
-        return Obj::CObject::CallMemberFunction(name, params, script);
+        return GameObjects::CObject::InvokeMethodByName(name, params, script);
     // (the original reads the float into the stack slot of `params`: without one, the pointer's bits are the angle)
     float radians;
     std::memcpy(&radians, &params, 4);
     params->GetFloat(0u, &radians, 1);
     m_hFov = radians * kRadiansToDegrees;
-    UpdateAdjustedHFOV();
+    RefreshEffectiveHFov();
     return true;
 }
 
 // 0x00485A50
-void Camera::StoreOldPos()
+void Camera::RememberPrevPos()
 {
     std::memcpy(&m_oldPos, &m_pos, sizeof(m_pos)); // (copied as words)
 }
 
 // 0x00485A70
-void Camera::SetPos(const Mth::Vector& pos)
+void Camera::SetPos(const Maths::Vector& pos)
 {
     std::memcpy(&m_pos, &pos, sizeof(m_pos)); // (copied as words)
 }
 
 // 0x00485A90
-Mth::Matrix& Camera::SetMatrix(const Mth::Matrix& matrix)
+Maths::Matrix& Camera::SetMatrix(const Maths::Matrix& matrix)
 {
-    m_matrix = matrix;
-    return m_matrix;
+    m_basisFrame = matrix;
+    return m_basisFrame;
 }
 
 // 0x00485B10
-float Camera::GetAdjustedHFOV()
+float Camera::FetchEffectiveHFov()
 {
-    UpdateAdjustedHFOV();
+    RefreshEffectiveHFov();
     return m_adjustedHFov;
 }
 
 // 0x00485B20
-void Camera::SetHFOV(float degrees)
+void Camera::ChangeHFov(float degrees)
 {
     m_hFov = degrees;
-    UpdateAdjustedHFOV();
+    RefreshEffectiveHFov();
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Gfx::Camera::ScalarDelete, &Obj::CObject::SetProperties,
-                static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-                &Gfx::Camera::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-                &Obj::CObject::MarkAsDead, Stubs::ReturnTrue};
+static VtableSlot kVtable_slots[] = {&Gfx2D::Camera::ScalarDelete, &GameObjects::CObject::SetProperties,
+                static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+                &Gfx2D::Camera::InvokeMethodByName, Stubs::IgnoreArgument, &GameObjects::CObject::PassEventToScript,
+                &GameObjects::CObject::FlagAsDead, Stubs::ReturnTrue};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

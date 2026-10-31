@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace Gfx {
+namespace Gfx2D {
 class Camera;
 }
 
@@ -15,8 +15,8 @@ class Camera;
 // - Teleport: the local skater put at a point STANDING (walking, no momentum), on the ground below it (the game's
 //   collision ray from 12 units above the point to 4000 below; the point as given if nothing is hit), facing a
 //   heading (degrees, 0 = +z, 90 = +x - as the screenshot sidecar gives it) or the way it faced. The game's own way:
-//   the skater's custom restart (SetCustomRestart / SkipToCustomRestart walking: CSkater::SkipToCustomRestart -
-//   SkipToRestart walking puts it in the walk state, momentum gone, the camera reset behind it), with the skater's own
+//   the skater's custom restart (SetCustomRestart / SkipToCustomRestart walking: CRider::SkipToCustomRestart -
+//   JumpToSpawn walking puts it in the walk state, momentum gone, the camera reset behind it), with the skater's own
 //   custom restart put back afterwards. Nobody presses anything in a test, so it stands still.
 // - Camera lock: viewport 0's camera drawn at an exact pose (a position and a view direction, level horizon) every
 //   frame until unlocked - the game's camera keeps running underneath. Frames from the same pose are comparable
@@ -25,7 +25,7 @@ class Camera;
 //   z-fighting ones flip (tools/pipeline/game/frame_diff.ts).
 // - Script command (for level scripts and the console): TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>] -
 //   false when there's no local skater.
-namespace Front::TestView {
+namespace MenuSystem::TestView {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -43,15 +43,15 @@ void StandingRows(float headingDegrees, Vec3* right, Vec3* up, Vec3* at);
 // The local skater to `position` standing; `outPosition` where it ended (after the ground snap). "" or why not.
 // `onBoard`: on its board instead (the custom restart's skating form - still, no momentum; a test that skates on from
 // there: automation's `teleport ... board`).
-std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard = false);
+std::string JumpTo(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard = false);
 // Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (false: a direction
 // CameraRows refuses).
 bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});
 void UnlockCamera();
 bool CameraLocked();
 // The renderer, a viewport's camera before it's drawn (game/gfx/render.cpp): placed while locked.
-void PlaceCamera(Gfx::Camera* camera, int viewport);
+void PlaceCamera(Gfx2D::Camera* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).
 void RegisterScriptFunctions();
 
-} // namespace Front::TestView
+} // namespace MenuSystem::TestView

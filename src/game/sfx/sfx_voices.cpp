@@ -30,7 +30,7 @@
 #include "game/sys/timer.h"
 #include "game/gfx/device.h"
 
-namespace Sfx {
+namespace SoundFx {
 
 namespace {
 
@@ -42,11 +42,11 @@ constexpr uint32_t kDebugB = 0xD7BB618D;
 PlayingSound* Playing() { return g_playingSounds; }
 PositionalSound*& PositionalHead() { return g_positionalHead; }
 int& PositionalCount() { return g_positionalCount; }
-WaveTableEntry* PermanentWaves() { return g_permanentWaves; }
+SoundWaveSlot* PermanentWaves() { return g_permanentWaves; }
 int& PermanentCount() { return g_permanentCount; }
 float& DefaultDropoff() { return g_defaultDropoff; }
 bool QuietMisses() { return GameConfig::g_fromCD; }
-CSfxManager*& Instance() { return g_sfxManager; }
+CAudioMixer*& Instance() { return g_sfxManager; }
 
 float g_voiceVolume{100.0f};
 uint32_t g_sfxReferences;
@@ -62,7 +62,7 @@ bool g_has3D;
 int g_voiceCount;
 int g_lastVoice;
 
-uint32_t& References() { return g_sfxReferences; }
+uint32_t& RefTally() { return g_sfxReferences; }
 
 // The driver's state.
 Voice* Voices() { return g_voices; }
@@ -71,7 +71,7 @@ bool& Has3D() { return g_has3D; }
 int& VoiceCount() { return g_voiceCount; }
 int& LastVoice() { return g_lastVoice; }
 void*& Listener() { return g_listener; }
-void* Device() { return Pcm::g_soundDevice; }
+void* Device() { return AudioStream::g_soundDevice; }
 float VoiceVolume() { return g_voiceVolume; }
 
 // COM calls by vtable slot.
@@ -83,39 +83,39 @@ R Com(void* object, int offset, A... args)
 }
 
 // Cameras (not rewritten yet).
-void* NearestCamera(const Mth::Vector* position, float* distance)
+void* NearestCamera(const Maths::Vector* position, float* distance)
 {
-    return Nx::GetClosestCamera(position, distance);
+    return Engine3D::GetClosestCamera(position, distance);
 }
-void* ViewportCamera(int viewport) { return Nx::GetCamera(viewport); }
-const Mth::Vector* CameraPosition(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetPos(); }
-const Mth::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetMatrix(); }
+void* ViewportCamera(int viewport) { return Engine3D::ObtainActiveLens(viewport); }
+const Maths::Vector* ViewerLocation(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->GetPos(); }
+const Maths::Matrix* CameraMatrix(void* camera) { return static_cast<Gfx2D::Camera*>(camera)->GetMatrix(); }
 // The objects' sound parts: the "object" the sound manager is given is the object's sound component.
-Obj::CSoundComponent* SoundComponent(Obj::CObject* object) { return reinterpret_cast<Obj::CSoundComponent*>(object); }
-double Extent(void* extent, const Mth::Vector* from)
+GameObjects::CAudioEmitterModule* SoundComponent(GameObjects::CObject* object) { return reinterpret_cast<GameObjects::CAudioEmitterModule*>(object); }
+double Extent(void* extent, const Maths::Vector* from)
 {
-    return Mth::GetDistance(*static_cast<const Mth::Vector*>(extent), *from);
+    return Maths::GetDistance(*static_cast<const Maths::Vector*>(extent), *from);
 }
-bool ObjectSoundExtent(Obj::CObject* object, void* camera, void* out)
+bool ObjectSoundExtent(GameObjects::CObject* object, void* camera, void* out)
 {
-    return SoundComponent(object)->GetSoundExtent(camera, static_cast<Mth::Vector*>(out));
+    return SoundComponent(object)->GetSoundExtent(camera, static_cast<Maths::Vector*>(out));
 }
-Mth::Vector* ObjectSoundPosition(Obj::CObject* object, Mth::Vector* out, void* camera)
+Maths::Vector* ObjectSoundPosition(GameObjects::CObject* object, Maths::Vector* out, void* camera)
 {
     return SoundComponent(object)->GetSoundPosition(out, camera);
 }
-Mth::Vector* ObjectSoundPrevious(Obj::CObject* object, Mth::Vector* out, void* camera)
+Maths::Vector* ObjectSoundPrevious(GameObjects::CObject* object, Maths::Vector* out, void* camera)
 {
     return SoundComponent(object)->GetPreviousSoundPosition(out, camera);
 }
-void KeepLoopingSound(Obj::CObject* object, PlaybackProps* props, uint32_t time)
+void KeepLoopingSound(GameObjects::CObject* object, PlaybackProps* props, uint32_t time)
 {
     SoundComponent(object)->KeepLoopingSound(props, time);
 }
-void NoteSoundUpdate(Obj::CObject* object, PlaybackProps* props) { SoundComponent(object)->UpdateProps(props); }
-const Mth::Vector* ObjectPosition(Obj::CObject* object)
+void NoteSoundUpdate(GameObjects::CObject* object, PlaybackProps* props) { SoundComponent(object)->UpdateProps(props); }
+const Maths::Vector* ObjectPosition(GameObjects::CObject* object)
 {
-    return reinterpret_cast<const Mth::Vector*>(reinterpret_cast<uint8_t*>(object) + 0x98);
+    return reinterpret_cast<const Maths::Vector*>(reinterpret_cast<uint8_t*>(object) + 0x98);
 }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -151,11 +151,11 @@ double X87Ln(double x)
 void ReportMissing()
 {
     if (!QuietMisses())
-        Script::GetInteger(kDebugA);
+        Scripts::FetchIntValue(kDebugA);
 }
 
 // A positional sound's sound stopped (when it's playing) - as the original, the slot is found by unique id first.
-void StopPositionalVoice(CSfxManager* manager, const PositionalSound* entry)
+void StopPositionalVoice(CAudioMixer* manager, const PositionalSound* entry)
 {
     if (NoSound() || entry->uniqueId == 0)
         return;
@@ -184,7 +184,7 @@ void Unlink(PositionalSound* entry)
 } // namespace
 
 // 0x0047B8E0
-void CSfxManager::DopplerShift(float* pitch, const Mth::Vector* position, const Mth::Vector* previous,
+void CAudioMixer::DopplerShift(float* pitch, const Maths::Vector* position, const Maths::Vector* previous,
                                float frameSeconds, void* camera)
 {
     if (NoSound())
@@ -194,11 +194,11 @@ void CSfxManager::DopplerShift(float* pitch, const Mth::Vector* position, const 
         if (!camera)
             return;
     }
-    const Mth::Vector* cameraAt = reinterpret_cast<const Mth::Vector*>(static_cast<uint8_t*>(camera) + 0x4C);
+    const Maths::Vector* cameraAt = reinterpret_cast<const Maths::Vector*>(static_cast<uint8_t*>(camera) + 0x4C);
     float px = cameraAt->x - previous->x;
     float py = cameraAt->y - previous->y;
     float pz = cameraAt->z - previous->z;
-    const Mth::Vector* listener = CameraPosition(camera);
+    const Maths::Vector* listener = ViewerLocation(camera);
     double nx = static_cast<double>(listener->x) - position->x;
     double ny = static_cast<double>(listener->y) - position->y;
     double nz = static_cast<double>(listener->z) - position->z;
@@ -206,8 +206,8 @@ void CSfxManager::DopplerShift(float* pitch, const Mth::Vector* position, const 
     double before = std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py +
                               static_cast<double>(px) * px);
     float change = static_cast<float>(now - before);
-    float speed = static_cast<float>(std::fabs(static_cast<double>(change)) * (Tmr::GetSlomoFrameSeconds() * 60.0f));
-    double limit = Tmr::GetSlomoFrameSeconds() * 60.0f * 360.0f;
+    float speed = static_cast<float>(std::fabs(static_cast<double>(change)) * (FrameClock::GetSlomoFrameSeconds() * 60.0f));
+    double limit = FrameClock::GetSlomoFrameSeconds() * 60.0f * 360.0f;
     if (limit < speed) // (equal or unordered: shifted)
         return;
     double p = *pitch;
@@ -215,7 +215,7 @@ void CSfxManager::DopplerShift(float* pitch, const Mth::Vector* position, const 
 }
 
 // 0x0047BA00
-PlaybackProps* CSfxManager::GetPositionalProps(Obj::CObject* object, uint32_t id, bool byChecksum)
+PlaybackProps* CAudioMixer::GetPositionalProps(GameObjects::CObject* object, uint32_t id, bool byChecksum)
 {
     for (PositionalSound* entry = PositionalHead(); entry; entry = entry->next) {
         uint32_t key = byChecksum ? entry->checksum : entry->uniqueId;
@@ -230,7 +230,7 @@ PlaybackProps* CSfxManager::GetPositionalProps(Obj::CObject* object, uint32_t id
 }
 
 // 0x0047BAB0
-bool CSfxManager::IsUniqueIdFree(uint32_t id)
+bool CAudioMixer::IsUniqueIdFree(uint32_t id)
 {
     if (!NoSound() && id != 0) {
         for (int i = 0; i < kMaxPlaying; ++i) {
@@ -249,7 +249,7 @@ bool CSfxManager::IsUniqueIdFree(uint32_t id)
 }
 
 // 0x0047BB20
-uint32_t CSfxManager::GetUniqueId(uint32_t id)
+uint32_t CAudioMixer::GetUniqueId(uint32_t id)
 {
     while (!IsUniqueIdFree(id))
         ++id;
@@ -257,7 +257,7 @@ uint32_t CSfxManager::GetUniqueId(uint32_t id)
 }
 
 // 0x0047BB50
-void CSfxManager::StopObjectSounds(Obj::CObject* object)
+void CAudioMixer::StopObjectSounds(GameObjects::CObject* object)
 {
     for (PositionalSound* entry = PositionalHead(); entry;) {
         PositionalSound* next = entry->next;
@@ -271,7 +271,7 @@ void CSfxManager::StopObjectSounds(Obj::CObject* object)
 }
 
 // 0x0047BC30
-void CSfxManager::StopObjectSound(Obj::CObject* object, uint32_t checksum)
+void CAudioMixer::HaltObjectSound(GameObjects::CObject* object, uint32_t checksum)
 {
     for (PositionalSound* entry = PositionalHead(); entry;) {
         PositionalSound* next = entry->next;
@@ -285,16 +285,16 @@ void CSfxManager::StopObjectSound(Obj::CObject* object, uint32_t checksum)
 }
 
 // 0x0047BD20
-uint32_t CSfxManager::PlaySound(uint32_t checksum, sVolume* volume, float pitch, uint32_t uniqueId, void* params,
+uint32_t CAudioMixer::PlaySound(uint32_t checksum, volumeRef* volume, float pitch, uint32_t uniqueId, void* params,
                                 int /*unused*/)
 {
     if (NoSound())
         return 0;
-    WaveTableEntry* entry = GetWaveTableEntry(checksum);
+    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
     if (!entry)
         return 0;
     uint32_t id = uniqueId ? uniqueId : checksum;
-    if (!QuietMisses() && Script::GetInteger(kDebugB) != 0 && !params)
+    if (!QuietMisses() && Scripts::FetchIntValue(kDebugB) != 0 && !params)
         IsUniqueIdFree(id); // (a debug check whose report is compiled out)
     AdjustVolumeAndPitch(volume, &pitch, entry);
     int voice = PlayVoice(&entry->wave, volume, pitch);
@@ -306,17 +306,17 @@ uint32_t CSfxManager::PlaySound(uint32_t checksum, sVolume* volume, float pitch,
     sound.entry = entry;
     InitPlaybackProps(&sound.props, entry, static_cast<PlaybackProps*>(params));
     if (!QuietMisses())
-        Script::GetInteger(kDebugB);
+        Scripts::FetchIntValue(kDebugB);
     return sound.uniqueId;
 }
 
 // 0x0047BE10
-bool CSfxManager::GetVolume(sVolume* volume, const Mth::Vector* position, float dropoff, int falloff, void* camera,
+bool CAudioMixer::GetVolume(volumeRef* volume, const Maths::Vector* position, float dropoff, int falloff, void* camera,
                             void* extent)
 {
     if (NoSound())
         return true;
-    volume->SetSilent();
+    volume->ChangeMuted();
     if (IsPaused())
         return true;
     if (!camera) {
@@ -324,13 +324,13 @@ bool CSfxManager::GetVolume(sVolume* volume, const Mth::Vector* position, float 
         if (!camera)
             return true;
     }
-    const Mth::Vector* listener = CameraPosition(camera);
+    const Maths::Vector* listener = ViewerLocation(camera);
     double dx = static_cast<double>(listener->x) - position->x;
     double dy = static_cast<double>(listener->y) - position->y;
     double dz = static_cast<double>(listener->z) - position->z;
     float distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
     if (extent)
-        dropoff = static_cast<float>(Extent(extent, CameraPosition(camera)) + distance);
+        dropoff = static_cast<float>(Extent(extent, ViewerLocation(camera)) + distance);
     else if (dropoff == 0.0f)
         dropoff = DefaultDropoff();
     if (!(distance < dropoff) && !std::isnan(distance) && !std::isnan(dropoff)) // (unordered: on, as nearer)
@@ -356,19 +356,19 @@ bool CSfxManager::GetVolume(sVolume* volume, const Mth::Vector* position, float 
     default:
         break;
     }
-    volume->m_type = sVolume::TYPE_3D;
+    volume->m_type = volumeRef::TYPE_3D;
     float magnitude = std::fabs(level);
-    if (std::fabs(volume->GetLoudestChannel()) < magnitude) {
+    if (std::fabs(volume->FindPeakChannel()) < magnitude) {
         // which way the sound is: in front of the camera, to its side
-        Mth::Vector toSound = *position - *CameraPosition(camera);
+        Maths::Vector toSound = *position - *ViewerLocation(camera);
         toSound.Normalize();
-        Mth::Vector front = -CameraMatrix(camera)->row[0];
+        Maths::Vector front = -CameraMatrix(camera)->row[0];
         double facing = static_cast<double>(front.z) * toSound.z + static_cast<double>(front.y) * toSound.y +
                         static_cast<double>(front.x) * toSound.x;
         double side = (facing + 1.0f) * 0.5f;
         float right = static_cast<float>((1.0f - side * side) * level);
         double left = (1.0f - (1.0f - side) * (1.0f - side)) * level;
-        if (volume->m_type == sVolume::TYPE_POSITIONAL) {
+        if (volume->m_type == volumeRef::TYPE_POSITIONAL) {
             // (never: the type was just set to 3D)
             bool louder = false;
             if (left > volume->m_channels[0]) {
@@ -380,7 +380,7 @@ bool CSfxManager::GetVolume(sVolume* volume, const Mth::Vector* position, float 
                 louder = true;
             }
             if (louder) {
-                Mth::Vector behind = -CameraMatrix(camera)->row[2];
+                Maths::Vector behind = -CameraMatrix(camera)->row[2];
                 double ahead = static_cast<double>(behind.z) * toSound.z + static_cast<double>(behind.y) * toSound.y +
                                static_cast<double>(behind.x) * toSound.x;
                 if (ahead < 0.0)
@@ -394,44 +394,44 @@ bool CSfxManager::GetVolume(sVolume* volume, const Mth::Vector* position, float 
         }
     }
     volume->m_dropoff = dropoff;
-    volume->m_position = *position;
+    volume->m_anchorPoint = *position;
     return true;
 }
 
 // 0x0047C140
-uint32_t CSfxManager::PlayObjectSound(uint32_t checksum, void* params, Obj::CObject* object, bool notPositional,
+uint32_t CAudioMixer::PlayObjectSound(uint32_t checksum, void* params, GameObjects::CObject* object, bool notPositional,
                                       bool force)
 {
     if (NoSound())
         return 0;
-    WaveTableEntry* entry = GetWaveTableEntry(checksum);
+    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
     if (!entry)
         return 0;
     auto* given = static_cast<float*>(params); // {pitch, volume, dropoff, falloff}
-    sVolume volume;
+    volumeRef volume;
     volume.Init();
-    Mth::Vector at = *ObjectPosition(object);
+    Maths::Vector at = *ObjectPosition(object);
     void* camera = NearestCamera(&at, nullptr);
     if (camera) {
         uint8_t extentData[0x10] = {};
         void* extent = ObjectSoundExtent(object, camera, extentData) ? extentData : nullptr;
         float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
         int falloff = reinterpret_cast<int*>(params)[3];
-        Mth::Vector heard;
+        Maths::Vector heard;
         GetVolume(&volume, ObjectSoundPosition(object, &heard, camera), dropoff, falloff, camera, extent);
     } else {
-        volume.SetSilent();
+        volume.ChangeMuted();
     }
-    if (volume.IsSilent() && !force) {
+    if (volume.IsAudioOff() && !force) {
         if (notPositional || !entry->looping)
             return 0;
         uint32_t id = GetUniqueId(checksum);
         PlaybackProps props;
         InitPlaybackProps(&props, entry, static_cast<PlaybackProps*>(params));
-        KeepLoopingSound(object, &props, Tmr::GetTime());
+        KeepLoopingSound(object, &props, FrameClock::GetTime());
         return id;
     }
-    volume.PercentageAdjustment(given[1]);
+    volume.PercentTweak(given[1]);
     uint32_t id = PlaySound(checksum, &volume, given[0], 0, params, 0);
     ReportMissing();
     if (!notPositional) {
@@ -442,11 +442,11 @@ uint32_t CSfxManager::PlayObjectSound(uint32_t checksum, void* params, Obj::CObj
 }
 
 // 0x0047C360
-bool CSfxManager::UpdatePositionalSound(Obj::CObject* object, PlayingSound* sound, uint32_t time)
+bool CAudioMixer::UpdatePositionalSound(GameObjects::CObject* object, PlayingSound* sound, uint32_t time)
 {
     PlaybackProps* props = &sound->props;
     float dropoff = props->dropoff == 0.0f ? DefaultDropoff() : props->dropoff;
-    Mth::Vector at = *ObjectPosition(object);
+    Maths::Vector at = *ObjectPosition(object);
     float distance;
     void* camera = NearestCamera(&at, &distance);
     if (!camera)
@@ -465,17 +465,17 @@ bool CSfxManager::UpdatePositionalSound(Obj::CObject* object, PlayingSound* soun
         sound->unknown38 = time + 2000;
     }
     float pitch = 100.0f;
-    sVolume volume;
-    CSfxManager* manager = Instance();
-    volume.m_type = manager ? manager->m_defaultVolumeType : sVolume::TYPE_STEREO;
-    volume.SetSilent();
+    volumeRef volume;
+    CAudioMixer* manager = Instance();
+    volume.m_type = manager ? manager->m_defaultVolumeType : volumeRef::TYPE_STEREO;
+    volume.ChangeMuted();
     if (extent || distance < dropoff) {
-        Mth::Vector heard;
-        const Mth::Vector* position = ObjectSoundPosition(object, &heard, camera);
-        Mth::Vector here = *position;
+        Maths::Vector heard;
+        const Maths::Vector* position = ObjectSoundPosition(object, &heard, camera);
+        Maths::Vector here = *position;
         if (sound->entry->flags & 1) {
-            float frameSeconds = static_cast<float>(Tmr::GetSlomoFrameSeconds());
-            Mth::Vector previous;
+            float frameSeconds = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
+            Maths::Vector previous;
             DopplerShift(&pitch, &here, ObjectSoundPrevious(object, &previous, camera), frameSeconds, camera);
         }
         GetVolume(&volume, &here, dropoff, static_cast<int>(props->falloff), camera, extent);
@@ -485,9 +485,9 @@ bool CSfxManager::UpdatePositionalSound(Obj::CObject* object, PlayingSound* soun
 }
 
 // 0x0047C560
-void CSfxManager::UpdatePositionalSounds()
+void CAudioMixer::TickPositionalSounds()
 {
-    uint32_t time = Tmr::GetTime();
+    uint32_t time = FrameClock::GetTime();
     for (PositionalSound* entry = PositionalHead(); entry;) {
         PositionalSound* next = entry->next;
         int index;
@@ -511,31 +511,31 @@ void CSfxManager::UpdatePositionalSounds()
 void CreateManager(bool create)
 {
     if (!Instance() && create) {
-        void* memory = Mem::Calloc(8, nullptr, 1);
+        void* memory = MemSys::AllocZeroed(8, nullptr, 1);
         if (memory) {
-            Instance() = static_cast<CSfxManager*>(memory)->Construct();
-            ++References();
+            Instance() = static_cast<CAudioMixer*>(memory)->Construct();
+            ++RefTally();
             return;
         }
         Instance() = nullptr;
     }
-    ++References();
+    ++RefTally();
 }
 
 // 0x0047C6C0
 void ReleaseManager()
 {
-    if (References() > 1) {
-        --References();
+    if (RefTally() > 1) {
+        --RefTally();
         return;
     }
-    if (CSfxManager* manager = Instance()) {
+    if (CAudioMixer* manager = Instance()) {
         if (!NoSound())
             manager->CleanUp();
-        Mem::Manager::Get()->Free(manager);
+        MemSys::Manager::Get()->Free(manager);
     }
     Instance() = nullptr;
-    References() = 0;
+    RefTally() = 0;
 }
 
 // 0x0047C720
@@ -609,10 +609,10 @@ void UpdateVoiceStates()
 }
 
 // 0x0047CA50
-void InitVoices(CSfxManager* manager)
+void InitVoices(CAudioMixer* manager)
 {
     if (manager)
-        manager->m_defaultVolumeType = sVolume::TYPE_STEREO;
+        manager->m_defaultVolumeType = volumeRef::TYPE_STEREO;
     for (int i = 0; i < kMaxPlaying; ++i) {
         Voices()[i].buffer = nullptr;
         Voices()[i].buffer3D = nullptr;
@@ -652,8 +652,8 @@ void InitVoices(CSfxManager* manager)
 // 0x0047CBD0
 void StopAllVoices()
 {
-    Pcm::StopMusic();
-    Pcm::StopStreams(-1);
+    AudioStream::StopMusic();
+    AudioStream::HaltStreams(-1);
     for (int i = 0; i < VoiceCount(); ++i) {
         if (void* buffer = Voices()[i].buffer)
             Com<long>(buffer, 0x48); // Stop
@@ -667,8 +667,8 @@ void FreePermanentWaves()
     for (int i = 0; i < PermanentCount(); ++i) {
         if (PCWave* wave = PermanentWaves()[i].wave) {
             if (wave->data)
-                Mem::Manager::Get()->Free(wave->data);
-            Mem::Manager::Get()->Free(wave);
+                MemSys::Manager::Get()->Free(wave->data);
+            MemSys::Manager::Get()->Free(wave);
         }
         PermanentWaves()[i].wave = nullptr;
     }
@@ -681,7 +681,7 @@ bool PCWave::Load(const char* fileName, uint32_t flags)
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., game/front/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
     char overlay[260];
-    if (Front::DataOverlay::OverlayPath(fileName, overlay))
+    if (MenuSystem::DataOverlay::OverlayPath(fileName, overlay))
         fileName = overlay;
     FILE* file = _fsopen(fileName, "rb", _SH_DENYNO); // (fopen)
     if (!file)
@@ -717,7 +717,7 @@ bool PCWave::Load(const char* fileName, uint32_t flags)
     }
     uint32_t size = bytesPerSecond;
     bytesPerSecond = bitsPerSample * samplesPerSecond >> 3;
-    auto* converted = static_cast<uint8_t*>(Mem::New(size));
+    auto* converted = static_cast<uint8_t*>(MemSys::New(size));
     Platform::DecodeAdpcm(reinterpret_cast<int16_t*>(converted), static_cast<const uint8_t*>(samples),
                           static_cast<int>(size) >> 1);
     std::free(samples);
@@ -747,7 +747,7 @@ bool LoadWave(const char* path, uint32_t /*checksum*/, PCWave** slot, int loadTy
     size_t length = std::strlen(path);
     std::memcpy(fileName + 12, path, length);
     std::memcpy(fileName + 12 + length, ".snd", 5);
-    auto* wave = static_cast<PCWave*>(Mem::New(sizeof(PCWave)));
+    auto* wave = static_cast<PCWave*>(MemSys::New(sizeof(PCWave)));
     if (wave) {
         wave->dataSize = 0;
         wave->data = nullptr;
@@ -766,32 +766,32 @@ bool LoadWave(const char* path, uint32_t /*checksum*/, PCWave** slot, int loadTy
     reinterpret_cast<uint8_t*>(slot)[5] = 0;
     if (wave) {
         if (wave->data)
-            Mem::Manager::Get()->Free(wave->data);
-        Mem::Manager::Get()->Free(wave);
+            MemSys::Manager::Get()->Free(wave->data);
+        MemSys::Manager::Get()->Free(wave);
     }
     return false;
 }
 
 // 0x0047CD70
-void SetVoiceParameters(int index, sVolume* volume, float pitch)
+void ApplyVoiceSettings(int index, volumeRef* volume, float pitch)
 {
     Voice& voice = Voices()[index];
     if (!voice.buffer)
         return;
-    if (Has3D() && volume->m_type == sVolume::TYPE_3D && voice.buffer3D) {
+    if (Has3D() && volume->m_type == volumeRef::TYPE_3D && voice.buffer3D) {
         // 3D: the sound placed relative to the camera hearing it, the listener facing the viewport's way
-        void* camera = NearestCamera(&volume->m_position, nullptr);
+        void* camera = NearestCamera(&volume->m_anchorPoint, nullptr);
         void* viewport = ViewportCamera(0);
-        Mth::Vector relative = volume->m_position - *CameraPosition(camera);
+        Maths::Vector relative = volume->m_anchorPoint - *ViewerLocation(camera);
         if (camera != viewport && viewport) {
-            Mth::Vector front = -CameraMatrix(viewport)->row[2];
+            Maths::Vector front = -CameraMatrix(viewport)->row[2];
             Com<long>(Listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // SetOrientation
-            Mth::Vector heard = -CameraMatrix(camera)->row[2];
-            Mth::Vector seen = -CameraMatrix(viewport)->row[2];
-            double angle = Mth::GetAngle(heard, seen);
+            Maths::Vector heard = -CameraMatrix(camera)->row[2];
+            Maths::Vector seen = -CameraMatrix(viewport)->row[2];
+            double angle = Maths::ReadTurnAngle(heard, seen);
             relative.RotateAboutY(static_cast<float>(angle * 0.017453292f));
         } else {
-            Mth::Vector front = -CameraMatrix(camera)->row[2];
+            Maths::Vector front = -CameraMatrix(camera)->row[2];
             Com<long>(Listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // SetOrientation
         }
         float range = volume->m_dropoff;
@@ -855,13 +855,13 @@ void SetVoiceParameters(int index, sVolume* volume, float pitch)
     }
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
-        if (static_cast<bool>(Nx::g_setFrequencyAllowed))
+        if (static_cast<bool>(Engine3D::g_setFrequencyAllowed))
             Com<long>(voice.buffer, 0x44, frequency); // SetFrequency
     }
 }
 
 // 0x0047D130
-int PlayVoice(PCWave** slot, sVolume* volume, float pitch)
+int PlayVoice(PCWave** slot, volumeRef* volume, float pitch)
 {
     PCWave* wave = *slot;
     if (!wave)
@@ -880,12 +880,12 @@ int PlayVoice(PCWave** slot, sVolume* volume, float pitch)
             Com<long>(voice.buffer, 8);
         voice.buffer = nullptr;
         voice.wave = nullptr;
-        bool threeD = Has3D() && volume->m_type == sVolume::TYPE_3D;
+        bool threeD = Has3D() && volume->m_type == volumeRef::TYPE_3D;
         wave->descFlags = threeD ? 0x400B0 : 0x400E0;
         std::memcpy(wave->desc3DAlgorithm, &g_default3DAlgorithm, 16);
         if (Com<long>(Device(), 0xC, &wave->descSize, &voice.buffer, nullptr) != 0) // CreateSoundBuffer
             return -1;
-        if (Has3D() && volume->m_type == sVolume::TYPE_3D)
+        if (Has3D() && volume->m_type == volumeRef::TYPE_3D)
             Com<long>(voice.buffer, 0, &g_iidSound3DBuffer, &voice.buffer3D);
         void* first;
         DWORD firstBytes;
@@ -902,7 +902,7 @@ int PlayVoice(PCWave** slot, sVolume* volume, float pitch)
     }
     voice.baseFrequency = static_cast<int>(wave->samplesPerSecond);
     voice.frequency = 0;
-    SetVoiceParameters(index, volume, pitch);
+    ApplyVoiceSettings(index, volume, pitch);
     Com<long>(voice.buffer, 0x34, 0u); // SetCurrentPosition
     long result = Com<long>(voice.buffer, 0x30, 0u, 0u, reinterpret_cast<uint8_t*>(slot)[4] ? 1u : 0u); // Play
     ++PlayingVoices();
@@ -913,12 +913,12 @@ int PlayVoice(PCWave** slot, sVolume* volume, float pitch)
 // 0x0047D390
 void SilenceVoices()
 {
-    sVolume volume;
+    volumeRef volume;
     volume.Init();
-    volume.SetSilent();
+    volume.ChangeMuted();
     for (int i = 0; i < VoiceCount(); ++i) {
         if (Voices()[i].playing && Voices()[i].buffer)
-            SetVoiceParameters(i, &volume, 0.0f);
+            ApplyVoiceSettings(i, &volume, 0.0f);
     }
     // (then the volume's destructor: empty)
 }

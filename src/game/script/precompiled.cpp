@@ -6,7 +6,7 @@
 #include "game/core/crc.h"
 #include "game/script/qb.h"
 
-namespace Script {
+namespace Scripts {
 
 namespace {
 
@@ -49,8 +49,8 @@ uint8_t* RelocateArray(CArray* array, uint32_t base)
         elements = &array->m_single;
     }
     switch (array->m_type) {
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING: {
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT: {
         RelocateArrayElements(array, base);
         // (the texts one after another, padded once at the end)
         uint32_t total = 0;
@@ -58,18 +58,18 @@ uint8_t* RelocateArray(CArray* array, uint32_t base)
             total += static_cast<uint32_t>(std::strlen(reinterpret_cast<const char*>(elements[i]))) + 1;
         return end + Align4(total);
     }
-    case ESYMBOLTYPE_PAIR:
+    case QBVAL_PAIR:
         RelocateArrayElements(array, base);
         return end + size * sizeof(CPair);
-    case ESYMBOLTYPE_VECTOR:
+    case QBVAL_VECTOR:
         RelocateArrayElements(array, base);
         return end + size * sizeof(CVector);
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         RelocateArrayElements(array, base);
         for (uint32_t i = 0; i < size; ++i)
             end = RelocateStruct(reinterpret_cast<CStruct*>(elements[i]), base);
         return end;
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_ARRAY:
         RelocateArrayElements(array, base);
         for (uint32_t i = 0; i < size; ++i)
             end = RelocateArray(reinterpret_cast<CArray*>(elements[i]), base);
@@ -86,26 +86,26 @@ uint8_t* RelocateComponent(CComponent* component, uint32_t base)
         Relocate(component->next, base);
     auto* end = reinterpret_cast<uint8_t*>(component + 1);
     switch (component->Type()) {
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         Relocate(component->string, base);
         return end + StoredStringSize(component->string);
-    case ESYMBOLTYPE_PAIR:
+    case QBVAL_PAIR:
         Relocate(component->pair, base);
         return end + sizeof(CPair);
-    case ESYMBOLTYPE_VECTOR:
+    case QBVAL_VECTOR:
         Relocate(component->vector, base);
         return end + sizeof(CVector);
-    case ESYMBOLTYPE_QSCRIPT: {
+    case QBVAL_SCRIPT_BODY: {
         // A script component: its tokens, up to and including the '$'.
         Relocate(component->raw, base);
         auto* code = reinterpret_cast<const uint8_t*>(component->raw);
         return end + Align4(static_cast<uint32_t>(SkipToEndOfScript(code) - code));
     }
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         Relocate(component->structure, base);
         return RelocateStruct(component->structure, base);
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_ARRAY:
         Relocate(component->array, base);
         return RelocateArray(component->array, base);
     default:
@@ -130,27 +130,27 @@ uint8_t* RelocateSymbol(CSymbolTableEntry* symbol, uint32_t base)
 {
     auto* end = reinterpret_cast<uint8_t*>(symbol + 1);
     switch (symbol->type) {
-    case ESYMBOLTYPE_STRING:
-    case ESYMBOLTYPE_LOCALSTRING:
+    case QBVAL_STRING:
+    case QBVAL_INLINE_TEXT:
         Relocate(symbol->raw, base);
         return end + StoredStringSize(reinterpret_cast<const char*>(symbol->raw));
-    case ESYMBOLTYPE_PAIR:
+    case QBVAL_PAIR:
         Relocate(symbol->raw, base);
         return end + sizeof(CPair);
-    case ESYMBOLTYPE_VECTOR:
+    case QBVAL_VECTOR:
         Relocate(symbol->raw, base);
         return end + sizeof(CVector);
-    case ESYMBOLTYPE_QSCRIPT: {
+    case QBVAL_SCRIPT_BODY: {
         // {checksum, size, stored size, code}: the stored size is read from right after the entry (where the
         // script is), not through the value.
         uint32_t stored = reinterpret_cast<const uint32_t*>(end)[2];
         Relocate(symbol->raw, base);
         return end + 12 + Align4(stored);
     }
-    case ESYMBOLTYPE_STRUCTURE:
+    case QBVAL_STRUCT:
         Relocate(symbol->structure, base);
         return RelocateStruct(symbol->structure, base);
-    case ESYMBOLTYPE_ARRAY:
+    case QBVAL_ARRAY:
         Relocate(symbol->raw, base);
         return RelocateArray(reinterpret_cast<CArray*>(symbol->raw), base);
     default: // (integers, floats, names, C functions...: the value is in the entry)
@@ -191,13 +191,13 @@ void ParsePrecompiledQB(const char* filename, uint8_t* data, int unused)
 {
     uint32_t flag = unused != 0;
     RelocatePrecompiledSymbols(data, reinterpret_cast<uint32_t>(data), DefinePrecompiledSymbol,
-                               Crc::GenerateCRCFromString(filename), flag);
+                               Checksums::HashFromText(filename), flag);
 }
 
 } // namespace Script
 
 namespace {
 struct ArrayAdapter {
-    void RelocateElements(uint32_t base) { Script::RelocateArrayElements(reinterpret_cast<Script::CArray*>(this), base); }
+    void RelocateElements(uint32_t base) { Scripts::RelocateArrayElements(reinterpret_cast<Scripts::CArray*>(this), base); }
 };
 } // namespace

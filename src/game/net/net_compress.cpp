@@ -12,7 +12,7 @@
 #include "game/net/thugpro_peer.h"
 #include "game/util/lzss.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
@@ -141,42 +141,42 @@ uint8_t* CompressMessage(uint8_t* msgId, uint16_t* length, const void* data, cha
     // NOT ORIGINAL: in the THUGPRO peer mode LZSS goes as THUGPRO's LZHAM. THUGPRO's receivers don't expand LZSS
     // (its patch over HandleCompressedMessages' method test), and its senders turn THUG2's two LZSS messages - the join
     // request (80) and player create (34) - into LZHAM (TP-R11).
-    if (method == kMethodLzss && GameNet::Thugpro::PeerMode())
+    if (method == kMethodLzss && OnlinePlay::Thugpro::PeerMode())
         method = static_cast<char>(Lzham::kMethod);
     // The whole message - id, length, data - is compressed.
     int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressedSize = 0;
-    auto* message = static_cast<uint8_t*>(Mem::New(size));
+    auto* message = static_cast<uint8_t*>(MemSys::New(size));
     message[0] = *msgId;
     std::memcpy(message + 1, length, 2);
     std::memcpy(message + 3, data, *length);
-    Dbg::Printf("*** Sending compressed message %d. Old size : %d ", *msgId, *length);
+    DebugOut::Printf("*** Sending compressed message %d. Old size : %d ", *msgId, *length);
     int maxSize = size * 4 / 3 + size;
-    auto* compressed = static_cast<uint8_t*>(Mem::New(maxSize + 3));
+    auto* compressed = static_cast<uint8_t*>(MemSys::New(maxSize + 3));
     compressed[0] = static_cast<uint8_t>(method);
     uint16_t expandedSize = static_cast<uint16_t>(size);
     std::memcpy(compressed + 1, &expandedSize, 2);
     if (method == kMethodRle) {
         compressedSize = RleCompress(message, size, compressed + 3, maxSize);
-        Dbg::Printf("RLE : New payload len : %d, New size : %d\n", size, compressedSize);
+        DebugOut::Printf("RLE : New payload len : %d, New size : %d\n", size, compressedSize);
     } else if (method == kMethodLzss) {
         compressedSize = Lzss::Encode(message, compressed + 3, size, false);
-        Dbg::Printf("LZSS : New payload len : %d, New size : %d\n", size, compressedSize);
+        DebugOut::Printf("LZSS : New payload len : %d, New size : %d\n", size, compressedSize);
     } else if (method == Lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
         size_t lzham = Lzham::Compress(message, static_cast<size_t>(size), compressed + 3, static_cast<size_t>(maxSize));
         compressedSize = lzham != 0 ? static_cast<int>(lzham) : size;
-        Dbg::Printf("LZHAM : New payload len : %d, New size : %d\n", size, compressedSize);
+        DebugOut::Printf("LZHAM : New payload len : %d, New size : %d\n", size, compressedSize);
     }
     // (Another method compresses to nothing: the 3-byte header "wins".)
-    Mem::Free(message);
+    MemSys::Free(message);
     if (static_cast<uint32_t>(compressedSize) < *length) {
         *length = static_cast<uint16_t>(compressedSize + 3);
         *msgId = kMsgCompressed;
         return compressed;
     }
-    Dbg::Printf("*** Compressed message was larger. Defaulting back to uncompressed version\n");
-    Mem::Free(compressed);
+    DebugOut::Printf("*** Compressed message was larger. Defaulting back to uncompressed version\n");
+    MemSys::Free(compressed);
     return nullptr;
 }
 

@@ -19,7 +19,7 @@ an official Neversoft specification or a declaration of complete compatibility.
 ## Version 1 remains supported
 
 Implemented values are `{type: 1 | 2 | 13, bits: uint32}`. Parameters are ordered
-arrays of `[nameChecksum, value]`. An absent value is `undefined`, not zero,
+arrays of `[nameHash, value]`. An absent value is `undefined`, not zero,
 `null`, false or a type-0 component. Checksums and raw bits are integral JS
 Numbers in `[0, 4294967295]`; signed integer interpretation is `bits | 0`.
 
@@ -90,16 +90,16 @@ the translator's construction path, not to a one-pass array factory.
 `Parameters` stays an ordered list rather than an object or Map. Multiple
 components with the same checksum can coexist when their types differ.
 
-`copy(value, "value", ctx)` follows CopyComponent(reference=0): owning
+`copy(value, "value", ctx)` follows DuplicateComponent(reference=0): owning
 structures/arrays are copied recursively, strings and coordinates are copied,
 scalars keep their bits, and existing type-20/21 references keep their target.
-`copy(value, "reference", ctx)` follows CopyComponent(reference=1): owning
+`copy(value, "reference", ctx)` follows DuplicateComponent(reference=1): owning
 structures/arrays become references to the original target; other value types
 follow their component-copy rules. Owning cycles in a deep copy fail with a
 cycle/depth error; traversal through reference targets is bounded separately.
 
 `merge(a,b,ctx)` returns a new parameter list with component copies, as
-AppendStructure does. For each incoming field, remove earlier fields with the
+MergeStructure does. For each incoming field, remove earlier fields with the
 same name when their types match, or when both types are Integer/Float.
 For unnamed Name fields (`name == 0`), matching types replace only if their
 checksum payloads also match. Append the incoming copied field at the end.
@@ -127,7 +127,7 @@ Thus a saved completed `(<...>)` does not acquire fields added later to the
 parameter frame, and a completed container remains detached across a wait.
 Direct helper-level references may still observe target mutations. Ordinary
 `copy(ref,"value",ctx)` keeps its reference semantics; completion is a separate
-operation, not a change to CopyComponent or ComponentsEqual. Original-x86
+operation, not a change to DuplicateComponent or ComponentsEqual. Original-x86
 corroboration and its exclusions are recorded in
 [qb-expression-result-evidence.md](qb-expression-result-evidence.md).
 
@@ -158,16 +158,16 @@ supplies a context and charges the current task or bounded module-load budget.
 Its charge callback captures that budget's owner, so a retained context cannot
 charge a different task merely because another generator has since run.
 
-`lookupGlobal(name,ctx)` implements LookUpSymbol alias following. A missing
+`lookupGlobal(name,ctx)` implements ResolveSymbol alias following. A missing
 root is `undefined`. An alias whose target is missing returns the last Name
 value, as the original does. An alias cycle or excessive depth raises an error.
 `resolve(value,ctx)` leaves non-Names unchanged and uses that lookup for Names,
 retaining the original Name when no root exists or the symbol is callable, as
-ResolveNameComponent does. Operations such as equality that instead interpret
+EvaluateNameToken does. Operations such as equality that instead interpret
 callable symbol payloads in the original must reject that case until separately
 implemented; they must not accidentally compare the preserved checksum instead.
 Resolution occurs only where
-the source operation requests it. Plain names in checksum arrays, GetChecksum
+the source operation requests it. Plain names in checksum arrays, ReadHashValue
 queries and a structure member's selector remain raw checksums.
 
 `lookupTyped(params,name,type,ctx)` follows CStruct::Search: retain the last
@@ -179,7 +179,7 @@ its raw Name; resolution is for a Name standing for another requested type.
 There is no blanket reference
 tag normalization in this getter.
 
-`readChecksum(params,name,ctx)` implements the specialized GetChecksum:
+`readChecksum(params,name,ctx)` implements the specialized ReadHashValue:
 matching Name fields are raw. For an unnamed request, skip a Name that resolves
 to a global Structure; do not expand that component as a matching value.
 Nonmatching unnamed structure inclusions recurse. `readString` first performs
@@ -398,7 +398,7 @@ parameters, RNG, global reads, engine objects or renderer.
 Its single host dependency is `UnSetFlag`.
 
 The driver implements a bounded career-flag service with the behavior of
-`CFunc_UnSetFlag` (0x005AEDD0) and `CSkaterCareer::UnSetFlag` (0x00584470): direct
+`CFunc_UnSetFlag` (0x005AEDD0) and `CRiderStoryProgress::UnSetFlag` (0x00584470): direct
 Integer `flag`, optional direct Integer `level` (-1 means current), clear the
 selected level's bit and the level-start bit. Other getter/coercion cases are
 outside this host subset; invalid/missing arguments fault. This is a test

@@ -1,4 +1,4 @@
-// The PC instances (sInstance, geom.h): constructed, destroyed, drawn on their own and all together; and two small
+// The PC instances (sSingleton, geom.h): constructed, destroyed, drawn on their own and all together; and two small
 // material helpers (the UV wibble's constructor, the texture animation's restart).
 
 #include <windows.h>
@@ -25,25 +25,25 @@
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 D3DLIGHT9 g_deviceLight1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
 D3DLIGHT9 g_deviceLight0{
     D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
-Mth::Matrix* g_boneMatrices;
+Maths::Matrix* g_boneMatrices;
 int g_boneCount;
-sInstance* g_currentInstance;
-const Mth::Matrix* g_lastBones;
-sInstance* g_instances;
+sSingleton* g_currentInstance;
+const Maths::Matrix* g_lastBones;
+sSingleton* g_instances;
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-sInstance*& Instances() { return g_instances; }
-sInstance* g_visibleInstances[4096]; // RenderInstances' list
-sInstance** Visible() { return g_visibleInstances; }
-const Mth::Matrix* LastBones() { return g_lastBones; }
-void SetLastBones(const Mth::Matrix* bones) { g_lastBones = bones; }
+sSingleton*& Instances() { return g_instances; }
+sSingleton* g_visibleInstances[4096]; // RenderInstances' list
+sSingleton** Visible() { return g_visibleInstances; }
+const Maths::Matrix* LastBones() { return g_lastBones; }
+void SetLastBones(const Maths::Matrix* bones) { g_lastBones = bones; }
 const D3DMATRIX* ViewWorld() { return reinterpret_cast<D3DMATRIX*>(&g_worldMatrix); } // the world transform to put back
 
 constexpr uint32_t kMeshLit = 0x10;          // a mesh's +0x38: it asks for lighting
@@ -52,18 +52,18 @@ constexpr uint32_t kMeshShown = 0x40;        // a mesh's flags
 constexpr int kMaxBones = 0x3A;
 constexpr int kStateLighting = 0x16;         // SetState's
 
-int BonesOnDevice(const sScene* scene) { return static_cast<int>(scene->unknown78); }
+int BonesOnDevice(const sceneRef* scene) { return static_cast<int>(scene->unknown78); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
-bool SkinnedByShader(const sInstance* instance) { return instance->bones && BonesOnDevice(instance->scene) <= 0; }
+bool SkinnedByShader(const sSingleton* instance) { return instance->bones && BonesOnDevice(instance->scene) <= 0; }
 // The scene's first byte's top bit: drawn unlit.
-bool SceneUnlit(const sScene* scene) { return static_cast<int8_t>(scene->flags & 0xFF) < 0; }
+bool SceneUnlit(const sceneRef* scene) { return static_cast<int8_t>(scene->flags & 0xFF) < 0; }
 
 uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint32_t& MeshFlagsRef(uint8_t* mesh) { return *reinterpret_cast<uint32_t*>(mesh); }
 
-const Mth::Vector* Position(const sInstance* instance)
+const Maths::Vector* Position(const sSingleton* instance)
 {
-    return reinterpret_cast<const Mth::Vector*>(reinterpret_cast<const float*>(&instance->transform) + 12);
+    return reinterpret_cast<const Maths::Vector*>(reinterpret_cast<const float*>(&instance->transform) + 12);
 }
 
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
@@ -71,7 +71,7 @@ uint32_t Channel(float value) { return static_cast<uint32_t>(static_cast<int64_t
 
 // The model's lights for the instance's position (the model's +0x2C: virtual [7], Update, with its own +4), or the
 // scene's.
-void UpdateModelLights(sInstance* instance)
+void UpdateModelLights(sSingleton* instance)
 {
     uint8_t* lights = instance->model ? *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(instance->model) + 0x2C)
                                       : nullptr;
@@ -79,7 +79,7 @@ void UpdateModelLights(sInstance* instance)
         ResetLights();
         return;
     }
-    auto update = reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*, uint32_t)>(
+    auto update = reinterpret_cast<void(__thiscall*)(void*, const Maths::Vector*, uint32_t)>(
         (*reinterpret_cast<void***>(lights))[7]);
     update(lights, Position(instance), *reinterpret_cast<uint32_t*>(lights + 4));
 }
@@ -88,29 +88,29 @@ void UpdateModelLights(sInstance* instance)
 // colour.
 void SendLights()
 {
-    D3DLIGHT9& light0 = g_deviceLight0;
-    light0.Diffuse.r = g_lightConstants[8];
-    light0.Diffuse.g = g_lightConstants[9];
-    light0.Diffuse.b = g_lightConstants[10];
-    light0.Direction.x = g_lightConstants[4];
-    light0.Direction.y = g_lightConstants[5];
-    light0.Direction.z = g_lightConstants[6];
-    Device()->SetLight(0, &light0);
-    D3DLIGHT9& light1 = g_deviceLight1;
-    light1.Diffuse.r = g_lightConstants[16];
-    light1.Diffuse.g = g_lightConstants[17];
-    light1.Diffuse.b = g_lightConstants[18];
-    light1.Direction.x = g_lightConstants[12];
-    light1.Direction.y = g_lightConstants[13];
-    light1.Direction.z = g_lightConstants[14];
-    Device()->SetLight(1, &light1);
+    D3DLIGHT9& lampA = g_deviceLight0;
+    lampA.Diffuse.r = g_lightConstants[8];
+    lampA.Diffuse.g = g_lightConstants[9];
+    lampA.Diffuse.b = g_lightConstants[10];
+    lampA.Direction.x = g_lightConstants[4];
+    lampA.Direction.y = g_lightConstants[5];
+    lampA.Direction.z = g_lightConstants[6];
+    Device()->SetLight(0, &lampA);
+    D3DLIGHT9& lampB = g_deviceLight1;
+    lampB.Diffuse.r = g_lightConstants[16];
+    lampB.Diffuse.g = g_lightConstants[17];
+    lampB.Diffuse.b = g_lightConstants[18];
+    lampB.Direction.x = g_lightConstants[12];
+    lampB.Direction.y = g_lightConstants[13];
+    lampB.Direction.z = g_lightConstants[14];
+    Device()->SetLight(1, &lampB);
     uint32_t r = Channel(g_lightConstants[0]);
     uint32_t g = Channel(g_lightConstants[1]);
     uint32_t b = Channel(g_lightConstants[2]);
     Device()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -118,7 +118,7 @@ void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b
 } // namespace
 
 // 0x004D1030
-sInstance* sInstance::Construct(sScene* list, const Mth::Matrix* matrix, int count, Mth::Matrix* boneMatrices)
+sSingleton* sSingleton::Construct(sceneRef* list, const Maths::Matrix* matrix, int count, Maths::Matrix* boneMatrices)
 {
     transform = *matrix;
     bones = boneMatrices;
@@ -142,20 +142,20 @@ sInstance* sInstance::Construct(sScene* list, const Mth::Matrix* matrix, int cou
 }
 
 // 0x004D10C0
-void sInstance::DestroyBody()
+void sSingleton::DestroyBody()
 {
     if (flags & 1) {
-        if (sScene* list = scene) {
+        if (sceneRef* list = scene) {
             list->DestroyBody();
-            Mem::Manager::Get()->Free(list);
+            MemSys::Manager::Get()->Free(list);
             scene = nullptr;
         }
         if (bones) {
-            Mem::Manager::Get()->Free(bones);
+            MemSys::Manager::Get()->Free(bones);
             bones = nullptr;
         }
     }
-    for (sInstance** link = &Instances(); *link; link = &(*link)->next) {
+    for (sSingleton** link = &Instances(); *link; link = &(*link)->next) {
         if (*link == this) {
             *link = next;
             return;
@@ -164,7 +164,7 @@ void sInstance::DestroyBody()
 }
 
 // 0x004D1130
-void sInstance::Render(uint32_t renderFlags)
+void sSingleton::Render(uint32_t drawBits)
 {
     if (SkinnedByShader(this)) {
         SetWorldTransform(reinterpret_cast<const float*>(&transform));
@@ -183,13 +183,13 @@ void sInstance::Render(uint32_t renderFlags)
         g_boneCount = boneCount;
         g_currentInstance = this;
         if (SceneUnlit(scene)) {
-            RenderScene(scene, renderFlags | kRenderNoCulling, 0);
+            DrawScene(scene, drawBits | kRenderNoCulling, 0);
         } else {
             if (flags & 4) {
                 g_instanceColourOn = 1; // the instance's colour on
                 reinterpret_cast<uint32_t&>(g_instanceColour[0]) = *reinterpret_cast<const uint32_t*>(color);
             }
-            RenderScene(scene, renderFlags | kRenderNoCulling, 0);
+            DrawScene(scene, drawBits | kRenderNoCulling, 0);
             if (flags & 4)
                 g_instanceColourOn = 0;
         }
@@ -216,7 +216,7 @@ void sInstance::Render(uint32_t renderFlags)
         int count = boneCount < kMaxBones ? boneCount : kMaxBones;
         if (count > 0) {
             for (int bone = 0; bone < count; ++bone) {
-                Mth::Matrix world = transform;
+                Maths::Matrix world = transform;
                 MatrixMultiply(&world, &bones[bone], &world);
                 SetWorldTransform(reinterpret_cast<const float*>(&world));
                 Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&world));
@@ -227,24 +227,24 @@ void sInstance::Render(uint32_t renderFlags)
                     else
                         MeshFlagsRef(mesh) &= ~kMeshShown;
                 }
-                RenderScene(scene, renderFlags | kRenderNoCulling, 0);
+                DrawScene(scene, drawBits | kRenderNoCulling, 0);
             }
             return;
         }
     }
     SetWorldTransform(reinterpret_cast<const float*>(&transform));
     Device()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
-    RenderScene(scene, renderFlags | kRenderNoCulling, 0);
+    DrawScene(scene, drawBits | kRenderNoCulling, 0);
 }
 
 // 0x004D16B0
-void __cdecl RenderInstance(sInstance* instance, uint32_t flags)
+void __cdecl RenderInstance(sSingleton* instance, uint32_t flags)
 {
     SetLastBones(nullptr);
     if (!instance->active)
         return;
     SetWorldTransform(reinterpret_cast<const float*>(&instance->transform));
-    const auto* centre = reinterpret_cast<const Mth::Vector*>(instance->scene->centre);
+    const auto* centre = reinterpret_cast<const Maths::Vector*>(instance->scene->centre);
     if ((flags & 8) || (SphereInView(centre, instance->scene->radius) &&
                         !SphereOccluded(centre, instance->scene->radius, 1))) {
         if (instance->bones) {
@@ -267,10 +267,10 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
     int count = 0;
     SetLastBones(nullptr);
     if (Instances()) {
-        for (sInstance* instance = Instances(); instance; instance = instance->next) {
+        for (sSingleton* instance = Instances(); instance; instance = instance->next) {
             if (!instance->active || !(instance->viewports & mask))
                 continue;
-            sScene* list = instance->scene;
+            sceneRef* list = instance->scene;
             if (!((flags & kRenderOpaque) && list->meshCount > list->transparentCount) &&
                 !((flags & kRenderTransparent) && list->transparentCount > 0))
                 continue;
@@ -281,7 +281,7 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
             float radius = instance->scene->radius;
             if (instance->bones && BonesOnDevice(instance->scene) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
-            if (!SphereOccluded(reinterpret_cast<const Mth::Vector*>(instance->scene->centre), radius, 1))
+            if (!SphereOccluded(reinterpret_cast<const Maths::Vector*>(instance->scene->centre), radius, 1))
                 Visible()[count++] = instance;
         }
         if (count > 0) {
@@ -293,7 +293,7 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
             SetFlag786EB4();
             int i = 0;
             for (; i < count; ++i) {
-                sInstance* instance = Visible()[i];
+                sSingleton* instance = Visible()[i];
                 if (!SkinnedByShader(instance))
                     break;
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x80)))
@@ -302,10 +302,10 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
             ClearFlag786EB4();
             float camera[3] = {g_camera.position[0], g_camera.position[1],
                                g_camera.position[2]};
-            double nearDistance = static_cast<double>(Script::GetFloat(0x4E7DC608u)) * 12.0f;
+            double nearDistance = static_cast<double>(Scripts::GetFloat(0x4E7DC608u)) * 12.0f;
             float nearSquared = static_cast<float>(nearDistance * nearDistance);
             for (; i < count; ++i) {
-                sInstance* instance = Visible()[i];
+                sSingleton* instance = Visible()[i];
                 const float* position = reinterpret_cast<const float*>(Position(instance));
                 double dx = static_cast<double>(position[0]) - camera[0];
                 double dy = static_cast<double>(position[1]) - camera[1];
@@ -328,8 +328,8 @@ void __cdecl RenderInstances(uint32_t flags, int viewport)
 // 0x004D0F40
 int __cdecl CompareInstances(const void* a, const void* b)
 {
-    const sInstance* first = *static_cast<sInstance* const*>(a);
-    const sInstance* second = *static_cast<sInstance* const*>(b);
+    const sSingleton* first = *static_cast<sSingleton* const*>(a);
+    const sSingleton* second = *static_cast<sSingleton* const*>(b);
     if (SkinnedByShader(first)) {
         if (!SkinnedByShader(second))
             return -1;
@@ -370,6 +370,6 @@ sUVWibble* sUVWibble::Construct()
 }
 
 // 0x004D1A80
-void sTextureAnim::Restart() { startTime = Tmr::GetTime(); }
+void sTextureAnim::Restart() { startTime = FrameClock::GetTime(); }
 
 } // namespace Nx

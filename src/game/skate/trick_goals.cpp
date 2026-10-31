@@ -36,7 +36,7 @@
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
-namespace Game {
+namespace GoalSystem {
 
 double g_trickGoalsThreeQuarters{0.75};
 float g_trickGoalsBeatMilliseconds{15000.0f};
@@ -125,47 +125,47 @@ constexpr uint32_t kFlag = 0x2E0B1465;                 // flag
 constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState (the component)
 constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore (the component)
 
-static VtableSlot kTetrisVtable_slots[] = {&Game::CTetrisGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CTetrisGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CTetrisGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CTetrisGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
-                 &Game::CGoal::Lose, &Game::CTetrisGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
-                 &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-                 &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
-                 &Game::CGoal::UnBeat};
+static VtableSlot kTetrisVtable_slots[] = {&GoalSystem::CTetrisGoal::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CTetrisGoal::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
+                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
+                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CTetrisGoal::Activate, &GoalSystem::CObjective::SetActive,
+                 &GoalSystem::CTetrisGoal::Deactivate, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CTetrisGoal::Win,
+                 &GoalSystem::CObjective::Lose, &GoalSystem::CTetrisGoal::Update, &GoalSystem::CObjective::IsPaused, &GoalSystem::CObjective::SetFlag,
+                 &GoalSystem::CObjective::StageFlagSet, &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet,
+                 &GoalSystem::CObjective::HasWonGoalOrChild, &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain,
+                 &GoalSystem::CObjective::MarkWon, &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag,
+                 &GoalSystem::CObjective::UnBeat};
 void** const kTetrisVtable = reinterpret_cast<void**>(kTetrisVtable_slots);
-static VtableSlot kTimedScoreRunVtable_slots[] = {&Game::CTimedScoreRunGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CTimedScoreRunGoal::IsRunning, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+static VtableSlot kTimedScoreRunVtable_slots[] = {&GoalSystem::CTimedScoreRunGoal::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
+                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
+                 &GoalSystem::CTimedScoreRunGoal::IsRunning, &GoalSystem::CObjective::Activate, &GoalSystem::CObjective::SetActive,
+                 &GoalSystem::CObjective::Deactivate, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
+                 &GoalSystem::CObjective::Update, &GoalSystem::CObjective::IsPaused, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
+                 &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild,
+                 &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon,
+                 &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
 void** const kTimedScoreRunVtable = reinterpret_cast<void**>(kTimedScoreRunVtable_slots);
-static VtableSlot kTrickBeatVtable_slots[] = {&Game::CTrickBeatGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CTrickBeatGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CTrickBeatGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CTetrisGoal::Win,
-                 &Game::CGoal::Lose, &Game::CTrickBeatGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag,
-                 &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-                 &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
-                 &Game::CGoal::UnBeat};
+static VtableSlot kTrickBeatVtable_slots[] = {&GoalSystem::CTrickBeatGoal::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
+                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
+                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CTrickBeatGoal::Activate, &GoalSystem::CObjective::SetActive,
+                 &GoalSystem::CTrickBeatGoal::Deactivate, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CTetrisGoal::Win,
+                 &GoalSystem::CObjective::Lose, &GoalSystem::CTrickBeatGoal::Update, &GoalSystem::CObjective::IsPaused, &GoalSystem::CObjective::SetFlag,
+                 &GoalSystem::CObjective::StageFlagSet, &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet,
+                 &GoalSystem::CObjective::HasWonGoalOrChild, &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain,
+                 &GoalSystem::CObjective::MarkWon, &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag,
+                 &GoalSystem::CObjective::UnBeat};
 void** const kTrickBeatVtable = reinterpret_cast<void**>(kTrickBeatVtable_slots);
-static VtableSlot kTrickObjectsVtable_slots[] = {&Game::CTrickObjectsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
+static VtableSlot kTrickObjectsVtable_slots[] = {&GoalSystem::CTrickObjectsGoal::Destroy, &GoalSystem::CObjective::WantsToEnd, &GoalSystem::CObjective::HasRunOut,
+                 &GoalSystem::CObjective::IsActive, Engine3D::VirtualSlot3Jump, &GoalSystem::CObjective::Expire, &GoalSystem::CObjective::RestoreSaveBlock,
+                 &GoalSystem::CObjective::CaptureSaveBlock, &GoalSystem::CObjective::HasTimeLimit, Stubs::ReturnTrue,
+                 &GoalSystem::CObjective::HasComponentA302D7CD, &GoalSystem::CObjective::Activate, &GoalSystem::CObjective::SetActive,
+                 &GoalSystem::CObjective::Deactivate, &GoalSystem::CObjective::ClearEngagedBit, &GoalSystem::CObjective::Win, &GoalSystem::CObjective::Lose,
+                 &GoalSystem::CObjective::Update, &GoalSystem::CObjective::IsPaused, &GoalSystem::CObjective::SetFlag, &GoalSystem::CObjective::StageFlagSet,
+                 &GoalSystem::CObjective::HasWon, &GoalSystem::CObjective::NetStageFlagSet, &GoalSystem::CObjective::HasWonGoalOrChild,
+                 &GoalSystem::CObjective::IsPrepared, &GoalSystem::CObjective::MayTryAgain, &GoalSystem::CObjective::MarkWon,
+                 &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
 void** const kTrickObjectsVtable = reinterpret_cast<void**>(kTrickObjectsVtable_slots);
 
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
@@ -179,101 +179,101 @@ R Virtual(GoalBase* goal, int offset, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(GoalBase*, A...)>(goal->m_vtable[offset / 4])(goal, args...);
 }
-void ConstructGoal(GoalBase* goal, Script::CStruct* params) { reinterpret_cast<GoalBase*>(reinterpret_cast<CGoal*>(goal)->Construct(params)); }
-void DestroyGoal(GoalBase* goal) { reinterpret_cast<CGoal*>(goal)->DestroyBody(); }
-uint32_t GoalId(GoalBase* goal) { return reinterpret_cast<CGoal*>(goal)->GetGoalId(); }
-bool BaseUpdate(GoalBase* goal) { return reinterpret_cast<CGoal*>(goal)->Update(); }
-bool BaseActivate(GoalBase* goal) { return reinterpret_cast<CGoal*>(goal)->Activate(); }
+void ConstructGoal(GoalBase* goal, Scripts::CStruct* params) { reinterpret_cast<GoalBase*>(reinterpret_cast<CObjective*>(goal)->Construct(params)); }
+void DestroyGoal(GoalBase* goal) { reinterpret_cast<CObjective*>(goal)->DestroyBody(); }
+uint32_t GoalId(GoalBase* goal) { return reinterpret_cast<CObjective*>(goal)->GetObjectiveKey(); }
+bool BaseUpdate(GoalBase* goal) { return reinterpret_cast<CObjective*>(goal)->Update(); }
+bool BaseActivate(GoalBase* goal) { return reinterpret_cast<CObjective*>(goal)->Activate(); }
 // The goal manager (the skate module's, 0x005591B0) winning / losing / starting a goal.
-void* GoalManager() { return GetGoalManager(); }
-void WinGoal(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->WinGoal(id); }
-void LoseGoal(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->LoseGoal(id); }
+void* ObjectiveBoard() { return GetObjectiveBoard(); }
+void CompleteObjective(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->CompleteObjective(id); }
+void FailObjective(void* manager, uint32_t id) { static_cast<CGoalManager*>(manager)->FailObjective(id); }
 
-// The skate module (0x007CE478): the local skater, its score (Mdl::Score), the tricks the score has seen.
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
-uint8_t* LocalSkater() { return reinterpret_cast<uint8_t*>(Mdl::Skate::Instance()->GetLocalSkater()); }
-uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<Obj::CSkater*>(skater)->GetScore()); }
-int TotalScore(uint8_t* score) { return reinterpret_cast<Mdl::Score*>(score)->GetTotalScore(); }
+// The skate module (0x007CE478): the local skater, its score (GameModules::Score), the tricks the score has seen.
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
+uint8_t* LocalSkater() { return reinterpret_cast<uint8_t*>(GameModules::Skate::Instance()->GetHomeRider()); }
+uint8_t* ScoreOf(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<GameObjects::CRider*>(skater)->GetPointsTotal()); }
+int TotalScore(uint8_t* score) { return reinterpret_cast<GameModules::Score*>(score)->GetTotalScore(); }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int TrickCount(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountTrickAfterTaps(trick, spin, perfect, taps);
+    return reinterpret_cast<GameModules::Score*>(score)->CountTrickAfterTaps(trick, spin, perfect, taps);
 }
 int KeyComboCount(uint8_t* score, uint32_t keyCombo, int spin, bool perfect, int taps)
 {
-    return reinterpret_cast<Mdl::Score*>(score)->CountKeyCombo(keyCombo, spin, perfect, taps);
+    return reinterpret_cast<GameModules::Score*>(score)->CountKeyCombo(keyCombo, spin, perfect, taps);
 }
 
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
 // makes is let go at once, as in the original), the containers and text elements made for the tricks.
-using Front::ElementPtr;
-void* ElementManager() { return Front::g_screenElementManager; }
-Front::CScreenElementManager* Manager(void* manager) { return static_cast<Front::CScreenElementManager*>(manager); }
-Front::CScreenElement* ElementById(void* manager, uint32_t id)
+using MenuSystem::ElementPtr;
+void* ElementManager() { return MenuSystem::g_screenElementManager; }
+MenuSystem::CUiTree* Manager(void* manager) { return static_cast<MenuSystem::CUiTree*>(manager); }
+MenuSystem::CUiWidget* ElementById(void* manager, uint32_t id)
 {
     ElementPtr element;
     Manager(manager)->GetElement(&element, id, 1);
-    Front::CScreenElement* raw = element.Get();
+    MenuSystem::CUiWidget* raw = element.Get();
     element.Release();
     return raw;
 }
-void SetAlpha(Front::CScreenElement* element, float alpha)
+void SetAlpha(MenuSystem::CUiWidget* element, float alpha)
 {
     element->SetAlpha(alpha, 1);
 }
 void* NewContainer()
 {
-    void* memory = Mem::Calloc(0x17C);
-    return memory ? static_cast<Front::CContainerElement*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(0x17C);
+    return memory ? static_cast<MenuSystem::CGroupWidget*>(memory)->Construct() : nullptr;
 }
 void* NewText()
 {
-    void* memory = Mem::Calloc(0x1B0);
-    return memory ? static_cast<Front::CTextElement*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(0x1B0);
+    return memory ? static_cast<MenuSystem::CLabelWidget*>(memory)->Construct() : nullptr;
 }
-void SetId(void* element, uint32_t id) { static_cast<Obj::CObject*>(element)->SetID(id); }
+void SetId(void* element, uint32_t id) { static_cast<GameObjects::CObject*>(element)->SetID(id); }
 // The manager's +4 (adds an element) / an element's +4 (its properties from a structure).
 void AddToManager(void* manager, void* element)
 {
     reinterpret_cast<void(__thiscall*)(void*, void*)>((*static_cast<void***>(manager))[1])(manager, element);
 }
-void SetProperties(void* element, Script::CStruct* params)
+void SetProperties(void* element, Scripts::CStruct* params)
 {
-    reinterpret_cast<void(__thiscall*)(void*, Script::CStruct*)>((*static_cast<void***>(element))[1])(element, params);
+    reinterpret_cast<void(__thiscall*)(void*, Scripts::CStruct*)>((*static_cast<void***>(element))[1])(element, params);
 }
 // `child` under `parent` (0x004ABBE0, by smart pointers made for the call).
 void SetParent(void* manager, void* parent, void* child)
 {
     ElementPtr childPtr;
-    childPtr.Set(static_cast<Front::CScreenElement*>(child));
+    childPtr.Set(static_cast<MenuSystem::CUiWidget*>(child));
     ElementPtr parentPtr;
-    parentPtr.Set(static_cast<Front::CScreenElement*>(parent));
+    parentPtr.Set(static_cast<MenuSystem::CUiWidget*>(parent));
     Manager(manager)->SetParent(&parentPtr, &childPtr, 1);
     parentPtr.Release();
     childPtr.Release();
 }
 
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteStructure(Script::CStruct* structure)
+void DeleteStructure(Scripts::CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
-Script::CScript* Spawn(uint32_t name, Script::CStruct* params)
+Scripts::CScript* Spawn(uint32_t name, Scripts::CStruct* params)
 {
-    return Script::SpawnScript(name, params, 0, nullptr, 0, 0, false, false, false, false);
+    return Scripts::SpawnScript(name, params, 0, nullptr, 0, 0, false, false, false, false);
 }
-void Run(uint32_t name, Script::CStruct* params) { Script::RunScript(name, params, nullptr, false, nullptr); }
+void Run(uint32_t name, Scripts::CStruct* params) { Scripts::LaunchScript(name, params, nullptr, false, nullptr); }
 // A spawned script run at once on `object`.
-void RunOn(Script::CScript* script, void* object)
+void RunOn(Scripts::CScript* script, void* object)
 {
-    script->m_object.Set(static_cast<Obj::CObject*>(object));
+    script->m_object.Set(static_cast<GameObjects::CObject*>(object));
     script->Update();
 }
 
@@ -283,7 +283,7 @@ uint32_t PrefixedChecksum(const char* prefix, const char* name)
     char buffer[512];
     std::strcpy(buffer, prefix);
     std::strcat(buffer, name);
-    return Crc::GenerateCRCFromString(buffer);
+    return Checksums::HashFromText(buffer);
 }
 
 } // namespace
@@ -294,7 +294,7 @@ bool GoalBase::IsPaused() { return Virtual<bool>(this, 0x48); }
 // --- Skatetris ---------------------------------------------------------------------------------------------------
 
 // 0x0056F090
-CTetrisGoal* CTetrisGoal::Construct(Script::CStruct* params)
+CTetrisGoal* CTetrisGoal::Construct(Scripts::CStruct* params)
 {
     ConstructGoal(this, params);
     m_vtable = kTetrisVtable;
@@ -313,20 +313,20 @@ CTetrisGoal* CTetrisGoal::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0056F0C0
 bool CTetrisGoal::Win()
 {
-    bool testing = m_params->ContainsFlag(kTestingGoal);
-    m_params->AddChecksum(0u, kJustWonGoal);
+    bool testing = m_params->HasBareFlag(kTestingGoal);
+    m_params->PutNameKey(0u, kJustWonGoal);
     Virtual<void>(this, 0x34, 0, 1); // Deactivate
     m_params->RemoveFlag(kJustWonGoal);
     if (testing)
-        m_params->AddChecksum(0u, kTestingGoal);
-    bool won = reinterpret_cast<CGoal*>(this)->Win();
+        m_params->PutNameKey(0u, kTestingGoal);
+    bool won = reinterpret_cast<CObjective*>(this)->Win();
     m_params->RemoveFlag(kTestingGoal);
     return won;
 }
@@ -361,11 +361,11 @@ bool CTetrisGoal::AllFree()
 }
 
 namespace {
-bool IntegerOrFlag(Script::CStruct* params, uint32_t name)
+bool IntegerOrFlag(Scripts::CStruct* params, uint32_t name)
 {
     int value = 0;
-    params->GetInteger(name, &value, 0);
-    return value || params->ContainsFlag(name);
+    params->FetchIntValue(name, &value, 0);
+    return value || params->HasBareFlag(name);
 }
 } // namespace
 
@@ -380,7 +380,7 @@ bool CTetrisGoal::IsTrickTris() { return IntegerOrFlag(m_params, kTrickTris); }
 void CTetrisGoal::Deactivate(int a, int b)
 {
     ClearTricks();
-    reinterpret_cast<CGoal*>(this)->Deactivate(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
+    reinterpret_cast<CObjective*>(this)->Deactivate(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
 }
 
 // 0x0056F2E0
@@ -388,12 +388,12 @@ void CTetrisGoal::Init()
 {
     m_numTricks = 0;
     m_timer = 0;
-    int trickTime;
-    m_params->GetInteger(kTrickTime, &trickTime, 1);
-    m_params->AddInteger(kCurrentTrickTime, trickTime);
-    m_params->AddInteger(kTricksCompleted, 0);
+    int comboTime;
+    m_params->FetchIntValue(kTrickTime, &comboTime, 1);
+    m_params->PutInt(kCurrentTrickTime, comboTime);
+    m_params->PutInt(kTricksCompleted, 0);
     // The first trick comes 200 ms in (at once for a single combo).
-    m_timer = IntegerOrFlag(m_params, kSingleCombo) ? 0 : trickTime - 200;
+    m_timer = IntegerOrFlag(m_params, kSingleCombo) ? 0 : comboTime - 200;
     for (int i = 0; i < kMaxTricks; ++i) {
         TetrisTrick& t = m_tricks[i];
         t.free = true;
@@ -411,15 +411,15 @@ void CTetrisGoal::Init()
 void CTetrisGoal::UpdateAlphas()
 {
     int check = 0; // (only read when given)
-    bool checkGiven = m_params->GetInteger(kNoAlphaCheck, &check, 0);
+    bool checkGiven = m_params->FetchIntValue(kNoAlphaCheck, &check, 0);
     uint8_t* score = ScoreOf(LocalSkater());
     void* manager = ElementManager();
-    float faded = Script::GetFloat(kFadedAlpha);
-    float unfaded = Script::GetFloat(kUnfadedAlpha);
+    float faded = Scripts::GetFloat(kFadedAlpha);
+    float unfaded = Scripts::GetFloat(kUnfadedAlpha);
     for (TetrisTrick& t : m_tricks) {
         if (t.free)
             continue;
-        Front::CScreenElement* element = ElementById(manager, t.element);
+        MenuSystem::CUiWidget* element = ElementById(manager, t.element);
         bool done = false;
         if (!checkGiven || check) {
             if (t.keyCombo)
@@ -436,15 +436,15 @@ void CTetrisGoal::UpdateAlphas()
 void CTetrisGoal::Expire()
 {
     if (IntegerOrFlag(m_params, kSingleCombo) || IsTrickTris()) {
-        reinterpret_cast<CGoal*>(this)->Lose(); // CGoal's
+        reinterpret_cast<CObjective*>(this)->Lose(); // CObjective's
         return;
     }
     if (AllFree()) {
-        void* manager = GoalManager();
-        WinGoal(manager, GoalId(this));
+        void* manager = ObjectiveBoard();
+        CompleteObjective(manager, GoalId(this));
         return;
     }
-    reinterpret_cast<CGoal*>(this)->RunCallbackScript(kExpire);
+    reinterpret_cast<CObjective*>(this)->InvokeHookScript(kExpire);
     if (m_state != 2)
         Virtual<void>(this, 0x34, 0, 1); // Deactivate
 }
@@ -476,53 +476,53 @@ bool CTetrisGoal::Activate()
 }
 
 // 0x0056F630
-void CTetrisGoal::RemoveTrick(int index)
+void CTetrisGoal::DropMoveEntry(int index)
 {
     int maxTricks;
-    m_params->GetInteger(kMaxTricksName, &maxTricks, 1);
+    m_params->FetchIntValue(kMaxTricksName, &maxTricks, 1);
     uint32_t id = m_tricks[index].element;
     void* manager = ElementManager();
     ElementPtr element;
     Manager(manager)->GetElement(&element, id, 1);
-    Script::CStruct* params = NewStructure();
-    params->AddChecksum(kId, id);
+    Scripts::CStruct* params = NewStructure();
+    params->PutNameKey(kId, id);
     Run(kResetContainer, params);
     DeleteStructure(params);
 
     // Red tricks back to normal once the stack is under three quarters full.
     int red = 0;
-    m_params->GetInteger(kRedTricks, &red, 0);
+    m_params->FetchIntValue(kRedTricks, &red, 0);
     if (red == 1 && static_cast<double>(m_numTricks - 1) < static_cast<double>(maxTricks) * ThreeQuarters()) {
-        m_params->AddInteger(kRedTricks, 0);
+        m_params->PutInt(kRedTricks, 0);
         for (TetrisTrick& t : m_tricks) {
             if (t.free)
                 continue;
-            Front::CScreenElement* trick = ElementById(manager, t.element);
+            MenuSystem::CUiWidget* trick = ElementById(manager, t.element);
             RunOn(Spawn(kTurnRedScript, nullptr), trick);
         }
     }
 
-    Script::CStruct* removeParams = NewStructure();
+    Scripts::CStruct* removeParams = NewStructure();
     if (IsTrickTris())
-        removeParams->AddChecksum(0u, kTrickTris);
+        removeParams->PutNameKey(0u, kTrickTris);
     RunOn(Spawn(kRemoveTrick, removeParams), element.Get());
     DeleteStructure(removeParams);
 
     // Every acceleration_interval tricks, the interval between tricks shortens by acceleration_percent.
     int completed = 0;
-    m_params->GetInteger(kTricksCompleted, &completed, 0);
+    m_params->FetchIntValue(kTricksCompleted, &completed, 0);
     ++completed;
     int interval = 0;
-    m_params->GetInteger(kAccelerationInterval, &interval, 0);
+    m_params->FetchIntValue(kAccelerationInterval, &interval, 0);
     if (interval && completed % interval == 0) {
         float percent = 0.0f;
         m_params->GetFloat(kAccelerationPercent, &percent, 0);
         int time;
-        m_params->GetInteger(kCurrentTrickTime, &time, 1);
+        m_params->FetchIntValue(kCurrentTrickTime, &time, 1);
         time = Ftol((1.0 - percent) * time);
-        m_params->AddInteger(kCurrentTrickTime, time);
+        m_params->PutInt(kCurrentTrickTime, time);
     }
-    m_params->AddInteger(kTricksCompleted, completed);
+    m_params->PutInt(kTricksCompleted, completed);
     --m_numTricks;
     m_tricks[index].free = true;
 }
@@ -531,12 +531,12 @@ void CTetrisGoal::RemoveTrick(int index)
 void CTetrisGoal::AddTricks(int count)
 {
     int maxTricks;
-    m_params->GetInteger(kMaxTricksName, &maxTricks, 1);
+    m_params->FetchIntValue(kMaxTricksName, &maxTricks, 1);
     int total = m_numTricks + count;
     bool combo = IntegerOrFlag(m_params, kCombo) || IsSingleCombo();
     if (total > maxTricks) {
         uint32_t id = GoalId(this);
-        LoseGoal(GoalManager(), id);
+        FailObjective(ObjectiveBoard(), id);
         return;
     }
     int group = 0;
@@ -551,7 +551,7 @@ void CTetrisGoal::AddTricks(int count)
     }
     for (int remaining = count; remaining > 0; --remaining) {
         void* manager = ElementManager();
-        Script::CArray* keyCombos = nullptr;
+        Scripts::CArray* keyCombos = nullptr;
         m_params->GetArray(kTetrisKeyCombos, &keyCombos, 0);
         uint32_t keyCombo = 0;
         uint32_t trickName = 0;
@@ -577,78 +577,78 @@ void CTetrisGoal::AddTricks(int count)
         char text[512];
         if (!keyCombos) {
             // A random trick of goal_tetris_tricks.
-            Script::CArray* tricks = nullptr;
+            Scripts::CArray* tricks = nullptr;
             m_params->GetArray(kTetrisTricks, &tricks, 1);
-            auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(Mth::Rnd(static_cast<int>(tricks->m_size))));
+            auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(Maths::Rnd(static_cast<int>(tricks->m_size))));
             const char* name;
             trick->GetString(kTrick, &name, 1);
-            if (trick->ContainsFlag(kGrind)) {
+            if (trick->HasBareFlag(kGrind)) {
                 t.trick = PrefixedChecksum("FS ", name);
                 t.trick2 = PrefixedChecksum("BS ", name);
             } else {
-                t.trick = Crc::GenerateCRCFromString(name);
+                t.trick = Checksums::HashFromText(name);
             }
             const char* trickText;
             trick->GetString(kText, &trickText, 1);
             std::strcpy(text, trickText);
-            if (!trick->GetChecksum(kKeyCombo, &keyCombo, 0))
+            if (!trick->ReadHashValue(kKeyCombo, &keyCombo, 0))
                 trick->GetString(kKeyCombo, &keyComboText, 0);
         } else {
             // A key combo: its trick from the skater's trick mapping.
-            int index = reinterpret_cast<CGoal*>(this)->PickKeyCombo(keyCombos);
+            int index = reinterpret_cast<CObjective*>(this)->PickKeyCombo(keyCombos);
             if (index == -1)
                 return;
-            if (keyCombos->m_type == Script::ESYMBOLTYPE_NAME) {
+            if (keyCombos->m_type == Scripts::QBVAL_NAME) {
                 keyCombo = keyCombos->GetElement(static_cast<uint32_t>(index));
             } else {
-                auto* entry = reinterpret_cast<Script::CStruct*>(keyCombos->GetElement(static_cast<uint32_t>(index)));
-                entry->GetChecksum(kKeyCombo, &keyCombo, 1);
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(keyCombos->GetElement(static_cast<uint32_t>(index)));
+                entry->ReadHashValue(kKeyCombo, &keyCombo, 1);
                 int spin = 0;
-                if (entry->GetInteger(kRandomSpin, &spin, 0)) {
+                if (entry->FetchIntValue(kRandomSpin, &spin, 0)) {
                     if (spin < 360)
                         spin = 360;
-                    t.spin = Mth::Rnd(spin / 180) + 1;
+                    t.spin = Maths::Rnd(spin / 180) + 1;
                     if (t.spin == 1)
                         t.spin = 0;
                 }
-                if (entry->GetInteger(kSpin, &spin, 0))
+                if (entry->FetchIntValue(kSpin, &spin, 0))
                     t.spin = spin / 180;
-                if (entry->ContainsFlag(kPerfect))
+                if (entry->HasBareFlag(kPerfect))
                     t.perfect = true;
-                if (entry->GetInteger(kNumTaps, &taps, 0))
+                if (entry->FetchIntValue(kNumTaps, &taps, 0))
                     t.taps = taps;
             }
-            void* profile = Mdl::Skate::Instance()->GetProfile(static_cast<Script::CStruct*>(nullptr));
-            auto* mapping = static_cast<Obj::CSkaterProfile*>(profile)->GetInfoStructure(kTrickMapping);
+            void* profile = GameModules::Skate::Instance()->GetProfile(static_cast<Scripts::CStruct*>(nullptr));
+            auto* mapping = static_cast<GameObjects::CRiderIdentity*>(profile)->GetInfoStructure(kTrickMapping);
             const char* trickText = nullptr;
-            if (!mapping->GetChecksum(keyCombo, &trickName, 0)) {
+            if (!mapping->ReadHashValue(keyCombo, &trickName, 0)) {
                 // A special trick slot: the skater's trick in it.
                 int specialSlot;
-                mapping->GetInteger(keyCombo, &specialSlot, 1);
+                mapping->FetchIntValue(keyCombo, &specialSlot, 1);
                 uint8_t* skater = LocalSkater();
                 if (skater) {
                     uint8_t* special = *reinterpret_cast<uint8_t**>(skater + 0x17C + specialSlot * 4);
-                    (*reinterpret_cast<Script::CStruct**>(special + 4))->GetString(kName, &trickText, 1);
+                    (*reinterpret_cast<Scripts::CStruct**>(special + 4))->GetString(kName, &trickText, 1);
                     t.taps = 1;
                 }
             }
             if (!trickText) {
-                Script::CStruct* trick = Script::GetStructure(trickName);
+                Scripts::CStruct* trick = Scripts::ReadSubStruct(trickName);
                 if (!trick)
-                    trick = reinterpret_cast<Script::CStruct*>(Script::GetArray(trickName)->GetElement(0));
-                Script::CStruct* trickParams;
-                trick->GetStructure(kParams, &trickParams, 1);
+                    trick = reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(trickName)->GetElement(0));
+                Scripts::CStruct* trickParams;
+                trick->ReadSubStruct(kParams, &trickParams, 1);
                 // A double tap: the trick's ExtraTricks' (if it has none, a single tap after all).
                 while (taps > 1) {
                     --taps;
                     uint32_t extra;
-                    if (!trickParams->GetChecksum(kExtraTricks, &extra, 0)) {
+                    if (!trickParams->ReadHashValue(kExtraTricks, &extra, 0)) {
                         taps = 1;
                         t.taps = 1;
                         break;
                     }
-                    auto* extraTrick = reinterpret_cast<Script::CStruct*>(Script::GetArray(extra)->GetElement(0));
-                    extraTrick->GetStructure(kParams, &trickParams, 1);
+                    auto* extraTrick = reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(extra)->GetElement(0));
+                    extraTrick->ReadSubStruct(kParams, &trickParams, 1);
                 }
                 trickParams->GetString(kName, &trickText, true);
             }
@@ -666,39 +666,39 @@ void CTetrisGoal::AddTricks(int count)
         }
 
         // The trick's container in the stack, its text, and its key combo's text.
-        Script::CStruct* params = NewStructure();
+        Scripts::CStruct* params = NewStructure();
         void* container = NewContainer();
-        SetId(container, Obj::kUnassignedId);
+        SetId(container, GameObjects::kUnassignedId);
         AddToManager(manager, container);
         int height = combo && remaining == 1 ? 40 : 20;
-        params->AddPair(kDims, 100.0f, static_cast<float>(height));
+        params->InsertPair(kDims, 100.0f, static_cast<float>(height));
         SetProperties(container, params);
-        Front::CScreenElement* menu = ElementById(manager, kTetrisMenu);
+        MenuSystem::CUiWidget* menu = ElementById(manager, kTetrisMenu);
         menu->SetFocusSent(0);
         SetParent(manager, menu, container);
         DeleteStructure(params);
 
         params = NewStructure();
         params->AddString(kText, text);
-        params->AddChecksum(kFont, kNewTrickFont);
-        params->AddChecksum(0u, kNotFocusable);
+        params->PutNameKey(kFont, kNewTrickFont);
+        params->PutNameKey(0u, kNotFocusable);
         void* textElement = NewText();
-        SetId(textElement, Obj::kUnassignedId);
+        SetId(textElement, GameObjects::kUnassignedId);
         AddToManager(manager, textElement);
         SetProperties(textElement, params);
         SetParent(manager, container, textElement);
         DeleteStructure(params);
 
         if (keyComboText || keyCombo) {
-            Script::CStruct* texts = Script::GetStructure(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
+            Scripts::CStruct* texts = Scripts::ReadSubStruct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!keyComboText)
                 texts->GetString(keyCombo, &keyComboText, 0);
             params = NewStructure();
             params->AddString(kText, keyComboText);
-            params->AddChecksum(kFont, kSmall);
-            params->AddChecksum(0u, kNotFocusable);
+            params->PutNameKey(kFont, kSmall);
+            params->PutNameKey(0u, kNotFocusable);
             void* keyText = NewText();
-            SetId(keyText, Obj::kUnassignedId);
+            SetId(keyText, GameObjects::kUnassignedId);
             AddToManager(manager, keyText);
             SetProperties(keyText, params);
             SetParent(manager, container, keyText);
@@ -710,7 +710,7 @@ void CTetrisGoal::AddTricks(int count)
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
         params = NewStructure();
         if (!keyComboText)
-            params->AddChecksum(0u, kNoKeyCombo);
+            params->PutNameKey(0u, kNoKeyCombo);
         auto stackFull = [&]() {
             return !IntegerOrFlag(m_params, kTrickTris) && !IntegerOrFlag(m_params, kSingleCombo) &&
                    static_cast<double>(maxTricks) * ThreeQuarters() < static_cast<double>(m_numTricks);
@@ -719,11 +719,11 @@ void CTetrisGoal::AddTricks(int count)
         RunOn(Spawn(addScript, params), container);
         DeleteStructure(params);
         if (stackFull()) {
-            m_params->AddInteger(kRedTricks, 1);
+            m_params->PutInt(kRedTricks, 1);
             for (TetrisTrick& other : m_tricks) {
                 if (other.free)
                     continue;
-                Front::CScreenElement* element = ElementById(manager, other.element);
+                MenuSystem::CUiWidget* element = ElementById(manager, other.element);
                 RunOn(Spawn(kTurnTrickRed, nullptr), element);
             }
         }
@@ -735,7 +735,7 @@ void CTetrisGoal::CheckCombos()
 {
     uint8_t* score = ScoreOf(LocalSkater());
     int comboSize;
-    m_params->GetInteger(kComboSize, &comboSize, 1);
+    m_params->FetchIntValue(kComboSize, &comboSize, 1);
     for (int group = 0; group < kMaxTricks; ++group) {
         if (!m_groupUsed[group])
             continue;
@@ -760,13 +760,13 @@ void CTetrisGoal::CheckCombos()
                 if (!soundPlayed)
                     Run(kTrickRemovedSound, nullptr);
                 soundPlayed = true;
-                RemoveTrick(i);
+                DropMoveEntry(i);
             }
         }
         m_groupUsed[group] = false;
         if (IntegerOrFlag(m_params, kSingleCombo)) {
-            void* manager = GoalManager();
-            WinGoal(manager, GoalId(this));
+            void* manager = ObjectiveBoard();
+            CompleteObjective(manager, GoalId(this));
         }
     }
 }
@@ -775,47 +775,47 @@ void CTetrisGoal::CheckCombos()
 bool CTetrisGoal::Update()
 {
     int wait = 0;
-    m_params->GetInteger(kWaitToAddTricks, &wait, 0);
+    m_params->FetchIntValue(kWaitToAddTricks, &wait, 0);
     if (wait)
         return BaseUpdate(this);
     int stopTime = 1;
-    if (!IsSingleCombo() && m_params->GetInteger(kTimeToStop, &stopTime, 0))
+    if (!IsSingleCombo() && m_params->FetchIntValue(kTimeToStop, &stopTime, 0))
         stopTime *= 1000;
     auto win = [&]() {
-        void* manager = GoalManager();
-        WinGoal(manager, GoalId(this));
+        void* manager = ObjectiveBoard();
+        CompleteObjective(manager, GoalId(this));
         return true;
     };
     if (IsTrickTris()) {
         if (IsActive() && !IsPaused()) {
             int completed = 0;
-            m_params->GetInteger(kTricksCompleted, &completed, 0);
+            m_params->FetchIntValue(kTricksCompleted, &completed, 0);
             int total;
-            m_params->GetInteger(kTrickTrisTotal, &total, 1);
+            m_params->FetchIntValue(kTrickTrisTotal, &total, 1);
             if (completed >= total)
                 return win();
         }
-    } else if (IsActive() && m_timeLeft < stopTime && !IsPaused() && AllFree()) {
+    } else if (IsActive() && m_secondsRemaining < stopTime && !IsPaused() && AllFree()) {
         return win();
     }
     if (IsActive() && !IsPaused())
         UpdateAlphas();
     if (IsTrickTris()) {
-        if (!(m_flags & 0x10) && !(static_cast<double>(m_timeLeft) > 0.0))
+        if (!(m_flags & 0x10) && !(static_cast<double>(m_secondsRemaining) > 0.0))
             return BaseUpdate(this);
         if (IsPaused())
             return BaseUpdate(this);
         int completed = 0;
-        m_params->GetInteger(kTricksCompleted, &completed, 0);
+        m_params->FetchIntValue(kTricksCompleted, &completed, 0);
         int total;
-        m_params->GetInteger(kTrickTrisTotal, &total, 1);
+        m_params->FetchIntValue(kTrickTrisTotal, &total, 1);
         int used = 0;
         for (const TetrisTrick& t : m_tricks) {
             if (!t.free)
                 ++used;
         }
         int blockSize;
-        m_params->GetInteger(kTrickTrisBlockSize, &blockSize, 1);
+        m_params->FetchIntValue(kTrickTrisBlockSize, &blockSize, 1);
         if (used >= blockSize || used + completed >= total)
             return BaseUpdate(this);
         int count = total - used - completed;
@@ -824,26 +824,26 @@ bool CTetrisGoal::Update()
         AddTricks(count);
         return BaseUpdate(this);
     }
-    if (!IsActive() || (!(m_flags & 0x10) && m_timeLeft < stopTime) || IsPaused())
+    if (!IsActive() || (!(m_flags & 0x10) && m_secondsRemaining < stopTime) || IsPaused())
         return BaseUpdate(this);
-    m_timer += Ftol(Tmr::GetSlomoFrameSeconds() * 1000.0f);
+    m_timer += Ftol(FrameClock::GetSlomoFrameSeconds() * 1000.0f);
     if (IsSingleCombo()) {
-        if (m_params->ContainsFlag(kTricksAdded) || m_timer <= 50)
+        if (m_params->HasBareFlag(kTricksAdded) || m_timer <= 50)
             return BaseUpdate(this);
         int comboSize;
-        m_params->GetInteger(kComboSize, &comboSize, 1);
+        m_params->FetchIntValue(kComboSize, &comboSize, 1);
         AddTricks(comboSize);
-        m_params->AddChecksum(0u, kTricksAdded);
+        m_params->PutNameKey(0u, kTricksAdded);
         return BaseUpdate(this);
     }
-    int trickTime;
-    m_params->GetInteger(kCurrentTrickTime, &trickTime, 1);
-    if (m_timer <= trickTime)
+    int comboTime;
+    m_params->FetchIntValue(kCurrentTrickTime, &comboTime, 1);
+    if (m_timer <= comboTime)
         return BaseUpdate(this);
     m_timer = 0;
     int count = 1;
     if (IsCombo())
-        m_params->GetInteger(kComboSize, &count, 1);
+        m_params->FetchIntValue(kComboSize, &count, 1);
     AddTricks(count);
     return BaseUpdate(this);
 }
@@ -852,10 +852,10 @@ bool CTetrisGoal::Update()
 void CTetrisGoal::CheckTricks()
 {
     int check;
-    if (m_params->GetInteger(kNoAlphaCheck, &check, 0)) {
+    if (m_params->FetchIntValue(kNoAlphaCheck, &check, 0)) {
         if (!check)
             return;
-        m_params->AddInteger(kNoAlphaCheck, 0);
+        m_params->PutInt(kNoAlphaCheck, 0);
     }
     bool combo = IntegerOrFlag(m_params, kSingleCombo) || IsCombo();
     uint8_t* score = ScoreOf(LocalSkater());
@@ -879,14 +879,14 @@ void CTetrisGoal::CheckTricks()
         if (!soundPlayed)
             Run(kTrickRemovedSound, nullptr);
         soundPlayed = true;
-        RemoveTrick(i);
+        DropMoveEntry(i);
     }
 }
 
 // --- TimedScoreRun -------------------------------------------------------------------------------------------------
 
 // 0x005710B0
-CTimedScoreRunGoal* CTimedScoreRunGoal::Construct(Script::CStruct* params)
+CTimedScoreRunGoal* CTimedScoreRunGoal::Construct(Scripts::CStruct* params)
 {
     ConstructGoal(this, params);
     m_vtable = kTimedScoreRunVtable;
@@ -905,7 +905,7 @@ CTimedScoreRunGoal* CTimedScoreRunGoal::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -915,9 +915,9 @@ int CTimedScoreRunGoal::IsRunning() { return IsActive() && !IsPaused() ? 1 : 0; 
 // --- TrickBeat -----------------------------------------------------------------------------------------------------
 
 // 0x00574960
-void CTrickBeatGoal::SetBeatPattern(Script::CArray* pattern, int tempo)
+void CTrickBeatGoal::SetBeatPattern(Scripts::CArray* pattern, int tempo)
 {
-    Script::CopyArray(m_pattern, pattern);
+    Scripts::DuplicateArray(m_pattern, pattern);
     m_beatLength = static_cast<float>(g_trickGoalsBeatMilliseconds / static_cast<double>(tempo)); // 15000 / tempo
 }
 
@@ -946,11 +946,11 @@ void CTrickBeatGoal::ClearTricks()
 void CTrickBeatGoal::Deactivate(int a, int b)
 {
     ClearTricks();
-    reinterpret_cast<CGoal*>(this)->Deactivate(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
+    reinterpret_cast<CObjective*>(this)->Deactivate(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
 }
 
 namespace {
-int GameClock() { return Tmr::GameClockElapsed() + Obj::g_clockOffset; }
+int GameClock() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
 } // namespace
 
 // 0x00574A10
@@ -960,9 +960,9 @@ void CTrickBeatGoal::Init()
     m_numTricks = 0;
     m_beatTime = 0;
     m_completed = 0;
-    m_params->GetInteger(kBeatWindowTime, &m_windowTime, 1);
-    m_params->GetInteger(kTotalToWin, &m_totalToWin, 1);
-    m_params->AddInteger(kTricksCompleted, 0);
+    m_params->FetchIntValue(kBeatWindowTime, &m_windowTime, 1);
+    m_params->FetchIntValue(kTotalToWin, &m_totalToWin, 1);
+    m_params->PutInt(kTricksCompleted, 0);
     for (int i = 0; i < kMaxTricks; ++i) {
         BeatTrick& t = m_tricks[i];
         t.free = true;
@@ -978,17 +978,17 @@ void CTrickBeatGoal::Init()
 }
 
 // 0x00574AB0
-void CTrickBeatGoal::TrickLanded(Script::CStruct* trick)
+void CTrickBeatGoal::TrickLanded(Scripts::CStruct* trick)
 {
-    Script::CStruct* params = trick;
-    trick->GetStructure(kParams, &params, 1);
+    Scripts::CStruct* params = trick;
+    trick->ReadSubStruct(kParams, &params, 1);
     const char* name;
     params->GetString(kName, &name, 1);
-    uint32_t checksum = Crc::GenerateCRCFromString(name);
+    uint32_t checksum = Checksums::HashFromText(name);
     if (!m_inWindow)
         return;
     void* manager = ElementManager();
-    float alpha = Script::GetFloat(kBeatFadedAlpha);
+    float alpha = Scripts::GetFloat(kBeatFadedAlpha);
     for (BeatTrick& t : m_tricks) {
         if (t.free || t.landed || t.trick != checksum)
             continue;
@@ -1001,7 +1001,7 @@ void CTrickBeatGoal::TrickLanded(Script::CStruct* trick)
 void CTrickBeatGoal::ClearLanded()
 {
     void* manager = ElementManager();
-    float alpha = Script::GetFloat(kBeatUnfadedAlpha);
+    float alpha = Scripts::GetFloat(kBeatUnfadedAlpha);
     for (BeatTrick& t : m_tricks) {
         if (t.free || !t.landed)
             continue;
@@ -1014,18 +1014,18 @@ void CTrickBeatGoal::ClearLanded()
 void CTrickBeatGoal::ResetClock() { m_lastTime = GameClock(); }
 
 // 0x00574C40
-CTrickBeatGoal* CTrickBeatGoal::Construct(Script::CStruct* params)
+CTrickBeatGoal* CTrickBeatGoal::Construct(Scripts::CStruct* params)
 {
     ConstructGoal(this, params);
     m_vtable = kTrickBeatVtable;
-    Script::CArray* memory = Script::NewArray();
+    Scripts::CArray* memory = Scripts::NewArray();
     m_pattern = memory ? memory->Init() : nullptr;
-    m_pattern->SetSizeAndType(kBeats, Script::ESYMBOLTYPE_STRUCTURE);
-    Script::CArray* pattern;
+    m_pattern->ConfigureSizeKind(kBeats, Scripts::QBVAL_STRUCT);
+    Scripts::CArray* pattern;
     params->GetArray(kBeatPattern, &pattern, 1);
     int tempo;
-    params->GetInteger(kTempo, &tempo, 1);
-    Script::CopyArray(m_pattern, pattern);
+    params->FetchIntValue(kTempo, &tempo, 1);
+    Scripts::DuplicateArray(m_pattern, pattern);
     m_beatLength = static_cast<float>(g_trickGoalsBeatMilliseconds / static_cast<double>(tempo));
     return this;
 }
@@ -1046,44 +1046,44 @@ void CTrickBeatGoal::PulseTricks()
     for (BeatTrick& t : m_tricks) {
         if (t.free || t.landed)
             continue;
-        Front::CScreenElement* element = ElementById(ElementManager(), t.element);
-        Script::CStruct* params = NewStructure();
+        MenuSystem::CUiWidget* element = ElementById(ElementManager(), t.element);
+        Scripts::CStruct* params = NewStructure();
         float window = static_cast<float>(m_windowTime);
-        params->AddInteger(kWaitTime, Ftol(window / static_cast<double>(Tmr::GetSlomo())));
-        Script::CScript* script = Spawn(kPulseTrick, params);
+        params->PutInt(kWaitTime, Ftol(window / static_cast<double>(FrameClock::GetTimeScale())));
+        Scripts::CScript* script = Spawn(kPulseTrick, params);
         DeleteStructure(params);
         RunOn(script, element);
     }
 }
 
 // 0x00574F00
-void CTrickBeatGoal::RemoveTrick(int index)
+void CTrickBeatGoal::DropMoveEntry(int index)
 {
     uint32_t id = m_tricks[index].element;
     ElementPtr element;
     Manager(ElementManager())->GetElement(&element, id, 1);
-    Script::CStruct* params = NewStructure();
-    params->AddChecksum(kId, id);
+    Scripts::CStruct* params = NewStructure();
+    params->PutNameKey(kId, id);
     Run(kBeatResetContainer, params);
     DeleteStructure(params);
     int red = 0;
-    m_params->GetInteger(kRedTricks, &red, 0); // (unused)
-    Script::CStruct* removeParams = NewStructure();
-    removeParams->AddChecksum(0u, kTrickTris);
+    m_params->FetchIntValue(kRedTricks, &red, 0); // (unused)
+    Scripts::CStruct* removeParams = NewStructure();
+    removeParams->PutNameKey(0u, kTrickTris);
     RunOn(Spawn(kBeatRemoveTrick, removeParams), element.Get());
     DeleteStructure(removeParams);
     int completed = 0;
-    m_params->GetInteger(kTricksCompleted, &completed, 0);
+    m_params->FetchIntValue(kTricksCompleted, &completed, 0);
     ++completed;
     int interval = 0;
-    m_params->GetInteger(kAccelerationInterval, &interval, 0); // (unused)
-    m_params->AddInteger(kTricksCompleted, completed);
+    m_params->FetchIntValue(kAccelerationInterval, &interval, 0); // (unused)
+    m_params->PutInt(kTricksCompleted, completed);
     --m_numTricks;
     m_tricks[index].free = true;
 }
 
 namespace {
-// A sound's volume (Sfx::sVolume, 0x2C bytes; 0x0047B030 constructs it, 0x0047AD60 silences it; its destructor is
+// A sound's volume (SoundFx::volumeRef, 0x2C bytes; 0x0047B030 constructs it, 0x0047AD60 silences it; its destructor is
 // the empty function 0x005480A0).
 struct SoundVolume {
     float channels[5];
@@ -1098,11 +1098,11 @@ inline void DestroySoundVolume(SoundVolume*) {}
 void CTrickBeatGoal::DestroyBody()
 {
     m_vtable = kTrickBeatVtable;
-    Script::CleanUpArray(m_pattern);
+    Scripts::ReleaseArrayStorage(m_pattern);
     m_pattern->Clear();
     if (m_pattern) {
         m_pattern->Clear();
-        Script::DeleteArray(m_pattern);
+        Scripts::DeleteArray(m_pattern);
     }
     DestroyGoal(this);
 }
@@ -1110,39 +1110,39 @@ void CTrickBeatGoal::DestroyBody()
 // 0x005751C0
 void CTrickBeatGoal::UpdateBeat()
 {
-    float slomo = Tmr::GetSlomo();
+    float slomo = FrameClock::GetTimeScale();
     int last = m_lastTime;
-    int elapsed = Tmr::GameClockElapsed() + (Obj::g_clockOffset - last);
+    int elapsed = FrameClock::GameClockElapsed() + (GameObjects::g_clockOffset - last);
     m_beatTime += elapsed;
     m_lastTime += elapsed;
     double time = static_cast<double>(m_beatTime);
     if (m_beatTime < 0)
-        time += Gfx::g_twoTo32; // (unsigned)
+        time += Gfx2D::g_twoTo32; // (unsigned)
     double inverse = 1.0 / slomo;
     float scale = static_cast<float>(inverse); // (kept as a float; the beat's length uses the unrounded value)
     float beat = static_cast<float>(inverse * m_beatLength);
     if (!(time <= beat)) {
         // A beat: its sounds, then on to the next.
-        auto* step = reinterpret_cast<Script::CStruct*>(m_pattern->GetElement(static_cast<uint32_t>(m_beat)));
-        Script::CArray* sounds;
+        auto* step = reinterpret_cast<Scripts::CStruct*>(m_pattern->GetElement(static_cast<uint32_t>(m_beat)));
+        Scripts::CArray* sounds;
         if (step->GetArray(kSounds, &sounds, 0)) {
             int count = static_cast<int>(sounds->m_size);
             for (int i = 0; i < count; ++i) {
-                auto* sound = reinterpret_cast<Script::CStruct*>(sounds->GetElement(static_cast<uint32_t>(i)));
+                auto* sound = reinterpret_cast<Scripts::CStruct*>(sounds->GetElement(static_cast<uint32_t>(i)));
                 uint32_t name;
-                sound->GetChecksum(0u, &name, 1);
+                sound->ReadHashValue(0u, &name, 1);
                 float volume = 100.0f;
                 float pitch = 100.0f;
                 sound->GetFloat(kVol, &volume, 0);
                 sound->GetFloat(kPitch, &pitch, 0);
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
                 SoundVolume level;
-                auto* volumeOf = reinterpret_cast<Sfx::sVolume*>(&level);
+                auto* volumeOf = reinterpret_cast<SoundFx::volumeRef*>(&level);
                 volumeOf->Init();
-                volumeOf->SetSilent();
+                volumeOf->ChangeMuted();
                 level.channels[0] = volume;
                 level.channels[1] = volume;
-                Sfx::g_sfxManager->PlaySound(name, volumeOf, pitch, 0, nullptr, 0);
+                SoundFx::g_sfxManager->PlaySound(name, volumeOf, pitch, 0, nullptr, 0);
                 DestroySoundVolume(&level);
             }
         }
@@ -1152,8 +1152,8 @@ void CTrickBeatGoal::UpdateBeat()
         } else {
             m_beatTime -= Ftol(static_cast<double>(scale) * m_beatLength);
         }
-        step = reinterpret_cast<Script::CStruct*>(m_pattern->GetElement(static_cast<uint32_t>(m_beat)));
-        m_pulse = step->ContainsFlag(kPulse);
+        step = reinterpret_cast<Scripts::CStruct*>(m_pattern->GetElement(static_cast<uint32_t>(m_beat)));
+        m_pulse = step->HasBareFlag(kPulse);
         return;
     }
     // The beat window: half of beat_window_time either side of the beat.
@@ -1173,7 +1173,7 @@ void CTrickBeatGoal::AddTricks(int count)
 {
     for (int remaining = count; remaining > 0; --remaining) {
         void* manager = ElementManager();
-        Script::CArray* keyCombos = nullptr;
+        Scripts::CArray* keyCombos = nullptr;
         m_params->GetArray(kBeatKeyCombos, &keyCombos, 0);
         uint32_t keyCombo = 0;
         uint32_t trickName = 0;
@@ -1200,75 +1200,75 @@ void CTrickBeatGoal::AddTricks(int count)
         int taps = 1;
         char text[512];
         if (!keyCombos) {
-            Script::CArray* tricks = nullptr;
+            Scripts::CArray* tricks = nullptr;
             m_params->GetArray(kBeatTricks, &tricks, 1);
-            auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(Mth::Rnd(static_cast<int>(tricks->m_size))));
+            auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(Maths::Rnd(static_cast<int>(tricks->m_size))));
             const char* name;
             trick->GetString(kTrick, &name, 1);
-            if (trick->ContainsFlag(kGrind)) {
+            if (trick->HasBareFlag(kGrind)) {
                 t.trick = PrefixedChecksum("FS ", name);
                 t.trick2 = PrefixedChecksum("BS ", name);
             } else {
-                t.trick = Crc::GenerateCRCFromString(name);
+                t.trick = Checksums::HashFromText(name);
             }
             const char* trickText;
             trick->GetString(kText, &trickText, 1);
             std::strcpy(text, trickText);
-            if (!trick->GetChecksum(kKeyCombo, &keyCombo, 0))
+            if (!trick->ReadHashValue(kKeyCombo, &keyCombo, 0))
                 trick->GetString(kKeyCombo, &keyComboText, 0);
         } else {
-            int index = reinterpret_cast<CGoal*>(this)->PickKeyCombo(keyCombos);
+            int index = reinterpret_cast<CObjective*>(this)->PickKeyCombo(keyCombos);
             if (index == -1)
                 return;
-            if (keyCombos->m_type == Script::ESYMBOLTYPE_NAME) {
+            if (keyCombos->m_type == Scripts::QBVAL_NAME) {
                 keyCombo = keyCombos->GetElement(static_cast<uint32_t>(index));
             } else {
-                auto* entry = reinterpret_cast<Script::CStruct*>(keyCombos->GetElement(static_cast<uint32_t>(index)));
-                entry->GetChecksum(kKeyCombo, &keyCombo, 1);
+                auto* entry = reinterpret_cast<Scripts::CStruct*>(keyCombos->GetElement(static_cast<uint32_t>(index)));
+                entry->ReadHashValue(kKeyCombo, &keyCombo, 1);
                 int spin = 0;
-                if (entry->GetInteger(kRandomSpin, &spin, 0)) {
+                if (entry->FetchIntValue(kRandomSpin, &spin, 0)) {
                     if (spin < 360)
                         spin = 360;
-                    t.spin = Mth::Rnd(spin / 180) + 1;
+                    t.spin = Maths::Rnd(spin / 180) + 1;
                     if (t.spin == 1)
                         t.spin = 0;
                 }
-                if (entry->GetInteger(kSpin, &spin, 0))
+                if (entry->FetchIntValue(kSpin, &spin, 0))
                     t.spin = spin / 180;
-                if (entry->ContainsFlag(kPerfect))
+                if (entry->HasBareFlag(kPerfect))
                     t.perfect = true;
-                if (entry->GetInteger(kNumTaps, &taps, 0))
+                if (entry->FetchIntValue(kNumTaps, &taps, 0))
                     t.taps = taps;
             }
-            void* profile = Mdl::Skate::Instance()->GetProfile(static_cast<Script::CStruct*>(nullptr));
-            auto* mapping = static_cast<Obj::CSkaterProfile*>(profile)->GetInfoStructure(kTrickMapping);
+            void* profile = GameModules::Skate::Instance()->GetProfile(static_cast<Scripts::CStruct*>(nullptr));
+            auto* mapping = static_cast<GameObjects::CRiderIdentity*>(profile)->GetInfoStructure(kTrickMapping);
             const char* trickText = nullptr;
-            if (!mapping->GetChecksum(keyCombo, &trickName, 0)) {
+            if (!mapping->ReadHashValue(keyCombo, &trickName, 0)) {
                 int specialSlot;
-                mapping->GetInteger(keyCombo, &specialSlot, 1);
+                mapping->FetchIntValue(keyCombo, &specialSlot, 1);
                 uint8_t* skater = LocalSkater();
                 if (skater) {
                     uint8_t* special = *reinterpret_cast<uint8_t**>(skater + 0x17C + specialSlot * 4);
-                    (*reinterpret_cast<Script::CStruct**>(special + 4))->GetString(kName, &trickText, 1);
+                    (*reinterpret_cast<Scripts::CStruct**>(special + 4))->GetString(kName, &trickText, 1);
                     t.taps = 1;
                 }
             }
             if (!trickText) {
-                Script::CStruct* trick = Script::GetStructure(trickName);
+                Scripts::CStruct* trick = Scripts::ReadSubStruct(trickName);
                 if (!trick)
-                    trick = reinterpret_cast<Script::CStruct*>(Script::GetArray(trickName)->GetElement(0));
-                Script::CStruct* trickParams;
-                trick->GetStructure(kParams, &trickParams, 1);
+                    trick = reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(trickName)->GetElement(0));
+                Scripts::CStruct* trickParams;
+                trick->ReadSubStruct(kParams, &trickParams, 1);
                 while (taps > 1) {
                     --taps;
                     uint32_t extra;
-                    if (!trickParams->GetChecksum(kExtraTricks, &extra, 0)) {
+                    if (!trickParams->ReadHashValue(kExtraTricks, &extra, 0)) {
                         taps = 1;
                         t.taps = 1;
                         break;
                     }
-                    auto* extraTrick = reinterpret_cast<Script::CStruct*>(Script::GetArray(extra)->GetElement(0));
-                    extraTrick->GetStructure(kParams, &trickParams, 1);
+                    auto* extraTrick = reinterpret_cast<Scripts::CStruct*>(Scripts::GetArray(extra)->GetElement(0));
+                    extraTrick->ReadSubStruct(kParams, &trickParams, 1);
                 }
                 trickParams->GetString(kName, &trickText, true);
             }
@@ -1282,41 +1282,41 @@ void CTrickBeatGoal::AddTricks(int count)
             }
             std::strcat(text, trickText);
             t.keyCombo = keyCombo;
-            t.trick = Crc::GenerateCRCFromString(trickText); // (TrickLanded matches by the trick's name)
+            t.trick = Checksums::HashFromText(trickText); // (TrickLanded matches by the trick's name)
         }
 
-        Script::CStruct* params = NewStructure();
+        Scripts::CStruct* params = NewStructure();
         void* container = NewContainer();
-        SetId(container, Obj::kUnassignedId);
+        SetId(container, GameObjects::kUnassignedId);
         AddToManager(manager, container);
-        params->AddPair(kDims, 100.0f, 20.0f);
+        params->InsertPair(kDims, 100.0f, 20.0f);
         SetProperties(container, params);
-        Front::CScreenElement* menu = ElementById(manager, kBeatMenu);
+        MenuSystem::CUiWidget* menu = ElementById(manager, kBeatMenu);
         menu->SetFocusSent(0);
         SetParent(manager, menu, container);
         DeleteStructure(params);
 
         params = NewStructure();
         params->AddString(kText, text);
-        params->AddChecksum(kFont, kNewTrickFont);
-        params->AddChecksum(0u, kNotFocusable);
+        params->PutNameKey(kFont, kNewTrickFont);
+        params->PutNameKey(0u, kNotFocusable);
         void* textElement = NewText();
-        SetId(textElement, Obj::kUnassignedId);
+        SetId(textElement, GameObjects::kUnassignedId);
         AddToManager(manager, textElement);
         SetProperties(textElement, params);
         SetParent(manager, container, textElement);
         DeleteStructure(params);
 
         if (keyComboText || keyCombo) {
-            Script::CStruct* texts = Script::GetStructure(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
+            Scripts::CStruct* texts = Scripts::ReadSubStruct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!keyComboText)
                 texts->GetString(keyCombo, &keyComboText, 0);
             params = NewStructure();
             params->AddString(kText, keyComboText);
-            params->AddChecksum(kFont, kSmall);
-            params->AddChecksum(0u, kNotFocusable);
+            params->PutNameKey(kFont, kSmall);
+            params->PutNameKey(0u, kNotFocusable);
             void* keyText = NewText();
-            SetId(keyText, Obj::kUnassignedId);
+            SetId(keyText, GameObjects::kUnassignedId);
             AddToManager(manager, keyText);
             SetProperties(keyText, params);
             SetParent(manager, container, keyText);
@@ -1326,7 +1326,7 @@ void CTrickBeatGoal::AddTricks(int count)
         ++m_numTricks;
         params = NewStructure();
         if (!keyComboText)
-            params->AddChecksum(0u, kNoKeyCombo);
+            params->PutNameKey(0u, kNoKeyCombo);
         RunOn(Spawn(kBeatAddTrick, params), container);
         DeleteStructure(params);
     }
@@ -1338,7 +1338,7 @@ void CTrickBeatGoal::RemoveLandedTricks()
     for (int i = 0; i < kMaxTricks; ++i) {
         if (!m_tricks[i].free && m_tricks[i].landed) {
             ++m_completed;
-            RemoveTrick(i);
+            DropMoveEntry(i);
         }
     }
 }
@@ -1348,7 +1348,7 @@ CTrickBeatGoal* CTrickBeatGoal::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -1356,17 +1356,17 @@ CTrickBeatGoal* CTrickBeatGoal::Destroy(uint8_t flags)
 bool CTrickBeatGoal::Update()
 {
     int wait = 0;
-    m_params->GetInteger(kWaitToAddTricks, &wait, 0);
+    m_params->FetchIntValue(kWaitToAddTricks, &wait, 0);
     if (wait)
         return BaseUpdate(this);
     if (IsActive() && !IsPaused() && m_completed >= m_totalToWin) {
-        void* manager = GoalManager();
-        WinGoal(manager, GoalId(this));
+        void* manager = ObjectiveBoard();
+        CompleteObjective(manager, GoalId(this));
         return true;
     }
     if (IsActive())
         IsPaused(); // (the result isn't used)
-    if (IsActive() && ((m_flags & 0x10) || static_cast<double>(m_timeLeft) > 0.0) && !IsPaused()) {
+    if (IsActive() && ((m_flags & 0x10) || static_cast<double>(m_secondsRemaining) > 0.0) && !IsPaused()) {
         UpdateBeat();
         int used = 0;
         for (const BeatTrick& t : m_tricks) {
@@ -1374,7 +1374,7 @@ bool CTrickBeatGoal::Update()
                 ++used;
         }
         int blockSize;
-        m_params->GetInteger(kBlockSize, &blockSize, 1);
+        m_params->FetchIntValue(kBlockSize, &blockSize, 1);
         if (used < blockSize && m_completed + used < m_totalToWin) {
             int count = m_totalToWin - m_completed - used;
             if (count > blockSize - used)
@@ -1388,7 +1388,7 @@ bool CTrickBeatGoal::Update()
 // --- TrickObjects --------------------------------------------------------------------------------------------------
 
 // 0x005763A0
-CTrickObjectsGoal* CTrickObjectsGoal::Construct(Script::CStruct* params)
+CTrickObjectsGoal* CTrickObjectsGoal::Construct(Scripts::CStruct* params)
 {
     ConstructGoal(this, params);
     m_vtable = kTrickObjectsVtable;
@@ -1407,21 +1407,21 @@ CTrickObjectsGoal* CTrickObjectsGoal::Destroy(uint8_t flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00576400
-void CTrickObjectsGoal::CheckScore()
+void CTrickObjectsGoal::EvaluatePoints()
 {
-    void* manager = GoalManager();
-    if (!reinterpret_cast<CGoal*>(this)->AllFlagsSet()) {
-        LoseGoal(manager, GoalId(this));
+    void* manager = ObjectiveBoard();
+    if (!reinterpret_cast<CObjective*>(this)->HasEveryBit()) {
+        FailObjective(manager, GoalId(this));
         return;
     }
     int required;
-    if (!m_params->GetInteger(kRequiredScore, &required, 0)) {
-        WinGoal(manager, GoalId(this));
+    if (!m_params->FetchIntValue(kRequiredScore, &required, 0)) {
+        CompleteObjective(manager, GoalId(this));
         return;
     }
     uint8_t* skater = LocalSkater();
@@ -1431,21 +1431,21 @@ void CTrickObjectsGoal::CheckScore()
     // The points of the trick in progress (+0x14, times the multiplier +0x60) count too.
     int pending = Ftol(static_cast<double>(*reinterpret_cast<int*>(score + 0x14)) * *reinterpret_cast<float*>(score + 0x60));
     if (TotalScore(score) + pending < required)
-        LoseGoal(manager, GoalId(this));
+        FailObjective(manager, GoalId(this));
     else
-        WinGoal(manager, GoalId(this));
+        CompleteObjective(manager, GoalId(this));
 }
 
 // 0x005764B0
-Script::CStruct* CTrickObjectsGoal::GetObjectByCluster(uint32_t cluster)
+Scripts::CStruct* CTrickObjectsGoal::GetObjectByCluster(uint32_t cluster)
 {
-    Script::CArray* objects;
+    Scripts::CArray* objects;
     m_params->GetArray(kGoalObjects, &objects, 1);
     int count = static_cast<int>(objects->m_size);
     uint32_t found = cluster; // (kept from the last entry with a cluster_id: an entry without one matches that)
     for (int i = 0; i < count; ++i) {
-        auto* object = reinterpret_cast<Script::CStruct*>(objects->GetElement(static_cast<uint32_t>(i)));
-        object->GetChecksum(kClusterId, &found, 1);
+        auto* object = reinterpret_cast<Scripts::CStruct*>(objects->GetElement(static_cast<uint32_t>(i)));
+        object->ReadHashValue(kClusterId, &found, 1);
         if (found == cluster)
             return object;
     }
@@ -1455,14 +1455,14 @@ Script::CStruct* CTrickObjectsGoal::GetObjectByCluster(uint32_t cluster)
 // 0x00576520
 void CTrickObjectsGoal::ObjectHit(uint32_t cluster)
 {
-    Script::CStruct* object = GetObjectByCluster(cluster);
-    if (!object || Virtual<bool>(this, 0x54) || reinterpret_cast<CGoal*>(this)->IsLocked())
+    Scripts::CStruct* object = GetObjectByCluster(cluster);
+    if (!object || Virtual<bool>(this, 0x54) || reinterpret_cast<CObjective*>(this)->IsLocked())
         return;
     uint8_t* skater = LocalSkater();
     if (!skater)
         return;
     auto component = [skater](uint32_t type) {
-        return reinterpret_cast<uint8_t*>(reinterpret_cast<Obj::CCompositeObject*>(skater)->GetComponent(type));
+        return reinterpret_cast<uint8_t*>(reinterpret_cast<GameObjects::CGameEntity*>(skater)->GetComponent(type));
     };
     uint8_t* state = component(kSkaterState);
     uint8_t* scoreComponent = component(kSkaterScore);
@@ -1472,12 +1472,12 @@ void CTrickObjectsGoal::ObjectHit(uint32_t cluster)
         Ftol(static_cast<double>(*reinterpret_cast<int*>(score + 0x14)) * *reinterpret_cast<float*>(score + 0x60)) <= 0)
         return;
     if (!IsActive()) {
-        void* manager = GoalManager();
-        static_cast<CGoalManager*>(manager)->ActivateGoal(GoalId(this), false);
+        void* manager = ObjectiveBoard();
+        static_cast<CGoalManager*>(manager)->EngageObjective(GoalId(this), false);
     }
     uint32_t flag;
-    object->GetChecksum(kFlag, &flag, 1);
-    if (!reinterpret_cast<CGoal*>(this)->GoalFlagSet(flag, 0))
+    object->ReadHashValue(kFlag, &flag, 1);
+    if (!reinterpret_cast<CObjective*>(this)->BitIsOn(flag, 0))
         Virtual<void>(this, 0x4C, flag, 1, 0);
 }
 

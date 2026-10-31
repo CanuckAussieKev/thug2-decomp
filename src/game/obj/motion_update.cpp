@@ -1,4 +1,4 @@
-// The motion component (Obj::CMotionComponent, motion.h): its update, moving to points, following paths of nodes and
+// The motion component (GameObjects::CKinematicsModule, motion.h): its update, moving to points, following paths of nodes and
 // following a leader's trail.
 
 #include <cmath>
@@ -19,7 +19,7 @@
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 
-namespace Obj {
+namespace GameObjects {
 
 using namespace MotionDetail;
 
@@ -37,20 +37,20 @@ constexpr uint32_t kOrientY = 0xE19E310A;         // OrientY
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;        // the pedlogic component
 
 // The speed along a path (motion_path.h).
-void UpdatePathSpeed(CMotionComponent* motion) { reinterpret_cast<CMotionPathMembers*>(motion)->UpdatePathSpeed(); }
+void UpdatePathSpeed(CKinematicsModule* motion) { reinterpret_cast<CMotionPathMembers*>(motion)->UpdatePathSpeed(); }
 
 // The velocity of a step from where the object was (`back`: minus that position) to where it is now: x from the
 // unrounded difference and reciprocal, the others from the rounded ones (as the original's x87 code).
-void SetStepVelocity(CCompositeObject* object, const float back[4], float frameTime)
+void SetStepVelocity(CGameEntity* object, const float back[4], float frameTime)
 {
-    const Mth::Vector& pos = object->m_pos;
+    const Maths::Vector& pos = object->m_pos;
     double x = static_cast<double>(back[0]) + pos.x;
     float y = static_cast<float>(static_cast<double>(back[1]) + pos.y);
     float z = static_cast<float>(static_cast<double>(back[2]) + pos.z);
     float w = static_cast<float>(static_cast<double>(back[3]) + pos.w);
     double inverse = 1.0 / static_cast<double>(frameTime);
     float rounded = static_cast<float>(inverse);
-    Mth::Vector& vel = object->m_vel;
+    Maths::Vector& vel = object->m_vel;
     vel.z = static_cast<float>(static_cast<double>(z) * rounded);
     vel.w = static_cast<float>(static_cast<double>(w) * rounded);
     vel.x = static_cast<float>(x * inverse);
@@ -58,7 +58,7 @@ void SetStepVelocity(CCompositeObject* object, const float back[4], float frameT
 }
 
 // Minus the object's position (the start of a step).
-void Back(const CCompositeObject* object, float back[4])
+void Back(const CGameEntity* object, float back[4])
 {
     back[0] = -object->m_pos.x;
     back[1] = -object->m_pos.y;
@@ -67,13 +67,13 @@ void Back(const CCompositeObject* object, float back[4])
 }
 
 // The node a path follower is headed for (MOTION_FOLLOWING_PATH and a follower), or 0; and its last node.
-uint32_t PathNode(const CMotionComponent* motion)
+uint32_t PathNode(const CKinematicsModule* motion)
 {
     if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->mp_pathFollower)
         return 0;
-    return motion->mp_pathFollower->m_node;
+    return motion->mp_pathFollower->m_listLink;
 }
-uint32_t PathLastNode(const CMotionComponent* motion)
+uint32_t PathLastNode(const CKinematicsModule* motion)
 {
     if (!(motion->m_motionFlags & MOTION_FOLLOWING_PATH) || !motion->mp_pathFollower)
         return 0;
@@ -85,9 +85,9 @@ uint32_t PathLastNode(const CMotionComponent* motion)
 // --- the update ---
 
 // 0x004270E0
-void CMotionComponent::Update()
+void CKinematicsModule::Update()
 {
-    m_frameTime = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    m_frameTime = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     if (m_motionFlags) {
         if (m_motionFlags & MOTION_HOVERING) {
             m_object->m_pos.y = m_hoverBase;
@@ -130,16 +130,16 @@ void CMotionComponent::Update()
         m_groundOffset = static_cast<float>(static_cast<double>(m_groundOffset) - step);
     }
     if (m_object->m_id > 15)
-        m_object->m_displayMatrix = m_object->m_matrix;
+        m_object->m_displayMatrix = m_object->m_basisFrame;
 }
 
 // 0x00424200
-bool CMotionComponent::UpdateMoveTo()
+bool CKinematicsModule::UpdateMoveTo()
 {
     float back[4];
     Back(m_object, back);
     if (!(m_moveAcceleration == 0.0f)) {
-        double speed = Tmr::GetSlomoFrameSeconds() * 60.0 * m_moveAcceleration + m_moveSpeed;
+        double speed = FrameClock::GetSlomoFrameSeconds() * 60.0 * m_moveAcceleration + m_moveSpeed;
         m_moveSpeed = static_cast<float>(speed);
         if (speed >= m_moveMaxSpeed) { // (not with a NaN)
             m_moveSpeed = m_moveMaxSpeed;
@@ -148,7 +148,7 @@ bool CMotionComponent::UpdateMoveTo()
     }
     double done = static_cast<double>(m_moveSpeed) * m_frameTime + m_moveDone;
     m_moveDone = static_cast<float>(done);
-    Mth::Vector& pos = m_object->m_pos;
+    Maths::Vector& pos = m_object->m_pos;
     if (done >= m_moveDistance) {
         pos = m_moveTarget;
         if (m_moveArriveNode)
@@ -174,7 +174,7 @@ bool CMotionComponent::UpdateMoveTo()
 }
 
 // 0x00426E70
-void CMotionComponent::UpdatePath()
+void CKinematicsModule::UpdatePath()
 {
     if (m_object->GetComponent(kPedLogic))
         return;
@@ -182,8 +182,8 @@ void CMotionComponent::UpdatePath()
     Back(m_object, back);
     UpdatePathSpeed(this);
     if (!(m_pathSpeed == 0.0f)) {
-        Mth::Matrix& matrix = m_object->m_matrix;
-        const Mth::Vector* along = (m_motionFlags2 & MOTION2_NO_PATH_HEADING) ? nullptr : &matrix.row[2];
+        Maths::Matrix& matrix = m_object->m_basisFrame;
+        const Maths::Vector* along = (m_motionFlags2 & MOTION2_NO_PATH_HEADING) ? nullptr : &matrix.row[2];
         if (mp_pathFollower->Update(static_cast<float>(static_cast<double>(m_frameTime) * m_pathSpeed), along)) {
             m_motionFlags &= ~MOTION_FOLLOWING_PATH;
             m_pathSpeed = 0.0f;
@@ -195,9 +195,9 @@ void CMotionComponent::UpdatePath()
                 matrix.row[2].Normalize();
             }
             if (!(m_motionFlags2 & MOTION2_STICK_TO_GROUND)) {
-                matrix.row[0] = Mth::CrossProduct(matrix.row[1], matrix.row[2]);
+                matrix.row[0] = Maths::CrossProduct(matrix.row[1], matrix.row[2]);
                 matrix.row[0].Normalize();
-                matrix.row[2] = Mth::CrossProduct(matrix.row[0], matrix.row[1]);
+                matrix.row[2] = Maths::CrossProduct(matrix.row[0], matrix.row[1]);
                 matrix.row[2].Normalize();
             }
         }
@@ -214,11 +214,11 @@ void CMotionComponent::UpdatePath()
 }
 
 // 0x004246A0
-void CMotionComponent::UpdateFollowLeader()
+void CKinematicsModule::UpdateFollowLeader()
 {
     mp_trail->Update();
     float height = m_object->m_pos.y;
-    mp_trail->GetPosition(&m_object->m_pos, &m_object->m_matrix);
+    mp_trail->GetPosition(&m_object->m_pos, &m_object->m_basisFrame);
     if (m_leaveYUnaffected)
         m_object->m_pos.y = height;
 }
@@ -226,7 +226,7 @@ void CMotionComponent::UpdateFollowLeader()
 // --- paths ---
 
 // 0x00423FC0
-void CMotionComponent::StartPath(uint32_t node)
+void CKinematicsModule::StartPath(uint32_t node)
 {
     if (m_pathGroup)
         m_pathGroup->Remove(m_object);
@@ -236,55 +236,55 @@ void CMotionComponent::StartPath(uint32_t node)
 }
 
 // 0x00424020
-void CMotionComponent::ArriveAtNode(uint32_t node)
+void CKinematicsModule::ArriveAtNode(uint32_t node)
 {
-    Script::CStruct* nodeStruct = SkateScript::GetNode(node, false);
-    m_node = node;
+    Scripts::CStruct* nodeStruct = LevelNodes::GetNode(node, false);
+    m_listLink = node;
     uint32_t script;
-    if (nodeStruct->GetChecksum(kSpawnObjScript, &script, 0)) {
-        Script::CStruct* params = nullptr;
-        nodeStruct->GetStructure(kParamsName, &params, 0);
+    if (nodeStruct->ReadHashValue(kSpawnObjScript, &script, 0)) {
+        Scripts::CStruct* params = nullptr;
+        nodeStruct->ReadSubStruct(kParamsName, &params, 0);
         m_object->SpawnScript(script, params, 0, false);
         return;
     }
-    if (nodeStruct->GetChecksum(kSwitchObjScript, &script, 0)) {
-        Script::CStruct* params = nullptr;
-        nodeStruct->GetStructure(kParamsName, &params, 0);
-        m_object->SwitchScript(script, params);
+    if (nodeStruct->ReadHashValue(kSwitchObjScript, &script, 0)) {
+        Scripts::CStruct* params = nullptr;
+        nodeStruct->ReadSubStruct(kParamsName, &params, 0);
+        m_object->ReplaceScript(script, params);
     }
 }
 
 // 0x00424180
-void CMotionComponent::FollowPathLinked(Script::CStruct* params, Script::CScript*)
+void CKinematicsModule::FollowPathLinked(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint32_t node = params->ContainsFlag(kOriginalNode) ? m_firstNode : m_node;
-    uint32_t links = SkateScript::GetLinkCount(node);
+    uint32_t node = params->HasBareFlag(kOriginalNode) ? m_firstNode : m_listLink;
+    uint32_t links = LevelNodes::GetLinkCount(node);
     if (!links)
         return;
     uint32_t next;
     if (static_cast<int>(links) > 1 && (m_motionFlags2 & MOTION2_RANDOM_LINKS))
-        next = SkateScript::GetLink(node, Mth::Rnd(static_cast<int>(links)));
+        next = LevelNodes::GetLink(node, Maths::Rnd(static_cast<int>(links)));
     else
-        next = SkateScript::GetLink(node, 0);
+        next = LevelNodes::GetLink(node, 0);
     StartPath(next);
     m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
 }
 
 // 0x004244C0
-CCompositeObject* CMotionComponent::GetNextObjOnPath(float range)
+CGameEntity* CKinematicsModule::GetNextObjOnPath(float range)
 {
     if (!m_pathGroup)
         return nullptr;
-    CSmtPtr<CObject>* slot = m_pathGroup->m_slots;
+    CSharedRef<CObject>* slot = m_pathGroup->m_slots;
     int count = m_pathGroup->m_size;
-    CCompositeObject* nearest = nullptr;
+    CGameEntity* nearest = nullptr;
     float nearestDistance = 0.0f; // (only read once there is a nearest)
     for (; count > 0; --count, ++slot) {
-        auto* other = static_cast<CCompositeObject*>(slot->mp_object);
+        auto* other = static_cast<CGameEntity*>(slot->m_ownerObject);
         if (!other || other == m_object)
             continue;
-        const Mth::Vector& at = m_object->m_matrix.row[2];
-        const Mth::Vector& otherAt = other->m_matrix.row[2];
+        const Maths::Vector& at = m_object->m_basisFrame.row[2];
+        const Maths::Vector& otherAt = other->m_basisFrame.row[2];
         // (facing the same way, and ahead)
         double facing = (static_cast<double>(at.z) * otherAt.z + static_cast<double>(at.y) * otherAt.y) +
                         static_cast<double>(at.x) * otherAt.x;
@@ -296,9 +296,9 @@ CCompositeObject* CMotionComponent::GetNextObjOnPath(float range)
         if (!(ahead >= 0.0))
             continue;
         // (both on the same segment: headed for the same node - and if that's the same, from the same one)
-        auto* otherMotion = static_cast<CMotionComponent*>(other->GetComponent(kType));
+        auto* otherMotion = static_cast<CKinematicsModule*>(other->GetComponent(kType));
         if (PathNode(otherMotion) == PathNode(this)) {
-            otherMotion = static_cast<CMotionComponent*>(other->GetComponent(kType));
+            otherMotion = static_cast<CKinematicsModule*>(other->GetComponent(kType));
             if (PathLastNode(otherMotion) != PathLastNode(this))
                 continue;
         }
@@ -317,55 +317,55 @@ CCompositeObject* CMotionComponent::GetNextObjOnPath(float range)
 }
 
 // 0x004246F0
-void CMotionComponent::FollowLeader(Script::CStruct* params)
+void CKinematicsModule::TrailBehindLead(Scripts::CStruct* params)
 {
-    if (params->ContainsFlag(kOff)) {
+    if (params->HasBareFlag(kOff)) {
         m_motionFlags &= ~MOTION_FOLLOWING_LEADER;
         if (CFollowTrail* trail = mp_trail) {
             // (its destructor: the empty 0x005480A0)
-            Mem::Manager::Get()->Free(trail);
+            MemSys::Manager::Get()->Free(trail);
             mp_trail = nullptr;
         }
         return;
     }
-    m_leaveYUnaffected = params->ContainsFlag("LeaveYUnaffected");
+    m_leaveYUnaffected = params->HasBareFlag("LeaveYUnaffected");
     m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_LEADER;
-    static_cast<CLockObjComponent*>(m_object->GetComponent(kLockObj))->m_lockFlags &= ~LOCK_FLAG_LOCKED;
+    static_cast<CPinnedObjectModule*>(m_object->GetComponent(kLockObj))->m_lockFlags &= ~LOCK_FLAG_LOCKED;
     if (!mp_trail) {
-        void* memory = Mem::Calloc(sizeof(CFollowTrail));
+        void* memory = MemSys::AllocZeroed(sizeof(CFollowTrail));
         mp_trail = memory ? static_cast<CFollowTrail*>(memory)->Init() : nullptr;
     }
     mp_trail->Reset();
     float distance = 0.0f;
     params->GetFloat(kDistance, &distance, 0);
-    mp_trail->m_distance = distance;
+    mp_trail->m_reach = distance;
     uint32_t leader = 0;
-    params->GetChecksum(kName, &leader, 0);
-    mp_trail->m_objectId = leader;
-    if (params->ContainsFlag(kOrientY))
+    params->ReadHashValue(kName, &leader, 0);
+    mp_trail->m_entityKey = leader;
+    if (params->HasBareFlag(kOrientY))
         mp_trail->m_freeFacing = true;
 }
 
 // --- script member functions ---
 
 // 0x00425150
-bool CMotionComponent::Obj_GetNextObjOnPath(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_GetNextObjOnPath(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float range = 100.0f;
     params->GetFloat(kRange, &range, 0);
     range = static_cast<float>(static_cast<double>(range) * 12.0f); // (feet)
     script->m_params->RemoveComponent(kOb);
-    if (CCompositeObject* next = GetNextObjOnPath(range))
-        script->m_params->AddChecksum(kOb, next->m_id);
+    if (CGameEntity* next = GetNextObjOnPath(range))
+        script->m_params->PutNameKey(kOb, next->m_id);
     return true;
 }
 
 // 0x004251C0
-bool CMotionComponent::Obj_SetPathTurnDist(Script::CStruct* params, Script::CScript*)
+bool CKinematicsModule::Obj_SetPathTurnDist(Scripts::CStruct* params, Scripts::CScript*)
 {
     float distance = 0.0f; // (the original's is whatever its stack slot held: only read once found)
     if (params->GetFloat(0u, &distance, 0)) {
-        if (!params->ContainsFlag(kInches))
+        if (!params->HasBareFlag(kInches))
             distance = static_cast<float>(static_cast<double>(distance) * 12.0f);
         InitPathFollower(m_object);
         mp_pathFollower->m_cornerDistance = distance;
@@ -374,11 +374,11 @@ bool CMotionComponent::Obj_SetPathTurnDist(Script::CStruct* params, Script::CScr
 }
 
 // 0x00425220
-bool CMotionComponent::Obj_FollowPath(Script::CStruct* params, Script::CScript*)
+bool CKinematicsModule::Obj_FollowPath(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_motionFlags2 &= ~MOTION2_STOPPED_ON_PATH;
     uint32_t node;
-    if (params->GetChecksum(kName, &node, 0)) {
+    if (params->ReadHashValue(kName, &node, 0)) {
         StartPath(node);
         m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
     }
@@ -386,7 +386,7 @@ bool CMotionComponent::Obj_FollowPath(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x00425270
-bool CMotionComponent::Obj_FollowPathLinked(Script::CStruct* params, Script::CScript* script)
+bool CKinematicsModule::Obj_FollowPathLinked(Scripts::CStruct* params, Scripts::CScript* script)
 {
     m_motionFlags2 &= ~MOTION2_STOPPED_ON_PATH;
     FollowPathLinked(params, script);
@@ -394,7 +394,7 @@ bool CMotionComponent::Obj_FollowPathLinked(Script::CStruct* params, Script::CSc
 }
 
 // 0x00425290
-bool CMotionComponent::Obj_FollowPathStored(Script::CStruct*, Script::CScript*)
+bool CKinematicsModule::Obj_FollowPathStored(Scripts::CStruct*, Scripts::CScript*)
 {
     StartPath(m_storedNode);
     m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
@@ -402,12 +402,12 @@ bool CMotionComponent::Obj_FollowPathStored(Script::CStruct*, Script::CScript*)
 }
 
 // 0x004252C0
-bool CMotionComponent::Obj_FollowLeader(Script::CStruct* params, Script::CScript*)
+bool CKinematicsModule::Obj_FollowLeader(Scripts::CStruct* params, Scripts::CScript*)
 {
-    FollowLeader(params);
+    TrailBehindLead(params);
     return true;
 }
 
 } // namespace Obj
 
-using Obj::CMotionComponent;
+using GameObjects::CKinematicsModule;

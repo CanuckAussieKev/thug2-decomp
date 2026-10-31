@@ -8,7 +8,7 @@
 #include "game/front/level_editor_ui_layout.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::UiTheme {
+namespace MenuSystem::LevelEditor::UiTheme {
 
 namespace {
 
@@ -91,4 +91,4 @@ void ApplyStyle(float scale, const float accentRgb[3])
     ImGui::GetStyle() = style;
 }
 
-} // namespace Front::LevelEditor::UiTheme
+} // namespace MenuSystem::LevelEditor::UiTheme

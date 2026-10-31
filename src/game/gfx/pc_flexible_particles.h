@@ -12,22 +12,22 @@ struct IDirect3DIndexBuffer9;
 // particle component's systems): each type the engine's class of its own (its update, its particles) with a PC one
 // over it that draws them - camera-facing quads, ribbons, stars, glows - through the dynamic vertex buffer with a
 // material of its own (sSimpleMaterial), and emits the particles its rate asks for.
-namespace Nx {
+namespace Engine3D {
 
 struct sSimpleMaterial;
 
 // (sFlexibleParticle: particle_system.h.)
 
-// What the PC classes share (the engine's particle system's fields they read; Nx::CParticleSystem in
+// What the PC classes share (the engine's particle system's fields they read; Engine3D::CParticleSystem in
 // flexible_particle.h is the component's view of the same object). Two vtables: +0x00 and +0x0C.
 struct CPcFlexibleParticles {
     void** vtable;
     uint8_t engine04[8];
     void** secondaryVtable;  // +0x0C
     uint8_t engine10[0x10];
-    Mth::Vector position;    // +0x20: the emitter's (particles are relative to it unless emitterIndependent)
+    Maths::Vector position;    // +0x20: the emitter's (particles are relative to it unless emitterIndependent)
     uint8_t engine30[0x10];
-    Mth::Vector alignTo;     // +0x40: the direction the aligned types face along
+    Maths::Vector alignTo;     // +0x40: the direction the aligned types face along
     uint8_t engine50[0x10];
     float colourScale[3];    // +0x60: red, green, blue
     uint8_t engine6C[4];
@@ -67,7 +67,7 @@ struct CPcFlexibleParticles {
     uint32_t Colour(uint32_t from, uint32_t to, float t);
     // The axes of a quad facing along alignTo: r = alignTo x (0, 1, 0) (x when alignTo is y itself), u = r x
     // alignTo, normalised.
-    void AlignedAxes(Mth::Vector& r, Mth::Vector& u) const;
+    void AlignedAxes(Maths::Vector& r, Maths::Vector& u) const;
     // A destructor body: the vtables, the material destroyed and freed, the engine's destructor body.
     void DestroyParts(void** primary, void** secondary, sSimpleMaterial* material,
                       void(__cdecl* engineDestructor)(CPcFlexibleParticles*));
@@ -90,7 +90,7 @@ static_assert(offsetof(CPcFlexibleParticles, position) == 0x20 && offsetof(CPcFl
 // 0x004BCEF0: a new system of `type` (glow, ribbon, smoothstar, star, line, smooth, glowribbontrail, smoothribbon,
 // ribbontrail, shaded, 0x3D56A7A6 - a flat ribbon -, newflat - and newflat for any other type -; 0x286A8D26 the engine's
 // own class 0x0049A0C0, without a PC one, from `model`), each from the parameters it uses. Null if no memory.
-void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int maxParticles, int maxStreams, uint32_t texture,
+void* __cdecl CreateFlexibleParticles(uint32_t name, uint32_t type, int particleCap, int maxStreams, uint32_t texture,
                                       uint32_t blendMode, int fixedAlpha, int segments, float unknown,
                                       int history, const char* model);
 
@@ -102,7 +102,7 @@ struct CPcNewFlatParticles : CPcFlexibleParticles {
     float emitted;             // +0x144: particles owed, a fraction
 
     // 0x004BD3A0: construct. Returns this.
-    CPcNewFlatParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcNewFlatParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                    int fixedAlpha, int segments, float unknown);
     // 0x004BD610: the destructor's body (the material freed).
     void DestroyBody();
@@ -127,7 +127,7 @@ struct CPcFlatRibbonParticles : CPcFlexibleParticles {
     sSimpleMaterial* material; // +0x140
 
     // 0x004BDC80: construct. Returns this.
-    CPcFlatRibbonParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcFlatRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                       int fixedAlpha, int segments, float width, int history);
     // 0x004BDD60: the destructor's body (the material freed).
     void DestroyBody();
@@ -154,7 +154,7 @@ struct CPcGlowParticles : CPcFlexibleParticles {
     uint8_t unknown14C[4];
 
     // 0x004BED10: construct. Returns this.
-    CPcGlowParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CPcGlowParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown);
     // 0x004BEDE0: the destructor's body (the material freed).
     void DestroyBody();
@@ -182,7 +182,7 @@ struct CPcGlowRibbonTrailParticles : CPcFlexibleParticles {
     float glowStep;            // +0x14C: degrees between the glow's points
 
     // 0x004BF720: construct. Returns this.
-    CPcGlowRibbonTrailParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcGlowRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                            int fixedAlpha, int segments, float unknown, int history);
     // 0x004C0940: the destructor's body (the material freed).
     void DestroyBody();
@@ -207,7 +207,7 @@ struct CPcLineParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C09F0: construct. Returns this.
-    CPcLineParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CPcLineParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown);
     // 0x004C0AC0: the destructor's body (the material freed).
     void DestroyBody();
@@ -231,7 +231,7 @@ struct CPcRibbonParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C0EB0: construct. Returns this.
-    CPcRibbonParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                   int fixedAlpha, int segments, float unknown, int history);
     // 0x004C0F80: the destructor's body (the material freed).
     void DestroyBody();
@@ -255,7 +255,7 @@ struct CPcRibbonTrailParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C1720: construct. Returns this.
-    CPcRibbonTrailParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcRibbonTrailParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                        int fixedAlpha, int segments, float unknown, int history);
     // 0x004C17F0: the destructor's body (the material freed).
     void DestroyBody();
@@ -278,7 +278,7 @@ struct CPcShadedParticles : CPcFlexibleParticles {
     sSimpleMaterial* material; // +0x134
 
     // 0x004C21A0: construct. Returns this.
-    CPcShadedParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcShadedParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                   int fixedAlpha);
     // 0x004C2260: the destructor's body (the material freed).
     void DestroyBody();
@@ -298,7 +298,7 @@ struct CPcSmoothParticles : CPcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C2B30: construct. Returns this.
-    CPcSmoothParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcSmoothParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                   int fixedAlpha, int segments, float unknown);
     // 0x004C2C00: the destructor's body (the material freed).
     void DestroyBody();
@@ -320,7 +320,7 @@ struct CPcSmoothRibbonParticles : CPcFlexibleParticles {
     sSimpleMaterial* material; // +0x13C
 
     // 0x004C3550: construct. Returns this.
-    CPcSmoothRibbonParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcSmoothRibbonParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                         int fixedAlpha, int segments, float unknown, int history);
     // 0x004C3620: the destructor's body (the material freed).
     void DestroyBody();
@@ -347,7 +347,7 @@ struct CPcSmoothStarParticles : CPcFlexibleParticles {
     uint8_t unknown14C[4];
 
     // 0x004C3D80: construct. Returns this.
-    CPcSmoothStarParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode,
+    CPcSmoothStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode,
                                       int fixedAlpha, int segments, float unknown);
     // 0x004C3E50: the destructor's body (the material freed).
     void DestroyBody();
@@ -372,7 +372,7 @@ struct CPcStarParticles : CPcFlexibleParticles {
     uint8_t unknown14C[4];
 
     // 0x004C48C0: construct. Returns this.
-    CPcStarParticles* Construct(uint32_t name, int maxParticles, uint32_t texture, uint32_t blendMode, int fixedAlpha,
+    CPcStarParticles* Construct(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown);
     // 0x004C4990: the destructor's body (the material freed).
     void DestroyBody();

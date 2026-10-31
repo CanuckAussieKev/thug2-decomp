@@ -9,7 +9,7 @@
 //
 // The pieces are defined next to the globals they make (the owners' files), each named after what it does, with the
 // original initialiser's address.
-namespace Sys {
+namespace SystemCore {
 
 // Every effect of the original's start-up initialisers, in their order (the table at 0x0067C000):
 // called first thing in WinMain (by then the compiler's own dynamic initialisers have all run, as the original's CRT had
@@ -18,7 +18,7 @@ void RunStartupInitialisers();
 
 } // namespace Sys
 
-namespace Nx {
+namespace Engine3D {
 void ConstructSharedOrientation(); // 0x00640860
 void ConstructMovables();          // 0x00640880
 void ConstructSceneList();         // 0x00640B00
@@ -40,7 +40,7 @@ void ConstructShaderCache();       // 0x00640DF0
 void ConstructGlowTable();         // 0x00640E10
 } // namespace Nx
 
-namespace Obj {
+namespace GameObjects {
 void ConstructRigidBodyCache();     // 0x00640900
 void ConstructSpareObjectList();    // 0x006409F0
 void ConstructInstanceList();       // 0x00640A10
@@ -53,19 +53,19 @@ void ConstructTerrainTypes();   // 0x00640950
 void ConstructTerrainActions(); // 0x00640970
 } // namespace Terrain
 
-namespace Pcm {
+namespace AudioStream {
 void CreateStreamLock(); // 0x006409D0
 } // namespace Pcm
 
-namespace Script {
+namespace Scripts {
 void ConstructEvaluator(); // 0x00640A70
 } // namespace Script
 
-namespace Gfx {
+namespace Gfx2D {
 void ConstructSpareRotations();    // 0x00640AA0
 void ConstructBoneVolumeTable();   // 0x00640AE0
 } // namespace Gfx
 
-namespace CFuncs {
+namespace ScriptCommands {
 void ConstructCutsceneDestroyList(); // 0x00644A00
-} // namespace CFuncs
+} // namespace ScriptCommands

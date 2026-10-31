@@ -5,10 +5,10 @@
 
 // The PC mesh (Nx engine): a model's geometry - its scene and hierarchy - and its skin data, the strip breaks a
 // skinned model's triangles need ("<name>.cas.xbx" for "<name>.skin.xbx", or the same data in memory): a version, a
-// bone count from version 2 on, then 12-byte records sorted by their second word (sScene::BreakStrips' records).
-namespace Nx {
+// bone count from version 2 on, then 12-byte records sorted by their second word (sceneRef::BreakStrips' records).
+namespace Engine3D {
 
-struct sScene;
+struct sceneRef;
 
 // A strip break (16 bytes: the file's 12 and a word cleared): a mask, mesh << 16 | an index, two more indices.
 struct sStripBreak {
@@ -22,7 +22,7 @@ static_assert(sizeof(sStripBreak) == 0x10, "layout must match the original");
 // 0x004B7AF0 (Ghidra never made it: qsort's comparison): by the records' second word.
 int __cdecl CompareStripBreaks(const void* a, const void* b);
 
-// The PC mesh (0xC8 bytes, vtable 0x0064A490; the engine's CMesh - constructor 0x00490A60, vtable 0x006492E4,
+// The PC mesh (0xC8 bytes, vtable 0x0064A490; the engine's CSubMesh - constructor 0x00490A60, vtable 0x006492E4,
 // destructor body 0x00490B60 - for its first 0xBC bytes: +0xB4 / +0xB8 the hierarchy and its count).
 struct CPcMesh {
     void** vtable;
@@ -50,7 +50,7 @@ struct CPcMesh {
     // 0x004B7EB0: LoadSkinFromMemory when there is data.
     void LoadSkin(const uint8_t* data);
     // 0x004B7ED0: its scene, and the scene's hierarchy.
-    void SetScene(uint8_t* scene);
+    void ChooseScene(uint8_t* scene);
 };
 static_assert(offsetof(CPcMesh, boneCount) == 0xB0 && offsetof(CPcMesh, scene) == 0xC4 && sizeof(CPcMesh) == 0xC8,
               "layout must match the original");

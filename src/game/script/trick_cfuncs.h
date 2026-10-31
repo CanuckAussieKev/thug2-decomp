@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -11,31 +11,31 @@ class CScript;
 // profile's trick_mapping or its special trick slots, trick types, display text, locking), records, soundtracks,
 // controller binding and vibration, the profile lock. All are cdecl (params, script) and return whether the script's
 // `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
-bool __cdecl CFunc_FlushDeadObjects(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_BindTrickToKeyCombo(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetKeyComboBoundToTrick(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_UpdateTrickMappings(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetConfigurableTricksFromType(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_TrickIsLocked(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetTrickDisplayText(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetSpecialTrickInfo(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetTrickType(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetIndexOfItemContaining(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetLevelRecords(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ResetComboRecords(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetNumberOfTrickOccurrences(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetNumSoundtracks(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetSoundtrackName(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_BindControllerToSkater(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_BindFrontEndToController(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ControllerBoundToDifferentSkater(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ControllerBoundToSkater(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_FirstInputReceived(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_VibrateController(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_LockCurrentSkaterProfileIndex(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_SetSpecialTrickInfo(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_FlushDeadObjects(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_BindTrickToKeyCombo(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetKeyComboBoundToTrick(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_UpdateTrickMappings(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetConfigurableTricksFromType(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_TrickIsLocked(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetTrickDisplayText(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetSpecialTrickInfo(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetTrickType(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetIndexOfItemContaining(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetLevelRecords(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ResetComboRecords(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetNumberOfTrickOccurrences(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetNumSoundtracks(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetSoundtrackName(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_BindControllerToSkater(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_BindFrontEndToController(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ControllerBoundToDifferentSkater(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ControllerBoundToSkater(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_FirstInputReceived(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_VibrateController(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_LockCurrentSkaterProfileIndex(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_SetSpecialTrickInfo(Scripts::CStruct* params, Scripts::CScript* script);
 
-} // namespace CFuncs
+} // namespace ScriptCommands

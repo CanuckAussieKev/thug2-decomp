@@ -8,7 +8,7 @@
 // (0x005F34D0, the registry): AntiAliasing, HQShadows, DistanceClipping, ClippingDistance (1-100), Fog, and
 // DisableBlur (on by default: SetScreenBlur keeps the motion blur off), and (NOT ORIGINAL) OcclusionCulling (on by
 // default, as the original: game/gfx/occlusion.h).
-namespace Nx {
+namespace Engine3D {
 
 // Read them (at start-up, before Platform::InitInput writes them).
 void LoadGraphicsSettings();

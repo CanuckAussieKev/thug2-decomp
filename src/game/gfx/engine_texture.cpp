@@ -12,7 +12,7 @@
 #include "game/core/stubs.h"
 #include "game/gfx/viewport.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -21,7 +21,7 @@ extern void** const kTextureVtable;
 } // namespace
 
 // 0x0049F200
-CTexture* CTexture::Construct()
+CBitmapTexture* CBitmapTexture::Construct()
 {
     vtable = reinterpret_cast<void**>(kTextureVtable);
     m_flags &= 0xFFFF; // (the original clears the upper word alone)
@@ -29,19 +29,19 @@ CTexture* CTexture::Construct()
 }
 
 // 0x0049F210
-void CTexture::DestroyBody() { vtable = reinterpret_cast<void**>(kTextureVtable); }
+void CBitmapTexture::DestroyBody() { vtable = reinterpret_cast<void**>(kTextureVtable); }
 
 // 0x0049F4D0
-CTexture* CTexture::Destroy(unsigned int freeFlags)
+CBitmapTexture* CBitmapTexture::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x0049F220 (the original sprintfs into its 512 bytes unbounded)
-bool CTexture::LoadByName(const char* name, int inImages, int argument)
+bool CBitmapTexture::LoadByName(const char* name, int inImages, int argument)
 {
     char path[0x200];
     std::snprintf(path, sizeof(path), "%s", name);
@@ -54,31 +54,31 @@ bool CTexture::LoadByName(const char* name, int inImages, int argument)
     int start = static_cast<int>(std::strlen(path));
     while (start > 0 && path[start - 1] != '\\' && path[start - 1] != '/')
         --start;
-    m_checksum = Crc::GenerateCRCFromString(path + start);
-    return reinterpret_cast<bool(__thiscall*)(CTexture*, const char*, int, int)>(vtable[1])(this, path, inImages,
+    m_checksum = Checksums::HashFromText(path + start);
+    return reinterpret_cast<bool(__thiscall*)(CBitmapTexture*, const char*, int, int)>(vtable[1])(this, path, inImages,
                                                                                          argument);
 }
 
 // 0x0049F300
-bool CTexture::LoadFromMemory(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
+bool CBitmapTexture::ReadFromRamBlock(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
                               uint32_t a5)
 {
     m_checksum = checksum;
-    return reinterpret_cast<bool(__thiscall*)(CTexture*, const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(
+    return reinterpret_cast<bool(__thiscall*)(CBitmapTexture*, const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(
         vtable[2])(this, data, size, a3, a4, a5);
 }
 
 // 0x0049F330
-bool CTexture::Create(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4,
+bool CBitmapTexture::Create(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4,
                       uint32_t a5)
 {
     m_checksum = checksum;
-    return reinterpret_cast<bool(__thiscall*)(CTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
+    return reinterpret_cast<bool(__thiscall*)(CBitmapTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
         vtable[3])(this, checksum, width, height, bitsPerPixel, a4, a5);
 }
 
 // 0x0049F3F0
-void CTexture::SetPermanent(bool permanent)
+void CBitmapTexture::PinResident(bool permanent)
 {
     if (permanent)
         m_flags |= kTexturePermanent;
@@ -179,12 +179,12 @@ __declspec(naked) void VirtualSlot41Jump()
 }
 
 namespace {
-static VtableSlot kTextureVtable_slots[] = {&Nx::CTexture::Destroy, &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5,
-                &Nx::CViewport::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
+static VtableSlot kTextureVtable_slots[] = {&Engine3D::CBitmapTexture::Destroy, &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse5,
+                &Engine3D::CViewRegion::QueryRect, Stubs::ReturnFalse1, Stubs::ReturnFalse4, Stubs::ReturnFalse1,
                 Stubs::ReturnFalse1, Stubs::ReturnFalse2, Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse5,
                 Stubs::ReturnFalse2, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnFalse2, Stubs::ReturnFalse2,
-                &Nx::CViewport::QueryPoint, Stubs::ReturnFalse4, Stubs::ReturnFalse1, Stubs::ReturnFalse7,
-                &Nx::CViewport::QueryPoint, Stubs::ReturnFalse5, Stubs::ReturnFalse2, Stubs::ReturnFalse4,
+                &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse4, Stubs::ReturnFalse1, Stubs::ReturnFalse7,
+                &Engine3D::CViewRegion::QueryPoint, Stubs::ReturnFalse5, Stubs::ReturnFalse2, Stubs::ReturnFalse4,
                 Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2,
                 Stubs::ReturnFalse1, Stubs::ReturnFalse, Stubs::ReturnFalse, Stubs::ReturnZeroWord,
                 Stubs::ReturnZeroWord, Stubs::ReturnFalse, Stubs::ReturnZero, Stubs::IgnoreArgument, Stubs::ReturnFalse,

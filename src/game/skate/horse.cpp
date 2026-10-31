@@ -1,4 +1,4 @@
-// Mdl::CHorse: the HORSE game, 0x005600D0-0x005608BF (see horse.h).
+// GameModules::CLetterMatch: the HORSE game, 0x005600D0-0x005608BF (see horse.h).
 
 #include "game/skate/horse.h"
 
@@ -15,7 +15,7 @@
 #include "game/skater/skater.h"
 #include "game/skate/score.h"
 
-namespace Mdl {
+namespace GameModules {
 
 namespace {
 
@@ -45,10 +45,10 @@ enum StatusIndex { kGotLetter = 0, kTieScore = 1, kBeatScore = 2, kGameOver = 3,
 int HorseRestarts()
 {
     uint32_t restarts[0x80];
-    return Obj::GetRestartNodes(kHorse, restarts, 0);
+    return GameObjects::GetRestartNodes(kHorse, restarts, 0);
 }
 
-Obj::CSkater* Skater(uint32_t id) { return static_cast<Obj::CSkater*>(SkateCalls::GetSkaterById(id)); }
+GameObjects::CRider* Skater(uint32_t id) { return static_cast<GameObjects::CRider*>(SkateCalls::GetRiderByNumber(id)); }
 
 char Upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 0x20) : c; }
 
@@ -62,7 +62,7 @@ void Copy(char* dest, const char* text)
 } // namespace
 
 // 0x005600D0
-CHorse* CHorse::Construct()
+CLetterMatch* CLetterMatch::Construct()
 {
     std::memcpy(m_word, "HORSE", 6);
     m_restart = 0;
@@ -70,38 +70,38 @@ CHorse* CHorse::Construct()
 }
 
 // 0x00560100
-void CHorse::Init()
+void CLetterMatch::Init()
 {
-    m_scoreToBeat = 0;
+    m_pointsTarget = 0;
     m_skater = 0;
     m_lastSkater = 0;
     std::snprintf(m_panel, sizeof(m_panel), "%s", "unknown"); // "unknown"
     for (int& letters : m_letters)
         letters = 0;
-    m_restart = Mth::Rnd(HorseRestarts());
+    m_restart = Maths::Rnd(HorseRestarts());
 }
 
 // 0x00560180
-void CHorse::StartRun() { m_status = Statuses()[kIdle]; }
+void CLetterMatch::BeginTimedSession() { m_status = Statuses()[kIdle]; }
 
 // 0x00560190
-bool CHorse::StatusEquals(Script::CStruct* params)
+bool CLetterMatch::StateMatches(Scripts::CStruct* params)
 {
     for (const uint32_t* status = Statuses(); *status; ++status)
-        if (params->ContainsFlag(*status))
+        if (params->HasBareFlag(*status))
             return m_status == *status;
     return false;
 }
 
 // 0x005601F0
-void CHorse::SetWord(Str::String word)
+void CLetterMatch::SetLetters(TextUtil::String word)
 {
     Copy(m_word, word.c_str());
-    Dbg::Printf("New word = %s\n", m_word); // "New word = %s\n"
+    DebugOut::Printf("New word = %s\n", m_word); // "New word = %s\n"
 }
 
 // 0x00560260
-Str::String CHorse::GetWordForPlayer(int player)
+TextUtil::String CLetterMatch::GetLetterString(int player)
 {
     char word[0x100];
     Copy(word, m_word);
@@ -111,18 +111,18 @@ Str::String CHorse::GetWordForPlayer(int player)
             if (i >= letters)
                 word[i] = '-';
     }
-    return Str::String(word);
+    return TextUtil::String(word);
 }
 
 // 0x00560310
-int CHorse::GetRestart()
+int CLetterMatch::GetRestart()
 {
     HorseRestarts();
     return m_restart;
 }
 
 // 0x00560340
-void CHorse::SetNextRestartPoint()
+void CLetterMatch::ChooseNextSpawn()
 {
     ++m_restart;
     if (static_cast<uint32_t>(m_restart) >= static_cast<uint32_t>(HorseRestarts()))
@@ -130,7 +130,7 @@ void CHorse::SetNextRestartPoint()
 }
 
 // 0x00560380
-bool CHorse::Ended()
+bool CLetterMatch::Ended()
 {
     for (int i = 0; i < kPlayers; ++i)
         if (Skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(m_letters[i]) >= std::strlen(m_word))
@@ -139,7 +139,7 @@ bool CHorse::Ended()
 }
 
 // 0x005603D0
-int CHorse::GetNextValidSkaterId()
+int CLetterMatch::GetNextValidSkaterId()
 {
     int id = 0;
     for (int i = 0; i < kPlayers; ++i) {
@@ -147,23 +147,23 @@ int CHorse::GetNextValidSkaterId()
         if (Skater(static_cast<uint32_t>(id)))
             break;
     }
-    Dbg::Printf("new skater id = %d\n", id); // "new skater id = %d\n"
-    if (Script::GetInteger("debug_horse")) // "debug_horse"
+    DebugOut::Printf("new skater id = %d\n", id); // "new skater id = %d\n"
+    if (Scripts::FetchIntValue("debug_horse")) // "debug_horse"
         return 0;
     return id;
 }
 
 // 0x00560440
-Str::String CHorse::GetString(uint32_t which)
+TextUtil::String CLetterMatch::GetString(uint32_t which)
 {
     char text[0x100];
     std::memcpy(text, "Unknown", 8); // "Unknown"
-    Obj::CSkater* skater = Skater(static_cast<uint32_t>(m_skater));
+    GameObjects::CRider* skater = Skater(static_cast<uint32_t>(m_skater));
     switch (which) {
     case kPanelString1:
     case kPanelString2: {
         int player = which == kPanelString1 ? 0 : 1;
-        Str::String word = GetWordForPlayer(player);
+        TextUtil::String word = GetLetterString(player);
         std::snprintf(text, sizeof(text), "%s: %s", Skater(static_cast<uint32_t>(player))->GetDisplayName(),
                       word.c_str()); // "%s: %s"
         break;
@@ -172,17 +172,17 @@ Str::String CHorse::GetString(uint32_t which)
     case kYouAreA: {
         char first = Upper(m_word[0]);
         bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
-        const char* article = Script::GetString(vowel ? kIsAn : kIsA);
-        Str::String name = GetString(kPlayerName);
+        const char* article = Scripts::GetString(vowel ? kIsAn : kIsA);
+        TextUtil::String name = GetString(kPlayerName);
         std::snprintf(text, sizeof(text), "%s %s", name.c_str(), article); // "%s %s"
         break;
     }
     case kHorsePreRun:
-        if (m_scoreToBeat > 0) {
-            const char* points = Str::FormatWithSeparators(m_scoreToBeat);
-            std::snprintf(text, sizeof(text), "%s %s", Script::GetString(kScoreToBeat), points); // "%s %s"
+        if (m_pointsTarget > 0) {
+            const char* points = TextUtil::FormatWithSeparators(m_pointsTarget);
+            std::snprintf(text, sizeof(text), "%s %s", Scripts::GetString(kScoreToBeat), points); // "%s %s"
         } else
-            std::snprintf(text, sizeof(text), Script::GetString(kSetScore));
+            std::snprintf(text, sizeof(text), Scripts::GetString(kSetScore));
         break;
     case kFinalWord: std::snprintf(text, sizeof(text), "%s", m_word); break;
     case kPlayerName:
@@ -191,49 +191,49 @@ Str::String CHorse::GetString(uint32_t which)
         break;
     default: break;
     }
-    return Str::String(text);
+    return TextUtil::String(text);
 }
 
 // 0x00560720
-void CHorse::EndRun()
+void CLetterMatch::EndRun()
 {
     std::snprintf(m_panel, sizeof(m_panel), "%s", "unknown"); // "unknown"
     m_lastSkater = m_skater;
-    void* score = Skater(static_cast<uint32_t>(m_skater))->GetScore();
-    int total = static_cast<Mdl::Score*>(score)->GetTotalScore();
-    Dbg::Printf("End run = %d\n", total); // "End run = %d\n"
-    if (total > m_scoreToBeat) {
-        m_scoreToBeat = total;
-        const char* points = Str::FormatWithSeparators(total);
-        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Script::GetString(kSetScoreIs), points); // "%s %s"
+    void* score = Skater(static_cast<uint32_t>(m_skater))->GetPointsTotal();
+    int total = static_cast<GameModules::Score*>(score)->GetTotalScore();
+    DebugOut::Printf("End run = %d\n", total); // "End run = %d\n"
+    if (total > m_pointsTarget) {
+        m_pointsTarget = total;
+        const char* points = TextUtil::FormatWithSeparators(total);
+        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Scripts::GetString(kSetScoreIs), points); // "%s %s"
         m_status = Statuses()[kBeatScore];
         return;
     }
-    if (total < m_scoreToBeat) {
-        m_scoreToBeat = 0;
+    if (total < m_pointsTarget) {
+        m_pointsTarget = 0;
         ++m_letters[m_skater];
-        SetNextRestartPoint();
+        ChooseNextSpawn();
         if (Ended()) {
             std::snprintf(m_panel, sizeof(m_panel), "You are a %s!", m_word); // "You are a %s!"
             m_status = Statuses()[kGameOver];
             return;
         }
         char letter[2] = {Upper(m_word[m_letters[m_skater] - 1]), 0};
-        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Script::GetString(kGetsTheLetter), letter); // "%s %s"
+        std::snprintf(m_panel, sizeof(m_panel), "%s %s", Scripts::GetString(kGetsTheLetter), letter); // "%s %s"
         m_status = Statuses()[kGotLetter];
         return;
     }
     if (total == 0) {
-        Copy(m_panel, Script::GetString(kNoScoreSet));
+        Copy(m_panel, Scripts::GetString(kNoScoreSet));
         m_status = Statuses()[kNoScoreSetStatus];
     } else {
-        Copy(m_panel, Script::GetString(kYouTied));
+        Copy(m_panel, Scripts::GetString(kYouTied));
         m_status = Statuses()[kTieScore];
     }
 }
 
 // 0x005608B0
-void CHorse::SwitchPlayers()
+void CLetterMatch::SwapRiders()
 {
     int id = GetNextValidSkaterId();
     m_lastSkater = id;

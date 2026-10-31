@@ -23,7 +23,7 @@
 //   link sector <source> <member>[@<quarters>],...      a sector: 8 hex digits, or c<n> - the layout's n-th clone record
 //   link object <source> <member>,...                   objects' ids / copies' names (8 hex digits)
 // tools/pipeline/game/layout_file.ts reads them; tools/pipeline/game/apply_layout.ts bakes the copies as plain copies (as they are now).
-namespace Front::LevelEditor::Links {
+namespace MenuSystem::LevelEditor::Links {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
@@ -83,4 +83,4 @@ int Apply(const std::vector<Record>& records, const std::vector<uint32_t>& made)
 void ResetAll();
 void ForgetLevel();
 
-} // namespace Front::LevelEditor::Links
+} // namespace MenuSystem::LevelEditor::Links

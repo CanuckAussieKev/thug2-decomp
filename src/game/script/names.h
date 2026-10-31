@@ -4,16 +4,16 @@
 
 // The names behind checksums (a debug aid, kept only while the lookup is switched on) and the registration
 // of the game's script functions as global symbols.
-namespace Script {
+namespace Scripts {
 
 // Whether checksum names are kept (0x007CEFAC).
 bool ChecksumNamesEnabled();
 // Make the (empty) name table: 0x10000 buckets of 10 entries, and a 5,000,000-byte block for the names.
 void AllocateChecksumNameLookupTables();
 // Remember that `checksum` is the checksum of `name` (a checksum already known is left alone).
-void AddChecksumName(uint32_t checksum, const char* name);
+void RegisterNameHash(uint32_t checksum, const char* name);
 // The name `checksum` was made from, or null.
-const char* FindChecksumName(uint32_t checksum);
+const char* LookUpHashName(uint32_t checksum);
 // The name `checksum` was made from, or "Unknown(0x<checksum>)" (in a shared buffer).
 const char* FindChecksumNameOrUnknown(uint32_t checksum);
 // Read a .chk file's lines ("0x<8 hex digits> <name>\r\n") and pass each to `add`.
@@ -27,9 +27,9 @@ struct CFunctionEntry {
     void* function;
 };
 // Make each function a global symbol (type 8) under its name's checksum.
-void RegisterCFunctions(const CFunctionEntry* functions, uint32_t count);
+void InstallScriptFunctions(const CFunctionEntry* functions, uint32_t count);
 // Make each name a member-function symbol (type 9).
-void RegisterMemberFunctions(const char* const* names, uint32_t count);
+void PublishMethodTable(const char* const* names, uint32_t count);
 // Make each record of a table (starting with its name's checksum, `stride` bytes each, ended by a 0
 // checksum) a member-function symbol whose value is the record.
 void RegisterMemberFunctionTable(void* unused, const uint32_t* records, int stride);

@@ -24,7 +24,7 @@
 //       piece standing there than to that one (NearestToGroup). Conservative: an unnamed decal, graffiti or a puddle
 //       never joins, nor a small shadow beside a big piece (TR's Car_Shadow by the warehouse's quarter pipe).
 // The thresholds below come from TR's and BO's pieces.
-namespace Front::LevelEditor::Shadows {
+namespace MenuSystem::LevelEditor::Shadows {
 
 // A shadow's flatness: its box no taller than this.
 constexpr float kFlat = 16.0f;
@@ -63,9 +63,9 @@ bool Beside(V3 shadowMin, V3 shadowMax, V3 casterMin, V3 casterMax);
 // shadow's top) - one of `others` above.
 bool StandsBy(V3 pieceMin, V3 shadowMax);
 
-} // namespace Front::LevelEditor::Shadows
+} // namespace MenuSystem::LevelEditor::Shadows
 
-namespace Front::LevelEditor::Members {
+namespace MenuSystem::LevelEditor::Members {
 
 // Ctrl+click on the scenery selection: what the ray met (nearest first; `passed`: what a plain click passes -
 // structure, see-through) and which of those are selected - the index of the piece to drop: the nearest selected one
@@ -73,4 +73,4 @@ namespace Front::LevelEditor::Members {
 // and a selected piece behind something unselected doesn't. -1: none.
 int DropTarget(const std::vector<bool>& passed, const std::vector<bool>& selected);
 
-} // namespace Front::LevelEditor::Members
+} // namespace MenuSystem::LevelEditor::Members

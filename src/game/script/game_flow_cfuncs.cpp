@@ -56,7 +56,7 @@
 #include "game/obj/movie_manager.h"
 #include "game/gfx/engine.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 uint32_t g_lastBroadcastedOmnigon;
 
@@ -79,27 +79,27 @@ constexpr uint32_t kFlashFlag2 = 0x19C43CF6;
 constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
 constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
-// The skate module (Mdl::Skate, 0x007CE478) and its code we call through the game.
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
-Mdl::Skate* SkateModule() { return reinterpret_cast<Mdl::Skate*>(Skate()); }
-Obj::CSkater* GetSkater(int index) { return static_cast<Obj::CSkater*>(SkateModule()->GetSkater(index)); }
-Obj::CSkater* GetLocalSkater() { return SkateModule()->GetLocalSkater(); }
+// The skate module (GameModules::Skate, 0x007CE478) and its code we call through the game.
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
+GameModules::Skate* SkateModule() { return reinterpret_cast<GameModules::Skate*>(Skate()); }
+GameObjects::CRider* GetRiderAt(int index) { return static_cast<GameObjects::CRider*>(SkateModule()->GetRiderAt(index)); }
+GameObjects::CRider* GetHomeRider() { return SkateModule()->GetHomeRider(); }
 
 // The object manager (0x006F0FB8).
-Obj::CCompositeObjectManager* Objects() { return Obj::g_compositeObjectManager; }
+GameObjects::CEntityHub* Objects() { return GameObjects::g_compositeObjectManager; }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
-void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
-Game::CGameMode* GameModeObject() { return static_cast<Game::CGameMode*>(GameMode()); }
+void* GameMode() { return static_cast<void*>(GoalSystem::g_gameMode); }
+GoalSystem::CMatchRules* GameModeObject() { return static_cast<GoalSystem::CMatchRules*>(GameMode()); }
 int GameModeTimeLimit() { return GameModeObject()->GetTimeLimit(); }
-GameNet::Manager* GameNetManager() { return GameNet::g_gameNetManager; }
-Mem::Manager* MemManager() { return Mem::Manager::Get(); }
+OnlinePlay::Manager* GameNetManager() { return OnlinePlay::g_gameNetManager; }
+MemSys::Manager* MemManager() { return MemSys::Manager::Get(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is
 // unknown).
 inline void CompiledOutDebugCall() {}
 
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
-void UnloadQbFile(uint32_t file) { Script::UnloadQBFile(file); }
+void UnloadQbFile(uint32_t file) { Scripts::UnloadQBFile(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
 uint32_t* LevelQbFiles() { return g_levelQbFiles; }
 constexpr int kLevelQbFiles = 15;
@@ -128,69 +128,69 @@ struct FlagCommandData {
 // skate module's objects, the asset tables, the level's .qb files, the geometry, without preserve_skaters the extra
 // skater heaps, the unused .pre files, the paths, the network heaps (rebuilt after, as the network says); the
 // physical memory logged. Always true.
-bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_Cleanup(Scripts::CStruct* params, Scripts::CScript* script)
 {
     Stubs::DoNothing(); // 0x0048C1B0
-    Game::CGoalManager* skaterInfo = Game::GetGoalManager();
-    skaterInfo->DeactivateAllGoals(false);
-    skaterInfo->RemoveAllGoals();
+    GoalSystem::CGoalManager* skaterInfo = GoalSystem::GetObjectiveBoard();
+    skaterInfo->DisengageEveryObjective(false);
+    skaterInfo->WipeObjectives();
     g_todManager->ClearDeadObjects();
-    Ed::CParkEditor::Instance()->Leave();
+    ParkEditing::CParkBuilderMode::Instance()->Leave();
     CompiledOutDebugCall();
     bool preserveSkaters = false;
     if (params)
-        preserveSkaters = params->ContainsFlag("preserve_skaters"); // "preserve_skaters"
+        preserveSkaters = params->HasBareFlag("preserve_skaters"); // "preserve_skaters"
     uint8_t spawned = 0;
     if (script) {
-        spawned = script->m_spawnFlags & Script::SCRIPT_FLAG_SPAWNED;
-        script->m_spawnFlags &= ~Script::SCRIPT_FLAG_SPAWNED;
+        spawned = script->m_spawnFlags & Scripts::SCRIPT_FLAG_SPAWNED;
+        script->m_spawnFlags &= ~Scripts::SCRIPT_FLAG_SPAWNED;
     }
-    Ass::CAssMan* assets = Ass::AssetManager();
-    Script::RunScript(kCleanupScript1, nullptr, nullptr, false, nullptr);
-    Script::RunScript(kCleanupScript2, nullptr, nullptr, false, nullptr);
+    AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
+    Scripts::LaunchScript(kCleanupScript1, nullptr, nullptr, false, nullptr);
+    Scripts::LaunchScript(kCleanupScript2, nullptr, nullptr, false, nullptr);
     SkateModule()->Cleanup(); // the skate module's objects
     if (script)
-        script->m_spawnFlags = static_cast<uint8_t>((script->m_spawnFlags & ~Script::SCRIPT_FLAG_SPAWNED) | spawned);
-    reinterpret_cast<Nx::CImposterManager*&>(Nx::g_imposterManager)->DeleteAll();
-    Nx::Engine::KillAllEffects();
-    Gfx::CAnimCache* particles = Gfx::CAnimCache::Get(); // (0x006F92B0)
+        script->m_spawnFlags = static_cast<uint8_t>((script->m_spawnFlags & ~Scripts::SCRIPT_FLAG_SPAWNED) | spawned);
+    reinterpret_cast<Engine3D::CImposterManager*&>(Engine3D::g_imposterManager)->DeleteAll();
+    Engine3D::Engine::KillAllEffects();
+    Gfx2D::CClipStore* particles = Gfx2D::CClipStore::Get(); // (0x006F92B0)
     particles->Flush(false);
-    Nx::Engine::EnableFog(false);
-    Script::DeleteFinishedScripts();
+    Engine3D::Engine::EnableFog(false);
+    Scripts::DeleteFinishedScripts();
     CompiledOutDebugCall();
-    Nx::UninitLightManager();
-    Sfx::g_sfxManager->CleanUp();
+    Engine3D::UninitLightManager();
+    SoundFx::g_sfxManager->CleanUp();
     assets->UnloadAllAssetsOfType(false, 9);
-    Dbg::Printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
+    DebugOut::Printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->UnloadAllAssets(false);
-    Dbg::Printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
-    if (Script::CSymbolTableEntry* qb = Script::FindSymbol(kQbSymbol))
+    DebugOut::Printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
+    if (Scripts::CSymbolTableEntry* qb = Scripts::FindSymbol(kQbSymbol))
         UnloadQbFile(qb->unknown8);
     for (int i = 0; i < kLevelQbFiles; ++i) {
         UnloadQbFile(LevelQbFiles()[i]);
         LevelQbFiles()[i] = 0;
     }
-    Dbg::Printf("Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"
+    DebugOut::Printf("Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"
     CFunc_UnloadAllLevelGeometry(nullptr, nullptr);
-    Dbg::Printf("Done unloading Geometry from the engine .....\n"); // "Done unloading Geometry from the engine .....\n"
+    DebugOut::Printf("Done unloading Geometry from the engine .....\n"); // "Done unloading Geometry from the engine .....\n"
     if (!preserveSkaters) {
-        Dbg::Printf("Clean up without preserve skaters\n"); // "Clean up without preserve skaters\n"
+        DebugOut::Printf("Clean up without preserve skaters\n"); // "Clean up without preserve skaters\n"
         MemManager()->DeleteExtraSkaterHeaps();
     }
     // the .pre files nothing uses any more
-    for (const char* pre = Pip::GetNextLoadedPre(nullptr); pre;) {
-        const char* next = Pip::GetNextLoadedPre(pre);
-        if (!Pip::PreFileIsInUse(pre))
-            Pip::UnloadPre(pre);
+    for (const char* pre = Packs::TakeNextFinishedArchive(nullptr); pre;) {
+        const char* next = Packs::TakeNextFinishedArchive(pre);
+        if (!Packs::ArchiveIsBusy(pre))
+            Packs::UnloadPre(pre);
         pre = next;
     }
-    Nx::DeleteMarkedCameras();
-    Nx::ClearSceneLightQueue();
-    Nx::FlushParticleTextures(false);
-    Obj::CPathManager::Instance()->Free();
+    Engine3D::DeleteMarkedCameras();
+    Engine3D::ClearSceneLightQueue();
+    Engine3D::DropParticleTextures(false);
+    GameObjects::CPathManager::Instance()->Free();
     if (!SkateModule()->InNetGameLevel())
-        MemManager()->DeleteNetMiscHeap();
-    Obj::DestroyCoimHeap();
+        MemManager()->ReleaseNetScratchZone();
+    GameObjects::DestroyCoimHeap();
     MEMORYSTATUS memory;
     GlobalMemoryStatus(&memory);
     char text[0x400];
@@ -198,7 +198,7 @@ bool __cdecl CFunc_Cleanup(Script::CStruct* params, Script::CScript* script)
     wsprintfA(text + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);    // "%4d  free kb..."
     OutputDebugStringA(text);
     if (SkateModule()->InNetGameLevel())
-        MemManager()->InitNetMiscHeap();
+        MemManager()->CreateNetScratchZone();
     if (SkateModule()->InFrontEndOrNetMode())
         MemManager()->InitInternetHeaps();
     return true;
@@ -209,7 +209,7 @@ namespace {
 // 0x005A0120: what FlagCommand asks, done to `object`: 0 sets flag `value` (of the 32 script flags), 1 clears it,
 // 2 tests it, 3 / 4 set / clear the bits `value` of the object flags, 5 sends the object the exception `value`.
 // The result is true for 0, 1, 5 and a set flag (2); 3 and 4 leave it.
-void ApplyFlagCommand(FlagCommandData* data, Obj::CObject* object)
+void ApplyFlagCommand(FlagCommandData* data, GameObjects::CObject* object)
 {
     data->found = true;
     switch (data->action) {
@@ -232,7 +232,7 @@ void ApplyFlagCommand(FlagCommandData* data, Obj::CObject* object)
         object->m_objectFlags &= ~data->value;
         break;
     case 5:
-        object->SelfEvent(data->value, nullptr);
+        object->PostOwnEvent(data->value, nullptr);
         data->result = true;
         break;
     default:
@@ -243,14 +243,14 @@ void ApplyFlagCommand(FlagCommandData* data, Obj::CObject* object)
 } // namespace
 
 // 0x005A01B0
-void __cdecl ApplyFlagCommandToObject(Obj::CObject* object, void* data)
+void __cdecl ApplyFlagCommandToObject(GameObjects::CObject* object, void* data)
 {
     auto* command = static_cast<FlagCommand*>(data);
     if (object->m_id == command->id)
         ApplyFlagCommand(reinterpret_cast<FlagCommandData*>(&command->value), object);
 }
 
-void __cdecl ApplyFlagCommandRegisters(void* data, Obj::CObject* object)
+void __cdecl ApplyFlagCommandRegisters(void* data, GameObjects::CObject* object)
 {
     ApplyFlagCommand(static_cast<FlagCommandData*>(data), object);
 }
@@ -267,19 +267,19 @@ __declspec(naked) void ApplyFlagCommandStub()
 }
 
 // 0x005A01D0
-bool __cdecl FlagCommandByName(Script::CStruct* params, Script::CScript*, int action)
+bool __cdecl FlagCommandByName(Scripts::CStruct* params, Scripts::CScript*, int action)
 {
     uint32_t value = 0;
     if (action == kFlagActionException)
-        params->GetChecksum(0u, &value, 0);
+        params->ReadHashValue(0u, &value, 0);
     else
-        params->GetInteger(0u, reinterpret_cast<int*>(&value), 0);
+        params->FetchIntValue(0u, reinterpret_cast<int*>(&value), 0);
     // (two flags looked for and not used)
-    if (!params->ContainsFlag(kFlagCommandFlagA))
-        params->ContainsFlag(kFlagCommandFlagB);
+    if (!params->HasBareFlag(kFlagCommandFlagA))
+        params->HasBareFlag(kFlagCommandFlagB);
     FlagCommand command;
     uint32_t id;
-    if (params->GetChecksum(kName, &id, 0)) {
+    if (params->ReadHashValue(kName, &id, 0)) {
         command.value = value;
         command.id = id;
         command.action = action;
@@ -292,7 +292,7 @@ bool __cdecl FlagCommandByName(Script::CStruct* params, Script::CScript*, int ac
     if (!params->GetString(kPrefix, &prefix, 0))
         return false;
     uint16_t count = 0;
-    uint32_t* nodes = SkateScript::GetPrefixedNodes(prefix, &count); // (the original passes a third argument, 1)
+    uint32_t* nodes = LevelNodes::CollectNodesByPrefix(prefix, &count); // (the original passes a third argument, 1)
     command.value = value;
     command.action = action;
     command.found = false;
@@ -306,22 +306,22 @@ bool __cdecl FlagCommandByName(Script::CStruct* params, Script::CScript*, int ac
 
 // 0x005A0300: MakeSkaterGoto <script> [params={...}] [skater=n]: the skater switches to the script - the calling
 // script's own skater if it runs on one, else skater n, else the local skater; only a local skater (+0xBC).
-bool __cdecl CFunc_MakeSkaterGoto(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_MakeSkaterGoto(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
+    Scripts::CStruct* scriptParams = nullptr;
+    params->ReadSubStruct(kParams, &scriptParams, 0);
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    Obj::CObject* object = script ? script->m_object.Get() : nullptr;
-    Obj::CSkater* skater;
+    params->ReadHashValue(0u, &name, 0);
+    GameObjects::CObject* object = script ? script->m_object.Get() : nullptr;
+    GameObjects::CRider* skater;
     if (object && object->m_type == kSkaterType) {
-        skater = static_cast<Obj::CSkater*>(object);
+        skater = static_cast<GameObjects::CRider*>(object);
     } else {
         int index = 0;
-        if (params->GetInteger(kSkater, &index, 0))
-            skater = GetSkater(index);
+        if (params->FetchIntValue(kSkater, &index, 0))
+            skater = GetRiderAt(index);
         else
-            skater = GetLocalSkater();
+            skater = GetHomeRider();
     }
     // Not original - THAW's BMX (game/skater/thaw_bmx.h SkaterScript): on the bike THAW's PedKnockDown takes its bike
     // branch. Original behaviour: the skater goes to `name` as given.
@@ -334,109 +334,109 @@ bool __cdecl CFunc_MakeSkaterGoto(Script::CStruct* params, Script::CScript* scri
 
 // 0x005A03C0: MakeSkaterGosub <script> [params={...}] [skater=n (0)]: the skater (the calling script's own, else
 // skater n) runs the script as a call.
-bool __cdecl CFunc_MakeSkaterGosub(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_MakeSkaterGosub(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Script::CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
+    Scripts::CStruct* scriptParams = nullptr;
+    params->ReadSubStruct(kParams, &scriptParams, 0);
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    Obj::CObject* object = script ? script->m_object.Get() : nullptr;
+    params->ReadHashValue(0u, &name, 0);
+    GameObjects::CObject* object = script ? script->m_object.Get() : nullptr;
     if (!object || object->m_type != kSkaterType) {
         int index = 0;
-        params->GetInteger(kSkater, &index, 0);
-        object = GetSkater(index);
+        params->FetchIntValue(kSkater, &index, 0);
+        object = GetRiderAt(index);
     }
     if (object)
-        object->CallScript(name, scriptParams);
+        object->RunSubScript(name, scriptParams);
     return true;
 }
 
 // 0x005A0460: SpawnSound <script> [Id=id] [Params={...}]: the script spawned on the calling script's object (its
 // id the calling script's spawn id unless given), remembering the caller's .qb file unless 0x01917DF2 is given. A
 // script without an object: SpawnScript.
-bool __cdecl CFunc_SpawnSound(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_SpawnSound(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Obj::CObject* object = script->m_object.Get();
+    GameObjects::CObject* object = script->m_object.Get();
     if (!object)
         return CFunc_SpawnScript(params, script);
     uint32_t name = 0;
-    if (params->GetChecksum(0u, &name, 0)) {
-        uint32_t id = Script::GetSpawnId(script);
-        params->GetChecksum("Id", &id, 0); // "Id"
-        Script::CStruct* scriptParams = nullptr;
-        params->GetStructure("Params", &scriptParams, 0); // "Params"
-        Script::CScript* spawned = script->m_object.Get()->SpawnScript(name, scriptParams, id, false);
-        if (!params->ContainsFlag(kKeepSpawnerFile))
+    if (params->ReadHashValue(0u, &name, 0)) {
+        uint32_t id = Scripts::GetSpawnId(script);
+        params->ReadHashValue("Id", &id, 0); // "Id"
+        Scripts::CStruct* scriptParams = nullptr;
+        params->ReadSubStruct("Params", &scriptParams, 0); // "Params"
+        Scripts::CScript* spawned = script->m_object.Get()->SpawnScript(name, scriptParams, id, false);
+        if (!params->HasBareFlag(kKeepSpawnerFile))
             spawned->SetSpawnerFile(script);
     }
     return true;
 }
 
 // 0x005A0520: PauseSkater <n> [hide]: skater n paused (vtable +0x2C) and hidden or shown.
-bool __cdecl CFunc_PauseSkater(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_PauseSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
-    bool hide = params->ContainsFlag("hide"); // "hide"
+    bool hide = params->HasBareFlag("hide"); // "hide"
     int index = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetInteger(0u, &index, true);
-    if (Obj::CSkater* skater = GetSkater(index)) {
-        (*reinterpret_cast<void(__thiscall***)(Obj::CSkater*)>(skater))[0x2C / 4](skater);
+    params->FetchIntValue(0u, &index, true);
+    if (GameObjects::CRider* skater = GetRiderAt(index)) {
+        (*reinterpret_cast<void(__thiscall***)(GameObjects::CRider*)>(skater))[0x2C / 4](skater);
         skater->Hide(hide);
     }
     return true;
 }
 
 // 0x005A0580: UnPauseSkater <n>: skater n unpaused (vtable +0x30) and shown.
-bool __cdecl CFunc_UnPauseSkater(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_UnPauseSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetInteger(0u, &index, true);
-    if (Obj::CSkater* skater = GetSkater(index)) {
-        (*reinterpret_cast<void(__thiscall***)(Obj::CSkater*)>(skater))[0x30 / 4](skater);
+    params->FetchIntValue(0u, &index, true);
+    if (GameObjects::CRider* skater = GetRiderAt(index)) {
+        (*reinterpret_cast<void(__thiscall***)(GameObjects::CRider*)>(skater))[0x30 / 4](skater);
         skater->Hide(false);
     }
     return true;
 }
 
 // 0x005A05C0: PauseGame: the game paused, the calling script carrying on.
-bool __cdecl CFunc_PauseGame(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_PauseGame(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Mdl::FrontEndInstance()->PauseGame(true);
-    Script::UnpauseSpawnedScript(script);
+    GameModules::FrontEndInstance()->PauseGame(true);
+    Scripts::ResumeChildScript(script);
     return true;
 }
 
 // 0x005A05E0: UnPauseGame.
-bool __cdecl CFunc_UnPauseGame(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_UnPauseGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    Mdl::FrontEndInstance()->PauseGame(false);
+    GameModules::FrontEndInstance()->PauseGame(false);
     return true;
 }
 
 // 0x005A05F0: GameIsPaused: whether the game is paused (0x006FA7D4) - then the flag 0x3BA1FDB9 is added to the
 // command's own parameters.
-bool __cdecl CFunc_GameIsPaused(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_GameIsPaused(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (!Obj::g_gamePaused)
+    if (!GameObjects::g_gamePaused)
         return false;
-    params->AddChecksum(kGamePaused, kGamePaused);
+    params->PutNameKey(kGamePaused, kGamePaused);
     return true;
 }
 
 // 0x005A0620 / 0x005A0630: PauseObjects / UnPauseObjects.
-bool __cdecl CFunc_PauseObjects(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_PauseObjects(Scripts::CStruct*, Scripts::CScript*)
 {
     Objects()->Pause(true);
     return true;
 }
 
-bool __cdecl CFunc_UnPauseObjects(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_UnPauseObjects(Scripts::CStruct*, Scripts::CScript*)
 {
     Objects()->Pause(false);
     return true;
 }
 
 // 0x005A0640: ResetClock: on the server, the skate module's clock (+0x370) set to the game mode's time limit.
-bool __cdecl CFunc_ResetClock(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ResetClock(Scripts::CStruct*, Scripts::CScript*)
 {
     if (GameNetManager()->OnServer())
         SkateModule()->SetUnknown370(GameModeTimeLimit());
@@ -444,34 +444,34 @@ bool __cdecl CFunc_ResetClock(Script::CStruct*, Script::CScript*)
 }
 
 // 0x005A0670: PadsPluggedIn.
-bool __cdecl CFunc_PadsPluggedIn(Script::CStruct*, Script::CScript*) { return Mdl::FrontEndInstance()->PadsPluggedIn(); }
+bool __cdecl CFunc_PadsPluggedIn(Scripts::CStruct*, Scripts::CScript*) { return GameModules::FrontEndInstance()->PadsPluggedIn(); }
 
 // 0x005A0680: DoFlash duration=<seconds> [texture="<name>"] [z=<depth>] [skater=n (the calling object's viewport)]
 // [start_r ... start_a] [end_r ... end_a] [flags 0x70FFC649 (1), 0x19C43CF6 (2) or else 0x387C9ED6 (4),
 // 0xDF6436D2 (8)]: a screen flash (0x004923E0) from the start colour to the end one. Nothing unless duration > 0.
 // The eight colour values share one integer (as in the original): a missing one repeats the one before.
-bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_DoFlash(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float duration = 0.0f;
     float z = 0.0f;
     int viewport = -1;
     const char* texture = nullptr;
     params->GetFloat("duration", &duration, 0); // "duration"
-    if (!(duration > Obj::g_floatZero)) // (0.0)
+    if (!(duration > GameObjects::g_floatZero)) // (0.0)
         return true;
     params->GetString("texture", &texture, 0); // "texture"
     params->GetFloat("z", &z, 0);        // "z"
     int flags = 0;
-    if (params->ContainsFlag(kFlashTextureFlag))
+    if (params->HasBareFlag(kFlashTextureFlag))
         flags = 1;
-    if (params->ContainsFlag(kFlashFlag2))
+    if (params->HasBareFlag(kFlashFlag2))
         flags |= 2;
-    else if (params->ContainsFlag(kFlashFlag4))
+    else if (params->HasBareFlag(kFlashFlag4))
         flags |= 4;
-    params->GetInteger(kSkater, &viewport, 0);
+    params->FetchIntValue(kSkater, &viewport, 0);
     if (viewport == -1)
-        viewport = static_cast<Obj::CSkater*>(script->m_object.Get())->m_viewport;
-    if (params->ContainsFlag(kFlashFlag8))
+        viewport = static_cast<GameObjects::CRider*>(script->m_object.Get())->m_viewSlot;
+    if (params->HasBareFlag(kFlashFlag8))
         flags |= 8;
     uint8_t start[4];
     uint8_t end[4];
@@ -479,46 +479,46 @@ bool __cdecl CFunc_DoFlash(Script::CStruct* params, Script::CScript* script)
     static const char* const kStart[4] = {"start_r", "start_g", "start_b", "start_a"}; // "start_r" ... "start_a"
     static const char* const kEnd[4] = {"end_r", "end_g", "end_b", "end_a"};   // "end_r" ... "end_a"
     for (int i = 0; i < 4; ++i) {
-        params->GetInteger(kStart[i], &value, 0);
+        params->FetchIntValue(kStart[i], &value, 0);
         start[i] = static_cast<uint8_t>(value);
     }
     for (int i = 0; i < 4; ++i) {
-        params->GetInteger(kEnd[i], &value, 0);
+        params->FetchIntValue(kEnd[i], &value, 0);
         end[i] = static_cast<uint8_t>(value);
     }
     uint32_t startColour;
     uint32_t endColour;
     std::memcpy(&startColour, start, 4);
     std::memcpy(&endColour, end, 4);
-    Nx::Engine::AddFlash(viewport, startColour, endColour, duration, z, static_cast<uint32_t>(flags), texture);
+    Engine3D::Engine::AddFlash(viewport, startColour, endColour, duration, z, static_cast<uint32_t>(flags), texture);
     return true;
 }
 
 // 0x005A3B00 / 0x005A3B20 / 0x005A3B40 / 0x005A3B60: ClearFlag / SendFlag / QueryFlag <flag> name=<id> or
 // prefix="<nodes>"; SendException <exception> name= or prefix=: FlagCommandByName with 1 (clear), 0 (set), 2 (test),
 // 5 (exception). Whether an object did it (QueryFlag: whether one has the flag).
-bool __cdecl CFunc_ClearFlag(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_ClearFlag(Scripts::CStruct* params, Scripts::CScript* script)
 {
     return FlagCommandByName(params, script, kFlagActionClear);
 }
 
-bool __cdecl CFunc_SendFlag(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_SendFlag(Scripts::CStruct* params, Scripts::CScript* script)
 {
     return FlagCommandByName(params, script, kFlagActionSet);
 }
 
-bool __cdecl CFunc_QueryFlag(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_QueryFlag(Scripts::CStruct* params, Scripts::CScript* script)
 {
     return FlagCommandByName(params, script, kFlagActionTest);
 }
 
-bool __cdecl CFunc_SendException(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_SendException(Scripts::CStruct* params, Scripts::CScript* script)
 {
     return FlagCommandByName(params, script, kFlagActionException);
 }
 
 // 0x005A11C0: RoundIncrement: the game mode's round (0x005536D0).
-bool __cdecl CFunc_RoundIncrement(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_RoundIncrement(Scripts::CStruct*, Scripts::CScript*)
 {
     GameModeObject()->IncrementRound();
     return true;
@@ -526,11 +526,11 @@ bool __cdecl CFunc_RoundIncrement(Script::CStruct*, Script::CScript*)
 
 // 0x005A11D0: GameModeEquals <mode> ...: whether one of the bare names is the game mode's (0x00553220: its own
 // integer of that name is set).
-bool __cdecl CFunc_GameModeEquals(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_GameModeEquals(Scripts::CStruct* params, Scripts::CScript*)
 {
-    for (Script::CComponent* component = params->GetNextComponent(nullptr); component;
-         component = params->GetNextComponent(component)) {
-        if (component->name == 0 && component->Type() == Script::ESYMBOLTYPE_NAME &&
+    for (Scripts::CComponent* component = params->StepToEntry(nullptr); component;
+         component = params->StepToEntry(component)) {
+        if (component->name == 0 && component->Type() == Scripts::QBVAL_NAME &&
             GameModeObject()->IsTrue(component->checksum))
             return true;
     }
@@ -539,43 +539,43 @@ bool __cdecl CFunc_GameModeEquals(Script::CStruct* params, Script::CScript*)
 
 // 0x005A1230: GetCurrentLevel: the skate module's level (+0x374, as 0x651533EC - a name) and level structure name
 // (+0x380, 0x16A0B364) in the script's parameters.
-bool __cdecl CFunc_GetCurrentLevel(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetCurrentLevel(Scripts::CStruct*, Scripts::CScript* script)
 {
     uint8_t* skate = Skate();
-    script->m_params->AddComponentOfType(0x651533EC, Script::ESYMBOLTYPE_NAME, *reinterpret_cast<uint32_t*>(skate + 0x374));
-    script->m_params->AddChecksum(0x16A0B364, *reinterpret_cast<uint32_t*>(skate + 0x380));
+    script->m_params->AddComponentOfType(0x651533EC, Scripts::QBVAL_NAME, *reinterpret_cast<uint32_t*>(skate + 0x374));
+    script->m_params->PutNameKey(0x16A0B364, *reinterpret_cast<uint32_t*>(skate + 0x380));
     return true;
 }
 
 // 0x005A1270: SetLevelStructureName name=<structure>: the skate module's +0x380.
-bool __cdecl CFunc_SetLevelStructureName(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetLevelStructureName(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetChecksum(kName, &name, 1);
+    params->ReadHashValue(kName, &name, 1);
     *reinterpret_cast<uint32_t*>(Skate() + 0x380) = name;
     return true;
 }
 
 // 0x005A12A0: GetLevelStructureName: the skate module's +0x380 as the script's 0x63B1214E.
-bool __cdecl CFunc_GetLevelStructureName(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetLevelStructureName(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(0x63B1214E, *reinterpret_cast<uint32_t*>(Skate() + 0x380));
+    script->m_params->PutNameKey(0x63B1214E, *reinterpret_cast<uint32_t*>(Skate() + 0x380));
     return true;
 }
 
 // 0x005A12C0: RestartLevel (the skate module's 0x005668A0).
-bool __cdecl CFunc_RestartLevel(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_RestartLevel(Scripts::CStruct*, Scripts::CScript*)
 {
     SkateModule()->RestartLevel();
     return true;
 }
 
 // 0x005A12E0: GameFlow <script>: the skate module's game flow (+0x388) runs it (0x00552E30).
-bool __cdecl CFunc_GameFlow(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_GameFlow(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    (*reinterpret_cast<Game::CGameFlow**>(Skate() + 0x388))->Request(name);
+    params->ReadHashValue(0u, &name, 0);
+    (*reinterpret_cast<GoalSystem::CMatchFlow**>(Skate() + 0x388))->Request(name);
     return true;
 }
 
@@ -598,38 +598,38 @@ constexpr uint32_t kCheatList = 0x75A23DA4;     // (name unknown) the global arr
 uint32_t& LastBroadcastedOmnigon() { return g_lastBroadcastedOmnigon; }
 
 // A skater's score (0x00580480; null if none) and its display brought up to date (0x005626E0).
-void UpdateScoreDisplay(Obj::CSkater* skater)
+void UpdateScoreDisplay(GameObjects::CRider* skater)
 {
-    if (void* score = skater->GetScore())
-        static_cast<Mdl::Score*>(score)->RefreshBalanceMeter();
+    if (void* score = skater->GetPointsTotal())
+        static_cast<GameModules::Score*>(score)->RefreshBalanceMeter();
 }
 
 } // namespace
 
 // 0x005A1320: ClearOmnigons: the career's 23 Omnigon flags (the values of the globals above) cleared.
-bool __cdecl CFunc_ClearOmnigons(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ClearOmnigons(Scripts::CStruct*, Scripts::CScript*)
 {
-    auto* career = *reinterpret_cast<Obj::CSkaterCareer**>(Skate() + 0x20);
+    auto* career = *reinterpret_cast<GameObjects::CRiderStoryProgress**>(Skate() + 0x20);
     for (uint32_t flag : kOmnigonFlags)
-        career->UnSetGlobalFlag(Script::GetInteger(flag));
+        career->UnSetGlobalFlag(Scripts::FetchIntValue(flag));
     return true;
 }
 
 // 0x005A1540: BroadcastOmnigon <0xAE94C183=omnigon> [0xF649D637]: noted as the last one sent and, from the server,
 // sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
-bool __cdecl CFunc_BroadcastOmnigon(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_BroadcastOmnigon(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GameNet::Manager* gameNet = GameNetManager();
-    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
+    OnlinePlay::Manager* gameNet = GameNetManager();
+    NetLink::ConnSearch search = {NetLink::kConnSearchVtable, nullptr};
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetChecksum(kOmnigon, &omnigon, true);
-    bool flag = params->ContainsComponentNamed(kOmnigonFlag);
+    params->ReadHashValue(kOmnigon, &omnigon, true);
+    bool flag = params->HasEntryNamed(kOmnigonFlag);
     LastBroadcastedOmnigon() = omnigon;
-    Net::App* server = gameNet->m_server;
-    for (Net::Conn* conn = server->FirstConnection(&search); conn; conn = server->NextConnection(&search)) {
+    NetLink::App* server = gameNet->m_server;
+    for (NetLink::Conn* conn = server->BeginConnWalk(&search); conn; conn = server->StepConnWalk(&search)) {
         if (!conn->IsRemote())
             continue;
-        Net::MsgDesc desc;
+        NetLink::NetMessageInfo desc;
         desc.Construct();
         struct {
             uint32_t omnigon;
@@ -638,10 +638,10 @@ bool __cdecl CFunc_BroadcastOmnigon(Script::CStruct* params, Script::CScript*)
         } message = {omnigon, flag, {}};
         desc.m_data = &message;
         desc.m_id = 0x7F;
-        desc.m_length = 8;
-        desc.m_queue = Net::MsgDesc::kQueueSequenced;
+        desc.m_byteCount = 8;
+        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
         desc.m_groupId = 8;
-        server->EnqueueMessage(conn->m_handle, &desc);
+        server->PutOnOutbox(conn->m_handle, &desc);
         LastBroadcastedOmnigon() = omnigon;
     }
     LastBroadcastedOmnigon() = omnigon;
@@ -650,11 +650,11 @@ bool __cdecl CFunc_BroadcastOmnigon(Script::CStruct* params, Script::CScript*)
 
 // 0x005A1720: SetScreenMode <...>: the screen mode (0x004A0C20 with the command's parameters), then every skater's
 // score display brought up to date.
-bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_SetScreenMode(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Nx::CFunc_SetScreenMode(params, script);
+    Engine3D::CFunc_SetScreenMode(params, script);
     for (uint32_t i = 0; i < 8; ++i) {
-        if (Obj::CSkater* skater = GetSkater(static_cast<int>(i)))
+        if (GameObjects::CRider* skater = GetRiderAt(static_cast<int>(i)))
             UpdateScoreDisplay(skater);
     }
     return true;
@@ -663,19 +663,19 @@ bool __cdecl CFunc_SetScreenMode(Script::CStruct* params, Script::CScript* scrip
 // 0x005A1770: SetScreenModeFromGameMode: a debug message per local skater; the game mode's screen mode
 // (0x00553630) set (0x004A0AD0) unless the two split modes (1 and 2) would only swap; the local skaters' score
 // displays brought up to date.
-bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_SetScreenModeFromGameMode(Scripts::CStruct*, Scripts::CScript*)
 {
     for (uint32_t i = 0; i < 8; ++i) {
-        Obj::CSkater* skater = GetSkater(static_cast<int>(i));
+        GameObjects::CRider* skater = GetRiderAt(static_cast<int>(i));
         if (skater && skater->m_unknownBC)
-            Dbg::Printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", 0x16C0); // "cfuncs %d: SUTUBBBED..."
+            DebugOut::Printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", 0x16C0); // "cfuncs %d: SUTUBBBED..."
     }
-    int mode = GameModeObject()->GetScreenMode();
-    int current = Nx::GetScreenMode();
+    int mode = GameModeObject()->GetViewLayout();
+    int current = Engine3D::GetViewLayout();
     if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
-        Nx::SetScreenMode(mode);
+        Engine3D::SetScreenMode(mode);
     for (uint32_t i = 0; i < 8; ++i) {
-        Obj::CSkater* skater = GetSkater(static_cast<int>(i));
+        GameObjects::CRider* skater = GetRiderAt(static_cast<int>(i));
         if (skater && skater->m_unknownBC)
             UpdateScoreDisplay(skater);
     }
@@ -690,12 +690,12 @@ bool __cdecl CFunc_SetScreenModeFromGameMode(Script::CStruct*, Script::CScript*)
 // the sum (logged). The cheats in the global array 0x75A23DA4 with those c1 / c2 run 0xB95B735C and their
 // cheatscript; none (or a text under 6 characters): 0x323D63FF. Always false. The text is used as a sprintf format
 // (kept: a '%' in it is interpreted).
-bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_TryCheatString(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* text = nullptr; // (unset in the original when missing - an asserted parameter)
     params->GetString(kCheatText, &text, true);
     if (std::strlen(text) < 6) {
-        Script::RunScript(kCheatFailed, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(kCheatFailed, nullptr, nullptr, false, nullptr);
         return false;
     }
     char buffer[0x80];
@@ -703,51 +703,51 @@ bool __cdecl CFunc_TryCheatString(Script::CStruct* params, Script::CScript*)
 #pragma warning(disable : 4996) // (unbounded, and the text is the format: as in the original)
     std::sprintf(buffer, "12345678901234567890"); // "12345678901234567890"
     std::sprintf(buffer, text);
-    uint32_t checksum = Crc::GenerateCRCFromString(text);
+    uint32_t checksum = Checksums::HashFromText(text);
     int sum = 0;
     for (int round = 0; round < 100000; ++round) {
         std::sprintf(buffer, "%d", static_cast<int>(round + checksum));
         buffer[std::strlen(buffer)] = 'X';
         for (const char* c = buffer; *c; ++c)
             sum += static_cast<signed char>(*c) * 0x3FF;
-        checksum = Crc::GenerateCRCFromString(buffer);
+        checksum = Checksums::HashFromText(buffer);
     }
 #pragma warning(pop)
-    uint32_t c1 = Crc::GenerateCRCFromString(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
-    uint32_t c2 = Crc::GenerateCRCFromString(buffer) ^ static_cast<uint32_t>(sum);
-    Dbg::Printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2, text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
-    Script::CArray* cheats = Script::GetArray(kCheatList);
+    uint32_t c1 = Checksums::HashFromText(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
+    uint32_t c2 = Checksums::HashFromText(buffer) ^ static_cast<uint32_t>(sum);
+    DebugOut::Printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2, text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
+    Scripts::CArray* cheats = Scripts::GetArray(kCheatList);
     int count = static_cast<int>(cheats->m_size);
     bool found = false;
     for (int i = 0; i < count; ++i) {
-        auto* cheat = reinterpret_cast<Script::CStruct*>(cheats->GetElement(static_cast<uint32_t>(i)));
+        auto* cheat = reinterpret_cast<Scripts::CStruct*>(cheats->GetElement(static_cast<uint32_t>(i)));
         int cheatC1 = 0;
         int cheatC2 = 0;
         uint32_t script = 0;
-        cheat->GetInteger("c1", &cheatC1, true);  // "c1"
-        cheat->GetInteger("c2", &cheatC2, true);  // "c2"
-        cheat->GetChecksum("cheatscript", &script, true);  // "cheatscript"
+        cheat->FetchIntValue("c1", &cheatC1, true);  // "c1"
+        cheat->FetchIntValue("c2", &cheatC2, true);  // "c2"
+        cheat->ReadHashValue("cheatscript", &script, true);  // "cheatscript"
         if (static_cast<uint32_t>(cheatC1) == c1 && static_cast<uint32_t>(cheatC2) == c2) {
-            Script::RunScript(kCheatFound, nullptr, nullptr, false, nullptr);
-            Script::RunScript(script, nullptr, nullptr, false, nullptr);
+            Scripts::LaunchScript(kCheatFound, nullptr, nullptr, false, nullptr);
+            Scripts::LaunchScript(script, nullptr, nullptr, false, nullptr);
             found = true;
         }
     }
     if (!found)
-        Script::RunScript(kCheatFailed, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(kCheatFailed, nullptr, nullptr, false, nullptr);
     return false;
 }
 
 // 0x005A1A90: LevelIs <level>: whether it's the skate module's level (+0x378).
-bool __cdecl CFunc_LevelIs(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_LevelIs(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
-    params->GetChecksum(0u, &level, true);
+    params->ReadHashValue(0u, &level, true);
     return *reinterpret_cast<uint32_t*>(Skate() + 0x378) == level;
 }
 
 // 0x005A1F80: SetStatOverride [value (0)]: the skate module's forced stat value (+0x3D0).
-bool __cdecl CFunc_SetStatOverride(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetStatOverride(Scripts::CStruct* params, Scripts::CScript*)
 {
     float value = 0.0f;
     params->GetFloat(0u, &value, 0);
@@ -756,7 +756,7 @@ bool __cdecl CFunc_SetStatOverride(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x005A1FB0: ToggleRails: the skate module's rail display (+0x3D4) on / off.
-bool __cdecl CFunc_ToggleRails(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ToggleRails(Scripts::CStruct*, Scripts::CScript*)
 {
     bool& rails = *reinterpret_cast<bool*>(Skate() + 0x3D4);
     rails = !rails;
@@ -764,50 +764,50 @@ bool __cdecl CFunc_ToggleRails(Script::CStruct*, Script::CScript*)
 }
 
 // 0x005A1FD0: GetTimeLimit: the game mode's time limit as the script's time_limit.
-bool __cdecl CFunc_GetTimeLimit(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetTimeLimit(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddInteger(0xC51BF6E3, GameModeTimeLimit()); // "time_limit"
+    script->m_params->PutInt(0xC51BF6E3, GameModeTimeLimit()); // "time_limit"
     return true;
 }
 
 // 0x005A1FF0 / 0x005A2010: GetGoalsMode / GetTeamGraffitiMode: the same game mode value (0x005532D0) as the script's
 // 0x38DBE1D0 / 0x6835B854.
-bool __cdecl CFunc_GetGoalsMode(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetGoalsMode(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(0x38DBE1D0, GameModeObject()->GetGoalsMode());
+    script->m_params->PutNameKey(0x38DBE1D0, GameModeObject()->GetGoalsMode());
     return true;
 }
 
-bool __cdecl CFunc_GetTeamGraffitiMode(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetTeamGraffitiMode(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(0x6835B854, GameModeObject()->GetGoalsMode());
+    script->m_params->PutNameKey(0x6835B854, GameModeObject()->GetGoalsMode());
     return true;
 }
 
 // 0x005A2030: GetGameMode: the game mode's name (0x005532A0) as the script's 0x3E04B26B.
-bool __cdecl CFunc_GetGameMode(Script::CStruct*, Script::CScript* script)
+bool __cdecl CFunc_GetGameMode(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddChecksum(0x3E04B26B, GameModeObject()->GetNameChecksum());
+    script->m_params->PutNameKey(0x3E04B26B, GameModeObject()->GetNameKey());
     return true;
 }
 
 // 0x005A2090: SetTesterScript <script> [params={...}] (the skate module's 0x00565ED0).
-bool __cdecl CFunc_SetTesterScript(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_SetTesterScript(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    Script::CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
-    SkateModule()->RunScript(name, scriptParams);
+    params->ReadHashValue(0u, &name, 0);
+    Scripts::CStruct* scriptParams = nullptr;
+    params->ReadSubStruct(kParams, &scriptParams, 0);
+    SkateModule()->LaunchScript(name, scriptParams);
     return true;
 }
 
 // 0x005A20F0: KillTesterScript (the skate module's 0x00565F80: its answer).
-bool __cdecl CFunc_KillTesterScript(Script::CStruct*, Script::CScript*) { return SkateModule()->KillScript(); }
+bool __cdecl CFunc_KillTesterScript(Scripts::CStruct*, Scripts::CScript*) { return SkateModule()->KillScript(); }
 
 // 0x005A21A0: AutoRail <...>: the skate module's rail object (+0x24) is given the parameters - a shared stub that
 // ignores them.
-bool __cdecl CFunc_AutoRail(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_AutoRail(Scripts::CStruct* params, Scripts::CScript*)
 {
     (void)*reinterpret_cast<void**>(Skate() + 0x24); // (the stub's `this`)
     Stubs::IgnoreArgument(static_cast<int>(reinterpret_cast<intptr_t>(params)));
@@ -816,22 +816,22 @@ bool __cdecl CFunc_AutoRail(Script::CStruct* params, Script::CScript*)
 
 // 0x005A4170: SpawnSkaterScript <script> [params={...}] [Id=id] [Callback=<script>] [CallbackParams={...}]: the
 // script spawned at the calling script's node, running on the local skater.
-bool __cdecl CFunc_SpawnSkaterScript(Script::CStruct* params, Script::CScript* script)
+bool __cdecl CFunc_SpawnSkaterScript(Scripts::CStruct* params, Scripts::CScript* script)
 {
     uint32_t name = 0;
-    params->GetChecksum(0u, &name, 0);
-    Script::CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
+    params->ReadHashValue(0u, &name, 0);
+    Scripts::CStruct* scriptParams = nullptr;
+    params->ReadSubStruct(kParams, &scriptParams, 0);
     uint32_t id = 0;
-    params->GetChecksum("Id", &id, 0); // "Id"
+    params->ReadHashValue("Id", &id, 0); // "Id"
     uint32_t callback = 0;
-    params->GetChecksum("Callback", &callback, 0); // "Callback"
-    Script::CStruct* callbackParams = nullptr;
-    params->GetStructure("CallbackParams", &callbackParams, 0); // "CallbackParams"
-    Script::CScript* spawned = Script::SpawnScript(name, scriptParams, callback, callbackParams, script->m_node, id,
+    params->ReadHashValue("Callback", &callback, 0); // "Callback"
+    Scripts::CStruct* callbackParams = nullptr;
+    params->ReadSubStruct("CallbackParams", &callbackParams, 0); // "CallbackParams"
+    Scripts::CScript* spawned = Scripts::SpawnScript(name, scriptParams, callback, callbackParams, script->m_listLink, id,
                                                    false, false, false, false);
-    spawned->m_object.Set(GetLocalSkater()); // (not checked for null, as in the original)
+    spawned->m_object.Set(GetHomeRider()); // (not checked for null, as in the original)
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

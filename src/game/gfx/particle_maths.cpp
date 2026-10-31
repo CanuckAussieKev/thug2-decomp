@@ -6,7 +6,7 @@
 #include <bit>
 #include <cstdint>
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -34,11 +34,11 @@ double Lowest(float square, float linear, float start)
 } // namespace
 
 // 0x00494F10
-Mth::Vector* __cdecl QuadraticLowest(Mth::Vector* out, const sQuadraticPoints* points)
+Maths::Vector* __cdecl QuadraticLowest(Maths::Vector* out, const sQuadraticPoints* points)
 {
-    const Mth::Vector& a = points->start;
-    const Mth::Vector& b = points->p1;
-    const Mth::Vector& c = points->p2;
+    const Maths::Vector& a = points->start;
+    const Maths::Vector& b = points->p1;
+    const Maths::Vector& c = points->p2;
     double t1 = points->t1;
     double t2 = points->t2;
     // The end's offset scaled by t1, the mid's by t2 (z through a float each time, x through one, y kept).
@@ -103,9 +103,9 @@ __declspec(naked) void QuadraticLowestStub()
 }
 
 // 0x00495130
-Mth::Vector* __cdecl MinVector(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b)
+Maths::Vector* __cdecl MinVector(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b)
 {
-    Mth::Vector result = *a;
+    Maths::Vector result = *a;
     if (b->x < a->x)
         result.x = b->x;
     if (b->y < a->y)
@@ -118,9 +118,9 @@ Mth::Vector* __cdecl MinVector(Mth::Vector* out, const Mth::Vector* a, const Mth
 }
 
 // 0x004951B0
-Mth::Vector* __cdecl MaxVector(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b)
+Maths::Vector* __cdecl MaxVector(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b)
 {
-    Mth::Vector result = *a;
+    Maths::Vector result = *a;
     if (b->x > a->x)
         result.x = b->x;
     if (b->y > a->y)

@@ -5,26 +5,26 @@
 #include "game/core/manager.h"
 #include "game/core/code_address.h"
 
-namespace Net {
+namespace NetLink {
 
-static VtableSlot kConnNodeVtable_slots[] = {&Net::ConnNode::Destroy};
+static VtableSlot kConnNodeVtable_slots[] = {&NetLink::ConnNode::Destroy};
 void** const kConnNodeVtable = reinterpret_cast<void**>(kConnNodeVtable_slots);
-static VtableSlot kConnHeadVtable_slots[] = {&Net::ConnNode::DestroyHead};
+static VtableSlot kConnHeadVtable_slots[] = {&NetLink::ConnNode::DestroyHead};
 void** const kConnHeadVtable = reinterpret_cast<void**>(kConnHeadVtable_slots);
-static VtableSlot kBannedConnNodeVtable_slots[] = {&Net::BannedConnNode::Destroy};
+static VtableSlot kBannedConnNodeVtable_slots[] = {&NetLink::BannedConnNode::Destroy};
 void** const kBannedConnNodeVtable = reinterpret_cast<void**>(kBannedConnNodeVtable_slots);
-static VtableSlot kBannedConnVtable_slots[] = {&Net::BannedConn::DestroyBanned};
+static VtableSlot kBannedConnVtable_slots[] = {&NetLink::BlockedConnEntry::DestroyBanned};
 void** const kBannedConnVtable = reinterpret_cast<void**>(kBannedConnVtable_slots);
-static VtableSlot kMsgHandlerNodeVtable_slots[] = {&Net::MsgHandlerNode::Destroy};
+static VtableSlot kMsgHandlerNodeVtable_slots[] = {&NetLink::MsgHandlerNode::Destroy};
 void** const kMsgHandlerNodeVtable = reinterpret_cast<void**>(kMsgHandlerNodeVtable_slots);
-static VtableSlot kConnSearchVtable_slots[] = {&Net::ConnSearch::Destroy};
+static VtableSlot kConnSearchVtable_slots[] = {&NetLink::ConnSearch::Destroy};
 void** const kConnSearchVtable = reinterpret_cast<void**>(kConnSearchVtable_slots);
-static VtableSlot kBannedConnSearchVtable_slots[] = {&Net::BannedConnSearch::Destroy};
+static VtableSlot kBannedConnSearchVtable_slots[] = {&NetLink::BannedConnSearch::Destroy};
 void** const kBannedConnSearchVtable = reinterpret_cast<void**>(kBannedConnSearchVtable_slots);
 
 namespace {
 
-void Free(void* memory) { Mem::Manager::Get()->Free(memory); }
+void Free(void* memory) { MemSys::Manager::Get()->Free(memory); }
 
 } // namespace
 
@@ -92,7 +92,7 @@ BannedConnNode* BannedConnNode::Destroy(unsigned int flags)
 }
 
 // 0x00457460
-BannedConn* BannedConn::DestroyBanned(unsigned int flags)
+BlockedConnEntry* BlockedConnEntry::DestroyBanned(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)

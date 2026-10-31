@@ -70,16 +70,16 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Front::NewFrontend {
+namespace MenuSystem::NewFrontend {
 
-void ContinueLastLevel(Mdl::FrontEnd* frontEnd); // (below)
+void ContinueLastLevel(GameModules::FrontEnd* frontEnd); // (below)
 
 namespace {
 
-namespace UiBackend = Front::LevelEditor::UiBackend;
+namespace UiBackend = MenuSystem::LevelEditor::UiBackend;
 using GameScreens::Anchor;
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;       // load_mainmenu (the skate module's level in the front end)
 constexpr uint32_t kSkater = 0x5B8AB877;             // Skater (the local skater's alias)
@@ -89,27 +89,27 @@ constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;  // SkaterCorePhysics
 
 // --- the game's state ---
 
-uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t LevelLoad() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
-bool InFrontEnd() { return LevelLoad() == kLoadMainMenu; }
+uint32_t CurrentLoadState() { return SkateModule() ? *reinterpret_cast<uint32_t*>(SkateModule() + 0x378) : 0; }
+bool InFrontEnd() { return CurrentLoadState() == kLoadMainMenu; }
 // The skate module's career (+0x20; null before the module is up).
-Obj::CSkaterCareer* Career()
+GameObjects::CRiderStoryProgress* Career()
 {
-    return SkateModule() ? *reinterpret_cast<Obj::CSkaterCareer**>(SkateModule() + 0x20) : nullptr;
+    return SkateModule() ? *reinterpret_cast<GameObjects::CRiderStoryProgress**>(SkateModule() + 0x20) : nullptr;
 }
-Mdl::FrontEnd* TheFrontEnd() { return Mdl::g_frontEndInstance; }
-bool Paused() { return TheFrontEnd() && TheFrontEnd()->m_paused; }
+GameModules::FrontEnd* TheFrontEnd() { return GameModules::g_frontEndInstance; }
+bool Paused() { return TheFrontEnd() && TheFrontEnd()->m_isHalted; }
 bool LoadingScreenUp()
 {
-    return Nx::g_loadingScreenShown != 0 || Nx::g_loadingBarTimer != 0 ||
-           static_cast<uint8_t>(Nx::g_loadingScreenUp) != 0;
+    return Engine3D::g_loadingScreenShown != 0 || Engine3D::g_loadingBarTimer != 0 ||
+           static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0;
 }
 
 bool IsScript(uint32_t name)
 {
-    Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(name);
-    return symbol && symbol->type == Script::ESYMBOLTYPE_QSCRIPT;
+    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(name);
+    return symbol && symbol->type == Scripts::QBVAL_SCRIPT_BODY;
 }
 
 // A script integer by name (-1: none).
@@ -117,14 +117,14 @@ int ScriptInteger(const std::string& name)
 {
     if (name.empty())
         return -1;
-    Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(Checksum(name.c_str()));
-    return symbol && symbol->type == Script::ESYMBOLTYPE_INTEGER ? symbol->integer : -1;
+    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(Checksum(name.c_str()));
+    return symbol && symbol->type == Scripts::QBVAL_INTEGER ? symbol->integer : -1;
 }
 
 
 // --- the setting and the files ---
 
-std::string IniPath() { return GameFolderPath(Config::kFileName); }
+std::string IniPath() { return GameFolderPath(BuildInfo::kFileName); }
 
 std::string IniString(const char* key, const char* fallback)
 {
@@ -133,7 +133,7 @@ std::string IniString(const char* key, const char* fallback)
     return value;
 }
 
-bool FileExists(const std::string& path)
+bool IsFilePresent(const std::string& path)
 {
     DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
@@ -156,13 +156,13 @@ std::string FindFont(const std::vector<std::string>& names)
         if (name.empty())
             continue;
         if (name.find(':') != std::string::npos || name.rfind("\\\\", 0) == 0) {
-            if (FileExists(name))
+            if (IsFilePresent(name))
                 return name;
             continue;
         }
-        if (FileExists(ours + name))
+        if (IsFilePresent(ours + name))
             return ours + name;
-        if (FileExists(windows + name))
+        if (IsFilePresent(windows + name))
             return windows + name;
     }
     return {};
@@ -312,23 +312,23 @@ template <typename T> T At(const void* base, uint32_t offset)
 
 void UpdateSession(float dt)
 {
-    uint32_t level = LevelLoad();
+    uint32_t level = CurrentLoadState();
     if (level != s_session.level) {
         s_session = SessionState{};
         s_session.level = level;
     }
     if (!level || level == kLoadMainMenu || Paused() || LevelEditor::Active())
         return;
-    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
     if (!skater)
         return;
     s_session.seconds += dt;
     // The combo's points pending (the score's +0x14 times its multiplier +0x60 - level_editor_playtest.h), bails.
     int pending = 0;
     bool bailing = false;
-    if (Obj::CBaseComponent* state = skater->GetComponent(kSkaterState))
+    if (GameObjects::CObjectModule* state = skater->GetComponent(kSkaterState))
         bailing = At<uint8_t>(state, 0x70) != 0;
-    if (Obj::CBaseComponent* score = skater->GetComponent(kSkaterScore))
+    if (GameObjects::CObjectModule* score = skater->GetComponent(kSkaterScore))
         if (const uint8_t* s = At<const uint8_t*>(score, 0x18)) {
             double points = static_cast<double>(At<int>(s, 0x14)) * At<float>(s, 0x60);
             if (points > 0.0 && points < 2.0e9)
@@ -340,13 +340,13 @@ void UpdateSession(float dt)
     // The gaps (the skate module's checklist: the level's).
     std::vector<LevelEditor::PlayTest::GapRead> read;
     uint8_t* skate = SkateModule();
-    if (Game::CGapChecklist* list = skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr) {
+    if (GoalSystem::CGapTally* list = skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr) {
         int guard = 0;
-        for (Mem::ListNode* node = list->m_gaps.next; node && node != &list->m_gaps && ++guard < 4096; node = node->next) {
+        for (MemSys::ListNode* node = list->m_gaps.next; node && node != &list->m_gaps && ++guard < 4096; node = node->next) {
             if (node->data == reinterpret_cast<void*>(-1))
                 break;
-            auto* gap = reinterpret_cast<Game::CGapCheck*>(node);
-            read.push_back({gap->m_name.c_str() ? gap->m_name.c_str() : "", gap->m_pending, gap->m_count, gap->m_score});
+            auto* gap = reinterpret_cast<GoalSystem::CGapEntry*>(node);
+            read.push_back({gap->m_name.c_str() ? gap->m_name.c_str() : "", gap->m_pending, gap->m_count, gap->m_pointsHeld});
         }
     }
     s_session.gapsTotal = static_cast<int>(read.size());
@@ -378,13 +378,13 @@ void FreeArt()
 Paint::Art LoadImageFile(const std::string& name)
 {
     std::string path = "images\\" + name + ".img.xbx";
-    File::Handle file = File::Open(path.c_str(), "rb");
+    FileLoad::Handle file = FileLoad::Open(path.c_str(), "rb");
     if (!file)
         return {};
-    uint32_t size = File::GetFileSize(file);
+    uint32_t size = FileLoad::GetFileSize(file);
     std::vector<uint8_t> data(size);
-    bool read = size > 0x20 && File::Read(data.data(), static_cast<int>(size), 1, file) > 0;
-    File::Close(file);
+    bool read = size > 0x20 && FileLoad::Read(data.data(), static_cast<int>(size), 1, file) > 0;
+    FileLoad::Close(file);
     if (!read)
         return {};
     auto u32 = [&](size_t at) {
@@ -400,9 +400,9 @@ Paint::Art LoadImageFile(const std::string& name)
     Paint::Art art;
     art.width = static_cast<float>(width);
     art.height = static_cast<float>(height);
-    // (a loading screen's rows are stored bottom first: Nx::DrawLoadingScreenPicture puts v 1 at the screen's top)
+    // (a loading screen's rows are stored bottom first: Engine3D::DrawLoadingScreenPicture puts v 1 at the screen's top)
     art.bottomUp = true;
-    if (format == Nx::HdUi::kFormatDxt1 && Nx::HdUi::ImageScale(marker) != 1 && width % 4 == 0 && height % 4 == 0) {
+    if (format == Engine3D::HdUi::kFormatDxt1 && Engine3D::HdUi::ImageScale(marker) != 1 && width % 4 == 0 && height % 4 == 0) {
         int rowBytes = static_cast<int>(width / 4 * 8), rows = static_cast<int>(height / 4);
         if (left < static_cast<size_t>(rowBytes) * rows)
             return {};
@@ -472,24 +472,24 @@ Paint::Art ArtFor(const std::string& image)
     return it->second.art;
 }
 
-Paint::Records RecordsFor(const Level& level)
+Paint::Highscores RecordsFor(const Level& level)
 {
-    Paint::Records records;
-    int number = level.levelNum >= 0 ? level.levelNum : ScriptInteger(level.levelNumName);
-    Obj::CSkaterCareer* career = Career();
+    Paint::Highscores records;
+    int number = level.levelIndex >= 0 ? level.levelIndex : ScriptInteger(level.levelNumName);
+    GameObjects::CRiderStoryProgress* career = Career();
     // (the career's records are THUG2's own levels': 21 of them)
-    if (!career || number < 0 || number >= Obj::CSkaterCareer::kLevels || !level.gameTag.empty() ||
+    if (!career || number < 0 || number >= GameObjects::CRiderStoryProgress::kLevels || !level.gameTag.empty() ||
         level.levelNumName.empty())
         return records;
     int goals = career->CountGoals(number);
     if (goals > 0)
         records.goals = goals;
-    if (Game::CGapChecklist* gaps = career->GetGapChecklist(number)) {
+    if (GoalSystem::CGapTally* gaps = career->FetchGapList(number)) {
         int total = gaps->Count();
         if (total > 0) {
             int got = 0;
             for (int i = 0; i < total; ++i)
-                got += gaps->GetGapCount(i) > 0 ? 1 : 0;
+                got += gaps->CountGapsFound(i) > 0 ? 1 : 0;
             records.gapsTotal = total;
             records.gapsGot = got;
         }
@@ -513,7 +513,7 @@ bool Unlocked(const Level& level)
     if (!RespectLocks() || ScriptInteger("all_levels_unlocked") == 1)
         return true;
     int flag = ScriptInteger(level.seenFlag.empty() ? level.flag : level.seenFlag);
-    Obj::CSkaterCareer* career = Career();
+    GameObjects::CRiderStoryProgress* career = Career();
     return flag < 0 || !career || career->GetGlobalFlag(flag);
 }
 
@@ -579,7 +579,7 @@ void SaveState()
 // The last level played: whichever menu started it, once it's the level loaded.
 void NoteLevelLoaded()
 {
-    uint32_t load = LevelLoad();
+    uint32_t load = CurrentLoadState();
     if (load == s_lastLoad)
         return;
     s_lastLoad = load;
@@ -601,9 +601,9 @@ std::string SkaterName()
     uint32_t script = Checksum("select_skater_get_current_skater_name");
     if (!IsScript(script))
         return {};
-    Script::CStruct results;
+    Scripts::CStruct results;
     results.Init();
-    Script::RunScriptOnce(script, nullptr, nullptr, &results);
+    Scripts::RunScriptOnce(script, nullptr, nullptr, &results);
     const char* name = nullptr;
     std::string out;
     // (the profile's info - GetSkaterProfileInfo's display_name - is among the script's parameters after it)
@@ -618,11 +618,11 @@ void Sound(const char* script, const char* flag = nullptr)
     uint32_t name = Checksum(script);
     if (!IsScript(name))
         return;
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
     if (flag)
-        params.AddChecksum(0u, Checksum(flag));
-    Script::RunScript(name, &params, nullptr, false, script);
+        params.PutNameKey(0u, Checksum(flag));
+    Scripts::LaunchScript(name, &params, nullptr, false, script);
     params.Clear();
 }
 
@@ -683,7 +683,7 @@ void ApplyOption(int option, int choice)
 // The level being played, as the data names it (null if it isn't there).
 const Level* LevelPlayed(const Section** section)
 {
-    uint32_t load = LevelLoad();
+    uint32_t load = CurrentLoadState();
     for (const Section& s : s_catalogue.sections)
         for (const Level& level : s.levels)
             if (Checksum(level.load.c_str()) == load) {
@@ -726,8 +726,8 @@ void HideRoot(bool hide, bool force = false)
     const char* script = hide ? "hide_root_window" : "unhide_root_window";
     if (!IsScript(Checksum(script)))
         return;
-    Script::RunScript(Checksum(script), nullptr, nullptr, false, script);
-    if (CScreenElement* root = GameScreens::Find(Checksum("root_window")))
+    Scripts::LaunchScript(Checksum(script), nullptr, nullptr, false, script);
+    if (CUiWidget* root = GameScreens::Find(Checksum("root_window")))
         root->SetAlpha(hide ? 0.0f : 1.0f, 1);
     s_rootHidden = hide;
 }
@@ -739,8 +739,8 @@ void KeepRootHidden()
 {
     if (!s_rootHidden)
         return;
-    CScreenElement* root = GameScreens::Find(Checksum("root_window"));
-    if (!root || (root->m_target.scaleX < 0.001f && root->m_target.alpha < 0.001f))
+    CUiWidget* root = GameScreens::Find(Checksum("root_window"));
+    if (!root || (root->m_aimPoint.scaleX < 0.001f && root->m_aimPoint.alpha < 0.001f))
         return;
     static int s_logged = 0;
     if (s_logged < 20) {
@@ -752,17 +752,17 @@ void KeepRootHidden()
 
 // --- phase 3: the original screens restyled (new_frontend_mirror.h) ---
 
-uint32_t TypeOf(const CScreenElement* element) { return reinterpret_cast<const Obj::CObject*>(element)->m_type; }
-uint32_t IdOfElement(const CScreenElement* element) { return reinterpret_cast<const Obj::CObject*>(element)->m_id; }
-CScreenElement* FirstChild(const CScreenElement* element) { return element->mp_firstChild.Get(); }
-CScreenElement* Next(const CScreenElement* element) { return element->mp_next.Get(); }
-bool ElementHidden(const CScreenElement* element)
+uint32_t TypeOf(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CObject*>(element)->m_type; }
+uint32_t IdOfElement(const CUiWidget* element) { return reinterpret_cast<const GameObjects::CObject*>(element)->m_id; }
+CUiWidget* FirstChild(const CUiWidget* element) { return element->mp_firstChild.Get(); }
+CUiWidget* Next(const CUiWidget* element) { return element->m_following.Get(); }
+bool ElementHidden(const CUiWidget* element)
 {
-    return (reinterpret_cast<const Obj::CObject*>(element)->m_objectFlags & CScreenElement::kHidden) != 0;
+    return (reinterpret_cast<const GameObjects::CObject*>(element)->m_objectFlags & CUiWidget::kHidden) != 0;
 }
-bool Visible(const CScreenElement* element)
+bool Visible(const CUiWidget* element)
 {
-    return !ElementHidden(element) && element->m_target.alpha > 0.02f && element->m_target.rgba[3] > 2;
+    return !ElementHidden(element) && element->m_aimPoint.alpha > 0.02f && element->m_aimPoint.rgba[3] > 2;
 }
 
 uint32_t TextType()
@@ -776,34 +776,34 @@ uint32_t SpriteType()
     return type;
 }
 
-CScreenElement* RootElement()
+CUiWidget* RootElement()
 {
-    CScreenElementManager* manager = CScreenElementManager::Instance();
+    CUiTree* manager = CUiTree::Instance();
     return manager ? manager->mp_root.Get() : nullptr;
 }
 
 // The menu that takes the pad events now: of the focused menus, one in a dialog box first, else the last in the tree
 // (the newest screen). `inDialog`: it is in dialog_box_container. `coming`: a menu not taking them yet counts too, when
 // it is shown - the screen being made (the pause menu animates in for 13 frames before it takes the pad).
-CScreenElement* ActiveMenu(bool* inDialog = nullptr, bool coming = false)
+CUiWidget* ActiveMenu(bool* inDialog = nullptr, bool coming = false)
 {
-    CScreenElement* root = RootElement();
+    CUiWidget* root = RootElement();
     if (!root)
         return nullptr;
     static const uint32_t kDialogContainer = Checksum("dialog_box_container");
-    CScreenElement* found = nullptr;
-    CScreenElement* dialog = nullptr;
+    CUiWidget* found = nullptr;
+    CUiWidget* dialog = nullptr;
     int budget = 8192;
     // (depth first, without recursion: the element, its first child, its next sibling, back up through the parents)
     struct Walk {
-        CScreenElement* element;
+        CUiWidget* element;
         bool inDialog;
     };
     std::vector<Walk> stack;
     stack.push_back({FirstChild(root), false});
     while (!stack.empty() && --budget > 0) {
         Walk& top = stack.back();
-        CScreenElement* e = top.element;
+        CUiWidget* e = top.element;
         if (!e) {
             stack.pop_back();
             continue;
@@ -815,7 +815,7 @@ CScreenElement* ActiveMenu(bool* inDialog = nullptr, bool coming = false)
             if (here)
                 dialog = e;
         }
-        if (CScreenElement* child = FirstChild(e))
+        if (CUiWidget* child = FirstChild(e))
             stack.push_back({child, here});
     }
     if (inDialog)
@@ -824,7 +824,7 @@ CScreenElement* ActiveMenu(bool* inDialog = nullptr, bool coming = false)
 }
 
 // The strings of the text elements in `element` (itself included), in tree order; `skip`: subtrees left out.
-void CollectTexts(const CScreenElement* element, std::vector<std::string>* out, const std::vector<const CScreenElement*>& skip,
+void CollectTexts(const CUiWidget* element, std::vector<std::string>* out, const std::vector<const CUiWidget*>& skip,
                   int* budget, bool visibleOnly)
 {
     if (!element || --*budget <= 0)
@@ -834,49 +834,49 @@ void CollectTexts(const CScreenElement* element, std::vector<std::string>* out, 
     if (visibleOnly && !Visible(element))
         return;
     if (TypeOf(element) == TextType()) {
-        const char* text = reinterpret_cast<const CTextElement*>(element)->m_string;
+        const char* text = reinterpret_cast<const CLabelWidget*>(element)->m_string;
         if (text && *text)
             out->push_back(text);
     }
-    for (CScreenElement* child = FirstChild(element); child && *budget > 0; child = Next(child))
+    for (CUiWidget* child = FirstChild(element); child && *budget > 0; child = Next(child))
         CollectTexts(child, out, skip, budget, visibleOnly);
 }
 
 // An element's height on the 640 x 480 layout: its position and its parents' added up (justification and scale aside -
 // enough to tell rows apart).
-float AbsoluteY(const CScreenElement* element)
+float AbsoluteY(const CUiWidget* element)
 {
     float y = 0.0f;
-    for (int guard = 0; element && guard < 64; ++guard, element = element->mp_parent.Get())
-        y += element->m_target.y;
+    for (int guard = 0; element && guard < 64; ++guard, element = element->m_container.Get())
+        y += element->m_aimPoint.y;
     return y;
 }
 
 // The visible texts in `element` (itself included) with their heights, in tree order; `skip`: subtrees left out.
-void CollectTextsAt(const CScreenElement* element, std::vector<std::pair<std::string, float>>* out,
-                    const std::vector<const CScreenElement*>& skip, int* budget)
+void CollectTextsAt(const CUiWidget* element, std::vector<std::pair<std::string, float>>* out,
+                    const std::vector<const CUiWidget*>& skip, int* budget)
 {
     if (!element || --*budget <= 0 || !Visible(element))
         return;
     if (std::find(skip.begin(), skip.end(), element) != skip.end())
         return;
     if (TypeOf(element) == TextType()) {
-        const char* text = reinterpret_cast<const CTextElement*>(element)->m_string;
+        const char* text = reinterpret_cast<const CLabelWidget*>(element)->m_string;
         if (text && *text)
             out->emplace_back(text, AbsoluteY(element));
     }
-    for (CScreenElement* child = FirstChild(element); child && *budget > 0; child = Next(child))
+    for (CUiWidget* child = FirstChild(element); child && *budget > 0; child = Next(child))
         CollectTextsAt(child, out, skip, budget);
 }
 
 // A visible sprite in `element` that isn't a highlight bar (those are drawn at alpha 0 until their item is focused).
-bool HasVisibleSprite(const CScreenElement* element, int* budget)
+bool HasVisibleSprite(const CUiWidget* element, int* budget)
 {
-    if (!element || --*budget <= 0 || ElementHidden(element) || element->m_target.alpha <= 0.02f)
+    if (!element || --*budget <= 0 || ElementHidden(element) || element->m_aimPoint.alpha <= 0.02f)
         return false;
-    if (TypeOf(element) == SpriteType() && element->m_target.rgba[3] > 2 && std::fabs(element->m_target.scaleX) > 0.001f)
+    if (TypeOf(element) == SpriteType() && element->m_aimPoint.rgba[3] > 2 && std::fabs(element->m_aimPoint.scaleX) > 0.001f)
         return true;
-    for (CScreenElement* child = FirstChild(element); child; child = Next(child))
+    for (CUiWidget* child = FirstChild(element); child; child = Next(child))
         if (HasVisibleSprite(child, budget))
             return true;
     return false;
@@ -889,7 +889,7 @@ bool HasVisibleSprite(const CScreenElement* element, int* budget)
 // sprites: a bar picture and an up_arrow / down_arrow marker pair that its scripts slide along the bar (SetScreenElementProps
 // pos=(x_val, 0), x_val between the menu script's arrow_left and arrow_right) after every change - Left / Right on the
 // focused item are its pad_left / pad_right handlers. So the marker's x is the value.
-void ReadValueSprites(const CScreenElement* element, Mirror::ItemRead* item, int* budget)
+void ReadValueSprites(const CUiWidget* element, Mirror::ItemRead* item, int* budget)
 {
     static const uint32_t kCheckbox = Checksum("checkbox"), kCheckmark = Checksum("checkmark");
     static const uint32_t kLeft = Checksum("left_arrow"), kRight = Checksum("right_arrow");
@@ -897,9 +897,9 @@ void ReadValueSprites(const CScreenElement* element, Mirror::ItemRead* item, int
     static const uint32_t kHueArrow = Checksum("hue_up_arrow");
     static const uint32_t kColourArrows[] = {Checksum("hue_up_arrow"), Checksum("saturation_up_arrow"),
                                              Checksum("value_up_arrow"), Checksum("alpha_up_arrow")};
-    for (const CScreenElement* e = element; e && --*budget > 0; e = Next(e)) {
+    for (const CUiWidget* e = element; e && --*budget > 0; e = Next(e)) {
         if (TypeOf(e) == SpriteType()) {
-            uint32_t texture = reinterpret_cast<const CSpriteElement*>(e)->m_texture;
+            uint32_t texture = reinterpret_cast<const CImageWidget*>(e)->m_texture;
             if (texture == kLeft || texture == kRight)
                 item->adjustable = true;
             if (texture == kUp) {
@@ -913,38 +913,38 @@ void ReadValueSprites(const CScreenElement* element, Mirror::ItemRead* item, int
                         right = 80.0f;
                     }
                 item->adjustable = true;
-                item->sliderAt = std::clamp((e->m_target.x - left) / (right - left), 0.0f, 1.0f);
+                item->sliderAt = std::clamp((e->m_aimPoint.x - left) / (right - left), 0.0f, 1.0f);
                 item->sliderHue = id == kHueArrow;
             }
             if (texture == kCheckbox && Visible(e)) {
                 item->checkbox = 0;
-                for (const CScreenElement* mark = FirstChild(e); mark; mark = Next(mark))
+                for (const CUiWidget* mark = FirstChild(e); mark; mark = Next(mark))
                     if (TypeOf(mark) == SpriteType() && Visible(mark) &&
-                        reinterpret_cast<const CSpriteElement*>(mark)->m_texture == kCheckmark)
+                        reinterpret_cast<const CImageWidget*>(mark)->m_texture == kCheckmark)
                         item->checkbox = 1;
             }
         }
-        if (CScreenElement* child = FirstChild(e))
+        if (CUiWidget* child = FirstChild(e))
             ReadValueSprites(child, item, budget);
     }
 }
 
-Obj::CPlayerProfileManager* ProfileManager() { return Obj::g_profileManager; }
+GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
 
 // The skater select's stats for the template `name`: stat_names' short_string (else string) and the template's value.
 std::vector<std::pair<std::string, int>> SkaterStats(uint32_t name)
 {
     std::vector<std::pair<std::string, int>> stats;
-    Obj::CPlayerProfileManager* manager = ProfileManager();
-    Obj::CSkaterProfile* profile = manager ? manager->GetTemplate(name) : nullptr;
-    Script::CArray* names = Script::GetArray(Checksum("stat_names"));
-    if (!profile || !names || names->m_type != Script::ESYMBOLTYPE_STRUCTURE)
+    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CRiderIdentity* profile = manager ? manager->GetTemplate(name) : nullptr;
+    Scripts::CArray* names = Scripts::GetArray(Checksum("stat_names"));
+    if (!profile || !names || names->m_type != Scripts::QBVAL_STRUCT)
         return stats;
     for (uint32_t i = 0; i < names->m_size && i < 16; ++i) {
-        auto* entry = reinterpret_cast<Script::CStruct*>(names->GetElement(i));
+        auto* entry = reinterpret_cast<Scripts::CStruct*>(names->GetElement(i));
         uint32_t stat = 0;
         const char* label = nullptr;
-        if (!entry || !entry->GetChecksum(Checksum("name"), &stat, 0))
+        if (!entry || !entry->ReadHashValue(Checksum("name"), &stat, 0))
             continue;
         if (!entry->GetString(Checksum("short_string"), &label, 0))
             entry->GetString(Checksum("string"), &label, 0);
@@ -953,7 +953,7 @@ std::vector<std::pair<std::string, int>> SkaterStats(uint32_t name)
     return stats;
 }
 
-Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
+Mirror::MenuRead ReadMenu(CUiWidget* menu, bool inDialog)
 {
     Mirror::MenuRead read;
     if (!menu)
@@ -969,7 +969,7 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
     bool skaters = read.menuId == kSkaterMenu;
     int budget = 4096;
     int index = 0;
-    for (CScreenElement* child = FirstChild(menu); child && index < 80; child = Next(child), ++index) {
+    for (CUiWidget* child = FirstChild(menu); child && index < 80; child = Next(child), ++index) {
         Mirror::ItemRead item;
         item.id = IdOfElement(child);
         item.focusable = MouseMenus::ItemFocusable(child);
@@ -980,12 +980,12 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
         }
         if (!skaters) {
             int valueBudget = 256;
-            if (CScreenElement* first = FirstChild(child))
+            if (CUiWidget* first = FirstChild(child))
                 ReadValueSprites(first, &item, &valueBudget);
         }
         if (skaters) {
-            Obj::CPlayerProfileManager* manager = ProfileManager();
-            Obj::CSkaterProfile* profile = manager ? manager->GetTemplate(item.id) : nullptr;
+            GameObjects::CProfileRoster* manager = ProfileManager();
+            GameObjects::CRiderIdentity* profile = manager ? manager->GetTemplate(item.id) : nullptr;
             const char* name = profile ? profile->GetDisplayName() : nullptr;
             item.display = name ? name : "";
         }
@@ -994,9 +994,9 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
     if (inDialog) {
         // The title: the menu's first text; the text: the text block's lines (its children).
         static const uint32_t kTextBlock = Checksum("TextBlockElement");
-        for (CScreenElement* child = FirstChild(menu); child; child = Next(child)) {
+        for (CUiWidget* child = FirstChild(menu); child; child = Next(child)) {
             if (read.dialogTitle.empty() && TypeOf(child) == TextType()) {
-                const char* text = reinterpret_cast<CTextElement*>(child)->m_string;
+                const char* text = reinterpret_cast<CLabelWidget*>(child)->m_string;
                 read.dialogTitle = text ? text : "";
             } else if (TypeOf(child) == kTextBlock) {
                 std::vector<std::string> lines;
@@ -1010,29 +1010,29 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
         return read;
     }
     if (skaters) {
-        if (CScreenElement* name = GameScreens::Find(Checksum("select_skater_name")))
-            if (TypeOf(name) == TextType() && reinterpret_cast<CTextElement*>(name)->m_string)
-                read.skaterName = reinterpret_cast<CTextElement*>(name)->m_string;
+        if (CUiWidget* name = GameScreens::Find(Checksum("select_skater_name")))
+            if (TypeOf(name) == TextType() && reinterpret_cast<CLabelWidget*>(name)->m_string)
+                read.skaterName = reinterpret_cast<CLabelWidget*>(name)->m_string;
         if (read.selectedIndex >= 0 && read.selectedIndex < static_cast<int>(read.items.size()))
             read.stats = SkaterStats(read.items[read.selectedIndex].id);
         return read;
     }
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
     // root: not the menu, its title or the helper text).
-    if (CScreenElement* title = GameScreens::Find(Checksum("title_text")))
-        if (TypeOf(title) == TextType() && reinterpret_cast<CTextElement*>(title)->m_string && Visible(title))
-            read.title = reinterpret_cast<CTextElement*>(title)->m_string;
-    CScreenElement* root = RootElement();
-    CScreenElement* screen = menu;
+    if (CUiWidget* title = GameScreens::Find(Checksum("title_text")))
+        if (TypeOf(title) == TextType() && reinterpret_cast<CLabelWidget*>(title)->m_string && Visible(title))
+            read.title = reinterpret_cast<CLabelWidget*>(title)->m_string;
+    CUiWidget* root = RootElement();
+    CUiWidget* screen = menu;
     for (int guard = 0; screen && guard < 64; ++guard) {
-        CScreenElement* parent = screen->mp_parent.Get();
+        CUiWidget* parent = screen->m_container.Get();
         if (!parent || parent == root)
             break;
         screen = parent;
     }
-    std::vector<const CScreenElement*> skip = {menu};
+    std::vector<const CUiWidget*> skip = {menu};
     for (const char* id : {"helper_text_anchor", "submenu_title_anchor", "title_text"})
-        if (CScreenElement* e = GameScreens::Find(Checksum(id)))
+        if (CUiWidget* e = GameScreens::Find(Checksum(id)))
             skip.push_back(e);
     if (screen && screen != menu) {
         // A column beside the menu (the grab tricks' names beside their key combos): a word at a row's height is that
@@ -1040,9 +1040,9 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
         std::vector<std::pair<std::string, float>> beside;
         CollectTextsAt(screen, &beside, skip, &budget);
         std::vector<float> rowY;
-        for (CScreenElement* child = FirstChild(menu); child; child = Next(child)) {
+        for (CUiWidget* child = FirstChild(menu); child; child = Next(child)) {
             float y = AbsoluteY(child);
-            for (CScreenElement* t = FirstChild(child); t; t = Next(t))
+            for (CUiWidget* t = FirstChild(child); t; t = Next(t))
                 if (TypeOf(t) == TextType()) {
                     y = AbsoluteY(t);
                     break;
@@ -1084,20 +1084,20 @@ const char* TypeName(uint32_t type)
     return nullptr;
 }
 
-void DumpTree(const CScreenElement* element, int depth, int* budget)
+void DumpTree(const CUiWidget* element, int depth, int* budget)
 {
     for (; element && --*budget > 0; element = Next(element)) {
         char line[512];
         const char* type = TypeName(TypeOf(element));
         int at = std::snprintf(line, sizeof(line), "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?",
-                               IdOfElement(element), element->m_target.x, element->m_target.y,
+                               IdOfElement(element), element->m_aimPoint.x, element->m_aimPoint.y,
                                Visible(element) ? "" : " hidden");
         if (TypeOf(element) == TextType()) {
-            const char* text = reinterpret_cast<const CTextElement*>(element)->m_string;
+            const char* text = reinterpret_cast<const CLabelWidget*>(element)->m_string;
             std::snprintf(line + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
         } else if (TypeOf(element) == SpriteType()) {
             std::snprintf(line + at, sizeof(line) - at, " texture %08X",
-                          reinterpret_cast<const CSpriteElement*>(element)->m_texture);
+                          reinterpret_cast<const CImageWidget*>(element)->m_texture);
         }
         Log("new front end: debug_restyle %s", line);
         if (depth < 8)
@@ -1105,7 +1105,7 @@ void DumpTree(const CScreenElement* element, int depth, int* budget)
     }
 }
 
-void DumpLeftMenu(CScreenElement* menu, const std::string& why)
+void DumpLeftMenu(CUiWidget* menu, const std::string& why)
 {
     static const bool on = GetPrivateProfileIntA("frontend", "debug_restyle", 0, IniPath().c_str()) != 0;
     // (each menu once by what it holds: menus share ids and are rebuilt in the same element)
@@ -1118,10 +1118,10 @@ void DumpLeftMenu(CScreenElement* menu, const std::string& why)
         key += "|" + texts[i];
     if (!on || !menu || !logged.insert(key).second)
         return;
-    CScreenElement* root = RootElement();
-    CScreenElement* screen = menu;
+    CUiWidget* root = RootElement();
+    CUiWidget* screen = menu;
     for (int guard = 0; screen && guard < 64; ++guard) {
-        CScreenElement* parent = screen->mp_parent.Get();
+        CUiWidget* parent = screen->m_container.Get();
         if (!parent || parent == root)
             break;
         screen = parent;
@@ -1129,7 +1129,7 @@ void DumpLeftMenu(CScreenElement* menu, const std::string& why)
     Log("new front end: debug_restyle - the menu %08X (%s), its screen %08X:", IdOfElement(menu), why.c_str(),
         IdOfElement(screen));
     int budget = 600;
-    const CScreenElement* one = screen;
+    const CUiWidget* one = screen;
     char line[160];
     std::snprintf(line, sizeof(line), "%s %08X", TypeName(TypeOf(one)) ? TypeName(TypeOf(one)) : "?", IdOfElement(one));
     Log("new front end: debug_restyle %s", line);
@@ -1148,19 +1148,19 @@ uint32_t HMenuType()
 }
 
 // The on-screen keyboard around `menu` (a row of keys - an HMenu - in a VMenu of such rows): the VMenu, else null.
-CScreenElement* KeyboardOf(CScreenElement* menu)
+CUiWidget* KeyboardOf(CUiWidget* menu)
 {
     if (!menu || TypeOf(menu) != HMenuType())
         return nullptr;
-    CScreenElement* parent = menu->mp_parent.Get();
+    CUiWidget* parent = menu->m_container.Get();
     if (!parent || TypeOf(parent) != VMenuType())
         return nullptr;
     int rows = 0, singles = 0;
-    for (CScreenElement* row = FirstChild(parent); row; row = Next(row)) {
+    for (CUiWidget* row = FirstChild(parent); row; row = Next(row)) {
         if (TypeOf(row) != HMenuType())
             continue;
         ++rows;
-        for (CScreenElement* key = FirstChild(row); key; key = Next(key)) {
+        for (CUiWidget* key = FirstChild(row); key; key = Next(key)) {
             std::vector<std::string> texts;
             int budget = 256;
             CollectTexts(key, &texts, {}, &budget, false);
@@ -1173,7 +1173,7 @@ CScreenElement* KeyboardOf(CScreenElement* menu)
 
 // The keyboard read: its rows of keys (a key's words: the last that isn't a button tag, e.g. "Backspace"), the key
 // selected, the text typed (the first row that isn't keys - its text, the cursor's "_" left in).
-Mirror::MenuRead ReadKeyboard(CScreenElement* keys, CScreenElement* active)
+Mirror::MenuRead ReadKeyboard(CUiWidget* keys, CUiWidget* active)
 {
     Mirror::MenuRead read;
     read.found = true;
@@ -1183,7 +1183,7 @@ Mirror::MenuRead ReadKeyboard(CScreenElement* keys, CScreenElement* active)
     read.inLevel = !InFrontEnd();
     int row = 0;
     bool entryRead = false;
-    for (CScreenElement* child = FirstChild(keys); child; child = Next(child)) {
+    for (CUiWidget* child = FirstChild(keys); child; child = Next(child)) {
         if (TypeOf(child) != HMenuType()) {
             if (!entryRead) {
                 std::vector<std::string> texts;
@@ -1196,7 +1196,7 @@ Mirror::MenuRead ReadKeyboard(CScreenElement* keys, CScreenElement* active)
             continue;
         }
         std::vector<std::string> keyRow;
-        for (CScreenElement* key = FirstChild(child); key; key = Next(key)) {
+        for (CUiWidget* key = FirstChild(child); key; key = Next(key)) {
             std::vector<std::string> texts;
             int budget = 256; // (a wide key: a container of a score of cap sprites before its words)
             CollectTexts(key, &texts, {}, &budget, false);
@@ -1213,9 +1213,9 @@ Mirror::MenuRead ReadKeyboard(CScreenElement* keys, CScreenElement* active)
         read.keys.push_back(std::move(keyRow));
         ++row;
     }
-    if (CScreenElement* title = GameScreens::Find(Checksum("title_text")))
-        if (TypeOf(title) == TextType() && reinterpret_cast<CTextElement*>(title)->m_string && Visible(title))
-            read.title = reinterpret_cast<CTextElement*>(title)->m_string;
+    if (CUiWidget* title = GameScreens::Find(Checksum("title_text")))
+        if (TypeOf(title) == TextType() && reinterpret_cast<CLabelWidget*>(title)->m_string && Visible(title))
+            read.title = reinterpret_cast<CLabelWidget*>(title)->m_string;
     return read;
 }
 
@@ -1226,11 +1226,11 @@ std::string ButtonName(char tag, char digit)
     int button;
     if (tag == 'm' || tag == 'M') {
         char d = digit;
-        char mapped = Nx::ButtonGlyph(&d);
-        button = Str::DehexifyDigit(&mapped);
+        char mapped = Engine3D::ButtonGlyph(&d);
+        button = TextUtil::HexDigitValue(&mapped);
     } else {
         uint8_t d = static_cast<uint8_t>(digit);
-        button = static_cast<int>(Nx::ButtonForTag(&d));
+        button = static_cast<int>(Engine3D::ButtonForTag(&d));
     }
     switch (button) {
     case 4: return Text::kKeyDown;
@@ -1288,18 +1288,18 @@ Mirror::View MirrorNow()
         Mirror::SetButtonNamer(ButtonName);
     }
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
-    if (!LevelLoad() || LoadingScreenUp() || (GameScreens::NetSession() && !policy.online) || LevelEditor::Active())
+    if (!CurrentLoadState() || LoadingScreenUp() || (GameScreens::NetSession() && !policy.online) || LevelEditor::Active())
         return {};
     bool inDialog = false;
-    CScreenElement* menu = ActiveMenu(&inDialog);
+    CUiWidget* menu = ActiveMenu(&inDialog);
     // (none takes the pad yet, paused or in the front end: the menu being made - restyled from its first frame, never
     // drawn as the game makes it while it animates in; half a second at most for each menu - one that still doesn't
     // take the pad belongs to a screen worked some other way, left as the game made it)
-    static CScreenElement* s_coming = nullptr;
+    static CUiWidget* s_coming = nullptr;
     static int s_comingFrames = 0;
     constexpr int kComingAtMost = 30;
     if (!menu && (Paused() || InFrontEnd())) {
-        CScreenElement* coming = ActiveMenu(&inDialog, true);
+        CUiWidget* coming = ActiveMenu(&inDialog, true);
         s_comingFrames = coming && coming == s_coming ? s_comingFrames + 1 : 1;
         s_coming = coming;
         if (s_comingFrames <= kComingAtMost)
@@ -1328,14 +1328,14 @@ Mirror::View MirrorNow()
     s_lastMenu = menuId;
     {
         int selected = MouseMenus::SelectedIndex(menu);
-        CScreenElement* item = FirstChild(menu);
+        CUiWidget* item = FirstChild(menu);
         for (int i = 0; item && i < selected; ++i)
             item = Next(item);
         s_lastItem = item && selected >= 0 ? IdOfElement(item) : 0;
     }
     Mirror::Policy now = policy;
     now.editor = now.editor || s_leftOriginal != nullptr;
-    CScreenElement* keyboard = inDialog ? nullptr : KeyboardOf(menu);
+    CUiWidget* keyboard = inDialog ? nullptr : KeyboardOf(menu);
     Mirror::View view = Mirror::Build(keyboard ? ReadKeyboard(keyboard, menu) : ReadMenu(menu, inDialog), now);
     // (each menu's decision logged once)
     char key[96];
@@ -1357,25 +1357,25 @@ Mirror::View MirrorNow()
 // The mouse over the restyled screen: the original menu's selection stepped to the row (its own pad events), a click
 // chooses it, the right button / Back is pad_back, the wheel steps.
 struct StepContext {
-    Mdl::FrontEnd* frontEnd;
+    GameModules::FrontEnd* frontEnd;
     bool horizontal;
 };
 int ReadSelection(void*)
 {
-    CScreenElement* menu = ActiveMenu();
+    CUiWidget* menu = ActiveMenu();
     return menu ? MouseMenus::SelectedIndex(menu) : -1;
 }
 void SendStep(void* context, int direction)
 {
     auto* step = static_cast<StepContext*>(context);
-    uint32_t event = step->horizontal ? (direction < 0 ? Mdl::FrontEnd::kPadLeft : Mdl::FrontEnd::kPadRight)
-                                      : (direction < 0 ? Mdl::FrontEnd::kPadUp : Mdl::FrontEnd::kPadDown);
+    uint32_t event = step->horizontal ? (direction < 0 ? GameModules::FrontEnd::kPadLeft : GameModules::FrontEnd::kPadRight)
+                                      : (direction < 0 ? GameModules::FrontEnd::kPadUp : GameModules::FrontEnd::kPadDown);
     MouseMenus::SendMenuPadEvent(step->frontEnd, event);
 }
-bool StepTo(Mdl::FrontEnd* frontEnd, int row)
+bool StepTo(GameModules::FrontEnd* frontEnd, int row)
 {
     const Mirror::View& v = s_mirror.Shown();
-    CScreenElement* menu = ActiveMenu();
+    CUiWidget* menu = ActiveMenu();
     if (!menu || row < 0 || row >= static_cast<int>(v.rows.size()))
         return false;
     int target = v.rows[row].index;
@@ -1386,35 +1386,35 @@ bool StepTo(Mdl::FrontEnd* frontEnd, int row)
 }
 
 // The keyboard's key (row, col) selected with the game's own pad events (each step read back), then chosen.
-void ChooseKey(Mdl::FrontEnd* frontEnd, int row, int col)
+void ChooseKey(GameModules::FrontEnd* frontEnd, int row, int col)
 {
     for (int guard = 0; guard < 64; ++guard) {
-        CScreenElement* active = ActiveMenu();
-        CScreenElement* keys = KeyboardOf(active);
+        CUiWidget* active = ActiveMenu();
+        CUiWidget* keys = KeyboardOf(active);
         if (!keys)
             return;
         Mirror::MenuRead now = ReadKeyboard(keys, active);
         if (now.keyRow != row) {
-            MouseMenus::SendMenuPadEvent(frontEnd, now.keyRow < row ? Mdl::FrontEnd::kPadDown : Mdl::FrontEnd::kPadUp);
+            MouseMenus::SendMenuPadEvent(frontEnd, now.keyRow < row ? GameModules::FrontEnd::kPadDown : GameModules::FrontEnd::kPadUp);
             continue;
         }
         if (now.keyCol != col) {
-            MouseMenus::SendMenuPadEvent(frontEnd, now.keyCol < col ? Mdl::FrontEnd::kPadRight : Mdl::FrontEnd::kPadLeft);
+            MouseMenus::SendMenuPadEvent(frontEnd, now.keyCol < col ? GameModules::FrontEnd::kPadRight : GameModules::FrontEnd::kPadLeft);
             continue;
         }
-        MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadChoose);
+        MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadChoose);
         return;
     }
 }
 
-void MirrorMouse(Mdl::FrontEnd* frontEnd)
+void MirrorMouse(GameModules::FrontEnd* frontEnd)
 {
     std::vector<SDL_Event> events;
     events.swap(s_mirrorEvents);
     if (!s_mirror.Up())
         return;
     int w = 0, h = 0;
-    if (SDL_Window* window = Sys::SdlWindow())
+    if (SDL_Window* window = SystemCore::SdlWindow())
         SDL_GetWindowSize(window, &w, &h);
     Frame frame = FitFrame(static_cast<float>(w), static_cast<float>(h));
     auto hitAt = [&frame](float wx, float wy) -> const Paint::Hit* {
@@ -1436,13 +1436,13 @@ void MirrorMouse(Mdl::FrontEnd* frontEnd)
             break;
         case SDL_MOUSEBUTTONDOWN:
             if (e.button.button == SDL_BUTTON_RIGHT) {
-                MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadBack);
+                MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadBack);
             } else if (e.button.button == SDL_BUTTON_LEFT) {
                 const Paint::Hit* hit = hitAt(static_cast<float>(e.button.x), static_cast<float>(e.button.y));
                 if (!hit)
                     break;
                 if (hit->kind == Paint::Hit::Back) {
-                    MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadBack);
+                    MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadBack);
                 } else if (hit->kind == Paint::Hit::Level && s_mirror.Shown().kind == Mirror::Kind::Keyboard) {
                     ChooseKey(frontEnd, hit->index / 64, hit->index % 64);
                 } else if (hit->kind == Paint::Hit::Continue) {
@@ -1459,9 +1459,9 @@ void MirrorMouse(Mdl::FrontEnd* frontEnd)
                         if (shown.kind == Mirror::Kind::List && hit->index >= 0 &&
                             hit->index < static_cast<int>(shown.rows.size()) && shown.rows[hit->index].adjustable)
                             side = clickX < hit->x0 + width * 0.3f ? -1 : clickX >= hit->x1 - width * 0.3f ? 1 : 0;
-                        MouseMenus::SendMenuPadEvent(frontEnd, side < 0   ? Mdl::FrontEnd::kPadLeft
-                                                               : side > 0 ? Mdl::FrontEnd::kPadRight
-                                                                          : Mdl::FrontEnd::kPadChoose);
+                        MouseMenus::SendMenuPadEvent(frontEnd, side < 0   ? GameModules::FrontEnd::kPadLeft
+                                                               : side > 0 ? GameModules::FrontEnd::kPadRight
+                                                                          : GameModules::FrontEnd::kPadChoose);
                     }
                 }
                 return; // (the screen may be another now)
@@ -1547,7 +1547,7 @@ void UpdateMirror(float dt, bool allowed)
         s_mirrorHits.clear();
         // (what comes next - ours, another restyled screen, an original one - may take a few frames: the restyled
         // screen stays drawn meanwhile, never the original under it)
-        if (allowed && LevelLoad() && !LoadingScreenUp()) {
+        if (allowed && CurrentLoadState() && !LoadingScreenUp()) {
             s_coverTracker = before;
             s_coverScroll = s_mirrorScroll;
             StartCover(Cover::Over::Restyled, "the restyled screen went");
@@ -1564,10 +1564,10 @@ void UpdateCover(float dt)
     if (!s_cover.On())
         return;
     bool inDialog = false;
-    CScreenElement* active = ActiveMenu(&inDialog);
+    CUiWidget* active = ActiveMenu(&inDialog);
     Cover::Now now;
     now.targetReady = s_mirror.Up();
-    now.gameplay = !LevelLoad() || LoadingScreenUp() || LevelEditor::Active() || (!InFrontEnd() && !Paused() && !active);
+    now.gameplay = !CurrentLoadState() || LoadingScreenUp() || LevelEditor::Active() || (!InFrontEnd() && !Paused() && !active);
     now.screen = reinterpret_cast<uintptr_t>(active);
     now.leftOriginal = active && !s_mirrorWouldRestyle;
     const char* why = nullptr;
@@ -1610,7 +1610,7 @@ void Show(Anchor anchor)
     SetState(State::Shown);
 }
 
-void Do(Mdl::FrontEnd* frontEnd, const Action& action)
+void Do(GameModules::FrontEnd* frontEnd, const Action& action)
 {
     (void)frontEnd;
     switch (action.kind) {
@@ -1627,7 +1627,7 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
             Log("new front end: the game options (%s)", script);
             SetState(State::Away);
             s_shownBack = 0;
-            Script::SpawnScript(Checksum(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            Scripts::SpawnScript(Checksum(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
             return;
         }
     }
@@ -1638,20 +1638,20 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
             // (the pause menu's change of level, as its level select does it)
             Log("new front end: change level to %s", action.load.c_str());
             HideRoot(false);
-            Script::CStruct* params = Script::NewStruct()->Init();
-            params->AddChecksum(Checksum("level"), Checksum(action.load.c_str()));
-            Script::SpawnScript(Checksum("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
+            Scripts::CStruct* params = Scripts::NewStruct()->Init();
+            params->PutNameKey(Checksum("level"), Checksum(action.load.c_str()));
+            Scripts::SpawnScript(Checksum("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
             params->Clear();
-            Script::DeleteStruct(params);
-            s_launchLevel = LevelLoad();
+            Scripts::DeleteStruct(params);
+            s_launchLevel = CurrentLoadState();
             SetState(State::Launching);
             return;
         }
-        if (StartLevel::Load(action.load.c_str(), &why)) {
+        if (BeginLevel::Load(action.load.c_str(), &why)) {
             s_saved.lastLevel = action.load;
             s_menu.SetLastLevel(action.load);
             SaveState();
-            s_launchLevel = LevelLoad();
+            s_launchLevel = CurrentLoadState();
             if (action.levels == LevelsFor::Edit) {
                 s_edit = Edit::WaitLevel;
                 s_editTime = 0.0f;
@@ -1672,12 +1672,12 @@ void Do(Mdl::FrontEnd* frontEnd, const Action& action)
 
 bool KeyDown(SDL_Scancode key) { return SDL_GetKeyboardState(nullptr)[key] != 0; }
 
-void PressDirection(Mdl::FrontEnd* frontEnd, Input input) { Do(frontEnd, s_menu.Press(input)); }
+void PressDirection(GameModules::FrontEnd* frontEnd, Input input) { Do(frontEnd, s_menu.Press(input)); }
 
-void HandleQueued(Mdl::FrontEnd* frontEnd, const SDL_Event& e)
+void HandleQueued(GameModules::FrontEnd* frontEnd, const SDL_Event& e)
 {
     int w = 0, h = 0;
-    if (SDL_Window* window = Sys::SdlWindow())
+    if (SDL_Window* window = SystemCore::SdlWindow())
         SDL_GetWindowSize(window, &w, &h);
     Frame frame = FitFrame(static_cast<float>(w), static_cast<float>(h));
     auto hitAt = [&frame](float wx, float wy) -> const Paint::Hit* {
@@ -1840,7 +1840,7 @@ void HandleEvent(SDL_Event* event)
 
 // --- the Level Editor from the Create screen ---
 
-void EditUpdate(Mdl::FrontEnd* frontEnd, float dt)
+void EditUpdate(GameModules::FrontEnd* frontEnd, float dt)
 {
     if (s_edit == Edit::Off)
         return;
@@ -1850,7 +1850,7 @@ void EditUpdate(Mdl::FrontEnd* frontEnd, float dt)
         s_edit = Edit::Off;
         return;
     }
-    bool inLevel = LevelLoad() && !InFrontEnd() && Obj::FindObject(kSkater) && !LoadingScreenUp();
+    bool inLevel = CurrentLoadState() && !InFrontEnd() && GameObjects::FindObject(kSkater) && !LoadingScreenUp();
     if (!inLevel) {
         s_editFrames = 0;
         return;
@@ -1860,7 +1860,7 @@ void EditUpdate(Mdl::FrontEnd* frontEnd, float dt)
         if (s_editFrames < 90)
             return;
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
-        MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadStart);
+        MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadStart);
         ++s_editPresses;
         s_edit = Edit::WaitPause;
         s_editFrames = 0;
@@ -1869,7 +1869,7 @@ void EditUpdate(Mdl::FrontEnd* frontEnd, float dt)
     // (WaitPause) the pause menu up with its LEVEL EDITOR: chosen.
     if (!Paused()) {
         if (++s_editFrames >= 120 && s_editPresses < 3) {
-            MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadStart);
+            MouseMenus::SendMenuPadEvent(frontEnd, GameModules::FrontEnd::kPadStart);
             ++s_editPresses;
             s_editFrames = 0;
         }
@@ -1878,9 +1878,9 @@ void EditUpdate(Mdl::FrontEnd* frontEnd, float dt)
     if (++s_editFrames < 20)
         return;
     s_edit = Edit::Off;
-    if (CScreenElement* item = GameScreens::Find(Checksum("menu_level_editor"))) {
+    if (CUiWidget* item = GameScreens::Find(Checksum("menu_level_editor"))) {
         Log("new front end: the pause menu's LEVEL EDITOR chosen");
-        GameScreens::LaunchPad(frontEnd, Mdl::FrontEnd::kPadChoose, item);
+        GameScreens::LaunchPad(frontEnd, GameModules::FrontEnd::kPadChoose, item);
     } else {
         Log("new front end: no LEVEL EDITOR in the pause menu (refused here?) - the pause menu as it is");
     }
@@ -1975,7 +1975,7 @@ bool Showing() { return s_state == State::Shown || s_state == State::Launching; 
 // (while a cover is on, the screen under it is hidden: no presses reach it blind - a few frames, 3 s at most)
 bool BlocksGameInput() { return Enabled() && (Showing() || s_guard || s_cover.On()); }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
     if (!Enabled())
         return;
@@ -2027,17 +2027,17 @@ void Update(Mdl::FrontEnd* frontEnd)
     // keeps pause_vmenu - VIEW GOALS, the level select...), and ours isn't over it (the dialog / screen is restyled, or
     // left as it is).
     bool inDialog = false;
-    CScreenElement* active = ActiveMenu(&inDialog);
+    CUiWidget* active = ActiveMenu(&inDialog);
     bool pauseActive = !active || IdOfElement(active) == Checksum("pause_vmenu");
     (void)pauseActive;
     // (every menu is the game's, restyled - ours only for a screen a menu's item asked for, while that is up)
-    bool usable = LevelLoad() && !LoadingScreenUp() && !inDialog && s_edit == Edit::Off &&
+    bool usable = CurrentLoadState() && !LoadingScreenUp() && !inDialog && s_edit == Edit::Off &&
                   (s_openScreen != Screen::Main || s_state == State::Shown);
 
     switch (s_state) {
     case State::Idle:
     case State::Away:
-        if (!LevelLoad() || (!InFrontEnd() && anchor == Anchor::None && s_state == State::Away && !Paused())) {
+        if (!CurrentLoadState() || (!InFrontEnd() && anchor == Anchor::None && s_state == State::Away && !Paused())) {
             if (s_state != State::Idle) {
                 SetState(State::Idle);
                 FreeDeviceObjects();
@@ -2057,7 +2057,7 @@ void Update(Mdl::FrontEnd* frontEnd)
         return;
     case State::Launching:
         s_menu.Tick(dt);
-        if ((s_launchLevel == kLoadMainMenu && !InFrontEnd()) || (s_launchLevel != kLoadMainMenu && LevelLoad() != s_launchLevel) ||
+        if ((s_launchLevel == kLoadMainMenu && !InFrontEnd()) || (s_launchLevel != kLoadMainMenu && CurrentLoadState() != s_launchLevel) ||
             (s_launchLevel != kLoadMainMenu && LoadingScreenUp())) {
             SetState(State::Idle);
             FreeDeviceObjects();
@@ -2077,7 +2077,7 @@ void Update(Mdl::FrontEnd* frontEnd)
         Log("new front end: back from our screen%s", s_shownBack ? " - its back script" : "");
         SetState(State::Away);
         if (s_shownBack)
-            Script::SpawnScript(s_shownBack, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            Scripts::SpawnScript(s_shownBack, nullptr, 0, nullptr, 0, 0, false, false, false, false);
         s_shownBack = 0;
         return;
     }
@@ -2091,7 +2091,7 @@ void Update(Mdl::FrontEnd* frontEnd)
         } else {
             SetState(State::Away);
             // (a dialog over the anchor, a sub-screen over the pause menu...: ours stays on screen until it is ready)
-            if (LevelLoad() && !LoadingScreenUp())
+            if (CurrentLoadState() && !LoadingScreenUp())
                 StartCover(Cover::Over::Ours, "the original's screen changed under ours");
         }
         return;
@@ -2201,7 +2201,7 @@ std::string ContinueLevelName()
 }
 
 // Continue (the restyled main menu's X / R, or its hint clicked): the last level played, in free skate.
-void ContinueLastLevel(Mdl::FrontEnd* frontEnd)
+void ContinueLastLevel(GameModules::FrontEnd* frontEnd)
 {
     if (ContinueLevelName().empty())
         return;
@@ -2232,13 +2232,13 @@ Paint::Extras RestyleExtras()
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
 // EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
 // network games: the menus as they were.
-bool __cdecl CFunc_Item(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_Item(Scripts::CStruct* params, Scripts::CScript*)
 {
     if (!Enabled() || GameScreens::NetSession())
         return false;
     uint32_t item = 0;
     if (params)
-        params->GetChecksum(Checksum("item"), &item, 0);
+        params->ReadHashValue(Checksum("item"), &item, 0);
     std::string mode = GameScreens::GameModeName();
     bool freeSkate = mode == "freeskate" || mode == "singlesession";
     bool levels = s_catalogueOk && !s_catalogue.sections.empty();
@@ -2258,12 +2258,12 @@ bool __cdecl CFunc_Item(Script::CStruct* params, Script::CScript*)
 // NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
 // sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
 // `back` spawned (its menu went: the skate shop's).
-bool __cdecl CFunc_Open(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_Open(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t screen = 0, back = 0;
-    if (!Enabled() || !params || !params->GetChecksum(Checksum("screen"), &screen, 0))
+    if (!Enabled() || !params || !params->ReadHashValue(Checksum("screen"), &screen, 0))
         return false;
-    params->GetChecksum(Checksum("back"), &back, 0);
+    params->ReadHashValue(Checksum("back"), &back, 0);
     bool levels = s_catalogueOk && !s_catalogue.sections.empty();
     if (screen == Checksum("levels") && levels) {
         s_openScreen = Screen::Levels;
@@ -2283,11 +2283,11 @@ bool __cdecl CFunc_Open(Script::CStruct* params, Script::CScript*)
 
 void RegisterScriptFunctions()
 {
-    static const Script::CFunctionEntry functions[] = {
+    static const Scripts::CFunctionEntry functions[] = {
         {"NewFrontend_Item", reinterpret_cast<void*>(&CFunc_Item)},
         {"NewFrontend_Open", reinterpret_cast<void*>(&CFunc_Open)},
     };
-    Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
+    Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }
 
 void Draw()
@@ -2487,4 +2487,4 @@ std::string AutomationStatus()
     return text;
 }
 
-} // namespace Front::NewFrontend
+} // namespace MenuSystem::NewFrontend

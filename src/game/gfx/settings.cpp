@@ -12,7 +12,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/camera.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t g_hqShadows;
 bool g_fogSetting;
@@ -36,14 +36,14 @@ bool& BlurDisabled() { return s_blurDisabled; }
 
 void LoadGraphicsSettings()
 {
-    s_settings.antialiasing = Config::GetBool(Config::kGraphics, "AntiAliasing", false);
-    s_settings.hqShadows = Config::GetBool(Config::kGraphics, "HQShadows", false);
-    s_settings.distanceClipping = Config::GetBool(Config::kGraphics, "DistanceClipping", false);
-    s_settings.clippingDistance = static_cast<uint32_t>(Config::GetInt(Config::kGraphics, "ClippingDistance", 100));
-    s_settings.fog = Config::GetBool(Config::kGraphics, "Fog", false);
-    s_blurDisabled = Config::GetBool(Config::kGraphics, "DisableBlur", true);
+    s_settings.antialiasing = BuildInfo::GetBool(BuildInfo::kGraphics, "AntiAliasing", false);
+    s_settings.hqShadows = BuildInfo::GetBool(BuildInfo::kGraphics, "HQShadows", false);
+    s_settings.distanceClipping = BuildInfo::GetBool(BuildInfo::kGraphics, "DistanceClipping", false);
+    s_settings.clippingDistance = static_cast<uint32_t>(BuildInfo::GetInt(BuildInfo::kGraphics, "ClippingDistance", 100));
+    s_settings.fog = BuildInfo::GetBool(BuildInfo::kGraphics, "Fog", false);
+    s_blurDisabled = BuildInfo::GetBool(BuildInfo::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: game/gfx/occlusion.h)
-    OcclusionOff() = !Config::GetBool(Config::kGraphics, "OcclusionCulling", true);
+    OcclusionOff() = !BuildInfo::GetBool(BuildInfo::kGraphics, "OcclusionCulling", true);
     // (NOT ORIGINAL: anisotropy, msaa, draw_distance_scale, lod_distance_scale - game/gfx/graphics_options.h)
     GraphicsOptions::Load();
 }
@@ -59,7 +59,7 @@ void WriteGraphicsSettings()
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    reinterpret_cast<uint32_t&>(Gfx::g_drawDistanceSetting) = static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
+    reinterpret_cast<uint32_t&>(Gfx2D::g_drawDistanceSetting) = static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
     g_fogSetting = static_cast<uint8_t>(s_settings.fog);
 }
 

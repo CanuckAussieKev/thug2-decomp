@@ -6,13 +6,13 @@
 // An animation frame source (Nx; 0x214 bytes from the frame sources' pools 0x006FA7F4, vtable 0x00648A68 - its one
 // slot the deleting destructor): the animation it plays and whether it's done; its frame data is the asset
 // manager's.
-namespace Nx {
+namespace Engine3D {
 
 struct CFrameSource {
     void** vtable;
     uint32_t m_anim;          // +0x04: the animation's checksum
     uint8_t m_unknown8[0x200];
-    bool m_done;              // +0x208
+    bool m_isFinished;              // +0x208
     uint8_t pad209[0xB];
 
     // 0x0048CF70: construct - everything after the vtable zeroed. Returns this.
@@ -22,9 +22,9 @@ struct CFrameSource {
     // 0x0048CFA0: done or not; not done, the animation's data (null when done).
     void* SetDone(bool done);
     // 0x0048CFD0: the animation `anim` started (not done); its data.
-    void* SetAnim(uint32_t anim);
+    void* PlayClip(uint32_t anim);
 };
-static_assert(offsetof(CFrameSource, m_done) == 0x208 && sizeof(CFrameSource) == 0x214,
+static_assert(offsetof(CFrameSource, m_isFinished) == 0x208 && sizeof(CFrameSource) == 0x214,
               "layout must match the original");
 
 // 0x0048CF50: the asset manager's data for `checksum` (null for 0).

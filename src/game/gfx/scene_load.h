@@ -7,7 +7,7 @@
 // The PC engine's scene and mesh loaders (Nx engine's platform calls, cdecl): a scene's geometry from a file
 // or from memory - its materials (with the texture dictionary's textures), its sectors (each with a PC geom), the
 // mesh list's bounds and its hierarchy - and the meshes (a model's scene and its texture dictionary) made from them.
-namespace Nx {
+namespace Engine3D {
 
 // A model's hierarchy node (0x50 bytes; the scene's array at +0x74, its count at +0x78; read as they are from the
 // file): a checksum, its parent's, the parent's index (0xFFFF: none), a bone index and a matrix.
@@ -15,7 +15,7 @@ struct sHierarchyNode {
     uint32_t checksum;
     uint32_t parentChecksum;
     uint16_t parentIndex;
-    uint8_t boneIndex;
+    uint8_t boneSlot;
     uint8_t pad0B;
     uint32_t unknown0C;
     float matrix[16];
@@ -24,7 +24,7 @@ struct sHierarchyNode {
     // identity matrix (+0x0C left). Returns this.
     sHierarchyNode* Construct();
 };
-static_assert(offsetof(sHierarchyNode, boneIndex) == 0xA && offsetof(sHierarchyNode, matrix) == 0x10 &&
+static_assert(offsetof(sHierarchyNode, boneSlot) == 0xA && offsetof(sHierarchyNode, matrix) == 0x10 &&
                   sizeof(sHierarchyNode) == 0x50,
               "layout must match the original");
 
@@ -46,5 +46,5 @@ void* __cdecl LoadMeshFile(const char* name, void* textures);
 // there is any, loaded into the mesh first (0x004B7EB0). `unused` isn't.
 void* __cdecl LoadMeshFromMemory(uint32_t checksum, const uint8_t* data, int unused, void* skin, void* textures);
 
-extern Mem::PoolPair g_frameSourcePools;
+extern MemSys::PoolPair g_frameSourcePools;
 } // namespace Nx

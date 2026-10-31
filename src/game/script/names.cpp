@@ -11,7 +11,7 @@
 #include "game/script/struct.h"
 #include "game/script/cfuncs_scene.h"
 
-namespace Script {
+namespace Scripts {
 
 char g_checksumNameBuffer[100];
 char* g_namesStart;
@@ -47,15 +47,15 @@ int HexDigit(char c)
 
 } // namespace
 
-bool ChecksumNamesEnabled() { return CFuncs::g_gotExtraMemory; }
+bool ChecksumNamesEnabled() { return ScriptCommands::g_gotExtraMemory; }
 
 // 0x0046CF00
 void AllocateChecksumNameLookupTables()
 {
     if (!ChecksumNamesEnabled())
         return;
-    NameTable() = static_cast<ChecksumName*>(Mem::Malloc(0x10000 * kBucketSize * sizeof(ChecksumName)));
-    char* names = static_cast<char*>(Mem::Malloc(5000000));
+    NameTable() = static_cast<ChecksumName*>(MemSys::AllocBlock(0x10000 * kBucketSize * sizeof(ChecksumName)));
+    char* names = static_cast<char*>(MemSys::AllocBlock(5000000));
     NamesStart() = names;
     NamesNext() = names;
     for (uint32_t i = 0; i < 0x10000 * kBucketSize; ++i)
@@ -64,7 +64,7 @@ void AllocateChecksumNameLookupTables()
 }
 
 // 0x0046CF60
-void AddChecksumName(uint32_t checksum, const char* name)
+void RegisterNameHash(uint32_t checksum, const char* name)
 {
     if (!ChecksumNamesEnabled())
         return;
@@ -86,7 +86,7 @@ void AddChecksumName(uint32_t checksum, const char* name)
 }
 
 // 0x0046D0C0
-const char* FindChecksumName(uint32_t checksum)
+const char* LookUpHashName(uint32_t checksum)
 {
     if (!ChecksumNamesEnabled())
         return nullptr;
@@ -101,7 +101,7 @@ const char* FindChecksumName(uint32_t checksum)
 // 0x0046D110
 const char* FindChecksumNameOrUnknown(uint32_t checksum)
 {
-    if (const char* name = FindChecksumName(checksum))
+    if (const char* name = LookUpHashName(checksum))
         return name;
     char* buffer = g_checksumNameBuffer;
     std::snprintf(buffer, 32, "Unknown(0x%08x)", checksum);
@@ -139,32 +139,32 @@ void LoadChecksumNames(const char* file)
     while (*extension && *extension != '.')
         ++extension;
     std::memcpy(extension, ".chk", 5);
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
-    auto* text = static_cast<const char*>(Pip::Load(name, false, nullptr, nullptr, nullptr));
-    Mem::PopContext();
-    ParseChecksumNames(text, Pip::GetFileSize(name), AddChecksumName);
-    Pip::Unload(name);
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
+    auto* text = static_cast<const char*>(Packs::Load(name, false, nullptr, nullptr, nullptr));
+    MemSys::LeaveHeapScope();
+    ParseChecksumNames(text, Packs::GetFileSize(name), RegisterNameHash);
+    Packs::Unload(name);
 }
 
 // 0x0046EFD0
-void RegisterCFunctions(const CFunctionEntry* functions, uint32_t count)
+void InstallScriptFunctions(const CFunctionEntry* functions, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t checksum = Crc::GenerateCRCFromString(functions[i].name);
-        AddChecksumName(checksum, functions[i].name);
+        uint32_t checksum = Checksums::HashFromText(functions[i].name);
+        RegisterNameHash(checksum, functions[i].name);
         CSymbolTableEntry* symbol = CreateSymbol(checksum);
-        symbol->type = ESYMBOLTYPE_CFUNCTION;
+        symbol->type = QBVAL_NATIVE_FUNC;
         symbol->raw = reinterpret_cast<uint32_t>(functions[i].function);
     }
 }
 
 // 0x0046F020
-void RegisterMemberFunctions(const char* const* names, uint32_t count)
+void PublishMethodTable(const char* const* names, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t checksum = Crc::GenerateCRCFromString(names[i]);
-        AddChecksumName(checksum, names[i]);
-        CreateSymbol(checksum)->type = ESYMBOLTYPE_MEMBERFUNCTION;
+        uint32_t checksum = Checksums::HashFromText(names[i]);
+        RegisterNameHash(checksum, names[i]);
+        CreateSymbol(checksum)->type = QBVAL_NATIVE_METHOD;
     }
 }
 
@@ -175,7 +175,7 @@ void RegisterMemberFunctionTable(void*, const uint32_t* records, int stride)
         CSymbolTableEntry* symbol = CreateSymbol(*records);
         symbol->raw = reinterpret_cast<uint32_t>(records);
         records = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(records) + stride);
-        symbol->type = ESYMBOLTYPE_MEMBERFUNCTION;
+        symbol->type = QBVAL_NATIVE_METHOD;
     }
 }
 

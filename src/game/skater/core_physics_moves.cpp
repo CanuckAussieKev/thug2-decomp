@@ -128,56 +128,56 @@ constexpr uint32_t kPushOffButton = 0x1A0;
 constexpr uint32_t kJumpButton = 0x1C0;
 
 double Seconds(uint32_t milliseconds) { return static_cast<double>(milliseconds); }
-Obj::CCompositeObject* Composite(void* object) { return static_cast<Obj::CCompositeObject*>(object); }
+GameObjects::CGameEntity* Composite(void* object) { return static_cast<GameObjects::CGameEntity*>(object); }
 
 // 0x00487AD0 (cdecl): the least of three.
-float LeastOf(float a, float b, float c) { return Gfx::LeastOf(a, b, c); }
+float LeastOf(float a, float b, float c) { return Gfx2D::LeastOf(a, b, c); }
 
 } // namespace
 
 // 0x004FEE10
-bool CorePhysicsComponent::FindVertTarget(const Mth::Vector* direction, const Mth::Vector* facing, bool* notOpposite,
-                                           Mth::Vector* point, Mth::Vector* normal, bool* objectAlive)
+bool CorePhysicsComponent::FindVertTarget(const Maths::Vector* direction, const Maths::Vector* facing, bool* notOpposite,
+                                           Maths::Vector* point, Maths::Vector* normal, bool* objectAlive)
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    Nx::CCollCache cache;
+    Engine3D::CHitMeshCache cache;
     cache.Construct();
-    Mth::BBox box;
+    Maths::BBox box;
     // The box: from 10 out to 500 out, 4000 down.
     for (float out : {kTargetFirst, kTargetLast}) {
-        const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
         double w = static_cast<double>(direction->w) * out;
         float z = static_cast<float>(direction->z * static_cast<double>(out));
         float y = static_cast<float>(direction->y * static_cast<double>(out));
         float x = static_cast<float>(direction->x * static_cast<double>(out));
-        Mth::Vector corner(x + position.x, y + position.y, z + position.z, static_cast<float>(w + position.w));
+        Maths::Vector corner(x + position.x, y + position.y, z + position.z, static_cast<float>(w + position.w));
         box.AddPoint(corner);
         corner.y = static_cast<float>(corner.y - static_cast<double>(kTargetDrop));
         box.AddPoint(corner);
     }
     cache.Update(box);
-    feeler.mp_cache = &cache;
+    feeler.m_hitCache = &cache;
 
     float distance = kTargetFirst;
     double along = 0.0;
     bool found = false;
     do {
-        const Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& position = VectorAt(ObjectOf(this), kPosition);
         double w = static_cast<double>(distance) * direction->w;
         float z = static_cast<float>(static_cast<double>(distance) * direction->z);
         float y = static_cast<float>(static_cast<double>(distance) * direction->y);
         float x = static_cast<float>(static_cast<double>(distance) * direction->x);
         float atY = y + position.y;
-        Mth::Vector at(x + position.x, atY, z + position.z, static_cast<float>(w + position.w));
+        Maths::Vector at(x + position.x, atY, z + position.z, static_cast<float>(w + position.w));
         feeler.m_line.start = at;
         feeler.m_line.end = at;
         feeler.m_line.end.y = static_cast<float>(atY - static_cast<double>(kTargetDrop));
         feeler.m_line.start.y = static_cast<float>(atY + static_cast<double>(kTargetLift));
-        if (feeler.GetCollision(true, false) && (feeler.m_hit.faceFlags & 8) &&
-            !(std::fabs(static_cast<double>(feeler.m_normal.y)) >= kTargetVertY ||
-              feeler.m_normal.y != feeler.m_normal.y)) {
-            Mth::Vector flat(feeler.m_normal.x, 0.0f, feeler.m_normal.z, feeler.m_normal.w);
+        if (feeler.GetHitShape(true, false) && (feeler.m_hit.faceFlags & 8) &&
+            !(std::fabs(static_cast<double>(feeler.m_surfaceDir.y)) >= kTargetVertY ||
+              feeler.m_surfaceDir.y != feeler.m_surfaceDir.y)) {
+            Maths::Vector flat(feeler.m_surfaceDir.x, 0.0f, feeler.m_surfaceDir.z, feeler.m_surfaceDir.w);
             flat.Normalize();
             along = (static_cast<double>(flat.z) * facing->z + static_cast<double>(flat.y) * facing->y) +
                     static_cast<double>(flat.x) * facing->x;
@@ -195,8 +195,8 @@ bool CorePhysicsComponent::FindVertTarget(const Mth::Vector* direction, const Mt
         cache.Destruct();
         return false;
     }
-    *point = feeler.m_point;
-    *normal = feeler.m_normal;
+    *point = feeler.m_contactPos;
+    *normal = feeler.m_surfaceDir;
     *objectAlive = feeler.HitObjectAlive();
     *notOpposite = static_cast<float>(along) > kTargetOpposite;
     cache.Destruct();
@@ -247,7 +247,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
             At<float>(this, kLimitsMaxMax) = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
             while (counter == 0) {
-                Dbg::Printf("Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n",
+                DebugOut::Printf("Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n",
                             static_cast<double>(inverse) * At<float>(this, kLimitsMax));
                 counter = (counter + 1) % 10;
             }
@@ -267,14 +267,14 @@ double CorePhysicsComponent::GetGravity()
     uint8_t* flags = FlagsOf(this);
     float gravity = PhysicsFloat(kGravity, object);
     bool vert = flags[kFlagVertAir] || flags[kFlagAcidDrop];
-    float result = static_cast<float>(gravity / static_cast<double>(Script::GetFloat(vert ? kGravityScaleVert : kGravityScale)));
-    auto* career = At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20);
-    if (career->GetCheat(kMoonCheat)) {
-        career->SetGlobalFlag(Script::GetInteger(kMoonCheat));
+    float result = static_cast<float>(gravity / static_cast<double>(Scripts::GetFloat(vert ? kGravityScaleVert : kGravityScale)));
+    auto* career = At<GameObjects::CRiderStoryProgress*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20);
+    if (career->IsCodeOn(kMoonCheat)) {
+        career->SetGlobalFlag(Scripts::FetchIntValue(kMoonCheat));
         result = static_cast<float>(static_cast<double>(PhysicsFloat(kMoonGravity, object)) * result);
-        reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
+        reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
     }
-    float scale = Script::GetFloat(kFallScale);
+    float scale = Scripts::GetFloat(kFallScale);
     if (scale != 0.0f && !(VectorAt(ObjectOf(this), kVelocity).y > 0.0f) &&
         VectorAt(ObjectOf(this), kVelocity).y == VectorAt(ObjectOf(this), kVelocity).y)
         return static_cast<double>(scale) * result;
@@ -282,7 +282,7 @@ double CorePhysicsComponent::GetGravity()
 }
 
 // 0x004FF590
-void CorePhysicsComponent::AlongFacing(Mth::Vector* velocity)
+void CorePhysicsComponent::AlongFacing(Maths::Vector* velocity)
 {
     double length = LengthUnrounded(*velocity);
     if (!(length > kBarelyMoving))
@@ -292,7 +292,7 @@ void CorePhysicsComponent::AlongFacing(Mth::Vector* velocity)
     velocity->y = static_cast<float>(inverse * velocity->y);
     velocity->z = static_cast<float>(inverse * velocity->z);
     velocity->w = static_cast<float>(inverse * velocity->w);
-    const Mth::Vector& facing = VectorAt(ObjectOf(this), kForward);
+    const Maths::Vector& facing = VectorAt(ObjectOf(this), kForward);
     double along = (static_cast<double>(facing.y) * velocity->y + static_cast<double>(facing.z) * velocity->z) +
                    static_cast<double>(facing.x) * velocity->x;
     double scale = (along < 0.0 ? -1.0 : 1.0) * length;
@@ -309,44 +309,44 @@ bool CorePhysicsComponent::WallPushOff()
     if (!InputOf(this)[kPushOffButton])
         return false;
     float sinceLast = static_cast<float>(Seconds(Since(At<uint32_t>(this, kLastPushOff))));
-    if (Script::GetFloat(kPushOffWait) > sinceLast)
+    if (Scripts::GetFloat(kPushOffWait) > sinceLast)
         return false;
-    double angle = X87Sin((Script::GetFloat(kPushOffAngle) - 1.0) * kDegrees);
-    const Mth::Vector& facing = VectorAt(ObjectOf(this), kForward);
-    const Mth::Vector& wall = VectorAt(this, kHitNormalField);
+    double angle = X87Sin((Scripts::GetFloat(kPushOffAngle) - 1.0) * kDegrees);
+    const Maths::Vector& facing = VectorAt(ObjectOf(this), kForward);
+    const Maths::Vector& wall = VectorAt(this, kHitNormalField);
     double into = (static_cast<double>(facing.z) * wall.z + static_cast<double>(facing.y) * wall.y) +
                   static_cast<double>(facing.x) * wall.x;
     if (-angle <= into)
         return false;
     float sinceStart = static_cast<float>(Seconds(Since(At<uint32_t>(this, kPushOffStart))));
-    if (Script::GetFloat(kPushOffWait) > sinceStart)
+    if (Scripts::GetFloat(kPushOffWait) > sinceStart)
         return false;
-    static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(kPushOffEvent, nullptr);
+    static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kPushOffEvent, nullptr);
     if (FlagsOf(this)[kFlagCancelWallpush]) {
         SetTimedFlag(this, kFlagCancelWallpush, 0);
         return false;
     }
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
-    float bounce = Mth::DotProduct(velocity, wall);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    float bounce = Maths::DotProduct(velocity, wall);
     velocity -= 2.0f * (bounce * wall);
     double speedUnrounded = LengthUnrounded(VectorAt(ObjectOf(this), kVelocity));
     float speed = static_cast<float>(speedUnrounded);
-    Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
     if (speedUnrounded > kPushOffStill) {
-        float slower = static_cast<float>(speed - static_cast<double>(Script::GetFloat(kPushOffSlowing)));
-        float least = Script::GetFloat(kPushOffSpeed);
-        v *= static_cast<float>(Obj::LargerOf(least, slower) / static_cast<double>(speed));
+        float slower = static_cast<float>(speed - static_cast<double>(Scripts::GetFloat(kPushOffSlowing)));
+        float least = Scripts::GetFloat(kPushOffSpeed);
+        v *= static_cast<float>(GameObjects::LargerOf(least, slower) / static_cast<double>(speed));
     } else {
-        v = -Script::GetFloat(kPushOffSpeed) * VectorAt(ObjectOf(this), kForward);
+        v = -Scripts::GetFloat(kPushOffSpeed) * VectorAt(ObjectOf(this), kForward);
     }
-    VectorAt(ObjectOf(this), kVelocity).RotateToPlane(VectorAt(this, kGroundNormal));
+    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kGroundNormal));
     void* object = ObjectOf(this);
     VectorAt(object, kForward) = VectorAt(object, kVelocity);
     VectorAt(ObjectOf(this), kForward).Normalize();
     VectorAt(ObjectOf(this), kUp) = VectorAt(this, kGroundNormal);
     object = ObjectOf(this);
-    VectorAt(object, kMatrix) = Mth::CrossProduct(VectorAt(object, kUp), VectorAt(object, kForward));
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+    VectorAt(object, kMatrix) = Maths::CrossProduct(VectorAt(object, kUp), VectorAt(object, kForward));
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
     At<int>(this, kLastPushOff) = Now();
     return true;
 }
@@ -358,8 +358,8 @@ void CorePhysicsComponent::TurnRoundIfBackwards()
     void* object = ObjectOf(this);
     if (flags[kFlagBail] || flags[kFlagSkitching] || At<uint8_t>(this, kBraking))
         return;
-    const Mth::Vector& v = VectorAt(object, kVelocity);
-    const Mth::Vector& f = VectorAt(object, kForward);
+    const Maths::Vector& v = VectorAt(object, kVelocity);
+    const Maths::Vector& f = VectorAt(object, kForward);
     double along = (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(v.x) * f.x;
     if (!(along < 0.0))
         return;
@@ -372,7 +372,7 @@ void CorePhysicsComponent::TurnRoundIfBackwards()
         special = trick == kBalanceTrickA || trick == kBalanceTrickB;
     }
     if (special) {
-        uint32_t board = Crc::GenerateCRCFromString(At<char*>(this, kSkaterComponent) + 0x1331);
+        uint32_t board = Checksums::HashFromText(At<char*>(this, kSkaterComponent) + 0x1331);
         bool plain = false;
         for (uint32_t b : kBoards)
             plain = plain || board == b;
@@ -380,20 +380,20 @@ void CorePhysicsComponent::TurnRoundIfBackwards()
             if (At<uint8_t>(this, kBackwardsScriptRun))
                 return;
             At<uint8_t>(this, kBackwardsScriptRun) = 1;
-            Script::RunScript(kBackwardsScript, nullptr, static_cast<Obj::CObject*>(ObjectOf(this)), false, nullptr);
+            Scripts::LaunchScript(kBackwardsScript, nullptr, static_cast<GameObjects::CObject*>(ObjectOf(this)), false, nullptr);
             return;
         }
     }
-    Mth::Vector& facing = VectorAt(ObjectOf(this), kForward);
+    Maths::Vector& facing = VectorAt(ObjectOf(this), kForward);
     facing = -facing;
-    Mth::Vector& right = VectorAt(ObjectOf(this), kMatrix);
+    Maths::Vector& right = VectorAt(ObjectOf(this), kMatrix);
     right = -right;
-    Mth::Vector& displayFacing = VectorAt(this, kDisplayMatrix + 0x20);
+    Maths::Vector& displayFacing = VectorAt(this, kDisplayMatrix + 0x20);
     displayFacing = -displayFacing;
-    Mth::Vector& displayRight = VectorAt(this, kDisplayMatrix);
+    Maths::Vector& displayRight = VectorAt(this, kDisplayMatrix);
     displayRight = -displayRight;
-    if (!Script::GetInteger(kNoTurnRoundScript))
-        Script::RunScript(kTurnRoundScript, nullptr, static_cast<Obj::CObject*>(ObjectOf(this)), false, nullptr);
+    if (!Scripts::FetchIntValue(kNoTurnRoundScript))
+        Scripts::LaunchScript(kTurnRoundScript, nullptr, static_cast<GameObjects::CObject*>(ObjectOf(this)), false, nullptr);
 }
 
 // 0x004FFB10
@@ -405,8 +405,8 @@ bool CorePhysicsComponent::JumpReleased()
         return false;
     At<uint32_t>(this, kJumpHeld) = Since(At<uint32_t>(flags, kFlagJump + 4));
     SetTimedFlag(this, kFlagJump, 0);
-    reinterpret_cast<Obj::CControlButton*>(button)->ClearRelease();
-    static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(kJumpReleaseEvent, nullptr);
+    reinterpret_cast<GameObjects::CControlButton*>(button)->ForgetLetGo();
+    static_cast<GameObjects::CObject*>(ObjectOf(this))->PostOwnEvent(kJumpReleaseEvent, nullptr);
     return true;
 }
 
@@ -421,16 +421,16 @@ void CorePhysicsComponent::CheckFlipSpin()
     if (!input[kFlipButton1] && !input[kFlipButton2])
         return;
     At<uint8_t>(this, kModelFlipped) = 0;
-    auto* trick = static_cast<Obj::CTrickComponent*>(Composite(ObjectOf(this))->GetComponent(kTrickComponent));
-    Script::CArray* spins = Script::GetArray(kFlipSpins);
+    auto* trick = static_cast<GameObjects::CMoveExecutor*>(Composite(ObjectOf(this))->GetComponent(kTrickComponent));
+    Scripts::CArray* spins = Scripts::GetArray(kFlipSpins);
     int count = static_cast<int>(spins->m_size);
-    Script::CStruct* spin = nullptr;
+    Scripts::CStruct* spin = nullptr;
     bool found = false;
     for (int i = 0; i < count; ++i) {
-        spin = reinterpret_cast<Script::CStruct*>(spins->GetElement(static_cast<uint32_t>(i)));
+        spin = reinterpret_cast<Scripts::CStruct*>(spins->GetElement(static_cast<uint32_t>(i)));
         uint32_t sequence[3]; // (an entry without the two buttons leaves them unset, as the original does)
-        spin->GetChecksum(kSpinButton1, &sequence[0], 0);
-        spin->GetChecksum(kSpinButton2, &sequence[1], 0);
+        spin->ReadHashValue(kSpinButton1, &sequence[0], 0);
+        spin->ReadHashValue(kSpinButton2, &sequence[1], 0);
         sequence[2] = input[kFlipButton1] ? 0x2B489A86u : 0x321C9756u;
         if (trick->CheckSpinSequence(sequence, At<uint8_t>(this, kModelRotationFlag) != 0)) {
             found = true;
@@ -443,30 +443,30 @@ void CorePhysicsComponent::CheckFlipSpin()
     At<float>(this, kModelRotationLeft) = kFlipSpinTime;
     At<uint8_t>(this, kRailTricksOff) = 1;
     At<uint8_t>(this, kModelRotationFlag) = 1;
-    auto* model = static_cast<Obj::CModelComponent*>(Composite(ObjectOf(this))->GetComponent(kModelComponent));
+    auto* model = static_cast<GameObjects::CMeshInstanceModule*>(Composite(ObjectOf(this))->GetComponent(kModelComponent));
     int x = 0, y = 0, z = 0;
-    if (spin->GetInteger(kSpinX, &x, 0) && x)
+    if (spin->FetchIntValue(kSpinX, &x, 0) && x)
         model->RotateDisplay(At<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(x), 0, true, true, false, false);
-    if (spin->GetInteger(kSpinY, &y, 0) && y) {
+    if (spin->FetchIntValue(kSpinY, &y, 0) && y) {
         if (y == 180 || y == -180)
             At<uint8_t>(this, kModelFlipped) = 1;
         model->RotateDisplay(At<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(y), 0, true, false, true, false);
     }
-    if (spin->GetInteger(kSpinZ, &z, 0) && z)
+    if (spin->FetchIntValue(kSpinZ, &z, 0) && z)
         model->RotateDisplay(At<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(z), 0, true, false, false, true);
-    Script::RunScript(kSpinScript, spin, static_cast<Obj::CObject*>(ObjectOf(this)), false, nullptr);
+    Scripts::LaunchScript(kSpinScript, spin, static_cast<GameObjects::CObject*>(ObjectOf(this)), false, nullptr);
 }
 
 // 0x004FFDB0
-bool CorePhysicsComponent::StepUp(const Mth::Vector* point)
+bool CorePhysicsComponent::StepUp(const Maths::Vector* point)
 {
     if (FlagsOf(this)[kFlagBail])
         return false;
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
     float height = PhysicsFloat(kStepUpHeight, ObjectOf(this));
     void* object = ObjectOf(this);
-    const Mth::Vector& position = VectorAt(object, kPosition);
+    const Maths::Vector& position = VectorAt(object, kPosition);
     // Down from above the higher of the skater and the point to the lower.
     feeler.m_line.start = position;
     feeler.m_line.start.y = static_cast<float>(static_cast<double>(position.y) + height);
@@ -476,22 +476,22 @@ bool CorePhysicsComponent::StepUp(const Mth::Vector* point)
     double above = static_cast<double>(height) + point->y;
     if (above > feeler.m_line.start.y)
         feeler.m_line.start.y = static_cast<float>(above);
-    if (!feeler.GetCollision(true, false))
+    if (!feeler.GetHitShape(true, false))
         return false;
-    if (!(feeler.m_normal.y > kStepUpGround))
+    if (!(feeler.m_surfaceDir.y > kStepUpGround))
         return false;
     // Across from above the point to above the hit (the normal added): nothing in the way.
-    float w = static_cast<float>(static_cast<double>(feeler.m_normal.w) + feeler.m_point.w);
-    float z = static_cast<float>(static_cast<double>(feeler.m_normal.z) + feeler.m_point.z);
-    float y = static_cast<float>(static_cast<double>(feeler.m_point.y) + feeler.m_normal.y);
-    float x = static_cast<float>(static_cast<double>(feeler.m_normal.x) + feeler.m_point.x);
-    feeler.m_line.start = Mth::Vector(point->x, static_cast<float>(static_cast<double>(point->y) + height), point->z,
+    float w = static_cast<float>(static_cast<double>(feeler.m_surfaceDir.w) + feeler.m_contactPos.w);
+    float z = static_cast<float>(static_cast<double>(feeler.m_surfaceDir.z) + feeler.m_contactPos.z);
+    float y = static_cast<float>(static_cast<double>(feeler.m_contactPos.y) + feeler.m_surfaceDir.y);
+    float x = static_cast<float>(static_cast<double>(feeler.m_surfaceDir.x) + feeler.m_contactPos.x);
+    feeler.m_line.start = Maths::Vector(point->x, static_cast<float>(static_cast<double>(point->y) + height), point->z,
                                       point->w);
-    feeler.m_line.end = Mth::Vector(x, static_cast<float>(static_cast<double>(y) + height), z, w);
-    if (feeler.GetCollision(true, false))
+    feeler.m_line.end = Maths::Vector(x, static_cast<float>(static_cast<double>(y) + height), z, w);
+    if (feeler.GetHitShape(true, false))
         return false;
-    Mth::Vector& moved = VectorAt(ObjectOf(this), kPosition);
-    moved = Mth::Vector(x, y, z, w);
+    Maths::Vector& moved = VectorAt(ObjectOf(this), kPosition);
+    moved = Maths::Vector(x, y, z, w);
     moved.y = static_cast<float>(static_cast<double>(moved.y) + kStepUpLift);
     return true;
 }

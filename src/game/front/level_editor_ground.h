@@ -7,7 +7,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -22,17 +22,17 @@ struct Painter;
 //     pipe (a circular transition, vert at its top) - `length` long (0: a kicker twice the height, a quarter pipe its
 //     height as its radius).
 //   - Lower: a pit - impossible without cutting the floor, so only where the floor under the rectangle is pieces wholly
-//     inside it (tiles): those are hidden (CSector::SetActive - neither drawn nor collided with) and the pit is made:
+//     inside it (tiles): those are hidden (CWorldCell::SetActive - neither drawn nor collided with) and the pit is made:
 //     walls facing in, a floor `height` below, ramps inside the walls (a bowl with quarter pipes). Where a floor piece
 //     (or a collision-only object holding the ground's faces) reaches outside the rectangle, it is refused with why.
 //
-// How a piece is made at run time (level_editor_ground.cpp): a copy of a level sector (CScene::CloneSector 0x0049DF30,
+// How a piece is made at run time (level_editor_ground.cpp): a copy of a level sector (CWorldScene::DuplicateSceneSector 0x0049DF30,
 // as the editor's copies - its own meshes, buffers and collision, in the scene's render lists and collision) whose
 // material the piece takes (the "material" - by default the floor piece clicked); then the copy's first mesh gets new
 // buffers holding the generated vertices (the donor's vertex format: position, normal, colour, texture coordinates;
-// NewVertexBuffer 0x004D5760 / NewIndexBuffer 0x004D4270, as sMesh::Clone makes them) and a triangle strip with every
+// NewVertexBuffer 0x004D5760 / NewIndexBuffer 0x004D4270, as meshRef::Clone makes them) and a triangle strip with every
 // triangle both ways (drawn whatever the material's culling), its other meshes' strips made degenerate; its collision
-// geometry gets new arrays (Mem::New, as CCollObjTriData::Clone - the game frees them with the level) holding the
+// geometry gets new arrays (MemSys::New, as CTriMeshSource::Clone - the game frees them with the level) holding the
 // generated faces (floats, 10-byte faces) and a one-leaf BSP tree, the face-rejection scale 0; the super sectors
 // updated. Face flags: decks and ramps skatable (0x01), quarter pipes' faces steeper than 45 degrees vert too (0x08),
 // walls and cheeks wall-ridable (0x04); terrain the donor's commonest. A piece isn't movable as scenery
@@ -43,7 +43,7 @@ struct Painter;
 //          uv=u color=AARRGGBB terrain=t [hides=<sector>,<sector>...]
 // ramps: `-` none, `k` kicker, `q` quarter pipe. uv: world units per texture repeat; color: the vertices' colour (both
 // measured on the donor when the piece was made, so the bake gives the same piece). hides: the floor tiles a pit hides.
-namespace Front::LevelEditor::Ground {
+namespace MenuSystem::LevelEditor::Ground {
 
 // --- the pure parts (tools/pipeline/game/ground_pieces.ts is their port) -------------------------------------------------------
 
@@ -147,7 +147,7 @@ void Stop();
 bool Put(const Spec& spec, std::string* why);
 void Remove(const std::string& name);
 // Everything as `specs` says (undo, a layout put in place): made, changed, removed. How many are in place.
-int SetAll(const std::vector<Spec>& specs, std::string* message);
+int ApplyToEach(const std::vector<Spec>& specs, std::string* message);
 // A pit's tiles under the rectangle (`spec.hides` set) - false and why when the floor there reaches out of it.
 bool FindPitTiles(Spec* spec, std::string* why);
 // The donor chosen for a material (`sector`: the floor clicked, else the selection; 0: any) - its colour, uv scale and
@@ -164,4 +164,4 @@ void ResetAll();
 // Drawing a spec's piece as lines (the form's preview, a selected piece's outline).
 void AddPreview(const Overlays::Painter& painter, const Spec& spec, uint32_t argb);
 
-} // namespace Front::LevelEditor::Ground
+} // namespace MenuSystem::LevelEditor::Ground

@@ -5,7 +5,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-namespace Dbg {
+namespace DebugOut {
 
 // 0x00401C30
 int Printf(const char* format, ...)

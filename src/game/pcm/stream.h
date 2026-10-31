@@ -5,7 +5,7 @@
 
 struct _OVERLAPPED;
 
-namespace Nx {
+namespace Engine3D {
 struct Bink;
 }
 
@@ -13,7 +13,7 @@ struct Bink;
 // streams, each played by a Bink file through binkw32's DirectSound output, serviced by a thread every 5 ms.
 // The pcm.wad stream class left from the console versions (WadStream) is still created in places, but its
 // playing is compiled out on PC (its update, volume and "done" calls are linker-folded stubs).
-namespace Pcm {
+namespace AudioStream {
 
 using Handle = void*; // a Win32 HANDLE
 using Result = long;  // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))
@@ -56,22 +56,22 @@ struct WadStream {
 
     Handle m_file;              // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t m_unknown04;       // +0x04
-    _OVERLAPPED* m_overlapped;  // +0x08 (from the ring, 0x004535E0; never set for these on PC)
+    _OVERLAPPED* m_asyncCtl;  // +0x08 (from the ring, 0x004535E0; never set for these on PC)
     bool m_reading;             // +0x0C
     bool m_readDone;            // +0x0D the read finished at once
     uint8_t m_pad0E[2];
     uint32_t m_unknown10;       // +0x10
-    bool m_fromWad;             // +0x14 read at m_offset (else from the start)
+    bool m_fromWad;             // +0x14 read at m_shift (else from the start)
     bool m_unknown15;           // +0x15
     uint8_t m_pad16[2];
-    uint32_t m_offset;          // +0x18
+    uint32_t m_shift;          // +0x18
     uint32_t m_size;            // +0x1C
     uint32_t m_unknown20;       // +0x20
     uint32_t m_unknown24;       // +0x24
     uint8_t m_unknown28[4];
     uint32_t m_status[9];       // +0x2C indexed by m_statusIndex (0x8000000A: still fine)
     uint32_t m_unknown50;       // +0x50
-    bool m_paused;              // +0x54
+    bool m_isHalted;              // +0x54
     bool m_finished;            // +0x55
     uint8_t m_pad56[2];
     int m_statusIndex;          // +0x58
@@ -79,17 +79,17 @@ struct WadStream {
     bool m_unknown5F;           // +0x5F set by the constructor and the "start" calls, cleared once loaded
     uint8_t m_unknown60[0x30];
     uint32_t m_unknown90;       // +0x90
-    void* m_buffer;             // +0x94
-    int m_loaded;               // +0x98
+    void* m_octets;             // +0x94
+    int m_readyFlag;               // +0x98
     int m_played;               // +0x9C
     int m_state;                // +0xA0 1: preloading
     bool m_stopRequested;       // +0xA4 freed by the update once ReadyToFree
     uint8_t m_padA5[3];
 };
-static_assert(offsetof(WadStream, m_overlapped) == 0x08 && offsetof(WadStream, m_fromWad) == 0x14 &&
-                  offsetof(WadStream, m_offset) == 0x18 && offsetof(WadStream, m_status) == 0x2C &&
+static_assert(offsetof(WadStream, m_asyncCtl) == 0x08 && offsetof(WadStream, m_fromWad) == 0x14 &&
+                  offsetof(WadStream, m_shift) == 0x18 && offsetof(WadStream, m_status) == 0x2C &&
                   offsetof(WadStream, m_unknown50) == 0x50 && offsetof(WadStream, m_statusIndex) == 0x58 &&
-                  offsetof(WadStream, m_unknown5F) == 0x5F && offsetof(WadStream, m_buffer) == 0x94 &&
+                  offsetof(WadStream, m_unknown5F) == 0x5F && offsetof(WadStream, m_octets) == 0x94 &&
                   offsetof(WadStream, m_state) == 0xA0 && offsetof(WadStream, m_stopRequested) == 0xA4 &&
                   sizeof(WadStream) == 0xA8,
               "layout must match the original");
@@ -124,16 +124,16 @@ struct BinkStream {
 
     Handle m_file;              // +0x00 INVALID_HANDLE_VALUE: none
     uint32_t m_unknown04;       // +0x04
-    _OVERLAPPED* m_overlapped;  // +0x08 (from the ring, 0x004535E0)
+    _OVERLAPPED* m_asyncCtl;  // +0x08 (from the ring, 0x004535E0)
     int m_wadEntry;             // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
     bool m_silent;              // +0x10 the volume is 0: not updated
-    bool m_paused;              // +0x11 the pause state carried out
+    bool m_isHalted;              // +0x11 the pause state carried out
     uint8_t m_unknown12[6];
     bool m_sharedFile;          // +0x18 m_file isn't closed with the stream
     bool m_unknown19;           // +0x19
     uint8_t m_unknown1A[0xA];
     int m_plays;                // +0x24 plays left (counted down at the last frame; 0 after one: finished)
-    Nx::Bink* m_bink;           // +0x28 null while paused
+    Engine3D::Bink* m_bink;           // +0x28 null while paused
     void* m_memory;             // +0x2C freed with the stream
     uint8_t m_unknown30[0x30];  // +0x34: status words, indexed by m_statusIndex (see Status)
     bool m_pauseRequested;      // +0x60
@@ -143,10 +143,10 @@ struct BinkStream {
     uint8_t m_unknown68[3];
     bool m_unknown6B;           // +0x6B set by the constructor and the "start" calls, cleared once loaded
     uint8_t m_unknown6C[0x14];
-    float m_volume;             // +0x80
+    float m_loudness;             // +0x80
     uint32_t m_resumeFrame;     // +0x84 the frame it was paused on
     bool m_fromHandle;          // +0x88 m_source holds a file handle, not a path
-    char m_source[0x11F];       // +0x89 the path, or the handle (BinkOpen is given its address)
+    char m_source[0x11F];       // +0x89 the path, or the handle (VideoOpen is given its address)
     uint32_t m_unknown1A8;      // +0x1A8
     uint32_t m_unknown1AC;      // +0x1AC
     uint8_t m_unknown1B0[0xC];
@@ -162,7 +162,7 @@ struct BinkStream {
 static_assert(offsetof(BinkStream, m_wadEntry) == 0x0C && offsetof(BinkStream, m_sharedFile) == 0x18 &&
                   offsetof(BinkStream, m_plays) == 0x24 && offsetof(BinkStream, m_bink) == 0x28 &&
                   offsetof(BinkStream, m_pauseRequested) == 0x60 && offsetof(BinkStream, m_statusIndex) == 0x64 &&
-                  offsetof(BinkStream, m_unknown6B) == 0x6B && offsetof(BinkStream, m_volume) == 0x80 &&
+                  offsetof(BinkStream, m_unknown6B) == 0x6B && offsetof(BinkStream, m_loudness) == 0x80 &&
                   offsetof(BinkStream, m_fromHandle) == 0x88 && offsetof(BinkStream, m_source) == 0x89 &&
                   offsetof(BinkStream, m_unknown1A8) == 0x1A8 && offsetof(BinkStream, m_stopRequested) == 0x1BC &&
                   sizeof(BinkStream) == 0x1C0,
@@ -279,12 +279,12 @@ bool __cdecl PlayStream(uint32_t checksum, int slot, int unused);
 bool __cdecl StartPreloadedStream(int slot, const StreamVolume* volume);
 // 0x00453DF0: stream `slot`'s volume: the levels times the sound effects volume / 100; the slot's volume is
 // their mean (left for two). True.
-bool __cdecl SetStreamVolume(const StreamVolume* volume, int slot);
+bool __cdecl ChangeStreamLoudness(const StreamVolume* volume, int slot);
 // 0x00453B30: stop stream `slot` (freed now, or asked to stop if it can't go yet). The second argument is
 // unused.
 void __cdecl StopStream(int slot, int unused);
 // 0x00453BD0: stop all three.
-void __cdecl StopStreams();
+void __cdecl HaltStreams();
 
 // The PC's user soundtracks (none: the count is set to 0 on first use).
 // 0x004542D0: how many.

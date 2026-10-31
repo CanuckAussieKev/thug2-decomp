@@ -29,7 +29,7 @@
 #include "game/sys/crt.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint32_t g_projectionBatchCount;
 sProjectionBatch g_projectionBatches[10]; // (kBatchLimit)
@@ -46,7 +46,7 @@ uint32_t& BatchCount() { return g_projectionBatchCount; }
 sProjectionBatch* Batches() { return g_projectionBatches; }
 int Rand() { return Crt::Rand(); } // (the game's C runtime's)
 
-void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
+void TransformCoord(float* out, const float* v, const Maths::Matrix* m)
 {
     D3dx::Vec3TransformCoord(out, v, m); // (D3DX)
 }
@@ -84,14 +84,14 @@ void CopyTriangle(uint8_t* into, uint8_t* from)
 // 0x004C7610
 sProjectionBatch* sProjectionBatch::Construct()
 {
-    reinterpret_cast<sMaterial*>(material)->Construct();
+    reinterpret_cast<materialRef*>(material)->Construct();
     return this;
 }
 
 // 0x004C73D0
 void sProjectionBatch::Destroy()
 {
-    reinterpret_cast<sMaterial*>(material)->DestroyBody();
+    reinterpret_cast<materialRef*>(material)->DestroyBody();
 }
 
 // 0x004C73E0
@@ -103,7 +103,7 @@ sProjectionBatch* __cdecl GetProjectionBatch(uint32_t texture, uint32_t blendNam
             return &Batches()[i];
     }
     if (count >= kBatchLimit) {
-        Dbg::Printf("hmmm\n");
+        DebugOut::Printf("hmmm\n");
         return nullptr;
     }
     sProjectionBatch* batch = &Batches()[count];
@@ -139,7 +139,7 @@ void __cdecl DrawProjectionBatches()
     Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < BatchCount(); ++i) {
         sProjectionBatch* batch = &Batches()[i];
-        reinterpret_cast<sMaterial*>(batch->material)->Submit(); // (the material's set-up)
+        reinterpret_cast<materialRef*>(batch->material)->Submit(); // (the material's set-up)
         SetPixelShader(batch->pixelShader, batch->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangleCount, batch->vertices, 0x18);
         ++reinterpret_cast<uint32_t&>(g_drawCalls); // (the frame's draw calls)
@@ -162,7 +162,7 @@ CPcTextureProjection* CPcTextureProjection::Destroy(unsigned int freeFlags)
 {
     reinterpret_cast<CTextureProjection*>(this)->CTextureProjection::DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -175,9 +175,9 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
         auto* geom = static_cast<uint8_t*>(static_cast<CPcSector*>(*sectors)->geom); // (the sector's geom)
         if (!geom)
             continue;
-        auto** meshes = *reinterpret_cast<sMesh***>(geom + 0x3C);
+        auto** meshes = *reinterpret_cast<meshRef***>(geom + 0x3C);
         for (uint32_t m = 0; m < *reinterpret_cast<uint32_t*>(geom + 0x40); ++m) {
-            sMesh* mesh = meshes[m];
+            meshRef* mesh = meshes[m];
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices;
@@ -250,10 +250,10 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     PushVertex(v0);
                     PushVertex(v1);
                     PushVertex(v2);
-                    pieces = static_cast<uint8_t*>(Mem::New(0x2000));
+                    pieces = static_cast<uint8_t*>(MemSys::New(0x2000));
                     std::memset(pieces, 0, 0x2000);
-                    void* memory = Mem::New(0xD8);
-                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<sMesh*>(memory)->Construct()) : nullptr;
+                    void* memory = MemSys::New(0xD8);
+                    format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->Construct()) : nullptr;
                     format[0x1C] = 0x0C; // (no check: written through null, as the original)
                     format[0x1E] = 0x10;
                     end = pieces;
@@ -285,10 +285,10 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
                     batch->blendName = blendName;
                 if (fineness) {
                     if (format) {
-                        reinterpret_cast<sMesh*>(format)->DestroyBody(); // (its destructor body)
-                        Mem::Manager::Get()->Free(format);
+                        reinterpret_cast<meshRef*>(format)->DestroyBody(); // (its destructor body)
+                        MemSys::Manager::Get()->Free(format);
                     }
-                    Mem::Manager::Get()->Free(pieces);
+                    MemSys::Manager::Get()->Free(pieces);
                 }
                 if (full)
                     return; // (the buffers left locked, as the original)
@@ -300,13 +300,13 @@ void CPcTextureProjection::Project(void** sectors, int /*unused*/)
 }
 
 namespace {
-static VtableSlot kProjectionVtable_slots[] = {&Nx::CPcTextureProjection::Destroy, &Nx::CPcTextureProjection::Project};
+static VtableSlot kProjectionVtable_slots[] = {&Engine3D::CPcTextureProjection::Destroy, &Engine3D::CPcTextureProjection::Project};
 void** const kProjectionVtable = reinterpret_cast<void**>(kProjectionVtable_slots);
 } // namespace
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640D30 (a static initialiser): the ten projection batches (their materials).
 void ConstructProjectionBatches()

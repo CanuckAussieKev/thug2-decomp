@@ -6,7 +6,7 @@
 
 #include "game/sys/log.h"
 
-namespace Mem::Sizes {
+namespace MemSys::Sizes {
 
 namespace {
 
@@ -123,4 +123,4 @@ uint32_t NodeHashSlots()
 UseOriginal::UseOriginal() : m_was(g_useOriginal) { g_useOriginal = true; }
 UseOriginal::~UseOriginal() { g_useOriginal = m_was; }
 
-} // namespace Mem::Sizes
+} // namespace MemSys::Sizes

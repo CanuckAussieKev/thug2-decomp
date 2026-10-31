@@ -5,39 +5,39 @@
 
 #include "game/core/alloc.h"
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace Tsk {
-class BaseTask;
+namespace TaskList {
+class SchedulerTask;
 } // namespace Tsk
 
-// The online stats: GameNet::Manager's m_statsMan (+0x1C), on GameSpy's stats and persistent storage SDK (gstats /
+// The online stats: OnlinePlay::Manager's m_statsMan (+0x1C), on GameSpy's stats and persistent storage SDK (gstats /
 // gpersist: library code, not decompiled - called by address, some of it through function pointers the SDK keeps).
 // Logging in to the stats server (a thread), reporting the host's game (the players, their scores and combos), the
 // player's own rating, high scores and combos from persistent storage, and the top-score lists downloaded from
 // gamestats (stats.cpp's RetrieveTopStats; VaultMan downloads them) and turned into the stats menus' arrays.
 // 0x0054C9B0-0x0054EBE0.
-namespace GameNet {
+namespace OnlinePlay {
 
-// A line of a top-score list (0x3C bytes): Lst::Node<TopEntry> (vtable 0x0064D640; the node's own 0x0064D634).
+// A line of a top-score list (0x3C bytes): ListKit::Node<TopEntry> (vtable 0x0064D640; the node's own 0x0064D634).
 struct TopEntry {
-    Mem::ListNode m_node;    // +0x00 data = this
+    MemSys::ListNode m_listLink;    // +0x00 data = this
     char m_name[0x20];       // +0x14
-    int m_rating;            // +0x34
-    int m_score;             // +0x38
+    int m_skillPoints;            // +0x34
+    int m_pointsHeld;             // +0x38
 
     // 0x0054D6E0 (vtable 0x0064D640 slot 0, scalar deleting): the node destructor (0x0054D8F0), freed with flag 1.
     TopEntry* Destroy(unsigned int flags);
 };
-static_assert(sizeof(TopEntry) == 0x3C && offsetof(TopEntry, m_rating) == 0x34, "layout must match the original");
+static_assert(sizeof(TopEntry) == 0x3C && offsetof(TopEntry, m_skillPoints) == 0x34, "layout must match the original");
 
-// A level's part of a top-score list (0x2C bytes): Lst::Node<LevelScores> (vtable 0x0064D648) and its entries.
+// A level's part of a top-score list (0x2C bytes): ListKit::Node<LevelScores> (vtable 0x0064D648) and its entries.
 struct LevelScores {
-    Mem::ListNode m_node;    // +0x00 data = this
+    MemSys::ListNode m_listLink;    // +0x00 data = this
     uint32_t m_level;        // +0x14 the level's checksum
-    Mem::ListNode m_entries; // +0x18 Lst::Head<TopEntry> (vtable 0x0064D640)
+    MemSys::ListNode m_entries; // +0x18 ListKit::Head<TopEntry> (vtable 0x0064D640)
 
     // 0x0054DFE0 (destructor body): the entries deleted, the head and the node unlinked.
     void DestroyBody();
@@ -49,8 +49,8 @@ static_assert(sizeof(LevelScores) == 0x2C && offsetof(LevelScores, m_entries) ==
 // One of the five top-score lists (0x48 bytes): the levels' scores (high scores / combos, all time / monthly) or, for
 // the ratings list, the entries themselves.
 struct TopList {
-    Mem::ListNode m_levels;  // +0x00 Lst::Head<LevelScores> (vtable 0x0064D644)
-    Mem::ListNode m_entries; // +0x14 Lst::Head<TopEntry> (vtable 0x0064D640): the ratings list's
+    MemSys::ListNode m_levels;  // +0x00 ListKit::Head<LevelScores> (vtable 0x0064D644)
+    MemSys::ListNode m_entries; // +0x14 ListKit::Head<TopEntry> (vtable 0x0064D640): the ratings list's
     char m_title[0x20];      // +0x28 the file's first line (the lists of combos)
 
     // 0x0054D8B0: two empty heads.
@@ -68,14 +68,14 @@ struct TopList {
 };
 static_assert(sizeof(TopList) == 0x48 && offsetof(TopList, m_title) == 0x28, "layout must match the original");
 
-// A sorted line for the menus (0x40 bytes, on a local list): Lst::Node<SortEntry> (vtable 0x0064D64C; the node's
+// A sorted line for the menus (0x40 bytes, on a local list): ListKit::Node<SortEntry> (vtable 0x0064D64C; the node's
 // own 0x0064D63C), its priority the score.
 struct SortEntry {
-    Mem::ListNode m_node;    // +0x00 data = this, priority = the sort key
+    MemSys::ListNode m_listLink;    // +0x00 data = this, priority = the sort key
     char m_name[0x20];       // +0x14
     uint32_t m_level;        // +0x34
-    int m_score;             // +0x38
-    int m_rating;            // +0x3C
+    int m_pointsHeld;             // +0x38
+    int m_skillPoints;            // +0x3C
 
     // 0x0054D780 (vtable 0x0064D64C slot 0, scalar deleting)
     SortEntry* Destroy(unsigned int flags);
@@ -84,7 +84,7 @@ static_assert(sizeof(SortEntry) == 0x40, "layout must match the original");
 
 // The list nodes' own destructors and the searches' (as the original keeps them apart).
 struct StatsNode {
-    Mem::ListNode m_node;
+    MemSys::ListNode m_listLink;
 
     // 0x0054D8F0 / 0x0054D400 / 0x0054EA20: the node destructors of TopEntry (vtable 0x0064D634), LevelScores'
     // (0x0064D638) and SortEntry's (0x0064D63C): the vtable reset, unlinked.
@@ -98,10 +98,10 @@ struct StatsNode {
     StatsNode* DeleteSortNode(unsigned int flags);
     StatsNode* DeleteLevelsHead(unsigned int flags);
 };
-// Lst::Search<SortEntry> (vtable 0x0064D580), <TopEntry> (0x0064D584), <LevelScores> (0x0064D588).
+// ListKit::Search<SortEntry> (vtable 0x0064D580), <TopEntry> (0x0064D584), <LevelScores> (0x0064D588).
 struct StatsSearch {
     void** m_vtable;
-    Mem::ListNode* m_node;
+    MemSys::ListNode* m_listLink;
 
     // 0x0054CA90 / 0x0054CAA0 / 0x0054CAB0: the destructor bodies (the vtable reset).
     void DestroySortSearch();
@@ -113,9 +113,9 @@ struct StatsSearch {
     StatsSearch* DeleteLevelSearch(unsigned int flags);
 };
 
-// The player's own stats from persistent storage (StatsMan +0x14).
+// The player's own stats from persistent storage (RankingsManager +0x14).
 struct PersonalStats {
-    int m_rating;            // +0x00
+    int m_skillPoints;            // +0x00
     int m_highScores[15];    // +0x04 by level (1-14 filled: index i at m_highScores[i - 1])
     int m_highCombos[15];    // +0x40
 
@@ -125,7 +125,7 @@ struct PersonalStats {
 };
 static_assert(sizeof(PersonalStats) == 0x7C, "layout must match the original");
 
-class StatsMan {
+class RankingsManager {
 public:
     // m_state.
     enum State : int {
@@ -140,7 +140,7 @@ public:
 
     // 0x0054DBD0: no stats, five empty top lists, the task (StatsTask) on the network heap; the top stats are
     // needed. Returns this.
-    StatsMan* Construct();
+    RankingsManager* Construct();
     // 0x0054D610 (destructor body): the task deleted, the top lists' heads unlinked (last first).
     void DestroyBody();
 
@@ -175,7 +175,7 @@ public:
 
     // 0x0054D4A0: the task: the login's 10 s (and the persistent storage's answers'), the login's result, the
     // reports once a minute while a game is reported.
-    static void __cdecl StatsTask(Tsk::BaseTask* task);
+    static void __cdecl StatsTask(TaskList::SchedulerTask* task);
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall LogInThread(void* stats);
@@ -191,7 +191,7 @@ public:
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
     static void __stdcall GenerateAuth(const char* challenge, const char* password, char* response);
 
-    Tsk::BaseTask* m_task;     // +0x000 Tsk::Task<StatsMan> (StatsTask)
+    TaskList::SchedulerTask* m_task;     // +0x000 TaskList::Task<RankingsManager> (StatsTask)
     bool m_loggedIn;           // +0x004
     uint8_t m_pad5[3];
     int m_state;               // +0x008 State
@@ -202,22 +202,22 @@ public:
     TopList m_topLists[5];     // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
     bool m_needTopStats;       // +0x1FC
 };
-static_assert(offsetof(StatsMan, m_personal) == 0x14 &&
-                  offsetof(StatsMan, m_topFile) == 0x90 && offsetof(StatsMan, m_topLists) == 0x94 &&
-                  offsetof(StatsMan, m_needTopStats) == 0x1FC,
+static_assert(offsetof(RankingsManager, m_personal) == 0x14 &&
+                  offsetof(RankingsManager, m_topFile) == 0x90 && offsetof(RankingsManager, m_topLists) == 0x94 &&
+                  offsetof(RankingsManager, m_needTopStats) == 0x1FC,
               "layout must match the original");
 
 // The script commands.
-bool __cdecl StatsLoggedIn(Script::CStruct* params, Script::CScript* script);        // 0x0054CC90
-bool __cdecl StatsLogIn(Script::CStruct* params, Script::CScript* script);           // 0x0054CCB0
-bool __cdecl StatsLogOff(Script::CStruct* params, Script::CScript* script);          // 0x0054CCC0
-bool __cdecl RetrievePersonalStats(Script::CStruct* params, Script::CScript* script); // 0x0054CE00
-bool __cdecl NeedToRetrieveTopStats(Script::CStruct* params, Script::CScript* script); // 0x0054CE70
-bool __cdecl ReportStats(Script::CStruct* params, Script::CScript* script);          // 0x0054D670
-bool __cdecl GetRank(Script::CStruct* params, Script::CScript* script);              // 0x0054D6A0
-bool __cdecl CleanUpTopStats(Script::CStruct* params, Script::CScript* script);      // 0x0054EA40
-bool __cdecl FillStatsArrays(Script::CStruct* params, Script::CScript* script);      // 0x0054EB00
+bool __cdecl StatsLoggedIn(Scripts::CStruct* params, Scripts::CScript* script);        // 0x0054CC90
+bool __cdecl StatsLogIn(Scripts::CStruct* params, Scripts::CScript* script);           // 0x0054CCB0
+bool __cdecl StatsLogOff(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0054CCC0
+bool __cdecl RetrievePersonalStats(Scripts::CStruct* params, Scripts::CScript* script); // 0x0054CE00
+bool __cdecl NeedToRetrieveTopStats(Scripts::CStruct* params, Scripts::CScript* script); // 0x0054CE70
+bool __cdecl ReportStats(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0054D670
+bool __cdecl GetRank(Scripts::CStruct* params, Scripts::CScript* script);              // 0x0054D6A0
+bool __cdecl CleanUpTopStats(Scripts::CStruct* params, Scripts::CScript* script);      // 0x0054EA40
+bool __cdecl FillStatsArrays(Scripts::CStruct* params, Scripts::CScript* script);      // 0x0054EB00
 
 extern float g_rankScale;
 
-} // namespace GameNet
+} // namespace OnlinePlay

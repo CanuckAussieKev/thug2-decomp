@@ -1,4 +1,4 @@
-// The flexible particle type that draws models (Nx::CModelParticles, the type 0x286A8D26): its constructor and Render
+// The flexible particle type that draws models (Engine3D::CModelParticles, the type 0x286A8D26): its constructor and Render
 // (see particle_system.h). From the disassembly of 0x0049A0C0-0x0049A4B3 and 0x0049A4C0-0x0049A8DD.
 
 #include <cmath>
@@ -18,7 +18,7 @@
 #include "game/core/game_vtables.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -28,61 +28,61 @@ constexpr float kSizeStep = 0.25f;              // 0x006467AC
 const char* const kModelExtension = ".mdl"; // ".mdl"
 
 uint8_t AssertFlag() { return g_allocAssertFlag; }
-void* Allocate(unsigned int size) { return Mem::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
-void* AllocateZeroed(unsigned int size) { return Mem::Manager::Get()->AllocateZeroed(size, AssertFlag(), nullptr); }
+void* Allocate(unsigned int size) { return MemSys::Manager::Get()->Allocate(size, AssertFlag(), nullptr); }
+void* AllocateZeroed(unsigned int size) { return MemSys::Manager::Get()->AllocateZeroed(size, AssertFlag(), nullptr); }
 int Rand() { return Crt::Rand(); } // (the game's C runtime's)
-CModel* NewModel(int) { return static_cast<CModel*>(Nx::CreateModel()); }
+CRenderModel* NewModel(int) { return static_cast<CRenderModel*>(Engine3D::SpawnModel()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void ModelFileName(const char* name, const char* ext, char* out)
 {
-    Gfx::MakeModelFileName(name, ext, out);
+    Gfx2D::MakeModelFileName(name, ext, out);
 }
 
 } // namespace
 
 // 0x0049A0C0
-CModelParticles* CModelParticles::Construct(uint32_t name, int maxParticles, const char* model, uint32_t, int, int,
+CModelParticles* CModelParticles::Construct(uint32_t name, int particleCap, const char* model, uint32_t, int, int,
                                             float, int)
 {
     CParticleSystem::Construct();
     m_name = name;
     char fileName[512] = {};
-    mp_positions = nullptr;
-    mp_models = nullptr;
+    m_positionArray = nullptr;
+    m_modelList = nullptr;
     mp_unknown13C = nullptr;
-    mp_particles = nullptr;
+    m_particleList = nullptr;
     m_unknown8C = 0;
     ParticleParts::SetVtables(this, Vt::kModelParticles, Vt::kModelParticlesNode);
-    m_maxParticles = maxParticles;
-    m_modelCount = static_cast<unsigned int>(maxParticles);
-    m_drawnModels = static_cast<unsigned int>(maxParticles);
-    mp_particles = ParticleParts::NewParticles(maxParticles);
-    if (!mp_particles)
+    m_maxParticles = particleCap;
+    m_modelCount = static_cast<unsigned int>(particleCap);
+    m_drawnModels = static_cast<unsigned int>(particleCap);
+    m_particleList = ParticleParts::NewParticles(particleCap);
+    if (!m_particleList)
         return this;
-    mp_positions = static_cast<float*>(Allocate(m_modelCount * 12));
-    if (!mp_positions)
+    m_positionArray = static_cast<float*>(Allocate(m_modelCount * 12));
+    if (!m_positionArray)
         return this;
     ModelFileName(model, kModelExtension, fileName);
-    Str::LowerCase(fileName);
-    mp_models = static_cast<void**>(AllocateZeroed(m_modelCount * 4));
-    if (!mp_models)
+    TextUtil::ToLowerText(fileName);
+    m_modelList = static_cast<void**>(AllocateZeroed(m_modelCount * 4));
+    if (!m_modelList)
         return this;
-    if (Mem::MallocAvailable() < m_modelCount * kMemoryPerModel)
+    if (MemSys::MallocAvailable() < m_modelCount * kMemoryPerModel)
         return this;
     for (unsigned int i = 0; i < m_modelCount; ++i) {
-        mp_models[i] = NewModel(AssertFlag());
-        auto* each = static_cast<CModel*>(mp_models[i]);
+        m_modelList[i] = NewModel(AssertFlag());
+        auto* each = static_cast<CRenderModel*>(m_modelList[i]);
         if (!each)
             return this;
-        each->ClearGeoms();
+        each->DropGeoms();
         int percent = Rand() % 100;
         float scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
-        Mth::Vector scales = {scale, scale, scale, 1.0f};
-        each->SetScale(&scales);
+        Maths::Vector scales = {scale, scale, scale, 1.0f};
+        each->ChangeScale(&scales);
         if (!each->AddFileGeom(fileName, 0, true, 0, false, true, AssertFlag() != 0, true))
             return this;
     }
-    auto* rotations = static_cast<Mth::Quat*>(Allocate(m_modelCount * sizeof(Mth::Quat)));
+    auto* rotations = static_cast<Maths::QuatRotation*>(Allocate(m_modelCount * sizeof(Maths::QuatRotation)));
     if (rotations) {
         for (unsigned int i = 0; i < m_modelCount; ++i)
             rotations[i] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
@@ -104,7 +104,7 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int maxParticles, con
         rotations[i].y = static_cast<float>(Rand() % 100);
         rotations[i].z = static_cast<float>(Rand() % 100);
         rotations[i].w = static_cast<float>(Rand() % 100);
-        static_cast<Mth::Quat*>(mp_unknown13C)->Normalize(1.0f); // (the first, each time: the original's)
+        static_cast<Maths::QuatRotation*>(mp_unknown13C)->Normalize(1.0f); // (the first, each time: the original's)
     }
     m_colourMid = -1.0f;
     m_flags |= 4u;
@@ -114,7 +114,7 @@ CModelParticles* CModelParticles::Construct(uint32_t name, int maxParticles, con
 // 0x0049A4C0
 void CModelParticles::Render()
 {
-    auto model = [this](unsigned int i) { return static_cast<CModel*>(mp_models[i]); };
+    auto model = [this](unsigned int i) { return static_cast<CRenderModel*>(m_modelList[i]); };
     int count = m_unknown8C;
     if (count == 0) {
         for (unsigned int i = 0; i < m_drawnModels; ++i)
@@ -124,9 +124,9 @@ void CModelParticles::Render()
     // (from the last particle's model: it's shown again below)
     for (unsigned int i = static_cast<unsigned int>(count - 1); i < m_drawnModels; ++i)
         model(i)->SetActive(0);
-    auto* rotations = static_cast<Mth::Quat*>(mp_unknown13C);
+    auto* rotations = static_cast<Maths::QuatRotation*>(mp_unknown13C);
     for (int p = 0; p < count; ++p) {
-        sFlexibleParticle& particle = mp_particles[p];
+        sFlexibleParticle& particle = m_particleList[p];
         model(static_cast<unsigned int>(p))->SetActive(1);
         float life = particle.age / particle.lifetime;
         const uint8_t* from;
@@ -153,7 +153,7 @@ void CModelParticles::Render()
             ->SetColor(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
                        static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
         // the rotation moved by the velocity (w by its x too), then normalised
-        Mth::Quat& q = rotations[p];
+        Maths::QuatRotation& q = rotations[p];
         q.x = static_cast<float>(static_cast<double>(particle.velocity[0]) + q.x);
         q.y = static_cast<float>(static_cast<double>(particle.velocity[1]) + q.y);
         q.z = static_cast<float>(static_cast<double>(particle.velocity[2]) + q.z);
@@ -167,12 +167,12 @@ void CModelParticles::Render()
             q.z = static_cast<float>(inverse * q.z);
             q.w = static_cast<float>(inverse * q.w);
         }
-        Mth::Matrix matrix;
+        Maths::Matrix matrix;
         for (int r = 0; r < 4; ++r)
             for (int c = 0; c < 4; ++c)
                 matrix.row[r][c] = r == c ? 1.0f : 0.0f;
         q.GetMatrix(&matrix);
-        const float* position = mp_positions + p * 3;
+        const float* position = m_positionArray + p * 3;
         matrix.row[3] = {position[0], position[1], position[2], 1.0f};
         double shrink = static_cast<double>(p % 4) * kSizeStep;
         double size = static_cast<double>(particle.startSize[0]) - shrink;

@@ -3,43 +3,43 @@
 #include <cstddef>
 #include <cstdint>
 
-// The engine's texture (Nx::CTexture; the PC texture CPcTexture - pc_texture.h - extends it), and the folded
+// The engine's texture (Engine3D::CBitmapTexture; the PC texture CPcTexture - pc_texture.h - extends it), and the folded
 // dispatchers the engine's classes call their virtual slots through.
-namespace Nx {
+namespace Engine3D {
 
-// CTexture::m_flags
+// CBitmapTexture::m_flags
 enum : uint32_t {
-    kTexturePermanent = 0x10000, // kept when its dictionary's textures are flushed (FlushTextures without `all`)
+    kTexturePermanent = 0x10000, // kept when its dictionary's textures are flushed (DropTextures without `all`)
 };
 
 // The texture (8 bytes of the engine's; vtable 0x00649AF0 - its own slots are stubs; PC 0x0064A770). Its virtual
 // slots (CPcTexture's): [0] destroy, [1] loaded from a file, [2] from memory, [3] made, [17] rotated, [21]
 // stretched, [23] brightness, [24] hue / saturation / value, [26] the pixel data's size, [33] / [34] the image's
 // width / height, [38] its +0x0E, [41] another texture drawn over it.
-class CTexture {
+class CBitmapTexture {
 public:
     // 0x0049F200: construct - the upper half of the flags cleared. Returns this.
-    CTexture* Construct();
+    CBitmapTexture* Construct();
     // 0x0049F210: the destructor's body.
     void DestroyBody();
     // 0x0049F4D0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CTexture* Destroy(unsigned int freeFlags);
+    CBitmapTexture* Destroy(unsigned int freeFlags);
 
     // 0x0049F220: loaded from an image file (slot 1) - the name as given, or with `inImages` (its low byte) under
     // "images/" (a "../" taken off instead); named by the CRC of the name after its last slash. Whether it was.
     bool LoadByName(const char* name, int inImages, int argument);
     // 0x0049F300: loaded from an image in memory (slot 2 with the other arguments), named `checksum`. Whether it was.
-    bool LoadFromMemory(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4, uint32_t a5);
+    bool ReadFromRamBlock(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4, uint32_t a5);
     // 0x0049F330 (not a function in Ghidra): made (slot 3 with all the arguments), named `checksum`. Whether it was.
     bool Create(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bitsPerPixel, uint32_t a4, uint32_t a5);
     // 0x0049F3F0: kept or not when its dictionary is flushed.
-    void SetPermanent(bool permanent);
+    void PinResident(bool permanent);
 
     void** vtable;
     uint32_t m_checksum; // +0x04
     uint32_t m_flags;    // +0x08 (the platform's low half: CPcTexture's)
 };
-static_assert(sizeof(CTexture) == 0xC, "layout must match the original");
+static_assert(sizeof(CBitmapTexture) == 0xC, "layout must match the original");
 
 // The folded dispatchers: a tail jump to the object's virtual slot (its arguments left as they are) - written for
 // the texture's slots, shared by other classes' calls of the same slot (the geom's 32 and 41, ...).

@@ -1,4 +1,4 @@
-// The network game's course (GameNet::Manager): back to the lobby, a game started (message 0x34), a join cancelled,
+// The network game's course (OnlinePlay::Manager): back to the lobby, a game started (message 0x34), a join cancelled,
 // and the manager's tasks for the observer, auto-serve, the join's state and the server's start of a game
 // (0x0053AF90, 0x0053B0D0, 0x0053BED0-0x0053C320, 0x0053C6E0). See gamenet_manager.h.
 
@@ -39,7 +39,7 @@
 #include "game/net/server_list.h"
 #include "game/net/score_list.h"
 
-namespace GameNet {
+namespace OnlinePlay {
 
 using namespace Detail;
 
@@ -51,10 +51,10 @@ constexpr uint32_t kMenuState = 0xCDC00E63;    // menu_state (a tag)
 constexpr uint32_t kOn = 0xF649D637;           // on
 
 // The root window (its smart pointer let go at once: the raw pointer kept, as the original).
-Obj::CObject* FindRootWindow()
+GameObjects::CObject* FindRootWindow()
 {
-    Front::ElementPtr found;
-    return Front::CScreenElementManager::Instance()->GetElement(&found, kRootWindow, 0)->mp_object;
+    MenuSystem::ElementPtr found;
+    return MenuSystem::CUiTree::Instance()->GetElement(&found, kRootWindow, 0)->m_ownerObject;
 }
 constexpr uint8_t kMsgDisconnect = 0x0B; // (the client leaves the server)
 
@@ -112,9 +112,9 @@ constexpr uint32_t kAutoServeWait = 2000;    // ms after the host mode is set
 constexpr uint32_t kAutoServeIdle = 5000;    // ms in the lobby
 constexpr int kPanelTime = 2000;
 
-// PlayerInfo flags (+0x1D0).
+// PlayerRecord flags (+0x1D0).
 constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
-// NewPlayerInfo flags (+0x20).
+// JoinerRecord flags (+0x20).
 constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;
 
@@ -139,20 +139,20 @@ struct StartGameInfo {
 static_assert(sizeof(StartGameInfo) == 0x48 && offsetof(StartGameInfo, stopAtZero) == 0x14 &&
               offsetof(StartGameInfo, teams) == 0x18 && offsetof(StartGameInfo, startInfo) == 0x28);
 
-Tsk::Stack* LogicTasks()
+TaskList::Stack* LogicTasks()
 {
-    return reinterpret_cast<Tsk::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(Ass::g_mainLoopManager)) + 4);
+    return reinterpret_cast<TaskList::Stack*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
 }
-Prefs::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<Prefs::Preferences*>(m->m_networkPreferences); }
+OptionStore::Preferences* NetworkPreferences(Manager* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
-Prefs::Preferences* GamePreferences(Manager* m)
+OptionStore::Preferences* GamePreferences(Manager* m)
 {
-    return m->InNetGame() ? NetworkPreferences(m) : Call<Prefs::Preferences*>(CodeAddress(&Mdl::Skate::GetSplitScreenPreferences), Skate());
+    return m->InNetGame() ? NetworkPreferences(m) : Call<OptionStore::Preferences*>(CodeAddress(&GameModules::Skate::GetSplitViewSettings), Skate());
 }
-uint32_t PreferenceChecksum(Prefs::Preferences* prefs, uint32_t name, uint32_t field)
+uint32_t PreferenceChecksum(OptionStore::Preferences* prefs, uint32_t name, uint32_t field)
 {
     uint32_t value;
-    prefs->GetPreference(name)->GetChecksum(field, &value, 1);
+    prefs->GetPreference(name)->ReadHashValue(field, &value, 1);
     return value;
 }
 Manager* TaskManager(void* task) { return Field<Manager*>(task, 0x1C); }
@@ -167,20 +167,20 @@ void Manager::ResetToLobby()
         m_level = PreferenceChecksum(NetworkPreferences(this), kLevel, kChecksum);
         teams = GetNumTeams();
     } else {
-        teams = Call<int>(CodeAddress(&Game::CGameMode::NumTeams), GameMode());
+        teams = Call<int>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode());
     }
     Field<uint32_t>(this, 0x30) = kNetLobby;
-    Call(CodeAddress(&Game::CGameMode::LoadGameType), GameMode(), kNetLobby); // the game mode
-    Call(CodeAddress(&Game::CGameMode::SetNumTeams), GameMode(), teams);
+    Call(CodeAddress(&GoalSystem::CMatchRules::ApplyMatchStyle), GameMode(), kNetLobby); // the game mode
+    Call(CodeAddress(&GoalSystem::CMatchRules::SetNumTeams), GameMode(), teams);
     m_gameOver = false;
-    ResetPlayers();
+    ClearRoster();
     if (uint8_t* king = KingOfTheHill(this))
-        AsPlayer(king)->MarkAsKing(false);
+        AsPlayer(king)->GiveCrown(false);
     PlayerSearch search;
     for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true))
         AsPlayer(p)->ClearFlags(); // carries no flag
     ClearQueuedScripts();
-    Field<uint32_t>(this, 0x1B0) = Tmr::GetTime(); // (back in the lobby: auto-serve waits from here)
+    Field<uint32_t>(this, 0x1B0) = FrameClock::GetTime(); // (back in the lobby: auto-serve waits from here)
 }
 
 uint32_t g_autoServeStart;
@@ -192,17 +192,17 @@ bool g_cheatFlag;
 void Manager::StartNetworkGame()
 {
     PlayerSearch search;
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
-    Prefs::Preferences* prefs = GamePreferences(this);
-    Net::App* server = m_server;
+    OptionStore::Preferences* prefs = GamePreferences(this);
+    NetLink::App* server = m_server;
     RemoveAllNewPlayers();
     Field<uint32_t>(this, 0x30) = PreferenceChecksum(GamePreferences(this), kGameType, kChecksum);
     ChooseStartPoints(); // the skaters' starting points shuffled
     std::memset(&Field<uint8_t>(this, 0x70), 0, 0x50);
     uint32_t gameType = Field<uint32_t>(this, 0x30);
     uint32_t timeLimit =
-        prefs->GetPreferenceValue(gameType == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
+        prefs->GetSettingValue(gameType == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
     m_level = PreferenceChecksum(NetworkPreferences(this), kLevel, kChecksum);
     StartGameInfo info;
     info.gameType = Field<uint32_t>(this, 0x30);
@@ -218,49 +218,49 @@ void Manager::StartNetworkGame()
         info.timeLimit = timeLimit;
     info.resetScores = prefs->GetPreferenceChecksum(kScoreReset, kChecksum) == kBooleanTrue;
     info.stopAtZero = IsUntimedGame();
-    info.targetScore = prefs->GetPreferenceValue(kTargetScore, kScore);
+    info.targetScore = prefs->GetSettingValue(kTargetScore, kScore);
     info.teams = static_cast<uint32_t>(GetNumTeams());
     uint32_t value = 0;
-    GamePreferences(this)->GetPreference(kGoals)->GetChecksum("checksum", &value, 1);
+    GamePreferences(this)->GetPreference(kGoals)->ReadHashValue("checksum", &value, 1);
     info.goals = value;
     info.value20 = GetTeamGraffitiMode();
     do
-        info.gameId = static_cast<uint8_t>(Mth::Rnd(0xFF) + 1);
+        info.gameId = static_cast<uint8_t>(Maths::Rnd(0xFF) + 1);
     while (info.gameId == Field<uint8_t>(this, 0x39));
     info.crownSpawnPoint = Field<int8_t>(this, 0x68);
     std::memcpy(info.startInfo, &Field<uint32_t>(this, 0x48), sizeof(info.startInfo));
     desc.m_data = &info;
-    desc.m_length = sizeof(info);
+    desc.m_byteCount = sizeof(info);
     desc.m_id = kMsgStartGame;
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true)) {
         Field<uint32_t>(p, 0x24) = 0;
         AsPlayer(p)->ClearFlags(); // carries no flag
         Field<uint32_t>(p, 0x1D0) &= ~kPlayerCaptureBlocked;
-        server->EnqueueMessage(PlayerHandle(p), &desc);
+        server->PutOnOutbox(PlayerHandle(p), &desc);
         if (!InNetGame())
             break; // (split screen: the first player only)
     }
     if (uint8_t* king = KingOfTheHill(this))
-        AsPlayer(king)->MarkAsKing(false);
+        AsPlayer(king)->GiveCrown(false);
     Field<void*>(this, 0x1D0) = nullptr;   // the last leader
     Field<int>(this, 0x1D4) = -1;          // the last leading team
     ClearQueuedScripts();
-    ResetPlayers();
+    ClearRoster();
     g_cheatFlag = false;
-    if (static_cast<StatsMan*>(m_statsMan)->UpdateLoggedIn())
-        static_cast<StatsMan*>(m_statsMan)->StartGame();
+    if (static_cast<RankingsManager*>(m_statsMan)->UpdateLoggedIn())
+        static_cast<RankingsManager*>(m_statsMan)->StartGame();
 }
 
 // 0x0053C6E0
 void Manager::CancelJoin()
 {
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
     if (m_joinState == 10 || m_joinState == 8 || m_joinState == kJoinStateRefused)
         return;
-    Net::App* client = m_client;
+    NetLink::App* client = m_clientApp;
     desc.m_id = kMsgDisconnect;
     SendToServer(client, &desc);
     client->SendData(false);
@@ -268,7 +268,7 @@ void Manager::CancelJoin()
     m_joinTimeoutTask->Remove();
     RemoveAllNewPlayers();
     if (Field<bool>(m_buddyMan, 0x10)) // (logged in to the presence)
-        static_cast<BuddyMan*>(m_buddyMan)->SetStatus(kHomieStatusChatting, Script::GetString("homie_status_chatting"),
+        static_cast<FriendsManager*>(m_buddyMan)->SetStatus(kHomieStatusChatting, Scripts::GetString("homie_status_chatting"),
                                                       static_cast<char*>(m_lobbyMan) + 0x34);
 }
 
@@ -277,7 +277,7 @@ void __cdecl Manager::ObserverTask(void*)
 {
     Manager* manager = g_gameNetManager;
     if (manager->m_observerCommand == 1) { // (the next player asked for)
-        manager->ObservePlayer(static_cast<uint8_t*>(manager->NextCamPlayer()));
+        manager->SpectatePlayer(static_cast<uint8_t*>(manager->NextCamPlayer()));
         manager->m_observerCommand = 0;
     }
 }
@@ -287,13 +287,13 @@ void __cdecl Manager::ObserverInput(void* handler)
 {
     auto* input = static_cast<ObserverInputHandler*>(handler);
     Manager* manager = input->m_data;
-    Obj::CObject* root = FindRootWindow();
+    GameObjects::CObject* root = FindRootWindow();
     if (root) {
         // Not while a menu is up: the root window's menu_state tag on.
-        Script::CStruct* tags = NewParams();
+        Scripts::CStruct* tags = NewParams();
         root->CopyTagsTo(tags);
         uint32_t menuState = 0; // (left as it was on the stack when the root window has no menu_state: the original)
-        tags->GetChecksum(kMenuState, &menuState, 0);
+        tags->ReadHashValue(kMenuState, &menuState, 0);
         DeleteParams(tags);
         if (menuState == kOn)
             return;
@@ -306,9 +306,9 @@ void __cdecl Manager::ObserverInput(void* handler)
 void __cdecl Manager::AutoServeTask(void* task)
 {
     Manager* manager = TaskManager(task);
-    if (Tmr::GetTime() - g_autoServeStart < kAutoServeWait || GameType() != kNetLobby ||
+    if (FrameClock::GetTime() - g_autoServeStart < kAutoServeWait || GameType() != kNetLobby ||
         manager->CountPlayers() < 2 || manager->m_waitingForGameToStart ||
-        Tmr::GetTime() - Field<uint32_t>(manager, 0x1B0) <= kAutoServeIdle)
+        FrameClock::GetTime() - Field<uint32_t>(manager, 0x1B0) <= kAutoServeIdle)
         return;
     Run(kLoadPendingPlayers);
     Run(kStartNetworkGame);
@@ -325,7 +325,7 @@ void __cdecl Manager::JoinStateTask(void* task)
         manager->m_joinState = 0;
         break;
     case kJoinStateJoining: // 2 (none for the host's own client)
-        if (!manager->m_client->IsLocal())
+        if (!manager->m_clientApp->IsLocal())
             Run(kCreateJoiningDialog);
         manager->m_joinState = 0;
         break;
@@ -339,8 +339,8 @@ void __cdecl Manager::JoinStateTask(void* task)
         for (; info && !(Field<uint32_t>(info, 0x20) & kNewPlayerLocal); info = NextNewPlayer(manager, &search)) {
         }
         if (info && (Field<uint32_t>(info, 0x20) & kNewPlayerObserver)) { // the local player joined to observe
-            Call(CodeAddress(&Mdl::Skate::RemoveSkater), Skate(), Call<void*>(CodeAddress(Mdl::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
-            manager->ObservePlayer(nullptr);
+            Call(CodeAddress(&GameModules::Skate::RemoveSkater), Skate(), Call<void*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
+            manager->SpectatePlayer(nullptr);
         }
         Run(kEnteredNetworkGame);
         manager->m_joinState = 7;
@@ -352,8 +352,8 @@ void __cdecl Manager::JoinStateTask(void* task)
         manager->m_joinStateTask->Remove();
         break;
     case kJoinStateRefused: { // 9
-        Script::CStruct* params = NewParams();
-        params->AddChecksum(kReason, manager->m_refusedReason);
+        Scripts::CStruct* params = NewParams();
+        params->PutNameKey(kReason, manager->m_refusedReason);
         manager->m_joinStateTask->Remove();
         Run(kCreateJoinRefusedDialog, params);
         DeleteParams(params);
@@ -375,25 +375,25 @@ void __cdecl Manager::StartGameTask(void* task)
     if (manager->CountOtherPlayers() > 0) { // players still loading
         if (manager->OnServer()) {
             if (!waitingShown) {
-                Front::ElementPtr menu;
-                Front::CScreenElementManager::Instance()->GetElement(&menu, kCurrentMenuAnchor, 0);
+                MenuSystem::ElementPtr menu;
+                MenuSystem::CUiTree::Instance()->GetElement(&menu, kCurrentMenuAnchor, 0);
                 if (!menu.Get()) { // (no menu up)
                     Run(kCreateWaitForPlayersDialog);
                     waitingShown = true;
                 }
             }
         } else if (!waitingShown) {
-            manager->CreateNetPanelMessage(true, kGameWillStart, nullptr, nullptr, nullptr, "netexceptionprops", false,
+            manager->BuildNetNotice(true, kGameWillStart, nullptr, nullptr, nullptr, "netexceptionprops", false,
                                            kPanelTime);
             waitingShown = true;
         }
         return;
     }
     if (CFunc_AllPlayersAreReady(nullptr, nullptr) && // (the script command, without parameters)
-        Tmr::GetTime() >= g_netGameStartTime) { // every one ready, and the time has come
+        FrameClock::GetTime() >= g_netGameStartTime) { // every one ready, and the time has come
         waitingShown = false;
         manager->StartNetworkGame();
-        Field<Tsk::BaseTask*>(manager, 0xE8)->Remove();
+        Field<TaskList::SchedulerTask*>(manager, 0xE8)->Remove();
     }
 }
 
@@ -403,14 +403,14 @@ void __cdecl Manager::ConnectionTask(void* task)
     Manager* manager = TaskManager(task);
     uint8_t* skate = Skate();
     uint32_t& checked = g_autoServeChecked; // the link checked last
-    if (manager->InNetMode() && Tmr::GetTime() - checked > kLinkCheckInterval) {
+    if (manager->IsNetworkGame() && FrameClock::GetTime() - checked > kLinkCheckInterval) {
         bool netGame = manager->InNetGame();
-        checked = Tmr::GetTime();
+        checked = FrameClock::GetTime();
         // the network cable unplugged: a method of the network object (0x006EFDD8) - on the PC the shared
         // return-false stub 0x005B9E50
         if (Stubs::ReturnFalse()) {
-            Front::ElementPtr dialog;
-            Front::CScreenElementManager::Instance()->GetElement(&dialog, netGame ? kLinkLostDialogAnchor : kDialogBoxAnchor, 0);
+            MenuSystem::ElementPtr dialog;
+            MenuSystem::CUiTree::Instance()->GetElement(&dialog, netGame ? kLinkLostDialogAnchor : kDialogBoxAnchor, 0);
             if (!dialog.Get()) {
                 Run(netGame ? kCreateLinkUnpluggedDialog : kCreateLinkUnpluggedFrontEndDialog);
                 return;
@@ -422,23 +422,23 @@ void __cdecl Manager::ConnectionTask(void* task)
         uint8_t* player = FirstPlayer(manager, &search, true);
         while (player) {
             uint8_t* next = NextPlayer(manager, &search, true);
-            Net::Conn* conn = Field<Net::Conn*>(player, 0x18);
+            NetLink::Conn* conn = Field<NetLink::Conn*>(player, 0x18);
             if (!conn->IsLocal()) {
                 int reason = -1;
                 if (conn->m_status & 1) { // (in the game)
-                    if (conn->GetTimeElapsedSinceCommunication() > kSilentTimeout)
+                    if (conn->GetSilenceDuration() > kSilentTimeout)
                         reason = kDropTimedOut;
                     else if (conn->GetHighestResendCount() > kMaxResends)
                         reason = kDropDropped;
-                } else if (conn->GetTimeElapsedSinceCommunication() > kJoiningTimeout) {
+                } else if (conn->GetSilenceDuration() > kJoiningTimeout) {
                     reason = kDropTimedOut;
                 }
                 if (reason >= 0) {
-                    Obj::CObject* skater = PlayerSkater(player);
+                    GameObjects::CObject* skater = PlayerSkater(player);
                     bool observer = IsObserver(player);
-                    manager->DropPlayer(player, reason);
+                    manager->EvictPlayer(player, reason);
                     if (!observer)
-                        Call(CodeAddress(&Mdl::Skate::RemoveSkater), skate, skater);
+                        Call(CodeAddress(&GameModules::Skate::RemoveSkater), skate, skater);
                 }
             }
             player = next;
@@ -446,13 +446,13 @@ void __cdecl Manager::ConnectionTask(void* task)
         return;
     }
     // A client: the server silent too long while joining or joined.
-    Net::ConnSearch search = {Net::kConnSearchVtable, nullptr};
-    Net::App* client = manager->m_client;
+    NetLink::ConnSearch search = {NetLink::kConnSearchVtable, nullptr};
+    NetLink::App* client = manager->m_clientApp;
     if (!client)
         return;
-    Net::Conn* conn = client->FirstConnection(&search);
+    NetLink::Conn* conn = client->BeginConnWalk(&search);
     if (!conn || !(manager->m_joinState == 8 || manager->m_joinState == 7 || manager->m_joinState == 6) ||
-        conn->GetTimeElapsedSinceCommunication() <= kSilentTimeout)
+        conn->GetSilenceDuration() <= kSilentTimeout)
         return;
     if (Field<uint32_t>(skate, 0x378) == kLoadMainMenu) {
         Run(kShowJoinTimeoutNotice);
@@ -466,4 +466,4 @@ void __cdecl Manager::ConnectionTask(void* task)
     }
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

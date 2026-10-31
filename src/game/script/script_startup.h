@@ -9,22 +9,22 @@
 // The script system's start-up, 0x005A5660-0x005A5F6F: the counts of the script functions, loading and unloading
 // .qb files by name, loading every start-up .qb file (scripts\qdir.txt from qb_scripts.pre), and the pools of the
 // animation and object classes made with the script pools, before the script functions are registered.
-namespace Gfx {
-extern Mem::PoolPair g_animSlotPools;   // 0x006F92B8 (CAnimCachePredictor, anim_cache.cpp)
-extern Mem::PoolPair g_standardPools;   // 0x00701430 (CBonedAnimController, anim_controller.cpp)
-extern Mem::PoolPair g_animTrackPools;  // 0x006F92C8 (CBlendChannel, anim_track.cpp)
+namespace Gfx2D {
+extern MemSys::PoolPair g_animSlotPools;   // 0x006F92B8 (CAnimCachePredictor, anim_cache.cpp)
+extern MemSys::PoolPair g_standardPools;   // 0x00701430 (CBonedAnimController, anim_controller.cpp)
+extern MemSys::PoolPair g_animTrackPools;  // 0x006F92C8 (CBlendChannel, anim_track.cpp)
 } // namespace Gfx
-namespace Obj {
-extern Mem::PoolPair g_scriptListPools; // 0x006F0FC8 (CEventReceiverList, tracker.cpp)
+namespace GameObjects {
+extern MemSys::PoolPair g_scriptListPools; // 0x006F0FC8 (CEventReceiverList, tracker.cpp)
 } // namespace Obj
 
-namespace Script {
+namespace Scripts {
 
 
 // 0x005A5660 / 0x005A5670: the number of script functions (CFunctions, the table at 0x0067F3A0) and member
 // functions (the names at 0x00681AD0).
 uint32_t GetNumCFunctions();
-uint32_t GetNumMemberFunctions();
+uint32_t CountMethodEntries();
 
 // 0x005A5960: load the .qb file `filename` (LoadQB with `unused`, not temporary).
 void LoadQBFile(const char* filename, int unused);
@@ -38,15 +38,15 @@ void UnloadQBFile(uint32_t fileChecksum);
 // unloaded after; then the global symbol debugger_names removed.
 void LoadStartupQBFiles();
 // 0x005A5B20: the same (the "All startup QB files" memory profile around it).
-void LoadAllStartupQBFiles();
+void LoadBootScriptFiles();
 
 // 0x005A5E70: the script pools (CreateScriptPools), then the pools of CAnimCachePredictor (200),
 // CBlendChannel (150), CBonedAnimController (150), CAnimLookup (175), sSpawnedPolyDetails (75) and
-// Obj::CEventReceiverList (175), then the script functions and member functions registered.
+// GameObjects::CEventReceiverList (175), then the script functions and member functions registered.
 void AllocatePools();
 
 // 0x005A5B40, 0x005A5BD0, 0x005A5C50, 0x005A5CD0, 0x005A5D60, 0x005A5DF0: one pool creator per class (cdecl: the
-// number of items, the pool's name), as the script pools' (Script::CreatePool).
+// number of items, the pool's name), as the script pools' (Scripts::CreatePool).
 void CreateAnimCachePredictorPool(int count, const char* name);
 void CreateBlendChannelPool(int count, const char* name);
 void CreateBonedAnimControllerPool(int count, const char* name);

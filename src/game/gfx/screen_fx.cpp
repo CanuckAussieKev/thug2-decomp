@@ -19,7 +19,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/engine_glue.h"
 
-namespace Nx {
+namespace Engine3D {
 
 bool g_screenCopyInUse;
 bool g_blurSecondPass{1};
@@ -37,7 +37,7 @@ bool& ScreenCopyInUse() { return g_screenCopyInUse; }
 void* Shader(int slot) { return g_pixelShaders[slot]; }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
-void SetFog(bool on) { Engine::EnableFog(on); }
+void ChangeFog(bool on) { Engine::EnableFog(on); }
 
 // The renderer's draw counters.
 void CountDraw(int triangles)
@@ -90,7 +90,7 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
                             bool shader)
 {
     bool fogWasOn = g_fogEnabled != 0;
-    SetFog(false);
+    ChangeFog(false);
     auto* targetTexture = static_cast<IDirect3DTexture9*>(target);
     SetTarget(targetTexture, nullptr);
     D3DSURFACE_DESC targetDesc;
@@ -102,7 +102,7 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
     SetState(kAlphaRef, 0);
     float width = static_cast<float>(Unsigned(targetDesc.Width));
     float height = static_cast<float>(Unsigned(targetDesc.Height));
-    SetBlendMode(blend);
+    ChooseBlendMode(blend);
     if (source) {
         auto* sourceTexture = static_cast<IDirect3DTexture9*>(source);
         D3DSURFACE_DESC sourceDesc;
@@ -137,7 +137,7 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
         DeviceCopy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(FlatVertex));
     }
     CountDraw(2);
-    SetFog(fogWasOn);
+    ChangeFog(fogWasOn);
 }
 
 // 0x004DEA80
@@ -245,7 +245,7 @@ void __cdecl Bloom()
     SetState(kAddressMode0, 0x10001);
     SetPixelShader(Shader(kPixelShader950), nullptr);
     SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    SetBlendMode(1);
+    ChooseBlendMode(1);
     for (int pass = 0; pass < 2; ++pass) {
         IDirect3DTexture9* blurred = pass ? ScreenCopy(7) : ScreenCopy(3);
         D3DSURFACE_DESC desc;

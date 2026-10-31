@@ -5,7 +5,7 @@
 // NOT ORIGINAL - the data overlay (ours, added at the user's request; not the game's and not PartyMod's): game files
 // made by tools/pipeline/menu_level/make_menu_level.ts from the game's own (the playable skate shop, the level select's extra
 // signs, the THPS4 levels, the pause menu's LEVEL EDITOR, the standard main menu) in a folder next to the exe,
-// thug2-decomp-data, read before the game's archives and data folder (Pip::Load / LoadFileInto, File::Open / Exist,
+// thug2-decomp-data, read before the game's archives and data folder (Packs::Load / LoadFileInto, FileLoad::Open / Exist,
 // the async file system).
 //   - Files at the top of the folder are always used.
 //   - Files in its front_end folder are used first while the new front end is on ([features] new_frontend, new_frontend.h Enabled).
@@ -17,7 +17,7 @@
 //     before. One switch for the whole mod for now (per-feature switches would go in the mod's scripts).
 //   - Files in its hd_ui folder (the menus' images and fonts upscaled, make_menu_level.ts --hd-ui) are used before all
 //     of those while [features] hd_ui=1 (default 0) and are never read otherwise (src/game/gfx/hd_ui.h).
-namespace Front::DataOverlay {
+namespace MenuSystem::DataOverlay {
 
 // The overlay folder (<game folder>\thug2-decomp-data).
 const std::string& Folder();
@@ -38,4 +38,4 @@ int SearchFolders(bool anteara, bool frontEnd, const char* (&folders)[4]);
 // the self-tests).
 void OverlayName(const char* name, char (&out)[260]);
 
-} // namespace Front::DataOverlay
+} // namespace MenuSystem::DataOverlay

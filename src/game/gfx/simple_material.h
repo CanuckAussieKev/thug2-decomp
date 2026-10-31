@@ -4,7 +4,7 @@
 
 // A one-pass material made on the fly (Nx engine, PC) and its pixel shader - for things drawn with a texture by
 // checksum and a blend mode by name; and two chunk-skipping helpers of the scene loaders.
-namespace Nx {
+namespace Engine3D {
 
 struct sSimpleMaterial {
     uint8_t* material; // 0x110 bytes (constructor 0x004D1A90)

@@ -4,7 +4,7 @@
 
 // The C string calls the online code (profiles, buddies, content vault, stats) makes on GameSpy's answers, with the
 // original's semantics: unbounded copies, and strtok's one hidden position shared by every caller.
-namespace GameNet::Text {
+namespace OnlinePlay::Text {
 
 // strcpy: no length limit, as the original's.
 inline char* Copy(char* to, const char* from)
@@ -20,4 +20,4 @@ inline char* Token(char* text, const char* delimiters)
     return strtok_s(text, delimiters, &s_position);
 }
 
-} // namespace GameNet::Text
+} // namespace OnlinePlay::Text

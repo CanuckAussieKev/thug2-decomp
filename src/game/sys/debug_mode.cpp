@@ -17,17 +17,17 @@
 #include "game/sys/log.h"
 #include "game/obj/movie_manager.h"
 
-namespace Sys::DebugMode {
+namespace SystemCore::DebugMode {
 
 namespace {
 
-uint32_t Checksum(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Checksum(const char* name) { return Checksums::HashFromText(name); }
 
 // The start-up scripts, which keep the disc build's CD: false there makes default_system_startup take the
 // developers' path - no UsePreFilesForLevelLoading (their loose files: the retail data's archives aren't loaded, the
 // front end's peds lose their animations - a crash at 0x00482BA0), auto_launch_viewer, the script debugger -
 // instead of the main menu; autolaunch and startup_loading_screen run with it.
-bool IsStartupScript(const Script::CScript* script)
+bool IsStartupScript(const Scripts::CScript* script)
 {
     if (!script)
         return false;
@@ -45,14 +45,14 @@ bool IsStartupScript(const Script::CScript* script)
 // The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.
 void Point(const char* name, void* function)
 {
-    if (Script::CFunctionEntry* entry = Script::FindCFunction(name))
-        Script::SetCFunction(*entry, function);
+    if (Scripts::CFunctionEntry* entry = Scripts::FindCFunction(name))
+        Scripts::SetCFunction(*entry, function);
 }
 
-void Run(const char* script) { Script::RunScript(Checksum(script), nullptr, nullptr, false, script); }
+void Run(const char* script) { Scripts::LaunchScript(Checksum(script), nullptr, nullptr, false, script); }
 
 // The view mode (the viewer's free camera): the script global view_mode, which SetViewMode copies to 0x007CE4A4.
-bool InViewMode() { return Obj::g_viewMode != 0; }
+bool InViewMode() { return GameObjects::g_viewMode != 0; }
 
 // A key's press (down now, up the frame before).
 struct Key {
@@ -77,12 +77,12 @@ bool& Enabled()
     return on;
 }
 
-bool __cdecl CFunc_CD(Script::CStruct* /*params*/, Script::CScript* script)
+bool __cdecl CFunc_CD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
     return !Enabled() || IsStartupScript(script); // (the original: true - 0x005B9760)
 }
 
-bool __cdecl CFunc_NotCD(Script::CStruct* /*params*/, Script::CScript* script)
+bool __cdecl CFunc_NotCD(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
     return !CFunc_CD(nullptr, script); // (the original: false - 0x005B9E50)
 }
@@ -97,9 +97,9 @@ void Install()
         "menu - and the viewer: F9 free camera)");
 }
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
-    if (!Enabled() || Mlp::FramesRun() == 0) // (not in the early self-tests, which run this on stand-in state)
+    if (!Enabled() || FrameLoop::FramesRun() == 0) // (not in the early self-tests, which run this on stand-in state)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)
@@ -111,7 +111,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool pressedF9 = f9.Pressed(keys), pressedF10 = f10.Pressed(keys), pressedF11 = f11.Pressed(keys),
          pressedF12 = f12.Pressed(keys), pressedTab = tab.Pressed(keys), pressedT = t.Pressed(keys),
          pressedHome = home.Pressed(keys);
-    if (Front::LevelEditor::Active() || (frontEnd && frontEnd->m_paused) || Nx::CurrentLevel() == 0)
+    if (MenuSystem::LevelEditor::Active() || (frontEnd && frontEnd->m_isHalted) || Engine3D::CurrentLevel() == 0)
         return;
     if (!s_started) {
         // In the first level (start-up long over; not the early self-tests, which run the front end's input logic
@@ -145,7 +145,7 @@ void Update(Mdl::FrontEnd* frontEnd)
 
 bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, uint32_t* commands)
 {
-    if (!Enabled() || Front::LevelEditor::Active())
+    if (!Enabled() || MenuSystem::LevelEditor::Active())
         return false;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)
@@ -176,4 +176,4 @@ bool KeyboardViewer(float* leftX, float* leftY, float* rightX, float* rightY, ui
     return true;
 }
 
-} // namespace Sys::DebugMode
+} // namespace SystemCore::DebugMode

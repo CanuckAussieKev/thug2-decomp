@@ -10,7 +10,7 @@
 #include "game/script/struct.h"
 #include "game/sys/crt.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -90,45 +90,45 @@ uint32_t __fastcall EditedGoalNodeName(int which, int goal)
         Sprintf(name, "TRG_EditedGoal%d_Restart", goal);
     else
         Sprintf(name, "TRG_EditedGoal%d_Object_%d", goal, which - 2);
-    return Crc::GenerateCRCFromString(name);
+    return Checksums::HashFromText(name);
 }
 
 // 0x004E67A0
-Script::CStruct* __fastcall GoalTypeStructure(uint32_t type)
+Scripts::CStruct* __fastcall GoalTypeStructure(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D: return Script::GetStructure(0xEF8F345F);
-    case kCombo: return Script::GetStructure(0xB4F5801D);
+    case 0x6FE44C6D: return Scripts::ReadSubStruct(0xEF8F345F);
+    case kCombo: return Scripts::ReadSubStruct(0xB4F5801D);
     case 0x0FC6F698:
     case 0x7FE2238A:
-    case 0xEA7BA666: return Script::GetStructure(0x675816B5);
-    case kCone: return Script::GetStructure(0x34785A5B);
-    case kSkate: return Script::GetStructure(0x3328976A);
-    case 0x61C5D092: return Script::GetStructure(0x5756A675);
-    case 0xD0DD047B: return Script::GetStructure(0xD3828793);
-    case 0xEC414B76: return Script::GetStructure(0xB520A510);
+    case 0xEA7BA666: return Scripts::ReadSubStruct(0x675816B5);
+    case kCone: return Scripts::ReadSubStruct(0x34785A5B);
+    case kSkate: return Scripts::ReadSubStruct(0x3328976A);
+    case 0x61C5D092: return Scripts::ReadSubStruct(0x5756A675);
+    case 0xD0DD047B: return Scripts::ReadSubStruct(0xD3828793);
+    case 0xEC414B76: return Scripts::ReadSubStruct(0xB520A510);
     default: return nullptr;
     }
 }
 
 // 0x004E6890
-Script::CStruct* GoalTypeDefaults(uint32_t type)
+Scripts::CStruct* GoalTypeDefaults(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D: return Script::GetStructure(0x28C7B799);
-    case kCombo: return Script::GetStructure(0xFECBAB7C);
-    case 0x0FC6F698: return Script::GetStructure(0x6626B0D8);
-    case kCone: return Script::GetStructure(0xFD6CAF2A);
-    case kSkate: return Script::GetStructure(0xE41E0E04);
-    case 0x61C5D092: return Script::GetStructure(0x9005703A);
-    case 0xEA7BA666: return Script::GetStructure(0xAD585D92);
-    case 0x7FE2238A: return Script::GetStructure(0x38C1D87E);
+    case 0x6FE44C6D: return Scripts::ReadSubStruct(0x28C7B799);
+    case kCombo: return Scripts::ReadSubStruct(0xFECBAB7C);
+    case 0x0FC6F698: return Scripts::ReadSubStruct(0x6626B0D8);
+    case kCone: return Scripts::ReadSubStruct(0xFD6CAF2A);
+    case kSkate: return Scripts::ReadSubStruct(0xE41E0E04);
+    case 0x61C5D092: return Scripts::ReadSubStruct(0x9005703A);
+    case 0xEA7BA666: return Scripts::ReadSubStruct(0xAD585D92);
+    case 0x7FE2238A: return Scripts::ReadSubStruct(0x38C1D87E);
     case 0xD0DD047B: {
-        Script::CStruct* defaults = Script::GetStructure(0x97FEFF8F);
-        Script::RunScriptOnce(0xFA54B475, nullptr, nullptr, defaults);
+        Scripts::CStruct* defaults = Scripts::ReadSubStruct(0x97FEFF8F);
+        Scripts::RunScriptOnce(0xFA54B475, nullptr, nullptr, defaults);
         return defaults;
     }
-    case 0xEC414B76: return Script::GetStructure(0xAB62B082);
+    case 0xEC414B76: return Scripts::ReadSubStruct(0xAB62B082);
     default: return nullptr;
     }
 }
@@ -184,12 +184,12 @@ void __fastcall InitEditedGoal(uint8_t* goal)
 // 0x004E6AE0
 void __stdcall RunMarkerObjectScript(int index)
 {
-    Script::CStruct params;
+    Scripts::CStruct params;
     params.Init();
     char* name = g_goalNameBuffer;
     Sprintf(name, "GoalEditorMarkerObject%d", index);
-    params.AddChecksum(0xA1DC81F9, Crc::GenerateCRCFromString(name));
-    Script::RunScript(0xDCF3A25E, &params, nullptr, false, nullptr);
+    params.PutNameKey(0xA1DC81F9, Checksums::HashFromText(name));
+    Scripts::LaunchScript(0xDCF3A25E, &params, nullptr, false, nullptr);
     params.Clear();
 }
 

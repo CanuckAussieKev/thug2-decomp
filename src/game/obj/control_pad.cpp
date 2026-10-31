@@ -11,7 +11,7 @@
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
 
-namespace Obj {
+namespace GameObjects {
 
 int g_clockOffset;
 
@@ -20,10 +20,10 @@ namespace {
 constexpr int kPressedAbove = 0x40;
 
 // The game clock with its offset (0x00696D60).
-int Clock() { return Tmr::GameClockElapsed() + g_clockOffset; }
+int Clock() { return FrameClock::GameClockElapsed() + g_clockOffset; }
 
-// Tmr::GetTime as the original compares it: unsigned, as a float would hold it.
-double Now() { return static_cast<double>(Tmr::GetTime()); }
+// FrameClock::GetTime as the original compares it: unsigned, as a float would hold it.
+double Now() { return static_cast<double>(FrameClock::GetTime()); }
 
 float FloatFromBits(uint32_t bits)
 {
@@ -96,21 +96,21 @@ void UpdateLock(uint32_t& lock, float length, bool inQuarter)
 } // namespace
 
 // 0x0046B7E0
-void CControlButton::ClearTrigger()
+void CControlButton::ResetActivation()
 {
-    m_triggered = 0;
+    m_fired = 0;
 }
 
 // 0x0046B7F0
-void CControlButton::ClearRelease()
+void CControlButton::ForgetLetGo()
 {
-    m_released = 0;
+    m_letGo = 0;
 }
 
 // 0x0046B800
 void CControlButton::SetName(const char* name)
 {
-    m_name = Crc::GenerateCRCFromString(name);
+    m_name = Checksums::HashFromText(name);
 }
 
 // 0x0046B820
@@ -122,70 +122,70 @@ void CControlButton::Update(int pressure)
             return;
         m_lockedUntil = 0.0f;
     }
-    m_pressure = pressure;
+    m_pressAmount = pressure;
     if (pressure > kPressedAbove) {
-        if (!m_pressed) {
+        if (!m_heldDown) {
             m_pressTime = Clock();
-            m_triggered = 1;
+            m_fired = 1;
         }
-        m_pressed = 1;
+        m_heldDown = 1;
     } else {
-        if (m_pressed) {
+        if (m_heldDown) {
             m_releaseTime = Clock();
-            m_released = 1;
+            m_letGo = 1;
         }
-        m_pressed = 0;
+        m_heldDown = 0;
     }
 }
 
 // 0x0046B8B0
-void CControlButton::SetPressed(uint8_t down)
+void CControlButton::SetHeldDown(uint8_t down)
 {
     if (down) {
-        if (!m_pressed) {
+        if (!m_heldDown) {
             m_pressTime = Clock();
-            m_triggered = 1;
+            m_fired = 1;
         }
-    } else if (m_pressed) {
-        m_released = 1;
+    } else if (m_heldDown) {
+        m_letGo = 1;
     }
-    m_pressed = down;
+    m_heldDown = down;
 }
 
 // 0x0046B900
-int CControlButton::GetReleasedTime()
+int CControlButton::ReadLetGoTime()
 {
     int released = m_releaseTime;
-    return Tmr::GameClockElapsed() + (g_clockOffset - released);
+    return FrameClock::GameClockElapsed() + (g_clockOffset - released);
 }
 
 // 0x0046B920
-int CControlButton::GetPressedTime()
+int CControlButton::GetHeldMillis()
 {
     int pressed = m_pressTime;
-    return Tmr::GameClockElapsed() + (g_clockOffset - pressed);
+    return FrameClock::GameClockElapsed() + (g_clockOffset - pressed);
 }
 
 namespace {
 
-// Every button of the pad with the name scripts ask for it by (each name's checksum is what GetButton matches).
+// Every button of the pad with the name scripts ask for it by (each name's checksum is what ReadButton matches).
 struct PadButtonName {
-    CControlButton CControlPad::*button;
+    CControlButton CPadState::*button;
     const char* name;
 };
 constexpr PadButtonName kPadButtons[] = {
-    {&CControlPad::m_up, "UP"},          {&CControlPad::m_down, "DOWN"},     {&CControlPad::m_left, "LEFT"},
-    {&CControlPad::m_right, "RIGHT"},    {&CControlPad::m_square, "SQUARE"}, {&CControlPad::m_circle, "CIRCLE"},
-    {&CControlPad::m_triangle, "TRIANGLE"}, {&CControlPad::m_x, "X"},       {&CControlPad::m_L1, "L1"},
-    {&CControlPad::m_L2, "L2"},          {&CControlPad::m_L3, "L3"},         {&CControlPad::m_R1, "R1"},
-    {&CControlPad::m_R2, "R2"},          {&CControlPad::m_R3, "R3"},         {&CControlPad::m_start, "START"},
-    {&CControlPad::m_select, "SELECT"},
+    {&CPadState::m_upDir, "UP"},          {&CPadState::m_btnDown, "DOWN"},     {&CPadState::m_left, "LEFT"},
+    {&CPadState::m_right, "RIGHT"},    {&CPadState::m_buttonBox, "SQUARE"}, {&CPadState::m_buttonRound, "CIRCLE"},
+    {&CPadState::m_buttonWedge, "TRIANGLE"}, {&CPadState::m_posX, "X"},       {&CPadState::m_shoulderLeftA, "L1"},
+    {&CPadState::m_shoulderLeftB, "L2"},          {&CPadState::m_stickClickLeft, "L3"},         {&CPadState::m_shoulderRightA, "R1"},
+    {&CPadState::m_shoulderRightB, "R2"},          {&CPadState::m_stickClickRight, "R3"},         {&CPadState::m_start, "START"},
+    {&CPadState::m_buttonChoose, "SELECT"},
 };
 
 } // namespace
 
 // 0x0046B940
-CControlPad* CControlPad::Init()
+CPadState* CPadState::Init()
 {
     for (const PadButtonName& entry : kPadButtons)
         (this->*entry.button).SetName(entry.name);
@@ -194,7 +194,7 @@ CControlPad* CControlPad::Init()
 }
 
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.
-void CControlPad::Reset()
+void CPadState::Reset()
 {
     for (const PadButtonName& entry : kPadButtons)
         (this->*entry.button).Update(0);
@@ -210,45 +210,45 @@ void CControlPad::Reset()
 }
 
 // 0x0046BC60
-void CControlPad::Clear()
+void CPadState::Clear()
 {
     Reset();
-    CControlButton* both[] = {&m_up, &m_down, &m_left, &m_right, &m_L1, &m_L2, &m_L3, &m_R1};
+    CControlButton* both[] = {&m_upDir, &m_btnDown, &m_left, &m_right, &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA};
     for (CControlButton* button : both) {
-        button->ClearTrigger();
-        button->ClearRelease();
+        button->ResetActivation();
+        button->ForgetLetGo();
     }
     // (the original's slip: R2's press is taken twice and its release kept, R3's release twice and its press kept)
-    m_R2.ClearTrigger();
-    m_R2.ClearTrigger();
-    m_R3.ClearRelease();
-    m_R3.ClearRelease();
-    CControlButton* rest[] = {&m_square, &m_circle, &m_x, &m_triangle, &m_start, &m_select};
+    m_shoulderRightB.ResetActivation();
+    m_shoulderRightB.ResetActivation();
+    m_stickClickRight.ForgetLetGo();
+    m_stickClickRight.ForgetLetGo();
+    CControlButton* rest[] = {&m_buttonBox, &m_buttonRound, &m_posX, &m_buttonWedge, &m_start, &m_buttonChoose};
     for (CControlButton* button : rest) {
-        button->ClearTrigger();
-        button->ClearRelease();
+        button->ResetActivation();
+        button->ForgetLetGo();
     }
 }
 
 // 0x0046BDA0
-void CControlPad::Update(const uint8_t* data)
+void CPadState::Update(const uint8_t* data)
 {
-    m_up.Update(Full(data[6] != 0));
-    m_down.Update(Full(data[7] != 0));
+    m_upDir.Update(Full(data[6] != 0));
+    m_btnDown.Update(Full(data[7] != 0));
     m_left.Update(Full(data[5] != 0));
     m_right.Update(Full(data[4] != 0));
-    m_square.Update(Full(data[0xB] != 0));
-    m_circle.Update(Full(data[9] != 0));
-    m_x.Update(Full(data[0xA] != 0));
-    m_triangle.Update(Full(data[8] != 0));
-    m_L1.Update(Full(data[0xC] != 0));
-    m_R1.Update(Full(data[0xD] != 0));
-    m_L2.Update(Full(data[0xE] != 0));
-    m_R2.Update(Full(data[0xF] != 0));
+    m_buttonBox.Update(Full(data[0xB] != 0));
+    m_buttonRound.Update(Full(data[9] != 0));
+    m_posX.Update(Full(data[0xA] != 0));
+    m_buttonWedge.Update(Full(data[8] != 0));
+    m_shoulderLeftA.Update(Full(data[0xC] != 0));
+    m_shoulderRightA.Update(Full(data[0xD] != 0));
+    m_shoulderLeftB.Update(Full(data[0xE] != 0));
+    m_shoulderRightB.Update(Full(data[0xF] != 0));
     uint32_t bits = *reinterpret_cast<const uint32_t*>(data + 0x1C);
-    m_L3.Update(Full((bits & 0x200) != 0));
-    m_R3.Update(Full((bits & 0x400) != 0));
-    m_select.Update(Full((bits & 0x100) != 0));
+    m_stickClickLeft.Update(Full((bits & 0x200) != 0));
+    m_stickClickRight.Update(Full((bits & 0x400) != 0));
+    m_buttonChoose.Update(Full((bits & 0x100) != 0));
     // (START isn't read here)
 
     for (int i = 0; i < 4; ++i)
@@ -289,11 +289,11 @@ void CControlPad::Update(const uint8_t* data)
 }
 
 // 0x0046C270
-CControlButton* CControlPad::GetButton(uint32_t name)
+CControlButton* CPadState::ReadButton(uint32_t name)
 {
     // (the original's order)
-    CControlButton* buttons[] = {&m_up, &m_down, &m_left, &m_right, &m_square, &m_circle, &m_triangle, &m_x,
-                                 &m_L1, &m_L2, &m_L3, &m_R1, &m_R2, &m_R3, &m_start, &m_select};
+    CControlButton* buttons[] = {&m_upDir, &m_btnDown, &m_left, &m_right, &m_buttonBox, &m_buttonRound, &m_buttonWedge, &m_posX,
+                                 &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA, &m_shoulderRightB, &m_stickClickRight, &m_start, &m_buttonChoose};
     for (CControlButton* button : buttons) {
         if (button->m_name == name)
             return button;

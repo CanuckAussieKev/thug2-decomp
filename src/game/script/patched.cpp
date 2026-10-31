@@ -12,7 +12,7 @@
 #include "game/sys/debug_log.h"
 #include "game/util/bps.h"
 
-namespace Script {
+namespace Scripts {
 
 namespace {
 
@@ -84,8 +84,8 @@ void InitScriptPatches()
 
 const uint8_t* LoadPatchedScript(const char* filename)
 {
-    auto* data = static_cast<const uint8_t*>(Pip::Load(filename, false, nullptr, nullptr, nullptr));
-    int size = Pip::GetFileSize(Crc::GenerateCRCFromString(filename));
+    auto* data = static_cast<const uint8_t*>(Packs::Load(filename, false, nullptr, nullptr, nullptr));
+    int size = Packs::GetFileSize(Checksums::HashFromText(filename));
     if (!s_patches) // (offline, or before InitScriptPatches)
         return data;
     ScriptPatch* entry = nullptr;

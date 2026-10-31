@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Mem {
+namespace MemSys {
 
 // A pool of fixed-size items carved out of one allocation, with the free items kept in a linked list (each
 // free item's first 4 bytes point to the next free item).
@@ -22,7 +22,7 @@ public:
     uint8_t* m_start;
     uint8_t* m_end;
     int m_count;
-    int m_itemSize;
+    int m_slotBytes;
     int m_used;
     void* m_freeList;
     char m_name[64];
@@ -31,11 +31,11 @@ public:
 
 } // namespace Mem
 
-namespace Mem {
+namespace MemSys {
 
 // Item pools shared by the engine's container classes, by index. Pool 0 holds hash table items (12 bytes
 // each); the other slots are unused in this game.
-namespace PoolManager {
+namespace SlotPoolSetup {
 
 // Create pool `index` with room for `count` items. Only index 0 is set up (as "HashItem").
 void SetUp(int index, int count);
@@ -46,11 +46,11 @@ void FreeItem(int index, void* item);
 // Pool `index` (null if there isn't one).
 Pool* GetPool(int index);
 
-} // namespace PoolManager
+} // namespace SlotPoolSetup
 
 } // namespace Mem
 
-namespace Mem {
+namespace MemSys {
 
 // A class's pair of item pools (the engine's CPoolable): new items come from the current pool, or from the
 // default heap when it doesn't exist; freed items go back to whichever pool holds them.

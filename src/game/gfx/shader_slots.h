@@ -5,7 +5,7 @@
 // The pixel shader handles the pixel shader maker fills in (the original's table of 18 words at 0x007CA920; a slot is
 // named by its offset from it), and the vertex-format ids of the mesh loader (6 words at 0x00775B64).
 
-namespace Nx {
+namespace Engine3D {
 
 enum PixelShaderSlot : int {
     kPixelShader920,

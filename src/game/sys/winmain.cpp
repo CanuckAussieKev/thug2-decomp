@@ -37,18 +37,18 @@
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
-namespace GameNet {
+namespace OnlinePlay {
 extern char g_commandLineEmail[256];
 extern char g_commandLinePassword[16];
 extern char g_pendingPassword[10];
-} // namespace GameNet
-namespace CFuncs {
+} // namespace OnlinePlay
+namespace ScriptCommands {
 extern char g_networkId[16];
 extern char g_networkPassword[12];
 extern char g_hostedGameName[16];
-} // namespace CFuncs
+} // namespace ScriptCommands
 
-namespace Sys {
+namespace SystemCore {
 
 char g_commandLineServerName[256]; // "-connect"'s value
 
@@ -89,7 +89,7 @@ long Number(const char* from)
 
 // --- WinMain's callees -------------------------------------------------------------------------------------------
 
-HWND GameWindow() { return Nx::g_gameWindow; }
+HWND GameWindow() { return Engine3D::g_gameWindow; }
 
 // GameSpy (library code, not decompiled): is the game's back end up?
 void GsiStartAvailableCheck(const char* game) { GameSpy::StartAvailableCheck(game); }
@@ -140,7 +140,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
     case WM_DESTROY:
     case WM_CLOSE:
         PostQuitMessage(0);
-        Nx::g_quitRequested = true; // quit
+        Engine3D::g_quitRequested = true; // quit
         return 0;
     case WM_ACTIVATE:
         // (the game's window, not the message's)
@@ -150,7 +150,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         } else {
             ShowWindow(GameWindow(), SW_MINIMIZE);
             g_appActive = false;
-            Nx::g_deviceLost = true; // the device is taken as lost (reset when active again)
+            Engine3D::g_deviceLost = true; // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
         }
         return 0;
@@ -199,11 +199,11 @@ void ReadNetworkParams(const char* commandLine)
     if (find("-HOST "))
         g_internetGameHost = true; // hosting a game
     if (const char* at = find("-HOSTNAME"))
-        CopyValue(at + 9, CFuncs::g_hostedGameName, 15); // the hosted game's name
+        CopyValue(at + 9, ScriptCommands::g_hostedGameName, 15); // the hosted game's name
     if (const char* at = find("-EMAIL"))
-        CopyValue(at + 6, GameNet::g_commandLineEmail, 255);
+        CopyValue(at + 6, OnlinePlay::g_commandLineEmail, 255);
     if (const char* at = find("-PPASS"))
-        CopyValue(at + 6, GameNet::g_commandLinePassword, 15);
+        CopyValue(at + 6, OnlinePlay::g_commandLinePassword, 15);
     if (!g_internetGameHost) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
@@ -216,33 +216,33 @@ void ReadNetworkParams(const char* commandLine)
                 if (const hostent* host = gethostbyname(server))
                     std::memcpy(&address, host->h_addr_list[0], sizeof(address));
             }
-            GameNet::g_commandLineServer = address;
+            OnlinePlay::g_commandLineServer = address;
             g_joiningInternetGame = true; // joining a game
         }
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const char* at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(Number(at + 11));
-        reinterpret_cast<uint32_t&>(GameNet::g_netMaxPlayers) = players < 2 ? 2 : players > 8 ? 8 : players;
+        reinterpret_cast<uint32_t&>(OnlinePlay::g_netMaxPlayers) = players < 2 ? 2 : players > 8 ? 8 : players;
     }
     if (const char* at = find("-GROUP"))
-        GameNet::g_lobbyGroupId = Number(at + 6);
+        OnlinePlay::g_lobbyGroupId = Number(at + 6);
     if (const char* at = find("-NTEAMS")) {
         auto teams = static_cast<uint32_t>(Number(at + 7));
-        GameNet::g_networkTeamMode = teams > 4 ? 0 : teams;
+        OnlinePlay::g_networkTeamMode = teams > 4 ? 0 : teams;
     }
     if (const char* at = find("-SKILLLEVEL")) {
         auto skill = static_cast<uint32_t>(Number(at + 11));
-        reinterpret_cast<uint32_t&>(GameNet::g_netSkillLevel) = skill > 4 ? 4 : skill;
+        reinterpret_cast<uint32_t&>(OnlinePlay::g_netSkillLevel) = skill > 4 ? 4 : skill;
     }
     if (const char* at = find("-NAME"))
-        CopyValue(at + 5, CFuncs::g_networkId, 15); // the player's name
+        CopyValue(at + 5, ScriptCommands::g_networkId, 15); // the player's name
     if (const char* at = find("-PASSWORD")) {
-        char* password = CFuncs::g_networkPassword;
+        char* password = ScriptCommands::g_networkPassword;
         CopyValue(at + 9, password, 9);
         if (g_joiningInternetGame) {
             // Joining: it's the server's password (moved to where the join looks for it).
-            std::memcpy(GameNet::g_pendingPassword, password, std::strlen(password) + 1); // (strcpy)
+            std::memcpy(OnlinePlay::g_pendingPassword, password, std::strlen(password) + 1); // (strcpy)
             std::memset(password, 0, 10);
         }
     }
@@ -261,12 +261,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // called in place of GsiStartAvailableCheck, which the cave then jumps to. PartyMod is part of the game's
     // source here, so nothing is loaded.)
     // (the game name: "thps6pc", or [Miscellaneous] OnlineGameName - game/net/online_identity.h)
-    GsiStartAvailableCheck(Net::GameName());
+    GsiStartAvailableCheck(NetLink::GameName());
     int available;
     while ((available = GsiAvailableCheckThink()) == 0)
         Msleep(5);
     if (available != 1)
-        Dbg::Printf("The backend is not available\n");
+        DebugOut::Printf("The backend is not available\n");
 
     // Originally from PartyMod Fixes: its set-up (thug2-decomp.ini, logging, the patched scripts, the SDL event pump, the online service's
     // hosts, the button glyphs, the graphics settings) before the command line is read (PartyMod called it in
@@ -296,7 +296,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     if (!GameWindow())
         return 0;
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
-    //     ShowWindow(GameWindow(), Nx::g_showWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
+    //     ShowWindow(GameWindow(), Engine3D::g_showWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     Srand(Time());
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command
@@ -364,13 +364,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // went on to shut down:
     ReleaseDirectSound();
     // Originally from PartyMod Fixes: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
-    Gfx::LoadingConsole::ScreenHidden(); // (not original: the loading console's timer stopped)
-    Nx::RemoveLoadingScreen(); // (the renderer's clean-up)
+    Gfx2D::LoadingConsole::ScreenHidden(); // (not original: the loading console's timer stopped)
+    Engine3D::RemoveLoadingScreen(); // (the renderer's clean-up)
     ReleaseDirect3D();
     InvalidateRect(nullptr, nullptr, TRUE);
     ShowWindow(GameWindow(), SW_SHOWMINIMIZED);
     CExit();
-    Mem::ShutDownManager();
+    MemSys::ShutDownManager();
     ExitNow(0);
 }
 

@@ -5,23 +5,23 @@
 
 #include "game/core/task.h"
 
-// The main loop's task manager (Mlp::Manager, the singleton 0x0044F260 creates). Sys::Main hands it the engine's
+// The main loop's task manager (FrameLoop::Manager, the singleton 0x0044F260 creates). SystemCore::Main hands it the engine's
 // tasks and then runs its loop (MainLoop), which returns only when the game is quit or the loop is told to stop.
-namespace Mlp {
+namespace FrameLoop {
 
 struct Manager {
-    uint8_t m_done;             // +0x00: (a bool) ends the loop after the current frame
+    uint8_t m_isFinished;             // +0x00: (a bool) ends the loop after the current frame
     uint8_t pad01[3];
-    Tsk::Stack m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
-    Tsk::Stack m_displayTasks;   // +0x40 (not run by the loop)
-    Tsk::Stack m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
+    TaskList::Stack m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
+    TaskList::Stack m_displayTasks;   // +0x40 (not run by the loop)
+    TaskList::Stack m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
     uint32_t m_unknownB8;       // +0xB8 (cleared by the constructor, otherwise unused here)
     uint32_t m_unknownBC;       // +0xBC (the same)
     uint8_t padC0[0x04];
     int m_profileFrames;        // +0xC4: frames still to profile (announced, counted down)
     int m_profiling;            // +0xC8: this frame is being profiled (passed to the task lists)
 
-    // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and m_done cleared. Returns this.
+    // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and m_isFinished cleared. Returns this.
     Manager* Construct();
     // 0x0044EE30: the task lists destroyed (0x004070E0), the last first.
     void DestroyBody();
@@ -31,12 +31,12 @@ struct Manager {
     static void ResetDeviceIfLost();
     // 0x0044F220 (ProfileTasks): profile the next `frames` frames.
     void ProfileFrames(int frames);
-    // 0x0044F240 (ResetEngine): end the main loop after this frame (Sys::Main then shuts down and starts again).
+    // 0x0044F240 (ResetEngine): end the main loop after this frame (SystemCore::Main then shuts down and starts again).
     void StopLoop();
 
     // 0x0044EEF0: the game's main loop - one frame per pass, at most 60 a second (QueryPerformanceCounter),
     // skipping the render of frames that run late, idling while the window is inactive and resetting the
-    // device after it's lost. Returns when the game is quit (0x007D6A2C) or m_done is set; m_done is then put
+    // device after it's lost. Returns when the game is quit (0x007D6A2C) or m_isFinished is set; m_isFinished is then put
     // back as it was on entry. PartyMod's letterbox per level is built in (RenderFrameLetterboxed).
     void MainLoop();
 };

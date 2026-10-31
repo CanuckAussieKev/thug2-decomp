@@ -8,7 +8,7 @@
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_ui.h"
 
-namespace Mdl {
+namespace GameModules {
 struct FrontEnd;
 }
 struct ImFont;
@@ -48,11 +48,11 @@ struct ImFont;
 //     0x004F8DE0).
 //   - SkaterScore (0xD262802F): +0x18 the score; its +0x14 times its +0x60 is the combo's points pending (as the trick
 //     objects goal reads it: trick_goals.cpp, 0x00576520).
-//   - The gap checklist (the skate module's, 0x005656C0 - gap_checklist.h): a gap got raises its m_pending (GotGap
-//     0x00578C70); landing the combo moves pending into m_count (AwardPendingGaps 0x005796C0); a bail clears pending
+//   - The gap checklist (the skate module's, 0x005656C0 - gap_checklist.h): a gap got raises its m_pending (RegisterGapHit
+//     0x00578C70); landing the combo moves pending into m_count (PayOutQueuedGaps 0x005796C0); a bail clears pending
 //     (ClearPending 0x00578CF0). Read each frame - nothing of the game is hooked.
 // Never in a network session or a refused mode (Layout::Refused); [features] level_editor=0 turns it all off.
-namespace Front::LevelEditor::PlayTest {
+namespace MenuSystem::LevelEditor::PlayTest {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -176,7 +176,7 @@ bool SimulateKeyKeeps(int scancode, bool ctrl, bool alt, bool flyKeysSafe);
 
 // Once a frame from the front end's input logic while the editor isn't running (MouseMenus::Update): the trail
 // recorded, a restart's play from here finished.
-void Update(Mdl::FrontEnd* frontEnd);
+void Update(GameModules::FrontEnd* frontEnd);
 // The editor starting (LevelEditor_Start: the run under way ends; the level's side file read if it has no runs) and
 // stopping (LevelEditor_Stop, first thing: a simulation stopped and the world put back).
 void OnEditorStart();
@@ -214,4 +214,4 @@ bool& Recording();
 bool& KeepSimulation(); // (Simulate's stop leaves the objects where they got to)
 std::string Status();   // a line: recording / runs / simulate
 
-} // namespace Front::LevelEditor::PlayTest
+} // namespace MenuSystem::LevelEditor::PlayTest

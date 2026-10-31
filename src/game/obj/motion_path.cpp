@@ -1,4 +1,4 @@
-// The motion component's members of 0x00423130-0x00423642 (Obj::CMotionPathMembers): see motion_path.h. From their
+// The motion component's members of 0x00423130-0x00423642 (GameObjects::CMotionPathMembers): see motion_path.h. From their
 // disassembly (0x00423160-0x004234F0 are no Ghidra functions; their names from the member-function table's static
 // initialiser, 0x00640E30). The x87 roundings are kept: values the original stores are rounded to float, the ones it
 // keeps on the FPU stack are worked in double.
@@ -12,7 +12,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_motionPathMemberFunctions[294]{
             0x21ACCF0D, 0x0A015E17, 0, 0, 0, 0,
@@ -79,36 +79,36 @@ constexpr float kDefaultMinStopVelocity = 15.0f;
 
 // A speed (or acceleration) from the unnamed float into `value`: miles an hour, feet (`feet`) or inches (`inches`) a
 // second.
-void GetSpeed(Script::CStruct* params, float* value, uint32_t feet, uint32_t inches)
+void GetSpeed(Scripts::CStruct* params, float* value, uint32_t feet, uint32_t inches)
 {
     if (!params->GetFloat(0u, value, 0))
         return;
-    if (params->ContainsFlag(feet)) {
+    if (params->HasBareFlag(feet)) {
         *value *= kFeetToInches;
         return;
     }
-    if (params->ContainsFlag(inches))
+    if (params->HasBareFlag(inches))
         return;
     *value = static_cast<float>(static_cast<double>(*value) * kMilesToInches * kPerHourToPerSecond);
 }
 
 // The script waits on the component (CScript::SetWaitOnComponent).
-int WaitOn(Script::CScript* script, CMotionPathMembers* component, Script::EWaitType type)
+int WaitOn(Scripts::CScript* script, CMotionPathMembers* component, Scripts::EBlockReason type)
 {
-    script->SetWaitOnComponent(type, reinterpret_cast<CBaseComponent*>(component), 0);
+    script->SetWaitOnComponent(type, reinterpret_cast<CObjectModule*>(component), 0);
     return 1;
 }
 
 } // namespace
 
 // 0x00423130
-void __cdecl CMotionPathMembers::RegisterMemberFunctions()
+void __cdecl CMotionPathMembers::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_motionPathMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_motionPathMemberFunctions, 0x18);
 }
 
 // 0x00423150
-bool CMotionPathMembers::IsRotating() const { return (m_motionFlags & MOTION_FLAG_ROTATING) != 0; }
+bool CMotionPathMembers::IsSpinning() const { return (m_motionFlags & MOTION_FLAG_ROTATING) != 0; }
 
 // 0x00423520
 bool CMotionPathMembers::PicksRandomLink() const { return (m_pathFlags & MOTION_PATH_RANDOM) != 0; }
@@ -146,74 +146,74 @@ void CMotionPathMembers::UpdatePathSpeed()
     if (!(m_velocity > m_pathVelocity))
         return; // (there, or NaN)
     // Down to it.
-    if (m_deceleration == 0.0f) {
+    if (m_slowdownRate == 0.0f) {
         m_velocity = m_pathVelocity;
         return;
     }
-    double velocity = m_velocity - static_cast<double>(m_frameTime) * m_deceleration;
+    double velocity = m_velocity - static_cast<double>(m_frameTime) * m_slowdownRate;
     m_velocity = static_cast<float>(velocity);
     if (velocity < m_pathVelocity)
         m_velocity = m_pathVelocity;
 }
 
 // 0x00423160
-int CMotionPathMembers::IsMovingFromScript(Script::CStruct*, Script::CScript*)
+int CMotionPathMembers::IsMovingFromScript(Scripts::CStruct*, Scripts::CScript*)
 {
     return (m_motionFlags & MOTION_FLAG_MOVING) ? 1 : 0;
 }
 
 // 0x00423170
-int CMotionPathMembers::IsRotatingFromScript(Script::CStruct*, Script::CScript*)
+int CMotionPathMembers::IsRotatingFromScript(Scripts::CStruct*, Scripts::CScript*)
 {
     return (m_motionFlags & MOTION_FLAG_ROTATING) ? 1 : 0;
 }
 
 // 0x00423180
-int CMotionPathMembers::StopMoving(Script::CStruct*, Script::CScript*)
+int CMotionPathMembers::StopMoving(Scripts::CStruct*, Scripts::CScript*)
 {
     m_motionFlags &= ~MOTION_FLAG_MOVING;
     return 1;
 }
 
 // 0x00423190
-int CMotionPathMembers::StopRotating(Script::CStruct*, Script::CScript*)
+int CMotionPathMembers::StopRotating(Scripts::CStruct*, Scripts::CScript*)
 {
     m_motionFlags &= ~(MOTION_FLAG_ROTATING | 0x40u);
     return 1;
 }
 
 // 0x004231A0
-int CMotionPathMembers::SetPathVelocity(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::SetPathVelocity(Scripts::CStruct* params, Scripts::CScript*)
 {
     GetSpeed(params, &m_pathVelocity, kFps, kIps);
     return 1;
 }
 
 // 0x00423210
-int CMotionPathMembers::SetPathMinStopVel(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::SetPathMinStopVel(Scripts::CStruct* params, Scripts::CScript*)
 {
     GetSpeed(params, &m_minStopVelocity, kFps, kIps);
     return 1;
 }
 
 // 0x00423280
-int CMotionPathMembers::SetPathAcceleration(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::SetPathAcceleration(Scripts::CStruct* params, Scripts::CScript*)
 {
     GetSpeed(params, &m_acceleration, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x004232F0
-int CMotionPathMembers::SetPathDeceleration(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::SetPathDeceleration(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GetSpeed(params, &m_deceleration, kFpsps, kIpsps);
+    GetSpeed(params, &m_slowdownRate, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x00423360
-int CMotionPathMembers::PathHeading(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::PathHeading(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (params->ContainsFlag(kOff))
+    if (params->HasBareFlag(kOff))
         m_pathFlags |= MOTION_PATH_NO_HEADING;
     else
         m_pathFlags &= ~MOTION_PATH_NO_HEADING;
@@ -221,9 +221,9 @@ int CMotionPathMembers::PathHeading(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004233A0
-int CMotionPathMembers::RandomPathMode(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::RandomPathMode(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (params->ContainsFlag(kOff))
+    if (params->HasBareFlag(kOff))
         m_pathFlags &= ~MOTION_PATH_RANDOM;
     else
         m_pathFlags |= MOTION_PATH_RANDOM;
@@ -231,14 +231,14 @@ int CMotionPathMembers::RandomPathMode(Script::CStruct* params, Script::CScript*
 }
 
 // 0x004233E0
-int CMotionPathMembers::StopAlongPath(Script::CStruct* params, Script::CScript*)
+int CMotionPathMembers::StopAlongPath(Scripts::CStruct* params, Scripts::CScript*)
 {
     m_stopDistance = 0.0f;
     m_stopCovered = 0.0f;
     if (m_minStopVelocity == 0.0f)
         m_minStopVelocity = kDefaultMinStopVelocity;
     params->GetFloat(0u, &m_stopDistance, 0);
-    if (!params->ContainsFlag(kInches)) {
+    if (!params->HasBareFlag(kInches)) {
         // (in feet: the stop's starting speed noted - not with `inches`, as the original)
         m_stopStartVelocity = m_velocity;
         m_stopDistance *= kFeetToInches;
@@ -250,34 +250,34 @@ int CMotionPathMembers::StopAlongPath(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x00423480
-int CMotionPathMembers::StartAlongPath(Script::CStruct*, Script::CScript*)
+int CMotionPathMembers::StartAlongPath(Scripts::CStruct*, Scripts::CScript*)
 {
     m_pathFlags &= ~MOTION_PATH_STOPPING;
     return 1;
 }
 
 // 0x00423490
-int CMotionPathMembers::WaitJumpFinished(Script::CStruct*, Script::CScript* script)
+int CMotionPathMembers::WaitJumpFinished(Scripts::CStruct*, Scripts::CScript* script)
 {
-    return WaitOn(script, this, static_cast<Script::EWaitType>(7));
+    return WaitOn(script, this, static_cast<Scripts::EBlockReason>(7));
 }
 
 // 0x004234B0
-int CMotionPathMembers::WaitRotate(Script::CStruct*, Script::CScript* script)
+int CMotionPathMembers::WaitRotate(Scripts::CStruct*, Scripts::CScript* script)
 {
-    return WaitOn(script, this, static_cast<Script::EWaitType>(9));
+    return WaitOn(script, this, static_cast<Scripts::EBlockReason>(9));
 }
 
 // 0x004234D0
-int CMotionPathMembers::WaitMove(Script::CStruct*, Script::CScript* script)
+int CMotionPathMembers::WaitMove(Scripts::CStruct*, Scripts::CScript* script)
 {
-    return WaitOn(script, this, static_cast<Script::EWaitType>(5));
+    return WaitOn(script, this, static_cast<Scripts::EBlockReason>(5));
 }
 
 // 0x004234F0
-int CMotionPathMembers::WaitStop(Script::CStruct*, Script::CScript* script)
+int CMotionPathMembers::WaitStop(Scripts::CStruct*, Scripts::CScript* script)
 {
-    return WaitOn(script, this, static_cast<Script::EWaitType>(8));
+    return WaitOn(script, this, static_cast<Scripts::EBlockReason>(8));
 }
 
 } // namespace Obj

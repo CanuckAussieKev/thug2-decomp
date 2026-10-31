@@ -1,4 +1,4 @@
-// The collision component (Obj::CCollisionComponent): an object's own movable collision object, made from its node's
+// The collision component (GameObjects::CContactShapeModule): an object's own movable collision object, made from its node's
 // CollisionMode and its model's (or its level sector's) collision, placed where the object is.
 
 #include <cstdint>
@@ -27,7 +27,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -40,83 +40,83 @@ constexpr uint32_t kLevelObject = 0xB7B3BD86;    // LevelObject
 constexpr uint32_t kName = 0xA1DC81F9;           // Name
 
 // The model component's model (+0x208).
-uint8_t* ModelOf(CBaseComponent* model) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208); }
+uint8_t* ModelOf(CObjectModule* model) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208); }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
-uint8_t* GetSector(uint32_t name) { return static_cast<uint8_t*>(Nx::Engine::GetSector(name)); }
-Nx::CCollObj* SectorCollision(uint8_t* sector)
+uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
+Engine3D::CHitMesh* SectorCollision(uint8_t* sector)
 {
-    return reinterpret_cast<Nx::CCollObj*>(reinterpret_cast<GameNet::FoldedGetters*>(sector)->Word18());
+    return reinterpret_cast<Engine3D::CHitMesh*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(sector)->Word18());
 }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
-const uint8_t* BoneOf(uint8_t* model) { return reinterpret_cast<const uint8_t*>(reinterpret_cast<Nx::CModel*>(model)->GetAssetHierarchy()); }
+const uint8_t* BoneOf(uint8_t* model) { return reinterpret_cast<const uint8_t*>(reinterpret_cast<Engine3D::CRenderModel*>(model)->GetAssetHierarchy()); }
 
-void D3dxMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void D3dxMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
 
 // The collision object's slots 5 / 6: its world position, its orientation.
-void SetWorldPosition(Nx::CCollObj* collision, const Mth::Vector* position) { collision->Call<void>(5, position); }
-void SetOrientation(Nx::CCollObj* collision, const Mth::Matrix* orientation) { collision->Call<void>(6, orientation); }
+void PlaceAtAbsolutePoint(Engine3D::CHitMesh* collision, const Maths::Vector* position) { collision->Call<void>(5, position); }
+void SetOrientation(Engine3D::CHitMesh* collision, const Maths::Matrix* orientation) { collision->Call<void>(6, orientation); }
 
 } // namespace
 
 // 0x0041C920
-CBaseComponent* __cdecl CCollisionComponent::Create()
+CObjectModule* __cdecl CContactShapeModule::Create()
 {
-    auto* component = static_cast<CCollisionComponent*>(Mem::Calloc(sizeof(CCollisionComponent)));
+    auto* component = static_cast<CContactShapeModule*>(MemSys::AllocZeroed(sizeof(CContactShapeModule)));
     if (!component)
         return nullptr;
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     return component;
 }
 
 // 0x0041C710
-void CCollisionComponent::DestroyBody()
+void CContactShapeModule::DestroyBody()
 {
     m_vtable = kVtable;
-    if (mp_collision) {
-        Nx::UnregisterMovable(mp_collision);
-        if (mp_collision)
-            mp_collision->Call<void*>(0, 1); // (its scalar deleting destructor)
+    if (m_hitShape) {
+        Engine3D::UnregisterMovable(m_hitShape);
+        if (m_hitShape)
+            m_hitShape->Call<void*>(0, 1); // (its scalar deleting destructor)
     }
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0041C780
-CCollisionComponent* CCollisionComponent::Destroy(unsigned int flags)
+CContactShapeModule* CContactShapeModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0041C7B0
-void CCollisionComponent::InitFromStructure(Script::CStruct* params)
+void CContactShapeModule::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t mode = 0;
-    params->GetChecksum(kCollisionMode, &mode, 0);
-    int type = Nx::ShapeTypeFromChecksum(mode);
+    params->ReadHashValue(kCollisionMode, &mode, 0);
+    int type = Engine3D::ShapeTypeFromChecksum(mode);
     if (!type)
         return;
-    using InitCollisionSlot = void(__thiscall*)(CCollisionComponent*, int, Nx::CCollObjTriData*);
+    using InitCollisionSlot = void(__thiscall*)(CContactShapeModule*, int, Engine3D::CTriMeshSource*);
     auto initCollision = reinterpret_cast<InitCollisionSlot>(m_vtable[13]);
     uint32_t cls = 0;
-    params->GetChecksum(kClass, &cls, 0);
+    params->ReadHashValue(kClass, &cls, 0);
     if (cls != kLevelObject) {
         initCollision(this, type, nullptr);
         return;
     }
     // (the original passes on whatever was in the name's slot when there's no Name - an assertion's case; ours 0)
     uint32_t name = 0;
-    params->GetChecksum(kName, &name, 1);
-    uint8_t* sector = GetSector(name); // (no such sector: a crash, as in the original)
+    params->ReadHashValue(kName, &name, 1);
+    uint8_t* sector = LookUpSector(name); // (no such sector: a crash, as in the original)
     if (SectorCollision(sector))
         initCollision(this, type, SectorCollision(sector)->m_geometry);
     else
@@ -124,63 +124,63 @@ void CCollisionComponent::InitFromStructure(Script::CStruct* params)
 }
 
 // 0x0041C890
-void CCollisionComponent::InitCollision(int type, Nx::CCollObjTriData* geometry)
+void CContactShapeModule::SetUpHitShape(int type, Engine3D::CTriMeshSource* geometry)
 {
     if (geometry) {
-        mp_collision = Nx::CreateMovableCollision(type, geometry, 1, reinterpret_cast<int>(m_object));
+        m_hitShape = Engine3D::CreateMovableCollision(type, geometry, 1, reinterpret_cast<int>(m_object));
         return;
     }
     uint8_t* model = ModelOf(m_object->GetComponent(kModelComponent));
-    auto* data = static_cast<uint8_t*>(Ass::AssetManager()->GetAssetData(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
+    auto* data = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
     if (data) {
-        mp_collision = Nx::CreateMovableCollision(type, *reinterpret_cast<Nx::CCollObjTriData**>(data + 0x8C),
+        m_hitShape = Engine3D::CreateMovableCollision(type, *reinterpret_cast<Engine3D::CTriMeshSource**>(data + 0x8C),
                                                   *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(m_object));
     } else {
-        mp_collision = Nx::CreateMovableCollision(type, nullptr, 0, reinterpret_cast<int>(m_object));
+        m_hitShape = Engine3D::CreateMovableCollision(type, nullptr, 0, reinterpret_cast<int>(m_object));
     }
 }
 
 // 0x0041C980
-void CCollisionComponent::Update()
+void CContactShapeModule::Update()
 {
-    Nx::CCollObj* collision = mp_collision;
+    Engine3D::CHitMesh* collision = m_hitShape;
     if (!collision)
         return;
-    CBaseComponent* model = m_object->GetComponent(kModelComponent);
+    CObjectModule* model = m_object->GetComponent(kModelComponent);
     const uint8_t* bone = model ? BoneOf(ModelOf(model)) : nullptr;
     if (!bone) {
-        SetWorldPosition(collision, &m_object->m_pos);
+        PlaceAtAbsolutePoint(collision, &m_object->m_pos);
         SetOrientation(collision, &m_object->m_displayMatrix);
         return;
     }
     const auto* translation = reinterpret_cast<const float*>(bone + 0x40);
-    const Mth::Vector& pos = m_object->m_pos;
-    Mth::Vector position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
-    SetWorldPosition(collision, &position);
-    Mth::Matrix orientation;
-    D3dxMultiply(&orientation, reinterpret_cast<const Mth::Matrix*>(bone + 0x10), &m_object->m_displayMatrix);
+    const Maths::Vector& pos = m_object->m_pos;
+    Maths::Vector position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
+    PlaceAtAbsolutePoint(collision, &position);
+    Maths::Matrix orientation;
+    D3dxMultiply(&orientation, reinterpret_cast<const Maths::Matrix*>(bone + 0x10), &m_object->m_displayMatrix);
     SetOrientation(collision, &orientation);
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CCollisionComponent::Destroy,
-         &Obj::CCollisionComponent::Update,
-         &Obj::CCollisionComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CContactShapeModule::Destroy,
+         &GameObjects::CContactShapeModule::Update,
+         &GameObjects::CContactShapeModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
-         Nx::VirtualSlot1Jump,
+         Engine3D::VirtualSlot1Jump,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction,
-         &Obj::CCollisionComponent::InitCollision};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
+         &GameObjects::CContactShapeModule::SetUpHitShape};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

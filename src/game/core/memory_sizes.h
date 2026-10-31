@@ -12,7 +12,7 @@
 // script_pool=, script_cache_pool=, string_heap=, string_count=, hash_item_pool=); original_sizes=1 puts them all
 // back to the original's. The script region and the main block grow by exactly what the bigger pools take, so
 // every other heap keeps the room it had (they never shrink below the original's).
-namespace Mem::Sizes {
+namespace MemSys::Sizes {
 
 struct Pools {
     int scriptCacheEntries; // CScriptCacheEntry (0x14 bytes)
@@ -26,7 +26,7 @@ struct Pools {
     int storedRandoms;      // CStoredRandom (0x60) - THUGPRO leaves it, so do we
     uint32_t stringBytes;   // the permanent string heap (AllocatePermanentStringHeap)
     uint32_t strings;       // its string slots (8 bytes each)
-    int hashItems;          // the HashItem pool (Mem::PoolManager::SetUp, 12 bytes; from the bottom-up heap)
+    int hashItems;          // the HashItem pool (MemSys::SlotPoolSetup::SetUp, 12 bytes; from the bottom-up heap)
 };
 
 // The original's (CreateScriptPools 0x0046F520, Main 0x004E1EF0).
@@ -55,7 +55,7 @@ uint32_t MainBlockSize();
 // - a level with more named nodes filled it and its lookups never ended), ours 0x10000 by default (THP8's whole town,
 // tools/pipeline/thp8_levels, has ~34,000), [memory] node_hash_slots= (a power of two is taken: rounded up; 0x4000 to
 // 0x100000); original_sizes=1 the original's. More than the original's live outside the node manager's object (its
-// layout is the original's): SkateScript::CNodeManager keeps them beside it, node indices in 32 bits.
+// layout is the original's): LevelNodes::CNodeManager keeps them beside it, node indices in 32 bits.
 uint32_t NodeHashSlots();
 constexpr uint32_t kOriginalNodeHashSlots = 0x4000;
 
@@ -71,4 +71,4 @@ private:
     bool m_was;
 };
 
-} // namespace Mem::Sizes
+} // namespace MemSys::Sizes

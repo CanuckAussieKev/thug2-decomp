@@ -9,15 +9,15 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_tests.h"
 
-namespace Nx {
+namespace Engine3D {
 
-class CCollCache;
+class CHitMeshCache;
 
 // One end of a rect hit: the point, and the triangle edge it lies on (unit; left as it was when the end is on a
 // rect side instead).
 struct RectHitEnd {
-    Mth::Vector point;
-    Mth::Vector edge;
+    Maths::Vector point;
+    Maths::Vector edge;
     bool onTriangleEdge;
     uint8_t pad[3];
 };
@@ -30,7 +30,7 @@ struct RectHit {
     RectHit* Assign(const RectHit* other);
 
     RectHitEnd ends[2];
-    Mth::Vector normal;      // +0x48
+    Maths::Vector normal;      // +0x48
     uint32_t checksum;       // +0x58
     uint8_t faceFlag40;      // +0x5C
     uint8_t pad[3];
@@ -53,13 +53,13 @@ static_assert(sizeof(RectHits) == 0xC08, "layout must match the original");
 // through `cache` when it holds the rect's box (its statics whose boxes touch that box grown by 0.5 - w by 1),
 // else the scenes' grids along the rect's diagonal (each object's slot 13 first; nothing when the rect's scene has
 // no grid). Whether anything was hit.
-bool CollideRectWithStatics(const CollRect* rect, RectHits* hits, CCollCache* cache);
+bool CollideRectWithStatics(const CollRect* rect, RectHits* hits, CHitMeshCache* cache);
 
 // The rect feeler (0x1844 bytes): a rect, what it hits, and the hits joined into longer segments.
-class CRectFeeler {
+class CBoxProbe {
 public:
     // 0x004182D0: no hits, faces flagged 0x10 ignored, no cache. Returns this.
-    CRectFeeler* Construct();
+    CBoxProbe* Construct();
     // 0x00417840: the rect's query, through the feeler's cache or the current rect cache (0x0069198C). (The
     // argument isn't used.)
     bool Query(int unused);
@@ -75,9 +75,9 @@ public:
     RectHit m_joined[RectHits::kMost];  // +0x0C38
     int m_joinedCount;                  // +0x1838
     uint32_t m_unknown183C;             // +0x183C
-    CCollCache* mp_cache;               // +0x1840
+    CHitMeshCache* m_hitCache;               // +0x1840
 };
-static_assert(offsetof(CRectFeeler, m_joined) == 0xC38 && offsetof(CRectFeeler, mp_cache) == 0x1840,
+static_assert(offsetof(CBoxProbe, m_joined) == 0xC38 && offsetof(CBoxProbe, m_hitCache) == 0x1840,
               "layout must match the original");
 
 } // namespace Nx

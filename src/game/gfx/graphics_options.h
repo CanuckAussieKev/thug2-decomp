@@ -21,7 +21,7 @@ struct IDirect3D9;
 struct IDirect3DDevice9;
 struct IDirect3DTexture9;
 
-namespace Nx::GraphicsOptions {
+namespace Engine3D::GraphicsOptions {
 
 struct Options {
     int anisotropy = 0;           // 0, or 2-16
@@ -75,4 +75,4 @@ bool SetSceneTarget(IDirect3DTexture9* texture);
 // resolved into it (only if anything was since the last time).
 void ResolveSceneTarget(IDirect3DTexture9* texture);
 
-} // namespace Nx::GraphicsOptions
+} // namespace Engine3D::GraphicsOptions

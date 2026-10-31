@@ -1,15 +1,15 @@
 #pragma once
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
 
-namespace Net {
-struct MsgHandlerContext;
+namespace NetLink {
+struct InboundMsgCtx;
 }
 
-namespace GameNet {
+namespace OnlinePlay {
 
 class Manager; // the network game manager (not decompiled yet; one instance, see GetManager)
 
@@ -31,7 +31,7 @@ void ShowLocalChatLine(const char* line);
 //   /colours - shows (locally) each \cN colour code in its own colour
 bool HandleChatCommand(Manager* manager, const char* text);
 
-// 0x005334D0: the manager's keyboard task (Tsk::Task, data the manager - not used): Enter opens the chat box
+// 0x005334D0: the manager's keyboard task (TaskList::Task, data the manager - not used): Enter opens the chat box
 // (script 0x3B4548B8) unless a dialog is up; F1-F4 run the taunt script (0x2C43B5BA) with a taunt name, at
 // most one every two seconds. With PartyMod's keyboard input built in: F1 is key 0x1F.
 void __cdecl KeyboardTask(void* task);
@@ -39,9 +39,9 @@ void __cdecl KeyboardTask(void* task);
 // 0x00532050: the chat handler (message 76, registered by the join): "\c<colour + 2><name>\c0 : <text>" added to
 // the chat display (create_console_message text=...). 1. In the THUGPRO peer mode (thugpro_peer.h) the message is
 // THUGPRO's layout (a machine id first) and a malformed one is dropped.
-int __cdecl HandleChat(Net::MsgHandlerContext* context);
+int __cdecl HandleChat(NetLink::InboundMsgCtx* context);
 
-} // namespace GameNet
+} // namespace OnlinePlay
 
 // Script function SendChatMessage (in the CFunction table).
-bool __cdecl CFunc_SendChatMessage(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_SendChatMessage(Scripts::CStruct* params, Scripts::CScript* script);

@@ -37,7 +37,7 @@
 #include "game/script/struct.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Arrange {
+namespace MenuSystem::LevelEditor::Arrange {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
@@ -374,10 +374,10 @@ namespace {
 
 const V3 kWorld[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
 void Corners(const OrientedBox& box, std::vector<V3>* out)
@@ -389,7 +389,7 @@ void Corners(const OrientedBox& box, std::vector<V3>* out)
 
 // A piece the tools move as one: an object, or a scenery piece with the shadows cast by it.
 struct Unit {
-    Obj::CCompositeObject* object = nullptr;
+    GameObjects::CGameEntity* object = nullptr;
     std::vector<uint32_t> sectors;
     std::vector<V3> corners;
 };
@@ -400,7 +400,7 @@ std::vector<Unit> UnitsOf(const Edit::Selected& selection)
     OrientedBox box;
     if (selection.kind == Edit::Kind::Objects) {
         for (uint32_t id : selection.ids) {
-            Obj::CCompositeObject* object = LiveObject(id);
+            GameObjects::CGameEntity* object = LiveObject(id);
             if (!object)
                 continue;
             Unit unit;
@@ -454,9 +454,9 @@ void AxesOf(const std::vector<Unit>& units, bool local, V3 out[3])
         out[i] = kWorld[i];
     if (!local || units.empty())
         return;
-    if (Obj::CCompositeObject* object = units.front().object) {
+    if (GameObjects::CGameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
-            out[i] = Normalize({object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z});
+            out[i] = Normalize({object->m_basisFrame.row[i].x, object->m_basisFrame.row[i].y, object->m_basisFrame.row[i].z});
         return;
     }
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
@@ -573,13 +573,13 @@ bool SectorsBounds(const std::vector<uint32_t>& sectors, Aabb* out)
 
 V3 BottomCentre(const Aabb& box) { return {(box.min.x + box.max.x) * 0.5f, box.min.y, (box.min.z + box.max.z) * 0.5f}; }
 
-uint32_t KeyModel() { return Crc::GenerateCRCFromString("model"); }
+uint32_t KeyModel() { return Checksums::HashFromText("model"); }
 
 // A node's model= (empty: none).
 std::string ModelOf(uint32_t name)
 {
     int index = Nodes::Find(name);
-    Script::CStruct* s = index >= 0 ? Nodes::StructOf(Nodes::All()[index]) : nullptr;
+    Scripts::CStruct* s = index >= 0 ? Nodes::StructOf(Nodes::All()[index]) : nullptr;
     const char* model = nullptr;
     if (!s || !s->GetString(KeyModel(), &model, 0) || !model)
         return {};
@@ -649,7 +649,7 @@ bool ReplaceObjects(const Edit::Selected& selection, uint32_t source)
     std::vector<Objects::State> copies;  // (object copies: replaced by copies of the source where they were)
     std::vector<uint32_t> copyIds, swapped;
     for (uint32_t id : selection.ids) {
-        Obj::CCompositeObject* object = LiveObject(id);
+        GameObjects::CGameEntity* object = LiveObject(id);
         if (!object || id == source)
             continue;
         if (Objects::IsCopy(id)) {
@@ -671,7 +671,7 @@ bool ReplaceObjects(const Edit::Selected& selection, uint32_t source)
         Edit::RemoveCopies(copyIds);
         for (const Objects::State& was : copies) {
             V3 pos = {was.pos.x, was.pos.y, was.pos.z};
-            Obj::CCompositeObject* copy = Objects::MakeCopy(source, pos);
+            GameObjects::CGameEntity* copy = Objects::MakeCopy(source, pos);
             if (!copy)
                 continue;
             Objects::State state = was;
@@ -819,14 +819,14 @@ void SectorTriangles(uint32_t checksum, std::vector<V3>* out)
     uint8_t* geom = Scenery::SectorGeometry(checksum);
     if (!geom)
         return;
-    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     for (uint32_t i = 0; meshes && i < count && i < 4096 && out->size() < 600000; ++i) {
-        Nx::sMesh* mesh = meshes[i];
+        Engine3D::meshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Nx::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {
@@ -992,7 +992,7 @@ bool SelectionBox(const Edit::Selected& selection, Aabb* box, V3* size)
     bool have = false;
     if (selection.kind == Edit::Kind::Objects) {
         for (uint32_t id : selection.ids) {
-            Obj::CCompositeObject* object = LiveObject(id);
+            GameObjects::CGameEntity* object = LiveObject(id);
             if (!object || !Objects::ModelBox(object, &oriented))
                 continue;
             V3 a, b;
@@ -1238,7 +1238,7 @@ void AddGhost(const Painter& p)
         p.Box(box, kLine, kFill);
         return;
     }
-    Obj::CCompositeObject* object = LiveObject(id);
+    GameObjects::CGameEntity* object = LiveObject(id);
     if (!object || !Objects::ModelBox(object, &box)) {
         Marker(p, at, Edit::Yaw(), 0xFF80E0FF);
         return;
@@ -1381,10 +1381,10 @@ bool PlaceClick(bool more)
     Edit::Selected placed = Edit::Selection();
     if (tab == 1 && Current().ghostSlope && placed.kind == Edit::Kind::Objects && SurfaceNormal(&normal)) {
         for (uint32_t pid : placed.ids) {
-            Obj::CCompositeObject* object = LiveObject(pid);
+            GameObjects::CGameEntity* object = LiveObject(pid);
             if (!object)
                 continue;
-            for (Mth::Matrix* m : {&object->m_matrix, &object->m_displayMatrix}) {
+            for (Maths::Matrix* m : {&object->m_basisFrame, &object->m_displayMatrix}) {
                 V3 rows[3];
                 for (int i = 0; i < 3; ++i)
                     rows[i] = {m->row[i].x, m->row[i].y, m->row[i].z};
@@ -1410,4 +1410,4 @@ void Forget()
     g_segments.clear();
 }
 
-} // namespace Front::LevelEditor::Arrange
+} // namespace MenuSystem::LevelEditor::Arrange

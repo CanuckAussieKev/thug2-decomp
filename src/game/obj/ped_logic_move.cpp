@@ -1,4 +1,4 @@
-// The PedLogic component (Obj::CPedLogicComponent): see ped_logic.h. Its movement - the steering (round other peds,
+// The PedLogic component (GameObjects::CPedestrianBrainModule): see ped_logic.h. Its movement - the steering (round other peds,
 // towards the waypoints, back to the path), facing where it goes, the ground under it, the skaters' spins - and the
 // move updates (generic, skater, bail, go home, chase, blocker); from the disassembly of 0x004ED5E0-0x004F2F08
 // (0x004EF090, 0x004EF930, 0x004F0950 and 0x004F2AD0 aren't Ghidra functions). The x87 roundings are kept: values the
@@ -32,7 +32,7 @@
 #include "game/sys/timer.h"
 #include "game/obj/objman.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -102,16 +102,16 @@ constexpr float kMaxBlockerSpeed = 1500.0f;         // 0x0064B800
 constexpr double kBlockerTurn = 1.5707963705062866; // 0x0064B828 / 0x0064B820 (+ / -)
 constexpr float kUpBlendRate = 6.0f;                // 0x00646284
 
-CMotionComponent* Motion(CCompositeObject* object) { return static_cast<CMotionComponent*>(object->GetComponent(kMotion)); }
-CMotionPathMembers* MotionPath(CMotionComponent* motion) { return reinterpret_cast<CMotionPathMembers*>(motion); }
+CKinematicsModule* Motion(CGameEntity* object) { return static_cast<CKinematicsModule*>(object->GetComponent(kMotion)); }
+CMotionPathMembers* MotionPath(CKinematicsModule* motion) { return reinterpret_cast<CMotionPathMembers*>(motion); }
 
-CCompositeObject* LocalSkater()
+CGameEntity* LocalSkater()
 {
-    return static_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
+    return static_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
 }
 
 // D3DXMatrixMultiply (linked library code).
-void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)
+void D3dxMultiply(Maths::Matrix& out, const Maths::Matrix& a, const Maths::Matrix& b)
 {
     D3dx::MatrixMultiply(&out, &a, &b);
 }
@@ -149,38 +149,38 @@ double CosPlus(double angle, double addend)
     return result;
 }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
 // The collision feeler (0xB0 bytes): what it hit is held by a smart pointer at +0x98, let go when it goes.
 class Feeler {
 public:
-    Feeler() { reinterpret_cast<Nx::CFeeler*>(m_bytes)->Construct(); }
-    Feeler(const Mth::Vector* start, const Mth::Vector* end) { reinterpret_cast<Nx::CFeeler*>(m_bytes)->Construct(start, end); }
-    ~Feeler() { feeler()->m_object.~CSmtPtr(); }
+    Feeler() { reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->Construct(); }
+    Feeler(const Maths::Vector* start, const Maths::Vector* end) { reinterpret_cast<Engine3D::CProbeRay*>(m_bytes)->Construct(start, end); }
+    ~Feeler() { feeler()->m_object.~CSharedRef(); }
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    Nx::CFeeler* feeler() { return reinterpret_cast<Nx::CFeeler*>(m_bytes); }
+    Engine3D::CProbeRay* feeler() { return reinterpret_cast<Engine3D::CProbeRay*>(m_bytes); }
 
 private:
     alignas(16) uint8_t m_bytes[0xB0];
 };
 
 // The cross product's rows of a facing matrix: across = up x at (`a` kept unrounded), up again = at x across.
-void RebuildAcrossAndUp(Mth::Matrix& m)
+void RebuildAcrossAndUp(Maths::Matrix& m)
 {
-    const Mth::Vector& up = m.row[1];
-    const Mth::Vector& at = m.row[2];
+    const Maths::Vector& up = m.row[1];
+    const Maths::Vector& at = m.row[2];
     double a = static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z;
     float b = static_cast<float>(static_cast<double>(at.x) * up.z - static_cast<double>(at.z) * up.x);
     float c = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(at.x) * up.y);
@@ -196,10 +196,10 @@ void RebuildAcrossAndUp(Mth::Matrix& m)
 // --- steering ---
 
 // 0x004ECFF0
-void CPedLogicComponent::DecayBias()
+void CPedestrianBrainModule::DecayBias()
 {
-    float decay = Script::GetFloat(kBiasDecay);
-    double threshold = Script::GetFloat(kMinBias);
+    float decay = Scripts::GetFloat(kBiasDecay);
+    double threshold = Scripts::GetFloat(kMinBias);
     for (float& bias : m_bias) {
         // The product is compared unrounded (x87); a NaN is kept.
         double value = static_cast<double>(decay) * bias;
@@ -210,7 +210,7 @@ void CPedLogicComponent::DecayBias()
 }
 
 // 0x004ED5E0
-void CPedLogicComponent::AddAvoidance(float angle, float strength, float distance, float range)
+void CPedestrianBrainModule::AddAvoidance(float angle, float strength, float distance, float range)
 {
     double weight = (static_cast<double>(range) - distance) / range * strength;
     for (int i = 0; i < 4; ++i) {
@@ -228,7 +228,7 @@ void CPedLogicComponent::AddAvoidance(float angle, float strength, float distanc
 }
 
 // 0x004ED680
-void CPedLogicComponent::AddSteer(float angle, float weight)
+void CPedestrianBrainModule::AddSteer(float angle, float weight)
 {
     for (int i = 0; i < 4; ++i) {
         double offset = static_cast<double>(i) * kQuarterTurn - angle;
@@ -245,7 +245,7 @@ void CPedLogicComponent::AddSteer(float angle, float weight)
 }
 
 // 0x004ED710
-float CPedLogicComponent::SteerSideways()
+float CPedestrianBrainModule::SteerSideways()
 {
     double sum = 0.0;
     for (int i = 0; i < 4; ++i) {
@@ -260,13 +260,13 @@ float CPedLogicComponent::SteerSideways()
             return -1.0f;
     }
     float result = static_cast<float>(sum);
-    if (Script::GetFloat(kMinBias) > std::fabs(result))
+    if (Scripts::GetFloat(kMinBias) > std::fabs(result))
         return 0.0f;
     return result;
 }
 
 // 0x004ED7D0
-float CPedLogicComponent::SteerForward()
+float CPedestrianBrainModule::SteerForward()
 {
     double sum = 0.0;
     for (int i = 0; i < 4; ++i) {
@@ -283,15 +283,15 @@ float CPedLogicComponent::SteerForward()
             return -1.0f;
     }
     float result = static_cast<float>(sum);
-    if (Script::GetFloat(kMinBias) > std::fabs(result))
+    if (Scripts::GetFloat(kMinBias) > std::fabs(result))
         return 0.0f;
     return result;
 }
 
 // 0x004EE650
-void CPedLogicComponent::FaceAlong(const Mth::Vector* direction)
+void CPedestrianBrainModule::FaceAlong(const Maths::Vector* direction)
 {
-    Mth::Matrix m;
+    Maths::Matrix m;
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m.row[2] = {direction->x, 0.0f, direction->z, 1.0f};
@@ -301,34 +301,34 @@ void CPedLogicComponent::FaceAlong(const Mth::Vector* direction)
     m.row[1].w = 0.0f;
     RebuildAcrossAndUp(m);
     m_object->m_displayMatrix = m;
-    m_object->m_matrix = m;
+    m_object->m_basisFrame = m;
     m_savedMatrix = m;
 }
 
 // 0x004EE7D0
-bool CPedLogicComponent::AvoidPeds()
+bool CPedestrianBrainModule::AvoidPeds()
 {
     bool avoided = false;
     if (!mp_peds)
         return false;
-    CSmtPtr<CObject>* slot = mp_peds->m_slots;
-    Mth::Matrix m = m_object->m_displayMatrix;
-    const Mth::Vector& at = m.row[2];
-    float range = Script::GetFloat(kAvoidPedRange);
-    float bias = Script::GetFloat(kAvoidPedBias);
-    CMotionComponent* motion = Motion(m_object);
+    CSharedRef<CObject>* slot = mp_peds->m_slots;
+    Maths::Matrix m = m_object->m_displayMatrix;
+    const Maths::Vector& at = m.row[2];
+    float range = Scripts::GetFloat(kAvoidPedRange);
+    float bias = Scripts::GetFloat(kAvoidPedBias);
+    CKinematicsModule* motion = Motion(m_object);
     int count = mp_peds->m_size;
     if (count <= 0)
         return false;
     for (; count; --count, ++slot) {
-        auto* other = reinterpret_cast<CCompositeObject*>(slot->mp_object);
+        auto* other = reinterpret_cast<CGameEntity*>(slot->m_ownerObject);
         if (!other || other == m_object)
             continue;
-        double maxY = Script::GetFloat(kMaxYDistance);
-        CCompositeObject* me = m_object;
+        double maxY = Scripts::GetFloat(kMaxYDistance);
+        CGameEntity* me = m_object;
         if (std::fabs(static_cast<double>(me->m_pos.y) - other->m_pos.y) > maxY)
             continue;
-        const Mth::Vector& otherAt = other->m_displayMatrix.row[2];
+        const Maths::Vector& otherAt = other->m_displayMatrix.row[2];
         double dot = (static_cast<double>(at.y) * otherAt.y + static_cast<double>(at.z) * otherAt.z) +
                      static_cast<double>(at.x) * otherAt.x;
         float headingDot = static_cast<float>(dot);
@@ -341,7 +341,7 @@ bool CPedLogicComponent::AvoidPeds()
             if (ahead <= 0.0)
                 continue;
         }
-        CMotionComponent* otherMotion = Motion(other);
+        CKinematicsModule* otherMotion = Motion(other);
         if (headingDot > 0.0f && otherMotion->m_pathMaxSpeed >= motion->m_pathMaxSpeed)
             continue;
         double dx = static_cast<double>(m_object->m_pos.x) - other->m_pos.x;
@@ -355,16 +355,16 @@ bool CPedLogicComponent::AvoidPeds()
                                        static_cast<double>(otherAt.z) * otherAt.z);
         double myLength = std::sqrt((static_cast<double>(at.x) * at.x + static_cast<double>(at.y) * at.y) +
                                     static_cast<double>(at.z) * at.z);
-        float cosine = Mth::Clamp(static_cast<float>(headingDot / (otherLength * myLength)), -1.0f, 1.0f);
+        float cosine = Maths::Clamp(static_cast<float>(headingDot / (otherLength * myLength)), -1.0f, 1.0f);
         bool above;
         float angle = X87::AcosF(cosine, kFullTurn, &above);
         if (above)
             angle = static_cast<float>(angle - static_cast<double>(Truncate(static_cast<double>(angle) * kInverseFullTurn)) * kFullTurn);
         float offHeadOn = static_cast<float>(std::fabs(static_cast<double>(angle) - kHalfTurn));
-        if (Script::GetFloat(kHeadOnRange) > offHeadOn) {
+        if (Scripts::GetFloat(kHeadOnRange) > offHeadOn) {
             // Head on: to the side the other is on.
             angle = kQuarterTurn;
-            if (Mth::CrossProduct(at, otherAt).y < 0.0f)
+            if (Maths::CrossProduct(at, otherAt).y < 0.0f)
                 angle = -kQuarterTurn;
         }
         avoided = true;
@@ -374,14 +374,14 @@ bool CPedLogicComponent::AvoidPeds()
 }
 
 // 0x004EEAC0
-void CPedLogicComponent::KeepToPath()
+void CPedestrianBrainModule::KeepToPath()
 {
-    const Mth::Vector& from = m_nodePos;
+    const Maths::Vector& from = m_nodePos;
     float ax = from.x, az = from.z, aw = from.w;
     float bx = m_nextNodePos.x, bz = m_nextNodePos.z, bw = m_nextNodePos.w;
-    const Mth::Vector& at = m_object->m_pos;
+    const Maths::Vector& at = m_object->m_pos;
     float px = at.x, pz = at.z, pw = at.w;
-    float maxDistance = Script::GetFloat(kMaxDistanceToPath);
+    float maxDistance = Scripts::GetFloat(kMaxDistanceToPath);
     float dx = static_cast<float>(static_cast<double>(bx) - ax);
     double dz = static_cast<double>(bz) - az;
     float dw = static_cast<float>(static_cast<double>(bw) - aw);
@@ -391,7 +391,7 @@ void CPedLogicComponent::KeepToPath()
     float crossZ = static_cast<float>(static_cast<double>(dx) * 0.0f - ex * 0.0f);
     double lengthSqr = static_cast<double>(dx) * dx + dz * dz;
     // The closest point of the path's line (its start for a point path).
-    Mth::Vector closest = from;
+    Maths::Vector closest = from;
     if (lengthSqr != 0.0) {
         double t = (ex * dx + ez * dz) / lengthSqr;
         double alongX = dx * t;
@@ -399,11 +399,11 @@ void CPedLogicComponent::KeepToPath()
         closest = {static_cast<float>(alongX + from.x), static_cast<float>(static_cast<double>(alongY) + from.y),
                    static_cast<float>(static_cast<double>(alongZ) + from.z), static_cast<float>(static_cast<double>(alongW) + from.w)};
     }
-    Mth::Vector toPath = {static_cast<float>(static_cast<double>(closest.x) - px), 0.0f,
+    Maths::Vector toPath = {static_cast<float>(static_cast<double>(closest.x) - px), 0.0f,
                           static_cast<float>(static_cast<double>(closest.z) - pz),
                           static_cast<float>(static_cast<double>(closest.w) - pw)};
-    Mth::Matrix m = m_object->m_displayMatrix;
-    double exact = Mth::GetAngle(m.row[2], toPath);
+    Maths::Matrix m = m_object->m_displayMatrix;
+    double exact = Maths::ReadTurnAngle(m.row[2], toPath);
     float angle = static_cast<float>(exact);
     if (exact > kDegrees)
         angle = static_cast<float>(angle - static_cast<double>(Truncate(static_cast<double>(angle) * kInverseDegrees)) * kDegrees);
@@ -422,28 +422,28 @@ void CPedLogicComponent::KeepToPath()
         weight = 1.0f;
     else
         weight = static_cast<float>(1.0 - (static_cast<double>(maxDistance) - off) / maxDistance);
-    if (Script::GetFloat(kMinDistanceToPath) < off)
+    if (Scripts::GetFloat(kMinDistanceToPath) < off)
         AddSteer(static_cast<float>(static_cast<double>(angle) * kToRadians), weight);
 }
 
 // 0x004EEDC0
-void CPedLogicComponent::MoveSteered()
+void CPedestrianBrainModule::MoveSteered()
 {
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     float side = SteerSideways();
     double forward = SteerForward();
     PushPosition();
     double step = static_cast<double>(m_frameTime) * motion->m_pathSpeed;
     float sideStep = static_cast<float>(side * step);
     float forwardStep = static_cast<float>(step * forward);
-    Mth::Matrix m = m_object->m_displayMatrix;
+    Maths::Matrix m = m_object->m_displayMatrix;
     double fx = static_cast<double>(m.row[2].x) * forwardStep, fy = static_cast<double>(m.row[2].y) * forwardStep;
     float fz = static_cast<float>(static_cast<double>(m.row[2].z) * forwardStep);
     float fw = static_cast<float>(static_cast<double>(m.row[2].w) * forwardStep);
     double sx = static_cast<double>(m.row[0].x) * sideStep, sy = static_cast<double>(m.row[0].y) * sideStep;
     float sz = static_cast<float>(static_cast<double>(m.row[0].z) * sideStep);
     float sw = static_cast<float>(static_cast<double>(m.row[0].w) * sideStep);
-    Mth::Vector& pos = m_object->m_pos;
+    Maths::Vector& pos = m_object->m_pos;
     pos.x = static_cast<float>(sx + pos.x);
     pos.y = static_cast<float>(sy + pos.y);
     pos.z = static_cast<float>(static_cast<double>(sz) + pos.z);
@@ -455,14 +455,14 @@ void CPedLogicComponent::MoveSteered()
 }
 
 // 0x004EEEC0
-void CPedLogicComponent::SteerTowards(Mth::Vector target, float weight)
+void CPedestrianBrainModule::SteerTowards(Maths::Vector target, float weight)
 {
-    Mth::Matrix m = m_object->m_displayMatrix;
-    const Mth::Vector& at = m_object->m_pos;
-    Mth::Vector away = {static_cast<float>(static_cast<double>(at.x) - target.x), 0.0f,
+    Maths::Matrix m = m_object->m_displayMatrix;
+    const Maths::Vector& at = m_object->m_pos;
+    Maths::Vector away = {static_cast<float>(static_cast<double>(at.x) - target.x), 0.0f,
                         static_cast<float>(static_cast<double>(at.z) - target.z),
                         static_cast<float>(static_cast<double>(at.w) - target.w)};
-    double angle = Mth::GetAngle(m.row[2], away) + kHalfDegrees;
+    double angle = Maths::ReadTurnAngle(m.row[2], away) + kHalfDegrees;
     if (angle > kDegrees)
         angle -= static_cast<double>(Truncate(angle * kInverseDegrees)) * kDegrees;
     if (static_cast<double>(m.row[2].z) * away.x - static_cast<double>(m.row[2].x) * away.z > 0.0)
@@ -471,35 +471,35 @@ void CPedLogicComponent::SteerTowards(Mth::Vector target, float weight)
 }
 
 // 0x004F2780
-bool CPedLogicComponent::TurnTowardsNodeAfter()
+bool CPedestrianBrainModule::TurnTowardsNodeAfter()
 {
-    const Mth::Vector& at = m_object->m_pos;
+    const Maths::Vector& at = m_object->m_pos;
     double dz = static_cast<double>(at.z) - m_nextNodePos.z;
     double dx = static_cast<double>(at.x) - m_nextNodePos.x;
     float distanceSqr = static_cast<float>(dx * dx + dz * dz);
     bool turning = false;
-    float bias = Script::GetFloat(kTargetNodeBias);
+    float bias = Scripts::GetFloat(kTargetNodeBias);
     for (float& avoid : m_avoid)
         avoid = 0.0f;
-    if (m_nodeAfter == m_node) {
+    if (m_nodeAfter == m_listLink) {
         // A dead end: reached when near enough.
-        double deadEnd = Script::GetFloat(kDeadEndDistance);
+        double deadEnd = Scripts::GetFloat(kDeadEndDistance);
         if (static_cast<double>(distanceSqr) <= deadEnd)
-            HitWaypoint();
+            ReachWaypoint();
     } else {
-        int fadeDistance = Script::GetInteger(m_kind == 2 ? kSkaterFadeDistance : kFadeDistance);
+        int fadeDistance = Scripts::FetchIntValue(m_kind == 2 ? kSkaterFadeDistance : kFadeDistance);
         if (m_turnFrames != 0 && m_turnFrame >= m_turnFrames) {
-            HitWaypoint();
+            ReachWaypoint();
         } else if (m_nodeAfter && static_cast<double>(fadeDistance) > distanceSqr) {
             // Near the next node: turning towards the one after over a number of frames by the corner's angle.
             if (m_turnFrames == 0) {
-                CMotionComponent* motion = Motion(m_object);
-                Mth::Vector from = {m_nodePos.x, 0.0f, m_nodePos.z, m_nodePos.w};
-                Mth::Vector next = {m_nextNodePos.x, 0.0f, m_nextNodePos.z, m_nextNodePos.w};
-                Mth::Vector after = {m_nodeAfterPos.x, 0.0f, m_nodeAfterPos.z, m_nodeAfterPos.w};
-                Mth::Vector in = next - from;
-                Mth::Vector out = after - next;
-                double corner = Mth::GetAngle(in, out) * kToRadians;
+                CKinematicsModule* motion = Motion(m_object);
+                Maths::Vector from = {m_nodePos.x, 0.0f, m_nodePos.z, m_nodePos.w};
+                Maths::Vector next = {m_nextNodePos.x, 0.0f, m_nextNodePos.z, m_nextNodePos.w};
+                Maths::Vector after = {m_nodeAfterPos.x, 0.0f, m_nodeAfterPos.z, m_nodeAfterPos.w};
+                Maths::Vector in = next - from;
+                Maths::Vector out = after - next;
+                double corner = Maths::ReadTurnAngle(in, out) * kToRadians;
                 double reach = std::sqrt(std::sqrt(CosPlus(corner, 1.0) * (static_cast<double>(distanceSqr) + distanceSqr)));
                 m_turnFrames = Truncate(reach / motion->m_pathMaxSpeed * kFramesPerSecond);
                 if (m_turnFrames <= 0)
@@ -520,19 +520,19 @@ bool CPedLogicComponent::TurnTowardsNodeAfter()
 }
 
 // 0x004EF350
-void CPedLogicComponent::FaceMovement(Mth::Vector oldPos)
+void CPedestrianBrainModule::FaceMovement(Maths::Vector oldPos)
 {
-    Mth::Vector pos = m_object->m_pos;
-    Mth::Matrix m;
+    Maths::Vector pos = m_object->m_pos;
+    Maths::Matrix m;
     if (m_kind == 0) {
         // A walker turns its orientation towards where it moved, at most so much a frame.
         m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
         m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
         m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
         m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        Mth::Vector heading = m_object->m_displayMatrix.row[2];
+        Maths::Vector heading = m_object->m_displayMatrix.row[2];
         heading.Normalize();
-        Mth::Vector moved = {static_cast<float>(static_cast<double>(pos.x) - oldPos.x), 0.0f,
+        Maths::Vector moved = {static_cast<float>(static_cast<double>(pos.x) - oldPos.x), 0.0f,
                              static_cast<float>(static_cast<double>(pos.z) - oldPos.z), 1.0f};
         moved.Normalize();
         float dot = static_cast<float>((static_cast<double>(moved.z) * heading.z + static_cast<double>(moved.y) * heading.y) +
@@ -553,19 +553,19 @@ void CPedLogicComponent::FaceMovement(Mth::Vector oldPos)
         } else {
             m.row[2] = moved;
         }
-        m.OrthoNormalizeAbout(2);
-        m_object->m_matrix = m;
+        m.SquareUpAxes(2);
+        m_object->m_basisFrame = m;
     } else {
         // A skater faces where it moved (or along its path, to a lip).
         m = m_object->m_displayMatrix;
         float oldW = oldPos.w;
-        Mth::Vector to = pos;
+        Maths::Vector to = pos;
         if (m_flags & PED_FLAG_VERT_LIP) {
             oldPos = {m_nodePos.x, m_nodePos.y, m_nodePos.z, oldPos.w};
             oldW = m_nodePos.w;
             to = m_nextNodePos;
         }
-        Mth::Vector heading = {static_cast<float>(static_cast<double>(to.x) - oldPos.x),
+        Maths::Vector heading = {static_cast<float>(static_cast<double>(to.x) - oldPos.x),
                                static_cast<float>(static_cast<double>(to.y) - oldPos.y),
                                static_cast<float>(static_cast<double>(to.z) - oldPos.z),
                                static_cast<float>(static_cast<double>(to.w) - oldW)};
@@ -579,35 +579,35 @@ void CPedLogicComponent::FaceMovement(Mth::Vector oldPos)
 }
 
 // 0x004EF740
-bool CPedLogicComponent::ProbeGround(const Mth::Vector* start, const Mth::Vector* end, Mth::Vector* point,
+bool CPedestrianBrainModule::ProbeGround(const Maths::Vector* start, const Maths::Vector* end, Maths::Vector* point,
                                      GroundTriangle* triangle)
 {
     Feeler feeler;
-    Nx::CFeeler* f = feeler.feeler();
+    Engine3D::CProbeRay* f = feeler.feeler();
     if (!f->GetCollisionAlong(start, end, false))
         return false;
-    Nx::CCollObj* object = f->m_hit.object;
-    Nx::CCollObjTriData* geometry = object->m_geometry;
+    Engine3D::CHitMesh* object = f->m_hit.object;
+    Engine3D::CTriMeshSource* geometry = object->m_geometry;
     uint32_t face = f->m_hit.face;
     for (int i = 0; i < 3; ++i) {
         uint32_t vertex = geometry->m_smallFaces ? geometry->m_faces[face * 8 + 4 + i]
                                                  : *reinterpret_cast<uint16_t*>(geometry->m_faces + face * 10 + 4 + 2 * i);
-        // (slot 9, GetVertexPos: the Vector returned through a pointer the caller passes)
-        Mth::Vector corner;
-        triangle->corners[i] = *reinterpret_cast<Mth::Vector*(__thiscall*)(Nx::CCollObj*, Mth::Vector*, int)>(
+        // (slot 9, ReadVertexPoint: the Vector returned through a pointer the caller passes)
+        Maths::Vector corner;
+        triangle->corners[i] = *reinterpret_cast<Maths::Vector*(__thiscall*)(Engine3D::CHitMesh*, Maths::Vector*, int)>(
             object->m_vtable[9])(object, &corner, static_cast<int>(static_cast<uint16_t>(vertex)));
     }
-    *point = f->m_point;
+    *point = f->m_contactPos;
     SetSoundTerrain(f->m_hit.terrain);
     return true;
 }
 
 // 0x004EF930
-void CPedLogicComponent::StickToGroundPed()
+void CPedestrianBrainModule::StickToGroundPed()
 {
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     // The orientation's across row again (up x at).
-    Mth::Matrix& o = m_object->m_matrix;
+    Maths::Matrix& o = m_object->m_basisFrame;
     double ax = static_cast<double>(o.row[1].y) * o.row[2].z - static_cast<double>(o.row[1].z) * o.row[2].y;
     double ay = static_cast<double>(o.row[1].z) * o.row[2].x - static_cast<double>(o.row[1].x) * o.row[2].z;
     double az = static_cast<double>(o.row[1].x) * o.row[2].y - static_cast<double>(o.row[1].y) * o.row[2].x;
@@ -617,62 +617,62 @@ void CPedLogicComponent::StickToGroundPed()
     o.row[0].y = static_cast<float>(ay);
     o.row[0].Normalize();
     // A probe from above to below along the display matrix's up.
-    Mth::Matrix m = m_object->m_displayMatrix;
-    const Mth::Vector& up = m.row[1];
-    const Mth::Vector& pos = m_object->m_pos;
+    Maths::Matrix m = m_object->m_displayMatrix;
+    const Maths::Vector& up = m.row[1];
+    const Maths::Vector& pos = m_object->m_pos;
     float above = m_stickAbove;
     float ux = static_cast<float>(static_cast<double>(up.x) * above), uy = static_cast<float>(static_cast<double>(up.y) * above),
           uz = static_cast<float>(static_cast<double>(up.z) * above);
     double uw = static_cast<double>(above) * up.w;
-    Mth::Vector start = {static_cast<float>(static_cast<double>(ux) + pos.x), static_cast<float>(static_cast<double>(uy) + pos.y),
+    Maths::Vector start = {static_cast<float>(static_cast<double>(ux) + pos.x), static_cast<float>(static_cast<double>(uy) + pos.y),
                          static_cast<float>(static_cast<double>(uz) + pos.z), static_cast<float>(uw + pos.w)};
     float below = m_stickBelow;
     float nz = -up.z, nw = -up.w;
     float dx = static_cast<float>(-static_cast<double>(up.x) * below), dy = static_cast<float>(-static_cast<double>(up.y) * below);
     double dz = static_cast<double>(nz) * below;
     float dw = static_cast<float>(static_cast<double>(nw) * below);
-    Mth::Vector end = {static_cast<float>(static_cast<double>(dx) + pos.x), static_cast<float>(static_cast<double>(dy) + pos.y),
+    Maths::Vector end = {static_cast<float>(static_cast<double>(dx) + pos.x), static_cast<float>(static_cast<double>(dy) + pos.y),
                        static_cast<float>(dz + pos.z), static_cast<float>(static_cast<double>(dw) + pos.w)};
-    Mth::Vector point;
+    Maths::Vector point;
     if (ProbeGround(&start, &end, &point, reinterpret_cast<GroundTriangle*>(&motion->m_groundTriangle[0])))
         m_object->m_pos = point;
 }
 
 // 0x004EF090
-void CPedLogicComponent::AlignToGround()
+void CPedestrianBrainModule::AlignToGround()
 {
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     if (!motion)
         return;
     GroundTriangle t;
     t.Assign(*reinterpret_cast<GroundTriangle*>(&motion->m_groundTriangle[0]));
-    const Mth::Vector* c = t.corners;
+    const Maths::Vector* c = t.corners;
     double e1x = static_cast<double>(c[1].x) - c[0].x, e1y = static_cast<double>(c[1].y) - c[0].y,
            e1z = static_cast<double>(c[1].z) - c[0].z;
     float e2x = static_cast<float>(static_cast<double>(c[2].x) - c[0].x);
     float e2y = static_cast<float>(static_cast<double>(c[2].y) - c[0].y);
     double e2z = static_cast<double>(c[2].z) - c[0].z;
-    Mth::Vector normal = {static_cast<float>(e2z * e1y - static_cast<double>(e2y) * e1z),
+    Maths::Vector normal = {static_cast<float>(e2z * e1y - static_cast<double>(e2y) * e1z),
                           static_cast<float>(e1z * e2x - e2z * e1x),
                           static_cast<float>(static_cast<double>(e2y) * e1x - e1y * e2x), 0.0f};
-    Mth::Vector up = normal.Normalize();
+    Maths::Vector up = normal.Normalize();
     if (up.y < 0.0f)
         up = {-up.x, -up.y, -up.z, -up.w};
     if (up != m_upTarget) {
         m_upTarget = up;
-        m_up = m_upShown;
+        m_upDir = m_upShown;
         m_upBlend = 1.0f;
     }
     if (!(m_upBlend == 0.0f)) {
-        if (m_up == m_upTarget) {
+        if (m_upDir == m_upTarget) {
             m_upBlend = 0.0f;
         } else {
             double blend = m_upBlend - static_cast<double>(m_frameTime) * kUpBlendRate;
             float blendF = static_cast<float>(blend);
             m_upBlend = blendF;
             if (blend > 0.0 || std::isnan(blend)) {
-                Mth::Vector between;
-                m_upShown = *Walk::Lerp(&between, &m_upTarget, &m_up, blendF);
+                Maths::Vector between;
+                m_upShown = *Walk::Lerp(&between, &m_upTarget, &m_upDir, blendF);
                 m_upShown.Normalize();
             } else {
                 m_upBlend = 0.0f;
@@ -680,17 +680,17 @@ void CPedLogicComponent::AlignToGround()
             }
         }
     }
-    Mth::Matrix m = m_object->m_displayMatrix;
+    Maths::Matrix m = m_object->m_displayMatrix;
     if (m.row[1] != m_upShown) {
         m.row[1] = m_upShown;
-        m.OrthoNormalizeAbout(1);
+        m.SquareUpAxes(1);
         m_object->m_displayMatrix = m;
         m_savedMatrix = m;
     }
 }
 
 // 0x004F01C0
-void CPedLogicComponent::SpinUpdate()
+void CPedestrianBrainModule::SpinUpdate()
 {
     float elapsed = static_cast<float>(static_cast<double>(m_frameTime) + m_spinElapsed);
     m_spinElapsed = elapsed;
@@ -700,36 +700,36 @@ void CPedLogicComponent::SpinUpdate()
     float turn = static_cast<float>(static_cast<double>(kHalfDegrees) - m_vertRotationTarget);
     uint32_t flags = m_flags;
     if (flags & PED_FLAG_SPINNING)
-        m_spin = static_cast<float>(static_cast<double>(m_spinAngle) * fraction + m_spin);
+        m_twistRate = static_cast<float>(static_cast<double>(m_spinAngle) * fraction + m_twistRate);
     if (flags & PED_FLAG_VERT_ROTATING)
         m_vertRotation = static_cast<float>(static_cast<double>(turn) * fraction + m_vertRotation);
     if (elapsed >= m_spinTime || fraction >= 1.0) {
         if (flags & PED_FLAG_SPINNING)
-            m_spin = static_cast<float>(m_spinAngle);
+            m_twistRate = static_cast<float>(m_spinAngle);
         if (flags & PED_FLAG_VERT_ROTATING)
             m_vertRotation = turn;
         m_flags = flags & ~(PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     }
     if ((m_flags & PED_FLAG_VERT_ROTATING) && m_vertRotation > turn)
         m_vertRotation = turn;
-    Mth::Matrix m = m_jumpMatrix;
-    Mth::Vector rotation = {static_cast<float>(static_cast<double>(m_vertRotation) * kToRadians),
-                            static_cast<float>(static_cast<double>(m_spin) * kToRadians), 0.0f, 1.0f};
-    m.RotateLocal(rotation);
+    Maths::Matrix m = m_jumpMatrix;
+    Maths::Vector rotation = {static_cast<float>(static_cast<double>(m_vertRotation) * kToRadians),
+                            static_cast<float>(static_cast<double>(m_twistRate) * kToRadians), 0.0f, 1.0f};
+    m.TurnInOwnFrame(rotation);
     m_object->m_displayMatrix = m;
     m_savedMatrix = m;
     m_upTarget = m.row[1];
-    m_up = m_upTarget;
-    m_upShown = m_up;
+    m_upDir = m_upTarget;
+    m_upShown = m_upDir;
 }
 
 // 0x004F03C0
-int CPedLogicComponent::ProbeAhead(Mth::Vector direction, float range, Mth::Vector* out)
+int CPedestrianBrainModule::ProbeAhead(Maths::Vector direction, float range, Maths::Vector* out)
 {
     float rangeSqr = static_cast<float>(static_cast<double>(range) * range);
-    Mth::Matrix m = m_object->m_displayMatrix;
-    Mth::Vector dir = direction;
-    dir.ProjectToPlane(m.row[1]);
+    Maths::Matrix m = m_object->m_displayMatrix;
+    Maths::Vector dir = direction;
+    dir.FlattenOntoPlane(m.row[1]);
     double length = std::sqrt((static_cast<double>(dir.z) * dir.z + static_cast<double>(dir.y) * dir.y) +
                               static_cast<double>(dir.x) * dir.x);
     if (length > 0.0) {
@@ -741,12 +741,12 @@ int CPedLogicComponent::ProbeAhead(Mth::Vector direction, float range, Mth::Vect
     // A ped close ahead?
     CObjectSearch search;
     search.m_vtable = g_objectSearchVtable;
-    search.m_node = nullptr;
-    CBaseManager* manager = m_object->mp_manager;
-    auto* list = reinterpret_cast<Mem::ListNode*(__thiscall*)(CBaseManager*)>(manager->m_vtable[6])(manager);
-    for (auto* other = static_cast<CCompositeObject*>(search.FirstItemOfType(list, kObjectTypePed)); other;
-         other = static_cast<CCompositeObject*>(search.NextItemOfType())) {
-        CCompositeObject* me = m_object;
+    search.m_listLink = nullptr;
+    CObjectHubBase* manager = m_object->m_parkOwner;
+    auto* list = reinterpret_cast<MemSys::ListNode*(__thiscall*)(CObjectHubBase*)>(manager->m_vtable[6])(manager);
+    for (auto* other = static_cast<CGameEntity*>(search.FirstItemOfType(list, kObjectTypePed)); other;
+         other = static_cast<CGameEntity*>(search.NextItemOfType())) {
+        CGameEntity* me = m_object;
         if (other == me)
             continue;
         float dz = static_cast<float>(static_cast<double>(other->m_pos.z) - me->m_pos.z);
@@ -777,36 +777,36 @@ int CPedLogicComponent::ProbeAhead(Mth::Vector direction, float range, Mth::Vect
     dir.y = static_cast<float>(static_cast<double>(dir.y) * range);
     dir.z = static_cast<float>(static_cast<double>(dir.z) * range);
     dir.w = static_cast<float>(static_cast<double>(dir.w) * range);
-    const Mth::Vector& at = m_object->m_pos;
-    Mth::Vector start = at;
+    const Maths::Vector& at = m_object->m_pos;
+    Maths::Vector start = at;
     start.y = static_cast<float>(static_cast<double>(start.y) + kReach);
-    float endY = static_cast<float>(static_cast<double>(dir.y) + at.y);
-    Mth::Vector end = {static_cast<float>(static_cast<double>(dir.x) + at.x),
-                       static_cast<float>(static_cast<double>(endY) + kProbeLift),
+    float topY = static_cast<float>(static_cast<double>(dir.y) + at.y);
+    Maths::Vector end = {static_cast<float>(static_cast<double>(dir.x) + at.x),
+                       static_cast<float>(static_cast<double>(topY) + kProbeLift),
                        static_cast<float>(static_cast<double>(dir.z) + at.z),
                        static_cast<float>(static_cast<double>(dir.w) + at.w)};
     Feeler feeler(&start, &end);
-    Nx::CFeeler* f = feeler.feeler();
-    f->SetIgnore(0x10, 0);
-    if (!f->GetCollision(true, false))
+    Engine3D::CProbeRay* f = feeler.feeler();
+    f->SetExcluded(0x10, 0);
+    if (!f->GetHitShape(true, false))
         return 0;
     if (out)
-        *out = f->m_point;
+        *out = f->m_contactPos;
     return 1;
 }
 
 // --- the move updates ---
 
 // 0x004F2A10
-void CPedLogicComponent::GenericMoveUpdate()
+void CPedestrianBrainModule::GenericMoveUpdate()
 {
     if (!(m_flags & PED_FLAG_MOVING))
         return;
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     bool avoided = AvoidPeds();
     if (!TurnTowardsNodeAfter() && !avoided)
         KeepToPath();
-    Mth::Vector old = m_object->m_pos;
+    Maths::Vector old = m_object->m_pos;
     MotionPath(motion)->UpdatePathSpeed();
     MoveSteered();
     if (old != m_object->m_pos)
@@ -816,19 +816,19 @@ void CPedLogicComponent::GenericMoveUpdate()
 }
 
 // 0x004F2AD0
-void CPedLogicComponent::SkaterMoveUpdate()
+void CPedestrianBrainModule::SkaterMoveUpdate()
 {
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     MotionPath(motion)->UpdatePathSpeed();
     float step = static_cast<float>(static_cast<double>(m_frameTime) * motion->m_pathSpeed);
     bool airborne = (motion->m_motionFlags & 0x100) != 0;
     if (m_flags & PED_FLAG_GRINDING) {
-        if (CCompositeObject* skater = LocalSkater()) {
-            const Mth::Vector& at = m_object->m_pos;
+        if (CGameEntity* skater = LocalSkater()) {
+            const Maths::Vector& at = m_object->m_pos;
             double dx = static_cast<double>(at.x) - skater->m_pos.x, dy = static_cast<double>(at.y) - skater->m_pos.y,
                    dz = static_cast<double>(at.z) - skater->m_pos.z;
             float distanceSqr = static_cast<float>((dz * dz + dy * dy) + dx * dx);
-            if (Script::GetFloat(kMinDistanceToSkater) > distanceSqr) {
+            if (Scripts::GetFloat(kMinDistanceToSkater) > distanceSqr) {
                 BailFromGrind();
                 return;
             }
@@ -836,7 +836,7 @@ void CPedLogicComponent::SkaterMoveUpdate()
     }
     if ((m_flags & PED_FLAG_MOVING) || airborne) {
         // Reaching the next waypoint (in the air, or for a vert node, in 3D).
-        const Mth::Vector& at = m_object->m_pos;
+        const Maths::Vector& at = m_object->m_pos;
         double dx, dy, dz;
         if ((m_flags & PED_FLAG_VERT_NEXT) || airborne) {
             dx = static_cast<double>(at.x) - m_nextNodePos.x;
@@ -848,12 +848,12 @@ void CPedLogicComponent::SkaterMoveUpdate()
             dz = static_cast<float>(static_cast<double>(at.z) - m_nextNodePos.z);
         }
         float distanceSqr = static_cast<float>((dx * dx + dz * dz) + dy * dy);
-        int minDistance = Script::GetInteger(kMinDistanceToWaypoint);
+        int minDistance = Scripts::FetchIntValue(kMinDistanceToWaypoint);
         if (!(m_flags & PED_FLAG_JUMPING_TO_NODE) &&
             (static_cast<double>(step) * step > distanceSqr || static_cast<double>(minDistance) > distanceSqr))
-            HitWaypoint();
+            ReachWaypoint();
         if (m_flags & PED_FLAG_CROUCH) {
-            if (static_cast<double>(Script::GetInteger(kCrouchDistance)) > distanceSqr) {
+            if (static_cast<double>(Scripts::FetchIntValue(kCrouchDistance)) > distanceSqr) {
                 m_flags &= ~PED_FLAG_CROUCH;
                 SetState(kStateJumpCrouch, kSkaterPedStateTable, nullptr);
             }
@@ -861,7 +861,7 @@ void CPedLogicComponent::SkaterMoveUpdate()
     }
     int sound = -1;
     if ((m_flags & PED_FLAG_MOVING) && step != 0.0f) {
-        Mth::Vector old = m_object->m_pos;
+        Maths::Vector old = m_object->m_pos;
         bool faced = false;
         if (m_kind == 2 && !(m_flags & (PED_FLAG_GRINDING | PED_FLAG_VERT_NEXT | PED_FLAG_VERT_LAST | PED_FLAG_GRIND_BAILING)) &&
             !(m_flags & PED_FLAG_JUMPING_TO_NODE)) {
@@ -872,11 +872,11 @@ void CPedLogicComponent::SkaterMoveUpdate()
                 m_object->m_displayMatrix = m_savedMatrix;
         } else {
             // Straight at the next node.
-            Mth::Vector to = {m_nextNodePos.x - old.x, m_nextNodePos.y - old.y, m_nextNodePos.z - old.z,
+            Maths::Vector to = {m_nextNodePos.x - old.x, m_nextNodePos.y - old.y, m_nextNodePos.z - old.z,
                               m_nextNodePos.w - old.w};
-            const Mth::Vector& dir = to.Normalize();
+            const Maths::Vector& dir = to.Normalize();
             float z = static_cast<float>(static_cast<double>(step) * dir.z), w = static_cast<float>(static_cast<double>(step) * dir.w);
-            Mth::Vector moved = {static_cast<float>(static_cast<double>(step) * dir.x + old.x),
+            Maths::Vector moved = {static_cast<float>(static_cast<double>(step) * dir.x + old.x),
                                  static_cast<float>(static_cast<double>(step) * dir.y + old.y),
                                  static_cast<float>(static_cast<double>(z) + old.z), static_cast<float>(static_cast<double>(w) + old.w)};
             KeepToPath();
@@ -919,42 +919,42 @@ void CPedLogicComponent::SkaterMoveUpdate()
         m_speedFraction = motion->m_pathMaxSpeed == 0.0f ? 0.0f : static_cast<float>(static_cast<double>(motion->m_pathSpeed) / motion->m_pathMaxSpeed);
     else
         m_speedFraction = 0.0f;
-    if (auto* looping = static_cast<CSkaterLoopingSoundComponent*>(m_object->GetComponent(kSkaterLoopingSound))) {
+    if (auto* looping = static_cast<CRiderRollingAudio*>(m_object->GetComponent(kSkaterLoopingSound))) {
         looping->m_noRailSound = (m_flags & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING)) != 0;
-        looping->SetSpeedFraction(m_speedFraction);
+        looping->SetPaceRatio(m_speedFraction);
     }
 }
 
 // 0x004F1890
-void CPedLogicComponent::BailMoveUpdate()
+void CPedestrianBrainModule::BailMoveUpdate()
 {
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     MotionPath(motion)->UpdatePathSpeed();
     float step = static_cast<float>(static_cast<double>(m_frameTime) * motion->m_pathSpeed);
     if (!(m_flags & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING))) {
         // The bail's over: back to skating.
         m_updateType = kSkaterMoveUpdate;
-        Script::RunScript(kPedInitializeMovement, nullptr, m_object, false, nullptr);
+        Scripts::LaunchScript(kPedInitializeMovement, nullptr, m_object, false, nullptr);
         if (m_updateType == kGenericMoveUpdate || m_updateType == kSkaterMoveUpdate)
             m_flags |= PED_FLAG_MOVING;
         return;
     }
     if (m_flags & PED_FLAG_MOVING) {
-        const Mth::Vector& at = m_object->m_pos;
+        const Maths::Vector& at = m_object->m_pos;
         float dx = static_cast<float>(static_cast<double>(at.x) - m_nextNodePos.x);
         double dz = static_cast<double>(at.z) - m_nextNodePos.z;
         float distanceSqr = static_cast<float>(dz * dz + static_cast<double>(dx) * dx);
-        int minDistance = Script::GetInteger(kMinDistanceToWaypoint);
+        int minDistance = Scripts::FetchIntValue(kMinDistanceToWaypoint);
         if (!(m_flags & PED_FLAG_JUMPING_TO_NODE) &&
             (static_cast<double>(step) * step > distanceSqr || static_cast<double>(minDistance) > distanceSqr))
             m_flags &= ~PED_FLAG_MOVING;
     }
     if ((m_flags & PED_FLAG_MOVING) && !(step == 0.0f)) {
-        Mth::Vector old = m_object->m_pos;
-        Mth::Vector to = {m_nextNodePos.x - old.x, m_nextNodePos.y - old.y, m_nextNodePos.z - old.z, m_nextNodePos.w - old.w};
-        const Mth::Vector& dir = to.Normalize();
+        Maths::Vector old = m_object->m_pos;
+        Maths::Vector to = {m_nextNodePos.x - old.x, m_nextNodePos.y - old.y, m_nextNodePos.z - old.z, m_nextNodePos.w - old.w};
+        const Maths::Vector& dir = to.Normalize();
         float z = static_cast<float>(static_cast<double>(step) * dir.z), w = static_cast<float>(static_cast<double>(step) * dir.w);
-        Mth::Vector moved = {static_cast<float>(static_cast<double>(step) * dir.x + old.x),
+        Maths::Vector moved = {static_cast<float>(static_cast<double>(step) * dir.x + old.x),
                              static_cast<float>(static_cast<double>(step) * dir.y + old.y),
                              static_cast<float>(static_cast<double>(z) + old.z), static_cast<float>(static_cast<double>(w) + old.w)};
         KeepToPath();
@@ -965,21 +965,21 @@ void CPedLogicComponent::BailMoveUpdate()
 }
 
 // 0x004F1780
-void CPedLogicComponent::GoHomeUpdate()
+void CPedestrianBrainModule::GoHomeUpdate()
 {
-    Mth::Vector home = {m_nodePos.x - m_object->m_pos.x, m_nodePos.y - m_object->m_pos.y, m_nodePos.z - m_object->m_pos.z,
+    Maths::Vector home = {m_nodePos.x - m_object->m_pos.x, m_nodePos.y - m_object->m_pos.y, m_nodePos.z - m_object->m_pos.z,
                         m_nodePos.w - m_object->m_pos.w};
     double distanceSqr = (static_cast<double>(home.z) * home.z + static_cast<double>(home.y) * home.y) +
                          static_cast<double>(home.x) * home.x;
     if (distanceSqr <= kNear) {
-        Script::RunScript(kEndReturnHome, nullptr, m_object, false, nullptr);
+        Scripts::LaunchScript(kEndReturnHome, nullptr, m_object, false, nullptr);
         return;
     }
     home.Normalize();
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     PushPosition();
-    Mth::Vector& pos = m_object->m_pos;
-    Mth::Vector old = pos;
+    Maths::Vector& pos = m_object->m_pos;
+    Maths::Vector old = pos;
     double step = static_cast<double>(m_frameTime) * motion->m_pathMaxSpeed;
     float stepF = static_cast<float>(step);
     pos.w = 1.0f;
@@ -990,39 +990,39 @@ void CPedLogicComponent::GoHomeUpdate()
 }
 
 // 0x004F1480
-void CPedLogicComponent::ChaseUpdate()
+void CPedestrianBrainModule::ChaseUpdate()
 {
-    CCompositeObject* skater = LocalSkater();
+    CGameEntity* skater = LocalSkater();
     if (!skater)
         return;
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     float dz = static_cast<float>(static_cast<double>(skater->m_pos.z) - m_object->m_pos.z);
-    Mth::Vector toSkater = {static_cast<float>(static_cast<double>(skater->m_pos.x) - m_object->m_pos.x), 0.0f, dz, 0.0f};
-    double distanceSqr = static_cast<double>(toSkater.x) * toSkater.x + static_cast<double>(dz) * dz;
+    Maths::Vector towardPlayer = {static_cast<float>(static_cast<double>(skater->m_pos.x) - m_object->m_pos.x), 0.0f, dz, 0.0f};
+    double distanceSqr = static_cast<double>(towardPlayer.x) * towardPlayer.x + static_cast<double>(dz) * dz;
     if (distanceSqr <= kCatchDistanceSqr) {
         // Caught.
-        FaceAlong(&toSkater);
-        Script::CStruct* params = NewParams();
-        params->AddChecksum(kChaser, skater->m_id);
+        FaceAlong(&towardPlayer);
+        Scripts::CStruct* params = NewParams();
+        params->PutNameKey(kChaser, skater->m_id);
         SetState(kStateChaseCatch, 0, params);
         DeleteParams(params);
         return;
     }
     if (distanceSqr > kChaseOutOfRangeSqr) {
-        Script::RunScript(kEndPlayerChase, nullptr, m_object, false, nullptr);
+        Scripts::LaunchScript(kEndPlayerChase, nullptr, m_object, false, nullptr);
         return;
     }
     int maxHome = 0;
-    if (m_object->GetIntegerTag(kMaxHomeDist, &maxHome) && maxHome > 0) {
-        Mth::Vector fromHome = m_nodePos - m_object->m_pos;
+    if (m_object->ReadIntTag(kMaxHomeDist, &maxHome) && maxHome > 0) {
+        Maths::Vector fromHome = m_nodePos - m_object->m_pos;
         double lengthSqr = (static_cast<double>(fromHome.x) * fromHome.x + static_cast<double>(fromHome.y) * fromHome.y) +
                            static_cast<double>(fromHome.z) * fromHome.z;
         if (static_cast<double>(maxHome * maxHome) <= lengthSqr) {
-            Script::RunScript(kEndPlayerChase, nullptr, m_object, false, nullptr);
+            Scripts::LaunchScript(kEndPlayerChase, nullptr, m_object, false, nullptr);
             return;
         }
     }
-    if (ProbeAhead({toSkater.x, 0.0f, dz, 0.0f}, kReach, nullptr)) {
+    if (ProbeAhead({towardPlayer.x, 0.0f, dz, 0.0f}, kReach, nullptr)) {
         if (m_state != kStateChasePause)
             SetState(kStateChasePause, 0, nullptr);
         return;
@@ -1030,56 +1030,56 @@ void CPedLogicComponent::ChaseUpdate()
     if (m_state != kStateChase)
         SetState(kStateChase, 0, nullptr);
     motion->m_pathMaxSpeed = kChaseSpeed;
-    toSkater.Normalize();
+    towardPlayer.Normalize();
     PushPosition();
-    Mth::Vector& pos = m_object->m_pos;
-    Mth::Vector old = pos;
+    Maths::Vector& pos = m_object->m_pos;
+    Maths::Vector old = pos;
     double step = static_cast<double>(m_frameTime) * motion->m_pathMaxSpeed;
     float stepF = static_cast<float>(step);
     pos.w = 1.0f;
-    pos.x = static_cast<float>(step * toSkater.x + old.x);
-    pos.z = static_cast<float>(static_cast<double>(stepF) * toSkater.z + old.z);
+    pos.x = static_cast<float>(step * towardPlayer.x + old.x);
+    pos.z = static_cast<float>(static_cast<double>(stepF) * towardPlayer.z + old.z);
     FaceMovement(old);
     motion->StickToGround();
 }
 
 // 0x004F0DD0
-void CPedLogicComponent::BlockerUpdate()
+void CPedestrianBrainModule::BlockerUpdate()
 {
-    CCompositeObject* skater = LocalSkater();
+    CGameEntity* skater = LocalSkater();
     if (!skater)
         return;
-    CMotionComponent* motion = Motion(m_object);
+    CKinematicsModule* motion = Motion(m_object);
     float sz = static_cast<float>(static_cast<double>(skater->m_pos.z) - m_object->m_pos.z);
-    Mth::Vector toSkater = {static_cast<float>(static_cast<double>(skater->m_pos.x) - m_object->m_pos.x), 0.0f, sz, 0.0f};
+    Maths::Vector towardPlayer = {static_cast<float>(static_cast<double>(skater->m_pos.x) - m_object->m_pos.x), 0.0f, sz, 0.0f};
     float pathZ = static_cast<float>(static_cast<double>(m_nextNodePos.z) - m_nodePos.z);
     float pathX = static_cast<float>(static_cast<double>(m_nextNodePos.x) - m_nodePos.x);
     // Across the path, on the skater's side.
-    double side = static_cast<double>(pathX) * sz - static_cast<double>(pathZ) * toSkater.x;
+    double side = static_cast<double>(pathX) * sz - static_cast<double>(pathZ) * towardPlayer.x;
     double turn = side < 0.0 ? kBlockerTurn : -kBlockerTurn;
     float sine = X87::SinF(turn);
     float cosine = X87::CosF(turn);
     double acrossX = CosTimes(turn, pathX) + static_cast<double>(pathZ) * sine;
     double acrossZ = -(static_cast<double>(pathX) * sine) + static_cast<double>(cosine) * pathZ;
-    Mth::Vector across = {static_cast<float>(acrossX), 0.0f, static_cast<float>(acrossZ), 0.0f};
+    Maths::Vector across = {static_cast<float>(acrossX), 0.0f, static_cast<float>(acrossZ), 0.0f};
     across.Normalize();
-    if (static_cast<double>(toSkater.x) * toSkater.x + static_cast<double>(sz) * sz <= kCatchDistanceSqr) {
+    if (static_cast<double>(towardPlayer.x) * towardPlayer.x + static_cast<double>(sz) * sz <= kCatchDistanceSqr) {
         // Bumped.
         FaceAlong(&across);
-        Script::CStruct* params = NewParams();
-        params->AddVector(kVelDir, Script::VectorValue{across.x, across.y, across.z, across.w});
-        m_object->SelfEvent(kBlockerBumpPlayer, params);
+        Scripts::CStruct* params = NewParams();
+        params->PutVec3(kVelDir, Scripts::VectorValue{across.x, across.y, across.z, across.w});
+        m_object->PostOwnEvent(kBlockerBumpPlayer, params);
         DeleteParams(params);
         return;
     }
     // Where the skater's going crosses the path.
-    const Mth::Vector& vel = skater->m_vel;
+    const Maths::Vector& vel = skater->m_vel;
     bool notApproaching = !((static_cast<double>(across.z) * vel.z + static_cast<double>(across.y) * vel.y) +
                                 static_cast<double>(across.x) * vel.x > 0.0);
     double speedSqr = (static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) + static_cast<double>(vel.z) * vel.z;
-    const Mth::Vector& at = skater->m_pos;
-    Mth::Vector end;
-    Mth::Vector onPath;
+    const Maths::Vector& at = skater->m_pos;
+    Maths::Vector end;
+    Maths::Vector onPath;
     float s, t;
     if (!(speedSqr < kFastSkaterSqr) && notApproaching) {
         float ex = static_cast<float>(static_cast<double>(vel.x) * kLookAhead), ey = static_cast<float>(static_cast<double>(vel.y) * kLookAhead),
@@ -1094,9 +1094,9 @@ void CPedLogicComponent::BlockerUpdate()
         end = {static_cast<float>(static_cast<double>(ex) + at.x), static_cast<float>(static_cast<double>(ey) + at.y),
                static_cast<float>(static_cast<double>(ez) + at.z), static_cast<float>(ew + at.w)};
     }
-    Mth::Line path(m_nextNodePos, m_nodePos);
-    Mth::Line skaterLine(at, end);
-    Mth::ClosestPointsBetweenLines(path, skaterLine, onPath, end, s, t, true);
+    Maths::Line path(m_nextNodePos, m_nodePos);
+    Maths::Line skaterLine(at, end);
+    Maths::ClosestPointsBetweenLines(path, skaterLine, onPath, end, s, t, true);
     double speed = std::sqrt((static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
                              static_cast<double>(vel.z) * vel.z);
     float gz = static_cast<float>(static_cast<double>(onPath.z) - at.z);
@@ -1105,15 +1105,15 @@ void CPedLogicComponent::BlockerUpdate()
     if (speed == 0.0)
         speed = kNoSpeed;
     double skaterTime = std::sqrt((static_cast<double>(gx) * gx + static_cast<double>(gy) * gy) + static_cast<double>(gz) * gz) / speed;
-    const Mth::Vector& me = m_object->m_pos;
+    const Maths::Vector& me = m_object->m_pos;
     double tx = static_cast<double>(onPath.x) - me.x, ty = static_cast<double>(onPath.y) - me.y,
            tz = static_cast<double>(onPath.z) - me.z, tw = static_cast<double>(onPath.w) - me.w;
-    Mth::Vector toPoint = {static_cast<float>(tx), static_cast<float>(ty), static_cast<float>(tz), static_cast<float>(tw)};
+    Maths::Vector toPoint = {static_cast<float>(tx), static_cast<float>(ty), static_cast<float>(tz), static_cast<float>(tw)};
     double distance = std::sqrt((tx * tx + ty * ty) + tz * tz);
     float distanceF = static_cast<float>(distance);
     if (distance <= kStandDistance) {
-        FaceAlong(&toSkater);
-        m_object->SelfEvent(kBlockerStand, nullptr);
+        FaceAlong(&towardPlayer);
+        m_object->PostOwnEvent(kBlockerStand, nullptr);
         return;
     }
     float needed = static_cast<float>(static_cast<double>(distanceF) / skaterTime);
@@ -1121,14 +1121,14 @@ void CPedLogicComponent::BlockerUpdate()
     if (!(needed > kRunRatio) && !(distanceF > kRunDistance)) {
         // Near enough: a shuffle to the side the point is on.
         FaceAlong(&across);
-        Script::CStruct* params = NewParams();
-        Mth::Vector cross = Mth::CrossProduct(toPoint, across);
-        params->AddChecksum(kDir, cross.y < 0.0f ? kLeft : kRight);
-        m_object->SelfEvent(kBlockerShuffle, params);
+        Scripts::CStruct* params = NewParams();
+        Maths::Vector cross = Maths::CrossProduct(toPoint, across);
+        params->PutNameKey(kDir, cross.y < 0.0f ? kLeft : kRight);
+        m_object->PostOwnEvent(kBlockerShuffle, params);
         DeleteParams(params);
     } else {
         FaceAlong(&toPoint);
-        m_object->SelfEvent(kBlockerRun, nullptr);
+        m_object->PostOwnEvent(kBlockerRun, nullptr);
     }
     float speedNeeded = needed > kMinBlockerSpeed ? needed : kMinBlockerSpeed;
     motion->m_pathMaxSpeed = speedNeeded;
@@ -1137,16 +1137,16 @@ void CPedLogicComponent::BlockerUpdate()
     motion->m_pathMaxSpeed = speedNeeded;
     PushPosition();
     double step = static_cast<double>(m_frameTime) * motion->m_pathMaxSpeed;
-    Mth::Vector& pos = m_object->m_pos;
+    Maths::Vector& pos = m_object->m_pos;
     pos.w = 1.0f;
     pos.x = static_cast<float>(static_cast<double>(toPoint.x) * step + pos.x);
     pos.z = static_cast<float>(static_cast<double>(toPoint.z) * step + pos.z);
 }
 
 // 0x004F2190
-void CPedLogicComponent::Update()
+void CPedestrianBrainModule::Update()
 {
-    m_frameTime = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    m_frameTime = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     switch (m_updateType) {
     case kGenericMoveUpdate: VirtualGenericMoveUpdate(); break;
     case kGoHomeUpdate: GoHomeUpdate(); break;
@@ -1165,24 +1165,24 @@ void CPedLogicComponent::Update()
 // --- script member functions ---
 
 // 0x004F0950
-bool CPedLogicComponent::Ped_TurnToCurrentWaypointOrientation(Script::CStruct* params, Script::CScript*)
+bool CPedestrianBrainModule::Ped_TurnToCurrentWaypointOrientation(Scripts::CStruct* params, Scripts::CScript*)
 {
-    CMotionComponent* motion = Motion(m_object);
-    Mth::Matrix m;
+    CKinematicsModule* motion = Motion(m_object);
+    Maths::Matrix m;
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Vector angles = {0.0f, 0.0f, 0.0f, 1.0f};
-    SkateScript::GetAngles(m_node, &angles);
-    Mth::Matrix rotation;
-    D3dxMultiply(m, m, Mth::CreateRotateXMatrix(rotation, angles.x));
-    D3dxMultiply(m, m, Mth::CreateRotateYMatrix(rotation, angles.y));
-    D3dxMultiply(m, m, Mth::CreateRotateZMatrix(rotation, angles.z));
+    Maths::Vector angles = {0.0f, 0.0f, 0.0f, 1.0f};
+    LevelNodes::ReadTurnAngles(m_listLink, &angles);
+    Maths::Matrix rotation;
+    D3dxMultiply(m, m, Maths::MakePitchMatrix(rotation, angles.x));
+    D3dxMultiply(m, m, Maths::MakeYawMatrix(rotation, angles.y));
+    D3dxMultiply(m, m, Maths::MakeRollMatrix(rotation, angles.z));
     for (int i = 0; i < 4; ++i)
         (&m.row[2].x)[i] = static_cast<float>(static_cast<double>((&m.row[2].x)[i]) * kReach);
-    const Mth::Vector& at = m_object->m_pos;
-    Mth::Vector target = {static_cast<float>(static_cast<double>(m.row[2].x) + at.x),
+    const Maths::Vector& at = m_object->m_pos;
+    Maths::Vector target = {static_cast<float>(static_cast<double>(m.row[2].x) + at.x),
                           static_cast<float>(static_cast<double>(m.row[2].y) + at.y),
                           static_cast<float>(static_cast<double>(m.row[2].z) + at.z),
                           static_cast<float>(static_cast<double>(m.row[2].w) + at.w)};

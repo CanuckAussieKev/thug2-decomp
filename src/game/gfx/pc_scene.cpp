@@ -30,7 +30,7 @@
 #include "game/mc/memcard.h"
 #include "game/gfx/device.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 extern void** const kCPcSceneVtable;
@@ -42,7 +42,7 @@ uint32_t g_bloomOn;
 uint32_t g_screenEffectUnknown5724;
 uint32_t g_screenEffectUnknown5728;
 // The empty bounding box (all zero at start, as the original's) and its guard.
-Mth::BBox g_emptyBoundingBox{Mth::BBox(Mth::Vector{0.0f, 0.0f, 0.0f, 0.0f})};
+Maths::BBox g_emptyBoundingBox{Maths::BBox(Maths::Vector{0.0f, 0.0f, 0.0f, 0.0f})};
 uint32_t g_emptyBoundingBoxGuard;
 
 uint32_t g_bloomAlphaFirst{0x10};
@@ -59,17 +59,17 @@ IDirect3DDevice9* Device() { return g_d3dDevice; }
 CPcGeom* GeometryOf(void* sector) { return static_cast<CPcGeom*>(static_cast<CPcSector*>(sector)->geom); } // (+0x14: the getter 0x004A2BA0, folded with others)
 
 // The first sector of a fresh iteration of the table (null if none).
-void* FirstSector(Lst::HashTable* table)
+void* FirstSector(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* NextSector(Lst::HashTable* table)
+void* NextSector(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
@@ -81,7 +81,7 @@ void* NextSector(Lst::HashTable* table)
 // 0x004C6550
 CPcSector* CPcSector::Construct()
 {
-    reinterpret_cast<CSector*>(this)->CSector::Construct();
+    reinterpret_cast<CWorldCell*>(this)->CWorldCell::Construct();
     vtable = kCPcSectorVtable;
     unknown20[0] = unknown20[1] = unknown20[2] = 0.0f;
     unknown2C = 1.0f;
@@ -89,14 +89,14 @@ CPcSector* CPcSector::Construct()
 }
 
 // 0x004C65B0
-void CPcSector::DestroyBody() { reinterpret_cast<CSector*>(this)->CSector::DestroyBody(); }
+void CPcSector::DestroyBody() { reinterpret_cast<CWorldCell*>(this)->CWorldCell::DestroyBody(); }
 
 // 0x004C6580
 CPcSector* CPcSector::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -110,18 +110,18 @@ void CPcSector::SetActive(bool on)
 // 0x004C65C0
 CPcSector* CPcSector::Clone(int, int)
 {
-    void* memory = Mem::New(sizeof(CPcSector));
+    void* memory = MemSys::New(sizeof(CPcSector));
     return memory ? static_cast<CPcSector*>(memory)->Construct() : nullptr;
 }
 
 // 0x004C64E0
-const Mth::BBox* CPcSector::GetBoundingBox()
+const Maths::BBox* CPcSector::GetBoundingBox()
 {
     auto* empty = &g_emptyBoundingBox; // (the game's, made the first time: its guard's bit 0)
     uint32_t& made = g_emptyBoundingBoxGuard;
     if (!(made & 1)) {
         made |= 1;
-        new (empty) Mth::BBox();
+        new (empty) Maths::BBox();
     }
     return empty;
 }
@@ -131,34 +131,34 @@ const Mth::BBox* CPcSector::GetBoundingBox()
 // 0x004C6130
 CPcScene* CPcScene::Construct(int arg)
 {
-    reinterpret_cast<CScene*>(this)->CScene::Construct(arg);
+    reinterpret_cast<CWorldScene*>(this)->CWorldScene::Construct(arg);
     vtable = kCPcSceneVtable;
     return this;
 }
 
 // 0x004C6180
-void CPcScene::DestroyBody() { reinterpret_cast<CScene*>(this)->CScene::DestroyBody(); }
+void CPcScene::DestroyBody() { reinterpret_cast<CWorldScene*>(this)->CWorldScene::DestroyBody(); }
 
 // 0x004C6150
 CPcScene* CPcScene::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004C6190
-CPcSector* CPcScene::CreateSector()
+CPcSector* CPcScene::SpawnSector()
 {
-    void* memory = Mem::New(sizeof(CPcSector));
+    void* memory = MemSys::New(sizeof(CPcSector));
     return memory ? static_cast<CPcSector*>(memory)->Construct() : nullptr;
 }
 
 // 0x004C6200
 void CPcScene::UnloadSectors()
 {
-    auto* table = static_cast<Lst::HashTable*>(sectors);
+    auto* table = static_cast<ListKit::HashTable*>(sectors);
     for (void* sector = FirstSector(table); sector; sector = NextSector(table)) {
     }
 }
@@ -166,7 +166,7 @@ void CPcScene::UnloadSectors()
 // 0x004C6270
 void CPcScene::PostLoad(sVertexArena* arena)
 {
-    auto* table = static_cast<Lst::HashTable*>(sectors);
+    auto* table = static_cast<ListKit::HashTable*>(sectors);
     void* sector = FirstSector(table);
     if (arena) {
         Device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
@@ -178,7 +178,7 @@ void CPcScene::PostLoad(sVertexArena* arena)
     }
     for (; sector; sector = NextSector(table)) {
         CPcGeom* geom = GeometryOf(sector);
-        geom->CreateMeshArray(arena);
+        geom->MakeMeshTable(arena);
         geom->AddToMeshList(true);
     }
     if (arena) {
@@ -188,7 +188,7 @@ void CPcScene::PostLoad(sVertexArena* arena)
     meshes->AllocateMeshList();
     for (sector = FirstSector(table); sector; sector = NextSector(table))
         GeometryOf(sector)->AddToMeshList(false);
-    meshes->SortMeshes();
+    meshes->OrderMeshes();
 }
 
 // --- the screen effects ---
@@ -213,7 +213,7 @@ CPcScreenEffects* CPcScreenEffects::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -245,33 +245,33 @@ namespace {
 // The engine and mesh code the loaders go through.
 void SetSectorChecksum(CPcSector* sector, uint32_t checksum)
 {
-    reinterpret_cast<Ass::CAsset*>(sector)->SetChecksum(checksum); // (folded with CAsset's)
+    reinterpret_cast<AssetStore::CResource*>(sector)->SetChecksum(checksum); // (folded with CResource's)
 }
-sMesh* NewMesh()
+meshRef* NewMesh()
 {
-    void* memory = Mem::New(sizeof(sMesh));
-    return memory ? static_cast<sMesh*>(memory)->Construct() : nullptr; // (its constructor)
+    void* memory = MemSys::New(sizeof(meshRef));
+    return memory ? static_cast<meshRef*>(memory)->Construct() : nullptr; // (its constructor)
 }
-void SetMeshSphereAndBox(sMesh* mesh, const float* centre, float radius, const Mth::Vector* min, const Mth::Vector* max)
+void SetMeshSphereAndBox(meshRef* mesh, const float* centre, float radius, const Maths::Vector* min, const Maths::Vector* max)
 {
-    mesh->SetBoundingSphere(centre, radius, static_cast<int>(reinterpret_cast<intptr_t>(min)),
+    mesh->ChangeBoundSphere(centre, radius, static_cast<int>(reinterpret_cast<intptr_t>(min)),
                             static_cast<int>(reinterpret_cast<intptr_t>(max)));
 }
 // The rest of a mesh's set-up, the same for both loaders: the scene's box grown, a billboard made, the mesh added.
-void FinishMesh(CPcSector* sector, CPcGeom* geom, sMesh* mesh, uint32_t billboardType,
-                const Mth::Vector* pivot, const Mth::Vector* axis, const Mth::Vector* min, const Mth::Vector* max,
+void FinishMesh(CPcSector* sector, CPcGeom* geom, meshRef* mesh, uint32_t billboardType,
+                const Maths::Vector* pivot, const Maths::Vector* axis, const Maths::Vector* min, const Maths::Vector* max,
                 uint8_t lightGroup)
 {
-    auto* bounds = reinterpret_cast<Mth::BBox*>(*reinterpret_cast<uint8_t**>(geom->scene + 0x280) + 0x44);
+    auto* bounds = reinterpret_cast<Maths::BBox*>(*reinterpret_cast<uint8_t**>(geom->scene + 0x280) + 0x44);
     bounds->AddPoint(*min);
     bounds->AddPoint(*max);
     if (sector->flags & 0x800000) {
         mesh->MakeBillboard(static_cast<int>(billboardType), pivot, axis);
-        g_billboardManager.AddMesh(mesh);
+        g_billboardManager.AppendMesh(mesh);
     }
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;
-    geom->AddMesh(mesh);
+    geom->AppendMesh(mesh);
     reinterpret_cast<uint8_t*>(mesh)[0x1F] = lightGroup;
     MakeGrass(geom, mesh);
 }
@@ -279,7 +279,7 @@ void FinishMesh(CPcSector* sector, CPcGeom* geom, sMesh* mesh, uint32_t billboar
 uint32_t CountLoadedMeshes(const CPcGeom* geom)
 {
     uint32_t count = 0;
-    for (Mem::ListNode* node = geom->loadList->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (MemSys::ListNode* node = geom->loadList->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
         ++count;
     return count;
 }
@@ -287,7 +287,7 @@ uint32_t CountLoadedMeshes(const CPcGeom* geom)
 } // namespace
 
 // 0x004C6650
-bool CPcSector::LoadFromMemory(uint8_t** cursor)
+bool CPcSector::ReadFromRamBlock(uint8_t** cursor)
 {
     auto* geometry = static_cast<CPcGeom*>(geom);
     auto* p = reinterpret_cast<const uint32_t*>(*cursor);
@@ -302,7 +302,7 @@ bool CPcSector::LoadFromMemory(uint8_t** cursor)
     geometry->bounds.max = {box[3], box[4], box[5], 1.0f};
     p += 4; // (a bounding sphere, not kept)
     uint32_t billboardType = 0;
-    Mth::Vector pivot, axis; // (their w not set, as the original)
+    Maths::Vector pivot, axis; // (their w not set, as the original)
     if (flags & 0x800000) {
         billboardType = p[0];
         p += 4; // (the type and a vector not kept)
@@ -314,12 +314,12 @@ bool CPcSector::LoadFromMemory(uint8_t** cursor)
     }
     float centre[4] = {0, 0, 0, box[3]}; // (its w the box's last value, as the original's stack has it)
     for (uint32_t i = 0; i < geometry->meshCount; ++i) {
-        sMesh* mesh = NewMesh();
+        meshRef* mesh = NewMesh();
         std::memcpy(centre, p, 12);
         p += 3;
         float radius;
         std::memcpy(&radius, p++, 4);
-        Mth::Vector min, max;
+        Maths::Vector min, max;
         std::memcpy(&min, p, 12);
         p += 3;
         std::memcpy(&max, p, 12);
@@ -336,24 +336,24 @@ bool CPcSector::LoadFromMemory(uint8_t** cursor)
         uint32_t counts[8] = {};
         for (uint32_t j = 0; j < lists; ++j) {
             counts[j] = *p++;
-            Mem::Manager* manager = Mem::Manager::Get();
-            manager->PushContext(manager->m_topDownHeap);
+            MemSys::Manager* manager = MemSys::Manager::Get();
+            manager->EnterHeapScope(manager->m_topDownHeap);
             uint32_t bytes = counts[j] * 2;
-            indices[j] = static_cast<uint16_t*>(Mem::New(bytes));
-            Mem::Manager::Get()->PopContext();
+            indices[j] = static_cast<uint16_t*>(MemSys::New(bytes));
+            MemSys::Manager::Get()->LeaveHeapScope();
             std::memcpy(indices[j], p, bytes);
             p = reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(p) + bytes);
         }
         mesh->loadIndex = static_cast<uint16_t>(i);
         auto* at = reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(p));
-        mesh->LoadFromMemory(&at, material, *reinterpret_cast<sScene**>(geometry->scene + 0x280),
+        mesh->ReadFromRamBlock(&at, material, *reinterpret_cast<sceneRef**>(geometry->scene + 0x280),
                              nullptr); // (the vertices)
         p = reinterpret_cast<const uint32_t*>(at);
         SetMeshSphereAndBox(mesh, centre, radius, &min, &max);
         FinishMesh(this, geometry, mesh, billboardType, &pivot, &axis, &min, &max,
                    static_cast<uint8_t>(lightGroup));
         for (uint16_t* list : indices)
-            Mem::Manager::Get()->Free(list);
+            MemSys::Manager::Get()->Free(list);
     }
     geometry->meshCount = CountLoadedMeshes(geometry);
     *cursor = reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(p));
@@ -361,10 +361,10 @@ bool CPcSector::LoadFromMemory(uint8_t** cursor)
 }
 
 // 0x004C6B10
-bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
+bool CPcSector::LoadFromFile(FileLoad::Handle file, uint32_t unknown)
 {
     auto* geometry = static_cast<CPcGeom*>(geom);
-    auto read = [file](void* into, int size, int count) { File::Read(into, size, count, file); };
+    auto read = [file](void* into, int size, int count) { FileLoad::Read(into, size, count, file); };
     uint32_t checksum;
     read(&checksum, 4, 1);
     SetSectorChecksum(this, checksum);
@@ -375,13 +375,13 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
     float box[6];
     read(box, 4, 6);
     // (the box's corners kept: the meshes' are read over them, their w still 1)
-    Mth::Vector min = {box[0], box[1], box[2], 1.0f}, max = {box[3], box[4], box[5], 1.0f};
+    Maths::Vector min = {box[0], box[1], box[2], 1.0f}, max = {box[3], box[4], box[5], 1.0f};
     geometry->bounds.min = min;
     geometry->bounds.max = max;
     uint32_t sphere[4];
     read(sphere, 4, 4); // (not kept)
     uint32_t billboardType = 0;
-    Mth::Vector unused, pivot, axis;
+    Maths::Vector unused, pivot, axis;
     if (flags & 0x800000) {
         read(&billboardType, 4, 1);
         read(&unused, 0xC, 1);
@@ -395,7 +395,7 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
     }
     float centre[4] = {}; // (its w never read in: zero here)
     for (uint32_t i = 0; i < geometry->meshCount; ++i) {
-        sMesh* mesh = NewMesh();
+        meshRef* mesh = NewMesh();
         read(centre, 4, 3);
         float radius;
         read(&radius, 4, 1);
@@ -414,43 +414,43 @@ bool CPcSector::LoadFromFile(File::Handle file, uint32_t unknown)
         uint32_t counts[8] = {};
         for (uint32_t j = 0; j < lists; ++j) { // (read and dropped)
             read(&counts[j], 4, 1);
-            Mem::Manager* manager = Mem::Manager::Get();
-            manager->PushContext(manager->m_topDownHeap);
-            indices[j] = static_cast<uint16_t*>(Mem::New(counts[j] * 2));
-            Mem::Manager::Get()->PopContext();
+            MemSys::Manager* manager = MemSys::Manager::Get();
+            manager->EnterHeapScope(manager->m_topDownHeap);
+            indices[j] = static_cast<uint16_t*>(MemSys::New(counts[j] * 2));
+            MemSys::Manager::Get()->LeaveHeapScope();
             read(indices[j], 2, static_cast<int>(counts[j]));
         }
         mesh->loadIndex = static_cast<uint16_t>(i);
-        mesh->LoadFromFile(file, material, *reinterpret_cast<sScene**>(geometry->scene + 0x280),
+        mesh->LoadFromFile(file, material, *reinterpret_cast<sceneRef**>(geometry->scene + 0x280),
                            reinterpret_cast<sVertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown)),
                            ((flags >> 23) & 1) != 0); // (the vertices; read as a byte: bit 23)
         SetMeshSphereAndBox(mesh, centre, radius, &min, &max);
         FinishMesh(this, geometry, mesh, billboardType, &pivot, &axis, &min, &max,
                    static_cast<uint8_t>(lightGroup));
         for (uint16_t* list : indices)
-            Mem::Manager::Get()->Free(list);
+            MemSys::Manager::Get()->Free(list);
     }
     geometry->meshCount = CountLoadedMeshes(geometry);
     return true;
 }
 
 namespace {
-static VtableSlot kCPcSceneVtable_slots[] = {&Nx::CPcScene::Destroy, &Nx::CPcScene::PostLoad, &Nx::CScene::PostAdd,
-                &Mc::Card::AlwaysTrue, &Mc::Card::AlwaysTrue, &Nx::CScene::AddCollision, Stubs::ReturnFalse,
-                &Nx::CPcScene::CreateSector, Stubs::IgnoreArgument, &Nx::CScene::GetDefaultColour,
-                &Nx::CScene::SetRendered};
+static VtableSlot kCPcSceneVtable_slots[] = {&Engine3D::CPcScene::Destroy, &Engine3D::CPcScene::PostLoad, &Engine3D::CWorldScene::PostAdd,
+                &MemCard::Card::AlwaysTrue, &MemCard::Card::AlwaysTrue, &Engine3D::CWorldScene::AddCollision, Stubs::ReturnFalse,
+                &Engine3D::CPcScene::SpawnSector, Stubs::IgnoreArgument, &Engine3D::CWorldScene::GetDefaultColour,
+                &Engine3D::CWorldScene::SetRendered};
 void** const kCPcSceneVtable = reinterpret_cast<void**>(kCPcSceneVtable_slots);
-static VtableSlot kCPcScreenEffectsVtable_slots[] = {&Nx::CPcScreenEffects::Destroy, Stubs::DoNothing,
-                &Nx::CPcScreenEffects::SetBloom, &Nx::CPcScreenEffects::SetBloomCutOff,
-                &Nx::CPcScreenEffects::SetBloomAlphas, &Nx::CPcScreenEffects::SetUnknown990,
-                &Nx::CPcScreenEffects::SetUnknown5724, Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown994,
-                Stubs::IgnoreArgument, &Nx::CPcScreenEffects::SetUnknown984, &Nx::CPcScreenEffects::SetUnknown988,
-                &Nx::CPcScreenEffects::SetUnknown5728};
+static VtableSlot kCPcScreenEffectsVtable_slots[] = {&Engine3D::CPcScreenEffects::Destroy, Stubs::DoNothing,
+                &Engine3D::CPcScreenEffects::SetBloom, &Engine3D::CPcScreenEffects::SetBloomCutOff,
+                &Engine3D::CPcScreenEffects::SetBloomAlphas, &Engine3D::CPcScreenEffects::SetUnknown990,
+                &Engine3D::CPcScreenEffects::SetUnknown5724, Stubs::IgnoreArgument, &Engine3D::CPcScreenEffects::SetUnknown994,
+                Stubs::IgnoreArgument, &Engine3D::CPcScreenEffects::SetUnknown984, &Engine3D::CPcScreenEffects::SetUnknown988,
+                &Engine3D::CPcScreenEffects::SetUnknown5728};
 void** const kCPcScreenEffectsVtable = reinterpret_cast<void**>(kCPcScreenEffectsVtable_slots);
-static VtableSlot kCPcSectorVtable_slots[] = {&Nx::CPcSector::Destroy, &Nx::CPcSector::SetActive,
-                &Nx::CSector::PlatGetShatter, &Nx::CPcSector::Clone, Stubs::IgnoreArgument, Stubs::DoNothing,
-                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &Nx::CPcSector::GetBoundingBox,
-                &Nx::CCollMovable::GetOrientation};
+static VtableSlot kCPcSectorVtable_slots[] = {&Engine3D::CPcSector::Destroy, &Engine3D::CPcSector::SetActive,
+                &Engine3D::CWorldCell::PlatGetShatter, &Engine3D::CPcSector::Clone, Stubs::IgnoreArgument, Stubs::DoNothing,
+                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &Engine3D::CPcSector::GetBoundingBox,
+                &Engine3D::CHitMovingMesh::GetOrientation};
 void** const kCPcSectorVtable = reinterpret_cast<void**>(kCPcSectorVtable_slots);
 } // namespace
 

@@ -1,7 +1,7 @@
 #pragma once
 
 // NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure.
-namespace Front::LevelEditor::UiLayout {
+namespace MenuSystem::LevelEditor::UiLayout {
 
 struct Rect {
     float x, y, width, height;
@@ -48,4 +48,4 @@ struct Route {
 // The keys go to the editor unless ImGui wants the keyboard.
 Route Decide(const RouteInput& input);
 
-} // namespace Front::LevelEditor::UiLayout
+} // namespace MenuSystem::LevelEditor::UiLayout

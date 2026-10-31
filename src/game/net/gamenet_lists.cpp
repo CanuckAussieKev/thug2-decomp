@@ -5,7 +5,7 @@
 #include "game/core/manager.h"
 #include "game/core/code_address.h"
 
-namespace GameNet {
+namespace OnlinePlay {
 
 static VtableSlot kPlayerNodeVtable_slots[] = {&PlayerNode::Destroy};
 void** const kPlayerNodeVtable = reinterpret_cast<void**>(kPlayerNodeVtable_slots);
@@ -26,7 +26,7 @@ void** const kServerHeadVtable = reinterpret_cast<void**>(kServerHeadVtable_slot
 
 namespace {
 
-void Free(void* memory) { Mem::Manager::Get()->Free(memory); }
+void Free(void* memory) { MemSys::Manager::Get()->Free(memory); }
 
 } // namespace
 
@@ -114,4 +114,4 @@ QueuedScript* QueuedScript::DestroyRecord(unsigned int flags)
     return this;
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay

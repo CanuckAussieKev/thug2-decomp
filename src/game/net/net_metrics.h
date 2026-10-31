@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Net {
+namespace NetLink {
 
-// A connection's traffic in one direction (Neversoft's Net::Metrics, 0x100C bytes; each Conn has two: incoming at
+// A connection's traffic in one direction (Neversoft's NetLink::Metrics, 0x100C bytes; each Conn has two: incoming at
 // +0x1CDC, outgoing at +0x2CE8): the last 256 packets (size and time), and per message id how many went and
 // their bytes.
 struct Metrics {
@@ -15,7 +15,7 @@ struct Metrics {
 
     struct Packet {
         int m_size;
-        int m_time;
+        int m_clock;
     };
 
     // 0x004544E0: counts and totals zeroed (the packet history isn't touched).
@@ -23,17 +23,17 @@ struct Metrics {
     // 0x00454550: a message of `msgId` with `size` bytes.
     void AddMessage(int msgId, int size);
     // 0x00454D90: a packet of `size` bytes at `time` into the history.
-    void AddPacket(int size, int time);
+    void CountPacket(int size, int time);
     // 0x00454D00: the bytes of the packets in the history from less than a second before `time`.
     void CalculateUsage(int time);
     // 0x00454520: what CalculateUsage found.
-    int GetBytesPerSec() { return m_bytesPerSec; }
+    int GetThroughput() { return m_bytesPerSec; }
     // 0x00454530: the bytes of the messages of `msgId`.
-    int GetTotalMessageData(int msgId) { return m_messageData[msgId]; }
+    int GetMsgByteTotal(int msgId) { return m_messageData[msgId]; }
     // 0x00454540: how many messages of `msgId`.
-    int GetTotalNumMessagesOfId(int msgId) { return m_numMessages[msgId]; }
+    int GetMsgCountForType(int msgId) { return m_numMessages[msgId]; }
 
-    Packet m_packets[kNumPackets];       // +0x0000 the newest at (m_numPackets - 1) % 256
+    Packet m_packetTally[kNumPackets];       // +0x0000 the newest at (m_numPackets - 1) % 256
     int m_numPackets;                    // +0x0800 every packet added
     int m_numMessages[kNumMessageIds];   // +0x0804
     int m_messageData[kNumMessageIds];   // +0x0C04

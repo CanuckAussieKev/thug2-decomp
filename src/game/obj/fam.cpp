@@ -1,4 +1,4 @@
-// The fam component (Obj::CFamComponent): see fam.h. From the disassembly of 0x0041D170-0x0041D6D4.
+// The fam component (GameObjects::CFamComponent): see fam.h. From the disassembly of 0x0041D170-0x0041D6D4.
 
 #include "game/obj/fam.h"
 
@@ -25,7 +25,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_famMemberFunctions[18]{
             0xE5894C80, 0x0301D67C, 0, 0, 0, 0,
@@ -50,41 +50,41 @@ constexpr uint32_t kJawRotation = 0xC0BA0665;    // jawRotation
 constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
 constexpr int kDefaultPriority = 0x66;
 
-Ass::CAssMan* AssetManager() { return Ass::g_assetManager; }
+AssetStore::CResourceRegistry* AssetManager() { return AssetStore::g_assetManager; }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     return params ? params->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear(); // (the destructor)
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
 } // namespace
 
 // 0x0041D200
-CBaseComponent* __cdecl CFamComponent::Create()
+CObjectModule* __cdecl CFamComponent::Create()
 {
-    auto* component = static_cast<CFamComponent*>(Mem::Calloc(sizeof(CFamComponent)));
+    auto* component = static_cast<CFamComponent*>(MemSys::AllocZeroed(sizeof(CFamComponent)));
     if (!component)
         return nullptr;
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     component->m_fam = 0;
-    component->m_stream = 0;
+    component->m_feed = 0;
     return component;
 }
 
 // 0x0041D170
-void __cdecl CFamComponent::RegisterMemberFunctions()
+void __cdecl CFamComponent::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_famMemberFunctions,
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_famMemberFunctions,
                                         0x18);
 }
 
@@ -92,7 +92,7 @@ void __cdecl CFamComponent::RegisterMemberFunctions()
 void CFamComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0041D1A0
@@ -100,7 +100,7 @@ CFamComponent* CFamComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -109,31 +109,31 @@ void CFamComponent::UnloadFam()
 {
     if (!m_fam)
         return;
-    Script::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
-    Script::CStruct* params = NewParams();
-    params->AddChecksum(kTypeParam, kPartialAnim);
-    params->AddChecksum(kId, kJawRotation);
+    Scripts::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
+    Scripts::CStruct* params = NewParams();
+    params->PutNameKey(kTypeParam, kPartialAnim);
+    params->PutNameKey(kId, kJawRotation);
     if (m_object)
-        m_object->GetComponent(CAnimBlenderComponent::kType)->CallMemberFunction(kRemoveAnimController, params, nullptr);
+        m_object->GetComponent(CAnimBlenderComponent::kType)->InvokeMethodByName(kRemoveAnimController, params, nullptr);
     DeleteParams(params);
-    Ass::CAssMan* assets = AssetManager();
-    if (Ass::CAsset* asset = assets->GetAsset(m_fam, 0))
-        assets->UnloadAsset(asset);
+    AssetStore::CResourceRegistry* assets = AssetManager();
+    if (AssetStore::CResource* asset = assets->ObtainLoadedItem(m_fam, 0))
+        assets->DiscardLoadedItem(asset);
     m_fam = 0;
 }
 
 // 0x0041D3E0
-void CFamComponent::LoadFam(uint32_t name, uint32_t animSet)
+void CFamComponent::LoadAnimBank(uint32_t name, uint32_t animSet)
 {
     UnloadFam();
     char fileName[32];
     std::snprintf(fileName, sizeof(fileName), "fam\\%08x.fam", name); // (the original: the game's sprintf, 0x006234FE)
-    Dbg::Printf("loading %s\n", fileName);
-    Ass::CAssMan* assets = AssetManager();
+    DebugOut::Printf("loading %s\n", fileName);
+    AssetStore::CResourceRegistry* assets = AssetManager();
     int saved = assets->m_unknown18;
     if (assets->LoadAnim(fileName, name, animSet, false, false)) {
-        Dbg::Printf("loaded\n");
-        m_fam = Crc::GenerateCRCFromString(fileName);
+        DebugOut::Printf("loaded\n");
+        m_fam = Checksums::HashFromText(fileName);
     }
     assets->SetUnknown18(saved);
 }
@@ -141,75 +141,75 @@ void CFamComponent::LoadFam(uint32_t name, uint32_t animSet)
 // 0x0041D480
 bool CFamComponent::PlayFam(uint32_t name, bool streamOnly, int volume, int priority)
 {
-    if (!Pcm::StreamExists(name))
+    if (!AudioStream::StreamExists(name))
         return false;
-    if (m_stream) {
-        Script::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
-        Pcm::StopStream(m_stream);
-        m_stream = 0;
+    if (m_feed) {
+        Scripts::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
+        AudioStream::StopStream(m_feed);
+        m_feed = 0;
     }
-    Script::CStruct* params = NewParams();
-    params->AddChecksum(kStreamChecksum, name);
+    Scripts::CStruct* params = NewParams();
+    params->PutNameKey(kStreamChecksum, name);
     if (volume)
-        params->AddInteger(kVol, volume);
+        params->PutInt(kVol, volume);
     if (!streamOnly) {
-        params->AddInteger(kUsePosInfo, 0);
+        params->PutInt(kUsePosInfo, 0);
         auto* blender = static_cast<CAnimBlenderComponent*>(m_object->GetComponent(CAnimBlenderComponent::kType));
         uint32_t animSet = blender->GetAnimSet();
-        LoadFam(name, animSet);
-        uint32_t stream = Pcm::PreLoadStream(name, priority);
-        params->AddChecksum(kStreamId, stream);
-        m_stream = stream;
+        LoadAnimBank(name, animSet);
+        uint32_t stream = AudioStream::PrimeStream(name, priority);
+        params->PutNameKey(kStreamId, stream);
+        m_feed = stream;
         if (AssetManager()->GetAssetData(animSet + name, 0))
-            params->AddChecksum(0u, kPlayAnim);
+            params->PutNameKey(0u, kPlayAnim);
     }
-    Script::CScript* script = Script::SpawnScript(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    Scripts::CScript* script = Scripts::SpawnScript(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
     script->m_object.Set(m_object);
     DeleteParams(params);
     return true;
 }
 
 // 0x0041D660
-int CFamComponent::Obj_PlayFam(Script::CStruct* params, Script::CScript*)
+int CFamComponent::Obj_PlayFam(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name;
-    params->GetChecksum(0u, &name, 1);
+    params->ReadHashValue(0u, &name, 1);
     int volume = 0;
-    params->GetInteger(kVol, &volume, 0);
+    params->FetchIntValue(kVol, &volume, 0);
     int priority = kDefaultPriority;
-    params->GetInteger(kPriority, &priority, 0);
+    params->FetchIntValue(kPriority, &priority, 0);
     return PlayFam(name, false, volume, priority) ? 1 : 0;
 }
 
 // 0x0041D280
-int CFamComponent::Obj_StopLastFam(Script::CStruct*, Script::CScript*)
+int CFamComponent::Obj_StopLastFam(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (m_stream) {
-        Script::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
-        Pcm::StopStream(m_stream);
-        m_stream = 0;
+    if (m_feed) {
+        Scripts::StopScriptsUsingObjectThatReferTo(m_object, kFamScript);
+        AudioStream::StopStream(m_feed);
+        m_feed = 0;
     }
     return 1;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CFamComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFamComponent::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

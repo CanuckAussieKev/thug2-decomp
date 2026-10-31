@@ -68,7 +68,7 @@ uint32_t* ForceResolutions() { return g_forceResolutions; }
 
 wchar_t (*KeyNames())[kKeyNameLength] { return g_keyNames; }
 
-HWND GameWindow() { return Nx::g_gameWindow; }
+HWND GameWindow() { return Engine3D::g_gameWindow; }
 
 // dinput8.lib's data formats and the constant-force effect's GUID, as the exe has them.
 const DIDATAFORMAT* JoystickFormat() { return reinterpret_cast<const DIDATAFORMAT*>(0x00667204); } // c_dfDIJoystick2
@@ -122,13 +122,13 @@ GUID ParseJoystickGuid(const char* text, DWORD size)
 }
 
 // "distance": 1-100, the clipping distance from it; anything above 100 is none.
-void SetDistance(uint32_t distance)
+void PlaceAtRange(uint32_t distance)
 {
     g_distanceSetting = distance;
     if (distance > 100)
         g_distanceSetting = 0;
     else if (distance != 0)
-        Gfx::g_drawDistanceSetting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
+        Gfx2D::g_drawDistanceSetting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
 }
 
 struct KeyNameEntry {
@@ -407,13 +407,13 @@ void LoadRegistryOptions(const char* key)
     DWORD size = 1;
     if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        SetDistance(value);
+        PlaceAtRange(value);
     if (RegQueryValueExA(options, "options", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS) {
         if (value & 1)
-            Nx::g_fogSetting = true;
+            Engine3D::g_fogSetting = true;
         if (value & 2)
-            Nx::g_hqShadows = 1;
+            Engine3D::g_hqShadows = 1;
         if (value & 4)
             reinterpret_cast<uint8_t*>(&g_options38And39)[0] = 1;
         if (value & 8)
@@ -421,16 +421,16 @@ void LoadRegistryOptions(const char* key)
         if (value & 0x10)
             g_option37 = 1;
         if (value & 0x20)
-            reinterpret_cast<uint8_t&>(Nx::g_antialiasing) = 1;
+            reinterpret_cast<uint8_t&>(Engine3D::g_antialiasing) = 1;
         if (value & 0x100)
-            Nx::g_distanceClipping = true;
+            Engine3D::g_distanceClipping = true;
     }
     if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        SetDistance(value);
+        PlaceAtRange(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
-        Nx::g_resolutionSetting = value > 3 ? 0 : value;
+        Engine3D::g_resolutionSetting = value > 3 ? 0 : value;
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).

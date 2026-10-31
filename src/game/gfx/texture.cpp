@@ -14,16 +14,16 @@
 #include "game/gfx/render_state.h"
 #include "game/gfx/device.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
-IDirect3DTexture9* D3d(const sTexture* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
+IDirect3DTexture9* D3d(const textureRef* t) { return static_cast<IDirect3DTexture9*>(t->texture); }
 
 // The list (0x007CC254): doubly linked nodes.
 struct Node {
-    sTexture* texture;
+    textureRef* texture;
     Node* previous;
     Node* next;
 };
@@ -36,13 +36,13 @@ void* CachedTexture(int stage) { return g_textures[stage]; }
 } // namespace
 
 // 0x004E04B0
-sTexture* sTexture::Construct()
+textureRef* textureRef::Construct()
 {
     texture = nullptr;
     palette = nullptr;
     surface = nullptr;
     renderTarget = false;
-    auto* node = static_cast<Node*>(Mem::New(sizeof(Node)));
+    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node)));
     Node* head = Head();
     node->texture = this;
     node->previous = nullptr;
@@ -54,7 +54,7 @@ sTexture* sTexture::Construct()
 }
 
 // 0x004E0500
-sTexture* sTexture::ConstructCopy(const sTexture* source)
+textureRef* textureRef::ConstructCopy(const textureRef* source)
 {
     texture = nullptr;
     palette = nullptr;
@@ -103,7 +103,7 @@ sTexture* sTexture::ConstructCopy(const sTexture* source)
 }
 
 // 0x004E03F0
-void sTexture::Unlist()
+void textureRef::Unlist()
 {
     Node* node = Head();
     for (; node; node = node->next) {
@@ -118,11 +118,11 @@ void sTexture::Unlist()
         Head() = node->next;
     if (node->next)
         node->next->previous = node->previous;
-    Mem::Manager::Instance()->Free(node);
+    MemSys::Manager::Instance()->Free(node);
 }
 
 // 0x004E06A0
-void sTexture::DestroyBody()
+void textureRef::DestroyBody()
 {
     Unlist();
     if (surface)
@@ -137,13 +137,13 @@ void sTexture::DestroyBody()
 }
 
 // 0x004E0380
-void sTexture::Set(int stage)
+void textureRef::Set(int stage)
 {
     SetTexture(stage, texture); // (the original also passes the second texture, unused)
 }
 
 // 0x004E03A0
-void* sTexture::Lock()
+void* textureRef::Lock()
 {
     D3DLOCKED_RECT rect;
     if (D3d(this)->LockRect(0, &rect, nullptr, 0) != D3D_OK)
@@ -152,19 +152,19 @@ void* sTexture::Lock()
 }
 
 // 0x004E03D0
-void sTexture::Unlock()
+void textureRef::Unlock()
 {
     D3d(this)->UnlockRect(0);
 }
 
 // 0x004E03E0
-sTexture* sTexture::PaletteOwner()
+textureRef* textureRef::PaletteOwner()
 {
     return palette ? this : nullptr;
 }
 
 // 0x004E0700
-bool sTexture::CreateRenderTarget(int newWidth, int newHeight, uint8_t newDepth, int /*unused*/)
+bool textureRef::CreateRenderTarget(int newWidth, int newHeight, uint8_t newDepth, int /*unused*/)
 {
     if (texture)
         D3d(this)->Release();
@@ -192,7 +192,7 @@ void __cdecl ReleaseRenderTargetTextures()
     for (DWORD stage = 0; stage < 8; ++stage)
         Device()->SetTexture(stage, nullptr); // (the cache isn't told)
     for (Node* node = Head(); node; node = node->next) {
-        sTexture* t = node->texture;
+        textureRef* t = node->texture;
         if (!t->texture || !t->renderTarget)
             continue;
         D3d(t)->Release();
@@ -207,7 +207,7 @@ void __cdecl ReleaseRenderTargetTextures()
 void __cdecl RestoreRenderTargetTextures()
 {
     for (Node* node = Head(); node; node = node->next) {
-        sTexture* t = node->texture;
+        textureRef* t = node->texture;
         if (t->texture || !t->renderTarget)
             continue;
         Device()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,

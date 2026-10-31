@@ -16,7 +16,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
-namespace Front::NewFrontend::Paint {
+namespace MenuSystem::NewFrontend::Paint {
 
 namespace {
 
@@ -959,7 +959,7 @@ void LevelsScreen(Ctx& c, int* visibleRows)
         c.Hit(Hit::Skate, 0, bx0, by0, bx1, by1);
         float y = by0 - 6.0f;
         // The records (only what the career keeps for this level).
-        Records rec = c.extras.records ? c.extras.records(*level) : Records{};
+        Highscores rec = c.extras.records ? c.extras.records(*level) : Highscores{};
         std::vector<std::string> cols;
         char text[64];
         if (rec.gapsTotal > 0) {
@@ -1686,4 +1686,4 @@ void Waiting(const Frame& frame, float windowWidth, float windowHeight, const Ex
     dl->PopTextureID();
 }
 
-} // namespace Front::NewFrontend::Paint
+} // namespace MenuSystem::NewFrontend::Paint

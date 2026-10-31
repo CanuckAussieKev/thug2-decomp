@@ -16,7 +16,7 @@
 #include "game/sys/timer.h"
 #include "game/obj/control_pad.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_trickComponentMemberFunctions[24]{
             0xE4AB4785, 0x270F56E1, 0, 0, 0, 0,
@@ -43,18 +43,18 @@ T& Field(const void* object, uint32_t offset)
 
 // The events from the newest back, `count` of them (the count read again each step, as the original does).
 template <typename Visit>
-void ForEachEvent(CTrickComponent* trick, Visit visit)
+void ForEachEvent(CMoveExecutor* trick, Visit visit)
 {
     int index = trick->m_eventHead;
     for (int n = 0; n < trick->m_eventCount; ++n) {
         if (!visit(index, trick->m_events[index]))
             return;
         if (--index < 0)
-            index += CTrickComponent::kEvents;
+            index += CMoveExecutor::kEvents;
     }
 }
 
-uint32_t Now() { return Tmr::GetTime(); }
+uint32_t Now() { return FrameClock::GetTime(); }
 
 // _stricmp (0x00626EFB) in the C locale.
 int CompareNoCase(const char* a, const char* b)
@@ -105,7 +105,7 @@ __declspec(naked) void IsDirectionStub()
 }
 
 namespace {
-void __stdcall MarkUsedThunk(CTrickComponent* trick, uint32_t flags) { trick->MarkUsed(flags); }
+void __stdcall MarkUsedThunk(CMoveExecutor* trick, uint32_t flags) { trick->MarkUsed(flags); }
 } // namespace
 
 __declspec(naked) void MarkUsedStub()
@@ -123,13 +123,13 @@ __declspec(naked) void MarkUsedStub()
 }
 
 // 0x0051EA90
-void __cdecl CTrickComponent::RegisterMemberFunctions()
+void __cdecl CMoveExecutor::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_trickComponentMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_trickComponentMemberFunctions, 0x18);
 }
 
 // 0x0051F2B0
-void CTrickComponent::Finalize()
+void CMoveExecutor::Finalize()
 {
     m_input = reinterpret_cast<uint8_t*>(m_object->GetComponent(kInput));
     m_balanceTrick = m_object->GetComponent(kSkaterBalanceTrick);
@@ -140,7 +140,7 @@ void CTrickComponent::Finalize()
 }
 
 // 0x0051F320
-void CTrickComponent::Reset()
+void CMoveExecutor::Reset()
 {
     m_unknown18 = 0;
     m_ignoredCount = 0;
@@ -163,7 +163,7 @@ void CTrickComponent::Reset()
     ClearEventBuffer();
     m_buttonMap[0] = m_buttonMap[1] = m_buttonMap[2] = 0;
     for (int i = 0; i < kButtons; ++i) {
-        m_down[i] = false;
+        m_btnDown[i] = false;
         m_heldOffUntil[i] = 0.0f;
     }
     Field<uint8_t>(this, 0x1330) = 0;
@@ -171,24 +171,24 @@ void CTrickComponent::Reset()
 }
 
 // 0x0051EAB0
-void CTrickComponent::ClearExtraTricks() { std::memset(&m_extraListCount, 0, 0x1230 - 0x1204); }
+void CMoveExecutor::ClearExtraTricks() { std::memset(&m_extraListCount, 0, 0x1230 - 0x1204); }
 
 // 0x0051EB30
-void CTrickComponent::ClearBlock1238()
+void CMoveExecutor::ClearBlock1238()
 {
     Field<uint8_t>(this, 0x1268) = 0;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1264 - 0x1238);
 }
 
 // 0x0051EF00
-void CTrickComponent::ClearBlock1280()
+void CMoveExecutor::ClearBlock1280()
 {
     Field<uint8_t>(this, 0x12B0) = 0;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12AC - 0x1280);
 }
 
 // 0x0051EB00
-void CTrickComponent::ClearEventBuffer()
+void CMoveExecutor::ClearEventBuffer()
 {
     for (TrickEvent& e : m_events) {
         e.type = 0;
@@ -200,7 +200,7 @@ void CTrickComponent::ClearEventBuffer()
 }
 
 // 0x0051EB80
-void CTrickComponent::ClearUsed()
+void CMoveExecutor::ClearUsed()
 {
     ForEachEvent(this, [](int, TrickEvent& e) {
         e.used = false;
@@ -209,7 +209,7 @@ void CTrickComponent::ClearUsed()
 }
 
 // 0x0051EBD0
-void CTrickComponent::MarkUsed(uint32_t flags)
+void CMoveExecutor::MarkUsed(uint32_t flags)
 {
     ForEachEvent(this, [&](int, TrickEvent& e) {
         if (e.used) {
@@ -221,7 +221,7 @@ void CTrickComponent::MarkUsed(uint32_t flags)
 }
 
 // 0x0051F570
-TrickEvent* CTrickComponent::AddEvent(int type)
+TrickEvent* CMoveExecutor::AddEvent(int type)
 {
     if (++m_eventHead >= kEvents)
         m_eventHead = 0;
@@ -236,7 +236,7 @@ TrickEvent* CTrickComponent::AddEvent(int type)
 }
 
 // 0x0051F610
-void CTrickComponent::ExpireButton(uint32_t button, uint32_t ms)
+void CMoveExecutor::ExpireButton(uint32_t button, uint32_t ms)
 {
     ForEachEvent(this, [&](int, TrickEvent& e) {
         if (e.button == button) {
@@ -249,7 +249,7 @@ void CTrickComponent::ExpireButton(uint32_t button, uint32_t ms)
 }
 
 // 0x0051F6B0
-bool CTrickComponent::FindPress(uint32_t button, uint32_t ms, uint32_t mask)
+bool CMoveExecutor::FindPress(uint32_t button, uint32_t ms, uint32_t mask)
 {
     bool found = false;
     ForEachEvent(this, [&](int, TrickEvent& e) {
@@ -267,7 +267,7 @@ bool CTrickComponent::FindPress(uint32_t button, uint32_t ms, uint32_t mask)
 }
 
 // 0x0051F7A0
-bool CTrickComponent::FindPressBoth(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask)
+bool CMoveExecutor::FindPressBoth(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask)
 {
     bool gotFirst = false, gotSecond = false, any = false, found = false;
     ForEachEvent(this, [&](int, TrickEvent& e) {
@@ -301,7 +301,7 @@ bool CTrickComponent::FindPressBoth(uint32_t first, uint32_t second, uint32_t ms
 }
 
 // 0x0051F8F0
-void CTrickComponent::UpdateButton(int index, bool pressed)
+void CMoveExecutor::UpdateButton(int index, bool pressed)
 {
     if (m_heldOffUntil[index] != 0.0f) {
         if (pressed) {
@@ -311,10 +311,10 @@ void CTrickComponent::UpdateButton(int index, bool pressed)
         }
         m_heldOffUntil[index] = 0.0f;
     }
-    if (m_down[index] == pressed)
+    if (m_btnDown[index] == pressed)
         return;
-    m_down[index] = pressed;
-    uint32_t button = Inp::ButtonChecksum(index);
+    m_btnDown[index] = pressed;
+    uint32_t button = PadInput::ButtonHash(index);
     for (int i = 0; i < m_ignoredCount; ++i)
         if (m_ignored[i] == button)
             return;
@@ -322,14 +322,14 @@ void CTrickComponent::UpdateButton(int index, bool pressed)
 }
 
 // 0x0051F290
-void CTrickComponent::HoldOffButton(int index, float until)
+void CMoveExecutor::HoldOffButton(int index, float until)
 {
-    m_down[index] = false;
+    m_btnDown[index] = false;
     m_heldOffUntil[index] = until;
 }
 
 // 0x0051F9B0
-bool CTrickComponent::CheckSpinSequence(const uint32_t* buttons, bool any)
+bool CMoveExecutor::CheckSpinSequence(const uint32_t* buttons, bool any)
 {
     int state = 0, second = 0;
     bool found = false, failed = false;
@@ -378,7 +378,7 @@ bool CTrickComponent::CheckSpinSequence(const uint32_t* buttons, bool any)
 }
 
 // 0x0051FB90
-bool CTrickComponent::CheckReleasePress(uint32_t button, bool twice, bool setMap)
+bool CMoveExecutor::CheckReleasePress(uint32_t button, bool twice, bool setMap)
 {
     int state = 0;
     uint32_t first = 0;
@@ -429,7 +429,7 @@ bool CTrickComponent::CheckReleasePress(uint32_t button, bool twice, bool setMap
 }
 
 // 0x0051EC40
-uint32_t CTrickComponent::ReadTrigger(const uint8_t* node, int count, uint32_t* out)
+uint32_t CMoveExecutor::ReadTrigger(const uint8_t* node, int count, uint32_t* out)
 {
     for (int i = 0; i < count; ++i) {
         uint32_t button = Field<uint32_t>(node, 8);
@@ -444,11 +444,11 @@ uint32_t CTrickComponent::ReadTrigger(const uint8_t* node, int count, uint32_t* 
     }
     if ((node[0] & 0xFE) == 2)
         return Field<uint32_t>(node, 8);
-    return static_cast<uint32_t>(Script::GetInteger(Field<uint32_t>(node, 8)));
+    return static_cast<uint32_t>(Scripts::FetchIntValue(Field<uint32_t>(node, 8)));
 }
 
 // 0x0051ECC0
-void CTrickComponent::SetButtonMap(const uint32_t* buttons)
+void CMoveExecutor::SetButtonMap(const uint32_t* buttons)
 {
     m_buttonMap[0] = buttons[0];
     m_buttonMap[1] = buttons[1];
@@ -456,7 +456,7 @@ void CTrickComponent::SetButtonMap(const uint32_t* buttons)
 }
 
 // 0x0051ECF0
-bool CTrickComponent::IsButtonDown(uint32_t button)
+bool CMoveExecutor::IsButtonDown(uint32_t button)
 {
     // NOT ORIGINAL - THAW's BMX (the feature on, the skater on the bike): THAW's stick directions (leftleft ...
     // rightdownright - game/skater/thaw_bmx.h). Original behaviour: THUG2's buttons only.
@@ -465,18 +465,18 @@ bool CTrickComponent::IsButtonDown(uint32_t button)
         if (held >= 0)
             return held != 0;
     }
-    return m_down[Inp::ButtonIndex(button)];
+    return m_btnDown[PadInput::ButtonIndex(button)];
 }
 
 // 0x0051ED10
-void CTrickComponent::ClearQueue()
+void CMoveExecutor::ClearQueue()
 {
     m_queueLast = -1;
     m_queueFirst = -1;
 }
 
 // 0x0051ED20
-void CTrickComponent::QueueTrick(uint32_t list, int index, bool flag)
+void CMoveExecutor::QueueTrick(uint32_t list, int index, bool flag)
 {
     int slot;
     if (m_queueFirst == -1 && m_queueLast == -1) {
@@ -497,7 +497,7 @@ void CTrickComponent::QueueTrick(uint32_t list, int index, bool flag)
 }
 
 // 0x0051ED90
-void CTrickComponent::RemoveTrickList(uint32_t list)
+void CMoveExecutor::RemoveTrickList(uint32_t list)
 {
     for (int i = 0; i < m_extraListCount; ++i) {
         if (m_extraLists[i] != list)
@@ -512,40 +512,40 @@ void CTrickComponent::RemoveTrickList(uint32_t list)
 }
 
 // 0x0051EE10
-bool CTrickComponent::IsTrickEntry(Script::CStruct* trick)
+bool CMoveExecutor::IsTrickEntry(Scripts::CStruct* trick)
 {
     uint32_t checksum = 0;
-    if (trick->GetChecksum(0xA6D2D890u, &checksum, 0) || trick->GetChecksum(0x22E168C1u, &checksum, 0))
+    if (trick->ReadHashValue(0xA6D2D890u, &checksum, 0) || trick->ReadHashValue(0x22E168C1u, &checksum, 0))
         return true;
-    Script::CArray* array = nullptr;
+    Scripts::CArray* array = nullptr;
     if (trick->GetArray(0x689FE07Cu, &array, 0))
         return true;
     uint32_t name = 0;
-    if (!trick->GetChecksum(0xA92A2280u, &name, 0))
+    if (!trick->ReadHashValue(0xA92A2280u, &name, 0))
         return false;
     uint32_t structure = 0;
-    m_trickLists->GetChecksum(name, &structure, 0);
+    m_trickLists->ReadHashValue(name, &structure, 0);
     if (structure)
-        return Script::GetStructure(structure) != nullptr;
+        return Scripts::ReadSubStruct(structure) != nullptr;
     int value = 0;
-    return m_trickLists->GetInteger(name, &value, 0);
+    return m_trickLists->FetchIntValue(name, &value, 0);
 }
 
 // 0x0051EF50
-bool CTrickComponent::TrickNamed(Script::CStruct* trick, const char* name)
+bool CMoveExecutor::TrickNamed(Scripts::CStruct* trick, const char* name)
 {
     uint32_t alias = 0;
-    if (trick->GetChecksum(0xA92A2280u, &alias, 0)) {
+    if (trick->ReadHashValue(0xA92A2280u, &alias, 0)) {
         uint32_t structure = 0;
-        m_trickLists->GetChecksum(alias, &structure, 0);
+        m_trickLists->ReadHashValue(alias, &structure, 0);
         if (structure) {
-            trick = Script::GetStructure(structure);
+            trick = Scripts::ReadSubStruct(structure);
             if (!trick)
                 return false;
         }
     }
-    Script::CStruct* params = nullptr;
-    trick->GetStructure(0x7031F10Cu, &params, 0);
+    Scripts::CStruct* params = nullptr;
+    trick->ReadSubStruct(0x7031F10Cu, &params, 0);
     if (!params)
         return false;
     const char* trickName = nullptr;
@@ -554,14 +554,14 @@ bool CTrickComponent::TrickNamed(Script::CStruct* trick, const char* name)
 }
 
 // 0x0051F010
-void CTrickComponent::DumpEventBuffer()
+void CMoveExecutor::DumpEventBuffer()
 {
-    Dbg::Printf("Event buffer:\n");
+    DebugOut::Printf("Event buffer:\n");
     int count = m_eventCount > 10 ? 10 : m_eventCount;
     int index = m_eventHead;
     for (int n = 0; n < count; ++n) {
         const TrickEvent& e = m_events[index];
-        Dbg::Printf("T=%d Used=0x%08x Button=", e.time, e.flags);
+        DebugOut::Printf("T=%d Used=0x%08x Button=", e.time, e.flags);
         const char* text = nullptr;
         switch (e.button) {
         case 0x00000000: text = "Nothing"; break;
@@ -586,15 +586,15 @@ void CTrickComponent::DumpEventBuffer()
         default: break;
         }
         if (text)
-            Dbg::Printf(text);
-        Dbg::Printf(" Event=");
+            DebugOut::Printf(text);
+        DebugOut::Printf(" Event=");
         switch (e.type) {
-        case 0: Dbg::Printf("None"); break;
-        case 1: Dbg::Printf("Pressed"); break;
-        case 2: Dbg::Printf("Released"); break;
+        case 0: DebugOut::Printf("None"); break;
+        case 1: DebugOut::Printf("Pressed"); break;
+        case 2: DebugOut::Printf("Released"); break;
         default: break;
         }
-        Dbg::Printf("\n");
+        DebugOut::Printf("\n");
         if (--index < 0)
             index += kEvents;
     }
@@ -615,7 +615,7 @@ struct Step {
 // The steps matched in order from the newest event back, one step per event (each marked used); events with any of
 // `mask`'s flags skipped; older than `ms`: stopped.
 template <size_t N>
-Scan MatchSteps(CTrickComponent* trick, const Step (&steps)[N], const uint32_t* buttons, uint32_t ms, uint32_t mask)
+Scan MatchSteps(CMoveExecutor* trick, const Step (&steps)[N], const uint32_t* buttons, uint32_t ms, uint32_t mask)
 {
     size_t state = 0;
     Scan result = Scan::Ended;
@@ -639,7 +639,7 @@ Scan MatchSteps(CTrickComponent* trick, const Step (&steps)[N], const uint32_t* 
 }
 
 // The newest event of `type` of `button` (no flag of `mask`) within `ms`, unmarked.
-Scan FindEvent(CTrickComponent* trick, int type, uint32_t button, uint32_t ms, uint32_t mask, TrickEvent*& found)
+Scan FindEvent(CMoveExecutor* trick, int type, uint32_t button, uint32_t ms, uint32_t mask, TrickEvent*& found)
 {
     Scan result = Scan::Ended;
     ForEachEvent(trick, [&](int, TrickEvent& e) {
@@ -667,11 +667,11 @@ bool IsStraightDirection(uint32_t button)
 } // namespace
 
 // 0x0051FDA0
-bool CTrickComponent::CheckTrigger(Script::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled)
+bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled)
 {
     if (!trigger || m_input[0x498] || m_input[0x499])
         return false;
-    Script::CComponent* kind = trigger->GetNextComponent(nullptr);
+    Scripts::CComponent* kind = trigger->StepToEntry(nullptr);
     if (!kind)
         return false;
     const auto* node = reinterpret_cast<const uint8_t*>(kind->next);
@@ -1050,27 +1050,27 @@ bool CTrickComponent::CheckTrigger(Script::CStruct* trigger, uint32_t markFlags,
 }
 
 // 0x00521930
-void CTrickComponent::QueueDoneTricks(uint32_t list, bool flag, uint32_t used)
+void CMoveExecutor::QueueDoneTricks(uint32_t list, bool flag, uint32_t used)
 {
-    Script::CArray* tricks = Script::GetArray(list);
+    Scripts::CArray* tricks = Scripts::GetArray(list);
     if (!tricks)
         return;
     int count = static_cast<int>(tricks->m_size);
     uint32_t mask = ~used & 0xFFFFFFFB;
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(static_cast<uint32_t>(i)));
+        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(static_cast<uint32_t>(i)));
         if (!IsTrickEntry(trick))
             continue;
-        Script::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Script::CStruct* alternate = nullptr;
-        trick->GetStructure(0x68B74085u, &alternate, 0);
+        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
+        Scripts::CStruct* alternate = nullptr;
+        trick->ReadSubStruct(0x68B74085u, &alternate, 0);
         if (CheckTrigger(trigger, 1, mask, false) || CheckTrigger(alternate, 1, mask, false))
             QueueTrick(list, i, flag);
     }
 }
 
 // 0x00521A10
-void CTrickComponent::QueueAllDoneTricks()
+void CMoveExecutor::QueueAllDoneTricks()
 {
     if (m_manualList && Field<bool>(m_balance1C, 0x74))
         QueueDoneTricks(m_manualList, true, m_listUsed);
@@ -1079,37 +1079,37 @@ void CTrickComponent::QueueAllDoneTricks()
 }
 
 // 0x00521A80
-void CTrickComponent::SetPendingTrick(uint32_t list, uint32_t mask, bool flag)
+void CMoveExecutor::SetPendingTrick(uint32_t list, uint32_t mask, bool flag)
 {
-    Script::CArray* tricks = Script::GetArray(list);
+    Scripts::CArray* tricks = Scripts::GetArray(list);
     if (!tricks)
         return;
     int count = static_cast<int>(tricks->m_size);
     for (int i = 0; i < count; ++i) {
-        auto* trick = reinterpret_cast<Script::CStruct*>(tricks->GetElement(static_cast<uint32_t>(i)));
+        auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->GetElement(static_cast<uint32_t>(i)));
         if (!IsTrickEntry(trick))
             continue;
-        Script::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
-        Script::CStruct* alternate = nullptr;
-        trick->GetStructure(0x68B74085u, &alternate, 0);
+        Scripts::CStruct* trigger = reinterpret_cast<Skater::Component*>(this)->PlatformStructure(trick);
+        Scripts::CStruct* alternate = nullptr;
+        trick->ReadSubStruct(0x68B74085u, &alternate, 0);
         if (!CheckTrigger(trigger, 4, mask, false) && !CheckTrigger(alternate, 4, mask, false))
             continue;
         Field<uint32_t>(this, 0x126C) = list;
         Field<int>(this, 0x1270) = i;
         Field<int>(this, 0x1274) = static_cast<int>(
-            static_cast<uint32_t>(Tmr::GameClockElapsed()) + static_cast<uint32_t>(g_clockOffset));
+            static_cast<uint32_t>(FrameClock::GameClockElapsed()) + static_cast<uint32_t>(g_clockOffset));
         Field<bool>(this, 0x127C) = flag;
         Field<int>(this, 0x1278) = -1;
-        trick->GetInteger(0x79A07F3Fu, &Field<int>(this, 0x1278), 0);
+        trick->FetchIntValue(0x79A07F3Fu, &Field<int>(this, 0x1278), 0);
         Field<bool>(this, 0x1268) = true;
     }
 }
 
 // 0x0051F260
-bool CTrickComponent::SetCurrentBailEndpose(Script::CStruct* params, Script::CScript*)
+bool CMoveExecutor::SetCurrentBailEndpose(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t& endpose = Field<uint32_t>(this, 0x1BBC);
-    if (!params->GetChecksum(0u, &endpose, 0))
+    if (!params->ReadHashValue(0u, &endpose, 0))
         endpose = 0;
     return true;
 }

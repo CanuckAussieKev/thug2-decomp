@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Mem {
+namespace MemSys {
 
 class Heap;
 
@@ -16,9 +16,9 @@ void Free(void* memory);
 
 // Allocate and zero. `mode` is passed straight to the heap; nearly every caller uses 1 (meaning not yet
 // known). A null heap means the default heap.
-void* Calloc(unsigned int size);
-void* Calloc(unsigned int size, int mode);
-void* Calloc(unsigned int size, Heap* heap, int mode);
+void* AllocZeroed(unsigned int size);
+void* AllocZeroed(unsigned int size, int mode);
+void* AllocZeroed(unsigned int size, Heap* heap, int mode);
 
 // Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this
 // build - both calls go to the empty function at 0x005480A0 (see Stubs::DoNothing) - so they do nothing here
@@ -32,9 +32,9 @@ void* Allocate(unsigned int size, int mode, Heap* heap);
 
 // The current-heap allocator file loading uses, its matching free, and giving back the
 // unused end of such a block.
-void* Malloc(unsigned int size);
+void* AllocBlock(unsigned int size);
 void FreeMalloc(void* memory);
-void* ReallocateShrink(unsigned int size, void* memory);
+void* TrimBlockEnd(unsigned int size, void* memory);
 // The size of a Malloc block (0 for null).
 unsigned int MallocSize(void* memory);
 // The current heap's largest possible allocation.
@@ -46,8 +46,8 @@ void* Realloc(void* memory, unsigned int size);
 Heap* TopDownHeap();
 Heap* BottomUpHeap();
 
-// Until PopContext, allocations come from `heap`.
-void PushContext(Heap* heap);
-void PopContext();
+// Until LeaveHeapScope, allocations come from `heap`.
+void EnterHeapScope(Heap* heap);
+void LeaveHeapScope();
 
 } // namespace Mem

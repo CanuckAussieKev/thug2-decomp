@@ -1,4 +1,4 @@
-// The CameraLookAround component (Obj::CCameraLookAroundComponent): see camera_lookaround.h. From the
+// The CameraLookAround component (GameObjects::CFreeLookModule): see camera_lookaround.h. From the
 // disassembly of 0x004E3F60-0x004E4336 (0x004E3FA0 isn't a Ghidra function).
 
 #include "game/obj/camera_lookaround.h"
@@ -19,7 +19,7 @@
 #include "game/obj/node_components.h"
 #include "game/obj/object.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -41,7 +41,7 @@ constexpr float kNear = 0.0010000000474974513f;    // 0x006461D8
 constexpr float kEase = 3.75f;                     // 0x0064B2C0
 
 // A button's press this frame forgotten.
-void TakePress(uint8_t* button) { reinterpret_cast<CControlButton*>(button)->ClearTrigger(); }
+void TakePress(uint8_t* button) { reinterpret_cast<CControlButton*>(button)->ResetActivation(); }
 
 // One angle eased toward `target` (the original's x87 sequence: the difference rounded, its size unrounded).
 void Ease(float& angle, double target, float frame)
@@ -57,38 +57,38 @@ void Ease(float& angle, double target, float frame)
 } // namespace
 
 // 0x004E42E0
-CBaseComponent* __cdecl CCameraLookAroundComponent::Create()
+CObjectModule* __cdecl CFreeLookModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CCameraLookAroundComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CFreeLookModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CCameraLookAroundComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CFreeLookModule*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kCameraLookAround;
     return component;
 }
 
 // 0x004E3F60
-void CCameraLookAroundComponent::DestroyBody()
+void CFreeLookModule::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004E4010
-CCameraLookAroundComponent* CCameraLookAroundComponent::Destroy(unsigned int flags)
+CFreeLookModule* CFreeLookModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004E3F70
-void CCameraLookAroundComponent::InitFromStructure(Script::CStruct* /*params*/)
+void CFreeLookModule::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
-    m_tilt = 0.0f;
+    m_leanAngle = 0.0f;
     m_heading = 0.0f;
     m_factor = 1.0f;
     m_locked = false;
@@ -96,19 +96,19 @@ void CCameraLookAroundComponent::InitFromStructure(Script::CStruct* /*params*/)
 }
 
 // 0x004E4040
-void CCameraLookAroundComponent::Finalize()
+void CFreeLookModule::Finalize()
 {
     mp_input = reinterpret_cast<uint8_t*>(m_object->GetComponent(kInput));
 }
 
 // 0x004E4000
-void CCameraLookAroundComponent::SetLocked(bool locked)
+void CFreeLookModule::SetLocked(bool locked)
 {
     m_locked = locked;
 }
 
 // 0x004E3FA0
-void CCameraLookAroundComponent::TurnTo(float heading, float tilt, float time, float factor)
+void CFreeLookModule::TurnTo(float heading, float tilt, float time, float factor)
 {
     m_targetHeading = heading;
     m_turning = true;
@@ -116,60 +116,60 @@ void CCameraLookAroundComponent::TurnTo(float heading, float tilt, float time, f
     if (time > 0.0f) {
         double inverse = 1.0 / time;
         m_headingRate = static_cast<float>((static_cast<double>(heading) - m_heading) * inverse);
-        m_tiltRate = static_cast<float>((static_cast<double>(tilt) - m_tilt) * inverse);
+        m_tiltRate = static_cast<float>((static_cast<double>(tilt) - m_leanAngle) * inverse);
     }
-    m_timeLeft = time;
+    m_secondsRemaining = time;
     m_factor = factor;
 }
 
 // 0x004E4060
-void CCameraLookAroundComponent::Update()
+void CFreeLookModule::Update()
 {
-    uint8_t* pad = mp_input + (Script::GetInteger(kSecondPad) ? 0x258 : 0x20);
-    if (!Script::GetInteger(kNoButton) && pad[0x1F0]) {
+    uint8_t* pad = mp_input + (Scripts::FetchIntValue(kSecondPad) ? 0x258 : 0x20);
+    if (!Scripts::FetchIntValue(kNoButton) && pad[0x1F0]) {
         TakePress(pad + 0x1E0);
-        Script::RunScript(m_object->m_id == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
+        Scripts::LaunchScript(m_object->m_id == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                           nullptr);
     }
     if (pad[0x130]) {
         m_locked = !m_locked;
         TakePress(pad + 0x120);
     }
-    float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     if (!m_locked && !m_turning && m_dpadLook && Skater::ThawBmx::Enabled()) {
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
-        auto* p = reinterpret_cast<CControlPad*>(pad);
+        auto* p = reinterpret_cast<CPadState*>(pad);
         Skater::ThawBmx::LookInputs in =
-            Skater::ThawBmx::DPadLookInputs(p->m_up.m_pressed != 0, p->m_down.m_pressed != 0, p->m_left.m_pressed != 0,
-                                            p->m_right.m_pressed != 0, Skater::ThawBmx::kLookInvertDefault);
+            Skater::ThawBmx::DPadLookInputs(p->m_upDir.m_heldDown != 0, p->m_btnDown.m_heldDown != 0, p->m_left.m_heldDown != 0,
+                                            p->m_right.m_heldDown != 0, Skater::ThawBmx::kLookInvertDefault);
         float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
-        Ease(m_tilt, tilt, frame);
+        Ease(m_leanAngle, tilt, frame);
         Ease(m_heading, in.heading, frame);
     } else if (!m_locked && !m_turning) {
         float stickY = *reinterpret_cast<float*>(pad + 0x214);
         double tilt = static_cast<double>(stickY) * (stickY < 0.0f ? kUpScale : kDownScale) * kTiltScale;
-        Ease(m_tilt, tilt, frame);
+        Ease(m_leanAngle, tilt, frame);
         double heading = static_cast<double>(*reinterpret_cast<float*>(pad + 0x210)) * kHeadingScale;
         Ease(m_heading, heading, frame);
     }
-    float step = static_cast<float>(Tmr::GetSlomoFrameSeconds());
-    if (m_turning && m_timeLeft > 0.0f) {
-        if (m_timeLeft > step) {
+    float step = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
+    if (m_turning && m_secondsRemaining > 0.0f) {
+        if (m_secondsRemaining > step) {
             m_heading = static_cast<float>(static_cast<double>(step) * m_headingRate + m_heading);
-            m_tilt = static_cast<float>(static_cast<double>(step) * m_tiltRate + m_tilt);
-            m_timeLeft = m_timeLeft - step;
+            m_leanAngle = static_cast<float>(static_cast<double>(step) * m_tiltRate + m_leanAngle);
+            m_secondsRemaining = m_secondsRemaining - step;
         } else {
             m_heading = m_targetHeading;
-            m_tilt = m_targetTilt;
-            m_timeLeft = 0.0f;
+            m_leanAngle = m_targetTilt;
+            m_secondsRemaining = 0.0f;
         }
     }
 }
 
 // 0x004E4220
-int CCameraLookAroundComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* /*script*/)
+int CFreeLookModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     if (name == kTurnTo) {
         float heading, tilt, time, factor = 1.0f;
@@ -195,7 +195,7 @@ int CCameraLookAroundComponent::CallMemberFunction(uint32_t name, Script::CStruc
 }
 
 // 0x004E3F90: a tail jump to the component's slot 2 (its arguments left as they are).
-__declspec(naked) void RefreshFromStructure()
+__declspec(naked) void ReapplyFromData()
 {
     __asm {
         mov eax, dword ptr [ecx]
@@ -205,22 +205,22 @@ __declspec(naked) void RefreshFromStructure()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CCameraLookAroundComponent::Destroy,
-         &Obj::CCameraLookAroundComponent::Update,
-         &Obj::CCameraLookAroundComponent::InitFromStructure,
-         &Obj::CCameraLookAroundComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFreeLookModule::Destroy,
+         &GameObjects::CFreeLookModule::Update,
+         &GameObjects::CFreeLookModule::ConfigureFromData,
+         &GameObjects::CFreeLookModule::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CCameraLookAroundComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CFreeLookModule::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

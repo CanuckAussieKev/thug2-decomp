@@ -5,22 +5,22 @@
 
 #include "game/gfx/texture.h"
 
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
-// The PC texture and texture dictionary (Nx engine: the engine's CTexture - constructor 0x0049F200, destructor body
-// 0x0049F210 - and CTexDict - constructor 0x0049F830, destructor body 0x0049FC70 - over them), the image helpers
+// The PC texture and texture dictionary (Nx engine: the engine's CBitmapTexture - constructor 0x0049F200, destructor body
+// 0x0049F210 - and CTextureSet - constructor 0x0049F830, destructor body 0x0049FC70 - over them), the image helpers
 // their editing uses (a sub-image copy, RGB <-> HSV) and the platform's dictionary makers.
-namespace Nx {
+namespace Engine3D {
 
 // A texture being edited (16 bytes): its texture, a copy of the pixels as they were (or null), the pixels (32-bit,
 // rows top down) and a texture of its own kept with them (or null).
 struct sTextureEdit {
-    sTexture* texture;
+    textureRef* texture;
     uint32_t* original;
     uint32_t* pixels;
-    sTexture* kept;
+    textureRef* kept;
 };
 
 // The PC texture (0x14 bytes, vtable 0x0064A770).
@@ -31,14 +31,14 @@ struct CPcTexture {
     uint8_t unknownC;   // +0x0C
     uint8_t unknownD;   // +0x0D
     uint8_t padE[2];
-    void* engine;       // +0x10: the sTexture, or the edit holding it
+    void* engine;       // +0x10: the textureRef, or the edit holding it
 
-    sTexture* Texture() const;
+    textureRef* Texture() const;
 
     // 0x004C7ED0: construct (no texture). Returns this.
     CPcTexture* Construct();
     // 0x004C7EF0: its texture (and checksum, the texture's).
-    void SetTexture(sTexture* texture);
+    void SetTexture(textureRef* texture);
     // 0x004C8450: construct a copy of `source`: its texture copied, and an edit's copy of the pixels and kept texture
     // (never its pixels: the copy's own, still null, are tested for them, as the original). Returns this.
     CPcTexture* ConstructCopy(const CPcTexture* source);
@@ -113,7 +113,7 @@ static_assert(offsetof(CPcTexture, flags) == 8 && offsetof(CPcTexture, engine) =
 struct CPcTexDict {
     void** vtable;
     uint8_t engine04[8];
-    void* textures;  // +0x0C: Lst::HashTable* by checksum
+    void* textures;  // +0x0C: ListKit::HashTable* by checksum
     uint8_t engine10[4];
 
     // 0x004C8070: construct (the engine's constructor with this checksum, 1). Returns this.
@@ -134,7 +134,7 @@ struct CPcTexDict {
     CPcTexture* CreateTexture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t unused);
     // 0x004C9BA0 (virtual [3]): the dictionary's texture of this checksum, or a new one, loaded from memory (the
     // engine's 0x0049F330). Returns it.
-    CPcTexture* ReloadTexture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6);
+    CPcTexture* RefreshTexture(uint32_t checksum, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6);
     // 0x004C8090 (virtual [5]): a texture destroyed (through its vtable). True.
     bool UnloadTexture(CPcTexture* texture);
     // 0x004C9C80 (virtual [8]): a new texture copied from `source` (0x004C8450) under `checksum`. Returns it (the
@@ -148,8 +148,8 @@ static_assert(offsetof(CPcTexDict, textures) == 0xC && sizeof(CPcTexDict) == 0x1
 // heap the old one was in). Returns the table. A palettized texture becomes an A8R8G8B8 one with its texels not
 // filled (its palette and levels read and dropped, as the original); the memory loader reads no palette and
 // leaves the cursor where it was.
-Lst::HashTable* __cdecl LoadTexturesFromFile(const char* name, Lst::HashTable* table, bool remake);
-Lst::HashTable* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, Lst::HashTable* table, bool remake);
+ListKit::HashTable* __cdecl LoadTexturesFromFile(const char* name, ListKit::HashTable* table, bool remake);
+ListKit::HashTable* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit::HashTable* table, bool remake);
 
 // 0x004C7270: a dictionary loaded from a file. 0x004C72E0: one made with a checksum and loaded from memory (called
 // on null without memory, as the original). 0x004C7360: an empty one.

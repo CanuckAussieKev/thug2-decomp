@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // The device states for the engine's list of 3D primitives, and thin device calls (Nx engine, PC).
-namespace Nx {
+namespace Engine3D {
 
 // 0x004B60B0: blend mode 0x11, position + one texture coordinate, no pixel shader, the texture alone (colour and
 // alpha), clamped addressing, alpha test from 1, z written and tested, no culling, no texture transform, texture

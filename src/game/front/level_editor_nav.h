@@ -12,7 +12,7 @@
 // walk mode, click-to-teleport, the follow camera, wheel drill-through, the pie menus' geometry, a controller stick's
 // response and the quick selection sets. The game side (what calls them with the editor's camera, keys and the game's
 // collision ray) is level_editor_ux8.cpp.
-namespace Front::LevelEditor::Nav {
+namespace MenuSystem::LevelEditor::Nav {
 
 // --- walk mode: the camera at a skater's eye height, with gravity and collision (Blender's walk navigation) ---------
 
@@ -105,4 +105,4 @@ bool StoreGroup(Organize::State* state, const std::string& name, const std::vect
 // `members` taken out of group `index` (false: none of them were in it).
 bool RemoveFromGroup(Organize::State* state, int index, const std::vector<Organize::Member>& members);
 
-} // namespace Front::LevelEditor::Nav
+} // namespace MenuSystem::LevelEditor::Nav

@@ -19,7 +19,7 @@
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
 
-namespace Front::LevelEditor::Fields {
+namespace MenuSystem::LevelEditor::Fields {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
@@ -166,7 +166,7 @@ std::string Join(const std::vector<std::string>& parts, const char* separator)
 
 } // namespace
 
-uint32_t NameChecksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
+uint32_t HashOfName(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
 
 std::string NameText(uint32_t checksum, const NameLookup& names)
 {
@@ -177,7 +177,7 @@ std::string NameText(uint32_t checksum, const NameLookup& names)
 std::string RecordName(uint32_t checksum, const NameLookup& names)
 {
     const char* name = names ? names(checksum) : nullptr;
-    if (name && IsIdentifier(name) && NameChecksum(name) == checksum)
+    if (name && IsIdentifier(name) && HashOfName(name) == checksum)
         return name;
     return "0x" + Hex8(checksum);
 }
@@ -203,7 +203,7 @@ bool ParseName(const std::string& typed, uint32_t* checksum)
     }
     if (!IsIdentifier(text))
         return false;
-    *checksum = NameChecksum(text);
+    *checksum = HashOfName(text);
     return true;
 }
 
@@ -494,14 +494,14 @@ bool ReadToken(const std::string& key, const std::string& value, Edit* edit)
     return true;
 }
 
-uint32_t KeyName() { static const uint32_t k = NameChecksum("name"); return k; }
-uint32_t KeyClass() { static const uint32_t k = NameChecksum("Class"); return k; }
-uint32_t KeyType() { static const uint32_t k = NameChecksum("Type"); return k; }
-uint32_t KeyPos() { static const uint32_t k = NameChecksum("pos"); return k; }
-uint32_t KeyAngles() { static const uint32_t k = NameChecksum("angles"); return k; }
-uint32_t KeyLinks() { static const uint32_t k = NameChecksum("links"); return k; }
-uint32_t KeyTerrain() { static const uint32_t k = NameChecksum("TerrainType"); return k; }
-uint32_t KeyRestartTypes() { static const uint32_t k = NameChecksum("restart_types"); return k; }
+uint32_t KeyName() { static const uint32_t k = HashOfName("name"); return k; }
+uint32_t KeyClass() { static const uint32_t k = HashOfName("Class"); return k; }
+uint32_t KeyType() { static const uint32_t k = HashOfName("Type"); return k; }
+uint32_t KeyPos() { static const uint32_t k = HashOfName("pos"); return k; }
+uint32_t KeyAngles() { static const uint32_t k = HashOfName("angles"); return k; }
+uint32_t KeyLinks() { static const uint32_t k = HashOfName("links"); return k; }
+uint32_t KeyTerrain() { static const uint32_t k = HashOfName("TerrainType"); return k; }
+uint32_t KeyRestartTypes() { static const uint32_t k = HashOfName("restart_types"); return k; }
 
 When WhenApplied(Nodes::Family family, uint32_t key, const char** note)
 {
@@ -554,10 +554,10 @@ bool ValidLinks(const std::vector<uint32_t>& links, uint32_t self, const std::fu
     return true;
 }
 
-void MoveLastTo(Script::CStruct* s, int index)
+void MoveLastTo(Scripts::CStruct* s, int index)
 {
-    Script::CComponent* previous = nullptr;
-    Script::CComponent* last = s->m_head;
+    Scripts::CComponent* previous = nullptr;
+    Scripts::CComponent* last = s->m_head;
     while (last && last->next) {
         previous = last;
         last = last->next;
@@ -565,8 +565,8 @@ void MoveLastTo(Script::CStruct* s, int index)
     if (!last || !previous || index < 0)
         return; // (the only one, or none: in its place already)
     int others = 0;
-    Script::CComponent* before = nullptr;
-    for (Script::CComponent* c = s->m_head; c != last && others < index; c = c->next) {
+    Scripts::CComponent* before = nullptr;
+    for (Scripts::CComponent* c = s->m_head; c != last && others < index; c = c->next) {
         before = c;
         ++others;
     }
@@ -588,23 +588,23 @@ namespace {
 
 std::unordered_map<uint32_t, std::string> g_names; // (names typed in this session)
 
-Script::CStruct* Included(const Script::CComponent* c)
+Scripts::CStruct* Included(const Scripts::CComponent* c)
 {
-    if (c->name != 0 || c->Type() != Script::ESYMBOLTYPE_NAME)
+    if (c->name != 0 || c->Type() != Scripts::QBVAL_NAME)
         return nullptr;
-    Script::CSymbolTableEntry* symbol = Script::LookUpSymbol(c->checksum);
-    return symbol && symbol->type == Script::ESYMBOLTYPE_STRUCTURE ? symbol->structure : nullptr;
+    Scripts::CSymbolTableEntry* symbol = Scripts::ResolveSymbol(c->checksum);
+    return symbol && symbol->type == Scripts::QBVAL_STRUCT ? symbol->structure : nullptr;
 }
 
-bool IsFlag(const Script::CComponent* c)
+bool IsFlag(const Scripts::CComponent* c)
 {
-    return c->name == 0 && c->Type() == Script::ESYMBOLTYPE_NAME && !Included(c);
+    return c->name == 0 && c->Type() == Scripts::QBVAL_NAME && !Included(c);
 }
 
 // The key a component goes by: its name, a bare flag's name.
-uint32_t KeyOf(const Script::CComponent* c) { return IsFlag(c) ? c->checksum : c->name; }
+uint32_t KeyOf(const Scripts::CComponent* c) { return IsFlag(c) ? c->checksum : c->name; }
 
-Value ValueOf(const Script::CComponent* c)
+Value ValueOf(const Scripts::CComponent* c)
 {
     Value v;
     if (IsFlag(c)) {
@@ -613,34 +613,34 @@ Value ValueOf(const Script::CComponent* c)
         return v;
     }
     switch (c->Type()) {
-    case Script::ESYMBOLTYPE_INTEGER:
+    case Scripts::QBVAL_INTEGER:
         v.kind = Kind::Integer;
         v.integer = c->integer;
         break;
-    case Script::ESYMBOLTYPE_FLOAT:
+    case Scripts::QBVAL_FLOAT:
         v.kind = Kind::Float;
         v.numbers[0] = c->floatValue;
         break;
-    case Script::ESYMBOLTYPE_NAME:
+    case Scripts::QBVAL_NAME:
         v.kind = Kind::Name;
         v.checksum = c->checksum;
         break;
-    case Script::ESYMBOLTYPE_STRING:
+    case Scripts::QBVAL_STRING:
         v.kind = Kind::String;
         v.text = c->string ? c->string : "";
         break;
-    case Script::ESYMBOLTYPE_LOCALSTRING:
+    case Scripts::QBVAL_INLINE_TEXT:
         v.kind = Kind::LocalString;
         v.text = c->string ? c->string : "";
         break;
-    case Script::ESYMBOLTYPE_PAIR:
+    case Scripts::QBVAL_PAIR:
         v.kind = Kind::Pair;
         if (c->pair) {
             v.numbers[0] = c->pair->x;
             v.numbers[1] = c->pair->y;
         }
         break;
-    case Script::ESYMBOLTYPE_VECTOR:
+    case Scripts::QBVAL_VECTOR:
         v.kind = Kind::Vector;
         if (c->vector) {
             v.numbers[0] = c->vector->x;
@@ -648,20 +648,20 @@ Value ValueOf(const Script::CComponent* c)
             v.numbers[2] = c->vector->z;
         }
         break;
-    case Script::ESYMBOLTYPE_ARRAY:
-    case Script::ESYMBOLTYPE_ARRAYPOINTER: {
-        Script::CArray* array = c->array;
+    case Scripts::QBVAL_ARRAY:
+    case Scripts::ESYMBOLTYPE_ARRAYPOINTER: {
+        Scripts::CArray* array = c->array;
         uint32_t size = array ? array->m_size : 0;
         uint8_t type = array ? static_cast<uint8_t>(array->m_type) : 0;
-        if (size == 0 || type == Script::ESYMBOLTYPE_NAME) {
+        if (size == 0 || type == Scripts::QBVAL_NAME) {
             v.kind = Kind::Names;
             for (uint32_t i = 0; i < size; ++i)
                 v.list.push_back(array->GetElement(i));
-        } else if (type == Script::ESYMBOLTYPE_INTEGER) {
+        } else if (type == Scripts::QBVAL_INTEGER) {
             v.kind = Kind::Integers;
             for (uint32_t i = 0; i < size; ++i)
                 v.list.push_back(array->GetElement(i));
-        } else if (type == Script::ESYMBOLTYPE_FLOAT) {
+        } else if (type == Scripts::QBVAL_FLOAT) {
             v.kind = Kind::Floats;
             for (uint32_t i = 0; i < size; ++i)
                 v.floats.push_back(array->GetFloat(i));
@@ -671,12 +671,12 @@ Value ValueOf(const Script::CComponent* c)
         }
         break;
     }
-    case Script::ESYMBOLTYPE_STRUCTURE:
-    case Script::ESYMBOLTYPE_STRUCTUREPOINTER:
+    case Scripts::QBVAL_STRUCT:
+    case Scripts::QBVAL_STRUCT_REF:
         v.kind = Kind::Other;
         v.text = "{a structure}";
         break;
-    case Script::ESYMBOLTYPE_QSCRIPT:
+    case Scripts::QBVAL_SCRIPT_BODY:
         v.kind = Kind::Other;
         v.text = "(a script)";
         break;
@@ -689,53 +689,53 @@ Value ValueOf(const Script::CComponent* c)
 }
 
 // The value added to `s` as a new component at its end.
-void AddValue(Script::CStruct* s, uint32_t key, const Value& v)
+void AddValue(Scripts::CStruct* s, uint32_t key, const Value& v)
 {
     switch (v.kind) {
-    case Kind::Integer: s->AddInteger(key, v.integer); break;
-    case Kind::Float: s->AddFloat(key, v.numbers[0]); break;
-    case Kind::Name: s->AddChecksum(key, v.checksum); break;
+    case Kind::Integer: s->PutInt(key, v.integer); break;
+    case Kind::Float: s->PushFloat(key, v.numbers[0]); break;
+    case Kind::Name: s->PutNameKey(key, v.checksum); break;
     case Kind::String: s->AddString(key, v.text.c_str()); break;
-    case Kind::LocalString: s->AddLocalString(key, v.text.c_str()); break;
-    case Kind::Pair: s->AddPair(key, v.numbers[0], v.numbers[1]); break;
-    case Kind::Vector: s->AddVector(key, v.numbers[0], v.numbers[1], v.numbers[2]); break;
+    case Kind::LocalString: s->AppendInlineText(key, v.text.c_str()); break;
+    case Kind::Pair: s->InsertPair(key, v.numbers[0], v.numbers[1]); break;
+    case Kind::Vector: s->PutVec3(key, v.numbers[0], v.numbers[1], v.numbers[2]); break;
     case Kind::Flag:
         if (v.on)
-            s->AddChecksum(0u, key);
+            s->PutNameKey(0u, key);
         break;
     case Kind::Names:
     case Kind::Integers:
     case Kind::Floats: {
-        Script::CArray* array = Script::NewArray()->Init();
+        Scripts::CArray* array = Scripts::NewArray()->Init();
         uint32_t size = static_cast<uint32_t>(v.kind == Kind::Floats ? v.floats.size() : v.list.size());
-        array->SetSizeAndType(size, v.kind == Kind::Names      ? Script::ESYMBOLTYPE_NAME
-                                    : v.kind == Kind::Integers ? Script::ESYMBOLTYPE_INTEGER
-                                                               : Script::ESYMBOLTYPE_FLOAT);
+        array->ConfigureSizeKind(size, v.kind == Kind::Names      ? Scripts::QBVAL_NAME
+                                    : v.kind == Kind::Integers ? Scripts::QBVAL_INTEGER
+                                                               : Scripts::QBVAL_FLOAT);
         for (uint32_t i = 0; i < size; ++i) {
             if (v.kind == Kind::Floats)
                 array->SetFloat(i, v.floats[i]);
             else
                 array->SetElement(i, v.list[i]);
         }
-        s->AddArrayPointer(key, array);
+        s->AppendArrayRef(key, array);
         break;
     }
     case Kind::Other: break;
     }
 }
 
-bool Matches(const Script::CComponent* c, uint32_t key, bool flag)
+bool Matches(const Scripts::CComponent* c, uint32_t key, bool flag)
 {
     return flag ? IsFlag(c) && c->checksum == key : c->name == key && !IsFlag(c);
 }
 
 // The node's own field: the last own component of that key (flags: the bare name), and its place - how many of the
 // node's other components come before it.
-Own OwnOf(Script::CStruct* s, uint32_t key, bool flag)
+Own OwnOf(Scripts::CStruct* s, uint32_t key, bool flag)
 {
     Own own;
     int others = 0;
-    for (Script::CComponent* c = s->m_head; c; c = c->next) {
+    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
         if (Matches(c, key, flag)) {
             own.present = true;
             own.value = ValueOf(c);
@@ -749,15 +749,15 @@ Own OwnOf(Script::CStruct* s, uint32_t key, bool flag)
 
 // Whether a shared structure of `s` after its own component's place (`index` others before it; -1: anywhere) has the
 // key - which then counts over the node's own.
-bool IncludedAfter(Script::CStruct* s, uint32_t key, bool flag, int index)
+bool IncludedAfter(Scripts::CStruct* s, uint32_t key, bool flag, int index)
 {
     int others = 0;
-    for (Script::CComponent* c = s->m_head; c; c = c->next) {
+    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
         if (Matches(c, key, flag))
             continue;
-        if (Script::CStruct* included = Included(c)) {
+        if (Scripts::CStruct* included = Included(c)) {
             if (others >= index &&
-                (flag ? included->ContainsFlag(key) : included->FindLastComponent(key) != nullptr))
+                (flag ? included->HasBareFlag(key) : included->FindLastComponent(key) != nullptr))
                 return true;
         }
         ++others;
@@ -766,7 +766,7 @@ bool IncludedAfter(Script::CStruct* s, uint32_t key, bool flag, int index)
 }
 
 // The node's own field made `own`: the old one(s) taken out, the new one put where `own` says (-1: at the end).
-void PutOwn(Script::CStruct* s, uint32_t key, bool flag, const Own& own)
+void PutOwn(Scripts::CStruct* s, uint32_t key, bool flag, const Own& own)
 {
     if (flag)
         s->RemoveFlag(key);
@@ -786,7 +786,7 @@ struct Touched {
     uint32_t node, key;
     bool flag;
     Own origin;
-    Script::CStruct* structure;
+    Scripts::CStruct* structure;
 };
 std::vector<Touched> g_touched;
 
@@ -799,23 +799,23 @@ Touched* FindTouched(uint32_t node, uint32_t key)
     return nullptr;
 }
 
-Script::CStruct* LevelNode(uint32_t name)
+Scripts::CStruct* LevelNode(uint32_t name)
 {
-    return name && SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
 }
 
 // Whether `key` is a flag of the node (its own or a shared structure's), or should be taken as one (`value` a flag).
-bool KeyIsFlag(Script::CStruct* s, uint32_t key, const Value* value)
+bool KeyIsFlag(Scripts::CStruct* s, uint32_t key, const Value* value)
 {
     if (value && value->kind == Kind::Flag)
         return true;
-    for (Script::CComponent* c = s->m_head; c; c = c->next) {
+    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
         if (Matches(c, key, true))
             return true;
         if (Matches(c, key, false))
             return false;
-        if (Script::CStruct* included = Included(c)) {
-            if (included->ContainsFlag(key) && !included->FindLastComponent(key))
+        if (Scripts::CStruct* included = Included(c)) {
+            if (included->HasBareFlag(key) && !included->FindLastComponent(key))
                 return true;
         }
     }
@@ -837,8 +837,8 @@ const Nodes::Node* LayerNode(uint32_t name)
 
 } // namespace
 
-Own OwnIn(Script::CStruct* s, uint32_t key, bool flag) { return OwnOf(s, key, flag); }
-void PutIn(Script::CStruct* s, uint32_t key, bool flag, const Own& own) { PutOwn(s, key, flag, own); }
+Own OwnIn(Scripts::CStruct* s, uint32_t key, bool flag) { return OwnOf(s, key, flag); }
+void PutIn(Scripts::CStruct* s, uint32_t key, bool flag, const Own& own) { PutOwn(s, key, flag, own); }
 
 const char* NameOf(uint32_t checksum)
 {
@@ -851,24 +851,24 @@ const char* NameOf(uint32_t checksum)
 void Remember(const std::string& name)
 {
     if (IsIdentifier(name))
-        g_names[NameChecksum(name)] = name;
+        g_names[HashOfName(name)] = name;
 }
 
 std::vector<Row> RowsOf(const Nodes::Node& node)
 {
     std::vector<Row> rows;
-    Script::CStruct* s = Nodes::StructOf(node);
+    Scripts::CStruct* s = Nodes::StructOf(node);
     if (!s)
         return rows;
     struct Entry {
         uint32_t key;
-        Script::CComponent* c;
+        Scripts::CComponent* c;
         bool included;
     };
     std::vector<Entry> entries;
-    for (Script::CComponent* c = s->m_head; c; c = c->next) {
-        if (Script::CStruct* included = Included(c)) {
-            for (Script::CComponent* inner = included->m_head; inner; inner = inner->next) {
+    for (Scripts::CComponent* c = s->m_head; c; c = c->next) {
+        if (Scripts::CStruct* included = Included(c)) {
+            for (Scripts::CComponent* inner = included->m_head; inner; inner = inner->next) {
                 if (!Included(inner)) // (one level of shared structures: the node arrays have no deeper ones)
                     entries.push_back({KeyOf(inner), inner, true});
             }
@@ -923,7 +923,7 @@ std::vector<Row> RowsOf(const Nodes::Node& node)
 namespace {
 
 // The field set on structure `s` of node `name` (of `family`: what may be set - see Set).
-bool SetOn(Script::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key, const Value& value, bool removed,
+bool SetOn(Scripts::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key, const Value& value, bool removed,
            std::string* error)
 {
     When when = WhenApplied(family, key, nullptr);
@@ -964,7 +964,7 @@ bool SetOn(Script::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key
 
 bool Set(uint32_t name, uint32_t key, const Value& value, bool removed, std::string* error)
 {
-    Script::CStruct* s = LevelNode(name);
+    Scripts::CStruct* s = LevelNode(name);
     if (!s) {
         *error = "No such node in this level";
         return false;
@@ -982,7 +982,7 @@ bool Set(uint32_t name, uint32_t key, const Value& value, bool removed, std::str
 
 bool Capture(uint32_t name, uint32_t key, Own* own)
 {
-    Script::CStruct* s = LevelNode(name);
+    Scripts::CStruct* s = LevelNode(name);
     if (!s)
         return false;
     Touched* t = FindTouched(name, key);
@@ -992,7 +992,7 @@ bool Capture(uint32_t name, uint32_t key, Own* own)
 
 bool Put(uint32_t name, uint32_t key, const Own& own)
 {
-    Script::CStruct* s = LevelNode(name);
+    Scripts::CStruct* s = LevelNode(name);
     if (!s)
         return false;
     Touched* t = FindTouched(name, key);
@@ -1048,7 +1048,7 @@ std::vector<NodeEdits> Changed()
 {
     std::vector<NodeEdits> out;
     for (const Touched& t : g_touched) {
-        Script::CStruct* s = LevelNode(t.node);
+        Scripts::CStruct* s = LevelNode(t.node);
         if (!s || s != t.structure)
             continue;
         Own now = OwnOf(s, t.key, t.flag);
@@ -1108,11 +1108,11 @@ void ForgetLevel()
 int ApplyEarly(uint32_t array, const std::vector<NodeEdits>& edits)
 {
     // (the level's objects aren't made yet: the node layer isn't asked - only the node manager's structures)
-    if (!array || !SkateScript::NodeManagerInstance())
+    if (!array || !LevelNodes::NodeManagerInstance())
         return 0;
     int applied = 0;
     for (const NodeEdits& node : edits) {
-        Script::CStruct* s = LevelNode(node.name);
+        Scripts::CStruct* s = LevelNode(node.name);
         if (!s)
             continue;
         for (const Edit& edit : node.edits) {
@@ -1125,4 +1125,4 @@ int ApplyEarly(uint32_t array, const std::vector<NodeEdits>& edits)
     return applied;
 }
 
-} // namespace Front::LevelEditor::Fields
+} // namespace MenuSystem::LevelEditor::Fields

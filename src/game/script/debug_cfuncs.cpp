@@ -22,7 +22,7 @@
 #include "game/ass/assman.h"
 #include "game/sys/game_config.h"
 
-namespace CFuncs {
+namespace ScriptCommands {
 
 uint32_t g_levelQbFiles[15];
 
@@ -44,22 +44,22 @@ int Language() { return GameConfig::g_language; }
 // (0x005A59B0).
 void LoadQbFile(const char* name, bool levelSpecific)
 {
-    Script::LoadQBFile(name, levelSpecific ? 1 : 0);
+    Scripts::LoadQBFile(name, levelSpecific ? 1 : 0);
 }
-void UnloadQbFile(uint32_t name) { Script::UnloadQBFile(name); }
+void UnloadQbFile(uint32_t name) { Scripts::UnloadQBFile(name); }
 
 // A screenshot written to `name` (0x0048C100, a jump to 0x004B24E0).
-void TakeScreenShot(const char* name, int flags) { Nx::ScreenShot(name, flags); }
+void TakeScreenShot(const char* name, int flags) { Engine3D::ScreenShot(name, flags); }
 // The renderer's metrics display switched on / off (0x0048C0F0: the flag 0x006FA7D6 toggled).
-void ToggleMetricsDisplay() { Nx::Engine::ToggleMetrics(); }
+void ToggleMetricsDisplay() { Engine3D::Engine::ToggleMetrics(); }
 
 // `count` bytes as "%02x " each, then a new line.
 void PrintBytes(const void* data, int count)
 {
     auto* bytes = static_cast<const uint8_t*>(data);
     for (int i = 0; i < count; ++i)
-        Dbg::Printf("%02x ", bytes[i]);
-    Dbg::Printf("\n");
+        DebugOut::Printf("%02x ", bytes[i]);
+    DebugOut::Printf("\n");
 }
 
 } // namespace
@@ -68,22 +68,22 @@ uint32_t* LevelSpecificQbFiles() { return g_levelQbFiles; }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.
-bool __cdecl CFunc_DisplayFreeMem(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_DisplayFreeMem(Scripts::CStruct*, Scripts::CScript*)
 {
-    Mem::Manager* manager = Mem::Manager::Get();
-    Script::CStruct* memory = Script::NewStruct();
-    Script::CStruct* params = memory ? memory->Init() : nullptr;
-    for (Mem::Allocator* heap = manager->FirstHeap(); heap; heap = manager->NextHeap(heap)) {
-        Mem::Region* region = heap->m_region;
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* params = memory ? memory->Init() : nullptr;
+    for (MemSys::Allocator* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
+        MemSys::Region* region = heap->m_region;
         params->Clear();
-        params->AddChecksum(kId, Crc::GenerateCRCFromString(heap->m_name));
-        params->AddInteger(kFreeMem, region->MemAvailable());
-        params->AddInteger(kMinFreeMem, region->m_minAvailable);
-        Script::RunScript(kUpdateDisplayFreeMemory, params, nullptr, false, nullptr);
+        params->PutNameKey(kId, Checksums::HashFromText(heap->m_name));
+        params->PutInt(kFreeMem, region->FreeByteCount());
+        params->PutInt(kMinFreeMem, region->m_minAvailable);
+        Scripts::LaunchScript(kUpdateDisplayFreeMemory, params, nullptr, false, nullptr);
     }
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
     return true;
 }
@@ -91,15 +91,15 @@ bool __cdecl CFunc_DisplayFreeMem(Script::CStruct*, Script::CScript*)
 // 0x00449110: Test: prints the bytes of a symbol table entry (a structure named 0xC1C935B2,
 // flags 4) after setting flag bits 1 and 2 in turn, then of a component (byte 0x57, word 1000, name 0x480A2607,
 // value 0x01020304) - a check of the layouts. Always true.
-bool __cdecl CFunc_Test(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_Test(Scripts::CStruct*, Scripts::CScript*)
 {
-    Script::CSymbolTableEntry entry;
+    Scripts::CSymbolTableEntry entry;
     entry.Init();
     std::memset(&entry, 0, sizeof(entry));
     entry.unknown0 = 4;
-    entry.type = Script::ESYMBOLTYPE_STRUCTURE;
+    entry.type = Scripts::QBVAL_STRUCT;
     entry.name = 0xC1C935B2;
-    Dbg::Printf("CSymbolTableEntry:\n");
+    DebugOut::Printf("CSymbolTableEntry:\n");
     PrintBytes(&entry, sizeof(entry));
     entry.unknown0 |= 1;
     PrintBytes(&entry, sizeof(entry));
@@ -107,32 +107,32 @@ bool __cdecl CFunc_Test(Script::CStruct*, Script::CScript*)
     PrintBytes(&entry, sizeof(entry));
     entry.unknown0 &= ~4;
 
-    Script::CComponent component;
-    Script::ConstructComponent(&component);
+    Scripts::CComponent component;
+    Scripts::ConstructComponent(&component);
     std::memset(&component, 0, sizeof(component));
     component.typeAndFlag = 0x57;
     component.unknown2 = 1000;
     component.name = 0x480A2607;
     component.raw = 0x01020304;
-    Dbg::Printf("CComponent:\n");
+    DebugOut::Printf("CComponent:\n");
     PrintBytes(&component, sizeof(component));
     return true;
 }
 
 // 0x004493B0: LoadQB "<file>" [LevelSpecific]: the .qb file loaded; LevelSpecific ones are noted in the first free
 // slot of the table (by the name's checksum; all 15 taken: not noted, loaded all the same).
-bool __cdecl CFunc_LoadQB(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_LoadQB(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
     params->GetString(0u, &name, 0);
-    if (!params->ContainsFlag(kLevelSpecific)) {
+    if (!params->HasBareFlag(kLevelSpecific)) {
         LoadQbFile(name, false);
         return true;
     }
     uint32_t* files = LevelSpecificQbFiles();
     for (int i = 0; i < kLevelSpecificQbFiles; ++i) {
         if (!files[i]) {
-            files[i] = Crc::GenerateCRCFromString(name);
+            files[i] = Checksums::HashFromText(name);
             break;
         }
     }
@@ -141,11 +141,11 @@ bool __cdecl CFunc_LoadQB(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x00449450: UnloadQB "<file>": the .qb file unloaded, and forgotten by the LevelSpecific table (every slot).
-bool __cdecl CFunc_UnloadQB(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_UnloadQB(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name = nullptr;
     params->GetString(0u, &name, 0);
-    uint32_t checksum = Crc::GenerateCRCFromString(name);
+    uint32_t checksum = Checksums::HashFromText(name);
     UnloadQbFile(checksum);
     uint32_t* files = LevelSpecificQbFiles();
     for (int i = 0; i < kLevelSpecificQbFiles; ++i) {
@@ -156,7 +156,7 @@ bool __cdecl CFunc_UnloadQB(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004494A0: ScreenShot [FileName="<name>" ("screen")].
-bool __cdecl CFunc_ScreenShot(Script::CStruct* params, Script::CScript*)
+bool __cdecl CFunc_ScreenShot(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* name;
     if (!params->GetString(kFileName, &name, 0))
@@ -166,7 +166,7 @@ bool __cdecl CFunc_ScreenShot(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004494E0: ToggleMetrics.
-bool __cdecl CFunc_ToggleMetrics(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ToggleMetrics(Scripts::CStruct*, Scripts::CScript*)
 {
     ToggleMetricsDisplay();
     return true;
@@ -174,36 +174,36 @@ bool __cdecl CFunc_ToggleMetrics(Script::CStruct*, Script::CScript*)
 
 // 0x004494F0 / 0x00449500 / 0x00449510 / 0x00449520 / 0x00449530: German / French / Spanish / Italian / English:
 // whether the game runs in that language.
-bool __cdecl CFunc_German(Script::CStruct*, Script::CScript*) { return Language() == 5; }
-bool __cdecl CFunc_French(Script::CStruct*, Script::CScript*) { return Language() == 3; }
-bool __cdecl CFunc_Spanish(Script::CStruct*, Script::CScript*) { return Language() == 4; }
-bool __cdecl CFunc_Italian(Script::CStruct*, Script::CScript*) { return Language() == 6; }
-bool __cdecl CFunc_English(Script::CStruct*, Script::CScript*) { return Language() == 2; }
+bool __cdecl CFunc_German(Scripts::CStruct*, Scripts::CScript*) { return Language() == 5; }
+bool __cdecl CFunc_French(Scripts::CStruct*, Scripts::CScript*) { return Language() == 3; }
+bool __cdecl CFunc_Spanish(Scripts::CStruct*, Scripts::CScript*) { return Language() == 4; }
+bool __cdecl CFunc_Italian(Scripts::CStruct*, Scripts::CScript*) { return Language() == 6; }
+bool __cdecl CFunc_English(Scripts::CStruct*, Scripts::CScript*) { return Language() == 2; }
 
 // 0x004498F0: ProximCleanup: every sound component's +0xBC and stream component's +0x28 cleared (what they keep of
 // the proximity nodes), then every proximity node freed.
-bool __cdecl CFunc_ProximCleanup(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ProximCleanup(Scripts::CStruct*, Scripts::CScript*)
 {
-    for (Obj::CBaseComponent* c = Obj::CompositeObjectManager()->GetFirstComponentByType(kSound); c; c = c->mp_nextOfType)
+    for (GameObjects::CObjectModule* c = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kSound); c; c = c->mp_nextOfType)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0xBC) = 0;
-    for (Obj::CBaseComponent* c = Obj::CompositeObjectManager()->GetFirstComponentByType(kStream); c; c = c->mp_nextOfType)
+    for (GameObjects::CObjectModule* c = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kStream); c; c = c->mp_nextOfType)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0x28) = 0;
-    Obj::Proxim_Cleanup();
+    GameObjects::NearbyZone_Shutdown();
     return true;
 }
 
 // 0x00449950: Inside: whether the proximity node script running now was started by entering (not leaving). (No
 // check that the proximity manager exists.)
-bool __cdecl CFunc_Inside(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_Inside(Scripts::CStruct*, Scripts::CScript*)
 {
-    return reinterpret_cast<Obj::ProximManager*&>(Obj::g_proximManager)->m_entering;
+    return reinterpret_cast<GameObjects::ProximManager*&>(GameObjects::g_proximManager)->m_entering;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).
-bool __cdecl CFunc_ResetEngine(Script::CStruct*, Script::CScript*)
+bool __cdecl CFunc_ResetEngine(Scripts::CStruct*, Scripts::CScript*)
 {
-    Ass::g_mainLoopManager->StopLoop();
+    AssetStore::g_mainLoopManager->StopLoop();
     return true;
 }
 
-} // namespace CFuncs
+} // namespace ScriptCommands

@@ -3,27 +3,27 @@
 #include <cstddef>
 #include <cstdint>
 
-// The node arrays the level's objects come from (SkateScript::CNodeManager, a reference-counted singleton at
+// The node arrays the level's objects come from (LevelNodes::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
 // to where it is (0x4000 slots, open addressing). From the disassembly of 0x0045CE60-0x0045D6E0; the node
 // functions (nodes.h) and the prefix tables (node_prefixes.h) sit just before it.
-namespace Script {
+namespace Scripts {
 class CArray;
 class CStruct;
 } // namespace Script
 
-namespace SkateScript {
+namespace LevelNodes {
 
 // A hash slot: the node's array and its index in it (-1: empty).
 struct NodeSlot {
-    uint16_t m_array;
-    int16_t m_node;
+    uint16_t m_elementList;
+    int16_t m_listLink;
 };
 
 // A node array: its name, the script array and a flag AddNodeArray was given.
 struct NodeArrayEntry {
     uint32_t m_name;
-    Script::CArray* mp_nodes;
+    Scripts::CArray* m_nodeList;
     bool m_flag;
     uint8_t pad9[3];
 };
@@ -54,17 +54,17 @@ public:
     void HashNodes(uint32_t index);
     // 0x0045CE60: node `index` of node array `array` put in the hash under its name= (in the first empty slot from
     // the name's low 14 bits on), unless it has none or its class= is "link".
-    void HashNode(uint32_t array, uint32_t index, Script::CStruct* node);
+    void HashNode(uint32_t array, uint32_t index, Scripts::CStruct* node);
     // 0x0045CEF0: the slots of node array `array` emptied, then every other node hashed again (slot by slot, each
     // taken out and put back in the first empty slot from its name on).
     void UnhashNodeArray(uint32_t array);
     // 0x0045CFC0: the node named `name` (null if there's none; `assert` isn't used).
-    Script::CStruct* GetNode(uint32_t name, bool assert);
+    Scripts::CStruct* GetNode(uint32_t name, bool assert);
     // 0x0045D480 (`this` isn't used): each node's links= array (indices into `nodes`) becomes the names of those
     // nodes (GetNodeName), as a checksum array.
-    void ResolveLinks(Script::CArray* nodes);
+    void ResolveLinks(Scripts::CArray* nodes);
     // 0x0045D120 / 0x0045D150: the last node array's nodes / name (none: null / 0).
-    Script::CArray* GetLastNodeArray();
+    Scripts::CArray* GetLastNodeArray();
     uint32_t GetLastNodeArrayName();
 
     // The walk over every node (one at a time, across the arrays).
@@ -74,14 +74,14 @@ public:
     // 0x0045D110: end the walk.
     void EndWalk();
     // 0x0045D3F0: the next node of the walk, or null at the end.
-    Script::CStruct* NextNode();
+    Scripts::CStruct* NextNode();
 
     // 0x0045D140 / 0x0045D470: an object kept with the manager (+0x100F8), and its +0x58.
     void SetOwner(void* owner);
     uint32_t GetOwnerValue58();
 
     NodeSlot m_slots[kSlots];               // +0x00000
-    NodeSlot m_walk;                        // +0x10000 the walk's place (m_node -1: no walk)
+    NodeSlot m_walk;                        // +0x10000 the walk's place (m_listLink -1: no walk)
     uint32_t m_count;                       // +0x10004 node arrays in use
     NodeArrayEntry m_arrays[kMaxArrays];    // +0x10008
     void* mp_owner;                         // +0x100F8
@@ -93,7 +93,7 @@ static_assert(offsetof(CNodeManager, m_walk) == 0x10000 && offsetof(CNodeManager
 
 // NOT ORIGINAL - `manager`'s name hash `slots` big (a power of two), kept beside it with 32-bit node indices, its walk
 // too (null / 0: none - every manager its own m_slots, as the original). CreateNodeManager gives the game's one
-// Mem::Sizes::NodeHashSlots() when that's more than kSlots; the self-tests give theirs one.
+// MemSys::Sizes::NodeHashSlots() when that's more than kSlots; the self-tests give theirs one.
 void UseBigNameHash(CNodeManager* manager, uint32_t slots);
 
 // 0x0045D2A0 (cdecl): `out` = the file name of `path` (after its last \ or /) with its extension replaced by
@@ -119,7 +119,7 @@ void SetNodeArrayRemovedHook(NodeArrayRemovedHook hook);
 using NodeArrayAddedHook = void (*)(uint32_t name);
 void SetNodeArrayAddedHook(NodeArrayAddedHook hook);
 
-extern SkateScript::CNodeManager* g_nodeManager;
+extern LevelNodes::CNodeManager* g_nodeManager;
 inline CNodeManager*& NodeManagerInstance() { return g_nodeManager; }
 void ReleaseNodeManager();
-} // namespace SkateScript
+} // namespace LevelNodes

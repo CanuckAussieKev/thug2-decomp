@@ -30,7 +30,7 @@
 #include "game/gfx/device.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 sVertexStack g_vertexStack;
 uint8_t g_splatMiddle20[128];
@@ -46,16 +46,16 @@ namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 IDirect3DDevice9* DrawDevice() { return g_drawDevice; } // (the same device, kept twice)
-Lst::HashTable* Splats() { return g_splatSets; }
+ListKit::HashTable* Splats() { return g_splatSets; }
 
 // The table's first value, and the next one (null when there are no more).
-sTextureSplats* NextSplats(Lst::HashTable* table)
+sTextureSplats* NextSplats(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return static_cast<sTextureSplats*>(table->m_iterItem->value);
 }
-sTextureSplats* FirstSplats(Lst::HashTable* table)
+sTextureSplats* FirstSplats(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -101,7 +101,7 @@ void __cdecl LightTextureSplats(sTextureSplats* splats)
         float points[3][4];
         for (auto& point : points)
             std::memcpy(point, triangle[0], 12);
-        LightVertexColours(base, colors, reinterpret_cast<const Mth::Vector*>(points), nullptr, 3);
+        LightVertexColours(base, colors, reinterpret_cast<const Maths::Vector*>(points), nullptr, 3);
         for (int k = 0; k < 3; ++k)
             *reinterpret_cast<uint32_t*>(triangle[k] + 0xC) = ToArgb(colors[k]);
     }
@@ -113,13 +113,13 @@ void __cdecl KillAllTextureSplats()
     sTextureSplats* splats = FirstSplats(Splats());
     while (splats) {
         if (uint8_t* material = splats->material) {
-            reinterpret_cast<sMaterial*>(material)->DestroyBody(); // (the destructor's body)
-            Mem::Manager::Get()->Free(material);
+            reinterpret_cast<materialRef*>(material)->DestroyBody(); // (the destructor's body)
+            MemSys::Manager::Get()->Free(material);
         }
         sTextureSplats* next = NextSplats(Splats());
         uint32_t key = reinterpret_cast<uint32_t>(splats);
-        Splats()->FlushItem(key);
-        Mem::Manager::Get()->Free(splats);
+        Splats()->EraseEntry(key);
+        MemSys::Manager::Get()->Free(splats);
         splats = next;
     }
 }
@@ -163,7 +163,7 @@ void __cdecl DrawTextureSplats()
             uv[0] = static_cast<float>((static_cast<double>(splats->uvs[j][0]) - 0.5f) * factor + 0.5f);
             uv[1] = static_cast<float>((static_cast<double>(splats->uvs[j][1]) - 0.5f) * factor + 0.5f);
         }
-        reinterpret_cast<sMaterial*>(splats->material)->Submit(); // (the material's set-up)
+        reinterpret_cast<materialRef*>(splats->material)->Submit(); // (the material's set-up)
         SetPixelShader(g_pixelShaders[kPixelShader964], splats->material);
         DrawDevice()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices, 0x18);
     }
@@ -340,21 +340,21 @@ double Cosine(double a)
 }
 
 // D3DX (linked library code).
-void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
+void TransformCoord(float* out, const float* v, const Maths::Matrix* m)
 {
     D3dx::Vec3TransformCoord(out, v, m);
 }
 void Normalize3(float* v) { D3dx::Vec3Normalize(v, v); }
-void LookAt(Mth::Matrix* out, const float* eye, const float* at, const float* up)
+void LookAt(Maths::Matrix* out, const float* eye, const float* at, const float* up)
 {
     D3dx::MatrixLookAtRH(out, eye, at, up);
 }
-void Ortho(Mth::Matrix* out, float width, float height, float nearZ, float farZ)
+void Ortho(Maths::Matrix* out, float width, float height, float nearZ, float farZ)
 {
     D3dx::MatrixOrthoRH(out, width, height, nearZ,
                                                                                          farZ);
 }
-void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void Multiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -382,8 +382,8 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture)
         if (*reinterpret_cast<uint32_t*>(splats->material + 0x30) == texture)
             return splats;
     }
-    void* memory = Mem::New(0x110);
-    auto* material = memory ? reinterpret_cast<uint8_t*>(static_cast<sMaterial*>(memory)->Construct()) : nullptr;
+    void* memory = MemSys::New(0x110);
+    auto* material = memory ? reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->Construct()) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     *reinterpret_cast<uint32_t*>(material + 0x20) = texture ? 4 : 0; // (the pass's flags)
     int a = Rand();
@@ -399,7 +399,7 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture)
     *reinterpret_cast<uint32_t*>(material + 0x90) = 0x20002;
     *reinterpret_cast<uint32_t*>(material + 0xE0) = 0;
     material[0x10] = 1;
-    auto* splats = static_cast<sTextureSplats*>(Mem::New(sizeof(sTextureSplats)));
+    auto* splats = static_cast<sTextureSplats*>(MemSys::New(sizeof(sTextureSplats)));
     splats->last = 0;
     splats->material = material;
     std::memset(splats->alive, 0, sizeof(splats->alive));
@@ -409,7 +409,7 @@ sTextureSplats* __cdecl GetTextureSplats(uint32_t texture)
         Color(vertex) = 0x80808080;
     }
     uint32_t key = reinterpret_cast<uint32_t>(splats);
-    Splats()->PutItem(key, splats);
+    Splats()->StoreEntry(key, splats);
     return splats;
 }
 
@@ -436,7 +436,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     float up[4];
-    Mth::Matrix view, projection, combined;
+    Maths::Matrix view, projection, combined;
     if (params->up) {
         const float* from = params->up;
         double az = static_cast<double>(start[2]) - from[2];
@@ -454,7 +454,7 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
         end[1] = static_cast<float>(static_cast<double>(end[1]) - ay);
         end[2] = static_cast<float>(static_cast<double>(end[2]) - az);
         end[3] = static_cast<float>(static_cast<double>(end[3]) - 1.0f);
-        reinterpret_cast<Mth::Vector*>(up)->Normalize();
+        reinterpret_cast<Maths::Vector*>(up)->Normalize();
         LookAt(&view, start, end, up);
         Ortho(&projection, params->size, height, 0.1f, length);
     } else {
@@ -484,10 +484,10 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
         auto* geom = static_cast<uint8_t*>(static_cast<CPcSector*>(*sectors)->geom); // (the sector's geom)
         if (!geom)
             continue;
-        auto** meshes = *reinterpret_cast<sMesh***>(geom + 0x3C);
+        auto** meshes = *reinterpret_cast<meshRef***>(geom + 0x3C);
         uint32_t meshCount = *reinterpret_cast<uint32_t*>(geom + 0x40);
         for (uint32_t m = 0; m < meshCount; ++m) {
-            sMesh* mesh = meshes[m];
+            meshRef* mesh = meshes[m];
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices;
@@ -586,10 +586,10 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                 PushVertex(v0);
                 PushVertex(v1);
                 PushVertex(v2);
-                auto* pieces = static_cast<uint8_t*>(Mem::New(0x2000));
+                auto* pieces = static_cast<uint8_t*>(MemSys::New(0x2000));
                 std::memset(pieces, 0, 0x2000);
-                void* memory = Mem::New(0xD8);
-                auto* format = memory ? reinterpret_cast<uint8_t*>(static_cast<sMesh*>(memory)->Construct()) : nullptr;
+                void* memory = MemSys::New(0xD8);
+                auto* format = memory ? reinterpret_cast<uint8_t*>(static_cast<meshRef*>(memory)->Construct()) : nullptr;
                 format[0x1C] = 0x0C;
                 format[0x1E] = 0x10;
                 uint8_t* cursor = pieces;
@@ -632,9 +632,9 @@ sTextureSplats* __cdecl CreateTextureSplat(void** sectors, int /*unused*/, sSpla
                     splats->alive[slot] = 0;
                     CollapseSplatTriangle(splats, slot);
                 }
-                reinterpret_cast<sMesh*>(format)->DestroyBody(); // (the format mesh's destructor body)
-                Mem::Manager::Get()->Free(format);
-                Mem::Manager::Get()->Free(pieces);
+                reinterpret_cast<meshRef*>(format)->DestroyBody(); // (the format mesh's destructor body)
+                MemSys::Manager::Get()->Free(format);
+                MemSys::Manager::Get()->Free(pieces);
             }
         }
     }

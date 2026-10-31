@@ -41,7 +41,7 @@ constexpr uint32_t kFlags = 0x1780;    // +0x24 / +0x26: bools
 constexpr uint32_t kTrigger = 0x177C;        // the trigger component
 constexpr uint32_t kMovableContact = 0x1784; // the movable contact component
 constexpr uint32_t kPhysics = 0x178C;        // the core physics component
-constexpr uint32_t kTriggerFeeler = 0x17B4;  // (an Nx::CFeeler)
+constexpr uint32_t kTriggerFeeler = 0x17B4;  // (an Engine3D::CProbeRay)
 constexpr uint32_t kWalking = 0x1864;
 constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 
@@ -49,7 +49,7 @@ constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 bool FindAcidDrop(void* skater, float* velocity)
 {
     return At<CorePhysicsComponent*>(skater, kPhysics)->FindAcidDrop(
-        false, &At<Mth::Vector>(skater, 0x24), &At<Mth::Vector>(skater, 0x68), reinterpret_cast<Mth::Vector*>(velocity),
+        false, &At<Maths::Vector>(skater, 0x24), &At<Maths::Vector>(skater, 0x68), reinterpret_cast<Maths::Vector*>(velocity),
         &At<AcidDrop>(skater, 0x768));
 }
 
@@ -80,21 +80,21 @@ void EnterAcidDrop(void* skater, const float* velocity)
 } // namespace
 
 // 0x0051F4C0
-Script::CStruct* Component::PlatformStructure(Script::CStruct* params)
+Scripts::CStruct* Component::PlatformStructure(Scripts::CStruct* params)
 {
-    Script::CStruct* found = nullptr;
+    Scripts::CStruct* found = nullptr;
     int xbox = Ps2Controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
     if (Platform() == xbox) {
-        if (!params->GetStructure(0xCE42EE1A, &found, 0))
-            params->GetStructure(0xE594F0A2, &found, 1);
+        if (!params->ReadSubStruct(0xCE42EE1A, &found, 0))
+            params->ReadSubStruct(0xE594F0A2, &found, 1);
         return found;
     }
     if (Platform() == 5) {
-        if (!params->GetStructure(0xCB0E600C, &found, 0))
-            params->GetStructure(0xE594F0A2, &found, 1);
+        if (!params->ReadSubStruct(0xCB0E600C, &found, 0))
+            params->ReadSubStruct(0xE594F0A2, &found, 1);
         return found;
     }
-    params->GetStructure(0xE594F0A2, &found, 1);
+    params->ReadSubStruct(0xE594F0A2, &found, 1);
     return found;
 }
 
@@ -107,7 +107,7 @@ bool Component::TryWalkAcidDrop()
                          1.0f};
     if (!FindAcidDrop(this, velocity))
         return false;
-    At<Obj::CMovableContactComponent*>(this, kMovableContact)->StartRiding(&At<Nx::CFeeler>(this, kTriggerFeeler));
+    At<GameObjects::CMovingSurfaceModule*>(this, kMovableContact)->StartRiding(&At<Engine3D::CProbeRay>(this, kTriggerFeeler));
     EnterAcidDrop(this, velocity);
     return true;
 }
@@ -120,16 +120,16 @@ bool Component::TryAcidDrop()
     float velocity[4] = {At<float>(this, kVelocity), At<float>(this, kVelocity + 4), At<float>(this, kVelocity + 8),
                          At<float>(this, kVelocity + 12)};
     // (a physics value, 0xC0491D2E, as the second component)
-    velocity[1] = Obj::CWalkComponent::Param(0xC0491D2E);
+    velocity[1] = GameObjects::CFootMovement::Param(0xC0491D2E);
     if (!FindAcidDrop(this, velocity))
         return false;
     if (At<bool>(this, kWalking)) {
-        At<Obj::CTriggerComponent*>(this, kTrigger)->CheckFeeler(g_walkEvents0064C63C,
-                                                                 &At<Nx::CFeeler>(this, kTriggerFeeler));
+        At<GameObjects::CActivationZoneModule*>(this, kTrigger)->CheckFeeler(g_walkEvents0064C63C,
+                                                                 &At<Engine3D::CProbeRay>(this, kTriggerFeeler));
         if (At<bool>(At<uint8_t*>(this, kFlags), 0x26))
             return true;
     }
-    reinterpret_cast<Obj::CWalkComponent*>(this)->SetState(1);
+    reinterpret_cast<GameObjects::CFootMovement*>(this)->SetState(1);
     EnterAcidDrop(this, velocity);
     return true;
 }

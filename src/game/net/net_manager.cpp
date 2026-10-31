@@ -1,4 +1,4 @@
-// The network library's manager (Net::Manager): its settings getters and setters. See net_manager.h.
+// The network library's manager (NetLink::Manager): its settings getters and setters. See net_manager.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname, inet_ntoa: what the game uses
 
@@ -14,7 +14,7 @@
 #include "game/sys/mlp.h"
 #include "game/ass/assman.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
@@ -32,10 +32,10 @@ void CopyIfDifferent(char* out, const char* source)
         CopyString(out, source);
 }
 
-// Adds a task to the main loop's logic tasks (Mlp::Manager +0x04).
-void AddLogicTask(uint8_t* mlp, void* task)
+// Adds a task to the main loop's logic tasks (FrameLoop::Manager +0x04).
+void RegisterLogicTask(uint8_t* mlp, void* task)
 {
-    reinterpret_cast<Mlp::Manager*>(mlp)->m_logicTasks.AddTask(static_cast<Tsk::BaseTask*>(task));
+    reinterpret_cast<FrameLoop::Manager*>(mlp)->m_logicTasks.AddTask(static_cast<TaskList::SchedulerTask*>(task));
 }
 
 } // namespace
@@ -45,14 +45,14 @@ Manager* Manager::Instance() { return g_netManager; }
 // 0x00454580
 bool Manager::ConnectToInternet()
 {
-    m_online = true;
+    m_isNetworked = true;
     return true;
 }
 
 // 0x00454590
 bool Manager::DisconnectFromInternet()
 {
-    m_online = false;
+    m_isNetworked = false;
     return true;
 }
 
@@ -66,30 +66,30 @@ void Manager::SetDialupUserName(const char* name) { CopyString(m_dialupUserName,
 void Manager::SetDialupPassword(const char* password) { CopyString(m_dialupPassword, password); }
 
 // 0x00454640
-void Manager::SetGateway(const char* ip) { CopyIfDifferent(m_gateway, ip); }
+void Manager::SetRouterAddr(const char* ip) { CopyIfDifferent(m_routerAddr, ip); }
 
 // 0x004546A0
-void Manager::SetSubnetMask(const char* ip) { CopyIfDifferent(m_subnetMask, ip); }
+void Manager::SetAddressMask(const char* ip) { CopyIfDifferent(m_subnetMask, ip); }
 
 // 0x00454710
-void Manager::SetLocalIP(const char* ip) { CopyIfDifferent(m_localIP, ip); }
+void Manager::SetOwnAddress(const char* ip) { CopyIfDifferent(m_localIP, ip); }
 
 // 0x00454770
-void Manager::SetConnectionType(int type)
+void Manager::SetNetLinkKind(int type)
 {
     if (m_connectionType == type)
         return;
     m_connectionType = type;
     switch (type) {
     case kConnectionModem:
-        m_bandwidth = 4200;
+        m_linkSpeed = 4200;
         break;
     case kConnection2:
     case kConnection4:
-        m_bandwidth = 400000;
+        m_linkSpeed = 400000;
         break;
     case kConnection3:
-        m_bandwidth = 300000;
+        m_linkSpeed = 300000;
         break;
     default: // (the bandwidth stays)
         break;
@@ -97,24 +97,24 @@ void Manager::SetConnectionType(int type)
 }
 
 // 0x004547D0
-void Manager::SetDeviceType(int type)
+void Manager::SetAdapterKind(int type)
 {
     if (m_deviceType != type)
         m_deviceType = type;
 }
 
 // 0x004547F0
-void Manager::SetDHCP(bool useDHCP)
+void Manager::SetAutoAddress(bool useDHCP)
 {
     if (m_useDHCP != useDHCP)
         m_useDHCP = useDHCP;
 }
 
 // 0x00454820
-void Manager::SetDNSServer(int index, const char* ip) { CopyIfDifferent(m_dnsServers[index], ip); }
+void Manager::SetNameResolver(int index, const char* ip) { CopyIfDifferent(m_dnsServers[index], ip); }
 
 // 0x00454890
-void Manager::SetHostName(const char* name)
+void Manager::SetMachineLabel(const char* name)
 {
     if (!name)
         m_hostName[0] = '\0'; // (and the copy below still reads from the null pointer, as in the original)
@@ -122,7 +122,7 @@ void Manager::SetHostName(const char* name)
 }
 
 // 0x004548C0
-void Manager::SetDomainName(const char* name)
+void Manager::SetNetworkDomain(const char* name)
 {
     if (!name)
         m_domainName[0] = '\0'; // (likewise)
@@ -160,11 +160,11 @@ bool Manager::LoadNetworkDrivers(const char* /*ip*/, const char* /*subnetMask*/,
 // 0x00454CB0
 void Manager::AddAppTasks(App* app)
 {
-    uint8_t* mlp = reinterpret_cast<uint8_t*>(Ass::g_mainLoopManager); // the Mlp::Manager
-    AddLogicTask(mlp, app->ReceiveTask());
-    AddLogicTask(mlp, app->SendTask());
-    AddLogicTask(mlp, app->ProcessTask());
-    AddLogicTask(mlp, app->MetricsTask());
+    uint8_t* mlp = reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager); // the FrameLoop::Manager
+    RegisterLogicTask(mlp, app->ReceiveTask());
+    RegisterLogicTask(mlp, app->SendTask());
+    RegisterLogicTask(mlp, app->ProcessTask());
+    RegisterLogicTask(mlp, app->MetricsTask());
 }
 
 // 0x00454DE0

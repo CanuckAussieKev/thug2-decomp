@@ -1,4 +1,4 @@
-// The skater's rotate component (Obj::CSkaterRotateComponent): see rotate_component.h.
+// The skater's rotate component (GameObjects::CRiderTurning): see rotate_component.h.
 
 #include "game/skater/rotate_component.h"
 #include "game/gfx/d3dx.h"
@@ -20,7 +20,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -35,20 +35,20 @@ constexpr float kRadiansToDegrees = 57.2957763671875f;    // 0x00645468
 constexpr float kSecondsPerMs = 0.001f;                   // 0x006461D8
 constexpr float kSecondsPerFrame = 0.0166666675f;         // 0x006463B8
 
-Mth::Matrix& CoreMatrix(uint8_t* corePhysics) { return *reinterpret_cast<Mth::Matrix*>(corePhysics + 0x18); }
+Maths::Matrix& CoreMatrix(uint8_t* corePhysics) { return *reinterpret_cast<Maths::Matrix*>(corePhysics + 0x18); }
 // The core physics' matrix set from its object's.
 void CoreMatrixFromObject(uint8_t* corePhysics)
 {
-    CoreMatrix(corePhysics) = reinterpret_cast<CBaseComponent*>(corePhysics)->m_object->m_matrix;
+    CoreMatrix(corePhysics) = reinterpret_cast<CObjectModule*>(corePhysics)->m_object->m_basisFrame;
 }
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void TurnBy(Mth::Matrix& m, const Mth::Matrix& rotation)
+void TurnBy(Maths::Matrix& m, const Maths::Matrix& rotation)
 {
     D3dx::MatrixMultiply(&m, &rotation, &m);
 }
 
 // A turn set up from `degrees` over `duration` seconds.
-void StartTurn(CSkaterRotateComponent::Turn& turn, double degrees, float duration)
+void StartTurn(CRiderTurning::Turn& turn, double degrees, float duration)
 {
     turn.duration = duration;
     turn.turned = 0.0f;
@@ -60,13 +60,13 @@ void StartTurn(CSkaterRotateComponent::Turn& turn, double degrees, float duratio
 } // namespace
 
 // 0x00517D40
-CBaseComponent* __cdecl CSkaterRotateComponent::Create()
+CObjectModule* __cdecl CRiderTurning::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterRotateComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderTurning));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterRotateComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderTurning*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kSkaterRotate;
     component->m_corePhysics = nullptr;
@@ -74,42 +74,42 @@ CBaseComponent* __cdecl CSkaterRotateComponent::Create()
 }
 
 // 0x00517CC0
-void CSkaterRotateComponent::DestroyBody()
+void CRiderTurning::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00517CF0
-CSkaterRotateComponent* CSkaterRotateComponent::Destroy(unsigned int flags)
+CRiderTurning* CRiderTurning::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00517CD0
-void CSkaterRotateComponent::InitFromStructure(Script::CStruct* /*params*/)
+void CRiderTurning::ConfigureFromData(Scripts::CStruct* /*params*/)
 {
     for (int axis = 2; axis >= 0; --axis)
         m_turns[axis].active = false;
 }
 
 // 0x00517D20
-void CSkaterRotateComponent::Finalize()
+void CRiderTurning::Finalize()
 {
     m_corePhysics = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
 }
 
 // 0x00517DC0
-void CSkaterRotateComponent::Update()
+void CRiderTurning::Update()
 {
     for (int axis = 0; axis < 3; ++axis) {
         Turn& turn = m_turns[axis];
         if (!turn.active)
             continue;
-        double exact = Tmr::GetSlomoFrameSeconds() * turn.rate;
+        double exact = FrameClock::GetSlomoFrameSeconds() * turn.rate;
         float step = static_cast<float>(exact);
         float turned = static_cast<float>(std::fabs(exact) + turn.turned);
         turn.turned = turned;
@@ -119,9 +119,9 @@ void CSkaterRotateComponent::Update()
             double sign = step < 0.0f ? -1.0 : 1.0;
             step = static_cast<float>(step - (static_cast<double>(turned) - turn.remaining) * sign);
         }
-        Mth::Matrix rotation;
-        Mth::CreateRotateMatrix(rotation, axis, step);
-        TurnBy(m_object->m_matrix, rotation);
+        Maths::Matrix rotation;
+        Maths::BuildAxisAngleMatrix(rotation, axis, step);
+        TurnBy(m_object->m_basisFrame, rotation);
         TurnBy(CoreMatrix(m_corePhysics), rotation);
     }
     if (!m_turns[0].active && !m_turns[1].active && !m_turns[2].active)
@@ -129,15 +129,15 @@ void CSkaterRotateComponent::Update()
 }
 
 // 0x00517EA0
-int CSkaterRotateComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* /*script*/)
+int CRiderTurning::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     if (name != kRotate)
         return 2;
     float duration;
     if (params->GetFloat(kDuration, &duration, 0)) {
         // Over time: the duration in seconds (seconds / second), frames (frames / frame) or ms.
-        if (!params->ContainsFlag(kSeconds) && !params->ContainsFlag(kSecond)) {
-            if (params->ContainsFlag(kFrames) || params->ContainsFlag(kFrame))
+        if (!params->HasBareFlag(kSeconds) && !params->HasBareFlag(kSecond)) {
+            if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
                 duration = static_cast<float>(static_cast<double>(duration) * kSecondsPerFrame);
             else
                 duration = static_cast<float>(static_cast<double>(duration) * kSecondsPerMs);
@@ -150,12 +150,12 @@ int CSkaterRotateComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
             StartTurn(m_turns[2], m_turns[2].remaining, duration);
         // To face a node: about y by the angle to it in the skater's plane.
         uint32_t node = 0;
-        if (params->GetChecksum(kNode, &node, 0)) {
-            Mth::Vector pos;
-            SkateScript::GetPosition(SkateScript::GetNode(node, true), &pos);
-            const Mth::Vector& at = m_object->m_pos;
-            Mth::Vector toNode = {pos.x - at.x, pos.y - at.y, pos.z - at.z, pos.w - at.w};
-            double degrees = static_cast<double>(Mth::GetAngleInPlane(m_object->m_matrix, toNode, 2, 1)) *
+        if (params->ReadHashValue(kNode, &node, 0)) {
+            Maths::Vector pos;
+            LevelNodes::GetPosition(LevelNodes::GetNode(node, true), &pos);
+            const Maths::Vector& at = m_object->m_pos;
+            Maths::Vector toNode = {pos.x - at.x, pos.y - at.y, pos.z - at.z, pos.w - at.w};
+            double degrees = static_cast<double>(Maths::GetAngleInPlane(m_object->m_basisFrame, toNode, 2, 1)) *
                              kRadiansToDegrees;
             StartTurn(m_turns[1], degrees, duration);
         }
@@ -165,20 +165,20 @@ int CSkaterRotateComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
     // At once.
     float degrees;
     if (params->GetFloat(kX, &degrees, 0)) {
-        Mth::Matrix rotation;
-        Mth::CreateRotateXMatrix(rotation, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
-        TurnBy(m_object->m_matrix, rotation);
+        Maths::Matrix rotation;
+        Maths::MakePitchMatrix(rotation, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+        TurnBy(m_object->m_basisFrame, rotation);
     } else if (params->GetFloat(kY, &degrees, 0)) {
-        m_object->m_matrix.RotateYLocal(static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+        m_object->m_basisFrame.YawLocally(static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
     } else if (params->GetFloat(kZ, &degrees, 0)) {
-        m_object->m_matrix.RotateZLocal(static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+        m_object->m_basisFrame.RollInOwnFrame(static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
     } else {
         // Turned round: the at and right rows reversed (their w kept), and the core physics' flag at +0x34C flipped.
-        Mth::Vector& atRow = m_object->m_matrix.row[2];
+        Maths::Vector& atRow = m_object->m_basisFrame.row[2];
         atRow.x = -atRow.x;
         atRow.y = -atRow.y;
         atRow.z = -atRow.z;
-        Mth::Vector& right = m_object->m_matrix.row[0];
+        Maths::Vector& right = m_object->m_basisFrame.row[0];
         right.x = -right.x;
         right.y = -right.y;
         right.z = -right.z;
@@ -192,22 +192,22 @@ int CSkaterRotateComponent::CallMemberFunction(uint32_t name, Script::CStruct* p
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterRotateComponent::Destroy,
-         &Obj::CSkaterRotateComponent::Update,
-         &Obj::CSkaterRotateComponent::InitFromStructure,
-         &Obj::CSkaterRotateComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderTurning::Destroy,
+         &GameObjects::CRiderTurning::Update,
+         &GameObjects::CRiderTurning::ConfigureFromData,
+         &GameObjects::CRiderTurning::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CSkaterRotateComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CRiderTurning::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

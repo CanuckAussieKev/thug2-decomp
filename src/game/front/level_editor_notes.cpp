@@ -17,7 +17,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Notes {
+namespace MenuSystem::LevelEditor::Notes {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -494,10 +494,10 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
         g_queue.push_back([] { g_selected.clear(); });
 }
 
-} // namespace Front::LevelEditor::Notes
+} // namespace MenuSystem::LevelEditor::Notes
 
-namespace Front::LevelEditor::Notes {
+namespace MenuSystem::LevelEditor::Notes {
 
 void AddHereQueued() { g_queue.push_back([] { AddHere(); }); }
 
-} // namespace Front::LevelEditor::Notes
+} // namespace MenuSystem::LevelEditor::Notes

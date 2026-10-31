@@ -3,23 +3,23 @@
 #include <cstddef>
 #include <cstdint>
 
-// The nodes by name prefix (SkateScript): when a node array is added, each node name's prefixes - the part before
+// The nodes by name prefix (LevelNodes): when a node array is added, each node name's prefixes - the part before
 // each '_' (but not "TRG") and the name without its trailing digits - get the node's index, in one table per node
 // array, so scripts can find e.g. every "Ped_" node. From the disassembly of 0x0045BDA0-0x0045CE40.
-namespace Lst {
+namespace ListKit {
 class HashTable;
 } // namespace Lst
 
-namespace SkateScript {
+namespace LevelNodes {
 
-// The nodes with one prefix in one node array: their indices (a block grown 100 at a time, Mem::Malloc).
+// The nodes with one prefix in one node array: their indices (a block grown 100 at a time, MemSys::AllocBlock).
 struct PrefixNodes {
     // 0x0045BDA0: `index` added at the end.
     void Add(uint16_t index);
 
     int m_count;
     uint16_t* mp_indices;
-    uint32_t m_prefix;
+    uint32_t m_namePrefix;
 };
 static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
 
@@ -34,11 +34,11 @@ struct PrefixTable {
     // 0x0045C240: every PrefixNodes' block cut down to its size.
     void Compact();
 
-    Lst::HashTable* mp_table;
+    ListKit::HashTable* m_slotTable;
     uint32_t m_nodeArray; // the node array's name
-    PrefixTable* mp_next;
+    PrefixTable* m_following;
 };
-static_assert(offsetof(PrefixTable, mp_next) == 8 && sizeof(PrefixTable) == 0xC, "allocated as 0xC bytes");
+static_assert(offsetof(PrefixTable, m_following) == 8 && sizeof(PrefixTable) == 0xC, "allocated as 0xC bytes");
 
 // The tables of all node arrays (the instance at 0x006F0D80, made by the first AddNodeArrayPrefixes).
 struct PrefixTables {
@@ -60,8 +60,8 @@ void AddNodeArrayPrefixes(uint32_t name);
 // 0x0045CE40: RemoveNodeArray(name).
 void RemoveNodeArrayPrefixes(uint32_t name);
 // 0x0045BF90: GetNodes on the instance.
-uint32_t* GetPrefixedNodes(uint32_t prefix, uint16_t* count);
+uint32_t* CollectNodesByPrefix(uint32_t prefix, uint16_t* count);
 // 0x0045BFB0: the same by text (a trailing '_' is dropped) [the name is copied to 100 bytes unchecked].
-uint32_t* GetPrefixedNodes(const char* prefix, uint16_t* count);
+uint32_t* CollectNodesByPrefix(const char* prefix, uint16_t* count);
 
-} // namespace SkateScript
+} // namespace LevelNodes

@@ -11,7 +11,7 @@
 
 #include "game/sys/game_config.h"
 
-namespace Tmr {
+namespace FrameClock {
 
 namespace {
 
@@ -37,7 +37,7 @@ bool g_rateSet;
 
 // The timing block (0x007D1E68), saved whole by Reset.
 float& FrameLength() { return g_frameLength; }
-double& UncappedFrameLength() { return g_uncappedFrameLength; }
+double& RawFrameDuration() { return g_uncappedFrameLength; }
 
 int g_history[4];
 
@@ -95,7 +95,7 @@ void Reset()
         VblanksPerSecond() = static_cast<float>(RefreshRate());
         RateSet() = true;
     }
-    UncappedFrameLength() = 1.0;
+    RawFrameDuration() = 1.0;
     for (int& h : History())
         h = 1;
     FrameLength() = 1.0f;
@@ -103,7 +103,7 @@ void Reset()
     PreviousFrameVblank() = 0;
     HistoryIndex() = 0;
     g_savedTimingBlock.frameLength = FrameLength();
-    g_savedTimingBlock.uncappedFrameLength = UncappedFrameLength();
+    g_savedTimingBlock.uncappedFrameLength = RawFrameDuration();
     std::memcpy(g_savedTimingBlock.history, History(), sizeof(g_savedTimingBlock.history));
     g_savedTimingBlock.lastFrameVblank = LastFrameVblank();
     g_savedTimingBlock.previousFrameVblank = PreviousFrameVblank();
@@ -130,7 +130,7 @@ void CountVblank()
 }
 
 // 0x005BE740
-void OncePerRender()
+void OnceEveryDraw()
 {
     ++RenderFrame();
     PreviousFrameVblank() = LastFrameVblank();
@@ -151,7 +151,7 @@ void UpdateFrameLength()
     FrameLength() = static_cast<float>(clamped * 0.25f);
     if (clamped * 0.25 < 1.0)
         FrameLength() = 1.0f;
-    UncappedFrameLength() = raw * 0.25;
+    RawFrameDuration() = raw * 0.25;
 }
 
 // 0x005BE920
@@ -160,16 +160,16 @@ void WaitForVblank()
     uint64_t start = TotalVblanks();
     while (TotalVblanks() == start) {
         // the idle function (0x0048C1C0 reads it from 0x006FA7D8)
-        if (Nx::Engine::GetIdleFunction())
-            Nx::Engine::GetIdleFunction()();
+        if (Engine3D::Engine::GetIdleFunction())
+            Engine3D::Engine::GetIdleFunction()();
     }
 }
 
 // 0x005BE8E0
-uint64_t GetVblanks() { return TotalVblanks(); }
+uint64_t FetchRetraceCount() { return TotalVblanks(); }
 
 // 0x005BE8D0
-uint64_t GetRenderFrame() { return RenderFrame(); }
+uint64_t GetDrawFrame() { return RenderFrame(); }
 
 // 0x005BE970 (x87: 1000 / rate * the low 32 bits, truncated through 64 bits)
 uint32_t GetTime()
@@ -179,13 +179,13 @@ uint32_t GetTime()
 }
 
 // 0x005BE910
-double GetFrameSeconds() { return UncappedFrameLength() / VblanksPerSecond(); }
+double GetFrameSeconds() { return RawFrameDuration() / VblanksPerSecond(); }
 
 // 0x005BEAA0 (the original leaves the unrounded product on the x87 stack)
 double GetSlomoFrameSeconds() { return Slomo() * static_cast<double>(1.0f / 60.0f); }
 
 // 0x005BE8F0
-float GetSlomo() { return Slomo(); }
+float GetTimeScale() { return Slomo(); }
 
 // 0x005BE900
 void SetSlomo(float slomo) { NextSlomo() = slomo; }

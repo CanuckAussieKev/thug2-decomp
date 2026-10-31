@@ -17,27 +17,27 @@
 #include "game/pcm/stream_files.h"
 #include "game/sys/crt.h"
 
-namespace Pcm {
+namespace AudioStream {
 
 namespace {
 
 // The Bink SDK (binkw32.dll), through the game's import table.
-using Nx::Bink;
-Bink* BinkOpen(const void* name, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const void*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(name, flags); }
-void BinkDoFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
+using Engine3D::Bink;
+Bink* VideoOpen(const void* name, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const void*, uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkOpen@8"))(name, flags); }
+void VideoDecodeFrame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkDoFrame@4"))(bink); }
 void BinkSetPan(Bink* bink, uint32_t track, int pan) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetPan@12"))(bink, track, pan); }
 void BinkGoto(Bink* bink, uint32_t frame, int flags) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags); }
 void BinkSetIOSize(uint32_t size) { reinterpret_cast<void(__stdcall*)(uint32_t)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetIOSize@4"))(size); }
 void BinkSetVideoOnOff(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink, on); }
 void* BinkOpenDirectSound() { return reinterpret_cast<void*>(Crt::LibraryFunction("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the next
 int BinkSetSoundSystem(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
-void BinkSetVolume(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, Sfx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
-int BinkWait(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
-void BinkClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
-void BinkNextFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
+void VideoSetLoudness(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(Crt::LibraryFunction("binkw32.dll", "_BinkSetVolume@12"))(bink, track, SoundFx::OutputBinkVolume(volume)); } // (NOT ORIGINAL: mute_audio)
+int VideoWaitReady(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkWait@4"))(bink); }
+void VideoClose(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkClose@4"))(bink); }
+void VideoAdvanceFrame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(Crt::LibraryFunction("binkw32.dll", "_BinkNextFrame@4"))(bink); }
 
-constexpr uint32_t kBinkIoSize = 0x01000000;     // BinkOpen: use the I/O buffer size set (BinkSetIOSize)
-constexpr uint32_t kBinkFileHandle = 0x04000000; // BinkOpen: the name is (the address of) an open file handle
+constexpr uint32_t kBinkIoSize = 0x01000000;     // VideoOpen: use the I/O buffer size set (BinkSetIOSize)
+constexpr uint32_t kBinkFileHandle = 0x04000000; // VideoOpen: the name is (the address of) an open file handle
 constexpr uint32_t kIoSize = 0x40000;
 constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
 
@@ -47,7 +47,7 @@ uint32_t g_ioSize;
 bool& SoundSystemSet() { return g_binkSoundSet; } // also set by 0x00452C60
 uint32_t& IoSize() { return g_ioSize; }
 bool PauseLocked() { return g_pauseLocked; }
-bool Focused() { return Sys::g_appActive; }
+bool Focused() { return SystemCore::g_appActive; }
 void* SoundDevice() { return g_soundDevice; }
 
 // The pcm.wad entries open as Bink streams (16 bytes each, at 0x0069CADC; opened by 0x00452A90): the file,
@@ -80,14 +80,14 @@ Result BinkStream::Open(const char* path)
 {
     if (!SoundSystemSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), SoundDevice()))
-            Dbg::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+            DebugOut::Printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         SoundSystemSet() = true;
     }
     if (IoSize() != kIoSize) {
         BinkSetIOSize(kIoSize);
         IoSize() = kIoSize;
     }
-    m_bink = BinkOpen(path, kBinkIoSize);
+    m_bink = VideoOpen(path, kBinkIoSize);
     if (!m_bink)
         return kInvalidArgument;
     BinkSetVideoOnOff(m_bink, 0);
@@ -106,11 +106,11 @@ void BinkStream::Pause(int pause)
 // 0x00452DE0
 void BinkStream::SetVolume(float volume)
 {
-    m_volume = volume;
+    m_loudness = volume;
     int level = 0;
     if (volume > 0.0f)
         level = Ftol(static_cast<double>(volume) * kBinkVolumeScale);
-    BinkSetVolume(m_bink, 0, level); // (even with no Bink open)
+    VideoSetLoudness(m_bink, 0, level); // (even with no Bink open)
     m_silent = level == 0;
 }
 
@@ -118,7 +118,7 @@ void BinkStream::SetVolume(float volume)
 void BinkStream::SetVolumeAndPan(float left, float right)
 {
     double sum = static_cast<double>(left) + right;
-    m_volume = static_cast<float>(sum * 0.5f);
+    m_loudness = static_cast<float>(sum * 0.5f);
     float total = static_cast<float>(sum);
     int level = 0;
     int pan = 0;
@@ -132,7 +132,7 @@ void BinkStream::SetVolumeAndPan(float left, float right)
         }
     }
     if (m_bink) {
-        BinkSetVolume(m_bink, 0, level);
+        VideoSetLoudness(m_bink, 0, level);
         BinkSetPan(m_bink, 0, pan);
     }
     m_silent = level == 0;
@@ -143,7 +143,7 @@ void BinkStream::Destruct()
 {
     Bink* bink = m_bink;
     m_bink = nullptr;
-    BinkClose(bink); // (even with none open)
+    VideoClose(bink); // (even with none open)
     if (m_file != INVALID_HANDLE_VALUE && !m_sharedFile)
         CloseHandle(m_file);
     if (m_wadEntry >= 0) {
@@ -153,7 +153,7 @@ void BinkStream::Destruct()
             --entry.users;
     }
     if (m_memory)
-        Mem::Free(m_memory);
+        MemSys::Free(m_memory);
 }
 
 // 0x00452EA0
@@ -161,31 +161,31 @@ int BinkStream::Update()
 {
     if (m_silent)
         return 0;
-    if (m_pauseRequested != m_paused) {
+    if (m_pauseRequested != m_isHalted) {
         if (!m_pauseRequested) {
             if (!m_bink) {
                 // Reopen where it was paused.
-                m_bink = BinkOpen(m_source, m_fromHandle ? kBinkFileHandle : kBinkIoSize);
+                m_bink = VideoOpen(m_source, m_fromHandle ? kBinkFileHandle : kBinkIoSize);
                 if (m_bink) {
                     BinkSetVideoOnOff(m_bink, 0);
                     BinkGoto(m_bink, m_resumeFrame, 1);
-                    SetVolume(m_volume);
+                    SetVolume(m_loudness);
                 }
             }
         } else if (m_bink) {
             m_resumeFrame = m_bink->frameNum;
-            BinkClose(m_bink);
+            VideoClose(m_bink);
             m_bink = nullptr;
         }
-        m_paused = m_pauseRequested;
+        m_isHalted = m_pauseRequested;
     }
     if (!m_bink)
         return 0;
-    while (BinkWait(m_bink) == 0) {
+    while (VideoWaitReady(m_bink) == 0) {
         if (!Focused())
             break;
-        BinkDoFrame(m_bink);
-        BinkNextFrame(m_bink);
+        VideoDecodeFrame(m_bink);
+        VideoAdvanceFrame(m_bink);
         if (m_bink->frameNum == m_bink->frames) {
             if (m_plays > 0)
                 --m_plays;
@@ -204,7 +204,7 @@ WadStream* WadStream::Construct(bool unknown15)
     m_unknown90 = 0;
     m_unknown20 = 0;
     m_unknown24 = 0;
-    m_buffer = nullptr;
+    m_octets = nullptr;
     m_unknown04 = 0;
     m_file = INVALID_HANDLE_VALUE;
     m_unknown15 = unknown15;
@@ -217,12 +217,12 @@ Result WadStream::StartRead()
 {
     m_reading = true;
     m_readDone = false;
-    m_loaded = 0;
+    m_readyFlag = 0;
     m_played = 0;
     m_unknown10 = 0;
-    m_overlapped->Offset = m_fromWad ? m_offset : 0;
-    m_overlapped->OffsetHigh = 0;
-    if (ReadFile(m_file, m_buffer, 0x2000, nullptr, m_overlapped)) {
+    m_asyncCtl->Offset = m_fromWad ? m_shift : 0;
+    m_asyncCtl->OffsetHigh = 0;
+    if (ReadFile(m_file, m_octets, 0x2000, nullptr, m_asyncCtl)) {
         m_readDone = true;
         return 0;
     }
@@ -238,11 +238,11 @@ Result WadStream::StartRead()
 Result WadStream::OpenFromWad(Handle wad, uint32_t offset, uint32_t size, void* buffer)
 {
     m_file = wad;
-    m_offset = offset;
+    m_shift = offset;
     m_unknown50 = 0;
     m_fromWad = true;
     m_size = size;
-    m_buffer = buffer;
+    m_octets = buffer;
     return StartRead();
 }
 
@@ -257,7 +257,7 @@ Result WadStream::Open(Handle file, void* buffer)
             return static_cast<Result>(GetLastError());
         return FromWin32(GetLastError());
     }
-    m_buffer = buffer;
+    m_octets = buffer;
     return StartRead();
 }
 
@@ -268,13 +268,13 @@ bool WadStream::PreloadDone()
         return false;
     if (m_readDone)
         return true;
-    return m_loaded >= m_played + 0x2000;
+    return m_readyFlag >= m_played + 0x2000;
 }
 
 // 0x00454430
 void WadStream::Pause(int pause)
 {
-    m_paused = static_cast<uint32_t>(pause) > 0;
+    m_isHalted = static_cast<uint32_t>(pause) > 0;
 }
 
 // 0x00454440

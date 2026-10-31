@@ -2,7 +2,7 @@
 
 // The game clock (in Tmr): real milliseconds since the last change of speed times the speed (0 while paused,
 // else the slow motion), counted on from the offset at 0x00696D60 that each change adds to.
-namespace Tmr {
+namespace FrameClock {
 
 // 0x0044ECE0: the game clock's milliseconds since the last change of speed (callers add the offset).
 int GameClockElapsed();

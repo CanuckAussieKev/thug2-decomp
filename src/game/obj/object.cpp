@@ -1,4 +1,4 @@
-// Obj::CObject: the base of the game's objects - id, type, tags, flags, its own script, and the member functions
+// GameObjects::CObject: the base of the game's objects - id, type, tags, flags, its own script, and the member functions
 // scripts call on any object (object.h).
 
 #include "game/obj/object.h"
@@ -16,12 +16,12 @@
 #include "game/core/stubs.h"
 #include "game/obj/object.h"
 
-namespace Obj {
+namespace GameObjects {
 
-using Script::CArray;
-using Script::CComponent;
-using Script::CScript;
-using Script::CStruct;
+using Scripts::CArray;
+using Scripts::CComponent;
+using Scripts::CScript;
+using Scripts::CStruct;
 
 namespace {
 
@@ -54,7 +54,7 @@ void LaunchEvent(uint32_t type, uint32_t target, uint32_t source, CStruct* data,
     Tracker()->LaunchEvent(type, target, source, data, broadcast, radius);
 }
 
-// The object's vtable: slot 1 SetProperties, 6 MarkAsDead.
+// The object's vtable: slot 1 SetProperties, 6 FlagAsDead.
 void VirtualSetProperties(CObject* object, CStruct* params)
 {
     reinterpret_cast<void(__thiscall*)(CObject*, CStruct*)>(object->m_vtable[1])(object, params);
@@ -76,19 +76,19 @@ void DeleteScript(CScript* script)
 // `new CStruct` (the structure pool) / `delete`.
 CStruct* NewEmptyStruct()
 {
-    CStruct* structure = Script::NewStruct();
+    CStruct* structure = Scripts::NewStruct();
     return structure ? structure->Init() : nullptr;
 }
 void FreeStruct(CStruct* structure)
 {
     structure->Clear();
-    Script::DeleteStruct(structure);
+    Scripts::DeleteStruct(structure);
 }
 // A copy of `component` (from the component pool) added to `dest`.
 void AddCopy(CStruct* dest, CComponent* component)
 {
-    CComponent* copy = Script::NewComponent();
-    Script::CopyComponent(copy, component, 0);
+    CComponent* copy = Scripts::NewComponent();
+    Scripts::DuplicateComponent(copy, component, 0);
     dest->AddComponent(copy);
 }
 
@@ -102,7 +102,7 @@ CObjectRef* CObjectRef::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -114,28 +114,28 @@ CObjectNode* CObjectNode::Destroy(unsigned int flags)
 {
     UnlinkAs(g_objectNodeVtable);
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00460B80
 CObject* CObject::Construct()
 {
-    CRefCounted::Construct();
+    CSharedBase::Construct();
     m_vtable = kObjectVtable;
-    m_node.vtable = g_objectNodeVtable;
-    m_node.data = this;
-    m_node.priority = 0;
-    m_node.next = &m_node;
-    m_node.prev = &m_node;
-    m_ref.CRefCounted::Construct();
-    m_ref.mp_object = this;
+    m_listLink.vtable = g_objectNodeVtable;
+    m_listLink.data = this;
+    m_listLink.priority = 0;
+    m_listLink.next = &m_listLink;
+    m_listLink.prev = &m_listLink;
+    m_ref.CSharedBase::Construct();
+    m_ref.m_ownerObject = this;
     m_ref.m_vtable = kObjectRefVtable;
     m_id = kUnassignedId;
     m_type = kNoObjectType;
-    mp_tags = nullptr;
-    m_script = nullptr;
-    mp_manager = nullptr;
+    m_tagTable = nullptr;
+    m_runScript = nullptr;
+    m_parkOwner = nullptr;
     m_objectFlags = 0;
     m_aliasCount = 0;
     m_visitedMask = 0;
@@ -146,19 +146,19 @@ CObject* CObject::Construct()
 void CObject::DestroyBody()
 {
     m_vtable = kObjectVtable;
-    if (mp_tags)
-        FreeStruct(mp_tags); // (the pointer is left as it is)
-    if (mp_manager)
-        mp_manager->VirtualUnregisterObject(this);
-    if (m_script) {
-        m_script->ClearOnExitScripts();
-        if (m_script)
-            DeleteScript(m_script);
-        m_script = nullptr;
+    if (m_tagTable)
+        FreeStruct(m_tagTable); // (the pointer is left as it is)
+    if (m_parkOwner)
+        m_parkOwner->VirtualUnregisterObject(this);
+    if (m_runScript) {
+        m_runScript->ClearOnExitScripts();
+        if (m_runScript)
+            DeleteScript(m_runScript);
+        m_runScript = nullptr;
     }
-    Script::StopAllScriptsUsingThisObject(this);
+    Scripts::EndScriptsBoundToEntity(this);
     m_ref.DestroyBody();
-    m_node.UnlinkAs(g_objectNodeVtable);
+    m_listLink.UnlinkAs(g_objectNodeVtable);
     Destruct();
 }
 
@@ -167,12 +167,12 @@ CObject* CObject::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00460930
-void CObject::DestroyIfUnlocked()
+void CObject::DisposeWhenFree()
 {
     if (!(m_objectFlags & OBJECT_FLAG_LOCKED))
         VirtualDestroy(1);
@@ -181,16 +181,16 @@ void CObject::DestroyIfUnlocked()
 // 0x00461710
 void CObject::SetProperties(CStruct* params)
 {
-    bool replace = params->ContainsFlag(kReplaceHandlers);
+    bool replace = params->HasBareFlag(kReplaceHandlers);
     CArray* handlers = nullptr;
     if (params->GetArray(kEventHandlers, &handlers, 0)) {
         CreateScriptIfNeeded();
-        m_script->SetEventHandlers(handlers, replace);
+        m_runScript->InstallEventTable(handlers, replace);
     }
     CStruct* tags = nullptr;
-    if (params->GetStructure(kTags, &tags, 0)) {
+    if (params->ReadSubStruct(kTags, &tags, 0)) {
         CreateTagsIfNeeded();
-        mp_tags->AppendStructureIfAny(tags);
+        m_tagTable->AppendStructureIfAny(tags);
     }
     CArray* removeTags = nullptr;
     if (params->GetArray(kRemoveTags, &removeTags, 0))
@@ -198,7 +198,7 @@ void CObject::SetProperties(CStruct* params)
 }
 
 // 0x004608F0
-bool CObject::CallMemberFunction(uint32_t name, CStruct* params, CScript* /*script*/)
+bool CObject::InvokeMethodByName(uint32_t name, CStruct* params, CScript* /*script*/)
 {
     if (name == kSetProps)
         VirtualSetProperties(this, params);
@@ -208,24 +208,24 @@ bool CObject::CallMemberFunction(uint32_t name, CStruct* params, CScript* /*scri
 }
 
 // 0x00461140
-bool CObject::PassEventToScript(CEvent* event)
+bool CObject::PassEventToScript(CSignal* event)
 {
-    if (!m_script)
+    if (!m_runScript)
         return true;
-    CSmtPtr<CObject> self;
+    CSharedRef<CObject> self;
     self.Set(this);
-    m_script->ReceiveEvent(event);
+    m_runScript->ReceiveEvent(event);
     return static_cast<bool>(self); // (cleared if the object was deleted meanwhile)
 }
 
 // 0x00460A50
-void CObject::MarkAsDead()
+void CObject::FlagAsDead()
 {
-    if (m_script)
-        m_script->Block(0); // (until unblocked: for good)
-    Script::StopAllScriptsUsingThisObject(this);
+    if (m_runScript)
+        m_runScript->Block(0); // (until unblocked: for good)
+    Scripts::EndScriptsBoundToEntity(this);
     m_objectFlags &= ~OBJECT_FLAG_LOCKED;
-    CBaseManager* manager = mp_manager; // (unregistering clears mp_manager: the manager read first is used)
+    CObjectHubBase* manager = m_parkOwner; // (unregistering clears m_parkOwner: the manager read first is used)
     manager->VirtualUnregisterObject(this);
     manager->VirtualKillObject(this);
     m_objectFlags |= OBJECT_FLAG_DEAD;
@@ -235,57 +235,57 @@ void CObject::MarkAsDead()
 // 0x00461290
 void CObject::CreateScriptIfNeeded()
 {
-    if (m_script)
+    if (m_runScript)
         return;
-    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_scriptHeap);
     CScript* script = NewScript();
-    m_script = script;
-    script->SetScript(kEmptyScript, nullptr, this);
-    Mem::PopContext();
+    m_runScript = script;
+    script->BindScript(kEmptyScript, nullptr, this);
+    MemSys::LeaveHeapScope();
 }
 
 // 0x00461350
-CScript* CObject::SwitchScript(uint32_t name, CStruct* params)
+CScript* CObject::ReplaceScript(uint32_t name, CStruct* params)
 {
-    if (!m_script)
-        m_script = NewScript();
-    m_script->SetScript(name, params, this);
-    m_script->GotScript(); // (the answer isn't used)
-    return m_script;
+    if (!m_runScript)
+        m_runScript = NewScript();
+    m_runScript->BindScript(name, params, this);
+    m_runScript->HasAttachedScript(); // (the answer isn't used)
+    return m_runScript;
 }
 
 // 0x00461500
-int CObject::CallScript(uint32_t name, CStruct* params)
+int CObject::RunSubScript(uint32_t name, CStruct* params)
 {
-    if (!m_script) {
+    if (!m_runScript) {
         CScript* script = NewScript();
-        m_script = script;
+        m_runScript = script;
         script->m_object.Set(this);
     }
-    return m_script->Interrupt(name, params);
+    return m_runScript->Interrupt(name, params);
 }
 
 // 0x00461410
 CScript* CObject::SpawnScript(uint32_t name, CStruct* params, uint32_t id, bool pauseWithObject)
 {
-    CScript* script = Script::SpawnScript(name, params, 0, nullptr, -1, id, false, false, false, pauseWithObject);
+    CScript* script = Scripts::SpawnScript(name, params, 0, nullptr, -1, id, false, false, false, pauseWithObject);
     script->m_object.Set(this);
     return script;
 }
 
 // 0x00461480
-CScript* CObject::SpawnAndRunScript(uint32_t name, int node, bool netEnabled, bool permanent, CStruct* params)
+CScript* CObject::StartScriptTask(uint32_t name, int node, bool replicateFlag, bool permanent, CStruct* params)
 {
-    if (netEnabled)
-        Script::SendSpawnScriptMessage(name, nullptr, node, permanent);
-    CScript* script = Script::SpawnScript(name, params, 0, nullptr, node, 0, false, false, false, false);
+    if (replicateFlag)
+        Scripts::SendSpawnScriptMessage(name, nullptr, node, permanent);
+    CScript* script = Scripts::SpawnScript(name, params, 0, nullptr, node, 0, false, false, false, false);
     script->m_object.Set(this);
     script->Update();
     return script;
 }
 
 // 0x004609F0
-void CObject::SelfEvent(uint32_t type, CStruct* data) { LaunchEvent(type, m_id, m_id, data, false, -1.0f); }
+void CObject::PostOwnEvent(uint32_t type, CStruct* data) { LaunchEvent(type, m_id, m_id, data, false, -1.0f); }
 
 // 0x00460A20
 void CObject::BroadcastEvent(uint32_t type, CStruct* data, float /*radius*/)
@@ -296,11 +296,11 @@ void CObject::BroadcastEvent(uint32_t type, CStruct* data, float /*radius*/)
 // 0x00461930
 void CObject::SetID(uint32_t id)
 {
-    if (m_id != kUnassignedId && mp_manager)
-        mp_manager->VirtualReassignObjectId(this, id);
+    if (m_id != kUnassignedId && m_parkOwner)
+        m_parkOwner->VirtualReassignObjectId(this, id);
     m_id = id;
     CreateTagsIfNeeded();
-    mp_tags->AddChecksum(kId, id);
+    m_tagTable->PutNameKey(kId, id);
 }
 
 // 0x00461970
@@ -308,68 +308,68 @@ void CObject::SetType(uint32_t type)
 {
     m_type = type;
     CreateTagsIfNeeded();
-    mp_tags->AddChecksum(kType, type);
+    m_tagTable->PutNameKey(kType, type);
 }
 
 // 0x004611E0
 void CObject::CreateTagsIfNeeded()
 {
-    if (mp_tags)
+    if (m_tagTable)
         return;
-    Mem::PushContext(Mem::Manager::Get()->m_frontEndHeap);
-    mp_tags = NewEmptyStruct();
-    Mem::PopContext();
+    MemSys::EnterHeapScope(MemSys::Manager::Get()->m_frontEndHeap);
+    m_tagTable = NewEmptyStruct();
+    MemSys::LeaveHeapScope();
 }
 
 // 0x004616B0
-void CObject::SetIntegerTag(uint32_t name, int value)
+void CObject::StoreIntTag(uint32_t name, int value)
 {
     CreateTagsIfNeeded();
-    mp_tags->AddInteger(name, value);
+    m_tagTable->PutInt(name, value);
 }
 
 // 0x004616D0
-void CObject::SetChecksumTag(uint32_t name, uint32_t value)
+void CObject::WriteHashTag(uint32_t name, uint32_t value)
 {
     CreateTagsIfNeeded();
-    mp_tags->AddChecksum(name, value);
+    m_tagTable->PutNameKey(name, value);
 }
 
 // 0x004616F0
 void CObject::SetTagsFromStruct(CStruct* tags)
 {
     CreateTagsIfNeeded();
-    mp_tags->AppendStructureIfAny(tags);
+    m_tagTable->AppendStructureIfAny(tags);
 }
 
 // 0x00460C20
 void CObject::RemoveTags(CArray* names)
 {
-    if (!mp_tags)
+    if (!m_tagTable)
         return;
     if (names) {
         for (uint32_t i = 0; i < names->m_size; ++i) {
             uint32_t name = names->GetElement(i);
-            mp_tags->RemoveComponent(name);
-            mp_tags->RemoveFlag(name);
+            m_tagTable->RemoveComponent(name);
+            m_tagTable->RemoveFlag(name);
         }
-        if (!mp_tags->IsEmpty())
+        if (!m_tagTable->IsEmpty())
             return;
     }
-    if (mp_tags)
-        FreeStruct(mp_tags);
-    mp_tags = nullptr;
+    if (m_tagTable)
+        FreeStruct(m_tagTable);
+    m_tagTable = nullptr;
 }
 
 // 0x00460CA0
 bool CObject::GetTag(CStruct* params, CStruct* dest)
 {
-    if (!mp_tags)
+    if (!m_tagTable)
         return false;
     // The name is read into the argument's own slot: with no unnamed checksum, the pointer `params` is the name.
     uint32_t name = reinterpret_cast<uint32_t>(params);
-    params->GetChecksum(kUnnamed, &name, 1);
-    CComponent* tag = mp_tags->FindComponent(name);
+    params->ReadHashValue(kUnnamed, &name, 1);
+    CComponent* tag = m_tagTable->FindComponent(name);
     if (!tag)
         return false;
     AddCopy(dest, tag);
@@ -379,11 +379,11 @@ bool CObject::GetTag(CStruct* params, CStruct* dest)
 // 0x00460D90
 bool CObject::GetTags(CArray* names, CStruct* dest)
 {
-    if (!mp_tags)
+    if (!m_tagTable)
         return true;
     for (uint32_t i = names->m_size; i != 0;) {
         --i;
-        if (CComponent* tag = mp_tags->FindComponent(names->GetElement(i)))
+        if (CComponent* tag = m_tagTable->FindComponent(names->GetElement(i)))
             AddCopy(dest, tag);
     }
     return true;
@@ -392,34 +392,34 @@ bool CObject::GetTags(CArray* names, CStruct* dest)
 // 0x004607A0
 void CObject::ClearEventHandler(uint32_t type)
 {
-    if (m_script)
-        m_script->ClearEventHandler(type);
+    if (m_runScript)
+        m_runScript->ClearEventHandler(type);
 }
 
 // 0x004607B0
 void CObject::RemoveTagFlag(uint32_t flag)
 {
-    if (mp_tags)
-        mp_tags->RemoveFlag(flag);
+    if (m_tagTable)
+        m_tagTable->RemoveFlag(flag);
 }
 
 // 0x004607C0
-bool CObject::GetIntegerTag(uint32_t name, int* value) { return mp_tags ? mp_tags->GetInteger(name, value, 0) : false; }
+bool CObject::ReadIntTag(uint32_t name, int* value) { return m_tagTable ? m_tagTable->FetchIntValue(name, value, 0) : false; }
 
 // 0x004607E0
-bool CObject::GetChecksumTag(uint32_t name, uint32_t* value)
+bool CObject::ReadHashTag(uint32_t name, uint32_t* value)
 {
-    return mp_tags ? mp_tags->GetChecksum(name, value, 0) : false;
+    return m_tagTable ? m_tagTable->ReadHashValue(name, value, 0) : false;
 }
 
 // 0x00460800
-bool CObject::ContainsTagFlag(uint32_t flag) { return mp_tags ? mp_tags->ContainsFlag(flag) : false; }
+bool CObject::ContainsTagFlag(uint32_t flag) { return m_tagTable ? m_tagTable->HasBareFlag(flag) : false; }
 
 // 0x00460820
 void CObject::CopyTagsTo(CStruct* dest)
 {
-    if (mp_tags)
-        dest->AppendStructureIfAny(mp_tags);
+    if (m_tagTable)
+        dest->AppendStructureIfAny(m_tagTable);
 }
 
 // 0x00460960
@@ -431,10 +431,10 @@ uint32_t CObject::GetFlagMask(CStruct* params, CScript* /*script*/)
     params->GetArray(kUnnamed, &names, 0);
     if (names) {
         for (uint32_t i = 0; i < names->m_size; ++i)
-            mask |= 1u << (Script::GetInteger(names->GetElement(i)) & 31);
+            mask |= 1u << (Scripts::FetchIntValue(names->GetElement(i)) & 31);
         return mask;
     }
-    if (params->GetInteger(kUnnamed, &bit, 0))
+    if (params->FetchIntValue(kUnnamed, &bit, 0))
         return 1u << (bit & 31);
     return mask;
 }
@@ -451,34 +451,34 @@ bool CObject::Obj_LeaveScript(CStruct* /*params*/, CScript* script)
 bool CObject::Obj_KillSpawnedScript(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(kName, &name, 0)) {
-        Script::KillSpawnedScriptsWithObjectAndName(this, name, script);
+    if (params->ReadHashValue(kName, &name, 0)) {
+        Scripts::EndChildScriptsOfEntityByName(this, name, script);
         return true;
     }
     uint32_t id = 0;
-    if (params->GetChecksum(kId, &id, 0))
-        Script::KillSpawnedScriptsWithObjectAndId(this, id, script);
+    if (params->ReadHashValue(kId, &id, 0))
+        Scripts::StopScriptsOfObjectAndTag(this, id, script);
     return true;
 }
 
 // 0x004608D0
 bool CObject::Obj_Visible(CStruct* /*params*/, CScript* /*script*/)
 {
-    m_objectFlags &= ~OBJECT_FLAG_INVISIBLE;
+    m_objectFlags &= ~ENTITY_HIDDEN_BIT;
     return true;
 }
 
 // 0x004608E0
 bool CObject::Obj_Invisible(CStruct* /*params*/, CScript* /*script*/)
 {
-    m_objectFlags |= OBJECT_FLAG_INVISIBLE;
+    m_objectFlags |= ENTITY_HIDDEN_BIT;
     return true;
 }
 
 // 0x00460940: ObjId = the object's id, in the calling script's parameters.
 bool CObject::Obj_GetId(CStruct* /*params*/, CScript* script)
 {
-    script->m_params->AddChecksum(kObjId, m_id);
+    script->m_params->PutNameKey(kObjId, m_id);
     return true;
 }
 
@@ -487,15 +487,15 @@ bool CObject::Obj_GetId(CStruct* /*params*/, CScript* script)
 bool CObject::Obj_GetTags(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(kStructure, &name, 0)) {
+    if (params->ReadHashValue(kStructure, &name, 0)) {
         CStruct* copy = NewEmptyStruct();
-        if (mp_tags)
-            copy->AppendStructureIfAny(mp_tags);
-        script->m_params->AddStructurePointer(name, copy);
+        if (m_tagTable)
+            copy->AppendStructureIfAny(m_tagTable);
+        script->m_params->AppendStructRef(name, copy);
         return true;
     }
-    if (mp_tags)
-        script->m_params->AppendStructureIfAny(mp_tags);
+    if (m_tagTable)
+        script->m_params->AppendStructureIfAny(m_tagTable);
     return true;
 }
 
@@ -533,7 +533,7 @@ bool CObject::Obj_FlagNotSet(CStruct* params, CScript* script)
 // 0x00461070: clear the flags (all: every flag). No flags named: false.
 bool CObject::Obj_ClearFlag(CStruct* params, CScript* script)
 {
-    if (params->ContainsFlag(kAll)) {
+    if (params->HasBareFlag(kAll)) {
         m_flags = 0;
         return true;
     }
@@ -561,7 +561,7 @@ bool CObject::Obj_FlagSet(CStruct* params, CScript* script)
     uint32_t mask = GetFlagMask(params, script);
     if (!mask)
         return false;
-    if (params->ContainsFlag(kClear))
+    if (params->HasBareFlag(kClear))
         m_flags &= ~mask;
     return (flags & mask) != 0;
 }
@@ -570,7 +570,7 @@ bool CObject::Obj_FlagSet(CStruct* params, CScript* script)
 bool CObject::Obj_SetTags(CStruct* params, CScript* /*script*/)
 {
     CreateTagsIfNeeded();
-    mp_tags->AppendStructureIfAny(params);
+    m_tagTable->AppendStructureIfAny(params);
     return true;
 }
 
@@ -579,17 +579,17 @@ bool CObject::Obj_SetTags(CStruct* params, CScript* /*script*/)
 // spawner file. True (also when the first parameter isn't a name: nothing is spawned).
 bool CObject::Obj_SpawnScript(CStruct* params, CScript* script)
 {
-    CComponent* first = params->GetNextComponent(nullptr);
-    if (!first || first->Type() != Script::ESYMBOLTYPE_NAME)
+    CComponent* first = params->StepToEntry(nullptr);
+    if (!first || first->Type() != Scripts::QBVAL_NAME)
         return true;
     uint32_t name = first->checksum;
-    uint32_t id = Script::GetSpawnId(script);
-    params->GetChecksum(kId, &id, 0);
+    uint32_t id = Scripts::GetSpawnId(script);
+    params->ReadHashValue(kId, &id, 0);
     CStruct* scriptParams = nullptr;
-    params->GetStructure(kParams, &scriptParams, 0);
-    bool pauseWithObject = params->ContainsFlag(kPauseWithObject);
+    params->ReadSubStruct(kParams, &scriptParams, 0);
+    bool pauseWithObject = params->HasBareFlag(kPauseWithObject);
     CScript* spawned = SpawnScript(name, scriptParams, id, pauseWithObject);
-    if (!params->ContainsFlag(kNoSpawnerFile))
+    if (!params->HasBareFlag(kNoSpawnerFile))
         spawned->SetSpawnerFile(script);
     return true;
 }
@@ -598,10 +598,10 @@ bool CObject::Obj_SpawnScript(CStruct* params, CScript* script)
 bool CObject::Obj_SwitchScript(CStruct* params, CScript* /*script*/)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(kUnnamed, &name, 0)) {
+    if (params->ReadHashValue(kUnnamed, &name, 0)) {
         CStruct* scriptParams = nullptr;
-        params->GetStructure(kParams, &scriptParams, 0);
-        SwitchScript(name, scriptParams);
+        params->ReadSubStruct(kParams, &scriptParams, 0);
+        ReplaceScript(name, scriptParams);
     }
     return true;
 }
@@ -613,7 +613,7 @@ CObject* FindObject(uint32_t id) { return Tracker()->LookUpObject(id); }
 void Unlock(CObject* object, void* /*data*/) { object->m_objectFlags &= ~OBJECT_FLAG_LOCKED; }
 
 // 0x00460AA0
-void DestroyIfUnlocked(CObject* object, void* /*data*/)
+void DisposeWhenFree(CObject* object, void* /*data*/)
 {
     if (!(object->m_objectFlags & OBJECT_FLAG_LOCKED))
         object->VirtualDestroy(1);
@@ -621,27 +621,27 @@ void DestroyIfUnlocked(CObject* object, void* /*data*/)
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kObjectRefVtable_slots[] = {&Obj::CObjectRef::Destroy};
+static VtableSlot kObjectRefVtable_slots[] = {&GameObjects::CObjectRef::Destroy};
 void** const kObjectRefVtable = reinterpret_cast<void**>(kObjectRefVtable_slots);
-static VtableSlot kObjectVtable_slots[] = {&Obj::CObject::Destroy,
-         &Obj::CObject::SetProperties,
-         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-         static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
+static VtableSlot kObjectVtable_slots[] = {&GameObjects::CObject::Destroy,
+         &GameObjects::CObject::SetProperties,
+         static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+         static_cast<bool (GameObjects::CObject::*)(uint32_t, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
          Stubs::IgnoreArgument,
-         &Obj::CObject::PassEventToScript,
-         &Obj::CObject::MarkAsDead,
+         &GameObjects::CObject::PassEventToScript,
+         &GameObjects::CObject::FlagAsDead,
          Stubs::ReturnTrue};
 void** const kObjectVtable = reinterpret_cast<void**>(kObjectVtable_slots);
 
 } // namespace
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 
-static VtableSlot g_objectNodeVtable_slots[] = {&Obj::CObjectNode::Destroy};
+static VtableSlot g_objectNodeVtable_slots[] = {&GameObjects::CObjectNode::Destroy};
 void** const g_objectNodeVtable = reinterpret_cast<void**>(g_objectNodeVtable_slots);
 
 } // namespace Obj

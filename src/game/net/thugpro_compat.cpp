@@ -8,7 +8,7 @@
 #include "game/script/struct.h"
 #include "game/sys/log.h"
 
-namespace GameNet::Thugpro {
+namespace OnlinePlay::Thugpro {
 
 namespace {
 
@@ -26,30 +26,30 @@ constexpr const char* kLevelLists[] = {
     "level_select_menu_misc_level_info", // (the MISCELLANEOUS section: skate shops, tutorials, test levels)
 };
 
-PositionScale s_scale;
-uint32_t s_scaleLevel;  // the level s_scale was found for (0: none)
+PositionScale s_factor;
+uint32_t s_scaleLevel;  // the level s_factor was found for (0: none)
 bool s_scaleNetGame;
 
 } // namespace
 
-const PositionScale& CurrentPositionScale() { return s_scale; }
+const PositionScale& CurrentPositionScale() { return s_factor; }
 
-void SetPositionScale(const PositionScale& scale) { s_scale = scale; }
+void SetPositionScale(const PositionScale& scale) { s_factor = scale; }
 
 PositionScale LevelPositionScale(uint32_t level)
 {
     PositionScale scale;
     for (const char* list : kLevelLists) {
-        Script::CArray* levels = Script::GetArray(list);
+        Scripts::CArray* levels = Scripts::GetArray(list);
         if (!levels)
             continue;
         for (uint32_t i = 0; i < levels->m_size; ++i) {
-            auto* entry = reinterpret_cast<Script::CStruct*>(levels->GetElement(i));
+            auto* entry = reinterpret_cast<Scripts::CStruct*>(levels->GetElement(i));
             uint32_t entryLevel = 0;
-            if (!entry || !entry->GetChecksum(kLevel, &entryLevel, 0) || entryLevel != level)
+            if (!entry || !entry->ReadHashValue(kLevel, &entryLevel, 0) || entryLevel != level)
                 continue;
-            scale.big = entry->ContainsFlag(kIsBigLevel);
-            scale.tall = entry->ContainsFlag(kIsTallLevel);
+            scale.big = entry->HasBareFlag(kIsBigLevel);
+            scale.tall = entry->HasBareFlag(kIsTallLevel);
             return scale;
         }
     }
@@ -66,34 +66,34 @@ void RefreshPositionScale()
     s_scaleNetGame = netGame;
     s_scaleLevel = level;
     PositionScale scale = netGame ? LevelPositionScale(level) : PositionScale{};
-    if (scale.big != s_scale.big || scale.tall != s_scale.tall)
+    if (scale.big != s_factor.big || scale.tall != s_factor.tall)
         Log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
             scale.tall ? ", y in whole units" : "");
-    s_scale = scale;
+    s_factor = scale;
 }
 
 // (the original: FLD the float, FMUL its constant - FADD ST0,ST0 for the doubling -, _ftol, the low 16 bits kept)
 int16_t PackHorizontal(float value)
 {
-    double v = s_scale.big ? static_cast<double>(value) : static_cast<double>(value) * 2.0;
+    double v = s_factor.big ? static_cast<double>(value) : static_cast<double>(value) * 2.0;
     return static_cast<int16_t>(static_cast<int>(v));
 }
 
 int16_t PackHeight(float value)
 {
-    double v = s_scale.tall ? static_cast<double>(value) : static_cast<double>(value) * 4.0;
+    double v = s_factor.tall ? static_cast<double>(value) : static_cast<double>(value) * 4.0;
     return static_cast<int16_t>(static_cast<int>(v));
 }
 
 // (FILD, FMUL 0.5 / 0.25, FSTP: exact)
 float UnpackHorizontal(int value)
 {
-    return s_scale.big ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.5);
+    return s_factor.big ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.5);
 }
 
 float UnpackHeight(int value)
 {
-    return s_scale.tall ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.25);
+    return s_factor.tall ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.25);
 }
 
-} // namespace GameNet::Thugpro
+} // namespace OnlinePlay::Thugpro

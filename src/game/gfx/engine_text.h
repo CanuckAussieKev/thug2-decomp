@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 
-// The engine's text (Nx::CText - the platform-independent part of the PC text, CPcText in pc_font.h, its first 0x48
+// The engine's text (Engine3D::CGlyphString - the platform-independent part of the PC text, CPcText in pc_font.h, its first 0x48
 // bytes): a string drawn in a font, its position, pivot, scale, rotation, priority or depth, colour and per-character
 // effects, each change passed on to the platform (vtable slots 2-5); texts come from a free list (0x006FA804).
-namespace Nx {
+namespace Engine3D {
 
 class CFont;
 
@@ -29,33 +29,33 @@ constexpr int kTextLength = 0x60;
 
 // (vtable 0x00648AA0: [0] the destructor, [1]-[5] empty - CPcText's update the screen text: [2] shown / hidden, [3]
 // the properties, [4] the priority, [5] the window.)
-struct CText {
+struct CGlyphString {
     void** m_vtable;
-    CFont* mp_font;          // +0x04
+    CFont* m_typeface;          // +0x04
     sCharEffect* mp_effects; // +0x08 (null until one is set)
-    char* mp_string;         // +0x0C (a buffer of its own, null until set)
-    float m_x, m_y;          // +0x10
+    char* m_textBuffer;         // +0x0C (a buffer of its own, null until set)
+    float m_posX, m_y;          // +0x10
     float m_pivotX, m_pivotY; // +0x18
-    float m_xscale, m_yscale; // +0x20
+    float m_scaleH, m_scaleV; // +0x20
     float m_angle;           // +0x28
     float m_priority;        // +0x2C
     uint32_t m_unknown30;
-    float m_depth;           // +0x34 (with m_zEnabled)
-    uint32_t m_colour;       // +0x38: RGBA as bytes
+    float m_layer;           // +0x34 (with m_zEnabled)
+    uint32_t m_shade;       // +0x38: RGBA as bytes
     bool m_fixedColour;      // +0x3C: the string's colour codes ignored
     bool m_overrideAlpha;    // +0x3D
-    bool m_hidden;           // +0x3E
+    bool m_invisible;           // +0x3E
     bool m_zEnabled;         // +0x3F
-    void* mp_window;         // +0x40: the 2D window it's drawn in
-    CText* mp_nextFree;      // +0x44
+    void* m_viewWindow;         // +0x40: the 2D window it's drawn in
+    CGlyphString* mp_nextFree;      // +0x44
 
     // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
     // Returns this.
-    CText* Construct(void* window);
+    CGlyphString* Construct(void* window);
     // 0x0048D620: the destructor's body - its string and effects freed.
     void DestroyBody();
     // 0x0048D670 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    CText* Destroy(unsigned int flags);
+    CGlyphString* Destroy(unsigned int flags);
     // 0x0048D5A0: the string's buffer and the effects freed.
     void FreeBuffers();
 
@@ -65,7 +65,7 @@ struct CText {
     void SetFont(CFont* font);
     // 0x0048D0E0 / 0x0048D100 (not Ghidra functions) the position / the scale ([3]).
     void SetPos(float x, float y);
-    void SetScale(float x, float y);
+    void ChangeScale(float x, float y);
     // 0x0048D120: the rotation about a pivot ([3]).
     void SetRotation(float angle, float pivotX, float pivotY);
     // 0x0048D140 / 0x0048D160 (not Ghidra functions): drawn by priority / at a depth ([4]).
@@ -73,7 +73,7 @@ struct CText {
     void SetDepth(float depth);
     // 0x0048D180 / 0x0048D1A0 (not Ghidra functions): the colour and whether the string's colours are ignored;
     // its alpha overridden ([3]).
-    void SetColour(uint32_t rgba, bool fixed);
+    void ChangeColour(uint32_t rgba, bool fixed);
     void SetOverrideAlpha(bool on);
     // 0x0048D1B0 (folded with the sprite's: +0x40 and [5]): the window it's drawn in.
     void SetWindow(void* window);
@@ -87,14 +87,14 @@ struct CText {
     void SetCharScale(int index, float x, float y);
     void SetCharRotation(int index, float rotation);
 };
-static_assert(offsetof(CText, m_priority) == 0x2C && offsetof(CText, m_depth) == 0x34 &&
-                  offsetof(CText, m_hidden) == 0x3E && offsetof(CText, mp_nextFree) == 0x44 && sizeof(CText) == 0x48,
+static_assert(offsetof(CGlyphString, m_priority) == 0x2C && offsetof(CGlyphString, m_layer) == 0x34 &&
+                  offsetof(CGlyphString, m_invisible) == 0x3E && offsetof(CGlyphString, mp_nextFree) == 0x44 && sizeof(CGlyphString) == 0x48,
               "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).
-CText* __cdecl NewText();
+CGlyphString* __cdecl NewText();
 // 0x0048D5F0: a text hidden, its buffers freed, and put back on the free list.
-void __cdecl FreeText(CText* text);
+void __cdecl FreeText(CGlyphString* text);
 
-extern CText* g_freeTexts;
+extern CGlyphString* g_freeTexts;
 } // namespace Nx

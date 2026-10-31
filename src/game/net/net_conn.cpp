@@ -1,4 +1,4 @@
-// Net::Conn (Neversoft's Net library): one end of a connection - its outgoing message queues, the sequenced
+// NetLink::Conn (Neversoft's Net library): one end of a connection - its outgoing message queues, the sequenced
 // messages and streams it has received, its buffers, latency and bandwidth. See net_conn.h.
 
 #include "game/net/net_conn.h"
@@ -13,11 +13,11 @@
 #include "game/net/net_app.h"
 #include "game/core/code_address.h"
 
-namespace Net {
+namespace NetLink {
 
 namespace {
 
-using Mem::ListNode;
+using MemSys::ListNode;
 
 // The bandwidth of each bandwidth type (bytes per second).
 constexpr int kBroadbandBandwidth = 400000;
@@ -49,9 +49,9 @@ void DeleteLink(void* link)
 template <typename Msg>
 void Release(Msg* message)
 {
-    if (--message->m_refCount == 0) {
+    if (--message->m_shareCount == 0) {
         message->DestroyBody();
-        Mem::Free(message);
+        MemSys::Free(message);
     }
 }
 
@@ -60,8 +60,8 @@ void Release(Msg* message)
 template <typename T, typename F>
 void ForEach(ListNode* head, F action)
 {
-    Lst::Search<T> search;
-    T* item = search.FirstItem(head);
+    ListKit::Search<T> search;
+    T* item = search.HeadElement(head);
     while (item) {
         T* next = search.NextItem();
         action(item);
@@ -87,7 +87,7 @@ void InitConnListHead(ListNode* head, void** vtable)
     head->vtable = vtable;
 }
 
-// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' Lst::Node<T> destructor bodies
+// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' ListKit::Node<T> destructor bodies
 void MsgNormalNode::DestroyBody() { UnlinkAs(kMsgNormalNodeVtable); }
 void MsgImpNode::DestroyBody() { UnlinkAs(kMsgImpNodeVtable); }
 void MsgSeqNode::DestroyBody() { UnlinkAs(kMsgSeqNodeVtable); }
@@ -106,17 +106,17 @@ ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::Destroy(unsigned int
 {
     m_vtable = SearchVtable;
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
-static VtableSlot kMsgSeqLinkSearchVtable_slots[] = {&Net::MsgSeqLinkSearch::Destroy};
+static VtableSlot kMsgSeqLinkSearchVtable_slots[] = {&NetLink::MsgSeqLinkSearch::Destroy};
 void** const kMsgSeqLinkSearchVtable = reinterpret_cast<void**>(kMsgSeqLinkSearchVtable_slots);
-static VtableSlot kMsgLinkSearchVtable_slots[] = {&Net::MsgLinkSearch::Destroy};
+static VtableSlot kMsgLinkSearchVtable_slots[] = {&NetLink::MsgLinkSearch::Destroy};
 void** const kMsgLinkSearchVtable = reinterpret_cast<void**>(kMsgLinkSearchVtable_slots);
-static VtableSlot kMsgImpLinkSearchVtable_slots[] = {&Net::MsgImpLinkSearch::Destroy};
+static VtableSlot kMsgImpLinkSearchVtable_slots[] = {&NetLink::MsgImpLinkSearch::Destroy};
 void** const kMsgImpLinkSearchVtable = reinterpret_cast<void**>(kMsgImpLinkSearchVtable_slots);
-static VtableSlot kStreamLinkSearchVtable_slots[] = {&Net::StreamLinkSearch::Destroy};
+static VtableSlot kStreamLinkSearchVtable_slots[] = {&NetLink::StreamLinkSearch::Destroy};
 void** const kStreamLinkSearchVtable = reinterpret_cast<void**>(kStreamLinkSearchVtable_slots);
 
 template struct ConnListSearch<kMsgSeqLinkSearchVtable>;
@@ -147,8 +147,8 @@ Conn* Conn::Construct(int flags)
 
     m_flags = static_cast<uint32_t>(flags);
     m_status = kStatusReady;
-    m_readBuffer = m_readPtr = static_cast<char*>(Mem::New(kReadBufferSize));
-    m_writeBuffer = m_writePtr = static_cast<char*>(Mem::New(kWriteBufferSize));
+    m_readBuffer = m_readPtr = static_cast<char*>(MemSys::New(kReadBufferSize));
+    m_writeBuffer = m_writePtr = static_cast<char*>(MemSys::New(kWriteBufferSize));
     m_sendInterval = 0;
     m_lastSendTime = 0;
     m_sendNow = false;
@@ -156,7 +156,7 @@ Conn* Conn::Construct(int flags)
     m_lastTimestampIn = 0;
     m_timestampOut = 0;
     m_nextStreamId = 0;
-    m_bandwidth = kBroadbandBandwidth;
+    m_linkSpeed = kBroadbandBandwidth;
     // (only the first 64 groups' sequence numbers are zeroed: 0x40 dwords each - the rest keep what the
     // memory held)
     std::memset(m_nextSequenceIds, 0, 0x100);
@@ -171,8 +171,8 @@ void Conn::Destroy()
     DestroyReceivedSequencedMessages();
     ReleaseQueuedMessages();
     DestroyLinks();
-    Mem::Free(m_readBuffer);
-    Mem::Free(m_writeBuffer);
+    MemSys::Free(m_readBuffer);
+    MemSys::Free(m_writeBuffer);
     m_appNode.DestroyBody();
     static_cast<StreamLinkNode*>(&m_sendStreams)->DestroyBody();
     static_cast<StreamLinkNode*>(&m_receivedStreams)->DestroyBody();
@@ -184,25 +184,25 @@ void Conn::Destroy()
 }
 
 // 0x00455970
-uint32_t Conn::GetSendInterval() { return m_sendInterval; }
+uint32_t Conn::GetTransmitPeriod() { return m_sendInterval; }
 
 // 0x00455980
-void Conn::SetForceSendThisFrame(bool force) { m_sendNow = force; }
+void Conn::ForceSendNow(bool force) { m_sendNow = force; }
 
 // 0x00455990
-bool Conn::GetForceSendThisFrame() { return m_sendNow; }
+bool Conn::IsSendForced() { return m_sendNow; }
 
 // 0x004559A0
-int Conn::GetBandwidthType() { return m_bandwidthType; }
+int Conn::GetLinkSpeedClass() { return m_bandwidthType; }
 
 // 0x004559B0
-void Conn::SetBandwidth(int bytesPerSecond) { m_bandwidth = bytesPerSecond; }
+void Conn::SetBandwidth(int bytesPerSecond) { m_linkSpeed = bytesPerSecond; }
 
 // 0x004559C0
-int Conn::GetBandwidth() { return m_bandwidth; }
+int Conn::GetBandwidth() { return m_linkSpeed; }
 
 // 0x00455A10
-bool Conn::IsForeign() { return (m_flags & kFlagForeign) != 0; }
+bool Conn::IsOutsider() { return (m_flags & kFlagForeign) != 0; }
 
 // 0x00455A20
 bool Conn::IsLocal() { return (m_flags & kFlagLocal) != 0; }
@@ -211,24 +211,24 @@ bool Conn::IsLocal() { return (m_flags & kFlagLocal) != 0; }
 bool Conn::IsRemote() { return (m_flags & kFlagRemote) != 0; }
 
 // 0x00455A40
-void Conn::SetBandwidthType(int type)
+void Conn::SetLinkSpeedClass(int type)
 {
     m_bandwidthType = type;
     switch (type) {
     case kBandwidthBroadband:
-        m_bandwidth = kBroadbandBandwidth;
+        m_linkSpeed = kBroadbandBandwidth;
         break;
     case kBandwidthModem:
-        m_bandwidth = kModemBandwidth;
+        m_linkSpeed = kModemBandwidth;
         break;
     case kBandwidthLan:
-        m_bandwidth = kLanBandwidth;
+        m_linkSpeed = kLanBandwidth;
         break;
     }
 }
 
 // 0x00455B40
-int Conn::GetAveLatency()
+int Conn::GetMeanPing()
 {
     if (IsLocal())
         return 0;
@@ -246,11 +246,11 @@ void Conn::Invalidate()
 bool Conn::IsValid() { return (m_status & kStatusInvalid) == 0; }
 
 // 0x00455C30
-uint32_t Conn::GetResendThreshold()
+uint32_t Conn::GetRetryDelay()
 {
     if (m_status & kStatus2)
         return kStatus2ResendThreshold;
-    int threshold = 2 * GetAveLatency();
+    int threshold = 2 * GetMeanPing();
     if (threshold < static_cast<int>(kMinResendThreshold)) // (signed)
         threshold = kMinResendThreshold;
     return static_cast<uint32_t>(threshold);
@@ -260,10 +260,10 @@ uint32_t Conn::GetResendThreshold()
 void Conn::DestroyReceivedSequencedMessages()
 {
     for (ListNode& queue : m_receivedQueues) {
-        ForEach<MsgSeqLink>(&queue, [](MsgSeqLink* link) {
-            if (SeqQueuedMsg* message = link->m_QMsg) {
+        ForEach<OrderedMsgNode>(&queue, [](OrderedMsgNode* link) {
+            if (SeqQueuedMsg* message = link->m_sharedMsg) {
                 message->DestroyBody();
-                Mem::Free(message);
+                MemSys::Free(message);
             }
             DeleteLink(link);
         });
@@ -275,30 +275,30 @@ void Conn::DestroyLinks()
 {
     auto deleteLink = [](void* link) { DeleteLink(link); };
     ForEach<MsgNormalLink>(&m_normalMsgs, deleteLink);
-    ForEach<MsgImpLink>(&m_importantMsgs, deleteLink);
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, deleteLink);
+    ForEach<ReliableMsgNode>(&m_importantMsgs, deleteLink);
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, deleteLink);
     for (ListNode& queue : m_receivedQueues)
-        ForEach<MsgSeqLink>(&queue, deleteLink);
-    auto deleteStream = [](StreamLink* link) {
-        if (StreamDesc* stream = link->m_Desc) {
+        ForEach<OrderedMsgNode>(&queue, deleteLink);
+    auto deleteStream = [](BulkStreamNode* link) {
+        if (StreamDesc* stream = link->m_msgMeta) {
             DestroyStreamDescBody(stream);
-            Mem::Free(stream);
+            MemSys::Free(stream);
         }
         DeleteLink(link);
     };
-    ForEach<StreamLink>(&m_receivedStreams, deleteStream);
-    ForEach<StreamLink>(&m_sendStreams, deleteStream);
+    ForEach<BulkStreamNode>(&m_receivedStreams, deleteStream);
+    ForEach<BulkStreamNode>(&m_sendStreams, deleteStream);
 }
 
 // 0x00456210
 void Conn::DestroyImportantMessages()
 {
-    ForEach<MsgImpLink>(&m_importantMsgs, [](MsgImpLink* link) {
-        Release(link->m_QMsg);
+    ForEach<ReliableMsgNode>(&m_importantMsgs, [](ReliableMsgNode* link) {
+        Release(link->m_sharedMsg);
         DeleteLink(link);
     });
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, [](MsgSeqLink* link) {
-        Release(link->m_QMsg);
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [](OrderedMsgNode* link) {
+        Release(link->m_sharedMsg);
         DeleteLink(link);
     });
 }
@@ -306,22 +306,22 @@ void Conn::DestroyImportantMessages()
 // 0x00456370
 void Conn::ReleaseQueuedMessages()
 {
-    ForEach<MsgNormalLink>(&m_normalMsgs, [](MsgNormalLink* link) { Release(link->m_QMsg); });
-    ForEach<MsgImpLink>(&m_importantMsgs, [](MsgImpLink* link) { Release(link->m_QMsg); });
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, [](MsgSeqLink* link) { Release(link->m_QMsg); });
+    ForEach<MsgNormalLink>(&m_normalMsgs, [](MsgNormalLink* link) { Release(link->m_sharedMsg); });
+    ForEach<ReliableMsgNode>(&m_importantMsgs, [](ReliableMsgNode* link) { Release(link->m_sharedMsg); });
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [](OrderedMsgNode* link) { Release(link->m_sharedMsg); });
 }
 
 // 0x00456540
 int Conn::GetHighestResendCount()
 {
     int highest = 0;
-    ForEach<MsgImpLink>(&m_importantMsgs, [&](MsgImpLink* link) {
-        if (link->m_NumResends > highest)
-            highest = link->m_NumResends;
+    ForEach<ReliableMsgNode>(&m_importantMsgs, [&](ReliableMsgNode* link) {
+        if (link->m_retryCount > highest)
+            highest = link->m_retryCount;
     });
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, [&](MsgSeqLink* link) {
-        if (link->m_NumResends > highest)
-            highest = link->m_NumResends;
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [&](OrderedMsgNode* link) {
+        if (link->m_retryCount > highest)
+            highest = link->m_retryCount;
     });
     return highest;
 }
@@ -330,8 +330,8 @@ int Conn::GetHighestResendCount()
 int Conn::GetNumQueuedStreamPieces()
 {
     int count = 0;
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, [&](MsgSeqLink* link) {
-        if (link->m_StreamMessage)
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [&](OrderedMsgNode* link) {
+        if (link->m_bulkMsg)
             ++count;
     });
     return count;
@@ -340,25 +340,25 @@ int Conn::GetNumQueuedStreamPieces()
 // 0x00456630
 void Conn::ClearResendCounts()
 {
-    ForEach<MsgImpLink>(&m_importantMsgs, [](MsgImpLink* link) { link->m_NumResends = 0; });
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, [](MsgSeqLink* link) { link->m_NumResends = 0; });
+    ForEach<ReliableMsgNode>(&m_importantMsgs, [](ReliableMsgNode* link) { link->m_retryCount = 0; });
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [](OrderedMsgNode* link) { link->m_retryCount = 0; });
 }
 
 // 0x004566D0
-void Conn::FlagMessagesForResending(uint32_t packetstamp)
+void Conn::MarkMessagesForRetry(uint32_t packetstamp)
 {
-    ForEach<MsgImpLink>(&m_importantMsgs, [=](MsgImpLink* link) {
-        if (link->m_Packetstamp == packetstamp)
-            link->m_Timestamp = 0;
+    ForEach<ReliableMsgNode>(&m_importantMsgs, [=](ReliableMsgNode* link) {
+        if (link->m_packetClock == packetstamp)
+            link->m_stampMs = 0;
     });
-    ForEach<MsgSeqLink>(&m_sequencedMsgs, [=](MsgSeqLink* link) {
-        if (link->m_Packetstamp == packetstamp)
-            link->m_Timestamp = 0;
+    ForEach<OrderedMsgNode>(&m_sequencedMsgs, [=](OrderedMsgNode* link) {
+        if (link->m_packetClock == packetstamp)
+            link->m_stampMs = 0;
     });
 }
 
 // 0x00456770
-void Conn::DestroyMessageQueues()
+void Conn::DropQueuedTraffic()
 {
     DestroyReceivedSequencedMessages();
     ReleaseQueuedMessages();

@@ -17,7 +17,7 @@
 #include "game/gfx/render_state.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 int g_gradientWidth;
 void* g_screenMutex; // the loading screen's lock (a HANDLE), held while it is drawn
@@ -134,7 +134,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
         return;
     WaitForSingleObject(ScreenMutex(), INFINITE);
     Device()->BeginScene();
-    Nx::DrawLoadingScreenPicture(); // the picture, full screen
+    Engine3D::DrawLoadingScreenPicture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
@@ -157,7 +157,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
     SetTexture(0, nullptr);
     Device()->SetRenderState(D3DRS_ZENABLE, FALSE);
     SetVertexFormat(kBarVertexFormat);
-    if (Nx::SelectPictureUp()) {
+    if (Engine3D::SelectPictureUp()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
         // safety yellow rule on top, a little wider and taller than the bar's frame.
         float padX = static_cast<float>(xScale * 18.0), padY = yScale * 14.0f;
@@ -176,7 +176,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
     DrawQuad(static_cast<float>(filled), topF, frameRightF, bottomF, BorderArgb(), BorderArgb());
     Device()->SetRenderState(D3DRS_ZENABLE, TRUE);
     // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
-    Gfx::LoadingConsole::DrawPanel();
+    Gfx2D::LoadingConsole::DrawPanel();
     Device()->EndScene();
     Device()->Present(nullptr, nullptr, nullptr, nullptr);
     ReleaseMutex(ScreenMutex());
@@ -184,7 +184,7 @@ void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long,
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640D10 (a static initialiser): the loading screen's lock, a mutex nobody owns.
 void CreateScreenMutex() { g_screenMutex = CreateMutexA(nullptr, FALSE, nullptr); }

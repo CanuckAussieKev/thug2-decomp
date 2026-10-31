@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace Front::LevelEditor::Shadows {
+namespace MenuSystem::LevelEditor::Shadows {
 
 namespace {
 
@@ -128,9 +128,9 @@ bool StandsBy(V3 pieceMin, V3 shadowMax)
     return std::fabs(pieceMin.y - shadowMax.y) <= kGap;
 }
 
-} // namespace Front::LevelEditor::Shadows
+} // namespace MenuSystem::LevelEditor::Shadows
 
-namespace Front::LevelEditor::Members {
+namespace MenuSystem::LevelEditor::Members {
 
 int DropTarget(const std::vector<bool>& passed, const std::vector<bool>& selected)
 {
@@ -144,4 +144,4 @@ int DropTarget(const std::vector<bool>& passed, const std::vector<bool>& selecte
     return -1;
 }
 
-} // namespace Front::LevelEditor::Members
+} // namespace MenuSystem::LevelEditor::Members

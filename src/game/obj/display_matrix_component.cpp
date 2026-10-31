@@ -9,7 +9,7 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/vehicle_sound.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -18,13 +18,13 @@ extern void** const kVtable;
 } // namespace
 
 // 0x004312A0
-CBaseComponent* __cdecl CDisplayMatrixComponent::Create()
+CObjectModule* __cdecl CDisplayMatrixComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CDisplayMatrixComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CDisplayMatrixComponent));
     if (!memory)
         return nullptr;
     auto* component = static_cast<CDisplayMatrixComponent*>(memory);
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     return component;
@@ -34,7 +34,7 @@ CBaseComponent* __cdecl CDisplayMatrixComponent::Create()
 void CDisplayMatrixComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00431250
@@ -42,31 +42,31 @@ CDisplayMatrixComponent* CDisplayMatrixComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00431280
-void CDisplayMatrixComponent::Update() { m_object->m_displayMatrix = m_object->m_matrix; }
+void CDisplayMatrixComponent::Update() { m_object->m_displayMatrix = m_object->m_basisFrame; }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CDisplayMatrixComponent::Destroy,
-         &Obj::CDisplayMatrixComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CDisplayMatrixComponent::Destroy,
+         &GameObjects::CDisplayMatrixComponent::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

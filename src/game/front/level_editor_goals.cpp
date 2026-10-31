@@ -33,7 +33,7 @@
 #include "game/sys/log.h"
 #include "game/obj/compositemgr.h"
 
-namespace Front::LevelEditor::Goals {
+namespace MenuSystem::LevelEditor::Goals {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -128,7 +128,7 @@ void Clamp(Goal* g)
     if (!(g->accelPercent >= 0.01f))
         g->accelPercent = 0.01f;
     g->accelPercent = std::min(g->accelPercent, 1.0f);
-    g->trickTime = std::clamp(g->trickTime, 5, 3000);
+    g->comboTime = std::clamp(g->comboTime, 5, 3000);
     g->stopAt = std::clamp(g->stopAt, 5, std::max(5, g->time - 5));
     g->maxTricks = std::clamp(g->maxTricks, 1, 15);
     g->comboSize = std::clamp(g->comboSize, 1, 15);
@@ -143,7 +143,7 @@ void Clamp(Goal* g)
 
 const char* TypeName(Type type) { return kTypeInfo[Index(type)].name; }
 const char* TypeTitle(Type type) { return kTypeInfo[Index(type)].title; }
-uint32_t TypeChecksum(Type type) { return kTypeInfo[Index(type)].checksum; }
+uint32_t KindHash(Type type) { return kTypeInfo[Index(type)].checksum; }
 
 bool TypeOf(const std::string& name, Type* type)
 {
@@ -257,7 +257,7 @@ std::string PointSuffix(Type type, int index)
     return "cp" + std::to_string(index - 1);
 }
 
-float DefaultHeight(Type type, int index) { return PointKind(type, index) == 3 ? 27.0f : 0.0f; }
+float StartingHeight(Type type, int index) { return PointKind(type, index) == 3 ? 27.0f : 0.0f; }
 
 bool Same(const Goal& a, const Goal& b)
 {
@@ -265,7 +265,7 @@ bool Same(const Goal& a, const Goal& b)
         a.time != b.time || a.score != b.score || a.walk != b.walk || a.laps != b.laps ||
         a.checkpointTime != b.checkpointTime || a.gaps != b.gaps || a.trick != b.trick || a.sets != b.sets ||
         a.spin != b.spin || a.accelInterval != b.accelInterval || a.accelPercent != b.accelPercent ||
-        a.trickTime != b.trickTime || a.stopAt != b.stopAt || a.maxTricks != b.maxTricks ||
+        a.comboTime != b.comboTime || a.stopAt != b.stopAt || a.maxTricks != b.maxTricks ||
         a.singleCombo != b.singleCombo || a.comboSize != b.comboSize || a.blockSize != b.blockSize ||
         a.toWin != b.toWin || a.points.size() != b.points.size())
         return false;
@@ -370,7 +370,7 @@ std::string WriteRecord(const Goal& g)
         number("accel", g.accelInterval);
         std::snprintf(buffer, sizeof(buffer), " accelpct=%.9g", g.accelPercent);
         out += buffer;
-        number("tricktime", g.trickTime);
+        number("tricktime", g.comboTime);
         number("stopat", g.stopAt);
         number("maxtricks", g.maxTricks);
         number("single", g.singleCombo ? 1 : 0);
@@ -478,7 +478,7 @@ bool ReadRecord(const std::string& text, Goal* out)
                 int* field;
             } ints[] = {{"time", &g.time},           {"score", &g.score},         {"laps", &g.laps},
                         {"cptime", &g.checkpointTime}, {"spin", &g.spin},         {"accel", &g.accelInterval},
-                        {"tricktime", &g.trickTime}, {"stopat", &g.stopAt},       {"maxtricks", &g.maxTricks},
+                        {"tricktime", &g.comboTime}, {"stopat", &g.stopAt},       {"maxtricks", &g.maxTricks},
                         {"combo", &g.comboSize},     {"block", &g.blockSize},     {"towin", &g.toWin}};
             bool known = false;
             for (const IntKey& k : ints) {
@@ -527,14 +527,14 @@ void FillImage(const Goal& goal, uint32_t level, int levelGoalIndex, const std::
         std::memcpy(b + offset, value.data(), n);
         b[offset + n] = 0;
     };
-    // ReadFromStructure (0x004E96D0): InitEditedGoal, used, not won, level, level_goal_index, the type (SetType: the
+    // DecodeFromStruct (0x004E96D0): InitEditedGoal, used, not won, level, level_goal_index, the type (SetType: the
     // points' kinds, the counts; the pro's / start's height 0), then the fields.
-    Ed::InitEditedGoal(b);
+    ParkEditing::InitEditedGoal(b);
     b[0x28A] = 1;
     b[0x289] = 0;
     u32(0x0) = level;
     u32(0x28C) = static_cast<uint32_t>(levelGoalIndex);
-    u32(0x114) = TypeChecksum(goal.type);
+    u32(0x114) = KindHash(goal.type);
     for (int i = 0; i < kMaxPoints; ++i) {
         u32(0x118 + 0x1C * i) = static_cast<uint32_t>(PointKind(goal.type, i));
         f32(0x12C + 0x1C * i) = 0.0f;
@@ -598,7 +598,7 @@ void FillImage(const Goal& goal, uint32_t level, int levelGoalIndex, const std::
         if (goal.type != Type::TrickBeat) {
             u32(0x2A4) = static_cast<uint32_t>(goal.accelInterval);
             f32(0x2A8) = goal.accelPercent;
-            u32(0x2AC) = static_cast<uint32_t>(goal.trickTime);
+            u32(0x2AC) = static_cast<uint32_t>(goal.comboTime);
             u32(0x2B0) = static_cast<uint32_t>(goal.stopAt);
             u32(0x2B4) = static_cast<uint32_t>(goal.maxTricks);
             u32(0x2B8) = static_cast<uint32_t>(goal.spin);
@@ -634,7 +634,7 @@ std::string GoalId(int index) { return "CreatedGoal" + std::to_string(index); }
 
 namespace {
 
-using CFunction = bool(__cdecl*)(Script::CStruct*, Script::CScript*);
+using CFunction = bool(__cdecl*)(Scripts::CStruct*, Scripts::CScript*);
 
 std::vector<Goal> g_goals;               // (their points' places: as their nodes had them when last read)
 std::vector<int> g_inPlay;               // the play indexes in the goal manager now
@@ -646,7 +646,7 @@ constexpr const char* kStem = "ed_goal";
 constexpr const char* kPointType = "ed_goal";
 
 bool SameText(const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) == 0; }
-uint32_t Crc(const std::string& text) { return Crc::GenerateCRCFromString(text.c_str()); }
+uint32_t Checksums(const std::string& text) { return Checksums::HashFromText(text.c_str()); }
 
 std::string PointNode(const Goal& g, int index) { return g.id + "_" + PointSuffix(g.type, index); }
 
@@ -663,7 +663,7 @@ bool PointOf(uint32_t node, int* goal, int* point)
 {
     for (size_t i = 0; i < g_goals.size(); ++i) {
         for (size_t k = 0; k < g_goals[i].points.size(); ++k) {
-            if (Crc(PointNode(g_goals[i], static_cast<int>(k))) == node) {
+            if (Checksums(PointNode(g_goals[i], static_cast<int>(k))) == node) {
                 *goal = static_cast<int>(i);
                 *point = static_cast<int>(k);
                 return true;
@@ -691,7 +691,7 @@ void Refresh()
     for (Goal& g : g_goals) {
         for (size_t k = 0; k < g.points.size(); ++k) {
             NodeEdit::Values v;
-            if (NodeEdit::Read(Crc(PointNode(g, static_cast<int>(k))), &v)) {
+            if (NodeEdit::Read(Checksums(PointNode(g, static_cast<int>(k))), &v)) {
                 g.points[k].pos = v.pos;
                 g.points[k].heading = v.angles.y;
             }
@@ -703,7 +703,7 @@ int MissingPoints(const Goal& g)
 {
     int missing = 0;
     for (size_t k = 0; k < g.points.size(); ++k)
-        missing += NodeCreate::IsAdded(Crc(PointNode(g, static_cast<int>(k)))) ? 0 : 1;
+        missing += NodeCreate::IsAdded(Checksums(PointNode(g, static_cast<int>(k)))) ? 0 : 1;
     return missing;
 }
 
@@ -714,7 +714,7 @@ void SyncNodes(const std::vector<Goal>& goals)
     NodeCreate::List make;
     for (const Goal& g : goals) {
         for (size_t k = 0; k < g.points.size(); ++k) {
-            uint32_t name = Crc(PointNode(g, static_cast<int>(k)));
+            uint32_t name = Checksums(PointNode(g, static_cast<int>(k)));
             if (!NodeCreate::IsAdded(name)) {
                 if (!NodeCreate::NameTaken(PointNode(g, static_cast<int>(k))))
                     make.push_back(PointSpec(g, static_cast<int>(k)));
@@ -734,7 +734,7 @@ void SyncNodes(const std::vector<Goal>& goals)
 
 void RemoveNode(const std::string& name)
 {
-    uint32_t checksum = Crc(name);
+    uint32_t checksum = Checksums(name);
     if (!NodeCreate::IsAdded(checksum))
         return;
     NodeCreate::Spec removed;
@@ -787,9 +787,9 @@ void PushUndo()
 
 // --- the goal manager (the skate module's - 0x005591B0 - through its script commands) ---
 
-uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); }
+uint8_t* SkateModule() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
 
-// The current level as the goal editor keeps it (Mdl::Skate +0x378; Load_Sk5Ed_gameplay counts as Load_Sk5Ed - as
+// The current level as the goal editor keeps it (GameModules::Skate +0x378; Load_Sk5Ed_gameplay counts as Load_Sk5Ed - as
 // 0x004E7D00 / 0x004EC010 / 0x004EA6C0 do).
 uint32_t CurrentLevel()
 {
@@ -803,24 +803,24 @@ uint32_t CurrentLevel()
 // A GoalManager_* script command with name=<goal> (they take no other parameter and don't use the script).
 bool GoalCommand(CFunction command, uint32_t goal)
 {
-    Script::CStruct* params = Script::NewStruct()->Init();
-    params->AddChecksum(0xA1DC81F9u, goal); // name
+    Scripts::CStruct* params = Scripts::NewStruct()->Init();
+    params->PutNameKey(0xA1DC81F9u, goal); // name
     bool result = command(params, nullptr);
     params->Clear();
-    Script::DeleteStruct(params);
+    Scripts::DeleteStruct(params);
     return result;
 }
-bool GoalExists(uint32_t goal) { return GoalCommand(&Game::CFunc_GoalManager_GoalExists, goal); }       // GoalManager_GoalExists
-bool GoalIsActive(uint32_t goal) { return GoalCommand(&Game::CFunc_GoalManager_GoalIsActive, goal); }     // GoalManager_GoalIsActive
-void DeactivateGoal(uint32_t goal) { GoalCommand(&Game::CFunc_GoalManager_DeactivateGoal, goal); }          // GoalManager_DeactivateGoal
-void RemoveGoal(uint32_t goal) { GoalCommand(&Game::CFunc_GoalManager_RemoveGoal, goal); }              // GoalManager_RemoveGoal
-void InitializeGoal(uint32_t goal) { GoalCommand(&Game::CFunc_GoalManager_InitializeGoal, goal); }          // GoalManager_InitializeGoal
+bool GoalExists(uint32_t goal) { return GoalCommand(&GoalSystem::CFunc_GoalManager_GoalExists, goal); }       // GoalManager_GoalExists
+bool IsGoalRunning(uint32_t goal) { return GoalCommand(&GoalSystem::CFunc_GoalManager_GoalIsActive, goal); }     // GoalManager_GoalIsActive
+void SwitchOffGoal(uint32_t goal) { GoalCommand(&GoalSystem::CFunc_GoalManager_DeactivateGoal, goal); }          // GoalManager_DeactivateGoal
+void DropObjective(uint32_t goal) { GoalCommand(&GoalSystem::CFunc_GoalManager_RemoveGoal, goal); }              // GoalManager_RemoveGoal
+void InitializeGoal(uint32_t goal) { GoalCommand(&GoalSystem::CFunc_GoalManager_InitializeGoal, goal); }          // GoalManager_InitializeGoal
 
-void KillObject(const std::string& name)
+void RemoveEntity(const std::string& name)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(Crc(name)));
-    if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
-        object->MarkAsDead();
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(Checksums(name)));
+    if (object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD))
+        object->FlagAsDead();
 }
 
 
@@ -849,7 +849,7 @@ NodeCreate::List PlayNodes(const Goal& g, int index)
         f.text = value;
         return f;
     };
-    const float pi = Obj::g_pi; // (the constant 0x004E79C0 subtracts)
+    const float pi = GameObjects::g_pi; // (the constant 0x004E79C0 subtracts)
     for (size_t k = 0; k < g.points.size(); ++k) {
         const Point& p = g.points[k];
         NodeCreate::Spec s;
@@ -875,8 +875,8 @@ NodeCreate::List PlayNodes(const Goal& g, int index)
             s.extra = {created, string("RestartName", "Edited goal: Restart"), types};
         } else {
             s.cls = "GameObject";
-            uint32_t typeChecksum = TypeChecksum(g.type);
-            const char* model = Ed::GoalObjectModel(typeChecksum, static_cast<int>(k) - 2);
+            uint32_t kindHash = KindHash(g.type);
+            const char* model = ParkEditing::GoalObjectModel(kindHash, static_cast<int>(k) - 2);
             static const char* const kLetterTypes[2][5] = {{"Letter_S", "Letter_K", "Letter_A", "Letter_T", "Letter_E"},
                                                            {"Combo_C", "Combo_O", "Combo_M", "Combo_B", "Combo_O"}};
             if (kind == 3 && k >= 2 && k < 7)
@@ -895,7 +895,7 @@ std::vector<int> GapNumbers(const Goal& g)
 {
     std::vector<int> out;
     uint8_t* skate = SkateModule();
-    auto* list = skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
+    auto* list = skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
     if (!list)
         return out;
     for (const std::string& gap : g.gaps) {
@@ -913,15 +913,15 @@ void TakeOutOfPlay()
     if (g_inPlay.empty())
         return;
     for (int index : g_inPlay) {
-        uint32_t goal = Crc(GoalId(index));
+        uint32_t goal = Checksums(GoalId(index));
         if (SkateModule() && GoalExists(goal)) {
-            if (GoalIsActive(goal))
-                DeactivateGoal(goal);
-            RemoveGoal(goal);
+            if (IsGoalRunning(goal))
+                SwitchOffGoal(goal);
+            DropObjective(goal);
         }
         // (edit_goal_menu_exit: <pro_name>:Die - and a letter / cone still standing)
         for (int which = 0; which < kMaxPoints; ++which) {
-            KillObject(PlayNodeName(which, index));
+            RemoveEntity(PlayNodeName(which, index));
             RemoveNode(PlayNodeName(which, index));
         }
     }
@@ -952,7 +952,7 @@ void PutInPlay()
             if (NodeCreate::NameTaken(s.name))
                 taken = true;
         }
-        if (taken || GoalExists(Crc(GoalId(index)))) {
+        if (taken || GoalExists(Checksums(GoalId(index)))) {
             Log("level editor: goal %s not played - %s is taken", g.id.c_str(), GoalId(index).c_str());
             continue;
         }
@@ -969,8 +969,8 @@ void PutInPlay()
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image;
         FillImage(*goal, level, index, GapNumbers(*goal), &image);
-        reinterpret_cast<Ed::CEditedGoal*>(image.bytes)->AddToGoalManager(true);
-        uint32_t id = Crc(GoalId(index));
+        reinterpret_cast<ParkEditing::CEditedGoal*>(image.bytes)->AddToGoalManager(true);
+        uint32_t id = Checksums(GoalId(index));
         if (!GoalExists(id)) {
             Log("level editor: goal %s - the goal manager didn't take it", goal->id.c_str());
             continue;
@@ -982,13 +982,13 @@ void PutInPlay()
     }
 }
 
-// Where the view looks, on the ground (the game's collision ray - a CFeeler, as the triggers' Cast).
+// Where the view looks, on the ground (the game's collision ray - a CProbeRay, as the triggers' Cast).
 bool Cast(V3 from, V3 to, V3* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
@@ -1031,7 +1031,7 @@ std::string FreshTitle(Type type)
 void SelectPoint(const Goal& g, int index)
 {
     Nodes::Invalidate();
-    g_select = Nodes::Find(Crc(PointNode(g, index)));
+    g_select = Nodes::Find(Checksums(PointNode(g, index)));
 }
 
 } // namespace
@@ -1082,7 +1082,7 @@ bool Create(Type type)
     int count = MinPoints(type);
     for (int k = 2; k < count; ++k) {
         V3 at = Grounded(base + flat * (300.0f * static_cast<float>(k - 1)));
-        g.points.push_back({at, view.yaw, DefaultHeight(type, k)});
+        g.points.push_back({at, view.yaw, StartingHeight(type, k)});
     }
     for (Point& p : g.points) {
         p.heading = NodeEdit::WrapAngle(p.heading);
@@ -1191,7 +1191,7 @@ bool Export(const std::string& id, std::string* message)
         return false;
     }
     // The goal editor's component (the object GoalEditor, CreateGoalEditor at start-up: its goaleditor 0x81F01058).
-    auto* editor = static_cast<Obj::CCompositeObject*>(Obj::FindObject(Crc("GoalEditor")));
+    auto* editor = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(Checksums("GoalEditor")));
     uint8_t* component = editor ? reinterpret_cast<uint8_t*>(editor->GetComponent(0x81F01058)) : nullptr;
     uint32_t level = CurrentLevel();
     if (!component || !level) {
@@ -1242,7 +1242,7 @@ int Apply(const std::vector<Goal>& goals)
         bool clash = false;
         for (size_t k = 0; k < g.points.size(); ++k)
             clash = clash || (NodeCreate::NameTaken(PointNode(g, static_cast<int>(k))) &&
-                              !NodeCreate::IsAdded(Crc(PointNode(g, static_cast<int>(k)))));
+                              !NodeCreate::IsAdded(Checksums(PointNode(g, static_cast<int>(k)))));
         if (clash) {
             Log("level editor: goal %s - the level has a node of its points' names already: not made", g.id.c_str());
             continue;
@@ -1273,9 +1273,9 @@ void ForgetLevel()
     // level change normally takes every goal out first)
     if (SkateModule()) {
         for (int index : g_inPlay) {
-            uint32_t goal = Crc(GoalId(index));
+            uint32_t goal = Checksums(GoalId(index));
             if (GoalExists(goal))
-                RemoveGoal(goal);
+                DropObjective(goal);
         }
     }
     g_inPlay.clear();
@@ -1330,12 +1330,12 @@ std::vector<std::string> LevelGaps()
 {
     std::vector<std::string> out;
     uint8_t* skate = SkateModule();
-    auto* list = skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
+    auto* list = skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
     if (!list)
         return out;
     int count = list->Count();
     for (int i = 0; i < count; ++i)
-        out.push_back(list->GetGapName(i));
+        out.push_back(list->GetGapTitle(i));
     return out;
 }
 
@@ -1403,4 +1403,4 @@ std::string Describe()
     return text;
 }
 
-} // namespace Front::LevelEditor::Goals
+} // namespace MenuSystem::LevelEditor::Goals

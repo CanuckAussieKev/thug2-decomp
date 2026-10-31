@@ -26,7 +26,7 @@
 #include "game/sys/log.h"
 #include "game/sys/game_config.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t* g_loadingScreenPicture;
 
@@ -74,7 +74,7 @@ void SetPictureName(const char* text)
     uint32_t length = static_cast<uint32_t>(std::strlen(text));
     if (length > capacity) {
         uint32_t newCapacity = length | 15;
-        char* grown = static_cast<char*>(Crt::Malloc(newCapacity + 1));
+        char* grown = static_cast<char*>(Crt::AllocBlock(newCapacity + 1));
         std::memcpy(grown, text, length + 1);
         if (capacity >= 16)
             Crt::Free(heap);
@@ -162,7 +162,7 @@ void __cdecl DrawLoadingScreenPicture()
     SetState(kLighting, 0);
     SetPixelShader(nullptr, nullptr);
     SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_TEX1);
-    SetBlendMode(0);
+    ChooseBlendMode(0);
     SetTexture(0, nullptr); // (the original passes a third 0, here and below)
     uint8_t* texture = *reinterpret_cast<uint8_t**>(Picture() + 0x10);
     if (Picture()[8] & 1)
@@ -214,14 +214,14 @@ void __cdecl FreeLoadingScreenSprite()
     Lock();
     Device()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
     if (Sprite()) {
-        Nx::DeleteModelLights(static_cast<Nx::CPcModelLights*>(Sprite())); // (the engine's delete)
+        Engine3D::DeleteModelLights(static_cast<Engine3D::CPcModelLights*>(Sprite())); // (the engine's delete)
         Sprite() = nullptr;
     }
     Unlock();
 }
 
 // 0x004B7400
-void __cdecl StartLoadingBar(float seconds)
+void __cdecl ShowProgressBar(float seconds)
 {
     g_elapsedSeconds = 0.0f;  // elapsed
     g_tickSeconds = 0.03f; // a tick's seconds (0x3CF5C28F)
@@ -266,8 +266,8 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
                     SetPictureName(name);
                 }
             }
-            void* memory = Mem::New(0x14);
-            Picture() = memory ? reinterpret_cast<uint8_t*>(static_cast<Nx::CPcTexture*>(memory)->Construct()) : nullptr;
+            void* memory = MemSys::New(0x14);
+            Picture() = memory ? reinterpret_cast<uint8_t*>(static_cast<Engine3D::CPcTexture*>(memory)->Construct()) : nullptr;
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
@@ -280,7 +280,7 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
                 file = localised;
             }
             // (no check: a failed allocation calls through null, as the original)
-            bool loaded = reinterpret_cast<Nx::CTexture*>(Picture())->LoadByName(file, 1, 1);
+            bool loaded = reinterpret_cast<Engine3D::CBitmapTexture*>(Picture())->LoadByName(file, 1, 1);
             if (!loaded) {
                 Unlock();
                 return;

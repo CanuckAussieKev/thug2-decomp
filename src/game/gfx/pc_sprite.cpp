@@ -13,23 +13,23 @@
 #include "game/core/stubs.h"
 #include "game/gfx/pc_font.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
 extern void** const kSpriteVtable;
 
-SDraw2D* AsDrawn(SSprite* sprite) { return reinterpret_cast<SDraw2D*>(sprite); }
+SOverlayDraw* AsDrawn(SQuadSprite* sprite) { return reinterpret_cast<SOverlayDraw*>(sprite); }
 
 } // namespace
 
 // 0x004C70E0
 CPcSprite* CPcSprite::Construct()
 {
-    reinterpret_cast<CSprite*>(this)->CSprite::Construct(nullptr);
+    reinterpret_cast<CBillboardQuad*>(this)->CBillboardQuad::Construct(nullptr);
     vtable = reinterpret_cast<void**>(kSpriteVtable);
-    void* memory = Mem::New(0x40);
-    sprite = memory ? static_cast<SSprite*>(memory)->Construct(0.0f) : nullptr;
+    void* memory = MemSys::New(0x40);
+    sprite = memory ? static_cast<SQuadSprite*>(memory)->Construct(0.0f) : nullptr;
     return this;
 }
 
@@ -38,8 +38,8 @@ void CPcSprite::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kSpriteVtable);
     if (sprite) // (through its vtable: its destructor, freed)
-        reinterpret_cast<SSprite*(__thiscall*)(SSprite*, unsigned int)>(sprite->vtable[0])(sprite, 1);
-    reinterpret_cast<CSprite*>(this)->CSprite::DestroyBody();
+        reinterpret_cast<SQuadSprite*(__thiscall*)(SQuadSprite*, unsigned int)>(sprite->vtable[0])(sprite, 1);
+    reinterpret_cast<CBillboardQuad*>(this)->CBillboardQuad::DestroyBody();
 }
 
 // 0x004C7180
@@ -47,7 +47,7 @@ CPcSprite* CPcSprite::Destroy(unsigned int freeFlags)
 {
     DestroyBody();
     if (freeFlags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -88,8 +88,8 @@ void CPcSprite::UpdatePriority()
 }
 
 namespace {
-static VtableSlot kSpriteVtable_slots[] = {&Nx::CPcSprite::Destroy, &Nx::CPcText::Update, &Nx::CPcSprite::UpdateHidden,
-                &Nx::CPcSprite::Update, &Nx::CPcSprite::UpdatePriority, Stubs::DoNothing};
+static VtableSlot kSpriteVtable_slots[] = {&Engine3D::CPcSprite::Destroy, &Engine3D::CPcText::Update, &Engine3D::CPcSprite::UpdateHidden,
+                &Engine3D::CPcSprite::Update, &Engine3D::CPcSprite::UpdatePriority, Stubs::DoNothing};
 void** const kSpriteVtable = reinterpret_cast<void**>(kSpriteVtable_slots);
 } // namespace
 

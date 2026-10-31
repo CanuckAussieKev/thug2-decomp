@@ -30,7 +30,7 @@ bool& UsingKeyboard();
 
 // Set input up (from Platform::InitInput): SDL's game controllers, the settings and bindings, the game's key
 // binding table (0x007D6770, DirectInput codes, for the menus' hints), the event handler; with PS2 controls,
-// the IsPS2 script command (Sys::InstallIsPS2).
+// the IsPS2 script command (SystemCore::InstallIsPS2).
 void InitSdlInput();
 
 // A device's frame (Sio::Device::Process): pending events handled, then the control data from the keyboard

@@ -7,7 +7,7 @@
 
 #include "imgui.h"
 
-namespace Front::LevelEditor::UiStrip {
+namespace MenuSystem::LevelEditor::UiStrip {
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
@@ -472,4 +472,4 @@ void StatusRow(const std::string& message, const std::vector<std::pair<std::stri
         ImGui::PopFont();
 }
 
-} // namespace Front::LevelEditor::UiStrip
+} // namespace MenuSystem::LevelEditor::UiStrip

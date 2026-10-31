@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -11,13 +11,13 @@ class CScript;
 // of the world, shown again in their heaps), their scores (reset, refreshed, the score pot), and the nearest
 // skater in reach of another team (or carrying the flag). All are cdecl (params, script) and return whether the
 // script's `if` should be taken.
-namespace CFuncs {
+namespace ScriptCommands {
 
-bool __cdecl CFunc_InitializeSkaters(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ReinsertSkaters(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ResetScore(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_UpdateScore(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_ResetScorePot(Script::CStruct* params, Script::CScript* script);
-bool __cdecl CFunc_GetCollidingPlayerAndTeam(Script::CStruct* params, Script::CScript* script);
+bool __cdecl CFunc_InitializeSkaters(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ReinsertSkaters(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ResetScore(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_UpdateScore(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_ResetScorePot(Scripts::CStruct* params, Scripts::CScript* script);
+bool __cdecl CFunc_GetCollidingPlayerAndTeam(Scripts::CStruct* params, Scripts::CScript* script);
 
-} // namespace CFuncs
+} // namespace ScriptCommands

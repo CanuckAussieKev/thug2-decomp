@@ -20,7 +20,7 @@
 // thug2-decomp.ini: [features] screenshots=0 turns it off (default 1); [features] screenshot_dir= another folder
 // (relative: to the game folder); [Keybinds] Screenshot= the key - an SDL scan code (70 Print Screen, 69 F12) or a
 // key's name. Not set: Print Screen, or F12 when Windows' Snipping Tool takes Print Screen (logged at start-up).
-namespace Sys::Screenshot {
+namespace SystemCore::Screenshot {
 
 // [features] screenshots (read once).
 bool Enabled();
@@ -62,4 +62,4 @@ bool SeriesRunning();
 // The last series' result: "ok: <n> frames in <folder>" or "error: ...".
 std::string SeriesResult();
 
-} // namespace Sys::Screenshot
+} // namespace SystemCore::Screenshot

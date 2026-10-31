@@ -2,14 +2,14 @@
 
 #include "game/mth/matrix.h"
 
-namespace Mth {
+namespace Maths {
 
 // Interpolates between two orientation matrices. Setting the matrices works out the rotation that takes
 // `start` to `end` as an axis and an angle; the interpolation (0x00405A20, not yet rewritten) turns part of
 // that angle about the axis.
-class SlerpInterpolator {
+class ArcRotationBlender {
 public:
-    SlerpInterpolator(const Matrix& start, const Matrix& end);
+    ArcRotationBlender(const Matrix& start, const Matrix& end);
 
     // Store both matrices and compute the relative rotation. Returns the "small rotation" flag (the original
     // leaves it in EAX).

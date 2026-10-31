@@ -10,7 +10,7 @@
 // its screens through ImGui's background draw list - polygons for the slanted cuts, textured quads for the art, glyphs
 // placed one by one (condensed, tracked, turned with the selected row). The current ImGui context must be the new
 // front end's, between NewFrame and Render.
-namespace Front::NewFrontend::Paint {
+namespace MenuSystem::NewFrontend::Paint {
 
 // The font files (full paths) and how the display face is drawn: `condense` its width (1: as designed - Anton),
 // `bold` extra weight (0: none; else drawn twice that fraction of an em apart).
@@ -43,11 +43,11 @@ struct Art {
 using ArtLookup = Art (*)(const std::string& image);
 
 // What the career keeps for a level (-1: not known - not shown).
-struct Records {
+struct Highscores {
     int goals = -1;
     int gapsGot = -1, gapsTotal = -1;
 };
-using RecordsLookup = Records (*)(const Level& level);
+using RecordsLookup = Highscores (*)(const Level& level);
 
 // A place the mouse can point at, in design pixels (the last frame's).
 struct Hit {
@@ -91,11 +91,11 @@ void Screen(const Menu& menu, const Frame& frame, float windowWidth, float windo
 
 }
 
-namespace Front::NewFrontend::Mirror {
+namespace MenuSystem::NewFrontend::Mirror {
 class Tracker;
 }
 
-namespace Front::NewFrontend::Paint {
+namespace MenuSystem::NewFrontend::Paint {
 
 // Phase 3: an original screen restyled (new_frontend_mirror.h) - a level's pause menu, a dialog box, the skater select
 // (the 3D skater left in view), a plain list. `hits`: its rows (Item, the row's index), Back. `scroll`: the list's
@@ -132,4 +132,4 @@ constexpr float kLevelRowHeight = kLevelType * 1.05f;   // (line-height 1.05)
 // (descent negative). False if it isn't a font file it can read.
 bool ReadFontMetrics(const uint8_t* data, size_t size, float* ascent, float* descent);
 
-} // namespace Front::NewFrontend::Paint
+} // namespace MenuSystem::NewFrontend::Paint

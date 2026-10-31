@@ -9,14 +9,14 @@
 #include "game/core/code_address.h"
 #include "game/skater/gap.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
 extern void** const kListEntryVtable;
 extern void** const kNameEntryVtable;
 
-void InitNode(Mem::ListNode& node, void* data)
+void InitNode(MemSys::ListNode& node, void* data)
 {
     node.data = data;
     node.priority = 0;
@@ -32,14 +32,14 @@ void TrickListEntry::SetFlag() { m_flag2C = true; }
 // 0x00578740
 TrickListEntry* TrickListEntry::Construct()
 {
-    InitNode(m_node, this);
-    m_node.vtable = kListEntryVtable;
+    InitNode(m_listLink, this);
+    m_listLink.vtable = kListEntryVtable;
     m_key = 0;
     m_unknown24 = 0;
     m_unknown30 = 0;
     m_unknown34 = false;
-    Script::CArray* memory = Script::NewArray();
-    m_array = memory ? memory->Init() : nullptr;
+    Scripts::CArray* memory = Scripts::NewArray();
+    m_elementList = memory ? memory->Init() : nullptr;
     m_unknown38 = 0;
     m_unknown3C = 0;
     return this;
@@ -48,14 +48,14 @@ TrickListEntry* TrickListEntry::Construct()
 // 0x00579570
 void TrickListEntry::DestroyBody()
 {
-    m_node.vtable = kListEntryVtable;
-    if (m_array)
-        Script::CleanUpArray(m_array);
-    if (Script::CArray* array = m_array) {
+    m_listLink.vtable = kListEntryVtable;
+    if (m_elementList)
+        Scripts::ReleaseArrayStorage(m_elementList);
+    if (Scripts::CArray* array = m_elementList) {
         array->Clear();
-        Script::DeleteArray(array);
+        Scripts::DeleteArray(array);
     }
-    m_node.UnlinkAs(g_gapNodeVtable);
+    m_listLink.UnlinkAs(g_gapNodeVtable);
 }
 
 // 0x00579820
@@ -63,16 +63,16 @@ TrickListEntry* TrickListEntry::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x005787F0
 TrickNameEntry* TrickNameEntry::Construct()
 {
-    InitNode(m_node, this);
-    m_node.vtable = kNameEntryVtable;
-    new (&m_name) Str::String();
+    InitNode(m_listLink, this);
+    m_listLink.vtable = kNameEntryVtable;
+    new (&m_name) TextUtil::String();
     return this;
 }
 
@@ -80,7 +80,7 @@ TrickNameEntry* TrickNameEntry::Construct()
 void TrickNameEntry::DestroyBody()
 {
     m_name.~String();
-    m_node.UnlinkAs(g_gapTrickNodeVtable);
+    m_listLink.UnlinkAs(g_gapTrickNodeVtable);
 }
 
 // 0x00579600
@@ -88,18 +88,18 @@ TrickNameEntry* TrickNameEntry::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kListEntryVtable_slots[] = {&Obj::TrickListEntry::Destroy};
+static VtableSlot kListEntryVtable_slots[] = {&GameObjects::TrickListEntry::Destroy};
 void** const kListEntryVtable = reinterpret_cast<void**>(kListEntryVtable_slots);
-static VtableSlot kNameEntryVtable_slots[] = {&Obj::TrickNameEntry::Destroy};
+static VtableSlot kNameEntryVtable_slots[] = {&GameObjects::TrickNameEntry::Destroy};
 void** const kNameEntryVtable = reinterpret_cast<void**>(kNameEntryVtable_slots);
 
 } // namespace

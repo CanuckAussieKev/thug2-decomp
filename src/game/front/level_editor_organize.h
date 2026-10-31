@@ -30,7 +30,7 @@
 //   edlock <checksum>                               locked against changes
 //   nopick <node>                                   a node's gizmo not selectable
 //   snapshot <name>                                 the snapshot this layout is (the active one)
-namespace Front::LevelEditor::Organize {
+namespace MenuSystem::LevelEditor::Organize {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -84,7 +84,7 @@ struct Rect {
     float x0, y0, x1, y1; // x0 <= x1, y0 <= y1
 };
 Rect RectOf(float ax, float ay, float bx, float by);
-bool CrossingDrag(float startX, float endX);
+bool CrossingDrag(float originCoordX, float lastColumn);
 bool BoxTakes(const Rect& box, const Rect& thing, bool crossing);
 // The selection after a box: `found` replacing `current`, added to it, or taken from it (`op`: 0 / 1 add / 2 remove),
 // in order, no repeats.
@@ -162,4 +162,4 @@ bool SaveSnapshot(const std::string& name, std::string* message);
 bool SwitchSnapshot(const std::string& name, std::string* message);
 bool DeleteSnapshot(const std::string& name, std::string* message);
 
-} // namespace Front::LevelEditor::Organize
+} // namespace MenuSystem::LevelEditor::Organize

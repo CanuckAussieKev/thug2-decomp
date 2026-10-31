@@ -29,35 +29,35 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/skater/skater_camera_component.h"
 
-namespace Obj {
+namespace GameObjects {
 
-Mth::Vector g_localNetPosition;
+Maths::Vector g_localNetPosition;
 uint32_t g_localNetGuard;
 
 namespace {
 
-namespace Thugpro = GameNet::Thugpro;
+namespace Thugpro = OnlinePlay::Thugpro;
 
 constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
+OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
 
 extern void** const kVtable;
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
 constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraffitiStealOther = 0x4D7F6FFA;
 
-// Mdl::Skate (0x007CE478; not rewritten yet): a multiplayer game (0x005651F0), a skater by its id (0x00566600).
-bool IsMultiplayerGame()
+// GameModules::Skate (0x007CE478; not rewritten yet): a multiplayer game (0x005651F0), a skater by its id (0x00566600).
+bool IsVersusSession()
 {
-    return Mdl::Skate::IsMultiplayer() != 0;
+    return GameModules::Skate::IsMultiplayer() != 0;
 }
-CSkater* SkaterById(uint32_t id)
+CRider* SkaterById(uint32_t id)
 {
-    return Mdl::Skate::Instance()->GetSkaterById(id);
+    return GameModules::Skate::Instance()->GetRiderByNumber(id);
 }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
-void* LocalPlayer() { return NetManager()->GetLocalPlayer(); }
+void* LocalPlayer() { return NetManager()->GetOwnPlayer(); }
 uint8_t RunCount() { return NetManager()->GetGameId(); }
 
 template <typename T>
@@ -68,13 +68,13 @@ T& Field(const void* object, uint32_t offset)
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).
-Net::App* ClientApp(int index) { return NetManager()->GetClient(index); }
+NetLink::App* ClientApp(int index) { return NetManager()->GetClient(index); }
 bool OnServer() { return NetManager()->OnServer(); }
 
 // What the update reads of the skater: its orientation as angles, the core component's state and controls, the two
 // other components' values.
 struct UpdateState {
-    Mth::Vector angles;
+    Maths::Vector angles;
     uint8_t state, flag74, value7C, flag75, flag76;
     uint32_t controls, value6C, value80;
 };
@@ -84,9 +84,9 @@ int16_t PackAngle(float angle) { return static_cast<int16_t>(static_cast<int>(st
 } // namespace
 
 // (shared by both: the original repeats it in each)
-static void ReadUpdateState(CSkaterLocalNetLogicComponent* self, CBaseComponent* component6C, UpdateState& out)
+static void ReadUpdateState(CRiderHostSync* self, CObjectModule* component6C, UpdateState& out)
 {
-    reinterpret_cast<Mth::Matrix*>(reinterpret_cast<uint8_t*>(self->m_object) + 0xC0)->GetEulerAngles(out.angles);
+    reinterpret_cast<Maths::Matrix*>(reinterpret_cast<uint8_t*>(self->m_object) + 0xC0)->GetEulerAngles(out.angles);
     uint8_t* core = self->m_core;
     out.state = Field<uint8_t>(core, 0x18);
     out.value7C = Field<uint8_t>(core, 0xE1);
@@ -105,15 +105,15 @@ static void ReadUpdateState(CSkaterLocalNetLogicComponent* self, CBaseComponent*
     }
     out.controls = controls;
     uint32_t value;
-    out.value6C = *static_cast<CSkaterEndRunComponent*>(component6C)->GetFlags(&value); // (SkaterEndRun)
+    out.value6C = *static_cast<CRiderSessionEnd*>(component6C)->GetFlags(&value); // (SkaterEndRun)
 }
 
 // 0x00512EA0
-uint32_t CSkaterLocalNetLogicComponent::GetUpdateFlags()
+uint32_t CRiderHostSync::GetUpdateFlags()
 {
     uint32_t flags = 0;
-    Net::App* app = ClientApp(Field<int>(m_object, 0x2BC));
-    CBaseComponent* component6C = m_object->GetComponent(kComponent6C);
+    NetLink::App* app = ClientApp(Field<int>(m_object, 0x2BC));
+    CObjectModule* component6C = m_object->GetComponent(kComponent6C);
     bool force = OnServer() || static_cast<uint32_t>(app->m_frameCount) % 15 == 0;
     UpdateState now;
     ReadUpdateState(this, component6C, now);
@@ -141,29 +141,29 @@ uint32_t CSkaterLocalNetLogicComponent::GetUpdateFlags()
 }
 
 // 0x005131A0
-void CSkaterLocalNetLogicComponent::SendUpdate()
+void CRiderHostSync::SendUpdate()
 {
-    Net::MsgDesc desc;
+    NetLink::NetMessageInfo desc;
     desc.Construct();
-    Util::BitStream stream;
-    auto* app = static_cast<Net::Client*>(ClientApp(Field<int>(m_object, 0x2BC)));
-    CBaseComponent* component6C = m_object->GetComponent(kComponent6C);
+    Util::PackedBitBuffer stream;
+    auto* app = static_cast<NetLink::Client*>(ClientApp(Field<int>(m_object, 0x2BC)));
+    CObjectModule* component6C = m_object->GetComponent(kComponent6C);
     bool onServer = OnServer();
     if (!onServer && static_cast<uint32_t>(app->m_frameCount) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
-        Net::ConnSearch search;
-        search.m_vtable = Net::kConnSearchVtable;
-        search.m_node = nullptr;
-        Net::Conn* conn = app->FirstConnection(&search);
-        if (app->m_time - m_lastSendTime < conn->GetSendInterval())
+        NetLink::ConnSearch search;
+        search.m_vtable = NetLink::kConnSearchVtable;
+        search.m_listLink = nullptr;
+        NetLink::Conn* conn = app->BeginConnWalk(&search);
+        if (app->m_clock - m_lastSendTime < conn->GetTransmitPeriod())
             return;
     }
-    m_lastSendTime = app->m_time;
+    m_lastSendTime = app->m_clock;
     uint8_t buffer[0x400];
-    stream.SetOutputData(buffer, 0x400);
+    stream.BindOutputBuffer(buffer, 0x400);
     UpdateState now;
     ReadUpdateState(this, component6C, now);
-    stream.WriteBits(app->m_time, 32);
+    stream.WriteBits(app->m_clock, 32);
     uint32_t flags = GetUpdateFlags();
     stream.WriteBits(flags, 9);
     if (onServer) {
@@ -213,20 +213,20 @@ void CSkaterLocalNetLogicComponent::SendUpdate()
     int size = stream.GetByteCount();
     desc.m_data = buffer;
     desc.m_id = 0x23;
-    desc.m_length = static_cast<uint16_t>(size);
+    desc.m_byteCount = static_cast<uint16_t>(size);
     desc.m_singular = true;
     desc.m_priority = 0x81;
-    app->EnqueueMessageToServer(&desc);
+    app->SendToHost(&desc);
 }
 
 // 0x00513630
-CBaseComponent* __cdecl CSkaterLocalNetLogicComponent::Create()
+CObjectModule* __cdecl CRiderHostSync::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterLocalNetLogicComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CRiderHostSync));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CSkaterLocalNetLogicComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CRiderHostSync*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_sentControls = 0;
     component->m_sentValue6C = 0;
@@ -243,52 +243,52 @@ CBaseComponent* __cdecl CSkaterLocalNetLogicComponent::Create()
 }
 
 // 0x00512E30
-void CSkaterLocalNetLogicComponent::DestroyBody()
+void CRiderHostSync::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00512E40
-CSkaterLocalNetLogicComponent* CSkaterLocalNetLogicComponent::Destroy(unsigned int flags)
+CRiderHostSync* CRiderHostSync::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00512E70
-void CSkaterLocalNetLogicComponent::Finalize()
+void CRiderHostSync::Finalize()
 {
     m_core = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterState));
     m_board = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCorePhysics));
 }
 
 // 0x005136C0
-void CSkaterLocalNetLogicComponent::Update()
+void CRiderHostSync::Update()
 {
-    if (IsMultiplayerGame() && LocalPlayer())
+    if (IsVersusSession() && LocalPlayer())
         SendUpdate();
 }
 
 // 0x005136F0
-int __cdecl CSkaterLocalNetLogicComponent::HandleGraffitiSteal(Net::MsgHandlerContext* context)
+int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
 {
-    const char* message = context->m_Msg;
+    const char* message = context->m_body;
     if (static_cast<uint8_t>(message[0]) != RunCount())
-        return Net::kHandlerMsgDone;
+        return NetLink::kHandlerMsgDone;
     uint32_t victimId = *reinterpret_cast<const uint32_t*>(message + 4);
     uint32_t thiefId = *reinterpret_cast<const uint32_t*>(message + 8);
-    auto* skater = static_cast<CSkater*>(context->m_data);
-    CSkater* victim = SkaterById(victimId);
+    auto* skater = static_cast<CRider*>(context->m_data);
+    CRider* victim = SkaterById(victimId);
     if (!victim)
-        return Net::kHandlerContinue;
-    CSkater* thief = SkaterById(thiefId);
+        return NetLink::kHandlerContinue;
+    CRider* thief = SkaterById(thiefId);
     if (!thief)
-        return Net::kHandlerContinue;
+        return NetLink::kHandlerContinue;
     uint32_t script;
-    CSkater* other;
+    CRider* other;
     if (skater->m_id == victimId) {
         script = kGraffitiStealYou;
         other = thief;
@@ -296,39 +296,39 @@ int __cdecl CSkaterLocalNetLogicComponent::HandleGraffitiSteal(Net::MsgHandlerCo
         script = kGraffitiStealOther;
         other = victim;
     } else {
-        return Net::kHandlerContinue;
+        return NetLink::kHandlerContinue;
     }
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
         params = params->Init();
     params->Clear(); // (on the new structure, as the original)
-    params->AddString(kString0, Script::ESYMBOLTYPE_STRING, other->GetDisplayName());
-    Script::RunScript(script, params, skater, false, nullptr);
+    params->AddString(kString0, Scripts::QBVAL_STRING, other->GetDisplayName());
+    Scripts::LaunchScript(script, params, skater, false, nullptr);
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
-    return Net::kHandlerContinue;
+    return NetLink::kHandlerContinue;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkaterLocalNetLogicComponent::Destroy,
-         &Obj::CSkaterLocalNetLogicComponent::Update,
-         &CSkaterCleanupStateComponent::InitFromStructure,
-         &Obj::CSkaterLocalNetLogicComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CRiderHostSync::Destroy,
+         &GameObjects::CRiderHostSync::Update,
+         &CRiderStateReset::ConfigureFromData,
+         &GameObjects::CRiderHostSync::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -3,7 +3,7 @@
 #include <string>
 
 union SDL_Event;
-namespace Mdl {
+namespace GameModules {
 struct FrontEnd;
 }
 
@@ -25,7 +25,7 @@ struct FrontEnd;
 // level select and the settings (Options: new_frontend_options.h, the ini's settings in five groups, written at once;
 // its Game options row runs the game's GAME OPTIONS) -, when a menu's item asks for it (NewFrontend_Open), on a root
 // (Main / Pause) it leaves at once on Back. The level select's Skate starts the level in free skate
-// (Front::StartLevel::Load) or changes level from the pause menu; Free Skate shows every level ([frontend]
+// (MenuSystem::BeginLevel::Load) or changes level from the pause menu; Free Skate shows every level ([frontend]
 // respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_unlocked); Career keeps
 // the game's own rules. The automation channel's `fe` commands (game/front/automation.h) drive ours.
 // The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
@@ -60,7 +60,7 @@ struct FrontEnd;
 // debug_restyle=1 logs the element tree of each screen left as it is. The game keeps the keyboard and the controllers
 // (its scripts, its selection - ours reads them each frame); the mouse is ours there (OwnsMouse). Whenever ours hides
 // the game's elements, a script scaling root_window back is undone the same frame: the game's is never drawn under ours.
-namespace Front::NewFrontend {
+namespace MenuSystem::NewFrontend {
 
 // [features] new_frontend (read once).
 bool& Enabled();
@@ -68,14 +68,14 @@ bool& Enabled();
 // Sio::InitSdlInput: listens to SDL's events (nothing when off).
 void Init();
 // Its script commands for the overlay's pause menu items (NewFrontend_PauseItem, NewFrontend_Open), registered after
-// the game's own (Sys::Main).
+// the game's own (SystemCore::Main).
 void RegisterScriptFunctions();
 // Once a frame, from the front end's input logic (MouseMenus::Update): decides whether it's up, runs the menus'
 // input and time, does what they ask.
-void Update(Mdl::FrontEnd* frontEnd);
-// After the game's 2D pass (Nx::RenderWorld): the frame, when it's up.
+void Update(GameModules::FrontEnd* frontEnd);
+// After the game's 2D pass (Engine3D::DrawWorld): the frame, when it's up.
 void Draw();
-// Mlp::ResetDeviceIfLost, before the device is reset: its device objects dropped (made again when next drawn).
+// FrameLoop::ResetDeviceIfLost, before the device is reset: its device objects dropped (made again when next drawn).
 void DeviceLost();
 
 // Whether the game's own input is held back now: the new front end is up, or the keys that chose for it are
@@ -105,4 +105,4 @@ bool AutomationScreenUp(const std::string& name);
 // For the status file: "<state> <screen>/<selected item> over the <anchor>" ("" when off).
 std::string AutomationStatus();
 
-} // namespace Front::NewFrontend
+} // namespace MenuSystem::NewFrontend

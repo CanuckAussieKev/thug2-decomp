@@ -42,17 +42,17 @@ constexpr float kMoving = 0.001f;                // 0x006461D8
 constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
 constexpr float kSkitchFeelDown = 200.0f;        // 0x0064BDB0
 
-Obj::CSkaterCareer* Career() { return At<Obj::CSkaterCareer*>(reinterpret_cast<uint8_t*>(Mdl::g_skateModule), 0x20); }
+GameObjects::CRiderStoryProgress* Career() { return At<GameObjects::CRiderStoryProgress*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); }
 
 // A cheat that keeps a balance trick perfect: its global flag set, the balance's lean (`lean`, two words) zeroed.
 void PerfectCheat(void* component, uint32_t cheat, uint32_t lean)
 {
-    if (!Career()->GetCheat(cheat))
+    if (!Career()->IsCodeOn(cheat))
         return;
-    Career()->SetGlobalFlag(Script::GetInteger(cheat));
+    Career()->SetGlobalFlag(Scripts::FetchIntValue(cheat));
     At<uint32_t>(At<void*>(component, kBalanceTrick), lean) = 0;
     At<uint32_t>(At<void*>(component, kBalanceTrick), lean + 4) = 0;
-    reinterpret_cast<uint8_t&>(GameNet::g_cheatFlag) = 1;
+    reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
 }
 
 } // namespace
@@ -71,7 +71,7 @@ void CorePhysicsComponent::DoGroundPhysics()
 
     // The heading (+0x348, degrees round from the facing).
     void* object = ObjectOf(this);
-    double heading = static_cast<double>(Mth::FastACos(VectorAt(object, kFacing).x)) * kRadiansToDegrees;
+    double heading = static_cast<double>(Maths::FastACos(VectorAt(object, kFacing).x)) * kRadiansToDegrees;
     At<float>(this, 0x348) = static_cast<float>(heading);
     if (VectorAt(object, kFacing).z < 0.0f)
         At<float>(this, 0x348) = static_cast<float>(kFullTurn - heading);
@@ -79,18 +79,18 @@ void CorePhysicsComponent::DoGroundPhysics()
         ThawBmx::NoteVertGround(this);
     // Moving: the velocity turned into the ground's plane.
     if (LengthOf(VectorAt(object, kVelocity)) > kMoving)
-        VectorAt(object, kVelocity).RotateToPlane(VectorAt(this, kGroundNormal));
+        VectorAt(object, kVelocity).AlignToPlane(VectorAt(this, kGroundNormal));
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
-    Mth::Vector gravity = {0.0f, PhysicsFloat(kGroundGravity, ObjectOf(this)), 0.0f, 1.0f};
+    Maths::Vector gravity = {0.0f, PhysicsFloat(kGroundGravity, ObjectOf(this)), 0.0f, 1.0f};
     if (!(At<float>(this, 0x350) == 0.0f) && VectorAt(ObjectOf(this), kVelocity).y > 0.0f)
         gravity = {0.0f, At<float>(this, 0x360), 0.0f, 1.0f};
-    gravity.ProjectToPlane(VectorAt(this, kGroundNormal));
+    gravity.FlattenOntoPlane(VectorAt(this, kGroundNormal));
     bool bike = ThawBmx::Active(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
     if (bike)
         ThawBmx::OnGround(this);
     if (!bike || ThawBmx::GroundGravityApplies(this, gravity)) {
         float t = At<float>(this, kFrameLength);
-        Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
         float gy = gravity.y * t, gz = gravity.z * t, gw = gravity.w * t;
         v.x = static_cast<float>(static_cast<double>(gravity.x) * t + v.x);
         v.y = gy + v.y;
@@ -110,7 +110,7 @@ void CorePhysicsComponent::DoGroundPhysics()
                 PushOff();
         }
     } else if (kind == kSkitch) {
-        reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x12C)->Update();
+        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x12C)->Update();
         PerfectCheat(this, kPerfectSkitch, 0x15C);
     } else if (kind == kNoseManual || kind == kManual) {
         At<uint8_t>(this, 0x324) = 0;
@@ -119,8 +119,8 @@ void CorePhysicsComponent::DoGroundPhysics()
             if (CanPushOff())
                 PushOff();
         }
-        reinterpret_cast<Obj::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x24)->Update();
-        static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->SetTrickObjects(true);
+        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0x24)->Update();
+        static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))->SetTrickObjects(true);
         PerfectCheat(this, kPerfectManual, 0x54);
     }
     CollisionEvents::Checkpoint(this, "gravity"); // (not original)
@@ -129,18 +129,18 @@ void CorePhysicsComponent::DoGroundPhysics()
     CollisionEvents::Checkpoint(this, "friction-side-feelers"); // (not original)
 
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
-    Mth::Vector step;
+    Maths::Vector step;
     {
         float t = At<float>(this, kFrameLength);
-        const Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        const Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
         step = {t * v.x, t * v.y, t * v.z, t * v.w};
     }
     if (Flag(this, 0x88)) {
-        Obj::CRideTracker* tracker = Tracker(this);
-        if (tracker && tracker->m_object.mp_object) {
-            void* skitched = tracker->m_object.mp_object;
-            float match = Script::GetFloat(kSkitchSpeedMatch);
-            const Mth::Vector& theirs = VectorAt(skitched, kVelocity);
+        GameObjects::CRideTracker* tracker = Tracker(this);
+        if (tracker && tracker->m_object.m_ownerObject) {
+            void* skitched = tracker->m_object.m_ownerObject;
+            float match = Scripts::GetFloat(kSkitchSpeedMatch);
+            const Maths::Vector& theirs = VectorAt(skitched, kVelocity);
             VectorAt(ObjectOf(this), kVelocity) = {match * theirs.x, match * theirs.y, match * theirs.z,
                                                    match * theirs.w};
         }
@@ -148,8 +148,8 @@ void CorePhysicsComponent::DoGroundPhysics()
         Skitch();
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).
-    if (Obj::CRideTracker* tracker = Tracker(this)) {
-        if (!tracker->m_object.mp_object || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
+    if (GameObjects::CRideTracker* tracker = Tracker(this)) {
+        if (!tracker->m_object.m_ownerObject || !tracker->Update(&VectorAt(ObjectOf(this), kPosition))) {
             StopRiding(this);
         } else if (!Flag(this, 0x88)) {
             void* o = ObjectOf(this);
@@ -159,7 +159,7 @@ void CorePhysicsComponent::DoGroundPhysics()
             if (Tracker(this)->m_turned) {
                 auto multiply =
                     D3dx::MatrixMultiply;
-                Mth::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
+                Maths::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
                 multiply(&m, &m, &Tracker(this)->m_turn);
                 multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
             }
@@ -196,19 +196,19 @@ void CorePhysicsComponent::DoGroundPhysics()
         SetFlag(this, 0x48, 1);
         SetFlag(this, 0xD8, 1);
     }
-    static_cast<Obj::CTrickComponent*>(At<void*>(this, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(this, 0x1B0));
+    static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))->PassToTrickObjects(At<uint32_t>(this, 0x1B0));
     At<int>(this, 0x30C) = 0;
 }
 
 // (Part of 0x0050EE70) The move along the ground: the step, then kept to the ground (skitching: a feeler down the
 // up for the terrain under the skater). Stopped short of the step (on the ground, the first time): the rest of the
 // step once more, along the velocity.
-void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
+void CorePhysicsComponent::MoveOnGround(Maths::Vector step)
 {
     bool again = false;
     for (;;) {
-        Mth::Vector& p = VectorAt(ObjectOf(this), kPosition);
-        Mth::Vector before = p; // (x, y, z used)
+        Maths::Vector& p = VectorAt(ObjectOf(this), kPosition);
+        Maths::Vector before = p; // (x, y, z used)
         p.x = step.x + p.x;
         p.y = step.y + p.y;
         p.z = step.z + p.z;
@@ -219,11 +219,11 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
         if (Flag(this, 0x88)) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
             void* object = ObjectOf(this);
-            const Mth::Vector& up = VectorAt(object, kUp);
-            const Mth::Vector& position = VectorAt(object, kPosition);
+            const Maths::Vector& up = VectorAt(object, kUp);
+            const Maths::Vector& position = VectorAt(object, kPosition);
             float upY = up.y * kSkitchFeelUp, upZ = up.z * kSkitchFeelUp, upW = up.w * kSkitchFeelUp;
-            Mth::Vector& start = VectorAt(this, kFeeler);       // (the feeler's own line)
-            Mth::Vector& end = VectorAt(this, kFeeler + 0x10);
+            Maths::Vector& start = VectorAt(this, kFeeler);       // (the feeler's own line)
+            Maths::Vector& end = VectorAt(this, kFeeler + 0x10);
             start.z = upZ + position.z;
             start.w = upW + position.w;
             start.x = static_cast<float>(static_cast<double>(up.x) * kSkitchFeelUp + position.x);
@@ -235,7 +235,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
             end.y = position.y - downY;
             if (Feel(this, 0x10, 0)) {
                 uint8_t terrain = At<uint8_t>(this, kSurfaceFlags);
-                reinterpret_cast<Obj::CSkaterStateComponent*>(FlagsOf(this))->SetTerrain(terrain);
+                reinterpret_cast<GameObjects::CRiderPoseState*>(FlagsOf(this))->SetSurfaceKind(terrain);
                 At<uint8_t>(At<void*>(this, kSoundComponent), 0x1C) = terrain;
             }
         } else {
@@ -243,7 +243,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
         }
         CollisionEvents::Checkpoint(this, "ground-check"); // (not original)
         // How far it got against the step.
-        const Mth::Vector& now = VectorAt(ObjectOf(this), kPosition);
+        const Maths::Vector& now = VectorAt(ObjectOf(this), kPosition);
         double dx = static_cast<double>(now.x) - before.x, dy = static_cast<double>(now.y) - before.y;
         double dz = static_cast<double>(now.z) - before.z;
         double moved = std::sqrt((dx * dx + dz * dz) + dy * dy);
@@ -254,7 +254,7 @@ void CorePhysicsComponent::MoveOnGround(Mth::Vector step)
             return;
         // The rest: along the velocity (x, y the unrounded unit vector, z rounded), the step's length, scaled by
         // what's left of it.
-        const Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        const Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
         double vx = v.x, vy = v.y;
         float vz = v.z;
         float vw = v.w;

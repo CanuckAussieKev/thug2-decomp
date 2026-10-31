@@ -5,26 +5,26 @@
 
 #include "game/core/alloc.h"
 
-namespace Net {
+namespace NetLink {
 struct Conn;
 } // namespace Net
-namespace Obj {
-class CSkater;
-struct CSkaterProfile;
+namespace GameObjects {
+class CRider;
+struct CRiderIdentity;
 } // namespace Obj
 
-// The network game's players (0x00543060-0x00544780): GameNet::PlayerInfo, one per player the manager knows (in its
-// player list - FirstPlayerInfo / NextPlayerInfo), and NewPlayerInfo, a player announced but not yet added.
+// The network game's players (0x00543060-0x00544780): OnlinePlay::PlayerRecord, one per player the manager knows (in its
+// player list - BeginPlayerWalk / StepPlayerWalk), and JoinerRecord, a player announced but not yet added.
 // The capture-the-flag and king-of-the-hill announcements are in player_flags.cpp.
-namespace GameNet {
+namespace OnlinePlay {
 
-// The player's flags (PlayerInfo::m_flags).
+// The player's flags (PlayerRecord::m_flags).
 enum PlayerFlag : uint32_t {
     kPlayerLocal = 0x1,            // this machine's player
     kPlayerJustJoined = 0x2,       // (with m_joinTime) still settling in - see IsVulnerable
     kPlayerObserver = 0x4,
     kPlayerPendingObserver = 0x8,  // joined to watch: not yet in the observers
-    kPlayerFullyIn = 0x20,         // in the game (MarkAsFullyIn)
+    kPlayerFullyIn = 0x20,         // in the game (SetFinishedJoining)
     kPlayerToldGameState = 0x40,
     kPlayerKing = 0x80,            // has the crown (king of the hill)
     kPlayerReady = 0x100,
@@ -38,18 +38,18 @@ enum PlayerFlag : uint32_t {
 
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
-struct NewPlayerInfo {
+struct JoinerRecord {
     char m_name[16];                  // +0x00
-    uint8_t m_objectId;               // +0x10
+    uint8_t m_entityKey;               // +0x10
     uint8_t pad11[3];
-    Net::Conn* m_conn;                // +0x14
+    NetLink::Conn* m_conn;                // +0x14
     uint32_t m_unknown18;
-    Obj::CSkaterProfile* m_profile;   // +0x1C
+    GameObjects::CRiderIdentity* m_profile;   // +0x1C
     uint32_t m_flags;                 // +0x20 PlayerFlag
     uint32_t m_unknown24;
     int m_team;                       // +0x28
     int32_t m_profileId;              // +0x2C the GameSpy profile
-    int32_t m_rating;                 // +0x30
+    int32_t m_skillPoints;                 // +0x30
     uint32_t m_unknown34;
     uint32_t m_unknown38;
     uint32_t m_unknown3C;
@@ -57,35 +57,35 @@ struct NewPlayerInfo {
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
-    NewPlayerInfo* Construct();
+    JoinerRecord* Construct();
     // 0x00543560: the destructor: its profile destroyed and freed.
     void DestroyBody();
 };
-static_assert(offsetof(NewPlayerInfo, m_profile) == 0x1C && offsetof(NewPlayerInfo, m_team) == 0x28 &&
-                  sizeof(NewPlayerInfo) == 0x44,
+static_assert(offsetof(JoinerRecord, m_profile) == 0x1C && offsetof(JoinerRecord, m_team) == 0x28 &&
+                  sizeof(JoinerRecord) == 0x44,
               "layout must match the original");
 
-// A player (0x1F0 bytes; vtable 0x0064CCF4; a node of the manager's player list - Lst::Node<PlayerInfo>, its data
-// itself). Also the players of a server described by the server list (ServerInfo's player list: only the name and
+// A player (0x1F0 bytes; vtable 0x0064CCF4; a node of the manager's player list - ListKit::Node<PlayerRecord>, its data
+// itself). Also the players of a server described by the server list (HostListing's player list: only the name and
 // the rating are used there).
-class PlayerInfo : public Mem::ListNode {
+class PlayerRecord : public MemSys::ListNode {
 public:
     static constexpr int kMaxPlayers = 8;
 
     // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile, 
     // "<No Name>", m_lastSentSkater 7 and the update records cleared (the per-skater ones to -1). Returns this.
-    PlayerInfo* Construct(uint32_t flags);
+    PlayerRecord* Construct(uint32_t flags);
     // 0x00543810: the destructor: its profile (destroyed and freed), the object at +0x1EC (deleted - virtual slot 2),
     // the face texture message (freed); then the node's (out of its list).
     void DestroyBody();
     // 0x00544750 (vtable slot 0): the scalar deleting destructor.
-    PlayerInfo* Destroy(unsigned int flags);
+    PlayerRecord* Destroy(unsigned int flags);
 
     // 0x005438D0: the player's skater; a remote player the camera follows is followed again (0x0053A910).
-    void SetSkater(Obj::CSkater* skater);
+    void BindRider(GameObjects::CRider* skater);
     // 0x00543270: its own copy of `profile` (made on the skater info heap: copied into even if the allocation
     // failed - a null `this`, as the original).
-    void SetProfile(Obj::CSkaterProfile* profile);
+    void SetProfile(GameObjects::CRiderIdentity* profile);
 
     // 0x005431F0: the face texture message to pass on to players joining later: the skater's object id, then
     // `size` bytes of `data` (allocated on the net misc heap). 0x00543060: it (null if none).
@@ -105,7 +105,7 @@ public:
     void AwaitReadyResponse(uint32_t id);
     void ReceiveReadyResponse(uint32_t id);
 
-    // 0x00543110 / 0x00543100: the time a projectile last hit it (Tmr::GetTime) / forgotten. 0x005430E0: more than
+    // 0x00543110 / 0x00543100: the time a projectile last hit it (FrameClock::GetTime) / forgotten. 0x005430E0: more than
     // 5 seconds ago (1 / 0, unsigned: a hit "in the future" counts as long ago).
     void SetLastHitTime(uint32_t time);
     void ClearLastHitTime();
@@ -124,15 +124,15 @@ public:
     void AddToAccumulatedScore(int score);
 
     // The flags (0 / 1 in EAX).
-    int IsLocalPlayer();       // 0x00543300
-    int IsServerPlayer();      // 0x00543310 (0x200)
+    int IsOwnPlayer();       // 0x00543300
+    int IsHostPlayer();      // 0x00543310 (0x200)
     int IsObserver();          // 0x00543320
-    int IsSurveying();         // 0x00543330
+    int IsScoutingLevel();         // 0x00543330
     void MarkFaceTextureSent(); // 0x00543340
     void MarkJustJoined();     // 0x00543350: and m_joinTime the time now
     void ClearJustJoined();    // 0x00543370
-    int IsFullyIn();           // 0x00543380: fully in, or the local player
-    void MarkAsServerPlayer(); // 0x00543390
+    int HasFinishedJoining();           // 0x00543380: fully in, or the local player
+    void SetHostPlayer(); // 0x00543390
     void ClearServerPlayer();  // 0x005433A0
     int IsCarryingFlag();      // 0x005433B0
     // 0x005433D0: the team whose flag it carries (the lowest), -1 for none.
@@ -143,9 +143,9 @@ public:
     // 0x00543440: out of the game: marked so, or in firefight with a skater whose SkaterScore says no lives (0x00561B40
     // = 0). The flag tested first (a bool in AL).
     bool IsEliminated();
-    int IsKing();              // 0x00543490
-    // 0x005434A0: its connection's handle (App::EnqueueMessage's), 0 without a connection.
-    int GetConnHandle();
+    int HoldsCrown();              // 0x00543490
+    // 0x005434A0: its connection's handle (App::PutOnOutbox's), 0 without a connection.
+    int GetLinkHandle();
     // 0x005434B0: the skater's +0x2BC (one of the getters folded there: no null check).
     uint32_t GetSkaterValue2BC();
     int IsPendingObserver();   // 0x005434C0
@@ -159,32 +159,32 @@ public:
     // 0x005439D0: fully in the game (flag 0x20); the server tells a remote player (host mode 1: message 0x5E on
     // the server app, sequenced group 8) or with host mode 2 starts the game (0x0053AAC0) if nothing holds it
     // (0x005373D0).
-    void MarkAsFullyIn();
+    void SetFinishedJoining();
     // The flag announcements (team_<n>_name for team n's name): 0x00543A90 it captured `team`'s flag (and carries
     // none now); 0x00543C70 it stole `team`'s flag (from whoever carried it); 0x00543F00 it took `team`'s flag;
     // 0x00544110 it returned its own team's flag (whoever carried it carries none). Each runs the script for the
     // local player, for the local player's team (not observing) or for the others, with String0 / String1 / team.
-    void CapturedFlag(int team);
-    void StoleFlag(int team);
-    void TookFlag(int team);
-    void RetrievedFlag();
+    void ScoreFlagCapture(int team);
+    void NoteFlagSteal(int team);
+    void NoteFlagPickup(int team);
+    void NoteFlagReturned();
     // 0x00544340: the crown (king of the hill): with `king`, taken from the king before it (if any) and announced -
     // NewKingYou / NewKingOther, the crown arrow - and worn (the crown, 0x005782B0); without, given up (the local
     // player's crown arrow shown again in netking / king).
-    void MarkAsKing(bool king);
+    void GiveCrown(bool king);
 
-    Obj::CSkater* m_skater;             // +0x14
-    Net::Conn* m_conn;                  // +0x18
+    GameObjects::CRider* m_skater;             // +0x14
+    NetLink::Conn* m_conn;                  // +0x18
     uint32_t m_eliminatedTime;          // +0x1C
     int m_accumulatedScore;             // +0x20
     uint32_t m_unknown24;
     uint32_t m_unknown28;
-    int m_rating;                       // +0x2C (a server list's player: its rating)
+    int m_skillPoints;                       // +0x2C (a server list's player: its rating)
     int m_team;                         // +0x30
     int m_unknown34;                    // +0x34 (scavenger hunt: 5 minus it is its score line's number)
     char m_name[16];                    // +0x38 ("<No Name>" until named)
     uint32_t m_unknown48;
-    Obj::CSkaterProfile* m_profile;     // +0x4C
+    GameObjects::CRiderIdentity* m_profile;     // +0x4C
     uint8_t m_unknown50[0x58];
     uint16_t m_updateRecordsA[kMaxPlayers][3]; // +0xA8 (-1 each)
     uint16_t m_updateRecordsB[kMaxPlayers][3]; // +0xD8 (-1 each)
@@ -202,11 +202,11 @@ public:
     uint8_t* m_faceTextureData;         // +0x1E8
     void* m_object1EC;                  // +0x1EC (deleted with it: virtual slot 2)
 };
-static_assert(offsetof(PlayerInfo, m_skater) == 0x14 && offsetof(PlayerInfo, m_team) == 0x30 &&
-                  offsetof(PlayerInfo, m_name) == 0x38 && offsetof(PlayerInfo, m_profile) == 0x4C &&
-                  offsetof(PlayerInfo, m_updateRecordsA) == 0xA8 && offsetof(PlayerInfo, m_sentUpdates) == 0x108 &&
-                  offsetof(PlayerInfo, m_updateBytesA) == 0x148 && offsetof(PlayerInfo, m_flags) == 0x1D0 &&
-                  offsetof(PlayerInfo, m_faceTextureData) == 0x1E8 && sizeof(PlayerInfo) == 0x1F0,
+static_assert(offsetof(PlayerRecord, m_skater) == 0x14 && offsetof(PlayerRecord, m_team) == 0x30 &&
+                  offsetof(PlayerRecord, m_name) == 0x38 && offsetof(PlayerRecord, m_profile) == 0x4C &&
+                  offsetof(PlayerRecord, m_updateRecordsA) == 0xA8 && offsetof(PlayerRecord, m_sentUpdates) == 0x108 &&
+                  offsetof(PlayerRecord, m_updateBytesA) == 0x148 && offsetof(PlayerRecord, m_flags) == 0x1D0 &&
+                  offsetof(PlayerRecord, m_faceTextureData) == 0x1E8 && sizeof(PlayerRecord) == 0x1F0,
               "layout must match the original");
 
 // The update records at +0x50 (0x00543180, called by the constructor on this + 0x50): its 16 words at +0xB8 (the
@@ -214,19 +214,19 @@ static_assert(offsetof(PlayerInfo, m_skater) == 0x14 && offsetof(PlayerInfo, m_t
 void* ClearUpdateRecords(void* records);
 
 // The list types of the score lines (score_list.cpp) - their vtables hold only the scalar deleting destructor:
-// Lst::Search<ScoreEntry> (0x0064CCE0): 0x00543170 the destructor body (the vtable reset), 0x00543580 the scalar
-// deleting one; Lst::Node<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
+// ListKit::Search<ScoreEntry> (0x0064CCE0): 0x00543170 the destructor body (the vtable reset), 0x00543580 the scalar
+// deleting one; ListKit::Node<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
 // the scalar deleting ones (inlined / calling it - two node types folded onto one vtable).
 struct ScoreSearch {
     void** m_vtable;
-    Mem::ListNode* m_node;
+    MemSys::ListNode* m_listLink;
     void DestroyBody();
     ScoreSearch* Destroy(unsigned int flags);
 };
-struct ScoreNode : Mem::ListNode {
+struct ScoreNode : MemSys::ListNode {
     void DestroyBody();
     ScoreNode* Destroy(unsigned int flags);
     ScoreNode* DestroyCalling(unsigned int flags);
 };
 
-} // namespace GameNet
+} // namespace OnlinePlay

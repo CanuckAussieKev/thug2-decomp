@@ -18,7 +18,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -28,16 +28,16 @@ constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
 const char* const kOff = "off"; // "off"
 
 // The hook manager's node list (its vtable +0x34), or null.
-CClassNodeList* HookNodes(CBaseComponent* hooks)
+CClassNodeList* HookNodes(CObjectModule* hooks)
 {
-    return reinterpret_cast<CClassNodeList*(__thiscall*)(CBaseComponent*)>(hooks->m_vtable[13])(hooks);
+    return reinterpret_cast<CClassNodeList*(__thiscall*)(CObjectModule*)>(hooks->m_vtable[13])(hooks);
 }
 
 // The nodes' transform: the object's orientation (the w column cleared) at its position.
-void PlaceNodes(CClassNodeList* nodes, CCompositeObject* object)
+void PlaceNodes(CClassNodeList* nodes, CGameEntity* object)
 {
-    Mth::Matrix transform;
-    transform = object->m_matrix;
+    Maths::Matrix transform;
+    transform = object->m_basisFrame;
     transform.row[3].x = object->m_pos.x;
     transform.row[3].z = object->m_pos.z;
     transform.row[0].w = 0.0f;
@@ -54,13 +54,13 @@ void PlaceNodes(CClassNodeList* nodes, CCompositeObject* object)
 void ComponentWithoutUpdate::Update() { VirtualSuspend(true); }
 
 // 0x0051BA10
-CBaseComponent* __cdecl CSkitchComponent::Create()
+CObjectModule* __cdecl CTowRideHandler::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CSkitchComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CTowRideHandler));
     if (!memory)
         return nullptr;
-    auto* skitch = static_cast<CSkitchComponent*>(memory);
-    skitch->CBaseComponent::Construct();
+    auto* skitch = static_cast<CTowRideHandler*>(memory);
+    skitch->CObjectModule::Construct();
     skitch->m_vtable = kVtable;
     skitch->m_type = kType;
     skitch->m_allowed = true;
@@ -68,38 +68,38 @@ CBaseComponent* __cdecl CSkitchComponent::Create()
 }
 
 // 0x0051B960
-void CSkitchComponent::DestroyBody()
+void CTowRideHandler::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0051B980
-CSkitchComponent* CSkitchComponent::Destroy(unsigned int flags)
+CTowRideHandler* CTowRideHandler::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0051B9B0
-void CSkitchComponent::InitFromStructure(Script::CStruct*) { m_hooks = m_object->GetComponent(kObjectHookManager); }
+void CTowRideHandler::ConfigureFromData(Scripts::CStruct*) { m_hooks = m_object->GetComponent(kObjectHookManager); }
 
 // 0x0051B9D0
-int CSkitchComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+int CTowRideHandler::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     if (name != kAllowSkitching)
         return 2;
-    m_allowed = !params->ContainsFlag(kOff);
+    m_allowed = !params->HasBareFlag(kOff);
     return 1;
 }
 
 // 0x0051BA70
-int CSkitchComponent::GetNearestHookPoint(Mth::Vector* out, const Mth::Vector* target)
+int CTowRideHandler::GetNearestHookPoint(Maths::Vector* out, const Maths::Vector* target)
 {
     int nearest = -1;
-    CCompositeObject* object = m_object;
+    CGameEntity* object = m_object;
     if (!m_hooks || !object)
         return nearest;
     CClassNodeList* nodes = HookNodes(m_hooks);
@@ -107,17 +107,17 @@ int CSkitchComponent::GetNearestHookPoint(Mth::Vector* out, const Mth::Vector* t
         return nearest;
     PlaceNodes(nodes, object);
     float nearestDistance = std::bit_cast<float>(0x56B5E621u); // (far enough)
-    Mth::Vector nearestPoint = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Vector nearestPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     int index = 0;
     for (CClassNodeList::Entry* node = nodes->m_entries; node; node = node->next, ++index) {
-        Mth::Vector point;
+        Maths::Vector point;
         nodes->Transform(&point, &node->pos);
-        const Mth::Vector& pos = object->m_pos;
+        const Maths::Vector& pos = object->m_pos;
         point.x -= pos.x;
         point.y -= pos.y;
         point.z -= pos.z;
         point.w -= pos.w;
-        point.ProjectToPlane(object->m_matrix.row[1]);
+        point.FlattenOntoPlane(object->m_basisFrame.row[1]);
         point.x += pos.x;
         point.y += pos.y;
         point.z += pos.z;
@@ -137,9 +137,9 @@ int CSkitchComponent::GetNearestHookPoint(Mth::Vector* out, const Mth::Vector* t
 }
 
 // 0x0051BC70
-bool CSkitchComponent::GetHookPoint(Mth::Vector* out, int index)
+bool CTowRideHandler::GetHookPoint(Maths::Vector* out, int index)
 {
-    CCompositeObject* object = m_object;
+    CGameEntity* object = m_object;
     if (!m_hooks || !object)
         return false;
     CClassNodeList* nodes = HookNodes(m_hooks);
@@ -150,10 +150,10 @@ bool CSkitchComponent::GetHookPoint(Mth::Vector* out, int index)
     for (CClassNodeList::Entry* node = nodes->m_entries; node; node = node->next, ++i) {
         if (i != index)
             continue;
-        Mth::Vector point;
+        Maths::Vector point;
         nodes->Transform(&point, &node->pos);
         point -= object->m_pos;
-        point.ProjectToPlane(object->m_matrix.row[1]);
+        point.FlattenOntoPlane(object->m_basisFrame.row[1]);
         point += object->m_pos;
         *out = point;
         return true;
@@ -163,22 +163,22 @@ bool CSkitchComponent::GetHookPoint(Mth::Vector* out, int index)
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CSkitchComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
-         &Obj::CSkitchComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CTowRideHandler::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
+         &GameObjects::CTowRideHandler::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CSkitchComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CTowRideHandler::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

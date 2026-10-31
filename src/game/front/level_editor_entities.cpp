@@ -39,7 +39,7 @@
 #include "game/sfx/sfx.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::Entities {
+namespace MenuSystem::LevelEditor::Entities {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ std::string SetStem(const std::string& name)
     return end == 0 ? name : name.substr(0, end);
 }
 
-V3 SetAnchor(const std::vector<V3>& places)
+V3 PinAnchorPoint(const std::vector<V3>& places)
 {
     if (places.empty())
         return {0.0f, 0.0f, 0.0f};
@@ -332,7 +332,7 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
 
 namespace {
 
-uint32_t Key(const char* name) { return Crc::GenerateCRCFromString(name); }
+uint32_t Key(const char* name) { return Checksums::HashFromText(name); }
 const uint32_t kClass = 0x12B4E660, kName = 0xA1DC81F9, kPos = 0x7F261953;
 const uint32_t kLevelObject = 0xB7B3BD86, kGameObject = 0xEF59C100, kPedestrian = 0xA0DFAC98, kVehicle = 0xE47F1B79,
                kParticleObject = 0x9E7D469E;
@@ -355,37 +355,37 @@ double Now()
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-Script::CStruct* NodeStruct(uint32_t name)
+Scripts::CStruct* NodeStruct(uint32_t name)
 {
-    return name && SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+    return name && LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(name, false) : nullptr;
 }
 
-uint32_t ClassOf(Script::CStruct* node)
+uint32_t ClassOf(Scripts::CStruct* node)
 {
     uint32_t cls = 0;
     if (node)
-        node->GetChecksum(kClass, &cls, 0);
+        node->ReadHashValue(kClass, &cls, 0);
     return cls;
 }
 
-Obj::CCompositeObject* LiveObject(uint32_t id)
+GameObjects::CGameEntity* LiveObject(uint32_t id)
 {
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+    auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(id));
+    return object && !(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) ? object : nullptr;
 }
 
-std::string ModelOf(Script::CStruct* node)
+std::string ModelOf(Scripts::CStruct* node)
 {
     const char* model = nullptr;
     return node && node->GetString(KModel(), &model, 0) && model ? std::string(model) : std::string();
 }
 
-bool InLevel() { return SkateScript::NodeManagerInstance() != nullptr && !Nodes::All().empty(); }
+bool InLevel() { return LevelNodes::NodeManagerInstance() != nullptr && !Nodes::All().empty(); }
 
 // A node of the editor's copies' array whose copy was deleted (its node stays until the level goes): not a ghost.
 bool DeletedCopy(const Nodes::Node& node)
 {
-    static const uint32_t kCopies = Crc::GenerateCRCFromString("level_editor_copy_nodes");
+    static const uint32_t kCopies = Checksums::HashFromText("level_editor_copy_nodes");
     return Nodes::ArrayName(node) == kCopies && !Objects::IsCopy(node.name);
 }
 
@@ -476,7 +476,7 @@ void NoteUndo()
 
 void QueueRemake(uint32_t name, bool keep, double delay)
 {
-    Obj::CCompositeObject* object = LiveObject(name);
+    GameObjects::CGameEntity* object = LiveObject(name);
     if (!object)
         return; // (nothing made of it now: its node is what a later create reads)
     for (Remake& r : g_remakes) {
@@ -501,19 +501,19 @@ void RunRemakes()
                 ++it;
                 continue;
             }
-            if (Obj::CCompositeObject* object = LiveObject(r.name)) {
+            if (GameObjects::CGameEntity* object = LiveObject(r.name)) {
                 if (r.keep)
                     r.state = Objects::Save(object);
-                object->MarkAsDead();
+                object->FlagAsDead();
             }
             r.killed = true;
         }
-        if (Obj::FindObject(r.name)) {
+        if (GameObjects::FindObject(r.name)) {
             ++it; // (not removed yet: the game deletes dead objects in its update)
             continue;
         }
-        if (Script::CStruct* node = NodeStruct(r.name)) {
-            CFuncs::CreateFromNode(node);
+        if (Scripts::CStruct* node = NodeStruct(r.name)) {
+            ScriptCommands::CreateFromNode(node);
             if (r.keep)
                 Objects::Restore(r.state);
             g_speedApplied.erase(r.name); // (its speed put on it again)
@@ -526,23 +526,23 @@ void RunRemakes()
 
 // --- sounds on emitters ---
 
-Sfx::CSfxManager* SfxManager() { return Sfx::g_sfxManager; }
-void* NearestCamera(const Mth::Vector* position, float* distance)
+SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+void* NearestCamera(const Maths::Vector* position, float* distance)
 {
-    return Nx::GetClosestCamera(position, distance);
+    return Engine3D::GetClosestCamera(position, distance);
 }
-const Mth::Vector* CameraPosition(void* camera)
+const Maths::Vector* ViewerLocation(void* camera)
 {
-    return static_cast<Gfx::Camera*>(camera)->GetPos();
+    return static_cast<Gfx2D::Camera*>(camera)->GetPos();
 }
-Obj::EmitterNode* Emitter(uint32_t name)
+GameObjects::EmitterNode* Emitter(uint32_t name)
 {
-    return Obj::g_emitterTable ? Obj::Emitter_GetNode(name) : nullptr;
+    return GameObjects::g_emitterTable ? GameObjects::Emitter_GetNode(name) : nullptr;
 }
 
 void StopPlaying(Playing* p)
 {
-    if (Sfx::CSfxManager* m = SfxManager(); m && p->id && !Sfx::NoSound())
+    if (SoundFx::CAudioMixer* m = SfxManager(); m && p->id && !SoundFx::NoSound())
         m->StopSound(p->id);
     p->id = 0;
 }
@@ -556,9 +556,9 @@ void StopAllSounds()
 
 void UpdateSounds()
 {
-    Sfx::CSfxManager* m = SfxManager();
+    SoundFx::CAudioMixer* m = SfxManager();
     std::vector<EmitterSound> emitters = EffectiveEmitters();
-    bool off = !m || Sfx::NoSound() || !InLevel() || Layout::NetworkActive();
+    bool off = !m || SoundFx::NoSound() || !InLevel() || Layout::NetworkActive();
     // (those no longer wanted, or of another sound now: stopped)
     for (auto it = g_playing.begin(); it != g_playing.end();) {
         auto e = std::find_if(emitters.begin(), emitters.end(), [&](const EmitterSound& x) { return x.name == it->name; });
@@ -579,32 +579,32 @@ void UpdateSounds()
             g_playing.push_back({e.name, e.sound, 0});
             p = g_playing.end() - 1;
         }
-        Obj::EmitterNode* emitter = Emitter(e.name);
-        Sfx::WaveTableEntry* wave = m->GetWaveTableEntry(e.sound);
+        GameObjects::EmitterNode* emitter = Emitter(e.name);
+        SoundFx::SoundWaveSlot* wave = m->GetWaveTableEntry(e.sound);
         if (!emitter || !emitter->m_active || !wave || m->IsPaused()) {
             StopPlaying(&*p);
             continue;
         }
         // As a sound played from an emitter: from the shape's nearest point to the listener, the sound's own dropoff.
-        Mth::Vector centre = emitter->m_pos;
+        Maths::Vector centre = emitter->m_pos;
         void* camera = NearestCamera(&centre, nullptr);
         if (!camera) {
             StopPlaying(&*p);
             continue;
         }
-        Mth::Vector listener = *CameraPosition(camera), heard = centre;
-        if (emitter->m_shape != Obj::EMITTER_SHAPE_OTHER)
-            emitter->GetClosestPoint(&heard, &listener);
-        Sfx::sVolume volume;
+        Maths::Vector listener = *ViewerLocation(camera), heard = centre;
+        if (emitter->m_form != GameObjects::EMITTER_SHAPE_OTHER)
+            emitter->NearestPointOn(&heard, &listener);
+        SoundFx::volumeRef volume;
         volume.Init();
         if (!m->GetVolume(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
             StopPlaying(&*p); // (out of range)
             continue;
         }
-        volume.PercentageAdjustment(e.volume);
+        volume.PercentTweak(e.volume);
         if (p->id && m->IsSoundPlaying(p->id, nullptr)) {
             m->SetSoundParamsScaled(p->id, &volume, 100.0f);
-        } else if (!volume.IsSilent()) {
+        } else if (!volume.IsAudioOff()) {
             p->id = m->PlaySound(e.sound, &volume, 100.0f, e.name, nullptr, 0); // (again when it stopped: a loop)
         } else {
             p->id = 0;
@@ -618,16 +618,16 @@ void ApplyRadius(const EmitterSound& e)
 {
     if (e.radius <= 0.0f)
         return;
-    if (Obj::EmitterNode* emitter = Emitter(e.name); emitter && emitter->m_shape == Obj::EMITTER_SHAPE_SPHERE &&
+    if (GameObjects::EmitterNode* emitter = Emitter(e.name); emitter && emitter->m_form == GameObjects::EMITTER_SHAPE_SPHERE &&
                                                      emitter->m_radius != e.radius) {
         emitter->m_radius = e.radius;
         emitter->m_radiusSquared = e.radius * e.radius;
     }
-    if (Script::CStruct* node = NodeStruct(e.name); node && !NodeCreate::IsAdded(e.name)) {
+    if (Scripts::CStruct* node = NodeStruct(e.name); node && !NodeCreate::IsAdded(e.name)) {
         float now = 0.0f;
         if (!node->GetFloat(KRadius(), &now, 0) || now != e.radius) {
             node->RemoveComponent(KRadius());
-            node->AddFloat(KRadius(), e.radius);
+            node->PushFloat(KRadius(), e.radius);
         }
     }
 }
@@ -640,7 +640,7 @@ void ApplyRadius(const EmitterSound& e)
 uint32_t PathSpeedScript()
 {
     static const uint32_t name = Key("LevelEditor_PathSpeed");
-    if (Script::FindSymbol(name))
+    if (Scripts::FindSymbol(name))
         return name;
     std::vector<uint8_t> qb;
     auto put4 = [&](uint32_t v) {
@@ -668,17 +668,17 @@ uint32_t PathSpeedScript()
         qb.push_back(0x00);
     }
     qb.push_back(0x00);
-    Script::LoadQBData("level_editor_entities.qb", qb.data(), 0, 0, 0);
+    Scripts::LoadQBData("level_editor_entities.qb", qb.data(), 0, 0, 0);
     return name;
 }
 
-void ApplySpeed(Obj::CCompositeObject* object, float mph)
+void ApplySpeed(GameObjects::CGameEntity* object, float mph)
 {
-    Script::CStruct* params = Script::NewStruct()->Init();
-    params->AddFloat(Key("speed"), mph);
-    Script::RunScript(PathSpeedScript(), params, object, false, nullptr);
+    Scripts::CStruct* params = Scripts::NewStruct()->Init();
+    params->PushFloat(Key("speed"), mph);
+    Scripts::LaunchScript(PathSpeedScript(), params, object, false, nullptr);
     params->Clear();
-    Script::DeleteStruct(params);
+    Scripts::DeleteStruct(params);
 }
 
 void UpdateSpeeds()
@@ -686,7 +686,7 @@ void UpdateSpeeds()
     if (!InLevel() || Layout::NetworkActive())
         return;
     for (const Speed& s : EffectiveSpeeds()) {
-        Obj::CCompositeObject* object = LiveObject(s.name);
+        GameObjects::CGameEntity* object = LiveObject(s.name);
         if (!object)
             continue;
         auto it = g_speedApplied.find(s.name);
@@ -706,11 +706,11 @@ void ScanBaked()
     if (Layout::NetworkActive())
         return;
     for (const Nodes::Node& n : Nodes::All()) {
-        Script::CStruct* s = Nodes::StructOf(n);
+        Scripts::CStruct* s = Nodes::StructOf(n);
         if (!s || !n.name)
             continue;
         uint32_t sound = 0;
-        if (n.family == Nodes::Family::Sound && s->GetChecksum(KEdSound(), &sound, 0) && sound) {
+        if (n.family == Nodes::Family::Sound && s->ReadHashValue(KEdSound(), &sound, 0) && sound) {
             EmitterSound e;
             e.name = n.name;
             e.sound = sound;
@@ -735,24 +735,24 @@ bool PathOf(uint32_t name, std::vector<V3>* points, bool* closed)
 {
     points->clear();
     *closed = false;
-    Script::CStruct* node = NodeStruct(name);
-    if (!node || SkateScript::GetLinkCount(node) == 0)
+    Scripts::CStruct* node = NodeStruct(name);
+    if (!node || LevelNodes::GetLinkCount(node) == 0)
         return false;
-    uint32_t next = SkateScript::GetLink(node, 0);
+    uint32_t next = LevelNodes::GetLink(node, 0);
     std::vector<uint32_t> seen;
     while (next && points->size() < 512) {
         if (std::find(seen.begin(), seen.end(), next) != seen.end()) {
             *closed = next == seen.front();
             break;
         }
-        Script::CStruct* point = NodeStruct(next);
+        Scripts::CStruct* point = NodeStruct(next);
         if (!point || ClassOf(point) != KWaypoint())
             break;
-        Mth::Vector pos;
-        SkateScript::GetPosition(point, &pos);
+        Maths::Vector pos;
+        LevelNodes::GetPosition(point, &pos);
         points->push_back({pos.x, pos.y, pos.z});
         seen.push_back(next);
-        next = SkateScript::GetLinkCount(point) ? SkateScript::GetLink(point, 0) : 0;
+        next = LevelNodes::GetLinkCount(point) ? LevelNodes::GetLink(point, 0) : 0;
     }
     return points->size() >= 2;
 }
@@ -767,15 +767,15 @@ float PreviewMph(uint32_t name)
     return cls == kVehicle ? 25.0f : cls == kPedestrian ? 3.0f : 10.0f;
 }
 
-float Heading(const Obj::CCompositeObject* object)
+float Heading(const GameObjects::CGameEntity* object)
 {
-    const Mth::Vector& at = object->m_matrix.row[2];
+    const Maths::Vector& at = object->m_basisFrame.row[2];
     return std::atan2(at.x, at.z);
 }
 
 void PreviewPlace(float distance)
 {
-    Obj::CCompositeObject* object = LiveObject(g_preview.id);
+    GameObjects::CGameEntity* object = LiveObject(g_preview.id);
     V3 pos, dir;
     if (!object || !PathSample(g_preview.points, g_preview.closed, distance, &pos, &dir))
         return;
@@ -787,7 +787,7 @@ void PreviewPlace(float distance)
 void PreviewStart(uint32_t id)
 {
     StopPreview();
-    Obj::CCompositeObject* object = LiveObject(id);
+    GameObjects::CGameEntity* object = LiveObject(id);
     if (!object || !PathOf(id, &g_preview.points, &g_preview.closed))
         return;
     g_preview.id = id;
@@ -838,7 +838,7 @@ void BuildPalette()
     std::map<std::string, std::vector<uint32_t>> sets;
     std::vector<std::pair<std::string, Source>> peds, cars, particles;
     for (const Nodes::Node& n : Nodes::All()) {
-        Script::CStruct* s = Nodes::StructOf(n);
+        Scripts::CStruct* s = Nodes::StructOf(n);
         if (!s || !n.name || n.hidden || NodeCreate::IsAdded(n.name) || Objects::IsCopy(n.name))
             continue;
         uint32_t cls = ClassOf(s);
@@ -846,8 +846,8 @@ void BuildPalette()
             if (!LiveObject(n.name)) // (only types the level has made: their assets are loaded)
                 continue;
             uint32_t type = 0, profile = 0;
-            s->GetChecksum(KType(), &type, 0);
-            s->GetChecksum(KProfile(), &profile, 0);
+            s->ReadHashValue(KType(), &type, 0);
+            s->ReadHashValue(KProfile(), &profile, 0);
             std::string model = ModelOf(s);
             if (!types.insert(TypeKey(cls, type, profile, model)).second)
                 continue;
@@ -859,12 +859,12 @@ void BuildPalette()
                 label += std::string(" (") + Short(model) + ")";
             label += "  like " + Nodes::Label(n.name);
             (cls == kPedestrian ? peds : cars).push_back({label, Source{SourceKind::Copy, {n.name}}});
-        } else if ((cls == kLevelObject || cls == kGameObject) && s->ContainsFlag(KBouncy()) && LiveObject(n.name)) {
+        } else if ((cls == kLevelObject || cls == kGameObject) && s->HasBareFlag(KBouncy()) && LiveObject(n.name)) {
             sets[SetStem(Nodes::Label(n.name))].push_back(n.name);
         } else if (cls == kParticleObject) {
             uint32_t type = 0, texture = 0;
-            s->GetChecksum(KType(), &type, 0);
-            s->GetChecksum(KTexture(), &texture, 0);
+            s->ReadHashValue(KType(), &type, 0);
+            s->ReadHashValue(KTexture(), &texture, 0);
             if (!types.insert(TypeKey(cls, type, texture, "")).second)
                 continue;
             std::string label = "Particles: " + Nodes::Label(texture ? texture : type) + "  like " + Nodes::Label(n.name);
@@ -893,10 +893,10 @@ void BuildPalette()
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
     const char* why = NodeCreate::WhyNot(NodeCreate::Kind::Sound, NodeCreate::Team::Red);
-    auto* waves = Sfx::g_levelWaves;
-    int count = std::clamp(Sfx::g_levelCount, 0, 256);
+    auto* waves = SoundFx::g_levelWaves;
+    int count = std::clamp(SoundFx::g_levelCount, 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
-    for (int i = 0; i < count && !Sfx::NoSound(); ++i) {
+    for (int i = 0; i < count && !SoundFx::NoSound(); ++i) {
         std::string label = "Sound emitter: " + Nodes::Label(waves[i].checksum);
         if (waves[i].looping)
             label += " (loop)";
@@ -1038,7 +1038,7 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
     int index = Nodes::Find(name);
     if (index < 0 || Nodes::All()[index].family != Nodes::Family::Particle)
         return;
-    Script::CStruct* node = NodeStruct(name);
+    Scripts::CStruct* node = NodeStruct(name);
     if (!node)
         return;
     static const uint32_t kMid = Key("MidPosition"), kEnd = Key("EndPosition");
@@ -1050,7 +1050,7 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
         ParticleOrigin o;
         o.from = origin ? origin->pos : pos;
         o.fromYaw = origin ? origin->angles.y : angles.y;
-        Script::VectorValue v;
+        Scripts::VectorValue v;
         if ((o.emitter.hasMid = node->GetVector(kMid, &v, 0)))
             o.emitter.mid = {v.x, v.y, v.z};
         if ((o.emitter.hasEnd = node->GetVector(kEnd, &v, 0)))
@@ -1073,7 +1073,7 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
         if (!has)
             return;
         node->RemoveComponent(key);
-        node->AddVector(key, v.x, v.y, v.z);
+        node->PutVec3(key, v.x, v.y, v.z);
     };
     put(kMid, now.hasMid, now.mid);
     put(kEnd, now.hasEnd, now.end);
@@ -1137,7 +1137,7 @@ Placed Place(int index, V3 at, float yaw)
         return placed;
     }
     if (source.kind == SourceKind::Copy) {
-        Obj::CCompositeObject* copy = Objects::MakeCopy(source.names.front(), at);
+        GameObjects::CGameEntity* copy = Objects::MakeCopy(source.names.front(), at);
         if (!copy) {
             placed.message = "Couldn't copy " + Nodes::Label(source.names.front());
             return placed;
@@ -1155,13 +1155,13 @@ Placed Place(int index, V3 at, float yaw)
     // A bouncy set: each member copied, about the anchor as the level placed them.
     std::vector<V3> places;
     for (uint32_t name : source.names) {
-        Mth::Vector p;
-        SkateScript::GetPosition(NodeStruct(name), &p);
+        Maths::Vector p;
+        LevelNodes::GetPosition(NodeStruct(name), &p);
         places.push_back({p.x, p.y, p.z});
     }
-    V3 anchor = SetAnchor(places);
+    V3 anchor = PinAnchorPoint(places);
     for (size_t i = 0; i < source.names.size(); ++i) {
-        if (Obj::CCompositeObject* copy = Objects::MakeCopy(source.names[i], at + (places[i] - anchor)))
+        if (GameObjects::CGameEntity* copy = Objects::MakeCopy(source.names[i], at + (places[i] - anchor)))
             placed.copies.push_back(copy->m_id);
     }
     char text[96];
@@ -1321,17 +1321,17 @@ void ChangeEmitter(const EmitterSound& e)
 }
 float EmitterRadius(uint32_t name, bool* sphere)
 {
-    Obj::EmitterNode* emitter = Emitter(name);
-    *sphere = emitter && emitter->m_shape == Obj::EMITTER_SHAPE_SPHERE;
+    GameObjects::EmitterNode* emitter = Emitter(name);
+    *sphere = emitter && emitter->m_form == GameObjects::EMITTER_SHAPE_SPHERE;
     return emitter ? emitter->m_radius : 0.0f;
 }
 std::vector<std::pair<uint32_t, std::string>> Sounds()
 {
     std::vector<std::pair<uint32_t, std::string>> out;
-    if (Sfx::NoSound())
+    if (SoundFx::NoSound())
         return out;
-    auto* waves = Sfx::g_levelWaves;
-    int count = std::clamp(Sfx::g_levelCount, 0, 256);
+    auto* waves = SoundFx::g_levelWaves;
+    int count = std::clamp(SoundFx::g_levelCount, 0, 256);
     for (int i = 0; i < count; ++i)
         out.push_back({waves[i].checksum, Nodes::Label(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
@@ -1361,4 +1361,4 @@ float PreviewDistance() { return g_preview.distance; }
 float PreviewLength() { return PathLength(g_preview.points, g_preview.closed); }
 } // namespace Detail
 
-} // namespace Front::LevelEditor::Entities
+} // namespace MenuSystem::LevelEditor::Entities

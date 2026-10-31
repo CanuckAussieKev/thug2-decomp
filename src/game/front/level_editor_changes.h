@@ -12,7 +12,7 @@
 // each with a one-line summary, Go to (what it names selected, the camera taken there) and Revert: the layout without
 // that record put in place (the rest as it is) - one undo step (Ctrl+Z puts the change back). The editor's own records
 // (groups, labels, locks of its Outliner: level_editor_organize.h) aren't changes to the level: not listed.
-namespace Front::LevelEditor::Changes {
+namespace MenuSystem::LevelEditor::Changes {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -37,4 +37,4 @@ std::string Without(const std::string& layoutText, int line);
 // A record's checksum argument: 8 hex digits (or 0x and 8) as they are, else a name's checksum (the script's CRC).
 uint32_t IdOf(const std::string& word);
 
-} // namespace Front::LevelEditor::Changes
+} // namespace MenuSystem::LevelEditor::Changes

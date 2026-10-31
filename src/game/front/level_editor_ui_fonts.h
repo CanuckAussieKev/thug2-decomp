@@ -1,7 +1,7 @@
 #pragma once
 
 // NOT ORIGINAL - the level editor's fonts, compressed into the exe (level_editor_ui_fonts.cpp).
-namespace Front::LevelEditor::UiFonts {
+namespace MenuSystem::LevelEditor::UiFonts {
 
 // A TTF compressed by ImGui's binary_to_compressed_c (for ImFontAtlas::AddFontFromMemoryCompressedTTF).
 struct CompressedFont {
@@ -12,4 +12,4 @@ CompressedFont Inter();         // Inter Regular: the UI
 CompressedFont InterSemiBold(); // Inter SemiBold: headings, the selection's name
 CompressedFont Mono();          // JetBrains Mono Regular: numbers, names, checksums
 
-} // namespace Front::LevelEditor::UiFonts
+} // namespace MenuSystem::LevelEditor::UiFonts

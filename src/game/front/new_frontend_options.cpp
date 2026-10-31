@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace Front::NewFrontend::Options {
+namespace MenuSystem::NewFrontend::Options {
 
 namespace {
 
@@ -225,4 +225,4 @@ std::string IniSet(const std::string& text, const std::string& section, const st
     return out + "[" + section + "]" + eol + added + eol;
 }
 
-} // namespace Front::NewFrontend::Options
+} // namespace MenuSystem::NewFrontend::Options

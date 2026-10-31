@@ -15,7 +15,7 @@
 #include "game/sys/config.h"
 #include "game/sys/log.h"
 
-namespace Nx::GraphicsOptions {
+namespace Engine3D::GraphicsOptions {
 
 namespace {
 
@@ -78,12 +78,12 @@ Options& Get() { return s_options; }
 
 void Load()
 {
-    s_options.anisotropy = ParseAnisotropy(Config::GetInt(Config::kGraphics, "anisotropy", 0));
-    s_options.msaa = ParseMultisample(Config::GetInt(Config::kGraphics, "msaa", 0));
+    s_options.anisotropy = ParseAnisotropy(BuildInfo::GetInt(BuildInfo::kGraphics, "anisotropy", 0));
+    s_options.msaa = ParseMultisample(BuildInfo::GetInt(BuildInfo::kGraphics, "msaa", 0));
     char text[32];
-    Config::GetString(Config::kGraphics, "draw_distance_scale", "1", text, sizeof(text));
+    BuildInfo::GetString(BuildInfo::kGraphics, "draw_distance_scale", "1", text, sizeof(text));
     s_options.drawDistanceScale = ParseScale(text);
-    Config::GetString(Config::kGraphics, "lod_distance_scale", "1", text, sizeof(text));
+    BuildInfo::GetString(BuildInfo::kGraphics, "lod_distance_scale", "1", text, sizeof(text));
     s_options.lodDistanceScale = ParseScale(text);
     if (s_options.anisotropy || s_options.msaa || s_options.drawDistanceScale != 1.0f ||
         s_options.lodDistanceScale != 1.0f)
@@ -203,4 +203,4 @@ void ResolveSceneTarget(IDirect3DTexture9* texture)
     s_unresolved = false;
 }
 
-} // namespace Nx::GraphicsOptions
+} // namespace Engine3D::GraphicsOptions

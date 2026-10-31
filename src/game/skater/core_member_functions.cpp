@@ -262,10 +262,10 @@ constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e
 
 uint8_t& Byte(void* component, uint32_t offset) { return At<uint8_t>(component, offset); }
 int Is(uint8_t value) { return value ? 1 : 0; }
-Script::CStruct* ResultsOf(Script::CScript* script) { return script->m_params; }
+Scripts::CStruct* ResultsOf(Scripts::CScript* script) { return script->m_params; }
 
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
-uint32_t AirTime(void* component)
+uint32_t TimeAloft(void* component)
 {
     int state = At<int>(FlagsOf(component), kState);
     if (state == 1 || state == 2)
@@ -275,9 +275,9 @@ uint32_t AirTime(void* component)
 
 // The skater's facing, made unit (the x and y products left unrounded as the original keeps them on the x87 stack),
 // as the end of a feeler from `start` `distance` long.
-void FeelAlongFacing(Nx::CFeeler& feeler, void* object, float distance)
+void FeelAlongFacing(Engine3D::CProbeRay& feeler, void* object, float distance)
 {
-    const Mth::Vector& facing = VectorAt(object, kForward);
+    const Maths::Vector& facing = VectorAt(object, kForward);
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
@@ -288,8 +288,8 @@ void FeelAlongFacing(Nx::CFeeler& feeler, void* object, float distance)
         y *= inverse;
         z = static_cast<float>(z * inverse);
     }
-    Mth::Vector& start = feeler.m_line.start;
-    Mth::Vector& end = feeler.m_line.end;
+    Maths::Vector& start = feeler.m_line.start;
+    Maths::Vector& end = feeler.m_line.end;
     end.x = static_cast<float>(x * distance + start.x);
     end.y = static_cast<float>(y * distance + start.y);
     end.z = static_cast<float>(static_cast<double>(z) * distance + start.z);
@@ -297,46 +297,46 @@ void FeelAlongFacing(Nx::CFeeler& feeler, void* object, float distance)
 
 // The feeler of IsFacingWall and its relatives: the unnamed distance (200), from the skater's position (raised by
 // `raise` when set).
-bool FeelAhead(void* component, Script::CStruct* params, Nx::CFeeler& feeler, bool raise)
+bool FeelAhead(void* component, Scripts::CStruct* params, Engine3D::CProbeRay& feeler, bool raise)
 {
     float distance = kFacingDistance;
     params->GetFloat(0u, &distance, 0);
     feeler.Construct();
     void* object = ObjectOf(component);
-    const Mth::Vector& position = VectorAt(object, kPosition);
+    const Maths::Vector& position = VectorAt(object, kPosition);
     feeler.m_line.start = position;
     if (raise)
         feeler.m_line.start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
     feeler.m_line.end = feeler.m_line.start;
     FeelAlongFacing(feeler, object, distance);
-    return feeler.GetCollision(true, false) != 0;
+    return feeler.GetHitShape(true, false) != 0;
 }
 
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
-bool HitWall(const Nx::CFeeler& feeler)
+bool HitWall(const Engine3D::CProbeRay& feeler)
 {
     if (feeler.m_hit.faceFlags & 8)
         return false;
-    return !(std::fabs(static_cast<double>(feeler.m_normal.y)) > kWallNormalY);
+    return !(std::fabs(static_cast<double>(feeler.m_surfaceDir.y)) > kWallNormalY);
 }
 
 } // namespace
 
 // 0x004FBE80
-void __cdecl CorePhysicsComponent::RegisterMemberFunctions()
+void __cdecl CorePhysicsComponent::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterCorePhysics),
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterCorePhysics),
                                         g_coreMemberFunctions, 0x18);
 }
 
 // 0x004FBEA0
-int CorePhysicsComponent::AirTimeThreshold(Script::CStruct* params)
+int CorePhysicsComponent::AirTimeThreshold(Scripts::CStruct* params)
 {
     float value = 0.0f;
     params->GetFloat(0u, &value, 0);
-    if (params->ContainsFlag(kSeconds) || params->ContainsFlag(kSecond))
+    if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond))
         return static_cast<int>(Ftol(static_cast<double>(value) * kMillisecondsPerSecond));
-    if (params->ContainsFlag(kFrames) || params->ContainsFlag(kFrame))
+    if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
         return static_cast<int>(Ftol(static_cast<double>(value) * kMillisecondsPerFrame));
     return static_cast<int>(Ftol(value));
 }
@@ -344,256 +344,256 @@ int CorePhysicsComponent::AirTimeThreshold(Script::CStruct* params)
 // --- the component's own bytes ---
 
 // 0x004FBF40
-int CorePhysicsComponent::CanBrakeOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::CanBrakeOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kCanBrake) = 0;
     return 1;
 }
 // 0x004FBF50
-int CorePhysicsComponent::CanBrakeOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::CanBrakeOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kCanBrake) = 1;
     return 1;
 }
 // 0x004FBF60
-int CorePhysicsComponent::CanKickOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::CanKickOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoKick) = 0;
     return 1;
 }
 // 0x004FBF70
-int CorePhysicsComponent::CanKickOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::CanKickOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoKick) = 1;
     return 1;
 }
 // 0x004FBF80
-int CorePhysicsComponent::ForceAutoKickOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ForceAutoKickOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAutoKick) = 1;
     return 1;
 }
 // 0x004FBF90
-int CorePhysicsComponent::ForceAutoKickOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ForceAutoKickOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAutoKick) = 0;
     return 1;
 }
 // 0x004FBFA0
-int CorePhysicsComponent::AutoKickIsOff(Script::CStruct*, Script::CScript*) { return Byte(this, kAutoKick) ? 0 : 1; }
+int CorePhysicsComponent::AutoKickIsOff(Scripts::CStruct*, Scripts::CScript*) { return Byte(this, kAutoKick) ? 0 : 1; }
 // 0x004FBFB0
-int CorePhysicsComponent::SkaterVehicleOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::SkaterVehicleOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kOnVehicle) = 1;
     return 1;
 }
 // 0x004FBFC0
-int CorePhysicsComponent::SkaterVehicleOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::SkaterVehicleOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kOnVehicle) = 0;
     return 1;
 }
 // 0x004FBFD0
-int CorePhysicsComponent::IsSkaterOnVehicle(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kOnVehicle)); }
+int CorePhysicsComponent::IsSkaterOnVehicle(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kOnVehicle)); }
 // 0x004FC000
-int CorePhysicsComponent::CanSpin(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::CanSpin(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoSpin) = 0;
     return 1;
 }
 // 0x004FC010
-int CorePhysicsComponent::BailOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::BailOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kBail) = 1;
     return 1;
 }
 // 0x004FC020
-int CorePhysicsComponent::BailOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::BailOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kBail) = 0;
     return 1;
 }
 // 0x004FC030
-int CorePhysicsComponent::BailIsOn(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kBail)); }
+int CorePhysicsComponent::BailIsOn(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kBail)); }
 // 0x004FC080
-int CorePhysicsComponent::BadLedge(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kNearLedge)); }
+int CorePhysicsComponent::BadLedge(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kNearLedge)); }
 // 0x004FC090
-int CorePhysicsComponent::LandedFromSpine(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::LandedFromSpine(Scripts::CStruct*, Scripts::CScript*)
 {
     return Is(Byte(this, kLandedFromSpine));
 }
 // 0x004FC0A0
-int CorePhysicsComponent::LandedFromVert(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kLandedFromVert)); }
+int CorePhysicsComponent::LandedFromVert(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kLandedFromVert)); }
 // 0x004FC0B0
-int CorePhysicsComponent::SetLandedFromVert(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::SetLandedFromVert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kLandedFromVert) = 1;
     return 1;
 }
 // 0x004FC0C0
-int CorePhysicsComponent::ResetLandedFromVert(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ResetLandedFromVert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kLandedFromVert) = 0;
     return 1;
 }
 // 0x004FC0D0
-int CorePhysicsComponent::AllowLipNoGrind(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::AllowLipNoGrind(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAllowLipNoGrind) = 1;
     return 1;
 }
 // 0x004FC0E0
-int CorePhysicsComponent::ClearAllowLipNoGrind(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ClearAllowLipNoGrind(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAllowLipNoGrind) = 0;
     return 1;
 }
 // 0x004FC0F0
-int CorePhysicsComponent::NoRailTricks(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::NoRailTricks(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoRailTricks) = 1;
     return 1;
 }
 // 0x004FC100
-int CorePhysicsComponent::AllowRailTricks(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::AllowRailTricks(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoRailTricks) = 0;
     return 1;
 }
 // 0x004FC1A0
-int CorePhysicsComponent::InRevert(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::InRevert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kRevert) = 1;
     return 1;
 }
 // 0x004FC1B0
-int CorePhysicsComponent::OutRevert(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::OutRevert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kRevert) = 0;
     return 1;
 }
 // 0x004FC1C0
-int CorePhysicsComponent::IsInRevert(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kRevert)); }
+int CorePhysicsComponent::IsInRevert(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kRevert)); }
 // 0x004FC1D0
-int CorePhysicsComponent::ProjectilesOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ProjectilesOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kProjectiles) = 1;
     return 1;
 }
 // 0x004FC1E0
-int CorePhysicsComponent::ProjectilesOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ProjectilesOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kProjectiles) = 0;
     return 1;
 }
 // 0x004FC1F0
-int CorePhysicsComponent::FocusOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::FocusOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kFocus) = 1;
     return 1;
 }
 // 0x004FC200
-int CorePhysicsComponent::IsSkaterFocused(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kFocus)); }
+int CorePhysicsComponent::IsSkaterFocused(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kFocus)); }
 // 0x004FC210
-int CorePhysicsComponent::ResetProjectileInput(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ResetProjectileInput(Scripts::CStruct*, Scripts::CScript*)
 {
     At<int>(this, kProjectileInput) = -1;
     return 1;
 }
 // 0x004FC230
-int CorePhysicsComponent::EnterPowerslide(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::EnterPowerslide(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kPowerslide) = 1;
     return 1;
 }
 // 0x004FC240
-int CorePhysicsComponent::ExitPowerslide(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ExitPowerslide(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kPowerslide) = 0;
     return 1;
 }
 // 0x004FC250
-int CorePhysicsComponent::MotoSkateboardOn(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::MotoSkateboardOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kMotoskateboard) = 1;
     return 1;
 }
 // 0x004FC260
-int CorePhysicsComponent::MotoSkateboardOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::MotoSkateboardOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kMotoskateboard) = 0;
     return 1;
 }
 // 0x004FC270
-int CorePhysicsComponent::IsOnMotoskateboard(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::IsOnMotoskateboard(Scripts::CStruct*, Scripts::CScript*)
 {
     return Is(Byte(this, kMotoskateboard));
 }
 // 0x004FC280
-int CorePhysicsComponent::SkaterIsFlipping(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kModelRotating)); }
+int CorePhysicsComponent::SkaterIsFlipping(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kModelRotating)); }
 // 0x004FC290
-int CorePhysicsComponent::ResetIsFlipping(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ResetIsFlipping(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kModelRotating) = 0;
     return 1;
 }
 // 0x004FC2A0
-int CorePhysicsComponent::SetThrowingProjectile(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::SetThrowingProjectile(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kThrowing) = 1;
     return 1;
 }
 // 0x004FC2B0
-int CorePhysicsComponent::UnsetThrowingProjectile(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::UnsetThrowingProjectile(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kThrowing) = 0;
     return 1;
 }
 // 0x004FC2C0
-int CorePhysicsComponent::IsThrowingProjectile(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kThrowing)); }
+int CorePhysicsComponent::IsThrowingProjectile(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kThrowing)); }
 // 0x004FC2D0
-int CorePhysicsComponent::EndManualTurnaround(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::EndManualTurnaround(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kManualTurnaround) = 0;
     return 1;
 }
 // 0x004FC2E0
-int CorePhysicsComponent::EnterTantrum(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::EnterTantrum(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTantrum) = 1;
     return 1;
 }
 // 0x004FC2F0
-int CorePhysicsComponent::ExitTantrum(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ExitTantrum(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTantrum) = 0;
     return 1;
 }
 // 0x004FC300
-int CorePhysicsComponent::InTantrum(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kTantrum)); }
+int CorePhysicsComponent::InTantrum(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kTantrum)); }
 // 0x004FC310
-int CorePhysicsComponent::EnterTagging(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::EnterTagging(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTagging) = 1;
     return 1;
 }
 // 0x004FC320
-int CorePhysicsComponent::ExitTagging(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::ExitTagging(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTagging) = 0;
     return 1;
 }
 // 0x004FC330
-int CorePhysicsComponent::IsTagging(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kTagging)); }
+int CorePhysicsComponent::IsTagging(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kTagging)); }
 // 0x004FC9B0
-int CorePhysicsComponent::Braking(Script::CStruct*, Script::CScript*) { return Is(Byte(this, kBraking)); }
+int CorePhysicsComponent::Braking(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kBraking)); }
 
 // --- the timed flags ---
 
 // 0x004FC780
-int CorePhysicsComponent::Flipped(Script::CStruct*, Script::CScript*) { return Is(FlagsOf(this)[kFlagFlipped]); }
+int CorePhysicsComponent::Flipped(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagFlipped]); }
 // 0x004FC7A0
-int CorePhysicsComponent::Switched(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::Switched(Scripts::CStruct*, Scripts::CScript*)
 {
     bool flipped = FlagsOf(this)[kFlagFlipped] != 0;
     if (At<uint8_t>(ObjectOf(this), kObjectRegularStance))
@@ -601,51 +601,51 @@ int CorePhysicsComponent::Switched(Script::CStruct*, Script::CScript*)
     return flipped ? 0 : 1;
 }
 // 0x004FC7E0
-int CorePhysicsComponent::Crouched(Script::CStruct*, Script::CScript*) { return Is(FlagsOf(this)[kFlagCrouched]); }
+int CorePhysicsComponent::Crouched(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagCrouched]); }
 // 0x004FC800
-int CorePhysicsComponent::FirstTimeOnThisRail(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::FirstTimeOnThisRail(Scripts::CStruct*, Scripts::CScript*)
 {
     return Is(FlagsOf(this)[kFlagFirstTimeOnRail]);
 }
 // 0x004FC820
-int CorePhysicsComponent::Skitching(Script::CStruct*, Script::CScript*) { return Is(FlagsOf(this)[kFlagSkitching]); }
+int CorePhysicsComponent::Skitching(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagSkitching]); }
 // 0x004FC840
-int CorePhysicsComponent::CancelWallpush(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::CancelWallpush(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagCancelWallpush, 1);
     return 1;
 }
 // 0x004FCF90
-int CorePhysicsComponent::NoSpin(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::NoSpin(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoSpin) = 1;
     SetTimedFlag(this, kFlagSpin, 0);
     return 1;
 }
 // 0x004FCFC0
-int CorePhysicsComponent::InBail(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::InBail(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagBail, 1);
     return 1;
 }
 // 0x004FCFF0
-int CorePhysicsComponent::NotInBail(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::NotInBail(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagBail, 0);
     return 1;
 }
 // 0x004FD020
-int CorePhysicsComponent::IsInBail(Script::CStruct*, Script::CScript*) { return Is(FlagsOf(this)[kFlagBail]); }
+int CorePhysicsComponent::IsInBail(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagBail]); }
 // 0x004FD1C0
-int CorePhysicsComponent::InVertAir(Script::CStruct*, Script::CScript*) { return Is(FlagsOf(this)[kFlagVertAir]); }
+int CorePhysicsComponent::InVertAir(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagVertAir]); }
 // 0x004FD530
-int CorePhysicsComponent::OverrideCancelGround(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::OverrideCancelGround(Scripts::CStruct* params, Scripts::CScript*)
 {
-    SetTimedFlag(this, kFlagCancelGround, params->ContainsFlag(kOff) ? 0 : 1);
+    SetTimedFlag(this, kFlagCancelGround, params->HasBareFlag(kOff) ? 0 : 1);
     return 1;
 }
 // 0x004FD630
-int CorePhysicsComponent::SetVertAir(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::SetVertAir(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagVertAir, 1);
     return 1;
@@ -654,31 +654,31 @@ int CorePhysicsComponent::SetVertAir(Script::CStruct*, Script::CScript*)
 // --- values from the parameters ---
 
 // 0x004FBFE0
-int CorePhysicsComponent::SetSkaterVehicle(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetSkaterVehicle(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetChecksum(0u, &At<uint32_t>(this, kVehicle), 1);
+    params->ReadHashValue(0u, &At<uint32_t>(this, kVehicle), 1);
     return 1;
 }
 // 0x004FC040
-int CorePhysicsComponent::LockVelocityDirection(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::LockVelocityDirection(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Byte(this, kLockVelocity) = params->ContainsFlag(kOn);
+    Byte(this, kLockVelocity) = params->HasBareFlag(kOn);
     return 1;
 }
 // 0x004FC060
-int CorePhysicsComponent::SetGrindTweak(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetGrindTweak(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetInteger(0u, &At<int>(this, kGrindTweak), 0);
+    params->FetchIntValue(0u, &At<int>(this, kGrindTweak), 0);
     return 1;
 }
 // 0x004FC180
-int CorePhysicsComponent::SetAmmoType(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetAmmoType(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->GetChecksum(0u, &At<uint32_t>(this, kProjectileType), 0);
+    params->ReadHashValue(0u, &At<uint32_t>(this, kProjectileType), 0);
     return 1;
 }
 // 0x004FC110
-int CorePhysicsComponent::SetExtraPush(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetExtraPush(Scripts::CStruct* params, Scripts::CScript*)
 {
     float* radius = &At<float>(this, kExtraPushRadius);
     float* speed = &At<float>(this, kExtraPushSpeed);
@@ -692,7 +692,7 @@ int CorePhysicsComponent::SetExtraPush(Script::CStruct* params, Script::CScript*
     return 1;
 }
 // 0x004FC340
-int CorePhysicsComponent::DoingFlip(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::DoingFlip(Scripts::CStruct*, Scripts::CScript*)
 {
     if (Byte(this, kModelRotating) && At<float>(this, kModelRotationLeft) > kFlipLeftMin)
         return 1;
@@ -702,53 +702,53 @@ int CorePhysicsComponent::DoingFlip(Script::CStruct*, Script::CScript*)
 // --- the air time ---
 
 // 0x004FC880
-int CorePhysicsComponent::AirTimeLessThan(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::AirTimeLessThan(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint32_t time = AirTime(this);
+    uint32_t time = TimeAloft(this);
     return time < static_cast<uint32_t>(AirTimeThreshold(params)) ? 1 : 0;
 }
 // 0x004FC8E0
-int CorePhysicsComponent::AirTimeGreaterThan(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::AirTimeGreaterThan(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint32_t time = AirTime(this);
+    uint32_t time = TimeAloft(this);
     return static_cast<uint32_t>(AirTimeThreshold(params)) < time ? 1 : 0;
 }
 // 0x004FC940
-int CorePhysicsComponent::GetAirtime(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetAirtime(Scripts::CStruct*, Scripts::CScript* script)
 {
-    uint32_t time = AirTime(this);
+    uint32_t time = TimeAloft(this);
     float seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
-    ResultsOf(script)->AddFloat(kAirtime, seconds);
+    ResultsOf(script)->PushFloat(kAirtime, seconds);
     return 1;
 }
 
 // 0x004FC9C0
-int CorePhysicsComponent::RestoreAutoKick(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::RestoreAutoKick(Scripts::CStruct*, Scripts::CScript*)
 {
     int profile = At<int>(ObjectOf(this), kObjectProfile);
-    uint8_t* profiles = reinterpret_cast<uint8_t*>(Mdl::g_skateModule);
+    uint8_t* profiles = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
     Byte(this, kAutoKick) = profiles[profile * 8 + 0x395];
     return 1;
 }
 
 // 0x004FC9F0
-int CorePhysicsComponent::DoCarPlantBoost(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
-    Mth::Vector& velocity = VectorAt(object, kVelocity);
+    Maths::Vector& velocity = VectorAt(object, kVelocity);
     float upward = velocity.y;
     if (upward < 0.0f)
         upward = 0.0f;
     velocity.y = upward;
     velocity.y = static_cast<float>(static_cast<double>(PhysicsFloat(kCarPlantUpwardBoost, object)) + velocity.y);
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
-    Mth::Vector direction(velocity.x, 0.0f, velocity.z, velocity.w);
+    Maths::Vector direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
-        const Mth::Vector& facing = VectorAt(object, kForward);
-        direction = Mth::Vector(facing.x, 0.0f, facing.z, facing.w);
+        const Maths::Vector& facing = VectorAt(object, kForward);
+        direction = Maths::Vector(facing.x, 0.0f, facing.z, facing.w);
         double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
         if (flat < kStillSquared)
-            direction = Mth::Vector(1.0f, 0.0f, 1.0f, 1.0f);
+            direction = Maths::Vector(1.0f, 0.0f, 1.0f, 1.0f);
     }
     double length = std::sqrt(static_cast<double>(direction.z) * direction.z +
                               static_cast<double>(direction.x) * direction.x);
@@ -762,7 +762,7 @@ int CorePhysicsComponent::DoCarPlantBoost(Script::CStruct*, Script::CScript*)
     float y = static_cast<float>(direction.y * boost);
     float z = static_cast<float>(direction.z * boost);
     float w = static_cast<float>(direction.w * boost);
-    Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& v = VectorAt(ObjectOf(this), kVelocity);
     v.x = static_cast<float>(v.x + direction.x * boost);
     v.y += y;
     v.z += z;
@@ -771,10 +771,10 @@ int CorePhysicsComponent::DoCarPlantBoost(Script::CStruct*, Script::CScript*)
 }
 
 // 0x004FD040
-int CorePhysicsComponent::SetRailSound(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetRailSound(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t sound = 0;
-    params->GetChecksum(0u, &sound, 1);
+    params->ReadHashValue(0u, &sound, 1);
     bool slide = sound == kSlide;
     SetTimedFlag(this, kFlagSlide, slide ? 1 : 0);
     At<uint8_t>(At<void*>(this, kSoundComponent), 0x1E) = slide ? 1 : 0;
@@ -782,25 +782,25 @@ int CorePhysicsComponent::SetRailSound(Script::CStruct* params, Script::CScript*
 }
 
 // 0x004FD0D0
-int CorePhysicsComponent::SetRollingFriction(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetRollingFriction(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
     float* friction = &At<float>(this, kRollingFrictionValue);
     params->GetFloat(0u, friction, 0);
-    if (params->ContainsFlag(kDefault) && At<float>(this, kSpecialFrictionTime) == 0.0f)
+    if (params->HasBareFlag(kDefault) && At<float>(this, kSpecialFrictionTime) == 0.0f)
         *friction = PhysicsFloat(kRollingFriction, object);
     return 1;
 }
 
 // 0x004FD140
-int CorePhysicsComponent::LastSpinWas(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::LastSpinWas(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (params->ContainsFlag(kBackside)) {
+    if (params->HasBareFlag(kBackside)) {
         bool flipped = FlagsOf(this)[kFlagFlipped] != 0;
         bool backside = Byte(this, kLastSpinBackside) != 0;
         return (flipped ? !backside : backside) ? 1 : 0;
     }
-    if (params->ContainsFlag(kFrontside)) {
+    if (params->HasBareFlag(kFrontside)) {
         bool flipped = FlagsOf(this)[kFlagFlipped] != 0;
         bool backside = Byte(this, kLastSpinBackside) != 0;
         return (flipped ? backside : !backside) ? 1 : 0;
@@ -809,17 +809,17 @@ int CorePhysicsComponent::LastSpinWas(Script::CStruct* params, Script::CScript*)
 }
 
 // 0x004FD1E0
-int CorePhysicsComponent::TurnToFaceVelocity(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
-    const Mth::Vector& velocity = VectorAt(object, kVelocity);
+    const Maths::Vector& velocity = VectorAt(object, kVelocity);
     double x = velocity.x, y = velocity.y, z = velocity.z;
     double lengthSquared = (x * x + y * y) + z * z;
     if (lengthSquared < kStillSquared)
         return 1;
-    Mth::Vector& right = VectorAt(object, kMatrix);
-    Mth::Vector& up = VectorAt(object, kUp);
-    Mth::Vector& facing = VectorAt(object, kForward);
+    Maths::Vector& right = VectorAt(object, kMatrix);
+    Maths::Vector& up = VectorAt(object, kUp);
+    Maths::Vector& facing = VectorAt(object, kForward);
     facing = VectorAt(object, kVelocity);
     facing.Normalize();
     // right = up x facing
@@ -840,22 +840,22 @@ int CorePhysicsComponent::TurnToFaceVelocity(Script::CStruct*, Script::CScript*)
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
     up.Normalize();
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
     return 1;
 }
 
 // 0x004FD360
-int CorePhysicsComponent::OverrideLimits(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::OverrideLimits(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
     float& time = At<float>(this, kLimitsTime);
-    if (params->ContainsFlag(kCancelLimits)) {
+    if (params->HasBareFlag(kCancelLimits)) {
         time = 0.0f;
         return 1;
     }
     if (At<uint32_t>(this, kLimitsTime) == 0xC0000000u) // -2: for the level
         return 1;
-    if (params->ContainsFlag(kEnd)) {
+    if (params->HasBareFlag(kEnd)) {
         time = 0.0f;
         return 1;
     }
@@ -872,17 +872,17 @@ int CorePhysicsComponent::OverrideLimits(Script::CStruct* params, Script::CScrip
     float* gravity = &At<float>(this, kLimitsGravity);
     *gravity = PhysicsFloat(kGroundGravity, object);
     params->GetFloat(kGravity, gravity, 0);
-    if (params->ContainsFlag(kUntilCancelled))
+    if (params->HasBareFlag(kUntilCancelled))
         time = -1.0f;
-    if (params->ContainsFlag(kCurrentLevel))
+    if (params->HasBareFlag(kCurrentLevel))
         time = -2.0f;
     return 1;
 }
 
 // 0x004FD4A0
-int CorePhysicsComponent::SetSpecialFriction(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetSpecialFriction(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Script::CArray* frictions = nullptr;
+    Scripts::CArray* frictions = nullptr;
     params->GetArray(0u, &frictions, 0);
     int& index = At<int>(this, kSpecialFrictionIndex);
     int count = static_cast<int>(frictions->m_size); // (no array: the original reads through null too)
@@ -899,75 +899,75 @@ int CorePhysicsComponent::SetSpecialFriction(Script::CStruct* params, Script::CS
 // --- results for the script ---
 
 // 0x004FD580
-int CorePhysicsComponent::GetMatrixNormal(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetMatrixNormal(Scripts::CStruct*, Scripts::CScript* script)
 {
-    ResultsOf(script)->AddFloat(kX, VectorAt(ObjectOf(this), kUp).x);
-    ResultsOf(script)->AddFloat(kY, VectorAt(ObjectOf(this), kUp).y);
-    ResultsOf(script)->AddFloat(kZ, VectorAt(ObjectOf(this), kUp).z);
+    ResultsOf(script)->PushFloat(kX, VectorAt(ObjectOf(this), kUp).x);
+    ResultsOf(script)->PushFloat(kY, VectorAt(ObjectOf(this), kUp).y);
+    ResultsOf(script)->PushFloat(kZ, VectorAt(ObjectOf(this), kUp).z);
     return 1;
 }
 // 0x004FD5E0
-int CorePhysicsComponent::GetLastGroundPos(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetLastGroundPos(Scripts::CStruct*, Scripts::CScript* script)
 {
-    const Mth::Vector& position = VectorAt(this, kLastGroundPos);
-    ResultsOf(script)->AddVector(kPos, position.x, position.y, position.z);
+    const Maths::Vector& position = VectorAt(this, kLastGroundPos);
+    ResultsOf(script)->PutVec3(kPos, position.x, position.y, position.z);
     return 1;
 }
 // 0x004FD610
-int CorePhysicsComponent::GetLastGroundHeading(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetLastGroundHeading(Scripts::CStruct*, Scripts::CScript* script)
 {
-    ResultsOf(script)->AddFloat(kLastHeading, At<float>(this, kLastHeadingValue));
+    ResultsOf(script)->PushFloat(kLastHeading, At<float>(this, kLastHeadingValue));
     return 1;
 }
 // 0x004FDC30
-int CorePhysicsComponent::GetAmmo(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetAmmo(Scripts::CStruct*, Scripts::CScript* script)
 {
-    ResultsOf(script)->AddInteger(kAmmo, At<int>(this, kProjectileCount));
+    ResultsOf(script)->PutInt(kAmmo, At<int>(this, kProjectileCount));
     return 1;
 }
 // 0x004FDC50
-int CorePhysicsComponent::GetAmmoType(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetAmmoType(Scripts::CStruct*, Scripts::CScript* script)
 {
-    ResultsOf(script)->AddChecksum(kAmmoType, At<uint32_t>(this, kProjectileType));
+    ResultsOf(script)->PutNameKey(kAmmoType, At<uint32_t>(this, kProjectileType));
     return 1;
 }
 // 0x004FDC70
-int CorePhysicsComponent::GetPitchBailDir(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetPitchBailDir(Scripts::CStruct*, Scripts::CScript* script)
 {
-    ResultsOf(script)->AddChecksum(kPitchBailDir, At<uint32_t>(this, kPitchBail));
+    ResultsOf(script)->PutNameKey(kPitchBailDir, At<uint32_t>(this, kPitchBail));
     return 1;
 }
 
 // --- feelers ahead ---
 
 // 0x004FD660
-int CorePhysicsComponent::IsFacingWall(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::IsFacingWall(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     if (FeelAhead(this, params, feeler, false) && HitWall(feeler))
         return 1;
     return 0;
 }
 
 // 0x004FD840
-int CorePhysicsComponent::TurnFromWall(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::TurnFromWall(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     if (!FeelAhead(this, params, feeler, false) || !HitWall(feeler))
         return 0;
-    VectorAt(ObjectOf(this), kVelocity).SetDirection(feeler.m_normal);
-    VectorAt(ObjectOf(this), kForward).SetDirection(feeler.m_normal);
-    static_cast<Obj::CSkaterFlipAndRotateComponent*>(
-        static_cast<Obj::CCompositeObject*>(ObjectOf(this))->GetComponent(kSkaterFlipAndRotate))
+    VectorAt(ObjectOf(this), kVelocity).SetDirection(feeler.m_surfaceDir);
+    VectorAt(ObjectOf(this), kForward).SetDirection(feeler.m_surfaceDir);
+    static_cast<GameObjects::CRiderSpinAndFlip*>(
+        static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->GetComponent(kSkaterFlipAndRotate))
         ->Flip();
-    At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+    At<Maths::Matrix>(this, kDisplayMatrix) = At<Maths::Matrix>(ObjectOf(this), kMatrix);
     return 1;
 }
 
 // 0x004FDA80
-int CorePhysicsComponent::IsFacingVert(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::IsFacingVert(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     if (FeelAhead(this, params, feeler, true) && (feeler.m_hit.faceFlags & 8))
         return 1;
     return 0;
@@ -976,38 +976,38 @@ int CorePhysicsComponent::IsFacingVert(Script::CStruct* params, Script::CScript*
 // --- focus ---
 
 // 0x004FDC90
-int CorePhysicsComponent::FocusOff(Script::CStruct*, Script::CScript*)
+int CorePhysicsComponent::FocusOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kFocus) = 0;
-    auto* camera = static_cast<Obj::CCompositeObject*>(static_cast<Obj::CSkater*>(ObjectOf(this))->GetSkaterCamera());
-    static_cast<Obj::CCameraLookAroundComponent*>(camera->GetComponent(kCameraLookAround))->SetLocked(false);
+    auto* camera = static_cast<GameObjects::CGameEntity*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetSkaterCamera());
+    static_cast<GameObjects::CFreeLookModule*>(camera->GetComponent(kCameraLookAround))->SetLocked(false);
     return 1;
 }
 // 0x004FDCC0
-int CorePhysicsComponent::GetFocusTimeLeft(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetFocusTimeLeft(Scripts::CStruct*, Scripts::CScript* script)
 {
-    auto* score = static_cast<uint8_t*>(static_cast<Obj::CSkater*>(ObjectOf(this))->GetScore());
+    auto* score = static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetPointsTotal());
     if (!score)
         return 0;
-    ResultsOf(script)->AddFloat(kFocusTime, At<float>(score, 0));
+    ResultsOf(script)->PushFloat(kFocusTime, At<float>(score, 0));
     return 1;
 }
 // 0x004FDCF0
-int CorePhysicsComponent::GetFocusTimesAllowed(Script::CStruct*, Script::CScript* script)
+int CorePhysicsComponent::GetFocusTimesAllowed(Scripts::CStruct*, Scripts::CScript* script)
 {
-    auto* score = static_cast<uint8_t*>(static_cast<Obj::CSkater*>(ObjectOf(this))->GetScore());
+    auto* score = static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetPointsTotal());
     if (!score)
         return 0;
-    ResultsOf(script)->AddInteger(kFocusAllowed, At<int>(score, 4));
+    ResultsOf(script)->PutInt(kFocusAllowed, At<int>(score, 4));
     return 1;
 }
 // 0x004FDD20
-int CorePhysicsComponent::SetFocusTimesAllowed(Script::CStruct* params, Script::CScript*)
+int CorePhysicsComponent::SetFocusTimesAllowed(Scripts::CStruct* params, Scripts::CScript*)
 {
-    auto* score = static_cast<uint8_t*>(static_cast<Obj::CSkater*>(ObjectOf(this))->GetScore());
+    auto* score = static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetPointsTotal());
     if (!score)
         return 0;
-    params->GetInteger(0u, &At<int>(score, 4), 0);
+    params->FetchIntValue(0u, &At<int>(score, 4), 0);
     return 1;
 }
 

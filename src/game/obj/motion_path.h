@@ -3,12 +3,12 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Script {
+namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
 
-namespace Obj {
+namespace GameObjects {
 
 // CMotionPathMembers::m_motionFlags (+0x18)
 constexpr uint32_t MOTION_FLAG_MOVING = 0x18;   // (two bits: Obj_IsMoving / Obj_StopMoving)
@@ -29,9 +29,9 @@ public:
 
     // 0x00423130 (not a Ghidra function; registered with the component's Create, 0x00426650): its member functions'
     // table (0x00681EB8; filled by the static initialiser at 0x00640E30).
-    static void __cdecl RegisterMemberFunctions();
+    static void __cdecl PublishMethodTable();
     // 0x00423150: turning (any of MOTION_FLAG_ROTATING).
-    bool IsRotating() const;
+    bool IsSpinning() const;
     // 0x00423520: MOTION_PATH_RANDOM (the path follower takes a random link).
     bool PicksRandomLink() const;
     // 0x00423510: the path follower (+0x1EC; null while not on a path).
@@ -44,40 +44,40 @@ public:
 
     // --- the member functions scripts call (the table at 0x00681EB8) ---
     // 0x00423160 [Obj_IsMoving] / 0x00423170 [Obj_IsRotating]: true / false.
-    int IsMovingFromScript(Script::CStruct* params, Script::CScript* script);
-    int IsRotatingFromScript(Script::CStruct* params, Script::CScript* script);
+    int IsMovingFromScript(Scripts::CStruct* params, Scripts::CScript* script);
+    int IsRotatingFromScript(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00423180 [Obj_StopMoving] / 0x00423190 [Obj_StopRotating]: the flags cleared. 1.
-    int StopMoving(Script::CStruct* params, Script::CScript* script);
-    int StopRotating(Script::CStruct* params, Script::CScript* script);
+    int StopMoving(Scripts::CStruct* params, Scripts::CScript* script);
+    int StopRotating(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004231A0 [Obj_SetPathVelocity] / 0x00423210 [Obj_SetPathMinStopVel]: the unnamed float, in miles an hour
     // (into inches a second) - Fps: feet a second, ips: inches a second. 0x00423280 [Obj_SetPathAcceleration] /
     // 0x004232F0 [Obj_SetPathDeceleration]: the same per second (Fpsps / ipsps). Not given: as it was. 1.
-    int SetPathVelocity(Script::CStruct* params, Script::CScript* script);
-    int SetPathMinStopVel(Script::CStruct* params, Script::CScript* script);
-    int SetPathAcceleration(Script::CStruct* params, Script::CScript* script);
-    int SetPathDeceleration(Script::CStruct* params, Script::CScript* script);
+    int SetPathVelocity(Scripts::CStruct* params, Scripts::CScript* script);
+    int SetPathMinStopVel(Scripts::CStruct* params, Scripts::CScript* script);
+    int SetPathAcceleration(Scripts::CStruct* params, Scripts::CScript* script);
+    int SetPathDeceleration(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00423360 [Obj_PathHeading]: `Off` - MOTION_PATH_NO_HEADING. 1.
-    int PathHeading(Script::CStruct* params, Script::CScript* script);
+    int PathHeading(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004233A0 [Obj_RandomPathMode]: `Off` clears MOTION_PATH_RANDOM, else sets it. 1.
-    int RandomPathMode(Script::CStruct* params, Script::CScript* script);
+    int RandomPathMode(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004233E0 [Obj_StopAlongPath]: a stop over the unnamed distance (feet; `inches`: inches; 0 - or none: at
     // once), from the speed now down to the minimum stop speed (15 if 0). 1.
-    int StopAlongPath(Script::CStruct* params, Script::CScript* script);
+    int StopAlongPath(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00423480 [Obj_StartAlongPath]: the stop called off. 1.
-    int StartAlongPath(Script::CStruct* params, Script::CScript* script);
+    int StartAlongPath(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00423490 [Obj_WaitJumpFinished] / 0x004234B0 [Obj_WaitRotate] / 0x004234D0 [Obj_WaitMove] / 0x004234F0
     // [Obj_WaitStop]: the script waits on the component (wait types 7, 9, 5, 8). 1.
-    int WaitJumpFinished(Script::CStruct* params, Script::CScript* script);
-    int WaitRotate(Script::CStruct* params, Script::CScript* script);
-    int WaitMove(Script::CStruct* params, Script::CScript* script);
-    int WaitStop(Script::CStruct* params, Script::CScript* script);
+    int WaitJumpFinished(Scripts::CStruct* params, Scripts::CScript* script);
+    int WaitRotate(Scripts::CStruct* params, Scripts::CScript* script);
+    int WaitMove(Scripts::CStruct* params, Scripts::CScript* script);
+    int WaitStop(Scripts::CStruct* params, Scripts::CScript* script);
 
     uint8_t m_base[0x18];           // the base component's
     uint32_t m_motionFlags;         // +0x18 MOTION_FLAG_*
     uint32_t m_pathFlags;           // +0x1C MOTION_PATH_*
     uint32_t m_unknown20;
     float m_acceleration;           // +0x24 inches a second per second
-    float m_deceleration;           // +0x28 "
+    float m_slowdownRate;           // +0x28 "
     float m_pathVelocity;           // +0x2C inches a second: the speed aimed at
     float m_velocity;               // +0x30 the speed now
     float m_stopDistance;           // +0x34 Obj_StopAlongPath's (inches)

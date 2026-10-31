@@ -36,7 +36,7 @@ constexpr uint32_t kSpeedOverrideMaxMax = 0x358;
 constexpr uint32_t kFrictionOn = 0x2D9;
 
 // The length of (x, y, z) as the original works it out: (x * x + y * y) + z * z, rounded to a float.
-float SpeedOf(const Mth::Vector& v)
+float SpeedOf(const Maths::Vector& v)
 {
     double x = v.x, y = v.y, z = v.z;
     return static_cast<float>(std::sqrt(x * x + y * y + z * z));
@@ -54,7 +54,7 @@ void ApplyAirFriction(void* component, float friction)
 void CorePhysicsComponent::LimitSpeed()
 {
     void* object = ObjectOf(this);
-    Mth::Vector& velocity = VectorAt(object, kVelocity);
+    Maths::Vector& velocity = VectorAt(object, kVelocity);
     // (The horizontal speed: y out of it while it's measured and limited.)
     float upward = velocity.y;
     velocity.y = 0.0f;
@@ -83,7 +83,7 @@ void CorePhysicsComponent::LimitSpeed()
     }
     object = ObjectOf(this);
     if (speed > max && heavyFriction)
-        ApplyAirFriction(this, Script::GetFloat(kHeavyAirFriction));
+        ApplyAirFriction(this, Scripts::GetFloat(kHeavyAirFriction));
     VectorAt(ObjectOf(this), kVelocity).y = upward;
 
     float& rolling = At<float>(this, kRollingFrictionTimer);
@@ -117,10 +117,10 @@ void CorePhysicsComponent::Brake()
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return;
     }
-    Mth::Vector slow = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector slow = VectorAt(ObjectOf(this), kVelocity);
     SetLength(slow, static_cast<float>(-(static_cast<double>(PhysicsFloat(kBrakeAcceleration, object)) *
                                         At<float>(this, kFrameLength))));
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x = slow.x + velocity.x;
     velocity.y = slow.y + velocity.y;
     velocity.z = slow.z + velocity.z;
@@ -147,11 +147,11 @@ void CorePhysicsComponent::StartRidingHitObject()
     if (FlagsOf(this)[0x88])
         return;
     void* ride = At<void*>(this, kRide);
-    if (!static_cast<Obj::CMovableContactComponent*>(ride)->StartRiding(&At<Nx::CFeeler>(this, kFeeler)))
+    if (!static_cast<GameObjects::CMovingSurfaceModule*>(ride)->StartRiding(&At<Engine3D::CProbeRay>(this, kFeeler)))
         return;
     void* rideObject = *At<void**>(At<void*>(this, kRide), 0x18); // (the smart pointer's object)
-    const Mth::Vector& rideVelocity = VectorAt(rideObject, kVelocity);
-    Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+    const Maths::Vector& rideVelocity = VectorAt(rideObject, kVelocity);
+    Maths::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x -= rideVelocity.x;
     velocity.y -= rideVelocity.y;
     velocity.z -= rideVelocity.z;

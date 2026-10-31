@@ -9,7 +9,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 
 namespace {
 
@@ -98,4 +98,4 @@ const std::vector<HelpRow>& HelpRows()
     return rows;
 }
 
-} // namespace Front::LevelEditor::Overlays
+} // namespace MenuSystem::LevelEditor::Overlays

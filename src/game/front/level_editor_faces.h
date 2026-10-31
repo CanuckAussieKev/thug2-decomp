@@ -18,14 +18,14 @@ struct ImFont;
 // trigger 0x40, camera passes 0x80, not taggable 0x2000 (what each does: level_editor_view.h's Classify notes -
 // the skater's feeler check 0x005003A0, the feelers' ignore masks).
 //
-// Where: the face's u16 flags (CCollObjTriData face +0) in the sector's collision, written live - the feelers read
-// them at every query (CCollStatic's line tests take the face's flags from the geometry; the collision cache holds
+// Where: the face's u16 flags (CTriMeshSource face +0) in the sector's collision, written live - the feelers read
+// them at every query (CStaticCollider's line tests take the face's flags from the geometry; the collision cache holds
 // objects, not faces). They are kept through everything the editor does to the piece: its moves and turns
-// (CCollObjTriData::Translate / RotateY move vertices and the tree only), its scale (level_editor_scale.h rebuilds the
+// (CTriMeshSource::Translate / RotateY move vertices and the tree only), its scale (level_editor_scale.h rebuilds the
 // vertices from its copy - faces untouched), and its shared collision (level_editor_shared_coll.h): a face taken along by
 // a moved piece's companion is edited in the companion (and in the flags given back when the companion goes) - the
 // original keeps its 0x10 while it is taken. A copy (Ctrl+D) copies its source's faces as they are (the engine's
-// CloneSector); a copy's own faces can't be edited (its checksum is new each session: nothing to save).
+// DuplicateSceneSector); a copy's own faces can't be edited (its checksum is new each session: nothing to save).
 //
 // A face is named by its sector (the collision object's checksum - the level's, never a copy) and its index in that
 // collision as loaded (the .col file's order: apply_layout.ts bakes it there). Undo: one step a change (the faces'
@@ -33,7 +33,7 @@ struct ImFont;
 //
 // Layout record (version 2 still; an older reader skips the kind):
 //   faces <checksum> <face>:<flags>,<face>:<flags>...    the faces' flags as edited (4 hex digits), faces ascending
-namespace Front::LevelEditor::Faces {
+namespace MenuSystem::LevelEditor::Faces {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
@@ -121,4 +121,4 @@ void InspectorSection(ImFont* mono, ImFont* smallFont);
 // The status line: what Faces mode is doing.
 std::string Describe();
 
-} // namespace Front::LevelEditor::Faces
+} // namespace MenuSystem::LevelEditor::Faces

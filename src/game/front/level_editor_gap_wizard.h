@@ -6,7 +6,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -26,7 +26,7 @@ struct Painter;
 // Types (THUG2's StartGap flags - Triggers::GapFlags): Air [CANCEL_GROUND] (the editor's default gap), Grind
 // [REQUIRE_RAIL, CANCEL_GROUND], Lip [REQUIRE_LIP], Manual [PURE_MANUAL], Wallride [REQUIRE_WALLRIDE, CANCEL_GROUND].
 // Skitch: no gap flag of THUG2's means a skitch - not offered. The flags can be changed in the Inspector afterwards.
-namespace Front::LevelEditor::GapWizard {
+namespace MenuSystem::LevelEditor::GapWizard {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
@@ -83,4 +83,4 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
 // Once a frame while the editor runs: what the form asked for.
 void Update();
 
-} // namespace Front::LevelEditor::GapWizard
+} // namespace MenuSystem::LevelEditor::GapWizard

@@ -22,7 +22,7 @@
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 
-namespace Front::LevelEditor::SharedCollision {
+namespace MenuSystem::LevelEditor::SharedCollision {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
@@ -81,7 +81,7 @@ float StripDistance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t ve
 
 bool Belongs(float own, float nearestOther) { return own <= kNear && own < nearestOther; }
 
-FaceCopy ReadFace(const Nx::CCollObjTriData* geometry, int face)
+FaceCopy ReadFace(const Engine3D::CTriMeshSource* geometry, int face)
 {
     FaceCopy copy{};
     const uint8_t* data = geometry->m_faces + face * (geometry->m_smallFaces ? 8 : 10);
@@ -89,8 +89,8 @@ FaceCopy ReadFace(const Nx::CCollObjTriData* geometry, int face)
     std::memcpy(&copy.terrain, data + 2, 2);
     for (int k = 0; k < 3; ++k) {
         uint32_t vertex = geometry->FaceVertex(face, k);
-        Mth::Vector v;
-        geometry->GetRawVertexPos(static_cast<int>(vertex), &v);
+        Maths::Vector v;
+        geometry->ReadStoredVertex(static_cast<int>(vertex), &v);
         copy.v[k] = {v.x, v.y, v.z};
         copy.bytes[k] = geometry->m_vertexBytes ? geometry->m_vertexBytes[vertex] : 0x80;
     }
@@ -145,7 +145,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     m_object.m_checksum = checksum;
     m_object.m_visitStamp = 0;
     m_object.m_geometry = &m_geometry;
-    m_object.m_buffer = m_rejection.data();
+    m_object.m_octets = m_rejection.data();
     m_object.m_unknown14 = 0;
     Place({0, {0.0f, 0.0f, 0.0f}});
 }
@@ -202,8 +202,8 @@ void Companion::UpdateBox()
         lo = {std::min(lo.x, v.x), std::min(lo.y, v.y), std::min(lo.z, v.z)};
         hi = {std::max(hi.x, v.x), std::max(hi.y, v.y), std::max(hi.z, v.z)};
     }
-    m_geometry.m_min = {lo.x, lo.y, lo.z, 1.0f};
-    m_geometry.m_max = {hi.x, hi.y, hi.z, 1.0f};
+    m_geometry.m_lowerLimit = {lo.x, lo.y, lo.z, 1.0f};
+    m_geometry.m_upperLimit = {hi.x, hi.y, hi.z, 1.0f};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -211,12 +211,12 @@ void Companion::UpdateBox()
 namespace {
 
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-Nx::CCollStatic* CollOf(uint8_t* sector) { return *reinterpret_cast<Nx::CCollStatic**>(sector + 0x18); }
+Engine3D::CStaticCollider* CollOf(uint8_t* sector) { return *reinterpret_cast<Engine3D::CStaticCollider**>(sector + 0x18); }
 void* GridOf(uint8_t* scene) { return *reinterpret_cast<void**>(scene + 0xD4); }
 
 // A face of a collision-only sector turned off for a companion, and its flags before.
 struct Taken {
-    Nx::CCollObjTriData* geometry;
+    Engine3D::CTriMeshSource* geometry;
     int face;
     uint16_t flags;
 };
@@ -244,14 +244,14 @@ bool Enabled()
 template <typename F>
 void ForEachStrip(uint8_t* geom, F fn)
 {
-    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    auto** meshes = *reinterpret_cast<Engine3D::meshRef***>(geom + 0x3C);
     uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        Nx::sMesh* mesh = meshes[i];
+        Engine3D::meshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Nx::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertexCount),
@@ -304,11 +304,11 @@ bool Bounds(uint32_t checksum, float grow, V3* min, V3* max)
 }
 
 // A collision-only sector that can give faces: no geometry, collision on with geometry.
-Nx::CCollObjTriData* CollisionOnly(uint8_t* sector)
+Engine3D::CTriMeshSource* CollisionOnly(uint8_t* sector)
 {
     if (!sector || GeomOf(sector))
         return nullptr;
-    Nx::CCollStatic* coll = CollOf(sector);
+    Engine3D::CStaticCollider* coll = CollOf(sector);
     if (!coll || (coll->m_flags & 6) || !coll->m_geometry || !coll->m_geometry->m_faces)
         return nullptr;
     return coll->m_geometry;
@@ -316,9 +316,9 @@ Nx::CCollObjTriData* CollisionOnly(uint8_t* sector)
 
 const char* NameOf(uint32_t checksum)
 {
-    if (const char* name = Script::KeptQbName(checksum))
+    if (const char* name = Scripts::KeptQbName(checksum))
         return name;
-    return Script::FindChecksumName(checksum);
+    return Scripts::LookUpHashName(checksum);
 }
 
 // The collision objects named after a piece (<name>_col and the like) that exist as collision-only sectors.
@@ -329,11 +329,11 @@ std::vector<uint32_t> NamedFor(uint32_t checksum)
     const char* name = NameOf(checksum);
     if (!name || !*name)
         return found;
-    uint32_t base = Crc::GenerateCRCFromString(name);
+    uint32_t base = Checksums::HashFromText(name);
     if (base != checksum) // (a name that isn't the piece's own)
         return found;
     for (const char* suffix : kSuffixes) {
-        uint32_t named = Crc::ExtendCRCWithString(base, suffix);
+        uint32_t named = Checksums::FoldTextIntoChecksum(base, suffix);
         if (CollisionOnly(Scenery::SectorOf(named)))
             found.push_back(named);
     }
@@ -413,9 +413,9 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
         &context);
 
     for (const auto& source : context.sources) {
-        Nx::CCollObjTriData* geometry = CollisionOnly(source.second);
-        const Mth::Vector& lo = geometry->m_min;
-        const Mth::Vector& hi = geometry->m_max;
+        Engine3D::CTriMeshSource* geometry = CollisionOnly(source.second);
+        const Maths::Vector& lo = geometry->m_lowerLimit;
+        const Maths::Vector& hi = geometry->m_upperLimit;
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
         bool named = std::find(mine.begin(), mine.end(), source.first) != mine.end();
@@ -454,20 +454,20 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
     return faces;
 }
 
-// A list of collision objects for CCollGrid::Update (Lst::Head / Lst::Node<CCollObj>, on the stack: Update only reads
+// A list of collision objects for CCollGrid::Update (ListKit::Head / ListKit::Node<CHitMesh>, on the stack: Update only reads
 // them).
 struct GridList {
-    Mem::ListNode head;
-    std::vector<Mem::ListNode> nodes;
+    MemSys::ListNode head;
+    std::vector<MemSys::ListNode> nodes;
 
-    explicit GridList(const std::vector<Nx::CCollObj*>& objects) : nodes(objects.size())
+    explicit GridList(const std::vector<Engine3D::CHitMesh*>& objects) : nodes(objects.size())
     {
         head.vtable = Vt::kCollGridHead;
         head.data = reinterpret_cast<void*>(-1);
         head.priority = 0;
         head.next = head.prev = &head;
         for (size_t i = 0; i < objects.size(); ++i) {
-            Mem::ListNode& node = nodes[i];
+            MemSys::ListNode& node = nodes[i];
             node.vtable = Vt::kCollGridNode;
             node.data = objects[i];
             node.priority = 0;
@@ -481,15 +481,15 @@ struct GridList {
 };
 
 // The grid brought up to date for these objects (the top-down heap current, as UpdateSuperSectors has it).
-void UpdateGrid(void* grid, const std::vector<Nx::CCollObj*>& added, const std::vector<Nx::CCollObj*>& removed,
-                const std::vector<Nx::CCollObj*>& moved)
+void TickGrid(void* grid, const std::vector<Engine3D::CHitMesh*>& added, const std::vector<Engine3D::CHitMesh*>& removed,
+                const std::vector<Engine3D::CHitMesh*>& moved)
 {
     if (!grid || (added.empty() && removed.empty() && moved.empty()))
         return;
     GridList addedList(added), removedList(removed), movedList(moved);
-    Mem::PushContext(Mem::TopDownHeap());
-    static_cast<Nx::CCollGrid*>(grid)->Update(&addedList.head, &removedList.head, &movedList.head);
-    Mem::PopContext();
+    MemSys::EnterHeapScope(MemSys::TopDownHeap());
+    static_cast<Engine3D::CCollGrid*>(grid)->Update(&addedList.head, &removedList.head, &movedList.head);
+    MemSys::LeaveHeapScope();
 }
 
 bool Live(const Entry& entry, uint32_t checksum)
@@ -506,11 +506,11 @@ void Drop(std::map<uint32_t, Entry>::iterator it)
     if (entry.companion) {
         if (Live(entry, it->first)) {
             if (entry.inGrid)
-                UpdateGrid(entry.grid, {}, {entry.companion->Object()}, {});
+                TickGrid(entry.grid, {}, {entry.companion->Object()}, {});
             for (const Taken& t : entry.taken)
                 *reinterpret_cast<uint16_t*>(t.geometry->m_faces + t.face * (t.geometry->m_smallFaces ? 8 : 10)) = t.flags;
         }
-        Nx::RemoveFromCaches(entry.companion->Object());
+        Engine3D::RemoveFromCaches(entry.companion->Object());
         ++g_generation;
     }
     g_entries.erase(it);
@@ -609,7 +609,7 @@ void FinishCopy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t co
 
 void Commit(uint8_t* scene)
 {
-    std::vector<Nx::CCollObj*> added, moved;
+    std::vector<Engine3D::CHitMesh*> added, moved;
     void* grid = nullptr;
     for (auto it = g_entries.begin(); it != g_entries.end();) {
         auto next = std::next(it);
@@ -627,7 +627,7 @@ void Commit(uint8_t* scene)
         }
         it = next;
     }
-    UpdateGrid(grid, added, {}, moved);
+    TickGrid(grid, added, {}, moved);
 }
 
 int Count(int* faces)
@@ -656,7 +656,7 @@ void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Compa
     }
 }
 
-std::vector<int> TakenFaces(const Nx::CCollObjTriData* geometry)
+std::vector<int> TakenFaces(const Engine3D::CTriMeshSource* geometry)
 {
     std::vector<int> faces;
     for (const auto& entry : g_entries) {
@@ -670,7 +670,7 @@ std::vector<int> TakenFaces(const Nx::CCollObjTriData* geometry)
 
 uint32_t Generation() { return g_generation; }
 
-bool TakenFace(const Nx::CCollObjTriData* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
+bool TakenFace(const Engine3D::CTriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
 {
     for (const auto& entry : g_entries) {
         const std::vector<Taken>& taken = entry.second.taken;
@@ -689,7 +689,7 @@ bool TakenFace(const Nx::CCollObjTriData* geometry, int face, uint32_t* piece, i
     return false;
 }
 
-bool OriginOf(uint32_t piece, int index, Nx::CCollObjTriData** geometry, int* face)
+bool OriginOf(uint32_t piece, int index, Engine3D::CTriMeshSource** geometry, int* face)
 {
     Entry* entry = Find(piece);
     // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
@@ -706,7 +706,7 @@ const Companion* CompanionOf(uint32_t piece)
     return entry ? entry->companion.get() : nullptr;
 }
 
-bool SetTakenFlags(const Nx::CCollObjTriData* geometry, int face, uint16_t flags)
+bool SetTakenFlags(const Engine3D::CTriMeshSource* geometry, int face, uint16_t flags)
 {
     for (auto& entry : g_entries) {
         std::vector<Taken>& taken = entry.second.taken;
@@ -726,4 +726,4 @@ bool SetTakenFlags(const Nx::CCollObjTriData* geometry, int face, uint16_t flags
     return false;
 }
 
-} // namespace Front::LevelEditor::SharedCollision
+} // namespace MenuSystem::LevelEditor::SharedCollision

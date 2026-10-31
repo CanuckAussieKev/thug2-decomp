@@ -1,4 +1,4 @@
-// The input component (Obj::CInputComponent): see input_component.h. From the disassembly of 0x0041E6F0-0x0041F3FB.
+// The input component (GameObjects::CPadInputModule): see input_component.h. From the disassembly of 0x0041E6F0-0x0041F3FB.
 
 #include "game/obj/input_component.h"
 #include "game/net/task_vtable.h"
@@ -29,7 +29,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_inputComponentMemberFunctions[90]{
             0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0,
@@ -96,26 +96,26 @@ const EventButton kEventButtons[] = {
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The input manager (0x00696D40): its controller servers (0x84 bytes each from +4: the device, then the handler list
-// - a Tsk::Stack - at +4, the data at +0x40), and a player's controller (0x0044E630).
-uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(Inp::g_inputManager); }
-Tsk::Stack* ServerHandlers(uint8_t* manager, int server)
+// - a TaskList::Stack - at +4, the data at +0x40), and a player's controller (0x0044E630).
+uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); }
+TaskList::Stack* ServerHandlers(uint8_t* manager, int server)
 {
-    return reinterpret_cast<Tsk::Stack*>(manager + server * 0x84 + 8);
+    return reinterpret_cast<TaskList::Stack*>(manager + server * 0x84 + 8);
 }
-void PlaceHandler(CInputComponent::Handler* handler, uint8_t* manager, int server)
+void PlaceHandler(CPadInputModule::Handler* handler, uint8_t* manager, int server)
 {
     handler->m_controlData = manager + server * 0x84 + 0x44;
     handler->m_device = *reinterpret_cast<void**>(manager + server * 0x84 + 4);
 }
 int PlayerController(int player)
 {
-    return reinterpret_cast<Inp::Manager*>(InputManager())->GetPlayerController(player);
+    return reinterpret_cast<PadInput::Manager*>(InputManager())->GetPlayerController(player);
 }
 
 // A new handler (on the current heap).
-CInputComponent::Handler* NewHandler(int index, void(__cdecl* code)(CInputComponent::Handler*), CInputComponent* component)
+CPadInputModule::Handler* NewHandler(int index, void(__cdecl* code)(CPadInputModule::Handler*), CPadInputModule* component)
 {
-    auto* handler = static_cast<CInputComponent::Handler*>(Mem::Calloc(sizeof(CInputComponent::Handler)));
+    auto* handler = static_cast<CPadInputModule::Handler*>(MemSys::AllocZeroed(sizeof(CPadInputModule::Handler)));
     if (!handler)
         return nullptr;
     handler->Construct(-1);
@@ -127,11 +127,11 @@ CInputComponent::Handler* NewHandler(int index, void(__cdecl* code)(CInputCompon
 }
 
 // The screen element `id`, if there's one (the smart pointer let go at once, as the original does).
-Front::CScreenElement* FindElement(uint32_t id)
+MenuSystem::CUiWidget* FindElement(uint32_t id)
 {
-    Front::ElementPtr found;
-    Front::CScreenElementManager::Instance()->GetElement(&found, id, 0);
-    Front::CScreenElement* element = found.Get();
+    MenuSystem::ElementPtr found;
+    MenuSystem::CUiTree::Instance()->GetElement(&found, id, 0);
+    MenuSystem::CUiWidget* element = found.Get();
     found.Release();
     return element;
 }
@@ -139,25 +139,25 @@ Front::CScreenElement* FindElement(uint32_t id)
 } // namespace
 
 // 0x0041EEC0
-CBaseComponent* __cdecl CInputComponent::Create()
+CObjectModule* __cdecl CPadInputModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CInputComponent));
-    return memory ? static_cast<CInputComponent*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CPadInputModule));
+    return memory ? static_cast<CPadInputModule*>(memory)->Construct() : nullptr;
 }
 
 // 0x0041E6F0
-void __cdecl CInputComponent::RegisterMemberFunctions()
+void __cdecl CPadInputModule::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_inputComponentMemberFunctions, 0x18);
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_inputComponentMemberFunctions, 0x18);
 }
 
 // 0x0041E850
-CInputComponent* CInputComponent::Construct()
+CPadInputModule* CPadInputModule::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
-    m_pad.Init();
-    m_pad2.Init();
+    m_padPrimary.Init();
+    m_padSecondary.Init();
     m_type = kType;
     mp_handler = nullptr;
     m_unknown49C = 0;
@@ -165,45 +165,45 @@ CInputComponent* CInputComponent::Construct()
 }
 
 // 0x0041E710
-void CInputComponent::DestroyBody()
+void CPadInputModule::DestroyBody()
 {
     m_vtable = kVtable;
     for (Handler* handler : {mp_handler, mp_handler2}) {
         if (!handler)
             continue;
-        if (handler->InList())
+        if (handler->IsOnTaskList())
             handler->Remove();
         reinterpret_cast<void*(__thiscall*)(Handler*, unsigned int)>(handler->m_vtable[2])(handler, 1);
     }
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0041E8C0
-CInputComponent* CInputComponent::Destroy(unsigned int flags)
+CPadInputModule* CPadInputModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0041F390
-void CInputComponent::InitFromStructure(Script::CStruct* params)
+void CPadInputModule::ConfigureFromData(Scripts::CStruct* params)
 {
     int value;
-    if (params->GetInteger(kPlayer, &value, 0))
-        BindToController(PlayerController(value));
-    else if (params->GetInteger(kController, &value, 0))
-        BindToController(value);
-    params->GetChecksum(kUnknownB9B1E3B6, &m_unknown49C, 0);
+    if (params->FetchIntValue(kPlayer, &value, 0))
+        LinkToPad(PlayerController(value));
+    else if (params->FetchIntValue(kController, &value, 0))
+        LinkToPad(value);
+    params->ReadHashValue(kUnknownB9B1E3B6, &m_unknown49C, 0);
 }
 
 // 0x0041F1B0
-void CInputComponent::BindToController(int controller)
+void CPadInputModule::LinkToPad(int controller)
 {
     if (!mp_handler) {
-        Mem::Manager* memory = Mem::Manager::Get();
-        memory->PushContext(memory->m_skaterInfoHeap);
+        MemSys::Manager* memory = MemSys::Manager::Get();
+        memory->EnterHeapScope(memory->m_skaterInfoHeap);
         mp_handler = NewHandler(0, HandlerCode, this);
         uint8_t* manager = InputManager();
         ServerHandlers(manager, mp_handler->m_index)->AddTask(mp_handler);
@@ -212,7 +212,7 @@ void CInputComponent::BindToController(int controller)
         manager = InputManager();
         ServerHandlers(manager, mp_handler2->m_index)->AddTask(mp_handler2);
         PlaceHandler(mp_handler2, manager, mp_handler2->m_index);
-        Mem::Manager::Get()->PopContext();
+        MemSys::Manager::Get()->LeaveHeapScope();
     }
     Handler* handler = mp_handler;
     uint8_t* manager = InputManager();
@@ -224,64 +224,64 @@ void CInputComponent::BindToController(int controller)
     handler2->Remove();
     ServerHandlers(manager, 1)->AddTask(handler2);
     PlaceHandler(handler2, manager, 1);
-    if (CBaseComponent* vibration = m_object->GetComponent(kVibration))
-        static_cast<CVibrationComponent*>(vibration)->SetDevice(reinterpret_cast<Sio::Device*>(mp_handler->m_device));
+    if (CObjectModule* vibration = m_object->GetComponent(kVibration))
+        static_cast<CPadRumbleModule*>(vibration)->SetDevice(reinterpret_cast<Sio::Device*>(mp_handler->m_device));
 }
 
 // 0x0041F170
-void __cdecl CInputComponent::HandlerCode(Handler* handler) { handler->m_component->UpdatePad(handler->m_controlData); }
+void __cdecl CPadInputModule::HandlerCode(Handler* handler) { handler->m_component->UpdatePad(handler->m_controlData); }
 
 // 0x0041F190
-void __cdecl CInputComponent::HandlerCode2(Handler* handler) { handler->m_component->UpdatePad2(handler->m_controlData); }
+void __cdecl CPadInputModule::HandlerCode2(Handler* handler) { handler->m_component->UpdatePad2(handler->m_controlData); }
 
 // 0x0041F090
-void CInputComponent::UpdatePad(const uint8_t* data)
+void CPadInputModule::UpdatePad(const uint8_t* data)
 {
     if (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
     UpdateEvents(data);
     bool blocked = IsInputBlocked();
     if (!m_disabled && !m_netDisabled && !blocked) {
-        m_pad.Update(data);
+        m_padPrimary.Update(data);
         return;
     }
-    m_pad.Reset();
+    m_padPrimary.Reset();
     if (blocked)
         m_events = 0;
 }
 
 // 0x0041F100
-void CInputComponent::UpdatePad2(const uint8_t* data)
+void CPadInputModule::UpdatePad2(const uint8_t* data)
 {
     if (m_object->m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
     bool blocked = IsInputBlocked();
     if (!m_disabled && !m_netDisabled && !blocked) {
-        m_pad2.Update(data);
+        m_padSecondary.Update(data);
         return;
     }
-    m_pad2.Reset();
+    m_padSecondary.Reset();
     if (blocked)
         m_events = 0;
 }
 
 // 0x0041EF20
-bool CInputComponent::IsInputBlocked()
+bool CPadInputModule::IsInputBlocked()
 {
     if (!g_gameNetManager->InNetGame())
         return false;
     if (FindElement(kControllerUnpluggedDialog))
         return true;
-    if (Front::CScreenElement* root = FindElement(kRootWindow)) {
-        Script::CStruct* tags = Script::NewStruct();
+    if (MenuSystem::CUiWidget* root = FindElement(kRootWindow)) {
+        Scripts::CStruct* tags = Scripts::NewStruct();
         if (tags)
             tags = tags->Init();
         root->CopyTagsTo(tags);
         uint32_t state = 0; // (uninitialised in the original: what was on the stack)
-        tags->GetChecksum(kMenuState, &state, 0);
+        tags->ReadHashValue(kMenuState, &state, 0);
         if (tags) {
             tags->Clear(); // (the destructor)
-            Script::DeleteStruct(tags);
+            Scripts::DeleteStruct(tags);
         }
         if (state == kOn)
             return true;
@@ -290,179 +290,179 @@ bool CInputComponent::IsInputBlocked()
 }
 
 // 0x0041ECA0
-void CInputComponent::UpdateEvents(const uint8_t* data)
+void CPadInputModule::UpdateEvents(const uint8_t* data)
 {
     m_lastEvents = m_events;
     m_events = 0;
     for (const EventButton& event : kEventButtons) {
         CControlButton* button =
             event.button < 0 ? nullptr
-                             : reinterpret_cast<CControlButton*>(reinterpret_cast<uint8_t*>(&m_pad) + event.button);
-        CheckButton(data, event.index, event.bit, event.down, event.up, button);
+                             : reinterpret_cast<CControlButton*>(reinterpret_cast<uint8_t*>(&m_padPrimary) + event.button);
+        ReadButtonState(data, event.index, event.bit, event.down, event.up, button);
     }
 }
 
 // 0x0041EBF0
-void CInputComponent::CheckButton(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
+void CPadInputModule::ReadButtonState(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
                                   CControlButton* button)
 {
     if (button) {
         uint32_t lockedUntil = static_cast<uint32_t>(Truncated(button->m_lockedUntil));
-        if (Tmr::GetTime() < lockedUntil)
+        if (FrameClock::GetTime() < lockedUntil)
             return;
     }
     bool eventsOn = m_inputEvents && !m_disabled && !m_netDisabled;
     if (data[index]) {
         if (!(m_lastEvents & bit) && eventsOn)
-            m_object->SelfEvent(down, nullptr);
+            m_object->PostOwnEvent(down, nullptr);
         m_events |= bit;
     } else if ((m_lastEvents & bit) && eventsOn) {
-        m_object->SelfEvent(up, nullptr);
+        m_object->PostOwnEvent(up, nullptr);
     }
 }
 
 // 0x0041E7E0
-void CInputComponent::LockButton(uint32_t name, float seconds, bool release)
+void CPadInputModule::LockButton(uint32_t name, float seconds, bool release)
 {
-    CControlButton* button = m_pad.GetButton(name);
-    uint32_t now = Tmr::GetTime();
+    CControlButton* button = m_padPrimary.ReadButton(name);
+    uint32_t now = FrameClock::GetTime();
     double time = static_cast<double>(static_cast<int32_t>(now));
     if (static_cast<int32_t>(now) < 0)
         time += kTwoTo32;
     button->m_lockedUntil = static_cast<float>(Truncated(time + static_cast<double>(seconds) * kMilliseconds));
     if (release) {
-        button->SetPressed(0);
-        button->ClearTrigger();
-        button->ClearRelease();
+        button->SetHeldDown(0);
+        button->ResetActivation();
+        button->ForgetLetGo();
     }
 }
 
 // 0x0041E8F0
-int CInputComponent::LockButtonFromScript(Script::CStruct* params, Script::CScript*)
+int CPadInputModule::LockButtonFromScript(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0;
-    if (params->GetChecksum(0u, &name, 0)) {
+    if (params->ReadHashValue(0u, &name, 0)) {
         float time = 1.0f;
         params->GetFloat(kTime, &time, 0);
         // (the original's file name: its __FILE__ from 12 characters in)
-        Dbg::Printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
+        DebugOut::Printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
         int clear = 0;
-        params->GetInteger(kClear, &clear, 0);
+        params->FetchIntValue(kClear, &clear, 0);
         LockButton(name, time, clear != 0);
     }
     return 1;
 }
 
 // 0x0041E9A0
-int CInputComponent::DisablePlayerInput(Script::CStruct*, Script::CScript*)
+int CPadInputModule::DisablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
 {
     m_disabled = true;
     return 1;
 }
 
 // 0x0041E9B0
-int CInputComponent::EnablePlayerInput(Script::CStruct*, Script::CScript*)
+int CPadInputModule::EnablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
 {
     m_disabled = false;
     return 1;
 }
 
 // 0x0041E9C0
-int CInputComponent::NetDisablePlayerInput(Script::CStruct*, Script::CScript*)
+int CPadInputModule::NetDisablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
 {
     m_netDisabled = true;
     return 1;
 }
 
 // 0x0041E9D0
-int CInputComponent::NetEnablePlayerInput(Script::CStruct*, Script::CScript*)
+int CPadInputModule::NetEnablePlayerInput(Scripts::CStruct*, Scripts::CScript*)
 {
     m_netDisabled = false;
     return 1;
 }
 
 // 0x0041E7C0
-int CInputComponent::EnableInputEvents(Script::CStruct*, Script::CScript*)
+int CPadInputModule::EnableInputEvents(Scripts::CStruct*, Scripts::CScript*)
 {
     m_inputEvents = true;
     return 1;
 }
 
 // 0x0041E7D0
-int CInputComponent::DisableInputEvents(Script::CStruct*, Script::CScript*)
+int CPadInputModule::DisableInputEvents(Scripts::CStruct*, Scripts::CScript*)
 {
     m_inputEvents = false;
     return 1;
 }
 
 // 0x0041E9E0
-int CInputComponent::PlayerInputIsDisabled(Script::CStruct*, Script::CScript*)
+int CPadInputModule::PlayerInputIsDisabled(Scripts::CStruct*, Scripts::CScript*)
 {
     return m_disabled || m_netDisabled ? 1 : 0;
 }
 
 // 0x0041EA20
-int CInputComponent::LeftPressed(Script::CStruct*, Script::CScript*) { return m_pad.m_left.m_pressed != 0 ? 1 : 0; }
+int CPadInputModule::LeftPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_left.m_heldDown != 0 ? 1 : 0; }
 
 // 0x0041EA30
-int CInputComponent::RightPressed(Script::CStruct*, Script::CScript*) { return m_pad.m_right.m_pressed != 0 ? 1 : 0; }
+int CPadInputModule::RightPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_right.m_heldDown != 0 ? 1 : 0; }
 
 // 0x0041EA40
-int CInputComponent::UpPressed(Script::CStruct*, Script::CScript*) { return m_pad.m_up.m_pressed != 0 ? 1 : 0; }
+int CPadInputModule::UpPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_upDir.m_heldDown != 0 ? 1 : 0; }
 
 // 0x0041EA50
-int CInputComponent::DownPressed(Script::CStruct*, Script::CScript*) { return m_pad.m_down.m_pressed != 0 ? 1 : 0; }
+int CPadInputModule::DownPressed(Scripts::CStruct*, Scripts::CScript*) { return m_padPrimary.m_btnDown.m_heldDown != 0 ? 1 : 0; }
 
 // 0x0041EA60
-int CInputComponent::GetSticks(Script::CStruct*, Script::CScript* script)
+int CPadInputModule::GetSticks(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_params->AddFloat(0x737F15CF, m_pad.m_polar[1].angle * kRadiansToDegrees);
-    script->m_params->AddFloat(0x686AD1C2,
-                               static_cast<float>(StickLength(m_pad.m_stick[2], m_pad.m_stick[3], m_pad.m_polar[1].angle)));
-    script->m_params->AddFloat(0xD6030CEA, m_pad.m_polar[0].angle * kRadiansToDegrees);
-    script->m_params->AddFloat(0xC94777AC,
-                               static_cast<float>(StickLength(m_pad.m_stick[0], m_pad.m_stick[1], m_pad.m_polar[0].angle)));
+    script->m_params->PushFloat(0x737F15CF, m_padPrimary.m_polar[1].angle * kRadiansToDegrees);
+    script->m_params->PushFloat(0x686AD1C2,
+                               static_cast<float>(StickLength(m_padPrimary.m_stick[2], m_padPrimary.m_stick[3], m_padPrimary.m_polar[1].angle)));
+    script->m_params->PushFloat(0xD6030CEA, m_padPrimary.m_polar[0].angle * kRadiansToDegrees);
+    script->m_params->PushFloat(0xC94777AC,
+                               static_cast<float>(StickLength(m_padPrimary.m_stick[0], m_padPrimary.m_stick[1], m_padPrimary.m_polar[0].angle)));
     return 1;
 }
 
 // 0x0041EB20
-int CInputComponent::HeldLongerThan(Script::CStruct* params, Script::CScript*)
+int CPadInputModule::HeldLongerThan(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name;
-    params->GetChecksum(kButton, &name, 1);
+    params->ReadHashValue(kButton, &name, 1);
     float time;
     std::memcpy(&time, &params, sizeof(time)); // (the original's slot for it: the params argument)
     params->GetFloat(0u, &time, 1);
     double scaled = time;
-    if (params->ContainsFlag(kSeconds) || params->ContainsFlag(kSecond))
+    if (params->HasBareFlag(kSeconds) || params->HasBareFlag(kSecond))
         scaled = static_cast<double>(time) * kMilliseconds;
-    else if (params->ContainsFlag(kFrames) || params->ContainsFlag(kFrame))
+    else if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
         scaled = static_cast<double>(time) * kFrameMilliseconds;
     uint32_t milliseconds = static_cast<uint32_t>(Truncated(scaled));
-    CControlButton* button = m_pad.GetButton(name);
-    if (button && button->m_pressed && static_cast<uint32_t>(button->GetPressedTime()) > milliseconds)
+    CControlButton* button = m_padPrimary.ReadButton(name);
+    if (button && button->m_heldDown && static_cast<uint32_t>(button->GetHeldMillis()) > milliseconds)
         return 1;
     return 0;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CInputComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
-         &Obj::CInputComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CPadInputModule::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
+         &GameObjects::CPadInputModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

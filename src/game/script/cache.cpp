@@ -16,27 +16,27 @@
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
-namespace Script {
+namespace Scripts {
 
 static_assert(offsetof(CScriptCacheEntry, older) == 0xC && offsetof(CScriptCacheEntry, newer) == 0x10,
               "layout must match the original");
-static_assert(offsetof(CScriptCache, m_entries) == 0x14 && offsetof(CScriptCache, m_newestUnused) == 0x18 &&
-                  offsetof(CScriptCache, m_oldestUnused) == 0x1C && offsetof(CScriptCache, m_deleteUnused) == 0x20,
+static_assert(offsetof(CScriptStore, m_entries) == 0x14 && offsetof(CScriptStore, m_newestUnused) == 0x18 &&
+                  offsetof(CScriptStore, m_oldestUnused) == 0x1C && offsetof(CScriptStore, m_deleteUnused) == 0x20,
               "layout must match the original");
 
-Script::CScriptCache* g_scriptCache;
+Scripts::CScriptStore* g_scriptCache;
 uint32_t g_cacheReferences;
-Mem::PoolPair g_cacheEntryPools;
+MemSys::PoolPair g_cacheEntryPools;
 
 namespace {
 
-CScriptCache*& TheCache() { return g_scriptCache; }
+CScriptStore*& TheCache() { return g_scriptCache; }
 uint32_t& CacheReferences() { return g_cacheReferences; }
-Mem::PoolPair& EntryPools() { return g_cacheEntryPools; }
+MemSys::PoolPair& EntryPools() { return g_cacheEntryPools; }
 
-// Mdl::Module's constructor (0x0044F7E0) and destructor body (0x0044F790).
-void ConstructModule(void* module) { static_cast<Mdl::Module*>(module)->Construct(); }
-void DestroyModule(void* module) { static_cast<Mdl::Module*>(module)->DestroyBody(); }
+// GameModules::Module's constructor (0x0044F7E0) and destructor body (0x0044F790).
+void ConstructModule(void* module) { static_cast<GameModules::Module*>(module)->Construct(); }
+void DestroyModule(void* module) { static_cast<GameModules::Module*>(module)->DestroyBody(); }
 
 // Scripts in the symbol table: {checksum, size, stored size, code - LZSS-compressed when stored < size}.
 struct StoredScript {
@@ -46,7 +46,7 @@ struct StoredScript {
     uint8_t code[1];
 };
 
-static VtableSlot kScriptCacheVtable_slots[] = {&Script::CScriptCache::Destroy, Stubs::DoNothing, Stubs::DoNothing};
+static VtableSlot kScriptCacheVtable_slots[] = {&Scripts::CScriptStore::Destroy, Stubs::DoNothing, Stubs::DoNothing};
 void** const kScriptCacheVtable = reinterpret_cast<void**>(kScriptCacheVtable_slots);
 } // namespace
 
@@ -63,15 +63,15 @@ void CScriptCacheEntry::operator delete(void* entry)
 }
 
 // 0x00475DD0
-CScriptCache* CScriptCache::Construct()
+CScriptStore* CScriptStore::Construct()
 {
     ConstructModule(this);
     m_vtable = kScriptCacheVtable;
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_scriptHeap);
-    void* memory = Mem::New(sizeof(Lst::HashTable));
-    m_entries = memory ? new (memory) Lst::HashTable(8) : nullptr;
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_scriptHeap);
+    void* memory = MemSys::New(sizeof(ListKit::HashTable));
+    m_entries = memory ? new (memory) ListKit::HashTable(8) : nullptr;
+    MemSys::Manager::Get()->LeaveHeapScope();
     m_newestUnused = nullptr;
     m_oldestUnused = nullptr;
     m_deleteUnused = false;
@@ -79,42 +79,42 @@ CScriptCache* CScriptCache::Construct()
 }
 
 // 0x00476090
-void CScriptCache::DestroyBody()
+void CScriptStore::DestroyBody()
 {
     m_vtable = kScriptCacheVtable;
     // Every entry, by iterating the table (the iteration carries on from where it was after each removal).
     m_entries->m_iterBucket = -1;
     m_entries->m_iterItem = nullptr;
-    while (m_entries->IterateNext() && m_entries->m_iterItem) {
+    while (m_entries->StepIterator() && m_entries->m_iterItem) {
         auto* entry = static_cast<CScriptCacheEntry*>(m_entries->m_iterItem->value);
         if (!entry)
             break;
-        m_entries->FlushItem(entry->name);
+        m_entries->EraseEntry(entry->name);
         // (left on the unused list: its links are just cleared)
         entry->older = nullptr;
         entry->newer = nullptr;
         if (entry->code)
-            Mem::FreeMalloc(entry->code);
+            MemSys::FreeMalloc(entry->code);
         delete entry;
     }
-    if (Lst::HashTable* entries = m_entries) {
+    if (ListKit::HashTable* entries = m_entries) {
         entries->~HashTable();
-        Mem::Free(entries);
+        MemSys::Free(entries);
     }
     DestroyModule(this);
 }
 
 // 0x004761E0
-CScriptCache* CScriptCache::Destroy(unsigned int flags)
+CScriptStore* CScriptStore::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x00475A40
-void CScriptCache::AddToUnused(CScriptCacheEntry* entry)
+void CScriptStore::AddToUnused(CScriptCacheEntry* entry)
 {
     entry->newer = nullptr;
     entry->older = m_newestUnused;
@@ -126,7 +126,7 @@ void CScriptCache::AddToUnused(CScriptCacheEntry* entry)
 }
 
 // 0x00475A70
-void CScriptCache::RemoveFromUnused(CScriptCacheEntry* entry)
+void CScriptStore::RemoveFromUnused(CScriptCacheEntry* entry)
 {
     if (entry->newer)
         entry->newer->older = entry->older;
@@ -141,30 +141,30 @@ void CScriptCache::RemoveFromUnused(CScriptCacheEntry* entry)
 }
 
 // 0x00475B60
-void CScriptCache::DeleteEntry(CScriptCacheEntry* entry)
+void CScriptStore::DeleteEntry(CScriptCacheEntry* entry)
 {
-    m_entries->FlushItem(entry->name);
+    m_entries->EraseEntry(entry->name);
     RemoveFromUnused(entry);
     if (entry->code)
-        Mem::FreeMalloc(entry->code);
+        MemSys::FreeMalloc(entry->code);
     delete entry;
 }
 
 // 0x00475BD0
-void CScriptCache::MakeRoom(int size, uint32_t /*name*/)
+void CScriptStore::MakeRoom(int size, uint32_t /*name*/)
 {
-    while (size > static_cast<int>(Mem::Manager::Get()->m_scriptHeap->LargestFree()) - 0x80)
+    while (size > static_cast<int>(MemSys::Manager::Get()->m_scriptHeap->LargestFree()) - 0x80)
         DeleteEntry(m_oldestUnused); // (null when nothing is left to drop: the original crashes too)
     while (EntryPools().pools[EntryPools().current]->m_used >= 100 && m_oldestUnused)
         DeleteEntry(m_oldestUnused);
 }
 
 // 0x00475E80
-uint8_t* CScriptCache::GetScript(uint32_t name)
+uint8_t* CScriptStore::GetScript(uint32_t name)
 {
-    CSymbolTableEntry* symbol = LookUpSymbol(name);
+    CSymbolTableEntry* symbol = ResolveSymbol(name);
     if (symbol) {
-        if (symbol->type != ESYMBOLTYPE_QSCRIPT)
+        if (symbol->type != QBVAL_SCRIPT_BODY)
             return nullptr;
         name = symbol->name;
     }
@@ -181,27 +181,27 @@ uint8_t* CScriptCache::GetScript(uint32_t name)
     uint32_t storedSize = stored->storedSize;
     MakeRoom(static_cast<int>(size), name);
     auto* entry = new CScriptCacheEntry{};
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_scriptHeap);
-    auto* code = static_cast<uint8_t*>(Mem::Malloc(size));
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_scriptHeap);
+    auto* code = static_cast<uint8_t*>(MemSys::AllocBlock(size));
+    MemSys::Manager::Get()->LeaveHeapScope();
     if (storedSize < size) {
         Lzss::Decode(stored->code, code, static_cast<int>(storedSize));
     } else {
         for (uint32_t i = 0; i < size; ++i)
             code[i] = stored->code[i];
     }
-    PreProcessScript(code);
+    PrepareScriptTokens(code);
     // (a null entry - the pool full - is written through, as in the original)
     entry->code = code;
     entry->usage = 1;
     entry->name = name;
-    m_entries->PutItem(name, entry);
+    m_entries->StoreEntry(name, entry);
     return entry->code;
 }
 
 // 0x00475D60
-void CScriptCache::ReleaseScript(uint32_t name)
+void CScriptStore::ReleaseScript(uint32_t name)
 {
     auto* entry = static_cast<CScriptCacheEntry*>(m_entries->GetItem(name));
     if (!entry || --entry->usage != 0)
@@ -213,7 +213,7 @@ void CScriptCache::ReleaseScript(uint32_t name)
 }
 
 // 0x00475FD0
-void CScriptCache::Invalidate(uint32_t name)
+void CScriptStore::Invalidate(uint32_t name)
 {
     auto* entry = static_cast<CScriptCacheEntry*>(m_entries->GetItem(name));
     if (!entry)
@@ -225,11 +225,11 @@ void CScriptCache::Invalidate(uint32_t name)
 }
 
 // 0x00476040
-CScriptCache* CreateScriptCache(bool create)
+CScriptStore* CreateScriptCache(bool create)
 {
     if (!TheCache() && create) {
-        void* memory = Mem::Calloc(sizeof(CScriptCache), nullptr, 1);
-        TheCache() = memory ? static_cast<CScriptCache*>(memory)->Construct() : nullptr;
+        void* memory = MemSys::AllocZeroed(sizeof(CScriptStore), nullptr, 1);
+        TheCache() = memory ? static_cast<CScriptStore*>(memory)->Construct() : nullptr;
     }
     ++CacheReferences();
     return TheCache();
@@ -242,8 +242,8 @@ void ReleaseScriptCache()
         --CacheReferences();
         return;
     }
-    if (CScriptCache* cache = TheCache())
-        reinterpret_cast<void(__thiscall*)(CScriptCache*, unsigned int)>(cache->m_vtable[0])(cache, 1);
+    if (CScriptStore* cache = TheCache())
+        reinterpret_cast<void(__thiscall*)(CScriptStore*, unsigned int)>(cache->m_vtable[0])(cache, 1);
     TheCache() = nullptr;
     CacheReferences() = 0;
 }

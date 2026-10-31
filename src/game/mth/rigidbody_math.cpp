@@ -1,4 +1,4 @@
-// Two maths helpers the rigid body's code sits next to: Vector::SetLength (vector.h) and Quat::GetMatrix (quat.h).
+// Two maths helpers the rigid body's code sits next to: Vector::SetLength (vector.h) and QuatRotation::GetMatrix (quat.h).
 // The x87 work is at 53 bits: what the original keeps on the FPU stack is a double here, what it stores a float.
 
 #include <cmath>
@@ -7,7 +7,7 @@
 #include "game/mth/quat.h"
 #include "game/mth/vector.h"
 
-namespace Mth {
+namespace Maths {
 
 namespace {
 
@@ -31,7 +31,7 @@ Vector* Vector::SetLength(float length)
 
 // 0x0042BC40: with s = 2 / |q|^2 - x * s kept unrounded, y * s and z * s rounded; the products by x unrounded, the
 // others rounded (as the original keeps them).
-Matrix* Quat::GetMatrix(Matrix* out) const
+Matrix* QuatRotation::GetMatrix(Matrix* out) const
 {
     double lengthSqr = ((Wide(x) * x + Wide(y) * y) + Wide(z) * z) + Wide(w) * w;
     double s = lengthSqr > 0.0 ? 2.0 / lengthSqr : 0.0;

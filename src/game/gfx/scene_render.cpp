@@ -18,7 +18,7 @@
 #include "game/gfx/view_mode.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 uint8_t* g_drawnMeshes[4096];
 
@@ -42,8 +42,8 @@ SortedMesh* Sorted() { return g_sortedMeshes; }
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint8_t* MeshMaterial(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
-void SetMaterial(uint8_t* material) { reinterpret_cast<sMaterial*>(material)->Submit(); }
-void DrawMesh(uint8_t* mesh) { reinterpret_cast<sMesh*>(mesh)->Render(); }
+void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->Submit(); }
+void DrawMesh(uint8_t* mesh) { reinterpret_cast<meshRef*>(mesh)->Render(); }
 // The render statistics (0x00775B80; thiscall).
 void CountPass(int which) { g_billboardManager.Render(which); }
 
@@ -55,7 +55,7 @@ void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(cons
 }
 
 struct Pass {
-    sScene* scene;
+    sceneRef* scene;
     uint32_t flags;
     uint8_t viewportBit;
     bool noCulling;
@@ -73,7 +73,7 @@ struct Pass {
             return true;
         if (!(mesh[0x1B] & viewportBit))
             return false;
-        auto* centre = reinterpret_cast<const Mth::Vector*>(mesh + 4);
+        auto* centre = reinterpret_cast<const Maths::Vector*>(mesh + 4);
         float radius = *reinterpret_cast<const float*>(mesh + 0x10);
         if (!SphereInView(centre, radius))
             return false;
@@ -113,7 +113,7 @@ int __cdecl CompareDistances(const void* a, const void* b)
 }
 
 // 0x004DC700
-void __cdecl RenderScene(sScene* scene, uint32_t flags, int viewport)
+void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
 {
     Pass pass{scene, flags, 0, (flags & kRenderNoCulling) != 0};
     if (scene->unknown40)
@@ -156,7 +156,7 @@ void __cdecl RenderScene(sScene* scene, uint32_t flags, int viewport)
         }
         if (scene->flags & 0x100) { // shadows on the meshes drawn
             if (ZWrite() == 1) {
-                Nx::SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+                Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
                 ZWrite() = 0;
             }
             DWORD minFilter;
@@ -167,7 +167,7 @@ void __cdecl RenderScene(sScene* scene, uint32_t flags, int viewport)
             if (minFilter == D3DTEXF_ANISOTROPIC)
                 Device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             if (!ZWrite()) {
-                Nx::SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+                Engine3D::SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
                 ZWrite() = 1;
             }
         }

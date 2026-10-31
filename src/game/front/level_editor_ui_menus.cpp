@@ -15,7 +15,7 @@
 #include "game/front/level_editor_ux8.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 
 namespace {
 
@@ -176,7 +176,7 @@ void HelpMenu()
     Items({"help", "command_search", "keys"});
     ImGui::Separator();
     if (ImGui::MenuItem("Show Tips"))
-        Prefs::ShowTips();
+        OptionStore::ShowTips();
     ImGui::EndMenu();
 }
 
@@ -191,4 +191,4 @@ void MenuBar(const Model& model, const Ux8::Fonts& fonts, std::vector<Request>* 
     HelpMenu();
 }
 
-} // namespace Front::LevelEditor::Ui
+} // namespace MenuSystem::LevelEditor::Ui

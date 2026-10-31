@@ -1,4 +1,4 @@
-// Lst::LookupTable's code (see lookup_table.h): 0x00557F10, 0x00561430, 0x005628B0, 0x00562970, 0x0055B990.
+// ListKit::LookupTable's code (see lookup_table.h): 0x00557F10, 0x00561430, 0x005628B0, 0x00562970, 0x0055B990.
 
 #include <cstdint>
 
@@ -6,7 +6,7 @@
 
 #include "game/core/mem.h"
 
-namespace Lst {
+namespace ListKit {
 
 namespace {
 
@@ -60,9 +60,9 @@ void* LookupTable::GetItem(const uint32_t* key)
 }
 
 // 0x005628B0
-bool LookupTable::PutItem(const uint32_t* key, void* item)
+bool LookupTable::StoreEntry(const uint32_t* key, void* item)
 {
-    auto* node = static_cast<Node*>(Mem::New(sizeof(Node)));
+    auto* node = static_cast<Node*>(MemSys::New(sizeof(Node)));
     if (node) {
         node->item = nullptr;
         node->next = nullptr;
@@ -80,7 +80,7 @@ bool LookupTable::PutItem(const uint32_t* key, void* item)
 }
 
 // 0x00562970
-void LookupTable::FlushItem(const uint32_t* key)
+void LookupTable::EraseEntry(const uint32_t* key)
 {
     m_cursor = nullptr;
     Node* previous = nullptr;
@@ -93,20 +93,20 @@ void LookupTable::FlushItem(const uint32_t* key)
             m_first = node->next;
         if (m_last == node)
             m_last = previous;
-        Mem::Free(node);
+        MemSys::Free(node);
         --m_count;
         return;
     }
 }
 
 // 0x0055B990
-void LookupTableDestroyer::DeleteTableContents()
+void TableItemEraser::EmptyTableItems()
 {
-    for (int count = m_table->m_count; count > 0; --count) {
+    for (int count = m_lookupTable->m_count; count > 0; --count) {
         int index = 0;
         uint32_t key;
-        void* item = m_table->GetItemByIndex(&index, &key);
-        m_table->FlushItem(&key);
+        void* item = m_lookupTable->GetItemByIndex(&index, &key);
+        m_lookupTable->EraseEntry(&key);
         if (item)
             DeleteItem(item);
     }

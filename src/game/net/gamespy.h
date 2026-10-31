@@ -2,7 +2,7 @@
 // 2003-04 build of the SDK; here it is IGN's open-source release of the SDK (December 2007, common 2.06 - BSD-3, see THIRD_PARTY_NOTICES.md), built from
 // source; gamespy.cpp adapts the calls where its API grew (docs/gamespy.md lists what differs). SDK objects are opaque
 // here (PEER, SBServer, qr2 buffers, GHTTPPost, statsgame_t: void*); a GPConnection is the pointer-sized slot the
-// game passes (BuddyMan's first word). Callbacks are passed as code pointers with the SDK's cdecl signatures.
+// game passes (FriendsManager's first word). Callbacks are passed as code pointers with the SDK's cdecl signatures.
 #pragma once
 
 #include <cstddef>

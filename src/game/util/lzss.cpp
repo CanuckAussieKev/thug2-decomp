@@ -12,7 +12,7 @@ namespace {
 
 constexpr int N = 4096;      // window size
 constexpr int F = 18;        // longest match
-constexpr int THRESHOLD = 2; // matches this short or shorter are stored as literals
+constexpr int LITERAL_RUN_LIMIT = 2; // matches this short or shorter are stored as literals
 constexpr int NIL = N;       // "no node" in the search tree
 
 uint8_t g_decodeWindow[4096];
@@ -42,23 +42,23 @@ uint8_t* DecodeWindow() { return g_decodeWindow; }
 
 void FreeTree()
 {
-    Mem::Free(Parent());
-    Mem::Free(Right());
-    Mem::Free(Left());
-    Mem::Free(Window());
+    MemSys::Free(Parent());
+    MemSys::Free(Right());
+    MemSys::Free(Left());
+    MemSys::Free(Window());
 }
 
 } // namespace
 
 // 0x00401600
-void InitTree()
+void ResetMatchTree()
 {
-    Mem::PushContext(Mem::TopDownHeap());
-    Window() = static_cast<uint8_t*>(Mem::New(N + F - 1));
-    Left() = static_cast<int*>(Mem::New((N + 1) * sizeof(int)));
-    Right() = static_cast<int*>(Mem::New((N + 257) * sizeof(int)));
-    Parent() = static_cast<int*>(Mem::New((N + 1) * sizeof(int)));
-    Mem::PopContext();
+    MemSys::EnterHeapScope(MemSys::TopDownHeap());
+    Window() = static_cast<uint8_t*>(MemSys::New(N + F - 1));
+    Left() = static_cast<int*>(MemSys::New((N + 1) * sizeof(int)));
+    Right() = static_cast<int*>(MemSys::New((N + 257) * sizeof(int)));
+    Parent() = static_cast<int*>(MemSys::New((N + 1) * sizeof(int)));
+    MemSys::LeaveHeapScope();
 
     for (int i = N + 1; i <= N + 256; ++i)
         Right()[i] = NIL; // tree roots, one per first byte
@@ -68,7 +68,7 @@ void InitTree()
 
 // 0x00401290
 // Insert the string at window position r into the tree, and record the longest match found on the way.
-void InsertNode(int r)
+void AddMatchNode(int r)
 {
     uint8_t* window = Window();
     int* left = Left();
@@ -126,7 +126,7 @@ void InsertNode(int r)
 
 // 0x004013E0
 // Remove node p from the tree.
-void DeleteNode(int p)
+void UnlinkListNode(int p)
 {
     int* left = Left();
     int* right = Right();
@@ -167,7 +167,7 @@ int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     BytesIn() = 0;
     BytesOut() = 0;
     PrintCount() = 0;
-    InitTree();
+    ResetMatchTree();
     uint8_t* window = Window();
 
     // code[0] holds the flag bits for up to 8 items; each item takes 1 byte (literal) or 2 (reference).
@@ -189,20 +189,20 @@ int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     }
 
     for (int i = 1; i <= F; ++i)
-        InsertNode(r - i);
-    InsertNode(r);
+        AddMatchNode(r - i);
+    AddMatchNode(r);
 
     do {
         if (MatchLength() > length)
             MatchLength() = length;
-        if (MatchLength() <= THRESHOLD) {
+        if (MatchLength() <= LITERAL_RUN_LIMIT) {
             MatchLength() = 1;
             code[0] |= mask;
             code[code_size++] = window[r];
         } else {
             code[code_size++] = static_cast<uint8_t>(MatchPosition());
             code[code_size++] =
-                static_cast<uint8_t>(((MatchPosition() >> 4) & 0xF0) | (MatchLength() - (THRESHOLD + 1)));
+                static_cast<uint8_t>(((MatchPosition() >> 4) & 0xF0) | (MatchLength() - (LITERAL_RUN_LIMIT + 1)));
         }
 
         bool group_full = (mask & 0x80) != 0;
@@ -220,21 +220,21 @@ int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats)
         int i = 0;
         for (; i < last_match && size != 0; ++i, --size) {
             uint8_t c = *in++;
-            DeleteNode(s);
+            UnlinkListNode(s);
             window[s] = c;
             if (s < F - 1)
                 window[s + N] = c; // mirror the start so matches can run past the end
             s = (s + 1) & (N - 1);
             r = (r + 1) & (N - 1);
-            InsertNode(r);
+            AddMatchNode(r);
         }
         BytesIn() += i;
         for (; i < last_match; ++i) {
-            DeleteNode(s);
+            UnlinkListNode(s);
             s = (s + 1) & (N - 1);
             r = (r + 1) & (N - 1);
             if (--length != 0)
-                InsertNode(r);
+                AddMatchNode(r);
         }
     } while (length > 0);
 
@@ -244,9 +244,9 @@ int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     }
 
     if (print_stats) {
-        Dbg::Printf("     In : %ld bytes\n", BytesIn());
-        Dbg::Printf("     Out: %ld bytes\n", BytesOut());
-        Dbg::Printf("     Out/In: %.3f\n", static_cast<double>(BytesOut()) / static_cast<double>(BytesIn()));
+        DebugOut::Printf("     In : %ld bytes\n", BytesIn());
+        DebugOut::Printf("     Out: %ld bytes\n", BytesOut());
+        DebugOut::Printf("     Out/In: %.3f\n", static_cast<double>(BytesOut()) / static_cast<double>(BytesIn()));
     }
 
     FreeTree();
@@ -288,7 +288,7 @@ uint8_t* Decode(const uint8_t* in, uint8_t* out, int size)
             in += 2;
             size -= 2;
             position |= (info & 0xF0) << 4;
-            int last = (info & 0x0F) + THRESHOLD;
+            int last = (info & 0x0F) + LITERAL_RUN_LIMIT;
             for (int k = 0; k <= last; ++k) {
                 uint8_t c = window[(position + k) & (N - 1)];
                 *out++ = c;

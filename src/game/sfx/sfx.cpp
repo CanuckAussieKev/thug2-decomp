@@ -15,14 +15,14 @@
 #include "game/gfx/loading_bar_cfuncs.h"
 #include "game/obj/movie_manager.h"
 
-namespace Sfx {
+namespace SoundFx {
 
 float g_defaultDropoff{1020.0f};
 float g_volumeScale{100.0f};
-WaveTableEntry g_permanentWaves[256];
-WaveTableEntry g_levelWaves[256];
+SoundWaveSlot g_permanentWaves[256];
+SoundWaveSlot g_levelWaves[256];
 PlayingSound g_playingSounds[48];
-CSfxManager* g_sfxManager;
+CAudioMixer* g_sfxManager;
 PositionalSound* g_positionalHead;
 int g_permanentCount;
 int g_levelCount;
@@ -47,12 +47,12 @@ PositionalSound g_positionalSounds[128];
 PositionalSound* PositionalPool() { return g_positionalSounds; }
 PositionalSound*& PositionalHead() { return g_positionalHead; }
 int& PositionalCount() { return g_positionalCount; }
-WaveTableEntry* PermanentWaves() { return g_permanentWaves; }
+SoundWaveSlot* PermanentWaves() { return g_permanentWaves; }
 int& PermanentCount() { return g_permanentCount; }
-WaveTableEntry* LevelWaves() { return g_levelWaves; }
+SoundWaveSlot* LevelWaves() { return g_levelWaves; }
 int& LevelCount() { return g_levelCount; }
 float& DefaultDropoff() { return g_defaultDropoff; }
-float& MainVolume() { return g_mainVolume; }
+float& MasterLoudness() { return g_mainVolume; }
 float& Pitch() { return g_pitch; }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
 bool QuietMisses() { return GameConfig::g_fromCD; }
@@ -61,7 +61,7 @@ bool QuietMisses() { return GameConfig::g_fromCD; }
 void ReportMissing()
 {
     if (!QuietMisses())
-        Script::GetInteger(kDebugA);
+        Scripts::FetchIntValue(kDebugA);
 }
 
 // (debug output, compiled out)
@@ -83,30 +83,30 @@ int FalloffFromChecksum(uint32_t checksum)
 }
 
 // 0x0047B030
-sVolume* sVolume::Init()
+volumeRef* volumeRef::Init()
 {
-    CSfxManager* manager = g_sfxManager;
+    CAudioMixer* manager = g_sfxManager;
     m_type = manager ? manager->m_defaultVolumeType : TYPE_STEREO;
-    SetSilent();
+    ChangeMuted();
     return this;
 }
 
 // 0x0047B070
-sVolume* sVolume::SetType(int type)
+volumeRef* volumeRef::SetType(int type)
 {
     m_type = type;
     return this;
 }
 
 // 0x0047AC50
-void sVolume::PercentageAdjustment(float percent)
+void volumeRef::PercentTweak(float percent)
 {
     for (int i = 0; i < ChannelCount(); ++i)
         m_channels[i] = static_cast<float>(static_cast<double>(percent) * m_channels[i] * 0.0099999998f);
 }
 
 // 0x0047ACF0
-bool sVolume::IsSilent()
+bool volumeRef::IsAudioOff()
 {
     for (int i = 0; i < ChannelCount(); ++i) {
         if (m_channels[i] != 0.0f)
@@ -116,14 +116,14 @@ bool sVolume::IsSilent()
 }
 
 // 0x0047AD60
-void sVolume::SetSilent()
+void volumeRef::ChangeMuted()
 {
     for (float& channel : m_channels)
         channel = 0.0f;
 }
 
 // 0x0047B080
-float sVolume::GetLoudestChannel()
+float volumeRef::FindPeakChannel()
 {
     float loudest = m_channels[0];
     for (int i = 1; i < ChannelCount(); ++i) {
@@ -136,16 +136,16 @@ float sVolume::GetLoudestChannel()
 // 0x0047B010
 bool NoSound()
 {
-    if (!Pcm::g_soundDevice)
+    if (!AudioStream::g_soundDevice)
         return true;
     int platform = GameConfig::g_platform;
     return platform == 2 || platform == 6;
 }
 
 // 0x0047AFD0
-float GetMainVolume()
+float FetchMasterLoudness()
 {
-    return MainVolume();
+    return MasterLoudness();
 }
 
 // 0x0047AFE0
@@ -160,10 +160,10 @@ int CountPlayingVoices()
 }
 
 // 0x0047B160
-CSfxManager* CSfxManager::Construct()
+CAudioMixer* CAudioMixer::Construct()
 {
     if (!NoSound()) {
-        m_defaultVolumeType = sVolume::TYPE_STEREO;
+        m_defaultVolumeType = volumeRef::TYPE_STEREO;
         InitVoices(this);
         for (int i = 0; i < kMaxPlaying; ++i) {
             Playing()[i].uniqueId = 0;
@@ -174,7 +174,7 @@ CSfxManager* CSfxManager::Construct()
 }
 
 // 0x0047AD80
-int CSfxManager::GetPlayingIndex(uint32_t id)
+int CAudioMixer::GetPlayingIndex(uint32_t id)
 {
     for (int i = 0; i < kMaxPlaying; ++i) {
         if (Playing()[i].uniqueId == id && IsVoicePlaying(i))
@@ -183,8 +183,8 @@ int CSfxManager::GetPlayingIndex(uint32_t id)
     for (int i = 0; i < kMaxPlaying; ++i) {
         if (Playing()[i].checksum == id && IsVoicePlaying(i)) {
             // (a debug report, compiled out)
-            if (Script::GetInteger(kDebugA) == 0)
-                Script::GetInteger(kDebugB);
+            if (Scripts::FetchIntValue(kDebugA) == 0)
+                Scripts::FetchIntValue(kDebugB);
             return i;
         }
     }
@@ -192,7 +192,7 @@ int CSfxManager::GetPlayingIndex(uint32_t id)
 }
 
 // 0x0047AE20
-void CSfxManager::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, Obj::CObject* object)
+void CAudioMixer::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, GameObjects::CObject* object)
 {
     if (uniqueId == 0 || PositionalCount() == kMaxPositional)
         return;
@@ -218,18 +218,18 @@ void CSfxManager::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, Obj::
 }
 
 // 0x0047AE90
-void CSfxManager::StopGroup(int group)
+void CAudioMixer::StopGroup(int group)
 {
     (void)group;
     GroupCount();
 }
 
 // 0x0047AEA0
-void CSfxManager::UnloadGroup(int group)
+void CAudioMixer::UnloadGroup(int group)
 {
     int count = PermanentCount();
     for (int i = 0; i < count;) {
-        WaveTableEntry& entry = PermanentWaves()[i];
+        SoundWaveSlot& entry = PermanentWaves()[i];
         if (entry.loadType == 2 && entry.group == static_cast<uint32_t>(group)) {
             --count;
             entry = PermanentWaves()[count]; // (the last moves into its place)
@@ -243,14 +243,14 @@ void CSfxManager::UnloadGroup(int group)
 }
 
 // 0x0047AF10
-void CSfxManager::UnloadAllGroups()
+void CAudioMixer::UnloadAllGroups()
 {
     for (int group = 0; group < GroupCount(); ++group)
         UnloadGroup(group);
 }
 
 // 0x0047AF40
-void CSfxManager::InitPlaybackProps(PlaybackProps* props, WaveTableEntry* entry, PlaybackProps* params)
+void CAudioMixer::InitPlaybackProps(PlaybackProps* props, SoundWaveSlot* entry, PlaybackProps* params)
 {
     if (params) {
         // (the parameters: {pitch, volume, dropoff, falloff} in the props' first four words' order)
@@ -277,7 +277,7 @@ void CSfxManager::InitPlaybackProps(PlaybackProps* props, WaveTableEntry* entry,
 }
 
 // 0x0047B1B0
-void CSfxManager::CleanUp()
+void CAudioMixer::CleanUp()
 {
     if (NoSound())
         return;
@@ -291,14 +291,14 @@ void CSfxManager::CleanUp()
 }
 
 // 0x0047B210
-void CSfxManager::SetDefaultDropoff(float dropoff)
+void CAudioMixer::SetDefaultDropoff(float dropoff)
 {
     if (!NoSound())
         DefaultDropoff() = dropoff;
 }
 
 // 0x0047B240
-void CSfxManager::StopAllSounds()
+void CAudioMixer::StopAllSounds()
 {
     if (NoSound())
         return;
@@ -310,14 +310,14 @@ void CSfxManager::StopAllSounds()
 }
 
 // 0x0047B2A0
-void CSfxManager::UpdateVoiceVolumes()
+void CAudioMixer::UpdateVoiceVolumes()
 {
     if (!NoSound())
         SilenceVoices();
 }
 
 // 0x0047B2C0
-WaveTableEntry* CSfxManager::GetWaveTableEntry(uint32_t checksum)
+SoundWaveSlot* CAudioMixer::GetWaveTableEntry(uint32_t checksum)
 {
     if (NoSound())
         return nullptr;
@@ -333,15 +333,15 @@ WaveTableEntry* CSfxManager::GetWaveTableEntry(uint32_t checksum)
 }
 
 // 0x0047B340
-bool CSfxManager::IsPaused()
+bool CAudioMixer::IsPaused()
 {
     if (m_muteOverride)
         return false;
-    return Nx::g_loadingScreenShown || Obj::g_gamePaused;
+    return Engine3D::g_loadingScreenShown || GameObjects::g_gamePaused;
 }
 
 // 0x0047B360
-bool CSfxManager::LoadSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
+bool CAudioMixer::LoadSound(const char* path, uint16_t flags, int loadType, int group, float dropoff, float pitch,
                             float volume)
 {
     if (NoSound())
@@ -353,10 +353,10 @@ bool CSfxManager::LoadSound(const char* path, uint16_t flags, int loadType, int 
         if (path[i] == '\\' || path[i] == '/')
             name = path + i + 1;
     }
-    uint32_t checksum = Crc::GenerateCRCFromString(name);
+    uint32_t checksum = Checksums::HashFromText(name);
     if (GetWaveTableEntry(checksum))
         return false;
-    WaveTableEntry* entry;
+    SoundWaveSlot* entry;
     if (loadType == 0) {
         if (LevelCount() >= kMaxWaves)
             return false;
@@ -383,19 +383,19 @@ bool CSfxManager::LoadSound(const char* path, uint16_t flags, int loadType, int 
 }
 
 // 0x0047B480
-void CSfxManager::AdjustVolumeAndPitch(sVolume* volume, float* pitch, WaveTableEntry* entry)
+void CAudioMixer::AdjustVolumeAndPitch(volumeRef* volume, float* pitch, SoundWaveSlot* entry)
 {
     if (NoSound())
         return;
-    volume->PercentageAdjustment(50.0f);
+    volume->PercentTweak(50.0f);
     if (entry->volume != 100.0f)
-        volume->PercentageAdjustment(entry->volume);
+        volume->PercentTweak(entry->volume);
     if (entry->pitch != 100.0f)
         *pitch = static_cast<float>(static_cast<double>(*pitch) * entry->pitch * 0.0099999998f);
 }
 
 // 0x0047B4E0
-bool CSfxManager::StopSound(uint32_t id)
+bool CAudioMixer::StopSound(uint32_t id)
 {
     if (NoSound())
         return true;
@@ -407,7 +407,7 @@ bool CSfxManager::StopSound(uint32_t id)
 }
 
 // 0x0047B520
-bool CSfxManager::SetSoundParams(uint32_t id, sVolume* volume, float pitch)
+bool CAudioMixer::SetSoundParams(uint32_t id, volumeRef* volume, float pitch)
 {
     if (NoSound())
         return true;
@@ -416,35 +416,35 @@ bool CSfxManager::SetSoundParams(uint32_t id, sVolume* volume, float pitch)
         ReportMissing();
         return false;
     }
-    WaveTableEntry* entry = Playing()[index].entry;
+    SoundWaveSlot* entry = Playing()[index].entry;
     if (!entry)
         return false;
-    if (!volume->IsSilent())
+    if (!volume->IsAudioOff())
         AdjustVolumeAndPitch(volume, &pitch, entry);
-    SetVoiceParameters(index, volume, pitch);
+    ApplyVoiceSettings(index, volume, pitch);
     return true;
 }
 
 // 0x0047B5D0
-void CSfxManager::SetMainVolume(float volume)
+void CAudioMixer::ChangeMasterLoudness(float volume)
 {
     if (NoSound())
         return;
-    Script::GetInteger(kDebugB);
-    MainVolume() = volume;
+    Scripts::FetchIntValue(kDebugB);
+    MasterLoudness() = volume;
     float scaled = static_cast<float>(static_cast<double>(g_volumeScale) * volume * 0.0099999998f);
     if (scaled < 0.1f)
         scaled = 0.0f;
     SetVoiceVolume(scaled);
-    Pcm::SetUserSoundtrackVolume(scaled);
+    AudioStream::SetUserSoundtrackVolume(scaled);
 }
 
 // 0x0047B650
-void CSfxManager::SetPitch(float pitch, int /*unused1*/, int /*unused2*/)
+void CAudioMixer::SetPitch(float pitch, int /*unused1*/, int /*unused2*/)
 {
     if (NoSound())
         return;
-    Script::GetInteger(kDebugB);
+    Scripts::FetchIntValue(kDebugB);
     if (!(pitch > 0.0099999998f) && !std::isnan(pitch))
         pitch = 0.0099999998f;
     Pitch() = pitch;
@@ -453,14 +453,14 @@ void CSfxManager::SetPitch(float pitch, int /*unused1*/, int /*unused2*/)
 }
 
 // 0x0047B6B0
-void CSfxManager::PrintSounds(int a, int b, int c)
+void CAudioMixer::PrintSounds(int a, int b, int c)
 {
     if (!NoSound())
         PrintSoundDebug(a, b, c);
 }
 
 // 0x0047B6F0
-bool CSfxManager::IsSoundPlaying(uint32_t uniqueId, int* index)
+bool CAudioMixer::IsSoundPlaying(uint32_t uniqueId, int* index)
 {
     if (NoSound() || uniqueId == 0)
         return false;
@@ -477,18 +477,18 @@ bool CSfxManager::IsSoundPlaying(uint32_t uniqueId, int* index)
 }
 
 // 0x0047B760
-float CSfxManager::GetDropoffDistance(uint32_t checksum)
+float CAudioMixer::GetDropoffDistance(uint32_t checksum)
 {
     if (NoSound())
         return DefaultDropoff();
-    WaveTableEntry* entry = GetWaveTableEntry(checksum);
+    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
     if (!entry)
         return 0.0f;
     return entry->dropoff == 0.0f ? DefaultDropoff() : entry->dropoff;
 }
 
 // 0x0047B7C0
-bool CSfxManager::SetSoundParamsScaled(uint32_t uniqueId, sVolume* volume, float pitch)
+bool CAudioMixer::SetSoundParamsScaled(uint32_t uniqueId, volumeRef* volume, float pitch)
 {
     if (NoSound())
         return true;
@@ -502,18 +502,18 @@ bool CSfxManager::SetSoundParamsScaled(uint32_t uniqueId, sVolume* volume, float
         return false;
     }
     PlayingSound& sound = Playing()[index];
-    if (!volume->IsSilent()) {
+    if (!volume->IsAudioOff()) {
         if (sound.props.volume != 100.0f)
-            volume->PercentageAdjustment(sound.props.volume);
+            volume->PercentTweak(sound.props.volume);
         if (sound.props.pitch != 100.0f)
             pitch = static_cast<float>(static_cast<double>(sound.props.pitch) * pitch * 0.0099999998f);
     }
-    WaveTableEntry* entry = sound.entry;
+    SoundWaveSlot* entry = sound.entry;
     if (!entry)
         return false;
-    if (!volume->IsSilent())
+    if (!volume->IsAudioOff())
         AdjustVolumeAndPitch(volume, &pitch, entry);
-    SetVoiceParameters(index, volume, pitch);
+    ApplyVoiceSettings(index, volume, pitch);
     return true;
 }
 

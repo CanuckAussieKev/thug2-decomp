@@ -7,20 +7,20 @@ namespace Sio {
 class Device;
 }
 
-// The input manager (Neversoft's Inp::Manager, the singleton 0x0044E7F0 makes): a server per controller that
+// The input manager (Neversoft's PadInput::Manager, the singleton 0x0044E7F0 makes): a server per controller that
 // turns its Sio device's PS2-format control data into button bits and analogue values once a frame and passes
-// them to the server's input handlers (Inp::Handler<T>, e.g. the front end's). A server can also play back a
-// recording (one RecordedData per frame) or record what it reads.
-namespace Inp {
+// them to the server's input handlers (PadInput::Handler<T>, e.g. the front end's). A server can also play back a
+// recording (one PadFrameRecord per frame) or record what it reads.
+namespace PadInput {
 
 // One frame of a recording (0x20 bytes).
-struct RecordedData {
-    uint8_t m_valid;
+struct PadFrameRecord {
+    uint8_t m_isUsable;
     uint8_t m_event[25]; // Data::m_event
     uint8_t pad1A[2];
     uint32_t m_buttons;
 };
-static_assert(sizeof(RecordedData) == 0x20 && offsetof(RecordedData, m_buttons) == 0x1C);
+static_assert(sizeof(PadFrameRecord) == 0x20 && offsetof(PadFrameRecord, m_buttons) == 0x1C);
 
 // What the handlers get (0x34 bytes): the analogue values and the button bits (PS2 order: bit 12 up, 13 right,
 // 14 down, 15 left ...; the device's extra byte above bit 16).
@@ -45,12 +45,12 @@ struct Data {
     uint32_t m_previous; // +0x30: and last frame
 
     // 0x0044E840: the buttons in `mask` read as up (held, pressed and released).
-    void MaskDigitalInput(uint32_t mask);
+    void BlockButtonInput(uint32_t mask);
     // 0x0044E860: the analogue values in `mask` (bit n: value n) neutral - the sticks centred, pressures 0.
-    void MaskAnalogInput(uint32_t mask);
+    void BlockStickInput(uint32_t mask);
     // 0x0044E8C0: each button's pressure from its bit (0xFF down, 0), by the table at 0x0067D730 ({mask, value}
     // pairs, ended by a mask that isn't positive).
-    void ConvertDigitalToAnalog();
+    void DigitalAsStick();
     // 0x0044E900: the raw sticks kept at 0x12-0x15; then each stick axis within 50 of the centre centred, and a
     // raw stick only when both its axes are.
     void HandleAnalogTolerance();
@@ -63,12 +63,12 @@ static_assert(sizeof(Data) == 0x34 && offsetof(Data, m_buttons) == 0x1C && offse
 // A controller's server (0x84 bytes).
 struct Server {
     Sio::Device* m_device;
-    uint8_t m_handlers[0x3C];    // +0x04: the handler list (Tsk::List: 0x00406E80 makes it, 0x004070A0 runs it)
+    uint8_t m_handlers[0x3C];    // +0x04: the handler list (TaskList::List: 0x00406E80 makes it, 0x004070A0 runs it)
     Data m_data;                 // +0x40
-    RecordedData* m_dataIn;      // +0x74: the recording played back (null: none)
-    RecordedData* m_dataInEnd;   // +0x78
-    RecordedData* m_dataOut;     // +0x7C: the recording made (null: none)
-    RecordedData* m_dataOutEnd;  // +0x80
+    PadFrameRecord* m_dataIn;      // +0x74: the recording played back (null: none)
+    PadFrameRecord* m_dataInEnd;   // +0x78
+    PadFrameRecord* m_dataOut;     // +0x7C: the recording made (null: none)
+    PadFrameRecord* m_dataOutEnd;  // +0x80
 
     // 0x0044E9E0: the handler list and everything cleared (but m_device, m_makes and m_breaks). Returns this.
     Server* Construct();
@@ -84,7 +84,7 @@ static_assert(sizeof(Server) == 0x84 && offsetof(Server, m_data) == 0x40 && offs
 struct Manager {
     enum { kNumServers = 2 };
 
-    void* m_task;                     // Tsk::Task<Manager> (priority 2000) running the servers (0x0044E660)
+    void* m_task;                     // TaskList::Task<Manager> (priority 2000) running the servers (0x0044E660)
     Server m_servers[kNumServers];    // +0x04
     bool m_overridePadWithStick;      // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool m_unknown10D;
@@ -98,7 +98,7 @@ struct Manager {
     // (the last first).
     void Destruct();
     // 0x0044E5D0 / 0x0044E5F0: server `index`'s device (if any) stops and refuses vibration / allows it again.
-    void DisableActuators(int index);
+    void StopRumble(int index);
     void EnableActuators(int index);
     // 0x0044E610 / 0x0044E620
     void SetOverridePadWithStick(bool on) { m_overridePadWithStick = on; }
@@ -107,7 +107,7 @@ struct Manager {
     // controller 0, player 1 none).
     int GetPlayerController(int player) { return m_unknown110[player]; }
     void SetPlayerController(int player, int controller) { m_unknown110[player] = controller; }
-    // 0x0044E660: the task's code (`task` its Tsk::Task<Manager>: the manager at +0x1C): for each server, a
+    // 0x0044E660: the task's code (`task` its TaskList::Task<Manager>: the manager at +0x1C): for each server, a
     // recording played back or made that reached its end stops; then the server's frame (ServiceHandlers).
     static void __cdecl ServiceTask(void* task);
 };
@@ -122,9 +122,9 @@ void ReleaseManager();
 // The button table (0x0067D6D8: 22 checksums, entries 1-21 the buttons - up, down, ..., the debounce times are
 // indexed the same way). 0x0044E590: entry `index`'s checksum. 0x0044E5A0: the index of `checksum` (0 if it's
 // none of them).
-uint32_t __cdecl ButtonChecksum(int index);
+uint32_t __cdecl ButtonHash(int index);
 int __cdecl ButtonIndex(uint32_t checksum);
 
-extern Inp::Manager* g_inputManager;
+extern PadInput::Manager* g_inputManager;
 
 } // namespace Inp

@@ -17,7 +17,7 @@
 // selection with its own pad events and choose with pad_choose.
 //
 // This part is pure (the self-tests run it offline): what was read from the screen tree in, what to draw out.
-namespace Front::NewFrontend::Mirror {
+namespace MenuSystem::NewFrontend::Mirror {
 
 enum class Kind {
     None,    // nothing to restyle (the original as it is, or ours)
@@ -166,17 +166,17 @@ class Tracker {
 public:
     // A frame: what Build said now. Returns whether a view is up.
     bool Update(const View& now, float dt);
-    bool Up() const { return m_up; }
-    const View& Shown() const { return m_view; }
+    bool Up() const { return m_upDir; }
+    const View& Shown() const { return m_cameraView; }
     float RowAmount(int row) const;
     void Reset();
 
 private:
-    View m_view;
-    bool m_up = false;
+    View m_cameraView;
+    bool m_upDir = false;
     int m_seen = 0, m_gone = 0;
     Kind m_pendingKind = Kind::None;
     std::vector<RowAnim> m_rows;
 };
 
-} // namespace Front::NewFrontend::Mirror
+} // namespace MenuSystem::NewFrontend::Mirror

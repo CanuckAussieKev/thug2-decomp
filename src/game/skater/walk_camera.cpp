@@ -1,4 +1,4 @@
-// The WalkCamera component (Obj::CWalkCameraComponent): see walk_camera.h. From the disassembly of
+// The WalkCamera component (GameObjects::CFootView): see walk_camera.h. From the disassembly of
 // 0x00524C20-0x00525E3F (and 0x00525F70).
 
 #include "game/skater/walk_camera.h"
@@ -22,7 +22,7 @@
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -53,7 +53,7 @@ constexpr float kTiltRange = 0.6000000238418579f;  // 0x006463C4
 constexpr float kTiltBase = 0.4000000059604645f;   // 0x0064BAF8
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
+void MatrixMultiply(Maths::Matrix* out, const Maths::Matrix* a, const Maths::Matrix* b)
 {
     D3dx::MatrixMultiply(out, a, b);
 }
@@ -91,7 +91,7 @@ void TurnByStick(double angle, float* x, float* z)
 } // namespace
 
 // 0x00524D70
-Mth::Vector* __cdecl LerpByRange(Mth::Vector* out, const Mth::Vector* a, const Mth::Vector* b, float t, float low,
+Maths::Vector* __cdecl LerpByRange(Maths::Vector* out, const Maths::Vector* a, const Maths::Vector* b, float t, float low,
                                  float high)
 {
     double dx = static_cast<double>(b->x) - a->x;
@@ -115,37 +115,37 @@ Mth::Vector* __cdecl LerpByRange(Mth::Vector* out, const Mth::Vector* a, const M
 }
 
 // 0x00525DC0
-CBaseComponent* __cdecl CWalkCameraComponent::Create()
+CObjectModule* __cdecl CFootView::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CWalkCameraComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CFootView));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CWalkCameraComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CFootView*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kWalkCamera;
-    component->m_target = {0.0f, 0.0f, 0.0f, 1.0f};
+    component->m_aimPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     return component;
 }
 
 // 0x00524C20
-void CWalkCameraComponent::DestroyBody()
+void CFootView::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00524F20
-CWalkCameraComponent* CWalkCameraComponent::Destroy(unsigned int flags)
+CFootView* CFootView::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00524C50
-void CWalkCameraComponent::SetSkater(CCompositeObject* skater)
+void CFootView::BindRider(CGameEntity* skater)
 {
     if (!skater) {
         m_skater = nullptr;
@@ -154,53 +154,53 @@ void CWalkCameraComponent::SetSkater(CCompositeObject* skater)
         return;
     }
     m_skater = skater;
-    m_walk = static_cast<CWalkComponent*>(skater->GetComponent(kWalk));
+    m_walk = static_cast<CFootMovement*>(skater->GetComponent(kWalk));
     m_physicsControl = reinterpret_cast<uint8_t*>(m_skater->GetComponent(kSkaterPhysicsControl));
 }
 
 // 0x00524F50
-void CWalkCameraComponent::InitFromStructure(Script::CStruct* params)
+void CFootView::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t id = 0;
-    params->GetChecksum(kSkaterId, &id, 1);
-    SetSkater(static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(id)));
+    params->ReadHashValue(kSkaterId, &id, 1);
+    BindRider(static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id)));
     m_turnCosine = 1.0f;
     m_zoom = 1.0f;
-    m_orientation = m_object->m_matrix;
+    m_orientation = m_object->m_basisFrame;
 }
 
 // 0x00524FB0
-void CWalkCameraComponent::Finalize()
+void CFootView::Finalize()
 {
-    m_lookAround = static_cast<CCameraLookAroundComponent*>(m_object->GetComponent(kCameraLookAround));
-    m_camera = m_object->GetComponent(kCamera);
+    m_lookAround = static_cast<CFreeLookModule*>(m_object->GetComponent(kCameraLookAround));
+    m_viewer = m_object->GetComponent(kCamera);
     m_skaterCamera = reinterpret_cast<uint8_t*>(m_object->GetComponent(kSkaterCamera));
 }
 
 // 0x00524C30
-void CWalkCameraComponent::ResetNow()
+void CFootView::ResetNow()
 {
-    m_reset = true;
-    CBaseComponent::Update();
-    m_reset = false;
+    m_snapNext = true;
+    CObjectModule::Update();
+    m_snapNext = false;
 }
 
 // 0x005250A0
-void CWalkCameraComponent::FlushRequest()
+void CFootView::ApplyQueuedChange()
 {
     m_flush = true;
     At<bool>(m_walk, 0x70C) = true;
     m_lookAround->m_heading = 0.0f;
-    m_lookAround->m_tilt = 0.0f;
+    m_lookAround->m_leanAngle = 0.0f;
     m_lookAround->m_factor = 1.0f;
     m_lookAround->m_locked = false;
 }
 
 // 0x00525D40
-int CWalkCameraComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*params*/, Script::CScript* /*script*/)
+int CFootView::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
     if (name == kFlushRequest) {
-        FlushRequest();
+        ApplyQueuedChange();
         return 1;
     }
     if (name == kReset) {
@@ -211,7 +211,7 @@ int CWalkCameraComponent::CallMemberFunction(uint32_t name, Script::CStruct* /*p
 }
 
 // 0x00525F70
-void CWalkCameraComponent::SetOverrideFacing(const Mth::Vector* facing, float rate)
+void CFootView::SetOverrideFacing(const Maths::Vector* facing, float rate)
 {
     m_override = true;
     m_overrideFacing = *facing;
@@ -219,18 +219,18 @@ void CWalkCameraComponent::SetOverrideFacing(const Mth::Vector* facing, float ra
 }
 
 // 0x00525060
-void CWalkCameraComponent::SaveState(WalkCameraState* state)
+void CFootView::SaveState(WalkCameraState* state)
 {
     state->orientation = m_orientation;
-    state->target = m_target;
+    state->target = m_aimPoint;
     state->turnCosine = m_turnCosine;
     state->zoom = m_zoom;
 }
 
 // 0x00524FF0
-void CWalkCameraComponent::RestoreState(const WalkCameraState* state)
+void CFootView::RestoreState(const WalkCameraState* state)
 {
-    m_target = state->target;
+    m_aimPoint = state->target;
     m_orientation = state->orientation;
     m_turnCosine = state->turnCosine;
     m_zoom = state->zoom;
@@ -243,35 +243,35 @@ void CWalkCameraComponent::RestoreState(const WalkCameraState* state)
 }
 
 // 0x00524EF0
-float __stdcall CWalkCameraComponent::Param(uint32_t name)
+float __stdcall CFootView::Param(uint32_t name)
 {
     float value = 0.0f; // (the original's is uninitialised: the value is asserted)
-    Script::GetStructure(kParameters)->GetFloat(name, &value, 1);
+    Scripts::ReadSubStruct(kParameters)->GetFloat(name, &value, 1);
     return value;
 }
 
 // 0x005250E0
-void CWalkCameraComponent::GetTarget(Mth::Vector* out, bool instant)
+void CFootView::GetTarget(Maths::Vector* out, bool instant)
 {
     if (instant) {
-        m_target = m_skater->m_pos;
+        m_aimPoint = m_skater->m_pos;
     } else {
         float across = static_cast<float>(
-            FrameBlend(At<float>(m_skaterCamera, 0xE4), static_cast<float>(Tmr::GetSlomoFrameSeconds())));
+            FrameBlend(At<float>(m_skaterCamera, 0xE4), static_cast<float>(FrameClock::GetSlomoFrameSeconds())));
         float up = static_cast<float>(
-            FrameBlend(At<float>(m_skaterCamera, 0xE8), static_cast<float>(Tmr::GetSlomoFrameSeconds())));
-        const Mth::Vector& skater = m_skater->m_pos;
-        float x = m_target.x, y = m_target.y, z = m_target.z;
-        m_target.w = 1.0f;
-        m_target.x = static_cast<float>((static_cast<double>(skater.x) - x) * across + x);
-        m_target.y = static_cast<float>((static_cast<double>(skater.y) - y) * up + y);
-        m_target.z = static_cast<float>((static_cast<double>(skater.z) - z) * across + z);
+            FrameBlend(At<float>(m_skaterCamera, 0xE8), static_cast<float>(FrameClock::GetSlomoFrameSeconds())));
+        const Maths::Vector& skater = m_skater->m_pos;
+        float x = m_aimPoint.x, y = m_aimPoint.y, z = m_aimPoint.z;
+        m_aimPoint.w = 1.0f;
+        m_aimPoint.x = static_cast<float>((static_cast<double>(skater.x) - x) * across + x);
+        m_aimPoint.y = static_cast<float>((static_cast<double>(skater.y) - y) * up + y);
+        m_aimPoint.z = static_cast<float>((static_cast<double>(skater.z) - z) * across + z);
     }
-    *out = m_target;
+    *out = m_aimPoint;
 }
 
 // 0x00524CB0
-void CWalkCameraComponent::GetZoomedOffsets(float* height, float* distance)
+void CFootView::GetZoomedOffsets(float* height, float* distance)
 {
     float factor = 1.0f;
     uint32_t factorBits;
@@ -282,7 +282,7 @@ void CWalkCameraComponent::GetZoomedOffsets(float* height, float* distance)
     m_zoom = static_cast<float>(zoom);
     double behind = zoom * At<float>(m_skaterCamera, 0xC4);
     *distance = static_cast<float>(behind);
-    float tilt = m_lookAround->m_tilt;
+    float tilt = m_lookAround->m_leanAngle;
     if (tilt < 0.0f)
         *distance = static_cast<float>(
             (((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange + kTiltBase) * behind);
@@ -294,7 +294,7 @@ void CWalkCameraComponent::GetZoomedOffsets(float* height, float* distance)
 }
 
 // 0x005251D0
-void CWalkCameraComponent::Update()
+void CFootView::Update()
 {
     if (!m_skater)
         return;
@@ -309,19 +309,19 @@ void CWalkCameraComponent::Update()
         --m_instantFrames;
         instant = true;
     } else {
-        instant = m_reset;
+        instant = m_snapNext;
     }
-    At<Gfx::Camera*>(m_camera, 0x18)->StoreOldPos();
-    float frame = static_cast<float>(Tmr::GetSlomoFrameSeconds());
+    At<Gfx2D::Camera*>(m_viewer, 0x18)->RememberPrevPos();
+    float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     float turn = At<float>(m_object->GetComponent(kInput), 0x230);
-    m_object->m_matrix = m_orientation;
+    m_object->m_basisFrame = m_orientation;
 
     // Where to look: along the camera's flat facing, swung round to the skater's.
-    const Mth::Vector& at = m_object->m_matrix.row[2];
-    Mth::Vector facing = {-at.x, 0.0f, -at.z, -at.w};
+    const Maths::Vector& at = m_object->m_basisFrame.row[2];
+    Maths::Vector facing = {-at.x, 0.0f, -at.z, -at.w};
     facing.Normalize();
-    const Mth::Vector& skaterAt = m_skater->m_matrix.row[2];
-    Mth::Vector skaterFacing = {skaterAt.x, 0.0f, skaterAt.z, skaterAt.w};
+    const Maths::Vector& skaterAt = m_skater->m_basisFrame.row[2];
+    Maths::Vector skaterFacing = {skaterAt.x, 0.0f, skaterAt.z, skaterAt.w};
     skaterFacing.Normalize();
     if (m_flush) {
         facing = skaterFacing;
@@ -340,20 +340,20 @@ void CWalkCameraComponent::Update()
                     full = Param(kDpadFullSlerpSpeed);
                     least = Param(kDpadMinSlerpSpeed);
                 }
-                const Mth::Vector& velocity = m_skater->m_vel;
+                const Maths::Vector& velocity = m_skater->m_vel;
                 double speed = X87::Sqrt(static_cast<double>(velocity.x) * velocity.x +
                                          static_cast<double>(velocity.z) * velocity.z);
                 float speedF = static_cast<float>(speed);
                 if (!(speed < full)) {
                     swing = true;
                 } else if (speedF > least) {
-                    Mth::Vector lerped;
+                    Maths::Vector lerped;
                     facing = *LerpByRange(&lerped, &facing, &skaterFacing, speedF, least, full);
                     facing.Normalize();
                 }
             }
         }
-        if (swing || m_reset)
+        if (swing || m_snapNext)
             facing = skaterFacing;
     }
     if (!(turn == 0.0f) && !m_flush)
@@ -373,22 +373,22 @@ void CWalkCameraComponent::Update()
     }
 
     // The orientation that looks along it, tilted down; its right and at rows negated.
-    Mth::Matrix look;
+    Maths::Matrix look;
     look.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
     look.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     look.row[2] = facing;
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Matrix tilt;
-    Mth::CreateRotateXMatrix(tilt, m_lookAround->m_tilt + At<float>(m_skaterCamera, 0x12C));
+    Maths::Matrix tilt;
+    Maths::MakePitchMatrix(tilt, m_lookAround->m_leanAngle + At<float>(m_skaterCamera, 0x12C));
     MatrixMultiply(&look, &tilt, &look);
     look.row[0] = {-look.row[0].x, -look.row[0].y, -look.row[0].z, -look.row[0].w};
     look.row[2] = {-look.row[2].x, -look.row[2].y, -look.row[2].z, -look.row[2].w};
-    Mth::Vector skaterUp = m_skater->m_matrix.row[1];
-    Mth::Matrix& matrix = m_object->m_matrix;
+    Maths::Vector skaterUp = m_skater->m_basisFrame.row[1];
+    Maths::Matrix& matrix = m_object->m_basisFrame;
     if (instant) {
         matrix = look;
     } else {
-        auto aligned = [](const Mth::Vector& a, const Mth::Vector& b) {
+        auto aligned = [](const Maths::Vector& a, const Maths::Vector& b) {
             return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x >
                    kAligned;
         };
@@ -401,9 +401,9 @@ void CWalkCameraComponent::Update()
         } else {
             // Slerped toward it: at matrix_slerp_rate, faster running (and twice that hanging or climbing), with
             // the stick, flushing; an override's own rate.
-            Mth::SlerpInterpolator slerp(matrix, look);
+            Maths::ArcRotationBlender slerp(matrix, look);
             float base;
-            Script::GetStructure(kParameters)->GetFloat(kMatrixSlerpRate, &base, 1);
+            Scripts::ReadSubStruct(kParameters)->GetFloat(kMatrixSlerpRate, &base, 1);
             float rate = base;
             if (At<bool>(m_walk, 0x17A4))
                 rate = static_cast<float>(static_cast<double>(Param(kRunSlerpFactor)) * base);
@@ -427,8 +427,8 @@ void CWalkCameraComponent::Update()
                 }
             }
             slerp.GetMatrix(matrix, static_cast<float>(FrameBlend(rate, frame)));
-            const Mth::Vector& now = matrix.row[2];
-            const Mth::Vector& before = m_orientation.row[2];
+            const Maths::Vector& now = matrix.row[2];
+            const Maths::Vector& before = m_orientation.row[2];
             m_turnCosine = static_cast<float>(static_cast<double>(now.z) * before.z +
                                               static_cast<double>(now.y) * before.y +
                                               static_cast<double>(now.x) * before.x);
@@ -437,7 +437,7 @@ void CWalkCameraComponent::Update()
     m_orientation = matrix;
 
     // Where to be: behind and above the point followed, looking at a point above the skater.
-    Mth::Vector target;
+    Maths::Vector target;
     GetTarget(&target, instant);
     float height, distance;
     GetZoomedOffsets(&height, &distance);
@@ -446,7 +446,7 @@ void CWalkCameraComponent::Update()
     double upZ = static_cast<double>(skaterUp.z) * height;
     double upW = static_cast<double>(skaterUp.w) * height;
     float upXF = static_cast<float>(upX), upZF = static_cast<float>(upZ), upWF = static_cast<float>(upW);
-    const Mth::Vector& lookAt = matrix.row[2];
+    const Maths::Vector& lookAt = matrix.row[2];
     double backX = static_cast<double>(distance) * lookAt.x;
     double backY = static_cast<double>(distance) * lookAt.y;
     float backZ = distance * lookAt.z;
@@ -459,21 +459,21 @@ void CWalkCameraComponent::Update()
     target.y = target.y + stepY;
     target.z = static_cast<float>(target.z + stepZ);
     target.w = static_cast<float>(target.w + stepW);
-    const Mth::Vector& skaterPos = m_skater->m_pos;
-    Mth::Vector focus = {upXF + skaterPos.x, static_cast<float>(upY + skaterPos.y), upZF + skaterPos.z,
+    const Maths::Vector& skaterPos = m_skater->m_pos;
+    Maths::Vector focus = {upXF + skaterPos.x, static_cast<float>(upY + skaterPos.y), upZF + skaterPos.z,
                          upWF + skaterPos.w};
 
-    Mth::Matrix aim;
-    Mth::Vector& aimAt = aim.row[2];
+    Maths::Matrix aim;
+    Maths::Vector& aimAt = aim.row[2];
     aimAt = {focus.x - target.x, focus.y - target.y, focus.z - target.z, focus.w - target.w};
     aimAt.Normalize();
-    const Mth::Vector up = matrix.row[1];
-    Mth::Vector& right = aim.row[0];
+    const Maths::Vector up = matrix.row[1];
+    Maths::Vector& right = aim.row[0];
     right = {static_cast<float>(static_cast<double>(up.y) * aimAt.z - static_cast<double>(up.z) * aimAt.y),
              static_cast<float>(static_cast<double>(up.z) * aimAt.x - static_cast<double>(up.x) * aimAt.z),
              static_cast<float>(static_cast<double>(up.x) * aimAt.y - static_cast<double>(up.y) * aimAt.x), 0.0f};
     right.Normalize();
-    Mth::Vector& aimUp = aim.row[1];
+    Maths::Vector& aimUp = aim.row[1];
     aimUp = {static_cast<float>(static_cast<double>(right.z) * aimAt.y - static_cast<double>(right.y) * aimAt.z),
              static_cast<float>(static_cast<double>(right.x) * aimAt.z - static_cast<double>(right.z) * aimAt.x),
              static_cast<float>(static_cast<double>(right.y) * aimAt.x - static_cast<double>(right.x) * aimAt.y), 0.0f};
@@ -491,37 +491,37 @@ void CWalkCameraComponent::Update()
     double aheadY = static_cast<double>(distance) * matrix.row[2].y;
     float aheadZ = distance * matrix.row[2].z;
     float aheadW = distance * matrix.row[2].w;
-    Mth::Vector clear = {static_cast<float>(target.x - aheadX), static_cast<float>(target.y - aheadY),
+    Maths::Vector clear = {static_cast<float>(target.x - aheadX), static_cast<float>(target.y - aheadY),
                          target.z - aheadZ, target.w - aheadW};
-    Mth::Vector offset;
+    Maths::Vector offset;
     m_walk->GetCameraOffset(&offset);
-    Mth::Vector pull = {clear.x + offset.x, clear.y + offset.y, clear.z + offset.z, clear.w + offset.w};
+    Maths::Vector pull = {clear.x + offset.x, clear.y + offset.y, clear.z + offset.z, clear.w + offset.w};
     AvoidCameraCollisions(&target, &matrix, &pull, &focus, true, true);
     target.w = 1.0f;
     m_object->m_pos = target;
     if (instant)
-        At<Gfx::Camera*>(m_camera, 0x18)->StoreOldPos();
-    At<Mth::Matrix>(m_skaterCamera, 0x74) = matrix;
+        At<Gfx2D::Camera*>(m_viewer, 0x18)->RememberPrevPos();
+    At<Maths::Matrix>(m_skaterCamera, 0x74) = matrix;
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CWalkCameraComponent::Destroy,
-         &Obj::CWalkCameraComponent::Update,
-         &Obj::CWalkCameraComponent::InitFromStructure,
-         &Obj::CWalkCameraComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFootView::Destroy,
+         &GameObjects::CFootView::Update,
+         &GameObjects::CFootView::ConfigureFromData,
+         &GameObjects::CFootView::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CWalkCameraComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CFootView::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

@@ -12,13 +12,13 @@
 //
 // Added nodes live in a node array of their own, the overlay ("thug2_decomp_editor_nodes", a global array symbol made
 // once), registered with the node manager after the level's array (CNodeManager::AddNodeArray, not owned). So:
-//   - the level's node indexes, its restarts' and crowns' order stay as they are: walks (Obj::GetRestartNodes
+//   - the level's node indexes, its restarts' and crowns' order stay as they are: walks (GameObjects::GetRestartNodes
 //     0x0046B6C0, CFunc_SpawnCrown 0x00538170) go array by array, the overlay last;
 //   - the game never parses the overlay (CFunc_ParseNodeArray 0x005A34E0 parses the node manager owner's array, the
-//     level's): what it would make for a node is made here - a proximity node (Proxim_AddNode), a sound emitter
+//     level's): what it would make for a node is made here - a proximity node (NearbyZone_AddNode), a sound emitter
 //     (Emitter_AddNode: silent until a script plays a sound on it), a level light (0x00490570, as the cutscenes do);
 //     restarts, crowns and flags are read by name or by the walks when used;
-//   - GetLastNodeArray / GetLastNodeArrayName pass over the overlay (SkateScript::SetEditorNodeArray), and it is
+//   - GetLastNodeArray / GetLastNodeArrayName pass over the overlay (LevelNodes::SetEditorNodeArray), and it is
 //     taken out with the level's array (the node manager's removal hook);
 //   - each change re-registers the array (RemoveNodeArray, its elements set again, AddNodeArray).
 // Names: fresh `ed_<kind>NN` names, except the name-driven CTF nodes (TRG_CTF_<Colour>, _Base, TRG_CTF_Restart_<Colour>:
@@ -31,11 +31,11 @@
 // sound emitter are also made inactive, a light taken out of the light lists (0x0048FCA0), a live flag object killed.
 // Home puts it back. A hidden crown isn't counted by the game: the crowns after it each move up one number (their
 // order kept).
-namespace Front::LevelEditor::NodeCreate {
+namespace MenuSystem::LevelEditor::NodeCreate {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
-enum class Kind : uint8_t { Spawn, TeamSpawn, Crown, FlagSet, Light, Sound, Proxim };
+enum class Kind : uint8_t { Spawn, TeamSpawn, Crown, FlagSet, Light, Sound, ProximityNode };
 constexpr int kKinds = 7;
 enum class Team : uint8_t { Red, Blue, Green, Yellow };
 constexpr int kTeams = 4;
@@ -104,7 +104,7 @@ bool ValidName(const std::string& name);
 std::vector<Field> Fields(const Spec& spec);
 
 // The game's limits, enforced before adding: CFunc_SpawnCrown collects the crowns into two 10-entry stack arrays,
-// GetRestartNode a 256-name one (both unchecked); the light lists hold 256 dynamic and 150 level lights.
+// GetSpawnNode a 256-name one (both unchecked); the light lists hold 256 dynamic and 150 level lights.
 constexpr int kMaxCrowns = 10, kMaxRestarts = 256, kMaxDynamicLights = 256, kMaxLevelLights = 150;
 struct Counts {
     int crowns = 0, restarts = 0;           // counted as the game counts them (hidden ones not)
@@ -112,7 +112,7 @@ struct Counts {
 };
 // Why `kind` can't be added now (null: it can).
 const char* LimitMessage(Kind kind, const Counts& counts);
-// Hiding a restart of `types` (Nodes::RestartType bits) leaves none of Player1 / Multiplayer when `others` (the bits of
+// Hiding a restart of `types` (Nodes::SpawnPointKind bits) leaves none of Player1 / Multiplayer when `others` (the bits of
 // the other restarts counted) lacks one of those it has.
 bool HideLeavesNoRestart(uint32_t types, uint32_t others);
 
@@ -180,4 +180,4 @@ void ResetAll();
 void ForgetLevel();
 
 
-} // namespace Front::LevelEditor::NodeCreate
+} // namespace MenuSystem::LevelEditor::NodeCreate

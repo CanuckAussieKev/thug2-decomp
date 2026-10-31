@@ -11,7 +11,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/loading_console.h"
 
-namespace File {
+namespace FileLoad {
 
 bool g_handledByArchive;
 
@@ -22,7 +22,7 @@ namespace {
 bool ArchivesActive() { return Pre::Manager() != nullptr; }
 bool& HandledByArchive() { return g_handledByArchive; }
 
-Pre::PreFile::FileInfo* AsArchiveFile(Handle file) { return static_cast<Pre::PreFile::FileInfo*>(file); }
+Pre::ArchiveFile::FileInfo* AsArchiveFile(Handle file) { return static_cast<Pre::ArchiveFile::FileInfo*>(file); }
 bool ArchiveExist(const char* name) { return Pre::Exist(name); }
 Handle ArchiveOpen(const char* name, const char* mode) { return Pre::Open(name, mode, false); }
 int ArchiveClose(Handle file) { return Pre::Close(AsArchiveFile(file), false); }
@@ -44,7 +44,7 @@ uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::Get
 [[noreturn]] void FatalFileError(DWORD error)
 {
     (void)error; // (pushed to it; unused)
-    Nx::ShowDiscError();
+    Engine3D::ShowDiscError();
     __assume(0);
 }
 
@@ -54,13 +54,13 @@ int g_useAlternateDrive;
 bool UseAlternateDrive() { return g_useAlternateDrive != 0; }
 
 // Not original - the loading console (game/gfx/loading_console.h): a file opened, with its size (read without
-// File::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
+// FileLoad::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
 void NoteOpened(const char* name, Handle file, bool archive)
 {
-    if (!Gfx::LoadingConsole::Active())
+    if (!Gfx2D::LoadingConsole::Active())
         return;
     if (!file) {
-        Gfx::LoadingConsole::NoteFile("missing", name, -1);
+        Gfx2D::LoadingConsole::NoteFile("missing", name, -1);
         return;
     }
     long long size = -1;
@@ -71,7 +71,7 @@ void NoteOpened(const char* name, Handle file, bool archive)
         if (GetFileSizeEx(file, &bytes))
             size = bytes.QuadPart;
     }
-    Gfx::LoadingConsole::NoteFile(archive ? "open" : "read", name, size);
+    Gfx2D::LoadingConsole::NoteFile(archive ? "open" : "read", name, size);
 }
 
 } // namespace
@@ -113,7 +113,7 @@ Handle OpenOnDisk(const char* name)
 
     DWORD error = GetLastError();
     if (error != ERROR_FILE_NOT_FOUND) {
-        Dbg::Printf("FatalFileError: %x %s\n", error, path);
+        DebugOut::Printf("FatalFileError: %x %s\n", error, path);
         FatalFileError(static_cast<DWORD>(-1));
     }
     return nullptr;
@@ -126,7 +126,7 @@ Handle Open(const char* name, const char* mode)
     // before any archive (its handle isn't an archive's: Read, Seek, Close... fall through to the disk's).
     // Original behaviour: archives first, then the data folder.
     char overlay[260];
-    if (Front::DataOverlay::OverlayPath(name, overlay)) {
+    if (MenuSystem::DataOverlay::OverlayPath(name, overlay)) {
         HANDLE file = CreateFileA(overlay, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                                   nullptr);
         if (file != INVALID_HANDLE_VALUE) {
@@ -216,7 +216,7 @@ bool Exist(const char* name)
     // Not original - the data overlay (game/front/data_overlay.h): its files exist.
     // Original behaviour: archives first, then the data folder.
     char overlay[260];
-    if (Front::DataOverlay::OverlayPath(name, overlay))
+    if (MenuSystem::DataOverlay::OverlayPath(name, overlay))
         return true;
     if (ArchivesActive()) {
         bool result = ArchiveExist(name);
@@ -242,9 +242,9 @@ namespace {
 
 // 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
 bool __cdecl ArchivesActiveAccessor() { return Pre::Manager() != nullptr; }
-bool __cdecl HandledByArchiveAccessor() { return File::g_handledByArchive; }
+bool __cdecl HandledByArchiveAccessor() { return FileLoad::g_handledByArchive; }
 
-File::Handle __cdecl OpenOnDiskFromEdx(const char* name) { return File::OpenOnDisk(name); }
+FileLoad::Handle __cdecl OpenOnDiskFromEdx(const char* name) { return FileLoad::OpenOnDisk(name); }
 
 // The original takes its argument in EDX.
 __declspec(naked) void OpenOnDiskAdapter()

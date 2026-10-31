@@ -14,7 +14,7 @@
 #include "game/lst/hashtable.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -36,20 +36,20 @@ void UnlockIndices(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Unlock();
 void ReleaseIndexBuffer(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Destroy(); }
 void* NewIndexBuffer(uint32_t bytes)
 {
-    void* memory = Crt::Malloc(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
+    void* memory = Crt::AllocBlock(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
     return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
-void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<sMesh*>(mesh)->GetVertexBuffer(index); }
+void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<meshRef*>(mesh)->GetVertexBuffer(index); }
 void SetVertexBuffer(uint8_t* mesh, int index, void* buffer)
 {
-    reinterpret_cast<sMesh*>(mesh)->SetVertexBuffer(index, static_cast<sVertexBuffer*>(buffer));
+    reinterpret_cast<meshRef*>(mesh)->SetVertexBuffer(index, static_cast<sVertexBuffer*>(buffer));
 }
 void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->Destroy(); }
 // A material's destructor body (not rewritten yet; thiscall).
-void DestroyMaterial(void* material) { static_cast<sMaterial*>(material)->DestroyBody(); }
+void DestroyMaterial(void* material) { static_cast<materialRef*>(material)->DestroyBody(); }
 
 // the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
 uint16_t g_stripBuffer[3072];
@@ -65,13 +65,13 @@ void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(cons
 }
 
 // Iterate a hash table's values: the first (or next), null at the end.
-void* NextValue(Lst::HashTable* table)
+void* NextValue(ListKit::HashTable* table)
 {
-    if (!table->IterateNext() || !table->m_iterItem)
+    if (!table->StepIterator() || !table->m_iterItem)
         return nullptr;
     return table->m_iterItem->value;
 }
-void* FirstValue(Lst::HashTable* table)
+void* FirstValue(ListKit::HashTable* table)
 {
     table->m_iterBucket = -1;
     table->m_iterItem = nullptr;
@@ -106,9 +106,9 @@ int __cdecl CompareMeshes(const void* a, const void* b)
 }
 
 // 0x004DE300
-sScene* sScene::Construct()
+sceneRef* sceneRef::Construct()
 {
-    new (&bounds) Mth::BBox();
+    new (&bounds) Maths::BBox();
     flags = 0;
     meshCount = 0;
     transparentCount = 0;
@@ -127,15 +127,15 @@ sScene* sScene::Construct()
 }
 
 // 0x004DE490
-void sScene::DestroyBody()
+void sceneRef::DestroyBody()
 {
-    if (Lst::HashTable* table = materials) {
+    if (ListKit::HashTable* table = materials) {
         if (table->m_buckets) {
-            table->FlushAllItems();
-            Mem::Manager::Instance()->Free(table->m_buckets);
+            table->EmptyTable();
+            MemSys::Manager::Instance()->Free(table->m_buckets);
             table->m_buckets = nullptr;
         }
-        Mem::Manager::Instance()->Free(table);
+        MemSys::Manager::Instance()->Free(table);
     }
     for (int i = 0; i < meshCount; ++i) {
         uint8_t* mesh = meshes[i];
@@ -147,15 +147,15 @@ void sScene::DestroyBody()
         }
     }
     if (meshes)
-        Mem::Manager::Instance()->Free(meshes);
+        MemSys::Manager::Instance()->Free(meshes);
     if (extra) // (delete[]: the records' destructor is empty)
-        Mem::Manager::Instance()->Free(extra - 4);
+        MemSys::Manager::Instance()->Free(extra - 4);
     if (comObject)
         reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(comObject))[2])(comObject);
 }
 
 // 0x004DE340
-void sScene::UpdateSphere()
+void sceneRef::UpdateSphere()
 {
     double halfX = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
     double halfY = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
@@ -170,14 +170,14 @@ void sScene::UpdateSphere()
 }
 
 // 0x004DE3E0
-void sScene::AllocateMeshList()
+void sceneRef::AllocateMeshList()
 {
     if (meshCount > 0)
-        meshes = static_cast<uint8_t**>(Mem::New(meshCount * 4));
+        meshes = static_cast<uint8_t**>(MemSys::New(meshCount * 4));
 }
 
 // 0x004DDDF0
-void sScene::CountMeshes(int count, uint8_t* const* list)
+void sceneRef::MeshTotal(int count, uint8_t* const* list)
 {
     for (int i = 0; i < count; ++i) {
         ++meshCount;
@@ -187,13 +187,13 @@ void sScene::CountMeshes(int count, uint8_t* const* list)
 }
 
 // 0x004DDE20
-void sScene::AddMeshes(int count, uint8_t* const* list)
+void sceneRef::AppendMeshes(int count, uint8_t* const* list)
 {
     for (int i = 0; i < count; ++i)
         meshes[filled++] = list[i];
 }
 
-void sScene::Recount()
+void sceneRef::Recount()
 {
     transparentCount = 0;
     firstTransparent = meshCount;
@@ -215,7 +215,7 @@ void sScene::Recount()
 }
 
 // 0x004DDE60
-void sScene::RemoveMeshes(int count, uint8_t* const* list)
+void sceneRef::DetachMeshes(int count, uint8_t* const* list)
 {
     int removed = 0;
     for (int k = 0; k < count; ++k) {
@@ -245,14 +245,14 @@ void sScene::RemoveMeshes(int count, uint8_t* const* list)
 }
 
 // 0x004DDFA0
-void sScene::SortMeshes()
+void sceneRef::OrderMeshes()
 {
     Qsort(meshes, meshCount, sizeof(meshes[0]), &CompareMeshes);
     Recount();
 }
 
 // 0x004DE020
-uint8_t* sScene::FindMesh(uint32_t index) const
+uint8_t* sceneRef::FindMesh(uint32_t index) const
 {
     for (int i = 0; i < meshCount; ++i) {
         if (LoadIndex(meshes[i]) == index)
@@ -262,7 +262,7 @@ uint8_t* sScene::FindMesh(uint32_t index) const
 }
 
 // 0x004DE420
-void* sScene::FindMaterial(uint32_t checksum) const
+void* sceneRef::FindMaterial(uint32_t checksum) const
 {
     if (!materials)
         return nullptr;
@@ -274,7 +274,7 @@ void* sScene::FindMaterial(uint32_t checksum) const
 }
 
 // 0x004DE060
-void sScene::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t count)
+void sceneRef::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t count)
 {
     if (count == 0 || mask == 0)
         return;
@@ -330,16 +330,16 @@ void sScene::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t count)
 }
 
 // 0x004DE560
-void __cdecl DeleteScene(sScene* scene)
+void __cdecl DiscardScene(sceneRef* scene)
 {
-    if (Lst::HashTable* table = scene->materials) {
+    if (ListKit::HashTable* table = scene->materials) {
         for (void* material = FirstValue(table); material; material = NextValue(scene->materials)) {
             DestroyMaterial(material);
-            Mem::Manager::Instance()->Free(material);
+            MemSys::Manager::Instance()->Free(material);
         }
     }
     scene->DestroyBody();
-    Mem::Manager::Instance()->Free(scene);
+    MemSys::Manager::Instance()->Free(scene);
 }
 
 } // namespace Nx

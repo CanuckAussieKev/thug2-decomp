@@ -15,13 +15,13 @@
 #include "game/obj/object.h"
 #include "game/skater/debug_collision.h"
 
-namespace Nx {
+namespace Engine3D {
 
-CCollCache* g_currentCache;
+CHitMeshCache* g_currentCache;
 namespace {
 
 // The cache queries use when the feeler has none.
-CCollCache*& s_currentCache = g_currentCache;
+CHitMeshCache*& s_currentCache = g_currentCache;
 
 void ResetHit(CollisionHit& hit)
 {
@@ -41,82 +41,82 @@ double LengthSquared(double x, double y, double z) { return (z * z + y * y) + x 
 } // namespace
 
 // 0x00417760
-CFeeler* CFeeler::Construct()
+CProbeRay* CProbeRay::Construct()
 {
-    m_object.mp_prev = nullptr;
-    m_object.mp_next = nullptr;
-    m_object.mp_object = nullptr;
+    m_object.m_preceding = nullptr;
+    m_object.m_following = nullptr;
+    m_object.m_ownerObject = nullptr;
     m_callback = nullptr;
-    mp_cache = nullptr;
+    m_hitCache = nullptr;
     ResetHit(m_hit);
     return this;
 }
 
 // 0x00417250 (the original first sets the hit's normal to (1, 1, 1, 1), then to (0, 0, 0, 1))
-CFeeler* CFeeler::Construct(const Mth::Vector* start, const Mth::Vector* end)
+CProbeRay* CProbeRay::Construct(const Maths::Vector* start, const Maths::Vector* end)
 {
-    m_object.mp_prev = nullptr;
-    m_object.mp_next = nullptr;
-    m_object.mp_object = nullptr;
+    m_object.m_preceding = nullptr;
+    m_object.m_following = nullptr;
+    m_object.m_ownerObject = nullptr;
     m_line.start = *start;
     m_line.end = *end;
     m_callback = nullptr;
-    mp_cache = nullptr;
+    m_hitCache = nullptr;
     ResetHit(m_hit);
     return this;
 }
 
 // 0x004170F0
-void CFeeler::SetIgnore(uint16_t ignore, uint16_t require)
+void CProbeRay::SetExcluded(uint16_t ignore, uint16_t require)
 {
     m_hit.ignoreFlags = ignore;
     m_hit.requireFlags = require;
 }
 
 // 0x00417190
-void CFeeler::SetStart(const Mth::Vector* start) { m_line.start = *start; }
+void CProbeRay::SetStart(const Maths::Vector* start) { m_line.start = *start; }
 
 // 0x004171B0
-void CFeeler::SetEnd(const Mth::Vector* end) { m_line.end = *end; }
+void CProbeRay::SetEnd(const Maths::Vector* end) { m_line.end = *end; }
 
 // 0x004171D0
-void CFeeler::SetLine(const Mth::Vector* start, const Mth::Vector* end)
+void CProbeRay::SetLine(const Maths::Vector* start, const Maths::Vector* end)
 {
     m_line.start = *start;
     m_line.end = *end;
 }
 
 // 0x00417110
-void __cdecl CFeeler::CallbackRelay(CollisionHit* hit)
+void __cdecl CProbeRay::CallbackRelay(CollisionHit* hit)
 {
-    auto* feeler = reinterpret_cast<CFeeler*>(hit->callbackData);
+    auto* feeler = reinterpret_cast<CProbeRay*>(hit->callbackData);
     feeler->m_callback(feeler);
 }
 
 // 0x004172F0
-int CFeeler::GetCollision(bool movables, bool farthest)
+int CProbeRay::GetHitShape(bool movables, bool farthest)
 {
-    Mth::Line line = m_line;
+    Maths::Line line = m_line;
     m_hit.callbackData = reinterpret_cast<uint32_t>(this);
     m_hit.hit = false;
     m_hit.faceFlag40 = 0;
     m_hit.unknown38 = 0;
     m_hit.owner = 0;
     CollisionHitCallback callback = m_callback ? &CallbackRelay : nullptr;
-    CCollCache* cache = mp_cache ? mp_cache : s_currentCache;
+    CHitMeshCache* cache = m_hitCache ? m_hitCache : s_currentCache;
     m_object.Release();
-    m_objectId = 0;
+    m_entityKey = 0;
     bool hitStatic = farthest ? CollideWithStaticsFarthest(&line, &m_hit, callback, cache)
                               : CollideWithStatics(&line, &m_hit, callback, cache);
     if (movables) {
         m_object.Set(farthest ? CollideWithMovablesFarthest(&line, &m_hit, callback, cache)
                               : CollideWithMovables(&line, &m_hit, callback, cache));
         if (m_object)
-            m_objectId = m_object->m_id;
+            m_entityKey = m_object->m_id;
     }
-    m_distance = m_hit.distance;
-    m_point = m_hit.point;
-    m_normal = m_hit.normal;
+    m_reach = m_hit.distance;
+    m_contactPos = m_hit.point;
+    m_surfaceDir = m_hit.normal;
     int result = hitStatic || m_object ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/skater/debug_collision.h).
     DebugCollision::NoteFeelerQuery(this, result,
@@ -125,15 +125,15 @@ int CFeeler::GetCollision(bool movables, bool farthest)
 }
 
 // 0x00417710
-int CFeeler::GetCollisionAlong(const Mth::Vector* start, const Mth::Vector* end, bool movables)
+int CProbeRay::GetCollisionAlong(const Maths::Vector* start, const Maths::Vector* end, bool movables)
 {
     m_line.start = *start;
     m_line.end = *end;
-    return GetCollision(movables, false);
+    return GetHitShape(movables, false);
 }
 
 // 0x00417120 (the original's EAX keeps its upper bytes from before when nothing was hit)
-bool CFeeler::IsHitTriangleCollision()
+bool CProbeRay::IsHitTriangleCollision()
 {
     if (!m_hit.hit)
         return true;
@@ -141,48 +141,48 @@ bool CFeeler::IsHitTriangleCollision()
 }
 
 // 0x00417140
-uint32_t CFeeler::GetTestedOwner() { return m_hit.owner; }
+uint32_t CProbeRay::GetTestedOwner() { return m_hit.owner; }
 
 // 0x00417210
-bool CFeeler::HitObjectAlive()
+bool CProbeRay::HitObjectAlive()
 {
     if (m_object)
         return true;
-    if (m_objectId != 0) {
-        m_objectId = 0;
+    if (m_entityKey != 0) {
+        m_entityKey = 0;
         m_hit.objectChecksum = 0;
     }
     return false;
 }
 
 // 0x00417240
-Obj::CCompositeObject* CFeeler::GetHitObject() { return m_object.Get(); }
+GameObjects::CGameEntity* CProbeRay::GetHitObject() { return m_object.Get(); }
 
 // 0x004174A0 (the corners about the hit point; the original's x87 code keeps the lengths and the blend in double
 // precision)
-double CFeeler::GetHitVertexValue() const
+double CProbeRay::GetHitVertexValue() const
 {
     if (!m_hit.hit)
         return kNoHitValue;
-    CCollObj* object = m_hit.object;
-    const CCollObjTriData* geometry = object->m_geometry;
-    const Mth::Vector& at = m_hit.point;
-    Mth::Vector corner[3];
+    CHitMesh* object = m_hit.object;
+    const CTriMeshSource* geometry = object->m_geometry;
+    const Maths::Vector& at = m_hit.point;
+    Maths::Vector corner[3];
     float value[3];
     for (int k = 0; k < 3; ++k) {
         uint32_t vertex = geometry->FaceVertex(static_cast<int>(m_hit.face), k);
-        Mth::Vector position;
-        object->Call<Mth::Vector*>(9, &position, static_cast<int>(vertex)); // (slot 9 returns it through a pointer)
+        Maths::Vector position;
+        object->Call<Maths::Vector*>(9, &position, static_cast<int>(vertex)); // (slot 9 returns it through a pointer)
         corner[k] = {Difference(position.x, at.x), Difference(position.y, at.y), Difference(position.z, at.z), 1.0f};
         value[k] = static_cast<float>(geometry->m_vertexBytes[vertex]) * kByteScale;
     }
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
-    const Mth::Vector hitPoint{0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Line fromCorner(corner[0], hitPoint), opposite(corner[1], corner[2]);
-    Mth::Vector onLine{0.0f, 0.0f, 0.0f, 0.0f}, onEdge; // (the original's are left unset when the lines are parallel)
+    const Maths::Vector hitPoint{0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Line fromCorner(corner[0], hitPoint), opposite(corner[1], corner[2]);
+    Maths::Vector onLine{0.0f, 0.0f, 0.0f, 0.0f}, onEdge; // (the original's are left unset when the lines are parallel)
     float s, t;
-    Mth::ClosestPointsBetweenLines(fromCorner, opposite, onLine, onEdge, s, t, false);
-    auto minus = [](const Mth::Vector& a, const Mth::Vector& b, double* x, double* y, double* z) {
+    Maths::ClosestPointsBetweenLines(fromCorner, opposite, onLine, onEdge, s, t, false);
+    auto minus = [](const Maths::Vector& a, const Maths::Vector& b, double* x, double* y, double* z) {
         *x = static_cast<double>(a.x) - b.x;
         *y = static_cast<double>(a.y) - b.y;
         *z = static_cast<double>(a.z) - b.z;
@@ -202,44 +202,44 @@ double CFeeler::GetHitVertexValue() const
 }
 
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)
-void CFeeler::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
+void CProbeRay::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
 {
     uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-    Gfx::AddDebugLine(&m_line.start, &m_line.end, colour, colour, frames);
+    Gfx2D::PushDiagLine(&m_line.start, &m_line.end, colour, colour, frames);
 }
 
 // 0x0041C350
-void CFeeler::Destruct() { m_object.Release(); }
+void CProbeRay::Destruct() { m_object.Release(); }
 
 // 0x004F8200
-CFeeler* CFeeler::CopyConstruct(const CFeeler& other)
+CProbeRay* CProbeRay::CopyConstruct(const CProbeRay& other)
 {
     m_line = other.m_line;
     m_callback = other.m_callback;
     m_hit.CopyFrom(other.m_hit);
-    m_distance = other.m_distance;
-    m_point = other.m_point;
-    m_normal = other.m_normal;
+    m_reach = other.m_reach;
+    m_contactPos = other.m_contactPos;
+    m_surfaceDir = other.m_surfaceDir;
     m_object.ConstructCopy(&other.m_object);
-    m_objectId = other.m_objectId;
+    m_entityKey = other.m_entityKey;
     m_unknownA8 = other.m_unknownA8;
-    mp_cache = other.mp_cache;
+    m_hitCache = other.m_hitCache;
     return this;
 }
 
 // 0x0043A930
-CFeeler* CFeeler::Assign(const CFeeler& other)
+CProbeRay* CProbeRay::Assign(const CProbeRay& other)
 {
     m_line = other.m_line;
     m_callback = other.m_callback;
     m_hit.CopyFrom(other.m_hit);
-    m_distance = other.m_distance;
-    m_point = other.m_point;
-    m_normal = other.m_normal;
+    m_reach = other.m_reach;
+    m_contactPos = other.m_contactPos;
+    m_surfaceDir = other.m_surfaceDir;
     m_object.Assign(&other.m_object);
-    m_objectId = other.m_objectId;
+    m_entityKey = other.m_entityKey;
     m_unknownA8 = other.m_unknownA8;
-    mp_cache = other.mp_cache;
+    m_hitCache = other.m_hitCache;
     return this;
 }
 

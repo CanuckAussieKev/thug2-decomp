@@ -7,7 +7,7 @@
 
 #include "game/front/level_editor_nodes.h"
 
-namespace Script {
+namespace Scripts {
 class CStruct;
 }
 
@@ -24,14 +24,14 @@ class CStruct;
 // stay read-only, said in the Inspector.
 //
 // When the game sees it (the Inspector's "live" / "on reload"):
-//   - live: read from the node each time it's used - restart_types (Obj::GetRestartNodes 0x0046B6C0 reads the node at
+//   - live: read from the node each time it's used - restart_types (GameObjects::GetRestartNodes 0x0046B6C0 reads the node at
 //     every respawn), Links (through the chains: level_editor_chains.h's `links` records - a rail / path / ped / car is
 //     made again at once; other nodes' links are read when followed), and pos / angles (the Position / Heading above,
 //     level_editor_node_edit.h);
 //   - on reload: everything else - read when the level makes the node's object, trigger, light, sound... (its load,
 //     CFunc_ParseNodeArray 0x005A34E0). Written into the node now (anything that does read it later sees it), saved,
 //     and put in the node again as the edited copy loads: when the node manager adds the level's node array
-//     (SkateScript::SetNodeArrayAddedHook, before ParseNodeArray), so the level's load makes it with the new value;
+//     (LevelNodes::SetNodeArrayAddedHook, before ParseNodeArray), so the level's load makes it with the new value;
 //   - elsewhere: pos / angles (Position / Heading), a rail's TerrainType (the chain section's Terrain);
 //   - read-only: the node's name, Class and Type (its identity: links, scripts and the editor's families go by
 //     them - place a new node instead), structures and scripts, a shared structure's flags, and every field of a node
@@ -45,7 +45,7 @@ class CStruct;
 //   an:<name>,<name>...  ai:<int>,...  af:<float>,...  (an empty array: the prefix alone)  del (the field removed)
 // Text is %-escaped (%20 a space; anything but letters, digits and _ . - / : escaped). An older reader skips the f.
 // keys (it already skipped unknown key=value fields). tools/pipeline/game/apply_layout.ts reads them the same way.
-namespace Front::LevelEditor::Fields {
+namespace MenuSystem::LevelEditor::Fields {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
@@ -87,8 +87,8 @@ std::string RecordName(uint32_t checksum, const NameLookup& names);
 // A typed name: "#XXXXXXXX" or "0xXXXXXXXX" (8 hex digits), or an identifier (letters, digits, _; not starting with a
 // digit) - its checksum. False: empty or anything else.
 bool ParseName(const std::string& text, uint32_t* checksum);
-// The script checksum of a name (CRC-32 of its lower case, not inverted - Crc::GenerateCRCFromString's).
-uint32_t NameChecksum(const std::string& name);
+// The script checksum of a name (CRC-32 of its lower case, not inverted - Checksums::HashFromText's).
+uint32_t HashOfName(const std::string& name);
 
 // The Inspector's text of a value (names as NameText; arrays comma-separated; vectors "x, y, z"), and a value of
 // `kind` from typed text (false, `error`: why not - a number that isn't, a name that can't be, the wrong count).
@@ -140,7 +140,7 @@ struct Own {
     int index = -1;
 };
 // The structure's last component moved to after `index` of the others (the list relinked; nothing allocated).
-void MoveLastTo(Script::CStruct* s, int index);
+void MoveLastTo(Scripts::CStruct* s, int index);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -178,8 +178,8 @@ bool NodeEdited(uint32_t name);
 // The fields of node `name` the editor has touched (changed at some time this level).
 std::vector<uint32_t> TouchedKeys(uint32_t name);
 // Any structure's own field (the level structure's too - level_editor_level_props.h): read, and made `own`.
-Own OwnIn(Script::CStruct* s, uint32_t key, bool flag);
-void PutIn(Script::CStruct* s, uint32_t key, bool flag, const Own& own);
+Own OwnIn(Scripts::CStruct* s, uint32_t key, bool flag);
+void PutIn(Scripts::CStruct* s, uint32_t key, bool flag, const Own& own);
 // What the editor changed (layouts save them): per node, its field edits as they are now (those back as the level has
 // them left out).
 struct NodeEdits {
@@ -193,9 +193,9 @@ int Apply(const std::vector<NodeEdits>& edits);
 void ResetAll();
 // A new level: forgotten (put back first if the last level's node structures are still the ones loaded).
 void ForgetLevel();
-// The node array `array` was just added (SkateScript::SetNodeArrayAddedHook): if it's the edited copy's level array,
+// The node array `array` was just added (LevelNodes::SetNodeArrayAddedHook): if it's the edited copy's level array,
 // `edits` written into its nodes now - before the level's objects are made from them (see the top). The origins are
 // noted first. Counted.
 int ApplyEarly(uint32_t array, const std::vector<NodeEdits>& edits);
 
-} // namespace Front::LevelEditor::Fields
+} // namespace MenuSystem::LevelEditor::Fields

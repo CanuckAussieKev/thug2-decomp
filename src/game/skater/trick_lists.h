@@ -6,19 +6,19 @@
 #include "game/core/alloc.h"
 #include "game/core/string.h"
 
-// Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a Lst::Node of its own type with a
+// Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a ListKit::Node of its own type with a
 // one-slot vtable: the scalar deleting destructor). Their constructors and destructors were placed at
 // 0x00578670-0x005787F0 and 0x00579570-0x00579690.
-namespace Script {
+namespace Scripts {
 class CArray;
 }
 
-namespace Obj {
+namespace GameObjects {
 
 // 0x64 bytes (vtable 0x0064EC80; its node type's 0x0064BE88), made by 0x005123D0's caller: +0x14 / +0x1C set by the
 // maker, +0x20 the key it's found by, a script array of its own (+0x60).
 struct TrickListEntry {
-    Mem::ListNode m_node;
+    MemSys::ListNode m_listLink;
     uint32_t m_unknown14[3];
     uint32_t m_key;           // +0x20
     uint32_t m_unknown24;
@@ -31,7 +31,7 @@ struct TrickListEntry {
     uint32_t m_unknown38;
     uint32_t m_unknown3C;
     uint8_t m_unknown40[0x20];
-    Script::CArray* m_array;  // +0x60
+    Scripts::CArray* m_elementList;  // +0x60
 
     // 0x00578740: an unlinked node (its data itself), the fields cleared, a new empty script array. Returns this.
     TrickListEntry* Construct();
@@ -43,15 +43,15 @@ struct TrickListEntry {
     void SetFlag();
 };
 static_assert(offsetof(TrickListEntry, m_key) == 0x20 && offsetof(TrickListEntry, m_flag2C) == 0x2C &&
-                  offsetof(TrickListEntry, m_unknown38) == 0x38 && offsetof(TrickListEntry, m_array) == 0x60 &&
+                  offsetof(TrickListEntry, m_unknown38) == 0x38 && offsetof(TrickListEntry, m_elementList) == 0x60 &&
                   sizeof(TrickListEntry) == 0x64,
               "layout must match the original");
 
 // 0x34 bytes (vtable 0x0064EC84; its node type's 0x0064BE8C), made by 0x00512060: a name (+0x14) and what its maker
 // sets after it.
 struct TrickNameEntry {
-    Mem::ListNode m_node;
-    Str::String m_name;      // +0x14
+    MemSys::ListNode m_listLink;
+    TextUtil::String m_name;      // +0x14
     uint32_t m_unknown20[5];
 
     // 0x005787F0: an unlinked node (its data itself), an empty name. Returns this.

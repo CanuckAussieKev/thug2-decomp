@@ -8,7 +8,7 @@
 #include "game/gfx/render_state.h"
 #include "game/core/code_address.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 extern void** const kSDraw2DVtable;
@@ -16,28 +16,28 @@ extern void** const kSDraw2DVtable;
 
 namespace {
 
-SDraw2D* g_draw2dHead;
+SOverlayDraw* g_draw2dHead;
 uint32_t g_draw2dZTestNextFrame;
 
-SDraw2D*& Head() { return g_draw2dHead; }
+SOverlayDraw*& Head() { return g_draw2dHead; }
 uint32_t& ZTestNextFrame() { return g_draw2dZTestNextFrame; }
 void** BaseVtable() { return kSDraw2DVtable; }
 
-void Call(SDraw2D* item, int slot) { reinterpret_cast<void(__thiscall*)(SDraw2D*)>(item->vtable[slot])(item); }
+void Call(SOverlayDraw* item, int slot) { reinterpret_cast<void(__thiscall*)(SOverlayDraw*)>(item->vtable[slot])(item); }
 
 } // namespace
 
 // 0x004DF900
-void SDraw2D::Insert()
+void SOverlayDraw::Insert()
 {
-    SDraw2D* head = Head();
+    SOverlayDraw* head = Head();
     // (a priority that isn't a number goes on past every item)
     if (!head || priority <= head->priority) {
         next = head;
         Head() = this;
         return;
     }
-    SDraw2D* at = head;
+    SOverlayDraw* at = head;
     while (at->next && !(priority <= at->next->priority))
         at = at->next;
     next = at->next;
@@ -45,9 +45,9 @@ void SDraw2D::Insert()
 }
 
 // 0x004DF950
-void SDraw2D::Remove()
+void SOverlayDraw::Remove()
 {
-    SDraw2D* at = Head();
+    SOverlayDraw* at = Head();
     if (at == this) {
         Head() = next;
         return;
@@ -63,7 +63,7 @@ void SDraw2D::Remove()
 }
 
 // 0x004DFA70
-SDraw2D* SDraw2D::Construct(float newPriority, bool newHidden)
+SOverlayDraw* SOverlayDraw::Construct(float newPriority, bool newHidden)
 {
     priority = newPriority;
     vtable = BaseVtable();
@@ -76,23 +76,23 @@ SDraw2D* SDraw2D::Construct(float newPriority, bool newHidden)
 }
 
 // 0x004DFAA0
-void SDraw2D::DestroyBody()
+void SOverlayDraw::DestroyBody()
 {
     vtable = BaseVtable();
     Remove();
 }
 
 // 0x004DFC90
-SDraw2D* SDraw2D::Destroy(unsigned int flags)
+SOverlayDraw* SOverlayDraw::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Instance()->Free(this);
+        MemSys::Manager::Instance()->Free(this);
     return this;
 }
 
 // 0x004DFAE0
-void SDraw2D::SetPriority(float newPriority)
+void SOverlayDraw::SetPriority(float newPriority)
 {
     if (priority == newPriority)
         return;
@@ -104,7 +104,7 @@ void SDraw2D::SetPriority(float newPriority)
 }
 
 // 0x004DFB20
-void SDraw2D::SetZ(float newZ)
+void SOverlayDraw::SetZ(float newZ)
 {
     z = newZ;
     if (!(newZ > 0.0f))
@@ -119,7 +119,7 @@ void SDraw2D::SetZ(float newZ)
 }
 
 // 0x004DFB70
-void SDraw2D::SetHidden(uint8_t newHidden)
+void SOverlayDraw::SetHidden(uint8_t newHidden)
 {
     if (hidden == newHidden)
         return;
@@ -133,7 +133,7 @@ void SDraw2D::SetHidden(uint8_t newHidden)
 // 0x004DFB90
 void __cdecl Draw2D()
 {
-    SetBlendMode(5);
+    ChooseBlendMode(5);
     SetState(kAddressMode0, 0x10001);
     SetState(kDepthBias, 0);
     SetState(kAlphaRef, 1);
@@ -143,7 +143,7 @@ void __cdecl Draw2D()
     SetTexture(3, nullptr);
     SetState(kZTest, ZTestNextFrame());
     uint32_t zTest = 0;
-    for (SDraw2D* item = Head(); item; item = item->next) {
+    for (SOverlayDraw* item = Head(); item; item = item->next) {
         if (item->hidden)
             continue;
         Call(item, 1); // BeginDraw
@@ -156,7 +156,7 @@ void __cdecl Draw2D()
 }
 
 namespace {
-static VtableSlot kSDraw2DVtable_slots[] = {&Nx::SDraw2D::Destroy, &_purecall,
+static VtableSlot kSDraw2DVtable_slots[] = {&Engine3D::SOverlayDraw::Destroy, &_purecall,
                 &_purecall, &_purecall};
 void** const kSDraw2DVtable = reinterpret_cast<void**>(kSDraw2DVtable_slots);
 } // namespace

@@ -4,7 +4,7 @@
 
 #include "game/core/manager.h"
 
-namespace Mem {
+namespace MemSys {
 
 namespace {
 
@@ -55,31 +55,31 @@ void Free(void* memory)
 }
 
 // 0x00401CC0
-void* Calloc(unsigned int size)
+void* AllocZeroed(unsigned int size)
 {
     return Zeroed(Allocate(size, 1, nullptr), size);
 }
 
 // 0x00401D00
-void* Calloc(unsigned int size, int mode)
+void* AllocZeroed(unsigned int size, int mode)
 {
     return Zeroed(Allocate(size, mode, nullptr), size);
 }
 
 // 0x00401D40
-void* Calloc(unsigned int size, Heap* heap, int mode)
+void* AllocZeroed(unsigned int size, Heap* heap, int mode)
 {
     return Zeroed(Allocate(size, mode, heap), size);
 }
 
-void PushContext(Heap* heap)
+void EnterHeapScope(Heap* heap)
 {
-    Manager::Get()->PushContext(heap);
+    Manager::Get()->EnterHeapScope(heap);
 }
 
-void PopContext()
+void LeaveHeapScope()
 {
-    Manager::Get()->PopContext();
+    Manager::Get()->LeaveHeapScope();
 }
 
 } // namespace Mem

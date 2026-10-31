@@ -1,4 +1,4 @@
-// The model light update component (Obj::CModelLightUpdateComponent): see model_light_update.h. From the disassembly of
+// The model light update component (GameObjects::CMeshLightingModule): see model_light_update.h. From the disassembly of
 // 0x00422D00-0x00423127. The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
 // on the FPU stack are worked in double.
 
@@ -21,7 +21,7 @@
 #include "game/skater/vehicle_sound.h"
 #include "game/obj/camera_lookaround.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -39,15 +39,15 @@ constexpr float kLerpRate = 0.02f;       // 0x3CA3D70A
 } // namespace
 
 // 0x00422DC0
-CBaseComponent* __cdecl CModelLightUpdateComponent::Create()
+CObjectModule* __cdecl CMeshLightingModule::Create()
 {
-    auto* component = static_cast<CModelLightUpdateComponent*>(Mem::Calloc(sizeof(CModelLightUpdateComponent)));
+    auto* component = static_cast<CMeshLightingModule*>(MemSys::AllocZeroed(sizeof(CMeshLightingModule)));
     if (!component)
         return nullptr;
-    component->CBaseComponent::Construct();
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_lightFlags = 0;
-    component->m_interval = 0;
+    component->m_gapTime = 0;
     component->m_counter = 0;
     component->m_brightness = 0.0f;
     component->m_type = kType;
@@ -55,52 +55,52 @@ CBaseComponent* __cdecl CModelLightUpdateComponent::Create()
 }
 
 // 0x00422D00
-void CModelLightUpdateComponent::DestroyBody()
+void CMeshLightingModule::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00422D10
-CModelLightUpdateComponent* CModelLightUpdateComponent::Destroy(unsigned int flags)
+CMeshLightingModule* CMeshLightingModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00422D40
-void CModelLightUpdateComponent::InitFromStructure(Script::CStruct* params)
+void CMeshLightingModule::ConfigureFromData(Scripts::CStruct* params)
 {
-    if (params->ContainsFlag(kOnce))
+    if (params->HasBareFlag(kOnce))
         m_lightFlags |= MODEL_LIGHT_ONCE;
     else
         m_lightFlags &= ~MODEL_LIGHT_ONCE;
-    m_interval = 0;
+    m_gapTime = 0;
     m_counter = 0;
-    if (params->GetInteger(kInterval, reinterpret_cast<int*>(&m_interval), 0))
-        m_counter = reinterpret_cast<uint32_t>(this) % m_interval + 1;
+    if (params->FetchIntValue(kInterval, reinterpret_cast<int*>(&m_gapTime), 0))
+        m_counter = reinterpret_cast<uint32_t>(this) % m_gapTime + 1;
 }
 
 // 0x00422DA0
-void CModelLightUpdateComponent::Finalize()
+void CMeshLightingModule::Finalize()
 {
-    mp_model = static_cast<CModelComponent*>(m_object->GetComponent(kModel));
+    m_meshInstance = static_cast<CMeshInstanceModule*>(m_object->GetComponent(kModel));
 }
 
 // 0x00422E40
-void CModelLightUpdateComponent::Sample(bool lerp, float rate)
+void CMeshLightingModule::Sample(bool lerp, float rate)
 {
     // Down from just above the object (nudged along its up vector).
-    Nx::CFeeler down;
+    Engine3D::CProbeRay down;
     down.Construct();
-    CCompositeObject* object = m_object;
-    Mth::Vector& start = down.m_line.start;
-    Mth::Vector& end = down.m_line.end;
+    CGameEntity* object = m_object;
+    Maths::Vector& start = down.m_line.start;
+    Maths::Vector& end = down.m_line.end;
     start = object->m_pos;
     end = object->m_pos;
-    const Mth::Vector& up = object->m_matrix.row[1];
+    const Maths::Vector& up = object->m_basisFrame.row[1];
     double stepX = static_cast<double>(up.x) * kUpNudge;
     double stepY = static_cast<double>(up.y) * kUpNudge;
     double stepZ = static_cast<double>(up.z) * kUpNudge;
@@ -111,21 +111,21 @@ void CModelLightUpdateComponent::Sample(bool lerp, float rate)
     start.w = static_cast<float>(start.w + stepW);
     start.y = start.y + kAbove;
     end.y = end.y - kDepth;
-    bool hit = down.GetCollision(false, false) != 0;
+    bool hit = down.GetHitShape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
-    Nx::CFeeler again;
+    Engine3D::CProbeRay again;
     again.Construct();
-    again.SetIgnore(0, 0x20);
+    again.SetExcluded(0, 0x20);
     again.m_line.start = {start.x, start.y + kSecondAbove, start.z, start.w};
     if (hit)
-        again.m_line.end = {down.m_point.x, down.m_point.y - 1.0f, down.m_point.z, down.m_point.w};
+        again.m_line.end = {down.m_contactPos.x, down.m_contactPos.y - 1.0f, down.m_contactPos.z, down.m_contactPos.w};
     else
         again.m_line.end = {start.x, start.y - kDepth, start.z, start.w};
-    if (again.GetCollision(false, false)) {
-        mp_model->ApplyBrightness(&again, lerp, rate);
+    if (again.GetHitShape(false, false)) {
+        m_meshInstance->ApplyBrightness(&again, lerp, rate);
         m_brightness = static_cast<float>(again.GetHitVertexValue());
     } else if (hit) {
-        mp_model->ApplyBrightness(&down, lerp, 1.0f);
+        m_meshInstance->ApplyBrightness(&down, lerp, 1.0f);
         m_brightness = static_cast<float>(down.GetHitVertexValue());
     }
     again.Destruct();
@@ -133,15 +133,15 @@ void CModelLightUpdateComponent::Sample(bool lerp, float rate)
 }
 
 // 0x004230B0
-void CModelLightUpdateComponent::Update()
+void CMeshLightingModule::Update()
 {
     if (!(m_lightFlags & MODEL_LIGHT_SAMPLED)) {
         Sample(false, 1.0f);
         m_lightFlags |= MODEL_LIGHT_SAMPLED;
         return;
     }
-    if (m_interval && m_counter++ < m_interval) {
-        static_cast<Nx::CModelLights*>(ModelNx::ModelLights(mp_model->mp_model))->MoveBrightness(m_brightness, kLerpRate);
+    if (m_gapTime && m_counter++ < m_gapTime) {
+        static_cast<Engine3D::CModelLights*>(ModelNx::ModelLights(m_meshInstance->m_meshInstance))->MoveBrightness(m_brightness, kLerpRate);
         return;
     }
     m_counter = 0;
@@ -153,22 +153,22 @@ void CModelLightUpdateComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CModelLightUpdateComponent::Destroy,
-         &Obj::CModelLightUpdateComponent::Update,
-         &Obj::CModelLightUpdateComponent::InitFromStructure,
-         &Obj::CModelLightUpdateComponent::Finalize,
+static VtableSlot kVtable_slots[] = {&GameObjects::CMeshLightingModule::Destroy,
+         &GameObjects::CMeshLightingModule::Update,
+         &GameObjects::CMeshLightingModule::ConfigureFromData,
+         &GameObjects::CMeshLightingModule::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

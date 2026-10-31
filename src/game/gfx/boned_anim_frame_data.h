@@ -1,6 +1,6 @@
 #pragma once
 
-// A boned animation's frame data (Gfx::CBonedAnimFrameData, 0x3C bytes - the animation asset's engine data, read
+// A boned animation's frame data (Gfx2D::CJointClipFrames, 0x3C bytes - the animation asset's engine data, read
 // from a .ska file): for each bone, quaternion keys and translation keys - in time order, each with its time in
 // frames (60 a second) in the low 15 bits of its first word -, compressed or as floats, and the animation's events.
 // Compressed keys come in two forms: three shorts (a quaternion's x, y, z in units of 1/16384 - w follows from them,
@@ -11,12 +11,12 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Mth {
-class Quat;
+namespace Maths {
+class QuatRotation;
 class Vector;
 } // namespace Mth
 
-namespace Gfx {
+namespace Gfx2D {
 
 class CAnimEvent;
 
@@ -103,7 +103,7 @@ public:
     int FindQuatKeysBackwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
     int FindTransKeysBackwards(int bone, float frame, uint8_t** first, uint8_t** second, int cursor);
 
-    void* mp_data;                   // +0x00 the frame data it holds
+    void* m_payload;                   // +0x00 the frame data it holds
     uint32_t m_unknown04[4];         // (+0x04: the frame it was last used)
     uint32_t m_size;                 // +0x14 the keys' size
     uint8_t* mp_quatKeys;            // +0x18
@@ -121,7 +121,7 @@ static_assert(offsetof(CFrameCacheEntry, mp_cursors) == 0x28 && offsetof(CFrameC
                   offsetof(CFrameCacheEntry, m_transOffsets) == 0xEA && offsetof(CFrameCacheEntry, m_flags) == 0x164,
               "layout must match the original");
 
-class CBonedAnimFrameData {
+class CJointClipFrames {
 public:
     // 0x00484200: the pointers into a compressed animation's data (`data`: the header - bones, key counts, events,
     // the two key blocks' sizes -, each bone's key sizes, the own table, the partial bones, the keys, the events,
@@ -138,9 +138,9 @@ public:
     // cursor `cursor`; backwards when the cache says time went back), else decompressing from the bone's last
     // position in `source`; bones the source's mask or the partial-animation bits leave out are marked invalid in
     // `valid`. True.
-    bool GetPose(float* rotations, float* translations, uint8_t* valid, float time, int cursor, CFrameSource* source);
+    bool FetchPose(float* rotations, float* translations, uint8_t* valid, float time, int cursor, CFrameSource* source);
     // 0x00482AF0: empty. Returns this.
-    CBonedAnimFrameData* Construct();
+    CJointClipFrames* Construct();
     // 0x00482B30: its events deleted and their array freed; out of the frame cache (0x006F92B0) if it's in it.
     void DestroyBody();
     // 0x00482BA0: one more reference, and its index in the frame cache (-1: none).
@@ -156,7 +156,7 @@ public:
     bool FireEvents(float from, float to, void* target, int flag);
 
     // 0x00482B90 (cdecl; the frame cache's callback when it drops `data`'s entry): no cache entry.
-    static void __cdecl ForgetCacheEntry(CBonedAnimFrameData* data);
+    static void __cdecl ForgetCacheEntry(CJointClipFrames* data);
 
     // The events after the keys (`header`'s fourth word: how many), then their count - not when one fails.
     bool ReadEvents(const uint32_t* header, uint8_t* at);
@@ -165,9 +165,9 @@ public:
     // bones' masks, +0x210 the bit) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added
     // (pose rotation * key, then slerped there by `weight`) and its first translation key (a weight of the way to
     // the translation plus the key - with flags 0x4000 and 0x20000, twice the translation). True. (`unused` isn't.)
-    bool ApplyAdditive(Mth::Quat* rotations, Mth::Vector* translations, void* unused, float weight, uint8_t* mask);
+    bool ApplyAdditive(Maths::QuatRotation* rotations, Maths::Vector* translations, void* unused, float weight, uint8_t* mask);
     // 0x00485250: the same for compressed frames (flag 0x800000; a tail jump), else false.
-    bool ApplyAdditiveIfCompressed(Mth::Quat* rotations, Mth::Vector* translations, void* unused, float weight,
+    bool ApplyAdditiveIfCompressed(Maths::QuatRotation* rotations, Maths::Vector* translations, void* unused, float weight,
                                    uint8_t* mask);
     // 0x00485270: the compressed keys decoded into an animation cache entry in `format` (3 and 4: rotations as
     // quaternions - two decoders -, translations as floats; others as they come) - at most 10 a frame (the vblank
@@ -181,7 +181,7 @@ public:
     // flags 0x9000000: their other way). A bone without keys around the time reuses the bone before's pair (the
     // original's: its pointers aren't reset). Compressed frames are cached first (unless flag 0x1000) and sampled by
     // 0x00484760 (a tail jump with all the arguments). True.
-    bool GetFrames(Mth::Quat* rotations, Mth::Vector* translations, uint8_t* arg2, float time, int arg4, void* arg5);
+    bool GetFrames(Maths::QuatRotation* rotations, Maths::Vector* translations, uint8_t* arg2, float time, int arg4, void* arg5);
 
     uint32_t m_unknown00;
     uint32_t m_flags;              // +0x04
@@ -190,7 +190,7 @@ public:
     uint8_t* mp_quatKeys;          // +0x10
     uint8_t* mp_transKeys;         // +0x14
     uint8_t* mp_keyCounts;         // +0x18
-    uint32_t* mp_boneNames;        // +0x1C
+    uint32_t* m_boneLabels;        // +0x1C
     uint32_t* mp_partialBones;     // +0x20 (flag 0x80000: a count, then a bit for each bone)
     uint8_t* mp_cacheEntry;        // +0x24 (+4: the frame it was last used)
     CAnimEvent** mp_events;        // +0x28
@@ -201,8 +201,8 @@ public:
     int16_t m_eventCount;          // +0x38
     uint16_t m_bits;               // +0x3A (bits 1-8: references to its cache entry)
 };
-static_assert(offsetof(CBonedAnimFrameData, mp_cacheEntry) == 0x24 && offsetof(CBonedAnimFrameData, m_bits) == 0x3A &&
-                  sizeof(CBonedAnimFrameData) == 0x3C,
+static_assert(offsetof(CJointClipFrames, mp_cacheEntry) == 0x24 && offsetof(CJointClipFrames, m_bits) == 0x3A &&
+                  sizeof(CJointClipFrames) == 0x3C,
               "layout must match the original");
 
 extern float g_tinyLength;

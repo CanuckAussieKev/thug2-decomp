@@ -54,7 +54,7 @@ const int g_walkEvents0064C648[3]{8, 3, 0};
 const int g_walkEvents0064C654[3]{14, 3, 0};
 const int g_walkEvents0064C660[3]{14, 4, 0};
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -80,53 +80,53 @@ T& At(void* object, uint32_t offset)
 }
 
 // The node array of `object`'s nodearray component (its vtable slot 13), or null without one.
-Script::CArray* NodeArrayOf(CCompositeObject* object)
+Scripts::CArray* NodeArrayOf(CGameEntity* object)
 {
-    CBaseComponent* nodes = object->GetComponent(kNodeArray);
+    CObjectModule* nodes = object->GetComponent(kNodeArray);
     if (!nodes)
         return nullptr;
-    return reinterpret_cast<Script::CArray*(__thiscall*)(CBaseComponent*)>(nodes->m_vtable[13])(nodes);
+    return reinterpret_cast<Scripts::CArray*(__thiscall*)(CObjectModule*)>(nodes->m_vtable[13])(nodes);
 }
 
 } // namespace
 
 // 0x00434B90
-CBaseComponent* __cdecl CTriggerComponent::Create()
+CObjectModule* __cdecl CActivationZoneModule::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CTriggerComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CActivationZoneModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CTriggerComponent*>(memory);
-    component->CBaseComponent::Construct();
+    auto* component = static_cast<CActivationZoneModule*>(memory);
+    component->CObjectModule::Construct();
     component->m_vtable = kVtable;
     component->m_type = kType;
     return component;
 }
 
 // 0x00434900
-void CTriggerComponent::DestroyBody()
+void CActivationZoneModule::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x00434910
-CTriggerComponent* CTriggerComponent::Destroy(unsigned int flags)
+CActivationZoneModule* CActivationZoneModule::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00434940
-void CTriggerComponent::InitFromStructure(Script::CStruct* /*params*/) { m_lastPos = m_object->m_pos; }
+void CActivationZoneModule::ConfigureFromData(Scripts::CStruct* /*params*/) { m_lastPos = m_object->m_pos; }
 
 // 0x00434D90
-void CTriggerComponent::Update()
+void CActivationZoneModule::Update()
 {
-    CCompositeObject* object = m_object;
-    const Mth::Vector& pos = object->m_pos;
+    CGameEntity* object = m_object;
+    const Maths::Vector& pos = object->m_pos;
     // (not a number counts as moved, as the original's FUCOMPP)
     if (m_lastPos.x == pos.x && m_lastPos.y == pos.y && m_lastPos.z == pos.z && m_lastPos.w == pos.w)
         return;
@@ -134,36 +134,36 @@ void CTriggerComponent::Update()
         m_lastPos = pos;
         return;
     }
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
     feeler.m_line.start = m_lastPos;
     feeler.m_line.end = m_object->m_pos;
-    feeler.SetIgnore(0, kTriggerFaces);
-    feeler.m_callback = reinterpret_cast<Nx::FeelerCallback>(&FeelerHit);
+    feeler.SetExcluded(0, kTriggerFaces);
+    feeler.m_callback = reinterpret_cast<Engine3D::FeelerCallback>(&FeelerHit);
     feeler.m_unknownA8 = reinterpret_cast<uint32_t>(this);
-    feeler.GetCollision(true, false);
+    feeler.GetHitShape(true, false);
     m_lastPos = m_object->m_pos;
 }
 
 // 0x00434970
-int CTriggerComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* /*script*/)
+int CActivationZoneModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     if (name != kTriggerType)
         return 2;
     // (the array is read into the name's own slot, cleared first)
-    Script::CArray* array = nullptr;
+    Scripts::CArray* array = nullptr;
     params->GetArray(0u, &array, 0);
     // One integer array, or an array of them - any one of which may match.
-    Script::CArray* arrays = nullptr;
+    Scripts::CArray* arrays = nullptr;
     uint32_t count = 1;
-    if (array->m_type == Script::ESYMBOLTYPE_ARRAY) {
+    if (array->m_type == Scripts::QBVAL_ARRAY) {
         count = array->m_size;
         arrays = array;
     }
     for (uint32_t i = 0; i < count; ++i) {
         if (arrays)
-            array = reinterpret_cast<Script::CArray*>(arrays->GetElement(i));
-        if (array->m_type != Script::ESYMBOLTYPE_INTEGER)
+            array = reinterpret_cast<Scripts::CArray*>(arrays->GetElement(i));
+        if (array->m_type != Scripts::QBVAL_INTEGER)
             return 0;
         uint32_t wanted = 0;
         for (int k = 0; k < static_cast<int>(array->m_size); ++k) {
@@ -177,23 +177,23 @@ int CTriggerComponent::CallMemberFunction(uint32_t name, Script::CStruct* params
 }
 
 // 0x00434A60
-bool CTriggerComponent::TriggerNode(const int* events, uint32_t name, Script::CArray* nodes, const uint8_t* other)
+bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Scripts::CArray* nodes, const uint8_t* other)
 {
-    Script::CStruct* node = nullptr;
+    Scripts::CStruct* node = nullptr;
     if (!nodes) {
-        node = SkateScript::GetNode(name, false);
+        node = LevelNodes::GetNode(name, false);
     } else {
         // (from the last; none named so leaves the first one checked - element 0 -, as the original)
         for (uint32_t i = nodes->m_size; i > 0;) {
-            node = reinterpret_cast<Script::CStruct*>(nodes->GetElement(--i));
-            if (SkateScript::GetNodeName(node) == name)
+            node = reinterpret_cast<Scripts::CStruct*>(nodes->GetElement(--i));
+            if (LevelNodes::GetNodeName(node) == name)
                 break;
         }
     }
-    Script::CStruct* params = nullptr;
+    Scripts::CStruct* params = nullptr;
     if (other) {
-        if (Script::CStruct* otherNode = SkateScript::GetNode(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
-            otherNode->GetStructure(kParams, &params, 0);
+        if (Scripts::CStruct* otherNode = LevelNodes::GetNode(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
+            otherNode->ReadSubStruct(kParams, &params, 0);
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
     // the front end's SKATE NOW in THPS4's shop had its halfpipe's gap triggers - the user, 2026-10-19) is no
@@ -201,7 +201,7 @@ bool CTriggerComponent::TriggerNode(const int* events, uint32_t name, Script::CA
     // Original behaviour: the node's TriggerScript read at once, through the null when there's no node (a crash
     // reading address 4):
     //     uint32_t script = 0;
-    //     node->GetChecksum(kTriggerScript, &script, 0);
+    //     node->ReadHashValue(kTriggerScript, &script, 0);
     if (!node) {
         static std::set<uint32_t> s_logged;
         if (s_logged.insert(name).second)
@@ -209,10 +209,10 @@ bool CTriggerComponent::TriggerNode(const int* events, uint32_t name, Script::CA
         return false;
     }
     uint32_t script = 0;
-    node->GetChecksum(kTriggerScript, &script, 0);
+    node->ReadHashValue(kTriggerScript, &script, 0);
     if (!script)
         return false;
-    if (Mdl::Skate::ShouldBeAbsent(node))
+    if (GameModules::Skate::ShouldBeAbsent(node))
         return false;
     uint32_t& recorded = m_events;
     recorded = 0;
@@ -223,21 +223,21 @@ bool CTriggerComponent::TriggerNode(const int* events, uint32_t name, Script::CA
     if (events[2])
         recorded += 1u << (events[2] & 31);
     CObject* object = At<CObject*>(this, 0x0C);
-    bool permanent = node->ContainsFlag(kPermanent);
-    bool netEnabled = node->ContainsFlag(kNetEnabled);
-    object->SpawnAndRunScript(script, static_cast<int>(name), netEnabled, permanent, params);
+    bool permanent = node->HasBareFlag(kPermanent);
+    bool replicateFlag = node->HasBareFlag(kNetEnabled);
+    object->StartScriptTask(script, static_cast<int>(name), replicateFlag, permanent, params);
     return true;
 }
 
 // 0x00434BF0
-bool CTriggerComponent::CheckFeeler(const int* events, Nx::CFeeler* feeler)
+bool CActivationZoneModule::CheckFeeler(const int* events, Engine3D::CProbeRay* feeler)
 {
     if (!feeler->m_hit.faceFlag40 || !feeler->m_hit.objectChecksum)
         return false;
     if (feeler->GetTestedOwner()) {
         // A movable object's face, while it's being tested: through its own nodes.
-        auto* owner = reinterpret_cast<CCompositeObject*>(feeler->GetTestedOwner());
-        Script::CArray* nodes = NodeArrayOf(owner);
+        auto* owner = reinterpret_cast<CGameEntity*>(feeler->GetTestedOwner());
+        Scripts::CArray* nodes = NodeArrayOf(owner);
         uint32_t name = feeler->m_hit.objectChecksum;
         return TriggerNode(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->GetTestedOwner()));
     }
@@ -245,13 +245,13 @@ bool CTriggerComponent::CheckFeeler(const int* events, Nx::CFeeler* feeler)
         return TriggerNode(events, feeler->m_hit.objectChecksum, nullptr, nullptr);
     if (!feeler->GetHitObject())
         return false;
-    Script::CArray* nodes = NodeArrayOf(feeler->GetHitObject());
+    Scripts::CArray* nodes = NodeArrayOf(feeler->GetHitObject());
     uint32_t name = feeler->m_hit.objectChecksum;
     return TriggerNode(events, name, nodes, reinterpret_cast<const uint8_t*>(feeler->GetHitObject()));
 }
 
 // 0x00434CE0
-void CTriggerComponent::TriggerHits(const int* events, const uint8_t* hits)
+void CActivationZoneModule::TriggerHits(const int* events, const uint8_t* hits)
 {
     const int count = *reinterpret_cast<const int*>(hits + 0xC30);
     auto entry = [hits](int i) { return hits + 0x88 + 0x60 * i; };
@@ -270,30 +270,30 @@ void CTriggerComponent::TriggerHits(const int* events, const uint8_t* hits)
 }
 
 // 0x00434D70
-bool __cdecl CTriggerComponent::FeelerHit(Nx::CFeeler* feeler)
+bool __cdecl CActivationZoneModule::FeelerHit(Engine3D::CProbeRay* feeler)
 {
-    auto* component = reinterpret_cast<CTriggerComponent*>(feeler->m_unknownA8);
+    auto* component = reinterpret_cast<CActivationZoneModule*>(feeler->m_unknownA8);
     return component->CheckFeeler(kNoEvents, feeler);
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CTriggerComponent::Destroy,
-         &Obj::CTriggerComponent::Update,
-         &Obj::CTriggerComponent::InitFromStructure,
+static VtableSlot kVtable_slots[] = {&GameObjects::CActivationZoneModule::Destroy,
+         &GameObjects::CActivationZoneModule::Update,
+         &GameObjects::CActivationZoneModule::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CTriggerComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CActivationZoneModule::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

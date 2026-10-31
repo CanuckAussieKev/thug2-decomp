@@ -19,7 +19,7 @@
 #include "game/obj/movie_manager.h"
 #include "game/sys/crt.h"
 
-namespace Nx {
+namespace Engine3D {
 
 float g_frameTimeScale;
 int g_drawnViewport;
@@ -27,7 +27,7 @@ namespace {
 
 extern void** const kManagerVtable;
 extern void** const kHeadVtable;
-void** const& kNodeVtable = Vt::kParticleNode; // (Lst::Node<CParticleSystem>'s own)
+void** const& kNodeVtable = Vt::kParticleNode; // (ListKit::Node<CParticleSystem>'s own)
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
 const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
@@ -36,7 +36,7 @@ constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
 float& FrameTimeScale() { return g_frameTimeScale; }
-bool GamePaused() { return Obj::g_gamePaused; }
+bool IsGameHalted() { return GameObjects::g_gamePaused; }
 int DrawnViewport() { return g_drawnViewport; }
 
 // A virtual scalar deleting destructor (slot 0) with flags 1.
@@ -47,14 +47,14 @@ void DeleteVirtual(void* object)
 }
 
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
-CParticleSystem* SystemOf(Mem::ListNode* node)
+CParticleSystem* SystemOf(MemSys::ListNode* node)
 {
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return nullptr;
-    return reinterpret_cast<CParticleSystem*>(reinterpret_cast<uint8_t*>(node) - offsetof(CParticleSystem, m_node));
+    return reinterpret_cast<CParticleSystem*>(reinterpret_cast<uint8_t*>(node) - offsetof(CParticleSystem, m_listLink));
 }
-CParticleSystem* FirstSystem(Mem::ListNode* head) { return head ? SystemOf(head->next) : nullptr; }
-CParticleSystem* NextSystem(CParticleSystem* system) { return SystemOf(system->m_node.next); }
+CParticleSystem* FirstSystem(MemSys::ListNode* head) { return head ? SystemOf(head->next) : nullptr; }
+CParticleSystem* NextSystem(CParticleSystem* system) { return SystemOf(system->m_listLink.next); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -65,15 +65,15 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 CFlexibleParticleManager* CFlexibleParticleManager::Construct()
 {
     m_vtable = reinterpret_cast<void**>(kManagerVtable);
-    int size = Script::GetInteger(kHeapSizeSymbol);
+    int size = Scripts::FetchIntValue(kHeapSizeSymbol);
     if (!size)
         size = kDefaultHeapSize;
-    void* memory = Mem::Calloc(sizeof(Mem::AllocRegion));
-    mp_region = memory ? new (memory) Mem::AllocRegion(static_cast<uint32_t>(size)) : nullptr;
-    mp_heap = Mem::Manager::Get()->AddHeap(mp_region, 1, kHeapName);
+    void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
+    m_zone = memory ? new (memory) MemSys::MemoryArena(static_cast<uint32_t>(size)) : nullptr;
+    m_arena = MemSys::Manager::Get()->AddHeap(m_zone, 1, kHeapName);
     mp_tempRegion = nullptr;
     mp_tempHeap = nullptr;
-    auto* head = static_cast<Mem::ListNode*>(Mem::Calloc(sizeof(Mem::ListNode)));
+    auto* head = static_cast<MemSys::ListNode*>(MemSys::AllocZeroed(sizeof(MemSys::ListNode)));
     if (head) {
         head->data = reinterpret_cast<void*>(-1);
         head->priority = 0;
@@ -83,7 +83,7 @@ CFlexibleParticleManager* CFlexibleParticleManager::Construct()
     }
     mp_systems = head;
     m_colourScale[0] = m_colourScale[1] = m_colourScale[2] = m_colourScale[3] = 1.0f;
-    float rate = Script::GetFloat(kFrameRateSymbol);
+    float rate = Scripts::GetFloat(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
     FrameTimeScale() = rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
     return this;
@@ -96,9 +96,9 @@ void CFlexibleParticleManager::DestroyBody()
     if (mp_systems)
         DeleteVirtual(mp_systems);
     DeleteTempHeap();
-    Mem::Manager::Get()->DeleteHeap(reinterpret_cast<Mem::Allocator*>(mp_heap));
-    if (mp_region)
-        DeleteVirtual(mp_region);
+    MemSys::Manager::Get()->DeleteHeap(reinterpret_cast<MemSys::Allocator*>(m_arena));
+    if (m_zone)
+        DeleteVirtual(m_zone);
 }
 
 // 0x0049B040
@@ -106,7 +106,7 @@ CFlexibleParticleManager* CFlexibleParticleManager::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
@@ -115,7 +115,7 @@ void CFlexibleParticleManager::DeleteTempHeap()
 {
     if (!mp_tempHeap)
         return;
-    Mem::Manager::Get()->DeleteHeap(reinterpret_cast<Mem::Allocator*>(mp_tempHeap));
+    MemSys::Manager::Get()->DeleteHeap(reinterpret_cast<MemSys::Allocator*>(mp_tempHeap));
     if (mp_tempRegion)
         DeleteVirtual(mp_tempRegion);
     mp_tempHeap = nullptr;
@@ -126,11 +126,11 @@ void CFlexibleParticleManager::DeleteTempHeap()
 bool CFlexibleParticleManager::CreateTempHeap(uint32_t size)
 {
     DeleteTempHeap();
-    void* memory = Mem::Calloc(sizeof(Mem::AllocRegion));
-    mp_tempRegion = memory ? new (memory) Mem::AllocRegion(size) : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(MemSys::MemoryArena));
+    mp_tempRegion = memory ? new (memory) MemSys::MemoryArena(size) : nullptr;
     if (!mp_tempRegion)
         return false;
-    mp_tempHeap = Mem::Manager::Get()->AddHeap(mp_tempRegion, 1, kTempHeapName);
+    mp_tempHeap = MemSys::Manager::Get()->AddHeap(mp_tempRegion, 1, kTempHeapName);
     return mp_tempHeap != nullptr;
 }
 
@@ -140,8 +140,8 @@ bool CFlexibleParticleManager::HasTempHeap() { return mp_tempHeap != nullptr; }
 // 0x0049A8F0
 int __cdecl CFlexibleParticleManager::CompareDistance(const void* a, const void* b)
 {
-    auto* camera = GetActiveCamera(DrawnViewport());
-    const Mth::Vector& at = *camera->GetPos();
+    auto* camera = FetchLiveCamera(DrawnViewport());
+    const Maths::Vector& at = *camera->GetPos();
     const CParticleSystem* first = *static_cast<CParticleSystem* const*>(a);
     const CParticleSystem* second = *static_cast<CParticleSystem* const*>(b);
     // (the original keeps some differences as floats and others at 53 bits)
@@ -172,7 +172,7 @@ void CFlexibleParticleManager::RenderSystems(bool force)
         return;
     Crt::Qsort(
         systems, static_cast<size_t>(count), sizeof(systems[0]), &CompareDistance); // (the game's qsort)
-    bool always = force || GamePaused();
+    bool always = force || IsGameHalted();
     for (int i = 0; i < count; ++i)
         systems[i]->RenderIfVisible(always);
 }
@@ -188,15 +188,15 @@ CParticleSystem* CFlexibleParticleManager::FindSystem(uint32_t name)
 }
 
 // 0x0049AC60
-CParticleSystem* CFlexibleParticleManager::CreateSystem(uint32_t name, uint32_t type, int maxParticles, int maxStreams,
+CParticleSystem* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams,
                                                         uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                                         int segments, float unknown, int history, int perm,
                                                         bool useLevelColour, const char* model)
 {
-    Mem::Manager::Get()->PushContext(reinterpret_cast<Mem::Allocator*>(mp_tempHeap ? mp_tempHeap : mp_heap));
+    MemSys::Manager::Get()->EnterHeapScope(reinterpret_cast<MemSys::Allocator*>(mp_tempHeap ? mp_tempHeap : m_arena));
     auto* system = static_cast<CParticleSystem*>(CreateFlexibleParticles(
-        name, type, maxParticles, maxStreams, texture, blendMode, fixedAlpha, segments, unknown, history, model));
-    Mem::Manager::Get()->PopContext();
+        name, type, particleCap, maxStreams, texture, blendMode, fixedAlpha, segments, unknown, history, model));
+    MemSys::Manager::Get()->LeaveHeapScope();
     if (!system)
         return nullptr;
     if (!(system->m_flags & 4u)) { // (not everything allocated)
@@ -207,12 +207,12 @@ CParticleSystem* CFlexibleParticleManager::CreateSystem(uint32_t name, uint32_t 
     system->m_flags |= 1u;
     system->SetWantsTime(1);
     system->m_flags |= 0x10000u;
-    system->m_emitting = false;
+    system->m_spewing = false;
     if (useLevelColour) {
         system->m_flags |= 0x10000u;
         system->SetColourScale(m_colourScale);
     }
-    Mem::ListNode* node = &system->m_node;
+    MemSys::ListNode* node = &system->m_listLink;
     node->prev = mp_systems->prev;
     node->next = mp_systems;
     mp_systems->prev->next = node;
@@ -225,7 +225,7 @@ void CFlexibleParticleManager::RemoveSystem(CParticleSystem* system)
 {
     if (!system)
         return;
-    Mem::ListNode* node = &system->m_node;
+    MemSys::ListNode* node = &system->m_listLink;
     node->prev->next = node->next;
     node->next->prev = node->prev;
     node->next = node;
@@ -243,7 +243,7 @@ void CFlexibleParticleManager::DestroySystemNow(uint32_t name)
 void CFlexibleParticleManager::DestroySystemWhenEmpty(uint32_t name)
 {
     if (CParticleSystem* system = FindSystem(name)) {
-        system->m_dying = true;
+        system->m_fadingOut = true;
         system->m_flags |= 1u;
     }
 }
@@ -286,19 +286,19 @@ void CFlexibleParticleManager::SetColourScale(const float* rgba)
 }
 
 // 0x0049AEF0
-Mem::ListNode* CParticleSystemListHead::Destroy(unsigned int flags)
+MemSys::ListNode* CParticleSystemListHead::Destroy(unsigned int flags)
 {
-    auto* head = reinterpret_cast<Mem::ListNode*>(this);
+    auto* head = reinterpret_cast<MemSys::ListNode*>(this);
     head->UnlinkAs(kNodeVtable); // (the node's body, 0x00496D10)
     if (flags & 1)
-        Mem::Free(head);
+        MemSys::Free(head);
     return head;
 }
 
 namespace {
-static VtableSlot kManagerVtable_slots[] = {&Nx::CFlexibleParticleManager::Destroy};
+static VtableSlot kManagerVtable_slots[] = {&Engine3D::CFlexibleParticleManager::Destroy};
 void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
-static VtableSlot kHeadVtable_slots[] = {&Nx::CParticleSystemListHead::Destroy};
+static VtableSlot kHeadVtable_slots[] = {&Engine3D::CParticleSystemListHead::Destroy};
 void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
 } // namespace
 

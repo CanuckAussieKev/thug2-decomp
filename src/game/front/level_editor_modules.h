@@ -9,7 +9,7 @@
 // own Inspector sections (ours; see level_editor.h): collision face flags (level_editor_faces.h), scenery trick-object
 // clusters (level_editor_clusters.h) and camera nodes (level_editor_cameras.h). Each of those modules queues what its
 // UI asks for and does it in its own Update, which the editor calls once a frame while it runs.
-namespace Front::LevelEditor {
+namespace MenuSystem::LevelEditor {
 
 // An undo step of a module's own: what to put back (Restore), and the same things as they are now (Now - what the
 // other stack gets). The editor keeps it on its undo / redo stacks like its own steps (64 steps, this session).
@@ -174,4 +174,4 @@ V3 CursorPoint();
 
 } // namespace Edit
 
-} // namespace Front::LevelEditor
+} // namespace MenuSystem::LevelEditor

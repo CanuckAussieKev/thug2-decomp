@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 
-namespace Crc {
+namespace Checksums {
 
 namespace {
 
@@ -40,15 +40,15 @@ uint8_t NameChar(char c)
 } // namespace
 
 // 0x00401B90
-uint32_t GenerateCRCFromString(const char* string)
+uint32_t HashFromText(const char* string)
 {
     if (!string)
         return 0;
-    return ExtendCRCWithString(0xFFFFFFFF, string);
+    return FoldTextIntoChecksum(0xFFFFFFFF, string);
 }
 
 // 0x00401BE0
-uint32_t ExtendCRCWithString(uint32_t crc, const char* string)
+uint32_t FoldTextIntoChecksum(uint32_t crc, const char* string)
 {
     if (!string)
         return crc;

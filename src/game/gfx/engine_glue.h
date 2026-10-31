@@ -2,16 +2,16 @@
 
 #include <cstdint>
 
-namespace Mth {
+namespace Maths {
 class Vector;
 }
-namespace Gfx {
+namespace Gfx2D {
 class Camera;
 }
 
-// The engine's platform calls (Nx::CEngine's s_plat_* on PC, cdecl): the engine's own entry points at
+// The engine's platform calls (Engine3D::CEngine's s_plat_* on PC, cdecl): the engine's own entry points at
 // 0x0048BF10-0x0048C860 are jumps to these, and most of these pass straight on into the PC engine.
-namespace Nx {
+namespace Engine3D {
 
 // 0x004B2270: the MemViewToggle command's flag (0x00701588; nothing reads it).
 void __cdecl ToggleMemView();
@@ -22,16 +22,16 @@ void __cdecl DeleteObject(void* object);
 // 0x004B22B0: a jump to 0x004D3CA0 - the 2D clip rectangle (four values) set and turned on.
 void __cdecl SetScreenClip(const void* rect);
 // 0x004B22C0: a debug shape: type 4 is a quad (four points, 0x004D8D70) in `colour`; others nothing.
-// (What it reaches is occlusion.h's AddOcclusionPoly - `colour` is the polygon's checksum; the two below are
-// EnableOcclusionPoly and RemoveAllOcclusionPolys, and SphereVisible is SphereOutsideView: 1 when the sphere is
+// (What it reaches is occlusion.h's InsertOccluderPoly - `colour` is the polygon's checksum; the two below are
+// ActivateOccluderPoly and ClearOccluderPolys, and SphereVisible is SphereOutsideView: 1 when the sphere is
 // outside the view. The names here are kept for their callers.)
-void __cdecl AddDebugShape(int type, const Mth::Vector* points, uint32_t colour);
+void __cdecl AddDebugShape(int type, const Maths::Vector* points, uint32_t colour);
 // 0x004B22F0 / 0x004B2300: jumps to 0x004D8C90 (the debug lines with this id get `flag` in their byte at +0)
 // and 0x004D8CC0 (all debug lines cleared).
 void __cdecl FlagDebugLines(uint32_t id, bool flag);
 void __cdecl ClearDebugLines();
 // 0x004B2310: a jump to 0x004DB570 - whether a sphere (a centre, a radius) is in view (1 / 0).
-int __cdecl SphereVisible(const Mth::Vector* centre, float radius);
+int __cdecl SphereVisible(const Maths::Vector* centre, float radius);
 // 0x004B2320: the platform's file extension, "Xbx".
 const char* __cdecl PlatformExtension();
 
@@ -55,7 +55,7 @@ void* __cdecl CreateScene(const char* name, void* textures, bool addSuperSectors
 bool __cdecl UnloadScene(void* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
-void* __cdecl CreateModel();
+void* __cdecl SpawnModel();
 void* __cdecl CreateGeom();
 void* __cdecl CreateSprite();
 void* __cdecl CreateTexturedQuad();
@@ -64,7 +64,7 @@ void* __cdecl CreateRenderTarget(int width, int height, uint8_t depth, int unuse
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
 // with its flag 1 of +0x08) added for `model`, aimed from the camera along its matrix's third row, and removed.
 void __cdecl AddTextureShadowCaster(const uint8_t* texture, void* model, uint32_t unused);
-void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx::Camera* camera);
+void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx2D::Camera* camera);
 void __cdecl RemoveTextureShadowCaster(const uint8_t* texture);
 
 // The PC particle manager (0x1C bytes, vtable 0x0064A304; the engine's particle manager 0x00496770 with nothing of

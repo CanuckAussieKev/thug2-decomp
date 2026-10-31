@@ -12,23 +12,23 @@
 //     mods allowed (159) - received and applied (the time of day with THUG2's own TOD manager, the level options by
 //     the level's <level>_LEVEL_CHANGE_0n scripts, the pro sets by THUGPRO's node prefixes), and sent when we host;
 //   - change level (70) has the level's name (32 bytes) after THUG2's 8 when we host.
-// Approach and message layouts from Morten1337's thugpro_proxy (GameNet/GameMsg.h, Net/Application.cpp,
-// GameNet/Manager.cpp, Modules/Skate/SkateNet.cpp) and its scripts (thugpro_server.q, tod_manager.q) - used with his
+// Approach and message layouts from Morten1337's thugpro_proxy (OnlinePlay/GameMsg.h, Net/Application.cpp,
+// OnlinePlay/Manager.cpp, Modules/Skate/SkateNet.cpp) and its scripts (thugpro_server.q, tod_manager.q) - used with his
 // permission, rewritten here. Register: tools/pipeline/compat/thugpro/README.md, "Run time" (TP-R2 ... TP-R5).
 //
 // On when thug2-decomp.ini says [Miscellaneous] OnlineGameName=thugpro (THUGPRO's lobbies) or [online]
 // thugpro_peer=1. Off: THUG2's own protocol, unchanged.
-namespace Net {
+namespace NetLink {
 struct App;
-struct MsgDesc;
-struct MsgHandlerContext;
+struct NetMessageInfo;
+struct InboundMsgCtx;
 } // namespace Net
 
-namespace GameNet {
+namespace OnlinePlay {
 class Manager;
 }
 
-namespace GameNet::Thugpro {
+namespace OnlinePlay::Thugpro {
 
 // The mode (the settings, read once). Tests set it with SetPeerModeOverride (1 on, 0 off, -1 the settings again).
 bool PeerMode();
@@ -79,17 +79,17 @@ bool DecodeChat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* ou
 
 // Server info (155): 16 bytes. Flags: bits 0-7 level options 1-8, bits 8-15 pro sets 1-7 and the competition's
 // geometry (G_COMP); the rest unused.
-struct ServerInfo {
+struct HostListing {
     uint32_t timeOfDay;  // afternoon / night / morning / evening (THUG2's TOD states' checksums)
     uint32_t weather;    // "default" / clear / rain / snow
     uint64_t flags;
 };
-static_assert(sizeof(ServerInfo) == 16, "THUGPRO's MsgTHUGProServerInfo");
+static_assert(sizeof(HostListing) == 16, "THUGPRO's MsgTHUGProServerInfo");
 constexpr uint32_t kWeatherDefault = 0x1CA1FF20; // "default"
-uint8_t LevelOptions(const ServerInfo& info);
-uint8_t ProSets(const ServerInfo& info);
+uint8_t LevelOptions(const HostListing& info);
+uint8_t ProSets(const HostListing& info);
 uint64_t MakeFlags(uint8_t levelOptions, uint8_t proSets);
-bool DecodeServerInfo(const uint8_t* data, uint32_t length, ServerInfo* out);
+bool DecodeServerInfo(const uint8_t* data, uint32_t length, HostListing* out);
 
 // Change level (70): THUG2's 8 bytes (the level's load script, the show-warning byte, 3 bytes padding), then the
 // level's name, 32 bytes (strncpy_s'd: cut, NUL-ended).
@@ -115,14 +115,14 @@ struct Effects {
     virtual ~Effects() = default;
     virtual void SetTimeOfDay(uint32_t state) = 0;
     virtual void SetWeather(uint32_t weather) = 0;
-    virtual bool RunScript(uint32_t script, bool on) = 0;            // false: no such script
+    virtual bool LaunchScript(uint32_t script, bool on) = 0;            // false: no such script
     virtual void KillPrefix(const char* prefix) = 0;
     virtual void CreatePrefix(const char* prefix) = 0;
     virtual void KillName(uint32_t name) = 0;
 };
 // `levelPrefix`: the level structure's `level` ("lon", "z_dn"...); `levelLoad`: its load script's checksum (the pro
 // sets only in THUGPRO's THPS4 / New York levels).
-void ApplyServerInfo(const ServerInfo& info, const char* levelPrefix, uint32_t levelLoad, Effects& effects);
+void ApplyServerInfo(const HostListing& info, const char* levelPrefix, uint32_t levelLoad, Effects& effects);
 // One pro set (index 0-7: PROSET1..7, then G_COMP) `on` or off - THUGPRO's toggle_geo_nomenu.
 void ApplyProSet(int index, bool on, uint32_t levelLoad, Effects& effects);
 // Whether `levelLoad` is one of THUGPRO's THPS4 levels or New York (where its pro-set flags count).
@@ -131,12 +131,12 @@ bool ProSetLevel(uint32_t levelLoad);
 // --- The game ---
 
 // The client handlers (155-159), added by the skate module's AddClientHandlers in this mode (`skate`: its data).
-void AddClientHandlers(Net::App* client, void* skate);
-int __cdecl HandleServerInfo(Net::MsgHandlerContext* context);
-int __cdecl HandleUpdateTimeOfDay(Net::MsgHandlerContext* context);
-int __cdecl HandleUpdateWeather(Net::MsgHandlerContext* context);
-int __cdecl HandleUpdateLevelOption(Net::MsgHandlerContext* context);
-int __cdecl HandleModsAllowed(Net::MsgHandlerContext* context);
+void AddClientHandlers(NetLink::App* client, void* skate);
+int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context);
+int __cdecl HandleUpdateTimeOfDay(NetLink::InboundMsgCtx* context);
+int __cdecl HandleUpdateWeather(NetLink::InboundMsgCtx* context);
+int __cdecl HandleUpdateLevelOption(NetLink::InboundMsgCtx* context);
+int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context);
 
 // Once a frame (the front end's input logic): received server info applied once the level is up (every load of the
 // session, as THUGPRO keeps its flags); the session's state dropped when the network game ends.
@@ -144,15 +144,15 @@ void Update();
 
 // For the tests: the session's received options (null before any), and whether the TOD manager's multiplayer lock
 // is lifted now (this mode, a network game).
-const ServerInfo* ReceivedServerInfo();
+const HostListing* ReceivedServerInfo();
 bool TimeOfDayUnlocked();
-// For the tests: App::EnqueueMessage's filter (net_app.h) as installed.
-bool FilterOutgoingMessage(Net::App* app, int handle, Net::MsgDesc* desc);
+// For the tests: App::PutOnOutbox's filter (net_app.h) as installed.
+bool FilterOutgoingMessage(NetLink::App* app, int handle, NetLink::NetMessageInfo* desc);
 
 // What we send as host: server info from our TOD manager's state and the options set with the chat commands.
-ServerInfo HostServerInfo();
+HostListing HostServerInfo();
 // The chat commands of this mode (chat.cpp passes lines starting with '/'): /tod <state>, /weather <state>,
 // /option <1-8> on|off, /proset <1-8> on|off, /thugpro (the state). True when `text` was one of them.
 bool HandleChatCommand(const char* text);
 
-} // namespace GameNet::Thugpro
+} // namespace OnlinePlay::Thugpro

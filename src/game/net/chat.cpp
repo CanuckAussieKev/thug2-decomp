@@ -28,7 +28,7 @@
 #include "game/sys/log.h"
 #include "game/gfx/render.h"
 
-namespace GameNet {
+namespace OnlinePlay {
 
 namespace {
 
@@ -38,7 +38,7 @@ constexpr uint8_t kObserverColor = 8;
 // but the text renderer reads a single hex digit after \c - so only 0..7 work (the game's own observer
 // colour 8 comes out as colour 1 followed by a stray "0").
 constexpr uint8_t kServerColor = 7;
-constexpr int kMaxTextSize = 131; // (the name: GameNet::kNameSize, 16)
+constexpr int kMaxTextSize = 131; // (the name: OnlinePlay::kNameSize, 16)
 
 // What travels over the network: the receiver (0x00532050) shows "\c<color+2><name>\c0 : <text>". The
 // server relays it unchanged to every other player (0x0056A000).
@@ -51,43 +51,43 @@ struct ChatPacket {
 #pragma pack(pop)
 static_assert(sizeof(ChatPacket) == 0x94);
 
-// Net::MsgDesc (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
-using ::Net::MsgDesc;
-void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
+// NetLink::NetMessageInfo (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
+using ::NetLink::NetMessageInfo;
+void InitMsgDesc(NetMessageInfo* desc) { desc->Construct(); }
 
-// The local player's info (GameNet::PlayerInfo, declared by the skate module's header): name at +0x38, flags at
+// The local player's info (OnlinePlay::PlayerRecord, declared by the skate module's header): name at +0x38, flags at
 // +0x1D0, team at [+0x14]+0x14.
-PlayerInfo* LocalPlayer(Manager* manager)
+PlayerRecord* LocalPlayer(Manager* manager)
 {
-    return static_cast<PlayerInfo*>(manager->GetLocalPlayer());
+    return static_cast<PlayerRecord*>(manager->GetOwnPlayer());
 }
-const char* PlayerName(PlayerInfo* player) { return reinterpret_cast<const char*>(player) + 0x38; }
-bool IsObserver(PlayerInfo* player)
+const char* PlayerName(PlayerRecord* player) { return reinterpret_cast<const char*>(player) + 0x38; }
+bool IsObserver(PlayerRecord* player)
 {
     return (*reinterpret_cast<uint32_t*>(reinterpret_cast<char*>(player) + 0x1D0) >> 2) & 1;
 }
-uint8_t TeamColor(PlayerInfo* player)
+uint8_t TeamColor(PlayerRecord* player)
 {
     auto* team = *reinterpret_cast<char**>(reinterpret_cast<char*>(player) + 0x14);
     return static_cast<uint8_t>(*reinterpret_cast<uint32_t*>(team + 0x14));
 }
 
 // The manager's client connection (+0x08) queues a message for the server.
-void SendToServer(Manager* manager, MsgDesc* desc)
+void SendToServer(Manager* manager, NetMessageInfo* desc)
 {
-    static_cast<Net::Client*>(manager->m_client)->EnqueueMessageToServer(desc);
+    static_cast<NetLink::Client*>(manager->m_clientApp)->SendToHost(desc);
 }
 
-// Script::CStruct (8 bytes, from the current script struct pool when there is one).
-using ScriptStruct = Script::CStruct;
+// Scripts::CStruct (8 bytes, from the current script struct pool when there is one).
+using ScriptStruct = Scripts::CStruct;
 
 uint32_t g_lastTauntTime;
 
 ScriptStruct* NewScriptStruct()
 {
-    int current = Script::g_structPools.current;
-    Mem::Pool* pool = Script::g_structPools.pools[current];
-    void* memory = pool ? pool->Allocate() : Mem::New(8);
+    int current = Scripts::g_structPools.current;
+    MemSys::Pool* pool = Scripts::g_structPools.pools[current];
+    void* memory = pool ? pool->Allocate() : MemSys::New(8);
     return memory ? static_cast<ScriptStruct*>(memory)->Init() : nullptr;
 }
 void DeleteScriptStruct(ScriptStruct* s)
@@ -95,12 +95,12 @@ void DeleteScriptStruct(ScriptStruct* s)
     if (!s)
         return;
     s->Clear();
-    Script::DeleteStruct(s);
+    Scripts::DeleteStruct(s);
 }
 void AddString(ScriptStruct* s, uint32_t name, const char* value) { s->AddString(name, value); }
-void RunScript(uint32_t script, ScriptStruct* params)
+void LaunchScript(uint32_t script, ScriptStruct* params)
 {
-    Script::RunScript(script, params, nullptr, false, nullptr);
+    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
 }
 
 constexpr uint32_t kText = 0xC4745838;              // checksum of "text"
@@ -121,7 +121,7 @@ void ShowLocalChatLine(const char* line)
 {
     ScriptStruct* params = NewScriptStruct();
     AddString(params, kText, line);
-    RunScript(kShowChatScript, params);
+    LaunchScript(kShowChatScript, params);
     DeleteScriptStruct(params);
 }
 
@@ -135,18 +135,18 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
     Copy(packet.name, sizeof(packet.name), name);
     Copy(packet.text, sizeof(packet.text), text);
 
-    MsgDesc desc;
+    NetMessageInfo desc;
     InitMsgDesc(&desc);
     desc.m_id = kMsgChat;
-    desc.m_length = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
+    desc.m_byteCount = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
     desc.m_data = &packet;
-    desc.m_queue = MsgDesc::kQueueSequenced;
+    desc.m_queue = NetMessageInfo::kQueueSequenced;
     desc.m_groupId = 8;
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
     // to its 127 characters.
     Thugpro::ChatMessage thugpro;
     if (Thugpro::PeerMode()) {
-        desc.m_length = static_cast<uint16_t>(
+        desc.m_byteCount = static_cast<uint16_t>(
             Thugpro::EncodeChat(&thugpro, Thugpro::MachineId(), color, packet.name, packet.text));
         desc.m_data = &thugpro;
         Copy(packet.text, sizeof(packet.text), thugpro.text); // (what was sent, shown below)
@@ -178,10 +178,10 @@ constexpr uint32_t kTauntName = 0xB53D0E0F;
 uint32_t& LastTauntTime() { return g_lastTauntTime; }
 
 // The script command ObjectExists with these parameters.
-bool ObjectExists(Script::CStruct* params) { return Obj::CFunc_ObjectExists(params, nullptr); }
-void RunScriptWith(uint32_t script, Script::CStruct* params)
+bool ObjectExists(Scripts::CStruct* params) { return GameObjects::CFunc_ObjectExists(params, nullptr); }
+void RunScriptWith(uint32_t script, Scripts::CStruct* params)
 {
-    Script::RunScript(script, params, nullptr, false, nullptr);
+    Scripts::LaunchScript(script, params, nullptr, false, nullptr);
 }
 
 } // namespace
@@ -196,21 +196,21 @@ int BoundedLength(const char* text, const char* end)
 
 } // namespace
 
-// 0x00532050 (GameNet::Manager's chat handler, message 76; its data: none)
-int __cdecl HandleChat(Net::MsgHandlerContext* context)
+// 0x00532050 (OnlinePlay::Manager's chat handler, message 76; its data: none)
+int __cdecl HandleChat(NetLink::InboundMsgCtx* context)
 {
-    const char* message = context->m_Msg;
+    const char* message = context->m_body;
     char line[256];
     if (Thugpro::PeerMode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
         Thugpro::ChatLine chat;
-        if (!Thugpro::DecodeChat(reinterpret_cast<const uint8_t*>(message), context->m_MsgLength, true, &chat))
+        if (!Thugpro::DecodeChat(reinterpret_cast<const uint8_t*>(message), context->m_bodySize, true, &chat))
             return 1;
         std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", chat.objId + 2, chat.name, chat.text);
     } else {
         // The original sprintfs the name and the text with no bounds (a name without its NUL runs on into the text)
         // into 256 bytes on the stack; here both stop at the message's end, and the line at 256.
-        const char* end = message + context->m_MsgLength;
+        const char* end = message + context->m_bodySize;
         const char* name = message + 1;
         const char* text = message + 1 + kNameSize;
         std::snprintf(line, sizeof(line), "\\c%i%.*s\\c0 : %.*s", static_cast<int8_t>(message[0]) + 2,
@@ -218,17 +218,17 @@ int __cdecl HandleChat(Net::MsgHandlerContext* context)
     }
     ScriptStruct* params = NewScriptStruct();
     AddString(params, kText, line);
-    RunScript(kShowChatScript, params);
+    LaunchScript(kShowChatScript, params);
     DeleteScriptStruct(params);
     return 1;
 }
 
-// 0x00537BD0 (GameNet::Manager::SendChatMessage)
+// 0x00537BD0 (OnlinePlay::Manager::SendChatMessage)
 void SendChatMessage(Manager* manager, const char* text)
 {
     if (*text == '\0')
         return;
-    PlayerInfo* player = LocalPlayer(manager);
+    PlayerRecord* player = LocalPlayer(manager);
     uint8_t color = IsObserver(player) ? kObserverColor : TeamColor(player);
     Send(manager, PlayerName(player), color, text);
 }
@@ -261,20 +261,20 @@ bool HandleChatCommand(Manager* manager, const char* text)
     if (_stricmp(text, "/where") == 0) {
         // Only shown here, not sent: the level, the local skater's position and orientation, and the camera's - written
         // to thug2-decomp.log (for picking a place to show behind the main menu).
-        uint8_t level = Nx::CurrentLevel();
+        uint8_t level = Engine3D::CurrentLevel();
         Log("where: level %u", level);
-        auto* skater = reinterpret_cast<Mdl::Skate*>(reinterpret_cast<void*>(Mdl::g_skateModule))->GetLocalSkater(); // the skate module's local skater
+        auto* skater = reinterpret_cast<GameModules::Skate*>(reinterpret_cast<void*>(GameModules::g_skateModule))->GetHomeRider(); // the skate module's local skater
         if (skater) {
-            const Mth::Vector& p = skater->m_pos;
-            const Mth::Matrix& m = skater->m_matrix;
+            const Maths::Vector& p = skater->m_pos;
+            const Maths::Matrix& m = skater->m_basisFrame;
             Log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
             for (int row = 0; row < 3; ++row)
                 Log("where: skater matrix row %d %.6f %.6f %.6f", row, m.row[row].x, m.row[row].y, m.row[row].z);
         } else {
             Log("where: no local skater");
         }
-        // The camera of the last frame drawn (SetCamera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
-        const float* camera = reinterpret_cast<const float*>(&Nx::g_camera);
+        // The camera of the last frame drawn (ChooseCamera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
+        const float* camera = reinterpret_cast<const float*>(&Engine3D::g_camera);
         Log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
             camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
         char line[128];
@@ -299,23 +299,23 @@ void __cdecl KeyboardTask(void* /*task*/)
     if (key == kKeyEnter) {
         // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
         // never freed: the original leaks them, 8 bytes a time.)
-        Script::CStruct* params = Script::NewStruct();
+        Scripts::CStruct* params = Scripts::NewStruct();
         if (params)
             params = params->Init();
-        params->AddChecksum(kId, 0x31631B98);
+        params->PutNameKey(kId, 0x31631B98);
         if (ObjectExists(params))
             return;
         params->Clear();
-        params->AddChecksum(kId, 0xF53D1D83);
+        params->PutNameKey(kId, 0xF53D1D83);
         if (ObjectExists(params))
             return;
         params->Clear();
-        params->AddChecksum(kId, 0x3B56E746);
+        params->PutNameKey(kId, 0x3B56E746);
         if (ObjectExists(params))
             return;
         params->Clear();
-        uint32_t anchor = Crc::GenerateCRCFromString("quit_dialog_anchor");
-        params->AddChecksum(Crc::GenerateCRCFromString("id"), anchor);
+        uint32_t anchor = Checksums::HashFromText("quit_dialog_anchor");
+        params->PutNameKey(Checksums::HashFromText("id"), anchor);
         if (ObjectExists(params))
             return;
         RunScriptWith(kOpenChatScript, nullptr);
@@ -332,21 +332,21 @@ void __cdecl KeyboardTask(void* /*task*/)
     case kKeyF4: taunt = 0xA36DBEE1; break;
     default: return;
     }
-    if (Tmr::GetTime() - LastTauntTime() <= 2000)
+    if (FrameClock::GetTime() - LastTauntTime() <= 2000)
         return;
-    Script::CStruct* params = Script::NewStruct();
+    Scripts::CStruct* params = Scripts::NewStruct();
     if (params)
         params = params->Init();
-    params->AddChecksum(kTauntName, taunt);
+    params->PutNameKey(kTauntName, taunt);
     RunScriptWith(kTauntScript, params);
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
-    LastTauntTime() = Tmr::GetTime();
+    LastTauntTime() = FrameClock::GetTime();
 }
 
-} // namespace GameNet
+} // namespace OnlinePlay
 
 namespace {
 
@@ -355,16 +355,16 @@ constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter nam
 
 // 0x005A16B0: script function SendChatMessage <text>. Lines starting with '/' that we recognise are run as
 // chat commands instead of being sent.
-bool __cdecl CFunc_SendChatMessage(Script::CStruct* params, Script::CScript* /*script*/)
+bool __cdecl CFunc_SendChatMessage(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     const char* text = nullptr;
-    Script::GetString(params, kChatTextParam, &text);
+    Scripts::GetString(params, kChatTextParam, &text);
     if (!text)
         return false;
     if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
-        GameNet::Manager* manager = GameNet::GetManager();
-        if (!GameNet::HandleChatCommand(manager, text))
-            GameNet::SendChatMessage(manager, text);
+        OnlinePlay::Manager* manager = OnlinePlay::GetManager();
+        if (!OnlinePlay::HandleChatCommand(manager, text))
+            OnlinePlay::SendChatMessage(manager, text);
     }
     return true;
 }
@@ -374,7 +374,7 @@ namespace {
 struct ManagerAdapter {
     void SendChatMessage(const char* text)
     {
-        GameNet::SendChatMessage(reinterpret_cast<GameNet::Manager*>(this), text);
+        OnlinePlay::SendChatMessage(reinterpret_cast<OnlinePlay::Manager*>(this), text);
     }
 };
 

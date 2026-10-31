@@ -7,7 +7,7 @@
 
 #include "game/front/level_editor.h"
 
-namespace Front::LevelEditor::Overlays {
+namespace MenuSystem::LevelEditor::Overlays {
 struct Painter;
 }
 
@@ -18,7 +18,7 @@ struct Painter;
 // Inspector's Terrain, level_editor_chains.h), its speed-ups (Chains::SpeedSegments: the level's RailAccelerate and the
 // editor's) and its connections: points where it branches (a point linked to two), and other rails' ends within
 // kTransferReach of its ends (a transfer the skater can make by an ollie).
-namespace Front::LevelEditor::GrindPreview {
+namespace MenuSystem::LevelEditor::GrindPreview {
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------
 
@@ -51,4 +51,4 @@ void AddOverlay(const Overlays::Painter& painter, int hovered, int selected);
 // What it shows now ("" when nothing): the rail, its points, length, terrain.
 std::string Describe();
 
-} // namespace Front::LevelEditor::GrindPreview
+} // namespace MenuSystem::LevelEditor::GrindPreview

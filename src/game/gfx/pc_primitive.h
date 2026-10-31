@@ -7,7 +7,7 @@
 // it; lens_flare.cpp's Prim, the chain component's lines): a run of vertices in one of five layouts by flexible
 // vertex format, set vertex by vertex through its virtuals and drawn as lines, triangles or quads through the dynamic
 // vertex buffer with a material of its own.
-namespace Nx {
+namespace Engine3D {
 
 // The PC primitive drawer (0x158 bytes, vtable 0x0064A628).
 struct CPcPrimitive {
@@ -37,7 +37,7 @@ struct CPcPrimitive {
     // material set up again.
     void SetTexture(const uint8_t* texture, int unused1, int unused2);
     // 0x004C5310 (virtual [2])
-    void SetColour(uint32_t rgba);
+    void ChangeColour(uint32_t rgba);
     // 0x004C5F00 (virtual [3]): the vertex layout (1 colour, 2 texture, 4 normal), the type and the vertex count; the
     // vertices allocated when they're its own (left uninitialised: their constructor does nothing).
     void Init(uint32_t layoutFlags, int primitiveType, int count);
@@ -63,12 +63,12 @@ struct CPcPrimitive {
     void SetVertexColour(int index, uint32_t rgba);
     // 0x004C5760 / 0x004C57C0 / 0x004C5800 (virtual [16] - [18]): texture coordinates.
     void SetUV(int index, float u, float v);
-    void SetU(int index, float u);
-    void SetV(int index, float v);
+    void ChooseU(int index, float u);
+    void ChooseV(int index, float v);
     // 0x004C5C50 / 0x004C5C70 / 0x004C5C90 (virtual [19] - [21]): a vertex's position read back.
-    float GetX(int index);
-    float GetY(int index);
-    float GetZ(int index);
+    float FetchPosX(int index);
+    float FetchPosY(int index);
+    float FetchPosZ(int index);
     // 0x004C5CB0 / 0x004C5CD0 / 0x004C5CF0 (virtual [22] - [24]): a normal read back (the 0x152 layout).
     float GetNormalX(int index);
     float GetNormalY(int index);

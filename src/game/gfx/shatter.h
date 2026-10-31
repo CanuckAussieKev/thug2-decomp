@@ -6,25 +6,25 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 
-namespace Lst {
+namespace ListKit {
 class HashTable;
 }
 
 // Shattering on PC (Nx engine; the Shatter script command): a mesh broken into triangles that fly apart - each
 // shatter (0x40 bytes) keeps its triangles' vertices and their positions, and the shatters are in a table
-// (0x007004B8, Lst::HashTable).
-namespace Nx {
+// (0x007004B8, ListKit::HashTable).
+namespace Engine3D {
 
-struct sMesh;
+struct meshRef;
 
 // The engine's shatter (0x2C bytes, vtable 0x00649308; CPcShatter extends it): per triangle its centre, velocity
 // and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, SetShatterParams).
 struct CShatter {
     void** vtable;
-    Mth::Vector* centres;    // +0x04
-    Mth::Vector* velocities; // +0x08
+    Maths::Vector* centres;    // +0x04
+    Maths::Vector* velocities; // +0x08
     uint32_t unknown0C;
-    Mth::Matrix* rotations;  // +0x10
+    Maths::Matrix* rotations;  // +0x10
     float lifetime;          // +0x14: seconds left
     float gravity;           // +0x18 (128)
     float floor;             // +0x1C: the height the triangles bounce at
@@ -52,21 +52,21 @@ static_assert(offsetof(CShatter, rotations) == 0x10 && offsetof(CShatter, triang
 // first 0x2C bytes: per triangle its centre, velocity and rotation, the settings it was made with).
 struct CPcShatter {
     void** vtable;
-    Mth::Vector* centres;    // +0x04
-    Mth::Vector* velocities; // +0x08
+    Maths::Vector* centres;    // +0x04
+    Maths::Vector* velocities; // +0x08
     uint32_t unknown0C;
-    Mth::Matrix* rotations;  // +0x10: each triangle's turn a step
+    Maths::Matrix* rotations;  // +0x10: each triangle's turn a step
     uint8_t settings14[0x10];
     uint16_t triangleCount;  // +0x24
     uint8_t unknown26[6];
     float* positions;   // +0x2C: three floats per triangle
     uint8_t* material;  // +0x30: a material of its own (0x110 bytes) when asked for
     uint32_t ownMaterial; // +0x34
-    sMesh* mesh;        // +0x38: what it was made from (its material, vertex size and format)
+    meshRef* mesh;        // +0x38: what it was made from (its material, vertex size and format)
     uint8_t* vertices;  // +0x3C: three per triangle
 
     // 0x004B8120: construct for `count` triangles of `mesh`. Returns this.
-    CPcShatter* Construct(int count, sMesh* mesh, uint32_t ownMaterial);
+    CPcShatter* Construct(int count, meshRef* mesh, uint32_t ownMaterial);
     // 0x004B8FA0: the destructor's body.
     void DestroyBody();
     // 0x004B9A30 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
@@ -90,6 +90,6 @@ void __cdecl UpdateShatter(CPcShatter* shatter, float step);
 // the table.
 void __cdecl ShatterGeom(uint8_t* geom);
 
-extern Lst::HashTable* g_shatters;
+extern ListKit::HashTable* g_shatters;
 
 } // namespace Nx

@@ -1,4 +1,4 @@
-// The object proximity component (Obj::CObjectProximityComponent): see object_proximity.h. From the disassembly of
+// The object proximity component (GameObjects::CObjectProximityComponent): see object_proximity.h. From the disassembly of
 // 0x004EC220-0x004EC557 (the member functions 0x004EC250-0x004EC364 and 0x004EC480 aren't Ghidra functions).
 
 #include "game/obj/object_proximity.h"
@@ -19,7 +19,7 @@
 #include "game/obj/camera_lookaround.h"
 #include "game/skater/vehicle_sound.h"
 
-namespace Obj {
+namespace GameObjects {
 
 uint32_t g_objectProximityMemberFunctions[42]{
             0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0,
@@ -46,7 +46,7 @@ float FarAway()
 }
 
 // The unnamed float, if given, as (12 x it) squared (rounded once, as the original's x87 product).
-bool SetSquaredRadius(Script::CStruct* params, float& radius)
+bool SetSquaredRadius(Scripts::CStruct* params, float& radius)
 {
     if (params->GetFloat(0u, &radius, 0)) {
         double inches = static_cast<double>(radius) * kFeetToInches;
@@ -55,7 +55,7 @@ bool SetSquaredRadius(Script::CStruct* params, float& radius)
     return true;
 }
 
-double DistanceSquared(const CCompositeObject* a, const CCompositeObject* b)
+double DistanceSquared(const CGameEntity* a, const CGameEntity* b)
 {
     double dx = static_cast<double>(a->m_pos.x) - b->m_pos.x;
     double dy = static_cast<double>(a->m_pos.y) - b->m_pos.y;
@@ -66,23 +66,23 @@ double DistanceSquared(const CCompositeObject* a, const CCompositeObject* b)
 } // namespace
 
 // 0x004EC420
-CBaseComponent* __cdecl CObjectProximityComponent::Create()
+CObjectModule* __cdecl CObjectProximityComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CObjectProximityComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CObjectProximityComponent));
     return memory ? static_cast<CObjectProximityComponent*>(memory)->Construct() : nullptr;
 }
 
 // 0x004EC220
-void __cdecl CObjectProximityComponent::RegisterMemberFunctions()
+void __cdecl CObjectProximityComponent::PublishMethodTable()
 {
-    Script::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectProximity), g_objectProximityMemberFunctions,
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectProximity), g_objectProximityMemberFunctions,
                                         0x18);
 }
 
 // 0x004EC370
 CObjectProximityComponent* CObjectProximityComponent::Construct()
 {
-    CBaseComponent::Construct();
+    CObjectModule::Construct();
     m_vtable = kVtable;
     m_type = kObjectProximity;
     return this;
@@ -92,7 +92,7 @@ CObjectProximityComponent* CObjectProximityComponent::Construct()
 void CObjectProximityComponent::DestroyBody()
 {
     m_vtable = kVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x004EC390
@@ -100,14 +100,14 @@ CObjectProximityComponent* CObjectProximityComponent::Destroy(unsigned int flags
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x004EC3C0
 double CObjectProximityComponent::LocalSkaterDistanceSquared(uint32_t* skaterId)
 {
-    auto* skater = reinterpret_cast<CCompositeObject*>(Mdl::Skate::Instance()->GetLocalSkater());
+    auto* skater = reinterpret_cast<CGameEntity*>(GameModules::Skate::Instance()->GetHomeRider());
     if (!skater || skater == m_object)
         return FarAway();
     *skaterId = skater->m_id;
@@ -118,10 +118,10 @@ double CObjectProximityComponent::LocalSkaterDistanceSquared(uint32_t* skaterId)
 float CObjectProximityComponent::NearestSkaterDistanceSquared(uint32_t* skaterId)
 {
     float nearest = FarAway();
-    Mdl::Skate* skate = Mdl::Skate::Instance();
-    int count = skate->GetNumSkaters();
+    GameModules::Skate* skate = GameModules::Skate::Instance();
+    int count = skate->CountRiders();
     for (int i = 0; i < count; ++i) {
-        CCompositeObject* skater = Mdl::Skate::Instance()->GetSkater(i);
+        CGameEntity* skater = GameModules::Skate::Instance()->GetRiderAt(i);
         if (!skater || skater == m_object)
             continue;
         double distance = DistanceSquared(skater, m_object);
@@ -141,15 +141,15 @@ void CObjectProximityComponent::Update()
     uint32_t id = 0;
     float distance = 0.0f;
     bool dead;
-    auto event = [this](uint32_t type, Script::CStruct* data) { m_object->SelfEvent(type, data); };
+    auto event = [this](uint32_t type, Scripts::CStruct* data) { m_object->PostOwnEvent(type, data); };
     auto newData = []() {
-        Script::CStruct* data = Script::NewStruct();
+        Scripts::CStruct* data = Scripts::NewStruct();
         return data ? data->Init() : nullptr;
     };
-    auto deleteData = [](Script::CStruct* data) {
+    auto deleteData = [](Scripts::CStruct* data) {
         if (data) {
             data->Clear();
-            Script::DeleteStruct(data);
+            Scripts::DeleteStruct(data);
         }
     };
     if (m_innerRadiusSquared != 0.0f) {
@@ -157,9 +157,9 @@ void CObjectProximityComponent::Update()
         distance = static_cast<float>(local);
         if (local <= m_innerRadiusSquared) {
             // The local skater inside: the enter event, and the any-skater one.
-            Script::CStruct* data = newData();
-            data->AddChecksum(0xF79C90AE, id);
-            data->AddInteger(0xDB1E28CD, id);
+            Scripts::CStruct* data = newData();
+            data->PutNameKey(0xF79C90AE, id);
+            data->PutInt(0xDB1E28CD, id);
             event(0x7048029A, data);
             if (!(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                 event(0xF5B2A042, data);
@@ -167,9 +167,9 @@ void CObjectProximityComponent::Update()
         } else {
             // Another skater inside: the any-skater event.
             if (NearestSkaterDistanceSquared(&id) <= m_innerRadiusSquared) {
-                Script::CStruct* data = newData();
-                data->AddChecksum(0xF79C90AE, id);
-                data->AddInteger(0xDB1E28CD, id);
+                Scripts::CStruct* data = newData();
+                data->PutNameKey(0xF79C90AE, id);
+                data->PutInt(0xDB1E28CD, id);
                 event(0xF5B2A042, data);
                 deleteData(data);
             }
@@ -180,9 +180,9 @@ void CObjectProximityComponent::Update()
         if (distance == 0.0f)
             distance = NearestSkaterDistanceSquared(&id);
         if (distance >= m_outerRadiusSquared && !(m_object->m_objectFlags & OBJECT_FLAG_DEAD)) {
-            Script::CStruct* data = newData();
-            data->AddChecksum(0x873A40D0, id);
-            data->AddInteger(0x5F3602F5, id);
+            Scripts::CStruct* data = newData();
+            data->PutNameKey(0x873A40D0, id);
+            data->PutInt(0x5F3602F5, id);
             event(0x91BCAD1D, data);
             deleteData(data);
         }
@@ -191,8 +191,8 @@ void CObjectProximityComponent::Update()
         if (distance == 0.0f)
             distance = static_cast<float>(LocalSkaterDistanceSquared(&id));
         if (distance <= m_innerAvoidRadiusSquared) {
-            Script::CStruct* data = newData();
-            data->AddChecksum(0xF79C90AE, id);
+            Scripts::CStruct* data = newData();
+            data->PutNameKey(0xF79C90AE, id);
             if (!(m_object->m_objectFlags & OBJECT_FLAG_DEAD))
                 event(0xD69BD3DE, data);
             deleteData(data);
@@ -214,40 +214,40 @@ void CObjectProximityComponent::Update()
 }
 
 // 0x004EC250
-bool CObjectProximityComponent::Obj_SetInnerRadius(Script::CStruct* params, Script::CScript* /*script*/)
+bool CObjectProximityComponent::Obj_SetInnerRadius(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     return SetSquaredRadius(params, m_innerRadiusSquared);
 }
 
 // 0x004EC280
-bool CObjectProximityComponent::Obj_SetOuterRadius(Script::CStruct* params, Script::CScript* /*script*/)
+bool CObjectProximityComponent::Obj_SetOuterRadius(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     return SetSquaredRadius(params, m_outerRadiusSquared);
 }
 
 // 0x004EC2B0
-bool CObjectProximityComponent::Obj_SetInnerAvoidRadius(Script::CStruct* params, Script::CScript* /*script*/)
+bool CObjectProximityComponent::Obj_SetInnerAvoidRadius(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     return SetSquaredRadius(params, m_innerAvoidRadiusSquared);
 }
 
 // 0x004EC2E0
-bool CObjectProximityComponent::Obj_SetOuterAvoidRadius(Script::CStruct* params, Script::CScript* /*script*/)
+bool CObjectProximityComponent::Obj_SetOuterAvoidRadius(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     return SetSquaredRadius(params, m_outerAvoidRadiusSquared);
 }
 
 // 0x004EC310
-bool CObjectProximityComponent::Obj_SetAttentionRadius(Script::CStruct* params, Script::CScript* /*script*/)
+bool CObjectProximityComponent::Obj_SetAttentionRadius(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     // (with the flag, only a radius still 0 is set; not a number counts as set)
-    if (params->ContainsFlag(0xFD2EACAD) && !(m_attentionRadiusSquared == 0.0))
+    if (params->HasBareFlag(0xFD2EACAD) && !(m_attentionRadiusSquared == 0.0))
         return true;
     return SetSquaredRadius(params, m_attentionRadiusSquared);
 }
 
 // 0x004EC480
-bool CObjectProximityComponent::Obj_ObjectInAttentionRadius(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+bool CObjectProximityComponent::Obj_ObjectInAttentionRadius(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
     uint32_t skater;
     return LocalSkaterDistanceSquared(&skater) <= m_attentionRadiusSquared;
@@ -255,22 +255,22 @@ bool CObjectProximityComponent::Obj_ObjectInAttentionRadius(Script::CStruct* /*p
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&Obj::CObjectProximityComponent::Destroy,
-         &Obj::CObjectProximityComponent::Update,
+static VtableSlot kVtable_slots[] = {&GameObjects::CObjectProximityComponent::Destroy,
+         &GameObjects::CObjectProximityComponent::Update,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &Obj::CBaseComponent::RunMemberFunction,
-         &Obj::ComponentWithoutMemberFunctions::CallMemberFunction};
+         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 
 } // namespace

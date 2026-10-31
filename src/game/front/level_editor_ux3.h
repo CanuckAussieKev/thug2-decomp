@@ -10,7 +10,7 @@
 
 struct ImFont;
 
-namespace Front::LevelEditor::Ui {
+namespace MenuSystem::LevelEditor::Ui {
 struct Model;
 }
 
@@ -29,7 +29,7 @@ struct Model;
 //   Shift+G           select similar...           Ctrl+I        invert the selection   Ctrl+A  select all
 //   Ctrl+G            group the selection         Ctrl+Shift+Z  redo (as Ctrl+Y)
 // A drag from empty space in the view is a box select too (right: inside, left: crossing; Shift adds, Ctrl removes).
-namespace Front::LevelEditor::Ux3 {
+namespace MenuSystem::LevelEditor::Ux3 {
 
 // --- the game side (level_editor_ux3.cpp) ----------------------------------------------------------------------------
 
@@ -98,4 +98,4 @@ void InspectorSection(const Ui::Model& model);
 // The Inspector's sections folded / unfolded as last time ([editor_sections] in the ini) - after it's drawn.
 void RememberSections();
 
-} // namespace Front::LevelEditor::Ux3
+} // namespace MenuSystem::LevelEditor::Ux3

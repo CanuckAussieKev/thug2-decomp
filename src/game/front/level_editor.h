@@ -6,13 +6,13 @@
 #include <utility>
 #include <vector>
 
-namespace Gfx {
+namespace Gfx2D {
 class Camera;
 }
-namespace Obj {
-class CCompositeObject;
+namespace GameObjects {
+class CGameEntity;
 }
-namespace Script {
+namespace Scripts {
 class CStruct;
 class CScript;
 } // namespace Script
@@ -30,7 +30,7 @@ class CScript;
 //   level_editor_scenery.cpp  the level's static scene sectors (LevelGeometry such as LA's fire truck): picking by
 //                             the collision ray, groups (a trick-object cluster and the pieces built onto it), moving
 //                             vertices and collision in place as the park editor does, grind rails with them,
-//                             copies (CScene::CloneSector), hiding, tinting
+//                             copies (CWorldScene::DuplicateSceneSector), hiding, tinting
 //   level_editor_scale.cpp    scaling scenery and objects (0.25x - 4x on each axis, uniform or stretched): a piece's
 //                             vertices, normals and collision kept when first scaled and written again from that copy
 //                             (no drift); an object's model scale and its own copy of its collision; the limits, the
@@ -69,7 +69,7 @@ class CScript;
 //                             sounds, particle systems moved / copied, `speed` / `emitter` records
 //   level_editor_view.cpp     the view options: the collision shown (C; invisible walls magenta, Shift+click one), the
 //                             selection hidden (H) or isolated (I or /) while editing only, Alt+H shows all
-//   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible
+//   level_editor_walls.cpp    collision switched off and on with the game's own switch (CWorldCell::SetActive): invisible
 //                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
 //                             itself (the Inspector's Collision); undo, `wall` layout records
 //   level_editor_overlays.cpp the toolbar's View menu (Lit / Unlit / Wireframe / Collision only, Alt+1..4 - drawn by
@@ -150,7 +150,7 @@ class CScript;
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
 // game in the editor in that level (game/front/start_level.h; tools/pipeline/game/edit_level.ts). editor_ui=0 (default 1) brings
 // back the old HUD in place of the Dear ImGui panels.
-namespace Front::LevelEditor {
+namespace MenuSystem::LevelEditor {
 
 // The setting (read once).
 bool& Enabled();
@@ -159,10 +159,10 @@ bool& DebugEnabled();
 bool Active();
 
 // Script commands (CFunctions, registered by RegisterScriptFunctions).
-bool __cdecl CFunc_Available(Script::CStruct* params, Script::CScript* script); // LevelEditor_Available
-bool __cdecl CFunc_Start(Script::CStruct* params, Script::CScript* script);     // LevelEditor_Start
-bool __cdecl CFunc_Stop(Script::CStruct* params, Script::CScript* script);      // LevelEditor_Stop
-// Our extra script commands, registered after the game's own table (Sys::Main, after 0x005A5E70).
+bool __cdecl CFunc_Available(Scripts::CStruct* params, Scripts::CScript* script); // LevelEditor_Available
+bool __cdecl CFunc_Start(Scripts::CStruct* params, Scripts::CScript* script);     // LevelEditor_Start
+bool __cdecl CFunc_Stop(Scripts::CStruct* params, Scripts::CScript* script);      // LevelEditor_Stop
+// Our extra script commands, registered after the game's own table (SystemCore::Main, after 0x005A5E70).
 void RegisterScriptFunctions();
 
 // Start listening to SDL's mouse and key events (Sio::InitSdlInput, next to MouseMenus::Init).
@@ -170,18 +170,18 @@ void Init();
 // Once a frame from the front end's input logic (MouseMenus::Update's stand-down while Active): a requested exit
 // (Escape) runs level_editor_exit here.
 void InputLogic();
-// Once a frame at the start of the render (Nx::RenderWorld): flying, looking, picking, dragging.
+// Once a frame at the start of the render (Engine3D::DrawWorld): flying, looking, picking, dragging.
 void Update();
 // Called by the renderer for a viewport's camera before it's read: while Active, the first viewport's camera gets the
 // editor's pose (the game's pose noted first, put back by Stop).
-void PlaceCamera(Gfx::Camera* camera);
+void PlaceCamera(Gfx2D::Camera* camera);
 // Called by the renderer once a viewport is set up: what the view's projection is (for the mouse ray and the
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
-void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
-// Called by the renderer for a viewport's camera (Nx::RenderViewport): its field of view (degrees) and near plane - the
+void NoteView(Gfx2D::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
+// Called by the renderer for a viewport's camera (Engine3D::DrawViewport): its field of view (degrees) and near plane - the
 // game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
-float ViewAngle(Gfx::Camera* camera, float angle);
-float NearPlane(Gfx::Camera* camera);
+float ViewAngle(Gfx2D::Camera* camera, float angle);
+float NearPlane(Gfx2D::Camera* camera);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void Draw();
 // For the screenshot sidecar (game/sys/screenshot.h): what the editor shows now - its mode, the level, its camera,
@@ -206,7 +206,7 @@ inline float Dot(V3 a, V3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 inline V3 Cross(V3 a, V3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
 V3 Normalize(V3 v);
 
-// A camera's frame as the game keeps it (Gfx::Camera m_matrix rows): right, up, back (the view looks along -back).
+// A camera's frame as the game keeps it (Gfx2D::Camera m_basisFrame rows): right, up, back (the view looks along -back).
 struct Frame {
     V3 right, up, back;
 };
@@ -227,7 +227,7 @@ V3 Fly(V3 pos, const Frame& frame, const FlyInput& input, float distance);
 // +-89 degrees.
 void Look(float* yaw, float* pitch, float dx, float dy, float radiansPerPixel);
 
-// The projection as the renderer sets it (Nx::SetCamera 0x004DB200: D3DX's look-at and perspective, the view's width at
+// The projection as the renderer sets it (Engine3D::ChooseCamera 0x004DB200: D3DX's look-at and perspective, the view's width at
 // the near plane 4 tan(angle / 2) and its height that / (aspect * 0.90909094)): tangents of the half-angles.
 struct Lens {
     float tanX, tanY;
@@ -279,7 +279,7 @@ inline V3 BoxSize(const OrientedBox& box)
 // --- scenery (the static scene sectors; level_editor_scenery.cpp) ------------------------------------------------
 
 // A direction turned by `quarters` quarter turns about the world's up axis, exactly (no trigonometry): as
-// TurnAboutUp(v, quarters * 90 degrees), and as the engine turns a sector's vertices (sMesh::RotateY 0x004D6FB0:
+// TurnAboutUp(v, quarters * 90 degrees), and as the engine turns a sector's vertices (meshRef::RotateY 0x004D6FB0:
 // rotation 1 takes (dx, dz) from the pivot to (dz, -dx), rotation 3 to (-dz, dx)).
 V3 QuarterTurn(V3 v, int quarters);
 // A vector scaled per axis (x by s.x, ...).
@@ -302,8 +302,8 @@ V3 Apply(const Placement& placement, V3 x);
 // Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).
 void MoveBy(Placement* placement, V3 delta);
 void TurnAbout(Placement* placement, V3 pivot, int quarters);
-// What the engine keeps for a placement: the sector's quarter turns (CSector +0x10, set by SetYRotation 0x0049E760)
-// and its geometry's world position (the meshes' pivot, sMesh +0x90's translation), from those when first touched
+// What the engine keeps for a placement: the sector's quarter turns (CWorldCell +0x10, set by SpinAroundUp 0x0049E760)
+// and its geometry's world position (the meshes' pivot, meshRef +0x90's translation), from those when first touched
 // (`quarters0`, `position0`). Unscaled, its vertices are at QuarterTurn(v, quarters) + position for v as loaded (the
 // engine has no scale of its own: level_editor_scale.h writes the scaled vertices).
 void EngineState(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
@@ -316,7 +316,7 @@ OrientedBox PlacedBox(V3 min, V3 max, const Placement& placement);
 // real box.
 bool SectorSizeMovable(V3 min, V3 max, float limit);
 // The box around two boxes' (axis-aligned) corners: `have` false takes `min` / `max` as they come.
-void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax);
+void GrowBox(V3* min, V3* max, bool have, V3 boundsLow, V3 boundsHigh);
 // The axis-aligned box around an oriented box's corners.
 void BoundsOf(const OrientedBox& box, V3* min, V3* max);
 
@@ -338,14 +338,14 @@ float DistanceToSegment(float x, float y, float ax, float ay, float bx, float by
 // A selection grows by the pieces built onto it but not put in its cluster (LA's fire truck: its ladder): a piece
 // (axis-aligned bounds `min`..`max`) joins when it is no bigger than the group was (`groupMin`..`groupMax`: no larger
 // volume, no wider across than 1.25 times the group's longer side - not the street it stands on or the building beside
-// it) and it touches one of the group's boxes (`boxMin`..`boxMax`, within `margin`) above that box's bottom (by more
+// it) and it touches one of the group's boxes (`boundsLow`..`boundsHigh`, within `margin`) above that box's bottom (by more
 // than 5 units: not the ground under it).
 bool PieceFits(V3 min, V3 max, V3 groupMin, V3 groupMax);
-bool PieceTouches(V3 min, V3 max, V3 boxMin, V3 boxMax, float margin);
+bool PieceTouches(V3 min, V3 max, V3 boundsLow, V3 boundsHigh, float margin);
 // A grind rail's segment box, as the rail manager makes it (0x0057C260): the two points' bounds.
 void SegmentBox(V3 a, V3 b, V3* min, V3* max);
 // The highlight's colour at `seconds`: an RGBA (the engine's per-mesh colour, 0x80 a channel unchanged) between `low`
 // and `high`, a pulse a second and a quarter (0 at low).
 uint32_t Pulse(uint32_t low, uint32_t high, double seconds);
 
-} // namespace Front::LevelEditor
+} // namespace MenuSystem::LevelEditor

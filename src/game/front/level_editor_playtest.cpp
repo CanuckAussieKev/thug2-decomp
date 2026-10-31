@@ -40,7 +40,7 @@
 #include "game/sys/sdl_events.h"
 #include "game/sys/log.h"
 
-namespace Front::LevelEditor::PlayTest {
+namespace MenuSystem::LevelEditor::PlayTest {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -440,12 +440,12 @@ template <typename T> T At(const void* base, uint32_t offset)
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(base) + offset);
 }
 
-uint8_t* Skate() { return reinterpret_cast<uint8_t*>(Mdl::g_skateModule); } // Mdl::Skate
+uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); } // GameModules::Skate
 
-Game::CGapChecklist* Checklist()
+GoalSystem::CGapTally* Checklist()
 {
     uint8_t* skate = Skate();
-    return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
+    return skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
 }
 
 // The skater's state (the header's offsets).
@@ -455,22 +455,22 @@ struct SkaterNow {
     bool bailing;
     int pending; // the combo's points
 };
-bool ReadSkater(Obj::CCompositeObject* skater, SkaterNow* out)
+bool ReadSkater(GameObjects::CGameEntity* skater, SkaterNow* out)
 {
-    Obj::CBaseComponent* state = skater->GetComponent(kSkaterState);
+    GameObjects::CObjectModule* state = skater->GetComponent(kSkaterState);
     if (!state)
         return false;
     int physics = At<int>(state, 0x18);
     bool bailing = At<uint8_t>(state, 0x70) != 0;
     bool driving = At<uint8_t>(state, 0x118) != 0;
     bool walking = !driving && At<int>(state, 0x1C) == 1;
-    Obj::CBaseComponent* balance = skater->GetComponent(kSkaterBalanceTrick);
+    GameObjects::CObjectModule* balance = skater->GetComponent(kSkaterBalanceTrick);
     uint32_t trick = balance ? At<uint32_t>(balance, 0x18) : 0;
     out->pos = {skater->m_pos.x, skater->m_pos.y, skater->m_pos.z};
     out->motion = Classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
-    if (Obj::CBaseComponent* score = skater->GetComponent(kSkaterScore)) {
+    if (GameObjects::CObjectModule* score = skater->GetComponent(kSkaterScore)) {
         if (const uint8_t* s = At<const uint8_t*>(score, 0x18)) {
             double points = static_cast<double>(At<int>(s, 0x14)) * At<float>(s, 0x60);
             if (points > 0.0 && points < 2.0e9)
@@ -512,7 +512,7 @@ int g_restartFrames;
 // Simulate.
 struct Snapshot {
     Objects::State state;
-    Mth::Vector vel;
+    Maths::Vector vel;
 };
 bool g_simulating;
 bool g_keepSimulation;
@@ -558,16 +558,16 @@ bool SaveFile(uint32_t scene)
 std::vector<GapRead> ReadGaps()
 {
     std::vector<GapRead> out;
-    Game::CGapChecklist* list = Checklist();
+    GoalSystem::CGapTally* list = Checklist();
     if (!list)
         return out;
     // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
     int guard = 0;
-    for (Mem::ListNode* node = list->m_gaps.next; node && node != &list->m_gaps && ++guard < 4096; node = node->next) {
+    for (MemSys::ListNode* node = list->m_gaps.next; node && node != &list->m_gaps && ++guard < 4096; node = node->next) {
         if (node->data == reinterpret_cast<void*>(-1))
             break;
-        auto* gap = reinterpret_cast<Game::CGapCheck*>(node);
-        out.push_back({gap->m_name.c_str() ? gap->m_name.c_str() : "", gap->m_pending, gap->m_count, gap->m_score});
+        auto* gap = reinterpret_cast<GoalSystem::CGapEntry*>(node);
+        out.push_back({gap->m_name.c_str() ? gap->m_name.c_str() : "", gap->m_pending, gap->m_count, gap->m_pointsHeld});
     }
     return out;
 }
@@ -603,14 +603,14 @@ void OpenRun(int load)
     Log("level editor: trail - recording a run (the level's edited copy in play)");
 }
 
-void Record(Mdl::FrontEnd* frontEnd)
+void Record(GameModules::FrontEnd* frontEnd)
 {
     int load = Layout::LevelLoads();
     if (g_rec.open && (g_rec.load != load || !g_recordOn))
         CloseRun(g_rec.load != load ? "another level loaded" : "recording turned off");
-    bool paused = frontEnd && frontEnd->m_paused;
-    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
-    if (!g_recordOn || paused || !skater || Nx::CurrentLevel() == 0 || !Layout::EditingCopy()) {
+    bool paused = frontEnd && frontEnd->m_isHalted;
+    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
+    if (!g_recordOn || paused || !skater || Engine3D::CurrentLevel() == 0 || !Layout::EditingCopy()) {
         g_rec.lastTicks = 0;
         return;
     }
@@ -669,7 +669,7 @@ void Record(Mdl::FrontEnd* frontEnd)
         run.events.push_back({EventKind::Combo, now.pos, "", end.points, end.landed ? GapStatus::Landed : GapStatus::Lost});
 }
 
-void RestartStep(Mdl::FrontEnd* frontEnd)
+void RestartStep(GameModules::FrontEnd* frontEnd)
 {
     if (!g_restart)
         return;
@@ -683,16 +683,16 @@ void RestartStep(Mdl::FrontEnd* frontEnd)
         g_restart = 0;
         return;
     }
-    bool paused = frontEnd && frontEnd->m_paused;
-    if (paused || g_restartFrames < 4 || !Obj::FindObject(kSkater) || Nx::CurrentLevel() == 0)
+    bool paused = frontEnd && frontEnd->m_isHalted;
+    if (paused || g_restartFrames < 4 || !GameObjects::FindObject(kSkater) || Engine3D::CurrentLevel() == 0)
         return;
     uint32_t restart = g_restart;
     g_restart = 0;
-    Script::CStruct* params = Script::NewStruct()->Init();
-    params->AddChecksum(Crc::GenerateCRCFromString("node_name"), restart);
-    Script::RunScript(Crc::GenerateCRCFromString("ResetSkaters"), params, nullptr, false, "ResetSkaters");
+    Scripts::CStruct* params = Scripts::NewStruct()->Init();
+    params->PutNameKey(Checksums::HashFromText("node_name"), restart);
+    Scripts::LaunchScript(Checksums::HashFromText("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->Clear();
-    Script::DeleteStruct(params);
+    Scripts::DeleteStruct(params);
     std::string label = Nodes::Label(restart);
     Log("level editor: play from the restart %s (ResetSkaters)", label.c_str());
     Layout::PanelMessage(("Playing from " + label + " (F5: return to editor)").c_str());
@@ -703,11 +703,11 @@ void RestartStep(Mdl::FrontEnd* frontEnd)
 struct SnapWalk {
     std::vector<Snapshot>* out;
 };
-void __cdecl SnapOne(Obj::CObject* object, void* data)
+void __cdecl SnapOne(GameObjects::CObject* object, void* data)
 {
     auto* walk = static_cast<SnapWalk*>(data);
-    auto* composite = static_cast<Obj::CCompositeObject*>(object);
-    if ((composite->m_objectFlags & Obj::OBJECT_FLAG_DEAD) || (composite->m_compositeFlags & Obj::COMPOSITE_FLAG_DESTROYING))
+    auto* composite = static_cast<GameObjects::CGameEntity*>(object);
+    if ((composite->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) || (composite->m_compositeFlags & GameObjects::COMPOSITE_FLAG_DESTROYING))
         return;
     if (composite->GetComponent(kSkaterPhysicsControl) || composite->GetComponent(kCameraComponent))
         return;
@@ -726,7 +726,7 @@ void PauseSkaters()
          node = *reinterpret_cast<uint8_t**>(node + 0xC))
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater = reinterpret_cast<void***>(reinterpret_cast<Mdl::Skate*>(skate)->GetSkater(static_cast<int>(i)));
+        auto* skater = reinterpret_cast<void***>(reinterpret_cast<GameModules::Skate*>(skate)->GetRiderAt(static_cast<int>(i)));
         if (skater)
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x2C / 4])(skater);
     }
@@ -754,10 +754,10 @@ void SimulateEvent(SDL_Event* event)
 
 void StartSimulation()
 {
-    Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance();
+    GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
     if (g_simulating || !frontEnd)
         return;
-    if (!frontEnd->m_paused) {
+    if (!frontEnd->m_isHalted) {
         Hud::Message("Simulate unavailable here");
         return;
     }
@@ -766,7 +766,7 @@ void StartSimulation()
         return;
     }
     g_snapshots.clear();
-    if (Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager()) {
+    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager()) {
         SnapWalk walk = {&g_snapshots};
         manager->ForEach(SnapOne, &walk);
     }
@@ -790,7 +790,7 @@ void StopSimulation(const char* why)
     if (!g_simulating)
         return;
     g_simulating = false;
-    if (Mdl::FrontEnd* frontEnd = Mdl::FrontEndInstance())
+    if (GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance())
         frontEnd->PauseGame(true);
     int restored = 0, gone = 0, kept = 0;
     if (!g_keepSimulation) {
@@ -807,7 +807,7 @@ void StopSimulation(const char* why)
                 ++gone;
                 continue;
             }
-            if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(s.state.id)))
+            if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(s.state.id)))
                 object->m_vel = s.vel;
             ++restored;
         }
@@ -827,9 +827,9 @@ void StopSimulation(const char* why)
 
 // --- the game side's entry points ---
 
-void Update(Mdl::FrontEnd* frontEnd)
+void Update(GameModules::FrontEnd* frontEnd)
 {
-    if (!LevelEditor::Enabled() || Mlp::FramesRun() == 0)
+    if (!LevelEditor::Enabled() || FrameLoop::FramesRun() == 0)
         return;
     if (g_simulating) // (the editor closed some other way: the world put back first)
         StopSimulation("the editor closed");
@@ -1052,4 +1052,4 @@ std::string Status()
     return s;
 }
 
-} // namespace Front::LevelEditor::PlayTest
+} // namespace MenuSystem::LevelEditor::PlayTest

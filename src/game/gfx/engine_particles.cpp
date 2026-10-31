@@ -8,7 +8,7 @@
 #include "game/script/cscript.h"
 #include "game/core/game_vtables.h"
 
-namespace Nx {
+namespace Engine3D {
 
 namespace {
 
@@ -44,7 +44,7 @@ CPcParticleSystem* CPcParticleSystem::EngineDestroy(unsigned int flags)
 {
     vtable = reinterpret_cast<void**>(kEngineVtable);
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -67,7 +67,7 @@ void CPcParticleSystem::EngineRelease()
 {
     uint32_t& scripts = *reinterpret_cast<uint32_t*>(Bytes(this) + 0x4C);
     if (scripts) {
-        Script::KillSpawnedScriptsWithId(scripts);
+        Scripts::StopScriptsByTag(scripts);
         scripts = 0;
     }
     Virtual(this, 2);
@@ -86,13 +86,13 @@ void CPcParticleSystem::Hide(bool hide)
 void CPcParticleSystem::SetRate(float value) { rate = value; }
 
 // 0x00494EA0
-void CPcParticleSystem::SetLifetime(float value) { lifetime = value; }
+void CPcParticleSystem::SetLifespan(float value) { lifetime = value; }
 
 // 0x00494EB0
 void CPcParticleSystem::SetSize(int which, float size) { sizes[which] = ThroughX87(size); }
 
 // 0x00494EC0
-void CPcParticleSystem::SetColour(int which, const uint32_t* colour)
+void CPcParticleSystem::ChangeColour(int which, const uint32_t* colour)
 {
     *reinterpret_cast<uint32_t*>(colours[which]) = *colour;
     Virtual(this, 6);

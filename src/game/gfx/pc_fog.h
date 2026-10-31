@@ -5,7 +5,7 @@
 // The fog on PC (Nx engine; what SetFogColor / SetFogDistance / EnableFog reach through 0x00490DE0-0x00490E20):
 // the device's fog states and their cache (on 0x00787338, start / end 0x00787340 / 44, colour 0x0078733C). The
 // device isn't told while the loading screen is up.
-namespace Nx {
+namespace Engine3D {
 
 // 0x004B8E40: fog on or off.
 void __cdecl SetFogEnabled(bool on);

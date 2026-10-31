@@ -42,7 +42,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Checks {
+namespace MenuSystem::LevelEditor::Checks {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -232,12 +232,12 @@ std::vector<std::string> CarriedLines(const std::vector<std::string>& unresolved
 
 bool Cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 {
-    // (a CFeeler: constructor 0x00417760; 0x00417710 casts it - thiscall, true on a hit; the hit's normal at +0x24, its
+    // (a CProbeRay: constructor 0x00417760; 0x00417710 casts it - thiscall, true on a hit; the hit's normal at +0x24, its
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* n = reinterpret_cast<const float*>(feeler + 0x24);
@@ -307,7 +307,7 @@ std::vector<std::function<void()>> g_queue;
 
 double Seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }
 
-uint32_t Crc(const std::string& text) { return Crc::GenerateCRCFromString(text.c_str()); }
+uint32_t Checksums(const std::string& text) { return Checksums::HashFromText(text.c_str()); }
 
 std::string Name(uint32_t checksum) { return Nodes::Label(checksum); }
 
@@ -529,7 +529,7 @@ void CheckCollision(std::vector<Issue>* out)
         }
         bool moved = s.placement.quarters != 0 || !IsUnitScale(s.placement.scale) || s.placement.offset.x != 0.0f ||
                      s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
-        bool own = *reinterpret_cast<uint8_t**>(sector + 0x18) != nullptr; // (its collision object - CSector +0x18)
+        bool own = *reinterpret_cast<uint8_t**>(sector + 0x18) != nullptr; // (its collision object - CWorldCell +0x18)
         if (moved && !own && !companion && Scenery::SectorGeometry(s.checksum)) {
             issue.rule = Rule::CollisionLeft;
             issue.severity = Severity::Info;
@@ -565,7 +565,7 @@ void CheckLimits(std::vector<Issue>* out)
 
 void CheckTriggers(std::vector<Issue>* out, uint32_t world)
 {
-    static const uint32_t kTriggerScript = Crc("TriggerScript"), kProximNode = Crc("ProximNode");
+    static const uint32_t kTriggerScript = Checksums("TriggerScript"), kProximNode = Checksums("ProximNode");
     // The editor's trigger volumes.
     const std::vector<Triggers::Added>& added = Triggers::AddedTriggers();
     std::vector<Triggers::Spec> specs;
@@ -632,7 +632,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
             issue.severity = Severity::Info;
             issue.text = "Trigger " + Name(t.sector) + " has no TriggerScript";
             Add(out, issue);
-        } else if (!Script::ScriptExists(t.script)) {
+        } else if (!Scripts::ScriptExists(t.script)) {
             issue.node = t.sector;
             issue.rule = Rule::TriggerScript;
             issue.severity = Severity::Error;
@@ -650,9 +650,9 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
         issue.hasPos = n.hasPos;
         issue.pos = n.pos;
         uint32_t script = 0;
-        Script::CStruct* s = Nodes::StructOf(n);
+        Scripts::CStruct* s = Nodes::StructOf(n);
         if (s)
-            s->GetChecksum(kTriggerScript, &script, 0);
+            s->ReadHashValue(kTriggerScript, &script, 0);
         const Triggers::ProximEdit* edit = Triggers::ProximOf(n.name);
         bool edited = edit && (!edit->enter.empty() || !edit->exit.empty());
         if (!script && !edited) {
@@ -661,7 +661,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
             issue.levelOwn = own;
             issue.text = "Proximity node " + Name(n.name) + " has no TriggerScript";
             Add(out, issue);
-        } else if (script && !Script::ScriptExists(script)) {
+        } else if (script && !Scripts::ScriptExists(script)) {
             issue.rule = Rule::TriggerScript;
             issue.severity = Severity::Error;
             issue.levelOwn = own;
@@ -670,7 +670,7 @@ void CheckTriggers(std::vector<Issue>* out, uint32_t world)
         }
         if (edit) {
             for (const std::string* name : {&edit->enter, &edit->exit}) {
-                if (name->empty() || Script::ScriptExists(Crc(*name)))
+                if (name->empty() || Scripts::ScriptExists(Checksums(*name)))
                     continue;
                 issue.rule = Rule::TriggerScript;
                 issue.severity = Severity::Error;
@@ -714,13 +714,13 @@ MpCounts CountMultiplayer(bool shipped)
     if (!made) {
         for (int t = 0; t < 4; ++t) {
             std::string colour = kTeamNames[t];
-            kNames[t][0] = Crc("TRG_CTF_" + colour);
-            kNames[t][1] = Crc("TRG_CTF_" + colour + "_Base");
-            kNames[t][2] = Crc("TRG_CTF_Restart_" + colour);
+            kNames[t][0] = Checksums("TRG_CTF_" + colour);
+            kNames[t][1] = Checksums("TRG_CTF_" + colour + "_Base");
+            kNames[t][2] = Checksums("TRG_CTF_Restart_" + colour);
         }
         made = true;
     }
-    static const uint32_t kCrown = Crc("Crown");
+    static const uint32_t kCrown = Checksums("Crown");
     MpCounts counts;
     for (const Nodes::Node& n : Nodes::All()) {
         // (now: what the game sees - hidden ones not; as shipped: the level's own, hidden ones too)
@@ -857,7 +857,7 @@ void Fix(const Issue& issue)
 namespace {
 
 // One record's line: a file of that record alone, written (its header and scene lines left out).
-std::string LineOf(const Layout::File& one)
+std::string LineOf(const Layout::FileLoad& one)
 {
     std::istringstream in(Layout::Write(one));
     std::string line, out;
@@ -872,13 +872,13 @@ std::string LineOf(const Layout::File& one)
 
 } // namespace
 
-void NoteLayoutApplied(const Layout::File& file)
+void NoteLayoutApplied(const Layout::FileLoad& file)
 {
     g_layoutIssues.clear();
     auto node = [](uint32_t name) { return name && Nodes::Find(name) >= 0; };
     auto sector = [](uint32_t checksum) { return checksum && Scenery::SectorOf(checksum) != nullptr; };
-    auto object = [&](uint32_t id) { return Obj::FindObject(id) != nullptr || node(id); };
-    auto report = [&](uint32_t subject, const std::string& what, Layout::File one) {
+    auto object = [&](uint32_t id) { return GameObjects::FindObject(id) != nullptr || node(id); };
+    auto report = [&](uint32_t subject, const std::string& what, Layout::FileLoad one) {
         one.scene = file.scene;
         Issue issue;
         issue.rule = Rule::LayoutRecord;
@@ -892,49 +892,49 @@ void NoteLayoutApplied(const Layout::File& file)
     };
     for (const Scenery::SectorState& s : file.sectors) {
         if (!sector(s.checksum)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.sectors.push_back(s);
             report(s.checksum, "Scenery piece " + Name(s.checksum), one);
         }
     }
     for (const Scenery::RailState& r : file.rails) {
         if (!node(r.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.rails.push_back(r);
             report(r.name, "Rail point " + Name(r.name), one);
         }
     }
     for (const Layout::CloneRecord& c : file.clones) {
         if (!sector(c.source)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.clones.push_back(c);
             report(c.source, "The source of a scenery copy, " + Name(c.source), one);
         }
     }
     for (const Layout::ObjectRecord& o : file.objects) {
         if (!object(o.id)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.objects.push_back(o);
             report(o.id, "Object " + Name(o.id), one);
         }
     }
     for (const Layout::CopyRecord& c : file.copies) {
-        if (!Obj::FindObject(c.name) && !object(c.source)) {
-            Layout::File one;
+        if (!GameObjects::FindObject(c.name) && !object(c.source)) {
+            Layout::FileLoad one;
             one.copies.push_back(c);
             report(c.name, "The source of object copy " + Name(c.name) + ", " + Name(c.source), one);
         }
     }
     for (const Layout::SetRecord& s : file.nodes) {
         if (!node(s.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.nodes.push_back(s);
             report(s.name, "Node " + Name(s.name) + " (moved / edited)", one);
         }
     }
     for (uint32_t name : file.hidden) {
         if (!node(name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.hidden.push_back(name);
             report(name, "Node " + Name(name) + " (hidden)", one);
         }
@@ -942,7 +942,7 @@ void NoteLayoutApplied(const Layout::File& file)
     for (const Picking::Lock& lock : file.locks) {
         bool there = lock.kind == Picking::kObjects ? object(lock.id) : sector(lock.id);
         if (!there) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.locks.push_back(lock);
             report(lock.id, "Locked " + std::string(lock.kind == Picking::kObjects ? "object " : "piece ") +
                                 Name(lock.id), one);
@@ -950,28 +950,28 @@ void NoteLayoutApplied(const Layout::File& file)
     }
     for (const Triggers::ProximEdit& p : file.proxims) {
         if (!node(p.node)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.proxims.push_back(p);
             report(p.node, "Proximity node " + Name(p.node), one);
         }
     }
     for (const Walls::WallState& w : file.walls) {
         if (!sector(w.checksum)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.walls.push_back(w);
             report(w.checksum, "Collision " + Name(w.checksum), one);
         }
     }
     for (const Faces::SectorFaces& f : file.faces) {
         if (!sector(f.checksum)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.faces.push_back(f);
             report(f.checksum, "Collision faces of " + Name(f.checksum), one);
         }
     }
     for (const Clusters::Membership& m : file.clusters) {
         if (!sector(m.sector)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.clusters.push_back(m);
             report(m.sector, "Trick-object cluster of " + Name(m.sector), one);
         }
@@ -980,62 +980,62 @@ void NoteLayoutApplied(const Layout::File& file)
     const Chains::State& chains = file.chains;
     for (const Chains::LinkEdit& l : chains.links) {
         if (!node(l.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.chains.links.push_back(l);
             report(l.name, "Links of " + Name(l.name), one);
         }
     }
     for (uint32_t name : chains.dropped) {
         if (!node(name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.chains.dropped.push_back(name);
             report(name, "Dropped point " + Name(name), one);
         }
     }
     for (const Chains::TerrainEdit& t : chains.terrains) {
         if (!node(t.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.chains.terrains.push_back(t);
             report(t.name, "Terrain of " + Name(t.name), one);
         }
     }
     for (const Chains::FacingEdit& f : chains.facings) {
         if (!node(f.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.chains.facings.push_back(f);
             report(f.name, "Facing of " + Name(f.name), one);
         }
     }
     for (uint32_t name : chains.grindFlat) {
         if (!node(name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.chains.grindFlat.push_back(name);
             report(name, "Flat grind of " + Name(name), one);
         }
     }
     for (const Chains::SpeedEdit& s : chains.speeds) {
         if (!node(s.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.chains.speeds.push_back(s);
             report(s.name, "Rail speed-up of " + Name(s.name), one);
         }
     }
     for (const Entities::Speed& s : file.entities.speeds) {
         if (!node(s.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.entities.speeds.push_back(s);
             report(s.name, "Path speed of " + Name(s.name), one);
         }
     }
     for (const Entities::EmitterSound& e : file.entities.emitters) {
         if (!node(e.name)) {
-            Layout::File one;
+            Layout::FileLoad one;
             one.entities.emitters.push_back(e);
             report(e.name, "Sound emitter " + Name(e.name), one);
         }
     }
     if (file.level.start && !node(file.level.start)) {
-        Layout::File one;
+        Layout::FileLoad one;
         one.level = file.level;
         report(file.level.start, "The level's start, restart " + Name(file.level.start), one);
     }
@@ -1301,4 +1301,4 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
     g_open = open;
 }
 
-} // namespace Front::LevelEditor::Checks
+} // namespace MenuSystem::LevelEditor::Checks

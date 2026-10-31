@@ -17,7 +17,7 @@
 #include "game/park/park_memory.h"
 #include "game/script/struct.h"
 
-namespace Ed {
+namespace ParkEditing {
 
 namespace {
 
@@ -28,53 +28,53 @@ constexpr uint32_t kMetaHasGap = 0x1000;       // a meta piece's flag
 
 uint32_t& MetaFlags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0xC); }
 uint32_t MetaType(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0x38); }
-GridDims& MetaArea(void* meta) { return *reinterpret_cast<GridDims*>(static_cast<uint8_t*>(meta) + 0x4); }
+SCellBox& MetaArea(void* meta) { return *reinterpret_cast<SCellBox*>(static_cast<uint8_t*>(meta) + 0x4); }
 
 // The memory profiler's markers (compiled out of this build: the empty function 0x005480A0).
 inline void MemoryMarker(const char* /*what*/) {}
 
 void* NodeMeta(CMapListNode* node)
 {
-    void* meta = node->GetMeta();
-    return static_cast<CMetaPiece*>(meta)->Cast();
+    void* meta = node->GetPieceGroup();
+    return static_cast<CPieceGroup*>(meta)->Cast();
 }
-CMetaPiece* AsMeta(void* meta) { return static_cast<CMetaPiece*>(meta); }
+CPieceGroup* AsMeta(void* meta) { return static_cast<CPieceGroup*>(meta); }
 CClipboard* AsClipboard(uint8_t* clipboard) { return reinterpret_cast<CClipboard*>(clipboard); }
-CParkGenerator* AsGenerator(void* generator) { return static_cast<CParkGenerator*>(generator); }
+CParkAssembler* AsGenerator(void* generator) { return static_cast<CParkAssembler*>(generator); }
 uint8_t* NextClipboard(uint8_t* clipboard) { return *reinterpret_cast<uint8_t**>(clipboard + 0x14); }
 // A clipboard's area where the cursor would paste it.
-void ClipboardArea(uint8_t* clipboard, CCursor* cursor, GridDims* area) { AsClipboard(clipboard)->GetArea(cursor, area); }
+void ClipboardArea(uint8_t* clipboard, CBuildPointer* cursor, SCellBox* area) { AsClipboard(clipboard)->GetArea(cursor, area); }
 // The gap with a half at `area` (and which half), or null.
-GapDescriptor* GapAt(CParkManager* manager, GridDims* area, int* half) { return manager->GetGapInfo(area, half); }
-void RemoveGap(CParkManager* manager, GapDescriptor* gap) { manager->RemoveGap(gap); }
-bool AddGap(CParkManager* manager, GapDescriptor* gap) { return manager->AddGap(gap); }
+GapRecord* GapAt(CParkLayout* manager, SCellBox* area, int* half) { return manager->GetGapInfo(area, half); }
+void DropGapEntry(CParkLayout* manager, GapRecord* gap) { manager->DropGapEntry(gap); }
+bool RegisterGapEntry(CParkLayout* manager, GapRecord* gap) { return manager->RegisterGapEntry(gap); }
 // The metas within an area (the flags: 0, 0, 1) - the caller owns the list.
-CMapListNode* MetasWithin(CParkManager* manager, GridDims area)
+CMapListNode* MetasWithin(CParkLayout* manager, SCellBox area)
 {
     return manager->GetIntersectingMetas(area, 0, nullptr, 1);
 }
 // The area selected.
-void SelectedArea(CCursor* cursor, GridDims* area) { cursor->GetAreaSelectDims(area); }
-int FloorHeight(CParkManager* manager, GridDims area, char* level)
+void SelectedArea(CBuildPointer* cursor, SCellBox* area) { cursor->GetMarqueeBounds(area); }
+int FloorHeight(CParkLayout* manager, SCellBox area, char* level)
 {
-    return manager->GetFloorHeight(area, reinterpret_cast<bool*>(level));
+    return manager->GetGroundLevel(area, reinterpret_cast<bool*>(level));
 }
-CParkEditor* ParkEditor() { return CParkEditor::Create(false); }
-bool ParkFull(CParkEditor* editor) { return editor->IsParkFull() != 0; }
-void ReleaseParkEditor() { CParkEditor::Release(); }
+CParkBuilderMode* ParkEditor() { return CParkBuilderMode::Create(false); }
+bool ParkFull(CParkBuilderMode* editor) { return editor->IsParkFull() != 0; }
+void ReleaseParkEditor() { CParkBuilderMode::Release(); }
 // (0x005BA1D0: `xor eax, eax; ret` - compiled out of this build, folded with Stubs::ReturnZero)
-void SetDefaultHeap(Mem::Heap* /*heap*/) { Stubs::ReturnZero(); }
+void SetDefaultHeap(MemSys::Heap* /*heap*/) { Stubs::ReturnZero(); }
 
 } // namespace
 
 // 0x0059D120
-void CCursor::RemoveClipboardsTooBig()
+void CBuildPointer::RemoveClipboardsTooBig()
 {
     uint8_t* previous = nullptr;
     uint8_t* clipboard = Clipboards();
     while (clipboard) {
         uint8_t* next = NextClipboard(clipboard);
-        GridDims area = {};
+        SCellBox area = {};
         ClipboardArea(clipboard, this, &area);
         uint8_t parkWidth = Manager()->ParkDims().w;
         uint8_t parkLength = Manager()->ParkDims().l;
@@ -92,13 +92,13 @@ void CCursor::RemoveClipboardsTooBig()
         clipboard = next;
     }
     CurrentClipboard() = Clipboards();
-    ChangePieceInSet(0);
+    StepPieceChoice(0);
 }
 
 // 0x0059D240
-bool CCursor::PlacePiece()
+bool CBuildPointer::PlacePiece()
 {
-    CParkManager* manager = Manager();
+    CParkLayout* manager = Manager();
     if (!manager->CanChangeFloorHere(Area(), false))
         return false;
     if (Area().h + FloorHeight(manager, Area(), nullptr) > 17)
@@ -108,17 +108,17 @@ bool CCursor::PlacePiece()
     for (int slot = 1; slot < 9; ++slot) {
         if (type == manager->At<uint32_t>(0x177A4 + (slot - 1) * 4)) {
             if (!AsGenerator(manager->Generator())->HasFreeRestartSlot(slot)) {
-                Dbg::Printf("No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
+                DebugOut::Printf("No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
                 return false;
             }
             break;
         }
     }
     SetDefaultHeap(GetMainHeap());
-    CMetaPiece* source = manager->GetAbstractMetaPiece(MetaType(Meta()), nullptr);
-    CMetaPiece* piece = manager->CreateConcreteMeta(source, 0);
-    piece->SetRot(Rotation());
-    manager->AddMetaPieceToPark(Area(), piece);
+    CPieceGroup* source = manager->GetAbstractMetaPiece(MetaType(Meta()), nullptr);
+    CPieceGroup* piece = manager->MakePlacedPiece(source, 0);
+    piece->SetQuarterTurns(Rotation());
+    manager->PlaceMetaPieceInPark(Area(), piece);
     SetDefaultHeap(GetMainHeap());
     manager->RebuildArea(&Area(), false);
     MemoryMarker("After placing a piece"); // "After placing a piece"
@@ -126,9 +126,9 @@ bool CCursor::PlacePiece()
 }
 
 // 0x0059D380
-bool CCursor::DestroyUnderCursor()
+bool CBuildPointer::DestroyUnderCursor()
 {
-    GridDims area = {};
+    SCellBox area = {};
     if (Mode() == 5) {
         if (!CurrentClipboard())
             return false;
@@ -140,31 +140,31 @@ bool CCursor::DestroyUnderCursor()
 }
 
 // 0x0059D410
-bool CCursor::AddGapHalf()
+bool CBuildPointer::AddGapHalf()
 {
-    CParkEditor* editor = ParkEditor();
+    CParkBuilderMode* editor = ParkEditor();
     if (ParkFull(editor)) {
         ReleaseParkEditor();
         return false;
     }
-    CMapListTemp metas = {MetasWithin(Manager(), Area())};
+    CCellChainScratch metas = {MetasWithin(Manager(), Area())};
     bool added = false;
     if (metas.list) {
         void* meta = NodeMeta(metas.list);
-        Area().PrintContents();
+        Area().DumpToLog();
         int half;
         if (!GapAt(Manager(), &Area(), &half) && meta) {
-            GapDescriptor& gap = Gap();
+            GapRecord& gap = Gap();
             if (gap.m_numCompleteHalves == 1)
-                RemoveGap(Manager(), &gap);
+                DropGapEntry(Manager(), &gap);
             else
                 gap.m_numCompleteHalves = 0;
             int n = gap.m_numCompleteHalves;
             gap.m_pos[n] = MetaArea(meta);
-            gap.m_rot[n] = 0;
+            gap.m_quarterTurns[n] = 0;
             gap.m_leftExtent[n] = 0;
             gap.m_rightExtent[n] = 0;
-            gap.m_score = 100;
+            gap.m_pointsHeld = 100;
             gap.m_numCompleteHalves = n + 1;
             gap.m_tabIndex = -1;
             if (n == 0) {
@@ -176,8 +176,8 @@ bool CCursor::AddGapHalf()
                     std::memcpy(gap.m_text, "gap", 4);
                 ++GapCounter();
             }
-            if (AddGap(Manager(), &gap)) {
-                Manager()->RebuildFloor(&Area(), 0);
+            if (RegisterGapEntry(Manager(), &gap)) {
+                Manager()->RegenerateGround(&Area(), 0);
                 if (gap.m_numCompleteHalves > 0)
                     Manager()->HighlightGapPieces(true, &gap);
                 added = true;
@@ -192,24 +192,24 @@ bool CCursor::AddGapHalf()
 }
 
 // 0x0059D600
-bool CCursor::RemoveGapHalf()
+bool CBuildPointer::RemoveGapHalf()
 {
-    CParkManager* manager = Manager();
+    CParkLayout* manager = Manager();
     if (Gap().m_numCompleteHalves == 1) {
-        RemoveGap(manager, &Gap());
+        DropGapEntry(manager, &Gap());
         Gap().m_numCompleteHalves = 0;
         Manager()->RebuildArea(&Area(), false);
         return true;
     }
     int half;
-    GapDescriptor* gap = GapAt(manager, &Area(), &half);
+    GapRecord* gap = GapAt(manager, &Area(), &half);
     if (!gap)
         return false;
-    RemoveGap(Manager(), gap);
+    DropGapEntry(Manager(), gap);
     Manager()->RebuildArea(&Area(), false);
     // The pieces that had gaps are told to look again.
     manager = Manager();
-    for (auto* node = manager->At<CMapListNode*>(0x7C); node; node = node->mp_next) {
+    for (auto* node = manager->At<CMapListNode*>(0x7C); node; node = node->m_following) {
         if (MetaFlags(NodeMeta(node)) & kMetaHasGap)
             AsMeta(NodeMeta(node))->Highlight(1, 1);
     }
@@ -218,20 +218,20 @@ bool CCursor::RemoveGapHalf()
 }
 
 // 0x0059D6B0
-bool CCursor::ChangeGap(int turn, int left, int right)
+bool CBuildPointer::ChangeGap(int turn, int left, int right)
 {
     int half;
-    GapDescriptor* gap = GapAt(Manager(), &Area(), &half);
+    GapRecord* gap = GapAt(Manager(), &Area(), &half);
     if (!gap)
         return false;
     // A gap being made: only its own first half.
     if (Gap().m_numCompleteHalves == 1 &&
         (gap->m_pos[0].x != Gap().m_pos[0].x || gap->m_pos[0].y != Gap().m_pos[0].y || gap->m_pos[0].z != Gap().m_pos[0].z))
         return false;
-    GapDescriptor copy = *gap;
+    GapRecord copy = *gap;
     bool changed = false;
     if (turn) {
-        copy.m_rot[half] -= turn;
+        copy.m_quarterTurns[half] -= turn;
         copy.m_leftExtent[half] = 0;
         copy.m_rightExtent[half] = 0;
         changed = true;
@@ -253,18 +253,18 @@ bool CCursor::ChangeGap(int turn, int left, int right)
     } else if (!changed) {
         return true;
     }
-    RemoveGap(Manager(), gap);
-    copy.m_rot[half] &= 3;
-    GridDims park = Manager()->ParkDims();
-    const GridDims& at = copy.m_pos[half];
+    DropGapEntry(Manager(), gap);
+    copy.m_quarterTurns[half] &= 3;
+    SCellBox park = Manager()->ParkDims();
+    const SCellBox& at = copy.m_pos[half];
     int* m_leftExtent = &copy.m_leftExtent[half];
     int* m_rightExtent = &copy.m_rightExtent[half];
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
-    switch (copy.m_rot[half]) {
+    switch (copy.m_quarterTurns[half]) {
     case 0:
     case 2: {
-        int* behind = copy.m_rot[half] == 0 ? m_rightExtent : m_leftExtent;
-        int* ahead = copy.m_rot[half] == 0 ? m_leftExtent : m_rightExtent;
+        int* behind = copy.m_quarterTurns[half] == 0 ? m_rightExtent : m_leftExtent;
+        int* ahead = copy.m_quarterTurns[half] == 0 ? m_leftExtent : m_rightExtent;
         if (at.z - *behind < park.z)
             --*behind;
         if (at.z + at.l + *ahead > park.z + park.l)
@@ -273,8 +273,8 @@ bool CCursor::ChangeGap(int turn, int left, int right)
     }
     case 1:
     case 3: {
-        int* behind = copy.m_rot[half] == 1 ? m_rightExtent : m_leftExtent;
-        int* ahead = copy.m_rot[half] == 1 ? m_leftExtent : m_rightExtent;
+        int* behind = copy.m_quarterTurns[half] == 1 ? m_rightExtent : m_leftExtent;
+        int* ahead = copy.m_quarterTurns[half] == 1 ? m_leftExtent : m_rightExtent;
         if (at.x - *behind < park.x)
             --*behind;
         if (at.x + at.w + *ahead > park.x + park.w)
@@ -282,7 +282,7 @@ bool CCursor::ChangeGap(int turn, int left, int right)
         break;
     }
     }
-    AddGap(Manager(), &copy);
+    RegisterGapEntry(Manager(), &copy);
     Manager()->RebuildArea(&park, false);
     if (Gap().m_numCompleteHalves == 1)
         Gap() = copy;
@@ -290,11 +290,11 @@ bool CCursor::ChangeGap(int turn, int left, int right)
 }
 
 // 0x0059D8E0
-bool CCursor::DestroySelection()
+bool CBuildPointer::DestroySelection()
 {
     if (!Selecting())
         return false;
-    GridDims area = {};
+    SCellBox area = {};
     SelectedArea(this, &area);
     bool destroyed = Manager()->DestroyMetasInAreaAndRebuild(area, true, true, false);
     MemoryMarker("After Area deletion"); // "After Area deletion"
@@ -304,11 +304,11 @@ bool CCursor::DestroySelection()
 }
 
 // 0x0059D980
-void CCursor::FlattenSelection()
+void CBuildPointer::FlattenSelection()
 {
     if (!Selecting())
         return;
-    GridDims area = {};
+    SCellBox area = {};
     SelectedArea(this, &area);
     Manager()->ClearArea(area);
     Selecting() = true;
@@ -316,11 +316,11 @@ void CCursor::FlattenSelection()
 }
 
 // 0x0059D9F0
-bool CCursor::RaiseArea(GridDims area, int height, int dir, char level)
+bool CBuildPointer::RaiseArea(SCellBox area, int height, int dir, char level)
 {
     if (area.w > 10 || area.l > 10)
         return false;
-    if (!Manager()->ChangeFloorHeight(area, area.y, height, dir > 0, level == 0))
+    if (!Manager()->RaiseOrLowerFloor(area, area.y, height, dir > 0, level == 0))
         return false;
     Move(0, 0);
     if (Manager()->RebuildArea(&area, true)) {
@@ -333,9 +333,9 @@ bool CCursor::RaiseArea(GridDims area, int height, int dir, char level)
 }
 
 // 0x0059DAA0
-bool CCursor::RaiseLower(int dir)
+bool CBuildPointer::RaiseLower(int dir)
 {
-    GridDims area = Area();
+    SCellBox area = Area();
     if (Mode() == 4) {
         if (Selecting())
             SelectedArea(this, &area);
@@ -344,7 +344,7 @@ bool CCursor::RaiseLower(int dir)
             return false;
         ClipboardArea(CurrentClipboard(), this, &area);
     }
-    GridDims park = CParkManager::Instance()->ParkDims();
+    SCellBox park = CParkLayout::Instance()->ParkDims();
     if (area.w > park.w || area.l > park.l)
         return false;
     // (the original has the level flag written over the copy's first byte)
@@ -354,11 +354,11 @@ bool CCursor::RaiseLower(int dir)
         return false;
     int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
-    GridDims above = {area.x, area.y, area.z, area.w, 16, area.l};
-    CMapListNode* list = MetasWithin(CParkManager::Instance(), above);
-    for (CMapListNode* node = list; node; node = node->mp_next) {
-        void* meta = node->GetMeta();
-        GridDims at = MetaArea(meta);
+    SCellBox above = {area.x, area.y, area.z, area.w, 16, area.l};
+    CMapListNode* list = MetasWithin(CParkLayout::Instance(), above);
+    for (CMapListNode* node = list; node; node = node->m_following) {
+        void* meta = node->GetPieceGroup();
+        SCellBox at = MetaArea(meta);
         if (at.h > area.h)
             top = at.h + height + dir;
         if (at.x < area.x)
@@ -370,11 +370,11 @@ bool CCursor::RaiseLower(int dir)
         if (at.l > area.l)
             area.l = at.l;
     }
-    CMapListNode::DestroyList(list);
+    CMapListNode::FreeNodeChain(list);
     if (top > 17)
         return false;
     if (Mode() == 5 && CurrentClipboard())
-        AsClipboard(CurrentClipboard())->DestroyMetas();
+        AsClipboard(CurrentClipboard())->FreeAllPieceGroups();
     bool raised = RaiseArea(area, height, dir, level);
     if (Mode() == 4)
         At<bool>(0x55) = false;
@@ -382,7 +382,7 @@ bool CCursor::RaiseLower(int dir)
 }
 
 // 0x0059DCD0
-void CParkManager::Initialize(uint32_t level)
+void CParkLayout::Initialize(uint32_t level)
 {
     if (At<bool>(0x4))
         return;
@@ -396,54 +396,54 @@ void CParkManager::Initialize(uint32_t level)
         }
     }
     // The park's gap manager (0xA8 bytes), in the top-down heap for that level.
-    Mem::Manager* memory = Mem::Manager::Get();
+    MemSys::Manager* memory = MemSys::Manager::Get();
     if (level == kTopDownLevel)
-        memory->PushContext(memory->m_topDownHeap);
-    void* block = Mem::New(0xA8);
-    mp_gapManager = block ? static_cast<CGapManager*>(block)->Construct(this) : nullptr;
+        memory->EnterHeapScope(memory->m_topDownHeap);
+    void* block = MemSys::New(0xA8);
+    mp_gapManager = block ? static_cast<CGapRegistry*>(block)->Construct(this) : nullptr;
     if (level == kTopDownLevel)
-        Mem::Manager::Get()->PopContext();
+        MemSys::Manager::Get()->LeaveHeapScope();
     int theme = (Flags() & 2) ? At<uint16_t>(0x13C98) : 0;
-    mp_generator->LoadPieces(level, theme);
+    m_builder->LoadPieces(level, theme);
     SetUpAbstractMetas();
     SetUpRoadMask();
     SetDefaultBounds();
     RebuildPark(0);
     if (level == kParkEditorLevel)
-        mp_generator->BuildGoalNodeArray();
+        m_builder->BuildGoalNodeArray();
 
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.
-    Script::CArray* sets = Script::GetArray("Ed_piece_sets"); // "Ed_piece_sets"
+    Scripts::CArray* sets = Scripts::GetArray("Ed_piece_sets"); // "Ed_piece_sets"
     NumSets() = static_cast<int>(sets->m_size);
-    Script::CArray* standard = Script::GetArray("Ed_standard_metapieces"); // "Ed_standard_metapieces"
+    Scripts::CArray* standard = Scripts::GetArray("Ed_standard_metapieces"); // "Ed_standard_metapieces"
     int end = static_cast<int>(standard->m_size);
     for (int i = NumSets() - 1; i >= 0; --i) {
         PieceSet& set = Sets(this)[i];
-        auto* description = reinterpret_cast<Script::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
+        auto* description = reinterpret_cast<Scripts::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
         set.m_name = nullptr;
         description->GetString("name", &set.m_name, 1); // "name"
-        set.m_nameChecksum = Crc::GenerateCRCFromString(set.m_name);
+        set.m_nameChecksum = Checksums::HashFromText(set.m_name);
         set.m_selected = 0;
-        set.m_numEntries = 0;
+        set.m_entryTotal = 0;
         uint32_t first = 0;
-        if (description->GetChecksum("first", &first, 0)) { // "first"
+        if (description->ReadHashValue("first", &first, 0)) { // "first"
             // `first`'s place in the standard pieces (the manager's list runs from the last to the first).
             int index = 0;
             int position = At<int>(0x88) - 1;
-            for (auto* node = At<CMapListNode*>(0x80); node; node = node->mp_next, --position) {
+            for (auto* node = At<CMapListNode*>(0x80); node; node = node->m_following, --position) {
                 if (MetaType(NodeMeta(node)) == first) {
                     index = position;
                     break;
                 }
             }
-            set.m_numEntries = end - index;
+            set.m_entryTotal = end - index;
             end = index;
-            for (int entry = 0; entry < set.m_numEntries; ++entry) {
+            for (int entry = 0; entry < set.m_entryTotal; ++entry) {
                 int piece = index + entry;
                 void* meta = nullptr;
                 int at = At<int>(0x88) - 1;
-                for (auto* node = At<CMapListNode*>(0x80); node; node = node->mp_next, --at) {
+                for (auto* node = At<CMapListNode*>(0x80); node; node = node->m_following, --at) {
                     void* candidate = NodeMeta(node);
                     if (at == piece) {
                         meta = candidate;
@@ -452,25 +452,25 @@ void CParkManager::Initialize(uint32_t level)
                 }
                 set.m_entries[entry].checksum = MetaType(meta); // (no check for a missing piece, as in the original)
                 auto* pieceDescription =
-                    reinterpret_cast<Script::CStruct*>(standard->GetElement(static_cast<uint32_t>(piece)));
+                    reinterpret_cast<Scripts::CStruct*>(standard->GetElement(static_cast<uint32_t>(piece)));
                 if (!pieceDescription->GetString("text_name", // "text_name"
                                                  &set.m_entries[entry].name, 0))
                     set.m_entries[entry].name = nullptr;
             }
         }
         set.m_isClipboard = false;
-        if (description->ContainsFlag(kClipboardSet)) {
+        if (description->HasBareFlag(kClipboardSet)) {
             set.m_isClipboard = true;
-            set.m_numEntries = 6;
-            const char* text = Script::GetString(0x4E677220u);
+            set.m_entryTotal = 6;
+            const char* text = Scripts::GetString(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
                 char name[100];
                 std::snprintf(name, sizeof(name), "Clipboard%d", k); // "Clipboard%d"
                 set.m_entries[k].name = text;
-                set.m_entries[k].checksum = Crc::GenerateCRCFromString(name);
+                set.m_entries[k].checksum = Checksums::HashFromText(name);
             }
         }
-        set.m_visible = !description->ContainsFlag("hidden"); // "hidden"
+        set.m_isDisplayed = !description->HasBareFlag("hidden"); // "hidden"
     }
 }
 

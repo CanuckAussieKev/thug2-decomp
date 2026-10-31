@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-namespace Lst {
+namespace ListKit {
 
 // A hash table keyed by 32-bit checksums, storing non-null pointers. It has 2^bits buckets; each bucket is
 // an item stored inline, with further items chained from it (chained items come from item pool 0, see
-// Mem::PoolManager). An empty slot has a null value. The key's low bits pick the bucket.
+// MemSys::SlotPoolSetup). An empty slot has a null value. The key's low bits pick the bucket.
 //
 // The game uses it as a template over the value type; the code is the same for every type, so it is
 // written once here over void*.
@@ -21,7 +21,7 @@ public:
 
     explicit HashTable(int bits);
     // A table as the exe's static storage starts: all zero (no buckets). The exe's static initialiser then makes it
-    // with HashTable(bits); done in Sys::RunStartupInitialisers (game/sys/startup_init.h).
+    // with HashTable(bits); done in SystemCore::RunStartupInitialisers (game/sys/startup_init.h).
     struct Unconstructed {};
     constexpr HashTable(Unconstructed) : m_bits(0), m_buckets(nullptr), m_size(0), m_iterBucket(0), m_iterItem(nullptr), m_flag(false) {}
     // Frees the buckets (after removing every item).
@@ -33,17 +33,17 @@ public:
     void* GetItem(const uint32_t& key, bool unused) const;
 
     // Add an item. Keys aren't checked for duplicates. Always returns true.
-    bool PutItem(const uint32_t& key, void* value);
+    bool StoreEntry(const uint32_t& key, void* value);
     // Remove the first item with this key (does nothing if there is none).
-    void FlushItem(const uint32_t& key);
+    void EraseEntry(const uint32_t& key);
     // Remove every item.
-    void FlushAllItems();
+    void EmptyTable();
     // Call `callback(value, data)` for every item.
     void HandleCallback(Callback callback, void* data);
 
-    // Iteration: set m_iterBucket = -1 and m_iterItem = null, then each IterateNext() that returns true
+    // Iteration: set m_iterBucket = -1 and m_iterItem = null, then each StepIterator() that returns true
     // leaves the next item in m_iterItem.
-    bool IterateNext();
+    bool StepIterator();
 
     int m_bits;
     Item* m_buckets;

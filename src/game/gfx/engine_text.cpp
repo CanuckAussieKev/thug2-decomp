@@ -11,34 +11,34 @@
 #include "game/core/code_address.h"
 #include "game/core/stubs.h"
 
-namespace Nx {
+namespace Engine3D {
 
-CText* g_freeTexts;
+CGlyphString* g_freeTexts;
 namespace {
 
 extern void** const kTextVtable;
 
-CText*& FreeList() { return g_freeTexts; }
+CGlyphString*& FreeList() { return g_freeTexts; }
 
 // The platform's updates (virtual [2]-[5]).
-void Update(CText* text, int slot) { reinterpret_cast<void(__thiscall*)(CText*)>(text->m_vtable[slot])(text); }
+void Update(CGlyphString* text, int slot) { reinterpret_cast<void(__thiscall*)(CGlyphString*)>(text->m_vtable[slot])(text); }
 
 // Memory from the front end's heap.
 void* FrontEndNew(unsigned int size)
 {
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_frontEndHeap);
-    void* memory = Mem::New(size);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_frontEndHeap);
+    void* memory = MemSys::New(size);
+    MemSys::Manager::Get()->LeaveHeapScope();
     return memory;
 }
 
 // The effects: an array new of 96 (the count before them; each constructed by the compiler's array helper).
 sCharEffect* NewEffects()
 {
-    Mem::Manager* manager = Mem::Manager::Get();
-    manager->PushContext(manager->m_frontEndHeap);
-    auto* memory = static_cast<int*>(Mem::New(4 + kCharEffects * sizeof(sCharEffect)));
+    MemSys::Manager* manager = MemSys::Manager::Get();
+    manager->EnterHeapScope(manager->m_frontEndHeap);
+    auto* memory = static_cast<int*>(MemSys::New(4 + kCharEffects * sizeof(sCharEffect)));
     sCharEffect* effects = nullptr;
     if (memory) {
         *memory = kCharEffects;
@@ -46,11 +46,11 @@ sCharEffect* NewEffects()
         for (int i = 0; i < kCharEffects; ++i)
             effects[i].Construct();
     }
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     return effects;
 }
 // (their destructor is empty: the compiler's array helper runs 0x005480A0 over them)
-void DeleteEffects(sCharEffect* effects) { Mem::Free(reinterpret_cast<int*>(effects) - 1); }
+void DeleteEffects(sCharEffect* effects) { MemSys::Free(reinterpret_cast<int*>(effects) - 1); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
 int16_t Fixed(float value) { return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * 16384.0)); }
@@ -69,36 +69,36 @@ sCharEffect* sCharEffect::Construct()
 }
 
 // 0x0048D220
-CText* CText::Construct(void* window)
+CGlyphString* CGlyphString::Construct(void* window)
 {
-    m_xscale = 1.0f;
-    m_yscale = 1.0f;
+    m_scaleH = 1.0f;
+    m_scaleV = 1.0f;
     m_vtable = reinterpret_cast<void**>(kTextVtable);
-    mp_font = nullptr;
+    m_typeface = nullptr;
     mp_effects = nullptr;
-    m_x = 0.0f;
+    m_posX = 0.0f;
     m_y = 0.0f;
     m_pivotX = 0.0f;
     m_pivotY = 0.0f;
     m_angle = 0.0f;
     m_priority = 0.0f;
-    m_colour = 0x80808080;
+    m_shade = 0x80808080;
     m_fixedColour = false;
     m_overrideAlpha = false;
-    m_hidden = true;
+    m_invisible = true;
     m_zEnabled = false;
-    mp_window = window;
+    m_viewWindow = window;
     mp_nextFree = nullptr;
-    mp_string = nullptr;
+    m_textBuffer = nullptr;
     return this;
 }
 
 // 0x0048D620
-void CText::DestroyBody()
+void CGlyphString::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kTextVtable);
-    if (mp_string)
-        Mem::Free(mp_string); // (not cleared, as the original)
+    if (m_textBuffer)
+        MemSys::Free(m_textBuffer); // (not cleared, as the original)
     if (mp_effects) {
         DeleteEffects(mp_effects);
         mp_effects = nullptr;
@@ -106,20 +106,20 @@ void CText::DestroyBody()
 }
 
 // 0x0048D670
-CText* CText::Destroy(unsigned int flags)
+CGlyphString* CGlyphString::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
 // 0x0048D5A0
-void CText::FreeBuffers()
+void CGlyphString::FreeBuffers()
 {
-    if (mp_string) {
-        Mem::Free(mp_string);
-        mp_string = nullptr;
+    if (m_textBuffer) {
+        MemSys::Free(m_textBuffer);
+        m_textBuffer = nullptr;
     }
     if (mp_effects) {
         DeleteEffects(mp_effects);
@@ -128,37 +128,37 @@ void CText::FreeBuffers()
 }
 
 // 0x0048D0C0
-void CText::SetHidden(bool hidden)
+void CGlyphString::SetHidden(bool hidden)
 {
-    m_hidden = hidden;
+    m_invisible = hidden;
     Update(this, 2);
 }
 
 // 0x0048D0D0
-void CText::SetFont(CFont* font)
+void CGlyphString::SetFont(CFont* font)
 {
-    mp_font = font;
+    m_typeface = font;
     Update(this, 3);
 }
 
 // 0x0048D0E0
-void CText::SetPos(float x, float y)
+void CGlyphString::SetPos(float x, float y)
 {
-    m_x = x;
+    m_posX = x;
     m_y = y;
     Update(this, 3);
 }
 
 // 0x0048D100
-void CText::SetScale(float x, float y)
+void CGlyphString::ChangeScale(float x, float y)
 {
-    m_xscale = x;
-    m_yscale = y;
+    m_scaleH = x;
+    m_scaleV = y;
     Update(this, 3);
 }
 
 // 0x0048D120
-void CText::SetRotation(float angle, float pivotX, float pivotY)
+void CGlyphString::SetRotation(float angle, float pivotX, float pivotY)
 {
     m_angle = angle;
     m_pivotX = pivotX;
@@ -167,7 +167,7 @@ void CText::SetRotation(float angle, float pivotX, float pivotY)
 }
 
 // 0x0048D140
-void CText::SetPriority(float priority)
+void CGlyphString::SetPriority(float priority)
 {
     m_priority = priority;
     m_zEnabled = false;
@@ -175,48 +175,48 @@ void CText::SetPriority(float priority)
 }
 
 // 0x0048D160
-void CText::SetDepth(float depth)
+void CGlyphString::SetDepth(float depth)
 {
-    m_depth = depth;
+    m_layer = depth;
     m_zEnabled = true;
     Update(this, 4);
 }
 
 // 0x0048D180
-void CText::SetColour(uint32_t rgba, bool fixed)
+void CGlyphString::ChangeColour(uint32_t rgba, bool fixed)
 {
-    m_colour = rgba;
+    m_shade = rgba;
     m_fixedColour = fixed;
     Update(this, 3);
 }
 
 // 0x0048D1A0
-void CText::SetOverrideAlpha(bool on)
+void CGlyphString::SetOverrideAlpha(bool on)
 {
     m_overrideAlpha = on;
     Update(this, 3);
 }
 
 // 0x0048D1B0
-void CText::SetWindow(void* window)
+void CGlyphString::SetWindow(void* window)
 {
-    mp_window = window;
+    m_viewWindow = window;
     Update(this, 5);
 }
 
 // 0x0048D530
-void CText::SetString(const char* string)
+void CGlyphString::SetString(const char* string)
 {
-    if (!mp_string)
-        mp_string = static_cast<char*>(FrontEndNew(kTextLength));
-    char* out = mp_string;
+    if (!m_textBuffer)
+        m_textBuffer = static_cast<char*>(FrontEndNew(kTextLength));
+    char* out = m_textBuffer;
     while ((*out++ = *string++) != '\0') {
     }
     Update(this, 3);
 }
 
 // 0x0048D280
-void CText::SetCharOffset(int index, int16_t x, int16_t y)
+void CGlyphString::SetCharOffset(int index, int16_t x, int16_t y)
 {
     if (!mp_effects)
         mp_effects = NewEffects();
@@ -226,7 +226,7 @@ void CText::SetCharOffset(int index, int16_t x, int16_t y)
 }
 
 // 0x0048D360
-void CText::SetCharScale(int index, float x, float y)
+void CGlyphString::SetCharScale(int index, float x, float y)
 {
     if (!mp_effects)
         mp_effects = NewEffects();
@@ -236,7 +236,7 @@ void CText::SetCharScale(int index, float x, float y)
 }
 
 // 0x0048D450
-void CText::SetCharRotation(int index, float rotation)
+void CGlyphString::SetCharRotation(int index, float rotation)
 {
     if (!mp_effects)
         mp_effects = NewEffects();
@@ -245,18 +245,18 @@ void CText::SetCharRotation(int index, float rotation)
 }
 
 // 0x0048D1D0
-CText* __cdecl NewText()
+CGlyphString* __cdecl NewText()
 {
-    CText* text = FreeList();
+    CGlyphString* text = FreeList();
     if (text)
         FreeList() = text->mp_nextFree;
     return text;
 }
 
 // 0x0048D5F0
-void __cdecl FreeText(CText* text)
+void __cdecl FreeText(CGlyphString* text)
 {
-    text->m_hidden = true;
+    text->m_invisible = true;
     Update(text, 2);
     text->FreeBuffers();
     text->mp_nextFree = FreeList();
@@ -264,7 +264,7 @@ void __cdecl FreeText(CText* text)
 }
 
 namespace {
-static VtableSlot kTextVtable_slots[] = {&Nx::CText::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
+static VtableSlot kTextVtable_slots[] = {&Engine3D::CGlyphString::Destroy, Stubs::DoNothing, Stubs::DoNothing, Stubs::DoNothing,
                 Stubs::DoNothing, Stubs::DoNothing};
 void** const kTextVtable = reinterpret_cast<void**>(kTextVtable_slots);
 } // namespace

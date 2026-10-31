@@ -4,7 +4,7 @@
 
 // Low-level file access. Every call first offers itself to the .pre archive manager (when one exists);
 // if the file isn't in a loaded archive the call goes to disk, under the game's data\ folder.
-namespace File {
+namespace FileLoad {
 
 using Handle = void*; // a Windows file handle, or a handle into a loaded archive
 

@@ -47,7 +47,7 @@
 #include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 
-namespace Front::LevelEditor::Triggers {
+namespace MenuSystem::LevelEditor::Triggers {
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
 
@@ -69,19 +69,19 @@ bool SameText(const std::string& a, const std::string& b)
     return true;
 }
 
-uint32_t Crc(const char* text) { return Crc::GenerateCRCFromString(text); }
+uint32_t Checksums(const char* text) { return Checksums::HashFromText(text); }
 
 // The names the scripts use.
-uint32_t kStartGap() { static const uint32_t c = Crc("StartGap"); return c; }
-uint32_t kEndGap() { static const uint32_t c = Crc("EndGap"); return c; }
-uint32_t kGapId() { static const uint32_t c = Crc("GapID"); return c; }
-uint32_t kFlags() { static const uint32_t c = Crc("flags"); return c; }
-uint32_t kScore() { static const uint32_t c = Crc("score"); return c; }
-uint32_t kText() { static const uint32_t c = Crc("text"); return c; }
-uint32_t kNodeName() { static const uint32_t c = Crc("nodename"); return c; }
-uint32_t kKillSkater() { static const uint32_t c = Crc("SK3_KillSkater"); return c; }
-uint32_t kKillSkaterWater() { static const uint32_t c = Crc("SK3_KillSkater_Water"); return c; }
-uint32_t kTeleport() { static const uint32_t c = Crc("TeleportSkaterToNode"); return c; }
+uint32_t kStartGap() { static const uint32_t c = Checksums("StartGap"); return c; }
+uint32_t kEndGap() { static const uint32_t c = Checksums("EndGap"); return c; }
+uint32_t kGapId() { static const uint32_t c = Checksums("GapID"); return c; }
+uint32_t kFlags() { static const uint32_t c = Checksums("flags"); return c; }
+uint32_t kScore() { static const uint32_t c = Checksums("score"); return c; }
+uint32_t kText() { static const uint32_t c = Checksums("text"); return c; }
+uint32_t kNodeName() { static const uint32_t c = Checksums("nodename"); return c; }
+uint32_t kKillSkater() { static const uint32_t c = Checksums("SK3_KillSkater"); return c; }
+uint32_t kKillSkaterWater() { static const uint32_t c = Checksums("SK3_KillSkater_Water"); return c; }
+uint32_t kTeleport() { static const uint32_t c = Checksums("TeleportSkaterToNode"); return c; }
 
 void Put4(std::vector<uint8_t>* out, uint32_t value)
 {
@@ -156,8 +156,8 @@ const char* KindName(Kind kind)
 {
     switch (kind) {
     case Kind::Kill: return "Kill zone";
-    case Kind::Teleport: return "Teleport";
-    case Kind::Script: return "Runs a script";
+    case Kind::JumpTo: return "Teleport";
+    case Kind::Scripts: return "Runs a script";
     case Kind::GapStart: return "Gap start";
     case Kind::GapEnd: return "Gap end";
     case Kind::Other: return "Trigger (no script)";
@@ -172,8 +172,8 @@ const char* KindWord(Kind kind)
 {
     switch (kind) {
     case Kind::Kill: return "kill";
-    case Kind::Teleport: return "teleport";
-    case Kind::Script: return "script";
+    case Kind::JumpTo: return "teleport";
+    case Kind::Scripts: return "script";
     case Kind::GapStart: return "gapstart";
     case Kind::GapEnd: return "gapend";
     case Kind::Other: return "other";
@@ -199,8 +199,8 @@ uint32_t KindColour(Kind kind)
 {
     switch (kind) {
     case Kind::Kill: return 0xFFFF4848;
-    case Kind::Teleport: return 0xFFB27CFF;
-    case Kind::Script: return 0xFF3FD4E6;
+    case Kind::JumpTo: return 0xFFB27CFF;
+    case Kind::Scripts: return 0xFF3FD4E6;
     case Kind::GapStart: return 0xFF62E26A;
     case Kind::GapEnd: return 0xFFF2D24A;
     case Kind::Other: return 0xFF8C9AAA;
@@ -216,7 +216,7 @@ Kind KindOfCalls(const Calls& calls, bool hasScript)
     if (calls.kill)
         return Kind::Kill;
     if (calls.teleport)
-        return Kind::Teleport;
+        return Kind::JumpTo;
     if (calls.endGap)
         return Kind::GapEnd;
     if (calls.startGap)
@@ -227,7 +227,7 @@ Kind KindOfCalls(const Calls& calls, bool hasScript)
         return Kind::Break;
     if (calls.camera)
         return Kind::Camera;
-    return hasScript ? Kind::Script : Kind::Other;
+    return hasScript ? Kind::Scripts : Kind::Other;
 }
 
 const std::vector<const char*>& BreakSounds()
@@ -259,12 +259,12 @@ uint32_t ChecksumOf(const std::string& name)
     uint32_t value = 0;
     if (IsHexForm(name, &value))
         return value;
-    return name.empty() ? 0u : Crc(name.c_str());
+    return name.empty() ? 0u : Checksums(name.c_str());
 }
 
 std::string NameFor(uint32_t checksum, const char* known)
 {
-    if (known && *known && ValidName(known) && Crc(known) == checksum)
+    if (known && *known && ValidName(known) && Checksums(known) == checksum)
         return known;
     char text[16];
     std::snprintf(text, sizeof(text), "0x%08X", checksum);
@@ -285,9 +285,9 @@ const char* Problem(const Spec& spec)
     switch (spec.kind) {
     case Kind::Kill:
         return spec.target.empty() ? "Choose the restart the skater goes back to" : nullptr;
-    case Kind::Teleport:
+    case Kind::JumpTo:
         return spec.target.empty() ? "Choose where it sends the skater" : nullptr;
-    case Kind::Script:
+    case Kind::Scripts:
         return spec.script.empty() ? "Choose the script it runs" : nullptr;
     case Kind::GapStart:
         return spec.gap.empty() ? "It has no gap" : nullptr;
@@ -396,12 +396,12 @@ std::vector<uint8_t> Body(const Spec& spec)
         PutNameValue(&out, kNodeName(), ChecksumOf(spec.target));
         out.push_back(0x01);
         break;
-    case Kind::Teleport:
+    case Kind::JumpTo:
         PutName(&out, kTeleport());
         PutNameValue(&out, kNodeName(), ChecksumOf(spec.target));
         out.push_back(0x01);
         break;
-    case Kind::Script:
+    case Kind::Scripts:
         PutName(&out, ChecksumOf(spec.script));
         out.push_back(0x01);
         break;
@@ -442,8 +442,8 @@ std::vector<uint8_t> Body(const Spec& spec)
         break;
     case Kind::Boost:
         // trigger_jump_boost speed=<n> (skutils.qb: the skater's upward velocity set to n)
-        PutName(&out, Crc("trigger_jump_boost"));
-        PutName(&out, Crc("speed"));
+        PutName(&out, Checksums("trigger_jump_boost"));
+        PutName(&out, Checksums("speed"));
         out.push_back(0x07);
         out.push_back(0x17);
         Put4(&out, static_cast<uint32_t>(std::max(kBoostMin, std::min(kBoostMax, spec.strength))));
@@ -455,26 +455,26 @@ std::vector<uint8_t> Body(const Spec& spec)
         // own textures shatter)
         uint32_t piece = ChecksumOf(spec.target);
         if (!spec.sound.empty()) {
-            PutName(&out, Crc("PlaySound"));
+            PutName(&out, Checksums("PlaySound"));
             PutName(&out, ChecksumOf(spec.sound));
             out.push_back(0x01);
         }
         auto integer = [&](const char* key, int32_t value) {
-            PutName(&out, Crc(key));
+            PutName(&out, Checksums(key));
             out.push_back(0x07);
             out.push_back(0x17);
             Put4(&out, static_cast<uint32_t>(value));
         };
         auto real = [&](const char* key, float value) {
-            PutName(&out, Crc(key));
+            PutName(&out, Checksums(key));
             out.push_back(0x07);
             out.push_back(0x1A);
             uint32_t bits;
             std::memcpy(&bits, &value, 4);
             Put4(&out, bits);
         };
-        PutName(&out, Crc("Shatter"));
-        PutNameValue(&out, Crc("name"), piece);
+        PutName(&out, Checksums("Shatter"));
+        PutNameValue(&out, Checksums("name"), piece);
         integer("area", 5000);
         real("variance", 1.0f);
         real("spread", 1.5f);
@@ -485,16 +485,16 @@ std::vector<uint8_t> Body(const Spec& spec)
         integer("vel_y", 60);
         integer("vel_z", 0);
         out.push_back(0x01);
-        PutName(&out, Crc("Kill"));
-        PutNameValue(&out, Crc("name"), piece);
+        PutName(&out, Checksums("Kill"));
+        PutNameValue(&out, Checksums("name"), piece);
         out.push_back(0x01);
         break;
     }
     case Kind::Camera: {
         // LevelEditor_PlayCamera camera=<node> time=<seconds> (level_editor_cameras.h: the game's virtual_cam)
-        PutName(&out, Crc("LevelEditor_PlayCamera"));
-        PutNameValue(&out, Crc("camera"), ChecksumOf(spec.target));
-        PutName(&out, Crc("time"));
+        PutName(&out, Checksums("LevelEditor_PlayCamera"));
+        PutNameValue(&out, Checksums("camera"), ChecksumOf(spec.target));
+        PutName(&out, Checksums("time"));
         out.push_back(0x07);
         out.push_back(0x1A);
         float seconds = ClampSeconds(spec.seconds);
@@ -516,7 +516,7 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
         uint32_t value;
         if (name.empty() || IsHexForm(name, &value))
             return;
-        uint32_t checksum = Crc(name.c_str());
+        uint32_t checksum = Checksums(name.c_str());
         for (const auto& n : names) {
             if (n.first == checksum)
                 return;
@@ -526,7 +526,7 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
     for (const Spec& spec : specs) {
         out.push_back(0x23);
         std::string script = ScriptName(spec);
-        PutName(&out, Crc(script.c_str()));
+        PutName(&out, Checksums(script.c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = Body(spec);
         out.insert(out.end(), body.begin(), body.end());
@@ -534,9 +534,9 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
         out.push_back(0x01);
         note(script);
         if (!body.empty()) {
-            if (spec.kind == Kind::Kill || spec.kind == Kind::Teleport)
+            if (spec.kind == Kind::Kill || spec.kind == Kind::JumpTo)
                 note(spec.target);
-            if (spec.kind == Kind::Script)
+            if (spec.kind == Kind::Scripts)
                 note(spec.script);
             if (spec.kind == Kind::GapStart || spec.kind == Kind::GapEnd)
                 note(spec.gap);
@@ -840,7 +840,7 @@ std::vector<uint8_t> ProximBody(uint32_t enter, uint32_t exit, uint32_t own)
     size_t ifOffset = out.size();
     out.push_back(0);
     out.push_back(0);
-    PutName(&out, Crc("Inside"));
+    PutName(&out, Checksums("Inside"));
     out.push_back(0x01);
     branch(enter);
     out.push_back(0x48);
@@ -865,7 +865,7 @@ std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts)
     std::vector<uint8_t> out;
     for (const ProximScript& s : scripts) {
         out.push_back(0x23);
-        PutName(&out, Crc(ProximScriptName(s.node).c_str()));
+        PutName(&out, Checksums(ProximScriptName(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = ProximBody(s.enter, s.exit, s.own);
         out.insert(out.end(), body.begin(), body.end());
@@ -875,7 +875,7 @@ std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts)
     for (const ProximScript& s : scripts) {
         std::string name = ProximScriptName(s.node);
         out.push_back(0x2B);
-        Put4(&out, Crc(name.c_str()));
+        Put4(&out, Checksums(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);
     }
@@ -910,7 +910,7 @@ uint32_t g_inspected;
 // The collision boxes.
 struct Box {
     uint32_t name;
-    Nx::CCollMovBBox* coll;
+    Engine3D::CHitMovingBox* coll;
     V3 pos, size;
     float yaw;
 };
@@ -918,7 +918,7 @@ std::vector<Box> g_boxes;
 // The scripts last defined, the gaps the editor put in the checklist (their names and scores) and the checklist.
 std::vector<uint8_t> g_defined;
 std::vector<std::pair<std::string, int>> g_gapsAdded;
-Game::CGapChecklist* g_checklist;
+GoalSystem::CGapTally* g_checklist;
 std::vector<std::string> g_levelGapNames;
 bool g_levelGapsRead;
 // Undo, selection, the UI's actions.
@@ -930,21 +930,21 @@ bool g_shown, g_settingRead;
 V3 g_camera = {}, g_forward = {0.0f, 0.0f, 1.0f};
 float g_yaw;
 
-uint32_t NameChecksum(const std::string& name) { return NodeCreate::Checksum(name); }
+uint32_t HashOfName(const std::string& name) { return NodeCreate::Checksum(name); }
 
 std::string LabelOf(uint32_t checksum) { return Nodes::Label(checksum); }
 
 // The overlay's trigger nodes now.
-bool NodeAlive(const std::string& name) { return NodeCreate::IsAdded(NameChecksum(name)); }
+bool NodeAlive(const std::string& name) { return NodeCreate::IsAdded(HashOfName(name)); }
 
 bool NodePlace(const std::string& name, V3* pos, float* yaw)
 {
-    Script::CStruct* node = SkateScript::NodeManagerInstance() ? SkateScript::GetNode(NameChecksum(name), false) : nullptr;
+    Scripts::CStruct* node = LevelNodes::NodeManagerInstance() ? LevelNodes::GetNode(HashOfName(name), false) : nullptr;
     if (!node)
         return false;
-    Mth::Vector p = {0.0f, 0.0f, 0.0f, 1.0f}, a = {0.0f, 0.0f, 0.0f, 0.0f};
-    SkateScript::GetPosition(node, &p);
-    SkateScript::GetAngles(node, &a);
+    Maths::Vector p = {0.0f, 0.0f, 0.0f, 1.0f}, a = {0.0f, 0.0f, 0.0f, 0.0f};
+    LevelNodes::GetPosition(node, &p);
+    LevelNodes::ReadTurnAngles(node, &a);
     *pos = {p.x, p.y, p.z};
     *yaw = a.y;
     return true;
@@ -953,72 +953,72 @@ bool NodePlace(const std::string& name, V3* pos, float* yaw)
 // --- what a script calls ---
 
 Calls* g_calls;
-void __cdecl OnKill(Script::CStruct* params, const uint8_t*)
+void __cdecl OnKill(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->kill = true;
     uint32_t target = 0;
-    if (params && params->GetChecksum(kNodeName(), &target, 0) && target)
+    if (params && params->ReadHashValue(kNodeName(), &target, 0) && target)
         g_calls->target = target;
 }
-void __cdecl OnWater(Script::CStruct* params, const uint8_t* call)
+void __cdecl OnWater(Scripts::CStruct* params, const uint8_t* call)
 {
     OnKill(params, call);
     g_calls->water = true;
 }
-void __cdecl OnTeleport(Script::CStruct* params, const uint8_t*)
+void __cdecl OnTeleport(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->teleport = true;
     uint32_t target = 0;
-    if (params && params->GetChecksum(kNodeName(), &target, 0) && target)
+    if (params && params->ReadHashValue(kNodeName(), &target, 0) && target)
         g_calls->target = target;
 }
-void __cdecl OnStartGap(Script::CStruct* params, const uint8_t*)
+void __cdecl OnStartGap(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->startGap = true;
     uint32_t id = 0;
-    if (params && params->GetChecksum(kGapId(), &id, 0) && !g_calls->gapId)
+    if (params && params->ReadHashValue(kGapId(), &id, 0) && !g_calls->gapId)
         g_calls->gapId = id;
 }
-void __cdecl OnEndGap(Script::CStruct* params, const uint8_t*)
+void __cdecl OnEndGap(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->endGap = true;
     uint32_t id = 0;
-    if (params && params->GetChecksum(kGapId(), &id, 0))
+    if (params && params->ReadHashValue(kGapId(), &id, 0))
         g_calls->gapId = id;
     const char* text = nullptr;
     if (params && params->GetString(kText(), &text, 0) && text)
         g_calls->gapText = text;
     int score = 0;
-    if (params && params->GetInteger(kScore(), &score, 0))
+    if (params && params->FetchIntValue(kScore(), &score, 0))
         g_calls->gapScore = score;
 }
 
-void __cdecl OnBoost(Script::CStruct* params, const uint8_t*)
+void __cdecl OnBoost(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->boost = true;
     int speed = 0;
     float value = 0.0f;
-    if (params && params->GetInteger(Crc("speed"), &speed, 0))
+    if (params && params->FetchIntValue(Checksums("speed"), &speed, 0))
         g_calls->boostSpeed = static_cast<float>(speed);
-    else if (params && params->GetFloat(Crc("speed"), &value, 0))
+    else if (params && params->GetFloat(Checksums("speed"), &value, 0))
         g_calls->boostSpeed = value;
-    if (params && params->GetFloat(Crc("multi"), &value, 0))
+    if (params && params->GetFloat(Checksums("multi"), &value, 0))
         g_calls->boostMulti = value;
 }
-void __cdecl OnShatter(Script::CStruct*, const uint8_t*) { g_calls->shatter = true; }
-void __cdecl OnCamera(Script::CStruct* params, const uint8_t*)
+void __cdecl OnShatter(Scripts::CStruct*, const uint8_t*) { g_calls->shatter = true; }
+void __cdecl OnCamera(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->camera = true;
     uint32_t node = 0;
-    if (params && params->GetChecksum(Crc("camera"), &node, 0))
+    if (params && params->ReadHashValue(Checksums("camera"), &node, 0))
         g_calls->cameraNode = node;
 }
-void __cdecl OnRailAccelerate(Script::CStruct* params, const uint8_t*)
+void __cdecl OnRailAccelerate(Scripts::CStruct* params, const uint8_t*)
 {
     g_calls->railSpeed = true;
     g_calls->railRate = 0.05f; // (THAW's default)
     float rate = 0.0f;
-    if (params && params->GetFloat(Crc("rate"), &rate, 0))
+    if (params && params->GetFloat(Checksums("rate"), &rate, 0))
         g_calls->railRate = rate;
 }
 
@@ -1038,8 +1038,8 @@ const Calls& CallsOf(uint32_t script)
 
 bool IsScript(uint32_t name)
 {
-    Script::CSymbolTableEntry* symbol = name ? Script::LookUpSymbol(name) : nullptr;
-    return symbol && symbol->type == Script::ESYMBOLTYPE_QSCRIPT;
+    Scripts::CSymbolTableEntry* symbol = name ? Scripts::ResolveSymbol(name) : nullptr;
+    return symbol && symbol->type == Scripts::QBVAL_SCRIPT_BODY;
 }
 
 Calls Walk(uint32_t script)
@@ -1048,23 +1048,23 @@ Calls Walk(uint32_t script)
     if (!IsScript(script))
         return calls;
     g_calls = &calls;
-    static const uint32_t kills[] = {kKillSkater(), Crc("SK3_KillSkater_Pungee"), Crc("SK3_Killskater_Finish"),
-                                     Crc("KillSkater")};
-    Script::ClearScriptFlag6F2564(); // (as ForEachNodeScriptCall walks them)
+    static const uint32_t kills[] = {kKillSkater(), Checksums("SK3_KillSkater_Pungee"), Checksums("SK3_Killskater_Finish"),
+                                     Checksums("KillSkater")};
+    Scripts::ClearScriptFlag6F2564(); // (as ForEachNodeScriptCall walks them)
     for (uint32_t target : kills)
-        SkateScript::ForEachScriptCall(script, target, &OnKill, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, kKillSkaterWater(), &OnWater, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, kTeleport(), &OnTeleport, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, kStartGap(), &OnStartGap, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, kEndGap(), &OnEndGap, nullptr, 0);
+        LevelNodes::ForEachScriptCall(script, target, &OnKill, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, kKillSkaterWater(), &OnWater, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, kTeleport(), &OnTeleport, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, kStartGap(), &OnStartGap, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, kEndGap(), &OnEndGap, nullptr, 0);
     // (the feature map: jump boosts, breakables, THAW's rail speed-ups - and the editor's own)
-    SkateScript::ForEachScriptCall(script, Crc("trigger_jump_boost"), &OnBoost, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, Crc("Shatter"), &OnShatter, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, Crc("ShatterAndDie"), &OnShatter, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, Crc("RailAccelerate"), &OnRailAccelerate, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, Crc("ed_RailSpeed"), &OnRailAccelerate, nullptr, 0);
-    SkateScript::ForEachScriptCall(script, Crc("LevelEditor_PlayCamera"), &OnCamera, nullptr, 0); // (map4)
-    Script::SetScriptFlag6F2564();
+    LevelNodes::ForEachScriptCall(script, Checksums("trigger_jump_boost"), &OnBoost, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, Checksums("Shatter"), &OnShatter, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, Checksums("ShatterAndDie"), &OnShatter, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, Checksums("RailAccelerate"), &OnRailAccelerate, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, Checksums("ed_RailSpeed"), &OnRailAccelerate, nullptr, 0);
+    LevelNodes::ForEachScriptCall(script, Checksums("LevelEditor_PlayCamera"), &OnCamera, nullptr, 0); // (map4)
+    Scripts::SetScriptFlag6F2564();
     g_calls = nullptr;
     return calls;
 }
@@ -1081,22 +1081,22 @@ bool TurnedOffByUs(uint32_t sector)
     return std::find(g_turnedOff.begin(), g_turnedOff.end(), sector) != g_turnedOff.end();
 }
 
-V3 ToV3(const Mth::Vector& v) { return {v.x, v.y, v.z}; }
+V3 ToV3(const Maths::Vector& v) { return {v.x, v.y, v.z}; }
 
 // A sector's trigger faces read into `t` (false: none) - its faces' box, the first ones' corners, whether every face is
 // a trigger's; where its collision is now (a wall moved: read again - RefreshMoved).
 bool ReadFaces(uint8_t* sector, LevelTrigger* t)
 {
     uint8_t* coll = CollOf(sector);
-    auto* tri = coll ? *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C) : nullptr;
+    auto* tri = coll ? *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C) : nullptr;
     if (!tri || !tri->m_faces || !tri->m_vertices || tri->m_numFaces == 0)
         return false;
     t->faces.clear();
     t->faceCount = 0;
     t->allTrigger = true;
     t->wall = *reinterpret_cast<uint8_t**>(sector + 0x14) == nullptr; // (no geometry: collision only)
-    t->boxMin = {tri->m_min.x, tri->m_min.y, tri->m_min.z};
-    t->boxMax = {tri->m_max.x, tri->m_max.y, tri->m_max.z};
+    t->boundsLow = {tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z};
+    t->boundsHigh = {tri->m_upperLimit.x, tri->m_upperLimit.y, tri->m_upperLimit.z};
     bool any = false;
     for (int f = 0; f < tri->m_numFaces; ++f) {
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
@@ -1110,7 +1110,7 @@ bool ReadFaces(uint8_t* sector, LevelTrigger* t)
             uint32_t index = tri->FaceVertex(f, k);
             ok = index < tri->m_numVertices;
             if (ok)
-                p[k] = ToV3(tri->GetRawVertexPos(static_cast<int>(index)));
+                p[k] = ToV3(tri->ReadStoredVertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
@@ -1131,9 +1131,9 @@ void ScanSector(void*, uint32_t checksum, uint8_t* sector)
     if (!ReadFaces(sector, &t))
         return;
     t.sector = checksum;
-    if (Script::CStruct* node = SkateScript::GetNode(checksum, false)) {
+    if (Scripts::CStruct* node = LevelNodes::GetNode(checksum, false)) {
         t.hasNode = true;
-        node->GetChecksum(kTriggerScript, &t.script, 0);
+        node->ReadHashValue(kTriggerScript, &t.script, 0);
     }
     g_level.push_back(std::move(t));
 }
@@ -1142,7 +1142,7 @@ void ScanLevel()
 {
     g_level.clear();
     g_scanned = true;
-    if (!SkateScript::NodeManagerInstance() || !Scenery::MainScene())
+    if (!LevelNodes::NodeManagerInstance() || !Scenery::MainScene())
         return;
     Scenery::ForEachLevelSector(&ScanSector, nullptr);
     for (LevelTrigger& t : g_level) {
@@ -1155,7 +1155,7 @@ void ScanLevel()
 // The level's own gaps' names (every EndGap its nodes' TriggerScripts reach - not the editor's): the gaps the editor
 // never takes out of the checklist.
 std::vector<std::string>* g_names;
-void __cdecl OnLevelGap(Script::CStruct* params, const uint8_t*)
+void __cdecl OnLevelGap(Scripts::CStruct* params, const uint8_t*)
 {
     const char* text = nullptr;
     if (params && params->GetString(kText(), &text, 0) && text)
@@ -1169,40 +1169,40 @@ void ReadLevelGaps()
     for (const Nodes::Node& node : Nodes::All()) {
         if (node.added || !node.triggerScript)
             continue;
-        Script::CStruct* s = Nodes::StructOf(node);
+        Scripts::CStruct* s = Nodes::StructOf(node);
         uint32_t script = 0;
-        if (s && s->GetChecksum(kTriggerScript, &script, 0) && script &&
+        if (s && s->ReadHashValue(kTriggerScript, &script, 0) && script &&
             std::find(scripts.begin(), scripts.end(), script) == scripts.end())
             scripts.push_back(script);
     }
     g_names = &g_levelGapNames;
-    Script::ClearScriptFlag6F2564();
+    Scripts::ClearScriptFlag6F2564();
     for (uint32_t script : scripts) {
         if (IsScript(script))
-            SkateScript::ForEachScriptCall(script, kEndGap(), &OnLevelGap, nullptr, 0);
+            LevelNodes::ForEachScriptCall(script, kEndGap(), &OnLevelGap, nullptr, 0);
     }
-    Script::SetScriptFlag6F2564();
+    Scripts::SetScriptFlag6F2564();
     g_names = nullptr;
 }
 
 // --- the boxes ---
 
-Nx::CCollMovBBox* MakeBox(uint32_t name)
+Engine3D::CHitMovingBox* MakeBox(uint32_t name)
 {
-    void* memory = ::operator new(sizeof(Nx::CCollMovBBox), std::nothrow);
+    void* memory = ::operator new(sizeof(Engine3D::CHitMovingBox), std::nothrow);
     if (!memory)
         return nullptr;
-    Nx::CCollMovBBox* box = static_cast<Nx::CCollMovBBox*>(memory)->Construct();
+    Engine3D::CHitMovingBox* box = static_cast<Engine3D::CHitMovingBox*>(memory)->Construct();
     box->m_checksum = name;
     box->m_faceFlags = kVolumeFlags;
-    box->m_terrain = 0;
-    Nx::RegisterMovable(box);
+    box->m_surfaceType = 0;
+    Engine3D::RegisterMovable(box);
     return box;
 }
 
-void FreeBox(Nx::CCollMovBBox* box)
+void FreeBox(Engine3D::CHitMovingBox* box)
 {
-    Nx::UnregisterMovable(box);
+    Engine3D::UnregisterMovable(box);
     box->Destruct(); // (out of the collision caches too)
     ::operator delete(box);
 }
@@ -1212,8 +1212,8 @@ void PlaceBox(Box* b, V3 pos, float yaw, V3 size)
     OrientedBox placed = BoxOf(pos, yaw, size);
     b->coll->m_box.min = {placed.min.x, placed.min.y, placed.min.z, 1.0f};
     b->coll->m_box.max = {placed.max.x, placed.max.y, placed.max.z, 1.0f};
-    b->coll->m_position = {pos.x, pos.y, pos.z, 1.0f};
-    Mth::Matrix m;
+    b->coll->m_anchorPoint = {pos.x, pos.y, pos.z, 1.0f};
+    Maths::Matrix m;
     for (int r = 0; r < 3; ++r)
         m.row[r] = {placed.axes[r].x, placed.axes[r].y, placed.axes[r].z, 0.0f};
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -1232,10 +1232,10 @@ void DropBoxes()
 
 // --- the gap checklist ---
 
-Game::CGapChecklist* Checklist()
+GoalSystem::CGapTally* Checklist()
 {
-    void* skate = reinterpret_cast<void*>(Mdl::g_skateModule);
-    return skate ? static_cast<Game::CGapChecklist*>(reinterpret_cast<Mdl::Skate*>(skate)->GetGapChecklist()) : nullptr;
+    void* skate = reinterpret_cast<void*>(GameModules::g_skateModule);
+    return skate ? static_cast<GoalSystem::CGapTally*>(reinterpret_cast<GameModules::Skate*>(skate)->FetchGapList()) : nullptr;
 }
 
 bool LevelGap(const std::string& name)
@@ -1244,7 +1244,7 @@ bool LevelGap(const std::string& name)
 }
 
 // The editor's gaps that are no longer wanted out of `checklist` (a level's own gap of that name stays).
-void TakeOutGaps(Game::CGapChecklist* checklist, const std::vector<std::pair<std::string, int>>& wanted)
+void TakeOutGaps(GoalSystem::CGapTally* checklist, const std::vector<std::pair<std::string, int>>& wanted)
 {
     if (!checklist)
         return;
@@ -1252,8 +1252,8 @@ void TakeOutGaps(Game::CGapChecklist* checklist, const std::vector<std::pair<std
         if (std::find(wanted.begin(), wanted.end(), gap) != wanted.end() || LevelGap(gap.first))
             continue;
         int index = checklist->FindGap(gap.first.c_str());
-        Game::CGapCheck* check = index >= 0 ? checklist->GetGap(index) : nullptr;
-        if (check && check->m_score == gap.second) {
+        GoalSystem::CGapEntry* check = index >= 0 ? checklist->GetGap(index) : nullptr;
+        if (check && check->m_pointsHeld == gap.second) {
             check->Destroy(1);
             Log("level editor: gap \"%s\" taken out of the gap list", gap.first.c_str());
         }
@@ -1266,10 +1266,10 @@ const char* GameProblem(const Spec& spec)
 {
     if (const char* problem = Problem(spec))
         return problem;
-    if ((spec.kind == Kind::Kill || spec.kind == Kind::Teleport) &&
-        !SkateScript::GetNode(ChecksumOf(spec.target), false))
+    if ((spec.kind == Kind::Kill || spec.kind == Kind::JumpTo) &&
+        !LevelNodes::GetNode(ChecksumOf(spec.target), false))
         return "That node isn't in this level";
-    if (spec.kind == Kind::Script && !IsScript(ChecksumOf(spec.script)))
+    if (spec.kind == Kind::Scripts && !IsScript(ChecksumOf(spec.script)))
         return "Script not found";
     return nullptr;
 }
@@ -1281,20 +1281,20 @@ void RefreshLevel()
     for (LevelTrigger& t : g_level) {
         uint8_t* sector = Scenery::SectorOf(t.sector);
         uint8_t* coll = sector ? CollOf(sector) : nullptr;
-        auto* tri = coll ? *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C) : nullptr;
+        auto* tri = coll ? *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C) : nullptr;
         if (!tri)
             continue;
         t.off = Walls::Off(t.sector) || (*reinterpret_cast<uint16_t*>(coll + 0x08) & 4) != 0;
-        if (tri->m_min.x != t.boxMin.x || tri->m_min.y != t.boxMin.y || tri->m_min.z != t.boxMin.z ||
-            tri->m_max.x != t.boxMax.x || tri->m_max.y != t.boxMax.y || tri->m_max.z != t.boxMax.z) {
+        if (tri->m_lowerLimit.x != t.boundsLow.x || tri->m_lowerLimit.y != t.boundsLow.y || tri->m_lowerLimit.z != t.boundsLow.z ||
+            tri->m_upperLimit.x != t.boundsHigh.x || tri->m_upperLimit.y != t.boundsHigh.y || tri->m_upperLimit.z != t.boundsHigh.z) {
             LevelTrigger now = t;
             if (ReadFaces(sector, &now)) {
                 t.faces = now.faces;
                 t.min = now.min;
                 t.max = now.max;
             }
-            t.boxMin = now.boxMin;
-            t.boxMax = now.boxMax;
+            t.boundsLow = now.boundsLow;
+            t.boundsHigh = now.boundsHigh;
         }
     }
 }
@@ -1310,12 +1310,12 @@ int SpecIndex(const std::string& name)
 
 // --- the feature map: breakables, proximity nodes ---
 
-// A scenery piece's sector, and whether it's there (CSector::IsActive 0x0049E9E0: its geometry's active flag - a Kill,
+// A scenery piece's sector, and whether it's there (CWorldCell::IsActive 0x0049E9E0: its geometry's active flag - a Kill,
 // the editor's hiding - else its collision's).
 bool SectorActive(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
-    return sector && reinterpret_cast<Nx::CSector*>(sector)->IsActive();
+    return sector && reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsActive();
 }
 
 // A breakable's box: the piece's box where it is now (axis-aligned), grown 6 each way so the skater meets it before
@@ -1344,7 +1344,7 @@ struct ProximOriginal {
 std::map<uint32_t, ProximOriginal> g_proximOriginals;
 std::vector<uint8_t> g_proximDefined;
 
-bool HaveProximManager() { return Obj::g_proximManager != nullptr; }
+bool HaveProximManager() { return GameObjects::g_proximManager != nullptr; }
 
 int ProximIndex(uint32_t node)
 {
@@ -1355,10 +1355,10 @@ int ProximIndex(uint32_t node)
     return -1;
 }
 
-void PutProximBack(Obj::ProximNode* p, const ProximOriginal& o)
+void PutProximBack(GameObjects::ProximNode* p, const ProximOriginal& o)
 {
-    p->m_script = o.script;
-    p->m_shape = o.shape;
+    p->m_runScript = o.script;
+    p->m_form = o.shape;
     p->m_radius = o.radius;
     p->m_radiusSquared = o.radius * o.radius;
     p->m_box.min = {o.min.x, o.min.y, o.min.z, 1.0f};
@@ -1373,14 +1373,14 @@ void SyncProxims()
         return;
     bool refused = Layout::Refused();
     std::vector<ProximScript> scripts;
-    std::vector<std::pair<const ProximEdit*, Obj::ProximNode*>> live;
+    std::vector<std::pair<const ProximEdit*, GameObjects::ProximNode*>> live;
     for (const ProximEdit& e : g_proxims) {
-        Obj::ProximNode* p = refused || !ProximEdited(e) ? nullptr : Obj::Proxim_GetNode(e.node);
+        GameObjects::ProximNode* p = refused || !ProximEdited(e) ? nullptr : GameObjects::Proxim_GetNode(e.node);
         if (!p)
             continue;
         auto o = g_proximOriginals.find(e.node);
         if (o == g_proximOriginals.end()) {
-            ProximOriginal original = {p->m_script, p->m_shape, p->m_radius,
+            ProximOriginal original = {p->m_runScript, p->m_form, p->m_radius,
                                        {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z},
                                        {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z}};
             o = g_proximOriginals.emplace(e.node, original).first;
@@ -1393,7 +1393,7 @@ void SyncProxims()
     for (auto it = g_proximOriginals.begin(); it != g_proximOriginals.end();) {
         bool kept = std::any_of(live.begin(), live.end(), [&](const auto& l) { return l.first->node == it->first; });
         if (!kept) {
-            if (Obj::ProximNode* p = Obj::Proxim_GetNode(it->first))
+            if (GameObjects::ProximNode* p = GameObjects::Proxim_GetNode(it->first))
                 PutProximBack(p, it->second);
             it = g_proximOriginals.erase(it);
         } else {
@@ -1402,18 +1402,18 @@ void SyncProxims()
     }
     std::vector<uint8_t> file = ProximQbFile(scripts);
     if (!scripts.empty() && file != g_proximDefined) {
-        Script::LoadQBData("editor\\thug2_decomp_proxim.qb", file.data(), 0, 0, 0);
+        Scripts::LoadQBData("editor\\thug2_decomp_proxim.qb", file.data(), 0, 0, 0);
         g_proximDefined = file;
     }
     for (const auto& l : live) {
         const ProximEdit& e = *l.first;
-        Obj::ProximNode* p = l.second;
+        GameObjects::ProximNode* p = l.second;
         const ProximOriginal& o = g_proximOriginals[e.node];
-        uint32_t script = !e.enter.empty() || !e.exit.empty() ? Crc(ProximScriptName(e.node).c_str()) : o.script;
-        if (p->m_script != script)
-            p->m_script = script;
+        uint32_t script = !e.enter.empty() || !e.exit.empty() ? Checksums(ProximScriptName(e.node).c_str()) : o.script;
+        if (p->m_runScript != script)
+            p->m_runScript = script;
         if (!e.shape) {
-            p->m_shape = o.shape;
+            p->m_form = o.shape;
             p->m_radius = o.radius;
             p->m_radiusSquared = o.radius * o.radius;
             p->m_box.min = {o.min.x, o.min.y, o.min.z, 1.0f};
@@ -1421,11 +1421,11 @@ void SyncProxims()
         } else if (e.box) {
             // (PROXIM_SHAPE_BOX: the world's axes; its middle kept at the node's place plus the offset)
             V3 centre = V3{p->m_pos.x, p->m_pos.y, p->m_pos.z} + e.offset, half = e.size * 0.5f;
-            p->m_shape = Obj::PROXIM_SHAPE_BOX;
+            p->m_form = GameObjects::PROXIM_SHAPE_BOX;
             p->m_box.min = {centre.x - half.x, centre.y - half.y, centre.z - half.z, 1.0f};
             p->m_box.max = {centre.x + half.x, centre.y + half.y, centre.z + half.z, 1.0f};
         } else {
-            p->m_shape = Obj::PROXIM_SHAPE_SPHERE;
+            p->m_form = GameObjects::PROXIM_SHAPE_SPHERE;
             p->m_radius = e.radius;
             p->m_radiusSquared = e.radius * e.radius;
         }
@@ -1441,7 +1441,7 @@ void Sync()
         a.spec = spec;
         a.alive = NodeAlive(spec.name) && NodePlace(spec.name, &a.pos, &a.yaw);
         a.problem = GameProblem(spec);
-        if (spec.kind == Kind::Script && !a.problem)
+        if (spec.kind == Kind::Scripts && !a.problem)
             a.calls = CallsOf(ChecksumOf(spec.script));
         if (spec.kind == Kind::Break && a.alive) {
             // (its box is its piece's, wherever the piece is now; none while the piece is gone)
@@ -1467,7 +1467,7 @@ void Sync()
     std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : QbFile(scripted);
     bool redefined = false;
     if (file != g_defined && !file.empty()) {
-        Script::LoadQBData(kFileName, file.data(), 0, 0, 0);
+        Scripts::LoadQBData(kFileName, file.data(), 0, 0, 0);
         g_defined = file;
         redefined = true;
     }
@@ -1477,7 +1477,7 @@ void Sync()
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_added.size(); ++k) {
-            if (g_added[k].alive && !g_added[k].broken && NameChecksum(g_added[k].spec.name) == g_boxes[i].name)
+            if (g_added[k].alive && !g_added[k].broken && HashOfName(g_added[k].spec.name) == g_boxes[i].name)
                 at = static_cast<int>(k);
         }
         if (at < 0 || network) {
@@ -1490,7 +1490,7 @@ void Sync()
     for (const Added& a : g_added) {
         if (!a.alive || a.broken || network)
             continue;
-        uint32_t name = NameChecksum(a.spec.name);
+        uint32_t name = HashOfName(a.spec.name);
         auto it = std::find_if(g_boxes.begin(), g_boxes.end(), [&](const Box& b) { return b.name == name; });
         if (it == g_boxes.end()) {
             Box b = {name, MakeBox(name), {}, {}, 0.0f};
@@ -1505,7 +1505,7 @@ void Sync()
         }
     }
     // The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
-    // collision switch's one owner: CSector::SetActive for a wall), on again once no copy stands in for them.
+    // collision switch's one owner: CWorldCell::SetActive for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
     for (const Added& a : g_added) {
         if (a.alive && a.spec.replaces && Scenery::SectorOf(a.spec.replaces))
@@ -1535,8 +1535,8 @@ void Sync()
     }
     std::sort(wanted.begin(), wanted.end());
     if (redefined || wanted != g_gapsAdded) {
-        Game::CGapChecklist* checklist = Checklist();
-        if (checklist && !Script::GetInteger(0xF7ECD937u)) {
+        GoalSystem::CGapTally* checklist = Checklist();
+        if (checklist && !Scripts::FetchIntValue(0xF7ECD937u)) {
             if (!g_levelGapsRead)
                 ReadLevelGaps();
             checklist->Build();
@@ -1552,7 +1552,7 @@ void Sync()
 
 } // namespace
 
-bool EditorGaps(const Game::CGapChecklist* checklist, std::vector<std::string>* names,
+bool EditorGaps(const GoalSystem::CGapTally* checklist, std::vector<std::string>* names,
                 std::vector<std::string>* levelNames)
 {
     names->clear();
@@ -1590,10 +1590,10 @@ void Forget()
     g_select = -1;
     g_actions.clear();
     g_levelArray = 0;
-    // (proximity nodes: put back while the level's are still there - none once Proxim_Cleanup has run)
+    // (proximity nodes: put back while the level's are still there - none once NearbyZone_Shutdown has run)
     if (HaveProximManager()) {
         for (const auto& o : g_proximOriginals) {
-            if (Obj::ProximNode* p = Obj::Proxim_GetNode(o.first))
+            if (GameObjects::ProximNode* p = GameObjects::Proxim_GetNode(o.first))
                 PutProximBack(p, o.second);
         }
     }
@@ -1610,9 +1610,9 @@ void OnArrayRemoved(uint32_t name)
     Forget();
 }
 
-bool ArrayLoaded(SkateScript::CNodeManager* manager, uint32_t name)
+bool ArrayLoaded(LevelNodes::CNodeManager* manager, uint32_t name)
 {
-    for (uint32_t i = 0; i < manager->m_count && i < static_cast<uint32_t>(SkateScript::CNodeManager::kMaxArrays); ++i) {
+    for (uint32_t i = 0; i < manager->m_count && i < static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays); ++i) {
         if (manager->m_arrays[i].m_name == name)
             return true;
     }
@@ -1624,7 +1624,7 @@ bool ArrayLoaded(SkateScript::CNodeManager* manager, uint32_t name)
 void NoteLevel()
 {
     NodeCreate::SetArrayRemovedListener(&OnArrayRemoved);
-    if (SkateScript::CNodeManager* manager = SkateScript::NodeManagerInstance()) {
+    if (LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance()) {
         if (g_levelArray && ArrayLoaded(manager, g_levelArray))
             return;
         uint32_t level = manager->GetLastNodeArrayName();
@@ -1682,20 +1682,20 @@ std::string NearestRestart(V3 pos)
         float distance = Dot(d, d);
         if (name.empty() || distance < best) {
             best = distance;
-            name = NameFor(node.name, Script::KeptQbName(node.name));
+            name = NameFor(node.name, Scripts::KeptQbName(node.name));
         }
     }
     return name;
 }
 
-// The game's collision ray (a CFeeler: constructor 0x00417760; 0x00417710 casts it from `from` to `to` - thiscall, true
+// The game's collision ray (a CProbeRay: constructor 0x00417760; 0x00417710 casts it from `from` to `to` - thiscall, true
 // on a hit, its point at +0x34), static collision only (as the editor's G): trigger faces (0x10) are passed.
 bool Cast(V3 from, V3 to, V3* hit)
 {
     alignas(16) uint8_t feeler[0x100] = {};
-    auto* ray = reinterpret_cast<Nx::CFeeler*>(feeler);
+    auto* ray = reinterpret_cast<Engine3D::CProbeRay*>(feeler);
     ray->Construct();
-    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    Maths::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
     if (!ray->GetCollisionAlong(&start, &end, false))
         return false;
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
@@ -1739,7 +1739,7 @@ void Create(std::vector<Placed> made, const char* what)
     }
     Sync();
     if (first >= 0) {
-        g_select = Nodes::Find(NameChecksum(g_specs[first].name));
+        g_select = Nodes::Find(HashOfName(g_specs[first].name));
         Hud::Message(std::string("Added ") + what, 4.0);
     }
 }
@@ -1753,7 +1753,7 @@ void Guard()
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_specs.size(); ++k) {
-            if (g_specs[k].kind == Kind::Break && NameChecksum(g_specs[k].name) == g_boxes[i].name)
+            if (g_specs[k].kind == Kind::Break && HashOfName(g_specs[k].name) == g_boxes[i].name)
                 at = static_cast<int>(k);
         }
         if (at >= 0 && !SectorActive(ChecksumOf(g_specs[at].target))) {
@@ -1778,7 +1778,7 @@ const std::vector<Added>& AddedTriggers() { return g_added; }
 
 bool IsTrigger(uint32_t name)
 {
-    return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return NameChecksum(s.name) == name; });
+    return std::any_of(g_specs.begin(), g_specs.end(), [&](const Spec& s) { return HashOfName(s.name) == name; });
 }
 
 bool Shown()
@@ -1812,7 +1812,7 @@ void Start()
         uint32_t piece = spec.kind == Kind::Break ? ChecksumOf(spec.target) : 0;
         uint8_t* sector = piece ? Scenery::SectorOf(piece) : nullptr;
         if (sector && NodeAlive(spec.name) && !SectorActive(piece) && !Scenery::Hidden(piece)) {
-            reinterpret_cast<Nx::CSector*>(sector)->SetActive(true);
+            reinterpret_cast<Engine3D::CWorldCell*>(sector)->SetActive(true);
             Log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
         }
     }
@@ -1855,7 +1855,7 @@ void AddTeleport()
 {
     Placed p;
     p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Teleport;
+    p.spec.kind = Kind::JumpTo;
     p.spec.size = {200.0f, 200.0f, 200.0f};
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
@@ -1867,14 +1867,14 @@ void AddScript()
 {
     Placed p;
     p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Script;
+    p.spec.kind = Kind::Scripts;
     p.spec.size = {300.0f, 200.0f, 300.0f};
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
     Create({p}, "a script trigger");
 }
 
-void AddGap()
+void RegisterGapEntry()
 {
     Placed start, end;
     std::string gap = FreshGap();
@@ -2002,8 +2002,8 @@ void MakeEditable(uint32_t sector)
     }
     Placed p;
     p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
-    p.spec.kind = Kind::Script;
-    p.spec.script = NameFor(t->script, Script::KeptQbName(t->script));
+    p.spec.kind = Kind::Scripts;
+    p.spec.script = NameFor(t->script, Scripts::KeptQbName(t->script));
     p.spec.replaces = sector;
     p.spec.size = ClampSize({std::max(20.0f, t->max.x - t->min.x), std::max(20.0f, t->max.y - t->min.y),
                              std::max(20.0f, t->max.z - t->min.z)});
@@ -2017,7 +2017,7 @@ void SelectPartner(const std::string& name)
     int i = SpecIndex(name);
     int other = Partner(g_specs, i);
     if (other >= 0)
-        g_select = Nodes::Find(NameChecksum(g_specs[other].name));
+        g_select = Nodes::Find(HashOfName(g_specs[other].name));
 }
 
 void SelectNodeNamed(uint32_t name)
@@ -2044,7 +2044,7 @@ bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector, float maxT)
         float t;
         if (RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
             best = t;
-            *node = Nodes::Find(NameChecksum(a.spec.name));
+            *node = Nodes::Find(HashOfName(a.spec.name));
             *sector = 0;
             any = *node >= 0;
         }
@@ -2153,7 +2153,7 @@ std::string Describe(const Calls& calls, Kind kind)
         if (calls.target)
             text += " -> " + LabelOf(calls.target);
         break;
-    case Kind::Teleport:
+    case Kind::JumpTo:
         if (calls.target)
             text += " -> " + LabelOf(calls.target);
         break;
@@ -2187,8 +2187,8 @@ std::string Describe(const Calls& calls, Kind kind)
 
 bool NodePos(uint32_t name, V3* pos)
 {
-    Mth::Vector p;
-    if (!name || !SkateScript::GetNode(name, false) || !SkateScript::GetPosition(name, &p))
+    Maths::Vector p;
+    if (!name || !LevelNodes::GetNode(name, false) || !LevelNodes::GetPosition(name, &p))
         return false;
     *pos = {p.x, p.y, p.z};
     return true;
@@ -2244,7 +2244,7 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
         }
         V3 centre = (l.min + l.max) * 0.5f;
         V3 target;
-        if (!l.off && l.kind == Kind::Teleport && NodePos(l.calls.target, &target))
+        if (!l.off && l.kind == Kind::JumpTo && NodePos(l.calls.target, &target))
             paint.Arrow(centre, target, Dim(KindColour(l.kind), 0xE0));
         else if (!l.off && l.kind == Kind::Camera && NodePos(l.calls.cameraNode, &target)) // (map4)
             paint.Arrow(centre, target, Dim(KindColour(l.kind), 0xE0));
@@ -2260,7 +2260,7 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
         uint32_t colour = a.problem ? 0xC0A0A0A0u : KindColour(a.spec.kind);
         paint.Box(box, colour, 2.0f);
         V3 target;
-        if (!a.problem && (a.spec.kind == Kind::Teleport || a.spec.kind == Kind::Kill || a.spec.kind == Kind::Camera) &&
+        if (!a.problem && (a.spec.kind == Kind::JumpTo || a.spec.kind == Kind::Kill || a.spec.kind == Kind::Camera) &&
             NodePos(ChecksumOf(a.spec.target), &target))
             paint.Arrow(a.pos, target, Dim(colour, a.spec.kind == Kind::Kill ? 0x80 : 0xE0));
         if (a.spec.kind == Kind::GapStart) {
@@ -2273,9 +2273,9 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
             }
         }
         std::string text = a.spec.name + ": " + KindName(a.spec.kind);
-        if (a.spec.kind == Kind::Kill || a.spec.kind == Kind::Teleport)
+        if (a.spec.kind == Kind::Kill || a.spec.kind == Kind::JumpTo)
             text += " -> " + a.spec.target;
-        else if (a.spec.kind == Kind::Script)
+        else if (a.spec.kind == Kind::Scripts)
             text += " " + a.spec.script;
         else if (a.spec.kind == Kind::GapStart || a.spec.kind == Kind::GapEnd)
             text += " \"" + a.spec.text + "\"";
@@ -2332,7 +2332,7 @@ void AddExtras(V3 camera, const Frame& frame, const Lens& lens, const uint32_t v
     const std::vector<Nodes::Node>& nodes = Nodes::All();
     uint32_t selected = selectedNode >= 0 && selectedNode < static_cast<int>(nodes.size()) ? nodes[selectedNode].name : 0;
     auto drawProxim = [&](uint32_t node, bool isSelected) {
-        Obj::ProximNode* p = IsProxim(node) ? Obj::Proxim_GetNode(node) : nullptr;
+        GameObjects::ProximNode* p = IsProxim(node) ? GameObjects::Proxim_GetNode(node) : nullptr;
         if (!p)
             return;
         V3 at = {p->m_pos.x, p->m_pos.y, p->m_pos.z}, d = at - camera;
@@ -2340,7 +2340,7 @@ void AddExtras(V3 camera, const Frame& frame, const Lens& lens, const uint32_t v
             return;
         uint32_t colour = isSelected ? 0xFFFFB060u : 0xC0F08A3Cu;
         V3 top = at;
-        if (p->m_shape == Obj::PROXIM_SHAPE_SPHERE && p->m_radius > 0.0f) {
+        if (p->m_form == GameObjects::PROXIM_SHAPE_SPHERE && p->m_radius > 0.0f) {
             constexpr int kSides = 32;
             const V3 axes[3][2] = {{{1, 0, 0}, {0, 0, 1}}, {{1, 0, 0}, {0, 1, 0}}, {{0, 1, 0}, {0, 0, 1}}};
             for (const auto& plane : axes) {
@@ -2353,7 +2353,7 @@ void AddExtras(V3 camera, const Frame& frame, const Lens& lens, const uint32_t v
                 }
             }
             top = at + up * p->m_radius;
-        } else if (p->m_shape == Obj::PROXIM_SHAPE_BOX) {
+        } else if (p->m_form == GameObjects::PROXIM_SHAPE_BOX) {
             V3 min = {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z}, max = {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z};
             OrientedBox box = {{0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, min, max};
             paint.Box(box, colour, 1.5f);
@@ -2470,7 +2470,7 @@ void RememberView(V3 camera, const Frame& frame, const Lens& lens, const uint32_
 const Added* AliveNamed(uint32_t node)
 {
     for (const Added& a : g_added) {
-        if (a.alive && NameChecksum(a.spec.name) == node)
+        if (a.alive && HashOfName(a.spec.name) == node)
             return &a;
     }
     return nullptr;
@@ -2507,7 +2507,7 @@ bool ShapeFor(uint32_t node, HandleShape* s)
         s->size = a->spec.size;
         return true;
     }
-    Obj::ProximNode* p = IsProxim(node) ? Obj::Proxim_GetNode(node) : nullptr;
+    GameObjects::ProximNode* p = IsProxim(node) ? GameObjects::Proxim_GetNode(node) : nullptr;
     if (!p)
         return false;
     V3 at = {p->m_pos.x, p->m_pos.y, p->m_pos.z};
@@ -2518,13 +2518,13 @@ bool ShapeFor(uint32_t node, HandleShape* s)
         s->size = e->box ? e->size : V3{e->radius * 2.0f, e->radius * 2.0f, e->radius * 2.0f};
         return true;
     }
-    if (p->m_shape == Obj::PROXIM_SHAPE_SPHERE) {
+    if (p->m_form == GameObjects::PROXIM_SHAPE_SPHERE) {
         s->sphere = true;
         s->pos = at;
         s->size = {p->m_radius * 2.0f, p->m_radius * 2.0f, p->m_radius * 2.0f};
         return p->m_radius > 0.0f;
     }
-    if (p->m_shape == Obj::PROXIM_SHAPE_BOX) {
+    if (p->m_form == GameObjects::PROXIM_SHAPE_BOX) {
         V3 min = {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z}, max = {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z};
         s->pos = (min + max) * 0.5f;
         s->size = max - min;
@@ -2615,7 +2615,7 @@ void Resize(V3 origin, V3 dir, bool snap)
     if (g_resize.proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
         // its middle kept as an offset from the node)
-        Obj::ProximNode* p = IsProxim(g_resize.node) ? Obj::Proxim_GetNode(g_resize.node) : nullptr;
+        GameObjects::ProximNode* p = IsProxim(g_resize.node) ? GameObjects::Proxim_GetNode(g_resize.node) : nullptr;
         if (!p) {
             g_resize.on = false;
             return;
@@ -2668,16 +2668,16 @@ std::vector<Seen> g_seen;
 
 // The trigger's TriggerScript run on the skater, as the trigger component's TriggerNode (0x00434A60) runs it: not when
 // the skate module skips the node (0x00565BB0), its NetEnabled / Permanent flags, the node's name.
-void FireOnLeaving(Obj::CObject* skater, uint32_t node)
+void FireOnLeaving(GameObjects::CObject* skater, uint32_t node)
 {
-    Script::CStruct* s = SkateScript::GetNode(node, false);
+    Scripts::CStruct* s = LevelNodes::GetNode(node, false);
     uint32_t script = 0;
-    if (!s || !s->GetChecksum(kTriggerScript, &script, 0) || !script)
+    if (!s || !s->ReadHashValue(kTriggerScript, &script, 0) || !script)
         return;
-    if (Mdl::Skate::ShouldBeAbsent(s))
+    if (GameModules::Skate::ShouldBeAbsent(s))
         return;
-    static const uint32_t kNetEnabled = Crc("NetEnabled"), kPermanent = Crc("Permanent");
-    skater->SpawnAndRunScript(script, static_cast<int>(node), s->ContainsFlag(kNetEnabled), s->ContainsFlag(kPermanent),
+    static const uint32_t kNetEnabled = Checksums("NetEnabled"), kPermanent = Checksums("Permanent");
+    skater->StartScriptTask(script, static_cast<int>(node), s->HasBareFlag(kNetEnabled), s->HasBareFlag(kPermanent),
                               nullptr);
     if (DebugEnabled())
         Log("level editor: trigger %s left - its script run (exit)", LabelOf(node).c_str());
@@ -2692,14 +2692,14 @@ void Play(bool editing)
         g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
     }
-    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
     if (!skater)
         return;
     V3 at = {skater->m_pos.x, skater->m_pos.y, skater->m_pos.z};
     for (const Added& a : g_added) {
         if (!a.alive || !a.spec.exit || a.problem)
             continue;
-        uint32_t node = NameChecksum(a.spec.name);
+        uint32_t node = HashOfName(a.spec.name);
         bool now = Inside(BoxOf(a.pos, a.yaw, a.spec.size), at);
         auto it = std::find_if(g_seen.begin(), g_seen.end(), [&](const Seen& s) { return s.node == node; });
         bool known = it != g_seen.end();
@@ -2738,13 +2738,13 @@ void Restore(const State& state)
         if (!keep) {
             NodeCreate::Spec removed;
             int at;
-            NodeCreate::Remove(NameChecksum(n.name), &removed, &at);
+            NodeCreate::Remove(HashOfName(n.name), &removed, &at);
         }
     }
     g_specs = state.specs;
     std::string message;
     for (const NodeCreate::Spec& n : state.nodes) {
-        uint32_t name = NameChecksum(n.name);
+        uint32_t name = HashOfName(n.name);
         if (!NodeCreate::IsAdded(name)) {
             NodeCreate::Create(n, -1, &message);
         } else {
@@ -2835,7 +2835,7 @@ void ResetAll()
     for (const Spec& spec : std::vector<Spec>(g_specs)) {
         NodeCreate::Spec removed;
         int at;
-        NodeCreate::Remove(NameChecksum(spec.name), &removed, &at);
+        NodeCreate::Remove(HashOfName(spec.name), &removed, &at);
     }
     g_specs.clear();
     g_switched.clear();
@@ -2865,7 +2865,7 @@ int ApplyProxims(const std::vector<ProximEdit>& edits)
             g_proxims[i] = e;
         else
             g_proxims.push_back(e);
-        found += HaveProximManager() && Obj::Proxim_GetNode(e.node) ? 1 : 0;
+        found += HaveProximManager() && GameObjects::Proxim_GetNode(e.node) ? 1 : 0;
     }
     SyncProxims();
     return found;
@@ -2929,7 +2929,7 @@ void SetBreakable(uint32_t sector, bool on)
         Placed p;
         p.spec.name = NodeCreate::FreshName("ed_trigger", NameTaken);
         p.spec.kind = Kind::Break;
-        p.spec.target = NameFor(sector, Script::KeptQbName(sector));
+        p.spec.target = NameFor(sector, Scripts::KeptQbName(sector));
         p.spec.sound = BreakSounds().front();
         p.spec.replaces = sector; // (its collision off while it's breakable: the skater goes into it, as into glass)
         if (!BreakPlace(p.spec, &p.pos, &p.spec.size)) {
@@ -2944,12 +2944,12 @@ void SetBreakable(uint32_t sector, bool on)
     std::string name = there->spec.name;
     NodeCreate::Spec removed;
     int at;
-    NodeCreate::Remove(NameChecksum(name), &removed, &at);
+    NodeCreate::Remove(HashOfName(name), &removed, &at);
     int i = SpecIndex(name);
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
     if (uint8_t* piece = Scenery::SectorOf(sector); piece && !SectorActive(sector) && !Scenery::Hidden(sector))
-        reinterpret_cast<Nx::CSector*>(piece)->SetActive(true);
+        reinterpret_cast<Engine3D::CWorldCell*>(piece)->SetActive(true);
     Sync();
     Hud::Message("No longer breakable", 4.0);
 }
@@ -2980,7 +2980,7 @@ void SetProxim(const ProximEdit& edit, bool undo)
     SyncProxims();
 }
 
-bool IsProxim(uint32_t node) { return node && HaveProximManager() && Obj::Proxim_GetNode(node) != nullptr; }
+bool IsProxim(uint32_t node) { return node && HaveProximManager() && GameObjects::Proxim_GetNode(node) != nullptr; }
 
 bool HasHandles(uint32_t node) { return IsTrigger(node) || IsProxim(node); }
 
@@ -3000,4 +3000,4 @@ std::string Describe()
 
 std::string DescribeLevelTrigger(const LevelTrigger& l) { return Describe(l.calls, l.kind); }
 
-} // namespace Front::LevelEditor::Triggers
+} // namespace MenuSystem::LevelEditor::Triggers

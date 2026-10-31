@@ -31,7 +31,7 @@
 
 #pragma comment(lib, "winmm.lib") // timeSetEvent / timeKillEvent
 
-namespace Gfx::LoadingConsole {
+namespace Gfx2D::LoadingConsole {
 
 // --- pure helpers ---
 
@@ -126,15 +126,15 @@ double g_start = 0.0;        // when the load began (Now())
 double g_lastActivity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
-HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(Nx::g_screenMutex); }
-IDirect3DDevice9* Device() { return Nx::g_d3dDevice; }
-bool ScreenUp() { return Nx::g_loadingScreenUp != 0; } // the main loop draws nothing then
-uint32_t BarTimer() { return Nx::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)
-void* ScreenPicture() { return Nx::g_loadingScreenPicture; }    // the loading screen's picture
-void* MovieShown() { return Nx::g_currentMovie; }       // a Bink movie playing (gfx/movie.cpp)
-int ScreenWidth() { return Nx::g_backBufferWidth; }
-int ScreenHeight() { return Nx::g_backBufferHeight; }
-int BarWidth() { return Nx::g_gradientWidth; } // the loading bar's width in pixels
+HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(Engine3D::g_screenMutex); }
+IDirect3DDevice9* Device() { return Engine3D::g_d3dDevice; }
+bool ScreenUp() { return Engine3D::g_loadingScreenUp != 0; } // the main loop draws nothing then
+uint32_t BarTimer() { return Engine3D::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)
+void* ScreenPicture() { return Engine3D::g_loadingScreenPicture; }    // the loading screen's picture
+void* MovieShown() { return Engine3D::g_currentMovie; }       // a Bink movie playing (gfx/movie.cpp)
+int ScreenWidth() { return Engine3D::g_backBufferWidth; }
+int ScreenHeight() { return Engine3D::g_backBufferHeight; }
+int BarWidth() { return Engine3D::g_gradientWidth; } // the loading bar's width in pixels
 
 double Now()
 {
@@ -183,7 +183,7 @@ void BuildFont()
     config.PixelSnapH = true;
     config.OversampleH = 2;
     static const ImWchar kRanges[] = {0x0020, 0x007E, 0};
-    Front::LevelEditor::UiFonts::CompressedFont mono = Front::LevelEditor::UiFonts::Mono();
+    MenuSystem::LevelEditor::UiFonts::CompressedFont mono = MenuSystem::LevelEditor::UiFonts::Mono();
     ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges);
     unsigned char* rgba = nullptr;
     int width = 0, height = 0;
@@ -338,7 +338,7 @@ void CALLBACK ScreenTick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
         if (blank)
             device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         else
-            Nx::DrawLoadingScreenPicture(); // the picture, full screen
+            Engine3D::DrawLoadingScreenPicture(); // the picture, full screen
         DrawPanel();
         device->EndScene();
         device->Present(nullptr, nullptr, nullptr, nullptr);
@@ -422,11 +422,11 @@ void NoteFile(const char* what, const char* path, long long size)
         Note("%s %s", what, FileName(path));
 }
 
-void NoteScriptCall(uint32_t name, bool cfunction, Script::CStruct* params)
+void NoteScriptCall(uint32_t name, bool cfunction, Scripts::CStruct* params)
 {
     if (!g_active)
         return;
-    const char* text = Script::FindChecksumName(name);
+    const char* text = Scripts::LookUpHashName(name);
     if (cfunction) {
         if (!InterestingCommand(text))
             return;
@@ -438,9 +438,9 @@ void NoteScriptCall(uint32_t name, bool cfunction, Script::CStruct* params)
                     if (params->GetString(key, &what, 0))
                         break;
             uint32_t checksum = 0;
-            if (!what && (params->GetChecksum(0u, &checksum, 0) || params->GetChecksum("name", &checksum, 0) ||
-                          params->GetChecksum("type", &checksum, 0)))
-                what = Script::FindChecksumName(checksum);
+            if (!what && (params->ReadHashValue(0u, &checksum, 0) || params->ReadHashValue("name", &checksum, 0) ||
+                          params->ReadHashValue("type", &checksum, 0)))
+                what = Scripts::LookUpHashName(checksum);
         }
         if (what && *what)
             Note("%s %s", text, FileName(what));
@@ -525,4 +525,4 @@ void DrawPanel()
     saved->Release();
 }
 
-} // namespace Gfx::LoadingConsole
+} // namespace Gfx2D::LoadingConsole

@@ -13,7 +13,7 @@
 #include "game/gfx/viewport_list.h"
 #include "game/skater/skater_camera_component.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -40,30 +40,30 @@ float OneFrame()
 }
 
 // The screen mode (0x004A0710: 1 a vertical split, 2 a horizontal one).
-int ScreenMode() { return Nx::GetScreenMode(); }
+int ScreenMode() { return Engine3D::GetViewLayout(); }
 
 } // namespace
 
 // 0x004F99F0
-void CSkaterCameraComponent::DestroyBody()
+void CRiderChaseView::DestroyBody()
 {
-    Mth::SlerpInterpolator* slerp = mp_slerp;
+    Maths::ArcRotationBlender* slerp = m_arcBlender;
     m_vtable = g_skaterCameraVtable;
-    Mem::Manager::Get()->Free(slerp);
-    CBaseComponent::DestroyBody();
+    MemSys::Manager::Get()->Free(slerp);
+    CObjectModule::DestroyBody();
 }
 
 // 0x004F9A20
-void CSkaterCameraComponent::Finalize()
+void CRiderChaseView::Finalize()
 {
-    mp_lookAround = static_cast<CCameraLookAroundComponent*>(m_object->GetComponent(kCameraLookaround));
+    mp_lookAround = static_cast<CFreeLookModule*>(m_object->GetComponent(kCameraLookaround));
 }
 
 // 0x004F9A40
-void CSkaterCameraComponent::SetState(const WalkCameraState* state)
+void CRiderChaseView::SetState(const WalkCameraState* state)
 {
     std::memcpy(m_orientation, &state->orientation, sizeof(m_orientation));
-    std::memcpy(&m_target, &state->target, sizeof(m_target));
+    std::memcpy(&m_aimPoint, &state->target, sizeof(m_aimPoint));
     m_turnCosine = state->turnCosine;
     m_zoom = state->zoom;
     m_settleTime = 0.0f;
@@ -73,7 +73,7 @@ void CSkaterCameraComponent::SetState(const WalkCameraState* state)
 }
 
 // 0x004F9970
-void CSkaterCameraComponent::UpdateLerps()
+void CRiderChaseView::UpdateLerps()
 {
     if (m_behindTime > 0.0f) {
         m_behindTime = static_cast<float>(static_cast<double>(m_behindTime) - OneFrame());
@@ -90,15 +90,15 @@ void CSkaterCameraComponent::UpdateLerps()
 }
 
 // 0x004F9AE0
-void CSkaterCameraComponent::SetMode(int mode, float time)
+void CRiderChaseView::SetMode(int mode, float time)
 {
     auto* camera = m_object->GetComponent(kCamera);
     int screen = ScreenMode();
     const char* arrayName = screen == 1   ? "Skater_Camera_2P_Vert_Array"
                             : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
                                           : "Skater_Camera_Array";
-    Script::CArray* modes = Script::GetArray(arrayName);
-    Script::CStruct* params = Script::GetStructure(modes->GetElement(static_cast<uint32_t>(mode)));
+    Scripts::CArray* modes = Scripts::GetArray(arrayName);
+    Scripts::CStruct* params = Scripts::ReadSubStruct(modes->GetElement(static_cast<uint32_t>(mode)));
     m_mode = mode;
     m_lipTrickTilt = 0.0f;
     float fov, behind, above, tilt, offset;
@@ -131,7 +131,7 @@ void CSkaterCameraComponent::SetMode(int mode, float time)
     params->GetString(kName, &name, 0);
     m_originOffset = static_cast<float>(static_cast<double>(offset) * kFeet);
     m_horizFov = fov;
-    m_tilt = tilt;
+    m_leanAngle = tilt;
     double behindFeet = static_cast<double>(behind) * kFeet;
     if (time > 0.0f) {
         // lerped there a frame (1/60 s) at a time
@@ -149,8 +149,8 @@ void CSkaterCameraComponent::SetMode(int mode, float time)
         m_above = static_cast<float>(static_cast<double>(above) * kFeet);
     }
     // The camera component's camera (+0x18): its field of view (half across a vertical split).
-    auto* view = *reinterpret_cast<Gfx::Camera**>(reinterpret_cast<uint8_t*>(camera) + 0x18);
-    view->SetHFOV(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
+    auto* view = *reinterpret_cast<Gfx2D::Camera**>(reinterpret_cast<uint8_t*>(camera) + 0x18);
+    view->ChangeHFov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
     float heading;
     switch (mode) {
     case 5:

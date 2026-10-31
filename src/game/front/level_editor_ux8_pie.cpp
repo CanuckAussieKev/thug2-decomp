@@ -8,7 +8,7 @@
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_transform.h"
 
-namespace Front::LevelEditor::Ux8::Pie {
+namespace MenuSystem::LevelEditor::Ux8::Pie {
 
 namespace {
 
@@ -107,4 +107,4 @@ std::vector<Item> ViewItems()
     return items;
 }
 
-} // namespace Front::LevelEditor::Ux8::Pie
+} // namespace MenuSystem::LevelEditor::Ux8::Pie

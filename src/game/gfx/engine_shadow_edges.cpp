@@ -12,10 +12,10 @@
 #include "game/nx/coll_tri.h"
 #include "game/sys/startup_init.h"
 
-namespace Nx {
+namespace Engine3D {
 
 CShadowVolume* g_shadowVolumes[16];
-Lst::HashTable g_shadowEdgeTable{Lst::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
+ListKit::HashTable g_shadowEdgeTable{ListKit::HashTable::Unconstructed{}}; // (the exe makes it with HashTable(8) at start-up)
 
 namespace {
 
@@ -24,7 +24,7 @@ namespace {
 struct EdgeCorner {
     uint16_t vertex;
     uint16_t pad; // (stack garbage in the original's records: zeroed here)
-    Mth::Vector normal;
+    Maths::Vector normal;
 };
 struct ShadowEdge {
     EdgeCorner corners[4];
@@ -32,7 +32,7 @@ struct ShadowEdge {
 static_assert(sizeof(ShadowEdge) == 0x50, "layout must match the original");
 
 CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
-Lst::HashTable& EdgeTable() { return g_shadowEdgeTable; }
+ListKit::HashTable& EdgeTable() { return g_shadowEdgeTable; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void AddShadowVolume(CShadowVolume* volume)
@@ -48,12 +48,12 @@ void AddShadowVolume(CShadowVolume* volume)
 // The meshes of the model's collision scene: +0x88 their count, +0x8C the array (the volumes' key).
 int MeshCount(const uint8_t* assetData) { return *reinterpret_cast<const int*>(assetData + 0x88); }
 
-bool Skipped(const CCollObjTriData& mesh) { return (reinterpret_cast<const uint16_t*>(mesh.m_faces)[0] & 0x40) != 0; }
+bool Skipped(const CTriMeshSource& mesh) { return (reinterpret_cast<const uint16_t*>(mesh.m_faces)[0] & 0x40) != 0; }
 
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
 // its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short,
 // as the original).
-void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const Mth::Vector& normal)
+void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const Maths::Vector& normal)
 {
     ShadowEdge* all = reinterpret_cast<ShadowEdge*>(edges->edges);
     int i = 0;
@@ -85,7 +85,7 @@ void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const M
 } // namespace
 
 // 0x004A22F0
-void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
+void CShadowVolume::SetModel(CRenderModel*, uint8_t* assetData)
 {
     if (assetData)
         m_modelKey = *reinterpret_cast<uint32_t*>(assetData + 0x8C);
@@ -95,8 +95,8 @@ void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
         AddShadowVolume(this);
         return;
     }
-    mp_edges = static_cast<ShadowEdges*>(Mem::Calloc(0x10)); // (not checked, as the original)
-    auto* meshes = reinterpret_cast<CCollObjTriData*>(m_modelKey);
+    mp_edges = static_cast<ShadowEdges*>(MemSys::AllocZeroed(0x10)); // (not checked, as the original)
+    auto* meshes = reinterpret_cast<CTriMeshSource*>(m_modelKey);
     // (with a key but no asset data, read through null - as the original)
     int faces = 0, vertices = 0;
     if (m_modelKey) {
@@ -110,13 +110,13 @@ void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
     int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
         uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowEdge);
-        mp_edges->edges = static_cast<uint8_t*>(Mem::New(size));
+        mp_edges->edges = static_cast<uint8_t*>(MemSys::New(size));
         std::memset(mp_edges->edges, 0, size);
     }
     int count = 0;
     if (m_modelKey) {
         for (int m = 0; m < MeshCount(assetData); ++m) {
-            const CCollObjTriData& mesh = meshes[m];
+            const CTriMeshSource& mesh = meshes[m];
             if (Skipped(mesh))
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
@@ -133,7 +133,7 @@ void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
                     b = face[3];
                     c = face[4];
                 }
-                Mth::Vector normal = mesh.GetFaceNormal(f);
+                Maths::Vector normal = mesh.GetTriangleNormal(f);
                 mp_edges->lastMesh = m;
                 AddEdge(mp_edges, count, a, b, normal);
                 AddEdge(mp_edges, count, b, c, normal);
@@ -145,25 +145,25 @@ void CShadowVolume::SetModel(CModel*, uint8_t* assetData)
         mp_edges->count = count;
         ++mp_edges->users;
         uint32_t key = m_modelKey;
-        EdgeTable().PutItem(key, mp_edges);
+        EdgeTable().StoreEntry(key, mp_edges);
         AddShadowVolume(this);
         return;
     }
-    Dbg::Printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
+    DebugOut::Printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
                 count);
     if (mp_edges->edges) {
-        Mem::Manager::Get()->Free(mp_edges->edges);
+        MemSys::Manager::Get()->Free(mp_edges->edges);
         mp_edges->edges = nullptr;
     }
-    Mem::Manager::Get()->Free(mp_edges);
+    MemSys::Manager::Get()->Free(mp_edges);
     mp_edges = nullptr;
 }
 
 } // namespace Nx
 
-namespace Nx {
+namespace Engine3D {
 
 // 0x00640CD0 (a static initialiser): the shadow edges' table, 256 buckets.
-void ConstructShadowEdgeTable() { new (&g_shadowEdgeTable) Lst::HashTable(8); }
+void ConstructShadowEdgeTable() { new (&g_shadowEdgeTable) ListKit::HashTable(8); }
 
 } // namespace Nx

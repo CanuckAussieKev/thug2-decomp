@@ -10,7 +10,7 @@
 // The run-length code: a byte n < 0x80 is followed by n + 1 bytes as they are; a byte n >= 0x80 by one byte
 // repeated (n & 0x7F) + 2 times.
 
-namespace Net {
+namespace NetLink {
 
 // 0x00454A60: `size` bytes of `in` coded into `out` (`outSize` isn't checked); the coded size. A run takes up to
 // 0x81 bytes, a literal up to 0x80. Quirk kept: a single byte (size 1) codes to nothing.

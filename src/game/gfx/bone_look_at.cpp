@@ -19,11 +19,11 @@
 #include "game/core/stubs.h"
 #include "game/obj/anim_movies.h"
 
-namespace Gfx {
+namespace Gfx2D {
 
 namespace {
 
-using Script::CStruct;
+using Scripts::CStruct;
 
 extern void** const kVtable;
 constexpr uint32_t kNoBone = 0xFFFFFFFF;
@@ -53,7 +53,7 @@ constexpr float kQuarterTurn = 1.57079637f;  // 0x00645484
 constexpr float kEaseBelow = 0.923879027f;   // 0x006488F8: a turn this close to the last one isn't eased
 constexpr float kEaseFactor = 0.216478556f;  // 0x006488F4
 
-float Epsilon() { return Obj::g_floatZero; }
+float Epsilon() { return GameObjects::g_floatZero; }
 
 // x, y and z of a vector scaled to length 1 when longer than the epsilon (from the sum (x x + z z) + y y, the
 // reciprocal unrounded).
@@ -74,15 +74,15 @@ int BoneFromParams(CBoneLookAt* lookAt, CStruct* params, bool* all, bool* byId)
     int index = 0;
     *all = false;
     *byId = false;
-    if (params->GetInteger(kIndex, &index, 0))
+    if (params->FetchIntValue(kIndex, &index, 0))
         return index;
     index = 0;
     uint32_t id = 0;
-    if (params->GetChecksum(kId, &id, 0)) {
+    if (params->ReadHashValue(kId, &id, 0)) {
         *byId = true;
         return lookAt->FindBone(id);
     }
-    if (params->ContainsComponentNamed(kAll))
+    if (params->HasEntryNamed(kAll))
         *all = true;
     return 0;
 }
@@ -90,7 +90,7 @@ int BoneFromParams(CBoneLookAt* lookAt, CStruct* params, bool* all, bool* byId)
 } // namespace
 
 // 0x00487E00
-Mth::Vector* SClampVector::Clamp(const Mth::Vector* min, const Mth::Vector* max)
+Maths::Vector* SClampVector::Clamp(const Maths::Vector* min, const Maths::Vector* max)
 {
     float* values = &x;
     const float* low = &min->x;
@@ -103,11 +103,11 @@ Mth::Vector* SClampVector::Clamp(const Mth::Vector* min, const Mth::Vector* max)
 }
 
 // 0x00487EE0
-Mth::Vector* __cdecl ClampedVector(Mth::Vector* out, const Mth::Vector* v, const Mth::Vector* min,
-                                   const Mth::Vector* max)
+Maths::Vector* __cdecl ClampedVector(Maths::Vector* out, const Maths::Vector* v, const Maths::Vector* min,
+                                   const Maths::Vector* max)
 {
     SClampVector clamped;
-    static_cast<Mth::Vector&>(clamped) = *v;
+    static_cast<Maths::Vector&>(clamped) = *v;
     clamped.Clamp(min, max);
     *out = clamped;
     return out;
@@ -115,7 +115,7 @@ Mth::Vector* __cdecl ClampedVector(Mth::Vector* out, const Mth::Vector* v, const
 
 // 0x00487F40 (each sine and cosine rounded to a float where the original stores it; sin(y) kept at the x87's
 // precision into its two products)
-Mth::Quat* __cdecl EulerToQuat(Mth::Quat* out, const Mth::Vector* angles)
+Maths::QuatRotation* __cdecl AnglesToQuat(Maths::QuatRotation* out, const Maths::Vector* angles)
 {
     double halfZ = angles->z * 0.5;
     double halfY = angles->y * 0.5;
@@ -141,7 +141,7 @@ Mth::Quat* __cdecl EulerToQuat(Mth::Quat* out, const Mth::Vector* angles)
 }
 
 // 0x00488020
-Mth::Vector* __cdecl QuatToEuler(Mth::Vector* out, const Mth::Quat* q)
+Maths::Vector* __cdecl QuatToEuler(Maths::Vector* out, const Maths::QuatRotation* q)
 {
     double asinArgument = -((static_cast<double>(q->x) * q->z - static_cast<double>(q->w) * q->y) * 2.0);
     double y = X87::Asin(asinArgument);
@@ -169,19 +169,19 @@ CBoneLookAt* CBoneLookAt::Construct(void* owner, void* object)
     CAnimController* base = reinterpret_cast<CAnimController*>(this);
     base->CAnimController::Construct(static_cast<CAnimTimeline*>(owner));
     vtable = reinterpret_cast<void**>(kVtable);
-    mp_object = static_cast<uint8_t*>(owner ? static_cast<void*>(base->CAnimController::GetObject()) : object);
+    m_ownerObject = static_cast<uint8_t*>(owner ? static_cast<void*>(base->CAnimController::GetObject()) : object);
     for (SBone& bone : m_bones) {
         bone.m_active = false;
         bone.m_clamp = true;
         bone.m_bone = kNoBone;
-        bone.m_min = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.m_max = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.m_lowerLimit = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.m_upperLimit = {0.0f, 0.0f, 0.0f, 1.0f};
         bone.m_targetPos = {0.0f, 0.0f, 0.0f, 1.0f};
         bone.m_weight = 1.0f;
         bone.m_fixedPos = true;
-        bone.m_target = 0;
-        bone.m_axis = 0;
-        bone.m_rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.m_aimPoint = 0;
+        bone.m_pivotDir = 0;
+        bone.m_orientationTurn = {0.0f, 0.0f, 0.0f, 1.0f};
     }
     return this;
 }
@@ -198,7 +198,7 @@ CBoneLookAt* CBoneLookAt::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Free(this);
+        MemSys::Free(this);
     return this;
 }
 
@@ -208,49 +208,49 @@ void CBoneLookAt::Update()
     for (SBone& bone : m_bones) {
         if (bone.m_fixedPos)
             continue;
-        auto* object = reinterpret_cast<Obj::CCompositeObject*>(
-            Obj::CompositeObjectManager()->GetObjectByID(bone.m_target));
+        auto* object = reinterpret_cast<GameObjects::CGameEntity*>(
+            GameObjects::CompositeObjectManager()->LookUpEntity(bone.m_aimPoint));
         if (!object)
             continue;
-        bone.m_targetPos.z = bone.m_offset.z + object->m_pos.z;
-        bone.m_targetPos.w = bone.m_offset.w + object->m_pos.w;
-        bone.m_targetPos.x = bone.m_offset.x + object->m_pos.x;
-        bone.m_targetPos.y = bone.m_offset.y + object->m_pos.y;
+        bone.m_targetPos.z = bone.m_shift.z + object->m_pos.z;
+        bone.m_targetPos.w = bone.m_shift.w + object->m_pos.w;
+        bone.m_targetPos.x = bone.m_shift.x + object->m_pos.x;
+        bone.m_targetPos.y = bone.m_shift.y + object->m_pos.y;
     }
 }
 
 // 0x00488410
-bool CBoneLookAt::Apply(Mth::Quat* rotations)
+bool CBoneLookAt::Apply(Maths::QuatRotation* rotations)
 {
     reinterpret_cast<void(__thiscall*)(CBoneLookAt*)>(vtable[5])(this);
-    auto* object = reinterpret_cast<Obj::CCompositeObject*>(mp_object);
-    Obj::CBaseComponent* component = object->GetComponent(kSkeletonComponent);
-    auto* skeleton = component ? *reinterpret_cast<CSkeleton**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
+    auto* object = reinterpret_cast<GameObjects::CGameEntity*>(m_ownerObject);
+    GameObjects::CObjectModule* component = object->GetComponent(kSkeletonComponent);
+    auto* skeleton = component ? *reinterpret_cast<CRig**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
     for (SBone& bone : m_bones) {
         if (bone.m_bone == kNoBone)
             continue;
-        int index = skeleton->GetBoneIndex(bone.m_bone);
+        int index = skeleton->FetchBoneSlot(bone.m_bone);
         if (index == -1)
             continue;
-        const Mth::Vector& pos = object->m_pos;
-        const Mth::Vector& at = object->m_matrix.row[2];
+        const Maths::Vector& pos = object->m_pos;
+        const Maths::Vector& at = object->m_basisFrame.row[2];
         // The direction to the target, and the turn from the object's own
         float dx = bone.m_targetPos.x - pos.x;
         float dy = bone.m_targetPos.y - pos.y;
         float dz = bone.m_targetPos.z - pos.z;
         NormalizeXZY(dx, dy, dz);
-        Mth::Quat& pose = rotations[index];
+        Maths::QuatRotation& pose = rotations[index];
         double dot = (static_cast<double>(dx) * at.x + static_cast<double>(dz) * at.z) + static_cast<double>(dy) * at.y;
         float angle = static_cast<float>(X87::Acos(dot));
-        Mth::Vector axis;
+        Maths::Vector axis;
         axis.x = static_cast<float>(static_cast<double>(dy) * at.z - static_cast<double>(dz) * at.y);
         axis.y = static_cast<float>(static_cast<double>(dz) * at.x - static_cast<double>(at.z) * dx);
         axis.z = static_cast<float>(static_cast<double>(at.y) * dx - static_cast<double>(dy) * at.x);
         axis.w = 0.0f;
         NormalizeXZY(axis.x, axis.y, axis.z);
         // The axis turned to the bone's own way of looking
-        Mth::Quat turn = {0.0f, 0.0f, 0.0f, 1.0f};
-        int axisCode = bone.m_axis;
+        Maths::QuatRotation turn = {0.0f, 0.0f, 0.0f, 1.0f};
+        int axisCode = bone.m_pivotDir;
         unsigned int which = static_cast<unsigned int>(axisCode < 0 ? -axisCode : axisCode);
         if (which <= 3) {
             if (which <= 2) {
@@ -272,40 +272,40 @@ bool CBoneLookAt::Apply(Mth::Quat* rotations)
                     axis.y = static_cast<float>(sinF * oldX + axis.y * c);
                 }
             }
-            Mth::Quat made;
+            Maths::QuatRotation made;
             turn = *made.InitFromAxisAngle(axis, angle);
         }
         // Its angles: clamped and scaled, or each one past its limits dropped
-        Mth::Vector angles;
+        Maths::Vector angles;
         QuatToEuler(&angles, &turn);
         if (bone.m_clamp) {
-            Mth::Vector clamped;
-            ClampedVector(&clamped, &angles, &bone.m_min, &bone.m_max);
+            Maths::Vector clamped;
+            ClampedVector(&clamped, &angles, &bone.m_lowerLimit, &bone.m_upperLimit);
             angles.x = bone.m_weight * clamped.x;
             angles.y = bone.m_weight * clamped.y;
             angles.z = bone.m_weight * clamped.z;
             angles.w = bone.m_weight * clamped.w;
         } else {
-            if (angles.x < bone.m_min.x)
+            if (angles.x < bone.m_lowerLimit.x)
                 angles.x = 0.0f;
-            if (angles.y < bone.m_min.y)
+            if (angles.y < bone.m_lowerLimit.y)
                 angles.y = 0.0f;
-            if (angles.z < bone.m_min.z)
+            if (angles.z < bone.m_lowerLimit.z)
                 angles.z = 0.0f;
-            if (angles.x > bone.m_max.x)
+            if (angles.x > bone.m_upperLimit.x)
                 angles.x = 0.0f;
-            if (angles.y > bone.m_max.y)
+            if (angles.y > bone.m_upperLimit.y)
                 angles.y = 0.0f;
-            if (angles.z > bone.m_max.z)
+            if (angles.z > bone.m_upperLimit.z)
                 angles.z = 0.0f;
         }
         // Applied to the pose's rotation, eased from the last turn when it's far from it
-        Mth::Quat rotation;
-        EulerToQuat(&rotation, &angles);
+        Maths::QuatRotation rotation;
+        AnglesToQuat(&rotation, &angles);
         rotation *= pose;
         pose = rotation;
         pose.Normalize(1.0f);
-        Mth::Quat& last = bone.m_rotation;
+        Maths::QuatRotation& last = bone.m_orientationTurn;
         double closeness = ((static_cast<double>(pose.z) * last.z + static_cast<double>(last.x) * pose.x) +
                             static_cast<double>(pose.w) * last.w) +
                            static_cast<double>(pose.y) * last.y;
@@ -323,56 +323,56 @@ bool CBoneLookAt::Apply(Mth::Quat* rotations)
 // 0x00488950
 void CBoneLookAt::Configure(bool all, int index, CStruct* params)
 {
-    if (params->ContainsComponentNamed(kOnFlag)) {
+    if (params->HasEntryNamed(kOnFlag)) {
         if (all)
             ActivateAll();
         else
             m_bones[index].m_active = true;
-    } else if (params->ContainsComponentNamed(kOffFlag)) {
+    } else if (params->HasEntryNamed(kOffFlag)) {
         if (all)
             DeactivateAll();
         else
             m_bones[index].m_active = false;
     }
     SBone& bone = m_bones[index];
-    params->GetChecksum(kBone, &bone.m_bone, 0);
-    if (params->GetChecksum(kTargetObject, &bone.m_target, 0)) {
+    params->ReadHashValue(kBone, &bone.m_bone, 0);
+    if (params->ReadHashValue(kTargetObject, &bone.m_aimPoint, 0)) {
         bone.m_fixedPos = false;
-        bone.m_offset = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.m_shift = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    if (params->GetVector(kTargetPos, reinterpret_cast<Script::VectorValue*>(&bone.m_targetPos), 0))
+    if (params->GetVector(kTargetPos, reinterpret_cast<Scripts::VectorValue*>(&bone.m_targetPos), 0))
         bone.m_fixedPos = true;
-    if (params->GetVector(kOffset, reinterpret_cast<Script::VectorValue*>(&bone.m_offset), 0))
+    if (params->GetVector(kOffset, reinterpret_cast<Scripts::VectorValue*>(&bone.m_shift), 0))
         bone.m_fixedPos = false;
-    params->GetInteger(kAxis, &bone.m_axis, 0);
+    params->FetchIntValue(kAxis, &bone.m_pivotDir, 0);
     params->GetFloat(kWeight, &bone.m_weight, 0);
-    Mth::Vector limit;
-    if (params->GetVector(kMinAngles, reinterpret_cast<Script::VectorValue*>(&limit), 0)) {
-        limit.DegreesToRadians();
+    Maths::Vector limit;
+    if (params->GetVector(kMinAngles, reinterpret_cast<Scripts::VectorValue*>(&limit), 0)) {
+        limit.DegreeToRadianConv();
         if (all)
             SetAllMin(&limit);
         else
-            bone.m_min = limit;
+            bone.m_lowerLimit = limit;
     }
-    if (params->GetVector(kMaxAngles, reinterpret_cast<Script::VectorValue*>(&limit), 0)) {
-        limit.DegreesToRadians();
+    if (params->GetVector(kMaxAngles, reinterpret_cast<Scripts::VectorValue*>(&limit), 0)) {
+        limit.DegreeToRadianConv();
         if (all)
             SetAllMax(&limit);
         else
-            bone.m_max = limit;
+            bone.m_upperLimit = limit;
     }
-    bone.m_clamp = !params->ContainsFlag(kNoClamp);
+    bone.m_clamp = !params->HasBareFlag(kNoClamp);
 }
 
 // 0x00488B20
-void CBoneLookAt::InitFromStructure(CStruct* params)
+void CBoneLookAt::ConfigureFromData(CStruct* params)
 {
-    reinterpret_cast<CAnimController*>(this)->CAnimController::InitFromStructure(params); // (the base's: its id)
+    reinterpret_cast<CAnimController*>(this)->CAnimController::ConfigureFromData(params); // (the base's: its id)
     Configure(false, 0, params);
 }
 
 // 0x00488B40
-int CBoneLookAt::CallMemberFunction(uint32_t name, CStruct* params, Script::CScript*)
+int CBoneLookAt::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::CScript*)
 {
     if (name != kOn && name != kIsOn && name != kOff && name != kSettings)
         return 2;
@@ -438,27 +438,27 @@ void CBoneLookAt::DeactivateAll()
 }
 
 // 0x00488170
-void CBoneLookAt::SetAllMin(const Mth::Vector* min)
+void CBoneLookAt::SetAllMin(const Maths::Vector* min)
 {
     for (SBone& bone : m_bones) {
         if (bone.m_bone != kNoBone)
-            bone.m_min = *min;
+            bone.m_lowerLimit = *min;
     }
 }
 
 // 0x00488220
-void CBoneLookAt::SetAllMax(const Mth::Vector* max)
+void CBoneLookAt::SetAllMax(const Maths::Vector* max)
 {
     for (SBone& bone : m_bones) {
         if (bone.m_bone != kNoBone)
-            bone.m_max = *max;
+            bone.m_upperLimit = *max;
     }
 }
 
 namespace {
-static VtableSlot kVtable_slots[] = {&Gfx::CBoneLookAt::Destroy, &Gfx::CBoneLookAt::Apply, Stubs::IgnoreArgument,
-                &Gfx::CBoneLookAt::CallMemberFunction, &Gfx::CBoneLookAt::InitFromStructure, &Gfx::CBoneLookAt::Update,
-                Gfx::VirtualSlot4Jump};
+static VtableSlot kVtable_slots[] = {&Gfx2D::CBoneLookAt::Destroy, &Gfx2D::CBoneLookAt::Apply, Stubs::IgnoreArgument,
+                &Gfx2D::CBoneLookAt::InvokeMethodByName, &Gfx2D::CBoneLookAt::ConfigureFromData, &Gfx2D::CBoneLookAt::Update,
+                Gfx2D::VirtualSlot4Jump};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 } // namespace
 

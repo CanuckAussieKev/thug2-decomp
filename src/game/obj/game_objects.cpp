@@ -32,7 +32,7 @@
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -59,105 +59,105 @@ constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a scrip
 
 // A new component of `size` bytes from T's constructor (null if there's no memory).
 template <typename T>
-CBaseComponent* NewComponent(unsigned int size)
+CObjectModule* NewComponent(unsigned int size)
 {
-    void* memory = Mem::Calloc(size);
+    void* memory = MemSys::AllocZeroed(size);
     return memory ? static_cast<T*>(memory)->Construct() : nullptr;
 }
-// A component's InitFromStructure (vtable +0x08).
-void InitComponentFromStructure(CBaseComponent* component, Script::CStruct* params)
+// A component's ConfigureFromData (vtable +0x08).
+void InitComponentFromStructure(CObjectModule* component, Scripts::CStruct* params)
 {
-    reinterpret_cast<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>((*reinterpret_cast<void***>(component))[2])(
+    reinterpret_cast<void(__thiscall*)(CObjectModule*, Scripts::CStruct*)>((*reinterpret_cast<void***>(component))[2])(
         component, params);
 }
 // The model component's update after the object is finished (0x00420480).
-void UpdateModel(CBaseComponent* model) { static_cast<CModelComponent*>(model)->Teleport(); }
+void UpdateModel(CObjectModule* model) { static_cast<CMeshInstanceModule*>(model)->JumpTo(); }
 // The composite object's Finalize (vtable +0x20).
-void VirtualFinalize(CCompositeObject* object)
+void VirtualFinalize(CGameEntity* object)
 {
-    reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(object->m_vtable[8])(object);
+    reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[8])(object);
 }
 
-Script::CStruct* NewStructure()
+Scripts::CStruct* NewStructure()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteStructure(Script::CStruct* structure)
+void DeleteStructure(Scripts::CStruct* structure)
 {
     if (structure) {
         structure->Clear();
-        Script::DeleteStruct(structure);
+        Scripts::DeleteStruct(structure);
     }
 }
 
 } // namespace
 
 // 0x0057B250
-void AddBaseComponents(CCompositeObject* object)
+void AddBaseComponents(CGameEntity* object)
 {
-    object->AddComponent(NewComponent<CSuspendComponent>(0x4C)); // suspend
+    object->AddComponent(NewComponent<CDormancyModule>(0x4C)); // suspend
     object->AddComponent(NewComponent<CBBoxComponent>(0x4C));    // (type 0xB87C8E43)
 }
 
 // 0x0057B2F0
-void AddMotionComponents(CCompositeObject* object)
+void AddMotionComponents(CGameEntity* object)
 {
-    object->AddComponent(NewComponent<CMotionComponent>(0x24C)); // motion
+    object->AddComponent(NewComponent<CKinematicsModule>(0x24C)); // motion
     object->AddComponent(NewComponent<CObjectProximityComponent>(0x30)); // objectproximity
-    object->AddComponent(NewComponent<CSoundComponent>(0xC0));   // sound
-    object->AddComponent(NewComponent<CStreamComponent>(0x2C));  // stream
-    object->AddComponent(NewComponent<CLockObjComponent>(0x90)); // lockobj
+    object->AddComponent(NewComponent<CAudioEmitterModule>(0xC0));   // sound
+    object->AddComponent(NewComponent<CAudioStreamModule>(0x2C));  // stream
+    object->AddComponent(NewComponent<CPinnedObjectModule>(0x90)); // lockobj
 }
 
 // 0x0057B420
-void AddNodeComponents(CCompositeObject* object, Script::CStruct* node)
+void AddNodeComponents(CGameEntity* object, Scripts::CStruct* node)
 {
-    CBaseComponent* motion = object->GetComponent(kMotion);
+    CObjectModule* motion = object->GetComponent(kMotion);
     if (!motion)
         AddMotionComponents(object); // (sic: not looked up again - the motion stays null below)
-    static_cast<CMotionComponent*>(motion)->OrientToNode(node);
-    if (uint32_t name = SkateScript::GetNodeName(node))
+    static_cast<CKinematicsModule*>(motion)->FaceNode(node);
+    if (uint32_t name = LevelNodes::GetNodeName(node))
         object->SetID(name);
     uint32_t script = 0;
-    if (node->GetChecksum(kTriggerScript, &script, 0)) {
-        Script::CStruct* params = nullptr;
-        node->GetStructure(kParams, &params, 0);
-        object->SwitchScript(script, params);
+    if (node->ReadHashValue(kTriggerScript, &script, 0)) {
+        Scripts::CStruct* params = nullptr;
+        node->ReadSubStruct(kParams, &params, 0);
+        object->ReplaceScript(script, params);
     }
     InitComponentFromStructure(motion, node);
     InitComponentFromStructure(object->GetComponent(kSuspend), node);
 }
 
 // 0x0057B4E0
-void CreatePed(Script::CStruct* params)
+void SpawnPedestrian(Scripts::CStruct* params)
 {
-    void* memory = Mem::Calloc(sizeof(CCompositeObject));
-    auto* ped = memory ? static_cast<CCompositeObject*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CGameEntity));
+    auto* ped = memory ? static_cast<CGameEntity*>(memory)->Construct() : nullptr;
     AddBaseComponents(ped);
     AddMotionComponents(ped);
     ped->SetType(kObjectTypePed);
     CompositeObjectManager()->VirtualRegisterObject(ped);
-    SkateScript::GetPosition(params, &ped->m_pos);
+    LevelNodes::GetPosition(params, &ped->m_pos);
     AddNodeComponents(ped, params);
-    Script::RunScript(kPedAddComponents, params, ped, false, nullptr);
+    Scripts::LaunchScript(kPedAddComponents, params, ped, false, nullptr);
     VirtualFinalize(ped);
-    Script::RunScript(kPedInitModel, params, ped, false, nullptr);
+    Scripts::LaunchScript(kPedInitModel, params, ped, false, nullptr);
     auto* motion = reinterpret_cast<uint8_t*>(ped->GetComponent(kMotion));
     *reinterpret_cast<float*>(motion + 0x2C) = 44.0f;
     *reinterpret_cast<float*>(motion + 0x24) = 48.0f;
     *reinterpret_cast<float*>(motion + 0x28) = 12.0f;
     *reinterpret_cast<float*>(motion + 0x34) = 24.0f;
-    reinterpret_cast<CMotionComponent*>(motion)->InitPathFollower(ped);
+    reinterpret_cast<CKinematicsModule*>(motion)->InitPathFollower(ped);
     auto* path = static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
     *reinterpret_cast<float*>(path + 0x94) = 24.0f;
     *reinterpret_cast<uint32_t*>(motion + 0x1C) |= 0x400;
     UpdateModel(ped->GetComponent(kModel));
-    Script::RunScript(kPedDisableBones, nullptr, ped, false, nullptr);
+    Scripts::LaunchScript(kPedDisableBones, nullptr, ped, false, nullptr);
 }
 
 // 0x005780E0
-void InitCar(CCompositeObject* car, Script::CStruct* params)
+void SetUpAutomobile(CGameEntity* car, Scripts::CStruct* params)
 {
     AddMotionComponents(car);
     AddNodeComponents(car, params);
@@ -166,32 +166,32 @@ void InitCar(CCompositeObject* car, Script::CStruct* params)
     *reinterpret_cast<float*>(motion + 0x24) = 216.0f;
     *reinterpret_cast<float*>(motion + 0x28) = 384.0f;
     motion[0x70] = 0;
-    reinterpret_cast<CMotionComponent*>(motion)->InitPathFollower(car);
+    reinterpret_cast<CKinematicsModule*>(motion)->InitPathFollower(car);
     auto* extra = static_cast<uint8_t*>(reinterpret_cast<CMotionPathMembers*>(motion)->GetPathFollower());
     *reinterpret_cast<float*>(extra + 0x94) = 240.0f;
-    Script::RunScript(kCarAddComponents, params, car, false, nullptr);
+    Scripts::LaunchScript(kCarAddComponents, params, car, false, nullptr);
     VirtualFinalize(car);
     UpdateModel(car->GetComponent(kModel));
 }
 
 // 0x00578170
-void CreateCar(Script::CStruct* params)
+void SpawnAutomobile(Scripts::CStruct* params)
 {
-    void* memory = Mem::Calloc(sizeof(CCompositeObject));
-    auto* car = memory ? static_cast<CCompositeObject*>(memory)->Construct() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(CGameEntity));
+    auto* car = memory ? static_cast<CGameEntity*>(memory)->Construct() : nullptr;
     AddBaseComponents(car);
     car->SetType(kObjectTypeCar);
-    void* component = Mem::Calloc(0x58);
-    car->AddComponent(component ? static_cast<CCarPhysicsComponent*>(component)->Construct() : nullptr);
-    SkateScript::GetPosition(params, &car->m_pos);
+    void* component = MemSys::AllocZeroed(0x58);
+    car->AddComponent(component ? static_cast<CAutomobileDynamicsModule*>(component)->Construct() : nullptr);
+    LevelNodes::GetPosition(params, &car->m_pos);
     CompositeObjectManager()->VirtualRegisterObject(car);
-    InitCar(car, params);
+    SetUpAutomobile(car, params);
 }
 
 // 0x00578240
 CCrownObject* CCrownObject::Construct()
 {
-    CCompositeObject::Construct();
+    CGameEntity::Construct();
     m_vtable = kCrownVtable;
     AddBaseComponents(this);
     m_type = kObjectTypeCrown;
@@ -201,7 +201,7 @@ CCrownObject* CCrownObject::Construct()
 }
 
 // 0x005782B0
-void CCrownObject::PutOn(CCompositeObject* skater)
+void CCrownObject::PutOn(CGameEntity* skater)
 {
     m_skater = skater;
     m_worn = true;
@@ -218,7 +218,7 @@ void CCrownObject::DestroyBody()
 {
     m_vtable = kCrownVtable;
     m_worn = false;
-    CCompositeObject::DestroyBody();
+    CGameEntity::DestroyBody();
 }
 
 // 0x00578310
@@ -227,18 +227,18 @@ void CCrownObject::OwnUpdate()
     if (!m_worn)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<GameNet::FoldedGetters*>(m_skater->GetComponent(kSkeleton))->Word18());
-    static_cast<Gfx::CSkeleton*>(skeleton)->GetBoneMatrix(kBoneHead, &m_matrix);
-    Mth::Matrix turn;
-    Mth::Multiply(m_matrix, Mth::CreateRotateXMatrix(turn, 90.0f), m_matrix);
-    Mth::Vector raise = {0.0f, 0.0f, -18.0f, 0.0f};
-    m_matrix.TranslateLocal(raise);
-    Mth::Vector offset = m_matrix.row[3];
-    m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    Mth::Multiply(m_matrix, m_matrix, m_skater->m_matrix);
-    Mth::Vector moved;
-    m_pos = m_skater->m_matrix.Transform(moved, offset); // (the matrix times the offset, w too)
-    const Mth::Vector& at = m_skater->m_pos;
+    auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(m_skater->GetComponent(kSkeleton))->Word18());
+    static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(kBoneHead, &m_basisFrame);
+    Maths::Matrix turn;
+    Maths::Multiply(m_basisFrame, Maths::MakePitchMatrix(turn, 90.0f), m_basisFrame);
+    Maths::Vector raise = {0.0f, 0.0f, -18.0f, 0.0f};
+    m_basisFrame.TranslateLocal(raise);
+    Maths::Vector offset = m_basisFrame.row[3];
+    m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    Maths::Multiply(m_basisFrame, m_basisFrame, m_skater->m_basisFrame);
+    Maths::Vector moved;
+    m_pos = m_skater->m_basisFrame.Transform(moved, offset); // (the matrix times the offset, w too)
+    const Maths::Vector& at = m_skater->m_pos;
     m_pos.x = static_cast<float>(static_cast<double>(at.x) + m_pos.x);
     m_pos.y = static_cast<float>(static_cast<double>(at.y) + m_pos.y);
     m_pos.z = static_cast<float>(static_cast<double>(at.z) + m_pos.z);
@@ -250,17 +250,17 @@ CCrownObject* CCrownObject::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x00578490
-void CCrownObject::InitFromNode(CCompositeObjectManager* manager, Script::CStruct* node)
+void CCrownObject::InitFromNode(CEntityHub* manager, Scripts::CStruct* node)
 {
     manager->VirtualRegisterObject(this);
     AddMotionComponents(this);
-    Script::CStruct* model = NewStructure();
-    model->AddChecksum(kComponent, kModel);
+    Scripts::CStruct* model = NewStructure();
+    model->PutNameKey(kComponent, kModel);
     VirtualCreateComponentFromStructure(model, nullptr);
     DeleteStructure(model);
     AddNodeComponents(this, node);
@@ -270,40 +270,40 @@ void CCrownObject::InitFromNode(CCompositeObjectManager* manager, Script::CStruc
     *reinterpret_cast<float*>(suspend + 0x38) = 1000001.0f;
     *reinterpret_cast<float*>(suspend + 0x3C) = 1000002.0f;
     *reinterpret_cast<float*>(suspend + 0x40) = 1000003.0f;
-    Str::String file;
+    TextUtil::String file;
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).
-        alignas(Str::String) uint8_t storage[sizeof(Str::String)];
-        auto* path = Gfx::MakeModelPath(reinterpret_cast<Str::String*>(storage), "crown", ".mdl");
+        alignas(TextUtil::String) uint8_t storage[sizeof(TextUtil::String)];
+        auto* path = Gfx2D::MakeModelPath(reinterpret_cast<TextUtil::String*>(storage), "crown", ".mdl");
         file = *path;
         path->~String();
     }
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
     void* modelData = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GetComponent(kModel)) + 0x208);
-    static_cast<Nx::CModel*>(modelData)->AddFileGeom(file.c_str(), 0, true, 0, false, false, true, false);
+    static_cast<Engine3D::CRenderModel*>(modelData)->AddFileGeom(file.c_str(), 0, true, 0, false, false, true, false);
     modelData = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(GetComponent(kModel)) + 0x208);
-    static_cast<Nx::CModel*>(modelData)->SetActive(1);
-    SkateScript::GetPosition(node, &m_pos);
+    static_cast<Engine3D::CRenderModel*>(modelData)->SetActive(1);
+    LevelNodes::GetPosition(node, &m_pos);
     VirtualFinalize(this);
     UpdateModel(GetComponent(kModel));
 }
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kCrownVtable_slots[] = {&Obj::CCrownObject::Destroy,
-         &Obj::CObject::SetProperties,
-         static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
-         static_cast<bool (Obj::CCompositeObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(&Obj::CCompositeObject::CallMemberFunction),
+static VtableSlot kCrownVtable_slots[] = {&GameObjects::CCrownObject::Destroy,
+         &GameObjects::CObject::SetProperties,
+         static_cast<bool (GameObjects::CObject::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObject::InvokeMethodByName),
+         static_cast<bool (GameObjects::CGameEntity::*)(uint32_t, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CGameEntity::InvokeMethodByName),
          Stubs::IgnoreArgument,
-         &Obj::CObject::PassEventToScript,
-         &Obj::CCompositeObject::MarkAsDead,
-         &Obj::CCompositeObject::ShouldUpdateScripts,
-         &Obj::CCompositeObject::Finalize,
-         &Obj::CCompositeObject::CreateComponentFromStructure,
-         &Obj::CCrownObject::OwnUpdate};
+         &GameObjects::CObject::PassEventToScript,
+         &GameObjects::CGameEntity::FlagAsDead,
+         &GameObjects::CGameEntity::ShouldUpdateScripts,
+         &GameObjects::CGameEntity::Finalize,
+         &GameObjects::CGameEntity::CreateComponentFromStructure,
+         &GameObjects::CCrownObject::OwnUpdate};
 void** const kCrownVtable = reinterpret_cast<void**>(kCrownVtable_slots);
 
 } // namespace

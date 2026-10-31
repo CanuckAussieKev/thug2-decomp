@@ -35,7 +35,7 @@
 #include "game/obj/trigger_events.h"
 #include "game/gfx/model_utils.h"
 
-namespace Obj {
+namespace GameObjects {
 
 namespace {
 
@@ -61,28 +61,28 @@ T& Field(const void* object, uint32_t offset)
 }
 
 // --- textures (the texture dictionary 0x00700F20) ---
-void* TextureDictionary() { return reinterpret_cast<void*>(Nx::g_particleTextureDict); }
+void* TextureDictionary() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
 void* LoadTexture(const char* name, bool a, bool b, bool c)
 {
-    return static_cast<Nx::CTexDict*>(TextureDictionary())->LoadTexture(name, a, b, c);
+    return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->LoadTexture(name, a, b, c);
 }
 void* CopyTexture(uint32_t key, void* texture)
 {
-    return static_cast<Nx::CTexDict*>(TextureDictionary())->CopyTexture(key, static_cast<Nx::CTexture*>(texture));
+    return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->CopyTexture(key, static_cast<Engine3D::CBitmapTexture*>(texture));
 }
-void* FindTexture(uint32_t checksum) { return static_cast<Nx::CTexDict*>(TextureDictionary())->GetTexture(checksum); }
-void UnloadTexture(void* texture) { static_cast<Nx::CTexDict*>(TextureDictionary())->UnloadTexture(static_cast<Nx::CTexture*>(texture)); }
-void ReleaseTexture(void* texture) { reinterpret_cast<void(__thiscall*)(void*)>(&Nx::VirtualSlot32Jump)(texture); }
+void* FindTexture(uint32_t checksum) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->GetTexture(checksum); }
+void UnloadTexture(void* texture) { static_cast<Engine3D::CTextureSet*>(TextureDictionary())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(texture)); }
+void ReleaseTexture(void* texture) { reinterpret_cast<void(__thiscall*)(void*)>(&Engine3D::VirtualSlot32Jump)(texture); }
 // A texture's image put on `texture` (its vtable +0x10).
-void PutOn(void* texture, void* image) { reinterpret_cast<void(__thiscall*)(void*, void*)>(&Gfx::VirtualSlot4Jump)(texture, image); }
+void PutOn(void* texture, void* image) { reinterpret_cast<void(__thiscall*)(void*, void*)>(&Gfx2D::VirtualSlot4Jump)(texture, image); }
 
 // One of the component's own textures given back.
 void FreeTexture(void*& texture)
 {
     if (!texture)
         return;
-    Nx::Engine::KillTextureSplatsOfTexture(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(Field<void*>(texture, 4))));
-    static_cast<Nx::CTexture*>(texture)->SetPermanent(false);
+    Engine3D::Engine::KillTextureSplatsOfTexture(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(Field<void*>(texture, 4))));
+    static_cast<Engine3D::CBitmapTexture*>(texture)->PinResident(false);
     ReleaseTexture(texture);
     UnloadTexture(texture);
     texture = nullptr;
@@ -91,25 +91,25 @@ void FreeTexture(void*& texture)
 // A texture loaded on the memory manager's +0x110 heap.
 void* LoadOnTextureHeap(const char* name, bool c)
 {
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(Field<Mem::Allocator*>(memory, 0x110));
+    MemSys::Manager* memory = MemSys::Manager::Get();
+    memory->EnterHeapScope(Field<MemSys::Allocator*>(memory, 0x110));
     void* texture = LoadTexture(name, true, true, c);
-    Mem::Manager::Get()->PopContext();
+    MemSys::Manager::Get()->LeaveHeapScope();
     return texture;
 }
 
-GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
+OnlinePlay::Manager* NetManager() { return OnlinePlay::g_gameNetManager; }
 
-Script::CStruct* NewParams()
+Scripts::CStruct* NewParams()
 {
-    Script::CStruct* memory = Script::NewStruct();
+    Scripts::CStruct* memory = Scripts::NewStruct();
     return memory ? memory->Init() : nullptr;
 }
-void DeleteParams(Script::CStruct* params)
+void DeleteParams(Scripts::CStruct* params)
 {
     if (params) {
         params->Clear();
-        Script::DeleteStruct(params);
+        Scripts::DeleteStruct(params);
     }
 }
 
@@ -139,20 +139,20 @@ double X87Cos(double angle)
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // A float of the tag settings (in the global structure 0x6775E538, walk_parameters).
-float TagSetting(uint32_t name) { return CWalkComponent::Param(name); }
+float TagSetting(uint32_t name) { return CFootMovement::Param(name); }
 
 } // namespace
 
 // --- CTaggingComponent ---
 
 // 0x0051DA80
-CBaseComponent* __cdecl CTaggingComponent::Create()
+CObjectModule* __cdecl CTaggingComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CTaggingComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CTaggingComponent));
     if (!memory)
         return nullptr;
     auto* tagging = static_cast<CTaggingComponent*>(memory);
-    tagging->CBaseComponent::Construct();
+    tagging->CObjectModule::Construct();
     tagging->m_customTag = false;
     tagging->m_graffiti = nullptr;
     tagging->m_sticker = nullptr;
@@ -167,7 +167,7 @@ void CTaggingComponent::DestroyBody()
     m_vtable = kTaggingVtable;
     FreeTexture(m_graffiti);
     FreeTexture(m_sticker);
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0051D860
@@ -175,23 +175,23 @@ CTaggingComponent* CTaggingComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
 // 0x0051D890
-void CTaggingComponent::InitFromStructure(Script::CStruct* params)
+void CTaggingComponent::ConfigureFromData(Scripts::CStruct* params)
 {
     int skater = static_cast<int>(reinterpret_cast<uint32_t>(params));
-    params->GetInteger(0xA2B033FDu, &skater, 0);
+    params->FetchIntValue(0xA2B033FDu, &skater, 0);
     char key[32];
     std::snprintf(key, sizeof(key), "_%d", skater); // "_%d"
     void* texture = LoadOnTextureHeap("tags\\cas_01", true); // "tags\cas_01"
-    m_graffiti = CopyTexture(Crc::ExtendCRCWithString(0xF4FD2D63, key), texture);
+    m_graffiti = CopyTexture(Checksums::FoldTextIntoChecksum(0xF4FD2D63, key), texture);
     ReleaseTexture(texture);
     UnloadTexture(texture);
     texture = LoadOnTextureHeap("tags\\sticker", true); // "tags\sticker"
-    m_sticker = CopyTexture(Crc::ExtendCRCWithString(0x130618A0, key), texture);
+    m_sticker = CopyTexture(Checksums::FoldTextIntoChecksum(0x130618A0, key), texture);
     ReleaseTexture(texture);
     UnloadTexture(texture);
 }
@@ -221,7 +221,7 @@ void CTaggingComponent::SetStickerTexture(const char* name)
 }
 
 // 0x0051DB00
-int CTaggingComponent::CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript*)
+int CTaggingComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     switch (name) {
     case 0x19504222: { // SetGraffitiTexture
@@ -247,49 +247,49 @@ int CTaggingComponent::CallMemberFunction(uint32_t name, Script::CStruct* params
 }
 
 // 0x0051DBC0
-void CTaggingComponent::PlaceTag(bool sticker, Mth::Vector start, Mth::Vector end, int size, bool send)
+void CTaggingComponent::PlaceTag(bool sticker, Maths::Vector start, Maths::Vector end, int size, bool send)
 {
-    float turn = static_cast<float>(Script::GetFloat(0x2D7DF904u) * static_cast<double>(kDegreesToRadians));
+    float turn = static_cast<float>(Scripts::GetFloat(0x2D7DF904u) * static_cast<double>(kDegreesToRadians));
     float spin = 0.0f;
     if (sticker)
-        spin = static_cast<float>((Mth::Rnd(90) - 45) * static_cast<double>(kDegreesToRadians));
+        spin = static_cast<float>((Maths::Rnd(90) - 45) * static_cast<double>(kDegreesToRadians));
     float width = static_cast<float>(size);
-    Nx::Engine::CreateTextureSplatAt(&start, &end, width, width, spin, turn, 5000.0f,
+    Engine3D::Engine::CreateTextureSplatAt(&start, &end, width, width, spin, turn, 5000.0f,
                                      "", 0x54628ED7, 0, 0,
                                      static_cast<uint8_t*>(sticker ? m_sticker : m_graffiti));
     if (!send)
         return;
-    Net::MsgDesc msg;
+    NetLink::NetMessageInfo msg;
     msg.Construct();
-    GameNet::Manager* manager = NetManager();
+    OnlinePlay::Manager* manager = NetManager();
     if (!manager->InNetGame())
         return;
     struct {
         uint8_t objectId;
         uint8_t sticker;
         uint8_t pad[2];
-        Mth::Vector start;
-        Mth::Vector end;
+        Maths::Vector start;
+        Maths::Vector end;
         int size;
     } tag = {static_cast<uint8_t>(m_object->m_id), sticker, {}, start, end, size};
     msg.m_data = &tag;
-    msg.m_length = 0x28;
+    msg.m_byteCount = 0x28;
     msg.m_id = 0x99;
     msg.m_groupId = 0xA;
-    msg.m_queue = Net::MsgDesc::kQueueSequenced;
-    static_cast<Net::Client*>(manager->GetClient(0))->EnqueueMessageToServer(&msg);
+    msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    static_cast<NetLink::Client*>(manager->GetClient(0))->SendToHost(&msg);
 }
 
 // --- CTaggingControlComponent ---
 
 // 0x0051E280
-CBaseComponent* __cdecl CTaggingControlComponent::Create()
+CObjectModule* __cdecl CTaggingControlComponent::Create()
 {
-    void* memory = Mem::Calloc(sizeof(CTaggingControlComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CTaggingControlComponent));
     if (!memory)
         return nullptr;
     auto* control = static_cast<CTaggingControlComponent*>(memory);
-    control->CBaseComponent::Construct();
+    control->CObjectModule::Construct();
     control->m_vtable = kControlVtable;
     control->m_type = kType;
     control->m_pending = false;
@@ -301,7 +301,7 @@ CBaseComponent* __cdecl CTaggingControlComponent::Create()
 void CTaggingControlComponent::DestroyBody()
 {
     m_vtable = kControlVtable;
-    CBaseComponent::DestroyBody();
+    CObjectModule::DestroyBody();
 }
 
 // 0x0051DD60
@@ -309,7 +309,7 @@ CTaggingControlComponent* CTaggingControlComponent::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
-        Mem::Manager::Get()->Free(this);
+        MemSys::Manager::Get()->Free(this);
     return this;
 }
 
@@ -324,7 +324,7 @@ void CTaggingControlComponent::Finalize()
 }
 
 // 0x0051E300
-int CTaggingControlComponent::CallMemberFunction(uint32_t name, Script::CStruct*, Script::CScript*)
+int CTaggingControlComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct*, Scripts::CScript*)
 {
     switch (name) {
     case 0x89E8C244: // VertStickerSlap
@@ -360,12 +360,12 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
     }
     if (m_countdown > 0)
         return false;
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    Script::CStruct* settings = Script::GetStructure(0x6775E538u);
+    Scripts::CStruct* settings = Scripts::ReadSubStruct(0x6775E538u);
     float reach;
-    Mth::Vector facing;
-    CCompositeObject* skater = m_corePhysics->m_object;
+    Maths::Vector facing;
+    CGameEntity* skater = m_corePhysics->m_object;
     if (!sticker) {
         settings->GetFloat(0xE7AB5365u, &reach, 1);
         if (!walking) {
@@ -373,15 +373,15 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
             facing.z = skater->m_vel.z;
             facing.w = skater->m_vel.w;
         } else {
-            Mth::Vector heading;
-            const Mth::Vector* got = static_cast<CWalkComponent*>(m_walk)->GetFacing(&heading);
+            Maths::Vector heading;
+            const Maths::Vector* got = static_cast<CFootMovement*>(m_walk)->GetFacing(&heading);
             facing.x = got->x;
             facing.z = got->z;
             facing.w = got->w;
         }
     } else {
         settings->GetFloat(0x7B5E76C4u, &reach, 1);
-        const Mth::Vector& up = skater->m_matrix.row[1];
+        const Maths::Vector& up = skater->m_basisFrame.row[1];
         facing.x = -up.x;
         facing.z = -up.z;
         facing.w = up.w;
@@ -389,10 +389,10 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
     facing.y = 0.0f;
     facing.Normalize();
 
-    Mth::Vector from = m_object->m_pos;
+    Maths::Vector from = m_object->m_pos;
     double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
     from.y = static_cast<float>(from.y + height);
-    feeler.SetIgnore(0x3000, 0);
+    feeler.SetExcluded(0x3000, 0);
     // From 12 behind to the reach ahead (the w's products kept unrounded).
     float backX = facing.x * kInch, backY = facing.y * kInch, backZ = facing.z * kInch;
     double backW = static_cast<double>(facing.w) * kInch;
@@ -400,23 +400,23 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
     float aheadX = facing.x * reach, aheadY = facing.y * reach, aheadZ = facing.z * reach;
     double aheadW = static_cast<double>(facing.w) * reach;
     feeler.m_line.end = {from.x + aheadX, from.y + aheadY, from.z + aheadZ, static_cast<float>(aheadW + from.w)};
-    if (!feeler.GetCollision(true, false)) {
-        Dbg::Printf("No contact found for sticker?\n"); // "No contact found for sticker?"
+    if (!feeler.GetHitShape(true, false)) {
+        DebugOut::Printf("No contact found for sticker?\n"); // "No contact found for sticker?"
         return false;
     }
 
     // The wall: 12 out from it along its normal, and 12 into it (as the original rounds them).
-    const Mth::Vector& point = feeler.m_point;
-    const Mth::Vector& normal = feeler.m_normal;
+    const Maths::Vector& point = feeler.m_contactPos;
+    const Maths::Vector& normal = feeler.m_surfaceDir;
     double nw = static_cast<double>(normal.w) * kInch;
     double nz = static_cast<double>(normal.z) * kInch;
     double ny = static_cast<double>(normal.y) * kInch;
     float nxf = static_cast<float>(static_cast<double>(normal.x) * kInch);
     float nwf = static_cast<float>(nw);
     float nyf = static_cast<float>(ny);
-    Mth::Vector inside = {static_cast<float>(point.x - static_cast<double>(nxf)), static_cast<float>(point.y - ny),
+    Maths::Vector inside = {static_cast<float>(point.x - static_cast<double>(nxf)), static_cast<float>(point.y - ny),
                           static_cast<float>(point.z - nz), static_cast<float>(point.w - static_cast<double>(nwf))};
-    Mth::Vector outside = {static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
+    Maths::Vector outside = {static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
                            static_cast<float>(point.y + static_cast<double>(nyf)),
                            static_cast<float>(static_cast<float>(point.z + nz) + 1.0),
                            static_cast<float>(point.w + static_cast<double>(nwf))};
@@ -426,7 +426,7 @@ bool CTaggingControlComponent::SlapSticker(bool sticker, bool walking, bool low)
             m_countdown = 10;
             return true;
         }
-        Dbg::Printf("sticker.............................\n"); // "sticker......"
+        DebugOut::Printf("sticker.............................\n"); // "sticker......"
         m_tagging->PlaceTag(true, outside, inside, 30, true);
         return true;
     }
@@ -450,28 +450,28 @@ bool CTaggingControlComponent::Update()
     int walkState = Field<int>(m_walk, 0x18);
     if (walkState != 2 && walkState != 0)
         return false;
-    CBaseComponent* core = m_object->GetComponent(kSkaterCorePhysics);
-    CBaseComponent* skeleton = m_object->GetComponent(kSkeleton);
+    CObjectModule* core = m_object->GetComponent(kSkaterCorePhysics);
+    CObjectModule* skeleton = m_object->GetComponent(kSkeleton);
     uint32_t bone = Field<bool>(Field<uint8_t*>(core, 0x1528), 0x28) ? 0x82B37CBCu : 0x78BC41DFu;
     if (Field<uint32_t>(m_object, 0x158) == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
     auto* button = reinterpret_cast<CControlButton*>(reinterpret_cast<uint8_t*>(m_input) + 0x1A0);
-    bool tapped = Field<bool>(button, 0) && static_cast<uint32_t>(button->GetPressedTime()) < 100u;
+    bool tapped = Field<bool>(button, 0) && static_cast<uint32_t>(button->GetHeldMillis()) < 100u;
     if (!tapped && (!m_pending || m_countdown != 0))
         return true;
 
     float reach = TagSetting(0xDC98A1BE);
-    Nx::CFeeler feeler;
+    Engine3D::CProbeRay feeler;
     feeler.Construct();
-    Mth::Vector bonePos;
-    static_cast<CSkeletonComponent*>(skeleton)->GetBonePosition(bone, &bonePos);
+    Maths::Vector jointWorld;
+    static_cast<CBoneRigModule*>(skeleton)->GetBonePosition(bone, &jointWorld);
     if (Field<int>(m_walk, 0x18) == 2)
-        bonePos.y = static_cast<float>(bonePos.y - 10.0); // 0x00646710
-    Mth::Vector hits[6];
+        jointWorld.y = static_cast<float>(jointWorld.y - 10.0); // 0x00646710
+    Maths::Vector hits[6];
     float distances[6];
     float rise = static_cast<float>(reach * 0.0);
     bool found = false;
-    const Mth::Vector& heading = Field<Mth::Vector>(m_walk, 0x48);
+    const Maths::Vector& heading = Field<Maths::Vector>(m_walk, 0x48);
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
         double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
@@ -483,23 +483,23 @@ bool CTaggingControlComponent::Update()
     for (int i = 0; i < 6; ++i) {
         float dx, dz;
         direction(i, dx, dz);
-        feeler.SetIgnore(0x3000, 0);
+        feeler.SetExcluded(0x3000, 0);
         float backZ = dz * kInch, backX = dx * kInch;
-        feeler.m_line.start = {bonePos.x - backX, bonePos.y, bonePos.z - backZ, static_cast<float>(bonePos.w - 12.0)};
+        feeler.m_line.start = {jointWorld.x - backX, jointWorld.y, jointWorld.z - backZ, static_cast<float>(jointWorld.w - 12.0)};
         float aheadZ = dz * reach, aheadX = dx * reach;
-        feeler.m_line.end = {bonePos.x + aheadX, bonePos.y + rise, bonePos.z + aheadZ,
-                             static_cast<float>(static_cast<double>(reach) + bonePos.w)};
-        if (feeler.GetCollision(true, false)) {
-            hits[i] = feeler.m_point;
-            distances[i] = std::fabs(feeler.m_distance);
+        feeler.m_line.end = {jointWorld.x + aheadX, jointWorld.y + rise, jointWorld.z + aheadZ,
+                             static_cast<float>(static_cast<double>(reach) + jointWorld.w)};
+        if (feeler.GetHitShape(true, false)) {
+            hits[i] = feeler.m_contactPos;
+            distances[i] = std::fabs(feeler.m_reach);
             found = true;
-            static_cast<CTriggerComponent*>(m_trigger)->CheckFeeler(g_taggingEvents, &feeler);
+            static_cast<CActivationZoneModule*>(m_trigger)->CheckFeeler(g_taggingEvents, &feeler);
         } else {
             distances[i] = 1000.0f;
         }
     }
     if (!found) {
-        Dbg::Printf("No contact found for splat?\n");
+        DebugOut::Printf("No contact found for splat?\n");
         return false;
     }
 
@@ -517,20 +517,20 @@ bool CTaggingControlComponent::Update()
     float distance = static_cast<float>(nearestDistance);
     float backZ = dz * kInch, backX = dx * kInch;
     for (int j = 0; j < 5; ++j) {
-        feeler.SetIgnore(0x3000, 0);
-        feeler.m_line.start = {bonePos.x - backX, bonePos.y, bonePos.z - backZ, static_cast<float>(bonePos.w - 12.0)};
+        feeler.SetExcluded(0x3000, 0);
+        feeler.m_line.start = {jointWorld.x - backX, jointWorld.y, jointWorld.z - backZ, static_cast<float>(jointWorld.w - 12.0)};
         float aheadZ = dz * distance, aheadY = static_cast<float>(distance * 0.0), aheadX = dx * distance;
-        feeler.m_line.end = {bonePos.x + aheadX, bonePos.y + aheadY, bonePos.z + aheadZ,
-                             static_cast<float>(static_cast<double>(distance) + bonePos.w)};
-        if (feeler.GetCollision(true, false))
+        feeler.m_line.end = {jointWorld.x + aheadX, jointWorld.y + aheadY, jointWorld.z + aheadZ,
+                             static_cast<float>(static_cast<double>(distance) + jointWorld.w)};
+        if (feeler.GetHitShape(true, false))
             break;
         distance = static_cast<float>(distance + 10.0);
     }
-    Mth::Vector start = feeler.m_line.start, end = feeler.m_line.end;
+    Maths::Vector start = feeler.m_line.start, end = feeler.m_line.end;
 
     if (!m_pending) {
         m_pending = true;
-        Script::RunScript(Field<int>(m_walk, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, m_object, false, nullptr);
+        Scripts::LaunchScript(Field<int>(m_walk, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, m_object, false, nullptr);
         m_countdown = 30;
         return true;
     }
@@ -538,11 +538,11 @@ bool CTaggingControlComponent::Update()
     int comboScore = Truncated(Field<int>(score, 0x14) * static_cast<double>(Field<float>(score, 0x60)));
     int size = comboScore > 5000 ? 100 : (comboScore > 1000 ? 75 : 50);
     m_tagging->PlaceTag(false, start, end, size, true);
-    m_cooldown = Script::GetFloat(0xD29DE3D7u);
+    m_cooldown = Scripts::GetFloat(0xD29DE3D7u);
     if (comboScore > 0) {
-        Script::CStruct* params = NewParams();
-        params->AddFloat(0xE6306423u, static_cast<float>(size));
-        Script::RunScript(0x2B8E0B2B, params, m_object, false, nullptr);
+        Scripts::CStruct* params = NewParams();
+        params->PushFloat(0xE6306423u, static_cast<float>(size));
+        Scripts::LaunchScript(0x2B8E0B2B, params, m_object, false, nullptr);
         DeleteParams(params);
     }
     m_pending = false;
@@ -551,36 +551,36 @@ bool CTaggingControlComponent::Update()
 
 } // namespace Obj
 
-namespace Obj {
+namespace GameObjects {
 namespace {
 
-static VtableSlot kTaggingVtable_slots[] = {&Obj::CTaggingComponent::Destroy,
-         &Obj::ComponentWithoutUpdate::Update,
-         &Obj::CTaggingComponent::InitFromStructure,
+static VtableSlot kTaggingVtable_slots[] = {&GameObjects::CTaggingComponent::Destroy,
+         &GameObjects::ComponentWithoutUpdate::Update,
+         &GameObjects::CTaggingComponent::ConfigureFromData,
          Stubs::DoNothing,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CTaggingComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CTaggingComponent::InvokeMethodByName};
 void** const kTaggingVtable = reinterpret_cast<void**>(kTaggingVtable_slots);
-static VtableSlot kControlVtable_slots[] = {&Obj::CTaggingControlComponent::Destroy,
-         &Obj::CTaggingControlComponent::Update,
+static VtableSlot kControlVtable_slots[] = {&GameObjects::CTaggingControlComponent::Destroy,
+         &GameObjects::CTaggingControlComponent::Update,
          Stubs::IgnoreArgument,
-         &Obj::CTaggingControlComponent::Finalize,
+         &GameObjects::CTaggingControlComponent::Finalize,
          Stubs::DoNothing,
-         Obj::RefreshFromStructure,
+         GameObjects::ReapplyFromData,
          Stubs::IgnoreArguments2,
-         &Obj::CBaseComponent::Suspend,
+         &GameObjects::CObjectModule::Suspend,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
-         &Obj::CTaggingControlComponent::CallMemberFunction};
+         static_cast<int (GameObjects::CObjectModule::*)(Scripts::CMemberFunctionEntry*, Scripts::CStruct*, Scripts::CScript*)>(&GameObjects::CObjectModule::InvokeMethodByName),
+         &GameObjects::CTaggingControlComponent::InvokeMethodByName};
 void** const kControlVtable = reinterpret_cast<void**>(kControlVtable_slots);
 
 } // namespace

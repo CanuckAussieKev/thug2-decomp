@@ -10,7 +10,7 @@
 #include "game/front/level_editor_playtest.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::PlayTest {
+namespace MenuSystem::LevelEditor::PlayTest {
 
 namespace {
 
@@ -194,4 +194,4 @@ void Window(float scale, ImFont* heading, ImFont* small)
         WindowOpen() = false;
 }
 
-} // namespace Front::LevelEditor::PlayTest
+} // namespace MenuSystem::LevelEditor::PlayTest

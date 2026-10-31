@@ -11,7 +11,7 @@
 // Not done (yet): the seven wireframe styles of SetWireframeMode (0x006FA730: face flags, poly density, low-poly
 // highlight, unique object / mesh colours, mesh vertex density, occlusion map) and wireframe_skins (skinned models on
 // their own) - their drawing was the console builds' debug renderer.
-namespace Nx::Wireframe {
+namespace Engine3D::Wireframe {
 
 // The render mode (0 = normal).
 int RenderMode();
@@ -20,4 +20,4 @@ void BeginWorld();
 // After them: solid again (before the full-screen effects and the 2D).
 void EndWorld();
 
-} // namespace Nx::Wireframe
+} // namespace Engine3D::Wireframe

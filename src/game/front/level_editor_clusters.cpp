@@ -27,7 +27,7 @@
 #include "game/sys/log.h"
 #include "imgui.h"
 
-namespace Front::LevelEditor::Clusters {
+namespace MenuSystem::LevelEditor::Clusters {
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -106,14 +106,14 @@ std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept 
 // The Inspector's typed cluster name.
 char g_typed[64];
 
-uint8_t* Manager() { return reinterpret_cast<uint8_t*>(Obj::g_trickObjectManager); }
+uint8_t* Manager() { return reinterpret_cast<uint8_t*>(GameObjects::g_trickObjectManager); }
 
-Script::CStruct* NodeOf(uint32_t sector)
+Scripts::CStruct* NodeOf(uint32_t sector)
 {
-    return SkateScript::GetNode(sector, false);
+    return LevelNodes::GetNode(sector, false);
 }
 
-Obj::CTrickObjectManager* TrickObjects(uint8_t* manager) { return reinterpret_cast<Obj::CTrickObjectManager*>(manager); }
+GameObjects::CTrickSpotHub* TrickObjects(uint8_t* manager) { return reinterpret_cast<GameObjects::CTrickSpotHub*>(manager); }
 // The manager's cluster of that name, null for none.
 uint8_t* ClusterObject(uint8_t* manager, uint32_t cluster)
 {
@@ -154,7 +154,7 @@ void Unregister(uint32_t name, uint32_t cluster)
             node = next;
         }
     }
-    reinterpret_cast<Lst::HashTable*>(manager + 0x20)->FlushItem(name);
+    reinterpret_cast<ListKit::HashTable*>(manager + 0x20)->EraseEntry(name);
 }
 
 // The piece made `to` in the manager, from `from`.
@@ -211,16 +211,16 @@ std::shared_ptr<Step> Capture(const std::vector<uint32_t>& sectors)
 
 bool Level(uint32_t sector, Membership* m)
 {
-    Script::CStruct* node = NodeOf(sector);
+    Scripts::CStruct* node = NodeOf(sector);
     if (!node)
         return false;
-    bool all = !GameConfig::g_fromCD && Script::GetInteger(kAllTrickObjects) != 0;
-    bool trick = all || node->ContainsComponentNamed(kTrickObject);
+    bool all = !GameConfig::g_fromCD && Scripts::FetchIntValue(kAllTrickObjects) != 0;
+    bool trick = all || node->HasEntryNamed(kTrickObject);
     // (the load's gate 0x00565BB0: such a node isn't registered - absent from this game)
-    if (trick && Mdl::Skate::ShouldBeAbsent(node))
+    if (trick && GameModules::Skate::ShouldBeAbsent(node))
         trick = false;
     uint32_t cluster = 0;
-    bool has = node->GetChecksum(kCluster, &cluster, 0);
+    bool has = node->ReadHashValue(kCluster, &cluster, 0);
     *m = FromNode(sector, trick, has, cluster);
     return true;
 }
@@ -392,7 +392,7 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     if (ImGui::Button("Set Cluster")) {
         g_queue.push_back([pieces, typed] {
             Fields::Remember(typed);
-            Set(pieces, true, Crc::GenerateCRCFromString(typed.c_str()));
+            Set(pieces, true, Checksums::HashFromText(typed.c_str()));
         });
     }
     ImGui::EndDisabled();
@@ -420,4 +420,4 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     ImGui::EndDisabled();
 }
 
-} // namespace Front::LevelEditor::Clusters
+} // namespace MenuSystem::LevelEditor::Clusters

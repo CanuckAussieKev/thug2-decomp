@@ -3,7 +3,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 
-namespace Obj {
+namespace GameObjects {
 
 // 0x004E4340: a per-frame blend `rate` (as at 60 frames a second) for a frame of `seconds`:
 // rate * 60 * seconds / (1 - rate + rate * 60 * seconds). The camera components' smoothing.
@@ -14,7 +14,7 @@ double __cdecl FrameBlend(float rate, float seconds);
 // line); with `sideways`, it's pushed off walls 8 to either side across `matrix`'s right row (the right side
 // first); with `refocus` - and a side wall found - `matrix` is turned to look from the position at `focus`
 // (its rows rebuilt with the original's cross products, right and at negated).
-void __cdecl AvoidCameraCollisions(Mth::Vector* position, Mth::Matrix* matrix, const Mth::Vector* target,
-                                   const Mth::Vector* focus, bool sideways, bool refocus);
+void __cdecl AvoidCameraCollisions(Maths::Vector* position, Maths::Matrix* matrix, const Maths::Vector* target,
+                                   const Maths::Vector* focus, bool sideways, bool refocus);
 
 } // namespace Obj

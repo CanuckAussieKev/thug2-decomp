@@ -7,7 +7,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 
-namespace Lst {
+namespace ListKit {
 
 static_assert(sizeof(HashTable::Item) == 12 && offsetof(HashTable, m_iterItem) == 0x10 &&
                   offsetof(HashTable, m_flag) == 0x14,
@@ -18,7 +18,7 @@ HashTable::HashTable(int bits)
 {
     m_bits = bits;
     int count = 1 << bits;
-    auto* buckets = static_cast<Item*>(Mem::New(static_cast<unsigned int>(count) * sizeof(Item)));
+    auto* buckets = static_cast<Item*>(MemSys::New(static_cast<unsigned int>(count) * sizeof(Item)));
     if (buckets) {
         for (int i = 0; i < count; ++i)
             buckets[i] = {0, nullptr, nullptr};
@@ -32,8 +32,8 @@ HashTable::HashTable(int bits)
 HashTable::~HashTable()
 {
     if (m_buckets) {
-        FlushAllItems();
-        Mem::Free(m_buckets);
+        EmptyTable();
+        MemSys::Free(m_buckets);
         m_buckets = nullptr;
     }
 }
@@ -54,12 +54,12 @@ void* HashTable::GetItem(const uint32_t& key, bool /*unused*/) const
 }
 
 // 0x00462740
-bool HashTable::PutItem(const uint32_t& key, void* value)
+bool HashTable::StoreEntry(const uint32_t& key, void* value)
 {
     Item* bucket = &m_buckets[key & ((1u << m_bits) - 1)];
     if (bucket->value) {
         // The bucket's own slot is taken: chain a new item right after it.
-        auto* item = static_cast<Item*>(Mem::PoolManager::CreateItem(0));
+        auto* item = static_cast<Item*>(MemSys::SlotPoolSetup::CreateItem(0));
         *item = {key, value, bucket->next};
         bucket->next = item;
     } else {
@@ -71,7 +71,7 @@ bool HashTable::PutItem(const uint32_t& key, void* value)
 }
 
 // 0x005B80D0
-void HashTable::FlushItem(const uint32_t& key)
+void HashTable::EraseEntry(const uint32_t& key)
 {
     if (!m_buckets)
         return;
@@ -85,7 +85,7 @@ void HashTable::FlushItem(const uint32_t& key)
     }
     if (previous) {
         previous->next = item->next;
-        Mem::PoolManager::FreeItem(0, item);
+        MemSys::SlotPoolSetup::FreeItem(0, item);
     } else {
         // The bucket's own slot: empty it, keeping any chain behind it.
         item->key = 0;
@@ -95,7 +95,7 @@ void HashTable::FlushItem(const uint32_t& key)
 }
 
 // 0x0049FD30
-void HashTable::FlushAllItems()
+void HashTable::EmptyTable()
 {
     if (!m_buckets)
         return;
@@ -103,7 +103,7 @@ void HashTable::FlushAllItems()
     for (unsigned int i = 1u << m_bits; i != 0; --i, ++bucket) {
         for (Item* item = bucket->next; item;) {
             Item* next = item->next;
-            Mem::PoolManager::FreeItem(0, item);
+            MemSys::SlotPoolSetup::FreeItem(0, item);
             item = next;
         }
         *bucket = {0, nullptr, nullptr};
@@ -129,7 +129,7 @@ void HashTable::HandleCallback(Callback callback, void* data)
 }
 
 // 0x00588190
-bool HashTable::IterateNext()
+bool HashTable::StepIterator()
 {
     if (m_iterItem)
         m_iterItem = m_iterItem->next;
@@ -156,8 +156,8 @@ bool HashTable::IterateNext()
 namespace {
 
 struct HashTableAdapter {
-    Lst::HashTable* Construct(int bits) { return new (this) Lst::HashTable(bits); }
-    void Destroy() { reinterpret_cast<Lst::HashTable*>(this)->~HashTable(); }
+    ListKit::HashTable* Construct(int bits) { return new (this) ListKit::HashTable(bits); }
+    void Destroy() { reinterpret_cast<ListKit::HashTable*>(this)->~HashTable(); }
 };
 
 } // namespace
