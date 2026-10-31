@@ -5,6 +5,7 @@
 // to float only where the original stores them.
 
 #include "game/rider/skater_camera_component.h"
+#include "game/rider/physics_control.h"
 
 #include <bit>
 #include <cstdint>
@@ -29,6 +30,7 @@
 #include "engine/objects/node_components.h"
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -62,7 +64,11 @@ constexpr float kTiltBase = 0.4f;                 // 0x0064BAF8
 constexpr float kZoomedHeight = 3.0f;             // 0x006467A8
 
 // In vert air: the state's +0x30 on, +0x48 and +0x78 off.
-bool vert_air(const uint8_t* state) { return state[0x30] && !state[0x48] && !state[0x78]; }
+bool vert_air(const objects::RiderPoseState* state)
+{
+    return state->flag(PoseFlag::kVertAir).on && !state->flag(PoseFlag::kLeftVert).on &&
+           !state->flag(PoseFlag::kAcidDrop).on;
+}
 
 } // namespace
 
@@ -71,12 +77,12 @@ bool RiderChaseView::get_look_down()
 {
     if (!rider_ref_)
         return false;
-    uint8_t* state = state_ref_;
-    if (get_at<int>(state, 0x1C))
+    objects::RiderPoseState* state = state_ref_;
+    if (state->physics_mode_)
         return false;
-    if (get_at<int>(state, 0x18) == 3 || vert_air(state))
+    if (state->cur_phase_ == 3 || vert_air(state))
         return true;
-    return state[0xF4] != 0;
+    return state->lip_straight_up_ != 0;
 }
 
 // 0x004F9F00
@@ -134,7 +140,7 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
     } else {
         rate_scale_ = 1.0f;
     }
-    uint8_t* state = state_ref_;
+    objects::RiderPoseState* state = state_ref_;
     float across;
     double up;
     bool snap = instant;
@@ -147,9 +153,9 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
             static_cast<float>(frame_blend(static_cast<float>(lerp_xz_ * static_cast<double>(rate_scale_)), seconds));
         up = frame_blend(static_cast<float>(lerp_y_ * static_cast<double>(rate_scale_)), seconds);
         state = state_ref_;
-        if (state[0x98])
+        if (state->flag(PoseFlag::kGroundSnapped).on)
             up = 1.0;
-        if (state[0xA0])
+        if (state->flag(PoseFlag::kWallplanted).on)
             snap = true;
     }
     maths::Vec4& target = aim_point_;
@@ -172,17 +178,17 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
     if (!rider_ref_)
         return;
     zoom_target_ = 1.0f;
-    uint8_t* state = state_ref_;
-    if (!vert_zoom_on_ && vert_air(state) && state[0xE0])
+    objects::RiderPoseState* state = state_ref_;
+    if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move_)
         vert_zoom_on_ = 1;
     else if (!vert_air(state_ref_))
         vert_zoom_on_ = 0;
     state = state_ref_;
     if (vert_zoom_on_)
         zoom_target_ = big_air_trick_zoom_;
-    else if (get_at<int>(state, 0x18) == 4)
+    else if (state->cur_phase_ == 4)
         zoom_target_ = rail_zoom_factor_;
-    else if (get_at<int>(state, 0x18) == 3)
+    else if (state->cur_phase_ == 3)
         zoom_target_ = lip_trick_zoom_;
     FreeLookModule* look_around = free_look_module_;
     if (look_around->turning_ && std::bit_cast<uint32_t>(look_around->factor_) != 0x3F800000u)
@@ -195,7 +201,7 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
     if (tilt < 0.0f)
         *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) *
                                        behind);
-    float above = get_at<int>(state_ref_, 0x18) == 3 ? lip_trick_above_ : above_;
+    float above = state_ref_->cur_phase_ == 3 ? lip_trick_above_ : above_;
     if (zoom_ < 1.0f)
         *height = static_cast<float>((static_cast<double>(above) - kZoomedHeight) * zoom_ + kZoomedHeight);
     else
@@ -211,8 +217,8 @@ void RiderChaseView::bind_rider(GameEntity* skater)
         control_ = nullptr;
         return;
     }
-    state_ref_ = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterState));
-    control_ = reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kPhysicsControl));
+    state_ref_ = static_cast<RiderPoseState*>(skater->fetch_module(kSkaterState));
+    control_ = static_cast<RiderBoardPhysics*>(rider_ref_->fetch_module(kPhysicsControl));
     instant_frames_ = 3;
 }
 

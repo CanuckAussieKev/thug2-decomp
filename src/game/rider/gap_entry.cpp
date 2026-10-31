@@ -34,6 +34,8 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/trick_component.h"
 #include "game/rider/walk_physics.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/physics_control.h"
 
 namespace objects {
 
@@ -164,13 +166,10 @@ void add_gap_score(uint8_t* score, const char* text, int points, int flags)
     reinterpret_cast<modules::PointTally*>(score)->fire_off(text, points, static_cast<uint32_t>(flags));
 }
 
-// The state component (the physics control's +0x2C): +0x118 driving, +0x1C walking.
-uint8_t* state_of(uint8_t* physics_control) { return prop<uint8_t*>(physics_control, 0x2C); }
-// The core physics' state component (+0x1528).
-uint8_t* get_core_state(skater::SkaterPhysicsModule* core_physics)
-{
-    return reinterpret_cast<uint8_t*>(core_physics->state_);
-}
+// The state component (the physics control's).
+RiderPoseState* state_of(RiderBoardPhysics* physics_control) { return physics_control->pose_; }
+// The core physics' state component.
+RiderPoseState* get_core_state(skater::SkaterPhysicsModule* core_physics) { return core_physics->state_; }
 
 // Spin degrees in half turns (truncated, as the original's division).
 int get_half_turns(int degrees) { return degrees / 180; }
@@ -205,7 +204,7 @@ void RiderGapTracker::seal()
 {
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     balance_trick_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterBalanceTrick));
-    physics_control_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterPhysicsControl));
+    physics_control_ = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl));
     walk_ = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
 }
 
@@ -228,8 +227,8 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *cancel |= bit;
         *require |= bit << kRequireShift;
     };
-    uint8_t* state = state_of(physics_control_);
-    if (prop<uint8_t>(state, 0x118)) {
+    objects::RiderPoseState* state = state_of(physics_control_);
+    if (state->in_vehicle_) {
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
@@ -238,7 +237,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         set(prop<uint32_t>(physics, 0x114) != 0 ? kGapGround : kGapAir);
         return;
     }
-    if (prop<int>(state, 0x1C) != 0) {
+    if (state->physics_mode_ != 0) {
         // Walking: the walk component's state.
         *cancel = kGapWalking;
         *require |= kGapWalking << kRequireShift;
@@ -263,11 +262,11 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     // Skating: the core physics' state.
     *cancel = kGapSkating;
     *require |= kGapSkating << kRequireShift;
-    uint8_t* core_state = get_core_state(core_physics_);
-    switch (prop<int>(core_state, 0x18)) {
+    objects::RiderPoseState* core_state = get_core_state(core_physics_);
+    switch (core_state->cur_phase_) {
     case 0: { // the ground: plain (+0x90 and the balance trick's two clear) or a manual
         bool balancing = prop<uint32_t>(balance_trick_, 0x18) != 0 || prop<uint8_t>(balance_trick_, 0x1C) != 0;
-        if (!prop<uint8_t>(core_state, 0x90) && !balancing)
+        if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing)
             set(kGapGround);
         if (balancing)
             set(kGapManual);
@@ -368,7 +367,7 @@ void RiderGapTracker::clear_gap_tricks(script::Struct* params)
 // 0x00512360
 void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 {
-    if (prop<uint8_t>(get_core_state(core_physics_), 0x70))
+    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on)
         return;
     uint32_t gap_id = 0;
     params->read_hash_value(kGapId, &gap_id, 0);
@@ -446,7 +445,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         gap_option_labels(gap) |= kGapDriving;
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
-    bool driving_matters = prop<uint8_t>(state_of(physics_control_), 0x118) && (gap_option_labels(gap) & kGapDriving);
+    bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
     if (!driving_matters && prop<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) == kOff)
         return;
     uint32_t cancel, require;
@@ -457,7 +456,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 // 0x00512770
 void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
 {
-    if (prop<uint8_t>(get_core_state(core_physics_), 0x70))
+    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on)
         return;
     uint32_t gap_id = 0;
     params->read_hash_value(kGapId, &gap_id, 0);

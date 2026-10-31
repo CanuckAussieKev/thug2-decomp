@@ -16,6 +16,8 @@ class Struct;
 
 namespace objects {
 
+class RiderPoseState;
+
 struct RiderIdentity;
 
 // A button event (0x18 bytes, 100 of them from +0x38; the newest at event_head_).
@@ -280,7 +282,7 @@ public:
     ObjectModule* balance_trick_;               // +0x24
     skater::SkaterPhysicsModule* core_physics_; // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
     ObjectModule* flip_rotate_;                 // +0x2C
-    ObjectModule* skater_state_;                // +0x30
+    RiderPoseState* skater_state_;              // +0x30
     ObjectModule* stats_manager_;               // +0x34
     TrickEvent events_[kEvents];                // +0x38
     uint16_t event_count_;                      // +0x998

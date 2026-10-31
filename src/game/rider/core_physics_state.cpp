@@ -33,6 +33,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_sound.h"
 #include "engine/objects/movable_contact.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -60,7 +61,6 @@ const char* const kSourceFile = "mponents\\SkaterCorePhysicsComponent.cpp"; // (
 const char* const kFreeRevertText = "You earned a free revert!!!!";         // "You earned a free revert!!!!"
 
 // The fields used here.
-constexpr uint32_t kTakeOffHeight = 0x11C; // (in the flags block)
 
 // The game's constants.
 constexpr float kMillisecondsPerSecond = 1000.0f; // 0x006453C0
@@ -131,15 +131,14 @@ void SkaterPhysicsModule::get_reset()
     old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
     for (int flag = 0x17; flag >= 0; --flag) {
-        uint32_t offset = 0x20 + flag * 8;
-        set_timed_flag(this, offset, 1);
+        set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
         if (flag == 7)
             sound_->sliding_ = 1;
-        set_timed_flag(this, offset, 0);
+        set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
         if (flag == 7)
             sound_->sliding_ = 0;
     }
-    set_timed_flag(this, 0x28, !static_cast<objects::Rider*>(entity_)->goofy_);
+    set_timed_flag(this, PoseFlag::kFlipped, !static_cast<objects::Rider*>(entity_)->goofy_);
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
     auto* rider = reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(ride->ride_);
@@ -159,7 +158,7 @@ void SkaterPhysicsModule::get_reset()
     bail_on_ = 0;
     no_kick_ = 0;
     can_brake_ = 1;
-    flags_of(this)[0xF4] = 0;
+    state_->lip_straight_up_ = 0;
     rail_node_ = nullptr;
     if (bits_as<uint32_t>(limits_time_) != 0xC0000000u) // (-2: kept)
         limits_time_ = 0.0f;
@@ -214,13 +213,13 @@ void SkaterPhysicsModule::update_free_revert()
 // 0x005007A0
 void SkaterPhysicsModule::update_focus_button()
 {
-    uint8_t* button = input_of(this) + 0xE0;
+    objects::ControlButton* button = &input_->pad_primary_.stick_click_left_;
     if (focus_held_) {
-        if (!button[0])
+        if (!button->held_down_)
             focus_held_ = 0;
         return;
     }
-    if (!button[0])
+    if (!button->held_down_)
         return;
     int wait = script::fetch_int_value(kFocusButtonTime);
     if (time_since_press(button) > wait) {
@@ -232,7 +231,7 @@ void SkaterPhysicsModule::update_focus_button()
 // 0x00500820
 void SkaterPhysicsModule::update_projectiles()
 {
-    if (throwing_projectile_ || !projectiles_on_ || flags_of(this)[0x70])
+    if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on)
         return;
     uint8_t* other = reinterpret_cast<uint8_t*>(tagging_component_);
     if (other[0x1C] || get_at<int>(other, 0x18) || !(get_at<float>(other, 0x20) == 0.0f))
@@ -261,7 +260,7 @@ void SkaterPhysicsModule::update_model_rotation()
     double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
-    if (get_at<int>(flags_of(this), kState) != 1) {
+    if (state_->cur_phase_ != 1) {
         reset_rotations();
         model_rotating_ = 0;
         no_rail_tricks_ = 0;
@@ -309,7 +308,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* scri
 {
     objects::GameEntity* object = object_of(this);
     float y = object->at_point_.y;
-    float drop = static_cast<float>(y - (static_cast<double>(y) - get_at<float>(flags_of(this), kTakeOffHeight)));
+    float drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground_));
     float upward = object->vel_.y;
     double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
@@ -375,7 +374,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         object->own_script_->bind_script(tricks->fetch_part(buttons), nullptr, object);
     }
     skater_object(this)->own_script_->tick_frame();
-    flags_of(this)[0xE0] = 1;
+    state_->in_trick_move_ = 1;
 }
 
 } // namespace skater

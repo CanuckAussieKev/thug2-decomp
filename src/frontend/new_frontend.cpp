@@ -69,6 +69,7 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
+#include "game/rider/skater_state.h"
 
 namespace frontend::new_frontend {
 
@@ -81,11 +82,10 @@ using game_screens::Anchor;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;      // load_mainmenu (the skate module's level in the front end)
-constexpr uint32_t kSkater = 0x5B8AB877;            // Skater (the local skater's alias)
-constexpr uint32_t kSkaterState = 0x43686585;       // SkaterState
-constexpr uint32_t kSkaterScore = 0xD262802F;       // SkaterScore
-constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29; // SkaterCorePhysics
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
+constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
+constexpr uint32_t kSkaterState = 0x43686585;  // SkaterState
+constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 // --- the game's state ---
 
@@ -333,7 +333,7 @@ void update_session(float dt)
     int pending = 0;
     bool bailing = false;
     if (objects::ObjectModule* state = skater->fetch_module(kSkaterState))
-        bailing = get_at<uint8_t>(state, 0x70) != 0;
+        bailing = static_cast<objects::RiderPoseState*>(state)->is_on(objects::PoseFlag::kBailing) != 0;
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore))
         if (const uint8_t* s = get_at<const uint8_t*>(score, 0x18)) {
             double points = static_cast<double>(get_at<int>(s, 0x14)) * get_at<float>(s, 0x60);

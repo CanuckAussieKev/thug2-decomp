@@ -7,6 +7,8 @@
 #include "engine/objects/entity.h"
 
 namespace objects {
+
+class RiderPoseState;
 struct GrindPoint;
 } // namespace objects
 
@@ -104,7 +106,7 @@ public:
     uint8_t* past_frames_;          // +0x2A4 SkaterStateHistory (0x18223FD6)
     ObjectModule* anim_blender_;    // +0x2A8 (0x7149B753)
     uint8_t* mesh_set_;             // +0x2AC Model (0x286A8D26)
-    uint8_t* cur_phase_;            // +0x2B0 SkaterState (0x43686585)
+    RiderPoseState* pose_;          // +0x2B0 SkaterState (0x43686585)
     uint8_t* run_over_;             // +0x2B4 SkaterEndRun (0xB1D5A3E1)
     ObjectModule* flip_and_rotate_; // +0x2B8 SkaterFlipAndRotate (0x488AF07A)
     ObjectModule* shadow_;          // +0x2BC Shadow (0x8A897DD2)

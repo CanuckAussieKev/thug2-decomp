@@ -22,6 +22,8 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 11 the shared 0x0042BB20, 12 invoke_method_by_name.
 namespace objects {
 
+class RiderPoseState;
+
 class RiderBoardPhysics final : public ObjectModule {
 public:
     // 0x00517830 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
@@ -83,12 +85,12 @@ public:
     uint8_t flag26_;        // +0x26 (cleared each update)
     uint8_t pad27;
     skater::SkaterPhysicsModule* core_physics_; // +0x28 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* cur_phase_;                        // +0x2C SkaterState (0x43686585)
+    RiderPoseState* pose_;                      // +0x2C SkaterState (0x43686585)
 };
 static_assert(offsetof(RiderBoardPhysics, is_halted_) == 0x18 && offsetof(RiderBoardPhysics, switch_time_) == 0x1C &&
                   offsetof(RiderBoardPhysics, board_missing_) == 0x24 &&
-                  offsetof(RiderBoardPhysics, core_physics_) == 0x28 &&
-                  offsetof(RiderBoardPhysics, cur_phase_) == 0x2C && sizeof(RiderBoardPhysics) == 0x30,
+                  offsetof(RiderBoardPhysics, core_physics_) == 0x28 && offsetof(RiderBoardPhysics, pose_) == 0x2C &&
+                  sizeof(RiderBoardPhysics) == 0x30,
               "layout must match the original (0x00517830 allocates 0x30 bytes)");
 
 } // namespace objects

@@ -30,6 +30,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/net/gamenet_manager.h"
 #include "game/rider/balance_trick.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -95,12 +96,6 @@ constexpr float kStepUpLift = 0.1f;              // 0x00645D74
 constexpr float kFlipSpinTime = 50.0f;
 
 // The state component's flags.
-constexpr uint32_t kFlagJump = 0x20;
-constexpr uint32_t kFlagVertAir = 0x30;
-constexpr uint32_t kFlagBail = 0x70;
-constexpr uint32_t kFlagAcidDrop = 0x78;
-constexpr uint32_t kFlagSkitching = 0x88;
-constexpr uint32_t kFlagCancelWallpush = 0xB8;
 
 // The pad's buttons (offsets into the input component).
 constexpr uint32_t kFlipButton1 = 0x160;
@@ -189,7 +184,7 @@ void SkaterPhysicsModule::update_speed_override()
 {
     objects::GameEntity* object = object_of(this);
     float& factor = speed_override_;
-    if (frame_began_in_drop_ && !flags_of(this)[kFlagAcidDrop] && !flags_of(this)[kFlagBail]) {
+    if (frame_began_in_drop_ && !state_->flag(PoseFlag::kAcidDrop).on && !state_->flag(PoseFlag::kBailing).on) {
         float stat = static_cast<float>(stat_value(object, kOverrideStat));
         double speed = length_unrounded(entity_->vel_);
         float speed_rounded = static_cast<float>(speed);
@@ -211,7 +206,7 @@ void SkaterPhysicsModule::update_speed_override()
         float max = static_cast<float>(static_cast<double>(stat) * factor);
         object = object_of(this);
         float limit;
-        if (get_at<int>(flags_of(this), kState) != 1) {
+        if (state_->cur_phase_ != 1) {
             float speed = static_cast<float>(length_unrounded(object->vel_) * kAirBoostFactor);
             limit = least_of(max, speed, limits_max_);
         } else {
@@ -245,9 +240,9 @@ void SkaterPhysicsModule::update_speed_override()
 double SkaterPhysicsModule::get_gravity()
 {
     objects::GameEntity* object = object_of(this);
-    uint8_t* flags = flags_of(this);
+    objects::RiderPoseState* flags = state_;
     float gravity = tuning_float_lookup(kGravity, object);
-    bool vert = flags[kFlagVertAir] || flags[kFlagAcidDrop];
+    bool vert = flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on;
     float result = static_cast<float>(
         gravity / static_cast<double>(script::fetch_float(vert ? kGravityScaleVert : kGravityScale)));
     auto* career = get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
@@ -287,7 +282,7 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
 // 0x004FF670
 bool SkaterPhysicsModule::wall_push_off()
 {
-    if (!input_of(this)[kPushOffButton])
+    if (!input_->pad_primary_.button_wedge_.held_down_)
         return false;
     float since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
     if (script::fetch_float(kPushOffWait) > since_last)
@@ -303,8 +298,8 @@ bool SkaterPhysicsModule::wall_push_off()
     if (script::fetch_float(kPushOffWait) > since_start)
         return false;
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPushOffEvent, nullptr);
-    if (flags_of(this)[kFlagCancelWallpush]) {
-        set_timed_flag(this, kFlagCancelWallpush, 0);
+    if (state_->flag(PoseFlag::kCancelWallpush).on) {
+        set_timed_flag(this, PoseFlag::kCancelWallpush, 0);
         return false;
     }
     maths::Vec4& velocity = entity_->vel_;
@@ -335,9 +330,9 @@ bool SkaterPhysicsModule::wall_push_off()
 // 0x004FF920
 void SkaterPhysicsModule::turn_round_if_backwards()
 {
-    uint8_t* flags = flags_of(this);
+    objects::RiderPoseState* flags = state_;
     objects::GameEntity* object = object_of(this);
-    if (flags[kFlagBail] || flags[kFlagSkitching] || braking_)
+    if (flags->flag(PoseFlag::kBailing).on || flags->flag(PoseFlag::kSkitching).on || braking_)
         return;
     const maths::Vec4& v = object->vel_;
     const maths::Vec4& f = object->basis_frame_.row[2];
@@ -382,12 +377,12 @@ void SkaterPhysicsModule::turn_round_if_backwards()
 // 0x004FFB10
 bool SkaterPhysicsModule::jump_released()
 {
-    uint8_t* flags = flags_of(this);
-    uint8_t* button = input_of(this) + kJumpButton;
-    if (!flags[kFlagJump] || *button)
+    objects::RiderPoseState* flags = state_;
+    objects::ControlButton* button = &input_->pad_primary_.pos_x_;
+    if (!flags->flag(PoseFlag::kCrouched).on || button->held_down_)
         return false;
-    jump_charge_ms_ = get_since(get_at<uint32_t>(flags, kFlagJump + 4));
-    set_timed_flag(this, kFlagJump, 0);
+    jump_charge_ms_ = get_since(static_cast<uint32_t>(flags->flag(PoseFlag::kCrouched).changed_at));
+    set_timed_flag(this, PoseFlag::kCrouched, 0);
     reinterpret_cast<objects::ControlButton*>(button)->forget_let_go();
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kJumpReleaseEvent, nullptr);
     return true;
@@ -396,12 +391,12 @@ bool SkaterPhysicsModule::jump_released()
 // 0x004FFB90
 void SkaterPhysicsModule::check_flip_spin()
 {
-    if (flags_of(this)[kFlagBail])
+    if (state_->flag(PoseFlag::kBailing).on)
         return;
-    uint8_t* input = input_of(this);
+    objects::PadInputModule* input = input_;
     if (model_rotating_)
         return;
-    if (!input[kFlipButton1] && !input[kFlipButton2])
+    if (!input->pad_primary_.button_round_.held_down_ && !input->pad_primary_.button_box_.held_down_)
         return;
     model_flipped_ = 0;
     auto* trick = static_cast<objects::MoveExecutor*>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
@@ -414,7 +409,7 @@ void SkaterPhysicsModule::check_flip_spin()
         uint32_t sequence[3]; // (an entry without the two buttons leaves them unset, as the original does)
         spin->read_hash_value(kSpinButton1, &sequence[0], 0);
         spin->read_hash_value(kSpinButton2, &sequence[1], 0);
-        sequence[2] = input[kFlipButton1] ? 0x2B489A86u : 0x321C9756u;
+        sequence[2] = input->pad_primary_.button_round_.held_down_ ? 0x2B489A86u : 0x321C9756u;
         if (trick->check_spin_sequence(sequence, flip_spin_started_ != 0)) {
             found = true;
             break;
@@ -444,7 +439,7 @@ void SkaterPhysicsModule::check_flip_spin()
 // 0x004FFDB0
 bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
 {
-    if (flags_of(this)[kFlagBail])
+    if (state_->flag(PoseFlag::kBailing).on)
         return false;
     render::ProbeRay feeler;
     feeler.make_new();

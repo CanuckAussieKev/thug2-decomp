@@ -39,8 +39,6 @@ constexpr uint32_t kDropHeight = 0xBB00FE40;         // DropHeight
 constexpr uint32_t kAcidDropTriggered = 0xC7ED5FEF;  // SkaterAcidDropTriggered (a script)
 constexpr uint32_t kOllied = 0x8FFEFB28;             // Ollied (an event)
 
-constexpr uint32_t kDropFlags = 0xE4; // (in the flags block: the drop's horizontal velocity)
-
 constexpr float kMinSpeed = 0.01f;        // 0x0064544C
 constexpr float kSearchReach = 500.0f;    // (0x43FA0000)
 constexpr float kWalkLift = 200.0f;       // (0x43480000)
@@ -66,7 +64,7 @@ objects::GameEntity* skater_object(SkaterPhysicsModule* component)
 // The walking component's state (+0x1530's +0x2C): walking on the ground (its +0x118 clear and +0x1C == `state`).
 bool walking_state(SkaterPhysicsModule* component, int state)
 {
-    const auto* pose = reinterpret_cast<const objects::RiderPoseState*>(component->physics_control_->cur_phase_);
+    const auto* pose = component->physics_control_->pose_;
     return !pose->in_vehicle_ && pose->physics_mode_ == state;
 }
 
@@ -74,7 +72,7 @@ bool walking_state(SkaterPhysicsModule* component, int state)
 // set while the gravity's read): (sqrt(upward^2 + 2 * height * g) + upward) / g, or 0.00001 if never.
 double fall_time(SkaterPhysicsModule* component, float height, float upward)
 {
-    set_timed_flag(component, 0x78, 1);
+    set_timed_flag(component, PoseFlag::kAcidDrop, 1);
     double down = -current_gravity(component);
     double discriminant = static_cast<double>(upward) * upward + 2.0 * (static_cast<double>(height) * down);
     double time;
@@ -82,7 +80,7 @@ double fall_time(SkaterPhysicsModule* component, float height, float upward)
         time = (std::sqrt(discriminant) + upward) / down;
     else
         time = kNeverLands;
-    set_timed_flag(component, 0x78, 0);
+    set_timed_flag(component, PoseFlag::kAcidDrop, 0);
     return time;
 }
 
@@ -234,9 +232,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         float upward = velocity->y;
         velocity->y = upward < most ? upward : static_cast<float>(most);
     }
-    set_timed_flag(this, 0x78, 1);
+    set_timed_flag(this, PoseFlag::kAcidDrop, 1);
     float gravity = static_cast<float>(current_gravity(this));
-    set_timed_flag(this, 0x78, 0);
+    set_timed_flag(this, PoseFlag::kAcidDrop, 0);
     // The highest the arc gets on its way to the wall.
     float peak;
     if (distance > 0.0f && horizontal > kMinHorizontal) {
@@ -327,18 +325,18 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     float rise = static_cast<float>(entity_->at_point_.y - static_cast<double>(drop->point.y));
     float time = static_cast<float>(fall_time(this, rise, entity_->vel_.y));
     float speed = static_cast<float>(static_cast<double>(distance) / time);
-    maths::Vec4& flat = vector_at(flags_of(this), kDropFlags);
+    maths::Vec4& flat = state_->drop_velocity_;
     flat.y = 0.0f;
     flat.w = 1.0f;
     flat.x = direction.x * speed;
     flat.z = direction.z * speed;
-    g_acid_hold = vector_at(flags_of(this), kDropFlags); // (a copy kept for debugging, it seems)
+    g_acid_hold = state_->drop_velocity_; // (a copy kept for debugging, it seems)
     drop_target_height_ = drop->point.y;
-    set_timed_flag(this, 0x78, 1);
-    set_timed_flag(this, 0x30, 1);
-    set_timed_flag(this, 0xA8, 1);
-    set_timed_flag(this, 0x38, 0);
-    set_timed_flag(this, 0x68, 0);
+    set_timed_flag(this, PoseFlag::kAcidDrop, 1);
+    set_timed_flag(this, PoseFlag::kVertAir, 1);
+    set_timed_flag(this, PoseFlag::kFromAcidDrop, 1);
+    set_timed_flag(this, PoseFlag::kVertWall, 0);
+    set_timed_flag(this, PoseFlag::kSpin, 0);
     drop_object_hit_ = drop->object_hit_;
     entity_->vel_.x = 0.0f;
     entity_->vel_.z = 0.0f;
@@ -395,7 +393,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
         params->get_clear();
         script::delete_struct(params);
     }
-    set_timed_flag(this, 0xB0, 1);
+    set_timed_flag(this, PoseFlag::kNoAcidDrop, 1);
     skater_object(this)->clear_event_handler(kOllied);
 }
 
@@ -476,16 +474,16 @@ bool SkaterPhysicsModule::try_spine_transfer()
     maths::Vec4 normal = {feeler.surface_dir_.x, 0.0f, feeler.surface_dir_.z, feeler.surface_dir_.w};
     normal.make_unit();
 
-    // Something to transfer to, looking back the way the skater came - or, with one of the two buttons (input +0x60
+    // Something to transfer to, looking back the way the skater came - or, with one of the two buttons (&input->pad_primary_.left_side_
     // / +0x80, not both) held, the same turned that way along the wall.
     maths::Vec4 back = {-target.x, -target.y, -target.z, -target.w};
     maths::Vec4 look = back;
     maths::Vec4 target_normal;
     if (!find_transfer_target(this, &look, &normal, &hip, &target, &target_normal, &object_hit)) {
-        uint8_t* input = input_of(this);
-        if (!input[0x60] == !input[0x80])
+        objects::PadInputModule* input = input_;
+        if (!input->pad_primary_.left_side_.held_down_ == !input->pad_primary_.right_side_.held_down_)
             return false;
-        if (input[0x60]) {
+        if (input->pad_primary_.left_side_.held_down_) {
             look = {static_cast<float>(static_cast<double>(back.x) + -normal.z), back.y,
                     static_cast<float>(static_cast<double>(back.z) + normal.x),
                     static_cast<float>(static_cast<double>(back.w) + 1.0f)};
@@ -586,17 +584,17 @@ bool SkaterPhysicsModule::try_spine_transfer()
     float fly_x = static_cast<float>(target.x - static_cast<double>(position.x));
     float fly_y = static_cast<float>(height - static_cast<double>(position.y));
     float fly_z = static_cast<float>(target.z - static_cast<double>(position.z));
-    maths::Vec4& fly = vector_at(flags_of(this), kDropFlags);
+    maths::Vec4& fly = state_->drop_velocity_;
     fly = {static_cast<float>(static_cast<double>(per_second) * fly_x),
            static_cast<float>(static_cast<double>(per_second) * fly_y),
            static_cast<float>(static_cast<double>(per_second) * fly_z), static_cast<float>(to_w * per_second)};
     fly.y = 0.0f;
     skater_object(this)->start_script_task(hip ? kAwardHipTransfer : kAwardTransfer, 0, false, false, nullptr);
     skater_object(this)->clear_event_handler(kOllied);
-    set_timed_flag(this, 0x78, 1);
-    set_timed_flag(this, 0xA8, 0);
-    set_timed_flag(this, 0x38, 0);
-    set_timed_flag(this, 0x48, 0);
+    set_timed_flag(this, PoseFlag::kAcidDrop, 1);
+    set_timed_flag(this, PoseFlag::kFromAcidDrop, 0);
+    set_timed_flag(this, PoseFlag::kVertWall, 0);
+    set_timed_flag(this, PoseFlag::kLeftVert, 0);
     drop_object_hit_ = object_hit;
     return true;
 }

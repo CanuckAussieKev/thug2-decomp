@@ -16,6 +16,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -101,7 +102,7 @@ void MoveExecutor::seal()
     balance_trick_ = entity_->fetch_module(kSkaterBalanceTrick);
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     flip_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
-    skater_state_ = entity_->fetch_module(kSkaterState);
+    skater_state_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
     stats_manager_ = entity_->fetch_module(kStatsManager);
 }
 

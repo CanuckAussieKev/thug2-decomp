@@ -18,6 +18,9 @@ class Struct;
 
 namespace objects {
 
+class RiderPoseState;
+class RiderBoardPhysics;
+
 class FreeLookModule;
 struct WalkCameraState;
 
@@ -138,8 +141,8 @@ public:
     FreeLookModule* free_look_module_;       // +0x168
     maths::ArcRotationBlender* arc_blender_; // +0x16C
     GameEntity* rider_ref_;                  // +0x170
-    uint8_t* state_ref_;                     // +0x174 the skater's SkaterState (+0x18 the state, flags as bytes)
-    uint8_t* control_;                       // +0x178 the skater's SkaterPhysicsControl (+0x18 paused, +0x2C its state)
+    RiderPoseState* state_ref_;              // +0x174 the skater's SkaterState
+    RiderBoardPhysics* control_;             // +0x178 the skater's SkaterPhysicsControl
 };
 static_assert(offsetof(RiderChaseView, mode_sel_) == 0x24 && offsetof(RiderChaseView, aim_point_) == 0x30 &&
                   offsetof(RiderChaseView, orientation_) == 0x40 && offsetof(RiderChaseView, skater_matrix_) == 0x74 &&

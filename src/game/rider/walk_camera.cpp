@@ -19,6 +19,8 @@
 #include "game/rider/walk_physics.h"
 #include "engine/maths/x87_math.h"
 #include "platform/stopwatch.h"
+#include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -132,7 +134,7 @@ void FootView::bind_rider(GameEntity* skater)
     }
     skater_ = skater;
     walk_ = static_cast<FootMovement*>(skater->fetch_module(kWalk));
-    physics_control_ = reinterpret_cast<uint8_t*>(skater_->fetch_module(kSkaterPhysicsControl));
+    physics_control_ = static_cast<RiderBoardPhysics*>(skater_->fetch_module(kSkaterPhysicsControl));
 }
 
 // 0x00524F50
@@ -275,7 +277,7 @@ void FootView::tick_frame()
 {
     if (!skater_)
         return;
-    if (physics_control_ && get_at<bool>(get_at<uint8_t*>(physics_control_, 0x2C), 0x118)) {
+    if (physics_control_ && physics_control_->pose_->in_vehicle_) {
         entity_->composite_flags_ |= kCompositeFlagPaused;
         return;
     }

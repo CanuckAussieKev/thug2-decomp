@@ -26,6 +26,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/movable_contact.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -47,7 +48,7 @@ constexpr uint32_t kAirRampLeanTime = 0x12CD2D14;      // Physics_Air_Ramp_Lean_
 constexpr uint32_t kRecoverRateStat = 0xE7116A96;      // Physics_recover_rate_stat
 constexpr uint32_t kUprightSidewaysSpeed = 0xABD57877; // skater_upright_sideways_speed (degrees a second)
 
-constexpr uint32_t kTrickRotation = 0x13A4;   // (in the skater component: the trick's rotation total, degrees)
+constexpr uint32_t kTrickRotation = 0x13A4; // (in the skater component: the trick's rotation total, degrees)
 
 constexpr float kRadiansPerDegree = 0.0174532924f;       // 0x00645464
 constexpr float kMinusDegreesToRadians = -0.0174532924f; // 0x0064BCCC
@@ -90,7 +91,7 @@ void turn_matrices(SkaterPhysicsModule* component, float angle)
 // 0x005002D0
 void SkaterPhysicsModule::turn_for_rail_jump()
 {
-    uint8_t* input = input_of(this);
+    objects::PadInputModule* input = input_;
     float angle;
     if (thaw_bmx::live_now(this)) {
         // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
@@ -102,9 +103,9 @@ void SkaterPhysicsModule::turn_for_rail_jump()
                 static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
-    } else if (input[0x60])
+    } else if (input->pad_primary_.left_side_.held_down_)
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kRadiansPerDegree);
-    else if (input[0x80])
+    else if (input->pad_primary_.right_side_.held_down_)
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
     else
         return;
@@ -119,21 +120,21 @@ void SkaterPhysicsModule::turn_on_ground()
         thaw_bmx::turn_on_ground(this);
         return;
     }
-    uint8_t* pad = input_of(this) + 0x20;
+    objects::PadSnapshot* pad = &input_->pad_primary_;
     float speed = static_cast<float>(length_unrounded(entity_->vel_));
     objects::GameEntity* object = object_of(this);
-    // Left / right (pad +0x40 / +0x60); with the sharp turn button (+0x20) harder - and, slower than 10, the turn
+    // Left / right (&pad->left_side_ / +0x60); with the sharp turn button (+0x20) harder - and, slower than 10, the turn
     // ramps up over the first 600 ms the button is held.
-    uint8_t* button;
+    objects::ControlButton* button;
     bool sharp;
     double rate;
-    if (pad[0x40]) {
-        button = pad + 0x40;
-        sharp = pad[0x20] != 0;
+    if (pad->left_side_.held_down_) {
+        button = &pad->left_side_;
+        sharp = pad->btn_down_.held_down_ != 0;
         rate = tuning_float_lookup(sharp ? kGroundSharpRotation : kGroundRotation, object);
-    } else if (pad[0x60]) {
-        button = pad + 0x60;
-        sharp = pad[0x20] != 0;
+    } else if (pad->right_side_.held_down_) {
+        button = &pad->right_side_;
+        sharp = pad->btn_down_.held_down_ != 0;
         rate = -static_cast<double>(tuning_float_lookup(sharp ? kGroundSharpRotation : kGroundRotation, object));
     } else {
         return;
@@ -232,9 +233,9 @@ void SkaterPhysicsModule::natas_spin()
     float& total = get_at<float>(trick_, kTrickRotation);
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
-    uint8_t* flags = flags_of(this);
+    objects::RiderPoseState* flags = state_;
     bool show = true;
-    if (flags[0x30] && !flags[0x78]) {
+    if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on) {
         float size = std::fabs(total);
         double snap = 360.0f - static_cast<double>(tuning_float_lookup(kSpinCountSlop, object_of(this))) + 0.1f;
         show = snap <= size;
@@ -250,21 +251,22 @@ void SkaterPhysicsModule::natas_spin()
 // 0x00504910
 void SkaterPhysicsModule::lean_in_air()
 {
-    uint8_t* flags = flags_of(this);
-    if (flags[0x78] || flags[0xC0] || flags[0x30])
+    objects::RiderPoseState* flags = state_;
+    if (flags->flag(PoseFlag::kAcidDrop).on || flags->flag(PoseFlag::kNoSecondSpin).on ||
+        flags->flag(PoseFlag::kVertAir).on)
         return;
-    uint8_t* pad = input_of(this) + 0x20;
-    if (pad[0x140] || pad[0x160])
+    objects::PadSnapshot* pad = &input_->pad_primary_;
+    if (pad->button_round_.held_down_ || pad->button_box_.held_down_)
         return;
     float lean = 0.0f;
     int held = 0;
-    if (pad[0]) {
+    if (pad->up_dir_.held_down_) {
         lean = static_cast<float>(stat_value(object_of(this), kAirLeanStat));
-        held = time_since_press(pad);
+        held = time_since_press(&pad->up_dir_);
     }
-    if (pad[0x20]) {
+    if (pad->btn_down_.held_down_) {
         lean = static_cast<float>(-stat_value(object_of(this), kAirLeanStat));
-        held = time_since_press(pad + 0x20);
+        held = time_since_press(&pad->btn_down_);
     }
     // None for a while after the button is pressed, then ramping up to full.
     float start = script::fetch_float(kAirNoLeanTime);
@@ -281,7 +283,7 @@ void SkaterPhysicsModule::lean_in_air()
 // 0x00504A60
 void SkaterPhysicsModule::rotate_in_acid_drop()
 {
-    if (!flags_of(this)[0x78])
+    if (!state_->flag(PoseFlag::kAcidDrop).on)
         return;
     double elapsed = static_cast<double>(frame_length_) + drop_time_;
     drop_time_ = static_cast<float>(elapsed);
@@ -306,7 +308,7 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
 // 0x00504B40
 void SkaterPhysicsModule::recover_in_air()
 {
-    if (flags_of(this)[0x78])
+    if (state_->flag(PoseFlag::kAcidDrop).on)
         return;
     if (entity_->vel_.y > 0.0f && ride_->ride_)
         return;
@@ -322,11 +324,11 @@ void SkaterPhysicsModule::recover_in_air()
         return;
     if (feeler.surface_dir_.y < kRecoverSteepest)
         return;
-    if (flags_of(this)[0x30]) {
-        set_timed_flag(this, 0x30, 0);
+    if (state_->flag(PoseFlag::kVertAir).on) {
+        set_timed_flag(this, PoseFlag::kVertAir, 0);
         transfer_blocked_ = 0;
     }
-    set_timed_flag(this, 0x80, 1);
+    set_timed_flag(this, PoseFlag::kRecoverInAir, 1);
     objects::GameEntity* object = object_of(this);
     if (object->basis_frame_.row[1].y > kRecoverUpright)
         return;

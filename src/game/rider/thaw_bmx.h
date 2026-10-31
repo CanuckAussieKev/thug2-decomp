@@ -8,6 +8,7 @@ namespace modules {
 struct FrontEnd;
 }
 namespace objects {
+class ControlButton;
 class GameEntity;
 class Rider;
 } // namespace objects
@@ -241,7 +242,7 @@ bool wallplant_by_square(SkaterPhysicsModule* core);
 // ... else the bike's list, bike_Wallplant_Trick (THAW's; THUG2's Wallplant_Trick when the overlay hasn't it).
 uint32_t wallplant_trick_list();
 // THAW 0x005D3330: on the bike skitching is R2 held long enough (the skater's: up).
-uint8_t* tow_button(SkaterPhysicsModule* core);
+objects::ControlButton* tow_button(SkaterPhysicsModule* core);
 // THAW 0x005DF98B (in the air, after the recovery): the tire tap - looked for (0x005DC290: R1 and up / down held,
 // a ledge ahead: THUG2's rail search with the hang check, ledge_point below) or carried on (0x005CE920: the wheel to the
 // tap point).

@@ -16,6 +16,8 @@ class SkaterPhysicsModule;
 } // namespace skater
 namespace objects {
 
+class RiderPoseState;
+
 class RiderPhysicsCommit final : public ObjectModule {
 public:
     // 0x00511280 (registered by register_component_types): a new one (0 if out of memory).
@@ -34,9 +36,9 @@ public:
     void tick_frame() override;
 
     skater::SkaterPhysicsModule* core_physics_; // +0x18 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* cur_phase_;                        // +0x1C SkaterState (0x43686585)
+    RiderPoseState* pose_;                      // +0x1C SkaterState (0x43686585)
 };
-static_assert(offsetof(RiderPhysicsCommit, core_physics_) == 0x18 && offsetof(RiderPhysicsCommit, cur_phase_) == 0x1C &&
+static_assert(offsetof(RiderPhysicsCommit, core_physics_) == 0x18 && offsetof(RiderPhysicsCommit, pose_) == 0x1C &&
                   sizeof(RiderPhysicsCommit) == 0x20,
               "layout must match the original (0x00511280 allocates 0x20 bytes)");
 

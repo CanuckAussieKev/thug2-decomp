@@ -41,6 +41,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -174,10 +175,6 @@ void put_off(maths::Vec4* position, const render::ProbeRay* feeler, float gap)
 }
 
 // The skater component's state flags (its +0x1528).
-const uint8_t* rider_state_bits(const FootMovement* walk)
-{
-    return reinterpret_cast<uint8_t*>(walk->core_physics_->state_);
-}
 
 // One of the eight contacts (+0xA0, 0xCC each): what feeler 0-6 (around it, a seventh of a turn apart from the facing)
 // or 7 (along the fall) found.
@@ -606,7 +603,7 @@ void FootMovement::update_ground()
 // 0x0052CEF0
 void FootMovement::update_air()
 {
-    const uint8_t* pad = reinterpret_cast<uint8_t*>(input_) + 0x20;
+    const objects::PadSnapshot* pad = &input_->pad_primary_;
     refresh_hit_cache();
     anim_state_ = kAir;
     steer_jump();
@@ -640,7 +637,7 @@ void FootMovement::update_air()
         return;
 
     // Grabbing a ledge or a ladder (not again within rehang_delay of letting go of one).
-    if (pad[0xE0] && !jump_held_) {
+    if (pad->shoulder_right_a_.held_down_ && !jump_held_) {
         int previous = previous_state_;
         bool grab = true;
         if (previous == 2 || previous == 3 || previous == 4) {
@@ -654,7 +651,7 @@ void FootMovement::update_air()
         }
     }
     clear_current_cache();
-    if (pad[0x180] && try_grind())
+    if (pad->button_wedge_.held_down_ && try_grind())
         return;
     if (reinterpret_cast<skater::Component*>(this)->try_walk_acid_drop()) // (an acid drop)
         return;
@@ -822,8 +819,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         if (stop)
             velocity = {0.0f, 0.0f, 0.0f, 1.0f};
         critical_point_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
-        reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(input_) + 0x1C0)
-            ->forget_let_go(); // (a button's release taken)
+        input_->pad_primary_.pos_x_.forget_let_go(); // (a button's release taken)
         anim_state_ = kLand;
     }
     release_hit(feeler);
@@ -889,7 +885,7 @@ void FootMovement::settle_onto_floor()
             return;
         }
     }
-    if (reinterpret_cast<uint8_t*>(input_)[0x1A0]) {
+    if (input_->pad_primary_.button_wedge_.held_down_) {
         maths::Vec4& old_position = old_pos_;
         if (position == old_position)
             old_position.y += kNudge; // (so the two differ)
@@ -924,7 +920,7 @@ void FootMovement::get_begin(bool on_ground)
         change_phase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
-        if (rider_state_bits(this)[0x30] && !(upright_time_ == 0.0f)) {
+        if (core_physics_->state_->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0f)) {
             maths::Vec4 forward = entity_->basis_frame_.row[2];
             forward.rotate_about_axis(upright_axis_, upright_angle_);
             double boost = walk_parameter(kInitialVertVelBoost);
@@ -936,7 +932,7 @@ void FootMovement::get_begin(bool on_ground)
             velocity.z += z;
             velocity.w += w;
         }
-        if (!rider_state_bits(this)[0x30])
+        if (!core_physics_->state_->flag(PoseFlag::kVertAir).on)
             jump_unsteered_ = true;
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
         // flattened; made unit length.
@@ -968,7 +964,8 @@ void FootMovement::get_begin(bool on_ground)
         leave_ride(&entity_->vel_, &entity_->vel_.y);
         leap_duration_ = 0.0f;
         pushing_ = false;
-        off_vert_ = rider_state_bits(this)[0x30] || rider_state_bits(this)[0xB0];
+        off_vert_ =
+            core_physics_->state_->flag(PoseFlag::kVertAir).on || core_physics_->state_->flag(PoseFlag::kNoAcidDrop).on;
     }
     curb_offset_ = 0.0f;
     leave_for_ = 0;
@@ -990,7 +987,7 @@ void FootMovement::get_jump()
     case 0:
     case 1: {
         float hold = walk_parameter(kHoldTimeForMaxJump);
-        auto* button = reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(input_) + 0x1C0);
+        auto* button = &input_->pad_primary_.pos_x_;
         double held = static_cast<uint32_t>(button->get_held_millis()) / static_cast<double>(hold);
         float t = held > 1.0 ? 1.0f : static_cast<float>(held);
         float minimum = walk_parameter(kMinJumpFactor);
@@ -1086,7 +1083,7 @@ void FootMovement::get_jump()
 // 0x0052BC70
 bool FootMovement::try_barrier_jump()
 {
-    if (rider_state_bits(this)[0x70])
+    if (core_physics_->state_->flag(PoseFlag::kBailing).on)
         return false;
     static const int kAhead[3] = {0, 1, 6}; // the contacts ahead: straight on and either side of it
 
@@ -1311,7 +1308,7 @@ bool FootMovement::update_contacts()
         } else {
             barrier_timed_ = false;
         }
-        if (reinterpret_cast<uint8_t*>(input_)[0x100] && !jump_held_ && climb_onto_bottom(true)) {
+        if (input_->pad_primary_.shoulder_right_a_.held_down_ && !jump_held_ && climb_onto_bottom(true)) {
             release_hit(feeler);
             return false;
         }

@@ -29,6 +29,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -60,13 +61,12 @@ constexpr uint32_t kInput = 0x20;         // the Input component (+0x1C its butt
 constexpr uint32_t kBalanceTrick = 0x24;  // SkaterBalanceTrick
 constexpr uint32_t kCorePhysics = 0x28;   // SkaterCorePhysics
 constexpr uint32_t kFlipAndRotate = 0x2C; // SkaterFlipAndRotate
-constexpr uint32_t kState = 0x30;         // SkaterState (+0x1C, +0xE0 a trick started)
 constexpr uint32_t kComponent34 = 0x34;   // 0x4FF8DAC6
 // The button buffer: 100 events of 0x18 bytes from +0x38 (+0 the time, +4 1 pressed / 2 released, +8 the button,
 // +0x14 the masks of who used it); +0x998 their count, +0x99A the newest's index.
 constexpr uint32_t kEventRing = 0x38;
 constexpr uint32_t kQueueHead = 0xA2C, kQueueTail = 0xA30;
-constexpr uint32_t kQueue = 0xA34;          // 100 entries of 0x14: +0 the array, +4 the index, +0x10 special
+constexpr uint32_t kQueue = 0xA34; // 100 entries of 0x14: +0 the array, +4 the index, +0x10 special
 constexpr uint32_t kManualArrayCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
 constexpr uint32_t kManualArray = 0x126C, kManualIndex = 0x1270, kManualTime = 0x1274, kManualDuration = 0x1278,
                    kManualIsSpecial = 0x127C;
@@ -110,7 +110,7 @@ void prepare_flip_and_rotate(MoveExecutor* self)
     static_cast<RiderSpinAndFlip*>(get_component(self, kFlipAndRotate))->do_after_anim();
 }
 // The state component told a trick started.
-void trick_started(MoveExecutor* self) { get_at<bool>(get_component(self, kState), 0xE0) = true; }
+void trick_started(MoveExecutor* self) { self->skater_state_->in_trick_move_ = true; }
 
 script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script_; }
 
@@ -367,7 +367,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
 // 0x00522670
 void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script::Struct* trick_params)
 {
-    get_at<bool>(get_component(this, kState), 0xE0) = false;
+    skater_state_->in_trick_move_ = false;
     starting_special_ = false;
     int& head = queue_first_;
     int& tail = queue_last_;
@@ -715,7 +715,7 @@ void MoveExecutor::update_bash()
     if (blender->get_timeline30() != kRunOut && blender->get_timeline30() != kRunOutQuick) {
         if (!(get_bash_speed() > kMashedFastEnough))
             return;
-        if (get_at<uint32_t>(get_component(this, kState), 0x1C)) {
+        if (static_cast<uint32_t>(skater_state_->physics_mode_)) {
             float one;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 
 namespace script {
@@ -21,6 +22,41 @@ class Struct;
 // Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 configure_from_data, 11 the shared 0x0042BB20, 12 the shared
 // invoke_method_by_name 0x0051ADC0.
 namespace objects {
+
+// A flag of the skater's state and the time it last changed (the game clock plus g_clock_offset).
+struct TimedFlag {
+    uint8_t on;
+    int changed_at; // +4
+};
+
+// The skater's state flags (RiderPoseState::timed_flags_), by what sets them.
+enum class PoseFlag : int {
+    kCrouched = 0,         // +0x20 the jump button held (crouching to jump)
+    kFlipped = 1,          // +0x28 riding the other way round (switch)
+    kVertAir = 2,          // +0x30 in the air off a vert ramp
+    kVertWall = 3,         // +0x38 the vert air tracking its wall (cleared when it breaks away)
+    kOnVert = 4,           // +0x40 on a vert face (the ground's hit was vert)
+    kLeftVert = 5,         // +0x48 just left a vert ramp (cleared by the jump button's wait or a timeout)
+    kLipToAir = 6,         // +0x50 out of a lip or a rail into the air (rail re-grab wait)
+    kSlide = 7,            // +0x58 sliding (SetSlide / the reverts)
+    kDescended = 8,        // +0x60 on the ground or moving down (the adjust physics component's)
+    kSpin = 9,             // +0x68 a spin allowed (the air's turn to face the ramp)
+    kBailing = 10,         // +0x70 in a bail
+    kAcidDrop = 11,        // +0x78 in an acid drop
+    kRecoverInAir = 12,    // +0x80 righting itself in the air over a landing (or both triggers)
+    kSkitching = 13,       // +0x88
+    kCancelGround = 14,    // +0x90 the ground checks cancelled (a script's)
+    kGroundSnapped = 15,   // +0x98 snapped onto the ground this frame
+    kWallplanted = 16,     // +0xA0 wallplanted this frame
+    kFromAcidDrop = 17,    // +0xA8 this air came from an acid drop
+    kNoAcidDrop = 18,      // +0xB0 no acid drop in this air (vert, a drop, a bail, a ceiling or wall hit)
+    kCancelWallpush = 19,  // +0xB8
+    kNoSecondSpin = 20,    // +0xC0
+    kFirstTimeOnRail = 21, // +0xC8 a new rail's script (not the last one's)
+    kJumpedOffRail = 22,   // +0xD0
+    kJumped = 23,          // +0xD8 jumped off the ground, a rail, a lip or a wall
+};
+constexpr int kPoseFlagCount = 24;
 
 class RiderPoseState final : public ObjectModule {
 public:
@@ -61,7 +97,7 @@ public:
     bool on_lip(script::Struct* params, script::Script* script);        // 0x005194A0
     bool get_on_rail(script::Struct* params, script::Script* script);   // 0x005194B0
     bool in_wallplant(script::Struct* params, script::Script* script);  // 0x005194C0
-    bool in_bail_state(script::Struct* params, script::Script* script); // 0x005196D0 (+0x70)
+    bool in_bail_state(script::Struct* params, script::Script* script); // 0x005196D0 (kBailing)
     bool on_foot(script::Struct* params, script::Script* script);       // 0x005194D0 (not driving)
     bool skating(script::Struct* params, script::Script* script);       // 0x005194F0 (not driving)
     bool get_driving(script::Struct* params, script::Script* script);   // 0x00519510
@@ -76,26 +112,27 @@ public:
     bool get_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519720 (SparksPos)
     bool set_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519600 (the unnamed checksum)
 
-    int cur_phase_;           // +0x18 State
-    int physics_mode_;        // +0x1C PhysicsMode (-1 until the physics control component sets it)
-    uint8_t unknown20_[0x50]; // +0x20 (the controls, the flip flag +0x28 and its time +0x2C... - the physics')
-    uint8_t bailing_;         // +0x70
-    uint8_t unknown71_[0x6F];
-    uint8_t in_trick_move_; // +0xE0
-    uint8_t surface_type_;  // +0xE1
-    uint8_t unknowne2_[0x36];
-    uint8_t in_vehicle_; // +0x118
-    uint8_t unknown119_[7];
-    uint8_t boost_items_[1]; // +0x120 (one per name in 0x0067F09C)
-    uint8_t unknown121_[3];
-    uint32_t sparks_pos_; // +0x124 a checksum
+    // The timed flags (+0x20): a byte each and the time (the game clock plus g_clock_offset) it last changed.
+    TimedFlag& flag(PoseFlag f) { return timed_flags_[static_cast<int>(f)]; }
+    const TimedFlag& flag(PoseFlag f) const { return timed_flags_[static_cast<int>(f)]; }
+    uint8_t is_on(PoseFlag f) const { return flag(f).on; }
+    // The flag set to `value`; its time noted if it changes.
+    void set_flag(PoseFlag f, uint8_t value);
+
+    int cur_phase_;                         // +0x18 State
+    int physics_mode_;                      // +0x1C PhysicsMode (-1 until the physics control component sets it)
+    TimedFlag timed_flags_[kPoseFlagCount]; // +0x20 (PoseFlag; kBailing is +0x70)
+    uint8_t in_trick_move_;                 // +0xE0
+    uint8_t surface_type_;                  // +0xE1
+    maths::Vec4 drop_velocity_;             // +0xE4 an acid drop's horizontal velocity, kept through the drop
+    uint8_t lip_straight_up_;               // +0xF4 out of a lip trick straight up (the skater camera's)
+    maths::Vec4 drawn_normal_;              // +0xF8 the ground's normal as drawn (the core's, each frame)
+    maths::Vec4 floor_normal_;              // +0x108 the ground's normal under the skater (the core's)
+    uint8_t in_vehicle_;                    // +0x118
+    float height_above_ground_;             // +0x11C (the height it took off from / is over the ground)
+    uint8_t boost_items_[1];                // +0x120 (one per name in 0x0067F09C)
+    uint32_t sparks_pos_;                   // +0x124 a checksum
 };
-static_assert(offsetof(RiderPoseState, cur_phase_) == 0x18 && offsetof(RiderPoseState, physics_mode_) == 0x1C &&
-                  offsetof(RiderPoseState, bailing_) == 0x70 && offsetof(RiderPoseState, in_trick_move_) == 0xE0 &&
-                  offsetof(RiderPoseState, surface_type_) == 0xE1 && offsetof(RiderPoseState, in_vehicle_) == 0x118 &&
-                  offsetof(RiderPoseState, boost_items_) == 0x120 && offsetof(RiderPoseState, sparks_pos_) == 0x124 &&
-                  sizeof(RiderPoseState) == 0x128,
-              "layout must match the original (0x00519740 allocates 0x128 bytes)");
 
 // The skater's state history (SkaterStateHistory, state_history.h): its state records (0x84 bytes; 20 of them from
 // the component's +0x1C) keep their time as two halves. (Its destructor body 0x005197C0 is here too.)

@@ -21,6 +21,8 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/trick_component.h"
+#include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
 
 namespace skater {
 
@@ -32,15 +34,7 @@ T& get_at(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// The state flags used here (offsets into the flags block).
-constexpr uint32_t kFlag30 = 0x30;
-constexpr uint32_t kFlag38 = 0x38;
-constexpr uint32_t kFlag48 = 0x48;
-constexpr uint32_t kCanFaceRamp = 0x68; // (cleared once a spin has gone on long enough)
-constexpr uint32_t kFlag78 = 0x78;
-constexpr uint32_t kFlag80 = 0x80;
-constexpr uint32_t kFlagB0 = 0xB0;
-constexpr uint32_t kNoSecondSpin = 0xC0;
+using objects::PoseFlag; // (kSpin: cleared once a spin has gone on long enough)
 
 // A button of the pad: {bool down, int time it changed, ..., +0x10 bool pressed this frame}.
 constexpr uint32_t kJump = 0x00; // (offsets from the pad's +0x20)
@@ -80,14 +74,7 @@ static_assert(std::bit_cast<uint32_t>(kPi) == 0x40490FDB && std::bit_cast<uint32
 int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
 
 // Clear a state flag (noting when).
-void clear_flag(SkaterPhysicsModule* component, uint32_t flag)
-{
-    uint8_t* f = reinterpret_cast<uint8_t*>(component->state_) + flag;
-    if (*f) {
-        *f = 0;
-        get_at<int>(f, 4) = get_now();
-    }
-}
+void clear_flag(SkaterPhysicsModule* component, PoseFlag flag) { component->state_->set_flag(flag, 0); }
 
 // A physics value from script: the skater's physics structure's `name`, else the
 // global (asserted when `required`).
@@ -107,13 +94,13 @@ double stat_value(objects::GameEntity* object, uint32_t name)
 
 // How long a button has been down - read as unsigned by the first pair of spin buttons, signed by
 // the second.
-int get_held_time(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis(); }
-float get_held_seconds(uint8_t* button)
+int get_held_time(objects::ControlButton* button) { return button->get_held_millis(); }
+float get_held_seconds(objects::ControlButton* button)
 {
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(get_held_time(button))));
 }
 // Forget a button's press this frame.
-void take_press(uint8_t* button) { reinterpret_cast<objects::ControlButton*>(button)->reset_activation(); }
+void take_press(objects::ControlButton* button) { button->reset_activation(); }
 
 maths::Mat4& body_transform(objects::GameEntity* object) { return object->basis_frame_; }
 
@@ -134,13 +121,13 @@ void face_along_velocity(objects::GameEntity* object)
 // 0x00504060
 void SkaterPhysicsModule::get_spin()
 {
-    uint8_t* pad = reinterpret_cast<uint8_t*>(input_) + 0x20;
+    objects::PadSnapshot* pad = &input_->pad_primary_;
     objects::GameEntity* object = entity_;
     if (no_spin_)
         return;
-    uint8_t* flags = reinterpret_cast<uint8_t*>(state_);
-    if (flags[kFlag78] && flags[kCanFaceRamp])
-        clear_flag(this, kCanFaceRamp);
+    objects::RiderPoseState* flags = state_;
+    if (flags->flag(PoseFlag::kAcidDrop).on && flags->flag(PoseFlag::kSpin).on)
+        clear_flag(this, PoseFlag::kSpin);
 
     bool spinning = false;
     float speed = 0.0f;
@@ -148,14 +135,14 @@ void SkaterPhysicsModule::get_spin()
     auto frame_length = [this] { return static_cast<double>(frame_length_); };
     if (tap_spin_) {
         // Each tap queues half a turn (unless the other button is down).
-        if (pad[kSpinLeft + 0x10]) {
-            take_press(pad + kSpinLeft);
-            if (!pad[kSpinRight])
+        if (pad->shoulder_left_a_.fired_) {
+            take_press(&pad->shoulder_left_a_);
+            if (!pad->shoulder_right_a_.held_down_)
                 queued = static_cast<float>(static_cast<double>(queued) + kPi);
         }
-        if (pad[kSpinRight + 0x10]) {
-            take_press(pad + kSpinRight);
-            if (!pad[kSpinLeft])
+        if (pad->shoulder_right_a_.fired_) {
+            take_press(&pad->shoulder_right_a_);
+            if (!pad->shoulder_left_a_.held_down_)
                 queued = static_cast<float>(static_cast<double>(queued) - kPi);
         }
         if (queued != 0.0f) {
@@ -173,44 +160,44 @@ void SkaterPhysicsModule::get_spin()
         // Holding one button (not both) turns once it's been held longer than the spin delay - always, with
         // PartyMod's PS2 controls (it NOPs the delay checks' jumps; the delay is still read). Held long enough,
         // the skater can no longer be turned to face the ramp.
-        uint8_t* left = pad + kSpinLeft;
-        uint8_t* right = pad + kSpinRight;
-        if (left[0] && !right[0]) {
+        objects::ControlButton* left = &pad->shoulder_left_a_;
+        objects::ControlButton* right = &pad->shoulder_right_a_;
+        if (left->held_down_ && !right->held_down_) {
             float held = get_held_seconds(left);
             if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
                 speed = static_cast<float>(stat_value(object, kSpinSpeed));
                 spinning = true;
                 held = get_held_seconds(left);
                 if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held)
-                    clear_flag(this, kCanFaceRamp);
+                    clear_flag(this, PoseFlag::kSpin);
             }
         }
-        if (right[0] && !left[0]) {
+        if (right->held_down_ && !left->held_down_) {
             float held = get_held_seconds(right);
             if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
                 speed = static_cast<float>(-stat_value(object, kSpinSpeed));
                 spinning = true;
                 held = get_held_seconds(right);
                 if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held)
-                    clear_flag(this, kCanFaceRamp);
+                    clear_flag(this, PoseFlag::kSpin);
             }
         }
     }
 
     // The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
-    if (!reinterpret_cast<uint8_t*>(state_)[kNoSecondSpin] && !spinning) {
+    if (!state_->flag(PoseFlag::kNoSecondSpin).on && !spinning) {
         int held = 0;
-        if (pad[kSpinLeft2]) {
+        if (pad->left_side_.held_down_) {
             speed = static_cast<float>(stat_value(object, kSpinSpeed));
-            held = get_held_time(pad + kSpinLeft2);
+            held = get_held_time(&pad->left_side_);
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held))
-                clear_flag(this, kCanFaceRamp);
+                clear_flag(this, PoseFlag::kSpin);
         }
-        if (pad[kSpinRight2]) {
+        if (pad->right_side_.held_down_) {
             speed = static_cast<float>(-stat_value(object, kSpinSpeed));
-            held = get_held_time(pad + kSpinRight2);
+            held = get_held_time(&pad->right_side_);
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held))
-                clear_flag(this, kCanFaceRamp);
+                clear_flag(this, PoseFlag::kSpin);
         }
         float start = static_cast<float>(tuning_float_lookup(kSpinRampStart, 1, object));
         double end = tuning_float_lookup(kSpinRampEnd, 1, object);
@@ -223,12 +210,12 @@ void SkaterPhysicsModule::get_spin()
 
     if (speed == 0.0f) {
         // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
-        flags = reinterpret_cast<uint8_t*>(state_);
-        if (flags[kFlag30] && flags[kCanFaceRamp]) {
+        flags = state_;
+        if (flags->flag(PoseFlag::kVertAir).on && flags->flag(PoseFlag::kSpin).on) {
             float tilt = maths::confine(object->basis_frame_.row[2].y, -1.0f, 1.0f);
             float angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
             if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
-                clear_flag(this, kCanFaceRamp);
+                clear_flag(this, PoseFlag::kSpin);
             } else {
                 float off = static_cast<float>(maths::get_turn_around_axis(object->basis_frame_.row[2], vert_facing_,
                                                                            object->basis_frame_.row[1]));
@@ -238,7 +225,7 @@ void SkaterPhysicsModule::get_spin()
                 if (std::fabs(off) < std::fabs(turn * frame_length())) {
                     // (the last bit: exactly what's left)
                     speed = static_cast<float>(off / frame_length());
-                    clear_flag(this, kCanFaceRamp);
+                    clear_flag(this, PoseFlag::kSpin);
                 }
             }
         }
@@ -254,8 +241,8 @@ void SkaterPhysicsModule::get_spin()
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
     // is short of a whole turn by more than the snap (360 - snap + 0.1).
-    flags = reinterpret_cast<uint8_t*>(state_);
-    if (flags[kFlag30] && !flags[kFlag78]) {
+    flags = state_;
+    if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on) {
         float size = static_cast<float>(std::fabs(static_cast<double>(total)));
         double snap = 360.0f - tuning_float_lookup(kRotationSnap, 1, object) + 0.1f;
         if (!(snap <= size))
@@ -269,10 +256,11 @@ void SkaterPhysicsModule::get_spin()
 void SkaterPhysicsModule::break_vert(bool force)
 {
     objects::GameEntity* object = entity_;
-    uint8_t* pad = reinterpret_cast<uint8_t*>(input_) + 0x20;
+    objects::PadSnapshot* pad = &input_->pad_primary_;
     // The two buttons: both (PartyMod's PS2 controls: either - its JNZs at 0x00507184 / 0x005071AE).
     auto triggers = [&] {
-        return ps2_controls() ? pad[kTriggerA] || pad[kTriggerB] : pad[kTriggerA] && pad[kTriggerB];
+        return ps2_controls() ? pad->shoulder_left_b_.held_down_ || pad->shoulder_right_b_.held_down_
+                              : pad->shoulder_left_b_.held_down_ && pad->shoulder_right_b_.held_down_;
     };
     bool jump_held = false;
     // Not original: THAW 0x005DA210 (the on-bike flag read first, 0x005DA218) - on the bike the movement stick's up
@@ -282,10 +270,10 @@ void SkaterPhysicsModule::break_vert(bool force)
     bool bike = thaw_bmx::live_now(this);
     if (bike) {
         jump_held = thaw_bmx::vert_push_held(this, tuning_int_lookup(kBreakVertJumpTime, 1, object));
-    } else if (pad[kJump]) {
+    } else if (pad->up_dir_.held_down_) {
         int limit = tuning_int_lookup(kBreakVertJumpTime, 1, object);
-        jump_held = get_held_time(pad + kJump) > limit && !pad[kSpinLeft2] && !pad[kSpinRight2] && !pad[kButton160] &&
-                    !pad[kButton140];
+        jump_held = get_held_time(&pad->up_dir_) > limit && !pad->left_side_.held_down_ &&
+                    !pad->right_side_.held_down_ && !pad->button_box_.held_down_ && !pad->button_round_.held_down_;
     }
     if (!jump_held && !triggers() && !transfer_blocked_ && !force)
         return;
@@ -300,14 +288,10 @@ void SkaterPhysicsModule::break_vert(bool force)
         velocity[2] = static_cast<float>(velocity[2] - static_cast<double>(drawn_normal_.z) * kBreakVertPush);
         body_transform(object).pitch_locally(
             static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
-        clear_flag(this, kFlag30);
-        clear_flag(this, kFlag38);
-        clear_flag(this, kFlag48);
-        uint8_t* flag80 = reinterpret_cast<uint8_t*>(state_) + kFlag80;
-        if (*flag80 != 1) {
-            *flag80 = 1;
-            get_at<int>(flag80, 4) = get_now();
-        }
+        clear_flag(this, PoseFlag::kVertAir);
+        clear_flag(this, PoseFlag::kVertWall);
+        clear_flag(this, PoseFlag::kLeftVert);
+        state_->set_flag(PoseFlag::kRecoverInAir, 1);
         face_along_velocity(object);
         return; // (the display matrix isn't updated on this path)
     }
@@ -322,10 +306,10 @@ void SkaterPhysicsModule::break_vert(bool force)
     velocity[1] = static_cast<float>(tuning_float_lookup(kBreakVertUpScale, 1, object) * velocity[1]);
     body_transform(object).pitch_locally(
         static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
-    clear_flag(this, kFlag30);
-    clear_flag(this, kFlag38);
-    clear_flag(this, kFlag48);
-    clear_flag(this, kFlagB0);
+    clear_flag(this, PoseFlag::kVertAir);
+    clear_flag(this, PoseFlag::kVertWall);
+    clear_flag(this, PoseFlag::kLeftVert);
+    clear_flag(this, PoseFlag::kNoAcidDrop);
     face_along_velocity(object);
     display_matrix_ = body_transform(object);
 }

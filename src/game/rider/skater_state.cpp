@@ -11,6 +11,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "platform/game_clock.h"
 #include "game/rider/skitch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -18,6 +19,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/state_history.h"
+#include "engine/objects/control_pad.h"
 
 namespace objects {
 
@@ -77,6 +79,16 @@ void __cdecl RiderPoseState::publish_method_table()
 // 0x00519450 (0x00519620 the deleting one)
 RiderPoseState::~RiderPoseState() {}
 
+// (the core physics' timed flag setter, inlined everywhere in the original)
+void RiderPoseState::set_flag(PoseFlag f, uint8_t value)
+{
+    TimedFlag& timed = flag(f);
+    if (timed.on == value)
+        return;
+    timed.on = value;
+    timed.changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
+}
+
 // 0x00519460
 void RiderPoseState::configure_from_data(script::Struct* /*params*/) { cur_phase_ = kAir; }
 
@@ -124,7 +136,7 @@ bool RiderPoseState::get_on_rail(script::Struct*, script::Script*) { return cur_
 // 0x005194C0
 bool RiderPoseState::in_wallplant(script::Struct*, script::Script*) { return cur_phase_ == kWallplant; }
 // 0x005196D0
-bool RiderPoseState::in_bail_state(script::Struct*, script::Script*) { return bailing_ != 0; }
+bool RiderPoseState::in_bail_state(script::Struct*, script::Script*) { return is_on(PoseFlag::kBailing) != 0; }
 // 0x005194D0
 bool RiderPoseState::on_foot(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == kWalking; }
 // 0x005194F0

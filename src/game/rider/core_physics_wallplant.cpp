@@ -24,6 +24,7 @@
 #include "platform/game_clock.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -55,8 +56,6 @@ constexpr uint32_t kMaxIncidentAngle = 0x6AC9F64D;      // Wall_Ride_Max_Inciden
 constexpr uint32_t kMaxTilt = 0xBFCBB7E8;               // Wall_Ride_Max_Tilt (degrees)
 constexpr uint32_t kWallRideRight = 0x51372712;         // WallRideRight (an event)
 constexpr uint32_t kWallRideLeft = 0x5DE19C83;          // WallRideLeft (an event)
-
-constexpr uint32_t kTakeOffHeight = 0x11C; // (in the flags block)
 
 constexpr float kMinUp = 0.1f;                             // 0x00645D74
 constexpr float kToMilliseconds = 1000.0f;                 // 0x006453C0
@@ -138,7 +137,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         float since_ride = static_cast<float>(frame_clock::game_clock_time_since(wall_ride_start_));
         if (static_cast<double>(script::fetch_float(kWallplantDelay)) * kToMilliseconds > since_ride)
             return false;
-        if (script::fetch_float(kMinWallplantHeight) > get_at<float>(flags_of(this), kTakeOffHeight))
+        if (script::fetch_float(kMinWallplantHeight) > state_->height_above_ground_)
             return false;
         // Not a steep enough wall: only for a late plant (unless just checking, or it's vert).
         if (!check_only && !(feeler_.hit_.face_flags_ & 8) && std::fabs(feeler_.surface_dir_.y) > kMaxTilt01 && !late)
@@ -244,7 +243,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (-limit < approach)
             return false;
     }
-    if (entity_->vel_.y > 0.0f && input_of(this)[0x1A0] && !wall_above_hit(this))
+    if (entity_->vel_.y > 0.0f && input_->pad_primary_.button_wedge_.held_down_ && !wall_above_hit(this))
         return false;
     // (not original: THAW 0x005DBB9E - no sticker slap on the bike)
     if (!thaw_bmx::live_now(this))
@@ -312,9 +311,9 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     wallplant_time_ = get_now();
     skater_object(this)->post_own_event(kWallplant, nullptr);
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feeler_.hit_.object_checksum_);
-    set_timed_flag(this, 0xC0, 0);
-    set_timed_flag(this, 0xB0, 0);
-    set_timed_flag(this, 0xA0, 1);
+    set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
+    set_timed_flag(this, PoseFlag::kNoAcidDrop, 0);
+    set_timed_flag(this, PoseFlag::kWallplanted, 1);
     physics::change_phase(this, 5);
     late_wallplant_frames_ = 0;
     wallplant_end_ = get_now();

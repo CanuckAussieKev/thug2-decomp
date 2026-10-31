@@ -20,6 +20,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -203,7 +204,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     }
 
     // The gear: back to the first a while after driving stopped, else shifted at the gear's speeds.
-    if (prop<int>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x18) == 0) {
+    if (core_physics_->state_->cur_phase_ == 0) {
         int last_driven = static_cast<int>(core_physics_->air_start_);
         float delay = get_rate(0xC0F451D4);
         int clock = get_clock();
@@ -265,7 +266,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
-    if (prop<bool>(input_, 0x40) && prop<int>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x18) == 0) {
+    if (prop<bool>(input_, 0x40) && core_physics_->state_->cur_phase_ == 0) {
         double speed = get_pace(entity_->vel_);
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);

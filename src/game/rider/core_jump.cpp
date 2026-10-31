@@ -107,7 +107,7 @@ void SkaterPhysicsModule::trigger_rail_script(const int* events)
         return;
     uint32_t name = 0; // (the original's is a stale stack word - a node pointer - if a node had no Name)
     script->read_hash_value(kName, &name, 1);
-    set_flag(this, 0xC8, name != last_rail_script_);
+    set_flag(this, PoseFlag::kFirstTimeOnRail, name != last_rail_script_);
     rail_script_node_ = name;
     last_rail_script_ = name;
     const objects::Entity* ride_object = nullptr;
@@ -134,7 +134,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         if (sound)
             play_jump_sound(this, floor_feeler_.hit_.terrain);
         start_vert_air();
-        set_flag(this, 0x48, 1);
+        set_flag(this, PoseFlag::kLeftVert, 1);
         break;
     case kAir:
         if (sound)
@@ -142,7 +142,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         break;
     case kRail:
         if (sound)
-            play_jump_sound(this, bit_mark(this, 0xE1));
+            play_jump_sound(this, state_->surface_type_);
         break;
     default:
         break;
@@ -153,7 +153,8 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     int& tense = jump_charge_ms_;
     if (tense >= max_tense)
         tense = max_tense;
-    bool from_vert = bit_mark(this, 0x30) || (state_of(this) == kGround && bit_mark(this, 0x40));
+    bool from_vert =
+        bit_mark(this, PoseFlag::kVertAir) || (state_of(this) == kGround && bit_mark(this, PoseFlag::kOnVert));
     const uint32_t* names = kJumpSpeed[params->has_bare_flag(kBonelessHeight)][from_vert];
     objects::GameEntity* object = object_of(this);
     float most = scaled_physics(object, names[0]);
@@ -162,9 +163,9 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     float speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
     params->fetch_float(kSpeed, &speed, 0);
 
-    set_flag(this, 0x20, 0);
+    set_flag(this, PoseFlag::kCrouched, 0);
     maths::Vec4& velocity = entity_->vel_;
-    if (bit_mark(this, 0x30) && velocity.y < 0.0f) {
+    if (bit_mark(this, PoseFlag::kVertAir) && velocity.y < 0.0f) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
         const maths::Vec4& away = drawn_normal_;
         float z = speed * away.z, w = speed * away.w;
@@ -173,7 +174,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         velocity.z += z;
         velocity.w += w;
         speed = 0.0f;
-        set_flag(this, 0x30, 0);
+        set_flag(this, PoseFlag::kVertAir, 0);
         transfer_blocked_ = 0;
     } else if (velocity.y < 0.0f) {
         velocity.y = 0.0f;
@@ -214,7 +215,7 @@ void SkaterPhysicsModule::begin_skitch()
     if (!object)
         return;
     reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(object);
-    set_flag(this, 0x88, 1);
+    set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();
     if (objects::Entity* skitched = skitch_target_.owner_object_)
@@ -224,9 +225,9 @@ void SkaterPhysicsModule::begin_skitch()
 // 0x00509990
 void SkaterPhysicsModule::end_skitch()
 {
-    if (!bit_mark(this, 0x88))
+    if (!bit_mark(this, PoseFlag::kSkitching))
         return;
-    set_flag(this, 0x88, 0);
+    set_flag(this, PoseFlag::kSkitching, 0);
     auto& skitched = skitch_target_;
     if (skitched.owner_object_) {
         static_cast<objects::Entity*>(skitched.owner_object_)->post_own_event(0x2739B86D, nullptr);

@@ -24,6 +24,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/physics_control.h"
 
 namespace objects {
 
@@ -184,8 +186,8 @@ void AttributeTracker::configure_from_data(script::Struct*)
         skater_state_ = nullptr;
         physics_control_ = nullptr;
     } else {
-        skater_state_ = skater_->fetch_module(kSkaterState);
-        physics_control_ = skater_->fetch_module(kSkaterPhysicsControl);
+        skater_state_ = static_cast<RiderPoseState*>(skater_->fetch_module(kSkaterState));
+        physics_control_ = static_cast<RiderBoardPhysics*>(skater_->fetch_module(kSkaterPhysicsControl));
     }
     difficulty_ = static_cast<goals::GoalManager*>(game_flow())->get_skill_tier(true);
     debug::printf("STATSManager: difficulty ====================== %i\n",
@@ -409,12 +411,12 @@ void AttributeTracker::tick_frame()
     multiplier_ = multiplier;
     path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 
-    int physics_state = prop<int>(skater_state_, 0x18);
+    int physics_state = skater_state_->cur_phase_;
     cur_phase_ = kStateOther;
-    uint8_t* control_state = prop<uint8_t*>(physics_control_, 0x2C);
+    RiderPoseState* control_state = physics_control_->pose_;
     const maths::Vec4& pos = entity_->at_point_;
-    if (!prop<bool>(control_state, 0x118) && prop<int>(control_state, 0x1C) == 0) {
-        if (prop<bool>(skater_state_, 0x30)) {
+    if (!control_state->in_vehicle_ && control_state->physics_mode_ == 0) {
+        if (skater_state_->flag(PoseFlag::kVertAir).on) {
             cur_phase_ = kStateLaunched;
             if (last_state_ != kStateLaunched) {
                 air_phase_ = 1;
@@ -450,9 +452,9 @@ void AttributeTracker::tick_frame()
             air_best_ = 0;
         }
 
-        if (physics_state == 1 && !prop<bool>(skater_state_, 0x30)) {
+        if (physics_state == 1 && !skater_state_->flag(PoseFlag::kVertAir).on) {
             cur_phase_ = kStateAir;
-            if (last_state_ != kStateAir && !prop<bool>(skater_state_, 0x70)) {
+            if (last_state_ != kStateAir && !skater_state_->flag(PoseFlag::kBailing).on) {
                 jump_phase_ = 1;
                 jump_start_ = pos;
             }

@@ -21,6 +21,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -130,19 +131,19 @@ void RiderSpinAndFlip::clear_after_flags()
 void RiderSpinAndFlip::apply_flip_to_anims()
 {
     net::Guest* app = client_app(get_skater_index(entity_));
-    uint8_t* state = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
-    flip_anims(anim_blender_, entity_->ident_, prop<uint8_t>(state, 0x28), app_value8(app), 1);
+    objects::RiderPoseState* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    flip_anims(anim_blender_, entity_->ident_, state->flag(PoseFlag::kFlipped).on, app_value8(app), 1);
 }
 
 // 0x005114F0
 void RiderSpinAndFlip::get_flip()
 {
-    uint8_t* state = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
-    uint8_t& flipped = prop<uint8_t>(state, 0x28);
+    objects::RiderPoseState* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    uint8_t& flipped = state->flag(PoseFlag::kFlipped).on;
     uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)
         flipped = flip;
-        prop<int>(state, 0x2C) = frame_clock::game_clock_elapsed() + g_clock_offset;
+        state->flag(PoseFlag::kFlipped).changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
     }
     // NOT ORIGINAL - THAW's BMX ([features] thaw_bmx, on the bike): THAW's Flip turns the flag only - the animations
     // take it when they're played (game/rider/thaw_bmx.h flip_flag_only / play_flip). Original behaviour: every running

@@ -370,7 +370,7 @@ float Rider::get_scaled_value(script::Struct* params)
     float result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
     bool goofy = static_cast<Rider*>(core_physics_->entity_)->goofy_;
-    uint8_t flipped = get_at<uint8_t>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x28);
+    uint8_t flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on;
     bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
         double s = fetch_tally(6);
@@ -523,14 +523,13 @@ void Rider::update_shadow_light(int, int)
     }
     // In the air (or not on the ground): fade towards straight down; else back.
     bool fading;
-    uint8_t* state = state284_;
-    if (state && !get_at<bool>(get_at<uint8_t*>(state, 0x2C), 0x118) &&
-        !get_at<uint32_t>(get_at<uint8_t*>(state, 0x2C), 0x1C))
+    RiderBoardPhysics* control = physics_control_;
+    if (control && !control->pose_->in_vehicle_ && !static_cast<uint32_t>(control->pose_->physics_mode_))
         fading = core_physics_->state_->cur_phase_ == 0;
-    else if (!state288_)
+    else if (!walk_)
         fading = true;
     else
-        fading = get_at<uint32_t>(state288_, 0x18) != 1;
+        fading = static_cast<uint32_t>(walk_->state_) != 1;
     if (fading)
         shadow_fade_ = shadow_fade_ > 0 ? shadow_fade_ - 1 : 0;
     else
@@ -560,13 +559,6 @@ void balance_displays_off(void* score)
 }
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
-void set_input_flag(uint8_t* flag, uint8_t on)
-{
-    if (flag[0] == on)
-        return;
-    flag[0] = on;
-    *reinterpret_cast<int*>(flag + 4) = get_clock();
-}
 
 void* get_elements() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
 
@@ -606,8 +598,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
     }
     label_ = profile->fetch_title();
     if (is_local_skater_) {
-        uint8_t* stance_flag = reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x28;
-        set_input_flag(stance_flag, goofy_ ? 0 : 1);
+        core_physics_->state_->set_flag(PoseFlag::kFlipped, goofy_ ? 0 : 1);
         static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -620,10 +611,10 @@ void Rider::reset_input()
     static_cast<RiderTeeterMoves*>(fetch_module(0x589E5FB3))->clear_best_times();
     set_up_network();
     for (int i = 0; i < 24; ++i) {
-        set_input_flag(reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x20 + 8 * i, 1);
+        core_physics_->state_->set_flag(static_cast<PoseFlag>(i), 1);
         if (i == 7)
             core_physics_->sound_->sliding_ = 1;
-        set_input_flag(reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x20 + 8 * i, 0);
+        core_physics_->state_->set_flag(static_cast<PoseFlag>(i), 0);
         if (i == 7)
             core_physics_->sound_->sliding_ = 0;
     }
@@ -1123,9 +1114,9 @@ void Rider::launch_projectile()
         heading_z = static_cast<float>(heading_z * inverse);
     }
     // From a wrist (the right one, or the left by its stance and whether it's walking).
-    uint8_t* walking = get_at<uint8_t*>(state284_, 0x2C);
-    bool flipped = get_at<uint8_t>(reinterpret_cast<uint8_t*>(core_physics_->state_), 0x28) != 0;
-    bool walk = !get_at<bool>(walking, 0x118) && get_at<int>(walking, 0x1C) == 1;
+    RiderPoseState* walking = physics_control_->pose_;
+    bool flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on != 0;
+    bool walk = !walking->in_vehicle_ && walking->physics_mode_ == 1;
     uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone, rotated;
     static_cast<BoneRigModule*>(fetch_module(0x222756D5))->get_local_bone_position(wrist, &bone);
@@ -1243,8 +1234,8 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     score_holder_ = nullptr;
     core_physics_ = nullptr;
     list_28c_ = nullptr;
-    state288_ = nullptr;
-    state284_ = nullptr;
+    walk_ = nullptr;
+    physics_control_ = nullptr;
     // Its components, one structure (component = ...) changed for each.
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory->prepare_all() : nullptr;
@@ -1263,7 +1254,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
         add(0x270F56E1);
         unknown258_ = fetch_module(0x270F56E1);
         add(0xD9151D4D); // SkaterPhysicsControl
-        state284_ = reinterpret_cast<uint8_t*>(fetch_module(0xD9151D4D));
+        physics_control_ = static_cast<RiderBoardPhysics*>(fetch_module(0xD9151D4D));
         add(0x5BD63B29); // SkaterCorePhysics
         core_physics_ = static_cast<skater::SkaterPhysicsModule*>(fetch_module(0x5BD63B29));
         add(0x52D61A0D);
@@ -1274,7 +1265,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
         add(0x9B373E58);
         add(0xD8CC3428);
         add(0x726E85AA); // Walk
-        state288_ = reinterpret_cast<uint8_t*>(fetch_module(0x726E85AA));
+        walk_ = static_cast<FootMovement*>(fetch_module(0x726E85AA));
         add(0x7CD3E6D5);
         add(0xB1D5A3E1);
         add(0x589E5FB3);
@@ -1336,8 +1327,8 @@ void Rider::reset_components()
 // 0x00583470
 void Rider::relaunch(uint32_t a, uint32_t b)
 {
-    uint8_t* walking = get_at<uint8_t*>(state284_, 0x2C);
-    if (!get_at<bool>(walking, 0x118) && get_at<int>(walking, 0x1C) == 1) {
+    RiderPoseState* walking = physics_control_->pose_;
+    if (!walking->in_vehicle_ && walking->physics_mode_ == 1) {
         // Walking: back to skating first.
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory->prepare_all() : nullptr;
@@ -1461,7 +1452,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
             custom_restart_set_ = true;
             custom_restart_pos_ = at_point_;
             custom_restart_matrix_ = basis_frame_;
-            custom_restart_walking_ = reinterpret_cast<RiderBoardPhysics*>(state284_)->is_on_foot();
+            custom_restart_walking_ = physics_control_->is_on_foot();
             skip_to_custom_restart();
             return true;
         }
@@ -1547,11 +1538,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
             get_at<uint8_t>(list, 0x18) = 1;
         if (net->in_net_game()) {
             commands::cfunc_notify_bail_done(nullptr, nullptr);
-            uint8_t* flag = reinterpret_cast<uint8_t*>(core_physics_->state_) + 0x70;
-            if (flag[0]) {
-                flag[0] = 0;
-                *reinterpret_cast<int*>(flag + 4) = get_clock();
-            }
+            core_physics_->state_->set_flag(PoseFlag::kBailing, 0);
         }
     }
     if (unknown25c_)

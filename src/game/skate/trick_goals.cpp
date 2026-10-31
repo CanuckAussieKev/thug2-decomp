@@ -32,6 +32,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "game/goals/create_a_trick.h"
 #include "game/rider/skater_score.h"
+#include "game/rider/skater_state.h"
 
 #pragma warning(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -1344,12 +1345,12 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     auto component = [skater](uint32_t type) {
         return reinterpret_cast<uint8_t*>(reinterpret_cast<objects::GameEntity*>(skater)->fetch_module(type));
     };
-    uint8_t* state = component(kSkaterState);
+    auto* state = reinterpret_cast<objects::RiderPoseState*>(component(kSkaterState));
     uint8_t* score_component = component(kSkaterScore);
     auto* score =
         reinterpret_cast<uint8_t*>(reinterpret_cast<objects::RiderPointKeeper*>(score_component)->points_held_);
     // Only while the skater is in the air (+0xE0) or has points pending.
-    if (!state[0xE0] && pending_points(score) <= 0)
+    if (!state->in_trick_move_ && pending_points(score) <= 0)
         return;
     if (!is_operative()) {
         void* manager = objective_board();

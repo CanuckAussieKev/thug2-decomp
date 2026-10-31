@@ -28,6 +28,8 @@
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -184,7 +186,7 @@ void FootMovement::check_ceiling()
 void FootMovement::check_sticker_slap()
 {
     // X and the pad's +0x20 button (btn_down_) both down, the latter within 30 ms.
-    auto* pad = reinterpret_cast<PadSnapshot*>(reinterpret_cast<uint8_t*>(input_) + 0x20);
+    auto* pad = &input_->pad_primary_;
     if (!pad->pos_x_.held_down_ || !pad->btn_down_.held_down_)
         return;
     if (static_cast<uint32_t>(pad->btn_down_.get_held_millis()) > 30)
@@ -204,7 +206,7 @@ void FootMovement::check_sticker_slap()
         return;
 
     // High enough, not just wallplanted, not just after leaving the ground, and the physics allows it.
-    if (script::fetch_float(kMinWallplantHeight) > get_at<float>(reinterpret_cast<uint8_t*>(skater_state_), 0x11C))
+    if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground_)
         return;
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
@@ -258,8 +260,7 @@ void FootMovement::update_ground_below()
 
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
-        get_at<float>(reinterpret_cast<uint8_t*>(skater_state_), 0x11C) =
-            static_cast<float>(static_cast<double>(pos.y) - down.contact_pos_.y);
+        skater_state_->height_above_ground_ = static_cast<float>(static_cast<double>(pos.y) - down.contact_pos_.y);
         auto* shadow = static_cast<GroundShadowModule*>(entity_->fetch_module(kShadow));
         shadow->change_place(&down.contact_pos_);
         shadow->set_normal(&down.surface_dir_);
@@ -390,10 +391,10 @@ void FootMovement::plan_jump_over_obstruction()
 void FootMovement::try_wallplant()
 {
     // X down, not rising, high enough, not just wallplanted, not just after leaving the ground...
-    auto* pad = reinterpret_cast<PadSnapshot*>(reinterpret_cast<uint8_t*>(input_) + 0x20);
+    auto* pad = &input_->pad_primary_;
     if (!pad->pos_x_.held_down_ || up_speed_ > 0.0f)
         return;
-    if (script::fetch_float(kMinWallplantHeight) > get_at<float>(reinterpret_cast<uint8_t*>(skater_state_), 0x11C))
+    if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground_)
         return;
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));

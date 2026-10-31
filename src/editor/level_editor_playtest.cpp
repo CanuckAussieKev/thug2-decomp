@@ -467,7 +467,7 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
         return false;
     const auto* pose = static_cast<const objects::RiderPoseState*>(state);
     int physics = pose->cur_phase_;
-    bool bailing = pose->bailing_ != 0;
+    bool bailing = pose->is_on(objects::PoseFlag::kBailing) != 0;
     bool driving = pose->in_vehicle_ != 0;
     bool walking = !driving && pose->physics_mode_ == 1;
     objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);

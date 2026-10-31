@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -61,7 +62,7 @@ void RiderStanceDisplay::seal()
 int RiderStanceDisplay::get_stance()
 {
     auto* core = reinterpret_cast<ObjectModule*>(core_physics_);
-    uint8_t flip = reinterpret_cast<uint8_t*>(core_physics_->state_)[0x28];
+    uint8_t flip = core_physics_->state_->flag(PoseFlag::kFlipped).on;
     bool reversed = reinterpret_cast<uint8_t*>(core->entity_)[0x110] != 0;
     bool flipped = reversed ? flip != 0 : flip == 0;
     if (press_amount_)

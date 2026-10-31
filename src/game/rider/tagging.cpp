@@ -1,6 +1,8 @@
 // Graffiti tags and stickers: the tagging and tagging control components. See tagging.h.
 
 #include "game/rider/tagging.h"
+#include "engine/objects/input_component.h"
+#include "game/rider/physics_control.h"
 
 #include <bit>
 #include <cmath>
@@ -33,6 +35,7 @@
 #include "engine/objects/trigger_events.h"
 #include "engine/gfx/model_utils.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -412,8 +415,8 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 // 0x0051E390
 bool TaggingControlComponent::try_tagging()
 {
-    uint8_t* state = prop<uint8_t*>(entity_->fetch_module(kSkaterPhysicsControl), 0x2C);
-    if (prop<bool>(state, 0x118) || prop<int>(state, 0x1C) != 1 || blocked_)
+    RiderPoseState* state = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl))->pose_;
+    if (state->in_vehicle_ || state->physics_mode_ != 1 || blocked_)
         return false;
     if (cooldown_ > 0.0f) {
         cooldown_ = static_cast<float>(cooldown_ - 1.0);
@@ -426,11 +429,11 @@ bool TaggingControlComponent::try_tagging()
         return false;
     auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
-    uint32_t bone = prop<bool>(reinterpret_cast<uint8_t*>(core->state_), 0x28) ? 0x82B37CBCu : 0x78BC41DFu;
+    uint32_t bone = core->state_->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
     if (prop<uint32_t>(entity_, 0x158) == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
-    auto* button = reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(input_) + 0x1A0);
-    bool tapped = prop<bool>(button, 0) && static_cast<uint32_t>(button->get_held_millis()) < 100u;
+    auto* button = &static_cast<PadInputModule*>(input_)->pad_primary_.button_wedge_;
+    bool tapped = button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) < 100u;
     if (!tapped && (!pending_ || countdown_ != 0))
         return true;
 

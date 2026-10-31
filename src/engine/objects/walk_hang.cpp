@@ -32,6 +32,8 @@
 #include "engine/core/code_address.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/wait_and_die.h"
+#include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
 
 namespace {
 
@@ -278,10 +280,10 @@ void let_go_of_ride(objects::MovingSurfaceModule* contact)
 // The skater core's timed flag +0xA0 of +0x1528 set (with the time at +0xA4), unless it is.
 void set_physics_flag_a0(objects::FootMovement* walk)
 {
-    uint8_t* flags = reinterpret_cast<uint8_t*>(physics_of(walk)->state_);
-    if (get_at<uint8_t>(flags, 0xA0) != 1) {
-        get_at<uint8_t>(flags, 0xA0) = 1;
-        get_at<int>(flags, 0xA4) = get_now();
+    objects::RiderPoseState* flags = physics_of(walk)->state_;
+    if (flags->flag(objects::PoseFlag::kWallplanted).on != 1) {
+        flags->flag(objects::PoseFlag::kWallplanted).on = 1;
+        flags->flag(objects::PoseFlag::kWallplanted).changed_at = get_now();
     }
 }
 
@@ -664,7 +666,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 // 0x0043EC40
 bool objects::FootMovement::drop_to_hang()
 {
-    if (get_at<bool>(reinterpret_cast<uint8_t*>(physics_of(this)->state_), 0x70))
+    if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
         return false;
     float factor = get_param(kDropToHangSpeedFactor);
     double speed = run_speed() * factor;
@@ -1134,10 +1136,10 @@ void objects::FootMovement::update_hang()
 
     maths::Vec4& pos = pos_;
     const maths::Vec4& facing = facing_;
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
+    objects::PadInputModule* input = input_;
     if (control_full_) {
-        if (get_at<int>(input, 0x250) == 0 && get_at<float>(input, 0x24C) != 0.0f &&
-            std::fabs(get_at<float>(input, 0x248)) < 0.78539818525314331f) {
+        if (input->pad_primary_.lock_[0] == 0 && input->pad_primary_.polar_[1].length != 0.0f &&
+            std::fabs(input->pad_primary_.polar_[1].angle) < 0.78539818525314331f) {
             // pushed forward: a pull-up, pull_up_offset_forward ahead - then half that
             float forward = get_param(kPullUpOffsetForward);
             maths::Vec4 target = {static_cast<float>(static_cast<double>(forward) * facing.x + pos.x),
@@ -1152,7 +1154,7 @@ void objects::FootMovement::update_hang()
             target.y = get_param(kPullUpOffsetUp) + target.y;
             if (pull_up(&target))
                 return;
-        } else if (reinterpret_cast<const walk::SkaterTurn*>(input + 0x20)->turned_round()) {
+        } else if (reinterpret_cast<const walk::SkaterTurn*>(&input->pad_primary_.up_dir_)->turned_round()) {
             // turned round: let go
             change_phase(1);
             object_of(this)->post_own_event(kSkaterExitHang, nullptr);
@@ -1165,11 +1167,11 @@ void objects::FootMovement::update_hang()
     }
 
     // the shimmy's speed: the control's sideways part (within hang_vert_control_tolerance of straight sideways)
-    float sideways = static_cast<float>(1.5707963705062866 - std::fabs(get_at<float>(input, 0x248)));
+    float sideways = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
     float tolerance = get_param(kHangVertControlTolerance);
     float wanted = 0.0f;
     if (x87_cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
-        float direction = get_at<float>(input, 0x248) > 0.0f ? 1.0f : -1.0f;
+        float direction = input->pad_primary_.polar_[1].angle > 0.0f ? 1.0f : -1.0f;
         float speed = get_param(kHangMoveSpeedParam);
         wanted = static_cast<float>(static_cast<double>(direction) * stick_deflection_ * speed);
     }
@@ -1436,7 +1438,7 @@ void objects::FootMovement::climb_off_top()
 // 0x00441DE0
 bool objects::FootMovement::climb_onto_bottom(bool button)
 {
-    if (get_at<bool>(reinterpret_cast<uint8_t*>(physics_of(this)->state_), 0x70))
+    if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
         return false;
     float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
     float height = get_param(kMaxVertSnapDistance);
@@ -1462,7 +1464,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
 // 0x00441FC0
 bool objects::FootMovement::climb_onto_top()
 {
-    if (get_at<bool>(reinterpret_cast<uint8_t*>(physics_of(this)->state_), 0x70))
+    if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
         return false;
     float height = get_param(kMaxVertSnapDistance);
     float radius = get_param(kMaxHorizSnapDistance);
@@ -1509,8 +1511,8 @@ void objects::FootMovement::climb_ladder()
 {
     // the control's up / down part (its angle's cosine) at ladder_move_speed
     float speed = get_param(kLadderMoveSpeed);
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
-    double move_speed = x87_cos(get_at<float>(input, 0x248)) * stick_deflection_ * static_cast<double>(speed);
+    objects::PadInputModule* input = input_;
+    double move_speed = x87_cos(input->pad_primary_.polar_[1].angle) * stick_deflection_ * static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
     float move = static_cast<float>(move_speed * frame_length_);
     GrindPoint* node = hang_node_;
@@ -1574,8 +1576,8 @@ void objects::FootMovement::update_ladder()
         trigger_rail_script(this, kOntoLadderEvents);
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
-    float upright = static_cast<float>(1.5707963705062866 - std::fabs(get_at<float>(input, 0x248)));
+    objects::PadInputModule* input = input_;
+    float upright = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
     float tolerance = get_param(kLadderControlTolerance);
     if (x87_cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
         climb_ladder();

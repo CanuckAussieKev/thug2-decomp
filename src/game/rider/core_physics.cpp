@@ -30,6 +30,7 @@
 #include "platform/run_log.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
+#include "engine/objects/input_component.h"
 
 namespace skater {
 
@@ -69,22 +70,17 @@ int get_now()
     return time + objects::g_clock_offset;
 }
 
+using objects::PoseFlag;
+
 // A timed flag: a bool and, after it, the time it last changed.
-void set_timed_flag(void* flags, uint32_t offset, uint8_t value)
+void set_timed_flag(objects::RiderPoseState* flags, objects::PoseFlag flag, uint8_t value)
 {
-    uint8_t& flag = get_at<uint8_t>(flags, offset);
-    if (flag == value)
-        return;
-    flag = value;
-    get_at<int>(flags, offset + 4) = get_now();
+    flags->set_flag(flag, value);
 }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900).
-int time_since_press(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis(); }
-int time_since_release(uint8_t* button)
-{
-    return reinterpret_cast<objects::ControlButton*>(button)->read_let_go_time();
-}
+int time_since_press(objects::ControlButton* button) { return button->get_held_millis(); }
+int time_since_release(objects::ControlButton* button) { return button->read_let_go_time(); }
 
 // The components the skater's physics reaches through its own fields.
 objects::ActivationZoneModule* trigger_of(SkaterPhysicsModule* component)
@@ -95,11 +91,11 @@ const int* get_events(uint32_t address) { return reinterpret_cast<const int*>(ad
 void stop_riding(void* ride) { static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding(); }
 
 // The two triggers: both held - or, under PartyMod's PS2 controls (its JZ -> JNZ at each check), either.
-bool triggers_held(const uint8_t* input)
+bool triggers_held(const objects::PadInputModule* input)
 {
     if (ps2_controls())
-        return input[kTrigger1] || input[kTrigger2];
-    return input[kTrigger1] && input[kTrigger2];
+        return input->pad_primary_.shoulder_left_b_.held_down_ || input->pad_primary_.shoulder_right_b_.held_down_;
+    return input->pad_primary_.shoulder_left_b_.held_down_ && input->pad_primary_.shoulder_right_b_.held_down_;
 }
 
 // velocity += direction * scale, the x component's product unrounded (the original keeps it on the x87 stack).
@@ -130,8 +126,8 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
     }
     maths::Vec4 side = {forward.z, 0.0f, -forward.x, 0.0f};
 
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
-    if (input[kButton80])
+    objects::PadInputModule* input = input_;
+    if (input->pad_primary_.right_side_.held_down_)
         return 0;
     // (The original: both triggers. PartyMod's JZ -> JNZ at 0x004FCC59 makes it either.)
     if (triggers_held(input)) {
@@ -139,17 +135,17 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
         stack_on(entity_->vel_, forward, scale);
         return 1;
     }
-    if (input[kButton60]) {
+    if (input->pad_primary_.left_side_.held_down_) {
         int wait = physics_integer(0x3080E9E7, object);
-        if (time_since_press(input + kButton60) > wait) {
+        if (time_since_press(&input->pad_primary_.left_side_) > wait) {
             float scale = tuning_float_lookup(0xDC818B7E, object);
             stack_on(entity_->vel_, forward, scale);
             return 1;
         }
     }
-    if (input[kButton20]) {
+    if (input->pad_primary_.up_dir_.held_down_) {
         int wait = physics_integer(0x9B25142A, object);
-        if (time_since_press(input + kButton20) > wait) {
+        if (time_since_press(&input->pad_primary_.up_dir_) > wait) {
             float scale = tuning_float_lookup(0x1AB3809F, object);
             maths::Vec4& velocity = entity_->vel_;
             // velocity -= side * scale (x's product unrounded, as above)
@@ -162,9 +158,9 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
             return 1;
         }
     }
-    if (input[kButton40]) {
+    if (input->pad_primary_.btn_down_.held_down_) {
         int wait = physics_integer(0x9B25142A, object);
-        if (time_since_press(input + kButton40) > wait) {
+        if (time_since_press(&input->pad_primary_.btn_down_) > wait) {
             float scale = tuning_float_lookup(0x1AB3809F, object);
             entity_->vel_ += side * scale;
             return 1;
@@ -263,7 +259,7 @@ int SkaterPhysicsModule::set_speed(script::Struct* params, script::Script* scrip
 void SkaterPhysicsModule::check_for_ground()
 {
     objects::GameEntity* object = entity_;
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
+    objects::PadInputModule* input = input_;
     // Not original: THAW 0x005DF050 - on the bike (out of a manual) the two wheels instead (thaw_bmx_physics.cpp).
     bool bike = thaw_bmx::live_now(this);
     thaw_bmx::WheelGround wheels = bike ? thaw_bmx::wheel_ground_check(this) : thaw_bmx::kWheelsNotUsed;
@@ -324,7 +320,8 @@ void SkaterPhysicsModule::check_for_ground()
                 float turn = static_cast<float>(static_cast<double>(in_ground_plane.x) * in_hit_plane.x +
                                                 static_cast<double>(in_ground_plane.z) * in_hit_plane.z +
                                                 static_cast<double>(in_ground_plane.y) * in_hit_plane.y);
-                float angle = tuning_float_lookup(input[kButton20] ? 0x4138283E : 0xEF161C2A, object);
+                float angle =
+                    tuning_float_lookup(input->pad_primary_.up_dir_.held_down_ ? 0x4138283E : 0xEF161C2A, object);
                 double limit = std::cos(static_cast<double>(angle) * 0.0174532924f); // (degrees to radians)
                 bool keep = true;
                 if (facing_into_hit > 0.0f && turn > 0.0f && turn < limit)
@@ -345,13 +342,13 @@ void SkaterPhysicsModule::check_for_ground()
                         keep = false;
                 }
                 if (keep) {
-                    void* flags = state_;
-                    set_timed_flag(flags, 0x40, hit_vert_);
+                    objects::RiderPoseState* flags = state_;
+                    set_timed_flag(flags, PoseFlag::kOnVert, hit_vert_);
                     turn_to_normal(normal);
                     object->at_point_ = feeler_.contact_pos_;
                     flags = state_;
-                    if (get_at<int>(flags, 0x18) == 0 && distance > 2.0f && turn > 0.99f)
-                        set_timed_flag(flags, 0x98, 1);
+                    if (flags->cur_phase_ == 0 && distance > 2.0f && turn > 0.99f)
+                        set_timed_flag(flags, PoseFlag::kGroundSnapped, 1);
                     uint8_t surface = feeler_.hit_.terrain;
                     static_cast<objects::RiderPoseState*>(state_)->set_surface_kind(surface);
                     sound_->surface_type_ = surface;
@@ -391,17 +388,21 @@ void SkaterPhysicsModule::check_for_ground()
     collision_events::checkpoint(this, "GroundGone-event"); // (not original)
     start_vert_air();
     collision_events::checkpoint(this, "after-4FEBA0"); // (not original)
-    void* flags = state_;
-    if (get_at<uint8_t>(flags, 0x30)) {
-        set_timed_flag(flags, 0x48, 1);
+    objects::RiderPoseState* flags = state_;
+    if (flags->flag(PoseFlag::kVertAir).on) {
+        set_timed_flag(flags, PoseFlag::kLeftVert, 1);
         // The original: unless both triggers are held. PartyMod only turns the first check's JZ into a JNZ (at
         // 0x00509E47), so under its PS2 controls this is skipped only while the second is held without the first.
-        bool skip = ps2_controls() ? !input[kTrigger1] && input[kTrigger2] : input[kTrigger1] && input[kTrigger2];
+        bool skip =
+            ps2_controls()
+                ? !input->pad_primary_.shoulder_left_b_.held_down_ && input->pad_primary_.shoulder_right_b_.held_down_
+                : input->pad_primary_.shoulder_left_b_.held_down_ && input->pad_primary_.shoulder_right_b_.held_down_;
         if (!skip)
             break_vert(false);
         int wait = script::fetch_int_value(0x6BB5B751);
-        if (time_since_release(input + kButton20) > wait && time_since_press(input + kButton20) > wait)
-            set_timed_flag(state_, 0x48, 0);
+        if (time_since_release(&input->pad_primary_.up_dir_) > wait &&
+            time_since_press(&input->pad_primary_.up_dir_) > wait)
+            set_timed_flag(state_, PoseFlag::kLeftVert, 0);
     } else if (triggers_held(input)) {
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
         uint8_t drop[40];
@@ -443,10 +444,7 @@ void SkaterPhysicsModule::ground_under_wheels(bool hit)
 
 namespace {
 
-uint8_t& bit_mark(SkaterPhysicsModule* component, uint32_t offset)
-{
-    return get_at<uint8_t>(component->state_, offset);
-}
+uint8_t& bit_mark(SkaterPhysicsModule* component, PoseFlag flag) { return component->state_->flag(flag).on; }
 objects::GameEntity* object_of(SkaterPhysicsModule* component) { return component->entity_; }
 
 } // namespace
@@ -454,13 +452,13 @@ objects::GameEntity* object_of(SkaterPhysicsModule* component) { return componen
 // 0x0050CA00
 void SkaterPhysicsModule::do_air_physics()
 {
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
+    objects::PadInputModule* input = input_;
     float gravity = static_cast<float>(get_gravity());
-    set_timed_flag(state_, 0x40, 0);
-    void* flags = state_;
-    if (get_at<uint8_t>(flags, 0x30) || get_at<uint8_t>(flags, 0x78) || get_at<uint8_t>(flags, 0xA8) ||
-        get_at<uint8_t>(flags, 0x70))
-        set_timed_flag(flags, 0xB0, 1);
+    set_timed_flag(state_, PoseFlag::kOnVert, 0);
+    objects::RiderPoseState* flags = state_;
+    if (flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on ||
+        flags->flag(PoseFlag::kFromAcidDrop).on || flags->flag(PoseFlag::kBailing).on)
+        set_timed_flag(flags, PoseFlag::kNoAcidDrop, 1);
     point_rail_spin_ = 0;
     // Not original: THAW 0x005DF880 - on the bike no manual in the air, and its own pitch and spin (0x005D7CB0) for
     // the lean and spin (thaw_bmx_physics.cpp).
@@ -476,7 +474,7 @@ void SkaterPhysicsModule::do_air_physics()
         get_spin();
     rotate_in_acid_drop();
     // (The original: flag +0x80 or both triggers. PartyMod's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
-    if (bit_mark(this, 0x80) || triggers_held(input))
+    if (bit_mark(this, PoseFlag::kRecoverInAir) || triggers_held(input))
         recover_in_air();
     // Not original: THAW 0x005DF98B - on the bike the tire tap (looked for, or carried on), and while it's on the
     // bike isn't kept upright (0x005DF9DB).
@@ -484,8 +482,8 @@ void SkaterPhysicsModule::do_air_physics()
         thaw_bmx::tire_tap(this);
     {
         uint8_t* other = reinterpret_cast<uint8_t*>(rotate_);
-        if (!bit_mark(this, 0x30) && !bit_mark(this, 0x78) && !other[0x28] && !other[0x50] &&
-            !(bike && thaw_bmx::tire_tapping(this)))
+        if (!bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop) && !other[0x28] &&
+            !other[0x50] && !(bike && thaw_bmx::tire_tapping(this)))
             keep_upright();
     }
     if (special_friction_time_ != 0.0f)
@@ -501,11 +499,11 @@ void SkaterPhysicsModule::do_air_physics()
             entity_->basis_frame_.row[2].align_to_plane(late_wall_normal_);
     }
     flags = state_;
-    if (get_at<uint8_t>(flags, 0x78)) {
+    if (flags->flag(PoseFlag::kAcidDrop).on) {
         if (velocity.y < 0.0f && entity_->at_point_.y < drop_target_height_)
-            vector_at(flags, 0xE4).set_length(0.1f);
+            flags->drop_velocity_.set_length(0.1f);
         else
-            velocity += vector_at(flags, 0xE4);
+            velocity += flags->drop_velocity_;
     }
 
     // What the skater rides on (+0x152C's +0x18, if it's still under the skater) carries it along.
@@ -519,7 +517,7 @@ void SkaterPhysicsModule::do_air_physics()
                 stop_riding(ride);
             else if (!reinterpret_cast<objects::RideTracker*>(rider)->tick_frame(&object->at_point_))
                 stop_riding(ride);
-            else if (!bit_mark(this, 0x78) || drop_object_hit_)
+            else if (!bit_mark(this, PoseFlag::kAcidDrop) || drop_object_hit_)
                 carried = ride_->ride_->carried_;
         }
     }
@@ -556,8 +554,8 @@ void SkaterPhysicsModule::do_air_physics()
 
     objects::GameEntity* object = object_of(this);
     flags = state_;
-    if (get_at<uint8_t>(flags, 0x48)) {
-        if (get_at<uint8_t>(flags, 0x38) && get_at<uint8_t>(flags, 0x30)) {
+    if (flags->flag(PoseFlag::kLeftVert).on) {
+        if (flags->flag(PoseFlag::kVertWall).on && flags->flag(PoseFlag::kVertAir).on) {
             // On a wall: a feeler from the skater's up (+1) to 23 below; off it, break out of vert.
             const maths::Vec4& up = object->basis_frame_.row[1];
             const maths::Vec4& position = object->at_point_;
@@ -572,18 +570,20 @@ void SkaterPhysicsModule::do_air_physics()
             if (!probe_touches_zone(0x10, 0)) {
                 break_vert(false);
                 int wait = script::fetch_int_value(0x6BB5B751);
-                if (time_since_release(input + kButton20) > wait && time_since_press(input + kButton20) > wait)
-                    set_timed_flag(state_, 0x48, 0);
+                if (time_since_release(&input->pad_primary_.up_dir_) > wait &&
+                    time_since_press(&input->pad_primary_.up_dir_) > wait)
+                    set_timed_flag(state_, PoseFlag::kLeftVert, 0);
             }
         }
-        uint32_t stamp = get_at<uint32_t>(state_, 0x4C);
+        uint32_t stamp = state_->flag(PoseFlag::kLeftVert).changed_at;
         uint32_t now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
         int elapsed = static_cast<int>(now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp));
         if (elapsed > script::fetch_int_value(0x26495947))
-            set_timed_flag(state_, 0x48, 0);
-    } else if (get_at<uint8_t>(flags, 0x30)) {
+            set_timed_flag(state_, PoseFlag::kLeftVert, 0);
+    } else if (flags->flag(PoseFlag::kVertAir).on) {
         // (The original: both triggers. PartyMod's JZ -> JNZ at 0x0050CF89 makes it either.)
-        if ((triggers_held(input) || transfer_blocked_) && !get_at<uint8_t>(flags, 0x78) && object->vel_.y > 0.0f)
+        if ((triggers_held(input) || transfer_blocked_) && !flags->flag(PoseFlag::kAcidDrop).on &&
+            object->vel_.y > 0.0f)
             break_vert(false);
     }
 
@@ -598,7 +598,7 @@ void SkaterPhysicsModule::do_air_physics()
         else if (rider)
             stop_riding(ride);
     }
-    if (!riding && bit_mark(this, 0x38) && bit_mark(this, 0x30)) {
+    if (!riding && bit_mark(this, PoseFlag::kVertWall) && bit_mark(this, PoseFlag::kVertAir)) {
         maths::Vec4& start = probe_start_;
         maths::Vec4& end = probe_end_;
         start.x = entity_->at_point_.x;
@@ -666,13 +666,14 @@ void SkaterPhysicsModule::do_air_physics()
             turn_to_normal(flat);
             entity_->vel_.align_to_plane(flat);
         } else {
-            set_timed_flag(state_, 0x38, 0);
+            set_timed_flag(state_, PoseFlag::kVertWall, 0);
         }
     }
 
     {
         uint8_t* other = reinterpret_cast<uint8_t*>(rotate_);
-        if (!bit_mark(this, 0x30) || bit_mark(this, 0x78) || model_rotating_ || other[0x28] || other[0x50])
+        if (!bit_mark(this, PoseFlag::kVertAir) || bit_mark(this, PoseFlag::kAcidDrop) || model_rotating_ ||
+            other[0x28] || other[0x50])
             display_matrix_ = entity_->basis_frame_;
         else
             update_ground_normal();
@@ -711,17 +712,17 @@ void SkaterPhysicsModule::do_air_physics()
             display_matrix_ = entity_->basis_frame_;
             float push = tuning_float_lookup(0x23410C14, object);
             entity_->at_point_ += normal * push;
-            set_timed_flag(state_, 0xB0, 1);
+            set_timed_flag(state_, PoseFlag::kNoAcidDrop, 1);
         }
-    } else if (!bit_mark(this, 0x30)) {
+    } else if (!bit_mark(this, PoseFlag::kVertAir)) {
         test_lateral_hits();
     }
 
     if (keep_off_ceiling())
-        set_timed_flag(state_, 0xB0, 1);
+        set_timed_flag(state_, PoseFlag::kNoAcidDrop, 1);
     jump_released();
     vert_wallplant();
-    if (bit_mark(this, 0xB0))
+    if (bit_mark(this, PoseFlag::kNoAcidDrop))
         return;
     // An acid drop: both triggers (the original; PartyMod's JZ -> JNZ at 0x0050DA64 makes it either).
     if (!triggers_held(input))
@@ -740,17 +741,17 @@ void SkaterPhysicsModule::land_from_air()
 {
     set_physics_state(0);
     start_riding_hit_object();
-    void* flags = state_;
-    if (get_at<uint8_t>(flags, 0x30) || get_at<uint8_t>(flags, 0x78)) {
+    objects::RiderPoseState* flags = state_;
+    if (flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on) {
         landed_from_vert_ = 1;
         landed_from_air_vert_ = 1;
     } else {
         landed_from_air_vert_ = 0;
     }
-    came_down_off_spine_ = get_at<uint8_t>(flags, 0x78);
+    came_down_off_spine_ = flags->flag(PoseFlag::kAcidDrop).on;
     set_surface_kind(feeler_.hit_.terrain);
     if (!on_vehicle_) {
-        uint32_t which = bit_mark(this, 0xE1);
+        uint32_t which = state_->surface_type_;
         objects::GameEntity* object = object_of(this);
         float speed = object->vel_.len_of();
         float scale = static_cast<objects::Rider*>(object)->get_scaled_physics(0xCC5F87AA);
@@ -764,13 +765,13 @@ void SkaterPhysicsModule::land_from_air()
     if (!physics_control_->flag26_) {
         const maths::Vec4& normal = feeler_.surface_dir_;
         maths::Vec4& velocity = entity_->vel_;
-        uint8_t* input = reinterpret_cast<uint8_t*>(input_);
+        objects::PadInputModule* input = input_;
         if (!landed_from_air_vert_ && !landed_from_vert_ && velocity.x == 0.0f && velocity.z == 0.0f &&
-            input[kButton40]) {
+            input->pad_primary_.btn_down_.held_down_) {
             // (Landing straight down with button +0x40 held: no bounce.)
             get_at<uint32_t>(&velocity, 4) = 0;
         } else {
-            if (!bit_mark(this, 0x78)) {
+            if (!bit_mark(this, PoseFlag::kAcidDrop)) {
                 velocity.flatten_onto_plane(normal);
             } else {
                 // Landing from a wall ride: along +0x490's direction in the ground's plane, unless that turns
@@ -791,7 +792,7 @@ void SkaterPhysicsModule::land_from_air()
             }
             entity_->vel_.clamp_tiny_to_nothing(10.0f);
         }
-        set_timed_flag(state_, 0x30, 0);
+        set_timed_flag(state_, PoseFlag::kVertAir, 0);
         transfer_blocked_ = 0;
         if (thaw_bmx::live_now(this)) {
             // Not original: THAW 0x005E0AA4 - on the bike the landing keeps the

@@ -61,7 +61,7 @@ constexpr float kHalfTurn = 180.0f; // 0x0064B278
 constexpr float kSpinMargin = 0.1f; // 0x00645D74 (0.100000001f)
 
 // The fields (see trick_queue.cpp).
-constexpr uint32_t kScore = 0x1C, kBalanceTrick = 0x24, kCorePhysics = 0x28, kState = 0x30, kComponent34 = 0x34;
+constexpr uint32_t kScore = 0x1C, kBalanceTrick = 0x24, kCorePhysics = 0x28, kComponent34 = 0x34;
 constexpr uint32_t kIsSpecial = 0xA24, kTrickBindingsSlot = 0xA28, kQueueHead = 0xA2C, kQueueTail = 0xA30;
 constexpr uint32_t kQueueCount = 0x1204, kQueueArrays = 0x1208, kQueueSpecial = 0x1230, kEventsUse = 0x1234;
 constexpr uint32_t kManualCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
@@ -180,7 +180,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             pay_out_queued_gaps();
             static_cast<modules::PointTally*>(score)->land();
             spin_total_ = 0.0f;
-            get_at<bool>(get_component(this, kState), 0xE0) = false;
+            skater_state_->in_trick_move_ = false;
             static_cast<AttributeTracker*>(get_component(this, kComponent34))->announce_met_goals();
         }
         entity_->announce(kSkaterLanded, nullptr, 0.0f);
@@ -462,7 +462,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 score_trick(this, trick_name, trick_score_, flags);
                 if (*trick_name) {
                     entity_->announce(kSkaterTrickDisplayed, nullptr, 0.0f);
-                    bool special = get_at<bool>(reinterpret_cast<uint8_t*>(core->state_), 0x30);
+                    bool special = core->state_->flag(PoseFlag::kVertAir).on;
                     if ((!special && !static_cast<bool>(core->landed_from_air_vert_)) || spin_counts(this, true))
                         score_spin(this, truncate(spin_total_));
                 }

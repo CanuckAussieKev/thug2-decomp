@@ -30,6 +30,7 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name.
 namespace objects {
 class FootMovement;
+class RiderBoardPhysics;
 
 struct TrickListEntry;
 struct TrickNameEntry;
@@ -90,7 +91,7 @@ public:
     uint8_t* points_held_;                      // +0x44 the skater's score (modules::PointTally; set by the skater)
     skater::SkaterPhysicsModule* core_physics_; // +0x48 SkaterCorePhysics (0x5BD63B29)
     uint8_t* balance_trick_;                    // +0x4C SkaterBalanceTrick (0x589E5FB3)
-    uint8_t* physics_control_;                  // +0x50 SkaterPhysicsControl (0xD9151D4D)
+    RiderBoardPhysics* physics_control_;        // +0x50 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x54 Walk (0x726E85AA)
 };
 static_assert(offsetof(RiderGapTracker, gaps_) == 0x18 && offsetof(RiderGapTracker, gap_move_chain_) == 0x2C &&

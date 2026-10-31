@@ -148,7 +148,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         }
     }
 
-    if (bit_mark(this, 0x30)) {
+    if (bit_mark(this, PoseFlag::kVertAir)) {
         // On vert: back at the hit, kept the min distance off it, the velocity along it.
         const maths::Vec4& point = feeler_.contact_pos_;
         maths::Vec4& q = entity_->at_point_;
@@ -163,7 +163,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         r.z = static_cast<float>(static_cast<double>(normal.z) * distance + r.z);
         r.w = static_cast<float>(static_cast<double>(normal.w) * distance + r.w);
         maths::Vec4& velocity = entity_->vel_;
-        if (bit_mark(this, 0x78))
+        if (bit_mark(this, PoseFlag::kAcidDrop))
             velocity.align_to_plane(*hit_normal);
         else
             velocity.flatten_onto_plane(normal);
@@ -174,14 +174,14 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 
     // A bonk - unless a wallplant (not with +0x302) or 0x00508140 takes over.
     bool done = false;
-    if (!bit_mark(this, 0xE0) && !bit_mark(this, 0x70)) {
+    if (!state_->in_trick_move_ && !bit_mark(this, PoseFlag::kBailing)) {
         if (!motoskateboard_ && wall_plant(false, false, false))
             done = true;
         else if (start_wall_ride())
             done = true;
     }
     if (!done) {
-        set_flag(this, 0xB0, 1);
+        set_flag(this, PoseFlag::kNoAcidDrop, 1);
         trigger_feeler(this, kBonkEvents, &feeler_);
         done = trigger_took_over(this);
     }
@@ -280,7 +280,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     maths::Vec4 normal = feeler_.surface_dir_;
     float overlap = 0.0f; // (uninitialised in the original when not in the air)
     if (state_of(this) == kAir) {
-        if (!bit_mark(this, 0xE0) && !bit_mark(this, 0x70) && start_wall_ride())
+        if (!state_->in_trick_move_ && !bit_mark(this, PoseFlag::kBailing) && start_wall_ride())
             return true;
         // Pushed out of it by a tenth of how far into it the skater is (the hit's distance under the reach, less
         // the extra air reach).
@@ -294,8 +294,10 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
             return false;
         into.set_length(overlap);
         entity_->at_point_ -= into / 10.0f;
-        const uint8_t* input = input_of(this);
-        if (state_of(this) != kAir && !input[0x100] && !input[0xA0] && !input[0x60] && !input[0x80])
+        const objects::PadInputModule* input = input_;
+        if (state_of(this) != kAir && !input->pad_primary_.shoulder_right_a_.held_down_ &&
+            !input->pad_primary_.shoulder_left_a_.held_down_ && !input->pad_primary_.left_side_.held_down_ &&
+            !input->pad_primary_.right_side_.held_down_)
             deflect_from_wall(&normal, &overlap, 0.2f); // (never: the state is the air's)
         return false;
     }

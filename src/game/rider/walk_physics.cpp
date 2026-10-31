@@ -226,13 +226,13 @@ void FootMovement::change_phase(int state)
         climb_scale_ = 0.0f;
         if (previous_state_ == 1) {
             // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
-            uint8_t* pad = reinterpret_cast<uint8_t*>(input_) + 0x20;
+            objects::PadSnapshot* pad = &input_->pad_primary_;
             float debounce = walk_parameter(kHangControlDebounceTime);
             uint32_t now = frame_clock::get_time();
-            get_at<uint32_t>(pad, 0x230) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            pad->lock_[0] = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
             debounce = walk_parameter(kHangControlDebounceTime);
             now = frame_clock::get_time();
-            get_at<uint32_t>(pad, 0x234) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            pad->lock_[1] = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
         }
     }
 }
@@ -243,8 +243,8 @@ void FootMovement::clear_model_offset() { get_at<maths::Vec4>(model_, 0x1F8) = {
 // 0x00524E10
 bool FootMovement::using_dpad()
 {
-    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
-    if (!(get_at<float>(input, 0x228) == 0.0f) || !(get_at<float>(input, 0x22C) == 0.0f))
+    objects::PadInputModule* input = input_;
+    if (!(input->pad_primary_.stick_[2] == 0.0f) || !(input->pad_primary_.stick_[3] == 0.0f))
         return false;
     return control_full_;
 }

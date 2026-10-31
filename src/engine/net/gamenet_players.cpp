@@ -45,6 +45,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -159,8 +160,8 @@ void Hub::spectate_player(PlayerRecord* player)
     set_camera_skater(skater_camera, skater);
     set_walk_camera_skater(walk_camera, skater);
     static_cast<objects::FootView*>(walk_camera)->instant_frames_ = 3;
-    uint8_t* state = static_cast<objects::RiderBoardPhysics*>(control)->cur_phase_;
-    if (!prop<bool>(state, 0x118) && prop<int>(state, 0x1C) == 0) {
+    objects::RiderPoseState* state = static_cast<objects::RiderBoardPhysics*>(control)->pose_;
+    if (!state->in_vehicle_ && state->physics_mode_ == 0) {
         skater_camera->hold_off(false);
         walk_camera->hold_off(true);
     } else {

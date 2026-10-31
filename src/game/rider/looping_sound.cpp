@@ -18,6 +18,8 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/physics_control.h"
 
 namespace objects {
 
@@ -147,7 +149,7 @@ void RiderRollingAudio::set_pace_ratio(float fraction)
 // 0x00513970
 void RiderRollingAudio::seal()
 {
-    physics_control_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterPhysicsControl));
+    physics_control_ = static_cast<RiderBoardPhysics*>(entity_->fetch_module(kSkaterPhysicsControl));
 }
 
 // 0x00513F60
@@ -179,10 +181,10 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
     case kPlayAnim: {
         // Turned on again by the walk-to-skate animation (its animTags in the skater's tags).
         script::Struct* tags = entity_->tag_table_;
-        uint8_t* state = prop<uint8_t*>(physics_control_, 0x2C);
+        RiderPoseState* state = physics_control_->pose_;
         script::Struct* anim_tags;
-        if (tags && !prop<uint8_t>(state, 0x118) && !prop<int>(state, 0x1C) &&
-            tags->read_sub_struct(kAnimTags, &anim_tags, 0) && anim_tags->has_bare_flag(kWalkToSkateTransition)) {
+        if (tags && !state->in_vehicle_ && !state->physics_mode_ && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
+            anim_tags->has_bare_flag(kWalkToSkateTransition)) {
             hold_off(false);
             on_ = 1;
         }

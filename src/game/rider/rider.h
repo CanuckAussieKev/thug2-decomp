@@ -28,6 +28,8 @@ namespace objects {
 
 struct RiderIdentity;
 class EntityHub;
+class FootMovement;
+class RiderBoardPhysics;
 
 // The original's vtable (0x0064EF48) is GameEntity's with its own destructor and invoke_method_by_name and nine more
 // slots: +0x2C get_freeze, +0x30 unpause, +0x34 init_from_profile, +0x38 reset_input, +0x3C jump_to_spawn, +0x40
@@ -192,8 +194,8 @@ public:
     uint8_t* score_holder_;                     // +0x278 (+0x18 the score)
     uint8_t* unknown27c_;                       // +0x27C
     skater::SkaterPhysicsModule* core_physics_; // +0x280
-    uint8_t* state284_;                         // +0x284
-    uint8_t* state288_;                         // +0x288
+    RiderBoardPhysics* physics_control_;        // +0x284 SkaterPhysicsControl (0xD9151D4D)
+    FootMovement* walk_;                        // +0x288 Walk (0x726E85AA)
     void* list_28c_;                            // +0x28C
     float stat_overrides_[10];                  // +0x290
     int skater_number_;                         // +0x2B8

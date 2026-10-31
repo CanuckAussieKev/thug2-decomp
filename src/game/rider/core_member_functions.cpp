@@ -18,6 +18,7 @@
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/skater_sound.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -108,18 +109,7 @@ constexpr uint32_t kFocusTime = 0xDA479533;            // focus_time
 constexpr uint32_t kFocusAllowed = 0xF6BE5E07;         // focus_allowed
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;  // SkaterFlipAndRotate (a component)
 
-
 // The timed flags (offsets into the flags block).
-constexpr uint32_t kFlagCrouched = 0x20;
-constexpr uint32_t kFlagFlipped = 0x28;
-constexpr uint32_t kFlagVertAir = 0x30;
-constexpr uint32_t kFlagSlide = 0x58;
-constexpr uint32_t kFlagSpin = 0x68;
-constexpr uint32_t kFlagBail = 0x70;
-constexpr uint32_t kFlagSkitching = 0x88;
-constexpr uint32_t kFlagCancelGround = 0x90;
-constexpr uint32_t kFlagCancelWallpush = 0xB8;
-constexpr uint32_t kFlagFirstTimeOnRail = 0xC8;
 
 // The skater object's field +0x110 (switched inverts flipped unless it's set).
 // The skater object's index into the profiles' table (*0x007CE478, 8-byte entries, +0x395 the auto kick).
@@ -143,7 +133,7 @@ script::Struct* results_of(script::Script* script) { return script->args_; }
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
 uint32_t time_aloft(SkaterPhysicsModule* component)
 {
-    int state = get_at<int>(flags_of(component), kState);
+    int state = component->state_->cur_phase_;
     if (state == 1 || state == 2)
         return get_since(component->air_start_);
     return component->air_end_ - component->air_start_;
@@ -463,11 +453,14 @@ int SkaterPhysicsModule::get_braking(script::Struct*, script::Script*) { return 
 // --- the timed flags ---
 
 // 0x004FC780
-int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*) { return get_is(flags_of(this)[kFlagFlipped]); }
+int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*)
+{
+    return get_is(state_->flag(PoseFlag::kFlipped).on);
+}
 // 0x004FC7A0
 int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 {
-    bool flipped = flags_of(this)[kFlagFlipped] != 0;
+    bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
     if (static_cast<objects::Rider*>(entity_)->goofy_)
         return flipped ? 1 : 0;
     return flipped ? 0 : 1;
@@ -475,54 +468,63 @@ int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 // 0x004FC7E0
 int SkaterPhysicsModule::get_crouched(script::Struct*, script::Script*)
 {
-    return get_is(flags_of(this)[kFlagCrouched]);
+    return get_is(state_->flag(PoseFlag::kCrouched).on);
 }
 // 0x004FC800
 int SkaterPhysicsModule::first_time_on_this_rail(script::Struct*, script::Script*)
 {
-    return get_is(flags_of(this)[kFlagFirstTimeOnRail]);
+    return get_is(state_->flag(PoseFlag::kFirstTimeOnRail).on);
 }
 // 0x004FC820
-int SkaterPhysicsModule::skitching(script::Struct*, script::Script*) { return get_is(flags_of(this)[kFlagSkitching]); }
+int SkaterPhysicsModule::skitching(script::Struct*, script::Script*)
+{
+    return get_is(state_->flag(PoseFlag::kSkitching).on);
+}
 // 0x004FC840
 int SkaterPhysicsModule::cancel_wallpush(script::Struct*, script::Script*)
 {
-    set_timed_flag(this, kFlagCancelWallpush, 1);
+    set_timed_flag(this, PoseFlag::kCancelWallpush, 1);
     return 1;
 }
 // 0x004FCF90
 int SkaterPhysicsModule::no_spin(script::Struct*, script::Script*)
 {
     no_spin_ = 1;
-    set_timed_flag(this, kFlagSpin, 0);
+    set_timed_flag(this, PoseFlag::kSpin, 0);
     return 1;
 }
 // 0x004FCFC0
 int SkaterPhysicsModule::in_bail(script::Struct*, script::Script*)
 {
-    set_timed_flag(this, kFlagBail, 1);
+    set_timed_flag(this, PoseFlag::kBailing, 1);
     return 1;
 }
 // 0x004FCFF0
 int SkaterPhysicsModule::not_in_bail(script::Struct*, script::Script*)
 {
-    set_timed_flag(this, kFlagBail, 0);
+    set_timed_flag(this, PoseFlag::kBailing, 0);
     return 1;
 }
 // 0x004FD020
-int SkaterPhysicsModule::is_in_bail(script::Struct*, script::Script*) { return get_is(flags_of(this)[kFlagBail]); }
+int SkaterPhysicsModule::is_in_bail(script::Struct*, script::Script*)
+{
+    return get_is(state_->flag(PoseFlag::kBailing).on);
+}
 // 0x004FD1C0
-int SkaterPhysicsModule::in_vert_air(script::Struct*, script::Script*) { return get_is(flags_of(this)[kFlagVertAir]); }
+int SkaterPhysicsModule::in_vert_air(script::Struct*, script::Script*)
+{
+    return get_is(state_->flag(PoseFlag::kVertAir).on);
+}
 // 0x004FD530
 int SkaterPhysicsModule::override_cancel_ground(script::Struct* params, script::Script*)
 {
-    set_timed_flag(this, kFlagCancelGround, params->has_bare_flag(kOff) ? 0 : 1);
+    set_timed_flag(this, PoseFlag::kCancelGround, params->has_bare_flag(kOff) ? 0 : 1);
     return 1;
 }
 // 0x004FD630
 int SkaterPhysicsModule::set_vert_air(script::Struct*, script::Script*)
 {
-    set_timed_flag(this, kFlagVertAir, 1);
+    set_timed_flag(this, PoseFlag::kVertAir, 1);
     return 1;
 }
 
@@ -652,7 +654,7 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script*)
     uint32_t sound = 0;
     params->read_hash_value(0u, &sound, 1);
     bool slide = sound == kSlide;
-    set_timed_flag(this, kFlagSlide, slide ? 1 : 0);
+    set_timed_flag(this, PoseFlag::kSlide, slide ? 1 : 0);
     sound_->sliding_ = slide ? 1 : 0;
     return 1;
 }
@@ -672,12 +674,12 @@ int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Scrip
 int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kBackside)) {
-        bool flipped = flags_of(this)[kFlagFlipped] != 0;
+        bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
         bool backside = last_spin_backside_ != 0;
         return (flipped ? !backside : backside) ? 1 : 0;
     }
     if (params->has_bare_flag(kFrontside)) {
-        bool flipped = flags_of(this)[kFlagFlipped] != 0;
+        bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
         bool backside = last_spin_backside_ != 0;
         return (flipped ? backside : !backside) ? 1 : 0;
     }

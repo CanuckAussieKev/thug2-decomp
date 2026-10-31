@@ -46,9 +46,9 @@ void change_state(SkaterPhysicsModule* component, int state)
 // 0x0050BF50
 void SkaterPhysicsModule::step_coping_move()
 {
-    set_flag(this, 0x78, 0);
-    set_flag(this, 0xA8, 0);
-    set_flag(this, 0x80, 0);
+    set_flag(this, PoseFlag::kAcidDrop, 0);
+    set_flag(this, PoseFlag::kFromAcidDrop, 0);
+    set_flag(this, PoseFlag::kRecoverInAir, 0);
     flip_spin_started_ = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (objects::RideTracker* tracker = get_tracker(this)) {
@@ -84,11 +84,11 @@ void SkaterPhysicsModule::step_coping_move()
         }
         reinterpret_cast<objects::Balance*>(reinterpret_cast<uint8_t*>(balance_) + 0xD4)->tick_frame();
     }
-    if (!bit_mark(this, 0x20) && input_of(this)[0x1C0])
-        set_flag(this, 0x20, 1);
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x_.held_down_)
+        set_flag(this, PoseFlag::kCrouched, 1);
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (jump_released()) {
-        set_flag(this, 0xD8, 1);
+        set_flag(this, PoseFlag::kJumped, 1);
         trigger_rail_script(kLipOffEvents);
         trigger_rail_script(kOffLipEvents);
     }
@@ -111,9 +111,9 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
     } else {
         change_state(this, kAir);
         old_state_ = kAir;
-        set_flag(this, 0xC0, 1);
+        set_flag(this, PoseFlag::kNoSecondSpin, 1);
         if (static_cast<uint8_t>(walk_->off_vert_))
-            set_flag(this, 0xB0, 1);
+            set_flag(this, PoseFlag::kNoAcidDrop, 1);
     }
     state_changed_at_ = get_now();
     display_matrix_ = entity_->basis_frame_;
@@ -132,7 +132,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
     no_spin_ = 0;
     no_kick_ = 0;
     can_brake_ = 1;
-    get_at<uint8_t>(flags_of(this), 0xF4) = 0; // (without its time)
+    state_->lip_straight_up_ = 0; // (without its time)
     if (bits_as<uint32_t>(limits_time_) != 0xC0000000)
         limits_time_ = 0.0f;
     speed_override_ = 1.0f;

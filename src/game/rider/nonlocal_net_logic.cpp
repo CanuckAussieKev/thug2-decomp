@@ -30,6 +30,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -106,7 +107,7 @@ ObjectModule* __cdecl RiderRemoteSync::fabricate() { return new RiderRemoteSync;
 RiderRemoteSync::RiderRemoteSync()
 {
     past_frames_ = nullptr;
-    cur_phase_ = nullptr;
+    pose_ = nullptr;
     run_over_ = nullptr;
     anim_blender_ = nullptr;
     flip_and_rotate_ = nullptr;
@@ -127,7 +128,7 @@ RiderRemoteSync::~RiderRemoteSync() {}
 void RiderRemoteSync::seal()
 {
     past_frames_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterStateHistory));
-    cur_phase_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
+    pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
     run_over_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterEndRun));
     anim_blender_ = entity_->fetch_module(kAnimBlender);
     flip_and_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
@@ -162,7 +163,7 @@ void RiderRemoteSync::update_ground_lighting()
     end.y = static_cast<float>(static_cast<double>(end.y) - kLightingBelow);
     if (!feeler.get_hit_shape(true, false))
         return;
-    if (prop<int>(cur_phase_, 0x18) != kStateRail && feeler.is_hit_triangle_collision()) {
+    if (pose_->cur_phase_ != kStateRail && feeler.is_hit_triangle_collision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
         void* model = prop<void*>(mesh_set_, 0x208);
@@ -409,12 +410,12 @@ void RiderRemoteSync::tick_frame()
 {
     auto* net_manager = online::g_online_hub;
     frame_seconds_ = static_cast<float>(frame_clock::get_frame_seconds());
-    int state = prop<int>(cur_phase_, 0x18);
+    int state = pose_->cur_phase_;
     bool was_lip = state == kStateLip;
     if (state != kStateAir) {
         // (on the ground the state's two vectors follow the up row)
-        prop<maths::Vec4>(cur_phase_, 0xF8) = entity_->basis_frame_.row[1];
-        prop<maths::Vec4>(cur_phase_, 0x108) = entity_->basis_frame_.row[1];
+        pose_->drawn_normal_ = entity_->basis_frame_.row[1];
+        pose_->floor_normal_ = entity_->basis_frame_.row[1];
     }
     update_ground_lighting();
     last_pos_ = entity_->at_point_;
@@ -428,7 +429,7 @@ void RiderRemoteSync::tick_frame()
                            static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
                            static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
         if (extrapolate && prop<int>(past_frames_, 0x18) >= kHistory) {
-            if (prop<int>(cur_phase_, 0x18) == kStateRail) {
+            if (pose_->cur_phase_ == kStateRail) {
                 extrapolate_on_rail();
             } else {
                 get_extrapolate();
@@ -439,17 +440,16 @@ void RiderRemoteSync::tick_frame()
     play_history_events();
 
     // Out of a lip straight up (as the finalize physics component's).
-    if (was_lip && prop<int>(cur_phase_, 0x18) != kStateLip) {
-        prop<uint8_t>(cur_phase_, 0xF4) = 0;
-        if (prop<int>(cur_phase_, 0x18) == kStateAir && std::fabs(entity_->vel_.x) < 1.0f &&
-            std::fabs(entity_->vel_.z) < 1.0f)
-            prop<uint8_t>(cur_phase_, 0xF4) = 1;
+    if (was_lip && pose_->cur_phase_ != kStateLip) {
+        pose_->lip_straight_up_ = 0;
+        if (pose_->cur_phase_ == kStateAir && std::fabs(entity_->vel_.x) < 1.0f && std::fabs(entity_->vel_.z) < 1.0f)
+            pose_->lip_straight_up_ = 1;
     }
-    if (prop<int>(cur_phase_, 0x18) != kStateAir)
-        prop<uint8_t>(cur_phase_, 0xF4) = 0;
+    if (pose_->cur_phase_ != kStateAir)
+        pose_->lip_straight_up_ = 0;
 
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
-    uint8_t driving = prop<uint8_t>(cur_phase_, 0x118);
+    uint8_t driving = pose_->in_vehicle_;
     uint32_t steer_kind = prop<uint32_t>(past_frames_, 0x1104);
     if ((driving && steer_kind) || (!driving && was_driving_)) {
         script::Struct* params = script::spawn_param_bag();
@@ -467,11 +467,11 @@ void RiderRemoteSync::tick_frame()
             script::delete_struct(params);
         }
     }
-    was_driving_ = prop<uint8_t>(cur_phase_, 0x118);
+    was_driving_ = pose_->in_vehicle_;
 
     // The looping sound: on while skating, its speed and state.
     auto* sound = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound));
-    if (prop<int>(cur_phase_, 0x1C) != 0) {
+    if (pose_->physics_mode_ != 0) {
         if (sound->on_) {
             sound->hold_off(true);
             sound->on_ = 0;
@@ -485,15 +485,15 @@ void RiderRemoteSync::tick_frame()
     double vz = entity_->vel_.z, vx = entity_->vel_.x;
     sound->set_pace_ratio(static_cast<float>(std::sqrt(vx * vx + vz * vz) * kSpeedToSoundFraction));
     uint8_t changed = sound->sound_changed_;
-    changed |= sound->cur_phase_ != prop<int>(cur_phase_, 0x18) ? 1 : 0;
-    sound->cur_phase_ = prop<int>(cur_phase_, 0x18);
-    changed |= sound->surface_type_ != prop<uint8_t>(cur_phase_, 0xE1) ? 1 : 0;
+    changed |= sound->cur_phase_ != pose_->cur_phase_ ? 1 : 0;
+    sound->cur_phase_ = pose_->cur_phase_;
+    changed |= sound->surface_type_ != pose_->surface_type_ ? 1 : 0;
     sound->sound_changed_ = changed;
-    sound->surface_type_ = prop<uint8_t>(cur_phase_, 0xE1);
-    sound->no_rail_sound_ = prop<uint8_t>(cur_phase_, 0x70);
-    changed |= sound->sliding_ != prop<uint8_t>(cur_phase_, 0x58) ? 1 : 0;
+    sound->surface_type_ = pose_->surface_type_;
+    sound->no_rail_sound_ = pose_->flag(PoseFlag::kBailing).on;
+    changed |= sound->sliding_ != pose_->flag(PoseFlag::kSlide).on ? 1 : 0;
     sound->sound_changed_ = changed;
-    sound->sliding_ = prop<uint8_t>(cur_phase_, 0x58);
+    sound->sliding_ = pose_->flag(PoseFlag::kSlide).on;
 }
 
 } // namespace objects

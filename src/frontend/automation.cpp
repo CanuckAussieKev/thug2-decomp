@@ -40,6 +40,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/mlp.h"
@@ -890,11 +891,11 @@ void trace_frame()
         return;
     auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
     if (skater) {
-        auto* state = reinterpret_cast<uint8_t*>(skater->fetch_module(kStateModuleKey));
-        int where = state ? *reinterpret_cast<int*>(state + 0x18) : -1;
-        int physics = state ? *reinterpret_cast<int*>(state + 0x1C) : -1;
-        int bailing = state ? state[0x70] : -1;
-        int trick = state ? state[0xE0] : -1;
+        auto* state = static_cast<objects::RiderPoseState*>(skater->fetch_module(kStateModuleKey));
+        int where = state ? state->cur_phase_ : -1;
+        int physics = state ? state->physics_mode_ : -1;
+        int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
+        int trick = state ? state->in_trick_move_ : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
         auto* score_component = reinterpret_cast<uint8_t*>(skater->fetch_module(kScoreModuleKey));
         uint8_t* score = score_component ? *reinterpret_cast<uint8_t**>(score_component + 0x18) : nullptr;

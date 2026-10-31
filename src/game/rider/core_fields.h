@@ -11,6 +11,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/control_pad.h"
+#include "engine/objects/input_component.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/trigger_component.h"
@@ -36,16 +37,16 @@ constexpr uint32_t kDisplayMatrix = 0x18; // (a copy of the object's matrix)
 constexpr uint32_t kFloorUpVector = 0x68;
 constexpr uint32_t kFrameLength = 0x8C; // the frame's length (seconds)
 constexpr uint32_t kFeeler = 0xA8;      // a collision feeler (ProbeRay: +0x78 its hit point, +0x88 normal)
-constexpr uint32_t kHitPoint = 0x120; // the feeler's hit: point, then normal
+constexpr uint32_t kHitPoint = 0x120;   // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
 constexpr uint32_t kProbeOrigin = 0x208; // the feeler's line
 constexpr uint32_t kProbeTip = 0x218;
-constexpr uint32_t kHitSkatable = 0x228;    // (set by the feeler check 0x005003A0)
-constexpr uint32_t kRailNode = 0x22C;       // the rail node being ground (GrindPoint*)
-constexpr uint32_t kRailManager = 0x230;    // ... and its rail manager
-constexpr uint32_t kSkitched = 0x364;       // the object being skitched on (a smart pointer)
-constexpr uint32_t kLeapDuration = 0x4EC;   // when the skater last jumped
-constexpr uint32_t kInput = 0x150C;         // the pad: a button every 0x20 bytes (pressed, then times)
+constexpr uint32_t kHitSkatable = 0x228;  // (set by the feeler check 0x005003A0)
+constexpr uint32_t kRailNode = 0x22C;     // the rail node being ground (GrindPoint*)
+constexpr uint32_t kRailManager = 0x230;  // ... and its rail manager
+constexpr uint32_t kSkitched = 0x364;     // the object being skitched on (a smart pointer)
+constexpr uint32_t kLeapDuration = 0x4EC; // when the skater last jumped
+constexpr uint32_t kInput = 0x150C;       // the pad: a button every 0x20 bytes (pressed, then times)
 constexpr uint32_t kActivationZoneSlot = 0x1510;
 constexpr uint32_t kSfxModuleSlot = 0x1514;
 constexpr uint32_t kSkaterComponent = 0x1518;
@@ -68,11 +69,8 @@ constexpr uint32_t kFacing = 0x8C;
 constexpr uint32_t kVelocity = 0xAC;
 
 inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
-// The state component's bytes (its timed flags are reached by offset) and the input component's (a button every
-// 0x20 bytes from +0x20).
-inline uint8_t* flags_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->state_); }
+using objects::PoseFlag;
 inline int state_of(const SkaterPhysicsModule* component) { return component->state_->cur_phase_; }
-inline uint8_t* input_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->input_); }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
 inline int get_now()
@@ -87,23 +85,16 @@ inline uint32_t get_since(uint32_t stamp)
     return now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp);
 }
 
-// A timed flag: a bool and, after it, the time it last changed.
-inline void set_timed_flag(void* flags, uint32_t offset, uint8_t value)
+// The state component's timed flags: a bool and, after it, the time it last changed.
+inline void set_timed_flag(objects::RiderPoseState* flags, PoseFlag flag, uint8_t value)
 {
-    uint8_t& flag = get_at<uint8_t>(flags, offset);
-    if (flag == value)
-        return;
-    flag = value;
-    get_at<int>(flags, offset + 4) = get_now();
+    flags->set_flag(flag, value);
 }
-inline void set_flag(SkaterPhysicsModule* component, uint32_t offset, uint8_t value)
+inline void set_flag(SkaterPhysicsModule* component, PoseFlag flag, uint8_t value)
 {
-    set_timed_flag(flags_of(component), offset, value);
+    component->state_->set_flag(flag, value);
 }
-inline uint8_t bit_mark(const SkaterPhysicsModule* component, uint32_t offset)
-{
-    return get_at<uint8_t>(flags_of(component), offset);
-}
+inline uint8_t bit_mark(const SkaterPhysicsModule* component, PoseFlag flag) { return component->state_->is_on(flag); }
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global script
 // value).

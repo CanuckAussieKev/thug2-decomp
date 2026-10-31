@@ -19,6 +19,8 @@ struct InboundMsgCtx;
 // 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 12 the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
+class RiderPoseState;
+
 class RiderHostSync final : public ObjectModule {
 public:
     // 0x00513630 (registered by register_component_types): a new one (0 if out of memory): nothing sent yet (the state
@@ -63,13 +65,13 @@ public:
     uint8_t sent_flag75_;                // +0x36 (+0x1C is 1)
     uint8_t sent_flag76_;                // +0x37 (+0x118)
     uint32_t sent_value80_;              // +0x38 (the board's: +0x40's +0x22C's +0x4C)
-    uint8_t* core_;                      // +0x3C the skater's core component (its state and controls)
+    RiderPoseState* pose_;               // +0x3C the skater's SkaterState (its state and controls)
     skater::SkaterPhysicsModule* board_; // +0x40 the core physics component
 };
 static_assert(offsetof(RiderHostSync, last_transmit_at_) == 0x18 && offsetof(RiderHostSync, sent_value_7c_) == 0x1C &&
                   offsetof(RiderHostSync, sent_pos_) == 0x1E && offsetof(RiderHostSync, sent_angles_) == 0x24 &&
                   offsetof(RiderHostSync, sent_controls_) == 0x2C && offsetof(RiderHostSync, sent_state_) == 0x34 &&
-                  offsetof(RiderHostSync, sent_value80_) == 0x38 && offsetof(RiderHostSync, core_) == 0x3C &&
+                  offsetof(RiderHostSync, sent_value80_) == 0x38 && offsetof(RiderHostSync, pose_) == 0x3C &&
                   offsetof(RiderHostSync, board_) == 0x40,
               "layout must match the original");
 

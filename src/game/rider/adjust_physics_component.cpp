@@ -80,14 +80,14 @@ void RiderPhysicsTweaks::seal()
 // 0x004F8C40
 void RiderPhysicsTweaks::tick_frame()
 {
-    uint8_t* flags = reinterpret_cast<uint8_t*>(core_ptr_->state_);
-    if (get_at<int>(flags, 0x18) == 0 || entity_->vel_.y < 0.0f) {
-        if (flags[0x60] != 1) {
-            flags[0x60] = 1;
-            get_at<int>(flags, 0x64) = frame_clock::game_clock_elapsed() + g_clock_offset;
+    objects::RiderPoseState* flags = core_ptr_->state_;
+    if (flags->cur_phase_ == 0 || entity_->vel_.y < 0.0f) {
+        if (flags->flag(PoseFlag::kDescended).on != 1) {
+            flags->flag(PoseFlag::kDescended).on = 1;
+            flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
         }
     }
-    if (!reinterpret_cast<uint8_t*>(core_ptr_->state_)[0x88])
+    if (!core_ptr_->state_->flag(PoseFlag::kSkitching).on)
         check_inside_moving_object();
     keep_above_ground();
     entity_->old_pos_ = entity_->at_point_;

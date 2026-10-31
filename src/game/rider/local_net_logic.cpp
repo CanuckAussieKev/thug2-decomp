@@ -28,6 +28,7 @@
 #include "game/rider/skater_camera_component.h"
 #include "engine/objects/rail_manager.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -80,18 +81,18 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
     reinterpret_cast<maths::Mat4*>(reinterpret_cast<uint8_t*>(self->entity_) + 0xC0)->get_euler_angles(out.angles);
-    uint8_t* core = self->core_;
-    out.state = prop<uint8_t>(core, 0x18);
-    out.value_7c_ = prop<uint8_t>(core, 0xE1);
-    out.flag74 = prop<uint8_t>(core, 0xE0);
-    out.flag75 = prop<int>(core, 0x1C) == 1 ? 1 : 0;
-    out.flag76 = prop<uint8_t>(core, 0x118);
+    objects::RiderPoseState* core = self->pose_;
+    out.state = static_cast<uint8_t>(core->cur_phase_);
+    out.value_7c_ = core->surface_type_;
+    out.flag74 = core->in_trick_move_;
+    out.flag75 = core->physics_mode_ == 1 ? 1 : 0;
+    out.flag76 = core->in_vehicle_;
     objects::GrindPoint* rail = self->board_->rail_node_;
     out.value80 = rail ? rail->label_ : 0;
-    // A bit per control (the core component's 24, 8 bytes apart from +0x20): set while it's held.
+    // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
     for (int k = 0; k < 24; ++k) {
-        if (prop<uint8_t>(core, 0x20 + 8 * k))
+        if (core->timed_flags_[k].on)
             controls |= 1u << k;
         else
             controls &= ~(1u << k);
@@ -222,7 +223,7 @@ RiderHostSync::RiderHostSync()
 {
     sent_controls_ = 0;
     sent_value_6c_ = 0;
-    core_ = nullptr;
+    pose_ = nullptr;
     board_ = nullptr;
     last_transmit_at_ = 0;
     sent_value_7c_ = 0xFF;
@@ -239,7 +240,7 @@ RiderHostSync::~RiderHostSync() {}
 // 0x00512E70
 void RiderHostSync::seal()
 {
-    core_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
+    pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
     board_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
 }
 

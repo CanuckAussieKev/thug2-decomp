@@ -51,12 +51,6 @@ constexpr uint32_t kGroundFeelerObject = 0x1F0; // (the feeler +0x158's)
 constexpr uint32_t kSkitched = 0x364;
 
 // The state component's (+0x1528) flags used here.
-constexpr uint32_t kFlagFlipped = 0x28;
-constexpr uint32_t kFlagLipToAir = 0x50;
-constexpr uint32_t kFlagSlide = 0x58;
-constexpr uint32_t kFlagC0 = 0xC0;
-constexpr uint32_t kFlagD0 = 0xD0;
-constexpr uint32_t kFlagD8 = 0xD8;
 
 enum : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4 };
 
@@ -93,7 +87,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 // 0x004FC440
 int SkaterPhysicsModule::is_sides_swapped()
 {
-    uint8_t flipped = get_at<uint8_t>(state_of(this), kFlagFlipped);
+    uint8_t flipped = state_of(this)->flag(PoseFlag::kFlipped).on;
     if (static_cast<objects::Rider*>(entity_)->goofy_)
         return flipped;
     return flipped ? 0 : 1;
@@ -161,14 +155,14 @@ void SkaterPhysicsModule::leave_skating()
     rail_wait_ = ftol(script::fetch_float(kRailWaitName));
     if (static_cast<uint32_t>(lip_time_) > static_cast<uint32_t>(rail_time_))
         rail_time_ = static_cast<uint32_t>(lip_time_);
-    uint8_t* state = reinterpret_cast<uint8_t*>(state_of(this));
-    if (get_at<int>(state, kState) == kAir && old_state_ == kLip && state[kFlagLipToAir])
-        set_timed_flag(this, kFlagLipToAir, 0);
+    objects::RiderPoseState* state = state_of(this);
+    if (state->cur_phase_ == kAir && old_state_ == kLip && state->flag(PoseFlag::kLipToAir).on)
+        set_timed_flag(this, PoseFlag::kLipToAir, 0);
     state_of(this)->change_phase(kGround);
-    vector_at(state_of(this), 0xF8) = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    vector_at(state_of(this), 0x108) = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    vector_at(state_of(this), 0xE4) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    get_at<uint8_t>(state_of(this), 0xF4) = 0;
+    state_of(this)->drawn_normal_ = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    state_of(this)->floor_normal_ = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    state_of(this)->drop_velocity_ = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    state_of(this)->lip_straight_up_ = 0;
 }
 
 // 0x004FDE40
@@ -178,11 +172,10 @@ void SkaterPhysicsModule::clear_flags()
     for (int flag = 23; flag >= 0; --flag) {
         if (flag == 1)
             continue;
-        uint32_t offset = 0x20 + 8 * static_cast<uint32_t>(flag);
-        set_timed_flag(this, offset, 1);
+        set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
         if (flag == 7)
             sound_of(this)[0x1E] = 1;
-        set_timed_flag(this, offset, 0);
+        set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
         if (flag == 7)
             sound_of(this)[0x1E] = 0;
     }
@@ -207,23 +200,23 @@ void SkaterPhysicsModule::set_physics_state(int state)
     if (state != kGround)
         trick_of(this)->set_trick_objects(true);
     if (state_of(this)->cur_phase_ == kRail && state != kRail) {
-        set_timed_flag(this, kFlagSlide, 0);
+        set_timed_flag(this, PoseFlag::kSlide, 0);
         sound_of(this)[0x1E] = 0;
     }
     old = state_of(this)->cur_phase_;
     if (old == kAir) {
         if (state != kAir) {
             air_end_ = get_now();
-            set_timed_flag(this, kFlagC0, 0);
-            set_timed_flag(this, kFlagD0, 0);
-            set_timed_flag(this, kFlagD8, 0);
+            set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
+            set_timed_flag(this, PoseFlag::kJumpedOffRail, 0);
+            set_timed_flag(this, PoseFlag::kJumped, 0);
         }
     } else if (state == kAir) {
         if (old != kWallRide)
             air_start_ = get_now();
         trick_of(this)->spin_total_ = 0.0f;
-        take_press(input_of(this) + 0xA0);
-        take_press(input_of(this) + 0x100);
+        take_press(&input_->pad_primary_.shoulder_left_a_);
+        take_press(&input_->pad_primary_.shoulder_right_a_);
         queued_spin_ = 0.0f;
     }
     state_of(this)->change_phase(state);
@@ -272,7 +265,7 @@ int MovingSurfaceModule::time_since_stop() { return static_cast<int>(skater::phy
 // 0x004FC420
 bool RiderBoardPhysics::is_on_foot()
 {
-    auto* state = reinterpret_cast<RiderPoseState*>(cur_phase_);
+    auto* state = pose_;
     return !state->in_vehicle_ && state->physics_mode_ == 1;
 }
 

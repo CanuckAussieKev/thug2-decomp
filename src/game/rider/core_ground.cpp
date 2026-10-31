@@ -65,7 +65,8 @@ void perfect_cheat(uint32_t cheat, objects::Balance& balance)
 // 0x0050EE70
 void SkaterPhysicsModule::do_ground_physics()
 {
-    for (uint32_t flag : {0x48u, 0x30u, 0x38u, 0x78u, 0xA8u, 0x80u, 0xB0u})
+    for (PoseFlag flag : {PoseFlag::kLeftVert, PoseFlag::kVertAir, PoseFlag::kVertWall, PoseFlag::kAcidDrop,
+                          PoseFlag::kFromAcidDrop, PoseFlag::kRecoverInAir, PoseFlag::kNoAcidDrop})
         set_flag(this, flag, 0);
     rail_node_ = nullptr;
     last_rail_script_ = 0;
@@ -141,7 +142,7 @@ void SkaterPhysicsModule::do_ground_physics()
         const maths::Vec4& v = entity_->vel_;
         step = {t * v.x, t * v.y, t * v.z, t * v.w};
     }
-    if (bit_mark(this, 0x88)) {
+    if (bit_mark(this, PoseFlag::kSkitching)) {
         objects::RideTracker* tracker = get_tracker(this);
         if (tracker && tracker->entity_.owner_object_) {
             void* skitched = tracker->entity_.owner_object_;
@@ -156,7 +157,7 @@ void SkaterPhysicsModule::do_ground_physics()
     if (objects::RideTracker* tracker = get_tracker(this)) {
         if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
             stop_riding(this);
-        } else if (!bit_mark(this, 0x88)) {
+        } else if (!bit_mark(this, PoseFlag::kSkitching)) {
             objects::GameEntity* o = object_of(this);
             o->at_point_ += get_tracker(this)->carried_;
             entity_->old_pos_ = entity_->at_point_;
@@ -184,7 +185,7 @@ void SkaterPhysicsModule::do_ground_physics()
     if (!lock_velocity_)
         get_along_facing(&entity_->vel_);
     collision_events::checkpoint(this, "along-facing-4FF590"); // (not original)
-    if (!bit_mark(this, 0x88)) {
+    if (!bit_mark(this, PoseFlag::kSkitching)) {
         test_lateral_hits();
         lean_push_off_wall();
     }
@@ -197,8 +198,8 @@ void SkaterPhysicsModule::do_ground_physics()
     collision_events::checkpoint(this, "turn-round-4FF920"); // (not original)
     if (jump_released()) {
         start_vert_air();
-        set_flag(this, 0x48, 1);
-        set_flag(this, 0xD8, 1);
+        set_flag(this, PoseFlag::kLeftVert, 1);
+        set_flag(this, PoseFlag::kJumped, 1);
     }
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(floor_feeler_.hit_.object_checksum_);
     queued_spin_ = 0.0f;
@@ -217,10 +218,10 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         p.y = step.y + p.y;
         p.z = step.z + p.z;
         p.w = step.w + p.w;
-        if (!bit_mark(this, 0x88))
+        if (!bit_mark(this, PoseFlag::kSkitching))
             check_wall_ahead();
         collision_events::checkpoint(this, "wall-ahead-check"); // (not original)
-        if (bit_mark(this, 0x88)) {
+        if (bit_mark(this, PoseFlag::kSkitching)) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
             objects::GameEntity* object = object_of(this);
             const maths::Vec4& up = object->basis_frame_.row[1];
@@ -239,7 +240,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             end.y = position.y - down_y;
             if (get_feel(this, 0x10, 0)) {
                 uint8_t terrain = feeler_.hit_.terrain;
-                reinterpret_cast<objects::RiderPoseState*>(flags_of(this))->set_surface_kind(terrain);
+                state_->set_surface_kind(terrain);
                 sound_->surface_type_ = terrain;
             }
         } else {

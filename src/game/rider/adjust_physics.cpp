@@ -23,7 +23,6 @@ namespace {
 // The skater object's.
 constexpr uint32_t kVelocity = 0xAC;
 // The state component's: the height over the ground the skater stands on.
-constexpr uint32_t kHeightOverGround = 0x11C;
 
 constexpr uint32_t kUberFrigCurrentHeight = 0x801C9CB6; // uber_frig_current_height (feet)
 constexpr uint32_t kUnderTheFloor = 0xAFAA46BA;         // the event sent when lifted out from under a floor (lip state)
@@ -109,18 +108,18 @@ void RiderPhysicsTweaks::keep_above_ground()
             if (state != 0 && state != 1)
                 change_phase(core, 1);
         }
-        get_at<float>(state_ref_, kHeightOverGround) = 0.0f;
+        state_ref_->height_above_ground_ = 0.0f;
         return;
     }
 
     // Ground. Standing on a moving object (the skater on the ground or in the air, not skitching (+0x88) nor
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
-    uint8_t* flags = reinterpret_cast<uint8_t*>(core->state_);
-    if (!flags[0x88] && !flags[0x78] && ride_->ride_) {
+    objects::RiderPoseState* flags = core->state_;
+    if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride_) {
         RideTracker* ride = ride_->ride_;
         bool leave = true;
         if (ride->entity_.owner_object_) {
-            int state = get_at<int>(flags, 0x18);
+            int state = flags->cur_phase_;
             if (state == 0 || state == 1) {
                 render::ProbeRay& feeler = core->feeler_;
                 if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity_.owner_object_)
@@ -138,7 +137,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     // Kept just over the ground.
     {
         double over = static_cast<double>(position.y) - core->feeler_.contact_pos_.y;
-        get_at<float>(state_ref_, kHeightOverGround) = static_cast<float>(over);
+        state_ref_->height_above_ground_ = static_cast<float>(over);
         if (over < kLeastHeight)
             position.y = static_cast<float>(static_cast<double>(core->feeler_.contact_pos_.y) + kLeastHeight);
     }

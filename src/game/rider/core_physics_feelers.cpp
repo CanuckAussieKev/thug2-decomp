@@ -25,6 +25,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/park_editing/park_editor.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -71,7 +72,6 @@ constexpr uint16_t kFaceSkatable = 0x1;
 constexpr uint16_t kFaceNotSkatable = 0x2;
 constexpr uint16_t kFaceWall = 0x4;
 constexpr uint16_t kFaceVert = 0x8;
-
 
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kNearGroundReach = 16.0f;          // 0x00645D68
@@ -146,11 +146,12 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
         const RailNode* next;     // +0x44
     };
     const auto* node = static_cast<const RailNode*>(rail);
-    uint8_t* flags = flags_of(this);
+    objects::RiderPoseState* flags = state_;
     const auto* last = reinterpret_cast<const RailNode*>(rail_node_);
     auto same_rail = [&] { return last == node || last == node->previous || last == node->next; };
     // In the air after a grind: not the same rail (or its neighbours) again.
-    if (get_at<int>(flags, kState) == 1 && flags[0xA8] && flags[0xD0] && same_rail())
+    if (flags->cur_phase_ == 1 && flags->flag(PoseFlag::kFromAcidDrop).on && flags->flag(PoseFlag::kJumpedOffRail).on &&
+        same_rail())
         return false;
 
     bool new_rail = false;
@@ -182,18 +183,19 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
         }
     }
     if (new_rail)
-        set_timed_flag(this, 0x50, 1);
+        set_timed_flag(this, PoseFlag::kLipToAir, 1);
 
     // The same rail: only after the wait since leaving it.
-    if (!flags_of(this)[0x50] && get_since(static_cast<uint32_t>(rail_time_)) <= static_cast<uint32_t>(rail_wait_))
+    if (!state_->flag(PoseFlag::kLipToAir).on &&
+        get_since(static_cast<uint32_t>(rail_time_)) <= static_cast<uint32_t>(rail_wait_))
         return false;
     if (any_time)
         return true;
-    flags = flags_of(this);
-    if (get_at<int>(flags, kState) == 4)
+    flags = state_;
+    if (flags->cur_phase_ == 4)
         return false;
     // (On a vert wall, only while moving up.)
-    if (flags[0x38] && !(entity_->vel_.y > 0.0f))
+    if (flags->flag(PoseFlag::kVertWall).on && !(entity_->vel_.y > 0.0f))
         return false;
     return true;
 }
@@ -382,7 +384,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         floor_feeler_.hit_.face_flag40_ = 0;
         entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
         physics::change_phase(this, 0);
-        set_timed_flag(this, 0x28, !static_cast<objects::Rider*>(entity_)->goofy_);
+        set_timed_flag(this, PoseFlag::kFlipped, !static_cast<objects::Rider*>(entity_)->goofy_);
         static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
             ->apply_flip_to_anims();
     } else if (params->has_bare_flag(kOrient)) {

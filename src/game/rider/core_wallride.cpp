@@ -75,10 +75,10 @@ void SkaterPhysicsModule::off_wall_edge(bool reset_display)
 // 0x0050F830
 void SkaterPhysicsModule::step_wall_ride()
 {
-    set_flag(this, 0x78, 0);
-    set_flag(this, 0xA8, 0);
-    set_flag(this, 0x80, 0);
-    set_flag(this, 0xB0, 0);
+    set_flag(this, PoseFlag::kAcidDrop, 0);
+    set_flag(this, PoseFlag::kFromAcidDrop, 0);
+    set_flag(this, PoseFlag::kRecoverInAir, 0);
+    set_flag(this, PoseFlag::kNoAcidDrop, 0);
     flip_spin_started_ = 0;
     rail_node_ = nullptr;
     last_rail_script_ = 0;
@@ -319,11 +319,11 @@ void SkaterPhysicsModule::step_wall_ride()
             return;
     }
 
-    if (!bit_mark(this, 0x20) && input_of(this)[0x1C0])
-        set_flag(this, 0x20, 1);
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x_.held_down_)
+        set_flag(this, PoseFlag::kCrouched, 1);
     // Jumping off: out from the wall and up, upright.
     if (jump_released()) {
-        set_flag(this, 0xD8, 1);
+        set_flag(this, PoseFlag::kJumped, 1);
         trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;

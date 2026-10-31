@@ -20,6 +20,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -820,8 +821,8 @@ void DrivableModule::update_skater()
     if (!rider_shown_)
         return;
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
-    uint8_t* flags = reinterpret_cast<uint8_t*>(core->state_);
-    float steering = flags[0x28] ? display_steering_ : -display_steering_;
+    objects::RiderPoseState* flags = core->state_;
+    float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
     auto* blender = reinterpret_cast<AnimBlenderComponent*>(anim_blender_ptr_);
     double duration = blender->fetch_value(rider_anim_name_);
     float frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);

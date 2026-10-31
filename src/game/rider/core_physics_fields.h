@@ -10,9 +10,11 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/control_pad.h"
+#include "engine/objects/input_component.h"
 #include "game/rider/rider.h"
 #include "platform/game_clock.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace skater::physics {
 
@@ -30,14 +32,14 @@ constexpr uint32_t kFrameLength = 0x8C;   // the frame's length (seconds)
 constexpr uint32_t kFeeler = 0xA8;        // a collision feeler (render::ProbeRay, 0xB0 bytes)
 constexpr uint32_t kHitPoint = 0x120;     // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
-constexpr uint32_t kProbeOrigin = 0x208;    // the feeler's line
+constexpr uint32_t kProbeOrigin = 0x208; // the feeler's line
 constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228; // (set by the feeler check 0x005003A0)
-constexpr uint32_t kInput = 0x150C; // the pad: a button every 0x20 bytes (down, then times)
+constexpr uint32_t kInput = 0x150C;      // the pad: a button every 0x20 bytes (down, then times)
 constexpr uint32_t kActivationZoneSlot = 0x1510;
 constexpr uint32_t kSkaterComponent = 0x1518;
-constexpr uint32_t kTimedFlags = 0x1528;      // bools, each followed by the time it last changed (+0x18: the state)
-constexpr uint32_t kRide = 0x152C;            // +0x18: a smart pointer to what the skater rides on
+constexpr uint32_t kTimedFlags = 0x1528; // bools, each followed by the time it last changed (+0x18: the state)
+constexpr uint32_t kRide = 0x152C;       // +0x18: a smart pointer to what the skater rides on
 
 // --- the skater object's fields ---
 constexpr uint32_t kPosition = 0x4C;
@@ -52,10 +54,7 @@ constexpr uint32_t kState = 0x18; // an int: 0 on the ground, 1 in the air, ...
 
 inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
-// The state component's bytes (its timed flags are reached by offset) and the input component's (a button every
-// 0x20 bytes from +0x20).
-inline uint8_t* flags_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->state_); }
-inline uint8_t* input_of(const SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->input_); }
+using objects::PoseFlag;
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
 inline int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
@@ -67,13 +66,9 @@ inline uint32_t get_since(uint32_t stamp)
 }
 
 // A timed flag set to `value` (the time noted if it changes).
-inline void set_timed_flag(SkaterPhysicsModule* component, uint32_t flag, uint8_t value)
+inline void set_timed_flag(SkaterPhysicsModule* component, PoseFlag flag, uint8_t value)
 {
-    uint8_t* f = flags_of(component) + flag;
-    if (*f == value)
-        return;
-    *f = value;
-    get_at<int>(f, 4) = get_now();
+    component->state_->set_flag(flag, value);
 }
 
 // A physics value (0x00580400 / 0x00580440): the skater's tuning structure's `name`, else the global script value
@@ -103,15 +98,9 @@ inline void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900); its press this frame taken
 // (0x0046B7E0).
-inline int time_since_press(uint8_t* button)
-{
-    return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis();
-}
-inline int time_since_release(uint8_t* button)
-{
-    return reinterpret_cast<objects::ControlButton*>(button)->read_let_go_time();
-}
-inline void take_press(uint8_t* button) { reinterpret_cast<objects::ControlButton*>(button)->reset_activation(); }
+inline int time_since_press(objects::ControlButton* button) { return button->get_held_millis(); }
+inline int time_since_release(objects::ControlButton* button) { return button->read_let_go_time(); }
+inline void take_press(objects::ControlButton* button) { button->reset_activation(); }
 
 // x87 sine and cosine (fsin / fcos), as the original computes them inline.
 inline double x87_sin(double angle)

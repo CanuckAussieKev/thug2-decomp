@@ -27,6 +27,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/rider/skater_score.h"
+#include "game/rider/skater_state.h"
 
 namespace goals {
 
@@ -407,8 +408,8 @@ int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (
 // 0x005556D0
 void Objective::set_launch_altitude()
 {
-    void* state = local_skater()->fetch_module(kSkaterState);
-    args_->put_int(kLaunchAltitude, truncate(float_at(state, 0x11C)));
+    auto* state = static_cast<objects::RiderPoseState*>(local_skater()->fetch_module(kSkaterState));
+    args_->put_int(kLaunchAltitude, truncate(state->height_above_ground_));
 }
 
 // 0x00555710
@@ -421,8 +422,8 @@ bool Objective::test_highest_air()
     objects::GameEntity* skater = local_skater();
     int start = 10000;
     args_->fetch_int_value(kLaunchAltitude, &start, 0);
-    void* state = skater->fetch_module(kSkaterState);
-    int height = truncate(float_at(state, 0x11C)) - start;
+    auto* state = static_cast<objects::RiderPoseState*>(skater->fetch_module(kSkaterState));
+    int height = truncate(state->height_above_ground_) - start;
     if (height < 0)
         height = 0;
     int feet = height / 12;

@@ -22,6 +22,8 @@ class Struct;
 // invoke_method_by_name.
 namespace objects {
 
+class RiderBoardPhysics;
+
 class RiderRollingAudio final : public ObjectModule {
 public:
     // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
@@ -57,15 +59,15 @@ public:
     // 0x00513AB0: the sound stopped (called by the skater).
     void stop_sound();
 
-    uint32_t sound_id_;            // +0x18 the playing sound's unique id (0: none)
-    uint32_t playing_checksum_;    // +0x1C
-    float lean_pitch_angle_;       // +0x20 the pitch worked out
-    float prev_pitch_value_;       // +0x24 the pitch last given
-    sound::VolumeRef prev_levels_; // +0x28 the volume last given
-    float air_pitch_floor_;        // +0x54 the air sound's pitch falls down to this (45)
-    float air_pitch_fall_;         // +0x58 by this much a second (18.33)
-    uint8_t* physics_control_;     // +0x5C SkaterPhysicsControl (0xD9151D4D)
-    uint8_t surface_type_;         // +0x60 (the finalize physics component's: the state's +0xE1)
+    uint32_t sound_id_;                  // +0x18 the playing sound's unique id (0: none)
+    uint32_t playing_checksum_;          // +0x1C
+    float lean_pitch_angle_;             // +0x20 the pitch worked out
+    float prev_pitch_value_;             // +0x24 the pitch last given
+    sound::VolumeRef prev_levels_;       // +0x28 the volume last given
+    float air_pitch_floor_;              // +0x54 the air sound's pitch falls down to this (45)
+    float air_pitch_fall_;               // +0x58 by this much a second (18.33)
+    RiderBoardPhysics* physics_control_; // +0x5C SkaterPhysicsControl (0xD9151D4D)
+    uint8_t surface_type_;               // +0x60 (the finalize physics component's: the state's +0xE1)
     uint8_t pad61[3];
     maths::Vec4 last_pos_; // +0x64 the skater's position last frame
     int cur_phase_;        // +0x74 the skater's state (0 ground, 1 air, 4 rail)

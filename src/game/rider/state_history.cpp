@@ -27,13 +27,15 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/state_history.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/physics_control.h"
 
 namespace objects {
 
 namespace {
 
 // Components of the skater this code asks for.
-constexpr uint32_t kSkaterState = 0x43686585;          // +0x70 in a bail, +0x118 driving
+constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // +0x25 a flag; +0x2C its state component
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kWalk = 0x726E85AA;
@@ -260,17 +262,17 @@ void RiderFrameLog::check_for_collisions(int first)
         return;
     if (!manager_may_collide() && !is_it(me) && !on_a_team(me))
         return;
-    ObjectModule* my_state = entity_->fetch_module(kSkaterState);
+    auto* my_state = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
     // Whether this machine tells the players of a hit (not when the skater is in a bail, outside a slap game).
     bool tell_players;
-    if (!prop<bool>(my_state, 0x70) || in_slap_game()) {
+    if (!my_state->flag(PoseFlag::kBailing).on || in_slap_game()) {
         tell_players = true;
     } else {
         tell_players = false;
         if (!is_it(me) && !on_a_team(me))
             return;
     }
-    bool my_driving = prop<bool>(my_state, 0x118);
+    bool my_driving = my_state->in_vehicle_;
     maths::Vec4 my_pos = entity_->at_point_;
     maths::Vec4 my_move;
     get_frame_movement(&my_move);
@@ -283,8 +285,8 @@ void RiderFrameLog::check_for_collisions(int first)
         GameEntity* skater = skater_by_index(i);
         if (!skater || skater == entity_)
             continue;
-        ObjectModule* their_state = skater->fetch_module(kSkaterState);
-        if (prop<bool>(their_state, 0x70))
+        auto* their_state = static_cast<RiderPoseState*>(skater->fetch_module(kSkaterState));
+        if (their_state->flag(PoseFlag::kBailing).on)
             continue;
         online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
         if (is_observing(them) || is_it(them))
@@ -295,7 +297,7 @@ void RiderFrameLog::check_for_collisions(int first)
             continue;
 
         auto* their_history = prop<RiderFrameLog*>(skater, 0x27C);
-        bool their_driving = prop<bool>(their_state, 0x118);
+        bool their_driving = their_state->in_vehicle_;
         maths::Vec4 their_pos;
         their_history->fetch_place(&their_pos);
         maths::Vec4 their_move;
@@ -467,8 +469,8 @@ int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             skater->vel_.w = wk * kKnockScale;
             skater->vel_.y = kKnockUp;
             ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-            uint8_t* state = prop<uint8_t*>(control, 0x2C);
-            if (!prop<bool>(state, 0x118) && prop<int>(state, 0x1C) == 0)
+            RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
+            if (!state->in_vehicle_ && state->physics_mode_ == 0)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);
@@ -514,7 +516,7 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
     }
     if (player) {
         ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-        if (!prop<bool>(prop<uint8_t*>(control, 0x2C), 0x118)) {
+        if (!static_cast<RiderBoardPhysics*>(control)->pose_->in_vehicle_) {
             GameEntity* other = player_object(player);
             double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
             double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
@@ -545,8 +547,8 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
             skater->vel_.z = zk * kKnockScale;
             skater->vel_.w = static_cast<float>(wk * kKnockScale);
             skater->vel_.y = kKnockUp;
-            uint8_t* state = prop<uint8_t*>(control, 0x2C);
-            if (!prop<bool>(state, 0x118) && prop<int>(state, 0x1C) == 0 && !prop<bool>(control, 0x25))
+            RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
+            if (!state->in_vehicle_ && state->physics_mode_ == 0 && !prop<bool>(control, 0x25))
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);

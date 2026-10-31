@@ -189,23 +189,23 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
 // 0x0050DDF0
 void SkaterPhysicsModule::step_grind_move()
 {
-    set_flag(this, 0x78, 0);
-    set_flag(this, 0xA8, 0);
-    set_flag(this, 0x80, 0);
-    set_flag(this, 0xB0, 0);
+    set_flag(this, PoseFlag::kAcidDrop, 0);
+    set_flag(this, PoseFlag::kFromAcidDrop, 0);
+    set_flag(this, PoseFlag::kRecoverInAir, 0);
+    set_flag(this, PoseFlag::kNoAcidDrop, 0);
     flip_spin_started_ = 0;
     ride_moving_rail();
 
     objects::GameEntity* object = object_of(this);
     rail_wait_ = static_cast<int>(script::fetch_float(kRailRegrabDelay));
-    set_flag(this, 0x50, 0);
+    set_flag(this, PoseFlag::kLipToAir, 0);
     // Off the rail (0x004FFB10): the TriggerScripts, the jump's rerail time, up and out.
     if (jump_released()) {
         trigger_rail_script(kJumpTriggerEvents);
         trigger_rail_script(kGrindOffEvents);
         rail_wait_ = static_cast<int>(script::fetch_float(kJumpRerailTime));
-        set_flag(this, 0xD0, 1);
-        set_flag(this, 0xD8, 1);
+        set_flag(this, PoseFlag::kJumpedOffRail, 1);
+        set_flag(this, PoseFlag::kJumped, 1);
         maths::Vec4& p = entity_->at_point_;
         p.y = p.y + 1.0f;
         finish_rail();
@@ -539,22 +539,22 @@ void SkaterPhysicsModule::finish_rail()
 void SkaterPhysicsModule::do_bike_stall_physics()
 {
     // As the rail state's: the flags (THAW clears a fifth of its own), the moving rail, the rerail time.
-    set_flag(this, 0x78, 0);
-    set_flag(this, 0xA8, 0);
-    set_flag(this, 0x80, 0);
-    set_flag(this, 0xB0, 0);
+    set_flag(this, PoseFlag::kAcidDrop, 0);
+    set_flag(this, PoseFlag::kFromAcidDrop, 0);
+    set_flag(this, PoseFlag::kRecoverInAir, 0);
+    set_flag(this, PoseFlag::kNoAcidDrop, 0);
     flip_spin_started_ = 0;
     ride_moving_rail();
     rail_wait_ = static_cast<int>(script::fetch_float(kRailRegrabDelay));
-    set_flag(this, 0x50, 0);
+    set_flag(this, PoseFlag::kLipToAir, 0);
     if (jump_released()) {
         // Jumped (0x005E3053): the rail's TriggerScripts (THAW's with its stall event, which THUG2's haven't), the
         // jump's rerail time, up.
         trigger_rail_script(kJumpTriggerEvents);
         trigger_rail_script(kGrindOffEvents);
         rail_wait_ = static_cast<int>(script::fetch_float(kJumpRerailTime));
-        set_flag(this, 0xD0, 1);
-        set_flag(this, 0xD8, 1);
+        set_flag(this, PoseFlag::kJumpedOffRail, 1);
+        set_flag(this, PoseFlag::kJumped, 1);
         maths::Vec4& p = entity_->at_point_;
         p.y = p.y + 1.0f;
     } else {

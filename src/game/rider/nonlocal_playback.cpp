@@ -228,26 +228,21 @@ void RiderRemoteSync::interpolate()
 
     // The state as the later state has it.
     play_pos_ = skater->at_point_;
-    auto* state = reinterpret_cast<RiderPoseState*>(cur_phase_);
+    auto* state = pose_;
     state->change_phase(prop<int>(to, 0x70));
-    prop<uint8_t>(cur_phase_, 0xE0) = prop<uint8_t>(to, 0x74) != 0;
+    pose_->in_trick_move_ = prop<uint8_t>(to, 0x74) != 0;
     state->set_surface_kind(prop<uint8_t>(to, 0x7C));
     state->set_physics_mode(prop<uint8_t>(to, 0x75) != 0);
-    prop<uint8_t>(cur_phase_, 0x118) = prop<uint8_t>(to, 0x76) != 0;
+    pose_->in_vehicle_ = prop<uint8_t>(to, 0x76) != 0;
     reinterpret_cast<RiderSessionEnd*>(run_over_)->flag_bits_ = prop<uint32_t>(to, 0x6C); // (0x00407A70)
-    // The timed flags (+0x20 to +0xD8, each a bool and the time it last changed) from the state's bits.
+    // The timed flags (each a bool and the time it last changed) from the state's bits.
     uint32_t bits = prop<uint32_t>(to, 0x68);
-    for (uint32_t i = 0, offset = 0x20; offset < 0xE0; ++i, offset += 8) {
-        uint8_t value = (bits & (1u << i)) != 0;
-        if (prop<uint8_t>(cur_phase_, offset) != value) {
-            prop<uint8_t>(cur_phase_, offset) = value;
-            prop<int>(cur_phase_, offset + 4) = get_now();
-        }
-    }
-    if (prop<uint8_t>(cur_phase_, 0x78))
-        prop<maths::Vec4>(cur_phase_, 0xE4) = skater->vel_;
+    for (int i = 0; i < kPoseFlagCount; ++i)
+        pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1u << i)) != 0);
+    if (pose_->flag(PoseFlag::kAcidDrop).on)
+        pose_->drop_velocity_ = skater->vel_;
     else
-        prop<maths::Vec4>(cur_phase_, 0xE4) = {0.0f, 0.0f, 0.0f, 1.0f};
+        pose_->drop_velocity_ = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
 // 0x00515360

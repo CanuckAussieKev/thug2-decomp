@@ -14,6 +14,8 @@ class Struct;
 
 namespace objects {
 
+class RiderBoardPhysics;
+
 class FreeLookModule;
 class FootMovement;
 
@@ -93,15 +95,15 @@ public:
     float turn_cosine_;       // +0x74 the last turn's cosine (the new at-row against the old)
     bool override_;           // +0x78 (change_forced_heading)
     uint8_t pad79[3];
-    maths::Vec4 forced_heading_; // +0x7C
-    float override_rate_;        // +0x8C
-    FreeLookModule* free_look_;  // +0x90
-    ObjectModule* viewer_;       // +0x94 (+0x18 its camera)
-    uint8_t* skater_camera_;     // +0x98 (the parameters it shares: +0x74 a matrix, +0xC4, +0xD0, +0xE4, +0xE8,
-                                 // +0x110, +0x12C)
-    GameEntity* skater_;         // +0x9C
-    FootMovement* walk_;         // +0xA0
-    uint8_t* physics_control_;   // +0xA4
+    maths::Vec4 forced_heading_;         // +0x7C
+    float override_rate_;                // +0x8C
+    FreeLookModule* free_look_;          // +0x90
+    ObjectModule* viewer_;               // +0x94 (+0x18 its camera)
+    uint8_t* skater_camera_;             // +0x98 (the parameters it shares: +0x74 a matrix, +0xC4, +0xD0, +0xE4, +0xE8,
+                                         // +0x110, +0x12C)
+    GameEntity* skater_;                 // +0x9C
+    FootMovement* walk_;                 // +0xA0
+    RiderBoardPhysics* physics_control_; // +0xA4
 };
 static_assert(offsetof(FootView, instant_frames_) == 0x18 && offsetof(FootView, zoom_) == 0x20 &&
                   offsetof(FootView, aim_point_) == 0x24 && offsetof(FootView, orientation_) == 0x34 &&

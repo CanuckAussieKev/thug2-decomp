@@ -19,6 +19,7 @@
 #include "engine/maths/x87_math.h"
 #include "platform/stopwatch.h"
 #include "platform/crt.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -268,7 +269,7 @@ void FootMovement::update_control()
     // The camera's flat forward (its at-row backwards), turned by the stick's angle - straight ahead within
     // forward_tolerance degrees.
     const maths::Vec4& at = camera_->basis_frame_.row[2];
-    auto* pad = reinterpret_cast<PadSnapshot*>(reinterpret_cast<uint8_t*>(input_) + 0x20);
+    auto* pad = &input_->pad_primary_;
     float forward_x = -at.x;
     float forward_z = -at.z;
     double length =

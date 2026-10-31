@@ -17,7 +17,6 @@ using namespace core_fields;
 
 namespace {
 
-
 constexpr uint32_t kEnteredAir = 0xF225FE69; // the events sent when +0x4F0 changes (names unknown)
 constexpr uint32_t kLeftAir = 0x5E27200A;
 
@@ -33,12 +32,12 @@ void SkaterPhysicsModule::tick_frame()
         thaw_bmx::begin_frame(this);
     landed_this_frame_ = 0;
     frame_began_in_lip_ = state_of(this) == kLip;
-    frame_began_in_drop_ = bit_mark(this, 0x78);
-    if (!bit_mark(this, 0x20) && input_of(this)[0x1C0])
-        set_flag(this, 0x20, 1);
+    frame_began_in_drop_ = bit_mark(this, PoseFlag::kAcidDrop);
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x_.held_down_)
+        set_flag(this, PoseFlag::kCrouched, 1);
     clamp_skater_speed();
-    set_flag(this, 0x98, 0);
-    set_flag(this, 0xA0, 0);
+    set_flag(this, PoseFlag::kGroundSnapped, 0);
+    set_flag(this, PoseFlag::kWallplanted, 0);
     refresh_hit_cache();
     update_model_rotation();
 
@@ -85,7 +84,8 @@ void SkaterPhysicsModule::tick_frame()
     update_special_time();
     collision_events::checkpoint(this, "update-rest"); // (not original)
 
-    uint8_t in_air = state_of(this) == kAir && bit_mark(this, 0x30) && !bit_mark(this, 0x78);
+    uint8_t in_air =
+        state_of(this) == kAir && bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop);
     uint8_t& air_from_jump = vert_air_announced_;
     if (air_from_jump != in_air) {
         air_from_jump = !air_from_jump;

@@ -22,6 +22,7 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -307,7 +308,7 @@ void Balance::tick_frame()
         bool flip = flip_;
         if (mirrored_) {
             auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_->fetch_module(kSkaterCorePhysics));
-            if (reinterpret_cast<uint8_t*>(core->state_)[0x28])
+            if (core->state_->flag(PoseFlag::kFlipped).on)
                 flip = !flip;
         }
         if (ObjectModule* blender = skater_->fetch_module(kAnimBlender)) {

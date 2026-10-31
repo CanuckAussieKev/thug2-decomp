@@ -17,6 +17,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
 
 namespace objects {
 
@@ -68,7 +69,7 @@ RiderPhysicsCommit::RiderPhysicsCommit()
 {
     kind_tag_ = kSkaterFinalizePhysics;
     core_physics_ = nullptr;
-    cur_phase_ = nullptr;
+    pose_ = nullptr;
 }
 
 // 0x00511010 (0x00511020 the deleting one)
@@ -78,26 +79,26 @@ RiderPhysicsCommit::~RiderPhysicsCommit() {}
 void RiderPhysicsCommit::seal()
 {
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
-    cur_phase_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
+    pose_ = static_cast<RiderPoseState*>(entity_->fetch_module(kSkaterState));
 }
 
 // 0x00511080
 void RiderPhysicsCommit::tick_frame()
 {
     skater::SkaterPhysicsModule* core = core_physics_;
-    uint8_t* state = cur_phase_;
+    objects::RiderPoseState* state = pose_;
     // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
     // across the ground. Kept while in the air.
-    if (core->frame_began_in_lip_ && prop<int>(state, 0x18) != kStateLip) {
-        prop<uint8_t>(state, 0xF4) = 0;
-        if (prop<int>(state, 0x18) == kStateAir && std::fabs(entity_->vel_.x) < kStillSpeed &&
+    if (core->frame_began_in_lip_ && state->cur_phase_ != kStateLip) {
+        state->lip_straight_up_ = 0;
+        if (state->cur_phase_ == kStateAir && std::fabs(entity_->vel_.x) < kStillSpeed &&
             std::fabs(entity_->vel_.z) < kStillSpeed)
-            prop<uint8_t>(state, 0xF4) = 1;
+            state->lip_straight_up_ = 1;
     }
-    if (prop<int>(state, 0x18) != kStateAir)
-        prop<uint8_t>(state, 0xF4) = 0;
-    prop<maths::Vec4>(state, 0xF8) = core->drawn_normal_;
-    prop<maths::Vec4>(state, 0x108) = core->floor_normal_;
+    if (state->cur_phase_ != kStateAir)
+        state->lip_straight_up_ = 0;
+    state->drawn_normal_ = core->drawn_normal_;
+    state->floor_normal_ = core->floor_normal_;
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
     entity_->basis_frame_.square_up_axes(1);
@@ -109,19 +110,19 @@ void RiderPhysicsCommit::tick_frame()
 
     // The sounds: terrain and state.
     uint8_t* sound = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterSound));
-    prop<uint8_t>(sound, 0x1E) = prop<uint8_t>(cur_phase_, 0x58);
-    prop<uint8_t>(sound, 0x1C) = prop<uint8_t>(cur_phase_, 0xE1);
+    prop<uint8_t>(sound, 0x1E) = pose_->flag(PoseFlag::kSlide).on;
+    prop<uint8_t>(sound, 0x1C) = pose_->surface_type_;
     ObjectModule* looping = entity_->fetch_module(kSkaterLoopingSound);
     double x = entity_->vel_.x, z = entity_->vel_.z;
     float speed = static_cast<float>(std::sqrt(x * x + z * z));
     float fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
     uint8_t* loop = reinterpret_cast<uint8_t*>(looping);
-    prop<uint8_t>(loop, 0xFF) = prop<uint8_t>(cur_phase_, 0x70);
+    prop<uint8_t>(loop, 0xFF) = pose_->flag(PoseFlag::kBailing).on;
     uint8_t& changed = prop<uint8_t>(loop, 0xFD);
-    get_note(prop<uint8_t>(loop, 0x100), prop<uint8_t>(cur_phase_, 0x58), changed);
-    get_note(prop<uint8_t>(loop, 0x60), prop<uint8_t>(cur_phase_, 0xE1), changed);
-    get_note(prop<int>(loop, 0x74), prop<int>(cur_phase_, 0x18), changed);
+    get_note(prop<uint8_t>(loop, 0x100), pose_->flag(PoseFlag::kSlide).on, changed);
+    get_note(prop<uint8_t>(loop, 0x60), pose_->surface_type_, changed);
+    get_note(prop<int>(loop, 0x74), pose_->cur_phase_, changed);
 }
 
 } // namespace objects

@@ -16,6 +16,7 @@
 #include "game/rider/core_physics_fields.h"
 #include "game/rider/rider.h"
 #include "game/park_editing/park_editor.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -47,13 +48,7 @@ constexpr float kStill = 0.0001f;                // 0x006453D4
 constexpr float kNormalFeeler = 72.0f;           // 0x00646244
 constexpr float kFlat = 0.001f;                  // 0x006461D8
 
-
 // The state component's flags.
-constexpr uint32_t kFlagCrouched = 0x20;
-constexpr uint32_t kFlagVertAir = 0x30;
-constexpr uint32_t kFlagVertWall = 0x38;
-constexpr uint32_t kFlagOnVert = 0x40;
-constexpr uint32_t kFlagSpin = 0x68;
 
 // The pad's buttons (offsets into the input component).
 constexpr uint32_t kBrakeButton = 0x40;
@@ -61,7 +56,7 @@ constexpr uint32_t kLeftButton = 0x60;
 constexpr uint32_t kRightKeyHash = 0x80;
 constexpr uint32_t kKickButton = 0x180;
 
-bool is_crouched(SkaterPhysicsModule* component) { return flags_of(component)[kFlagCrouched] != 0; }
+bool is_crouched(SkaterPhysicsModule* component) { return component->state_->flag(PoseFlag::kCrouched).on != 0; }
 double speed_of(const maths::Vec4& v) { return length_unrounded(v); }
 
 } // namespace
@@ -92,14 +87,14 @@ void SkaterPhysicsModule::apply_friction(float friction)
 // 0x004FE320
 bool SkaterPhysicsModule::should_brake()
 {
-    uint8_t* input = input_of(this);
-    if (!auto_kick_ && !input[kKickButton] && speed_of(entity_->vel_) < kSlow)
+    objects::PadInputModule* input = input_;
+    if (!auto_kick_ && !input->pad_primary_.button_box_.held_down_ && speed_of(entity_->vel_) < kSlow)
         return true;
-    if (!input[kBrakeButton] || !can_brake_)
+    if (!input->pad_primary_.btn_down_.held_down_ || !can_brake_)
         return false;
     if (speed_of(entity_->vel_) < kSlow)
         return true;
-    if (!input[kRightKeyHash] && !input[kLeftButton])
+    if (!input->pad_primary_.right_side_.held_down_ && !input->pad_primary_.left_side_.held_down_)
         return true;
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel_;
@@ -120,12 +115,12 @@ bool SkaterPhysicsModule::may_turn_on_slope()
 // 0x004FE490
 bool SkaterPhysicsModule::can_push_off()
 {
-    uint8_t* input = input_of(this);
+    objects::PadInputModule* input = input_;
     if (no_kick_)
         return false;
-    if (!auto_kick_ && !input[kKickButton])
+    if (!auto_kick_ && !input->pad_primary_.button_box_.held_down_)
         return false;
-    if (input[kBrakeButton])
+    if (input->pad_primary_.btn_down_.held_down_)
         return false;
     float speed = static_cast<float>(speed_of(entity_->vel_));
     bool crouched = is_crouched(this) || crouch_stats_;
@@ -269,8 +264,8 @@ void SkaterPhysicsModule::update_ground_normal()
 // 0x004FEBA0
 void SkaterPhysicsModule::start_vert_air()
 {
-    if (!flags_of(this)[kFlagOnVert]) {
-        set_timed_flag(this, kFlagVertAir, 0);
+    if (!state_->flag(PoseFlag::kOnVert).on) {
+        set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;
     }
     objects::GameEntity* object = object_of(this);
@@ -281,7 +276,7 @@ void SkaterPhysicsModule::start_vert_air()
     vert_takeoff_.y = static_cast<float>(vert_takeoff_.y - 1.0);
     across.y = 0.0f;
     if (!(std::sqrt(static_cast<double>(across.z) * across.z + static_cast<double>(across.x) * across.x) > kFlat)) {
-        set_timed_flag(this, kFlagVertAir, 0);
+        set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;
     }
     across.make_unit();
@@ -298,9 +293,9 @@ void SkaterPhysicsModule::start_vert_air()
     position.y += y;
     position.z += z;
     position.w += w;
-    set_timed_flag(this, kFlagVertAir, 1);
-    set_timed_flag(this, kFlagVertWall, 1);
-    set_timed_flag(this, kFlagSpin, 1);
+    set_timed_flag(this, PoseFlag::kVertAir, 1);
+    set_timed_flag(this, PoseFlag::kVertWall, 1);
+    set_timed_flag(this, PoseFlag::kSpin, 1);
     vert_step_ = 6.0f;
 }
 

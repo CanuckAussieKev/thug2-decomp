@@ -13,6 +13,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/core_physics_fields.h"
 #include "game/rider/thaw_bmx.h"
+#include "game/rider/skater_state.h"
 
 namespace skater {
 
@@ -25,7 +26,6 @@ constexpr uint32_t kMaxSpeedStat = 0x2EACDDB3;      // Skater_Max_Speed_Stat
 constexpr uint32_t kHeavyAirFriction = 0x850EB87A;  // Physics_Heavy_Air_Friction
 constexpr uint32_t kCoastDrag = 0x78F80EC4;         // Physics_Rolling_Friction
 constexpr uint32_t kBrakeAcceleration = 0xE5D73F6F; // Physics_Brake_Acceleration
-
 
 // The length of (x, y, z) as the original works it out: (x * x + y * y) + z * z, rounded to a float.
 float speed_of(const maths::Vec4& v)
@@ -124,8 +124,8 @@ void SkaterPhysicsModule::apply_ground_friction()
 {
     objects::GameEntity* object = object_of(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
-    if (!auto_kick_ && !flags_of(this)[0x70] && rolling_friction_ == tuning_float_lookup(kCoastDrag, object) &&
-        !thaw_bmx::live_now(this))
+    if (!auto_kick_ && !state_->flag(PoseFlag::kBailing).on &&
+        rolling_friction_ == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this))
         return;
     apply_stance_friction(); // (the friction: crouched or standing)
     if (turn_down_slope())   // (turned down the slope)
@@ -136,7 +136,7 @@ void SkaterPhysicsModule::apply_ground_friction()
 // 0x005021D0
 void SkaterPhysicsModule::start_riding_hit_object()
 {
-    if (flags_of(this)[0x88])
+    if (state_->flag(PoseFlag::kSkitching).on)
         return;
     objects::MovingSurfaceModule* ride = ride_;
     if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&feeler_))
