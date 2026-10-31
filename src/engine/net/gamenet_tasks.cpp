@@ -62,7 +62,7 @@ constexpr uint32_t kShowJoinTimeoutNotice = 0x3F7009B4; // ShowJoinTimeoutNotice
 
 constexpr uint32_t kJoinTimeout = 60000; // ms
 
-Hub* task_manager(void* task) { return prop<Hub*>(task, 0x1C); }
+Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
 void show_connection_metrics(net::Conn* conn, int index)
@@ -95,7 +95,7 @@ void show_app_metrics(net::AppHost* app)
 } // namespace
 
 // 0x0052F4A0
-void __cdecl level_change_task(void* task)
+void __cdecl level_change_task(tasks::Task<Hub>* task)
 {
     PlayerSearch search;
     Hub* manager = task_manager(task);
@@ -112,7 +112,7 @@ void __cdecl level_change_task(void* task)
 uint32_t g_modem_dialog_end;
 
 // 0x00533810
-void __cdecl dialup_progress_tick(void* task)
+void __cdecl dialup_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     net::Hub* net = net::Hub::sole();
@@ -177,7 +177,7 @@ void __cdecl dialup_progress_tick(void* task)
 }
 
 // 0x00533B50 (each list is shown twice: the original's loop)
-void __cdecl net_metrics_task(void* task)
+void __cdecl net_metrics_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     for (int pass = 0; pass < 2; ++pass) {
@@ -189,7 +189,7 @@ void __cdecl net_metrics_task(void* task)
 }
 
 // 0x00533ED0
-void __cdecl join_deadline_tick(void* task)
+void __cdecl join_deadline_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     if (manager->join_phase_ == 8 ||

@@ -131,7 +131,7 @@ PlayerRecord* PlayerRecord::make_new(uint32_t flags)
         }
     }
     flag_bits_ = flags;
-    object_1e_c_ = nullptr;
+    observer_task_ = nullptr;
     unknown1d8_ = 0;
     face_texture_data_ = nullptr;
     skater_ = nullptr;
@@ -156,10 +156,7 @@ void PlayerRecord::destroy_body()
         profile->destroy_body();
         memory::Hub::get_pull()->dealloc(profile);
     }
-    if (object_1e_c_) {
-        void** object_vtable = *static_cast<void***>(object_1e_c_);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(object_vtable[2])(object_1e_c_, 1);
-    }
+    delete observer_task_;
     if (face_texture_data_) {
         memory::Hub::get_pull()->dealloc(face_texture_data_);
         face_texture_data_ = nullptr;

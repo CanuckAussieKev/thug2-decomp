@@ -11,6 +11,8 @@ class Struct;
 } // namespace script
 namespace tasks {
 class SchedulerTask;
+template <typename Owner>
+class Task;
 } // namespace tasks
 
 // The content vault and HTTP file transfers: online::Hub's +0x14, on GameSpy's HTTP SDK (ghttp: library code,
@@ -147,7 +149,7 @@ public:
     // processed and the progress script run until 100%; then the answer read: the categories (then the first
     // category's items), the items (then the next category's, until all are in: net_vault_menu_create), the uploads
     // list, or the download / upload's done / fail scripts.
-    static void __cdecl vault_task(tasks::SchedulerTask* task);
+    static void __cdecl vault_task(tasks::Task<VaultMan>* task);
     // 0x0054A7B0 (thread, stdcall): ghttpGetEx of url_ into a new 100000-byte buffer.
     static unsigned long __stdcall list_thread(void* vault);
     // 0x0054A860 (thread, stdcall): ghttpGetEx of `url` (goastrdup'd by Download, freed here) into a buffer of

@@ -3,7 +3,6 @@
 // the per-player settings, the module's script, its destructor.
 
 #include "game/skate/skate_module.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstring>
@@ -963,9 +962,9 @@ void Skate::run_frame_logic()
 }
 
 // 0x00568C90 (the logic task's code)
-void __cdecl Skate::front_end_tick(tasks::SchedulerTask* task)
+void __cdecl Skate::front_end_tick(tasks::Task<Skate>* task)
 {
-    Skate* skate = *reinterpret_cast<Skate**>(reinterpret_cast<uint8_t*>(task) + 0x1C);
+    Skate* skate = task->content_;
     online::Hub* net = net_session_slot();
     skate->run_frame_logic();
     if (net->get_on_server() && skate->count_riders())
@@ -1003,14 +1002,7 @@ Skate* Skate::make_new()
     riders_.list_link_.vtable = kSkaterHeadVtable;
     watch_for_unplug_ = false;
     unplugged_frames_ = 0;
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        task->make_new(0);
-        task->vtable_ = game_code::kTaskVtable;
-        *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(task) + 0x18) = reinterpret_cast<void*>(&front_end_tick);
-        *reinterpret_cast<Skate**>(reinterpret_cast<uint8_t*>(task) + 0x1C) = this;
-    }
-    update_job_ = task;
+    update_job_ = new tasks::Task<Skate>(&front_end_tick, this, 0);
     reinterpret_cast<SkateNet*>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
     game_flow_ = new goals::MatchFlow;
@@ -1077,8 +1069,7 @@ void Skate::destroy_body()
         goals->destroy_body();
         memory::dealloc(goals);
     }
-    if (update_job_)
-        reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, int)>(update_job_->vtable_[2])(update_job_, 1);
+    delete update_job_;
     delete splitscreen_preferences_;
     memory::dealloc(checksums_);
     if (script::Script* script = own_script_) {

@@ -13,7 +13,13 @@ namespace net {
 struct InboundMsgCtx;
 } // namespace net
 
+namespace tasks {
+template <typename Owner>
+class Task;
+} // namespace tasks
 namespace online {
+
+class Hub;
 
 // 0x0052D6A0: the CD key ("key" under HKEY_CURRENT_USER, else HKEY_LOCAL_MACHINE, Software\Activision\Tony Hawk's
 // Underground 2 - each key created if missing) copied into `key` (at most 100 bytes; empty if none). Quirk kept: when
@@ -178,16 +184,16 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context);
 // --- The tasks and GameSpy callbacks (gamenet_tasks.cpp; tasks get their tasks::Task, the manager at +0x1C) ---
 // 0x0052F4A0: the level change, once its time (0x007CCDE8) has come: the skate module changes level (0x00565A00), the
 // king loses the crown, nobody carries a flag, and the task (+0xEC) takes itself off.
-void __cdecl level_change_task(void* task);
+void __cdecl level_change_task(tasks::Task<Hub>* task);
 // 0x00533810: the online connection's state (NetLink::Hub's modem state) shown when it changes (+0x1A8 the last
 // shown): connecting / dialing, connected, logged in (with the speed on a modem), disconnecting, hanging up,
 // disconnected, a redial pause (state 8 for 5 s, then ConnectToInternet - its parameters never deleted).
-void __cdecl dialup_progress_tick(void* task);
+void __cdecl dialup_progress_tick(tasks::Task<Hub>* task);
 // 0x00533B50: update_net_metrics for each remote connection of the client (if not local) and the server - each list
 // twice (the original's loop).
-void __cdecl net_metrics_task(void* task);
+void __cdecl net_metrics_task(tasks::Task<Hub>* task);
 // 0x00533ED0: joining for over a minute (and not in a game): the join state task removed, ShowJoinTimeoutNotice.
-void __cdecl join_deadline_tick(void* task);
+void __cdecl join_deadline_tick(tasks::Task<Hub>* task);
 // 0x00533400 / 0x00533420 / 0x005334B0: the GameSpy query callbacks - every player / team key "", the key lists (the
 // server's 1, 2, 4, 5, 6, 8, 20, 10, 11, 19; the players' 21, 24, 25), an error adding the server (debug output).
 void __cdecl player_team_key_callback(int key, int index, void* buffer, void* data);

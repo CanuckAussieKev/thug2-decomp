@@ -13,7 +13,6 @@ namespace tasks {
 
 namespace {
 
-extern void** const kBaseTaskVtable;
 extern void** const kTaskNodeVtable;      // lists::Elem<SchedulerTask>
 extern void** const kStackListNodeVtable; // lists::Elem<StackList>
 extern void** const kStackListHeadVtable; // lists::Foremost<StackList>
@@ -93,10 +92,9 @@ struct StackListNode : memory::ListNode {
 } // namespace
 
 // 0x00406890
-SchedulerTask* SchedulerTask::make_new(int priority)
+SchedulerTask::SchedulerTask(int priority)
 {
     disabled_ = 0;
-    vtable_ = kBaseTaskVtable;
     sequence_ = nullptr;
     pass_count_ = 0;
     skip_bits_ = 0;
@@ -109,25 +107,14 @@ SchedulerTask* SchedulerTask::make_new(int priority)
         node->prev = node;
     }
     list_link_ = node;
-    return this;
 }
 
 // 0x00406930
-void SchedulerTask::destruct()
+SchedulerTask::~SchedulerTask()
 {
-    vtable_ = kBaseTaskVtable;
     drop_out(); // (inlined)
     if (list_link_)
         unlink_list_node(list_link_);
-}
-
-// 0x00406980
-SchedulerTask* SchedulerTask::scalar_delete(uint8_t flags)
-{
-    destruct();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004068F0
@@ -189,7 +176,7 @@ void LinkChain::work_on(void* /*unused*/, uint32_t mask)
             if (task->disabled_ == 0 && task->pass_count_ != pass_count_) {
                 task->pass_count_ = pass_count_;
                 if ((mask & task->skip_bits_) == 0)
-                    reinterpret_cast<void(__thiscall*)(SchedulerTask*)>(task->vtable_[0])(task);
+                    task->run();
             }
             if (altered_)
                 break;
@@ -334,8 +321,6 @@ void PileUp::delete_popped_lists()
 }
 
 namespace {
-static VtableSlot g_base_task_vtable_slots[] = {&_purecall, &_purecall, &tasks::SchedulerTask::scalar_delete};
-void** const kBaseTaskVtable = reinterpret_cast<void**>(g_base_task_vtable_slots);
 static VtableSlot g_task_node_vtable_slots[] = {&tasks::TaskNode::teardown};
 void** const kTaskNodeVtable = reinterpret_cast<void**>(g_task_node_vtable_slots);
 static VtableSlot g_stack_list_node_vtable_slots[] = {&tasks::StackListNode::teardown};

@@ -1,7 +1,6 @@
 // The skate module's network handlers and their registration (0x0056C920-0x0056F090). See skate_net.h.
 
 #include "game/skate/skate_net.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -224,20 +223,6 @@ struct StateRingLog {
     StateEntry entries[20]; // +0x1C
 };
 
-// A tasks::Task<Skate> (0x20 bytes): the task node (0x00406890 makes it with its priority), +0x18 the code, +0x1C
-// the skate module.
-uint8_t* new_task(uint8_t* skate, uint32_t code)
-{
-    auto* task = static_cast<uint8_t*>(memory::alloc_zeroed(0x20));
-    if (!task)
-        return nullptr;
-    reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(-1000);
-    prop<uint32_t>(task, 0) = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-    prop<uint32_t>(task, 0x18) = code;
-    prop<uint8_t*>(task, 0x1C) = skate;
-    return task;
-}
-
 void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
                      int priority = 0x80)
 {
@@ -254,20 +239,16 @@ void append_listener(net::AppHost* app, int id, uint32_t code, uint32_t flags, v
 // 0x0056E2B0
 void SkateNet::create_network_tasks()
 {
-    auto* skate = reinterpret_cast<uint8_t*>(this);
-    prop<uint8_t*>(skate, 0x18) = new_task(skate, reinterpret_cast<uint32_t>(code_address(SkateNet::server_task)));
-    prop<uint8_t*>(skate, 0x1C) = new_task(skate, reinterpret_cast<uint32_t>(code_address(SkateNet::score_task)));
+    auto* skate = reinterpret_cast<Skate*>(this);
+    skate->server_tasks_[0] = new tasks::Task<Skate>(&SkateNet::server_task, skate, -1000);
+    skate->server_tasks_[1] = new tasks::Task<Skate>(&SkateNet::score_task, skate, -1000);
 }
 
 // 0x00569530
 void SkateNet::delete_network_tasks()
 {
-    auto* skate = reinterpret_cast<uint8_t*>(this);
-    for (uint32_t offset : {0x18u, 0x1Cu}) {
-        auto* task = prop<tasks::SchedulerTask*>(skate, offset);
-        if (task)
-            reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, int)>(task->vtable_[2])(task, 1);
-    }
+    for (tasks::Task<Skate>* task : reinterpret_cast<Skate*>(this)->server_tasks_)
+        delete task;
 }
 
 // 0x0056DEE0
@@ -284,8 +265,8 @@ void SkateNet::launch_host()
     if (!server)
         return;
     auto* skate = reinterpret_cast<uint8_t*>(this);
-    reinterpret_cast<tasks::PileUp*>(mlp + 4)->queue_job(prop<tasks::SchedulerTask*>(skate, 0x18));
-    reinterpret_cast<tasks::PileUp*>(mlp + 4)->queue_job(prop<tasks::SchedulerTask*>(skate, 0x1C));
+    reinterpret_cast<tasks::PileUp*>(mlp + 4)->queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[0]);
+    reinterpret_cast<tasks::PileUp*>(mlp + 4)->queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[1]);
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, this);
     append_listener(server, 0x86, handle_game_stats, 0, this);

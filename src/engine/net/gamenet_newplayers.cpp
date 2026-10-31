@@ -73,7 +73,7 @@ constexpr uint32_t kSkaterScore = 0xD262802F;      // the score component
 constexpr uint32_t kVehicleComponent = 0x18223FD6; // (its vehicle control type at +0x1104)
 constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
-Hub* task_manager(void* task) { return prop<Hub*>(task, 0x1C); }
+Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 uint8_t* skate_module() { return get_skate(); }
 
 // The skate module's list of skaters (+0x34): how many.
@@ -162,7 +162,7 @@ void Hub::add_new_player(uint8_t* info)
 }
 
 // 0x0053EA30
-void __cdecl Hub::guest_player_intake_tick(void* task)
+void __cdecl Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
@@ -281,7 +281,7 @@ void send_word(net::AppHost* server, net::NetMessageInfo& desc, uint8_t* to, uin
 } // namespace
 
 // 0x0053D9D0
-void __cdecl Hub::host_player_intake_tick(void* task)
+void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);

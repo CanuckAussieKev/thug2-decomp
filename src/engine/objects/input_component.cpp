@@ -1,7 +1,6 @@
 // The input component (GameObjects::PadInputModule): see input_component.h. From the disassembly of 0x0041E6F0-0x0041F3FB.
 
 #include "engine/objects/input_component.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstring>
@@ -94,8 +93,8 @@ tasks::PileUp* server_handlers(uint8_t* manager, int server)
 }
 void place_handler(PadInputModule::Responder* handler, uint8_t* manager, int server)
 {
-    handler->control_data_ = manager + server * 0x84 + 0x44;
-    handler->dev_ = *reinterpret_cast<void**>(manager + server * 0x84 + 4);
+    handler->control_data_ = reinterpret_cast<pad_input::Payload*>(manager + server * 0x84 + 0x44);
+    handler->dev_ = *reinterpret_cast<uint8_t**>(manager + server * 0x84 + 4);
 }
 int player_controller(int player)
 {
@@ -103,18 +102,9 @@ int player_controller(int player)
 }
 
 // A new handler (on the current heap).
-PadInputModule::Responder* new_handler(int index, void(__cdecl* code)(PadInputModule::Responder*),
-                                       PadInputModule* component)
+PadInputModule::Responder* new_handler(int index, PadInputModule::Responder::Code code, PadInputModule* component)
 {
-    auto* handler = static_cast<PadInputModule::Responder*>(memory::alloc_zeroed(sizeof(PadInputModule::Responder)));
-    if (!handler)
-        return nullptr;
-    handler->make_new(-1);
-    handler->ordinal_ = index;
-    handler->vtable_ = game_code::kInputHandlerVtable;
-    handler->code_value_ = code;
-    handler->component_ = component;
-    return handler;
+    return new PadInputModule::Responder(code, component, -1, index);
 }
 
 // The screen element `id`, if there's one (the smart pointer let go at once, as the original does).
@@ -164,7 +154,7 @@ void PadInputModule::destroy_body()
             continue;
         if (handler->is_on_task_list())
             handler->drop_out();
-        reinterpret_cast<void*(__thiscall*)(Responder*, unsigned int)>(handler->vtable_[2])(handler, 1);
+        delete handler;
     }
     ObjectModule::destroy_body();
 }
@@ -222,13 +212,13 @@ void PadInputModule::link_to_pad(int controller)
 // 0x0041F170
 void __cdecl PadInputModule::handler_code(Responder* handler)
 {
-    handler->component_->update_pad(handler->control_data_);
+    handler->content_->update_pad(reinterpret_cast<const uint8_t*>(handler->control_data_));
 }
 
 // 0x0041F190
 void __cdecl PadInputModule::handler_code2(Responder* handler)
 {
-    handler->component_->update_pad2(handler->control_data_);
+    handler->content_->update_pad2(reinterpret_cast<const uint8_t*>(handler->control_data_));
 }
 
 // 0x0041F090

@@ -3,15 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
 
 // The viewer module (modules::Viewer: the debug viewer for looking at models and levels, driven from a PC tool over
 // the network, and the pad's viewer buttons) - 0x00576CB0-0x00577F20: its constructor, start and stop callbacks and
 // destructor, its input handlers and tasks (the free camera, the Select combos), the PC tool's messages, the viewer
 // object it owns, and a few helpers.
-namespace pad_input {
-struct Payload;
-}
 namespace net {
 struct InboundMsgCtx;
 }
@@ -32,35 +30,9 @@ namespace modules {
 
 struct Viewer;
 
-// pad_input::Responder<Viewer> (0x2C bytes, vtable 0x0064D7D8 - the template's, shared with the front end's handlers).
-struct ViewerInputHandler {
-    uint8_t list_link_[0x18];          // the handler list node (0x00406890, with the priority)
-    pad_input::Payload* control_data_; // +0x18: the controller's data this frame
-    uint8_t* dev_;                     // +0x1C
-    int ordinal_;                      // +0x20: the controller (the script integer 0x702247A5)
-    void(__cdecl* code_value_)(ViewerInputHandler*);
-    Viewer* content_;
-
-    // 0x00577270: pad_input::Responder<T>'s vtable slot 0 (every T's): the code, given the handler.
-    void hdl();
-    // 0x00577280: pad_input::Responder<T>'s destructor body: pad_input::BaseHandler's vtable (0x00646090), then the list node's
-    // destructor (0x00406930).
-    void destroy_body();
-    // 0x00577290: a jump to the list node's destructor (0x00406930).
-    void destroy_node();
-    // 0x00536670 (vtable slot 2 of pad_input::Responder<T> and pad_input::BaseHandler, 0x0064D7E0 / 0x00646098): the scalar deleting
-    // destructor - destroy_body, then freed with flag 1.
-    ViewerInputHandler* teardown(unsigned int flags);
-};
-static_assert(sizeof(ViewerInputHandler) == 0x2C && offsetof(ViewerInputHandler, code_value_) == 0x24);
-
-// tasks::Task<Viewer> (0x20 bytes, vtable 0x006476F0): a node of the main loop's task list.
-struct ViewerTask {
-    uint8_t list_link_[0x18]; // the task list node (0x00406890 constructs it, with the priority)
-    void(__cdecl* code_value_)(ViewerTask*);
-    Viewer* content_;
-};
-static_assert(sizeof(ViewerTask) == 0x20 && offsetof(ViewerTask, code_value_) == 0x18);
+// The viewer's input handlers and tasks.
+using ViewerInputHandler = pad_input::Responder<Viewer>;
+using ViewerTask = tasks::Task<Viewer>;
 
 struct Viewer : PartUnit {
     // The commands the pad gives (actions_ bits).
@@ -71,8 +43,8 @@ struct Viewer : PartUnit {
 
     ViewerInputHandler* pad_listener_;  // +0x14 (process_pad_input, priority 0)
     ViewerInputHandler* shift_handler_; // +0x18 (HandleShift, priority 1000)
-    void* task_1c_;                     // +0x1C a tasks::Task<Viewer> (0x00577870)
-    void* task20_;                      // +0x20 a tasks::Task<Viewer> (0x00577380)
+    ViewerTask* task_1c_;               // +0x1C free_camera_task (0x00577870)
+    ViewerTask* task20_;                // +0x20 select_combo_task (0x00577380)
     float pad_rx_;                      // +0x24 the sticks (raw, -128..127)
     float pad_ry_;                      // +0x28
     uint8_t unknown2c_[8];

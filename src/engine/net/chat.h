@@ -9,6 +9,10 @@ namespace net {
 struct InboundMsgCtx;
 }
 
+namespace tasks {
+template <typename Owner>
+class Task;
+} // namespace tasks
 namespace online {
 
 class Hub; // the network game manager (not decompiled yet; one instance, see fetch_hub)
@@ -34,7 +38,7 @@ bool handle_chat_command(Hub* manager, const char* text);
 // 0x005334D0: the manager's keyboard task (tasks::Task, data the manager - not used): Enter opens the chat box
 // (script 0x3B4548B8) unless a dialog is up; F1-F4 run the taunt script (0x2C43B5BA) with a taunt name, at
 // most one every two seconds. With PartyMod's keyboard input built in: F1 is key 0x1F.
-void __cdecl keyboard_task(void* task);
+void __cdecl keyboard_task(tasks::Task<Hub>* task);
 
 // 0x00532050: the chat handler (message 76, registered by the join): "\c<colour + 2><name>\c0 : <text>" added to
 // the chat display (create_console_message text=...). 1. In the THUGPRO peer mode (thugpro_peer.h) the message is

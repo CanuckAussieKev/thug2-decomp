@@ -5,6 +5,12 @@
 
 #include "engine/objects/entity.h"
 
+namespace tasks {
+class SchedulerTask;
+template <typename Owner>
+class Task;
+} // namespace tasks
+
 namespace script {
 class Script;
 class Struct;
@@ -97,13 +103,13 @@ struct SuspendTaskHolder {
     // and added to the main loop's logic tasks (none if out of memory: null added). Returns this.
     SuspendTaskHolder* make_new();
 
-    void* job_handle_;
+    tasks::SchedulerTask* job_handle_;
 };
 // 0x00434420 (not a Ghidra function; the task's callback): every suspend component: its check frames counted down
 // (all of them at once: the original doesn't move on to the next component while counting), else - unless the camera
 // data (the skate module's +0x3DC) says otherwise or it never suspends - after its LOD frames, its distance squared to
 // the camera against the suspend distance; the object suspended or woken to match; then the model updated (during the
 // LOD frames: shown) or its visibility decided (refresh_shown_state).
-void __cdecl suspend_task(void* task);
+void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* task);
 
 } // namespace objects

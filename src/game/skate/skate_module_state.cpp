@@ -181,13 +181,6 @@ goals::GoalManager* Skate::get_objective_board() { return goal_manager_; }
 // 0x00564DA0
 void Skate::scan_pad_connections() { watch_for_unplug_ = true; }
 
-// 0x00564DB0 (tasks::Task<Skate>'s vtable slot 0): its code run with it.
-void __fastcall Skate::run_task(tasks::SchedulerTask* task)
-{
-    auto* code = *reinterpret_cast<void(__cdecl**)(tasks::SchedulerTask*)>(reinterpret_cast<uint8_t*>(task) + 0x18);
-    code(task);
-}
-
 // 0x00564DC0
 void Skate::start_callback()
 {

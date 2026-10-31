@@ -2,7 +2,6 @@
 
 #include "engine/sys/viewer_object.h"
 #include "engine/gfx/d3dx.h"
-#include "engine/net/task_vtable.h"
 
 #include <bit>
 #include <cstdint>
@@ -209,8 +208,7 @@ void PreviewEntity::destroy_body()
         }
         asset_ = 0;
     }
-    if (task_)
-        reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(task_))[2])(task_, 1);
+    delete task_;
     GameEntity::destroy_body();
 }
 
@@ -590,14 +588,7 @@ PreviewEntity* PreviewEntity::make_new(net::AppHost* app)
     add_base_components(this);
     change_species(kObjectTypeComposite);
     uint8_t* input = input_manager();
-    auto* handler = static_cast<ViewerObjectInputHandler*>(memory::alloc_zeroed(sizeof(ViewerObjectInputHandler)));
-    if (handler) {
-        handler->make_new(0);
-        handler->ordinal_ = 0;
-        handler->vtable_ = game_code::kInputHandlerVtable;
-        handler->code_value_ = &handle_viewer_object_input;
-        handler->content_ = this;
-    }
+    auto* handler = new ViewerObjectInputHandler(&handle_viewer_object_input, this, 0, 0);
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
     uint8_t* controller = input + handler->ordinal_ * 0x84;

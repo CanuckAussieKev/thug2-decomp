@@ -19,18 +19,9 @@
 #include "engine/net/net_messages.h"
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
-#include "engine/net/task_vtable.h"
 #include "game/skate/skate_module.h"
 #include "engine/net/buddy_status.h"
 #include "engine/net/gamenet_lobby.h"
-
-namespace game_code {
-
-static VtableSlot g_task_vtable_slots[] = {modules::Skate::run_task, &online::FoldedGetters::word18,
-                                           &online::TaskDeleter::teardown};
-void** const kTaskVtable = reinterpret_cast<void**>(g_task_vtable_slots);
-
-} // namespace game_code
 
 namespace net {
 
@@ -218,19 +209,12 @@ void send_enqueued_messages_to(AppHost* app, Conn* conn)
     reinterpret_cast<void(__thiscall*)(AppHost*, Conn*)>(app->vtable_[3])(app, conn);
 }
 
-// A tasks::Task<App> (0x20 bytes): the task node (0x00406890, with the priority), +0x18 the callback, +0x1C the app.
-void* new_task(int priority, void* callback, AppHost* app)
+// A task of the app's (null if out of memory).
+tasks::SchedulerTask* new_task(int priority, tasks::Task<AppHost>::Code callback, AppHost* app)
 {
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (!task)
-        return nullptr;
-    reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(priority);
-    task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-    task[6] = reinterpret_cast<uint32_t>(callback);
-    task[7] = reinterpret_cast<uint32_t>(app);
-    return task;
+    return new tasks::Task<AppHost>(callback, app, priority);
 }
-AppHost* task_app(void* task) { return reinterpret_cast<AppHost*>(static_cast<uint32_t*>(task)[7]); }
+AppHost* task_app(tasks::Task<AppHost>* task) { return task->content_; }
 
 // A list head: data -1, priority 0, linked to itself.
 void setup_list_sentinel(ListNode* head, void** vtable)
@@ -261,9 +245,9 @@ AppHost* AppHost::make_new(int flags)
     flag_bits_ = 0;
     setup_list_sentinel(&circuits_, kConnHeadVtable);
     setup_list_sentinel(&banned_, kBannedConnVtable);
-    metrics_task_ = new_task(kMetricsTaskPriority, reinterpret_cast<void*>(&AppHost::network_metrics), this);
-    receive_task_ = new_task(kReceiveTaskPriority, reinterpret_cast<void*>(&AppHost::receive_network_data), this);
-    process_task_ = new_task(kProcessTaskPriority, reinterpret_cast<void*>(&AppHost::pump_incoming_traffic), this);
+    metrics_task_ = new_task(kMetricsTaskPriority, &AppHost::network_metrics, this);
+    receive_task_ = new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this);
+    process_task_ = new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this);
     unknown1f00_ = g_double_zero; // 0.0
     flag_bits_ = static_cast<uint32_t>(flags);
     clock_ = 0;
@@ -662,7 +646,7 @@ void AppHost::pump_stream_traffic()
 }
 
 // 0x00456CA0
-void __cdecl AppHost::pump_incoming_traffic(void* task)
+void __cdecl AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     ++app->frame_count_;
@@ -670,7 +654,7 @@ void __cdecl AppHost::pump_incoming_traffic(void* task)
 }
 
 // 0x004593C0
-void __cdecl AppHost::receive_network_data(void* task)
+void __cdecl AppHost::receive_network_data(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     app->clock_ = frame_clock::get_time();
@@ -679,7 +663,7 @@ void __cdecl AppHost::receive_network_data(void* task)
 }
 
 // 0x004593E0
-void __cdecl AppHost::network_metrics(void* task)
+void __cdecl AppHost::network_metrics(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     lists::Hunt<Conn> search;
@@ -690,7 +674,7 @@ void __cdecl AppHost::network_metrics(void* task)
 }
 
 // 0x004594A0
-void __cdecl AppHost::flush_outgoing_traffic(void* task)
+void __cdecl AppHost::flush_outgoing_traffic(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     app->pump_stream_traffic();

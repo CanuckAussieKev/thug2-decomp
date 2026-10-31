@@ -2,7 +2,6 @@
 // preferences, some network flags (see game_cfuncs.h).
 
 #include "engine/script/game_cfuncs.h"
-#include "engine/net/task_vtable.h"
 
 #include <windows.h>
 
@@ -61,7 +60,7 @@ namespace commands {
 
 bool g_trying_to_join;
 char g_node_list_name[128];
-void* g_second_controller_check;
+tasks::Task<void>* g_second_controller_check;
 int g_view_mode_cfunc;
 char g_password_stars[32];
 bool g_got_extra_memory;
@@ -122,7 +121,7 @@ bool& online_mode_flag() { return online::g_online_active; }
 bool& join_server_ip_succeeded() { return online::g_join_server_ip_succeeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
-void*& second_controller_check() { return g_second_controller_check; }
+tasks::Task<void>*& second_controller_check() { return g_second_controller_check; }
 int& view_mode() { return g_view_mode_cfunc; }
 
 // GetPreferencePassword's row of stars (0x007CEBD0).
@@ -192,10 +191,7 @@ bool __cdecl cfunc_check_for_holes(script::Struct*, script::Script*)
 // 0x0059F740: StopSecondControllerCheck: the check's task (if any) deleted.
 bool __cdecl cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 {
-    if (void* task = second_controller_check()) {
-        auto destroy = (*static_cast<void*(__thiscall***)(void*, unsigned int)>(task))[2];
-        destroy(task, 1); // the scalar deleting destructor (vtable slot 2)
-    }
+    delete second_controller_check();
     second_controller_check() = nullptr;
     return true;
 }
@@ -252,7 +248,7 @@ bool __cdecl cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script
 }
 
 // 0x0059F820
-void __cdecl second_pad_watch_tick(void*)
+void __cdecl second_pad_watch_tick(tasks::Task<void>*)
 {
     sio::Hub* devices = sio::manager_instance();
     sio::InputPort* first = devices->get_pad_at_slot(0);
@@ -573,15 +569,9 @@ bool __cdecl cfunc_spawn_second_controller_check(script::Struct*, script::Script
     auto* main_loop = assets::g_main_loop_manager;
     if (second_controller_check())
         return true;
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(0);
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task vtable
-        task[0x18 / 4] = reinterpret_cast<uint32_t>(&second_pad_watch_tick);
-        task[0x1C / 4] = 0;
-    }
+    auto* task = new tasks::Task<void>(&second_pad_watch_tick, nullptr, 0);
     second_controller_check() = task;
-    main_loop->logic_tasks_.queue_job(reinterpret_cast<tasks::SchedulerTask*>(task));
+    main_loop->logic_tasks_.queue_job(task);
     return true;
 }
 

@@ -17,6 +17,7 @@
 
 #include "game/park_editing/park.h"
 #include "engine/objects/signal.h"
+#include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
 
 namespace pad_input {
@@ -31,24 +32,9 @@ namespace park_editing {
 class ParkBuilderMode;
 extern void** const kParkEditorVtable; // 0x0064F234 (park_editor.cpp)
 
-// tasks::Task<ParkBuilderMode> (0x20 bytes, vtable 0x006476F0).
-struct ParkEditorTask {
-    uint8_t list_link_[0x18]; // the task list node (0x00406890, with the priority)
-    void(__cdecl* code_value_)(ParkEditorTask*);
-    ParkBuilderMode* content_;
-};
-static_assert(sizeof(ParkEditorTask) == 0x20 && offsetof(ParkEditorTask, code_value_) == 0x18);
-
-// pad_input::Responder<ParkBuilderMode> (0x2C bytes, vtable 0x0064D7D8).
-struct ParkEditorInputHandler {
-    uint8_t list_link_[0x18];          // the handler list node (0x00406890)
-    pad_input::Payload* control_data_; // +0x18: the controller's data this frame
-    uint8_t* dev_;                     // +0x1C
-    int ordinal_;                      // +0x20: the controller it's on at the start
-    void(__cdecl* code_value_)(ParkEditorInputHandler*);
-    ParkBuilderMode* content_;
-};
-static_assert(sizeof(ParkEditorInputHandler) == 0x2C && offsetof(ParkEditorInputHandler, code_value_) == 0x24);
+// The editor's tasks and its input handler (on controller 0 at the start).
+using ParkEditorTask = tasks::Task<ParkBuilderMode>;
+using ParkEditorInputHandler = pad_input::Responder<ParkBuilderMode>;
 
 extern ParkBuilderMode* g_park_editor;
 extern uint32_t g_park_editor_references;

@@ -159,7 +159,7 @@ uint32_t preference_checksum(prefs::Preferences* prefs, uint32_t name, uint32_t 
     prefs->fetch_setting(name)->read_hash_value(field, &value, 1);
     return value;
 }
-Hub* task_manager(void* task) { return prop<Hub*>(task, 0x1C); }
+Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 
 } // namespace
 
@@ -277,7 +277,7 @@ void Hub::cancel_join()
 }
 
 // 0x0053BED0
-void __cdecl Hub::observer_task(void*)
+void __cdecl Hub::observer_task(tasks::Task<uint8_t>*)
 {
     Hub* manager = g_online_hub;
     if (manager->spectate_request_ == 1) { // (the next player asked for)
@@ -287,9 +287,8 @@ void __cdecl Hub::observer_task(void*)
 }
 
 // 0x00536890
-void __cdecl Hub::observer_input(void* handler)
+void __cdecl Hub::observer_input(pad_input::Responder<Hub>* input)
 {
-    auto* input = static_cast<SpectatorInputSink*>(handler);
     Hub* manager = input->content_;
     objects::Entity* root = find_root_window();
     if (root) {
@@ -302,12 +301,12 @@ void __cdecl Hub::observer_input(void* handler)
         if (menu_state == kOn)
             return;
     }
-    if (input->control_data_[0x20] & 0x40) // (the controller's button: the next player)
+    if (input->control_data_->makes_ & 0x40) // (the controller's button pressed: the next player)
         manager->spectate_request_ = 1;
 }
 
 // 0x0053BF00
-void __cdecl Hub::auto_serve_task(void* task)
+void __cdecl Hub::auto_serve_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     if (frame_clock::get_time() - g_auto_serve_start < kAutoServeWait || get_game_type() != kNetLobby ||
@@ -320,7 +319,7 @@ void __cdecl Hub::auto_serve_task(void* task)
 }
 
 // 0x0053BF90
-void __cdecl Hub::join_progress_tick(void* task)
+void __cdecl Hub::join_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     switch (manager->join_phase_) {
@@ -373,7 +372,7 @@ void __cdecl Hub::join_progress_tick(void* task)
 }
 
 // 0x0053C1F0
-void __cdecl Hub::start_game_task(void* task)
+void __cdecl Hub::start_game_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     bool& waiting_shown = g_waiting_shown;
@@ -403,7 +402,7 @@ void __cdecl Hub::start_game_task(void* task)
 }
 
 // 0x0053EB70
-void __cdecl Hub::connection_task(void* task)
+void __cdecl Hub::connection_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     uint8_t* skate = get_skate();

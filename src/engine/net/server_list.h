@@ -17,7 +17,13 @@ struct InboundMsgCtx;
 // client, on the internet through GameSpy's server browser - the SDK is a library, called by address), shown in
 // the server list menu, described and chosen; and the online service's download threads (the news, the message of
 // the day) with their state (the manager's +0x1B8).
+namespace tasks {
+template <typename Owner>
+class Task;
+} // namespace tasks
 namespace online {
+
+class Hub;
 
 // A server found (0xA8 bytes, vtable 0x0064CDFC): a node of the manager's server list (+0x158) or of the servers
 // waiting to be shown (+0x16C).
@@ -74,7 +80,7 @@ static_assert(offsetof(HostListing, remote_ip_) == 0x24 && offsetof(HostListing,
 // 0x00547440 (the task's callback, the manager at its +0x1C; made by 0x0053EE90): every 3 seconds the clock
 // restarts; within them, if a refresh asked for it (0x007CE44C) and more than 500 ms after the refresh, the waiting
 // servers are shown as show_found_servers does (update_lobby_server_list by checksum).
-void __cdecl server_list_task(void* task);
+void __cdecl server_list_task(tasks::Task<Hub>* task);
 
 // The online service's download threads (stdcall, the manager as the argument; started by NetLink::service_task).
 // 0x00545540: the news (state 7): motd.dat (testmotd.dat when 0x007CE441 is set) from www.thug2online.com into

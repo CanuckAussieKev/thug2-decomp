@@ -288,7 +288,7 @@ bool handle_chat_command(Hub* manager, const char* text)
 }
 
 // 0x005334D0
-void __cdecl keyboard_task(void* /*task*/)
+void __cdecl keyboard_task(tasks::Task<Hub>* /*task*/)
 {
     char keys[256];
     if (sio::get_keyboard_chars(keys) <= 0)

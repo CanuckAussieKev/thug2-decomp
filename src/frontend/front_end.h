@@ -21,6 +21,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/pad_input/input_hub.h"
+
 namespace script {
 class Script;
 class Struct;
@@ -30,34 +32,9 @@ namespace modules {
 
 struct FrontEnd;
 
-// tasks::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
-struct FrontEndTask {
-    uint8_t list_link_[0x18]; // the task list node (0x00406890 constructs it, with the priority)
-    void(__cdecl* code_value_)(FrontEndTask*);
-    FrontEnd* content_;
-};
-static_assert(sizeof(FrontEndTask) == 0x20 && offsetof(FrontEndTask, code_value_) == 0x18);
-
-// One controller's place in the input manager (0x84 bytes each, from +4).
-struct InputServer;
-
-// What the input manager keeps of a controller's buttons for this frame.
-struct InputControlData {
-    uint8_t unknown0_[0x1C];
-    uint32_t held_;  // +0x1C: the buttons down
-    uint32_t makes_; // +0x20: the buttons pressed (with the manager's auto-repeat)
-};
-
-// pad_input::Responder<FrontEnd> (0x2C bytes, vtable 0x0064D7D8): gets one controller's presses once a frame.
-struct FrontEndInputHandler {
-    uint8_t list_link_[0x18];        // the handler list node (0x00406890)
-    InputControlData* control_data_; // +0x18: set when it's added to a controller's handler list
-    uint8_t* dev_;                   // +0x1C: the Sio device (its number at +0x0C)
-    int ordinal_;                    // +0x20: which of the front end's two handlers
-    void(__cdecl* code_value_)(FrontEndInputHandler*);
-    FrontEnd* content_;
-};
-static_assert(sizeof(FrontEndInputHandler) == 0x2C && offsetof(FrontEndInputHandler, code_value_) == 0x24);
+// The front end's tasks (in the main loop's task lists) and its input handlers (one per controller).
+using FrontEndTask = tasks::Task<FrontEnd>;
+using FrontEndInputHandler = pad_input::Responder<FrontEnd>;
 
 struct FrontEnd {
     // The menu's pad events.

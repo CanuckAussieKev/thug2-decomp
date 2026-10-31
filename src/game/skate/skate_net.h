@@ -18,10 +18,13 @@ namespace objects {
 class Entity;
 } // namespace objects
 namespace tasks {
-class SchedulerTask;
+template <typename Owner>
+class Task;
 } // namespace tasks
 
 namespace modules {
+
+class Skate;
 
 class SkateNet {
 public:
@@ -85,8 +88,8 @@ public:
     // client (message 0x23: an 8-bit mask, then each skater's update - round from the one after the last sent, as
     // many as the connection takes, only those newer than what it was sent); 0x0056BE10 the scores sent every 2
     // seconds while the network manager keeps score.
-    static void __cdecl server_task(tasks::SchedulerTask* task);
-    static void __cdecl score_task(tasks::SchedulerTask* task);
+    static void __cdecl server_task(tasks::Task<Skate>* task);
+    static void __cdecl score_task(tasks::Task<Skate>* task);
     // The server's handlers (4: the sender isn't known / the message is for another game).
     // 0x00569E20 (0x3B): trick objects logged for the sender's score ([0] 1, [0xA] the game id). 0x00569E90 (0x86):
     // the sender's +0x24 from [4] (not in NetLobby). 0x00569EF0 (0x52): a combo's score [4] - the best combo, and

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 
 // Tasks: callbacks kept in priority-ordered lists that the main loop runs each frame (the main loop's logic and
 // display task stacks, the input handlers, the file and network managers' tasks...).
@@ -10,30 +11,50 @@ namespace tasks {
 
 class LinkChain;
 
-// A task (0x18 bytes; Task<T> adds its callback and data at +0x18 / +0x1C). Slot 0 of its vtable runs it.
+// A task (0x18 bytes, vtable 0x0064548C): run() is what the list calls each pass; Task<T> adds a code and an owner.
 // Its node (allocated by the constructor) carries the priority and links it into a List.
-class SchedulerTask {
+class SchedulerTask : public memory::HeapObject {
 public:
-    // 0x00406890: vtable 0x0064548C, not in a list; the node (lists::Elem<SchedulerTask>, 0x14 bytes) is allocated with
-    // `priority` (null if that fails). Returns this.
-    SchedulerTask* make_new(int priority);
-    // 0x00406930: out of its list, and the node deleted. 0x00406980: the scalar deleting destructor (vtable
-    // slot 2).
-    void destruct();
-    SchedulerTask* scalar_delete(uint8_t flags);
+    // 0x00406890: not in a list; the node (lists::Elem<SchedulerTask>, 0x14 bytes) is allocated with `priority`
+    // (null if that fails).
+    explicit SchedulerTask(int priority);
+    // 0x00406930 / 0x00406980: out of its list, and the node deleted.
+    virtual ~SchedulerTask();
+    SchedulerTask(const SchedulerTask&) = delete;
+    SchedulerTask& operator=(const SchedulerTask&) = delete;
+
+    // Slot 0: the task's work (pure in the base). (Slot 1 - pure in the base, the code's getter in Task<T>, 0 in
+    // the input handlers - is never called: left out.)
+    virtual void run() = 0;
+
     // 0x004068F0: out of its list (if in one; the list is told it changed).
     void drop_out();
     // 0x00406850: whether it's in a list (its node isn't linked to itself).
     bool is_on_task_list() const;
 
-    void** vtable_;
     int disabled_;                // +0x04 not run while nonzero
     memory::ListNode* list_link_; // +0x08 data = this
     LinkChain* sequence_;         // +0x0C the list it's in
     int pass_count_;              // +0x10 the list's stamp when it last ran
     uint32_t skip_bits_;          // +0x14 not run when it shares a bit with the mask the list is processed with
 };
-static_assert(sizeof(SchedulerTask) == 0x18, "layout must match the original");
+static_assert(sizeof(SchedulerTask) == 0x18, "the original's size");
+
+// tasks::Task<Owner> (0x20 bytes; every instance shared the vtable 0x006476F0 - the linker folded them): a task
+// running a cdecl function given the task, whose owner is the object it works for.
+template <typename Owner>
+class Task final : public SchedulerTask {
+public:
+    using Code = void(__cdecl*)(Task* task);
+
+    Task(Code code, Owner* owner, int priority) : SchedulerTask(priority), code_value_(code), content_(owner) {}
+
+    // 0x00564DB0 (slot 0 of every Task<T>): the code, given the task.
+    void run() override { code_value_(this); }
+
+    Code code_value_; // +0x18
+    Owner* content_;  // +0x1C the object it works for
+};
 
 // A list of tasks (0x20 bytes), highest priority first.
 class LinkChain {

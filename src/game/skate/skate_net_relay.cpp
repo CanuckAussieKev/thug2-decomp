@@ -218,7 +218,7 @@ void relay(net::NetMessageInfo& desc, const net::InboundMsgCtx* context)
 // --- the server's tasks ---------------------------------------------------------------------------------------------
 
 // 0x00569BB0
-void SkateNet::server_task(tasks::SchedulerTask* /*task*/)
+void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 {
     PlayerSearch search;
     net::AppHost* server = server_app();
@@ -277,9 +277,9 @@ void SkateNet::server_task(tasks::SchedulerTask* /*task*/)
 }
 
 // 0x0056BE10
-void SkateNet::score_task(tasks::SchedulerTask* task)
+void SkateNet::score_task(tasks::Task<Skate>* task)
 {
-    auto* skate = prop<Skate*>(task, 0x1C);
+    Skate* skate = task->content_;
     online::Hub* net = net_link();
     if (!net->keeps_score())
         return;

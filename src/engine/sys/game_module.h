@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/task_list.h"
 
 // Modules: the engine's parts that are started and stopped as a whole - the front end, the
 // async file loader, the game's own modules. The module manager (the singleton 0x0044F6F0 makes) keeps them in a
@@ -37,7 +38,7 @@ static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
               offsetof(PartUnit, list_link_) == 0x10);
 
 struct Hub {
-    void* task_;               // tasks::Task<Manager> (priority -1000) running tick_modules
+    tasks::Task<Hub>* task_;   // priority -1000, running tick_modules
     memory::ListNode modules_; // +0x04: the list's head (lists::Foremost<Module>, vtable 0x00647288)
     bool command_pending_;     // +0x18: a module was given a command since the task last ran
 
@@ -58,7 +59,7 @@ struct Hub {
     // 0x0044F440 (the task's code, the manager its data): if a command is pending, each module's carried out -
     // a stopped one started by kStart or kRestart; a running one stopped by kStop, stopped and started again by
     // kRestart - and the command cleared.
-    static void __cdecl tick_modules(void* task);
+    static void __cdecl tick_modules(tasks::Task<Hub>* task);
 };
 static_assert(sizeof(Hub) == 0x1C && offsetof(Hub, command_pending_) == 0x18);
 

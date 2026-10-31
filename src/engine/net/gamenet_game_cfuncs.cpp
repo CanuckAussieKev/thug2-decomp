@@ -130,12 +130,6 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     send_to_server(manager->client_app_, &desc);
 }
 
-// A task node / input handler's scalar deleting destructor (vtable slot 2).
-void unlink_list_node(void* node)
-{
-    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
-}
-
 } // namespace
 
 // 0x0053B450
@@ -228,11 +222,9 @@ bool __cdecl cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
         return false;
     if (prop<uint32_t>(local, 0x1D0) & kPlayerSurveying) {
         manager->spectate_player(local);
-        if (void* task = prop<void*>(local, 0x1EC))
-            unlink_list_node(task);
-        prop<void*>(local, 0x1EC) = nullptr;
-        if (manager->spectator_pad_listener_)
-            unlink_list_node(manager->spectator_pad_listener_);
+        delete prop<tasks::SchedulerTask*>(local, 0x1EC); // the observer task
+        prop<tasks::SchedulerTask*>(local, 0x1EC) = nullptr;
+        delete manager->spectator_pad_listener_;
         manager->spectator_pad_listener_ = nullptr;
         prop<uint32_t>(local, 0x1D0) &= ~kPlayerSurveying;
     }

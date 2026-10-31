@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/task_list.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
@@ -87,15 +88,15 @@ public:
     void flush_dead_objects();
     // (slot 6 0x004AAD40: the object list's head)
 
-    ObjectListHead dead_objects_; // +0x28
-    void* flush_task_;            // +0x3C a tasks::Task (vtable 0x006476F0) running flush_dead_objects_task
+    ObjectListHead dead_objects_;      // +0x28
+    tasks::Task<MiscHub>* flush_task_; // +0x3C running flush_dead_objects_task
 };
 static_assert(offsetof(MiscHub, dead_objects_) == 0x28 && offsetof(MiscHub, flush_task_) == 0x3C &&
                   sizeof(MiscHub) == 0x40,
               "layout must match the original");
 
 // 0x00461BB0: the task's code: FlushDeadObjects on its data (the manager).
-void __cdecl flush_dead_objects_task(void* task);
+void __cdecl flush_dead_objects_task(tasks::Task<MiscHub>* task);
 
 // A walk over the objects of one type in a manager's list. (The original's has a vtable, 0x00645DFC, and its base
 // lists::Hunt<Entity> another, 0x00645DF8, holding only destructors that reset them - 0x0041AA90 / 0x0041AAA0,

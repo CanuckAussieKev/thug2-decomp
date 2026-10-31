@@ -1,7 +1,6 @@
 // The composite object manager and the COIM heap (compositemgr.h).
 
 #include "engine/objects/compositemgr.h"
-#include "engine/net/task_vtable.h"
 #include "engine/objects/pager_message.h"
 
 #include <cstdint>
@@ -92,12 +91,8 @@ void seal(GameEntity* object) // its vtable +0x20
 
 // The task system (Tsk): a task's constructor (priority), its removal from its list, and the main loop's logic task
 // list's add.
-void construct_task(void* task, int priority) { static_cast<tasks::SchedulerTask*>(task)->make_new(priority); }
-void get_remove_task(void* task) { static_cast<tasks::SchedulerTask*>(task)->drop_out(); }
-void register_logic_task(void* task)
-{
-    assets::g_main_loop_manager->logic_tasks_.queue_job(static_cast<tasks::SchedulerTask*>(task));
-}
+void get_remove_task(tasks::SchedulerTask* task) { task->drop_out(); }
+void register_logic_task(tasks::SchedulerTask* task) { assets::g_main_loop_manager->logic_tasks_.queue_job(task); }
 
 // The node after `node`, or null at the head; a node's object (null for none).
 memory::ListNode* get_next_node(memory::ListNode* node)
@@ -147,15 +142,8 @@ EntityHub* EntityHub::make_new()
 {
     MiscHub::make_new();
     vtable_ = kManagerVtable;
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        construct_task(task, kLogicTaskPriority);
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-        task[6] = reinterpret_cast<uint32_t>(&composite_object_manager_task);
-        task[7] = reinterpret_cast<uint32_t>(this);
-    }
-    update_job_ = task;
-    register_logic_task(task);
+    update_job_ = new tasks::Task<EntityHub>(&composite_object_manager_task, this, kLogicTaskPriority);
+    register_logic_task(update_job_);
     script::register_member_function_table(reinterpret_cast<void*>(kObjectMemberFunctionType),
                                            g_object_member_functions, 0x18);
     script::register_member_function_table(reinterpret_cast<void*>(kCompositeMemberFunctionType),
@@ -169,10 +157,7 @@ void EntityHub::destroy_body()
     vtable_ = kManagerVtable;
     if (update_job_) {
         get_remove_task(update_job_);
-        if (update_job_) { // (its deleting destructor, through the vtable)
-            auto* task = static_cast<void***>(update_job_);
-            reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
-        }
+        delete update_job_;
     }
     MiscHub::destroy_body();
 }
@@ -291,10 +276,7 @@ void EntityHub::get_freeze(bool pause)
 }
 
 // 0x0045F6D0
-void __cdecl composite_object_manager_task(void* task)
-{
-    static_cast<EntityHub*>(static_cast<void**>(task)[7])->tick_frame();
-}
+void __cdecl composite_object_manager_task(tasks::Task<EntityHub>* task) { task->content_->tick_frame(); }
 
 // 0x0045F7A0
 EntityHub* create_composite_object_manager(bool create)

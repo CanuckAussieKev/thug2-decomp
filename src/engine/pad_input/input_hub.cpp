@@ -1,7 +1,6 @@
 // The input manager: a server per controller, turning its device's control data into what the input handlers get.
 
 #include "engine/pad_input/input_hub.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstring>
@@ -51,18 +50,6 @@ const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog; }
 
 void construct_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->make_new(); }
 void run_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->work_on(nullptr); }
-// tasks::Task<Manager>: the base task (with the priority), then its vtable, code and data.
-void* new_task(int priority, uint32_t code, void* data)
-{
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (!task)
-        return nullptr;
-    reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(priority);
-    task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-    task[6] = code;
-    task[7] = reinterpret_cast<uint32_t>(data);
-    return task;
-}
 
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
@@ -235,7 +222,7 @@ Hub* Hub::make_new()
     for (HostEnd& server : hosts_)
         server.make_new();
     sio::Hub* devices = sio::g_manager;
-    task_ = new_task(2000, reinterpret_cast<uint32_t>(&Hub::service_task), this);
+    task_ = new tasks::Task<Hub>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
         hosts_[i].dev_ = devices->get_pad_at_slot(i);
     stick_replaces_pad_ = true;
@@ -283,8 +270,7 @@ void HostEnd::destruct() { reinterpret_cast<tasks::PileUp*>(handlers_)->destruct
 void Hub::destruct()
 {
     if (task_) {
-        auto** vtable = *static_cast<void***>(task_);
-        reinterpret_cast<void*(__thiscall*)(void*, int)>(vtable[2])(task_, 1);
+        delete task_;
     }
     // (the C runtime's eh vector destructor iterator: the last first)
     for (int i = kNumServers - 1; i >= 0; --i)
@@ -306,9 +292,9 @@ void Hub::enable_actuators(int index)
 }
 
 // 0x0044E660
-void __cdecl Hub::service_task(void* task)
+void __cdecl Hub::service_task(tasks::Task<Hub>* task)
 {
-    auto* manager = *reinterpret_cast<Hub**>(static_cast<uint8_t*>(task) + 0x1C);
+    Hub* manager = task->content_;
     for (HostEnd& server : manager->hosts_) {
         if (server.data_in_ && server.data_in_ >= server.in_buf_limit_)
             server.data_in_ = nullptr;

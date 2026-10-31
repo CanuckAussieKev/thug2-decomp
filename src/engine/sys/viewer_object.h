@@ -3,16 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/task_list.h"
+#include "engine/pad_input/input_hub.h"
 #include "engine/objects/entity.h"
 
 // The model viewer's object (0x128 bytes, vtable 0x0064F138: a composite object with a model and animations, made by
 // Viewer::create_viewer_object with the viewer's net handler - constructor 0x0058ADB0). Its code is 0x005897B0-0x0058AFB7.
 // The PC tool drives it with messages (play an animation, its speed, a frame step, reload an animation or a script)
 // and the pad with the commands its input handler sets (actions_, done once a frame by own_update).
-namespace pad_input {
-struct Payload;
-}
 namespace net {
 struct AppHost;
 struct InboundMsgCtx;
@@ -25,16 +22,8 @@ namespace objects {
 
 class PreviewEntity;
 
-// pad_input::Responder<PreviewEntity> (0x2C bytes, vtable 0x0064D7D8 - the template's, like modules::ViewerInputHandler).
-// The node is a task's (0x00406890, priority 0), on the controller's stack of handler lists.
-struct ViewerObjectInputHandler : tasks::SchedulerTask {
-    pad_input::Payload* control_data_; // +0x18: the controller's data this frame
-    uint8_t* dev_;                     // +0x1C
-    int ordinal_;                      // +0x20: the controller (0)
-    void(__cdecl* code_value_)(ViewerObjectInputHandler*);
-    PreviewEntity* content_;
-};
-static_assert(sizeof(ViewerObjectInputHandler) == 0x2C && offsetof(ViewerObjectInputHandler, code_value_) == 0x24);
+// Its input handler (priority 0, on controller 0's stack of handler lists).
+using ViewerObjectInputHandler = pad_input::Responder<PreviewEntity>;
 
 class PreviewEntity : public GameEntity {
 public:

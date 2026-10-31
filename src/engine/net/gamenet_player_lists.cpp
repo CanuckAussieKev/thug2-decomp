@@ -30,6 +30,7 @@
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_lists.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/pad_input/input_hub.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "game/skate/cas_options.h"
@@ -149,11 +150,6 @@ bool will_play(const uint8_t* info)
     return (flags & 0x18) || !(flags & 4);
 }
 net::Conn* player_conn(const uint8_t* player) { return prop<net::Conn*>(player, kPlayerConnection); }
-// An object deleted through its vtable (slot 2, with flag 1).
-void delete_virtual(void* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(object))[2])(object, 1);
-}
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 // A custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
@@ -573,7 +569,7 @@ void Hub::disconnect_clients()
         client_slot(i) = nullptr;
     }
     if (spectator_pad_listener_) {
-        delete_virtual(spectator_pad_listener_);
+        delete spectator_pad_listener_;
         spectator_pad_listener_ = nullptr;
     }
     g_text_entry = 0;
@@ -792,7 +788,7 @@ Hub* g_online_hub;
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
 // Green / Yellow; none: the task stops for the frame) gets the head bone's matrix, turned 90 degrees about x and
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
-void __cdecl carried_flags_task(void*)
+void __cdecl carried_flags_task(tasks::Task<Hub>*)
 {
     Hub* manager = g_online_hub;
     PlayerSearch search;

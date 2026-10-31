@@ -474,12 +474,9 @@ void Hub::destroy_body()
         stats->destroy_body();
         memory::Hub::get_pull()->dealloc(stats);
     }
-    // The tasks, deleted through their vtables (slot 2), in the original's order.
-    for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u}) {
-        void* task = prop<void*>(this, offset);
-        if (task)
-            reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(task))[2])(task, 1);
-    }
+    // The tasks, in the original's order.
+    for (uint32_t offset : {0xD0u, 0xCCu, 0xC0u, 0xC4u, 0xD4u, 0xE0u, 0xE4u, 0xE8u, 0xECu, 0xF0u})
+        delete prop<tasks::SchedulerTask*>(this, offset);
     // The lists: the players' nodes unlinked, then each head's destructor.
     unlink_all_nodes(&prop<memory::ListNode>(this, 0x11C));
     prop<ServerNode>(this, 0x16C).destroy_body();

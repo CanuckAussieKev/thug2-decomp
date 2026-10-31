@@ -23,7 +23,6 @@
 #include "platform/crt.h"
 #include "engine/core/code_address.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/net/task_vtable.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -48,29 +47,9 @@ constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
 constexpr int kChallengeLength = 8;
 
-// tasks::Task<Manager> (0x20 bytes, vtable 0x006476F0).
-struct ManagerTask {
-    uint8_t list_link_[0x18];
-    void* code_value_;
-    Hub* content_;
-};
-static_assert(sizeof(ManagerTask) == 0x20);
-
-tasks::SchedulerTask* new_task(Hub* manager, void* code, int priority)
+tasks::SchedulerTask* new_task(Hub* manager, tasks::Task<Hub>::Code code, int priority)
 {
-    auto* task = static_cast<ManagerTask*>(memory::alloc_zeroed(sizeof(ManagerTask)));
-    if (task) {
-        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(priority);
-        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-        task->code_value_ = code;
-        task->content_ = manager;
-    }
-    return reinterpret_cast<tasks::SchedulerTask*>(task);
-}
-template <typename F>
-void* get_code(F function)
-{
-    return reinterpret_cast<void*>(function);
+    return new tasks::Task<Hub>(code, manager, priority);
 }
 
 // A list head (lists::Foremost<T>, its own vtable): empty.
@@ -124,21 +103,21 @@ Hub* Hub::make_new()
     prop<int>(this, 0x1BC) = 2;
     reinterpret_cast<prefs::Preferences*>(net_options_)->read_in(kNetSettingsKey);
     taunts->read_in(kTauntSettingsKey);
-    prop<tasks::SchedulerTask*>(this, 0xC0) = new_task(this, get_code(&Hub::connection_task), -2000);
-    prop<tasks::SchedulerTask*>(this, 0xC4) = new_task(this, get_code(&net_metrics_task), 0);
-    prop<tasks::SchedulerTask*>(this, 0xF0) = new_task(this, code_address(online::server_list_task), 0);
-    prop<tasks::SchedulerTask*>(this, 0xF4) = new_task(this, get_code(&Hub::auto_serve_task), 0);
-    prop<tasks::SchedulerTask*>(this, 0xC8) = new_task(this, code_address(online::score_broadcast_tick), 0);
-    guest_admit_job_ = new_task(this, get_code(&Hub::guest_player_intake_tick), -2000);
-    host_admit_job_ = new_task(this, get_code(&Hub::host_player_intake_tick), -2000);
-    prop<tasks::SchedulerTask*>(this, 0xD4) = new_task(this, get_code(&keyboard_task), 0);
-    prop<tasks::SchedulerTask*>(this, 0xD8) = new_task(this, get_code(&dialup_progress_tick), 0);
-    join_expiry_job_ = new_task(this, get_code(&join_deadline_tick), 0);
-    prop<tasks::SchedulerTask*>(this, 0xE0) = new_task(this, get_code(&net::service_task), 0);
-    join_phase_job_ = new_task(this, get_code(&Hub::join_progress_tick), 0);
-    prop<tasks::SchedulerTask*>(this, 0xE8) = new_task(this, get_code(&Hub::start_game_task), 0);
-    prop<tasks::SchedulerTask*>(this, 0xEC) = new_task(this, get_code(&level_change_task), 0);
-    prop<tasks::SchedulerTask*>(this, 0xF8) = new_task(this, code_address(carried_flags_task), 0);
+    prop<tasks::SchedulerTask*>(this, 0xC0) = new_task(this, &Hub::connection_task, -2000);
+    prop<tasks::SchedulerTask*>(this, 0xC4) = new_task(this, &net_metrics_task, 0);
+    prop<tasks::SchedulerTask*>(this, 0xF0) = new_task(this, &online::server_list_task, 0);
+    prop<tasks::SchedulerTask*>(this, 0xF4) = new_task(this, &Hub::auto_serve_task, 0);
+    prop<tasks::SchedulerTask*>(this, 0xC8) = new_task(this, &online::score_broadcast_tick, 0);
+    guest_admit_job_ = new_task(this, &Hub::guest_player_intake_tick, -2000);
+    host_admit_job_ = new_task(this, &Hub::host_player_intake_tick, -2000);
+    prop<tasks::SchedulerTask*>(this, 0xD4) = new_task(this, &keyboard_task, 0);
+    prop<tasks::SchedulerTask*>(this, 0xD8) = new_task(this, &dialup_progress_tick, 0);
+    join_expiry_job_ = new_task(this, &join_deadline_tick, 0);
+    prop<tasks::SchedulerTask*>(this, 0xE0) = new_task(this, &net::service_task, 0);
+    join_phase_job_ = new_task(this, &Hub::join_progress_tick, 0);
+    prop<tasks::SchedulerTask*>(this, 0xE8) = new_task(this, &Hub::start_game_task, 0);
+    prop<tasks::SchedulerTask*>(this, 0xEC) = new_task(this, &level_change_task, 0);
+    prop<tasks::SchedulerTask*>(this, 0xF8) = new_task(this, &carried_flags_task, 0);
     tasks->queue_job(prop<tasks::SchedulerTask*>(this, 0xC0));
     prop<int>(this, 0x1A8) = 5;       // the modem state shown last
     prop<uint32_t>(this, 0x1948) = 0; // the created goals' message

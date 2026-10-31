@@ -31,7 +31,6 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/loading_bar.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/net/task_vtable.h"
 
 namespace online {
 
@@ -466,14 +465,7 @@ RankingsManager* RankingsManager::make_new()
     for (TopList& list : top_lists_)
         list.make_new();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        task->make_new(0);
-        task->vtable_ = game_code::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&stats_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                 // +0x1C the data
-    }
-    task_ = task;
+    task_ = new tasks::Task<RankingsManager>(&stats_task, this, 0);
     authenticated_ = false;
     cur_phase_ = kNone;
     game_ = nullptr;
@@ -485,8 +477,7 @@ RankingsManager* RankingsManager::make_new()
 // 0x0054D610
 void RankingsManager::destroy_body()
 {
-    if (task_) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task_->vtable_[2])(task_, 1);
+    delete task_;
     for (int i = 4; i >= 0; --i)
         top_lists_[i].destroy_body();
 }
@@ -689,10 +680,10 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
 }
 
 // 0x0054D4A0
-void __cdecl RankingsManager::stats_task(tasks::SchedulerTask* task)
+void __cdecl RankingsManager::stats_task(tasks::Task<RankingsManager>* task)
 {
     push_top_down();
-    auto* stats = reinterpret_cast<RankingsManager*>(reinterpret_cast<void**>(task)[7]);
+    RankingsManager* stats = task->content_;
     bool failed = false;
     switch (stats->cur_phase_) {
     case kLoggingIn:

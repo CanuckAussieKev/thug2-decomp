@@ -2,7 +2,6 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "engine/pad_input/device.h"
-#include "engine/net/task_vtable.h"
 #include "game/goals/objective.h"
 
 #define DIRECTINPUT_VERSION 0x0800
@@ -784,14 +783,7 @@ Hub::Hub()
     devs_.next = &devs_;
     devs_.prev = &devs_;
     devs_.vtable = g_device_node_vtable;
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(0);   // tasks::SchedulerTask(priority 0)
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<lists::Foremost<Device>>
-        task[6] = reinterpret_cast<uint32_t>(&process_task);
-        task[7] = reinterpret_cast<uint32_t>(&devs_);
-    }
-    task_ = task;
+    task_ = new tasks::Task<memory::ListNode>(&process_task, &devs_, 0);
     int index = 0;
     for (int port = 0; port < 2; ++port) {
         auto* device = new InputPort(index, port, 0);
@@ -818,8 +810,7 @@ Hub::~Hub()
         delete device;
         device = next;
     }
-    if (auto* task = static_cast<void***>(task_))
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
+    delete task_;
     stubs::return_zero(); // (a folded empty function - compiled-out code)
     if (!audio::music_off_requested())
         audio::stop_user_soundtrack();
@@ -839,7 +830,7 @@ void process_all(memory::ListNode* devices)
 } // namespace
 
 // 0x005BE140
-void __cdecl process_task(void* task) { process_all(static_cast<memory::ListNode*>(static_cast<void**>(task)[7])); }
+void __cdecl process_task(tasks::Task<memory::ListNode>* task) { process_all(task->content_); }
 
 // 0x005BE3F0
 void Hub::poll_pads() { process_all(&devs_); }

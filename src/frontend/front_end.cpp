@@ -2,7 +2,6 @@
 // game. See front_end.h.
 
 #include "frontend/front_end.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 #include <new>
@@ -136,18 +135,11 @@ bool object_exists(script::Struct* params) // the script command ObjectExists
 // The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
 void construct_module(void* module) { static_cast<PartUnit*>(module)->make_new(); }
 void destroy_module(void* module) { static_cast<PartUnit*>(module)->destroy_body(); }
-void construct_node(void* node, int priority) { static_cast<tasks::SchedulerTask*>(node)->make_new(priority); }
 void append_vertex(void* list, void* node)
 {
     static_cast<tasks::PileUp*>(list)->queue_job(static_cast<tasks::SchedulerTask*>(node));
 }
 void remove_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->drop_out(); }
-
-// A task list node's scalar deleting destructor (vtable slot 2).
-void unlink_list_node(void* node)
-{
-    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
-}
 
 // A reference to the input manager (single::LazyInstance<pad_input::Hub>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
@@ -203,12 +195,10 @@ void release_front_end()
 void FrontEnd::destroy_body()
 {
     vtable_ = kFrontEndVtable;
-    if (update_job_)
-        unlink_list_node(update_job_);
+    delete update_job_;
     // (keyboard_task_ is never deleted)
     for (FrontEndInputHandler*& handler : pad_listeners_) {
-        if (handler)
-            unlink_list_node(handler);
+        delete handler;
         handler = nullptr;
     }
     destroy_module(this);
@@ -314,7 +304,7 @@ void FrontEnd::kickoff()
         // The controller's place in the input manager (see update_input_mappings).
         append_vertex(input + handler->ordinal_ * 0x84 + 8, handler);
         uint8_t* server = input + handler->ordinal_ * 0x84;
-        handler->control_data_ = reinterpret_cast<InputControlData*>(server + 0x44);
+        handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
         handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -620,12 +610,12 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
                 }
                 front_end->check_startup_script_ = false;
             }
-            uint32_t repeated = front_end->auto_repeat(handler->control_data_->held_, handler->ordinal_);
+            uint32_t repeated = front_end->auto_repeat(handler->control_data_->buttons_, handler->ordinal_);
             if (repeated)
                 event = repeated;
         }
         uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes_, index, handler->ordinal_,
-                                                         handler->control_data_->held_);
+                                                         handler->control_data_->buttons_);
         if (pressed)
             event = pressed;
         if (!event)
@@ -665,7 +655,7 @@ void FrontEnd::update_input_mappings()
         // The controller's place in the input manager: its device, its handler list, its control data.
         uint8_t* server = input.supervisor_ + device_server_map_[i] * 0x84;
         append_vertex(server + 8, handler);
-        handler->control_data_ = reinterpret_cast<InputControlData*>(server + 0x44);
+        handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
         handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
     }
 }
@@ -684,34 +674,10 @@ FrontEnd* FrontEnd::make_new()
 {
     construct_module(this);
     vtable_ = kFrontEndVtable;
-    auto* task = static_cast<FrontEndTask*>(memory::alloc_zeroed(sizeof(FrontEndTask)));
-    if (task) {
-        construct_node(task, -2000);
-        *reinterpret_cast<uint32_t*>(task) =
-            reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<FrontEnd>
-        task->code_value_ = &front_end_tick;
-        task->content_ = this;
-    }
-    update_job_ = task;
-    task = static_cast<FrontEndTask*>(memory::alloc_zeroed(sizeof(FrontEndTask)));
-    if (task) {
-        construct_node(task, -1000);
-        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-        task->code_value_ = &keyboard_task;
-        task->content_ = this;
-    }
-    keyboard_task_ = task;
+    update_job_ = new FrontEndTask(&front_end_tick, this, -2000);
+    keyboard_task_ = new FrontEndTask(&keyboard_task, this, -1000);
     for (int i = 0; i < 2; ++i) {
-        auto* handler = static_cast<FrontEndInputHandler*>(memory::alloc_zeroed(sizeof(FrontEndInputHandler)));
-        if (handler) {
-            construct_node(handler, -1000);
-            handler->ordinal_ = i;
-            *reinterpret_cast<uint32_t*>(handler) =
-                reinterpret_cast<uint32_t>(game_code::kInputHandlerVtable); // pad_input::Responder<FrontEnd>
-            handler->code_value_ = &input_logic;
-            handler->content_ = this;
-        }
-        pad_listeners_[i] = handler;
+        pad_listeners_[i] = new FrontEndInputHandler(&input_logic, this, -1000, i);
         pad_mappings_[i].repeat_state_ = 0;
         pad_mappings_[i].mapping_ = 1;
     }

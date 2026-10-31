@@ -526,9 +526,9 @@ void Hub::refresh_server_list(bool force)
 }
 
 // 0x00547440
-void __cdecl server_list_task(void* task)
+void __cdecl server_list_task(tasks::Task<Hub>* task)
 {
-    Hub* manager = prop<Hub*>(task, 0x1C);
+    Hub* manager = task->content_;
     if (frame_clock::get_time() - list_clock() > kListClock) {
         list_clock() = frame_clock::get_time();
         return;

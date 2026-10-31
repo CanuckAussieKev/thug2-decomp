@@ -14,7 +14,6 @@
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
-#include "engine/net/task_vtable.h"
 
 namespace assets {
 
@@ -152,14 +151,7 @@ ResourceRegistry* ResourceRegistry::make_new()
     pending_ = nullptr;
     ready_flag_ = nullptr;
     unknown15_ = false;
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        task->make_new(0);
-        reinterpret_cast<void**>(task)[7] = this; // +0x1C the data
-        task->vtable_ = game_code::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&process_task); // +0x18 the callback
-    }
-    task_ = task;
+    task_ = new tasks::Task<ResourceRegistry>(&process_task, this, 0);
     return this;
 }
 
@@ -177,8 +169,7 @@ void ResourceRegistry::destruct()
         }
         memory::Hub::get_pull()->dealloc(table);
     }
-    if (task_)
-        reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, int)>(task_->vtable_[2])(task_, 1);
+    delete task_;
     modules::PartUnit::destroy_body();
 }
 
@@ -444,9 +435,9 @@ void ResourceRegistry::process_pending_assets()
 }
 
 // 0x00407EB0
-void __cdecl ResourceRegistry::process_task(tasks::SchedulerTask* task)
+void __cdecl ResourceRegistry::process_task(tasks::Task<ResourceRegistry>* task)
 {
-    reinterpret_cast<ResourceRegistry**>(task)[7]->process_pending_assets();
+    task->content_->process_pending_assets();
 }
 
 // 0x00407A80

@@ -2,12 +2,20 @@
 
 #include <cstdint>
 
+namespace online {
+class Hub;
+}
+namespace tasks {
+template <typename Owner>
+class Task;
+} // namespace tasks
+
 namespace net {
 
 // 0x00545880: the network manager's online service task (a tasks::Task callback; the manager is the task's data,
 // +0x1C). A state machine in the manager (+0x1B8): the GameSpy availability check, the news and the message of
 // the day downloaded by two threads, and the lobby list check. PartyMod's "MOTD fix" is built in: the news
 // download gives up after 500 ms (not 15 s) and then runs a different script with the "news ok" flag set.
-void __cdecl service_task(const uint8_t* task);
+void __cdecl service_task(tasks::Task<online::Hub>* task);
 
 } // namespace net

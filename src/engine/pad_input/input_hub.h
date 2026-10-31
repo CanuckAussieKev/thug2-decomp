@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/task_list.h"
+
 namespace sio {
 class InputPort;
 }
@@ -69,6 +71,37 @@ struct Payload {
 };
 static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, buttons_) == 0x1C && offsetof(Payload, previous_) == 0x30);
 
+// An input handler (0x24 bytes; the base's vtable 0x00646090): a task in a controller's handler list, run once a
+// frame with that controller's data.
+class InputHandler : public tasks::SchedulerTask {
+public:
+    // 0x00406890's task, on `controller`.
+    InputHandler(int priority, int controller) : SchedulerTask(priority), ordinal_(controller) {}
+
+    Payload* control_data_ = nullptr; // +0x18: the controller's data this frame (set when it's added to a list)
+    uint8_t* dev_ = nullptr;          // +0x1C: the controller's device (sio::InputPort; its number at +0x0C)
+    int ordinal_;                     // +0x20: the controller
+};
+
+// pad_input::Responder<Owner> (0x2C bytes; every instance shared the vtable 0x0064D7D8): a handler running a cdecl
+// function given the handler, for the object it works for.
+template <typename Owner>
+class Responder final : public InputHandler {
+public:
+    using Code = void(__cdecl*)(Responder* handler);
+
+    Responder(Code code, Owner* owner, int priority, int controller = 0)
+        : InputHandler(priority, controller), code_value_(code), content_(owner)
+    {}
+
+    // 0x00577270 (slot 0 of every Responder<T>): the code, given the handler.
+    void run() override { code_value_(this); }
+
+    Code code_value_; // +0x24
+    Owner* content_;  // +0x28
+};
+static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
+
 // A controller's server (0x84 bytes).
 struct HostEnd {
     sio::InputPort* dev_;
@@ -94,7 +127,7 @@ static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, content_) == 0x40 &&
 struct Hub {
     enum { kNumServers = 2 };
 
-    void* task_;                 // tasks::Task<Manager> (priority 2000) running the servers (0x0044E660)
+    tasks::Task<Hub>* task_;     // priority 2000, running the servers (service_task)
     HostEnd hosts_[kNumServers]; // +0x04
     bool stick_replaces_pad_;    // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
@@ -119,7 +152,7 @@ struct Hub {
     void set_player_controller(int player, int controller) { unknown110_[player] = controller; }
     // 0x0044E660: the task's code (`task` its tasks::Task<Manager>: the manager at +0x1C): for each server, a
     // recording played back or made that reached its end stops; then the server's frame (poll_input_sinks).
-    static void __cdecl service_task(void* task);
+    static void __cdecl service_task(tasks::Task<Hub>* task);
 };
 static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, stick_replaces_pad_) == 0x10C);
 

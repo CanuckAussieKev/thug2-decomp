@@ -1,5 +1,4 @@
 #include "engine/file/async.h"
-#include "engine/net/task_vtable.h"
 
 #include <windows.h>
 
@@ -604,9 +603,9 @@ bool& async_use_overlapped_io() { return use_overlapped_io(); }
 namespace file {
 
 struct AsyncLoaderModule {
-    void** vtable_;                   // 0x00658158
-    uint8_t owning_module_[0x14 - 4]; // modules::PartUnit's fields
-    void* task_;                      // tasks::Task running async_loader_task
+    void** vtable_;                        // 0x00658158
+    uint8_t owning_module_[0x14 - 4];      // modules::PartUnit's fields
+    tasks::Task<AsyncLoaderModule>* task_; // running async_loader_task
 };
 static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
 
@@ -618,12 +617,11 @@ uint32_t& loader_module_refs() { return g_loader_module_refs; }
 // Engine framework pieces.
 void construct_module(void* module) { static_cast<modules::PartUnit*>(module)->make_new(); }
 void destroy_module(void* module) { static_cast<modules::PartUnit*>(module)->destroy_body(); }
-void* construct_task(void* task) { return static_cast<tasks::SchedulerTask*>(task)->make_new(0); }
-void register_logic_task(void* task)
+void register_logic_task(tasks::SchedulerTask* task)
 {
     // The main loop manager's logic task list.
     auto* manager = reinterpret_cast<uint8_t*>(assets::g_main_loop_manager);
-    reinterpret_cast<tasks::PileUp*>(manager + 4)->queue_job(static_cast<tasks::SchedulerTask*>(task));
+    reinterpret_cast<tasks::PileUp*>(manager + 4)->queue_job(task);
 }
 
 } // namespace
@@ -641,7 +639,7 @@ void async_poll_handles()
 }
 
 // 0x005B6990: the module's task, every frame
-void __cdecl async_loader_task(void* /*task*/)
+void __cdecl async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
 {
     async_poll_handles();
     async_execute_callbacks();
@@ -686,14 +684,7 @@ struct AsyncLoaderModuleMethods {
         AsyncLoaderModule* module = get_self();
         file::construct_module(module);
         module->vtable_ = kAsyncLoaderModuleMethodsVtable;
-        auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-        if (task) {
-            file::construct_task(task);
-            task[7] = reinterpret_cast<uint32_t>(module);                 // the task's data
-            task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<CAsyncFileLoader> vtable
-            task[6] = reinterpret_cast<uint32_t>(code_address(file::async_loader_task)); // its code: async_loader_task
-        }
-        module->task_ = task;
+        module->task_ = new tasks::Task<AsyncLoaderModule>(&file::async_loader_task, module, 0);
         return module;
     }
     // 0x005B6660 (destructor body)
@@ -701,8 +692,7 @@ struct AsyncLoaderModuleMethods {
     {
         AsyncLoaderModule* module = get_self();
         module->vtable_ = kAsyncLoaderModuleMethodsVtable;
-        if (auto* task = static_cast<void***>(module->task_))
-            reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
+        delete module->task_;
         file::destroy_module(module);
     }
     // 0x005B6940 (scalar deleting destructor)

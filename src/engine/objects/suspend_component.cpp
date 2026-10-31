@@ -1,7 +1,6 @@
 // The suspend component and its task (engine/objects/suspend_component.h).
 
 #include "engine/objects/suspend_component.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -264,13 +263,7 @@ void __cdecl next_suspend_frame()
 // 0x00434520
 SuspendTaskHolder* SuspendTaskHolder::make_new()
 {
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        task->make_new(kTaskPriority);
-        task->vtable_ = game_code::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&suspend_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                   // +0x1C the data
-    }
+    auto* task = new tasks::Task<SuspendTaskHolder>(&suspend_task, this, kTaskPriority);
     job_handle_ = task;
     reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04)
         ->queue_job(task); // the logic tasks
@@ -285,7 +278,7 @@ void __cdecl create_suspend_task()
 }
 
 // 0x00434420
-void __cdecl suspend_task(void* /*task*/)
+void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
 {
     // The camera the distances are measured from: the skate module's +0x3DC (a flag that turns the checks off, then
     // the position).

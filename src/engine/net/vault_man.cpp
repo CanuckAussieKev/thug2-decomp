@@ -26,7 +26,6 @@
 #include "game/save_cards/save_types.h"
 #include "engine/core/code_address.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/net/task_vtable.h"
 #include "platform/crt.h"
 
 namespace online {
@@ -338,14 +337,7 @@ VaultMan* VaultMan::make_new()
     transfer_ = kNone;
     progress_ = 0;
     start_time_ = 0;
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        task->make_new(0);
-        task->vtable_ = game_code::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&vault_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                 // +0x1C the data
-    }
-    task_ = task;
+    task_ = new tasks::Task<VaultMan>(&vault_task, this, 0);
     semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
     return this;
 }
@@ -354,8 +346,7 @@ VaultMan* VaultMan::make_new()
 void VaultMan::destroy_body()
 {
     get_release(semaphore_);
-    if (task_) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task_->vtable_[2])(task_, 1);
+    delete task_;
     categories_.unlink_as(kCategoryNodeVtable);
 }
 
@@ -431,9 +422,9 @@ void VaultMan::free_directory_listing()
 }
 
 // 0x0054B6E0
-void __cdecl VaultMan::vault_task(tasks::SchedulerTask* task)
+void __cdecl VaultMan::vault_task(tasks::Task<VaultMan>* task)
 {
-    auto* vault = reinterpret_cast<VaultMan*>(reinterpret_cast<void**>(task)[7]);
+    VaultMan* vault = task->content_;
     if (frame_clock::get_time() - vault->start_time_ > kTimeout) {
         if (vault->transfer_ != kNone)
             ram_stats()->dealloc(vault->octets_);

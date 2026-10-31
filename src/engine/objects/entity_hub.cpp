@@ -2,7 +2,6 @@
 // dead list, the search by type, and two pieces of the object tracker.
 
 #include "engine/objects/entity_hub.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -36,11 +35,7 @@ void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)
     reinterpret_cast<lists::Foremost*>(head)->append_vertex(node);
 }
 // tasks::Task's constructor and the main loop's system task list's add.
-void construct_task(void* task, int priority) { static_cast<tasks::SchedulerTask*>(task)->make_new(priority); }
-void queue_engine_job(void* task)
-{
-    assets::g_main_loop_manager->system_tasks_.queue_job(static_cast<tasks::SchedulerTask*>(task));
-}
+void queue_engine_job(tasks::SchedulerTask* task) { assets::g_main_loop_manager->system_tasks_.queue_job(task); }
 
 // The node after `node`, or null at the head.
 memory::ListNode* get_next_node(memory::ListNode* node)
@@ -199,15 +194,8 @@ MiscHub* MiscHub::make_new()
     ObjectHubBase::make_new();
     vtable_ = kGeneralManagerVtable;
     setup_list_sentinel(&dead_objects_);
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        construct_task(task, kFlushTaskPriority);
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-        task[6] = reinterpret_cast<uint32_t>(&flush_dead_objects_task);
-        task[7] = reinterpret_cast<uint32_t>(this);
-    }
-    flush_task_ = task;
-    queue_engine_job(task);
+    flush_task_ = new tasks::Task<MiscHub>(&flush_dead_objects_task, this, kFlushTaskPriority);
+    queue_engine_job(flush_task_);
     return this;
 }
 
@@ -217,10 +205,7 @@ void MiscHub::destroy_body()
     vtable_ = kGeneralManagerVtable;
     for_each(&get_unlock, nullptr);
     for_each(&dispose_when_free, nullptr);
-    if (flush_task_) {
-        auto* task = static_cast<void***>(flush_task_);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1); // its deleting destructor
-    }
+    delete flush_task_;
     dead_objects_.unlink_as(kObjectNodeVtable);
     vtable_ = kManagerVtable;
     entities_.unlink_as(kObjectNodeVtable);
@@ -265,10 +250,7 @@ void MiscHub::flush_dead_objects()
 }
 
 // 0x00461BB0
-void __cdecl flush_dead_objects_task(void* task)
-{
-    static_cast<MiscHub*>(static_cast<void**>(task)[7])->flush_dead_objects();
-}
+void __cdecl flush_dead_objects_task(tasks::Task<MiscHub>* task) { task->content_->flush_dead_objects(); }
 
 // 0x00461F30
 Entity* ObjectSearch::first_item_of_type(memory::ListNode* head, uint32_t type)

@@ -33,9 +33,9 @@ void copy_if_different(char* out, const char* source)
 }
 
 // Adds a task to the main loop's logic tasks (frame_loop::Hub +0x04).
-void register_logic_task(uint8_t* mlp, void* task)
+void register_logic_task(uint8_t* mlp, tasks::SchedulerTask* task)
 {
-    reinterpret_cast<frame_loop::Hub*>(mlp)->logic_tasks_.queue_job(static_cast<tasks::SchedulerTask*>(task));
+    reinterpret_cast<frame_loop::Hub*>(mlp)->logic_tasks_.queue_job(task);
 }
 
 } // namespace

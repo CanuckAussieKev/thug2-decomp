@@ -14,7 +14,6 @@
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
-#include "engine/net/task_vtable.h"
 
 namespace net {
 
@@ -25,7 +24,7 @@ static VtableSlot g_client_vtable_slots[] = {&net::Guest::teardown,     &net::Ap
                                              &net::Guest::prepare_all,  &net::Guest::tear_down_state};
 void** const kClientVtable = reinterpret_cast<void**>(g_client_vtable_slots);
 constexpr int kAppTaskPriority = -2000;
-constexpr uint32_t kTaskSize = 0x20;
+
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
 
 uint32_t& get_timestamp(AppHost* app) { return app->clock_; }
@@ -43,14 +42,7 @@ Conn* server_connection(AppHost* app)
 // Shared with Server (net_server.cpp).
 void construct_app_task(AppHost* app)
 {
-    void* task = memory::alloc_zeroed(kTaskSize);
-    if (task) {
-        static_cast<tasks::SchedulerTask*>(task)->make_new(kAppTaskPriority); // (tasks::Task's base)
-        prop<AppHost*>(task, 0x1C) = app;
-        prop<void**>(task, 0x0) = game_code::kTaskVtable;
-        prop<void*>(task, 0x18) = reinterpret_cast<void*>(&AppHost::flush_outgoing_traffic);
-    }
-    app->send_task_ = task;
+    app->send_task_ = new tasks::Task<AppHost>(&AppHost::flush_outgoing_traffic, app, kAppTaskPriority);
 }
 
 // 0x0045A250

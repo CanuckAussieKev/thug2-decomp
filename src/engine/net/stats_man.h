@@ -11,6 +11,8 @@ class Struct;
 } // namespace script
 namespace tasks {
 class SchedulerTask;
+template <typename Owner>
+class Task;
 } // namespace tasks
 
 // The online stats: online::Hub's rating_service_ (+0x1C), on GameSpy's stats and persistent storage SDK (gstats /
@@ -163,7 +165,7 @@ public:
 
     // 0x0054D4A0: the task: the login's 10 s (and the persistent storage's answers'), the login's result, the
     // reports once a minute while a game is reported.
-    static void __cdecl stats_task(tasks::SchedulerTask* task);
+    static void __cdecl stats_task(tasks::Task<RankingsManager>* task);
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall log_in_thread(void* stats);

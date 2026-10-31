@@ -34,7 +34,6 @@
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/net/task_vtable.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -298,14 +297,7 @@ FriendsManager* FriendsManager::make_new()
     gp_set_callback(this, 3, reinterpret_cast<const void*>(&on_buddy_message), this);
     gp_set_callback(this, 4, reinterpret_cast<const void*>(&stubs::do_nothing), this);
     gp_set_callback(this, 5, reinterpret_cast<const void*>(&stubs::do_nothing), this);
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        task->make_new(0);
-        task->vtable_ = game_code::kTaskVtable;
-        reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&buddy_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                 // +0x1C the data
-    }
-    task_ = task;
+    task_ = new tasks::Task<FriendsManager>(&buddy_task, this, 0);
     authenticated_ = false;
     cur_phase_ = 0;
     account_ = 0;
@@ -316,8 +308,7 @@ FriendsManager* FriendsManager::make_new()
 // 0x005488B0
 void FriendsManager::destroy_body()
 {
-    if (task_) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task_->vtable_[2])(task_, 1);
+    delete task_;
     messages_.unlink_as(kMessageNodeVtable);
     friends_.unlink_as(kBuddyNodeVtable);
 }
@@ -691,10 +682,10 @@ void __cdecl FriendsManager::on_connect_new_user(void*, const void* argument, Fr
 }
 
 // 0x0054A300
-void __cdecl FriendsManager::buddy_task(tasks::SchedulerTask* task)
+void __cdecl FriendsManager::buddy_task(tasks::Task<FriendsManager>* task)
 {
     push_top_down();
-    auto* man = reinterpret_cast<FriendsManager*>(reinterpret_cast<void**>(task)[7]);
+    FriendsManager* man = task->content_;
     switch (man->cur_phase_) {
     case 1: // creating the profile
     case 2: // logging in

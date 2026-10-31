@@ -16,18 +16,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
-#include "engine/net/task_vtable.h"
 #include "engine/core/stubs.h"
 #include "engine/sys/model_viewer.h"
-
-namespace game_code {
-
-// pad_input::Responder<T>'s vtable, shared by the park editor's, the viewer's and the observer's input handlers.
-static VtableSlot g_input_handler_vtable_slots[] = {&modules::ViewerInputHandler::hdl, stubs::return_zero,
-                                                    &modules::ViewerInputHandler::teardown};
-void** const kInputHandlerVtable = reinterpret_cast<void**>(g_input_handler_vtable_slots);
-
-} // namespace game_code
 
 namespace park_editing {
 
@@ -36,7 +26,8 @@ uint32_t g_editor_clock;
 
 namespace {
 
-// tasks::Task<ParkBuilderMode>'s and pad_input::Responder<ParkBuilderMode>'s vtables.
+// The display task's code: 0x005480A0, the empty function.
+void __cdecl draw_nothing(ParkEditorTask* /*task*/) {}
 
 // The park editor's clock (milliseconds).
 uint32_t& editor_clock() { return g_editor_clock; }
@@ -191,32 +182,9 @@ ParkBuilderMode* ParkBuilderMode::make_new()
     actions_ = 0;
     flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
-    auto* logic = static_cast<ParkEditorTask*>(memory::alloc_zeroed(sizeof(ParkEditorTask)));
-    if (logic) {
-        reinterpret_cast<tasks::SchedulerTask*>(logic)->make_new(0);
-        *reinterpret_cast<uint32_t*>(logic) = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-        logic->code_value_ = &front_end_tick;
-        logic->content_ = this;
-    }
-    editor_update_job_ = logic;
-    auto* display = static_cast<ParkEditorTask*>(memory::alloc_zeroed(sizeof(ParkEditorTask)));
-    if (display) {
-        reinterpret_cast<tasks::SchedulerTask*>(display)->make_new(-1000);
-        *reinterpret_cast<uint32_t*>(display) = reinterpret_cast<uint32_t>(game_code::kTaskVtable);
-        // (0x005480A0, the empty function - stubs::do_nothing; a cdecl task code: the argument is the caller's)
-        display->code_value_ = reinterpret_cast<void(__cdecl*)(ParkEditorTask*)>(&stubs::do_nothing);
-        display->content_ = this;
-    }
-    draw_job_ = display;
-    auto* input = static_cast<ParkEditorInputHandler*>(memory::alloc_zeroed(sizeof(ParkEditorInputHandler)));
-    if (input) {
-        reinterpret_cast<tasks::SchedulerTask*>(input)->make_new(0);
-        input->ordinal_ = 0;
-        *reinterpret_cast<uint32_t*>(input) = reinterpret_cast<uint32_t>(game_code::kInputHandlerVtable);
-        input->code_value_ = &process_pad_input;
-        input->content_ = this;
-    }
-    editor_pad_listener_ = input;
+    editor_update_job_ = new ParkEditorTask(&front_end_tick, this, 0);
+    draw_job_ = new ParkEditorTask(&draw_nothing, this, -1000);
+    editor_pad_listener_ = new ParkEditorInputHandler(&process_pad_input, this, 0, 0);
     move_speed_ = 480.0f;
     turn_speed_ = 120.0f;
     unknown64_ = 0;

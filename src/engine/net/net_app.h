@@ -16,6 +16,12 @@ struct sockaddr;
 // 0x00457EB0 - 0x004598C0 (net_app.cpp); App's methods 0x00456910-0x00457EB0 are in net_app_view.cpp, its message
 // handling in net_app_messages.cpp.
 
+namespace tasks {
+class SchedulerTask;
+template <typename Owner>
+class Task;
+} // namespace tasks
+
 namespace net {
 
 struct AppHost;
@@ -100,10 +106,10 @@ struct AppHost {
 
     // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by AppHost::make_new and,
     // the send task, by the Server's and the Client's constructors).
-    void* send_task() { return send_task_; }
-    void* receive_task() { return receive_task_; }
-    void* process_task() { return process_task_; }
-    void* metrics_task() { return metrics_task_; }
+    tasks::SchedulerTask* send_task() { return send_task_; }
+    tasks::SchedulerTask* receive_task() { return receive_task_; }
+    tasks::SchedulerTask* process_task() { return process_task_; }
+    tasks::SchedulerTask* metrics_task() { return metrics_task_; }
     // 0x00456AF0
     void* net_session_slot() { return supervisor_; }
     // 0x00456B60
@@ -206,13 +212,13 @@ struct AppHost {
 
     // Task callbacks (the task's +0x1C is the app).
     // 0x00456CA0: counts the frame (+0x1410), then handle_incoming (virtual slot 1; a tail jump).
-    static void __cdecl pump_incoming_traffic(void* task);
+    static void __cdecl pump_incoming_traffic(tasks::Task<AppHost>* task);
     // 0x004593C0: timestamp, dead connections, pull_inbound (virtual slot 2).
-    static void __cdecl receive_network_data(void* task);
+    static void __cdecl receive_network_data(tasks::Task<AppHost>* task);
     // 0x004593E0: each connection's bandwidth meters (in and out).
-    static void __cdecl network_metrics(void* task);
+    static void __cdecl network_metrics(tasks::Task<AppHost>* task);
     // 0x004594A0: stream pieces, then Transmit(true).
-    static void __cdecl flush_outgoing_traffic(void* task);
+    static void __cdecl flush_outgoing_traffic(tasks::Task<AppHost>* task);
 
     // 0x004598C0 - 0x0045B2F0 (net_app_messages.cpp)
     // 0x004598C0: the messages of one queue (0 normal, 1 important, 2 sequenced) that are due go into the
@@ -258,15 +264,15 @@ struct AppHost {
     void* supervisor_; // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
-    void* process_task_;         // +0x1444
-    void* send_task_;            // +0x1448
-    void* receive_task_;         // +0x144C
-    void* metrics_task_;         // +0x1450
-    int open_links_;             // +0x1454 (zeroed by Init)
-    int peer_cap_;               // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
-    uint8_t scrambled_[0x514];   // +0x145C a secure packet being sent
-    char receive_buffer_[0x514]; // +0x1970
-    uint32_t flag_bits_;         // +0x1E84
+    tasks::SchedulerTask* process_task_; // +0x1444
+    tasks::SchedulerTask* send_task_;    // +0x1448
+    tasks::SchedulerTask* receive_task_; // +0x144C
+    tasks::SchedulerTask* metrics_task_; // +0x1450
+    int open_links_;                     // +0x1454 (zeroed by Init)
+    int peer_cap_;                       // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
+    uint8_t scrambled_[0x514];           // +0x145C a secure packet being sent
+    char receive_buffer_[0x514];         // +0x1970
+    uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
     ConnNode circuits_;                         // +0x1E8C head (data -1)
     BannedConnNode banned_;                     // +0x1EA0 head

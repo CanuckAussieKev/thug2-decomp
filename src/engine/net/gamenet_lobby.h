@@ -16,7 +16,9 @@ class Struct;
 } // namespace script
 namespace tasks {
 class SchedulerTask;
-}
+template <typename Owner>
+class Task;
+} // namespace tasks
 
 namespace online {
 
@@ -95,12 +97,12 @@ public:
     static void __cdecl queue_packet(char* data, int length, const void* from);
     // Tasks (tasks::Task code: the task's +0x1C is the lobby).
     // 0x00540040 (+0x148): the peer thinks while connected; a lost connection reported (lost_connection_to_gamespy).
-    static void __cdecl think_task(void* task);
+    static void __cdecl think_task(tasks::Task<RoomManager>* task);
     // 0x005400B0 (+0x14C): NAT negotiation thinks (the internet's bottom-up heap).
-    static void __cdecl nat_negotiation_task(void* task);
+    static void __cdecl nat_negotiation_task(tasks::Task<RoomManager>* task);
     // 0x005400E0 (+0x150): the queued packets handed to the peer (queries) or NAT negotiation and freed; while the
     // server isn't reported: after 90 s CreateNotPostedDialog (once), else its details again every 5 s.
-    static void __cdecl query_task(void* task);
+    static void __cdecl query_task(tasks::Task<RoomManager>* task);
 
     // --- gamenet_lobby_menus.cpp: the lobby's menus and chat (`this` unused) ---
     // 0x00540900: a buddy-list menu item for `player` (make_text_sub_menu_item: its nick, lobby_add_buddy with its
@@ -271,11 +273,6 @@ struct LobbyNode : memory::ListNode {
 struct LobbyListNode : memory::ListNode {
     void destroy_body();                         // 0x00540860
     LobbyListNode* teardown(unsigned int flags); // 0x005408C0
-};
-
-// tasks::Task<T>'s scalar deleting destructor (vtable 0x006476F0 slot 2, 0x005407B0: its destructor, then freed).
-struct TaskDeleter {
-    tasks::SchedulerTask* teardown(unsigned int flags); // 0x005407B0
 };
 
 // 0x00540E00 (SendMessage text=): to the lobby's group room - or, with system_message, "<System> <text>" to the

@@ -319,8 +319,7 @@ void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, 
 void RoomManager::destroy_body()
 {
     for (tasks::SchedulerTask* task : {think_task_, nat_task_, hosting_task_})
-        if (task) // (the scalar deleting destructor, vtable slot 2)
-            reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task->vtable_[2])(task, 1);
+        delete task;
     participants_.unlink_as(kLobbyListNodeVtable);
     reinterpret_cast<memory::ListNode*>(this)->unlink_as(kLobbyNodeVtable);
 }
@@ -350,15 +349,5 @@ LobbyListNode* LobbyListNode::teardown(unsigned int flags)
 
 // 0x00540F80
 LobbyNode* LobbyNode::destroy_other(unsigned int flags) { return teardown(flags); }
-
-// 0x005407B0
-tasks::SchedulerTask* TaskDeleter::teardown(unsigned int flags)
-{
-    auto* task = reinterpret_cast<tasks::SchedulerTask*>(this);
-    task->destruct(); // (Task<T>'s destructor, 0x00577290, is a jump to it)
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(task);
-    return task;
-}
 
 } // namespace online

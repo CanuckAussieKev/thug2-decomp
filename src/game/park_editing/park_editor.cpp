@@ -209,21 +209,20 @@ ParkBuilderMode* ParkBuilderMode::teardown(uint8_t flags)
 void ParkBuilderMode::start_callback()
 {
     uint8_t* main_loop = get_main_loop();
-    reinterpret_cast<tasks::PileUp*>(main_loop + 4)
-        ->queue_job(reinterpret_cast<tasks::SchedulerTask*>(editor_update_job_));
+    reinterpret_cast<tasks::PileUp*>(main_loop + 4)->queue_job(editor_update_job_);
     ParkEditorInputHandler* handler = editor_pad_listener_;
     pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
-    reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(reinterpret_cast<tasks::SchedulerTask*>(handler));
+    reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(handler);
     handler->control_data_ = &input_manager()->hosts_[handler->ordinal_].content_;
     handler->dev_ = reinterpret_cast<uint8_t*>(input_manager()->hosts_[handler->ordinal_].dev_);
-    reinterpret_cast<tasks::PileUp*>(main_loop + 0x40)->queue_job(reinterpret_cast<tasks::SchedulerTask*>(draw_job_));
+    reinterpret_cast<tasks::PileUp*>(main_loop + 0x40)->queue_job(draw_job_);
 }
 
 // 0x0058D340
 void ParkBuilderMode::stop_callback()
 {
-    reinterpret_cast<tasks::SchedulerTask*>(editor_update_job_)->drop_out();
-    reinterpret_cast<tasks::SchedulerTask*>(editor_pad_listener_)->drop_out();
+    editor_update_job_->drop_out();
+    editor_pad_listener_->drop_out();
 }
 
 // 0x0058DB30
@@ -660,9 +659,9 @@ void ParkBuilderMode::link_to_pad(int controller)
 {
     pad_input::Hub* input = pad_input::create_manager(false); // (a single::LazyInstance<pad_input::Hub>)
     ParkEditorInputHandler* handler = editor_pad_listener_;
-    reinterpret_cast<tasks::SchedulerTask*>(handler)->drop_out();
+    handler->drop_out();
     pad_input::HostEnd& server = input->hosts_[controller];
-    reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(reinterpret_cast<tasks::SchedulerTask*>(handler));
+    reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(handler);
     handler->control_data_ = &server.content_;
     handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
     pad_input::release_manager();

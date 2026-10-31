@@ -16,6 +16,10 @@ struct RiderIdentity;
 // The network game's players (0x00543060-0x00544780): online::PlayerRecord, one per player the manager knows (in its
 // player list - begin_player_walk / step_player_walk), and JoinerRecord, a player announced but not yet added.
 // The capture-the-flag and king-of-the-hill announcements are in player_flags.cpp.
+namespace tasks {
+class SchedulerTask;
+}
+
 namespace online {
 
 // The player's flags (PlayerRecord::flag_bits_).
@@ -75,7 +79,7 @@ public:
     // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile,
     // "<No Name>", last_sent_skater_ 7 and the update records cleared (the per-skater ones to -1). Returns this.
     PlayerRecord* make_new(uint32_t flags);
-    // 0x00543810: the destructor: its profile (destroyed and freed), the object at +0x1EC (deleted - virtual slot 2),
+    // 0x00543810: the destructor: its profile (destroyed and freed), the observer task (deleted),
     // the face texture message (freed); then the node's (out of its list).
     void destroy_body();
     // 0x00544750 (vtable slot 0): the scalar deleting destructor.
@@ -196,11 +200,11 @@ public:
     uint32_t flag_bits_;        // +0x1D0 PlayerFlag
     uint32_t ready_query_owed_; // +0x1D4
     uint32_t unknown1d8_;
-    uint32_t join_time_;         // +0x1DC (mark_just_joined)
-    uint32_t last_impact_at_;    // +0x1E0
-    int last_sent_skater_;       // +0x1E4
-    uint8_t* face_texture_data_; // +0x1E8
-    void* object_1e_c_;          // +0x1EC (deleted with it: virtual slot 2)
+    uint32_t join_time_;                  // +0x1DC (mark_just_joined)
+    uint32_t last_impact_at_;             // +0x1E0
+    int last_sent_skater_;                // +0x1E4
+    uint8_t* face_texture_data_;          // +0x1E8
+    tasks::SchedulerTask* observer_task_; // +0x1EC while observing (gamenet_observer.h; deleted with it)
 };
 static_assert(offsetof(PlayerRecord, skater_) == 0x14 && offsetof(PlayerRecord, team_) == 0x30 &&
                   offsetof(PlayerRecord, label_) == 0x38 && offsetof(PlayerRecord, account_) == 0x4C &&

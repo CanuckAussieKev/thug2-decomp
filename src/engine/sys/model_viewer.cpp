@@ -4,7 +4,6 @@
 #include <winsock2.h>
 
 #include "engine/sys/model_viewer.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstring>
@@ -54,7 +53,6 @@ constexpr uint32_t kUserViewerTriangle = 0xC09789E2;   // UserViewerTriangle
 constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 
 extern void** const kVtable;
-extern void** const kBaseHandlerVtable; // pad_input::BaseHandler
 
 int& view_mode_value() { return objects::g_view_mode; }
 
@@ -66,9 +64,8 @@ uint32_t g_last_time;
 Viewer*& sole() { return g_viewer; }
 bool& run_now_loaded() { return g_pending_script; }
 
-// A task or input handler (a tasks::SchedulerTask) off its list (0x004068F0), and its destructor (0x00406930).
-void remove_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->drop_out(); }
-void destroy_list_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->destruct(); }
+// A task or input handler off its list (0x004068F0).
+void remove_node(tasks::SchedulerTask* node) { node->drop_out(); }
 // An object's scalar deleting destructor, through its vtable slot `slot`.
 void erase_one(void* object, int slot)
 {
@@ -97,8 +94,7 @@ bool debug_checks() { return game_config::g_from_cd; }
 uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); } // pad_input::Hub
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
 
-void construct_node(void* node, int priority) { static_cast<tasks::SchedulerTask*>(node)->make_new(priority); }
-void append_vertex(tasks::PileUp& list, void* node) { list.queue_job(static_cast<tasks::SchedulerTask*>(node)); }
+void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue_job(node); }
 
 script::Struct* spawn_param_table()
 {
@@ -142,28 +138,6 @@ void add_input_handler(ViewerInputHandler* handler)
 }
 
 } // namespace
-
-// 0x00577270
-void ViewerInputHandler::hdl() { code_value_(this); }
-
-// 0x00577280
-void ViewerInputHandler::destroy_body()
-{
-    *reinterpret_cast<void***>(this) = kBaseHandlerVtable;
-    destroy_list_node(this);
-}
-
-// 0x00577290
-void ViewerInputHandler::destroy_node() { destroy_list_node(this); }
-
-// 0x00536670
-ViewerInputHandler* ViewerInputHandler::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
 
 // 0x00576CB0
 script::Script* spawn_script_if_exists(uint32_t name)
@@ -214,15 +188,10 @@ void Viewer::destroy_body()
     vtable_ = kVtable;
     if (net_handler_)
         erase_one(net_handler_, 0);
-    // (the handlers' and tasks' scalar deleting destructors are their vtables' slot 2)
-    if (pad_listener_)
-        erase_one(pad_listener_, 2);
-    if (task_1c_)
-        erase_one(task_1c_, 2);
-    if (task20_)
-        erase_one(task20_, 2);
-    if (shift_handler_)
-        erase_one(shift_handler_, 2);
+    delete pad_listener_;
+    delete task_1c_;
+    delete task20_;
+    delete shift_handler_;
     sole() = nullptr;
     PartUnit::destroy_body();
 }
@@ -600,43 +569,13 @@ Viewer* Viewer::make_new()
     }
     int controller = script::fetch_int_value(kViewerPadKey);
 
-    auto* free_camera = static_cast<ViewerTask*>(memory::alloc_zeroed(sizeof(ViewerTask)));
-    if (free_camera) {
-        construct_node(free_camera, 0);
-        *reinterpret_cast<void***>(free_camera) = game_code::kTaskVtable;
-        free_camera->code_value_ = &free_camera_task;
-        free_camera->content_ = this;
-    }
-    task_1c_ = free_camera;
-    auto* input = static_cast<ViewerInputHandler*>(memory::alloc_zeroed(sizeof(ViewerInputHandler)));
-    if (input) {
-        construct_node(input, 0);
-        input->ordinal_ = controller;
-        *reinterpret_cast<void***>(input) = game_code::kInputHandlerVtable;
-        input->code_value_ = &handle_viewer_input;
-        input->content_ = this;
-    }
-    pad_listener_ = input;
+    task_1c_ = new ViewerTask(&free_camera_task, this, 0);
+    pad_listener_ = new ViewerInputHandler(&handle_viewer_input, this, 0, controller);
     set_movement_velocity(400.0f);
     set_rotate_velocity(120.0f);
     debug::printf("Creating shift input handlers\n)");
-    auto* combos = static_cast<ViewerTask*>(memory::alloc_zeroed(sizeof(ViewerTask)));
-    if (combos) {
-        construct_node(combos, 0);
-        *reinterpret_cast<void***>(combos) = game_code::kTaskVtable;
-        combos->code_value_ = &select_combo_task;
-        combos->content_ = this;
-    }
-    task20_ = combos;
-    auto* shift = static_cast<ViewerInputHandler*>(memory::alloc_zeroed(sizeof(ViewerInputHandler)));
-    if (shift) {
-        construct_node(shift, 1000);
-        shift->ordinal_ = controller;
-        *reinterpret_cast<void***>(shift) = game_code::kInputHandlerVtable;
-        shift->code_value_ = &handle_viewer_shift;
-        shift->content_ = this;
-    }
-    shift_handler_ = shift;
+    task20_ = new ViewerTask(&select_combo_task, this, 0);
+    shift_handler_ = new ViewerInputHandler(&handle_viewer_shift, this, 1000, controller);
     sole() = this;
     return this;
 }
@@ -645,8 +584,7 @@ namespace {
 static VtableSlot g_vtable_slots[] = {&modules::Viewer::teardown, &modules::Viewer::start_callback,
                                       &modules::Viewer::stop_callback};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-static VtableSlot g_base_handler_vtable_slots[] = {&_purecall, &_purecall, &modules::ViewerInputHandler::teardown};
-void** const kBaseHandlerVtable = reinterpret_cast<void**>(g_base_handler_vtable_slots);
+
 } // namespace
 
 } // namespace modules

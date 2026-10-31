@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/task_list.h"
+#include "engine/pad_input/input_hub.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
 
@@ -25,15 +25,8 @@ class PadInputModule : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x27D7CD28;
 
-    // Its input handler (pad_input::Responder<PadInputModule>, 0x2C bytes, vtable 0x0064D7D8; the front end's has the same
-    // shape).
-    struct Responder : tasks::SchedulerTask {
-        uint8_t* control_data_;                 // +0x18 its server's data (the button pressures first)
-        void* dev_;                             // +0x1C its server's Sio device
-        int ordinal_;                           // +0x20 which of the two
-        void(__cdecl* code_value_)(Responder*); // +0x24
-        PadInputModule* component_;             // +0x28
-    };
+    // Its input handlers (the ordinal: which of the two).
+    using Responder = pad_input::Responder<PadInputModule>;
 
     // 0x0041EEC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
@@ -120,9 +113,6 @@ public:
 static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInputModule, pad_secondary_) == 0x258 &&
                   offsetof(PadInputModule, handler_) == 0x490 && offsetof(PadInputModule, disabled_) == 0x498 &&
                   offsetof(PadInputModule, unknown49c_) == 0x49C && sizeof(PadInputModule) == 0x4A0,
-              "layout must match the original");
-static_assert(offsetof(PadInputModule::Responder, control_data_) == 0x18 &&
-                  offsetof(PadInputModule::Responder, component_) == 0x28 && sizeof(PadInputModule::Responder) == 0x2C,
               "layout must match the original");
 
 } // namespace objects

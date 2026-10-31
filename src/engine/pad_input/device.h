@@ -5,6 +5,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
+#include "engine/core/task_list.h"
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
@@ -150,15 +151,15 @@ public:
     void pause_devices();
     void unpause_devices();
 
-    memory::ListNode devs_; // the list's head
-    void* task_;            // tasks::Task running process_task with the list as its data
+    memory::ListNode devs_;               // the list's head
+    tasks::Task<memory::ListNode>* task_; // running process_task with the list as its data
 };
 
 // 0x005BE110: the scalar deleting destructor of a device's list node (lists::Elem<Device>, vtable 0x00658A70).
 memory::ListNode* destroy_device_node(memory::ListNode* node, unsigned int flags);
 
 // 0x005BE140: the manager's task - processes each device in the list it was given.
-void __cdecl process_task(void* task);
+void __cdecl process_task(tasks::Task<memory::ListNode>* task);
 
 // 0x005BE670: the manager, made on first use when `create` (counts a reference either way); returns it
 // (null if there is none).

@@ -7,7 +7,13 @@
 
 // The network game's score list (the net_score_1 ... net_score_8 lines): online::Hub::get_squad_points /
 // get_entrant_points (gamenet_manager.h) and the task that fills the lines.
+namespace tasks {
+template <typename Owner>
+class Task;
+} // namespace tasks
 namespace online {
+
+class Hub;
 
 extern void** const kScoreEntryVtable; // 0x0064CCF8: lists::Elem<ScoreEntry> (score_list.cpp)
 
@@ -35,6 +41,6 @@ static_assert(offsetof(ScoreEntry, text_) == 0x14 && offsetof(ScoreEntry, flag_b
 // text and id) and to update_score. The text: a prefix (the crown's abbreviation, or \s0-\s3 for the flags carried),
 // the colour, the name and the score (king of the hill: m:ss or h:mm:ss; a running scavenger hunt: no score but for
 // the local player).
-void __cdecl score_broadcast_tick(void* task);
+void __cdecl score_broadcast_tick(tasks::Task<Hub>* task);
 
 } // namespace online

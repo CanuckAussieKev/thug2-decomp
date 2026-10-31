@@ -1,7 +1,6 @@
 // Modules and the module manager (Mdl).
 
 #include "engine/sys/game_module.h"
-#include "engine/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -32,10 +31,6 @@ void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 void unlink_list_node(memory::ListNode* node)
 {
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
-}
-void delete_task(void* task)
-{
-    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(task))[2])(task, 1);
 }
 
 } // namespace
@@ -83,14 +78,7 @@ Hub* Hub::make_new()
     modules_.next = &modules_;
     modules_.prev = &modules_;
     modules_.vtable = kHeadVtable;
-    auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
-    if (task) {
-        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(-1000); // tasks::SchedulerTask
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);   // tasks::Task<Manager>
-        task[6] = reinterpret_cast<uint32_t>(&tick_modules);
-        task[7] = reinterpret_cast<uint32_t>(this);
-    }
-    task_ = task;
+    task_ = new tasks::Task<Hub>(&tick_modules, this, -1000);
     command_pending_ = false;
     return this;
 }
@@ -99,8 +87,7 @@ Hub* Hub::make_new()
 void Hub::destroy_body()
 {
     halt_every_module();
-    if (task_)
-        delete_task(task_);
+    delete task_;
     modules_.unlink_as(kNodeVtable); // (the head's destructor is the node's)
 }
 
@@ -149,9 +136,9 @@ void Hub::halt_every_module()
 }
 
 // 0x0044F440
-void __cdecl Hub::tick_modules(void* task)
+void __cdecl Hub::tick_modules(tasks::Task<Hub>* task)
 {
-    auto* manager = static_cast<Hub*>(static_cast<void**>(task)[7]);
+    Hub* manager = task->content_;
     if (!manager->command_pending_)
         return;
     manager->command_pending_ = false;

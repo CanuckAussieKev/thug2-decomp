@@ -32,7 +32,9 @@ class Struct;
 } // namespace script
 namespace tasks {
 class SchedulerTask;
-}
+template <typename Owner>
+class Task;
+} // namespace tasks
 namespace online {
 class PlayerRecord;
 } // namespace online
@@ -91,8 +93,7 @@ public:
     void stop_callback();
     // 0x00564DB0 (tasks::Task<Skate>'s vtable slot 0): the task's code run with the task. 0x00568C90: the logic task's
     // code - run_frame_logic, the skaters' collisions on the server, king of the hill's clock.
-    static void __fastcall run_task(tasks::SchedulerTask* task);
-    static void __cdecl front_end_tick(tasks::SchedulerTask* task);
+    static void __cdecl front_end_tick(tasks::Task<Skate>* task);
     // 0x00565750 / 0x00565FC0: the skater list's node's / head's scalar deleting destructors (vtables 0x0064E544 /
     // 0x0064E5D4).
     static memory::ListNode* __fastcall destroy_skater_node(memory::ListNode* node, int, uint8_t flags);
@@ -234,12 +235,12 @@ public:
     memory::ListNode* skater_node(uint32_t index);
     objects::Rider* get_skater_at(uint32_t index);
 
-    tasks::SchedulerTask* update_job_;      // +0x14 (tasks::Task<Skate>, vtable 0x006476F0: front_end_tick)
-    tasks::SchedulerTask* server_tasks_[2]; // +0x18 (SkateNet::create_network_tasks)
-    objects::RiderStoryProgress* career_;   // +0x20
-    objects::GrindRailHub* rail_manager_;   // +0x24
-    lists::Foremost riders_;                // +0x28 (their nodes' data the skaters, in object id order)
-    bool watch_for_unplug_;                 // +0x3C
+    tasks::Task<Skate>* update_job_;      // +0x14 (front_end_tick)
+    tasks::Task<Skate>* server_tasks_[2]; // +0x18 (SkateNet::create_network_tasks)
+    objects::RiderStoryProgress* career_; // +0x20
+    objects::GrindRailHub* rail_manager_; // +0x24
+    lists::Foremost riders_;              // +0x28 (their nodes' data the skaters, in object id order)
+    bool watch_for_unplug_;               // +0x3C
     uint8_t pad3d_[3];
     int unplugged_frames_;        // +0x40
     bool running_queued_scripts_; // +0x44

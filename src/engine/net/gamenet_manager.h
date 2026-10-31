@@ -18,6 +18,11 @@ class Preferences;
 namespace tasks {
 class SchedulerTask;
 }
+namespace pad_input {
+class InputHandler;
+template <typename Owner>
+class Responder;
+} // namespace pad_input
 namespace memory {
 struct ListNode;
 }
@@ -25,6 +30,10 @@ struct ListNode;
 // The game's network manager online::Hub (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
 // game itself - the players, the levels and modes the server picks, the lobby. Partly rewritten: the join path
 // (gamenet_join.cpp) and the level name; only the fields used so far are named.
+namespace tasks {
+template <typename Owner>
+class Task;
+} // namespace tasks
 namespace online {
 
 // --- The join messages (THUG2's) ---
@@ -586,29 +595,29 @@ public:
     void cancel_join();
     // Tasks (tasks::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
     // 0x0053BED0: the observer asked for the next player (spectate_request_ 1): the camera onto it.
-    static void __cdecl observer_task(void* task);
+    static void __cdecl observer_task(tasks::Task<uint8_t>* task);
     // 0x00536890 (the observer's input handler's code, given the handler - Detail::SpectatorInputSink): the next
     // player asked for (spectate_request_ 1) on a press of the controller's button 0x40 (+0x20 of its place in the
     // input manager) - unless the root window's menu_state tag is on.
-    static void __cdecl observer_input(void* handler);
+    static void __cdecl observer_input(pad_input::Responder<Hub>* handler);
     // 0x0053BF00 (+0xF4, auto-serve): 2 s after the host mode was set, in the lobby with two players or more and 5 s
     // after the lobby began: LoadPendingPlayers and StartNetworkGame, once (awaiting_start_).
-    static void __cdecl auto_serve_task(void* task);
+    static void __cdecl auto_serve_task(tasks::Task<Hub>* task);
     // 0x0053BF90 (+0xE4): the join's state shown (the connecting / joining / password dialogs, entered_network_game,
     // dialog_box_exit, CreateJoinRefusedDialog with the reason) and moved on.
-    static void __cdecl join_progress_tick(void* task);
+    static void __cdecl join_progress_tick(tasks::Task<Hub>* task);
     // 0x0053EB70 (+0xC0, priority -2000): the link checked each second (create_link_unplugged_dialog /
     // _front_end_dialog when unplugged and no dialog is up); the server drops a remote player silent for 20 s (in the
     // game; 60 s joining) or resending over 20 times; a client joining or joined whose server is silent for 20 s gives
     // up (ShowJoinTimeoutNotice while going to the main menu, else CreateLostConnectionDialog and everything shut).
-    static void __cdecl connection_task(void* task);
+    static void __cdecl connection_task(tasks::Task<Hub>* task);
     // 0x0053EA30 (+0xD0, gamenet_newplayers.cpp): the joining players whose time has come added (add_new_player), then
     // the connections' silence forgiven, the skaters reset, the ready response sent.
-    static void __cdecl guest_player_intake_tick(void* task);
+    static void __cdecl guest_player_intake_tick(tasks::Task<Hub>* task);
     // 0x0053D9D0 (+0xCC, gamenet_newplayers.cpp): the server's: each joining player whose time has come becomes a
     // player; its details (message 0x22) to the others and theirs to it, the created park and rails, joined (0x53),
     // its skater, the ready query (0x25) all round; the lobby's server details and qr2 told.
-    static void __cdecl host_player_intake_tick(void* task);
+    static void __cdecl host_player_intake_tick(tasks::Task<Hub>* task);
     // 0x0053EE90 (gamenet_manager_create.cpp): the constructor: the preferences (loaded), the player lists, fifteen
     // tasks (the connection task started), the lobby / vault / presence / stats managers, the CD-key challenge (eight
     // random letters and digits). Returns this.
@@ -618,7 +627,7 @@ public:
     // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
     // CreateWaitForPlayersDialog (no menu up) or a client's net_message_game_will_start, once; when everyone is ready
     // and the time has come, StartNetworkGame and the task removed.
-    static void __cdecl start_game_task(void* task);
+    static void __cdecl start_game_task(tasks::Task<Hub>* task);
 
     // Fields.
     net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
@@ -649,9 +658,9 @@ public:
     uint32_t unknowne0_;
     tasks::SchedulerTask* join_phase_job_; // +0xE4
     uint8_t unknowne8_[0x14];
-    void* spectator_pad_listener_; // +0xFC
-    int spectate_request_;         // +0x100
-    uint8_t net_options_[0x80];    // +0x104 (prefs::Preferences)
+    pad_input::InputHandler* spectator_pad_listener_; // +0xFC
+    int spectate_request_;                            // +0x100
+    uint8_t net_options_[0x80];                       // +0x104 (prefs::Preferences)
     uint32_t refused_reason_;      // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
     uint32_t last_ready_probe_id_; // +0x188
     bool cleared_to_start_;        // +0x18C
@@ -681,7 +690,7 @@ static_assert(offsetof(Hub, level_) == 0x34 && offsetof(Hub, join_mode_) == 0x3C
 // --- gamenet_players.cpp: outside the class ---
 // 0x00539610: the flag task's code (registered by the manager's constructor): in capture the flag, the carried flags
 // put on their carriers' heads.
-void __cdecl carried_flags_task(void* task);
+void __cdecl carried_flags_task(tasks::Task<Hub>* task);
 // 0x005395C0: the manager released (its reference count 0x007CCE18; the last one destroys it).
 void __cdecl release_manager();
 

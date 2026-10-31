@@ -2,6 +2,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "engine/net/net_app.h"
+#include "engine/core/task_list.h"
 
 #include <winsock2.h>
 #include <windows.h>
@@ -361,10 +362,8 @@ void AppHost::destroy_body()
         if (banned)
             delete_virtual(banned, 0);
     }
-    for (void* task : {send_task_, receive_task_, process_task_, metrics_task_}) {
-        if (task)
-            delete_virtual(task, 2);
-    }
+    for (tasks::SchedulerTask* task : {send_task_, receive_task_, process_task_, metrics_task_})
+        delete task;
     banned_.unlink_as(kBannedConnNodeVtable);
     circuits_.unlink_as(kConnNodeVtable);
     list1414_.unlink_as(kAppListNodeVtable);

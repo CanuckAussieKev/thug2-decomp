@@ -140,9 +140,9 @@ void get_finish(uint8_t* manager)
 } // namespace
 
 // 0x00545880
-void __cdecl service_task(const uint8_t* task)
+void __cdecl service_task(tasks::Task<online::Hub>* task)
 {
-    uint8_t* manager = *reinterpret_cast<uint8_t* const*>(task + 0x1C);
+    auto* manager = reinterpret_cast<uint8_t*>(task->content_);
     switch (prop<int>(manager, kState)) {
     case 0: // waiting
         if (prop<uint32_t>(manager, kWakeTime) != 0 && frame_clock::get_time() > prop<uint32_t>(manager, kWakeTime))

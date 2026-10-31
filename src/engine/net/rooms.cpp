@@ -25,7 +25,6 @@
 #include "engine/core/code_address.h"
 #include "engine/gfx/loading_bar.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/net/task_vtable.h"
 #include "engine/core/stubs.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -187,17 +186,10 @@ void console_message(const char* nick, uint32_t text_name, bool by_name)
     delete_params(params);
 }
 
-// A tasks::Task<RoomManager> running `code` (priority 0; null if out of memory).
-tasks::SchedulerTask* new_task(RoomManager* lobby, uint32_t code)
+// A task running `code` for the lobby (priority 0; null if out of memory).
+tasks::SchedulerTask* new_task(RoomManager* lobby, tasks::Task<RoomManager>::Code code)
 {
-    auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
-    if (!task)
-        return nullptr;
-    task->make_new(0);
-    task->vtable_ = game_code::kTaskVtable;
-    prop<uint32_t>(task, 0x18) = code;
-    prop<RoomManager*>(task, 0x1C) = lobby;
-    return task;
+    return new tasks::Task<RoomManager>(code, lobby, 0);
 }
 
 } // namespace
@@ -234,9 +226,9 @@ RoomManager* RoomManager::make_new()
     drop_is_expected_ = true;
     remote_ = nullptr;
     lost_connection_ = false;
-    think_task_ = new_task(this, reinterpret_cast<uint32_t>(code_address(online::RoomManager::think_task)));
-    nat_task_ = new_task(this, reinterpret_cast<uint32_t>(code_address(online::RoomManager::nat_negotiation_task)));
-    hosting_task_ = new_task(this, reinterpret_cast<uint32_t>(code_address(online::RoomManager::query_task)));
+    think_task_ = new_task(this, &online::RoomManager::think_task);
+    nat_task_ = new_task(this, &online::RoomManager::nat_negotiation_task);
+    hosting_task_ = new_task(this, &online::RoomManager::query_task);
     // The server-browsing keys (GameSpy's qr2 key registration).
     game_spy::call_qr2_register_key(0x33, "numobservers");
     game_spy::call_qr2_register_key(0x34, "maxobservers");

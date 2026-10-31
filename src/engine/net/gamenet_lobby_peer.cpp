@@ -87,7 +87,7 @@ tasks::PileUp* get_logic_tasks()
 }
 QueuedPacket* get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }
-RoomManager* task_lobby(void* task) { return prop<RoomManager*>(task, 0x1C); }
+RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
 
 // The heaps the lobby's SDK work allocates from.
 void push_internet_heap()
@@ -283,7 +283,7 @@ void __cdecl RoomManager::get_connect_callback(void* peer, int success, int, voi
 }
 
 // 0x00540040
-void __cdecl RoomManager::think_task(void* task)
+void __cdecl RoomManager::think_task(tasks::Task<RoomManager>* task)
 {
     RoomManager* lobby = task_lobby(task);
     push_internet_heap();
@@ -297,7 +297,7 @@ void __cdecl RoomManager::think_task(void* task)
 }
 
 // 0x005400B0
-void __cdecl RoomManager::nat_negotiation_task(void*)
+void __cdecl RoomManager::nat_negotiation_task(tasks::Task<RoomManager>*)
 {
     push_internet_bottom_up_heap();
     nat_think();
@@ -305,7 +305,7 @@ void __cdecl RoomManager::nat_negotiation_task(void*)
 }
 
 // 0x005400E0
-void __cdecl RoomManager::query_task(void* task)
+void __cdecl RoomManager::query_task(tasks::Task<RoomManager>* task)
 {
     RoomManager* lobby = task_lobby(task);
     uint32_t now = frame_clock::get_time();

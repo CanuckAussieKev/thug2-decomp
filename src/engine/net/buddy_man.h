@@ -11,6 +11,8 @@ class Struct;
 } // namespace script
 namespace tasks {
 class SchedulerTask;
+template <typename Owner>
+class Task;
 } // namespace tasks
 
 // The online profile and buddy list ("homies"): online::Hub's presence_service_ (+0x18), a wrapper of the GameSpy
@@ -116,7 +118,7 @@ public:
 
     // 0x0054A300: the task: state 1 / 2 (creating / logging in): GP processed, or after 10 s logged off and
     // CreateBuddyLoginFailedDialog; state 3: LogIn; state 4 (logged in): GP processed once a second.
-    static void __cdecl buddy_task(tasks::SchedulerTask* task);
+    static void __cdecl buddy_task(tasks::Task<FriendsManager>* task);
     // 0x0054A3D0 (thread, stdcall): gpConnectNewUser for nick "proskater" with the profile_email / profile_password
     // preferences. Returns 0.
     static unsigned long __stdcall create_profile_thread(void* man);
