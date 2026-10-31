@@ -290,7 +290,7 @@ bool __cdecl CFunc_Change(Scripts::CStruct* params, Scripts::CScript*)
     }
     case Scripts::QBVAL_ARRAY: {
         entry->type = Scripts::QBVAL_ARRAY;
-        Scripts::CArray* memory = Scripts::NewArray();
+        Scripts::CArray* memory = Scripts::AllocScriptArray();
         Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
         entry->raw = reinterpret_cast<uint32_t>(array);
         Scripts::DuplicateArray(array, copy.array);

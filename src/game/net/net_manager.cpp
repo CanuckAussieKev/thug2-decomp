@@ -35,7 +35,7 @@ void CopyIfDifferent(char* out, const char* source)
 // Adds a task to the main loop's logic tasks (FrameLoop::Hub +0x04).
 void RegisterLogicTask(uint8_t* mlp, void* task)
 {
-    reinterpret_cast<FrameLoop::Hub*>(mlp)->m_logicTasks.QueueJob(static_cast<TaskList::SchedulerTask*>(task));
+    reinterpret_cast<FrameLoop::Hub*>(mlp)->m_logicTasks.QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
 }
 
 } // namespace
@@ -111,7 +111,7 @@ void Hub::SetAutoAddress(bool useDHCP)
 }
 
 // 0x00454820
-void Hub::SetNameResolver(int index, const char* ip) { CopyIfDifferent(m_dnsServers[index], ip); }
+void Hub::SetNameResolver(int index, const char* ip) { CopyIfDifferent(m_resolverIps[index], ip); }
 
 // 0x00454890
 void Hub::SetMachineLabel(const char* name)

@@ -99,7 +99,7 @@ struct MarkInfo {
     uint32_t colour;
     const char* name;
 };
-const MarkInfo kMarks[kMarkCount] = {
+const MarkInfo kMarks[kMaxMarkers] = {
     {'M', 0xFFFFC040u, "Moved"},
     {'+', 0xFF60E060u, "Added"},
     {'D', 0xFFFF6060u, "Hidden in game"},
@@ -109,16 +109,16 @@ const MarkInfo kMarks[kMarkCount] = {
 };
 } // namespace
 
-char MarkLetter(int bit) { return bit >= 0 && bit < kMarkCount ? kMarks[bit].letter : '?'; }
-uint32_t MarkColour(int bit) { return bit >= 0 && bit < kMarkCount ? kMarks[bit].colour : 0xFFFFFFFFu; }
-const char* MarkName(int bit) { return bit >= 0 && bit < kMarkCount ? kMarks[bit].name : ""; }
+char MarkLetter(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].letter : '?'; }
+uint32_t MarkColour(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].colour : 0xFFFFFFFFu; }
+const char* MarkName(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].name : ""; }
 
-bool MarkShown(uint8_t marks, bool changedOnly) { return !changedOnly || (marks & ((1u << kMarkCount) - 1)) != 0; }
+bool MarkShown(uint8_t marks, bool changedOnly) { return !changedOnly || (marks & ((1u << kMaxMarkers) - 1)) != 0; }
 
 std::string MarkLetters(uint8_t marks)
 {
     std::string letters;
-    for (int bit = 0; bit < kMarkCount; ++bit) {
+    for (int bit = 0; bit < kMaxMarkers; ++bit) {
         if (marks & (1u << bit))
             letters.push_back(kMarks[bit].letter);
     }

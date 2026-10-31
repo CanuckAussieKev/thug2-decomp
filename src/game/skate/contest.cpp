@@ -94,9 +94,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     return array ? array->PrepareAll() : nullptr;
 }
 // An array handed to a structure (which copied it): its contents and itself freed.
@@ -365,7 +365,7 @@ void CContest::ShowLeaderBoard()
     if (!CompetitionGoalActive())
         return;
     Scripts::CStruct* params = SpawnParamTable();
-    Scripts::CArray* board = NewArray();
+    Scripts::CArray* board = AllocScriptArray();
     board->ConfigureSizeKind(5, Scripts::QBVAL_STRUCT);
     DebugOut::Printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
@@ -512,7 +512,7 @@ void CContest::EndRun(int score)
     if (!CompetitionGoalActive())
         return;
     Scripts::CStruct* params = SpawnParamTable();
-    Scripts::CArray* scores = NewArray();
+    Scripts::CArray* scores = AllocScriptArray();
     scores->ConfigureSizeKind(5, Scripts::QBVAL_STRUCT);
     DebugOut::Printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {

@@ -64,7 +64,7 @@ struct Conn {
     static constexpr int kBandwidthBroadband = 0;   // 400000
     static constexpr int kBandwidthModem = 1;       // 4200
     static constexpr int kBandwidthLan = 2;         // 800000
-    static constexpr int kNumGroups = 256;
+    static constexpr int kChannelGroups = 256;
 
     // 0x00455C80
     Conn* MakeNew(int flags);
@@ -134,7 +134,7 @@ struct Conn {
     uint32_t m_ident;                  // +0x44 a running number (0x0067D800, counted by the constructor)
     uint16_t m_portNo;                // +0x48
     uint8_t m_pad4A[2];
-    char* m_writeBuffer;            // +0x4C the packet being built (0x514 bytes): its start
+    char* m_outgoingBytes;            // +0x4C the packet being built (0x514 bytes): its start
     char* m_writePtr;               // +0x50 and end
     char* m_readBuffer;             // +0x54 received data (0xA28 bytes): its start
     char* m_readPtr;                // +0x58 and end
@@ -143,14 +143,14 @@ struct Conn {
     uint32_t m_flagBits;               // +0x64 kFlag...
     AppHost* m_ownerApp;                     // +0x68 the App (set by AppHost::OpenedLink)
     uint32_t m_lastHeardFrom;        // +0x6C the last communication (AppHost::OpenedLink: the creation time)
-    uint32_t m_lastSendTime;        // +0x70
+    uint32_t m_lastTransmitAt;        // +0x70
     uint32_t m_txSpacingMs;        // +0x74
-    uint32_t m_nextSequenceIds[kNumGroups]; // +0x78 outgoing: the next sequence id of each group
-    uint32_t m_sequenceNumbers[kNumGroups]; // +0x478 the next sequence number expected in each group
+    uint32_t m_nextSequenceIds[kChannelGroups]; // +0x78 outgoing: the next sequence id of each group
+    uint32_t m_sequenceNumbers[kChannelGroups]; // +0x478 the next sequence number expected in each group
     int m_streamCounter;             // +0x878
     // +0x87C sequenced messages received ahead of their turn, by group: links with the group at +0x15, the
     // sequence number at +0x20, SeqQueuedMsg* at +0x28.
-    MemSys::ListNode m_receivedQueues[kNumGroups];
+    MemSys::ListNode m_receivedQueues[kChannelGroups];
     MemSys::ListNode m_receivedStreams; // +0x1C7C ListKit::Foremost<BulkStreamNode>: streams being received
     MemSys::ListNode m_sendStreams;    // +0x1C90 ListKit::Foremost<BulkStreamNode>: streams being sent
     PingProbe m_pingProbe;      // +0x1CA4
@@ -166,8 +166,8 @@ struct Conn {
     int m_linkSpeed;                // +0x3D1C bytes per second
 };
 static_assert(offsetof(Conn, m_hdl) == 0x3C && offsetof(Conn, m_portNo) == 0x48 &&
-                  offsetof(Conn, m_writeBuffer) == 0x4C && offsetof(Conn, m_curStanding) == 0x60 &&
-                  offsetof(Conn, m_lastSendTime) == 0x70 && offsetof(Conn, m_nextSequenceIds) == 0x78 &&
+                  offsetof(Conn, m_outgoingBytes) == 0x4C && offsetof(Conn, m_curStanding) == 0x60 &&
+                  offsetof(Conn, m_lastTransmitAt) == 0x70 && offsetof(Conn, m_nextSequenceIds) == 0x78 &&
                   offsetof(Conn, m_sequenceNumbers) == 0x478 && offsetof(Conn, m_streamCounter) == 0x878 &&
                   offsetof(Conn, m_receivedQueues) == 0x87C && offsetof(Conn, m_receivedStreams) == 0x1C7C &&
                   offsetof(Conn, m_sendStreams) == 0x1C90 && offsetof(Conn, m_pingProbe) == 0x1CA4 &&

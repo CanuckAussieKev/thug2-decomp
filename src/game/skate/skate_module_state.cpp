@@ -190,10 +190,10 @@ GoalSystem::CGoalManager* Skate::GetObjectiveBoard() { return m_goalManager; }
 // 0x00564DA0
 void Skate::ScanPadConnections() { m_watchForUnplug = true; }
 
-// 0x00564DB0 (TaskList::Task<Skate>'s vtable slot 0): its code run with it.
-void __fastcall Skate::RunTask(TaskList::SchedulerTask* task)
+// 0x00564DB0 (Scheduling::Task<Skate>'s vtable slot 0): its code run with it.
+void __fastcall Skate::RunTask(Scheduling::SchedulerTask* task)
 {
-    auto* code = *reinterpret_cast<void(__cdecl**)(TaskList::SchedulerTask*)>(reinterpret_cast<uint8_t*>(task) + 0x18);
+    auto* code = *reinterpret_cast<void(__cdecl**)(Scheduling::SchedulerTask*)>(reinterpret_cast<uint8_t*>(task) + 0x18);
     code(task);
 }
 
@@ -208,7 +208,7 @@ void Skate::StartCallback()
     GameObjects::NearbyZone_Startup();
     GameObjects::Emitter_Init();
     m_updateJob->m_skipBits = 2;
-    reinterpret_cast<TaskList::PileUp*>(mainLoop + 4)->QueueJob(m_updateJob); // the logic tasks
+    reinterpret_cast<Scheduling::PileUp*>(mainLoop + 4)->QueueJob(m_updateJob); // the logic tasks
     GameMode()->Reset();
     Scripts::LaunchScript(kNetworkDriverStartup, nullptr, nullptr, false, nullptr);
     Scripts::LaunchScript(kInitLoadingBar, nullptr, nullptr, false, nullptr);
@@ -399,7 +399,7 @@ bool __cdecl Skate::CFunc_ChangeLevel(Scripts::CStruct* params, Scripts::CScript
 bool __cdecl Skate::CFunc_LaunchLevel(Scripts::CStruct*, Scripts::CScript*)
 {
     Skate* skate = Sole();
-    skate->EnterStage(skate->m_requestedLevel);
+    skate->EnterStage(skate->m_pendingLevel);
     return true;
 }
 
@@ -421,7 +421,7 @@ bool __cdecl Skate::CFunc_RequestLevel(Scripts::CStruct* params, Scripts::CScrip
         level = net->GetLevelPreference();
         net->ChangeArena(level);
     }
-    skate->m_requestedLevel = level;
+    skate->m_pendingLevel = level;
     return true;
 }
 
@@ -450,7 +450,7 @@ void Skate::PrepareEntityUpdateData()
 {
     if (g_viewportCount <= 1 && Engine3D::FetchLiveCamera(0)) {
         m_noCamera = false;
-        m_cameraPos = *Engine3D::FetchLiveCamera(0)->FetchLocation();
+        m_viewerPos = *Engine3D::FetchLiveCamera(0)->FetchLocation();
         return;
     }
     m_noCamera = true;
@@ -492,7 +492,7 @@ bool Skate::InFrontEndOrNetMode()
 {
     if (static_cast<uint8_t>(NetSessionSlot()->IsNetworkGame()))
         return true;
-    return m_requestedLevel == kLoadMainMenu || m_requestedLevel == kLoadCas;
+    return m_pendingLevel == kLoadMainMenu || m_pendingLevel == kLoadCas;
 }
 
 // 0x00565BB0

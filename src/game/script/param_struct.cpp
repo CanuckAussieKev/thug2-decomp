@@ -568,7 +568,7 @@ void FreeString(const char* string)
 CStruct* SpawnParamBag() { return static_cast<CStruct*>(StructPools().Carve(sizeof(CStruct))); }
 void DeleteStruct(CStruct* structure) { StructPools().Dealloc(structure); }
 // 0x00408F90 / 0x00408FD0
-CArray* NewArray() { return static_cast<CArray*>(ArrayPools().Carve(sizeof(CArray))); }
+CArray* AllocScriptArray() { return static_cast<CArray*>(ArrayPools().Carve(sizeof(CArray))); }
 void DeleteArray(CArray* array) { ArrayPools().Dealloc(array); }
 void FreeComponent(CComponent* component) { ComponentPools().Dealloc(component); }
 
@@ -763,7 +763,7 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
     }
     case QBVAL_ARRAY: {
         if (!reference) {
-            CArray* array = NewArray();
+            CArray* array = AllocScriptArray();
             if (array)
                 array->PrepareAll();
             dest->array = array;
@@ -1241,7 +1241,7 @@ int& StructCopyPeak() { return g_structCopyPeak; }
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
 CPair* NewPair() { return static_cast<CPair*>(g_pairPools.Carve(sizeof(CPair))); }
-CVector* NewVector()
+CVector* AllocScriptVector()
 {
     return static_cast<CVector*>(g_vectorPools.Carve(sizeof(CVector)));
 }
@@ -1384,7 +1384,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
         case QBVAL_VECTOR:
             if (element) {
                 auto* from = reinterpret_cast<const CVector*>(element);
-                CVector* vector = NewVector();
+                CVector* vector = AllocScriptVector();
                 vector = vector ? vector->PrepareAll() : nullptr;
                 vector->x = from->x;
                 vector->y = from->y;
@@ -1407,7 +1407,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
             break;
         case QBVAL_ARRAY:
             if (element) {
-                CArray* array = NewArray();
+                CArray* array = AllocScriptArray();
                 if (array)
                     array = array->PrepareAll();
                 DuplicateArray(array, reinterpret_cast<CArray*>(element));
@@ -1454,7 +1454,7 @@ using Scripts::CArray;
 
 // 0x0046D410 / 0x0046D3D0 take the size (always the object's).
 void* NewPairMemory(unsigned int) { return Scripts::NewPair(); }
-void* NewVectorMemory(unsigned int) { return Scripts::NewVector(); }
+void* NewVectorMemory(unsigned int) { return Scripts::AllocScriptVector(); }
 
 } // namespace
 
@@ -1678,7 +1678,7 @@ bool ComponentsEqual(CComponent* a, CComponent* b)
 void CStruct::AppendArrayValue(uint32_t name, CArray* value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_ARRAY);
-    CArray* array = NewArray();
+    CArray* array = AllocScriptArray();
     if (array)
         array = array->PrepareAll();
     component->array = array;

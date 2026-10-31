@@ -27,7 +27,7 @@ public:
 
     // Its input handler (PadInput::Responder<CPadInputModule>, 0x2C bytes, vtable 0x0064D7D8; the front end's has the same
     // shape).
-    struct Responder : TaskList::SchedulerTask {
+    struct Responder : Scheduling::SchedulerTask {
         uint8_t* m_controlData;         // +0x18 its server's data (the button pressures first)
         void* m_dev;                 // +0x1C its server's Sio device
         int m_ordinal;                    // +0x20 which of the two
@@ -106,8 +106,8 @@ public:
 
     uint32_t m_lastEvents;    // +0x18 the buttons down last frame (their event bits)
     uint32_t m_events;        // +0x1C this frame's
-    CPadState m_padPrimary;        // +0x20
-    CPadState m_padSecondary;       // +0x258
+    CPadSnapshot m_padPrimary;        // +0x20
+    CPadSnapshot m_padSecondary;       // +0x258
     Responder* m_handler;      // +0x490
     Responder* m_handler2;     // +0x494
     bool m_disabled;          // +0x498 DisablePlayerInput

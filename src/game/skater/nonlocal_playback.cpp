@@ -69,9 +69,9 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
 // physics mode, +0x76 driving, +0x78 the time, +0x7C the terrain.
-constexpr uint32_t kFrameSize = 0x84;
-uint8_t* HistoryFrame(uint8_t* history, int index) { return history + 0x1C + index * kFrameSize; }
-uint32_t FrameTime(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryFrame*>(frame)->GetTime(); }
+constexpr uint32_t kRecordStride = 0x84;
+uint8_t* HistoryFrame(uint8_t* history, int index) { return history + 0x1C + index * kRecordStride; }
+uint32_t HistoryFrameStamp(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryFrame*>(frame)->GetTime(); }
 Maths::Mat4& SnapshotOrientation(uint8_t* frame) { return Prop<Maths::Mat4>(frame, 0x08); }
 Maths::Vec4& FramePosition(uint8_t* frame) { return Prop<Maths::Vec4>(frame, 0x48); }
 
@@ -123,7 +123,7 @@ void CRiderRemoteSync::Interpolate()
         int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / FrameRate());
         uint8_t* frame = HistoryFrame(m_pastFrames, newest);
         m_playIdx = newest;
-        m_syncTime = static_cast<int>(FrameTime(frame) - delay);
+        m_syncTime = static_cast<int>(HistoryFrameStamp(frame) - delay);
         skater->m_basisFrame = SnapshotOrientation(frame);
         Prop<Maths::Mat4>(skater, 0xC0) = SnapshotOrientation(frame);
         skater->m_atPoint = FramePosition(frame);
@@ -146,11 +146,11 @@ void CRiderRemoteSync::Interpolate()
     int oldest = count % kHistory; // (the next to be written)
     uint32_t now = Prop<uint32_t>(app, 8) - m_syncFrame + m_syncTime;
     uint8_t* last = HistoryFrame(m_pastFrames, (count - 1) % kHistory);
-    if (now > FrameTime(last)) {
+    if (now > HistoryFrameStamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
         int adjust;
-        if (now - FrameTime(last) > 1000)
-            adjust = static_cast<int>(FrameTime(last) - now);
+        if (now - HistoryFrameStamp(last) > 1000)
+            adjust = static_cast<int>(HistoryFrameStamp(last) - now);
         else
             adjust = -1000 / FrameRate();
         m_syncTime += adjust;
@@ -158,7 +158,7 @@ void CRiderRemoteSync::Interpolate()
     }
     // The first state not yet reached, from the oldest (none: nothing played this frame).
     int entry = oldest;
-    while (now > FrameTime(HistoryFrame(m_pastFrames, entry))) {
+    while (now > HistoryFrameStamp(HistoryFrame(m_pastFrames, entry))) {
         entry = (entry + 1) % kHistory;
         if (entry == oldest)
             return;
@@ -172,8 +172,8 @@ void CRiderRemoteSync::Interpolate()
         skater->Reset27C();
     uint8_t* from = HistoryFrame(m_pastFrames, (entry + kHistory - 1) % kHistory);
     uint8_t* to = HistoryFrame(m_pastFrames, entry);
-    float elapsed = static_cast<float>(static_cast<int>(now - FrameTime(from)));
-    int span = static_cast<int>(FrameTime(to) - FrameTime(from));
+    float elapsed = static_cast<float>(static_cast<int>(now - HistoryFrameStamp(from)));
+    int span = static_cast<int>(HistoryFrameStamp(to) - HistoryFrameStamp(from));
     float t = static_cast<float>(static_cast<double>(elapsed) / span);
     Maths::Vec4 move = FramePosition(to) - FramePosition(from);
     m_lastPlayPos = m_playPos;

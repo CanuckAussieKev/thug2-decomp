@@ -118,7 +118,7 @@ bool __stdcall ObjectsFromTable(Scripts::CStruct* params, const uint32_t* table)
     params->PutInt(kVersion, static_cast<int>(table[0]));
     int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* objects = memory ? memory->PrepareAll() : nullptr;
     objects->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
     for (int i = 0; i < count; ++i, entry += 5) {

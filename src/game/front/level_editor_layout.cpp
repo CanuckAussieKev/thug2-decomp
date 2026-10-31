@@ -1684,7 +1684,7 @@ bool __cdecl CFunc_EditedLevels(Scripts::CStruct*, Scripts::CScript* script)
     }
     if (entries.empty())
         return false;
-    Scripts::CArray* array = Scripts::NewArray()->PrepareAll();
+    Scripts::CArray* array = Scripts::AllocScriptArray()->PrepareAll();
     array->ConfigureSizeKind(static_cast<uint32_t>(entries.size()), Scripts::QBVAL_STRUCT);
     for (size_t i = 0; i < entries.size(); ++i)
         array->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entries[i]));

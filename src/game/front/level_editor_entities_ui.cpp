@@ -205,7 +205,7 @@ void SoundSection(uint32_t name)
     }
     bool active = false;
     float volume = e.volume;
-    if (ImGui::DragFloat("Volume %##emittervol", &volume, 1.0f, kMinVolume, kMaxVolume, "%.0f",
+    if (ImGui::DragFloat("Volume %##emittervol", &volume, 1.0f, kMinVolume, kLoudest, "%.0f",
                          ImGuiSliderFlags_AlwaysClamp)) {
         EmitterSound changed = e;
         changed.volume = volume;

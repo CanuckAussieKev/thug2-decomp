@@ -128,7 +128,7 @@ int Hub::GetSquadPoints(int team)
 {
     PlayerSearch search;
     int total = 0;
-    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(LocalPlayer(this));
+    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(FindOwnPlayerRecord(this));
     bool goalAttack = GameType() == kNetGoalAttack;
     for (PlayerRecord* p = First(this, &search); p; p = Next(this, &search)) {
         if (!(p->m_flagBits & (kPlayerFullyIn | kPlayerLocal)) || p->m_team != team)
@@ -143,7 +143,7 @@ int Hub::GetSquadPoints(int team)
 // 0x005436E0
 int Hub::GetEntrantPoints(uint32_t id)
 {
-    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(LocalPlayer(this));
+    PlayerRecord* local = reinterpret_cast<PlayerRecord*>(FindOwnPlayerRecord(this));
     if (GameType() == kNetGoalAttack && !(local->m_flagBits & kPlayerObserver))
         return Call<int>(CodeAddress(&GoalSystem::CGoalManager::CountClearedByPlayer), ObjectiveBoard(), id);
     auto* player = reinterpret_cast<PlayerRecord*>(FindPlayerSlotByObj(static_cast<uint16_t>(id)));

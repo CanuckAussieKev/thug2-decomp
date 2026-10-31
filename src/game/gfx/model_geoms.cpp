@@ -157,7 +157,7 @@ CRenderModel* CRenderModel::MakeNew()
         head->next = head->prev = head;
     m_geoms = head;
     m_boneTotal = 0;
-    m_boneMatrices = nullptr;
+    m_skinPalette = nullptr;
     if (m_displayMode != 6 && ModelVirtual<bool>(this, 3, 6))
         m_displayMode = 6;
     m_geomTotal = 0;
@@ -618,7 +618,7 @@ bool CRenderModel::ReplaceFaceTexture(void* face, const char* source, uint32_t n
     auto* faceTexture = static_cast<Gfx2D::CFaceSkin*>(face);
     MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_topDownHeap);
-    int size = faceTexture->GetImageSize();
+    int size = faceTexture->FetchSkinResolution();
     void* data = faceTexture->GetImage();
     void* image = static_cast<CTextureSet*>(Textures())
                       ->ReadTextureBuffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);

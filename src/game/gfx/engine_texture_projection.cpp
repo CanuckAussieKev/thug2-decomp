@@ -64,7 +64,7 @@ void** ProjectedCollision() { return g_projectedCollision; }
 // 0x0049FE20
 CTextureProjection* CTextureProjection::MakeNew()
 {
-    m_nodeData = reinterpret_cast<MemSys::ListNode*>(this);
+    m_selfLink = reinterpret_cast<MemSys::ListNode*>(this);
     m_nodePriority = 0;
     m_succ = reinterpret_cast<MemSys::ListNode*>(this);
     m_lastValue = reinterpret_cast<MemSys::ListNode*>(this);

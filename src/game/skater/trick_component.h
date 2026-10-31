@@ -103,7 +103,7 @@ public:
     // 0x0051ECC0: the button map (+0x99C) set.
     void SetButtonMap(const uint32_t* buttons);
     // 0x0051ECF0: whether `button` is down.
-    bool IsButtonDown(uint32_t button);
+    bool IsKeyHeld(uint32_t button);
     // 0x0051ED10: the trick queue emptied. 0x0051ED20: a trick queued (dropped when the queue is full).
     void ClearQueue();
     void QueueTrick(uint32_t list, int index, bool flag);

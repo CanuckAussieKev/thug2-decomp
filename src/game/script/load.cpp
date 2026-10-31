@@ -69,7 +69,7 @@ const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const 
     }
     case 0x05: {
         symbol->type = QBVAL_ARRAY;
-        CArray* array = NewArray();
+        CArray* array = AllocScriptArray();
         array = array ? array->PrepareAll() : nullptr;
         symbol->raw = reinterpret_cast<uint32_t>(array);
         return ParseArray(array, token, nullptr);
@@ -103,7 +103,7 @@ CSymbolTableEntry* DefineScriptSymbol(uint32_t size, const uint8_t* code, uint32
         bytes[i] = buffer[i];
     symbol->raw = reinterpret_cast<uint32_t>(block);
     MemSys::FreeMalloc(buffer);
-    if (ScriptCache())
+    if (ScriptStoreInstance())
         RemoveFromScriptCache(name);
     symbol->unknown8 = Checksums::HashFromText(filename);
     return symbol;
@@ -213,7 +213,7 @@ bool ScriptRefersTo(const CScript* script, uint32_t name)
         return true;
     // The calls it's in the middle of.
     for (int i = 0; i < script->m_callDepth; ++i) {
-        if (script->m_returnAddresses[i].m_scriptId == name)
+        if (script->m_frameRecords[i].m_scriptId == name)
             return true;
     }
     return false;

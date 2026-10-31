@@ -122,7 +122,7 @@ CHitMesh* CStaticCollider::Replicate(bool instance)
         copy->m_flagBits |= kOwnsGeometry;
         copy->m_geometry = geometry;
         if (!instance && m_octets) {
-            uint32_t size = m_geometry->m_numFaces;
+            uint32_t size = m_geometry->m_triCount;
             MemSys::PushMemProfile("Collision face-rejection optimization");
             MemSys::EnterHeapScope(MemSys::BottomUpHeap());
             copy->m_octets = static_cast<uint8_t*>(MemSys::AllocBlock(size));

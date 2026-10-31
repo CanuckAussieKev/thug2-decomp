@@ -58,7 +58,7 @@ CStruct* NewInitStruct()
 }
 CArray* NewInitArray()
 {
-    CArray* array = NewArray();
+    CArray* array = AllocScriptArray();
     return array ? array->PrepareAll() : nullptr;
 }
 
@@ -369,7 +369,7 @@ const uint8_t* ParseValue(const uint8_t* token, CStruct* args, CComponent* out)
     case 0x1E: {
         ChangeSpecies(out, QBVAL_VECTOR);
         uint32_t x = FetchWord32(p), y = FetchWord32(token + 5), z = FetchWord32(token + 9);
-        CVector* vector = NewVector();
+        CVector* vector = AllocScriptVector();
         vector = vector ? vector->PrepareAll() : nullptr;
         out->vector = vector;
         std::memcpy(&vector->x, &x, 4);
@@ -747,7 +747,7 @@ const uint8_t* ParseArray(CArray* dest, const uint8_t* token, CStruct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x1E) {
-                CVector* vector = NewVector();
+                CVector* vector = AllocScriptVector();
                 vector = vector ? vector->PrepareAll() : nullptr;
                 uint32_t x = FetchWord32(p), y = FetchWord32(p + 4), z = FetchWord32(p + 8);
                 std::memcpy(&vector->x, &x, 4);

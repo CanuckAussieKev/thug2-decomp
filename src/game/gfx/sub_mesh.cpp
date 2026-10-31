@@ -35,15 +35,15 @@ uint8_t* Lock(sVertexBuffer* buffer, uint32_t flags)
     return data;
 }
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
-sIndexBuffer* NewIndexBuffer(uint32_t bytes)
+sIdxStore* NewIndexBuffer(uint32_t bytes)
 {
     void* memory = Crt::AllocBlock(0x18);
     if (!memory)
         return nullptr;
-    return static_cast<sIndexBuffer*>(memory)->MakeNew(bytes, 0, 0x65);
+    return static_cast<sIdxStore*>(memory)->MakeNew(bytes, 0, 0x65);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
-void UploadIndices(sIndexBuffer* buffer)
+void UploadIndices(sIdxStore* buffer)
 {
     auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer);
     void* locked;
@@ -207,7 +207,7 @@ meshRef* meshRef::Replicate(bool share)
         for (int k = 0; k < 8; ++k) {
             if (!copy->indexCounts[k])
                 continue;
-            sIndexBuffer* buffer = NewIndexBuffer(copy->indexCounts[k] * 2);
+            sIdxStore* buffer = NewIndexBuffer(copy->indexCounts[k] * 2);
             copy->indexBuffers[k] = buffer;
             std::memcpy(buffer->indices, indexBuffers[k]->indices, copy->indexCounts[k] * 2);
             UploadIndices(indexBuffers[k]); // (the original's too)
@@ -259,7 +259,7 @@ void meshRef::MakeBillboard(int type, const Maths::Vec4* pivot, const Maths::Vec
     // The quad's plane from its first triangle.
     sVertexBuffer* buffer = vertexBuffers[0];
     uint8_t* data = Lock(buffer, 0x10);
-    sIndexBuffer* indices = indexBuffers[0];
+    sIdxStore* indices = indexBuffers[0];
     const float* p0 = reinterpret_cast<const float*>(data + indices->indices[0] * stride);
     const float* p1 = reinterpret_cast<const float*>(data + indices->indices[1] * stride);
     const float* p2 = reinterpret_cast<const float*>(data + indices->indices[2] * stride);

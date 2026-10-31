@@ -47,7 +47,7 @@ constexpr uint32_t kOmnigon = 0xAE94C183;        // (name unknown) the Omnigon's
 constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF; // (name unknown) passed to DumpScripts' compiled-out dump
 
 // The button's index in the button table (0x0067D6D8, entries 1-21; 0 if it isn't one).
-int ButtonIndex(uint32_t button) { return PadInput::ButtonIndex(button); }
+int GlyphForButtonTag(uint32_t button) { return PadInput::GlyphForButtonTag(button); }
 
 // The last Omnigon checksum sent to the other players (0x007CEBC8).
 uint32_t& LastBroadcastedOmnigon() { return g_lastBroadcastedOmnigon; }
@@ -74,7 +74,7 @@ bool __cdecl ControllerPressed(const void* controller, uint32_t button)
     auto* input = *reinterpret_cast<PadInputSample* const*>(static_cast<const uint8_t*>(controller) + 0x18);
     if (!input)
         return false;
-    int index = ButtonIndex(button);
+    int index = GlyphForButtonTag(button);
     if (DebounceTimes()[index] > FrameClock::GetTime())
         return false;
     switch (button) {
@@ -109,7 +109,7 @@ bool __cdecl CFunc_ControllerDebounce(Scripts::CStruct* params, Scripts::CScript
     params->FetchFloat(kTime, &time, 0);
     uint32_t button = 0;
     if (params->ReadHashValue(0u, &button, 0)) {
-        int index = ButtonIndex(button);
+        int index = GlyphForButtonTag(button);
         // x87: the unsigned clock + time * 1000, truncated through 64 bits
         double until = static_cast<double>(FrameClock::GetTime()) + static_cast<double>(time) * 1000.0;
         DebounceTimes()[index] = static_cast<uint32_t>(static_cast<int64_t>(until));

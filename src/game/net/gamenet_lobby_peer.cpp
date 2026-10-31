@@ -66,7 +66,7 @@ constexpr int kNatSuccess = 0;
 constexpr uint32_t kNotPostedTime = 90000; // ms hosting without being reported
 constexpr uint32_t kReportInterval = 5000;
 // qr2's keys.
-constexpr int kKeyPlayer = 21;
+constexpr int kKeyForPlayer = 21;
 constexpr int kKeyPing = 24;
 constexpr int kKeyRating = 57;
 
@@ -80,9 +80,9 @@ constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
 Hub* NetSessionSlot() { return g_onlineHub; }
-TaskList::PileUp* LogicTasks()
+Scheduling::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
 }
 QueuedPacket* Queue() { return g_queuedPackets; }
 int& QueuedCount() { return g_queuedCount; }
@@ -188,7 +188,7 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
         BufferAdd(buffer, "");
         return;
     }
-    if (key != kKeyPlayer && key != kKeyRating)
+    if (key != kKeyForPlayer && key != kKeyRating)
         return;
     Hub* manager = NetSessionSlot();
     int count = 0;
@@ -198,7 +198,7 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
         if (IsObserver(p) && !(Prop<uint32_t>(p, 0x1D0) & kPlayerObserverCounted))
             continue;
         if (count == index) {
-            if (key == kKeyPlayer)
+            if (key == kKeyForPlayer)
                 BufferAdd(buffer, PlayerName(p));
             else
                 BufferAddInt(buffer, Prop<int>(p, 0x2C)); // its rating
@@ -211,7 +211,7 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
         if (!(flags & kNewPlayerCounted) && (flags & kNewPlayerObserver))
             continue;
         if (count == index) {
-            if (key == kKeyPlayer)
+            if (key == kKeyForPlayer)
                 BufferAdd(buffer, reinterpret_cast<const char*>(info)); // (its name, at +0)
             else
                 BufferAddInt(buffer, Prop<int>(info, 0x30));
@@ -334,7 +334,7 @@ void __cdecl RoomManager::QueryTask(void* task)
 // 0x00540220
 void RoomManager::StartHosting()
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     NetLink::AppHost* server = NetSessionSlot()->m_host;
     server->SetOutsidePacketHook(reinterpret_cast<NetLink::UnknownPacketCallback>(&RoomManager::QueuePacket));
     ClearQueue();
@@ -409,7 +409,7 @@ unsigned long __stdcall RoomManager::ConnectThread(void* lobbyData)
 // 0x00540C90
 void __cdecl RoomManager::HolePunchResultFn(void*, int cookie, void*)
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     Hub* manager = NetSessionSlot();
     if (static_cast<RoomManager*>(manager->m_lobbyService)->m_negotiations != 0)
         return; // (one at a time)

@@ -101,7 +101,7 @@ constexpr int kStateRail = 4;
 constexpr int kStateBikeStall = 6; // (THAW's stall state - CoreFields::kBikeStall)
 
 // The pad's buttons (offsets in THUG2's pad = THAW's).
-constexpr uint32_t kUpButton = 0x00, kDownButton = 0x20, kLeftButton = 0x40, kRightButton = 0x60;
+constexpr uint32_t kUpButton = 0x00, kDownButton = 0x20, kLeftButton = 0x40, kRightKeyHash = 0x60;
 constexpr uint32_t kL1 = 0x80, kR1 = 0xE0, kCircle = 0x140, kSquare = 0x160;
 
 // Checksums.
@@ -194,7 +194,7 @@ void* ObjectOf(const void* core) { return At<void*>(core, kObject); }
 uint8_t* FlagsOf(const void* core) { return At<uint8_t*>(core, kFlags); }
 int StateOf(const void* core) { return At<int>(FlagsOf(core), 0x18); }
 uint8_t* PadOf(const void* core) { return At<uint8_t*>(core, kInput) + 0x20; }
-GameObjects::CPadState* PadStateOf(const void* core) { return reinterpret_cast<GameObjects::CPadState*>(PadOf(core)); }
+GameObjects::CPadSnapshot* PadStateOf(const void* core) { return reinterpret_cast<GameObjects::CPadSnapshot*>(PadOf(core)); }
 float FrameLength(const void* core) { return At<float>(core, kFrameLength); }
 
 int Now() { return FrameClock::GameClockElapsed() + GameObjects::g_clockOffset; }
@@ -837,7 +837,7 @@ bool MayAccelerate(void* core)
 void TurnOnGround(void* core)
 {
     BikeState& state = *StateOf(core, true);
-    GameObjects::CPadState* pad = PadStateOf(core);
+    GameObjects::CPadSnapshot* pad = PadStateOf(core);
     float padAxisX = StickRaw(core, 0);
     int held = 0;
     // (THAW 0x005D6342: its pad +0x60 / +0x40 - the d-pad's right / left, not the stick's buttons; with the
@@ -1055,7 +1055,7 @@ void AirRotation(void* core)
         int held2 = 0;
         if (sx != 0.0f) {
             spin = 0.0f - rotation * sx;
-            held2 = static_cast<int>(HeldMs(pad[kLeftButton] ? pad + kLeftButton : pad + kRightButton));
+            held2 = static_cast<int>(HeldMs(pad[kLeftButton] ? pad + kLeftButton : pad + kRightKeyHash));
         }
         float held2F = static_cast<float>(held2);
         if (TuningFloatLookup(kAutoturnCancelTime, core) < held2F)

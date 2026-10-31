@@ -109,11 +109,11 @@ void CKinematicsModule::UpdateJump()
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
-    double fall = static_cast<double>(m_leapPull) * m_frameTime;
-    double rise = static_cast<double>(m_jumpSpeed) * m_frameTime + fall * m_frameTime * 0.5;
+    double fall = static_cast<double>(m_leapPull) * m_stepSeconds;
+    double rise = static_cast<double>(m_jumpSpeed) * m_stepSeconds + fall * m_stepSeconds * 0.5;
     if (m_jumpHasHeading) {
         // (along the heading at the start's speed: x and z through rounded products, w through an unrounded one)
-        float frame = m_frameTime;
+        float frame = m_stepSeconds;
         double speed = m_jumpStartSpeed;
         double alongW = speed * m_leapDirection.w * frame;
         float alongZ = static_cast<float>(speed * m_leapDirection.z);

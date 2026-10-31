@@ -77,7 +77,7 @@ void Unlist(sBufferNode*& head, const void* buffer)
 }
 
 IDirect3DVertexBuffer9* D3D(const sVertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer); }
-IDirect3DIndexBuffer9* D3D(const sIndexBuffer* ib) { return static_cast<IDirect3DIndexBuffer9*>(ib->buffer); }
+IDirect3DIndexBuffer9* D3D(const sIdxStore* ib) { return static_cast<IDirect3DIndexBuffer9*>(ib->buffer); }
 
 constexpr uint32_t kNoCopy = 1;
 constexpr uint32_t kShared = 4;
@@ -158,7 +158,7 @@ void sVertexBuffer::Recreate()
 }
 
 // 0x004D4270
-sIndexBuffer* sIndexBuffer::MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat)
+sIdxStore* sIdxStore::MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat)
 {
     buffer = nullptr;
     InputPort()->CreateIndexBuffer(bytes, usageFlags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(indexFormat),
@@ -172,17 +172,17 @@ sIndexBuffer* sIndexBuffer::MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_
 }
 
 // 0x004D3C40
-void sIndexBuffer::Unlist() { Engine3D::Unlist(IndexBuffers(), this); }
+void sIdxStore::Unlist() { Engine3D::Unlist(IndexBuffers(), this); }
 
 // 0x004D42F0
-long sIndexBuffer::Lock(uint32_t /*offset*/, uint32_t /*bytes*/, uint16_t** out, uint32_t /*lockFlags*/)
+long sIdxStore::Lock(uint32_t /*offset*/, uint32_t /*bytes*/, uint16_t** out, uint32_t /*lockFlags*/)
 {
     *out = indices;
     return 0;
 }
 
 // 0x004D4300
-long sIndexBuffer::Unlock()
+long sIdxStore::Unlock()
 {
     void* card = nullptr;
     if (D3D(this)->Lock(0, 0, &card, 0) >= 0) {

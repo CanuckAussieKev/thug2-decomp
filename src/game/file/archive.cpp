@@ -58,7 +58,7 @@ struct TableRow {
     uint32_t checksum;
 };
 
-void CopyBytes(void* out, const void* in, unsigned int count) { std::memcpy(out, in, count); }
+void MoveMemoryBlock(void* out, const void* in, unsigned int count) { std::memcpy(out, in, count); }
 
 } // namespace
 
@@ -160,9 +160,9 @@ uint8_t* ArchiveFile::ReadEntryFromArchive(const char* name, int* size, uint8_t*
     if (!out)
         out = static_cast<uint8_t*>(MemSys::AllocBlock(static_cast<unsigned int>(info->size)));
     if (info->unpacked)
-        CopyBytes(out, info->unpacked, static_cast<unsigned int>(info->size));
+        MoveMemoryBlock(out, info->unpacked, static_cast<unsigned int>(info->size));
     else if (info->compressedSize == 0)
-        CopyBytes(out, info->data, static_cast<unsigned int>(info->size));
+        MoveMemoryBlock(out, info->data, static_cast<unsigned int>(info->size));
     else
         Decode(info->data, out, info->compressedSize);
     return out;
@@ -209,7 +209,7 @@ int ArchiveFile::TakeIn(void* out, unsigned int count)
     unsigned int left = static_cast<unsigned int>(file->size - file->position);
     unsigned int n = count <= left ? count : left;
     const uint8_t* source = file->compressedSize ? file->unpacked : file->data;
-    CopyBytes(out, source + file->position, n);
+    MoveMemoryBlock(out, source + file->position, n);
     file->position += static_cast<int>(n);
     return static_cast<int>(n);
 }

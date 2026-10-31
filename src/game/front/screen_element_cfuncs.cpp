@@ -385,7 +385,7 @@ bool __cdecl CFunc_GetScreenElementChildren(Scripts::CStruct* params, Scripts::C
     int count = element->ChildTotal();
     if (count == 0)
         return false;
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     if (array)
         array = array->PrepareAll();
     array->ConfigureSizeKind(count, Scripts::QBVAL_NAME);

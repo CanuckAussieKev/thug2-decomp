@@ -70,7 +70,7 @@ public:
     uint32_t m_lastNode;           // +0x58
     uint32_t m_listLink;               // +0x5C: the node headed for
     uint32_t m_unknown60;
-    Maths::Vec4 m_startPoint;            // +0x64: the segment's start
+    Maths::Vec4 m_segmentOrigin;            // +0x64: the segment's start
     Maths::Vec4 m_endPoint;              // +0x74: the node's position
     Maths::Vec4 m_unknown84;       // +0x84 (0, 0, 0, 1)
     float m_cornerDistance;        // +0x94 (none: 0)
@@ -89,7 +89,7 @@ public:
     float m_step;                  // +0xE0: the last arc step's angle
 };
 static_assert(offsetof(CPathFollower, m_owner) == 0x14 && offsetof(CPathFollower, m_tick) == 0x18 &&
-                  offsetof(CPathFollower, m_lastNode) == 0x58 && offsetof(CPathFollower, m_startPoint) == 0x64 &&
+                  offsetof(CPathFollower, m_lastNode) == 0x58 && offsetof(CPathFollower, m_segmentOrigin) == 0x64 &&
                   offsetof(CPathFollower, m_cornerDistance) == 0x94 && offsetof(CPathFollower, m_flagBits) == 0xA8 &&
                   offsetof(CPathFollower, m_center) == 0xB0 && offsetof(CPathFollower, m_curPhase) == 0xDC &&
                   offsetof(CPathFollower, m_step) == 0xE0,

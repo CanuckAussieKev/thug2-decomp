@@ -366,7 +366,7 @@ int __cdecl HandleDropCarried(NetLink::InboundMsgCtx* context)
         uint8_t returned[2] = {static_cast<uint8_t>(SkaterId(PlayerSkater(player))), static_cast<uint8_t>(team)};
         if (IsOwnPlayer(player))
             Run(kDestroyCtfPanelMessage);
-        uint8_t* local = LocalPlayer(manager);
+        uint8_t* local = FindOwnPlayerRecord(manager);
         if (local && !IsObserver(local) && PlayerTeam(local) == team)
             Run(kHideCtfArrow);
         AsPlayer(player)->ClearFlags(); // carries no flag

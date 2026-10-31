@@ -95,7 +95,7 @@ bool AppendMessage(AppHost* app, Conn* conn, PendingMsg* msg)
     char*& writePtr = conn->m_writePtr;
     uint8_t flags = MessageFlags(static_cast<uint8_t*>(app->m_supervisor), msg->m_ident);
     auto size = static_cast<uint16_t>(msg->m_byteCount + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_writeBuffer) +
+    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_outgoingBytes) +
                          reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     *writePtr++ = static_cast<char>(msg->m_ident);
@@ -118,7 +118,7 @@ bool AppendSequencedMessage(Conn* conn, OrderedMsgNode* link)
     SeqQueuedMsg* msg = link->m_sharedMsg;
     uint16_t length = msg->m_byteCount;
     auto size = static_cast<uint16_t>(length + 9);
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_writeBuffer) +
+    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_outgoingBytes) +
                          reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     *writePtr++ = static_cast<char>(kMsgSequenced);
@@ -258,8 +258,8 @@ int AppHost::OnPingReplyMsg(InboundMsgCtx* context)
     auto* sentTime = reinterpret_cast<uint32_t*>(context->m_body);
     if (!NetLink::IsHostLocal(conn)) {
         uint32_t now = Timestamp(context->m_receiverApp);
-        if (*sentTime == conn->m_pingProbe.m_sendTime) {
-            conn->m_pingProbe.m_receiveTime = *sentTime;
+        if (*sentTime == conn->m_pingProbe.m_probeSentAt) {
+            conn->m_pingProbe.m_echoSeenAt = *sentTime;
             uint32_t latency = now - *sentTime;
             if (latency > MaxLatency())
                 latency = MaxLatency();

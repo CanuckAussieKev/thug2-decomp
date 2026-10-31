@@ -298,8 +298,8 @@ public:
     float m_bobNow;       // +0x1D4 the bob now
     float m_bobHeight;    // +0x1D8
     int m_bobPeriod;         // +0x1DC ms
-    float m_frameTime;         // +0x1E0 this frame's length (seconds, slow motion included)
-    uint32_t m_firstNode;      // +0x1E4 its own node (Name)
+    float m_stepSeconds;         // +0x1E0 this frame's length (seconds, slow motion included)
+    uint32_t m_ownNodeName;      // +0x1E4 its own node (Name)
     uint32_t m_listLink;           // +0x1E8 the node it's at
     CPathFollower* m_pathFollower; // +0x1EC
     CFollowTrail* m_trail;    // +0x1F0 Obj_FollowLeader's
@@ -339,7 +339,7 @@ static_assert(offsetof(CKinematicsModule, m_motionFlags) == 0x18 && offsetof(CKi
                   offsetof(CKinematicsModule, m_groundSpeed) == 0x19C &&
                   offsetof(CKinematicsModule, m_pathMinStopSpeed) == 0x1AC &&
                   offsetof(CKinematicsModule, m_storedPos) == 0x1B0 && offsetof(CKinematicsModule, m_turnPtr) == 0x1CC &&
-                  offsetof(CKinematicsModule, m_hoverBase) == 0x1D0 && offsetof(CKinematicsModule, m_frameTime) == 0x1E0 &&
+                  offsetof(CKinematicsModule, m_hoverBase) == 0x1D0 && offsetof(CKinematicsModule, m_stepSeconds) == 0x1E0 &&
                   offsetof(CKinematicsModule, m_pathFollower) == 0x1EC &&
                   offsetof(CKinematicsModule, m_leaveYUnaffected) == 0x1F4 &&
                   offsetof(CKinematicsModule, m_jumpSpeed) == 0x1F8 &&

@@ -91,8 +91,8 @@ static VtableSlot kServerVtable_slots[] = {&HostListing::Teardown};
 void** const kServerVtable = reinterpret_cast<void**>(kServerVtable_slots); // HostListing
 
 // The manager's fields not named in gamenet_manager.h yet.
-constexpr uint32_t kServiceTask = 0xE0;     // TaskList::SchedulerTask*: the online service task
-constexpr uint32_t kMatchTask = 0xF0;       // TaskList::SchedulerTask*: the server-list client's task
+constexpr uint32_t kServiceTask = 0xE0;     // Scheduling::SchedulerTask*: the online service task
+constexpr uint32_t kMatchTask = 0xF0;       // Scheduling::SchedulerTask*: the server-list client's task
 constexpr uint32_t kServiceState = 0x1B8;
 constexpr uint32_t kNextServiceState = 0x1BC;
 constexpr uint32_t kServers = 0x158;        // ListKit::Foremost<HostListing>: the listed servers
@@ -107,7 +107,7 @@ constexpr uint32_t kNewsOk = 0xFE09;
 
 Hub* TheManager() { return g_onlineHub; }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
 RoomManager* Lobby(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyService); }
 
 uint32_t g_lastRefresh;
@@ -119,7 +119,7 @@ bool& ShowPending() { return g_showPending; }
 uint32_t& ListClock() { return g_listClock; }
 
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
-MemSys::ListNode* FirstNode(MemSys::ListNode* head)
+MemSys::ListNode* HeadOfSceneList(MemSys::ListNode* head)
 {
     MemSys::ListNode* node = head->next;
     return node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
@@ -147,7 +147,7 @@ int TotalOf(MemSys::ListNode* head)
 
 void DeleteAll(MemSys::ListNode* head)
 {
-    MemSys::ListNode* node = FirstNode(head);
+    MemSys::ListNode* node = HeadOfSceneList(head);
     auto* item = DataOf<MemSys::ListNode>(node);
     while (item) {
         node = node ? NextNode(node) : nullptr;
@@ -182,7 +182,7 @@ uint32_t ServerId(Hub* manager, HostListing* server)
 void MoveWaitingServers(Hub* manager)
 {
     manager->ShowNoServersFound(true);
-    MemSys::ListNode* node = FirstNode(Foremost(manager, kWaitingServers));
+    MemSys::ListNode* node = HeadOfSceneList(Foremost(manager, kWaitingServers));
     auto* server = DataOf<HostListing>(node);
     while (server) {
         node = NextNode(node);
@@ -270,7 +270,7 @@ void HostListing::EnrollPlayer(const char* name, int rating)
 void HostListing::ClearPlayers()
 {
     Hub* manager = TheManager();
-    MemSys::ListNode* node = FirstNode(&m_participants);
+    MemSys::ListNode* node = HeadOfSceneList(&m_participants);
     auto* player = DataOf<PlayerRecord>(node);
     while (player) {
         node = NextNode(node);
@@ -283,7 +283,7 @@ void HostListing::ClearPlayers()
 // 0x005466D0 / 0x00546730
 const char* HostListing::GetEntrantName(int index)
 {
-    for (MemSys::ListNode* node = FirstNode(&m_participants); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<PlayerRecord*>(node->data);
         if (!player)
             return nullptr;
@@ -295,7 +295,7 @@ const char* HostListing::GetEntrantName(int index)
 }
 int HostListing::GetEntrantRank(int index)
 {
-    for (MemSys::ListNode* node = FirstNode(&m_participants); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<PlayerRecord*>(node->data);
         if (!player)
             return 0;
@@ -332,11 +332,11 @@ void Hub::SetServiceState(int state)
 {
     Prop<int>(this, kServiceState) = state;
     if (state == kStateWake) {
-        LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(this, kServiceTask));
+        LogicTasks()->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kServiceTask));
         SetServiceState(Prop<int>(this, kNextServiceState));
         g_newsMessageCount = 0;
     } else if (state == kStateStopped) {
-        Prop<TaskList::SchedulerTask*>(this, kServiceTask)->DropOut();
+        Prop<Scheduling::SchedulerTask*>(this, kServiceTask)->DropOut();
     }
 }
 
@@ -366,7 +366,7 @@ void Hub::UpdateHostingStatus()
 // 0x00545300
 bool Hub::StartServerList()
 {
-    TaskList::PileUp* logic = LogicTasks();
+    Scheduling::PileUp* logic = LogicTasks();
     if (!IsLocalNetworkPlay())
         return true;
     DestroyMatchClient();
@@ -375,7 +375,7 @@ bool Hub::StartServerList()
     RamStats()->LeaveHeapScope();
     if (!client)
         return false;
-    TaskList::SchedulerTask* task = Prop<TaskList::SchedulerTask*>(this, kMatchTask);
+    Scheduling::SchedulerTask* task = Prop<Scheduling::SchedulerTask*>(this, kMatchTask);
     if (!task->IsOnTaskList())
         logic->QueueJob(task);
     return true;
@@ -393,7 +393,7 @@ void Hub::StopServerList()
     }
     if (NetLink::AppHost* client = GetMatchmakingClient())
         client->m_dispatcher.TearDownState();
-    Prop<TaskList::SchedulerTask*>(this, kMatchTask)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(this, kMatchTask)->DropOut();
 }
 
 // 0x005456B0
@@ -410,7 +410,7 @@ void Hub::ShowNoServersFound(bool refocus)
 // 0x00546010
 void Hub::ClearChosenServers()
 {
-    for (MemSys::ListNode* node = FirstNode(Foremost(this, kServers)); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(Foremost(this, kServers)); node; node = NextNode(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
@@ -422,7 +422,7 @@ void Hub::ClearChosenServers()
 int Hub::NumServersInMenu()
 {
     int count = 0;
-    for (MemSys::ListNode* node = FirstNode(Foremost(this, kServers)); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(Foremost(this, kServers)); node; node = NextNode(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
@@ -474,7 +474,7 @@ void Hub::EmptyServerListing()
 bool Hub::HasServer(const char* name, uint32_t ip)
 {
     for (uint32_t list : {kServers, kWaitingServers}) {
-        for (MemSys::ListNode* node = FirstNode(Foremost(this, list)); node; node = NextNode(node)) {
+        for (MemSys::ListNode* node = HeadOfSceneList(Foremost(this, list)); node; node = NextNode(node)) {
             auto* server = static_cast<HostListing*>(node->data);
             if (!server)
                 break;
@@ -488,7 +488,7 @@ bool Hub::HasServer(const char* name, uint32_t ip)
 // 0x005464D0
 void* Hub::FetchHost(uint32_t id)
 {
-    for (MemSys::ListNode* node = FirstNode(Foremost(this, kServers)); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(Foremost(this, kServers)); node; node = NextNode(node)) {
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             return nullptr;

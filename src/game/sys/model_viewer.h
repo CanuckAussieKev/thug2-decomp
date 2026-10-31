@@ -54,7 +54,7 @@ struct ViewerInputHandler {
 };
 static_assert(sizeof(ViewerInputHandler) == 0x2C && offsetof(ViewerInputHandler, m_codeValue) == 0x24);
 
-// TaskList::Task<Viewer> (0x20 bytes, vtable 0x006476F0): a node of the main loop's task list.
+// Scheduling::Task<Viewer> (0x20 bytes, vtable 0x006476F0): a node of the main loop's task list.
 struct ViewerTask {
     uint8_t m_listLink[0x18]; // the task list node (0x00406890 constructs it, with the priority)
     void(__cdecl* m_codeValue)(ViewerTask*);
@@ -71,8 +71,8 @@ struct Viewer : PartUnit {
 
     ViewerInputHandler* m_padListener; // +0x14 (ProcessPadInput, priority 0)
     ViewerInputHandler* m_shiftHandler; // +0x18 (HandleShift, priority 1000)
-    void* m_task1C;                     // +0x1C a TaskList::Task<Viewer> (0x00577870)
-    void* m_task20;                     // +0x20 a TaskList::Task<Viewer> (0x00577380)
+    void* m_task1C;                     // +0x1C a Scheduling::Task<Viewer> (0x00577870)
+    void* m_task20;                     // +0x20 a Scheduling::Task<Viewer> (0x00577380)
     float m_padRX;                     // +0x24 the sticks (raw, -128..127)
     float m_padRY;                     // +0x28
     uint8_t m_unknown2C[8];

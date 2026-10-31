@@ -41,10 +41,10 @@ public:
 };
 static_assert(sizeof(CControlButton) == 0x20, "layout must match the original");
 
-class CPadState {
+class CPadSnapshot {
 public:
     // 0x0046B940: the buttons' names; no locks.
-    CPadState* PrepareAll();
+    CPadSnapshot* PrepareAll();
     // 0x0046BB50: every button updated as released (pressure 0), the sticks zeroed.
     void Reset();
     // 0x0046BC60: Reset, and the buttons' events taken - except, as the original, R2's release and R3's press
@@ -84,8 +84,8 @@ public:
     // clears each once it has passed, or once the stick is centred or leaves that quarter.
     uint32_t m_lock[2];
 };
-static_assert(offsetof(CPadState, m_stick) == 0x200 && offsetof(CPadState, m_polar) == 0x220 &&
-                  offsetof(CPadState, m_lock) == 0x230,
+static_assert(offsetof(CPadSnapshot, m_stick) == 0x200 && offsetof(CPadSnapshot, m_polar) == 0x220 &&
+                  offsetof(CPadSnapshot, m_lock) == 0x230,
               "layout must match the original");
 
 // 0x0046BA50: the d-pad direction number (0 none, 1 up, 2 down, 3 left, 4 right, 5-8 the diagonals ...) of the

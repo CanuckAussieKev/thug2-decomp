@@ -71,7 +71,7 @@ constexpr uint32_t kCreateSelectGamesMenu = 0x204092CB;   // create_network_sele
 constexpr uint32_t kJoinLobbyFailed = 0x3C5FE392;         // CreateJoinLobbyFailedDialog
 constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
 
-constexpr int kGroupRoom = 1; // (GameSpy's RoomType)
+constexpr int kRoomGroupKind = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
 static VtableSlot kLobbyListVtable_slots[] = {&OnlinePlay::LobbyNode::DestroyOther};
@@ -84,7 +84,7 @@ RoomManager* TheLobby() { return static_cast<RoomManager*>(TheManager()->m_lobby
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
-MemSys::ListNode* FirstNode(MemSys::ListNode* head)
+MemSys::ListNode* HeadOfSceneList(MemSys::ListNode* head)
 {
     MemSys::ListNode* node = head->next;
     return node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
@@ -103,7 +103,7 @@ T* DataOf(MemSys::ListNode* node)
 // The listed player named `nick` (case ignored), or null.
 LobbyPlayer* FindPlayer(RoomManager* lobby, const char* nick)
 {
-    for (MemSys::ListNode* node = FirstNode(&lobby->m_participants); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&lobby->m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
@@ -143,7 +143,7 @@ LobbyPlayer* EnrollPlayer(RoomManager* lobby, void* peer, const char* nick, bool
 // Every node of `head`'s list deleted through its vtable.
 void DeleteAll(MemSys::ListNode* head)
 {
-    MemSys::ListNode* node = FirstNode(head);
+    MemSys::ListNode* node = HeadOfSceneList(head);
     auto* item = DataOf<MemSys::ListNode>(node);
     while (item) {
         node = node ? NextNode(node) : nullptr;
@@ -185,10 +185,10 @@ void ConsoleMessage(const char* nick, uint32_t textName, bool byName)
     DeleteParams(params);
 }
 
-// A TaskList::Task<RoomManager> running `code` (priority 0; null if out of memory).
-TaskList::SchedulerTask* NewTask(RoomManager* lobby, uint32_t code)
+// A Scheduling::Task<RoomManager> running `code` (priority 0; null if out of memory).
+Scheduling::SchedulerTask* NewTask(RoomManager* lobby, uint32_t code)
 {
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (!task)
         return nullptr;
     task->MakeNew(0);
@@ -317,7 +317,7 @@ void RoomManager::PopulateRoomList()
     Run(kDialogBoxExit);
     Run(kCreateLobbyListMenu);
     int index = 0;
-    for (MemSys::ListNode* node = FirstNode(&m_rooms); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&m_rooms); node; node = NextNode(node)) {
         auto* lobby = static_cast<LobbyRoom*>(node->data);
         if (!lobby)
             break;
@@ -329,7 +329,7 @@ void RoomManager::PopulateRoomList()
 // 0x00542970
 LobbyRoom* RoomManager::GetLobby(int index)
 {
-    for (MemSys::ListNode* node = FirstNode(&m_rooms); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&m_rooms); node; node = NextNode(node)) {
         auto* lobby = static_cast<LobbyRoom*>(node->data);
         if (!lobby)
             return nullptr;
@@ -351,7 +351,7 @@ void RoomManager::ClearPlayers()
 void RoomManager::FillPlayerList()
 {
     Run(kDestroyUserChildren);
-    for (MemSys::ListNode* node = FirstNode(&m_participants); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
@@ -366,7 +366,7 @@ void RoomManager::FillProspectiveBuddyList()
 {
     Hub* manager = TheManager();
     Run(kDestroyBuddyChildren);
-    for (MemSys::ListNode* node = FirstNode(&m_participants); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
@@ -383,7 +383,7 @@ void RoomManager::RequestPlayerList()
     RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     ClearPlayers();
     Run(kDestroyUserChildren);
-    GameSpy::PeerEnumPlayers(m_remote, kGroupRoom, &EnumPlayersCallback, this); // (the room's players)
+    GameSpy::PeerEnumPlayers(m_remote, kRoomGroupKind, &EnumPlayersCallback, this); // (the room's players)
     RamStats()->LeaveHeapScope();
 }
 
@@ -471,7 +471,7 @@ void __cdecl RoomManager::RoomKeysCallback(void* peer, int success, int roomType
     (void)roomType;
     if (count <= 0 || !keys[0] || _stricmp(keys[0], "b_rating") != 0)
         return;
-    for (MemSys::ListNode* node = FirstNode(&lobby->m_participants); node; node = NextNode(node)) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&lobby->m_participants); node; node = NextNode(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
@@ -532,7 +532,7 @@ bool __cdecl CFunc_NumPlayersInLobby(Scripts::CStruct* params, Scripts::CScript*
 {
     (void)params;
     int count = 0;
-    for (MemSys::ListNode* node = FirstNode(&TheLobby()->m_participants); node; node = NextNode(node))
+    for (MemSys::ListNode* node = HeadOfSceneList(&TheLobby()->m_participants); node; node = NextNode(node))
         ++count;
     script->m_args->PutInt(kNumPlayers, count);
     return true;
@@ -553,8 +553,8 @@ bool __cdecl CFunc_LobbyDisconnect(Scripts::CStruct* params, Scripts::CScript* s
     }
     static_cast<RoomManager*>(manager->m_lobbyService)->ClearLobbies();
     static_cast<RoomManager*>(manager->m_lobbyService)->ClearPlayers();
-    static_cast<TaskList::SchedulerTask*>(static_cast<RoomManager*>(manager->m_lobbyService)->m_thinkTask)->DropOut();
-    static_cast<TaskList::SchedulerTask*>(static_cast<RoomManager*>(manager->m_lobbyService)->m_natTask)->DropOut();
+    static_cast<Scheduling::SchedulerTask*>(static_cast<RoomManager*>(manager->m_lobbyService)->m_thinkTask)->DropOut();
+    static_cast<Scheduling::SchedulerTask*>(static_cast<RoomManager*>(manager->m_lobbyService)->m_natTask)->DropOut();
     lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     lobby->m_inGroupRoom = false;
     lobby->m_dropIsExpected = true;
@@ -637,7 +637,7 @@ bool __cdecl CFunc_LobbyConnect(Scripts::CStruct* params, Scripts::CScript* scri
     (void)params;
     (void)script;
     Hub* manager = TheManager();
-    auto* logic = reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); // (the logic tasks)
+    auto* logic = reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); // (the logic tasks)
     DWORD threadId = 0;
     BOOL pingRooms[3] = {FALSE, TRUE, FALSE};
     BOOL crossPingRooms[3] = {FALSE, FALSE, FALSE};
@@ -652,7 +652,7 @@ bool __cdecl CFunc_LobbyConnect(Scripts::CStruct* params, Scripts::CScript* scri
                                  manager->m_lobbyService, CREATE_SUSPENDED, &threadId);
     manager->SetRoomId(threadId);
     ResumeThread(thread);
-    logic->QueueJob(static_cast<TaskList::SchedulerTask*>(static_cast<RoomManager*>(manager->m_lobbyService)->m_thinkTask));
+    logic->QueueJob(static_cast<Scheduling::SchedulerTask*>(static_cast<RoomManager*>(manager->m_lobbyService)->m_thinkTask));
     RamStats()->LeaveHeapScope();
     return true;
 }

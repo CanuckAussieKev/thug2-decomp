@@ -72,9 +72,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* made = Scripts::NewArray();
+    Scripts::CArray* made = Scripts::AllocScriptArray();
     return made ? made->PrepareAll() : nullptr;
 }
 void FreeArray(Scripts::CArray* array)
@@ -250,7 +250,7 @@ void CGoalManager::GetViewGoalsInfo(Scripts::CStruct* out, uint32_t skater)
         int number;
         goals->FetchIntValue(kNumGoals, &number, 1);
         goals->EraseModule(kNumGoals);
-        Scripts::CArray* list = NewArray();
+        Scripts::CArray* list = AllocScriptArray();
         list->ConfigureSizeKind(static_cast<uint32_t>(number), Scripts::QBVAL_STRUCT);
         uint32_t index = 0;
         for (Scripts::CComponent* element = goals->StepToEntry(nullptr); element;) {
@@ -341,7 +341,7 @@ bool __cdecl CFunc_GoalManager_AddGoalChoices(Scripts::CStruct* params, Scripts:
 bool __cdecl CFunc_GoalManager_GetGoalList(Scripts::CStruct*, Scripts::CScript* script)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    Scripts::CArray* list = NewArray();
+    Scripts::CArray* list = AllocScriptArray();
     list->ConfigureSizeKind(static_cast<uint32_t>(manager->m_goals.m_num), Scripts::QBVAL_STRUCT);
     for (int i = 0; i < manager->m_goals.m_num; ++i) {
         CObjective* goal = manager->m_goals.GetByIndex(i);

@@ -71,7 +71,7 @@ constexpr uint32_t kJoinSettleTime = 1000;  // ms
 constexpr uint32_t kJustJoinedTime = 5000;  // ms
 
 Hub* TheManager() { return g_onlineHub; }
-PlayerRecord* Local(Hub* manager) { return reinterpret_cast<PlayerRecord*>(LocalPlayer(manager)); }
+PlayerRecord* Local(Hub* manager) { return reinterpret_cast<PlayerRecord*>(FindOwnPlayerRecord(manager)); }
 uint32_t FlagOf(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
 // "team_<team + 1>_name" (the original's sprintf).

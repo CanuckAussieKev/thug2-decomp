@@ -96,11 +96,11 @@ const EventButton kEventButtons[] = {
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The input manager (0x00696D40): its controller servers (0x84 bytes each from +4: the device, then the handler list
-// - a TaskList::PileUp - at +4, the data at +0x40), and a player's controller (0x0044E630).
+// - a Scheduling::PileUp - at +4, the data at +0x40), and a player's controller (0x0044E630).
 uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); }
-TaskList::PileUp* ServerHandlers(uint8_t* manager, int server)
+Scheduling::PileUp* ServerHandlers(uint8_t* manager, int server)
 {
-    return reinterpret_cast<TaskList::PileUp*>(manager + server * 0x84 + 8);
+    return reinterpret_cast<Scheduling::PileUp*>(manager + server * 0x84 + 8);
 }
 void PlaceHandler(CPadInputModule::Responder* handler, uint8_t* manager, int server)
 {

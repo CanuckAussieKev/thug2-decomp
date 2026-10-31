@@ -346,7 +346,7 @@ void SectorFaces(uint32_t checksum, std::vector<Face>* out)
     const auto* tri = *reinterpret_cast<const Engine3D::CTriMeshSource* const*>(coll + 0x0C);
     if (!tri || !tri->m_faces || !tri->m_vertices)
         return;
-    for (int f = 0; f < tri->m_numFaces && out->size() < 20000; ++f) {
+    for (int f = 0; f < tri->m_triCount && out->size() < 20000; ++f) {
         V3 p[3];
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {

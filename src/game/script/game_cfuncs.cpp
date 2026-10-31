@@ -322,7 +322,7 @@ bool __cdecl CFunc_GetAnalogueInfo(Scripts::CStruct* params, Scripts::CScript* s
     int controller = 0;
     params->FetchIntValue(kController, &controller, 0);
     GameModules::FrontEndInputHandler* handler = frontEnd->m_padListeners[controller];
-    GameObjects::CPadState pad;
+    GameObjects::CPadSnapshot pad;
     pad.PrepareAll();
     pad.TickFrame(reinterpret_cast<const uint8_t*>(handler->m_controlData));
     auto* device = reinterpret_cast<Sio::InputPort*>(handler->m_dev);
@@ -538,7 +538,7 @@ bool __cdecl CFunc_Debounce(Scripts::CStruct* params, Scripts::CScript*)
     float until = static_cast<float>(static_cast<double>(FrameClock::GetTime()) +
                                      static_cast<double>(time) * static_cast<double>(Gfx2D::g_thousand));
     for (GameObjects::CObjectModule* trick = objects->FindFirstModuleOfKind(0x270F56E1); trick; trick = trick->m_nextOfType)
-        static_cast<GameObjects::CMoveExecutor*>(trick)->HoldOffButton(PadInput::ButtonIndex(button), until);
+        static_cast<GameObjects::CMoveExecutor*>(trick)->HoldOffButton(PadInput::GlyphForButtonTag(button), until);
     return true;
 }
 
@@ -559,7 +559,7 @@ bool __cdecl CFunc_StopKeyboardHandler(Scripts::CStruct*, Scripts::CScript*)
     return true;
 }
 
-// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (TaskList::Task, SecondPadWatchTick,
+// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (Scheduling::Task, SecondPadWatchTick,
 // priority 0) made and added to the main loop's logic tasks. (The original gives the task a pointer to one of its
 // own locals as its data - the task never reads it; null here.)
 bool __cdecl CFunc_SpawnSecondControllerCheck(Scripts::CStruct*, Scripts::CScript*)
@@ -569,13 +569,13 @@ bool __cdecl CFunc_SpawnSecondControllerCheck(Scripts::CStruct*, Scripts::CScrip
         return true;
     auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(0);
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // TaskList::Task vtable
+        reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(0);
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // Scheduling::Task vtable
         task[0x18 / 4] = reinterpret_cast<uint32_t>(&SecondPadWatchTick);
         task[0x1C / 4] = 0;
     }
     SecondControllerCheck() = task;
-    mainLoop->m_logicTasks.QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(task));
+    mainLoop->m_logicTasks.QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(task));
     return true;
 }
 

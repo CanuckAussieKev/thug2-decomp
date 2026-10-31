@@ -64,7 +64,7 @@ public:
     // 0x0045F5D0: COMPOSITE_FLAG_PAUSED set (or cleared) on every object it has now - the same walk.
     void Freeze(bool pause);
 
-    void* m_updateJob;        // +0x40 a TaskList::Task (vtable 0x006476F0) running UpdateTask
+    void* m_updateJob;        // +0x40 a Scheduling::Task (vtable 0x006476F0) running UpdateTask
     uint32_t m_componentTypes; // +0x44
     struct ComponentType {
         uint32_t type;

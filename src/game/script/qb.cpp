@@ -452,9 +452,9 @@ POOL_CREATOR(CreateStoredRandomPool, g_storedRandomPools, 0x60)
 namespace Scripts {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-CScriptStore* ScriptCache() { return g_scriptCache; }
+CScriptStore* ScriptStoreInstance() { return g_scriptStore; }
 
-void RemoveFromScriptCache(uint32_t name) { ScriptCache()->MarkStale(name); }
+void RemoveFromScriptCache(uint32_t name) { ScriptStoreInstance()->MarkStale(name); }
 
 namespace {
 
@@ -473,7 +473,7 @@ void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
     pending.symbol = symbol;
     pending.owned = owned;
     ++PendingSymbolCount();
-    if (symbol->type == QBVAL_SCRIPT_BODY && ScriptCache())
+    if (symbol->type == QBVAL_SCRIPT_BODY && ScriptStoreInstance())
         RemoveFromScriptCache(symbol->name);
 }
 
@@ -558,7 +558,7 @@ void ProcessPendingSymbols()
             LinkSymbol(pending.symbol);
         }
         // (reads the symbol even when it has just been freed, as the original does)
-        if (pending.symbol->type == QBVAL_SCRIPT_BODY && ScriptCache())
+        if (pending.symbol->type == QBVAL_SCRIPT_BODY && ScriptStoreInstance())
             RemoveFromScriptCache(pending.symbol->name);
     }
     PendingSymbolCount() = 0;

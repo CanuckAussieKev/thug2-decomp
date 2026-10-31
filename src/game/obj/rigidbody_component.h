@@ -229,7 +229,7 @@ public:
     Spring* m_springs;                    // +0x98 (springs=)
     uint16_t m_springCount;                // +0x9C
     uint16_t pad9E;
-    Maths::Vec4 m_centerOfMass;            // +0xA0 center_of_mass
+    Maths::Vec4 m_balancePoint;            // +0xA0 center_of_mass
     Maths::Vec4 m_modelOffset;             // +0xB0 the model's offset from the centre of mass
     float m_pushCooldownTime;              // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
     uint32_t m_collideScript;              // +0xC4 CollideScript
@@ -264,7 +264,7 @@ static_assert(offsetof(CBodyDynamicsModule, m_steadyAccel) == 0x1C && offsetof(C
                   offsetof(CBodyDynamicsModule, m_capsule) == 0x64 &&
                   offsetof(CBodyDynamicsModule, m_steerFriction) == 0x88 &&
                   offsetof(CBodyDynamicsModule, m_contactCount) == 0x8C &&
-                  offsetof(CBodyDynamicsModule, m_centerOfMass) == 0xA0 &&
+                  offsetof(CBodyDynamicsModule, m_balancePoint) == 0xA0 &&
                   offsetof(CBodyDynamicsModule, m_callbackParamsPtr) == 0xD4 &&
                   offsetof(CBodyDynamicsModule, m_flagBits) == 0xF4 && offsetof(CBodyDynamicsModule, m_curPhase) == 0x10C &&
                   offsetof(CBodyDynamicsModule, m_atPoint) == 0x110 && offsetof(CBodyDynamicsModule, m_basisFrame) == 0x150 &&

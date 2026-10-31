@@ -281,7 +281,7 @@ void materialRef::UpdateColorAnims()
         const sColorKey* keys = anim.keys;
         int first = keys[0].time;
         int period = keys[anim.keyCount - 1].time - first;
-        int t = period ? (anim.phase + g_frameTime) % period + first : 1;
+        int t = period ? (anim.phase + g_stepSeconds) % period + first : 1;
         int key = static_cast<int>(anim.keyCount) - 1;
         while (key >= 0 && t < keys[key].time)
             --key;

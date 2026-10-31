@@ -44,13 +44,13 @@ bool HostEnd::PrepareAll()
 {
     Timestamp(this) = 0;
     m_linkedUp = false;
-    m_maxConnections = 0;
+    m_peerCap = 0;
     if (!AppHost::PrepareAll())
         return false;
     Router* dispatcher = GetDispatcher(this);
-    dispatcher->AppendListener(kMsgConnectionRequest, OnLinkAskMsg, 3, nullptr, kHighestPriority);
+    dispatcher->AppendListener(kMsgConnectionRequest, OnLinkAskMsg, 3, nullptr, kTopRank);
     dispatcher->AppendListener(kMsgClockStamp, OnClockSyncMsg, 3, nullptr, 0x80);
-    dispatcher->AppendListener(kMsgDisconnRequest, OnLinkDropAskMsg, 2, nullptr, kHighestPriority);
+    dispatcher->AppendListener(kMsgDisconnRequest, OnLinkDropAskMsg, 2, nullptr, kTopRank);
     return true;
 }
 
@@ -115,11 +115,11 @@ void HostEnd::Transmit(Conn* conn)
         if (IsOffMachine(conn) && !IsOutsider(conn) && (m_flagBits & kAppMeasureLatency)) {
             NetMessageInfo desc;
             ConstructMsgDesc(&desc);
-            uint32_t& sent = conn->m_pingProbe.m_sendTime;
+            uint32_t& sent = conn->m_pingProbe.m_probeSentAt;
             uint32_t now = Timestamp(this);
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
-                if (sent > conn->m_pingProbe.m_receiveTime) {
+                if (sent > conn->m_pingProbe.m_echoSeenAt) {
                     uint32_t latency = (NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_pingProbe.m_averageLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
@@ -137,7 +137,7 @@ void HostEnd::Transmit(Conn* conn)
         timestampDesc.m_content = &timestamp;
         timestampDesc.m_byteCount = sizeof(timestamp);
         timestampDesc.m_ident = kMsgClockStamp;
-        timestampDesc.m_rank = kHighestPriority;
+        timestampDesc.m_rank = kTopRank;
         NetLink::PutOnOutbox(this, conn->m_hdl, &timestampDesc);
 
         int pendingBefore = GetNumPendingMessages(conn);
@@ -161,19 +161,19 @@ void HostEnd::Transmit(Conn* conn)
         }
 
         char*& writePtr = conn->m_writePtr;
-        int size = static_cast<int>(writePtr - conn->m_writeBuffer);
+        int size = static_cast<int>(writePtr - conn->m_outgoingBytes);
         if (size > 0 && IsOffMachine(conn)) {
             if (!NetLink::TransmitTo(this, conn->m_remoteIp, conn->m_portNo,
-                        conn->m_writeBuffer, size, 0)) {
+                        conn->m_outgoingBytes, size, 0)) {
                 MarkMessagesForRetry(conn, conn->m_timestampOut);
-                writePtr = conn->m_writeBuffer;
+                writePtr = conn->m_outgoingBytes;
                 break;
             }
             m_outboundByteTotal += size;
             AddPacketMetric(&conn->m_sendMetrics, size + 0x1C, Timestamp(this));
             ForceSendNow(conn, false);
-            conn->m_lastSendTime = Timestamp(this);
-            writePtr = conn->m_writeBuffer;
+            conn->m_lastTransmitAt = Timestamp(this);
+            writePtr = conn->m_outgoingBytes;
         }
         ++conn->m_timestampOut;
     } while (!done);
@@ -198,7 +198,7 @@ int HostEnd::OnLinkAskMsg(InboundMsgCtx* context)
     if (!NetLink::IsHostLocal(context->m_senderConn))
         return kResultConsumed;
     desc.m_ident = kMsgConnectionAccepted;
-    desc.m_rank = kHighestPriority;
+    desc.m_rank = kTopRank;
     desc.m_queue = kLanePriority;
     NetLink::PutOnOutbox(context->m_receiverApp, context->m_senderConn->m_hdl, &desc);
     return kResultPassOn;

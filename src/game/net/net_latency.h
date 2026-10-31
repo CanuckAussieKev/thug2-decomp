@@ -19,11 +19,11 @@ struct PingProbe {
     int m_averageLatency;   // +0x00
     int m_times[kNumTimes]; // +0x04 (0 = none)
     uint32_t m_succ;        // +0x2C where the next measurement goes
-    uint32_t m_sendTime;    // +0x30 (set by the ping handlers, wt/netC)
-    uint32_t m_receiveTime; // +0x34
+    uint32_t m_probeSentAt;    // +0x30 (set by the ping handlers, wt/netC)
+    uint32_t m_echoSeenAt; // +0x34
 };
 static_assert(offsetof(PingProbe, m_times) == 0x04 && offsetof(PingProbe, m_succ) == 0x2C &&
-                  offsetof(PingProbe, m_receiveTime) == 0x34 && sizeof(PingProbe) == 0x38,
+                  offsetof(PingProbe, m_echoSeenAt) == 0x34 && sizeof(PingProbe) == 0x38,
               "layout must match the original");
 
 } // namespace Net

@@ -121,7 +121,7 @@ void CMotionPathMembers::UpdatePathSpeed()
     if (m_pathFlags & MOTION_PATH_STOPPING) {
         if (m_stopCovered >= m_stopDistance)
             return; // (NaN goes on)
-        float covered = static_cast<float>(static_cast<double>(m_frameTime) * m_velocity + m_stopCovered);
+        float covered = static_cast<float>(static_cast<double>(m_stepSeconds) * m_velocity + m_stopCovered);
         m_stopCovered = covered;
         if (m_stopDistance == 0.0f || covered >= m_stopDistance) {
             m_velocity = 0.0f;
@@ -137,7 +137,7 @@ void CMotionPathMembers::UpdatePathSpeed()
             m_velocity = m_pathVelocity;
             return;
         }
-        double velocity = static_cast<double>(m_frameTime) * m_acceleration + m_velocity;
+        double velocity = static_cast<double>(m_stepSeconds) * m_acceleration + m_velocity;
         m_velocity = static_cast<float>(velocity);
         if (velocity > m_pathVelocity)
             m_velocity = m_pathVelocity;
@@ -150,7 +150,7 @@ void CMotionPathMembers::UpdatePathSpeed()
         m_velocity = m_pathVelocity;
         return;
     }
-    double velocity = m_velocity - static_cast<double>(m_frameTime) * m_slowdownRate;
+    double velocity = m_velocity - static_cast<double>(m_stepSeconds) * m_slowdownRate;
     m_velocity = static_cast<float>(velocity);
     if (velocity < m_pathVelocity)
         m_velocity = m_pathVelocity;

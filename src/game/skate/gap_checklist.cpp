@@ -352,7 +352,7 @@ bool CGapTally::CreateGapList(Scripts::CStruct* /*params*/, Scripts::CScript* sc
         script->m_args->PutInt(kGapsFoundCount, count);
         return false;
     }
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* list = memory ? memory->PrepareAll() : nullptr;
     list->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     int got = 0;

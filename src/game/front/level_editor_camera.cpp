@@ -492,7 +492,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
     // The numpad: 7 top, 1 front, 3 right (Ctrl: the opposite), 5 perspective / ortho.
     static const int kPad[4][2] = {{Actions::kViewTop, Actions::kViewBottom},
                                    {Actions::kCamFrontView, Actions::kViewBack},
-                                   {Actions::kViewRight, Actions::kViewLeft},
+                                   {Actions::kPanRightAction, Actions::kPanLeftAction},
                                    {Actions::kViewOrtho, Actions::kViewOrtho}};
     for (int i = 0; i < 4; ++i) {
         bool opposite = Actions::Squeezed(kPad[i][1]) && i != 3;

@@ -111,9 +111,9 @@ constexpr uint32_t kHideCtfArrow = 0x1C318F8C;          // hide_ctf_arrow
 // (The joining player's record: OnlinePlay::JoinerRecord, player_info.h.)
 constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
 
-TaskList::PileUp* LogicTasks()
+Scheduling::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
+    return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
 }
 
 // The skater camera's / walk camera's calls not rewritten as members here.
@@ -144,7 +144,7 @@ void Hub::SpectatePlayer(uint8_t* player)
         return;
     }
     auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(PlayerSkater(player));
-    if (player != LocalPlayer(g_onlineHub)) {
+    if (player != FindOwnPlayerRecord(g_onlineHub)) {
         // Someone else's skater: the skater camera onto it.
         SetCameraSkater(skaterCamera, skater);
         SetWalkCameraSkater(walkCamera, nullptr);
@@ -176,7 +176,7 @@ void Hub::SendObserveRequest()
 {
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
-    if (IsObserver(LocalPlayer(this))) // (no local player: the original reads through null too)
+    if (IsObserver(FindOwnPlayerRecord(this))) // (no local player: the original reads through null too)
         return;
     desc.m_ident = kMsgObserveRequest;
     desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
@@ -264,14 +264,14 @@ uint8_t* Hub::NewPlayer(GameObjects::CEntity* skater, NetLink::Conn* conn, uint3
     if (IsOwnPlayer(player)) {
         if (IsObserver(player)) {
             uint8_t* input = reinterpret_cast<uint8_t*>(PadInput::g_inputManager);
-            TaskList::PileUp* tasks = LogicTasks();
+            Scheduling::PileUp* tasks = LogicTasks();
             Run(kHidePanelStuff);
             SpectatePlayer(static_cast<uint8_t*>(NextCamPlayer())); // the first player to watch
             AddObserverControls(this, player, tasks, input);
         } else {
             m_viewedPlayer = nullptr;
         }
-    } else if (IsObserver(LocalPlayer(this)) && !m_viewedPlayer) { // (no local player: read through null)
+    } else if (IsObserver(FindOwnPlayerRecord(this)) && !m_viewedPlayer) { // (no local player: read through null)
         SpectatePlayer(player);
     }
     MemSys::Hub::Pull()->LeaveHeapScope();
@@ -288,7 +288,7 @@ void Hub::RemovePlayerRecord(uint8_t* player)
         m_viewedPlayer = NextCamPlayer();
         if (player == m_viewedPlayer)
             m_viewedPlayer = nullptr;
-        uint8_t* local = LocalPlayer(this);
+        uint8_t* local = FindOwnPlayerRecord(this);
         SpectatePlayer(local && PlayerSkater(local) ? local : static_cast<uint8_t*>(m_viewedPlayer));
     }
     if (AsPlayer(player)->HoldsCrown() && Prop<void*>(this, 0x6C)) // it had the crown: taken off
@@ -499,7 +499,7 @@ void Hub::FlagReturned(uint8_t* player)
     params->AppendWord(kString0, Scripts::QBVAL_STRING, Scripts::FetchText(key));
     Run(kFlagReturned, params);
     DeleteParams(params);
-    uint8_t* local = LocalPlayer(this);
+    uint8_t* local = FindOwnPlayerRecord(this);
     if (local && !IsObserver(local) && PlayerTeam(local) == team)
         Run(kHideCtfArrow);
     AsPlayer(player)->ClearFlags(); // carries no flag
@@ -509,9 +509,9 @@ void Hub::FlagReturned(uint8_t* player)
 void Hub::EnterObserveMode()
 {
     uint8_t* skate = Skate();
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     uint8_t* input = reinterpret_cast<uint8_t*>(PadInput::g_inputManager);
-    uint8_t* local = LocalPlayer(this);
+    uint8_t* local = FindOwnPlayerRecord(this);
     if (IsObserver(local))
         return;
     if (OnServer())
@@ -554,7 +554,7 @@ void Hub::SetHostMode(int mode)
     if (mode == kHostModeAutoServe) {
         SendObserveRequest();
         g_autoServeStart = FrameClock::GetTime(); // (the auto-serve task waits 2 s from here)
-        LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(this, 0xF4));
+        LogicTasks()->QueueJob(Prop<Scheduling::SchedulerTask*>(this, 0xF4));
     } else if (mode == kHostModeFcfs) {
         SendObserveRequest();
         AssignFirstComeFirstServed();

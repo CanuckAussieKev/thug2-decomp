@@ -104,9 +104,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* made = Scripts::NewArray();
+    Scripts::CArray* made = Scripts::AllocScriptArray();
     return made ? made->PrepareAll() : nullptr;
 }
 void FreeArray(Scripts::CArray* array)
@@ -121,7 +121,7 @@ void FreeArray(Scripts::CArray* array)
 // The numbers 1..count shuffled (each slot swapped with a random one).
 Scripts::CArray* ShuffledNumbers(int count)
 {
-    Scripts::CArray* numbers = NewArray();
+    Scripts::CArray* numbers = AllocScriptArray();
     numbers->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_INTEGER);
     for (int i = 0; i < count; ++i)
         numbers->SetElement(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));

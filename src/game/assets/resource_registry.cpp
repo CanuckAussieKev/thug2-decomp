@@ -157,7 +157,7 @@ CResourceRegistry* CResourceRegistry::MakeNew()
     m_pending = nullptr;
     m_readyFlag = nullptr;
     m_unknown15 = false;
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(0);
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
@@ -183,7 +183,7 @@ void CResourceRegistry::Destruct()
         MemSys::Hub::Pull()->Dealloc(table);
     }
     if (m_task)
-        reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, int)>(m_task->m_vtable[2])(m_task, 1);
+        reinterpret_cast<void(__thiscall*)(Scheduling::SchedulerTask*, int)>(m_task->m_vtable[2])(m_task, 1);
     GameModules::PartUnit::DestroyBody();
 }
 
@@ -199,7 +199,7 @@ CResourceRegistry* CResourceRegistry::ScalarDelete(uint8_t flags)
 // 0x00407E90
 void CResourceRegistry::StartCallback()
 {
-    reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(g_mainLoopManager) + 0x04)->QueueJob(m_task); // the logic tasks
+    reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(g_mainLoopManager) + 0x04)->QueueJob(m_task); // the logic tasks
 }
 
 // 0x00407AE0
@@ -462,7 +462,7 @@ void CResourceRegistry::ProcessPendingAssets()
 }
 
 // 0x00407EB0
-void __cdecl CResourceRegistry::ProcessTask(TaskList::SchedulerTask* task)
+void __cdecl CResourceRegistry::ProcessTask(Scheduling::SchedulerTask* task)
 {
     reinterpret_cast<CResourceRegistry**>(task)[7]->ProcessPendingAssets();
 }

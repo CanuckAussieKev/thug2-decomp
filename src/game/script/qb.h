@@ -67,7 +67,7 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count);
 
 // The script cache (null when there isn't one), and telling it a script has changed (call only with a cache).
 struct CScriptStore;
-CScriptStore* ScriptCache();
+CScriptStore* ScriptStoreInstance();
 void RemoveFromScriptCache(uint32_t name);
 
 // Symbol bookkeeping while loading .qb files.

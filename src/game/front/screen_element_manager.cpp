@@ -46,7 +46,7 @@ using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kTagLocalId = 0x9494A525, kChild = 0xDD4CABD6, kUnHide = 0xB60D1F35, kHide = 0x5B6634D4;
-constexpr uint32_t kDeviceNum = 0xC9428A08, kTheScore = 0x675ADBAA;
+constexpr uint32_t kDeviceNum = 0xC9428A08, kScoreElementHash = 0x675ADBAA;
 // Events.
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3;
 constexpr uint32_t kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
@@ -721,7 +721,7 @@ void DeleteScreenElementManager()
 void SetScoreText(const char* text, int player)
 {
     ElementPtr element;
-    CUiTree::Sole()->FetchPart(&element, kTheScore + player, 0);
+    CUiTree::Sole()->FetchPart(&element, kScoreElementHash + player, 0);
     if (element)
         static_cast<CLabelWidget*>(element.m_ownerObject)->ChangeCaption(text);
 }

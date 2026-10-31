@@ -12,7 +12,7 @@
 // (from the registry), and the keyboard's key names. PartyMod's SDL input (game/pad_input/sdl_input.h) replaces most of
 // it in the game: InitInput no longer makes the DirectInput devices, so the reads find none.
 namespace Sio {
-struct PadState;
+struct PadSnapshot;
 } // namespace Sio
 
 namespace OsLayer {
@@ -89,7 +89,7 @@ wchar_t* SetKeyName(int code, const wchar_t* name);
 void InitKeyNames();
 
 // --- the pad read (0x005F4280-0x005F4450, 0x005F5BC0-0x005F6630) ---
-// A port's controls map onto the PS2-style pad state (Sio::PadState): actions 0-7 the two sticks (left stick
+// A port's controls map onto the PS2-style pad state (Sio::PadSnapshot): actions 0-7 the two sticks (left stick
 // up, down, left, right; right stick up, down, left, right), 8-11 and 14-17 the pressure buttons, 12 / 13 / 18 / 19
 // the buttons 0x10 / 0x20 / 0x40 / 0x80, 20-23 the d-pad's 1 / 2 / 4 / 8. A control is a key (DIK code), a mouse
 // control (1-3 the axes X, Y, Z; 4-11 the buttons) or a joystick control (JoystickAxis's 1-10; 11-39 the buttons).
@@ -110,7 +110,7 @@ enum PadMode { kPadKeyBindings = 0, kPadDefaultKeysPort0 = 1, kPadNoKeys = 2, kP
 
 // 0x005F5BC0 (cdecl): the pad state for `port` (1 or 2) from the keyboard, the joystick and the mouse (each read
 // for this frame first): nothing held for a port without a joystick, keys or mouse controls. Returns 0.
-int ReadPad(int port, Sio::PadState* state);
+int ReadPad(int port, Sio::PadSnapshot* state);
 // 0x005F6610 / 0x005F6620 / 0x005F6630 (cdecl): the pad mode; what Enter and Escape are in the default keys (a
 // pressure button 0-7, or the button 0x10 / 0x20).
 void SetPadMode(int mode);

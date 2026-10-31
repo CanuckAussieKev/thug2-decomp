@@ -44,7 +44,7 @@ void CBuildPointer::SetGapLabelAndPoints(const char* name, int score)
     }
     if (score >= 0)
         m_gap.m_pointsHeld = score;
-    StoreGapDetails(m_gap.m_tabIndex, &m_gap);
+    StoreGapDetails(m_gap.m_slotIndex, &m_gap);
 }
 
 void CBuildPointer::SetGapVoidMask(Scripts::CStruct* flags)
@@ -56,7 +56,7 @@ void CBuildPointer::SetGapVoidMask(Scripts::CStruct* flags)
          component = flags->StepToEntry(component))
         cancel |= static_cast<uint32_t>(Scripts::FetchIntValue(component->checksum));
     m_gap.m_cancelFlags = cancel;
-    StoreGapDetails(m_gap.m_tabIndex, &m_gap);
+    StoreGapDetails(m_gap.m_slotIndex, &m_gap);
 }
 
 void CBuildPointer::ShowClipboard()

@@ -103,8 +103,8 @@ constexpr char kKeyDown = 0x17;
 // The held buttons that are directions.
 constexpr uint32_t kButtonLeft = 0x8000;
 constexpr uint32_t kButtonRight = 0x2000;
-constexpr uint32_t kButtonUp = 0x1000;
-constexpr uint32_t kButtonDown = 0x4000;
+constexpr uint32_t kReleaseEdge = 0x1000;
+constexpr uint32_t kPressEdge = 0x4000;
 
 // The CRT's _ftol: truncation, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -120,9 +120,9 @@ bool ObjectExists(Scripts::CStruct* params) // the script command ObjectExists
 // The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
 void ConstructModule(void* module) { static_cast<PartUnit*>(module)->MakeNew(); }
 void DestroyModule(void* module) { static_cast<PartUnit*>(module)->DestroyBody(); }
-void ConstructNode(void* node, int priority) { static_cast<TaskList::SchedulerTask*>(node)->MakeNew(priority); }
-void AppendVertex(void* list, void* node) { static_cast<TaskList::PileUp*>(list)->QueueJob(static_cast<TaskList::SchedulerTask*>(node)); }
-void RemoveNode(void* node) { static_cast<TaskList::SchedulerTask*>(node)->DropOut(); }
+void ConstructNode(void* node, int priority) { static_cast<Scheduling::SchedulerTask*>(node)->MakeNew(priority); }
+void AppendVertex(void* list, void* node) { static_cast<Scheduling::PileUp*>(list)->QueueJob(static_cast<Scheduling::SchedulerTask*>(node)); }
+void RemoveNode(void* node) { static_cast<Scheduling::SchedulerTask*>(node)->DropOut(); }
 
 // A task list node's scalar deleting destructor (vtable slot 2).
 void UnlinkListNode(void* node)
@@ -219,9 +219,9 @@ uint32_t FrontEnd::AutoRepeat(uint32_t held, int deviceIndex)
         event = kPadLeft;
     else if (held & kButtonRight)
         event = kPadRight;
-    else if (held & kButtonUp)
+    else if (held & kReleaseEdge)
         event = kPadUp;
-    else if (held & kButtonDown)
+    else if (held & kPressEdge)
         event = kPadDown;
     if (deviceIndex == 0 && event == 0 && KeyboardOnScreen()) {
         // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
@@ -667,7 +667,7 @@ FrontEnd* FrontEnd::MakeNew()
     auto* task = static_cast<FrontEndTask*>(MemSys::AllocZeroed(sizeof(FrontEndTask)));
     if (task) {
         ConstructNode(task, -2000);
-        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // TaskList::Task<FrontEnd>
+        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // Scheduling::Task<FrontEnd>
         task->m_codeValue = &FrontEndTick;
         task->m_content = this;
     }

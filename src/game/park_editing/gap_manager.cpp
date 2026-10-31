@@ -138,7 +138,7 @@ void CGapRegistry::SetTriggerLength(CParkTile* piece)
         break;
     }
     // the trigger piece's length in cells
-    piece->SetLength(static_cast<float>(static_cast<double>(length) / kCellWidth));
+    piece->SetLength(static_cast<float>(static_cast<double>(length) / kGridPitch));
 }
 
 // 0x0058CF20
@@ -179,7 +179,7 @@ void CGapRegistry::StartGap(void* piece, CPieceGroup* meta, int index)
     gap->m_ids[0] = m_nextId++;
     m_gapsPtr[index]->m_pieces[0] = static_cast<CParkTile*>(piece);
     m_gapsPtr[index]->m_metas[0] = meta;
-    m_gapsPtr[index]->m_details.m_tabIndex = index;
+    m_gapsPtr[index]->m_details.m_slotIndex = index;
     m_startedFirst[index] = true;
 }
 

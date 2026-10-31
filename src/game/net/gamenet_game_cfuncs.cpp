@@ -63,9 +63,9 @@ constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
 Hub* NetSessionSlot() { return g_onlineHub; }
-TaskList::PileUp* LogicTasks()
+Scheduling::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
+    return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
 }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
@@ -219,7 +219,7 @@ bool __cdecl CFunc_GetPlayersTeam(Scripts::CStruct* params, Scripts::CScript* sc
 bool __cdecl CFunc_ExitSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 {
     Hub* manager = NetSessionSlot();
-    uint8_t* local = LocalPlayer(manager);
+    uint8_t* local = FindOwnPlayerRecord(manager);
     if (!local)
         return false;
     if (Prop<uint32_t>(local, 0x1D0) & kPlayerSurveying) {
@@ -252,10 +252,10 @@ bool __cdecl CFunc_EnteredNetworkGame(Scripts::CStruct*, Scripts::CScript*)
     Hub* manager = NetSessionSlot();
     if (g_onlineActive) // (on the internet: the server's GameSpy reporting)
         StartQueryReporting(false);
-    TaskList::PileUp* tasks = LogicTasks();
-    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(manager, 0xD4));
+    Scheduling::PileUp* tasks = LogicTasks();
+    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(manager, 0xD4));
     g_textEntry = true;
-    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(manager, 0xC8));
+    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(manager, 0xC8));
     Prop<bool>(manager, 0x46) = true;
     return true;
 }
@@ -289,10 +289,10 @@ bool __cdecl CFunc_CancelJoinServer(Scripts::CStruct*, Scripts::CScript*)
 // 0x0053D780
 bool __cdecl CFunc_EnterSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     Hub* manager = NetSessionSlot();
     uint8_t* input = reinterpret_cast<uint8_t*>(PadInput::g_inputManager); // the input manager
-    uint8_t* local = LocalPlayer(manager);
+    uint8_t* local = FindOwnPlayerRecord(manager);
     if (IsObserver(local) || (Prop<uint32_t>(local, 0x1D0) & kPlayerSurveying))
         return false;
     MemSys::Hub* memory = MemSys::Hub::Pull();

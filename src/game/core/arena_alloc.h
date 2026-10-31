@@ -36,7 +36,7 @@ static_assert(sizeof(ChunkPrefix) == 0x10, "every block's header is 16 bytes");
 
 // Mark a block as in use (returns it).
 void* MarkBlockInUse(void* block);
-ChunkPrefix* GetBlockHeader(void* block);
+ChunkPrefix* FetchChunkPrefix(void* block);
 uint32_t GetBlockSize(void* block);
 // Give the block back to its allocator (unless it was already freed - then nothing); returns the allocator.
 MemSource* FreeBlock(void* block);

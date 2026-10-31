@@ -33,11 +33,11 @@ uint32_t& TrackerReferences() { return g_trackerReferences; }
 
 // ListKit::Foremost<CEntity>'s insert by priority (the highest first, equal ones newest first).
 void AddNodeByPriority(MemSys::ListNode* head, MemSys::ListNode* node) { reinterpret_cast<ListKit::Foremost*>(head)->AppendVertex(node); }
-// TaskList::Task's constructor and the main loop's system task list's add.
-void ConstructTask(void* task, int priority) { static_cast<TaskList::SchedulerTask*>(task)->MakeNew(priority); }
+// Scheduling::Task's constructor and the main loop's system task list's add.
+void ConstructTask(void* task, int priority) { static_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority); }
 void QueueEngineJob(void* task)
 {
-    AssetStore::g_mainLoopManager->m_systemTasks.QueueJob(static_cast<TaskList::SchedulerTask*>(task));
+    AssetStore::g_mainLoopManager->m_systemTasks.QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
 }
 
 // The node after `node`, or null at the head.

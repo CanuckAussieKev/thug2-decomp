@@ -30,7 +30,7 @@ namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 }
 namespace OnlinePlay {
@@ -89,10 +89,10 @@ public:
     // added to the main loop's) / stopped (the logic task out).
     void StartCallback();
     void StopCallback();
-    // 0x00564DB0 (TaskList::Task<Skate>'s vtable slot 0): the task's code run with the task. 0x00568C90: the logic task's
+    // 0x00564DB0 (Scheduling::Task<Skate>'s vtable slot 0): the task's code run with the task. 0x00568C90: the logic task's
     // code - RunFrameLogic, the skaters' collisions on the server, king of the hill's clock.
-    static void __fastcall RunTask(TaskList::SchedulerTask* task);
-    static void __cdecl FrontEndTick(TaskList::SchedulerTask* task);
+    static void __fastcall RunTask(Scheduling::SchedulerTask* task);
+    static void __cdecl FrontEndTick(Scheduling::SchedulerTask* task);
     // 0x00565750 / 0x00565FC0: the skater list's node's / head's scalar deleting destructors (vtables 0x0064E544 /
     // 0x0064E5D4).
     static MemSys::ListNode* __fastcall DestroySkaterNode(MemSys::ListNode* node, int, uint8_t flags);
@@ -237,8 +237,8 @@ public:
     MemSys::ListNode* SkaterNode(uint32_t index);
     GameObjects::CRider* SkaterAt(uint32_t index);
 
-    TaskList::SchedulerTask* m_updateJob;                   // +0x14 (TaskList::Task<Skate>, vtable 0x006476F0: FrontEndTick)
-    TaskList::SchedulerTask* m_serverTasks[2];              // +0x18 (SkateNet::CreateNetworkTasks)
+    Scheduling::SchedulerTask* m_updateJob;                   // +0x14 (Scheduling::Task<Skate>, vtable 0x006476F0: FrontEndTick)
+    Scheduling::SchedulerTask* m_serverTasks[2];              // +0x18 (SkateNet::CreateNetworkTasks)
     GameObjects::CRiderStoryProgress* m_career;                 // +0x20
     GameObjects::CGrindRailHub* m_railManager;             // +0x24
     ListKit::Foremost m_riders;                          // +0x28 (their nodes' data the skaters, in object id order)
@@ -262,7 +262,7 @@ public:
     GameObjects::CVideoHub* m_movies;                 // +0x368
     GameObjects::CVideoHub* m_objectMovies;           // +0x36C
     int m_unknown370;                             // +0x370
-    uint32_t m_requestedLevel;                    // +0x374
+    uint32_t m_pendingLevel;                    // +0x374
     uint32_t m_level;                             // +0x378
     uint32_t m_previousLevel;                     // +0x37C
     uint32_t m_unknown380;                        // +0x380
@@ -277,13 +277,13 @@ public:
     Scripts::CScript* m_ownScript;                    // +0x3D8
     bool m_noCamera;                              // +0x3DC (PrepareEntityUpdateData: no camera to measure from)
     uint8_t pad3DD[3];
-    Maths::Vec4 m_cameraPos;                      // +0x3E0
+    Maths::Vec4 m_viewerPos;                      // +0x3E0
 };
 static_assert(offsetof(Skate, m_updateJob) == 0x14 && offsetof(Skate, m_riders) == 0x28 &&
                   offsetof(Skate, m_matchStyle) == 0x4C && offsetof(Skate, m_scoreGoals) == 0x60 &&
                   offsetof(Skate, m_competition) == 0x360 && offsetof(Skate, m_gameFlow) == 0x388 &&
                   offsetof(Skate, m_participants) == 0x390 && offsetof(Skate, m_ownScript) == 0x3D8 &&
-                  offsetof(Skate, m_cameraPos) == 0x3E0 && sizeof(Skate) == 0x3F0,
+                  offsetof(Skate, m_viewerPos) == 0x3E0 && sizeof(Skate) == 0x3F0,
               "layout must match the original");
 
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).

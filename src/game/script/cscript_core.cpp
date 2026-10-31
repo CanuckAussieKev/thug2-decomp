@@ -67,7 +67,7 @@ CScript* CScript::MakeNew()
     ++NextScriptUniqueId();
     m_listLink = 0;
     m_signalRoutes = nullptr;
-    m_returnAddresses = m_inlineReturnAddresses;
+    m_frameRecords = m_inlineReturnAddresses;
     m_onExceptionScript = 0;
     m_onExitScript = 0;
     m_loops = &m_inlineLoop;
@@ -119,7 +119,7 @@ void CScript::ResetScriptState()
         MemSys::FreeMalloc(m_codeCopy);
         m_codeCopy = nullptr;
     }
-    CScriptStore* cache = ScriptCache();
+    CScriptStore* cache = ScriptStoreInstance();
     // (released even when the code was a private copy or given to BindScript, which took no use of the cached
     // code: if that script is cached, a use someone else took is given back - an original quirk, kept)
     if (m_pc)
@@ -134,24 +134,24 @@ void CScript::ResetScriptState()
         m_stmtArgs = nullptr;
     }
     for (int i = 0; i < m_callDepth; ++i) {
-        cache->ReleaseScript(m_returnAddresses[i].m_scriptId);
-        if (CStruct* params = m_returnAddresses[i].m_argStruct) {
+        cache->ReleaseScript(m_frameRecords[i].m_scriptId);
+        if (CStruct* params = m_frameRecords[i].m_argStruct) {
             FreeStruct(params);
-            m_returnAddresses[i].m_argStruct = nullptr;
+            m_frameRecords[i].m_argStruct = nullptr;
         }
     }
     m_callDepth = 0;
-    if (m_returnAddresses != m_inlineReturnAddresses)
-        MemSys::FreeMalloc(m_returnAddresses);
-    m_returnAddresses = m_inlineReturnAddresses;
+    if (m_frameRecords != m_inlineReturnAddresses)
+        MemSys::FreeMalloc(m_frameRecords);
+    m_frameRecords = m_inlineReturnAddresses;
     m_innermostRepeat = nullptr;
     if (m_loops != &m_inlineLoop)
         MemSys::FreeMalloc(m_loops);
     m_loops = &m_inlineLoop;
-    m_waitCounter = 0;
-    m_waitType = SUSPEND_ON_NOTHING;
+    m_suspendFramesLeft = 0;
+    m_suspendReason = SUSPEND_ON_NOTHING;
     m_blockingModule = nullptr;
-    m_waitArg = 0;
+    m_suspendArg = 0;
     m_entity.Release();
     m_scriptTitle = 0;
     m_flagBits &= ~(SCRIPT_RUN_INTERRUPTED | SCRIPT_RUN_WAIT_UPDATED);
@@ -166,7 +166,7 @@ void CScript::RunOnExitScripts()
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
     for (int i = m_callDepth; i; --i) {
-        uint32_t& onExit = m_returnAddresses[i - 1].m_onExitScriptPtr;
+        uint32_t& onExit = m_frameRecords[i - 1].m_onExitScriptPtr;
         if (uint32_t name = onExit) {
             onExit = 0;
             Preempt(name, nullptr);
@@ -208,7 +208,7 @@ void CScript::BindScript(uint32_t name, const uint8_t* code, CStruct* params, Ga
     m_scriptTitle = name;
     m_entity.AssignValue(object);
     m_args = NewEmptyStruct();
-    m_pc = code ? code : ScriptCache()->FetchScript(name);
+    m_pc = code ? code : ScriptStoreInstance()->FetchScript(name);
     if (!m_pc) {
         // No such script.
         if (copy)
@@ -259,9 +259,9 @@ void CScript::Relaunch()
     GameObjects::CEntity* object;
     if (m_callDepth) {
         // The bottom level: the script it was started with.
-        params->Assign(m_returnAddresses[0].m_argStruct);
-        object = m_returnAddresses[0].m_ownerEntity;
-        name = m_returnAddresses[0].m_scriptId;
+        params->Assign(m_frameRecords[0].m_argStruct);
+        object = m_frameRecords[0].m_ownerEntity;
+        name = m_frameRecords[0].m_scriptId;
     } else {
         params->Assign(m_args);
         object = m_entity.Pull();
@@ -281,7 +281,7 @@ bool CScript::AllScriptsStillDefined()
         return false;
     // (the bottom level's script isn't looked for when it runs a private copy)
     for (int i = m_codeCopy ? 1 : 0; i < m_callDepth; ++i) {
-        if (!FindSymbol(m_returnAddresses[i].m_scriptId))
+        if (!FindSymbol(m_frameRecords[i].m_scriptId))
             return false;
     }
     return true;
@@ -293,7 +293,7 @@ bool CScript::HasAttachedScript() { return m_pc != nullptr; }
 // 0x00472F90
 void CScript::SetSpawnerFile(CScript* spawner)
 {
-    uint32_t name = spawner->m_callDepth ? spawner->m_returnAddresses[0].m_scriptId : spawner->m_scriptTitle;
+    uint32_t name = spawner->m_callDepth ? spawner->m_frameRecords[0].m_scriptId : spawner->m_scriptTitle;
     m_spawnerFile = FindSymbol(name)->unknown8; // (no check that it is still defined)
 }
 
@@ -305,10 +305,10 @@ void CScript::ObjectDestroyed(GameObjects::CEntity* object)
     if (m_entity.Pull() == object)
         m_entity.Release();
     for (int i = 0; i < m_callDepth; ++i) {
-        if (m_returnAddresses[i].m_ownerEntity == object)
-            m_returnAddresses[i].m_ownerEntity = nullptr;
+        if (m_frameRecords[i].m_ownerEntity == object)
+            m_frameRecords[i].m_ownerEntity = nullptr;
     }
-    m_waitType = SUSPEND_ON_NOTHING; // (whatever it was waiting for)
+    m_suspendReason = SUSPEND_ON_NOTHING; // (whatever it was waiting for)
 }
 
 // 0x00472ED0 / 0x00472EE0 / 0x00472EF0
@@ -321,7 +321,7 @@ void CScript::ClearOnExitScripts()
 {
     m_onExitScript = 0;
     for (int i = m_callDepth; i; --i)
-        m_returnAddresses[i - 1].m_onExitScriptPtr = 0;
+        m_frameRecords[i - 1].m_onExitScriptPtr = 0;
 }
 
 // 0x004734B0

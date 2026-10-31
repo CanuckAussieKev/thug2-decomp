@@ -20,7 +20,7 @@ namespace GameObjects {
 namespace {
 
 // The core physics component's fields read here.
-constexpr uint32_t kFrameStart = 0x98;    // the position as the frame began
+constexpr uint32_t kFirstTick = 0x98;    // the position as the frame began
 constexpr uint32_t kFeeler = 0xA8;        // its feeler (the last ground hit)
 constexpr uint32_t kHitPoint = 0x120;
 constexpr uint32_t kHitNormal = 0x130;
@@ -74,7 +74,7 @@ void CRiderPhysicsTweaks::TickFrame()
     void* object = m_entity;
     m_uberFrigged = 0;
     Maths::Vec4& position = VectorAt(object, kPosition);
-    const Maths::Vec4& frameStart = VectorAt(core, kFrameStart);
+    const Maths::Vec4& frameStart = VectorAt(core, kFirstTick);
     if (position.x == frameStart.x && position.y == frameStart.y && position.z == frameStart.z &&
         position.w == frameStart.w)
         return; // (not moved this frame)
@@ -107,7 +107,7 @@ void CRiderPhysicsTweaks::TickFrame()
             m_uberFrigged = 1;
             if (m_uberFrigTries < 5) {
                 const float* offset = kUberFrigOffsets[m_uberFrigTries++];
-                const Maths::Vec4& from = VectorAt(core, kFrameStart);
+                const Maths::Vec4& from = VectorAt(core, kFirstTick);
                 position = {offset[0] + from.x, from.y + offset[1], from.z + offset[2], from.w + offset[3]};
             } else {
                 m_uberFrigTries = 0;
@@ -179,7 +179,7 @@ void CRiderPhysicsTweaks::TickFrame()
             if (near < kFloorNear) {
                 position = feeler.m_contactPos;
             } else {
-                const Maths::Vec4& began = VectorAt(core, kFrameStart);
+                const Maths::Vec4& began = VectorAt(core, kFirstTick);
                 Maths::Vec4 moved = {position.x - began.x, position.y - began.y, position.z - began.z,
                                      position.w - began.w};
                 double movedSqr = static_cast<double>(moved.x) * moved.x + static_cast<double>(moved.y) * moved.y +
@@ -197,7 +197,7 @@ void CRiderPhysicsTweaks::TickFrame()
         feeler.m_entity.Release();
     }
     m_uberFrigTries = 0;
-    VectorAt(core, kFrameStart) = position;
+    VectorAt(core, kFirstTick) = position;
 }
 
 } // namespace Obj

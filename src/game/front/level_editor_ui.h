@@ -71,8 +71,8 @@ enum Mark : uint8_t {
     kMarkClickThrough = 16,       // locked (clicks pass it)
     kMarkCollisionOff = 32, // its collision switched off (level_editor_walls.h)
 };
-constexpr int kMarkCount = 6;
-// A mark's letter on the row, its colour (ARGB) and what it means (the tooltip / legend); `bit` 0..kMarkCount-1.
+constexpr int kMaxMarkers = 6;
+// A mark's letter on the row, its colour (ARGB) and what it means (the tooltip / legend); `bit` 0..kMaxMarkers-1.
 char MarkLetter(int bit);
 uint32_t MarkColour(int bit);
 const char* MarkName(int bit);
@@ -294,7 +294,7 @@ struct Request {
         kPlaceToggle,   // N: the Place palette
         kPlaceArm,      // value: a palette entry (-1: none) - the next click in the view places it
         kPlaceHere,     // value: a palette entry placed where the view looks
-        kDeleteNode,    // the Inspector's Delete / Hide (as the Delete key)
+        kRemoveNodeAction,    // the Inspector's Delete / Hide (as the Delete key)
         kHideConfirmed, // the confirm window's Hide
         kHideCancelled,
         kCrownMove,     // value: -1 / +1 - an added crown earlier / later in the crowns' order

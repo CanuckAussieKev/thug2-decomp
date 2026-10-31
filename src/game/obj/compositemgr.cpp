@@ -126,11 +126,11 @@ void Seal(CGameEntity* object) // its vtable +0x20
 
 // The task system (Tsk): a task's constructor (priority), its removal from its list, and the main loop's logic task
 // list's add.
-void ConstructTask(void* task, int priority) { static_cast<TaskList::SchedulerTask*>(task)->MakeNew(priority); }
-void RemoveTask(void* task) { static_cast<TaskList::SchedulerTask*>(task)->DropOut(); }
+void ConstructTask(void* task, int priority) { static_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority); }
+void RemoveTask(void* task) { static_cast<Scheduling::SchedulerTask*>(task)->DropOut(); }
 void RegisterLogicTask(void* task)
 {
-    AssetStore::g_mainLoopManager->m_logicTasks.QueueJob(static_cast<TaskList::SchedulerTask*>(task));
+    AssetStore::g_mainLoopManager->m_logicTasks.QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
 }
 
 // The node after `node`, or null at the head; a node's object (null for none).

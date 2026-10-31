@@ -53,7 +53,7 @@ public:
 
     // 0x00511C80: the flags of the skater's state now: `cancel` the low ones (one state bit, and 0x200 skating / 0x400
     // walking / 0x800 driving), `require` the same << 16.
-    void GetStateFlags(uint32_t* cancel, uint32_t* require);
+    void FetchGapConditionMasks(uint32_t* cancel, uint32_t* require);
     // 0x00511F60: each gap's required states seen now cleared; the gaps the state cancels deleted, with their gap
     // trick (the first one of the same GapID, node and trickscript that isn't done).
     void ScanForGaps(uint32_t cancel, uint32_t require);

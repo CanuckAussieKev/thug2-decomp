@@ -86,7 +86,7 @@ public:
     // 0x004B21A0 (slot 10): after a change, the window moved to the element's top left and sized as it.
     void TickFrame();
 
-    void* m_viewWindow;  // +0x178
+    void* m_screenRegion;  // +0x178
 };
 static_assert(sizeof(CPanelWidget) == 0x17C, "layout must match the original");
 

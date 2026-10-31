@@ -199,7 +199,7 @@ void CRiderTeeterMoves::GetButtons(int* count, uint32_t* buttons) const
     }
     *count = 2;
     buttons[0] = balance->m_leftButton;
-    buttons[1] = balance->m_rightButton;
+    buttons[1] = balance->m_rightPress;
 }
 
 // 0x004F8F20

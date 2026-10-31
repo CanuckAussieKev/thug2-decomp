@@ -94,7 +94,7 @@ MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
 void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
 void PopHeap() { RamStats()->LeaveHeapScope(); }
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
 
 uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
 void Run(uint32_t script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false, nullptr); }
@@ -497,7 +497,7 @@ RankingsManager* RankingsManager::MakeNew()
     for (TopList& list : m_topLists)
         list.MakeNew();
     RamStats()->EnterHeapScope(RamStats()->m_networkHeap);
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(0);
         task->m_vtable = GameCode::kTaskVtable;
@@ -517,7 +517,7 @@ RankingsManager* RankingsManager::MakeNew()
 void RankingsManager::DestroyBody()
 {
     if (m_task) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(TaskList::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
+        reinterpret_cast<void*(__thiscall*)(Scheduling::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
     for (int i = 4; i >= 0; --i)
         m_topLists[i].DestroyBody();
 }
@@ -720,7 +720,7 @@ void RankingsManager::ParseTopList(int index, char* text, bool titled)
 }
 
 // 0x0054D4A0
-void __cdecl RankingsManager::StatsTask(TaskList::SchedulerTask* task)
+void __cdecl RankingsManager::StatsTask(Scheduling::SchedulerTask* task)
 {
     PushTopDown();
     auto* stats = reinterpret_cast<RankingsManager*>(reinterpret_cast<void**>(task)[7]);

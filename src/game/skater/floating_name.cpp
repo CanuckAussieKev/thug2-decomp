@@ -44,7 +44,7 @@ OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 bool InNetGame() { return NetSessionSlot()->InNetGame(); }
 bool ShowNames() { return NetSessionSlot()->WantsNameTags(); }
 uint8_t* FindPlayerSlotByObj(uint32_t id) { return NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(id)); }
-uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetSessionSlot()->FetchViewedPlayer()); }
+uint8_t* FindOwnPlayerRecord() { return static_cast<uint8_t*>(NetSessionSlot()->FetchViewedPlayer()); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
 bool IsSquadMatch() { return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsSquadMatch() != 0; }
 
@@ -122,7 +122,7 @@ void CRiderOverheadTag::TickFrame()
             RunWithLabelId(kDestroyObjectLabel, m_labelId);
         return;
     }
-    float height = LocalPlayer() == player ? kLocalHeight : kOtherHeight;
+    float height = FindOwnPlayerRecord() == player ? kLocalHeight : kOtherHeight;
     Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params->PrepareAll();

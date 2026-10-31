@@ -86,7 +86,7 @@ public:
     int m_viewSlot;                // +0x4F8 active_viewport
     uint32_t m_anchorObject;       // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
     int m_parentInteger;           // +0x500 ParentParams' integer 0x5B8AB877
-    uint32_t m_parentNode;         // +0x504 ParentParams' node (0x7A8017BA)
+    uint32_t m_attachToName;         // +0x504 ParentParams' node (0x7A8017BA)
     float m_leanAngle;                  // +0x508 tilt (degrees, when pointing at something)
     bool m_isDead;                   // +0x50C its parent object went: element3d_died ran, nothing more
     uint8_t m_pad50D[3];

@@ -826,7 +826,7 @@ void SectorTriangles(uint32_t checksum, std::vector<V3>* out)
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {

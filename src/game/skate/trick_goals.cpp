@@ -1018,7 +1018,7 @@ CTrickBeatGoal* CTrickBeatGoal::MakeNew(Scripts::CStruct* params)
 {
     ConstructGoal(this, params);
     m_vtable = kTrickBeatVtable;
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     m_pattern = memory ? memory->PrepareAll() : nullptr;
     m_pattern->ConfigureSizeKind(kBeats, Scripts::QBVAL_STRUCT);
     Scripts::CArray* pattern;

@@ -73,7 +73,7 @@ extern Maths::Mat4 g_worldMatrix;
 extern Maths::Mat4 g_viewMatrix;
 extern Maths::Mat4 g_projectionMatrix;
 extern Maths::Mat4 g_headingMatrix;
-extern int g_frameTime;
+extern int g_stepSeconds;
 extern int g_screenCopyIndex;
 extern int g_backBufferWidth;
 extern int g_backBufferHeight;

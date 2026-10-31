@@ -147,10 +147,10 @@ uint32_t Arena::LargestFree()
 void* Arena::ExtendBlockDownward(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
-    ChunkPrefix* header = GetBlockHeader(block);
+    ChunkPrefix* header = FetchChunkPrefix(block);
     uint32_t rounded = RoundUp16(newSize);
     // The new space comes just below the block (with its own header, which becomes the block's).
-    ChunkPrefix* extended = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
+    ChunkPrefix* extended = FetchChunkPrefix(VirtualAllocate(rounded - header->size, true));
     DebugTrackBlock(header);
     DebugTrackBlock(extended);
     --m_usedBlocks;
@@ -164,13 +164,13 @@ void* Arena::ExtendBlockDownward(uint32_t newSize, void* block)
 void* Arena::ExtendBlockUpward(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
-    ChunkPrefix* header = GetBlockHeader(block);
+    ChunkPrefix* header = FetchChunkPrefix(block);
     uint32_t rounded = RoundUp16(newSize);
     if (rounded <= header->size) {
         HeapBusy() = 0;
         return block;
     }
-    ChunkPrefix* extra = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
+    ChunkPrefix* extra = FetchChunkPrefix(VirtualAllocate(rounded - header->size, true));
     if (static_cast<uint8_t*>(block) + header->size != reinterpret_cast<uint8_t*>(extra)) {
         // Not right after the block: give it back.
         HeapBusy() = 0;
@@ -191,7 +191,7 @@ void* Arena::ExtendBlockUpward(uint32_t newSize, void* block)
 void* Arena::TrimBlockEnd(uint32_t newSize, void* block)
 {
     HeapBusy() = 1;
-    ChunkPrefix* header = GetBlockHeader(block);
+    ChunkPrefix* header = FetchChunkPrefix(block);
     uint32_t cut = (header->size - newSize) & ~15u;
     if (cut <= kBlockHeaderSize) {
         HeapBusy() = 0;

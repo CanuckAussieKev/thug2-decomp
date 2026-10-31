@@ -101,7 +101,7 @@ CParagraphWidget* CParagraphWidget::MakeNew()
     m_lineSpacing = 1.0f;
     m_fontName = 0;
     m_linesHeight = 0.0f;
-    m_numElements = 0;
+    m_rowsFilled = 0;
     m_blur = nullptr;
     m_mayGrow = false;
     m_overrideRgba = false;
@@ -134,7 +134,7 @@ void CParagraphWidget::ChangeTypeface(uint32_t font)
     float width, height;
     ReadStringParam(GetFont(font), SizingText(), &width, &height);
     int lineHeight = Truncated(static_cast<double>(height) * m_internalScale);
-    m_maxLines = Truncated(m_levelY) / lineHeight;
+    m_lineCapacity = Truncated(m_levelY) / lineHeight;
     m_objectFlags |= kVisibleNow;
 }
 
@@ -157,7 +157,7 @@ void CParagraphWidget::AddWords(const char* text)
             if (*last == ' ')
                 *last = 0;
             ++m_numLines;
-            if (++m_line >= m_maxLines)
+            if (++m_line >= m_lineCapacity)
                 m_line = 0;
             m_lineLength = 0;
             m_lineWidth = 0.0f;
@@ -199,7 +199,7 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
     m_lineWidth = 0.0f;
     if (m_mayGrow) {
         m_levelY = 0.0f;
-        m_maxLines = 0;
+        m_lineCapacity = 0;
     }
     for (int i = 0; i < count; ++i)
         AddWords(texts[i]);
@@ -207,9 +207,9 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
         ++m_numLines;
         ++m_line;
     }
-    m_numElements = m_line;
+    m_rowsFilled = m_line;
     int first = 0;
-    if (m_numLines >= m_maxLines) {
+    if (m_numLines >= m_lineCapacity) {
         if (m_mayGrow) {
             // the block grows to the lines' height and they are made again
             float width, height;
@@ -222,18 +222,18 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
             m_numLines = 0;
             m_line = 0;
             m_lineWidth = 0.0f;
-            m_maxLines = maxLines;
+            m_lineCapacity = maxLines;
             for (int i = 0; i < count; ++i)
                 AddWords(texts[i]);
-            m_numElements = m_maxLines;
+            m_rowsFilled = m_lineCapacity;
         } else {
             // the last lines that fit (the lines wrapped round: the oldest kept first)
-            first = m_numLines % m_maxLines;
-            m_numElements = m_maxLines;
+            first = m_numLines % m_lineCapacity;
+            m_rowsFilled = m_lineCapacity;
         }
     }
     m_linesHeight = 0.0f;
-    for (int k = 0; k < m_numElements; ++k) {
+    for (int k = 0; k < m_rowsFilled; ++k) {
         memory = MemSys::Hub::Pull();
         memory->EnterHeapScope(memory->m_frontEndHeap);
         void* block = MemSys::AllocZeroed(sizeof(CLabelWidget));
@@ -253,7 +253,7 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
         line->ChangeScale(m_internalScale, m_internalScale, false, 0);
         m_linesHeight = static_cast<float>(static_cast<double>(line->m_levelY) * m_internalScale * m_lineSpacing +
                                            m_linesHeight);
-        if (++first >= m_maxLines)
+        if (++first >= m_lineCapacity)
             first = 0;
     }
     MemSys::Dealloc(m_lines[0]);
@@ -471,7 +471,7 @@ void CParagraphWidget::TickFrame()
                                  Half());
     ElementPtr child;
     child.AssignValue(m_eldest.m_ownerObject);
-    for (int i = 0; i < m_numElements; ++i) {
+    for (int i = 0; i < m_rowsFilled; ++i) {
         child->ChangeAlignment(m_innerAlignH, -1.0f);
         uint32_t rgba;
         std::memcpy(&rgba, m_shown.rgba, 4);

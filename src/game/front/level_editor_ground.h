@@ -66,7 +66,7 @@ struct Spec {
 };
 bool SameSpec(const Spec& a, const Spec& b);
 
-constexpr float kMinHeight = 10.0f, kMaxHeight = 2000.0f;
+constexpr float kMinHeight = 10.0f, kCeilingY = 2000.0f;
 constexpr float kMinSide = 50.0f, kMaxSide = 8000.0f;
 constexpr float kMaxLength = 4000.0f;
 constexpr float kSink = 4.0f;        // walls go this far below the ground (no seam on uneven ground)

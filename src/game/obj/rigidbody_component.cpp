@@ -351,7 +351,7 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     };
     vector(0x0C4C809E, &m_vel);          // vel
     vector(0xFB1A83B2, &m_rotVel);       // rotvel
-    vector(0x737612C6, &m_centerOfMass); // center_of_mass
+    vector(0x737612C6, &m_balancePoint); // center_of_mass
     if (!params->FetchFloat(0x6FAE5C9A, &m_steadyAccel.y, 0)) // const_acc: a number is the y
         vector(0x6FAE5C9A, &m_steadyAccel);
     params->FetchFloat(0x60B4860D, &m_restitution, 0); // coeff_restitution

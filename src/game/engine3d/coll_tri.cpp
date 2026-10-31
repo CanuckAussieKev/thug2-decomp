@@ -140,7 +140,7 @@ CTriMeshSource* CTriMeshSource::Replicate(int bspArgument, bool needVertices) co
     CTriMeshSource* copy = memory ? static_cast<CTriMeshSource*>(memory)->CopyFrom(this) : nullptr;
     uint32_t vertexSize = m_numVertices * (m_compressed ? 6u : 12u);
     copy->m_vertices = MemSys::Alloc(vertexSize);
-    uint32_t faceSize = m_numFaces * (m_smallFaces ? 8u : 10u);
+    uint32_t faceSize = m_triCount * (m_smallFaces ? 8u : 10u);
     copy->m_faces = static_cast<uint8_t*>(MemSys::Alloc(faceSize));
     if (!copy->m_vertices || !copy->m_faces)
         return nullptr;
@@ -310,8 +310,8 @@ void CTriMeshSource::AddOcclusionPolys()
 {
     constexpr float kSameDirection = 0.05f;
     Maths::Vec4 points[4];
-    for (int i = 0; i < m_numFaces - 1; ++i) {
-        for (int j = i + 1; j < m_numFaces; ++j) {
+    for (int i = 0; i < m_triCount - 1; ++i) {
+        for (int j = i + 1; j < m_triCount; ++j) {
             // the corners shared: shared[k] is face i's corner k if face j has it, other[m] face j's corner m if
             // face i has it
             int shared[3] = {-1, -1, -1};
@@ -410,7 +410,7 @@ void CTriMeshSource::AddOcclusionPolys()
 uint16_t* CTriMeshSource::GetFacesInBox(const Maths::BBox* box, int* count, uint16_t* buffer, int bufferSize)
 {
     if (!m_bsp) {
-        *count = m_numFaces;
+        *count = m_triCount;
         return AllFaces();
     }
     s_faceBuffer = buffer;
@@ -419,7 +419,7 @@ uint16_t* CTriMeshSource::GetFacesInBox(const Maths::BBox* box, int* count, uint
     GatherFaces(m_bsp, box);
     uint16_t* result;
     if (s_faceCount < 0) {
-        *count = m_numFaces;
+        *count = m_triCount;
         result = AllFaces();
     } else {
         *count = s_faceCount;
@@ -446,7 +446,7 @@ void CTriMeshSource::GatherFaces(const CHitTreeNode* node, const Maths::BBox* bo
     uint32_t n = node->LeafFaceCount();
     uint16_t* out = s_faceBuffer + s_faceCount;
     s_faceCount += n;
-    if (s_faceCount > m_numFaces) {
+    if (s_faceCount > m_triCount) {
         s_faceCount = -1;
         return;
     }
@@ -463,7 +463,7 @@ bool CTriMeshSource::IsPointBehindFaces(const Maths::Vec4* point, int unused)
     s_faceCount = 0;
     if (!CountFacesBehind(m_bsp, point, unused))
         return false;
-    return s_faceCount == m_numFaces;
+    return s_faceCount == m_triCount;
 }
 
 // 0x004161D0 (a point at or above a split ends the walk; in a leaf, the count stops at the first face the point

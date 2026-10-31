@@ -57,12 +57,12 @@ public:
     int m_line;               // +0x184 the line being filled
     int m_lineLength;         // +0x188
     float m_lineWidth;        // +0x18C
-    int m_maxLines;           // +0x190 how many fit
+    int m_lineCapacity;           // +0x190 how many fit
     float m_innerAlignH, m_innerAlignV; // +0x194
     float m_internalScale;    // +0x19C
     float m_lineSpacing;      // +0x1A0
     float m_linesHeight;      // +0x1A4 the lines' height in all
-    int m_numElements;        // +0x1A8 line elements
+    int m_rowsFilled;        // +0x1A8 line elements
     CSmearEffect* m_blur;     // +0x1AC
     bool m_shadow;            // +0x1B0
     bool m_mayGrow;    // +0x1B1
@@ -74,7 +74,7 @@ public:
     bool m_overrideAlpha;     // +0x1C2
     uint8_t m_pad1C3;
 };
-static_assert(offsetof(CParagraphWidget, m_maxLines) == 0x190 && offsetof(CParagraphWidget, m_blur) == 0x1AC &&
+static_assert(offsetof(CParagraphWidget, m_lineCapacity) == 0x190 && offsetof(CParagraphWidget, m_blur) == 0x1AC &&
                   offsetof(CParagraphWidget, m_shadowRgba) == 0x1BC && sizeof(CParagraphWidget) == 0x1C4,
               "layout must match the original");
 

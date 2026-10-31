@@ -166,7 +166,7 @@ std::string FaceText(const Face& face, std::string (*name)(uint32_t));
 std::string FormatEvent(const Occurrence& event, std::string (*name)(uint32_t));
 // The second line, starting "collision-event-detail: n=<n> ".
 std::string FormatDetail(const Detail& detail);
-// The pad's buttons held in `mask` (bit i: the CPadState's i-th button), '+'-joined ("-" for none).
+// The pad's buttons held in `mask` (bit i: the CPadSnapshot's i-th button), '+'-joined ("-" for none).
 std::string PadButtonLabels(uint16_t mask);
 
 } // namespace Skater::CollisionEvents

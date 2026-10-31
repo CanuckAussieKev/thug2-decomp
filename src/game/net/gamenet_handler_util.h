@@ -91,7 +91,7 @@ inline uint8_t* FindPlayerSlotByObj(Hub* manager, const uint8_t* id) // a signed
 {
     return FindPlayerSlotByObj(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
-inline uint8_t* LocalPlayer(Hub* manager) { return static_cast<uint8_t*>(manager->GetOwnPlayer()); }
+inline uint8_t* FindOwnPlayerRecord(Hub* manager) { return static_cast<uint8_t*>(manager->GetOwnPlayer()); }
 inline uint8_t* IsCrownRuleActive(Hub* manager) { return static_cast<uint8_t*>(manager->GetHillRuler()); }
 // (0 or 1 in EAX: the original's callers test AL)
 inline bool IsOwnPlayer(const uint8_t* player) { return AsPlayer(player)->IsOwnPlayer() != 0; }

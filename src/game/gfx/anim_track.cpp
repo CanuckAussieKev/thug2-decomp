@@ -71,9 +71,9 @@ bool FireEvent(CTimedClipEvent* e, GameObjects::CGameEntity* object)
 }
 void DestroyEventBody(CTimedClipEvent* e) { reinterpret_cast<CAnimScriptKey*>(e)->DestroyBody(); }
 // The 0x26205DB6 controller (0x1A4 bytes).
-CAnimController* ConstructProceduralController(void* memory, CAnimTimeline* timeline)
+CAnimDriver* ConstructProceduralController(void* memory, CAnimTimeline* timeline)
 {
-    return reinterpret_cast<CAnimController*>(static_cast<CBoneLookAt*>(memory)->MakeNew(timeline, nullptr));
+    return reinterpret_cast<CAnimDriver*>(static_cast<CBoneLookAt*>(memory)->MakeNew(timeline, nullptr));
 }
 
 // A script structure from the structures' pools, and back.
@@ -160,7 +160,7 @@ CAnimTrack* CAnimTrack::Teardown(uint8_t flags)
 }
 
 // 0x00481A30
-void CAnimTrack::InsertController(CAnimController* controller, int priority)
+void CAnimTrack::InsertController(CAnimDriver* controller, int priority)
 {
     // (no room check: six at most by the callers)
     int count = m_controllerCount;
@@ -178,7 +178,7 @@ void CAnimTrack::InsertController(CAnimController* controller, int priority)
 }
 
 // 0x00481A80
-CAnimController* CAnimTrack::FindController(uint32_t id)
+CAnimDriver* CAnimTrack::FindController(uint32_t id)
 {
     for (int i = 0; i < m_controllerCount; ++i) {
         if (m_controllerList[i]->m_ident == id)
@@ -315,12 +315,12 @@ void CAnimTrack::FireEvents(float from, float to)
 }
 
 // 0x00481FB0
-CAnimController* CAnimTrack::AttachController(CStruct* params)
+CAnimDriver* CAnimTrack::AttachController(CStruct* params)
 {
     uint32_t type;
     params->ReadHashValue(kType, &type, 1);
     int priority = 500;
-    CAnimController* controller;
+    CAnimDriver* controller;
     void* memory;
     switch (type) {
     case kWeightedController:
@@ -349,7 +349,7 @@ CAnimController* CAnimTrack::AttachController(CStruct* params)
         break;
     case kTumbleController:
         memory = MemSys::AllocZeroed(sizeof(GameObjects::CFlipRotateComponent));
-        controller = memory ? reinterpret_cast<CAnimController*>(
+        controller = memory ? reinterpret_cast<CAnimDriver*>(
                                   static_cast<GameObjects::CFlipRotateComponent*>(memory)->MakeNew(this))
                             : nullptr;
         priority = 100;
@@ -375,7 +375,7 @@ int CAnimTrack::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::CScr
     if (name == kRemoveAnimController) {
         uint32_t id = reinterpret_cast<uint32_t>(params); // (the argument's own slot: the params' address if missing)
         params->ReadHashValue(kId, &id, 1);
-        if (CAnimController* controller = FindController(id))
+        if (CAnimDriver* controller = FindController(id))
             DetachAnimDriver(controller);
     } else if (name == kNewAnim) {
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)

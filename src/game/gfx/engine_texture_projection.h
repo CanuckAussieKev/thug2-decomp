@@ -55,7 +55,7 @@ public:
     void TickFrame(GameObjects::CGameEntity* object);
 
     void** vtable;
-    MemSys::ListNode* m_nodeData;       // +0x04: itself
+    MemSys::ListNode* m_selfLink;       // +0x04: itself
     int m_nodePriority;              // +0x08
     MemSys::ListNode* m_succ;           // +0x0C
     MemSys::ListNode* m_lastValue;           // +0x10

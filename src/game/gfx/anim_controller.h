@@ -14,7 +14,7 @@ class CStruct;
 // The animation controllers an object's animation blender stacks up (made by the factory 0x00481FB0 from a
 // structure's Type, with its Priority): each fills in a pose (Gfx2D::CStance: 64 rotations at +0, 64 translations at
 // +0x400, more at +0x800) for the bones of the object's skeleton and answers script member functions. They all
-// derive from the base controller (CAnimController: vtable 0x0064877C, constructed by 0x00481710; e.g. its
+// derive from the base controller (CAnimDriver: vtable 0x0064877C, constructed by 0x00481710; e.g. its
 // ConfigureFromData 0x00481740 reads `id`).
 //
 // Vtable slots: 0 the scalar deleting destructor, 1 FetchPose(pose), 2 (0x005BAB90: ignores its argument),
@@ -69,7 +69,7 @@ static_assert(offsetof(CAnimTimeline, m_outset) == 0x14 && offsetof(CAnimTimelin
               "layout must match the original");
 
 // The base controller's fields.
-struct CAnimController {
+struct CAnimDriver {
     void** m_vtable;
     CAnimTimeline* m_timelinePtr;        // +0x04 (the timeline of the blender channel it belongs to)
     GameObjects::CGameEntity* m_ownerObject;  // +0x08 (set by some controllers only; FetchSubject asks the channel)
@@ -77,10 +77,10 @@ struct CAnimController {
     uint32_t m_ident;                     // +0x10
 
     // 0x00481710: on `timeline`, no object, priority 0, id 0 (vtable 0x0064877C). Returns this.
-    CAnimController* MakeNew(CAnimTimeline* timeline);
+    CAnimDriver* MakeNew(CAnimTimeline* timeline);
     // 0x00481730: the base's vtable back (its destructor body). 0x004817A0 (slot 0): that, then freed.
     void DestroyBody();
-    CAnimController* Teardown(uint8_t flags);
+    CAnimDriver* Teardown(uint8_t flags);
     // 0x00481740 (slot 4): `id` (0x40C698AF) from the parameters (ReadHashValue's result).
     bool ConfigureFromData(Scripts::CStruct* params);
     // 0x00481760: the object its timeline (a blend timeline) belongs to.
@@ -92,11 +92,11 @@ struct CAnimController {
     // (0x00481740).
     void BaseInitFromStructure(Scripts::CStruct* params);
 };
-static_assert(sizeof(CAnimController) == 0x14, "layout must match the original");
+static_assert(sizeof(CAnimDriver) == 0x14, "layout must match the original");
 
 // The standard controller (type 0xCB4533FF, vtable 0x00649F50, 0x28 bytes from its own item pools 0x00701430):
 // plays an animation of the object's anim set on the channel's timeline.
-class CStandardAnimController : public CAnimController {
+class CStandardAnimController : public CAnimDriver {
 public:
     // 0x004A4500: on `timeline`; a frame source of its own (0x0048BFC0), the object's anim set (the blender's
     // 0x00419AB0); no frame, no frame index (-1). Returns this.
@@ -129,7 +129,7 @@ static_assert(sizeof(CStandardAnimController) == 0x28, "layout must match the or
 
 // The 0x7E1940A1 controller (vtable 0x00649F68, 0x24 bytes): an animation of the object's anim set blended in
 // with a weight, without a timeline of its own.
-class CWeightedAnimController : public CAnimController {
+class CWeightedAnimController : public CAnimDriver {
 public:
     // 0x004A5010: on `timeline`; the object is the channel's (or `object` without a timeline). Returns this.
     CWeightedAnimController* MakeNew(CAnimTimeline* timeline, GameObjects::CGameEntity* object);
@@ -152,7 +152,7 @@ static_assert(sizeof(CWeightedAnimController) == 0x24, "layout must match the or
 
 // The wobble controller (type "wobble", vtable 0x00649F80, 0x38 bytes): plays the timeline's animation around a
 // target time, swinging by two sines of the game clock (SetWobbleDetails).
-class CWobbleDriver : public CAnimController {
+class CWobbleDriver : public CAnimDriver {
 public:
     // 0x004A49F0
     CWobbleDriver* MakeNew(CAnimTimeline* timeline);
@@ -183,7 +183,7 @@ public:
 static_assert(sizeof(CWobbleDriver) == 0x38, "layout must match the original");
 
 // The pose controller (type "pose", vtable 0x00649F98, 0x854 bytes): a fixed pose (identity rotations).
-class CStanceDriver : public CAnimController {
+class CStanceDriver : public CAnimDriver {
 public:
     // 0x004A5730
     CStanceDriver* MakeNew(CAnimTimeline* timeline);
@@ -200,7 +200,7 @@ static_assert(sizeof(CStanceDriver) == 0x854, "layout must match the original");
 
 // The partial animation controller (type "partialAnim", vtable 0x00649FB0, 0x24 bytes): a second animation on a
 // timeline of its own.
-class CPartialClipDriver : public CAnimController {
+class CPartialClipDriver : public CAnimDriver {
 public:
     // 0x004A5350
     CPartialClipDriver* MakeNew(CAnimTimeline* timeline);

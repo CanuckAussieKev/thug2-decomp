@@ -39,13 +39,13 @@ public:
     // 0x00512EA0: which fields differ from what was last sent (bits: 0-2 the position x / y / z, 3-5 the angles,
     // 0x40 the state, 0x80 the controls, 0x100 the board component's value) - all but 0x100 when the update is
     // forced. The angles that do are recorded as sent here.
-    uint32_t GetUpdateFlags();
+    uint32_t FetchSyncFieldMask();
     // 0x005131A0: the skater's update sent to the server when its client app's frame calls for it (every 15th, or
     // when the connection's send interval has gone by since the last; always on the server): a 32-bit time stamp,
     // the 9 field bits, the changed fields; recorded as sent.
     void SendUpdate();
 
-    uint32_t m_lastSendTime;  // +0x18 the client app's time when the last update went
+    uint32_t m_lastTransmitAt;  // +0x18 the client app's time when the last update went
     uint8_t m_sentValue7C;    // +0x1C (the core component's +0xE1)
     uint8_t m_pad1D;
     int16_t m_sentPos[3];     // +0x1E (x, z in half units - y in quarters; whole units in a big level)
@@ -61,7 +61,7 @@ public:
     uint8_t* m_core;          // +0x3C the skater's core component (its state and controls)
     uint8_t* m_board;         // +0x40
 };
-static_assert(offsetof(CRiderHostSync, m_lastSendTime) == 0x18 &&
+static_assert(offsetof(CRiderHostSync, m_lastTransmitAt) == 0x18 &&
                   offsetof(CRiderHostSync, m_sentValue7C) == 0x1C &&
                   offsetof(CRiderHostSync, m_sentPos) == 0x1E &&
                   offsetof(CRiderHostSync, m_sentAngles) == 0x24 &&

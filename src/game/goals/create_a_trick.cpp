@@ -50,9 +50,9 @@ T& Prop(GameObjects::CRider* skater, uint32_t offset)
 }
 Scripts::CStruct* Results(Scripts::CScript* script) { return script->m_args; }
 
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     return array ? array->PrepareAll() : nullptr;
 }
 
@@ -68,11 +68,11 @@ CCreateATrick* CCreateATrick::MakeNew()
     m_otherParams = params ? params->PrepareAll() : nullptr;
     m_otherParams->AppendStructureIfAny(other);
     Scripts::CArray* rotations = Scripts::FetchList("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
-    m_spinList = NewArray();
+    m_spinList = AllocScriptArray();
     m_spinList->ConfigureSizeKind(6, Scripts::QBVAL_STRUCT);
     Scripts::DuplicateArray(m_spinList, rotations);
     Scripts::CArray* animations = Scripts::FetchList("Default_CAT_animation_info"); // "Default_CAT_animation_info"
-    m_animations = NewArray();
+    m_animations = AllocScriptArray();
     m_animations->ConfigureSizeKind(6, Scripts::QBVAL_STRUCT);
     Scripts::DuplicateArray(m_animations, animations);
     return this;

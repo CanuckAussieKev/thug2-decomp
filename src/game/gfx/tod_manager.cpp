@@ -831,7 +831,7 @@ void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t 
     out->PutInt(kOn, on);
     out->PutInt(kBloom1, bloom1);
     out->PutInt(kBloom2, bloom2);
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
     array->SetElement(0, strength & 0xFF);
@@ -1366,7 +1366,7 @@ bool __cdecl CFunc_TODManager_GetCurrentTODParams(Scripts::CStruct* params, Scri
     out->PutInt(kBloomOn, p.bloomOn);
     out->PutInt(kBloom1, p.bloom1);
     out->PutInt(kBloom2, p.bloom2);
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
     array->SetElement(0, p.bloomStrength & 0xFF);

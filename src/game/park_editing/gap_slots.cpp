@@ -49,7 +49,7 @@ void CGapRegistry::EndGap(void* piece, CPieceGroup* meta, int index)
     ++m_nextId;
     m_gapsPtr[slot]->m_pieces[1] = static_cast<CParkTile*>(piece);
     m_gapsPtr[slot]->m_metas[1] = meta;
-    m_gapsPtr[slot]->m_details.m_tabIndex = index;
+    m_gapsPtr[slot]->m_details.m_slotIndex = index;
     m_startedFirst[slot] = false;
 }
 
@@ -144,7 +144,7 @@ float SGapDetails::FetchMagnitude(int half)
         return static_cast<float>((extents + m_atPoint[half].l) * static_cast<double>(kGridStepAlong));
     case 1:
     case 3:
-        return static_cast<float>((extents + m_atPoint[half].w) * static_cast<double>(kCellWidth));
+        return static_cast<float>((extents + m_atPoint[half].w) * static_cast<double>(kGridPitch));
     default:
         return 0.0f;
     }

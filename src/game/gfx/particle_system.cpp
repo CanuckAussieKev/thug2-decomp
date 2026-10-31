@@ -465,7 +465,7 @@ void CEmitterInstance::SetWantsTime(uint8_t on)
 }
 
 // 0x00497AB0
-Maths::Mat4* CEmitterInstance::GetRotationMatrix(Maths::Mat4* out)
+Maths::Mat4* CEmitterInstance::BuildEmitterOrientation(Maths::Mat4* out)
 {
     Maths::Vec4 angles{m_orientationTurn[0], m_orientationTurn[1], m_orientationTurn[2], 1.0f};
     Maths::Mat4 rotation;

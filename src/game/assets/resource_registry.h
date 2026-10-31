@@ -13,7 +13,7 @@ struct Hub;
 namespace ListKit {
 class KeyMap;
 }
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 }
 
@@ -82,7 +82,7 @@ public:
     // the walk only ends at a null link: with an asset pending it wouldn't end - async loading looks unused.)
     void ProcessPendingAssets();
     // 0x00407EB0: the task's callback (the manager its data).
-    static void __cdecl ProcessTask(TaskList::SchedulerTask* task);
+    static void __cdecl ProcessTask(Scheduling::SchedulerTask* task);
 
     // 0x00407A80: `asset` out of the circular list `*head` (false if it isn't in it).
     static bool RemoveFromList(CResource** head, CResource* asset);
@@ -101,7 +101,7 @@ public:
     void* m_callbackData1;        // +0x30
     bool m_callbackOnce;          // +0x34 the callback cleared after one asset
     uint8_t pad35[3];
-    TaskList::SchedulerTask* m_task;        // +0x38 a TaskList::Task<CResourceRegistry> running ProcessTask
+    Scheduling::SchedulerTask* m_task;        // +0x38 a Scheduling::Task<CResourceRegistry> running ProcessTask
 };
 static_assert(sizeof(CResourceRegistry) == 0x3C && offsetof(CResourceRegistry, m_assets) == 0x1C && offsetof(CResourceRegistry, m_task) == 0x38,
               "layout must match the original");

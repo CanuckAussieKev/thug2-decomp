@@ -32,7 +32,7 @@ class CParkBuilderMode;
 extern void** const kParkEditorVtable;         // 0x0064F234 (park_editor.cpp)
 extern void** const kParkEditorListenerVtable; // 0x0064F22C
 
-// TaskList::Task<CParkBuilderMode> (0x20 bytes, vtable 0x006476F0).
+// Scheduling::Task<CParkBuilderMode> (0x20 bytes, vtable 0x006476F0).
 struct ParkEditorTask {
     uint8_t m_listLink[0x18];   // the task list node (0x00406890, with the priority)
     void(__cdecl* m_codeValue)(ParkEditorTask*);

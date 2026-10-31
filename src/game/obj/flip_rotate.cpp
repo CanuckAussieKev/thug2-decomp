@@ -26,15 +26,15 @@ extern void** const kVtable;
 // The base component (no source yet).
 void ConstructBase(CFlipRotateComponent* component, void* object)
 {
-    reinterpret_cast<Gfx2D::CAnimController*>(component)->MakeNew(static_cast<Gfx2D::CAnimTimeline*>(object));
+    reinterpret_cast<Gfx2D::CAnimDriver*>(component)->MakeNew(static_cast<Gfx2D::CAnimTimeline*>(object));
 }
 void DestroyBase(CFlipRotateComponent* component)
 {
-    reinterpret_cast<Gfx2D::CAnimController*>(component)->DestroyBody();
+    reinterpret_cast<Gfx2D::CAnimDriver*>(component)->DestroyBody();
 }
 void InitBaseFromStructure(CFlipRotateComponent* component, Scripts::CStruct* params)
 {
-    reinterpret_cast<Gfx2D::CAnimController*>(component)->ConfigureFromData(params);
+    reinterpret_cast<Gfx2D::CAnimDriver*>(component)->ConfigureFromData(params);
 }
 
 constexpr uint32_t kFlipped = 0x0C7A712C; // "flipped"
@@ -83,9 +83,9 @@ void CFlipRotateComponent::ConfigureFromData(Scripts::CStruct* params)
 bool CFlipRotateComponent::FetchPose(uint8_t* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
-    uint8_t* skeleton = reinterpret_cast<Gfx2D::CAnimController*>(this)->FetchRig();
+    uint8_t* skeleton = reinterpret_cast<Gfx2D::CAnimDriver*>(this)->FetchRig();
     void* bones = *reinterpret_cast<void**>(skeleton + 8);
-    auto* object = reinterpret_cast<Gfx2D::CAnimController*>(this)->FetchSubject();
+    auto* object = reinterpret_cast<Gfx2D::CAnimDriver*>(this)->FetchSubject();
     CObjectModule* flipAndRotate = object->FetchModule(0x488AF07A);
     if (flipAndRotate && reinterpret_cast<uint8_t*>(flipAndRotate)[0x18]) {
         int bone = reinterpret_cast<Gfx2D::CRig*>(skeleton)->FetchBoneSlot(0x98971FAF);

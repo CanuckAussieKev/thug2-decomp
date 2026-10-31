@@ -67,8 +67,8 @@ namespace {
 inline void DebugSetUp(int /*unused*/) {}
 
 // The main loop's task manager (FrameLoop::Hub): three task lists, at +0x04, +0x40 and +0x7C.
-void QueueJob(TaskList::PileUp& list, void* task) { list.QueueJob(static_cast<TaskList::SchedulerTask*>(task)); }
-void ClearJobList(TaskList::PileUp& list) { list.ClearJobList(); }
+void QueueJob(Scheduling::PileUp& list, void* task) { list.QueueJob(static_cast<Scheduling::SchedulerTask*>(task)); }
+void ClearJobList(Scheduling::PileUp& list) { list.ClearJobList(); }
 void MainLoop(FrameLoop::Hub* mlp) { mlp->MainLoop(); }
 
 // The module manager (GameModules::Hub, 0x0044F6F0). (The modules are passed as they were made: not all of their types

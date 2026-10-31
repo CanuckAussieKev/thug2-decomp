@@ -13,7 +13,7 @@ struct NetMessageInfo;
 
 class Guest : public AppHost {
 public:
-    // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (TaskList::Task, priority -2000).
+    // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (Scheduling::Task, priority -2000).
     Guest* MakeNew(int flags);
     // 0x0045B8E0 (scalar deleting destructor; Server's vtable has it too)
     Guest* Teardown(unsigned int flags);
@@ -50,7 +50,7 @@ public:
     // 0x0045AA70 (id 9): the server's timestamp, acked; lost, late and duplicate packets counted from it.
     static int __cdecl OnClockSyncMsg(InboundMsgCtx* context);
 
-    uint8_t m_serverAddress[0x10]; // +0x1F08 sockaddr_in (DialServer; PullInbound looks the server up by it)
+    uint8_t m_hostSockAddr[0x10]; // +0x1F08 sockaddr_in (DialServer; PullInbound looks the server up by it)
 };
 static_assert(sizeof(Guest) == 0x1F18, "allocated as 0x1F18 bytes (0x00455460)");
 

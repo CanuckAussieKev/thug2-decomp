@@ -433,7 +433,7 @@ void CPedestrianBrainModule::MoveSteered()
     float side = SteerSideways();
     double forward = SteerForward();
     PushPosition();
-    double step = static_cast<double>(m_frameTime) * motion->m_pathSpeed;
+    double step = static_cast<double>(m_stepSeconds) * motion->m_pathSpeed;
     float sideStep = static_cast<float>(side * step);
     float forwardStep = static_cast<float>(step * forward);
     Maths::Mat4 m = m_entity->m_displayMatrix;
@@ -543,7 +543,7 @@ void CPedestrianBrainModule::FaceMovement(Maths::Vec4 oldPos)
             dot = kMinCos;
         bool unused;
         float turn = std::fabs(X87::AcosF(dot, 0.0f, &unused));
-        if (!(static_cast<double>(m_frameTime) * kTurnPerSecond >= turn)) {
+        if (!(static_cast<double>(m_stepSeconds) * kTurnPerSecond >= turn)) {
             static float maxTurn = 0.69813174f; // (40 degrees)
             float t = kTurnTime;
             if (turn > maxTurn)
@@ -667,7 +667,7 @@ void CPedestrianBrainModule::AlignToGround()
         if (m_upDir == m_upTarget) {
             m_upBlend = 0.0f;
         } else {
-            double blend = m_upBlend - static_cast<double>(m_frameTime) * kUpBlendRate;
+            double blend = m_upBlend - static_cast<double>(m_stepSeconds) * kUpBlendRate;
             float blendF = static_cast<float>(blend);
             m_upBlend = blendF;
             if (blend > 0.0 || std::isnan(blend)) {
@@ -692,9 +692,9 @@ void CPedestrianBrainModule::AlignToGround()
 // 0x004F01C0
 void CPedestrianBrainModule::SpinUpdate()
 {
-    float elapsed = static_cast<float>(static_cast<double>(m_frameTime) + m_spinElapsed);
+    float elapsed = static_cast<float>(static_cast<double>(m_stepSeconds) + m_spinElapsed);
     m_spinElapsed = elapsed;
-    double fraction = static_cast<double>(m_frameTime) / m_spinTime;
+    double fraction = static_cast<double>(m_stepSeconds) / m_spinTime;
     if (fraction > 1.0)
         fraction = 1.0;
     float turn = static_cast<float>(static_cast<double>(kHalfDegrees) - m_vertRotationTarget);
@@ -820,7 +820,7 @@ void CPedestrianBrainModule::SkaterMoveUpdate()
 {
     CKinematicsModule* motion = Motion(m_entity);
     MotionPath(motion)->UpdatePathSpeed();
-    float step = static_cast<float>(static_cast<double>(m_frameTime) * motion->m_pathSpeed);
+    float step = static_cast<float>(static_cast<double>(m_stepSeconds) * motion->m_pathSpeed);
     bool airborne = (motion->m_motionFlags & 0x100) != 0;
     if (m_flagBits & PED_FLAG_GRINDING) {
         if (CGameEntity* skater = LocalSkater()) {
@@ -930,7 +930,7 @@ void CPedestrianBrainModule::BailMoveUpdate()
 {
     CKinematicsModule* motion = Motion(m_entity);
     MotionPath(motion)->UpdatePathSpeed();
-    float step = static_cast<float>(static_cast<double>(m_frameTime) * motion->m_pathSpeed);
+    float step = static_cast<float>(static_cast<double>(m_stepSeconds) * motion->m_pathSpeed);
     if (!(m_flagBits & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING))) {
         // The bail's over: back to skating.
         m_updateType = kSkaterMoveUpdate;
@@ -980,7 +980,7 @@ void CPedestrianBrainModule::GoHomeUpdate()
     PushPosition();
     Maths::Vec4& pos = m_entity->m_atPoint;
     Maths::Vec4 old = pos;
-    double step = static_cast<double>(m_frameTime) * motion->m_pathMaxSpeed;
+    double step = static_cast<double>(m_stepSeconds) * motion->m_pathMaxSpeed;
     float stepF = static_cast<float>(step);
     pos.w = 1.0f;
     pos.x = static_cast<float>(step * home.x + old.x);
@@ -1034,7 +1034,7 @@ void CPedestrianBrainModule::ChaseUpdate()
     PushPosition();
     Maths::Vec4& pos = m_entity->m_atPoint;
     Maths::Vec4 old = pos;
-    double step = static_cast<double>(m_frameTime) * motion->m_pathMaxSpeed;
+    double step = static_cast<double>(m_stepSeconds) * motion->m_pathMaxSpeed;
     float stepF = static_cast<float>(step);
     pos.w = 1.0f;
     pos.x = static_cast<float>(step * towardPlayer.x + old.x);
@@ -1136,7 +1136,7 @@ void CPedestrianBrainModule::BlockerUpdate()
         speedNeeded = kMaxBlockerSpeed;
     motion->m_pathMaxSpeed = speedNeeded;
     PushPosition();
-    double step = static_cast<double>(m_frameTime) * motion->m_pathMaxSpeed;
+    double step = static_cast<double>(m_stepSeconds) * motion->m_pathMaxSpeed;
     Maths::Vec4& pos = m_entity->m_atPoint;
     pos.w = 1.0f;
     pos.x = static_cast<float>(static_cast<double>(toPoint.x) * step + pos.x);
@@ -1146,7 +1146,7 @@ void CPedestrianBrainModule::BlockerUpdate()
 // 0x004F2190
 void CPedestrianBrainModule::TickFrame()
 {
-    m_frameTime = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
+    m_stepSeconds = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     switch (m_updateType) {
     case kGenericMoveUpdate: VirtualGenericMoveUpdate(); break;
     case kGoHomeUpdate: GoHomeUpdate(); break;

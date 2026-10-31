@@ -82,7 +82,7 @@ constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;       // Load_MainMenu
 constexpr uint32_t kPreserveSkaters = 0x7F07D3D4;    // preserve_skaters
 constexpr uint32_t kChangeLevelGameFlow = 0xFF135E2A; // ChangeLevelGameFlow
 constexpr uint32_t kShadow = 0x8A897DD2;             // shadow
-constexpr uint32_t kShadowScale = 0x6F8CD62F;        // (name unknown: the shadow's scale)
+constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F;        // (name unknown: the shadow's scale)
 constexpr uint32_t kShadowModel = 0x545F8172;        // (name unknown: the shadow's model)
 constexpr uint32_t kRailManagerType = 0x1CDFB2A3;    // railmanager
 constexpr uint32_t kTeam = 0x3B1F59E0;               // Team
@@ -389,7 +389,7 @@ void Skate::SetSkaterShadow(GameObjects::CRider* skater)
     if (!skater->m_unknownBC)
         type = 2;
     Scripts::CStruct* params = SpawnParamTable();
-    params->PushFloat(kShadowScale, 1.0f);
+    params->PushFloat(kBlobSizeFactor, 1.0f);
     params->AppendWord(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
     reinterpret_cast<void(__thiscall*)(GameObjects::CGroundShadowModule*, Scripts::CStruct*)>(shadow->m_vtable[2])(shadow, params);
     DeleteStructure(params);
@@ -981,7 +981,7 @@ void Skate::RunFrameLogic()
 }
 
 // 0x00568C90 (the logic task's code)
-void __cdecl Skate::FrontEndTick(TaskList::SchedulerTask* task)
+void __cdecl Skate::FrontEndTick(Scheduling::SchedulerTask* task)
 {
     Skate* skate = *reinterpret_cast<Skate**>(reinterpret_cast<uint8_t*>(task) + 0x1C);
     OnlinePlay::Hub* net = NetSessionSlot();
@@ -1019,7 +1019,7 @@ Skate* Skate::MakeNew()
     m_riders.m_listLink.vtable = kSkaterHeadVtable;
     m_watchForUnplug = false;
     m_unpluggedFrames = 0;
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(0);
         task->m_vtable = GameCode::kTaskVtable;
@@ -1099,7 +1099,7 @@ void Skate::DestroyBody()
         MemSys::Dealloc(goals);
     }
     if (m_updateJob)
-        reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, int)>(m_updateJob->m_vtable[2])(m_updateJob, 1);
+        reinterpret_cast<void(__thiscall*)(Scheduling::SchedulerTask*, int)>(m_updateJob->m_vtable[2])(m_updateJob, 1);
     if (m_splitscreenPreferences)
         reinterpret_cast<void(__thiscall*)(OptionStore::Preferences*, int)>(*reinterpret_cast<void***>(m_splitscreenPreferences)[0])(
             m_splitscreenPreferences, 1);

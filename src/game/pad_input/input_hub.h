@@ -31,11 +31,11 @@ struct Payload {
         kRightX = 0, kRightY = 1, kLeftX = 2, kLeftY = 3,
         kPadRight = 4, kPadLeft = 5, kPadUp = 6, kPadDown = 7,
         kRawRightX = 0x12, kRawRightY = 0x13, kRawLeftX = 0x14, kRawLeftY = 0x15,
-        kNumEvents = 25,
+        kQueueCapacity = 25,
     };
-    enum : uint32_t { kButtonUp = 0x1000, kButtonRight = 0x2000, kButtonDown = 0x4000, kButtonLeft = 0x8000 };
+    enum : uint32_t { kReleaseEdge = 0x1000, kButtonRight = 0x2000, kPressEdge = 0x4000, kButtonLeft = 0x8000 };
 
-    uint8_t m_incident[kNumEvents];
+    uint8_t m_incident[kQueueCapacity];
     uint8_t pad19[3];
     uint32_t m_buttons; // +0x1C: down
     uint32_t m_makes;   // +0x20: pressed this frame
@@ -63,7 +63,7 @@ static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, m_buttons) == 0x1C &&
 // A controller's server (0x84 bytes).
 struct HostEnd {
     Sio::InputPort* m_dev;
-    uint8_t m_handlers[0x3C];    // +0x04: the handler list (TaskList::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
+    uint8_t m_handlers[0x3C];    // +0x04: the handler list (Scheduling::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
     Payload m_content;                 // +0x40
     PadFrameRecord* m_dataIn;      // +0x74: the recording played back (null: none)
     PadFrameRecord* m_inBufLimit;   // +0x78
@@ -84,7 +84,7 @@ static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, m_content) == 0x40 &&
 struct Hub {
     enum { kNumServers = 2 };
 
-    void* m_task;                     // TaskList::Task<Manager> (priority 2000) running the servers (0x0044E660)
+    void* m_task;                     // Scheduling::Task<Manager> (priority 2000) running the servers (0x0044E660)
     HostEnd m_hosts[kNumServers];    // +0x04
     bool m_stickReplacesPad;      // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool m_unknown10D;
@@ -107,7 +107,7 @@ struct Hub {
     // controller 0, player 1 none).
     int GetPlayerController(int player) { return m_unknown110[player]; }
     void SetPlayerController(int player, int controller) { m_unknown110[player] = controller; }
-    // 0x0044E660: the task's code (`task` its TaskList::Task<Manager>: the manager at +0x1C): for each server, a
+    // 0x0044E660: the task's code (`task` its Scheduling::Task<Manager>: the manager at +0x1C): for each server, a
     // recording played back or made that reached its end stops; then the server's frame (PollInputSinks).
     static void __cdecl ServiceTask(void* task);
 };
@@ -123,7 +123,7 @@ void ReleaseManager();
 // indexed the same way). 0x0044E590: entry `index`'s checksum. 0x0044E5A0: the index of `checksum` (0 if it's
 // none of them).
 uint32_t __cdecl ButtonHash(int index);
-int __cdecl ButtonIndex(uint32_t checksum);
+int __cdecl GlyphForButtonTag(uint32_t checksum);
 
 extern PadInput::Hub* g_inputManager;
 

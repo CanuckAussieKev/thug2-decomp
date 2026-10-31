@@ -45,7 +45,7 @@ bool IsStartupScript(const Scripts::CScript* script)
 // The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.
 void Point(const char* name, void* function)
 {
-    if (Scripts::CFunctionEntry* entry = Scripts::FindCFunction(name))
+    if (Scripts::CNativeCommand* entry = Scripts::FindCFunction(name))
         Scripts::BindNativeCommand(*entry, function);
 }
 

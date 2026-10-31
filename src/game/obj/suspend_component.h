@@ -93,7 +93,7 @@ void __cdecl NextSuspendFrame();
 // 0x004345B0: the suspend task's holder made (0x006951BC; 4 bytes - the task - by 0x00434520).
 void __cdecl CreateSuspendTask();
 struct SuspendTaskHolder {
-    // 0x00434520: the task (TaskList::Task, 0x20 bytes, priority -1100, callback SuspendTask, its data this holder) made
+    // 0x00434520: the task (Scheduling::Task, 0x20 bytes, priority -1100, callback SuspendTask, its data this holder) made
     // and added to the main loop's logic tasks (none if out of memory: null added). Returns this.
     SuspendTaskHolder* MakeNew();
 

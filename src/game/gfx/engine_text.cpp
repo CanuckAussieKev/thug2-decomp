@@ -87,7 +87,7 @@ CGlyphString* CGlyphString::MakeNew(void* window)
     m_overrideAlpha = false;
     m_invisible = true;
     m_zEnabled = false;
-    m_viewWindow = window;
+    m_screenRegion = window;
     m_nextFree = nullptr;
     m_textBuffer = nullptr;
     return this;
@@ -200,7 +200,7 @@ void CGlyphString::SetOverrideAlpha(bool on)
 // 0x0048D1B0
 void CGlyphString::ChangePane(void* window)
 {
-    m_viewWindow = window;
+    m_screenRegion = window;
     TickFrame(this, 5);
 }
 

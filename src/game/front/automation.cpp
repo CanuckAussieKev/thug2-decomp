@@ -325,19 +325,19 @@ std::string JsonList(const std::vector<std::string>& items)
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-ParseResult ParseCommand(const std::string& line, OrderCode* out, std::string* error)
+CommandLineOutcome ParseCommand(const std::string& line, OrderCode* out, std::string* error)
 {
     std::vector<std::string> tokens;
     if (!Tokenize(line, &tokens, error))
-        return ParseResult::Error;
+        return CommandLineOutcome::Error;
     if (tokens.empty())
-        return ParseResult::Vacant;
+        return CommandLineOutcome::Vacant;
     OrderCode command = {Op::Echo, "", {}, Condition::None, 0, 0};
     std::string keyword = Lower(tokens[0]);
     size_t count = tokens.size();
     auto fail = [error](const std::string& why) {
         *error = why;
-        return ParseResult::Error;
+        return CommandLineOutcome::Error;
     };
     if (keyword == "run") {
         if (count < 2 || !IsIdentifier(tokens[1]))
@@ -347,7 +347,7 @@ ParseResult ParseCommand(const std::string& line, OrderCode* out, std::string* e
         for (size_t i = 2; i < count; ++i) {
             Param param;
             if (!ParseParam(tokens[i], &param, error))
-                return ParseResult::Error;
+                return CommandLineOutcome::Error;
             command.params.push_back(param);
         }
     } else if (keyword == "choose" || keyword == "focus") {
@@ -480,7 +480,7 @@ ParseResult ParseCommand(const std::string& line, OrderCode* out, std::string* e
         return fail("no such command: " + tokens[0]);
     }
     *out = command;
-    return ParseResult::OrderCode;
+    return CommandLineOutcome::OrderCode;
 }
 
 const Button* FindButton(const std::string& name)
@@ -1350,14 +1350,14 @@ bool Kickoff(Runner& runner, GameModules::FrontEnd* frontEnd)
     runner.phase = 0;
     runner.targetSet = false;
     switch (ParseCommand(line.text, &command, &error)) {
-    case ParseResult::Vacant:
+    case CommandLineOutcome::Vacant:
         ++runner.linesDone;
         return true;
-    case ParseResult::Error:
+    case CommandLineOutcome::Error:
         Log("automation: line %d: %s", line.number, line.text.c_str());
         Fail(runner, "line " + std::to_string(line.number) + ": " + error, false);
         return true;
-    case ParseResult::OrderCode:
+    case CommandLineOutcome::OrderCode:
         break;
     }
     runner.active = true;

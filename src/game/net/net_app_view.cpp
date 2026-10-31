@@ -136,7 +136,7 @@ void AppHost::RaiseFault()
 bool AppHost::IsSendDue(Conn* conn)
 {
     uint32_t interval = TransmitPeriod(conn);
-    if (m_clock - conn->m_lastSendTime >= interval)
+    if (m_clock - conn->m_lastTransmitAt >= interval)
         return true;
     return SendNow(conn);
 }
@@ -254,10 +254,10 @@ bool AppHost::PrepareAll()
             return false;
         }
     }
-    m_numConnections = 0;
+    m_openLinks = 0;
     m_outboundByteTotal = 0;
     m_inboundByteTotal = 0;
-    m_lostPackets = 0;
+    m_skippedStamps = 0;
     m_staleArrivals = 0;
     m_repeatArrivals = 0;
     m_frameCount = 0;

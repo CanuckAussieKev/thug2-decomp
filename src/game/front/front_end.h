@@ -30,7 +30,7 @@ namespace GameModules {
 
 struct FrontEnd;
 
-// TaskList::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
+// Scheduling::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
 struct FrontEndTask {
     uint8_t m_listLink[0x18];   // the task list node (0x00406890 constructs it, with the priority)
     void(__cdecl* m_codeValue)(FrontEndTask*);

@@ -78,7 +78,7 @@ bool PathSample(const std::vector<V3>& points, bool closed, float distance, V3* 
 inline float MphToUnits(float mph) { return mph * 17.6f; }
 // The limits the editor accepts (the Inspector's fields clamp to them; a layout record outside them is refused).
 constexpr float kMinMph = 0.1f, kMaxMph = 200.0f;
-constexpr float kMinVolume = 0.0f, kMaxVolume = 400.0f;
+constexpr float kMinVolume = 0.0f, kLoudest = 400.0f;
 constexpr float kMinRadius = 1.0f, kRadiusCeiling = 100000.0f;
 
 // (map4) A particle system's emitter as its node places it: MidPosition / EndPosition (world places) and the three

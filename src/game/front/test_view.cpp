@@ -184,7 +184,7 @@ void PlaceCamera(Gfx2D::ViewCam* camera, int viewport)
 
 void RegisterScriptFunctions()
 {
-    static const Scripts::CFunctionEntry functions[] = {
+    static const Scripts::CNativeCommand functions[] = {
         {"TeleportSkaterStanding", reinterpret_cast<void*>(&CFunc_TeleportSkaterStanding)},
     };
     Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));

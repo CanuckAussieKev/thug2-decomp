@@ -519,7 +519,7 @@ float HeadingOf(float imageAngle) { return imageAngle - kPi; }
 void FillImage(const Goal& goal, uint32_t level, int levelGoalIndex, const std::vector<int>& gapNumbers, GoalImage* out)
 {
     uint8_t* b = out->bytes;
-    std::memset(b, 0, kImageSize);
+    std::memset(b, 0, kTexelEdge);
     auto u32 = [b](uint32_t offset) -> uint32_t& { return *reinterpret_cast<uint32_t*>(b + offset); };
     auto f32 = [b](uint32_t offset) -> float& { return *reinterpret_cast<float*>(b + offset); };
     auto text = [b](uint32_t offset, const std::string& value, size_t room) {
@@ -569,7 +569,7 @@ void FillImage(const Goal& goal, uint32_t level, int levelGoalIndex, const std::
         u32(0x2A0) = static_cast<uint32_t>(goal.checkpointTime);
         break;
     case KindTag::Gap: {
-        text(0x303, goal.trick, kImageSize - 0x303);
+        text(0x303, goal.trick, kTexelEdge - 0x303);
         int n = 0;
         for (int number : gapNumbers) {
             if (n >= 10 || number < 0 || number > 255)

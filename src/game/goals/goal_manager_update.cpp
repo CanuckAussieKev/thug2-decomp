@@ -52,9 +52,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* made = Scripts::NewArray();
+    Scripts::CArray* made = Scripts::AllocScriptArray();
     return made ? made->PrepareAll() : nullptr;
 }
 
@@ -136,8 +136,8 @@ void CGoalManager::RevokeEveryClear()
 void CGoalManager::AppendObjectiveListEntries()
 {
     int count = m_goals.m_num; // (read once)
-    Scripts::CArray* ordered = NewArray();
-    Scripts::CArray* unordered = NewArray();
+    Scripts::CArray* ordered = AllocScriptArray();
+    Scripts::CArray* unordered = AllocScriptArray();
     ordered->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_NAME);
     unordered->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_NAME);
     // The goals with a place in the list first, then the others.

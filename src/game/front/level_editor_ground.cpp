@@ -43,7 +43,7 @@ bool Normalise(Spec* s)
     // (too narrow / wide: grown / shrunk about the first corner)
     s->x1 = s->x0 + Confine(s->x1 - s->x0, kMinSide, kMaxSide);
     s->z1 = s->z0 + Confine(s->z1 - s->z0, kMinSide, kMaxSide);
-    s->height = Confine(s->height, kMinHeight, kMaxHeight);
+    s->height = Confine(s->height, kMinHeight, kCeilingY);
     s->length = Confine(s->length, 0.0f, kMaxLength);
     s->uv = Confine(s->uv, 16.0f, 4096.0f);
     return true;

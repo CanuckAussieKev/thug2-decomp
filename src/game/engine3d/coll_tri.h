@@ -57,7 +57,7 @@ struct CTriMeshSource {
     uint32_t m_checksum;      // +0x00 the sector's name
     uint16_t m_unknown04;
     uint16_t m_numVertices;   // +0x06
-    uint16_t m_numFaces;      // +0x08 (also the size of a sector object's own buffer)
+    uint16_t m_triCount;      // +0x08 (also the size of a sector object's own buffer)
     bool m_smallFaces;        // +0x0A faces of 8 bytes (else 10)
     bool m_compressed;        // +0x0B the vertices are 16-bit
     uint8_t* m_faces;         // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)

@@ -182,7 +182,7 @@ void CFootMovement::CheckCeiling()
 void CFootMovement::CheckStickerSlap()
 {
     // X and the pad's +0x20 button (m_btnDown) both down, the latter within 30 ms.
-    auto* pad = reinterpret_cast<CPadState*>(At<uint8_t*>(this, kInput) + 0x20);
+    auto* pad = reinterpret_cast<CPadSnapshot*>(At<uint8_t*>(this, kInput) + 0x20);
     if (!pad->m_posX.m_heldDown || !pad->m_btnDown.m_heldDown)
         return;
     if (static_cast<uint32_t>(pad->m_btnDown.GetHeldMillis()) > 30)
@@ -388,7 +388,7 @@ void CFootMovement::PlanJumpOverObstruction()
 void CFootMovement::TryWallplant()
 {
     // X down, not rising, high enough, not just wallplanted, not just after leaving the ground...
-    auto* pad = reinterpret_cast<CPadState*>(At<uint8_t*>(this, kInput) + 0x20);
+    auto* pad = reinterpret_cast<CPadSnapshot*>(At<uint8_t*>(this, kInput) + 0x20);
     if (!pad->m_posX.m_heldDown || At<float>(this, kUpSpeed) > 0.0f)
         return;
     if (Scripts::FetchFloat(kMinWallplantHeight) > At<float>(At<uint8_t*>(this, kSkaterState), 0x11C))

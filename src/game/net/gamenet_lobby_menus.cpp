@@ -75,7 +75,7 @@ constexpr uint32_t kAddLobbyPlayer = 0x459148C5;      // (the player list's item
 
 constexpr int kMaxBuddies = 30;
 constexpr int kMaxRank = 10;
-constexpr int kGroupRoom = 1;
+constexpr int kRoomGroupKind = 1;
 constexpr int kLobbyStateListed = 15;
 constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
@@ -91,7 +91,7 @@ void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
 // A script array of four integers (an rgba).
 Scripts::CArray* NewScriptArray()
 {
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteScriptArray(Scripts::CArray* array)
@@ -165,7 +165,7 @@ bool __cdecl CFunc_SendMessage(Scripts::CStruct* params, Scripts::CScript*)
     }
     PushInternetHeap();
     GameSpy::PeerMessageRoom(
-        static_cast<RoomManager*>(manager->m_lobbyService)->m_remote, kGroupRoom, message, 0); // to the group room
+        static_cast<RoomManager*>(manager->m_lobbyService)->m_remote, kRoomGroupKind, message, 0); // to the group room
     PopHeap();
     return true;
 }
@@ -320,9 +320,9 @@ void __cdecl RoomManager::GroupRoomCallback(void*, int success, int groupId, voi
 // 0x00540D50
 void RoomManager::DestroyBody()
 {
-    for (TaskList::SchedulerTask* task : {m_thinkTask, m_natTask, m_hostingTask})
+    for (Scheduling::SchedulerTask* task : {m_thinkTask, m_natTask, m_hostingTask})
         if (task) // (the scalar deleting destructor, vtable slot 2)
-            reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, unsigned int)>(task->m_vtable[2])(task, 1);
+            reinterpret_cast<void(__thiscall*)(Scheduling::SchedulerTask*, unsigned int)>(task->m_vtable[2])(task, 1);
     m_participants.UnlinkAs(kLobbyListNodeVtable);
     reinterpret_cast<MemSys::ListNode*>(this)->UnlinkAs(kLobbyNodeVtable);
 }
@@ -372,9 +372,9 @@ LobbySearchB* LobbySearchB::Teardown(unsigned int flags)
 }
 
 // 0x005407B0
-TaskList::SchedulerTask* TaskDeleter::Teardown(unsigned int flags)
+Scheduling::SchedulerTask* TaskDeleter::Teardown(unsigned int flags)
 {
-    auto* task = reinterpret_cast<TaskList::SchedulerTask*>(this);
+    auto* task = reinterpret_cast<Scheduling::SchedulerTask*>(this);
     task->Destruct(); // (Task<T>'s destructor, 0x00577290, is a jump to it)
     if (flags & 1)
         MemSys::Hub::Pull()->Dealloc(task);

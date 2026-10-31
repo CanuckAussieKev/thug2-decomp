@@ -82,12 +82,12 @@ double X87Sin(double angle)
 }
 
 // The base controller.
-void BaseConstruct(CAnimController* c, CAnimTimeline* timeline) { c->CAnimController::MakeNew(timeline); }
-void BaseDestroyBody(CAnimController* c) { c->CAnimController::DestroyBody(); }
-void BaseInit(CAnimController* c, CStruct* params) { c->CAnimController::ConfigureFromData(params); }
+void BaseConstruct(CAnimDriver* c, CAnimTimeline* timeline) { c->CAnimDriver::MakeNew(timeline); }
+void BaseDestroyBody(CAnimDriver* c) { c->CAnimDriver::DestroyBody(); }
+void BaseInit(CAnimDriver* c, CStruct* params) { c->CAnimDriver::ConfigureFromData(params); }
 // The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
-GameObjects::CGameEntity* ObjectOf(CAnimController* c) { return c->CAnimController::FetchSubject(); }
-uint8_t* SkeletonOf(CAnimController* c) { return c->CAnimController::FetchRig(); }
+GameObjects::CGameEntity* ObjectOf(CAnimDriver* c) { return c->CAnimDriver::FetchSubject(); }
+uint8_t* SkeletonOf(CAnimDriver* c) { return c->CAnimDriver::FetchRig(); }
 // The object's anim set (the animation blender component's 0x00419AB0) and an animation's length in it.
 uint32_t AnimSet(GameObjects::CGameEntity* object)
 {
@@ -174,7 +174,7 @@ MemSys::PoolPair& StandardPools() { return g_standardPools; }
 } // namespace
 
 // 0x004A4610
-void CAnimController::BaseInitFromStructure(Scripts::CStruct* params) { BaseInit(this, params); }
+void CAnimDriver::BaseInitFromStructure(Scripts::CStruct* params) { BaseInit(this, params); }
 
 // --- the standard controller ---------------------------------------------------------------------------------
 
@@ -684,19 +684,19 @@ void CPartialClipDriver::TickFrame()
 namespace {
 static VtableSlot kCStandardAnimControllerVtable_slots[] = {&CStandardAnimController::Teardown,
                 &CStandardAnimController::FetchPose, Stubs::IgnoreArgument, &CStandardAnimController::InvokeMethodByName,
-                &CAnimController::BaseInitFromStructure, &CStandardAnimController::TickFrame};
+                &CAnimDriver::BaseInitFromStructure, &CStandardAnimController::TickFrame};
 void** const kCStandardAnimControllerVtable = reinterpret_cast<void**>(kCStandardAnimControllerVtable_slots);
 static VtableSlot kCWeightedAnimControllerVtable_slots[] = {&CWeightedAnimController::Teardown,
                 &CWeightedAnimController::FetchPose, Stubs::IgnoreArgument, &CWeightedAnimController::InvokeMethodByName,
-                &CAnimController::BaseInitFromStructure, Stubs::DoNothing};
+                &CAnimDriver::BaseInitFromStructure, Stubs::DoNothing};
 void** const kCWeightedAnimControllerVtable = reinterpret_cast<void**>(kCWeightedAnimControllerVtable_slots);
 static VtableSlot kCWobbleControllerVtable_slots[] = {&CWobbleDriver::Teardown, &CWobbleDriver::FetchPose,
-                Stubs::IgnoreArgument, &CWobbleDriver::InvokeMethodByName, &CAnimController::BaseInitFromStructure,
+                Stubs::IgnoreArgument, &CWobbleDriver::InvokeMethodByName, &CAnimDriver::BaseInitFromStructure,
                 &CWobbleDriver::TickFrame};
 void** const kCWobbleControllerVtable = reinterpret_cast<void**>(kCWobbleControllerVtable_slots);
 static VtableSlot kCPoseControllerVtable_slots[] = {&CStanceDriver::Teardown, &CStanceDriver::FetchPose,
                 Stubs::IgnoreArgument, &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
-                &CAnimController::BaseInitFromStructure, Stubs::DoNothing};
+                &CAnimDriver::BaseInitFromStructure, Stubs::DoNothing};
 void** const kCPoseControllerVtable = reinterpret_cast<void**>(kCPoseControllerVtable_slots);
 static VtableSlot kCPartialAnimControllerVtable_slots[] = {&CPartialClipDriver::Teardown,
                 &CPartialClipDriver::FetchPose, Stubs::IgnoreArgument, &CPartialClipDriver::InvokeMethodByName,

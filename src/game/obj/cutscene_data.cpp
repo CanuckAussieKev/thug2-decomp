@@ -61,11 +61,11 @@ void* ModelOf(CObjectModule* component)
 }
 uint32_t ModelGet(void* model)
 {
-    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::GetBoneMatrices))(model);
+    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(model);
 }
 void ModelSet(void* model, uint32_t value)
 {
-    static_cast<Engine3D::CRenderModel*>(model)->SetBoneMatrices(reinterpret_cast<uint8_t*>(value));
+    static_cast<Engine3D::CRenderModel*>(model)->UploadSkinningPalette(reinterpret_cast<uint8_t*>(value));
 }
 
 // The asset manager (0x006918DC).

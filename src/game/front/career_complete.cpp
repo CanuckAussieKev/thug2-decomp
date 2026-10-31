@@ -194,7 +194,7 @@ bool __cdecl CFunc_Apply(Scripts::CStruct* params, Scripts::CScript*)
 
 void RegisterScriptFunctions()
 {
-    static const Scripts::CFunctionEntry functions[] = {
+    static const Scripts::CNativeCommand functions[] = {
         {"Career100_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"Career100_Apply", reinterpret_cast<void*>(&CFunc_Apply)},
     };

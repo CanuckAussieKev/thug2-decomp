@@ -456,7 +456,7 @@ void CMoveExecutor::SetButtonMap(const uint32_t* buttons)
 }
 
 // 0x0051ECF0
-bool CMoveExecutor::IsButtonDown(uint32_t button)
+bool CMoveExecutor::IsKeyHeld(uint32_t button)
 {
     // NOT ORIGINAL - THAW's BMX (the feature on, the skater on the bike): THAW's stick directions (leftleft ...
     // rightdownright - game/skater/thaw_bmx.h). Original behaviour: THUG2's buttons only.
@@ -465,7 +465,7 @@ bool CMoveExecutor::IsButtonDown(uint32_t button)
         if (held >= 0)
             return held != 0;
     }
-    return m_btnDown[PadInput::ButtonIndex(button)];
+    return m_btnDown[PadInput::GlyphForButtonTag(button)];
 }
 
 // 0x0051ED10
@@ -954,7 +954,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
     }
     case 0x14FE9B7D: { // AirTrickLogic: the second held (its newest press marked) and the first pressed - or both pressed
         uint32_t ms = ReadTrigger(node, 2, buttons);
-        if (IsButtonDown(buttons[1])) {
+        if (IsKeyHeld(buttons[1])) {
             ForEachEvent(this, [&](int, TrickEvent& e) {
                 if (e.type == 1 && e.button == buttons[1]) {
                     e.used = true;
@@ -968,7 +968,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
     }
     case 0x3C3028F4: { // PressTwo: both held, and both pressed
         uint32_t ms = ReadTrigger(node, 2, buttons);
-        if (!IsButtonDown(buttons[0]) || !IsButtonDown(buttons[1]))
+        if (!IsKeyHeld(buttons[0]) || !IsKeyHeld(buttons[1]))
             return fail();
         return FindPressBoth(buttons[0], buttons[1], ms, mask) ? succeed() : fail();
     }
@@ -976,7 +976,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         const auto* second = Prop<const uint8_t*>(node, 0xC);
         uint32_t a = Prop<uint32_t>(node, 8), b = Prop<uint32_t>(second, 8);
         uint32_t c = Prop<uint32_t>(Prop<const uint8_t*>(second, 0xC), 8);
-        return IsButtonDown(a) && IsButtonDown(b) && IsButtonDown(c);
+        return IsKeyHeld(a) && IsKeyHeld(b) && IsKeyHeld(c);
     }
     case 0x696E5E66: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,
                        // then the second pressed and released

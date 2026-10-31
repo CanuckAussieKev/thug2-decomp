@@ -46,7 +46,7 @@ CBillboardQuad* CBillboardQuad::MakeNew(void* window)
     m_span = 0;
     m_levelY = 0;
     std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));
-    m_viewWindow = window;
+    m_screenRegion = window;
     m_invisible = true;
     m_useDepth = false;
     m_flipV = false;
@@ -117,10 +117,10 @@ void CBillboardQuad::ChangeScale(float xscale, float yscale)
         width = static_cast<float>(TexelsAcross(m_bitmap));
         height = static_cast<float>(TexelsDown(m_bitmap));
     }
-    constexpr float kMinWidth = 1.25f;                                // 0x00649AC4
+    constexpr float kNarrowest = 1.25f;                                // 0x00649AC4
     constexpr float kMinHeight = std::bit_cast<float>(0x3F955326u); // 0x00649AC0: 1.1666
-    if (xscale > 0.0f && static_cast<double>(width) * xscale <= kMinWidth)
-        xscale = static_cast<float>(static_cast<double>(kMinWidth) / width);
+    if (xscale > 0.0f && static_cast<double>(width) * xscale <= kNarrowest)
+        xscale = static_cast<float>(static_cast<double>(kNarrowest) / width);
     if (yscale > 0.0f && static_cast<double>(height) * yscale <= kMinHeight)
         yscale = static_cast<float>(static_cast<double>(kMinHeight) / height);
     m_scaleV = yscale;
@@ -186,7 +186,7 @@ void CBillboardQuad::ChangeRgba(uint32_t rgba)
 // 0x0049EED0
 CTexturedQuad* CTexturedQuad::MakeNew(void* window)
 {
-    m_viewWindow = window;
+    m_screenRegion = window;
     vtable = reinterpret_cast<void**>(kQuadVtable);
     m_bitmap = nullptr;
     std::memset(m_rgbaValue, 0x80, sizeof(m_rgbaValue));

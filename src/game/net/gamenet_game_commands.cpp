@@ -68,7 +68,7 @@ constexpr uint32_t kPlayerFlags = 0x1D0;
 constexpr uint32_t kProfileIdField = 0x28; // PlayerRecord: the GameSpy profile id
 constexpr uint32_t kRemoveMark = 0x400;   // a player's flags: being removed (its options dialog is up)
 
-constexpr uint32_t kGameStartTask = 0xE8;  // TaskList::SchedulerTask*
+constexpr uint32_t kGameStartTask = 0xE8;  // Scheduling::SchedulerTask*
 constexpr uint32_t kLevelSwitchJob = 0xEC;
 constexpr uint32_t kCrownSpawn = 0x68;     // int
 constexpr uint32_t kCrown = 0x6C;          // GameObjects::CCrownObject*
@@ -112,7 +112,7 @@ constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
 Hub* NetLink() { return g_onlineHub; }
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
 
 uint32_t g_lastTeamRequest;
 
@@ -225,10 +225,10 @@ bool __cdecl CFunc_SpawnCrown(CStruct*, CScript*)
 bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
 {
     Hub* manager = NetLink();
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     ReportGameState(manager, true);
-    if (Prop<TaskList::SchedulerTask*>(manager, kGameStartTask)->IsOnTaskList() ||
-        Prop<TaskList::SchedulerTask*>(manager, kLevelSwitchJob)->IsOnTaskList())
+    if (Prop<Scheduling::SchedulerTask*>(manager, kGameStartTask)->IsOnTaskList() ||
+        Prop<Scheduling::SchedulerTask*>(manager, kLevelSwitchJob)->IsOnTaskList())
         return true;
     manager->m_matchBeingSetUp = true;
     if (!manager->InNetGame())
@@ -237,7 +237,7 @@ bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
         NetGameStartTime() = FrameClock::GetTime() + 8000;
     else
         NetGameStartTime() = FrameClock::GetTime() + 3000;
-    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(manager, kGameStartTask));
+    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(manager, kGameStartTask));
     if (manager->InNetGame()) {
         uint32_t text = manager->m_hostMode == 1 ? kAutoStarting : kStarting;
         manager->BuildNetNotice(true, text, manager->GetGameTypeName(), nullptr, nullptr, kNetStatusProps, true,
@@ -491,7 +491,7 @@ bool __cdecl CFunc_FillPlayerListMenu(CStruct*, CScript*)
         }
         // The colour: grey (128, 128, 128, 128); a GameSpy buddy's (128, 128, 0, 128); another logged-in player's
         // with a profile (0, 128, 0, 128).
-        Scripts::CArray* arrayMemory = Scripts::NewArray();
+        Scripts::CArray* arrayMemory = Scripts::AllocScriptArray();
         Scripts::CArray* rgba = arrayMemory ? arrayMemory->PrepareAll() : nullptr;
         rgba->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
         uint32_t blue;

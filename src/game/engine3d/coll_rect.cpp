@@ -275,7 +275,7 @@ uint8_t* CStaticCollider::TakeBuffer(uint8_t* block, const CTriMeshSource* geome
     if (geometry->m_smallFaces)
         return block;
     m_octets = block;
-    return block + geometry->m_numFaces;
+    return block + geometry->m_triCount;
 }
 
 // 0x004182D0

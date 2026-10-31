@@ -59,42 +59,42 @@ CStruct* NewEmptyStruct()
 // 0x00473050
 void CScript::UpdateWait()
 {
-    switch (m_waitType) {
+    switch (m_suspendReason) {
     case SUSPEND_ON_COUNT:
-        if (m_waitCounter)
-            --m_waitCounter;
+        if (m_suspendFramesLeft)
+            --m_suspendFramesLeft;
         else
-            m_waitType = SUSPEND_ON_NOTHING;
+            m_suspendReason = SUSPEND_ON_NOTHING;
         break;
     case SUSPEND_ON_FRAME:
-        if (m_waitCounter) {
-            --m_waitCounter;
+        if (m_suspendFramesLeft) {
+            --m_suspendFramesLeft;
         } else if (!OnePerFrameReleased()) {
             // The first such script to finish counting this frame goes on; the others wait (at 0) for the next.
             OnePerFrameReleased() = true;
-            m_waitType = SUSPEND_ON_NOTHING;
+            m_suspendReason = SUSPEND_ON_NOTHING;
         }
         break;
     case SUSPEND_ON_TIMER: {
         double frame = FrameClock::GetSlomoFrameSeconds(); // (unrounded, as the original keeps it on the x87 stack)
-        if (frame > m_waitTimer) {
+        if (frame > m_suspendClock) {
             // Less than a frame left: done - unless this is the first Update, which only zeroes the time.
-            if (m_waitTimerStarted)
-                m_waitType = SUSPEND_ON_NOTHING;
+            if (m_suspendClockStarted)
+                m_suspendReason = SUSPEND_ON_NOTHING;
             else
-                m_waitTimer = 0.0f;
+                m_suspendClock = 0.0f;
         } else {
             // (also when either is a NaN)
-            m_waitTimer = static_cast<float>(m_waitTimer - frame);
+            m_suspendClock = static_cast<float>(m_suspendClock - frame);
         }
-        m_waitTimerStarted = true;
+        m_suspendClockStarted = true;
         break;
     }
     case WAIT_TYPE_REAL_TIMER: {
-        uint32_t start = m_waitArg;
+        uint32_t start = m_suspendArg;
         uint32_t elapsed = static_cast<uint32_t>(GameClock()) + (static_cast<uint32_t>(GameClockOffset()) - start);
-        if (static_cast<double>(elapsed) >= m_waitTimer) // (not when the time is a NaN)
-            m_waitType = SUSPEND_ON_NOTHING;
+        if (static_cast<double>(elapsed) >= m_suspendClock) // (not when the time is a NaN)
+            m_suspendReason = SUSPEND_ON_NOTHING;
         break;
     }
     case 5:
@@ -107,7 +107,7 @@ void CScript::UpdateWait()
         GameObjects::CObjectModule* component = m_blockingModule;
         auto check = reinterpret_cast<void(__thiscall*)(GameObjects::CObjectModule*, CScript*, uint32_t)>(
             (*reinterpret_cast<void***>(component))[0x18 / 4]);
-        check(component, this, m_waitArg);
+        check(component, this, m_suspendArg);
         break;
     }
     default:
@@ -117,51 +117,51 @@ void CScript::UpdateWait()
 }
 
 // 0x004728F0
-void CScript::StopWaiting() { m_waitType = SUSPEND_ON_NOTHING; }
+void CScript::StopWaiting() { m_suspendReason = SUSPEND_ON_NOTHING; }
 
 // 0x00472900
 bool CScript::IsBlocked(bool print)
 {
     if (print)
-        DebugOut::Printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, m_waitType);
-    return m_waitType == SUSPEND_ON_BLOCK;
+        DebugOut::Printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, m_suspendReason);
+    return m_suspendReason == SUSPEND_ON_BLOCK;
 }
 
 // 0x00472BD0
 void CScript::Stall(int frames)
 {
-    m_waitType = SUSPEND_ON_COUNT;
-    m_waitCounter = frames;
+    m_suspendReason = SUSPEND_ON_COUNT;
+    m_suspendFramesLeft = frames;
 }
 
 // 0x00472BF0
 void CScript::SuspendUntilNextFrame(int frames)
 {
-    m_waitType = SUSPEND_ON_FRAME;
-    m_waitCounter = frames;
+    m_suspendReason = SUSPEND_ON_FRAME;
+    m_suspendFramesLeft = frames;
 }
 
 // 0x00472C10 (the milliseconds unsigned)
 void CScript::Lull(int ms)
 {
-    m_waitType = SUSPEND_ON_TIMER;
-    m_waitTimerStarted = false;
-    m_waitTimer = static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs);
+    m_suspendReason = SUSPEND_ON_TIMER;
+    m_suspendClockStarted = false;
+    m_suspendClock = static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs);
 }
 
 // 0x00473310 (the milliseconds unsigned)
 void CScript::WaitRealTime(int ms)
 {
-    m_waitType = WAIT_TYPE_REAL_TIMER;
-    m_waitArg = static_cast<uint32_t>(GameClock() + GameClockOffset());
-    m_waitTimer = static_cast<float>(static_cast<uint32_t>(ms));
+    m_suspendReason = WAIT_TYPE_REAL_TIMER;
+    m_suspendArg = static_cast<uint32_t>(GameClock() + GameClockOffset());
+    m_suspendClock = static_cast<float>(static_cast<uint32_t>(ms));
 }
 
 // 0x00472FD0
 void CScript::GateOff(uint32_t eventType)
 {
-    m_waitType = SUSPEND_ON_BLOCK;
-    m_waitArg = eventType;
+    m_suspendReason = SUSPEND_ON_BLOCK;
+    m_suspendArg = eventType;
     if (eventType) {
         GameObjects::Tracker()->AddListener(eventType, this);
         m_spawnFlags |= SCRIPT_FLAG_TRACKER_BLOCKED;
@@ -171,9 +171,9 @@ void CScript::GateOff(uint32_t eventType)
 // 0x004739A0
 void CScript::SetWaitOnComponent(EBlockReason type, GameObjects::CObjectModule* component, uint32_t arg)
 {
-    m_waitType = type;
+    m_suspendReason = type;
     m_blockingModule = component;
-    m_waitArg = arg;
+    m_suspendArg = arg;
     // (the component's flags +0x08: a script waits on it)
     *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(component) + 0x08) |= 2;
 }
@@ -182,10 +182,10 @@ void CScript::SetWaitOnComponent(EBlockReason type, GameObjects::CObjectModule* 
 void CScript::ComponentDestroyed(GameObjects::CObjectModule* component)
 {
     if (m_blockingModule && m_blockingModule == component)
-        m_waitType = SUSPEND_ON_NOTHING;
+        m_suspendReason = SUSPEND_ON_NOTHING;
     // The levels it's in the middle of: the saved wait type only (the component pointer stays).
     for (int i = 0; i < m_callDepth; ++i) {
-        SCallFrame& frame = m_returnAddresses[i];
+        SCallFrame& frame = m_frameRecords[i];
         if (frame.m_sleepComponent && frame.m_sleepComponent == component)
             frame.m_suspendKind &= ~RETURN_WAIT_TYPE_MASK;
     }
@@ -201,13 +201,13 @@ void ComponentDestroyedAllScripts(GameObjects::CObjectModule* component)
 // 0x00473800
 bool CScript::ReceiveEvent(GameObjects::CSignal* event)
 {
-    if (m_waitType == SUSPEND_ON_BLOCK && m_waitArg && event->m_kindTag == m_waitArg)
-        m_waitType = SUSPEND_ON_NOTHING;
+    if (m_suspendReason == SUSPEND_ON_BLOCK && m_suspendArg && event->m_kindTag == m_suspendArg)
+        m_suspendReason = SUSPEND_ON_NOTHING;
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < m_callDepth; ++i) {
-        SCallFrame& frame = m_returnAddresses[i];
-        if ((frame.m_suspendKind & RETURN_WAIT_TYPE_MASK) == SUSPEND_ON_BLOCK && frame.m_waitArgPtr &&
-            event->m_kindTag == frame.m_waitArgPtr)
+        SCallFrame& frame = m_frameRecords[i];
+        if ((frame.m_suspendKind & RETURN_WAIT_TYPE_MASK) == SUSPEND_ON_BLOCK && frame.m_suspendArgRef &&
+            event->m_kindTag == frame.m_suspendArgRef)
             frame.m_suspendKind &= ~RETURN_WAIT_TYPE_MASK;
     }
     if (m_signalRoutes)
@@ -221,7 +221,7 @@ void CScript::UnblockInterruptedScript()
 {
     bool interrupt = (m_flagBits & SCRIPT_RUN_INTERRUPTED) != 0;
     for (int level = m_callDepth; level > 0; --level) {
-        SCallFrame& below = m_returnAddresses[level - 1];
+        SCallFrame& below = m_frameRecords[level - 1];
         if (interrupt) {
             below.m_suspendKind &= ~RETURN_WAIT_TYPE_MASK;
             return;
@@ -240,28 +240,28 @@ void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, 
         return;
     }
     // The third level: the call stack moves from inside the script to 16 on the script heap (no check beyond).
-    if (m_returnAddresses == m_inlineReturnAddresses && m_callDepth == 2) {
+    if (m_frameRecords == m_inlineReturnAddresses && m_callDepth == 2) {
         MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
-        m_returnAddresses = static_cast<SCallFrame*>(MemSys::AllocBlock(16 * sizeof(SCallFrame)));
+        m_frameRecords = static_cast<SCallFrame*>(MemSys::AllocBlock(16 * sizeof(SCallFrame)));
         MemSys::LeaveHeapScope();
-        m_returnAddresses[0] = m_inlineReturnAddresses[0];
-        m_returnAddresses[1] = m_inlineReturnAddresses[1];
+        m_frameRecords[0] = m_inlineReturnAddresses[0];
+        m_frameRecords[1] = m_inlineReturnAddresses[1];
     }
     // The caller's state (the frame's other wait-type and flag bits are left as they were).
-    SCallFrame& frame = m_returnAddresses[m_callDepth++];
+    SCallFrame& frame = m_frameRecords[m_callDepth++];
     frame.m_scriptId = m_scriptTitle;
     frame.m_argStruct = m_args;
     frame.m_callerFrame = m_pc;
     frame.m_ownerEntity = m_entity.Pull();
     frame.m_loopState = m_innermostRepeat;
     frame.m_onExitScriptPtr = m_onExitScript;
-    frame.m_suspendKind = (frame.m_suspendKind & ~RETURN_WAIT_TYPE_MASK) | (m_waitType & RETURN_WAIT_TYPE_MASK);
+    frame.m_suspendKind = (frame.m_suspendKind & ~RETURN_WAIT_TYPE_MASK) | (m_suspendReason & RETURN_WAIT_TYPE_MASK);
     frame.m_sleepComponent = m_blockingModule;
-    frame.m_waitArgPtr = m_waitArg;
-    frame.m_waitCounterPtr = m_waitCounter;
-    frame.m_sleepTimer = m_waitTimer;
+    frame.m_suspendArgRef = m_suspendArg;
+    frame.m_suspendFramesRef = m_suspendFramesLeft;
+    frame.m_sleepTimer = m_suspendClock;
     frame.m_traitMask = static_cast<uint8_t>((frame.m_traitMask & ~(RETURN_FLAG_TIMER_STARTED | RETURN_FLAG_INTERRUPTED)) |
-                                        (m_waitTimerStarted ? RETURN_FLAG_TIMER_STARTED : 0) |
+                                        (m_suspendClockStarted ? RETURN_FLAG_TIMER_STARTED : 0) |
                                         ((m_flagBits & SCRIPT_RUN_INTERRUPTED) ? RETURN_FLAG_INTERRUPTED : 0));
     // The callee: its default parameters (its first line), then the call's. (With no code the original reads
     // through null - not checked.) The loop pointer is kept: the callee's loops go above the caller's.
@@ -273,14 +273,14 @@ void CScript::RunSubScript(uint32_t name, const uint8_t* code, CStruct* params, 
         m_args->MergeStructure(params);
     m_entity.AssignValue(object);
     m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
-    m_waitType = SUSPEND_ON_NOTHING;
+    m_suspendReason = SUSPEND_ON_NOTHING;
     m_onExitScript = 0;
 }
 
 // 0x00473E70
 bool CScript::ReturnFromScript(CStruct* results)
 {
-    ScriptCache()->ReleaseScript(m_scriptTitle);
+    ScriptStoreInstance()->ReleaseScript(m_scriptTitle);
     bool interrupted = (m_flagBits & SCRIPT_RUN_INTERRUPTED) != 0;
     if (m_callDepth == 0) {
         // The bottom level: the script ends (its parameters stay, for the results).
@@ -291,21 +291,21 @@ bool CScript::ReturnFromScript(CStruct* results)
             m_args->Clear();
             DeleteStruct(m_args);
         }
-        SCallFrame& frame = m_returnAddresses[m_callDepth];
+        SCallFrame& frame = m_frameRecords[m_callDepth];
         m_scriptTitle = frame.m_scriptId;
         m_args = frame.m_argStruct;
         m_pc = frame.m_callerFrame;
         m_entity.AssignValue(frame.m_ownerEntity);
         m_innermostRepeat = frame.m_loopState;
         m_onExitScript = frame.m_onExitScriptPtr;
-        m_waitType = frame.m_suspendKind & RETURN_WAIT_TYPE_MASK;
+        m_suspendReason = frame.m_suspendKind & RETURN_WAIT_TYPE_MASK;
         // The rest of the wait only if it was waiting (otherwise the callee's values stay).
-        if (m_waitType != SUSPEND_ON_NOTHING) {
-            m_waitCounter = frame.m_waitCounterPtr;
-            m_waitTimer = frame.m_sleepTimer;
-            m_waitTimerStarted = (frame.m_traitMask & RETURN_FLAG_TIMER_STARTED) != 0;
+        if (m_suspendReason != SUSPEND_ON_NOTHING) {
+            m_suspendFramesLeft = frame.m_suspendFramesRef;
+            m_suspendClock = frame.m_sleepTimer;
+            m_suspendClockStarted = (frame.m_traitMask & RETURN_FLAG_TIMER_STARTED) != 0;
             m_blockingModule = frame.m_sleepComponent;
-            m_waitArg = frame.m_waitArgPtr;
+            m_suspendArg = frame.m_suspendArgRef;
         }
         m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) |
                                        ((frame.m_traitMask & RETURN_FLAG_INTERRUPTED) ? SCRIPT_RUN_INTERRUPTED : 0));
@@ -318,7 +318,7 @@ bool CScript::ReturnFromScript(CStruct* results)
 // 0x00475750
 EScriptOutcome CScript::Preempt(uint32_t name, CStruct* params)
 {
-    const uint8_t* code = ScriptCache()->FetchScript(name);
+    const uint8_t* code = ScriptStoreInstance()->FetchScript(name);
     RunSubScript(name, code, params, m_entity.Pull(), true);
     return TickFrame();
 }

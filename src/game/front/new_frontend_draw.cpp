@@ -56,12 +56,12 @@ constexpr Bake kBakes[] = {
 };
 constexpr int kBakeCount = static_cast<int>(sizeof(kBakes) / sizeof(kBakes[0]));
 
-struct FaceData {
+struct FaceLayout {
     std::vector<uint8_t> file; // (kept: the atlas doesn't own it - several sizes share it)
     float ascent = 0.8f, descent = -0.2f;
     bool ok = false;
 };
-FaceData g_faces[3];
+FaceLayout g_faces[3];
 
 struct Baked {
     ImFont* font = nullptr;
@@ -122,7 +122,7 @@ const Baked* FontFor(Face face, float css)
     return best;
 }
 
-const FaceData& DataOf(Face face) { return g_faces[static_cast<int>(face)]; }
+const FaceLayout& DataOf(Face face) { return g_faces[static_cast<int>(face)]; }
 
 // --- text ---
 
@@ -224,7 +224,7 @@ void Text(ImDrawList* dl, const Style& style, const TickCycle& frame, float x, f
 float Datum(const Style& style, const TickCycle& frame, float top, float lineHeight)
 {
     const Baked* baked = FontFor(style.face, style.css);
-    const FaceData& data = DataOf(baked ? baked->face : style.face);
+    const FaceLayout& data = DataOf(baked ? baked->face : style.face);
     return top + frame.S(BaselineInLine(data.ascent, data.descent, style.css, lineHeight));
 }
 
@@ -1580,8 +1580,8 @@ bool BuildFonts(const FontFiles& files, float scale)
     const std::string* paths[3] = {&files.display, &files.mono, &files.body};
     bool all = true;
     for (int i = 0; i < 3; ++i) {
-        FaceData& face = g_faces[i];
-        face = FaceData{};
+        FaceLayout& face = g_faces[i];
+        face = FaceLayout{};
         if (paths[i]->empty() || !ReadFile(*paths[i], &face.file) ||
             !ReadFontMetrics(face.file.data(), face.file.size(), &face.ascent, &face.descent)) {
             Log("new front end: can't read the font %s", paths[i]->empty() ? "(none)" : paths[i]->c_str());
@@ -1592,7 +1592,7 @@ bool BuildFonts(const FontFiles& files, float scale)
         face.ok = true;
     }
     for (int i = 0; i < kBakeCount; ++i) {
-        FaceData& face = g_faces[static_cast<int>(kBakes[i].face)];
+        FaceLayout& face = g_faces[static_cast<int>(kBakes[i].face)];
         if (!face.ok)
             continue;
         float em = std::max(4.0f, std::round(kBakes[i].css * scale));

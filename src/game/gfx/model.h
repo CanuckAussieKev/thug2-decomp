@@ -43,7 +43,7 @@ enum : uint8_t {
 constexpr uint32_t kAllGeoms = 0xC4E78E22;
 
 // The model (0x4C bytes; vtable 0x00649348 - CPcModel's 0x0064A4B4 replaces [0], [12] and [13]). Its virtual slots:
-// [0] destroy, [1] the skeleton's bones allotted (0x005BC7F0: true), [2] a bone flag for SetBoneMatrices (0x0049F4A0:
+// [0] destroy, [1] the skeleton's bones allotted (0x005BC7F0: true), [2] a bone flag for UploadSkinningPalette (0x0049F4A0:
 // 0), [3] whether a display mode may be set (0x005BC7F0: true), [4] 0x00492DC0 (true; nothing calls it), [5] - [7]
 // 0x005BC7F0, [8] 0x0048DD50, [9] 0x004549C0 (all true), [10] / [11] before / after its textures are replaced
 // (0x005B9760: true), [12] the platform's bounding sphere, [13] the platform's bounding sphere set (0x005BAB90:
@@ -75,8 +75,8 @@ public:
     // 0x00492E40: how many geoms.
     int FetchGeomTotal();
     // 0x00492E50 / 0x00493460: the bone matrices; set (each geom pointed at them, with the bone count).
-    uint8_t* GetBoneMatrices();
-    void SetBoneMatrices(uint8_t* matrices);
+    uint8_t* FetchSkinningPalette();
+    void UploadSkinningPalette(uint8_t* matrices);
     // 0x00492E60: drawn scaled or not.
     void AllowResizing(uint8_t on);
     // 0x00492E80: the bounding sphere set (the platform's, virtual [13]); the cached one forgotten.
@@ -184,7 +184,7 @@ public:
     void** vtable;                // +0x00
     int m_displayMode;            // +0x04
     int m_boneTotal;               // +0x08
-    uint8_t* m_boneMatrices;      // +0x0C
+    uint8_t* m_skinPalette;      // +0x0C
     sModelGeomNode* m_geoms;      // +0x10: the list's head (a ring of nodes: std::list)
     uint32_t m_geomListSize;      // +0x14
     uint32_t m_visibleGeoms;      // +0x18: a bit per geom (in list order, modulo 32)

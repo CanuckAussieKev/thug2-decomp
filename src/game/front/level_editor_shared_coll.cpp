@@ -132,7 +132,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     m_geometry.m_checksum = checksum;
     m_geometry.m_unknown04 = 0;
     m_geometry.m_numVertices = static_cast<uint16_t>(m_base.size());
-    m_geometry.m_numFaces = static_cast<uint16_t>(count);
+    m_geometry.m_triCount = static_cast<uint16_t>(count);
     m_geometry.m_smallFaces = false;
     m_geometry.m_compressed = false;
     m_geometry.m_faces = m_faces.empty() ? nullptr : m_faces.data();
@@ -174,8 +174,8 @@ V3 Companion::Vertex(int i) const
 
 std::vector<FaceCopy> Companion::Faces() const
 {
-    std::vector<FaceCopy> faces(m_geometry.m_numFaces);
-    for (int f = 0; f < m_geometry.m_numFaces; ++f)
+    std::vector<FaceCopy> faces(m_geometry.m_triCount);
+    for (int f = 0; f < m_geometry.m_triCount; ++f)
         faces[f] = ReadFace(&m_geometry, f);
     return faces;
 }
@@ -189,7 +189,7 @@ bool Companion::LiveNow() const { return !(m_entity.m_flagBits & 4); }
 
 void Companion::ChangeTriFlags(int face, uint16_t flags)
 {
-    if (face >= 0 && face < m_geometry.m_numFaces)
+    if (face >= 0 && face < m_geometry.m_triCount)
         std::memcpy(&m_faces[static_cast<size_t>(face) * 10], &flags, 2);
 }
 
@@ -251,7 +251,7 @@ void ForEachStrip(uint8_t* geom, F fn)
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertexCount),
@@ -422,7 +422,7 @@ std::vector<FaceCopy> Gather(uint32_t checksum, std::vector<Taken>* taken)
         if (!named && namedObjects.count(source.first))
             continue; // (named after another piece: that one's)
         V3 namedMin = min - V3{100.0f, 100.0f, 100.0f}, namedMax = max + V3{100.0f, 100.0f, 100.0f};
-        for (int f = 0; f < geometry->m_numFaces && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
+        for (int f = 0; f < geometry->m_triCount && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
             FaceCopy face = ReadFace(geometry, f);
             if (!Takeable(face.flags))
                 continue;

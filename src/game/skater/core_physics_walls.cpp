@@ -110,7 +110,7 @@ bool SkaterPhysicsModule::VertWallplant()
         return false;
     // The trick button pressed (or pressed within Wall_Ride_Triangle_Window).
     void* skater = At<void*>(this, kSkaterComponent);
-    if (!static_cast<GameObjects::CMoveExecutor*>(skater)->IsButtonDown(kTrickKeyName)) {
+    if (!static_cast<GameObjects::CMoveExecutor*>(skater)->IsKeyHeld(kTrickKeyName)) {
         uint32_t window = Ftol(static_cast<double>(Scripts::FetchFloat(kWallRideWindow)) * kToMilliseconds);
         if (!static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))
                  ->FindPress(kTrickKeyName, window, 0xFFFFFFFFu))

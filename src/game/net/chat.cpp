@@ -57,7 +57,7 @@ void InitMsgDesc(NetMessageInfo* desc) { desc->MakeNew(); }
 
 // The local player's info (OnlinePlay::PlayerRecord, declared by the skate module's header): name at +0x38, flags at
 // +0x1D0, team at [+0x14]+0x14.
-PlayerRecord* LocalPlayer(Hub* manager)
+PlayerRecord* FindOwnPlayerRecord(Hub* manager)
 {
     return static_cast<PlayerRecord*>(manager->GetOwnPlayer());
 }
@@ -228,7 +228,7 @@ void SendChatMessage(Hub* manager, const char* text)
 {
     if (*text == '\0')
         return;
-    PlayerRecord* player = LocalPlayer(manager);
+    PlayerRecord* player = FindOwnPlayerRecord(manager);
     uint8_t color = IsObserver(player) ? kObserverColor : TeamColor(player);
     PostOut(manager, PlayerName(player), color, text);
 }

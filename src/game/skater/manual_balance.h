@@ -64,7 +64,7 @@ public:
     uint8_t pad3D[3];
     uint32_t m_startTime;          // +0x40 the game clock at the start
     uint32_t m_leftButton;         // +0x44
-    uint32_t m_rightButton;        // +0x48
+    uint32_t m_rightPress;        // +0x48
     uint32_t m_trick;              // +0x4C
     int m_rail;                    // +0x50 the rail of the last grind (-1: none)
     bool m_showMeter;              // +0x54

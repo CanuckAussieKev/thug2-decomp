@@ -260,7 +260,7 @@ void StartSpotCandidates(Point pos, float heading, float distance, Point out[4])
 
 void RegisterParkedFunctions()
 {
-    static const Scripts::CFunctionEntry functions[] = {
+    static const Scripts::CNativeCommand functions[] = {
         {"ThawBmx_HomeSpot", reinterpret_cast<void*>(&CFunc_HomeSpot)},
         {"ThawBmx_WalkToBike", reinterpret_cast<void*>(&CFunc_WalkToBike)},
         {"ThawBmx_BikeReachable", reinterpret_cast<void*>(&CFunc_BikeReachable)},

@@ -120,7 +120,7 @@ constexpr uint32_t kDrawViewerObjectPanel = 0xED9C1839;  // draw_viewer_object_p
 constexpr uint32_t kViewerAutoRepeatTime = 0xE60442D5;   // ViewerAutoRepeatTime
 constexpr uint32_t kViewerAutoRepeatSpeed = 0x2DA212E5;  // ViewerAutoRepeatSpeed
 constexpr uint32_t kObjectTypeComposite = 0xCDEB9229;    // OBJECT_TYPE_COMPOSITE
-const float kFrameTime = std::bit_cast<float>(0x3C888889u);              // 1/60 s
+const float kStepSeconds = std::bit_cast<float>(0x3C888889u);              // 1/60 s
 constexpr float kSpeedStep = 0.25f;                                      // 0x0064F130
 constexpr float kRadiansPerDegree = 0.017453292f;                        // 0x00645464
 
@@ -157,7 +157,7 @@ uint8_t* SkeletonOf(CObjectModule* component)
 {
     return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
 }
-Maths::Mat4* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
+Maths::Mat4* SkeletonPalette(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
 
 uint32_t g_noSkeletonCounter{10};
 int g_repeatCount;
@@ -322,21 +322,21 @@ void CPreviewEntity::StepAnimation(bool forward)
     if (Animation(this)) {
         // (The original looks the component up again for each call.)
         if (forward) {
-            Animation(this)->PassToEachChannel(std::bit_cast<uint32_t>(kFrameTime));
+            Animation(this)->PassToEachChannel(std::bit_cast<uint32_t>(kStepSeconds));
             Animation(this)->VisitChannels();
             Scripts::CStruct* params = SpawnParamTable();
-            params->PushFloat(kFrames, kFrameTime);
+            params->PushFloat(kFrames, kStepSeconds);
             AnimationBase(this)->InvokeMethodByName(kStep, params, nullptr);
             DeleteStructure(params);
         } else {
             // Reversed for a step forward, then turned round again.
             Animation(this)->FirstChannel47E810(0);
-            Animation(this)->PassToEachChannel(std::bit_cast<uint32_t>(-kFrameTime));
+            Animation(this)->PassToEachChannel(std::bit_cast<uint32_t>(-kStepSeconds));
             Animation(this)->VisitChannels();
             Animation(this)->FirstChannel47E810(0);
             AnimationBase(this)->InvokeMethodByName(kReverse, nullptr, nullptr);
             Scripts::CStruct* params = SpawnParamTable();
-            params->PushFloat(kFrames, -kFrameTime);
+            params->PushFloat(kFrames, -kStepSeconds);
             AnimationBase(this)->InvokeMethodByName(kStep, params, nullptr);
             DeleteStructure(params);
             AnimationBase(this)->InvokeMethodByName(kReverse, nullptr, nullptr);
@@ -377,7 +377,7 @@ void CPreviewEntity::SpinWheels()
     if (BoneCount(nxModel) <= 5)
         return;
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
-    Maths::Mat4* bones = BoneMatrices(skeleton);
+    Maths::Mat4* bones = SkeletonPalette(skeleton);
     for (int i = 0; i < BoneCount(nxModel); ++i)
         bones[i] = *reinterpret_cast<const Maths::Mat4*>(hierarchy + 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
@@ -594,7 +594,7 @@ CPreviewEntity* CPreviewEntity::MakeNew(NetLink::AppHost* app)
     m_task = handler;
     // Onto its controller's handlers (not null-checked: as the original).
     uint8_t* controller = input + handler->m_ordinal * 0x84;
-    reinterpret_cast<TaskList::PileUp*>(controller + 0x08)->QueueJob(handler);
+    reinterpret_cast<Scheduling::PileUp*>(controller + 0x08)->QueueJob(handler);
     handler->m_controlData = reinterpret_cast<PadInput::Payload*>(controller + 0x44);
     handler->m_dev = *reinterpret_cast<uint8_t**>(controller + 0x04);
     m_savedSpeed = 0.0f;

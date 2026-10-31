@@ -386,8 +386,8 @@ int __cdecl OnLevelSwitchMsg(NetLink::InboundMsgCtx* context)
     manager->m_matchEnded = false;
     if (!msg[4])
         return kContinue;
-    auto* logicTasks = reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04);
-    auto* changeTask = Prop<TaskList::SchedulerTask*>(manager, 0xEC);
+    auto* logicTasks = reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04);
+    auto* changeTask = Prop<Scheduling::SchedulerTask*>(manager, 0xEC);
     if (changeTask->IsOnTaskList()) {
         if (!manager->OnServer())
             manager->m_level = Prop<uint32_t>(msg, 0);
@@ -441,7 +441,7 @@ int __cdecl HandleStartGame(NetLink::InboundMsgCtx* context)
     if (word(4) == 0 && word(0) != kNetGoalAttack) {
         victory->AddComponentOfType(kDefaultTimeLimit, Scripts::QBVAL_INTEGER, 0);
         if (word(0) != kFirefight && word(0) != kNetFirefight) {
-            Scripts::CArray* conditions = Scripts::NewArray();
+            Scripts::CArray* conditions = Scripts::AllocScriptArray();
             conditions = conditions ? conditions->PrepareAll() : nullptr;
             Scripts::DuplicateArray(conditions, Scripts::FetchList(kTargetScoreArray));
             auto* condition = reinterpret_cast<Scripts::CStruct*>(conditions->FetchPart(0));
@@ -451,7 +451,7 @@ int __cdecl HandleStartGame(NetLink::InboundMsgCtx* context)
     } else {
         victory->AddComponentOfType(kDefaultTimeLimit, Scripts::QBVAL_INTEGER, word(4));
         if (word(0) == kNetCtf) {
-            Scripts::CArray* conditions = Scripts::NewArray();
+            Scripts::CArray* conditions = Scripts::AllocScriptArray();
             conditions = conditions ? conditions->PrepareAll() : nullptr;
             Scripts::DuplicateArray(conditions, Scripts::FetchList(kHighestScoreArray));
             victory->AppendArrayValue(kVictoryConditions, conditions);

@@ -88,7 +88,7 @@ struct Mark {
     Ray ray; // (the core's feeler's line there)
 };
 Mark g_marks[kMarks];
-int g_markCount = 0, g_markNext = 0;
+int g_markerTotal = 0, g_markNext = 0;
 
 struct Spot {
     float at[3];
@@ -226,7 +226,7 @@ void Reset()
 {
     g_sampleTotal = g_next = 0;
     g_pathCount = g_pathNext = 0;
-    g_markCount = g_markNext = 0;
+    g_markerTotal = g_markNext = 0;
 }
 
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
@@ -297,7 +297,7 @@ void FaceGeometry(const Face& face, const float* spot, Detail* detail)
         return;
     auto* object = static_cast<Engine3D::CHitMesh*>(const_cast<void*>(face.collObj));
     const Engine3D::CTriMeshSource* geometry = object->m_geometry;
-    if (!geometry || face.index < 0 || face.index >= geometry->m_numFaces)
+    if (!geometry || face.index < 0 || face.index >= geometry->m_triCount)
         return;
     uint32_t index[3];
     Maths::Vec4 raw[3];
@@ -326,7 +326,7 @@ void FaceGeometry(const Face& face, const float* spot, Detail* detail)
         float dx = v.x - raw[k].x, dy = v.y - raw[k].y, dz = v.z - raw[k].z;
         return dx * dx + dy * dy + dz * dz < 0.25f;
     };
-    for (int j = 0; j < geometry->m_numFaces; ++j) {
+    for (int j = 0; j < geometry->m_triCount; ++j) {
         if (j == face.index)
             continue;
         bool hasA = false, hasB = false;
@@ -423,8 +423,8 @@ void Emit(int before)
     const Mark* flip = nullptr;
     bool uberFrig = false;
     event.flipped = "-";
-    for (int i = 0; i < g_markCount; ++i) {
-        const Mark& mark = g_marks[(g_markNext - g_markCount + i + kMarks) % kMarks];
+    for (int i = 0; i < g_markerTotal; ++i) {
+        const Mark& mark = g_marks[(g_markNext - g_markerTotal + i + kMarks) % kMarks];
         if (mark.frame < old.frame || mark.frame > now.frame)
             continue;
         bool against = mark.vel[0] * dirOld[0] + mark.vel[2] * dirOld[1] < 0.0f;
@@ -667,8 +667,8 @@ void Checkpoint(void* component, const char* label)
         return;
     Mark& mark = g_marks[g_markNext];
     g_markNext = (g_markNext + 1) % kMarks;
-    if (g_markCount < kMarks)
-        ++g_markCount;
+    if (g_markerTotal < kMarks)
+        ++g_markerTotal;
     mark.frame = FrameLoop::FramesRun();
     mark.label = label;
     Copy3(mark.vel, VectorAt(ObjectOf(component), kVelocity));
@@ -705,7 +705,7 @@ void EndFrame(void* component)
     s.trick = flags[0xE0] != 0;
     void* balance = At<void*>(component, kBalanceTrick);
     s.balance = balance ? At<uint32_t>(balance, 0x18) : 0;
-    if (uint8_t* pad = InputOf(component)) { // (the GameObjects::CPadState: 16 buttons of 0x20 bytes, the sticks at +0x210)
+    if (uint8_t* pad = InputOf(component)) { // (the GameObjects::CPadSnapshot: 16 buttons of 0x20 bytes, the sticks at +0x210)
         for (int i = 0; i < 16; ++i)
             if (pad[i * 0x20])
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));

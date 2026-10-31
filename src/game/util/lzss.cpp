@@ -20,7 +20,7 @@ int* g_treeParent;
 int* g_treeRight;
 int* g_treeLeft;
 uint8_t* g_window;
-int g_matchLength;
+int g_longestRun;
 int g_dictHitOffset;
 uint32_t g_bytesIn;
 uint32_t g_bytesOut;
@@ -31,7 +31,7 @@ uint8_t*& Pane() { return g_window; }  // N + F - 1 bytes
 int*& Left() { return g_treeLeft; }            // N + 1 entries
 int*& Right() { return g_treeRight; }           // N + 257 entries (256 tree roots)
 int*& Parent() { return g_treeParent; }          // N + 1 entries
-int& MatchLength() { return g_matchLength; }
+int& LongestRunRef() { return g_longestRun; }
 int& WindowMatchOffset() { return g_dictHitOffset; }
 uint32_t& BytesIn() { return g_bytesIn; }
 uint32_t& BytesOut() { return g_bytesOut; }
@@ -79,7 +79,7 @@ void AddMatchNode(int r)
     int cmp = 1;
     int p = N + 1 + key[0];
     right[r] = left[r] = NIL;
-    MatchLength() = 0;
+    LongestRunRef() = 0;
     for (;;) {
         if (cmp >= 0) {
             if (right[p] == NIL) {
@@ -103,9 +103,9 @@ void AddMatchNode(int r)
             if (cmp != 0)
                 break;
         }
-        if (i > MatchLength()) {
+        if (i > LongestRunRef()) {
             WindowMatchOffset() = p;
-            MatchLength() = i;
+            LongestRunRef() = i;
             if (i >= F)
                 break;
         }
@@ -193,16 +193,16 @@ int PackUp(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     AddMatchNode(r);
 
     do {
-        if (MatchLength() > length)
-            MatchLength() = length;
-        if (MatchLength() <= LITERAL_RUN_LIMIT) {
-            MatchLength() = 1;
+        if (LongestRunRef() > length)
+            LongestRunRef() = length;
+        if (LongestRunRef() <= LITERAL_RUN_LIMIT) {
+            LongestRunRef() = 1;
             code[0] |= mask;
             code[code_size++] = window[r];
         } else {
             code[code_size++] = static_cast<uint8_t>(WindowMatchOffset());
             code[code_size++] =
-                static_cast<uint8_t>(((WindowMatchOffset() >> 4) & 0xF0) | (MatchLength() - (LITERAL_RUN_LIMIT + 1)));
+                static_cast<uint8_t>(((WindowMatchOffset() >> 4) & 0xF0) | (LongestRunRef() - (LITERAL_RUN_LIMIT + 1)));
         }
 
         bool group_full = (mask & 0x80) != 0;
@@ -216,7 +216,7 @@ int PackUp(const uint8_t* in, uint8_t* out, int size, bool print_stats)
             mask = 1;
         }
 
-        int last_match = MatchLength();
+        int last_match = LongestRunRef();
         int i = 0;
         for (; i < last_match && size != 0; ++i, --size) {
             uint8_t c = *in++;

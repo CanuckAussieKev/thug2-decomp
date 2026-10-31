@@ -78,7 +78,7 @@ bool& ConfigBootstrap() { return GameConfig::g_configBootstrap; }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.
 const char* PlatformLabelText() { return GameConfig::GetPlatformLabel(); }
 const char* VideoModeLabelText(int) { return GameConfig::GetScreenModeLabel(); } // (the frame rate isn't read)
-const char* LanguageName() { return GameConfig::GetLocaleLabel(); }
+const char* LocaleText() { return GameConfig::GetLocaleLabel(); }
 const char* RegionLabelText() { return GameConfig::GetRegionLabel(); }
 
 // The engine's scenes (Nx, cdecl): by name (0x0048C750: the name's checksum looked up, 0x0048C700), the first in the
@@ -353,7 +353,7 @@ bool __cdecl CFunc_PrintConfig(CStruct*, CScript*)
     // stack)
     int framerate = ConfigFramerate();
     DebugOut::Printf("Display Type   = %s, %d fps\n", VideoModeLabelText(framerate), framerate);
-    DebugOut::Printf("Language       = %s\n", LanguageName());
+    DebugOut::Printf("Language       = %s\n", LocaleText());
     DebugOut::Printf("Territory      = %s\n", RegionLabelText());
     DebugOut::Printf("CD             = %s\n", ConfigCD() ? "True" : "False");
     DebugOut::Printf("GotExtraMemory = %s\n", ConfigGotExtraMemory() ? "True" : "False");

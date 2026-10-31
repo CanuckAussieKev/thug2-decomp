@@ -68,7 +68,7 @@ CPair* NewResultPair()
 CVector* NewResultVector()
 {
     SetResultType(QBVAL_VECTOR);
-    CVector* vector = NewVector();
+    CVector* vector = AllocScriptVector();
     vector = vector ? vector->PrepareAll() : nullptr;
     Result().vector = vector;
     return vector;
@@ -128,7 +128,7 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
     }
     case QBVAL_VECTOR: {
         auto* from = reinterpret_cast<const CVector*>(array->FetchPart(index));
-        CVector* vector = NewVector();
+        CVector* vector = AllocScriptVector();
         vector = vector ? vector->PrepareAll() : nullptr;
         to->vector = vector;
         vector->x = from->x;
@@ -151,7 +151,7 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
             to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
             to->raw = array->FetchPart(index);
         } else {
-            CArray* copy = NewArray();
+            CArray* copy = AllocScriptArray();
             to->array = copy ? copy->PrepareAll() : nullptr;
             DuplicateArray(to->array, reinterpret_cast<CArray*>(array->FetchPart(index)));
         }
@@ -541,7 +541,7 @@ void CValueResolver::Execute()
                 error("Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
                 break;
             }
-            CArray* array = NewArray();
+            CArray* array = AllocScriptArray();
             array = array ? array->PrepareAll() : nullptr;
             SetResultType(QBVAL_ARRAY);
             result.array = array;

@@ -324,9 +324,9 @@ constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 static VtableSlot kCareerVtable_slots[] = {&GameObjects::CRiderStoryProgress::Teardown};
 void** const kCareerVtable = reinterpret_cast<void**>(kCareerVtable_slots);
 
-Scripts::CArray* NewArray(uint32_t size, Scripts::EQbValueKind type)
+Scripts::CArray* AllocScriptArray(uint32_t size, Scripts::EQbValueKind type)
 {
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(size, type);
     return array;
@@ -478,20 +478,20 @@ void CRiderStoryProgress::DecodeFromStruct(Scripts::CStruct* save)
 // 0x00585550
 void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
 {
-    Scripts::CArray* goals = NewArray(kLevels * 8, Scripts::QBVAL_INTEGER);
+    Scripts::CArray* goals = AllocScriptArray(kLevels * 8, Scripts::QBVAL_INTEGER);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
             goals->SetElement(first + i, GoalWords()[first + i]);
     }
-    Scripts::CArray* flags = NewArray(kLevels * 8, Scripts::QBVAL_INTEGER);
+    Scripts::CArray* flags = AllocScriptArray(kLevels * 8, Scripts::QBVAL_INTEGER);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
             flags->SetElement(first + i, FlagWords()[first + i]);
     }
-    Scripts::CArray* globals = NewArray(16, Scripts::QBVAL_INTEGER);
+    Scripts::CArray* globals = AllocScriptArray(16, Scripts::QBVAL_INTEGER);
     for (uint32_t i = 0; i < 16; ++i)
         globals->SetElement(i, m_globalFlags[i]);
-    Scripts::CArray* gapLevels = NewArray(kLevels, Scripts::QBVAL_STRUCT);
+    Scripts::CArray* gapLevels = AllocScriptArray(kLevels, Scripts::QBVAL_STRUCT);
     for (int level = 0; level < kLevels; ++level) {
         GoalSystem::CGapTally* checklist = m_gaps[level];
         Scripts::CStruct* entry = SpawnParamTable();
@@ -502,7 +502,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
         if (MenuSystem::LevelEditor::Career::SaveView(checklist, &view)) {
             entry->PutInt(kGapsBuilt, view.built ? 1 : 0);
             if (view.built) {
-                Scripts::CArray* list = NewArray(static_cast<uint32_t>(view.gaps.size()), Scripts::QBVAL_STRUCT);
+                Scripts::CArray* list = AllocScriptArray(static_cast<uint32_t>(view.gaps.size()), Scripts::QBVAL_STRUCT);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
                     const MenuSystem::LevelEditor::Career::Gap& g = view.gaps[i];
                     Scripts::CStruct* gap = SpawnParamTable();
@@ -520,7 +520,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
         } else {
             entry->PutInt(kGapsBuilt, 1);
             int count = checklist->TotalOf();
-            Scripts::CArray* list = NewArray(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
+            Scripts::CArray* list = AllocScriptArray(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
             for (int i = 0; i < count; ++i) {
                 Scripts::CStruct* gap = SpawnParamTable();
                 gap->AppendWord(kGapName, checklist->GetGapTitle(i));
@@ -537,7 +537,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
         }
         gapLevels->SetElement(static_cast<uint32_t>(level), reinterpret_cast<uint32_t>(entry));
     }
-    Scripts::CArray* visited = NewArray(kLevels, Scripts::QBVAL_INTEGER);
+    Scripts::CArray* visited = AllocScriptArray(kLevels, Scripts::QBVAL_INTEGER);
     for (int level = 0; level < kLevels; ++level)
         visited->SetElement(static_cast<uint32_t>(level), m_visited[level]);
     Scripts::CStruct* career = SpawnParamTable();
@@ -549,9 +549,9 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
     career->PutNameKey(0xE3335D2F, *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378)); // (the skate module's)
     career->PutNameKey(0x2CC06F5E, static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey());
     // (both made first, then sized, as the original)
-    Scripts::CArray* cashMemory = Scripts::NewArray();
+    Scripts::CArray* cashMemory = Scripts::AllocScriptArray();
     Scripts::CArray* cash = cashMemory ? cashMemory->PrepareAll() : nullptr;
-    Scripts::CArray* amountMemory = Scripts::NewArray();
+    Scripts::CArray* amountMemory = Scripts::AllocScriptArray();
     Scripts::CArray* amounts = amountMemory ? amountMemory->PrepareAll() : nullptr;
     cash->ConfigureSizeKind(kLevels, Scripts::QBVAL_INTEGER);
     amounts->ConfigureSizeKind(kLevels, Scripts::QBVAL_INTEGER);
@@ -563,7 +563,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
     career->AppendArrayRef(kAmountArray, amounts);
     career->PutInt(kCashBalanceKey, m_lifetimeFunds);
     career->PutInt(kTotalAmount, m_totalAmount);
-    Scripts::CArray* counters = NewArray(18, Scripts::QBVAL_INTEGER);
+    Scripts::CArray* counters = AllocScriptArray(18, Scripts::QBVAL_INTEGER);
     for (int level = 0; level < 18; ++level)
         counters->SetElement(static_cast<uint32_t>(level), m_counter[level]);
     career->AppendArrayRef(kCounterArray, counters);

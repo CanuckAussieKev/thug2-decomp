@@ -88,7 +88,7 @@ public:
 
     Engine3D::CStaticCollider* Object() { return &m_entity; }
     const Engine3D::CTriMeshSource& Geometry() const { return m_geometry; }
-    int FaceCount() const { return m_geometry.m_numFaces; }
+    int FaceCount() const { return m_geometry.m_triCount; }
     int VertexCount() const { return m_geometry.m_numVertices; }
     V3 BaseVertex(int i) const { return m_base[i]; }
     V3 Vertex(int i) const;

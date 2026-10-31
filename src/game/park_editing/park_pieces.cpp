@@ -99,7 +99,7 @@ void CParkTile::GetFootprintSize(SCellBox* dims)
     MeasureSpan(&size);
     dims->l = Cells(size.z, kGridStepAlong);
     dims->h = Cells(size.y, kGridStepUp);
-    dims->w = Cells(size.x, kCellWidth);
+    dims->w = Cells(size.x, kGridPitch);
 }
 
 Maths::Vec4* CParkTile::GetDimsTurned(Maths::Vec4* out, int rot)

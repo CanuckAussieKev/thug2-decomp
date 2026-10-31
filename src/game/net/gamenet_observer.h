@@ -14,7 +14,7 @@
 
 namespace OnlinePlay::Detail {
 
-// TaskList::Task<PlayerRecord> (0x20 bytes, vtable 0x006476F0) and PadInput::Responder<Manager> (0x2C bytes, vtable 0x0064D7D8).
+// Scheduling::Task<PlayerRecord> (0x20 bytes, vtable 0x006476F0) and PadInput::Responder<Manager> (0x2C bytes, vtable 0x0064D7D8).
 struct ObserverTaskNode {
     uint8_t m_listLink[0x18];
     void* m_codeValue;
@@ -32,12 +32,12 @@ static_assert(sizeof(ObserverTaskNode) == 0x20 && sizeof(SpectatorInputSink) == 
 
 inline void ConstructTaskNode(void* node, int priority)
 {
-    static_cast<TaskList::SchedulerTask*>(node)->MakeNew(priority);
+    static_cast<Scheduling::SchedulerTask*>(node)->MakeNew(priority);
 }
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
 // The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (EnterObserveMode).
-inline void AddObserverControls(Hub* manager, uint8_t* player, TaskList::PileUp* tasks, uint8_t* input,
+inline void AddObserverControls(Hub* manager, uint8_t* player, Scheduling::PileUp* tasks, uint8_t* input,
                                 int handlerPriority = -1000)
 {
     auto* task = static_cast<ObserverTaskNode*>(MemSys::AllocZeroed(sizeof(ObserverTaskNode)));
@@ -48,7 +48,7 @@ inline void AddObserverControls(Hub* manager, uint8_t* player, TaskList::PileUp*
         task->m_content = player;
     }
     *reinterpret_cast<ObserverTaskNode**>(player + 0x1EC) = task;
-    tasks->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(task));
+    tasks->QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(task));
     auto* handler = static_cast<SpectatorInputSink*>(MemSys::AllocZeroed(sizeof(SpectatorInputSink)));
     if (handler) {
         ConstructTaskNode(handler, handlerPriority);
@@ -60,7 +60,7 @@ inline void AddObserverControls(Hub* manager, uint8_t* player, TaskList::PileUp*
     manager->m_spectatorPadListener = handler;
     // (a null handler is read through, as in the original)
     uint8_t* server = input + handler->m_ordinal * 0x84;
-    reinterpret_cast<TaskList::PileUp*>(server + 8)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(handler));
+    reinterpret_cast<Scheduling::PileUp*>(server + 8)->QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(handler));
     handler->m_controlData = server + 0x44;
     handler->m_dev = *reinterpret_cast<uint8_t**>(server + 4);
 }

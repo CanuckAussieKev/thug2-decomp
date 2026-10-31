@@ -259,7 +259,7 @@ void __cdecl NextSuspendFrame()
 // 0x00434520
 SuspendTaskHolder* SuspendTaskHolder::MakeNew()
 {
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(kTaskPriority);
         task->m_vtable = GameCode::kTaskVtable;
@@ -267,7 +267,7 @@ SuspendTaskHolder* SuspendTaskHolder::MakeNew()
         reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
     }
     m_jobHandle = task;
-    reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04)->QueueJob(task); // the logic tasks
+    reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04)->QueueJob(task); // the logic tasks
     return this;
 }
 

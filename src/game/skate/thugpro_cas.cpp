@@ -421,7 +421,7 @@ void LoadOnce()
     MemSys::Hub* manager = MemSys::Hub::Pull();
     MemSys::EnterHeapScope(manager->m_scriptHeap);
     for (const Target& target : targets) {
-        Scripts::CArray* theirs = Scripts::NewArray();
+        Scripts::CArray* theirs = Scripts::AllocScriptArray();
         if (!theirs)
             break;
         theirs->PrepareAll();

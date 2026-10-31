@@ -12,9 +12,9 @@ namespace FrameLoop {
 struct Hub {
     uint8_t m_isFinished;             // +0x00: (a bool) ends the loop after the current frame
     uint8_t pad01[3];
-    TaskList::PileUp m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
-    TaskList::PileUp m_displayTasks;   // +0x40 (not run by the loop)
-    TaskList::PileUp m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
+    Scheduling::PileUp m_logicTasks;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
+    Scheduling::PileUp m_displayTasks;   // +0x40 (not run by the loop)
+    Scheduling::PileUp m_systemTasks;    // +0x7C: the module manager's and the input devices' tasks
     uint32_t m_unknownB8;       // +0xB8 (cleared by the constructor, otherwise unused here)
     uint32_t m_unknownBC;       // +0xBC (the same)
     uint8_t padC0[0x04];

@@ -9,7 +9,7 @@ namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 } // namespace Tsk
 
@@ -153,7 +153,7 @@ public:
     // processed and the progress script run until 100%; then the answer read: the categories (then the first
     // category's items), the items (then the next category's, until all are in: net_vault_menu_create), the uploads
     // list, or the download / upload's done / fail scripts.
-    static void __cdecl VaultTask(TaskList::SchedulerTask* task);
+    static void __cdecl VaultTask(Scheduling::SchedulerTask* task);
     // 0x0054A7B0 (thread, stdcall): ghttpGetEx of m_url into a new 100000-byte buffer.
     static unsigned long __stdcall ListThread(void* vault);
     // 0x0054A860 (thread, stdcall): ghttpGetEx of `url` (goastrdup'd by Download, freed here) into a buffer of
@@ -174,7 +174,7 @@ public:
     static int __cdecl OnFileDownloaded(void* request, int result, char* buffer, int64_t bufferLength,
                                         VaultMan* vault);
 
-    TaskList::SchedulerTask* m_task;     // +0x000 TaskList::Task<VaultMan> (VaultTask)
+    Scheduling::SchedulerTask* m_task;     // +0x000 Scheduling::Task<VaultMan> (VaultTask)
     int m_transfer;            // +0x004 Transfer
     int m_progress;            // +0x008 percent; 100 = finished
     int m_outcomeVal;              // +0x00C 0 running, 1 done, 2 failed

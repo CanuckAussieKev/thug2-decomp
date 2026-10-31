@@ -146,7 +146,7 @@ void SkaterPhysicsModule::Reset()
         VectorAt(this, kSafePosition) = VectorAt(ObjectOf(this), kPosition);
     }
     VectorAt(this, 0x258) = {0.0f, 0.0f, 0.0f, 1.0f};
-    At<int>(this, kFrameStart) = Now();
+    At<int>(this, kFirstTick) = Now();
     VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     Physics::ChangePhase(this, 0);
     At<uint32_t>(this, 0x94) = 0;

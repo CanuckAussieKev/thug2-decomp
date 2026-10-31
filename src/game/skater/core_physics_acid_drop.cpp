@@ -44,7 +44,7 @@ constexpr uint32_t kRideObjectHit = 0x14C0;
 constexpr uint32_t kDropMatrix = 0x3B0;    // the wall's orientation (rows: across, the normal, along)
 constexpr uint32_t kDropHeading = 0x490;
 constexpr uint32_t kSlerp = 0x3F0;
-constexpr uint32_t kDropTime = 0x488;
+constexpr uint32_t kPlungeSeconds = 0x488;
 constexpr uint32_t kDropDuration = 0x48C;
 constexpr uint32_t kDropLastMatrix = 0x4A0;
 
@@ -385,7 +385,7 @@ void SkaterPhysicsModule::StartAcidDrop(const AcidDrop* drop)
     float turn = static_cast<float>(-Maths::GetTurnAroundAxis(facing, direction, VectorAt(object, kUp)));
     wall.YawLocally(turn);
     At<Maths::ArcRotationBlender>(this, kSlerp).SetMatrices(start, wall);
-    At<float>(this, kDropTime) = 0.0f;
+    At<float>(this, kPlungeSeconds) = 0.0f;
     At<float>(this, kDropDuration) = time;
     At<Maths::Mat4>(this, kDropLastMatrix) = start;
 
@@ -578,7 +578,7 @@ bool SkaterPhysicsModule::TrySpineTransfer()
     end.YawLocally(static_cast<float>(-turn));
     Maths::ArcRotationBlender& slerp = At<Maths::ArcRotationBlender>(this, kSlerp);
     slerp.SetMatrices(start, end);
-    At<float>(this, kDropTime) = 0.0f;
+    At<float>(this, kPlungeSeconds) = 0.0f;
     At<float>(this, kDropDuration) = time < kFlatTarget ? kFlatTarget : time;
     At<Maths::Mat4>(this, kDropLastMatrix) = start;
     Maths::Mat4 halfway;

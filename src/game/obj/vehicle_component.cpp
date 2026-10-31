@@ -502,7 +502,7 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = std::bit_cast<float>(reinterpret_cast<uint32_t>(params));
         params->FetchFloat(0x93346B8C, &height, 0);
-        m_centerOfMass = {0.0f, height, 0.0f, 1.0f};
+        m_balancePoint = {0.0f, height, 0.0f, 1.0f};
     }
     if (params->HasEntryNamed(0x93FCA499)) { // mass
         params->FetchFloat(0x93FCA499, &m_invMass, 0);

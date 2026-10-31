@@ -24,7 +24,7 @@ constexpr uint32_t kType = 0x7321A8D6;      // type
 CPathManager*& InstancePointer() { return g_pathManager; }
 
 // An array new[] of `count` elements of `size` bytes from the current heap: the count in the word before them.
-void* NewArray(int count, unsigned int size)
+void* AllocScriptArray(int count, unsigned int size)
 {
     auto* block = static_cast<int*>(MemSys::Alloc(static_cast<unsigned int>(count) * size + 4));
     if (!block)
@@ -58,7 +58,7 @@ void CObjectGroup::Destruct()
 // 0x004698C0
 void CObjectGroup::PrepareAll(int size)
 {
-    auto* slots = static_cast<CSharedRef<CEntity>*>(NewArray(size, sizeof(CSharedRef<CEntity>)));
+    auto* slots = static_cast<CSharedRef<CEntity>*>(AllocScriptArray(size, sizeof(CSharedRef<CEntity>)));
     if (slots) {
         for (int i = 0; i < size; ++i)
             new (&slots[i]) CSharedRef<CEntity>(); // (0x0042B580: all three words cleared)
@@ -206,7 +206,7 @@ void CPathManager::Carve(int groups, int groupSize, int extraSize)
     m_groupCount = groups;
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_bottomUpHeap);
-    auto* made = static_cast<CObjectGroup*>(NewArray(m_groupCount, sizeof(CObjectGroup)));
+    auto* made = static_cast<CObjectGroup*>(AllocScriptArray(m_groupCount, sizeof(CObjectGroup)));
     if (made) {
         for (int i = 0; i < m_groupCount; ++i) {
             made[i].m_slots = nullptr; // (0x00414D70)

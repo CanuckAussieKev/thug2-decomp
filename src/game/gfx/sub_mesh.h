@@ -51,7 +51,7 @@ struct sceneRef;       // (mesh_list.h)
 
 // An index buffer (0x18 bytes, constructor 0x004D4270): the size, the Direct3D buffer and a copy of the indices in
 // memory, written to the card when unlocked; on a list (0x007865E8) as the vertex buffers are.
-struct sIndexBuffer {
+struct sIdxStore {
     uint32_t size;
     uint32_t usage;
     uint32_t format;
@@ -60,7 +60,7 @@ struct sIndexBuffer {
     uint32_t unknown14; // (cleared when destroyed)
 
     // 0x004D4270: construct - CreateIndexBuffer (write-only, default pool), the copy, on the list. Returns this.
-    sIndexBuffer* MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat);
+    sIdxStore* MakeNew(uint32_t bytes, uint32_t usageFlags, uint32_t indexFormat);
     // 0x004D3C40: taken off the list (its node freed).
     void Unlist();
     // 0x004D42F0: locked - *out the copy (all of it, whatever the offset). 0.
@@ -70,7 +70,7 @@ struct sIndexBuffer {
     // 0x004D6790: destroyed, as the vertex buffers are. The reference count after the release.
     uint32_t Teardown();
 };
-static_assert(offsetof(sIndexBuffer, indices) == 0x10 && sizeof(sIndexBuffer) == 0x18, "layout must match the original");
+static_assert(offsetof(sIdxStore, indices) == 0x10 && sizeof(sIdxStore) == 0x18, "layout must match the original");
 
 // A billboard (0x24 bytes): how it turns (0 / 1 towards the camera about any axis, 2 about `axis`), its pivot.
 struct sBillboard {
@@ -99,7 +99,7 @@ struct meshRef {
     void* unknown48;           // +0x48 (from the heap)
     sBillboard* billboard;     // +0x4C
     uint32_t primitiveType;    // +0x50 (5 when constructed)
-    sIndexBuffer* indexBuffers[8]; // +0x54
+    sIdxStore* indexBuffers[8]; // +0x54
     uint32_t bufferUsage;      // +0x74: the vertex buffers' usage and flags
     uint32_t bufferFlags;      // +0x78
     float depth;               // +0x7C (the render's)

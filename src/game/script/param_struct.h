@@ -88,7 +88,7 @@ struct CVector {
     float z;
 };
 CPair* NewPair();
-CVector* NewVector();
+CVector* AllocScriptVector();
 
 struct CComponent {
     uint8_t typeAndFlag; // the type in the top 7 bits
@@ -195,7 +195,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
 // The pooled allocations of the script's value objects.
 CStruct* SpawnParamBag();
 void DeleteStruct(CStruct* structure);
-CArray* NewArray();
+CArray* AllocScriptArray();
 void DeleteArray(CArray* array);
 void FreeComponent(CComponent* component);
 // A new, empty component (from the component pool).

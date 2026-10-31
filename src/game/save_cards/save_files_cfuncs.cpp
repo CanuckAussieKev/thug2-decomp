@@ -519,7 +519,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
                 }
             }
         } while (swapped);
-        Scripts::CArray* listing = Scripts::NewArray();
+        Scripts::CArray* listing = Scripts::AllocScriptArray();
         if (listing)
             listing = listing->PrepareAll();
         listing->ConfigureSizeKind(static_cast<uint32_t>(listed), Scripts::QBVAL_STRUCT);

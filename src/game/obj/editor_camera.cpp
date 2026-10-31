@@ -121,7 +121,7 @@ bool __cdecl ScriptFlagged(uint32_t name)
         if (name == skipName)
             return true;
     }
-    Scripts::CScriptStore* cache = Scripts::g_scriptCache;
+    Scripts::CScriptStore* cache = Scripts::g_scriptStore;
     const uint8_t* token = cache->FetchScript(name);
     if (!token)
         return false;

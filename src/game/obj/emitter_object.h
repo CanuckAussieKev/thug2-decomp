@@ -40,7 +40,7 @@ struct EmitterNode {
     uint8_t m_unknown25[3];
     int m_form;              // +0x28 EEmitterShape
     float m_radius;           // +0x2C
-    float m_radiusSquared;    // +0x30
+    float m_reachSq;    // +0x30
     void* m_sector;           // +0x34
     Maths::BBox m_box;          // +0x38
     uint32_t m_unknown58;

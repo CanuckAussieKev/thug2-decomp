@@ -368,8 +368,8 @@ void ReadMeshFromFile(meshRef* mesh, Reader& reader, uint32_t materialChecksum, 
         uint16_t count = mesh->indexCounts[i];
         if (!count)
             continue;
-        void* memory = AllocBlock(sizeof(sIndexBuffer));
-        sIndexBuffer* ib = memory ? static_cast<sIndexBuffer*>(memory)->MakeNew(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
+        void* memory = AllocBlock(sizeof(sIdxStore));
+        sIdxStore* ib = memory ? static_cast<sIdxStore*>(memory)->MakeNew(count * 2u, 0, D3DFMT_INDEX16) : nullptr;
         mesh->indexBuffers[i] = ib;
         reader.TakeIn(ib->indices, 2, count);
         ib->Unlock();

@@ -88,7 +88,7 @@ MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
 void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
 void PopHeap() { RamStats()->LeaveHeapScope(); }
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
 
 uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
 void Run(const char* script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false); }
@@ -294,7 +294,7 @@ FriendsManager* FriendsManager::MakeNew()
     GpSetCallback(this, 3, reinterpret_cast<const void*>(&OnBuddyMessage), this);
     GpSetCallback(this, 4, reinterpret_cast<const void*>(&Stubs::DoNothing), this);
     GpSetCallback(this, 5, reinterpret_cast<const void*>(&Stubs::DoNothing), this);
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(0);
         task->m_vtable = GameCode::kTaskVtable;
@@ -313,7 +313,7 @@ FriendsManager* FriendsManager::MakeNew()
 void FriendsManager::DestroyBody()
 {
     if (m_task) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(TaskList::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
+        reinterpret_cast<void*(__thiscall*)(Scheduling::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
     m_messages.UnlinkAs(kMessageNodeVtable);
     m_friends.UnlinkAs(kBuddyNodeVtable);
 }
@@ -571,7 +571,7 @@ void __cdecl FriendsManager::OnBuddyStatus(void*, const void* argument, FriendsM
             buddy->m_pending = false;
             OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
             Scripts::CArray* old = prefs->GetSettingList(Checksums("buddy_array"));
-            Scripts::CArray* memory = Scripts::NewArray();
+            Scripts::CArray* memory = Scripts::AllocScriptArray();
             Scripts::CArray* buddies = memory ? memory->PrepareAll() : nullptr;
             buddies->ConfigureSizeKind(old->m_extent + 1, Scripts::QBVAL_STRUCT);
             uint32_t i = 0;
@@ -686,7 +686,7 @@ void __cdecl FriendsManager::OnConnectNewUser(void*, const void* argument, Frien
 }
 
 // 0x0054A300
-void __cdecl FriendsManager::BuddyTask(TaskList::SchedulerTask* task)
+void __cdecl FriendsManager::BuddyTask(Scheduling::SchedulerTask* task)
 {
     PushTopDown();
     auto* man = reinterpret_cast<FriendsManager*>(reinterpret_cast<void**>(task)[7]);

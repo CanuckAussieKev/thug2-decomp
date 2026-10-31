@@ -9,7 +9,7 @@
 #include "game/lists/chain_start.h"
 #include "game/core/code_address.h"
 
-namespace TaskList {
+namespace Scheduling {
 
 namespace {
 
@@ -377,17 +377,17 @@ void PileUp::DeletePoppedLists()
 
 namespace {
 static VtableSlot kBaseTaskVtable_slots[] = {&_purecall, &_purecall,
-                &TaskList::SchedulerTask::ScalarDelete};
+                &Scheduling::SchedulerTask::ScalarDelete};
 void** const kBaseTaskVtable = reinterpret_cast<void**>(kBaseTaskVtable_slots);
-static VtableSlot kTaskNodeVtable_slots[] = {&TaskList::TaskNode::Teardown};
+static VtableSlot kTaskNodeVtable_slots[] = {&Scheduling::TaskNode::Teardown};
 void** const kTaskNodeVtable = reinterpret_cast<void**>(kTaskNodeVtable_slots);
-static VtableSlot kTaskSearchVtable_slots[] = {&TaskList::Hunt::DestroyTaskSearch};
+static VtableSlot kTaskSearchVtable_slots[] = {&Scheduling::Hunt::DestroyTaskSearch};
 void** const kTaskSearchVtable = reinterpret_cast<void**>(kTaskSearchVtable_slots);
-static VtableSlot kStackListSearchVtable_slots[] = {&TaskList::Hunt::DestroyStackListSearch};
+static VtableSlot kStackListSearchVtable_slots[] = {&Scheduling::Hunt::DestroyStackListSearch};
 void** const kStackListSearchVtable = reinterpret_cast<void**>(kStackListSearchVtable_slots);
-static VtableSlot kStackListNodeVtable_slots[] = {&TaskList::StackListNode::Teardown};
+static VtableSlot kStackListNodeVtable_slots[] = {&Scheduling::StackListNode::Teardown};
 void** const kStackListNodeVtable = reinterpret_cast<void**>(kStackListNodeVtable_slots);
-static VtableSlot kStackListHeadVtable_slots[] = {&TaskList::StackListNode::DestroyHead};
+static VtableSlot kStackListHeadVtable_slots[] = {&Scheduling::StackListNode::DestroyHead};
 void** const kStackListHeadVtable = reinterpret_cast<void**>(kStackListHeadVtable_slots);
 } // namespace
 

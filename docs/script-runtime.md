@@ -31,8 +31,8 @@ layout is in cscript.h. The parts that matter for scheduling are:
 | `m_args` +0x14 | the current level's parameters: the defaults from the script's first line, plus the caller's arguments, plus `name = value` assignments, plus whatever C functions leave there. |
 | `m_stmtArgs` +0x10 | the arguments of the statement being run, parsed again for every statement. |
 | `m_innermostRepeat` / `m_loops` | one loop stack shared by all call levels: 1 inline entry, moved to 10 on the script heap. |
-| `m_callDepth`, `m_returnAddresses` | the call stack: saved caller levels (`SCallFrame`, 0x30 bytes). 2 inline, moved to 16 on the script heap. Nothing checks the limit. |
-| `m_waitType` +0xA4 with `m_waitCounter`, `m_waitTimer`, `m_waitTimerStarted`, `m_waitArg`, `m_blockingModule` | the current level's wait (section 5). |
+| `m_callDepth`, `m_frameRecords` | the call stack: saved caller levels (`SCallFrame`, 0x30 bytes). 2 inline, moved to 16 on the script heap. Nothing checks the limit. |
+| `m_suspendReason` +0xA4 with `m_suspendFramesLeft`, `m_suspendClock`, `m_suspendClockStarted`, `m_suspendArg`, `m_blockingModule` | the current level's wait (section 5). |
 | `m_flagBits` +0xB4 | bit 0 `SCRIPT_RUN_INTERRUPTED`: the top level was entered as an interrupt. Bit 1 `SCRIPT_RUN_WAIT_UPDATED`: the wait has already been counted in this Update. |
 | `m_spawnFlags` +0xCC | `SPAWNED` 1, `NOT_SESSION_SPECIFIC` 2, `PAUSED` 4, `PAUSE_WITH_OBJECT` 8, `TRACKER_BLOCKED` 0x10. |
 | `m_entity` +0xBC | the object the current level runs on (a smart pointer; saved levels hold plain pointers). |
@@ -191,7 +191,7 @@ TickFrame():
   while m_pc:
     current_script = this
     if !(m_flagBits & WAIT_UPDATED): UpdateWait()           # count the wait (section 5)
-    if m_waitType != NONE:
+    if m_suspendReason != NONE:
       m_flagBits = (m_flagBits & ~INTERRUPTED) | WAIT_UPDATED   # (!) clears the interrupt flag
       current_script = null
       return BLOCKED (1) if type is 3 or 4, else WAITING (2)
@@ -347,8 +347,8 @@ nothing. When a count ends the wait, the script carries on with its next stateme
 | 11 ONE_PER_FRAME | SuspendUntilNextFrame(n) 0x00472BF0 | `counter ? --counter : (released_this_frame ? stay at 0 : (released_this_frame = true, done))` |
 | 2 TIMER | Lull(ms) 0x00472C10: `timer = (float)((unsigned)ms * 0.001f)`, started = false | `dt = FrameClock::GetSlomoFrameSeconds()` (0x005BEAA0; a double, not rounded): if `dt > timer`: `started ? done : timer = 0`; else `timer = (float)(timer - dt)`. Then started = true |
 | 4 REAL_TIMER | WaitRealTime(ms) 0x00473310: type set first, then `start = clock() + offset` (0x0044ECE0 + 0x00696D60), `timer = (float)(unsigned)ms` | done when `(double)(unsigned)(clock() + offset - start) >= timer` |
-| 3 BLOCKED | GateOff(type) 0x00472FD0: `m_waitArg = type`; if type != 0, the tracker is told (0x00463370) and `TRACKER_BLOCKED` is set | nothing (never counted down) |
-| 5-10 component | SetWaitOnComponent(type, component, arg) 0x004739A0 (marks component +0x08 \|= 2; no null check) | calls the component's vtable +0x18 `(script, m_waitArg)`; the component ends the wait itself by setting the type to 0 |
+| 3 BLOCKED | GateOff(type) 0x00472FD0: `m_suspendArg = type`; if type != 0, the tracker is told (0x00463370) and `TRACKER_BLOCKED` is set | nothing (never counted down) |
+| 5-10 component | SetWaitOnComponent(type, component, arg) 0x004739A0 (marks component +0x08 \|= 2; no null check) | calls the component's vtable +0x18 `(script, m_suspendArg)`; the component ends the wait itself by setting the type to 0 |
 | 0, > 11 | | nothing |
 
 What these rules mean, per type:
@@ -371,12 +371,12 @@ What these rules mean, per type:
 - **Real timer**: wall-clock milliseconds, not scaled by slomo. Update returns **BLOCKED (1)**, not WAITING,
   while it waits. NaN never ends. The subtraction is unsigned (wraps).
 - **Blocked**: ends only from outside, by one of:
-  - **ReceiveEvent(event)** (0x00473800; always returns true): if blocked with `m_waitArg != 0` and the event's
+  - **ReceiveEvent(event)** (0x00473800; always returns true): if blocked with `m_suspendArg != 0` and the event's
     type equals it, the wait ends. **Saved levels** blocked on that type have their saved wait type cleared too
     (they go on as soon as they are returned to). Then the event goes to the script's own handler table
     (0x00460470).
   - **StopWaiting** (0x004728F0): type = 0.
-  - **ObjectDestroyed(object)** (0x00473BE0): for any non-null object, `m_waitType = 0` **even if the script
+  - **ObjectDestroyed(object)** (0x00473BE0): for any non-null object, `m_suspendReason = 0` **even if the script
     never referred to that object** **[quirk]**. It also drops the object from every level.
   - **UnblockInterruptedScript** (0x00472F40, section 7).
 
@@ -414,7 +414,7 @@ What these rules mean, per type:
 1. `ReleaseScript(m_scriptTitle)` (the cache use).
 2. `interrupted = m_flagBits bit 0` (this is the function's result).
 3. At the **bottom level**: `m_pc = 0` (the script ends) and **m_args is kept**. Otherwise: free m_args,
-   pop the frame and restore name, params, pc, object, loop pointer and on-exit. Set `m_waitType = the saved
+   pop the frame and restore name, params, pc, object, loop pointer and on-exit. Set `m_suspendReason = the saved
    type`, and **only if that type is non-zero** also restore the other wait fields (otherwise the callee's values
    stay in those unused fields). Bit 0 = the frame's interrupt bit.
 4. If `results`: `m_args->AppendStructureIfAny(results)`. These are return's arguments, merged into the
@@ -918,7 +918,7 @@ position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display 
 - **The rest of the logic task list**: the object walk (-900) and the front end (-2000) are placed (section 2),
   but not every other logic task - e.g. the skate module's two tasks of priority -1000 made at 0x0056E2B0 (they
   run between the two), and which tasks (if any) have kinds 4 / 8 and so stop while paused. The task list code
-  itself (0x00406850-0x00406E00, TaskList::Task) isn't decompiled yet.
+  itself (0x00406850-0x00406E00, Scheduling::Task) isn't decompiled yet.
 - **Screen elements' targeted events**: screen elements override CEntity's +0x14 (0x004A8100, 0x004AA560,
   0x004AE6A0, section 12); what they do with an event is not decompiled.
 - **Event listeners** (CSignalReceiver): who registers them (CEventWaitBoard::SubscribeReceiver 0x00461FE0's callers)

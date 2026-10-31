@@ -314,7 +314,7 @@ struct Track {
 std::map<uint32_t, Track> g_tracks;
 std::vector<uint32_t> g_selection;
 V3 g_pivot;
-float g_halfHeight; // (the selection's bottom is this far below the pivot - quarter turns keep it)
+float g_halfExtentY; // (the selection's bottom is this far below the pivot - quarter turns keep it)
 // The shadows groups have taken (level_editor_shadows.h): each with the member whose name it carries (0: by place).
 std::unordered_map<uint32_t, uint32_t> g_shadowOf;
 std::vector<uint8_t*> g_dirtyScenes;
@@ -598,7 +598,7 @@ void ComputePivot()
         have = true;
     }
     g_pivot = have ? (min + max) * 0.5f : V3{0.0f, 0.0f, 0.0f};
-    g_halfHeight = have ? (max.y - min.y) * 0.5f : 0.0f;
+    g_halfExtentY = have ? (max.y - min.y) * 0.5f : 0.0f;
 }
 
 // The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
@@ -879,7 +879,7 @@ bool RayMeshes(uint8_t* geom, V3 origin, V3 dir, float maxT, float* t)
             continue;
         }
         Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         if (Picking::RayStrip(origin, dir, vertices->data, mesh->stride, mesh->vertexCount, indices->indices,
@@ -927,7 +927,7 @@ float GeomLevelShare(uint32_t checksum, uint8_t* geom)
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         Engine3D::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
-        Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
+        Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         Picking::AddTopStrip(&area, vertices->data, mesh->stride, mesh->vertexCount, indices->indices,
@@ -1235,7 +1235,7 @@ void FlipOver(uint32_t checksum)
 
 V3 Pivot() { return g_pivot; }
 
-float Bottom() { return g_pivot.y - g_halfHeight; }
+float Bottom() { return g_pivot.y - g_halfExtentY; }
 
 void SetSelection(const std::vector<uint32_t>& sectors)
 {
@@ -1338,8 +1338,8 @@ V3 ScaleSelection(V3 factor, bool uniform)
             StretchBy::ScaleAbout(&track->placement, anchor, factor);
     }
     ApplyRails(g_rails);
-    g_halfHeight *= factor.y;
-    g_pivot = {anchor.x, anchor.y + g_halfHeight, anchor.z};
+    g_halfExtentY *= factor.y;
+    g_pivot = {anchor.x, anchor.y + g_halfExtentY, anchor.z};
     g_hoverGroupOf = 0;
     return factor;
 }

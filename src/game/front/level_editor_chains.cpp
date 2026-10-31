@@ -847,7 +847,7 @@ void SetOwnLinks(Scripts::CStruct* node, const std::vector<uint32_t>& links)
             own->array->SetElement(static_cast<uint32_t>(i), links[i]);
         return;
     }
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     if (!array)
         return;
     array->PrepareAll();

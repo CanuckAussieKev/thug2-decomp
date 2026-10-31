@@ -62,7 +62,7 @@ struct CEmitterInstance : GameObjects::CSharedBase {
     float m_ageLeft[2];              // +0xC8 setLife min, max
     float m_emitTarget[3];        // +0xD0 setEmitTarget (a direction)
     Maths::Mat4* m_xformRef;       // +0xDC the matrix it follows (its object's display matrix)
-    float m_orientationTurn[3];          // +0xE0 (x, y, z angles: the matrix of GetRotationMatrix; setEmitAngle)
+    float m_orientationTurn[3];          // +0xE0 (x, y, z angles: the matrix of BuildEmitterOrientation; setEmitAngle)
     uint32_t m_unknownEC;         // +0xEC (a float: a model's +0x22C, update_Brightness; the ground's brightness)
     uint32_t m_label;              // +0xF0
     uint32_t m_groupId;           // +0xF4 groupID
@@ -141,7 +141,7 @@ struct CEmitterInstance : GameObjects::CSharedBase {
     // 0x00497A70: flag 0x10000 and m_wantsTime = `on` (the byte as given).
     void SetWantsTime(uint8_t on);
     // 0x00497AB0: the matrix of m_orientationTurn (InitFromAngles) into `out`. Returns out.
-    Maths::Mat4* GetRotationMatrix(Maths::Mat4* out);
+    Maths::Mat4* BuildEmitterOrientation(Maths::Mat4* out);
 
     // 0x00496890 / 0x004968A0 (vtable slots 3 and 2; the latter not a Ghidra function): "STUB:
     // plat_get_num_particle_colors" / "STUB: plat_get_num_vertex_lists" printed, 0.

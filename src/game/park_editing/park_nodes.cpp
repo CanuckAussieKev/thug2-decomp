@@ -122,7 +122,7 @@ float RestartAngle(int rot) { return static_cast<float>((rot + 2.0) * static_cas
 // A new script array of one `type` element.
 CArray* NewArrayOf(Scripts::EQbValueKind type, uint32_t value)
 {
-    CArray* array = Scripts::NewArray();
+    CArray* array = Scripts::AllocScriptArray();
     if (array)
         array->PrepareAll();
     array->ConfigureSizeKind(1, type);

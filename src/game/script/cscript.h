@@ -41,13 +41,13 @@ enum EScriptOutcome : int {
     SCRIPT_OUTCOME_ENDED_BY_INTERRUPT = 5, // an interrupt (Interrupt / OnExitRun script) returned
 };
 
-// m_waitType: what the script waits for before its next statement (checked by UpdateWait, 0x00473050).
+// m_suspendReason: what the script waits for before its next statement (checked by UpdateWait, 0x00473050).
 enum EBlockReason : uint32_t {
     SUSPEND_ON_NOTHING = 0,
-    SUSPEND_ON_COUNT = 1,        // m_waitCounter more Updates (Wait n frames: 0x00472BD0)
-    SUSPEND_ON_TIMER = 2,          // m_waitTimer seconds of slomo frame time (Wait n seconds: 0x00472C10)
-    SUSPEND_ON_BLOCK = 3,        // until unblocked - by an event of type m_waitArg (Block: 0x00472FD0) or by hand
-    WAIT_TYPE_REAL_TIMER = 4,     // m_waitTimer ms of the game clock since m_waitArg (0x00473310)
+    SUSPEND_ON_COUNT = 1,        // m_suspendFramesLeft more Updates (Wait n frames: 0x00472BD0)
+    SUSPEND_ON_TIMER = 2,          // m_suspendClock seconds of slomo frame time (Wait n seconds: 0x00472C10)
+    SUSPEND_ON_BLOCK = 3,        // until unblocked - by an event of type m_suspendArg (Block: 0x00472FD0) or by hand
+    WAIT_TYPE_REAL_TIMER = 4,     // m_suspendClock ms of the game clock since m_suspendArg (0x00473310)
     // 5-10: waiting on m_blockingModule, which is asked every Update (its vtable +0x18) - the object waits
     // (move, anim, jump, stop, rotate, stream finished...; set by SetWaitOnComponent 0x004739A0).
     WAIT_TYPE_OBJECT_FIRST = 5,
@@ -81,11 +81,11 @@ struct SCallFrame {
     SRepeatFrame* m_loopState;               // +0x10 m_innermostRepeat
     uint32_t m_onExitScriptPtr;      // +0x14 m_onExitScript
     GameObjects::CObjectModule* m_sleepComponent; // +0x18 m_blockingModule
-    float m_sleepTimer;            // +0x1C m_waitTimer
-    uint32_t m_waitArgPtr;           // +0x20 m_waitArg
-    int m_waitCounterPtr;            // +0x24 m_waitCounter
-    uint32_t m_suspendKind;          // +0x28 bits 0-3: m_waitType (the other bits are kept as they are)
-    uint8_t m_traitMask;              // +0x2C bit 0: m_waitTimerStarted, bit 1: the level was an interrupt
+    float m_sleepTimer;            // +0x1C m_suspendClock
+    uint32_t m_suspendArgRef;           // +0x20 m_suspendArg
+    int m_suspendFramesRef;            // +0x24 m_suspendFramesLeft
+    uint32_t m_suspendKind;          // +0x28 bits 0-3: m_suspendReason (the other bits are kept as they are)
+    uint8_t m_traitMask;              // +0x2C bit 0: m_suspendClockStarted, bit 1: the level was an interrupt
     uint8_t unknown2D[3];
 };
 static_assert(sizeof(SCallFrame) == 0x30, "layout must match the original");
@@ -93,7 +93,7 @@ static_assert(offsetof(SCallFrame, m_argStruct) == 0x04 && offsetof(SCallFrame, 
                   offsetof(SCallFrame, m_ownerEntity) == 0x0C && offsetof(SCallFrame, m_loopState) == 0x10 &&
                   offsetof(SCallFrame, m_onExitScriptPtr) == 0x14 &&
                   offsetof(SCallFrame, m_sleepComponent) == 0x18 && offsetof(SCallFrame, m_sleepTimer) == 0x1C &&
-                  offsetof(SCallFrame, m_waitArgPtr) == 0x20 && offsetof(SCallFrame, m_waitCounterPtr) == 0x24 &&
+                  offsetof(SCallFrame, m_suspendArgRef) == 0x20 && offsetof(SCallFrame, m_suspendFramesRef) == 0x24 &&
                   offsetof(SCallFrame, m_suspendKind) == 0x28 && offsetof(SCallFrame, m_traitMask) == 0x2C,
               "layout must match the original");
 constexpr uint32_t RETURN_WAIT_TYPE_MASK = 0xF;
@@ -254,13 +254,13 @@ public:
     SRepeatFrame* m_loops;                   // +0x2C m_inlineLoop, or 10 on the script heap
     int m_callDepth;         // +0x30 the call depth
     SCallFrame m_inlineReturnAddresses[2]; // +0x34
-    SCallFrame* m_returnAddresses; // +0x94 m_inlineReturnAddresses, or 16 on the script heap
-    int m_waitCounter;                // +0x98 SUSPEND_ON_COUNT / ONE_PER_FRAME
-    bool m_waitTimerStarted;          // +0x9C SUSPEND_ON_TIMER: the first Update has been
+    SCallFrame* m_frameRecords; // +0x94 m_inlineReturnAddresses, or 16 on the script heap
+    int m_suspendFramesLeft;                // +0x98 SUSPEND_ON_COUNT / ONE_PER_FRAME
+    bool m_suspendClockStarted;          // +0x9C SUSPEND_ON_TIMER: the first Update has been
     uint8_t unknown9D[3];
-    float m_waitTimer;                // +0xA0 SUSPEND_ON_TIMER seconds left / REAL_TIMER ms
-    uint32_t m_waitType;              // +0xA4 EBlockReason
-    uint32_t m_waitArg;               // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
+    float m_suspendClock;                // +0xA0 SUSPEND_ON_TIMER seconds left / REAL_TIMER ms
+    uint32_t m_suspendReason;              // +0xA4 EBlockReason
+    uint32_t m_suspendArg;               // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
     GameObjects::CObjectModule* m_blockingModule; // +0xAC types 5-10
     uint32_t m_uniqueId;              // +0xB0 from 0x006F3540
     uint8_t m_flagBits;                  // +0xB4 SCRIPT_RUN_*
@@ -284,11 +284,11 @@ static_assert(offsetof(CScript, m_priorEntry) == 0x04 && offsetof(CScript, m_cod
                   offsetof(CScript, m_args) == 0x14 && offsetof(CScript, m_innermostRepeat) == 0x18 &&
                   offsetof(CScript, m_inlineLoop) == 0x1C && offsetof(CScript, m_loops) == 0x2C &&
                   offsetof(CScript, m_callDepth) == 0x30 &&
-                  offsetof(CScript, m_inlineReturnAddresses) == 0x34 && offsetof(CScript, m_returnAddresses) == 0x94,
+                  offsetof(CScript, m_inlineReturnAddresses) == 0x34 && offsetof(CScript, m_frameRecords) == 0x94,
               "layout must match the original");
-static_assert(offsetof(CScript, m_waitCounter) == 0x98 && offsetof(CScript, m_waitTimerStarted) == 0x9C &&
-                  offsetof(CScript, m_waitTimer) == 0xA0 && offsetof(CScript, m_waitType) == 0xA4 &&
-                  offsetof(CScript, m_waitArg) == 0xA8 && offsetof(CScript, m_blockingModule) == 0xAC &&
+static_assert(offsetof(CScript, m_suspendFramesLeft) == 0x98 && offsetof(CScript, m_suspendClockStarted) == 0x9C &&
+                  offsetof(CScript, m_suspendClock) == 0xA0 && offsetof(CScript, m_suspendReason) == 0xA4 &&
+                  offsetof(CScript, m_suspendArg) == 0xA8 && offsetof(CScript, m_blockingModule) == 0xAC &&
                   offsetof(CScript, m_uniqueId) == 0xB0 && offsetof(CScript, m_flagBits) == 0xB4 &&
                   offsetof(CScript, m_listLink) == 0xB8 && offsetof(CScript, m_entity) == 0xBC,
               "layout must match the original");

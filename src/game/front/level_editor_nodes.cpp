@@ -191,8 +191,8 @@ std::vector<uint32_t> Signature()
     for (uint32_t i = 0; i < manager->m_num && i < LevelNodes::CNodeManager::kMaxArrays; ++i) {
         const LevelNodes::NodeArrayEntry& entry = manager->m_arrays[i];
         signature.push_back(entry.m_label);
-        signature.push_back(entry.m_nodeList ? entry.m_nodeList->m_extent : 0);
-        signature.push_back(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(entry.m_nodeList)));
+        signature.push_back(entry.m_nodeEntries ? entry.m_nodeEntries->m_extent : 0);
+        signature.push_back(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(entry.m_nodeEntries)));
     }
     return signature;
 }
@@ -235,7 +235,7 @@ void Scan()
     int crowns = 0, restarts = 0;
     ++g_generation;
     for (uint32_t a = 0; a < manager->m_num && a < LevelNodes::CNodeManager::kMaxArrays; ++a) {
-        Scripts::CArray* nodes = manager->m_arrays[a].m_nodeList;
+        Scripts::CArray* nodes = manager->m_arrays[a].m_nodeEntries;
         if (!nodes || nodes->m_kindTag != Scripts::QBVAL_STRUCT)
             continue;
         for (uint32_t i = 0; i < nodes->m_extent; ++i) {
@@ -351,7 +351,7 @@ void Scan()
     g_walkedSpawns = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - ResolveLinks).
     for (Elem& node : g_nodes) {
-        Scripts::CStruct* s = NodeAt(manager->m_arrays[node.array].m_nodeList, static_cast<uint32_t>(node.index));
+        Scripts::CStruct* s = NodeAt(manager->m_arrays[node.array].m_nodeEntries, static_cast<uint32_t>(node.index));
         Scripts::CArray* links = nullptr;
         if (!s || !s->FetchList(kLinks, &links, 0) || !links)
             continue;
@@ -463,7 +463,7 @@ Scripts::CStruct* StructOf(const Elem& node)
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
     if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->m_num)
         return nullptr;
-    return NodeAt(manager->m_arrays[node.array].m_nodeList, static_cast<uint32_t>(node.index));
+    return NodeAt(manager->m_arrays[node.array].m_nodeEntries, static_cast<uint32_t>(node.index));
 }
 
 void Reread(int index)

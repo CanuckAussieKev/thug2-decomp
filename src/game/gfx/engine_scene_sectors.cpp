@@ -72,7 +72,7 @@ bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cas
 // The node after `node`, or null at the head.
 MemSys::ListNode* NextNode(const MemSys::ListNode* node) { return IsHead(node->next) ? nullptr : node->next; }
 // The first node, or null when the list's empty (the original checks the head's next is no head and not null).
-MemSys::ListNode* FirstNode(const MemSys::ListNode* head)
+MemSys::ListNode* HeadOfSceneList(const MemSys::ListNode* head)
 {
     return IsHead(head->next) ? nullptr : head->next;
 }
@@ -117,7 +117,7 @@ void AppendLast(MemSys::ListNode* head, MemSys::ListNode* node)
 // Every node of a list deleted (its virtual [0]).
 void DeleteNodes(MemSys::ListNode* head)
 {
-    for (MemSys::ListNode* node = FirstNode(head); node;) {
+    for (MemSys::ListNode* node = HeadOfSceneList(head); node;) {
         MemSys::ListNode* next = NextNode(node);
         Virtual<void*>(node, 0, 1u);
         node = next;
@@ -364,7 +364,7 @@ void CWorldScene::UpdateSuperSectors(MemSys::ListNode* added)
             MemSys::ListNode* next = NextNode(node);
             auto* sector = static_cast<CWorldCell*>(node->data);
             bool listed = false;
-            for (MemSys::ListNode* removing = FirstNode(&toRemove); removing && !listed; removing = NextNode(removing))
+            for (MemSys::ListNode* removing = HeadOfSceneList(&toRemove); removing && !listed; removing = NextNode(removing))
                 listed = removing->data == sector->m_hitBody;
             if (!listed) {
                 AppendLast(&toRemove, NewNode(kCollNodeVtable, sector->m_hitBody));
@@ -378,7 +378,7 @@ void CWorldScene::UpdateSuperSectors(MemSys::ListNode* added)
     DeleteNodes(&toAdd);
     DeleteNodes(&toRemove);
     DeleteNodes(&moved);
-    for (MemSys::ListNode* node = FirstNode(&toDelete); node;) {
+    for (MemSys::ListNode* node = HeadOfSceneList(&toDelete); node;) {
         MemSys::ListNode* next = NextNode(node);
         auto* sector = static_cast<CWorldCell*>(node->data);
         uint32_t key = sector->m_checksum;
@@ -434,12 +434,12 @@ bool CWorldScene::LoadAddScene(const char* name)
 // 0x0049DDE0
 bool CWorldScene::FlipExtraScene()
 {
-    if (!FirstNode(m_addSceneSectors))
+    if (!HeadOfSceneList(m_addSceneSectors))
         return false;
     m_added = !m_added;
     MemSys::ListNode* hide = m_added ? m_hiddenSectors : m_addSceneSectors;
     MemSys::ListNode* show = m_added ? m_addSceneSectors : m_hiddenSectors;
-    for (MemSys::ListNode* node = FirstNode(hide); node;) {
+    for (MemSys::ListNode* node = HeadOfSceneList(hide); node;) {
         MemSys::ListNode* next = NextNode(node);
         auto* sector = static_cast<CWorldCell*>(node->data);
         sector->ChangeBits(kSectorRemoveFromGrid);
@@ -449,7 +449,7 @@ bool CWorldScene::FlipExtraScene()
         sector->ChangeLive(false);
         node = next;
     }
-    for (MemSys::ListNode* node = FirstNode(show); node;) {
+    for (MemSys::ListNode* node = HeadOfSceneList(show); node;) {
         MemSys::ListNode* next = NextNode(node);
         auto* sector = static_cast<CWorldCell*>(node->data);
         sector->ChangeBits(kSectorAddToGrid);
@@ -481,7 +481,7 @@ bool CWorldScene::UnloadAddedScene()
     if (m_hiddenSectors)
         DeleteNodes(m_hiddenSectors);
     if (m_addSceneSectors) {
-        for (MemSys::ListNode* node = FirstNode(m_addSceneSectors); node;) {
+        for (MemSys::ListNode* node = HeadOfSceneList(m_addSceneSectors); node;) {
             MemSys::ListNode* next = NextNode(node);
             DeleteSceneSector(this, static_cast<CWorldCell*>(node->data));
             Virtual<void*>(node, 0, 1u);

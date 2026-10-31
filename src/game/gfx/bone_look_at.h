@@ -43,11 +43,11 @@ public:
         int m_pivotDir;            // +0x0C which way the bone looks: +-1 / +-2 x / z turned a quarter, +-3 as it is
         Maths::Vec4 m_lowerLimit;     // +0x10 the angle limits (radians; w 1)
         Maths::Vec4 m_upperLimit;     // +0x20
-        Maths::Vec4 m_targetPos; // +0x30 the point looked at
+        Maths::Vec4 m_lookGoal; // +0x30 the point looked at
         Maths::Vec4 m_shift;  // +0x40 from the target object's position (w 1)
         Maths::QuatRotation m_orientationTurn;  // +0x50 the turn last applied
         bool m_active;         // +0x60
-        bool m_fixedPos;       // +0x61: m_targetPos given (the target object isn't followed)
+        bool m_fixedPos;       // +0x61: m_lookGoal given (the target object isn't followed)
         bool m_clamp;          // +0x62: the angles clamped and scaled (else each one past its limits zeroed)
         uint8_t pad63;
     };

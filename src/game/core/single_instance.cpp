@@ -99,7 +99,7 @@ struct AsyncLoader {
     static KindTag* Fabricate(bool create) { return FileLoad::CreateAsyncLoaderModule(create); }
     static void Release() { FileLoad::DestroyAsyncLoaderModule(); }
 };
-struct ScriptCache {
+struct ScriptStoreInstance {
     using KindTag = Scripts::CScriptStore;
     static void** Vtable() { return kScriptCacheVtable; }
     static KindTag* Fabricate(bool create) { return Scripts::CreateScriptCache(create); }
@@ -231,7 +231,7 @@ static VtableSlot kSioManagerVtable_slots[] = {&LazyInstance<SerialSlotStub>::Te
 void** const kSioManagerVtable = reinterpret_cast<void**>(kSioManagerVtable_slots);
 static VtableSlot kAsyncLoaderVtable_slots[] = {&LazyInstance<AsyncLoader>::Teardown};
 void** const kAsyncLoaderVtable = reinterpret_cast<void**>(kAsyncLoaderVtable_slots);
-static VtableSlot kScriptCacheVtable_slots[] = {&LazyInstance<ScriptCache>::Teardown};
+static VtableSlot kScriptCacheVtable_slots[] = {&LazyInstance<ScriptStoreInstance>::Teardown};
 void** const kScriptCacheVtable = reinterpret_cast<void**>(kScriptCacheVtable_slots);
 static VtableSlot kMlpManagerVtable_slots[] = {&LazyInstance<MainLoopSlotStub>::Teardown};
 void** const kMlpManagerVtable = reinterpret_cast<void**>(kMlpManagerVtable_slots);

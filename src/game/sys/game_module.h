@@ -36,7 +36,7 @@ struct PartUnit {
 static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, m_locked) == 0x0C && offsetof(PartUnit, m_listLink) == 0x10);
 
 struct Hub {
-    void* m_task;            // TaskList::Task<Manager> (priority -1000) running TickModules
+    void* m_task;            // Scheduling::Task<Manager> (priority -1000) running TickModules
     MemSys::ListNode m_modules; // +0x04: the list's head (ListKit::Foremost<Module>, vtable 0x00647288)
     bool m_commandPending;   // +0x18: a module was given a command since the task last ran
 

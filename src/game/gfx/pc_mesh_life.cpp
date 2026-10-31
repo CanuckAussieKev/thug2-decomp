@@ -213,7 +213,7 @@ uint32_t sVertexBuffer::Teardown()
 }
 
 // 0x004D6790
-uint32_t sIndexBuffer::Teardown()
+uint32_t sIdxStore::Teardown()
 {
     uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer)->Release();
     buffer = nullptr;
@@ -249,7 +249,7 @@ void __cdecl ReleaseBuffers()
         node = next;
     }
     for (sBufferNode* node = IndexBufferList(); node; node = node->next) {
-        auto* ib = static_cast<sIndexBuffer*>(node->buffer);
+        auto* ib = static_cast<sIdxStore*>(node->buffer);
         if (!ib)
             continue;
         if (ib->buffer)
@@ -280,7 +280,7 @@ void __cdecl RecreateBuffers()
         if (node->buffer)
             static_cast<sVertexBuffer*>(node->buffer)->Recreate();
     for (sBufferNode* node = IndexBufferList(); node; node = node->next) {
-        auto* ib = static_cast<sIndexBuffer*>(node->buffer);
+        auto* ib = static_cast<sIdxStore*>(node->buffer);
         if (!ib)
             continue;
         InputPort()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
@@ -302,7 +302,7 @@ void meshRef::DestroyBody()
     if (transform)
         heap->Dealloc(transform);
     if (!(flags & 1)) { // (its own buffers, not another mesh's)
-        for (sIndexBuffer*& ib : indexBuffers) {
+        for (sIdxStore*& ib : indexBuffers) {
             if (ib)
                 ib->Teardown();
             ib = nullptr;

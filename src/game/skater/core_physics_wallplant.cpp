@@ -97,7 +97,7 @@ bool TriggerTookOver(void* component) { return At<uint8_t>(At<void*>(component, 
 bool ButtonPressed(void* component, uint32_t button)
 {
     auto* skater = static_cast<GameObjects::CMoveExecutor*>(At<void*>(component, kSkaterComponent));
-    if (skater->IsButtonDown(button))
+    if (skater->IsKeyHeld(button))
         return true;
     uint32_t window = Ftol(static_cast<double>(Scripts::FetchFloat(kWallRideWindow)) * kToMilliseconds);
     return static_cast<GameObjects::CMoveExecutor*>(At<void*>(component, kSkaterComponent))->FindPress(button, window, 0xFFFFFFFFu);

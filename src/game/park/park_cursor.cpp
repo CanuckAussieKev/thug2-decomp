@@ -166,7 +166,7 @@ bool CBuildPointer::AddGapHalf()
             gap.m_reachRight[n] = 0;
             gap.m_pointsHeld = 100;
             gap.m_halvesPlaced = n + 1;
-            gap.m_tabIndex = -1;
+            gap.m_slotIndex = -1;
             if (n == 0) {
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (GapCounter() > 1)

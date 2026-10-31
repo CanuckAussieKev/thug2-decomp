@@ -706,7 +706,7 @@ void AddValue(Scripts::CStruct* s, uint32_t key, const Value& v)
     case Kind::Names:
     case Kind::Integers:
     case Kind::Floats: {
-        Scripts::CArray* array = Scripts::NewArray()->PrepareAll();
+        Scripts::CArray* array = Scripts::AllocScriptArray()->PrepareAll();
         uint32_t size = static_cast<uint32_t>(v.kind == Kind::Floats ? v.floats.size() : v.list.size());
         array->ConfigureSizeKind(size, v.kind == Kind::Names      ? Scripts::QBVAL_NAME
                                     : v.kind == Kind::Integers ? Scripts::QBVAL_INTEGER

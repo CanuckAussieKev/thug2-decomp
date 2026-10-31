@@ -106,7 +106,7 @@ void CParkLayout::GenerateNodeArray()
                 pos.y = static_cast<int8_t>(metas.list->GetPlacedPiece()->m_cellFootprint.h + pos.y);
         }
         Maths::Vec4 point;
-        point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kCellWidth) + kCellWidth * 0.5);
+        point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kGridPitch) + kGridPitch * 0.5);
         point.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
         point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kGridStepAlong) + kGridStepAlong * 0.5);
         point.w = 1.0f;

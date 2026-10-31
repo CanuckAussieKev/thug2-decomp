@@ -528,7 +528,7 @@ void CObjectiveAuthoring::WriteGoals(Scripts::CStruct* out)
     }
     if (!count)
         return;
-    Scripts::CArray* goals = Scripts::NewArray();
+    Scripts::CArray* goals = Scripts::AllocScriptArray();
     goals = goals ? goals->PrepareAll() : nullptr;
     goals->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     uint32_t index = 0;
@@ -547,7 +547,7 @@ void CObjectiveAuthoring::WriteLevelGoals(uint32_t level, Scripts::CStruct* out)
 {
     // (sized by the complete goals, filled with every used one: as the original)
     uint32_t count = static_cast<uint32_t>(CountCompleteGoals(level));
-    Scripts::CArray* goals = Scripts::NewArray();
+    Scripts::CArray* goals = Scripts::AllocScriptArray();
     goals = goals ? goals->PrepareAll() : nullptr;
     goals->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     uint32_t index = 0;
@@ -674,7 +674,7 @@ bool CObjectiveAuthoring::GetEditedGoalsInfo(Scripts::CStruct* params, Scripts::
     int count = CountCompleteGoals(level);
     if (!count)
         return true;
-    Scripts::CArray* goals = Scripts::NewArray();
+    Scripts::CArray* goals = Scripts::AllocScriptArray();
     goals = goals ? goals->PrepareAll() : nullptr;
     goals->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
     uint32_t index = 0;

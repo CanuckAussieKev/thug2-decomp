@@ -13,8 +13,8 @@ PingProbe* PingProbe::MakeNew()
         time = 0;
     m_averageLatency = 1000;
     m_succ = 0;
-    m_sendTime = 0;
-    m_receiveTime = 0;
+    m_probeSentAt = 0;
+    m_echoSeenAt = 0;
     return this;
 }
 

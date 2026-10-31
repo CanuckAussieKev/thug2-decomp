@@ -64,10 +64,10 @@ void CopySkeleton(uint8_t* to, uint8_t* from)
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t ModelGet(Engine3D::CRenderModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(Engine3D::CRenderModel*)>(CodeAddress(&Engine3D::CRenderModel::GetBoneMatrices))(model); }
+uint32_t ModelGet(Engine3D::CRenderModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(Engine3D::CRenderModel*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(model); }
 void ModelSet(Engine3D::CRenderModel* model, uint32_t value)
 {
-    model->SetBoneMatrices(reinterpret_cast<uint8_t*>(value));
+    model->UploadSkinningPalette(reinterpret_cast<uint8_t*>(value));
 }
 void FollowPosition(Engine3D::CRenderModel* model, Maths::Vec4* position)
 {

@@ -36,7 +36,7 @@ constexpr uint32_t kUnderTheFloor = 0xAFAA46BA; // (as Update sends it)
 
 // The core physics component's: the position as the frame began, its state component (+0x18 the physics state,
 // +0x60 landed, +0x64 when, +0x88 skitching).
-constexpr uint32_t kFrameStart = 0x98;
+constexpr uint32_t kFirstTick = 0x98;
 constexpr uint32_t kTimedFlags = 0x1528;
 
 constexpr float kFeelerReach = 30.0f; // 0x00646240
@@ -118,7 +118,7 @@ void CRiderPhysicsTweaks::FrameUpdate()
 // 0x004F8AA0
 void CRiderPhysicsTweaks::CheckInsideMovingObject()
 {
-    Maths::Vec4& frameStart = At<Maths::Vec4>(m_corePtr, kFrameStart);
+    Maths::Vec4& frameStart = At<Maths::Vec4>(m_corePtr, kFirstTick);
     if (!m_ride->FindContactAhead(&m_entity->m_atPoint, &frameStart))
         return;
     DebugOut::Printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");

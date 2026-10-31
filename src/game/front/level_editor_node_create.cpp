@@ -584,7 +584,7 @@ Scripts::CStruct* Build(const Spec& spec)
             break;
         case Prop::kNames:
         case Prop::kIntegers: {
-            Scripts::CArray* array = Scripts::NewArray();
+            Scripts::CArray* array = Scripts::AllocScriptArray();
             if (!array)
                 break;
             array->PrepareAll();
@@ -617,7 +617,7 @@ void WriteLinks(Scripts::CStruct* node, const std::vector<uint32_t>& links)
     node->EraseModule(kLinks);
     if (links.empty())
         return;
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     if (!array)
         return;
     array->PrepareAll();
@@ -647,7 +647,7 @@ bool Sync()
         Scripts::NoteQbName(name, Nodes::kOverlayArrayName);
         if (Scripts::CSymbolTableEntry* old = Scripts::FindSymbol(name))
             Scripts::CleanUpAndRemoveSymbol(old);
-        g_array = Scripts::NewArray();
+        g_array = Scripts::AllocScriptArray();
         if (!g_array)
             return false;
         g_array->PrepareAll();
@@ -686,7 +686,7 @@ void MakeLive(const Spec& spec, Scripts::CStruct* node)
             // (made before and removed: the game can't free one - used again)
             proxim->m_atPoint = pos;
             proxim->m_radius = spec.radius;
-            proxim->m_radiusSquared = spec.radius * spec.radius;
+            proxim->m_reachSq = spec.radius * spec.radius;
             GameObjects::ProximityNode_Enable(name, 1);
         } else {
             GameObjects::NearbyZone_AddNode(name, true);
@@ -695,7 +695,7 @@ void MakeLive(const Spec& spec, Scripts::CStruct* node)
         if (GameObjects::EmitterNode* emitter = GameObjects::Emitter_GetNode(name)) {
             emitter->m_atPoint = pos;
             emitter->m_radius = spec.radius;
-            emitter->m_radiusSquared = spec.radius * spec.radius;
+            emitter->m_reachSq = spec.radius * spec.radius;
             emitter->m_active = true;
         } else {
             GameObjects::Emitter_AddNode(name, true);

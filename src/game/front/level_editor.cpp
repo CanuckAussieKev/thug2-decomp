@@ -2723,7 +2723,7 @@ bool __cdecl CFunc_Stop(Scripts::CStruct*, Scripts::CScript*)
 
 void RegisterScriptFunctions()
 {
-    static const Scripts::CFunctionEntry functions[] = {
+    static const Scripts::CNativeCommand functions[] = {
         {"LevelEditor_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"LevelEditor_Start", reinterpret_cast<void*>(&CFunc_Start)},
         {"LevelEditor_Stop", reinterpret_cast<void*>(&CFunc_Stop)},
@@ -5141,7 +5141,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const TickCycle& frame)
                 g_placeArmed = -1;
             }
             break;
-        case Ui::Request::kDeleteNode:
+        case Ui::Request::kRemoveNodeAction:
             if (!noChange)
                 UnlinkListNode(false);
             break;

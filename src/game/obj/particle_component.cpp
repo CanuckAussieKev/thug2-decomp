@@ -425,7 +425,7 @@ void CEffectsEmitterModule::ConfigureFromData(Scripts::CStruct* params)
     p.m_localPositions = params->HasBareFlag(0xB7B7240Du);
     if (p.m_localPositions)
         for (int i = 0; i < 3; ++i)
-            p.m_localPos[i] = p.m_atPoint[i];
+            p.m_offsetPos[i] = p.m_atPoint[i];
     p.m_orientWithObject = params->HasBareFlag(0xA2487CC3u);
     p.m_flag158 = params->HasBareFlag(0xA0E585B0u);
     m_effectHandle = g_particleHub->SpawnParticle(
@@ -521,7 +521,7 @@ bool CEffectsEmitterModule::GetParticleParams(Scripts::CStruct*, Scripts::CScrip
     result->PushFloat(0xC218CF77u, own->m_unknown2C);
     Scripts::CArray* colours[3];
     for (Scripts::CArray*& array : colours) {
-        array = Scripts::NewArray();
+        array = Scripts::AllocScriptArray();
         if (array)
             array = array->PrepareAll();
     }

@@ -431,7 +431,7 @@ int CNodeTableResource::Offload()
 // 0x004090D0
 void* CNodeTableResource::BuildNodeTable(uint32_t name, int count)
 {
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     if (array)
         array->PrepareAll();
     array->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);

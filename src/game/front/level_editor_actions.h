@@ -102,7 +102,7 @@ enum IdentNo : int {
     // level_editor_prefs.h)
     kPlay, kPreferences, kFrameSelection,
     kBookmark1, kBookmarkStore1 = kBookmark1 + 9,
-    kViewTop = kBookmarkStore1 + 9, kViewBottom, kCamFrontView, kViewBack, kViewRight, kViewLeft, kViewOrtho,
+    kViewTop = kBookmarkStore1 + 9, kViewBottom, kCamFrontView, kViewBack, kPanRightAction, kPanLeftAction, kViewOrtho,
     // (UX2: the transform tools - level_editor_transform.h; the arrows nudge with wasd_flies=0)
     kToolMove, kToolRotate, kToolScale, kToolCycle, kToolSpace, kModalTransform, kRepeatDuplicate,
     kNudgeForward, kNudgeBack, kNudgeLeft, kNudgeRight,

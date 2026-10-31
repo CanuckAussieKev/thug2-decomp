@@ -294,7 +294,7 @@ int __cdecl OnAdmittedMsg(NetLink::InboundMsgCtx* context)
 // 0x0052E1A0
 int __cdecl HandleReadyToPlay(NetLink::InboundMsgCtx* context)
 {
-    auto* logicTasks = reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04);
+    auto* logicTasks = reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04);
     Hub* manager = ManagerOf(context);
     manager->SetReadyState(true); // (m_clearedToStart set, the skaters told)
     if (!context->m_receiverApp->IsHostLocal())

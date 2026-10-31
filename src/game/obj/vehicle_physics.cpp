@@ -538,7 +538,7 @@ void CDrivableModule::UpdateDependents()
     QuatToMatrix(&m_orientation, &m_basisFrame);
     m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Maths::Vec4 turned;
-    m_comOffset = m_basisFrame.RotateVector(turned, m_centerOfMass);
+    m_comOffset = m_basisFrame.RotateVector(turned, m_balancePoint);
     UpdateInertia();
     StepVehicleSpeeds();
     const Maths::Vec4* r = m_basisFrame.row;

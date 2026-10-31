@@ -191,7 +191,7 @@ public:
     uint32_t m_lookupKey;                       // +0x50 the anim set
     uint32_t m_flagBits;                     // +0x54 (bit 29: flipped)
     uint32_t m_eventTable;                // +0x58 (AnimEventTableName 0x5B8C6DC2)
-    float m_firstTime;                    // +0x5C the playing timeline's time last frame
+    float m_prevTimelinePos;                    // +0x5C the playing timeline's time last frame
     bool m_waiting;                       // +0x60 a time waited for
     uint8_t m_pad61[3];
     float m_waitTime;                     // +0x64

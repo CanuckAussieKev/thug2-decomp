@@ -81,7 +81,7 @@ CPathFollower* CPathFollower::MakeNew(CGameEntity* owner)
     m_tick.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m_tick.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     m_tick.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_startPoint = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_segmentOrigin = {0.0f, 0.0f, 0.0f, 1.0f};
     m_unknown84 = {0.0f, 0.0f, 0.0f, 1.0f};
     m_endPoint = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
@@ -117,7 +117,7 @@ bool CPathFollower::NextNode()
         m_listLink = LevelNodes::FetchLink(m_listLink, Maths::Rnd(static_cast<int>(links)));
     else
         m_listLink = LevelNodes::FetchLink(m_listLink, 0);
-    m_startPoint = m_endPoint;
+    m_segmentOrigin = m_endPoint;
     ReadNodePosition();
     return true;
 }
@@ -125,11 +125,11 @@ bool CPathFollower::NextNode()
 // 0x00469F60
 void CPathFollower::RefreshPlacement()
 {
-    m_atPoint = m_startPoint;
-    double dx = static_cast<double>(m_endPoint.x) - m_startPoint.x;
-    double dy = static_cast<double>(m_endPoint.y) - m_startPoint.y;
-    float dz = m_endPoint.z - m_startPoint.z;
-    float dw = m_endPoint.w - m_startPoint.w;
+    m_atPoint = m_segmentOrigin;
+    double dx = static_cast<double>(m_endPoint.x) - m_segmentOrigin.x;
+    double dy = static_cast<double>(m_endPoint.y) - m_segmentOrigin.y;
+    float dz = m_endPoint.z - m_segmentOrigin.z;
+    float dw = m_endPoint.w - m_segmentOrigin.w;
     float t = static_cast<float>(static_cast<double>(m_along) / m_byteCount);
     float sx = static_cast<float>(dx * t);
     double sy = dy * t;
@@ -168,13 +168,13 @@ bool CPathFollower::CheckCorner()
 // 0x0046A250
 bool CPathFollower::StartSegment()
 {
-    double along = SpanTo(m_atPoint, m_startPoint);
+    double along = SpanTo(m_atPoint, m_segmentOrigin);
     m_along = static_cast<float>(along);
-    m_byteCount = static_cast<float>(SpanTo(m_startPoint, m_endPoint));
+    m_byteCount = static_cast<float>(SpanTo(m_segmentOrigin, m_endPoint));
     m_along = static_cast<float>(along + m_carry);
     m_carry = 0.0f;
     Maths::Vec4& heading = m_tick.row[2];
-    heading = {m_endPoint.x - m_startPoint.x, m_endPoint.y - m_startPoint.y, m_endPoint.z - m_startPoint.z, m_endPoint.w - m_startPoint.w};
+    heading = {m_endPoint.x - m_segmentOrigin.x, m_endPoint.y - m_segmentOrigin.y, m_endPoint.z - m_segmentOrigin.z, m_endPoint.w - m_segmentOrigin.w};
     heading.MakeUnit();
     CheckCorner();
     return true;
@@ -184,15 +184,15 @@ bool CPathFollower::StartSegment()
 int CPathFollower::ComputeArc()
 {
     // the corner point: as far along the next segment from the node as the position is short of it
-    double dx = static_cast<double>(m_atPoint.x) - m_startPoint.x;
-    double dy = static_cast<double>(m_atPoint.y) - m_startPoint.y;
-    double dz = static_cast<double>(m_atPoint.z) - m_startPoint.z;
-    m_bendPoint = m_startPoint;
+    double dx = static_cast<double>(m_atPoint.x) - m_segmentOrigin.x;
+    double dy = static_cast<double>(m_atPoint.y) - m_segmentOrigin.y;
+    double dz = static_cast<double>(m_atPoint.z) - m_segmentOrigin.z;
+    m_bendPoint = m_segmentOrigin;
     float shortOf = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
-    double ex = static_cast<double>(m_endPoint.x) - m_startPoint.x;
-    double ey = static_cast<double>(m_endPoint.y) - m_startPoint.y;
-    float ez = m_endPoint.z - m_startPoint.z;
-    float ew = m_endPoint.w - m_startPoint.w;
+    double ex = static_cast<double>(m_endPoint.x) - m_segmentOrigin.x;
+    double ey = static_cast<double>(m_endPoint.y) - m_segmentOrigin.y;
+    float ez = m_endPoint.z - m_segmentOrigin.z;
+    float ew = m_endPoint.w - m_segmentOrigin.w;
     double segment = std::sqrt(ex * ex + static_cast<double>(ez) * ez + ey * ey);
     double scale = shortOf / segment;
     float scalef = static_cast<float>(scale);
@@ -220,10 +220,10 @@ int CPathFollower::ComputeArc()
     float midY = static_cast<float>(my + m_atPoint.y);
     double midZ = mz + m_atPoint.z;
     double midW = static_cast<double>(mw) + m_atPoint.w;
-    float qx = static_cast<float>(static_cast<double>(midX) - m_startPoint.x);
-    float qy = static_cast<float>(static_cast<double>(midY) - m_startPoint.y);
-    float qz = static_cast<float>(midZ - m_startPoint.z);
-    double qw = midW - m_startPoint.w;
+    float qx = static_cast<float>(static_cast<double>(midX) - m_segmentOrigin.x);
+    float qy = static_cast<float>(static_cast<double>(midY) - m_segmentOrigin.y);
+    float qz = static_cast<float>(midZ - m_segmentOrigin.z);
+    double qw = midW - m_segmentOrigin.w;
     double bisector = std::sqrt(static_cast<double>(qz) * qz + static_cast<double>(qy) * qy +
                                 static_cast<double>(qx) * qx);
     float bisectorf = static_cast<float>(bisector);
@@ -240,7 +240,7 @@ int CPathFollower::ComputeArc()
     m_center.y = qy;
     m_center.z = qz;
     SetLength(m_center, toCenter);
-    m_center += m_startPoint;
+    m_center += m_segmentOrigin;
 
     // the frame: from the centre to the position, its axis, and the heading
     Maths::Vec4& out = m_tick.row[0];
@@ -298,7 +298,7 @@ void CPathFollower::StartCorner()
         m_center = m_atPoint;
         m_along = m_carry;
         m_curPhase = STATE_BLEND;
-        m_byteCount = static_cast<float>(SpanTo(m_atPoint, m_startPoint));
+        m_byteCount = static_cast<float>(SpanTo(m_atPoint, m_segmentOrigin));
         break;
     case 1:
         m_curPhase = STATE_ARC;
@@ -326,8 +326,8 @@ void CPathFollower::Kickoff(uint32_t node, const Maths::Vec4* position)
     m_carry = 0.0f;
     m_along = 0.0f;
     m_listLink = node;
-    m_startPoint = *position;
-    m_atPoint = m_startPoint;
+    m_segmentOrigin = *position;
+    m_atPoint = m_segmentOrigin;
     ReadNodePosition();
     while (SpanTo(m_atPoint, m_endPoint) < 1.0) {
         if (!NextNode())
@@ -362,8 +362,8 @@ bool CPathFollower::TickFrame(float distance, const Maths::Vec4* direction)
                 return false;
             }
             m_lastNode = m_listLink;
-            m_startPoint = m_endPoint;
-            m_atPoint = m_startPoint;
+            m_segmentOrigin = m_endPoint;
+            m_atPoint = m_segmentOrigin;
             m_curPhase = STATE_DONE;
             return true;
         }
@@ -415,16 +415,16 @@ bool CPathFollower::TickFrame(float distance, const Maths::Vec4* direction)
         Maths::Vec4 offset;
         if (along < m_byteCount) {
             m_atPoint = m_center;
-            offset = m_startPoint - m_center;
+            offset = m_segmentOrigin - m_center;
             offset *= t;
         } else {
-            m_atPoint = m_startPoint;
-            offset = m_bendPoint - m_startPoint;
+            m_atPoint = m_segmentOrigin;
+            offset = m_bendPoint - m_segmentOrigin;
             offset *= static_cast<float>(static_cast<double>(t) - 1.0);
         }
         m_atPoint += offset;
-        Maths::Vec4 into = m_startPoint - m_center;
-        Maths::Vec4 next = m_bendPoint - m_startPoint;
+        Maths::Vec4 into = m_segmentOrigin - m_center;
+        Maths::Vec4 next = m_bendPoint - m_segmentOrigin;
         float blend = t * 0.5f;
         if (blend >= 0.5f && (m_flagBits & FLAG_TELL_NODE)) {
             uint32_t passed = m_lastNode;

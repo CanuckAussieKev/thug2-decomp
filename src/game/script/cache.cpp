@@ -24,13 +24,13 @@ static_assert(offsetof(CScriptStore, m_entries) == 0x14 && offsetof(CScriptStore
                   offsetof(CScriptStore, m_oldestUnused) == 0x1C && offsetof(CScriptStore, m_deleteUnused) == 0x20,
               "layout must match the original");
 
-Scripts::CScriptStore* g_scriptCache;
+Scripts::CScriptStore* g_scriptStore;
 uint32_t g_cacheReferences;
 MemSys::PoolPair g_cacheEntryPools;
 
 namespace {
 
-CScriptStore*& TheCache() { return g_scriptCache; }
+CScriptStore*& TheCache() { return g_scriptStore; }
 uint32_t& CacheReferences() { return g_cacheReferences; }
 MemSys::PoolPair& EntryPools() { return g_cacheEntryPools; }
 

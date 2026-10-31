@@ -34,7 +34,7 @@ constexpr uint32_t kDrawNames = 0x47;        // bool
 constexpr uint32_t kStartInfoWords = 0x48;   // 8 words
 constexpr uint32_t kCrownStartField = 0x68;
 constexpr uint32_t kCrown = 0x6C;
-constexpr uint32_t kHostTask = 0xF4;         // TaskList::SchedulerTask*
+constexpr uint32_t kHostTask = 0xF4;         // Scheduling::SchedulerTask*
 constexpr uint32_t kNetworkPrefs = 0x104;    // OptionStore::Preferences
 constexpr uint32_t kTauntPrefs = 0x110;      // OptionStore::Preferences
 constexpr uint32_t kLastLeader = 0x1D0;
@@ -159,7 +159,7 @@ int Hub::GetNumTeams()
 int Hub::GetSpectatorLimit() { return NumberOf(PreferenceChecksum(this, kNumObservers), 0, 8, 0, 2); }
 
 // 0x00532E30
-void Hub::RemoveHostTask() { Prop<TaskList::SchedulerTask*>(this, kHostTask)->DropOut(); }
+void Hub::RemoveHostTask() { Prop<Scheduling::SchedulerTask*>(this, kHostTask)->DropOut(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
 uint32_t Hub::GetJoinIp() { return m_joinIp; }

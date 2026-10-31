@@ -81,7 +81,7 @@ CScriptStore* CreateScriptCache(bool create);
 // 0x00475A00: give back a reference; the last one destroys the cache.
 void ReleaseScriptCache();
 
-extern Scripts::CScriptStore* g_scriptCache;
+extern Scripts::CScriptStore* g_scriptStore;
 extern MemSys::PoolPair g_cacheEntryPools;
 
 } // namespace Script

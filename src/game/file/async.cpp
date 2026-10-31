@@ -438,8 +438,8 @@ struct PcAsyncFileHandle : AsyncFileHandle {
 
     uint8_t m_unknown3C[0x7C - 0x3C];
     int m_unknown7C;
-    void* m_destination; // where a read through m_tempBuffer goes
-    void* m_tempBuffer;
+    void* m_destination; // where a read through m_stagingBytes goes
+    void* m_stagingBytes;
     HANDLE m_fileRef;
     OVERLAPPED m_asyncCtl;
 };
@@ -458,17 +458,17 @@ void PcAsyncFileHandle::PcIoCallback(int event, bool error, int value, int extra
         break;
     case 2:
     case kOpReadFile:
-        if (!error && m_tempBuffer && value > 0)
-            std::memcpy(m_destination, m_tempBuffer, static_cast<size_t>(value));
+        if (!error && m_stagingBytes && value > 0)
+            std::memcpy(m_destination, m_stagingBytes, static_cast<size_t>(value));
         [[fallthrough]];
     case 4:
         if (value >= 0) {
             if (!error)
                 m_anchorPoint += value;
-            if (m_tempBuffer) {
-                MemSys::Dealloc(m_tempBuffer);
+            if (m_stagingBytes) {
+                MemSys::Dealloc(m_stagingBytes);
                 m_destination = nullptr;
-                m_tempBuffer = nullptr;
+                m_stagingBytes = nullptr;
             }
         }
         break;
@@ -487,7 +487,7 @@ bool PcAsyncFileHandle::OsOpenSetup()
 {
     m_unknown7C = 0;
     m_destination = nullptr;
-    m_tempBuffer = nullptr;
+    m_stagingBytes = nullptr;
     m_asyncCtl.Offset = 0;
     m_asyncCtl.OffsetHigh = 0;
     m_asyncCtl.hEvent = nullptr;
@@ -618,7 +618,7 @@ void PlatformInit()
             file->m_vtable = kPcAsyncFileHandleAdapterVtable;
             file->m_unknown7C = 0;
             file->m_destination = nullptr;
-            file->m_tempBuffer = nullptr;
+            file->m_stagingBytes = nullptr;
             file->m_fileRef = INVALID_HANDLE_VALUE;
         }
         SlabBank()[i] = file;
@@ -685,7 +685,7 @@ namespace FileLoad {
 struct AsyncLoaderModule {
     void** m_vtable;          // 0x00658158
     uint8_t m_owningModule[0x14 - 4]; // GameModules::PartUnit's fields
-    void* m_task;             // TaskList::Task running AsyncLoaderTask
+    void* m_task;             // Scheduling::Task running AsyncLoaderTask
 };
 static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
 
@@ -697,12 +697,12 @@ uint32_t& LoaderModuleRefs() { return g_loaderModuleRefs; }
 // Engine framework pieces.
 void ConstructModule(void* module) { static_cast<GameModules::PartUnit*>(module)->MakeNew(); }
 void DestroyModule(void* module) { static_cast<GameModules::PartUnit*>(module)->DestroyBody(); }
-void* ConstructTask(void* task) { return static_cast<TaskList::SchedulerTask*>(task)->MakeNew(0); }
+void* ConstructTask(void* task) { return static_cast<Scheduling::SchedulerTask*>(task)->MakeNew(0); }
 void RegisterLogicTask(void* task)
 {
     // The main loop manager's logic task list.
     auto* manager = reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager);
-    reinterpret_cast<TaskList::PileUp*>(manager + 4)->QueueJob(static_cast<TaskList::SchedulerTask*>(task));
+    reinterpret_cast<Scheduling::PileUp*>(manager + 4)->QueueJob(static_cast<Scheduling::SchedulerTask*>(task));
 }
 
 } // namespace
@@ -769,7 +769,7 @@ struct AsyncLoaderModuleMethods {
         if (task) {
             FileLoad::ConstructTask(task);
             task[7] = reinterpret_cast<uint32_t>(module);    // the task's data
-            task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                           // TaskList::Task<CAsyncFileLoader> vtable
+            task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                           // Scheduling::Task<CAsyncFileLoader> vtable
             task[6] = reinterpret_cast<uint32_t>(CodeAddress(FileLoad::AsyncLoaderTask)); // its code: AsyncLoaderTask
         }
         module->m_task = task;

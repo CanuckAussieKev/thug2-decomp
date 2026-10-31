@@ -52,7 +52,7 @@ class CParkLayout;
 struct RailNodeInfo;
 
 // The grid's cells in the world (the exe's constants): 120 x 48 x 120, the 58 x 58 grid centred on the origin.
-constexpr float kCellWidth = 120.0f;  // 0x0064F41C
+constexpr float kGridPitch = 120.0f;  // 0x0064F41C
 constexpr float kGridStepUp = 48.0f;  // 0x0064F420
 constexpr float kGridStepAlong = 120.0f; // 0x0064F424
 constexpr float kGridCells = 58.0f;   // 0x0064F7A8
@@ -395,7 +395,7 @@ struct SGapDetails {
     char m_text[0x20];         // +0x24: its name ("gap", "gap2"...)
     int m_pointsHeld;               // +0x44
     int m_halvesPlaced;   // +0x48: how many of its halves are placed (2 for a whole gap)
-    int m_tabIndex;            // +0x4C: the gap manager's index (-1 none)
+    int m_slotIndex;            // +0x4C: the gap manager's index (-1 none)
     uint32_t m_cancelFlags;    // +0x50
 
     // 0x0058CBC0: the halves' cells cleared (the rest isn't touched). Returns this.

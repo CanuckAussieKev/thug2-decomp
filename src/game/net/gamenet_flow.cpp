@@ -139,9 +139,9 @@ struct StartGameInfo {
 static_assert(sizeof(StartGameInfo) == 0x48 && offsetof(StartGameInfo, stopAtZero) == 0x14 &&
               offsetof(StartGameInfo, teams) == 0x18 && offsetof(StartGameInfo, startInfo) == 0x28);
 
-TaskList::PileUp* LogicTasks()
+Scheduling::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
 }
 OptionStore::Preferences* NetGameOptions(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_netOptions); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
@@ -393,7 +393,7 @@ void __cdecl Hub::StartGameTask(void* task)
         FrameClock::GetTime() >= g_netGameStartTime) { // every one ready, and the time has come
         waitingShown = false;
         manager->StartNetworkGame();
-        Prop<TaskList::SchedulerTask*>(manager, 0xE8)->DropOut();
+        Prop<Scheduling::SchedulerTask*>(manager, 0xE8)->DropOut();
     }
 }
 

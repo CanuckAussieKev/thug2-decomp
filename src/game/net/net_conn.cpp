@@ -24,7 +24,7 @@ constexpr int kBroadbandBandwidth = 400000;
 constexpr int kModemBandwidth = 4200;
 constexpr int kLanBandwidth = 800000;
 
-constexpr uint32_t kReadBufferSize = 0xA28;
+constexpr uint32_t kRecvChunkBytes = 0xA28;
 constexpr uint32_t kWriteBufferSize = 0x514;
 
 constexpr uint32_t kMinResendThreshold = 500;
@@ -147,10 +147,10 @@ Conn* Conn::MakeNew(int flags)
 
     m_flagBits = static_cast<uint32_t>(flags);
     m_curStanding = kConnReady;
-    m_readBuffer = m_readPtr = static_cast<char*>(MemSys::Alloc(kReadBufferSize));
-    m_writeBuffer = m_writePtr = static_cast<char*>(MemSys::Alloc(kWriteBufferSize));
+    m_readBuffer = m_readPtr = static_cast<char*>(MemSys::Alloc(kRecvChunkBytes));
+    m_outgoingBytes = m_writePtr = static_cast<char*>(MemSys::Alloc(kWriteBufferSize));
     m_txSpacingMs = 0;
-    m_lastSendTime = 0;
+    m_lastTransmitAt = 0;
     m_sendNow = false;
     m_aliasConn = nullptr;
     m_lastTimestampIn = 0;
@@ -172,11 +172,11 @@ void Conn::Teardown()
     ReleaseQueuedMessages();
     DestroyLinks();
     MemSys::Dealloc(m_readBuffer);
-    MemSys::Dealloc(m_writeBuffer);
+    MemSys::Dealloc(m_outgoingBytes);
     m_appNode.DestroyBody();
     static_cast<StreamLinkNode*>(&m_sendStreams)->DestroyBody();
     static_cast<StreamLinkNode*>(&m_receivedStreams)->DestroyBody();
-    for (int group = kNumGroups - 1; group >= 0; --group)
+    for (int group = kChannelGroups - 1; group >= 0; --group)
         static_cast<MsgSeqNode*>(&m_receivedQueues[group])->DestroyBody();
     static_cast<MsgSeqNode*>(&m_sequencedMsgs)->DestroyBody();
     static_cast<MsgImpNode*>(&m_importantMsgs)->DestroyBody();

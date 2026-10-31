@@ -34,7 +34,7 @@ uint32_t g_editorClock;
 
 namespace {
 
-// TaskList::Task<CParkBuilderMode>'s and PadInput::Responder<CParkBuilderMode>'s vtables.
+// Scheduling::Task<CParkBuilderMode>'s and PadInput::Responder<CParkBuilderMode>'s vtables.
 
 // The park editor's clock (milliseconds).
 uint32_t& EditorClock() { return g_editorClock; }
@@ -192,7 +192,7 @@ CParkBuilderMode* CParkBuilderMode::MakeNew()
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
     auto* logic = static_cast<ParkEditorTask*>(MemSys::AllocZeroed(sizeof(ParkEditorTask)));
     if (logic) {
-        reinterpret_cast<TaskList::SchedulerTask*>(logic)->MakeNew(0);
+        reinterpret_cast<Scheduling::SchedulerTask*>(logic)->MakeNew(0);
         *reinterpret_cast<uint32_t*>(logic) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         logic->m_codeValue = &FrontEndTick;
         logic->m_content = this;
@@ -200,7 +200,7 @@ CParkBuilderMode* CParkBuilderMode::MakeNew()
     m_editorUpdateJob = logic;
     auto* display = static_cast<ParkEditorTask*>(MemSys::AllocZeroed(sizeof(ParkEditorTask)));
     if (display) {
-        reinterpret_cast<TaskList::SchedulerTask*>(display)->MakeNew(-1000);
+        reinterpret_cast<Scheduling::SchedulerTask*>(display)->MakeNew(-1000);
         *reinterpret_cast<uint32_t*>(display) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         // (0x005480A0, the empty function - Stubs::DoNothing; a cdecl task code: the argument is the caller's)
         display->m_codeValue = reinterpret_cast<void(__cdecl*)(ParkEditorTask*)>(&Stubs::DoNothing);
@@ -209,7 +209,7 @@ CParkBuilderMode* CParkBuilderMode::MakeNew()
     m_drawJob = display;
     auto* input = static_cast<ParkEditorInputHandler*>(MemSys::AllocZeroed(sizeof(ParkEditorInputHandler)));
     if (input) {
-        reinterpret_cast<TaskList::SchedulerTask*>(input)->MakeNew(0);
+        reinterpret_cast<Scheduling::SchedulerTask*>(input)->MakeNew(0);
         input->m_ordinal = 0;
         *reinterpret_cast<uint32_t*>(input) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable);
         input->m_codeValue = &ProcessPadInput;

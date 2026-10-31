@@ -60,7 +60,7 @@ constexpr uint32_t kIndex = 0x7F8C98FE;               // index
 constexpr uint32_t kSpecialTrickIndex = 0x7F264BE9;   // special_trick_index
 constexpr uint32_t kLoadPremadeCat = 0x466576C8;      // load_premade_cat
 
-constexpr int kTextSize = 0x200; // the texts' buffer
+constexpr int kLabelPoints = 0x200; // the texts' buffer
 
 Scripts::CStruct* SpawnParamTable()
 {
@@ -74,9 +74,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     return array ? array->PrepareAll() : nullptr;
 }
 // An array a structure has copied, or a temporary one: its contents and itself freed.
@@ -225,8 +225,8 @@ bool CObjective::SwapMoveCaption()
     int premadeCat = -1;
     if (m_args->HasBareFlag(kCreateATrick))
         m_args->FetchIntValue(kPremadeCatIndex, &premadeCat, 1);
-    Scripts::CArray* keyTexts = NewArray();
-    Scripts::CArray* trickTexts = NewArray();
+    Scripts::CArray* keyTexts = AllocScriptArray();
+    Scripts::CArray* trickTexts = AllocScriptArray();
     uint32_t count = combos->m_extent;
     keyTexts->ConfigureSizeKind(count, Scripts::QBVAL_STRING);
     trickTexts->ConfigureSizeKind(count, Scripts::QBVAL_STRING);
@@ -243,19 +243,19 @@ bool CObjective::SwapMoveCaption()
         }
         return false;
     }
-    char buffer[kTextSize];
+    char buffer[kLabelPoints];
     text = nullptr;
     Scripts::CArray* lines;
     if (m_args->FetchText(kOriginalGoalDescription, &text, 0)) {
-        ReplaceTrickTokens(text, buffer, keyTexts, trickTexts, kTextSize);
+        ReplaceTrickTokens(text, buffer, keyTexts, trickTexts, kLabelPoints);
         // (the original adds the description as written, not the replaced text)
         m_args->AppendWord(kGoalDescription, text);
     } else if (m_args->FetchList(kOriginalGoalDescription, &lines, 0)) {
         uint32_t size = lines->m_extent;
-        Scripts::CArray* replaced = NewArray();
+        Scripts::CArray* replaced = AllocScriptArray();
         replaced->ConfigureSizeKind(size, Scripts::QBVAL_STRING);
         for (uint32_t i = 0; i < size; ++i) {
-            ReplaceTrickTokens(lines->FindInlineText(i), buffer, keyTexts, trickTexts, kTextSize);
+            ReplaceTrickTokens(lines->FindInlineText(i), buffer, keyTexts, trickTexts, kLabelPoints);
             replaced->SetElement(i, reinterpret_cast<uint32_t>(Scripts::SpawnText(buffer)));
         }
         m_args->AppendArrayValue(kGoalDescription, replaced);
@@ -263,7 +263,7 @@ bool CObjective::SwapMoveCaption()
     }
     for (const Original& kept : kKept) {
         if (m_args->FetchText(kept.original, &text, 0)) {
-            ReplaceTrickTokens(text, buffer, keyTexts, trickTexts, kTextSize);
+            ReplaceTrickTokens(text, buffer, keyTexts, trickTexts, kLabelPoints);
             m_args->AppendWord(kept.text, buffer);
         }
     }
@@ -398,7 +398,7 @@ bool CObjective::AwardSpecialTrick()
         m_args->PutInt(kShouldRemoveTrick, 1);
     }
     m_args->EraseModule(kButtonSequences);
-    Scripts::CArray* combos = NewArray();
+    Scripts::CArray* combos = AllocScriptArray();
     combos->ConfigureSizeKind(1, Scripts::QBVAL_NAME);
     combos->SetElement(0, keys);
     m_args->AppendArrayRef(kButtonSequences, combos);

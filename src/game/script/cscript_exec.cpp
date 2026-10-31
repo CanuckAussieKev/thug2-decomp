@@ -257,7 +257,7 @@ bool CScript::ExecuteCommand()
         // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
         switch (symbol->type) {
         case QBVAL_SCRIPT_BODY: {
-            const uint8_t* code = ScriptCache()->FetchScript(symbol->name);
+            const uint8_t* code = ScriptStoreInstance()->FetchScript(symbol->name);
             RunSubScript(function, code, m_stmtArgs, object, false);
             return true;
         }
@@ -303,7 +303,7 @@ bool CScript::ExecuteCommand()
         Gfx2D::LoadingConsole::NoteScriptCall(name, symbol->type == QBVAL_NATIVE_FUNC, m_stmtArgs);
     switch (symbol->type) {
     case QBVAL_SCRIPT_BODY: {
-        const uint8_t* code = ScriptCache()->FetchScript(symbol->name);
+        const uint8_t* code = ScriptStoreInstance()->FetchScript(symbol->name);
         RunSubScript(name, code, m_stmtArgs, m_entity.Pull(), false);
         return true;
     }
@@ -430,8 +430,8 @@ void CScript::RunLoopOpen()
         m_loops[0] = m_inlineLoop;
         m_innermostRepeat = m_loops;
         for (int i = 0; i < m_callDepth; ++i) {
-            if (SRepeatFrame* loop = m_returnAddresses[i].m_loopState)
-                m_returnAddresses[i].m_loopState = m_loops + (loop - &m_inlineLoop);
+            if (SRepeatFrame* loop = m_frameRecords[i].m_loopState)
+                m_frameRecords[i].m_loopState = m_loops + (loop - &m_inlineLoop);
         }
     }
     m_innermostRepeat = m_innermostRepeat ? m_innermostRepeat + 1 : m_loops;
@@ -524,10 +524,10 @@ EScriptOutcome CScript::TickFrame()
         CurrentScriptVar() = this;
         if (!(m_flagBits & SCRIPT_RUN_WAIT_UPDATED))
             UpdateWait();
-        if (m_waitType != SUSPEND_ON_NOTHING) {
+        if (m_suspendReason != SUSPEND_ON_NOTHING) {
             m_flagBits = static_cast<uint8_t>((m_flagBits & ~SCRIPT_RUN_INTERRUPTED) | SCRIPT_RUN_WAIT_UPDATED);
             CurrentScriptVar() = nullptr;
-            return m_waitType == SUSPEND_ON_BLOCK || m_waitType == WAIT_TYPE_REAL_TIMER ? SCRIPT_OUTCOME_BLOCKED
+            return m_suspendReason == SUSPEND_ON_BLOCK || m_suspendReason == WAIT_TYPE_REAL_TIMER ? SCRIPT_OUTCOME_BLOCKED
                                                                                        : SCRIPT_OUTCOME_SUSPENDED;
         }
         switch (*m_pc) {

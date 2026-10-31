@@ -42,7 +42,7 @@ constexpr uint32_t kModel = 0xB974F2FC;
 constexpr uint32_t kKeepSkeleton = 0x0CBEC8AC;
 constexpr uint32_t kTypeModel = 0xFD8697E1;
 constexpr uint32_t kFixedTime = 0x0C00425A;    // a global integer: the time from the frame counter
-constexpr uint32_t kDebugInfo = 0x5ECC0073;    // a global integer: show the time
+constexpr uint32_t kDiagnosticsHash = 0x5ECC0073;    // a global integer: show the time
 constexpr uint32_t kStartScript = 0xE794A164;
 constexpr uint32_t kFieldOfView = 0x99529205;  // a global float: the cutscene camera's
 constexpr uint32_t kInfoScript = 0xD9157174;
@@ -227,7 +227,7 @@ void CCinematicTable::TickFrame(void* camera, Scripts::CStruct* /*params*/)
     ShowHiddenObjects();
     if (!m_flag34B0)
         return;
-    if (Scripts::FetchIntValue(kDebugInfo) != 0 || fixed) {
+    if (Scripts::FetchIntValue(kDiagnosticsHash) != 0 || fixed) {
         Scripts::CStruct* info = MakeStruct();
         int frame = FixedFrame();
         char line[128];

@@ -151,7 +151,7 @@ void DeleteStructure(CStruct* structure)
 }
 CArray* NewArrayInit()
 {
-    CArray* memory = Scripts::NewArray();
+    CArray* memory = Scripts::AllocScriptArray();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void Run(uint32_t name, CStruct* params = nullptr, GameObjects::CEntity* object = nullptr)
@@ -165,7 +165,7 @@ OnlinePlay::PlayerRecord* DetailsOf(const uint8_t* player)
 {
     return reinterpret_cast<OnlinePlay::PlayerRecord*>(const_cast<uint8_t*>(player));
 }
-uint8_t* LocalPlayer() { return static_cast<uint8_t*>(Gn()->GetOwnPlayer()); }
+uint8_t* FindOwnPlayerRecord() { return static_cast<uint8_t*>(Gn()->GetOwnPlayer()); }
 uint8_t* FindPlayerSlotByObj(uint32_t id) { return Gn()->FindPlayerSlotByObj(static_cast<uint16_t>(id)); }
 bool IsOwnPlayer(const uint8_t* player) { return DetailsOf(player)->IsOwnPlayer() != 0; }
 // 0x005430D0 on the network manager: its last leading team (+0x1D4) set - the getter 0x005331A0's field. (The
@@ -221,14 +221,14 @@ struct StateRingLog {
     StateEntry entries[20]; // +0x1C
 };
 
-// A TaskList::Task<Skate> (0x20 bytes): the task node (0x00406890 makes it with its priority), +0x18 the code, +0x1C
+// A Scheduling::Task<Skate> (0x20 bytes): the task node (0x00406890 makes it with its priority), +0x18 the code, +0x1C
 // the skate module.
 uint8_t* NewTask(uint8_t* skate, uint32_t code)
 {
     auto* task = static_cast<uint8_t*>(MemSys::AllocZeroed(0x20));
     if (!task)
         return nullptr;
-    reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(-1000);
+    reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(-1000);
     Prop<uint32_t>(task, 0) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     Prop<uint32_t>(task, 0x18) = code;
     Prop<uint8_t*>(task, 0x1C) = skate;
@@ -260,9 +260,9 @@ void SkateNet::DeleteNetworkTasks()
 {
     auto* skate = reinterpret_cast<uint8_t*>(this);
     for (uint32_t offset : {0x18u, 0x1Cu}) {
-        auto* task = Prop<TaskList::SchedulerTask*>(skate, offset);
+        auto* task = Prop<Scheduling::SchedulerTask*>(skate, offset);
         if (task)
-            reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, int)>(task->m_vtable[2])(task, 1);
+            reinterpret_cast<void(__thiscall*)(Scheduling::SchedulerTask*, int)>(task->m_vtable[2])(task, 1);
     }
 }
 
@@ -280,8 +280,8 @@ void SkateNet::LaunchHost()
     if (!server)
         return;
     auto* skate = reinterpret_cast<uint8_t*>(this);
-    reinterpret_cast<TaskList::PileUp*>(mlp + 4)->QueueJob(Prop<TaskList::SchedulerTask*>(skate, 0x18));
-    reinterpret_cast<TaskList::PileUp*>(mlp + 4)->QueueJob(Prop<TaskList::SchedulerTask*>(skate, 0x1C));
+    reinterpret_cast<Scheduling::PileUp*>(mlp + 4)->QueueJob(Prop<Scheduling::SchedulerTask*>(skate, 0x18));
+    reinterpret_cast<Scheduling::PileUp*>(mlp + 4)->QueueJob(Prop<Scheduling::SchedulerTask*>(skate, 0x1C));
     AppendListener(server, 0x3B, HandleTrickObjects, 0, nullptr);
     AppendListener(server, 0x52, HandleComboScore, 0, this);
     AppendListener(server, 0x86, HandleGameStats, 0, this);

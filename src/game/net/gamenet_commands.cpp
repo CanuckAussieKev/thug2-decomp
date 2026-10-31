@@ -45,8 +45,8 @@ uint32_t g_netGameStartTime;
 
 namespace {
 
-constexpr uint32_t kCtfTask = 0xF8;          // TaskList::SchedulerTask*: capture the flag's
-constexpr uint32_t kLevelSwitchJob = 0xEC;  // TaskList::SchedulerTask*: the level change's
+constexpr uint32_t kCtfTask = 0xF8;          // Scheduling::SchedulerTask*: capture the flag's
+constexpr uint32_t kLevelSwitchJob = 0xEC;  // Scheduling::SchedulerTask*: the level change's
 constexpr uint32_t kMotdCancelled = 0xFE08;  // bool
 constexpr uint32_t kMotdReceived = 0xFE09;   // bool
 constexpr uint32_t kServicesState = 0xFE0A;  // uint8_t (1: available)
@@ -101,7 +101,7 @@ uint32_t g_lastFlagBaseWarning;
 uint32_t& LastFlagBaseWarning() { return g_lastFlagBaseWarning; }
 uint32_t& NetGameStartTime() { return g_netGameStartTime; }
 
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
 Hub* NetLink() { return g_onlineHub; }
 
 // The lobby (OnlinePlay's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
@@ -129,14 +129,14 @@ void SendRequest(Hub* manager, uint8_t id, void* data, uint16_t length)
 // 0x00535DA0: StartCTFGame - capture the flag's task into the logic tasks.
 bool __cdecl CFunc_StartCTFGame(CStruct*, CScript*)
 {
-    LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(NetLink(), kCtfTask));
+    LogicTasks()->QueueJob(Prop<Scheduling::SchedulerTask*>(NetLink(), kCtfTask));
     return true;
 }
 
 // 0x00535DC0: EndCTFGame - its task removed.
 bool __cdecl CFunc_EndCTFGame(CStruct*, CScript*)
 {
-    Prop<TaskList::SchedulerTask*>(NetLink(), kCtfTask)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(NetLink(), kCtfTask)->DropOut();
     return true;
 }
 
@@ -199,7 +199,7 @@ bool __cdecl CFunc_IsAutoServing(CStruct*, CScript*)
 // 0x00535F20: ChangeLevelPending - the level change's task is in a list.
 bool __cdecl CFunc_ChangeLevelPending(CStruct*, CScript*)
 {
-    return Prop<TaskList::SchedulerTask*>(NetLink(), kLevelSwitchJob)->IsOnTaskList();
+    return Prop<Scheduling::SchedulerTask*>(NetLink(), kLevelSwitchJob)->IsOnTaskList();
 }
 
 // 0x00535F30: CancelMotdDownload.

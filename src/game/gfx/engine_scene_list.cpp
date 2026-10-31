@@ -30,7 +30,7 @@ namespace {
 extern void** const kHeadVtable;
 
 // The list's first node (the head's next, 0x006FA7EC; the head itself when the list is empty).
-MemSys::ListNode* FirstNode() { return g_sceneList.next; }
+MemSys::ListNode* HeadOfSceneList() { return g_sceneList.next; }
 bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 // The node after `node` (null at the end).
 MemSys::ListNode* NextNode(const MemSys::ListNode* node)
@@ -43,7 +43,7 @@ CWorldScene* SceneOf(const MemSys::ListNode* node) { return static_cast<CWorldSc
 // The first scene whose m_isSky is `sky` (the original's walk: the first node's data checked before the node).
 CWorldScene* FirstScene(bool sky)
 {
-    MemSys::ListNode* node = FirstNode();
+    MemSys::ListNode* node = HeadOfSceneList();
     if (IsHead(node) || !node)
         return nullptr;
     for (;;) {
@@ -105,7 +105,7 @@ CSceneListHead* CSceneListHead::Teardown(unsigned int flags)
 // 0x0048C7F0
 MemSys::ListNode* __cdecl FirstSceneNode()
 {
-    MemSys::ListNode* node = FirstNode();
+    MemSys::ListNode* node = HeadOfSceneList();
     return IsHead(node) ? nullptr : node;
 }
 
@@ -130,7 +130,7 @@ CWorldScene* __cdecl GetSkyScene()
 // 0x0048C810
 bool __cdecl UnloadAllScenes()
 {
-    MemSys::ListNode* node = FirstNode();
+    MemSys::ListNode* node = HeadOfSceneList();
     if (!IsHead(node) && node) {
         do {
             MemSys::ListNode* next = NextNode(node);
@@ -158,7 +158,7 @@ void __cdecl AddShadowCaster(const uint8_t* texture, void* model, CWorldScene* s
 void __cdecl PrintCollStatics()
 {
     FrameClock::GetTime();
-    MemSys::ListNode* node = FirstNode();
+    MemSys::ListNode* node = HeadOfSceneList();
     if (!IsHead(node) && node) {
         do {
             MemSys::ListNode* next = NextNode(node);
@@ -174,7 +174,7 @@ void __cdecl PrintCollStatics()
 // 0x0048C940
 CCollGrid* __cdecl GetFirstCollGrid()
 {
-    MemSys::ListNode* node = FirstNode();
+    MemSys::ListNode* node = HeadOfSceneList();
     if (IsHead(node) || !node)
         return nullptr;
     do {
@@ -198,7 +198,7 @@ CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Seg* line)
     Maths::BBox box(line->start);
     box.AppendSpot(line->end);
     uint32_t count = 0;
-    MemSys::ListNode* node = FirstNode();
+    MemSys::ListNode* node = HeadOfSceneList();
     if (IsHead(node) || !node)
         return nullptr;
     do {
@@ -230,7 +230,7 @@ uint32_t __cdecl NewSectorName()
     for (;;) {
         uint32_t name = counter;
         bool used = false;
-        MemSys::ListNode* node = FirstNode();
+        MemSys::ListNode* node = HeadOfSceneList();
         if (!IsHead(node) && node) {
             do {
                 MemSys::ListNode* next = NextNode(node);

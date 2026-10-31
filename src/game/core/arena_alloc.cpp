@@ -34,7 +34,7 @@ void* MarkBlockInUse(void* block)
 }
 
 // 0x005BA090
-ChunkPrefix* GetBlockHeader(void* block)
+ChunkPrefix* FetchChunkPrefix(void* block)
 {
     return ChunkPrefix::Of(block);
 }

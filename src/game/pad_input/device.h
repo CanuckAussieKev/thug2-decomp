@@ -91,14 +91,14 @@ static_assert(offsetof(InputPort, m_controlData) == 0x1C && offsetof(InputPort, 
               "layout must match the original");
 
 // The platform layer's pad state for a port (0x005F5BC0 fills it).
-struct PadState {
+struct PadSnapshot {
     uint32_t unknown0;
     uint16_t buttons;     // bits: 0x10 start...; 0x01 / 0x02 / 0x04 / 0x08 the d-pad
     uint8_t pressure[8];  // analogue buttons and triggers, 0-255
     int16_t sticks[4];    // -32768..32767
     uint8_t unknown16[2];
 };
-static_assert(offsetof(PadState, sticks) == 0x0E && sizeof(PadState) == 0x18, "layout must match the original");
+static_assert(offsetof(PadSnapshot, sticks) == 0x0E && sizeof(PadSnapshot) == 0x18, "layout must match the original");
 
 // The platform layer's motor control (OsLayer::SetActuators, 0x005F3A50: PartyMod's): levels 0-65535.
 void SetActuators(int port, int left, int right);
@@ -147,7 +147,7 @@ public:
 
     void** m_vtable;
     MemSys::ListNode m_devs; // the list's head
-    void* m_task;            // TaskList::Task running ProcessTask with the list as its data
+    void* m_task;            // Scheduling::Task running ProcessTask with the list as its data
 };
 static_assert(offsetof(Hub, m_task) == 0x18 && sizeof(Hub) == 0x1C, "layout must match the original");
 

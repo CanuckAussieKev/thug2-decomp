@@ -147,7 +147,7 @@ void LoadChecksumNames(const char* file)
 }
 
 // 0x0046EFD0
-void InstallScriptFunctions(const CFunctionEntry* functions, uint32_t count)
+void InstallScriptFunctions(const CNativeCommand* functions, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t checksum = Checksums::HashFromText(functions[i].name);

@@ -119,7 +119,7 @@ CSparkleConfig* CSparkleConfig::MakeNew()
         m_radius[i] = 0.0f;
         m_atPoint[i] = Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         m_box[i] = Maths::Vec4{20.0f, 20.0f, 20.0f, 0.0f};
-        m_localPos[i] = Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        m_offsetPos[i] = Maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         for (int k = 0; k < 4; ++k)
             m_shade[i][k] = 0x80;
     }

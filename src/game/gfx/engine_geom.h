@@ -113,7 +113,7 @@ void VirtualSlot20Jump();  // 0x0048DEE0 ChangeFacing
 void VirtualSlot22Jump();  // 0x0048DEF0 RotateY
 void VirtualSlot25Jump();  // 0x0048DF00 ChangeScale
 void VirtualSlot27Jump();  // 0x0048DF20 SetModelLights
-void VirtualSlot28Jump();  // 0x0048DF30 SetBoneMatrices
+void VirtualSlot28Jump();  // 0x0048DF30 UploadSkinningPalette
 void VirtualSlot29Jump();  // 0x0048DF40 CopyBones
 void VirtualSlot30Jump();  // 0x0048DF50 SetBones
 void VirtualSlot31Jump();  // 0x0048DF60 BreakStrips

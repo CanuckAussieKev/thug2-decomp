@@ -42,7 +42,7 @@ Scripts::CStruct* SpawnParamTable()
 }
 Scripts::CArray* NewArrayOf(uint32_t size, uint32_t type)
 {
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     array = array ? array->PrepareAll() : nullptr;
     array->ConfigureSizeKind(size, static_cast<Scripts::EQbValueKind>(type));
     return array;
@@ -383,7 +383,7 @@ void CEditedGoal::WriteGoalManagerParams(Scripts::CStruct* out)
     if (m_winMessage[0]) {
         // The win message's dialog: a copy of the global template array with the text and the pro's node.
         Scripts::CArray* source = Scripts::FetchList(0x8070C110);
-        Scripts::CArray* dialog = Scripts::NewArray();
+        Scripts::CArray* dialog = Scripts::AllocScriptArray();
         dialog = dialog ? dialog->PrepareAll() : nullptr;
         Scripts::DuplicateArray(dialog, source);
         StructureElement(dialog, 0)->AppendWord(0xA7AB3B6D, m_winMessage);

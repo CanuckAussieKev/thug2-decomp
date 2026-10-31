@@ -156,7 +156,7 @@ void Pane(float scale, ImFont* heading, ImFont* small)
     Values v = Pull();
     bool changed = false;
     // (changes apply at once; the ini is written when a slider is let go, or at a click)
-    static bool s_wasActive;
+    static bool s_prevFocused;
     bool active = false;
     auto section = [&](const char* title) {
         ImGui::Spacing();
@@ -247,9 +247,9 @@ void Pane(float scale, ImFont* heading, ImFont* small)
         g_open = false;
     if (changed || active)
         AssignValue(v, false);
-    if ((changed && !active) || (s_wasActive && !active))
+    if ((changed && !active) || (s_prevFocused && !active))
         SaveAll();
-    s_wasActive = active;
+    s_prevFocused = active;
     ImGui::End();
 }
 

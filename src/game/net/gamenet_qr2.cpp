@@ -58,7 +58,7 @@ enum Qr2Key : int {
     kKeyGamemode = 11,
     kKeyPassword = 19,
     kKeyGroupid = 20,
-    kKeyPlayer = 21, // player_
+    kKeyForPlayer = 21, // player_
     kKeyPing = 24,   // ping_
     kKeyTeam = 25,   // team_
 };
@@ -163,7 +163,7 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
         return;
     }
     switch (key) {
-    case kKeyPlayer:
+    case kKeyForPlayer:
         BufferAdd(buffer, PlayerName(player));
         return;
     case kKeyPing: {

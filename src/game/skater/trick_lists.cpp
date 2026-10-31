@@ -38,7 +38,7 @@ TrickListEntry* TrickListEntry::MakeNew()
     m_unknown24 = 0;
     m_unknown30 = 0;
     m_unknown34 = false;
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     m_elementList = memory ? memory->PrepareAll() : nullptr;
     m_unknown38 = 0;
     m_unknown3C = 0;

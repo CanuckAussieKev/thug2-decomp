@@ -616,7 +616,7 @@ void CRider::ResetInput()
         if (i == 7)
             At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1514), 0x1E) = 0;
     }
-    reinterpret_cast<CPadState*>(m_unknown264 + 0x20)->Clear();
+    reinterpret_cast<CPadSnapshot*>(m_unknown264 + 0x20)->Clear();
     Scripts::LaunchScript(0xAE5438AF, nullptr, this, false, nullptr);
 }
 
@@ -809,7 +809,7 @@ void CRider::Unpause()
 
 namespace {
 
-constexpr uint32_t kComponentName = 0xB6015EA8; // component
+constexpr uint32_t kPartHash = 0xB6015EA8; // component
 constexpr uint32_t kNameChecksum = 0xA1DC81F9;  // name
 constexpr uint32_t kCustomSkater = 0x0A7BE964;  // custom
 
@@ -871,13 +871,13 @@ void CRider::PrepareAll(CRiderIdentity* profile)
         assetInfo->ReadHashValue(0xCEEFD662, &skeleton, 0);
     AddMotionComponents(this);
     AddComponentFromStructure(this, [skeleton](Scripts::CStruct* params) {
-        params->PutNameKey(kComponentName, 0x7149B753); // animblender
+        params->PutNameKey(kPartHash, 0x7149B753); // animblender
         params->PutNameKey(0x09794932, skeleton);        // skeletonName
         params->PutNameKey(0x5B8C6DC2, 0x3FEC31A6);      // AnimEventTableName SkaterAnimEventTable
     });
     m_unknown24C = FetchModule(0x7149B753);
     AddComponentFromStructure(this, [skeleton](Scripts::CStruct* params) {
-        params->PutNameKey(kComponentName, 0x222756D5); // skeleton
+        params->PutNameKey(kPartHash, 0x222756D5); // skeleton
         params->PutNameKey(0x222756D5, skeleton);
         params->PutInt(0xD3982061, 0); // max_bone_skip_lod
     });
@@ -887,7 +887,7 @@ void CRider::PrepareAll(CRiderIdentity* profile)
         params->PutNameKey(0u, 0x10079F2D);       // UseModelLights
         params->PutInt(0xD223B8BD, 1);         // max_scene_lights
         params->PutInt(0x2A1F92C0, local ? 1 : 0);
-        params->PutNameKey(kComponentName, kModelModuleName);
+        params->PutNameKey(kPartHash, kModelModuleName);
     });
     m_unknown250 = reinterpret_cast<uint8_t*>(FetchModule(kModelModuleName));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
@@ -900,20 +900,20 @@ void CRider::PrepareAll(CRiderIdentity* profile)
     assets->SetPermanentByDefault(flag);
     MemSys::Hub::Pull()->LeaveHeapScope();
     AddComponentFromStructure(this, [](Scripts::CStruct* params) {
-        params->PutNameKey(kComponentName, 0x8A897DD2); // shadow
+        params->PutNameKey(kPartHash, 0x8A897DD2); // shadow
         params->PutNameKey(0x9AC24B18, 0x76A54CD1);     // ShadowType
     });
     m_shadow = FetchModule(0x8A897DD2);
     At<uint8_t>(m_shadow, 0x44) = 0;
     if (m_unknownBC) {
-        AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kComponentName, 0x404EB936); }); // vibration
+        AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kPartHash, 0x404EB936); }); // vibration
         m_unknown25C = FetchModule(0x404EB936);
-        AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kComponentName, 0x21FC3301); }); // SkaterStancePanel
+        AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kPartHash, 0x21FC3301); }); // SkaterStancePanel
     } else {
         m_unknown25C = nullptr;
     }
     if (m_unknownBC) {
-        AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kComponentName, 0x187574FA); }); // skatersound
+        AddComponentFromStructure(this, [](Scripts::CStruct* params) { params->PutNameKey(kPartHash, 0x187574FA); }); // skatersound
         m_unknown268 = FetchModule(0x187574FA);
         m_unknown26C = FetchModule(0x1859F772); // SkaterVehicleSound
     }
@@ -1057,7 +1057,7 @@ void CRider::SwitchToScript(uint32_t name, Scripts::CStruct* params)
 // 0x005825E0
 void CRider::WriteCATInfo(Scripts::CStruct* save)
 {
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* tricks = memory ? memory->PrepareAll() : nullptr;
     tricks->ConfigureSizeKind(11, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < 11; ++i) {
@@ -1075,7 +1075,7 @@ void CRider::WriteCATInfo(Scripts::CStruct* save)
 // 0x00582740
 void CRider::WriteList44B66A9F(Scripts::CStruct* save)
 {
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* entries = memory ? memory->PrepareAll() : nullptr;
     entries->ConfigureSizeKind(0x46, Scripts::QBVAL_INTEGER);
     for (int i = 0; i < 0x46; ++i)
@@ -1232,7 +1232,7 @@ CRider* CRider::MakeNew(int viewport, CEntityHub* manager, bool local, uint32_t 
     Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     auto add = [this, params](uint32_t type) {
-        params->PutNameKey(kComponentName, type);
+        params->PutNameKey(kPartHash, type);
         CreateComponentFromStructure(params, nullptr);
     };
     add(0x43686585);
@@ -1284,7 +1284,7 @@ CRider* CRider::MakeNew(int viewport, CEntityHub* manager, bool local, uint32_t 
     Scripts::CStruct* extraMemory = Scripts::SpawnParamBag();
     Scripts::CStruct* extra = extraMemory ? extraMemory->PrepareAll() : nullptr;
     extra->PutInt(0xA2B033FD, m_skaterNumber);
-    params->PutNameKey(kComponentName, 0x5B512EDC);
+    params->PutNameKey(kPartHash, 0x5B512EDC);
     CreateComponentFromStructure(params, extra);
     add(0xD1515392);
     if (extra) {

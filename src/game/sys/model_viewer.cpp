@@ -66,9 +66,9 @@ uint32_t g_lastTime;
 Viewer*& Sole() { return g_viewer; }
 bool& RunNowLoaded() { return g_pendingScript; }
 
-// A task or input handler (a TaskList::SchedulerTask) off its list (0x004068F0), and its destructor (0x00406930).
-void RemoveNode(void* node) { static_cast<TaskList::SchedulerTask*>(node)->DropOut(); }
-void DestroyListNode(void* node) { static_cast<TaskList::SchedulerTask*>(node)->Destruct(); }
+// A task or input handler (a Scheduling::SchedulerTask) off its list (0x004068F0), and its destructor (0x00406930).
+void RemoveNode(void* node) { static_cast<Scheduling::SchedulerTask*>(node)->DropOut(); }
+void DestroyListNode(void* node) { static_cast<Scheduling::SchedulerTask*>(node)->Destruct(); }
 // An object's scalar deleting destructor, through its vtable slot `slot`.
 void EraseOne(void* object, int slot)
 {
@@ -97,8 +97,8 @@ bool DebugChecks() { return GameConfig::g_fromCD; }
 uint8_t* InputManager() { return reinterpret_cast<uint8_t*>(PadInput::g_inputManager); }    // PadInput::Hub
 FrameLoop::Hub* MainLoopManager() { return AssetStore::g_mainLoopManager; }
 
-void ConstructNode(void* node, int priority) { static_cast<TaskList::SchedulerTask*>(node)->MakeNew(priority); }
-void AppendVertex(TaskList::PileUp& list, void* node) { list.QueueJob(static_cast<TaskList::SchedulerTask*>(node)); }
+void ConstructNode(void* node, int priority) { static_cast<Scheduling::SchedulerTask*>(node)->MakeNew(priority); }
+void AppendVertex(Scheduling::PileUp& list, void* node) { list.QueueJob(static_cast<Scheduling::SchedulerTask*>(node)); }
 
 Scripts::CStruct* SpawnParamTable()
 {
@@ -136,7 +136,7 @@ void Roll(GameObjects::CGameEntity* object, float angle)
 void AddInputHandler(ViewerInputHandler* handler)
 {
     uint8_t* server = InputManager() + handler->m_ordinal * 0x84;
-    AppendVertex(*reinterpret_cast<TaskList::PileUp*>(server + 8), handler); // (the server's handler list)
+    AppendVertex(*reinterpret_cast<Scheduling::PileUp*>(server + 8), handler); // (the server's handler list)
     handler->m_controlData = reinterpret_cast<PadInput::Payload*>(server + 0x44);
     handler->m_dev = *reinterpret_cast<uint8_t**>(server + 4);
 }

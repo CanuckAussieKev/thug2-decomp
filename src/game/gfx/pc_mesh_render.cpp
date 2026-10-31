@@ -54,7 +54,7 @@ struct sSkinVertex {
 };
 static_assert(sizeof(sSkinVertex) == 0x4C, "layout must match the original");
 
-const float* SkinMatrixPtr(uint8_t bone) { return reinterpret_cast<float*&>(g_boneMatrices) + 16 * bone; }
+const float* SkinMatrixPtr(uint8_t bone) { return reinterpret_cast<float*&>(g_paletteBase) + 16 * bone; }
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
@@ -96,9 +96,9 @@ void Skin(meshRef* mesh, uint8_t* out, int bones)
 
 // The index buffers and their counts by level (a level past the eighth reads on into the fields after them, as the
 // original does).
-sIndexBuffer* IndexBufferAt(meshRef* mesh, int level)
+sIdxStore* IndexBufferAt(meshRef* mesh, int level)
 {
-    return *reinterpret_cast<sIndexBuffer**>(reinterpret_cast<uint8_t*>(mesh) + 0x54 + 4 * level);
+    return *reinterpret_cast<sIdxStore**>(reinterpret_cast<uint8_t*>(mesh) + 0x54 + 4 * level);
 }
 uint16_t IndexCountAt(meshRef* mesh, int level)
 {

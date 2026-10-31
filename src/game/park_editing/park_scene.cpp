@@ -455,11 +455,11 @@ void CParkAssembler::LoadSourcePieces(int /*unused*/)
         int cells = static_cast<int>((static_cast<double>(max.x) - min.x + kSizeSlack) * kInverseCell);
         if (cells < 1)
             cells = 1;
-        source->m_extent.x = static_cast<float>(cells * static_cast<double>(kCellWidth));
+        source->m_extent.x = static_cast<float>(cells * static_cast<double>(kGridPitch));
         cells = static_cast<int>((static_cast<double>(max.z) - min.z + kSizeSlack) * kInverseCell);
         if (cells < 1)
             cells = 1;
-        source->m_extent.z = static_cast<float>(cells * static_cast<double>(kCellWidth));
+        source->m_extent.z = static_cast<float>(cells * static_cast<double>(kGridPitch));
         const double height = static_cast<double>(max.y) - min.y;
         source->m_extent.y = static_cast<float>(height);
         if (height < kGridStepUp && height > 0.0)

@@ -30,12 +30,12 @@ namespace {
 
 const float kHalf = 0.5f;                                   // 0x006453BC
 const float kMinusHalf = -0.5f;                             // 0x0064642C
-const float kMinDepth = std::bit_cast<float>(0x3C23D70Au);   // 0x0064544C: 0.01
+const float kShallowestLevel = std::bit_cast<float>(0x3C23D70Au);   // 0x0064544C: 0.01
 const float kSameEnd = std::bit_cast<float>(0x3DCCCCCDu);    // 0x00645D74: 0.1
 const double kOpposite = -0.99;                             // 0x00646730 (a double)
 const float kBounce = 1.5f;                                 // 0x00646744
 const float kDropTest = 4800.0f;                            // 0x006461D0
-const float kMaxDepth = 2.0f;                               // 0x00645448
+const float kDeepestLevel = 2.0f;                               // 0x00645448
 const float kUpright = std::bit_cast<float>(0x3F34FDF4u);    // 0x006467BC: 0.707
 const float kMinSlide = std::bit_cast<float>(0x3A83126Fu);   // 0x006461D8: 0.001
 const float kRightingUp = std::bit_cast<float>(0x3F7FBE77u); // 0x006467B8: 0.999
@@ -91,7 +91,7 @@ double __stdcall CDrivableModule::GetPenetration(const Contact* contact, const C
         nearest = static_cast<float>(distance);
         side = 3;
     }
-    if (nearest < kMinDepth)
+    if (nearest < kShallowestLevel)
         return 0.0;
     // That distance along the contact's normal.
     const Maths::Vec4& n = contact->normal;
@@ -552,8 +552,8 @@ void CDrivableModule::Collide()
         Contact& contact = contacts[n];
         if (contact.depth < 0.0f || contact.depth == 0.0f)
             continue;
-        if (contact.depth > kMaxDepth)
-            contact.depth = kMaxDepth;
+        if (contact.depth > kDeepestLevel)
+            contact.depth = kDeepestLevel;
         double push = static_cast<double>(m_depthCorrection) * contact.depth;
         float pushRounded = static_cast<float>(push);
         const Maths::Vec4& nrm = contact.normal;

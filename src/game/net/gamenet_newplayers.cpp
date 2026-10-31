@@ -115,7 +115,7 @@ void Hub::AddNewPlayer(uint8_t* info)
     uint8_t* player = FindPlayerSlotByObj(static_cast<uint16_t>(static_cast<int16_t>(objId)));
     if (Prop<uint32_t>(info, kInfoFlags) & kNewResync) { // the old player (or the local one) goes
         if (!player)
-            player = LocalPlayer(this);
+            player = FindOwnPlayerRecord(this);
         if (player) {
             RemovePlayerRecord(player);
             player = nullptr;
@@ -226,7 +226,7 @@ constexpr uint8_t kCompressionLzss = 2;
 constexpr uint32_t kLoadParkLevel = 0xB664035D; // load_sk5ed_gameplay (the created park)
 constexpr uint32_t kPlayerFlagsSent = 0x27880;  // the flags a player's details carry
 constexpr int kMidPriority = 0x80;
-constexpr int kHighestPriority = 0xFF;
+constexpr int kTopRank = 0xFF;
 
 // The player's details (its object id given), its appearance written into the message; the message's length.
 uint16_t FillNewPlayerMessage(NewPlayerMessage& msg, uint8_t* player, int8_t objId, uint32_t flags, bool broadband)
@@ -332,7 +332,7 @@ void __cdecl Hub::HostPlayerIntakeTick(void* task)
                 desc.m_content = nullptr;
                 desc.m_byteCount = 0;
                 desc.m_ident = kMsgFlushImportant;
-                desc.m_rank = kHighestPriority;
+                desc.m_rank = kTopRank;
                 server->PutOnOutbox(PlayerHandle(player), &desc);
                 desc.m_content = &msg;
                 desc.m_byteCount = kNewPlayerHeader;

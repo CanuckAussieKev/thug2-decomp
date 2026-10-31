@@ -83,7 +83,7 @@
 
 namespace Scripts {
 
-CFunctionEntry g_cfunctionTable[1254]{
+CNativeCommand g_cfunctionTable[1254]{
     {"Wait", CodeAddress(&ScriptCommands::CFunc_Wait)},
     {"WaitForEvent", CodeAddress(&GameObjects::CFunc_WaitForEvent)},
     {"Block", CodeAddress(&ScriptCommands::CFunc_Block)},

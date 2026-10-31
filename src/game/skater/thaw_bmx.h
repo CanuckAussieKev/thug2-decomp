@@ -364,12 +364,12 @@ bool StallSteepRail(void* core);
 //   server from the tolerance-centred stick bytes - the movement (left) stick any way off its centre (0x4355B0: past
 //   THUG2's own dead band, 50 from 0x80), the right stick past 0xCB / under 0x35 (0x435530: about 60% over) - and
 //   updated as buttons (0x596CA0: down while the byte is set). Here every pad keeps them beside it while the feature
-//   is on (CPadState::TickFrame / ReadButton), under THAW's names (leftup ... rightright: DoBalanceTrick
+//   is on (CPadSnapshot::TickFrame / ReadButton), under THAW's names (leftup ... rightright: DoBalanceTrick
 //   ButtonA=leftright, HeldLongerThan button=leftdown);
 // - its trick component has each stick as eight exclusive directions (0x471D20: DPadDirection over the four, as
 //   THUG2's d-pad: leftup, leftdown, leftleft, leftright, leftupleft, leftupright, leftdownleft, leftdownright and the
 //   right stick's) - press / release events in the trick buffer, `Held` / `Released` - here only while the skater
-//   rides the bike (UpdateButtons, IsButtonDown, Held buttons=), so off it THUG2's buffer is as before;
+//   rides the bike (UpdateButtons, IsKeyHeld, Held buttons=), so off it THUG2's buffer is as before;
 // - its CheckTrigger has BikePress (0x470EAB): Press, but not the same right-stick flick twice - when the button map's
 //   first button (the last trick's) is this one, only after the right stick has been back in the middle (0x4723D0:
 //   none of its eight directions down).
@@ -379,9 +379,9 @@ enum StickButtonIndex { kLeftUp, kLeftDown, kLeftLeft, kLeftRight, kRightUp, kRi
 uint32_t StickDirections(const uint8_t* data);
 // THAW's names of the pad's stick buttons (by StickButtonIndex).
 uint32_t StickButtonName(int index);
-// From CPadState::TickFrame / Reset (the feature on): the pad's stick buttons from `data` (null: all up).
+// From CPadSnapshot::TickFrame / Reset (the feature on): the pad's stick buttons from `data` (null: all up).
 void UpdatePadSticks(const void* pad, const uint8_t* data);
-// From CPadState::ReadButton (the feature on): the pad's stick button named `name`, or null.
+// From CPadSnapshot::ReadButton (the feature on): the pad's stick button named `name`, or null.
 void* PadStickButton(const void* pad, uint32_t name);
 // The trick component's direction (0 none, 1-8 as DPadDirection) of one stick's four buttons, and its name (0 for 0).
 int StickDirection(uint32_t directions, bool right);

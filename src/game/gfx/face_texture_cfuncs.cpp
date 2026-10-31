@@ -89,7 +89,7 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // A new integer array for the converted colour: 3 elements, or 4 with the source's fourth copied.
 CArray* NewColourArray(CArray* source)
 {
-    CArray* memory = Scripts::NewArray();
+    CArray* memory = Scripts::AllocScriptArray();
     CArray* colour = memory ? memory->PrepareAll() : nullptr;
     if (source->m_extent == 4) {
         colour->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
@@ -109,7 +109,7 @@ bool __cdecl CFunc_LoadFaceTextureFromProfile(Scripts::CStruct* params, Scripts:
     uint32_t name;
     params->ReadHashValue(kChecksum, &name, 1);
     void* face = FaceTexture();
-    int size = static_cast<Gfx2D::CFaceSkin*>(face)->GetImageSize();         // (0x4420)
+    int size = static_cast<Gfx2D::CFaceSkin*>(face)->FetchSkinResolution();         // (0x4420)
     void* data = static_cast<Gfx2D::CFaceSkin*>(face)->GetImage();           // (its +0x3C)
     void* texture = static_cast<Engine3D::CTextureSet*>(TextureBank())
                         ->ReadTextureBuffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);

@@ -142,7 +142,7 @@ uint8_t* LockVertices(sVertexBuffer* buffer)
     buffer->Lock(0, 0, &data, 0x10);
     return data;
 }
-uint8_t* LockIndices(sIndexBuffer* buffer)
+uint8_t* LockIndices(sIdxStore* buffer)
 {
     uint16_t* data;
     buffer->Lock(0, 0, &data, 0x10);

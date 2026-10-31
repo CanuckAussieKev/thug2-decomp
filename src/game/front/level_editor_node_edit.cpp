@@ -133,7 +133,7 @@ Scripts::CComponent* OwnVector(Scripts::CStruct* node, uint32_t name)
     return found;
 }
 
-void WriteVector(Scripts::CStruct* node, uint32_t name, V3 value)
+void StoreNodeVector(Scripts::CStruct* node, uint32_t name, V3 value)
 {
     if (Scripts::CComponent* c = OwnVector(node, name)) {
         c->vector->x = value.x;
@@ -359,8 +359,8 @@ bool AssignValue(uint32_t name, const Values& values)
     if (!node)
         return false;
     NoteOrigin(name);
-    WriteVector(node, kPos, values.pos);
-    WriteVector(node, kAngles, values.angles);
+    StoreNodeVector(node, kPos, values.pos);
+    StoreNodeVector(node, kAngles, values.angles);
     const Nodes::Elem* layer = NodeNamed(name);
     ApplyLive(layer, name, values);
     Entities::NodeMoved(name, values.pos, values.angles); // (a particle system: its emitter turned and moved, remade)
@@ -406,8 +406,8 @@ void ForgetLevel()
     for (const Touched& t : g_touched) {
         Scripts::CStruct* node = StructNamed(t.name);
         if (node && node == t.node) {
-            WriteVector(node, kPos, t.origin.pos);
-            WriteVector(node, kAngles, t.origin.angles);
+            StoreNodeVector(node, kPos, t.origin.pos);
+            StoreNodeVector(node, kAngles, t.origin.angles);
         }
     }
     g_touched.clear();

@@ -649,7 +649,7 @@ Maths::Vec4* CPcGeom::FetchMagnification(Maths::Vec4* out)
 }
 
 // 0x004B47B0
-bool CPcGeom::SetBoneMatrices(const Maths::Mat4* transform, const Maths::Mat4* bones, int count, int, int)
+bool CPcGeom::UploadSkinningPalette(const Maths::Mat4* transform, const Maths::Mat4* bones, int count, int, int)
 {
     if (instance) {
         instance->transform = *transform;
@@ -932,7 +932,7 @@ static VtableSlot kPcGeom_slots[] = {&Engine3D::CPcGeom::Teardown, &Engine3D::CP
                 &Engine3D::CPcGeom::PlaceAtAbsolutePoint, &Engine3D::CPcGeom::GetAbsolutePoint, &Engine3D::CPcGeom::ChangeFacing,
                 &Engine3D::CPcGeom::FetchFacing, &Engine3D::CPcGeom::RotateY, &Engine3D::CGeom::PlatSetTransform,
                 &Engine3D::CGeom::PlatGetTransform, &Engine3D::CPcGeom::ChangeScale, &Engine3D::CPcGeom::FetchMagnification, Stubs::IgnoreArgument,
-                &Engine3D::CPcGeom::SetBoneMatrices, &Engine3D::CPcGeom::CopyBones, &Engine3D::CPcGeom::SetBones,
+                &Engine3D::CPcGeom::UploadSkinningPalette, &Engine3D::CPcGeom::CopyBones, &Engine3D::CPcGeom::SetBones,
                 &Engine3D::CPcGeom::BreakStrips, &MemCard::SaveCard::AlwaysTrue, Stubs::ReturnZero,
                 &Engine3D::CGeom::PlatGetNumRenderBasePolys, Stubs::ReturnZero, &Engine3D::CPcGeom::FetchVertexTally,
                 &Engine3D::CPcGeom::GetVertices, &Engine3D::CPcGeom::FetchTints, &Engine3D::CPcGeom::SetVertices, &Engine3D::CPcGeom::ChangeColors,

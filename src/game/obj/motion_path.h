@@ -86,14 +86,14 @@ public:
     float m_stopStartVelocity;      // +0x1A8 the speed when it began
     float m_minStopVelocity;        // +0x1AC Obj_SetPathMinStopVel
     uint8_t m_unknown1B0[0x1E0 - 0x1B0];
-    float m_frameTime;              // +0x1E0 seconds
+    float m_stepSeconds;              // +0x1E0 seconds
     uint8_t m_unknown1E4[0x1EC - 0x1E4];
     void* m_pathFollower;          // +0x1EC
 };
 static_assert(offsetof(CMotionPathMembers, m_motionFlags) == 0x18 &&
                   offsetof(CMotionPathMembers, m_acceleration) == 0x24 &&
                   offsetof(CMotionPathMembers, m_stopCovered) == 0x1A4 &&
-                  offsetof(CMotionPathMembers, m_frameTime) == 0x1E0 &&
+                  offsetof(CMotionPathMembers, m_stepSeconds) == 0x1E0 &&
                   offsetof(CMotionPathMembers, m_pathFollower) == 0x1EC,
               "layout must match the original");
 

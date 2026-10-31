@@ -190,7 +190,7 @@ int __cdecl HandleStartGame(NetLink::InboundMsgCtx* context);
 // the king (0x55); the local player is just made ready to play; then 0x42 to all of them. 1.
 int __cdecl HandleSendGameState(NetLink::InboundMsgCtx* context);
 
-// --- The tasks and GameSpy callbacks (gamenet_tasks.cpp; tasks get their TaskList::Task, the manager at +0x1C) ---
+// --- The tasks and GameSpy callbacks (gamenet_tasks.cpp; tasks get their Scheduling::Task, the manager at +0x1C) ---
 // 0x0052F4A0: the level change, once its time (0x007CCDE8) has come: the skate module changes level (0x00565A00), the
 // king loses the crown, nobody carries a flag, and the task (+0xEC) takes itself off.
 void __cdecl LevelChangeTask(void* task);

@@ -41,7 +41,7 @@ constexpr uint32_t kOnFlag = 0x0C5F37CD;     // (name unknown) made active
 constexpr uint32_t kOffFlag = 0xB0BAB2AE;    // (name unknown) made inactive
 constexpr uint32_t kBone = 0xCAB94088;       // bone
 constexpr uint32_t kTargetObject = 0x4ACEE3F7; // (name unknown) the object looked at
-constexpr uint32_t kTargetPos = 0xDC741BAD;  // (name unknown) a point looked at
+constexpr uint32_t kAimPointHash = 0xDC741BAD;  // (name unknown) a point looked at
 constexpr uint32_t kOffset = 0x1F07CF31;     // (name unknown) the offset from the object
 constexpr uint32_t kAxis = 0x7AF07905;       // Axis
 constexpr uint32_t kWeight = 0xF832AABE;     // weight
@@ -166,17 +166,17 @@ Maths::Vec4* __cdecl QuatToEuler(Maths::Vec4* out, const Maths::QuatRotation* q)
 // 0x00488300
 CBoneLookAt* CBoneLookAt::MakeNew(void* owner, void* object)
 {
-    CAnimController* base = reinterpret_cast<CAnimController*>(this);
-    base->CAnimController::MakeNew(static_cast<CAnimTimeline*>(owner));
+    CAnimDriver* base = reinterpret_cast<CAnimDriver*>(this);
+    base->CAnimDriver::MakeNew(static_cast<CAnimTimeline*>(owner));
     vtable = reinterpret_cast<void**>(kVtable);
-    m_ownerObject = static_cast<uint8_t*>(owner ? static_cast<void*>(base->CAnimController::FetchSubject()) : object);
+    m_ownerObject = static_cast<uint8_t*>(owner ? static_cast<void*>(base->CAnimDriver::FetchSubject()) : object);
     for (SBone& bone : m_bones) {
         bone.m_active = false;
         bone.m_clamp = true;
         bone.m_bone = kNoBone;
         bone.m_lowerLimit = {0.0f, 0.0f, 0.0f, 1.0f};
         bone.m_upperLimit = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.m_targetPos = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.m_lookGoal = {0.0f, 0.0f, 0.0f, 1.0f};
         bone.m_weight = 1.0f;
         bone.m_fixedPos = true;
         bone.m_aimPoint = 0;
@@ -190,7 +190,7 @@ CBoneLookAt* CBoneLookAt::MakeNew(void* owner, void* object)
 void CBoneLookAt::DestroyBody()
 {
     vtable = reinterpret_cast<void**>(kVtable);
-    reinterpret_cast<CAnimController*>(this)->CAnimController::DestroyBody(); // (the base's)
+    reinterpret_cast<CAnimDriver*>(this)->CAnimDriver::DestroyBody(); // (the base's)
 }
 
 // 0x004880D0
@@ -212,10 +212,10 @@ void CBoneLookAt::TickFrame()
             GameObjects::ObjectHubSlot()->LookUpEntity(bone.m_aimPoint));
         if (!object)
             continue;
-        bone.m_targetPos.z = bone.m_shift.z + object->m_atPoint.z;
-        bone.m_targetPos.w = bone.m_shift.w + object->m_atPoint.w;
-        bone.m_targetPos.x = bone.m_shift.x + object->m_atPoint.x;
-        bone.m_targetPos.y = bone.m_shift.y + object->m_atPoint.y;
+        bone.m_lookGoal.z = bone.m_shift.z + object->m_atPoint.z;
+        bone.m_lookGoal.w = bone.m_shift.w + object->m_atPoint.w;
+        bone.m_lookGoal.x = bone.m_shift.x + object->m_atPoint.x;
+        bone.m_lookGoal.y = bone.m_shift.y + object->m_atPoint.y;
     }
 }
 
@@ -235,9 +235,9 @@ bool CBoneLookAt::Apply(Maths::QuatRotation* rotations)
         const Maths::Vec4& pos = object->m_atPoint;
         const Maths::Vec4& at = object->m_basisFrame.row[2];
         // The direction to the target, and the turn from the object's own
-        float dx = bone.m_targetPos.x - pos.x;
-        float dy = bone.m_targetPos.y - pos.y;
-        float dz = bone.m_targetPos.z - pos.z;
+        float dx = bone.m_lookGoal.x - pos.x;
+        float dy = bone.m_lookGoal.y - pos.y;
+        float dz = bone.m_lookGoal.z - pos.z;
         NormalizeXZY(dx, dy, dz);
         Maths::QuatRotation& pose = rotations[index];
         double dot = (static_cast<double>(dx) * at.x + static_cast<double>(dz) * at.z) + static_cast<double>(dy) * at.y;
@@ -340,7 +340,7 @@ void CBoneLookAt::Configure(bool all, int index, CStruct* params)
         bone.m_fixedPos = false;
         bone.m_shift = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    if (params->FetchVec(kTargetPos, reinterpret_cast<Scripts::VectorValue*>(&bone.m_targetPos), 0))
+    if (params->FetchVec(kAimPointHash, reinterpret_cast<Scripts::VectorValue*>(&bone.m_lookGoal), 0))
         bone.m_fixedPos = true;
     if (params->FetchVec(kOffset, reinterpret_cast<Scripts::VectorValue*>(&bone.m_shift), 0))
         bone.m_fixedPos = false;
@@ -367,7 +367,7 @@ void CBoneLookAt::Configure(bool all, int index, CStruct* params)
 // 0x00488B20
 void CBoneLookAt::ConfigureFromData(CStruct* params)
 {
-    reinterpret_cast<CAnimController*>(this)->CAnimController::ConfigureFromData(params); // (the base's: its id)
+    reinterpret_cast<CAnimDriver*>(this)->CAnimDriver::ConfigureFromData(params); // (the base's: its id)
     Configure(false, 0, params);
 }
 

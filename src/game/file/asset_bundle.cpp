@@ -19,7 +19,7 @@ extern void** const kAssetBundleVtable;
 AssetBundle::AssetBundle()
 {
     m_vtable = kAssetBundleVtable;
-    m_fileData = nullptr;
+    m_bundleBytes = nullptr;
     m_loadedData = nullptr;
     m_fileRef = nullptr;
     m_readyFlag = false;
@@ -33,9 +33,9 @@ AssetBundle::AssetBundle()
 AssetBundle* AssetBundle::Teardown(unsigned int flags)
 {
     m_vtable = kAssetBundleVtable;
-    if (m_fileData) {
-        MemSys::FreeMalloc(m_fileData);
-        m_fileData = nullptr;
+    if (m_bundleBytes) {
+        MemSys::FreeMalloc(m_bundleBytes);
+        m_bundleBytes = nullptr;
     }
     if (m_fileRef)
         AsyncClose(m_fileRef);
@@ -56,8 +56,8 @@ bool AssetBundle::ReadIn(const char* name, int unused1, int /*unused2*/)
 {
     int size = 0;
     MemSys::EnterHeapScope(m_fileHeap);
-    m_fileData = Packs::LoadFileInto(name, &size, nullptr);
-    m_loadedData = static_cast<uint8_t*>(m_fileData);
+    m_bundleBytes = Packs::LoadFileInto(name, &size, nullptr);
+    m_loadedData = static_cast<uint8_t*>(m_bundleBytes);
     MemSys::LeaveHeapScope();
     return Split(unused1, size);
 }
@@ -95,11 +95,11 @@ bool AssetBundle::Split(int /*unused*/, int size)
 
         // The asset has its own copy: give the end of the file's block back.
         MemSys::EnterHeapScope(m_fileHeap);
-        m_fileData = MemSys::TrimBlockEnd(MemSys::MallocSize(m_fileData) - assetSize, m_fileData);
+        m_bundleBytes = MemSys::TrimBlockEnd(MemSys::MallocSize(m_bundleBytes) - assetSize, m_bundleBytes);
         MemSys::LeaveHeapScope();
     }
-    MemSys::FreeMalloc(m_fileData);
-    m_fileData = nullptr;
+    MemSys::FreeMalloc(m_bundleBytes);
+    m_bundleBytes = nullptr;
     m_loadedData = nullptr;
     m_readyFlag = true;
     return true;

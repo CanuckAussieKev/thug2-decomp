@@ -74,10 +74,10 @@ void ChangePhase(uint8_t* manager, int state)
 {
     reinterpret_cast<OnlinePlay::Hub*>(manager)->SetServiceState(state);
 }
-// Take this task out of the task list (TaskList::SchedulerTask::DropOut).
+// Take this task out of the task list (Scheduling::SchedulerTask::DropOut).
 void RemoveServiceTask(uint8_t* manager)
 {
-    Prop<TaskList::SchedulerTask*>(manager, kServiceTaskField)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(manager, kServiceTaskField)->DropOut();
 }
 OnlinePlay::RoomManager* LobbyList(uint8_t* manager) { return Prop<OnlinePlay::RoomManager*>(manager, kLobbyList); }
 

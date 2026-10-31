@@ -55,9 +55,9 @@ void Clear(CAnimTimeline* t)
 }
 
 // A controller's scalar deleting destructor (slot 0) and pose (slot 1).
-void DeleteController(CAnimController* controller)
+void DeleteController(CAnimDriver* controller)
 {
-    reinterpret_cast<void(__thiscall*)(CAnimController*, int)>(controller->m_vtable[0])(controller, 1);
+    reinterpret_cast<void(__thiscall*)(CAnimDriver*, int)>(controller->m_vtable[0])(controller, 1);
 }
 
 } // namespace
@@ -237,7 +237,7 @@ void CAnimTrack::DeleteControllers()
 }
 
 // 0x004818B0
-void CAnimTrack::DetachAnimDriver(CAnimController* controller)
+void CAnimTrack::DetachAnimDriver(CAnimDriver* controller)
 {
     int i = 0;
     for (;; ++i) {
@@ -258,8 +258,8 @@ void CAnimTrack::DetachAnimDriver(CAnimController* controller)
 bool CAnimTrack::GetPoses(void* pose)
 {
     for (int i = 0; i < m_controllerCount; ++i) {
-        CAnimController* controller = m_controllerList[i];
-        reinterpret_cast<bool(__thiscall*)(CAnimController*, void*)>(controller->m_vtable[1])(controller, pose);
+        CAnimDriver* controller = m_controllerList[i];
+        reinterpret_cast<bool(__thiscall*)(CAnimDriver*, void*)>(controller->m_vtable[1])(controller, pose);
     }
     return true;
 }
@@ -292,7 +292,7 @@ GameObjects::CGameEntity* CAnimTrack::FetchSubject()
 // --- the base controller ---
 
 // 0x00481710
-CAnimController* CAnimController::MakeNew(CAnimTimeline* timeline)
+CAnimDriver* CAnimDriver::MakeNew(CAnimTimeline* timeline)
 {
     m_timelinePtr = timeline;
     m_vtable = kControllerVtable;
@@ -303,13 +303,13 @@ CAnimController* CAnimController::MakeNew(CAnimTimeline* timeline)
 }
 
 // 0x00481730
-void CAnimController::DestroyBody()
+void CAnimDriver::DestroyBody()
 {
     m_vtable = kControllerVtable;
 }
 
 // 0x004817A0
-CAnimController* CAnimController::Teardown(uint8_t flags)
+CAnimDriver* CAnimDriver::Teardown(uint8_t flags)
 {
     m_vtable = kControllerVtable;
     if (flags & 1)
@@ -318,19 +318,19 @@ CAnimController* CAnimController::Teardown(uint8_t flags)
 }
 
 // 0x00481740
-bool CAnimController::ConfigureFromData(Scripts::CStruct* params)
+bool CAnimDriver::ConfigureFromData(Scripts::CStruct* params)
 {
     return params->ReadHashValue(kId, &m_ident, 0);
 }
 
 // 0x00481760
-GameObjects::CGameEntity* CAnimController::FetchSubject()
+GameObjects::CGameEntity* CAnimDriver::FetchSubject()
 {
     return static_cast<CAnimTrack*>(m_timelinePtr)->FetchSubject();
 }
 
 // 0x00481770
-uint8_t* CAnimController::FetchRig()
+uint8_t* CAnimDriver::FetchRig()
 {
     GameObjects::CObjectModule* component = static_cast<CAnimTrack*>(m_timelinePtr)->FetchSubject()->FetchModule(kSkeleton);
     return component ? static_cast<GameObjects::CBoneRigModule*>(component)->m_boneRig : nullptr;
@@ -348,9 +348,9 @@ namespace {
 static VtableSlot kTimelineVtable_slots[] = {&Gfx2D::CAnimTimeline::Teardown, &Gfx2D::CAnimTimeline::Reset,
                 &Gfx2D::CAnimTimeline::TickFrame, &Gfx2D::CAnimTimeline::PlayAnim, Stubs::IgnoreArgument};
 void** const kTimelineVtable = reinterpret_cast<void**>(kTimelineVtable_slots);
-static VtableSlot kControllerVtable_slots[] = {&Gfx2D::CAnimController::Teardown, Stubs::ReturnFalse1,
+static VtableSlot kControllerVtable_slots[] = {&Gfx2D::CAnimDriver::Teardown, Stubs::ReturnFalse1,
                 Stubs::IgnoreArgument, &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName,
-                &Gfx2D::CAnimController::ConfigureFromData, Stubs::DoNothing};
+                &Gfx2D::CAnimDriver::ConfigureFromData, Stubs::DoNothing};
 void** const kControllerVtable = reinterpret_cast<void**>(kControllerVtable_slots);
 } // namespace
 

@@ -313,7 +313,7 @@ public:
     Maths::Vec4 m_vel;             // +0xA4 m_linearMomentum * m_invMass
     Maths::Vec4 m_rotvel;          // +0xB4 the angular velocity
     Maths::Mat4 m_invInertia;      // +0xC4 the inverse inertia tensor in the world
-    Maths::Vec4 m_comOffset;       // +0x104 m_centerOfMass turned into the world
+    Maths::Vec4 m_comOffset;       // +0x104 m_balancePoint turned into the world
     int m_wheelsInContact;         // +0x114
     int8_t m_loadIndex;            // +0x118 the wheels' load history slot (0-9)
     bool m_cutShort;            // +0x119 a trigger's script took over during the step
@@ -324,7 +324,7 @@ public:
     Maths::Vec4 m_force;           // +0x124 the force this step
     Maths::Vec4 m_twistForce;          // +0x134 the torque this step
     float m_stepLength;              // +0x144 the sub-step's length (seconds)
-    Maths::Vec4 m_centerOfMass;    // +0x148 (body; y from 0x93346B8C)
+    Maths::Vec4 m_balancePoint;    // +0x148 (body; y from 0x93346B8C)
     float m_invMass;               // +0x158 386.4 / mass
     float m_invMoments[3];         // +0x15C 386.4 / moment_of_inertia
     uint32_t m_unknown168;

@@ -214,7 +214,7 @@ void Relay(NetLink::NetMessageInfo& desc, const NetLink::InboundMsgCtx* context)
 // --- the server's tasks ---------------------------------------------------------------------------------------------
 
 // 0x00569BB0
-void SkateNet::ServerTask(TaskList::SchedulerTask* /*task*/)
+void SkateNet::ServerTask(Scheduling::SchedulerTask* /*task*/)
 {
     PlayerSearch search;
     NetLink::AppHost* server = ServerApp();
@@ -273,7 +273,7 @@ void SkateNet::ServerTask(TaskList::SchedulerTask* /*task*/)
 }
 
 // 0x0056BE10
-void SkateNet::ScoreTask(TaskList::SchedulerTask* task)
+void SkateNet::ScoreTask(Scheduling::SchedulerTask* task)
 {
     auto* skate = Prop<Skate*>(task, 0x1C);
     OnlinePlay::Hub* net = NetLink();

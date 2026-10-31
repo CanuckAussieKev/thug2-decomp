@@ -65,7 +65,7 @@ uint64_t ReadNumber(const uint8_t* buffer, size_t* offset)
 }
 
 // A signed relative offset: the low bit is the sign.
-int32_t ReadOffset(const uint8_t* buffer, size_t* offset)
+int32_t DecodeVarint(const uint8_t* buffer, size_t* offset)
 {
     auto value = static_cast<int32_t>(ReadNumber(buffer, offset));
     return (value & 1) ? -(value >> 1) : (value >> 1);
@@ -118,13 +118,13 @@ bool Apply(const uint8_t* patch, size_t patchSize, const uint8_t* input, size_t 
             outputAt += length;
             break;
         case 2: // the input's bytes from elsewhere
-            sourceAt += ReadOffset(patch, &at);
+            sourceAt += DecodeVarint(patch, &at);
             std::memcpy(*output + outputAt, input + sourceAt, length);
             sourceAt += length;
             outputAt += length;
             break;
         case 3: // the output's own earlier bytes
-            targetAt += ReadOffset(patch, &at);
+            targetAt += DecodeVarint(patch, &at);
             std::memcpy(*output + outputAt, *output + targetAt, length);
             targetAt += length;
             outputAt += length;

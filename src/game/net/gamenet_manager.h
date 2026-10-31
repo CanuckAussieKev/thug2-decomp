@@ -15,7 +15,7 @@ namespace OptionStore {
 class Preferences;
 } // namespace Prefs
 
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 }
 namespace MemSys {
@@ -48,15 +48,15 @@ struct ConnectInfo {
 static_assert(sizeof(ConnectInfo) == 92 && offsetof(ConnectInfo, cdKeyResponse) == 0x12);
 
 // The join request (message 80): the connection request, the player and the appearance (its used length only).
-struct JoinInfo : ConnectInfo {
+struct JoinRequestBlock : ConnectInfo {
     int32_t profile;                // +0x5C the GameSpy profile id
     int32_t rating;                 // +0x60
     int32_t driveScheme;     // +0x64
     char name[kNameSize];           // +0x68
     uint8_t appearance[kAppearanceSize]; // +0x78 (CRiderIdentity::EmitIntoBuffer)
 };
-static_assert(offsetof(JoinInfo, name) == 0x68 && offsetof(JoinInfo, appearance) == 0x78);
-constexpr uint32_t kJoinInfoHeaderSize = offsetof(JoinInfo, appearance);
+static_assert(offsetof(JoinRequestBlock, name) == 0x68 && offsetof(JoinRequestBlock, appearance) == 0x78);
+constexpr uint32_t kJoinInfoHeaderSize = offsetof(JoinRequestBlock, appearance);
 
 // Join proceed (message 79, 32 bytes): the host's answer to a connection request; the client then sends its join
 // request.
@@ -573,7 +573,7 @@ public:
     // 0x0053C6E0: the join given up (not when already over: states 8-10): message 0x0B to the server, the apps shut
     // down, the timeout task off, the joining players gone, the presence back to "chatting" in the lobby.
     void CancelJoin();
-    // Tasks (TaskList::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
+    // Tasks (Scheduling::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
     // 0x0053BED0: the observer asked for the next player (m_spectateRequest 1): the camera onto it.
     static void __cdecl ObserverTask(void* task);
     // 0x00536890 (the observer's input handler's code, given the handler - Detail::SpectatorInputSink): the next
@@ -631,12 +631,12 @@ public:
     int m_joinMode;           // +0x3C (1: observe)
     int m_hostMode;           // +0x40 (0: serve)
     uint8_t m_unknown44[0x88];
-    TaskList::SchedulerTask* m_hostAdmitJob; // +0xCC
-    TaskList::SchedulerTask* m_guestAdmitJob; // +0xD0
+    Scheduling::SchedulerTask* m_hostAdmitJob; // +0xCC
+    Scheduling::SchedulerTask* m_guestAdmitJob; // +0xD0
     uint8_t m_unknownD4[8];
-    TaskList::SchedulerTask* m_joinExpiryJob;   // +0xDC
+    Scheduling::SchedulerTask* m_joinExpiryJob;   // +0xDC
     uint32_t m_unknownE0;
-    TaskList::SchedulerTask* m_joinPhaseJob;     // +0xE4
+    Scheduling::SchedulerTask* m_joinPhaseJob;     // +0xE4
     uint8_t m_unknownE8[0x14];
     void* m_spectatorPadListener;       // +0xFC
     int m_spectateRequest;              // +0x100

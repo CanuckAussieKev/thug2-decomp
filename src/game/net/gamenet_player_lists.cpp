@@ -573,9 +573,9 @@ void Hub::DisconnectClients()
         g_queryReporting = false;
     }
     GameSpy::CdKeyDisconnectAll(1003);
-    Prop<TaskList::SchedulerTask*>(this, 0xD4)->DropOut();
-    Prop<TaskList::SchedulerTask*>(this, 0xC8)->DropOut();
-    Prop<TaskList::SchedulerTask*>(this, 0xEC)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(this, 0xD4)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(this, 0xC8)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(this, 0xEC)->DropOut();
     ClearQueuedScripts();
     if (m_clearedToStart) {
         m_clearedToStart = false;

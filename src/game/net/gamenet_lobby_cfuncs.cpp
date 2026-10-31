@@ -49,7 +49,7 @@ constexpr uint32_t kHomieStatusOnline = 0xFF257E72;    // homie_status_online
 constexpr uint32_t kHomieStatusLoggingIn = 0x1E40E143; // homie_status_logging_in
 constexpr uint32_t kOff = 0xD443A2BC;                  // off
 constexpr int kStatusOnline = 1;
-constexpr int kGroupRoom = 1; // (the peer SDK's room types)
+constexpr int kRoomGroupKind = 1; // (the peer SDK's room types)
 constexpr int kClientNatIndex = 1;
 // The GameSpy profiles that may host while hosting is restricted (+0x135).
 constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
@@ -57,9 +57,9 @@ constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701,
 
 Hub* NetSessionSlot() { return g_onlineHub; }
 RoomManager* Lobby() { return static_cast<RoomManager*>(NetSessionSlot()->m_lobbyService); }
-TaskList::PileUp* LogicTasks()
+Scheduling::PileUp* LogicTasks()
 {
-    return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
 }
 void PushInternetHeap()
 {
@@ -78,7 +78,7 @@ int& QueuedCount() { return g_queuedCount; }
 // 0x00540430
 bool __cdecl CFunc_StartNatNegotiation(Scripts::CStruct* params, Scripts::CScript*)
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     Hub* manager = NetSessionSlot();
     const char* address = nullptr;
     int port = 0;
@@ -127,7 +127,7 @@ bool __cdecl CFunc_LeaveLobby(Scripts::CStruct* params, Scripts::CScript*)
     Hub* manager = NetSessionSlot();
     auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     void* buddy = manager->m_presenceService;
-    GameSpy::PeerLeaveRoom(lobby->m_remote, kGroupRoom, nullptr); // the group room left
+    GameSpy::PeerLeaveRoom(lobby->m_remote, kRoomGroupKind, nullptr); // the group room left
     lobby->m_inGroupRoom = false;
     if (Prop<bool>(buddy, 0x10) && !params->HasEntryNamed(kPreserveStatus)) {
         const char* text = Scripts::FetchText(kHomieStatusLoggingIn);

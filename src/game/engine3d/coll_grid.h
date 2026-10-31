@@ -57,7 +57,7 @@ public:
     CollGridCell* Cell(int x, int z) { return &m_cells[x][z]; }
 
     Maths::BBox m_box;                       // +0x00
-    float m_cellWidth;                     // +0x20 on x
+    float m_cellSpanX;                     // +0x20 on x
     float m_cellDepth;                     // +0x24 on z
     int m_columns;                         // +0x28 on x (20)
     int m_rows;                            // +0x2C on z (20)

@@ -51,7 +51,7 @@ constexpr uint32_t kMode = 0x6835B854, kRailId = 0xA61E7CD9, kRailPointIndex = 0
 constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 
 // The input component's pad (+0x20) and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140).
-GameObjects::CPadState* PadOf(void* input) { return reinterpret_cast<GameObjects::CPadState*>(static_cast<uint8_t*>(input) + 0x20); }
+GameObjects::CPadSnapshot* PadOf(void* input) { return reinterpret_cast<GameObjects::CPadSnapshot*>(static_cast<uint8_t*>(input) + 0x20); }
 GameObjects::CControlButton* Button(void* input, uint32_t offset)
 {
     return reinterpret_cast<GameObjects::CControlButton*>(static_cast<uint8_t*>(input) + 0x20 + offset);
@@ -62,9 +62,9 @@ Scripts::CStruct* SpawnParamBag()
     Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     return array ? array->PrepareAll() : nullptr;
 }
 void FreeStruct(Scripts::CStruct* structure)
@@ -147,7 +147,7 @@ void CRailAuthoring::FetchDiagnostics(Scripts::CStruct* info)
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
         ++count;
     if (count) {
-        Scripts::CArray* rails = NewArray();
+        Scripts::CArray* rails = AllocScriptArray();
         rails->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
         uint32_t i = 0;
         for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
@@ -164,7 +164,7 @@ void CRailAuthoring::WriteToStructure(Scripts::CStruct* params)
     int count = 0;
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following)
         ++count;
-    Scripts::CArray* rails = NewArray();
+    Scripts::CArray* rails = AllocScriptArray();
     rails->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
     uint32_t r = 0;
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
@@ -172,7 +172,7 @@ void CRailAuthoring::WriteToStructure(Scripts::CStruct* params)
         uint32_t pointCount = 0;
         for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following)
             ++pointCount;
-        Scripts::CArray* points = NewArray();
+        Scripts::CArray* points = AllocScriptArray();
         points->ConfigureSizeKind(pointCount, Scripts::QBVAL_STRUCT);
         uint32_t i = 0;
         for (CEditedRailPoint* p = rail->m_pointChain; p; p = p->m_following) {
@@ -232,7 +232,7 @@ void CRailAuthoring::WriteNodes(Scripts::CArray* nodes, int* index, uint32_t nam
             node->PutNameKey(kSurfaceKindKey, kMetalSmooth);
             if (p->m_following) {
                 // linked to the next point's node (the next one written)
-                Scripts::CArray* links = NewArray();
+                Scripts::CArray* links = AllocScriptArray();
                 links->ConfigureSizeKind(1, Scripts::QBVAL_INTEGER);
                 links->SetElement(0, static_cast<uint32_t>(next));
                 node->AppendArrayRef(kLinks, links);

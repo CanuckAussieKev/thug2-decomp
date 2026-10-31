@@ -81,9 +81,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-Scripts::CArray* NewArray()
+Scripts::CArray* AllocScriptArray()
 {
-    Scripts::CArray* made = Scripts::NewArray();
+    Scripts::CArray* made = Scripts::AllocScriptArray();
     return made ? made->PrepareAll() : nullptr;
 }
 void FreeArray(Scripts::CArray* array)
@@ -278,8 +278,8 @@ bool CGoalManager::SwapMoveCaption(uint32_t id, const char* text, char* out, int
     Scripts::CStruct* params = m_goals.Pull(id)->FetchArgs();
     Scripts::CArray* keyCombos;
     params->FetchList(kButtonSequences, &keyCombos, 1);
-    Scripts::CArray* keyTexts = NewArray();
-    Scripts::CArray* trickTexts = NewArray();
+    Scripts::CArray* keyTexts = AllocScriptArray();
+    Scripts::CArray* trickTexts = AllocScriptArray();
     uint32_t count = keyCombos->m_extent;
     keyTexts->ConfigureSizeKind(count, Scripts::QBVAL_STRING);
     trickTexts->ConfigureSizeKind(count, Scripts::QBVAL_STRING);

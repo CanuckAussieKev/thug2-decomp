@@ -1089,7 +1089,7 @@ bool ReadFaces(uint8_t* sector, LevelTrigger* t)
 {
     uint8_t* coll = CollOf(sector);
     auto* tri = coll ? *reinterpret_cast<Engine3D::CTriMeshSource**>(coll + 0x0C) : nullptr;
-    if (!tri || !tri->m_faces || !tri->m_vertices || tri->m_numFaces == 0)
+    if (!tri || !tri->m_faces || !tri->m_vertices || tri->m_triCount == 0)
         return false;
     t->faces.clear();
     t->faceCount = 0;
@@ -1098,7 +1098,7 @@ bool ReadFaces(uint8_t* sector, LevelTrigger* t)
     t->boundsLow = {tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z};
     t->boundsHigh = {tri->m_upperLimit.x, tri->m_upperLimit.y, tri->m_upperLimit.z};
     bool any = false;
-    for (int f = 0; f < tri->m_numFaces; ++f) {
+    for (int f = 0; f < tri->m_triCount; ++f) {
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
         if (!(flags & 0x40)) {
             t->allTrigger = false;
@@ -1360,7 +1360,7 @@ void PutProximBack(GameObjects::ProximNode* p, const ProximOriginal& o)
     p->m_ownScript = o.script;
     p->m_form = o.shape;
     p->m_radius = o.radius;
-    p->m_radiusSquared = o.radius * o.radius;
+    p->m_reachSq = o.radius * o.radius;
     p->m_box.min = {o.min.x, o.min.y, o.min.z, 1.0f};
     p->m_box.max = {o.max.x, o.max.y, o.max.z, 1.0f};
 }
@@ -1415,7 +1415,7 @@ void SyncProxims()
         if (!e.shape) {
             p->m_form = o.shape;
             p->m_radius = o.radius;
-            p->m_radiusSquared = o.radius * o.radius;
+            p->m_reachSq = o.radius * o.radius;
             p->m_box.min = {o.min.x, o.min.y, o.min.z, 1.0f};
             p->m_box.max = {o.max.x, o.max.y, o.max.z, 1.0f};
         } else if (e.box) {
@@ -1427,7 +1427,7 @@ void SyncProxims()
         } else {
             p->m_form = GameObjects::PROXIM_SHAPE_SPHERE;
             p->m_radius = e.radius;
-            p->m_radiusSquared = e.radius * e.radius;
+            p->m_reachSq = e.radius * e.radius;
         }
     }
 }

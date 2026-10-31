@@ -30,7 +30,7 @@ namespace Engine3D {
 D3DLIGHT9 g_deviceLight1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
 D3DLIGHT9 g_deviceLight0{
     D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
-Maths::Mat4* g_boneMatrices;
+Maths::Mat4* g_paletteBase;
 int g_boneCount;
 sSingleton* g_currentInstance;
 const Maths::Mat4* g_lastBones;
@@ -179,7 +179,7 @@ void sSingleton::Render(uint32_t drawBits)
             SetLastBones(bones);
         }
         InputPort()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(&transform));
-        g_boneMatrices = bones;
+        g_paletteBase = bones;
         g_boneCount = boneCount;
         g_currentInstance = this;
         if (SceneUnlit(scene)) {
@@ -198,7 +198,7 @@ void sSingleton::Render(uint32_t drawBits)
         g_pixelShaderLocked = 0;
         g_submitLocked = 0;
         SetTexture(3, nullptr);
-        g_boneMatrices = nullptr;
+        g_paletteBase = nullptr;
         g_boneCount = 0;
         g_currentInstance = nullptr;
         return;

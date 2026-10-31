@@ -312,7 +312,7 @@ void __cdecl HaltStream(int slot, int)
 // 0x00453BD0
 void __cdecl HaltStreams()
 {
-    for (int i = 0; i < kNumStreams; ++i)
+    for (int i = 0; i < kStreamSlots; ++i)
         HaltStream(i, 0);
 }
 

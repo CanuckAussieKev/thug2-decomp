@@ -47,7 +47,7 @@ constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
 constexpr int kChallengeLength = 8;
 
-// TaskList::Task<Manager> (0x20 bytes, vtable 0x006476F0).
+// Scheduling::Task<Manager> (0x20 bytes, vtable 0x006476F0).
 struct ManagerTask {
     uint8_t m_listLink[0x18];
     void* m_codeValue;
@@ -55,16 +55,16 @@ struct ManagerTask {
 };
 static_assert(sizeof(ManagerTask) == 0x20);
 
-TaskList::SchedulerTask* NewTask(Hub* manager, void* code, int priority)
+Scheduling::SchedulerTask* NewTask(Hub* manager, void* code, int priority)
 {
     auto* task = static_cast<ManagerTask*>(MemSys::AllocZeroed(sizeof(ManagerTask)));
     if (task) {
-        reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(priority);
+        reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority);
         *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         task->m_codeValue = code;
         task->m_content = manager;
     }
-    return reinterpret_cast<TaskList::SchedulerTask*>(task);
+    return reinterpret_cast<Scheduling::SchedulerTask*>(task);
 }
 template <typename F>
 void* Code(F function)
@@ -105,8 +105,8 @@ Hub* Hub::MakeNew()
     SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
     SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
     m_scriptFlagBits = 0;
-    TaskList::PileUp* tasks =
-        reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
+    Scheduling::PileUp* tasks =
+        reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
     NetLink::Hub::Sole()->SetMsgOptions(0x23, 1); // (the object update message's)
     m_clientApp = nullptr;
     m_client1 = nullptr;
@@ -122,22 +122,22 @@ Hub* Hub::MakeNew()
     Prop<int>(this, 0x1BC) = 2;
     reinterpret_cast<OptionStore::Preferences*>(m_netOptions)->ReadIn(kNetSettingsKey);
     taunts->ReadIn(kTauntSettingsKey);
-    Prop<TaskList::SchedulerTask*>(this, 0xC0) = NewTask(this, Code(&Hub::ConnectionTask), -2000);
-    Prop<TaskList::SchedulerTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xF0) = NewTask(this, CodeAddress(OnlinePlay::ServerListTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xF4) = NewTask(this, Code(&Hub::AutoServeTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xC8) = NewTask(this, CodeAddress(OnlinePlay::ScoreBroadcastTick), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xC0) = NewTask(this, Code(&Hub::ConnectionTask), -2000);
+    Prop<Scheduling::SchedulerTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xF0) = NewTask(this, CodeAddress(OnlinePlay::ServerListTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xF4) = NewTask(this, Code(&Hub::AutoServeTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xC8) = NewTask(this, CodeAddress(OnlinePlay::ScoreBroadcastTick), 0);
     m_guestAdmitJob = NewTask(this, Code(&Hub::GuestPlayerIntakeTick), -2000);
     m_hostAdmitJob = NewTask(this, Code(&Hub::HostPlayerIntakeTick), -2000);
-    Prop<TaskList::SchedulerTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xD8) = NewTask(this, Code(&DialupProgressTick), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xD8) = NewTask(this, Code(&DialupProgressTick), 0);
     m_joinExpiryJob = NewTask(this, Code(&JoinDeadlineTick), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xE0) = NewTask(this, Code(&NetLink::ServiceTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xE0) = NewTask(this, Code(&NetLink::ServiceTask), 0);
     m_joinPhaseJob = NewTask(this, Code(&Hub::JoinProgressTick), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xE8) = NewTask(this, Code(&Hub::StartGameTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xF8) = NewTask(this, CodeAddress(CarriedFlagsTask), 0);
-    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, 0xC0));
+    Prop<Scheduling::SchedulerTask*>(this, 0xE8) = NewTask(this, Code(&Hub::StartGameTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
+    Prop<Scheduling::SchedulerTask*>(this, 0xF8) = NewTask(this, CodeAddress(CarriedFlagsTask), 0);
+    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, 0xC0));
     Prop<int>(this, 0x1A8) = 5; // the modem state shown last
     Prop<uint32_t>(this, 0x1948) = 0; // the created goals' message
     Prop<uint32_t>(this, 0x194C) = 0;

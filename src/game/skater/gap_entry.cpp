@@ -231,12 +231,12 @@ void CRiderGapTracker::TickFrame()
 {
     ++m_tick;
     uint32_t cancel, require;
-    GetStateFlags(&cancel, &require);
+    FetchGapConditionMasks(&cancel, &require);
     ScanForGaps(cancel, require);
 }
 
 // 0x00511C80
-void CRiderGapTracker::GetStateFlags(uint32_t* cancel, uint32_t* require)
+void CRiderGapTracker::FetchGapConditionMasks(uint32_t* cancel, uint32_t* require)
 {
     *require = 0;
     *cancel = 0;
@@ -447,7 +447,7 @@ void CRiderGapTracker::StartGap(Scripts::CStruct* params, Scripts::CScript* scri
     if (!drivingMatters && Prop<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) == kOff)
         return;
     uint32_t cancel, require;
-    GetStateFlags(&cancel, &require);
+    FetchGapConditionMasks(&cancel, &require);
     ScanForGaps(cancel, require);
 }
 

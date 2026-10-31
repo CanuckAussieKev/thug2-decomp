@@ -221,7 +221,7 @@ void CBestEntryList::DecodeFromStruct(Scripts::CStruct* params)
 // 0x0057F4E0
 void CBestEntryList::WriteToStructure(Scripts::CStruct* params)
 {
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(m_num, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < m_num; ++i)
@@ -354,7 +354,7 @@ void CBestResults::DecodeFromStruct(Scripts::CStruct* params)
 // 0x0057FC50
 void CBestResults::WriteToStructure(Scripts::CStruct* params)
 {
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(m_levelCount, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < m_levelCount; ++i) {

@@ -76,7 +76,7 @@ constexpr uint32_t kFlagSpin = 0x68;
 // The pad's buttons (offsets into the input component).
 constexpr uint32_t kBrakeButton = 0x40;
 constexpr uint32_t kLeftButton = 0x60;
-constexpr uint32_t kRightButton = 0x80;
+constexpr uint32_t kRightKeyHash = 0x80;
 constexpr uint32_t kKickButton = 0x180;
 
 bool IsCrouched(void* component) { return FlagsOf(component)[kFlagCrouched] != 0; }
@@ -117,7 +117,7 @@ bool SkaterPhysicsModule::ShouldBrake()
         return false;
     if (SpeedOf(VectorAt(ObjectOf(this), kVelocity)) < kSlow)
         return true;
-    if (!input[kRightButton] && !input[kLeftButton])
+    if (!input[kRightKeyHash] && !input[kLeftButton])
         return true;
     void* object = ObjectOf(this);
     const Maths::Vec4& v = VectorAt(object, kVelocity);

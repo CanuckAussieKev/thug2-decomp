@@ -99,7 +99,7 @@ bool ReadPoint(CStruct* params, uint32_t name, int* point)
 // A new integer array of two holding `point`.
 CArray* NewPointArray(const int* point)
 {
-    CArray* memory = Scripts::NewArray();
+    CArray* memory = Scripts::AllocScriptArray();
     CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(2, Scripts::QBVAL_INTEGER);
     array->SetElement(0, static_cast<uint32_t>(point[0]));
@@ -260,26 +260,26 @@ void CFaceSkin::LoadImageFile(const char* name, bool fullPath)
 // 0x00487420
 const uint8_t* CFaceSkin::SetImage(const uint8_t* data, int /*size*/)
 {
-    std::memcpy(m_image, data, kImageSize);
-    return data + kImageSize;
+    std::memcpy(m_image, data, kTexelEdge);
+    return data + kTexelEdge;
 }
 
 // 0x00487440
 int CFaceSkin::WriteTo(uint8_t* buffer, int /*size*/)
 {
-    std::memcpy(buffer, m_image, kImageSize);
-    std::memcpy(buffer + kImageSize, &m_pathVertices, sizeof(m_pathVertices));
+    std::memcpy(buffer, m_image, kTexelEdge);
+    std::memcpy(buffer + kTexelEdge, &m_pathVertices, sizeof(m_pathVertices));
     size_t length = std::strlen(m_overlayName);
-    std::memcpy(buffer + kImageSize + sizeof(m_pathVertices), m_overlayName, length + 1);
-    return static_cast<int>(kImageSize + sizeof(m_pathVertices) + length + 1);
+    std::memcpy(buffer + kTexelEdge + sizeof(m_pathVertices), m_overlayName, length + 1);
+    return static_cast<int>(kTexelEdge + sizeof(m_pathVertices) + length + 1);
 }
 
 // 0x004874B0
 const uint8_t* CFaceSkin::ReadFrom(const uint8_t* buffer, int /*size*/)
 {
-    std::memcpy(m_image, buffer, kImageSize);
-    std::memcpy(&m_pathVertices, buffer + kImageSize, sizeof(m_pathVertices));
-    const char* name = reinterpret_cast<const char*>(buffer + kImageSize + sizeof(m_pathVertices));
+    std::memcpy(m_image, buffer, kTexelEdge);
+    std::memcpy(&m_pathVertices, buffer + kTexelEdge, sizeof(m_pathVertices));
+    const char* name = reinterpret_cast<const char*>(buffer + kTexelEdge + sizeof(m_pathVertices));
     size_t length = std::strlen(name);
     std::memcpy(m_overlayName, name, length + 1);
     return reinterpret_cast<const uint8_t*>(name) + length + 1;
@@ -295,7 +295,7 @@ void CFaceSkin::MarkUsable(bool valid) { m_isUsable = valid; }
 uint8_t* CFaceSkin::GetImage() { return m_image; }
 
 // 0x00487540
-int CFaceSkin::GetImageSize() { return kImageSize; }
+int CFaceSkin::FetchSkinResolution() { return kTexelEdge; }
 
 // 0x00487550
 SFaceAnchors* CFaceSkin::GetPoints(SFaceAnchors* out)
@@ -330,9 +330,9 @@ void CFaceSkin::LoadFromStructure(CStruct* params)
 // 0x00487680
 void CFaceSkin::SaveToStructure(CStruct* params)
 {
-    CArray* memory = Scripts::NewArray();
+    CArray* memory = Scripts::AllocScriptArray();
     CArray* image = memory ? memory->PrepareAll() : nullptr;
-    constexpr uint32_t kWords = kImageSize / 4;
+    constexpr uint32_t kWords = kTexelEdge / 4;
     image->ConfigureSizeKind(kWords, Scripts::QBVAL_NAME);
     auto* words = reinterpret_cast<uint32_t*>(m_image);
     for (uint32_t i = 0; i < kWords; ++i)

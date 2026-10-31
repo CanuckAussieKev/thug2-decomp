@@ -11,7 +11,7 @@ namespace NetLink {
 
 class HostEnd : public AppHost {
 public:
-    // 0x0045B830: the App (0x004594C0, with `flags`), then the App's task (TaskList::Task, priority -2000).
+    // 0x0045B830: the App (0x004594C0, with `flags`), then the App's task (Scheduling::Task, priority -2000).
     HostEnd* MakeNew(int flags);
 
     // 0x0045B7A0: the App's Init, then handlers for connection requests, timestamps and disconnection requests.

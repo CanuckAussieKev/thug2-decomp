@@ -204,7 +204,7 @@ void SetEmitter(State* state, const EmitterSound& emitter)
         return;
     }
     EmitterSound e = emitter;
-    e.volume = std::clamp(e.volume, kMinVolume, kMaxVolume);
+    e.volume = std::clamp(e.volume, kMinVolume, kLoudest);
     if (e.radius > 0.0f)
         e.radius = std::clamp(e.radius, kMinRadius, kRadiusCeiling);
     else
@@ -316,7 +316,7 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
             if (!ParseHex(value, &e.sound))
                 return false;
         } else if (key == "vol") {
-            if (!ParseNumber(value, &e.volume) || e.volume < kMinVolume || e.volume > kMaxVolume)
+            if (!ParseNumber(value, &e.volume) || e.volume < kMinVolume || e.volume > kLoudest)
                 return false;
         } else if (key == "radius") {
             if (!ParseNumber(value, &e.radius) || (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
@@ -621,7 +621,7 @@ void ApplyRadius(const EmitterSound& e)
     if (GameObjects::EmitterNode* emitter = Emitter(e.name); emitter && emitter->m_form == GameObjects::EMITTER_SHAPE_SPHERE &&
                                                      emitter->m_radius != e.radius) {
         emitter->m_radius = e.radius;
-        emitter->m_radiusSquared = e.radius * e.radius;
+        emitter->m_reachSq = e.radius * e.radius;
     }
     if (Scripts::CStruct* node = LookUpNodeParams(e.name); node && !NodeCreate::IsAdded(e.name)) {
         float now = 0.0f;
@@ -716,7 +716,7 @@ void ScanBaked()
             e.sound = sound;
             float volume = 100.0f;
             if (s->FetchFloat(KEdVolume(), &volume, 0))
-                e.volume = std::clamp(volume, kMinVolume, kMaxVolume);
+                e.volume = std::clamp(volume, kMinVolume, kLoudest);
             g_baked.emitters.push_back(e);
         }
         float mph = 0.0f;

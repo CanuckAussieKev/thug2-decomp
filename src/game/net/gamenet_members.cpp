@@ -58,12 +58,12 @@ constexpr uint32_t kFlagsClient = 2;   // bit 1
 constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
 
-constexpr uint32_t kServerTask2 = 0xE8; // TaskList::SchedulerTask* (removed with the server)
+constexpr uint32_t kServerTask2 = 0xE8; // Scheduling::SchedulerTask* (removed with the server)
 constexpr uint32_t kInitialScores = 0x48; // int[8]: the starting points
 constexpr uint32_t kCrownStart = 0x68;  // int: the crown's
 constexpr uint32_t kShowMetrics = 0x45; // bool
 constexpr uint32_t kShowScores = 0x46;  // bool
-constexpr uint32_t kMetricsTask = 0xC4; // TaskList::SchedulerTask*
+constexpr uint32_t kMetricsTask = 0xC4; // Scheduling::SchedulerTask*
 
 // Checksums.
 constexpr uint32_t kKillTeamFlags = 0xEBB3642E;     // Kill_Team_Flags
@@ -118,7 +118,7 @@ bool TracksBestCombo() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules:
 bool IsElimiskate() { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::FinishRulesReached), GameMode()); }
 bool ModeIsTrue(uint32_t property) { return Call<bool>(CodeAddress(&GoalSystem::CMatchRules::IsTrue), GameMode(), property); }
 
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
 
 // The CFunction InSplitScreenGame (0x005A1180), called with no parameters.
 bool InSplitScreenGame() { return ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr) != 0; }
@@ -257,7 +257,7 @@ void Hub::DestroyServer()
         }
         net->ReleaseApp(m_host);
         m_hostAdmitJob->DropOut();
-        Prop<TaskList::SchedulerTask*>(this, kServerTask2)->DropOut();
+        Prop<Scheduling::SchedulerTask*>(this, kServerTask2)->DropOut();
         m_host = nullptr;
     }
     m_flagBits &= ~kFlagsServer;
@@ -392,13 +392,13 @@ void Hub::ChooseStartPoints()
 // 0x00535BC0
 void Hub::ToggleNetMetrics()
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     uint8_t& show = Prop<uint8_t>(this, kShowMetrics); // (a byte flipped by its bit 0, as in the original)
     show ^= 1;
     if (show)
-        tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, kMetricsTask));
+        tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kMetricsTask));
     else
-        Prop<TaskList::SchedulerTask*>(this, kMetricsTask)->DropOut();
+        Prop<Scheduling::SchedulerTask*>(this, kMetricsTask)->DropOut();
 }
 
 // 0x00535BF0

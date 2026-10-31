@@ -143,7 +143,7 @@ struct PlayerSlot {
     uint8_t lockedOut; // after joining: locked out until all of its buttons are up (counts buttons down)
 };
 constexpr int kMaxPlayers = 2;
-uint8_t s_playerCount = 0;
+uint8_t s_seatsInUse = 0;
 PlayerSlot s_players[kMaxPlayers] = {{nullptr, 0}, {nullptr, 0}};
 
 void AttachController(int index)
@@ -167,7 +167,7 @@ void AttachController(int index)
 
 void EnrollPlayer(SDL_GameController* controller)
 {
-    if (s_playerCount >= 2) {
+    if (s_seatsInUse >= 2) {
         DebugLog::Printf(StageMap::kInfo, "Already two players, not adding\n");
         return;
     }
@@ -178,11 +178,11 @@ void EnrollPlayer(SDL_GameController* controller)
         return;
     SDL_GameControllerSetPlayerIndex(controller, slot);
     s_players[slot].controller = controller;
-    if (s_playerCount > 0) {
+    if (s_seatsInUse > 0) {
         s_players[slot].lockedOut = 1;
         SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0x7FFF, 0x7FFF, 250);
     }
-    ++s_playerCount;
+    ++s_seatsInUse;
     DebugLog::Printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
 }
 
@@ -192,8 +192,8 @@ void PrunePlayers()
         if (s_players[i].controller && !SDL_GameControllerGetAttached(s_players[i].controller)) {
             DebugLog::Printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
             s_players[i].controller = nullptr;
-            --s_playerCount;
-            DebugLog::Printf(StageMap::kInfo, "Remaining players: %d\n", s_playerCount);
+            --s_seatsInUse;
+            DebugLog::Printf(StageMap::kInfo, "Remaining players: %d\n", s_seatsInUse);
         }
     }
 }
@@ -214,7 +214,7 @@ void DetachAnimDriver(SDL_GameController* controller)
     if (player != -1) {
         DebugLog::Printf(StageMap::kInfo, "Removed player %d\n", player + 1);
         s_players[player].controller = nullptr;
-        --s_playerCount;
+        --s_seatsInUse;
     }
     PrunePlayers();
     for (; i < s_controllerCount - 1; ++i)
@@ -244,7 +244,7 @@ uint8_t StickDeflection(uint8_t value)
     return ~value & 0x7F;
 }
 
-uint8_t ButtonDown(SDL_GameController* controller, PadButton button)
+uint8_t IsControllerButtonHeld(SDL_GameController* controller, PadButton button)
 {
     if (button == kLeftTrigger) {
         auto pressure = static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> 7);
@@ -322,51 +322,51 @@ void PollController(InputPort* device, SDL_GameController* controller)
     device->m_isUsable = 1;
     device->m_isConnected = true;
 
-    if (ButtonDown(controller, s_pad.menu))
+    if (IsControllerButtonHeld(controller, s_pad.menu))
         data[2] |= 1 << 3;
-    if (ButtonDown(controller, s_pad.cameraToggle))
+    if (IsControllerButtonHeld(controller, s_pad.cameraToggle))
         data[2] |= 1 << 0;
-    if (ButtonDown(controller, s_pad.cameraSwivelLock))
+    if (IsControllerButtonHeld(controller, s_pad.cameraSwivelLock))
         data[2] |= 1 << 2;
-    if (ButtonDown(controller, s_pad.focus))
+    if (IsControllerButtonHeld(controller, s_pad.focus))
         data[2] |= 1 << 1;
 
-    if (ButtonDown(controller, s_pad.grind)) {
+    if (IsControllerButtonHeld(controller, s_pad.grind)) {
         data[3] |= 1 << 4;
         data[12] = 0xFF;
     }
-    if (ButtonDown(controller, s_pad.grab)) {
+    if (IsControllerButtonHeld(controller, s_pad.grab)) {
         data[3] |= 1 << 5;
         data[13] = 0xFF;
     }
-    if (ButtonDown(controller, s_pad.ollie)) {
+    if (IsControllerButtonHeld(controller, s_pad.ollie)) {
         data[3] |= 1 << 6;
         data[14] = 0xFF;
     }
-    if (ButtonDown(controller, s_pad.kick)) {
+    if (IsControllerButtonHeld(controller, s_pad.kick)) {
         data[3] |= 1 << 7;
         data[15] = 0xFF;
     }
 
     // the shoulders
     if (s_settings.ps2Controls) {
-        if (ButtonDown(controller, s_pad.leftSpin)) {
+        if (IsControllerButtonHeld(controller, s_pad.leftSpin)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
         }
-        if (ButtonDown(controller, s_pad.rightSpin)) {
+        if (IsControllerButtonHeld(controller, s_pad.rightSpin)) {
             data[3] |= 1 << 3;
             data[17] = 0xFF;
             if (s_editingPark)
                 data[20] |= 1 << 0; // black, editing a park
         }
-        if (ButtonDown(controller, s_pad.nollie)) {
+        if (IsControllerButtonHeld(controller, s_pad.nollie)) {
             data[3] |= 1 << 0;
             data[18] = 0xFF;
             if (s_inMenu)
                 data[20] |= 1 << 1; // white, in a menu
         }
-        if (ButtonDown(controller, s_pad.switchRevert)) {
+        if (IsControllerButtonHeld(controller, s_pad.switchRevert)) {
             data[3] |= 1 << 1;
             data[19] = 0xFF;
             if (s_inMenu)
@@ -376,37 +376,37 @@ void PollController(InputPort* device, SDL_GameController* controller)
         }
     } else if (s_editingPark && !KeyboardOnScreen()) {
         // editing a park: the right trigger is L1
-        if (ButtonDown(controller, s_pad.switchRevert)) {
+        if (IsControllerButtonHeld(controller, s_pad.switchRevert)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
         }
-        if (ButtonDown(controller, s_pad.nollie)) {
+        if (IsControllerButtonHeld(controller, s_pad.nollie)) {
             data[3] |= 1 << 0;
             data[18] = 0xFF;
         }
-        if (ButtonDown(controller, s_pad.leftSpin))
+        if (IsControllerButtonHeld(controller, s_pad.leftSpin))
             data[20] |= 1 << 1;
-        if (ButtonDown(controller, s_pad.rightSpin))
+        if (IsControllerButtonHeld(controller, s_pad.rightSpin))
             data[20] |= 1 << 0;
     } else {
-        if (ButtonDown(controller, s_pad.nollie)) {
+        if (IsControllerButtonHeld(controller, s_pad.nollie)) {
             data[3] |= 1 << 2;
             data[16] = 0xFF;
             data[3] |= 1 << 0;
             data[18] = 0xFF;
         }
-        if (ButtonDown(controller, s_pad.switchRevert)) {
+        if (IsControllerButtonHeld(controller, s_pad.switchRevert)) {
             data[3] |= 1 << 3;
             data[17] = 0xFF;
             data[3] |= 1 << 1;
             data[19] = 0xFF;
         }
-        if (ButtonDown(controller, s_pad.leftSpin))
+        if (IsControllerButtonHeld(controller, s_pad.leftSpin))
             data[20] |= 1 << 1;
-        if (ButtonDown(controller, s_pad.rightSpin))
+        if (IsControllerButtonHeld(controller, s_pad.rightSpin))
             data[20] |= 1 << 0;
     }
-    if (ButtonDown(controller, s_pad.caveman))
+    if (IsControllerButtonHeld(controller, s_pad.caveman))
         PressCaveman(data);
 
     // the d-pad (plain buttons: not the triggers)

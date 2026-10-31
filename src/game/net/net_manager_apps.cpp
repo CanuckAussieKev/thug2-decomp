@@ -89,7 +89,7 @@ Hub* Hub::MakeNew()
     m_lastError = 0;
     m_dialupPhase = 5;
     m_unknown2EC = 0;
-    for (char* server : m_dnsServers)
+    for (char* server : m_resolverIps)
         server[0] = '\0';
     m_dialupNumberIndex = 0;
     m_linkSpeed = 400000;
@@ -116,7 +116,7 @@ HostEnd* Hub::MakeServerApp(int id, const char* name, int maxClients, uint16_t p
     InitApp(server);
     server->m_unknown1EB4 = static_cast<uint32_t>(id);
     CopyName(server->m_label, name);
-    server->m_maxConnections = maxClients;
+    server->m_peerCap = maxClients;
     AppendLast(&m_hosts, &server->m_list1414);
     if (server->IsHostLocal()) {
         server->m_linkedUp = true;
@@ -147,7 +147,7 @@ Guest* Hub::MakeClientApp(int id, const char* name, uint16_t port, int address, 
     client->m_supervisor = this;
     InitApp(client);
     client->m_unknown1EB4 = static_cast<uint32_t>(id);
-    client->m_maxConnections = kClientMaxConnections;
+    client->m_peerCap = kClientMaxConnections;
     AppendLast(&m_clients, &client->m_list1414);
     if (!client->IsHostLocal())
         client->Bind(static_cast<uint32_t>(address), port);

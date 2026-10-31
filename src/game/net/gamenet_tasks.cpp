@@ -1,4 +1,4 @@
-// The network manager's tasks (TaskList::Task<OnlinePlay::Hub>: the manager at the task's +0x1C) and its GameSpy query
+// The network manager's tasks (Scheduling::Task<OnlinePlay::Hub>: the manager at the task's +0x1C) and its GameSpy query
 // callbacks. See gamenet_handlers.h.
 
 #include <cstdint>
@@ -108,7 +108,7 @@ void __cdecl LevelChangeTask(void* task)
         AsPlayer(king)->GiveCrown(false);
     for (uint8_t* p = StartRosterSweep(manager, &search, true); p; p = StepRosterSweep(manager, &search, true))
         AsPlayer(p)->ClearFlags(); // carries no flag
-    Prop<TaskList::SchedulerTask*>(manager, 0xEC)->DropOut();
+    Prop<Scheduling::SchedulerTask*>(manager, 0xEC)->DropOut();
 }
 
 uint32_t g_modemDialogEnd;

@@ -27,7 +27,7 @@ class CPreviewEntity;
 
 // PadInput::Responder<CPreviewEntity> (0x2C bytes, vtable 0x0064D7D8 - the template's, like GameModules::ViewerInputHandler).
 // The node is a task's (0x00406890, priority 0), on the controller's stack of handler lists.
-struct ViewerObjectInputHandler : TaskList::SchedulerTask {
+struct ViewerObjectInputHandler : Scheduling::SchedulerTask {
     PadInput::Payload* m_controlData;        // +0x18: the controller's data this frame
     uint8_t* m_dev;               // +0x1C
     int m_ordinal;                     // +0x20: the controller (0)

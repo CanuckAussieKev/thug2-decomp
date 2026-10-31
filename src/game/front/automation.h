@@ -149,9 +149,9 @@ struct OrderCode {
     std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 
-enum class ParseResult { OrderCode, Vacant, Error };
+enum class CommandLineOutcome { OrderCode, Vacant, Error };
 // One line of the command file. Empty: a blank line or a comment.
-ParseResult ParseCommand(const std::string& line, OrderCode* out, std::string* error);
+CommandLineOutcome ParseCommand(const std::string& line, OrderCode* out, std::string* error);
 
 // A pad button: its bit in the control data's button bytes (2 or 3) and its pressure byte (0: none).
 struct Button {

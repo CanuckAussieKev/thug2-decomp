@@ -57,7 +57,7 @@ CRider* RiderForSlot(uint32_t id)
     return GameModules::Skate::Sole()->GetRiderByNumber(id);
 }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
-void* LocalPlayer() { return NetSessionSlot()->GetOwnPlayer(); }
+void* FindOwnPlayerRecord() { return NetSessionSlot()->GetOwnPlayer(); }
 uint8_t RunCount() { return NetSessionSlot()->GetGameId(); }
 
 template <typename T>
@@ -109,7 +109,7 @@ static void ReadUpdateState(CRiderHostSync* self, CObjectModule* component6C, Up
 }
 
 // 0x00512EA0
-uint32_t CRiderHostSync::GetUpdateFlags()
+uint32_t CRiderHostSync::FetchSyncFieldMask()
 {
     uint32_t flags = 0;
     NetLink::AppHost* app = ClientApp(Prop<int>(m_entity, 0x2BC));
@@ -155,16 +155,16 @@ void CRiderHostSync::SendUpdate()
         search.m_vtable = NetLink::kConnSearchVtable;
         search.m_listLink = nullptr;
         NetLink::Conn* conn = app->BeginConnWalk(&search);
-        if (app->m_clock - m_lastSendTime < conn->GetTransmitPeriod())
+        if (app->m_clock - m_lastTransmitAt < conn->GetTransmitPeriod())
             return;
     }
-    m_lastSendTime = app->m_clock;
+    m_lastTransmitAt = app->m_clock;
     uint8_t buffer[0x400];
     stream.BindOutputBuffer(buffer, 0x400);
     UpdateState now;
     ReadUpdateState(this, component6C, now);
     stream.WriteBits(app->m_clock, 32);
-    uint32_t flags = GetUpdateFlags();
+    uint32_t flags = FetchSyncFieldMask();
     stream.WriteBits(flags, 9);
     if (onServer) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
@@ -232,7 +232,7 @@ CObjectModule* __cdecl CRiderHostSync::Fabricate()
     component->m_sentValue6C = 0;
     component->m_core = nullptr;
     component->m_board = nullptr;
-    component->m_lastSendTime = 0;
+    component->m_lastTransmitAt = 0;
     component->m_sentValue7C = 0xFF;
     component->m_kindTag = kSkaterLocalNetLogic;
     component->m_sentControls = 0;
@@ -268,7 +268,7 @@ void CRiderHostSync::Seal()
 // 0x005136C0
 void CRiderHostSync::TickFrame()
 {
-    if (IsVersusSession() && LocalPlayer())
+    if (IsVersusSession() && FindOwnPlayerRecord())
         SendUpdate();
 }
 

@@ -44,7 +44,7 @@ void ConstructAppTask(AppHost* app)
 {
     void* task = MemSys::AllocZeroed(kTaskSize);
     if (task) {
-        static_cast<TaskList::SchedulerTask*>(task)->MakeNew(kAppTaskPriority); // (TaskList::Task's base)
+        static_cast<Scheduling::SchedulerTask*>(task)->MakeNew(kAppTaskPriority); // (Scheduling::Task's base)
         Prop<AppHost*>(task, 0x1C) = app;
         Prop<void**>(task, 0x0) = GameCode::kTaskVtable;
         Prop<void*>(task, 0x18) = reinterpret_cast<void*>(&AppHost::FlushOutgoingTraffic);
@@ -100,7 +100,7 @@ bool Guest::PrepareAll()
 // 0x00459F40
 bool Guest::DialServer(uint32_t ip, uint16_t port)
 {
-    auto& address = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
+    auto& address = *reinterpret_cast<sockaddr_in*>(m_hostSockAddr);
     std::memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
@@ -153,7 +153,7 @@ void Guest::PullInbound()
         }
         m_inboundByteTotal += received;
         int size = (m_flagBits & kAppSecure) ? received - 2 : received;
-        auto& server = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
+        auto& server = *reinterpret_cast<sockaddr_in*>(m_hostSockAddr);
         if (Conn* conn = NetLink::FindConnAtAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& readPtr = conn->m_readPtr;
             if (readPtr + size < conn->m_readBuffer + kConnReceiveBufferSize) {
@@ -204,17 +204,17 @@ void Guest::Transmit(Conn* conn)
             desc.m_content = &timestamp;
             desc.m_byteCount = sizeof(timestamp);
             desc.m_ident = kMsgClockStamp;
-            desc.m_rank = kHighestPriority;
+            desc.m_rank = kTopRank;
             NetLink::PutOnOutbox(this, conn->m_hdl, &desc);
         }
         if (IsOffMachine(conn) && !IsOutsider(conn) && (m_flagBits & kAppMeasureLatency)) {
             NetMessageInfo desc;
             ConstructMsgDesc(&desc);
-            uint32_t& sent = conn->m_pingProbe.m_sendTime;
+            uint32_t& sent = conn->m_pingProbe.m_probeSentAt;
             uint32_t now = Timestamp(this);
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
-                if (sent > conn->m_pingProbe.m_receiveTime) {
+                if (sent > conn->m_pingProbe.m_echoSeenAt) {
                     uint32_t latency = (NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_pingProbe.m_averageLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
@@ -238,23 +238,23 @@ void Guest::Transmit(Conn* conn)
         if (!BundleMessages(conn, kLanePriority, false))
             done = true;
         char*& writePtr = conn->m_writePtr;
-        int size = static_cast<int>(writePtr - conn->m_writeBuffer);
+        int size = static_cast<int>(writePtr - conn->m_outgoingBytes);
         if (size > 0 && IsOffMachine(conn)) {
-            char* packet = conn->m_writeBuffer;
+            char* packet = conn->m_outgoingBytes;
             bool sent = m_linkedUp
                             ? NetLink::PostOut(this, packet, size, 0)
                             : NetLink::TransmitTo(this, conn->m_remoteIp, conn->m_portNo,
                                      packet, size, 0);
             if (!sent) {
                 MarkMessagesForRetry(conn, conn->m_timestampOut);
-                writePtr = conn->m_writeBuffer;
+                writePtr = conn->m_outgoingBytes;
                 return;
             }
             m_outboundByteTotal += size;
             AddPacketMetric(&conn->m_sendMetrics, size + 0x1C, Timestamp(this));
-            conn->m_lastSendTime = Timestamp(this);
+            conn->m_lastTransmitAt = Timestamp(this);
             ForceSendNow(conn, false);
-            writePtr = conn->m_writeBuffer;
+            writePtr = conn->m_outgoingBytes;
         }
         ++conn->m_timestampOut;
     } while (!done);
@@ -300,7 +300,7 @@ int Guest::OnClockSyncMsg(InboundMsgCtx* context)
     } else {
         uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
-            context->m_receiverApp->m_lostPackets += gap - 1;
+            context->m_receiverApp->m_skippedStamps += gap - 1;
             context->m_senderConn->m_lastTimestampIn = *stamp;
             return kResultPassOn;
         }
@@ -309,7 +309,7 @@ int Guest::OnClockSyncMsg(InboundMsgCtx* context)
     if (late) {
         // it was counted as lost when a newer one came
         ++context->m_receiverApp->m_staleArrivals;
-        --context->m_receiverApp->m_lostPackets;
+        --context->m_receiverApp->m_skippedStamps;
         context->m_wireOptions |= kPacketLate;
         return kResultPassOn;
     }

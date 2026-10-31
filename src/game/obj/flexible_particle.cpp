@@ -157,7 +157,7 @@ void IdleSystem(Engine3D::CEmitterInstance* system)
 // 0x00497AB0: the matrix of the system's rotation, into `out` (returned).
 Maths::Mat4* SystemRotation(Engine3D::CEmitterInstance* system, Maths::Mat4* out)
 {
-    return system->GetRotationMatrix(out);
+    return system->BuildEmitterOrientation(out);
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).

@@ -32,7 +32,7 @@ bool __cdecl CFunc_IsPS2(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 
 void InstallIsPS2()
 {
-    if (Scripts::CFunctionEntry* entry = Scripts::FindCFunction("IsPS2"))
+    if (Scripts::CNativeCommand* entry = Scripts::FindCFunction("IsPS2"))
         Scripts::BindNativeCommand(*entry, reinterpret_cast<void*>(&CFunc_IsPS2));
 }
 

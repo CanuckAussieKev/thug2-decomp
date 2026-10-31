@@ -229,7 +229,7 @@ bool ProximNode::IsWithin(const Maths::Vec4* point)
         // (summed unrounded, z first, as the original)
         double distance = static_cast<double>(offset.z) * offset.z + static_cast<double>(offset.y) * offset.y;
         distance += static_cast<double>(offset.x) * offset.x;
-        return distance <= m_radiusSquared;
+        return distance <= m_reachSq;
     }
     case PROXIM_SHAPE_BOX:
         return m_box.ContainsPoint(*point) != 0;
@@ -315,7 +315,7 @@ void NearbyZone_AddNode(uint32_t name, bool active)
             node->m_kindTag = type == 0xC4E311FA ? 1 : 0;
     }
     params->FetchFloat(kRadius, &node->m_radius, 0);
-    node->m_radiusSquared = node->m_radius * node->m_radius;
+    node->m_reachSq = node->m_radius * node->m_radius;
     params->ReadHashValue(kScript, &node->m_ownScript, 0);
     node->m_entityKey = 0;
     node->m_entities = 0;

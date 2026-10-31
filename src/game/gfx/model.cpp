@@ -47,10 +47,10 @@ Maths::Vec4* CRenderModel::PlatGetBoundingSphere(Maths::Vec4* out)
 // 0x00492DD0
 bool CRenderModel::ChooseRig(uint8_t* skeleton)
 {
-    if (!m_boneMatrices) {
+    if (!m_skinPalette) {
         m_boneTotal = SkeletonBoneCount(skeleton);
         ModelVirtual<bool>(this, 1, SkeletonBoneCount(skeleton));
-        m_boneMatrices = SkeletonBones(skeleton);
+        m_skinPalette = SkeletonBones(skeleton);
     }
     return true;
 }
@@ -70,14 +70,14 @@ bool CRenderModel::SetDisplayMode(int mode)
 int CRenderModel::FetchGeomTotal() { return m_geomTotal; }
 
 // 0x00492E50
-uint8_t* CRenderModel::GetBoneMatrices() { return m_boneMatrices; }
+uint8_t* CRenderModel::FetchSkinningPalette() { return m_skinPalette; }
 
 // 0x00493460
-void CRenderModel::SetBoneMatrices(uint8_t* matrices)
+void CRenderModel::UploadSkinningPalette(uint8_t* matrices)
 {
-    m_boneMatrices = matrices;
+    m_skinPalette = matrices;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
-        SetGeomBones(Geom(node), m_boneMatrices, m_boneTotal);
+        SetGeomBones(Geom(node), m_skinPalette, m_boneTotal);
 }
 
 // 0x00492E60

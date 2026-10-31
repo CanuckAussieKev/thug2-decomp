@@ -80,14 +80,14 @@ void UploadVertices(Engine3D::sVertexBuffer* buffer)
     buffer->lockFlags = 0;
     buffer->Unlock();
 }
-Engine3D::sIndexBuffer* NewIndexBuffer(uint32_t bytes)
+Engine3D::sIdxStore* NewIndexBuffer(uint32_t bytes)
 {
     void* memory = Crt::AllocBlock(0x18);
     if (!memory)
         return nullptr;
-    return static_cast<Engine3D::sIndexBuffer*>(memory)->MakeNew(bytes, 0, 0x65);
+    return static_cast<Engine3D::sIdxStore*>(memory)->MakeNew(bytes, 0, 0x65);
 }
-void UploadIndices(Engine3D::sIndexBuffer* buffer)
+void UploadIndices(Engine3D::sIdxStore* buffer)
 {
     auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer);
     void* locked = nullptr;
@@ -204,7 +204,7 @@ bool EmitOut(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* w
     for (int k = 0; k < 8; ++k) {
         if (k > 0 && !first->indexCounts[k])
             continue;
-        Engine3D::sIndexBuffer* buffer = NewIndexBuffer(static_cast<uint32_t>(strip.size() * 2));
+        Engine3D::sIdxStore* buffer = NewIndexBuffer(static_cast<uint32_t>(strip.size() * 2));
         if (!buffer || !buffer->indices) {
             *why = "no index buffer";
             return false;
@@ -231,7 +231,7 @@ bool EmitOut(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* w
         if (!other)
             continue;
         for (int k = 0; k < 8; ++k) {
-            Engine3D::sIndexBuffer* buffer = other->indexBuffers[k];
+            Engine3D::sIdxStore* buffer = other->indexBuffers[k];
             if (!other->indexCounts[k] || !buffer || !buffer->indices)
                 continue;
             if (std::any_of(buffer->indices, buffer->indices + other->indexCounts[k], [](uint16_t v) { return v != 0; })) {
@@ -280,7 +280,7 @@ bool EmitOut(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* w
     tri->m_faces = faceData;
     tri->m_vertexBytes = bytes;
     tri->m_numVertices = static_cast<uint16_t>(count);
-    tri->m_numFaces = static_cast<uint16_t>(faces);
+    tri->m_triCount = static_cast<uint16_t>(faces);
     tri->m_smallFaces = false;
     tri->m_compressed = false;
     tri->m_lowerLimit.x = mesh.min.x, tri->m_lowerLimit.y = mesh.min.y, tri->m_lowerLimit.z = mesh.min.z;
@@ -422,7 +422,7 @@ const char* WhyNotDonor(uint32_t checksum)
                                     *reinterpret_cast<const uint32_t*>(first->material + 0x80)))
         return "a see-through material";
     Engine3D::CStaticCollider* coll = StaticOf(sector);
-    if (!coll || !coll->m_geometry || !coll->m_geometry->m_numFaces)
+    if (!coll || !coll->m_geometry || !coll->m_geometry->m_triCount)
         return "no collision";
     return nullptr;
 }
@@ -483,7 +483,7 @@ bool ChooseMaterial(uint32_t wanted, Spec* spec, std::string* why)
             colour |= static_cast<uint32_t>(sum[k] / mesh->vertexCount + 0.5) << (8 * k);
         spec->colour = colour;
     }
-    Engine3D::sIndexBuffer* indices = mesh->indexBuffers[0];
+    Engine3D::sIdxStore* indices = mesh->indexBuffers[0];
     if (indices && indices->indices && mesh->indexCounts[0] >= 3) {
         double world = 0.0, texture = 0.0;
         for (uint32_t i = 0; i + 1 < mesh->indexCounts[0]; ++i) {
@@ -507,7 +507,7 @@ bool ChooseMaterial(uint32_t wanted, Spec* spec, std::string* why)
     }
     const Engine3D::CTriMeshSource* tri = StaticOf(sector)->m_geometry;
     std::map<uint16_t, int> terrains;
-    for (int f = 0; f < tri->m_numFaces && tri->m_faces; ++f)
+    for (int f = 0; f < tri->m_triCount && tri->m_faces; ++f)
         ++terrains[reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10))[1]];
     int most = -1;
     for (const auto& t : terrains) {
@@ -542,7 +542,7 @@ bool FindPitTiles(Spec* spec, std::string* why)
                 tri->m_upperLimit.y < s.base - 40.0f || tri->m_lowerLimit.y > s.base + 40.0f)
                 return;
             bool ground = false;
-            int faces = std::min<int>(tri->m_numFaces, 60000);
+            int faces = std::min<int>(tri->m_triCount, 60000);
             for (int f = 0; f < faces && !ground; ++f) {
                 uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
                 if (flags & 0x10)

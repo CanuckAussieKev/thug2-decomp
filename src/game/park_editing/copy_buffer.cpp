@@ -214,7 +214,7 @@ void CClipboardEntry::ShowPreview(uint8_t centreX, int /*height*/, uint8_t centr
     // The middle of its cells from the copy's centre (in the world's units), turned by `angle`.
     const int dx = m_posX - centreX;
     const int dz = m_depthCell - centreZ;
-    const float x = static_cast<float>(((m_w - 1) * 0.5 + dx) * kCellWidth);
+    const float x = static_cast<float>(((m_w - 1) * 0.5 + dx) * kGridPitch);
     const double z = ((m_l - 1) * 0.5 + dz) * kGridStepAlong;
     const double radians = static_cast<double>(angle) * kRadiansPerDegree;
     const float sine = static_cast<float>(X87::Sin(radians));

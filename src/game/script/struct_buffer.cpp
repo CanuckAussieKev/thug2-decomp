@@ -465,7 +465,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
             break;
         }
         case QBVAL_ARRAY: {
-            CArray* inner = NewArray();
+            CArray* inner = AllocScriptArray();
             if (inner)
                 inner->PrepareAll();
             p = ReadArrayFromBuffer(inner, p);
@@ -547,7 +547,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         break;
     case QBVAL_VECTOR:
         for (uint32_t i = 0; i < count; ++i) {
-            CVector* vector = NewVector();
+            CVector* vector = AllocScriptVector();
             if (vector)
                 vector->PrepareAll();
             vector->x = BitsFloat(FetchWord32(p));
@@ -568,7 +568,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         break;
     case QBVAL_ARRAY:
         for (uint32_t i = 0; i < count; ++i) {
-            CArray* inner = NewArray();
+            CArray* inner = AllocScriptArray();
             if (inner)
                 inner->PrepareAll();
             p = ReadArrayFromBuffer(inner, p);

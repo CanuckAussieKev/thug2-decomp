@@ -14,7 +14,7 @@ namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 }
 
@@ -95,7 +95,7 @@ public:
     // 0x0053F6C0 (an app's foreign packet): qr2 queries ("\" or FE FD) and NAT negotiation packets (FD FC 1E 66 6A
     // B2...) copied into the queue (at most 199) for the query task.
     static void __cdecl QueuePacket(char* data, int length, const void* from);
-    // Tasks (TaskList::Task code: the task's +0x1C is the lobby).
+    // Tasks (Scheduling::Task code: the task's +0x1C is the lobby).
     // 0x00540040 (+0x148): the peer thinks while connected; a lost connection reported (lost_connection_to_gamespy).
     static void __cdecl ThinkTask(void* task);
     // 0x005400B0 (+0x14C): NAT negotiation thinks (the internet's bottom-up heap).
@@ -127,7 +127,7 @@ public:
     void DestroyBody();
 
     // --- rooms.cpp (0x00541870-0x00543010) ---
-    // 0x00541870: the empty lobby and player lists, no peer, its three tasks (TaskList::Task<RoomManager>, priority 0:
+    // 0x00541870: the empty lobby and player lists, no peer, its three tasks (Scheduling::Task<RoomManager>, priority 0:
     // 0x00540040, 0x005400B0, 0x005400E0) and the server-browsing keys registered with GameSpy's qr2 (0x005FF660:
     // 0x33 numobservers, 0x34 maxobservers, 0x35 skilllevel, 0x36 started, 0x37 hostmode, 0x38 ranked, 0x39 rating_).
     RoomManager* MakeNew();
@@ -207,9 +207,9 @@ public:
     int m_negotiations;           // +0x13C NAT negotiations going on (the server's)
     void* m_remote;                 // +0x140
     int m_natCookie;              // +0x144 (a client's)
-    TaskList::SchedulerTask* m_thinkTask;   // +0x148 ThinkTask
-    TaskList::SchedulerTask* m_natTask;     // +0x14C NatNegotiationTask
-    TaskList::SchedulerTask* m_hostingTask; // +0x150 QueryTask
+    Scheduling::SchedulerTask* m_thinkTask;   // +0x148 ThinkTask
+    Scheduling::SchedulerTask* m_natTask;     // +0x14C NatNegotiationTask
+    Scheduling::SchedulerTask* m_hostingTask; // +0x150 QueryTask
 };
 static_assert(offsetof(RoomManager, m_groupId) == 0x28 && offsetof(RoomManager, m_participants) == 0x14 && offsetof(RoomManager, m_roomName) == 0x34 &&
                   offsetof(RoomManager, m_serverName) == 0xB4 && offsetof(RoomManager, m_inGroupRoom) == 0x134 &&
@@ -273,9 +273,9 @@ struct LobbyListNode : MemSys::ListNode {
     LobbyListNode* Teardown(unsigned int flags); // 0x005408C0
 };
 
-// TaskList::Task<T>'s scalar deleting destructor (vtable 0x006476F0 slot 2, 0x005407B0: its destructor, then freed).
+// Scheduling::Task<T>'s scalar deleting destructor (vtable 0x006476F0 slot 2, 0x005407B0: its destructor, then freed).
 struct TaskDeleter {
-    TaskList::SchedulerTask* Teardown(unsigned int flags); // 0x005407B0
+    Scheduling::SchedulerTask* Teardown(unsigned int flags); // 0x005407B0
 };
 
 // 0x00540E00 (SendMessage text=): to the lobby's group room - or, with system_message, "<System> <text>" to the

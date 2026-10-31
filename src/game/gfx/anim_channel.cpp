@@ -134,7 +134,7 @@ GameObjects::CGameEntity* Owner(CBlendChannel* channel) { return reinterpret_cas
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
 OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
-OnlinePlay::PlayerRecord* LocalPlayer(uint32_t objectId)
+OnlinePlay::PlayerRecord* FindOwnPlayerRecord(uint32_t objectId)
 {
     auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(objectId)));
     if (!player || !player->IsOwnPlayer())
@@ -291,7 +291,7 @@ void CBlendChannel::Reset()
             script->StopWaiting();
     }
     m_waitTime = 0.0f;
-    m_firstTime = 0.0f;
+    m_prevTimelinePos = 0.0f;
     m_flag4E = false;
 }
 
@@ -317,7 +317,7 @@ bool CBlendChannel::TickFrame(int index, bool blend)
 // 0x0047EF60
 void CBlendChannel::ReleaseWaitingScript(Scripts::CScript* script)
 {
-    if (script->m_waitType != 6)
+    if (script->m_suspendReason != 6)
         return;
     if (CAnimTrack* first = First(this)) {
         if (first->IsAccomplished())
@@ -329,7 +329,7 @@ void CBlendChannel::ReleaseWaitingScript(Scripts::CScript* script)
 void CBlendChannel::UpdateBlend()
 {
     if (CAnimTrack* first = First(this))
-        m_firstTime = first->m_ongoing;
+        m_prevTimelinePos = first->m_ongoing;
     if (m_periodLeft > 0.0f) {
         double left = m_periodLeft - FrameClock::GetSlomoFrameSeconds();
         m_periodLeft = static_cast<float>(left);
@@ -491,7 +491,7 @@ void CBlendChannel::FetchPose(int index, void* pose, float* weight)
 bool CBlendChannel::SetFlipped(uint32_t objectId, bool flip, uint32_t /*unused*/, bool send)
 {
     if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = LocalPlayer(objectId)) {
+        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(objectId)) {
             NetLink::NetMessageInfo message;
             message.MakeNew();
             NetLink::Guest* app = ClientOf(player);
@@ -574,7 +574,7 @@ bool CBlendChannel::IsAnimOneOf(CStruct* params, Scripts::CScript* /*script*/)
 void CBlendChannel::ChooseWobbleGoal(float target, bool send)
 {
     if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = LocalPlayer(Owner(this)->m_ident)) {
+        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
             NetLink::Guest* app = ClientOf(player);
             if (target < 0.0f)
                 target = 0.0f;
@@ -603,7 +603,7 @@ void CBlendChannel::ChooseWobbleGoal(float target, bool send)
 void CBlendChannel::SetWobbleDetails(const float* details, bool send)
 {
     if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = LocalPlayer(Owner(this)->m_ident)) {
+        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
             NetLink::Guest* app = ClientOf(player);
             // Which of its known values each detail has (0x00645D6C... - the server sends those).
             uint8_t bits = 0;
@@ -644,7 +644,7 @@ void CBlendChannel::SetWobbleDetails(const float* details, bool send)
 void CBlendChannel::ChangeRepeatMode(int loopType, bool send)
 {
     if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = LocalPlayer(Owner(this)->m_ident)) {
+        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
             NetLink::Guest* app = ClientOf(player);
             uint8_t data[2] = {static_cast<uint8_t>(Owner(this)->m_ident), static_cast<uint8_t>(loopType)};
             if (LastLoopType() != loopType) {
@@ -675,7 +675,7 @@ void CBlendChannel::SetSpeed(float speed, bool send, bool all, bool keepRatio)
     if (!all && std::abs(static_cast<double>(first->m_speed) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
         return;
     if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = LocalPlayer(Owner(this)->m_ident)) {
+        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
             if (NetLink::Guest* app = ClientOf(player)) {
                 NetLink::NetMessageInfo message;
                 message.MakeNew();
@@ -783,7 +783,7 @@ void CBlendChannel::PlayAnim(uint32_t anim, bool send, float from, float to, int
     if (!anim)
         anim = kDefault;
     if (send && m_ident == 0) {
-        if (OnlinePlay::PlayerRecord* player = LocalPlayer(Owner(this)->m_ident)) {
+        if (OnlinePlay::PlayerRecord* player = FindOwnPlayerRecord(Owner(this)->m_ident)) {
             NetLink::NetMessageInfo message;
             message.MakeNew();
             NetLink::Guest* app = ClientOf(player);
@@ -846,7 +846,7 @@ void CBlendChannel::ConfigureFromData(CStruct* params)
 uint32_t CBlendChannel::PlayAnimFromScript(CStruct* params, Scripts::CScript* script, float blendPeriod)
 {
     if (CAnimTrack* first = First(this))
-        m_firstTime = first->m_ongoing;
+        m_prevTimelinePos = first->m_ongoing;
     if (m_flag4E) {
         CAnimTrack* first = First(this);
         if (!first || !first->IsAccomplished())
@@ -1144,7 +1144,7 @@ int CBlendChannel::TimePassed(CStruct* params)
     params->FetchFloat(0u, &time, 0);
     time = time * kSecondsPerFrame;
     float now = static_cast<float>(static_cast<double>(current) - start);
-    float before = static_cast<float>(static_cast<double>(m_firstTime) - start);
+    float before = static_cast<float>(static_cast<double>(m_prevTimelinePos) - start);
     if (now == time)
         return 1;
     if (before < time && time < now)

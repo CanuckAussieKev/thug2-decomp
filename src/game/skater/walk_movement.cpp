@@ -264,7 +264,7 @@ void CFootMovement::UpdateControl()
     // The camera's flat forward (its at-row backwards), turned by the stick's angle - straight ahead within
     // forward_tolerance degrees.
     const Maths::Vec4& at = At<CGameEntity*>(this, kCamera)->m_basisFrame.row[2];
-    auto* pad = reinterpret_cast<CPadState*>(At<uint8_t*>(this, kInput) + 0x20);
+    auto* pad = reinterpret_cast<CPadSnapshot*>(At<uint8_t*>(this, kInput) + 0x20);
     float forwardX = -at.x;
     float forwardZ = -at.z;
     double length = X87::Sqrt(static_cast<double>(forwardZ) * forwardZ + static_cast<double>(forwardX) * forwardX);

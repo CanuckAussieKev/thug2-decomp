@@ -116,7 +116,7 @@ bool UsesObject(const CScript* script, GameObjects::CEntity* object)
     if (script->m_entity.Pull() == object)
         return true;
     for (int i = 0; i < script->m_callDepth; ++i) {
-        if (script->m_returnAddresses[i].m_ownerEntity == object)
+        if (script->m_frameRecords[i].m_ownerEntity == object)
             return true;
     }
     return false;

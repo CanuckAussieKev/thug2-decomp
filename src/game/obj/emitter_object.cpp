@@ -72,7 +72,7 @@ bool EmitterNode::IsWithin(const Maths::Vec4* point)
         // (summed unrounded: z, x, then y)
         double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
         distance += static_cast<double>(dy) * dy;
-        return distance <= m_radiusSquared;
+        return distance <= m_reachSq;
     }
     default:
         return false;
@@ -176,7 +176,7 @@ void Emitter_AddNode(uint32_t name, bool active)
         node->m_box = *SectorBox(node->m_sector);
     LevelNodes::FetchPlace(params, &node->m_atPoint);
     params->FetchFloat(kRadius, &node->m_radius, 0);
-    node->m_radiusSquared = node->m_radius * node->m_radius;
+    node->m_reachSq = node->m_radius * node->m_radius;
     params->ReadHashValue(kScript, &node->m_ownScript, 0);
 }
 

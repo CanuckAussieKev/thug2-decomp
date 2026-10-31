@@ -340,7 +340,7 @@ int InvokeMethodByName(void* core, uint32_t name, Scripts::CStruct* params, Scri
 
 void RegisterScriptFunctions()
 {
-    static const Scripts::CFunctionEntry functions[] = {
+    static const Scripts::CNativeCommand functions[] = {
         {"ThawBmx_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"ThawBmx_LoadTexture", reinterpret_cast<void*>(&CFunc_LoadTexture)},
     };

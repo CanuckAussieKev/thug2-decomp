@@ -203,7 +203,7 @@ uint16_t* Raw(Engine3D::CTriMeshSource* tri, int face)
 bool EmitOut(FaceKey key, uint16_t flags)
 {
     Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
-    if (!tri || key.face >= tri->m_numFaces)
+    if (!tri || key.face >= tri->m_triCount)
         return false;
     if (!g_origins.count(key)) {
         uint16_t origin = 0;
@@ -220,7 +220,7 @@ bool EmitOut(FaceKey key, uint16_t flags)
 bool Corners(FaceKey key, V3 out[3])
 {
     Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
-    if (!tri || key.face >= tri->m_numFaces || !tri->m_vertices)
+    if (!tri || key.face >= tri->m_triCount || !tri->m_vertices)
         return false;
     uint32_t piece = 0;
     int index = -1;
@@ -399,7 +399,7 @@ bool SelectPiece(uint32_t checksum, bool add)
     if (Scenery::IsClone(checksum))
         return false;
     if (Engine3D::CTriMeshSource* tri = Geometry(checksum)) {
-        for (int f = 0; f < tri->m_numFaces && faces.size() < kMostSelected; ++f)
+        for (int f = 0; f < tri->m_triCount && faces.size() < kMostSelected; ++f)
             faces.push_back({checksum, static_cast<uint16_t>(f)});
     }
     // (the faces its shared collision took along: theirs to edit too)
@@ -427,7 +427,7 @@ bool SelectPiece(uint32_t checksum, bool add)
 bool TakeIn(FaceKey key, uint16_t* flags)
 {
     Engine3D::CTriMeshSource* tri = Geometry(key.checksum);
-    if (!tri || key.face >= tri->m_numFaces)
+    if (!tri || key.face >= tri->m_triCount)
         return false;
     if (!SharedCollision::TakenFace(tri, key.face, nullptr, nullptr, flags))
         *flags = *Raw(tri, key.face);

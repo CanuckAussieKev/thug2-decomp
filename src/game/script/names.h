@@ -22,12 +22,12 @@ void ParseChecksumNames(const char* text, int size, void (*add)(uint32_t checksu
 void LoadChecksumNames(const char* file);
 
 // A C++ function scripts can call by name.
-struct CFunctionEntry {
+struct CNativeCommand {
     const char* name;
     void* function;
 };
 // Make each function a global symbol (type 8) under its name's checksum.
-void InstallScriptFunctions(const CFunctionEntry* functions, uint32_t count);
+void InstallScriptFunctions(const CNativeCommand* functions, uint32_t count);
 // Make each name a member-function symbol (type 9).
 void PublishMethodTable(const char* const* names, uint32_t count);
 // Make each record of a table (starting with its name's checksum, `stride` bytes each, ended by a 0

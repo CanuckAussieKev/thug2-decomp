@@ -58,7 +58,7 @@ bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cas
 // The node after `node` (null at the head).
 MemSys::ListNode* NextNode(const MemSys::ListNode* node) { return IsHead(node->next) ? nullptr : node->next; }
 // A list's first node (null when empty).
-MemSys::ListNode* FirstNode(const MemSys::ListNode* head) { return IsHead(head->next) ? nullptr : head->next; }
+MemSys::ListNode* HeadOfSceneList(const MemSys::ListNode* head) { return IsHead(head->next) ? nullptr : head->next; }
 
 MemSys::ListNode* NewHead()
 {
@@ -86,7 +86,7 @@ float SortDepthOfBatch(const sBillboardBatch* batch)
 
 void DrawList(const MemSys::ListNode* head, const float* yAxis, const float* xAxis, const float* zAxis)
 {
-    for (MemSys::ListNode* node = FirstNode(head); node;) {
+    for (MemSys::ListNode* node = HeadOfSceneList(head); node;) {
         MemSys::ListNode* next = NextNode(node);
         meshRef* mesh = static_cast<billboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40)
@@ -406,7 +406,7 @@ void sBillboardBatch::Render()
         MemSys::ListNode* first = lists[i]->next;
         if (IsHead(first) || !first)
             continue;
-        MemSys::ListNode* node = FirstNode(lists[i]);
+        MemSys::ListNode* node = HeadOfSceneList(lists[i]);
         if (VertexShaders())
             SetPixelShader(At<void*>(static_cast<billboardRec*>(node->data)->mesh, 0x44), nullptr);
         break;
@@ -447,7 +447,7 @@ void sBillboardBatch::Render()
         DrawList(lists[1], yAxis, xAxis, zAxis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
-    for (MemSys::ListNode* node = FirstNode(lists[2]); node;) {
+    for (MemSys::ListNode* node = HeadOfSceneList(lists[2]); node;) {
         MemSys::ListNode* next = NextNode(node);
         meshRef* mesh = static_cast<billboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40) {

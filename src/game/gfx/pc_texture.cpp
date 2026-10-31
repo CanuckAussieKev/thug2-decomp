@@ -1028,7 +1028,7 @@ ListKit::KeyMap* RemakeTable(ListKit::KeyMap* table, uint32_t count)
             ++bits;
         } while (wanted > size);
     }
-    MemSys::MemSource* heap = MemSys::GetBlockHeader(table)->allocator; // (read before the null test, as the original)
+    MemSys::MemSource* heap = MemSys::FetchChunkPrefix(table)->allocator; // (read before the null test, as the original)
     if (table) {
         if (table->m_buckets) {
             table->EmptyTable();

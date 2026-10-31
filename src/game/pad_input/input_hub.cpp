@@ -43,15 +43,15 @@ struct DigitalToAnalog {
 DigitalToAnalog g_digitalToAnalog[18]{{0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
 const DigitalToAnalog* DigitalToAnalogTable() { return g_digitalToAnalog; }
 
-void ConstructTaskList(uint8_t* list) { reinterpret_cast<TaskList::PileUp*>(list)->MakeNew(); }
-void RunTaskList(uint8_t* list) { reinterpret_cast<TaskList::PileUp*>(list)->WorkOn(nullptr); }
-// TaskList::Task<Manager>: the base task (with the priority), then its vtable, code and data.
+void ConstructTaskList(uint8_t* list) { reinterpret_cast<Scheduling::PileUp*>(list)->MakeNew(); }
+void RunTaskList(uint8_t* list) { reinterpret_cast<Scheduling::PileUp*>(list)->WorkOn(nullptr); }
+// Scheduling::Task<Manager>: the base task (with the priority), then its vtable, code and data.
 void* NewTask(int priority, uint32_t code, void* data)
 {
     auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (!task)
         return nullptr;
-    reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(priority);
+    reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority);
     task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     task[6] = code;
     task[7] = reinterpret_cast<uint32_t>(data);
@@ -93,7 +93,7 @@ void Payload::BlockButtonInput(uint32_t mask)
 // 0x0044E860
 void Payload::BlockStickInput(uint32_t mask)
 {
-    for (int i = 0; i < kNumEvents; ++i) {
+    for (int i = 0; i < kQueueCapacity; ++i) {
         if (!(mask & (1u << i)))
             continue;
         bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
@@ -129,7 +129,7 @@ void Payload::ApplyDeadzoneRules()
 // 0x0044EA30
 void Payload::PadFollowsStick()
 {
-    if (m_buttons & (kButtonUp | kButtonRight | kButtonDown | kButtonLeft))
+    if (m_buttons & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
         return;
     uint8_t x = m_incident[kLeftX];
     if (x > 0x80) {
@@ -142,10 +142,10 @@ void Payload::PadFollowsStick()
     uint8_t y = m_incident[kLeftY];
     if (y < 0x80) {
         m_incident[kPadUp] = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
-        m_buttons |= kButtonUp;
+        m_buttons |= kReleaseEdge;
     } else if (y > 0x80) {
         m_incident[kPadDown] = static_cast<uint8_t>(SpanTo(y));
-        m_buttons |= kButtonDown;
+        m_buttons |= kPressEdge;
     }
 }
 
@@ -199,7 +199,7 @@ void HostEnd::PollInputSinks()
         break;
     case 7: // the sticks, and pressures if the device reads them
         if (device->m_unknownC8 == 1) {
-            std::memcpy(m_content.m_incident, control + 4, Payload::kNumEvents);
+            std::memcpy(m_content.m_incident, control + 4, Payload::kQueueCapacity);
             break;
         }
         std::memcpy(m_content.m_incident, control + 4, 4);
@@ -271,7 +271,7 @@ void ReleaseManager()
 }
 
 // 0x0044E520
-void HostEnd::Destruct() { reinterpret_cast<TaskList::PileUp*>(m_handlers)->Destruct(); }
+void HostEnd::Destruct() { reinterpret_cast<Scheduling::PileUp*>(m_handlers)->Destruct(); }
 
 // 0x0044E530
 void Hub::Destruct()
@@ -316,7 +316,7 @@ void __cdecl Hub::ServiceTask(void* task)
 uint32_t __cdecl ButtonHash(int index) { return g_padButtonKeys[index]; }
 
 // 0x0044E5A0
-int __cdecl ButtonIndex(uint32_t checksum)
+int __cdecl GlyphForButtonTag(uint32_t checksum)
 {
     const uint32_t* table = g_padButtonKeys;
     for (int i = 1; i < 22; ++i) {

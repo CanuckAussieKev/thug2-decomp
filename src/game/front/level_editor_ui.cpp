@@ -539,7 +539,7 @@ void Outliner(const ShapeMesh& model)
     ImGui::Checkbox("Changed Only", &g_changedOnly);
     if (ImGui::IsItemHovered()) {
         std::string legend = "Show changed items only. Markers:";
-        for (int bit = 0; bit < kMarkCount; ++bit)
+        for (int bit = 0; bit < kMaxMarkers; ++bit)
             legend += std::string("\n") + MarkLetter(bit) + "  " + MarkName(bit);
         ImGui::SetTooltip("%s", legend.c_str());
     }
@@ -645,7 +645,7 @@ void Outliner(const ShapeMesh& model)
                 if (!letters.empty()) {
                     ImGui::SameLine(std::max(ImGui::GetCursorPosX(), rowRight - marksWidth + 6.0f * g_scale));
                     bool first = true;
-                    for (int bit = 0; bit < kMarkCount; ++bit) {
+                    for (int bit = 0; bit < kMaxMarkers; ++bit) {
                         if (!(marks & (1u << bit)))
                             continue;
                         if (!first)
@@ -898,7 +898,7 @@ void NodeSection(const ShapeMesh& model, int index)
         if (model.nodes.added || (model.nodes.canHide && !model.nodes.hidden)) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.29f, 0.14f, 0.13f, 1.0f));
             if (ImGui::Button(model.nodes.added ? "Delete" : "Hide"))
-                Ask(Request::kDeleteNode);
+                Ask(Request::kRemoveNodeAction);
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip(model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");

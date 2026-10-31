@@ -68,13 +68,13 @@ struct StreamDesc {
     uint8_t* m_succ;            // 0x30 the first byte not sent yet
     uint8_t m_groupId;          // 0x34
     uint8_t m_pad35[3];
-    uint32_t m_sequenceId;      // 0x38 the next piece's sequence id (reserved when the stream was queued)
+    uint32_t m_orderNumber;      // 0x38 the next piece's sequence id (reserved when the stream was queued)
     uint32_t m_checksum;        // 0x3C received streams: the whole message's checksum
     bool m_borrowedPayload;         // 0x40 m_content is the caller's (not freed)
     uint8_t m_pad41[3];
 };
 static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, m_content) == 0x2C &&
-                  offsetof(StreamDesc, m_sequenceId) == 0x38 && offsetof(StreamDesc, m_borrowedPayload) == 0x40,
+                  offsetof(StreamDesc, m_orderNumber) == 0x38 && offsetof(StreamDesc, m_borrowedPayload) == 0x40,
               "layout must match the original");
 
 // NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it).
@@ -247,7 +247,7 @@ struct AppHost {
     // +0x13FC statistics (zeroed by Init)
     int m_outboundByteTotal;      // +0x13FC
     int m_inboundByteTotal;       // +0x1400
-    int m_lostPackets;        // +0x1404 timestamps skipped over
+    int m_skippedStamps;        // +0x1404 timestamps skipped over
     int m_staleArrivals;        // +0x1408 timestamps older than the newest
     int m_repeatArrivals;        // +0x140C timestamps seen twice
     int m_frameCount;         // +0x1410 frames processed (PumpIncomingTraffic)
@@ -257,14 +257,14 @@ struct AppHost {
     bool m_linkedUp;         // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     uint8_t m_pad143D[3];
     void* m_supervisor;          // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
-    // TaskList::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
+    // Scheduling::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
     void* m_processTask;      // +0x1444
     void* m_sendTask;         // +0x1448
     void* m_receiveTask;      // +0x144C
     void* m_metricsTask;      // +0x1450
-    int m_numConnections;     // +0x1454 (zeroed by Init)
-    int m_maxConnections;     // +0x1458 (AppHost::OpenedLink makes no more; HostEnd::PrepareAll clears it)
+    int m_openLinks;     // +0x1454 (zeroed by Init)
+    int m_peerCap;     // +0x1458 (AppHost::OpenedLink makes no more; HostEnd::PrepareAll clears it)
     uint8_t m_scrambled[0x514]; // +0x145C a secure packet being sent
     char m_receiveBuffer[0x514]; // +0x1970
     uint32_t m_flagBits;         // +0x1E84
@@ -279,8 +279,8 @@ static_assert(offsetof(AppHost, m_dispatcher) == 0x0C && offsetof(AppHost, m_dis
                   offsetof(AppHost, m_outboundByteTotal) == 0x13FC && offsetof(AppHost, m_frameCount) == 0x1410 &&
                   offsetof(AppHost, m_list1414) == 0x1414 && offsetof(AppHost, m_sock) == 0x1428 &&
                   offsetof(AppHost, m_linkedUp) == 0x143C && offsetof(AppHost, m_supervisor) == 0x1440 &&
-                  offsetof(AppHost, m_processTask) == 0x1444 && offsetof(AppHost, m_numConnections) == 0x1454 &&
-                  offsetof(AppHost, m_maxConnections) == 0x1458 && offsetof(AppHost, m_scrambled) == 0x145C &&
+                  offsetof(AppHost, m_processTask) == 0x1444 && offsetof(AppHost, m_openLinks) == 0x1454 &&
+                  offsetof(AppHost, m_peerCap) == 0x1458 && offsetof(AppHost, m_scrambled) == 0x145C &&
                   offsetof(AppHost, m_receiveBuffer) == 0x1970 && offsetof(AppHost, m_flagBits) == 0x1E84 &&
                   offsetof(AppHost, m_unknownPacketSink) == 0x1E88 && offsetof(AppHost, m_circuits) == 0x1E8C &&
                   offsetof(AppHost, m_banned) == 0x1EA0 && offsetof(AppHost, m_label) == 0x1EB8 &&

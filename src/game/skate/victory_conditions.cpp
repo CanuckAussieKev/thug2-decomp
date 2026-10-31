@@ -102,7 +102,7 @@ uint8_t* StepRosterSweep(PlayerSearch* search)
 {
     return static_cast<uint8_t*>(NetSessionSlot()->StepPlayerWalk(search, false));
 }
-uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetSessionSlot()->GetOwnPlayer()); }
+uint8_t* FindOwnPlayerRecord() { return static_cast<uint8_t*>(NetSessionSlot()->GetOwnPlayer()); }
 bool IsEliminated(uint8_t* player) { return reinterpret_cast<OnlinePlay::PlayerRecord*>(player)->IsEliminated(); }
 
 } // namespace
@@ -224,7 +224,7 @@ bool CCompleteGoalsVictoryCondition::RuleSatisfied()
 // 0x00576680
 bool CSoleSurvivorWin::RuleSatisfied()
 {
-    uint8_t* player = LocalPlayer();
+    uint8_t* player = FindOwnPlayerRecord();
     if (player) {
         uint8_t* skater = *reinterpret_cast<uint8_t**>(player + 0x14);
         if (skater && TotalScore(ScoreOf(skater)) <= 0)
@@ -243,7 +243,7 @@ bool CSoleSurvivorWin::HasWonMatch(uint32_t player)
 // 0x005766E0
 bool CEliminationVictoryCondition::RuleSatisfied()
 {
-    uint8_t* player = LocalPlayer();
+    uint8_t* player = FindOwnPlayerRecord();
     return player && IsEliminated(player);
 }
 

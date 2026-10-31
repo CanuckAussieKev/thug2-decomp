@@ -60,7 +60,7 @@ Maths::Mat4 g_worldMatrix;
 Maths::Mat4 g_viewMatrix;
 Maths::Mat4 g_projectionMatrix;
 Maths::Mat4 g_headingMatrix;
-int g_frameTime;
+int g_stepSeconds;
 int g_screenCopyIndex;
 int g_backBufferWidth;
 int g_backBufferHeight;
@@ -701,7 +701,7 @@ void DrawWorld()
     MenuSystem::LevelEditor::TickFrame();
     ++g_framesRendered; // frames rendered
     if (!g_loadingScreenUp) { // (nothing while the device is lost)
-        g_frameTime = static_cast<int>(FrameClock::GetTime());
+        g_stepSeconds = static_cast<int>(FrameClock::GetTime());
         SetRenderState(1, 1);
         SetRenderState(2, 1);
         RenderShadowTextures();

@@ -66,7 +66,7 @@ uint32_t ParentBone(void* skeleton, int index)
     return static_cast<Gfx2D::CRigData*>(data)->FetchParentHash(index);
 }
 // The model component's 0x004215F0: its matrix into `out`.
-void ModelMatrix(CObjectModule* model, Maths::Mat4* out)
+void ComposeObjectTransform(CObjectModule* model, Maths::Mat4* out)
 {
     static_cast<CMeshInstanceModule*>(model)->GetDrawMatrix(out);
 }
@@ -151,7 +151,7 @@ void CPinnedObjectModule::UpdateLock()
             CObjectModule* model = target->FetchModule(kModel);
             if (model && FollowModel(model, target)) {
                 Maths::Mat4 frame;
-                ModelMatrix(model, &frame);
+                ComposeObjectTransform(model, &frame);
                 extra = frame.row[3] - target->m_atPoint;
                 frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
                 SetProduct(m_entity->m_basisFrame, m_entity->m_basisFrame, frame);
@@ -185,7 +185,7 @@ void CPinnedObjectModule::UpdateLock()
         CObjectModule* model = target->FetchModule(kModel);
         if (model && FollowModel(model, target)) {
             Maths::Mat4 frame;
-            ModelMatrix(model, &frame);
+            ComposeObjectTransform(model, &frame);
             pos = m_shift * frame;
             frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
             m_entity->m_basisFrame = frame;

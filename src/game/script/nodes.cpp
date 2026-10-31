@@ -37,12 +37,12 @@ constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
 // SetEventHandler (the C function, as tokens 0x43 hold it: the game's address)
 const uint32_t kSetEventHandler = reinterpret_cast<uintptr_t>(CodeAddress(&ScriptCommands::CFunc_SetEventHandler));
-constexpr int kMaxDepth = 5;
+constexpr int kDeepestLevel = 5;
 
 // Script tokens (qb.h).
 constexpr uint8_t kTokenEquals = 0x07;
 constexpr uint8_t kTokenOpenParenthesis = 0x0E;
-constexpr uint8_t kTokenName = 0x16;
+constexpr uint8_t kTokenKeyHash = 0x16;
 constexpr uint8_t kTokenRepeat = 0x21;
 constexpr uint8_t kTokenEndOfScript = 0x24;
 constexpr uint8_t kTokenNot = 0x39;
@@ -203,9 +203,9 @@ CStruct* FindClosestNodeWithPrefix(uint32_t prefix, const Maths::Vec4* pos)
 // 0x0045C950
 void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback callback, CStruct* parentParams, int depth)
 {
-    if (depth > kMaxDepth)
+    if (depth > kDeepestLevel)
         return;
-    Scripts::CScriptStore* cache = Scripts::g_scriptCache;
+    Scripts::CScriptStore* cache = Scripts::g_scriptStore;
     const uint8_t* token = cache->FetchScript(script);
     CStruct* params = nullptr;
     if (void* memory = Scripts::SpawnParamBag())
@@ -214,7 +214,7 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
     for (;;) {
         const uint8_t* call = token;
         switch (*token) {
-        case kTokenName:
+        case kTokenKeyHash:
         case kTokenMemberFunction:
         case kTokenMemberFunctionEntry: {
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or

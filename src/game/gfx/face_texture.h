@@ -67,14 +67,14 @@ bool __cdecl MassageFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAn
 // the overlay texture's file name.
 class CFaceSkin {
 public:
-    static constexpr int kImageSize = 0x4420;
+    static constexpr int kTexelEdge = 0x4420;
 
     // 0x004875C0: not valid, the default points, the overlay "faces\CS_NSN_Head_wht_alpha". Returns this.
     CFaceSkin* MakeNew();
     // 0x00487380: the image loaded from "images\<name>.img.xbx" (with `fullPath`: "<name>.img.xbx") - all the file's
     // bytes copied in, however many - and valid.
     void LoadImageFile(const char* name, bool fullPath);
-    // 0x00487420: the image copied from `data` (always kImageSize bytes; `size` isn't used). Returns the data after it.
+    // 0x00487420: the image copied from `data` (always kTexelEdge bytes; `size` isn't used). Returns the data after it.
     const uint8_t* SetImage(const uint8_t* data, int size);
     // 0x00487440: the image, the points and the overlay's name (with its terminator) written to `buffer` (`size`
     // isn't checked). Returns how many bytes.
@@ -87,8 +87,8 @@ public:
     void MarkUsable(bool valid);
     // 0x00487530
     uint8_t* GetImage();
-    // 0x00487540: kImageSize.
-    int GetImageSize();
+    // 0x00487540: kTexelEdge.
+    int FetchSkinResolution();
     // 0x00487550: a copy of the points in `out`. Returns out.
     SFaceAnchors* GetPoints(SFaceAnchors* out);
     // 0x00487570
@@ -106,7 +106,7 @@ public:
     bool m_isUsable;          // +0x00
     uint8_t pad1[3];
     SFaceAnchors m_pathVertices;  // +0x04
-    uint8_t m_image[kImageSize]; // +0x3C
+    uint8_t m_image[kTexelEdge]; // +0x3C
     char m_overlayName[0x40];    // +0x445C
 };
 static_assert(offsetof(CFaceSkin, m_image) == 0x3C && offsetof(CFaceSkin, m_overlayName) == 0x445C &&

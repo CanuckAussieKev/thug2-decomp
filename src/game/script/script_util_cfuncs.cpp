@@ -456,7 +456,7 @@ bool __cdecl CFunc_PermuteArray(CStruct* params, CScript* script)
         params->ReadHashValue("NewArrayName", &newName, 0); // "NewArrayName"
         if (!newName)
             return false;
-        array = Scripts::NewArray();
+        array = Scripts::AllocScriptArray();
         if (array)
             array = array->PrepareAll();
         copy = array;
@@ -578,7 +578,7 @@ bool __cdecl CFunc_CreateIndexArray(CStruct* params, CScript* script)
 {
     int size = 0;
     params->FetchIntValue(0u, &size, 1);
-    CArray* indexes = Scripts::NewArray();
+    CArray* indexes = Scripts::AllocScriptArray();
     if (indexes)
         indexes = indexes->PrepareAll();
     indexes->ConfigureSizeKind(static_cast<uint32_t>(size), Scripts::QBVAL_INTEGER);
@@ -619,7 +619,7 @@ bool __cdecl CFunc_StringToCharArray(CStruct* params, CScript* script)
     const char* string = nullptr;
     params->FetchText(kString, &string, 1);
     uint32_t length = static_cast<uint32_t>(std::strlen(string));
-    CArray* characters = Scripts::NewArray();
+    CArray* characters = Scripts::AllocScriptArray();
     if (characters)
         characters = characters->PrepareAll();
     characters->ConfigureSizeKind(length, Scripts::QBVAL_STRING);

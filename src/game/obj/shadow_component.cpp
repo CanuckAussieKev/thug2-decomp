@@ -33,7 +33,7 @@ constexpr uint32_t kVolume = 0x46653221;      // Volume
 constexpr uint32_t kNone = 0x806FFF30;        // none
 constexpr uint32_t kStayPut = 0x7E773A11;     // (a flag: the shadow doesn't follow the object; name unknown)
 constexpr uint32_t kShadowModel = 0x545F8172; // ShadowModel
-constexpr uint32_t kShadowScale = 0x6F8CD62F; // ShadowScale
+constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F; // ShadowScale
 constexpr uint32_t kOffset = 0xA6F5352F;      // offset
 constexpr uint32_t kCastNoShadow = 0xAAF6E513;   // Obj_ShadowOff
 constexpr uint32_t kEnableShadowCast = 0xF272C43A;    // Obj_ShadowOn
@@ -263,7 +263,7 @@ void CGroundShadowModule::ConfigureFromData(Scripts::CStruct* params)
         if (!m_shadowHandle)
             BuildBlobShadow(SHADOW_SIMPLE, model);
         float scale = 1.0f;
-        params->FetchFloat(kShadowScale, &scale, 0);
+        params->FetchFloat(kBlobSizeFactor, &scale, 0);
         ShadowScaleOf(m_shadowHandle) = scale;
         ShadowUpdate(m_shadowHandle, &m_atPoint, &m_entity->m_basisFrame, m_surfaceDir);
         break;

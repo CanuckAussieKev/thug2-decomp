@@ -88,7 +88,7 @@ public:
     // (slot 6 0x004AAD40: the object list's head)
 
     CObjectListHead m_deadObjects; // +0x28
-    void* m_flushTask;             // +0x3C a TaskList::Task (vtable 0x006476F0) running FlushDeadObjectsTask
+    void* m_flushTask;             // +0x3C a Scheduling::Task (vtable 0x006476F0) running FlushDeadObjectsTask
 };
 static_assert(offsetof(CMiscHub, m_deadObjects) == 0x28 && offsetof(CMiscHub, m_flushTask) == 0x3C &&
                   sizeof(CMiscHub) == 0x40,

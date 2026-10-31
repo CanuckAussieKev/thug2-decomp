@@ -39,7 +39,7 @@ enum PeerKey : int {
     kKeyGamemode = 11,
     kKeyTeamplay = 12,
     kKeyPassword = 19,
-    kKeyPlayer = 21,
+    kKeyForPlayer = 21,
     kKeyObservers = 51,
     kKeyMaxObservers = 52,
     kKeySkillLevel = 53,
@@ -183,7 +183,7 @@ void __cdecl RoomManager::KeyListCallback(void*, int type, void* keyBuffer, void
                         kKeyHostMode})
             KeyBufferAdd(keyBuffer, key);
     } else if (type == kKeyTypePlayer) {
-        KeyBufferAdd(keyBuffer, kKeyPlayer);
+        KeyBufferAdd(keyBuffer, kKeyForPlayer);
         KeyBufferAdd(keyBuffer, kKeyPlayerRating);
     }
 }

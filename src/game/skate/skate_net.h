@@ -17,7 +17,7 @@ struct InboundMsgCtx;
 namespace GameObjects {
 class CEntity;
 } // namespace Obj
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 } // namespace Tsk
 
@@ -25,7 +25,7 @@ namespace GameModules {
 
 class SkateNet {
 public:
-    // 0x0056E2B0: the two TaskList::Task<Skate>s (vtable 0x006476F0, priority -1000, from the default heap) the server
+    // 0x0056E2B0: the two Scheduling::Task<Skate>s (vtable 0x006476F0, priority -1000, from the default heap) the server
     // adds to the main loop: +0x18 runs 0x00569BB0, +0x1C 0x0056BE10 (null when out of memory).
     void CreateNetworkTasks();
     // 0x00569530: the two deleted (their vtable's scalar deleting destructor).
@@ -85,8 +85,8 @@ public:
     // client (message 0x23: an 8-bit mask, then each skater's update - round from the one after the last sent, as
     // many as the connection takes, only those newer than what it was sent); 0x0056BE10 the scores sent every 2
     // seconds while the network manager keeps score.
-    static void __cdecl ServerTask(TaskList::SchedulerTask* task);
-    static void __cdecl ScoreTask(TaskList::SchedulerTask* task);
+    static void __cdecl ServerTask(Scheduling::SchedulerTask* task);
+    static void __cdecl ScoreTask(Scheduling::SchedulerTask* task);
     // The server's handlers (4: the sender isn't known / the message is for another game).
     // 0x00569E20 (0x3B): trick objects logged for the sender's score ([0] 1, [0xA] the game id). 0x00569E90 (0x86):
     // the sender's +0x24 from [4] (not in NetLobby). 0x00569EF0 (0x52): a combo's score [4] - the best combo, and

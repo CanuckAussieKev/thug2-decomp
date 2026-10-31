@@ -164,9 +164,9 @@ bool ReadRecord(const std::string& text, Goal* out);
 // (0x004E96D0) fills it from the goal's structure - InitEditedGoal's defaults, used, its level, its level_goal_index,
 // ChangeSpecies's points, then every field; `gapNumbers` the gaps' numbers in the level's gap list now (those not found
 // left out).
-constexpr size_t kImageSize = 0x338;
+constexpr size_t kTexelEdge = 0x338;
 struct GoalImage {
-    alignas(4) uint8_t bytes[kImageSize];
+    alignas(4) uint8_t bytes[kTexelEdge];
 };
 void FillImage(const Goal& goal, uint32_t level, int levelGoalIndex, const std::vector<int>& gapNumbers, GoalImage* out);
 // The angle the record keeps for a point (the cursor's heading: its node gets angle - pi) and back.

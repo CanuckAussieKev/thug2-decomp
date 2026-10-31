@@ -140,7 +140,7 @@ void CFreeLookModule::TickFrame()
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
-        auto* p = reinterpret_cast<CPadState*>(pad);
+        auto* p = reinterpret_cast<CPadSnapshot*>(pad);
         Skater::ThawBmx::LookInputs in =
             Skater::ThawBmx::DPadLookInputs(p->m_upDir.m_heldDown != 0, p->m_btnDown.m_heldDown != 0, p->m_leftSide.m_heldDown != 0,
                                             p->m_rightSide.m_heldDown != 0, Skater::ThawBmx::kLookInvertDefault);

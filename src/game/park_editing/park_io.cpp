@@ -401,7 +401,7 @@ void CParkLayout::ExportToStruct(Scripts::CStruct* out)
     if (m_parkBuilt)
         WriteCompressedMap();
     m_flagBits &= ~kMapNotSavedLocal;
-    Scripts::CArray* memory = Scripts::NewArray();
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
     Scripts::CArray* map = memory ? memory->PrepareAll() : nullptr;
     map->ConfigureSizeKind(0xEA6, Scripts::QBVAL_INTEGER); // (out of memory crashes, as in the original)
     const auto* words = reinterpret_cast<const uint32_t*>(&m_map);
@@ -511,7 +511,7 @@ bool CParkLayout::RegisterGapEntry(SGapDetails* gap)
         else
             m_gapRegistry->EndGap(piece, meta, tab);
     }
-    gap->m_tabIndex = tab;
+    gap->m_slotIndex = tab;
     m_gapRegistry->StoreGapDetails(tab, gap);
     return true;
 }
@@ -538,7 +538,7 @@ void CParkLayout::DropGapEntry(SGapDetails* gap)
     // The gap of the first half, removed
     if (m_gapRegistry->GetGapIndex(halves[0], &index))
         m_gapRegistry->DropGapEntry(index, true);
-    gap->m_tabIndex = -1;
+    gap->m_slotIndex = -1;
     gap->m_cancelFlags = static_cast<uint32_t>(Scripts::FetchIntValue(0x9A27E74Du)); // CANCEL_GROUND
 }
 

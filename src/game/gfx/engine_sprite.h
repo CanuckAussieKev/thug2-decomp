@@ -64,10 +64,10 @@ public:
     bool m_flipV, m_flipU; // +0x37
     uint8_t m_rgbaValue[4];     // +0x39 (unaligned)
     uint8_t pad3D[3];
-    void* m_viewWindow;       // +0x40: its 2D window (set by 0x0048D1B0)
+    void* m_screenRegion;       // +0x40: its 2D window (set by 0x0048D1B0)
 };
 static_assert(offsetof(CBillboardQuad, m_orientationTurn) == 0x24 && offsetof(CBillboardQuad, m_span) == 0x30 &&
-                  offsetof(CBillboardQuad, m_rgbaValue) == 0x39 && offsetof(CBillboardQuad, m_viewWindow) == 0x40 && sizeof(CBillboardQuad) == 0x44,
+                  offsetof(CBillboardQuad, m_rgbaValue) == 0x39 && offsetof(CBillboardQuad, m_screenRegion) == 0x40 && sizeof(CBillboardQuad) == 0x44,
               "layout must match the original");
 
 // The textured quad (0x20 bytes; vtable 0x00649A98: [0] destroy, [1] a new one, [4] the hidden flag changed, [5] the
@@ -93,7 +93,7 @@ public:
     void ChangeRgba(uint32_t rgba);
 
     void** vtable;
-    void* m_viewWindow;       // +0x04
+    void* m_screenRegion;       // +0x04
     uint8_t* m_bitmap;   // +0x08
     bool m_invisible;         // +0x0C
     uint8_t padD[3];

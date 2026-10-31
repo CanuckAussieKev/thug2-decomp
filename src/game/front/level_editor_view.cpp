@@ -243,7 +243,7 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Engine3D::CTriMe
     bool collisionOnly = GeomOf(sector) == nullptr;
     Cached& c = g_cache[checksum];
     uint32_t generation = SharedCollision::Generation();
-    if (c.sector == sector && c.tri == tri && c.faces == tri->m_numFaces && c.collisionOnly == collisionOnly &&
+    if (c.sector == sector && c.tri == tri && c.faces == tri->m_triCount && c.collisionOnly == collisionOnly &&
         c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) && same(c.last, last))
         return &c;
     c = Cached{};
@@ -255,7 +255,7 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Engine3D::CTriMe
     c.max = max;
     c.first = first;
     c.last = last;
-    c.faces = tri->m_numFaces;
+    c.faces = tri->m_triCount;
     c.collisionOnly = collisionOnly;
     if (!tri->m_faces || !tri->m_vertices)
         return &c;
@@ -451,7 +451,7 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
             auto* w = static_cast<Walk*>(context);
             bool off = false;
             Engine3D::CTriMeshSource* tri = DrawnTriDataOf(checksum, sector, &off);
-            if (!tri || tri->m_numFaces == 0 || HiddenSector(checksum))
+            if (!tri || tri->m_triCount == 0 || HiddenSector(checksum))
                 return;
             bool wall = GeomOf(sector) == nullptr;
             V3 min = ToV3(tri->m_lowerLimit), max = ToV3(tri->m_upperLimit);
@@ -582,7 +582,7 @@ void AddCollision(V3 cameraPos, const TickCycle& frame, const Lens& lens, const 
     for (const auto& entry : companions.near) {
         const Engine3D::CTriMeshSource& tri = entry.second->Geometry();
         bool any = false;
-        for (int f = 0; f < tri.m_numFaces && tri.m_faces && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
+        for (int f = 0; f < tri.m_triCount && tri.m_faces && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             V3 p[3];
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
@@ -666,7 +666,7 @@ std::string DescribeWall(uint32_t checksum)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<uint16_t, int>> counts;
-    for (int f = 0; f < tri->m_numFaces && tri->m_faces; ++f) {
+    for (int f = 0; f < tri->m_triCount && tri->m_faces; ++f) {
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
         auto it = std::find_if(counts.begin(), counts.end(), [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
@@ -678,7 +678,7 @@ std::string DescribeWall(uint32_t checksum)
     std::snprintf(text, sizeof(text),
                   "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
                   "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
-                  tri->m_numFaces, tri->m_numVertices, tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z, tri->m_upperLimit.x,
+                  tri->m_triCount, tri->m_numVertices, tri->m_lowerLimit.x, tri->m_lowerLimit.y, tri->m_lowerLimit.z, tri->m_upperLimit.x,
                   tri->m_upperLimit.y, tri->m_upperLimit.z, tri->m_upperLimit.x - tri->m_lowerLimit.x, tri->m_upperLimit.y - tri->m_lowerLimit.y,
                   tri->m_upperLimit.z - tri->m_lowerLimit.z);
     std::string out = text;

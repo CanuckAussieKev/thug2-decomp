@@ -134,7 +134,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     ImGui::SameLine();
     ImGui::RadioButton("Lower", &mode, 1);
     d.lower = mode == 1;
-    ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, Ground::kMinHeight, Ground::kMaxHeight, "%.0f");
+    ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, Ground::kMinHeight, Ground::kCeilingY, "%.0f");
     float rect[4] = {d.x0, d.z0, d.x1, d.z1};
     if (ImGui::DragFloat4("x0 z0 x1 z1", rect, 1.0f, 0.0f, 0.0f, "%.0f")) {
         d.x0 = rect[0], d.z0 = rect[1], d.x1 = rect[2], d.z1 = rect[3];

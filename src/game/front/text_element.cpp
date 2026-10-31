@@ -118,7 +118,7 @@ void TextDepth(void* t, float depth) { static_cast<Engine3D::CGlyphString*>(t)->
 void TextColour(void* t, uint32_t rgba, bool overrideEncoded) { static_cast<Engine3D::CGlyphString*>(t)->ChangeColour(rgba, overrideEncoded); }
 void TextOverrideAlpha(void* t, bool overrideAlpha) { static_cast<Engine3D::CGlyphString*>(t)->SetOverrideAlpha(overrideAlpha); }
 void TextViewport(void* t, void* window) { static_cast<Engine3D::CGlyphString*>(t)->ChangePane(window); }
-void TextString(void* t, const char* text) { static_cast<Engine3D::CGlyphString*>(t)->ChangeText(text); }
+void ChangeGlyphText(void* t, const char* text) { static_cast<Engine3D::CGlyphString*>(t)->ChangeText(text); }
 
 // The blur's empty destructor (0x005480A0) and its memory freed.
 void DeleteBlur(CSmearEffect* blur)
@@ -358,7 +358,7 @@ void CLabelWidget::SetTextRotation(float degrees, int now)
 // 0x004AFBB0
 void CLabelWidget::SetCharProperties(Scripts::CArray* chars)
 {
-    TextString(m_texts[0], m_chars);
+    ChangeGlyphText(m_texts[0], m_chars);
     for (uint32_t i = 0; i < chars->m_extent; ++i) {
         auto* c = reinterpret_cast<CStruct*>(chars->FetchPart(i));
         int index = 0;
@@ -575,7 +575,7 @@ void CLabelWidget::TickFrame()
         TextColour(t, rgba, m_overrideRgba);
         TextRotation(t, shownAngle, x, y);
         TextScale(t, m_summed.scaleX, m_summed.scaleY);
-        TextString(t, m_chars);
+        ChangeGlyphText(t, m_chars);
         bool hidden;
         if (m_objectFlags & kPos3d) {
             TextDepth(t, m_summed.z);
@@ -597,7 +597,7 @@ void CLabelWidget::TickFrame()
             TextColour(s, shadowRgba, m_overrideRgba);
             TextRotation(s, shownAngle, x, y);
             TextScale(s, m_summed.scaleX, m_summed.scaleY);
-            TextString(s, m_chars);
+            ChangeGlyphText(s, m_chars);
             if (m_objectFlags & kPos3d) {
                 TextDepth(s, m_summed.z);
                 TextHidden(s, (m_objectFlags & kOffScreen) || IsConcealed());
@@ -634,7 +634,7 @@ void CLabelWidget::TickFrame()
         float behind = static_cast<float>(static_cast<double>(i) * BlurBehind());
         TextPriority(t, static_cast<float>(static_cast<double>(m_zPriority) - behind));
         TextFont(t, m_typeface);
-        TextString(t, m_chars);
+        ChangeGlyphText(t, m_chars);
         TextHidden(t, outside || IsConcealed());
         if (m_shadow) {
             void* s = m_shadows[i];
@@ -648,7 +648,7 @@ void CLabelWidget::TickFrame()
             TextScale(s, scaleX, scaleY);
             TextPriority(s, static_cast<float>(static_cast<double>(m_zPriority) - behind - ShadowBehind()));
             TextFont(s, m_typeface);
-            TextString(s, m_chars);
+            ChangeGlyphText(s, m_chars);
             TextHidden(s, outside || IsConcealed());
         }
     }

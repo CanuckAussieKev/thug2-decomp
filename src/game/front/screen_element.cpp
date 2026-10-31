@@ -967,7 +967,7 @@ void CUiWidget::GetProperties(Scripts::CStruct* out)
     out->PushFloat(kAlpha, m_shown.alpha);
     uint8_t rgba[4];
     std::memcpy(rgba, m_shown.rgba, 4);
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     if (array)
         array = array->PrepareAll();
     array->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);

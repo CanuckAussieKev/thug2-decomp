@@ -112,7 +112,7 @@ public:
     int m_deviceType;                     // +0x130
     char m_localIP[0x10];                 // +0x134 ("<Unknown>" at first)
     uint32_t m_localAddress;              // +0x144
-    char m_dnsServers[kNumDNSServers][0x10]; // +0x148
+    char m_resolverIps[kNumDNSServers][0x10]; // +0x148
     char m_routerAddr[0x10];                 // +0x178 ("192.168.55.99")
     char m_subnetMask[0x10];              // +0x188 ("255.255.0.0")
     int m_dialupNumberIndex;              // +0x198 which dial-up number is in use
@@ -136,7 +136,7 @@ public:
 static_assert(offsetof(Hub, m_clients) == 0x14 && offsetof(Hub, m_messageFlags) == 0x28 &&
                   offsetof(Hub, m_connectionType) == 0x128 && offsetof(Hub, m_deviceType) == 0x130 &&
                   offsetof(Hub, m_localIP) == 0x134 && offsetof(Hub, m_localAddress) == 0x144 &&
-                  offsetof(Hub, m_dnsServers) == 0x148 && offsetof(Hub, m_routerAddr) == 0x178 &&
+                  offsetof(Hub, m_resolverIps) == 0x148 && offsetof(Hub, m_routerAddr) == 0x178 &&
                   offsetof(Hub, m_subnetMask) == 0x188 && offsetof(Hub, m_dialupNumberIndex) == 0x198 &&
                   offsetof(Hub, m_dialupNumbers) == 0x19C && offsetof(Hub, m_dialupUserName) == 0x1FC &&
                   offsetof(Hub, m_dialupPassword) == 0x24C && offsetof(Hub, m_hostName) == 0x29C &&

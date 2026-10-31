@@ -35,7 +35,7 @@ extern void** const kSTextVtable;
 uint32_t g_textVertexStore[0x1C00];
 uint16_t g_textQuadIndices[0x100 * 6];
 
-STypeface* g_fontList;
+STypeface* g_typefaceHead;
 STypeface* g_glyphTypeface;
 STypeface* g_textureFont;
 uint32_t g_textVertexCount;
@@ -68,7 +68,7 @@ char MetaButton(const char* digit) { return Engine3D::ButtonGlyph(digit); }
 const char* ButtonKeyName(int button) { return Sio::GetButtonKeyName(button); }
 
 // "\b<d>" / "\m<d>" (the pointer at d): which button.
-int ButtonIndex(char tag, const char* digit)
+int GlyphForButtonTag(char tag, const char* digit)
 {
     if (tag == 'M' || tag == 'm') {
         char mapped = MetaButton(digit);
@@ -157,7 +157,7 @@ void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHei
             case 'M':
             case 'm': {
                 ++p;
-                int button = ButtonIndex(tag, p);
+                int button = GlyphForButtonTag(tag, p);
                 if (UseButtonGlyph(button)) {
                     font = PadGlyphTypeface();
                     glyph = &font->chars[font->specialMap[button]];
@@ -285,7 +285,7 @@ void SGlyphRun::Blit()
             case 'M':
             case 'm': {
                 ++p;
-                int button = ButtonIndex(tag, p);
+                int button = GlyphForButtonTag(tag, p);
                 if (UseButtonGlyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     STypeface* buttons = PadGlyphTypeface();
@@ -436,7 +436,7 @@ bool& QuadIndicesMade() { return g_quadIndicesMade; }
 constexpr int kQuads = 0x100;
 
 // The loaded fonts (through STypeface::next).
-STypeface*& FontList() { return g_fontList; }
+STypeface*& TypefaceChain() { return g_typefaceHead; }
 
 uint16_t U16(const uint8_t* p)
 {
@@ -636,11 +636,11 @@ STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
         // palette indices -> colours
         OsLayer::ExpandPalette(pixels, indices, static_cast<int>(size), palette);
     }
-    struct LockedRect {
+    struct SurfaceLock {
         int pitch;
         void* bits;
     } locked;
-    if (TextureMethod<long(__stdcall*)(void*, uint32_t, LockedRect*, const void*, uint32_t)>(font->texture, 0x4C)(
+    if (TextureMethod<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(font->texture, 0x4C)(
             font->texture, 0, &locked, nullptr, 0) != 0)
         return nullptr;
     std::memcpy(locked.bits, pixels, size * 4);
@@ -670,8 +670,8 @@ STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
         glyph.v1 = static_cast<float>(glyph.h / texelsHigh + v0);
     }
 
-    font->next = FontList();
-    FontList() = font;
+    font->next = TypefaceChain();
+    TypefaceChain() = font;
     if (!fromMemory)
         FileLoad::Shut(file);
     font->blankGap = static_cast<int16_t>(font->chars[font->map['I']].w);
@@ -681,10 +681,10 @@ STypeface* STypeface::ReadIn(const char* name, bool fromMemory)
 // 0x004CFA80
 void STypeface::Offload(STypeface* font)
 {
-    if (FontList() == font) {
-        FontList() = font->next;
+    if (TypefaceChain() == font) {
+        TypefaceChain() = font->next;
     } else {
-        for (STypeface* p = FontList(); p->next; p = p->next) {
+        for (STypeface* p = TypefaceChain(); p->next; p = p->next) {
             if (p->next == font) {
                 p->next = font->next;
                 break;

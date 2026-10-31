@@ -170,7 +170,7 @@ void CollGridCell::Destruct()
 void CCollGrid::PrepareAll(const Maths::BBox* bounds)
 {
     m_box = *bounds;
-    m_cellWidth = static_cast<float>((static_cast<double>(bounds->max.x) - bounds->min.x) * 0.05f);
+    m_cellSpanX = static_cast<float>((static_cast<double>(bounds->max.x) - bounds->min.x) * 0.05f);
     m_cellDepth = static_cast<float>((static_cast<double>(bounds->max.z) - bounds->min.z) * 0.05f);
     double x = bounds->min.x;
     for (int i = 0; i < kSize; ++i) {
@@ -178,10 +178,10 @@ void CCollGrid::PrepareAll(const Maths::BBox* bounds)
         for (int j = 0; j < kSize; ++j) {
             Maths::BBox& box = m_cells[i][j].box;
             box.min = {static_cast<float>(x), -1e12f, static_cast<float>(z), 0.0f};
-            box.max = {static_cast<float>(x + m_cellWidth), 1e12f, static_cast<float>(z + m_cellDepth), 0.0f};
+            box.max = {static_cast<float>(x + m_cellSpanX), 1e12f, static_cast<float>(z + m_cellDepth), 0.0f};
             z += m_cellDepth;
         }
-        x += m_cellWidth;
+        x += m_cellSpanX;
     }
     m_columns = kSize;
     m_rows = kSize;
@@ -206,7 +206,7 @@ void CCollGrid::Fill(CStaticCollider* statics, int count)
 {
     auto cellsOf = [this](CStaticCollider* object, int& x0, int& x1, int& z0, int& z1) {
         const Maths::BBox* box = Cuboid(object);
-        float inverseWidth = static_cast<float>(1.0 / m_cellWidth);
+        float inverseWidth = static_cast<float>(1.0 / m_cellSpanX);
         x0 = Truncate((static_cast<double>(box->min.x) - m_box.min.x) * inverseWidth);
         x1 = Truncate((static_cast<double>(box->max.x) - m_box.min.x) * inverseWidth);
         double inverseDepth = 1.0 / m_cellDepth;
@@ -219,7 +219,7 @@ void CCollGrid::Fill(CStaticCollider* statics, int count)
     };
     // how many each cell gets
     for (int i = 0; i < count; ++i) {
-        if (statics[i].m_geometry->m_numFaces == 0)
+        if (statics[i].m_geometry->m_triCount == 0)
             continue;
         int x0, x1, z0, z1;
         cellsOf(&statics[i], x0, x1, z0, z1);
@@ -240,7 +240,7 @@ void CCollGrid::Fill(CStaticCollider* statics, int count)
     std::memset(filled, 0, kSize * kSize * sizeof(int));
     MemSys::LeaveHeapScope();
     for (int i = 0; i < count; ++i) {
-        if (statics[i].m_geometry->m_numFaces == 0)
+        if (statics[i].m_geometry->m_triCount == 0)
             continue;
         int x0, x1, z0, z1;
         cellsOf(&statics[i], x0, x1, z0, z1);
@@ -318,7 +318,7 @@ void CCollGrid::TickFrame(MemSys::ListNode* added, MemSys::ListNode* removed, Me
 CHitMesh** CCollGrid::ObjectsInBox(const Maths::BBox* box)
 {
     uint8_t stamp = ++s_stamp;
-    double inverseWidth = 1.0 / m_cellWidth;
+    double inverseWidth = 1.0 / m_cellSpanX;
     int x0 = Truncate((static_cast<double>(box->min.x) - m_box.min.x - 0.5f) * inverseWidth);
     float inverseDepth = static_cast<float>(1.0 / m_cellDepth);
     int z0 = Truncate((static_cast<double>(box->min.z) - m_box.min.z - 0.5f) * inverseDepth);
@@ -368,7 +368,7 @@ CHitMesh** CCollGrid::ObjectsAlongLine(const Maths::Seg* line, int* count)
     longer.end = {static_cast<float>(ex + line->end.x), static_cast<float>(ey + line->end.y),
                   static_cast<float>(static_cast<double>(ez) + line->end.z), 0.0f};
 
-    double inverseWidth = 1.0 / m_cellWidth;
+    double inverseWidth = 1.0 / m_cellSpanX;
     int x0 = Truncate((static_cast<double>(longer.start.x) - m_box.min.x) * inverseWidth);
     float inverseDepth = static_cast<float>(1.0 / m_cellDepth);
     int z0 = Truncate((static_cast<double>(longer.start.z) - m_box.min.z) * inverseDepth);

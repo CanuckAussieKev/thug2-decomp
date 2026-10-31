@@ -193,13 +193,13 @@ bool CKinematicsModule::UpdateAxisRotation(int axis)
     float& deceleration = Axis(m_rotDeceleration, axis);
     bool finished = false;
     if (!(acceleration == 0.0f)) {
-        speed = static_cast<float>(static_cast<double>(m_frameTime) * acceleration + speed);
+        speed = static_cast<float>(static_cast<double>(m_stepSeconds) * acceleration + speed);
         // (past the speed to reach, going its way: that speed)
         if (std::fabs(maxSpeed) < std::fabs(speed) && (speed > 0.0f) == (maxSpeed > 0.0f))
             speed = maxSpeed;
     }
     if (!(deceleration == 0.0f)) {
-        double slowing = static_cast<double>(m_frameTime) * deceleration;
+        double slowing = static_cast<double>(m_stepSeconds) * deceleration;
         if (std::fabs(static_cast<double>(speed) - maxSpeed) < std::fabs(slowing)) {
             // (down to the speed to reach: done slowing - and, at a standstill, done turning; no turn this frame)
             speed = maxSpeed;
@@ -208,7 +208,7 @@ bool CKinematicsModule::UpdateAxisRotation(int axis)
         }
         speed = static_cast<float>(static_cast<double>(speed) - slowing);
     }
-    float step = static_cast<float>(static_cast<double>(speed) * m_frameTime);
+    float step = static_cast<float>(static_cast<double>(speed) * m_stepSeconds);
     if (!(m_motionFlags2 & (MOTION2_ROTATE_FOREVER_X << axis))) {
         float target = Axis(m_rotTarget, axis);
         float& done = Axis(m_rotDone, axis);
@@ -257,7 +257,7 @@ void CKinematicsModule::StartRotation(Scripts::CStruct* params, const Maths::Mat
 // 0x00424440
 void CKinematicsModule::UpdateTurn()
 {
-    float elapsed = static_cast<float>(static_cast<double>(m_frameTime) + m_turnElapsed);
+    float elapsed = static_cast<float>(static_cast<double>(m_stepSeconds) + m_turnElapsed);
     m_turnElapsed = elapsed;
     float t;
     if (!(m_turnTime == 0.0f) && !(elapsed >= m_turnTime)) {

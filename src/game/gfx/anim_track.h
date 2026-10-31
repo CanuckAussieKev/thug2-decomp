@@ -76,7 +76,7 @@ public:
     // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.
     void DeleteControllers();
     // 0x004818B0: `controller` (if it's one of them) deleted and the rest moved down.
-    void DetachAnimDriver(CAnimController* controller);
+    void DetachAnimDriver(CAnimDriver* controller);
     // 0x00481920: each controller's pose (slot 1) into `pose` (no null check). True.
     bool GetPoses(void* pose);
     // 0x00481980 / 0x00481990: whether it isn't off / is fading.
@@ -110,11 +110,11 @@ public:
     double GetWeight();
     // 0x00481FB0: a controller made from `params` (its "type"; null for an unknown one) and added by its
     // "priority" (500, FlipRotate 100).
-    CAnimController* AttachController(Scripts::CStruct* params);
+    CAnimDriver* AttachController(Scripts::CStruct* params);
     // 0x00481A30: `controller` inserted before the first one of lower priority.
-    void InsertController(CAnimController* controller, int priority);
+    void InsertController(CAnimDriver* controller, int priority);
     // 0x00481A80: the controller with `id`, or null.
-    CAnimController* FindController(uint32_t id);
+    CAnimDriver* FindController(uint32_t id);
     // 0x00481C00 (not a Ghidra function): the events of `anim` from the object's anim set's event table (frame,
     // or time in seconds; event; params), armed.
     void LoadEvents(uint32_t anim);
@@ -129,7 +129,7 @@ public:
 
     uint32_t m_unknown34;
     int m_curPhase;                          // +0x38 State
-    CAnimController* m_controllerList[6];   // +0x3C (by priority, highest first)
+    CAnimDriver* m_controllerList[6];   // +0x3C (by priority, highest first)
     int m_controllerCount;                // +0x54
     float m_fadeRate;                     // +0x58 (1/60 when played)
     float m_fadeLeft;                     // +0x5C

@@ -152,7 +152,7 @@ struct CPcGeom {
     void ChangeScale(const Maths::Vec4* scale);
     Maths::Vec4* FetchMagnification(Maths::Vec4* out);
     // 0x004B47B0 (virtual [28]): the instance's transform and `count` bone matrices copied. Always true.
-    bool SetBoneMatrices(const Maths::Mat4* transform, const Maths::Mat4* bones, int count, int unused3,
+    bool UploadSkinningPalette(const Maths::Mat4* transform, const Maths::Mat4* bones, int count, int unused3,
                          int unused4);
     // 0x004B47F0 (virtual [29]): `count` bone matrices copied into the instance's.
     void CopyBones(const Maths::Mat4* bones, int count);
@@ -191,7 +191,7 @@ static_assert(offsetof(CPcGeom, bounds) == 0x14 && offsetof(CPcGeom, scene) == 0
                   offsetof(CPcGeom, scale) == 0x54 && sizeof(CPcGeom) == 0x64,
               "layout must match the original");
 
-extern Maths::Mat4* g_boneMatrices;
+extern Maths::Mat4* g_paletteBase;
 extern sSingleton* g_currentInstance;
 
 } // namespace Nx

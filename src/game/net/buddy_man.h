@@ -9,7 +9,7 @@ namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 } // namespace Tsk
 
@@ -117,7 +117,7 @@ public:
 
     // 0x0054A300: the task: state 1 / 2 (creating / logging in): GP processed, or after 10 s logged off and
     // CreateBuddyLoginFailedDialog; state 3: LogIn; state 4 (logged in): GP processed once a second.
-    static void __cdecl BuddyTask(TaskList::SchedulerTask* task);
+    static void __cdecl BuddyTask(Scheduling::SchedulerTask* task);
     // 0x0054A3D0 (thread, stdcall): gpConnectNewUser for nick "proskater" with the profile_email / profile_password
     // preferences. Returns 0.
     static unsigned long __stdcall CreateProfileThread(void* man);
@@ -139,7 +139,7 @@ public:
     void* m_connection;       // +0x00 GPConnection (this object is passed as its address)
     int m_account;            // +0x04 the logged-in profile id
     int m_curPhase;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
-    TaskList::SchedulerTask* m_task;    // +0x0C TaskList::Task<FriendsManager> (BuddyTask)
+    Scheduling::SchedulerTask* m_task;    // +0x0C Scheduling::Task<FriendsManager> (BuddyTask)
     bool m_authenticated;          // +0x10
     uint8_t m_pad11[3];
     MemSys::ListNode m_friends;  // +0x14 ListKit::Foremost<Buddy>

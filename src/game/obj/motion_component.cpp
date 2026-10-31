@@ -35,7 +35,7 @@ namespace {
 
 extern void** const kVtable;
 
-// Script wait types a component decides (CScript::m_waitType 5-10; cscript.h).
+// Script wait types a component decides (CScript::m_suspendReason 5-10; cscript.h).
 constexpr uint32_t kWaitMove = 5;
 constexpr uint32_t kWaitJump = 7;
 constexpr uint32_t kWaitPathStop = 8;
@@ -153,14 +153,14 @@ void CKinematicsModule::ConfigureFromData(Scripts::CStruct* params)
     uint32_t name = 0;
     params->ReadHashValue(kName, &name, 0);
     m_listLink = name;
-    m_firstNode = name;
+    m_ownNodeName = name;
     FaceNode(params);
 }
 
 // 0x004236C0
 void CKinematicsModule::StepWaitState(Scripts::CScript* script, uint32_t /*arg*/)
 {
-    switch (script->m_waitType) {
+    switch (script->m_suspendReason) {
     case kWaitMove:
         if (!(m_motionFlags & MOTION_MOVE_MASK))
             script->StopWaiting();

@@ -136,7 +136,7 @@ void CTextureElement::GetProperties(CStruct* out)
 {
     uint8_t rgba[4];
     std::memcpy(rgba, m_summed.rgba, 4);
-    Scripts::CArray* array = Scripts::NewArray();
+    Scripts::CArray* array = Scripts::AllocScriptArray();
     if (array)
         array = array->PrepareAll();
     array->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
@@ -301,7 +301,7 @@ CPanelWidget* CPanelWidget::MakeNew()
     CUiWidget::MakeNew();
     m_vtable = kCWindowElementVtable;
     ChangeSpecies(kWindowElement);
-    m_viewWindow = NewWindow2d(0, 0, 640, 448);
+    m_screenRegion = NewWindow2d(0, 0, 640, 448);
     ChangeAlignment(-1.0f, -1.0f);
     ChangeLocation(0.0f, 0.0f, 1);
     FitToSize(640.0f, 448.0f, 0);
@@ -312,7 +312,7 @@ CPanelWidget* CPanelWidget::MakeNew()
 void CPanelWidget::DestroyBody()
 {
     m_vtable = kCWindowElementVtable;
-    FreeWindow2d(m_viewWindow);
+    FreeWindow2d(m_screenRegion);
     CUiWidget::DestroyBody();
 }
 
@@ -328,7 +328,7 @@ CPanelWidget* CPanelWidget::Teardown(uint8_t flags)
 // 0x004B2160
 void* CPanelWidget::FetchScreenRect() const
 {
-    return m_viewWindow;
+    return m_screenRegion;
 }
 
 // 0x004B21A0
@@ -338,10 +338,10 @@ void CPanelWidget::TickFrame()
         return;
     int top = Truncated(m_summed.y - (static_cast<double>(m_justY) + One()) * Half() * m_levelY);
     int left = Truncated(m_summed.x - (static_cast<double>(m_justX) + One()) * Half() * m_span);
-    reinterpret_cast<Engine3D::CScreenWindow*>(m_viewWindow)->ChangeLocation(left, top);
+    reinterpret_cast<Engine3D::CScreenWindow*>(m_screenRegion)->ChangeLocation(left, top);
     int height = Truncated(m_levelY);
     int width = Truncated(m_span);
-    reinterpret_cast<Engine3D::CScreenWindow*>(m_viewWindow)->ChangeExtent(width, height);
+    reinterpret_cast<Engine3D::CScreenWindow*>(m_screenRegion)->ChangeExtent(width, height);
 }
 
 namespace {

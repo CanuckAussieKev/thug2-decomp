@@ -38,7 +38,7 @@ const uint8_t* HierarchyOf(CObjectModule* model)
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
 uint8_t* SkeletonOf(CObjectModule* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
-Maths::Mat4* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
+Maths::Mat4* SkeletonPalette(uint8_t* skeleton) { return *reinterpret_cast<Maths::Mat4**>(skeleton + 0x04); }
 int BoneCount(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(skeleton); }
 
 // A model position in the game's axes: x and the model's y negated, y and z swapped.
@@ -87,7 +87,7 @@ void CParkedVehicleModule::Seal()
     Maths::Vec4 body = FromModel(reinterpret_cast<const float*>(hierarchy + 0x90));
 
     CObjectModule* skeletonComponent = m_entity->FetchModule(kSkeleton);
-    Maths::Mat4* bones = BoneMatrices(SkeletonOf(skeletonComponent));
+    Maths::Mat4* bones = SkeletonPalette(SkeletonOf(skeletonComponent));
     for (int i = 0; i < BoneCount(SkeletonOf(skeletonComponent)); ++i) {
         Maths::Mat4& bone = bones[i];
         std::memset(&bone, 0, sizeof(bone));

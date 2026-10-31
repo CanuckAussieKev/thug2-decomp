@@ -169,7 +169,7 @@ void CNodeManager::UnhashNodeArray(uint32_t array)
         uint32_t movedArray = slots.Array(i);
         int movedNode = slots.Elem(i);
         slots.Clear(i);
-        auto* node = reinterpret_cast<CStruct*>(m_arrays[movedArray].m_nodeList->FetchPart(movedNode));
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[movedArray].m_nodeEntries->FetchPart(movedNode));
         uint32_t name = 0;
         node->ReadHashValue(kName, &name, 1);
         uint32_t to = name & slots.Mask();
@@ -186,7 +186,7 @@ CStruct* CNodeManager::FetchVertex(uint32_t name, bool assert)
     // (NOT ORIGINAL: at most every slot once - a full hash without the name went round for ever)
     uint32_t tries = slots.Mask() + 1;
     for (uint32_t slot = name & slots.Mask(); tries-- && !slots.Vacant(slot); slot = (slot + 1) & slots.Mask()) {
-        auto* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeList->FetchPart(slots.Elem(slot)));
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeEntries->FetchPart(slots.Elem(slot)));
         uint32_t nodeName = 0;
         node->ReadHashValue(kName, &nodeName, 1);
         if (nodeName == name)
@@ -217,7 +217,7 @@ void CNodeManager::StartWalk(uint32_t name)
     Slots slots(this);
     uint32_t slot = name & slots.Mask();
     for (;;) {
-        CStruct* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeList->FetchPart(slots.Elem(slot)));
+        CStruct* node = reinterpret_cast<CStruct*>(m_arrays[slots.Array(slot)].m_nodeEntries->FetchPart(slots.Elem(slot)));
         uint32_t nodeName = 0;
         node->ReadHashValue(kName, &nodeName, 1);
         if (nodeName == name)
@@ -241,7 +241,7 @@ CStruct* CNodeManager::NextNode()
     if (walk.Elem() == -1)
         return nullptr;
     uint32_t array = walk.Array();
-    CArray* nodes = m_arrays[array].m_nodeList;
+    CArray* nodes = m_arrays[array].m_nodeEntries;
     auto* node = reinterpret_cast<CStruct*>(nodes->FetchPart(walk.Elem()));
     int next = walk.Elem() + 1;
     if (!walk.big)
@@ -263,7 +263,7 @@ CArray* CNodeManager::GetLastNodeArray()
     uint32_t i = m_num;
     while (i && g_editorArray && m_arrays[i - 1].m_label == g_editorArray)
         --i;
-    return i ? m_arrays[i - 1].m_nodeList : nullptr;
+    return i ? m_arrays[i - 1].m_nodeEntries : nullptr;
 }
 
 // 0x0045D150
@@ -307,7 +307,7 @@ bool CNodeManager::HashNodeIn(uint32_t name, uint32_t a, uint32_t b)
 // 0x0045D3A0
 void CNodeManager::HashNodes(uint32_t index)
 {
-    CArray* nodes = m_arrays[index].m_nodeList;
+    CArray* nodes = m_arrays[index].m_nodeEntries;
     for (uint32_t i = 0; i < nodes->m_extent; ++i)
         HashNode(index, i, reinterpret_cast<CStruct*>(nodes->FetchPart(i)));
 }
@@ -337,7 +337,7 @@ bool CNodeManager::AddNodeArray(uint32_t name, bool flag)
         return false;
     CArray* nodes = Scripts::FetchList(name);
     m_arrays[m_num].m_label = name;
-    m_arrays[m_num].m_nodeList = nodes;
+    m_arrays[m_num].m_nodeEntries = nodes;
     m_arrays[m_num].m_flag = flag;
     ++m_num;
     HashNodes(m_num - 1);

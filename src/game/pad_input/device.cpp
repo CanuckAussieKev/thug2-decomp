@@ -538,7 +538,7 @@ void SetPadMode(int mode) { OsLayer::SetPadMode(mode); }
 void SetDefaultEnterControl(int control) { OsLayer::SetDefaultEnterControl(control); }
 void SetDefaultEscapeControl(int control) { OsLayer::SetDefaultEscapeControl(control); }
 void PumpWindowMessages() { OsLayer::ProcessWindowEvents(); }
-void ReadPadState(int port, PadState* state) { OsLayer::ReadPad(port + 1, state); }
+void ReadPadState(int port, PadSnapshot* state) { OsLayer::ReadPad(port + 1, state); }
 bool KeyDown(int code) { return OsLayer::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
 int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(reinterpret_cast<void*>(GameObjects::g_profileRoster)); }
@@ -620,7 +620,7 @@ void InputPort::PullData(int)
     if (!PadPresent(m_portNo))
         return;
 
-    PadState pad;
+    PadSnapshot pad;
     ReadPadState(m_portNo, &pad);
     const uint8_t* p = pad.pressure;
     uint16_t buttons = pad.buttons;
@@ -719,8 +719,8 @@ Hub::Hub()
     m_devs.vtable = kDeviceNodeVtable;
     auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(0);                 // TaskList::SchedulerTask(priority 0)
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                             // TaskList::Task<ListKit::Foremost<Device>>
+        reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(0);                 // Scheduling::SchedulerTask(priority 0)
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                             // Scheduling::Task<ListKit::Foremost<Device>>
         task[6] = reinterpret_cast<uint32_t>(&ProcessTask);
         task[7] = reinterpret_cast<uint32_t>(&m_devs);
     }

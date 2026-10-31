@@ -70,7 +70,7 @@ MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
 void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
 void PopHeap() { RamStats()->LeaveHeapScope(); }
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
 
 uint32_t Checksums(const char* name) { return Checksums::HashFromText(name); }
 void Run(const char* script, Scripts::CStruct* params = nullptr) { Scripts::LaunchScript(script, params, nullptr, false); }
@@ -347,7 +347,7 @@ VaultMan* VaultMan::MakeNew()
     m_transfer = kNone;
     m_progress = 0;
     m_startTime = 0;
-    auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
+    auto* task = static_cast<Scheduling::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(0);
         task->m_vtable = GameCode::kTaskVtable;
@@ -364,7 +364,7 @@ void VaultMan::DestroyBody()
 {
     Release(m_semaphore);
     if (m_task) // (its scalar deleting destructor, vtable slot 2)
-        reinterpret_cast<void*(__thiscall*)(TaskList::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
+        reinterpret_cast<void*(__thiscall*)(Scheduling::SchedulerTask*, unsigned int)>(m_task->m_vtable[2])(m_task, 1);
     m_search.m_vtable = kCategorySearchVtable;
     m_categories.UnlinkAs(kCategoryNodeVtable);
 }
@@ -441,7 +441,7 @@ void VaultMan::FreeDirectoryListing()
 }
 
 // 0x0054B6E0
-void __cdecl VaultMan::VaultTask(TaskList::SchedulerTask* task)
+void __cdecl VaultMan::VaultTask(Scheduling::SchedulerTask* task)
 {
     auto* vault = reinterpret_cast<VaultMan*>(reinterpret_cast<void**>(task)[7]);
     if (FrameClock::GetTime() - vault->m_startTime > kTimeout) {

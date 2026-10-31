@@ -213,20 +213,20 @@ CParkBuilderMode* CParkBuilderMode::Listener::DestroyEditor(uint8_t flags) { ret
 void CParkBuilderMode::StartCallback()
 {
     uint8_t* mainLoop = MainLoop();
-    reinterpret_cast<TaskList::PileUp*>(mainLoop + 4)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(m_editorUpdateJob));
+    reinterpret_cast<Scheduling::PileUp*>(mainLoop + 4)->QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(m_editorUpdateJob));
     ParkEditorInputHandler* handler = m_editorPadListener;
     PadInput::HostEnd& server = InputManager()->m_hosts[handler->m_ordinal];
-    reinterpret_cast<TaskList::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(handler));
+    reinterpret_cast<Scheduling::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(handler));
     handler->m_controlData = &InputManager()->m_hosts[handler->m_ordinal].m_content;
     handler->m_dev = reinterpret_cast<uint8_t*>(InputManager()->m_hosts[handler->m_ordinal].m_dev);
-    reinterpret_cast<TaskList::PileUp*>(mainLoop + 0x40)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(m_drawJob));
+    reinterpret_cast<Scheduling::PileUp*>(mainLoop + 0x40)->QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(m_drawJob));
 }
 
 // 0x0058D340
 void CParkBuilderMode::StopCallback()
 {
-    reinterpret_cast<TaskList::SchedulerTask*>(m_editorUpdateJob)->DropOut();
-    reinterpret_cast<TaskList::SchedulerTask*>(m_editorPadListener)->DropOut();
+    reinterpret_cast<Scheduling::SchedulerTask*>(m_editorUpdateJob)->DropOut();
+    reinterpret_cast<Scheduling::SchedulerTask*>(m_editorPadListener)->DropOut();
 }
 
 // 0x0058DB30
@@ -657,9 +657,9 @@ void CParkBuilderMode::LinkToPad(int controller)
 {
     PadInput::Hub* input = PadInput::CreateManager(false); // (a Singletons::LazyInstance<PadInput::Hub>)
     ParkEditorInputHandler* handler = m_editorPadListener;
-    reinterpret_cast<TaskList::SchedulerTask*>(handler)->DropOut();
+    reinterpret_cast<Scheduling::SchedulerTask*>(handler)->DropOut();
     PadInput::HostEnd& server = input->m_hosts[controller];
-    reinterpret_cast<TaskList::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(handler));
+    reinterpret_cast<Scheduling::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<Scheduling::SchedulerTask*>(handler));
     handler->m_controlData = &server.m_content;
     handler->m_dev = reinterpret_cast<uint8_t*>(server.m_dev);
     PadInput::ReleaseManager();

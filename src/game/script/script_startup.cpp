@@ -38,16 +38,16 @@ uint32_t GetNumCFunctions() { return 1254; }
 // 0x005A5670
 uint32_t CountMethodEntries() { return 250; }
 
-CFunctionEntry* FindCFunction(const char* name)
+CNativeCommand* FindCFunction(const char* name)
 {
-    for (CFunctionEntry& entry : g_cfunctionTable) {
+    for (CNativeCommand& entry : g_cfunctionTable) {
         if (std::strcmp(entry.name, name) == 0)
             return &entry;
     }
     return nullptr;
 }
 
-void BindNativeCommand(CFunctionEntry& entry, void* function)
+void BindNativeCommand(CNativeCommand& entry, void* function)
 {
     entry.function = function;
 }

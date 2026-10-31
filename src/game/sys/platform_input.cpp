@@ -537,7 +537,7 @@ double MouseAxisStick(const DIMOUSESTATE2* state, int control)
 }
 
 // One of the pad's eight pressure buttons held.
-void Press(Sio::PadState* pad, int button) { pad->pressure[button] = 0xFF; }
+void Press(Sio::PadSnapshot* pad, int button) { pad->pressure[button] = 0xFF; }
 
 } // namespace
 
@@ -600,7 +600,7 @@ double JoystickStickValue(const DIJOYSTATE2* state, int negative, int positive)
 }
 
 // 0x005F5BC0
-int ReadPad(int port, Sio::PadState* pad)
+int ReadPad(int port, Sio::PadSnapshot* pad)
 {
     --port;
     ReadKeyboard();

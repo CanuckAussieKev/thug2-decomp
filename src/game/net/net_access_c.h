@@ -53,7 +53,7 @@ constexpr uint32_t kConnDisconnAccepted = 0x8;
 constexpr int kQueueNormal = 0;
 constexpr int kLanePriority = 1;
 constexpr int kLaneOrdered = 2;
-constexpr int kHighestPriority = 0xFF;
+constexpr int kTopRank = 0xFF;
 
 // Message ids.
 constexpr uint8_t kMsgLatencyTest = 1;

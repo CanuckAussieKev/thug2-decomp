@@ -83,8 +83,8 @@ Hub* Hub::MakeNew()
     m_modules.vtable = kHeadVtable;
     auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (task) {
-        reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(-1000);             // TaskList::SchedulerTask
-        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                                // TaskList::Task<Manager>
+        reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(-1000);             // Scheduling::SchedulerTask
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                                // Scheduling::Task<Manager>
         task[6] = reinterpret_cast<uint32_t>(&TickModules);
         task[7] = reinterpret_cast<uint32_t>(this);
     }

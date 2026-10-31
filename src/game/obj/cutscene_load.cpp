@@ -307,10 +307,10 @@ void CCinematicTable::AddObjects(Scripts::CStruct* params)
                     ModelSetOffset(model2, offset2);
                     static_cast<Engine3D::CRenderModel*>(model2)->Conceal(0);
                     static_cast<Engine3D::CRenderModel*>(model2)->AllowResizing(0);
-                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::GetBoneMatrices))(model2);
-                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::GetBoneMatrices))(ModelOf(standIn));
-                    static_cast<Engine3D::CRenderModel*>(model2)->SetBoneMatrices(reinterpret_cast<uint8_t*>(theirs));
-                    static_cast<Engine3D::CRenderModel*>(ModelOf(standIn))->SetBoneMatrices(reinterpret_cast<uint8_t*>(mine));
+                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(model2);
+                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(CodeAddress(&Engine3D::CRenderModel::FetchSkinningPalette))(ModelOf(standIn));
+                    static_cast<Engine3D::CRenderModel*>(model2)->UploadSkinningPalette(reinterpret_cast<uint8_t*>(theirs));
+                    static_cast<Engine3D::CRenderModel*>(ModelOf(standIn))->UploadSkinningPalette(reinterpret_cast<uint8_t*>(mine));
                     static_cast<CMeshInstanceModule*>(levelModel)->UpdateBrightness();
                 }
                 reinterpret_cast<void(__thiscall*)(CObjectModule*, int)>((*reinterpret_cast<void***>(standIn))[7])(

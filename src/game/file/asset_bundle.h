@@ -47,7 +47,7 @@ public:
 
     void** m_vtable;                 // 0x0065822C
     AsyncFileHandle* m_fileRef;         // an async load in progress (closed when the bundle is split / destroyed)
-    void* m_fileData;                // the whole file, as loaded (shrinks as the assets are split off)
+    void* m_bundleBytes;                // the whole file, as loaded (shrinks as the assets are split off)
     uint8_t* m_loadedData;           // the start of the file
     int m_num;                     // number of entries
     int m_unknown14;

@@ -132,7 +132,7 @@ void WriteGlobalInfo(CStruct* global)
         sound->PutNameKey(0u, kRandomMode);
     options->AppendStructRef(kSoundOptions, sound);
 
-    CArray* controllers = Scripts::NewArray();
+    CArray* controllers = Scripts::AllocScriptArray();
     if (controllers)
         controllers = controllers->PrepareAll();
     controllers->ConfigureSizeKind(kControllers, Scripts::QBVAL_STRUCT);

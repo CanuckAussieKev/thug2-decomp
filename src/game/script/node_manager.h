@@ -23,7 +23,7 @@ struct NodeSlot {
 // A node array: its name, the script array and a flag AddNodeArray was given.
 struct NodeArrayEntry {
     uint32_t m_label;
-    Scripts::CArray* m_nodeList;
+    Scripts::CArray* m_nodeEntries;
     bool m_flag;
     uint8_t pad9[3];
 };

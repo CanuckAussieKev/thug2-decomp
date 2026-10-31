@@ -34,7 +34,7 @@ struct CSparkleConfig {
     Maths::Mat4 m_orientationTurn;   // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
     Maths::Vec4 m_atPoint[3];     // +0x094 start / mid / end (scaled, oriented)
     Maths::Vec4 m_box[3];     // +0x0C4 (scaled, oriented)
-    Maths::Vec4 m_localPos[3]; // +0x0F4 the positions again (0xB7B7240D: they move with the object)
+    Maths::Vec4 m_offsetPos[3]; // +0x0F4 the positions again (0xB7B7240D: they move with the object)
     float m_unknown124;       // +0x124
     uint8_t m_shade[3][4];   // +0x128 r, g, b (three arrays), a (three integers, at most 128)
     uint32_t m_unknown134;    // +0x134 (0xDD6BB3D5)
@@ -62,7 +62,7 @@ struct CSparkleConfig {
 };
 static_assert(offsetof(CSparkleConfig, m_colourScale) == 0x38 && offsetof(CSparkleConfig, m_emitScript) == 0x48 &&
                   offsetof(CSparkleConfig, m_orientationTurn) == 0x54 && offsetof(CSparkleConfig, m_atPoint) == 0x94 &&
-                  offsetof(CSparkleConfig, m_box) == 0xC4 && offsetof(CSparkleConfig, m_localPos) == 0xF4 &&
+                  offsetof(CSparkleConfig, m_box) == 0xC4 && offsetof(CSparkleConfig, m_offsetPos) == 0xF4 &&
                   offsetof(CSparkleConfig, m_unknown124) == 0x124 && offsetof(CSparkleConfig, m_shade) == 0x128 &&
                   offsetof(CSparkleConfig, m_unknown150) == 0x150 && offsetof(CSparkleConfig, m_flag158) == 0x158 &&
                   sizeof(CSparkleConfig) == 0x15C,

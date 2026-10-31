@@ -266,7 +266,7 @@ public:
     int m_turnFrame;               // +0x90 frames into the turn towards the node after
     int m_turnFrames;              // +0x94 the turn's length (0: not turning)
     CObjectGroup* m_peds;         // +0x98 the path manager's extra group (the other peds to avoid)
-    float m_frameTime;             // +0x9C this frame's (seconds)
+    float m_stepSeconds;             // +0x9C this frame's (seconds)
     Maths::Vec4 m_upDir;              // +0xA0 the up it blends from
     Maths::Vec4 m_upTarget;        // +0xB0 the up it blends to
     Maths::Vec4 m_upShown;         // +0xC0 the up it has

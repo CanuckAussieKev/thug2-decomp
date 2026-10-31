@@ -211,7 +211,7 @@ void SetRendererSampler(int state, int value) { ChangePhase(state, static_cast<u
 // A texture's methods (IDirect3DTexture9: Release, LockRect, UnlockRect).
 template <typename F>
 F TextureMethod(void* texture, int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[index]); }
-struct LockedRect {
+struct SurfaceLock {
     int pitch;
     void* bits;
 };
@@ -391,8 +391,8 @@ void __cdecl PlayMovieFile(const char* name)
                 continue;
             Bink* bink = CurrentMovie();
             VideoDecodeFrame(bink);
-            LockedRect locked;
-            if (TextureMethod<long(__stdcall*)(void*, uint32_t, LockedRect*, const void*, uint32_t)>(texture, 0x4C / 4)(
+            SurfaceLock locked;
+            if (TextureMethod<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(texture, 0x4C / 4)(
                     texture, 0, &locked, nullptr, 0) >= 0) {
                 VideoCopyFrame(bink, locked.bits, locked.pitch, bink->height, 0, 0,
                                  g_movieSurfaceType | 0x80000000); // the surface type, copy all

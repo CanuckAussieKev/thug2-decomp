@@ -261,8 +261,8 @@ void CParkLayout::HighlightGapPieces(bool on, SGapDetails* gap)
     }
     m_builder->SetPiecesHighlighted(0);
     if (on) {
-        if (gap && gap->m_tabIndex >= 0)
-            m_gapRegistry->ChangeGapInProgress(gap->m_tabIndex);
+        if (gap && gap->m_slotIndex >= 0)
+            m_gapRegistry->ChangeGapInProgress(gap->m_slotIndex);
     } else {
         m_builder->SetPiecesHighlighted(0);
     }

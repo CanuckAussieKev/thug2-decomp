@@ -9,7 +9,7 @@ namespace Scripts {
 class CScript;
 class CStruct;
 } // namespace Script
-namespace TaskList {
+namespace Scheduling {
 class SchedulerTask;
 } // namespace Tsk
 
@@ -175,7 +175,7 @@ public:
 
     // 0x0054D4A0: the task: the login's 10 s (and the persistent storage's answers'), the login's result, the
     // reports once a minute while a game is reported.
-    static void __cdecl StatsTask(TaskList::SchedulerTask* task);
+    static void __cdecl StatsTask(Scheduling::SchedulerTask* task);
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall LogInThread(void* stats);
@@ -191,7 +191,7 @@ public:
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
     static void __stdcall GenerateAuth(const char* challenge, const char* password, char* response);
 
-    TaskList::SchedulerTask* m_task;     // +0x000 TaskList::Task<RankingsManager> (StatsTask)
+    Scheduling::SchedulerTask* m_task;     // +0x000 Scheduling::Task<RankingsManager> (StatsTask)
     bool m_authenticated;           // +0x004
     uint8_t m_pad5[3];
     int m_curPhase;               // +0x008 State

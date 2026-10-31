@@ -175,7 +175,7 @@ void CPieceGroup::SetQuarterTurns(int rot)
 Maths::Vec4* CPieceGroup::GetRelativePosition(Maths::Vec4* out, uint32_t index)
 {
     // The metapiece's half size (x and z).
-    const float halfW = static_cast<float>(static_cast<double>(m_cellFootprint.w) * kCellWidth * 0.5);
+    const float halfW = static_cast<float>(static_cast<double>(m_cellFootprint.w) * kGridPitch * 0.5);
     const float halfL = static_cast<float>(static_cast<double>(m_cellFootprint.l) * kGridStepAlong * 0.5);
     const SPieceGroupDesc* entry = GetDescriptor(static_cast<int>(index));
     CParkTile* piece = GetPiece(index);
@@ -184,7 +184,7 @@ Maths::Vec4* CPieceGroup::GetRelativePosition(Maths::Vec4* out, uint32_t index)
     const float sizeZ = piece->GetDimsTurned(&size1, entry->rot)->z;
     const float sizeX = piece->GetDimsTurned(&size2, entry->rot)->x;
     // The piece's centre in the metapiece, from the metapiece's centre.
-    const double x = static_cast<double>(entry->x) * kCellWidth + static_cast<double>(sizeX) * 0.5;
+    const double x = static_cast<double>(entry->x) * kGridPitch + static_cast<double>(sizeX) * 0.5;
     const double y = static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp; // (read unsigned)
     const float z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(sizeZ) * 0.5);
     out->x = static_cast<float>(x - halfW);
@@ -316,7 +316,7 @@ void CPieceGroup::DestroyBody()
 
 void CPieceGroup::ChangePlace(Maths::Vec4 position, float angle)
 {
-    const float halfW = static_cast<float>(static_cast<double>(m_cellFootprint.w) * kCellWidth * 0.5);
+    const float halfW = static_cast<float>(static_cast<double>(m_cellFootprint.w) * kGridPitch * 0.5);
     const float halfL = static_cast<float>(static_cast<double>(m_cellFootprint.l) * kGridStepAlong * 0.5);
     if (!m_filledSlots)
         return;
@@ -329,7 +329,7 @@ void CPieceGroup::ChangePlace(Maths::Vec4 position, float angle)
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
         Maths::Mat4 place;
         place.ResetToIdentity();
-        place.row[3].x = static_cast<float>(static_cast<double>(entry->x) * kCellWidth + static_cast<double>(size.x) * 0.5 -
+        place.row[3].x = static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * 0.5 -
                                             halfW);
         place.row[3].y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
         place.row[3].z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(size.z) * 0.5 -
@@ -372,7 +372,7 @@ void CPieceGroup::FinishPieces()
     const double exactZ = static_cast<double>(max.z) - min.z;
     m_cellFootprint.l = Cells(exactZ, kGridStepAlong);
     m_cellFootprint.h = Cells(sizeY, kGridStepUp);
-    m_cellFootprint.w = Cells(sizeX, kCellWidth);
+    m_cellFootprint.w = Cells(sizeX, kGridPitch);
     if (m_cellFootprint.h < 1)
         m_cellFootprint.h = 1;
     // The pieces moved so that the metapiece's centre is the origin (x and z).
@@ -412,7 +412,7 @@ void CPlacedPieceGroup::InsertTile(CParkTile* piece, SCellBox* pos, int rot, boo
     Maths::Vec4 size;
     piece->MeasureSpan(&size);
     // The piece's centre in the metapiece's cells.
-    const double x = static_cast<double>(pos->x) * kCellWidth + static_cast<double>(size.x) * 0.5;
+    const double x = static_cast<double>(pos->x) * kGridPitch + static_cast<double>(size.x) * 0.5;
     const double y = static_cast<double>(pos->y) * kGridStepUp;
     const double z = static_cast<double>(pos->z) * kGridStepAlong + static_cast<double>(size.z) * 0.5;
     piece->m_atPoint.w = 1.0f;

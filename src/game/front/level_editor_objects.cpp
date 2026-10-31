@@ -47,7 +47,7 @@ Scripts::CStruct* NodeOf(uint32_t name)
     return LevelNodes::FetchVertex(name, false);
 }
 
-uint32_t NodeClass(Scripts::CStruct* node)
+uint32_t NodeClassHash(Scripts::CStruct* node)
 {
     uint32_t cls = 0;
     if (node)
@@ -88,11 +88,11 @@ bool AddCopyNode(Scripts::CStruct* node)
     if (index < 0) {
         if (manager->m_num >= static_cast<uint32_t>(LevelNodes::CNodeManager::kMaxArrays))
             return false;
-        g_copyNodes = Scripts::NewArray()->PrepareAll();
+        g_copyNodes = Scripts::AllocScriptArray()->PrepareAll();
         g_copyNodeList.clear();
         index = static_cast<int>(manager->m_num);
         manager->m_arrays[index].m_label = name;
-        manager->m_arrays[index].m_nodeList = g_copyNodes;
+        manager->m_arrays[index].m_nodeEntries = g_copyNodes;
         manager->m_arrays[index].m_flag = false;
         ++manager->m_num;
     }
@@ -337,7 +337,7 @@ void TurnAbout(GameObjects::CGameEntity* object, V3 pivot, float angle)
 
 const char* ClassOf(uint32_t id)
 {
-    switch (NodeClass(NodeOf(id))) {
+    switch (NodeClassHash(NodeOf(id))) {
     case 0xB7B3BD86: return "LevelObject";
     case 0xEF59C100: return "GameObject";
     case 0xA0DFAC98: return "Pedestrian";
@@ -420,7 +420,7 @@ void* ResolveTint(Scenery::TintOwner owner)
 
 bool CanCopy(uint32_t source)
 {
-    uint32_t cls = NodeClass(NodeOf(source));
+    uint32_t cls = NodeClassHash(NodeOf(source));
     return cls == kLevelObject || cls == kGameObject || cls == kPedestrian || cls == kVehicle || cls == kParticleObject;
 }
 
@@ -452,7 +452,7 @@ GameObjects::CGameEntity* MakeCopy(uint32_t source, V3 pos, uint32_t name)
     copy->PutNameKey(kName, name);
     copy->EraseModule(kPos);
     copy->PutVec3(kPos, pos.x, pos.y, pos.z);
-    if (NodeClass(node) == kParticleObject) {
+    if (NodeClassHash(node) == kParticleObject) {
         // (a particle system's emitter has world places besides its pos=: moved with it - level_editor_entities.h)
         static const uint32_t kMid = Checksums::HashFromText("MidPosition"),
                               kEnd = Checksums::HashFromText("EndPosition");
@@ -542,12 +542,12 @@ std::vector<TableRow> Copyable()
         return entries;
     static const uint32_t kModel = Checksums::HashFromText("model");
     for (uint32_t a = 0; a < manager->m_num && a < LevelNodes::CNodeManager::kMaxArrays; ++a) {
-        Scripts::CArray* nodes = manager->m_arrays[a].m_nodeList;
+        Scripts::CArray* nodes = manager->m_arrays[a].m_nodeEntries;
         if (!nodes || nodes->m_kindTag != Scripts::QBVAL_STRUCT)
             continue;
         for (uint32_t i = 0; i < nodes->m_extent; ++i) {
             auto* node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(i));
-            uint32_t cls = NodeClass(node), name = 0;
+            uint32_t cls = NodeClassHash(node), name = 0;
             if ((cls != kLevelObject && cls != kGameObject && cls != kPedestrian && cls != kVehicle) ||
                 !node->ReadHashValue(kName, &name, 0))
                 continue;

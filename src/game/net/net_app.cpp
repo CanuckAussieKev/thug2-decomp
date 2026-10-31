@@ -75,7 +75,7 @@ void* InMetrics(Conn* conn) { return &conn->m_receiveMetrics; } // NetLink::Gaug
 void* OutMetrics(Conn* conn) { return &conn->m_sendMetrics; }
 // The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
 // in this process) straight into its own receive buffer.
-uint8_t*& SendBufferStart(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writeBuffer); }
+uint8_t*& SendBufferStart(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_outgoingBytes); }
 uint8_t*& SendBufferEnd(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writePtr); }
 
 // Conn's methods (net_conn.cpp).
@@ -215,13 +215,13 @@ void SendEnqueuedMessagesTo(AppHost* app, Conn* conn)
     reinterpret_cast<void(__thiscall*)(AppHost*, Conn*)>(app->m_vtable[3])(app, conn);
 }
 
-// A TaskList::Task<App> (0x20 bytes): the task node (0x00406890, with the priority), +0x18 the callback, +0x1C the app.
+// A Scheduling::Task<App> (0x20 bytes): the task node (0x00406890, with the priority), +0x18 the callback, +0x1C the app.
 void* NewTask(int priority, void* callback, AppHost* app)
 {
     auto* task = static_cast<uint32_t*>(MemSys::AllocZeroed(0x20));
     if (!task)
         return nullptr;
-    reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(priority);
+    reinterpret_cast<Scheduling::SchedulerTask*>(task)->MakeNew(priority);
     task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     task[6] = reinterpret_cast<uint32_t>(callback);
     task[7] = reinterpret_cast<uint32_t>(app);
@@ -461,7 +461,7 @@ void AppHost::SendBulkToConn(Conn* conn, uint8_t msgId, uint16_t size, void* dat
             stream->m_content = copy;
             stream->m_groupId = groupId;
             stream->m_succ = next;
-            stream->m_sequenceId = NextSequenceId(conn, groupId);
+            stream->m_orderNumber = NextSequenceId(conn, groupId);
             stream->m_borrowedPayload = borrowCallerBuffer;
             AppendLast(Streams(conn), link);
             NextSequenceId(conn, groupId) += laterPieces;
@@ -641,7 +641,7 @@ void AppHost::PumpStreamTraffic()
                 message.m_content = &piece;
                 message.m_groupId = stream->m_groupId;
                 message.m_feed = 1;
-                message.m_fixedSeqNo = stream->m_sequenceId++;
+                message.m_fixedSeqNo = stream->m_orderNumber++;
                 PutOnOutbox(conn->m_hdl, &message);
                 stream->m_succ += length;
                 sent += length;
@@ -724,7 +724,7 @@ Conn* AppHost::OpenedLink(int ip, uint16_t port, int flags)
 {
     Conn* conn = nullptr;
     PushNetworkHeap();
-    if (m_numConnections < m_maxConnections) {
+    if (m_openLinks < m_peerCap) {
         void* memory = MemSys::Alloc(0x3D20);
         conn = memory ? ConstructConn(memory, flags) : nullptr; // (not checked for null)
         conn->m_remoteIp = static_cast<uint32_t>(ip);

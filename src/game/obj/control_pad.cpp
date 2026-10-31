@@ -170,22 +170,22 @@ namespace {
 
 // Every button of the pad with the name scripts ask for it by (each name's checksum is what ReadButton matches).
 struct PadButtonName {
-    CControlButton CPadState::*button;
+    CControlButton CPadSnapshot::*button;
     const char* name;
 };
 constexpr PadButtonName kPadButtons[] = {
-    {&CPadState::m_upDir, "UP"},          {&CPadState::m_btnDown, "DOWN"},     {&CPadState::m_leftSide, "LEFT"},
-    {&CPadState::m_rightSide, "RIGHT"},    {&CPadState::m_buttonBox, "SQUARE"}, {&CPadState::m_buttonRound, "CIRCLE"},
-    {&CPadState::m_buttonWedge, "TRIANGLE"}, {&CPadState::m_posX, "X"},       {&CPadState::m_shoulderLeftA, "L1"},
-    {&CPadState::m_shoulderLeftB, "L2"},          {&CPadState::m_stickClickLeft, "L3"},         {&CPadState::m_shoulderRightA, "R1"},
-    {&CPadState::m_shoulderRightB, "R2"},          {&CPadState::m_stickClickRight, "R3"},         {&CPadState::m_outset, "START"},
-    {&CPadState::m_buttonChoose, "SELECT"},
+    {&CPadSnapshot::m_upDir, "UP"},          {&CPadSnapshot::m_btnDown, "DOWN"},     {&CPadSnapshot::m_leftSide, "LEFT"},
+    {&CPadSnapshot::m_rightSide, "RIGHT"},    {&CPadSnapshot::m_buttonBox, "SQUARE"}, {&CPadSnapshot::m_buttonRound, "CIRCLE"},
+    {&CPadSnapshot::m_buttonWedge, "TRIANGLE"}, {&CPadSnapshot::m_posX, "X"},       {&CPadSnapshot::m_shoulderLeftA, "L1"},
+    {&CPadSnapshot::m_shoulderLeftB, "L2"},          {&CPadSnapshot::m_stickClickLeft, "L3"},         {&CPadSnapshot::m_shoulderRightA, "R1"},
+    {&CPadSnapshot::m_shoulderRightB, "R2"},          {&CPadSnapshot::m_stickClickRight, "R3"},         {&CPadSnapshot::m_outset, "START"},
+    {&CPadSnapshot::m_buttonChoose, "SELECT"},
 };
 
 } // namespace
 
 // 0x0046B940
-CPadState* CPadState::PrepareAll()
+CPadSnapshot* CPadSnapshot::PrepareAll()
 {
     for (const PadButtonName& entry : kPadButtons)
         (this->*entry.button).ChangeTitle(entry.name);
@@ -194,7 +194,7 @@ CPadState* CPadState::PrepareAll()
 }
 
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.
-void CPadState::Reset()
+void CPadSnapshot::Reset()
 {
     for (const PadButtonName& entry : kPadButtons)
         (this->*entry.button).TickFrame(0);
@@ -210,7 +210,7 @@ void CPadState::Reset()
 }
 
 // 0x0046BC60
-void CPadState::Clear()
+void CPadSnapshot::Clear()
 {
     Reset();
     CControlButton* both[] = {&m_upDir, &m_btnDown, &m_leftSide, &m_rightSide, &m_shoulderLeftA, &m_shoulderLeftB, &m_stickClickLeft, &m_shoulderRightA};
@@ -231,7 +231,7 @@ void CPadState::Clear()
 }
 
 // 0x0046BDA0
-void CPadState::TickFrame(const uint8_t* data)
+void CPadSnapshot::TickFrame(const uint8_t* data)
 {
     m_upDir.TickFrame(Full(data[6] != 0));
     m_btnDown.TickFrame(Full(data[7] != 0));
@@ -289,7 +289,7 @@ void CPadState::TickFrame(const uint8_t* data)
 }
 
 // 0x0046C270
-CControlButton* CPadState::ReadButton(uint32_t name)
+CControlButton* CPadSnapshot::ReadButton(uint32_t name)
 {
     // (the original's order)
     CControlButton* buttons[] = {&m_upDir, &m_btnDown, &m_leftSide, &m_rightSide, &m_buttonBox, &m_buttonRound, &m_buttonWedge, &m_posX,

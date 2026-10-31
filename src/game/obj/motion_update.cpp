@@ -87,7 +87,7 @@ uint32_t PathLastNode(const CKinematicsModule* motion)
 // 0x004270E0
 void CKinematicsModule::TickFrame()
 {
-    m_frameTime = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
+    m_stepSeconds = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     if (m_motionFlags) {
         if (m_motionFlags & MOTION_HOVERING) {
             m_entity->m_atPoint.y = m_hoverBase;
@@ -118,8 +118,8 @@ void CKinematicsModule::TickFrame()
         float acceleration = up ? 384.0f : -384.0f;
         if (up != (m_groundSpeed > 0.0f))
             m_groundSpeed = 0.0f;
-        double change = static_cast<double>(acceleration) * m_frameTime;
-        float step = static_cast<float>((0.5 * change + m_groundSpeed) * m_frameTime);
+        double change = static_cast<double>(acceleration) * m_stepSeconds;
+        float step = static_cast<float>((0.5 * change + m_groundSpeed) * m_stepSeconds);
         m_groundSpeed = static_cast<float>(change + m_groundSpeed);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
         if (up ? step > m_groundOffset : step < m_groundOffset) {
@@ -146,7 +146,7 @@ bool CKinematicsModule::UpdateMoveTo()
             m_moveAcceleration = 0.0f;
         }
     }
-    double done = static_cast<double>(m_moveSpeed) * m_frameTime + m_moveDone;
+    double done = static_cast<double>(m_moveSpeed) * m_stepSeconds + m_moveDone;
     m_moveDone = static_cast<float>(done);
     Maths::Vec4& pos = m_entity->m_atPoint;
     if (done >= m_moveDistance) {
@@ -169,7 +169,7 @@ bool CKinematicsModule::UpdateMoveTo()
     pos.w = static_cast<float>(static_cast<double>(w) + m_moveStart.w);
     pos.x = static_cast<float>(static_cast<double>(x) + m_moveStart.x);
     pos.y = static_cast<float>(static_cast<double>(y) + m_moveStart.y);
-    SetStepVelocity(m_entity, back, m_frameTime);
+    SetStepVelocity(m_entity, back, m_stepSeconds);
     return false;
 }
 
@@ -184,7 +184,7 @@ void CKinematicsModule::UpdatePath()
     if (!(m_pathSpeed == 0.0f)) {
         Maths::Mat4& matrix = m_entity->m_basisFrame;
         const Maths::Vec4* along = (m_motionFlags2 & MOTION2_NO_PATH_HEADING) ? nullptr : &matrix.row[2];
-        if (m_pathFollower->TickFrame(static_cast<float>(static_cast<double>(m_frameTime) * m_pathSpeed), along)) {
+        if (m_pathFollower->TickFrame(static_cast<float>(static_cast<double>(m_stepSeconds) * m_pathSpeed), along)) {
             m_motionFlags &= ~MOTION_FOLLOWING_PATH;
             m_pathSpeed = 0.0f;
         }
@@ -210,7 +210,7 @@ void CKinematicsModule::UpdatePath()
             m_entity->m_atPoint.y = height;
         }
     }
-    SetStepVelocity(m_entity, back, m_frameTime);
+    SetStepVelocity(m_entity, back, m_stepSeconds);
 }
 
 // 0x004246A0
@@ -257,7 +257,7 @@ void CKinematicsModule::ArriveAtNode(uint32_t node)
 // 0x00424180
 void CKinematicsModule::FollowPathLinked(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint32_t node = params->HasBareFlag(kOriginalNode) ? m_firstNode : m_listLink;
+    uint32_t node = params->HasBareFlag(kOriginalNode) ? m_ownNodeName : m_listLink;
     uint32_t links = LevelNodes::GetLinkCount(node);
     if (!links)
         return;

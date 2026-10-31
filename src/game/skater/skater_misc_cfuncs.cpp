@@ -166,7 +166,7 @@ bool __cdecl CFunc_PlaySkaterStream(Scripts::CStruct* params, Scripts::CScript* 
     params->FetchIntValue(kStreamCount, &count, 0);
 
     // the stream numbers 1..count, shuffled
-    CArray* memory = Scripts::NewArray();
+    CArray* memory = Scripts::AllocScriptArray();
     CArray* order = memory ? memory->PrepareAll() : nullptr;
     order->ConfigureSizeKind(count, Scripts::QBVAL_INTEGER);
     for (int i = 0; i < count; ++i)

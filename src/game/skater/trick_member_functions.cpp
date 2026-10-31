@@ -90,7 +90,7 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // The rest of the component (0x0051EA90-0x00521B8F) and its neighbours, not rewritten here.
 bool IsPadHeld(CMoveExecutor* self, uint32_t button)
 {
-    return self->IsButtonDown(button);
+    return self->IsKeyHeld(button);
 }
 bool IsSwitch(CMoveExecutor* self)
 {
@@ -409,7 +409,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
                         continue;
                     }
                 }
-                if (At<bool>(this, kHeldButtons + PadInput::ButtonIndex(buttons->FetchPart(i))))
+                if (At<bool>(this, kHeldButtons + PadInput::GlyphForButtonTag(buttons->FetchPart(i))))
                     return 1;
             }
             return 0;

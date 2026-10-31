@@ -49,7 +49,7 @@ namespace {
 
 constexpr uint32_t kMasterHostTable = 0x9954;  // char[10][16]: the master servers' names
 constexpr int kMasterServerCount = 10;
-constexpr uint32_t kConnectTask = 0xD8;      // TaskList::SchedulerTask* (the online state's)
+constexpr uint32_t kConnectTask = 0xD8;      // Scheduling::SchedulerTask* (the online state's)
 constexpr uint32_t kOnlineState = 0x1A8;     // int (-1: starting)
 constexpr uint32_t kOnlineScript = 0x1C4;    // uint32_t: run once online
 constexpr uint32_t kOfflineScript = 0x1C8;   // uint32_t: run when connecting fails / after disconnecting
@@ -107,7 +107,7 @@ const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
 const char* const kEmpty = "";       // ""
 const char* const kHashFieldName = "checksum"; // "checksum"
 
-TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
+Scheduling::PileUp* LogicTasks() { return reinterpret_cast<Scheduling::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
 
 bool Filled(const char* text) { return text && *text; }
 
@@ -304,7 +304,7 @@ uint32_t Hub::GetGameTypePreference()
 // 0x00535C10
 bool Hub::ConnectToInternet(uint32_t onlineScript, uint32_t failScript)
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     NetLink::Hub* net = NetLink::Hub::Sole();
     Prop<uint32_t>(this, kOfflineScript) = failScript;
     Prop<uint32_t>(this, kOnlineScript) = onlineScript;
@@ -317,7 +317,7 @@ bool Hub::ConnectToInternet(uint32_t onlineScript, uint32_t failScript)
         if (!online) {
             // A modem or a PPPoE connection carries on in the online state's task.
             if (net->GetNetLinkKind() == 1 || net->GetNetLinkKind() == 3)
-                tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, kConnectTask));
+                tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kConnectTask));
             return online;
         }
     }
@@ -329,12 +329,12 @@ bool Hub::ConnectToInternet(uint32_t onlineScript, uint32_t failScript)
 // 0x00535CB0
 void Hub::DisconnectFromInternet(uint32_t script)
 {
-    TaskList::PileUp* tasks = LogicTasks();
+    Scheduling::PileUp* tasks = LogicTasks();
     NetLink::Hub* net = NetLink::Hub::Sole();
     Prop<int>(this, kOnlineState) = -1;
     if (script)
         Prop<uint32_t>(this, kOfflineScript) = script;
-    tasks->QueueJob(Prop<TaskList::SchedulerTask*>(this, kConnectTask));
+    tasks->QueueJob(Prop<Scheduling::SchedulerTask*>(this, kConnectTask));
     SetServiceState(2);
     net->DisconnectFromInternet();
 }
@@ -344,13 +344,13 @@ void __cdecl Hub::CancelConnectToInternet()
 {
     Hub* manager = g_onlineHub;
     NetLink::Hub* net = NetLink::Hub::Sole();
-    TaskList::SchedulerTask* task = Prop<TaskList::SchedulerTask*>(manager, kConnectTask);
+    Scheduling::SchedulerTask* task = Prop<Scheduling::SchedulerTask*>(manager, kConnectTask);
     switch (net->GetDialupStatus()) {
     case 0:
     case 1:
         task->DropOut();
         Prop<int>(manager, kOnlineState) = -1;
-        LogicTasks()->QueueJob(Prop<TaskList::SchedulerTask*>(manager, kConnectTask));
+        LogicTasks()->QueueJob(Prop<Scheduling::SchedulerTask*>(manager, kConnectTask));
         manager->SetServiceState(2);
         NetLink::Hub::Sole()->DisconnectFromInternet();
         break;

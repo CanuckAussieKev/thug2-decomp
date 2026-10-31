@@ -193,7 +193,7 @@ struct StreamSlot {
 };
 static_assert(sizeof(StreamSlot) == 0x14, "layout must match the original");
 
-constexpr int kNumStreams = 3;
+constexpr int kStreamSlots = 3;
 StreamSlot* StreamSlots(); // 0x006EDFB8
 StreamSlot& MusicSlot();   // 0x006EDFF4
 

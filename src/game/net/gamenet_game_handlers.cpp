@@ -199,7 +199,7 @@ int __cdecl HandleCrownSpawn(NetLink::InboundMsgCtx* context)
 // 0x005300C0
 int __cdecl HandleFcfsNotice(NetLink::InboundMsgCtx* context)
 {
-    uint8_t* local = LocalPlayer(ManagerOf(context));
+    uint8_t* local = FindOwnPlayerRecord(ManagerOf(context));
     const uint8_t* msg = Message(context);
     AsPlayer(local)->SetHostPlayer(); // (its flag 0x200 set)
     Scripts::CStruct* params = NewParams();
@@ -226,7 +226,7 @@ int __cdecl HandleFlagReturned(NetLink::InboundMsgCtx* context)
     DeleteParams(params);
     if (IsOwnPlayer(player))
         Run(kDestroyCtfPanelMessage);
-    uint8_t* local = LocalPlayer(manager);
+    uint8_t* local = FindOwnPlayerRecord(manager);
     if (local && !IsObserver(local) && PlayerTeam(local) == team)
         Run(kHideCtfArrow);
     AsPlayer(player)->ClearFlags(); // carries no flag
@@ -394,7 +394,7 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
         return reinterpret_cast<void**>(Prop<void**>(object, 0))[offset / 4];
     };
     uint8_t* player = FindPlayerSlotByObj(manager, msg);
-    uint8_t* local = LocalPlayer(manager);
+    uint8_t* local = FindOwnPlayerRecord(manager);
     reinterpret_cast<void(__thiscall*)(uint8_t*, int)>(virtualCall(goal, 0x70))(goal, PlayerTeam(player));
     if (!PlayerSkater(player))
         return kContinue;
@@ -458,7 +458,7 @@ int __cdecl HandleGoalStarted(NetLink::InboundMsgCtx* context)
         return kContinue;
     const char* text = nullptr;
     uint8_t* player = FindPlayerSlotByObj(manager, msg);
-    if (PlayerTeam(LocalPlayer(manager)) != PlayerTeam(player))
+    if (PlayerTeam(FindOwnPlayerRecord(manager)) != PlayerTeam(player))
         return kContinue;
     Call(CodeAddress(&GoalSystem::CObjective::GetObjectiveListCaption), goal, &text);
     Scripts::CStruct* params = NewParams();

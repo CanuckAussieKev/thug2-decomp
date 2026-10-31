@@ -178,7 +178,7 @@ unsigned long __stdcall StreamThread(void*)
     while (!StopThread()) {
         if (WaitForSingleObject(StreamLock(), INFINITE) != WAIT_TIMEOUT) {
             UpdateSlot(MusicSlot());
-            for (int i = 0; i < kNumStreams; ++i)
+            for (int i = 0; i < kStreamSlots; ++i)
                 UpdateSlot(StreamSlots()[i]);
             ReleaseMutex(StreamLock());
         }
@@ -208,7 +208,7 @@ _OVERLAPPED* __cdecl NewOverlapped()
         if (UsesOverlapped(MusicSlot(), overlapped))
             continue;
         bool used = false;
-        for (int i = 0; i < kNumStreams && !used; ++i)
+        for (int i = 0; i < kStreamSlots && !used; ++i)
             used = UsesOverlapped(StreamSlots()[i], overlapped);
         if (used)
             continue;
@@ -221,7 +221,7 @@ _OVERLAPPED* __cdecl NewOverlapped()
 void __cdecl InitPlatform()
 {
     std::memset(&MusicSlot(), 0, sizeof(StreamSlot));
-    std::memset(StreamSlots(), 0, kNumStreams * sizeof(StreamSlot));
+    std::memset(StreamSlots(), 0, kStreamSlots * sizeof(StreamSlot));
     UserSoundtrackCount();
     WadFile() = CreateFileA("data\\streams\\pcm\\pcm.wad", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                             FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
@@ -303,7 +303,7 @@ int __cdecl MusicStatus()
 int __cdecl StreamStatus(int slot)
 {
     int first = slot == -1 ? 0 : slot;
-    int end = slot == -1 ? kNumStreams : slot + 1;
+    int end = slot == -1 ? kStreamSlots : slot + 1;
     for (int i = first; i < end; ++i)
         if (!StreamSlots()[i].Playing())
             return 1;
@@ -334,7 +334,7 @@ void __cdecl PauseStreams(bool pause, int which)
             music.bink->Freeze(pause ? 1 : 0);
         return;
     }
-    for (int i = 0; i < kNumStreams; ++i) {
+    for (int i = 0; i < kStreamSlots; ++i) {
         StreamSlot& slot = StreamSlots()[i];
         if (!slot.Playing())
             continue;
@@ -352,7 +352,7 @@ int __cdecl UpdateStreams()
     WaitForSingleObject(StreamLock(), INFINITE);
     if (Over(MusicSlot()))
         MusicSlot().Dealloc();
-    for (int i = 0; i < kNumStreams; ++i)
+    for (int i = 0; i < kStreamSlots; ++i)
         if (Over(StreamSlots()[i]))
             StreamSlots()[i].Dealloc();
     ReleaseMutex(StreamLock());

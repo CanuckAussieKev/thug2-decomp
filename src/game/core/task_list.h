@@ -6,7 +6,7 @@
 
 // Tasks: callbacks kept in priority-ordered lists that the main loop runs each frame (the main loop's logic and
 // display task stacks, the input handlers, the file and network managers' tasks...).
-namespace TaskList {
+namespace Scheduling {
 
 class LinkChain;
 

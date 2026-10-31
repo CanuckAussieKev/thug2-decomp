@@ -46,7 +46,7 @@ struct CGlyphString {
     bool m_overrideAlpha;    // +0x3D
     bool m_invisible;           // +0x3E
     bool m_zEnabled;         // +0x3F
-    void* m_viewWindow;         // +0x40: the 2D window it's drawn in
+    void* m_screenRegion;         // +0x40: the 2D window it's drawn in
     CGlyphString* m_nextFree;      // +0x44
 
     // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.

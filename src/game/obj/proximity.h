@@ -49,7 +49,7 @@ struct ProximNode {
     int m_kindTag;                    // +0x68: what it reacts to (ProximType: 0, 1, 2), ProximityNotify's `type`
     int m_form;                   // +0x6C: EProximShape
     float m_radius;                // +0x70
-    float m_radiusSquared;         // +0x74
+    float m_reachSq;         // +0x74
     void* m_sector;                // +0x78
     Maths::BBox m_box;               // +0x7C
     uint32_t m_unknown9C;

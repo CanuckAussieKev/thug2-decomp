@@ -135,11 +135,11 @@ const Cached& CacheOf(uint32_t checksum, const Engine3D::CTriMeshSource* tri, in
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     float threshold = GameThreshold();
     Cached& c = g_cache[checksum];
-    if (c.tri == tri && c.faces == tri->m_numFaces && c.threshold == threshold && same(c.min, min) &&
+    if (c.tri == tri && c.faces == tri->m_triCount && c.threshold == threshold && same(c.min, min) &&
         same(c.max, max) && same(c.first, first) && same(c.last, last))
         return c;
     c = Cached{};
-    c.tri = tri, c.min = min, c.max = max, c.first = first, c.last = last, c.faces = tri->m_numFaces;
+    c.tri = tri, c.min = min, c.max = max, c.first = first, c.last = last, c.faces = tri->m_triCount;
     c.threshold = threshold;
     if (!tri->m_faces || !tri->m_vertices)
         return c;
@@ -202,7 +202,7 @@ void AddOverlay(const Overlays::Painter& painter)
             if (!coll || *reinterpret_cast<void***>(coll) != kCollStaticVtable || (coll[0x08] & 4))
                 return; // (no collision, or switched off)
             const auto* tri = *reinterpret_cast<const Engine3D::CTriMeshSource* const*>(coll + 0x0C);
-            if (!tri || !tri->m_numFaces || View::HiddenSector(checksum))
+            if (!tri || !tri->m_triCount || View::HiddenSector(checksum))
                 return;
             float distance = View::DistanceToBox(w->camera, ToV3(tri->m_lowerLimit), ToV3(tri->m_upperLimit));
             if (distance <= kRadius)

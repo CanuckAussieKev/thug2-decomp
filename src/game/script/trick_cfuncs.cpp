@@ -116,9 +116,9 @@ uint32_t KeyComboForCat(CStruct* mapping, int cat)
 }
 
 // `new Scripts::CArray` (the array pool, constructed).
-CArray* NewArray()
+CArray* AllocScriptArray()
 {
-    CArray* array = Scripts::NewArray();
+    CArray* array = Scripts::AllocScriptArray();
     return array ? array->PrepareAll() : nullptr;
 }
 
@@ -325,13 +325,13 @@ bool __cdecl CFunc_GetConfigurableTricksFromType(Scripts::CStruct* params, Scrip
     }
     if (trickCount == 0)
         return false;
-    CArray* trickArray = NewArray();
+    CArray* trickArray = AllocScriptArray();
     trickArray->ConfigureSizeKind(trickCount, Scripts::QBVAL_NAME);
     for (int i = 0; i < trickCount; ++i)
         trickArray->SetElement(i, tricks[i]);
     script->m_args->AppendArrayRef(kEditableTrickList, trickArray);
     if (catCount > 0) {
-        CArray* catArray = NewArray();
+        CArray* catArray = AllocScriptArray();
         catArray->ConfigureSizeKind(catCount, Scripts::QBVAL_INTEGER);
         for (int i = 0; i < catCount; ++i)
             catArray->SetElement(i, static_cast<uint32_t>(cats[i]));
@@ -590,7 +590,7 @@ bool __cdecl CFunc_GetKeyComboArrayFromTrickArray(Scripts::CStruct* params, Scri
     CRiderIdentity* profile = ProfileFor(nullptr);
     CStruct* mapping = profile->FetchDetailsParams(kTrickMapping);
     int size = static_cast<int>(tricks->m_extent);
-    CArray* keyCombos = NewArray();
+    CArray* keyCombos = AllocScriptArray();
     keyCombos->ConfigureSizeKind(size, Scripts::QBVAL_NAME);
     for (int i = 0; i < size; ++i) {
         uint32_t trick = tricks->FetchPart(i);

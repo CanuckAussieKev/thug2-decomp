@@ -46,7 +46,7 @@ static_assert(offsetof(CModelWidget, m_models) == 0x178 && offsetof(CModelWidget
                   offsetof(CModelWidget, m_sizeFollowsRange) == 0x4EC && offsetof(CModelWidget, m_distanceScale) == 0x4F0 &&
                   offsetof(CModelWidget, m_maxScale) == 0x4F4 && offsetof(CModelWidget, m_viewSlot) == 0x4F8 &&
                   offsetof(CModelWidget, m_anchorObject) == 0x4FC && offsetof(CModelWidget, m_parentInteger) == 0x500 &&
-                  offsetof(CModelWidget, m_parentNode) == 0x504 && offsetof(CModelWidget, m_leanAngle) == 0x508 &&
+                  offsetof(CModelWidget, m_attachToName) == 0x504 && offsetof(CModelWidget, m_leanAngle) == 0x508 &&
                   offsetof(CModelWidget, m_isDead) == 0x50C && sizeof(CModelWidget) == 0x510,
               "layout must match the original");
 
@@ -391,7 +391,7 @@ void CModelWidget::ChangeTraits(CStruct* params)
 
     m_parentInteger = 0;
     m_anchorObject = 0;
-    m_parentNode = 0;
+    m_attachToName = 0;
     m_anchorShift = {0.0f, 0.0f, 0.0f, 1.0f};
     CStruct* parent = nullptr;
     if (params->ReadSubStruct(kOwnerArgs, &parent, 0)) {
@@ -399,7 +399,7 @@ void CModelWidget::ChangeTraits(CStruct* params)
         parent->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&m_anchorShift), 0);
         if (parent->FetchIntValue(kSkater, &m_parentInteger, 0))
             m_anchorObject = kSkater;
-        parent->ReadHashValue(kNode, &m_parentNode, 0);
+        parent->ReadHashValue(kNode, &m_attachToName, 0);
     }
 
     if (params->HasBareFlag(kScaleToScreenDims)) {
@@ -602,9 +602,9 @@ void CModelWidget::TickFrame()
             script->m_entity.AssignValue(reinterpret_cast<GameObjects::CEntity*>(this));
             m_isDead = true;
         }
-    } else if (m_parentNode) {
+    } else if (m_attachToName) {
         Maths::Vec4 position;
-        NodePosition(NodeStructure(m_parentNode), &position);
+        NodePosition(NodeStructure(m_attachToName), &position);
         m_basisFrame.ResetToIdentity();
         Maths::Vec4 offset = m_anchorShift * m_basisFrame;
         m_basisFrame.row[3].z = position.z + offset.z;

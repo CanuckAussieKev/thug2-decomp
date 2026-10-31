@@ -82,7 +82,7 @@ void ShowLean2(void* score, int on, float lean) { static_cast<GameModules::Point
 // A button of the input component's control data held (its first byte).
 bool Held(uint8_t* input, uint32_t button)
 {
-    return reinterpret_cast<CPadState*>(input + 0x20)->ReadButton(button)->m_heldDown != 0;
+    return reinterpret_cast<CPadSnapshot*>(input + 0x20)->ReadButton(button)->m_heldDown != 0;
 }
 
 void ResetState(CBalance* b)
@@ -164,14 +164,14 @@ void CBalance::Halt()
         ShowLean2(ScoreDisplay(m_pointsHeld), 0, 0.0f);
     }
     m_leftButton = 0;
-    m_rightButton = 0;
+    m_rightPress = 0;
 }
 
 // 0x00579A00
 void CBalance::Kickoff(uint32_t leftButton, uint32_t rightButton, uint32_t trick, bool flipped, bool flip)
 {
     m_leftButton = leftButton;
-    m_rightButton = rightButton;
+    m_rightPress = rightButton;
     m_trick = trick;
     m_clock = 0.0f;
     m_pushed = false;
@@ -242,7 +242,7 @@ void CBalance::Kickoff(uint32_t leftButton, uint32_t rightButton, uint32_t trick
 void CBalance::TickFrame()
 {
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
-    if (!m_leftButton || !m_rightButton)
+    if (!m_leftButton || !m_rightPress)
         return;
     auto* net = OnlinePlay::g_onlineHub;
     if (net->m_host) // (the folded getter 0x005480C0)
@@ -268,7 +268,7 @@ void CBalance::TickFrame()
     double grown = (gravity * instable * frame * kFrames + 1.0) * m_lean;
     m_lean = static_cast<float>(grown + instable * m_leanSpeed * frame * kFrames);
     bool left = Held(m_input, m_leftButton);
-    bool right = Held(m_input, m_rightButton);
+    bool right = Held(m_input, m_rightPress);
     if (!left && !right)
         m_pushed = true;
     uint32_t safePeriod = static_cast<uint32_t>(Scripts::FetchIntValue(kBalanceSafeButtonPeriod));
@@ -327,7 +327,7 @@ void CBalance::TickFrame()
     float shown = static_cast<float>(m_lean * -0.000244140625f);
     if (m_hideDisplay || !TrickType(m_balanceTrick))
         return;
-    bool upDown = (m_leftButton == kUp || m_leftButton == kDown) && (m_rightButton == kUp || m_rightButton == kDown);
+    bool upDown = (m_leftButton == kUp || m_leftButton == kDown) && (m_rightPress == kUp || m_rightPress == kDown);
     void* score = ScoreDisplay(m_pointsHeld);
     if (!score)
         return;

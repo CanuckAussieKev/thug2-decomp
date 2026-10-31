@@ -29,17 +29,17 @@ void*& IndexBufferOf(uint8_t* mesh) { return *reinterpret_cast<void**>(mesh + 0x
 uint16_t* LockIndices(void* buffer)
 {
     uint16_t* indices = nullptr;
-    static_cast<sIndexBuffer*>(buffer)->Lock(0, 0, &indices, 0);
+    static_cast<sIdxStore*>(buffer)->Lock(0, 0, &indices, 0);
     return indices;
 }
-void UnlockIndices(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Unlock(); }
-void ReleaseIndexBuffer(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Teardown(); }
+void UnlockIndices(void* buffer) { static_cast<sIdxStore*>(buffer)->Unlock(); }
+void ReleaseIndexBuffer(void* buffer) { static_cast<sIdxStore*>(buffer)->Teardown(); }
 void* NewIndexBuffer(uint32_t bytes)
 {
     void* memory = Crt::AllocBlock(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
-    return static_cast<sIndexBuffer*>(memory)->MakeNew(bytes, 0, 0x65);
+    return static_cast<sIdxStore*>(memory)->MakeNew(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
 void* VertexBuffer(uint8_t* mesh, int index) { return reinterpret_cast<meshRef*>(mesh)->FetchVertexStore(index); }

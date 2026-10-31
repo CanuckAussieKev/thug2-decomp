@@ -79,7 +79,7 @@ void RestoreDeviceObjects()
     Engine3D::CreateRenderTargets();
 }
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
-void RunTasks(TaskList::PileUp& list, bool profiling)
+void RunTasks(Scheduling::PileUp& list, bool profiling)
 {
     list.WorkOn(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
@@ -109,8 +109,8 @@ void RenderFrameLetterboxed()
 namespace {
 
 // The task lists (Lst-style lists of tasks, 0x3C bytes each).
-void ConstructTaskList(TaskList::PileUp& list) { list.MakeNew(); }
-void DestroyTaskList(TaskList::PileUp& list) { list.Destruct(); }
+void ConstructTaskList(Scheduling::PileUp& list) { list.MakeNew(); }
+void DestroyTaskList(Scheduling::PileUp& list) { list.Destruct(); }
 
 Hub*& Sole() { return AssetStore::g_mainLoopManager; }
 uint32_t& RefTally() { return g_mlpReferences; }

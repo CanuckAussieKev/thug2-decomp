@@ -102,7 +102,7 @@ void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
     if (m_modelKey) {
         for (int i = 0; i < MeshCount(assetData); ++i) {
             if (!Skipped(meshes[i])) {
-                faces += meshes[i].m_numFaces;
+                faces += meshes[i].m_triCount;
                 vertices += meshes[i].m_numVertices;
             }
         }
@@ -120,7 +120,7 @@ void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
             if (Skipped(mesh))
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
-            for (int f = 0; f < mesh.m_numFaces; ++f) {
+            for (int f = 0; f < mesh.m_triCount; ++f) {
                 uint16_t a, b, c;
                 if (mesh.m_smallFaces) {
                     const uint8_t* face = mesh.m_faces + f * 8;
