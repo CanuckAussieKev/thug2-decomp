@@ -31,11 +31,8 @@ constexpr int kSwapSlots = 5;
 SwapSlot* swap_table() { return g_swap_table; }
 
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
-objects::RiderStoryProgress* get_career()
-{
-    return *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::Skate::sole()) + 0x20);
-}
-Struct* result_params(Script* script) { return *reinterpret_cast<Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14); }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_; }
+Struct* result_params(Script* script) { return script->args_; }
 
 // The skate module's profile `params`' skater names (0x00564F80).
 objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::sole()->fetch_account(params); }

@@ -20,6 +20,9 @@
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/code_address.h"
+#include "engine/net/player_info.h"
+#include "game/rider/skater_score.h"
+#include "game/rider/rider.h"
 
 namespace goals {
 
@@ -127,14 +130,11 @@ inline void destroy_goal_ped_body(ObjectiveNpc*) {}
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
-objects::GameEntity* player_skater(void* player)
-{
-    return *reinterpret_cast<objects::GameEntity**>(static_cast<uint8_t*>(player) + 0x14);
-}
-// A skater's score (its SkaterScore component's +0x18: modules::PointTally) reset (0x00564A10) / its total (0x00561B40).
+objects::GameEntity* player_skater(void* player) { return static_cast<online::PlayerRecord*>(player)->skater_; }
+// A skater's score (its SkaterScore component's modules::PointTally) reset (0x00564A10) / its total (0x00561B40).
 void* get_score_of(objects::GameEntity* skater)
 {
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterScore)) + 0x18);
+    return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 void reset_score(void* score) { static_cast<modules::PointTally*>(score)->get_reset(); }
 int total_score(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
@@ -621,8 +621,7 @@ bool Objective::all_skaters_run_done()
         auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (active_ruleset_label() == kHorse &&
-            (reinterpret_cast<uint8_t*>(skater)[0x320] ||
-             (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x104) >> 2) & 1))
+            (static_cast<objects::Rider*>(skater)->is_halted_ || (skater->composite_flags_ >> 2) & 1))
             continue;
         bool done;
         if (run_ending_ == 0)

@@ -26,6 +26,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/gfx/tod_manager.h"
+#include "game/rider/skater_score.h"
 
 namespace goals {
 
@@ -337,8 +338,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
 // 0x005553C0
 bool Objective::did_trick_string()
 {
-    void* score =
-        *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(local_skater()->fetch_module(kSkaterScore)) + 0x18);
+    void* score = static_cast<objects::RiderPointKeeper*>(local_skater()->fetch_module(kSkaterScore))->points_held_;
     const char* trick;
     args_->fetch_text(kTrickString, &trick, 1);
     uint32_t type;
@@ -448,8 +448,8 @@ bool Objective::test_longest_jump()
     if (!skater || !object)
         return false;
     // The distance across the ground: the height's square added and taken away again, as the original.
-    const auto* from = reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(object) + 0x4C);
-    const auto* to = reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(skater) + 0x4C);
+    const float* from = &static_cast<objects::GameEntity*>(object)->at_point_.x;
+    const float* to = &skater->at_point_.x;
     double dx = static_cast<double>(from[0]) - to[0];
     double dy = static_cast<double>(from[1]) - to[1];
     double dz = static_cast<double>(from[2]) - to[2];

@@ -23,6 +23,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/mlp.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -63,7 +64,7 @@ void set_no_lod(float* distances)
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 uint8_t* model_of(ObjectModule* component)
 {
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
 }
 void change_model_enabled(uint8_t* model, bool active)
 {
@@ -243,8 +244,7 @@ SuspendTaskHolder* SuspendTaskHolder::make_new()
 {
     auto* task = new tasks::Task<SuspendTaskHolder>(&suspend_task, this, kTaskPriority);
     job_handle_ = task;
-    (&assets::g_main_loop_manager->logic_tasks_)
-        ->queue_job(task); // the logic tasks
+    (&assets::g_main_loop_manager->logic_tasks_)->queue_job(task); // the logic tasks
     return this;
 }
 
@@ -258,9 +258,9 @@ void __cdecl create_suspend_task()
 // 0x00434420
 void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
 {
-    // The camera the distances are measured from: the skate module's +0x3DC (a flag that turns the checks off, then
-    // the position).
-    const uint8_t* camera = reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x3DC;
+    // The camera the distances are measured from: the skate module's (a flag that turns the checks off, then the
+    // position).
+    const modules::Skate* camera = modules::g_skate_module;
     auto* component = static_cast<DormancyModule*>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->distance_squared_ = 0.0f;
@@ -270,12 +270,12 @@ void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
             --component->frames_before_check_;
             continue;
         }
-        if (!camera[0] && !component->never_suspend_) {
+        if (!camera->no_camera_ && !component->never_suspend_) {
             if (component->frames_before_lod_) {
                 --component->frames_before_lod_;
             } else {
                 const maths::Vec4& pos = component->entity_->at_point_;
-                const float* at = reinterpret_cast<const float*>(camera + 4);
+                const float* at = reinterpret_cast<const float*>(&camera->viewer_pos_);
                 double dx = static_cast<double>(pos.x) - at[0], dy = static_cast<double>(pos.y) - at[1],
                        dz = static_cast<double>(pos.z) - at[2];
                 double distance_squared = (dz * dz + dy * dy) + dx * dx;

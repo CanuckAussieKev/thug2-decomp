@@ -153,7 +153,7 @@ void VideoHub::keep_camera(Movie* movie)
         return;
     if (g_simulation_halted) // (the game paused)
         return;
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == 0xE92ECAFE)
+    if (modules::g_skate_module->level_ == 0xE92ECAFE)
         return;
     reinterpret_cast<CameraAssignment*>(&viewer_)->get_assign(movie->viewer_);
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;

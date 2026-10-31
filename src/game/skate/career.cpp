@@ -530,8 +530,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->add_component_of_type(kGlobalFlagsArray, script::kQbvalArray, reinterpret_cast<uint32_t>(globals));
     career->add_component_of_type(kGapLevelList, script::kQbvalArray, reinterpret_cast<uint32_t>(gap_levels));
     career->append_array_ref(kVisitedArray, visited);
-    career->put_name_key(0xE3335D2F, *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) +
-                                                                  0x378)); // (the skate module's)
+    career->put_name_key(0xE3335D2F, modules::g_skate_module->level_);
     career->put_name_key(0x2CC06F5E,
                          static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->get_name_key());
     // (both made first, then sized, as the original)
@@ -564,8 +563,8 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.
 bool __cdecl cfunc_get_career_save_info(script::Struct* /*params*/, script::Script* script)
 {
-    auto* career = *reinterpret_cast<RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20);
-    career->write_to_structure(*reinterpret_cast<script::Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14));
+    RiderStoryProgress* career = modules::g_skate_module->career_;
+    career->write_to_structure(script->args_);
     return true;
 }
 

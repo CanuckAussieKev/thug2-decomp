@@ -49,10 +49,7 @@ constexpr uint32_t kSpaceAvailable = 0x0C37C363; // "SpaceAvailable"
 constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 
 // The calling script's own parameters (Scripts::CScript +0x14): where commands leave results for it.
-script::Struct* result_params(script::Script* script)
-{
-    return *reinterpret_cast<script::Struct**>(reinterpret_cast<char*>(script) + 0x14);
-}
+script::Struct* result_params(script::Script* script) { return script->args_; }
 
 } // namespace
 

@@ -19,6 +19,7 @@
 #include "engine/objects/collide_and_die.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/model_component.h"
 
 namespace render {
 
@@ -327,8 +328,7 @@ void FlexibleParticleComponent::tick_frame()
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time_) {
                 if (brightness_model_)
-                    system->brightness_ =
-                        *reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(brightness_model_) + 0x22C);
+                    system->brightness_ = static_cast<MeshInstanceModule*>(brightness_model_)->brightness_;
                 update_system(system_.get_pull(), clock_, 0);
                 clock_ = 0.0f;
             }

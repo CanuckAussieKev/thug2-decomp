@@ -398,8 +398,7 @@ bool __cdecl cfunc_get_text_element_string(script::Struct* params, script::Scrip
         if (text_block_string(element.owner_object_, text, sizeof(text)))
             script->args_->append_word(kString, text);
     } else if (element->kind_tag_ == kTextElement) {
-        if (const char* string =
-                *reinterpret_cast<const char**>(reinterpret_cast<uint8_t*>(element.owner_object_) + 0x178))
+        if (const char* string = static_cast<LabelWidget*>(element.owner_object_)->chars_)
             script->args_->append_word(kString, string);
     }
     return false;

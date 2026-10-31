@@ -70,10 +70,7 @@ modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
 highscores::BestResults* game_records() { return highscores::g_game_records; }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
-objects::RiderStoryProgress* get_career()
-{
-    return *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(get_skate()) + 0x20);
-}
+objects::RiderStoryProgress* get_career() { return get_skate()->career_; }
 int os_layer() { return game_config::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
@@ -95,9 +92,11 @@ objects::ObjectModule* goal_editor_component()
     return static_cast<objects::GameEntity*>(object)->fetch_module(kGoalEditor);
 }
 
-// The skate module's controller settings: each controller's three flags (+0x394 + 8 * n: vibration, autokick,
-// spin taps).
-uint8_t* controller_flags(int controller) { return reinterpret_cast<uint8_t*>(get_skate()) + 0x394 + 8 * controller; }
+// The skate module's controller settings: each controller's three flags (vibration, autokick, spin taps).
+const modules::Skate::PlayerSettings& controller_flags(int controller)
+{
+    return get_skate()->participants_[controller];
+}
 
 Struct* spawn_param_table()
 {
@@ -144,12 +143,12 @@ void write_global_info(Struct* global)
     controllers->configure_size_kind(kControllers, script::kQbvalStruct);
     for (int i = 0; i < kControllers; ++i) {
         Struct* controller = spawn_param_table();
-        const uint8_t* flags = controller_flags(i);
-        if (flags[1])
+        const modules::Skate::PlayerSettings& flags = controller_flags(i);
+        if (flags.auto_kick_)
             controller->put_name_key(0u, kAutokickOn);
-        if (flags[2])
+        if (flags.spin_taps_)
             controller->put_name_key(0u, kSpinTapsOn);
-        if (flags[0])
+        if (flags.vibration_)
             controller->put_name_key(0u, kVibrationOn);
         controllers->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(controller));
     }
@@ -239,7 +238,7 @@ void read_save_header(Struct* global, Script* script)
         career->read_hash_value(kLastLevelLoadScript, &last_level, 0);
         career->read_hash_value(kLastGameMode, &last_mode, 0);
     }
-    Struct* results = *reinterpret_cast<Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14);
+    Struct* results = script->args_;
     if (last_level)
         results->put_name_key(kLastLevelLoadScript, last_level);
     if (last_mode)

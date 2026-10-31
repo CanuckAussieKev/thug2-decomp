@@ -21,6 +21,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -49,10 +50,7 @@ double x87_sin(double angle)
 }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
-}
+void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
 bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)

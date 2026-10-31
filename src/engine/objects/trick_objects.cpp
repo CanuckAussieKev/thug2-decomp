@@ -477,7 +477,7 @@ bool TrickObjectCluster::set_graffiti_color(int index)
     const uint32_t count = count_objects(entities_);
     for (uint32_t i = 0; i < count; ++i)
         static_cast<TrickSpot*>(object_at(entities_, i)->data)->set_graffiti_color(index);
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == kLoadCreatedPark) {
+    if (modules::g_skate_module->level_ == kLoadCreatedPark) {
         park_editing::RailAuthoring::sole()->set_cluster_colour(label_, index);
     }
     return true;
@@ -504,7 +504,7 @@ bool TrickObjectCluster::clear_graffiti_color(int index)
         if (!static_cast<TrickSpot*>(object_at(entities_, i)->data)->clear_graffiti_color(index))
             return false;
     }
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == kLoadCreatedPark) {
+    if (modules::g_skate_module->level_ == kLoadCreatedPark) {
         park_editing::RailAuthoring::sole()->clear_cluster_colours(label_);
     }
     return true;
@@ -631,7 +631,7 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
     desc.make_new();
     PlayerSearch search;
     if (send) {
-        auto* server = *reinterpret_cast<net::AppHost**>(reinterpret_cast<uint8_t*>(net) + 4);
+        net::AppHost* server = net->host_;
         net::Conn* conn = nullptr;
         if (auto* skater = reinterpret_cast<uint8_t*>(
                 reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player)))) {
@@ -719,7 +719,7 @@ bool TrickSpotHub::add_cluster(uint32_t name)
 {
     if (get_cluster(name))
         return false;
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == kLoadCreatedPark) {
+    if (modules::g_skate_module->level_ == kLoadCreatedPark) {
         park_editing::RailAuthoring::sole()->clear_cluster_colours(name);
     }
     void* memory = memory::alloc_zeroed(sizeof(TrickObjectCluster));

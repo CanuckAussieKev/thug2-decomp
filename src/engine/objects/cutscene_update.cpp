@@ -74,10 +74,7 @@ float vblank_seconds(uint64_t vblanks, int rate)
 
 void* new_anim_source() { return new render::FrameSource; }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
-void* model_of(ObjectModule* component)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
-}
+void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
 void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)

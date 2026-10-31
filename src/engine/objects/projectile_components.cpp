@@ -169,9 +169,7 @@ void ShotImpactModule::tick_frame()
         modules::PointTally* score = get_score_of(skater);
         if (projectile_type_ == kFireball && score->get_total_score() <= 0)
             continue;
-        if (team_game &&
-            *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(owner) + 0x30) ==
-                *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(victim) + 0x30) &&
+        if (team_game && owner->team_ == victim->team_ &&
             net->get_online_settings()->get_preference_checksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
         GameEntity* object = entity_;
@@ -268,7 +266,7 @@ void ProjectileProximityComponent::tick_frame()
         Rider::Projectile& projectile = rider_ref_->projectiles_[i];
         if (!projectile.active)
             continue;
-        const auto* pos = reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(&projectile) + 8);
+        const float* pos = projectile.pos;
         const maths::Vec4& at = entity_->at_point_;
         double middle = static_cast<double>(at.y) + kAbovePed;
         float dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);

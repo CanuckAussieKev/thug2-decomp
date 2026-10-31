@@ -75,7 +75,7 @@ void delete_structure(script::Struct* structure)
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
-void* get_career() { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20); }
+void* get_career() { return modules::g_skate_module->career_; }
 GapTally* level_checklist(void* career, int level)
 {
     return static_cast<objects::RiderStoryProgress*>(career)->fetch_gap_list(level);

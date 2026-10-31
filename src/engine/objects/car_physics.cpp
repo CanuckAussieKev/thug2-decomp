@@ -23,6 +23,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
+#include "engine/objects/model_component.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -144,8 +146,8 @@ void AutomobileDynamicsModule::seal()
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     if (!skeleton)
         return;
-    mesh_instance_ = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(entity_->fetch_module(kModel)) + 0x208);
-    bone_rig_ = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18);
+    mesh_instance_ = static_cast<objects::MeshInstanceModule*>(entity_->fetch_module(kModel))->mesh_instance_;
+    bone_rig_ = static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_;
     BoneDesc* bones = model_bones(mesh_instance_);
     maths::Mat4 a = bones[2].matrix;
     matrix_multiply(&a, &a, &bones[0].matrix);

@@ -468,8 +468,7 @@ bool __cdecl cfunc_get_level_records(script::Struct* params, script::Script* scr
     modules::Skate* skate = get_skate();
     int level;
     if (!params->fetch_int_value(kLevel, &level, 0))
-        level =
-            (*reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(skate) + 0x20))->fetch_stage();
+        level = skate->career_->fetch_stage();
     highscores::g_game_records->get_level_records(level)->write_to_structure(script->args_);
     return true;
 }

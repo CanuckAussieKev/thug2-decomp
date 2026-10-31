@@ -37,6 +37,8 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
+#include "engine/script/cscript.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -415,7 +417,7 @@ uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_resta
 // 0x50 each.
 const uint8_t* model_geometry(ObjectModule* model)
 {
-    void* instance = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x208);
+    void* instance = static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_;
     return reinterpret_cast<const uint8_t*>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
 }
 const float* wheel_place(const uint8_t* geometry, int i)
@@ -1067,7 +1069,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
         glide_to_node(level_nodes::fetch_vertex(name, true));
         return true;
     }
-    uint32_t from = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(script) + 0xB8);
+    uint32_t from = script->list_link_;
     int links = static_cast<int>(level_nodes::get_link_count(from));
     for (int i = 0; i < links; ++i) {
         uint32_t link = level_nodes::fetch_link(from, i);
@@ -1076,7 +1078,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
             return true;
         }
     }
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == kParkEditor)
+    if (park_editing::g_park_editor->cur_phase_ == kParkEditor)
         return true;
     glide_to_node(level_nodes::fetch_vertex(skate_restart(0), true));
     return true;

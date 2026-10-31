@@ -27,6 +27,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "frontend/screen_constants.h"
 #include "engine/objects/control_pad.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace gfx {
 
@@ -292,7 +293,7 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
     auto skeleton = [this] {
         objects::ObjectModule* component = owner_object_->fetch_module(kSkeleton);
-        return component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
+        return component ? static_cast<objects::BoneRigModule*>(component)->bone_rig_ : nullptr;
     };
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());

@@ -120,8 +120,7 @@ EngineAudioModule::~EngineAudioModule()
 // 0x0043C670
 void EngineAudioModule::configure_from_data(script::Struct*)
 {
-    park_editor_level_ =
-        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) != kParkEditorOff;
+    park_editor_level_ = park_editing::g_park_editor->cur_phase_ != kParkEditorOff;
 }
 
 // 0x0043D050

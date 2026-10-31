@@ -27,6 +27,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -62,10 +63,7 @@ constexpr uint32_t kBoneVolumesOn = 0x74FF5CB4; // (a script global integer: bon
 constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
 
 // A skeleton component's skeleton (0x005480F0: its +0x18), a skeleton's name (0x004A2BA0: its +0x14) and data (+0x08).
-void* skeleton_of(ObjectModule* component)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
-}
+void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 uint32_t get_skeleton_name(void* skeleton)
 {
     return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14);
@@ -81,10 +79,7 @@ void* rig_definition(void* skeleton) { return *reinterpret_cast<void**>(static_c
 // (0x00493410).
 render::RenderModel* spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
 void delete_model(render::RenderModel* model) { delete model; }
-void* model_lights(render::RenderModel* model)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
-}
+void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 void* clone_model_geom(void* geom, render::RenderModel* to)
 {
     return static_cast<render::Geom*>(geom)->clone_for_model(1, to);

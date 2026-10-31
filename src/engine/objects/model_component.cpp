@@ -24,6 +24,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -73,10 +74,7 @@ int model_test_collision(render::RenderModel* model, maths::Vec4* line, void* sk
     return model->test_bone_volumes(reinterpret_cast<uint32_t>(line), reinterpret_cast<uint32_t>(skeleton),
                                     reinterpret_cast<uint32_t>(matrix), a, b, c, reinterpret_cast<uint32_t*>(d));
 }
-void* model_lights(render::RenderModel* model)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
-}
+void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
 // or lerped towards (0x0048E830); without model lights, the global brightness (0x0048EDB0).
 void lights_update_brightness(void* lights) { static_cast<render::ModelLights*>(lights)->get_update_brightness(); }
@@ -91,10 +89,7 @@ void lights_lerp_brightness(void* lights, float brightness, float rate)
 void set_global_brightness(float brightness) { render::set_world_brightness(brightness); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
-}
+void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }

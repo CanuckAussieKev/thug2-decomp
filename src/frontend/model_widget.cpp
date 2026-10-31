@@ -28,6 +28,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/objects/model_component.h"
 
 namespace frontend {
 
@@ -107,14 +108,14 @@ const maths::Vec4* geometry_bounding_box(void* geometry)
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
 const maths::Vec4* model_bounding_box(objects::ObjectModule* component)
 {
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
     void* geometry = static_cast<render::RenderModel*>(model)->get_geom_by_name(0);
     return geometry_bounding_box(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
 const maths::Vec4* model_bounding_box_if_any(objects::ObjectModule* component)
 {
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
     if (!model)
         return nullptr;
     void* geometry = static_cast<render::RenderModel*>(model)->get_geom_by_name(0);
@@ -124,7 +125,7 @@ const maths::Vec4* model_bounding_box_if_any(objects::ObjectModule* component)
 }
 void set_model_viewports(objects::ObjectModule* component, uint32_t mask)
 {
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
     static_cast<render::RenderModel*>(model)->toggle_shown(mask);
 }
 

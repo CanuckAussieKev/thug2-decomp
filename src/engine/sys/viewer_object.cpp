@@ -34,6 +34,8 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cfuncs_scene.h"
+#include "engine/objects/model_component.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -144,7 +146,7 @@ void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // getter 0x005480F0: +0x18) and the skeleton's bone matrices (0x005480C0: +0x04).
 uint8_t* model_of(ObjectModule* component)
 {
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
 }
 int get_bone_count(uint8_t* model)
 {
@@ -154,10 +156,7 @@ uint8_t* hierarchy_of(uint8_t* model)
 {
     return reinterpret_cast<uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy());
 }
-uint8_t* skeleton_of(ObjectModule* component)
-{
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
-}
+uint8_t* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *reinterpret_cast<maths::Mat4**>(skeleton + 0x04); }
 
 uint32_t g_no_skeleton_counter{10};

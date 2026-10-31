@@ -22,6 +22,7 @@
 #include "engine/gfx/engine.h"
 #include "game/skate/point_tally.h"
 #include "engine/gfx/tod_manager.h"
+#include "engine/objects/model_component.h"
 
 namespace goals {
 
@@ -260,7 +261,7 @@ bool ShootVideoObjective::target_in_view()
     if (!target)
         return false;
     auto* object = static_cast<objects::GameEntity*>(target);
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->fetch_module(kModel)) + 0x208);
+    void* model = static_cast<objects::MeshInstanceModule*>(object->fetch_module(kModel))->mesh_instance_;
     // The model's bounding sphere (0x00492F30) in the world.
     maths::Vec4 sphere;
     const maths::Vec4* bounds = static_cast<render::RenderModel*>(model)->fetch_bound_sphere(&sphere);

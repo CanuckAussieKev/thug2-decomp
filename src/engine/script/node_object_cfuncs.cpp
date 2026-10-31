@@ -444,11 +444,7 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
 uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-bool park_editor_off()
-{
-    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
-           kParkEditorOff;
-}
+bool park_editor_off() { return park_editing::g_park_editor->cur_phase_ == kParkEditorOff; }
 objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
 
 } // namespace

@@ -191,9 +191,7 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         std::snprintf(text, sizeof(text), "%s", word_);
         break;
     case kPlayerName:
-        std::snprintf(
-            text, sizeof(text), "%s",
-            get_skater(*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x14))->fetch_shown_name());
+        std::snprintf(text, sizeof(text), "%s", get_skater(skater->ident_)->fetch_shown_name());
         break;
     default:
         break;

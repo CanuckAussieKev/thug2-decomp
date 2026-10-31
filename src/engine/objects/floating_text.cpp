@@ -20,6 +20,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/model_component.h"
 
 namespace frontend {
 
@@ -130,7 +131,8 @@ void FloatingTextComponent::seal() { mesh_instance_ = entity_->fetch_module(kMod
 // 0x0041E450
 void FloatingTextComponent::tick_frame()
 {
-    uint8_t* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(mesh_instance_) + 0x208);
+    uint8_t* model =
+        reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(mesh_instance_)->mesh_instance_);
     if (!model || !(model[0x44] & 2) || (model[0x44] & 4))
         return;
     if (!text_[0])

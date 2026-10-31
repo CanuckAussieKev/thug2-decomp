@@ -23,6 +23,7 @@
 #include "platform/run_log.h"
 #include "engine/render/coll_line.h"
 #include "engine/gfx/viewport.h"
+#include "engine/objects/model_component.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -520,7 +521,8 @@ std::vector<ObjectEntry> g_objects;
 uint8_t* model_of(objects::GameEntity* object)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    return component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
+    return component ? reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
+                     : nullptr;
 }
 
 render::HitMesh* collision_of(objects::GameEntity* object)

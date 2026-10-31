@@ -249,9 +249,9 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
         path->~Chars();
     }
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
-    void* model_data = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(fetch_module(kModel)) + 0x208);
+    void* model_data = static_cast<objects::MeshInstanceModule*>(fetch_module(kModel))->mesh_instance_;
     static_cast<render::RenderModel*>(model_data)->add_file_geom(file.c_str(), 0, true, 0, false, false, true, false);
-    model_data = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(fetch_module(kModel)) + 0x208);
+    model_data = static_cast<objects::MeshInstanceModule*>(fetch_module(kModel))->mesh_instance_;
     static_cast<render::RenderModel*>(model_data)->change_live(1);
     level_nodes::fetch_place(node, &at_point_);
     seal();

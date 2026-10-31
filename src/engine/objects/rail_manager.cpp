@@ -238,8 +238,7 @@ void set_rail_clear_override(RailClearOverride override) { g_rail_clear_override
 // 0x0057C600
 bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
-        0xD443A2BC) // (the park editor's)
+    if (park_editing::g_park_editor->cur_phase_ == 0xD443A2BC) // (the park editor's)
         return true;
     if (g_rail_clear_override && g_rail_clear_override(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
@@ -595,8 +594,7 @@ void GrindRailHub::remove_overlaps()
 // 0x0057D7A0
 void GrindRailHub::remove_overlaps_if_not_park()
 {
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
-        0xD443A2BC) // (the park editor's level)
+    if (park_editing::g_park_editor->cur_phase_ == 0xD443A2BC) // (the park editor's level)
         return;
     remove_overlaps();
 }

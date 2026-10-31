@@ -77,11 +77,8 @@ void free_struct(script::Struct* s)
     script::delete_struct(s);
 }
 
-void* model_of(ObjectModule* component)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
-}
-bool stands_in(ObjectModule* model) { return *(reinterpret_cast<uint8_t*>(model) + 0x234) != 0; }
+void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
+bool stands_in(ObjectModule* model) { return static_cast<MeshInstanceModule*>(model)->level_object_; }
 uint32_t stand_in_id(ObjectModule* model) { return static_cast<MeshInstanceModule*>(model)->get_linked_entity_name(); }
 } // namespace
 

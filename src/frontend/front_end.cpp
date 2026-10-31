@@ -585,8 +585,7 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
                 if (front_end->startup_script_on_) {
                     script::Script* script =
                         script::spawn_script(0xDCE60A74u, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-                    front_end->startup_script_id_ =
-                        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(script) + 0xB0);
+                    front_end->startup_script_id_ = script->unique_id_;
                 }
                 front_end->check_startup_script_ = false;
             }

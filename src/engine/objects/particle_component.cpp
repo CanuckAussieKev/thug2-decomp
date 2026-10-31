@@ -24,6 +24,7 @@
 #include "engine/objects/collide_and_die.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -456,7 +457,7 @@ void EffectsEmitterModule::tick_frame()
         }
     }
     if (mesh_instance_)
-        effect_handle_->set_brightness(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh_instance_) + 0x22C));
+        effect_handle_->set_brightness(static_cast<MeshInstanceModule*>(mesh_instance_)->brightness_);
     const render::SparkleConfig& args = effect_handle_->args_;
     if (!args.local_positions_)
         return;

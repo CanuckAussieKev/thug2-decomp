@@ -28,6 +28,7 @@
 #include "engine/gfx/model_builder.h"
 #include "engine/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
+#include "engine/objects/model_component.h"
 
 namespace commands {
 
@@ -363,7 +364,7 @@ bool __cdecl cfunc_replace_car_textures(script::Struct* params, script::Script* 
          component = component->next_of_type_) {
         if (component->entity_->kind_tag_ != kCarType)
             continue;
-        void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+        void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
         bool added = false;
         for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
             uint32_t textures = static_cast<uint32_t>(

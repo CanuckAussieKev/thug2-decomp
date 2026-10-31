@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -54,7 +55,7 @@ render::BlobShadow* as_blob(render::ShadowBase* shadow) { return static_cast<ren
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
 uint8_t* model_of(ObjectModule* component)
 {
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
 void set_model_shadow(uint8_t* model, bool on) { reinterpret_cast<render::RenderModel*>(model)->activate_shadow(on); }

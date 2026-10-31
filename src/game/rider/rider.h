@@ -170,7 +170,9 @@ public:
     struct Projectile {
         uint32_t name; // projectile_0 ... projectile_4
         bool active;
-        uint8_t unknown5_[0x13];
+        uint8_t pad5_[3];
+        float pos[3]; // +0x08
+        uint32_t unknown14_;
     } projectiles_[5];                   // +0x1C0
     memory::PaddedListNode skater_link_; // +0x238 its node in the skate module's skater list (data = itself)
     void* unknown24c_;                   // +0x24C

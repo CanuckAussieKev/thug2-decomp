@@ -94,10 +94,7 @@ float camera_heading(void* camera) { return *reinterpret_cast<const float*>(stat
 float camera_height(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x88); }
 
 // The structure a script's member function writes its results to (CScript +0x14).
-script::Struct* get_results(script::Script* script)
-{
-    return *reinterpret_cast<script::Struct**>(reinterpret_cast<uint8_t*>(script) + 0x14);
-}
+script::Struct* get_results(script::Script* script) { return script->args_; }
 
 } // namespace
 

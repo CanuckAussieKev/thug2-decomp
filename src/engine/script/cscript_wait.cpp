@@ -172,8 +172,8 @@ void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* comp
     suspend_reason_ = type;
     blocking_module_ = component;
     suspend_arg_ = arg;
-    // (the component's flags +0x08: a script waits on it)
-    *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(component) + 0x08) |= 2;
+    // (the component's flags: a script waits on it)
+    component->flag_bits_ |= 2;
 }
 
 // 0x00472D20

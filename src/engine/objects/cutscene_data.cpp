@@ -55,10 +55,7 @@ constexpr uint32_t kGreen = 0x0424D9EA;
 constexpr uint32_t kBlue = 0x9D2D8850;
 
 // The model of an object's model component (+0x208), and the model calls (not rewritten yet).
-void* model_of(ObjectModule* component)
-{
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
-}
+void* model_of(ObjectModule* component) { return static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_; }
 uint32_t model_get(void* model)
 {
     return reinterpret_cast<uint32_t>(static_cast<render::RenderModel*>(model)->fetch_skinning_palette());

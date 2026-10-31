@@ -18,6 +18,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/model_component.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace objects {
 
@@ -30,15 +32,12 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 // bytes from +0x50, each with its matrix at +0x10.
 const uint8_t* hierarchy_of(ObjectModule* model)
 {
-    uint8_t* m = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208);
+    uint8_t* m = reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
     return reinterpret_cast<const uint8_t*>(reinterpret_cast<render::RenderModel*>(m)->get_asset_hierarchy());
 }
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
-uint8_t* skeleton_of(ObjectModule* skeleton)
-{
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18);
-}
+uint8_t* skeleton_of(ObjectModule* skeleton) { return static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_; }
 maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *reinterpret_cast<maths::Mat4**>(skeleton + 0x04); }
 int get_bone_count(uint8_t* skeleton)
 {

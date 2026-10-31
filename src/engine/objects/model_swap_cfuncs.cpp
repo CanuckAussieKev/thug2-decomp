@@ -20,6 +20,7 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace commands {
 
@@ -57,7 +58,7 @@ void record_swap(uint32_t a, uint32_t b) { commands::swap_mapping(a, b); }
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.
 uint8_t* skeleton_of(objects::ObjectModule* component)
 {
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
+    return static_cast<objects::BoneRigModule*>(component)->bone_rig_;
 }
 void copy_skeleton(uint8_t* to, uint8_t* from)
 {
@@ -73,7 +74,7 @@ void model_set(render::RenderModel* model, uint32_t value)
 }
 void follow_position(render::RenderModel* model, maths::Vec4* position)
 {
-    void* lights = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
+    void* lights = model->lights_ptr_;
     static_cast<render::ModelLights*>(lights)->bind_position_source(position);
 }
 

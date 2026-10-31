@@ -21,6 +21,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/weather.h"
+#include "engine/objects/particle_component.h"
 
 namespace commands {
 
@@ -80,10 +81,11 @@ void destroy_particle_group(void* manager, uint32_t group)
     static_cast<render::FlexibleParticleManager*>(manager)->destroy_group(group);
 }
 
-// A particle component's group id: its +0x1C points at its particle system, whose +0x0C is the group.
+// A particle component's group id: its particle system's +0x0C.
 uint32_t particle_group(objects::ObjectModule* component)
 {
-    auto* system = *reinterpret_cast<uint8_t* const*>(reinterpret_cast<uint8_t*>(component) + 0x1C);
+    auto* system =
+        reinterpret_cast<const uint8_t*>(static_cast<objects::EffectsEmitterModule*>(component)->effect_handle_);
     return *reinterpret_cast<const uint32_t*>(system + 0x0C);
 }
 

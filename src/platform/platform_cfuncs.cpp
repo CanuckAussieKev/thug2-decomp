@@ -8,6 +8,7 @@
 
 #include "engine/script/script_tables.h"
 #include "engine/pad_input/sdl_input.h"
+#include "engine/script/cscript.h"
 
 namespace sys {
 
@@ -16,10 +17,7 @@ namespace {
 constexpr uint32_t kVehicleGrindScript = 0x47F15883;
 
 // The script's name (the one it's running now: CScript +0xC8).
-uint32_t get_script_name(const script::Script* script)
-{
-    return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(script) + 0xC8);
-}
+uint32_t get_script_name(const script::Script* script) { return script->script_title_; }
 
 } // namespace
 

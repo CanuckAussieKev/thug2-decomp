@@ -32,7 +32,7 @@ bool is_startup_script(const script::Script* script)
     if (!script)
         return false;
     // (the script it's running now: CScript +0xC8)
-    uint32_t name = *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(script) + 0xC8);
+    uint32_t name = script->script_title_;
     static const uint32_t kStartup[] = {name_hash("default_system_startup"), name_hash("autolaunch"),
                                         name_hash("startup_loading_screen")};
     for (uint32_t startup : kStartup) {

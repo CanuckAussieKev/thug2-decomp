@@ -882,21 +882,19 @@ void Skate::run_frame_logic()
             if (viewport_camera(0)) {
                 const maths::Vec4* camera = viewport_camera(0)->fetch_location();
                 objects::proximity_notify(1, get_home_rider(), camera, 1);
-                auto* position = reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(get_home_rider()) + 0x4C);
+                maths::Vec4* position = &get_home_rider()->at_point_;
                 objects::proximity_notify(1, get_home_rider(), position, 2);
             }
         } else if (screens == 2) {
             if (screen_camera(0)) {
                 objects::Entity* first = entity_hub_handle()->look_up_entity(0);
                 objects::proximity_notify(1, first, screen_camera(0)->fetch_location(), 1);
-                objects::proximity_notify(1, first,
-                                          reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(first) + 0x4C), 2);
+                objects::proximity_notify(1, first, &static_cast<objects::GameEntity*>(first)->at_point_, 2);
             }
             if (screen_camera(1) && entity_hub_handle()->look_up_entity(1)) {
                 objects::Entity* second = entity_hub_handle()->look_up_entity(1);
                 objects::proximity_notify(2, second, screen_camera(1)->fetch_location(), 1);
-                objects::proximity_notify(2, second,
-                                          reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(second) + 0x4C), 2);
+                objects::proximity_notify(2, second, &static_cast<objects::GameEntity*>(second)->at_point_, 2);
             }
         }
     } else if (static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) && g_viewport_count == 1 &&

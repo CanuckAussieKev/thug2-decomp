@@ -21,6 +21,8 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/game_config.h"
+#include "engine/objects/sound_component.h"
+#include "engine/objects/stream_component.h"
 
 namespace commands {
 
@@ -177,16 +179,16 @@ bool __cdecl cfunc_spanish(script::Struct*, script::Script*) { return get_langua
 bool __cdecl cfunc_italian(script::Struct*, script::Script*) { return get_language() == 6; }
 bool __cdecl cfunc_english(script::Struct*, script::Script*) { return get_language() == 2; }
 
-// 0x004498F0: ProximCleanup: every sound component's +0xBC and stream component's +0x28 cleared (what they keep of
+// 0x004498F0: ProximCleanup: every sound and stream component's proximity node cleared (what they keep of
 // the proximity nodes), then every proximity node freed.
 bool __cdecl cfunc_proxim_cleanup(script::Struct*, script::Script*)
 {
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
          c = c->next_of_type_)
-        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0xBC) = 0;
+        static_cast<objects::AudioEmitterModule*>(c)->proxim_ = nullptr;
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c;
          c = c->next_of_type_)
-        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0x28) = 0;
+        static_cast<objects::AudioStreamModule*>(c)->proxim_ = nullptr;
     objects::nearby_zone_shutdown();
     return true;
 }

@@ -24,6 +24,7 @@
 #include "engine/gfx/weather.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/model_component.h"
 
 namespace objects {
 
@@ -38,7 +39,7 @@ constexpr uint32_t kName = 0xA1DC81F9;            // Name
 // The model component's model (+0x208).
 uint8_t* model_of(ObjectModule* model)
 {
-    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0x208);
+    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
 }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).

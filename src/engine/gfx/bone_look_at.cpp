@@ -18,6 +18,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/anim_movies.h"
+#include "engine/objects/skeleton_component.h"
 
 namespace gfx {
 
@@ -204,7 +205,8 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
     tick_frame();
     objects::GameEntity* object = owner_object_;
     objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
-    auto* skeleton = component ? *reinterpret_cast<Rig**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
+    auto* skeleton =
+        component ? reinterpret_cast<Rig*>(static_cast<objects::BoneRigModule*>(component)->bone_rig_) : nullptr;
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;

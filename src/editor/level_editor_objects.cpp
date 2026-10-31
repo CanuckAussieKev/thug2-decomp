@@ -25,6 +25,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/objects/model_component.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -158,7 +159,9 @@ void __cdecl count_one(objects::Entity* object, void* data)
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
             uint8_t* model =
-                component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
+                component
+                    ? reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
+                    : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
                     caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
@@ -177,7 +180,9 @@ void __cdecl count_one(objects::Entity* object, void* data)
 void* model_geometry(objects::GameEntity* object, int index)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    auto* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
+    auto* model = component
+                      ? reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
+                      : nullptr;
     return model ? reinterpret_cast<render::RenderModel*>(model)->fetch_geom(index) : nullptr;
 }
 
@@ -218,13 +223,13 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     if (!component)
         return false;
-    auto* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+    auto* model = reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
     if (!model)
         return false;
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
     // flags), or one in use (flags +0x44: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
-    bool cloned = reinterpret_cast<uint8_t*>(component)[0x234] != 0;
+    bool cloned = static_cast<objects::MeshInstanceModule*>(component)->level_object_;
     uint8_t flags = model[0x44];
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
