@@ -884,25 +884,48 @@ bool HasVisibleSprite(const CScreenElement* element, int* budget)
 
 // An item's checkbox ("checkbox" sprite shown: ticked when its "checkmark" is) and whether its value changes with Left /
 // Right (left_arrow / right_arrow sprites in it, shown on the focused item).
-void ReadValueSprites(const CScreenElement* element, int* checkbox, bool* adjustable, int* budget)
+//
+// A slider item (sliderbar_add_item: the CAS colour menus' HUE / SAT. / VAL., the scaling menus' bars) has no left_arrow
+// sprites: a bar picture and an up_arrow / down_arrow marker pair that its scripts slide along the bar (SetScreenElementProps
+// pos=(x_val, 0), x_val between the menu script's arrow_left and arrow_right) after every change - Left / Right on the
+// focused item are its pad_left / pad_right handlers. So the marker's x is the value.
+void ReadValueSprites(const CScreenElement* element, Mirror::ItemRead* item, int* budget)
 {
     static const uint32_t kCheckbox = Checksum("checkbox"), kCheckmark = Checksum("checkmark");
     static const uint32_t kLeft = Checksum("left_arrow"), kRight = Checksum("right_arrow");
+    static const uint32_t kUp = Checksum("up_arrow");
+    static const uint32_t kHueArrow = Checksum("hue_up_arrow");
+    static const uint32_t kColourArrows[] = {Checksum("hue_up_arrow"), Checksum("saturation_up_arrow"),
+                                             Checksum("value_up_arrow"), Checksum("alpha_up_arrow")};
     for (const CScreenElement* e = element; e && --*budget > 0; e = Next(e)) {
         if (TypeOf(e) == SpriteType()) {
             uint32_t texture = reinterpret_cast<const CSpriteElement*>(e)->m_texture;
             if (texture == kLeft || texture == kRight)
-                *adjustable = true;
+                item->adjustable = true;
+            if (texture == kUp) {
+                // (colormenu_nowrap_arrow_left / right -53 .. 80 for the colour menus' markers, scalingmenu_arrow_left /
+                // right -49 .. 76 for the scaling ones)
+                uint32_t id = IdOfElement(e);
+                float left = -49.0f, right = 76.0f;
+                for (uint32_t colour : kColourArrows)
+                    if (id == colour) {
+                        left = -53.0f;
+                        right = 80.0f;
+                    }
+                item->adjustable = true;
+                item->sliderAt = std::clamp((e->m_target.x - left) / (right - left), 0.0f, 1.0f);
+                item->sliderHue = id == kHueArrow;
+            }
             if (texture == kCheckbox && Visible(e)) {
-                *checkbox = 0;
+                item->checkbox = 0;
                 for (const CScreenElement* mark = FirstChild(e); mark; mark = Next(mark))
                     if (TypeOf(mark) == SpriteType() && Visible(mark) &&
                         reinterpret_cast<const CSpriteElement*>(mark)->m_texture == kCheckmark)
-                        *checkbox = 1;
+                        item->checkbox = 1;
             }
         }
         if (CScreenElement* child = FirstChild(e))
-            ReadValueSprites(child, checkbox, adjustable, budget);
+            ReadValueSprites(child, item, budget);
     }
 }
 
@@ -958,7 +981,7 @@ Mirror::MenuRead ReadMenu(CScreenElement* menu, bool inDialog)
         if (!skaters) {
             int valueBudget = 256;
             if (CScreenElement* first = FirstChild(child))
-                ReadValueSprites(first, &item.checkbox, &item.adjustable, &valueBudget);
+                ReadValueSprites(first, &item, &valueBudget);
         }
         if (skaters) {
             Obj::CPlayerProfileManager* manager = ProfileManager();
@@ -1426,8 +1449,20 @@ void MirrorMouse(Mdl::FrontEnd* frontEnd)
                     ContinueLastLevel(frontEnd);
                 } else if (hit->kind == Paint::Hit::Item) {
                     bool wasSelected = hit->index == s_mirror.Shown().selected;
-                    if (StepTo(frontEnd, hit->index) && (!skaters || wasSelected))
-                        MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadChoose);
+                    if (StepTo(frontEnd, hit->index) && (!skaters || wasSelected)) {
+                        // (a row whose value Left / Right change - a slider, an option: its sides do that, as the
+                        // game's own mouse control sends them - mouse_menus.cpp OptionSide; the middle chooses)
+                        const Mirror::View& shown = s_mirror.Shown();
+                        float clickX = frame.DesignX(static_cast<float>(e.button.x));
+                        float width = hit->x1 - hit->x0;
+                        int side = 0;
+                        if (shown.kind == Mirror::Kind::List && hit->index >= 0 &&
+                            hit->index < static_cast<int>(shown.rows.size()) && shown.rows[hit->index].adjustable)
+                            side = clickX < hit->x0 + width * 0.3f ? -1 : clickX >= hit->x1 - width * 0.3f ? 1 : 0;
+                        MouseMenus::SendMenuPadEvent(frontEnd, side < 0   ? Mdl::FrontEnd::kPadLeft
+                                                               : side > 0 ? Mdl::FrontEnd::kPadRight
+                                                                          : Mdl::FrontEnd::kPadChoose);
+                    }
                 }
                 return; // (the screen may be another now)
             }

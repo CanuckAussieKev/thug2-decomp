@@ -39,7 +39,12 @@ struct ItemRead {
     bool graphicValue = false;          // a visible sprite in it that isn't a highlight (decoration: bars, icons -
                                         // not a reason to leave the screen as it is)
     int checkbox = -1;                  // a checkbox in it (the "checkbox" texture): 1 ticked ("checkmark"), 0 not, -1 none
-    bool adjustable = false;            // its value changes with Left / Right (the left_arrow / right_arrow sprites)
+    bool adjustable = false;            // its value changes with Left / Right (the left_arrow / right_arrow sprites, or a
+                                        // slider's up_arrow / down_arrow markers)
+    // A slider item (the colour menus' HUE / SAT. / VAL., the scaling menus' bars - sliderbar_add_item): the marker's
+    // place on the bar, 0 (left end) .. 1 (right end); -1 not a slider. `sliderHue`: the bar is the hue's (degrees).
+    float sliderAt = -1.0f;
+    bool sliderHue = false;
     std::string display;                // (the skater select: the profile's display name)
 };
 
@@ -107,6 +112,7 @@ struct Row {
     std::string value;
     bool focusable = true;
     int index = 0;                      // the menu's child index
+    bool adjustable = false;            // Left / Right change its value (the mouse clicks its sides)
     // (Kind::Menu: the style table's - our id for the art, the line under the list, a note after the label)
     std::string art, blurb, tag;
 };
