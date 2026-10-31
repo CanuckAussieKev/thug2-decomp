@@ -34,7 +34,8 @@ namespace {
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 void*& Handle(int slot) { return g_pixelShaders[slot]; }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
-Lst::HashTable& Cache() { return GameVariable<Lst::HashTable>(0x007CA9C0); }
+GAME_GLOBAL(Lst::HashTable, g_shaderCache, 0x007CA9C0, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable& Cache() { return g_shaderCache; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
 void* BufferPointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }

@@ -19,6 +19,7 @@
 #include "game/obj/control_pad.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "game/gfx/engine_geom.h"
 
 namespace Obj {
 
@@ -117,9 +118,9 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 // The model's lights (not rewritten yet): ambient colour (0x0048E450) and on (0x0048DE30), a diffuse light's colour
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
 void SetAmbientColor(void* lights, const uint8_t* rgba) { static_cast<Nx::CModelLights*>(lights)->SetAmbientColor(reinterpret_cast<const uint32_t*>(rgba)); }
-void EnableAmbient(void* lights, bool on) { GameFunction<void(__thiscall*)(void*, bool)>(0x0048DE30)(lights, on); }
+void EnableAmbient(void* lights, bool on) { reinterpret_cast<void(__thiscall*)(void*, bool)>(&Nx::VirtualSlot9Jump)(lights, on); }
 void SetDiffuseColor(void* lights, int index, const uint8_t* rgba) { static_cast<Nx::CModelLights*>(lights)->SetDiffuseColor(index, reinterpret_cast<const uint32_t*>(rgba)); }
-void EnableDiffuse(void* lights, int index, bool on) { GameFunction<void(__thiscall*)(void*, int, bool)>(0x0048E4C0)(lights, index, on); }
+void EnableDiffuse(void* lights, int index, bool on) { reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&Nx::VirtualSlot10Jump)(lights, index, on); }
 void SetLightDirection(void* lights, int index, const Mth::Vector* direction)
 {
     ModelNx::SetLightsDirection(lights, nullptr, index, direction);

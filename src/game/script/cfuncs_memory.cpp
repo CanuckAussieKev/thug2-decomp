@@ -205,17 +205,17 @@ void __cdecl DumpPoolUsage(bool toDumpFile, bool print)
         return pools.pools[pools.current]; // (not checked: the pools are set up by then)
     };
     text(GAME_TEXT(0x00646E38, "\nScript pool usage:\n"));                               // "\nScript pool usage:\n"
-    pool(GAME_TEXT(0x00646E10, "CStruct:           %5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F3614)));          // " | CStruct:           %5d of %5d, max %5d\n"
-    pool(GAME_TEXT(0x00646DE8, "CComponent:        %5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F2338)));          // CComponent
-    pool(GAME_TEXT(0x00646DC0, "CSymbolTableEntry: %5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F362C)));          // CSymbolTableEntry
-    pool(GAME_TEXT(0x00646D98, "CVector:           %5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F3654)));          // CVector
+    pool(GAME_TEXT(0x00646E10, "CStruct:           %5d of %5d, max %5d\n"), current(Script::g_structPools));          // " | CStruct:           %5d of %5d, max %5d\n"
+    pool(GAME_TEXT(0x00646DE8, "CComponent:        %5d of %5d, max %5d\n"), current(Script::g_componentPools));          // CComponent
+    pool(GAME_TEXT(0x00646DC0, "CSymbolTableEntry: %5d of %5d, max %5d\n"), current(Script::g_symbolPools));          // CSymbolTableEntry
+    pool(GAME_TEXT(0x00646D98, "CVector:           %5d of %5d, max %5d\n"), current(Script::g_vectorPools));          // CVector
     pool(GAME_TEXT(0x00646D70, "CPair:             %5d of %5d, max %5d\n"), current(Script::g_pairPools));          // CPair
-    pool(GAME_TEXT(0x00646D48, "CArray:            %5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F22B4)));          // CArray
-    pool(GAME_TEXT(0x00646D20, "CScript:           %5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F3548)));          // CScript
+    pool(GAME_TEXT(0x00646D48, "CArray:            %5d of %5d, max %5d\n"), current(Script::g_arrayPools));          // CArray
+    pool(GAME_TEXT(0x00646D20, "CScript:           %5d of %5d, max %5d\n"), current(Script::g_scriptPools));          // CScript
     pool(GAME_TEXT(0x00646D00, "CHashItem:\t%5d of %5d, max %5d\n"), Mem::PoolManager::GetPool(0)); // CHashItem
-    pool(GAME_TEXT(0x00646CD4, "CAnimCachePredictor:\t%5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x006F92B8)));          // CAnimCachePredictor
+    pool(GAME_TEXT(0x00646CD4, "CAnimCachePredictor:\t%5d of %5d, max %5d\n"), current(Gfx::g_animSlotPools));          // CAnimCachePredictor
     pool(GAME_TEXT(0x00646CB0, "CBlendChannel:\t%5d of %5d, max %5d\n"), current(Gfx::g_animTrackPools));          // CBlendChannel
-    pool(GAME_TEXT(0x00646C84, "CBonedAnimController:\t%5d of %5d, max %5d\n"), current(GameVariable<Mem::PoolPair>(0x00701430)));          // CBonedAnimController
+    pool(GAME_TEXT(0x00646C84, "CBonedAnimController:\t%5d of %5d, max %5d\n"), current(Gfx::g_standardPools));          // CBonedAnimController
     pool(GAME_TEXT(0x00646C60, "CAnimLookup:\t%5d of %5d, max %5d\n"), current(Nx::g_frameSourcePools));          // CAnimLookup
     pool(GAME_TEXT(0x00646C34, "sSpawnedPolyDetails:\t%5d of %5d, max %5d\n"), current(Nx::g_spawnedPolyPools));          // sSpawnedPolyDetails
     pool(GAME_TEXT(0x00646C04, "Obj::CEventReceiverList:\t%5d of %5d, max %5d\n"), current(Obj::g_scriptListPools));          // Obj::CEventReceiverList

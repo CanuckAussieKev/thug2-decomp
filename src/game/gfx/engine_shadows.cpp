@@ -35,7 +35,7 @@ void DeleteThrough0(void* object)
 }
 
 CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
-Lst::HashTable& EdgeTable() { return GameVariable<Lst::HashTable>(0x00701418); }
+Lst::HashTable& EdgeTable() { return g_shadowEdgeTable; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).

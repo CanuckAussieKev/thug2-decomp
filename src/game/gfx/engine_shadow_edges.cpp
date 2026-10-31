@@ -15,6 +15,7 @@
 namespace Nx {
 
 GAME_GLOBAL(CShadowVolume*[16], g_shadowVolumes, 0x007013D8);
+GAME_GLOBAL(Lst::HashTable, g_shadowEdgeTable, 0x00701418, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
 
 namespace {
 
@@ -31,7 +32,7 @@ struct ShadowEdge {
 static_assert(sizeof(ShadowEdge) == 0x50, "layout must match the original");
 
 CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
-Lst::HashTable& EdgeTable() { return GameVariable<Lst::HashTable>(0x00701418); }
+Lst::HashTable& EdgeTable() { return g_shadowEdgeTable; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void AddShadowVolume(CShadowVolume* volume)

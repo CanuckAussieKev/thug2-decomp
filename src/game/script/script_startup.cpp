@@ -130,9 +130,9 @@ void LoadAllStartupQBFiles()
 }
 
 // 0x005A5B40 ... 0x005A5DF0
-void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf(GameVariable<Mem::PoolPair>(0x006F92B8), 0x1E4, count, name); }
+void CreateAnimCachePredictorPool(int count, const char* name) { CreatePoolOf(Gfx::g_animSlotPools, 0x1E4, count, name); }
 void CreateBlendChannelPool(int count, const char* name) { CreatePoolOf(Gfx::g_animTrackPools, 0x74, count, name); }
-void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf(GameVariable<Mem::PoolPair>(0x00701430), 0x28, count, name); }
+void CreateBonedAnimControllerPool(int count, const char* name) { CreatePoolOf(Gfx::g_standardPools, 0x28, count, name); }
 void CreateAnimLookupPool(int count, const char* name) { CreatePoolOf(Nx::g_frameSourcePools, 0x214, count, name); }
 void CreateSpawnedPolyDetailsPool(int count, const char* name) { CreatePoolOf(Nx::g_spawnedPolyPools, 0xB8, count, name); }
 void CreateEventReceiverListPool(int count, const char* name) { CreatePoolOf(Obj::g_scriptListPools, 0x14, count, name); }

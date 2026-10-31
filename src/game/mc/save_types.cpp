@@ -28,6 +28,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/goals/goal.h"
+#include "game/gfx/skeleton.h"
 
 namespace Mc {
 
@@ -382,7 +383,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
         break;
     }
     case kSaveOptionsAndPros: {
-        auto* own = GameFunction<CStruct*(__thiscall*)(void*)>(0x004A2BA0)(GoalManager());
+        auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(GoalManager());
         CStruct* goalManagerParams = nullptr; // (read, not used)
         own->GetStructure(0x23D4170Au, &goalManagerParams, 0);
         Obj::CSkaterCareer* career = *reinterpret_cast<Obj::CSkaterCareer**>(
@@ -406,7 +407,7 @@ void __fastcall ApplyGoalManagerParams(CStruct* saved)
     Game::CGoalManager* goalManager = GoalManager();
     goalManager->ResetGoalData(0); // reset the career (mode 0)
     // its parameters (a folded getter, +0x14)
-    auto* own = GameFunction<CStruct*(__thiscall*)(void*)>(0x004A2BA0)(goalManager);
+    auto* own = reinterpret_cast<CStruct*(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(goalManager);
     own->Clear();
     own->AppendStructureIfAny(params);
     goalManager->RestoreGoalData(); // the level's goals loaded
@@ -418,7 +419,7 @@ bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
     Obj::CPlayerProfileManager* profiles = Obj::g_profileManager;
     Mdl::Skate* skate = Mdl::Skate::Instance();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = GameFunction<int(__thiscall*)(void*)>(reinterpret_cast<uintptr_t>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams)))(profiles);
+    int index = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(profiles);
     auto* skater = static_cast<Obj::CSkater*>(skate->GetSkater(index));
     skater->LoadCATInfo(loaded);
     skater->LoadList44B66A9F(loaded);

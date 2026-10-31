@@ -18,6 +18,8 @@
 
 namespace Gfx {
 
+GAME_GLOBAL(Mem::PoolPair, g_animSlotPools, 0x006F92B8); // (CAnimCachePredictor; script_startup.h)
+
 namespace {
 
 constexpr uint32_t kAnimHeap = 0x8F21A798; // AnimHeap
@@ -25,7 +27,6 @@ constexpr int kEntries = 50;
 constexpr int kSlots = 18;
 
 GAME_GLOBAL(CAnimCache*, g_animCache, 0x006F92B0);
-GAME_GLOBAL(Mem::PoolPair, g_animSlotPools, 0x006F92B8);
 
 CAnimCache*& Cache() { return g_animCache; }
 Mem::PoolPair& SlotPools() { return g_animSlotPools; }

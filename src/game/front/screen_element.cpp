@@ -20,6 +20,7 @@
 #include "game/obj/object.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_constants.h"
+#include "game/gfx/weather.h"
 
 namespace Front {
 
@@ -665,7 +666,7 @@ void CScreenElement::UpdateLayout()
         // depth scale in ST0, negative behind the camera)
         void* camera = Nx::GetActiveViewport(0);
         float x, y, z;
-        float scale = GameFunction<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(0x004A1090)(
+        float scale = reinterpret_cast<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(&Nx::VirtualSlot1Jump)(
             camera, &m_target.pos3d, &x, &y, &z);
         if (scale < 0.0f) {
             m_target.x = -320.0f;

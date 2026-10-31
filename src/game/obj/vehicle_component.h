@@ -118,7 +118,7 @@ public:
         uint8_t pad29[3];
     };
     // The contacts (one array for every vehicle; m_contactCount of them this step).
-    static Contact* Contacts() { return &GameVariable<Contact>(0x006951C8); }
+    static Contact* Contacts();
 
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).

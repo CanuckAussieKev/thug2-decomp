@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "game/lst/hashtable.h"
 #include "hook/game_global.h"
 
 namespace Script {
@@ -68,5 +69,6 @@ char __cdecl ButtonGlyph(const char* digit);
 GAME_GLOBAL_EXTERN(char[32], g_metaButtonMap);
 
 GAME_GLOBAL_EXTERN(FontSlot[16], g_fontSlots);
+GAME_GLOBAL_EXTERN(Lst::HashTable, g_fontTable); // 0x006FA9F0: the fonts by name
 
 } // namespace Nx

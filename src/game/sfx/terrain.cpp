@@ -16,6 +16,7 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 
 namespace Terrain {
@@ -63,8 +64,10 @@ struct ActionItem {
 };
 static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must match the original");
 
-Lst::HashTable& TerrainTypes() { return GameVariable<Lst::HashTable>(0x006968D0); }
-Lst::HashTable& TerrainActions() { return GameVariable<Lst::HashTable>(0x006968E8); }
+GAME_GLOBAL(Lst::HashTable, g_terrainTypes, 0x006968D0, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable& TerrainTypes() { return g_terrainTypes; }
+GAME_GLOBAL(Lst::HashTable, g_terrainActions, 0x006968E8, Lst::HashTable::Unconstructed{}); // (HashTable(8) at start-up)
+Lst::HashTable& TerrainActions() { return g_terrainActions; }
 
 Sfx::CSfxManager* SoundManager() { return Sfx::g_sfxManager; }
 

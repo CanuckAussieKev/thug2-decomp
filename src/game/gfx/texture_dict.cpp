@@ -34,7 +34,8 @@ namespace {
 extern void** const kTexDictVtable;
 
 // The loaded dictionaries, by checksum (a static hash table).
-Lst::HashTable& LoadedTexDicts() { return GameVariable<Lst::HashTable>(0x00700F04); }
+GAME_GLOBAL(Lst::HashTable, g_loadedTexDicts, 0x00700F04, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(4) at start-up)
+Lst::HashTable& LoadedTexDicts() { return g_loadedTexDicts; }
 
 // The multipliers FindTexture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
 const int* KeyMultipliers() { return g_keyMultipliers; }

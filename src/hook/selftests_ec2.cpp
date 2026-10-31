@@ -39,6 +39,7 @@
 #include "game/script/struct.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/weather.h"
 #include "game/gfx/flexible_particle_manager.h"
 #include "game/gfx/skeleton.h"
 #include "game/gfx/viewport_list.h"
@@ -478,6 +479,10 @@ void StandInObjectCalls(StandIns& s)
         return 0x00CA3E7Au;
     });
     s.Bytes(0x004A1090, Branch(0xE9, 0x004A1090, reinterpret_cast<void*>(&ProjectStandIn)));
+    {
+        uint32_t ours = AddressOf(Nx::VirtualSlot1Jump); // (ours is called directly now)
+        s.Bytes(ours, Branch(0xE9, ours, reinterpret_cast<void*>(&ProjectStandIn)));
+    }
     s.At({0x0049ADE0, AddressOf(&Nx::CFlexibleParticleManager::DestroyGroup)}, 4, [](Regs& r) {
         Record({0xADE0, r.ecx, r.args[0]});
         return 0u;

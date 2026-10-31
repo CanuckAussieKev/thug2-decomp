@@ -35,6 +35,7 @@
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "game/obj/cutscene.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -450,12 +451,12 @@ void CCutsceneData::LoadModel(int index, File::AssetBundle::Entry* entry, void* 
             hasFace = false;
         }
         void* face = AppearanceFace(m_unknown34A8);
-        int skaterFace = face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face) ? 1 : 0;
+        int skaterFace = face && reinterpret_cast<bool(__thiscall*)(void*)>(GAME_CODE(0x00487510, &Gfx::CFaceTexture::IsValid))(face) ? 1 : 0;
         int skaterMale;
         static_cast<Script::CStruct*>(m_unknown34AC)->GetInteger(0x3F813177, &skaterMale, 1);
         load = static_cast<int>(hasFace) == skaterFace && static_cast<int>(male) == skaterMale;
         if (load)
-            GameFunction<void(__cdecl*)(SkinColours*)>(0x0048C090)(&table);
+            Nx::SetScreenClip(&table);
     }
     if (load) {
         params.extra = mp_bundle->FindAsset(entry->name, kTypeExtra, 0);

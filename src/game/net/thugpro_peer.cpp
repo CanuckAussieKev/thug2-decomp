@@ -372,7 +372,7 @@ private:
             params->AddString(key, text);
         else
             params->AddChecksum(key, checksum);
-        GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(command)(params, script);
+        reinterpret_cast<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(command)(params, script);
         DeleteParams(params);
         Script::KillSpawnedScript(script);
     }

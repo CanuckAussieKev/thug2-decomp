@@ -27,6 +27,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
+#include "hook/game_code.h"
 
 namespace Obj {
 
@@ -61,7 +62,7 @@ void* ModelOf(CBaseComponent* component)
 }
 uint32_t ModelGet(void* model)
 {
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x00492E50)(model);
+    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(model);
 }
 void ModelSet(void* model, uint32_t value)
 {
@@ -344,7 +345,7 @@ void CCutsceneData::UpdateObjectPoses()
         *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? data + 0x408 : nullptr;
         *reinterpret_cast<uint32_t*>(source + 0x210) = *reinterpret_cast<uint32_t*>(skeleton + 0xC);
         const uint8_t* basePose = *reinterpret_cast<uint8_t**>(*reinterpret_cast<uint8_t**>(skeleton + 8) + 0x590);
-        uint32_t count = GameFunction<uint32_t(__thiscall*)(void*)>(0x004A2BA0)(skeleton);
+        uint32_t count = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton);
         std::memcpy(translations, basePose, count * 16);
         // (within the first twelfth of a second, without the source)
         if (m_time - static_cast<double>(m_unknown3480) < 0.083333336f)

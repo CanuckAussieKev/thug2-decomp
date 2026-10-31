@@ -35,6 +35,7 @@
 #include "game/obj/object.h"
 #include "game/obj/camera_lookaround.h"
 #include "game/obj/trigger_events.h"
+#include "game/gfx/model_utils.h"
 
 namespace Obj {
 
@@ -73,9 +74,9 @@ void* CopyTexture(uint32_t key, void* texture)
 }
 void* FindTexture(uint32_t checksum) { return static_cast<Nx::CTexDict*>(TextureDictionary())->GetTexture(checksum); }
 void UnloadTexture(void* texture) { static_cast<Nx::CTexDict*>(TextureDictionary())->UnloadTexture(static_cast<Nx::CTexture*>(texture)); }
-void ReleaseTexture(void* texture) { GameFunction<void(__thiscall*)(void*)>(0x0049F3B0)(texture); }
+void ReleaseTexture(void* texture) { reinterpret_cast<void(__thiscall*)(void*)>(&Nx::VirtualSlot32Jump)(texture); }
 // A texture's image put on `texture` (its vtable +0x10).
-void PutOn(void* texture, void* image) { GameFunction<void(__thiscall*)(void*, void*)>(0x00487D50)(texture, image); }
+void PutOn(void* texture, void* image) { reinterpret_cast<void(__thiscall*)(void*, void*)>(&Gfx::VirtualSlot4Jump)(texture, image); }
 
 // One of the component's own textures given back.
 void FreeTexture(void*& texture)

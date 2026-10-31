@@ -23,6 +23,7 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/gfx/weather.h"
 
 namespace Obj {
 
@@ -85,7 +86,7 @@ bool GetObjectId(Script::CStruct* params, uint32_t name, uint32_t* id)
 // 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).
 void ListenerReceive(CEventListener* listener, CEvent* event)
 {
-    GameFunction<void(__thiscall*)(CEventListener*, CEvent*)>(0x004A1090)(listener, event);
+    reinterpret_cast<void(__thiscall*)(CEventListener*, CEvent*)>(&Nx::VirtualSlot1Jump)(listener, event);
 }
 
 // 0x0041A820: the squared distance between two points (x87: (dx*dx + dz*dz) + dy*dy, not rounded to float).

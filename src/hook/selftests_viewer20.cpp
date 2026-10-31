@@ -10,6 +10,7 @@
 
 #include "game/ass/assman.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/viewport.h"
 #include "game/obj/anim_movies.h"
 #include "game/obj/movie_manager.h"
 #include "game/obj/node_objects.h"
@@ -89,7 +90,7 @@ void Install(StandIns& s)
         Rec(0x7C00, {r.ecx, r.args[0], r.args[1]});
         return g_asset ? At(kAsset) : 0u;
     });
-    s.At({0x004A0CF0}, 12, [](Regs& r) {
+    s.At({0x004A0CF0, AddressOf(&Nx::CViewport::QueryPoint)}, 12, [](Regs& r) {
         Rec(0x0CF0, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 7u;
     });

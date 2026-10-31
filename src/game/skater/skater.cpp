@@ -82,6 +82,9 @@
 #include "hook/game_code.h"
 #include "game/skater/state_history.h"
 #include "game/skater/local_net_logic.h"
+#include "game/gfx/engine_geom.h"
+#include "game/gfx/engine_texture.h"
+#include "game/goals/goal.h"
 
 namespace Obj {
 
@@ -681,17 +684,17 @@ void CSkater::ShowBoardElement(uint32_t type)
     auto newElement = [](const char* text) {
         return static_cast<Nx::CTexDict*>(Elements())->LoadTexture(text, 0, 0, true);
     };
-    auto reset = [](void* element) { GameFunction<void(__thiscall*)(void*, int, int)>(0x0048D060)(element, 0, 0); };
+    auto reset = [](void* element) { reinterpret_cast<void(__thiscall*)(void*, int, int)>(&Nx::VirtualSlot8Jump)(element, 0, 0); };
     void* element = newElement(texture);
     reset(element);
-    void* parent = GameFunction<void*(__thiscall*)(void*)>(0x00553E90)(GetComponent(0x5B512EDC));
+    void* parent = reinterpret_cast<void*(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(GetComponent(0x5B512EDC));
     reset(parent);
-    GameFunction<void(__thiscall*)(void*, void*, int)>(0x0048DE80)(element, parent, 1);
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0048DED0)(element, 0); // (black)
-    GameFunction<void(__thiscall*)(void*, float, float)>(0x0048DEB0)(element, width, height);
+    reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&Nx::VirtualSlot15Jump)(element, parent, 1);
+    reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(&Nx::VirtualSlot19Jump)(element, 0); // (black)
+    reinterpret_cast<void(__thiscall*)(void*, float, float)>(&Nx::VirtualSlot16Jump)(element, width, height);
     int flag;
     if (params->GetInteger(0xC876ADF3, &flag, 0))
-        GameFunction<void(__thiscall*)(void*, float, float, float)>(0x0049F360)(element, 1.5707964f, -1.0f, -1.0f);
+        reinterpret_cast<void(__thiscall*)(void*, float, float, float)>(&Nx::VirtualSlot17Jump)(element, 1.5707964f, -1.0f, -1.0f);
     bool second = false;
     void* overlay = nullptr;
     int unused;
@@ -701,10 +704,10 @@ void CSkater::ShowBoardElement(uint32_t type)
         params->GetString(0x499F4BE9, &overlayTexture, 1);
         overlay = newElement(overlayTexture);
         reset(overlay);
-        GameFunction<void(__thiscall*)(void*, void*, int)>(0x0049F420)(overlay, element, 1);
-        GameFunction<void(__thiscall*)(void*, int, int)>(0x0048DE30)(overlay, 1, 0);
+        reinterpret_cast<void(__thiscall*)(void*, void*, int)>(&Nx::VirtualSlot41Jump)(overlay, element, 1);
+        reinterpret_cast<void(__thiscall*)(void*, int, int)>(&Nx::VirtualSlot9Jump)(overlay, 1, 0);
     }
-    GameFunction<void(__thiscall*)(void*, int, int)>(0x0048DE30)(element, 1, 0);
+    reinterpret_cast<void(__thiscall*)(void*, int, int)>(&Nx::VirtualSlot9Jump)(element, 1, 0);
     const char* model;
     params->GetString(0x49B318FD, &model, 1);
     // (the third is a checksum where ReplaceTexture takes a texture name: passed on as it is)
@@ -713,7 +716,7 @@ void CSkater::ShowBoardElement(uint32_t type)
     if (second)
         static_cast<Nx::CTexDict*>(Elements())->UnloadTexture(static_cast<Nx::CTexture*>(overlay));
     static_cast<Nx::CTexDict*>(Elements())->UnloadTexture(static_cast<Nx::CTexture*>(element));
-    GameFunction<void(__thiscall*)(void*)>(0x0048E4C0)(parent);
+    reinterpret_cast<void(__thiscall*)(void*)>(&Nx::VirtualSlot10Jump)(parent);
     Mem::Manager::Get()->PopContext();
 }
 

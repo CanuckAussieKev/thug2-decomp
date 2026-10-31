@@ -24,11 +24,16 @@
 #include "game/mth/x87_math.h"
 #include "game/nx/feeler.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
 #include "game/gfx/device.h"
 
 namespace Nx {
+
+// The rain / snow grid's rows (sWeatherRow, one more than the grid is deep: at most 302) and, right after them, the
+// columns' height indices (a 16-bit offset into them).
+GAME_GLOBAL(uint8_t[0x10000 + 303 * 6], g_weatherGrid, 0x00764330);
 
 namespace {
 
@@ -515,7 +520,7 @@ void CPcWeather::UpdateGrid()
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
-    rows = &GameVariable<sWeatherRow>(0x00764330);
+    rows = reinterpret_cast<sWeatherRow*>(g_weatherGrid);
     columns = reinterpret_cast<uint8_t*>(rows + depth);
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {

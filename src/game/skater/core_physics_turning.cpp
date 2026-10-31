@@ -25,6 +25,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/net/gamenet_manager.h"
+#include "hook/game_code.h"
 
 namespace Skater {
 
@@ -228,7 +229,7 @@ void CorePhysicsComponent::NatasSpin()
     At<Obj::CBalance>(At<void*>(this, kBalance), 0xD4).Update();
     float factor = Script::GetFloat(kNatasSpinFactor);
     // (read as a double - the unrounded x87 result: GetLean 0x004F8F20 isn't called as a float function)
-    double balance = std::fabs(GameFunction<double(__thiscall*)(void*)>(0x004F8F20)(At<void*>(this, kBalance)));
+    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(GAME_CODE(0x004F8F20, &Obj::CSkaterBalanceTrickComponent::GetLean))(At<void*>(this, kBalance)));
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
     if (At<uint8_t>(this, kNatasCounterClockwise))

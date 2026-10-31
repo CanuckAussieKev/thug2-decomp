@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <vector>
 
+#include "game/gfx/weather.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
@@ -809,7 +810,7 @@ void TestChainInit()
               *reinterpret_cast<uint32_t*>(f.ecx) = kLineVtable;
               r.eax = f.ecx;
           }},
-         {0x004A10A0, 12, 3, Ret::None, true, 0}, LineSlot(0x004C56E0, 8, 2), LineSlot(0x004C5B20, 16, 4),
+         {0x004A10A0, 12, 3, Ret::None, true, 0, {Ours(Nx::VirtualSlot3Jump)}}, LineSlot(0x004C56E0, 8, 2), LineSlot(0x004C5B20, 16, 4),
          {0x0049C6C0, 0, 0, Ret::None, true, 0, {Ours(&Nx::CPrimitive::Ready)}}});
     bool ok = CompareRuns(
         "Chain InitFromStructure", 600,

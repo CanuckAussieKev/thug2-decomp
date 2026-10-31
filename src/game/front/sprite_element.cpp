@@ -19,6 +19,7 @@
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
+#include "game/gfx/engine_texture.h"
 
 namespace Front {
 
@@ -66,13 +67,13 @@ void* FindTexture(uint32_t checksum)
 {
     return Nx::g_gameTextureDict->GetTexture(checksum);
 }
-uint16_t TextureWidth(void* texture) { return GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3C0)(texture); }
-uint16_t TextureHeight(void* texture) { return GameFunction<uint16_t(__thiscall*)(void*)>(0x0049F3D0)(texture); }
+uint16_t TextureWidth(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Nx::VirtualSlot33Jump)(texture); }
+uint16_t TextureHeight(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Nx::VirtualSlot34Jump)(texture); }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
-void* NewTexturedPiece() { return GameFunction<void*(__cdecl*)()>(0x0048BF40)(); }
-void* NewSprite(int unused) { return GameFunction<void*(__cdecl*)(int)>(0x0048BF30)(unused); }
-void FreePiece(void* piece) { GameFunction<void(__cdecl*)(void*)>(0x0048C080)(piece); }
+void* NewTexturedPiece() { return Nx::CreateTexturedQuad(); }
+void* NewSprite(int unused) { return (void)unused, Nx::CreateSprite(); }
+void FreePiece(void* piece) { Nx::DeleteModelLights(static_cast<Nx::CPcModelLights*>(piece)); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
 void* NewWindow2d(int x, int y, int w, int h)

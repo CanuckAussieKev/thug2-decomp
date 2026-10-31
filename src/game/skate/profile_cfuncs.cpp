@@ -23,21 +23,15 @@
 
 namespace CFuncs {
 
+GAME_GLOBAL(SwapSlot[5], g_swapTable, 0x007CEDE0);
+
 namespace {
 
 using Script::CScript;
 using Script::CStruct;
 
-// The swap table (0x007CEDE0): five slots.
-struct SwapSlot {
-    bool used;
-    uint8_t pad[3];
-    uint32_t key;
-    uint32_t value;
-};
-static_assert(sizeof(SwapSlot) == 12, "layout must match the original");
 constexpr int kSwapSlots = 5;
-SwapSlot* SwapTable() { return &GameVariable<SwapSlot>(0x007CEDE0); }
+SwapSlot* SwapTable() { return g_swapTable; }
 
 Obj::CPlayerProfileManager* Profiles() { return Obj::g_profileManager; }
 Obj::CSkaterCareer* Career()

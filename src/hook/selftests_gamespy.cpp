@@ -21,6 +21,7 @@
 #pragma warning(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN again)
 extern "C" {
 #include "md5.h"
+#include "Chat/chatMain.h"
 #include "Peer/peer.h"
 #include "qr2/qr2.h"
 }
@@ -114,6 +115,28 @@ void TestGameSpyFixNick()
     Check(ours == 0, "gamespy: FixNick = the exe's peerFixNick");
 }
 SELFTEST(Early, TestGameSpyFixNick);
+
+// --- nick limits ---
+
+// The game's SDK sends any nick that is not empty (the peer keeps 63 characters); the 2007 SDK, patched by
+// cmake/gamespy_sdk.cmake, must not refuse a long nick (PEER_NICK_TOO_LONG, which the game's nick-error callback
+// ignores: the connect would stall) or a character the game's rules allow.
+void TestGameSpyNickLimits()
+{
+    char nick[80];
+    std::memset(nick, 'n', sizeof(nick));
+    nick[20] = '\0';
+    Check(ciNickIsValid(nick) == CHAT_NICK_OK, "gamespy: a 20-character nick is valid");
+    nick[20] = 'n';
+    nick[21] = '\0';
+    Check(ciNickIsValid(nick) == CHAT_NICK_OK, "gamespy: a 21-character nick is valid (the 2007 SDK refused it)");
+    nick[63] = '\0';
+    Check(ciNickIsValid(nick) == CHAT_NICK_OK, "gamespy: a 63-character nick (the peer's most) is valid");
+    Check(ciNickIsValid("a1234567890_12345678901") == CHAT_NICK_OK, "gamespy: a retry nick a<time>_<id> is valid");
+    Check(ciNickIsValid("back\\slash[]`_^{|}-") == CHAT_NICK_OK, "gamespy: the game's allowed characters are valid");
+    Check(ciNickIsValid("") != CHAT_NICK_OK, "gamespy: an empty nick is not valid");
+}
+SELFTEST(Early, TestGameSpyNickLimits);
 
 // --- qr2's reply buffers (what the game's key callbacks write into) ---
 

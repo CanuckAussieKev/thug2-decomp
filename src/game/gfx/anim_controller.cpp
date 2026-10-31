@@ -40,6 +40,7 @@ extern void** const kCPoseControllerVtable;
 extern void** const kCPartialAnimControllerVtable;
 } // namespace
 
+GAME_GLOBAL(Mem::PoolPair, g_standardPools, 0x00701430); // (CBonedAnimController; script_startup.h)
 
 namespace {
 
@@ -168,8 +169,6 @@ PlayParams ReadPlayParams(CStruct* params)
     params->GetFloat(kSpeed, &p.speed, 1);
     return p;
 }
-
-GAME_GLOBAL(Mem::PoolPair, g_standardPools, 0x00701430);
 
 Mem::PoolPair& StandardPools() { return g_standardPools; }
 
