@@ -24,7 +24,7 @@ namespace park_editing {
 // The pieces (park.h): a piece type is a TileTemplate, a placed piece a ParkTile (a clone of its source's sector).
 using TemplateTile = TileTemplate;
 using DuplicatedTile = ParkTile;
-inline DuplicatedTile* get_cloned(ParkTile* piece) { return piece; }
+inline DuplicatedTile* get_cloned(ParkPiece* piece) { return static_cast<ParkTile*>(piece); }
 
 // The rail sets, their rails and points (park_rails.h, 0x0058AFC0-0x0058B700).
 using RailPoint = ParkRailPoint;

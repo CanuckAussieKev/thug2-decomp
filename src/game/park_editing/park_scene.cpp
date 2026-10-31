@@ -94,7 +94,7 @@ void rail_editor_rebuild() { get_rail_editor()->reassemble(); }
 // array.
 DuplicatedTile* make_tile_copy(ParkAssembler* generator, TemplateTile* source, uint32_t flags)
 {
-    return generator->create_piece(source->as_piece(), flags);
+    return generator->create_piece(source, flags);
 }
 void destroy_piece_now(ParkAssembler* generator, DuplicatedTile* piece, int keep_sector)
 {
@@ -106,16 +106,8 @@ void spawn_slot_array(ParkAssembler* generator, int type, int* first, int* last)
 }
 void set_up_bounds(ParkAssembler* generator) { generator->set_up_bounds(); }
 void read_piece_flags(ParkAssembler* generator, script::Array* nodes) { generator->read_piece_flags(nodes); }
-TemplateTile* construct_source_piece(void* memory) { return static_cast<TemplateTile*>(memory)->make_new(); }
 // The gap manager: a gap piece placed
 void place_gap_piece(DuplicatedTile* piece) { GapRegistry::sole()->set_trigger_length(piece); }
-
-// Virtual slot 1 of the pieces: the scalar deleting destructor.
-template <typename T>
-void delete_object(T* object)
-{
-    reinterpret_cast<void(__thiscall*)(T*, int)>(object->vtable_[1])(object, 1);
-}
 
 // The gap's trigger piece type.
 constexpr uint32_t kGapMarkerLabel = 0xC0341DF7;
@@ -157,7 +149,7 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
     if (scene_updates())
         get_update_super_sectors(d);
     set_counts_dirty(); // (given the piece)
-    delete_object(piece);
+    delete piece;
     if (!d.pieces_)
         d.flag_bits_ &= ~ParkAssembler::kHasPieces;
 }
@@ -216,7 +208,7 @@ void ParkAssembler::light_piece(ParkTile* p)
 {
     DuplicatedTile* piece = get_cloned(p);
     void* geometry = fetch_shape(look_up_sector(piece->sector_));
-    void* source_geometry = fetch_shape(look_up_sector(piece->blend_source_->label_));
+    void* source_geometry = fetch_shape(look_up_sector(piece->blend_source_->sector_));
     int count = get_vertex_count(geometry);
     if (count) {
         // (new[] of vectors and colours: their constructors do nothing)
@@ -305,14 +297,14 @@ void* ParkAssembler::make_gap_marker_piece(maths::Vec4* position, float /*length
 {
     TemplateTile* source = nullptr;
     for (TemplateTile* s = sources_; s; s = s->following_) {
-        if (s->label_ == kGapMarkerLabel) {
+        if (s->sector_ == kGapMarkerLabel) {
             source = s;
             break;
         }
     }
     DuplicatedTile* piece = make_tile_copy(this, source, 0);
-    reinterpret_cast<ParkTile*>(piece)->change_place(position, 1);
-    reinterpret_cast<ParkTile*>(piece)->set_quarter_turns(rot, 1);
+    piece->change_place(position, 1);
+    piece->set_quarter_turns(rot, 1);
     piece->flag_bits_ |= DuplicatedTile::kGap | DuplicatedTile::kInList;
     piece->following_ = pieces_;
     pieces_ = piece;
@@ -372,7 +364,7 @@ void ParkAssembler::unload_pieces()
     }
     for (TemplateTile* source = sources_; source;) {
         TemplateTile* next = source->following_;
-        delete_object(source);
+        delete source;
         source = next;
     }
     sources_ = nullptr;
@@ -384,7 +376,7 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
     DuplicatedTile* piece = get_cloned(p);
     flag_bits_ |= ParkAssembler::kSceneChanged;
     const int cursor = (piece->flag_bits_ & DuplicatedTile::kCursor) ? 1 : 0;
-    piece->sector_ = park_editing::duplicate_scene_sector(source_world_, piece->blend_source_->label_, scene_handle_,
+    piece->sector_ = park_editing::duplicate_scene_sector(source_world_, piece->blend_source_->sector_, scene_handle_,
                                                           cursor, !cursor);
     void* sector = look_up_sector(piece->sector_);
     maths::Vec4 position = piece->at_point_;
@@ -407,7 +399,7 @@ void ParkAssembler::rebuild_all()
     scene_updates() = true;
     delete_marked_sectors(scene_handle_);
     for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_)
-        add_piece_to_scene(reinterpret_cast<ParkTile*>(piece));
+        add_piece_to_scene(piece);
     if (scene_updates())
         get_update_super_sectors(*this);
     scene_updates() = false;
@@ -429,7 +421,7 @@ void ParkAssembler::rebuild_marked()
     }
     for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
         if (piece->blend_source_->flag_bits_ & TemplateTile::kRebuilt)
-            add_piece_to_scene(reinterpret_cast<ParkTile*>(piece));
+            add_piece_to_scene(piece);
     }
     scene_updates() = true;
     get_update_super_sectors(*this);
@@ -456,13 +448,12 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     void* sector;
     while (sectors->step_iterator() && sectors->iter_item_ && (sector = sectors->iter_item_->value) != nullptr) {
         memory::enter_heap_scope(get_park_heap());
-        void* memory = memory::alloc(sizeof(TemplateTile));
-        TemplateTile* source = memory ? construct_source_piece(memory) : nullptr;
+        auto* source = new TemplateTile;
         memory::leave_heap_scope();
         source->following_ = sources_;
         sources_ = source;
-        source->label_ = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(sector) + 4); // its checksum
-        const maths::Vec4* box = get_local_bounds(sector);                                // min, max
+        source->sector_ = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(sector) + 4); // its checksum
+        const maths::Vec4* box = get_local_bounds(sector);                                 // min, max
         const maths::Vec4& min = box[0];
         const maths::Vec4& max = box[1];
         int cells = static_cast<int>((static_cast<double>(max.x) - min.x + kSizeSlack) * kInverseCell);

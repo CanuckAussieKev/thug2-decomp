@@ -111,7 +111,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
         maths::Vec4 relative;
         meta->get_relative_position(&relative, i);
-        ParkTile* piece = meta->get_piece(i);
+        auto* piece = static_cast<ParkTile*>(meta->get_piece(i)); // (a placed metapiece's)
         maths::Vec4 position;
         position.x = static_cast<float>(static_cast<double>(relative.x) + origin.x);
         position.z = static_cast<float>(static_cast<double>(relative.z) + origin.z);
@@ -202,7 +202,7 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     for (uint32_t i = 0; i < meta->filled_slots_; ++i)
         builder_->destroy_piece(meta->get_descriptor(i)->piece);
     remove_piece_cost(meta);
-    meta->erase_one();
+    delete meta;
     --num_concrete_metas_;
 }
 
@@ -270,8 +270,7 @@ void ParkLayout::teardown(int keep_rails)
     while (abstract_metas_) {
         PieceGroup* meta = abstract_metas_->get_piece_group();
         remove_meta_from_list(meta, &abstract_metas_);
-        if (meta)
-            meta->erase_one();
+        delete meta;
     }
     num_abstract_metas_ = 0;
     destroy_concrete_metas(keep_rails);

@@ -101,7 +101,7 @@ int ParkAssembler::get_player_cap_limit()
 TileTemplate* ParkAssembler::get_piece_source(uint32_t name)
 {
     for (TileTemplate* source = sources_; source; source = source->following_) {
-        if (source->label_ == name)
+        if (source->sector_ == name)
             return source;
     }
     return nullptr;
@@ -253,7 +253,7 @@ void ParkAssembler::set_restart_pieces_active(bool active)
 {
     for (ParkTile* piece = pieces_; piece;) {
         ParkTile* next = piece->following_;
-        if (ParkLayout::singleton()->get_restart_index(piece->blend_source_->label_))
+        if (ParkLayout::singleton()->get_restart_index(piece->blend_source_->sector_))
             piece->change_live(active);
         piece = next;
     }
@@ -275,14 +275,14 @@ bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
     return deleted;
 }
 
-ParkTile* ParkAssembler::create_piece(ParkTile* source, uint32_t flags)
+ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
 {
     flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
-    TileTemplate* from =
-        (source->flag_bits_ & ParkTile::kSource) ? reinterpret_cast<TileTemplate*>(source) : source->blend_source_;
+    TileTemplate* from = (source->flag_bits_ & ParkPiece::kSource) ? static_cast<TileTemplate*>(source)
+                                                                   : static_cast<ParkTile*>(source)->blend_source_;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     cloning_piece() = 1;
-    const uint32_t name = from->label_;
+    const uint32_t name = from->sector_;
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
     uint32_t clone =
@@ -293,8 +293,7 @@ ParkTile* ParkAssembler::create_piece(ParkTile* source, uint32_t flags)
     cloning_piece() = 0;
     // The piece itself on the park editor's heap.
     memory::enter_heap_scope(get_park_heap());
-    void* memory = memory::alloc(sizeof(CopiedPiece));
-    CopiedPiece* piece = memory ? static_cast<CopiedPiece*>(memory)->make_new() : nullptr;
+    auto* piece = new CopiedPiece;
     memory::leave_heap_scope();
     piece->sector_ = clone; // (out of memory crashes, as in the original)
     piece->ident_ = next_piece_id_++;
@@ -338,7 +337,7 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
     if (!keep_sector)
         destroy_sector(piece->sector_, static_cast<int>(piece->flag_bits_));
     set_counts_dirty();
-    piece->erase_one();
+    delete piece;
     if (!pieces_)
         flag_bits_ &= ~ParkAssembler::kHasPieces;
 }

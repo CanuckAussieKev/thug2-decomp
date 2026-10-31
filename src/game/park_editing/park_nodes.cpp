@@ -304,7 +304,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     for (TemplateTile* source = sources_; source; source = source->following_) {
         source->rail_point_total_ = 0;
         source->num_rail_segments_ = 0;
-        for (int i = 0; Rail* rail = rails.find_rail(source->label_, i); ++i) {
+        for (int i = 0; Rail* rail = rails.find_rail(source->sector_, i); ++i) {
             source->rail_point_total_ += rail->vertex_total_;
             source->num_rail_segments_ += rail->count_segments();
         }
@@ -407,7 +407,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
         for (int i = 0; i < pieces; ++i) {
             DuplicatedTile* piece = get_cloned(meta->get_piece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
-                const uint32_t name = piece->blend_source_->label_;
+                const uint32_t name = piece->blend_source_->sector_;
                 Rail* source = source_rails_.find_rail(name, j);
                 if (!source)
                     break;

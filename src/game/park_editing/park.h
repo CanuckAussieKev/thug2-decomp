@@ -19,6 +19,7 @@
 
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 
 namespace script {
@@ -31,8 +32,10 @@ namespace park_editing {
 
 class ParkAssembler; // the scene side of the park (0x4A4 bytes, 0x00593460 constructs it)
 class BuildPointer;
+class ParkPiece;
 class ParkTile;
 class PieceGroup;
+class TileTemplate;
 
 // A class's vtable as the original's code and the self-tests name it: an address, or the table (the vtable objects below).
 struct VtableRef {
@@ -40,14 +43,6 @@ struct VtableRef {
     operator void**() const { return *table; }
     operator uint32_t() const { return reinterpret_cast<uint32_t>(*table); }
 };
-
-// The pieces' vtables (defined in park_pieces.cpp / park_metapieces.cpp).
-extern void** const kMetaPieceVtable;         // 0x0064F3BC
-extern void** const kConcreteMetaPieceVtable; // 0x0064F3D8
-extern void** const kAbstractMetaPieceVtable; // 0x0064F3E4
-extern void** const kPieceVtable;             // 0x0064F3B4
-extern void** const kSourcePieceVtable;       // 0x0064F3C8
-extern void** const kClonedPieceVtable;       // 0x0064F3D0
 class ParkLayout;
 struct RailNodeInfo;
 
@@ -105,11 +100,131 @@ struct PieceGroupDesc {
 };
 static_assert(sizeof(PieceGroupDesc) == 12, "layout must match the original");
 
-// A metapiece (abstract or concrete; 0x3C bytes; park_metapieces.cpp). Vtable slot 0: piece `index` (__thiscall);
-// slot 1: the scalar deleting destructor; slot 2: add a piece. The base's vtable is 0x0064F3BC.
-class PieceGroup {
+// A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds: a source piece (TileTemplate,
+// kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed piece (ParkTile, made a
+// CopiedPiece: a clone of its source's sector in the "cloned" scene; park_scene.h calls it DuplicatedTile). Both
+// start with the sector and the flags. (The original's vtables: this base's 0x0064F3B4, the source's 0x0064F3C8,
+// the clone's 0x0064F3D0.)
+class ParkPiece {
 public:
-    static inline const VtableRef kVtable{&kMetaPieceVtable};
+    // The game heap's new / delete (as memory::HeapObject's: not a base here, since ParkTile::fetch_serial must stay
+    // a single-inheritance member function - the resource tables name it, folded with their own getters).
+    static void* operator new(std::size_t size) noexcept
+    {
+        return memory::alloc_zeroed(static_cast<unsigned int>(size));
+    }
+    static void operator delete(void* memory) { memory::dealloc(memory); }
+
+    // flag_bits_ (both kinds)
+    enum : uint32_t {
+        kSource = 0x1, // a TileTemplate
+        kCloned = 0x2, // a placed (cloned) piece
+    };
+
+    ParkPiece(const ParkPiece&) = delete;
+    ParkPiece& operator=(const ParkPiece&) = delete;
+    // 0x00590240 (0x00590490 / 0x00590640 the deleting ones): nothing to do.
+    virtual ~ParkPiece() = default;
+    // Its size (a placed piece's turned by its rotation); returns `out`.
+    virtual maths::Vec4* measure_span(maths::Vec4* out) = 0;
+
+    // 0x005904C0: its size in cells (w h l; the rest of `dims` as it was)
+    void get_footprint_size(CellBox* dims);
+    // 0x00590530: its source's size with x and z swapped for an odd `rot`; returns `out`
+    maths::Vec4* get_dims_turned(maths::Vec4* out, int rot);
+
+    uint32_t sector_ = 0;    // +0x04: a placed piece's sector in the "cloned" scene; a source's sector checksum
+    uint32_t flag_bits_ = 0; // +0x08
+
+protected:
+    ParkPiece() = default;
+};
+
+// A placed piece (0x2C bytes). Its own size is CopiedPiece's.
+class ParkTile : public ParkPiece {
+public:
+    // flag_bits_ (a placed piece's; TileTemplate has its own)
+    enum : uint32_t {
+        kCursor = 0x4,    // the cursor's (never in the generator's list: not unlinked when deleted)
+        kInList = 0x8,    // in the generator's list
+        kNoNode20 = 0x20, // (with 0x80) gets no node in the node array
+        kGap = 0x40,      // a gap's trigger piece
+        kNoNode80 = 0x80,
+        kNoRails = 0x100,    // its rails aren't counted
+        kDestroyNow = 0x200, // destroy_piece takes it out at once
+        kDestroy = 0x1000,   // marked: clean_up_out_refs takes it out
+    };
+
+    ParkTile* following_ = nullptr;        // +0x0C: the generator's list
+    uint32_t ident_ = 0;                   // +0x10: the generator's piece counter when made (the cluster of its rails)
+    TileTemplate* blend_source_ = nullptr; // +0x14
+    maths::Vec4 at_point_;                 // +0x18
+    int quarter_turns_;                    // +0x28: quarter turns
+
+    // 0x00590250 (folded with other +0x10 getters)
+    uint32_t fetch_serial();
+    // 0x00590670: put it at `position` (and move its sector if `update` is 1)
+    void change_place(maths::Vec4* position, int update);
+    // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
+    void set_quarter_turns(int rot, int update);
+    // 0x00590290: its sector drawn and collided with (or neither)
+    void change_live(bool active);
+    // 0x005902B0: its sector shown in every viewport (or none)
+    void set_visible(bool visible);
+    // 0x005906B0: its sector stretched to `length` along its own x (z when turned a quarter)
+    void set_length(float length);
+    // 0x00591510: its sector's geometry turned `degrees` about y
+    void set_angle(float degrees);
+    // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
+    void set_highlight(bool on, bool gap);
+
+protected:
+    ParkTile() = default;
+};
+static_assert(offsetof(ParkTile, ident_) == 0x10 && offsetof(ParkTile, blend_source_) == 0x14 &&
+                  offsetof(ParkTile, at_point_) == 0x18 && offsetof(ParkTile, quarter_turns_) == 0x28 &&
+                  sizeof(ParkTile) == 0x2C,
+              "layout must match the original (a placed piece: 0x2C bytes)");
+
+// A source piece (0x30 bytes; park_scene.h calls it TemplateTile): a piece type, one sector of the "sk5ed" scene
+// (sector_ is its checksum).
+class TileTemplate final : public ParkPiece {
+public:
+    // flag_bits_ (besides kSource)
+    enum : uint32_t {
+        kGameObject = 0x400,       // the node is a GameObject (read_piece_flags, from the pieces' node array)
+        kAbsentInNetGames = 0x800, // (with kGameObject)
+        kRebuilt = 0x4000,         // rebuilt by rebuild_marked (a trigger the scripts change)
+    };
+
+    // 0x005905C0: an empty source piece.
+    TileTemplate() { flag_bits_ = kSource; }
+    // 0x00590600: its size; returns `out`
+    maths::Vec4* measure_span(maths::Vec4* out) override;
+
+    TileTemplate* following_ = nullptr;    // +0x0C
+    maths::Vec4 extent_ = {0, 0, 0, 1.0f}; // +0x10: in world units (x and z whole cells); w = 1
+    int field_20_ = 1;                     // +0x20
+    uint32_t trigger_script_ = 0;          // +0x24
+    int rail_point_total_ = 0;             // +0x28: the points of the rails its node array gives it
+    int num_rail_segments_ = 0;            // +0x2C
+};
+static_assert(offsetof(TileTemplate, extent_) == 0x10 && offsetof(TileTemplate, trigger_script_) == 0x24 &&
+                  sizeof(TileTemplate) == 0x30,
+              "layout must match the original");
+
+// A placed piece as made (0x00590620: an empty cloned piece).
+class CopiedPiece final : public ParkTile {
+public:
+    CopiedPiece() { flag_bits_ = kCloned; }
+    // 0x00590710: the source's size, x and z swapped when turned a quarter; returns `out`
+    maths::Vec4* measure_span(maths::Vec4* out) override;
+};
+
+// A metapiece (abstract or concrete; 0x3C bytes; park_metapieces.cpp): its pieces, by descriptor. (The original's
+// vtables: the base's 0x0064F3BC, PlacedPieceGroup's 0x0064F3D8, PieceBlueprint's 0x0064F3E4.)
+class PieceGroup : public memory::HeapObject {
+public:
     // The flags (flag_bits_).
     enum : uint32_t {
         kConcrete = 0x1, // a PlacedPieceGroup (only these are highlighted by an area selection)
@@ -132,16 +247,24 @@ public:
         kRiserBelow = 0x20000,
     };
 
-    void** vtable_;
-    CellBox cell_footprint_; // +0x04
+    PieceGroup(const PieceGroup&) = delete;
+    PieceGroup& operator=(const PieceGroup&) = delete;
+    // 0x005917E0 (0x00591670 / 0x00591BB0 the deleting ones): the extra descriptors freed.
+    virtual ~PieceGroup();
+    // Piece `index` (null past the end): a placed metapiece's cloned piece, a palette entry's source piece.
+    virtual ParkPiece* get_piece(uint32_t index) = 0;
+    // A piece added at the cells `pos` (x y z), turned `rot`.
+    virtual void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) = 0;
+
+    CellBox cell_footprint_ = {0, 0, 0, 0, 0, 0}; // +0x04 (the offsets are the original's: the vtable at +0x00)
     uint8_t pad0a_[2];
-    uint32_t flag_bits_;         // +0x0C
-    int quarter_turns_;          // +0x10: quarter turns
-    PieceGroupDesc desc_[2];     // +0x14: the first two pieces
-    PieceGroupDesc* extra_desc_; // +0x2C: the others (piece 2 is extra_desc_[0])
-    uint32_t slot_limit_;        // +0x30
-    uint32_t filled_slots_;      // +0x34
-    uint32_t name_key_;          // +0x38: the abstract metapiece's name
+    uint32_t flag_bits_ = 0;               // +0x0C
+    int quarter_turns_;                    // +0x10: quarter turns
+    PieceGroupDesc desc_[2];               // +0x14: the first two pieces
+    PieceGroupDesc* extra_desc_ = nullptr; // +0x2C: the others (piece 2 is extra_desc_[0])
+    uint32_t slot_limit_ = 0;              // +0x30
+    uint32_t filled_slots_ = 0;            // +0x34
+    uint32_t name_key_;                    // +0x38: the abstract metapiece's name
 
     // 0x005902E0 (returns this; folded with many empty constructors): a metapiece as a concrete one
     PieceGroup* as_placed_piece() { return this; }
@@ -175,25 +298,11 @@ public:
     bool intersects(CellBox area, uint32_t precise);
     // 0x00590B90: the box round its pieces (from each one's position and size)
     void get_bounds(maths::Vec4* max, maths::Vec4* min);
-    // 0x00591670: the scalar deleting destructor of the base (the extra descriptors freed)
-    PieceGroup* teardown(unsigned int flags);
-    // 0x005917E0: the destructor's body
-    void destroy_body();
     // 0x005916B0: its pieces as an array of structures (each piece's checksum and position)
     void get_piece_list(script::Array* out);
-    // Vtable slot 0: piece `index` (its scene piece)
-    ParkTile* get_piece(uint32_t index)
-    {
-        return reinterpret_cast<ParkTile*(__thiscall*)(PieceGroup*, uint32_t)>(vtable_[0])(this, index);
-    }
-    // Vtable slot 1: the scalar deleting destructor
-    void erase_one() { reinterpret_cast<void(__thiscall*)(PieceGroup*, int)>(vtable_[1])(this, 1); }
-    // Vtable slot 2: add a piece at `pos`
-    void insert_tile(void* piece, CellBox* pos, int rot, bool sets_floor)
-    {
-        reinterpret_cast<void(__thiscall*)(PieceGroup*, void*, CellBox*, int, bool)>(vtable_[2])(this, piece, pos, rot,
-                                                                                                 sets_floor);
-    }
+
+protected:
+    PieceGroup() = default;
 };
 static_assert(offsetof(PieceGroup, flag_bits_) == 0x0C && offsetof(PieceGroup, desc_) == 0x14 &&
                   offsetof(PieceGroup, extra_desc_) == 0x2C && offsetof(PieceGroup, filled_slots_) == 0x34 &&
@@ -201,149 +310,32 @@ static_assert(offsetof(PieceGroup, flag_bits_) == 0x0C && offsetof(PieceGroup, d
               "layout must match the original");
 
 // A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
-class PlacedPieceGroup : public PieceGroup {
+class PlacedPieceGroup final : public PieceGroup {
 public:
-    static inline const VtableRef kVtable{&kConcreteMetaPieceVtable};
-    // 0x00590B60: an empty one (kConcrete, unturned). Returns this.
-    PlacedPieceGroup* make_new();
-    // 0x00590360 (vtable slot 0): piece `index` (null past the end)
-    ParkTile* get_piece(uint32_t index);
-    // 0x00590ED0 (vtable slot 2): `piece` added at the cells `pos` (x y z), turned `rot`; the piece's position set to
+    // 0x00590B60: an empty one (kConcrete, unturned).
+    PlacedPieceGroup();
+    // 0x00590360: piece `index` (null past the end)
+    ParkTile* get_piece(uint32_t index) override;
+    // 0x00590ED0: `piece` (a placed piece) added at the cells `pos` (x y z), turned `rot`; the piece's position set to
     // its centre there
-    void insert_tile(ParkTile* piece, CellBox* pos, int rot, bool sets_floor);
-    // 0x00591BB0 (vtable slot 1, also the abstract metapiece's): the scalar deleting destructor
-    PlacedPieceGroup* teardown(unsigned int flags);
+    void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) override;
 };
 
 // A palette entry: its descriptors name source pieces or other palette entries.
-class PieceBlueprint : public PieceGroup {
+class PieceBlueprint final : public PieceGroup {
 public:
-    static inline const VtableRef kVtable{&kAbstractMetaPieceVtable};
-    // 0x00590FA0: an empty one (kAbstract). Returns this.
-    PieceBlueprint* make_new();
-    // 0x00590FD0 (vtable slot 0): piece `index`'s source piece (from the generator; null past the end)
-    ParkTile* get_piece(uint32_t index);
-    // 0x00591020 (vtable slot 2): a source piece added by name (anything else only counted), the area grown to take
-    // it in (at least 1 high)
-    void insert_tile(ParkTile* piece, CellBox* pos, int rot, uint8_t sets_floor);
+    // 0x00590FA0: an empty one (kAbstract).
+    PieceBlueprint();
+    // 0x00590FD0: piece `index`'s source piece (from the generator; null past the end)
+    TileTemplate* get_piece(uint32_t index) override;
+    // 0x00591020: a source piece added by name (anything else only counted), the area grown to take it in (at least
+    // 1 high)
+    void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) override;
     // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
     void add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uint8_t sets_floor);
     // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
     // and turned in this one); returns `out`
     PieceGroupDesc* get_entry(PieceGroupDesc* out, int index);
-};
-
-class TileTemplate;
-
-// A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds share the first 0x10 bytes: a source
-// piece (TileTemplate, kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed
-// piece (kCloned: a clone of its source's sector in the "cloned" scene - this class's layout; park_scene.h calls it
-// DuplicatedTile). Vtable slot 0: the size (measure_span); slot 1: the scalar deleting destructor.
-class ParkTile {
-public:
-    // flag_bits_ (a placed piece's; TileTemplate has its own)
-    enum : uint32_t {
-        kSource = 0x1,    // a TileTemplate
-        kCloned = 0x2,    // a placed (cloned) piece
-        kCursor = 0x4,    // the cursor's (never in the generator's list: not unlinked when deleted)
-        kInList = 0x8,    // in the generator's list
-        kNoNode20 = 0x20, // (with 0x80) gets no node in the node array
-        kGap = 0x40,      // a gap's trigger piece
-        kNoNode80 = 0x80,
-        kNoRails = 0x100,    // its rails aren't counted
-        kDestroyNow = 0x200, // destroy_piece takes it out at once
-        kDestroy = 0x1000,   // marked: clean_up_out_refs takes it out
-    };
-    static inline const VtableRef kVtable{&kPieceVtable};
-
-    void** vtable_;
-    uint32_t sector_;            // +0x04: its sector in the "cloned" scene
-    uint32_t flag_bits_;         // +0x08
-    ParkTile* following_;        // +0x0C: the generator's list
-    uint32_t ident_;             // +0x10: the generator's piece counter when made (the cluster of its rails)
-    TileTemplate* blend_source_; // +0x14
-    maths::Vec4 at_point_;       // +0x18
-    int quarter_turns_;          // +0x28: quarter turns
-
-    // Vtable slot 0: its size (a placed piece's turned by its rotation); returns `out`
-    maths::Vec4* measure_span(maths::Vec4* out)
-    {
-        return reinterpret_cast<maths::Vec4*(__thiscall*)(ParkTile*, maths::Vec4*)>(vtable_[0])(this, out);
-    }
-    // Vtable slot 1: the scalar deleting destructor
-    void erase_one() { reinterpret_cast<void(__thiscall*)(ParkTile*, int)>(vtable_[1])(this, 1); }
-
-    // 0x00590240: the destructor's body (only the vtable)
-    void destroy_body();
-    // 0x00590490: the scalar deleting destructor (freed if `flags` bit 0). Returns this.
-    ParkTile* teardown(unsigned int flags);
-    // 0x00590250 (folded with other +0x10 getters)
-    uint32_t fetch_serial();
-    // 0x00590670: put it at `position` (and move its sector if `update` is 1)
-    void change_place(maths::Vec4* position, int update);
-    // 0x00590260: turn it to `rot` quarter turns (and its sector if `update` is 1)
-    void set_quarter_turns(int rot, int update);
-    // 0x00590290: its sector drawn and collided with (or neither)
-    void change_live(bool active);
-    // 0x005902B0: its sector shown in every viewport (or none)
-    void set_visible(bool visible);
-    // 0x005904C0: its size in cells (w h l; the rest of `dims` as it was)
-    void get_footprint_size(CellBox* dims);
-    // 0x00590530: its source's size with x and z swapped for an odd `rot`; returns `out`
-    maths::Vec4* get_dims_turned(maths::Vec4* out, int rot);
-    // 0x005906B0: its sector stretched to `length` along its own x (z when turned a quarter)
-    void set_length(float length);
-    // 0x00591510: its sector's geometry turned `degrees` about y
-    void set_angle(float degrees);
-    // 0x00591600: its sector's geometry tinted (purple for a gap's piece) or back to normal
-    void set_highlight(bool on, bool gap);
-};
-static_assert(offsetof(ParkTile, ident_) == 0x10 && offsetof(ParkTile, blend_source_) == 0x14 &&
-                  offsetof(ParkTile, at_point_) == 0x18 && offsetof(ParkTile, quarter_turns_) == 0x28 &&
-                  sizeof(ParkTile) == 0x2C,
-              "layout must match the original (a placed piece: 0x2C bytes)");
-
-// A source piece (0x30 bytes; park_scene.h calls it TemplateTile): a piece type, one sector of the "sk5ed" scene.
-class TileTemplate {
-public:
-    // flag_bits_ (besides ParkTile::kSource)
-    enum : uint32_t {
-        kGameObject = 0x400,       // the node is a GameObject (read_piece_flags, from the pieces' node array)
-        kAbsentInNetGames = 0x800, // (with kGameObject)
-        kRebuilt = 0x4000,         // rebuilt by rebuild_marked (a trigger the scripts change)
-    };
-    static inline const VtableRef kVtable{&kSourcePieceVtable};
-
-    void** vtable_;           // slot 1: the scalar deleting destructor
-    uint32_t label_;          // +0x04: its sector's checksum
-    uint32_t flag_bits_;      // +0x08 (1 when made)
-    TileTemplate* following_; // +0x0C
-    maths::Vec4 extent_;      // +0x10: in world units (x and z whole cells); w = 1
-    int field_20_;            // +0x20 (1 when made)
-    uint32_t trigger_script_; // +0x24
-    int rail_point_total_;    // +0x28: the points of the rails its node array gives it
-    int num_rail_segments_;   // +0x2C
-
-    ParkTile* as_piece() { return reinterpret_cast<ParkTile*>(this); }
-    // 0x005905C0: an empty source piece. Returns this.
-    TileTemplate* make_new();
-    // 0x00590600 (vtable slot 0): its size; returns `out`
-    maths::Vec4* measure_span(maths::Vec4* out);
-    // 0x00590640 (vtable slot 1, also the placed piece's): the scalar deleting destructor. Returns this.
-    TileTemplate* teardown(unsigned int flags);
-};
-static_assert(offsetof(TileTemplate, extent_) == 0x10 && offsetof(TileTemplate, trigger_script_) == 0x24 &&
-                  sizeof(TileTemplate) == 0x30,
-              "layout must match the original");
-
-// A cloned piece's own functions (its layout is ParkTile's).
-class CopiedPiece : public ParkTile {
-public:
-    static inline const VtableRef kVtable{&kClonedPieceVtable};
-    // 0x00590620: an empty cloned piece. Returns this.
-    CopiedPiece* make_new();
-    // 0x00590710 (vtable slot 0): the source's size, x and z swapped when turned a quarter; returns `out`
-    maths::Vec4* measure_span(maths::Vec4* out);
 };
 
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
@@ -761,7 +753,7 @@ public:
     // 0x00592370: delete the park's sector `name`, then rebuild the collision (false if there was none)
     bool destroy_sector(uint32_t name, int unused);
     // 0x005923C0: a new placed piece of `source` (or of its source), with `flags` (0x324 of them)
-    ParkTile* create_piece(ParkTile* source, uint32_t flags);
+    ParkTile* create_piece(ParkPiece* source, uint32_t flags);
     // 0x00592550: a placed piece onto the front of the generator's list (light_piece, 0x00594410, then lights it)
     void insert_tile(ParkTile* piece);
     // 0x00592570: a piece taken off the list (not the cursor's), its sector deleted (unless `keep_sector`), deleted

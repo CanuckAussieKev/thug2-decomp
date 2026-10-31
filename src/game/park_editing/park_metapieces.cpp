@@ -12,18 +12,8 @@
 #include "game/park_editing/park_nx.h"
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 
 namespace park_editing {
-
-static VtableSlot g_meta_piece_vtable_slots[] = {&_purecall, &PieceGroup::teardown, &_purecall};
-void** const kMetaPieceVtable = reinterpret_cast<void**>(g_meta_piece_vtable_slots);
-static VtableSlot g_concrete_meta_piece_vtable_slots[] = {&PlacedPieceGroup::get_piece, &PlacedPieceGroup::teardown,
-                                                          &PlacedPieceGroup::insert_tile};
-void** const kConcreteMetaPieceVtable = reinterpret_cast<void**>(g_concrete_meta_piece_vtable_slots);
-static VtableSlot g_abstract_meta_piece_vtable_slots[] = {&PieceBlueprint::get_piece, &PlacedPieceGroup::teardown,
-                                                          &PieceBlueprint::insert_tile};
-void** const kAbstractMetaPieceVtable = reinterpret_cast<void**>(g_abstract_meta_piece_vtable_slots);
 
 namespace {
 
@@ -180,7 +170,7 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     const float half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
     const float half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
     const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
-    ParkTile* piece = get_piece(index);
+    ParkPiece* piece = get_piece(index);
     maths::Vec4 size1;
     maths::Vec4 size2;
     const float size_z = piece->get_dims_turned(&size1, entry->rot)->z;
@@ -285,14 +275,10 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     return false;
 }
 
-PieceGroup* PieceGroup::teardown(unsigned int flags)
+PieceGroup::~PieceGroup()
 {
-    vtable_ = kVtable;
     if (extra_desc_)
         memory::dealloc(extra_desc_);
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 void PieceGroup::get_piece_list(script::Array* out)
@@ -309,13 +295,6 @@ void PieceGroup::get_piece_list(script::Array* out)
         piece->put_vec3(0u, position.x, position.y, position.z);
         out->set_element(i, reinterpret_cast<uint32_t>(piece));
     }
-}
-
-void PieceGroup::destroy_body()
-{
-    vtable_ = kVtable;
-    if (extra_desc_)
-        memory::dealloc(extra_desc_);
 }
 
 void PieceGroup::change_place(maths::Vec4 position, float angle)
@@ -391,16 +370,10 @@ void PieceGroup::finish_pieces()
 
 // --- PlacedPieceGroup -------------------------------------------------------------------------------------------
 
-PlacedPieceGroup* PlacedPieceGroup::make_new()
+PlacedPieceGroup::PlacedPieceGroup()
 {
-    cell_footprint_ = {0, 0, 0, 0, 0, 0};
-    extra_desc_ = nullptr;
-    slot_limit_ = 0;
-    filled_slots_ = 0;
-    vtable_ = kVtable;
     flag_bits_ = kConcrete;
     quarter_turns_ = 0;
-    return this;
 }
 
 ParkTile* PlacedPieceGroup::get_piece(uint32_t index)
@@ -410,8 +383,9 @@ ParkTile* PlacedPieceGroup::get_piece(uint32_t index)
     return static_cast<ParkTile*>(get_descriptor(static_cast<int>(index))->piece);
 }
 
-void PlacedPieceGroup::insert_tile(ParkTile* piece, CellBox* pos, int rot, bool sets_floor)
+void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, bool sets_floor)
 {
+    auto* piece = static_cast<ParkTile*>(placed);
     PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
     maths::Vec4 size;
     piece->measure_span(&size);
@@ -431,35 +405,16 @@ void PlacedPieceGroup::insert_tile(ParkTile* piece, CellBox* pos, int rot, bool 
     entry->sets_floor_ = sets_floor;
 }
 
-PlacedPieceGroup* PlacedPieceGroup::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
 // --- PieceBlueprint -------------------------------------------------------------------------------------------
 
-PieceBlueprint* PieceBlueprint::make_new()
-{
-    cell_footprint_ = {0, 0, 0, 0, 0, 0};
-    extra_desc_ = nullptr;
-    slot_limit_ = 0;
-    filled_slots_ = 0;
-    vtable_ = kVtable;
-    flag_bits_ = kAbstract;
-    return this;
-}
+PieceBlueprint::PieceBlueprint() { flag_bits_ = kAbstract; }
 
-ParkTile* PieceBlueprint::get_piece(uint32_t index)
+TileTemplate* PieceBlueprint::get_piece(uint32_t index)
 {
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
     const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
-    TileTemplate* source =
-        ParkLayout::singleton()->builder_->get_piece_source(reinterpret_cast<uint32_t>(entry->piece));
-    return source ? source->as_piece() : nullptr;
+    return ParkLayout::singleton()->builder_->get_piece_source(reinterpret_cast<uint32_t>(entry->piece));
 }
 
 namespace {
@@ -480,9 +435,9 @@ void grow_to_take(CellBox& cells, const CellBox* pos)
 
 } // namespace
 
-void PieceBlueprint::insert_tile(ParkTile* piece, CellBox* pos, int rot, uint8_t sets_floor)
+void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor)
 {
-    auto* source = (piece->flag_bits_ & ParkTile::kSource) ? reinterpret_cast<TileTemplate*>(piece) : nullptr;
+    auto* source = (piece->flag_bits_ & ParkPiece::kSource) ? static_cast<TileTemplate*>(piece) : nullptr;
     PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
     if (!source)
         return; // (counted all the same)
@@ -490,8 +445,8 @@ void PieceBlueprint::insert_tile(ParkTile* piece, CellBox* pos, int rot, uint8_t
     entry->y = pos->y;
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
-    reinterpret_cast<uint8_t&>(entry->sets_floor_) = sets_floor; // (the byte as given)
-    entry->piece = reinterpret_cast<void*>(source->label_);
+    entry->sets_floor_ = sets_floor;
+    entry->piece = reinterpret_cast<void*>(source->sector_);
     grow_to_take(cell_footprint_, pos);
     if (cell_footprint_.h < 1)
         cell_footprint_.h = 1;

@@ -41,17 +41,13 @@ uint32_t editor_value78()
 }
 uint8_t generator_max_players(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
 
-void* piece_source(void* generator, uint32_t name)
-{
-    return static_cast<ParkAssembler*>(generator)->get_piece_source(name);
-}
-void get_footprint_size(void* piece, CellBox* dims) { static_cast<ParkTile*>(piece)->get_footprint_size(dims); }
+TileTemplate* piece_source(ParkAssembler* generator, uint32_t name) { return generator->get_piece_source(name); }
+void get_footprint_size(TileTemplate* piece, CellBox* dims) { piece->get_footprint_size(dims); }
 // A new palette metapiece on the park heap.
 PieceGroup* new_abstract_meta()
 {
     memory::enter_heap_scope(park_heap());
-    void* memory = memory::alloc(sizeof(PieceGroup));
-    PieceGroup* meta = memory ? static_cast<PieceBlueprint*>(memory)->make_new() : nullptr;
+    PieceGroup* meta = new PieceBlueprint;
     memory::leave_heap_scope();
     return meta;
 }
@@ -79,7 +75,7 @@ void ParkLayout::set_up_abstract_metas()
         script::Array* pieces = nullptr;
         if (desc->read_hash_value("single", &single, 0)) {
             meta->commission(1);
-            void* source = piece_source(builder_, single);
+            TileTemplate* source = piece_source(builder_, single);
             CellBox pos;
             pos.assign_value(0, 0, 0, 0, 0, 0);
             get_footprint_size(source, &pos);
@@ -92,7 +88,7 @@ void ParkLayout::set_up_abstract_metas()
                 pos.z = z;
             }
             meta->insert_tile(source, &pos, 0, false);
-            uint32_t name = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 4); // the source's name
+            uint32_t name = source->sector_; // the source's name
             piece_names[num_piece_names++] = name;
             meta->flag_bits_ |= PieceGroup::kSector;
             meta->name_key_ = name;
@@ -146,7 +142,7 @@ void ParkLayout::set_up_abstract_metas()
                 uint32_t name = entry->step_to_entry(nullptr)->checksum; // the piece's name comes first
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
-                void* source = piece_source(builder_, name);
+                TileTemplate* source = piece_source(builder_, name);
                 piece_names[num_piece_names++] = name;
                 CellBox pos;
                 pos.assign_value(0, 0, 0, 0, 0, 0);
@@ -214,7 +210,7 @@ void ParkLayout::set_up_abstract_metas()
             continue;
         PieceGroup* meta = new_abstract_meta();
         meta->commission(1);
-        void* source = piece_source(builder_, name);
+        TileTemplate* source = piece_source(builder_, name);
         CellBox pos;
         pos.assign_value(0, 0, 0, 0, 0, 0);
         get_footprint_size(source, &pos);

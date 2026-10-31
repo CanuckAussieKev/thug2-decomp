@@ -18,13 +18,10 @@ namespace {
 memory::PoolPair& node_pools() { return g_node_pools; }
 
 // The generator's piece making.
-void* get_piece_source(void* generator, uint32_t name)
+TileTemplate* get_piece_source(ParkAssembler* generator, uint32_t name) { return generator->get_piece_source(name); }
+ParkTile* create_piece(ParkAssembler* generator, TileTemplate* source, uint32_t flags)
 {
-    return static_cast<ParkAssembler*>(generator)->get_piece_source(name);
-}
-void* create_piece(void* generator, void* source, uint32_t flags)
-{
-    return static_cast<ParkAssembler*>(generator)->create_piece(static_cast<ParkTile*>(source), flags);
+    return generator->create_piece(source, flags);
 }
 
 // One floor slide step for a cell or metapiece at `current`.
@@ -80,8 +77,7 @@ void MapListNode::audit_soundness(const MapListNode* list)
 PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t piece_flags)
 {
     memory::enter_heap_scope(park_heap());
-    void* memory = memory::alloc(sizeof(PieceGroup));
-    PieceGroup* meta = memory ? static_cast<PlacedPieceGroup*>(memory)->make_new() : nullptr;
+    PieceGroup* meta = new PlacedPieceGroup;
     memory::leave_heap_scope();
 
     int count = abstract_meta->count_pieces();
@@ -100,9 +96,9 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
     for (int i = 0; i < count; ++i) {
         PieceGroupDesc entry;
         static_cast<PieceBlueprint*>(abstract_meta)->get_entry(&entry, i); // entry `i`, copied
-        void* source = get_piece_source(singleton()->builder_, reinterpret_cast<uint32_t>(entry.piece));
-        void* piece = create_piece(builder_, source, piece_flags);
-        static_cast<ParkTile*>(piece)->set_quarter_turns(entry.rot, 0); // turn it
+        TileTemplate* source = get_piece_source(singleton()->builder_, reinterpret_cast<uint32_t>(entry.piece));
+        ParkTile* piece = create_piece(builder_, source, piece_flags);
+        piece->set_quarter_turns(entry.rot, 0); // turn it
         CellBox pos;
         pos.assign_value(entry.x, entry.y, entry.z, 0, 0, 0);
         meta->insert_tile(piece, &pos, entry.rot, entry.sets_floor_);
@@ -321,13 +317,13 @@ bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flag
 void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
 {
     for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
-        void* piece = meta->get_piece(static_cast<int>(i)); // (and the cast to a concrete piece: 0x005902E0)
+        ParkPiece* piece = meta->get_piece(static_cast<int>(i)); // (and the cast to a concrete piece: 0x005902E0)
         PieceGroupDesc* entry = meta->get_entry(static_cast<int>(i));
         if (!entry->sets_floor_)
             continue;
         CellBox dims;
         dims.assign_value(0, 0, 0, 0, 0, 0);
-        static_cast<ParkTile*>(piece)->get_footprint_size(&dims); // the piece's size in cells
+        piece->get_footprint_size(&dims); // the piece's size in cells
         dims.x = static_cast<uint8_t>(entry->x + meta->cell_footprint_.x);
         dims.y = static_cast<int8_t>(entry->y + meta->cell_footprint_.y);
         dims.z = static_cast<uint8_t>(entry->z + meta->cell_footprint_.z);
