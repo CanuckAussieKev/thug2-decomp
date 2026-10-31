@@ -1,6 +1,7 @@
 // The skeleton component (game/obj/skeleton_component.h).
 
 #include "game/obj/skeleton_component.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -267,7 +268,7 @@ void CSkeletonComponent::SpawnCompositeObjectAtBone(uint32_t bone, Script::CArra
     placed.row[0].w = 0.0f;
     placed.row[1].w = 0.0f;
     placed.row[2].w = 0.0f;
-    GameFunction<Mth::Matrix*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(
+    D3dx::MatrixMultiply(
         &boneMatrix, &boneMatrix, &placed);
 
     params->AddVector(0x7F261953, ToValue(boneMatrix.row[3])); // pos

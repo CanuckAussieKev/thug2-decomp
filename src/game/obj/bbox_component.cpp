@@ -3,6 +3,7 @@
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
 #include "game/obj/bbox_component.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -58,7 +59,7 @@ constexpr float kHalf = 0.5f;                        // 0x006453BC
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // A manager's object list (its vtable +0x18).

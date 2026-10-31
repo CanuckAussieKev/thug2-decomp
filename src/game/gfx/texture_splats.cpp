@@ -2,6 +2,7 @@
 // x87 code: double precision where it keeps values in registers, floats where it stores them.
 
 #include "game/gfx/texture_splats.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -342,21 +343,21 @@ double Cosine(double a)
 // D3DX (linked library code).
 void TransformCoord(float* out, const float* v, const Mth::Matrix* m)
 {
-    GameFunction<void*(__stdcall*)(float*, const float*, const Mth::Matrix*)>(0x005BF2F5)(out, v, m);
+    D3dx::Vec3TransformCoord(out, v, m);
 }
-void Normalize3(float* v) { GameFunction<void*(__stdcall*)(float*, const float*)>(0x005BEF2D)(v, v); }
+void Normalize3(float* v) { D3dx::Vec3Normalize(v, v); }
 void LookAt(Mth::Matrix* out, const float* eye, const float* at, const float* up)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const float*, const float*, const float*)>(0x005C0985)(out, eye, at, up);
+    D3dx::MatrixLookAtRH(out, eye, at, up);
 }
 void Ortho(Mth::Matrix* out, float width, float height, float nearZ, float farZ)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, float, float, float, float)>(0x005C0B39)(out, width, height, nearZ,
+    D3dx::MatrixOrthoRH(out, width, height, nearZ,
                                                                                          farZ);
 }
 void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // A set's oldest triangle (a free one first: 0x00490CD0, the engine's).

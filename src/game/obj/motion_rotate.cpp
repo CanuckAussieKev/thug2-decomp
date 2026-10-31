@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "game/core/manager.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/matrix.h"
 #include "game/mth/slerp.h"
 #include "game/obj/motion.h"
@@ -45,7 +46,7 @@ float& Axis(Mth::Vector& v, int axis) { return (&v.x)[axis]; }
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library: not decompiled): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The node after `node` in a manager's object list (null at the end: the head's data is -1).

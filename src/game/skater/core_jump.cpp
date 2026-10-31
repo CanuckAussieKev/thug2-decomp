@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "game/core/manager.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
@@ -273,7 +274,7 @@ void CorePhysicsComponent::DoWallplantPhysics()
     VectorAt(ObjectOf(this), kPosition) += Tracker(this)->m_carried;
     tracker = Tracker(this);
     if (tracker->m_turned) {
-        auto multiply = GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C);
+        auto multiply = D3dx::MatrixMultiply;
         Mth::Matrix& matrix = MatrixAt(ObjectOf(this), kMatrix);
         multiply(&matrix, &matrix, &tracker->m_turn);
         multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);

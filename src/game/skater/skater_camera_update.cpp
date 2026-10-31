@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "game/gfx/camera.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/matrix.h"
 #include "game/mth/slerp.h"
 #include "game/mth/vector.h"
@@ -68,7 +69,7 @@ Mth::Matrix* SkaterDisplayMatrix(CCompositeObject* skater) { return static_cast<
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
 void Multiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // a x b (the original's cross product, inlined: each component a difference of two products) into `out`; w 0.

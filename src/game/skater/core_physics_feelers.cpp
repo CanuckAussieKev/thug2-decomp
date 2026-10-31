@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "game/mth/math.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/matrix.h"
 #include "game/mth/quat.h"
 #include "game/mth/vector.h"
@@ -107,7 +108,7 @@ Obj::CCompositeObject* SkaterObject(void* component) { return static_cast<Obj::C
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // 0x0057CB60 (Obj::CRailManager::GetWorldPos): a rail node's position.

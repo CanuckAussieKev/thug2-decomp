@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "game/mth/matrix.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 #include "game/obj/ride_tracker.h"
@@ -92,7 +93,7 @@ void CorePhysicsComponent::DoWallRidePhysics()
             carried = Tracker(this)->m_carried;
             if (Tracker(this)->m_turned) {
                 auto multiply =
-                    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C);
+                    D3dx::MatrixMultiply;
                 Mth::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
                 multiply(&m, &m, &Tracker(this)->m_turn);
                 multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);

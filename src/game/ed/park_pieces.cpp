@@ -3,6 +3,7 @@
 // turned, stretched, shown or tinted through their sectors.
 
 #include "game/ed/park.h"
+#include "game/gfx/d3dx.h"
 #include "hook/game_code.h"
 
 #include "game/core/dbg.h"
@@ -31,7 +32,7 @@ uint8_t Cells(float size, float cell) { return static_cast<uint8_t>(static_cast<
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void MultiplyMatrices(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 } // namespace

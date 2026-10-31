@@ -1,4 +1,5 @@
 #include "game/mth/matrix.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <utility>
@@ -110,7 +111,7 @@ Matrix& Matrix::InitFromAngles(const Vector& angles)
     Ident();
     if (angles.x != 0.0f || angles.y != 0.0f || angles.z != 0.0f) {
         Matrix rotation;
-        auto multiply = GameFunction<void*(__stdcall*)(Matrix*, const Matrix*, const Matrix*)>(0x005BFA8C);
+        auto multiply = D3dx::MatrixMultiply;
         multiply(this, this, &CreateRotateXMatrix(rotation, angles.x));
         multiply(this, this, &CreateRotateYMatrix(rotation, angles.y));
         multiply(this, this, &CreateRotateZMatrix(rotation, angles.z));

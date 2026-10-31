@@ -1,6 +1,7 @@
 // Script commands (CFunctions) of the skater: board logos, velocity, bail streams (see skater_misc_cfuncs.h).
 
 #include "game/skater/skater_misc_cfuncs.h"
+#include "game/gfx/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -58,7 +59,7 @@ int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The matrix turned about Y by `degrees` (the rotation: degrees in radians, rounded to float): m = m * rotation, or

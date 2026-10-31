@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/movable_contact.h"
@@ -61,7 +62,7 @@ void CorePhysicsComponent::DoLipPhysics()
             VectorAt(this, 0x258) = where;
             if (Tracker(this)->m_turned) {
                 auto multiply =
-                    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C);
+                    D3dx::MatrixMultiply;
                 Mth::Matrix& matrix = MatrixAt(ObjectOf(this), kMatrix);
                 multiply(&matrix, &matrix, &Tracker(this)->m_turn);
                 multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);

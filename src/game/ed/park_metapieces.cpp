@@ -4,6 +4,7 @@
 // moves and turns with itself.
 
 #include "game/ed/park.h"
+#include "game/gfx/d3dx.h"
 
 #include "game/core/mem.h"
 #include "game/ed/park_nx.h"
@@ -40,7 +41,7 @@ SMetaDescriptor* AllocateDescriptors(uint32_t count)
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void MultiplyMatrices(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 uint8_t Cells(double size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }

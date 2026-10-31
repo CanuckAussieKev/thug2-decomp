@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "hook/game_code.h"
+#include "game/gfx/d3dx.h"
 #include <cstring>
 
 #pragma warning(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
@@ -173,7 +174,7 @@ uint16_t TexturePaletteSize(void* texture)
 // D3DXMatrixMultiply (the D3DX library's, stdcall): out = a * b.
 void D3DXMatrixMultiply(void* out, const void* a, const void* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The first player (observers too) for whom the PlayerInfo member `test` is true (0 / 1 in EAX: tested as AL).

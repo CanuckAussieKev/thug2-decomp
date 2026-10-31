@@ -2,6 +2,7 @@
 // member functions 0x004E37D0, 0x004E3810, 0x004E3BD0 and 0x004E3EC0 aren't Ghidra functions).
 
 #include "game/obj/avoid.h"
+#include "game/gfx/d3dx.h"
 #include "game/skater/skater.h"
 #include "game/skate/skate_module.h"
 
@@ -104,7 +105,7 @@ void Transform(const Mth::Matrix& m, Mth::Vector& out, const Mth::Vector& in) { 
 // D3DXMatrixMultiply (linked library code).
 void D3dxMultiply(Mth::Matrix& out, const Mth::Matrix& a, const Mth::Matrix& b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&out, &a, &b);
+    D3dx::MatrixMultiply(&out, &a, &b);
 }
 
 // The collision feeler (Nx's ray, 0xB0 bytes): constructed by 0x00417760, its line from +0x00 to +0x10, tested

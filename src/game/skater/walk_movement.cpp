@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "game/mth/geometry.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/vector.h"
 #include "game/mth/matrix.h"
 #include "game/nx/coll_cache.h"
@@ -532,7 +533,7 @@ void CWalkComponent::UpdateRotateUpright()
     Mth::CreateRotateMatrix(rotation, At<Mth::Vector>(this, kUprightAxis), angle);
     auto* object = static_cast<CCompositeObject*>(m_object);
     // D3DXMatrixMultiply (0x005BFA8C)
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(
+    D3dx::MatrixMultiply(
         &object->m_matrix, &object->m_matrix, &rotation);
     object->m_displayMatrix = object->m_matrix;
     double remaining = static_cast<double>(left) - FrameLength(this);

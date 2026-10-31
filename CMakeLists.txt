@@ -41,6 +41,25 @@ if(NOT EXISTS "${THUG2_CONTROLLER_DB}")
         EXPECTED_HASH SHA256=ada0fe3998a5c7914b57ee15a3900f8b43acb604bf8314abca92231ebea057eb)
 endif()
 
+# --- D3DX9 (the standalone build, and the self-tests that compare the exe's D3DX9 with it) ----------------
+# Microsoft's NuGet package Microsoft.DXSDK.D3DX 9.29.952.8 (the DirectX SDK June 2010's d3dx9_43.dll, import library
+# and headers; its licence is summarised in THIRD_PARTY_NOTICES.md). A .nupkg is a zip: downloaded under a .zip name
+# and checked against its SHA-256. Only thug2_standalone links it (src/game/gfx/d3dx.h is the one place that calls
+# it); the hooked build (dinput8.dll, thug2_check) calls the exe's own D3DX9 and only looks for d3dx9_43.dll at run
+# time, for the self-tests that compare the two.
+FetchContent_Declare(d3dx9
+    URL https://www.nuget.org/api/v2/package/Microsoft.DXSDK.D3DX/9.29.952.8
+    URL_HASH SHA256=ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b
+    DOWNLOAD_NAME Microsoft.DXSDK.D3DX.9.29.952.8.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(d3dx9)
+set(THUG2_D3DX9_NATIVE "${d3dx9_SOURCE_DIR}/build/native")
+add_library(d3dx9 SHARED IMPORTED)
+set_target_properties(d3dx9 PROPERTIES
+    IMPORTED_IMPLIB "${THUG2_D3DX9_NATIVE}/release/lib/x86/d3dx9.lib"
+    IMPORTED_LOCATION "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll"
+    INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
+
 # --- MinHook (BSD 2-clause, see THIRD_PARTY_NOTICES.md) --------------------------------------------------
 # Installs the replacement jumps and builds trampolines, so the original code of a replaced function can
 # still be called (self-tests, shadow checks) from any thread. Only the 32-bit parts are built.
@@ -223,6 +242,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_vehicle.cpp
     src/hook/selftests_skater_trick.cpp
     src/hook/selftests_gfx2.cpp
+    src/hook/selftests_d3dx.cpp
     src/hook/selftests_el3d.cpp
     src/hook/selftests_fe_anim.cpp
     src/hook/selftests_fe_element.cpp
@@ -883,6 +903,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/pc_material.cpp
     src/game/gfx/pc_material_load.cpp
     src/game/gfx/render_state.cpp
+    src/game/gfx/d3dx.cpp
     src/game/gfx/occlusion.cpp
     src/game/gfx/shadow.cpp
     src/game/gfx/mesh_list.cpp
@@ -1263,6 +1284,8 @@ target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts"
 add_dependencies(thug2_code build_info)
 target_include_directories(thug2_code PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
 target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
+# (the self-tests that compare the exe's D3DX9 with Microsoft's load this DLL at run time, if it is there)
+target_compile_definitions(thug2_code PRIVATE THUG2_D3DX9_DLL="${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll")
 target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
 
 add_library(thug2_decomp SHARED
@@ -1320,5 +1343,9 @@ target_compile_definitions(thug2_standalone PRIVATE THUG2_STANDALONE WIN32_LEAN_
 target_include_directories(thug2_standalone PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                                     "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_standalone editor_fonts build_info)
-target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham d3d9 winmm) # d3d9, winmm: game/sys/crt.h's imports
+target_link_libraries(thug2_standalone PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham d3dx9 d3d9 winmm) # d3d9, winmm: game/sys/crt.h's imports
+# d3dx9_43.dll next to the exe (the package's Microsoft-distributable runtime; see THIRD_PARTY_NOTICES.md)
+add_custom_command(TARGET thug2_standalone POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_standalone>"
+    COMMENT "Copying d3dx9_43.dll next to thug2_standalone")
 target_compile_options(thug2_standalone PRIVATE /W3 /permissive- /utf-8)

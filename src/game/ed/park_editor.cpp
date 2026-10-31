@@ -3,6 +3,7 @@
 // events, the camera and the controls (Update), the state, and the logic task's work.
 
 #include "game/ed/park_editor.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstring>
 
@@ -166,7 +167,7 @@ void TurnMove(double angle, double a, double b, float* x, float* z)
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 } // namespace

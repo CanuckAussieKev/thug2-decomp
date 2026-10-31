@@ -2,6 +2,7 @@
 // where it keeps values in registers, float where it stores them).
 
 #include "game/gfx/engine_effects.h"
+#include "game/gfx/d3dx.h"
 
 #include <bit>
 #include <cstring>
@@ -207,7 +208,7 @@ void CShatter::Step(int index, float step)
         Mth::Matrix turn;
         Mth::CreateRotateMatrix(turn, axis, turnAngle);
         // D3DX (linked library code): rotation = rotation * turn
-        GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(
+        D3dx::MatrixMultiply(
             &rotation, &rotation, &turn);
     }
     velocity.y = static_cast<float>(velocity.y - static_cast<double>(step) * gravity);

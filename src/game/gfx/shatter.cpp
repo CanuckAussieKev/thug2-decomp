@@ -1,6 +1,7 @@
 // Shattering on PC: see shatter.h.
 
 #include "game/gfx/shatter.h"
+#include "game/gfx/d3dx.h"
 
 #include <windows.h>
 
@@ -310,7 +311,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
             Mth::Matrix turn;
             Mth::CreateRotateMatrix(turn, axis, angle);
             // D3DX (linked library code): rotation = rotation * turn
-            GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(
+            D3dx::MatrixMultiply(
                 &rotation, &rotation, &turn);
         }
         mesh->indexBuffers[0]->Unlock(); // (unlocked)

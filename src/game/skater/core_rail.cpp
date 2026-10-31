@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "game/mth/math.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/node_components.h"
@@ -344,8 +345,7 @@ void CorePhysicsComponent::RideMovingRail()
                 } else {
                     VectorAt(ObjectOf(this), kPosition) += Tracker(this)->m_carried;
                     if (Tracker(this)->m_turned) {
-                        auto multiply = GameFunction<void*(__stdcall*)(Mth::Matrix*, const Mth::Matrix*,
-                                                                       const Mth::Matrix*)>(0x005BFA8C);
+                        auto multiply = D3dx::MatrixMultiply;
                         Mth::Matrix& m = MatrixAt(ObjectOf(this), kMatrix);
                         multiply(&m, &m, &Tracker(this)->m_turn);
                         multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix),

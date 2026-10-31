@@ -2,6 +2,7 @@
 // 0x00524420-0x00524C1E (0x00524420 isn't a Ghidra function).
 
 #include "game/skater/vehicle_camera.h"
+#include "game/gfx/d3dx.h"
 
 #include <cstdint>
 
@@ -56,7 +57,7 @@ Gfx::Camera* CameraOf(CCompositeObject* object)
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
 void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 // The camera position the collision check pulls toward: `distance` along the orientation's at-row before

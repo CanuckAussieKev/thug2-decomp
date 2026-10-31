@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "game/mth/matrix.h"
+#include "game/gfx/d3dx.h"
 #include "game/mth/quat.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_rect.h"
@@ -58,7 +59,7 @@ inline void QuatMultiply(Mth::Vector* a, const Mth::Vector* b)
 // D3DXMatrixMultiply (linked library code; stdcall).
 inline void MatrixMultiply(Mth::Matrix* out, const Mth::Matrix* a, const Mth::Matrix* b)
 {
-    GameFunction<void*(__stdcall*)(void*, const void*, const void*)>(0x005BFA8C)(out, a, b);
+    D3dx::MatrixMultiply(out, a, b);
 }
 
 } // namespace Obj::Vehicle

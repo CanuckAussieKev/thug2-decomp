@@ -2,6 +2,7 @@
 // and the level's node objects made and killed by their class (see game_cfuncs.h).
 
 #include "game/script/game_cfuncs.h"
+#include "game/gfx/d3dx.h"
 #include "game/script/trick_cfuncs.h"
 
 #include <cmath>
@@ -207,7 +208,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
     auto turn = [&](Mth::Matrix& (*create)(Mth::Matrix&, float), float degrees) {
         Mth::Matrix rotation;
         create(rotation, static_cast<float>(degrees * toRadians));
-        GameFunction<void(__stdcall*)(Mth::Matrix*, const Mth::Matrix*, const Mth::Matrix*)>(0x005BFA8C)(&m, &m, &rotation);
+        D3dx::MatrixMultiply(&m, &m, &rotation);
     };
     turn(&Mth::CreateRotateXMatrix, angleX);
     turn(&Mth::CreateRotateYMatrix, angleY);
