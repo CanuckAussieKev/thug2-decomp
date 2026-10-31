@@ -94,7 +94,6 @@ constexpr float kStepUpGround = 0.5f;            // 0x006453BC
 constexpr float kStepUpLift = 0.1f;              // 0x00645D74
 constexpr float kFlipSpinTime = 50.0f;
 
-
 // The state component's flags.
 constexpr uint32_t kFlagJump = 0x20;
 constexpr uint32_t kFlagVertAir = 0x30;
@@ -354,7 +353,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
         special = trick == kBalanceTrickA || trick == kBalanceTrickB;
     }
     if (special) {
-        uint32_t board = checksums::hash_from_text(reinterpret_cast<char*>(trick_) + 0x1331);
+        uint32_t board = checksums::hash_from_text(trick_->trick_name_);
         bool plain = false;
         for (uint32_t b : kBoards)
             plain = plain || board == b;

@@ -63,16 +63,11 @@ constexpr float kSpinMargin = 0.1f; // 0x00645D74 (0.100000001f)
 // The fields (see trick_queue.cpp).
 constexpr uint32_t kScore = 0x1C, kBalanceTrick = 0x24, kCorePhysics = 0x28, kState = 0x30, kComponent34 = 0x34;
 constexpr uint32_t kIsSpecial = 0xA24, kTrickBindingsSlot = 0xA28, kQueueHead = 0xA2C, kQueueTail = 0xA30;
-constexpr uint32_t kHeldButtons = 0xA00; // bool per button index
 constexpr uint32_t kQueueCount = 0x1204, kQueueArrays = 0x1208, kQueueSpecial = 0x1230, kEventsUse = 0x1234;
 constexpr uint32_t kManualCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
 constexpr uint32_t kGrindCount = 0x1280, kGrindArrays = 0x1284, kGrindSpecial = 0x12AC;
 constexpr uint32_t kExtraOn = 0x12C8, kBashing = 0x1330;
-constexpr uint32_t kTrickName = 0x1331;    // char[0x33] the trick displayed
-constexpr uint32_t kTrickScore = 0x1364;   // int
-constexpr uint32_t kDeferredName = 0x1368; // char[0x34] a deferred trick's name
 constexpr uint32_t kDeferredScore = 0x139C, kDeferredFlags = 0x13A0;
-constexpr uint32_t kSpinTotal = 0x13A4; // float degrees
 constexpr uint32_t kBailed = 0x13A8, kBailedPanel = 0x13A9, kTrickCount = 0x13AC, kTrickObjectsOn = 0x13B0,
                    kTrickObjects = 0x13B4, kQuickGetupDone = 0x1BB8;
 
@@ -88,11 +83,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 
 // The rest of the component (0x0051EA90-0x00521B8F) and its neighbours, not rewritten here.
 bool is_pad_held(MoveExecutor* self, uint32_t button) { return self->is_key_held(button); }
-bool is_switch(MoveExecutor* self)
-{
-    return (static_cast<skater::SkaterPhysicsModule*>(get_component(self, kCorePhysics))->is_sides_swapped() & 0xFF) !=
-           0;
-}
+bool is_switch(MoveExecutor* self) { return (self->core_physics_->is_sides_swapped() & 0xFF) != 0; }
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void score_trick(MoveExecutor* self, const char* name, int score, uint32_t flags)
 {
@@ -134,7 +125,7 @@ void exit_combo(MoveExecutor* self)
 // less the skater's spin_count_slop, with 0.1 to spare.
 bool spin_counts(MoveExecutor* self, bool full_turn)
 {
-    float spin = std::fabs(get_at<float>(self, kSpinTotal));
+    float spin = std::fabs(self->spin_total_);
     double slop = read_tuning_float(kSpinCountSlop, 1, static_cast<GameEntity*>(self->entity_));
     double threshold = (static_cast<double>(full_turn ? kFullTurn : kHalfTurn) - slop) + kSpinMargin;
     return threshold <= spin;
@@ -143,7 +134,7 @@ bool spin_counts(MoveExecutor* self, bool full_turn)
 // Whether the score shows the trick named (its 0x00561640 against the name's checksum, taken first).
 bool same_trick_shown(MoveExecutor* self, void* score)
 {
-    uint32_t name = checksums::hash_from_text(&get_at<char>(self, kTrickName));
+    uint32_t name = checksums::hash_from_text(&self->trick_name_[0]);
     return static_cast<modules::PointTally*>(score)->fetch_newest_trick_key() == name;
 }
 
@@ -165,7 +156,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kUseEventsX:
         // Every event of the button x marked used (+0x14), in the buffer's order.
-        for (int i = 0; i < get_at<uint16_t>(this, 0x998); ++i) {
+        for (int i = 0; i < event_count_; ++i) {
             uint8_t* event = reinterpret_cast<uint8_t*>(this) + 0x38 + i * 0x18;
             if (get_at<uint32_t>(event, 8) == kX)
                 get_at<uint32_t>(event, 0x14) = 1;
@@ -174,13 +165,12 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kClearPanelLanded: {
         void* score = get_component(this, kScore);
         if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
-            char* deferred = &get_at<char>(this, kDeferredName);
+            char* deferred = &deferred_name_[0];
             if (*deferred) {
-                bool on_rail = get_at<bool>(get_component(this, kCorePhysics), 0x374);
+                bool on_rail = core_physics_->landed_from_air_vert_ != 0;
                 if (spin_counts(this, on_rail)) {
-                    score_trick(this, deferred, get_at<int>(this, kDeferredScore),
-                                get_at<uint32_t>(this, kDeferredFlags));
-                    score_spin(this, truncate(get_at<float>(this, kSpinTotal)));
+                    score_trick(this, deferred, deferred_score_, deferred_flags_);
+                    score_spin(this, truncate(spin_total_));
                 }
                 *deferred = 0;
             }
@@ -189,62 +179,62 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             static_cast<void>(entity_->fetch_module(kSkaterGap)); // (its only use was ECX of the call below)
             pay_out_queued_gaps();
             static_cast<modules::PointTally*>(score)->land();
-            get_at<float>(this, kSpinTotal) = 0.0f;
+            spin_total_ = 0.0f;
             get_at<bool>(get_component(this, kState), 0xE0) = false;
             static_cast<AttributeTracker*>(get_component(this, kComponent34))->announce_met_goals();
         }
         entity_->announce(kSkaterLanded, nullptr, 0.0f);
-        if (get_at<bool>(this, kBailed))
-            get_at<bool>(this, kBailedPanel) = true;
-        get_at<int>(this, kTrickCount) = 0;
+        if (bailed_)
+            bailed_panel_ = true;
+        trick_count_ = 0;
         static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))->keep_best_times();
         static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))->get_reset();
-        get_at<uint32_t>(get_component(this, kCorePhysics), 0x318) = 0;
+        core_physics_->special_friction_index_ = 0;
         return 1;
     }
     case kClearQuickGetup:
-        get_at<bool>(this, kQuickGetupDone) = false;
+        quick_getup_done_ = false;
         return 1;
     case kGetActualSpin:
-        script->args_->push_float(kSpin, static_cast<float>(truncate(std::fabs(get_at<float>(this, kSpinTotal)))));
+        script->args_->push_float(kSpin, static_cast<float>(truncate(std::fabs(spin_total_))));
         return 1;
     case kSetManualTricks:
-        collect_names(params, get_at<int>(this, kManualCount), &get_at<uint32_t>(this, kManualArrays));
-        get_at<uint32_t>(this, kManualSpecial) = 0;
-        params->read_hash_value(kSpecial, &get_at<uint32_t>(this, kManualSpecial), 0);
+        collect_names(params, manual_.count_, &manual_.arrays_[0]);
+        manual_.special_ = 0;
+        params->read_hash_value(kSpecial, &manual_.special_, 0);
         return 1;
     case kBashOff:
-        get_at<bool>(this, kBashing) = false;
+        bashing_ = false;
         return 1;
     case kPassToTrickObjects: {
         uint32_t value;
         params->read_hash_value(0u, &value, 1);
-        if (get_at<bool>(this, kTrickObjectsOn))
-            get_at<HitClusterLog>(this, kTrickObjects).append_one(value);
+        if (trick_objects_on_)
+            trick_objects_.append_one(value);
         return 1;
     }
     case kNoQuickGetup:
-        get_at<bool>(this, kQuickGetupDone) = true;
+        quick_getup_done_ = true;
         return 1;
     case kSetTrickName: {
         const char* text = nullptr;
         params->fetch_text(0u, &text, 0);
         if (text)
-            copy_text(&get_at<char>(this, kTrickName), text);
+            copy_text(&trick_name_[0], text);
         else
-            get_at<char>(this, kTrickName) = 0;
+            trick_name_[0] = 0;
         return 1;
     }
     case kGetSpin: {
-        float spin = get_at<float>(this, kSpinTotal);
+        float spin = spin_total_;
         double slop = read_tuning_float(kSpinCountSlop, 1, static_cast<GameEntity*>(entity_));
         int turns = truncate(slop + std::fabs(spin)) / 180;
         script->args_->push_float(kSpin, static_cast<float>(turns * static_cast<double>(kHalfTurn)));
         return 1;
     }
     case kClearTrickQueue:
-        get_at<int>(this, kQueueTail) = -1;
-        get_at<int>(this, kQueueHead) = -1;
+        queue_last_ = -1;
+        queue_first_ = -1;
         return 1;
     case kRestoreEvents: {
         // The events used by UsedBy= (regular / extra / manual / 0xEC066B6A) within duration= (200) ms made
@@ -270,8 +260,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         default:
             break;
         }
-        int index = get_at<uint16_t>(this, 0x99A);
-        for (int i = 0; i < get_at<uint16_t>(this, 0x998); ++i) {
+        int index = event_head_;
+        for (int i = 0; i < event_count_; ++i) {
             uint8_t* event = reinterpret_cast<uint8_t*>(this) + 0x38 + index * 0x18;
             if (frame_clock::get_time() - get_at<uint32_t>(event, 0) >= static_cast<uint32_t>(duration))
                 break;
@@ -283,9 +273,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kSetExtraGrindTricks:
-        collect_names(params, get_at<int>(this, kGrindCount), &get_at<uint32_t>(this, kGrindArrays));
-        get_at<uint32_t>(this, kGrindSpecial) = 0;
-        params->read_hash_value(kSpecial, &get_at<uint32_t>(this, kGrindSpecial), 0);
+        collect_names(params, grind_.count_, &grind_.arrays_[0]);
+        grind_.special_ = 0;
+        params->read_hash_value(kSpecial, &grind_.special_, 0);
         return 1;
     case kFunction72c926cA:
         dump_event_buffer();
@@ -324,8 +314,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         script::Struct* mappings = script::read_sub_struct(c->checksum);
         if (!mappings)
             return 1;
-        get_at<script::Struct*>(this, kTrickBindingsSlot)->get_clear();
-        get_at<script::Struct*>(this, kTrickBindingsSlot)->append_structure_if_any(mappings);
+        trick_lists_->get_clear();
+        trick_lists_->append_structure_if_any(mappings);
         return 1;
     }
     case kSetTrickSlot: {
@@ -334,8 +324,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         params->read_hash_value(kSlot, &slot, 0);
         uint32_t trick = 0;
         params->read_hash_value(kTrick, &trick, 0);
-        get_at<script::Struct*>(this, kTrickBindingsSlot)
-            ->insert_pair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
+        trick_lists_->insert_pair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
         return 1;
     }
     case kClearPanelBailed: {
@@ -344,16 +333,16 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             static_cast<modules::PointTally*>(get_component(this, kScore))->get_bail(false);
         }
         entity_->announce(kSkaterBailed, nullptr, 0.0f);
-        get_at<bool>(this, kBailed) = true;
-        get_at<bool>(this, kBailedPanel) = true;
-        get_at<bool>(this, kTrickObjectsOn) = false;
-        HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
+        bailed_ = true;
+        bailed_panel_ = true;
+        trick_objects_on_ = false;
+        HitClusterLog& list = trick_objects_;
         list.get_clear();
-        get_at<int>(this, kTrickCount) = 0;
+        trick_count_ = 0;
         static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))->get_reset();
-        static_cast<skater::SkaterPhysicsModule*>(get_component(this, kCorePhysics))->end_skitch();
-        get_at<float>(this, kSpinTotal) = 0.0f;
-        get_at<uint32_t>(get_component(this, kCorePhysics), 0x318) = 0;
+        core_physics_->end_skitch();
+        spin_total_ = 0.0f;
+        core_physics_->special_friction_index_ = 0;
         list.get_clear();
         static_cast<void>(entity_->fetch_module(kSkaterGap)); // (its only use was ECX of the call below)
         discard_queued_gaps();
@@ -367,30 +356,30 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         }
         return 1;
     case kSetTrickScore:
-        params->fetch_int_value(0u, &get_at<int>(this, kTrickScore), 0);
+        params->fetch_int_value(0u, &trick_score_, 0);
         return 1;
     case kUseGrindEvents:
-        get_at<uint32_t>(this, kEventsUse) = 8;
+        list_used_ = 8;
         return 1;
     case kKillExtraTricks:
-        get_at<bool>(this, kExtraOn) = false;
+        extra_.on_ = false;
         return 1;
     case kBashOn:
-        get_at<bool>(this, kBashing) = true;
+        bashing_ = true;
         clear_event_buffer();
         return 1;
     case kSetQueueTricks:
-        collect_names(params, get_at<int>(this, kQueueCount), &get_at<uint32_t>(this, kQueueArrays));
-        if (get_at<int>(this, kQueueCount) == 1 && !script::fetch_list(get_at<uint32_t>(this, kQueueArrays)))
-            get_at<uint32_t>(this, kQueueArrays) = kNoQueue;
-        get_at<uint32_t>(this, kQueueSpecial) = 0;
-        params->read_hash_value(kSpecial, &get_at<uint32_t>(this, kQueueSpecial), 0);
+        collect_names(params, extra_list_count_, &extra_lists_[0]);
+        if (extra_list_count_ == 1 && !script::fetch_list(extra_lists_[0]))
+            extra_lists_[0] = kNoQueue;
+        manual_list_ = 0;
+        params->read_hash_value(kSpecial, &manual_list_, 0);
         return 1;
     case kFunctionDe98dE7a:
         queue_all_done_tricks();
         return 1;
     case kResetSpin:
-        get_at<float>(this, kSpinTotal) = 0.0f;
+        spin_total_ = 0.0f;
         return 1;
     case kHeld: {
         // buttons=: whether any is held; else the unnamed button's state (0x0051ECF0).
@@ -408,7 +397,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                         continue;
                     }
                 }
-                if (get_at<bool>(this, kHeldButtons + pad_input::glyph_for_button_tag(buttons->fetch_part(i))))
+                if (btn_down_[pad_input::glyph_for_button_tag(buttons->fetch_part(i))])
                     return 1;
             }
             return 0;
@@ -426,13 +415,13 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         void* score = get_component(this, kScore);
         int add_spin = 0;
         if (params->has_bare_flag(kDeferred)) {
-            copy_text(&get_at<char>(this, kDeferredName), &get_at<char>(this, kTrickName));
-            get_at<int>(this, kDeferredScore) = get_at<int>(this, kTrickScore);
+            copy_text(&deferred_name_[0], &trick_name_[0]);
+            deferred_score_ = trick_score_;
             if (is_switch(this))
-                get_at<uint32_t>(this, kDeferredFlags) |= 4;
+                deferred_flags_ |= 4;
         } else if (params->fetch_int_value(kAddSpin, &add_spin, 0) && same_trick_shown(this, score)) {
-            double spin = static_cast<double>(add_spin) + get_at<float>(this, kSpinTotal);
-            get_at<float>(this, kSpinTotal) = static_cast<float>(spin);
+            double spin = static_cast<double>(add_spin) + spin_total_;
+            spin_total_ = static_cast<float>(spin);
             if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_)
                 static_cast<modules::PointTally*>(score)->advance_turn(truncate(spin));
         } else {
@@ -443,9 +432,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 flags |= 0x40;
             if (is_switch(this))
                 flags |= 4;
-            if (get_at<bool>(this, kIsSpecial)) {
+            if (starting_special_) {
                 if (params->has_bare_flag(kNoSpecial))
-                    get_at<bool>(this, kIsSpecial) = false;
+                    starting_special_ = false;
                 else
                     flags |= 0x20;
             }
@@ -458,33 +447,32 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (params->has_bare_flag(kNoSwitch))
                 flags |= 0x400;
             if (reinterpret_cast<GameEntity*>(entity_)->is_local_skater_) {
-                auto* core = static_cast<skater::SkaterPhysicsModule*>(get_component(this, kCorePhysics));
+                auto* core = core_physics_;
                 if (core->state_->cur_phase_ == 4) {
-                    int trick_score = get_at<int>(this, kTrickScore);
+                    int trick_score = trick_score_;
                     if (trick_score) {
                         float multiplier = get_at<float>(score, 0x154C);
                         debug::printf(
                             "RAIL score %d * %2.3f = %d\n", trick_score, static_cast<double>(multiplier),
                             truncate(static_cast<double>(trick_score) * multiplier)); // "RAIL score %d * %2.3f = %d\n"
-                        get_at<int>(this, kTrickScore) =
-                            truncate(static_cast<double>(get_at<int>(this, kTrickScore)) * multiplier);
+                        trick_score_ = truncate(static_cast<double>(trick_score_) * multiplier);
                     }
                 }
-                char* trick_name = &get_at<char>(this, kTrickName);
-                score_trick(this, trick_name, get_at<int>(this, kTrickScore), flags);
+                char* trick_name = &trick_name_[0];
+                score_trick(this, trick_name, trick_score_, flags);
                 if (*trick_name) {
                     entity_->announce(kSkaterTrickDisplayed, nullptr, 0.0f);
                     bool special = get_at<bool>(reinterpret_cast<uint8_t*>(core->state_), 0x30);
                     if ((!special && !static_cast<bool>(core->landed_from_air_vert_)) || spin_counts(this, true))
-                        score_spin(this, truncate(get_at<float>(this, kSpinTotal)));
+                        score_spin(this, truncate(spin_total_));
                 }
             }
             if (params->has_bare_flag(kBlockspin))
-                get_at<float>(this, kSpinTotal) = 0.0f;
-            get_at<char>(this, kDeferredName) = 0;
+                spin_total_ = 0.0f;
+            deferred_name_[0] = 0;
         }
-        if (get_at<char>(this, kTrickName))
-            get_at<bool>(this, kIsSpecial) = false;
+        if (trick_name_[0])
+            starting_special_ = false;
         return 1;
     }
     default:

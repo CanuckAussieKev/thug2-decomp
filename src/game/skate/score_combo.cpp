@@ -360,10 +360,10 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater)
         return;
-    auto* trick_component = reinterpret_cast<uint8_t*>(skater->fetch_module(kTrick));
+    auto* trick_component = static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick));
     auto* stats = static_cast<objects::AttributeTracker*>(skater->fetch_module(kStatsManager));
     if (text[0])
-        trick_component[0x13A8] = 1;
+        trick_component->bailed_ = true;
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = static_cast<objects::Rider*>(physics->entity_);
     uint8_t flipped = reinterpret_cast<uint8_t*>(physics->state_)[0x28];

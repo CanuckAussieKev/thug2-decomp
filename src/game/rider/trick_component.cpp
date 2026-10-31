@@ -108,32 +108,32 @@ void MoveExecutor::seal()
 // 0x0051F320
 void MoveExecutor::get_reset()
 {
-    unknown18_ = 0;
+    busy_ = 0;
     ignored_count_ = 0;
-    unknowna24_ = false;
+    starting_special_ = false;
     extra_list_count_ = 0;
     queue_first_ = -1;
     queue_last_ = -1;
     std::memset(extra_lists_, 0, 0x1238 - 0x1208);
-    prop<uint8_t>(this, 0x1268) = 0;
+    manual_.pending_ = false;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1268 - 0x1238);
-    prop<uint8_t>(this, 0x12B0) = 0;
+    grind_.pending_ = false;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12B0 - 0x1280);
-    prop<uint8_t>(this, 0x12C8) = 0;
-    prop<uint8_t>(this, 0x12C9) = 0;
-    prop<uint32_t>(this, 0x12CC) = 0;
-    prop<uint32_t>(this, 0x12D0) = 0;
-    prop<uint32_t>(this, 0x12D4) = 0;
-    prop<uint32_t>(this, 0x1328) = 0;
-    prop<uint32_t>(this, 0x132C) = 0;
+    extra_.on_ = false;
+    extra_.forever_ = false;
+    extra_.duration_ = 0;
+    extra_.start_ = 0;
+    extra_.count_ = 0;
+    extra_.special_ = 0;
+    extra_.special_mask_ = 0;
     clear_event_buffer();
     button_map_[0] = button_map_[1] = button_map_[2] = 0;
     for (int i = 0; i < kButtons; ++i) {
         btn_down_[i] = false;
         held_off_until_[i] = 0.0f;
     }
-    prop<uint8_t>(this, 0x1330) = 0;
-    prop<uint8_t>(this, 0x1BB8) = 0;
+    bashing_ = false;
+    quick_getup_done_ = false;
 }
 
 // 0x0051EAB0
@@ -142,14 +142,14 @@ void MoveExecutor::clear_extra_tricks() { std::memset(&extra_list_count_, 0, 0x1
 // 0x0051EB30
 void MoveExecutor::clear_block1238()
 {
-    prop<uint8_t>(this, 0x1268) = 0;
+    manual_.pending_ = false;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1264 - 0x1238);
 }
 
 // 0x0051EF00
 void MoveExecutor::clear_block1280()
 {
-    prop<uint8_t>(this, 0x12B0) = 0;
+    grind_.pending_ = false;
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12AC - 0x1280);
 }
 
@@ -1109,21 +1109,21 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
         if (!check_trigger(trigger, 4, mask, false) && !check_trigger(alternate, 4, mask, false))
             continue;
-        prop<uint32_t>(this, 0x126C) = list;
-        prop<int>(this, 0x1270) = i;
-        prop<int>(this, 0x1274) = static_cast<int>(static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
-                                                   static_cast<uint32_t>(g_clock_offset));
-        prop<bool>(this, 0x127C) = flag;
-        prop<int>(this, 0x1278) = -1;
-        trick->fetch_int_value(0x79A07F3Fu, &prop<int>(this, 0x1278), 0);
-        prop<bool>(this, 0x1268) = true;
+        manual_.array_ = list;
+        manual_.index_ = i;
+        manual_.time_ = static_cast<int>(static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
+                                         static_cast<uint32_t>(g_clock_offset));
+        manual_.is_special_ = flag;
+        manual_.duration_ = -1;
+        trick->fetch_int_value(0x79A07F3Fu, &manual_.duration_, 0);
+        manual_.pending_ = true;
     }
 }
 
 // 0x0051F260
 bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Script*)
 {
-    uint32_t& endpose = prop<uint32_t>(this, 0x1BBC);
+    uint32_t& endpose = bail_endpose_;
     if (!params->read_hash_value(0u, &endpose, 0))
         endpose = 0;
     return true;

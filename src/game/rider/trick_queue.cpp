@@ -55,7 +55,6 @@ constexpr uint32_t kAltTrigger = 0x68B74085, kDuration = 0x79A07F3F, kParams = 0
                    kNone = 0x806FFF30, kSkaterType = 0xBAF9B341;
 
 // The fields (offsets into the component).
-constexpr uint32_t kBusy = 0x18;          // int: tries in progress (try_trick)
 constexpr uint32_t kFlags1c = 0x1C;       // (+0x74: a flag the special arrays need)
 constexpr uint32_t kInput = 0x20;         // the Input component (+0x1C its button mask)
 constexpr uint32_t kBalanceTrick = 0x24;  // SkaterBalanceTrick
@@ -66,14 +65,8 @@ constexpr uint32_t kComponent34 = 0x34;   // 0x4FF8DAC6
 // The button buffer: 100 events of 0x18 bytes from +0x38 (+0 the time, +4 1 pressed / 2 released, +8 the button,
 // +0x14 the masks of who used it); +0x998 their count, +0x99A the newest's index.
 constexpr uint32_t kEventRing = 0x38;
-constexpr uint32_t kEventCount = 0x998;
-constexpr uint32_t kEventNewest = 0x99A;
-constexpr uint32_t kButtonsHeld = 0xA18;       // (the balance trick's buttons: a count, then the buttons)
-constexpr uint32_t kIsSpecial = 0xA24;         // bool: the trick being started is special
-constexpr uint32_t kTrickBindingsSlot = 0xA28; // CStruct*
 constexpr uint32_t kQueueHead = 0xA2C, kQueueTail = 0xA30;
 constexpr uint32_t kQueue = 0xA34;          // 100 entries of 0x14: +0 the array, +4 the index, +0x10 special
-constexpr uint32_t kManualPending = 0x1268; // bool
 constexpr uint32_t kManualArrayCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
 constexpr uint32_t kManualArray = 0x126C, kManualIndex = 0x1270, kManualTime = 0x1274, kManualDuration = 0x1278,
                    kManualIsSpecial = 0x127C;
@@ -83,13 +76,7 @@ constexpr uint32_t kGrindPending = 0x12B0, kGrindArray = 0x12B4, kGrindIndex = 0
 constexpr uint32_t kExtraOn = 0x12C8, kExtraForever = 0x12C9, kExtraDuration = 0x12CC, kExtraStart = 0x12D0;
 constexpr uint32_t kExtraArrayCount = 0x12D4, kExtraArrays = 0x12D8, kExtraMasks = 0x1300, kExtraSpecial = 0x1328,
                    kExtraSpecialMask = 0x132C;
-constexpr uint32_t kBashOn = 0x1330;
-constexpr uint32_t kTrickCount = 0x13AC;
 constexpr uint32_t kFlag13a8 = 0x13A8, kFlag13a9 = 0x13A9;
-constexpr uint32_t kTrickObjectsOn = 0x13B0;
-constexpr uint32_t kTrickObjects = 0x13B4; // HitClusterLog
-constexpr uint32_t kQuickGetupDone = 0x1BB8;
-constexpr uint32_t kBailEndpose = 0x1BBC;
 
 constexpr float kFrameMs = 16.66666603088379f; // 0x006460DC
 constexpr float kPercent = 0.01f;              // 0x0064544C (0.0099999998f)
@@ -156,7 +143,7 @@ script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
     if (!slot)
         return nullptr;
     uint32_t mapped = 0;
-    get_at<script::Struct*>(self, kTrickBindingsSlot)->read_hash_value(slot, &mapped, 0);
+    self->trick_lists_->read_hash_value(slot, &mapped, 0);
     if (!mapped)
         return nullptr;
     return script::read_sub_struct(mapped);
@@ -166,8 +153,8 @@ script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
 template <typename Visit>
 void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 {
-    int index = get_at<uint16_t>(self, kEventNewest);
-    for (int i = 0; i < get_at<uint16_t>(self, kEventCount); ++i) {
+    int index = self->event_head_;
+    for (int i = 0; i < self->event_count_; ++i) {
         uint8_t* event = reinterpret_cast<uint8_t*>(self) + kEventRing + index * 0x18;
         if (frame_clock::get_time() - get_at<uint32_t>(event, 0) >= period)
             break;
@@ -185,25 +172,30 @@ ObjectModule* __cdecl MoveExecutor::fabricate() { return new MoveExecutor; }
 // 0x00522390
 MoveExecutor::MoveExecutor()
 {
-    get_at<HitClusterLog>(this, kTrickObjects).make_new();
+    trick_objects_.make_new();
     kind_tag_ = kTrick;
-    get_at<void*>(this, kTrickBindingsSlot) = nullptr;
-    for (uint32_t offset = 0x1C; offset <= 0x34; offset += 4)
-        get_at<void*>(this, offset) = nullptr;
+    trick_lists_ = nullptr;
+    balance_1c_ = nullptr;
+    input_ = nullptr;
+    balance_trick_ = nullptr;
+    core_physics_ = nullptr;
+    flip_rotate_ = nullptr;
+    skater_state_ = nullptr;
+    stats_manager_ = nullptr;
     get_reset();
 }
 
 // 0x005234F0 (0x005243F0 the deleting one)
 MoveExecutor::~MoveExecutor()
 {
-    if (script::Struct* mappings = get_at<script::Struct*>(this, kTrickBindingsSlot))
+    if (script::Struct* mappings = trick_lists_)
         free_struct(mappings);
 }
 
 // 0x00522410
 void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 {
-    script::Struct*& mappings = get_at<script::Struct*>(this, kTrickBindingsSlot);
+    script::Struct*& mappings = trick_lists_;
     if (!mappings)
         mappings = make_struct();
     mappings->get_clear();
@@ -285,7 +277,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 // 0x005222F0
 int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script)
 {
-    uint32_t endpose = get_at<uint32_t>(this, kBailEndpose);
+    uint32_t endpose = bail_endpose_;
     script->args_->put_name_key(kCurrentBailEndpose, endpose ? endpose : kNone);
     return 1;
 }
@@ -293,22 +285,22 @@ int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::S
 // 0x00522340
 void MoveExecutor::count_trick()
 {
-    if (++get_at<int>(this, kTrickCount) > 3)
+    if (++trick_count_ > 3)
         entity_->announce(kTricksDone, nullptr, 0.0f);
 }
 
 // 0x00522370
 void MoveExecutor::pass_to_trick_objects(uint32_t value)
 {
-    if (get_at<bool>(this, kTrickObjectsOn))
-        get_at<HitClusterLog>(this, kTrickObjects).append_one(value);
+    if (trick_objects_on_)
+        trick_objects_.append_one(value);
 }
 
 // 0x005232A0
 void MoveExecutor::set_trick_objects(bool on)
 {
-    get_at<bool>(this, kTrickObjectsOn) = on;
-    HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
+    trick_objects_on_ = on;
+    HitClusterLog& list = trick_objects_;
     if (!on) {
         list.get_clear();
         return;
@@ -319,11 +311,11 @@ void MoveExecutor::set_trick_objects(bool on)
 // 0x005232E0
 void MoveExecutor::reset_trick_objects()
 {
-    get_at<int>(this, kTrickCount) = 0;
-    get_at<bool>(this, kFlag13a9) = false;
-    get_at<bool>(this, kFlag13a8) = false;
-    get_at<bool>(this, kTrickObjectsOn) = false;
-    HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
+    trick_count_ = 0;
+    bailed_panel_ = false;
+    bailed_ = false;
+    trick_objects_on_ = false;
+    HitClusterLog& list = trick_objects_;
     list.get_clear();
     list.get_clear();
 }
@@ -331,9 +323,9 @@ void MoveExecutor::reset_trick_objects()
 // 0x00523310
 uint32_t MoveExecutor::end_trick_objects(uint32_t a, uint32_t b)
 {
-    HitClusterLog& list = get_at<HitClusterLog>(this, kTrickObjects);
+    HitClusterLog& list = trick_objects_;
     uint32_t result = list.copy_cluster_names(reinterpret_cast<uint32_t*>(a), b);
-    get_at<bool>(this, kTrickObjectsOn) = false;
+    trick_objects_on_ = false;
     list.get_clear();
     return result;
 }
@@ -353,10 +345,10 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
         static_cast<AttributeTracker*>(get_component(this, kComponent34))->total_of(script);
     if (!script)
         return false;
-    ++get_at<int>(this, kBusy);
-    get_at<bool>(this, kManualPending) = false;
-    get_at<bool>(this, kGrindPending) = false;
-    get_at<uint32_t>(this, 0x1234) = 0;
+    ++busy_;
+    manual_.pending_ = false;
+    grind_.pending_ = false;
+    list_used_ = 0;
     script::Struct* trick_params = nullptr;
     trick->read_sub_struct(kParams, &trick_params, 0);
     prepare_flip_and_rotate(this);
@@ -368,7 +360,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     object->own_script_->tick_frame();
     trick_started(this);
     count_trick();
-    --get_at<int>(this, kBusy);
+    --busy_;
     return true;
 }
 
@@ -376,9 +368,9 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
 void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script::Struct* trick_params)
 {
     get_at<bool>(get_component(this, kState), 0xE0) = false;
-    get_at<bool>(this, kIsSpecial) = false;
-    int& head = get_at<int>(this, kQueueHead);
-    int& tail = get_at<int>(this, kQueueTail);
+    starting_special_ = false;
+    int& head = queue_first_;
+    int& tail = queue_last_;
     if (head == -1)
         return;
     uint32_t array;
@@ -388,7 +380,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
         uint8_t* queued = reinterpret_cast<uint8_t*>(this) + kQueue + entry * 0x14;
         array = get_at<uint32_t>(queued, 0);
         index = get_at<uint32_t>(queued, 4);
-        get_at<bool>(this, kIsSpecial) = get_at<bool>(queued, 0x10);
+        starting_special_ = get_at<bool>(queued, 0x10);
         if (entry != -1) {
             if (entry == tail) {
                 tail = -1;
@@ -413,7 +405,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     trick->read_hash_value(kTrickSlot, &slot, 0);
     if (!slot)
         return;
-    script::Struct* mappings = get_at<script::Struct*>(this, kTrickBindingsSlot);
+    script::Struct* mappings = trick_lists_;
     int created = 0;
     if (mappings->fetch_int_value(slot, &created, 0)) {
         // A created trick: CreateATrick with its index.
@@ -447,10 +439,10 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     script::Struct* first_params = nullptr;
     params->read_hash_value(kScriptToRunFirst, &first, 0);
     params->read_sub_struct(kParams, &first_params, 0);
-    get_at<bool>(this, kIsSpecial) = false;
-    if (!get_at<bool>(this, kManualPending))
+    starting_special_ = false;
+    if (!manual_.pending_)
         return;
-    get_at<bool>(this, kManualPending) = false;
+    manual_.pending_ = false;
     if (first) {
         script::Struct copy;
         copy.init_copy(params);
@@ -459,10 +451,10 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
         params->get_assign(&copy);
         copy.get_clear();
     }
-    script::Array* array = script::fetch_list(get_at<uint32_t>(this, kManualArray));
+    script::Array* array = script::fetch_list(manual_.array_);
     if (!array)
         return;
-    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(get_at<uint32_t>(this, kManualIndex)));
+    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(manual_.index_));
     if (script::Struct* mapped = mapped_trick(this, trick))
         trick = mapped;
     uint32_t script = 0;
@@ -470,7 +462,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     if (!script)
         return;
     prepare_flip_and_rotate(this);
-    get_at<bool>(this, kIsSpecial) = get_at<bool>(this, kManualIsSpecial);
+    starting_special_ = manual_.is_special_;
     script::Struct* trick_params = nullptr;
     trick->read_sub_struct(kParams, &trick_params, 0);
     Entity* object = entity_;
@@ -482,20 +474,20 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     }
     object->own_script_->tick_frame();
     trick_started(this);
-    if (++get_at<int>(this, kTrickCount) > 3)
+    if (++trick_count_ > 3)
         entity_->announce(kTricksDone, nullptr, 0.0f);
 }
 
 // 0x00522E80
 bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 {
-    if (!get_at<bool>(this, kGrindPending))
+    if (!grind_.pending_)
         return false;
-    get_at<bool>(this, kGrindPending) = false;
-    script::Array* array = script::fetch_list(get_at<uint32_t>(this, kGrindArray));
+    grind_.pending_ = false;
+    script::Array* array = script::fetch_list(grind_.array_);
     if (!array)
         return false;
-    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(get_at<uint32_t>(this, kGrindIndex)));
+    auto* trick = reinterpret_cast<script::Struct*>(array->fetch_part(grind_.index_));
     script::Array* scripts = nullptr;
     script::Array* templates = nullptr;
     const char* prefix = nullptr;
@@ -523,12 +515,12 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     Entity* object = entity_;
     if (object->kind_tag_ == kSkaterType)
         get_at<uint32_t>(get_component(this, kCorePhysics), 0x3A8) = 0;
-    get_at<bool>(this, kIsSpecial) = get_at<bool>(this, kGrindIsSpecial);
+    starting_special_ = grind_.is_special_;
     prepare_flip_and_rotate(this);
     object->replace_script(script, trick_params);
     object->own_script_->tick_frame();
     trick_started(this);
-    if (++get_at<int>(this, kTrickCount) > 3)
+    if (++trick_count_ > 3)
         entity_->announce(kTricksDone, nullptr, 0.0f);
     return true;
 }
@@ -536,14 +528,14 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 // 0x00521BA0
 void MoveExecutor::update_manual_tricks()
 {
-    uint32_t special = get_at<uint32_t>(this, kManualSpecial);
+    uint32_t special = manual_.special_;
     if (special && get_at<bool>(get_component(this, kFlags1c), 0x74)) {
         check_manual_tricks(this, special, -5, true);
-        if (get_at<bool>(this, kManualPending))
+        if (manual_.pending_)
             return;
     }
-    for (int i = 0; i < get_at<int>(this, kManualArrayCount); ++i)
-        check_manual_tricks(this, get_at<uint32_t>(this, kManualArrays + 4 * i), -1, false);
+    for (int i = 0; i < manual_.count_; ++i)
+        check_manual_tricks(this, manual_.arrays_[i], -1, false);
 }
 
 // 0x00521C10
@@ -562,24 +554,24 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
         if (!trigger_done(this, trigger, 8, -5, false) && !trigger_done(this, alt_trigger, 8, -5, false))
             continue;
-        get_at<uint32_t>(this, kGrindArray) = array;
-        get_at<int>(this, kGrindIndex) = i;
-        get_at<uint32_t>(this, kGrindTime) = frame_clock::get_time();
-        get_at<bool>(this, kGrindIsSpecial) = special;
-        get_at<int>(this, kGrindDuration) = -1;
-        trick->fetch_int_value(kDuration, &get_at<int>(this, kGrindDuration), 0);
-        get_at<bool>(this, kGrindPending) = true;
+        grind_.array_ = array;
+        grind_.index_ = i;
+        grind_.time_ = frame_clock::get_time();
+        grind_.is_special_ = special;
+        grind_.duration_ = -1;
+        trick->fetch_int_value(kDuration, &grind_.duration_, 0);
+        grind_.pending_ = true;
     }
 }
 
 // 0x00521D20
 void MoveExecutor::update_extra_grind_tricks()
 {
-    uint32_t special = get_at<uint32_t>(this, kGrindSpecial);
+    uint32_t special = grind_.special_;
     if (special && get_at<bool>(get_component(this, kFlags1c), 0x74))
         check_extra_grind_tricks(special, true);
-    for (int i = 0; i < get_at<int>(this, kGrindArrayCount); ++i)
-        check_extra_grind_tricks(get_at<uint32_t>(this, kGrindArrays + 4 * i), false);
+    for (int i = 0; i < grind_.count_; ++i)
+        check_extra_grind_tricks(grind_.arrays_[i], false);
 }
 
 // 0x00521D80
@@ -598,11 +590,10 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
 // 0x00521DF0
 void MoveExecutor::ignore_tricks(uint32_t ignore)
 {
-    for (int i = 0; i < get_at<int>(this, kExtraArrayCount); ++i)
-        get_at<uint32_t>(this, kExtraMasks + 4 * i) |=
-            fetch_skip_mask(get_at<uint32_t>(this, kExtraArrays + 4 * i), ignore);
-    if (uint32_t special = get_at<uint32_t>(this, kExtraSpecial))
-        get_at<uint32_t>(this, kExtraSpecialMask) |= fetch_skip_mask(special, ignore);
+    for (int i = 0; i < extra_.count_; ++i)
+        extra_.masks_[i] |= fetch_skip_mask(extra_.arrays_[i], ignore);
+    if (uint32_t special = extra_.special_)
+        extra_.special_mask_ |= fetch_skip_mask(special, ignore);
 }
 
 // 0x00522AA0
@@ -630,7 +621,7 @@ bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
                 trick->read_hash_value(kTrickSlot, &slot, 0);
                 if (slot) {
                     uint32_t mapped = 0;
-                    get_at<script::Struct*>(this, kTrickBindingsSlot)->read_hash_value(slot, &mapped, 0);
+                    trick_lists_->read_hash_value(slot, &mapped, 0);
                     if (mapped) {
                         script::Struct* structure = script::read_sub_struct(mapped);
                         if (structure && try_trick(structure, kIsExtra, nullptr))
@@ -639,7 +630,7 @@ bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
                 }
             }
         }
-        if (!get_at<bool>(this, kExtraOn))
+        if (!extra_.on_)
             return started;
     }
     return started;
@@ -648,28 +639,27 @@ bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
 // 0x00522C00
 void MoveExecutor::update_extra_tricks()
 {
-    if (!get_at<bool>(this, kExtraOn))
+    if (!extra_.on_)
         return;
-    if (!get_at<bool>(this, kExtraForever) &&
-        frame_clock::get_time() - get_at<uint32_t>(this, kExtraStart) > get_at<uint32_t>(this, kExtraDuration)) {
-        get_at<bool>(this, kExtraOn) = false;
+    if (!extra_.forever_ && frame_clock::get_time() - extra_.start_ > static_cast<uint32_t>(extra_.duration_)) {
+        extra_.on_ = false;
         return;
     }
-    if (uint32_t special = get_at<uint32_t>(this, kExtraSpecial)) {
+    if (uint32_t special = extra_.special_) {
         if (get_at<bool>(get_component(this, kFlags1c), 0x74)) {
-            get_at<bool>(this, kIsSpecial) = true;
-            if (!try_extra_tricks(special, get_at<uint32_t>(this, kExtraSpecialMask)))
-                get_at<bool>(this, kIsSpecial) = false;
-            if (!get_at<bool>(this, kExtraOn))
+            starting_special_ = true;
+            if (!try_extra_tricks(special, extra_.special_mask_))
+                starting_special_ = false;
+            if (!extra_.on_)
                 return;
         } else {
-            get_at<bool>(this, kIsSpecial) = false;
+            starting_special_ = false;
         }
     }
-    for (int i = 0; i < get_at<int>(this, kExtraArrayCount); ++i) {
-        if (try_extra_tricks(get_at<uint32_t>(this, kExtraArrays + 4 * i), get_at<uint32_t>(this, kExtraMasks + 4 * i)))
-            get_at<bool>(this, kIsSpecial) = false;
-        if (!get_at<bool>(this, kExtraOn))
+    for (int i = 0; i < extra_.count_; ++i) {
+        if (try_extra_tricks(extra_.arrays_[i], extra_.masks_[i]))
+            starting_special_ = false;
+        if (!extra_.on_)
             return;
     }
 }
@@ -677,33 +667,32 @@ void MoveExecutor::update_extra_tricks()
 // 0x00522CD0
 void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*script*/)
 {
-    get_at<bool>(this, kExtraOn) = true;
-    get_at<bool>(this, kExtraForever) = true;
+    extra_.on_ = true;
+    extra_.forever_ = true;
     float duration = 0.0f;
     if (params->fetch_float(kDuration, &duration, 0)) {
-        get_at<bool>(this, kExtraForever) = false;
-        get_at<uint32_t>(this, kExtraStart) = frame_clock::get_time();
-        get_at<int>(this, kExtraDuration) =
-            static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
+        extra_.forever_ = false;
+        extra_.start_ = frame_clock::get_time();
+        extra_.duration_ = static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
     }
-    int& count = get_at<int>(this, kExtraArrayCount);
+    int& count = extra_.count_;
     count = 0;
     uint32_t tricks = 0;
     if (params->read_hash_value(kTricks, &tricks, 0)) {
         count = 1;
-        get_at<uint32_t>(this, kExtraArrays) = tricks;
+        extra_.arrays_[0] = tricks;
     } else {
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
             if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
-                get_at<uint32_t>(this, kExtraArrays + 4 * count++) = c->checksum;
+                extra_.arrays_[count++] = c->checksum;
         }
     }
-    uint32_t& special = get_at<uint32_t>(this, kExtraSpecial);
+    uint32_t& special = extra_.special_;
     special = 0;
     params->read_hash_value(kSpecial, &special, 0);
     for (int i = 0; i < 10; ++i)
-        get_at<uint32_t>(this, kExtraMasks + 4 * i) = 0;
-    get_at<uint32_t>(this, kExtraSpecialMask) = 0;
+        extra_.masks_[i] = 0;
+    extra_.special_mask_ = 0;
     const char* ignore = ""; // ("")
     if (params->fetch_text(kIgnore, &ignore, 0)) {
         ignore_tricks(reinterpret_cast<uint32_t>(ignore)); // (the string's address as a name, as the original)
@@ -720,7 +709,7 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
 // 0x005230E0
 void MoveExecutor::update_bash()
 {
-    if (!get_at<bool>(this, kBashOn))
+    if (!bashing_)
         return;
     auto* blender = static_cast<AnimBlenderComponent*>(entity_->fetch_module(kAnimBlender));
     if (blender->get_timeline30() != kRunOut && blender->get_timeline30() != kRunOutQuick) {
@@ -734,10 +723,10 @@ void MoveExecutor::update_bash()
             return;
         }
         script::launch_script(kTantrumOff, nullptr, entity_, false, nullptr);
-        if (get_at<uint32_t>(this, kBailEndpose) && !get_at<bool>(this, kQuickGetupDone)) {
+        if (bail_endpose_ && !quick_getup_done_) {
             debug::printf(
                 "ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
-            get_at<bool>(this, kQuickGetupDone) = true;
+            quick_getup_done_ = true;
             script::launch_script(kBailQuickGetup, nullptr, entity_, false, nullptr);
             return;
         }
@@ -756,20 +745,18 @@ void MoveExecutor::tick_frame()
         return;
     }
     update_buttons();
-    static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))
-        ->get_buttons(&get_at<int>(this, kButtonsHeld),
-                      reinterpret_cast<uint32_t*>(&get_at<int>(this, kButtonsHeld + 4)));
+    static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))->get_buttons(&ignored_count_, &ignored_[0]);
     update_extra_tricks();
     queue_all_done_tricks();
     update_manual_tricks();
-    if (get_at<bool>(this, kManualPending) && get_at<int>(this, kManualDuration) != -1 &&
-        static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - get_at<int>(this, kManualTime))) >
-            get_at<uint32_t>(this, kManualDuration))
-        get_at<bool>(this, kManualPending) = false;
+    if (manual_.pending_ && manual_.duration_ != -1 &&
+        static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - manual_.time_)) >
+            static_cast<uint32_t>(manual_.duration_))
+        manual_.pending_ = false;
     update_extra_grind_tricks();
-    if (get_at<bool>(this, kGrindPending) && get_at<int>(this, kGrindDuration) != -1 &&
-        frame_clock::get_time() - get_at<uint32_t>(this, kGrindTime) > get_at<uint32_t>(this, kGrindDuration))
-        get_at<bool>(this, kGrindPending) = false;
+    if (grind_.pending_ && grind_.duration_ != -1 &&
+        frame_clock::get_time() - static_cast<uint32_t>(grind_.time_) > static_cast<uint32_t>(grind_.duration_))
+        grind_.pending_ = false;
     update_bash();
     // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x4723D0 ends its update): the right stick centred or not, for
     // BikePress. Original behaviour: none.

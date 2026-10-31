@@ -364,8 +364,8 @@ bool SkaterPhysicsModule::start_wall_ride()
     if (!(x87_cos(static_cast<double>(script::fetch_float(kMaxTilt)) * kRadiansPerDegree) <
           object->basis_frame_.row[1].y))
         return false;
-    void* skater = trick_;
-    if (!get_at<uint8_t>(skater, 0x13B0))
+    objects::MoveExecutor* skater = trick_;
+    if (!skater->trick_objects_on_)
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
     check_triggers(this, kSkaterEvents0064bB98, &floor_feeler_);

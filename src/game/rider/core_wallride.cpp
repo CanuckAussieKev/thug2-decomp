@@ -33,7 +33,6 @@ constexpr uint32_t kLanded = 0x532B16EF;            // Landed (event)
 constexpr uint32_t kOffEdge = 0xD96F01F1;           // SkaterOffEdge (event)
 constexpr uint32_t kGroundGone = 0x3B1001B6;        // GroundGone (event)
 
-
 constexpr float kHeadingUp = 0.68f; // 0x0064BDB4: heading up the wall this much: no turning
 constexpr float kTopFacesUp = 0.9f; // 0x00649FE4: a hit ahead facing up this much: the wall's top
 constexpr float kPushOff = 18.0f;   // 0x0064AAAC
@@ -307,8 +306,8 @@ void SkaterPhysicsModule::step_wall_ride()
                 if (trigger_took_over(this))
                     return;
             }
-            void* skater = trick_;
-            if (!get_at<uint8_t>(skater, 0x13B0))
+            objects::MoveExecutor* skater = trick_;
+            if (!skater->trick_objects_on_)
                 static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
             assign_feeler(&floor_feeler_, &feeler_);
             sound_->last_ground_ = floor_feeler_.hit_.terrain;

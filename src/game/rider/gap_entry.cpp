@@ -32,6 +32,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/gap_entry.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/trick_component.h"
 #include "game/rider/walk_physics.h"
 
 namespace objects {
@@ -532,7 +533,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         int points = 0;
         if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater_) {
             add_gap_score(points_held_, coloured, points, 0x10);
-            prop<uint8_t>(entity_->fetch_module(kTrick), 0x13A8) = 1;
+            static_cast<MoveExecutor*>(entity_->fetch_module(kTrick))->bailed_ = true;
             gap_tally_ref()->register_gap_hit(text);
             entity_->start_script_task(kDefaultGapScript, 0, false, false, nullptr);
         }

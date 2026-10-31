@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "engine/objects/trick_objects.h"
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -31,6 +32,38 @@ static_assert(sizeof(TrickEvent) == 0x18 && offsetof(TrickEvent, used) == 0x10 &
               "layout must match the original");
 
 // A queued trick (0x14 bytes, 100 of them from +0xA34): which list and which of its tricks.
+// SetManualTricks' / SetExtraGrindTricks' trick arrays and the trick of them waiting to start (0x48 bytes; the trick
+// component's +0x1238 and +0x1280).
+struct PendingTrick {
+    int count_;           // +0x00 arrays in use
+    uint32_t arrays_[10]; // +0x04 the trick arrays' names
+    uint32_t special_;    // +0x2C the special one's
+    bool pending_;        // +0x30 a trick waits to start
+    uint8_t pad31_[3];
+    uint32_t array_;  // +0x34 its array
+    uint32_t index_;  // +0x38 and index
+    int time_;        // +0x3C the game clock when it was found
+    int duration_;    // +0x40 how long it may wait (ms)
+    bool is_special_; // +0x44
+    uint8_t pad45_[3];
+};
+static_assert(sizeof(PendingTrick) == 0x48, "layout must match the original");
+
+// SetExtraTricks' arrays (0x68 bytes; the trick component's +0x12C8).
+struct ExtraTricks {
+    bool on_;      // +0x00
+    bool forever_; // +0x01 (no duration)
+    uint8_t pad2_[2];
+    int duration_;          // +0x04 ms
+    uint32_t start_;        // +0x08 the game clock when they were set
+    int count_;             // +0x0C arrays in use
+    uint32_t arrays_[10];   // +0x10 the trick arrays' names
+    uint32_t masks_[10];    // +0x38 each one's tricks skipped (bits)
+    uint32_t special_;      // +0x60 the special array
+    uint32_t special_mask_; // +0x64
+};
+static_assert(sizeof(ExtraTricks) == 0x68, "layout must match the original");
+
 struct QueuedTrick {
     uint32_t list; // +0x00 the trick list's name (0: removed)
     int index;     // +0x04 its index in the list
@@ -241,7 +274,7 @@ public:
     // params. True.
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
-    uint32_t unknown18_;                        // +0x18
+    int busy_;                                  // +0x18 (counted up and down round a trick's script)
     uint8_t* balance_1c_;                       // +0x1C (+0x74: manuals checked)
     uint8_t* input_;                            // +0x20 (+0x498 / +0x499: no tricks)
     ObjectModule* balance_trick_;               // +0x24
@@ -256,26 +289,49 @@ public:
     float held_off_until_[kButtons];            // +0x9A8
     bool btn_down_[kButtons];                   // +0xA00
     uint8_t pada16_[2];
-    int ignored_count_;   // +0xA18
-    uint32_t ignored_[2]; // +0xA1C
-    bool unknowna24_;     // +0xA24
+    int ignored_count_;     // +0xA18
+    uint32_t ignored_[2];   // +0xA1C
+    bool starting_special_; // +0xA24 the trick being started is special
     uint8_t pada25_[3];
-    script::Struct* trick_lists_;          // +0xA28
-    int queue_first_;                      // +0xA2C
-    int queue_last_;                       // +0xA30
-    QueuedTrick queue_[100];               // +0xA34
-    int extra_list_count_;                 // +0x1204
-    uint32_t extra_lists_[10];             // +0x1208
-    uint32_t manual_list_;                 // +0x1230
-    uint32_t list_used_;                   // +0x1234
-    uint8_t unknown1238_[0x1BC0 - 0x1238]; // +0x1238 (allocated by the original's 0x00523490; not used here)
+    script::Struct* trick_lists_; // +0xA28
+    int queue_first_;             // +0xA2C
+    int queue_last_;              // +0xA30
+    QueuedTrick queue_[100];      // +0xA34
+    int extra_list_count_;        // +0x1204
+    uint32_t extra_lists_[10];    // +0x1208
+    uint32_t manual_list_;        // +0x1230
+    uint32_t list_used_;          // +0x1234
+    PendingTrick manual_;         // +0x1238 SetManualTricks' arrays and the manual waiting to start
+    PendingTrick grind_;          // +0x1280 SetExtraGrindTricks' arrays and the grind waiting to start
+    ExtraTricks extra_;           // +0x12C8 SetExtraTricks
+    bool bashing_;                // +0x1330 BashOn
+    char trick_name_[0x33];       // +0x1331 the trick displayed (SetTrickName)
+    int trick_score_;             // +0x1364 SetTrickScore
+    char deferred_name_[0x34];    // +0x1368 a deferred trick's name
+    int deferred_score_;          // +0x139C
+    uint32_t deferred_flags_;     // +0x13A0
+    float spin_total_;            // +0x13A4 the trick's rotation (degrees)
+    bool bailed_;                 // +0x13A8 the skater bailed (the run ends: horse)
+    bool bailed_panel_;           // +0x13A9
+    uint8_t pad13aa_[2];
+    int trick_count_;       // +0x13AC tricks in the combo
+    bool trick_objects_on_; // +0x13B0
+    uint8_t pad13b1_[3];
+    HitClusterLog trick_objects_; // +0x13B4 the trick objects hit
+    bool quick_getup_done_;       // +0x1BB8
+    uint8_t pad1bb9_[3];
+    uint32_t bail_endpose_; // +0x1BBC current_bail_endpose
 };
 static_assert(offsetof(MoveExecutor, input_) == 0x20 && offsetof(MoveExecutor, events_) == 0x38 &&
                   offsetof(MoveExecutor, event_count_) == 0x998 && offsetof(MoveExecutor, button_map_) == 0x99C &&
                   offsetof(MoveExecutor, held_off_until_) == 0x9A8 && offsetof(MoveExecutor, btn_down_) == 0xA00 &&
                   offsetof(MoveExecutor, ignored_count_) == 0xA18 && offsetof(MoveExecutor, trick_lists_) == 0xA28 &&
                   offsetof(MoveExecutor, queue_) == 0xA34 && offsetof(MoveExecutor, extra_list_count_) == 0x1204 &&
-                  offsetof(MoveExecutor, manual_list_) == 0x1230 && sizeof(MoveExecutor) == 0x1BC0,
+                  offsetof(MoveExecutor, manual_list_) == 0x1230 && offsetof(MoveExecutor, manual_) == 0x1238 &&
+                  offsetof(MoveExecutor, grind_) == 0x1280 && offsetof(MoveExecutor, extra_) == 0x12C8 &&
+                  offsetof(MoveExecutor, trick_name_) == 0x1331 && offsetof(MoveExecutor, deferred_name_) == 0x1368 &&
+                  offsetof(MoveExecutor, spin_total_) == 0x13A4 && offsetof(MoveExecutor, trick_objects_) == 0x13B4 &&
+                  offsetof(MoveExecutor, bail_endpose_) == 0x1BBC && sizeof(MoveExecutor) == 0x1BC0,
               "layout must match the original");
 
 // 0x0051EA40: whether `button` is one of the d-pad's eight directions (Up, Down,

@@ -41,8 +41,6 @@ T& get_at(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-
-
 // The input's buttons (offsets into the pad).
 constexpr uint32_t kButton20 = 0x20;
 constexpr uint32_t kButton40 = 0x40;
@@ -368,8 +366,8 @@ void SkaterPhysicsModule::check_for_ground()
                         if (physics_control_->flag26_)
                             return;
                     }
-                    void* skater = trick_;
-                    if (!get_at<uint8_t>(skater, 0x13B0))
+                    objects::MoveExecutor* skater = trick_;
+                    if (!skater->trick_objects_on_)
                         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
                     floor_feeler_.get_assign(feeler_);
                     sound_->last_ground_ = floor_feeler_.hit_.terrain;
@@ -436,8 +434,8 @@ void SkaterPhysicsModule::ground_under_wheels(bool hit)
         if (physics_control_->flag26_)
             return;
     }
-    void* skater = trick_;
-    if (!get_at<uint8_t>(skater, 0x13B0))
+    objects::MoveExecutor* skater = trick_;
+    if (!skater->trick_objects_on_)
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     floor_feeler_.get_assign(feeler_);
     sound_->last_ground_ = floor_feeler_.hit_.terrain;
@@ -758,8 +756,8 @@ void SkaterPhysicsModule::land_from_air()
         float scale = static_cast<objects::Rider*>(object)->get_scaled_physics(0xCC5F87AA);
         static_cast<objects::RiderSfxPlayer*>(sound_)->play_land(speed / scale, static_cast<int>(which));
     }
-    void* skater = trick_;
-    if (!get_at<uint8_t>(skater, 0x13B0))
+    objects::MoveExecutor* skater = trick_;
+    if (!skater->trick_objects_on_)
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
     trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98, &floor_feeler_);

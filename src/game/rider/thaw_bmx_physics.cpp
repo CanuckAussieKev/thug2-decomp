@@ -36,6 +36,7 @@
 #include "game/skate/point_tally.h"
 #include "platform/run_log.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/trick_component.h"
 
 namespace skater::thaw_bmx {
 
@@ -49,7 +50,7 @@ T& get_at(const void* object, uint32_t offset)
 maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // The core physics component's fields (THUG2's; THAW's offset in the comment).
-                                      // balance, its lean at +0x54)
+// balance, its lean at +0x54)
 // The timed flags (THUG2's; THAW's in the comment).
 constexpr uint32_t kFlagCrouched = 0x20;     // THAW 0x20
 constexpr uint32_t kFlagVert = 0x30;         // THAW 0x30
@@ -865,7 +866,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
     // from the snap's feeler start to 200 below): either off the ground, the turn is undone (the skater's and the
     // display's matrices turned back - not the velocity - and the wheel points put back along the old facing).
     if (state.manual) {
-        float& total = get_at<float>(core->trick_, 0x13A4);
+        float& total = core->trick_->spin_total_;
         total = step * kDegreesPerRadian + total;
         void* display = get_at<void*>(core->score_, 0x18);
         static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
@@ -1083,7 +1084,7 @@ void air_rotation(SkaterPhysicsModule* core)
     if (spin_step != 0.0f || pitch_step != 0.0f) {
         // The trick's rotation total, shown as THUG2's Spin shows it (short of a whole turn by more than the slop
         // in vert, not; THAW shows the flips too - THUG2's display has no place for them).
-        float& total = get_at<float>(core->trick_, 0x13A4);
+        float& total = core->trick_->spin_total_;
         total = spin_step * kDegreesPerRadian + total;
         bool show = true;
         if (flags[kFlagVert] && !flags[kFlagAcidDrop] && !pitched) {

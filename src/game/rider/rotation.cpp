@@ -20,6 +20,7 @@
 #include "platform/game_clock.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
+#include "game/rider/trick_component.h"
 
 namespace skater {
 
@@ -30,8 +31,6 @@ T& get_at(void* object, uint32_t offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
-
-
 
 // The state flags used here (offsets into the flags block).
 constexpr uint32_t kFlag30 = 0x30;
@@ -251,7 +250,7 @@ void SkaterPhysicsModule::get_spin()
     float step = static_cast<float>(static_cast<double>(speed) * frame_length());
     body_transform(object).yaw_locally(step);
     display_matrix_.yaw_locally(step);
-    float& total = get_at<float>(reinterpret_cast<uint8_t*>(trick_), 0x13A4);
+    float& total = trick_->spin_total_;
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
     // is short of a whole turn by more than the snap (360 - snap + 0.1).
