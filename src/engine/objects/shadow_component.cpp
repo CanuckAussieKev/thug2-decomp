@@ -1,6 +1,7 @@
 // The shadow component (engine/objects/shadow_component.h).
 
 #include "engine/objects/shadow_component.h"
+#include "engine/gfx/engine_model_lights.h"
 
 #include <cstdint>
 
@@ -48,7 +49,6 @@ int shadow_kind_of(const render::ShadowBase* shadow) { return shadow->kind_tag_;
 render::BlobShadow* as_blob(render::ShadowBase* shadow) { return static_cast<render::BlobShadow*>(shadow); }
 
 // The model's +0x2C object (vtable slot 5 gives a vector).
-void** get_vtable(void* object) { return *static_cast<void***>(object); }
 
 // The model component's model (+0x208), and that model's flags (+0x44: 0x2 visible, 0x4 hidden), its +0x1C (a
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
@@ -117,10 +117,9 @@ void GroundShadowModule::refresh_shadow()
     case kShadowDetailed: {
         const GameEntity* object = entity_;
         maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
-        // (the model's +0x2C object's slot 5 vector, turned round - and not used)
-        if (void* fader = *reinterpret_cast<void**>(model + 0x2C)) {
-            const maths::Vec4* v =
-                reinterpret_cast<const maths::Vec4*(__thiscall*)(void*, int)>(get_vtable(fader)[5])(fader, 0);
+        // (the model's lights' first direction - their slot 5 -, turned round - and not used)
+        if (auto* lights = *reinterpret_cast<render::ModelLights**>(model + 0x2C)) {
+            const maths::Vec4* v = lights->read_light_aim(0);
             maths::Vec4 unused = *v * -1.0f;
             (void)unused;
         }

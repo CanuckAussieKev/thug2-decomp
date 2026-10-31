@@ -36,14 +36,7 @@ uint32_t g_net_manager_references;
 
 uint32_t& ref_tally() { return g_net_manager_references; }
 
-void setup_list_sentinel(memory::ListNode* head)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = kAppListHeadVtable;
-}
+void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 
 // `node` at the end of the list.
 void append_last(memory::ListNode* head, memory::ListNode* node)
@@ -95,8 +88,8 @@ Hub* Hub::make_new()
 // 0x004555A0
 void Hub::destroy_body()
 {
-    clients_.destroy_body();
-    hosts_.destroy_body();
+    clients_.uncouple();
+    hosts_.uncouple();
 }
 
 // 0x00455270

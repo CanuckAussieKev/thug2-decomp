@@ -52,15 +52,8 @@ tasks::SchedulerTask* new_task(Hub* manager, tasks::Task<Hub>::Code code, int pr
     return new tasks::Task<Hub>(code, manager, priority);
 }
 
-// A list head (lists::Foremost<T>, its own vtable): empty.
-void setup_list_sentinel(memory::ListNode* head, uint32_t vtable)
-{
-    head->priority = 0;
-    head->data = reinterpret_cast<void*>(-1);
-    head->next = head;
-    head->prev = head;
-    head->vtable = reinterpret_cast<void**>(vtable);
-}
+// A list head (lists::Foremost<T>; 0x14 bytes at its offset): empty.
+void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 
 // From the memory manager's current heap (its operator new: the manager made first if need be).
 void* carve(uint32_t size)
@@ -78,13 +71,11 @@ Hub* Hub::make_new()
     prop<uint32_t>(this, 0) = 0; // the flags
     new (net_options_) prefs::Preferences;
     auto* taunts = new (&prop<prefs::Preferences>(this, 0x110)) prefs::Preferences;
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x11C),
-                        reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x130),
-                        reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x11C)); // the players
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x130)); // the joining players
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x144)); // the queued scripts
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x158)); // the servers
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x16C));
     script_flag_bits_ = 0;
     tasks::PileUp* tasks = reinterpret_cast<tasks::PileUp*>(
         reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);

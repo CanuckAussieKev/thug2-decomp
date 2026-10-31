@@ -2,8 +2,8 @@
 
 #include <cstring>
 
-// Code addresses as plain pointers: a function's, a (non-virtual, single-inheritance) member function's, and the
-// tables of them the game builds by hand (its virtual tables and script member-function tables).
+// Code addresses as plain pointers: a function's or a (non-virtual, single-inheritance) member function's - for the
+// tables the game builds by hand (the script member-function tables) and the callbacks it registers.
 
 // The code address of a free function or a simple member function.
 template <typename F>
@@ -14,17 +14,3 @@ void* code_address(F f)
     std::memcpy(&p, &f, sizeof(p));
     return p;
 }
-
-extern "C" int __cdecl _purecall(void); // (the C runtime's: a pure virtual slot)
-
-// One slot of a hand-built virtual table:
-//
-//   static VtableSlot g_node_vtable_slots[] = {&AllocAdapters::node_destroy, &_purecall};
-//   void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
-struct VtableSlot {
-    void* code;
-    template <typename F>
-    VtableSlot(F f) : code(code_address(f))
-    {}
-};
-static_assert(sizeof(VtableSlot) == sizeof(void*), "a table of VtableSlots is a table of code pointers");

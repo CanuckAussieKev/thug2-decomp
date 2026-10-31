@@ -35,9 +35,6 @@ float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 
 
 namespace {
 
-extern void** const kNodeVtable;
-extern void** const kHeadVtable;
-
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }
 void toggle_fog(bool on) { engine::enable_fog(on); }
@@ -57,18 +54,7 @@ memory::ListNode* head_of_scene_list(const memory::ListNode* head)
     return is_head(head->next) ? nullptr : head->next;
 }
 
-memory::ListNode* new_head()
-{
-    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (head) {
-        head->data = reinterpret_cast<void*>(-1);
-        head->priority = 0;
-        head->next = head;
-        head->prev = head;
-        head->vtable = reinterpret_cast<void**>(kHeadVtable);
-    }
-    return head;
-}
+memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 
 void order_batches(BillboardSet* manager)
 {
@@ -338,14 +324,7 @@ void BillboardBatch::add_row(MeshRef* mesh)
         entry->mesh = mesh;
         entry->type = mesh->billboard->type;
     }
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->vtable = reinterpret_cast<void**>(kNodeVtable);
-        node->data = entry;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    memory::ListNode* node = memory::ListNode::create(entry);
     // at the end of its list (no checks: written through null, as the original)
     memory::ListNode* head = lists[entry->type];
     node->prev = head->prev;
@@ -365,8 +344,7 @@ void BillboardBatch::erase_record(MeshRef* mesh)
             auto* entry = static_cast<BillboardRec*>(node->data);
             memory::ListNode* next = get_next_node(node);
             if (entry->mesh == mesh) {
-                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node,
-                                                                                                                   1);
+                memory::ListNode::destroy(node); // (0x004CE960)
                 memory::Hub::get_pull()->dealloc(entry);
                 return;
             }
@@ -501,9 +479,7 @@ void BillboardSet::remove_mesh(MeshRef* mesh)
         if (batches[i] != batch)
             continue;
         for (memory::ListNode* head : batch->lists) {
-            if (head) // (through its vtable)
-                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(head->vtable[0])(head,
-                                                                                                                   1);
+            memory::ListNode::destroy(head); // (0x004CE9A0)
         }
         memory::Hub::get_pull()->dealloc(batch);
         batches[i] = nullptr;
@@ -530,34 +506,6 @@ void BillboardSet::render(unsigned int which)
     }
 }
 
-// 0x004CE9D0
-void BillboardNode::uncouple()
-{
-    vtable = reinterpret_cast<void**>(kNodeVtable);
-    prev->next = next;
-    next->prev = prev;
-    next = this;
-    prev = this;
-}
-
-// 0x004CE960
-BillboardNode* BillboardNode::teardown(unsigned int free_flags)
-{
-    uncouple();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x004CE9A0
-BillboardNode* BillboardNode::destroy_head(unsigned int free_flags)
-{
-    uncouple();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004CD8A0
 void __cdecl create_window_pool()
 {
@@ -580,12 +528,5 @@ void __cdecl set_flag_786e_b4() { g_billboard_flag = 1; }
 
 // 0x004CD970
 void __cdecl clear_flag_786e_b4() { g_billboard_flag = 0; }
-
-namespace {
-static VtableSlot g_node_vtable_slots[] = {&render::BillboardNode::teardown};
-void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
-static VtableSlot g_head_vtable_slots[] = {&render::BillboardNode::destroy_head};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-} // namespace
 
 } // namespace render

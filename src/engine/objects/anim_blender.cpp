@@ -18,8 +18,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/lists/chain_start.h"
 #include "game/rider/thaw_bmx.h"
-#include "engine/core/game_vtables.h"
 #include "engine/core/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -43,8 +43,6 @@ uint32_t g_anim_blender_member_functions[180]{
 
 namespace {
 
-extern void** const kHeadVtable;
-
 constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
 constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
 constexpr float kMinWeight = 0.00001f;
@@ -66,15 +64,7 @@ T& prop(void* object, int offset)
 {
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
-uint32_t& ident_no(Channel* channel) { return prop<uint32_t>(channel, 0x28); }
-
-// A channel's virtual functions.
-template <typename R, typename... A>
-R Virtual(void* object, int slot, A... args)
-{
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
-}
+uint32_t& ident_no(Channel* channel) { return channel->ident_; }
 
 // A bool read from a 32-bit argument slot as the callee does: its low byte (the callers pass raw words).
 bool bool_arg(uint32_t word) { return (word & 0xFF) != 0; }
@@ -94,11 +84,7 @@ void __cdecl AnimBlenderComponent::publish_method_table()
 // 0x0041A410
 AnimBlenderComponent::AnimBlenderComponent()
 {
-    lanes_.data = reinterpret_cast<void*>(-1);
-    lanes_.priority = 0;
-    lanes_.next = &lanes_;
-    lanes_.prev = &lanes_;
-    lanes_.vtable = kHeadVtable;
+    lanes_.make_head();
     observer_count_ = 0;
     auto* sentinel = static_cast<void**>(memory::alloc(0xC));
     if (sentinel) {
@@ -112,12 +98,11 @@ AnimBlenderComponent::AnimBlenderComponent()
 // 0x0041A4C0 (0x0041A610 the deleting one)
 AnimBlenderComponent::~AnimBlenderComponent()
 {
-    reinterpret_cast<ListHead*>(&lanes_)->delete_all_nodes();
+    lists::delete_each<Channel>(&lanes_, [](Channel* channel) { channel->teardown(1); }); // (0x0057A2F0)
     auto** sentinel = static_cast<void**>(observers_);
     for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
          node = static_cast<void**>(node[1])) {
-        if (node[0])
-            Virtual<void*>(node[0], 0, 1u);
+        delete static_cast<BlendObserver*>(node[0]);
     }
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
     for (int pass = 0; pass < 2; ++pass) {
@@ -129,7 +114,7 @@ AnimBlenderComponent::~AnimBlenderComponent()
                         reinterpret_cast<objects::PointerListNode*>(head));
     }
     memory::Hub::get_pull()->dealloc(observers_);
-    lanes_.unlink_as(vt::kBlenderChannelNode);
+    lanes_.uncouple(); // (0x00419D70)
 }
 
 // 0x0041A260 (the 0xCE0CA665 component's answer goes to each channel as a dword whose high byte, as in the
@@ -144,19 +129,19 @@ void AnimBlenderComponent::tick_frame()
     if (!channel)
         return;
     do {
-        if (!(prop<float>(channel, 0x30) >= kMinWeight) && count != 0) {
+        if (!(std::bit_cast<float>(channel->ongoing_) >= kMinWeight) && count != 0) {
             // a channel after the first with (next to) no weight: only reset
             channel->update_blend();
             channel->update_timelines();
-            gfx::g_blend_sets[count] = prop<uint32_t>(channel, 0x2C);
+            gfx::g_blend_sets[count] = static_cast<uint32_t>(channel->rank_);
             if (!(highest_set > gfx::g_blend_sets[count]))
                 highest_set = gfx::g_blend_sets[count];
             gfx::g_blend_weights[count] = 0.0f;
         } else {
-            if (Virtual<bool>(channel, 1, count, static_cast<uint32_t>(ready)))
+            if (channel->tick_frame(count, ready))
                 changed = true;
-            gfx::g_blend_weights[count] = prop<float>(channel, 0x30);
-            gfx::g_blend_sets[count] = prop<uint32_t>(channel, 0x2C);
+            gfx::g_blend_weights[count] = std::bit_cast<float>(channel->ongoing_);
+            gfx::g_blend_sets[count] = static_cast<uint32_t>(channel->rank_);
             if (!(highest_set > gfx::g_blend_sets[count]))
                 highest_set = gfx::g_blend_sets[count];
         }
@@ -207,7 +192,7 @@ void AnimBlenderComponent::configure_from_data(script::Struct* params)
     memory::enter_heap_scope(memory::bottom_up_heap());
     memory::ListNode* first = lanes_.next;
     if (!is_over(first)) {
-        Virtual<void>(first, 3, params);
+        as_channel(first)->configure_from_data(params);
         as_channel(first)->set_events_on(true);
     }
     memory::leave_heap_scope();
@@ -217,7 +202,7 @@ void AnimBlenderComponent::configure_from_data(script::Struct* params)
 void AnimBlenderComponent::seal()
 {
     for (memory::ListNode* node = lanes_.next; !is_over(node); node = node->next)
-        Virtual<void>(node, 2);
+        as_channel(node)->seal();
     bone_rig_ = entity_->fetch_module(0x222756D5);
     mesh_instance_ = entity_->fetch_module(0x286A8D26);
     component18_ = entity_->fetch_module(0xCE0CA665);
@@ -228,7 +213,7 @@ void AnimBlenderComponent::step_wait_state(script::Script* script, uint32_t id)
 {
     for (memory::ListNode* node = lanes_.next; !is_over(node); node = node->next) {
         if (ident_no(as_channel(node)) == id)
-            Virtual<void>(node, 6, script);
+            as_channel(node)->release_waiting_script(script);
     }
 }
 
@@ -249,8 +234,8 @@ int AnimBlenderComponent::add_channel_from_script(uint32_t, script::Struct* para
     params->put_name_key(0x52A864B0, first->lookup_key_);
     bool at_front = params->has_bare_flag(0x580C0963);
     Channel* channel = add_channel(id, at_front);
-    Virtual<void>(channel, 3, params);
-    Virtual<void>(channel, 2);
+    channel->configure_from_data(params);
+    channel->seal();
     return 1;
 }
 
@@ -282,7 +267,7 @@ int AnimBlenderComponent::remove_channel(uint32_t, script::Struct* params, scrip
             return 1;
         channel = as_channel(next);
     }
-    Virtual<void*>(channel, 0, 1u);
+    channel->teardown(1);
     return 1;
 }
 
@@ -349,7 +334,7 @@ int AnimBlenderComponent::pass_to_channel(uint32_t name, script::Struct* params,
         if (flip >= 0)
             channel->set_flipped(entity_->ident_, bool_arg(static_cast<uint32_t>(flip)), 0u, bool_arg(0u));
     }
-    return Virtual<int>(channel, 4, name, params, script);
+    return channel->invoke_method_by_name(name, params, script);
 }
 
 // 0x00419D40
@@ -368,7 +353,7 @@ gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
     void* memory = memory::alloc_zeroed(0x74);
     Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, false) : nullptr;
     ident_no(channel) = id;
-    Virtual<void>(channel, 2);
+    channel->seal();
     memory::ListNode* link = get_link(channel);
     if (at_front) {
         link->prev = &lanes_;
@@ -390,7 +375,7 @@ void AnimBlenderComponent::notify_observers(gfx::Stance* pose)
     auto** sentinel = static_cast<void**>(observers_);
     for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
          node = static_cast<void**>(node[1]))
-        Virtual<void>(node[0], 1, pose);
+        static_cast<BlendObserver*>(node[0])->on_pose(pose);
 }
 
 // 0x004199C0
@@ -419,7 +404,7 @@ void AnimBlenderComponent::reset_channels()
     while (node) {
         memory::ListNode* next = node->next;
         memory::ListNode* following = is_head(next) ? nullptr : next;
-        Virtual<void*>(node, 0, 1u);
+        as_channel(node)->teardown(1);
         node = following;
     }
 }
@@ -440,7 +425,7 @@ bool AnimBlenderComponent::all_channels_flag29()
 {
     bool all = true;
     for (memory::ListNode* node = lanes_.next; !is_over(node); node = node->next)
-        all = all && ((prop<uint32_t>(node, 0x54) >> 29) & 1);
+        all = all && ((as_channel(node)->flag_bits_ >> 29) & 1);
     return all;
 }
 
@@ -523,7 +508,7 @@ uint32_t AnimBlenderComponent::get_anim_set()
 uint32_t AnimBlenderComponent::get_first_channel58()
 {
     Channel* channel = masked(lanes_.next);
-    return channel ? prop<uint32_t>(channel, 0x58) : 0;
+    return channel ? channel->event_table_ : 0;
 }
 
 // 0x00419AF0
@@ -553,10 +538,10 @@ float AnimBlenderComponent::get_timeline18()
     Channel* channel = masked(lanes_.next);
     if (!channel)
         return 0.0f;
-    auto* timeline = prop<memory::ListNode*>(channel, 0x20);
+    memory::ListNode* timeline = channel->timelines_.next;
     if (is_over(timeline))
         return 0.0f;
-    return prop<float>(timeline, 0x18);
+    return static_cast<gfx::AnimTimeline*>(timeline->data)->ongoing_;
 }
 
 // 0x0041A0A0
@@ -565,10 +550,10 @@ uint32_t AnimBlenderComponent::get_timeline30()
     Channel* channel = masked(lanes_.next);
     if (!channel)
         return 0;
-    auto* timeline = prop<memory::ListNode*>(channel, 0x20);
+    memory::ListNode* timeline = channel->timelines_.next;
     if (is_over(timeline))
         return 0;
-    return prop<uint32_t>(timeline, 0x30);
+    return static_cast<gfx::AnimTimeline*>(timeline->data)->anim_;
 }
 
 // 0x0041A0E0
@@ -578,33 +563,12 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
     if (!channel)
         return;
     float s = 0.0f, c = 0.0f, e = 0.0f;
-    auto* timeline = prop<memory::ListNode*>(channel, 0x20);
+    memory::ListNode* timeline = channel->timelines_.next;
     if (!is_over(timeline))
-        reinterpret_cast<gfx::AnimTimeline*>(timeline)->get_times(&s, &c, &e);
+        static_cast<gfx::AnimTimeline*>(timeline->data)->get_times(&s, &c, &e);
     *start = s;
     *current = c;
     *end = e;
-}
-
-// 0x00419D70
-void BlendChannelLinks::destroy_body() { chain_link_.unlink_as(vt::kBlenderChannelNode); }
-
-// 0x00419D90
-BlendChannelLinks* BlendChannelLinks::destroy_node(unsigned int flags)
-{
-    chain_link_.unlink_as(vt::kBlenderChannelNode);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x0041A170
-BlendChannelLinks* BlendChannelLinks::destroy_head(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00419CF0
@@ -613,9 +577,9 @@ void BlendChannelLinks::get_times(float* start, float* current, float* end)
     *start = 0.0f;
     *current = 0.0f;
     *end = 0.0f;
-    auto* timeline = prop<memory::ListNode*>(this, 0x20);
+    memory::ListNode* timeline = timelines_.next;
     if (!is_over(timeline))
-        reinterpret_cast<gfx::AnimTimeline*>(timeline)->get_times(start, current, end);
+        static_cast<gfx::AnimTimeline*>(timeline->data)->get_times(start, current, end);
 }
 
 // 0x004196B0
@@ -624,13 +588,4 @@ float __cdecl larger_of(float a, float b) { return a > b ? a : b; }
 // 0x0041A680
 maths::Vec4 VectorAt1c::get_pull() const { return vector_; }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_head_vtable_slots[] = {&objects::BlendChannelLinks::destroy_head};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-
-} // namespace
 } // namespace objects

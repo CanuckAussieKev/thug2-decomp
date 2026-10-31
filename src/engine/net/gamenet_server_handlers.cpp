@@ -328,7 +328,7 @@ int __cdecl on_peer_left_msg(net::InboundMsgCtx* context)
         return kKeep;
     }
     // Not a player yet: one of the new players waiting to be added - dropped with its connection.
-    auto* node = prop<memory::ListNode*>(manager, 0x13C); // (the new players' list, its first node)
+    auto* node = prop<memory::ListNode>(manager, 0x130).next; // (the new players' list, its first node)
     if (node->data == reinterpret_cast<void*>(-1))
         return kHalt;
     for (; node;) {
@@ -336,7 +336,7 @@ int __cdecl on_peer_left_msg(net::InboundMsgCtx* context)
         auto* info = static_cast<uint8_t*>(node->data);
         if (prop<net::Conn*>(info, 0x14) == context->sender_conn_) {
             context->receiver_app_->sever_link(prop<net::Conn*>(info, 0x14));
-            reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1); // the node deleted
+            memory::ListNode::destroy(node); // the node deleted
             reinterpret_cast<JoinerRecord*>(info)->destroy_body();
             memory::Hub::get_pull()->dealloc(info);
             return kKeep;

@@ -46,11 +46,6 @@ void unlink_node(memory::ListNode* node)
 
 } // namespace
 
-static VtableSlot g_buddy_node_vtable_slots[] = {&online::BuddyNode::teardown};
-void** const kBuddyNodeVtable = reinterpret_cast<void**>(g_buddy_node_vtable_slots);
-static VtableSlot g_message_node_vtable_slots[] = {&online::BuddyMessageNode::teardown};
-void** const kMessageNodeVtable = reinterpret_cast<void**>(g_message_node_vtable_slots);
-
 // 0x00548100
 void __cdecl FriendsManager::on_buddy_request(void* connection, const void* arg, FriendsManager* man)
 {
@@ -118,37 +113,6 @@ void FriendsManager::change_standing(int status, const char* text, const char* l
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     game_spy::gp_set_status(this, status, text, location); // (gpSetStatus)
     ram_stats()->leave_heap_scope();
-}
-
-// --- The list types ---
-
-// 0x005484A0 / 0x005484E0
-void BuddyNode::destroy_body()
-{
-    vtable = kBuddyNodeVtable;
-    unlink_node(this);
-}
-BuddyNode* BuddyNode::teardown(unsigned int flags)
-{
-    vtable = kBuddyNodeVtable;
-    unlink_node(this);
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-// 0x005484C0 / 0x00548520
-void BuddyMessageNode::destroy_body()
-{
-    vtable = kMessageNodeVtable;
-    unlink_node(this);
-}
-BuddyMessageNode* BuddyMessageNode::teardown(unsigned int flags)
-{
-    vtable = kMessageNodeVtable;
-    unlink_node(this);
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
 }
 
 // --- The folded getters ---

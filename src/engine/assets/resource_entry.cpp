@@ -5,56 +5,16 @@
 #include "engine/assets/resource_entry.h"
 
 #include "engine/core/manager.h"
-#include "engine/core/code_address.h"
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
 #include "engine/script/node_manager.h"
 
 namespace assets {
 
-namespace {
-
-extern void** const kDependentNodeVtable; // lists::Elem<Resource>
-extern void** const kDependentHeadVtable; // lists::Foremost<Resource>
-
-// The destructors behind the dependents list's vtables.
-struct DependentNode : memory::ListNode {
-    // 0x004077B0
-    void destroy_body() { unlink_as(kDependentNodeVtable); }
-    // 0x004077D0 (scalar deleting; the body inlined)
-    DependentNode* teardown(uint8_t flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-    // 0x004078E0: the head's scalar deleting destructor (the node's body).
-    DependentNode* destroy_head(uint8_t flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-};
-
-static VtableSlot g_dependent_node_vtable_slots[] = {&assets::DependentNode::teardown};
-void** const kDependentNodeVtable = reinterpret_cast<void**>(g_dependent_node_vtable_slots); // lists::Elem<Resource>
-static VtableSlot g_dependent_head_vtable_slots[] = {&assets::DependentNode::destroy_head};
-void** const kDependentHeadVtable =
-    reinterpret_cast<void**>(g_dependent_head_vtable_slots); // lists::Foremost<Resource>
-
-} // namespace
-
 // 0x00407910
 Resource::Resource()
 {
-    dependents_.data = reinterpret_cast<void*>(-1);
-    dependents_.priority = 0;
-    dependents_.next = &dependents_;
-    dependents_.prev = &dependents_;
-    dependents_.vtable = kDependentHeadVtable;
+    dependents_.make_head();
     bundle_ = nullptr;
     cur_phase_ = kUnloaded;
     file_ref_ = nullptr;
@@ -64,7 +24,7 @@ Resource::Resource()
 }
 
 // 0x00407810
-Resource::~Resource() { dependents_.unlink_as(kDependentNodeVtable); }
+Resource::~Resource() { dependents_.uncouple(); }
 
 // 0x004075F0
 int Resource::load_from_buffer(void*, uint32_t, bool, void*, void*)
@@ -181,14 +141,7 @@ bool Resource::set_aborted()
 // 0x00407840
 void Resource::add_dependent(Resource* asset)
 {
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->vtable = kDependentNodeVtable;
-        node->data = asset;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    memory::ListNode* node = memory::ListNode::create(asset);
     node->prev = dependents_.prev;
     node->next = &dependents_;
     dependents_.prev->next = node;
@@ -204,7 +157,7 @@ void Resource::remove_dependent(Resource* asset)
     while (node) {
         memory::ListNode* next = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
         if (node->data == asset) {
-            reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
+            memory::ListNode::destroy(node); // (0x004077D0)
             return;
         }
         node = next;

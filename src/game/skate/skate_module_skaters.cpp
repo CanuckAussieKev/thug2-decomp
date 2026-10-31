@@ -237,7 +237,7 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         stat_goal_params_ref() = spawn_param_table();
         skater->write_list_44b_66a_9f(stat_goal_params_ref());
     }
-    unlink_skater_node(static_cast<memory::ListNode*>(skater->get_block238()));
+    unlink_skater_node(skater->get_skater_link());
     delete skater;
 }
 
@@ -259,7 +259,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
                 if (skater->ident_ == id)
                     return skater;
                 // The local skater given the new id (its place in the list by it, its particles, its score's).
-                auto* node = static_cast<memory::ListNode*>(skater->get_block238());
+                auto* node = skater->get_skater_link();
                 node->priority = static_cast<int>(id);
                 unlink_skater_node(node);
                 reinterpret_cast<lists::Foremost*>(&riders_)->insert_by_unique_order(node);
@@ -296,7 +296,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     }
     if (!skater->unknownbc_)
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
-    auto* node = static_cast<memory::ListNode*>(skater->get_block238());
+    auto* node = skater->get_skater_link();
     node->priority = static_cast<int>(skater->ident_);
     reinterpret_cast<lists::Foremost*>(&riders_)->insert_by_unique_order(node);
     bind_controllers();
@@ -983,11 +983,7 @@ void __cdecl Skate::front_end_tick(tasks::Task<Skate>* task)
 // 0x00568DE0
 Skate::Skate()
 {
-    riders_.list_link_.data = reinterpret_cast<void*>(-1);
-    riders_.list_link_.priority = 0;
-    riders_.list_link_.next = &riders_.list_link_;
-    riders_.list_link_.prev = &riders_.list_link_;
-    riders_.list_link_.vtable = kSkaterHeadVtable;
+    riders_.list_link_.make_head();
     watch_for_unplug_ = false;
     unplugged_frames_ = 0;
     update_job_ = new tasks::Task<Skate>(&front_end_tick, this, 0);
@@ -1058,25 +1054,7 @@ Skate::~Skate()
         script->teardown();
         script::Script::operator delete(script);
     }
-    skater_head_destroy_body(&riders_.list_link_);
-}
-
-// 0x00565750: the skater list's node's scalar deleting destructor (lists::Elem<Rider>, vtable 0x0064E544).
-memory::ListNode* __fastcall Skate::destroy_skater_node(memory::ListNode* node, int, uint8_t flags)
-{
-    node->unlink_as(kSkaterNodeVtable);
-    if (flags & 1)
-        memory::dealloc(node);
-    return node;
-}
-
-// 0x00565FC0: the skater list's head's (lists::Foremost<Rider>, vtable 0x0064E5D4).
-memory::ListNode* __fastcall Skate::destroy_skater_head(memory::ListNode* head, int, uint8_t flags)
-{
-    skater_head_destroy_body(head);
-    if (flags & 1)
-        memory::dealloc(head);
-    return head;
+    riders_.list_link_.uncouple(); // (0x00565730)
 }
 
 // 0x00569580 / 0x00569590: around the network manager's queued scripts.

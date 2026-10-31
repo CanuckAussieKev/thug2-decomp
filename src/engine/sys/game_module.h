@@ -38,15 +38,15 @@ public:
     int queued_op_; // +0x08 (not set by the constructor)
     bool locked_;   // +0x0C: the manager neither starts nor stops it
     uint8_t pad0d_[3];
-    memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>, vtable 0x00647284)
+    memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>)
 };
 static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
               offsetof(PartUnit, list_link_) == 0x10);
 
 struct Hub {
     tasks::Task<Hub>* task_;   // priority -1000, running tick_modules
-    memory::ListNode modules_; // +0x04: the list's head (lists::Foremost<Module>, vtable 0x00647288)
-    bool command_pending_;     // +0x18: a module was given a command since the task last ran
+    memory::ListNode modules_; // +0x04: the list's head (lists::Foremost<Module>)
+    bool command_pending_;     // +0x14 (the original's +0x18): a module was given a command since the task last ran
 
     // 0x0044F5E0: the empty list and the task (not added to a task list here). Returns this.
     Hub* make_new();
@@ -67,22 +67,13 @@ struct Hub {
     // kRestart - and the command cleared.
     static void __cdecl tick_modules(tasks::Task<Hub>* task);
 };
-static_assert(sizeof(Hub) == 0x1C && offsetof(Hub, command_pending_) == 0x18);
+static_assert(sizeof(Hub) == 0x18 && offsetof(Hub, command_pending_) == 0x14,
+              "the original's 0x1C less the head's table word");
 
 // The singleton (0x00696D78, references 0x00696D7C). 0x0044F6F0: the first call with `create` makes it, every call
 // takes a reference and returns it (null if there is none).
 Hub* create_manager(bool create);
 // 0x0044F740: drops a reference; the last one destroys and frees the manager.
 void release_manager();
-
-// The destructors of the module list's types (each Lst type has its own vtable).
-struct ModuleListDestructors {
-    // 0x0044F360 / 0x0044F380: lists::Elem<Module>'s (unlinked; the scalar deleting one frees it if flags & 1).
-    void node_destroy_body();
-    memory::ListNode* node_destroy(unsigned int flags);
-    // 0x0044F410: lists::Foremost<Module>'s scalar deleting destructor (the node's body, then freed if flags & 1).
-    memory::ListNode* head_destroy(unsigned int flags);
-    // (lists::Hunt<Module>'s, 0x0044F300 / 0x0044F330 - vtable 0x00647280 - only reset its vtable: not kept.)
-};
 
 } // namespace modules

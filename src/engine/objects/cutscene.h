@@ -16,6 +16,7 @@ class Array;
 class Struct;
 } // namespace script
 #include "engine/file/asset_bundle.h"
+#include "engine/objects/node_objects.h"
 
 namespace objects {
 
@@ -223,48 +224,42 @@ public:
     script::Struct* call_args_; // +0x34CC
 };
 
-// The cutscene kind of the movie manager's movie details (vtable 0x00647920).
-class CinematicEntry {
+// The cutscene kind of the movie manager's movies (vtable 0x00647920).
+class CinematicEntry final : public VideoEntry {
 public:
-    // 0x00463A50 (vtable slot 11): virtual slot 12 with whether +0x5D is clear.
-    void call_slot12_with_not_flag_5d();
-    // 0x00463A60 (vtable slot 13): while +0x60 is -1, virtual slot 12 with 0 if +0x5D is set; else with 1, then
-    // +0x60 takes the global integer 0xA2A4F02F.
-    void update_slot12();
-    // 0x00464580 (vtable slot 9): whether the loaded cutscene may be skipped (false if none is loaded).
-    bool can_be_skipped();
-    // 0x00467F30 (vtable slot 0): the scalar deleting destructor.
-    CinematicEntry* teardown(unsigned int flags);
-    // 0x00467F60 (vtable slot 2): once loaded: the begin script (once), then the cutscene played - or, with +0x5D,
-    // only its clock and objects; +0x60 counts down to a call of slot 12.
-    void tick_frame();
-    // 0x00468040 (vtable slot 5): done (the movie details' flag, or the cutscene loaded and at its end).
-    bool is_finished();
-    // 0x004680B0 (vtable slot 7): a skater cutscene loaded with its music started.
-    bool is_ready();
+    // 0x00466490: the movie's constructor, then the cutscene's: no data, a parameters structure, the three settings
+    // (the third's low byte: whether it owns its data).
+    explicit CinematicEntry(const uint32_t* settings);
+    // 0x00466560 (0x00467F30 the deleting one): the parameters freed; when it owns its data, the data's asset unloaded
+    // (0x00407B90 / 0x00407B20) and 0x0048E970 / 0x0048E990 given back the three values; then the movie's.
+    ~CinematicEntry() override;
 
-    // 0x00466490 (returns this): the movie details' constructor, then the cutscene's: no data, a parameters
-    // structure, the three settings (the third's low byte: whether it owns its data).
-    CinematicEntry* make_new(const uint32_t* settings);
-    // 0x00466620 (vtable slot 1): the cutscene named by 0xA1DC81F9 set up: an asset found by name, or (when it
-    // owns its data) its bundle loaded with the loading screen up and the music muted (start time / loop length
-    // in milliseconds, subtitles from <name>_subtitles). Whether it's there.
-    bool configure_from_data(script::Struct* params);
-    // 0x00466A10 (vtable slot 8): the cutscene over: its objects (or its asset, heaps, the music...) dropped and its
-    // end scripts run.
-    void get_end();
-    // 0x00466560: the destructor body: the parameters freed; when it owns its data, the data's asset unloaded
-    // (0x00407B90 / 0x00407B20) and 0x0048E970 / 0x0048E990 given back the three values; the movie details'.
-    void destroy_body();
+    // 0x00466620 (slot 1): the cutscene named by 0xA1DC81F9 set up: an asset found by name, or (when it owns its
+    // data) its bundle loaded with the loading screen up and the music muted (start time / loop length in
+    // milliseconds, subtitles from <name>_subtitles). Whether it's there.
+    bool read_in(script::Struct* params) override;
+    // 0x00467F60 (slot 2): once loaded: the begin script (once), then the cutscene played - or, with +0x5D, only its
+    // clock and objects; +0x60 counts down to a call of slot 12.
+    void tick_frame() override;
+    // Slot 3 (the shared "true").
+    bool kickoff() override { return true; }
+    // 0x00468040 (slot 5): done (the movie's flag, or the cutscene loaded and at its end).
+    bool is_finished() override;
+    // Slot 6 (the shared "false").
+    bool is_held_and_complete() override { return false; }
+    // 0x004680B0 (slot 7): a skater cutscene loaded with its music started - its camera is the one to show.
+    bool has_camera() override;
+    // 0x00466A10 (slot 8): the cutscene over: its objects (or its asset, heaps, the music...) dropped and its end
+    // scripts run.
+    void stop() override;
+    // 0x00464580 (slot 9): whether the loaded cutscene may be skipped (false if none is loaded).
+    bool can_be_skipped() override;
+    // 0x00463A50 (slot 11): slot 12 with whether +0x5D is clear.
+    void push_option_state() override;
+    // 0x00463A60 (slot 13): while +0x60 is -1, slot 12 with 0 if +0x5D is set; else with 1, then +0x60 takes the
+    // global integer 0xA2A4F02F.
+    void update_option_state() override;
 
-    void** vtable_;
-    uint8_t unknown4_[0x10];
-    void* viewer_; // +0x14 (the movie details')
-    bool flag18_;  // +0x18
-    bool flag19_;
-    bool is_finished_; // +0x1A
-    bool flag_1b_;
-    uint8_t unknown1c_[0x10];
     CinematicTable* content_; // +0x2C
     uint32_t asset_;          // +0x30
     uint32_t begin_script_;   // +0x34: the cutscene's name + "_begin"

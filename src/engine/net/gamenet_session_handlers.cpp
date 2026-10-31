@@ -591,8 +591,8 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
             server->send_bulk_message(player_handle(player), kMsgGoalsData, size, goals, "goals data", kGroupGame,
                                       false, true);
         }
-        // The scripts spawned so far (the list at +0x150): 0x49 each.
-        auto* node = prop<memory::ListNode*>(manager, 0x150);
+        // The scripts spawned so far (the list at +0x144): 0x49 each.
+        auto* node = prop<memory::ListNode>(manager, 0x144).next; // (the queued scripts' first node)
         node = node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
         for (auto* item = node ? static_cast<uint8_t*>(node->data) : nullptr; item;) {
             desc.make_new();

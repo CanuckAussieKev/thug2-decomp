@@ -198,7 +198,7 @@ void Rider::sparks_off()
 maths::Mat4* Rider::get_draw_matrix() { return reinterpret_cast<maths::Mat4*>(core_physics_ + 0x18); }
 
 // 0x00580040 / 0x00580050
-void* Rider::get_block238() { return block238_; }
+memory::ListNode* Rider::get_skater_link() { return &skater_link_; }
 bool Rider::get_flag_2c_4() { return flag_2c_4_; }
 
 // 0x00580060
@@ -1213,13 +1213,8 @@ void Rider::launch_projectile()
 // 0x00582D90
 Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int /*unused*/)
 {
-    // Its node in the skater list (lists::Elem: vtable, data, priority, next, prev).
-    auto* node = reinterpret_cast<uint32_t*>(block238_);
-    node[0] = reinterpret_cast<uint32_t>(modules::kSkaterNodeVtable);
-    node[1] = reinterpret_cast<uint32_t>(this);
-    node[2] = 0;
-    node[3] = reinterpret_cast<uint32_t>(node);
-    node[4] = reinterpret_cast<uint32_t>(node);
+    // Its node in the skater list (lists::Elem<Rider>).
+    skater_link_.make_node(this);
     unknownbc_ = local;
     add_base_components(this);
     kind_tag_ = 0xBAF9B341;
@@ -1613,12 +1608,7 @@ Rider::~Rider()
             camera->flag_as_dead();
     }
     // Out of the skater list.
-    auto* node = reinterpret_cast<uint32_t*>(block238_);
-    node[0] = reinterpret_cast<uint32_t>(modules::kSkaterNodeVtable);
-    reinterpret_cast<uint32_t*>(node[4])[3] = node[3];
-    reinterpret_cast<uint32_t*>(node[3])[4] = node[4];
-    node[3] = reinterpret_cast<uint32_t>(node);
-    node[4] = reinterpret_cast<uint32_t>(node);
+    skater_link_.uncouple();
     // (then shown_name_'s destructor and GameEntity's)
 }
 

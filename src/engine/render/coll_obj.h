@@ -135,16 +135,8 @@ protected:
 };
 static_assert(sizeof(HitMesh) == 0x10 && offsetof(HitMesh, checksum_) == 4, "layout must match the original");
 
-// The node vtable of the lists of collision objects (lists::Elem<HitMesh>, 0x00645AA0) and their heads'
-// (lists::Foremost<HitMesh>, 0x00645D34).
-struct CollObjListNodes {
-    // 0x004131D0: unlinked (lists::Elem<HitMesh>'s body). 0x00411880: its scalar deleting destructor.
-    void destroy_node_body();
-    memory::ListNode* destroy_node(uint8_t flags);
-    // 0x00413180: an empty head (returns it). 0x004131A0: its scalar deleting destructor (the node's body).
-    memory::ListNode* construct_head();
-    memory::ListNode* destroy_head(uint8_t flags);
-};
+// (The lists of collision objects: lists::Elem<HitMesh>'s destructors 0x004131D0 / 0x00411880, the heads' constructor
+// 0x00413180 and scalar deleting destructor 0x004131A0 - memory::ListNode's make_head / uncouple / destroy.)
 
 // A collision object made of others (0x3C bytes, the original's vtable 0x00645AA8): its children in a list; most
 // calls are passed to each; its box is theirs together (recomputed when a child moves).

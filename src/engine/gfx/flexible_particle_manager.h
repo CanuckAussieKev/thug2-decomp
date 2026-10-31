@@ -20,7 +20,7 @@ struct FlexibleParticleManager : memory::HeapObject {
     memory::Arena* arena_;          // "FlxParticles"
     memory::Zone* temp_region_;     //
     memory::Arena* temp_heap_;      // "TEMPFlxPrtcl": systems are made on it while it's there
-    memory::ListNode* systems_ptr_; // the list's head (lists::Foremost<EmitterInstance>, vtable 0x006494C4)
+    memory::ListNode* systems_ptr_; // the list's head (lists::Foremost<EmitterInstance>)
     float colour_scale_[4];         // the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
@@ -65,11 +65,8 @@ struct FlexibleParticleManager : memory::HeapObject {
     // camera first (the difference of the squared distances, truncated), else the higher priority (+0x124) first.
     static int __cdecl compare_distance(const void* a, const void* b);
 };
-// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (lists::Foremost<EmitterInstance>) destroyed - the
-// node's body 0x00496D10 -, freed with flags & 1. Returns it.
-struct ParticleSystemListHead {
-    memory::ListNode* teardown(unsigned int flags);
-};
+// (0x0049AEF0, the list head's scalar deleting destructor - the node's body 0x00496D10, freed - is
+// memory::ListNode::destroy.)
 
 extern float g_frame_time_scale;
 extern int g_drawn_viewport;

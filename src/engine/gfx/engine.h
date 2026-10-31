@@ -15,14 +15,8 @@ namespace render {
 
 struct WorldScene;
 
-// A loaded scene's node in the engine's list (lists::Elem<WorldScene>, 0x14 bytes, vtable 0x00648A38; data = the scene).
-// The list's head is at 0x006FA7E0 (its data -1).
-struct SceneNode : memory::ListNode {
-    // 0x0048C4B0: the destructor body: out of the list (and linked to itself).
-    void destroy_body();
-    // 0x0048C4D0: the scalar deleting destructor (vtable slot 0). Returns this.
-    SceneNode* teardown(unsigned int flags);
-};
+// (A loaded scene's node in the engine's list - lists::Elem<WorldScene>, data = the scene; the list's head is at
+// 0x006FA7E0, its data -1 - is a memory::ListNode: its destructors 0x0048C4B0 / 0x0048C4D0 are uncouple / destroy.)
 
 namespace engine {
 
@@ -59,8 +53,6 @@ void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int
                                      int unused5, uint32_t unused6, uint32_t unused7);
 // 0x0048C390: a level's scene file name, "levels\<name>\<name>.scn.<platform>". The third argument isn't used.
 void __cdecl build_scene_file_path(char* out, const char* name, uint32_t unused);
-// 0x0048C3C0: an engine object deleted (a compiled-out call, then delete_model_lights' virtual delete). Its result.
-bool __cdecl delete_geom_object(void* object);
 // 0x0048C3D0: a model's mesh loaded from "<name>.skin.<platform>" (a name with ".skin") or "<name>.mdl.<platform>"
 // (lower case). The last three arguments are passed on (the mesh load reads only the name and textures).
 void* __cdecl load_model_file(const char* file_name, void* textures, int tex_dict_offset, bool shadow_volume);

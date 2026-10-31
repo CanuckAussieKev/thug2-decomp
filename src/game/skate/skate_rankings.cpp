@@ -51,17 +51,10 @@ bool is_crown_rule_active()
 using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
-// The ranking's list (lists::Foremost<ScoreEntry>, the entries' vtable 0x0064CCF8): highest priority (score) first.
+// The ranking's list (lists::Foremost<ScoreEntry>): highest priority (score) first.
 struct RankingList {
     memory::ListNode head_;
-    RankingList()
-    {
-        head_.vtable = online::kScoreEntryVtable;
-        head_.data = reinterpret_cast<void*>(-1);
-        head_.priority = 0;
-        head_.next = &head_;
-        head_.prev = &head_;
-    }
+    RankingList() { head_.make_head(); }
     ~RankingList()
     {
         head_.prev->next = head_.next; // (the head out of the list: as its destructor)
@@ -80,17 +73,10 @@ online::ScoreEntry* new_entry()
     auto* entry = static_cast<online::ScoreEntry*>(memory::alloc_zeroed(sizeof(online::ScoreEntry)));
     if (!entry)
         return nullptr;
-    entry->data = entry;
-    entry->priority = 0;
-    entry->next = entry;
-    entry->prev = entry;
-    entry->vtable = online::kScoreEntryVtable;
+    entry->make_node(entry);
     return entry;
 }
-void delete_entry(online::ScoreEntry* entry)
-{
-    reinterpret_cast<void(__thiscall*)(online::ScoreEntry*, int)>(entry->vtable[0])(entry, 1);
-}
+void delete_entry(online::ScoreEntry* entry) { entry->teardown(1); }
 
 script::Struct* spawn_param_table()
 {

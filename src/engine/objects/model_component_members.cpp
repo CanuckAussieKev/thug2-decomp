@@ -119,10 +119,7 @@ void change_ambient_tint(void* lights, const uint8_t* rgba)
 {
     static_cast<render::ModelLights*>(lights)->change_ambient_tint(reinterpret_cast<const uint32_t*>(rgba));
 }
-void enable_ambient(void* lights, bool on)
-{
-    static_cast<render::ModelLights*>(lights)->switch_ambient_light(on);
-}
+void enable_ambient(void* lights, bool on) { static_cast<render::ModelLights*>(lights)->switch_ambient_light(on); }
 void change_diffuse_hue(void* lights, int index, const uint8_t* rgba)
 {
     static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, reinterpret_cast<const uint32_t*>(rgba));
@@ -522,8 +519,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
 // (no address: the tail jump folded at 0x004E3F90 - model_component_nx.h)
 void __fastcall model_nx::set_lights_direction(void* lights, void*, int index, const maths::Vec4* direction)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int, const maths::Vec4*)>((*static_cast<void***>(lights))[2])(
-        lights, index, direction);
+    static_cast<render::ModelLights*>(lights)->put_light_aim(index, direction); // (the original's slot 2)
 }
 
 } // namespace objects

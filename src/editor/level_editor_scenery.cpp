@@ -33,7 +33,6 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/render_state.h"
@@ -167,14 +166,14 @@ namespace {
 constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
 constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
 
-// The scenes (0x006FA7EC's list: nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1), skies left
+// The scenes (0x006FA7EC's list: nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1), skies left
 // out (+0x8D: drawn in the sky pass).
 struct SceneNode {
-    uint32_t unknown0;
     uint8_t* scene;
-    uint32_t unknown8;
+    int priority;
     SceneNode* next;
 };
+static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 
 template <typename F>

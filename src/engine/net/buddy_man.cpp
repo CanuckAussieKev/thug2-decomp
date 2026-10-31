@@ -54,11 +54,6 @@ namespace {
 using detail::delete_params;
 using detail::new_params;
 
-static VtableSlot g_buddy_vtable_slots[] = {&online::Buddy::teardown};
-void** const kBuddyVtable = reinterpret_cast<void**>(g_buddy_vtable_slots); // lists::Elem<Buddy> (Buddy)
-static VtableSlot g_message_vtable_slots[] = {&online::FriendNote::teardown};
-void** const kMessageVtable = reinterpret_cast<void**>(g_message_vtable_slots); // lists::Elem<FriendNote>
-
 constexpr int kMaxBuddies = 30;             // BuddyListFull
 constexpr int kMaxMessages = 20;            // more than this waiting: new ones are dropped
 constexpr uint32_t kLoginTimeout = 10000;   // ms
@@ -167,8 +162,8 @@ struct GpRecvBuddyMessageArg {
 // 0x005482A0: logged in as `profile` (state 4, the status set online).
 void mark_friend_online(FriendsManager* man, int profile) { man->change_online_flag(profile); }
 // 0x005484A0 / 0x005484C0: lists::Elem<Buddy> / lists::Elem<FriendNote>'s destructors (unlinked).
-void destroy_buddy_node(Buddy* buddy) { static_cast<BuddyNode*>(&buddy->list_link_)->destroy_body(); }
-void destroy_message_node(FriendNote* message) { static_cast<BuddyMessageNode*>(&message->list_link_)->destroy_body(); }
+void destroy_buddy_node(Buddy* buddy) { buddy->list_link_.uncouple(); }            // (0x005484A0)
+void destroy_message_node(FriendNote* message) { message->list_link_.uncouple(); } // (0x005484C0)
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
 const void* const kOnBuddyRequest = code_address(FriendsManager::on_buddy_request);
 const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(FriendsManager::login_thread));
@@ -176,29 +171,14 @@ const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(
 void* lobby_peer(void* lobby) { return static_cast<RoomManager*>(lobby)->get_lobby_handle(); }
 uint32_t peer_public_ip(void* peer) { return game_spy::peer_get_public_ip(peer); }
 
-// A node deleted through its vtable (the scalar deleting destructor, slot 0).
-void unlink_list_node(void* node)
+// A buddy or a message deleted (its scalar deleting destructor).
+template <typename Item>
+void unlink_list_node(Item* item)
 {
-    auto* vtable = *static_cast<void***>(node);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
+    item->teardown(1);
 }
 
-void setup_list_sentinel(memory::ListNode* head, void** vtable)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = vtable;
-}
-void init_node(memory::ListNode* node, void** vtable)
-{
-    node->data = node;
-    node->priority = 0;
-    node->next = node;
-    node->prev = node;
-    node->vtable = vtable;
-}
+void init_node(memory::ListNode* node) { node->make_node(node); }
 // `node` at the end of the list.
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
@@ -223,7 +203,7 @@ Buddy* alloc_friend_entry()
 {
     auto* buddy = static_cast<Buddy*>(memory::alloc_zeroed(sizeof(Buddy)));
     if (buddy) {
-        init_node(&buddy->list_link_, kBuddyVtable);
+        init_node(&buddy->list_link_);
         buddy->pending_ = false;
         buddy->cur_standing_ = 0;
         buddy->location_[0] = '\0';
@@ -259,7 +239,7 @@ void parse_location(Buddy* buddy, char* location, bool checked)
 // 0x00548CB0
 FriendNote* FriendNote::make_new()
 {
-    init_node(&list_link_, kMessageVtable);
+    init_node(&list_link_);
     account_ = 0;
     std::snprintf(nick_, sizeof(nick_), "%s", "Proskater");
     text_[0] = '\0';
@@ -287,8 +267,8 @@ FriendNote* FriendNote::teardown(unsigned int flags)
 // 0x0054A480
 FriendsManager* FriendsManager::make_new()
 {
-    setup_list_sentinel(&friends_, kBuddyVtable);
-    setup_list_sentinel(&messages_, kMessageVtable);
+    friends_.make_head();
+    messages_.make_head();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     gp_initialize(this, 0x2880, 0);
     gp_set_callback(this, 0, reinterpret_cast<const void*>(&on_error), this);
@@ -309,8 +289,8 @@ FriendsManager* FriendsManager::make_new()
 void FriendsManager::destroy_body()
 {
     delete task_;
-    messages_.unlink_as(kMessageNodeVtable);
-    friends_.unlink_as(kBuddyNodeVtable);
+    messages_.uncouple();
+    friends_.uncouple();
 }
 
 // 0x0054A1A0

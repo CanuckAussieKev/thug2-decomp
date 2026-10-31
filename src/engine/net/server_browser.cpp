@@ -396,7 +396,7 @@ void __cdecl listing_games_callback(void* peer, int success, const char* name, v
         get_run(kDestroyLobbyServer, params);
         delete_params(params);
         if (HostListing* server = find_by_sb(manager, sb))
-            reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(server->vtable[0])(server, 1);
+            server->teardown(1);
         get_run(kUpdateServerList);
         break;
     }

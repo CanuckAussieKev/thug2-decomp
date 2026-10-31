@@ -69,10 +69,10 @@ static_assert(offsetof(JoinerRecord, account_) == 0x1C && offsetof(JoinerRecord,
                   sizeof(JoinerRecord) == 0x44,
               "layout must match the original");
 
-// A player (0x1F0 bytes; vtable 0x0064CCF4; a node of the manager's player list - lists::Elem<PlayerRecord>, its data
-// itself). Also the players of a server described by the server list (HostListing's player list: only the name and
+// A player (0x1F0 bytes; a node of the manager's player list - lists::Elem<PlayerRecord>, its data itself - whose node
+// keeps the original's size: the net code reads players by byte offset). Also the players of a server described by the server list (HostListing's player list: only the name and
 // the rating are used there).
-class PlayerRecord : public memory::ListNode {
+class PlayerRecord : public memory::PaddedListNode {
 public:
     static constexpr int kMaxPlayers = 8;
 
@@ -82,7 +82,7 @@ public:
     // 0x00543810: the destructor: its profile (destroyed and freed), the observer task (deleted),
     // the face texture message (freed); then the node's (out of its list).
     void destroy_body();
-    // 0x00544750 (vtable slot 0): the scalar deleting destructor.
+    // 0x00544750: the scalar deleting destructor.
     PlayerRecord* teardown(unsigned int flags);
 
     // 0x005438D0: the player's skater; a remote player the camera follows is followed again (0x0053A910).
@@ -217,14 +217,8 @@ static_assert(offsetof(PlayerRecord, skater_) == 0x14 && offsetof(PlayerRecord, 
 // player's +0x108 - +0x147) zeroed. Returns the records.
 void* clear_update_records(void* records);
 
-// The list types of the score lines (score_list.cpp) - their vtables hold only the scalar deleting destructor:
-// lists::Hunt<ScoreEntry> (0x0064CCE0): 0x00543170 the destructor body (the vtable reset), 0x00543580 the scalar
-// deleting one - not kept; lists::Elem<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
-// the scalar deleting ones (inlined / calling it - two node types folded onto one vtable).
-struct ScoreNode : memory::ListNode {
-    void destroy_body();
-    ScoreNode* teardown(unsigned int flags);
-    ScoreNode* destroy_calling(unsigned int flags);
-};
+// (The score lines' list types (score_list.cpp): lists::Hunt<ScoreEntry>'s destructors 0x00543170 / 0x00543580 only
+// reset its table - not kept; lists::Elem<ScoreEntry>'s 0x00544700 (out of its list) and 0x005435B0 / 0x00544720 are
+// ScoreEntry::teardown.)
 
 } // namespace online

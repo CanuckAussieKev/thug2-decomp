@@ -13,6 +13,7 @@
 #include "engine/maths/vec4.h"
 
 namespace script {
+class Script;
 class Struct;
 class Array;
 } // namespace script
@@ -40,18 +41,53 @@ GameEntity* create_game_object_from_node(script::Struct* params);
 // first), else a game object.
 void create_node_object(script::Struct* params);
 
-// The details of a movie the movie manager plays (vtable 0x00647A4C; the cutscene details 0x00647920 derive
-// from it). A list node of itself (lists::Elem<VideoEntry>, vtable 0x00647A48), with a camera.
+// A movie the movie manager plays (the base class, vtable 0x00647A4C): an object or camera animation
+// (anim_movies.h) or a cutscene (cutscene.h). A node of the manager's queue (its list_link_, data = the movie; the
+// original's movie was its own node - the node's table word its vtable - so the node follows the vptr here, in the
+// original's place), with a camera. The virtual functions keep the original's slot order.
 class VideoEntry {
 public:
-    // 0x00468FB0: the constructor (returns this): a list node of itself, no params, flags clear, a new camera.
-    VideoEntry* make_new();
-    // 0x00469230: the destructor body: the params freed, the camera deleted unless a viewport uses it, unlinked.
-    void destroy_body();
-    // 0x004692D0 (vtable slot 0): the scalar deleting destructor.
-    VideoEntry* teardown(unsigned int flags);
-    // 0x00468F70: lists::Elem<VideoEntry>'s scalar deleting destructor (unlinked; the base's vtable).
-    VideoEntry* destroy_node(unsigned int flags);
+    // Zeroed from the current heap (the manager allocated the movies zeroed), given back to it.
+    static void* operator new(std::size_t size) noexcept;
+    static void operator delete(void* memory);
+
+    // 0x00468FB0: a list node of itself, no params, flags clear, a new camera.
+    VideoEntry();
+    // 0x00469230 (0x004692D0 the deleting one; 0x00468F70 the node's): the params freed, the camera deleted unless
+    // a viewport uses it, unlinked.
+    virtual ~VideoEntry();
+    VideoEntry(const VideoEntry&) = delete;
+    VideoEntry& operator=(const VideoEntry&) = delete;
+
+    // Slot 1 (ReadIn; pure in the base): set up from `params`; false: it can't play.
+    virtual bool read_in(script::Struct* params) = 0;
+    // Slot 2 (Update; pure in the base): a frame on.
+    virtual void tick_frame() = 0;
+    // Slot 3 (Start; pure in the base): it starts playing. True.
+    virtual bool kickoff() = 0;
+    // Slot 4: a script member function (the base's 0x004A0CF0: not its own, false).
+    virtual bool invoke_method_by_name(uint32_t /*name*/, script::Struct* /*params*/, script::Script* /*script*/)
+    {
+        return false;
+    }
+    // Slot 5 (pure in the base): whether it's over.
+    virtual bool is_finished() = 0;
+    // Slot 6 (pure in the base): held at its end (flag18_) and complete.
+    virtual bool is_held_and_complete() = 0;
+    // Slot 7 (pure in the base): whether its camera is the one to show.
+    virtual bool has_camera() = 0;
+    // Slot 8 (Stop; the base's: nothing).
+    virtual void stop() {}
+    // Slot 9 (pure in the base): whether it may be skipped.
+    virtual bool can_be_skipped() = 0;
+    // Slot 10: whether its camera is kept for a frame after it ends (the base's: false).
+    virtual bool keeps_camera_after() { return false; }
+    // Slot 11 / 13 (the base's: nothing): the cutscene's option state passed on / brought up to date (the manager's
+    // playing_2c / playing34).
+    virtual void push_option_state() {}
+    virtual void update_option_state() {}
+    // Slot 12: an option (the same do-nothing in every table - the cutscene's slot 11 / 13 and its update call it).
+    void set_unused_option(uint32_t /*value*/) {}
 
     // 0x00469050: name (0x1A005041), its params (0x894FD988, copied), 0x8DDE72C0 / 0xB8CA12C5 (integers as
     // flags), 0xEB300C29 (a flag), from `params`.
@@ -66,20 +102,21 @@ public:
     bool set_flag_1b(uint8_t value);
     bool set_value20(uint32_t value);
 
-    memory::ListNode list_link_; // +0x00 (vtable, data = this, priority 0, links)
+    memory::ListNode list_link_; // +0x04 in the manager's queue (data = this)
     gfx::ViewCam* viewer_;       // +0x14
-    bool flag18_;                // +0x18 (0xEB300C29)
-    uint8_t flag19_;             // +0x19 (0x8DDE72C0; a flag, any byte)
+    bool flag18_;                // +0x18 (0xEB300C29; held at its end)
+    uint8_t flag19_;             // +0x19 (0x8DDE72C0; a flag, any byte: skippable)
     bool is_finished_;           // +0x1A
-    uint8_t flag_1b_;            // +0x1B (a flag, any byte)
+    uint8_t flag_1b_;            // +0x1B (a flag, any byte: plays while paused)
     bool flag_1c_;               // +0x1C (0xB8CA12C5)
     uint8_t unknown1d_[3];
-    uint32_t value20_;     // +0x20
-    uint32_t label_;       // +0x24
-    script::Struct* args_; // +0x28
+    uint32_t value20_;     // +0x20 its name
+    uint32_t label_;       // +0x24 the script run when it ends (0x1A005041)
+    script::Struct* args_; // +0x28 that script's params
 };
-static_assert(offsetof(VideoEntry, viewer_) == 0x14 && offsetof(VideoEntry, flag_1c_) == 0x1C &&
-                  offsetof(VideoEntry, label_) == 0x24 && offsetof(VideoEntry, args_) == 0x28,
+static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == 0x14 &&
+                  offsetof(VideoEntry, flag_1c_) == 0x1C && offsetof(VideoEntry, label_) == 0x24 &&
+                  offsetof(VideoEntry, args_) == 0x28 && sizeof(VideoEntry) == 0x2C,
               "layout must match the original");
 
 // The nodes of one class (0xD18719D5) in a node array, with an optional transform (0x00469300-0x00469492).

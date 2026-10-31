@@ -64,7 +64,8 @@ constexpr uint32_t kQueuedScripts = 0x144;    // PendingScriptItem (a head of it
 constexpr uint32_t kNewPlayerObjectId = 0x10; // JoinerRecord: its object id (a signed byte)
 constexpr uint32_t kNewPlayerConn = 0x14;     // JoinerRecord: its connection
 constexpr uint32_t kPlayerFlags = 0x1D0;      // PlayerRecord: flags
-constexpr uint32_t kSkaterListFirst = 0x34;   // the skate module's skater list's first node (its head is at +0x28)
+constexpr uint32_t kSkaterListFirst =
+    0x30; // the skate module's skater list's first node (its head at +0x28; the original's +0x34)
 
 // Messages.
 constexpr uint8_t kMsgHudNotice = 0x3F;
@@ -178,12 +179,6 @@ void* find_player(Hub* manager, int (PlayerRecord::*test)())
     return nullptr;
 }
 
-// A node deleted through its vtable (slot 0, the scalar deleting destructor).
-void unlink_list_node(memory::ListNode* node)
-{
-    reinterpret_cast<void(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node, 1);
-}
-
 // A joining player's record deleted (JoinerRecord's destructor body 0x00543560, then freed).
 void delete_new_player(void* player)
 {
@@ -204,7 +199,7 @@ void Hub::remove_all_new_players()
         memory::ListNode* next = is_head(node->next) ? nullptr : node->next;
         if (host_)
             host_->sever_link(prop<net::Conn*>(player, kNewPlayerConn));
-        unlink_list_node(node);
+        memory::ListNode::destroy(node); // (0x005367E0)
         if (player)
             delete_new_player(player);
         node = next;
@@ -228,7 +223,7 @@ void Hub::remove_new_player(void* player)
         host_->sever_link(conn);
     else if (conn)
         client_app_->sever_link(conn);
-    unlink_list_node(node);
+    memory::ListNode::destroy(node);
     delete_new_player(player);
 }
 
@@ -411,11 +406,7 @@ void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
     memory->enter_heap_scope(memory->network_heap_);
     auto* queued = static_cast<PendingScriptItem*>(memory::alloc_zeroed(sizeof(PendingScriptItem)));
     if (queued) { // (a null one is written to anyway, as in the original)
-        queued->data = queued;
-        queued->priority = 0;
-        queued->next = queued;
-        queued->prev = queued;
-        queued->vtable = kQueuedScriptVtable;
+        queued->make_node(queued);
     }
     queued->list_link_ = node;
     queued->entity_key_ = object_id;
@@ -435,7 +426,7 @@ void Hub::clear_queued_scripts()
     for (uint8_t* queued = data_of(node); queued;) {
         node = get_next_node(node);
         uint8_t* next = data_of(node);
-        unlink_list_node(reinterpret_cast<memory::ListNode*>(queued));
+        reinterpret_cast<PendingScriptItem*>(queued)->destroy_record(1);
         queued = next;
     }
 }
@@ -463,7 +454,7 @@ void Hub::launch_queued_scripts()
         while (script->tick_frame() != script::kScriptOutcomeFinished) {
         }
         script::kill_spawned_script(script);
-        unlink_list_node(queued);
+        queued->destroy_record(1);
         queued = next;
     }
     get_run(kPostRunQueuedScripts);
@@ -743,14 +734,8 @@ void Hub::add_joining_player(void* message, int timeout)
         prop<int>(record, 0x18) = client_app_->frame_count_ + timeout;
     }
     // Its node, onto the end of the list.
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) { // (a null one is written to anyway, as in the original)
-        node->vtable = kNewPlayerNodeVtable;
-        node->data = record;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    // (a null one is written to anyway, as in the original)
+    memory::ListNode* node = memory::ListNode::create(record);
     node->prev = head->prev;
     node->next = head;
     head->prev->next = node;

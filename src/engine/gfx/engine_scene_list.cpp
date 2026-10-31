@@ -27,9 +27,7 @@ namespace render {
 
 namespace {
 
-extern void** const kHeadVtable;
-
-// The list's first node (the head's next, 0x006FA7EC; the head itself when the list is empty).
+// The list's first node (the head's next; the head itself when the list is empty).
 memory::ListNode* head_of_scene_list() { return g_scene_list.next; }
 bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 // The node after `node` (null at the end).
@@ -70,9 +68,6 @@ void unload_engine_scene(WorldScene* scene, int flag) { engine::unload_scene(sce
 WorldScene* look_up_scene(uint32_t checksum) { return engine::find_scene(checksum); }
 void toggle_add_scenes() { engine::toggle_add_scenes(); }
 
-// The scene list's node's destructor body (0x0048C4B0: unlinked, its own vtable).
-void destroy_node_body(memory::ListNode* node) { static_cast<SceneNode*>(node)->destroy_body(); }
-
 // Compiled out (0x005B9E50, false): the platform's own load of an added scene's geometry.
 bool plat_load_add_scene(WorldScene* /*scene*/, const char* /*fileName*/) { return false; }
 // "levels\<name>\<name>.scn.<the platform's extension>" (the original's sprintf; no length limit there).
@@ -86,20 +81,7 @@ void build_scene_file_path(char* out, size_t size, const char* name)
 // 0x0048CC30
 SceneListHead* SceneListHead::make_new()
 {
-    data = reinterpret_cast<void*>(-1);
-    priority = 0;
-    next = this;
-    prev = this;
-    vtable = reinterpret_cast<void**>(kHeadVtable);
-    return this;
-}
-
-// 0x0048CC50
-SceneListHead* SceneListHead::teardown(unsigned int flags)
-{
-    destroy_node_body(this);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
+    make_head();
     return this;
 }
 
@@ -332,10 +314,5 @@ bool __cdecl reload_scene(const char* name)
     load_scene(name, textures, !is_sky, is_sky, false, 0);
     return true;
 }
-
-namespace {
-static VtableSlot g_head_vtable_slots[] = {&render::SceneListHead::teardown};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-} // namespace
 
 } // namespace render

@@ -54,11 +54,11 @@ inline void set_geom_color(void* geom, uint32_t rgba) { as_geom(geom)->change_ti
 // The geom's multicolour flag (+0x10, the folded getter 0x005480B0).
 inline bool is_geom_multicolor(void* geom) { return reinterpret_cast<online::FoldedGetters*>(geom)->byte10(); }
 
-// An engine object deleted (0x0048C3C0) / a scene or lights deleted (0x0048C080, cdecl: the second argument only
-// some callers pass); a texture dictionary unloaded (0x0049EFD0).
+// An engine object deleted (0x0048C3C0) / a scene or the model's lights deleted (0x0048C080, cdecl, the generic
+// delete through slot 0: typed here); a texture dictionary unloaded (0x0049EFD0).
 inline void delete_geom_object(void* object) { delete static_cast<Geom*>(object); }
-inline void discard_scene(void* scene) { delete_model_lights(static_cast<PcModelLights*>(scene)); }
-inline void discard_scene(void* scene, int) { delete_model_lights(static_cast<PcModelLights*>(scene)); }
+inline void discard_lights(void* lights) { delete reinterpret_cast<ModelLights*>(lights); }
+inline void discard_scene(void* scene) { delete reinterpret_cast<WorldScene*>(scene); }
 inline void unload_textures(void* textures) { unload_tex_dict(static_cast<TextureSet*>(textures)); }
 
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).

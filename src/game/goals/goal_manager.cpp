@@ -52,9 +52,6 @@ constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 constexpr uint8_t kMsgGoalWon = 0x6E; // to the server: a goal (the chain's first) won
 constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
-static VtableSlot g_goal_list_head_vtable_slots[] = {&goals::GoalListHead::teardown};
-void** const kGoalListHeadVtable = reinterpret_cast<void**>(g_goal_list_head_vtable_slots);
-
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
@@ -81,16 +78,7 @@ bool has_no_parent(Objective* goal) { return goal->parents_->objective_key_ == 0
 } // namespace
 
 // 0x0055B9F0
-void GoalListHead::destroy_body() { list_link_.unlink_as(kGoalNodeVtable); }
-
-// 0x0055D960
-GoalListHead* GoalListHead::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
+void GoalListHead::destroy_body() { list_link_.uncouple(); }
 
 // 0x0055D9C0
 GoalManager* GoalManager::make_new()
@@ -98,12 +86,7 @@ GoalManager* GoalManager::make_new()
     goals_.num_ = 0;
     goals_.first_ = nullptr;
     goals_.cursor_ = nullptr;
-    memory::ListNode& head = active_goals_.list_link_;
-    head.data = reinterpret_cast<void*>(-1);
-    head.priority = 0;
-    head.next = &head;
-    head.prev = &head;
-    head.vtable = kGoalListHeadVtable;
+    active_goals_.list_link_.make_head();
     previous_objective_ = 0;
     tagging_style_ = 0;
     objective_score_ = 0;
@@ -130,7 +113,7 @@ void GoalManager::destroy_body()
         script::delete_struct(data);
     }
     reinterpret_cast<objects::TrickObjectHead*>(&active_goals_)->unlink_all();
-    active_goals_.list_link_.unlink_as(kGoalNodeVtable);
+    active_goals_.destroy_body();
     reinterpret_cast<objects::ProfileTable*>(&goals_)->get_clear();
 }
 
@@ -703,7 +686,7 @@ void GoalManager::wipe_objectives()
     for (int i = 0; i < goals_.num_; ++i)
         remove_objective_npc(goals_.get_by_index(i)->ped_);
     lists::TableItemEraser destroyer = {&goals_};
-    destroyer.empty_table_items();
+    destroyer.empty_table_items([](void* goal) { delete static_cast<Objective*>(goal); });
 }
 
 // 0x0055DBE0

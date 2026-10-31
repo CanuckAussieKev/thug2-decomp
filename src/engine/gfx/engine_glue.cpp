@@ -102,13 +102,6 @@ void __cdecl begin_frame_draw()
     reinterpret_cast<long(__stdcall*)(void*)>((*static_cast<void***>(device))[41])(device);
 }
 
-// 0x004B22A0
-void __cdecl delete_object(void* object)
-{
-    if (object)
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(object))[0])(object, 1);
-}
-
 // 0x004B22B0
 void __cdecl set_screen_clip(const void* rect) { set_skin_scaling(static_cast<const uint32_t*>(rect)); }
 

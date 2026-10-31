@@ -48,10 +48,11 @@ void __stdcall add_timeline_info(AnimTimeline* timeline, script::Struct* info);
 
 class AnimTrack;
 
-// An animation blender's channel (0x74 bytes, vtable 0x00648714; the blender keeps them on a list, so it's a list node
-// itself): its timelines (AnimTrack, the newest - the one playing - first; older ones blend out) and a blend
-// value moving to a target. Vtable slots: 0 Destroy, 1 tick_frame(pose index, blend), 2 Finalize, 3 configure_from_data
-// (0x00480410), 4 invoke_method_by_name (0x0047FA00), 5 (0x005BAB90), 6 release_waiting_script.
+// An animation blender's channel (0x74 bytes; the blender keeps them on a list, so it's a list node itself): its
+// timelines (AnimTrack, the newest - the one playing - first; older ones blend out) and a blend value moving to a
+// target. (The original's one table, 0x00648714 - 0 Destroy, 1 tick_frame(pose index, blend), 2 Finalize, 3
+// configure_from_data (0x00480410), 4 invoke_method_by_name (0x0047FA00), 5 (0x005BAB90), 6 release_waiting_script -
+// had no other class: plain methods here, called by name.)
 class BlendChannel {
 public:
     // 0x0047D420
@@ -70,7 +71,7 @@ public:
     // 0x0047F150: on `object` / `blender`, no timelines, events on, the blend value 1 (with `full`) or 0; the
     // rest as Reset (it reads +0x60 before setting it, as the original). Returns this.
     BlendChannel* make_new(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full);
-    // 0x0047EE90: its timelines deleted, the head and its own node unlinked (the blender's node vtable 0x00645D84).
+    // 0x0047EE90: its timelines deleted, the head and its own node unlinked.
     // 0x0047F230 (slot 0): that, then freed.
     void destroy_body();
     BlendChannel* teardown(uint8_t flags);
@@ -172,16 +173,16 @@ public:
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
     static void __cdecl init_buffers(int blends, int subsets);
 
-    memory::ListNode list_link_; // +0x00 (vtable 0x00648714; data = this)
-    memory::ListNode timelines_; // +0x14 the head (vtable 0x00648710, data -1)
-    uint32_t ident_;             // +0x28
-    int rank_;                   // +0x2C (0x3D836C96)
-    uint32_t ongoing_;           // +0x30 the blend value (a float)
-    uint32_t aim_point_;         // +0x34
-    uint32_t outset_;            // +0x38
-    float period_;               // +0x3C
-    float period_left_;          // +0x40
-    bool has_next_blend_;        // +0x44 (the next play blends over next_blend_)
+    memory::PaddedListNode list_link_; // +0x00 (data = this; the original's node size, as the head's)
+    memory::PaddedListNode timelines_; // +0x14 the head (data -1)
+    uint32_t ident_;                   // +0x28
+    int rank_;                         // +0x2C (0x3D836C96)
+    uint32_t ongoing_;                 // +0x30 the blend value (a float)
+    uint32_t aim_point_;               // +0x34
+    uint32_t outset_;                  // +0x38
+    float period_;                     // +0x3C
+    float period_left_;                // +0x40
+    bool has_next_blend_;              // +0x44 (the next play blends over next_blend_)
     uint8_t pad45_[3];
     float next_blend_; // +0x48
     bool flag_4c_;     // +0x4C (without it each play deletes the older timelines)
@@ -205,12 +206,8 @@ static_assert(offsetof(BlendChannel, timelines_) == 0x14 && offsetof(BlendChanne
                   offsetof(BlendChannel, owner_ptr_) == 0x68 && sizeof(BlendChannel) == 0x74,
               "layout must match the original");
 
-// The node type of the channel's timeline list (vtable 0x006486CC; AnimTimeline::destroy_body is its destructor
-// body): 0x0047DD40, its scalar deleting destructor.
-struct AnimListNode {
-    AnimListNode* teardown(uint8_t flags);
-    memory::ListNode list_link_;
-};
+// (The channel's timeline list's node type - AnimTimeline::destroy_body its body, 0x0047DD40 its scalar deleting
+// destructor - is memory::ListNode's.)
 
 // A list's head (lists::Foremost; the channel's timelines, a server list): 0x0047DD10, how many items it has.
 struct AnimListHead {

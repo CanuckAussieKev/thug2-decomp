@@ -131,24 +131,20 @@ void enrol(uint32_t name, uint32_t cluster)
         get_trick_objects(manager)->add_object(name, cluster);
 }
 
-// Taken out: its node unlinked from the cluster's object list (+0x44: a circular list, the head a sentinel; +0x0C next,
-// +0x10 previous, +0x14 the name) and its name out of the name map (the manager's object_clusters_).
+// Taken out: its node unlinked from the cluster's object list (entities_: a circular list, the head a sentinel; each
+// object a TrickSpot with its name) and its name out of the name map (the manager's object_clusters_).
 void unregister(uint32_t name, uint32_t cluster)
 {
     uint8_t* manager = hub();
     if (!manager || !cluster)
         return;
     if (uint8_t* object = cluster_object(manager, cluster)) {
-        uint8_t* head = object + 0x44;
-        uint8_t* node = *reinterpret_cast<uint8_t**>(head + 0x0C);
+        memory::ListNode* head = &reinterpret_cast<objects::TrickObjectCluster*>(object)->entities_;
+        memory::ListNode* node = head->next;
         for (int guard = 0; node && node != head && guard < 100000; ++guard) {
-            uint8_t* next = *reinterpret_cast<uint8_t**>(node + 0x0C);
-            if (*reinterpret_cast<uint32_t*>(node + 0x14) == name) {
-                uint8_t* previous = *reinterpret_cast<uint8_t**>(node + 0x10);
-                *reinterpret_cast<uint8_t**>(previous + 0x0C) = next;
-                *reinterpret_cast<uint8_t**>(next + 0x10) = previous;
-                *reinterpret_cast<uint8_t**>(node + 0x0C) = node;
-                *reinterpret_cast<uint8_t**>(node + 0x10) = node;
+            memory::ListNode* next = node->next;
+            if (static_cast<objects::TrickSpot*>(node->data)->label_ == name) {
+                node->uncouple();
                 g_detached.push_back(node);
             }
             node = next;

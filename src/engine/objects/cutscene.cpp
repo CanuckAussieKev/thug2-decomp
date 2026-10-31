@@ -23,7 +23,7 @@ constexpr uint32_t kSubtitleScript = 0x625985F9; // run with each subtitle's str
 constexpr uint32_t kTime = 0x906B67BA;           // a subtitle's start (name unknown)
 constexpr uint32_t kDuration = 0x79A07F3F;       // and how long it shows (name unknown)
 constexpr uint32_t kNoSkipping = 0xA2107A0E;     // a global integer: cutscenes can't be skipped (name unknown)
-constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_slot12's global (name unknown)
+constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_option_state's global (name unknown)
 
 // The skip buttons (the controller's makes).
 constexpr uint32_t kButtonX = 0x40;
@@ -121,20 +121,16 @@ void CinematicTable::update_subtitles()
 }
 
 // 0x00463A50
-void CinematicEntry::call_slot12_with_not_flag_5d()
-{
-    reinterpret_cast<void(__thiscall*)(CinematicEntry*, bool)>(vtable_[12])(this, !flag_5d_);
-}
+void CinematicEntry::push_option_state() { set_unused_option(!flag_5d_); }
 
 // 0x00463A60
-void CinematicEntry::update_slot12()
+void CinematicEntry::update_option_state()
 {
-    auto slot12 = reinterpret_cast<void(__thiscall*)(CinematicEntry*, bool)>(vtable_[12]);
     if (flag_5d_) {
         if (unknown60_ == -1)
-            slot12(this, false);
+            set_unused_option(false);
     } else if (unknown60_ == -1) {
-        slot12(this, true);
+        set_unused_option(true);
         unknown60_ = script::fetch_int_value(kSlot12Global);
     }
 }

@@ -7,13 +7,9 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/code_address.h"
 #include "game/save_cards/save_types.h"
 
 namespace save_cards {
-
-static VtableSlot g_file_vtable_slots[] = {&save_cards::ListDestructors::other_destroy};
-void** const kFileVtable = reinterpret_cast<void**>(g_file_vtable_slots);
 
 static_assert(offsetof(FileLoad, label_) == 0x14 && offsetof(FileLoad, second_) == 0x3C &&
                   offsetof(FileLoad, year_) == 0x42 && offsetof(FileLoad, extent_) == 0x44 &&
@@ -42,16 +38,21 @@ FileLoad* new_file(HANDLE handle, SaveCard* card)
     if (!file)
         return nullptr;
     file->hdl_ = handle;
-    file->list_link_.data = file;
-    file->list_link_.priority = 0;
-    file->list_link_.next = &file->list_link_;
-    file->list_link_.prev = &file->list_link_;
-    file->list_link_.vtable = kFileVtable;
+    file->list_link_.make_node(file);
     file->save_device_ = card;
     return file;
 }
 
 } // namespace
+
+// 0x005A8E80
+FileLoad* FileLoad::teardown(unsigned int flags)
+{
+    list_link_.uncouple();
+    if (flags & 1)
+        memory::Hub::get_pull()->dealloc(this);
+    return this;
+}
 
 // 0x005BC800
 DWORD FileLoad::seek_to(LONG offset, int origin)

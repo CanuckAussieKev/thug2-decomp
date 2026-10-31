@@ -11,12 +11,8 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app_messages.h"
 #include "engine/net/net_guards.h"
-#include "engine/core/code_address.h"
 
 namespace net {
-
-static VtableSlot g_msg_handler_head_vtable_slots[] = {&net::NoteHandler::teardown};
-void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(g_msg_handler_head_vtable_slots);
 
 namespace {
 
@@ -29,7 +25,7 @@ void construct_context(InboundMsgCtx* context) { context->make_new(); }
 // 0x0045A590
 NoteHandler* NoteHandler::teardown(unsigned int flags)
 {
-    static_cast<MsgHandlerNode*>(&list_link_)->destroy_body(); // (lists::Elem<NoteHandler>: unlinks it)
+    list_link_.uncouple(); // (lists::Elem<NoteHandler>'s 0x00457030)
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;
@@ -47,7 +43,7 @@ void Router::prepare_all()
             memory::ListNode* next = node->next;
             if (next->data == reinterpret_cast<void*>(-1))
                 next = nullptr;
-            unlink_list_node(node);
+            static_cast<NoteHandler*>(node->data)->teardown(1); // (the handler is its node)
             node = next;
         } while (node);
     }
@@ -60,7 +56,7 @@ void Router::tear_down_state()
         lists::Hunt<NoteHandler> search;
         for (NoteHandler* handler = search.head_element(&link_chain(id).list_link_); handler;) {
             NoteHandler* next = search.following_item();
-            unlink_list_node(handler);
+            handler->teardown(1);
             handler = next;
         }
     }
@@ -73,11 +69,7 @@ NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t
     manager->enter_heap_scope(manager->network_heap_);
     auto* handler = static_cast<NoteHandler*>(memory::alloc_zeroed(sizeof(NoteHandler)));
     if (handler) {
-        handler->list_link_.vtable = kMsgHandlerHeadVtable;
-        handler->list_link_.data = handler;
-        handler->list_link_.priority = priority;
-        handler->list_link_.next = &handler->list_link_;
-        handler->list_link_.prev = &handler->list_link_;
+        handler->list_link_.make_node(handler, priority);
         handler->code_ = code;
         handler->content_ = data;
         handler->mode_bits_ = flags;

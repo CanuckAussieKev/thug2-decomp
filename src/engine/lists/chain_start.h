@@ -6,7 +6,7 @@ namespace lists {
 
 // An intrusive list's head: a node whose data is -1, the list circular through it.
 struct Foremost {
-    memory::ListNode list_link_;
+    memory::PaddedListNode list_link_; // (the original head's size: kept where heads are embedded)
 
     // 0x0045A540 (lists::Foremost<Entity>): `node` goes before the first node whose priority isn't higher (the
     // highest first; equal ones newest first), else at the end. (The walk checks each node's data for -1
@@ -22,5 +22,22 @@ struct Foremost {
     // front. (The same data-before-null check order as append_vertex.)
     void append_node(memory::ListNode* node);
 };
+
+// 0x0057A2F0 (lists::Foremost<T>'s, shared by the game's lists): every item of the list at `head` deleted in turn by
+// `destroy(item)`, which takes it out of the list (each next node is fetched first). (The original deleted each node
+// through its table; the caller says how its items go.)
+template <typename Item, typename Destroy>
+void delete_each(memory::ListNode* head, Destroy destroy)
+{
+    memory::ListNode* node = head->next;
+    if (node->is_head())
+        return;
+    while (node) {
+        memory::ListNode* next = node->next;
+        memory::ListNode* following = next->is_head() ? nullptr : next;
+        destroy(static_cast<Item*>(node->data));
+        node = following;
+    }
+}
 
 } // namespace lists

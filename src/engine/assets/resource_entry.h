@@ -114,17 +114,17 @@ public:
     int cur_phase_;     // +0x08 AssetState
     bool pinned_;       // +0x0C not unloaded by unload_all_assets(false)
     uint8_t pad0d_[3];
-    void* content_;                   // +0x10 what was loaded (a scene, a texture dictionary...)
-    LoadCallback callback_;           // +0x14
-    void* callback_data0_;            // +0x18
-    void* callback_data1_;            // +0x1C
-    file::AsyncFileHandle* file_ref_; // +0x20 the file being read
-    void* octets_;                    // +0x24 its contents
-    uint32_t extent_;                 // +0x28 their size
-    Resource* last_value_;            // +0x2C in the manager's list (circular)
-    Resource* succ_;                  // +0x30
-    Resource* bundle_;                // +0x34 the asset it depends on (a model's textures)
-    memory::ListNode dependents_;     // +0x38 the assets depending on it (lists::Foremost<Resource>, vtable 0x006455C0)
+    void* content_;                     // +0x10 what was loaded (a scene, a texture dictionary...)
+    LoadCallback callback_;             // +0x14
+    void* callback_data0_;              // +0x18
+    void* callback_data1_;              // +0x1C
+    file::AsyncFileHandle* file_ref_;   // +0x20 the file being read
+    void* octets_;                      // +0x24 its contents
+    uint32_t extent_;                   // +0x28 their size
+    Resource* last_value_;              // +0x2C in the manager's list (circular)
+    Resource* succ_;                    // +0x30
+    Resource* bundle_;                  // +0x34 the asset it depends on (a model's textures)
+    memory::PaddedListNode dependents_; // +0x38 the assets depending on it (lists::Foremost<Resource>)
 };
 static_assert(sizeof(Resource) == 0x4C, "layout must match the original");
 static_assert(offsetof(Resource, file_ref_) == 0x20 && offsetof(Resource, dependents_) == 0x38, "layout");

@@ -18,7 +18,7 @@ namespace objects {
 // 0x64 bytes (vtable 0x0064EC80; its node type's 0x0064BE88), made by 0x005123D0's caller: +0x14 / +0x1C set by the
 // maker, +0x20 the key it's found by, a script array of its own (+0x60).
 struct TrickListEntry {
-    memory::ListNode list_link_;
+    memory::PaddedListNode list_link_; // (the original's node size: the entries are read by byte offset)
     uint32_t unknown14_[3];
     uint32_t lookup_key_; // +0x20
     uint32_t unknown24_;
@@ -50,7 +50,7 @@ static_assert(offsetof(TrickListEntry, lookup_key_) == 0x20 && offsetof(TrickLis
 // 0x34 bytes (vtable 0x0064EC84; its node type's 0x0064BE8C), made by 0x00512060: a name (+0x14) and what its maker
 // sets after it.
 struct TrickNameEntry {
-    memory::ListNode list_link_;
+    memory::PaddedListNode list_link_;
     text::Chars label_; // +0x14
     uint32_t unknown20_[5];
 

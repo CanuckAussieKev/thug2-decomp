@@ -37,11 +37,11 @@ uint32_t& next_conn_id() { return g_next_conn_id; }
 // ~StreamDesc: frees the data unless it was sent in place.
 void destroy_stream_desc_body(StreamDesc* stream) { stream->destroy_body(); }
 
-// A link deleted through its vtable (the scalar deleting destructor).
-void delete_link(void* link)
+// A link deleted (its scalar deleting destructor).
+template <typename Link>
+void delete_link(Link* link)
 {
-    auto* vtable = *static_cast<void***>(link);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(link, 1);
+    link->teardown(1);
 }
 
 // A queued message's last link gone: deleted.
@@ -70,48 +70,22 @@ void for_each(ListNode* head, F action)
 
 } // namespace
 
-// 0x00455C60
-MsgSeqLinkHead* MsgSeqLinkHead::make_new()
-{
-    init_conn_list_head(this, kMsgSeqLinkVtable);
-    return this;
-}
-
-void init_conn_list_head(ListNode* head, void** vtable)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = vtable;
-}
-
-// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' lists::Elem<T> destructor bodies
-void MsgNormalNode::destroy_body() { unlink_as(kMsgNormalNodeVtable); }
-void MsgImpNode::destroy_body() { unlink_as(kMsgImpNodeVtable); }
-void MsgSeqNode::destroy_body() { unlink_as(kMsgSeqNodeVtable); }
-void StreamLinkNode::destroy_body() { unlink_as(kStreamLinkNodeVtable); }
-
 // 0x00455C80
 Conn* Conn::make_new(int flags)
 {
-    init_conn_list_head(&normal_msgs_, kMsgNormalLinkVtable);
-    init_conn_list_head(&important_msgs_, kMsgImpLinkVtable);
-    init_conn_list_head(&sequenced_msgs_, kMsgSeqLinkVtable);
+    normal_msgs_.make_head();
+    important_msgs_.make_head();
+    sequenced_msgs_.make_head();
     cur_standing_ = 0;
     flag_bits_ = 0;
     for (ListNode& queue : received_queues_)
-        static_cast<MsgSeqLinkHead*>(&queue)->make_new();
-    init_conn_list_head(&received_streams_, kStreamLinkVtable);
-    init_conn_list_head(&send_streams_, kStreamLinkVtable);
+        queue.make_head(); // (0x00455C60)
+    received_streams_.make_head();
+    send_streams_.make_head();
     ping_probe_.make_new();
     receive_metrics_.make_new();
     send_metrics_.make_new();
-    app_node_.vtable = kConnNodeVtable;
-    app_node_.data = this;
-    app_node_.priority = 0;
-    app_node_.next = &app_node_;
-    app_node_.prev = &app_node_;
+    app_node_.make_node(this);
 
     flag_bits_ = static_cast<uint32_t>(flags);
     cur_standing_ = kConnReady;
@@ -141,14 +115,14 @@ void Conn::teardown()
     destroy_links();
     memory::dealloc(read_buffer_);
     memory::dealloc(outgoing_bytes_);
-    app_node_.destroy_body();
-    static_cast<StreamLinkNode*>(&send_streams_)->destroy_body();
-    static_cast<StreamLinkNode*>(&received_streams_)->destroy_body();
+    app_node_.uncouple();
+    send_streams_.uncouple();
+    received_streams_.uncouple();
     for (int group = kChannelGroups - 1; group >= 0; --group)
-        static_cast<MsgSeqNode*>(&received_queues_[group])->destroy_body();
-    static_cast<MsgSeqNode*>(&sequenced_msgs_)->destroy_body();
-    static_cast<MsgImpNode*>(&important_msgs_)->destroy_body();
-    static_cast<MsgNormalNode*>(&normal_msgs_)->destroy_body();
+        received_queues_[group].uncouple();
+    sequenced_msgs_.uncouple();
+    important_msgs_.uncouple();
+    normal_msgs_.uncouple();
 }
 
 // 0x00455970
@@ -241,7 +215,7 @@ void Conn::destroy_received_sequenced_messages()
 // 0x00455F30
 void Conn::destroy_links()
 {
-    auto drop_link = [](void* link) { delete_link(link); };
+    auto drop_link = [](auto* link) { delete_link(link); };
     for_each<MsgNormalLink>(&normal_msgs_, drop_link);
     for_each<ReliableMsgNode>(&important_msgs_, drop_link);
     for_each<OrderedMsgNode>(&sequenced_msgs_, drop_link);

@@ -18,18 +18,6 @@ namespace net {
 
 struct AppHost;
 
-// (The message lists' node and link vtables - the heads Conn's constructor makes use the links' own, folded -
-// and node types: net_messages.h.)
-
-// lists::Foremost<OrderedMsgNode> (Conn's sequenced queue and received queues).
-struct MsgSeqLinkHead : memory::ListNode {
-    // 0x00455C60: the constructor (the received queues', through the compiler's array helper): an empty list
-    // (data -1, priority 0, linked to itself).
-    MsgSeqLinkHead* make_new();
-};
-// The same for the other heads Conn's constructor makes (inline there).
-void init_conn_list_head(memory::ListNode* head, void** vtable);
-
 // (The local searches over Conn's lists have vtables holding only a destructor that resets it - 0x004559D0 /
 // 0x00455A80, 0x004559E0 / 0x00455AB0, 0x004559F0 / 0x00455AE0, 0x00455A00 / 0x00455B10: not kept.)
 
@@ -108,15 +96,16 @@ struct Conn {
     // 0x00456770: every queue emptied (as the destructor does).
     void drop_queued_traffic();
 
-    memory::ListNode normal_msgs_;    // +0x00 links: PendingMsg* at +0x14, send time at +0x18
-    memory::ListNode important_msgs_; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
-                                      //       a time at +0x24
-    memory::ListNode sequenced_msgs_; // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
-                                      //       +0x28
-    int hdl_;                         // +0x3C
-    uint32_t remote_ip_;              // +0x40
-    uint32_t ident_;                  // +0x44 a running number (0x0067D800, counted by the constructor)
-    uint16_t port_no_;                // +0x48
+    memory::PaddedListNode normal_msgs_; // +0x00 links: PendingMsg* at +0x14, send time at +0x18
+    memory::PaddedListNode
+        important_msgs_; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
+                         //       a time at +0x24
+    memory::PaddedListNode sequenced_msgs_; // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
+                                            //       +0x28
+    int hdl_;                               // +0x3C
+    uint32_t remote_ip_;                    // +0x40
+    uint32_t ident_;                        // +0x44 a running number (0x0067D800, counted by the constructor)
+    uint16_t port_no_;                      // +0x48
     uint8_t pad4a_[2];
     char* outgoing_bytes_;      // +0x4C the packet being built (0x514 bytes): its start
     char* write_ptr_;           // +0x50 and end
@@ -134,20 +123,20 @@ struct Conn {
     int stream_counter_;                         // +0x878
     // +0x87C sequenced messages received ahead of their turn, by group: links with the group at +0x15, the
     // sequence number at +0x20, SeqQueuedMsg* at +0x28.
-    memory::ListNode received_queues_[kChannelGroups];
-    memory::ListNode received_streams_; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
-    memory::ListNode send_streams_;     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
-    PingProbe ping_probe_;              // +0x1CA4
-    Gauges receive_metrics_;            // +0x1CDC
-    Gauges send_metrics_;               // +0x2CE8
-    bool send_now_;                     // +0x3CF4 force a send this frame
+    memory::PaddedListNode received_queues_[kChannelGroups];
+    memory::PaddedListNode received_streams_; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
+    memory::PaddedListNode send_streams_;     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
+    PingProbe ping_probe_;                    // +0x1CA4
+    Gauges receive_metrics_;                  // +0x1CDC
+    Gauges send_metrics_;                     // +0x2CE8
+    bool send_now_;                           // +0x3CF4 force a send this frame
     uint8_t pad3cf5_[3];
-    ConnNode app_node_;          // +0x3CF8 in the App's connection list (data = the connection)
-    Conn* alias_conn_;           // +0x3D0C
-    int link_class_;             // +0x3D10
-    uint32_t last_timestamp_in_; // +0x3D14
-    uint32_t timestamp_out_;     // +0x3D18
-    int link_speed_;             // +0x3D1C bytes per second
+    memory::PaddedListNode app_node_; // +0x3CF8 in the App's connection list (data = the connection)
+    Conn* alias_conn_;                // +0x3D0C
+    int link_class_;                  // +0x3D10
+    uint32_t last_timestamp_in_;      // +0x3D14
+    uint32_t timestamp_out_;          // +0x3D18
+    int link_speed_;                  // +0x3D1C bytes per second
 };
 static_assert(offsetof(Conn, hdl_) == 0x3C && offsetof(Conn, port_no_) == 0x48 &&
                   offsetof(Conn, outgoing_bytes_) == 0x4C && offsetof(Conn, cur_standing_) == 0x60 &&

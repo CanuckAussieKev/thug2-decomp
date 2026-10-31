@@ -66,13 +66,7 @@ public:
 };
 static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
 
-// The node and head of the list Update keeps the objects waiting to be put in a cell on (vtables 0x00645D7C /
-// 0x00645D80): 0x00418ED0 the node's destructor body (unlinked), 0x00418EF0 its scalar deleting destructor,
-// 0x00418F30 the head's.
-struct CollGridListNodes {
-    void destroy_node_body();
-    memory::ListNode* destroy_node(uint8_t flags);
-    memory::ListNode* destroy_head(uint8_t flags);
-};
+// (The list Update keeps the objects waiting to be put in a cell on: its node's and head's destructors 0x00418ED0 /
+// 0x00418EF0 / 0x00418F30 are memory::ListNode's uncouple / destroy.)
 
 } // namespace render

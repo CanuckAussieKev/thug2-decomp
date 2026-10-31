@@ -6,15 +6,11 @@
 
 #include "engine/core/manager.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "game/rider/gap_entry.h"
 
 namespace objects {
 
 namespace {
-
-extern void** const kListEntryVtable;
-extern void** const kNameEntryVtable;
 
 void init_node(memory::ListNode& node, void* data)
 {
@@ -33,7 +29,6 @@ void TrickListEntry::set_flag() { flag_2c_ = true; }
 TrickListEntry* TrickListEntry::make_new()
 {
     init_node(list_link_, this);
-    list_link_.vtable = kListEntryVtable;
     lookup_key_ = 0;
     unknown24_ = 0;
     unknown30_ = 0;
@@ -48,14 +43,13 @@ TrickListEntry* TrickListEntry::make_new()
 // 0x00579570
 void TrickListEntry::destroy_body()
 {
-    list_link_.vtable = kListEntryVtable;
     if (element_list_)
         script::release_array_storage(element_list_);
     if (script::Array* array = element_list_) {
         array->get_clear();
         script::delete_array(array);
     }
-    list_link_.unlink_as(kGapNodeVtable);
+    list_link_.uncouple(); // (0x00511E50)
 }
 
 // 0x00579820
@@ -71,7 +65,6 @@ TrickListEntry* TrickListEntry::teardown(unsigned int flags)
 TrickNameEntry* TrickNameEntry::make_new()
 {
     init_node(list_link_, this);
-    list_link_.vtable = kNameEntryVtable;
     new (&label_) text::Chars();
     return this;
 }
@@ -80,7 +73,7 @@ TrickNameEntry* TrickNameEntry::make_new()
 void TrickNameEntry::destroy_body()
 {
     label_.~Chars();
-    list_link_.unlink_as(kGapTrickNodeVtable);
+    list_link_.uncouple(); // (0x00511E70)
 }
 
 // 0x00579600
@@ -92,15 +85,4 @@ TrickNameEntry* TrickNameEntry::teardown(unsigned int flags)
     return this;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_list_entry_vtable_slots[] = {&objects::TrickListEntry::teardown};
-void** const kListEntryVtable = reinterpret_cast<void**>(g_list_entry_vtable_slots);
-static VtableSlot g_name_entry_vtable_slots[] = {&objects::TrickNameEntry::teardown};
-void** const kNameEntryVtable = reinterpret_cast<void**>(g_name_entry_vtable_slots);
-
-} // namespace
 } // namespace objects

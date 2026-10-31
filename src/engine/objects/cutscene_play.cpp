@@ -55,10 +55,6 @@ void get_run(uint32_t script, script::Struct* params = nullptr)
 {
     script::launch_script(script, params, nullptr, false, nullptr);
 }
-void delete_virtual(void* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(object))[0])(object, 1);
-}
 script::Struct* make_struct()
 {
     script::Struct* memory = script::spawn_param_bag();
@@ -269,15 +265,6 @@ void CinematicTable::perform(void* camera, script::Struct* params)
     tick_frame(camera, params);
 }
 
-// 0x00467F30
-CinematicEntry* CinematicEntry::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00467F60
 void CinematicEntry::tick_frame()
 {
@@ -308,7 +295,7 @@ void CinematicEntry::tick_frame()
     }
     if (unknown60_ > -1 && --unknown60_ == 0) {
         unknown60_ = -1;
-        reinterpret_cast<void(__thiscall*)(void*, int)>(vtable_[0x30 / 4])(this, 1);
+        set_unused_option(1);
     }
 }
 
@@ -323,7 +310,7 @@ bool CinematicEntry::is_finished()
 }
 
 // 0x004680B0
-bool CinematicEntry::is_ready()
+bool CinematicEntry::has_camera()
 {
     CinematicTable* data = content_;
     return data && data->flag_34b_0_ && data->is_loaded() && data->ready_;

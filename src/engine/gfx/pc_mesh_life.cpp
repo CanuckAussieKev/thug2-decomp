@@ -39,17 +39,17 @@ struct BufferNode {
 BufferNode* vertex_buffer_list() { return reinterpret_cast<BufferNode*>(g_vertex_buffer_list); }
 BufferNode* index_buffer_list() { return reinterpret_cast<BufferNode*>(g_index_buffer_list); }
 
-// The engine's scenes (a list: +4 the scene, +0xC the next node; the head's +4 is -1) and a scene's mesh list
+// The engine's scenes (a memory::ListNode list: data the scene; the head's data is -1) and a scene's mesh list
 // (+0x280), whose arena vertex buffer is its +0x7C and the buffer's size its +0x80.
-uint8_t* first_scene_node_bytes() { return reinterpret_cast<uint8_t*>(render::first_scene_node()); }
-uint8_t* next_scene_node(uint8_t* node)
+memory::ListNode* first_scene_node_bytes() { return render::first_scene_node(); }
+memory::ListNode* next_scene_node(memory::ListNode* node)
 {
-    uint8_t* next = *reinterpret_cast<uint8_t**>(node + 0xC);
-    return *reinterpret_cast<int*>(next + 4) == -1 ? nullptr : next;
+    memory::ListNode* next = node->next;
+    return next->is_head() ? nullptr : next;
 }
-SceneRef* scene_meshes(uint8_t* node)
+SceneRef* scene_meshes(memory::ListNode* node)
 {
-    uint8_t* scene = *reinterpret_cast<uint8_t**>(node + 4);
+    auto* scene = static_cast<uint8_t*>(node->data);
     return scene ? *reinterpret_cast<SceneRef**>(scene + 0x280) : nullptr;
 }
 
@@ -244,8 +244,8 @@ void __cdecl release_buffers()
         }
         vb->buffer = buffer; // (kept: recreate_buffers matches the shares by it)
     }
-    for (uint8_t* node = first_scene_node_bytes(); node;) {
-        uint8_t* next = next_scene_node(node);
+    for (memory::ListNode* node = first_scene_node_bytes(); node;) {
+        memory::ListNode* next = next_scene_node(node);
         if (SceneRef* meshes = scene_meshes(node))
             if (IDirect3DVertexBuffer9* arena = arena_buffer(meshes))
                 arena->Release();
@@ -264,8 +264,8 @@ void __cdecl release_buffers()
 // 0x004D68C0
 void __cdecl recreate_buffers()
 {
-    for (uint8_t* node = first_scene_node_bytes(); node;) {
-        uint8_t* next = next_scene_node(node);
+    for (memory::ListNode* node = first_scene_node_bytes(); node;) {
+        memory::ListNode* next = next_scene_node(node);
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
             IDirect3DVertexBuffer9* old = arena_buffer(meshes);

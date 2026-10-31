@@ -32,18 +32,17 @@ constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 
 // The skate module (modules::Skate, 0x007CE478) and its skaters (not rewritten yet).
 uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-// How many skaters there are: the skate module's skater list (+0x34; nodes: +0x04 the skater, -1 at the end,
-// +0x0C the next).
+// How many skaters there are: the skate module's skater list (memory::ListNode: data the skater, -1 at the head).
 uint32_t skater_count(uint8_t* skate)
 {
-    uint8_t* node = *reinterpret_cast<uint8_t**>(skate + 0x34);
+    const memory::ListNode* node = reinterpret_cast<modules::Skate*>(skate)->riders_.list_link_.next;
     uint32_t count = 0;
-    if (*reinterpret_cast<int*>(node + 4) == -1 || !node) // (read before the null check, as in the original)
+    if (node->is_head() || !node) // (read before the null check, as in the original)
         return 0;
     do {
-        node = *reinterpret_cast<uint8_t**>(node + 0xC);
+        node = node->next;
         ++count;
-    } while (*reinterpret_cast<int*>(node + 4) != -1 && node);
+    } while (!node->is_head() && node);
     return count;
 }
 uint8_t* get_rider_at(uint8_t* skate, uint32_t index)

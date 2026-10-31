@@ -49,11 +49,6 @@ class LetterMatch;
 
 namespace modules {
 
-// The skater list's node and head tables (defined in skate_module_state.cpp).
-
-extern void** const kSkaterNodeVtable;
-extern void** const kSkaterHeadVtable;
-
 class Skate final : public PartUnit {
 public:
     // A skater slot's settings (+0x390, 8 of them).
@@ -92,10 +87,8 @@ public:
     // 0x00568C90: the logic task's code - run_frame_logic, the skaters' collisions on the server, king of the hill's
     // clock.
     static void __cdecl front_end_tick(tasks::Task<Skate>* task);
-    // 0x00565750 / 0x00565FC0: the skater list's node's / head's scalar deleting destructors (vtables 0x0064E544 /
-    // 0x0064E5D4).
-    static memory::ListNode* __fastcall destroy_skater_node(memory::ListNode* node, int, uint8_t flags);
-    static memory::ListNode* __fastcall destroy_skater_head(memory::ListNode* head, int, uint8_t flags);
+    // (0x00565750 / 0x00565FC0, the skater list's node's / head's scalar deleting destructors: never called through
+    // their tables here - the node is the skater's own, the head the module's.)
 
     // --- the skaters (skate_module_skaters.cpp) ---
     // 0x0041AD90: the number of skaters in the list (the nodes from the head's next until the head - checked by its
@@ -284,9 +277,6 @@ static_assert(offsetof(Skate, update_job_) == 0x14 && offsetof(Skate, riders_) =
 
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).
 void __cdecl fill_elimination_ranking();
-
-// 0x00565730: the skater list head's destructor body (its node's: unlinked).
-void __fastcall skater_head_destroy_body(memory::ListNode* head);
 
 extern int g_viewport_count;
 extern modules::Skate* g_skate_module;

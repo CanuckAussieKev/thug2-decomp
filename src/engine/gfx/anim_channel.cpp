@@ -14,6 +14,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/lists/chain_start.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/frame_source.h"
@@ -33,7 +34,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
 
@@ -46,12 +46,8 @@ namespace {
 
 using script::Struct;
 
-extern void** const kChannelVtable;
-extern void** const kHeadVtable;
-void** const& g_list_node_vtable = vt::kAnimListNode;
-void** const& g_blender_node_vtable = vt::kBlenderChannelNode; // (the blender's channel list node)
-constexpr uint32_t kSkeleton = 0x222756D5;                     // skeleton
-constexpr uint32_t kAnimScratch = 0x7C0B34B4;                  // AnimScratch
+constexpr uint32_t kSkeleton = 0x222756D5;    // skeleton
+constexpr uint32_t kAnimScratch = 0x7C0B34B4; // AnimScratch
 constexpr uint32_t kFlipped = 0x20000000;
 constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
 constexpr float kSecondsPerFrame = 1.0f / 60.0f; // 0x006463B8
@@ -125,15 +121,13 @@ void uncouple(memory::ListNode* node)
     node->prev = node;
 }
 
-template <typename R, typename... A>
-R Virtual(void* object, int slot, A... args)
+// A timeline (an AnimTrack, its own node) deleted: its scalar deleting destructor (the original's slot 0).
+void delete_timeline(memory::ListNode* node) { static_cast<AnimTrack*>(node->data)->teardown(1); }
+// Every timeline of the list deleted (0x0057A2F0 over the list).
+void delete_all_timelines(memory::ListNode* head)
 {
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
+    lists::delete_each<AnimTrack>(head, [](AnimTrack* timeline) { timeline->teardown(1); });
 }
-
-// A timeline's slots: 0 the scalar deleting destructor, 2 Update, 5 invoke_method_by_name.
-void delete_timeline(memory::ListNode* node) { Virtual<void*>(node, 0, 1); }
 
 objects::GameEntity* get_owner(BlendChannel* channel)
 {
@@ -184,7 +178,7 @@ void free_struct(Struct* params)
 // The playing timeline's controllers given a member function with `params` (slot 5, no script).
 void pass_to_first(BlendChannel* channel, uint32_t name, Struct* params)
 {
-    Virtual<int>(masked(channel->timelines_.next), 5, name, params, static_cast<script::Script*>(nullptr));
+    masked(channel->timelines_.next)->invoke_method_by_name(name, params, nullptr);
 }
 
 // The original's _ftol: truncated towards zero.
@@ -229,30 +223,13 @@ int AnimListHead::tally_entries()
     return count;
 }
 
-// 0x0047DD40
-AnimListNode* AnimListNode::teardown(uint8_t flags)
-{
-    list_link_.unlink_as(reinterpret_cast<void**>(g_list_node_vtable));
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
 // --- making and destroying ---
 
 // 0x0047F150
 BlendChannel* BlendChannel::make_new(objects::GameEntity* object, objects::AnimBlenderComponent* blender, bool full)
 {
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = reinterpret_cast<void**>(kChannelVtable);
-    timelines_.data = reinterpret_cast<void*>(-1);
-    timelines_.priority = 0;
-    timelines_.next = &timelines_;
-    timelines_.prev = &timelines_;
-    timelines_.vtable = reinterpret_cast<void**>(kHeadVtable);
+    list_link_.make_node(this);
+    timelines_.make_head();
     events_on_ = true;
     owner_ptr_ = reinterpret_cast<uint8_t*>(object);
     blender_ = blender;
@@ -274,10 +251,9 @@ BlendChannel* BlendChannel::make_new(objects::GameEntity* object, objects::AnimB
 // 0x0047EE90
 void BlendChannel::destroy_body()
 {
-    list_link_.vtable = reinterpret_cast<void**>(kChannelVtable);
-    reinterpret_cast<objects::ListHead*>(&timelines_)->delete_all_nodes();
-    timelines_.unlink_as(reinterpret_cast<void**>(g_list_node_vtable));
-    list_link_.unlink_as(reinterpret_cast<void**>(g_blender_node_vtable));
+    delete_all_timelines(&timelines_);
+    timelines_.uncouple();
+    list_link_.uncouple();
 }
 
 // 0x0047F230
@@ -292,7 +268,7 @@ BlendChannel* BlendChannel::teardown(uint8_t flags)
 // 0x0047EF20
 void BlendChannel::get_reset()
 {
-    reinterpret_cast<objects::ListHead*>(&timelines_)->delete_all_nodes();
+    delete_all_timelines(&timelines_);
     bool waiting = waiting_;
     has_next_blend_ = false;
     next_blend_ = 0.0f;
@@ -381,7 +357,7 @@ void BlendChannel::update_timelines()
     int count = count_list_items(&timelines_);
     AnimTrack* timeline = masked(timelines_.next);
     for (; count > 0; --count) {
-        Virtual<void>(timeline, 2);
+        timeline->tick_frame();
         timeline = masked(elem(timeline)->next);
     }
 }
@@ -806,10 +782,10 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
         }
     }
     if (blend_period == 0.0f || !flag_4c_)
-        reinterpret_cast<objects::ListHead*>(&timelines_)->delete_all_nodes();
+        delete_all_timelines(&timelines_);
     push_timeline(blend_period);
-    Virtual<void>(masked(timelines_.next), 6, anim, from, to, loop_type, blend_period, speed, (flag_bits_ >> 29) & 1,
-                  params);
+    masked(timelines_.next)
+        ->play_anim(anim, from, to, loop_type, blend_period, speed, ((flag_bits_ >> 29) & 1) != 0, params);
     if (Struct* tags = get_owner(this)->tag_table_)
         tags->erase_module(kAnimTags);
     set_anim_tags(anim);
@@ -996,14 +972,14 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             toggle_flipped();
             for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
-                Virtual<int>(node, 5, name, params, script);
+                static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script);
             return 1;
         }
         if (index == 0)
             toggle_flipped();
         for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {
             if (index == 0) {
-                Virtual<int>(timeline, 5, name, params, script);
+                timeline->invoke_method_by_name(name, params, script);
                 break;
             }
             --index;
@@ -1018,7 +994,9 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         play_anim_from_script(params, script, kStockCrossfade);
         memory::ListNode* node = timelines_.next;
         if (!is_head(node) && node && reinterpret_cast<AnimTrack*>(node)->repeat_mode_ == AnimTimeline::kHold)
-            Virtual<int>(owner_ptr_, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
+            reinterpret_cast<objects::Entity*>(owner_ptr_)
+                ->invoke_method_by_name(0xEA6D0EFDu, params,
+                                        script); // (the object's own member function: the original's slot 3)
         return 1;
     }
     case 0x42FFC3CE: { // GetAnimLength: of anim, to the script's length
@@ -1065,7 +1043,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         return time_passed(params);
     case 0x986D274E: // to every timeline
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
-            Virtual<int>(node, 5, name, params, script);
+            static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script);
         return 1;
     case 0x98A32669: {                                                       // flag4C from enabled
         int enabled = static_cast<int>(reinterpret_cast<uintptr_t>(params)); // (the argument's place, as above)
@@ -1089,7 +1067,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         memory::ListNode* node = timelines_.next;
         if (is_head(node) || !node)
             return 1;
-        return Virtual<int>(node, 5, name, params, script) != 0 ? 1 : 0;
+        return static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script) != 0 ? 1 : 0;
     }
     default:
         return 2;
@@ -1184,30 +1162,10 @@ int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
         clear_flag();
         set_anim_tags(anim);
     }
-    return Virtual<int>(timeline, 5, 0xC68365EBu, params, script) != 0 ? 1 : 0;
+    return timeline->invoke_method_by_name(0xC68365EBu, params, script) != 0 ? 1 : 0;
 }
 
-namespace {
-static VtableSlot g_channel_vtable_slots[] = {&gfx::BlendChannel::teardown,
-                                              &gfx::BlendChannel::tick_frame,
-                                              &gfx::BlendChannel::seal,
-                                              &gfx::BlendChannel::configure_from_data,
-                                              &gfx::BlendChannel::invoke_method_by_name,
-                                              stubs::ignore_argument,
-                                              &gfx::BlendChannel::release_waiting_script};
-void** const kChannelVtable = reinterpret_cast<void**>(g_channel_vtable_slots);
-static VtableSlot g_head_vtable_slots[] = {&gfx::AnimTimeline::teardown};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-} // namespace
-
 } // namespace gfx
-
-namespace vt {
-static VtableSlot g_blender_channel_node_slots[] = {&objects::BlendChannelLinks::destroy_node};
-void** const kBlenderChannelNode = reinterpret_cast<void**>(g_blender_channel_node_slots);
-static VtableSlot g_anim_list_node_slots[] = {&gfx::AnimListNode::teardown};
-void** const kAnimListNode = reinterpret_cast<void**>(g_anim_list_node_slots);
-} // namespace vt
 
 namespace gfx {
 

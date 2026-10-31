@@ -736,8 +736,8 @@ void pause_skaters()
     if (!skate)
         return;
     uint32_t count = 0;
-    for (auto* node = *reinterpret_cast<uint8_t**>(skate + 0x34); node && *reinterpret_cast<int*>(node + 4) != -1;
-         node = *reinterpret_cast<uint8_t**>(node + 0xC))
+    for (const memory::ListNode* node = reinterpret_cast<modules::Skate*>(skate)->riders_.list_link_.next;
+         node && !node->is_head(); node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =

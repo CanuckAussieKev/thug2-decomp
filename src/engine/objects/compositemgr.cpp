@@ -285,9 +285,16 @@ void release_composite_object_manager()
 
 namespace {
 
-// The instance list (a std::list of objects with a virtual deleting destructor in slot 1): its head node and size.
+// An object of the COIM instance list (nothing in this build adds one; the original deleted them through their slot
+// 1).
+class CoimInstance {
+public:
+    virtual ~CoimInstance() = default;
+};
+
+// The instance list (a std::list of objects): its head node and size.
 struct MaterializeNode {
-    void* object; // the object (its vtable first)
+    CoimInstance* object;
     MaterializeNode* next;
     MaterializeNode* prev;
 };
@@ -322,8 +329,7 @@ void destroy_coim_heap()
         if (node != head) {
             do {
                 if (node->object) {
-                    void** vtable = *static_cast<void***>(node->object); // (slot 1: its deleting destructor)
-                    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[1])(node->object, 1);
+                    delete node->object;
                     node->object = nullptr;
                 }
                 MaterializeNode* next = node->next;

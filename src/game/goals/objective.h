@@ -24,8 +24,6 @@ class Struct;
 
 namespace goals {
 
-extern void** const kGoalNodeVtable; // 0x0064DDCC (defined in goal_life.cpp): the goal list head's node table
-
 class ObjectiveNpc;
 
 // A link to another goal by id (0xC bytes): the children (+0x28) and the parents (+0x2C) are singly linked lists of
@@ -65,30 +63,26 @@ public:
         kStateNoTimeLimit = 0x10,
     };
 
-    // +0x04-+0x13: the goal's node in the goal manager's list of active goals (data this, priority 0, linked to
-    // itself while not in the list; Deactivate unlinks it). The list sees the goal itself as a memory::ListNode
-    // (list_node()): the node's vtable word is this object's vptr, which no list code reads or writes (stage 5:
-    // lists whose nodes have no vtable).
-    void* link_data_;             // +0x04
-    int link_priority_;           // +0x08
-    memory::ListNode* link_next_; // +0x0C
-    memory::ListNode* link_prev_; // +0x10
-    ObjectiveNpc* ped_;           // +0x14: the goal's pro (0x14 bytes)
-    uint32_t inherited_;          // +0x18: passed to the children (2: single_timer, 4: retry_stage)
-    script::Struct* args_;        // +0x1C
-    script::Struct* goal_flags_;  // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
-    int run_ending_;              // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
-    GoalEdge* sub_nodes_;         // +0x28
-    GoalEdge* parents_;           // +0x2C
-    uint32_t skater_;             // +0x30: skater (none 0x806FFF30)
-    int level_;                   // +0x34: the career's level when made
-    int bundle_;                  // +0x38: group_number (-1: none) - locked while the manager's group is
-    uint32_t stage_flags_;        // +0x3C: bits by number (set_stage_flag)
-    uint32_t net_stage_flags_;    // +0x40
-    int times_started_;           // +0x44
-    int best_time_;               // +0x48: ms (record_type time; 0x7FFFFFFF none)
-    int record_points_;           // +0x4C (record_type score)
-    int seconds_remaining_;       // +0x50: ms
+    // +0x04: the goal's node in the goal manager's list of active goals (data this, priority 0, linked to itself while
+    // not in the list; Deactivate unlinks it). (The original's goal was its own node: the node's table word was the
+    // goal's vtable; here the vptr is at +0 and the node follows it, in the original's place.)
+    memory::ListNode list_link_;
+    ObjectiveNpc* ped_;          // +0x14: the goal's pro (0x14 bytes)
+    uint32_t inherited_;         // +0x18: passed to the children (2: single_timer, 4: retry_stage)
+    script::Struct* args_;       // +0x1C
+    script::Struct* goal_flags_; // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
+    int run_ending_;             // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
+    GoalEdge* sub_nodes_;        // +0x28
+    GoalEdge* parents_;          // +0x2C
+    uint32_t skater_;            // +0x30: skater (none 0x806FFF30)
+    int level_;                  // +0x34: the career's level when made
+    int bundle_;                 // +0x38: group_number (-1: none) - locked while the manager's group is
+    uint32_t stage_flags_;       // +0x3C: bits by number (set_stage_flag)
+    uint32_t net_stage_flags_;   // +0x40
+    int times_started_;          // +0x44
+    int best_time_;              // +0x48: ms (record_type time; 0x7FFFFFFF none)
+    int record_points_;          // +0x4C (record_type score)
+    int seconds_remaining_;      // +0x50: ms
     uint32_t unknown54_;
     int num_flags_;     // +0x58
     int num_flags_set_; // +0x5C (also the number collected without number_collected)
@@ -109,8 +103,8 @@ public:
     // the node unlinked.
     virtual ~Objective();
 
-    // The goal as its list's node (see link_data_).
-    memory::ListNode* list_node() { return reinterpret_cast<memory::ListNode*>(this); }
+    // The goal's node in the active list (see list_link_).
+    memory::ListNode* list_node() { return &list_link_; }
 
     // 0x00553E00: this goal's inherited bits passed to every child, down the tree. 0x00553E50: the children's links'
     // won marks cleared, down the tree. (The depth argument is only passed on.)
@@ -346,21 +340,17 @@ public:
     // has), key_combos set to it, the texts redone. Whether it was new.
     bool award_special_trick();
 };
-static_assert(offsetof(Objective, link_data_) == 0x04 && offsetof(Objective, link_prev_) == 0x10 &&
-                  offsetof(Objective, ped_) == 0x14 && offsetof(Objective, args_) == 0x1C &&
-                  offsetof(Objective, run_ending_) == 0x24 && offsetof(Objective, sub_nodes_) == 0x28 &&
-                  offsetof(Objective, skater_) == 0x30 && offsetof(Objective, bundle_) == 0x38 &&
-                  offsetof(Objective, times_started_) == 0x44 && offsetof(Objective, seconds_remaining_) == 0x50 &&
-                  offsetof(Objective, num_flags_) == 0x58 && offsetof(Objective, elapsed_) == 0x60 &&
-                  offsetof(Objective, flag_bits_) == 0x6C && offsetof(Objective, cur_phase_) == 0x6D &&
-                  sizeof(Objective) == 0x70,
+static_assert(offsetof(Objective, list_link_) == 0x04 && offsetof(Objective, ped_) == 0x14 &&
+                  offsetof(Objective, args_) == 0x1C && offsetof(Objective, run_ending_) == 0x24 &&
+                  offsetof(Objective, sub_nodes_) == 0x28 && offsetof(Objective, skater_) == 0x30 &&
+                  offsetof(Objective, bundle_) == 0x38 && offsetof(Objective, times_started_) == 0x44 &&
+                  offsetof(Objective, seconds_remaining_) == 0x50 && offsetof(Objective, num_flags_) == 0x58 &&
+                  offsetof(Objective, elapsed_) == 0x60 && offsetof(Objective, flag_bits_) == 0x6C &&
+                  offsetof(Objective, cur_phase_) == 0x6D && sizeof(Objective) == 0x70,
               "layout must match the original");
 
-// 0x005560D0: the goal list's node table's slot 0 (lists::Elem<Objective>, 0x0064DDCC; the goal manager's list head
-// gets it when it's destroyed): unlinked; freed with flags bit 0. (A list node table - stage 4b's W.)
-struct GoalListNodes {
-    memory::ListNode* destroy_node(uint8_t flags);
-};
+// (0x005560D0, the goal list's node table's slot 0 - lists::Elem<Objective>: unlinked, freed with flags bit 0 - is
+// the goal's own node's uncouple here; nothing deletes a node through it.)
 
 extern float g_goal_life_seconds_per_millisecond;
 

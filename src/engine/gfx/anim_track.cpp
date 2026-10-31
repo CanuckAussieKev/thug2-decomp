@@ -18,7 +18,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/core/stubs.h"
 
 namespace gfx {
@@ -45,8 +44,6 @@ constexpr uint32_t kTumbleController = 0xDF5C091A;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr int kLoopWobble = 3;
 enum : int { kNotMine = 2 };
-
-void** const& g_track_vtable = vt::kAnimTrack;
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -88,7 +85,6 @@ void AnimTrack::operator delete(void* item) { get_pools().dealloc(item); }
 // 0x00481F20
 void AnimTrack::destroy_body()
 {
-    vtable_ = g_track_vtable;
     delete_controllers();
     delete_events();
     AnimTimeline::destroy_body();
@@ -387,11 +383,3 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
 }
 
 } // namespace gfx
-
-namespace vt {
-static VtableSlot g_anim_track_slots[] = {&gfx::AnimTrack::teardown,   &gfx::AnimTrack::get_reset,
-                                          &gfx::AnimTrack::tick_frame, &gfx::AnimTimeline::play_anim,
-                                          stubs::ignore_argument,      &gfx::AnimTrack::invoke_method_by_name,
-                                          &gfx::AnimTrack::play_anim};
-void** const kAnimTrack = reinterpret_cast<void**>(g_anim_track_slots);
-} // namespace vt

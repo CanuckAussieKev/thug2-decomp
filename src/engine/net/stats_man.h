@@ -23,37 +23,40 @@ class Task;
 // 0x0054C9B0-0x0054EBE0.
 namespace online {
 
-// A line of a top-score list (0x3C bytes): lists::Elem<TopEntry> (vtable 0x0064D640; the node's own 0x0064D634).
+// The top-score lists' items are their own list nodes (data = the item); the original's offsets were 4 more after
+// each node (its table word).
+
+// A line of a top-score list (0x3C bytes in the original): lists::Elem<TopEntry>.
 struct TopEntry {
     memory::ListNode list_link_; // +0x00 data = this
-    char label_[0x20];           // +0x14
-    int skill_points_;           // +0x34
-    int points_held_;            // +0x38
+    char label_[0x20];           // +0x10
+    int skill_points_;           // +0x30
+    int points_held_;            // +0x34
 
-    // 0x0054D6E0 (vtable 0x0064D640 slot 0, scalar deleting): the node destructor (0x0054D8F0), freed with flag 1.
+    // 0x0054D6E0 (the scalar deleting destructor): out of its list (0x0054D8F0), freed with flag 1.
     TopEntry* teardown(unsigned int flags);
 };
-static_assert(sizeof(TopEntry) == 0x3C && offsetof(TopEntry, skill_points_) == 0x34, "layout must match the original");
+static_assert(sizeof(TopEntry) == 0x38 && offsetof(TopEntry, skill_points_) == 0x30);
 
-// A level's part of a top-score list (0x2C bytes): lists::Elem<LevelScores> (vtable 0x0064D648) and its entries.
+// A level's part of a top-score list (0x2C bytes in the original): lists::Elem<LevelScores> and its entries.
 struct LevelScores {
     memory::ListNode list_link_; // +0x00 data = this
-    uint32_t level_;             // +0x14 the level's checksum
-    memory::ListNode entries_;   // +0x18 lists::Foremost<TopEntry> (vtable 0x0064D640)
+    uint32_t level_;             // +0x10 the level's checksum
+    memory::ListNode entries_;   // +0x14 lists::Foremost<TopEntry>
 
     // 0x0054DFE0 (destructor body): the entries deleted, the head and the node unlinked.
     void destroy_body();
-    // 0x0054EBB0 (vtable 0x0064D648 slot 0, scalar deleting)
+    // 0x0054EBB0 (the scalar deleting destructor)
     LevelScores* teardown(unsigned int flags);
 };
-static_assert(sizeof(LevelScores) == 0x2C && offsetof(LevelScores, entries_) == 0x18, "layout must match the original");
+static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 0x14);
 
-// One of the five top-score lists (0x48 bytes): the levels' scores (high scores / combos, all time / monthly) or, for
-// the ratings list, the entries themselves.
+// One of the five top-score lists (0x48 bytes in the original): the levels' scores (high scores / combos, all time /
+// monthly) or, for the ratings list, the entries themselves.
 struct TopList {
-    memory::ListNode levels_;  // +0x00 lists::Foremost<LevelScores> (vtable 0x0064D644)
-    memory::ListNode entries_; // +0x14 lists::Foremost<TopEntry> (vtable 0x0064D640): the ratings list's
-    char title_[0x20];         // +0x28 the file's first line (the lists of combos)
+    memory::ListNode levels_;  // +0x00 lists::Foremost<LevelScores>
+    memory::ListNode entries_; // +0x10 lists::Foremost<TopEntry>: the ratings list's
+    char title_[0x20];         // +0x20 the file's first line (the lists of combos)
 
     // 0x0054D8B0: two empty heads.
     TopList* make_new();
@@ -68,38 +71,22 @@ struct TopList {
     // into the menu (script 0x0AC09E3B for ratings, else 0x19F7BC28 with the level's name).
     void fill_sorted_scores(bool ratings);
 };
-static_assert(sizeof(TopList) == 0x48 && offsetof(TopList, title_) == 0x28, "layout must match the original");
+static_assert(sizeof(TopList) == 0x40 && offsetof(TopList, title_) == 0x20);
 
-// A sorted line for the menus (0x40 bytes, on a local list): lists::Elem<SortEntry> (vtable 0x0064D64C; the node's
-// own 0x0064D63C), its priority the score.
+// A sorted line for the menus (0x40 bytes in the original, on a local list): lists::Elem<SortEntry>, its priority
+// the score.
 struct SortEntry {
     memory::ListNode list_link_; // +0x00 data = this, priority = the sort key
-    char label_[0x20];           // +0x14
-    uint32_t level_;             // +0x34
-    int points_held_;            // +0x38
-    int skill_points_;           // +0x3C
+    char label_[0x20];           // +0x10
+    uint32_t level_;             // +0x30
+    int points_held_;            // +0x34
+    int skill_points_;           // +0x38
 
-    // 0x0054D780 (vtable 0x0064D64C slot 0, scalar deleting)
+    // 0x0054D780 (the scalar deleting destructor; the node's 0x0054EA20 / 0x0054D740)
     SortEntry* teardown(unsigned int flags);
 };
-static_assert(sizeof(SortEntry) == 0x40, "layout must match the original");
+static_assert(sizeof(SortEntry) == 0x3C);
 
-// The list nodes' own destructors and the searches' (as the original keeps them apart).
-struct StatsNode {
-    memory::ListNode list_link_;
-
-    // 0x0054D8F0 / 0x0054D400 / 0x0054EA20: the node destructors of TopEntry (vtable 0x0064D634), LevelScores'
-    // (0x0064D638) and SortEntry's (0x0064D63C): the vtable reset, unlinked.
-    void destroy_entry_node();
-    void destroy_level_node();
-    void destroy_sort_node();
-    // 0x0054D420 / 0x0054D460 / 0x0054D740 (those vtables' slot 0) and 0x0054D710 (the levels head's, vtable
-    // 0x0064D644): the scalar deleting destructors.
-    StatsNode* delete_entry_node(unsigned int flags);
-    StatsNode* delete_level_node(unsigned int flags);
-    StatsNode* delete_sort_node(unsigned int flags);
-    StatsNode* delete_levels_head(unsigned int flags);
-};
 // (lists::Hunt<SortEntry>'s, <TopEntry>'s and <LevelScores>'s vtables - 0x0064D580 / 0x0064D584 / 0x0064D588 - hold
 // only destructors that reset them: 0x0054CA90 / 0x0054D370, 0x0054CAA0 / 0x0054D3A0, 0x0054CAB0 / 0x0054D3D0.)
 
@@ -190,11 +177,11 @@ public:
     PersonalStats personal_; // +0x014
     int top_file_;           // +0x090 the top-score file being downloaded (RetrieveTopStats)
     TopList top_lists_[5];   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
-    bool need_top_stats_;    // +0x1FC
+    bool need_top_stats_;    // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
 };
 static_assert(offsetof(RankingsManager, personal_) == 0x14 && offsetof(RankingsManager, top_file_) == 0x90 &&
-                  offsetof(RankingsManager, top_lists_) == 0x94 && offsetof(RankingsManager, need_top_stats_) == 0x1FC,
-              "layout must match the original");
+                  offsetof(RankingsManager, top_lists_) == 0x94 && offsetof(RankingsManager, need_top_stats_) == 0x1D4,
+              "the original's, less the top lists' table words");
 
 // The script commands.
 bool __cdecl stats_logged_in(script::Struct* params, script::Script* script);            // 0x0054CC90

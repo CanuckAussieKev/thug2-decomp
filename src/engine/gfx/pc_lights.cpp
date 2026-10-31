@@ -255,8 +255,7 @@ void __cdecl update_all_lights()
 // 0x004B6920
 bool __cdecl delete_model_lights(PcModelLights* lights)
 {
-    if (lights)
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(lights))[0])(lights, 1u);
+    delete lights;
     return true;
 }
 

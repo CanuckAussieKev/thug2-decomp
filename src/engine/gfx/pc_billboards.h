@@ -24,7 +24,7 @@ struct BillboardRec {
 struct BillboardBatch {
     uint32_t vertex_bytes_; // (the material's passes + 2) x 0x20
     uint8_t* material;
-    memory::ListNode* lists[3]; // heads (data -1, vtable 0x0064A898) of nodes (vtable 0x0064A894) over entries
+    memory::ListNode* lists[3]; // heads (data -1) of nodes over entries
 
     // 0x004CEB30: construct for a material: three empty lists. Returns this.
     BillboardBatch* make_new(uint8_t* material);
@@ -77,14 +77,8 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
 // 2 lines, 3 a line strip, 4 triangles, 5 and 6 strips / fans; 0 else).
 uint32_t primitive_count(uint32_t type, uint32_t count);
 
-// A batch list's node (memory::ListNode with vtable 0x0064A894; the heads' 0x0064A898).
-struct BillboardNode : memory::ListNode {
-    // 0x004CE9D0: the body both destroyers share - the node's vtable set, unlinked (linked to itself).
-    void uncouple();
-    // 0x004CE960 (a node's virtual [0]) / 0x004CE9A0 (a head's): unlinked, and freed with flags & 1. Return this.
-    BillboardNode* teardown(unsigned int free_flags);
-    BillboardNode* destroy_head(unsigned int free_flags);
-};
+// (A batch list's node and head are memory::ListNodes: their destructors 0x004CE9D0 / 0x004CE960 / 0x004CE9A0 are
+// ListNode's uncouple / destroy.)
 
 // The 2D window (0x18 bytes, vtable 0x0064A88C; the free ones linked through +0x14 from 0x007013D0).
 class PcWindow final : public ScreenWindow {

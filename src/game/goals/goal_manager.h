@@ -20,13 +20,11 @@ namespace goals {
 
 class Objective;
 
-// The active goals' list head (lists::Foremost<Objective>, vtable 0x0064DF78: data -1, linked to itself while empty).
+// The active goals' list head (lists::Foremost<Objective>: data -1, linked to itself while empty; the original's size).
 struct GoalListHead {
-    memory::ListNode list_link_;
-    // 0x0055B9F0: the destructor body: unlinked (the node's vtable 0x0064DDCC). 0x0055D960 (the vtable's entry): the
-    // same, freed with flags bit 0. Returns this.
+    memory::PaddedListNode list_link_;
+    // 0x0055B9F0: the destructor body: unlinked. (0x0055D960, its table's entry - the same, freed - isn't called.)
     void destroy_body();
-    GoalListHead* teardown(uint8_t flags);
     // 0x0055D990 (lists::Foremost<Objective>::fetch_entry): the node at `index`, or null past the end. (Each node's data is checked
     // for -1 before the node for null, as the original.)
     memory::ListNode* get_node_at(int index);

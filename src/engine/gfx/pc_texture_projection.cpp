@@ -36,7 +36,6 @@ ProjectionBatch g_projection_batches[10]; // (kBatchLimit)
 
 namespace {
 
-extern void** const kProjectionVtable;
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
@@ -143,25 +142,8 @@ void __cdecl draw_projection_batches()
     batch_count() = 0;
 }
 
-// 0x004C7E80
-PcTextureProjection* PcTextureProjection::make_new()
-{
-    reinterpret_cast<TextureProjection*>(this)->TextureProjection::make_new();
-    vtable = reinterpret_cast<void**>(kProjectionVtable);
-    return this;
-}
-
-// 0x004C7EA0
-PcTextureProjection* PcTextureProjection::teardown(unsigned int free_flags)
-{
-    reinterpret_cast<TextureProjection*>(this)->TextureProjection::destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004C7620
-void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
+void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
 {
     ProjectionBatch* batch = nullptr;
     uint8_t* batch_vertices = nullptr;
@@ -188,18 +170,18 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                     continue;
                 uint32_t stride = mesh->stride;
                 float t0[3], t1[3], t2[3];
-                transform_coord(t0, reinterpret_cast<const float*>(vertices + stride * ia), &projection);
-                transform_coord(t1, reinterpret_cast<const float*>(vertices + stride * ib), &projection);
-                transform_coord(t2, reinterpret_cast<const float*>(vertices + stride * ic), &projection);
+                transform_coord(t0, reinterpret_cast<const float*>(vertices + stride * ia), &projection_);
+                transform_coord(t1, reinterpret_cast<const float*>(vertices + stride * ib), &projection_);
+                transform_coord(t2, reinterpret_cast<const float*>(vertices + stride * ic), &projection_);
                 if (t0[2] < -1.0f && t1[2] < -1.0f && t2[2] < -1.0f) // (wholly behind)
                     continue;
                 if (!triangle_overlaps_screen(t0[0], t0[1], t1[0], t1[1], t2[0], t2[1]))
                     continue;
                 if (!batch_vertices) {
-                    uint8_t* key = *reinterpret_cast<uint8_t**>(texture + 0x10);
-                    if (texture[8] & 1)
+                    uint8_t* key = *reinterpret_cast<uint8_t**>(bitmap_ + 0x10);
+                    if (bitmap_[8] & 1)
                         key = *reinterpret_cast<uint8_t**>(key);
-                    batch = get_projection_batch(reinterpret_cast<uint32_t>(key), blend_name_);
+                    batch = get_projection_batch(reinterpret_cast<uint32_t>(key), blend_mode_);
                     batch_vertices =
                         reinterpret_cast<uint8_t*>(batch) + 0x120; // (null: written near null, as the original)
                 }
@@ -225,7 +207,7 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                 uint8_t* pieces;
                 uint8_t* end;
                 uint8_t* format = nullptr;
-                if (fineness) {
+                if (fineness_) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
                     const float* p0 = reinterpret_cast<const float*>(v0);
                     const float* p1 = reinterpret_cast<const float*>(v1);
@@ -239,7 +221,7 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                     float cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
-                    g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness) * 16.0f));
+                    g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
                     reinterpret_cast<VertexStack*>(vertex_stack())->make_new(); // (emptied)
                     g_vertex_stack.vertex_size_ = 0x18;
                     push_vertex(v0);
@@ -261,7 +243,7 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                 }
                 // the pieces inside the projection's square, each into the batch's next triangle
                 bool full = false;
-                if (!fineness || pieces != end) {
+                if (!fineness_ || pieces != end) {
                     for (uint8_t* piece = pieces; piece != end; piece += 0x48) {
                         if (!triangle_overlaps_screen(
                                 from_uv(get_uv(piece)[0]), from_uv(get_uv(piece)[1]), from_uv(get_uv(piece + 0x18)[0]),
@@ -278,8 +260,8 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                 }
                 batch->triangle_count_ = count;
                 if (!full)
-                    batch->blend_name_ = blend_name_;
-                if (fineness) {
+                    batch->blend_name_ = blend_mode_;
+                if (fineness_) {
                     if (format) {
                         reinterpret_cast<MeshRef*>(format)->destroy_body(); // (its destructor body)
                         memory::Hub::get_pull()->dealloc(format);
@@ -294,12 +276,6 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
         }
     }
 }
-
-namespace {
-static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown,
-                                                 &render::PcTextureProjection::cast_onto};
-void** const kProjectionVtable = reinterpret_cast<void**>(g_projection_vtable_slots);
-} // namespace
 
 } // namespace render
 

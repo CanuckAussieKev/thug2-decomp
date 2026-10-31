@@ -167,13 +167,7 @@ static_assert(offsetof(WorldScene, builds_collision_grid_) == 0x8C && offsetof(W
 // into `out`. The length.
 int __cdecl make_collision_file_name(char* out, const char* level);
 
-// The nodes of the scene's lists of sectors (lists::Elem<WorldCell>, vtable 0x006499D8; the heads' 0x006499DC).
-struct SectorListNodes {
-    // 0x0049D300: the destructor's body (unlinked).
-    void destroy_body();
-    // 0x0049D320 / 0x0049D360 (virtual [0] of the node / the head): destroyed, and freed with flags & 1. Return this.
-    memory::ListNode* destroy_node(unsigned int flags);
-    memory::ListNode* destroy_head(unsigned int flags);
-};
+// (The nodes of the scene's lists of sectors, lists::Elem<WorldCell>: their destructors 0x0049D300 / 0x0049D320 and
+// the heads' 0x0049D360 are memory::ListNode's uncouple / destroy.)
 
 } // namespace render

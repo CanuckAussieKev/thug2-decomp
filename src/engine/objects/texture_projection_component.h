@@ -25,11 +25,11 @@ public:
     static constexpr uint32_t kType = 0x7505D7CC;
 
     // 0x00434870 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
-    // base's constructor, its vtable and type, an empty list (its head: vtable 0x00646638, data -1), no components.
+    // base's constructor, its type, an empty list (its head's data -1), no components.
     static ObjectModule* __cdecl fabricate();
     // The constructor (inlined in fabricate in the original).
     TextureProjectionComponent();
-    // 0x004346B0: every projection deleted (0x0057A2F0), the head unlinked (its vtable 0x00646600); the base's body.
+    // 0x004346B0: every projection deleted (0x0057A2F0), the head unlinked; the base's body.
     ~TextureProjectionComponent() override;
     // 0x00434730 (vtable slot 2): a projection for each structure of texture_projections= (asserted): its
     // 0x1EE8B7B9 checksum (asserted) at its +0x14, set up from the structure, put at the front of the list.
@@ -39,15 +39,9 @@ public:
     // 0x00434810 (vtable slot 1): each projection updated from the object (from the first to the head).
     void tick_frame() override;
 
-    // The list head's scalar deleting destructor (vtable 0x00646600 slot 0).
-    struct ProjectionList {
-        // 0x00434670: unlinked (vtable 0x00646600) and linked to itself; freed with flag 1. Returns this.
-        ProjectionList* teardown(unsigned int flags);
-
-        memory::ListNode list_link_;
-    };
-
-    ProjectionList projections_;  // +0x18 (a lists::Foremost of the projections)
+    // +0x18 (a lists::Foremost of the projections; the head's scalar deleting destructor 0x00434670 is
+    // memory::ListNode's)
+    memory::PaddedListNode projections_;
     ObjectModule* suspend_;       // +0x2C
     ObjectModule* bone_rig_;      // +0x30
     ObjectModule* mesh_instance_; // +0x34

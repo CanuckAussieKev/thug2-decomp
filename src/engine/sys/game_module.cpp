@@ -8,15 +8,11 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/lists/list_walk.h"
-#include "engine/core/code_address.h"
 #include "engine/script/world_cfuncs.h"
 
 namespace modules {
 
 namespace {
-
-extern void** const kNodeVtable;
-extern void** const kHeadVtable;
 
 Hub*& sole() { return commands::g_module_manager; }
 
@@ -26,12 +22,6 @@ unsigned int& ref_tally() { return g_module_references; }
 
 void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
-// A list node's or task's scalar deleting destructor (vtable slot 0 / slot 2), deleting it.
-void unlink_list_node(memory::ListNode* node)
-{
-    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
-}
-
 } // namespace
 
 // 0x0044F7E0
@@ -39,32 +29,19 @@ PartUnit::PartUnit()
 {
     cur_phase_ = kStopped;
     locked_ = false;
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->data = this;
-        node->vtable = kNodeVtable;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
-    list_link_ = node;
+    list_link_ = memory::ListNode::create(this);
 }
 
 // 0x0044F790
 PartUnit::~PartUnit()
 {
-    if (list_link_)
-        unlink_list_node(list_link_);
+    memory::ListNode::destroy(list_link_); // (0x0044F380)
 }
 
 // 0x0044F5E0
 Hub* Hub::make_new()
 {
-    modules_.data = reinterpret_cast<void*>(-1);
-    modules_.priority = 0;
-    modules_.next = &modules_;
-    modules_.prev = &modules_;
-    modules_.vtable = kHeadVtable;
+    modules_.make_head();
     task_ = new tasks::Task<Hub>(&tick_modules, this, -1000);
     command_pending_ = false;
     return this;
@@ -75,7 +52,7 @@ void Hub::destroy_body()
 {
     halt_every_module();
     delete task_;
-    modules_.unlink_as(kNodeVtable); // (the head's destructor is the node's)
+    modules_.uncouple(); // (0x0044F360: the head's destructor is the node's)
 }
 
 // 0x0044F3C0
@@ -185,35 +162,5 @@ void release_manager()
     sole() = nullptr;
     ref_tally() = 0;
 }
-
-// 0x0044F360
-void ModuleListDestructors::node_destroy_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(kNodeVtable); }
-
-// 0x0044F380
-memory::ListNode* ModuleListDestructors::node_destroy(unsigned int flags)
-{
-    auto* node = reinterpret_cast<memory::ListNode*>(this);
-    node->unlink_as(kNodeVtable);
-    if (flags & 1)
-        free_memory(node);
-    return node;
-}
-
-// 0x0044F410
-memory::ListNode* ModuleListDestructors::head_destroy(unsigned int flags)
-{
-    node_destroy_body();
-    if (flags & 1)
-        free_memory(this);
-    return reinterpret_cast<memory::ListNode*>(this);
-}
-
-namespace {
-
-static VtableSlot g_node_vtable_slots[] = {&modules::ModuleListDestructors::node_destroy};
-void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
-static VtableSlot g_head_vtable_slots[] = {&modules::ModuleListDestructors::head_destroy};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-} // namespace
 
 } // namespace modules

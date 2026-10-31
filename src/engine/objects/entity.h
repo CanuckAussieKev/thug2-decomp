@@ -49,15 +49,6 @@ public:
 };
 static_assert(sizeof(ObjectRef) == 0xC, "layout must match the original");
 
-// An object's node in its manager's list (lists::Elem<Entity>, vtable 0x006477E4; data = the object, priority =
-// the list's sort key: the highest first).
-struct EntityListEntry : memory::ListNode {
-    // 0x00460B20: the destructor body: out of its list (and linked to itself).
-    void destroy_body();
-    // 0x00460B40: the scalar deleting destructor.
-    EntityListEntry* teardown(unsigned int flags);
-};
-
 // object_flags_ (+0x08)
 constexpr uint32_t kObjectFlagDead = 0x1;              // flag_as_dead: waiting in the manager's dead list to be deleted
 constexpr uint32_t kObjectFlagLocked = 0x2;            // not deleted by the manager walks that delete unlocked objects
@@ -185,9 +176,11 @@ public:
     uint32_t visited_mask_ = 0;            // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
     script::Struct* tag_table_ = nullptr;  // +0x20 made on demand (front-end heap)
     uint32_t flag_bits_;                   // +0x24 the script flags (Obj_SetFlag...; never initialised here)
-    EntityListEntry list_link_;            // +0x28 in the manager's list (or its dead list)
-    uint32_t alias_count_ = 0;             // +0x3C the tracker's aliases of it (tracker.cpp)
-    ObjectRef ref_{this};                  // +0x40
+    // +0x28 in the manager's list (or its dead list; lists::Elem<Entity>: data = the object, priority = the list's
+    // sort key, the highest first)
+    memory::PaddedListNode list_link_;
+    uint32_t alias_count_ = 0; // +0x3C the tracker's aliases of it (tracker.cpp)
+    ObjectRef ref_{this};      // +0x40
 };
 static_assert(offsetof(Entity, object_flags_) == 0x08 && offsetof(Entity, park_owner_) == 0x0C &&
                   offsetof(Entity, own_script_) == 0x10 && offsetof(Entity, ident_) == 0x14 &&
@@ -413,8 +406,5 @@ static_assert(offsetof(GameEntity, at_point_) == 0x4C && offsetof(GameEntity, ol
                   offsetof(GameEntity, unknownbc_) == 0xBC && offsetof(GameEntity, display_matrix_) == 0xC0 &&
                   offsetof(GameEntity, attached_modules_) == 0x100 && offsetof(GameEntity, composite_flags_) == 0x104,
               "layout must match the original");
-
-// 0x006477E4: objectNodeVtable (defined where the class's functions are).
-extern void** const kObjectNodeVtable;
 
 } // namespace objects

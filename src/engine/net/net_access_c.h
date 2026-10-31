@@ -184,11 +184,4 @@ inline BulkStreamNode* construct_stream_link(void* memory, StreamDesc* desc)
 }
 inline void destroy_stream_desc(StreamDesc* desc) { desc->destroy_body(); }
 
-// lists::Elem<T>'s deleting destructor (each node type's vtable slot 0).
-inline void unlink_list_node(void* node)
-{
-    auto* vtable = *static_cast<void***>(node);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
-}
-
 } // namespace net

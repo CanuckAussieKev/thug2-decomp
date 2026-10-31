@@ -10,14 +10,12 @@
 // Win32 files). One manager (reference counted) holds the one card.
 namespace save_cards {
 
-extern void** const kFileVtable; // 0x00658A60: lists::Foremost<File> / lists::Elem<File> (memcard.cpp)
-
 class SaveCard;
 
 // A save file (also an entry of a directory listing: name, date, size).
 struct FileLoad {
-    // The list node it starts with (lists::Elem<File>: the data is the file itself).
-    memory::ListNode list_link_;
+    // The list node it starts with (lists::Elem<File>: the data is the file itself; the original's size).
+    memory::PaddedListNode list_link_;
     char label_[0x28];
     uint8_t second_, minute_, hour_, day_, month_, unknown41_;
     uint16_t year_;
@@ -34,6 +32,8 @@ struct FileLoad {
     int emit_out(const void* data, int size);
     int get_take_in(void* buffer, int size);
     bool shut();
+    // 0x005A8E80: the scalar deleting destructor (out of its list - 0x005BC990 -, freed with flag 1).
+    FileLoad* teardown(unsigned int flags);
 };
 
 class SaveCard {

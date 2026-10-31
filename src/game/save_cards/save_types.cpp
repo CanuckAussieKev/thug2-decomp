@@ -24,7 +24,6 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/game_vtables.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
 #include "game/goals/create_a_trick.h"
@@ -505,28 +504,6 @@ const uint8_t* keep_loaded_contents(const uint8_t* data, uint32_t type)
     const uint8_t* end = script::decode_from_bytes(contents, data);
     kept_type() = type;
     return end;
-}
-
-// --- the destructors of two list types of the memory card code ---
-
-// 0x005A7520
-memory::ListNode* ListDestructors::node_destroy(unsigned int flags)
-{
-    auto* node = reinterpret_cast<memory::ListNode*>(this);
-    node->unlink_as(vt::kSaveNode);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(node);
-    return node;
-}
-
-// 0x005A8E80
-memory::ListNode* ListDestructors::other_destroy(unsigned int flags)
-{
-    auto* node = reinterpret_cast<memory::ListNode*>(this);
-    node->unlink_as(vt::kSaveNode); // (the body 0x005BC990)
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(node);
-    return node;
 }
 
 } // namespace save_cards

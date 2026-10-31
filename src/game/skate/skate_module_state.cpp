@@ -485,14 +485,4 @@ int __stdcall Skate::should_be_absent(script::Struct* params)
     return get_game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
 }
 
-// 0x00564D60's neighbours: the skater list's node and head (lists::Elem<Rider> 0x0064E544, lists::Foremost<Rider>
-// 0x0064E5D4).
-// 0x00565730: the head's destructor body (the node's).
-void __fastcall skater_head_destroy_body(memory::ListNode* head) { head->unlink_as(kSkaterNodeVtable); }
-
-static VtableSlot g_skater_node_vtable_slots[] = {Skate::destroy_skater_node};
-void** const kSkaterNodeVtable = reinterpret_cast<void**>(g_skater_node_vtable_slots);
-static VtableSlot g_skater_head_vtable_slots[] = {Skate::destroy_skater_head};
-void** const kSkaterHeadVtable = reinterpret_cast<void**>(g_skater_head_vtable_slots);
-
 } // namespace modules

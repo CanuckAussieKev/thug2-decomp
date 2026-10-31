@@ -60,16 +60,8 @@ void __cdecl draw_instance_batch(uint32_t flags, int viewport);
 // meshes' materials' sort keys (+0x1C).
 int __cdecl compare_instances(const void* a, const void* b);
 
-// The nodes of a geom's load list (lists::Elem over its meshes: vtable 0x0064A434; the list's head, data -1:
-// 0x0064A438), laid out as ListNode.
-struct MeshListNode : memory::ListNode {
-    // 0x004B5EC0: the destructor's body - out of its list (linked to itself).
-    void destroy_body();
-    // 0x004B5E50 (the node's virtual [0]) / 0x004B5E90 (the head's): destroyed, and freed with flags & 1. Return
-    // this.
-    MeshListNode* teardown(unsigned int flags);
-    MeshListNode* destroy_head(unsigned int flags);
-};
+// (A geom's load list is a memory::ListNode list over its meshes: the node's destructors 0x004B5EC0 / 0x004B5E50 and
+// the head's 0x004B5E90 are ListNode's uncouple / destroy.)
 
 // The PC geom (0x64 bytes, vtable 0x0064A368; the engine's Geom - constructor 0x0048DD60, vtable 0x00648EC8,
 // destructor body 0x0048E130 - for its first 0x14 bytes).

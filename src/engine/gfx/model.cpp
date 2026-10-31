@@ -211,7 +211,7 @@ bool RenderModel::create_lights()
 // 0x00493C10
 bool RenderModel::destroy_lights()
 {
-    discard_scene(lights_ptr_);
+    discard_lights(lights_ptr_);
     lights_ptr_ = nullptr;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
         set_geom_lights(get_geom(node), nullptr);

@@ -83,14 +83,7 @@ objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQ
 // 0x004177B0
 void register_movable(HitMesh* object)
 {
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->vtable = kNodeVtable;
-        node->data = object;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    memory::ListNode* node = memory::ListNode::create(object);
     node->prev = g_movables.prev;
     node->next = &g_movables;
     g_movables.prev->next = node;
@@ -107,7 +100,7 @@ void unregister_movable(HitMesh* object)
         memory::ListNode* next = node->next;
         memory::ListNode* following = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
         if (node->data == object)
-            reinterpret_cast<void*(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
+            memory::ListNode::destroy(node);
         node = following;
     }
 }
@@ -197,6 +190,6 @@ objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, Coll
 namespace render {
 
 // 0x00640880 (a static initialiser): the movables' list, an empty head.
-void construct_movables() { reinterpret_cast<CollObjListNodes*>(&g_movables)->construct_head(); }
+void construct_movables() { g_movables.make_head(); }
 
 } // namespace render

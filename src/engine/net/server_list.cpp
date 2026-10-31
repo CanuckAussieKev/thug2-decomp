@@ -87,9 +87,6 @@ constexpr uint32_t kListClock = 3000;        // ms
 constexpr uint32_t kShowDelay = 500;         // ms
 constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
-static VtableSlot g_server_vtable_slots[] = {&HostListing::teardown};
-void** const kServerVtable = reinterpret_cast<void**>(g_server_vtable_slots); // HostListing
-
 // The manager's fields not named in gamenet_manager.h yet.
 constexpr uint32_t kServiceTask = 0xE0; // tasks::SchedulerTask*: the online service task
 constexpr uint32_t kMatchTask = 0xF0;   // tasks::SchedulerTask*: the server-list client's task
@@ -148,14 +145,15 @@ int total_of(memory::ListNode* head)
     return count;
 }
 
+// Every server of a list deleted.
 void delete_all(memory::ListNode* head)
 {
     memory::ListNode* node = head_of_scene_list(head);
-    auto* item = data_of<memory::ListNode>(node);
+    auto* item = data_of<HostListing>(node);
     while (item) {
         node = node ? get_next_node(node) : nullptr;
-        auto* following = data_of<memory::ListNode>(node);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(item->vtable[0])(item, 1);
+        auto* following = data_of<HostListing>(node);
+        item->teardown(1);
         item = following;
     }
 }
@@ -206,16 +204,8 @@ void move_waiting_servers(Hub* manager)
 // 0x00545F60
 HostListing* HostListing::make_new()
 {
-    data = this;
-    priority = 0;
-    next = this;
-    prev = this;
-    vtable = kServerVtable;
-    participants_.data = reinterpret_cast<void*>(-1);
-    participants_.priority = 0;
-    participants_.next = &participants_;
-    participants_.prev = &participants_;
-    participants_.vtable = kPlayerHeadVtable;
+    make_node(this);
+    participants_.make_head();
     in_menu_ = false;
     chosen_ = false;
     ping_ = 0;
@@ -239,11 +229,8 @@ HostListing* HostListing::make_new()
 // 0x00546640
 void HostListing::destroy_body()
 {
-    vtable = kServerVtable;
     clear_players();
-    participants_.vtable = kPlayerNodeVtable;
     unlink_node(&participants_);
-    vtable = kServerNodeVtable;
     unlink_node(this);
 }
 

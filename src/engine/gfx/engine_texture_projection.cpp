@@ -19,7 +19,6 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/objects/texture_projection_component.h"
 #include "engine/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
@@ -27,9 +26,6 @@
 namespace render {
 
 namespace {
-
-extern void** const kProjectionVtable;
-void** const& g_projection_node_vtable = vt::kProjectionNode;
 
 float get_f(double value) { return static_cast<float>(value); }
 
@@ -56,13 +52,9 @@ void** projected_collision() { return g_projected_collision; }
 } // namespace
 
 // 0x0049FE20
-TextureProjection* TextureProjection::make_new()
+TextureProjection::TextureProjection()
 {
-    self_link_ = reinterpret_cast<memory::ListNode*>(this);
-    node_priority_ = 0;
-    succ_ = reinterpret_cast<memory::ListNode*>(this);
-    last_value_ = reinterpret_cast<memory::ListNode*>(this);
-    vtable = reinterpret_cast<void**>(kProjectionVtable);
+    list_link_.make_node(this);
     label_ = 0;
     bitmap_ = nullptr;
     blend_mode_ = 0;
@@ -83,14 +75,10 @@ TextureProjection* TextureProjection::make_new()
     unknownbc_ = 0.0f;
     view_distance_ = 0.0f;
     flag_bits_ = 0;
-    return this;
 }
 
 // 0x004A04A0
-void TextureProjection::destroy_body()
-{
-    reinterpret_cast<memory::ListNode*>(this)->unlink_as(g_projection_node_vtable);
-}
+TextureProjection::~TextureProjection() { list_link_.uncouple(); }
 
 // 0x0049FE10
 void TextureProjection::plat_project(void**, void**)
@@ -243,20 +231,8 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     if (count > 0) {
         projected_sectors()[count] = nullptr;
         projected_collision()[count] = nullptr;
-        reinterpret_cast<void(__thiscall*)(TextureProjection*, void**, void**)>(vtable[1])(this, projected_sectors(),
-                                                                                           projected_collision());
+        plat_project(projected_sectors(), projected_collision());
     }
 }
 
-namespace {
-static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown,
-                                                 &render::TextureProjection::plat_project};
-void** const kProjectionVtable = reinterpret_cast<void**>(g_projection_vtable_slots);
-} // namespace
-
 } // namespace render
-
-namespace vt {
-static VtableSlot g_projection_node_slots[] = {&objects::TextureProjectionComponent::ProjectionList::teardown};
-void** const kProjectionNode = reinterpret_cast<void**>(g_projection_node_slots);
-} // namespace vt

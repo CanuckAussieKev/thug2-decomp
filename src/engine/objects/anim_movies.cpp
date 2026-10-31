@@ -36,8 +36,6 @@ float g_float_zero;
 
 namespace {
 
-extern void** const kObjectAnimMovieVtable;
-extern void** const kCameraAnimMovieVtable;
 constexpr uint32_t kNoAsset = 0xEE721991; // a timer, not an asset
 constexpr uint32_t kFrames = 0x019176C5;  // its length in frames
 constexpr uint32_t kLooping = 0x5EA0E211;
@@ -45,18 +43,15 @@ constexpr uint32_t kBackwards = 0xF8CFD515;
 
 using gfx::AnimTimeline;
 
-// The base movie's code (VideoEntry, node_objects.h) and the base's invoke_method_by_name (0x004A0CF0).
-VideoEntry* current_base(void* movie) { return static_cast<VideoEntry*>(movie); }
-void base_construct(void* movie) { current_base(movie)->make_new(); }
-void base_destroy_body(void* movie) { current_base(movie)->destroy_body(); }
-void base_load(void* movie, script::Struct* params) { current_base(movie)->configure_from_data(params); }
-void set_held(void* movie, int value) { current_base(movie)->set_flag_1b(static_cast<uint8_t>(value)); }
+// The base movie's code (VideoEntry, node_objects.h).
+void base_load(VideoEntry* movie, script::Struct* params) { movie->configure_from_data(params); }
+void set_held(VideoEntry* movie, int value) { movie->set_flag_1b(static_cast<uint8_t>(value)); }
 // The movie's name (movie_manager.h).
 uint32_t get_name_of(void* movie) { return movie_key_from_params(movie); }
 // The asset manager's asset by name (null if none).
 void* find_asset(uint32_t name) { return assets::g_asset_manager->get_asset_data(name, 0); }
-// The movie's own Start (vtable slot 3).
-void start_movie(Movie* movie) { reinterpret_cast<bool(__thiscall*)(Movie*)>(movie->get_vtable()[3])(movie); }
+// The movie's own Start (the original's slot 3).
+void start_movie(VideoEntry* movie) { movie->kickoff(); }
 
 // The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
 void construct_timeline(AnimTimeline* t) { t->make_new(); }
@@ -64,10 +59,9 @@ void destroy_timeline(AnimTimeline* t) { t->destroy_body(); }
 bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
 void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
 {
-    reinterpret_cast<void(__thiscall*)(AnimTimeline*, uint32_t, float, float, int, float, float)>(t->vtable_[3])(
-        t, anim, start, end, loop_type, blend, speed);
+    t->play_anim(anim, start, end, loop_type, blend, speed);
 }
-void update_timeline(AnimTimeline* t) { reinterpret_cast<void(__thiscall*)(AnimTimeline*)>(t->vtable_[2])(t); }
+void update_timeline(AnimTimeline* t) { t->tick_frame(); }
 
 // The animation asset's code: started (0x00482F10); told a step from one time to another (0x00482F40).
 void start_asset(void* anim) { static_cast<gfx::JointClipFrames*>(anim)->arm_events(); }
@@ -145,31 +139,14 @@ bool load_anim(Movie* movie, script::Struct* params)
 // --- the object animation movie -------------------------------------------------------------------------------
 
 // 0x005871B0
-ObjectAnimMovie* ObjectAnimMovie::make_new()
+ObjectAnimMovie::ObjectAnimMovie()
 {
-    base_construct(this);
-    base_.list_link_.vtable = kObjectAnimMovieVtable;
     construct_timeline(&timeline_);
     anim_ = nullptr;
-    return this;
 }
 
 // 0x00587210
-void ObjectAnimMovie::destroy_body()
-{
-    base_.list_link_.vtable = kObjectAnimMovieVtable;
-    destroy_timeline(&timeline_);
-    base_destroy_body(this);
-}
-
-// 0x00587370
-ObjectAnimMovie* ObjectAnimMovie::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+ObjectAnimMovie::~ObjectAnimMovie() { destroy_timeline(&timeline_); }
 
 // 0x005875D0
 bool ObjectAnimMovie::read_in(script::Struct* params)
@@ -177,7 +154,7 @@ bool ObjectAnimMovie::read_in(script::Struct* params)
     base_load(this, params);
     if (!load_anim(this, params))
         return false;
-    start_movie(&base_);
+    start_movie(this);
     return true;
 }
 
@@ -199,45 +176,28 @@ bool ObjectAnimMovie::kickoff()
 // 0x00587280 / 0x005872A0
 bool ObjectAnimMovie::is_finished()
 {
-    if (base_.unknown1a_)
+    if (is_finished_)
         return true;
-    if (base_.unknown18_)
+    if (flag18_)
         return false;
     return is_accomplished(&timeline_);
 }
-int ObjectAnimMovie::is_held_and_complete() { return base_.unknown18_ && is_accomplished(&timeline_) ? 1 : 0; }
+bool ObjectAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished(&timeline_); }
 
 // --- the camera animation movie -------------------------------------------------------------------------------
 
 // 0x005873F0
-CameraAnimMovie* CameraAnimMovie::make_new()
+CameraAnimMovie::CameraAnimMovie()
 {
-    base_construct(this);
-    base_.list_link_.vtable = kCameraAnimMovieVtable;
     construct_timeline(&timeline_);
     anim_ = nullptr;
     has_goal_ = false;
     aim_point_ = 0;
     reinterpret_cast<uint32_t&>(field_of_view_) = 0;
-    return this;
 }
 
 // 0x005872C0
-void CameraAnimMovie::destroy_body()
-{
-    base_.list_link_.vtable = kCameraAnimMovieVtable;
-    destroy_timeline(&timeline_);
-    base_destroy_body(this);
-}
-
-// 0x00587450
-CameraAnimMovie* CameraAnimMovie::teardown(uint8_t flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+CameraAnimMovie::~CameraAnimMovie() { destroy_timeline(&timeline_); }
 
 // 0x00587F70
 bool CameraAnimMovie::read_in(script::Struct* params)
@@ -246,15 +206,15 @@ bool CameraAnimMovie::read_in(script::Struct* params)
     float fov;
     if (params->fetch_float(0x17E7321E, &fov, 0)) {
         field_of_view_ = fov;
-        base_.viewer_->change_h_fov(fov);
+        viewer_->change_h_fov(fov);
     }
     if (!load_anim(this, params))
         return false;
     load_target(params);
-    start_movie(&base_);
+    start_movie(this);
     place_camera();
     if (anim_)
-        step_asset(anim_, timeline_.ongoing_, timeline_.ongoing_, base_.viewer_, true);
+        step_asset(anim_, timeline_.ongoing_, timeline_.ongoing_, viewer_, true);
     return true;
 }
 
@@ -293,13 +253,13 @@ bool CameraAnimMovie::kickoff()
 // 0x00587330 / 0x00587350
 bool CameraAnimMovie::is_finished()
 {
-    if (base_.unknown1a_)
+    if (is_finished_)
         return true;
-    if (base_.unknown18_)
+    if (flag18_)
         return false;
     return is_accomplished(&timeline_);
 }
-int CameraAnimMovie::is_held_and_complete() { return base_.unknown18_ && is_accomplished(&timeline_) ? 1 : 0; }
+bool CameraAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished(&timeline_); }
 
 // 0x00587590
 bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
@@ -322,22 +282,22 @@ void CameraAnimMovie::tick_frame()
 {
     float from = timeline_.ongoing_;
     update_timeline(&timeline_);
-    base_.viewer_->remember_prev_pos();
+    viewer_->remember_prev_pos();
     if (anim_)
-        step_asset(anim_, from, timeline_.ongoing_, base_.viewer_, false);
+        step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
     place_camera();
 }
 
 // 0x00587A50
 void CameraAnimMovie::place_camera()
 {
-    float* pos = reinterpret_cast<float*>(base_.viewer_->fetch_location());
-    float* m = reinterpret_cast<float*>(base_.viewer_->fetch_mat());
+    float* pos = reinterpret_cast<float*>(viewer_->fetch_location());
+    float* m = reinterpret_cast<float*>(viewer_->fetch_mat());
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     uint8_t** skaters = reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(modules::g_front_end_instance) + 0x20);
     for (int i = 0; i < 2; ++i) {
         if (prop<uint8_t>(prop<uint8_t*>(skaters[i], 0x18), 0x20) & 0x40)
-            current_base(this)->check_done(true);
+            check_done(true);
     }
     if (anim_) {
         // The camera from the asset's frame: its position and its rotation.
@@ -357,7 +317,7 @@ void CameraAnimMovie::place_camera()
         float fov = field_of_view_;
         if (fov == g_float_zero)
             fov = script::fetch_float(0x99529205);
-        base_.viewer_->change_h_fov(fov);
+        viewer_->change_h_fov(fov);
     }
     if (!has_goal_)
         return;
@@ -442,7 +402,7 @@ void ObjectAnimMovie::tick_frame()
     float from = timeline_.ongoing_;
     update_timeline(&timeline_);
     if (anim_)
-        step_asset(anim_, from, timeline_.ongoing_, base_.viewer_, false);
+        step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
     // Every object the asset moves: its frame's rotation and position.
     int count = prop<int>(anim_, 8);
     auto* quats = static_cast<float*>(memory::alloc(count * 16));
@@ -484,41 +444,4 @@ void ObjectAnimMovie::tick_frame()
     memory::Hub::get_pull()->dealloc(flags);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_object_anim_movie_vtable_slots[] = {&objects::ObjectAnimMovie::teardown,
-                                                        &objects::ObjectAnimMovie::read_in,
-                                                        &objects::ObjectAnimMovie::tick_frame,
-                                                        &objects::ObjectAnimMovie::kickoff,
-                                                        stubs::return_false3,
-                                                        &objects::ObjectAnimMovie::is_finished,
-                                                        &objects::ObjectAnimMovie::is_held_and_complete,
-                                                        stubs::return_false,
-                                                        stubs::do_nothing,
-                                                        stubs::return_true,
-                                                        stubs::return_false,
-                                                        stubs::do_nothing,
-                                                        stubs::ignore_argument,
-                                                        stubs::do_nothing};
-void** const kObjectAnimMovieVtable = reinterpret_cast<void**>(g_object_anim_movie_vtable_slots);
-static VtableSlot g_camera_anim_movie_vtable_slots[] = {&objects::CameraAnimMovie::teardown,
-                                                        &objects::CameraAnimMovie::read_in,
-                                                        &objects::CameraAnimMovie::tick_frame,
-                                                        &objects::CameraAnimMovie::kickoff,
-                                                        &objects::CameraAnimMovie::invoke_method_by_name,
-                                                        &objects::CameraAnimMovie::is_finished,
-                                                        &objects::CameraAnimMovie::is_held_and_complete,
-                                                        stubs::return_true,
-                                                        stubs::do_nothing,
-                                                        stubs::return_true,
-                                                        stubs::return_true,
-                                                        stubs::do_nothing,
-                                                        stubs::ignore_argument,
-                                                        stubs::do_nothing};
-void** const kCameraAnimMovieVtable = reinterpret_cast<void**>(g_camera_anim_movie_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -27,8 +27,6 @@ using memory::ListNode;
 
 namespace {
 
-extern void** const kMeshNodeVtable;        // the load list's nodes (lists::Elem<MeshRef>)
-extern void** const kMeshHeadVtable;        // and its head
 constexpr float kPer255 = 1.0f / 255.0f;    // 0x00645D70 (0x3B808081)
 constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
 
@@ -110,34 +108,6 @@ maths::Mat4& static_orientation()
 
 } // namespace
 
-// 0x004B5EC0
-void MeshListNode::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kMeshNodeVtable);
-    prev->next = next;
-    next->prev = prev;
-    next = this;
-    prev = this;
-}
-
-// 0x004B5E50
-MeshListNode* MeshListNode::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x004B5E90
-MeshListNode* MeshListNode::destroy_head(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004B4460
 PcGeom::PcGeom()
 {
@@ -165,15 +135,7 @@ void PcGeom::start_mesh_list()
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    auto* head = static_cast<ListNode*>(memory::alloc_zeroed(sizeof(ListNode)));
-    if (head) {
-        head->data = reinterpret_cast<void*>(-1); // (the head's mark)
-        head->priority = 0;
-        head->next = head;
-        head->prev = head;
-        head->vtable = reinterpret_cast<void**>(kMeshHeadVtable);
-    }
-    load_list_ = head;
+    load_list_ = ListNode::create_head();
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -182,14 +144,7 @@ void PcGeom::append_mesh(MeshRef* mesh)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    auto* node = static_cast<ListNode*>(memory::alloc_zeroed(sizeof(ListNode)));
-    if (node) {
-        node->vtable = reinterpret_cast<void**>(kMeshNodeVtable);
-        node->data = mesh;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    ListNode* node = ListNode::create(mesh);
     // at the end: before the head (no check: a failed allocation writes through null, as the original)
     ListNode* head = load_list_;
     node->prev = head->prev;
@@ -216,15 +171,14 @@ void PcGeom::make_mesh_table(void* vertex_arena)
             for (int i = 0; node; ++i) {
                 ListNode* next = is_head(node->next) ? nullptr : node->next;
                 meshes[i] = static_cast<MeshRef*>(node->data);
-                reinterpret_cast<void*(__thiscall*)(ListNode*, int)>(node->vtable[0])(node, 1); // (unlinked, freed)
+                ListNode::destroy(node); // (0x004B5E50: unlinked, freed)
                 if (vertex_arena)
                     meshes[i]->move_into_arena(static_cast<VertexArena*>(vertex_arena));
                 node = next;
             }
         }
     }
-    if (load_list_)
-        reinterpret_cast<void*(__thiscall*)(ListNode*, int)>(load_list_->vtable[0])(load_list_, 1);
+    ListNode::destroy(load_list_); // (0x004B5E90)
     load_list_ = nullptr;
 }
 
@@ -883,12 +837,5 @@ void PcGeom::reset_texture_anims()
             material->texture_anim_->relaunch();
     }
 }
-
-namespace {
-static VtableSlot g_mesh_node_vtable_slots[] = {&render::MeshListNode::teardown};
-void** const kMeshNodeVtable = reinterpret_cast<void**>(g_mesh_node_vtable_slots);
-static VtableSlot g_mesh_head_vtable_slots[] = {&render::MeshListNode::destroy_head};
-void** const kMeshHeadVtable = reinterpret_cast<void**>(g_mesh_head_vtable_slots);
-} // namespace
 
 } // namespace render

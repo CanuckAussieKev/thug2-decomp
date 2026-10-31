@@ -507,7 +507,7 @@ PartialClipDriver::~PartialClipDriver()
         blend_source_ = nullptr;
     }
     if (partial_) {
-        reinterpret_cast<void*(__thiscall*)(AnimTimeline*, int)>(partial_->vtable_[0])(partial_, 1);
+        partial_->teardown(1);
         partial_ = nullptr;
     }
     if (frame_source_)
@@ -541,9 +541,8 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     float speed = 1.0f;
     params->fetch_float(kSpeed, &speed, 0);
     params->fetch_float(kCurrent, &current, 0);
-    // the timeline's PlayAnim (vtable +0x0C)
-    reinterpret_cast<void(__thiscall*)(AnimTimeline*, uint32_t, float, float, int, float, float)>(partial_->vtable_[3])(
-        partial_, anim, start, end, loop_type, 0.0f, speed);
+    // the timeline's PlayAnim (the original's slot 3)
+    partial_->play_anim(anim, start, end, loop_type, 0.0f, speed);
     if (current != 0.0f)
         partial_->advance_clock(current);
     frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
@@ -560,7 +559,7 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
         float speed = static_cast<float>(static_cast<double>(partial_->speed_) * frames_per_second());
         partial_->speed_ = 0.0f;
         partial_->ongoing_ = static_cast<float>(static_cast<double>(frames) + partial_->ongoing_);
-        reinterpret_cast<void(__thiscall*)(AnimTimeline*)>(partial_->vtable_[2])(partial_);
+        partial_->tick_frame();
         partial_->speed_ = static_cast<float>(static_cast<double>(speed) * seconds_per_frame());
         return 1;
     }

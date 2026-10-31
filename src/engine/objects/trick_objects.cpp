@@ -192,10 +192,6 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
 
 namespace {
 
-extern void** const kTrickObjectVtable;
-extern void** const kTrickObjectNodeVtable;
-extern void** const kTrickClusterNodeVtable;
-extern void** const kTrickClusterVtable;
 constexpr uint32_t kLoadCreatedPark = 0xB664035D; // load_sk5ed_gameplay (the skate module's level, +0x378)
 
 // The level sector named `name` in any scene (0x0048C510) and its colour: 0x0049E670 cleared, 0x0049E980 read
@@ -252,38 +248,13 @@ bool TrickSpot::clear_graffiti_color(int index)
     return true;
 }
 
-// 0x00588590
-void TrickObjectNode::destroy_body() { unlink_as(kTrickObjectNodeVtable); }
-
-// 0x005885F0
-TrickObjectNode* TrickObjectNode::teardown(unsigned int flags)
-{
-    unlink_as(kTrickObjectNodeVtable);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x005885B0
-TrickClusterNode* TrickClusterNode::teardown(unsigned int flags)
-{
-    unlink_as(kTrickClusterNodeVtable);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00588630
 bool TrickObjectCluster::add_object(uint32_t name)
 {
     auto* object = static_cast<TrickSpot*>(memory::alloc_zeroed(sizeof(TrickSpot)));
     if (!object)
         return false;
-    object->list_link_.data = object;
-    object->list_link_.priority = 0;
-    object->list_link_.next = &object->list_link_;
-    object->list_link_.prev = &object->list_link_;
-    object->list_link_.vtable = kTrickObjectVtable;
+    object->list_link_.make_node(object);
     object->label_ = name;
     clear_sector_color(find_sector(name));
     if (!game_config::g_from_cd && script::fetch_int_value("show_all_trick_objects"))
@@ -376,7 +347,12 @@ int TrickSpotHub::write_graffiti_state(uint8_t* buffer)
 // 0x005889F0
 bool TrickSpotHub::remove_all_clusters()
 {
-    clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&render::delete_object), nullptr);
+    clusters_.run_hook(
+        [](void* cluster, void*) {
+            if (cluster)
+                static_cast<TrickObjectCluster*>(cluster)->teardown(1);
+        },
+        nullptr);
     clusters_.empty_table();
     cluster_count_ = 0;
     object_clusters_.empty_table();
@@ -419,7 +395,7 @@ uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
 }
 
 // 0x00588BB0
-void TrickSpot::destroy_body() { list_link_.unlink_as(kTrickClusterNodeVtable); }
+void TrickSpot::destroy_body() { list_link_.uncouple(); }
 
 // 0x00588B40
 TrickSpot* TrickSpot::teardown(unsigned int flags)
@@ -450,16 +426,8 @@ void TrickObjectHead::unlink_all()
 // 0x00588BD0
 TrickObjectCluster* TrickObjectCluster::make_new(uint32_t name)
 {
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = kTrickClusterVtable;
-    entities_.vtable = kTrickObjectVtable;
-    entities_.data = reinterpret_cast<void*>(-1); // (the head)
-    entities_.priority = 0;
-    entities_.next = &entities_;
-    entities_.prev = &entities_;
+    list_link_.make_node(this);
+    entities_.make_head();
     label_ = name;
     for (uint32_t& score : scores_)
         score = 0;
@@ -494,15 +462,13 @@ memory::ListNode* object_at(const memory::ListNode& head, uint32_t index)
 // 0x00588C30
 void TrickObjectCluster::destroy_body()
 {
-    list_link_.vtable = kTrickClusterVtable;
     for (uint32_t count = count_objects(entities_); count != 0; --count) {
-        void* object = object_at(entities_, 0)->data;
-        if (object)
-            reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(object))[0])(object, 1);
+        if (auto* object = static_cast<TrickSpot*>(object_at(entities_, 0)->data))
+            object->teardown(1);
     }
-    static_cast<TrickObjectHead&>(entities_).unlink_all();
-    entities_.unlink_as(kTrickClusterNodeVtable);
-    list_link_.unlink_as(kTrickObjectNodeVtable);
+    reinterpret_cast<TrickObjectHead&>(entities_).unlink_all();
+    entities_.uncouple();
+    list_link_.uncouple();
 }
 
 // 0x00588D20
@@ -772,19 +738,4 @@ bool TrickSpotHub::add_object(uint32_t object_name, uint32_t cluster_name)
     return added;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_trick_cluster_node_vtable_slots[] = {&objects::TrickClusterNode::teardown};
-void** const kTrickClusterNodeVtable = reinterpret_cast<void**>(g_trick_cluster_node_vtable_slots);
-static VtableSlot g_trick_object_node_vtable_slots[] = {&objects::TrickObjectNode::teardown};
-void** const kTrickObjectNodeVtable = reinterpret_cast<void**>(g_trick_object_node_vtable_slots);
-static VtableSlot g_trick_object_vtable_slots[] = {&objects::TrickSpot::teardown};
-void** const kTrickObjectVtable = reinterpret_cast<void**>(g_trick_object_vtable_slots);
-static VtableSlot g_trick_cluster_vtable_slots[] = {&objects::TrickObjectCluster::teardown};
-void** const kTrickClusterVtable = reinterpret_cast<void**>(g_trick_cluster_vtable_slots);
-
-} // namespace
 } // namespace objects

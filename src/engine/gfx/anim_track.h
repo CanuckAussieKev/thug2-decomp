@@ -5,8 +5,9 @@
 // the pose from it (up to six, by priority), the animation's events (from the anim set's event table) and a
 // fading weight.
 //
-// Vtable 0x00648794: 0 Destroy (0x00482340), 1 Reset (0x00481960), 2 Update (0x00481AC0), 3 the timeline's
-// 0x00481430, 4 0x005BAB90 (nothing), 5 invoke_method_by_name (0x00482200), 6 PlayAnim (0x004823C0).
+// (The original's table 0x00648794: 0 Destroy (0x00482340), 1 Reset (0x00481960), 2 Update (0x00481AC0), 3 the
+// timeline's 0x00481430, 4 0x005BAB90 (nothing), 5 invoke_method_by_name (0x00482200), 6 PlayAnim (0x004823C0) -
+// called only on tracks, by the blend channel: plain methods.)
 // (Its members 0x00481830-0x004819D0 are in anim_timeline.cpp.)
 
 #include <cstddef>

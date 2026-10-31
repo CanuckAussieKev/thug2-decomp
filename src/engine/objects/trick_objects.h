@@ -45,15 +45,15 @@ struct HitClusterLog {
     uint32_t copy_cluster_names(uint32_t* out, uint32_t max_bytes);
 };
 
-// A trick object (0x18 bytes, vtable 0x0064F0D8): a node in its cluster's list (data itself) with the name of its
-// level sector, which graffiti colours.
+// A trick object (0x18 bytes): a node in its cluster's list (data itself; the node keeps the original's size) with the
+// name of its level sector, which graffiti colours.
 struct TrickSpot {
-    memory::ListNode list_link_; // +0x00
-    uint32_t label_;             // +0x14 (its sector's)
+    memory::PaddedListNode list_link_; // +0x00
+    uint32_t label_;                   // +0x14 (its sector's)
 
-    // 0x00588BB0: the destructor's body - out of its list (the node's vtable 0x0064F0D0 put back first).
+    // 0x00588BB0: the destructor's body - out of its list.
     void destroy_body();
-    // 0x00588B40: the scalar deleting destructor (vtable slot 0): the body, then freed with flags bit 0.
+    // 0x00588B40: the scalar deleting destructor: the body, then freed with flags bit 0.
     TrickSpot* teardown(unsigned int flags);
 
     // 0x00588200: its sector coloured as graffiti colour `index` (graffitiColors[index]: r, g, b; alpha 0x80 - the
@@ -64,15 +64,8 @@ struct TrickSpot {
 };
 static_assert(sizeof(TrickSpot) == 0x18, "layout must match the original");
 
-// The destructors of the trick object list's node (lists::Elem, vtable 0x0064F0D4): 0x00588590 the body (out of its
-// list), 0x005885F0 scalar deleting; and of the cluster list's (vtable 0x0064F0D0) 0x005885B0 scalar deleting.
-struct TrickObjectNode : memory::ListNode {
-    void destroy_body();
-    TrickObjectNode* teardown(unsigned int flags);
-};
-struct TrickClusterNode : memory::ListNode {
-    TrickClusterNode* teardown(unsigned int flags);
-};
+// (The trick object list's node destructors - 0x00588590 the body, 0x005885F0 scalar deleting - and the cluster list's,
+// 0x005885B0, take the node out of its list: memory::ListNode.)
 
 // 0x00588B70: every node after this head taken out of the list (each linked to itself; none freed).
 struct TrickObjectHead : memory::ListNode {
@@ -82,14 +75,14 @@ struct TrickObjectHead : memory::ListNode {
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct TrickObjectCluster {
-    memory::ListNode list_link_; // +0x00 (data itself; its vtable 0x0064F10C is the cluster's)
-    uint32_t label_;             // +0x14
-    uint32_t record_points_;     // +0x18
-    uint32_t scores_[8];         // +0x1C
-    int owner_;                  // +0x3C (an object id)
-    bool owned_;                 // +0x40
+    memory::PaddedListNode list_link_; // +0x00 (data itself)
+    uint32_t label_;                   // +0x14
+    uint32_t record_points_;           // +0x18
+    uint32_t scores_[8];               // +0x1C
+    int owner_;                        // +0x3C (an object id)
+    bool owned_;                       // +0x40
     uint8_t pad41_[3];
-    memory::ListNode entities_; // +0x44 its CTrickObjects (the head: a sentinel)
+    memory::PaddedListNode entities_; // +0x44 its CTrickObjects (the head: a sentinel)
 
     // 0x00588630: a trick object for sector `name` made (0x18 bytes) and put last in the list; its sector's colour
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).
@@ -97,8 +90,8 @@ struct TrickObjectCluster {
     bool add_object(uint32_t name);
     // 0x00588BD0: the constructor - named `name`, no scores, holder or objects. Returns this.
     TrickObjectCluster* make_new(uint32_t name);
-    // 0x00588C30: the destructor's body - each object deleted (its virtual destructor, slot 0: the first one each
-    // time), the list emptied, the head and the cluster's own node out of their lists.
+    // 0x00588C30: the destructor's body - each object deleted (the first one each time), the list emptied, the head
+    // and the cluster's own node out of their lists.
     void destroy_body();
     // 0x00588D20: every object given graffiti colour `index`; in a created park (the level loaded by
     // load_sk5ed_gameplay) the rail editor's rail of the cluster's name too (0x004F4950). True.
@@ -106,7 +99,7 @@ struct TrickObjectCluster {
     // 0x00588F40: every object's colour cleared if it's graffiti colour `index` (false at the first that fails); in a
     // created park the rail editor's rail of the cluster's name cleared too (0x004F3D10). True.
     bool clear_graffiti_color(int index);
-    // 0x005891D0: the scalar deleting destructor (vtable slot 0).
+    // 0x005891D0: the scalar deleting destructor.
     TrickObjectCluster* teardown(unsigned int flags);
 };
 static_assert(offsetof(TrickObjectCluster, entities_) == 0x44 && sizeof(TrickObjectCluster) == 0x58,
@@ -157,7 +150,7 @@ struct TrickSpotHub : memory::HeapObject {
     // 0x00589760: trick object `objectName` added to the cluster named `cluster_name` (which must exist) and, unless
     // it's the cluster's own name, filed under it. Whether it was added.
     bool add_object(uint32_t object_name, uint32_t cluster_name);
-    // 0x005889F0: every cluster deleted (through its virtual destructor, 0x004B22A0) and both tables emptied. True.
+    // 0x005889F0: every cluster deleted (0x004B22A0, the generic delete through slot 0) and both tables emptied. True.
     bool remove_all_clusters();
     // 0x00588380 / 0x005883C0 (and a jump to it, 0x005889E0): a trick object's cluster / a cluster by name (null if
     // none).

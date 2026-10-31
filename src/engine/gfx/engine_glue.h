@@ -24,8 +24,6 @@ class TexturedQuad;
 void __cdecl toggle_mem_view();
 // 0x004B2280: the frame's BeginScene, unless the loading screen is up (0x00786D04).
 void __cdecl begin_frame_draw();
-// 0x004B22A0: an engine object deleted through its virtual destructor (none: nothing).
-void __cdecl delete_object(void* object);
 // 0x004B22B0: a jump to 0x004D3CA0 - the 2D clip rectangle (four values) set and turned on.
 void __cdecl set_screen_clip(const void* rect);
 // 0x004B22C0: a debug shape: type 4 is a quad (four points, 0x004D8D70) in `colour`; others nothing.

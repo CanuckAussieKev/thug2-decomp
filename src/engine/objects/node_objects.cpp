@@ -27,9 +27,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kMovieDetailsVtable;
-extern void** const kMovieNodeVtable;
-
 constexpr uint32_t kName = 0xA1DC81F9;           // name
 constexpr uint32_t kNodeScript = 0x2CA8A299;     // (the node's script)
 constexpr uint32_t kNodeParams = 0x7031F10C;     // (the params it's switched to with)
@@ -90,9 +87,6 @@ void switch_to_node_script(GameEntity* object, script::Struct* params)
 // Whether a viewport is looking through `camera` (not rewritten yet).
 bool is_camera_in_use(gfx::ViewCam* camera) { return render::flag_camera_for_removal(camera); }
 
-void** movie_details_vtable() { return kMovieDetailsVtable; }
-void** get_node_vtable() { return kMovieNodeVtable; }
-
 } // namespace
 
 // 0x00468B00
@@ -143,51 +137,33 @@ void create_node_object(script::Struct* params)
     start_node_object(object, params);
 }
 
-// 0x00468FB0
-VideoEntry* VideoEntry::make_new()
+void* VideoEntry::operator new(std::size_t size) noexcept
 {
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = movie_details_vtable();
+    return memory::alloc_zeroed(static_cast<unsigned int>(size));
+}
+void VideoEntry::operator delete(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
+
+// 0x00468FB0
+VideoEntry::VideoEntry()
+{
+    list_link_.make_node(this);
     args_ = nullptr;
     flag19_ = false;
     flag18_ = false;
     flag_1c_ = false;
     viewer_ = new gfx::ViewCam;
-    return this;
 }
 
 // 0x00469230
-void VideoEntry::destroy_body()
+VideoEntry::~VideoEntry()
 {
-    list_link_.vtable = movie_details_vtable();
     if (script::Struct* params = args_) {
         params->get_clear();
         script::delete_struct(params);
     }
     if (viewer_ && !is_camera_in_use(viewer_))
         delete viewer_;
-    list_link_.unlink_as(get_node_vtable());
-}
-
-// 0x004692D0
-VideoEntry* VideoEntry::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x00468F70
-VideoEntry* VideoEntry::destroy_node(unsigned int flags)
-{
-    list_link_.unlink_as(get_node_vtable());
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
+    list_link_.uncouple();
 }
 
 // 0x00469050
@@ -320,28 +296,4 @@ void ClassNodeList::set_nodes(script::Array* nodes)
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_movie_details_vtable_slots[] = {&objects::VideoEntry::teardown,
-                                                    &_purecall,
-                                                    &_purecall,
-                                                    &_purecall,
-                                                    stubs::return_false3,
-                                                    &_purecall,
-                                                    &_purecall,
-                                                    &_purecall,
-                                                    stubs::do_nothing,
-                                                    &_purecall,
-                                                    stubs::return_false,
-                                                    stubs::do_nothing,
-                                                    stubs::ignore_argument,
-                                                    stubs::do_nothing};
-void** const kMovieDetailsVtable = reinterpret_cast<void**>(g_movie_details_vtable_slots);
-static VtableSlot g_movie_node_vtable_slots[] = {&objects::VideoEntry::destroy_node};
-void** const kMovieNodeVtable = reinterpret_cast<void**>(g_movie_node_vtable_slots);
-
-} // namespace
 } // namespace objects

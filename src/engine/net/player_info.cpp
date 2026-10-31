@@ -45,11 +45,6 @@ constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
 
-static VtableSlot g_player_vtable_slots[] = {&PlayerRecord::teardown};
-void** const kPlayerVtable = reinterpret_cast<void**>(g_player_vtable_slots); // PlayerRecord
-static VtableSlot g_score_node_vtable_slots[] = {&online::ScoreNode::teardown};
-void** const kScoreNodeVtable = reinterpret_cast<void**>(g_score_node_vtable_slots);
-
 Hub* the_manager() { return g_online_hub; }
 
 objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
@@ -113,11 +108,7 @@ void* clear_update_records(void* records)
 // 0x00543740
 PlayerRecord* PlayerRecord::make_new(uint32_t flags)
 {
-    data = this;
-    priority = 0;
-    next = this;
-    prev = this;
-    vtable = kPlayerVtable;
+    make_node(this);
     clear_update_records(unknown50_);
     flag_bits_ = 0;
     std::sprintf(label_, "<No Name>"); // (0x0064CCE8)
@@ -151,7 +142,6 @@ PlayerRecord* PlayerRecord::make_new(uint32_t flags)
 // 0x00543810
 void PlayerRecord::destroy_body()
 {
-    vtable = kPlayerVtable;
     if (objects::RiderIdentity* profile = account_) {
         profile->destroy_body();
         memory::Hub::get_pull()->dealloc(profile);
@@ -161,8 +151,7 @@ void PlayerRecord::destroy_body()
         memory::Hub::get_pull()->dealloc(face_texture_data_);
         face_texture_data_ = nullptr;
     }
-    vtable = kPlayerNodeVtable;
-    unlink_node(this);
+    unlink_node(this); // (the node's 0x005366A0)
 }
 
 // 0x00544750
@@ -322,23 +311,10 @@ int PlayerRecord::is_pending_observer() { return (flag_bits_ >> 3) & 1; }
 
 // --- The score lines' list types ---
 
-// 0x00544700 / 0x005435B0 / 0x00544720
-void ScoreNode::destroy_body()
+// 0x00544720 (0x005435B0 the same with 0x00544700, the node's body, inlined)
+ScoreEntry* ScoreEntry::teardown(unsigned int flags)
 {
-    vtable = kScoreNodeVtable;
     unlink_node(this);
-}
-ScoreNode* ScoreNode::teardown(unsigned int flags)
-{
-    vtable = kScoreNodeVtable;
-    unlink_node(this);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-ScoreNode* ScoreNode::destroy_calling(unsigned int flags)
-{
-    destroy_body();
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;

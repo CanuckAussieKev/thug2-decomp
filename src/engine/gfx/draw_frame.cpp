@@ -487,11 +487,11 @@ static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D &&
 
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 struct SceneNode {
-    uint32_t unknown0;
-    Scene* scene; // +0x04
-    uint32_t unknown8;
-    SceneNode* next; // +0x0C
+    Scene* scene; // +0x00 (memory::ListNode's data)
+    int priority;
+    SceneNode* next; // +0x08
 };
+static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 
 bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 

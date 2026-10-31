@@ -12,7 +12,6 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/game_vtables.h"
 
 namespace render {
 
@@ -54,10 +53,7 @@ int len_of(memory::ListNode* head)
     return count;
 }
 
-void unlink_list_node(memory::ListNode* node)
-{
-    reinterpret_cast<void*(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
-}
+void unlink_list_node(memory::ListNode* node) { memory::ListNode::destroy(node); } // (0x00418EF0)
 
 // One cell's update: the objects taken out and put in, `delta` the change in its count so far. While objects
 // have been taken out (delta below 0) new ones fill the gaps at the end of the list; while more have been put in
@@ -97,14 +93,7 @@ struct CellUpdate {
         if (delta < 0) {
             cell->objects[cell->count + delta] = object;
         } else {
-            auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-            if (node) {
-                node->vtable = vt::kCollGridNode;
-                node->data = object;
-                node->priority = 0;
-                node->next = node;
-                node->prev = node;
-            }
+            memory::ListNode* node = memory::ListNode::create(object);
             node->prev = pending->prev;
             node->next = pending;
             pending->prev->next = node;
@@ -259,11 +248,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
 void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, memory::ListNode* moved)
 {
     memory::ListNode pending;
-    pending.vtable = vt::kCollGridHead;
-    pending.data = reinterpret_cast<void*>(-1);
-    pending.priority = 0;
-    pending.next = &pending;
-    pending.prev = &pending;
+    pending.make_head();
     int added_count = len_of(added), removed_count = len_of(removed), moved_count = len_of(moved);
     for (int x = 0; x < kSize; ++x) {
         for (int z = 0; z < kSize; ++z) {
@@ -418,27 +403,6 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     if (count)
         *count = found;
     return kFound;
-}
-
-// 0x00418ED0
-void CollGridListNodes::destroy_node_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(vt::kCollGridNode); }
-
-// 0x00418EF0
-memory::ListNode* CollGridListNodes::destroy_node(uint8_t flags)
-{
-    destroy_node_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return reinterpret_cast<memory::ListNode*>(this);
-}
-
-// 0x00418F30
-memory::ListNode* CollGridListNodes::destroy_head(uint8_t flags)
-{
-    destroy_node_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return reinterpret_cast<memory::ListNode*>(this);
 }
 
 } // namespace render

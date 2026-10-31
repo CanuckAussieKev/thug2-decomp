@@ -43,7 +43,7 @@ static_assert(offsetof(PendingMsg, share_count_) == 0x08 && offsetof(SeqQueuedMs
 
 // The links that queue a PendingMsg on a connection: list nodes (data = the link itself), deleted through
 // their vtable's scalar deleting destructor.
-struct TimedMsgNode : memory::ListNode {
+struct TimedMsgNode : memory::PaddedListNode {
     // +0x14...: depends on the queue (see Conn).
     uint8_t fields_[0x18];
 

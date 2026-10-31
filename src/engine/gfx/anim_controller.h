@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/arena_alloc.h"
+
 namespace objects {
 class GameEntity;
 }
@@ -20,17 +22,19 @@ class Struct;
 // Their tables' slot 2 is the shared 0x005BAB90 (ignores its argument) in every one: left out.
 namespace gfx {
 
-// The animation timeline a controller plays on (vtable 0x00648768; 0x00481650 constructs one): an animation
-// between two times, the current time stepping by speed * 60 per second in a direction, with a loop type. It's a
-// node of the engine's intrusive lists (memory::ListNode: data, priority, next, prev at +4..+0x10).
-// Vtable slots: 0 Destroy, 1 Reset, 2 Update, 3 PlayAnim, 4 (0x005BAB90: ignores its argument).
+// The animation timeline a controller plays on (0x00481650 constructs one): an animation between two times, the
+// current time stepping by speed * 60 per second in a direction, with a loop type. It's a node of the engine's
+// intrusive lists itself (its list_link_ at +0). The original's table (0x00648768: Destroy, Reset, Update, PlayAnim
+// and an empty slot) only ever dispatched on timelines of a known type - a plain timeline here (the partial
+// animation's, the movies'), an AnimTrack in the blend channels' lists - so the slots are plain methods (AnimTrack
+// has its own get_reset / tick_frame / teardown).
 struct AnimTimeline {
     enum RepeatMode : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
     AnimTimeline* make_new();
-    // 0x00481690: the list node's destructor body - its vtable 0x006486CC, unlinked (the channel's list nodes and
-    // the blend timeline use it too). 0x004816E0 (slot 0, also the channel list head's): that, then freed.
+    // 0x00481690: the list node's destructor body - unlinked (the channel's list nodes and the blend timeline use
+    // it too). 0x004816E0 (slot 0, also the channel list head's): that, then freed.
     void destroy_body();
     AnimTimeline* teardown(uint8_t flags);
     // 0x00481380 (slot 1): back to the constructor's times, speed, direction, loop type and animation.
@@ -50,15 +54,14 @@ struct AnimTimeline {
     // 0x004816B0: `seconds` (in frames) added to the current time, then wrapped / held as a step of no time does.
     void advance_clock(float frames);
 
-    void** vtable_;
-    uint32_t unknown04_[4];
-    float outset_;    // +0x14
-    float ongoing_;   // +0x18
-    float finish_;    // +0x1C
-    float speed_;     // +0x20 (per 1/60 s)
-    int direction_;   // +0x24 0 forwards, -1 backwards
-    int repeat_mode_; // +0x28
-    bool complete_;   // +0x2C
+    memory::PaddedListNode list_link_; // +0x00 (data = this; the original's node size: the fields keep their offsets)
+    float outset_;                     // +0x14
+    float ongoing_;                    // +0x18
+    float finish_;                     // +0x1C
+    float speed_;                      // +0x20 (per 1/60 s)
+    int direction_;                    // +0x24 0 forwards, -1 backwards
+    int repeat_mode_;                  // +0x28
+    bool complete_;                    // +0x2C
     uint8_t pad2d_[3];
     uint32_t anim_; // +0x30 the animation's name
 };

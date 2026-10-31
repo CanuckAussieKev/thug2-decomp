@@ -5,20 +5,8 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
-#include "game/save_cards/save_types.h"
 
 namespace memory {
-
-// The virtual table of the list node (defined after its functions, below).
-extern void** const kNodeVtable;
-
-namespace {
-
-extern void** const kHeadVtable; // lists::Foremost<Context>
-
-} // namespace
 
 // --- block headers -------------------------------------------------------------------------------------
 
@@ -123,17 +111,43 @@ MemoryArena::~MemoryArena() { memory::dealloc(outset_); }
 
 // --- allocators ----------------------------------------------------------------------------------------
 
-// 0x005BA0E0 (lists::Elem destructor: take it out of its list)
-void ListNode::uncouple() { unlink_as(kNodeVtable); }
-
-// 0x005BC990 / 0x005BCD30: the other node types' destructors
-void ListNode::unlink_as(void** node_vtable)
+// 0x005BA0E0 (lists::Elem's destructor: out of its list; the other node types' are the same - 0x005BC990,
+// 0x005BCD30...)
+void ListNode::uncouple()
 {
-    vtable = node_vtable;
     prev->next = next;
     next->prev = prev;
     next = this;
     prev = this;
+}
+
+void ListNode::make_head() { make_node(reinterpret_cast<void*>(-1)); }
+
+void ListNode::make_node(void* item, int item_priority)
+{
+    data = item;
+    priority = item_priority;
+    next = this;
+    prev = this;
+}
+
+ListNode* ListNode::create(void* item, int item_priority)
+{
+    auto* node = static_cast<ListNode*>(alloc_zeroed(sizeof(ListNode)));
+    if (node)
+        node->make_node(item, item_priority);
+    return node;
+}
+
+ListNode* ListNode::create_head() { return create(reinterpret_cast<void*>(-1)); }
+
+// 0x005BA100 / 0x005BA230 (the node's and the head's scalar deleting destructors, flag 1)
+void ListNode::destroy(ListNode* node)
+{
+    if (!node)
+        return;
+    node->uncouple();
+    memory::dealloc(node);
 }
 
 void* MemSource::operator new(std::size_t size) noexcept { return alloc_zeroed(static_cast<unsigned int>(size)); }
@@ -147,8 +161,8 @@ MemSource::MemSource(Zone* region, int direction, const char* name)
     region_ = region;
     direction_ = direction;
     label_ = name;
-    zone_chain_ = {kHeadVtable, reinterpret_cast<void*>(-1), 0, &zone_chain_, &zone_chain_};
-    base_context_.node = {kNodeVtable, &base_context_, 0, &base_context_.node, &base_context_.node};
+    zone_chain_.make_head();
+    base_context_.node.make_node(&base_context_);
     base_context_.free_list_ = nullptr;
     region->add_allocator(this);
 
@@ -173,7 +187,7 @@ void MemSource::enter_heap_scope()
 {
     auto* context = static_cast<CtxInfo*>(alloc_zeroed(sizeof(CtxInfo)));
     if (context)
-        context->node = {kNodeVtable, context, 0, &context->node, &context->node};
+        context->node.make_node(context);
     // (an allocation failure crashes here, as in the original)
     context->free_list_ = nullptr;
     context->node.prev = &zone_chain_;
@@ -195,45 +209,3 @@ void MemSource::leave_heap_scope()
 }
 
 } // namespace memory
-
-namespace {
-
-using memory::ListNode;
-
-// The list nodes' destructors.
-struct AllocAdapters {
-    // 0x005BA100 / 0x005BA230: the list node's and list head's scalar deleting destructors
-    ListNode* node_destroy(unsigned int flags)
-    {
-        auto* node = reinterpret_cast<ListNode*>(this);
-        node->uncouple();
-        if (flags & 1)
-            memory::dealloc(node);
-        return node;
-    }
-    // The node destructors of two other node types (vtables 0x0065797C and 0x00658A70).
-    void unlink_node_65797c() { reinterpret_cast<ListNode*>(this)->unlink_as(vt::kSaveNode); }
-    // (the node of sio::InputPort's list)
-    void unlink_node_658a_70() { reinterpret_cast<ListNode*>(this)->unlink_as(vt::kDeviceNode); }
-    // 0x005BA4E0: free what the first field points to
-    void free_pointee() { memory::dealloc(*reinterpret_cast<void**>(this)); }
-};
-
-} // namespace
-
-namespace memory {
-
-namespace {
-static VtableSlot g_head_vtable_slots[] = {&AllocAdapters::node_destroy};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-} // namespace
-
-static VtableSlot g_node_vtable_slots[] = {&AllocAdapters::node_destroy};
-void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<Context>
-
-} // namespace memory
-
-namespace vt {
-static VtableSlot g_save_node_slots[] = {&save_cards::ListDestructors::node_destroy};
-void** const kSaveNode = reinterpret_cast<void**>(g_save_node_slots);
-} // namespace vt

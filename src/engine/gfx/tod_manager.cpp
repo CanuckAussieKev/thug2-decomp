@@ -257,13 +257,13 @@ bool is_game_halted() { return reinterpret_cast<uint8_t*&>(modules::g_front_end_
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
 void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 
-// The scenes (render::CEngine's list 0x006FA7EC): nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1.
+// The scenes (render::CEngine's list 0x006FA7EC): nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1.
 struct SceneNode {
-    uint32_t unknown0;
     uint8_t* scene;
-    uint32_t unknown8;
+    int priority;
     SceneNode* next;
 };
+static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 SceneNode* first_scene() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
 uint8_t* sky_scene() { return reinterpret_cast<uint8_t*>(render::get_sky_scene()); }

@@ -73,13 +73,6 @@ constexpr uint32_t kIndex = 0x7F8C98FE;                 // index
 constexpr int kRoomGroupKind = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
-static VtableSlot g_lobby_list_vtable_slots[] = {&online::LobbyNode::destroy_other};
-void** const kLobbyListVtable =
-    reinterpret_cast<void**>(g_lobby_list_vtable_slots); // lists::Foremost<LobbyRoom>, LobbyRoom
-static VtableSlot g_player_list_vtable_slots[] = {&RoomManager::teardown};
-void** const kPlayerListVtable =
-    reinterpret_cast<void**>(g_player_list_vtable_slots); // lists::Foremost<LobbyPlayer>, LobbyPlayer
-
 Hub* the_manager() { return g_online_hub; }
 RoomManager* the_lobby() { return static_cast<RoomManager*>(the_manager()->lobby_service_); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
@@ -120,11 +113,7 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
 {
     auto* player = static_cast<LobbyPlayer*>(memory::alloc_zeroed(sizeof(LobbyPlayer)));
     if (player) {
-        player->list_link_.data = player;
-        player->list_link_.priority = 0;
-        player->list_link_.next = &player->list_link_;
-        player->list_link_.prev = &player->list_link_;
-        player->list_link_.vtable = kPlayerListVtable;
+        player->list_link_.make_node(player);
         player->account_ = 0;
         player->skill_points_ = 0;
         player->listed_ = false;
@@ -141,7 +130,7 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
     return player;
 }
 
-// Every node of `head`'s list deleted through its vtable.
+// Every item of `head`'s list (a room or a player: its own node) deleted - out of the list, freed.
 void delete_all(memory::ListNode* head)
 {
     memory::ListNode* node = head_of_scene_list(head);
@@ -149,7 +138,7 @@ void delete_all(memory::ListNode* head)
     while (item) {
         node = node ? get_next_node(node) : nullptr;
         auto* following = data_of<memory::ListNode>(node);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(item->vtable[0])(item, 1);
+        memory::ListNode::destroy(item);
         item = following;
     }
 }
@@ -197,11 +186,7 @@ tasks::SchedulerTask* new_task(RoomManager* lobby, tasks::Task<RoomManager>::Cod
 // 0x00545860
 LobbyRoom* LobbyRoom::make_new()
 {
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = kLobbyListVtable;
+    list_link_.make_node(this);
     full_ = false;
     neversoft_ = false;
     out_of_range_ = false;
@@ -211,16 +196,8 @@ LobbyRoom* LobbyRoom::make_new()
 // 0x00541870
 RoomManager* RoomManager::make_new()
 {
-    rooms_.data = reinterpret_cast<void*>(-1);
-    rooms_.priority = 0;
-    rooms_.next = &rooms_;
-    rooms_.prev = &rooms_;
-    rooms_.vtable = kLobbyListVtable;
-    participants_.data = reinterpret_cast<void*>(-1);
-    participants_.priority = 0;
-    participants_.next = &participants_;
-    participants_.prev = &participants_;
-    participants_.vtable = kPlayerListVtable;
+    rooms_.make_head();
+    participants_.make_head();
     negotiations_ = 0;
     in_group_room_ = false;
     drop_is_expected_ = true;
@@ -237,15 +214,6 @@ RoomManager* RoomManager::make_new()
     game_spy::call_qr2_register_key(0x37, "hostmode");
     game_spy::call_qr2_register_key(0x38, "ranked");
     game_spy::call_qr2_register_key(0x39, "rating_");
-    return this;
-}
-
-// 0x00541AC0
-RoomManager* RoomManager::teardown(unsigned int flags)
-{
-    reinterpret_cast<LobbyListNode*>(this)->destroy_body(); // (the destructor body: 0x00540860, its base node unlinked)
-    if (flags & 1)
-        ram_stats()->dealloc(this);
     return this;
 }
 
@@ -433,7 +401,7 @@ void __cdecl RoomManager::player_left_callback(void* peer, int room_type, const 
         script::Struct* params = new_params();
         params->put_name_key(kUserId, checksums::hash_from_text(nick));
         get_run(kDestroyUser, params);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(player->list_link_.vtable[0])(player, 1);
+        memory::ListNode::destroy(&player->list_link_); // (0x00541AC0)
         delete_params(params);
         get_run(kUpdatePlayerList);
     }

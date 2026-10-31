@@ -25,11 +25,6 @@
 
 namespace online {
 
-static VtableSlot g_lobby_list_node_vtable_slots[] = {&online::LobbyListNode::teardown};
-void** const kLobbyListNodeVtable = reinterpret_cast<void**>(g_lobby_list_node_vtable_slots);
-static VtableSlot g_lobby_node_vtable_slots[] = {&online::LobbyNode::teardown};
-void** const kLobbyNodeVtable = reinterpret_cast<void**>(g_lobby_node_vtable_slots);
-
 using namespace detail;
 
 namespace {
@@ -320,34 +315,8 @@ void RoomManager::destroy_body()
 {
     for (tasks::SchedulerTask* task : {think_task_, nat_task_, hosting_task_})
         delete task;
-    participants_.unlink_as(kLobbyListNodeVtable);
-    reinterpret_cast<memory::ListNode*>(this)->unlink_as(kLobbyNodeVtable);
+    participants_.uncouple();
+    rooms_.uncouple(); // (its own base: the room list's head)
 }
-
-// 0x00540840
-void LobbyNode::destroy_body() { unlink_as(kLobbyNodeVtable); }
-// 0x00540860
-void LobbyListNode::destroy_body() { unlink_as(kLobbyListNodeVtable); }
-
-// 0x00540880
-LobbyNode* LobbyNode::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x005408C0
-LobbyListNode* LobbyListNode::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x00540F80
-LobbyNode* LobbyNode::destroy_other(unsigned int flags) { return teardown(flags); }
 
 } // namespace online

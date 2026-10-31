@@ -83,18 +83,41 @@ public:
     ~MemoryArena() override;
 };
 
-// A node of the engine's intrusive lists (lists::Elem): `data` is the item (-1 marks a list's head).
+// A node of the engine's intrusive lists (lists::Elem / lists::Foremost): `data` is the item (-1 marks a list's
+// head), the links run round in a ring through the head. The original gave each node type a one-slot table (its
+// deleting destructor: out of the list, freed); here a node is plain data and whoever owns it says how it goes -
+// destroy() for a node of its own, the owner's destructor for a node inside an object.
 struct ListNode {
-    void** vtable;
     void* data;
     int priority;
     ListNode* next;
     ListNode* prev;
 
+    // 0x005BA0E0 (and the other node types' destructors, 0x005BC990 / 0x005BCD30...): out of its list, linked to
+    // itself.
     void uncouple();
-    // The same, for the node types of other classes (each lists::Elem<T> has its own vtable).
-    void unlink_as(void** node_vtable);
+    // A list's head: data -1, priority 0, linked to itself.
+    void make_head();
+    // A node for `item`, linked to itself.
+    void make_node(void* item, int item_priority = 0);
+    // Whether this is a list's head.
+    bool is_head() const { return data == reinterpret_cast<void*>(-1); }
+
+    // A node of its own (zeroed from the current heap, then made for `item`; null without memory) and its deleting
+    // destructor (out of its list, freed; null-safe).
+    static ListNode* create(void* item, int item_priority = 0);
+    static ListNode* create_head();
+    static void destroy(ListNode* node);
 };
+static_assert(sizeof(ListNode) == 0x10, "a list node is four words");
+
+// A list node inside a structure that is still read by byte offset elsewhere: the node, then an unused word where
+// the original's node had its table, so that the fields after it keep the original's offsets. (Stage 5: a plain
+// ListNode once the structure's readers are typed.)
+struct PaddedListNode : ListNode {
+    uint32_t unused_;
+};
+static_assert(sizeof(PaddedListNode) == 0x14, "the original node's size");
 
 class MemSource {
 public:
@@ -150,7 +173,7 @@ public:
     ListNode zone_chain_; // head of the context stack (newest first)
     CtxInfo base_context_;
 };
-static_assert(sizeof(MemSource) == 0x64, "layout must match the original");
+static_assert(sizeof(MemSource) == 0x5C, "the original's 0x64 less the two list nodes' table words");
 
 // The general-purpose allocator: a free list per context (address ordered, neighbours merged), and more space
 // claimed from the region when no free block fits. A heap can fall back on up to five others when its region is
@@ -178,6 +201,6 @@ public:
     Arena* fallbacks_[5];
     int fallback_reserve_[5];
 };
-static_assert(sizeof(Arena) == 0x98, "allocated as 0x98 bytes by the memory manager");
+static_assert(sizeof(Arena) == 0x90, "0x98 in the original (two list nodes' table words fewer)");
 
 } // namespace memory

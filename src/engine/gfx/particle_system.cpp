@@ -22,7 +22,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "game/skate/skate_module.h"
 
 namespace render {
@@ -31,9 +30,8 @@ uint8_t g_alloc_assert_flag;
 
 namespace {
 
-void** const& g_node_vtable = vt::kParticleNode; // (lists::Elem<EmitterInstance>'s own)
-constexpr float kNearlyUp = 0.99f;               // 0x00645450
-constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
+constexpr float kNearlyUp = 0.99f;        // 0x00645450
+constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
 void* particle_hub_handle() { return g_flexible_particle_manager; }
 int viewport_count() { return modules::g_viewport_count; }
@@ -135,12 +133,7 @@ void EmitterInstance::operator delete(void* memory) { memory::dealloc(memory); }
 // 0x00496F10
 EmitterInstance::EmitterInstance()
 {
-    list_link_.priority = 0;
-    list_link_.vtable = g_node_vtable;
-    list_link_.data = this;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = vt::kParticleSystemNode;
+    list_link_.make_node(this);
     flag_bits_ = 0;
     get_reset();
 }
@@ -206,7 +199,6 @@ void EmitterInstance::get_reset()
 // 0x00498690
 EmitterInstance::~EmitterInstance()
 {
-    list_link_.vtable = vt::kParticleSystemNode;
     if (emit_script_ptr_)
         delete_script(emit_script_ptr_);
     if (tick_script_)
@@ -227,7 +219,7 @@ EmitterInstance::~EmitterInstance()
         delete_particles(particle_list_);
     // the particle manager lets go of it
     static_cast<FlexibleParticleManager*>(particle_hub_handle())->remove_system(this);
-    list_link_.unlink_as(g_node_vtable);
+    list_link_.uncouple(); // (0x00496D10)
     // (then SharedBase's: its smart pointers cleared)
 }
 
@@ -549,40 +541,3 @@ ModelParticles::~ModelParticles()
 }
 
 } // namespace render
-
-namespace {
-
-// The systems' list node's table (`this` the node at +0x0C): each type's own in the original, one here - the system's
-// virtual destructor picks the type's body.
-struct NodeAdapters {
-    // 0x00496D10 / 0x00496D30: lists::Elem<EmitterInstance>'s own destructor body (its vtable, out of its list) and
-    // scalar deleting destructor (freed with flags & 1; returns this).
-    void node_destroy_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(vt::kParticleNode); }
-    memory::ListNode* node_destroy(unsigned int flags)
-    {
-        node_destroy_body();
-        if (flags & 1)
-            memory::dealloc(this);
-        return reinterpret_cast<memory::ListNode*>(this);
-    }
-    // 0x00496F50 and the types' (0x00498FD0, 0x004991F0, ...): the system destroyed, and freed with flags & 1.
-    render::EmitterInstance* destroy_system(unsigned int flags)
-    {
-        auto* system = reinterpret_cast<render::EmitterInstance*>(reinterpret_cast<uint8_t*>(this) -
-                                                                  offsetof(render::EmitterInstance, list_link_));
-        if (flags & 1)
-            delete system;
-        else
-            system->~EmitterInstance();
-        return system;
-    }
-};
-
-} // namespace
-
-namespace vt {
-static VtableSlot g_particle_node_slots[] = {&NodeAdapters::node_destroy};
-void** const kParticleNode = reinterpret_cast<void**>(g_particle_node_slots);
-static VtableSlot g_particle_system_node_slots[] = {&NodeAdapters::destroy_system};
-void** const kParticleSystemNode = reinterpret_cast<void**>(g_particle_system_node_slots);
-} // namespace vt

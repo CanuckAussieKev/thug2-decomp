@@ -93,14 +93,14 @@ memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
 bool skips_node(script::Struct* node) { return modules::Skate::should_be_absent(node) != 0; }
 
-// The scenes (Nx), from their list (0x006FA7EC; 0x0048C7F0 gives the first node, its +0xC the next - the one with
-// data -1 ends it - and +4 the scene).
+// The scenes (Nx), from their list (0x006FA7EC; 0x0048C7F0 gives the first node, its +8 the next - the one with
+// data -1 ends it - and +0 the scene; memory::ListNode).
 struct SceneNode {
-    uint32_t unknown0;
-    uint8_t* scene; // +0x04
-    uint32_t unknown8;
-    SceneNode* next; // +0x0C
+    uint8_t* scene; // +0x00 (memory::ListNode's data)
+    int priority;
+    SceneNode* next; // +0x08
 };
+static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 SceneNode* first_scene() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
 SceneNode* next_scene(SceneNode* node)
 {

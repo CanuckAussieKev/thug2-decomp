@@ -13,7 +13,7 @@ class Struct;
 } // namespace script
 
 // The engine's loaded scenes (render::CEngine's statics, cdecl): the list of them (lists::Foremost<WorldScene> at 0x006FA7E0 - its
-// first node at 0x006FA7EC; nodes {vtable 0x00648A38, the scene, priority, next, prev}, the head's data -1), the main
+// first node at its next; nodes memory::ListNode {the scene, priority, next, prev}, the head's data -1), the main
 // scene and the sky told apart by the scene's is_sky_, scenes loaded from a file or from memory and registered,
 // reloaded, unloaded, given a scene added over them; and what's asked of all of them - the collision grids a line
 // reaches, a sector name no scene uses, their statistics.
@@ -23,12 +23,11 @@ class CollGrid;
 struct WorldScene;
 class TextureSet;
 
-// The list's head (lists::Foremost<WorldScene>: vtable 0x00648A3C; the node's destructor body is 0x0048C4B0).
+// The list's head (lists::Foremost<WorldScene>; the node's destructor body is 0x0048C4B0).
 struct SceneListHead : memory::ListNode {
     // 0x0048CC30: construct - data -1, priority 0, linked to itself. Returns this.
     SceneListHead* make_new();
-    // 0x0048CC50 (virtual [0]): destroyed (unlinked, the node's body), and freed with flags & 1. Returns this.
-    SceneListHead* teardown(unsigned int flags);
+    // (0x0048CC50, its scalar deleting destructor, isn't called: the head is a global.)
 };
 
 // 0x0048C7F0: the first node of the list (null when it's empty).

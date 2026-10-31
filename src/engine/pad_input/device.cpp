@@ -34,7 +34,6 @@
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/gfx/movie.h"
 #include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
@@ -43,8 +42,6 @@
 namespace sio {
 
 namespace {
-
-void** const& g_device_node_vtable = vt::kDeviceNode; // lists::Elem<Device>
 
 // The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
 // any keyboard bindings (the keyboard counts as a pad then).
@@ -61,15 +58,7 @@ InputPort::InputPort(int index, int port, int slot)
 {
     pause_count_ = 0;
     capabilities_ = 0;
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->vtable = g_device_node_vtable;
-        node->data = this;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
-    list_link_ = node;
+    list_link_ = memory::ListNode::create(this);
     port_no_ = port;
     ordinal_ = index;
     seat_ = slot;
@@ -90,8 +79,7 @@ InputPort::InputPort(int index, int port, int slot)
 // 0x005BCD00
 InputPort::~InputPort()
 {
-    if (memory::ListNode* node = list_link_)
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
+    memory::ListNode::destroy(list_link_); // (0x005BE110)
 }
 
 // 0x005BDCC0. The original steps through the states:
@@ -282,15 +270,6 @@ Hub*& manager_instance() { return g_manager; }
 namespace {
 uint32_t& manager_references() { return g_manager_references; }
 } // namespace
-
-// 0x005BE110: the device list node's scalar deleting destructor
-memory::ListNode* destroy_device_node(memory::ListNode* node, unsigned int flags)
-{
-    node->unlink_as(g_device_node_vtable);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(node);
-    return node;
-}
 
 // --- typed keys -------------------------------------------------------------------------------------------
 
@@ -778,11 +757,7 @@ void InputPort::pull_data(int)
 // 0x005BE1F0
 Hub::Hub()
 {
-    devs_.data = reinterpret_cast<void*>(-1);
-    devs_.priority = 0;
-    devs_.next = &devs_;
-    devs_.prev = &devs_;
-    devs_.vtable = g_device_node_vtable;
+    devs_.make_head();
     task_ = new tasks::Task<memory::ListNode>(&process_task, &devs_, 0);
     int index = 0;
     for (int port = 0; port < 2; ++port) {
@@ -814,7 +789,7 @@ Hub::~Hub()
     stubs::return_zero(); // (a folded empty function - compiled-out code)
     if (!audio::music_off_requested())
         audio::stop_user_soundtrack();
-    devs_.unlink_as(g_device_node_vtable);
+    devs_.uncouple();
 }
 
 namespace {
@@ -895,19 +870,3 @@ void release_manager()
 }
 
 } // namespace sio
-
-namespace {
-
-struct DeviceAdapter {
-    memory::ListNode* destroy_node(unsigned int flags)
-    {
-        return sio::destroy_device_node(reinterpret_cast<memory::ListNode*>(this), flags);
-    }
-};
-
-} // namespace
-
-namespace vt {
-static VtableSlot g_device_node_slots[] = {&DeviceAdapter::destroy_node};
-void** const kDeviceNode = reinterpret_cast<void**>(g_device_node_slots);
-} // namespace vt

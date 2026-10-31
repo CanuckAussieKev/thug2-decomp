@@ -529,10 +529,10 @@ void FrontEnd::get_pause_game(bool pause)
     }
     script::pause_spawned_scripts(pause);
 
-    // The skaters: their list's nodes (the head's sentinel has -1 at +4).
+    // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (auto* node = *reinterpret_cast<uint8_t**>(skate + 0x34); *reinterpret_cast<int*>(node + 4) != -1 && node;
-         node = *reinterpret_cast<uint8_t**>(node + 0xC))
+    for (const memory::ListNode* node = reinterpret_cast<modules::Skate*>(skate)->riders_.list_link_.next;
+         !node->is_head() && node; node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =

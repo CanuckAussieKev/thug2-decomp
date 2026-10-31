@@ -3,6 +3,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_screen.h"
+#include "engine/gfx/engine_sprite.h"
 
 #include <windows.h>
 
@@ -44,13 +45,13 @@ void get_unlock() { ReleaseMutex(screen_mutex()); }
 UINT start_timer(UINT delay, LPTIMECALLBACK callback) { return timeSetEvent(delay, 0, callback, 0, TIME_PERIODIC); }
 void stop_timer(UINT timer) { timeKillEvent(timer); }
 
-void* g_loading_screen_sprite;
+render::BillboardQuad* g_loading_screen_sprite;     // (nothing in this build sets it)
 uint32_t g_picture_name[7]{0, 0, 0, 0, 0, 0, 0x0F}; // (a std::string: empty, its capacity 15)
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
 uint8_t*& picture() { return g_loading_screen_picture; }
-void*& get_sprite() { return g_loading_screen_sprite; }
+render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 
 // The picture's name (a std::basic_string over the game's allocator at 0x0067E958 - library code: its characters
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
@@ -211,7 +212,7 @@ void __cdecl free_loading_screen_sprite()
     get_lock();
     input_port()->SetRenderState(D3DRS_FOGENABLE, fog_render_flag());
     if (get_sprite()) {
-        render::delete_model_lights(static_cast<render::PcModelLights*>(get_sprite())); // (the engine's delete)
+        delete get_sprite(); // (the engine's delete through slot 0)
         get_sprite() = nullptr;
     }
     get_unlock();

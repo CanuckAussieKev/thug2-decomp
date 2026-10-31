@@ -56,7 +56,7 @@ using HandlerSlotValue = int(__cdecl*)(InboundMsgCtx* context);
 // A message handler (0x20 bytes, from the network heap): an lists::Elem<NoteHandler> (data: itself, priority: the
 // order in its list) with the code, its data and the packet flags it takes.
 struct NoteHandler {
-    memory::ListNode list_link_; // vtable 0x006475E8
+    memory::PaddedListNode list_link_;
     HandlerSlotValue code_;
     void* content_;
     uint32_t mode_bits_;

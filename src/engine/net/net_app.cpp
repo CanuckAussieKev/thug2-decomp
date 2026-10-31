@@ -97,17 +97,17 @@ PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, void
 void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)->destroy_body(); }
 
 // The links: lists::Nodes (+8 the priority) pointing at a PendingMsg.
-// TimedMsgNode (0x1C bytes, vtable 0x00647578): +0x18 the time it may be sent.
+// TimedMsgNode (0x1C bytes): +0x18 the time it may be sent.
 ListNode* construct_msg_link(void* memory, PendingMsg* message)
 {
     return &static_cast<MsgNormalLink*>(memory)->make_new(message)->list_link_;
 }
-// MsgImportantLink (0x28, vtable 0x0064757C): +0x14 when it was last sent (0 = never), +0x24 the time it may go.
+// MsgImportantLink (0x28): +0x14 when it was last sent (0 = never), +0x24 the time it may go.
 ListNode* construct_msg_important_link(void* memory, PendingMsg* message)
 {
     return &static_cast<ReliableMsgNode*>(memory)->make_new(message)->list_link_;
 }
-// OrderedMsgNode (0x2C, vtable 0x00647580): +0x15 the group, +0x16 a stream piece, +0x1C when last sent,
+// OrderedMsgNode (0x2C): +0x15 the group, +0x16 a stream piece, +0x1C when last sent,
 // +0x20 the sequence id, +0x24 the time it may go.
 ListNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 {
@@ -119,7 +119,7 @@ T& link_field(ListNode* link, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(link) + offset);
 }
 
-// BulkStreamNode (0x18 bytes, vtable 0x00647584): a lists::Elem (data = itself) with +0x14 its StreamDesc.
+// BulkStreamNode (0x18 bytes): a lists::Elem (data = itself) with +0x14 its StreamDesc.
 ListNode* construct_stream_link(void* memory, StreamDesc* stream)
 {
     return &static_cast<BulkStreamNode*>(memory)->make_new(stream)->list_link_;
@@ -138,12 +138,6 @@ void copy_string(char* out, const char* source)
 
 void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
 
-// A node's deleting destructor (virtual slot 0).
-void unlink_list_node(ListNode* node)
-{
-    reinterpret_cast<void*(__thiscall*)(ListNode*, unsigned int)>(node->vtable[0])(node, 1);
-}
-
 // The tail of a list.
 void append_last(ListNode* head, ListNode* node)
 {
@@ -152,7 +146,7 @@ void append_last(ListNode* head, ListNode* node)
     head->prev->next = node;
     head->prev = node;
 }
-// Out of its list (the node keeps its vtable).
+// Out of its list.
 void drop_out(ListNode* node)
 {
     node->prev->next = node->next;
@@ -201,32 +195,18 @@ tasks::SchedulerTask* new_task(int priority, tasks::Task<AppHost>::Code callback
 }
 AppHost* task_app(tasks::Task<AppHost>* task) { return task->content_; }
 
-// A list head: data -1, priority 0, linked to itself.
-void setup_list_sentinel(ListNode* head, void** vtable)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = vtable;
-}
-
 } // namespace
 
 // 0x004594C0
 AppHost::AppHost(int flags)
 {
-    for (MsgHandlerNode& handlers : dispatcher_.lists_)
-        handlers.construct_head();
+    for (memory::ListNode& handlers : dispatcher_.lists_)
+        handlers.make_head(); // (0x00457010)
     dispatcher_app_ = this;
-    list1414_.vtable = kAppListNodeVtable;
-    list1414_.data = this;
-    list1414_.priority = 0;
-    list1414_.next = &list1414_;
-    list1414_.prev = &list1414_;
+    list1414_.make_node(this);
     flag_bits_ = 0;
-    setup_list_sentinel(&circuits_, kConnHeadVtable);
-    setup_list_sentinel(&banned_, kBannedConnVtable);
+    circuits_.make_head();
+    banned_.make_head();
     metrics_task_ = new_task(kMetricsTaskPriority, &AppHost::network_metrics, this);
     receive_task_ = new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this);
     process_task_ = new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this);
@@ -610,7 +590,7 @@ void AppHost::pump_stream_traffic()
             if (!unfinished) {
                 destroy_stream_desc_body(stream);
                 ram_stats()->dealloc(stream);
-                unlink_list_node(link);
+                static_cast<BulkStreamNode*>(link->data)->teardown(1);
             }
             link = next_link;
         }

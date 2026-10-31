@@ -51,13 +51,6 @@ constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
 constexpr uint32_t kGapText = 0xC69CE365;            // gap_text
 constexpr uint32_t kGotGapForFirstTime = 0x318EAF64; // got_gap_for_first_time (a script)
 
-static VtableSlot g_gap_vtable_slots[] = {&goals::GapEntry::teardown};
-void** const kGapVtable = reinterpret_cast<void**>(g_gap_vtable_slots);
-static VtableSlot g_gap_node_vtable_slots[] = {&goals::GapCheckNode::teardown};
-void** const kGapNodeVtable = reinterpret_cast<void**>(g_gap_node_vtable_slots); // lists::Elem<GapEntry>
-static VtableSlot g_gap_head_vtable_slots[] = {&goals::GapCheckNode::destroy2};
-void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots); // lists::Foremost<GapEntry>
-
 GapTally*& building() { return g_building_gap_checklist; }
 
 // The list's nodes: the head's data is -1.
@@ -91,35 +84,10 @@ int current_level(void* career) { return static_cast<objects::RiderStoryProgress
 
 } // namespace
 
-// 0x00578680
-void GapCheckNode::destroy_body() { list_link_.unlink_as(kGapNodeVtable); }
-
-// 0x005786A0
-GapCheckNode* GapCheckNode::teardown(unsigned int flags)
-{
-    list_link_.unlink_as(kGapNodeVtable);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x005794B0
-GapCheckNode* GapCheckNode::destroy2(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x005786E0
 GapEntry* GapEntry::make_new()
 {
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-    list_link_.vtable = kGapVtable;
+    list_link_.make_node(this);
     new (&label_) text::Chars();
     num_ = 0;
     pending_ = 0;
@@ -131,7 +99,7 @@ GapEntry* GapEntry::make_new()
 void GapEntry::destroy_body()
 {
     label_.~Chars();
-    list_link_.unlink_as(kGapNodeVtable);
+    list_link_.uncouple();
 }
 
 // 0x005794E0
@@ -146,11 +114,7 @@ GapEntry* GapEntry::teardown(unsigned int flags)
 // 0x00579690
 GapTally* GapTally::make_new()
 {
-    gaps_.data = reinterpret_cast<void*>(-1);
-    gaps_.priority = 0;
-    gaps_.next = &gaps_;
-    gaps_.prev = &gaps_;
-    gaps_.vtable = kGapHeadVtable;
+    gaps_.make_head();
     built_ = false;
     return this;
 }
@@ -159,7 +123,7 @@ GapTally* GapTally::make_new()
 void GapTally::get_clear()
 {
     while (GapEntry* gap = gap_of(gaps_.next))
-        reinterpret_cast<void*(__thiscall*)(GapEntry*, int)>(gap->list_link_.vtable[0])(gap, 1);
+        gap->teardown(1);
     built_ = false;
 }
 
@@ -458,6 +422,6 @@ bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x00585520
-void GapTally::destroy_body() { gaps_.unlink_as(kGapNodeVtable); }
+void GapTally::destroy_body() { gaps_.uncouple(); }
 
 } // namespace goals

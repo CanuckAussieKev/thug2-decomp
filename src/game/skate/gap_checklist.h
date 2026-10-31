@@ -18,21 +18,21 @@ class Struct;
 
 namespace goals {
 
-// One gap (0x50 bytes, vtable 0x0064EC7C; its node type lists::Elem<GapEntry>'s 0x0064EC78).
+// One gap (0x50 bytes; its own node in the checklist, which keeps the original's size).
 struct GapEntry {
-    memory::ListNode list_link_;   // data = the gap itself
-    maths::Vec4 skater_start_pos_; // +0x14 where the gap menu puts the skater (set_gap_positions)
-    maths::Vec4 skater_start_dir_; // +0x24
-    int pending_;                  // +0x34 landed since the last award (register_gap_hit)
-    int num_;                      // +0x38 times landed
-    int points_held_;              // +0x3C
-    bool in_level_;                // +0x40 found by the last scan of the level's scripts
+    memory::PaddedListNode list_link_; // data = the gap itself
+    maths::Vec4 skater_start_pos_;     // +0x14 where the gap menu puts the skater (set_gap_positions)
+    maths::Vec4 skater_start_dir_;     // +0x24
+    int pending_;                      // +0x34 landed since the last award (register_gap_hit)
+    int num_;                          // +0x38 times landed
+    int points_held_;                  // +0x3C
+    bool in_level_;                    // +0x40 found by the last scan of the level's scripts
     uint8_t pad41[3];
     text::Chars label_; // +0x44
 
     // 0x005786E0: an unlinked node, an empty name, never landed, in the level. Returns this.
     GapEntry* make_new();
-    // 0x00579510: the name freed, the node unlinked (its node type's vtable). 0x005794E0: the scalar deleting
+    // 0x00579510: the name freed, the node unlinked (0x00578680). 0x005794E0: the scalar deleting
     // destructor.
     void destroy_body();
     GapEntry* teardown(unsigned int flags);
@@ -42,15 +42,8 @@ static_assert(offsetof(GapEntry, skater_start_pos_) == 0x14 && offsetof(GapEntry
                   sizeof(GapEntry) == 0x50,
               "layout must match the original");
 
-// lists::Elem<GapEntry>'s destructors: 0x00578680 (unlinked, its vtable 0x0064EC78), 0x005786A0 and 0x005794B0 (two
-// scalar deleting destructors of it).
-struct GapCheckNode {
-    memory::ListNode list_link_;
-
-    void destroy_body();
-    GapCheckNode* teardown(unsigned int flags);
-    GapCheckNode* destroy2(unsigned int flags);
-};
+// (lists::Elem<GapEntry>'s destructors - 0x00578680 unlinked, 0x005786A0 / 0x005794B0 scalar deleting - are
+// memory::ListNode's.)
 
 class GapTally {
 public:
@@ -110,7 +103,7 @@ public:
 
     bool built_; // +0x00 (also set by register_gap_entry)
     uint8_t pad01[3];
-    memory::ListNode gaps_; // +0x04 the list's head (lists::Foremost<GapEntry>, vtable 0x0064ED20)
+    memory::PaddedListNode gaps_; // +0x04 the list's head (lists::Foremost<GapEntry>)
 };
 static_assert(offsetof(GapTally, gaps_) == 4 && sizeof(GapTally) == 0x18, "layout must match the original");
 

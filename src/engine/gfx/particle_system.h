@@ -34,8 +34,8 @@ struct FlexibleParticle {
 static_assert(sizeof(FlexibleParticle) == 0x30, "layout must match the original");
 
 // The base of every type (0x134 bytes; vtable 0x00649428). Smart pointers point at it (the flexible particle
-// component's): a SharedBase. Its list node at +0x0C (the particle manager's list) has a table of its own whose slot 0
-// destroys the system through the node; that table is the node's (memory::ListNode's `vtable`), not a second C++ base.
+// component's): a SharedBase. Its list node at +0x0C (the particle manager's list; the original's node had a table of
+// its own, the "second vtable" - the node here keeps its size: the types' fields are at the original's offsets).
 struct EmitterInstance : objects::SharedBase {
     // On the current heap, zeroed, with the particle manager's assert flag (g_alloc_assert_flag); null when it's full.
     static void* operator new(std::size_t size) noexcept;
@@ -60,37 +60,37 @@ struct EmitterInstance : objects::SharedBase {
     void set_flag(int bit, bool on);
 
     uint32_t unknown08;
-    memory::ListNode list_link_;      // +0x0C: in the particle manager's list (data: the system)
-    maths::Vec4 at_point_;            // +0x20: the emitter
-    maths::Vec4 last_pos_;            // +0x30: where it was last update (FillPath emits along the way)
-    maths::Vec4 align_to_;            // +0x40 align_to
-    maths::Vec4 bounds_;              // +0x50: the bounding sphere (centre, radius)
-    float colour_scale_[4];           // +0x60: the level's colour (with 0x10000 set)
-    float emit_rate_;                 // +0x70 emit_rate (particles a second)
-    float emit_owed_;                 // +0x74: particles owed, a fraction
-    uint32_t unknown78_;              // +0x78 (the component's 0x184197D5: an object's id - the system dies with it)
-    int max_particles_;               // +0x7C
-    int lod_min_particles_;           // +0x80 setLODParams min_particles
-    float lod_near_;                  // +0x84 lod_dist1, squared
-    float lod_far_;                   // +0x88 lod_dist2, squared
-    int particle_count_;              // +0x8C: live particles (empty_system: 0)
-    float speed_[2];                  // +0x90 setSpeedRange min, max
-    float emit_range_[3];             // +0x98 setEmitRange width, height, depth
-    float angle_spread_;              // +0xA4 setAngleSpread spread
-    float force_[3];                  // +0xA8 setForce
-    float extent_[4];                 // +0xB4 setParticleSize sw, sh, ew, eh
-    float size_scale_;                // +0xC4 SetParticleSizeScale
-    float age_left_[2];               // +0xC8 setLife min, max
-    float emit_target_[3];            // +0xD0 setEmitTarget (a direction)
-    maths::Mat4* xform_ref_;          // +0xDC the matrix it follows (its object's display matrix)
-    float orientation_turn_[3];       // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
-    float brightness_;                // +0xEC (a model's +0x22C, update_Brightness; the ground's brightness)
-    uint32_t label_;                  // +0xF0
-    uint32_t group_id_;               // +0xF4 groupID
-    FlexibleParticle* particle_list_; // +0xF8 (max_particles_ of them, after their count)
-    script::Script* emit_script_ptr_; // +0xFC emitscript (run each emit... update)
-    script::Script* tick_script_;     // +0x100 UpdateScript
-    script::Struct* script_args_;     // +0x104 their params
+    memory::PaddedListNode list_link_; // +0x0C: in the particle manager's list (data: the system)
+    maths::Vec4 at_point_;             // +0x20: the emitter
+    maths::Vec4 last_pos_;             // +0x30: where it was last update (FillPath emits along the way)
+    maths::Vec4 align_to_;             // +0x40 align_to
+    maths::Vec4 bounds_;               // +0x50: the bounding sphere (centre, radius)
+    float colour_scale_[4];            // +0x60: the level's colour (with 0x10000 set)
+    float emit_rate_;                  // +0x70 emit_rate (particles a second)
+    float emit_owed_;                  // +0x74: particles owed, a fraction
+    uint32_t unknown78_;               // +0x78 (the component's 0x184197D5: an object's id - the system dies with it)
+    int max_particles_;                // +0x7C
+    int lod_min_particles_;            // +0x80 setLODParams min_particles
+    float lod_near_;                   // +0x84 lod_dist1, squared
+    float lod_far_;                    // +0x88 lod_dist2, squared
+    int particle_count_;               // +0x8C: live particles (empty_system: 0)
+    float speed_[2];                   // +0x90 setSpeedRange min, max
+    float emit_range_[3];              // +0x98 setEmitRange width, height, depth
+    float angle_spread_;               // +0xA4 setAngleSpread spread
+    float force_[3];                   // +0xA8 setForce
+    float extent_[4];                  // +0xB4 setParticleSize sw, sh, ew, eh
+    float size_scale_;                 // +0xC4 SetParticleSizeScale
+    float age_left_[2];                // +0xC8 setLife min, max
+    float emit_target_[3];             // +0xD0 setEmitTarget (a direction)
+    maths::Mat4* xform_ref_;           // +0xDC the matrix it follows (its object's display matrix)
+    float orientation_turn_[3];        // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
+    float brightness_;                 // +0xEC (a model's +0x22C, update_Brightness; the ground's brightness)
+    uint32_t label_;                   // +0xF0
+    uint32_t group_id_;                // +0xF4 groupID
+    FlexibleParticle* particle_list_;  // +0xF8 (max_particles_ of them, after their count)
+    script::Script* emit_script_ptr_;  // +0xFC emitscript (run each emit... update)
+    script::Script* tick_script_;      // +0x100 UpdateScript
+    script::Struct* script_args_;      // +0x104 their params
     float colour_mid_;         // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
     uint8_t* start_colour_;    // +0x10C (RGBA; the types with segments: one a segment and three more)
     uint8_t* mid_colour_;      // +0x110

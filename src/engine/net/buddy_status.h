@@ -14,22 +14,9 @@ class Struct;
 // folded at 0x005480B0-0x005480F0.
 namespace online {
 
-extern void** const kBuddyNodeVtable;   // 0x0064CF60: lists::Elem<Buddy> / lists::Foremost<Buddy>
-extern void** const kMessageNodeVtable; // 0x0064CF64
-
-// The buddy lists' list types (their vtables hold only the scalar deleting destructor):
-// lists::Hunt<Buddy> (0x0064CECC): 0x005480D0 the body (the vtable reset), 0x00548440 the scalar deleting one;
-// lists::Hunt<FriendNote> (0x0064CED0): 0x005480E0 / 0x00548470 (the searches' are not kept);
-// lists::Elem<Buddy> (0x0064CF60): 0x005484A0 the body (out of its list), 0x005484E0 the scalar deleting one;
-// lists::Elem<FriendNote> (0x0064CF64): 0x005484C0 / 0x00548520.
-struct BuddyNode : memory::ListNode {
-    void destroy_body();
-    BuddyNode* teardown(unsigned int flags);
-};
-struct BuddyMessageNode : memory::ListNode {
-    void destroy_body();
-    BuddyMessageNode* teardown(unsigned int flags);
-};
+// (The buddy lists' list types: lists::Hunt<Buddy>'s 0x005480D0 / 0x00548440 and lists::Hunt<FriendNote>'s 0x005480E0 /
+// 0x00548470 only reset their tables - not kept; lists::Elem<Buddy>'s 0x005484A0 / 0x005484E0 and
+// lists::Elem<FriendNote>'s 0x005484C0 / 0x00548520 take the node out of its list (and free it): memory::ListNode.)
 
 // The getters folded at one address each (4 bytes: source only), named for an object with the field.
 struct FoldedGetters {

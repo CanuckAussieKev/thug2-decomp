@@ -80,14 +80,14 @@ public:
     // begins again after each.
     void end_gap(script::Struct* params, script::Script* script);
 
-    memory::ListNode gaps_;           // +0x18 lists::Foremost<TrickListEntry> (vtable 0x0064BEC4)
-    memory::ListNode gap_move_chain_; // +0x2C lists::Foremost<TrickNameEntry> (vtable 0x0064BEC8)
-    uint32_t tick_;                   // +0x40 counted by Update
-    uint8_t* points_held_;            // +0x44 the skater's score (modules::PointTally; set by the skater)
-    uint8_t* core_physics_;           // +0x48 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* balance_trick_;          // +0x4C SkaterBalanceTrick (0x589E5FB3)
-    uint8_t* physics_control_;        // +0x50 SkaterPhysicsControl (0xD9151D4D)
-    uint8_t* walk_;                   // +0x54 Walk (0x726E85AA)
+    memory::PaddedListNode gaps_;           // +0x18 lists::Foremost<TrickListEntry>
+    memory::PaddedListNode gap_move_chain_; // +0x2C lists::Foremost<TrickNameEntry>
+    uint32_t tick_;                         // +0x40 counted by Update
+    uint8_t* points_held_;                  // +0x44 the skater's score (modules::PointTally; set by the skater)
+    uint8_t* core_physics_;                 // +0x48 SkaterCorePhysics (0x5BD63B29)
+    uint8_t* balance_trick_;                // +0x4C SkaterBalanceTrick (0x589E5FB3)
+    uint8_t* physics_control_;              // +0x50 SkaterPhysicsControl (0xD9151D4D)
+    uint8_t* walk_;                         // +0x54 Walk (0x726E85AA)
 };
 static_assert(offsetof(RiderGapTracker, gaps_) == 0x18 && offsetof(RiderGapTracker, gap_move_chain_) == 0x2C &&
                   offsetof(RiderGapTracker, tick_) == 0x40 && offsetof(RiderGapTracker, points_held_) == 0x44 &&
@@ -95,21 +95,9 @@ static_assert(offsetof(RiderGapTracker, gaps_) == 0x18 && offsetof(RiderGapTrack
                   sizeof(RiderGapTracker) == 0x58,
               "layout must match the original (0x00512C60 allocates 0x58 bytes)");
 
-// The two lists' node types (lists::Elem<TrickListEntry>, vtable 0x0064BE88; lists::Elem<TrickNameEntry>, 0x0064BE8C) and
-// heads (lists::Foremost<...>, 0x0064BEC4 / 0x0064BEC8): the destructor bodies unlink.
-struct GapListNode : memory::ListNode {
-    // 0x00511E50 / 0x00511E90: lists::Elem<TrickListEntry>'s destructor body and scalar deleting destructor.
-    void destroy_body();
-    GapListNode* teardown(unsigned int flags);
-    // 0x00512240: lists::Foremost<TrickListEntry>'s scalar deleting destructor.
-    GapListNode* destroy_head(unsigned int flags);
-};
-struct GapTrickListNode : memory::ListNode {
-    // 0x00511E70 / 0x00511ED0 / 0x00512270: the same for TrickNameEntry.
-    void destroy_body();
-    GapTrickListNode* teardown(unsigned int flags);
-    GapTrickListNode* destroy_head(unsigned int flags);
-};
+// (The two lists' node types - lists::Elem<TrickListEntry> 0x00511E50 / 0x00511E90, lists::Elem<TrickNameEntry>
+// 0x00511E70 / 0x00511ED0 - and their heads' scalar deleting destructors 0x00512240 / 0x00512270 take the node out of
+// its list: memory::ListNode.)
 
 // The current level's gap checklist (modules::Skate 0x005656C0) - called from the trick component:
 // 0x00511C10: the pending landings dropped (clear_pending).
@@ -117,11 +105,5 @@ void __cdecl discard_queued_gaps();
 // 0x00511C30: the pending landings counted (pay_out_queued_gaps); once every level's gaps are got (the career's
 // all_gaps_got), ProcessAllGapsReward is spawned.
 void __cdecl pay_out_queued_gaps();
-
-// 0x0064BE88: gapNodeVtable (defined where the class's functions are).
-extern void** const kGapNodeVtable;
-
-// 0x0064BE8C: gapTrickNodeVtable (defined where the class's functions are).
-extern void** const kGapTrickNodeVtable;
 
 } // namespace objects

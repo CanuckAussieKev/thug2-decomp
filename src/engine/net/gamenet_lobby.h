@@ -22,9 +22,6 @@ class Task;
 
 namespace online {
 
-extern void** const kLobbyListNodeVtable; // 0x0064CBDC: lists::Elem<LobbyPlayer>
-extern void** const kLobbyNodeVtable;     // 0x0064CBE0: lists::Elem<LobbyRoom>
-
 struct LobbyPlayer;
 struct LobbyRoom;
 
@@ -132,8 +129,6 @@ public:
     // 0x00540040, 0x005400B0, 0x005400E0) and the server-browsing keys registered with GameSpy's qr2 (0x005FF660:
     // 0x33 numobservers, 0x34 maxobservers, 0x35 skilllevel, 0x36 started, 0x37 hostmode, 0x38 ranked, 0x39 rating_).
     RoomManager* make_new();
-    // 0x00541AC0 (vtable slot 0): the scalar deleting destructor (the body is 0x00540860).
-    RoomManager* teardown(unsigned int flags);
 
     // 0x00542DF0: the GameSpy peer made (0x005FCE60) with the lobby's callbacks, not in a lobby.
     void init_peer();
@@ -190,19 +185,19 @@ public:
     // player's asked for (room_keys_callback).
     static void __cdecl join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby);
 
-    memory::ListNode rooms_;        // +0x00 lists::Foremost<LobbyRoom> (vtable 0x0064CBFC; its base's 0x0064CBE0)
-    memory::ListNode participants_; // +0x14 lists::Foremost<LobbyPlayer> (vtable 0x0064CBF8; its base's 0x0064CBDC)
-    int group_id_;                  // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
-    int unknown2c_;                 // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
-    int unknown30_;                 // +0x30 the chosen room's players
-    char room_name_[0x80];          // +0x34
-    char server_name_[0x80];        // +0xB4
-    bool in_group_room_;            // +0x134
-    bool restricted_hosting_;       // +0x135 only a few GameSpy profiles may host (CanHostGame)
-    bool drop_is_expected_;         // +0x136
-    bool lost_connection_;          // +0x137
-    bool connecting_;               // +0x138
-    bool hosting_;                  // +0x139
+    memory::PaddedListNode rooms_;        // +0x00 lists::Foremost<LobbyRoom>
+    memory::PaddedListNode participants_; // +0x14 lists::Foremost<LobbyPlayer>
+    int group_id_;            // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
+    int unknown2c_;           // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
+    int unknown30_;           // +0x30 the chosen room's players
+    char room_name_[0x80];    // +0x34
+    char server_name_[0x80];  // +0xB4
+    bool in_group_room_;      // +0x134
+    bool restricted_hosting_; // +0x135 only a few GameSpy profiles may host (CanHostGame)
+    bool drop_is_expected_;   // +0x136
+    bool lost_connection_;    // +0x137
+    bool connecting_;         // +0x138
+    bool hosting_;            // +0x139
     uint8_t unknown13a_[2];
     int negotiations_;                   // +0x13C NAT negotiations going on (the server's)
     void* remote_;                       // +0x140
@@ -218,13 +213,17 @@ static_assert(offsetof(RoomManager, group_id_) == 0x28 && offsetof(RoomManager, 
                   offsetof(RoomManager, hosting_task_) == 0x150,
               "layout must match the original");
 
+// The lobby's rooms and players are their own list nodes (data = the item; the node keeps the original's size). Their
+// deleting destructors (0x00540F80 / 0x00541AC0, over the bodies 0x00540840 / 0x00540860): out of the list, freed -
+// memory::ListNode::destroy.
+
 // A group room the peer's room list found (0x6C bytes, constructor 0x00545860; a list node, priority -group).
 struct LobbyRoom {
     // 0x00545860: an empty one (a node of nothing, its data itself; full / out of range / neversoft cleared). Returns
     // this. (rooms.cpp)
     LobbyRoom* make_new();
 
-    memory::ListNode list_link_;
+    memory::PaddedListNode list_link_;
     char label_[0x40];  // +0x14 (63 characters)
     int group_id_;      // +0x54
     int num_players_;   // +0x58 (the room list's "num_games")
@@ -240,9 +239,9 @@ static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, group_id_) == 0x5
               offsetof(LobbyRoom, full_) == 0x68);
 
 // A player in the lobby's room (the lobby's player list).
-// (0x60 bytes, vtable 0x0064CBF8; made by rooms.cpp's callbacks)
+// (0x60 bytes; made by rooms.cpp's callbacks)
 struct LobbyPlayer {
-    memory::ListNode list_link_;
+    memory::PaddedListNode list_link_;
     char nick_[0x40];  // +0x14
     int account_;      // +0x54 the GameSpy profile
     int skill_points_; // +0x58 (the room key b_rating)
@@ -260,20 +259,6 @@ bool __cdecl cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, scr
 bool __cdecl cfunc_rejoin_lobby(script::Struct* params, script::Script* script);                      // 0x00542CE0
 bool __cdecl cfunc_choose_lobby(script::Struct* params, script::Script* script);                      // 0x00542D30
 bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script);                     // 0x00542EE0
-
-// The lobby's two list node types (memory::ListNode's layout): its own base (vtable 0x0064CBE0) and the node at its +0x14
-// (vtable 0x0064CBDC). The destructor bodies unlink them (0x00540840 / 0x00540860); the scalar deleting destructors
-// (each vtable's only slot) also free them (0x00540880 / 0x005408C0); 0x00540F80 is another scalar deleting destructor
-// over the first body.
-struct LobbyNode : memory::ListNode {
-    void destroy_body();                          // 0x00540840
-    LobbyNode* teardown(unsigned int flags);      // 0x00540880
-    LobbyNode* destroy_other(unsigned int flags); // 0x00540F80
-};
-struct LobbyListNode : memory::ListNode {
-    void destroy_body();                         // 0x00540860
-    LobbyListNode* teardown(unsigned int flags); // 0x005408C0
-};
 
 // 0x00540E00 (SendMessage text=): to the lobby's group room - or, with system_message, "<System> <text>" to the
 // console only. True.

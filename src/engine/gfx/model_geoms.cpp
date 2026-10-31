@@ -80,7 +80,7 @@ uint8_t* textures_of(uint8_t* scene) { return *reinterpret_cast<uint8_t**>(scene
 void delete_own_scene(uint8_t* scene)
 {
     uint8_t* textures = textures_of(scene);
-    discard_scene(scene, 1);
+    discard_scene(scene);
     unload_textures(textures);
 }
 
@@ -162,7 +162,7 @@ RenderModel::RenderModel()
 RenderModel::~RenderModel()
 {
     if (lights_ptr_)
-        discard_scene(lights_ptr_);
+        discard_lights(lights_ptr_);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         if (uint8_t* volumes = table_row(node)->bone_volumes_)
             release_bone_volumes(*reinterpret_cast<void**>(volumes + 4));

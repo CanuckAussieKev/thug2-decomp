@@ -1,6 +1,7 @@
 // The skater's gap component (GameObjects::RiderGapTracker): see gap_entry.h.
 
 #include "game/rider/gap_entry.h"
+#include "engine/lists/chain_start.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -35,8 +36,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kGapHeadVtable;      // lists::Foremost<TrickListEntry>
-extern void** const kGapTrickHeadVtable; // lists::Foremost<TrickNameEntry>
 constexpr uint32_t kSkaterGap = 0x11B4C67F;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterBalanceTrick = 0x589E5FB3,
                    kSkaterPhysicsControl = 0xD9151D4D, kWalk = 0x726E85AA, kVehicle = 0xE47F1B79, kTrick = 0x270F56E1;
@@ -108,11 +107,11 @@ T* get_next(T* entry)
 {
     return entry_of<T>(reinterpret_cast<memory::ListNode*>(entry)->next);
 }
-// An entry deleted through its vtable (the scalar deleting destructor).
-void erase_one(void* entry)
+// An entry deleted (its scalar deleting destructor).
+template <typename Entry>
+void erase_one(Entry* entry)
 {
-    auto* node = static_cast<memory::ListNode*>(entry);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
+    entry->teardown(1);
 }
 // `node` at the front of the list `head`.
 void add_to_front(memory::ListNode& head, memory::ListNode* node)
@@ -121,14 +120,6 @@ void add_to_front(memory::ListNode& head, memory::ListNode* node)
     node->next = head.next;
     head.next->prev = node;
     head.next = node;
-}
-void setup_list_sentinel(memory::ListNode& head, void** vtable)
-{
-    head.vtable = vtable;
-    head.next = &head;
-    head.prev = &head;
-    head.priority = 0;
-    head.data = reinterpret_cast<void*>(-1);
 }
 
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
@@ -186,8 +177,8 @@ ObjectModule* __cdecl RiderGapTracker::fabricate() { return new RiderGapTracker;
 // 0x005122A0
 RiderGapTracker::RiderGapTracker()
 {
-    setup_list_sentinel(gaps_, kGapHeadVtable);
-    setup_list_sentinel(gap_move_chain_, kGapTrickHeadVtable);
+    gaps_.make_head();
+    gap_move_chain_.make_head();
     kind_tag_ = kSkaterGap;
     core_physics_ = nullptr;
     balance_trick_ = nullptr;
@@ -196,8 +187,8 @@ RiderGapTracker::RiderGapTracker()
 // 0x00511F10 (0x005122F0 the deleting one)
 RiderGapTracker::~RiderGapTracker()
 {
-    gap_move_chain_.unlink_as(kGapTrickNodeVtable);
-    gaps_.unlink_as(kGapNodeVtable);
+    gap_move_chain_.uncouple();
+    gaps_.uncouple();
 }
 
 // 0x00511BB0
@@ -322,8 +313,8 @@ void RiderGapTracker::scan_for_gaps(uint32_t cancel, uint32_t require)
 // 0x00512030
 void RiderGapTracker::clear_gaps()
 {
-    reinterpret_cast<ListHead*>(&gaps_)->delete_all_nodes();
-    reinterpret_cast<ListHead*>(&gap_move_chain_)->delete_all_nodes();
+    lists::delete_each<TrickListEntry>(&gaps_, [](TrickListEntry* gap) { gap->teardown(1); }); // (0x0057A2F0)
+    lists::delete_each<TrickNameEntry>(&gap_move_chain_, [](TrickNameEntry* trick) { trick->teardown(1); });
 }
 
 // 0x00512050
@@ -601,32 +592,6 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
     }
 }
 
-// 0x00511E50
-void GapListNode::destroy_body() { unlink_as(kGapNodeVtable); }
-// 0x00511E90
-GapListNode* GapListNode::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-// 0x00512240
-GapListNode* GapListNode::destroy_head(unsigned int flags) { return teardown(flags); }
-
-// 0x00511E70
-void GapTrickListNode::destroy_body() { unlink_as(kGapTrickNodeVtable); }
-// 0x00511ED0
-GapTrickListNode* GapTrickListNode::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-// 0x00512270
-GapTrickListNode* GapTrickListNode::destroy_head(unsigned int flags) { return teardown(flags); }
-
 // 0x00511C10
 void __cdecl discard_queued_gaps() { gap_tally_ref()->clear_pending(); }
 
@@ -637,30 +602,5 @@ void __cdecl pay_out_queued_gaps()
     if (get_career()->all_gaps_got())
         script::spawn_script(kProcessAllGapsReward, nullptr, 0, nullptr, 0, 0, false, false, false, false);
 }
-
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_gap_head_vtable_slots[] = {&objects::GapListNode::destroy_head};
-void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots);
-static VtableSlot g_gap_trick_head_vtable_slots[] = {&objects::GapTrickListNode::destroy_head};
-void** const kGapTrickHeadVtable = reinterpret_cast<void**>(g_gap_trick_head_vtable_slots);
-
-} // namespace
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_gap_node_vtable_slots[] = {&objects::GapListNode::teardown};
-void** const kGapNodeVtable = reinterpret_cast<void**>(g_gap_node_vtable_slots);
-
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_gap_trick_node_vtable_slots[] = {&objects::GapTrickListNode::teardown};
-void** const kGapTrickNodeVtable = reinterpret_cast<void**>(g_gap_trick_node_vtable_slots);
 
 } // namespace objects

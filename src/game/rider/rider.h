@@ -54,7 +54,7 @@ public:
     // 0x00580030: the core physics' display matrix (its +0x18).
     maths::Mat4* get_draw_matrix();
     // 0x00580040: its +0x238 block. 0x00580050: the flag at +0x2C4. 0x00580480: its score.
-    void* get_block238();
+    memory::ListNode* get_skater_link();
     bool get_flag_2c_4();
     void* get_points_total();
     // 0x0057FED0: whether it matches `params`' description (is_pro, the custom flag, is_male / is_female, is_named,
@@ -171,13 +171,13 @@ public:
         uint32_t name; // projectile_0 ... projectile_4
         bool active;
         uint8_t unknown5_[0x13];
-    } projectiles_[5]; // +0x1C0
-    uint8_t block238_[0x24C - 0x238];
-    void* unknown24c_;    // +0x24C
-    uint8_t* unknown250_; // +0x250
-    void* shadow_;        // +0x254
-    void* unknown258_;    // +0x258
-    void* unknown25c_;    // +0x25C
+    } projectiles_[5];                   // +0x1C0
+    memory::PaddedListNode skater_link_; // +0x238 its node in the skate module's skater list (data = itself)
+    void* unknown24c_;                   // +0x24C
+    uint8_t* unknown250_;                // +0x250
+    void* shadow_;                       // +0x254
+    void* unknown258_;                   // +0x258
+    void* unknown25c_;                   // +0x25C
     uint8_t unknown260_[4];
     uint8_t* unknown264_; // +0x264 (+0x20: reset; +0x490 -> +0x1C its input device)
     void* unknown268_;    // +0x268 (component 0x187574FA)
@@ -211,7 +211,7 @@ static_assert(offsetof(Rider, style_) == 0x10C && offsetof(Rider, label_) == 0x1
                   offsetof(Rider, flag_2c_4_) == 0x2C4 && offsetof(Rider, shown_name_) == 0x15C &&
                   offsetof(Rider, unknown264_) == 0x264 && offsetof(Rider, custom_restart_pos_) == 0x2C8 &&
                   offsetof(Rider, custom_restart_walking_) == 0x318 && offsetof(Rider, projectiles_) == 0x1C0 &&
-                  offsetof(Rider, block238_) == 0x238 && offsetof(Rider, unknown270_) == 0x270 &&
+                  offsetof(Rider, skater_link_) == 0x238 && offsetof(Rider, unknown270_) == 0x270 &&
                   offsetof(Rider, is_halted_) == 0x320,
               "layout must match the original");
 

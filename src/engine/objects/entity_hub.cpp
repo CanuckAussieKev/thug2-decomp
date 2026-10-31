@@ -11,7 +11,6 @@
 #include "engine/lists/chain_start.h"
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/entity.h"
 
 namespace objects {
@@ -20,7 +19,6 @@ uint32_t g_tracker_references;
 
 namespace {
 
-extern void** const kListHeadVtable;
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
@@ -42,31 +40,13 @@ memory::ListNode* get_next_node(memory::ListNode* node)
 }
 Entity* object_of(memory::ListNode* node) { return node ? static_cast<Entity*>(node->data) : nullptr; }
 
-void setup_list_sentinel(memory::ListNode* head)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = kListHeadVtable;
-}
-
 } // namespace
 
-// 0x00461B20
-ObjectListHead* ObjectListHead::teardown(unsigned int flags)
-{
-    static_cast<EntityListEntry*>(static_cast<memory::ListNode*>(this))->destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00461BC0
-ObjectHubBase::ObjectHubBase() { setup_list_sentinel(&entities_); }
+ObjectHubBase::ObjectHubBase() { entities_.make_head(); }
 
 // 0x00461B50
-ObjectHubBase::~ObjectHubBase() { entities_.unlink_as(kObjectNodeVtable); }
+ObjectHubBase::~ObjectHubBase() { entities_.uncouple(); }
 
 // 0x00461A00
 void ObjectHubBase::enrol_subject(Entity* object)
@@ -150,7 +130,7 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
 // 0x00461BF0
 MiscHub::MiscHub()
 {
-    setup_list_sentinel(&dead_objects_);
+    dead_objects_.make_head();
     flush_task_ = new tasks::Task<MiscHub>(&flush_dead_objects_task, this, kFlushTaskPriority);
     queue_engine_job(flush_task_);
 }
@@ -161,7 +141,7 @@ MiscHub::~MiscHub()
     for_each(&get_unlock, nullptr);
     for_each(&dispose_when_free, nullptr);
     delete flush_task_;
-    dead_objects_.unlink_as(kObjectNodeVtable);
+    dead_objects_.uncouple();
 }
 
 // 0x00461B00
@@ -256,12 +236,4 @@ void EventWaitBoard::subscribe_receiver(SignalReceiver* listener)
     listener->on_board_ = true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_list_head_vtable_slots[] = {&objects::ObjectListHead::teardown};
-void** const kListHeadVtable = reinterpret_cast<void**>(g_list_head_vtable_slots);
-} // namespace
 } // namespace objects

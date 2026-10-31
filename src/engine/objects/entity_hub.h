@@ -17,12 +17,6 @@
 // callbacks __cdecl).
 namespace objects {
 
-// A manager's list head (lists::Foremost<Entity>, vtable 0x00647814, data -1).
-struct ObjectListHead : memory::ListNode {
-    // 0x00461B20: the scalar deleting destructor (the node's destructor body 0x00460B20, then freed).
-    ObjectListHead* teardown(unsigned int flags);
-};
-
 using ObjectCallback = void(__cdecl*)(Entity* object, void* data);
 
 // The base of the object managers (vtable 0x00647818): a list of objects sorted by their node's priority, registered
@@ -50,7 +44,7 @@ public:
     // (slot 5) `object`, marked dead, handed over to be deleted (pure in this class).
     virtual void remove_entity(Entity* object) = 0;
     // 0x004AAD40 (slot 6: pure in this class, this body in every manager's table): the object list's head.
-    ObjectListHead* fetch_object_set() { return &entities_; }
+    memory::ListNode* fetch_object_set() { return &entities_; }
 
     // 0x004619F0: the object with the id `id` (the tracker's 0x00462120; `this` isn't used).
     Entity* look_up_entity(uint32_t id);
@@ -59,11 +53,11 @@ public:
     // progress has a bit of its own in walking_ and in every object's visited_mask_).
     void for_each(ObjectCallback callback, void* data);
 
-    ObjectListHead entities_;    // +0x04
-    uint32_t walking_ = 0;       // +0x18 the bits of the walks in progress
-    uint32_t restart_walks_ = 0; // +0x1C set to every bit when the list changes: the walks start again
-    uint32_t new_id_;            // +0x20 reassign_object_id: the id being given (for the tracker)
-    bool reassigning_ = false;   // +0x24
+    memory::PaddedListNode entities_; // +0x04 (lists::Foremost<Entity>)
+    uint32_t walking_ = 0;            // +0x18 the bits of the walks in progress
+    uint32_t restart_walks_ = 0;      // +0x1C set to every bit when the list changes: the walks start again
+    uint32_t new_id_;                 // +0x20 reassign_object_id: the id being given (for the tracker)
+    bool reassigning_ = false;        // +0x24
     uint8_t unknown25[3];
 };
 static_assert(offsetof(ObjectHubBase, entities_) == 0x04 && offsetof(ObjectHubBase, walking_) == 0x18 &&
@@ -85,8 +79,8 @@ public:
     // 0x00461AB0: delete the objects of the dead list (front first; each node unlinked first).
     void flush_dead_objects();
 
-    ObjectListHead dead_objects_;      // +0x28
-    tasks::Task<MiscHub>* flush_task_; // +0x3C running flush_dead_objects_task
+    memory::PaddedListNode dead_objects_; // +0x28
+    tasks::Task<MiscHub>* flush_task_;    // +0x3C running flush_dead_objects_task
 };
 static_assert(offsetof(MiscHub, dead_objects_) == 0x28 && offsetof(MiscHub, flush_task_) == 0x3C &&
                   sizeof(MiscHub) == 0x40,

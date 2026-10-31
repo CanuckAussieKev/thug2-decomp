@@ -2,7 +2,6 @@
 
 #include "engine/net/stats_man.h"
 #include "engine/net/gamespy.h"
-#include "engine/core/code_address.h"
 
 #include <windows.h>
 
@@ -40,21 +39,6 @@ namespace {
 
 using detail::delete_params;
 using detail::new_params;
-
-static VtableSlot g_entry_vtable_slots[] = {&online::TopEntry::teardown};
-void** const kEntryVtable = reinterpret_cast<void**>(g_entry_vtable_slots); // TopEntry (and the entries' heads)
-static VtableSlot g_levels_head_vtable_slots[] = {&online::StatsNode::delete_levels_head};
-void** const kLevelsHeadVtable = reinterpret_cast<void**>(g_levels_head_vtable_slots); // a top list's levels head
-static VtableSlot g_level_vtable_slots[] = {&online::LevelScores::teardown};
-void** const kLevelVtable = reinterpret_cast<void**>(g_level_vtable_slots); // LevelScores
-static VtableSlot g_sort_vtable_slots[] = {&online::SortEntry::teardown};
-void** const kSortVtable = reinterpret_cast<void**>(g_sort_vtable_slots); // SortEntry (and the sorted list's head)
-static VtableSlot g_entry_node_vtable_slots[] = {&online::StatsNode::delete_entry_node};
-void** const kEntryNodeVtable = reinterpret_cast<void**>(g_entry_node_vtable_slots); // lists::Elem<TopEntry>
-static VtableSlot g_level_node_vtable_slots[] = {&online::StatsNode::delete_level_node};
-void** const kLevelNodeVtable = reinterpret_cast<void**>(g_level_node_vtable_slots); // lists::Elem<LevelScores>
-static VtableSlot g_sort_node_vtable_slots[] = {&online::StatsNode::delete_sort_node};
-void** const kSortNodeVtable = reinterpret_cast<void**>(g_sort_node_vtable_slots); // lists::Elem<SortEntry>
 
 constexpr uint32_t kLoginTimeout = 10000;   // ms
 constexpr uint32_t kReportInterval = 60000; // ms between reports of a game
@@ -143,27 +127,6 @@ uint32_t level_key_hash(Hub* manager) { return manager->fetch_stage(); }
 uint32_t game_mode_checksum(Hub* manager) { return manager->get_game_type_preference(); }
 int player_points(Hub* manager, int id) { return manager->get_entrant_points(static_cast<uint32_t>(id)); }
 
-void unlink_list_node(void* node)
-{
-    auto* vtable = *static_cast<void***>(node);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
-}
-void setup_list_sentinel(memory::ListNode* head, void** vtable)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = vtable;
-}
-void init_node(memory::ListNode* node, void** vtable)
-{
-    node->data = node;
-    node->priority = 0;
-    node->next = node;
-    node->prev = node;
-    node->vtable = vtable;
-}
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
     node->prev = head->prev;
@@ -176,13 +139,14 @@ memory::ListNode* get_next_node(memory::ListNode* node)
     memory::ListNode* next = node->next;
     return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
 }
-// Delete every item of a list (each one's next fetched first).
+// Delete every item of a list (each one's next fetched first; the item's scalar deleting destructor, flag 1).
+template <typename Item>
 void delete_all(memory::ListNode* head)
 {
     for (memory::ListNode* node = get_next_node(head); node;) {
         memory::ListNode* next = get_next_node(node);
         if (node->data)
-            unlink_list_node(node->data);
+            static_cast<Item*>(node->data)->teardown(1);
         node = next;
     }
 }
@@ -199,14 +163,14 @@ TopEntry* new_entry()
 {
     auto* entry = static_cast<TopEntry*>(memory::alloc_zeroed(sizeof(TopEntry)));
     if (entry)
-        init_node(&entry->list_link_, kEntryVtable);
+        entry->list_link_.make_node(entry);
     return entry;
 }
 SortEntry* new_sort_entry()
 {
     auto* entry = static_cast<SortEntry*>(memory::alloc_zeroed(sizeof(SortEntry)));
     if (entry) {
-        init_node(&entry->list_link_, kSortVtable);
+        entry->list_link_.make_node(entry);
         entry->points_held_ = 0;
         entry->level_ = 0;
     }
@@ -215,11 +179,11 @@ SortEntry* new_sort_entry()
 // A local sorted list (lists::Foremost<SortEntry>, highest priority first), emptied and unlinked as the original does.
 struct SortedList {
     memory::ListNode head;
-    SortedList() { setup_list_sentinel(&head, kSortVtable); }
+    SortedList() { head.make_head(); }
     void append_one(SortEntry* entry) { reinterpret_cast<lists::Foremost*>(&head)->append_vertex(&entry->list_link_); }
     ~SortedList()
     {
-        delete_all(&head);
+        delete_all<SortEntry>(&head);
         head.prev->next = head.next;
         head.next->prev = head.prev;
     }
@@ -227,53 +191,10 @@ struct SortedList {
 
 } // namespace
 
-// --- the list nodes ---
-
-// 0x0054D8F0 / 0x0054D400 / 0x0054EA20
-void StatsNode::destroy_entry_node() { list_link_.unlink_as(kEntryNodeVtable); }
-void StatsNode::destroy_level_node() { list_link_.unlink_as(kLevelNodeVtable); }
-void StatsNode::destroy_sort_node() { list_link_.unlink_as(kSortNodeVtable); }
-
-// 0x0054D420
-StatsNode* StatsNode::delete_entry_node(unsigned int flags)
-{
-    destroy_entry_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054D460
-StatsNode* StatsNode::delete_level_node(unsigned int flags)
-{
-    destroy_level_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054D740
-StatsNode* StatsNode::delete_sort_node(unsigned int flags)
-{
-    destroy_sort_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054D710
-StatsNode* StatsNode::delete_levels_head(unsigned int flags)
-{
-    destroy_level_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
 // 0x0054D6E0
 TopEntry* TopEntry::teardown(unsigned int flags)
 {
-    reinterpret_cast<StatsNode*>(this)->destroy_entry_node();
+    list_link_.uncouple(); // (0x0054D8F0)
     if (flags & 1)
         ram_stats()->dealloc(this);
     return this;
@@ -282,7 +203,7 @@ TopEntry* TopEntry::teardown(unsigned int flags)
 // 0x0054D780
 SortEntry* SortEntry::teardown(unsigned int flags)
 {
-    reinterpret_cast<StatsNode*>(this)->destroy_sort_node();
+    list_link_.uncouple(); // (0x0054EA20)
     if (flags & 1)
         ram_stats()->dealloc(this);
     return this;
@@ -291,10 +212,9 @@ SortEntry* SortEntry::teardown(unsigned int flags)
 // 0x0054DFE0
 void LevelScores::destroy_body()
 {
-    list_link_.vtable = kLevelVtable;
-    delete_all(&entries_);
-    entries_.unlink_as(kEntryNodeVtable);
-    list_link_.unlink_as(kLevelNodeVtable);
+    delete_all<TopEntry>(&entries_);
+    entries_.uncouple();
+    list_link_.uncouple(); // (0x0054D400)
 }
 
 // 0x0054EBB0
@@ -311,23 +231,23 @@ LevelScores* LevelScores::teardown(unsigned int flags)
 // 0x0054D8B0
 TopList* TopList::make_new()
 {
-    setup_list_sentinel(&levels_, kLevelsHeadVtable);
-    setup_list_sentinel(&entries_, kEntryVtable);
+    levels_.make_head();
+    entries_.make_head();
     return this;
 }
 
 // 0x0054D5C0
 void TopList::destroy_body()
 {
-    entries_.unlink_as(kEntryNodeVtable);
-    levels_.unlink_as(kLevelNodeVtable);
+    entries_.uncouple();
+    levels_.uncouple();
 }
 
 // 0x0054E920
 void TopList::dealloc()
 {
-    delete_all(&levels_);
-    delete_all(&entries_);
+    delete_all<LevelScores>(&levels_);
+    delete_all<TopEntry>(&entries_);
 }
 
 // 0x0054E0D0
@@ -657,8 +577,8 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
         int level = std::atol(value);
         auto* scores = static_cast<LevelScores*>(memory::alloc_zeroed(sizeof(LevelScores)));
         if (scores) {
-            init_node(&scores->list_link_, kLevelVtable);
-            setup_list_sentinel(&scores->entries_, kEntryVtable);
+            scores->list_link_.make_node(scores);
+            scores->entries_.make_head();
         }
         scores->level_ = static_cast<uint32_t>(level);
         get_append(&list.levels_, &scores->list_link_);

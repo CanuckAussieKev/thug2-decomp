@@ -33,8 +33,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kCutsceneDetailsVtable;
-
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkeletonModuleName = 0x222756D5;
@@ -329,10 +327,8 @@ void CinematicTable::restart_objects()
 }
 
 // 0x00466490
-CinematicEntry* CinematicEntry::make_new(const uint32_t* settings)
+CinematicEntry::CinematicEntry(const uint32_t* settings)
 {
-    reinterpret_cast<VideoEntry*>(this)->make_new();
-    vtable_ = kCutsceneDetailsVtable;
     content_ = nullptr;
     asset_ = 0;
     script::Struct* block = script::spawn_param_bag();
@@ -341,13 +337,11 @@ CinematicEntry* CinematicEntry::make_new(const uint32_t* settings)
     owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);
     flag_5d_ = false;
     unknown60_ = -1;
-    return this;
 }
 
 // 0x00466560
-void CinematicEntry::destroy_body()
+CinematicEntry::~CinematicEntry()
 {
-    vtable_ = kCutsceneDetailsVtable;
     if (script::Struct* params = args_) {
         params->get_clear();
         script::delete_struct(params);
@@ -363,29 +357,7 @@ void CinematicEntry::destroy_body()
         render::change_diffuse_scale(0, stream_volume0_, 0.0f);
         render::change_diffuse_scale(1, stream_volume1_, 0.0f);
     }
-    reinterpret_cast<VideoEntry*>(this)->destroy_body();
+    // (then the movie's)
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_cutscene_details_vtable_slots[] = {&objects::CinematicEntry::teardown,
-                                                       &objects::CinematicEntry::configure_from_data,
-                                                       &objects::CinematicEntry::tick_frame,
-                                                       stubs::return_true,
-                                                       stubs::return_false3,
-                                                       &objects::CinematicEntry::is_finished,
-                                                       stubs::return_false,
-                                                       &objects::CinematicEntry::is_ready,
-                                                       &objects::CinematicEntry::get_end,
-                                                       &objects::CinematicEntry::can_be_skipped,
-                                                       stubs::return_false,
-                                                       &objects::CinematicEntry::call_slot12_with_not_flag_5d,
-                                                       stubs::ignore_argument,
-                                                       &objects::CinematicEntry::update_slot12};
-void** const kCutsceneDetailsVtable = reinterpret_cast<void**>(g_cutscene_details_vtable_slots);
-
-} // namespace
 } // namespace objects

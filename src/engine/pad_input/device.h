@@ -155,8 +155,8 @@ public:
     tasks::Task<memory::ListNode>* task_; // running process_task with the list as its data
 };
 
-// 0x005BE110: the scalar deleting destructor of a device's list node (lists::Elem<Device>, vtable 0x00658A70).
-memory::ListNode* destroy_device_node(memory::ListNode* node, unsigned int flags);
+// (0x005BE110, the scalar deleting destructor of a device's list node - lists::Elem<Device> - is
+// memory::ListNode::destroy.)
 
 // 0x005BE140: the manager's task - processes each device in the list it was given.
 void __cdecl process_task(tasks::Task<memory::ListNode>* task);

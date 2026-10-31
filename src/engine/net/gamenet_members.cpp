@@ -479,11 +479,11 @@ void Hub::destroy_body()
         delete prop<tasks::SchedulerTask*>(this, offset);
     // The lists: the players' nodes unlinked, then each head's destructor.
     unlink_all_nodes(&prop<memory::ListNode>(this, 0x11C));
-    prop<ServerNode>(this, 0x16C).destroy_body();
-    prop<ServerNode>(this, 0x158).destroy_body();
-    prop<QueuedScriptNode>(this, 0x144).destroy_body();
-    prop<NewPlayerNode>(this, 0x130).destroy_body();
-    prop<PlayerNode>(this, 0x11C).destroy_body();
+    prop<memory::ListNode>(this, 0x16C).uncouple();
+    prop<memory::ListNode>(this, 0x158).uncouple();
+    prop<memory::ListNode>(this, 0x144).uncouple();
+    prop<memory::ListNode>(this, 0x130).uncouple();
+    prop<memory::ListNode>(this, 0x11C).uncouple();
     get_taunt_settings()->~Preferences();
     get_online_settings()->~Preferences();
 }

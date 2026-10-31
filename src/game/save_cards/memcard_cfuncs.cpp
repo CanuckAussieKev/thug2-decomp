@@ -219,7 +219,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
             if (bad)
                 result_params(script)->put_name_key(0u, kLoadFailed);
             file->shut();
-            reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->list_link_.vtable[0])(file, 1); // delete
+            file->teardown(1); // delete
             if (data)
                 memory::free_malloc(data);
         }

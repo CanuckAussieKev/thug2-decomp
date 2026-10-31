@@ -12,7 +12,6 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/entity.h"
 
 namespace objects {
@@ -83,27 +82,8 @@ void add_copy(Struct* dest, Component* component)
 
 } // namespace
 
-// 0x00460B20
-void EntityListEntry::destroy_body() { unlink_as(kObjectNodeVtable); }
-
-// 0x00460B40
-EntityListEntry* EntityListEntry::teardown(unsigned int flags)
-{
-    unlink_as(kObjectNodeVtable);
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00460B80
-Entity::Entity()
-{
-    list_link_.vtable = kObjectNodeVtable;
-    list_link_.data = this;
-    list_link_.priority = 0;
-    list_link_.next = &list_link_;
-    list_link_.prev = &list_link_;
-}
+Entity::Entity() { list_link_.make_node(this); }
 
 // 0x004615D0
 Entity::~Entity()
@@ -120,7 +100,7 @@ Entity::~Entity()
     }
     script::end_scripts_bound_to_entity(this);
     ref_.clear_smart_pointers(); // (ref_'s destructor, in the original's order)
-    list_link_.unlink_as(kObjectNodeVtable);
+    list_link_.uncouple();       // (0x00460B20)
     // (then SharedBase's: the smart pointers to it cleared)
 }
 
@@ -574,12 +554,5 @@ void dispose_when_free(Entity* object, void* /*data*/)
     if (!(object->object_flags_ & kObjectFlagLocked))
         delete object;
 }
-
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_object_node_vtable_slots[] = {&objects::EntityListEntry::teardown};
-void** const kObjectNodeVtable = reinterpret_cast<void**>(g_object_node_vtable_slots);
 
 } // namespace objects

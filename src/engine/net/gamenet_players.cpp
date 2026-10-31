@@ -302,7 +302,7 @@ void Hub::remove_player_record(uint8_t* player)
     if (as_player(player)->is_carrying_flag()) // it carried a flag: returned
         flag_returned(player);
     if (player)
-        reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(player))[0])(player, 1);
+        as_player(player)->teardown(1); // (its scalar deleting destructor, the original's slot 0)
     update_lobby_server();
     if (g_online_active && g_online_hub->in_net_game() &&
         g_query_reporting)                         // (reported to GameSpy's qr2: the player count changed)

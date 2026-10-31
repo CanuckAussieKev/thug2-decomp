@@ -77,13 +77,13 @@ static_assert(sizeof(SpawnedPolyDetails) == 0xB8, "layout must match the origina
 
 memory::PoolPair& spawned_poly_pools() { return render::g_spawned_poly_pools; }
 
-// The loaded scenes' list (0x006FA7EC): nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1.
+// The loaded scenes' list (0x006FA7EC): nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1.
 struct SceneNode {
-    uint32_t unknown0;
     uint8_t* scene;
-    uint32_t unknown8;
+    int priority;
     SceneNode* next;
 };
+static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
 SceneNode* first_scene_node() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
 SceneNode* next_scene_node(SceneNode* node)
 {

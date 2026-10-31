@@ -355,7 +355,7 @@ bool __cdecl cfunc_has_signed_disclaimer(Struct*, Script*)
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.
 bool __cdecl cfunc_found_servers(Struct*, Script*)
 {
-    const memory::ListNode* node = prop<memory::ListNode*>(net_link(), 0x164); // (the list's first node)
+    const memory::ListNode* node = prop<memory::ListNode>(net_link(), 0x158).next; // (the list's first node)
     int count = 0;
     // (the head's mark tested before a null node, as in the original)
     while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {

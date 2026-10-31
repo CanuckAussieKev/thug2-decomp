@@ -56,7 +56,7 @@ public:
     Owner* content_;  // +0x1C the object it works for
 };
 
-// A list of tasks (0x20 bytes), highest priority first.
+// A list of tasks (0x20 bytes in the original), highest priority first.
 class LinkChain {
 public:
     // 0x00406A50: empty (returns this).
@@ -75,13 +75,13 @@ public:
     void mark_changed();
 
     int lock_;              // +0x00 nonzero while being changed or run
-    memory::ListNode head_; // +0x04 (lists::Foremost<SchedulerTask>, node vtable 0x0064549C)
-    int pass_count_;        // +0x18 counts the passes
-    bool altered_;          // +0x1C a task was added or removed
+    memory::ListNode head_; // +0x04 (lists::Foremost<SchedulerTask>)
+    int pass_count_;        // +0x14 counts the passes
+    bool altered_;          // +0x18 a task was added or removed
 };
-static_assert(sizeof(LinkChain) == 0x20, "layout must match the original");
+static_assert(sizeof(LinkChain) == 0x1C, "the original's 0x20 less the head's table word");
 
-// A list on a Stack (0x24 bytes): its node in the stack (lists::Elem<StackList>, vtable 0x006454A4).
+// A list on a Stack (0x24 bytes in the original): its node in the stack (lists::Elem<StackList>).
 class StackList : public LinkChain {
 public:
     // 0x00406D60 (returns this; a null node if the allocation fails)
@@ -89,11 +89,11 @@ public:
     // 0x00406C30: the node deleted, then the list's own destructor.
     void destruct();
 
-    memory::ListNode* list_link_; // +0x20
+    memory::ListNode* list_link_; // +0x1C
 };
-static_assert(sizeof(StackList) == 0x24, "layout must match the original");
+static_assert(sizeof(StackList) == 0x20, "the original's 0x24 less the head's table word");
 
-// A stack of task lists (0x3C bytes): tasks go into the current list; Push starts a new list that hides the
+// A stack of task lists (0x3C bytes in the original): tasks go into the current list; Push starts a new list that hides the
 // ones below it until Pop. The main loop's task lists are Stacks.
 class PileUp {
 public:
@@ -117,13 +117,13 @@ public:
 
     int lock_;                      // +0x00
     uint32_t skip_bits_;            // +0x04
-    memory::ListNode lists_;        // +0x08 newest first (lists::Foremost<StackList>, vtable 0x006454A8)
-    memory::ListNode popped_lists_; // +0x1C lists popped while the stack was locked
-    StackList* top_side_;           // +0x30
-    StackList* ongoing_;            // +0x34 where queue_job puts tasks
-    bool pushed_;                   // +0x38
-    bool just_popped_;              // +0x39
+    memory::ListNode lists_;        // +0x08 newest first (lists::Foremost<StackList>)
+    memory::ListNode popped_lists_; // +0x18 lists popped while the stack was locked
+    StackList* top_side_;           // +0x28
+    StackList* ongoing_;            // +0x2C where queue_job puts tasks
+    bool pushed_;                   // +0x30
+    bool just_popped_;              // +0x31
 };
-static_assert(sizeof(PileUp) == 0x3C, "layout must match the original");
+static_assert(sizeof(PileUp) == 0x34, "the original's 0x3C less the heads' table words");
 
 } // namespace tasks

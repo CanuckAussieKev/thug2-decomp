@@ -47,8 +47,6 @@ int g_render_mode;
 memory::ListNode g_scene_list;
 namespace {
 
-extern void** const kSceneNodeVtable;
-
 constexpr uint32_t kCameraFov = 0x99529205;                     // camera_fov
 constexpr float kAspectRatio = 1.33333337f;                     // 0x3FAAAAAB (4:3)
 const char* const kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (the third: "", 0x006469B4)
@@ -58,17 +56,14 @@ const char* const kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 memory::ListNode& scene_list() { return g_scene_list; }
 const auto kNoScene = reinterpret_cast<void*>(static_cast<uintptr_t>(0xFFFFFFFF));
 // The node after `node`, null at the end (the head).
-SceneNode* next_scene(memory::ListNode* node)
-{
-    return node->next->data == kNoScene ? nullptr : static_cast<SceneNode*>(node->next);
-}
+memory::ListNode* next_scene(memory::ListNode* node) { return node->next->data == kNoScene ? nullptr : node->next; }
 // The first node (null when there's none - the original reads the head's data before checking for no list).
-SceneNode* first_scene()
+memory::ListNode* first_scene()
 {
     memory::ListNode* first = scene_list().next;
     if (first->data == kNoScene || !first)
         return nullptr;
-    return static_cast<SceneNode*>(first);
+    return first;
 }
 WorldScene* scene_of(memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
 
@@ -95,18 +90,6 @@ void update_after_imposters() { update_scene_light_queue(); }
 inline void debug_before_delete() {}
 
 } // namespace
-
-// 0x0048C4B0
-void SceneNode::destroy_body() { unlink_as(kSceneNodeVtable); }
-
-// 0x0048C4D0
-SceneNode* SceneNode::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
 
 namespace engine {
 
@@ -222,13 +205,6 @@ void __cdecl build_scene_file_path(char* out, const char* name, uint32_t)
     std::sprintf(out, kSceneFileFormat, name, name, "", platform_suffix());
 }
 
-// 0x0048C3C0
-bool __cdecl delete_geom_object(void* object)
-{
-    debug_before_delete();
-    return delete_model_lights(static_cast<PcModelLights*>(object));
-}
-
 // 0x0048C3D0
 void* __cdecl load_model_file(const char* file_name, void* textures, int, bool)
 {
@@ -256,8 +232,8 @@ int __cdecl sphere_visible_in_one_viewport(const maths::Vec4* centre, float radi
 // 0x0048C510
 void* __cdecl look_up_sector(uint32_t checksum)
 {
-    for (SceneNode* node = first_scene(); node;) {
-        SceneNode* next = next_scene(node);
+    for (memory::ListNode* node = first_scene(); node;) {
+        memory::ListNode* next = next_scene(node);
         if (void* sector = scene_of(node)->look_up_sector(checksum))
             return sector;
         node = next;
@@ -275,14 +251,7 @@ void __cdecl add_scene(WorldScene* scene, const char* name, void* textures, bool
     if (!loaded)
         scene->finish_load(file, arena);
     memory::push_mem_profile("Asset Overhead");
-    auto* node = static_cast<SceneNode*>(memory::alloc_zeroed(sizeof(SceneNode)));
-    if (node) {
-        node->vtable = kSceneNodeVtable;
-        node->data = scene;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    memory::ListNode* node = memory::ListNode::create(scene);
     // at the end of the list (no memory: a crash, as the original)
     memory::ListNode& head = scene_list();
     node->prev = head.prev;
@@ -295,8 +264,8 @@ void __cdecl add_scene(WorldScene* scene, const char* name, void* textures, bool
 // 0x0048C650
 void __cdecl toggle_add_scenes()
 {
-    for (SceneNode* node = first_scene(); node;) {
-        SceneNode* next = next_scene(node);
+    for (memory::ListNode* node = first_scene(); node;) {
+        memory::ListNode* next = next_scene(node);
         scene_of(node)->flip_extra_scene();
         node = next;
     }
@@ -309,13 +278,11 @@ bool __cdecl unload_scene(WorldScene* scene, int /*flags*/)
     scene->unload_added_scene();
     if (!render::unload_scene(scene)) // (the platform's: the original passes `flags` on too - unused)
         return false;
-    if (scene)
-        reinterpret_cast<void*(__thiscall*)(WorldScene*, unsigned int)>((*reinterpret_cast<void***>(scene))[0])(scene,
-                                                                                                                1);
-    for (SceneNode* node = first_scene(); node;) {
-        SceneNode* next = next_scene(node);
+    delete scene;
+    for (memory::ListNode* node = first_scene(); node;) {
+        memory::ListNode* next = next_scene(node);
         if (scene_of(node) == scene) {
-            reinterpret_cast<void*(__thiscall*)(SceneNode*, unsigned int)>(node->vtable[0])(node, 1);
+            memory::ListNode::destroy(node); // (0x0048C4D0)
             return true;
         }
         node = next;
@@ -326,8 +293,8 @@ bool __cdecl unload_scene(WorldScene* scene, int /*flags*/)
 // 0x0048C700
 WorldScene* __cdecl find_scene(uint32_t checksum)
 {
-    for (SceneNode* node = first_scene(); node;) {
-        SceneNode* next = next_scene(node);
+    for (memory::ListNode* node = first_scene(); node;) {
+        memory::ListNode* next = next_scene(node);
         if (scene_of(node)->checksum_ == checksum)
             return scene_of(node);
         node = next;
@@ -336,11 +303,6 @@ WorldScene* __cdecl find_scene(uint32_t checksum)
 }
 
 } // namespace engine
-
-namespace {
-static VtableSlot g_scene_node_vtable_slots[] = {&render::SceneNode::teardown};
-void** const kSceneNodeVtable = reinterpret_cast<void**>(g_scene_node_vtable_slots);
-} // namespace
 
 } // namespace render
 

@@ -8,16 +8,7 @@
 
 namespace lists {
 
-namespace {
-
-// The item's deleting destructor (its vtable's first entry).
-void delete_item(void* item)
-{
-    void** vtable = *static_cast<void***>(item);
-    reinterpret_cast<void*(__thiscall*)(void*, uint8_t)>(vtable[0])(item, 1);
-}
-
-} // namespace
+namespace {} // namespace
 
 // 0x00557F10
 void* ResolveMap::fetch_entry_at(const int* index, uint32_t* key)
@@ -100,7 +91,7 @@ void ResolveMap::erase_entry(const uint32_t* key)
 }
 
 // 0x0055B990
-void TableItemEraser::empty_table_items()
+void TableItemEraser::empty_table_items(void (*destroy)(void* item))
 {
     for (int count = lookup_table_->num_; count > 0; --count) {
         int index = 0;
@@ -108,7 +99,7 @@ void TableItemEraser::empty_table_items()
         void* item = lookup_table_->fetch_entry_at(&index, &key);
         lookup_table_->erase_entry(&key);
         if (item)
-            delete_item(item);
+            destroy(item);
     }
 }
 

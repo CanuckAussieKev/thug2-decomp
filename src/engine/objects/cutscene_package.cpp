@@ -139,7 +139,7 @@ inline void print_cutscene_details(void*) {}
 } // namespace
 
 // 0x00466620
-bool CinematicEntry::configure_from_data(script::Struct* params)
+bool CinematicEntry::read_in(script::Struct* params)
 {
     char file_name[256] = "none"; // (from the game's 0x0064797C)
     uint32_t name = 0;
@@ -155,7 +155,7 @@ bool CinematicEntry::configure_from_data(script::Struct* params)
     }
     script::Struct* settings = make_struct();
     settings->append_structure_if_any(params);
-    reinterpret_cast<VideoEntry*>(this)->configure_from_data(settings);
+    configure_from_data(settings);
     if (script::Struct* defaults = script::read_sub_struct(checksums::fold_text_into_checksum(name, "_params")))
         args_->append_structure_if_any(defaults);
     begin_script_ = checksums::fold_text_into_checksum(name, "_begin");
@@ -220,7 +220,7 @@ bool CinematicEntry::configure_from_data(script::Struct* params)
 }
 
 // 0x00466A10
-void CinematicEntry::get_end()
+void CinematicEntry::stop()
 {
     if (!owns_data_) {
         if (content_)

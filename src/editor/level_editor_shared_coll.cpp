@@ -20,7 +20,6 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
-#include "engine/core/game_vtables.h"
 
 namespace frontend::level_editor::shared_collision {
 
@@ -459,13 +458,9 @@ struct GridList {
 
     explicit GridList(const std::vector<render::HitMesh*>& objects) : nodes(objects.size())
     {
-        head.vtable = vt::kCollGridHead;
-        head.data = reinterpret_cast<void*>(-1);
-        head.priority = 0;
-        head.next = head.prev = &head;
+        head.make_head();
         for (size_t i = 0; i < objects.size(); ++i) {
             memory::ListNode& node = nodes[i];
-            node.vtable = vt::kCollGridNode;
             node.data = objects[i];
             node.priority = 0;
             node.prev = head.prev;

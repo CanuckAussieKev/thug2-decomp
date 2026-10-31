@@ -13,31 +13,17 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "game/rider/vehicle_sound.h"
-#include "engine/core/stubs.h"
 
 namespace gfx {
 
 namespace {
 
-extern void** const kTimelineVtable;
-void** const& g_list_node_vtable = vt::kAnimListNode; // (the channel list's node type)
-void** const& g_blend_timeline_vtable = vt::kAnimTrack;
 constexpr uint32_t kNoAnim = 0xF60C9090;         // Unassigned
 constexpr uint32_t kId = 0x40C698AF;             // id
 constexpr uint32_t kSkeleton = 0x222756D5;       // skeleton
 constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
 constexpr float kSecondsPerFrame = 1.0f / 60.0f; // 0x006463B8
-
-template <typename T>
-void** get_vtable(T address)
-{
-    return reinterpret_cast<void**>(address);
-}
-
-memory::ListNode* elem(AnimTimeline* timeline) { return reinterpret_cast<memory::ListNode*>(timeline); }
 
 // The timeline's empty state (Reset and the constructor).
 void get_clear(AnimTimeline* t)
@@ -59,18 +45,13 @@ void get_clear(AnimTimeline* t)
 // 0x00481650
 AnimTimeline* AnimTimeline::make_new()
 {
-    memory::ListNode* node = elem(this);
-    node->data = this;
-    node->priority = 0;
-    node->next = node;
-    node->prev = node;
-    vtable_ = kTimelineVtable;
+    list_link_.make_node(this);
     get_clear(this);
     return this;
 }
 
 // 0x00481690
-void AnimTimeline::destroy_body() { elem(this)->unlink_as(g_list_node_vtable); }
+void AnimTimeline::destroy_body() { list_link_.uncouple(); }
 
 // 0x004816E0
 AnimTimeline* AnimTimeline::teardown(uint8_t flags)
@@ -193,7 +174,6 @@ AnimTrack* AnimTrack::make_new(objects::GameEntity* object)
     events_ptr_ = nullptr;
     event_count_ = 0;
     owner_object_ = object;
-    vtable_ = g_blend_timeline_vtable;
     events_on_ = true;
     cur_phase_ = kPlaying;
     return this;
@@ -293,12 +273,5 @@ uint8_t* AnimDriver::fetch_rig()
     objects::ObjectModule* component = static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject()->fetch_module(kSkeleton);
     return component ? static_cast<objects::BoneRigModule*>(component)->bone_rig_ : nullptr;
 }
-
-namespace {
-static VtableSlot g_timeline_vtable_slots[] = {&gfx::AnimTimeline::teardown, &gfx::AnimTimeline::get_reset,
-                                               &gfx::AnimTimeline::tick_frame, &gfx::AnimTimeline::play_anim,
-                                               stubs::ignore_argument};
-void** const kTimelineVtable = reinterpret_cast<void**>(g_timeline_vtable_slots);
-} // namespace
 
 } // namespace gfx

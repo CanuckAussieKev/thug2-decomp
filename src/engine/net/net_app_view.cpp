@@ -36,12 +36,8 @@ constexpr uint32_t kHighPriority = 0x80;
 
 void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
-// An object deleted through its vtable's scalar deleting destructor (in `slot`).
-void delete_virtual(void* object, int slot)
-{
-    auto* vtable = *static_cast<void***>(object);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[slot])(object, 1);
-}
+// A message link deleted (every link type's scalar deleting destructor: out of its list, freed).
+void delete_link(TimedMsgNode* link) { memory::ListNode::destroy(link); }
 
 // Conn's methods (net_conn.cpp)
 uint32_t transmit_period(Conn* conn) { return conn->get_transmit_period(); }
@@ -295,7 +291,7 @@ void AppHost::block_connection(Conn* conn)
 {
     auto* banned = static_cast<BlockedConnEntry*>(memory::alloc_zeroed(sizeof(BlockedConnEntry)));
     if (banned)
-        *static_cast<memory::ListNode*>(banned) = {kBannedConnVtable, banned, 0, banned, banned};
+        banned->make_node(banned);
     banned->remote_ip_ = conn->remote_ip_; // (an allocation failure crashes here, as in the original)
     // at the end of the list
     banned->prev = banned_.prev;
@@ -344,7 +340,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
                 return false;
             if (msg)
                 delete_msg(msg);
-            delete_virtual(link, 0);
+            delete_link(link);
             if (result != kResultPassOn)
                 return true;
         }
@@ -359,13 +355,13 @@ AppHost::~AppHost()
     for (BlockedConnEntry *banned = search.head_element(&banned_), *next; banned; banned = next) {
         next = search.following_item();
         if (banned)
-            delete_virtual(banned, 0);
+            banned->destroy_banned(1);
     }
     for (tasks::SchedulerTask* task : {send_task_, receive_task_, process_task_, metrics_task_})
         delete task;
-    banned_.unlink_as(kBannedConnNodeVtable);
-    circuits_.unlink_as(kConnNodeVtable);
-    list1414_.unlink_as(kAppListNodeVtable);
+    banned_.uncouple();
+    circuits_.uncouple();
+    list1414_.uncouple();
     dispatcher_.teardown();
 }
 
@@ -463,7 +459,7 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
             queue == 2 ? static_cast<SeqQueuedMsg*>(msg)->share_count_ : static_cast<PendingMsg*>(msg)->share_count_;
         if (--ref_count == 0)
             delete_msg(msg);
-        delete_virtual(link, 0);
+        delete_link(link);
     }
 }
 

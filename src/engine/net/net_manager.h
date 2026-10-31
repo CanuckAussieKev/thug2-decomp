@@ -103,11 +103,11 @@ public:
     // 0x00454DE0: the dial-up number in use ("" for connection type 3).
     const char* get_dialup_number();
 
-    AppNode hosts_;                // +0x000 lists::Foremost<App> (vtable 0x00647544)
-    AppNode clients_;              // +0x014
-    uint8_t message_flags_[0x100]; // +0x028 per message id (bit 0: sent without its length; the
-                                   //        constructor: 8 and 9 get 1, 0-254 0)
-    int connection_type_;          // +0x128
+    memory::PaddedListNode hosts_;   // +0x000 lists::Foremost<App>
+    memory::PaddedListNode clients_; // +0x014
+    uint8_t message_flags_[0x100];   // +0x028 per message id (bit 0: sent without its length; the
+                                     //        constructor: 8 and 9 get 1, 0-254 0)
+    int connection_type_;            // +0x128
     uint32_t unknown12c_;
     int device_type_;                              // +0x130
     char local_ip_[0x10];                          // +0x134 ("<Unknown>" at first)

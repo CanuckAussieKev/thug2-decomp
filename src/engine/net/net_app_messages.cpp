@@ -156,7 +156,7 @@ int dispatch_stream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* de
             destroy_stream_desc(stream);
             memory::Hub::get_pull()->dealloc(stream);
         }
-        unlink_list_node(link);
+        link->teardown(1);
     }
     memory::Hub::get_pull()->dealloc(whole.body_);
     memory::Hub::get_pull()->leave_heap_scope();
@@ -185,7 +185,7 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
                 continue;
             }
             free_queued_msg(msg);
-            unlink_list_node(link);
+            link->teardown(1);
         }
         break;
     }
@@ -387,7 +387,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
             destroy_queued_msg(duplicate);
             memory::Hub::get_pull()->dealloc(duplicate);
         }
-        unlink_list_node(link);
+        link->teardown(1);
         return kResultConsumed;
     }
     return kResultPassOn;
@@ -410,7 +410,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
             if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 free_queued_msg(link->shared_msg_);
                 sent_time = link->stamp_ms_;
-                unlink_list_node(link);
+                link->teardown(1);
             }
         }
     }
@@ -426,7 +426,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
                     memory::Hub::get_pull()->dealloc(msg);
                 }
                 sent_time = link->stamp_ms_;
-                unlink_list_node(link);
+                link->teardown(1);
             }
         }
     }

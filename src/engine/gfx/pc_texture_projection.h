@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/gfx/engine_texture_projection.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -36,29 +38,22 @@ ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_n
 // 0x004C7520 (draw_world's): the frame's batches drawn - with linear minification, put back after - and emptied.
 void __cdecl draw_projection_batches();
 
-// The PC texture projection (0xC8 bytes, vtable 0x0064A764).
-struct PcTextureProjection {
-    void** vtable;
-    uint8_t engine04[0x14];
-    uint8_t* texture;       // +0x18: the texture holder (+0x10 the key, through one more pointer with flag 1 of +0x08)
-    uint32_t blend_name_;   // +0x1C
-    maths::Mat4 projection; // +0x20: world to the projection's square (-1..1, depth -1 up)
-    uint8_t engine60[0xC];
-    uint32_t fineness; // +0x6C: 0 the triangles hit kept whole, else split down to 1 / (16 n) of their size
-    uint8_t engine70[0x58];
-
-    // 0x004C7E80: construct. Returns this.
-    PcTextureProjection* make_new();
-    // 0x004C7EA0 (virtual [0]): destroyed (the engine's destructor body), and freed with flags & 1. Returns this.
-    PcTextureProjection* teardown(unsigned int free_flags);
-    // 0x004C7620 (virtual [1]): projected onto the sectors (a null-terminated array): their meshes' strip triangles
-    // in front of the projection and inside its square get the texture - split finer first with a fineness, the
-    // pieces inside kept - into the texture's batch. A full batch ends it there (its buffers left locked, as the
-    // original). `unused` isn't.
-    void cast_onto(void** sectors, int unused);
+// The PC texture projection (0xC8 bytes, vtable 0x0064A764). The engine's fields it reads: bitmap_ (the texture
+// holder: +0x10 the key, through one more pointer with flag 1 of +0x08), blend_mode_, projection_ (world to the
+// projection's square: -1..1, depth -1 up), fineness_ (0: the triangles hit kept whole, else split down to 1 / (16 n)
+// of their size).
+class PcTextureProjection final : public TextureProjection {
+public:
+    // 0x004C7E80: the engine's constructor.
+    PcTextureProjection() = default;
+    // 0x004C7EA0 (the deleting one): the engine's destructor.
+    ~PcTextureProjection() override = default;
+    // 0x004C7620 (slot 1): projected onto the sectors (a null-terminated array): their meshes' strip triangles in front
+    // of the projection and inside its square get the texture - split finer first with a fineness, the pieces inside
+    // kept - into the texture's batch. A full batch ends it there (its buffers left locked, as the original). The
+    // collision objects aren't used.
+    void plat_project(void** sectors, void** collision) override;
 };
-static_assert(offsetof(PcTextureProjection, texture) == 0x18 && offsetof(PcTextureProjection, projection) == 0x20 &&
-                  offsetof(PcTextureProjection, fineness) == 0x6C && sizeof(PcTextureProjection) == 0xC8,
-              "layout must match the original");
+static_assert(sizeof(PcTextureProjection) == 0xC8, "layout must match the original");
 
 } // namespace render

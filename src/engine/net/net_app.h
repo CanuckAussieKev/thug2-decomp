@@ -256,16 +256,16 @@ struct AppHost {
     Router dispatcher_;       // +0x000C (wt/netC)
     AppHost* dispatcher_app_; // +0x13F8 the Dispatcher's app
     // +0x13FC statistics (zeroed by Init)
-    int outbound_byte_total_;     // +0x13FC
-    int inbound_byte_total_;      // +0x1400
-    int skipped_stamps_;          // +0x1404 timestamps skipped over
-    int stale_arrivals_;          // +0x1408 timestamps older than the newest
-    int repeat_arrivals_;         // +0x140C timestamps seen twice
-    int frame_count_;             // +0x1410 frames processed (pump_incoming_traffic)
-    memory::ListNode list1414_;   // +0x1414 lists::Elem<App> (vtable 0x006474D8, data = the app)
-    uint32_t sock_;               // +0x1428
-    uint8_t local_address_[0x10]; // +0x142C sockaddr_in (Bind)
-    bool linked_up_;              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
+    int outbound_byte_total_;         // +0x13FC
+    int inbound_byte_total_;          // +0x1400
+    int skipped_stamps_;              // +0x1404 timestamps skipped over
+    int stale_arrivals_;              // +0x1408 timestamps older than the newest
+    int repeat_arrivals_;             // +0x140C timestamps seen twice
+    int frame_count_;                 // +0x1410 frames processed (pump_incoming_traffic)
+    memory::PaddedListNode list1414_; // +0x1414 lists::Elem<App> (data = the app)
+    uint32_t sock_;                   // +0x1428
+    uint8_t local_address_[0x10];     // +0x142C sockaddr_in (Bind)
+    bool linked_up_;                  // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     uint8_t pad143d_[3];
     void* supervisor_; // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
@@ -280,8 +280,8 @@ struct AppHost {
     char receive_buffer_[0x514];         // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
-    ConnNode circuits_;                         // +0x1E8C head (data -1)
-    BannedConnNode banned_;                     // +0x1EA0 head
+    memory::PaddedListNode circuits_;           // +0x1E8C head (data -1)
+    memory::PaddedListNode banned_;             // +0x1EA0 head
     uint32_t unknown1eb4_;
     char label_[0x48]; // +0x1EB8 ("server", "client"...)
     // +0x1F00 a double (0.0 from the constructor; not used by the library), as two words: an 8-aligned member would

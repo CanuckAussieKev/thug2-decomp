@@ -76,11 +76,11 @@ constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 uint8_t* skate_module() { return get_skate(); }
 
-// The skate module's list of skaters (+0x34): how many.
+// The skate module's list of skaters (its head at +0x28): how many.
 int skater_count(uint8_t* skate)
 {
     int count = 0;
-    for (auto* node = prop<memory::ListNode*>(skate, 0x34); node->data != reinterpret_cast<void*>(-1) && node;
+    for (auto* node = prop<memory::ListNode>(skate, 0x28).next; node->data != reinterpret_cast<void*>(-1) && node;
          node = node->next)
         ++count;
     return count;
@@ -169,7 +169,7 @@ void __cdecl Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     uint8_t* skate = skate_module();
     net::ConnSearch search;
-    auto* node = prop<memory::ListNode*>(manager, 0x13C);
+    auto* node = prop<memory::ListNode>(manager, 0x130).next; // (the joining players' first node)
     bool added = false;
     if (node->data != reinterpret_cast<void*>(-1) && node) {
         while (node) {
@@ -180,7 +180,7 @@ void __cdecl Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
             manager->add_new_player(info);
             reinterpret_cast<JoinerRecord*>(info)->destroy_body(); // (its destructor)
             memory::Hub::get_pull()->dealloc(info);
-            reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(node))[0])(node, 1);
+            memory::ListNode::destroy(node); // (its node: 0x005367E0)
             added = true;
             node = next;
         }
@@ -292,7 +292,7 @@ void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     net::Hub* net = net::Hub::sole();
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    auto* node = prop<memory::ListNode*>(manager, 0x13C);
+    auto* node = prop<memory::ListNode>(manager, 0x130).next; // (the joining players' first node)
     if (node->data != reinterpret_cast<void*>(-1) && node) {
         while (node) {
             PlayerSearch search;
@@ -428,7 +428,7 @@ void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             as_player(player)->await_ready_response(now);
             reinterpret_cast<JoinerRecord*>(info)->destroy_body(); // (its destructor)
             memory::Hub::get_pull()->dealloc(info);
-            reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(node))[0])(node, 1);
+            memory::ListNode::destroy(node); // (its node: 0x005367E0)
             node = next;
         }
     }

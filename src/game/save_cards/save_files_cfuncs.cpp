@@ -46,11 +46,8 @@ const char* save_folder() { return game_config::get_path_prefix(); }
 // The card's delete of a console file or folder entry: on the PC the shared always-true method (0x005BC7F0).
 bool delete_card_file(SaveCard* card, const char* name) { return card->always_true(reinterpret_cast<int>(name)); }
 
-// A save file's handle deleted (its vtable's scalar deleting destructor).
-void DeleteFile(FileLoad* file)
-{
-    reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->list_link_.vtable[0])(file, 1);
-}
+// A save file's handle deleted (its scalar deleting destructor).
+void DeleteFile(FileLoad* file) { file->teardown(1); }
 
 // The pool pairs the temporary pools belong to: components, structures, vectors.
 memory::PoolPair& component_pools() { return script::g_component_pools; }
@@ -423,13 +420,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     if (!card)
         return true;
 
-    // the card's files (a lists::Foremost<File> on the stack, vtable 0x00658A60)
-    memory::ListNode head;
-    head.vtable = save_cards::kFileVtable;
-    head.data = reinterpret_cast<void*>(-1);
-    head.priority = 0;
-    head.next = &head;
-    head.prev = &head;
+    // the card's files (a lists::Foremost<File> on the stack)
+    memory::PaddedListNode head;
+    head.make_head();
     card->list_save_files("*", reinterpret_cast<FileLoad*>(&head));
 
     // into the temporary component and structure pools, if they exist
@@ -514,7 +507,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     for (memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1;) {
         memory::ListNode* next = node->next;
         memory::ListNode* following = reinterpret_cast<intptr_t>(next->data) == -1 ? nullptr : next;
-        reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
+        static_cast<FileLoad*>(node->data)->teardown(1);
         node = following;
         if (!node)
             break;

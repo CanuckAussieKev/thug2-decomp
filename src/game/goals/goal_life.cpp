@@ -149,12 +149,10 @@ Objective* root_of(void* manager, GoalEdge* parents)
 
 } // namespace
 
-static VtableSlot g_goal_node_vtable_slots[] = {&goals::GoalListNodes::destroy_node};
-void** const kGoalNodeVtable = reinterpret_cast<void**>(g_goal_node_vtable_slots); // (also used by goal_manager.cpp)
 // 0x00556FE0
 Objective::Objective(script::Struct* params)
-    : link_data_(this), link_priority_(0), link_next_(list_node()), link_prev_(list_node())
 {
+    list_link_.make_node(this);
     stage_flags_ = 0;
     net_stage_flags_ = 0;
     sub_nodes_ = alloc_chain_link();
@@ -216,18 +214,7 @@ Objective::~Objective()
         memory::dealloc(link);
         link = next;
     }
-    uncouple(list_node()); // (the node's destructor, inlined - its vtable word, this object's vptr, left alone)
-}
-
-// 0x005560D0
-memory::ListNode* GoalListNodes::destroy_node(uint8_t flags)
-{
-    auto* node = reinterpret_cast<memory::ListNode*>(this);
-    node->vtable = kGoalNodeVtable;
-    uncouple(node);
-    if (flags & 1)
-        memory::dealloc(node);
-    return node;
+    uncouple(list_node()); // (the node's destructor, inlined)
 }
 
 // 0x00556F90

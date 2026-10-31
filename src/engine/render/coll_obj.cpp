@@ -16,26 +16,12 @@ namespace render {
 
 namespace {
 
-static VtableSlot g_head_vtable_slots[] = {&render::CollObjListNodes::destroy_head};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots); // lists::Foremost<HitMesh>
-
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
 // 0x00416970: the geometry's destructor.
 void free_shape_data(TriMeshSource* geometry) { geometry->destruct(); }
 
-memory::ListNode* new_head()
-{
-    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (head) {
-        head->data = kHeadData;
-        head->priority = 0;
-        head->next = head;
-        head->prev = head;
-        head->vtable = kHeadVtable;
-    }
-    return head;
-}
+memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 // The first child's node (null at the end of the list - the head's data is -1).
 memory::ListNode* get_first(memory::ListNode* head)
 {
@@ -51,9 +37,6 @@ void for_each_child(memory::ListNode* head, F f)
 }
 
 } // namespace
-
-static VtableSlot g_node_vtable_slots[] = {&render::CollObjListNodes::destroy_node};
-void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<HitMesh>
 
 // 0x0040B370
 void HitMesh::assign_shape_data(TriMeshSource* geometry)
@@ -71,39 +54,6 @@ HitMesh::~HitMesh()
         free_shape_data(geometry);
         memory::Hub::get_pull()->dealloc(geometry);
     }
-}
-
-// 0x004131D0
-void CollObjListNodes::destroy_node_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(kNodeVtable); }
-
-// 0x00411880 (the body inlined)
-memory::ListNode* CollObjListNodes::destroy_node(uint8_t flags)
-{
-    destroy_node_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return reinterpret_cast<memory::ListNode*>(this);
-}
-
-// 0x00413180
-memory::ListNode* CollObjListNodes::construct_head()
-{
-    auto* head = reinterpret_cast<memory::ListNode*>(this);
-    head->data = kHeadData;
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = kHeadVtable;
-    return head;
-}
-
-// 0x004131A0
-memory::ListNode* CollObjListNodes::destroy_head(uint8_t flags)
-{
-    destroy_node_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return reinterpret_cast<memory::ListNode*>(this);
 }
 
 // 0x004133E0
@@ -124,12 +74,11 @@ HitMeshGroup::~HitMeshGroup()
             while (node) {
                 memory::ListNode* next = node->next->data == kHeadData ? nullptr : node->next;
                 delete static_cast<HitMesh*>(node->data);
-                reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
+                memory::ListNode::destroy(node); // (0x00411880)
                 node = next;
             }
         }
-        if (sub_nodes_)
-            reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(sub_nodes_->vtable[0])(sub_nodes_, 1);
+        memory::ListNode::destroy(sub_nodes_); // (0x004131A0)
     }
     remove_from_caches(this);
 }
@@ -142,14 +91,8 @@ HitMeshGroup* HitMeshGroup::replicate(int argument)
     copy->sub_nodes_ = new_head();
     for_each_child(sub_nodes_, [&](HitMesh* child) {
         auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-        if (node) {
-            void* clone = child->replicate(argument);
-            node->vtable = kNodeVtable;
-            node->data = clone;
-            node->priority = 0;
-            node->next = node;
-            node->prev = node;
-        }
+        if (node)
+            node->make_node(child->replicate(argument));
         memory::ListNode* head = copy->sub_nodes_;
         node->prev = head->prev;
         node->next = head;
@@ -162,14 +105,7 @@ HitMeshGroup* HitMeshGroup::replicate(int argument)
 // 0x00411BE0
 void HitMeshGroup::attach_child(HitMesh* child)
 {
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->vtable = kNodeVtable;
-        node->data = child;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
+    memory::ListNode* node = memory::ListNode::create(child);
     memory::ListNode* head = sub_nodes_;
     node->prev = head->prev;
     node->next = head;

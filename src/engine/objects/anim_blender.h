@@ -125,29 +125,34 @@ public:
     // written without a channel).
     void get_times(float* start, float* current, float* end);
 
-    ObjectModule* component18_;   // +0x18 the object's 0xCE0CA665 component
-    ObjectModule* bone_rig_;      // +0x1C its 0x222756D5 component
-    ObjectModule* mesh_instance_; // +0x20 its 0x286A8D26 component
-    uint32_t unknown24_;          // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
-    memory::ListNode lanes_;      // +0x28 the channel list's head (vtable 0x00645D88; data -1)
-    void* observers_;             // +0x3C a std::list of observers: its sentinel node (+4 next, +8 prev)
-    uint32_t observer_count_;     // +0x40
+    ObjectModule* component18_;    // +0x18 the object's 0xCE0CA665 component
+    ObjectModule* bone_rig_;       // +0x1C its 0x222756D5 component
+    ObjectModule* mesh_instance_;  // +0x20 its 0x286A8D26 component
+    uint32_t unknown24_;           // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
+    memory::PaddedListNode lanes_; // +0x28 the channel list's head (data -1)
+    void* observers_;         // +0x3C a std::list of observers (BlendObserver*): its sentinel node (+4 next, +8 prev)
+    uint32_t observer_count_; // +0x40
 };
 static_assert(offsetof(AnimBlenderComponent, component18_) == 0x18 && offsetof(AnimBlenderComponent, lanes_) == 0x28 &&
                   offsetof(AnimBlenderComponent, observers_) == 0x3C && sizeof(AnimBlenderComponent) == 0x44,
               "layout must match the original");
 
-// Pieces of the channel list's links and of the channel itself kept here.
+// A piece of the channel kept here (the channel list's node destructors - 0x00419D70, 0x00419D90 and the head's
+// 0x0041A170 - are memory::ListNode's).
 struct BlendChannelLinks {
-    // 0x00419D70: a channel list node's destructor body (unlinked; vtable 0x00645D84). 0x00419D90: its scalar
-    // deleting destructor. 0x0041A170: the head's (vtable 0x00645D88).
-    void destroy_body();
-    BlendChannelLinks* destroy_node(unsigned int flags);
-    BlendChannelLinks* destroy_head(unsigned int flags);
     // 0x00419CF0 (on a channel): its first timeline's start, current and end times (0x004813B0; 0 without one).
     void get_times(float* start, float* current, float* end);
 
-    memory::ListNode chain_link_;
+    memory::PaddedListNode chain_link_;
+    memory::PaddedListNode timelines_; // (the channel's +0x14)
+};
+
+// An observer of the blended pose (the blender's observers_ list; nothing in this build adds one): told each pose,
+// deleted with the blender. (The original's slots 0 and 1.)
+class BlendObserver {
+public:
+    virtual ~BlendObserver() = default;
+    virtual void on_pose(gfx::Stance* pose) = 0;
 };
 
 // 0x004196B0 (cdecl): the larger of `a` and `b` (`b` when they're equal or NaN).

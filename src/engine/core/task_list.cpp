@@ -7,19 +7,14 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
-#include "engine/core/code_address.h"
 
 namespace tasks {
 
 namespace {
 
-extern void** const kTaskNodeVtable;      // lists::Elem<SchedulerTask>
-extern void** const kStackListNodeVtable; // lists::Elem<StackList>
-extern void** const kStackListHeadVtable; // lists::Foremost<StackList>
-
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
-// A node's links taken out of its list and pointed at itself (the vtable kept).
+// A node's links taken out of its list and pointed at itself.
 void uncouple(memory::ListNode* node)
 {
     node->prev->next = node->next;
@@ -41,54 +36,6 @@ memory::ListNode* get_next_node(memory::ListNode* node)
     memory::ListNode* next = node->next;
     return next->data == kHeadData ? nullptr : next;
 }
-void setup_list_sentinel(memory::ListNode* head, void** vtable)
-{
-    head->data = kHeadData;
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = vtable;
-}
-// A node's scalar deleting destructor (vtable slot 0), with 1: unlinked and freed.
-void unlink_list_node(memory::ListNode* node)
-{
-    reinterpret_cast<void(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
-}
-
-// The destructors behind the nodes', heads' and local searches' vtables.
-struct TaskNode : memory::ListNode {
-    // 0x00406A00
-    void destroy_body() { unlink_as(kTaskNodeVtable); }
-    // 0x00406860 (scalar deleting)
-    TaskNode* teardown(uint8_t flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-};
-struct StackListNode : memory::ListNode {
-    // 0x00406D00
-    void destroy_body() { unlink_as(kStackListNodeVtable); }
-    // 0x00406D20 (scalar deleting; the body inlined)
-    StackListNode* teardown(uint8_t flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-    // 0x00406E50: lists::Foremost<StackList>'s scalar deleting destructor (the node's body).
-    StackListNode* destroy_head(uint8_t flags)
-    {
-        destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-};
-
 } // namespace
 
 // 0x00406890
@@ -98,23 +45,14 @@ SchedulerTask::SchedulerTask(int priority)
     sequence_ = nullptr;
     pass_count_ = 0;
     skip_bits_ = 0;
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->data = this;
-        node->vtable = kTaskNodeVtable;
-        node->priority = priority;
-        node->next = node;
-        node->prev = node;
-    }
-    list_link_ = node;
+    list_link_ = memory::ListNode::create(this, priority);
 }
 
 // 0x00406930
 SchedulerTask::~SchedulerTask()
 {
-    drop_out(); // (inlined)
-    if (list_link_)
-        unlink_list_node(list_link_);
+    drop_out();                            // (inlined)
+    memory::ListNode::destroy(list_link_); // (0x00406860: out of the list, freed)
 }
 
 // 0x004068F0
@@ -136,14 +74,14 @@ bool SchedulerTask::is_on_task_list() const { return list_link_->prev != list_li
 LinkChain* LinkChain::make_new()
 {
     lock_ = 0;
-    setup_list_sentinel(&head_, kTaskNodeVtable);
+    head_.make_head();
     pass_count_ = 0;
     altered_ = false;
     return this;
 }
 
 // 0x00406A20
-void LinkChain::destruct() { head_.unlink_as(kTaskNodeVtable); }
+void LinkChain::destruct() { head_.uncouple(); }
 
 // 0x004069B0
 void LinkChain::mark_changed() { altered_ = true; }
@@ -204,23 +142,14 @@ void LinkChain::clear_job_list()
 StackList* StackList::make_new()
 {
     LinkChain::make_new();
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->data = this;
-        node->vtable = kStackListNodeVtable;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
-    list_link_ = node;
+    list_link_ = memory::ListNode::create(this);
     return this;
 }
 
 // 0x00406C30
 void StackList::destruct()
 {
-    if (list_link_)
-        unlink_list_node(list_link_);
+    memory::ListNode::destroy(list_link_); // (0x00406D20)
     LinkChain::destruct();
 }
 
@@ -228,8 +157,8 @@ void StackList::destruct()
 PileUp* PileUp::make_new()
 {
     lock_ = 0;
-    setup_list_sentinel(&lists_, kStackListHeadVtable);
-    setup_list_sentinel(&popped_lists_, kStackListHeadVtable);
+    lists_.make_head();
+    popped_lists_.make_head();
     pushed_ = false;
     just_popped_ = false;
     stack_on();
@@ -250,8 +179,8 @@ void PileUp::destruct()
         stack_off();
     }
     delete_popped_lists();
-    popped_lists_.unlink_as(kStackListNodeVtable);
-    lists_.unlink_as(kStackListNodeVtable);
+    popped_lists_.uncouple();
+    lists_.uncouple();
 }
 
 // 0x00406DE0
@@ -319,14 +248,5 @@ void PileUp::delete_popped_lists()
         memory::Hub::get_pull()->dealloc(list);
     }
 }
-
-namespace {
-static VtableSlot g_task_node_vtable_slots[] = {&tasks::TaskNode::teardown};
-void** const kTaskNodeVtable = reinterpret_cast<void**>(g_task_node_vtable_slots);
-static VtableSlot g_stack_list_node_vtable_slots[] = {&tasks::StackListNode::teardown};
-void** const kStackListNodeVtable = reinterpret_cast<void**>(g_stack_list_node_vtable_slots);
-static VtableSlot g_stack_list_head_vtable_slots[] = {&tasks::StackListNode::destroy_head};
-void** const kStackListHeadVtable = reinterpret_cast<void**>(g_stack_list_head_vtable_slots);
-} // namespace
 
 } // namespace tasks

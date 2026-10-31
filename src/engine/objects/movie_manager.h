@@ -6,6 +6,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/node_objects.h"
 
 // The movie manager (GameObjects::VideoHub, 0x0057A180-0x0057B240): the queue of camera animations and cutscenes
 // ("movies") the skate module plays (its +0x368). The first movie in the queue plays; its camera is the game's
@@ -18,26 +19,9 @@ class Struct;
 
 namespace objects {
 
-// A movie (the base class 0x00468xxx; kinds: an object camera animation 0x00466490, a skater camera 0x005871B0,
-// a cutscene 0x005873F0). Its vtable: 0 the scalar deleting destructor, +0x04 ReadIn(params) -> bool, +0x08 Update,
-// +0x0C Start, +0x10 invoke_method_by_name(name, params, script) -> bool, +0x14 is_finished -> bool, +0x18 (bool),
-// +0x1C has_camera -> bool, +0x20 Stop, +0x24 (bool), +0x28 (bool), +0x2C / +0x30 / +0x34.
-struct Movie {
-    memory::ListNode list_link_; // in the manager's queue
-    gfx::ViewCam* viewer_;       // +0x14
-    uint8_t unknown18_;
-    bool can_skip_; // +0x19 ended with the others by end_movies(true)
-    uint8_t unknown1a_;
-    bool plays_while_paused_; // +0x1B
-    uint8_t unknown1c_[8];
-    uint32_t end_script_;        // +0x24
-    script::Struct* end_params_; // +0x28
-
-    void** get_vtable() const { return list_link_.vtable; }
-};
-static_assert(offsetof(Movie, viewer_) == 0x14 && offsetof(Movie, can_skip_) == 0x19 &&
-                  offsetof(Movie, end_script_) == 0x24 && offsetof(Movie, end_params_) == 0x28,
-              "layout must match the original");
+// A movie: VideoEntry (node_objects.h) - an object camera animation 0x00466490, a skater camera 0x005871B0, a
+// cutscene 0x005873F0.
+using Movie = VideoEntry;
 
 class VideoHub final : public Entity {
 public:
@@ -72,7 +56,7 @@ public:
     bool end_movies(bool skippable);
     // 0x0057A640: every movie deleted (the first one's camera kept first).
     void clear_movies();
-    // 0x0057A5A0: every movie stopped (vtable +0x20), the queue kept.
+    // 0x0057A5A0: every movie stopped (stop), the queue kept.
     void stop_all();
     // 0x0057A450: `movie`'s camera (if it has one and is showing it, not paused, and the skate module isn't in the
     // 0xE92ECAFE state) copied to viewer_, kept until the next render frame.
@@ -106,33 +90,18 @@ public:
     void playing30(uint32_t value); // (passed on: the original tail-jumps with its caller's argument)
     void playing34();
 
-    memory::ListNode movies_; // +0x4C the queue's head (lists::Foremost<Movie>, vtable 0x0064ED30)
-    gfx::ViewCam viewer_;     // +0x60 the last movie's camera, kept
-    uint32_t keep_until_;     // +0x124 the render frame it's kept until
-    bool keep_camera_;        // +0x128
+    memory::PaddedListNode movies_; // +0x4C the queue's head (lists::Foremost<Movie>)
+    gfx::ViewCam viewer_;           // +0x60 the last movie's camera, kept
+    uint32_t keep_until_;           // +0x124 the render frame it's kept until
+    bool keep_camera_;              // +0x128
     uint8_t pad129[3];
 };
 static_assert(offsetof(VideoHub, movies_) == 0x4C && offsetof(VideoHub, viewer_) == 0x60 &&
                   offsetof(VideoHub, keep_until_) == 0x124 && sizeof(VideoHub) == 0x12C,
               "layout must match the original");
 
-// 0x0057A2F0: every node of the list deleted (each one's scalar deleting destructor; they unlink themselves).
-// lists::Foremost<T>'s, shared by the game's lists (11 callers).
-struct ListHead {
-    memory::ListNode head_;
-    void delete_all_nodes();
-};
-
-// lists::Foremost<Movie> / lists::Elem<Movie>: 0x0057A200 the node's destructor body (unlinked, vtable 0x00647A48),
-// 0x0057A2C0 the head's scalar deleting destructor.
-struct MovieListNode {
-    memory::ListNode list_link_;
-    void destroy_body();
-    MovieListNode* teardown(unsigned int flags);
-};
-
 // The compiler-made copy assignments: 0x0057A190 GameObjects::Entity's (every field but the vtables: +0x00, the node's
-// +0x28, the ref's +0x40) and 0x0057A220 gfx::ViewCam's (the Entity's, then the camera's fields).
+// +0x28 - here the node's unused word +0x38 -, the ref's +0x40) and 0x0057A220 gfx::ViewCam's (the Entity's, then the camera's fields).
 struct ObjectAssignment {
     Entity* get_assign(const Entity* other);
 };

@@ -71,12 +71,7 @@ bool apply_cat_and_custom_skater(script::Struct* loaded, script::Struct* custom_
 // (0x007CECD8). Returns the end of what was read.
 const uint8_t* keep_loaded_contents(const uint8_t* data, uint32_t type);
 
-// The scalar deleting destructors of two list types (on the node; flag 1 frees it). Return the node.
-struct ListDestructors {
-    // 0x005A7520: lists::Elem<T>'s (vtable 0x0065797C): unlinked (its destructor body inlined), then freed.
-    memory::ListNode* node_destroy(unsigned int flags);
-    // 0x005A8E80: the type with vtable 0x00658A60's - the same body (0x005BC990) called, then freed.
-    memory::ListNode* other_destroy(unsigned int flags);
-};
+// (0x005A7520, lists::Elem<T>'s scalar deleting destructor here, is memory::ListNode::destroy; 0x005A8E80 is
+// FileLoad::teardown.)
 
 } // namespace save_cards

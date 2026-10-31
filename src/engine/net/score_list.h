@@ -15,11 +15,12 @@ namespace online {
 
 class Hub;
 
-extern void** const kScoreEntryVtable; // 0x0064CCF8: lists::Elem<ScoreEntry> (score_list.cpp)
+// A line of the score list (0x48 bytes), a node of a local list sorted by its priority, the score (its node keeps the
+// original's size).
+struct ScoreEntry : memory::PaddedListNode {
+    // 0x00544720: the scalar deleting destructor (out of its list; freed with flag 1).
+    ScoreEntry* teardown(unsigned int flags);
 
-// A line of the score list (0x48 bytes, vtable 0x0064CCF8 - its scalar deleting destructor 0x00544720, the node's
-// body 0x00544700: ScoreNode in player_info.h), a node of a local list sorted by its priority, the score.
-struct ScoreEntry : memory::ListNode {
     char text_[32]; // +0x14 the player's (or team's) name; "> " before the local one
     bool king_;     // +0x34 has the crown
     bool local_;    // +0x35

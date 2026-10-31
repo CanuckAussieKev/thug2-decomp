@@ -15,7 +15,6 @@
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 
@@ -25,8 +24,6 @@ float g_frame_time_scale;
 int g_drawn_viewport;
 namespace {
 
-extern void** const kHeadVtable;
-void** const& g_node_vtable = vt::kParticleNode;  // (lists::Elem<EmitterInstance>'s own)
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
 const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
@@ -38,11 +35,8 @@ float& frame_time_scale() { return g_frame_time_scale; }
 bool is_game_halted() { return objects::g_simulation_halted; }
 int drawn_viewport() { return g_drawn_viewport; }
 
-// The list's head deleted through its node table (slot 0, flags 1).
-void delete_head(memory::ListNode* head)
-{
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(head->vtable[0])(head, 1);
-}
+// The list's head deleted (0x0049AEF0).
+void delete_head(memory::ListNode* head) { memory::ListNode::destroy(head); }
 
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
 EmitterInstance* system_of(memory::ListNode* node)
@@ -69,15 +63,7 @@ FlexibleParticleManager::FlexibleParticleManager()
     arena_ = memory::Hub::get_pull()->add_heap(zone_, 1, kHeapName);
     temp_region_ = nullptr;
     temp_heap_ = nullptr;
-    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (head) {
-        head->data = reinterpret_cast<void*>(-1);
-        head->priority = 0;
-        head->next = head;
-        head->prev = head;
-        head->vtable = kHeadVtable;
-    }
-    systems_ptr_ = head;
+    systems_ptr_ = memory::ListNode::create_head();
     colour_scale_[0] = colour_scale_[1] = colour_scale_[2] = colour_scale_[3] = 1.0f;
     float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
@@ -266,20 +252,5 @@ void FlexibleParticleManager::set_colour_scale(const float* rgba)
     for (int i = 0; i < 4; ++i)
         colour_scale_[i] = rgba[i];
 }
-
-// 0x0049AEF0
-memory::ListNode* ParticleSystemListHead::teardown(unsigned int flags)
-{
-    auto* head = reinterpret_cast<memory::ListNode*>(this);
-    head->unlink_as(g_node_vtable); // (the node's body, 0x00496D10)
-    if (flags & 1)
-        memory::dealloc(head);
-    return head;
-}
-
-namespace {
-static VtableSlot g_head_vtable_slots[] = {&render::ParticleSystemListHead::teardown};
-void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-} // namespace
 
 } // namespace render

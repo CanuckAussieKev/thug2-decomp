@@ -22,24 +22,11 @@
 #include "engine/render/coll_static.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/gfx/weather.h"
 
 namespace render {
 
 namespace {
-
-extern void** const kSectorNodeVtable;
-extern void** const kSectorHeadVtable;
-void** const& g_coll_node_vtable = vt::kCollGridNode; // (the collision grid's lists')
-void** const& g_coll_head_vtable = vt::kCollGridHead;
-
-template <typename R = void, typename... A>
-R Virtual(void* object, int slot, A... args)
-{
-    void** vtable = *static_cast<void***>(object);
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>(vtable[slot])(object, args...);
-}
 
 // The rest of the scene (0x0049C910-0x0049D18E, engine_scene.cpp): the sector of a name, a sector deleted, a scene
 // file's collision data read, the collision let go of.
@@ -76,35 +63,11 @@ memory::ListNode* head_of_scene_list(const memory::ListNode* head)
     return is_head(head->next) ? nullptr : head->next;
 }
 // A head (on the stack or new).
-void setup_list_sentinel(memory::ListNode* head, void** vtable)
-{
-    head->vtable = vtable;
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-}
+void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 // A new head (null without memory).
-memory::ListNode* new_head()
-{
-    auto* head = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (head)
-        setup_list_sentinel(head, kSectorHeadVtable);
-    return head;
-}
+memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 // A new node (null without memory) for `data`.
-memory::ListNode* new_node(void** vtable, void* data)
-{
-    auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-    if (node) {
-        node->vtable = vtable;
-        node->data = data;
-        node->priority = 0;
-        node->next = node;
-        node->prev = node;
-    }
-    return node;
-}
+memory::ListNode* new_node(void* data) { return memory::ListNode::create(data); }
 // `node` put at the end of the list (no memory: written through null, as the original).
 void append_last(memory::ListNode* head, memory::ListNode* node)
 {
@@ -113,12 +76,12 @@ void append_last(memory::ListNode* head, memory::ListNode* node)
     head->prev->next = node;
     head->prev = node;
 }
-// Every node of a list deleted (its virtual [0]).
+// Every node of a list deleted (out of the list, freed).
 void delete_nodes(memory::ListNode* head)
 {
     for (memory::ListNode* node = head_of_scene_list(head); node;) {
         memory::ListNode* next = get_next_node(node);
-        Virtual<void*>(node, 0, 1u);
+        memory::ListNode::destroy(node);
         node = next;
     }
 }
@@ -199,10 +162,8 @@ WorldScene::~WorldScene()
         }
     }
     scene_unload_collision(this);
-    if (hidden_sectors_)
-        Virtual<void*>(hidden_sectors_, 0, 1u);
-    if (add_scene_sectors_)
-        Virtual<void*>(add_scene_sectors_, 0, 1u);
+    memory::ListNode::destroy(hidden_sectors_);
+    memory::ListNode::destroy(add_scene_sectors_);
     if (add_data_)
         unload_tex_dict(reinterpret_cast<TextureSet*>(add_data_));
 }
@@ -319,27 +280,27 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     if (!coll_grid_)
         return;
     memory::ListNode to_add, to_remove, moved, to_delete; // (collision objects; sectors)
-    setup_list_sentinel(&to_add, g_coll_head_vtable);
-    setup_list_sentinel(&to_remove, g_coll_head_vtable);
-    setup_list_sentinel(&moved, g_coll_head_vtable);
-    setup_list_sentinel(&to_delete, kSectorHeadVtable);
+    setup_list_sentinel(&to_add);
+    setup_list_sentinel(&to_remove);
+    setup_list_sentinel(&moved);
+    setup_list_sentinel(&to_delete);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     for_each_sector(this, [&](WorldCell* sector) {
         if (sector->fetch_bits() & kSectorAddToGrid) {
-            append_last(&to_add, new_node(g_coll_node_vtable, sector->hit_body_));
+            append_last(&to_add, new_node(sector->hit_body_));
             sector->clear_flags(kSectorAddToGrid);
             sector->change_bits(kSectorInGrid);
         }
         if (sector->fetch_bits() & (kSectorDelete | kSectorRemoveFromGrid)) {
-            append_last(&to_remove, new_node(g_coll_node_vtable, sector->hit_body_));
+            append_last(&to_remove, new_node(sector->hit_body_));
             if (sector->fetch_bits() & kSectorDelete)
-                append_last(&to_delete, new_node(kSectorNodeVtable, sector));
+                append_last(&to_delete, new_node(sector));
             else
                 sector->clear_flags(kSectorRemoveFromGrid);
         }
         if (sector->fetch_bits() & kSectorMoved) {
-            append_last(&moved, new_node(g_coll_node_vtable, sector->hit_body_));
+            append_last(&moved, new_node(sector->hit_body_));
             sector->clear_flags(kSectorMoved);
         }
     });
@@ -352,7 +313,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
                  removing = get_next_node(removing))
                 listed = removing->data == sector->hit_body_;
             if (!listed) {
-                append_last(&to_remove, new_node(g_coll_node_vtable, sector->hit_body_));
+                append_last(&to_remove, new_node(sector->hit_body_));
                 sector->clear_flags(kSectorRemoveFromGrid);
             }
             node = next;
@@ -370,7 +331,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
         sectors_->erase_entry(key);
         sector->clear_flags(kSectorInGrid);
         delete sector;
-        Virtual<void*>(node, 0, 1u);
+        memory::ListNode::destroy(node);
         node = next;
     }
     sector_kept_ = false;
@@ -406,7 +367,7 @@ bool WorldScene::load_add_scene(const char* name)
                 sector->change_bits(kSectorAddToGrid);
                 sector_kept_ = true;
                 put_sector(this, sector);
-                append_last(add_scene_sectors_, new_node(kSectorNodeVtable, sector));
+                append_last(add_scene_sectors_, new_node(sector));
             }
             sector->set_coll_obj(coll_static_at(add_coll_statics_, i));
         }
@@ -462,7 +423,7 @@ bool WorldScene::unload_added_scene()
         for (memory::ListNode* node = head_of_scene_list(add_scene_sectors_); node;) {
             memory::ListNode* next = get_next_node(node);
             delete_scene_sector(this, static_cast<WorldCell*>(node->data));
-            Virtual<void*>(node, 0, 1u);
+            memory::ListNode::destroy(node);
             node = next;
         }
     }
@@ -470,43 +431,4 @@ bool WorldScene::unload_added_scene()
     return true;
 }
 
-// --- the sector lists' nodes ------------------------------------------------------------------------------------
-
-// 0x0049D300
-void SectorListNodes::destroy_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(kSectorNodeVtable); }
-
-// 0x0049D320
-memory::ListNode* SectorListNodes::destroy_node(unsigned int flags)
-{
-    auto* node = reinterpret_cast<memory::ListNode*>(this);
-    node->unlink_as(kSectorNodeVtable);
-    if (flags & 1)
-        memory::dealloc(node);
-    return node;
-}
-
-// 0x0049D360
-memory::ListNode* SectorListNodes::destroy_head(unsigned int flags)
-{
-    auto* node = reinterpret_cast<memory::ListNode*>(this);
-    node->unlink_as(kSectorNodeVtable);
-    if (flags & 1)
-        memory::dealloc(node);
-    return node;
-}
-
-namespace {
-static VtableSlot g_sector_node_vtable_slots[] = {&render::SectorListNodes::destroy_node};
-void** const kSectorNodeVtable = reinterpret_cast<void**>(g_sector_node_vtable_slots);
-static VtableSlot g_sector_head_vtable_slots[] = {&render::SectorListNodes::destroy_head};
-void** const kSectorHeadVtable = reinterpret_cast<void**>(g_sector_head_vtable_slots);
-} // namespace
-
 } // namespace render
-
-namespace vt {
-static VtableSlot g_coll_grid_node_slots[] = {&render::CollGridListNodes::destroy_node};
-void** const kCollGridNode = reinterpret_cast<void**>(g_coll_grid_node_slots);
-static VtableSlot g_coll_grid_head_slots[] = {&render::CollGridListNodes::destroy_head};
-void** const kCollGridHead = reinterpret_cast<void**>(g_coll_grid_head_slots);
-} // namespace vt

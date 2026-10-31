@@ -37,9 +37,6 @@
 
 namespace online {
 
-static VtableSlot g_score_entry_vtable_slots[] = {&online::ScoreNode::destroy_calling};
-void** const kScoreEntryVtable = reinterpret_cast<void**>(g_score_entry_vtable_slots);
-
 using namespace detail;
 
 namespace {
@@ -99,13 +96,8 @@ bool has_score_line(PlayerRecord* p)
 ScoreEntry* new_entry()
 {
     auto* entry = static_cast<ScoreEntry*>(memory::alloc_zeroed(sizeof(ScoreEntry)));
-    if (entry) {
-        entry->data = entry;
-        entry->priority = 0;
-        entry->next = entry;
-        entry->prev = entry;
-        entry->vtable = kScoreEntryVtable;
-    }
+    if (entry)
+        entry->make_node(entry);
     return entry;
 }
 
@@ -157,11 +149,7 @@ void __cdecl score_broadcast_tick(tasks::Task<Hub>* task)
     (void)elements;
     Hub* manager = task->content_;
     lists::Foremost list;
-    list.list_link_.vtable = kScoreEntryVtable;
-    list.list_link_.data = reinterpret_cast<void*>(-1);
-    list.list_link_.priority = 0;
-    list.list_link_.next = &list.list_link_;
-    list.list_link_.prev = &list.list_link_;
+    list.list_link_.make_head();
     PlayerSearch search;
     bool not_lobby = get_game_type() != kNetLobby;
     bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
@@ -309,8 +297,7 @@ void __cdecl score_broadcast_tick(tasks::Task<Hub>* task)
             element->change_traits(params);
         get_run(kUpdateScore, params);
         delete_params(params);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(entry->vtable[0])(entry,
-                                                                                    1); // (deleted: out of the list)
+        entry->teardown(1); // (deleted: out of the list)
         entry = following;
     }
     list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)

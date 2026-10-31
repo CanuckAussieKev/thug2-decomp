@@ -35,18 +35,6 @@ namespace {
 using detail::delete_params;
 using detail::new_params;
 
-static VtableSlot g_item_vtable_slots[] = {&online::VaultItem::teardown};
-void** const kItemVtable = reinterpret_cast<void**>(g_item_vtable_slots); // VaultItem (and a category's items head)
-static VtableSlot g_categories_head_vtable_slots[] = {&online::VaultNode::delete_categories_head};
-void** const kCategoriesHeadVtable =
-    reinterpret_cast<void**>(g_categories_head_vtable_slots); // the vault's categories head
-static VtableSlot g_category_vtable_slots[] = {&online::VaultCategory::teardown};
-void** const kCategoryVtable = reinterpret_cast<void**>(g_category_vtable_slots); // VaultCategory
-static VtableSlot g_item_node_vtable_slots[] = {&online::VaultNode::delete_item_node};
-void** const kItemNodeVtable = reinterpret_cast<void**>(g_item_node_vtable_slots); // lists::Elem<VaultItem>
-static VtableSlot g_category_node_vtable_slots[] = {&online::VaultNode::delete_category_node};
-void** const kCategoryNodeVtable = reinterpret_cast<void**>(g_category_node_vtable_slots); // lists::Elem<VaultCategory>
-
 constexpr uint32_t kTimeout = 25000; // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
 constexpr uint32_t kDownloadFileSize = 0x14000;
@@ -161,27 +149,7 @@ const char* upload_file_type(uint32_t type)
     }
 }
 
-void unlink_list_node(void* node)
-{
-    auto* vtable = *static_cast<void***>(node);
-    reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
-}
-void init_node(memory::ListNode* node, void** vtable)
-{
-    node->data = node;
-    node->priority = 0;
-    node->next = node;
-    node->prev = node;
-    node->vtable = vtable;
-}
-void setup_list_sentinel(memory::ListNode* head, void** vtable)
-{
-    head->data = reinterpret_cast<void*>(-1);
-    head->priority = 0;
-    head->next = head;
-    head->prev = head;
-    head->vtable = vtable;
-}
+void init_node(memory::ListNode* node) { node->make_node(node); }
 // `node` at the front of the list (the lists of the vault are built that way: the last line first).
 void prepend(memory::ListNode* head, memory::ListNode* node)
 {
@@ -218,43 +186,10 @@ int number_field(char** rest)
 
 // --- the list nodes, items and categories ---
 
-// 0x0054B2D0
-void VaultNode::destroy_item_node() { list_link_.unlink_as(kItemNodeVtable); }
-
-// 0x0054B2B0
-void VaultNode::destroy_category_node() { list_link_.unlink_as(kCategoryNodeVtable); }
-
-// 0x0054B2F0
-VaultNode* VaultNode::delete_item_node(unsigned int flags)
-{
-    destroy_item_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054B330
-VaultNode* VaultNode::delete_category_node(unsigned int flags)
-{
-    destroy_category_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054B610
-VaultNode* VaultNode::delete_categories_head(unsigned int flags)
-{
-    destroy_category_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
 // 0x0054B570
 VaultItem* VaultItem::make_new()
 {
-    init_node(&list_link_, kItemVtable);
+    init_node(&list_link_);
     url_[0] = '\0';
     label_[0] = '\0';
     creator_[0] = '\0';
@@ -276,7 +211,7 @@ VaultItem* VaultItem::make_new()
 // 0x0054B5E0
 VaultItem* VaultItem::teardown(unsigned int flags)
 {
-    reinterpret_cast<VaultNode*>(this)->destroy_item_node();
+    list_link_.uncouple(); // (0x0054B2D0)
     if (flags & 1)
         ram_stats()->dealloc(this);
     return this;
@@ -285,8 +220,8 @@ VaultItem* VaultItem::teardown(unsigned int flags)
 // 0x0054B670
 VaultCategory* VaultCategory::make_new()
 {
-    init_node(&list_link_, kCategoryVtable);
-    setup_list_sentinel(&items_, kItemVtable);
+    init_node(&list_link_);
+    items_.make_head();
     skip_ = false;
     return this;
 }
@@ -294,14 +229,13 @@ VaultCategory* VaultCategory::make_new()
 // 0x0054C890
 void VaultCategory::destroy_body()
 {
-    list_link_.vtable = kCategoryVtable;
     for (memory::ListNode* node = get_next_node(&items_); node;) {
         memory::ListNode* next = get_next_node(node);
-        unlink_list_node(node->data);
+        static_cast<VaultItem*>(node->data)->teardown(1);
         node = next;
     }
-    items_.unlink_as(kItemNodeVtable);
-    list_link_.unlink_as(kCategoryNodeVtable);
+    items_.uncouple();
+    list_link_.uncouple(); // (0x0054B2B0)
 }
 
 // 0x0054C980
@@ -332,7 +266,7 @@ void* VaultSearch::following_item()
 // 0x0054C1D0
 VaultMan* VaultMan::make_new()
 {
-    setup_list_sentinel(&categories_, kCategoriesHeadVtable);
+    categories_.make_head();
     search_.list_link_ = nullptr;
     transfer_ = kNone;
     progress_ = 0;
@@ -347,7 +281,7 @@ void VaultMan::destroy_body()
 {
     get_release(semaphore_);
     delete task_;
-    categories_.unlink_as(kCategoryNodeVtable);
+    categories_.uncouple();
 }
 
 // 0x0054A910
@@ -415,7 +349,7 @@ void VaultMan::free_directory_listing()
 {
     for (memory::ListNode* node = get_next_node(&categories_); node;) {
         memory::ListNode* next = get_next_node(node);
-        unlink_list_node(node->data);
+        static_cast<VaultCategory*>(node->data)->teardown(1);
         node = next;
     }
     ghttp_cleanup();
