@@ -21,8 +21,8 @@ an explicit typed host boundary. Node is an offline development dependency.
 - Public synthetic CTest coverage and an optional read-only original-data helper
   (ResetLevelFlags) with an independently modeled career-flag host.
 
-The scripting target is optional and independent of both the hooked DLL and
-standalone game executable. They continue using the game's QB interpreter.
+The scripting target is optional and independent of the game executable,
+which continues using the game's QB interpreter.
 There is no game-build or rendering integration in this change.
 
 ## Compatibility work

@@ -51,8 +51,8 @@ readable JS, and the renderer to move off Direct3D 9 one day.
 The optional [`scripting/`](scripting/README.md) target starts the planned QB to
 JavaScript path: an offline TypeScript translator emits generators executed in
 embedded QuickJS, with typed C++ host calls and frame waits. Synthetic tests
-need no game files. This is an optional standalone prototype; the existing DLL
-build is unchanged. See [the implementation plan](docs/qb-js-plan.md) for the
+need no game files. This is an optional standalone prototype; the game build
+is unchanged. See [the implementation plan](docs/qb-js-plan.md) for the
 supported first milestone and remaining work.
 
 ## What you need

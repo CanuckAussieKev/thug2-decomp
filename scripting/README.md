@@ -2,7 +2,7 @@
 
 The project's offline TypeScript tools translate QB into JavaScript generators.
 This optional C++ library runs them in quickjs-ng with explicit typed native
-callbacks. The hooked DLL and standalone game still use their existing QB path;
+callbacks. The game still uses its existing QB path;
 this target does not change gameplay or rendering.
 
 ## Build and test
