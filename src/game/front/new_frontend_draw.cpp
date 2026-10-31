@@ -919,8 +919,11 @@ void LevelsScreen(Ctx& c, int* visibleRows)
 
     // The picture's number at the top right (Q / E change it) - only for a level with more than one.
     if (level && level->artVariants.size() > 1 && grow < 0.999f) {
-        char text[48];
-        std::snprintf(text, sizeof(text), "Q  %d / %d  E", level->variant + 1, static_cast<int>(level->artVariants.size()));
+        char text[64];
+        if (level->variant >= 0 && level->variant < static_cast<int>(level->artLabels.size()))
+            std::snprintf(text, sizeof(text), "Q  %s  E", level->artLabels[level->variant].c_str());
+        else
+            std::snprintf(text, sizeof(text), "Q  %d / %d  E", level->variant + 1, static_cast<int>(level->artVariants.size()));
         Style note = Mono12(kMuted);
         note.alpha = 1.0f - grow;
         float nw = Measure(note, c.f, text) / c.f.scale;

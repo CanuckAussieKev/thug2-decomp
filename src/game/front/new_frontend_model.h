@@ -18,11 +18,12 @@ struct Level {
     std::string load;  // its load script ("load_BO")
     std::string art;   // its loading screen (an image name: images\<art>.img.xbx)
     std::vector<std::string> artVariants; // the level select's pictures to choose from (levels.json art_variants; [0] is `art`)
-    int variant = 0;                      // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
+    std::vector<std::string> artLabels;   // a label per picture for the indicator (levels.json art_labels, e.g. "70%"; may be empty)
+    int variant = 0;                    // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
     // The picture shown: the chosen variant, else `art`.
     const std::string& CurrentArt() const
     {
-        return variant > 0 && variant < static_cast<int>(artVariants.size()) ? artVariants[variant] : art;
+        return variant >= 0 && variant < static_cast<int>(artVariants.size()) ? artVariants[variant] : art;
     }
     std::string levelNumName; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
     int levelNum = -1;        // level_num as a number (-1: a name - resolved by the game)
