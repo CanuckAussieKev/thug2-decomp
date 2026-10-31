@@ -1219,6 +1219,53 @@ void SkatersScreen(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wi
     Kicker(c, kicker, left, nameTop - 8.0f, Menu::kHouseYellow);
 }
 
+// A colour menu's slider track (Mirror::Row::track 1 hue, 2 saturation, 3 value, 4 alpha, 5 any other bar): a thin rail
+// in the colour the slider sets - the hue spectrum at the colour's saturation limit and value, grey to the full saturation
+// at the colour's hue and value, dark to bright at its hue and saturation - the colours as the skater shows them
+// (Mirror::SkaterColour), and a marker where the value stands. The numbers are the menu's own (View::hue / sat / val).
+ImU32 SkaterCol(float hue, float sat, float val)
+{
+    float rgb[3];
+    Mirror::SkaterColour(hue, sat, val, rgb);
+    return IM_COL32(static_cast<int>(rgb[0] * 255.0f + 0.5f), static_cast<int>(rgb[1] * 255.0f + 0.5f),
+                    static_cast<int>(rgb[2] * 255.0f + 0.5f), 255);
+}
+
+void ColourTrack(Ctx& c, const Mirror::View& v, const Mirror::Row& r, bool selected, float x0, float x1, float yMid)
+{
+    constexpr float kSatLimit = 90.0f, kValLow = 12.0f, kValHigh = 60.0f;
+    float hue = v.hasColour ? v.hue : 0.0f, sat = v.hasColour ? v.sat : kSatLimit, val = v.hasColour ? v.val : 40.0f;
+    float railHalf = 3.0f;
+    float px0 = c.f.X(x0), px1 = c.f.X(x1), py0 = c.f.Y(yMid - railHalf), py1 = c.f.Y(yMid + railHalf);
+    int steps = r.track == 1 ? 12 : 8;
+    if (r.track >= 1 && r.track <= 3) {
+        for (int k = 0; k < steps; ++k) {
+            float a = static_cast<float>(k) / static_cast<float>(steps), b = static_cast<float>(k + 1) / static_cast<float>(steps);
+            auto at = [&](float t) {
+                if (r.track == 1)
+                    return SkaterCol(t * 360.0f, kSatLimit, val);
+                if (r.track == 2)
+                    return SkaterCol(hue, t * kSatLimit, val);
+                return SkaterCol(hue, sat, kValLow + t * (kValHigh - kValLow));
+            };
+            c.dl->AddRectFilledMultiColor(ImVec2(px0 + (px1 - px0) * a, py0), ImVec2(px0 + (px1 - px0) * b, py1), at(a), at(b),
+                                          at(b), at(a));
+        }
+    } else {
+        c.dl->AddRectFilled(ImVec2(px0, py0), ImVec2(px1, py1), Col(kRule));
+        c.dl->AddRectFilled(ImVec2(px0, py0), ImVec2(px0 + (px1 - px0) * std::clamp(r.trackAt, 0.0f, 1.0f), py1),
+                            Col(selected ? Menu::kHouseYellow : 0xFF8C8C86));
+    }
+    c.dl->AddRect(ImVec2(px0, py0), ImVec2(px1, py1), Col(0xFF000000, 0.6f), 0.0f, 0, std::max(1.0f, c.f.S(1.0f)));
+    // The marker: a post over the rail, ink-edged, the accent when its row is the selected one.
+    float mx = px0 + (px1 - px0) * std::clamp(r.trackAt, 0.0f, 1.0f);
+    float half = std::max(1.5f, c.f.S(2.0f)), top = c.f.Y(yMid - 9.0f), bottom = c.f.Y(yMid + 9.0f);
+    if (r.track >= 1 && r.track <= 4) {
+        c.dl->AddRectFilled(ImVec2(mx - half - 1.0f, top - 1.0f), ImVec2(mx + half + 1.0f, bottom + 1.0f), Col(0xFF000000));
+        c.dl->AddRectFilled(ImVec2(mx - half, top), ImVec2(mx + half, bottom), Col(selected ? Menu::kHouseYellow : 0xFFE8E8E0));
+    }
+}
+
 // A plain list: the pause menus' look - the screen dimmed, the column's scrim, the items numbered down the left (each
 // one's value in mono at the column's right), the selected item's name on the right with the screen's other words.
 void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float windowHeight, float* scroll)
@@ -1271,6 +1318,14 @@ void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wind
             if (c.f.X(rs.textX) + Measure(rs.name, c.f, r.label.c_str()) + c.f.S(24.0f) < valueX)
                 Text(c.dl, value, c.f, valueX, base, r.value.c_str());
         }
+        if (r.track > 0 && r.focusable) {
+            // (between the label and the number: from past the widest label to a fixed width, at most)
+            float valueW = r.value.empty() ? 0.0f : Measure(value, c.f, r.value.c_str()) / c.f.S(1.0f) + 14.0f;
+            float labelEnd = rs.textX + Measure(rs.name, c.f, r.label.c_str()) / c.f.S(1.0f) + 16.0f;
+            float x1 = kColumnInner - valueW, x0 = std::max(labelEnd, x1 - 190.0f);
+            if (x1 - x0 > 40.0f)
+                ColourTrack(c, v, r, i == v.selected, x0, x1, top + rowH * 0.5f);
+        }
         if (r.focusable && top >= listTop - 1.0f && top + rowH <= listBottom + 1.0f)
             c.Hit(Hit::Item, i, 48.0f, top, kColumnInner + 20.0f, top + rowH);
     }
@@ -1279,6 +1334,20 @@ void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wind
     // The right: the hints, the screen's other words, the selected item (its value under it), the title as the kicker.
     float left = kRight, right = 1240.0f;
     float bottom = Hints(c, {Text::kHintSelect, Text::kHintChange, Text::kHintBack}, left, right, 688.0f) - 12.0f;
+    if (v.hasColour) {
+        // The colour chosen, as the skater shows it, with its numbers.
+        float swatchTop = bottom - 30.0f;
+        ImVec2 a(c.f.X(left), c.f.Y(swatchTop)), b(c.f.X(left + 64.0f), c.f.Y(swatchTop + 30.0f));
+        c.dl->AddRectFilled(a, b, SkaterCol(v.hue, v.sat, v.val));
+        c.dl->AddRect(a, b, Col(kRule), 0.0f, 0, std::max(1.0f, c.f.S(1.0f)));
+        Style d = Mono12(kMuted, false);
+        d.css = 12.0f;
+        char numbers[48];
+        std::snprintf(numbers, sizeof(numbers), "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f), static_cast<int>(v.sat + 0.5f),
+                      static_cast<int>(v.val + 0.5f));
+        Text(c.dl, d, c.f, c.f.X(left + 76.0f), Baseline(d, c.f, c.f.Y(swatchTop + 8.0f), 1.3f), numbers);
+        bottom = swatchTop - 12.0f;
+    }
     if (v.editor) {
         // (an editor's view - the skater, the park - keeps the right: only the selected item's value over the hints)
         const Mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;

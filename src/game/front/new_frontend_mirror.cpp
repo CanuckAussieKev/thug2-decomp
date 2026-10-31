@@ -193,6 +193,10 @@ std::string CleanText(const std::string& raw, bool newlines)
 
 void SetButtonNamer(ButtonNamer namer) { g_buttonNamer = namer; }
 
+// The colour menus' ranges (colormenu.qb: colormenu_max_saturation 90, colormenu_min_value 12, colormenu_max_value 60;
+// Create-A-Graphic's value starts at 0).
+constexpr float kSatMax = 90.0f, kValMinCas = 12.0f, kValMax = 60.0f;
+
 View Build(const MenuRead& read, const Policy& policy)
 {
     View view;
@@ -241,15 +245,29 @@ View Build(const MenuRead& read, const Policy& policy)
             if (item.checkbox >= 0)
                 row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + std::string(item.checkbox ? Text::kOn : Text::kOff);
             row.adjustable = item.adjustable;
-            // A slider's bar isn't drawn here: its value is, as the marker stands on the bar (only the selected item's -
-            // the others' markers are moved when they are focused).
-            if (item.sliderAt >= 0.0f && static_cast<int>(i) == read.selectedIndex) {
+            // A slider row: its track is drawn (Paint) from `track` / `trackAt`; its value shown as a number. The colour
+            // menus' markers are all moved by any change (colormenu_refresh_arrows), so the numbers are true on every row
+            // (Create-A-Graphic moves only the focused slider's: the others' are as of when they were last focused); the
+            // scaling bars show their place on the bar, the selected one's only.
+            if (item.sliderAt >= 0.0f) {
+                row.track = item.sliderKind == 0 ? 5 : item.sliderKind;
+                row.trackAt = item.sliderAt;
                 char number[24];
-                if (item.sliderHue)
-                    std::snprintf(number, sizeof(number), "%d\xC2\xB0", static_cast<int>(item.sliderAt * 360.0f + 0.5f));
-                else
+                bool show = true;
+                if (item.sliderKind == 1)
+                    std::snprintf(number, sizeof(number), "%dÂ°", static_cast<int>(item.sliderAt * 360.0f + 0.5f));
+                else if (item.sliderKind == 2)
+                    std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.sliderAt * kSatMax + 0.5f));
+                else if (item.sliderKind == 3) {
+                    float low = read.graphicEditor ? 0.0f : kValMinCas;
+                    std::snprintf(number, sizeof(number), "%d%%",
+                                  static_cast<int>(low + item.sliderAt * (kValMax - low) + 0.5f));
+                } else {
+                    show = static_cast<int>(i) == read.selectedIndex;
                     std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.sliderAt * 100.0f + 0.5f));
-                row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + std::string(number);
+                }
+                if (show)
+                    row.value += (row.value.empty() ? "" : " Â· ") + std::string(number);
             }
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);
@@ -462,7 +480,44 @@ View Build(const MenuRead& read, const Policy& policy)
     if (view.lines.size() > 12)
         view.lines.resize(12);
     view.bigName = view.selected >= 0 ? view.rows[view.selected].label : view.title;
+    // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
+    {
+        float at[4] = {-1.0f, -1.0f, -1.0f, -1.0f};
+        for (const Row& r : view.rows)
+            if (r.track >= 1 && r.track <= 3)
+                at[r.track] = r.trackAt;
+        if (at[1] >= 0.0f && at[2] >= 0.0f && at[3] >= 0.0f) {
+            float low = read.graphicEditor ? 0.0f : kValMinCas;
+            view.hasColour = true;
+            view.hue = std::min(at[1] * 360.0f, 359.0f);
+            view.sat = at[2] * kSatMax;
+            view.val = low + at[3] * (kValMax - low);
+        }
+    }
     return view;
+}
+
+void SkaterColour(float hue, float satPercent, float valPercent, float rgb[3])
+{
+    float s = satPercent * 0.01f, v = valPercent * 0.01f;
+    float r = v, g = v, b = v;
+    if (s != 0.0f) {
+        float sector = hue * (1.0f / 60.0f);
+        int i = static_cast<int>(sector);
+        float f = sector - static_cast<float>(i);
+        float p = (1.0f - s) * v, q = (1.0f - s * f) * v, t = (1.0f - (1.0f - f) * s) * v;
+        switch (static_cast<unsigned>(i)) {
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        default: r = v, g = p, b = q; break;
+        }
+    }
+    rgb[0] = std::min(1.0f, r * 2.0f);
+    rgb[1] = std::min(1.0f, g * 2.0f);
+    rgb[2] = std::min(1.0f, b * 2.0f);
 }
 
 bool Tracker::Update(const View& now, float dt)
