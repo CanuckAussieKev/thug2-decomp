@@ -21,15 +21,10 @@
 #include "engine/gfx/render_state.h"
 #include "engine/pad_input/device.h"
 #include "platform/platform_d3d.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 
 namespace render {
-
-namespace {
-extern void** const kSTextVtable;
-} // namespace
 
 // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
 uint32_t g_text_vertex_store[0x1C00];
@@ -233,7 +228,7 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 }
 
 // 0x004CFD00
-void GlyphRun::blit()
+void GlyphRun::draw()
 {
     double scale_x = horiz_screen_ratio();
     double scale_y = vert_screen_ratio();
@@ -455,35 +450,11 @@ uint32_t get_u32(const uint8_t* p)
 
 } // namespace
 
-// 0x004CEED0
-GlyphRun* GlyphRun::make_new(float priority)
-{
-    reinterpret_cast<OverlayDraw*>(this)->make_new(priority, true);
-    vtable = kSTextVtable;
-    return this;
-}
-
-// 0x004CEEF0
-void GlyphRun::destroy_body()
-{
-    vtable = kSTextVtable;
-    reinterpret_cast<OverlayDraw*>(this)->destroy_body();
-}
-
-// 0x004CFAF0
-GlyphRun* GlyphRun::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
 // 0x004CEF00
-void GlyphRun::reset_vertices() { get_vertex_buffer() = vertex_store(); }
+void GlyphRun::open_sketch() { get_vertex_buffer() = vertex_store(); }
 
 // 0x004CEF10
-void GlyphRun::draw_vertices()
+void GlyphRun::close_sketch()
 {
     if (!quad_indices_made()) {
         for (int quad = 0; quad < kQuads; ++quad) {
@@ -699,11 +670,5 @@ void TypefaceData::offload(TypefaceData* font)
     memory::dealloc(font->chars);
     memory::dealloc(font);
 }
-
-namespace {
-static VtableSlot g_s_text_vtable_slots[] = {&render::GlyphRun::teardown, &render::GlyphRun::reset_vertices,
-                                             &render::GlyphRun::blit, &render::GlyphRun::draw_vertices};
-void** const kSTextVtable = reinterpret_cast<void**>(g_s_text_vtable_slots);
-} // namespace
 
 } // namespace render

@@ -42,7 +42,7 @@ namespace render {
 namespace {} // namespace
 
 bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
-void* g_weather;
+WeatherSystem* g_weather;
 
 void* g_screen_effects;
 uint32_t g_fog_colour;
@@ -169,9 +169,8 @@ void __cdecl start_engine()
 {
     init_direct_3d();
     objects::g_particle_hub = new PcParticleManager;
-    void* memory = memory::alloc(0x12AC);
-    g_weather = memory ? static_cast<PcWeather*>(memory)->make_new() : nullptr;
-    memory = memory::alloc(8);
+    g_weather = new PcWeather;
+    void* memory = memory::alloc(8);
     g_screen_effects = memory ? static_cast<PcScreenEffects*>(memory)->make_new() : nullptr;
 }
 
@@ -249,18 +248,10 @@ void* __cdecl create_geom()
 }
 
 // 0x004B2A80
-void* __cdecl build_sprite_quad()
-{
-    void* memory = memory::alloc(0x48);
-    return memory ? static_cast<PcSprite*>(memory)->make_new() : nullptr;
-}
+BillboardQuad* __cdecl build_sprite_quad() { return new PcSprite; }
 
 // 0x004B2AF0
-void* __cdecl create_textured_quad()
-{
-    void* memory = memory::alloc(0x20);
-    return memory ? static_cast<TexturedQuad*>(memory)->make_new(nullptr) : nullptr;
-}
+TexturedQuad* __cdecl create_textured_quad() { return new TexturedQuad(nullptr); }
 
 // 0x004B2B60
 void* __cdecl create_render_target(int width, int height, uint8_t depth, int unused)

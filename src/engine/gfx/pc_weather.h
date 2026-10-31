@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/gfx/weather.h"
+
 // The PC weather (Nx engine: the engine's WeatherSystem - constructor 0x004A14C0, destructor body 0x004A1080, its script
 // setters 0x004A10B0-0x004A1450 - over it; made by start_engine, 0x006FA7C8): rain (lines, with splashes where drops
 // land) or snow (point sprites) over a grid of the ground's heights about the camera - 128-unit cells, the heights
@@ -18,32 +20,8 @@ struct WeatherRow {
 };
 
 // The PC weather (0x12AC bytes, vtable 0x0064A860).
-struct PcWeather {
-    void** vtable;
-    float rain_height_;        // +0x04 how far up a drop starts
-    int rain_frames_;          // +0x08 its fall's frames (0-254)
-    float rain_length_;        // +0x0C
-    float rain_rate_;          // +0x10 drops a frame
-    uint8_t rain_top_[4];      // +0x14 RGBA
-    uint8_t rain_bottom_[4];   // +0x18
-    float splash_rate_;        // +0x1C splashes a frame
-    int splash_life_;          // +0x20 frames
-    float splash_size_;        // +0x24
-    uint8_t splash_colour_[4]; // +0x28
-    int drops;                 // +0x2C falling now
-    bool active;               // +0x30 (a grid made)
-    uint8_t pad31[3];
-    float snow_height_;      // +0x34
-    int snow_frames_;        // +0x38
-    float snow_size_;        // +0x3C
-    float snow_rate_;        // +0x40
-    uint8_t snow_colour_[4]; // +0x44
-    float camera_x_;         // +0x48 where the camera was
-    float camera_y_;
-    float camera_z_; // +0x50
-    uint8_t engine54[4];
-    bool raining; // +0x58 (else snow)
-    uint8_t pad59[3];
+class PcWeather final : public WeatherSystem {
+public:
     void* splash_texture_;      // +0x5C TextureRef* (0x45C7EB0F)
     void* snow_texture_;        // +0x60 TextureRef* (0xC97C5A4C)
     uint8_t* columns;           // +0x64 the rows' columns' height indices
@@ -69,29 +47,27 @@ struct PcWeather {
     int splash_frames_[0x20]; // +0x1228 left (0: none)
     int next_splash_;         // +0x12A8
 
-    // 0x004CC560: construct (no grid, no splash texture - the snow's left as it was; blend mode 0xA86285A1 with alpha
-    // 0x80 for all three). Returns this.
-    PcWeather* make_new();
-    // 0x004CBDA0: the destructor's body (a jump to the engine's).
-    void destroy_body();
-    // 0x004CC600 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcWeather* teardown(unsigned int free_flags);
-    // 0x004CD1A0 (virtual [1]): the grid made over the scene's collision box (at most 350 x 300 cells): every
+    // 0x004CC560: no grid, no splash texture - the snow's left as it was; blend mode 0xA86285A1 with alpha 0x80 for
+    // all three.
+    PcWeather();
+    // 0x004CBDA0 (0x004CC600 the scalar deleting destructor): a jump to the engine's.
+    ~PcWeather() override = default;
+    // 0x004CD1A0 (vtable slot 1): the grid made over the scene's collision box (at most 350 x 300 cells): every
     // cell's height cast for and put in a list of levels (within 30 units of one: the same), each cell then taking
     // the highest of itself and its right, lower and lower-right neighbours; the rows' ground spans kept; the slots
     // emptied with random places; the textures found.
-    void tick_grid();
-    // 0x004CBDB0 (virtual [2]): the frame's new drops started (the rate, at most one a frame per slot freed), each
+    void tick_grid() override;
+    // 0x004CBDB0 (slot 2): the frame's new drops started (the rate, at most one a frame per slot freed), each
     // in the next free slot (none free: no more).
-    void tick_frame(int unused);
-    // 0x004CD120 (virtual [3]): drawn about the camera (rain and splashes, or snow), then every falling drop moved
+    void tick_frame(float frame_seconds) override;
+    // 0x004CD120 (slot 3): drawn about the camera (rain and splashes, or snow), then every falling drop moved
     // on a frame.
-    void render();
-    // 0x004CC4D0 / 0x004CC500 / 0x004CC530 (virtual [4] - [6]): the rain's / splashes' / snow's blend mode by name,
-    // with a fixed alpha.
-    void set_rain_blend_mode(uint32_t name, uint32_t fixed_alpha);
-    void set_splash_blend_mode(uint32_t name, uint32_t fixed_alpha);
-    void set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha);
+    void render() override;
+    // 0x004CC4D0 / 0x004CC500 / 0x004CC530 (slots 4 - 6): the rain's / splashes' / snow's blend mode by name, with a
+    // fixed alpha.
+    void set_rain_blend_mode(uint32_t name, uint32_t fixed_alpha) override;
+    void set_splash_blend_mode(uint32_t name, uint32_t fixed_alpha) override;
+    void set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha) override;
     // 0x004CBFE0: the rain about (x, z): lines from each drop's height to its length above, coloured bottom to top
     // (blend mode 10 drawn as 9 with the mode's alpha), 16 cells each way.
     void render_rain(float x, float z);
@@ -101,7 +77,7 @@ struct PcWeather {
     // live splash drawn as a quad fading with its frames.
     void render_splashes(float x, float z);
 };
-static_assert(offsetof(PcWeather, active) == 0x30 && offsetof(PcWeather, raining) == 0x58 &&
+static_assert(offsetof(PcWeather, active_) == 0x30 && offsetof(PcWeather, rain_on_) == 0x58 &&
                   offsetof(PcWeather, heights) == 0x6C && offsetof(PcWeather, width) == 0x46C &&
                   offsetof(PcWeather, stage) == 0x498 && offsetof(PcWeather, next) == 0x1098 &&
                   offsetof(PcWeather, splash_x_) == 0x10A8 && offsetof(PcWeather, next_splash_) == 0x12A8 &&

@@ -9,6 +9,11 @@
 // placed in 3D with pos3D) and WindowElement (a 2D window - a clip rectangle - its descendants' sprites draw in).
 // Their drawing pieces (0x0048BF30 / 0x0048BF40 and their setters 0x0049EBxx-0x0049EExx, the windows 0x004A15C0-
 // 0x004A1670) are still game code, reached by address.
+namespace render {
+class BillboardQuad;
+class TexturedQuad;
+} // namespace render
+
 namespace frontend {
 
 // TextureElement (vtable 0x0064A1F8, 0x180 bytes).
@@ -30,8 +35,8 @@ public:
     // alpha. (Slot 9 is 0x004AEE50, a jump to UiWidget::blend_towards.)
     void tick_frame();
 
-    uint32_t texture_; // +0x178 the texture's checksum
-    void* piece_;      // +0x17C
+    uint32_t texture_;            // +0x178 the texture's checksum
+    render::TexturedQuad* piece_; // +0x17C
 };
 static_assert(offsetof(TextureElement, texture_) == 0x178 && sizeof(TextureElement) == 0x180,
               "layout must match the original");
@@ -65,7 +70,7 @@ public:
     uint32_t texture_; // +0x178 the texture's checksum
     bool z_write_;     // +0x17C (no_zwrite clears it)
     uint8_t pad17d_[3];
-    void* quad_; // +0x180
+    render::BillboardQuad* quad_; // +0x180
 };
 static_assert(offsetof(ImageWidget, z_write_) == 0x17C && offsetof(ImageWidget, quad_) == 0x180 &&
                   sizeof(ImageWidget) == 0x184,

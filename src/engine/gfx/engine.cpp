@@ -32,6 +32,7 @@
 #include "engine/objects/particle_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/startup_init.h"
+#include "engine/gfx/weather.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
@@ -83,7 +84,7 @@ engine::IdleFunction g_idle_function;
 void*& flexible_particle_manager() { return g_flexible_particle_manager; }
 void*& imposter_manager() { return g_imposter_manager; }
 EffectsDirector* particle_hub_handle() { return objects::g_particle_hub; }
-void* get_weather() { return g_weather; }
+WeatherSystem* get_weather() { return g_weather; }
 bool omit_from_draw() { return g_suppress_draw; }
 int viewport_count() { return modules::g_viewport_count; }
 
@@ -153,10 +154,8 @@ void __cdecl render_frame()
     age_all_texture_splats();
     update_shatters();
     particle_hub_handle()->tick_particles();
-    // the weather's frame (vtable slot 2 - through the folded jump 0x004E3F90), by the slow-motion frame time
-    void* weather = get_weather();
-    reinterpret_cast<void(__thiscall*)(void*, float)>((*static_cast<void***>(weather))[2])(
-        weather, static_cast<float>(frame_clock::get_slomo_frame_seconds()));
+    // the weather's frame (through the folded jump 0x004E3F90), by the slow-motion frame time
+    get_weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
     static_cast<ImposterManager*>(imposter_manager())->tick_frame();
     update_after_imposters();
     if (!omit_from_draw())

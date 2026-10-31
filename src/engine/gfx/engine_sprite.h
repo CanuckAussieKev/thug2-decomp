@@ -3,23 +3,32 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 // The engine's 2D pieces (Nx engine): the sprite (render::BillboardQuad; the PC sprite PcSprite - pc_sprite.h - extends it and
 // draws it) and the textured quad (render::TexturedQuad, used as it is on PC). Each setter stores its value and tells
 // the platform through a virtual slot.
 namespace render {
 
-// The sprite (0x44 bytes of the engine's; vtable 0x00649A80 - PC 0x0064A744). Its virtual slots: [0] destroy, [2]
-// the hidden flag changed, [3] the settings changed, [4] the priority / depth changed, [5] the window changed (the
-// engine's own do nothing).
-class BillboardQuad {
+// The sprite (0x44 bytes of the engine's; vtable 0x00649A80 - PC 0x0064A744).
+class BillboardQuad : public memory::HeapObject {
 public:
-    // 0x0049ED60: construct in `window` - hidden, no texture, blend "blend", at (-1, -1), scale 1, hot spot (-1, -1),
-    // unturned, priority 0, size 0, no flips, colour 0x80 each. Returns this.
-    BillboardQuad* make_new(void* window);
-    // 0x0049EBA0: the destructor's body.
-    void destroy_body();
-    // 0x0049EDD0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    BillboardQuad* teardown(unsigned int free_flags);
+    // 0x0049ED60: in `window` - hidden, no texture, blend "blend", at (-1, -1), scale 1, hot spot (-1, -1), unturned,
+    // priority 0, size 0, no flips, colour 0x80 each.
+    explicit BillboardQuad(void* window);
+    // 0x0049EBA0 (0x0049EDD0 the scalar deleting destructor, vtable slot 0)
+    virtual ~BillboardQuad() = default;
+    BillboardQuad(const BillboardQuad&) = delete;
+    BillboardQuad& operator=(const BillboardQuad&) = delete;
+    // Vtable slots 1-5, the platform told what changed (the engine's do nothing): everything, the hidden flag, the
+    // settings, the priority / depth, the window.
+    virtual void refresh_all() {}
+    virtual void update_hidden() {}
+    virtual void update_settings() {}
+    virtual void update_priority() {}
+    virtual void update_window() {}
+    // 0x0048D1B0 (the text's, folded: the window at +0x40, then update_window): the window it's drawn in.
+    void change_pane(void* window);
 
     // 0x0049EBB0: hidden or shown.
     void change_concealed(bool hidden);
@@ -48,7 +57,6 @@ public:
     // 0x0049ECF0: its colour (RGBA).
     void change_rgba(uint32_t rgba);
 
-    void** vtable;
     uint8_t* bitmap_;         // +0x04: an engine BitmapTexture
     uint32_t mix_mode_;       // +0x08
     float pos_x_, y_;         // +0x0C
@@ -71,16 +79,15 @@ static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(Bil
                   sizeof(BillboardQuad) == 0x44,
               "layout must match the original");
 
-// The textured quad (0x20 bytes; vtable 0x00649A98: [0] destroy, [1] a new one, [4] the hidden flag changed, [5] the
-// settings changed, [6] the priority changed - the engine's do nothing).
-class TexturedQuad {
+// The textured quad (0x20 bytes in the original with its vtable 0x00649A98 - [1] a new one, [4]-[6] the platform told
+// of the hidden flag, the settings, the priority: all empty, and no PC class over it - so no vtable here: 0x1C).
+class TexturedQuad : public memory::HeapObject {
 public:
-    // 0x0049EED0: construct in `window` - hidden, no texture, priority order, colour 0x80 each. Returns this.
-    TexturedQuad* make_new(void* window);
-    // 0x0049EF00 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    TexturedQuad* teardown(unsigned int free_flags);
-    // 0x0049EF30 (virtual [1]): a new quad (no window) - null without memory.
-    TexturedQuad* fabricate();
+    // 0x0049EED0: in `window` - hidden, no texture, priority order, colour 0x80 each.
+    explicit TexturedQuad(void* window);
+    // (0x0049EF00 the scalar deleting destructor: nothing of its own)
+    // 0x0049EF30 (vtable slot 1): a new quad (no window) - null without memory.
+    static TexturedQuad* fabricate();
 
     // 0x0049ED10: hidden or shown.
     void change_concealed(bool hidden);
@@ -93,8 +100,7 @@ public:
     // 0x0049ED50: its colour (RGBA).
     void change_rgba(uint32_t rgba);
 
-    void** vtable;
-    void* screen_region_; // +0x04
+    void* screen_region_; // (the original's offsets: +0x04)
     uint8_t* bitmap_;     // +0x08
     bool invisible_;      // +0x0C
     uint8_t padd_[3];
@@ -104,8 +110,6 @@ public:
     uint32_t mix_mode_;     // +0x18: (not set when made)
     uint8_t rgba_value_[4]; // +0x1C
 };
-static_assert(offsetof(TexturedQuad, rank_) == 0x10 && offsetof(TexturedQuad, rgba_value_) == 0x1C &&
-                  sizeof(TexturedQuad) == 0x20,
-              "layout must match the original");
+static_assert(sizeof(TexturedQuad) == 0x1C, "layout must match the original");
 
 } // namespace render

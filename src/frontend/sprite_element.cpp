@@ -41,7 +41,7 @@ float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
 float rotation_offset()
 {
     return ::goals::g_goal_life_seconds_per_millisecond;
-}                                                               // 0.001 (added to a rotation in radians)
+} // 0.001 (added to a rotation in radians)
 float minimum_alpha() { return ::modules::g_competition_tiny; } // 0.0001: below it, transparent
 float layout_top() { return frontend::g_layout_top; }           // -200: a sprite whose top is above it is hidden
 float layout_bottom() { return frontend::g_layout_bottom; }     // 648: ... or below it
@@ -76,9 +76,8 @@ uint16_t texels_down(void* texture)
 }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
-void* new_textured_piece() { return render::create_textured_quad(); }
-void* new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
-void free_piece(void* piece) { render::delete_model_lights(static_cast<render::PcModelLights*>(piece)); }
+render::TexturedQuad* new_textured_piece() { return render::create_textured_quad(); }
+render::BillboardQuad* new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
 void* new_window2d(int x, int y, int w, int h) { return render::allocate_window_2d(x, y, w, h); }
@@ -103,8 +102,7 @@ TextureElement* TextureElement::make_new()
 void TextureElement::destroy_body()
 {
     vtable_ = kCTextureElementVtable;
-    if (piece_)
-        free_piece(piece_);
+    delete piece_; // (through its vtable in the original: 0x004B4E40's jump, folded)
     UiWidget::destroy_body();
 }
 
@@ -124,7 +122,7 @@ void TextureElement::change_traits(Struct* params)
     uint32_t texture;
     if (params->read_hash_value(kTexture, &texture, 0)) {
         texture_ = texture;
-        reinterpret_cast<render::TexturedQuad*>(piece_)->set_texture(static_cast<uint8_t*>(find_texture(texture)));
+        piece_->set_texture(static_cast<uint8_t*>(find_texture(texture)));
         object_flags_ |= kVisibleNow;
     }
     float angle;
@@ -132,7 +130,7 @@ void TextureElement::change_traits(Struct* params)
         change_spin(angle, 1);
     uint32_t blend;
     if (params->read_hash_value(kBlend, &blend, 0))
-        reinterpret_cast<render::TexturedQuad*>(piece_)->choose_blend_mode(blend);
+        piece_->choose_blend_mode(blend);
 }
 
 // 0x004AEFD0
@@ -156,9 +154,9 @@ void TextureElement::get_properties(Struct* out)
 // 0x004AEF40
 void TextureElement::tick_frame()
 {
-    reinterpret_cast<render::TexturedQuad*>(piece_)->change_concealed(false);
-    reinterpret_cast<render::TexturedQuad*>(piece_)->change_rank(z_priority_);
-    reinterpret_cast<render::TexturedQuad*>(piece_)->change_rgba(shown_colour(this));
+    piece_->change_concealed(false);
+    piece_->change_rank(z_priority_);
+    piece_->change_rgba(shown_colour(this));
 }
 
 // --- SpriteElement --------------------------------------------------------------------------------------------
@@ -179,8 +177,7 @@ ImageWidget* ImageWidget::make_new()
 void ImageWidget::destroy_body()
 {
     vtable_ = kCSpriteElementVtable;
-    if (quad_)
-        free_piece(quad_);
+    delete quad_; // (through its vtable in the original: 0x004B4E40's jump, folded)
     UiWidget::destroy_body();
 }
 
@@ -198,7 +195,7 @@ void ImageWidget::set_texture(uint32_t texture)
 {
     texture_ = texture;
     void* found = find_texture(texture);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->set_texture(static_cast<uint8_t*>(found));
+    quad_->set_texture(static_cast<uint8_t*>(found));
     float height = static_cast<float>(texels_down(found));
     float width = static_cast<float>(texels_across(found));
     fit_to_size(width, height, 0);
@@ -215,7 +212,7 @@ void ImageWidget::set_sprite_rotation(float degrees, int now)
         object_flags_ |= kDirty;
     }
     if (now && angle != shown_.angle) {
-        reinterpret_cast<render::BillboardQuad*>(quad_)->change_spin(angle);
+        quad_->change_spin(angle);
         object_flags_ |= kDirty;
         shown_.angle = angle;
     }
@@ -233,12 +230,12 @@ void ImageWidget::change_traits(Struct* params)
         set_sprite_rotation(angle, 1);
     uint32_t blend;
     if (params->read_hash_value(kBlend, &blend, 0))
-        reinterpret_cast<render::BillboardQuad*>(quad_)->choose_blend_mode(blend);
+        quad_->choose_blend_mode(blend);
     if (params->has_bare_flag(kNoZWrite))
         z_write_ = false;
     // (no window above it: the original reads through null)
     auto* window = static_cast<PanelWidget*>(fetch_pane());
-    reinterpret_cast<render::GlyphString*>(quad_)->change_pane(window->fetch_screen_rect());
+    quad_->change_pane(window->fetch_screen_rect());
 }
 
 // 0x004AF4E0
@@ -269,35 +266,32 @@ void ImageWidget::tick_frame()
     float top = summed_.top;
     bool outside = top < layout_top() || top > layout_bottom();
     bool hidden = is_concealed();
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_concealed(outside || hidden);
+    quad_->change_concealed(outside || hidden);
     if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
     uint32_t rgba = shown_colour(this);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_location(summed_.x, summed_.y);
+    quad_->change_location(summed_.x, summed_.y);
     // (the size truncated: the height first)
     int height = get_truncated(level_y_);
     int width = get_truncated(span_);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_extent(static_cast<uint16_t>(width),
-                                                                   static_cast<uint16_t>(height));
-    reinterpret_cast<render::BillboardQuad*>(quad_)->set_flip(static_cast<bool>((object_flags_ >> 25) & 1),
-                                                              static_cast<bool>((object_flags_ >> 26) & 1));
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_spin((object_flags_ & kFlag1000000) ? shown_.angle
-                                                                                                : summed_.angle);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->set_hot_spot(just_x_, just_y_);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_scale(summed_.scale_x_, summed_.scale_y_);
+    quad_->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+    quad_->set_flip(static_cast<bool>((object_flags_ >> 25) & 1), static_cast<bool>((object_flags_ >> 26) & 1));
+    quad_->change_spin((object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle);
+    quad_->set_hot_spot(just_x_, just_y_);
+    quad_->change_scale(summed_.scale_x_, summed_.scale_y_);
     if (object_flags_ & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth;
         std::memcpy(&depth, &summed_.z, 4);
         depth += (object_flags_ & kKeepScale) ? 5000u : 0u;
-        reinterpret_cast<render::BillboardQuad*>(quad_)->set_depth(depth);
-        reinterpret_cast<render::BillboardQuad*>(quad_)->change_concealed((object_flags_ & kOffScreen) != 0 || hidden);
+        quad_->set_depth(depth);
+        quad_->change_concealed((object_flags_ & kOffScreen) != 0 || hidden);
     } else {
-        reinterpret_cast<render::BillboardQuad*>(quad_)->change_rank(z_priority_);
-        reinterpret_cast<render::BillboardQuad*>(quad_)->change_concealed(outside || hidden);
+        quad_->change_rank(z_priority_);
+        quad_->change_concealed(outside || hidden);
     }
-    reinterpret_cast<render::BillboardQuad*>(quad_)->set_z_write(z_write_);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_rgba(rgba);
+    quad_->set_z_write(z_write_);
+    quad_->change_rgba(rgba);
 }
 
 // --- WindowElement --------------------------------------------------------------------------------------------

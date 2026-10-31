@@ -8,13 +8,10 @@
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 
 namespace render {
 
 namespace {
-
-extern void** const kWeatherVtable;
 
 float float_parameter(script::Struct* params, float fallback)
 {
@@ -38,26 +35,25 @@ int current_frames(int frames)
 }
 void change_colour(uint8_t* colour, int value) { std::memcpy(colour, &value, 4); }
 
-// A blend mode's name (the unnamed checksum) and fixed alpha (0x20) handed to virtual [slot].
-bool pass_blend_mode(WeatherSystem* weather, script::Struct* params, int slot)
+// A blend mode's name (the unnamed checksum) and fixed alpha (0x20) handed to one of the blend-mode setters.
+bool pass_blend_mode(WeatherSystem* weather, script::Struct* params,
+                     void (WeatherSystem::*set_blend_mode)(uint32_t, uint32_t))
 {
     uint32_t name = 0;
     if (!params->read_hash_value(0u, &name, 0))
         return false;
     int fixed_alpha = 0x20;
     params->fetch_int_value(0u, &fixed_alpha, 0);
-    reinterpret_cast<void(__thiscall*)(WeatherSystem*, uint32_t, int)>(weather->vtable_[slot])(weather, name,
-                                                                                               fixed_alpha);
+    (weather->*set_blend_mode)(name, static_cast<uint32_t>(fixed_alpha));
     return true;
 }
 
 } // namespace
 
 // 0x004A14C0
-WeatherSystem* WeatherSystem::make_new()
+WeatherSystem::WeatherSystem()
 {
     std::memset(rain_bottom_, 0xFF, 4);
-    vtable_ = reinterpret_cast<void**>(kWeatherVtable);
     rain_height_ = 2000.0f;
     rain_frames_ = 40;
     rain_length_ = 100.0f;
@@ -74,38 +70,25 @@ WeatherSystem* WeatherSystem::make_new()
     std::memset(snow_colour_, 0x80, 4);
     rain_on_ = true;
     active_ = false;
-    return this;
-}
-
-// 0x004A1080
-void WeatherSystem::destroy_body() { vtable_ = reinterpret_cast<void**>(kWeatherVtable); }
-
-// 0x004A1550
-WeatherSystem* WeatherSystem::teardown(unsigned int free_flags)
-{
-    vtable_ = reinterpret_cast<void**>(kWeatherVtable);
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004A1020
 void WeatherSystem::tick_grid() { debug::printf("STUB: plat_update_grid\n"); }
 
 // 0x004A1030
-void WeatherSystem::tick_frame(int) { debug::printf("STUB: plat_process\n"); }
+void WeatherSystem::tick_frame(float) { debug::printf("STUB: plat_process\n"); }
 
 // 0x004A1040
 void WeatherSystem::render() { debug::printf("STUB: plat_render\n"); }
 
 // 0x004A1050
-void WeatherSystem::set_rain_blend_mode(uint32_t, int) { debug::printf("STUB: plat_set_rain_blend_mode\n"); }
+void WeatherSystem::set_rain_blend_mode(uint32_t, uint32_t) { debug::printf("STUB: plat_set_rain_blend_mode\n"); }
 
 // 0x004A1060
-void WeatherSystem::set_splash_blend_mode(uint32_t, int) { debug::printf("STUB: plat_set_splash_blend_mode\n"); }
+void WeatherSystem::set_splash_blend_mode(uint32_t, uint32_t) { debug::printf("STUB: plat_set_splash_blend_mode\n"); }
 
 // 0x004A1070
-void WeatherSystem::set_snow_blend_mode(uint32_t, int) { debug::printf("STUB: plat_set_snow_blend_mode\n"); }
+void WeatherSystem::set_snow_blend_mode(uint32_t, uint32_t) { debug::printf("STUB: plat_set_snow_blend_mode\n"); }
 
 // 0x004A10B0
 bool WeatherSystem::script_set_rain_height(script::Struct* params, script::Script*)
@@ -135,7 +118,7 @@ bool WeatherSystem::script_set_rain_length(script::Struct* params, script::Scrip
 // 0x004A1130
 bool WeatherSystem::script_set_rain_blend_mode(script::Struct* params, script::Script*)
 {
-    return pass_blend_mode(this, params, 4);
+    return pass_blend_mode(this, params, &WeatherSystem::set_rain_blend_mode);
 }
 
 // 0x004A1190
@@ -192,7 +175,7 @@ bool WeatherSystem::script_set_splash_color(script::Struct* params, script::Scri
 // 0x004A12F0
 bool WeatherSystem::script_set_splash_blend_mode(script::Struct* params, script::Script*)
 {
-    return pass_blend_mode(this, params, 5);
+    return pass_blend_mode(this, params, &WeatherSystem::set_splash_blend_mode);
 }
 
 // 0x004A1350
@@ -223,7 +206,7 @@ bool WeatherSystem::script_set_snow_size(script::Struct* params, script::Script*
 // 0x004A13D0
 bool WeatherSystem::script_set_snow_blend_mode(script::Struct* params, script::Script*)
 {
-    return pass_blend_mode(this, params, 6);
+    return pass_blend_mode(this, params, &WeatherSystem::set_snow_blend_mode);
 }
 
 // 0x004A1430
@@ -271,16 +254,5 @@ __declspec(naked) void virtual_slot3_jump()
         jmp dword ptr [eax + 0xC]
     }
 }
-
-namespace {
-static VtableSlot g_weather_vtable_slots[] = {&render::WeatherSystem::teardown,
-                                              &render::WeatherSystem::tick_grid,
-                                              &render::WeatherSystem::tick_frame,
-                                              &render::WeatherSystem::render,
-                                              &render::WeatherSystem::set_rain_blend_mode,
-                                              &render::WeatherSystem::set_splash_blend_mode,
-                                              &render::WeatherSystem::set_snow_blend_mode};
-void** const kWeatherVtable = reinterpret_cast<void**>(g_weather_vtable_slots);
-} // namespace
 
 } // namespace render

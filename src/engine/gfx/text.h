@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/gfx/draw2d.h"
+
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
 // from the button font, or the key's name - PartyMod decides which), "\m<d>" a button through the meta button
@@ -81,10 +83,21 @@ static_assert(sizeof(TextVertex) == 0x1C, "layout must match the original");
 // Constructor 0x4CEED0. Built on the base of things drawn in priority order (vtable 0x0064AD18; constructor
 // 0x004DFA70, destructor 0x004DFAA0 - not rewritten yet): +4 the next in the draw list (0x007CC248, by
 // priority), +8 set: not put in the list, +0xC the priority; the base constructor also zeroes +0x10 (z).
-struct GlyphRun {
-    void** vtable;
-    uint8_t base[0xC]; // the base drawable's
-    float z;
+class GlyphRun final : public OverlayDraw {
+public:
+    // 0x004CEED0: hidden (not in the draw list), with this priority.
+    explicit GlyphRun(float priority) : OverlayDraw(priority, true) {}
+    // 0x004CEEF0 (0x004CFAF0 the scalar deleting destructor): the base's (out of the draw list).
+    ~GlyphRun() override = default;
+    // 0x004CEF00 (vtable slot 1): new vertices go to the start of the buffer.
+    void open_sketch() override;
+    // 0x004CFD00 (slot 2): the text's quads into the vertex buffer, drawing it whenever it fills or the texture
+    // changes (a button glyph).
+    void draw() override;
+    // 0x004CEF10 (slot 3): draw the vertices in the buffer (quads, as indexed triangles) with the texture font's
+    // texture - the button font's after a button glyph - or this text's font's, and empty the buffer.
+    void close_sketch() override;
+
     TypefaceData* font;
     const TextEffect* effects; // or null
     const char* text;
@@ -95,27 +108,9 @@ struct GlyphRun {
     uint32_t color;           // RGBA as bytes
     bool fixed_color_;        // ignore "\c" colours
 
-    // 0x004CFD00 (virtual [2]): the text's quads into the vertex buffer, drawing it whenever it fills or the
-    // texture changes (a button glyph).
-    void blit();
     // 0x004CFB20: one character of a key name at *pen_x (advanced past it), at line height pen_y - plain, no
     // effects.
     void draw_key_char(char c, float* pen_x, float pen_y);
-
-    // 0x004CEED0: construct (the base unlisted, with this priority). Returns this.
-    GlyphRun* make_new(float priority);
-    // 0x004CEEF0: the destructor's body (back to the base, which takes itself off the draw list).
-    void destroy_body();
-    // 0x004CFAF0 (virtual [0]): destroy, and free if flags & 1. Returns this.
-    GlyphRun* teardown(unsigned int flags);
-    // 0x004CEF00 (virtual [1]): new vertices go to the start of the buffer.
-    void reset_vertices();
-    // 0x004CEF10 (virtual [3]): draw the vertices in the buffer (quads, as indexed triangles) with the texture
-    // font's texture - the button font's after a button glyph - or this text's font's, and empty the buffer.
-    void draw_vertices();
-
-    void open_sketch() { reinterpret_cast<void(__thiscall*)(GlyphRun*)>(vtable[1])(this); }
-    void close_sketch() { reinterpret_cast<void(__thiscall*)(GlyphRun*)>(vtable[3])(this); }
 };
 static_assert(offsetof(GlyphRun, z) == 0x10, "layout must match the original");
 static_assert(offsetof(GlyphRun, text) == 0x1C, "layout must match the original");

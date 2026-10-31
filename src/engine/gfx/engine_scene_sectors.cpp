@@ -23,6 +23,7 @@
 #include "engine/core/code_address.h"
 #include "engine/core/game_vtables.h"
 #include "engine/core/stubs.h"
+#include "engine/gfx/weather.h"
 
 namespace render {
 
@@ -315,8 +316,7 @@ bool WorldScene::add_collision_data(const uint8_t* data, int flag)
         }
     }
     if (script::fetch_int_value(0xBA1E4254)) {
-        void* weather = g_weather; // the weather (slot 1, through the jump 0x004A1090)
-        reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[1])(weather);
+        g_weather->tick_grid(); // (through the jump 0x004A1090)
     }
     return true;
 }

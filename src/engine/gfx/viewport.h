@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"
 
@@ -21,22 +22,22 @@ class Script;
 namespace render {
 
 // The engine's viewport (0x24 bytes, vtable 0x00649DA0; the PC's PcViewport derives from it).
-class ViewRegion {
+class ViewRegion : public memory::HeapObject {
 public:
-    // 0x004A0DB0: the rectangle given (x, y, width, height - none: the whole screen) and the camera. Returns this.
-    ViewRegion* make_new(const float* rect, gfx::ViewCam* camera);
-    // 0x004A0E60: the destructor's body: the camera let go.
-    void destroy_body();
-    // 0x004A0E80 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    ViewRegion* teardown(unsigned int free_flags);
-    // 0x004A0CC0 (virtual [1]): "STUB: PlatTransformToScreenCoord"; -1.
-    float project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth);
-    // 0x004A0CF0 (virtual [2]; the same code is in many vtables - 3 stack arguments, false): no query.
-    bool query_point(const maths::Vec4* point, int unused, uint8_t query);
-    // 0x004A0CE0 (virtual [3]; also shared - 6 stack arguments, false): no query.
-    bool query_rect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query);
-    // 0x004A0D00 (virtual [4]): "STUB: plat_get_visibility_test"; 0.
-    int fetch_shown(int unused);
+    // 0x004A0DB0: the rectangle given (x, y, width, height - none: the whole screen) and the camera.
+    ViewRegion(const float* rect, gfx::ViewCam* camera);
+    // 0x004A0E60 (0x004A0E80 the scalar deleting destructor, vtable slot 0): the camera let go.
+    virtual ~ViewRegion();
+    ViewRegion(const ViewRegion&) = delete;
+    ViewRegion& operator=(const ViewRegion&) = delete;
+    // 0x004A0CC0 (vtable slot 1): "STUB: PlatTransformToScreenCoord"; -1.
+    virtual float project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth);
+    // 0x004A0CF0 (slot 2; the same code is in many vtables - stubs::return_false3): no query, 0.
+    virtual uint8_t query_point(const maths::Vec4* point, int unused, uint8_t query);
+    // 0x004A0CE0 (slot 3; also shared - stubs::return_false6): no query, 0.
+    virtual uint8_t query_rect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query);
+    // 0x004A0D00 (slot 4): "STUB: plat_get_visibility_test"; 0.
+    virtual int fetch_shown(int unused);
 
     // 0x004A0D20: the screen's aspect times the rectangle's width / height.
     float fetch_width_over_height();
@@ -45,7 +46,6 @@ public:
     // 0x004A0D70: a camera marked for deletion is deleted (its virtual [0]) and let go.
     void remove_flagged_camera();
 
-    void** vtable_;                           // +0x00
     float pos_x_, y_, span_, level_y_;        // +0x04 fractions of the screen
     uint32_t flag_bits_;                      // +0x14 1: the camera is to be deleted
     objects::SharedRef<gfx::ViewCam> viewer_; // +0x18

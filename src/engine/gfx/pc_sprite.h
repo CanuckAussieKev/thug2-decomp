@@ -4,48 +4,31 @@
 #include <cstdint>
 
 #include "engine/gfx/billboard_quad.h"
+#include "engine/gfx/engine_sprite.h"
 
 // The PC sprite (Nx engine: the engine's BillboardQuad - constructor 0x0049ED60, destructor body 0x0049EBA0 - over it): the
 // engine's settings copied into the 2D sprite that draws it (QuadSprite, billboard_quad.h).
 namespace render {
 
 // The PC sprite (0x48 bytes, vtable 0x0064A744; made by build_sprite_quad 0x004B2A80).
-struct PcSprite {
-    void** vtable;
-    uint8_t* texture; // +0x04: the engine's texture holder (+0x10 the texture, through one more pointer with
-                      // flag 1 of its +0x08), or null
-    uint8_t engine08[4];
-    float x, y;           // +0x0C
-    float xscale, yscale; // +0x14
-    float hot_x_, hot_y_; // +0x1C: the hot spot, -1..1 across the sprite
-    float rotation;       // +0x24
-    float priority;       // +0x28
-    uint8_t engine_2c_[4];
-    uint16_t width, height; // +0x30
-    uint8_t hidden;         // +0x34
-    uint8_t engine35[2];
-    uint8_t flip_v_, flip_u_; // +0x37
-    uint8_t colour[4];        // +0x39 (unaligned)
-    uint8_t engine_3d_[7];
-    QuadSprite* sprite; // +0x44
+class PcSprite final : public BillboardQuad {
+public:
+    // 0x004C70E0: the engine's (no window), and the 2D sprite made with priority 0 (none without memory).
+    PcSprite();
+    // 0x004C7050 (0x004C7180 the scalar deleting destructor): the 2D sprite destroyed, then the engine's.
+    ~PcSprite() override;
+    // (Vtable slot 1, folded with the PC text's: the settings, the priority, the hidden flag.)
+    void refresh_all() override;
+    // 0x004C70B0 (slot 2): the 2D sprite hidden or shown as the engine's flag says.
+    void update_hidden() override;
+    // 0x004C71B0 (slot 3): the engine's settings copied into the 2D sprite (the texture only when there is one; the
+    // hot spot into pixels).
+    void update_settings() override;
+    // 0x004C70C0 (slot 4): the 2D sprite's priority from the engine's (when there is a 2D sprite).
+    void update_priority() override;
 
-    // 0x004C70E0: construct - the 2D sprite made with priority 0 (none without memory). Returns this.
-    PcSprite* make_new();
-    // 0x004C7050: the destructor's body (the 2D sprite destroyed).
-    void destroy_body();
-    // 0x004C7180 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcSprite* teardown(unsigned int free_flags);
-    // 0x004C70B0 (virtual [2]): the 2D sprite hidden or shown as the engine's flag says.
-    void update_hidden();
-    // 0x004C71B0 (virtual [3]): the engine's settings copied into the 2D sprite (the texture only when there is
-    // one; the hot spot into pixels).
-    void tick_frame();
-    // 0x004C70C0 (virtual [4]): the 2D sprite's priority from the engine's (when there is a 2D sprite).
-    void update_priority();
+    QuadSprite* sprite; // +0x44
 };
-static_assert(offsetof(PcSprite, x) == 0xC && offsetof(PcSprite, priority) == 0x28 &&
-                  offsetof(PcSprite, width) == 0x30 && offsetof(PcSprite, flip_v_) == 0x37 &&
-                  offsetof(PcSprite, colour) == 0x39 && offsetof(PcSprite, sprite) == 0x44 && sizeof(PcSprite) == 0x48,
-              "layout must match the original");
+static_assert(offsetof(PcSprite, sprite) == 0x44 && sizeof(PcSprite) == 0x48, "layout must match the original");
 
 } // namespace render

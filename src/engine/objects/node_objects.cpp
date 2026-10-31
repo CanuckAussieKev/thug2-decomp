@@ -330,7 +330,7 @@ static VtableSlot g_movie_details_vtable_slots[] = {&objects::VideoEntry::teardo
                                                     &_purecall,
                                                     &_purecall,
                                                     &_purecall,
-                                                    &render::ViewRegion::query_point,
+                                                    stubs::return_false3,
                                                     &_purecall,
                                                     &_purecall,
                                                     &_purecall,

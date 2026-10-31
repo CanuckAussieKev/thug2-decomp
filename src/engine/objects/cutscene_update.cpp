@@ -382,7 +382,7 @@ static VtableSlot g_cutscene_details_vtable_slots[] = {&objects::CinematicEntry:
                                                        &objects::CinematicEntry::configure_from_data,
                                                        &objects::CinematicEntry::tick_frame,
                                                        stubs::return_true,
-                                                       &render::ViewRegion::query_point,
+                                                       stubs::return_false3,
                                                        &objects::CinematicEntry::is_finished,
                                                        stubs::return_false,
                                                        &objects::CinematicEntry::is_ready,

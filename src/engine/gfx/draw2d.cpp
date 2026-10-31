@@ -6,13 +6,8 @@
 
 #include "engine/core/manager.h"
 #include "engine/gfx/render_state.h"
-#include "engine/core/code_address.h"
 
 namespace render {
-
-namespace {
-extern void** const kSDraw2dVtable;
-} // namespace
 
 namespace {
 
@@ -21,12 +16,6 @@ uint32_t g_draw2d_z_test_next_frame;
 
 OverlayDraw*& foremost() { return g_draw2d_head; }
 uint32_t& z_test_next_frame() { return g_draw2d_z_test_next_frame; }
-void** base_vtable() { return kSDraw2dVtable; }
-
-void get_call(OverlayDraw* item, int slot)
-{
-    reinterpret_cast<void(__thiscall*)(OverlayDraw*)>(item->vtable[slot])(item);
-}
 
 } // namespace
 
@@ -66,33 +55,18 @@ void OverlayDraw::drop_out()
 }
 
 // 0x004DFA70
-OverlayDraw* OverlayDraw::make_new(float new_priority, bool new_hidden)
+OverlayDraw::OverlayDraw(float new_priority, bool new_hidden)
 {
     priority = new_priority;
-    vtable = base_vtable();
     hidden = new_hidden;
     z = 0.0f;
     next = nullptr;
     if (!new_hidden)
         splice();
-    return this;
 }
 
 // 0x004DFAA0
-void OverlayDraw::destroy_body()
-{
-    vtable = base_vtable();
-    drop_out();
-}
-
-// 0x004DFC90
-OverlayDraw* OverlayDraw::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::sole()->dealloc(this);
-    return this;
-}
+OverlayDraw::~OverlayDraw() { drop_out(); }
 
 // 0x004DFAE0
 void OverlayDraw::change_rank(float new_priority)
@@ -149,18 +123,13 @@ void __cdecl draw_2d()
     for (OverlayDraw* item = foremost(); item; item = item->next) {
         if (item->hidden)
             continue;
-        get_call(item, 1); // open_sketch
-        get_call(item, 2); // Draw
-        get_call(item, 3); // close_sketch
+        item->open_sketch();
+        item->draw();
+        item->close_sketch();
         if (!z_test && item->z > 0.0f)
             z_test = 1;
     }
     z_test_next_frame() = z_test;
 }
-
-namespace {
-static VtableSlot g_s_draw_2d_vtable_slots[] = {&render::OverlayDraw::teardown, &_purecall, &_purecall, &_purecall};
-void** const kSDraw2dVtable = reinterpret_cast<void**>(g_s_draw_2d_vtable_slots);
-} // namespace
 
 } // namespace render

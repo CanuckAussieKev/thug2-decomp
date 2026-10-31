@@ -314,8 +314,7 @@ bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* param
         return true;
     }
     // (the base class's invoke_method_by_name: a stub shared by many vtables, 0x004A0CF0 - "not handled")
-    return reinterpret_cast<bool(__thiscall*)(void*, uint32_t, script::Struct*, script::Script*)>(
-        code_address(&render::ViewRegion::query_point))(this, name, params, script);
+    return false;
 }
 
 // 0x00588090
@@ -494,7 +493,7 @@ static VtableSlot g_object_anim_movie_vtable_slots[] = {&objects::ObjectAnimMovi
                                                         &objects::ObjectAnimMovie::read_in,
                                                         &objects::ObjectAnimMovie::tick_frame,
                                                         &objects::ObjectAnimMovie::kickoff,
-                                                        &render::ViewRegion::query_point,
+                                                        stubs::return_false3,
                                                         &objects::ObjectAnimMovie::is_finished,
                                                         &objects::ObjectAnimMovie::is_held_and_complete,
                                                         stubs::return_false,

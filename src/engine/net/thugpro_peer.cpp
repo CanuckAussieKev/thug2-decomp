@@ -41,6 +41,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "engine/gfx/weather.h"
 
 namespace script {
 class Struct;
@@ -310,12 +311,12 @@ public:
         // (THUGPRO clears it: it has its own per-level weather settings - ours are THUG2's).
         if (weather == kWeatherDefault)
             return;
-        uint8_t* object = reinterpret_cast<uint8_t*>(render::g_weather);
+        render::WeatherSystem* object = render::g_weather;
         if (!object)
             return;
-        float& rain_rate = *reinterpret_cast<float*>(object + 0x10);
-        float& snow_rate = *reinterpret_cast<float*>(object + 0x40);
-        bool& rain = *reinterpret_cast<bool*>(object + 0x58);
+        float& rain_rate = object->rain_rate_;
+        float& snow_rate = object->snow_rate_;
+        bool& rain = object->rain_on_;
         if (weather == kWeatherRain) {
             rain = true;
             rain_rate = 16.0f;

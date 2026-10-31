@@ -24,7 +24,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/maths/x87_math.h"
 #include "engine/render/probe_ray.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/device.h"
 
 namespace render {
@@ -37,7 +36,6 @@ uint8_t g_weather_grid[0x11828];
 
 namespace {
 
-extern void** const kWeatherVtable;
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -84,10 +82,8 @@ int clamp_column(const WeatherRow& row, int x)
 } // namespace
 
 // 0x004CC560
-PcWeather* PcWeather::make_new()
+PcWeather::PcWeather()
 {
-    reinterpret_cast<WeatherSystem*>(this)->WeatherSystem::make_new();
-    vtable = reinterpret_cast<void**>(kWeatherVtable);
     columns = nullptr;
     splash_texture_ = nullptr; // (the snow's texture left as it was)
     rain_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
@@ -95,23 +91,6 @@ PcWeather* PcWeather::make_new()
     rain_due_ = 0.0f;
     splash_due_ = 0.0f;
     snow_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
-    return this;
-}
-
-// 0x004CBDA0
-void PcWeather::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kWeatherVtable);
-    reinterpret_cast<WeatherSystem*>(this)->WeatherSystem::destroy_body();
-}
-
-// 0x004CC600
-PcWeather* PcWeather::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004CC4D0
@@ -133,13 +112,13 @@ void PcWeather::set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha)
 }
 
 // 0x004CBDB0
-void PcWeather::tick_frame(int /*unused*/)
+void PcWeather::tick_frame(float /*frame_seconds*/)
 {
-    if (!active)
+    if (!active_)
         return;
-    int frames = raining ? rain_frames_ : snow_frames_;
-    float rate = raining ? rain_rate_ : snow_rate_;
-    float& due = raining ? rain_due_ : snow_due_;
+    int frames = rain_on_ ? rain_frames_ : snow_frames_;
+    float rate = rain_on_ ? rain_rate_ : snow_rate_;
+    float& due = rain_on_ ? rain_due_ : snow_due_;
     float most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
     double amount = rate > most ? most : rate;
     float before = due;
@@ -153,7 +132,7 @@ void PcWeather::tick_frame(int /*unused*/)
         slot = static_cast<uint8_t>(0xFE - static_cast<uint8_t>(frames));
         offset_x_[next] = static_cast<uint8_t>(maths::rnd(0xFF));
         offset_z_[next] = static_cast<uint8_t>(maths::rnd(0xFF));
-        ++drops;
+        ++drops_;
         step_slot(next);
     }
 }
@@ -161,20 +140,20 @@ void PcWeather::tick_frame(int /*unused*/)
 // 0x004CD120
 void PcWeather::render()
 {
-    if (!active)
+    if (!active_)
         return;
     float x = camera_x_, z = camera_z_;
-    if (raining) {
+    if (rain_on_) {
         render_splashes(x, z);
         render_rain(x, z);
     } else {
         render_snow(x, z);
     }
-    if (!drops)
+    if (!drops_)
         return;
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
         if (slot == 0xFE) {
-            --drops;
+            --drops_;
             ++slot;
         } else if (slot != 0xFF) {
             ++slot;
@@ -185,7 +164,7 @@ void PcWeather::render()
 // 0x004CBFE0
 void PcWeather::render_rain(float x, float z)
 {
-    if (!drops)
+    if (!drops_)
         return;
     int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
     int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
@@ -276,7 +255,7 @@ void PcWeather::render_rain(float x, float z)
 // 0x004CC630
 void PcWeather::render_snow(float x, float z)
 {
-    if (!drops)
+    if (!drops_)
         return;
     int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
     int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
@@ -449,7 +428,7 @@ void PcWeather::render_splashes(float x, float z)
 // 0x004CD1A0
 void PcWeather::tick_grid()
 {
-    active = false;
+    active_ = false;
     auto* box = reinterpret_cast<const float*>(get_first_coll_grid()); // (the scene's collision's box)
     if (!box)
         return;
@@ -554,7 +533,7 @@ void PcWeather::tick_grid()
         offset_x_[i] = static_cast<uint8_t>(maths::rnd(0xFF));
         offset_z_[i] = static_cast<uint8_t>(maths::rnd(0xFF));
     }
-    drops = 0;
+    drops_ = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
     auto* dictionary = reinterpret_cast<void*>(g_particle_texture_dict);
@@ -566,21 +545,10 @@ void PcWeather::tick_grid()
         static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(0xC97C5A4C));
     if (snow)
         snow_texture_ = snow[8] & 1 ? **reinterpret_cast<void***>(snow + 0x10) : *reinterpret_cast<void**>(snow + 0x10);
-    active = true;
+    active_ = true;
     std::memset(splash_frames_, 0, sizeof(splash_frames_));
     next_splash_ = 0;
     feeler.entity_.get_release();
 }
-
-namespace {
-static VtableSlot g_weather_vtable_slots[] = {&render::PcWeather::teardown,
-                                              &render::PcWeather::tick_grid,
-                                              &render::PcWeather::tick_frame,
-                                              &render::PcWeather::render,
-                                              &render::PcWeather::set_rain_blend_mode,
-                                              &render::PcWeather::set_splash_blend_mode,
-                                              &render::PcWeather::set_snow_blend_mode};
-void** const kWeatherVtable = reinterpret_cast<void**>(g_weather_vtable_slots);
-} // namespace
 
 } // namespace render

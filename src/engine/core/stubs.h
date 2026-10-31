@@ -16,8 +16,10 @@ bool __stdcall return_true2(int, int);
 // Methods ignoring their stack arguments (the count in the name) - the engine's empty virtual slots.
 bool __stdcall return_false1(int);
 bool __stdcall return_false2(int, int);
+bool __stdcall return_false3(int, int, int);
 bool __stdcall return_false4(int, int, int, int);
 bool __stdcall return_false5(int, int, int, int, int);
+bool __stdcall return_false6(int, int, int, int, int, int);
 bool __stdcall return_false7(int, int, int, int, int, int, int);
 int __stdcall return_zero1(int);
 int __stdcall return_zero2(int, int);

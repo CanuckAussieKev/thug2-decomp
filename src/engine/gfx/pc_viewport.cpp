@@ -16,8 +16,6 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport.h"
 #include "platform/platform_d3d.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/glow.h"
@@ -36,8 +34,6 @@ float g_scale_2d_in_3d_max{3.0f};
 float g_scale_2d_in_3d_min;
 
 namespace {
-
-extern void** const kViewportVtable;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool radeon8500() { return g_radeon8500; }
@@ -63,37 +59,7 @@ void end_query_draw(uint8_t query)
 } // namespace
 
 // 0x004CB860
-PcViewport* __cdecl create_viewport(uint32_t a1, uint32_t a2)
-{
-    void* memory = memory::alloc(sizeof(PcViewport));
-    return memory ? static_cast<PcViewport*>(memory)->make_new(a1, a2) : nullptr;
-}
-
-// 0x004CB8E0
-PcViewport* PcViewport::make_new(uint32_t a1, uint32_t a2)
-{
-    reinterpret_cast<ViewRegion*>(this)->ViewRegion::make_new(
-        reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
-        reinterpret_cast<gfx::ViewCam*>(static_cast<uintptr_t>(a2)));
-    vtable = reinterpret_cast<void**>(kViewportVtable);
-    return this;
-}
-
-// 0x004CB900
-void PcViewport::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kViewportVtable);
-    reinterpret_cast<ViewRegion*>(this)->ViewRegion::destroy_body();
-}
-
-// 0x004CB910
-PcViewport* PcViewport::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+PcViewport* __cdecl create_viewport(const float* rect, gfx::ViewCam* camera) { return new PcViewport(rect, camera); }
 
 // 0x004CB940
 float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth)
@@ -180,12 +146,5 @@ uint32_t __cdecl occlusion_pixels()
     }
     return result == S_FALSE ? g_occlusion_pixels : 0;
 }
-
-namespace {
-static VtableSlot g_viewport_vtable_slots[] = {&render::PcViewport::teardown, &render::PcViewport::project_to_screen,
-                                               &render::PcViewport::query_point, &render::PcViewport::query_rect,
-                                               stubs::return_zero1};
-void** const kViewportVtable = reinterpret_cast<void**>(g_viewport_vtable_slots);
-} // namespace
 
 } // namespace render

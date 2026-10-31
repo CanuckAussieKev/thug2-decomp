@@ -16,16 +16,11 @@
 #include "engine/maths/vec4.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/screen.h"
-#include "engine/core/code_address.h"
 #include "platform/run_log.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 
 namespace render {
-
-namespace {
-extern void** const kSSpriteVtable;
-} // namespace
 
 // Two triangles of a quad: 0 1 2, 1 3 2.
 uint16_t g_sprite_quad_indices[6]{0, 1, 2, 1, 3, 2};
@@ -84,7 +79,7 @@ int64_t get_truncated(double value) { return static_cast<int64_t>(value); }
 // the screen's right edge - the menus' bands and panels. Each edge on its own, and only for sprites overlapping the
 // layout (one wholly outside it is drawn where it is); heights unchanged; rotated sprites only when they stay upright
 // or on their side (the bottom band is turned by 180 degrees).
-void QuadSprite::blit()
+void QuadSprite::draw()
 {
     float u0 = 0.0f, v_top = 1.0f, u1, v_bottom;
     if (texture) {
@@ -256,35 +251,6 @@ void QuadSprite::blit()
     }
 }
 
-// 0x004DFC50
-QuadSprite* QuadSprite::make_new(float priority)
-{
-    auto* draw = reinterpret_cast<OverlayDraw*>(this);
-    draw->priority = priority;
-    draw->hidden = true;
-    z = 0.0f;
-    draw->next = nullptr;
-    vtable = kSSpriteVtable;
-    texture = nullptr;
-    return this;
-}
-
-// 0x004DFC80
-void QuadSprite::destroy_body()
-{
-    vtable = kSSpriteVtable;
-    reinterpret_cast<OverlayDraw*>(this)->destroy_body();
-}
-
-// 0x004DFCC0
-QuadSprite* QuadSprite::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::sole()->dealloc(this);
-    return this;
-}
-
 // 0x004DF990
 void QuadSprite::open_sketch()
 {
@@ -309,11 +275,5 @@ void QuadSprite::close_sketch()
     set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
-
-namespace {
-static VtableSlot g_s_sprite_vtable_slots[] = {&render::QuadSprite::teardown, &render::QuadSprite::open_sketch,
-                                               &render::QuadSprite::blit, &render::QuadSprite::close_sketch};
-void** const kSSpriteVtable = reinterpret_cast<void**>(g_s_sprite_vtable_slots);
-} // namespace
 
 } // namespace render

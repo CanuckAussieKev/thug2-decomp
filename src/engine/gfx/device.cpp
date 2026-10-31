@@ -384,16 +384,15 @@ void __cdecl show_disc_error()
         second = g_disc_error_english2;
         break;
     }
-    alignas(4) uint8_t storage[sizeof(GlyphRun)];
-    GlyphRun* text = reinterpret_cast<GlyphRun*>(storage);
-    text->make_new(0.0f);
+    GlyphRun glyphs(0.0f);
+    GlyphRun* text = &glyphs;
     text->font = g_debug_font;
     text->x = 48.0f;
     text->y = 128.0f;
     text->xscale = std::bit_cast<float>(0x3F4CCCCDu); // 0.8
     text->yscale = 1.0f;
     text->color = 0x80808080;
-    std::memset(text->base, 0, 4); // (the draw list's next)
+    text->next = nullptr;
     set_texture(1, nullptr);
     set_texture(2, nullptr);
     set_texture(3, nullptr);
@@ -411,14 +410,14 @@ void __cdecl show_disc_error()
         input_port()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
         text->y = text->y - kOffsetLines;
         text->text = first;
-        text->reset_vertices();
-        text->blit();
-        text->draw_vertices();
+        text->open_sketch();
+        text->draw();
+        text->close_sketch();
         text->y = text->y + kOffsetLines;
         text->text = second;
-        text->reset_vertices();
-        text->blit();
-        text->draw_vertices();
+        text->open_sketch();
+        text->draw();
+        text->close_sketch();
     }
 }
 

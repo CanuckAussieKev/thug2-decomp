@@ -14,7 +14,6 @@
 #include "engine/gfx/screen.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "game/skate/skate_module.h"
 
 namespace render {
@@ -36,7 +35,6 @@ const int* g_mode_map{g_mode_maps};
 
 namespace {
 
-extern void** const kViewportVtable;
 constexpr int kViewports = 10;
 constexpr int kOcclusionSlots = 0x400;
 constexpr int kOcclusionRequests = 4;
@@ -92,15 +90,13 @@ uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
 } // namespace
 
 // 0x004A0DB0
-ViewRegion* ViewRegion::make_new(const float* rect, gfx::ViewCam* camera)
+ViewRegion::ViewRegion(const float* rect, gfx::ViewCam* camera)
 {
-    vtable_ = reinterpret_cast<void**>(kViewportVtable);
     pos_x_ = 0.0f;
     y_ = 0.0f;
     span_ = 1.0f;
     level_y_ = 1.0f;
     flag_bits_ = 0;
-    viewer_.make_new();
     if (rect) {
         pos_x_ = rect[0];
         y_ = rect[1];
@@ -113,24 +109,10 @@ ViewRegion* ViewRegion::make_new(const float* rect, gfx::ViewCam* camera)
         level_y_ = 1.0f;
     }
     viewer_.assign_value(camera);
-    return this;
 }
 
 // 0x004A0E60
-void ViewRegion::destroy_body()
-{
-    vtable_ = reinterpret_cast<void**>(kViewportVtable);
-    viewer_.get_release();
-}
-
-// 0x004A0E80
-ViewRegion* ViewRegion::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+ViewRegion::~ViewRegion() { viewer_.get_release(); }
 
 // 0x004A0CC0
 float ViewRegion::project_to_screen(const maths::Vec4*, float*, float*, int*)
@@ -140,10 +122,10 @@ float ViewRegion::project_to_screen(const maths::Vec4*, float*, float*, int*)
 }
 
 // 0x004A0CF0
-bool ViewRegion::query_point(const maths::Vec4*, int, uint8_t) { return false; }
+uint8_t ViewRegion::query_point(const maths::Vec4*, int, uint8_t) { return 0; }
 
 // 0x004A0CE0
-bool ViewRegion::query_rect(float, float, float, float, uint32_t, uint8_t) { return false; }
+uint8_t ViewRegion::query_rect(float, float, float, float, uint32_t, uint8_t) { return 0; }
 
 // 0x004A0D00
 int ViewRegion::fetch_shown(int)
@@ -196,7 +178,7 @@ void __cdecl create_viewports()
     for (int i = 0; i < kViewports; ++i) {
         const float* table = g_split_layouts + 4 * i;
         float rect[4] = {table[0], table[1], table[2], table[3]};
-        get_viewport(i) = reinterpret_cast<ViewRegion*>(create_viewport(reinterpret_cast<uint32_t>(rect), 0));
+        get_viewport(i) = create_viewport(rect, nullptr);
     }
 }
 
@@ -382,12 +364,5 @@ bool __cdecl cfunc_set_screen_mode(script::Struct* params, script::Script*)
     }
     return true;
 }
-
-namespace {
-static VtableSlot g_viewport_vtable_slots[] = {&render::ViewRegion::teardown, &render::ViewRegion::project_to_screen,
-                                               &render::ViewRegion::query_point, &render::ViewRegion::query_rect,
-                                               &render::ViewRegion::fetch_shown};
-void** const kViewportVtable = reinterpret_cast<void**>(g_viewport_vtable_slots);
-} // namespace
 
 } // namespace render

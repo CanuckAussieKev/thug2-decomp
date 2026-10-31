@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 // The engine's text (render::GlyphString - the platform-independent part of the PC text, PcText in pc_font.h, its first 0x48
 // bytes): a string drawn in a font, its position, pivot, scale, rotation, priority or depth, colour and per-character
 // effects, each change passed on to the platform (vtable slots 2-5); texts come from a free list (0x006FA804).
@@ -27,10 +29,23 @@ constexpr int kCharEffects = 96;
 // The string's buffer: 0x60 characters.
 constexpr int kTextLength = 0x60;
 
-// (vtable 0x00648AA0: [0] the destructor, [1]-[5] empty - PcText's update the screen text: [2] shown / hidden, [3]
-// the properties, [4] the priority, [5] the window.)
-struct GlyphString {
-    void** vtable_;
+// (vtable 0x00648AA0; PcText's update the screen text)
+class GlyphString : public memory::HeapObject {
+public:
+    // 0x0048D220: in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
+    explicit GlyphString(void* window);
+    // 0x0048D620 (0x0048D670 the scalar deleting destructor, vtable slot 0): its string and effects freed.
+    virtual ~GlyphString();
+    GlyphString(const GlyphString&) = delete;
+    GlyphString& operator=(const GlyphString&) = delete;
+    // Vtable slots 1-5, the platform told what changed (the engine's do nothing): everything, the hidden flag, the
+    // settings, the priority / depth, the window.
+    virtual void refresh_all() {}
+    virtual void update_hidden() {}
+    virtual void update_settings() {}
+    virtual void update_priority() {}
+    virtual void update_window() {}
+
     Typeface* typeface_;      // +0x04
     CharEffect* effects_;     // +0x08 (null until one is set)
     char* text_buffer_;       // +0x0C (a buffer of its own, null until set)
@@ -49,17 +64,10 @@ struct GlyphString {
     void* screen_region_;    // +0x40: the 2D window it's drawn in
     GlyphString* next_free_; // +0x44
 
-    // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
-    // Returns this.
-    GlyphString* make_new(void* window);
-    // 0x0048D620: the destructor's body - its string and effects freed.
-    void destroy_body();
-    // 0x0048D670 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    GlyphString* teardown(unsigned int flags);
     // 0x0048D5A0: the string's buffer and the effects freed.
     void free_buffers();
 
-    // The setters (each followed by the platform's update, virtual [2]-[5]):
+    // The setters (each followed by the platform's update, slots [2]-[5]):
     // 0x0048D0C0 (not a Ghidra function) shown / hidden ([2]); 0x0048D0D0 (not a Ghidra function) the font ([3]).
     void change_concealed(bool hidden);
     void change_typeface(Typeface* font);

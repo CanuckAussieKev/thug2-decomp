@@ -22,7 +22,6 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/window2d.h"
 #include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 
@@ -38,7 +37,6 @@ namespace {
 
 extern void** const kNodeVtable;
 extern void** const kHeadVtable;
-extern void** const kWindowVtable;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }
@@ -560,34 +558,13 @@ BillboardNode* BillboardNode::destroy_head(unsigned int free_flags)
     return this;
 }
 
-// 0x004CD860
-void PcWindow::destroy_body()
-{
-    vtable = reinterpret_cast<void**>(kWindowVtable);
-    reinterpret_cast<ScreenWindow*>(this)->destroy_body();
-}
-
-// 0x004CD870
-PcWindow* PcWindow::teardown(unsigned int free_flags)
-{
-    destroy_body();
-    if (free_flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x004CD8A0
 void __cdecl create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
-        void* memory = memory::alloc(sizeof(PcWindow));
-        PcWindow* window = nullptr;
-        if (memory) {
-            window = reinterpret_cast<PcWindow*>(static_cast<ScreenWindow*>(memory)->make_new(0, 0, 640, 480));
-            window->vtable = reinterpret_cast<void**>(kWindowVtable);
-        }
-        window->next = reinterpret_cast<PcWindow*&>(g_free_windows); // (no check, as the original)
-        reinterpret_cast<PcWindow*&>(g_free_windows) = window;
+        PcWindow* window = new PcWindow(0, 0, 640, 480);
+        window->following_ = g_free_windows; // (no check, as the original)
+        g_free_windows = window;
     }
 }
 
@@ -609,8 +586,6 @@ static VtableSlot g_node_vtable_slots[] = {&render::BillboardNode::teardown};
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
 static VtableSlot g_head_vtable_slots[] = {&render::BillboardNode::destroy_head};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-static VtableSlot g_window_vtable_slots[] = {&render::PcWindow::teardown, stubs::do_nothing};
-void** const kWindowVtable = reinterpret_cast<void**>(g_window_vtable_slots);
 } // namespace
 
 } // namespace render

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/gfx/window2d.h"
 
 // The PC billboards (the manager at 0x00775B80): the billboard meshes gathered by material into batches, each with
 // three lists by how its meshes turn (0 towards the camera, 1 about the vertical, 2 about an axis of their own),
@@ -85,17 +86,14 @@ struct BillboardNode : memory::ListNode {
     BillboardNode* destroy_head(unsigned int free_flags);
 };
 
-// The 2D window (0x18 bytes, vtable 0x0064A88C; the engine's - constructor 0x004A1580 (x, y, width, height),
-// vtable 0x00649E58 - over it; the free ones linked through +0x14 from 0x007013D0).
-struct PcWindow {
-    void** vtable;
-    int x, y, width, height;
-    PcWindow* next;
-
-    // 0x004CD860: the destructor's body (the engine's 0x004A15B0).
-    void destroy_body();
-    // 0x004CD870 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcWindow* teardown(unsigned int free_flags);
+// The 2D window (0x18 bytes, vtable 0x0064A88C; the free ones linked through +0x14 from 0x007013D0).
+class PcWindow final : public ScreenWindow {
+public:
+    using ScreenWindow::ScreenWindow;
+    // 0x004CD860 (0x004CD870 the scalar deleting destructor): the engine's.
+    ~PcWindow() override = default;
+    // (Vtable slot 1: nothing - a shared empty function.)
+    void tick_engine() override {}
 };
 static_assert(sizeof(PcWindow) == 0x18, "layout must match the original");
 // 0x004CD8A0: ten windows (640 x 480) made onto the free list (null for any without memory - written through, as

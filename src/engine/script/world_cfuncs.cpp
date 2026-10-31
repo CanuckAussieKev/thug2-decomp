@@ -52,7 +52,7 @@ void unpause_skater(objects::GameEntity* skater)
 bool& viewer_launched() { return g_viewer_launched; }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
-void* get_weather() { return render::g_weather; }
+render::WeatherSystem* get_weather() { return render::g_weather; }
 void* screen_effects() { return render::g_screen_effects; }
 using Setter = bool(__thiscall*)(void*, Struct*, Script*);
 
@@ -148,104 +148,103 @@ bool __cdecl cfunc_add_skater_early(Struct*, Script*)
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
 bool __cdecl cfunc_weather_update_grid(Struct*, Script*)
 {
-    reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(get_weather()))[1])(
-        get_weather()); // (0x004A1090: a jump through the vtable +0x04)
+    get_weather()->tick_grid(); // (0x004A1090: a jump through the vtable +0x04)
     return true;
 }
 // 0x005A5690
 bool __cdecl cfunc_weather_set_rain_height(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_height(params, script);
+    return get_weather()->script_set_rain_height(params, script);
 }
 // 0x005A56B0
 bool __cdecl cfunc_weather_set_rain_frames(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_frames(params, script);
+    return get_weather()->script_set_rain_frames(params, script);
 }
 // 0x005A56D0
 bool __cdecl cfunc_weather_set_rain_length(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_length(params, script);
+    return get_weather()->script_set_rain_length(params, script);
 }
 // 0x005A56F0
 bool __cdecl cfunc_weather_set_rain_blend_mode(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_blend_mode(params, script);
+    return get_weather()->script_set_rain_blend_mode(params, script);
 }
 // 0x005A5710
 bool __cdecl cfunc_weather_set_rain_rate(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_rate(params, script);
+    return get_weather()->script_set_rain_rate(params, script);
 }
 // 0x005A5730
 bool __cdecl cfunc_weather_set_rain_color(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_color(params, script);
+    return get_weather()->script_set_rain_color(params, script);
 }
 // 0x005A5750
 bool __cdecl cfunc_weather_set_splash_rate(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_rate(params, script);
+    return get_weather()->script_set_splash_rate(params, script);
 }
 // 0x005A5770
 bool __cdecl cfunc_weather_set_splash_life(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_life(params, script);
+    return get_weather()->script_set_splash_life(params, script);
 }
 // 0x005A5790
 bool __cdecl cfunc_weather_set_splash_size(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_size(params, script);
+    return get_weather()->script_set_splash_size(params, script);
 }
 // 0x005A57B0
 bool __cdecl cfunc_weather_set_splash_color(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_color(params, script);
+    return get_weather()->script_set_splash_color(params, script);
 }
 // 0x005A57D0
 bool __cdecl cfunc_weather_set_splash_blend_mode(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_splash_blend_mode(params, script);
+    return get_weather()->script_set_splash_blend_mode(params, script);
 }
 // 0x005A57F0
 bool __cdecl cfunc_weather_set_snow_height(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_height(params, script);
+    return get_weather()->script_set_snow_height(params, script);
 }
 // 0x005A5810
 bool __cdecl cfunc_weather_set_snow_frames(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_frames(params, script);
+    return get_weather()->script_set_snow_frames(params, script);
 }
 // 0x005A5830
 bool __cdecl cfunc_weather_set_snow_size(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_size(params, script);
+    return get_weather()->script_set_snow_size(params, script);
 }
 // 0x005A5850
 bool __cdecl cfunc_weather_set_snow_blend_mode(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_blend_mode(params, script);
+    return get_weather()->script_set_snow_blend_mode(params, script);
 }
 // 0x005A5870
 bool __cdecl cfunc_weather_set_snow_rate(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_rate(params, script);
+    return get_weather()->script_set_snow_rate(params, script);
 }
 // 0x005A5890
 bool __cdecl cfunc_weather_set_snow_color(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_color(params, script);
+    return get_weather()->script_set_snow_color(params, script);
 }
 // 0x005A58B0
 bool __cdecl cfunc_weather_set_snow_active(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_snow_active(params, script);
+    return get_weather()->script_set_snow_active(params, script);
 }
 // 0x005A58D0
 bool __cdecl cfunc_weather_set_rain_active(Struct* params, Script* script)
 {
-    return static_cast<render::WeatherSystem*>(get_weather())->script_set_rain_active(params, script);
+    return get_weather()->script_set_rain_active(params, script);
 }
 
 // --- the screen effects ---

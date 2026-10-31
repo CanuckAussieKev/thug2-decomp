@@ -13,6 +13,10 @@ class ViewCam;
 // 0x0048BF10-0x0048C860 are jumps to these, and most of these pass straight on into the PC engine.
 namespace render {
 
+class WeatherSystem;
+class BillboardQuad;
+class TexturedQuad;
+
 // 0x004B2270: the MemViewToggle command's flag (0x00701588; nothing reads it).
 void __cdecl toggle_mem_view();
 // 0x004B2280: the frame's BeginScene, unless the loading screen is up (0x00786D04).
@@ -57,8 +61,8 @@ bool __cdecl unload_scene(void* scene);
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
 void* __cdecl spawn_model();
 void* __cdecl create_geom();
-void* __cdecl build_sprite_quad();
-void* __cdecl create_textured_quad();
+BillboardQuad* __cdecl build_sprite_quad();
+TexturedQuad* __cdecl create_textured_quad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.
 void* __cdecl create_render_target(int width, int height, uint8_t depth, int unused);
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
@@ -69,7 +73,7 @@ void __cdecl remove_texture_shadow_caster(const uint8_t* texture);
 
 extern bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 
-extern void* g_weather;
+extern WeatherSystem* g_weather;
 
 extern uint32_t g_fog_colour;
 extern uint32_t g_screen_blur;

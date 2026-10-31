@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+
+#include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
 
 namespace script {
@@ -14,23 +16,34 @@ namespace render {
 // The engine's font (the base of the PC font, PcFont in pc_font.h: its first 8 bytes; vtable 0x00648A6C - [0] the
 // destructor, [1] load (0x0049F4B0: false), [2] - [4] the stubs below, [5] unload (empty), [6] / [7] the height and
 // base (0), [8] a string's size (0x0048D090: nothing)).
-class Typeface {
+class Typeface : public memory::HeapObject {
 public:
-    // 0x0048D020: construct. Returns this.
-    Typeface* make_new();
-    // 0x0048D030: the destructor's body.
-    void destroy_body();
-    // 0x0048D1F0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    Typeface* teardown(unsigned int flags);
-    // 0x0048D040: the platform's unload (virtual [5]), +4 cleared.
-    void offload();
-    // (0x0048D060, a string's width and height, is a jump to virtual [8] folded with other classes' slot 8:
-    // engine_geom.h's virtual_slot8_jump.)
-    // 0x0048D070 (virtual [2]) / 0x0048D080 (virtual [3] and [4]): "STUB A DUB DUB".
-    void set_glyph_gaps(int glyph_gap, int blank_gap);
-    void plat_set_colors(const uint32_t* colors);
+    // 0x0048D020
+    Typeface() { unknown4_ = 0; }
+    // 0x0048D030 (0x0048D1F0 the scalar deleting destructor, vtable slot 0)
+    virtual ~Typeface() = default;
+    Typeface(const Typeface&) = delete;
+    Typeface& operator=(const Typeface&) = delete;
 
-    void** vtable_;
+    // Vtable slot 1: loaded from "fonts/<name>..." - whether it loaded. The engine's: false.
+    virtual bool read_in(const char* /*name*/) { return false; }
+    // 0x0048D070 (slot 2): the character and space spacings. The engine's: "STUB A DUB DUB".
+    virtual void change_spacings(int glyph_gap, int blank_gap);
+    // 0x0048D080 (slots 3 and 4): the colour table / whether it's the button glyph font. The engine's: "STUB A DUB
+    // DUB".
+    virtual void change_colors(const uint32_t* colors);
+    virtual void flag_button_font(bool buttons);
+    // Slot 5: the platform's unload. The engine's: nothing.
+    virtual void unload_platform() {}
+    // Slots 6-8: its height, base and a string's width and height. The engine's: 0, 0, nothing. (0x0048D060, a
+    // string's size, is a jump to slot 8 folded with other classes' slot 8: engine_geom.h's virtual_slot8_jump.)
+    virtual uint32_t fetch_tallness() { return 0; }
+    virtual uint32_t get_base() { return 0; }
+    virtual void read_string_param(const char* /*text*/, float* /*width*/, float* /*height*/) {}
+
+    // 0x0048D040: the platform's unload, +4 cleared.
+    void offload();
+
     uint32_t unknown4_;
 };
 

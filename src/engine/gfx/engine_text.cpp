@@ -8,23 +8,13 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 
 namespace render {
 
 GlyphString* g_free_texts;
 namespace {
 
-extern void** const kTextVtable;
-
 GlyphString*& free_list() { return g_free_texts; }
-
-// The platform's updates (virtual [2]-[5]).
-void tick_frame(GlyphString* text, int slot)
-{
-    reinterpret_cast<void(__thiscall*)(GlyphString*)>(text->vtable_[slot])(text);
-}
 
 // Memory from the front end's heap.
 void* front_end_new(unsigned int size)
@@ -75,11 +65,10 @@ CharEffect* CharEffect::make_new()
 }
 
 // 0x0048D220
-GlyphString* GlyphString::make_new(void* window)
+GlyphString::GlyphString(void* window)
 {
     scale_h_ = 1.0f;
     scale_v_ = 1.0f;
-    vtable_ = reinterpret_cast<void**>(kTextVtable);
     typeface_ = nullptr;
     effects_ = nullptr;
     pos_x_ = 0.0f;
@@ -96,28 +85,17 @@ GlyphString* GlyphString::make_new(void* window)
     screen_region_ = window;
     next_free_ = nullptr;
     text_buffer_ = nullptr;
-    return this;
 }
 
 // 0x0048D620
-void GlyphString::destroy_body()
+GlyphString::~GlyphString()
 {
-    vtable_ = reinterpret_cast<void**>(kTextVtable);
     if (text_buffer_)
         memory::dealloc(text_buffer_); // (not cleared, as the original)
     if (effects_) {
         delete_effects(effects_);
         effects_ = nullptr;
     }
-}
-
-// 0x0048D670
-GlyphString* GlyphString::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
 }
 
 // 0x0048D5A0
@@ -137,14 +115,14 @@ void GlyphString::free_buffers()
 void GlyphString::change_concealed(bool hidden)
 {
     invisible_ = hidden;
-    tick_frame(this, 2);
+    update_hidden();
 }
 
 // 0x0048D0D0
 void GlyphString::change_typeface(Typeface* font)
 {
     typeface_ = font;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D0E0
@@ -152,7 +130,7 @@ void GlyphString::change_location(float x, float y)
 {
     pos_x_ = x;
     y_ = y;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D100
@@ -160,7 +138,7 @@ void GlyphString::change_scale(float x, float y)
 {
     scale_h_ = x;
     scale_v_ = y;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D120
@@ -169,7 +147,7 @@ void GlyphString::change_spin(float angle, float pivot_x, float pivot_y)
     angle_ = angle;
     pivot_x_ = pivot_x;
     pivot_y_ = pivot_y;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D140
@@ -177,7 +155,7 @@ void GlyphString::change_rank(float priority)
 {
     rank_ = priority;
     z_enabled_ = false;
-    tick_frame(this, 4);
+    update_priority();
 }
 
 // 0x0048D160
@@ -185,7 +163,7 @@ void GlyphString::set_depth(float depth)
 {
     layer_ = depth;
     z_enabled_ = true;
-    tick_frame(this, 4);
+    update_priority();
 }
 
 // 0x0048D180
@@ -193,21 +171,21 @@ void GlyphString::change_colour(uint32_t rgba, bool fixed)
 {
     shade_ = rgba;
     fixed_colour_ = fixed;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D1A0
 void GlyphString::set_override_alpha(bool on)
 {
     override_alpha_ = on;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D1B0
 void GlyphString::change_pane(void* window)
 {
     screen_region_ = window;
-    tick_frame(this, 5);
+    update_window();
 }
 
 // 0x0048D530
@@ -218,7 +196,7 @@ void GlyphString::change_text(const char* string)
     char* out = text_buffer_;
     while ((*out++ = *string++) != '\0') {
     }
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D280
@@ -228,7 +206,7 @@ void GlyphString::set_char_offset(int index, int16_t x, int16_t y)
         effects_ = new_effects();
     effects_[index].x = x;
     effects_[index].y = y;
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D360
@@ -238,7 +216,7 @@ void GlyphString::set_char_scale(int index, float x, float y)
         effects_ = new_effects();
     effects_[index].xscale = get_fixed(x);
     effects_[index].yscale = get_fixed(y);
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D450
@@ -247,7 +225,7 @@ void GlyphString::set_char_rotation(int index, float rotation)
     if (!effects_)
         effects_ = new_effects();
     effects_[index].rotation = get_fixed(rotation);
-    tick_frame(this, 3);
+    update_settings();
 }
 
 // 0x0048D1D0
@@ -263,20 +241,10 @@ GlyphString* __cdecl new_text()
 void __cdecl free_text(GlyphString* text)
 {
     text->invisible_ = true;
-    tick_frame(text, 2);
+    text->update_hidden();
     text->free_buffers();
     text->next_free_ = free_list();
     free_list() = text;
 }
-
-namespace {
-static VtableSlot g_text_vtable_slots[] = {&render::GlyphString::teardown,
-                                           stubs::do_nothing,
-                                           stubs::do_nothing,
-                                           stubs::do_nothing,
-                                           stubs::do_nothing,
-                                           stubs::do_nothing};
-void** const kTextVtable = reinterpret_cast<void**>(g_text_vtable_slots);
-} // namespace
 
 } // namespace render

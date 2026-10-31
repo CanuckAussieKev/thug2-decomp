@@ -46,6 +46,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/particle_component.h"
+#include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
 
 namespace render {
@@ -681,11 +682,7 @@ void draw_viewport(int index)
     set_render_state(1, 0);
     static_cast<FlexibleParticleManager*>(g_flexible_particle_manager)->render_systems(index > 0);
     static_cast<EffectsDirector*>(reinterpret_cast<void*>(objects::g_particle_hub))->draw_particles();
-    {
-        // (the weather's slot 3, through the jump 0x004A10A0)
-        void* weather = g_weather;
-        reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[3])(weather);
-    }
+    g_weather->render(); // (through the jump 0x004A10A0)
     set_render_state(1, 1);
     engine::draw_shatters();
     set_render_state(1, 0);

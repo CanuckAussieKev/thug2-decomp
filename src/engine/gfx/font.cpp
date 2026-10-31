@@ -32,26 +32,13 @@ bool& meta_button_map_loaded() { return g_meta_button_map_loaded; }
 // The loaded font named by this checksum, or null.
 Typeface* find_font(uint32_t checksum) { return get_font(checksum); }
 // Load a font file (fonts\<name>.fnt...).
-Typeface* load_font_file(const char* name) { return reinterpret_cast<Typeface*>(create_pc_font(name)); }
+Typeface* load_font_file(const char* name) { return create_pc_font(name); }
 
-// render::Typeface's setters (each calls the platform font's virtual).
-void change_spacings(Typeface* font, int glyph_gap, int blank_gap)
-{
-    // The original calls 0x004E3F90, a shared tail jump to vtable slot 2 (GameObjects::reapply_from_data, a naked stub):
-    // the slot called here.
-    using Bay = void(__thiscall*)(Typeface*, int, int);
-    (*reinterpret_cast<Bay**>(font))[2](font, glyph_gap, blank_gap);
-}
-void set_color_table(Typeface* font, uint32_t* colors)
-{
-    // (slot 3, through the jump 0x004A10A0)
-    reinterpret_cast<void(__thiscall*)(Typeface*, uint32_t*)>((*reinterpret_cast<void***>(font))[3])(font, colors);
-}
-void flag_button_font(Typeface* font, bool button_font)
-{
-    // (slot 4, through the jump 0x00487D50)
-    reinterpret_cast<void(__thiscall*)(Typeface*, bool)>((*reinterpret_cast<void***>(font))[4])(font, button_font);
-}
+// render::Typeface's setters (the original reaches the font's virtual functions through shared tail jumps:
+// 0x004E3F90, 0x004A10A0, 0x00487D50).
+void change_spacings(Typeface* font, int glyph_gap, int blank_gap) { font->change_spacings(glyph_gap, blank_gap); }
+void set_color_table(Typeface* font, uint32_t* colors) { font->change_colors(colors); }
+void flag_button_font(Typeface* font, bool button_font) { font->flag_button_font(button_font); }
 
 // Calls to the empty 0x005480A0 (compiled-out debug output).
 void debug_font_name(const char* /*name*/) {}

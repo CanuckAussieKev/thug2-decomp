@@ -43,8 +43,10 @@ bool __stdcall return_true2(int, int) { return true; }
 // stack arguments - the engine texture's empty slots, CArray's comparison (different arrays are never equal), ...
 bool __stdcall return_false1(int) { return false; }
 bool __stdcall return_false2(int, int) { return false; }
+bool __stdcall return_false3(int, int, int) { return false; }
 bool __stdcall return_false4(int, int, int, int) { return false; }
 bool __stdcall return_false5(int, int, int, int, int) { return false; }
+bool __stdcall return_false6(int, int, int, int, int, int) { return false; }
 bool __stdcall return_false7(int, int, int, int, int, int, int) { return false; }
 
 // 0x0049F4A0, 0x0049F4C0, 0x0049F480, 0x0049F490: ...returning 0 / null (1, 2, 3, 6 stack arguments) - the model's
