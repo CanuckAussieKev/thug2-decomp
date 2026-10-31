@@ -46,6 +46,15 @@ rough edges in the parts nobody has played through yet, and report them (Trackin
 Next: the QB script interpreter is planned to be replaced by JavaScript (QuickJS) with the scripts decompiled to
 readable JS, and the renderer to move off Direct3D 9 one day.
 
+## Optional QB to JavaScript prototype
+
+The optional [`scripting/`](scripting/README.md) target starts the planned QB to
+JavaScript path: an offline TypeScript translator emits generators executed in
+embedded QuickJS, with typed C++ host calls and frame waits. Synthetic tests
+need no game files. This is an optional standalone prototype; the existing DLL
+build is unchanged. See [the implementation plan](docs/qb-js-plan.md) for the
+supported first milestone and remaining work.
+
 ## What you need
 
 **Games** (your own copies; nothing from them is ever committed):

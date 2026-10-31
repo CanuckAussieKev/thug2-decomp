@@ -25,3 +25,10 @@ node_modules/
 /CLAUDE.md
 /.claude/skills
 /local.json
+
+# Local builds, private game fixtures and optional oracle environments
+/work/
+/.venv/
+/Game/
+/Data/
+.DS_Store

@@ -1,0 +1,40 @@
+// NOT ORIGINAL - public synthetic QuickJS suites, no original game data.
+import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { executionBundle } from "./emitter-fixtures.ts";
+import { expressionResultAssertions, expressionResultFixture } from "./expression-result-fixtures.ts";
+import { helperSource } from "./helper-sources.ts";
+import { randomAssertions, randomFixture, randomSource } from "./random-fixtures.ts";
+import { reviewBundle } from "./review-fixtures.ts";
+import { nativeRuntimeBundle, runtimeAssertions } from "./runtime-fixtures.ts";
+
+export function integrationBundle(): string {
+    const values = helperSource("values");
+    const tests = readFileSync(new URL("../../scripting/tests/values.test.js", import.meta.url), "utf8");
+    const randomTests = readFileSync(new URL("../../scripting/tests/random.test.js", import.meta.url), "utf8");
+    return (
+        randomSource() +
+        randomTests +
+        '\nif (!(globalThis.qbRandomTestResult?.assertions >= 250)) throw Error("Random assertions did not complete");\n' +
+        values +
+        tests +
+        '\nif (!(globalThis.qbValuesTestResult?.assertions >= 175)) throw Error("Values assertions did not complete");\n' +
+        executionBundle(values) +
+        nativeRuntimeBundle() +
+        runtimeAssertions() +
+        randomFixture().javascript +
+        randomAssertions() +
+        readFileSync(new URL("../../scripting/tests/expression_result.test.js", import.meta.url), "utf8") +
+        expressionResultFixture().javascript +
+        expressionResultAssertions() +
+        '\nif (!qbExpressionResultTest.completed || !qbExpressionResultHelperTest.completed) throw Error("Expression result assertions did not complete");\n' +
+        readFileSync(new URL("../../scripting/runtime.js", import.meta.url), "utf8") +
+        reviewBundle() +
+        "\nglobalThis.qbIntegrationTestResult = {completed:true,values:qbValuesTestResult.assertions};\n"
+    );
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const output = process.argv[2];
+    if (!output || process.argv.length !== 3) throw Error("Usage: node tools/qbjs/integration-fixtures.ts OUTPUT.js");
+    writeFileSync(output, integrationBundle());
+}

@@ -1,0 +1,56 @@
+name: QB to JavaScript
+on:
+  push:
+    paths: ['scripting/**', 'tools/qbjs/**', 'tools/qb_checksum.ts', '.github/workflows/qb-js.yml']
+  pull_request:
+    paths: ['scripting/**', 'tools/qbjs/**', 'tools/qb_checksum.ts', '.github/workflows/qb-js.yml']
+permissions:
+  contents: read
+jobs:
+  generator-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, toolchain: gcc, cc: gcc, cxx: g++}
+          - {os: macos-15-intel, toolchain: clang, cc: clang, cxx: clang++}
+          - {os: windows-latest, toolchain: gcc, cc: gcc, cxx: g++}
+          - {os: windows-latest, toolchain: msvc}
+    name: ${{ matrix.os }}-${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        if: runner.os == 'Windows' && matrix.toolchain == 'gcc'
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: Select Windows GCC
+        if: runner.os == 'Windows' && matrix.toolchain == 'gcc'
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.toolchain == 'msvc'
+        with:
+          arch: x64
+      - name: Install tool check dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check translator types
+        run: npx tsc -p tools/qbjs/tsconfig.json
+      - name: Check translator style
+        run: npx biome check tools/qbjs
+      - name: Configure
+        if: matrix.toolchain != 'msvc'
+        run: cmake -S scripting -B work/qb-js-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+      - name: Configure MSVC
+        if: matrix.toolchain == 'msvc'
+        run: cmake -S scripting -B work/qb-js-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+      - name: Build
+        run: cmake --build work/qb-js-build --config Release --parallel 2
+      - name: Test readers, values, generated scripts and native bridges
+        run: ctest --test-dir work/qb-js-build -C Release --output-on-failure
