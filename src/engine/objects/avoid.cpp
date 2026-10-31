@@ -402,35 +402,6 @@ bool ObstacleDodgeModule::restore_motion(script::Struct* /*params*/, script::Scr
     return true;
 }
 
-// The two helpers' register arguments.
-namespace {
-
-// 0x004E3270: the angle on the stack, the parameters in ESI; the result in ST0.
-__declspec(naked) void avoid_distance_stub()
-{
-    __asm {
-        push esi
-        push dword ptr [esp + 8]
-        call avoid_distance
-        add esp, 8
-        ret
-    }
-}
-
-// 0x004E3930: the start in EDI, the end in ESI; the result in AL.
-__declspec(naked) void line_collides_stub()
-{
-    __asm {
-        push esi
-        push edi
-        call line_collides
-        add esp, 8
-        ret
-    }
-}
-
-} // namespace
-
 } // namespace objects
 
 namespace objects {

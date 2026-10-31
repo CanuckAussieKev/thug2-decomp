@@ -19,11 +19,10 @@ bool& get_extra_memory(); // 0x007CEFAC
 bool& bootstrap();        // 0x007CEFAD
 bool& ntsc_flag();        // 0x007CEFAF (set through set_ntsc_flag, NTSC only)
 
-// 0x005B5C90 (the argument in ECX, the option in EBX; a naked stub): whether `argument` starts with `option` (both
+// 0x005B5C90: whether `argument` starts with `option` (both
 // non-null; the argument copied into a 100-byte buffer - unbounded, as the original - and cut to the option's
 // length).
 bool argument_starts_with(const char* argument, const char* option);
-void argument_starts_with_stub();
 // 0x005B5D30: the value of the last `option` on the command line: option=value, option= value, option =value or
 // option = value (null if none).
 const char* __cdecl get_argument_value(const char* option, int argc, char** argv);

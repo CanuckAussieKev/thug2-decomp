@@ -130,17 +130,6 @@ uint32_t primitive_count(uint32_t type, uint32_t count)
     }
 }
 
-__declspec(naked) void primitive_count_stub()
-{
-    __asm {
-        push ecx
-        push eax
-        call primitive_count
-        add esp, 8
-        ret
-    }
-}
-
 // 0x004CDD00
 void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis, const float* z_axis)
 {
@@ -254,19 +243,6 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         indices->Release();
     toggle_fog(false);
     (void)viewport;
-}
-
-__declspec(naked) void draw_billboard_mesh_stub()
-{
-    __asm {
-        push dword ptr [esp + 12]
-        push dword ptr [esp + 12]
-        push dword ptr [esp + 12]
-        push ebx
-        call draw_billboard_mesh
-        add esp, 16
-        ret
-    }
 }
 
 // 0x004CDA60

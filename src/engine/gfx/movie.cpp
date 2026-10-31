@@ -332,18 +332,6 @@ bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32
     return (*seen_up & mask) != 0;
 }
 
-__declspec(naked) void button_pressed_again_stub()
-{
-    __asm {
-        push ecx
-        push esi
-        push eax
-        call button_pressed_again
-        add esp, 12
-        ret
-    }
-}
-
 namespace {
 // The sound effects manager (a reference-counted singleton) and its main volume (the original calls it as a method
 // of the manager; it reads a global), and the music's. 0-100.

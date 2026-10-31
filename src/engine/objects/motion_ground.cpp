@@ -87,21 +87,6 @@ bool __cdecl get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const
     return true;
 }
 
-// The original's convention: ECX the triangle, EDX the line's end; the start and the result on the stack (caller
-// pops); the result in AL.
-__declspec(naked) void ground_hit_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push edx
-        push ecx
-        call get_ground_hit
-        add esp, 16
-        ret
-    }
-}
-
 // 0x00424870
 void KinematicsModule::update_jump()
 {

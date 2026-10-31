@@ -230,10 +230,6 @@ bool __cdecl flag_command_by_name(script::Struct* params, script::Script* script
 // 0x005A01B0: its manager walk's callback (`data`: {id, value, action, result, found}): the command done if the
 // object has the id.
 void __cdecl apply_flag_command_to_object(objects::Entity* object, void* data);
-// 0x005A0120: the command done to an object (`data` from the value on, in ESI; the object in EAX): the naked
-// adapter, and our code behind it.
-void apply_flag_command_stub();
-void __cdecl apply_flag_command_registers(void* data, objects::Entity* object);
 
 extern bool g_trying_to_join;
 extern gfx::CtodManager* g_tod_manager;

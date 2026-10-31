@@ -142,10 +142,8 @@ public:
 };
 static_assert(offsetof(Rig, bone_array_) == 0x18 && sizeof(Rig) == 0x1C, "layout must match the original");
 
-// 0x004A2F20 (EAX: out, EDX: the translation, BL: `swap_z`; the quaternion and `mirror` on the stack, the caller
-// pops them): a bone's matrix from a rotation and a translation (x87: the products and the -z w term unrounded, the
+// 0x004A2F20: a bone's matrix from a rotation and a translation (x87: the products and the -z w term unrounded, the
 // -x w and -y w terms rounded); `mirror` / `swap_z` negate entries to mirror it.
 void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, const float* quat, bool mirror, bool swap_z);
-void quat_to_bone_matrix_stub();
 
 } // namespace gfx

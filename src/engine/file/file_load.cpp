@@ -95,7 +95,7 @@ void make_disk_path(char (&path)[256], const char* name)
         end[-1] = 'x'; // .pre -> .prx
 }
 
-// 0x005B9CB0 (takes `name` in EDX)
+// 0x005B9CB0
 Hdl open_on_disk(const char* name)
 {
     char path[256];
@@ -243,18 +243,5 @@ namespace {
 // 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
 bool __cdecl archives_active_accessor() { return pre::hub() != nullptr; }
 bool __cdecl handled_by_archive_accessor() { return file::g_handled_by_archive; }
-
-file::Hdl __cdecl open_on_disk_from_edx(const char* name) { return file::open_on_disk(name); }
-
-// The original takes its argument in EDX.
-__declspec(naked) void open_on_disk_adapter()
-{
-    __asm {
-        push edx
-        call open_on_disk_from_edx
-        add esp, 4
-        ret
-    }
-}
 
 } // namespace

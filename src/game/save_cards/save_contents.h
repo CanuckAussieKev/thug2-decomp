@@ -20,15 +20,11 @@ void write_global_info(script::Struct* global);
 // 0x005A7CF0: the same read back from `global` and applied (the music volume through the Change script, the
 // soundtrack through set_loaded_soundtrack); LastLevelLoadScript / LastGameMode left in the script's parameters.
 void read_save_header(script::Struct* global, script::Script* script);
-// 0x005A79A0 (the structure in EBX; cdecl the type): the save's contents for `type`: the goal editor's goals, the
+// 0x005A79A0: the save's contents for `type`: the goal editor's goals, the
 // CAT (other_params, rotation_info, animation_info), the park, the network settings, OptionsAndPros (GlobalInfo,
 // Story, StorySkater, CustomSkater - then also what CreatedGraphic has), CreatedGraphic (layer_infos).
 void write_save_contents(script::Struct* contents, uint32_t type);
-// 0x005A81B0 (the type in EAX, the contents in ESI; cdecl script, params): the loaded contents put in place.
+// 0x005A81B0: the loaded contents put in place.
 void apply_loaded_contents(uint32_t type, script::Struct* contents, script::Script* script, script::Struct* params);
-
-// The naked entry points (also called by the self-tests).
-void write_save_contents_stub();
-void apply_loaded_contents_stub();
 
 } // namespace save_cards

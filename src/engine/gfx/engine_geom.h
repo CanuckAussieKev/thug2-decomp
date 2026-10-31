@@ -99,38 +99,17 @@ static_assert(offsetof(Geom, render_colours_) == 0xC && offsetof(Geom, multicolo
 // The dispatchers: `MOV EAX,[ECX]; JMP [EAX + 4 * slot]` - the callee's arguments, whatever the class (the geom's
 // slots named; the same addresses serve other engine classes: e.g. 0x0048D060 is the font's string size and the
 // geom's wipe_tint, 0x0048DE80 a texture's slot 15). Naked, registered unchecked.
-void virtual_slot7_jump();  // 0x0048E4B0
 void virtual_slot8_jump();  // 0x0048D060 (the geom's wipe_tint, the font's read_string_param)
 void virtual_slot9_jump();  // 0x0048DE30 change_material_tint
 void virtual_slot10_jump(); // 0x0048E4C0
-void virtual_slot11_jump(); // 0x0048DE40 toggle_shown
-void virtual_slot12_jump(); // 0x0048DE50 fetch_shown
 void virtual_slot13_jump(); // 0x0048DE60 change_live
 void virtual_slot14_jump(); // 0x0048DE70 is_operative
 void virtual_slot15_jump(); // 0x0048DE80 fetch_bounds
 void virtual_slot16_jump(); // 0x0048DEB0 change_bound_sphere
 void virtual_slot18_jump(); // 0x0048DEC0 place_at_absolute_point
 void virtual_slot19_jump(); // 0x0048DED0 get_absolute_point
-void virtual_slot20_jump(); // 0x0048DEE0 change_facing
-void virtual_slot22_jump(); // 0x0048DEF0 RotateY
 void virtual_slot25_jump(); // 0x0048DF00 change_scale
 void virtual_slot27_jump(); // 0x0048DF20 SetModelLights
 void virtual_slot28_jump(); // 0x0048DF30 upload_skinning_palette
-void virtual_slot29_jump(); // 0x0048DF40 copy_bones
-void virtual_slot30_jump(); // 0x0048DF50 set_bones
-void virtual_slot31_jump(); // 0x0048DF60 break_strips
-void virtual_slot36_jump(); // 0x0048DF70 fetch_vertex_tally
-void virtual_slot37_jump(); // 0x0048DF80 get_vertices
-void virtual_slot39_jump(); // 0x0048DF90 set_vertices
-void virtual_slot40_jump(); // 0x0048DFA0 change_colors
-void virtual_slot42_jump(); // 0x0048DFB0 SetUVWibbleParams
-void virtual_slot43_jump(); // 0x0048DFC0 EnableExplicitUVWibble
-void virtual_slot44_jump(); // 0x0048DFE0 SetMaterialUVWibbleOffsets
-void virtual_slot45_jump(); // 0x0048DFD0 SetUVWibbleOffsets
-void virtual_slot46_jump(); // 0x0048DFF0 choose_uv_matrix
-void virtual_slot47_jump(); // 0x0048E000 create_uv_anim_params
-void virtual_slot48_jump(); // 0x0048E010 reset_texture_anims
-void virtual_slot49_jump(); // 0x0048E020
-void virtual_slot50_jump(); // 0x0048E030
 
 } // namespace render

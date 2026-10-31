@@ -57,10 +57,8 @@ void __cdecl end_movie(void* texture);
 // 0x0044FCC0: one frame: clear, draw the texture over the screen, present; then Bink on to the next frame.
 void __cdecl draw_movie(Bink* bink, void* texture);
 
-// 0x0044F840 (the control data in EAX, the button mask in ECX, the pad's seen-up bits in ESI; returns AL):
-// whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
+// 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
 bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32_t mask);
-void button_pressed_again_stub();
 
 extern Bink* g_current_movie; // a Bink movie playing
 

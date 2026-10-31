@@ -597,22 +597,6 @@ void EditorViewModule::tick_frame()
     resync_ground_shadow();
 }
 
-namespace {
-
-// 0x004E5390: `end` in ESI, `start` in EDI; the result in AL.
-__declspec(naked) void flagged_object_between_stub()
-{
-    __asm {
-        push esi
-        push edi
-        call flagged_object_between
-        add esp, 8
-        ret
-    }
-}
-
-} // namespace
-
 } // namespace objects
 
 namespace objects {

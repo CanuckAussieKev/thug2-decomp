@@ -87,10 +87,9 @@ bool __cdecl cfunc_get_metrics(script::Struct* params, script::Script* script); 
 
 // --- cfuncs_memory.cpp ---------------------------------------------------------------------------------------
 
-// 0x00448330 (the first flag in BL: dump_pool_usage_stub): the pools' usage written to the dump file (memory::dump_text)
+// 0x00448330: the pools' usage written to the dump file (memory::dump_text)
 // and / or printed.
 void __cdecl dump_pool_usage(bool to_dump_file, bool print);
-void dump_pool_usage_stub();
 
 bool __cdecl cfunc_push_mem_profile(script::Struct* params, script::Script* script);    // 0x00447FF0
 bool __cdecl cfunc_pop_mem_profile(script::Struct* params, script::Script* script);     // 0x00448020

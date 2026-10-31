@@ -64,29 +64,6 @@ bool argument_starts_with(const char* argument, const char* option)
     return std::strcmp(copy, option) == 0;
 }
 
-namespace {
-bool __cdecl argument_starts_with_registers(const char* argument, const char* option)
-{
-    return argument_starts_with(argument, option);
-}
-} // namespace
-
-// 0x005B5C90: the argument in ECX, the option in EBX; the result in AL.
-__declspec(naked) void argument_starts_with_stub()
-{
-    __asm {
-        push ecx
-        push edx
-        push ebx
-        push ecx
-        call argument_starts_with_registers
-        add esp, 8
-        pop edx
-        pop ecx
-        ret
-    }
-}
-
 // 0x005B5D30
 const char* __cdecl get_argument_value(const char* option, int argc, char** argv)
 {

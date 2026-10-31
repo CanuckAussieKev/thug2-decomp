@@ -538,44 +538,6 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     return finish(best);
 }
 
-// The arguments copied below the saved EDX (each push moves the next one into the same place).
-__declspec(naked) void line_hits_sphere_keeping_edx()
-{
-    __asm {
-        push edx
-        push dword ptr [esp + 0x1C]
-        push dword ptr [esp + 0x1C]
-        push dword ptr [esp + 0x1C]
-        push dword ptr [esp + 0x1C]
-        push dword ptr [esp + 0x1C]
-        push dword ptr [esp + 0x1C]
-        call line_hits_sphere
-        add esp, 0x18
-        pop edx
-        ret
-    }
-}
-
-__declspec(naked) void segments_cross_2d_keeping_edx()
-{
-    __asm {
-        push edx
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        push dword ptr [esp + 0x28]
-        call segments_cross_2d
-        add esp, 0x24
-        pop edx
-        ret
-    }
-}
-
 // 0x0040D370 (P's side tests use its line values unrounded, Q's rounded to floats; each pair of sides' direction
 // test the first time unrounded, the second time rounded - as the original's x87 code keeps them)
 bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,

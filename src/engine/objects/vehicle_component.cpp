@@ -1146,24 +1146,6 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     return true;
 }
 
-namespace {
-
-void __fastcall update_wheel_rotations_of(DrivableModule* vehicle) { vehicle->update_wheel_rotations(); }
-
-// 0x004351C0 as the game calls it: the original update (0x0043C1D0, asleep) calls refresh_bone_rig right after it
-// without loading ECX again - kept.
-__declspec(naked) void update_wheel_rotations_stub()
-{
-    __asm {
-        push ecx
-        call update_wheel_rotations_of
-        pop ecx
-        ret
-    }
-}
-
-} // namespace
-
 } // namespace objects
 
 namespace objects {

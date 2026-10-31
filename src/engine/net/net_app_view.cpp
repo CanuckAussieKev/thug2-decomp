@@ -141,15 +141,6 @@ bool AppHost::is_send_due(Conn* conn)
     return send_now(conn);
 }
 
-// 0x00456B30
-__declspec(naked) void virtual_slot5_jump()
-{
-    __asm {
-        mov eax, [ecx]
-        jmp dword ptr [eax + 0x14]
-    }
-}
-
 // 0x00456B40
 void AppHost::link_duplicate_conns(Conn* first, Conn* second)
 {

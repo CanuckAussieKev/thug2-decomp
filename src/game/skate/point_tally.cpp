@@ -185,19 +185,6 @@ int PointTally::point_gain(int value)
     return value <= 10 ? 1 : 10;
 }
 
-// Update (0x00563580) keeps EDX across the call: the original's leaves it alone.
-__declspec(naked) int score_increment_stub()
-{
-    __asm {
-        push edx
-        push dword ptr [esp + 8]
-        call PointTally::point_gain
-        add esp, 4
-        pop edx
-        ret
-    }
-}
-
 // 0x00561290
 void PointTally::set_rider_number(int16_t id) { rider_no_ = id; }
 

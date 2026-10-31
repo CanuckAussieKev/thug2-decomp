@@ -87,38 +87,6 @@ bool is_direction(uint32_t button)
     }
 }
 
-__declspec(naked) void is_direction_stub()
-{
-    __asm {
-        push ecx
-        push edx
-        push eax
-        call is_direction
-        add esp, 4
-        pop edx
-        pop ecx
-        ret
-    }
-}
-
-namespace {
-void __stdcall mark_used_thunk(MoveExecutor* trick, uint32_t flags) { trick->flag_spent(flags); }
-} // namespace
-
-__declspec(naked) void mark_used_stub()
-{
-    __asm {
-        push ecx
-        push edx
-        push dword ptr [esp + 0xC]
-        push ecx
-        call mark_used_thunk
-        pop edx
-        pop ecx
-        ret 4
-    }
-}
-
 // 0x0051EA90
 void __cdecl MoveExecutor::publish_method_table()
 {

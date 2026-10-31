@@ -45,12 +45,6 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args);
 // A ( ... ) expression, evaluated into `result`.
 const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* result);
 
-// The entry points for the game's callers, which pass arguments in registers (also called by the self-tests).
-void find_stored_random_stub();
-void skip_value_stub();
-void parse_random_range_stub();
-void add_parameter_stub();
-
 extern float g_parse_nudge;
 extern StoredRandom* g_stored_randoms_newest;
 

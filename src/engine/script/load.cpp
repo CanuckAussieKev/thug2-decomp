@@ -44,7 +44,7 @@ void get_replace(SymbolTableEntry* existing, int temporary)
 
 } // namespace
 
-// 0x00472240 (the token in ECX)
+// 0x00472240
 const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, const char* filename)
 {
     SymbolTableEntry* symbol = create_symbol(name);
@@ -86,7 +86,7 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
     }
 }
 
-// 0x0046FE40 (the size in EAX, the code in EBX)
+// 0x0046FE40
 SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
                                        const char* filename)
 {
@@ -312,51 +312,6 @@ void unload_qb(uint32_t file_checksum)
 }
 
 } // namespace script
-
-// --- the entry points with register arguments -------------------------------------------------------------
-
-namespace {
-
-const uint8_t* __cdecl parse_symbol_definition_registers(const uint8_t* token, uint32_t name, const char* filename)
-{
-    return script::parse_symbol_definition(token, name, filename);
-}
-script::SymbolTableEntry* __cdecl create_script_symbol_registers(uint32_t size, const uint8_t* code, uint32_t name,
-                                                                 uint32_t checksum, const char* filename)
-{
-    return script::define_script_symbol(size, code, name, checksum, filename);
-}
-
-} // namespace
-
-// 0x00472240: the token in ECX, the name and file name on the stack (the caller pops them).
-__declspec(naked) void script::parse_symbol_definition_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push ecx
-        call parse_symbol_definition_registers
-        add esp, 12
-        ret
-    }
-}
-
-// 0x0046FE40: the size in EAX, the code in EBX, the name, checksum and file name on the stack (the caller pops
-// them).
-__declspec(naked) void script::create_script_symbol_stub()
-{
-    __asm {
-        push dword ptr [esp + 12]
-        push dword ptr [esp + 12]
-        push dword ptr [esp + 12]
-        push ebx
-        push eax
-        call create_script_symbol_registers
-        add esp, 20
-        ret
-    }
-}
 
 namespace {
 struct ScriptAdapter {

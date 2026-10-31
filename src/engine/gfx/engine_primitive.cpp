@@ -168,15 +168,6 @@ int Primitive::weigh(const Primitive*)
 
 // --- the lists ---
 
-// 0x0049C6F0
-__declspec(naked) void call_virtual35_stub()
-{
-    __asm {
-        mov eax, [ecx]
-        jmp dword ptr [eax + 0x8C]
-    }
-}
-
 // 0x0049C7D0
 void __cdecl link_primitive(Primitive* primitive)
 {

@@ -178,7 +178,7 @@ void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* comp
     *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(component) + 0x08) |= 2;
 }
 
-// 0x00472D20 (through component_destroyed_stub)
+// 0x00472D20
 void Script::component_destroyed(objects::ObjectModule* component)
 {
     if (blocking_module_ && blocking_module_ == component)
@@ -392,27 +392,6 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
     if (signal_routes_)
         signal_routes_->remove_marked(this);
     memory::leave_heap_scope();
-}
-
-namespace {
-void __cdecl component_destroyed_cdecl(Script* script, objects::ObjectModule* component)
-{
-    script->component_destroyed(component);
-}
-} // namespace
-
-// 0x00472D20: thiscall, RET 4, ECX kept.
-__declspec(naked) void component_destroyed_stub()
-{
-    __asm {
-        push ecx
-        push dword ptr [esp + 8]
-        push ecx
-        call component_destroyed_cdecl
-        add esp, 8
-        pop ecx
-        ret 4
-    }
 }
 
 } // namespace script

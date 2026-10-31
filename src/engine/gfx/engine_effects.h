@@ -56,12 +56,11 @@ void __cdecl change_breakup_settings(const maths::Vec4* velocity, const maths::V
 // (0x007004BC, from the particles' texture dictionary 0x00700F20).
 void __cdecl shatter_geom(void* geom);
 
-// 0x00490EC0 (the elapsed time in EAX, the set on the stack - age_texture_splats_stub): each living triangle's time
+// 0x00490EC0: each living triangle's time
 // (ms) counted down - collapsed when it runs out -, the set's last one found again; once fewer than 0x0067DDE0 slots
 // are free, the triangles sharing the time and lifetime of the one furthest through its life (of those with both)
 // fade by 0x0067DDE4 in their six alphas (killed when all are 0).
 void __cdecl age_texture_splats(TextureSplats* splats, int elapsed);
-void age_texture_splats_stub();
 // 0x00491F70: every set aged by the frame's time (ms), unless paused (0x006FA7D4).
 void __cdecl age_all_texture_splats();
 // 0x00491F10: every set lit (light_texture_splats).

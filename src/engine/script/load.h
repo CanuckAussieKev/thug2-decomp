@@ -30,8 +30,4 @@ void load_qb(const char* filename, int unused, int temporary);
 // scripts running code that's gone, and unload the file if it's still loaded (pre-compiled ones are).
 void unload_qb(uint32_t file_checksum);
 
-// The entry points for the game's callers, which pass arguments in registers (also called by the self-tests).
-void parse_symbol_definition_stub();
-void create_script_symbol_stub();
-
 } // namespace script

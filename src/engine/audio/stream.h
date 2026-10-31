@@ -218,9 +218,8 @@ struct WadEntry {
     uint32_t offset;
     uint32_t size;
 };
-// 0x004533A0 (the checksum in EBX): the index of pcm.wad's entry `checksum` (binary search), -1 if none.
+// 0x004533A0: the index of pcm.wad's entry `checksum` (binary search), -1 if none.
 int find_wad_entry(uint32_t checksum);
-void find_wad_entry_stub();
 // 0x004533E0: `checksum` if it's a stream in pcm.wad (never for music: 0), else 0.
 uint32_t __cdecl stream_exists(uint32_t checksum, int music);
 

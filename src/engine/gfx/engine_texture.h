@@ -48,14 +48,10 @@ static_assert(sizeof(BitmapTexture) == 0xC, "layout must match the original");
 // 0x0049F360 [17], 0x0049F370 [21], 0x0049F380 [23], 0x0049F390 [24], 0x0049F3A0 [26], 0x0049F3B0 [32],
 // 0x0049F3C0 [33], 0x0049F3D0 [34], 0x0049F3E0 [38], 0x0049F420 [41].
 void virtual_slot17_jump();
-void virtual_slot21_jump();
-void virtual_slot23_jump();
-void virtual_slot24_jump();
 void virtual_slot26_jump();
 void virtual_slot32_jump();
 void virtual_slot33_jump();
 void virtual_slot34_jump();
-void virtual_slot38_jump();
 void virtual_slot41_jump();
 
 // The texture's image size (slots 33 / 34).

@@ -54,11 +54,10 @@ void remove_cutscene_lights();
 // object; all but 0x32000 of what's free).
 void set_up_cutscene_heaps();
 
-// 0x004638B0 (path in EDX): the file name of `path` without its folders or extension, in a static buffer
+// 0x004638B0: the file name of `path` without its folders or extension, in a static buffer
 // (0x006F2160). A path without a '\' or '/' isn't copied - the buffer keeps the previous name (an original quirk)
 // - but the extension is still cut from what's there.
 const char* cutscene_name_from_path(const char* path);
-void cutscene_name_from_path_stub();
 
 class CinematicTable {
 public:

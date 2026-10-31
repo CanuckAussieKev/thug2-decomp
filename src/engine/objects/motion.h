@@ -346,10 +346,8 @@ static_assert(
         offsetof(KinematicsModule, jump_start_) == 0x23C && sizeof(KinematicsModule) == 0x24C,
     "layout must match the original (0x00426650 allocates 0x24C bytes)");
 
-// 0x00425CB0 (ECX the triangle, EDX the end; the start and `out` on the stack, the caller pops: ground_hit_stub):
-// the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
+// 0x00425CB0: the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
 // it: hit, the face it hit becomes the cached triangle and the point is the feeler's. Whether anything was hit.
 bool __cdecl get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out);
-void ground_hit_stub();
 
 } // namespace objects

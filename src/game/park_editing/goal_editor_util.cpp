@@ -231,31 +231,4 @@ void __stdcall run_marker_object_script(int index)
     params.get_clear();
 }
 
-namespace {
-
-// 0x004E6890: the type in EAX; EAX back (ECX and EDX as the call leaves them).
-__declspec(naked) void goal_type_defaults_stub()
-{
-    __asm {
-        push eax
-        call goal_type_defaults
-        add esp, 4
-        ret
-    }
-}
-
-// 0x004E69D0: its callers keep using ECX (the goal) after the call: kept (EAX 0 as the original leaves it).
-__declspec(naked) void init_edited_goal_stub()
-{
-    __asm {
-        push ecx
-        call init_edited_goal
-        pop ecx
-        xor eax, eax
-        ret
-    }
-}
-
-} // namespace
-
 } // namespace park_editing

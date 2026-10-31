@@ -56,6 +56,5 @@ struct TimedMsgNode : memory::ListNode {
 
 // 0x00456B30: a call through the object's vtable slot 5 (AppHost::tear_down_state for an App) - a jump, its arguments left
 // for the callee: the linker folded the identical non-virtual wrappers of several classes into this one.
-void virtual_slot5_jump();
 
 } // namespace net

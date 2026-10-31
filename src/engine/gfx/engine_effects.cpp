@@ -343,22 +343,6 @@ void __cdecl age_texture_splats(TextureSplats* splats, int elapsed)
     }
 }
 
-// The register adapter: the elapsed time in EAX, the set on the stack (the caller pops it).
-__declspec(naked) void age_texture_splats_stub()
-{
-    __asm {
-        push ecx
-        push edx
-        push eax
-        push dword ptr [esp + 16]
-        call age_texture_splats
-        add esp, 8
-        pop edx
-        pop ecx
-        ret
-    }
-}
-
 // 0x00491F70
 void __cdecl age_all_texture_splats()
 {

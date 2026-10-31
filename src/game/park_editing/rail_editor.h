@@ -165,14 +165,6 @@ void orient_rail_vertices(const maths::Vec4* direction, const maths::Vec4* trans
 // `sector`; with `update_collision`, its collision's vertices too.
 void stretch_rail_sector(uint32_t source, const maths::Vec4* from, const maths::Vec4* previous, const maths::Vec4* to,
                          uint8_t* sector, uint8_t* previous_sector, bool update_collision);
-// Their register-argument entry points (the original's conventions; see the .cpp).
-void transform_rail_point_stub();
-void rail_corner_ok_stub();
-void rail_too_far_stub();
-void rail_out_of_reach_stub();
-void rail_segment_valid_stub();
-void orient_rail_vertices_stub();
-void stretch_rail_sector_stub();
 
 // The rail editor component (type 0x5B509AD3, vtable 0x0064B918, 0x1168 bytes; made by 0x004F7FB0).
 //

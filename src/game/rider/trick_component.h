@@ -271,12 +271,9 @@ static_assert(offsetof(MoveExecutor, input_) == 0x20 && offsetof(MoveExecutor, e
                   offsetof(MoveExecutor, manual_list_) == 0x1230,
               "layout must match the original");
 
-// 0x0051EA40 (the button in EAX; ECX and EDX kept): whether `button` is one of the d-pad's eight directions (Up, Down,
+// 0x0051EA40: whether `button` is one of the d-pad's eight directions (Up, Down,
 // Left, Right and the diagonals).
 bool is_direction(uint32_t button);
-void is_direction_stub();
-// 0x0051EBD0's entry: flag_spent keeping ECX and EDX (its callers use ECX after it).
-void mark_used_stub();
 
 // 0x00523350 (the C function DoNextTrick): the trick component's DoNextTrick with ScriptToRunFirst, Params and a
 // copy of TrickParams. True.

@@ -19,8 +19,7 @@
 //
 // Layout and conventions are from the disassembly of 0x004728F0-0x00475920 (docs/script-runtime.md).
 // Every method is __thiscall, callee-pops (RET n = 4 * arguments); the free functions are __cdecl. None takes
-// arguments in other registers. One caller relies on ECX surviving a call: 0x00472E70 calls 0x00472D20 and
-// reads ECX afterwards (both must be ours together, or 0x00472D20 must preserve ECX - it does in the original).
+// arguments in other registers.
 namespace objects {
 class Entity;           // a game object (SharedBase; +0x100 its component list)
 class ObjectModule;     // one of an object's components; can hold a script waiting on it
@@ -370,9 +369,6 @@ uint32_t get_spawn_id(Script* script);
 Script* look_up_spawned_script(uint32_t id);
 // 0x00472E70 (group C): component_destroyed on every script.
 void component_destroyed_all_scripts(objects::ObjectModule* component);
-// (group C) 0x00472D20's entry point: CScript::component_destroyed keeping ECX as it was - the original's caller
-// 0x00472E70 reads ECX after the call.
-void component_destroyed_stub();
 // Stopping scripts (reset_script_state + report_stopped; they stay on the list, tick_child_scripts deletes spawned
 // ones once Update says finished):
 void stop_scripts_targeting(uint32_t name); // 0x00473FA0 (any level)

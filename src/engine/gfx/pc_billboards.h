@@ -66,17 +66,15 @@ static_assert(offsetof(BillboardSet, view) == 0x404 && offsetof(BillboardSet, fl
 // 0x004CD9D0 (the batches' qsort comparison; code Ghidra never made a function of): by the materials' +0x1C
 // (none: 0), nulls after everything.
 int __cdecl compare_batches(const void* a, const void* b);
-// 0x004CDD00 (EBX the mesh, three stack arguments; through a stub): a billboard mesh drawn - its vertices turned
+// 0x004CDD00: a billboard mesh drawn - its vertices turned
 // about its pivot (x along `x_axis`, y `y_axis`, z `zAxis`) into its vertex buffer (a per-vertex table's value for
 // the word after the position where it has one), drawn indexed with the device's stream, shaders, indices and
 // format put back after (the stream's offset as 0, the shaders not released, as the original); fog's start moved to a
 // quarter of the way back from its end while drawn.
 void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis, const float* z_axis);
-void draw_billboard_mesh_stub();
-// 0x004CD980 (EAX the type, ECX the index count; through a stub): the primitives for that many indices (1 points,
+// 0x004CD980: the primitives for that many indices (1 points,
 // 2 lines, 3 a line strip, 4 triangles, 5 and 6 strips / fans; 0 else).
 uint32_t primitive_count(uint32_t type, uint32_t count);
-void primitive_count_stub();
 
 // A batch list's node (memory::ListNode with vtable 0x0064A894; the heads' 0x0064A898).
 struct BillboardNode : memory::ListNode {

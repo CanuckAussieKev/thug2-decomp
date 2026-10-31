@@ -389,42 +389,4 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
     }
 }
 
-// --- the register entry points ---
-
-namespace {
-
-void __cdecl write_save_contents_registers(Struct* contents, uint32_t type) { write_save_contents(contents, type); }
-void __cdecl apply_loaded_contents_registers(uint32_t type, Struct* contents, Script* script, Struct* params)
-{
-    apply_loaded_contents(type, contents, script, params);
-}
-
-} // namespace
-
-// 0x005A79A0: the structure in EBX, the type on the stack (the caller pops it).
-__declspec(naked) void write_save_contents_stub()
-{
-    __asm {
-        push dword ptr [esp + 4]
-        push ebx
-        call write_save_contents_registers
-        add esp, 8
-        ret
-    }
-}
-
-// 0x005A81B0: the type in EAX, the contents in ESI, the script and params on the stack (the caller pops them).
-__declspec(naked) void apply_loaded_contents_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push esi
-        push eax
-        call apply_loaded_contents_registers
-        add esp, 16
-        ret
-    }
-}
-
 } // namespace save_cards

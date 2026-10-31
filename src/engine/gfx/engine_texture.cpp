@@ -98,33 +98,6 @@ __declspec(naked) void virtual_slot17_jump()
     }
 }
 
-// 0x0049F370
-__declspec(naked) void virtual_slot21_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x54]
-    }
-}
-
-// 0x0049F380
-__declspec(naked) void virtual_slot23_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x5C]
-    }
-}
-
-// 0x0049F390
-__declspec(naked) void virtual_slot24_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x60]
-    }
-}
-
 // 0x0049F3A0
 __declspec(naked) void virtual_slot26_jump()
 {
@@ -158,15 +131,6 @@ __declspec(naked) void virtual_slot34_jump()
     __asm {
         mov eax, dword ptr [ecx]
         jmp dword ptr [eax + 0x88]
-    }
-}
-
-// 0x0049F3E0
-__declspec(naked) void virtual_slot38_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x98]
     }
 }
 

@@ -113,7 +113,7 @@ struct FlagCommand {
     bool found;
 };
 
-// The object's part of it (0x005A0120 gets it in ESI, the object in EAX).
+// The object's part of it (what 0x005A0120 is given).
 struct FlagCommandData {
     uint32_t value;
     int action;
@@ -250,22 +250,6 @@ void __cdecl apply_flag_command_to_object(objects::Entity* object, void* data)
     auto* command = static_cast<FlagCommand*>(data);
     if (object->ident_ == command->id)
         apply_flag_command(reinterpret_cast<FlagCommandData*>(&command->value), object);
-}
-
-void __cdecl apply_flag_command_registers(void* data, objects::Entity* object)
-{
-    apply_flag_command(static_cast<FlagCommandData*>(data), object);
-}
-
-__declspec(naked) void apply_flag_command_stub()
-{
-    __asm {
-        push eax
-        push esi
-        call apply_flag_command_registers
-        add esp, 8
-        ret
-    }
 }
 
 // 0x005A01D0

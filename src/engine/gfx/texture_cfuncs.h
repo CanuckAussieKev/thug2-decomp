@@ -20,10 +20,9 @@ bool __cdecl cfunc_sce_alt_pt(script::Struct* params, script::Script* script);
 // 0x005A9D90: the name of the first name component (in `structure`, its structures, and the global structures its
 // components' values name - 10 levels at most) whose value is `value`; 0 if none.
 uint32_t __cdecl find_name_of_value(script::Struct* structure, uint32_t value, int depth);
-// 0x005A9E30 (the structure in EBX; cdecl the value): the name of the last integer component of `structure` that
+// 0x005A9E30: the name of the last integer component of `structure` that
 // is `value` (each found one printed: "s_find_cat_in_mapping found %i"); 0 if none.
 uint32_t find_name_of_integer(script::Struct* structure, uint32_t value);
-void find_name_of_integer_stub();
 // 0x005A9E80: an angle in degrees brought into 0..360 (as the x87 computes it: in double precision).
 float __cdecl wrap_angle(float degrees);
 

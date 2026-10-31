@@ -465,24 +465,6 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, const
     }
 }
 
-// The original's convention: EAX = out, EDX = the translation, BL = swap_z; [ESP+4] the quaternion, [ESP+8] mirror
-// (a byte) - popped by the caller.
-__declspec(naked) void quat_to_bone_matrix_stub()
-{
-    __asm {
-        movzx ecx, bl
-        push ecx // swap_z
-        movzx ecx, byte ptr [esp + 0xC]
-        push ecx // mirror
-        push dword ptr [esp + 0xC] // the quaternion
-        push edx
-        push eax
-        call quat_to_bone_matrix
-        add esp, 0x14
-        ret
-    }
-}
-
 // 0x004A4240
 void Rig::tick_frame(const float (*rotations)[4], const float (*translations)[4])
 {

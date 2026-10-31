@@ -252,7 +252,4 @@ static_assert(offsetof(PointTally, seen_) == 0x38 && offsetof(PointTally, log_) 
                   offsetof(PointTally, robot_lines_) == 0x1538 && sizeof(PointTally) == 0x1550,
               "layout must match the original");
 
-// 0x00561240's entry: PointTally::point_gain with EDX kept (Update relies on it).
-int score_increment_stub();
-
 } // namespace modules

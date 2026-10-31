@@ -61,9 +61,4 @@ struct CollRect {
 bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
                         maths::Vec4* points, int* kinds);
 
-// line_hits_sphere / segments_cross_2d as the game calls them: their callers (0x0040EC90, 0x0040D370) keep a value in
-// EDX across the call, which the originals don't touch - these adapters keep it.
-void line_hits_sphere_keeping_edx();
-void segments_cross_2d_keeping_edx();
-
 } // namespace render

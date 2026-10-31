@@ -77,9 +77,6 @@ static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, own
                   sizeof(Primitive) == 0x20,
               "layout must match the original");
 
-// 0x0049C6F0 (thiscall; linker-folded: a jump through vtable slot 35 - the primitives' Compare, a texture's slot 35
-// for the texture code - its arguments left to the callee): a naked jump.
-void call_virtual35_stub();
 // 0x0049C7D0 (cdecl): `primitive` put first on the list of new ones (flag 0x100).
 void __cdecl link_primitive(Primitive* primitive);
 // 0x0049C7F0 (cdecl): `primitive` taken off its list (the new ones with flag 0x100, else the drawing list). Not

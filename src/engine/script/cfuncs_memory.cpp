@@ -178,7 +178,7 @@ bool __cdecl cfunc_print_mem_info(Struct* params, Script*)
     return true;
 }
 
-// 0x00448330 (the flag in BL; dump_pool_usage_stub): the pools' usage (used of size, the most used) - the script
+// 0x00448330: the pools' usage (used of size, the most used) - the script
 // system's, the hash items', the animation system's, spawned polygons', event receiver lists' - written to the dump
 // file (memory::dump_text) and / or printed.
 void __cdecl dump_pool_usage(bool to_dump_file, bool print)
@@ -259,19 +259,6 @@ bool __cdecl cfunc_dump_heaps(Struct* params, Script*)
                   sound_free); // "\nSound mem free %d K  (%d bytes)\n"
     dump_pool_usage(false, true);
     return true;
-}
-
-// 0x00448330: the "to the dump file" flag in BL, the "print" flag on the stack (the caller pops it).
-__declspec(naked) void dump_pool_usage_stub()
-{
-    __asm {
-        push dword ptr [esp + 4]
-        movzx eax, bl
-        push eax
-        call dump_pool_usage
-        add esp, 8
-        ret
-    }
 }
 
 } // namespace commands

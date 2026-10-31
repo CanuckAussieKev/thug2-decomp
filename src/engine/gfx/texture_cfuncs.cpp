@@ -109,25 +109,6 @@ uint32_t find_name_of_integer(Struct* structure, uint32_t value)
     return found;
 }
 
-namespace {
-uint32_t __cdecl find_name_of_integer_registers(Struct* structure, uint32_t value)
-{
-    return find_name_of_integer(structure, value);
-}
-} // namespace
-
-// 0x005A9E30: the structure in EBX, the value on the stack (the caller pops it).
-__declspec(naked) void find_name_of_integer_stub()
-{
-    __asm {
-        push dword ptr [esp + 4]
-        push ebx
-        call find_name_of_integer_registers
-        add esp, 8
-        ret
-    }
-}
-
 // 0x005A9E80
 float __cdecl wrap_angle(float degrees)
 {

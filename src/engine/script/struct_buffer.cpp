@@ -106,20 +106,6 @@ uint32_t emit_int(uint32_t name, int value, uint8_t* buffer, uint32_t size)
     return length;
 }
 
-// The name in ECX, the value in EBX; the buffer and size on the stack (the caller pops them).
-__declspec(naked) void write_integer_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push ebx
-        push ecx
-        call emit_int
-        add esp, 16
-        ret
-    }
-}
-
 // 0x00479A50
 uint32_t emit_real(uint8_t* buffer, uint32_t name, uint32_t size, float value)
 {
@@ -133,20 +119,6 @@ uint32_t emit_real(uint8_t* buffer, uint32_t name, uint32_t size, float value)
     if (size < 9)
         return 0;
     return get_written(store_word32(write_name_and_type(buffer, kQbvalFloat, name), float_bits(value)), buffer);
-}
-
-// The buffer in ECX, the name in EDX, the size in ESI; the value on the stack (the caller pops it).
-__declspec(naked) void write_float_stub()
-{
-    __asm {
-        push dword ptr [esp + 4]
-        push esi
-        push edx
-        push ecx
-        call emit_real
-        add esp, 16
-        ret
-    }
 }
 
 namespace {
@@ -175,32 +147,6 @@ uint32_t write_string(uint8_t* buffer, const char* string, uint32_t name, uint32
 uint32_t write_local_string(uint8_t* buffer, const char* string, uint32_t name, uint32_t size)
 {
     return write_string_of_type(buffer, string, name, size, kQbvalInlineText);
-}
-
-// The buffer in EAX, the string in ECX; the name and size on the stack (the caller pops them).
-__declspec(naked) void write_string_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push ecx
-        push eax
-        call write_string
-        add esp, 16
-        ret
-    }
-}
-__declspec(naked) void write_local_string_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push ecx
-        push eax
-        call write_local_string
-        add esp, 16
-        ret
-    }
 }
 
 // 0x00479B80

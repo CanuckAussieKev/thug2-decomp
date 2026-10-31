@@ -495,22 +495,6 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     out->row[3].z = place.z + out->row[3].z;
 }
 
-__declspec(naked) void screen_to_world_stub()
-{
-    __asm {
-        push 0
-        push dword ptr [esp + 0x14]
-        push dword ptr [esp + 0x14]
-        push dword ptr [esp + 0x14]
-        push dword ptr [esp + 0x14]
-        push esi
-        push eax
-        call screen_to_world
-        add esp, 0x1C
-        ret
-    }
-}
-
 // The widescreen front end's rule for Element3d (thug2-decomp.ini [features] widescreen_menus, not in the original).
 //
 // In the widescreen front end the 3D scene fills the window (a wider horizontal angle) while the 2D menu layout

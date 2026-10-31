@@ -841,22 +841,4 @@ void DrivableModule::update_skater()
     blender->play_animation_ex(rider_anim_name_, 0, frame_bits, blend, 1, 0, 0);
 }
 
-namespace {
-
-void __fastcall update_steering_of(DrivableModule* vehicle) { vehicle->update_steering(); }
-
-// 0x00435F00 as the game calls it: the original update (0x0043C1D0) calls apply_damping right after it without
-// loading ECX again - kept.
-__declspec(naked) void update_steering_stub()
-{
-    __asm {
-        push ecx
-        call update_steering_of
-        pop ecx
-        ret
-    }
-}
-
-} // namespace
-
 } // namespace objects

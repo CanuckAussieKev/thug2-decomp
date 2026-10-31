@@ -111,7 +111,7 @@ Script* get_running_script() { return g_running_script; }
 // 0x004728D0
 Script* step_script_list(Script* script) { return script ? *reinterpret_cast<Script**>(script) : g_script_list_head; }
 
-// 0x0046F7A0 (the table in EBX, the type in EDI, the count in ESI)
+// 0x0046F7A0
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
 {
     uint32_t script = reinterpret_cast<uint32_t>(get_running_script());
@@ -234,7 +234,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
     }
 }
 
-// 0x0046FD60 (the token in EAX)
+// 0x0046FD60
 const uint8_t* skip_value(const uint8_t* token)
 {
     switch (*token) {
@@ -268,7 +268,7 @@ const uint8_t* skip_value(const uint8_t* token)
     }
 }
 
-// 0x0046FBD0 (the token in EAX, `deterministic` in BL)
+// 0x0046FBD0
 const uint8_t* parse_random_range(const uint8_t* token, Component* out, bool deterministic)
 {
     float a = get_as_float(fetch_word32(token + 1));
@@ -434,7 +434,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     }
 }
 
-// 0x00470130 (the token in ECX, the name in EDX)
+// 0x00470130
 const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
 {
     const uint8_t* p = token + 1;
@@ -1014,81 +1014,6 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
 }
 
 } // namespace script
-
-// --- the entry points with register arguments -------------------------------------------------------------
-
-namespace {
-
-using script::Component;
-using script::Struct;
-
-const script::StoredRandom* __cdecl find_stored_random_registers(const uint8_t* table, uint32_t type, uint32_t count)
-{
-    return script::look_up_saved_random(table, type, count);
-}
-const uint8_t* __cdecl skip_value_registers(const uint8_t* token) { return script::skip_value(token); }
-const uint8_t* __cdecl parse_random_range_registers(const uint8_t* token, Component* out, uint32_t deterministic)
-{
-    return script::parse_random_range(token, out, (deterministic & 0xFF) != 0);
-}
-const uint8_t* __cdecl add_parameter_registers(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
-{
-    return script::add_parameter(token, name, dest, args);
-}
-
-} // namespace
-
-// 0x0046F7A0: the table in EBX, the type in EDI, the count in ESI.
-__declspec(naked) void script::find_stored_random_stub()
-{
-    __asm {
-        push esi
-        push edi
-        push ebx
-        call find_stored_random_registers
-        add esp, 12
-        ret
-    }
-}
-
-// 0x0046FD60: the token in EAX.
-__declspec(naked) void script::skip_value_stub()
-{
-    __asm {
-        push eax
-        call skip_value_registers
-        add esp, 4
-        ret
-    }
-}
-
-// 0x0046FBD0: the token in EAX, the stream choice in BL, the component on the stack (the caller pops it).
-__declspec(naked) void script::parse_random_range_stub()
-{
-    __asm {
-        movzx ecx, bl
-        push ecx
-        push dword ptr [esp + 8]
-        push eax
-        call parse_random_range_registers
-        add esp, 12
-        ret
-    }
-}
-
-// 0x00470130: the token in ECX, the name in EDX, the structures on the stack (the caller pops them).
-__declspec(naked) void script::add_parameter_stub()
-{
-    __asm {
-        push dword ptr [esp + 8]
-        push dword ptr [esp + 8]
-        push edx
-        push ecx
-        call add_parameter_registers
-        add esp, 16
-        ret
-    }
-}
 
 namespace script {
 

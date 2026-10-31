@@ -273,17 +273,6 @@ int find_wad_entry(uint32_t checksum)
     return -1;
 }
 
-// 0x004533A0: the checksum in EBX (ECX and EDX not kept).
-__declspec(naked) void find_wad_entry_stub()
-{
-    __asm {
-        push ebx
-        call find_wad_entry
-        add esp, 4
-        ret
-    }
-}
-
 // 0x004533E0
 uint32_t __cdecl stream_exists(uint32_t checksum, int music)
 {

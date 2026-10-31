@@ -96,15 +96,13 @@ public:
 // others: nothing).
 void apply_angles(maths::Mat4* m, float x, float y, float z, int order);
 
-// 0x004A5EE0 (EAX = centre, ESI = out, then cdecl viewport, x, y, z): `out` = where a point at (x, y) on the
+// 0x004A5EE0: `out` = where a point at (x, y) on the
 // 640x480 layout is, `z` in front of `viewport`'s camera (`centre` added in the camera's frame, w + 1): the
 // camera's orientation, translated there (the identity with no camera). The horizontal is scaled by the screen's
 // aspect / (4/3), both by 0.9 on back buffers wider than 640. `local` (ours, may be null) gets the point in the
 // camera's frame (x right, y up, z backward).
 void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, float x, float y, float z,
                      maths::Vec4* local = nullptr);
-// The register-argument entry point for screen_to_world (tests call it).
-void screen_to_world_stub();
 
 // The widescreen front end's rule for Element3d (thug2-decomp.ini [features] widescreen_menus; not in the
 // original), given the element's model corners in its own frame (scaled, before the camera's orientation), its

@@ -52,17 +52,6 @@ const char* cutscene_name_from_path(const char* path)
     return name;
 }
 
-// The path in EDX; the result in EAX.
-__declspec(naked) void cutscene_name_from_path_stub()
-{
-    __asm {
-        push edx
-        call cutscene_name_from_path
-        add esp, 4
-        ret
-    }
-}
-
 // 0x00463910
 uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
 {
