@@ -31,7 +31,8 @@ constexpr uint32_t kRadius = 0xC48391A5;            // radius
 constexpr float kDefaultRadius = 3.0f;              // 0x40400000
 
 // The shared sets, by bone count.
-Lst::HashTable& Table() { return GameVariable<Lst::HashTable>(0x006FA308); }
+GAME_GLOBAL(Lst::HashTable, g_boneVolumeTable, 0x006FA308, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
+Lst::HashTable& Table() { return g_boneVolumeTable; }
 GAME_GLOBAL(Mth::Vector[64], g_bonePositions, 0x006FA320); // each bone's world position as TestLine found it
 
 // Each bone's world position as TestLine found it (64 of them).

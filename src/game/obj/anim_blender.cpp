@@ -218,7 +218,7 @@ void CAnimBlenderComponent::Update()
         uint32_t sets = highestSet + 1;
         for (uint32_t set = 0; set != sets;) {
             Gfx::CPose* pose = Gfx::g_blendBuffer;
-            uint32_t bones = GameFunction<uint32_t(__thiscall*)(void*)>(0x004A2BA0)(skeleton());
+            uint32_t bones = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton());
             Gfx::BlendPosesById(Gfx::g_blendBuffer, Gfx::g_blendWeights, Gfx::g_blendSets, static_cast<int>(bones), pose, count, set);
             ++set;
             Gfx::g_blendSets[0] = set;

@@ -18,6 +18,7 @@
 #include "game/obj/object.h"
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
+#include "game/gfx/engine_geom.h"
 
 namespace Front {
 
@@ -100,7 +101,7 @@ uint8_t Faded(int a, float alpha)
 void* GetFont(uint32_t name) { return Nx::GetFont(name); }
 void QueryString(void* font, const char* text, float* width, float* height)
 {
-    GameFunction<void(__thiscall*)(void*, const char*, float*, float*)>(0x0048D060)(font, text, width, height);
+    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&Nx::VirtualSlot8Jump)(font, text, width, height);
 }
 // A button glyph's character for the text after \m (0x0048D6A0, cdecl).
 char ButtonGlyph(const char* text) { return Nx::ButtonGlyph(text); }

@@ -26,7 +26,7 @@ namespace {
 extern void** const kFontVtable;
 
 FontSlot* Slots() { return g_fontSlots; }
-Lst::HashTable& FontTable() { return GameVariable<Lst::HashTable>(0x006FA9F0); }
+Lst::HashTable& FontTable() { return g_fontTable; }
 char* MetaButtonMap() { return g_metaButtonMap; }
 
 template <typename R = void, typename... A>

@@ -132,7 +132,7 @@ T& Field(const void* object, uint32_t offset)
 template <typename R = void, typename... A>
 R Call(uint32_t address, const void* object, A... args)
 {
-    return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
+    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
 
 PlayerInfo* Info(uint8_t* player) { return reinterpret_cast<PlayerInfo*>(player); }

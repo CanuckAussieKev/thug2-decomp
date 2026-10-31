@@ -49,8 +49,8 @@ struct SwapEntry {
     uint32_t current;
 };
 static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
-GAME_GLOBAL(SwapEntry[5], g_modelSwaps, 0x007CEDE0);
-SwapEntry* Swaps() { return g_modelSwaps; }
+static_assert(sizeof(CFuncs::SwapSlot) == sizeof(SwapEntry), "one table, two views");
+SwapEntry* Swaps() { return reinterpret_cast<SwapEntry*>(CFuncs::g_swapTable); } // (profile_cfuncs.cpp owns it)
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (CFuncs::SwapMapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
@@ -66,7 +66,7 @@ void CopySkeleton(uint8_t* to, uint8_t* from)
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t ModelGet(Nx::CModel* model) { return GameFunction<uint32_t(__thiscall*)(Nx::CModel*)>(0x00492E50)(model); }
+uint32_t ModelGet(Nx::CModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(Nx::CModel*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(model); }
 void ModelSet(Nx::CModel* model, uint32_t value)
 {
     model->SetBoneMatrices(reinterpret_cast<uint8_t*>(value));

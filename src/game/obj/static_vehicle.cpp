@@ -41,7 +41,7 @@ const uint8_t* HierarchyOf(CBaseComponent* model)
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
 uint8_t* SkeletonOf(CBaseComponent* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
 Mth::Matrix* BoneMatrices(uint8_t* skeleton) { return *reinterpret_cast<Mth::Matrix**>(skeleton + 0x04); }
-int BoneCount(uint8_t* skeleton) { return GameFunction<int(__thiscall*)(uint8_t*)>(0x004A2BA0)(skeleton); }
+int BoneCount(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton); }
 
 // A model position in the game's axes: x and the model's y negated, y and z swapped.
 Mth::Vector FromModel(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }

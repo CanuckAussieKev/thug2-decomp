@@ -56,7 +56,7 @@ inline void* SectorGeom(void* sector) { return *reinterpret_cast<void**>(static_
 // model (0x004938E0).
 inline void* CloneModelGeom(void* geom, Nx::CModel* to) { return static_cast<Nx::CGeom*>(geom)->CloneForModel(1, to); }
 inline void* CloneSectorGeom(void* geom) { return static_cast<Nx::CGeom*>(geom)->Clone(1, nullptr); }
-inline void ActivateGeom(void* geom) { GameFunction<void(__thiscall*)(void*, int)>(0x0048DE60)(geom, 1); }
+inline void ActivateGeom(void* geom) { reinterpret_cast<void(__thiscall*)(void*, int)>(&Nx::VirtualSlot13Jump)(geom, 1); }
 inline void AddGeom(Nx::CModel* model, void* geom, uint32_t name) { model->AddGeom(geom, name, true); }
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).
 inline bool LoadAsset(Nx::CModel* model, uint32_t name, uint32_t geomName, bool multicolor)

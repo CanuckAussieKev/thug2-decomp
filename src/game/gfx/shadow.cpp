@@ -57,7 +57,8 @@ struct ProjectedVertex {
     uint32_t clip; // a bit per side it's outside of
 };
 static_assert(sizeof(ProjectedVertex) == 0x1C, "the buffer's stride");
-ProjectedVertex* Projected() { return &GameVariable<ProjectedVertex>(0x0079B640); }
+GAME_GLOBAL(ProjectedVertex[4096], g_projectedVertices, 0x0079B640);
+ProjectedVertex* Projected() { return g_projectedVertices; }
 struct ShadowVertex {
     float position[3];
     float u, v;

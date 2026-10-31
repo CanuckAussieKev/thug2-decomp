@@ -39,7 +39,8 @@ struct SortedMesh {
     float depth;
     uint32_t unused;
 };
-SortedMesh* Sorted() { return &GameVariable<SortedMesh>(0x007B7640); }
+GAME_GLOBAL(SortedMesh[1000], g_sortedMeshes, 0x007B7640);
+SortedMesh* Sorted() { return g_sortedMeshes; }
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }

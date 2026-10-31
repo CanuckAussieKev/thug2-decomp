@@ -67,10 +67,14 @@ void StandInBuffers(StandIns& s)
     });
     s.At({0x004D4300}, 0, [](Regs& r) { Record({0x4300, WorldRelocate(r.ecx)}); return 0u; });
     s.At({0x004D6790}, 0, [](Regs& r) { Record({0x6790, WorldRelocate(r.ecx)}); return 0u; });
-    s.At({0x004D3BC0}, 0, [](Regs& r) {
-        Record({0x3BC0, r.args[0]});
-        return reinterpret_cast<uint32_t>(g_world.bufferObjects[g_nextBuffer % 40]);
-    });
+    // (the renderer's operator new is a jump to the C runtime's malloc 0x00624031: the original goes through the first,
+    // ours - Crt::Malloc - to the second)
+    for (uint32_t address : {0x004D3BC0u, 0x00624031u}) {
+        s.At({address}, 0, [](Regs& r) {
+            Record({0x3BC0, r.args[0]});
+            return reinterpret_cast<uint32_t>(g_world.bufferObjects[g_nextBuffer % 40]);
+        });
+    }
     s.At({0x004D4270, AddressOf(&Nx::sIndexBuffer::Construct)}, 12, [](Regs& r) {
         Record({0x4270, WorldRelocate(r.ecx), r.args[0], r.args[1], r.args[2]});
         int index = g_nextBuffer++ % 40;

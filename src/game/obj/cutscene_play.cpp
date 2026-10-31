@@ -247,7 +247,7 @@ void CCutsceneData::Update(void* camera, Script::CStruct* /*params*/)
         if (fixed && FixedFrame() > 0) {
             char shot[128];
             std::snprintf(shot, sizeof(shot), "%s%04d", ShotName(), FixedFrame() - 1);
-            GameFunction<void(__cdecl*)(const char*, int)>(0x0048C100)(shot, 1); // (a screenshot) // (a screenshot)
+            Nx::ScreenShot(shot, 1); // (a screenshot)
         }
     }
     ++FixedFrame();

@@ -65,7 +65,25 @@ const char* PictureName()
 }
 void SetPictureName(const char* text)
 {
-    GameFunction<void*(__thiscall*)(void*, const char*)>(0x004B7880)(reinterpret_cast<uint8_t*>(g_pictureName), text);
+    // std::string::assign(const char*) over the layout above (0x004B7880 / 0x004B7750 in the exe).
+    uint8_t* name = reinterpret_cast<uint8_t*>(g_pictureName);
+    uint32_t& size = *reinterpret_cast<uint32_t*>(name + 0x14);
+    uint32_t& capacity = *reinterpret_cast<uint32_t*>(name + 0x18);
+    char*& heap = *reinterpret_cast<char**>(name + 4);
+    uint32_t length = static_cast<uint32_t>(std::strlen(text));
+    if (length > capacity) {
+        uint32_t newCapacity = length | 15;
+        char* grown = static_cast<char*>(Crt::Malloc(newCapacity + 1));
+        std::memcpy(grown, text, length + 1);
+        if (capacity >= 16)
+            Crt::Free(heap);
+        heap = grown;
+        capacity = newCapacity;
+    } else {
+        char* destination = capacity >= 16 ? heap : reinterpret_cast<char*>(name + 4);
+        std::memmove(destination, text, length + 1);
+    }
+    size = length;
 }
 
 struct PictureVertex {

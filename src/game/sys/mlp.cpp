@@ -88,7 +88,7 @@ void RunTasks(Tsk::Stack& list, bool profiling)
 {
     list.Process(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
-void BeginScene() { GameFunction<void(__cdecl*)()>(0x0048BF10)(); }      // the device's BeginScene
+void BeginScene() { Nx::StartRender(); }      // the device's BeginScene
 void RenderFrame() { Nx::Engine::RenderFrame(); }     // the world, then the 2D
 void AfterRender() { Mdl::Skate::DebugRails(); }     // (uses the skate module)
 void EndScene() { Nx::Engine::EndRender(); }        // EndScene, Present

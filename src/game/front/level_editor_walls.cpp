@@ -13,6 +13,7 @@
 #include "hook/game.h"
 #include "hook/log.h"
 #include "game/core/game_vtables.h"
+#include "game/gfx/engine_geom.h"
 
 namespace Front::LevelEditor::Walls {
 
@@ -102,7 +103,7 @@ void SetActive(uint8_t* sector, bool active)
     reinterpret_cast<Nx::CSector*>(sector)->SetActive(active);
 }
 // The geometry's IsActive (0x0048DE70, as CSector::IsActive 0x0049E9E0 asks it).
-bool GeomActive(uint8_t* geom) { return GameFunction<bool(__thiscall*)(void*)>(0x0048DE70)(geom); }
+bool GeomActive(uint8_t* geom) { return reinterpret_cast<bool(__thiscall*)(void*)>(&Nx::VirtualSlot14Jump)(geom); }
 
 bool SameV(const Mth::Vector& a, const Mth::Vector& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 

@@ -32,6 +32,7 @@
 #include "game/sys/timer.h"
 #include "game/ed/park_editor.h"
 #include "hook/game.h"
+#include "hook/game_global.h"
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "hook/game_code.h"
@@ -41,6 +42,11 @@
 #include "game/skater/vehicle_sound.h"
 
 namespace Obj {
+
+// The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
+// 0x00696878: 132 of them.
+GAME_GLOBAL(CVehicleComponent::Contact[132], g_vehicleContacts, 0x006951C8);
+CVehicleComponent::Contact* CVehicleComponent::Contacts() { return g_vehicleContacts; }
 
 using namespace Vehicle;
 
@@ -868,7 +874,7 @@ void CVehicleComponent::UpdateSkeleton()
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     auto* bones = reinterpret_cast<Mth::Matrix*>(static_cast<GameNet::FoldedGetters*>(SkeletonOf(mp_skeleton))->Word04());
-    int count = GameFunction<int(__thiscall*)(void*)>(0x004A2BA0)(SkeletonOf(mp_skeleton));
+    int count = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(SkeletonOf(mp_skeleton));
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than maxDrawnY. In debug mode 2 all of them nothing.
     for (int b = count - 1; b >= 0; --b) {

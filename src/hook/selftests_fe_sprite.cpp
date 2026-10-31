@@ -4,6 +4,7 @@
 
 #include "game/front/sprite_element.h"
 #include "game/gfx/engine_glue.h"
+#include "game/gfx/engine_texture.h"
 #include "game/gfx/occlusion.h"
 #include "game/mth/vector.h"
 #include "game/gfx/texture_dict.h"
@@ -102,12 +103,12 @@ void InstallSpriteStandIns(StandIns& s)
         else
             s.At({setter.address}, setter.pop, handler);
     }
-    s.At({0x0048BF40}, 0, [](Regs&) {
+    s.At({0x0048BF40, AddressOf(Nx::CreateTexturedQuad)}, 0, [](Regs&) {
         Rec(0xBF40, {});
         return At(kPiece);
     });
-    s.At({0x0048BF30}, 0, [](Regs& r) {
-        Rec(0xBF30, {r.args[0]});
+    s.At({0x0048BF30, AddressOf(Nx::CreateSprite)}, 0, [](Regs& r) {
+        Rec(0xBF30, {}); // (the original's jump takes no argument: the caller's is left on the stack)
         return At(kPiece + 0x20);
     });
     s.At({0x0048C080, AddressOf(&Nx::DeleteModelLights)}, 0, [](Regs& r) {
@@ -127,11 +128,11 @@ void InstallSpriteStandIns(StandIns& s)
         Rec(0xF540, {r.ecx, r.args[0]});
         return g_noTexture ? 0u : At(kTexture);
     });
-    s.At({0x0049F3C0}, 0, [](Regs& r) {
+    s.At({0x0049F3C0, AddressOf(Nx::VirtualSlot33Jump)}, 0, [](Regs& r) {
         Rec(0xF3C0, {r.ecx});
         return 0xABCD0000u | 300u;
     });
-    s.At({0x0049F3D0}, 0, [](Regs& r) {
+    s.At({0x0049F3D0, AddressOf(Nx::VirtualSlot34Jump)}, 0, [](Regs& r) {
         Rec(0xF3D0, {r.ecx});
         return 0x12340000u | 77u;
     });

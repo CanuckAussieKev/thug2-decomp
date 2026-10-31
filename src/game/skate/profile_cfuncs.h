@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "hook/game_global.h"
+
 namespace Script {
 class CStruct;
 class CScript;
@@ -12,6 +14,16 @@ class CScript;
 // profiles and their appearance) and the career's goal counts for the menus. The CFunctions are cdecl (params,
 // script) and return whether the script's `if` should be taken.
 namespace CFuncs {
+
+// The swap table (0x007CEDE0): five slots - in use, key, value.
+struct SwapSlot {
+    bool used;
+    uint8_t pad[3];
+    uint32_t key;
+    uint32_t value;
+};
+static_assert(sizeof(SwapSlot) == 12, "layout must match the original");
+GAME_GLOBAL_EXTERN(SwapSlot[5], g_swapTable);
 
 // 0x005AA930: `a` and `b` swapped in the table of five checksum pairs (0x007CEDE0: in use, key, value): each gets a
 // slot (a free one if it has none - the table being full isn't checked, as in the original), then their values are

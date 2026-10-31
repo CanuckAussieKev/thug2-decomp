@@ -5,6 +5,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/lst/hashtable.h"
 #include "hook/game_global.h"
 
 namespace Gfx {
@@ -133,5 +134,6 @@ ShadowEdges* __cdecl FindShadowEdges(uint32_t key);
 void __cdecl ReleaseShadowEdges(uint32_t key);
 
 GAME_GLOBAL_EXTERN(CShadowVolume*[16], g_shadowVolumes);
+GAME_GLOBAL_EXTERN(Lst::HashTable, g_shadowEdgeTable); // 0x00701418: the silhouette edges by model
 
 } // namespace Nx

@@ -43,7 +43,8 @@ namespace {
 
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 sInstance*& Instances() { return g_instances; }
-sInstance** Visible() { return &GameVariable<sInstance*>(0x007825C8); } // RenderInstances' list
+GAME_GLOBAL(sInstance*[4096], g_visibleInstances, 0x007825C8); // RenderInstances' list
+sInstance** Visible() { return g_visibleInstances; }
 const Mth::Matrix* LastBones() { return g_lastBones; }
 void SetLastBones(const Mth::Matrix* bones) { g_lastBones = bones; }
 const D3DMATRIX* ViewWorld() { return reinterpret_cast<D3DMATRIX*>(&g_worldMatrix); } // the world transform to put back

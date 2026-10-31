@@ -27,6 +27,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/goals/goal_manager.h"
 
 namespace CFuncs {
 
@@ -128,7 +129,7 @@ CArray* NewArray()
 int TemplateCount(Obj::CPlayerProfileManager* manager) { return static_cast<int>(manager->m_templates.m_count); }
 CSkaterProfile* TemplateAt(Obj::CPlayerProfileManager* manager, int index)
 {
-    return GameFunction<CSkaterProfile*(__thiscall*)(Obj::CPlayerProfileManager*, int)>(0x00557FB0)(manager, index);
+    return reinterpret_cast<CSkaterProfile*(__thiscall*)(Obj::CPlayerProfileManager*, int)>(GAME_CODE(0x00557FB0, &Game::CGoalManager::GetGoalByIndex))(manager, index);
 }
 
 // A trick structure's type: its trickType, else its scr, else GrindTrick.

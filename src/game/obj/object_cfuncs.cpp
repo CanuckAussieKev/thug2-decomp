@@ -20,6 +20,7 @@
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "game/gfx/cag_cfuncs.h"
+#include "game/gfx/weather.h"
 
 namespace CFuncs {
 
@@ -68,7 +69,7 @@ Obj::CCompositeObject* ObjectById(uint32_t id)
 void* ViewportCamera(int index) { return Nx::GetActiveViewport(index); }
 float ProjectToScreen(void* camera, const Mth::Vector* position, float* x, float* y, float* depth)
 {
-    return GameFunction<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(0x004A1090)(
+    return reinterpret_cast<float(__thiscall*)(void*, const Mth::Vector*, float*, float*, float*)>(&Nx::VirtualSlot1Jump)(
         camera, position, x, y, depth);
 }
 

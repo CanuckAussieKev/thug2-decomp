@@ -109,7 +109,7 @@ bool CFlipRotateComponent::GetPose(uint8_t* pose)
         r[0] = r[1] = r[2] = 0.0f;
         r[3] = 1.0f;
     }
-    int count = GameFunction<int(__thiscall*)(void*)>(0x004A2BA0)(skeleton);
+    int count = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(skeleton);
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {

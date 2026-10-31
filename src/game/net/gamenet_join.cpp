@@ -155,12 +155,12 @@ uint32_t LocalAddress()
 template <typename R, typename... A>
 R Call(uint32_t address, const void* object, A... args)
 {
-    return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
+    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
 template <typename R, typename... A>
 R Call(void* code, const void* object, A... args)
 {
-    return GameFunction<R(__thiscall*)(const void*, A...)>(reinterpret_cast<uintptr_t>(code))(object, args...);
+    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
 }
 // The manager's methods.
 int NumObservers(Manager* m) { return m->CountObservers(); }

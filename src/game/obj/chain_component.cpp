@@ -23,6 +23,7 @@
 #include "game/obj/object.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/gfx/weather.h"
 
 namespace Obj {
 
@@ -314,7 +315,7 @@ void CChainComponent::InitFromStructure(Script::CStruct* params)
             void* line = lineMemory ? static_cast<Nx::CPcPrimitive*>(lineMemory)->Construct(1) : nullptr;
             link.mp_line = line;
             static_cast<uint32_t*>(line)[3] = kLineBlend;
-            GameFunction<void(__thiscall*)(void*, int, int, int)>(0x004A10A0)(line, 1, 0, 2);
+            reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&Nx::VirtualSlot3Jump)(line, 1, 0, 2);
             SetLineColour(line, 0, kLineGrey);
             SetLineVertex(line, 0, link.m_pos);
             SetLineColour(line, 1, kLineGrey);

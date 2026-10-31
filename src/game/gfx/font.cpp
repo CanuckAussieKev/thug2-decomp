@@ -16,10 +16,12 @@
 
 namespace Nx {
 
+GAME_GLOBAL(Lst::HashTable, g_fontTable, 0x006FA9F0, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(4) at start-up)
+
 namespace {
 
 FontSlot* Slots() { return g_fontSlots; }
-Lst::HashTable& FontTable() { return GameVariable<Lst::HashTable>(0x006FA9F0); }
+Lst::HashTable& FontTable() { return g_fontTable; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
 char* MetaButtonMap() { return g_metaButtonMap; }
 GAME_GLOBAL(bool, g_metaButtonMapLoaded, 0x006FA828);

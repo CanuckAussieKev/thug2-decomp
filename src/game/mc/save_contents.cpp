@@ -28,6 +28,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/goals/goal.h"
+#include "game/gfx/skeleton.h"
 
 namespace Mc {
 
@@ -75,7 +76,7 @@ int Platform() { return GameConfig::g_platform; }
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 Prefs::Preferences* SplitScreenPreferences()
 {
-    return GameFunction<Prefs::Preferences*(__thiscall*)(Mdl::Skate*)>(reinterpret_cast<uintptr_t>(GAME_CODE(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences)))(Skate());
+    return reinterpret_cast<Prefs::Preferences*(__thiscall*)(Mdl::Skate*)>(GAME_CODE(0x00564D80, &Mdl::Skate::GetSplitScreenPreferences))(Skate());
 }
 // A preferences object's structure (+4).
 CStruct* PreferencesStructure(Prefs::Preferences* preferences)
@@ -277,7 +278,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         CStruct* story = NewStructure();
         void* goalManager = Game::GetGoalManager();
         // the goal manager's parameters (a folded getter, +0x14)
-        story->AddStructure(kGoalManagerParams, GameFunction<CStruct*(__thiscall*)(void*)>(0x004A2BA0)(goalManager));
+        story->AddStructure(kGoalManagerParams, reinterpret_cast<CStruct*(__thiscall*)(void*)>(GAME_CODE(0x004A2BA0, &Gfx::CSkeleton::GetNumBones))(goalManager));
         contents->AddStructurePointer(kStory, story);
         CStruct* storySkater = NewStructure();
         auto* skater = static_cast<Obj::CSkater*>(Skate()->GetSkater(0));
@@ -358,7 +359,7 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
             contents->GetStructure(kCustomSkater, &customSkater, 1);
             Obj::CPlayerProfileManager* profiles = Profiles();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            bool keep = GameFunction<int(__thiscall*)(void*)>(reinterpret_cast<uintptr_t>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams)))(profiles) != 0;
+            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(profiles) != 0;
             profiles->ReadCustomSkater(customSkater, keep);
             loadedCustomSkater = true;
         }

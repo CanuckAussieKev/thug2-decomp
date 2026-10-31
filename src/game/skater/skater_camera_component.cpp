@@ -240,8 +240,7 @@ CSkaterCameraComponent* CSkaterCameraComponent::Construct()
         Mem::EnsureManager();
     void* memory = Mem::Manager::Get()->Allocate(0x98, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
-    mp_slerp = static_cast<Mth::SlerpInterpolator*>(
-        memory ? GameFunction<void*(__thiscall*)(void*)>(0x005902E0)(memory) : nullptr);
+    mp_slerp = static_cast<Mth::SlerpInterpolator*>(memory);
     m_zoom = 1.0f;
     m_turnCosine = 1.0f;
     m_vertAirLerpXZ = 1.0f;

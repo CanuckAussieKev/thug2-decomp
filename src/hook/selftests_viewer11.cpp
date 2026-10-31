@@ -75,7 +75,9 @@ uint32_t OursOf(uint32_t address)
 void AlsoOurs(StandIns& s, std::initializer_list<uint32_t> addresses, void* thunk)
 {
     // (only the functions skater.cpp calls directly now: others' replacements may run for real)
-    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340};
+    static const uint32_t kDirect[] = {0x00511420, 0x00518630, 0x0046BC60, 0x00511310, 0x00519650, 0x0043D520, 0x00419A20, 0x005144D0, 0x00513AB0, 0x00431780, 0x0047B2A0, 0x005178B0, 0x004202A0, 0x00420110, 0x00511390, 0x0053AEA0, 0x00532EA0, 0x00419A90, 0x00420480, 0x0051D830, 0x0051D9C0, 0x0051DA20, 0x00407A60, 0x00511570, 0x0042BBF0, 0x00524C50, 0x00525E60, 0x00419B30, 0x0043D560, 0x00522410, 0x00512030, 0x0051BF00, 0x00506BE0, 0x00510F80, 0x0043D550, 0x00543340,
+                                       // (the geom / texture virtual-slot jumps and the folded GetParams: ShowBoardElement calls them directly too)
+                                       0x00553E90, 0x0048D060, 0x0048DE30, 0x0048DE80, 0x0048DEB0, 0x0048DED0, 0x0048E4C0, 0x0049F360, 0x0049F420};
     for (uint32_t address : addresses) {
         if (std::find(std::begin(kDirect), std::end(kDirect), address) == std::end(kDirect))
             continue;

@@ -23,6 +23,7 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/log.h"
+#include "game/gfx/engine_geom.h"
 
 namespace Front::LevelEditor::Objects {
 namespace {
@@ -231,7 +232,7 @@ bool ModelBox(Obj::CCompositeObject* object, OrientedBox* out)
         return false;
     void* geometry = reinterpret_cast<Nx::CModel*>(model)->GetGeomByName(0);
     const Mth::Vector* box =
-        geometry ? GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry) : nullptr;
+        geometry ? reinterpret_cast<const Mth::Vector*(__thiscall*)(void*)>(&Nx::VirtualSlot15Jump)(geometry) : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
     V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
     if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {

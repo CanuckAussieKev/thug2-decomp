@@ -248,7 +248,7 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
             }
             if (skater) {
                 void* face = AppearanceFace(m_unknown34A8);
-                if (face && GameFunction<bool(__thiscall*)(void*)>(0x00487510)(face))
+                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(GAME_CODE(0x00487510, &Gfx::CFaceTexture::IsValid))(face))
                     ++modelFile;
                 int male = 0;
                 static_cast<Script::CStruct*>(m_unknown34AC)->GetInteger(kMale, &male, 1);
@@ -308,8 +308,8 @@ void CCutsceneData::AddObjects(Script::CStruct* params)
                     ModelSetOffset(model2, offset2);
                     static_cast<Nx::CModel*>(model2)->Hide(0);
                     static_cast<Nx::CModel*>(model2)->EnableScaling(0);
-                    uint32_t mine = GameFunction<uint32_t(__thiscall*)(void*)>(0x00492E50)(model2);
-                    uint32_t theirs = GameFunction<uint32_t(__thiscall*)(void*)>(0x00492E50)(ModelOf(standIn));
+                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(model2);
+                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(GAME_CODE(0x00492E50, &Nx::CModel::GetBoneMatrices))(ModelOf(standIn));
                     static_cast<Nx::CModel*>(model2)->SetBoneMatrices(reinterpret_cast<uint8_t*>(theirs));
                     static_cast<Nx::CModel*>(ModelOf(standIn))->SetBoneMatrices(reinterpret_cast<uint8_t*>(mine));
                     static_cast<CModelComponent*>(levelModel)->UpdateBrightness();

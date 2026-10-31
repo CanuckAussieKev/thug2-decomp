@@ -81,12 +81,12 @@ void* SkeletonData(void* skeleton) { return *reinterpret_cast<void**>(static_cas
 // skeleton (0x00492DD0), shadow volume (0x00492E90), bounding sphere (0x00492F30), lights (+0x2C) made (0x00493BD0) or
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
-Nx::CModel* NewModel(int arg) { return GameFunction<Nx::CModel*(__cdecl*)(int)>(0x0048BFA0)(arg); }
+Nx::CModel* NewModel(int arg) { return (void)arg, static_cast<Nx::CModel*>(Nx::CreateModel()); }
 void DeleteModel(Nx::CModel* model) { Nx::Engine::DeleteGeomObject(model); }
 void* ModelLights(Nx::CModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
 void* CloneModelGeom(void* geom, Nx::CModel* to) { return static_cast<Nx::CGeom*>(geom)->CloneForModel(1, to); }
 void* CloneSectorGeom(void* geom) { return static_cast<Nx::CGeom*>(geom)->Clone(1, nullptr); }
-void ActivateGeom(void* geom) { GameFunction<void(__thiscall*)(void*, int)>(0x0048DE60)(geom, 1); }
+void ActivateGeom(void* geom) { reinterpret_cast<void(__thiscall*)(void*, int)>(&Nx::VirtualSlot13Jump)(geom, 1); }
 void AddGeom(Nx::CModel* model, void* geom, uint32_t name) { model->AddGeom(geom, name, true); }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any).
 bool GetScale(Mth::Vector* scale, Script::CStruct* params)

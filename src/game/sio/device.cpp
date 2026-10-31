@@ -3,6 +3,7 @@
 
 #include "game/sio/device.h"
 #include "game/net/task_vtable.h"
+#include "game/goals/goal.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
@@ -542,7 +543,7 @@ void PumpWindowMessages() { Platform::ProcessWindowEvents(); }
 void ReadPadState(int port, PadState* state) { Platform::ReadPad(port + 1, state); }
 bool KeyDown(int code) { return Platform::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int MenuPort() { return GameFunction<int(__thiscall*)(void*)>(0x00553E90)(reinterpret_cast<void*>(Obj::g_profileManager)); }
+int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(GAME_CODE(0x00553E90, &Game::CGoal::GetParams))(reinterpret_cast<void*>(Obj::g_profileManager)); }
 
 uint8_t IfAbove(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t PressureOrZero(uint8_t value) { return value > 0x20 ? value : 0; }

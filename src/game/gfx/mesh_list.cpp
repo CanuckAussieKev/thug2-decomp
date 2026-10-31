@@ -39,7 +39,7 @@ void UnlockIndices(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Unlock();
 void ReleaseIndexBuffer(void* buffer) { static_cast<sIndexBuffer*>(buffer)->Destroy(); }
 void* NewIndexBuffer(uint32_t bytes)
 {
-    void* memory = GameFunction<void*(__cdecl*)(uint32_t)>(0x004D3BC0)(0x18); // (the renderer's operator new)
+    void* memory = Crt::Malloc(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
     return static_cast<sIndexBuffer*>(memory)->Construct(bytes, 0, 0x65);

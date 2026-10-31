@@ -27,6 +27,7 @@
 #include "game/front/front_end.h"
 #include "hook/game_code.h"
 #include "game/gfx/viewport.h"
+#include "game/gfx/viewport.h"
 #include "game/core/stubs.h"
 #include "game/obj/car_physics.h"
 
@@ -314,8 +315,9 @@ bool CCameraAnimMovie::CallMemberFunction(uint32_t name, Script::CStruct* params
         m_target = 0;
         return true;
     }
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, Script::CStruct*, Script::CScript*)>(0x004A0CF0)(this, name, params,
-                                                                                                         script);
+    // (the base class's CallMemberFunction: a stub shared by many vtables, 0x004A0CF0 - "not handled")
+    return reinterpret_cast<bool(__thiscall*)(void*, uint32_t, Script::CStruct*, Script::CScript*)>(
+        GAME_CODE(0x004A0CF0, &Nx::CViewport::QueryPoint))(this, name, params, script);
 }
 
 // 0x00588090

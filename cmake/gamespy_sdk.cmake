@@ -5,9 +5,14 @@
 # static C library `gamespy_sdk`. The hooked build (dinput8.dll) never links it: it calls the exe's own copy
 # (src/game/net/gamespy.h).
 #
-# One change is made to the source: the peer SDK's chat server name is a constant there ("peerchat." GSI_DOMAIN_NAME,
-# Peer/peerOperations.c); it becomes a variable, peerChatServerAddress, like the SDK's other host names, so the
-# online domain (OnlineDomain) can be set at run time (src/game/net/gamespy.cpp).
+# Two changes are made to the source. The peer SDK's chat server name is a constant there ("peerchat."
+# GSI_DOMAIN_NAME, Peer/peerOperations.c); it becomes a variable, peerChatServerAddress, like the SDK's other host
+# names, so the online domain (OnlineDomain) can be set at run time (src/game/net/gamespy.cpp). And the chat SDK's
+# nick checks (Chat/chatMain.h) are as the game's own copy of the SDK has them: that one checks nothing but "not
+# empty" before sending the nick (the peer cuts it at 63 characters), while the 2007 SDK refuses nicks of 21 or more
+# characters and any outside its character set - which lacks the backslash the game's nick rules allow - with a
+# nick error the game's callback ignores (the connect would stall). So the length limit is the peer's own (64) and
+# the backslash is valid.
 #
 # MinGW-w64: the SDK's win32 platform layer is plain Winsock / Win32 (no MSVC-only code in the modules built here,
 # as far as this build shows - not tried yet); gsPlatform.h picks the platform from _WIN32.
@@ -32,6 +37,32 @@ if(NOT _at EQUAL -1)
     file(WRITE "${_peer_ops}" "${_text}")
 elseif(NOT _text MATCHES "peerChatServerAddress")
     message(FATAL_ERROR "GameSpy SDK: Peer/peerOperations.c is not the expected source")
+endif()
+
+# The nick rules as the game's copy of the SDK has them (idempotent).
+set(_chat_main "${THUG2_GAMESPY_DIR}/Chat/chatMain.h")
+file(READ "${_chat_main}" _text)
+set(_old_length "#define MAX_CHAT_NICK          21")
+set(_new_length "#define MAX_CHAT_NICK          MAX_NICK /* (thug2-decomp: the peer's own limit) */")
+string(FIND "${_text}" "${_old_length}" _at)
+if(NOT _at EQUAL -1)
+    string(REPLACE "${_old_length}" "${_new_length}" _text "${_text}")
+    file(WRITE "${_chat_main}" "${_text}")
+elseif(NOT _text MATCHES "thug2-decomp: the peer's own limit")
+    message(FATAL_ERROR "GameSpy SDK: Chat/chatMain.h is not the expected source")
+endif()
+# (a backslash in the C string is written twice)
+set(_old_chars [=[@[]^_`]=])
+set(_new_chars [=[@[\\]^_`]=])
+string(FIND "${_text}" "${_old_chars}" _at)
+if(NOT _at EQUAL -1)
+    string(REPLACE "${_old_chars}" "${_new_chars}" _text "${_text}")
+    file(WRITE "${_chat_main}" "${_text}")
+else()
+    string(FIND "${_text}" "${_new_chars}" _at)
+    if(_at EQUAL -1)
+        message(FATAL_ERROR "GameSpy SDK: Chat/chatMain.h is not the expected source")
+    endif()
 endif()
 
 set(_gs "${THUG2_GAMESPY_DIR}")

@@ -28,6 +28,7 @@
 #include "game/front/screen_element.h"
 #include "game/front/screen_constants.h"
 #include "game/gfx/render.h"
+#include "game/gfx/engine_geom.h"
 
 namespace Front {
 
@@ -112,7 +113,7 @@ float CameraAngle(void* camera) { return static_cast<Gfx::Camera*>(camera)->GetA
 // A geom's bounding box (0x0048DE80, thiscall).
 const Mth::Vector* GeometryBoundingBox(void* geometry)
 {
-    return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry);
+    return reinterpret_cast<const Mth::Vector*(__thiscall*)(void*)>(&Nx::VirtualSlot15Jump)(geometry);
 }
 
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the

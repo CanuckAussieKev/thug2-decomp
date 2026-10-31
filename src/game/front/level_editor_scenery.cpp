@@ -37,6 +37,7 @@
 #include "game/skate/skate_module.h"
 #include "game/gfx/render_state.h"
 #include "game/gfx/engine.h"
+#include "game/gfx/engine_geom.h"
 
 namespace Front::LevelEditor {
 
@@ -258,7 +259,7 @@ bool GeomBox(uint8_t* geom, V3* min, V3* max)
 // The geometry's world position (vfunc +0x4C, 0x004B46A0: the first mesh's; 0 when never moved).
 V3 GeomPosition(uint8_t* geom)
 {
-    const Mth::Vector* v = GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DED0)(geom);
+    const Mth::Vector* v = reinterpret_cast<const Mth::Vector*(__thiscall*)(void*)>(&Nx::VirtualSlot19Jump)(geom);
     return {v->x, v->y, v->z};
 }
 
@@ -400,7 +401,7 @@ void ApplyTrack(Track* track)
     }
     if (!SameV3(position, track->position)) {
         Mth::Vector to = {position.x, position.y, position.z, 1.0f};
-        GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x0048DEC0)(track->geom, &to);
+        reinterpret_cast<void(__thiscall*)(void*, const Mth::Vector*)>(&Nx::VirtualSlot18Jump)(track->geom, &to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
         // drag) would let the tree drift away from its faces; on sixteenths every step is exact and moving back gives

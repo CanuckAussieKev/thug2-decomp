@@ -47,14 +47,14 @@ T& Field(const void* object, uint32_t offset)
 template <typename R = void, typename... A>
 R Call(uint32_t address, const void* object, A... args)
 {
-    return GameFunction<R(__thiscall*)(const void*, A...)>(address)(object, args...);
+    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(address)(object, args...);
 }
 
 // The same, into code of ours reached through its address (GAME_CODE).
 template <typename R = void, typename... A>
 R Call(void* code, const void* object, A... args)
 {
-    return GameFunction<R(__thiscall*)(const void*, A...)>(reinterpret_cast<uintptr_t>(code))(object, args...);
+    return reinterpret_cast<R(__thiscall*)(const void*, A...)>(code)(object, args...);
 }
 
 inline Manager* ManagerOf(Net::MsgHandlerContext* context) { return static_cast<Manager*>(context->m_data); }
