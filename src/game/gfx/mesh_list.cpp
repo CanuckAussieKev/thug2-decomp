@@ -54,7 +54,8 @@ void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->De
 // A material's destructor body (not rewritten yet; thiscall).
 void DestroyMaterial(void* material) { static_cast<sMaterial*>(material)->DestroyBody(); }
 
-GAME_GLOBAL(uint16_t[596], g_stripBuffer, 0x007CAA40); // the rebuilt strip
+// the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
+GAME_GLOBAL(uint16_t[3072], g_stripBuffer, 0x007CAA40);
 
 // The rebuilt strip (0x007CAA40).
 uint16_t* StripBuffer() { return g_stripBuffer; }

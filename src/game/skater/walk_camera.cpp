@@ -22,6 +22,7 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/core/stubs.h"
 
 namespace Obj {
 
@@ -530,7 +531,18 @@ namespace {
 
 GAME_VTABLE(kVtable, 0x0064C5E0,
     &Obj::CWalkCameraComponent::Destroy,
-    &Obj::CWalkCameraComponent::Update);
+    &Obj::CWalkCameraComponent::Update,
+    &Obj::CWalkCameraComponent::InitFromStructure,
+    &Obj::CWalkCameraComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CWalkCameraComponent::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

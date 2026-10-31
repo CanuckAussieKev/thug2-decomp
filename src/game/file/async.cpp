@@ -871,7 +871,24 @@ REPLACE(0x005B6970, &AsyncLoaderModuleMethods::Start);
 
 namespace {
 GAME_VTABLE(kAsyncFileHandleAdapterVtable, 0x00657EC8, &AsyncFileHandleAdapter::Destroy,
-            &AsyncFileHandle::IoCallback);
+            &AsyncFileHandle::IoCallback,
+            &BaseStubs::Init,
+            &BaseStubs::Open,
+            &BaseStubs::Close,
+            &BaseStubs::IsDone,
+            &BaseStubs::IsBusy,
+            &BaseStubs::IsEOF,
+            &BaseStubs::SetPriority,
+            &BaseStubs::SetStream,
+            &BaseStubs::SetDestination,
+            &BaseStubs::SetBufferSize,
+            &BaseStubs::SetBlocking,
+            &BaseStubs::Load,
+            &BaseStubs::Read,
+            &BaseStubs::Write,
+            &BaseStubs::GetS,
+            &BaseStubs::Seek,
+            &BaseStubs::Cancel);
 GAME_VTABLE(kAsyncLoaderModuleMethodsVtable, 0x00658158, &AsyncLoaderModuleMethods::Destroy,
             &AsyncLoaderModuleMethods::Start, &Mdl::Skate::StopCallback);
 GAME_VTABLE(kPcAsyncFileHandleAdapterVtable, 0x006583D8, &PcAsyncFileHandleAdapter::Destroy,

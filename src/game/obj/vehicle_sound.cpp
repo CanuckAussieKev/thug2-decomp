@@ -23,6 +23,7 @@
 #include "game/obj/node_components.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/skater/vehicle_sound.h"
 
 namespace Obj {
 
@@ -384,7 +385,13 @@ GAME_VTABLE(kVtable, 0x006467F4,
     &Obj::CVehicleSoundComponent::Finalize,
     Stubs::DoNothing,
     Obj::RefreshFromStructure,
-    Stubs::IgnoreArguments2);
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    &Obj::CVehicleSoundComponent::GetDebugInfo,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

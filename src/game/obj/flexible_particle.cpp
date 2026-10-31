@@ -22,6 +22,8 @@
 #include "hook/hook.h"
 #include "game/gfx/engine.h"
 #include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/camera_lookaround.h"
 
 namespace Nx {
 
@@ -537,7 +539,19 @@ namespace Obj {
 namespace {
 
 GAME_VTABLE(kVtable, 0x00645FE4,
-    &Obj::CFlexibleParticleComponent::Destroy);
+    &Obj::CFlexibleParticleComponent::Destroy,
+    &Obj::CFlexibleParticleComponent::Update,
+    &Obj::CFlexibleParticleComponent::InitFromStructure,
+    &Obj::CFlexibleParticleComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    Stubs::IgnoreArgument,
+    &Obj::CFlexibleParticleComponent::Hide,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CFlexibleParticleComponent::CallMemberFunctionEntry,
+    &Obj::CFlexibleParticleComponent::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

@@ -27,7 +27,7 @@ namespace {
 IDirect3DDevice9* Device() { return g_d3dDevice; }
 GAME_GLOBAL(Lst::HashTable, g_glowTable, 0x007CA9D8, Lst::HashTable::Unconstructed{}); // (the exe makes it with HashTable(8) at start-up)
 Lst::HashTable& Glows() { return g_glowTable; }
-GAME_GLOBAL(uint8_t[456], g_glowQueriesInUse, 0x007BA520);
+GAME_GLOBAL(uint8_t[0x400], g_glowQueriesInUse, 0x007BA520); // (a byte per query: DrawGlows looks through 0x400)
 GAME_GLOBAL(float[16], g_glowQuad, 0x007CA9F0);
 
 // The occlusion queries in use (a byte each).

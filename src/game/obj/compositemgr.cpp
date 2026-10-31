@@ -88,7 +88,8 @@ GAME_GLOBAL(int, g_coimC, 0x006F0D98);
 GAME_GLOBAL(Mem::Region*, g_coimRegion, 0x006F0DA0);
 GAME_GLOBAL(Mem::Heap*, g_coimHeap, 0x006F0DA4);
 GAME_GLOBAL(uint32_t, g_instanceCount, 0x006F0DB4);
-GAME_GLOBAL(CBaseComponent*[82], g_componentList, 0x006F0DB8);
+// (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
+GAME_GLOBAL(CBaseComponent*[Obj::CCompositeObjectManager::kMaxComponentTypes], g_componentList, 0x006F0DB8);
 GAME_GLOBAL(Obj::CCompositeObjectManager*, g_compositeObjectManager, 0x006F0FB8);
 GAME_GLOBAL(uint32_t, g_compositeMgrReferences, 0x006F0FBC);
 

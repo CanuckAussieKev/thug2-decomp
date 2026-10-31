@@ -33,7 +33,9 @@ namespace Nx {
 
 // The rain / snow grid's rows (sWeatherRow, one more than the grid is deep: at most 302) and, right after them, the
 // columns' height indices (a 16-bit offset into them).
-GAME_GLOBAL(uint8_t[0x10000 + 303 * 6], g_weatherGrid, 0x00764330);
+// (the grid, then the rows' spans and their columns - no fixed bound: all the bytes up to the next thing the original
+// refers to, 0x00775B58)
+GAME_GLOBAL(uint8_t[0x11828], g_weatherGrid, 0x00764330);
 
 namespace {
 

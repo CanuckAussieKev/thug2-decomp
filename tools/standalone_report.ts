@@ -104,7 +104,9 @@ function main(): number {
         return 1;
     }
     const unresolved = parseLinkErrors(log);
-    if (!unresolved.length && !/thug2_standalone\.exe/.test(log)) {
+    // (an up-to-date build links nothing: the exe is there)
+    const linked = /thug2_standalone\.exe/.test(log) || fs.existsSync("out/build/verify/thug2_standalone.exe");
+    if (!unresolved.length && !linked) {
         print(`the build didn't get to the link - see ${BUILD_LOG}`);
         return 1;
     }

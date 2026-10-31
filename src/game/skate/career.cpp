@@ -21,12 +21,12 @@
 
 namespace Obj {
 
-GAME_GLOBAL(bool, g_careerLeftOut, 0x007CE4E8);
+// Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
+GAME_GLOBAL(bool[CSkaterCareer::kLevels], g_careerLeftOut, 0x007CE4E8);
 
 namespace {
 
-// Levels left out of the totals (a byte each).
-bool* LeftOut() { return &g_careerLeftOut; }
+bool* LeftOut() { return g_careerLeftOut; }
 
 uint32_t Bit(int index) { return 1u << (index & 0x1F); }
 int Word(int index) { return index >> 5; }
