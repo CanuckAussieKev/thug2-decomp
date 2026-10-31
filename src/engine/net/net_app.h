@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
@@ -25,8 +26,6 @@ class Task;
 namespace net {
 
 struct AppHost;
-
-extern void** const kAppVtable; // 0x006475B4
 
 // What an App does with a packet from an address that isn't one of its connections (+0x1E88).
 using UnknownPacketCallback = void(__cdecl*)(char* data, int size, sockaddr* from);
@@ -83,10 +82,28 @@ static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, content_) == 0x
                   offsetof(StreamDesc, order_number_) == 0x38 && offsetof(StreamDesc, borrowed_payload_) == 0x40,
               "layout must match the original");
 
-// NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it).
-// Virtual slots: 0 deleting destructor (0x00459660), 1 handle_incoming (0x00459690), 2 pull_inbound (pure),
-// 3 flush_outbox(Conn*) (pure), 4 Init (0x00457110), 5 Deinit (0x00457490).
+// NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it). The
+// platform side - reading the socket, sending a connection's packets - is the client's and the server's; slots 1
+// and 5 (handle_incoming, tear_down_state) are the same function in every table, so they aren't virtual here.
 struct AppHost {
+    // From the current heap (not zeroed: the original's), freed to the memory manager.
+    static void* operator new(std::size_t size) noexcept { return memory::alloc(static_cast<unsigned int>(size)); }
+    static void operator delete(void* memory) { memory::dealloc(memory); }
+
+    // 0x004594C0: the dispatcher's lists, the connection lists, the receive / process / metrics tasks, `flags`.
+    explicit AppHost(int flags);
+    // 0x00457710 / 0x00459660: the banned addresses and the tasks deleted, the lists unlinked, the dispatcher's.
+    virtual ~AppHost();
+    AppHost(const AppHost&) = delete;
+    AppHost& operator=(const AppHost&) = delete;
+
+    // Virtual slot 2: everything waiting on the socket, into the connections' read buffers.
+    virtual void pull_inbound() = 0;
+    // Virtual slot 3: packets to `conn` until its queues are empty or a packet is full.
+    virtual void flush_outbox(Conn* conn) = 0;
+    // 0x00457110 (virtual slot 4): the socket (unless local: UDP, non-blocking, broadcast if asked), the
+    // counters zeroed, the dispatcher set up with the library's own handlers. False (reported) on failure.
+    virtual bool prepare_all();
     // flag_bits_
     static constexpr uint32_t kBroadcast = 0x01; // the socket may broadcast
     static constexpr uint32_t kLocal = 0x08;     // no socket of its own (a client in the same process as its server)
@@ -138,9 +155,6 @@ struct AppHost {
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or
     // send failed.
     bool post_out(const uint8_t* data, int length, int flags);
-    // 0x00457110 (virtual slot 4): the socket (unless local: UDP, non-blocking, broadcast if asked), the
-    // counters zeroed, the dispatcher set up with the library's own handlers. False (reported) on failure.
-    bool prepare_all();
     // 0x00457280: a message (id, 16-bit length, data) as one datagram to ip:port.
     bool deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags);
     // 0x00457300: `conn` taken out of the connection list and deleted.
@@ -149,14 +163,12 @@ struct AppHost {
     Conn* step_conn_walk(ConnSearch* search);
     // 0x00457400: `conn`'s address added to the banned list.
     void block_connection(Conn* conn);
-    // 0x00457490 (virtual slot 5): the socket closed (unless local), the dispatcher cleared, every connection
-    // deleted.
+    // 0x00457490 (slot 5 of every app's table; the client's and the server's 0x0045B820 is a jump to it): the
+    // socket closed (unless local), the dispatcher cleared, every connection deleted.
     void tear_down_state();
     // 0x00457560: dispatch the sequenced messages received ahead of their turn whose turn has come, group by
     // group. False if a handler said the connection is gone.
     bool dispatch_queued_sequenced_messages(Conn* conn);
-    // 0x00457710: the destructor body.
-    void destroy_body();
     // 0x004578B0
     Conn* find_conn_at_address(uint32_t ip, uint16_t port);
     // 0x00457910
@@ -169,11 +181,6 @@ struct AppHost {
     // 0x00457C80: the messages with id `id` taken out of one of `conn`'s queues (0 normal, 1 important,
     // 2 sequenced), a PendingMsg deleted when its last link goes.
     void free_messages(Conn* conn, int queue, uint8_t id);
-
-    // 0x004594C0 (constructor)
-    AppHost* make_new(int flags);
-    // 0x00459660 (scalar deleting destructor; the body is 0x00457710)
-    AppHost* teardown(unsigned int flags);
 
     // 0x00457EB0: queue `desc` for `handle`'s connection, for every ready one (0xFF), or every one but
     // handle & 0x7F (handle with 0x80 set).
@@ -244,7 +251,6 @@ struct AppHost {
     // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
     static int __cdecl drain_stream_msgs(InboundMsgCtx* context);
 
-    void** vtable_;           // +0x0000
     uint32_t unknown4_;       // +0x0004
     uint32_t clock_;          // +0x0008 the current time (ms)
     Router dispatcher_;       // +0x000C (wt/netC)
@@ -277,8 +283,10 @@ struct AppHost {
     ConnNode circuits_;                         // +0x1E8C head (data -1)
     BannedConnNode banned_;                     // +0x1EA0 head
     uint32_t unknown1eb4_;
-    char label_[0x48];   // +0x1EB8 ("server", "client"...)
-    double unknown1f00_; // +0x1F00 (0.0 from the constructor; not used by the library)
+    char label_[0x48]; // +0x1EB8 ("server", "client"...)
+    // +0x1F00 a double (0.0 from the constructor; not used by the library), as two words: an 8-aligned member would
+    // move MSVC's first member after the vptr to +8.
+    uint32_t unknown1f00_[2];
 };
 static_assert(offsetof(AppHost, dispatcher_) == 0x0C && offsetof(AppHost, dispatcher_app_) == 0x13F8 &&
                   offsetof(AppHost, outbound_byte_total_) == 0x13FC && offsetof(AppHost, frame_count_) == 0x1410 &&

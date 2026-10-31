@@ -9,20 +9,20 @@
 
 namespace net {
 
-class HostEnd : public AppHost {
+class HostEnd final : public AppHost {
 public:
     // 0x0045B830: the App (0x004594C0, with `flags`), then the App's task (tasks::Task, priority -2000).
-    HostEnd* make_new(int flags);
+    explicit HostEnd(int flags);
 
     // 0x0045B7A0: the App's Init, then handlers for connection requests, timestamps and disconnection requests.
-    bool prepare_all();
+    bool prepare_all() override;
 
     // 0x0045BBD0: everything waiting on the socket, each packet into its sender's connection (a new one for an
     // unknown address).
-    void pull_inbound();
+    void pull_inbound() override;
     // 0x0045B920: packets to one client until its queues are empty or a packet is full: a timestamp in each, a
     // latency test when due, then the queues; the bandwidth goes down when messages wait for acks.
-    void transmit(Conn* conn);
+    void flush_outbox(Conn* conn) override;
 
     // Handlers.
     // 0x0045ADB0 (id 3): a connection request: accepted (id 4, important) for a local connection, or for a
@@ -32,6 +32,9 @@ public:
     static int __cdecl on_link_drop_ask_msg(InboundMsgCtx* context);
     // 0x0045AA30 (id 9): a client's timestamp, acked.
     static int __cdecl on_clock_sync_msg(InboundMsgCtx* context);
+
+    uint8_t unused1f08_[0x400]; // +0x1F08 (allocated, never used)
 };
+static_assert(sizeof(HostEnd) == 0x2308, "allocated as 0x2308 bytes (0x00455270)");
 
 } // namespace net

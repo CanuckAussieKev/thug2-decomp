@@ -29,8 +29,6 @@ constexpr int kConnectionTypeNone = 1; // (1 and 3: no configured IP address; th
 constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
 // The classes' sizes (Server and Client here are views: their fields past App's aren't named yet).
-constexpr uint32_t kServerSize = 0x2308;
-constexpr uint32_t kClientSize = 0x1F18;
 
 Hub*& sole() { return g_net_core; }
 
@@ -64,8 +62,6 @@ void copy_name(char* out, const char* text)
 #pragma warning(suppress : 4996)
     std::strncpy(out, text, 0x40);
 }
-
-bool init_app(AppHost* app) { return reinterpret_cast<bool(__thiscall*)(AppHost*)>(app->vtable_[4])(app); }
 
 } // namespace
 
@@ -109,10 +105,9 @@ HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_));
-    void* memory = memory::alloc(kServerSize);
-    HostEnd* server = memory ? static_cast<HostEnd*>(memory)->make_new(flags) : nullptr;
+    auto* server = new HostEnd(flags);
     server->supervisor_ = this;
-    init_app(server);
+    server->prepare_all();
     server->unknown1eb4_ = static_cast<uint32_t>(id);
     copy_name(server->label_, name);
     server->peer_cap_ = max_clients;
@@ -140,11 +135,10 @@ Guest* Hub::make_client_app(int id, const char* name, uint16_t port, int address
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_));
-    void* memory = memory::alloc(kClientSize);
-    Guest* client = memory ? static_cast<Guest*>(memory)->make_new(flags) : nullptr;
+    auto* client = new Guest(flags);
     copy_name(client->label_, name);
     client->supervisor_ = this;
-    init_app(client);
+    client->prepare_all();
     client->unknown1eb4_ = static_cast<uint32_t>(id);
     client->peer_cap_ = kClientMaxConnections;
     append_last(&clients_, &client->list1414_);
@@ -165,9 +159,8 @@ void Hub::release_app(AppHost* app)
     node.next->prev = node.prev;
     node.next = &node;
     node.prev = &node;
-    reinterpret_cast<void(__thiscall*)(AppHost*)>(app->vtable_[5])(app); // Deinit (through 0x00456B30)
-    if (app)                                                             // (checked only now)
-        reinterpret_cast<void*(__thiscall*)(AppHost*, unsigned int)>(app->vtable_[0])(app, 1);
+    app->tear_down_state(); // (through 0x00456B30)
+    delete app;             // (checked for null only now)
     --num_apps_;
 }
 

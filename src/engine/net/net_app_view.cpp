@@ -353,9 +353,8 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
 }
 
 // 0x00457710
-void AppHost::destroy_body()
+AppHost::~AppHost()
 {
-    vtable_ = kAppVtable;
     lists::Hunt<BlockedConnEntry> search;
     for (BlockedConnEntry *banned = search.head_element(&banned_), *next; banned; banned = next) {
         next = search.following_item();

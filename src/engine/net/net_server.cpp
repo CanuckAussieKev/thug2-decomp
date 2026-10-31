@@ -9,7 +9,6 @@
 #include "engine/core/manager.h"
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "engine/net/net_client.h"
 
 namespace net {
@@ -18,10 +17,6 @@ void construct_app_task(AppHost* app); // net_client.cpp
 
 namespace {
 
-static VtableSlot g_server_vtable_slots[] = {&net::Guest::teardown,       &net::AppHost::handle_incoming,
-                                             &net::HostEnd::pull_inbound, &net::HostEnd::transmit,
-                                             &net::HostEnd::prepare_all,  &net::Guest::tear_down_state};
-void** const kServerVtable = reinterpret_cast<void**>(g_server_vtable_slots);
 constexpr int kBandwidthStep = 500; // less when messages pile up
 constexpr int kMinBandwidth = 0x530;
 constexpr int kIdleBandwidthStep = 1000; // more when nothing waits for an ack
@@ -32,13 +27,7 @@ Router* get_dispatcher(AppHost* app) { return &app->dispatcher_; }
 } // namespace
 
 // 0x0045B830
-HostEnd* HostEnd::make_new(int flags)
-{
-    AppHost::make_new(flags);
-    prop<void**>(this, 0) = kServerVtable;
-    construct_app_task(this);
-    return this;
-}
+HostEnd::HostEnd(int flags) : AppHost(flags) { construct_app_task(this); }
 
 // 0x0045B7A0
 bool HostEnd::prepare_all()
@@ -101,7 +90,7 @@ void HostEnd::pull_inbound()
 }
 
 // 0x0045B920
-void HostEnd::transmit(Conn* conn)
+void HostEnd::flush_outbox(Conn* conn)
 {
     NetMessageInfo timestamp_desc;
     construct_msg_desc(&timestamp_desc);

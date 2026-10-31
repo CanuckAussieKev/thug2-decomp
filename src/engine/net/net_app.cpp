@@ -18,16 +18,8 @@
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "game/skate/skate_module.h"
-#include "engine/net/buddy_status.h"
-#include "engine/net/gamenet_lobby.h"
 
 namespace net {
-
-static VtableSlot g_app_vtable_slots[] = {&AppHost::teardown, &AppHost::handle_incoming, &_purecall,
-                                          &_purecall,         &AppHost::prepare_all,     &AppHost::tear_down_state};
-void** const kAppVtable = reinterpret_cast<void**>(g_app_vtable_slots);
 
 namespace {
 
@@ -202,13 +194,6 @@ int dispatch_messages(HandlerLists* dispatcher, Conn* conn, int flags)
     return static_cast<Router*>(dispatcher)->invoke_handlers_for_msg(conn, static_cast<uint32_t>(flags));
 }
 
-// App's virtual functions.
-void pull_inbound(AppHost* app) { reinterpret_cast<void(__thiscall*)(AppHost*)>(app->vtable_[2])(app); }
-void send_enqueued_messages_to(AppHost* app, Conn* conn)
-{
-    reinterpret_cast<void(__thiscall*)(AppHost*, Conn*)>(app->vtable_[3])(app, conn);
-}
-
 // A task of the app's (null if out of memory).
 tasks::SchedulerTask* new_task(int priority, tasks::Task<AppHost>::Code callback, AppHost* app)
 {
@@ -228,12 +213,9 @@ void setup_list_sentinel(ListNode* head, void** vtable)
 
 } // namespace
 
-double g_double_zero;
-
 // 0x004594C0
-AppHost* AppHost::make_new(int flags)
+AppHost::AppHost(int flags)
 {
-    vtable_ = kAppVtable;
     for (MsgHandlerNode& handlers : dispatcher_.lists_)
         handlers.construct_head();
     dispatcher_app_ = this;
@@ -248,20 +230,10 @@ AppHost* AppHost::make_new(int flags)
     metrics_task_ = new_task(kMetricsTaskPriority, &AppHost::network_metrics, this);
     receive_task_ = new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this);
     process_task_ = new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this);
-    unknown1f00_ = g_double_zero; // 0.0
+    unknown1f00_[0] = unknown1f00_[1] = 0; // the double 0.0
     flag_bits_ = static_cast<uint32_t>(flags);
     clock_ = 0;
     unknown_packet_sink_ = nullptr;
-    return this;
-}
-
-// 0x00459660
-AppHost* AppHost::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
 }
 
 namespace {
@@ -489,7 +461,7 @@ void AppHost::flush_outbox()
 {
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item())
-        send_enqueued_messages_to(this, conn);
+        flush_outbox(conn);
 }
 
 // 0x00458CA0
@@ -650,7 +622,7 @@ void __cdecl AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     ++app->frame_count_;
-    reinterpret_cast<bool(__thiscall*)(AppHost*)>(app->vtable_[1])(app); // handle_incoming
+    app->handle_incoming();
 }
 
 // 0x004593C0
@@ -659,7 +631,7 @@ void __cdecl AppHost::receive_network_data(tasks::Task<AppHost>* task)
     AppHost* app = task_app(task);
     app->clock_ = frame_clock::get_time();
     app->drop_broken_links();
-    pull_inbound(app);
+    app->pull_inbound();
 }
 
 // 0x004593E0

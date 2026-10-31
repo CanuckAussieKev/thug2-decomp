@@ -20,6 +20,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/net/gamenet_handlers.h"
 #include "engine/net/net_app.h"
+#include "engine/net/net_server.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/compositemgr.h"
@@ -176,14 +177,13 @@ void Viewer::stop_callback()
     remove_node(task_1c_);
     remove_node(task20_);
     remove_node(shift_handler_);
-    static_cast<net::AppHost*>(net_handler_)->dispatcher_.tear_down_state();
+    net_handler_->dispatcher_.tear_down_state();
 }
 
 // 0x00576DC0
 Viewer::~Viewer()
 {
-    if (net_handler_)
-        erase_one(net_handler_, 0);
+    delete net_handler_; // (deleted directly, not released through the network manager - as the original)
     delete pad_listener_;
     delete task_1c_;
     delete task20_;
@@ -302,8 +302,7 @@ void Viewer::create_viewer_object(void* data)
                                                            : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
     drop_viewer_entity();
     void* memory = memory::alloc_zeroed(0x128);
-    entity_ = memory ? static_cast<objects::PreviewEntity*>(memory)->make_new(static_cast<net::AppHost*>(net_handler_))
-                     : nullptr;
+    entity_ = memory ? static_cast<objects::PreviewEntity*>(memory)->make_new(net_handler_) : nullptr;
     static_cast<objects::PreviewEntity*>(entity_)->read_in(static_cast<script::Struct*>(data));
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -520,7 +519,7 @@ void Viewer::start_callback()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->front_end_heap_);
     if (!debug_checks()) {
-        net::Router& dispatcher = static_cast<net::AppHost*>(net_handler_)->dispatcher_;
+        net::Router& dispatcher = net_handler_->dispatcher_;
         dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);
         dispatcher.append_listener(0x21, &online::handle_nothing, 3, nullptr, 0x80);
         dispatcher.append_listener(0x22, reinterpret_cast<net::HandlerSlotValue>(&reload_script_file), 3, nullptr,

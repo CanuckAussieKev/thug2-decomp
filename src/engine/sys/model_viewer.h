@@ -11,8 +11,9 @@
 // destructor, its input handlers and tasks (the free camera, the Select combos), the PC tool's messages, the viewer
 // object it owns, and a few helpers.
 namespace net {
+struct AppHost;
 struct InboundMsgCtx;
-}
+} // namespace net
 namespace script {
 class Struct;
 }
@@ -51,11 +52,11 @@ struct Viewer final : public PartUnit {
     float pad_lx_; // +0x34
     float pad_ly_; // +0x38
     uint8_t unknown3c_[8];
-    uint32_t actions_;     // +0x44 the buttons' commands (bits; add_commands)
-    uint32_t shift_makes_; // +0x48 the buttons pressed with select held
-    int mode_sel_;         // +0x4C 0: object mode, 1: ...
-    void* net_handler_;    // +0x50 the PC tool's message handler (vtable; +0x0C a list node)
-    void* entity_;         // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
+    uint32_t actions_;          // +0x44 the buttons' commands (bits; add_commands)
+    uint32_t shift_makes_;      // +0x48 the buttons pressed with select held
+    int mode_sel_;              // +0x4C 0: object mode, 1: ...
+    net::AppHost* net_handler_; // +0x50 the PC tool's message handler (a server app)
+    void* entity_;              // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
 
     // 0x00577F20: the constructor (only cfunc_launch_viewer 0x005A54E0 makes one): the module, no commands; unless
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port

@@ -11,20 +11,15 @@ namespace net {
 
 struct NetMessageInfo;
 
-class Guest : public AppHost {
+class Guest final : public AppHost {
 public:
-    // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (tasks::Task, priority -2000).
-    Guest* make_new(int flags);
-    // 0x0045B8E0 (scalar deleting destructor; Server's vtable has it too)
-    Guest* teardown(unsigned int flags);
-    // 0x0045B910: the destructor (a jump to App's, 0x00457710; Server's too).
-    void destroy_body();
-    // 0x0045B820: vtable slot 5 (a jump to App's, 0x00457490; Server's too).
-    void tear_down_state();
+    // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (tasks::Task, priority -2000). (Its
+    // destructor, 0x0045B8E0 / 0x0045B910 - the server's too -, is a jump to App's.)
+    explicit Guest(int flags);
 
     // 0x00459EC0: the App's Init, then handlers for "connection accepted", "refused", "terminated" and
     // timestamps.
-    bool prepare_all();
+    bool prepare_all() override;
     // 0x00459F40: connect() the socket to the server (retried while it would block). With a non-zero address the
     // socket is "connected" from then on (send/recv); false and the error reported if connect fails.
     bool dial_server(uint32_t ip, uint16_t port);
@@ -37,10 +32,10 @@ public:
 
     // 0x0045A300: everything waiting on the socket, into the server connection's read buffer (or, from an unknown
     // address while not connected, into a new connection).
-    void pull_inbound();
+    void pull_inbound() override;
     // 0x00459FD0: packets to the server until its queues are empty or a packet is full: a timestamp when due, a
     // latency test, then the queues.
-    void transmit(Conn* conn);
+    void flush_outbox(Conn* conn) override;
 
     // Handlers.
     // 0x0045ABC0 (id 4): the packet's messages will be acked.

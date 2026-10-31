@@ -13,16 +13,11 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 
 namespace net {
 
 namespace {
 
-static VtableSlot g_client_vtable_slots[] = {&net::Guest::teardown,     &net::AppHost::handle_incoming,
-                                             &net::Guest::pull_inbound, &net::Guest::transmit,
-                                             &net::Guest::prepare_all,  &net::Guest::tear_down_state};
-void** const kClientVtable = reinterpret_cast<void**>(g_client_vtable_slots);
 constexpr int kAppTaskPriority = -2000;
 
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
@@ -46,28 +41,7 @@ void construct_app_task(AppHost* app)
 }
 
 // 0x0045A250
-Guest* Guest::make_new(int flags)
-{
-    AppHost::make_new(flags);
-    prop<void**>(this, 0) = kClientVtable;
-    construct_app_task(this);
-    return this;
-}
-
-// 0x0045B910
-void Guest::destroy_body() { AppHost::destroy_body(); }
-
-// 0x0045B8E0
-Guest* Guest::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x0045B820
-void Guest::tear_down_state() { AppHost::tear_down_state(); }
+Guest::Guest(int flags) : AppHost(flags) { construct_app_task(this); }
 
 // 0x00459EC0
 bool Guest::prepare_all()
@@ -173,7 +147,7 @@ void Guest::pull_inbound()
 }
 
 // 0x00459FD0
-void Guest::transmit(Conn* conn)
+void Guest::flush_outbox(Conn* conn)
 {
     if (!transmit_due_now(this, conn))
         return;
