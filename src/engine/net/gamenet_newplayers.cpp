@@ -108,9 +108,8 @@ void Hub::add_new_player(uint8_t* info)
                                                 true, static_cast<int>(obj_id), 0);
         } else {
             auto* skaters = reinterpret_cast<modules::Skate*>(skate);
-            int count = get_call<void*>(code_address(modules::Skate::get_local_skater_stub), skate)
-                            ? skaters->count_riders()
-                            : (skaters->count_riders() + 1) & 7;
+            int count = reinterpret_cast<modules::Skate*>(skate)->get_home_rider() ? skaters->count_riders()
+                                                                                   : (skaters->count_riders() + 1) & 7;
             skater =
                 get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate,
                                            prop<void*>(info, kInfoProfile), false, static_cast<int>(obj_id), count);

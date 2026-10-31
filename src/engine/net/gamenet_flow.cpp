@@ -344,8 +344,7 @@ void __cdecl Hub::join_progress_tick(void* task)
         }
         if (info && (prop<uint32_t>(info, 0x20) & kNewPlayerObserver)) { // the local player joined to observe
             get_call(code_address(&modules::Skate::drop_skater_from_roster), get_skate(),
-                     get_call<void*>(code_address(modules::Skate::get_local_skater_stub),
-                                     get_skate())); // the local skater removed
+                     reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider()); // the local skater removed
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);

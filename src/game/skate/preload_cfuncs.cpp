@@ -93,17 +93,9 @@ void get_base_name(const char* name, char* base) { render::engine::split_skin_na
 // 0x00565BB0: the skate module's: whether a node isn't for this game (its own 0x68910AC6 test).
 bool skip_node(script::Struct* node) { return modules::Skate::should_be_absent(node) != 0; }
 
-// 0x005AAAA0 (gamenet-2's range: the list's name in EAX): every part of a global CAS part list with allow_random
+// 0x005AAAA0: every part of a global CAS part list with allow_random
 // preloaded (its mesh kept in memory).
-void preload_part_list(uint32_t list)
-{
-    void* stub = code_address(commands::preload_meshes_stub);
-    __asm {
-        mov eax, list
-        mov ecx, stub
-        call ecx
-    }
-}
+void preload_part_list(uint32_t list) { commands::preload_meshes(list); }
 
 // The CAS option lists (no source yet): 0x00485CF0 the option `descriptor_id` of a slot's global list; 0x00485D70 the
 // options of a slot's list matching a filter (0: any of them allowed to pick) into `out`, their count in `count`.

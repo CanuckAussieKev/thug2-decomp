@@ -39,6 +39,7 @@
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
+#include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -288,8 +289,7 @@ bool Hub::send_custom_tag_texture()
     uint8_t* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;
-    auto* skater =
-        get_call<objects::GameEntity*>(code_address(modules::Skate::get_local_skater_stub), skate); // the local skater
+    auto* skater = reinterpret_cast<modules::Skate*>(skate)->get_home_rider(); // the local skater
     if (!skater)
         return false;
     auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));

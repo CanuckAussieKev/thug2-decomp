@@ -59,16 +59,11 @@ R call_virtual(PcModelLights* lights, int slot, A... args)
     return reinterpret_cast<R(__thiscall*)(PcModelLights*, A...)>(lights->vtable[slot])(lights, args...);
 }
 
-// A dynamic light's falloff at `distance` (its virtual [2]; thiscall) as the x87 leaves it, unrounded.
-__declspec(naked) double __stdcall get_falloff(void* /*light*/, float /*distance*/)
+// A dynamic light's falloff at `distance` (its virtual [2]).
+double get_falloff(void* light, float distance)
 {
-    __asm {
-        mov ecx, [esp + 4]
-        push dword ptr [esp + 8]
-        mov eax, [ecx]
-        call dword ptr [eax + 8]
-        ret 8
-    }
+    void** vtable = *static_cast<void***>(light);
+    return reinterpret_cast<double(__thiscall*)(void*, float)>(vtable[2])(light, distance);
 }
 
 // The dynamic lights within `radius` of `position` (the engine's 0x0048EF90): their count, pointers into `out`.

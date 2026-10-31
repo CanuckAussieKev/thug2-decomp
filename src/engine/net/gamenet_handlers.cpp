@@ -35,6 +35,7 @@
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
+#include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -351,11 +352,10 @@ int __cdecl handle_choose_team(net::InboundMsgCtx* context)
     }
     get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
     get_run(kChooseTeamMessage);
-    if (get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate)) { // the local skater
-        get_run(kPrepareSkaterForMove, nullptr,
-                get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate));
+    if (reinterpret_cast<modules::Skate*>(skate)->get_home_rider()) { // the local skater
+        get_run(kPrepareSkaterForMove, nullptr, reinterpret_cast<modules::Skate*>(skate)->get_home_rider());
         get_call(code_address(&modules::Skate::teleport_to_spawn), skate,
-                 get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate), 0, 0);
+                 reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
     }
     return kContinue;
 }

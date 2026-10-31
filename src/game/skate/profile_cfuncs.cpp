@@ -111,21 +111,6 @@ void preload_meshes(uint32_t array_name)
     }
 }
 
-namespace {
-void __cdecl preload_meshes_registers(uint32_t array_name) { preload_meshes(array_name); }
-} // namespace
-
-// 0x005AAAA0: the array's name in EAX.
-__declspec(naked) void preload_meshes_stub()
-{
-    __asm {
-        push eax
-        call preload_meshes_registers
-        add esp, 4
-        ret
-    }
-}
-
 // 0x005AAA80
 bool __cdecl cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
 {

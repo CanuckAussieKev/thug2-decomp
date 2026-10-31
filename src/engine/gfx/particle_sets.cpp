@@ -46,56 +46,15 @@ script::Struct* spawn_param_table()
     return structure ? structure->prepare_all() : nullptr;
 }
 
-// The engine's helpers (not yet rewritten; register arguments).
-// 0x00495130 / 0x004951B0 (ECX a, EDX b, ESI out; returns out): each component b's where it's below / above a's.
-maths::Vec4* call_min_or_max(uint32_t code, const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* destination)
-{
-    maths::Vec4* result;
-    __asm {
-        mov ecx, a
-        mov edx, b
-        mov esi, destination
-        mov eax, code
-        call eax
-        mov result, eax
-    }
-    return result;
-}
-maths::Vec4* min_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out)
-{
-    return call_min_or_max(reinterpret_cast<uint32_t>(code_address(&min_vector_stub)), a, b, out);
-}
-maths::Vec4* max_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out)
-{
-    return call_min_or_max(reinterpret_cast<uint32_t>(code_address(&max_vector_stub)), a, b, out);
-}
-// 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
-// quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
+maths::Vec4* min_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out) { return min_vector(out, a, b); }
+maths::Vec4* max_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out) { return max_vector(out, a, b); }
+// 0x00494F10: per component, the extreme of the quadratic through `start` (at 0), `mid` (at `mid_time`) and `end`
+// (at `life`); w 0. Returns out.
 maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, const maths::Vec4& mid,
                             const maths::Vec4& end, float mid_time, float life)
 {
-    uint32_t args[14];
-    std::memcpy(args, &start, 16);
-    std::memcpy(args + 4, &mid, 16);
-    std::memcpy(args + 8, &end, 16);
-    std::memcpy(args + 12, &mid_time, 4);
-    std::memcpy(args + 13, &life, 4);
-    uint32_t* words = args;
-    void* code = code_address(&quadratic_lowest_stub);
-    maths::Vec4* result;
-    __asm {
-        sub esp, 0x38
-        mov esi, words
-        mov edi, esp
-        mov ecx, 14
-        rep movsd
-        mov ecx, destination
-        mov eax, code
-        call eax
-        add esp, 0x38
-        mov result, eax
-    }
-    return result;
+    QuadraticPoints points{start, mid, end, mid_time, life};
+    return quadratic_lowest(destination, &points);
 }
 
 float current_round(double value) { return static_cast<float>(value); }

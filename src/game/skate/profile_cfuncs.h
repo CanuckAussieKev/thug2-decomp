@@ -27,10 +27,9 @@ extern SwapSlot g_swap_table[5];
 // slot (a free one if it has none - the table being full isn't checked, as in the original), then their values are
 // exchanged; a slot left mapping its key to itself is freed.
 void __cdecl swap_mapping(uint32_t a, uint32_t b);
-// 0x005AAAA0 (the array's name in EAX): for each structure of the global array with allow_random, its mesh
+// 0x005AAAA0: for each structure of the global array with allow_random, its mesh
 // loaded (a model made, the mesh added to it, the model deleted - keeping the mesh in memory).
 void preload_meshes(uint32_t array_name);
-void preload_meshes_stub();
 
 // 0x005AAA80: AddGoalEditorNodesToLevelNodeArray (on the bottom-up heap). True.
 bool __cdecl cfunc_add_goal_editor_nodes_to_level_node_array(script::Struct* params, script::Script* script);

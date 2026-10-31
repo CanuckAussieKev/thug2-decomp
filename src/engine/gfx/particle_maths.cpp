@@ -34,7 +34,7 @@ double get_lowest(float square, float linear, float start)
 } // namespace
 
 // 0x00494F10
-maths::Vec4* __cdecl quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
+maths::Vec4* quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
 {
     const maths::Vec4& a = points->start;
     const maths::Vec4& b = points->p1;
@@ -85,25 +85,8 @@ maths::Vec4* __cdecl quadratic_lowest(maths::Vec4* out, const QuadraticPoints* p
     return out;
 }
 
-// The register adapter: out in ECX (kept, and EDX), the points on the stack (the caller pops them).
-__declspec(naked) void quadratic_lowest_stub()
-{
-    __asm {
-        push ecx
-        push edx
-        lea eax, [esp + 12]
-        push eax
-        push ecx
-        call quadratic_lowest
-        add esp, 8
-        pop edx
-        pop ecx
-        ret
-    }
-}
-
 // 0x00495130
-maths::Vec4* __cdecl min_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
+maths::Vec4* min_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
     maths::Vec4 result = *a;
     if (b->x < a->x)
@@ -118,7 +101,7 @@ maths::Vec4* __cdecl min_vector(maths::Vec4* out, const maths::Vec4* a, const ma
 }
 
 // 0x004951B0
-maths::Vec4* __cdecl max_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
+maths::Vec4* max_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
     maths::Vec4 result = *a;
     if (b->x > a->x)
@@ -130,30 +113,6 @@ maths::Vec4* __cdecl max_vector(maths::Vec4* out, const maths::Vec4* a, const ma
     result.w = through_x87(b->w > a->w ? b->w : a->w);
     *out = result;
     return out;
-}
-
-// The register adapters: a in ECX, b in EDX, out in ESI.
-__declspec(naked) void min_vector_stub()
-{
-    __asm {
-        push edx
-        push ecx
-        push esi
-        call min_vector
-        add esp, 12
-        ret
-    }
-}
-__declspec(naked) void max_vector_stub()
-{
-    __asm {
-        push edx
-        push ecx
-        push esi
-        call max_vector
-        add esp, 12
-        ret
-    }
 }
 
 } // namespace render

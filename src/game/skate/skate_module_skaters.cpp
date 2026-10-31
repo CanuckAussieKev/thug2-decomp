@@ -209,34 +209,6 @@ objects::Rider* Skate::get_rider_by_number(uint32_t id)
     return nullptr;
 }
 
-// The two lookups keep ECX (the original's leave it alone, and the whole-program-optimised callers rely on it: run_frame_logic
-// calls get_home_rider twice with the module in ECX).
-namespace {
-objects::Rider* __fastcall local_skater_of(Skate* skate) { return skate->get_home_rider(); }
-objects::Rider* __fastcall skater_by_id_of(Skate* skate, int, uint32_t id) { return skate->get_rider_by_number(id); }
-} // namespace
-
-__declspec(naked) void Skate::get_local_skater_stub()
-{
-    __asm {
-        push ecx
-        call local_skater_of
-        pop ecx
-        ret
-    }
-}
-
-__declspec(naked) void Skate::get_skater_by_id_stub()
-{
-    __asm {
-        push ecx
-        push dword ptr [esp + 8]
-        call skater_by_id_of
-        pop ecx
-        ret 4
-    }
-}
-
 // --- adding and removing --------------------------------------------------------------------------------------------
 
 // 0x00565790

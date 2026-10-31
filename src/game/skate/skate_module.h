@@ -107,9 +107,6 @@ public:
     // 0x00566520: the first local skater (null: none). 0x00566600: the skater whose object id is `id` (null: none).
     objects::Rider* get_home_rider();
     objects::Rider* get_rider_by_number(uint32_t id);
-    // Their entries (ECX kept, as the original's).
-    static void get_local_skater_stub();
-    static void get_skater_by_id_stub();
     // 0x00567180: a skater for `profile` (a local one: the existing local skater - given `id` when it has another -
     // or a new one on the next unused skater heap); its controllers bound, the created tricks and stat goals given
     // back. 0x00565790: a skater removed (its bail board; a client's left script; the local player's created tricks
