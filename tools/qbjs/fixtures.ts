@@ -66,8 +66,11 @@ export function fixture(): Uint8Array {
             ],
             field("x", integer(9)),
         ),
-        ...script("zero", [...command("Wait", [...integer(0), ...name("frames")]), ...returned("done", integer(1))]),
-        ...script("two", [...command("Wait", [...integer(2), ...name("frames")]), ...returned("done", integer(1))]),
+        ...script("zero", [
+            ...command("Wait", [...integer(0), ...name("gameframes")]),
+            ...returned("done", integer(1)),
+        ]),
+        ...script("two", [...command("Wait", [...integer(2), ...name("gameframes")]), ...returned("done", integer(1))]),
         ...script("unknown", command("NoSuchHost")),
         ...script("throws", command("Throws")),
         ...script("recursive", command("recursive")),
@@ -84,8 +87,8 @@ export function fixture(): Uint8Array {
         ),
         ...script("spread", [...command("echo_child", [0x2c]), ...returned("done", integer(1))]),
         ...script("echo_child", returned("forwarded", param("x"))),
-        ...script("floatwait", command("Wait", [...integer(1), ...floating(0x3f800000), ...name("frames")])),
-        ...script("mixedwait", command("Wait", [...integer(1), ...name("frames"), ...name("seconds")])),
+        ...script("floatwait", command("Wait", [...integer(1), ...floating(0x3f800000), ...name("gameframes")])),
+        ...script("mixedwait", command("Wait", [...integer(1), ...name("gameframes"), ...name("seconds")])),
         0,
     ]);
 }

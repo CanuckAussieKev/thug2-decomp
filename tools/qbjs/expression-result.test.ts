@@ -1,11 +1,11 @@
 // NOT ORIGINAL - boundary/compatibility assertions, independent of game assets.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { emitIR } from "./emitter.ts";
 import { expressionResultBundle, expressionResultFixture } from "./expression-result-fixtures.ts";
 import { field, integer, param, script } from "./fixtures.ts";
+import { helperSource } from "./helper-sources.ts";
 import { readIR } from "./reader.ts";
 
 const completions = (value: unknown): number => {
@@ -55,7 +55,7 @@ test("completion IR marks ParseExpression calls but leaves nested and random gro
 });
 
 test("new completion helper is required before registration while old format-2 helpers remain compatible otherwise", () => {
-    const values = readFileSync(new URL("../../scripting/values.js", import.meta.url), "utf8");
+    const values = helperSource("values");
     const completion = emitIR(
         readIR(Uint8Array.from([...script("new", [...field("value", [14, ...integer(7), 15]), 1]), 0])),
     );

@@ -1,7 +1,6 @@
-// NOT ORIGINAL - synthetic random values, never extracted game QB.
-import { readFileSync } from "node:fs";
 import { emitIR } from "./emitter.ts";
 import { command, field, integer, param, script, word } from "./fixtures.ts";
+import { helperSource } from "./helper-sources.ts";
 import { readIR } from "./reader.ts";
 import { checksum } from "./translate.ts";
 
@@ -54,7 +53,7 @@ export function randomFixture() {
             sites[String(d.name)] = { source: ir.source, script: d.name, offset: d.body[0].value.offset };
     return { input, ir, javascript: emitIR(ir), sites };
 }
-export const randomSource = () => readFileSync(new URL("../../scripting/random.js", import.meta.url), "utf8");
+export const randomSource = () => helperSource("random");
 export function randomAssertions(): string {
     const key = checksum,
         sites = JSON.stringify(randomFixture().sites);

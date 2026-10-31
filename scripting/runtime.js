@@ -90,7 +90,9 @@ globalThis.qb = (() => {
                 else { const out = merge(p, returned); p.splice(0, p.length, ...out); }
                 return true; // A QB-call condition counts as true, irrespective of returned values.
             }
+            if (symbols.has(name)) return false; // A data symbol is not a command.
             const r = __qbHost(name, args, p);
+            if (r === undefined) return false; // Missing command: game's false condition.
             if (!r || typeof r.condition !== 'boolean') throw Error('Invalid QB host response');
             if (t.format === 2) values().append(p, r.outputs, context(site));
             else { const out = merge(p, r.outputs); p.splice(0, p.length, ...out); }
@@ -147,16 +149,29 @@ globalThis.qb = (() => {
             const entry = script(n);
             if (!entry) throw Error('Unknown root QB script');
             if (!Number.isInteger(fuel) || fuel < 0 || fuel > 1000000) throw Error('Invalid QB fuel');
-            const t = {id:nextId, format:entry.format, generator:null, parameters:[], fuel, depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:''};
+            const t = {id:nextId, format:entry.format, generator:null, parameters:[], fuel, fuelLimit:fuel, depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:''};
             t.generator = entry.fn(copyParameters(t, args), true);
             const id = nextId++; tasks.set(id, t); return id;
+        },
+        startScalar(n,args,fuel) {
+            const entry=script(n);
+            if (entry?.format===2) throw Error('Format-2 native tasks require startRich; scalar boundary rejected before execution');
+            return this.start(n,args,fuel);
+        },
+        abort(id) {
+            const t=tasks.get(id);if(!t)throw Error('Unknown QB task');
+            active=null;t.generator=null;t.status='fault';
+            t.message='QB execution interrupt budget exhausted' + (t.site ?
+                ` at ${t.site.source} script 0x${t.site.script.toString(16)} QB offset 0x${t.site.offset.toString(16)}` : '');
+            if(rng)rng.forget(id);
+            return snapshot(t);
         },
         update(id, frame) {
             uint(frame); const t = tasks.get(id); if (!t) throw Error('Unknown QB task');
             if (active) throw Error('Reentrant QB execution');
             if (frame < lastFrame) throw Error('QB frame went backwards'); lastFrame = frame;
             if (t.frame === frame || !['ready', 'waiting'].includes(t.status)) return snapshot(t);
-            t.frame = frame; active = t;
+            t.frame = frame; t.fuel = t.fuelLimit; active = t;
             try {
                 if (t.waiting && t.remaining) { --t.remaining; return snapshot(t); }
                 t.waiting = false;
@@ -168,6 +183,7 @@ globalThis.qb = (() => {
                     t.remaining = count - 1; t.waiting = true; t.status = 'waiting'; break;
                 }
             } catch (e) {
+                if(e?.name==='InternalError' && /out of memory|stack overflow/.test(e.message)) throw e;
                 t.status = 'fault';
                 t.message = String(e) + (t.site ? ` at ${t.site.source} script 0x${t.site.script.toString(16)} QB offset 0x${t.site.offset.toString(16)}` : '');
             } finally { active = null; }

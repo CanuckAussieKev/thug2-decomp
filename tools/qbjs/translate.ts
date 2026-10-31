@@ -14,16 +14,7 @@ export type Statement =
     | { kind: "if"; offset: number; condition: Call | Value; yes: Statement[]; no: Statement[] };
 export type Script = { name: number; offset: number; defaults: Field[]; body: Statement[] };
 export type Module = { source: string; scripts: Script[] };
-export function checksum(name: string): number {
-    let crc = 0xffffffff;
-    for (let byte of Buffer.from(name, "utf8")) {
-        if (byte >= 65 && byte <= 90) byte += 32;
-        if (byte === 47) byte = 92;
-        crc ^= byte;
-        for (let i = 0; i < 8; ++i) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
-    }
-    return crc >>> 0;
-}
+export { checksum } from "../qb_checksum.ts";
 
 export function parse(bytes: Uint8Array, source = "input.qb"): Module {
     if (bytes.length > 4 * 1024 * 1024) throw new Error(`${source}: module exceeds 4 MiB`);

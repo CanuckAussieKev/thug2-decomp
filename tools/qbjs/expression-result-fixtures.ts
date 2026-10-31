@@ -98,7 +98,7 @@ try {
 
 export function expressionResultBundle() {
     return (
-        ["random.js", "values.js", "runtime.js"]
+        ["numeric.js", "random.js", "values.js", "runtime.js"]
             .map((file) => readFileSync(new URL(`../../scripting/${file}`, import.meta.url), "utf8"))
             .join("\n") +
         "\n" +

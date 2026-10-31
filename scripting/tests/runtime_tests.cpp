@@ -56,7 +56,7 @@ int main(int argc,char** argv){try{
     check(r.status=="fault"&&r.message.find("checksum expression dispatch")!=std::string::npos,"Name expressions are not silently treated as booleans");vm.cancel(id);
     id=vm.start(checksum("callcondition"));r=vm.update(id,12);check(r.status=="finished"&&get(r.parameters,"truth").bits==1&&get(r.parameters,"done").bits==1,"QB-call condition runs callee then true body");vm.cancel(id);
     id=vm.start(checksum("spread"),{{checksum("x"),{13,0x12345678}}});r=vm.update(id,13);check(r.status=="finished"&&get(r.parameters,"forwarded")==Value{13,0x12345678},"Parameter spread keeps typed names");vm.cancel(id);
-    for(auto script:{"unknown","throws","recursive","badwait","expression","floatwait","mixedwait"}){
+    for(auto script:{"throws","recursive","badwait","expression","floatwait","mixedwait"}){
         id=vm.start(checksum(script));r=vm.update(id,14);check(r.status=="fault"&&r.message.find("QB offset")!=std::string::npos,"Faults identify original QB source site");vm.cancel(id);
     }
     id=vm.start(checksum("zero"),{},0);r=vm.update(id,15);check(r.status=="fault"&&r.message.find("fuel")!=std::string::npos,"Statement fuel bounded");
@@ -83,21 +83,22 @@ int main(int argc,char** argv){try{
     {
         Runtime task_oom(1024*1024,100000);
         task_oom.load("qb.define(1,function*(){new ArrayBuffer(4*1024*1024);return [];});qb.define(2,function*(){return [[1,{type:1,bits:9}]];});","oom-generator.js");
-        auto t=task_oom.start(1);auto snap=task_oom.update(t,0);
-        check(snap.status=="fault"&&snap.message.find("out of memory")!=std::string::npos,"Task-local generator OOM faults task Snapshot");
-        task_oom.cancel(t);
-        auto next=task_oom.start(2);snap=task_oom.update(next,1);
-        check(snap.status=="finished"&&snap.parameters.size()==1&&snap.parameters[0].value.bits==9,"Runtime remains usable after isolated generator OOM fault");
-        task_oom.cancel(next);
+        auto t=task_oom.start(1);
+        rejects([&]{task_oom.update(t,0);},"Uncaught generator OOM is terminal");
+        rejects([&]{task_oom.start(2);},"Runtime rejects work after generator OOM");
     }
     {
         Runtime fatal_interrupt(16*1024*1024,2);
-        fatal_interrupt.load("qb.define(1, function* () { while (true) {} });","runaway.js");
+        fatal_interrupt.load("qb.define(1, function* () { while (true) {} });qb.define(2,function*(){return [];});","runaway.js");
         auto tid=fatal_interrupt.start(1);
-        rejects([&]{fatal_interrupt.update(tid,0);},"Interrupt budget during update escapes as fatal C++ error");
-        rejects([&]{fatal_interrupt.update(tid,1);},"Runtime is terminal after fatal update interrupt");
-        rejects([&]{fatal_interrupt.start(1);},"Start rejected on terminal runtime");
-        rejects([&]{fatal_interrupt.cancel(tid);},"Cancel rejected on terminal runtime");
+        auto healthy=fatal_interrupt.start(2);
+        check(fatal_interrupt.update(tid,0).status=="fault","Interrupt faults only the runaway task");
+        check(fatal_interrupt.update(tid,1).status=="fault","Fault snapshot remains observable");
+        check(fatal_interrupt.update(healthy,1).status=="finished","Already retained unrelated task survives interrupt");
+        fatal_interrupt.cancel(tid);
+        fatal_interrupt.cancel(healthy);
+        fatal_interrupt.load("qb.define(3,function*(){return [];});","after-interrupt.js");
+        check(fatal_interrupt.update(fatal_interrupt.start(3),2).status=="finished","Runtime recovered after interrupt");
     }
     {
         Runtime fatal_alloc;fatal_alloc.load(source,"fixtures.js");
@@ -116,6 +117,20 @@ int main(int argc,char** argv){try{
         auto tid=fatal_js_oom.start(checksum("unknown"));
         rejects([&]{fatal_js_oom.update(tid,0);},"QuickJS OOM in host response escapes update as fatal C++ error");
         rejects([&]{fatal_js_oom.update(tid,1);},"Runtime is terminal after QuickJS OOM in update");
+    }
+    {
+        Runtime timed;timed.install_frame_wait();
+        timed.load("qb.define(1,function*(p){qb.frame(p,true);yield*qb.call("+std::to_string(checksum("Wait"))+",[[0,{type:1,bits:1}],[0,{type:13,bits:"+std::to_string(checksum("frames"))+"}]],p,{source:'timed.qb',script:1,offset:7});return p;});","timed.js");
+        auto task=timed.start(1);auto fault=timed.update(task,0);
+        check(fault.status=="fault"&&fault.message.find("timed.qb")!=std::string::npos,"Timed frame waits must reject until clocks exist");
+    }
+    {
+        Runtime yielding;yielding.install_frame_wait();
+        yielding.load("qb.define(1,function*(p){qb.frame(p,true);for(;;){qb.step({source:'yielding.qb',script:1,offset:1});yield*qb.call("+std::to_string(checksum("Wait"))+",[[0,{type:1,bits:1}],[0,{type:13,bits:"+std::to_string(checksum("gameframes"))+"}]],p,{source:'yielding.qb',script:1,offset:2});}});","yielding.js");
+        auto task=yielding.start(1,{},8);
+        for(std::uint32_t frame=0;frame<4000;++frame)
+            check(yielding.update(task,frame).status=="waiting","Yielding task fuel must refill beyond the old lifetime limit");
+        yielding.cancel(task);
     }
     std::cout<<"QB -> JS -> QuickJS -> C++: typed calls, branches, frame suspension/resume, errors and limits passed\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

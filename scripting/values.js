@@ -3,8 +3,9 @@
 // Verified subset: value/reference operations, getters, scalar arithmetic,
 // string/container operators and coordinate +/-; compound coordinate dot/cross/
 // scaling and nonfinite arithmetic reject explicitly pending separate tests.
+if (globalThis.qbValues !== undefined) throw Error("QB value helpers already installed");
 globalThis.qbValues = (() => {
-    const floatBuffer = new DataView(new ArrayBuffer(4));
+    const { floatNumber, floatBits, dyadFloat, dyadInt, round: roundPrecision, store32 } = globalThis.qbNumeric;
     const numeric = (v) => v.type === 1 || v.type === 2;
     const isStructure = (v) => v.type === 10 || v.type === 20;
     const isArray = (v) => v.type === 12 || v.type === 21;
@@ -24,14 +25,6 @@ globalThis.qbValues = (() => {
         if (!Number.isInteger(n) || n < 0 || n > 0xffffffff) fail("type", "Expected uint32", w);
         return n;
     }
-    function floatNumber(bits) {
-        floatBuffer.setUint32(0, bits, true);
-        return floatBuffer.getFloat32(0, true);
-    }
-    function floatBits(n) {
-        floatBuffer.setFloat32(0, n, true);
-        return floatBuffer.getUint32(0, true);
-    }
     function scalar(type, bits) {
         return { type, bits: uint(bits) };
     }
@@ -39,57 +32,7 @@ globalThis.qbValues = (() => {
     const floating = (bits) => scalar(2, bits);
     const name = (bits) => scalar(13, bits);
     const number = (v) => (v.type === 1 ? v.bits | 0 : floatNumber(v.bits));
-    // Finite scalar arithmetic: an exact bounded rational -> x87 precision 64
-    // (nearest-even) -> float32 store. Avoid JS double rounding at precision 53.
-    function dyad(v) {
-        if (v.type === 1) return { m: BigInt(v.bits | 0), e: 0 };
-        const exponent = (v.bits >>> 23) & 255;
-        const magnitude = BigInt((v.bits & 0x7fffff) | (exponent ? 0x800000 : 0));
-        return { m: v.bits & 0x80000000 ? -magnitude : magnitude, e: exponent ? exponent - 150 : -149 };
-    }
-    function nearest(n, d) {
-        const q = n / d,
-            remainder = n % d;
-        return q + (remainder * 2n > d || (remainder * 2n === d && q & 1n) ? 1n : 0n);
-    }
-    function round64(n, d, exponent) {
-        if (d < 0n) {
-            n = -n;
-            d = -d;
-        }
-        const negative = n < 0n;
-        if (negative) n = -n;
-        if (!n) return { m: 0n, e: 0 };
-        let log = n.toString(2).length - d.toString(2).length;
-        if (log >= 0 ? n < d << BigInt(log) : n << BigInt(-log) < d) --log;
-        const shift = 63 - log;
-        let m = shift >= 0 ? nearest(n << BigInt(shift), d) : nearest(n, d << BigInt(-shift));
-        let e = exponent + log - 63;
-        if (m === 1n << 64n) {
-            m >>= 1n;
-            ++e;
-        }
-        return { m: negative ? -m : m, e };
-    }
-    function store32(value, negativeZero) {
-        const sign = value.m < 0n || (value.m === 0n && negativeZero) ? 0x80000000 : 0;
-        let m = value.m < 0n ? -value.m : value.m;
-        if (!m) return sign;
-        const log = m.toString(2).length - 1 + value.e;
-        if (log > 127) return (sign | 0x7f800000) >>> 0;
-        let e = Math.max(log - 23, -149);
-        const shift = value.e - e;
-        m = shift >= 0 ? m << BigInt(shift) : nearest(m, 1n << BigInt(-shift));
-        if (!m) return sign;
-        if (m === 1n << 24n) {
-            m >>= 1n;
-            ++e;
-        }
-        const finalLog = m.toString(2).length - 1 + e;
-        if (finalLog > 127) return (sign | 0x7f800000) >>> 0;
-        if (finalLog < -126) return (sign | Number(m)) >>> 0;
-        return (sign | ((finalLog + 127) << 23) | (Number(m) - 0x800000)) >>> 0;
-    }
+    const dyad = (v) => (v.type === 1 ? dyadInt(v.bits) : dyadFloat(v.bits));
     function floatArithmetic(op, a, b, w) {
         w.step(8);
         const x = dyad(a),
@@ -97,9 +40,13 @@ globalThis.qbValues = (() => {
         let rounded;
         if (op === 10 || op === 11) {
             const e = Math.min(x.e, y.e);
-            rounded = round64((x.m << BigInt(x.e - e)) + (op === 11 ? y.m : -y.m) * (1n << BigInt(y.e - e)), 1n, e);
-        } else if (op === 13) rounded = round64(x.m * y.m, 1n, x.e + y.e);
-        else rounded = round64(x.m, y.m, x.e - y.e);
+            rounded = roundPrecision(
+                (x.m << BigInt(x.e - e)) + (op === 11 ? y.m : -y.m) * (1n << BigInt(y.e - e)),
+                1n,
+                e,
+            );
+        } else if (op === 13) rounded = roundPrecision(x.m * y.m, 1n, x.e + y.e);
+        else rounded = roundPrecision(x.m, y.m, x.e - y.e);
         const zeroSign =
             op === 11
                 ? number(a) + number(b)
@@ -263,7 +210,8 @@ globalThis.qbValues = (() => {
             else parent.out.elements.push(value);
         };
         while (frames.length) {
-            const frame = frames.at(-1), source = frame.source;
+            const frame = frames.at(-1),
+                source = frame.source;
             if (!frame.out) {
                 check(source, w);
                 if (source.type !== 10 && source.type !== 12) {
@@ -274,13 +222,15 @@ globalThis.qbValues = (() => {
                 if (w.path.size >= w.depth) fail("limit", "Value depth limit", w);
                 w.path.add(source);
                 frame.index = 0;
-                frame.out = source.type === 10
-                    ? { type: 10, members: [] }
-                    : { type: 12, elementType: source.elementType, elements: [] };
+                frame.out =
+                    source.type === 10
+                        ? { type: 10, members: [] }
+                        : { type: 12, elementType: source.elementType, elements: [] };
             }
             const children = source.type === 10 ? source.members : source.elements;
             if (frame.index === children.length) {
                 w.path.delete(source);
+                if (frame.out.type === 10) frame.out.members = materialized(frame.out.members, w);
                 finish(frame.out);
                 continue;
             }
@@ -297,15 +247,24 @@ globalThis.qbValues = (() => {
         }
         return result;
     }
+    function mergeKey(n, v) {
+        return n + ":" + (numeric(v) ? "numeric" : v.type === 13 && n === 0 ? "flag:" + v.bits : v.type);
+    }
     function put(out, n, v, w) {
-        for (let i = out.length - 1; i >= 0; --i) {
-            w.step();
-            const [oldName, old] = out[i];
-            const same = old.type === v.type && (n !== 0 || v.type !== 13 || old.bits === v.bits);
-            if (oldName === n && (same || (numeric(old) && numeric(v)))) out.splice(i, 1);
+        w.step();
+        w.merges ??= new WeakMap();
+        let index = w.merges.get(out);
+        if (!index) {
+            index = new Map(out.map(([key, value]) => [mergeKey(key, value), [key, value]]));
+            w.merges.set(out, index);
         }
-        if (out.length >= 4096) fail("limit", "Parameter count limit", w);
-        out.push([n, v]);
+        const key = mergeKey(n, v);
+        index.delete(key);
+        if (index.size >= 4096) fail("limit", "Parameter count limit", w);
+        index.set(key, [n, v]);
+    }
+    function materialized(out, w) {
+        return w.merges?.has(out) ? [...w.merges.get(out).values()] : out;
     }
     function mergeInternal(a, b, w) {
         params(a, w);
@@ -316,7 +275,7 @@ globalThis.qbValues = (() => {
                 field(f, w);
                 put(out, f[0], clone(f[1], "value", w), w);
             }
-        return out;
+        return materialized(out, w);
     }
     function merge(a, b, ctx) {
         return mergeInternal(a, b, new Work(ctx));
@@ -334,8 +293,38 @@ globalThis.qbValues = (() => {
             return [f[0], clone(f[1], "value", w)];
         });
         for (const [n, v] of incoming) put(out, n, v, w);
-        dst.splice(0, dst.length, ...out);
+        dst.splice(0, dst.length, ...materialized(out, w));
         return dst;
+    }
+    function fields(p, entries, ctx) {
+        const w = new Work(ctx),
+            out = [];
+        const add = (source) => {
+            params(source, w);
+            for (const f of source) {
+                field(f, w);
+                put(out, f[0], clone(f[1], "value", w), w);
+            }
+        };
+        for (const entry of entries) {
+            w.step();
+            if (entry === null) {
+                add(p);
+                continue;
+            }
+            const f = entry();
+            if (f[1] === undefined) continue;
+            if (
+                f[3] &&
+                f[0] === 0x9d2d0915 &&
+                f[1].type === 6 &&
+                f[1].coordinates.every((bits) => Math.abs(floatNumber(bits)) < floatNumber(0x3c23d70a))
+            )
+                continue;
+            if (f[2] && f[1].type === 10) add(f[1].members);
+            else add([[f[0], f[1]]]);
+        }
+        return materialized(out, w);
     }
     function structure(fields, ctx) {
         return { type: 10, members: merge([], fields, ctx) };
@@ -385,7 +374,10 @@ globalThis.qbValues = (() => {
         const symbol = lookup(v.bits, w);
         if (symbol === undefined) return v;
         if (callable(symbol)) {
-            if (rejectCallable) fail("unsupported", "Callable value comparison is not implemented", w);
+            if (rejectCallable) {
+                if (symbol.type === 7) return symbol;
+                fail("unsupported", "Callable value comparison is not implemented", w);
+            }
             return v;
         }
         return symbol;
@@ -452,7 +444,10 @@ globalThis.qbValues = (() => {
         const w = new Work(ctx);
         const v = lookup(name, w);
         if (v === undefined) return scalar(13, name);
-        if (callable(v)) fail("unsupported", "Expression calls are not implemented", w);
+        if (callable(v)) {
+            if (v.type === 7) return scalar(13, v.name);
+            fail("unsupported", "Expression calls are not implemented", w);
+        }
         return clone(v, "reference", w);
     }
     function checksumSearch(p, n, w) {
@@ -493,6 +488,7 @@ globalThis.qbValues = (() => {
         b = resolved(b, w, true);
         if (numeric(a) && numeric(b)) return number(a) === number(b);
         if (a.type !== b.type) return false;
+        if (callable(a) || callable(b)) return callable(a) && callable(b) && a.type === b.type && a.name === b.name;
         if (a.type === 13) return a.bits === b.bits;
         if (a.type === 10 || a.type === 12) return a === b;
         if (a.type === 3 || a.type === 4) {
@@ -529,7 +525,7 @@ globalThis.qbValues = (() => {
     }
     function operation(op, a, b, w) {
         uint(op, w);
-        if (a === undefined || b === undefined) fail("missing", "Absent expression operand", w);
+        if (a === undefined || b === undefined) return undefined;
         check(a, w);
         check(b, w);
         if (op === 7) return integer(equal(a, b, w) ? 1 : 0);
@@ -668,6 +664,7 @@ globalThis.qbValues = (() => {
         copy,
         expressionResult,
         merge,
+        fields,
         append,
         param,
         global,
@@ -697,7 +694,7 @@ globalThis.qbValues = (() => {
         },
         statementTruth(v, ctx) {
             const w = new Work(ctx);
-            if (v === undefined) fail("missing", "Absent expression operand", w);
+            if (v === undefined) return false;
             check(v, w);
             if (v.type === 13) fail("unsupported", "Checksum expression dispatch is not implemented", w);
             return numeric(v) ? v.bits !== 0 : true;

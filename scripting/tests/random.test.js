@@ -157,7 +157,7 @@
 
     ra.seed(3264);
     const overshoot = ra.range(fbits(-0.5), fbits(0.5));
-    assert(overshoot.type === 2 && overshoot.bits === 0x3f000001, "original float scale permits upper-endpoint overshoot");
+    assert(overshoot.type === 2 && overshoot.bits === 0x3f000000, "gameplay precision rounds the overshoot to the endpoint");
 
     const equalFraction = ra.range(fbits(0.5), fbits(0.5));
     assert(equalFraction.type === 2 && equalFraction.bits === fbits(0.5), "equal fractional bounds preserve float bits");

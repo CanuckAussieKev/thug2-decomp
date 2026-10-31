@@ -1,6 +1,6 @@
 // NOT ORIGINAL - optional local-data scenario. Never commits game QB/IR/JS.
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { emitIR, requiresRandom } from "./emitter.ts";
@@ -42,13 +42,11 @@ export function prepareHelper(bytes: Uint8Array) {
         globalReads: [],
         requiresRandom: false,
     };
-    const values = readFileSync(new URL("../../scripting/values.js", import.meta.url), "utf8");
     return {
         metadata,
         javascript:
             "// Private output from local game data; do not publish.\n" +
             'if (globalThis.qb?.runtimeVersion !== 2) throw Error("QB runtime version 2 required");\n' +
-            values +
             "\n" +
             emitIR(ir),
     };

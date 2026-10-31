@@ -227,8 +227,8 @@
     symbols.set(820, code);
     assert(v.lookupGlobal(820, ctx) === code, "callable registry descriptor");
     eqBits(v.resolve(n(820), ctx), 13, 820);
-    fails("unsupported", () => v.global(820, ctx));
-    fails("unsupported", () => bin(7, n(820), n(820)));
+    eqBits(v.global(820, ctx),13,820);
+    eqBits(bin(7,n(820),n(820)),1,1);
 
     symbols.set(900, n(901));
     symbols.set(901, n(900));
@@ -287,7 +287,7 @@
     eqBits(bin(50, f(NaN), i(0)), 1, 1);
     assert(v.statementTruth(v.float(0x80000000), ctx), "statement truth uses raw -0 bits");
     assert(!v.statementTruth(i(0), ctx) && v.statementTruth(str(""), ctx), "zero vs nonnull empty-string payload");
-    fails("missing", () => v.statementTruth(undefined, ctx));
+    assert(!v.statementTruth(undefined,ctx),"empty statement is false");
     fails("unsupported", () => v.statementTruth(n(1), ctx));
     eqBits(bin(7, f(-0), f(0)), 1, 1);
     eqBits(bin(7, i(1), f(1)), 1, 1);
@@ -335,7 +335,13 @@
     eqBits(bin(7, a, v.copy(a, "value", ctx)), 1, 1);
     fails("unsupported", () => bin(8, a, b)); // Compound coordinate dot/cross/scaling await precision tests.
     fails("unsupported", () => bin(0xffff, i(1), i(1)));
-    fails("missing", () => bin(11, undefined, i(1)));
+    assert(bin(11,undefined,i(1))===undefined,"empty operand propagates");
+    for(const op of [7,18,20,50,51]) {
+        assert(bin(op,undefined,i(1))===undefined,'empty left operand propagates');
+        assert(bin(op,i(1),undefined)===undefined,'empty right operand propagates');
+    }
+    eqBits(bin(18,n(820),n(820)),1,0);
+    eqBits(bin(20,n(820),n(820)),1,0);
     assert(charged > 0, "all contextual work charged");
     globalThis.qbValuesTestResult = { assertions, charged, apiVersion: v.apiVersion };
 })();

@@ -10,8 +10,9 @@ import { runInNewContext } from "node:vm";
 import { emitIR, translateIR } from "./emitter.ts";
 import { emittedFixture, executionBundle } from "./emitter-fixtures.ts";
 import { field, integer, script } from "./fixtures.ts";
+import { helperSource } from "./helper-sources.ts";
 
-const values = readFileSync(new URL("../../scripting/values.js", import.meta.url), "utf8");
+const values = helperSource("values");
 test("format-2 generators execute values, loops, grouped switches, calls and yield/resume", () => {
     runInNewContext(executionBundle(values), {}, { timeout: 5000 });
 });

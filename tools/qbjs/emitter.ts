@@ -25,7 +25,7 @@ export function emitIR(module: ModuleIR): string {
             .map((f) =>
                 "spread" in f
                     ? "null"
-                    : `() => [${f.name}, ${value(f.value, script, params)}${f.flattenStructure ? ", true" : ""}]`,
+                    : `() => [${f.name}, ${value(f.value, script, params)}${f.flattenStructure ? ", true" : f.value.kind === "literal" && f.value.value.type === 6 ? ", false, true" : ""}]`,
             )
             .join(", ")}], ${ctx(script, offset)})`;
     const value = (x: Expr, script: number, params = "p"): string => {
@@ -140,7 +140,7 @@ export function emitIR(module: ModuleIR): string {
     const resultGuard = hasResult(module.definitions)
         ? 'if (typeof v.expressionResult !== "function") throw Error("QB values expressionResult helper required");\n'
         : "";
-    let output = `// Generated from QB; do not edit.\n(() => {\nconst v = globalThis.qbValues;\nif (v?.apiVersion !== 2) throw Error("QB values API 2 required");\n${resultGuard}qb.module(${JSON.stringify(manifest)});\nfunction fields(p, entries, ctx) {\nconst out = [];\nfor (const entry of entries) {\nif (entry === null) v.append(out, p, ctx);\nelse { const field = entry(); if (field[1] !== undefined) { if (field[2] && field[1].type === 10) v.append(out, field[1].members, ctx); else v.append(out, [[field[0], field[1]]], ctx); } }\n}\nreturn out;\n}\n`;
+    let output = `// Generated from QB; do not edit.\n(() => {\nconst v = globalThis.qbValues;\nif (v?.apiVersion !== 2) throw Error("QB values API 2 required");\n${resultGuard}qb.module(${JSON.stringify(manifest)});\nfunction fields(p, entries, ctx) { return v.fields(p, entries, ctx); }\n`;
     if (requiresRandom(module))
         output +=
             "function randomRange(a,b,second,site) { const ctx=qb.context(site); return qb.random().range(a,b,second,ctx.charge); }\nfunction randomChoice(op,site,weights,choices) { const ctx=qb.context(site); const selected=qb.random().choose(op,site,weights,ctx.owner,ctx.charge); return choices[selected](); }\n";

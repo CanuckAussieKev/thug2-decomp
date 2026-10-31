@@ -27,7 +27,7 @@ The existing `qb.module({format:1, source, scripts})`, `qb.define(name, fn)`,
 generator signature `(args, root)`, `qb.call`, `qb.frame`, `qb.step`,
 `qb.merge`, `qb.assign`, `qb.fields`, `qb.get` and `qb.truth` retain their
 current signatures. Calls yield through `yield*`; C++ callbacks return
-`{condition, outputs, frames?}`. An unknown command fails explicitly.
+`{condition, outputs, frames?}`. An unknown command or a data-symbol command returns false; registered host failures remain explicit task faults.
 
 Current scalar `qb.get` does not implement included-global lookup. Current
 `qb.truth` rejects Name expressions because ExecuteCommand dispatches them.
@@ -131,7 +131,7 @@ operation, not a change to CopyComponent or ComponentsEqual. Original-x86
 corroboration and its exclusions are recorded in
 [qb-expression-result-evidence.md](qb-expression-result-evidence.md).
 
-Version 2 must test those distinct paths. The archived immutable value model
+Version 2 must test those distinct paths. An immutable value model
 is a source of test cases, not the authority for identity or mutability.
 
 ## Symbols and lookup rules
@@ -209,7 +209,7 @@ Validation/type failures carry `ctx.site` where a context exists.
 | `merge(a,b,ctx)`, `append(dst,src,ctx)` | Pure merge or in-place append with typed replacement |
 | `param(params,name,mode,ctx)` | FindLastComponent; mode is `"value"` or `"expression"`; absent returns undefined |
 | `lookupGlobal(name,ctx)`, `resolve(value,ctx)` | Explicit alias lookup and Name resolution |
-| `global(name,ctx)` | Expression name: resolved data, owning containers made references; absent root yields Name(name); callable descriptors reject until expression calls are implemented |
+| `global(name,ctx)` | Expression name: resolved data, owning containers made references; absent root yields Name(name); QScript descriptors yield a raw Name without executing; C-function expression calls remain unsupported |
 | `lookupTyped(params,name,type,ctx)` | Last matching typed value, with source-specific promotion/inclusion rules |
 | `readChecksum(params,name,ctx)`, `readString(params,name,ctx)` | Specialized getters described above; absent returns undefined |
 | `contains(params,name,ctx)` | Presence boolean, including unnamed flags and included structures |
@@ -233,7 +233,7 @@ from statementTruth: it keeps an Integer's word, maps nonzero Float to 1 and
 other types to 0. AND/OR evaluate both inputs and combine GetBool results
 bitwise; they are not JS short-circuit operators.
 
-Equality resolves Names as ComponentsEqual does. Numbers compare numerically;
+Equality resolves Names as ComponentsEqual does. QScript symbols compare by callable identity without execution. Numbers compare numerically;
 String and LocalString require matching types and bytewise C-string equality;
 coordinates compare component float values. Owning type-10/12 values compare
 the same container identity, not structural contents. Reference tags 20/21
@@ -343,9 +343,10 @@ stack is explicitly unsupported. Snapshot/input copies use their own bounded
 work allowance, without consuming task fuel. Runtime contexts identify the
 owning task, symbol lookup and original source site.
 
-The native `Value`/host/snapshot bridge remains scalar-only: rich values can
-execute inside JS, but crossing that boundary rejects them rather than flattening
-or dropping fields. Rich native transport, objects/events and RNG are later work.
+The native format-1 scalar bridge preserves its Value layout. Format-2 native
+starts require the separate owning rich API and reject the scalar API before
+creating a task. Rich inputs/hosts/snapshots are supported by the bounded shared
+codec; live native references, objects and events remain unsupported.
 
 `emitter-fixtures.ts` contains a test-only dispatcher with real `values.js`;
 it validates generator behavior, not the product scheduler or rich C++ bridge.
@@ -366,7 +367,7 @@ tests; `qb-js-quickjs` remains the scalar/native regression suite. Public CI
 runs all four suites without game assets.
 
 The argument builder omits missing values before passing fields into merge;
-an absent expression operand errors. A separate example of typed identity:
+an absent expression operand propagates an empty value. A separate example of typed identity:
 `copy(structureValue,"value",ctx)` makes a new container; reference-mode copying
 points at the original. Appending a new field through that live target is seen
 through all references, but not by the previous deep copy.
@@ -393,7 +394,7 @@ then pass that file to the separate `scripting/tests/real_helper_tests.cpp`
 driver linked against the optional runtime and QuickJS core. Setting
 `QB_GAME_DATA_DIR` in CMake creates this driver and its generated fixture and
 registers `qb-js-real-helper` with CTest (see the scripting README). The helper needs no input
-parameters, RNG, global reads, engine objects, renderer or archive QB VM.
+parameters, RNG, global reads, engine objects or renderer.
 Its single host dependency is `UnSetFlag`.
 
 The driver implements a bounded career-flag service with the behavior of
@@ -406,7 +407,7 @@ career state, not a loaded game instance or save file.
 Independent expectations mask the low 64 bits and compare all 21 levels' 256
 flag bits and the level-start copy. Six scenarios (levels 0/3/20, all-set and
 patterned initial state) also assert exactly 64 ordered host calls for flags
-0..63, no extra mutation on repeated observation, explicit missing-host errors
+0..63, no extra mutation on repeated observation, missing-command false results
 and fuel exhaustion. High flags and other levels stay unchanged. Host unit
 checks cover explicit levels, missing/wrong argument types and bounds. The real
 local-data runs pass in QuickJS with ASan/UBSan on macOS ARM64; synthetic CLI
@@ -473,18 +474,17 @@ Native format-2 tests additionally verify known first draws through C++.
 Unnamed dynamic fields that may evaluate to an owning Structure retain
 `flattenStructure:true` in IR: ParseArguments merges those members into the
 destination. Named fields (including an explicitly named checksum 0) stay
-nested, and reference tags 20/21 are not flattened. This also applies to plain
+nested, and completed outer reference results materialize before flattening. This also applies to plain
 parameter reads and owning Structure expression results.
 
 ## C++ boundary and limits
 
-The existing `thug2::js::Value {type,bits}` transport remains **scalar only**.
-Do not pack JS object identities or byte buffers into `bits` or change that C++
-layout in this prototype. Rich JS values stay within QuickJS until a separate
-transport change defines containers, references, ownership,
-resource accounting and failure cleanup on both sides. Rich values reaching the
-current host boundary must error. Runtime snapshots currently have that same
-scalar-only limit; an end-to-end rich-value task requires explicit bridge work.
+The existing `thug2::js::Value {type,bits}` layout remains scalar-only. The
+separate RichValue/RichParameters API supports owning containers, byte strings
+and raw words, with explicit mode/lifetime/resource policies described in
+scripting/README.md. Tags 20/21 reject at the native boundary. No JS handle or
+native object address is encoded into bits. A scalar format-2 start rejects
+before execution; use startRich/updateRich/bindRich.
 
 Contexts enforce depth 128 and at most 250,000 visited value nodes per operation,
 with shared task/load work accounting and cycle guards. Parameter lists keep
@@ -504,7 +504,7 @@ overruns, unbounded alias loops and uninitialized results are not reproduced.
 | --- | --- | --- |
 | Value operations | `scripting/values.js`, `scripting/tests/values.test.js` | QuickJS self-tests and original-function scalar vectors |
 | Reader/IR/emitter | `tools/qbjs/reader.ts`, `ir.ts`, `emitter.ts` | Scoped type/style checks, truncations, targets, deterministic output |
-| Random operations | `scripting/random.js`, `scripting/tests/random.test.js`, `tools/verify_js_random.py` | QuickJS self-tests and optional original-x86 differential checks |
+| Random operations | `scripting/random.js`, `scripting/tests/random.test.js`, `private original-x86 differential checks (outside tracked tools)` | QuickJS self-tests and optional original-x86 differential checks |
 | Native embedding | `scripting/src/runtime.cpp`, `scripting/include/thug2/js_runtime.hpp` | Lifetime/error/limit tests and platform CI |
 | Scheduler/integration | `scripting/runtime.js`, `scripting/tests/format2_tests.cpp`, CMake | Real QuickJS, native transport, waits and optional original-data helper |
 
@@ -512,3 +512,19 @@ Frame waits and ordinary calls remain regressions throughout. Object
 handles, member/event dispatch, interrupts, spawned-script traversal and renderer
 integration require later contracts and tests. A missing capability is reported,
 not replaced with a success stub.
+
+## Current review corrections
+
+The authoritative native API, helper embedding, per-update fuel, interrupt/OOM
+policy, unsupported syntax and Wait distinction are documented in
+[scripting/README.md](../scripting/README.md). Native format-2 starts use the
+owning rich API; scalar starts reject before task creation. Empty expressions
+propagate an absent component (false condition/omitted argument), not a missing-
+operand exception. Completed outer references materialize once, and any unnamed
+structure expression result flattens regardless of its original expression kind.
+Literal `angles` vectors use AddParameter's near-zero filter; assignment and
+AddNamedExpression do not inherit that filter. Numeric precision is gameplay 24,
+with one shared helper and explicit offline profiles. Field merges preserve typed
+replacement/ordering through a linear insertion-order index. Earlier milestone
+validation records describe the scope tested at that time, not a replacement
+for these current behavior corrections.

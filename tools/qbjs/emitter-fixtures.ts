@@ -1,8 +1,9 @@
+import { helperSource } from "./helper-sources.ts";
 // NOT ORIGINAL - synthetic format-2 execution fixtures and TEST-ONLY dispatcher.
 // This adapter exercises generated generators; it is not the product scheduler
 // or C++ bridge. values.js is the real compatibility implementation.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { emitIR } from "./emitter.ts";
 import { command, conditional, field, fixture, floating, integer, name, param, script } from "./fixtures.ts";
@@ -184,7 +185,7 @@ p = run(${key("once2")});
 assert(get(p, ${key("n")}).bits === 3 && get(p, ${key("limit")}).bits === 5, 'repeat count read once after first iteration');
 assert(get(run(${key("wrap2")}), ${key("n")}).bits === 2, 'repeat zero wraps until break');
 assert(get(run(${key("unbounded2")}), ${key("n")}).bits === 2, 'typed merging removes Integer count, loop runs until break');
-failure(${key("breakParams2")}, 'Absent expression operand');
+assert(run(${key("breakParams2")}) !== undefined, 'break ignores absent optional expression');
 failure(${key("fuel2")}, 'fuel exhausted');
 for (const [input, expected] of [[1,9],[2,9],[3,9],[4,10],[8,99]]) {
  p=run(${key("switch2")}, [[${key("x")},integer(input)],[${key("label")},integer(2)]]);
@@ -192,14 +193,13 @@ for (const [input, expected] of [[1,9],[2,9],[3,9],[4,10],[8,99]]) {
 }
 
 assert(get(run(${key("switch2")}), ${key("result")}).bits === 99, 'absent selector defaults');
-failure(${key("groupFault2")}, 'Absent expression operand');
+assert(get(run(${key("groupFault2")}), ${key("result")}).bits===9, 'empty grouped label does not undo earlier match');
 assert(get(run(${key("switchBreak2")}), ${key("wrong")}) === undefined, 'break inside switch targets loop');
 fuel=100000; const task=scripts.get(${key("caller2")})([],true); let state=task.next();
 assert(!state.done && state.value.frames===1, 'generator yields at call'); state=task.next();
 assert(state.done && get(state.value,${key("result")}).bits===9 && get(state.value,${key("done")}).bits===1, 'callee defaults/returns and resume');
-const error=failure(${key("missing2")}, 'Absent expression operand');
-assert(error.site?.source==='emitter.qb' && error.site.script===${key("missing2")}, 'original source/CRC in error');
-failure(${key("shortCircuit2")}, 'Absent expression operand');
+assert(get(run(${key("missing2")}), ${key("result")})===undefined, 'missing operand omits assignment');
+assert(get(run(${key("shortCircuit2")}), ${key("result")})===undefined, 'empty expression propagates through boolean operators');
 assert(checks >= 23, 'execution assertions ran');
 } finally { globalThis.qb = saved; }\n})();\n`;
 }
@@ -209,9 +209,5 @@ assert(checks >= 23, 'execution assertions ran');
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const output = process.argv[2];
     if (!output || process.argv.length !== 3) throw Error("Usage: node tools/qbjs/emitter-fixtures.ts OUTPUT.js");
-    writeFileSync(
-        output,
-        executionBundle(readFileSync(new URL("../../scripting/values.js", import.meta.url), "utf8")) +
-            translate(fixture(), "synthetic.qb"),
-    );
+    writeFileSync(output, executionBundle(helperSource("values")) + translate(fixture(), "synthetic.qb"));
 }

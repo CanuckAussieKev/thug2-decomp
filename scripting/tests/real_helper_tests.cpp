@@ -72,9 +72,12 @@ int main(int argc, char** argv) { try {
         const auto initial_start = state.start;
         Runtime vm;
         vm.load(code, "local-helper.js");
-        vm.bind(checksum("UnSetFlag"), [&](const Parameters& args, const Parameters&) { return state.unset(args); });
-        const auto task = vm.start(checksum("ResetLevelFlags"));
-        const auto result = vm.update(task, 0);
+        vm.bindRich(checksum("UnSetFlag"), [&](const RichParameters& args, const RichParameters&) {
+            Parameters scalar;for(const auto& f:args)scalar.push_back({f.name,{f.value.type(),f.value.bits()}});
+            state.unset(scalar);return RichHostResult{};
+        });
+        const auto task = vm.startRich(checksum("ResetLevelFlags"));
+        const auto result = vm.updateRich(task, 0);
         check(result.status == "finished", result.message.c_str());
         check(state.calls.size() == 64, "Expected exactly 64 UnSetFlag calls");
         for (unsigned i = 0; i < state.calls.size(); ++i) check(state.calls[i] == static_cast<int>(i), "Expected ordered flags 0..63");
@@ -86,19 +89,17 @@ int main(int argc, char** argv) { try {
                     "Career flag state mismatch");
         for (unsigned w = 0; w < 8; ++w)
             check(state.start[w] == (w < 2 ? 0u : initial_start[w]), "Level-start flag state mismatch");
-        check(vm.update(task, 0).status == "finished" && state.calls.size() == 64, "Finished helper does not rerun");
+        check(vm.updateRich(task, 0).status == "finished" && state.calls.size() == 64, "Finished helper does not rerun");
         vm.cancel(task); ++scenarios;
     }
     Runtime missing;
     missing.load(code, "local-helper.js");
-    auto task = missing.start(checksum("ResetLevelFlags"));
-    auto failure = missing.update(task, 0);
-    check(failure.status == "fault" && failure.message.find("Unbound QB host") != std::string::npos &&
-        failure.message.find("QB offset") != std::string::npos,
-        "Unbound host must fault with QB site");
+    auto task = missing.startRich(checksum("ResetLevelFlags"));
+    auto failure = missing.updateRich(task, 0);
+    check(failure.status == "finished", "Missing commands are ignored as false");
     missing.cancel(task);
-    task = missing.start(checksum("ResetLevelFlags"), {}, 0);
-    failure = missing.update(task, 0);
+    task = missing.startRich(checksum("ResetLevelFlags"), {}, 0);
+    failure = missing.updateRich(task, 0);
     check(failure.status == "fault" && failure.message.find("fuel") != std::string::npos, "Zero fuel must fault");
     missing.cancel(task);
     std::cout << "ResetLevelFlags: " << scenarios << " real-QB scenarios passed; 64 ordered host calls each; "

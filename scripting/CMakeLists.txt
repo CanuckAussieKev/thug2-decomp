@@ -1,46 +1,36 @@
 cmake_minimum_required(VERSION 3.25)
 project(thug2_qb_js LANGUAGES C CXX)
-if(MSVC)
-  message(FATAL_ERROR "Official QuickJS needs GCC/Clang extensions; use MinGW/Clang for this optional target")
-endif()
 include(FetchContent)
-# Official upstream source, not vendored. No quickjs-libc, filesystem or OS modules.
+# Core only: quickjs-ng's portable CMake target, no libc/OS modules exposed.
 FetchContent_Declare(quickjs
-  URL https://bellard.org/quickjs/quickjs-2026-06-04.tar.xz
-  URL_HASH SHA256=b376e839b322978313d929fd20663b11ba58b75df5a46c126dd19ea2fa70ad2a
+  URL https://github.com/quickjs-ng/quickjs/archive/refs/tags/v0.17.0.tar.gz
+  URL_HASH SHA256=559bc4c420475e55c7ab4510adbc562f55d7524d75e8e89d79ce4bb02f5687d9
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_MakeAvailable(quickjs)
-add_library(quickjs_core STATIC
-  ${quickjs_SOURCE_DIR}/quickjs.c ${quickjs_SOURCE_DIR}/dtoa.c
-  ${quickjs_SOURCE_DIR}/libregexp.c ${quickjs_SOURCE_DIR}/libunicode.c
-  ${quickjs_SOURCE_DIR}/cutils.c)
-# Do not put the source root on C++ include paths: its VERSION file shadows
-# the standard <version> header on case-insensitive filesystems (macOS).
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/quickjs-include)
-configure_file(${quickjs_SOURCE_DIR}/quickjs.h quickjs-include/quickjs.h COPYONLY)
-target_include_directories(quickjs_core SYSTEM PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/quickjs-include)
-target_compile_definitions(quickjs_core PRIVATE _GNU_SOURCE CONFIG_VERSION="2026-06-04")
-set_target_properties(quickjs_core PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES)
-# Match the official Makefile: engine arithmetic assumes wrapping signed ints.
-target_compile_options(quickjs_core PRIVATE -fwrapv)
-if(WIN32)
-  target_compile_definitions(quickjs_core PRIVATE __USE_MINGW_ANSI_STDIO=1)
+set(QJS_BUILD_LIBC OFF CACHE BOOL "" FORCE)
+set(QJS_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_GetProperties(quickjs)
+if(NOT quickjs_POPULATED)
+  FetchContent_Populate(quickjs)
+  add_subdirectory(${quickjs_SOURCE_DIR} ${quickjs_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
-find_package(Threads REQUIRED)
-target_link_libraries(quickjs_core PUBLIC Threads::Threads)
-if(UNIX)
-  target_link_libraries(quickjs_core PUBLIC m)
-endif()
+add_library(quickjs_core ALIAS qjs)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/runtime.js QB_RUNTIME_SOURCE)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/random.js QB_RANDOM_SOURCE)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS runtime.js random.js)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS runtime.js random.js values.js numeric.js)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/values.js QB_VALUES_SOURCE)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/numeric.js QB_NUMERIC_SOURCE)
 configure_file(runtime_source.hpp.in runtime_source.hpp @ONLY)
 add_library(thug2_js src/runtime.cpp)
 target_compile_features(thug2_js PUBLIC cxx_std_20)
 target_include_directories(thug2_js PUBLIC include PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(thug2_js PRIVATE quickjs_core)
-target_compile_options(thug2_js PRIVATE -Wall -Wextra)
+if(MSVC)
+  target_compile_options(thug2_js PRIVATE /W4)
+else()
+  target_compile_options(thug2_js PRIVATE -Wall -Wextra)
+endif()
 include(CTest)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rich_values.cmake)
 if(BUILD_TESTING)
   find_program(NODE_EXECUTABLE node REQUIRED)
   execute_process(COMMAND ${NODE_EXECUTABLE} --version OUTPUT_VARIABLE NODE_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
@@ -54,8 +44,8 @@ if(BUILD_TESTING)
   function(qb_generate output generator)
     add_custom_command(OUTPUT "${output}"
       COMMAND "${NODE_EXECUTABLE}" "${QBJS_DIR}/${generator}" ${ARGN} "${output}"
-      DEPENDS ${QBJS_SOURCES} runtime.js values.js random.js tests/values.test.js tests/random.test.js
-        tests/expression_result.test.js VERBATIM)
+      DEPENDS ${QBJS_SOURCES} ${QBJS_DIR}/../qb_checksum.ts runtime.js values.js random.js numeric.js tests/values.test.js tests/random.test.js
+        tests/expression_result.test.js tests/review.test.js VERBATIM)
   endfunction()
   set(FIXTURES ${CMAKE_CURRENT_BINARY_DIR}/fixtures.js)
   set(INTEGRATION_FIXTURES ${CMAKE_CURRENT_BINARY_DIR}/integration-fixtures.js)
@@ -63,6 +53,12 @@ if(BUILD_TESTING)
   qb_generate("${FIXTURES}" fixtures.ts)
   qb_generate("${INTEGRATION_FIXTURES}" integration-fixtures.ts)
   qb_generate("${FORMAT2_FIXTURES}" runtime-fixtures.ts native)
+  set(RICH_FIXTURES ${CMAKE_CURRENT_BINARY_DIR}/rich-runtime-fixtures.js)
+  qb_generate("${RICH_FIXTURES}" rich-runtime-fixtures.ts)
+  add_executable(qb-js-rich-runtime-tests tests/rich_runtime_tests.cpp ${RICH_FIXTURES})
+  target_link_libraries(qb-js-rich-runtime-tests PRIVATE thug2_js)
+  add_test(NAME qb-js-rich-runtime COMMAND qb-js-rich-runtime-tests ${RICH_FIXTURES})
+  set_tests_properties(qb-js-rich-runtime PROPERTIES TIMEOUT 120)
   add_executable(qb-js-tests tests/runtime_tests.cpp ${FIXTURES})
   target_link_libraries(qb-js-tests PRIVATE thug2_js)
   add_executable(qb-js-script-tests tests/script_tests.cpp ${INTEGRATION_FIXTURES})
@@ -86,7 +82,7 @@ if(BUILD_TESTING)
     set(HELPER_FIXTURE ${CMAKE_CURRENT_BINARY_DIR}/real-helper.js)
     add_custom_command(OUTPUT "${HELPER_FIXTURE}"
       COMMAND "${NODE_EXECUTABLE}" "${QBJS_DIR}/real-helper.ts" "${QB_GAME_DATA_DIR}" "${HELPER_FIXTURE}"
-      DEPENDS ${QBJS_SOURCES} "${HELPER_INPUT}" values.js VERBATIM)
+      DEPENDS ${QBJS_SOURCES} ${QBJS_DIR}/../qb_checksum.ts "${HELPER_INPUT}" values.js VERBATIM)
     add_executable(qb-js-real-helper-tests tests/real_helper_tests.cpp ${HELPER_FIXTURE})
     target_link_libraries(qb-js-real-helper-tests PRIVATE thug2_js)
     add_test(NAME qb-js-real-helper COMMAND qb-js-real-helper-tests ${HELPER_FIXTURE})

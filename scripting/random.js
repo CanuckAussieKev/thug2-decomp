@@ -4,13 +4,7 @@
 globalThis.qbRandom = (() => {
     const INITIAL_ADD = 0x0aa2fb3f;
     const INITIAL_MUL = 0x12b9b0a1;
-    const floatBuffer = new DataView(new ArrayBuffer(4));
-
-    function floatNumber(bits) {
-        floatBuffer.setUint32(0, bits, true);
-        return floatBuffer.getFloat32(0, true);
-    }
-
+    const {floatNumber, dyadFloat, round: roundPrecision, store32} = globalThis.qbNumeric;
     const RANGE_NUDGE = floatNumber(0x3dcccccd); // 0x00645D74 (0.1f)
     const RANGE_TOLERANCE = floatNumber(0x3727c5ac); // 0x006453B8 (1e-5f)
     const RANGE_SCALE = floatNumber(0x38000801); // 0x0064840C (1.0f / 32760.0f)
@@ -41,55 +35,7 @@ globalThis.qbRandom = (() => {
         return (Math.imul(sample, rangeBits) >> 16) >>> 0;
     }
 
-    // Exact bounded rational -> x87 64-bit significand (nearest-even) -> float32 bits.
-    function dyadFloat(bits) {
-        const exponent = (bits >>> 23) & 255;
-        const magnitude = BigInt((bits & 0x7fffff) | (exponent ? 0x800000 : 0));
-        return { m: bits & 0x80000000 ? -magnitude : magnitude, e: exponent ? exponent - 150 : -149 };
-    }
-
-    function nearestEven(n, d) {
-        const q = n / d,
-            remainder = n % d;
-        return q + (remainder * 2n > d || (remainder * 2n === d && q & 1n) ? 1n : 0n);
-    }
-
-    function round64(n, d, exponent) {
-        const negative = n < 0n;
-        if (negative) n = -n;
-        if (!n) return { m: 0n, e: 0 };
-        let log = n.toString(2).length - d.toString(2).length;
-        if (log >= 0 ? n < d << BigInt(log) : n << BigInt(-log) < d) --log;
-        const shift = 63 - log;
-        let m = shift >= 0 ? nearestEven(n << BigInt(shift), d) : nearestEven(n, d << BigInt(-shift));
-        let e = exponent + log - 63;
-        if (m === 1n << 64n) {
-            m >>= 1n;
-            ++e;
-        }
-        return { m: negative ? -m : m, e };
-    }
-
-    function store32(value, negativeZero) {
-        const sign = value.m < 0n || (value.m === 0n && negativeZero) ? 0x80000000 : 0;
-        let m = value.m < 0n ? -value.m : value.m;
-        if (!m) return sign >>> 0;
-        const log = m.toString(2).length - 1 + value.e;
-        if (log > 127) return (sign | 0x7f800000) >>> 0;
-        let e = Math.max(log - 23, -149);
-        const shift = value.e - e;
-        m = shift >= 0 ? m << BigInt(shift) : nearestEven(m, 1n << BigInt(-shift));
-        if (!m) return sign >>> 0;
-        if (m === 1n << 24n) {
-            m >>= 1n;
-            ++e;
-        }
-        const finalLog = m.toString(2).length - 1 + e;
-        if (finalLog > 127) return (sign | 0x7f800000) >>> 0;
-        if (finalLog < -126) return (sign | Number(m)) >>> 0;
-        return (sign | ((finalLog + 127) << 23) | (Number(m) - 0x800000)) >>> 0;
-    }
-
+    // Exact bounded rational -> x87 gameplay 24-bit significand (nearest-even) -> float32 bits.
     function wholeEndpoint(f) {
         const nudged = f + (f >= 0 ? RANGE_NUDGE : -RANGE_NUDGE);
         const n = Math.trunc(nudged);
@@ -144,7 +90,7 @@ globalThis.qbRandom = (() => {
         }
 
         // ParseRandomRange (0x0046FBD0): integer when both endpoints are within
-        // 1e-5f of a truncated (+/-0.1f nudged) int32, otherwise x87 64-bit float.
+        // 1e-5f of a truncated (+/-0.1f nudged) int32, otherwise x87 gameplay 24-bit float.
         function range(aFloatBits, bFloatBits, second = false, charge) {
             uint(aFloatBits, "range endpoint uint32");
             uint(bFloatBits, "range endpoint uint32");
@@ -173,11 +119,11 @@ globalThis.qbRandom = (() => {
             const da = dyadFloat(lowBits);
             const db = dyadFloat(highBits);
             const eSpan = Math.min(da.e, db.e);
-            const span = round64((db.m << BigInt(db.e - eSpan)) - (da.m << BigInt(da.e - eSpan)), 1n, eSpan);
-            const scaledPick = round64(span.m * BigInt(pick), 1n, span.e);
-            const scaledRange = round64(scaledPick.m * 0x800801n, 1n, scaledPick.e - 38);
+            const span = roundPrecision((db.m << BigInt(db.e - eSpan)) - (da.m << BigInt(da.e - eSpan)), 1n, eSpan);
+            const scaledPick = roundPrecision(span.m * BigInt(pick), 1n, span.e);
+            const scaledRange = roundPrecision(scaledPick.m * 0x800801n, 1n, scaledPick.e - 38);
             const eSum = Math.min(scaledRange.e, da.e);
-            const total = round64(
+            const total = roundPrecision(
                 (scaledRange.m << BigInt(scaledRange.e - eSum)) + (da.m << BigInt(da.e - eSum)),
                 1n,
                 eSum,

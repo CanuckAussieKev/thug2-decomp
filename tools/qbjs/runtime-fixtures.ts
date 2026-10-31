@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { emittedFixture } from "./emitter-fixtures.ts";
 import { fixture } from "./fixtures.ts";
+import { helperSource } from "./helper-sources.ts";
 import { randomFixture, randomSource } from "./random-fixtures.ts";
 import { checksum, translate } from "./translate.ts";
 
@@ -11,7 +12,7 @@ export const nativeRuntimeBundle = (withRandom = false) =>
     "if (globalThis.qb?.runtimeVersion !== 2) {\n" +
     readFileSync(new URL("../../scripting/runtime.js", import.meta.url), "utf8") +
     "\n}\n" +
-    readFileSync(new URL("../../scripting/values.js", import.meta.url), "utf8") +
+    helperSource("values") +
     emittedFixture() +
     (withRandom ? randomFixture().javascript : "");
 
@@ -51,7 +52,7 @@ for (const [script,expected] of [[${key("count2")},3],[${key("once2")},3],[${key
 r=run(${key("switch2")},[[${key("x")},integer(2)],[${key("label")},integer(2)]]);
 assert(r.status==='finished' && get(r.parameters,${key("result")}).bits===9,'switch');
 for (const script of [${key("breakParams2")},${key("missing2")},${key("groupFault2")},${key("shortCircuit2")}]) {
- r=run(script); assert(r.status==='fault' && r.message.includes('emitter.qb') && r.message.includes('QB offset'),'value fault site');
+ r=run(script); assert(r.status==='finished','absent optional operand must not fault');
 }
 r=run(${key("fuel2")},[],10); assert(r.status==='fault' && r.message.includes('fuel exhausted'),'loop fuel');
 r=run(${key("math2")},[],0); assert(r.status==='fault','zero fuel');
