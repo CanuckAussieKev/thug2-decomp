@@ -21,8 +21,10 @@ cmake --build work/qb-js-build --parallel 2
 ctest --test-dir work/qb-js-build --output-on-failure
 ```
 
-With MSVC, configure using `-G "Visual Studio 17 2022" -A x64`, build with
-`--config Release`, and pass `-C Release` to CTest. A library-only configure
+With MSVC, use a Developer Command Prompt and Ninja with
+`-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl`, or an installed Visual Studio
+generator with `-A x64`. For multi-configuration generators, build with
+`--config Release` and pass `-C Release` to CTest. A library-only configure
 with `-DBUILD_TESTING=OFF` requires no Node. CI also runs Windows GCC using the
 actual `setup-msys2` installation directory, rather than a hardcoded path.
 

@@ -34,6 +34,10 @@ jobs:
         if: runner.os == 'Windows' && matrix.toolchain == 'gcc'
         shell: pwsh
         run: Add-Content $env:GITHUB_PATH '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.toolchain == 'msvc'
+        with:
+          arch: x64
       - name: Install tool check dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check translator types
@@ -45,7 +49,7 @@ jobs:
         run: cmake -S scripting -B work/qb-js-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
       - name: Configure MSVC
         if: matrix.toolchain == 'msvc'
-        run: cmake -S scripting -B work/qb-js-build -G "Visual Studio 17 2022" -A x64
+        run: cmake -S scripting -B work/qb-js-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
       - name: Build
         run: cmake --build work/qb-js-build --config Release --parallel 2
       - name: Test readers, values, generated scripts and native bridges
