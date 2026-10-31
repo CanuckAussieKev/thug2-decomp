@@ -73,7 +73,7 @@ struct CellBox {
         return {x, y, z, w, h, l};
     }
     // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
-    CellBox* assign_value(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l);
+    CellBox* assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, uint8_t width, uint8_t height, uint8_t length);
     // 0x005901E0: byte `index` (x y z w h l)
     uint8_t& operator[](int index) { return reinterpret_cast<uint8_t*>(this)[index]; }
     uint8_t* get_byte(int index);

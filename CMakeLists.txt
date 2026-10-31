@@ -847,7 +847,8 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); d3d9, winmm: platform/crt.h's imports
 target_link_libraries(thug2 PRIVATE sdl2 ws2_32 dsound ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
-target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8)
+# /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)
+target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
