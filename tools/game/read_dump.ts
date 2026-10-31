@@ -1,16 +1,16 @@
 // NOT ORIGINAL - reads a Windows minidump (.dmp: %LOCALAPPDATA%\CrashDumps, written by Windows Error Reporting when
 // the game dies) without a debugger: the exception, where it happened (module + offset), the registers and the return
-// addresses found on the faulting thread's stack - the same report the DLL's crash logger writes (src/hook/log.cpp),
+// addresses found on the faulting thread's stack - the same report the game's crash logger writes (src/game/sys/crash.cpp),
 // for crashes it couldn't log (a /GS fast-fail ends the process before any handler runs).
 //
 //     node tools/pipeline/game/read_dump.ts <file.dmp> [--threads] [--modules]
 //
 // --threads: every thread's EIP and stack scan, not only the faulting one. --modules: the module list. --image <file>:
-// a module file with the dump's PE timestamp (the crashed build's dinput8.dll) - WER's dumps leave module code out, so
+// a module file with the dump's PE timestamp (the crashed build's thug2-decomp.exe) - WER's dumps leave module code out, so
 // the stack scan checks "follows a CALL" against the files (each module's own path is tried first); values it
 // couldn't check are marked "?".
-// Offsets in DINPUT8.dll (our DLL) go to `node tools/symbolize.ts --pdb-dir <build> <offsets>` - with the PDB of the
-// build that crashed (the module's timestamp is printed: compare it with the build's dinput8.dll).
+// Offsets in thug2-decomp.exe go to `node tools/symbolize.ts --pdb-dir <build> <offsets>` - with the PDB of the
+// build that crashed (the module's timestamp is printed: compare it with the build's exe).
 // A 32-bit (WOW64) process' dump written by the 64-bit WER: the exception stream's context is the x86 one when the
 // dump says the processor is x86 (architecture 0); for an x64 dump of a WOW64 process the 32-bit registers aren't in
 // it, and only the stack scan from the thread's recorded stack range is given.
@@ -30,7 +30,7 @@ options:
   -h, --help  show this help message and exit
   --threads   every thread, not only the faulting one
   --modules   list the modules
-  --image FILE  a module's file (same name and PE timestamp, e.g. the crashed build's dinput8.dll) whose code
+  --image FILE  a module's file (same name and PE timestamp, e.g. the crashed build's thug2-decomp.exe) whose code
               checks the stack scan; repeatable. Each module's own path is tried anyway`;
 
 interface Module {
@@ -184,7 +184,7 @@ export class Minidump {
         return m.image.subarray(address - m.base, address - m.base + size);
     }
 
-    // Whether `address` follows a CALL (E8 rel32, FF /2) - as the DLL's crash logger checks. null when the dump
+    // Whether `address` follows a CALL (E8 rel32, FF /2) - as the game's crash logger checks. null when the dump
     // doesn't hold the code before it (WER's dumps mostly leave module code out).
     afterCall(address: number): boolean | null {
         const b = this.code(address - 7, 7);
@@ -245,7 +245,7 @@ export function report(dump: Minidump, threads: boolean, modules: boolean): stri
     const exe = dump.modules[0];
     if (exe) out.push(`process: ${exe.name}`);
     for (const m of dump.modules) {
-        if (/^dinput8\.dll$/i.test(m.name) || m === exe)
+        if (/^(?:dinput8\.dll|thug2-decomp\.exe)$/i.test(m.name) || m === exe)
             out.push(
                 `module ${m.name} at ${hex(m.base)} size 0x${m.size.toString(16)} timestamp ${hex(m.time)} (${new Date(m.time * 1000).toISOString()})`,
             );
@@ -326,7 +326,7 @@ error: one dump file`);
         pyExit(`${file}: ${(e as Error).message}`);
     }
     // Each module's own file when it still has the dump's timestamp, then the --image files (e.g. a build's
-    // dinput8.dll): with the code mapped, the stack scan keeps only values that follow a CALL.
+    // thug2-decomp.exe): with the code mapped, the stack scan keeps only values that follow a CALL.
     for (const m of dump.modules) dump.attachImage(m.path, m);
     for (const image of (values.image as string[] | undefined) ?? []) {
         const name = dump.attachImage(image);

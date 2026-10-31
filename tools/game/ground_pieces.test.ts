@@ -1,5 +1,5 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/ground_pieces.ts: the port of the DLL's generator (the same numbers as
-// src/hook/selftests_editor_ux9.cpp's), the record as the DLL writes it, the strip, the vertex layouts.
+// NOT ORIGINAL - tests of tools/pipeline/game/ground_pieces.ts: the port of the game's generator (the same numbers as
+// the game's), the record as the game writes it, the strip, the vertex layouts.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -43,7 +43,7 @@ function box(height: number): GroundSpec {
 const near = (a: number, b: number, e = 1e-3): boolean => Math.abs(a - b) <= e;
 const count = (faces: { flags: number }[], flags: number): number => faces.filter((f) => f.flags === flags).length;
 
-test("ground: a platform, a quarter pipe, kickers, a pit - as the DLL builds them", () => {
+test("ground: a platform, a quarter pipe, kickers, a pit - as the game builds them", () => {
     const plain = build(box(200));
     assert.equal(plain.faces.length, 10);
     assert.equal(plain.vertices.length, 30);
@@ -122,7 +122,7 @@ test("ground: vertex layouts and vertices", () => {
     assert.ok(near(data.readFloatLE(5 * 36), m.vertices[5]!.pos.x));
 });
 
-test("ground: the record as the DLL writes it", () => {
+test("ground: the record as the game writes it", () => {
     const s = readGroundRecord(
         "ed_ground01 lower rect=0,0,400,300 base=10 height=120 ramps=q,-,k,- length=75.5 material=0x12345678 uv=128 " +
             "color=80706050 terrain=7 hides=0xAABBCCDD,0x01020304",

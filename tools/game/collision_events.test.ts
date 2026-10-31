@@ -1,5 +1,5 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/collision_events.ts. LINE is the DLL's own self-test line
-// (src/hook/selftests_collision_events.cpp, TestCollisionEventFormat): the format both sides agree on.
+// NOT ORIGINAL - tests of tools/pipeline/game/collision_events.ts. LINE is a line as the game writes it
+// (src/game/skater/collision_events.h): the format both sides agree on.
 
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
@@ -40,7 +40,7 @@ const LINE =
     "probe_down_beyond_all=none probe_ahead=none probe_ahead_all=none probe_dir=1.00,0.00,0.00 flipped=ground-check>off-ground@21080 repeats=2 " +
     "screenshot=requested";
 
-// The DLL's self-test detail line (TestCollisionEventDetailFormat).
+// The game's detail line.
 const DETAIL =
     "collision-event-detail: n=3 state=ground physics=skating speed=326.4 trick=0 balance=manual input=up " +
     "input_window=up+down+x stick=0.00,-1.00 ray=-6519.8,7.1,3453.1>-6519.8,-1193.0,3453.1 " +
@@ -48,7 +48,7 @@ const DETAIL =
     "col_box=-6600.0,7.0,3300.0>-6513.0,7.0,3640.0 edge=1 edge_dist=6.8 open_edge=1 " +
     "col_file=4140376@2026-10-24T12:58:51 scn_file=- approach=-6599,7,3453,g;-6520,7,3453,g camera=-";
 
-test("the DLL's line parses", () => {
+test("the game's line parses", () => {
     const e = parseEventLine(`[14:50:48.123] ${LINE}`)!;
     assert.equal(e.n, 3);
     assert.equal(e.level, "thp8_net_beavervalley");

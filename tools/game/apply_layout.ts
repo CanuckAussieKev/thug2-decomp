@@ -9,7 +9,7 @@
 // --uninstall puts the newest backup back and removes it, so repeating it undoes the installs one by one.
 //
 // A layout (src/game/front/level_editor_layout.h - tools/pipeline/game/layout_file.ts reads it) is what the editor changed in a
-// level, put in place by the DLL only when the level's EDITED copy loads. Baked, the changes are in the level's own
+// level, put in place by the game only when the level's EDITED copy loads. Baked, the changes are in the level's own
 // files instead - its scene (.scn.xbx), collision (.col.xbx) and node array (.qb) - written as a new copy:
 //   - read from the game folder (--game, default C:\Games\THUG2\Game; a stock install's Game folder is stepped into):
 //     the level's loose files, the data overlay's (thug2-decomp-data\levels\<level>) first, else Data\levels\<level>;
@@ -23,7 +23,7 @@
 //     makes it again: bake again after it.
 //   - --dry-run reads and bakes in memory, writes nothing, and prints the report.
 //
-// What each record becomes (the DLL's meaning, src/game/front/level_editor_*.h):
+// What each record becomes (the game's meaning, src/game/front/level_editor_*.h):
 //   sector / clone / rail / wall: the sector's render vertices (and normals) and its collision object moved -
 //     QuarterTurn(PerAxis(x, scale), quarters) + offset of the place as loaded (scale= one number or x,y,z along the
 //     piece's own axes); normals as the editor's Rebuild: n / scale made unit length, then turned (unscaled: turned);
@@ -36,11 +36,11 @@
 //     a vector when stretched), which the model component's InitModel reads - the model drawn scaled; its collision
 //     isn't (the collision component reads no scale): warned;
 //   set: pos= / angles= and the Inspector's field edits (level_editor_fields.h): the node's own component - over its
-//     shared structure's (ncomp_...) as an override at its end, as the DLL does;
+//     shared structure's (ncomp_...) as an override at its end, as the game does;
 //   node / point / order: the nodes the editor added, appended to the node array (the level's indexes stay) with the
-//     fields the DLL gives them (NodeCreate::Fields; a point copies its `like` node's), crowns in the layout's order;
+//     fields the game gives them (NodeCreate::Fields; a point copies its `like` node's), crowns in the layout's order;
 //   hide / drop: the node's class and type become the editor's marker ed_hidden (ed_hidden_class / ed_hidden_type keep
-//     its own) - exactly what the DLL does; it isn't removed (indexes stay);
+//     its own) - exactly what the game does; it isn't removed (indexes stay);
 //   links / terrain: links= (names turned back into indexes) / TerrainType=;
 //   (phase 4b, level_editor_chains.h) a ladder's points: ClimbingNode, Type Ladder, Angles (0, facing, 0); a drawn rail's
 //     cluster=: TrickObject + Cluster=; grindflat / `grindflat` records: the flag ed_grind_flat (only this project's
@@ -51,34 +51,34 @@
 //     gets TRG_Flag_<Colour>Script;
 //   lock: ignored (an editor-only aid);
 //   level (level_editor_level_props.h): the level's structure in Levels.qb (Level_<x>, else the one whose level= is
-//     the level's) gets the keys the DLL writes into it for the edited copy (LevelProps::StructureValues): tod=
+//     the level's) gets the keys the game writes into it for the edited copy (LevelProps::StructureValues): tod=
 //     tod_state, time= tod_manager_active, ambient= ambient_red / _green / _blue, fog= fog_red / _green / _blue /
 //     _alpha / _dist; and name= its name= (the level select's sign text is gamemenu_levelselect.qb's - not changed).
-//     start= has no key there (the DLL puts the skater at it with ResetSkaters once the level is up): reported;
-//   trigger (phase 5, tools/pipeline/game/triggers.ts): a node appended to the node array (the DLL's: GenericNode, type
+//     start= has no key there (the game puts the skater at it with ResetSkaters once the level is up): reported;
+//   trigger (phase 5, tools/pipeline/game/triggers.ts): a node appended to the node array (the game's: GenericNode, type
 //     ed_trigger, TriggerScript <name>Script), a trigger box in the collision named after it (12 faces, flags 0x1150
-//     as THUG2's own boxes) and its script (the DLL's bytes) in the level's scripts .qb (<level>_scripts.qb, else the
+//     as THUG2's own boxes) and its script (the game's bytes) in the level's scripts .qb (<level>_scripts.qb, else the
 //     node array's .qb - the ported levels'). The gap list, built as the level's nodes are parsed (every EndGap a
 //     node's TriggerScript reaches), takes the gap ends as it takes the level's. A level trigger a trigger `replaces`
-//     (and any a `wall` record switches off) is left out of the collision, as the DLL switches it off. The box fires on
-//     the way in only (its faces point out; the static line test is one-sided - triggers.ts), as the DLL's; an exit
-//     trigger (exit=1) gets the faces again facing in, so leaving it runs the node's TriggerScript again, as the DLL's
+//     (and any a `wall` record switches off) is left out of the collision, as the game switches it off. The box fires on
+//     the way in only (its faces point out; the static line test is one-sided - triggers.ts), as the game's; an exit
+//     trigger (exit=1) gets the faces again facing in, so leaving it runs the node's TriggerScript again, as the game's
 //     per-frame leaving test does; (the feature map) a jump boost (boost: trigger_jump_boost speed=) and a breakable
 //     (break: Shatter + Kill of its piece, the piece's collision left out - `replaces` - so the skater goes into it as
 //     into THUG2's glass) the same way;
 //   (the feature map, tools/pipeline/game/map_features.ts) a ledge point (type=Ledge): ClimbingNode, Type Ledge, HangLeft /
 //     HangRight; a speed-up (a point's speed=, a `railspeed` record): the node's TriggerScript ed_railspeed_<node> (its own
 //     script called first) and the editor's ed_RailSpeed / ed_RailSpeedLoop in the scripts; a `proxim` record: the node's
-//     TriggerScript ed_proxim_<node> (if Inside {enter} else {exit}) and its sphere's Radius - a box is the DLL's alone
+//     TriggerScript ed_proxim_<node> (if Inside {enter} else {exit}) and its sphere's Radius - a box is the game's alone
 //     (the game's box shape is a sector's): baked as a sphere around it, warned;
-//   (map3) faces (level_editor_faces.h): the collision object's faces' flags (by index - the .col's order is the DLL's);
+//   (map3) faces (level_editor_faces.h): the collision object's faces' flags (by index - the .col's order is the game's);
 //     a face a moved piece's shared collision took along gets them in the companion (the original keeps 0x10 while
-//     taken, as the DLL); cluster (level_editor_clusters.h): the piece's node gets TrickObject + Cluster= (or both
-//     taken out - a shared structure's TrickObject can't be: warned, the DLL unregisters it at run time); camera
+//     taken, as the game); cluster (level_editor_clusters.h): the piece's node gets TrickObject + Cluster= (or both
+//     taken out - a shared structure's TrickObject can't be: warned, the game unregisters it at run time); camera
 //     (level_editor_cameras.h): a node appended (GenericNode, Type ed_camera, Pos, Angles, targetOffset /
 //     positionOffset as a virtual_cam takes them); level sky= (level_editor_level_props.h): Levels.qb's sky=;
 //   (UX9, tools/pipeline/game/ground_pieces.ts) ground: a raised / lowered ground piece - a new sector (its material piece's
-//     first mesh's format and material, the DLL's generated vertices, a strip drawing each face both ways) and
+//     first mesh's format and material, the game's generated vertices, a strip drawing each face both ways) and
 //     collision object (its faces, flags and terrain), named after the piece; a pit's floor tiles (hides=) left out;
 //   anything else (a later record kind): "unsupported record", listed.
 // THUGPRO parity: a level shared with THUGPRO (a ported level in tools/pipeline/compat/thugpro's register, or THUG2's own -
@@ -720,7 +720,7 @@ function includeHas(s: Struct, key: number, flag: boolean): boolean {
     return s.entries.some(([k, v]) => (flag ? k === null && v instanceof Name && v.value === key : k?.value === key));
 }
 
-// The node's own field `key` set (or removed), as the DLL's Fields::Set does: in its place, unless a shared structure
+// The node's own field `key` set (or removed), as the game's Fields::Set does: in its place, unless a shared structure
 // after it has the key (then at the end, where it counts); a flag added / taken out. A shared structure's flag can't
 // be switched off for one node: false.
 export function setField(array: NodeArray, node: Struct, key: number, value: FieldValue | null): boolean {
@@ -772,7 +772,7 @@ function fieldOf(array: NodeArray, node: Struct, key: number): QbValue | undefin
 }
 
 // A particle system's emitter places (MidPosition, EndPosition: world places in its node) moved by `delta` with its
-// pos= - as the DLL does (level_editor_entities.h; its copies: level_editor_objects.h MakeCopy).
+// pos= - as the game does (level_editor_entities.h; its copies: level_editor_objects.h MakeCopy).
 export function shiftParticle(array: NodeArray, node: Struct, delta: V3): boolean {
     const cls = fieldOf(array, node, K.cls);
     if (!(cls instanceof Name) || cls.value !== K.particleObject) return false;
@@ -790,7 +790,7 @@ export function shiftParticle(array: NodeArray, node: Struct, delta: V3): boolea
 
 // (map4) A particle node moved and turned: its emitter as the node has it (at `from`, heading `fromYaw`) placed for `pos`
 // and heading `yaw` - MidPosition / EndPosition turned about the node's place and moved with it, each BoxDims* box
-// the box along the world's axes that holds the turned box - as the DLL's Entities::TurnParticle
+// the box along the world's axes that holds the turned box - as the game's Entities::TurnParticle
 // (level_editor_entities.h).
 export function turnBoxExtents(v: V3, turn: number): V3 {
     let c = Math.abs(Math.cos(turn));
@@ -1194,7 +1194,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         for (const c of layout.clones) {
             const mine = companions.find((x) => x.piece === c.source);
             // (copies of the faces: a copy's companion keeps the flags it was made with - map3's face edits go to the
-            // pieces' own, as the DLL's SetTakenFlags)
+            // pieces' own, as the game's SetTakenFlags)
             const faces = mine ? mine.faces.map((f) => ({ ...f })) : sharedColl.gather(c.source, false);
             if (faces.length)
                 companions.push({
@@ -1403,7 +1403,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         }
         setVector(node, K.pos, applyPlacement(r.placement, pos));
     }
-    // (an object's scale as loaded: a copy is made from its source's fields as loaded - the DLL's copy node - so a scale
+    // (an object's scale as loaded: a copy is made from its source's fields as loaded - the game's copy node - so a scale
     // baked into the source isn't the copy's)
     const scaleAsLoaded = new Map<number, QbValue | undefined>();
     for (const o of layout.objects) {
@@ -1500,7 +1500,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         breaks(`rail ${label(name)} grindable on flat ground`);
     }
     // (map3) Scenery trick-object clusters (level_editor_clusters.h): the piece's node's own TrickObject + Cluster=, or
-    // taken out (a shared structure's TrickObject stays: warned - the DLL takes it out of the manager at run time).
+    // taken out (a shared structure's TrickObject stays: warned - the game takes it out of the manager at run time).
     for (const m of layout.clusters) {
         const i = nodeAt(m.sector, "cluster");
         if (i < 0) continue;
@@ -1515,7 +1515,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
             setField(array, node, K.cluster, null);
             if (!setField(array, node, K.trickObject, { kind: "flag", on: false }))
                 warnings.push(
-                    `scenery ${label(m.sector)}: its TrickObject is a shared structure's - not taken out (the DLL ` +
+                    `scenery ${label(m.sector)}: its TrickObject is a shared structure's - not taken out (the game ` +
                         "takes it out of the trick object manager when the edited copy loads)",
                 );
             else report.push(`scenery ${label(m.sector)}: not a trick object`);
@@ -1609,11 +1609,11 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         }
         let radius = e.radius;
         if (e.shape === "box") {
-            // (the game's box shape is the box of a sector named like the node: a sphere around the DLL's box instead)
+            // (the game's box shape is the box of a sector named like the node: a sphere around the game's box instead)
             const half = Math.hypot(e.size.x, e.size.y, e.size.z) / 2;
             radius = Math.hypot(e.offset.x, e.offset.y, e.offset.z) + half;
             warnings.push(
-                `proximity node ${label(e.node)}: its box (${e.size.x},${e.size.y},${e.size.z}) is the DLL's alone - baked ` +
+                `proximity node ${label(e.node)}: its box (${e.size.x},${e.size.y},${e.size.z}) is the game's alone - baked ` +
                     `as a sphere of radius ${radius.toFixed(0)} around it (the game takes a box shape from a sector)`,
             );
         }
@@ -1630,7 +1630,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
                 `${e.shape ? ` sphere ${radius.toFixed(0)}` : ""}`,
         );
     }
-    // (map3) Camera nodes (level_editor_cameras.h): appended as the DLL's overlay has them.
+    // (map3) Camera nodes (level_editor_cameras.h): appended as the game's overlay has them.
     for (const c of layout.cameras) {
         if (array.index(checksum(c.name)) >= 0) {
             warnings.push(`camera ${c.name}: the level has a node of that name already - not added`);
@@ -1711,7 +1711,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
     if (Object.keys(level).length) {
         if (level.start) {
             warnings.push(
-                `level start ${label(level.start)}: not baked - Levels.qb has no key for it (the DLL puts the skater ` +
+                `level start ${label(level.start)}: not baked - Levels.qb has no key for it (the game puts the skater ` +
                     "there with ResetSkaters once the edited copy is up); the level starts where it always did",
             );
         }
@@ -1814,7 +1814,7 @@ function describeTrigger(s: Triggers.TriggerSpec): string {
 
 // --- level properties (level_editor_level_props.h) ----------------------------------------------------------------------
 
-// LevelProps::StructureValues (the DLL's order and ranges: Channel 0..255, Distance 0..100000) and name=.
+// LevelProps::StructureValues (the game's order and ranges: Channel 0..255, Distance 0..100000) and name=.
 export function levelStructureValues(level: LevelProps): [string, QbValue][] {
     const channel = (v: number): number => Math.max(0, Math.min(255, v));
     const distance = (v: number): number => Math.max(0, Math.min(100000, v));
@@ -1824,7 +1824,7 @@ export function levelStructureValues(level: LevelProps): [string, QbValue][] {
         out.push(["tod_state", new Name(checksum(level.tod))]);
     if (level.time === 0 || level.time === 1) out.push(["tod_manager_active", level.time]);
     // (map4) The ambient light and fog as our own keys, ed_ambient=[r g b] / ed_fog=[r g b alpha distance]: THUG2 reads no
-    // level structure's ambient_* / fog_* (only the time-of-day manager's states have them); the DLL reads these once the
+    // level structure's ambient_* / fog_* (only the time-of-day manager's states have them); the game reads these once the
     // level is up and puts them over the manager's (level_editor_level_props.h) - as LevelProps::StructureValues.
     if (level.ambient) out.push(["ed_ambient", level.ambient.map(channel)]);
     if (level.fog) out.push(["ed_fog", [...level.fog.slice(0, 4).map(channel), distance(level.fog[4])]]);
@@ -2004,7 +2004,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
         layout = readLayout(fs.readFileSync(layoutPath!, "latin1"));
     } catch (e) {
         if (!(e instanceof LayoutError)) throw e;
-        return pyExit(`${layoutPath}: ${e.message} - not a layout this reads (the DLL would refuse it too)`);
+        return pyExit(`${layoutPath}: ${e.message} - not a layout this reads (the game would refuse it too)`);
     }
     const found = findLevelDir(game, level, layout.scene);
     if (!found) pyExit(`no level for scene ${hex8(layout.scene)} in ${game} (give --level)`);

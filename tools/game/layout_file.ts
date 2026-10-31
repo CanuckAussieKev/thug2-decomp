@@ -1,11 +1,11 @@
-// NOT ORIGINAL - the level editor's saved layouts (thug2-decomp-layouts\<scene>.txt) read as the DLL reads them
+// NOT ORIGINAL - the level editor's saved layouts (thug2-decomp-layouts\<scene>.txt) read as the game reads them
 // (src/game/front/level_editor_layout.h has the format; level_editor_fields.h the `set` record's f.<field>= values,
 // level_editor_level_props.h the `level` record, level_editor_chains.h the phase 4 records, level_editor_walls.h the
 // `wall` record). Pure: tools/pipeline/game/apply_layout.ts bakes a layout into a level's files with it.
 //
-// A record the DLL would refuse (malformed) is an error here too, with its line; a record of a kind this reader
+// A record the game would refuse (malformed) is an error here too, with its line; a record of a kind this reader
 // doesn't know (a later version's) is kept in `unknown` - the bake warns about each instead of skipping it silently.
-// Phase 5's `trigger` records are read by tools/pipeline/game/triggers.ts (the DLL's Triggers::ReadRecord, ported).
+// Phase 5's `trigger` records are read by tools/pipeline/game/triggers.ts (the game's Triggers::ReadRecord, ported).
 
 import { checksum } from "../level_port/qb.ts";
 import { type GroundSpec, readGroundRecord } from "./ground_pieces.ts";
@@ -243,7 +243,7 @@ export interface Layout {
     level: LevelProps;
     unknown: { line: number; kind: string; text: string }[];
     // (phase 5) the editor's trigger volumes: name, kind and their key=value fields as written (level_editor_triggers.h),
-    // and the record as the DLL reads it (`spec`)
+    // and the record as the game reads it (`spec`)
     triggers: { line: number; name: string; kind: string; fields: Record<string, string>; spec: TriggerSpec }[];
     // (level_editor_entities.h) moving objects' path speeds (mph) and sound emitters' sounds (sound 0: none; radius 0:
     // the node's own)
@@ -258,7 +258,7 @@ export interface Layout {
     // (UX7) linked copies' groups - the copies are `clone` / `copy` records of their own; the bake writes them as they
     // are (plain copies): a link only matters to the editor
     linkGroups: LinkRecord[];
-    // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/pipeline/game/ground_pieces.ts); a record the DLL
+    // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/pipeline/game/ground_pieces.ts); a record the game
     // wouldn't read is skipped there (logged) - here listed as unknown
     grounds: GroundSpec[];
 }
@@ -304,7 +304,7 @@ export function readLinkRecord(words: string[]): LinkRecord | null {
     return { scenery, source: src, members: refs };
 }
 
-// The DLL's limits for those (level_editor_entities.h kMinMph...).
+// The game's limits for those (level_editor_entities.h kMinMph...).
 export const ENTITY_LIMITS = {
     minMph: 0.1,
     maxMph: 200,
@@ -655,7 +655,7 @@ export function readLayout(text: string): Layout {
                             const v = decodeValue(value) ?? fail(`bad value for ${key}`);
                             record.fields.push({ key: field, keyText, removed: false, value: v });
                         }
-                    } // (other keys: a later version's - skipped, as the DLL does)
+                    } // (other keys: a later version's - skipped, as the game does)
                 }
                 layout.sets.push(record);
                 break;
@@ -779,7 +779,7 @@ export function readLayout(text: string): Layout {
                 break;
             }
             case "speed": {
-                // (level_editor_entities.h: a node's path speed in mph - the DLL refuses the file over a bad one)
+                // (level_editor_entities.h: a node's path speed in mph - the game refuses the file over a bad one)
                 const name = parseHex8(words[1]) ?? fail("bad speed node");
                 const mph = Math.fround(parseNumber(words[2]) ?? fail("bad speed"));
                 if (mph < Math.fround(ENTITY_LIMITS.minMph) || mph > ENTITY_LIMITS.maxMph) fail("speed out of range");
@@ -878,7 +878,7 @@ export function readLayout(text: string): Layout {
                 const rest = line.trim().split(/\s+/).slice(3).join(" ");
                 for (const m of rest.matchAll(/(\w+)=("(?:[^"\\]|\\.)*"|\S+)/g)) fields[m[1]!] = m[2]!;
                 if (!fields.pos) fail("a trigger without pos");
-                // (the DLL's reader refuses the whole file over a record it can't read: a bad value, a repeated key)
+                // (the game's reader refuses the whole file over a record it can't read: a bad value, a repeated key)
                 const spec = readTriggerRecord(line.trim().replace(/^trigger\s+/, "")) ?? fail("bad trigger");
                 layout.triggers.push({ line: number, name, kind: triggerKind, fields, spec });
                 break;

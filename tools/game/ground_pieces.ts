@@ -1,9 +1,9 @@
-// NOT ORIGINAL - the level editor's raised / lowered ground pieces for the bake (UX9): the DLL's generator
+// NOT ORIGINAL - the level editor's raised / lowered ground pieces for the bake (UX9): the game's generator
 // (src/game/front/level_editor_ground.cpp - Ground::Build, QuarterProfile, Strip, LayoutFor, WriteVertices, ReadRecord)
 // ported, and the piece made into the level's files: a new scene sector (the donor's first mesh's material and vertex
 // format, the generated vertices and a strip drawing each face both ways) and a collision object (the generated faces,
 // their flags and terrain, its tree and reaches built), both named after the piece (ed_ground01 ...); a pit's floor
-// tiles (`hides`) left out of the scene and collision, as the DLL hides them.
+// tiles (`hides`) left out of the scene and collision, as the game hides them.
 //
 // Record (level_editor_ground.h):
 //   ground <name> raise|lower rect=x0,z0,x1,z1 base=y height=h ramps=<-x>,<+x>,<-z>,<+z> length=l material=<sector>
@@ -362,7 +362,7 @@ function readFloat(text: string): number | null {
     return Number.isFinite(v) ? Math.fround(v) : null;
 }
 
-// The words after "ground" (comment cut); null when the DLL wouldn't read it.
+// The words after "ground" (comment cut); null when the game wouldn't read it.
 export function readGroundRecord(text: string): GroundSpec | null {
     const words = text.trim().split(/\s+/);
     const name = words[0] ?? "";

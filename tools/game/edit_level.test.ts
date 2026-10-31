@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
-import { findExe, findLevel, formatList, type Level, resolveGameFolder } from "./edit_level.ts";
+import { findExe, findLaunchExe, findLevel, formatList, type Level, resolveGameFolder } from "./edit_level.ts";
 
 const LEVELS: Level[] = [
     { load: "BO", name: "Boston", game: "THUG2", installed: true },
@@ -57,4 +57,14 @@ test("findExe: THUG2.exe", () => {
     const exists = (p: string): boolean => files.has(p);
     assert.equal(findExe("C:\\Games\\THUG2-1", exists), path.join("C:\\Games\\THUG2-1", "THUG2.exe"));
     assert.equal(findExe("C:\\Games\\Nothing", exists), null);
+});
+
+test("findLaunchExe: thug2-decomp.exe, not the game's own exe", () => {
+    const files = new Set([
+        path.join("C:\\Games\\THUG2-1", "THUG2.exe"),
+        path.join("C:\\Games\\THUG2-2", "thug2-decomp.exe"),
+    ]);
+    const exists = (p: string): boolean => files.has(p);
+    assert.equal(findLaunchExe("C:\\Games\\THUG2-1", exists), null);
+    assert.equal(findLaunchExe("C:\\Games\\THUG2-2", exists), path.join("C:\\Games\\THUG2-2", "thug2-decomp.exe"));
 });

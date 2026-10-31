@@ -22,7 +22,7 @@ import * as path from "node:path";
 import { readManifest, STAGINGS } from "../level_port/ported_levels.ts";
 import { Name, QbFile, Struct } from "../level_port/qb.ts";
 import { parseCli } from "../lib/cli.ts";
-import { GAME_EXE_NAMES } from "../lib/decomp.ts";
+import { GAME_EXE_NAMES, GAME_PROCESS_NAMES, LAUNCH_EXE_NAME } from "../lib/decomp.ts";
 import { getCloseMatches } from "../lib/difflib.ts";
 import { findInstall } from "../lib/install.ts";
 import { isMain, print, pyExit, runMain } from "../lib/py.ts";
@@ -66,6 +66,24 @@ export function findExe(folder: string, exists: (p: string) => boolean = fs.exis
     return null;
 }
 
+// The exe to start in a game folder: the game built from the decomp's source (thug2-decomp.exe), or null.
+export function findLaunchExe(folder: string, exists: (p: string) => boolean = fs.existsSync): string | null {
+    const exe = path.join(folder, LAUNCH_EXE_NAME);
+    return exists(exe) ? exe : null;
+}
+
+// The game folder's exe to start, or the reason there is none (for pyExit).
+export function launchExeOrError(given: string, game: string): { exe: string } | { error: string } {
+    if (!findExe(game))
+        return { error: `no game exe (the reference build or THUG2.exe) in ${given} (nor in its Game folder)` };
+    const exe = findLaunchExe(game);
+    if (!exe)
+        return {
+            error: `no ${LAUNCH_EXE_NAME} in ${game}: build it and copy it in with its DLLs (the decomp's README, "Running")`,
+        };
+    return { exe };
+}
+
 function text(file: QbFile, value: unknown): string | null {
     if (typeof value === "string") return value;
     if (value instanceof Name) return file.names.get(value.value) ?? null;
@@ -74,7 +92,7 @@ function text(file: QbFile, value: unknown): string | null {
 
 // The levels of a Levels.qb (structures with a load_script), in file order. `ported`: lower-case load name -> game;
 // `sceneThere(level)`: whether levels\<level>\<level>.scn.xbx is installed (asked only for levels without a scene
-// pre - as the DLL's StartLevel::SceneInstalled).
+// pre - as the game's StartLevel::SceneInstalled).
 export function levelsOf(
     file: QbFile,
     ported: ReadonlyMap<string, string>,
@@ -155,7 +173,7 @@ export function clearAutomationFiles(game: string): void {
 // fails the command, and execFileSync throws on that.)
 export function runningGames(): (string | null)[] {
     const script =
-        `Get-Process -Name ${EXE_NAMES.map((n) => n.replace(/\.exe$/i, "")).join(", ")} -ErrorAction SilentlyContinue | ` +
+        `Get-Process -Name ${GAME_PROCESS_NAMES.join(", ")} -ErrorAction SilentlyContinue | ` +
         "ForEach-Object { if ($_.Path) { $_.Path } else { '?' } }; exit 0";
     const out = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
         encoding: "utf8",
@@ -195,8 +213,9 @@ function main(): number {
         return 2;
     }
     const game = resolveGameFolder(values.game);
-    const exe = findExe(game);
-    if (!exe) pyExit(`no game exe (the reference build or THUG2.exe) in ${values.game} (nor in its Game folder)`);
+    const found = launchExeOrError(values.game, game);
+    if ("error" in found) pyExit(found.error);
+    const { exe } = found;
     const { levels, source } = readLevels(game);
     const wanted = positionals[0];
     if (values.list || wanted === undefined) {

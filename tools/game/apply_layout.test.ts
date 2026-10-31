@@ -330,7 +330,7 @@ test("layout_file reads every record kind the editor writes", () => {
     assert.deepEqual(l.triggers[0]!.spec.size, { x: 10, y: 10, z: 10 });
 });
 
-test("layout_file refuses what the DLL refuses, with the line", () => {
+test("layout_file refuses what the game refuses, with the line", () => {
     const bad = (line: string): void => {
         assert.throws(
             () => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`),
@@ -357,7 +357,7 @@ test("layout_file refuses what the DLL refuses, with the line", () => {
     assert.throws(() => readLayout("not a layout\n"), LayoutError);
 });
 
-test("field values decode as the DLL writes them (level_editor_fields.h)", () => {
+test("field values decode as the game writes them (level_editor_fields.h)", () => {
     assert.deepEqual(decodeValue("i:-7"), { kind: "integer", integer: -7 });
     assert.deepEqual(decodeValue("v:1,2.5,-3"), { kind: "vector", numbers: [1, 2.5, -3] });
     assert.equal(decodeValue("n:0x0BADF00D")?.checksum, 0x0badf00d);
@@ -639,13 +639,13 @@ test("bake: triggers - node, trigger box, script in the scripts .qb; level prope
     assert.deepEqual(sq.calls(checksum("ed_trigger01Script"))[0]![0], checksum("StartGap"));
     assert.deepEqual(sq.calls(checksum("ed_trigger02Script"))[0]![0], checksum("EndGap"));
     assert.deepEqual(sq.calls(checksum("ed_trigger04Script"))[0]![0], checksum("tst_Setup"));
-    assert.equal(sq.scripts.get(checksum("ed_trigger05Script"))!.length, 0, "no restart: an empty script, as the DLL");
+    assert.equal(sq.scripts.get(checksum("ed_trigger05Script"))!.length, 0, "no restart: an empty script, as the game");
     assert.equal(sq.names.get(checksum("ed_gap01")), "ed_gap01");
     assert.equal(new QbFile(out.qb, "tst.qb", true).scripts.size, 0);
     assert.ok(out.warnings.some((w) => w.includes("ed_trigger05") && w.includes("does nothing")));
     assert.ok(out.warnings.some((w) => w.includes("ed_lonely has no end")));
     assert.ok(!out.warnings.some((w) => w.includes("ed_gap01 has no")));
-    // Level properties: set in Level_tst (clamped as the DLL), the other structures' bytes kept; start reported.
+    // Level properties: set in Level_tst (clamped as the game), the other structures' bytes kept; start reported.
     assert.ok(out.levels);
     const lv = new QbFile(out.levels, "Levels.qb", true);
     const s = lv.globals.find(([k]) => k.value === checksum(`Level_${LEVEL}`))![1] as Struct;
@@ -672,7 +672,7 @@ test("bake: triggers - node, trigger box, script in the scripts .qb; level prope
 
 // --- (UX5) note pins: read, never baked ---------------------------------------------------------------------------------
 
-test("layout_file: (UX5) note records read as the DLL writes them; malformed refused; the bake says nothing of them", () => {
+test("layout_file: (UX5) note records read as the game writes them; malformed refused; the bake says nothing of them", () => {
     const l = readLayout(
         [
             "thug2-decomp layout 2",
@@ -782,7 +782,7 @@ test("bake: ladders, trick-object rails, flat-ground rails", () => {
             out.parity.some((p) => p.startsWith(what)),
             what,
         );
-    // Refused as the DLL refuses.
+    // Refused as the game refuses.
     for (const line of [
         "point ed_rail09 RailNode pos=1,2,3 grindflat=2",
         "facing 00000001",
@@ -793,9 +793,9 @@ test("bake: ladders, trick-object rails, flat-ground rails", () => {
 
 // --- the editor's later records: per-axis scale, object scale, exit triggers (editor-scale2 / editor-polish) --------
 
-// Every record kind and key the DLL's writers produce (level_editor_layout.cpp Write, LevelProps::WriteRecord,
+// Every record kind and key the game's writers produce (level_editor_layout.cpp Write, LevelProps::WriteRecord,
 // Triggers::Record, Fields::Token, Chains::WriteRecords), in their own forms - comments too.
-test("layout_file reads every record and key the DLL writes", () => {
+test("layout_file reads every record and key the game writes", () => {
     const h = hex;
     const text = [
         "thug2-decomp layout 2",
@@ -1029,7 +1029,7 @@ test("bake: an exit trigger's box gets its faces again facing in; a plain one do
 
 // --- (map3) faces, clusters, cameras, the sky --------------------------------------------------------------------------
 
-test("layout_file: (map3) faces, cluster and camera records, the level's sky - read as the DLL, malformed refused", () => {
+test("layout_file: (map3) faces, cluster and camera records, the level's sky - read as the game, malformed refused", () => {
     const l = readLayout(
         [
             "thug2-decomp layout 2",
@@ -1111,7 +1111,7 @@ test("bake: (map3) face flags - the collision object's, a taken face's in its co
     assert.ok(out.warnings.some((w) => w.includes(`faces of ${hex("Nothing")}`) && w.includes("no collision object")));
     assert.ok(out.report.some((r) => r.startsWith("collision faces: 3 faces")));
     readCol(writeCol(out.col!), "col");
-    // A copy's companion keeps the flags it was made with (the DLL's copies don't take face edits).
+    // A copy's companion keeps the flags it was made with (the game's copies don't take face edits).
     const copied = bake(
         readLayout(
             [
@@ -1285,7 +1285,7 @@ function entityLevel(): LevelFiles {
     return { ...level(), qb };
 }
 
-test("layout_file: speed and emitter records as the DLL writes and refuses them", () => {
+test("layout_file: speed and emitter records as the game writes and refuses them", () => {
     const layout = readLayout(
         [
             "thug2-decomp layout 2",
@@ -1323,7 +1323,7 @@ test("layout_file: speed and emitter records as the DLL writes and refuses them"
 });
 
 // (map4) A particle node turned: its Mid / End turned about its place and moved with it, its boxes turned (a quarter
-// turn swaps x and z) - as the DLL's Entities::TurnParticle.
+// turn swaps x and z) - as the game's Entities::TurnParticle.
 test("bake: a particle system turned - its emitter places and boxes with it", () => {
     const layout = readLayout(
         [

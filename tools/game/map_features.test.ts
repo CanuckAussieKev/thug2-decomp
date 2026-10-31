@@ -1,6 +1,6 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/map_features.ts (the DLL's rail speed-up and proximity scripts, ported) and of the
-// feature map's layout records in tools/pipeline/game/layout_file.ts. The expected bytes are the DLL self-test's
-// (src/hook/selftests_editor_map1.cpp): NeverScript's output for the same statements.
+// NOT ORIGINAL - tests of tools/pipeline/game/map_features.ts (the game's rail speed-up and proximity scripts, ported) and of the
+// feature map's layout records in tools/pipeline/game/layout_file.ts. The expected bytes are the game's
+// (as its self-test had them): NeverScript's output for the same statements.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -20,7 +20,7 @@ import { body, readTriggerRecord } from "./triggers.ts";
 
 const hex = (text: string): Buffer => Buffer.from(text.replace(/\s+/g, ""), "hex");
 
-test("rail speed-up scripts: the DLL's image, its bodies, a point's script", () => {
+test("rail speed-up scripts: the game's image, its bodies, a point's script", () => {
     assert.equal(RAIL_SPEED_QB.length, 0x10f);
     assert.equal(RAIL_SPEED_QB.readUInt32LE(2), checksum("ed_RailSpeed"));
     // (the bodies: after the header line, up to endscript - an if, and a while ... loop)
@@ -71,7 +71,7 @@ test("proximity scripts: if Inside {enter} else {exit}, as NeverScript compiles 
     assert.equal(proximScriptName(0xbeef), "ed_proxim_0000BEEF");
 });
 
-test("boost / break triggers: the DLL's bodies", () => {
+test("boost / break triggers: the game's bodies", () => {
     const boost = readTriggerRecord("ed_trigger01 boost pos=0,0,0 strength=900");
     assert.ok(boost);
     assert.deepEqual(body(boost), hex("16 f083bbb8 16 0901d9f0 07 17 84030000 01"));
@@ -95,8 +95,8 @@ test("boost / break triggers: the DLL's bodies", () => {
     assert.equal(readTriggerRecord("ed_trigger03 boost pos=0,0,0")?.strength, 900);
 });
 
-// (map4) LevelEditor_PlayCamera camera=ed_camera01 time=2.5 - the DLL self-test's bytes (selftests_editor_map4.cpp).
-test("camera triggers: the DLL's body, records", () => {
+// (map4) LevelEditor_PlayCamera camera=ed_camera01 time=2.5 - the game's bytes.
+test("camera triggers: the game's body, records", () => {
     const shot = readTriggerRecord("ed_trigger05 camera pos=0,0,0 target=ed_camera01 seconds=2.5");
     assert.ok(shot);
     assert.equal(shot.seconds, 2.5);
@@ -108,7 +108,7 @@ test("camera triggers: the DLL's body, records", () => {
     assert.equal(readTriggerRecord("ed_trigger05 camera pos=0,0,0 seconds=2 seconds=3"), null);
 });
 
-test("layout records: ledges, speed-ups, proximity nodes - read as the DLL reads them", () => {
+test("layout records: ledges, speed-ups, proximity nodes - read as the game reads them", () => {
     const layout = readLayout(
         [
             "thug2-decomp layout 2",

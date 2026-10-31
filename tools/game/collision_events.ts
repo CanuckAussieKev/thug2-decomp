@@ -1,4 +1,4 @@
-// NOT ORIGINAL - reads the DLL's [debug] collision_events lines (src/game/skater/collision_events.h) out of a
+// NOT ORIGINAL - reads the game's [debug] collision_events lines (src/game/skater/collision_events.h) out of a
 // thug2-decomp.log and groups them: the spots in a level where the skater's velocity turned round, with what did it.
 //
 //   node tools/pipeline/game/collision_events.ts <thug2-decomp.log> [--level <name>] [--col <level | file.col.xbx>]
@@ -12,7 +12,7 @@
 // object - a dropped piece - and turns the player probably made himself). Then a line per event: probe_dir (the
 // travel BEFORE the reversal - the probes and the screenshot face that way), the deciding ray, the face's nearest
 // edge, the input held and the approach (from the collision-event-detail line with the same n=). The count includes
-// the events the DLL's rate limit left out (repeats=).
+// the events the game's rate limit left out (repeats=).
 //
 // --col: also read that level's converted collision (.col.xbx - read only): the converters' staging folders
 // (<root>\thug2-decomp-<game>\levels\<level>\) or a game folder's overlay (<root>[\Game]\thug2-decomp-data\levels\
@@ -52,7 +52,7 @@ export interface CollisionEvent {
     spot: Vec3;
     face: FaceInfo | null;
     probes: Record<string, FaceInfo | null>;
-    repeats: number; // events the DLL's rate limit left out at this spot before this one
+    repeats: number; // events the game's rate limit left out at this spot before this one
     detail: Record<string, string> | null; // the collision-event-detail line with the same n
 }
 
@@ -182,7 +182,7 @@ export function verdict(e: CollisionEvent): string {
     return say.length ? say.join(", ") : "-";
 }
 
-// Whether the player made the turn, not the collision: the DLL logs "slope" only on ground steeper than 5 degrees
+// Whether the player made the turn, not the collision: the game logs "slope" only on ground steeper than 5 degrees
 // (older logs: on any ground); with turning / braking held, a trick or a balance trick in the window it may still be
 // the player's own.
 export function playerTurn(e: CollisionEvent): string | null {
@@ -394,7 +394,7 @@ export function spotDetails(s: Spot): string[] {
     });
 }
 
-// A file's size and time as the DLL writes them ("<size>@YYYY-MM-DDTHH:MM:SS", local time).
+// A file's size and time as the game writes them ("<size>@YYYY-MM-DDTHH:MM:SS", local time).
 export function fileStamp(file: string): string {
     const st = fs.statSync(file);
     const t = st.mtime;

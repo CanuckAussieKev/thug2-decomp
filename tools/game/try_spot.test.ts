@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatList, formatSpot, parseSpot, readList, withSpotGuard } from "./try_spot.ts";
 
-test("parseSpot takes what the DLL's ParseSpot takes", () => {
+test("parseSpot takes what the game's ParseSpot takes", () => {
     assert.deepEqual(parseSpot("120,-40.5,3000"), { x: 120, y: -40.5, z: 3000 });
     assert.deepEqual(parseSpot(" 1, 2 ,3 , -90 "), { x: 1, y: 2, z: 3, heading: -90 });
     assert.deepEqual(parseSpot("1 2 3 45"), { x: 1, y: 2, z: 3, heading: 45 });

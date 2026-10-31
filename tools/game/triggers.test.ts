@@ -1,6 +1,6 @@
-// NOT ORIGINAL - tests of tools/pipeline/game/triggers.ts (the DLL's trigger records and scripts, ported) and the qb_write
+// NOT ORIGINAL - tests of tools/pipeline/game/triggers.ts (the game's trigger records and scripts, ported) and the qb_write
 // helpers the bake uses for them (scripts added / replaced, a level structure's entries set). The script bytes are the
-// DLL's self-test's (src/hook/selftests_editor_triggers.cpp: Boston's compiled gap scripts); with the game's files at
+// game's (Boston's compiled gap scripts); with the game's files at
 // C:\Games\THUG2\Game they're also compared with Boston's own (skipped without them - nothing is written there).
 
 import assert from "node:assert/strict";
@@ -62,7 +62,7 @@ const END = spec({
     text: "Statehouse Stair Spine",
 });
 
-test("triggers: the compiled scripts are the DLL's bytes (Boston's gap scripts)", () => {
+test("triggers: the compiled scripts are the game's bytes (Boston's gap scripts)", () => {
     assert.equal(checksum("SK3_KillSkater"), 0xdea3057b);
     assert.equal(checksum("StartGap"), 0x65b9ec39);
     assert.deepEqual(
@@ -114,7 +114,7 @@ test("triggers: what lacks something makes an empty script (Problem)", () => {
     assert.equal(problem(END), null);
 });
 
-test("triggers: the DLL's .qb image - scripts, names, the end", () => {
+test("triggers: the game's .qb image - scripts, names, the end", () => {
     const missing = spec({ name: "ed_trigger04" });
     const file = qbFile([START, END, spec({ name: "ed_trigger03", target: "TRG_Restart01" }), missing]);
     assert.deepEqual(
@@ -132,11 +132,11 @@ test("triggers: the DLL's .qb image - scripts, names, the end", () => {
     assert.equal(q.names.get(checksum("StateHouseSpine1")), "StateHouseSpine1");
     assert.equal(q.names.get(checksum("ed_trigger03Script")), "ed_trigger03Script");
     assert.equal(q.names.get(checksum("ed_trigger04Script")), "ed_trigger04Script");
-    assert.equal(q.names.has(checksum("CANCEL_GROUND")), false, "the DLL's image: no flag names");
+    assert.equal(q.names.has(checksum("CANCEL_GROUND")), false, "the game's image: no flag names");
     assert.equal(scriptNames(START, true).get(checksum("CANCEL_GROUND")), "CANCEL_GROUND");
 });
 
-test("triggers: records read as the DLL reads them", () => {
+test("triggers: records read as the game reads them", () => {
     const s = readTriggerRecord(
         'ed_trigger07 gapend pos=1.5,-2,3e2 yaw=1.57079637 size=310.5,64,1200.25 gap=ed_gap02 flags=PURE_AIR,CANCEL_GROUND score=250 replaces=8E1A2B3C text="My #gap"',
     );

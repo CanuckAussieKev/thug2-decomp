@@ -1,26 +1,26 @@
 // NOT ORIGINAL - the level editor's trigger volumes (phase 5) as level data: the pure parts of
-// src/game/front/level_editor_triggers.{h,cpp} ported (the record, the compiled script - byte for byte the DLL's
+// src/game/front/level_editor_triggers.{h,cpp} ported (the record, the compiled script - byte for byte the game's
 // Triggers::Body / QbFile, which its self-test compares with Boston's own compiled gap scripts) and what
 // tools/pipeline/game/apply_layout.ts bakes from them (a node, a trigger box in the collision, the script).
 //
-// In the game (the DLL) an editor trigger is a run-time thing: a node in the editor's overlay node array (GenericNode,
+// In the game (the game) an editor trigger is a run-time thing: a node in the editor's overlay node array (GenericNode,
 // type ed_trigger, TriggerScript=<name>Script), a movable collision box (Nx::CCollMovBBox, every face 0x50, named
 // after the node) and a script compiled by the editor and defined through Script::LoadQBData. Baked, the same three are
 // in the level's own files:
-//   - the node: appended to the level's node array, the fields NodeCreate::Fields gives the DLL's node (Pos, Angles
+//   - the node: appended to the level's node array, the fields NodeCreate::Fields gives the game's node (Pos, Angles
 //     (0, yaw, 0), Name, Class GenericNode, Type ed_trigger, TriggerScript <name>Script);
 //   - the box: a collision object named after the node - 8 corners, 12 triangles, in the corner and face order of
 //     THUG2's own trigger boxes (Boston's TRGP_ShoppingCart), every face 0x1150 as theirs: trigger (0x40), not
 //     collidable (0x10), no skater shadow (0x100), invisible (0x1000). The trigger component's feeler only asks for
-//     0x50 (SetIgnore(0, 0x50) - level_editor_triggers.h), so it meets the box as it meets the DLL's;
-//   - the script: `script <name>Script <body> endscript` - the DLL's tokens - in the level's scripts .qb.
-// Both fire on the way in only: the DLL's movable box is met where a line enters it (Mth::BBox::LineIntersect), and a
+//     0x50 (SetIgnore(0, 0x50) - level_editor_triggers.h), so it meets the box as it meets the game's;
+//   - the script: `script <name>Script <body> endscript` - the game's tokens - in the level's scripts .qb.
+// Both fire on the way in only: the game's movable box is met where a line enters it (Mth::BBox::LineIntersect), and a
 // static box's faces are one-sided - the static line test (CCollStatic::CollideWithLine 0x00413B50) takes a face only
 // through RayHitsTriangle (0x0040B420), which refuses a determinant below 0.03: a line crossing a face from behind (its
 // normal (v1 - v0) x (v2 - v0) along the line) doesn't meet it. The boxes' faces point outwards (as THUG2's own), so a
-// line leaving the box meets nothing. An exit trigger (exit=1: the DLL emulates leaving with a test of the skater's
+// line leaving the box meets nothing. An exit trigger (exit=1: the game emulates leaving with a test of the skater's
 // place every frame - Triggers::Play) is baked with the 12 faces again, wound the other way: a line leaving the box
-// meets those, and the node's TriggerScript runs again, as the DLL runs it on leaving.
+// meets those, and the node's TriggerScript runs again, as the game runs it on leaving.
 
 import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import { buildTree, type ColObject, type Face, setReaches } from "../level_port/thug2_col.ts";
@@ -29,7 +29,7 @@ import { f32, pack } from "../lib/struct.ts";
 // (the feature map added boost - a jump boost: trigger_jump_boost speed=<strength> - and break - a breakable: its piece
 // shattered and killed, its collision off while it's breakable through `replaces`)
 export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend" | "boost" | "break" | "camera";
-// (the DLL's KindWord order; "other" - a level trigger without a script - is never a record)
+// (the game's KindWord order; "other" - a level trigger without a script - is never a record)
 export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend", "boost", "break", "camera"];
 export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     kill: "Kill zone",
@@ -166,7 +166,7 @@ function readTriple(text: string): V3 | null {
     return { x: v[0]!, y: v[1]!, z: v[2]! };
 }
 
-// The record's text after "trigger " (null: one the DLL refuses - a bad value, a repeated key, no pos, kind `other`).
+// The record's text after "trigger " (null: one the game refuses - a bad value, a repeated key, no pos, kind `other`).
 export function readTriggerRecord(line: string): TriggerSpec | null {
     let text = line;
     const spec: TriggerSpec = {
@@ -346,7 +346,7 @@ export function body(spec: TriggerSpec): Buffer {
             break;
         }
         case "camera":
-            // LevelEditor_PlayCamera camera=<node> time=<seconds> (the DLL's level_editor_cameras.h: the game's
+            // LevelEditor_PlayCamera camera=<node> time=<seconds> (the game's level_editor_cameras.h: the game's
             // virtual_cam through PlaySkaterCamAnim - a baked level needs this project's DLL for it)
             parts.push(nameToken(checksum("LevelEditor_PlayCamera")), nameValue("camera", checksumOf(spec.target)));
             parts.push(
@@ -360,8 +360,8 @@ export function body(spec: TriggerSpec): Buffer {
     return Buffer.concat(parts);
 }
 
-// The names the DLL's QbFile writes for a spec's script (the script's, its target / script / gap when it has a body);
-// `flags`: the gap's flags too (for a level file's name table - not in the DLL's).
+// The names the game's QbFile writes for a spec's script (the script's, its target / script / gap when it has a body);
+// `flags`: the gap's flags too (for a level file's name table - not in the game's).
 export function scriptNames(spec: TriggerSpec, flags = false): Map<number, string> {
     const out = new Map<number, string>();
     const note = (name: string): void => {
@@ -402,7 +402,7 @@ export function qbFile(specs: readonly TriggerSpec[]): Buffer {
 
 // --- the node and the box ---------------------------------------------------------------------------------------------
 
-// The node the DLL makes in its overlay (Triggers::NodeSpec through NodeCreate::Fields), as a node array entry.
+// The node the game makes in its overlay (Triggers::NodeSpec through NodeCreate::Fields), as a node array entry.
 export function triggerNode(spec: TriggerSpec): Struct {
     const v = (x: number, y: number, z: number): Vector => new Vector("vector", [x, y, z]);
     const n = (text: string): Name => new Name(checksum(text));

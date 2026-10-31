@@ -1,16 +1,16 @@
-// NOT ORIGINAL - the level editor's feature map rows as level data: the pure parts of the DLL's rail speed-ups
+// NOT ORIGINAL - the level editor's feature map rows as level data: the pure parts of the game's rail speed-ups
 // (src/game/front/level_editor_chains.{h,cpp}: RailSpeedQb, SpeedScriptName, SpeedBody) and proximity nodes' enter /
 // exit scripts (level_editor_triggers.{h,cpp}: ProximScriptName, ProximBody) ported, for tools/pipeline/game/apply_layout.ts.
 //
 // - A rail speed-up (THAW's RailAccelerate): the rail point's TriggerScript becomes ed_railspeed_<node> - its own
 //   script before (called first, its arguments passed on: `<script> <...>`) then `ed_RailSpeed rate=<r>` - and the
-//   editor's two fixed scripts ed_RailSpeed / ed_RailSpeedLoop do the rest (NeverScript's output, the DLL's
+//   editor's two fixed scripts ed_RailSpeed / ed_RailSpeedLoop do the rest (NeverScript's output, the game's
 //   RailSpeedQb). Baked, the fixed scripts go into the level's scripts without their default `rate = 0.05` (a script
 //   header's parameters aren't a body statement - putScripts writes `script <name> <body> endscript`); every caller passes
 //   rate=, so nothing reads the default.
 // - A proximity node's scripts: `if Inside { <enter> } else { <exit> }` (a branch not chosen calls the node's own script,
-//   if any), as its TriggerScript ed_proxim_<node>. The DLL puts it in the game's ProximNode; baked it is the node's
-//   TriggerScript (Proxim_AddNode reads that at the level's load). A box shape is the DLL's alone (the game's
+//   if any), as its TriggerScript ed_proxim_<node>. The game puts it in the game's ProximNode; baked it is the node's
+//   TriggerScript (Proxim_AddNode reads that at the level's load). A box shape is the game's alone (the game's
 //   PROXIM_SHAPE_BOX takes its box from a sector named like the node): baked as a sphere around the box.
 
 import { checksum } from "../level_port/qb.ts";
@@ -22,7 +22,7 @@ function nameToken(c: number): Buffer {
     return Buffer.concat([Buffer.from([NAME]), pack("<I", c >>> 0)]);
 }
 
-// The DLL's RailSpeedQb (level_editor_chains.cpp): ed_RailSpeed {rate = 0.05 ...}, ed_RailSpeedLoop {rate = 0.05 ...},
+// The game's RailSpeedQb (level_editor_chains.cpp): ed_RailSpeed {rate = 0.05 ...}, ed_RailSpeedLoop {rate = 0.05 ...},
 // their names.
 export const RAIL_SPEED_QB = Buffer.from(
     "23167D9EC1F616C6C01320071ACDCC4C3D01474C00168273713A0517030000000917080000000917" +

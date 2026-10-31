@@ -15,7 +15,7 @@ foreach ($l in $Levels) {
     Remove-Item $log -ErrorAction SilentlyContinue
     $r = & "$PSScriptRoot\run_game.ps1" -Game $Game -Seconds $Seconds -Shot $l -ShotDir $ShotDir -Level $l
     $text = Get-Content $log -ErrorAction SilentlyContinue
-    # (case-sensitive: the scripts' SetOnExceptionScript lines aren't errors; the reports: src/hook/crash.h)
+    # (case-sensitive: the scripts' SetOnExceptionScript lines aren't errors; the reports: src/game/sys/crash.h)
     $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|^INVALID PARAMETER|^PURE VIRTUAL CALL|^ABORT|^BUFFER OVERRUN|^GAME CRT MESSAGE|SELFTEST' |
         Where-Object { $_.Line -notmatch 'self-tests: skipped' } | Select-Object -First 3
     $loaded = ($text | Select-String -SimpleMatch "levels\$l\$l.col.xbx" | Measure-Object).Count -gt 0

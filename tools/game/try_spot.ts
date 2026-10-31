@@ -21,7 +21,14 @@ import { fileURLToPath } from "node:url";
 import { parseCli } from "../lib/cli.ts";
 import { getCloseMatches } from "../lib/difflib.ts";
 import { isMain, print, pyExit, runMain } from "../lib/py.ts";
-import { clearAutomationFiles, findExe, findLevel, readLevels, resolveGameFolder, runningGames } from "./edit_level.ts";
+import {
+    clearAutomationFiles,
+    findLevel,
+    launchExeOrError,
+    readLevels,
+    resolveGameFolder,
+    runningGames,
+} from "./edit_level.ts";
 import { ensureWorkspaceMuted } from "./workspace_ini.ts";
 
 const USAGE = `usage: try_spot.ts [-h] [--game GAME] [--list LIST] [level] [spot]
@@ -45,7 +52,7 @@ export interface Spot {
     heading?: number;
 }
 
-// As the DLL's StartLevel::ParseSpot: three or four numbers separated by commas and / or spaces, optionally in
+// As the game's StartLevel::ParseSpot: three or four numbers separated by commas and / or spaces, optionally in
 // parentheses. Null for anything else.
 export function parseSpot(text: string): Spot | null {
     let s = text.trim();
@@ -140,8 +147,9 @@ function main(): number {
     const spot = parseSpot(spotText);
     if (!spot) pyExit(`"${spotText}" isn't x,y,z or x,y,z,heading`);
     const game = resolveGameFolder(values.game);
-    const exe = findExe(game);
-    if (!exe) pyExit(`no game exe (the reference build or THUG2.exe) in ${values.game} (nor in its Game folder)`);
+    const found = launchExeOrError(values.game, game);
+    if ("error" in found) pyExit(found.error);
+    const { exe } = found;
     const { levels } = readLevels(game);
     const level = findLevel(levels, levelName);
     if (!level) {

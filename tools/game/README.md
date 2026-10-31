@@ -1,6 +1,7 @@
 # tools/pipeline/game - running the game for tests
 
-Scripts for testing development builds and converted levels in the game. Test runs go to workspace copies of an
+Scripts for testing builds of the game (thug2-decomp.exe, built from the decomp's source and copied into a game
+folder with its DLLs - the decomp's README, "Running") and converted levels in it. Test runs go to workspace copies of an
 install (C:\Games\THUG2-1 ... THUG2-4, made by make_workspace.ps1), not the install you play. Every script takes
 `-Game <folder>` (default C:\Games\THUG2 - a stock install: the scripts step into its Game folder; a folder with the
 game at the top works too; tools/pipeline/game/game_exe.ps1's Resolve-GameFolder - the
@@ -11,23 +12,21 @@ TypeScript tools' --game / --thug2 the same, tools/pipeline/lib/install.ts).
   workspace before giving it to a new agent, so it starts from main.
 - `game_lock.ps1 -Action acquire|release|status -Owner <name> -Game <folder>` - one game per folder. Acquire waits
   (default 8 min; prints BUSY and exits 1 if still held), refuses while a game from that folder runs, and backs up
-  the deployed dinput8.dll and thug2-decomp.ini into `<folder>\.game-lock`; release puts them back - in a workspace it
+  the deployed thug2-decomp.exe (its PDB, d3dx9_43.dll, an earlier build's dinput8.dll - those that are there) and
+  thug2-decomp.ini into `<folder>\.game-lock`; release puts them back as they were - in a workspace it
   first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below), in the
-  main install it never closes one. Under the lock you may copy your build's DLL in, edit the ini, launch and close the game you started. To
+  main install it never closes one. Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in, edit the ini, launch and close the game you started. To
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
 - **Workspace games are muted:** `game_lock.ps1` acquire, `run_game.ps1` (so load_check and the scenic captures),
   `edit_level.ts` and `try_spot.ts` set `[features] mute_audio=1` in a workspace's ini (C:\Games\THUG2-n only -
   game_exe.ps1 Set-WorkspaceMuted / workspace_ini.ts; never the main install's). The user is at the machine.
-- **Faster start-up (self-tests):** workspaces skip the early self-tests in the game (`[selftests] early=0`, set by
-  make_workspace.ps1 - thug2_check already runs them offline against both exes). `run_game.ps1 -Tests "anim,coll"` runs
-  only the self-tests whose names contain one of those words (the work being tested); `-FullTests` runs every stage and
-  test (a range's final run). In the ini: `[selftests] filter=` does what -Tests does.
-- `run_game.ps1 -Game <folder> -Seconds N [-Keys "down,enter,shot,..."] [-Shot name] [-ShotDir dir]` - starts the game,
+- `run_game.ps1 -Game <folder> -Seconds N [-Keys "down,enter,shot,..."] [-Shot name] [-ShotDir dir]` - starts the game
+  (the folder's thug2-decomp.exe),
   waits, takes a picture of its window, sends the keys, closes the game it started (refuses if one is already running
   from that folder). In a workspace it never takes the foreground: keys are posted to the window (KEYS_POST +
   KEYS_NO_FOCUS) and pictures taken with PrintWindow, so it runs while the user uses the PC. Pictures go to
   %TEMP%\thug2-shots unless -ShotDir. Don't pipe it into `Select-Object -First` (that stops it before it closes the game).
-- **Commands instead of keys (prefer these):** the DLL's test-automation channel (src/game/front/automation.h; on in
+- **Commands instead of keys (prefer these):** the game's test-automation channel (src/game/front/automation.h; on in
   the workspaces - `[features] automation=1`, set by make_workspace.ps1; never on in the main install). The game reads
   `<folder>\thug2-decomp-commands.txt` once a frame and writes `<folder>\thug2-decomp-status.json` (readable while it
   runs - the log isn't). Nothing is dropped and nothing waits a fixed time: a cold start to the free-skate level select
@@ -127,14 +126,12 @@ Reference sources the agents read (re-fetch anonymously if needed; none of their
 THIRD_PARTY_NOTICES.md - this repository's and the decomp's - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
 (no licence: documentation only), https://github.com/Morten1337/thugpro-tools (public; looked at, nothing used).
 
-After every run read `<folder>\thug2-decomp.log` (locked while the game runs): replacements installed, self-test
-stages passed, no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
+After every run read `<folder>\thug2-decomp.log` (locked while the game runs): no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
 ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
 
 ## Crashes
-- **The DLL never shows a dialog** (src/hook/crash.h): every fault - an exception, a Debug run-time check or CRT
-  error, an invalid CRT parameter, a pure virtual call, abort(), the game's own /GS check ("Buffer overrun detected!"
-  from its VC7.1 CRT) or any other box of the game's CRT - is logged with the call stack / return addresses and ends
+- **The game never shows a dialog** (src/game/sys/crash.h): every fault - an exception, a Debug run-time check or CRT
+  error, an invalid CRT parameter, a pure virtual call, abort() - is logged with the call stack / return addresses and ends
   the process (exit code 3, 0xC0000409 for an overrun, the exception's code when unhandled). Windows Error Reporting
   shows nothing. Not catchable: our own build's /GS failures (fast fail - exit code 0xC0000409, nothing logged; WER may
   still write a dump).
@@ -147,13 +144,13 @@ ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
 - **Then:** read the log, `node tools/symbolize.ts --pdb-dir <the build that crashed> <folder>\thug2-decomp.log`
   (the last report of any kind), record it in your pending doc, carry on.
 - **A dump** (`%LOCALAPPDATA%\CrashDumps\THUG2*.dmp`, written by WER when LocalDumps is on - a crash from before the
-  DLL logged it, or a fast fail): `node tools/pipeline/game/read_dump.ts <dmp> [--image <build>\dinput8.dll] [--threads]` gives
-  the exception, registers and return addresses (checked against the module files: the exe and, with --image, the
-  DLL whose PE timestamp the dump names - each agent's build dir has one; `?` = not checked); save it to a file and
+  game logged it, or a fast fail): `node tools/pipeline/game/read_dump.ts <dmp> [--image <build>\thug2-decomp.exe] [--threads]`
+  gives the exception, registers and return addresses (checked against the module files: with --image, the build's
+  exe whose PE timestamp the dump names - each agent's build dir has one; `?` = not checked); save it to a file and
   `node tools/symbolize.ts --pdb-dir <that build> <file>` names our functions.
 - **Testing the handling:** the automation command `crash <kind>` (workspaces only): access, rtc, crterror,
-  invalidparam, purecall, abort, overrun, crtbox, fastfail, hang. thug2_check runs eight of them offline in child
-  processes ("crash handling: ...").
+  invalidparam, purecall, abort, fastfail, hang (overrun and crtbox went through the original's C runtime: not caused
+  any more).
 
 Anything a player has to judge (does a script fire when skated into, does a menu feel right) isn't verified with
 scripted keys: hand it to the user with a list of what to try.
@@ -163,11 +160,5 @@ scripted keys: hand it to the user with a list of what to try.
 of the reference install (made from C:\Games\THUG2 when it held the reference build; our files,
 Backup, Save and Faces left out). `... check --game <folder>`
 compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and names
-the executables by hash: the reference build (the one the DLL's addresses are for), or the retail
-THUG2.exe most installs have (the DLL can't run on it). A stock install's Game subfolder is found by itself. Exit code 1 when anything differs or is missing.
-
-## exe_audit.ts - do two exes differ where our code is?
-`node tools/pipeline/game/exe_audit.ts [--a <the reference build>] [--b <THUG2.exe>]`: every differing byte between two same-layout
-builds, the function or data it's in, which rewritten functions' original code differs, and which functions refer to
-the differing data. (The reference build vs THUG2.exe, 2026-10-20: 172 bytes in 35 runs; 4 rewritten
-functions touched - SetScreenBlur, WinMain, ServiceTask, LoadFromMemoryCard - all replaced by our source.)
+the executables by hash: the reference build (the one the source's addresses are for), or the retail
+THUG2.exe most installs have (the game built from source needs only the data files). A stock install's Game subfolder is found by itself. Exit code 1 when anything differs or is missing.

@@ -4,14 +4,15 @@ param(
     [int]$WaitMinutes = 8,
     [string]$Game = 'C:\Games\THUG2'
 )
-# One game per game folder: whoever holds <Game>\.game-lock may deploy a DLL, edit the ini, launch and close the game
+# One game per game folder: whoever holds <Game>\.game-lock may deploy a build, edit the ini, launch and close the game
 # in that folder. -Game: C:\Games\THUG2 (the user's, the default) or a workspace copy C:\Games\THUG2-1, -2, -3...
 #   acquire: waits up to -WaitMinutes for the lock (prints BUSY and exits 1 if still held - do other work, try again);
-#            on success backs up the deployed dinput8.dll and thug2-decomp.ini into the lock folder; in a workspace
+#            on success backs up the deployed thug2-decomp.exe (with its PDB and d3dx9_43.dll; dinput8.dll if there) and
+#            thug2-decomp.ini into the lock folder; in a workspace
 #            then sets [features] mute_audio=1 (its games always run muted: Set-WorkspaceMuted, game_exe.ps1).
 #   release: in a workspace, first closes a game still running from that folder (the holder's: crashed, stuck on a
 #            dialog, or left open - its outcome and log tail recorded, game_health.ps1); then puts the backed-up
-#            dinput8.dll and ini back and removes the lock. Never closes a game in the main install C:\Games\THUG2.
+#            files and ini back (removing the deployed ones that weren't there) and removes the lock. Never closes a game in the main install C:\Games\THUG2.
 #   status:  who holds it, since when.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 . (Join-Path $PSScriptRoot 'game_health.ps1')
@@ -36,7 +37,11 @@ switch ($Action) {
             try {
                 New-Item -ItemType Directory -Path $lock -ErrorAction Stop | Out-Null
                 Set-Content -Path $ownerFile -Value "$Owner since $(Get-Date -Format s)" -Encoding ascii
-                Copy-Item (Join-Path $game 'dinput8.dll') (Join-Path $lock 'dinput8.dll.backup')
+                $had = @()
+                foreach ($f in $DeployedFiles) {
+                    if (Test-Path (Join-Path $game $f)) { Copy-Item (Join-Path $game $f) (Join-Path $lock "$f.backup"); $had += $f }
+                }
+                Set-Content -Path (Join-Path $lock 'deployed.txt') -Value ($had -join "`r`n") -Encoding ascii
                 Copy-Item (Join-Path $game 'thug2-decomp.ini') (Join-Path $lock 'thug2-decomp.ini.backup')
                 # (a workspace's games always run muted - the user is at the machine; release puts the ini back)
                 Set-WorkspaceMuted $game
@@ -65,13 +70,17 @@ switch ($Action) {
         if (Get-GamesHere) {
             Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
             Remove-Item $lock -Recurse -Force
-            "RELEASED - a game is running (the user's?), so it was left alone and dinput8.dll NOT put back (in use); ini put back"
+            "RELEASED - a game is running (the user's?), so it was left alone and its exe NOT put back (in use); ini put back"
             exit 0
         }
-        Copy-Item (Join-Path $lock 'dinput8.dll.backup') (Join-Path $game 'dinput8.dll') -Force
+        $had = @(Get-Content (Join-Path $lock 'deployed.txt') -ErrorAction SilentlyContinue | Where-Object { $_ })
+        foreach ($f in $DeployedFiles) {
+            if ($f -in $had) { Copy-Item (Join-Path $lock "$f.backup") (Join-Path $game $f) -Force }
+            elseif (Test-Path (Join-Path $game $f)) { Remove-Item (Join-Path $game $f) -Force }
+        }
         Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
         Remove-Item $lock -Recurse -Force
-        "RELEASED (dinput8.dll and ini put back)"
+        "RELEASED ($($DeployedFiles -join ', ') and ini as they were)"
         exit 0
     }
 }

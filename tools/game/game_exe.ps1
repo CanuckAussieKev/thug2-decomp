@@ -1,6 +1,7 @@
 # Dot-sourced by the game scripts: which exe a game folder has - THUG2.exe, or another name listed in the decomp's
-# local.json (exeNames; tools/pipeline/lib/decomp.ts). The exe is never changed. The development DLL does not run on the
-# retail THUG2.exe (tools/pipeline/game/install_manifest.ts tells them apart). A stock install keeps the game in a Game
+# local.json (exeNames; tools/pipeline/lib/decomp.ts) - which marks it as a game folder (never run or changed), and the
+# exe the scripts start there: the game built from the decomp's source, thug2-decomp.exe ($LaunchExeName), copied into
+# the game folder with its DLLs (the decomp's README, "Running"). A stock install keeps the game in a Game
 # subfolder; some players delete what's around it (launcher, docs) and keep Game's contents at the top:
 # Resolve-GameFolder takes either.
 $GameExeNames = @('THUG2.exe')
@@ -22,7 +23,12 @@ if (Test-Path -LiteralPath $localJson) {
     $local = Get-Content -LiteralPath $localJson -Raw | ConvertFrom-Json
     if ($local.exeNames) { $GameExeNames += @($local.exeNames) }
 }
-$GameProcessNames = @($GameExeNames | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) })
+$LaunchExeName = 'thug2-decomp.exe'
+# (ours, and the game's own exe started by hand)
+$GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) })
+# The files of ours a game lock backs up and puts back (those that are there): the exe, its PDB and its D3DX9; an
+# earlier development build's dinput8.dll.
+$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'd3dx9_43.dll', 'dinput8.dll')
 
 # Each game's marker files / folders (the PowerShell twin of tools/pipeline/lib/install.ts's INSTALLS - keep them the same): any
 # one entry identifies the game's folder; an entry is one or more paths that must all be in it (case doesn't matter on
@@ -76,6 +82,13 @@ function Find-GameExe([string]$folder) {
         $path = Join-Path $folder $name
         if (Test-Path $path) { return $path }
     }
+    $null
+}
+
+# The exe to start in a game folder (thug2-decomp.exe), $null when it isn't there.
+function Find-LaunchExe([string]$folder) {
+    $path = Join-Path $folder $LaunchExeName
+    if (Test-Path $path) { return $path }
     $null
 }
 

@@ -5,9 +5,10 @@
 //     node tools/pipeline/game/install_manifest.ts make  [--game C:\Games\THUG2] [--out notes/data/install_manifest.json]
 //     node tools/pipeline/game/install_manifest.ts check --game D:\Other\THUG2 [--manifest notes/data/install_manifest.json]
 //
-// Left out: what this project or the player made, not the game - our dinput8.dll, thug2-decomp* (ini, logs, overlays,
-// layouts, converted levels), the game lock, Backup, Save and the Faces folder. A file's "kind" says where it comes
-// from: exe (the reference build, which every replacement address is for), partymod (PartyMod's SDL2 files), game.
+// Left out: what this project or the player made, not the game - thug2-decomp* (the exe and its PDB, ini, logs,
+// overlays, layouts, converted levels), d3dx9_43.dll, an earlier build's dinput8.dll, the game lock, Backup, Save and
+// the Faces folder. A file's "kind" says where it comes from: exe (the game's own exe - the reference build is the one
+// the source's addresses come from), partymod (PartyMod's SDL2 files), game.
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
@@ -20,9 +21,9 @@ import { formatFixed, isMain, print, pyExit, pyJsonDumps, pyParseInt, runMain } 
 
 // (the decomp's notes/data/install_manifest.json - the private notes repo, lib/decomp.ts; on its own, --manifest / --out)
 const DEFAULT_MANIFEST = DECOMP ? path.join(DECOMP, "notes", "data", "install_manifest.json") : "";
-// Game executables by SHA-256, and whether the development DLL runs on them (it's never modified): read from the
-// private notes repo (notes/data/known_exes.json: { "<sha256>": [runs, "description"] }); without it every exe is
-// "unknown". (Once the game is built from this source, only the data files matter.)
+// Game executables by SHA-256 (never modified): read from the private notes repo (notes/data/known_exes.json:
+// { "<sha256>": [known, "description"] }); without it every exe is "unknown". The game built from this source needs only
+// the data files.
 const KNOWN_EXES_FILE = DECOMP ? path.join(DECOMP, "notes", "data", "known_exes.json") : "";
 const KNOWN_EXES = new Map<string, [boolean, string]>(
     KNOWN_EXES_FILE && fs.existsSync(KNOWN_EXES_FILE)
@@ -31,7 +32,7 @@ const KNOWN_EXES = new Map<string, [boolean, string]>(
 );
 const EXE_NAMES = new Set(GAME_EXE_NAMES.map((n) => n.toLowerCase()));
 // Ours or the player's (top-level names, lower case; "thug2-decomp" also covers every thug2-decomp-* name).
-const SKIP = new Set(["dinput8.dll", "backup", "save", "faces", ".game-lock", ".anteara-backup"]);
+const SKIP = new Set(["dinput8.dll", "d3dx9_43.dll", "backup", "save", "faces", ".game-lock", ".anteara-backup"]);
 const PARTYMOD = new Set(["sdl2.dll", "gamecontrollerdb.txt"]);
 
 type Kind = "exe" | "partymod" | "game";
@@ -186,9 +187,6 @@ function check(game: string, manifestPath: string, list: number): number {
         print(`    ${p}: ${known[1]}`);
     }
     if (exes.size === 0) print("    none found");
-    if (![...exes.values()].some((f) => KNOWN_EXES.get(f.sha256)?.[0] ?? false)) {
-        print("    -> no exe the development DLL is known to run on");
-    }
     print("  game files (the executables apart):");
     print(`    identical: ${same} of ${reference.size}`);
     print(`    changed:   ${changed.length} (${byKind(changed)})`);
