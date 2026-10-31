@@ -1,4 +1,4 @@
-// NetLink::Conn (Neversoft's Net library): one end of a connection - its outgoing message queues, the sequenced
+// NetLink::Conn: one end of a connection - its outgoing message queues, the sequenced
 // messages and streams it has received, its buffers, latency and bandwidth. See net_conn.h.
 
 #include "engine/net/net_conn.h"

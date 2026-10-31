@@ -5,7 +5,7 @@
 
 namespace net {
 
-// A connection's traffic in one direction (Neversoft's NetLink::Gauges, 0x100C bytes; each Conn has two: incoming at
+// A connection's traffic in one direction (0x100C bytes; each Conn has two: incoming at
 // +0x1CDC, outgoing at +0x2CE8): the last 256 packets (size and time), and per message id how many went and
 // their bytes.
 struct Gauges {

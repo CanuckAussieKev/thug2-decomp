@@ -11,7 +11,7 @@
 
 struct sockaddr;
 
-// Neversoft's network library (Net): an App (the base of the Server and the Client) owns its connections (Conn),
+// The network library: an App (the base of the Server and the Client) owns its connections (Conn),
 // queues messages for them and streams big messages in pieces. Here: App's constructor and the App code at
 // 0x00457EB0 - 0x004598C0 (net_app.cpp); App's methods 0x00456910-0x00457EB0 are in net_app_view.cpp, its message
 // handling in net_app_messages.cpp.

@@ -5,7 +5,7 @@
 
 namespace net {
 
-// A connection's round-trip times (Neversoft's Net library; one in each connection, at +0x1CA4): the last ten
+// A connection's round-trip times (one in each connection, at +0x1CA4): the last ten
 // measurements and their average. A connection's resend threshold is twice the average (at least 500 ms).
 struct PingProbe {
     static constexpr int kNumTimes = 10;

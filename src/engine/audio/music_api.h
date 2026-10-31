@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// The music and streams front end (Neversoft's Pcm, gel/music): the game's calls for music tracks, music streams
+// The music and streams front end: the game's calls for music tracks, music streams
 // and streamed sounds, each doing nothing when there's no sound system (0x007D6A38), the sound is off
 // (0x007CEFA8 == 2) or music (0x0067D7E0) / streams (0x0067D7E1) are switched off. The platform layer under it
 // (PCMAudio_*, 0x00453xxx-0x00454xxx) isn't rewritten yet.

@@ -7,7 +7,7 @@ namespace sio {
 class InputPort;
 }
 
-// The input manager (Neversoft's pad_input::Hub, the singleton 0x0044E7F0 makes): a server per controller that
+// The input manager (the singleton 0x0044E7F0 makes): a server per controller that
 // turns its Sio device's PS2-format control data into button bits and analogue values once a frame and passes
 // them to the server's input handlers (pad_input::Responder<T>, e.g. the front end's). A server can also play back a
 // recording (one PadFrameRecord per frame) or record what it reads.

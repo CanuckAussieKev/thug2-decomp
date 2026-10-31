@@ -1,6 +1,6 @@
 #pragma once
 
-// The net library's list types (Neversoft's lists::Elem<T> / lists::Foremost<T> / lists::Hunt<T> instances): their
+// The net library's list types (the list templates' instances): their
 // destructors, and BlockedConnEntry (an address an App refuses connections from). Each type has its own vtable
 // holding only its scalar deleting destructor; the linker folded identical vtables, so one may stand for a
 // node type and a head type at once.

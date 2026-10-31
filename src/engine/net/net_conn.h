@@ -1,6 +1,6 @@
 #pragma once
 
-// NetLink::Conn (Neversoft's Net library): one end of a connection - its outgoing message queues, the sequenced
+// NetLink::Conn: one end of a connection - its outgoing message queues, the sequenced
 // messages and streams it has received, its buffers, latency and bandwidth; and the list types of its queues
 // (lists::Elem<T> / lists::Foremost<T> / lists::Hunt<T> for the message links and the stream links) with the
 // destructors and constructors in Conn's address range (0x00455970-0x00456910).
@@ -50,7 +50,7 @@ using MsgImpLinkSearch = ConnListSearch<kMsgImpLinkSearchVtable>; // 0x004559F0 
 using StreamLinkSearch = ConnListSearch<kStreamLinkSearchVtable>; // 0x00455A00 / 0x00455B10
 
 // NetLink::Conn: one end of a connection, as an App keeps it (0x3D20 bytes). Its methods: net_conn.cpp.
-// (Neversoft's NetLink::Conn; formerly `Conn`, a view of its fields at their offsets.)
+// (Formerly `Conn`, a view of its fields at their offsets.)
 struct Conn {
     // flag_bits_
     static constexpr uint32_t kFlagLocal = 0x1; // the App's own client/server in this process

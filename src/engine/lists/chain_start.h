@@ -4,7 +4,7 @@
 
 namespace lists {
 
-// An intrusive list's head (Neversoft's lists::Foremost<T>): a node whose data is -1, the list circular through it.
+// An intrusive list's head: a node whose data is -1, the list circular through it.
 struct Foremost {
     memory::ListNode list_link_;
 

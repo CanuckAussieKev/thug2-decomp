@@ -1,6 +1,6 @@
 #pragma once
 
-// The network manager's list types (Neversoft's lists::Elem<T> / lists::Foremost<T> instances for online's records): their
+// The network manager's list types (the list templates' instances for online's records): their
 // destructors. Each node type has its own vtable holding only its scalar deleting destructor; a head type's vtable
 // holds the head's (the same body, then freed). See net_lists.h for the net library's.
 

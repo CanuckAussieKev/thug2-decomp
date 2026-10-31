@@ -4,7 +4,7 @@
 
 namespace lists {
 
-// Walks the items of an intrusive list (Neversoft's lists::Hunt<T>), from the list's head node (whose data is
+// Walks the items of an intrusive list, from the list's head node (whose data is
 // -1). Fetch the next item before deleting the current one. The original also has a vtable (0x00658AA4: a
 // virtual destructor, see SearchDestructors) that it stores in each local search; it changes nothing.
 template <typename T>

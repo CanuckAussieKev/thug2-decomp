@@ -1,4 +1,4 @@
-// NetLink::AppHost's socket I/O, connection list and message queues (Neversoft's Net library). See net_app.h.
+// NetLink::AppHost's socket I/O, connection list and message queues. See net_app.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "engine/net/net_app.h"

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// The network library's message compression (Neversoft's Net): a message (or a whole sequenced one) goes as a
+// The network library's message compression: a message (or a whole sequenced one) goes as a
 // "compressed" message (id 0x12: the method, the 16-bit size of the id + length + data, then the compressed
 // id, length and data). Method 1 is the run-length code below, 2 LZSS (Lzss::pack_up). App's handler 0x0045ABF0
 // expands them.

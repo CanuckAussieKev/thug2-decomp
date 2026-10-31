@@ -9,7 +9,7 @@ namespace file {
 class AsyncFileHandle;
 }
 
-// Assets (Neversoft's Ass): files the asset manager loads and keeps by checksum - scenes, textures, collision,
+// Assets: files the asset manager loads and keeps by checksum - scenes, textures, collision,
 // animations, skeletons, skinned models, cutscenes, node arrays. Each type is a Resource with its own vtable; the
 // manager (ResourceRegistry, resource_registry.h) makes them, lists them and frees them.
 namespace assets {

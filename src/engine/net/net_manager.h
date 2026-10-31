@@ -6,7 +6,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_messages.h"
 
-// Neversoft's NetLink::Hub (0x37C bytes; the instance at 0x006EFDD8, made and released by create_manager /
+// The network manager (0x37C bytes; the instance at 0x006EFDD8, made and released by create_manager /
 // release_manager): the apps (servers and clients) it made and the network settings online copies from the network
 // preferences (0x00535040). Mostly a console's settings (DHCP, dial-up numbers, a modem): on the PC few of them
 // reach a socket. Its getters and setters are 0x00454530 - 0x004549C0, 0x00454CB0 and 0x00454DE0

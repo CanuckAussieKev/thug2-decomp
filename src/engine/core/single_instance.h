@@ -1,6 +1,6 @@
 #pragma once
 
-// Neversoft's Singletons::LazyInstance<T>: a reference to one of the reference-counted singletons (the managers and
+// LazyInstance<T>: a reference to one of the reference-counted singletons (the managers and
 // modules sys::Main makes), taken when it's constructed - T's Fabricate(create): with `create` the first one makes
 // the instance - and dropped when it's destroyed (T's Release: the last one deletes the instance).
 //

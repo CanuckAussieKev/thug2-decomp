@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// The game clock (Neversoft's Tmr): counted in vblanks (60 a second on PC), with the render frame count, an
+// The game clock: counted in vblanks (60 a second on PC), with the render frame count, an
 // average frame length over the last four frames, and slow motion.
 namespace frame_clock {
 

@@ -5,7 +5,7 @@
 
 #include "engine/core/arena_alloc.h"
 
-// Modules (Neversoft's Mdl): the engine's parts that are started and stopped as a whole - the front end, the
+// Modules: the engine's parts that are started and stopped as a whole - the front end, the
 // async file loader, the game's own modules. The module manager (the singleton 0x0044F6F0 makes) keeps them in a
 // list; starting, stopping or restarting one is a command its task carries out at the start of the next frame.
 namespace modules {
