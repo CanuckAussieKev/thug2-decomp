@@ -13,28 +13,14 @@ namespace render {
 
 namespace {
 
-// The groups' slots.
-template <typename R = void>
-R Virtual(void* group, int slot)
-{
-    return reinterpret_cast<R(__thiscall*)(void*)>((*static_cast<void***>(group))[slot])(group);
-}
-float span_to(void* group)
-{
-    return reinterpret_cast<float(__thiscall*)(void*)>((*static_cast<void***>(group))[5])(group);
-}
-float& imposter_near_range(void* group) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(group) + 4); }
-int& frame_count(void* group) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(group) + 0x58); }
-bool has_imposter(void* group) { return *(static_cast<uint8_t*>(group) + 0x5C) != 0; }
-
 // The table's iteration, inlined in the original: the first / next value (null at the end).
-void* next_group(lists::KeyMap* table)
+ImposterGroup* next_group(lists::KeyMap* table)
 {
     if (!table->step_iterator() || !table->iter_item_)
         return nullptr;
-    return table->iter_item_->value;
+    return static_cast<ImposterGroup*>(table->iter_item_->value);
 }
-void* first_group(lists::KeyMap* table)
+ImposterGroup* first_group(lists::KeyMap* table)
 {
     table->iter_bucket_ = -1;
     table->iter_item_ = nullptr;
@@ -55,9 +41,9 @@ ImposterManager* ImposterManager::make_new()
 // 0x0048E260
 void ImposterManager::delete_all()
 {
-    for (void* group = first_group(groups_ptr_); group;) {
-        void* next = next_group(groups_ptr_);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(group))[0])(group, 1);
+    for (ImposterGroup* group = first_group(groups_ptr_); group;) {
+        ImposterGroup* next = next_group(groups_ptr_);
+        delete group;
         group = next;
     }
     groups_ptr_->empty_table();
@@ -67,19 +53,19 @@ void ImposterManager::delete_all()
 void ImposterManager::tick_frame()
 {
     int done = 0;
-    for (void* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
-        Virtual(group, 6);
-        float distance = span_to(group);
-        if (distance <= imposter_near_range(group)) { // (NaN: as beyond it)
-            Virtual(group, 2);
-        } else if (!has_imposter(group)) {
+    for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
+        group->tick_frame();
+        float distance = group->distance_to_view();
+        if (distance <= group->near_range_) { // (NaN: as beyond it)
+            group->drop_imposter();
+        } else if (!group->has_imposter_) {
             if (done < max_per_frame_) {
-                Virtual(group, 1);
+                group->create_imposter();
                 ++done;
             }
         } else if (done < max_per_frame_) {
-            ++frame_count(group);
-            if (Virtual<bool>(group, 3))
+            ++group->frame_count_;
+            if (group->update_imposter())
                 ++done;
         }
     }
@@ -89,9 +75,9 @@ void ImposterManager::tick_frame()
 void ImposterManager::render()
 {
     set_primitive_states();
-    for (void* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
-        if (has_imposter(group))
-            Virtual(group, 4);
+    for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
+        if (group->has_imposter_)
+            group->draw_imposter();
     }
     reset_primitive_states();
 }

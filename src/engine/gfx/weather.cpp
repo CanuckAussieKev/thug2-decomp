@@ -237,13 +237,4 @@ bool WeatherSystem::script_set_rain_active(script::Struct*, script::Script*)
     return true;
 }
 
-// 0x004A1090
-__declspec(naked) void virtual_slot1_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 4]
-    }
-}
-
 } // namespace render

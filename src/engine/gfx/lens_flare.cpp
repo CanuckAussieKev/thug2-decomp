@@ -105,18 +105,16 @@ uint32_t get_since(uint32_t time)
 // The first viewport's camera (Nx, 0x004A06D0): its vtable slot 1 (through 0x004A1090) projects a point to the
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
 // rectangle (the query's number, 0 if none).
-void* viewport_camera() { return render::fetch_current_view(0); }
-void cast_onto(void* camera, const maths::Vec4* point, float* x, float* y, float* z)
+render::ViewRegion* viewport_camera() { return render::fetch_current_view(0); }
+// (the depth is written as an integer into the float, as the original)
+void cast_onto(render::ViewRegion* camera, const maths::Vec4* point, float* x, float* y, float* z)
 {
-    // (slot 1, through the jump 0x004A1090)
-    reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(
-        (*static_cast<void***>(camera))[1])(camera, point, x, y, z);
+    camera->project_to_screen(point, x, y, reinterpret_cast<int*>(z));
 }
-uint8_t issue_query(void* camera, float left, float top, float right, float bottom, int unknown, uint8_t query)
+uint8_t issue_query(render::ViewRegion* camera, float left, float top, float right, float bottom, int unknown,
+                    uint8_t query)
 {
-    // (slot 3, through the jump 0x004A10A0)
-    return reinterpret_cast<uint8_t(__thiscall*)(void*, float, float, float, float, int, uint32_t)>(
-        (*static_cast<void***>(camera))[3])(camera, left, top, right, bottom, unknown, query);
+    return camera->query_rect(left, top, right, bottom, static_cast<uint32_t>(unknown), query);
 }
 
 // The sun's and the corona's quads: a PC primitive drawer on the stack (0x200 bytes kept for it), made with 2 (not
@@ -239,7 +237,7 @@ void __cdecl set_sun(const Settings* settings, uint32_t mask)
 int __cdecl query_sun_visibility(void*, uint8_t query)
 {
     maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
-    void* camera = viewport_camera();
+    render::ViewRegion* camera = viewport_camera();
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
     cast_onto(camera, &get_position(), &screen[0], &screen[1], &z);
     get_query() = issue_query(camera, screen[0] - 5.0f, screen[1] - 5.0f, screen[0] + 5.0f, screen[1] + 5.0f, 1, query);

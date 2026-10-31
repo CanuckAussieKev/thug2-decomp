@@ -332,18 +332,4 @@ bool Geom::choose_uv_matrix(uint32_t, int, const maths::Mat4*)
     return false;
 }
 
-// --- the dispatchers --------------------------------------------------------------------------------------------
-
-#define NX_VIRTUAL_SLOT_JUMP(slot)                                                                                     \
-    __declspec(naked) void virtual_slot##slot##_jump()                                                                 \
-    {                                                                                                                  \
-        __asm mov eax, dword ptr[ecx] __asm jmp dword ptr[eax + 4 * slot]                                              \
-    }
-
-NX_VIRTUAL_SLOT_JUMP(8)
-NX_VIRTUAL_SLOT_JUMP(9)
-NX_VIRTUAL_SLOT_JUMP(10)
-
-#undef NX_VIRTUAL_SLOT_JUMP
-
 } // namespace render

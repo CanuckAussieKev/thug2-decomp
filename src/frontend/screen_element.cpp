@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "engine/core/mem.h"
+#include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
@@ -626,10 +627,10 @@ void UiWidget::update_layout()
     if (object_flags_ & kPos3d) {
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
-        void* camera = render::fetch_current_view(0);
+        render::ViewRegion* camera = render::fetch_current_view(0);
         float x, y, z;
-        float scale = reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(
-            &render::virtual_slot1_jump)(camera, &aim_point_.pos3d, &x, &y, &z);
+        // (the depth written as an integer into z, as the original)
+        float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, reinterpret_cast<int*>(&z));
         if (scale < 0.0f) {
             aim_point_.x = -320.0f;
             aim_point_.y = -224.0f;

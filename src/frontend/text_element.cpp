@@ -102,8 +102,7 @@ uint8_t get_faded(int a, float alpha)
 void* get_font(uint32_t name) { return render::get_font(name); }
 void read_string_param(void* font, const char* text, float* width, float* height)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&render::virtual_slot8_jump)(font, text,
-                                                                                                         width, height);
+    static_cast<render::Typeface*>(font)->read_string_param(text, width, height);
 }
 // A button glyph's character for the text after \m (0x0048D6A0, cdecl).
 char button_glyph(const char* text) { return render::button_glyph(text); }

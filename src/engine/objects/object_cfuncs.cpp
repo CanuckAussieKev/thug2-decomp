@@ -8,6 +8,7 @@
 
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/rig.h"
+#include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -65,11 +66,11 @@ objects::GameEntity* entity_for_id(uint32_t id)
 
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,
 // vtable slot 1 of the camera: x, y and depth out; returns a scale, unused here).
-void* viewport_camera(int index) { return render::fetch_current_view(index); }
-float project_to_screen(void* camera, const maths::Vec4* position, float* x, float* y, float* depth)
+render::ViewRegion* viewport_camera(int index) { return render::fetch_current_view(index); }
+// (the depth is written as an integer into the float, as the original)
+float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position, float* x, float* y, float* depth)
 {
-    return reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(
-        &render::virtual_slot1_jump)(camera, position, x, y, depth);
+    return camera->project_to_screen(position, x, y, reinterpret_cast<int*>(depth));
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
@@ -174,7 +175,7 @@ bool __cdecl cfunc_get_unique_composite_object_id(script::Struct* params, script
 // through the first viewport's camera. False if there is no such object.
 bool __cdecl cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
 {
-    void* camera = viewport_camera(0);
+    render::ViewRegion* camera = viewport_camera(0);
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
     objects::GameEntity* object = entity_for_id(id);

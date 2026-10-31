@@ -121,7 +121,7 @@ void change_ambient_tint(void* lights, const uint8_t* rgba)
 }
 void enable_ambient(void* lights, bool on)
 {
-    reinterpret_cast<void(__thiscall*)(void*, bool)>(&render::virtual_slot9_jump)(lights, on);
+    static_cast<render::ModelLights*>(lights)->switch_ambient_light(on);
 }
 void change_diffuse_hue(void* lights, int index, const uint8_t* rgba)
 {
@@ -129,7 +129,7 @@ void change_diffuse_hue(void* lights, int index, const uint8_t* rgba)
 }
 void enable_diffuse(void* lights, int index, bool on)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&render::virtual_slot10_jump)(lights, index, on);
+    static_cast<render::ModelLights*>(lights)->switch_diffuse_light(index, on);
 }
 void set_light_direction(void* lights, int index, const maths::Vec4* direction)
 {

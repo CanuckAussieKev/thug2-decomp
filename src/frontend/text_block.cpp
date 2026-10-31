@@ -62,8 +62,7 @@ const char* get_space() { return " "; }
 void* get_font(uint32_t name) { return render::get_font(name); }
 void read_string_param(void* font, const char* text, float* width, float* height)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&render::virtual_slot8_jump)(font, text,
-                                                                                                         width, height);
+    static_cast<render::Typeface*>(font)->read_string_param(text, width, height);
 }
 
 void* front_end_new(unsigned int size)

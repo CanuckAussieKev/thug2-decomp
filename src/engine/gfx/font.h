@@ -36,7 +36,7 @@ public:
     // Slot 5: the platform's unload. The engine's: nothing.
     virtual void unload_platform() {}
     // Slots 6-8: its height, base and a string's width and height. The engine's: 0, 0, nothing. (0x0048D060, a
-    // string's size, is a jump to slot 8 folded with other classes' slot 8: engine_geom.h's virtual_slot8_jump.)
+    // string's size, is a jump to slot 8 folded with other classes' slot 8: the callers call read_string_param.)
     virtual uint32_t fetch_tallness() { return 0; }
     virtual uint32_t get_base() { return 0; }
     virtual void read_string_param(const char* /*text*/, float* /*width*/, float* /*height*/) {}

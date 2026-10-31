@@ -10,10 +10,25 @@ class KeyMap;
 // The engine's imposter manager (Nx; the object at 0x006FA7BC, 8 bytes): its imposter groups in a hash table, each
 // (by its vtable) asked once a frame whether it's near enough to be drawn as itself - else its imposter made, at
 // most `max_per_frame_` made or updated a frame - and the imposters drawn between the PC's primitive states.
-// (The groups: +4 the distance below which they're themselves, +0x58 a frame count, +0x5C the imposter made; slots
-// [1] make the imposter, [2] drop it, [3] bring it up to date (whether it did), [4] draw it, [5] the distance (ST0),
-// [6] updated.)
 namespace render {
+
+// An imposter group (the original's table order in the comments). Nothing in this build makes one (the PC never
+// adds a group to the manager's table): the interface is what the manager calls.
+class ImposterGroup {
+public:
+    virtual ~ImposterGroup() = default;   // [0]
+    virtual void create_imposter() = 0;   // [1]
+    virtual void drop_imposter() = 0;     // [2]
+    virtual bool update_imposter() = 0;   // [3]: whether it did
+    virtual void draw_imposter() = 0;     // [4]
+    virtual float distance_to_view() = 0; // [5]
+    virtual void tick_frame() = 0;        // [6]
+
+    float near_range_;  // +0x04: below this distance the group is drawn as itself
+    uint8_t pad08_[0x50];
+    int frame_count_;   // +0x58
+    bool has_imposter_; // +0x5C
+};
 
 struct ImposterManager {
     lists::KeyMap* groups_ptr_;

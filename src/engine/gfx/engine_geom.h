@@ -124,12 +124,5 @@ static_assert(offsetof(Geom, render_colours_) == 0xC && offsetof(Geom, multicolo
 // compared the vtable).
 inline bool is_pc_geom(const void* geom) { return geom && static_cast<const Geom*>(geom)->kind() == GeomKind::kPc; }
 
-// The dispatchers: `MOV EAX,[ECX]; JMP [EAX + 4 * slot]` - the callee's arguments, whatever the class (the same
-// addresses served the geom's slots and other engine classes': e.g. 0x0048D060 is the font's string size and the
-// geom's wipe_tint). Naked, registered unchecked. Only the classes whose C++ virtual functions keep the original's
-// slot numbers (the fonts', the model lights') still go through them.
-void virtual_slot8_jump();  // 0x0048D060 (the font's read_string_param)
-void virtual_slot9_jump();  // 0x0048DE30 (the model lights' switch_ambient_light)
-void virtual_slot10_jump(); // 0x0048E4C0 (the model lights' switch_diffuse_light)
 
 } // namespace render
