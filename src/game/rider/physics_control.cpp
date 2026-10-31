@@ -150,7 +150,7 @@ void RiderBoardPhysics::dismount_to_walk()
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
-    ObjectModule* walk = entity_->fetch_module(kWalk);
+    auto* walk = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
     auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
@@ -179,7 +179,7 @@ void RiderBoardPhysics::remount_board()
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
-    ObjectModule* walk = entity_->fetch_module(kWalk);
+    auto* walk = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
     auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
@@ -189,10 +189,10 @@ void RiderBoardPhysics::remount_board()
     set_walking(cur_phase_, false);
     freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), false);
     // The walk's ground state (+0x18 0) and what it holds (+0x748: 1 - its +0x74C -, or 2 - its +0x768).
-    int hold = prop<int>(walk, 0x748);
+    int hold = walk->leave_for_;
     void* hold2 = hold == 2 ? reinterpret_cast<uint8_t*>(walk) + 0x768 : nullptr;
     void* hold1 = hold == 1 ? reinterpret_cast<uint8_t*>(walk) + 0x74C : nullptr;
-    core_returning(core_physics_, prop<int>(walk, 0x18) == 0, hold1, hold2);
+    core_returning(core_physics_, walk->state_ == 0, hold1, hold2);
     freeze_module(entity_->fetch_module(kSkaterRotate), false);
     freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), false);
     freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), false);

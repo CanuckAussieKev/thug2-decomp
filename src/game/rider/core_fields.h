@@ -36,30 +36,23 @@ constexpr uint32_t kDisplayMatrix = 0x18; // (a copy of the object's matrix)
 constexpr uint32_t kFloorUpVector = 0x68;
 constexpr uint32_t kFrameLength = 0x8C; // the frame's length (seconds)
 constexpr uint32_t kFeeler = 0xA8;      // a collision feeler (ProbeRay: +0x78 its hit point, +0x88 normal)
-constexpr uint32_t kSurfaceFlags = 0xFA;
 constexpr uint32_t kHitPoint = 0x120; // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
-constexpr uint32_t kOtherFeeler = 0x158;
 constexpr uint32_t kProbeOrigin = 0x208; // the feeler's line
 constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228;    // (set by the feeler check 0x005003A0)
 constexpr uint32_t kRailNode = 0x22C;       // the rail node being ground (GrindPoint*)
 constexpr uint32_t kRailManager = 0x230;    // ... and its rail manager
-constexpr uint32_t kRailScriptNode = 0x240; // the rail node whose TriggerScript last ran (its name)
-constexpr uint32_t kLastRailScript = 0x244; // (the same, kept for the next)
 constexpr uint32_t kSkitched = 0x364;       // the object being skitched on (a smart pointer)
-constexpr uint32_t kJumpChargeMs = 0x378;   // how long the jump was held (ms), up to the max tense time
 constexpr uint32_t kLeapDuration = 0x4EC;   // when the skater last jumped
 constexpr uint32_t kInput = 0x150C;         // the pad: a button every 0x20 bytes (pressed, then times)
 constexpr uint32_t kActivationZoneSlot = 0x1510;
 constexpr uint32_t kSfxModuleSlot = 0x1514;
 constexpr uint32_t kSkaterComponent = 0x1518;
-constexpr uint32_t kOtherFlags = 0x151C;
 constexpr uint32_t kBalanceTrick =
     0x1524;                              // the balance trick component (+0x18 the trick's kind, +0xD4 a lip's balance)
 constexpr uint32_t kTimedFlags = 0x1528; // bools, each followed by the time it last changed; +0x18 the state
 constexpr uint32_t kRide = 0x152C;       // +0x18: the ride tracker (GameObjects::RideTracker*), if riding something
-constexpr uint32_t kTriggerState = 0x1530; // +0x26: a trigger's script took over
 
 // The timed flags' state (+0x18): what the skater is doing.
 // (kBikeStall: not original - THAW's stall state, only on THAW's bike: game/rider/thaw_bmx.h)

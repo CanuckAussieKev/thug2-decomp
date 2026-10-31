@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "engine/core/bits_as.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
@@ -35,14 +36,7 @@ class TaggingControlComponent;
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()).
 namespace skater {
 
-// A field read or written as another type of its size, as the original's code does in places (a float's bits as an
-// integer, an int as unsigned).
-template <typename As, typename Field>
-As& bits_as(Field& field)
-{
-    static_assert(sizeof(As) == sizeof(Field), "the same size");
-    return reinterpret_cast<As&>(field);
-}
+using memory::bits_as;
 
 // What the acid drop search (SkaterPhysicsModule::find_acid_drop) finds (0x28 bytes).
 struct AcidDrop {

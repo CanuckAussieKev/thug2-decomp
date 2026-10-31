@@ -24,6 +24,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
+#include "game/rider/walk_physics.h"
 
 namespace skater {
 
@@ -111,7 +112,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
         change_state(this, kAir);
         old_state_ = kAir;
         set_flag(this, 0xC0, 1);
-        if (get_at<uint8_t>(walk_, 0x9B))
+        if (static_cast<uint8_t>(walk_->off_vert_))
             set_flag(this, 0xB0, 1);
     }
     state_changed_at_ = get_now();

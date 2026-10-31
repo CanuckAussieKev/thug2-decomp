@@ -32,6 +32,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/gap_entry.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/walk_physics.h"
 
 namespace objects {
 
@@ -204,7 +205,7 @@ void RiderGapTracker::seal()
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     balance_trick_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterBalanceTrick));
     physics_control_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterPhysicsControl));
-    walk_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kWalk));
+    walk_ = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
 }
 
 // 0x00512320
@@ -240,7 +241,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         // Walking: the walk component's state.
         *cancel = kGapWalking;
         *require |= kGapWalking << kRequireShift;
-        switch (prop<int>(walk_, 0x18)) {
+        switch (walk_->state_) {
         case 0:
             set(kGapGround);
             break;

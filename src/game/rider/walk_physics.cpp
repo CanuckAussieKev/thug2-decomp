@@ -18,6 +18,15 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/rider/walk_fields.h"
+#include "game/rider/walk_camera.h"
+#include "engine/objects/input_component.h"
+#include "engine/objects/model_component.h"
+#include "engine/objects/trigger_component.h"
+#include "engine/objects/movable_contact.h"
+#include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/core_physics.h"
+#include "game/rider/tagging.h"
 #include "engine/maths/x87_math.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
@@ -43,6 +52,13 @@ uint32_t g_walk_member_functions[114]{
     0,          0x726E85AA, 0, 0, 0, 0};
 
 namespace {
+
+// One of the components it finds in Finalize: the object's component of `type`, kept in `slot`.
+template <typename Module>
+void find_module(GameEntity* object, Module*& slot, uint32_t type)
+{
+    slot = static_cast<Module*>(object->fetch_module(type));
+}
 
 using namespace walk_fields;
 
@@ -70,10 +86,7 @@ const uint32_t kWalkStateNames[5]{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465
 uint32_t get_state_name(int state) { return kWalkStateNames[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
-RiderStoryProgress* get_career()
-{
-    return get_at<RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20);
-}
+RiderStoryProgress* get_career() { return modules::g_skate_module->career_; }
 
 // asin (the game's C runtime) of `value` in degrees (x 57.29578), negated when `negate` - the result kept in the
 // register until it is rounded to float, as the original.
@@ -132,20 +145,20 @@ void __cdecl FootMovement::publish_method_table()
 // 0x00528880
 WalkContact* WalkContact::make_new()
 {
-    get_at<render::ProbeRay>(this, 0x1C).make_new();
+    feeler.make_new();
     return this;
 }
 
 // 0x00528890
-void WalkContact::teardown() { get_at<SharedRef<GameEntity>>(this, 0xB4).get_release(); }
+void WalkContact::teardown() { feeler.entity_.get_release(); }
 
 // 0x005288B0 (0x0052A290 the deleting one)
 FootMovement::~FootMovement()
 {
-    get_at<SharedRef<Entity>>(this, kObjectRef).get_release();
-    get_at<render::HitMeshCache>(this, kHitMeshStore).destruct();
+    feeler_.entity_.get_release();
+    hit_cache_.destruct();
     for (int i = 7; i >= 0; --i)
-        get_at<WalkContact>(this, kContacts + i * 0xCC).teardown();
+        contacts_[i].teardown();
 }
 
 // 0x00526060
@@ -154,61 +167,66 @@ void FootMovement::configure_from_data(script::Struct* params)
     uint32_t id;
     if (params->read_hash_value(kCamIdKey, &id, 0)) {
         auto* camera = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
-        get_at<GameEntity*>(this, kCamera) = camera;
-        get_at<ObjectModule*>(this, kWalkCamera) = camera->fetch_module(kWalkCameraType);
+        camera_ = camera;
+        walk_camera_ = static_cast<FootView*>(camera->fetch_module(kWalkCameraType));
     }
-    get_at<int>(this, kFrames710) = 0;
+    unknown710_ = 0;
 }
 
 // 0x00525FB0
 void FootMovement::seal()
 {
-    static const uint32_t kComponents[] = {0x27D7CD28, 0x7149B753, 0x286A8D26, 0xE594F0A2, 0xD9151D4D,
-                                           0x408D2AA9, 0x43686585, 0x5BD63B29, 0x380D909A};
-    for (int i = 0; i < 9; ++i)
-        get_at<ObjectModule*>(this, kInput + 4 * i) = entity_->fetch_module(kComponents[i]);
+    find_module(entity_, input_, 0x27D7CD28);           // Input
+    find_module(entity_, anim_blender_, 0x7149B753);    // AnimBlender
+    find_module(entity_, model_, 0x286A8D26);           // Model
+    find_module(entity_, trigger_, 0xE594F0A2);         // Trigger
+    find_module(entity_, physics_control_, 0xD9151D4D); // SkaterPhysicsControl
+    find_module(entity_, ride_, 0x408D2AA9);            // MovableContact
+    find_module(entity_, skater_state_, 0x43686585);    // SkaterState
+    find_module(entity_, core_physics_, 0x5BD63B29);    // SkaterCorePhysics
+    find_module(entity_, tagging_, 0x380D909A);         // TaggingControl
 }
 
 // 0x00525E60
 void FootMovement::choose_camera(GameEntity* camera)
 {
-    get_at<GameEntity*>(this, kCamera) = camera;
-    get_at<ObjectModule*>(this, kWalkCamera) = camera->fetch_module(kWalkCameraType);
+    camera_ = camera;
+    walk_camera_ = static_cast<FootView*>(camera->fetch_module(kWalkCameraType));
 }
 
 // 0x005260E0
 void FootMovement::change_phase(int state)
 {
-    if (state == get_at<int>(this, kState))
+    if (state == state_)
         return;
-    int previous = get_at<int>(this, kState);
-    get_at<int>(this, kPreviousState) = previous;
-    get_at<int>(this, kState) = state;
-    get_at<int>(this, kStateTime) = frame_clock::game_clock_elapsed() + g_clock_offset;
+    int previous = state_;
+    previous_state_ = previous;
+    state_ = state;
+    state_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
     if (previous == 0 || previous == 1) {
-        get_at<bool>(this, kFlag17a8) = false;
-        get_at<bool>(this, kRunning) = false;
+        barrier_timed_ = false;
+        running_ = false;
     }
     if (previous == 1) {
-        get_at<float>(this, kLeapDuration) = 0.0f;
-        get_at<maths::Vec4>(this, kJumpVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
-        get_at<bool>(this, kOnRail) = false;
+        leap_duration_ = 0.0f;
+        jump_velocity_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        off_vert_ = false;
     }
     if (state == 0) {
-        get_at<float>(this, kHeight1870) = 10000.0f;
-        get_at<bool>(this, kFlag1874) = true;
+        skid_time_ = 10000.0f;
+        unknown1874_ = true;
     }
     if (state == 4)
-        get_at<maths::Vec4>(this, kClimbOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
+        climb_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
     if (state != 1)
-        get_at<bool>(this, kPushing) = false;
-    if (state == 0 || get_at<int>(this, kPreviousState) != 1)
-        get_at<bool>(this, kFlag186c) = false;
+        pushing_ = false;
+    if (state == 0 || previous_state_ != 1)
+        blocked_ = false;
     if (state == 2) {
-        get_at<float>(this, kClimbScale) = 0.0f;
-        if (get_at<int>(this, kPreviousState) == 1) {
+        climb_scale_ = 0.0f;
+        if (previous_state_ == 1) {
             // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
-            uint8_t* pad = get_at<uint8_t*>(this, kInput) + 0x20;
+            uint8_t* pad = reinterpret_cast<uint8_t*>(input_) + 0x20;
             float debounce = walk_parameter(kHangControlDebounceTime);
             uint32_t now = frame_clock::get_time();
             get_at<uint32_t>(pad, 0x230) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
@@ -220,30 +238,26 @@ void FootMovement::change_phase(int state)
 }
 
 // 0x005260C0
-void FootMovement::clear_model_offset()
-{
-    get_at<maths::Vec4>(get_at<void*>(this, kModel), 0x1F8) = {0.0f, 0.0f, 0.0f, 1.0f};
-}
+void FootMovement::clear_model_offset() { get_at<maths::Vec4>(model_, 0x1F8) = {0.0f, 0.0f, 0.0f, 1.0f}; }
 
 // 0x00524E10
 bool FootMovement::using_dpad()
 {
-    uint8_t* input = get_at<uint8_t*>(this, kInput);
+    uint8_t* input = reinterpret_cast<uint8_t*>(input_);
     if (!(get_at<float>(input, 0x228) == 0.0f) || !(get_at<float>(input, 0x22C) == 0.0f))
         return false;
-    return get_at<bool>(this, 0x98);
+    return control_full_;
 }
 
 // 0x00524E60
 maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
 {
     constexpr float kCameraOffset = -18.0f; // 0x0064C614
-    int state = get_at<int>(this, kState);
+    int state = state_;
     bool offset;
     if (state == 1) {
-        int previous = get_at<int>(this, kPreviousState);
-        offset =
-            (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(get_at<int>(this, kStateTime))) < 150;
+        int previous = previous_state_;
+        offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(state_time_)) < 150;
     } else {
         offset = state > 1 && state <= 4;
     }
@@ -251,7 +265,7 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
         *out = {0.0f, 0.0f, 0.0f, 1.0f};
         return out;
     }
-    const maths::Vec4& facing = get_at<maths::Vec4>(this, kFacing);
+    const maths::Vec4& facing = facing_;
     *out = {facing.x * kCameraOffset, facing.y * kCameraOffset, facing.z * kCameraOffset, facing.w * kCameraOffset};
     return out;
 }
@@ -259,14 +273,14 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
 // 0x00528560
 maths::Vec4* FootMovement::get_facing(maths::Vec4* out)
 {
-    *out = get_at<maths::Vec4>(this, kFacing);
+    *out = facing_;
     return out;
 }
 
 // 0x00528220
 maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 {
-    const maths::Vec4& facing = get_at<maths::Vec4>(this, kFacing);
+    const maths::Vec4& facing = facing_;
     float x, z;
     turn_flat(static_cast<double>(index) * kSeventhTurn, facing.x, facing.z, &x, &z);
     out->y = 0.0f;
@@ -281,32 +295,32 @@ void FootMovement::update_run_adjustment()
 {
     uint8_t* score = get_at<uint8_t*>(entity_->fetch_module(kSkaterScore), 0x18);
     if (truncate(static_cast<double>(get_at<int>(score, 0x14)) * get_at<float>(score, 0x60)) > 0) {
-        get_at<float>(this, kRunAdjustment) = 1.0f;
+        run_adjustment_ = 1.0f;
         return;
     }
     float rate = walk_parameter(kRunAdjustRate);
-    double adjustment = get_at<float>(this, kRunAdjustment) - frame_clock::get_slomo_frame_seconds() * rate;
+    double adjustment = run_adjustment_ - frame_clock::get_slomo_frame_seconds() * rate;
     if (adjustment < 0.0)
         adjustment = 0.0f;
-    get_at<float>(this, kRunAdjustment) = static_cast<float>(adjustment);
+    run_adjustment_ = static_cast<float>(adjustment);
 }
 
 // 0x00528400
 void FootMovement::clamp_skater_speed(uint32_t stop_anim)
 {
-    if (get_at<int>(this, kState) != 0)
+    if (state_ != 0)
         return;
-    if (static_cast<uint32_t>(clock_since(get_at<int>(this, kStateTime))) < 100) {
-        get_at<float>(this, kLastSpeed) = get_at<float>(this, kSpeed);
+    if (static_cast<uint32_t>(clock_since(state_time_)) < 100) {
+        last_speed_ = speed_;
         return;
     }
-    float speed = get_at<float>(this, kSpeed);
-    float last = get_at<float>(this, kLastSpeed);
+    float speed = speed_;
+    float last = last_speed_;
     float limited = speed < last ? speed : last;
-    get_at<float>(this, kSpeed) = limited;
-    get_at<float>(this, kLastSpeed) = speed;
-    if (get_at<uint32_t>(this, kAnimState) == kRun && limited == 0.0f)
-        get_at<uint32_t>(this, kAnimState) = stop_anim == kSkid ? kSkid : kStand;
+    speed_ = limited;
+    last_speed_ = speed;
+    if (anim_state_ == kRun && limited == 0.0f)
+        anim_state_ = stop_anim == kSkid ? kSkid : kStand;
 }
 
 // 0x005284C0
@@ -338,31 +352,28 @@ bool __stdcall FootMovement::find_stand_position(const maths::Vec4* position, ma
 }
 
 // 0x00525E90
-bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/)
-{
-    return get_at<int>(this, kState) == 0;
-}
+bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/) { return state_ == 0; }
 
 // 0x00525EA0
 bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff)) {
-        if (get_at<int>(this, kAnimSpeedScaling)) {
-            get_at<int>(this, kAnimSpeedScaling) = 0;
+        if (anim_speed_scaling_) {
+            anim_speed_scaling_ = 0;
             float one;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
-            get_at<AnimBlenderComponent*>(this, kAnimBlender)->first_channel_47e_850(1.0f, 0.0f, one, 0.0f);
+            anim_blender_->first_channel_47e_850(1.0f, 0.0f, one, 0.0f);
         }
     } else if (params->has_bare_flag(kRun)) {
-        get_at<int>(this, kAnimSpeedScaling) = 1;
+        anim_speed_scaling_ = 1;
     } else if (params->has_bare_flag(kLedgeMoveFlag)) {
-        get_at<int>(this, kAnimSpeedScaling) = 2;
+        anim_speed_scaling_ = 2;
     } else if (params->has_bare_flag(kLadderMove)) {
-        get_at<int>(this, kAnimSpeedScaling) = 3;
-        get_at<float>(this, kLadderSign) = -1.0f;
+        anim_speed_scaling_ = 3;
+        ladder_sign_ = -1.0f;
     }
-    params->fetch_float(kStandardSpeedName, &get_at<float>(this, kStandardSpeed), 0);
+    params->fetch_float(kStandardSpeedName, &standard_speed_, 0);
     return true;
 }
 
@@ -376,14 +387,14 @@ bool FootMovement::walk_release_hang(script::Struct* /*params*/, script::Script*
 // 0x00528580
 bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_int(kStateTimeName, clock_since(get_at<int>(this, kStateTime)));
+    script->args_->put_int(kStateTimeName, clock_since(state_time_));
     return true;
 }
 
 // 0x005285C0
 bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Script* script)
 {
-    float speed = get_at<float>(this, kSpeed);
+    float speed = speed_;
     uint32_t scale;
     if (speed < walk_parameter(kMaxSlowWalkSpeed))
         scale = kWalkSlow;
@@ -400,14 +411,14 @@ bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Scri
 // 0x005286A0
 bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_name_key(kHangInitAnimTypeName, get_at<uint32_t>(this, kHangInitAnimType));
+    script->args_->put_name_key(kHangInitAnimTypeName, hang_init_anim_type_);
     return true;
 }
 
 // 0x005286C0
 bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script)
 {
-    uint32_t elapsed = static_cast<uint32_t>(clock_since(get_at<int>(this, kStateTime)));
+    uint32_t elapsed = static_cast<uint32_t>(clock_since(state_time_));
     script->args_->push_float(kStateDuration, static_cast<float>(static_cast<double>(elapsed) * kMs));
     return true;
 }
@@ -415,14 +426,14 @@ bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::S
 // 0x00528710
 bool FootMovement::walk_get_previous_state(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_name_key(kPreviousStateName, get_state_name(get_at<int>(this, kPreviousState)));
+    script->args_->put_name_key(kPreviousStateName, get_state_name(previous_state_));
     return true;
 }
 
 // 0x00528740
 bool FootMovement::walk_get_state(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_name_key(kStateName, get_state_name(get_at<int>(this, kState)));
+    script->args_->put_name_key(kStateName, get_state_name(state_));
     return true;
 }
 
@@ -431,10 +442,10 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
 {
     // The angle the rail between the two hang nodes climbs (asin of its direction's y, in degrees), signed by
     // which way along it the skater faces.
-    GrindRailHub* rails = get_at<GrindRailHub*>(this, kRailManager);
+    GrindRailHub* rails = rail_manager_;
     maths::Vec4 from, to;
-    const maths::Vec4* a = rails->get_absolute_pos(&from, get_at<const GrindPoint*>(this, kHangNode));
-    const maths::Vec4* b = rails->get_absolute_pos(&to, get_at<const GrindPoint*>(this, kHangNextNode));
+    const maths::Vec4* a = rails->get_absolute_pos(&from, hang_node_);
+    const maths::Vec4* b = rails->get_absolute_pos(&to, hang_next_node_);
     float dx = b->x - a->x;
     float dy = b->y - a->y;
     double dz_full = static_cast<double>(b->z) - a->z;
@@ -447,7 +458,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
         dy = static_cast<float>(dy * inverse);
         dz = static_cast<float>(dz * inverse);
     }
-    const maths::Vec4& facing = get_at<maths::Vec4>(this, kFacing);
+    const maths::Vec4& facing = facing_;
     bool negate = static_cast<double>(dz) * facing.x - static_cast<double>(dx) * facing.z < 0.0;
     script->args_->push_float(kHangAngle, asin_degrees(dy, negate));
     return true;
@@ -456,7 +467,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
 // 0x00528860
 bool FootMovement::walk_set_forward_control_lock(script::Struct* params, script::Script* /*script*/)
 {
-    get_at<bool>(this, kLockedToHeading) = params->has_bare_flag(kOn);
+    locked_to_heading_ = params->has_bare_flag(kOn);
     return true;
 }
 

@@ -2,30 +2,69 @@
 
 #include <cstdint>
 
+#include "engine/core/bits_as.h"
+#include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/render/coll_cache.h"
+#include "engine/render/probe_ray.h"
 
-namespace render {
-class ProbeRay;
-}
 namespace script {
 class Script;
 class Struct;
 } // namespace script
-namespace maths {
-class Mat4;
-}
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
 namespace objects {
 struct GrindPoint;
 struct Record24;
 struct Record34;
+class GrindRailHub;
+class FootView;
+class PadInputModule;
+class AnimBlenderComponent;
+class MeshInstanceModule;
+class ActivationZoneModule;
+class RiderBoardPhysics;
+class MovingSurfaceModule;
+class RiderPoseState;
+class TaggingControlComponent;
+
+// One of the Walk component's eight contacts (+0xA0, 0xCC bytes): what a feeler found round the skater.
+// 0x00528880: constructed (its feeler's). Returns this. 0x00528890: the destructor (the feeler's object let go).
+struct WalkContact {
+    WalkContact* make_new();
+    void teardown();
+
+    bool hit; // +0x00
+    uint8_t pad1_[3];
+    maths::Vec4 normal; // +0x04 the hit's, flattened and made unit length
+    bool clear;         // +0x14 (a barrier jump: nothing in the way at the highest barrier's height)
+    uint8_t pad15_[3];
+    float object_speed_;     // +0x18 how fast the object hit moves along the normal
+    render::ProbeRay feeler; // +0x1C
+};
+static_assert(offsetof(WalkContact, normal) == 0x04 && offsetof(WalkContact, clear) == 0x14 &&
+                  offsetof(WalkContact, object_speed_) == 0x18 && offsetof(WalkContact, feeler) == 0x1C &&
+                  sizeof(WalkContact) == 0xCC,
+              "layout must match the original");
+
+// An animated move's end callback (+0x1948): a member function pointer as the original's compiler lays out one with
+// virtual bases - the code, `this`'s adjustment, then two words the calls don't use.
+struct AnimDoneCallback {
+    void* code_;
+    int this_adjust_;
+    uint32_t unknown8_;
+    uint32_t unknownc_;
+};
+static_assert(sizeof(AnimDoneCallback) == 0x10, "layout must match the original");
 } // namespace objects
 
 // The Walk component (type 0x726E85AA, vtable 0x0064C75C; made by 0x0052A5C0, its member function table 0x006847F8
 // registered by 0x00525E40, 0x1960 bytes): the skater on foot - walking, running, jumping, hanging, climbing. Its code
 // is in walk_physics.cpp, walk_movement.cpp and walk_collision.cpp (0x00524E10-0x00529F62) and walk_moves.cpp
-// (0x00529F80-0x0052D6A0); its layout is only partly known, so fields are reached by offset (walk_fields.h names
-// them for the first three). Its tuning is the global structure walk_parameters.
+// (0x00529F80-0x0052D6A0); walk_fields.h has the helpers its code shares. Its tuning is the global structure walk_parameters.
 //
 // Vtable: 0 the scalar deleting destructor (0x0052A290), 1 Update (0x0052D4B0), 2 configure_from_data, 3 Finalize.
 namespace objects {
@@ -370,16 +409,156 @@ public:
     // control within ladder_control_tolerance of up or down, else still (Ladder).
     void update_ladder();
 
-    // The fields after the base's (+0x18-+0x195F): reached by offset.
-    uint8_t fields_[0x1960 - 0x18];
+    // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
+    int state_;                        // +0x18 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
+    int state_time_;                   // +0x1C the game clock when the state changed
+    int previous_state_;               // +0x20
+    maths::Vec4 pos_;                  // +0x24 its own copy of the object's position
+    maths::Vec4 vel_;                  // +0x34 the flat velocity (y kept 0)
+    float up_speed_;                   // +0x44
+    maths::Vec4 facing_;               // +0x48 flat, unit
+    maths::Vec4 up_;                   // +0x58 the display's up, eased back upright
+    maths::Vec4 old_pos_;              // +0x68 the position as the frame began (w: 1 after a drop to hang)
+    uint32_t anim_state_;              // +0x78 a name: Run, Stand, Skid, Land, AcidDrop, rail, Wallplant...
+    uint32_t previous_anim_state_;     // +0x7C
+    float frame_length_;               // +0x80 this frame's length in seconds
+    maths::Vec4 stick_heading_;        // +0x84 the way the stick points, in the world (x, z)
+    float stick_deflection_;           // +0x94 the stick's push (0-1)
+    bool control_full_;                // +0x98 a full push (always with the d-pad)
+    bool stick_steers_;                // +0x99 the left stick (not the d-pad) steers
+    bool jump_held_;                   // +0x9A
+    bool off_vert_;                    // +0x9B began in the air off a vert ramp
+    float model_lift_;                 // +0x9C the model's height offset, restored over time
+    objects::WalkContact contacts_[8]; // +0xA0
+    int anim_speed_scaling_;           // +0x700 0 off, 1 Run, 2 HangMove, 3 LadderMove
+    float speed_;                      // +0x704 the move's speed (for the animation's)
+    float last_speed_;                 // +0x708
+    bool locked_to_heading_;           // +0x70C
+    uint8_t pad70d_[3];
+    int unknown710_;    // +0x710 (60 after a landing, 0 at a reset)
+    float curb_offset_; // +0x714 the curb float's height offset
+    bool curb_float_;   // +0x718 floating over a curb this frame
+    uint8_t pad719_[3];
+    maths::Vec4
+        critical_point_offset_; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
+    float upright_time_;        // +0x72C the time left turning upright (0: the up vector is eased)
+    float upright_angle_;       // +0x730 the turn upright (radians), over rotate_upright_duration
+    maths::Vec4 upright_axis_;  // +0x734 its axis
+    float facing_y_;            // +0x744 the object's at-row y (before the facing is flattened)
+    int leave_for_;             // +0x748 what the walk ends in - 1 a grind, 2 an acid drop
+    maths::Vec4 grind_point_;   // +0x74C the rail's point to grind from
+    objects::GrindRailHub* grind_rails_; // +0x75C its rail manager
+    objects::GrindPoint* grind_node_;    // +0x760 and node
+    objects::GameEntity* grind_object_;  // +0x764 the object the rail rides (null: the level's)
+    uint8_t unknown768_[0x28];
+    render::HitMeshCache hit_cache_;              // +0x790
+    objects::GameEntity* camera_;                 // +0x175C
+    objects::FootView* walk_camera_;              // +0x1760
+    objects::GrindPoint* hang_node_;              // +0x1764 the rail held: its node
+    objects::GrindPoint* hang_next_node_;         // +0x1768 ... and the next
+    objects::GrindRailHub* rail_manager_;         // +0x176C whose rail manager
+    objects::PadInputModule* input_;              // +0x1770 the object's components (seal)
+    objects::AnimBlenderComponent* anim_blender_; // +0x1774
+    objects::MeshInstanceModule* model_;          // +0x1778
+    objects::ActivationZoneModule* trigger_;      // +0x177C
+    objects::RiderBoardPhysics* physics_control_; // +0x1780
+    objects::MovingSurfaceModule* ride_;          // +0x1784
+    objects::RiderPoseState* skater_state_;       // +0x1788
+    skater::SkaterPhysicsModule* core_physics_;   // +0x178C
+    objects::TaggingControlComponent* tagging_;   // +0x1790
+    maths::Vec4 floor_normal_;                    // +0x1794 the ground's normal (the feeler's hit)
+    bool running_;                                // +0x17A4
+    uint8_t pad17a5_[3];
+    bool barrier_timed_; // +0x17A8
+    uint8_t pad17a9_[3];
+    int barrier_since_;       // +0x17AC
+    float standard_speed_;    // +0x17B0 run_speed
+    render::ProbeRay feeler_; // +0x17B4 the triggers' and a pull-up's ledge feeler
+    bool feeler_hit_;         // +0x1864 whether that feeler hit something (the ground)
+    uint8_t pad1865_[3];
+    float run_adjustment_; // +0x1868 run_speed (0) to combo_run_speed (1)
+    bool blocked_;         // +0x186C
+    uint8_t pad186d_[3];
+    float skid_time_;  // +0x1870
+    bool unknown1874_; // +0x1874 (set on a reset)
+    uint8_t pad1875_[3];
+    maths::Vec4 leap_heading_; // +0x1878 the flat direction of the jump's push (also the facing kept on leaving a hang)
+    maths::Vec4 jump_base_vel_; // +0x1888 the velocity the jump carries along unsteered
+    float leap_duration_;       // +0x1898
+    maths::Vec4 jump_velocity_; // +0x189C
+    float jump_target_height_;  // +0x18AC the top of the ledge the jump makes for
+    bool pushing_;              // +0x18B0 pushed back off a wall in the air
+    uint8_t pad18b1_[3];
+    maths::Vec4 push_normal_;      // +0x18B4 the plane's normal (also a hang move's heading)
+    float push_plane_distance_;    // +0x18C4
+    float push_height_;            // +0x18C8 (also a hang move's elevation)
+    float along_;                  // +0x18CC how far along the rail (a fraction)
+    float rail_up_;                // +0x18D0 the hang point's offset from the rail: up
+    float rail_out_;               // +0x18D4 ... and out
+    uint32_t hang_init_anim_type_; // +0x18D8 the hang's animation (SWING / WALL)
+    float climb_scale_;            // +0x18DC the shimmy's speed, eased towards the control's
+    float ladder_sign_;            // +0x18E0
+    maths::Vec4 transition_start_; // +0x18E4 an animated move's start
+    uint8_t unknown18f4_[0x10];
+    maths::Vec4 transition_pos_;          // +0x1904 ... and end (with the climb offset)
+    float transition_start_offset_;       // +0x1914 the height offset at its start
+    float transition_display_offset_;     // +0x1918 ... and end
+    maths::Vec4 transition_facing_;       // +0x191C
+    float transition_rate_;               // +0x192C
+    float transition_turn_;               // +0x1930
+    maths::Vec4 climb_offset_;            // +0x1934
+    int anim_waiting_;                    // +0x1944 an animation is playing: the callback waits
+    objects::AnimDoneCallback anim_done_; // +0x1948 its end's callback
+    bool jump_unsteered_;                 // +0x1958 (cleared each hanging frame)
+    uint8_t pad1959_[7];
 };
-static_assert(sizeof(FootMovement) == 0x1960, "the original's 0x0052A5C0 allocates 0x1960 bytes");
-
-// One of the Walk component's eight contacts (+0xA0, 0xCC bytes): a feeler at +0x1C. 0x00528880: constructed (its
-// feeler's). Returns this. 0x00528890: the destructor (the feeler's object let go).
-struct WalkContact {
-    WalkContact* make_new();
-    void teardown();
-};
+static_assert(
+    offsetof(FootMovement, state_) == 0x18 && offsetof(FootMovement, state_time_) == 0x1C &&
+        offsetof(FootMovement, previous_state_) == 0x20 && offsetof(FootMovement, pos_) == 0x24 &&
+        offsetof(FootMovement, vel_) == 0x34 && offsetof(FootMovement, up_speed_) == 0x44 &&
+        offsetof(FootMovement, facing_) == 0x48 && offsetof(FootMovement, up_) == 0x58 &&
+        offsetof(FootMovement, old_pos_) == 0x68 && offsetof(FootMovement, anim_state_) == 0x78 &&
+        offsetof(FootMovement, previous_anim_state_) == 0x7C && offsetof(FootMovement, frame_length_) == 0x80 &&
+        offsetof(FootMovement, stick_heading_) == 0x84 && offsetof(FootMovement, stick_deflection_) == 0x94 &&
+        offsetof(FootMovement, control_full_) == 0x98 && offsetof(FootMovement, stick_steers_) == 0x99 &&
+        offsetof(FootMovement, jump_held_) == 0x9A && offsetof(FootMovement, off_vert_) == 0x9B &&
+        offsetof(FootMovement, model_lift_) == 0x9C && offsetof(FootMovement, contacts_) == 0xA0 &&
+        offsetof(FootMovement, anim_speed_scaling_) == 0x700 && offsetof(FootMovement, speed_) == 0x704 &&
+        offsetof(FootMovement, last_speed_) == 0x708 && offsetof(FootMovement, locked_to_heading_) == 0x70C &&
+        offsetof(FootMovement, unknown710_) == 0x710 && offsetof(FootMovement, curb_offset_) == 0x714 &&
+        offsetof(FootMovement, curb_float_) == 0x718 && offsetof(FootMovement, critical_point_offset_) == 0x71C &&
+        offsetof(FootMovement, upright_time_) == 0x72C && offsetof(FootMovement, upright_angle_) == 0x730 &&
+        offsetof(FootMovement, upright_axis_) == 0x734 && offsetof(FootMovement, facing_y_) == 0x744 &&
+        offsetof(FootMovement, leave_for_) == 0x748 && offsetof(FootMovement, grind_point_) == 0x74C &&
+        offsetof(FootMovement, grind_rails_) == 0x75C && offsetof(FootMovement, grind_node_) == 0x760 &&
+        offsetof(FootMovement, grind_object_) == 0x764 && offsetof(FootMovement, hit_cache_) == 0x790 &&
+        offsetof(FootMovement, camera_) == 0x175C && offsetof(FootMovement, walk_camera_) == 0x1760 &&
+        offsetof(FootMovement, hang_node_) == 0x1764 && offsetof(FootMovement, hang_next_node_) == 0x1768 &&
+        offsetof(FootMovement, rail_manager_) == 0x176C && offsetof(FootMovement, input_) == 0x1770 &&
+        offsetof(FootMovement, anim_blender_) == 0x1774 && offsetof(FootMovement, model_) == 0x1778 &&
+        offsetof(FootMovement, trigger_) == 0x177C && offsetof(FootMovement, physics_control_) == 0x1780 &&
+        offsetof(FootMovement, ride_) == 0x1784 && offsetof(FootMovement, skater_state_) == 0x1788 &&
+        offsetof(FootMovement, core_physics_) == 0x178C && offsetof(FootMovement, tagging_) == 0x1790 &&
+        offsetof(FootMovement, floor_normal_) == 0x1794 && offsetof(FootMovement, running_) == 0x17A4 &&
+        offsetof(FootMovement, barrier_timed_) == 0x17A8 && offsetof(FootMovement, barrier_since_) == 0x17AC &&
+        offsetof(FootMovement, standard_speed_) == 0x17B0 && offsetof(FootMovement, feeler_) == 0x17B4 &&
+        offsetof(FootMovement, feeler_hit_) == 0x1864 && offsetof(FootMovement, run_adjustment_) == 0x1868 &&
+        offsetof(FootMovement, blocked_) == 0x186C && offsetof(FootMovement, skid_time_) == 0x1870 &&
+        offsetof(FootMovement, unknown1874_) == 0x1874 && offsetof(FootMovement, leap_heading_) == 0x1878 &&
+        offsetof(FootMovement, jump_base_vel_) == 0x1888 && offsetof(FootMovement, leap_duration_) == 0x1898 &&
+        offsetof(FootMovement, jump_velocity_) == 0x189C && offsetof(FootMovement, jump_target_height_) == 0x18AC &&
+        offsetof(FootMovement, pushing_) == 0x18B0 && offsetof(FootMovement, push_normal_) == 0x18B4 &&
+        offsetof(FootMovement, push_plane_distance_) == 0x18C4 && offsetof(FootMovement, push_height_) == 0x18C8 &&
+        offsetof(FootMovement, along_) == 0x18CC && offsetof(FootMovement, rail_up_) == 0x18D0 &&
+        offsetof(FootMovement, rail_out_) == 0x18D4 && offsetof(FootMovement, hang_init_anim_type_) == 0x18D8 &&
+        offsetof(FootMovement, climb_scale_) == 0x18DC && offsetof(FootMovement, ladder_sign_) == 0x18E0 &&
+        offsetof(FootMovement, transition_start_) == 0x18E4 && offsetof(FootMovement, transition_pos_) == 0x1904 &&
+        offsetof(FootMovement, transition_start_offset_) == 0x1914 &&
+        offsetof(FootMovement, transition_display_offset_) == 0x1918 &&
+        offsetof(FootMovement, transition_facing_) == 0x191C && offsetof(FootMovement, transition_rate_) == 0x192C &&
+        offsetof(FootMovement, transition_turn_) == 0x1930 && offsetof(FootMovement, climb_offset_) == 0x1934 &&
+        offsetof(FootMovement, anim_waiting_) == 0x1944 && offsetof(FootMovement, anim_done_) == 0x1948 &&
+        offsetof(FootMovement, jump_unsteered_) == 0x1958 && sizeof(FootMovement) == 0x1960,
+    "layout must match the original (0x0052A5C0 allocates 0x1960 bytes)");
 
 } // namespace objects

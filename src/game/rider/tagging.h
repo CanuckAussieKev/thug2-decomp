@@ -18,6 +18,7 @@ class Struct;
 // world (a decal, told to the server in a network game); the tagging control component decides when - a walking
 // skater tagging a wall it faces (the tag button), or slapping a sticker on a wall from vert.
 namespace objects {
+class FootMovement;
 
 // The tagging component (Tagging, type 0x5B512EDC, vtable 0x0064C330, 0x24 bytes; made by 0x0051DA80).
 // Vtable: 0 Destroy, 1 Update 0x0051B970 (shared: suspends itself), 2 configure_from_data, 12 invoke_method_by_name.
@@ -92,7 +93,7 @@ public:
     bool blocked_;  // +0x1D BlockTaggingOn
     uint8_t pad1e_[2];
     float cooldown_;                            // +0x20 frames until the next tag (counted down by 1)
-    ObjectModule* walk_;                        // +0x24
+    FootMovement* walk_;                        // +0x24
     ObjectModule* input_;                       // +0x28
     skater::SkaterPhysicsModule* core_physics_; // +0x2C
     ObjectModule* trigger_;                     // +0x30

@@ -290,7 +290,7 @@ TaggingControlComponent::~TaggingControlComponent() {}
 // 0x0051DD90
 void TaggingControlComponent::seal()
 {
-    walk_ = entity_->fetch_module(kWalk);
+    walk_ = static_cast<FootMovement*>(entity_->fetch_module(kWalk));
     input_ = entity_->fetch_module(kInput);
     core_physics_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
     trigger_ = entity_->fetch_module(kTrigger);
@@ -348,7 +348,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
             facing.w = skater->vel_.w;
         } else {
             maths::Vec4 heading;
-            const maths::Vec4* got = static_cast<FootMovement*>(walk_)->get_facing(&heading);
+            const maths::Vec4* got = walk_->get_facing(&heading);
             facing.x = got->x;
             facing.z = got->z;
             facing.w = got->w;
@@ -421,7 +421,7 @@ bool TaggingControlComponent::try_tagging()
     }
     if (countdown_ > 0)
         return false;
-    int walk_state = prop<int>(walk_, 0x18);
+    int walk_state = walk_->state_;
     if (walk_state != 2 && walk_state != 0)
         return false;
     auto* core = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
@@ -439,13 +439,13 @@ bool TaggingControlComponent::try_tagging()
     feeler.make_new();
     maths::Vec4 joint_world;
     static_cast<BoneRigModule*>(skeleton)->get_bone_position(bone, &joint_world);
-    if (prop<int>(walk_, 0x18) == 2)
+    if (walk_->state_ == 2)
         joint_world.y = static_cast<float>(joint_world.y - 10.0); // 0x00646710
     maths::Vec4 hits[6];
     float distances[6];
     float rise = static_cast<float>(reach * 0.0);
     bool found = false;
-    const maths::Vec4& heading = prop<maths::Vec4>(walk_, 0x48);
+    const maths::Vec4& heading = walk_->facing_;
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
         double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
@@ -506,8 +506,7 @@ bool TaggingControlComponent::try_tagging()
 
     if (!pending_) {
         pending_ = true;
-        script::launch_script(prop<int>(walk_, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false,
-                              nullptr);
+        script::launch_script(walk_->state_ == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false, nullptr);
         countdown_ = 30;
         return true;
     }

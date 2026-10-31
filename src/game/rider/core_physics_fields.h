@@ -27,25 +27,17 @@ constexpr uint32_t kObject = 0x0C;        // the skater (a composite object: its
 constexpr uint32_t kDisplayMatrix = 0x18; // the matrix it's drawn with
 constexpr uint32_t kFloorUpVector = 0x68; // (and +0x58, +0x78: copies of the ground's normal)
 constexpr uint32_t kFrameLength = 0x8C;   // the frame's length (seconds)
-constexpr uint32_t kFirstTick = 0x90;     // (the clock when the physics was reset)
-constexpr uint32_t kSafePosition = 0x98;  // (the object's position when reset)
 constexpr uint32_t kFeeler = 0xA8;        // a collision feeler (render::ProbeRay, 0xB0 bytes)
-constexpr uint32_t kHitFlags = 0xF8;      // the feeler's hit face's flags (16 bits)
 constexpr uint32_t kHitPoint = 0x120;     // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
-constexpr uint32_t kLastFloorProbe = 0x158; // a copy of the last ground hit's feeler
 constexpr uint32_t kProbeOrigin = 0x208;    // the feeler's line
 constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228; // (set by the feeler check 0x005003A0)
-constexpr uint32_t kHitVert = 0x229;
-constexpr uint32_t kHitWall = 0x22A;
 constexpr uint32_t kInput = 0x150C; // the pad: a button every 0x20 bytes (down, then times)
 constexpr uint32_t kActivationZoneSlot = 0x1510;
-constexpr uint32_t kOtherComponent = 0x1514; // (+0x1C, +0x1D, +0x1E: bytes it's told)
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kTimedFlags = 0x1528;      // bools, each followed by the time it last changed (+0x18: the state)
 constexpr uint32_t kRide = 0x152C;            // +0x18: a smart pointer to what the skater rides on
-constexpr uint32_t kStateModuleSlot = 0x1530; // (+0x24, +0x26: bools; +0x2C: the walking component)
 
 // --- the skater object's fields ---
 constexpr uint32_t kPosition = 0x4C;
