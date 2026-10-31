@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 
 namespace file {
 class AsyncFileHandle;
@@ -43,46 +44,58 @@ class Resource;
 // Called when an asset the manager loaded asynchronously is ready: (the asset, its file's size, the two values).
 using LoadCallback = void(__cdecl*)(Resource* asset, uint32_t size, void* first_word, void* data1);
 
-// The base of every asset (0x4C bytes, vtable 0x00645568). The methods are virtual in the game - each type has
-// its own vtable - so the ones here that run another slot call it through the vtable; the slots are:
-//   0 fetch_kind, 1 GetData, 2 IsPermanent, 3 the scalar deleting destructor, 4 load_from_buffer, 5 Load, 6 Unload,
-//   7 Reload, 8 is_loaded, 9 fetch_title, 10 change_contents, 11 pin_resident, 12 process_buffer, 13 finish_loading, 14 Abort,
-//   15 get_free_buffer, 16-21 the state setters (Loading, Read, Processing, Loaded, Unloaded, Aborted).
-class Resource {
+// The base of every asset (0x4C bytes, vtable 0x00645568; each type has its own). The original's table also has
+// GetData (slot 1, get_data here) and IsPermanent (slot 2: never called), change_contents, pin_resident,
+// process_buffer and the state setters but set_read (slots 10-12, 16-21) - the same body in every table, so plain
+// methods here.
+class Resource : public memory::HeapObject {
 public:
-    // 0x00407910: unloaded, no file, buffer or callback, an empty dependents list (returns this).
-    Resource* make_new();
-    // 0x00407810: the dependents list's head unlinked. 0x004093E0 (a jump to it): the types' destructor body.
-    void destruct();
-    void destruct_type();
-    // 0x00407950 / 0x00407AF0: the scalar deleting destructors (base / the types', through 0x004093E0).
-    Resource* scalar_delete(uint8_t flags);
-    Resource* type_scalar_delete(uint8_t flags);
+    // 0x00407910: unloaded, no file, buffer or callback, an empty dependents list.
+    Resource();
+    // 0x00407810 (0x00407950 / 0x00407AF0 the scalar deleting destructors, vtable slot 3: the base's / the types',
+    // through 0x004093E0 - a jump to it): the dependents list's head unlinked.
+    virtual ~Resource();
+    Resource(const Resource&) = delete;
+    Resource& operator=(const Resource&) = delete;
 
-    // 0x004075F0: the base load_from_buffer and Load (slots 4 and 5): the state set to loading; 0.
-    int start_loading(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
-    // 0x00407600: the base Unload (slot 6): the state set to unloaded; 0.
-    int offload();
+    // Vtable slot 0: the type (ResourceKind); the base's 0.
+    virtual int fetch_kind() const { return 0; }
+    // Slots 4 and 5: loaded from a buffer (data, size, copy, params, structure) / from a file (name, async,
+    // use_archive, params, structure) - see the types below. 0x004075F0 (both, the base's): loading; 0.
+    virtual int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    virtual int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    // 0x00407600 (slot 6, the base's): unloaded; 0.
+    virtual int offload();
+    // Slot 7: unloaded and read again from `name`; whether that worked. The base's: false (a shared "return 0").
+    virtual bool reload(const char* name);
     // 0x00407610 (slot 8)
-    bool is_loaded() const;
+    virtual bool is_loaded() const;
+    // 0x004076D0 (slot 9)
+    virtual const char* fetch_title() const;
+    // 0x00407630 (slot 13, the base's): loaded; true.
+    virtual bool finish_loading(void* buffer, uint32_t size);
+    // 0x00407640 (slot 14): the file read cancelled and closed; aborted; true.
+    virtual bool cancel_now();
+    // Slot 15: the read buffer freed. The base's: nothing.
+    virtual void free_buffer() {}
+    // 0x00407680 (slot 17): read.
+    virtual bool set_read();
+
+    // Slot 1 (the same in every table - folded with ParkTile::fetch_serial): what was loaded.
+    void* get_data() const { return content_; }
+    // 0x004075F0's body: the state set to loading (the types' loads start with it).
+    void start_loading() { set_loading(); }
     // 0x00407620 (slot 12): finish_loading with the buffer and its size.
     bool process_buffer();
-    // 0x00407630: the base finish_loading (slot 13): loaded; true.
-    bool finish_loading(void* buffer, uint32_t size);
-    // 0x00407640 (slot 14): the file read cancelled and closed; aborted; true.
-    bool cancel_now();
-    // 0x004076D0 (slot 9)
-    const char* fetch_title() const;
     // 0x004076E0 (slot 10), 0x004072F0 (slot 11), 0x004076F0, 0x00407700, 0x004075D0
     void change_contents(void* data);
     void pin_resident(bool permanent);
     void change_cluster(Resource* group);
     void set_checksum(uint32_t checksum);
     void change_hook(LoadCallback callback, void* first_word, void* data1);
-    // The state setters (slots 16-21): 0x00407670 (returns 1), 0x00407680, 0x00407690, 0x004076A0, 0x004076B0,
+    // The other state setters (slots 16, 18-21): 0x00407670 (returns 1), 0x00407690, 0x004076A0, 0x004076B0,
     // 0x004076C0 (each returns true).
     int set_loading();
-    bool set_read();
     bool set_processing();
     bool set_loaded();
     bool set_unloaded();
@@ -97,28 +110,6 @@ public:
     // (unless the second value is set).
     static void __cdecl read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
 
-    // The virtual slots, called through the vtable.
-    int v_type() { return get_call<int>(0); }
-    void* v_data() { return get_call<void*>(1); }
-    void v_delete() { reinterpret_cast<void(__thiscall*)(Resource*, int)>(vtable_[3])(this, 1); }
-    int v_unload() { return get_call<int>(6); }
-    bool v_is_loaded() { return get_call<bool>(8); }
-    void v_set_data(void* data) { reinterpret_cast<void(__thiscall*)(Resource*, void*)>(vtable_[10])(this, data); }
-    bool v_process_buffer() { return get_call<bool>(12); }
-    bool v_finish_loading(void* buffer, uint32_t size)
-    {
-        return reinterpret_cast<bool(__thiscall*)(Resource*, void*, uint32_t)>(vtable_[13])(this, buffer, size);
-    }
-    bool v_abort() { return get_call<bool>(14); }
-    void v_free_buffer() { get_call<void>(15); }
-
-    template <typename R>
-    R get_call(int slot)
-    {
-        return reinterpret_cast<R(__thiscall*)(Resource*)>(vtable_[slot])(this);
-    }
-
-    void** vtable_;
     uint32_t checksum_; // +0x04
     int cur_phase_;     // +0x08 AssetState
     bool pinned_;       // +0x0C not unloaded by unload_all_assets(false)
@@ -138,30 +129,6 @@ public:
 static_assert(sizeof(Resource) == 0x4C, "layout must match the original");
 static_assert(offsetof(Resource, file_ref_) == 0x20 && offsetof(Resource, dependents_) == 0x38, "layout");
 
-// The types' constructors (each the base's, then its vtable and fields; each returns the asset).
-struct AssetConstructors : Resource {
-    // 0x004071A0 animation (0x50 bytes, vtable 0x006454B0; +0x4C the archive the file came from)
-    Resource* get_animation();
-    // 0x00409220 scene (0x50, 0x00645700; +0x4C its load parameters)
-    Resource* get_scene();
-    // 0x004095F0 scene collision (0x50, 0x00645778; +0x4C its load parameters)
-    Resource* scene_collision();
-    // 0x00409970 skeleton (0x4C, 0x00645810)
-    Resource* get_skeleton();
-    // 0x00409C40 skinned model (0x60, 0x00645888; +0x50-0x5C cleared)
-    Resource* skinned_model();
-    // 0x0040A210 skin collision (0x50, 0x00645928)
-    Resource* skin_collision();
-    // 0x0040A580 texture dictionary (0x50, 0x006459A8)
-    Resource* texture_bank();
-    // 0x00407A30 cutscene (0x4C, 0x00645600)
-    Resource* get_cutscene();
-    // 0x00408BB0 node array (0x64, 0x00645698)
-    Resource* get_node_array();
-    // 0x00408BF0: a node array made the node manager's owner (+0x60 set).
-    void make_node_array_owner();
-};
-
 // The load parameters' pool: 4 blocks of 0x60 bytes (0x00691758, in use: the bits of 0x006918D8). 0x00407730: a
 // free block (the size is ignored; null if all four are in use). 0x00407770: one given back.
 void* alloc_load_params(uint32_t size);
@@ -172,47 +139,52 @@ void free_load_params(void* params);
 // type's parameters to start from (or null), `structure` a script structure to read them from (or null). Both
 // return 0, or -1 if the file couldn't be opened.
 
+// 0x00408A70: the types' reload (the animation's, the cutscene's, the node array's): unloaded, then read_in(name);
+// whether that worked.
+bool refresh_resource(Resource* asset, const char* name);
+
 // Animation (+0x4C the checksum of the archive file it came from).
-struct AnimResource : Resource {
+struct AnimResource final : Resource {
+    // 0x004071A0 (vtable 0x006454B0)
+    AnimResource();
     uint32_t archive_;
     // 0x004072E0 / 0x004072D0
-    int fetch_kind() const;
-    const char* fetch_title() const;
+    int fetch_kind() const override;
+    const char* fetch_title() const override;
     // 0x004071C0 / 0x00407300 (an archive file: through Pip, the lowercased name's checksum kept)
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
+    bool reload(const char* name) override { return refresh_resource(this, name); }
     // 0x004074F0: the frames made from the buffer (null if that fails).
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x004074A0: the frames deleted, the buffer freed.
-    int offload();
+    int offload() override;
     // 0x00407290 (also the node arrays'): the archive file unloaded, or the buffer freed.
-    void get_free_buffer();
+    void free_buffer() override;
 };
 static_assert(sizeof(AnimResource) == 0x50, "layout");
 
-// 0x00408A70: the types' Reload (the animation's, the cutscene's, the node array's): unloaded, then ReadIn(name);
-// whether that worked.
-bool refresh_resource(Resource* asset, const char* name);
-struct ReloadAdapter : Resource {
-    bool reload(const char* name) { return refresh_resource(this, name); }
-};
-
 // Cutscene (the data a CinematicTable).
-struct CutsceneResource : Resource {
+struct CutsceneResource final : Resource {
+    // 0x00407A30 (vtable 0x00645600)
+    CutsceneResource();
     // 0x00408AC0 / 0x00408AB0
-    int fetch_kind() const;
-    const char* fetch_title() const;
+    int fetch_kind() const override;
+    const char* fetch_title() const override;
     // 0x00408AD0: the cutscene data made and loaded from "<name>.<platform extension>" (the data leaks if that
     // fails, as in the original).
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x00408A40: the cutscene data deleted.
-    int offload();
+    int offload() override;
     // 0x00408AA0: its cutscene data's.
-    bool is_loaded();
+    bool is_loaded() const override;
+    bool reload(const char* name) override { return refresh_resource(this, name); }
 };
 
 // Node array (a .qb file: its nodes, added to the node manager).
-struct NodeTableResource : Resource {
+struct NodeTableResource final : Resource {
+    // 0x00408BB0 (vtable 0x00645698)
+    NodeTableResource();
     uint32_t archive_;     // +0x4C
     uint32_t source_path_; // +0x50 the checksum of the file name (its script's)
     uint32_t array_name_;  // +0x54 the node array's checksum
@@ -221,15 +193,18 @@ struct NodeTableResource : Resource {
     bool owned_;           // +0x60 the node manager's owner
     uint8_t pad61[3];
     // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
-    int fetch_kind() const;
-    const char* fetch_title() const;
+    int fetch_kind() const override;
+    const char* fetch_title() const override;
     // 0x00408EA0 / 0x00408D10 (the file read on the top-down heap)
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
+    bool reload(const char* name) override { return refresh_resource(this, name); }
+    // 0x00408BF0: made the node manager's owner (owned_ set).
+    void make_owner();
     // 0x00408C10: the script parsed, the node array added to the node manager.
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x00408F00: each node's object told (slot 6), the node array removed, the script unloaded.
-    int offload();
+    int offload() override;
     // 0x004090D0: a new array of `count` empty structures made the global symbol `name` (any old one removed)
     // and the node array's (returns it).
     void* build_node_table(uint32_t name, int count);
@@ -237,50 +212,60 @@ struct NodeTableResource : Resource {
 static_assert(sizeof(NodeTableResource) == 0x64, "layout");
 
 // Scene (+0x4C its load parameters: +0x00 the textures' checksum, +0x04-0x07 four flags, +0x08 the name).
-struct SceneAsset : Resource {
+struct SceneAsset final : Resource {
+    // 0x00409220 (vtable 0x00645700)
+    SceneAsset();
     uint8_t* args_;
     // 0x004093D0
-    const char* fetch_title() const;
+    // (0x0049B8C0, shared: a constant)
+    int fetch_kind() const override { return kScene; }
+    const char* fetch_title() const override;
     // 0x004092D0: the parameters from the pool (from `params`, then `structure`'s values).
     void set_up_params(void* params, void* structure);
     // 0x00409520 / 0x004093F0
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x00409240: the scene made, with its group's (the textures') data.
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x00409380
-    int offload();
+    int offload() override;
 };
 
 // Scene collision (+0x4C: +0x00 a checksum, +0x04 a flag, +0x05 the name).
-struct SceneCollisionAsset : Resource {
+struct SceneCollisionAsset final : Resource {
+    // 0x004095F0 (vtable 0x00645778)
+    SceneCollisionAsset();
     uint8_t* args_;
     // 0x00409750
-    const char* fetch_title() const;
+    // (0x0049BB70, shared: a constant)
+    int fetch_kind() const override { return kSceneCollision; }
+    const char* fetch_title() const override;
     // 0x00409690
     void set_up_params(void* params, void* structure);
     // 0x00409890 / 0x00409760
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x00409610: the collision added to its group's (the scene's) data.
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x00409700
-    int offload();
+    int offload() override;
 };
 
 // Skeleton.
-struct RigResource : Resource {
+struct RigResource final : Resource {
+    // 0x00409970 (vtable 0x00645810)
+    RigResource();
     // 0x00409A40 / 0x00409A30
-    int fetch_kind() const;
-    const char* fetch_title() const;
+    int fetch_kind() const override;
+    const char* fetch_title() const override;
     // 0x00409990 / 0x00409A50 (the buffer from the top-down heap)
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x00409B80: the skeleton data made (false and nothing kept if that fails).
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x004099E0 / 0x00409A10
-    int offload();
-    void get_free_buffer();
+    int offload() override;
+    void free_buffer() override;
 };
 
 // The skinned model's load parameters (0x14 bytes from the pool): 0x00409E90 clears them (returns them).
@@ -298,60 +283,68 @@ struct SkinParams {
 
 // Skinned model (+0x4C archive, +0x50 parameters, +0x54 / +0x58 the .cas file and its contents, +0x5C the files
 // still being read).
-struct SkinResource : Resource {
+struct SkinResource final : Resource {
+    // 0x00409C40 (vtable 0x00645888)
+    SkinResource();
     uint32_t archive_;
     SkinParams* args_;
     file::AsyncFileHandle* cas_file_;
     void* cas_buffer_;
     int files_reading_;
     // 0x00409E00 / 0x00409DF0
-    int fetch_kind() const;
-    const char* fetch_title() const;
+    int fetch_kind() const override;
+    const char* fetch_title() const override;
     // 0x00409E10
     void set_up_params(void* params, void* structure);
     // 0x0040A140 / 0x00409EB0 (the model file "<base>.skin|mdl.<ext>", and the base's .cas file if it has one)
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x00409C70: the model made (with its group's textures).
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x00409D30 / 0x00409D70 / 0x00409DA0
-    int offload();
-    bool cancel_now();
-    void get_free_buffer();
+    int offload() override;
+    bool cancel_now() override;
+    void free_buffer() override;
     // 0x00409C60: read only when both files are.
-    bool set_read();
+    bool set_read() override;
 };
 static_assert(sizeof(SkinResource) == 0x60, "layout");
 
 // Skin collision (+0x4C: +0x00 a checksum, +0x04 the name).
-struct SkinCollisionAsset : Resource {
+struct SkinCollisionAsset final : Resource {
+    // 0x0040A210 (vtable 0x00645928)
+    SkinCollisionAsset();
     uint8_t* args_;
     // 0x0040A290 / 0x0040A280
-    int fetch_kind() const;
-    const char* fetch_title() const;
+    int fetch_kind() const override;
+    const char* fetch_title() const override;
     // 0x0040A400 / 0x0040A2A0
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x0040A510: the collision added to its group's (the model's) data.
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x0040A230
-    int offload();
+    int offload() override;
 };
 
 // Texture dictionary (+0x4C: +0x00 a flag (set), +0x04 a value, +0x08 / +0x09 flags, +0x0A the name).
-struct TexDictAsset : Resource {
+struct TexDictAsset final : Resource {
+    // 0x0040A580 (vtable 0x006459A8)
+    TexDictAsset();
     uint8_t* args_;
     // 0x0040A710
-    const char* fetch_title() const;
+    // (0x0049C0F0, shared: a constant)
+    int fetch_kind() const override { return kResTexDict; }
+    const char* fetch_title() const override;
     // 0x0040A620
     void set_up_params(void* params, void* structure);
     // 0x0040A840 / 0x0040A720
-    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
-    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure);
+    int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
+    int read_in(const char* name, bool async, bool use_archive, void* params, void* structure) override;
     // 0x0040A5A0
-    bool finish_loading(void* buffer, uint32_t size);
+    bool finish_loading(void* buffer, uint32_t size) override;
     // 0x0040A6C0
-    int offload();
+    int offload() override;
 };
 
 } // namespace assets

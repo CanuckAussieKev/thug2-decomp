@@ -48,7 +48,7 @@ Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 }
 void wait_until_loaded(Resource* asset)
 {
-    while (!asset->v_is_loaded())
+    while (!asset->is_loaded())
         file::async_wait_for_io(false);
 }
 // `asset` onto the end of the circular list `*head`.
@@ -69,42 +69,31 @@ void get_append(Resource** head, Resource* asset)
 // A new asset of `type` (null for a type that isn't one, or if the allocation fails).
 Resource* make_asset(int type, bool with_cutscene)
 {
-    void* memory;
     switch (type) {
     case kScene:
-        memory = memory::alloc_zeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->get_scene() : nullptr;
+        return new SceneAsset;
     case kResTexDict:
-        memory = memory::alloc_zeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->texture_bank() : nullptr;
+        return new TexDictAsset;
     case kSceneCollision:
-        memory = memory::alloc_zeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->scene_collision() : nullptr;
+        return new SceneCollisionAsset;
     case kAnimation:
-        memory = memory::alloc_zeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->get_animation() : nullptr;
+        return new AnimResource;
     case kSkeleton:
-        memory = memory::alloc_zeroed(0x4C);
-        return memory ? static_cast<AssetConstructors*>(memory)->get_skeleton() : nullptr;
+        return new RigResource;
     case kSkinnedModel:
-        memory = memory::alloc_zeroed(0x60);
-        return memory ? static_cast<AssetConstructors*>(memory)->skinned_model() : nullptr;
+        return new SkinResource;
     case kSkinCollision:
-        memory = memory::alloc_zeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->skin_collision() : nullptr;
+        return new SkinCollisionAsset;
     case kCutscene:
         // (read_resource_from_stream has no case for cutscenes)
         if (!with_cutscene)
             return nullptr;
-        memory = memory::alloc_zeroed(0x4C);
-        return memory ? static_cast<AssetConstructors*>(memory)->get_cutscene() : nullptr;
+        return new CutsceneResource;
     case kNodeArray:
-        memory = memory::alloc_zeroed(0x64);
-        return memory ? static_cast<AssetConstructors*>(memory)->get_node_array() : nullptr;
+        return new NodeTableResource;
     case kOwnedNodeArray: {
-        memory = memory::alloc_zeroed(0x64);
-        Resource* asset = memory ? static_cast<AssetConstructors*>(memory)->get_node_array() : nullptr;
-        static_cast<AssetConstructors*>(asset)->make_node_array_owner(); // (null if the allocation failed: a crash)
+        auto* asset = new NodeTableResource;
+        asset->make_owner(); // (null if the allocation failed: a crash)
         return asset;
     }
     default:
@@ -186,19 +175,18 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
     join_group(this, asset, group);
     memory::pop_mem_profile();
-    int failed = reinterpret_cast<int(__thiscall*)(Resource*, void*, uint32_t, bool, void*, int)>(asset->vtable_[4])(
-        asset, data, size, copy, params, extra);
+    int failed = asset->load_from_buffer(data, size, copy, params, reinterpret_cast<void*>(extra));
     memory::push_mem_profile("Asset Overhead");
     if (failed) {
         if (!keep_failed_assets())
-            asset->v_delete();
+            delete asset;
         memory::pop_mem_profile();
         return nullptr;
     }
     assets_->store_entry(checksum, asset);
     get_append(&ready_flag_, asset);
     memory::pop_mem_profile();
-    return asset->v_data();
+    return asset->get_data();
 }
 
 // 0x00408440
@@ -216,16 +204,15 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
     give_callback(this, asset);
     asset->set_checksum(checksum);
     join_group(this, asset, group);
-    int failed = reinterpret_cast<int(__thiscall*)(Resource*, const char*, bool, bool, void*, int)>(asset->vtable_[5])(
-        asset, name, async, use_archive, params, extra);
+    int failed = asset->read_in(name, async, use_archive, params, reinterpret_cast<void*>(extra));
     if (failed) {
         if (!keep_failed_assets())
-            asset->v_delete();
+            delete asset;
         return nullptr;
     }
     assets_->store_entry(checksum, asset);
     get_append(async ? &pending_ : &ready_flag_, asset);
-    return asset->v_data();
+    return asset->get_data();
 }
 
 // 0x004087B0
@@ -236,7 +223,7 @@ void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint3
         checksum = checksums::hash_from_text(name);
     void* data;
     if (Resource* asset = get_find(assets_, checksum)) {
-        data = asset->v_data();
+        data = asset->get_data();
         wait_until_loaded(asset);
     } else {
         data = load_asset(name, type, checksum, group, async, use_archive, permanent, params, extra);
@@ -264,7 +251,7 @@ bool ResourceRegistry::refresh_resource(uint32_t checksum, const char* name, int
     if (!asset)
         return false;
     give_callback(this, asset);
-    return reinterpret_cast<int(__thiscall*)(Resource*, const char*)>(asset->vtable_[7])(asset, name) != 0;
+    return asset->reload(name);
 }
 
 // 0x00407B20
@@ -274,15 +261,15 @@ void ResourceRegistry::discard_loaded_item(Resource* asset)
     if (Resource* group = asset->bundle_)
         group->remove_dependent(asset);
     Resource** list;
-    if (asset->v_is_loaded()) {
+    if (asset->is_loaded()) {
         list = &ready_flag_;
     } else {
-        asset->v_abort();
+        asset->cancel_now();
         list = &pending_;
     }
     remove_from_list(list, asset);
-    asset->v_unload();
-    asset->v_delete();
+    asset->offload();
+    delete asset;
     assets_->erase_entry(checksum);
 }
 
@@ -316,7 +303,7 @@ void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
         if (!asset)
             break;
         Resource* previous = asset->last_value_;
-        if ((all || !asset->pinned_) && type == asset->v_type())
+        if ((all || !asset->pinned_) && type == asset->fetch_kind())
             found[count++] = asset;
         if (asset == head)
             break;
@@ -344,10 +331,10 @@ void ResourceRegistry::unload_all_assets_of_type(bool all, int type)
 Resource* ResourceRegistry::obtain_loaded_item(uint32_t checksum, int /*unused*/)
 {
     Resource* asset = get_find(assets_, checksum);
-    if (asset && !asset->v_is_loaded() && !asset->v_is_loaded()) { // (asked twice in the original)
+    if (asset && !asset->is_loaded() && !asset->is_loaded()) { // (asked twice in the original)
         do
             file::async_wait_for_io(false);
-        while (!asset->v_is_loaded());
+        while (!asset->is_loaded());
     }
     return asset;
 }
@@ -359,7 +346,7 @@ void* ResourceRegistry::get_asset_data(uint32_t checksum, int /*unused*/)
     if (!asset)
         return nullptr;
     wait_until_loaded(asset);
-    return asset->v_data();
+    return asset->get_data();
 }
 
 // 0x00407C70
@@ -390,11 +377,11 @@ void ResourceRegistry::process_pending_assets()
         switch (asset->cur_phase_) {
         case kRead:
             // (a group that isn't loaded yet holds it back)
-            if (asset->bundle_ && !asset->bundle_->v_is_loaded())
+            if (asset->bundle_ && !asset->bundle_->is_loaded())
                 break;
             [[fallthrough]];
         case kProcessing:
-            if (!asset->v_process_buffer())
+            if (!asset->process_buffer())
                 break;
             if (asset->callback_)
                 asset->callback_(asset, asset->extent_, asset->callback_data0_, asset->callback_data1_);

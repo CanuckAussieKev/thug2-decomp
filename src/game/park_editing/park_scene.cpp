@@ -162,7 +162,7 @@ ParkAssembler* ParkAssembler::make_new()
     rails_.make_new();
     for (RestartPoint& restart : restarts_)
         restart.edit_span_.assign_value(0, 0, 0, 0, 0, 0);
-    reinterpret_cast<assets::AssetConstructors*>(node_array_)->get_node_array();
+    new (node_array_) assets::NodeTableResource;
     flag_bits_ = 0;
     field_04_ = 0;
     pieces_ = nullptr;

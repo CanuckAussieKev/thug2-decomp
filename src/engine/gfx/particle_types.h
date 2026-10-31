@@ -105,14 +105,4 @@ static_assert(offsetof(RibbonParticles, steps_) == 0x134 && offsetof(SmoothStarP
                   offsetof(StarParticles, extent_) == 0x138,
               "layout must match the original");
 
-// The types' slot 2 / 3 bodies as the original's linker folded them (0x0049B8C0 two colours, 0x0049BB70 four,
-// 0x0049C0F0 three, 0x0049BB80 the int at +0x134): the particle classes override with their own now; only the
-// resource tables (resource_entry.cpp) still name them.
-struct ParticleCounts {
-    int two_colours();
-    int four_colours();
-    int three_colours();
-    int field134();
-};
-
 } // namespace render

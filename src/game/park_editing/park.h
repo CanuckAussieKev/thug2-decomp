@@ -105,16 +105,8 @@ static_assert(sizeof(PieceGroupDesc) == 12, "layout must match the original");
 // CopiedPiece: a clone of its source's sector in the "cloned" scene; park_scene.h calls it DuplicatedTile). Both
 // start with the sector and the flags. (The original's vtables: this base's 0x0064F3B4, the source's 0x0064F3C8,
 // the clone's 0x0064F3D0.)
-class ParkPiece {
+class ParkPiece : public memory::HeapObject {
 public:
-    // The game heap's new / delete (as memory::HeapObject's: not a base here, since ParkTile::fetch_serial must stay
-    // a single-inheritance member function - the resource tables name it, folded with their own getters).
-    static void* operator new(std::size_t size) noexcept
-    {
-        return memory::alloc_zeroed(static_cast<unsigned int>(size));
-    }
-    static void operator delete(void* memory) { memory::dealloc(memory); }
-
     // flag_bits_ (both kinds)
     enum : uint32_t {
         kSource = 0x1, // a TileTemplate
@@ -796,7 +788,7 @@ public:
     float falloff_[3];                         // +0x330 (rgb)
     maths::Vec4 lights_[kLightCapacity];       // +0x33C
     uint32_t field_43c_;
-    uint8_t node_array_[0x64]; // +0x440: an assets::NodeTableResource (the node array's owner)
+    alignas(4) uint8_t node_array_[0x64]; // +0x440: an assets::NodeTableResource made in place (the node array's owner)
 };
 static_assert(offsetof(ParkAssembler, source_rails_) == 0x24 && offsetof(ParkAssembler, rails_) == 0x58 &&
                   offsetof(ParkAssembler, node_info_) == 0x8C && offsetof(ParkAssembler, restarts_) == 0x98 &&

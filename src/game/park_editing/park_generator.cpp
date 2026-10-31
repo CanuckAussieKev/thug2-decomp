@@ -70,8 +70,8 @@ void ParkAssembler::destroy_body()
         scene_handle_ = nullptr;
     if (source_world_)
         source_world_ = nullptr;
-    // (the node array's owner: 0x00407810 is Resource's destructor body, folded with NodeTableResource's)
-    reinterpret_cast<assets::Resource*>(node_array_)->destruct();
+    // (the node array's owner, made in place by make_new)
+    reinterpret_cast<assets::NodeTableResource*>(node_array_)->~NodeTableResource();
     destroy_empty_member(&rails_);
     destroy_empty_member(&source_rails_);
 }

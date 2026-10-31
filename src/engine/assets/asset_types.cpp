@@ -156,7 +156,7 @@ void read_archive(Resource* asset, uint32_t* archive, const char* file, uint32_t
 void finish_now(Resource* asset, uint32_t size)
 {
     asset->extent_ = size;
-    asset->v_process_buffer();
+    asset->process_buffer();
 }
 // load_from_buffer's copy: the data copied into a buffer of the asset's own.
 void* copy_data(Resource* asset, void* data, uint32_t size)
@@ -179,7 +179,7 @@ void free_malloc_buffer(void*& buffer)
         buffer = nullptr;
     }
 }
-void* group_data(Resource* asset) { return asset->bundle_->v_data(); }
+void* group_data(Resource* asset) { return asset->bundle_->get_data(); }
 const char* platform_name(const char* name, char* out)
 {
     std::snprintf(out, 256, "%s.%s", name, render::platform_suffix());
@@ -215,10 +215,8 @@ void free_load_params(void* params)
 // 0x00408A70
 bool refresh_resource(Resource* asset, const char* name)
 {
-    asset->v_unload();
-    int result = reinterpret_cast<int(__thiscall*)(Resource*, const char*, int, int, int, int)>(asset->vtable_[5])(
-        asset, name, 0, 0, 0, 0);
-    return result == 0;
+    asset->offload();
+    return asset->read_in(name, false, false, nullptr, nullptr) == 0;
 }
 
 // --- animation ------------------------------------------------------------------------------------------------
@@ -232,14 +230,13 @@ const char* AnimResource::fetch_title() const { return "Animation"; }
 int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     memory::push_mem_profile("Animation Sequence processing");
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     if (copy) {
         memory::push_mem_profile("anim from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
     }
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     memory::pop_mem_profile();
     return 0;
 }
@@ -247,8 +244,7 @@ int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 // 0x00407300
 int AnimResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     script::fetch_int_value(0x25DC7904u); // (a debug leftover: looked up and not used)
     memory::push_mem_profile(name);
     char file[256];
@@ -280,7 +276,7 @@ bool AnimResource::finish_loading(void* buffer, uint32_t size)
         }
         frames = nullptr;
     }
-    v_set_data(frames);
+    change_contents(frames);
     close_file(file_ref_);
     return Resource::finish_loading(buffer, size);
 }
@@ -288,19 +284,19 @@ bool AnimResource::finish_loading(void* buffer, uint32_t size)
 // 0x004074A0
 int AnimResource::offload()
 {
-    if (v_data()) {
-        if (void* frames = v_data()) {
+    if (get_data()) {
+        if (void* frames = get_data()) {
             destroy_anim_frames(frames);
             memory::Hub::get_pull()->dealloc(frames);
         }
-        v_set_data(nullptr);
+        change_contents(nullptr);
     }
-    v_free_buffer();
+    free_buffer();
     return Resource::offload();
 }
 
 // 0x00407290
-void AnimResource::get_free_buffer()
+void AnimResource::free_buffer()
 {
     if (archive_) {
         packs::offload(archive_);
@@ -330,7 +326,7 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
     platform_name(name, file);
     if (!cutscene->read_in(file, 1, async, static_cast<const uint32_t*>(params)))
         return -1;
-    v_set_data(cutscene);
+    change_contents(cutscene);
     memory::pop_mem_profile();
     return 0;
 }
@@ -338,15 +334,15 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
 // 0x00408A40
 int CutsceneResource::offload()
 {
-    if (void* cutscene = v_data()) {
+    if (void* cutscene = get_data()) {
         delete static_cast<objects::CinematicTable*>(cutscene);
-        v_set_data(nullptr);
+        change_contents(nullptr);
     }
     return 0;
 }
 
 // 0x00408AA0
-bool CutsceneResource::is_loaded() { return static_cast<objects::CinematicTable*>(v_data())->is_loaded(); }
+bool CutsceneResource::is_loaded() const { return static_cast<objects::CinematicTable*>(get_data())->is_loaded(); }
 
 // --- node array -----------------------------------------------------------------------------------------------
 
@@ -358,20 +354,18 @@ const char* NodeTableResource::fetch_title() const { return "Node Array"; }
 // 0x00408EA0
 int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     args_ = static_cast<char*>(alloc_load_params(0x40));
     if (params)
         copy_words(args_, params, 0x10);
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     return 0;
 }
 
 // 0x00408D10
 int NodeTableResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     args_ = static_cast<char*>(alloc_load_params(0x40));
     if (params)
         copy_words(args_, params, 0x10);
@@ -402,10 +396,10 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
     script::free_script_checksum_names();
     script::Array* nodes = script::fetch_list(array_name);
     array_name_ = checksums::hash_from_text(array_name);
-    v_set_data(nodes);
-    nodes_ = v_data();
+    change_contents(nodes);
+    nodes_ = get_data();
     close_file(file_ref_);
-    v_free_buffer();
+    free_buffer();
     free_load_params(args_);
     args_ = nullptr;
     return Resource::finish_loading(buffer, size);
@@ -424,9 +418,9 @@ int NodeTableResource::offload()
     }
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
         manager->remove_node_array(array_name_);
-    if (v_data())
+    if (get_data())
         unload_qb_file(source_path_);
-    v_free_buffer();
+    free_buffer();
     return Resource::offload();
 }
 
@@ -481,23 +475,21 @@ void SceneAsset::set_up_params(void* params, void* structure)
 // 0x00409520
 int SceneAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     if (copy) {
         memory::push_mem_profile("Scene from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
     }
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     return 0;
 }
 
 // 0x004093F0
 int SceneAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 8), name);
     char file[256];
@@ -515,7 +507,7 @@ int SceneAsset::read_in(const char* name, bool async, bool use_archive, void* pa
 bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
-    v_set_data(
+    change_contents(
         make_scene(reinterpret_cast<char*>(args_ + 8), buffer, textures, args_[4], args_[5], args_[6], args_[7]));
     free_load_params(args_);
     args_ = nullptr;
@@ -526,10 +518,10 @@ bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 // 0x00409380
 int SceneAsset::offload()
 {
-    if (v_data()) {
-        unload_scene(v_data(), 0);
+    if (get_data()) {
+        unload_scene(get_data(), 0);
         free_malloc_buffer(octets_);
-        v_set_data(nullptr);
+        change_contents(nullptr);
     }
     return Resource::offload();
 }
@@ -557,15 +549,14 @@ void SceneCollisionAsset::set_up_params(void* params, void* structure)
 int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     memory::push_mem_profile("Collision processing");
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     if (copy) {
         memory::push_mem_profile("SceneColl from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
     }
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     memory::pop_mem_profile();
     return 0;
 }
@@ -573,8 +564,7 @@ int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, 
 // 0x00409760
 int SceneCollisionAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 5), name);
     char file[256];
@@ -593,7 +583,7 @@ bool SceneCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* scene = group_data(this);
     add_collision(scene, buffer, args_[4]);
-    v_set_data(scene_collision(scene));
+    change_contents(scene_collision(scene));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -603,10 +593,10 @@ bool SceneCollisionAsset::finish_loading(void* buffer, uint32_t size)
 // 0x00409700
 int SceneCollisionAsset::offload()
 {
-    if (v_data()) {
+    if (get_data()) {
         detach_hit_mesh(group_data(this));
         free_malloc_buffer(octets_);
-        v_set_data(nullptr);
+        change_contents(nullptr);
     }
     return Resource::offload();
 }
@@ -622,9 +612,8 @@ const char* RigResource::fetch_title() const { return "Skeleton"; }
 int RigResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     memory::push_mem_profile("Skeleton processing");
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
-    v_finish_loading(data, size);
+    start_loading();
+    finish_loading(data, size);
     memory::pop_mem_profile();
     return 0;
 }
@@ -632,8 +621,7 @@ int RigResource::load_from_buffer(void* data, uint32_t size, bool copy, void* pa
 // 0x00409A50
 int RigResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     char file[256];
     platform_name(name, file);
     file_ref_ = file::async_open(file, !async, 100);
@@ -656,25 +644,25 @@ bool RigResource::finish_loading(void* buffer, uint32_t size)
     void* skeleton = memory ? construct_skeleton_data(memory) : nullptr;
     if (!load_skeleton_data(skeleton, buffer, size))
         return false; // (the skeleton data leaks, as in the original)
-    v_set_data(skeleton);
+    change_contents(skeleton);
     close_file(file_ref_);
-    v_free_buffer();
+    free_buffer();
     return Resource::finish_loading(buffer, size);
 }
 
 // 0x004099E0
 int RigResource::offload()
 {
-    if (void* skeleton = v_data()) {
+    if (void* skeleton = get_data()) {
         reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(skeleton))[0])(skeleton, 1);
-        v_set_data(nullptr);
-        v_free_buffer();
+        change_contents(nullptr);
+        free_buffer();
     }
     return Resource::offload();
 }
 
 // 0x00409A10
-void RigResource::get_free_buffer() { free_malloc_buffer(octets_); }
+void RigResource::free_buffer() { free_malloc_buffer(octets_); }
 
 // --- skinned model --------------------------------------------------------------------------------------------
 
@@ -710,23 +698,21 @@ void SkinResource::set_up_params(void* params, void* structure)
 // 0x0040A140
 int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     if (copy && !args_->on_heap_) {
         memory::push_mem_profile("skin from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
     }
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     return 0;
 }
 
 // 0x00409EB0
 int SkinResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     memory::push_mem_profile(name);
     char base[512];
@@ -776,9 +762,10 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
     SkinParams* p = args_;
-    v_set_data(make_skinned_model(checksum_, buffer, size, p->cas_data_, textures, p->value, p->has_cas_, p->flag0));
+    change_contents(
+        make_skinned_model(checksum_, buffer, size, p->cas_data_, textures, p->value, p->has_cas_, p->flag0));
     if (args_->on_heap_ && octets_)
-        v_free_buffer();
+        free_buffer();
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -790,11 +777,11 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
 // 0x00409D30
 int SkinResource::offload()
 {
-    if (v_data()) {
-        unload_skinned_model(v_data(), 1);
-        v_set_data(nullptr);
+    if (get_data()) {
+        unload_skinned_model(get_data(), 1);
+        change_contents(nullptr);
     }
-    v_free_buffer();
+    free_buffer();
     return Resource::offload();
 }
 
@@ -810,7 +797,7 @@ bool SkinResource::cancel_now()
 }
 
 // 0x00409DA0
-void SkinResource::get_free_buffer()
+void SkinResource::free_buffer()
 {
     free_malloc_buffer(cas_buffer_);
     if (archive_) {
@@ -857,23 +844,21 @@ uint8_t* skin_collision_params(void* params, void* structure)
 // 0x0040A400
 int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     args_ = skin_collision_params(params, structure);
     if (copy) {
         memory::push_mem_profile("SkinColl from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
     }
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     return 0;
 }
 
 // 0x0040A2A0
 int SkinCollisionAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     args_ = skin_collision_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 4), name);
     char file[256];
@@ -892,7 +877,7 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
     add_skin_collision(model, buffer);
-    v_set_data(*reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x8C));
+    change_contents(*reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x8C));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -902,10 +887,10 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 // 0x0040A230
 int SkinCollisionAsset::offload()
 {
-    if (v_data()) {
+    if (get_data()) {
         remove_skin_collision(group_data(this));
         free_malloc_buffer(octets_);
-        v_set_data(nullptr);
+        change_contents(nullptr);
     }
     return Resource::offload();
 }
@@ -936,23 +921,21 @@ void TexDictAsset::set_up_params(void* params, void* structure)
 // 0x0040A840
 int TexDictAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     if (copy) {
         memory::push_mem_profile("TexDict from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
     }
-    v_finish_loading(data, size);
+    finish_loading(data, size);
     return 0;
 }
 
 // 0x0040A720
 int TexDictAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
-    start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                  reinterpret_cast<uint32_t>(structure));
+    start_loading();
     set_up_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 0xA), name);
     char file[256];
@@ -969,7 +952,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool use_archive, void* 
 // 0x0040A5A0
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
-    v_set_data(
+    change_contents(
         make_tex_dict(checksum_, buffer, size, args_[0], *reinterpret_cast<int*>(args_ + 4), args_[8], args_[9]));
     free_load_params(args_);
     args_ = nullptr;
@@ -980,10 +963,10 @@ bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 // 0x0040A6C0
 int TexDictAsset::offload()
 {
-    if (v_data()) {
-        unload_tex_dict(v_data());
+    if (get_data()) {
+        unload_tex_dict(get_data());
         free_malloc_buffer(octets_);
-        v_set_data(nullptr);
+        change_contents(nullptr);
     }
     return Resource::offload();
 }

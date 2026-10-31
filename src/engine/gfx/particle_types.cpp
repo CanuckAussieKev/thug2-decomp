@@ -110,12 +110,4 @@ StarParticles::StarParticles(uint32_t name, int particle_cap, uint32_t, uint32_t
     }
 }
 
-// --- the counts ---
-
-// 0x0049B8C0 / 0x0049BB70 / 0x0049C0F0 / 0x0049BB80
-int ParticleCounts::two_colours() { return 2; }
-int ParticleCounts::four_colours() { return 4; }
-int ParticleCounts::three_colours() { return 3; }
-int ParticleCounts::field134() { return *reinterpret_cast<const int*>(reinterpret_cast<const uint8_t*>(this) + 0x134); }
-
 } // namespace render
