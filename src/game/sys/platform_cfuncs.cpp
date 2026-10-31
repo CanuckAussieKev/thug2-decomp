@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/script/script_tables.h"
 #include "game/sio/sdl_input.h"
 #include "hook/hook.h"
 
@@ -14,8 +15,6 @@ namespace Sys {
 namespace {
 
 constexpr uint32_t kVehicleGrindScript = 0x47F15883;
-// The table's IsPS2 entry: {name 0x006524FC "IsPS2", function}.
-constexpr uint32_t kIsPS2Entry = 0x00681468;
 
 // The script's name (the one it's running now: CScript +0xC8).
 uint32_t ScriptName(const Script::CScript* script)
@@ -34,10 +33,8 @@ bool __cdecl CFunc_IsPS2(Script::CStruct* /*params*/, Script::CScript* script)
 
 void InstallIsPS2()
 {
-    if (std::strcmp(*reinterpret_cast<const char* const*>(kIsPS2Entry), "IsPS2") != 0)
-        return; // (not this exe's table)
-    auto function = reinterpret_cast<uint32_t>(&CFunc_IsPS2);
-    WriteGameCode(kIsPS2Entry + 4, &function, sizeof(function));
+    if (Script::CFunctionEntry* entry = Script::FindCFunction("IsPS2"))
+        Script::SetCFunction(*entry, reinterpret_cast<void*>(&CFunc_IsPS2));
 }
 
 } // namespace Sys

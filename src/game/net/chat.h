@@ -1,5 +1,10 @@
 #pragma once
 
+namespace Script {
+class CStruct;
+class CScript;
+} // namespace Script
+
 namespace Net {
 struct MsgHandlerContext;
 }
@@ -37,3 +42,6 @@ void __cdecl KeyboardTask(void* task);
 int __cdecl HandleChat(Net::MsgHandlerContext* context);
 
 } // namespace GameNet
+
+// Script function SendChatMessage (in the CFunction table).
+bool __cdecl CFunc_SendChatMessage(Script::CStruct* params, Script::CScript* script);
