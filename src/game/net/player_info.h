@@ -53,7 +53,7 @@ struct JoinerRecord {
     uint32_t m_unknown34;
     uint32_t m_unknown38;
     uint32_t m_unknown3C;
-    int32_t m_vehicleControlType;     // +0x40
+    int32_t m_driveControlMode;     // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
@@ -107,7 +107,7 @@ public:
 
     // 0x00543110 / 0x00543100: the time a projectile last hit it (FrameClock::GetTime) / forgotten. 0x005430E0: more than
     // 5 seconds ago (1 / 0, unsigned: a hit "in the future" counts as long ago).
-    void SetLastHitTime(uint32_t time);
+    void ChangeRecentHitStamp(uint32_t time);
     void ClearLastHitTime();
     int CanBeHitAgain();
 
@@ -197,7 +197,7 @@ public:
     uint32_t m_readyQueryOwed;          // +0x1D4
     uint32_t m_unknown1D8;
     uint32_t m_joinTime;                // +0x1DC (MarkJustJoined)
-    uint32_t m_lastHitTime;             // +0x1E0
+    uint32_t m_lastImpactAt;             // +0x1E0
     int m_lastSentSkater;               // +0x1E4
     uint8_t* m_faceTextureData;         // +0x1E8
     void* m_object1EC;                  // +0x1EC (deleted with it: virtual slot 2)

@@ -37,7 +37,7 @@ void RemoveSceneSector(uint8_t*& sector)
     if (!sector)
         return;
     CParkAssembler* generator = CParkLayout::sSingleton()->m_builder;
-    generator->RemoveSceneSector(SectorName(sector), 0);
+    generator->RemoveSceneSector(SectorKeyFromSpec(sector), 0);
     SetCountsDirty();
     if (UpdateSuperSectors())
         CParkLayout::sSingleton()->m_builder->RebuildCollision();
@@ -293,7 +293,7 @@ bool CEditedRail::AnyPointOutside(float x0, float z0, float x1, float z1) const
 }
 
 // 0x004F6240
-CEditedRailPoint* CEditedRail::NewPoint()
+CEditedRailPoint* CEditedRail::AppendRailVertex()
 {
     MemSys::PoolPair& pools = PointPools();
     if (pools.pools[pools.current]->m_takenCount == CRailAuthoring::kMaxPoints)
@@ -321,7 +321,7 @@ CEditedRailPoint* CEditedRail::NewPoint()
 // 0x004F62D0
 void CEditedRail::AddPointCopy(const CEditedRailPoint* source)
 {
-    CEditedRailPoint* point = NewPoint();
+    CEditedRailPoint* point = AppendRailVertex();
     point->m_atPoint = source->m_atPoint;
     point->m_hasPost = source->m_hasPost;
     point->m_levelY = source->m_levelY;
@@ -400,7 +400,7 @@ CEditedRail* CEditedRail::CopyInside(float x0, float z0, float x1, float z1, CEd
 CRailAuthoring* __cdecl CRailAuthoring::Sole()
 {
     auto* object = reinterpret_cast<GameObjects::CGameEntity*>(
-        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(kType));
+        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->LookUpEntity(kType));
     return static_cast<CRailAuthoring*>(object->FetchModule(kType));
 }
 
@@ -653,9 +653,9 @@ void CRailAuthoring::ChangeLive(bool active)
     for (CEditedRail* rail = m_railGroups; rail; rail = rail->m_following) {
         for (CEditedRailPoint* p = rail->mp_points; p; p = p->m_following) {
             if (p->mp_post)
-                SetSectorActive(p->mp_post, active);
+                EnableSector(p->mp_post, active);
             if (p->mp_segment)
-                SetSectorActive(p->mp_segment, active);
+                EnableSector(p->mp_segment, active);
         }
     }
 }
@@ -802,7 +802,7 @@ void CRailAuthoring::Unpack()
         uint16_t points = *count++;
         CEditedRail* rail = NewRail();
         for (unsigned int i = points; i != 0; --i) {
-            if (CEditedRailPoint* p = rail->NewPoint()) {
+            if (CEditedRailPoint* p = rail->AppendRailVertex()) {
                 p->m_hasPost = record[4] != 0;
                 p->m_levelY = static_cast<float>(static_cast<double>(record[3]) * 0.0625f);
                 p->m_atPoint.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[0])) * 0.125f);

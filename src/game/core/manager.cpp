@@ -107,7 +107,7 @@ uint32_t Hub::Obtainable()
 // 0x005BB0E0
 void Hub::EnterHeapScope(MemSource* heap)
 {
-    m_ongoing = &m_contextStack[m_contextDepth];
+    m_ongoing = &m_allocSourceStack[m_contextDepth];
     *m_ongoing = heap;
     ++m_contextDepth;
 }
@@ -116,8 +116,8 @@ void Hub::EnterHeapScope(MemSource* heap)
 void Hub::LeaveHeapScope()
 {
     --m_contextDepth;
-    m_contextStack[m_contextDepth] = reinterpret_cast<MemSource*>(-1);
-    m_ongoing = m_contextDepth ? &m_contextStack[m_contextDepth - 1] : nullptr;
+    m_allocSourceStack[m_contextDepth] = reinterpret_cast<MemSource*>(-1);
+    m_ongoing = m_contextDepth ? &m_allocSourceStack[m_contextDepth - 1] : nullptr;
 }
 
 // 0x005BB150
@@ -167,7 +167,7 @@ Hub::LabeledZone* Hub::FindNamedHeap(uint32_t name)
 }
 
 // 0x005BAF50
-Arena* Hub::GetNamedHeap(uint32_t name, int /*unused*/)
+Arena* Hub::FetchHeapByKey(uint32_t name, int /*unused*/)
 {
     LabeledZone* named = FindNamedHeap(name);
     return named ? named->heap : nullptr;
@@ -232,8 +232,8 @@ Arena* Hub::GetMemoryPool(uint32_t name)
     case kNetMiscHeap: return m_netMiscHeap;
     case kInternetTopDownHeap: return m_internetTopDownHeap;
     case kInternetBottomUpHeap: return m_internetBottomUpHeap;
-    case kCutsceneTopDown: return m_cutsceneTopDownHeap;
-    case kCutsceneBottomUp: return m_cutsceneBottomUpHeap;
+    case kCutsceneTopDown: return m_cinematicHighHeap;
+    case kCutsceneBottomUp: return m_cinematicLowHeap;
     case kDebugHeap: return m_debugHeap;
     case kSkater0: return m_skaterHeaps[0];
     case kSkater1: return m_skaterHeaps[1];
@@ -286,32 +286,32 @@ const char* Hub::GetZoneLabel(uint32_t name)
 // 0x005BAC50
 void Hub::ReleaseNetScratchZone()
 {
-    if (!m_netMiscRegion)
+    if (!m_networkExtrasZone)
         return;
     DeleteHeap(m_netMiscHeap);
-    if (m_netMiscRegion)
-        DeleteRegion(m_netMiscRegion);
-    m_netMiscRegion = nullptr;
+    if (m_networkExtrasZone)
+        DeleteRegion(m_networkExtrasZone);
+    m_networkExtrasZone = nullptr;
 }
 
 // 0x005BAC90
 void Hub::DeleteCutsceneHeaps()
 {
-    if (!m_cutsceneRegion)
+    if (!m_cinematicZone)
         return;
-    DeleteHeap(m_cutsceneBottomUpHeap);
-    m_cutsceneBottomUpHeap = nullptr;
-    DeleteHeap(m_cutsceneTopDownHeap);
-    m_cutsceneTopDownHeap = nullptr;
-    if (m_cutsceneRegion)
-        DeleteRegion(m_cutsceneRegion);
-    m_cutsceneRegion = nullptr;
+    DeleteHeap(m_cinematicLowHeap);
+    m_cinematicLowHeap = nullptr;
+    DeleteHeap(m_cinematicHighHeap);
+    m_cinematicHighHeap = nullptr;
+    if (m_cinematicZone)
+        DeleteRegion(m_cinematicZone);
+    m_cinematicZone = nullptr;
 }
 
 // 0x005BACF0: the heaps of skaters 1 to 7 (multiplayer)
 void Hub::DeleteExtraSkaterHeaps()
 {
-    for (int i = 1; i < kMaxSkaters; ++i) {
+    for (int i = 1; i < kSkaterSlots; ++i) {
         if (m_skaterRegions[i]) {
             DebugOut::Printf("DELETING SKATER HEAP %d\n", i);
             DeleteHeap(m_skaterHeaps[i]);
@@ -341,8 +341,8 @@ void Hub::DeleteStandardHeaps()
     if (m_scriptRegion)
         DeleteRegion(m_scriptRegion);
     DeleteHeap(m_networkHeap);
-    if (m_networkRegion)
-        DeleteRegion(m_networkRegion);
+    if (m_multiplayerZone)
+        DeleteRegion(m_multiplayerZone);
     DeleteHeap(m_skaterInfoHeap);
     if (m_skaterInfoRegion)
         DeleteRegion(m_skaterInfoRegion);
@@ -360,7 +360,7 @@ void Hub::DestroyMainHeaps()
 {
     CallSlot<void*>(m_topDownHeap, 2, 0u);
     CallSlot<void*>(m_bottomUpHeap, 2, 0u);
-    CallSlot<void*>(m_mainRegion, 0, 0u);
+    CallSlot<void*>(m_primaryZone, 0, 0u);
 }
 
 // --- the global allocation functions (on the current heap) -------------------------------------------------
@@ -459,7 +459,7 @@ uint8_t* g_heapBlockEnd;
 uint8_t* g_heapBlockStart;
 uintptr_t g_dataEnd;
 uintptr_t g_dataStart;
-uintptr_t g_codeStart;
+uintptr_t g_textSegBase;
 
 // 0x005BBC00
 Hub* Hub::MakeNew()
@@ -484,19 +484,19 @@ Hub* Hub::MakeNew()
     g_heapBlockLimit = block + blockSize;
     uint8_t* end = g_heapBlockLimit;
     void* region = Clear(sizeof(Zone), kMainRegionStorage);
-    m_mainRegion = region ? new (region) Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
+    m_primaryZone = region ? new (region) Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
                                                 reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
                           : nullptr;
     void* top = Clear(sizeof(Arena), kTopDownStorage);
-    m_topDownHeap = top ? new (top) Arena(m_mainRegion, MemSource::kGrowDown, "Top Down") : nullptr;
+    m_topDownHeap = top ? new (top) Arena(m_primaryZone, MemSource::kGrowDown, "Top Down") : nullptr;
     void* bottom = Clear(sizeof(Arena), kBottomUpStorage);
-    m_bottomUpHeap = bottom ? new (bottom) Arena(m_mainRegion, MemSource::kGrowUp, "BottomUp") : nullptr;
+    m_bottomUpHeap = bottom ? new (bottom) Arena(m_primaryZone, MemSource::kGrowUp, "BottomUp") : nullptr;
     m_heaps[1] = m_bottomUpHeap;
     m_heaps[0] = m_topDownHeap;
     m_heapCount = 2;
 
     // (the code and data bounds are never set in this build: all zero)
-    auto codeStart = g_codeStart;
+    auto codeStart = g_textSegBase;
     auto dataStart = g_dataStart;
     auto dataEnd = g_dataEnd;
     uint32_t dataK = static_cast<uint32_t>(dataEnd - dataStart) >> 10;
@@ -505,11 +505,11 @@ Hub* Hub::MakeNew()
                 dataK, dataK + codeK);
 
     m_contextDepth = 0;
-    m_internetRegion = nullptr;
-    m_netMiscRegion = nullptr;
-    m_cutsceneRegion = nullptr;
-    m_cutsceneBottomUpHeap = nullptr;
-    m_cutsceneTopDownHeap = nullptr;
+    m_onlineZone = nullptr;
+    m_networkExtrasZone = nullptr;
+    m_cinematicZone = nullptr;
+    m_cinematicLowHeap = nullptr;
+    m_cinematicHighHeap = nullptr;
     return this;
 }
 
@@ -560,7 +560,7 @@ void Hub::InitStandardHeaps()
     m_skaterGeomHeaps[0] = AddHeap(m_skaterGeomRegions[0], MemSource::kGrowUp, "skater_geom");
     DebugOut::Printf("Setup mp_skater_geom_heap at %p\n", m_skaterGeomHeaps[0]);
 
-    for (int i = 1; i < kMaxSkaters; ++i) {
+    for (int i = 1; i < kSkaterSlots; ++i) {
         m_skaterRegions[i] = nullptr;
         m_skaterHeaps[i] = nullptr;
         m_skaterGeomRegions[i] = nullptr;
@@ -573,44 +573,44 @@ void Hub::InitStandardHeaps()
 // 0x005BB560 (made with the bottom-up heap current, on the game's manager)
 void Hub::CreateNetScratchZone()
 {
-    if (m_netMiscRegion)
+    if (m_networkExtrasZone)
         return;
     Hub* manager = Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
-    m_netMiscRegion = NewAllocRegion(160000);
-    m_netMiscHeap = AddHeap(m_netMiscRegion, MemSource::kGrowUp, "NetMisc");
+    m_networkExtrasZone = NewAllocRegion(160000);
+    m_netMiscHeap = AddHeap(m_networkExtrasZone, MemSource::kGrowUp, "NetMisc");
     Pull()->LeaveHeapScope();
 }
 
 // 0x005BB660 (made with the bottom-up heap current, on the game's manager)
 void Hub::InitInternetHeaps()
 {
-    if (m_internetRegion)
+    if (m_onlineZone)
         return;
     Hub* manager = Pull();
     manager->EnterHeapScope(manager->m_bottomUpHeap);
-    m_internetRegion = NewAllocRegion(450000);
-    m_internetTopDownHeap = AddHeap(m_internetRegion, MemSource::kGrowDown, "InternetTopDown");
-    m_internetBottomUpHeap = AddHeap(m_internetRegion, MemSource::kGrowUp, "InternetBottomUp");
+    m_onlineZone = NewAllocRegion(450000);
+    m_internetTopDownHeap = AddHeap(m_onlineZone, MemSource::kGrowDown, "InternetTopDown");
+    m_internetBottomUpHeap = AddHeap(m_onlineZone, MemSource::kGrowUp, "InternetBottomUp");
     Pull()->LeaveHeapScope();
 }
 
 // 0x005BB780
 void Hub::InitCutsceneHeaps(uint32_t size)
 {
-    if (m_cutsceneRegion)
+    if (m_cinematicZone)
         return;
-    m_cutsceneRegion = NewAllocRegion(size);
-    m_cutsceneBottomUpHeap = AddHeap(m_cutsceneRegion, MemSource::kGrowUp, "CutsceneBottomUp");
-    m_cutsceneTopDownHeap = AddHeap(m_cutsceneRegion, MemSource::kGrowDown, "CutsceneTopDown");
+    m_cinematicZone = NewAllocRegion(size);
+    m_cinematicLowHeap = AddHeap(m_cinematicZone, MemSource::kGrowUp, "CutsceneBottomUp");
+    m_cinematicHighHeap = AddHeap(m_cinematicZone, MemSource::kGrowDown, "CutsceneTopDown");
 }
 
 // 0x005BB820
 void Hub::InitExtraSkaterHeaps(int count)
 {
     DebugOut::Printf("Init Skater Heaps\n");
-    if (count > kMaxSkaters)
-        count = kMaxSkaters;
+    if (count > kSkaterSlots)
+        count = kSkaterSlots;
     for (int i = 1; i < count; ++i) {
         m_skaterRegions[i] = NewAllocRegion(0x1AFA4);
         DebugOut::Printf("EXTRA: allocated mp_skater_region at %p\n", m_skaterRegions[i]);

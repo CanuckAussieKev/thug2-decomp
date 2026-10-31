@@ -38,7 +38,7 @@ using namespace GoalNames;
 
 constexpr uint32_t kGoalManagerShowGoalPoints = 0x888EF05E; // GoalManager_ShowGoalPoints
 constexpr uint32_t kGoalManagerParams = 0x23D4170A;         // GoalManager_Params
-constexpr uint32_t kDifficultyLevels = 0xB13D98D3;          // difficulty_levels
+constexpr uint32_t kSkillTiers = 0xB13D98D3;          // difficulty_levels
 constexpr uint32_t kGoalsClassic = 0xE8E7DBAD;              // goals_classic
 constexpr uint32_t kAlwaysInitializeGoal = 0x4E863E93;      // always_initialize_goal
 constexpr uint32_t kGoalCreateProsetGeom = 0xB3108A05;      // goal_create_proset_geom
@@ -57,7 +57,7 @@ void** const kGoalListHeadVtable = reinterpret_cast<void**>(kGoalListHeadVtable_
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 CMatchRules* GameMode() { return g_gameMode; }
 
 void RemoveObjectiveNpc(CObjectiveNpc* ped) { ped->RemoveObjectiveNpc(); }
@@ -68,7 +68,7 @@ void HideGoalPed(CObjectiveNpc* ped, bool hide) { ped->Conceal(hide); }
 template <typename F>
 CObjective* WalkToRoot(CGoalManager* manager, CObjective* goal, F&& onParent)
 {
-    for (GoalLink* link = goal->m_parents; link && link->m_objectiveKey;) {
+    for (GoalEdge* link = goal->m_parents; link && link->m_objectiveKey;) {
         onParent(link->m_objectiveKey);
         goal = manager->m_goals.Pull(link->m_objectiveKey);
         link = goal->m_parents;
@@ -113,7 +113,7 @@ CGoalManager* CGoalManager::MakeNew()
     m_startAllowed = true;
     m_backer = 0;
     for (Scripts::CStruct** structure : {&m_team, &m_goalData, &m_args}) {
-        Scripts::CStruct* made = Scripts::NewStruct();
+        Scripts::CStruct* made = Scripts::SpawnParamBag();
         *structure = made ? made->PrepareAll() : nullptr;
     }
     for (int& unlocked : m_groupUnlocked)
@@ -159,7 +159,7 @@ void CGoalManager::ResetGoalData(uint32_t flag)
             m_goalData->EraseModule(component->name);
         } else if (component->name == kGoalManagerParams) {
             component->structure->Clear();
-            component->structure->PutSubStruct(kDifficultyLevels, m_args);
+            component->structure->PutSubStruct(kSkillTiers, m_args);
         } else if (component->structure && component->structure->HasBareFlag(flag)) {
             m_goalData->EraseModule(component->name);
         }
@@ -192,7 +192,7 @@ bool CGoalManager::EngageObjective(uint32_t id, bool)
 // 0x00558030
 bool CGoalManager::CompleteObjective(uint32_t id)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     CObjective* goal = m_goals.Pull(id);
     if (!goal)
         return false;
@@ -217,7 +217,7 @@ bool CGoalManager::CompleteObjective(uint32_t id)
             desc.m_groupId = kGroupGoals;
             desc.m_content = &message;
             desc.m_ident = kMsgGoalWon;
-            desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
             static_cast<NetLink::Guest*>(client)->SendToHost(&desc);
         } else if (goal->m_subNodes->m_objectiveKey == 0 && !goal->FetchArgs()->HasBareFlag(kEditedGoal)) {
             ++m_goalsBeaten;
@@ -287,7 +287,7 @@ void CGoalManager::ReleaseEveryObjective()
 // 0x005583C0
 void CGoalManager::PrepareEveryObjective()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (net->InNetGame() && !goal->IsOnlineObjective())
@@ -297,7 +297,7 @@ void CGoalManager::PrepareEveryObjective()
             continue;
         if (Virtual<bool>(goal, CObjective::kVtHasWon) && !goal->FetchArgs()->HasBareFlag(kAlwaysInitializeGoal))
             continue;
-        GoalLink* parents = goal->m_parents;
+        GoalEdge* parents = goal->m_parents;
         Scripts::CStruct* params = goal->FetchArgs();
         if (parents->m_objectiveKey)
             continue;
@@ -386,7 +386,7 @@ bool CGoalManager::RegisterGapHit(uint32_t gap)
 Scripts::CStruct* CGoalManager::GetObjectiveArgs(uint32_t id) { return m_goals.Pull(id)->FetchArgs(); }
 
 // 0x00558750
-bool CGoalManager::NextWaypoint(uint32_t id) { return m_goals.Pull(id)->NextWaypoint(); }
+bool CGoalManager::StepToNextWaypoint(uint32_t id) { return m_goals.Pull(id)->StepToNextWaypoint(); }
 
 // 0x00558770
 void CGoalManager::KillCluster(uint32_t cluster, int score)
@@ -415,7 +415,7 @@ void CGoalManager::CheckTrickGoals()
             if (!params->HasBareFlag(kSpecialGap) && goal->DidTrickString())
                 CompleteObjective(goal->GetObjectiveKey());
         } else if (goal->IsTetris()) {
-            reinterpret_cast<CTetrisGoal*>(goal)->CheckTricks();
+            reinterpret_cast<CFallingTricksGoal*>(goal)->CheckTricks();
         } else if (goal->IsFindGaps()) {
             reinterpret_cast<CHuntGapsObjective*>(goal)->ScanForGaps();
         }
@@ -433,7 +433,7 @@ int CGoalManager::HasBeatenGoal(uint32_t id)
     int beaten = 0;
     Scripts::CStruct* data;
     if (m_goalData->ReadSubStruct(id, &data, 0))
-        data->FetchIntValue(kHasBeaten, &beaten, 1);
+        data->FetchIntValue(kAlreadyWon, &beaten, 1);
     return beaten != 0;
 }
 
@@ -466,7 +466,7 @@ void CGoalManager::RestoreGoalData()
         Scripts::CComponent* next = m_goalData->StepToEntry(component);
         if (component->name == kGoalManagerParams) {
             Scripts::CStruct* levels;
-            component->structure->ReadSubStruct(kDifficultyLevels, &levels, 1);
+            component->structure->ReadSubStruct(kSkillTiers, &levels, 1);
             m_args->Clear();
             m_args->AppendStructureIfAny(levels);
         } else if (CObjective* goal = m_goals.Pull(component->name)) {
@@ -549,7 +549,7 @@ void CGoalManager::PlayObjectiveVoiceLine(Scripts::CStruct* params)
 }
 
 // 0x00558D20
-int CGoalManager::IsGoalLocked(uint32_t id)
+int CGoalManager::IsGoalBlocked(uint32_t id)
 {
     if (CObjective* goal = m_goals.Pull(id))
         return goal->IsLatched();
@@ -607,10 +607,10 @@ void CGoalManager::BuildGoalTree()
     for (int i = 0; i < count; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         uint32_t id = goal->GetObjectiveKey();
-        for (GoalLink* link = goal->m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
+        for (GoalEdge* link = goal->m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
             CObjective* child = m_goals.Pull(link->m_objectiveKey); // (one not in the table is read through null)
             bool linked = false;
-            for (GoalLink* parent = child->m_parents; parent && parent->m_objectiveKey; parent = parent->m_succ) {
+            for (GoalEdge* parent = child->m_parents; parent && parent->m_objectiveKey; parent = parent->m_succ) {
                 if (parent->m_objectiveKey == id) {
                     linked = true;
                     break;
@@ -750,7 +750,7 @@ CObjective* CGoalManager::GetEngagedObjective(int index)
 }
 
 // 0x0055DC30
-int CGoalManager::NumActiveGoals(bool all)
+int CGoalManager::CountLiveGoals(bool all)
 {
     int counted = 0;
     int count = CountActive(&m_activeGoals.m_listLink);

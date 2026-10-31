@@ -48,7 +48,7 @@ public:
     // 0x00560380: a player (still in the game) has every letter.
     bool IsOver();
     // 0x005603D0: the next player after the current one (0 with debug_horse).
-    int GetNextValidSkaterId();
+    int FetchNextLiveRider();
     // 0x00560440: one of the game's texts (panelString1 / 2, horsepostrun, youarea, horseprerun, finalword,
     // playerName; "Unknown" for another).
     TextUtil::Chars FetchText(uint32_t which);

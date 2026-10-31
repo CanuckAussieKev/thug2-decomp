@@ -97,7 +97,7 @@ void SpawnScript(uint32_t name, Scripts::CStruct* params = nullptr)
 }
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)

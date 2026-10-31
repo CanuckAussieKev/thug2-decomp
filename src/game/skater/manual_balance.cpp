@@ -89,7 +89,7 @@ void ResetState(CBalance* b)
 {
     b->m_cheese = 0.0f;
     b->m_clock = 0.0f;
-    b->m_railTime = 0.0f;
+    b->m_onRailSeconds = 0.0f;
     b->m_lean = 0.0f;
     b->m_leanSpeed = 0.0f;
     b->m_pushed = false;
@@ -183,12 +183,12 @@ void CBalance::Kickoff(uint32_t leftButton, uint32_t rightButton, uint32_t trick
         void* rail = *reinterpret_cast<void**>(core + 0x22C);
         if (m_rail != -1) {
             if (static_cast<CGrindPoint*>(rail)->IsNamed(static_cast<uint32_t>(m_rail))) { // the same rail
-                m_railTime = static_cast<float>(Physics(m_balanceTrick, kSameGrindAddTime) + m_railTime);
+                m_onRailSeconds = static_cast<float>(Physics(m_balanceTrick, kSameGrindAddTime) + m_onRailSeconds);
             } else {
-                double time = m_railTime - Physics(m_balanceTrick, kNewGrindSubTime);
-                m_railTime = static_cast<float>(time);
+                double time = m_onRailSeconds - Physics(m_balanceTrick, kNewGrindSubTime);
+                m_onRailSeconds = static_cast<float>(time);
                 if (time < 0.0)
-                    m_railTime = 0.0f;
+                    m_onRailSeconds = 0.0f;
                 m_cheese = 0.0f;
             }
         }
@@ -197,8 +197,8 @@ void CBalance::Kickoff(uint32_t leftButton, uint32_t rightButton, uint32_t trick
         float runTime = *reinterpret_cast<float*>(static_cast<uint8_t*>(ScoreDisplay(m_pointsHeld)) + 0x154C);
         if (runTime < 0.5f) {
             float inverse = static_cast<float>(1.0 / runTime);
-            m_railTime = static_cast<float>(Scripts::FetchFloat(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 +
-                                            m_railTime);
+            m_onRailSeconds = static_cast<float>(Scripts::FetchFloat(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 +
+                                            m_onRailSeconds);
             float side = -1.0f;
             if (!(m_leanSpeed < 0.0f))
                 side = 1.0f;
@@ -244,9 +244,9 @@ void CBalance::TickFrame()
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     if (!m_leftButton || !m_rightButton)
         return;
-    auto* net = OnlinePlay::g_gameNetManager;
+    auto* net = OnlinePlay::g_onlineHub;
     if (net->m_host) // (the folded getter 0x005480C0)
-        net->PlayerByObjectId(static_cast<uint16_t>(m_skater->m_ident)); // (its result unused)
+        net->FindPlayerSlotByObj(static_cast<uint16_t>(m_skater->m_ident)); // (its result unused)
     // The cheese wears off.
     if (m_cheese > 0.01f) {
         float cheese = static_cast<float>(Physics(m_balanceTrick, kCheese));
@@ -258,13 +258,13 @@ void CBalance::TickFrame()
     }
     static_cast<GameModules::PointTally*>(ScoreDisplay(m_pointsHeld))->TweakTrick(static_cast<int>(m_trick));
     m_clock = static_cast<float>(static_cast<double>(frame) + m_clock);
-    m_railTime = static_cast<float>(static_cast<double>(frame) + m_railTime);
+    m_onRailSeconds = static_cast<float>(static_cast<double>(frame) + m_onRailSeconds);
     CObjectModule* stats = m_skater->FetchModule(kStatsManager);
     static_cast<CAttributeTracker*>(stats)->CheckBalanceTime(TrickType(m_balanceTrick), m_clock, 0);
     // The lean speeds up.
     float gravity = static_cast<float>(Physics(m_balanceTrick, kLeanGravityStat));
     float instableRate = static_cast<float>(Physics(m_balanceTrick, kInstableRate));
-    double instable = Physics(m_balanceTrick, kInstableBase) + instableRate * static_cast<double>(m_railTime);
+    double instable = Physics(m_balanceTrick, kInstableBase) + instableRate * static_cast<double>(m_onRailSeconds);
     double grown = (gravity * instable * frame * kFrames + 1.0) * m_lean;
     m_lean = static_cast<float>(grown + instable * m_leanSpeed * frame * kFrames);
     bool left = Held(m_input, m_leftButton);
@@ -299,9 +299,9 @@ void CBalance::TickFrame()
             m_leanSpeed = static_cast<float>(Maths::Sign(m_leanSpeed) * shake * 0.01f + m_leanSpeed);
         }
     }
-    if (!m_skater->m_runScript) {
+    if (!m_skater->m_ownScript) {
         void* memory = Scripts::CScript::operator new(0xF4);
-        m_skater->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        m_skater->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     // Past the bail angle: the skater falls.
     float lean = std::fabs(m_lean);

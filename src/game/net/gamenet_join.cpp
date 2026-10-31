@@ -112,10 +112,10 @@ constexpr int kAppForeign = 0x10;
 constexpr int kAppSecure = 0x20;
 
 // Handler flags.
-constexpr uint32_t kHandleForeign = 1;
-constexpr uint32_t kHandleLate = 2;
-constexpr uint32_t kHandleCrcMismatch = 4;
-constexpr int kNormalPriority = 0x80;
+constexpr uint32_t kRunForForeign = 1;
+constexpr uint32_t kRunWhenLate = 2;
+constexpr uint32_t kRunOnBadCrc = 4;
+constexpr int kMidPriority = 0x80;
 constexpr int kHighestPriority = 0xFF;
 constexpr int kLowestPriority = 0;
 
@@ -139,7 +139,7 @@ char g_joinPassword[kPasswordSize];
 char* PendingPassword() { return g_pendingPassword; }
 char* JoinPassword() { return g_joinPassword; }
 
-NetLink::Hub* NetManager() { return NetLink::Hub::Sole(); }
+NetLink::Hub* NetSessionSlot() { return NetLink::Hub::Sole(); }
 TaskList::PileUp* LogicTasks()
 {
     return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
@@ -147,7 +147,7 @@ TaskList::PileUp* LogicTasks()
 int MilliSeconds() { return static_cast<int>(FrameClock::GetTime()); }
 uint32_t LocalAddress()
 {
-    return Crt::InetAddr(NetManager()->FetchOwnAddress());
+    return Crt::InetAddr(NetSessionSlot()->FetchOwnAddress());
 }
 
 // Calls into code that isn't source yet (thiscall).
@@ -173,33 +173,33 @@ void LatePlayerArrival(Hub* m, JoinerRecord* player, int frames) { m->AddJoining
 void SetReadyState(Hub* m, bool ready) { m->SetReadyState(ready); }
 void ShuffleSpawnSlots(Hub* m) { m->ChooseStartPoints(); }
 void CancelJoinServer(Hub* m) { m->CancelJoin(); }
-uint32_t GameModeName() { return Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetNameKey), reinterpret_cast<void*>(GoalSystem::g_gameMode)); }
+uint32_t ActiveRulesetLabel() { return Call<uint32_t>(CodeAddress(&GoalSystem::CMatchRules::GetNameKey), reinterpret_cast<void*>(GoalSystem::g_gameMode)); }
 void SetMaximumPlayers(int count) { Call<void>(CodeAddress(&GoalSystem::CMatchRules::SetRiderCeiling), reinterpret_cast<void*>(GoalSystem::g_gameMode), count); }
-int8_t Rank(Hub* m) { return static_cast<int8_t>(static_cast<RankingsManager*>(m->m_statsMan)->GetRank()); }
+int8_t Rank(Hub* m) { return static_cast<int8_t>(static_cast<RankingsManager*>(m->m_ratingService)->GetRank()); }
 int32_t Rating(Hub* m)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
     // Singletons::PointerMember::Pull)
-    return static_cast<RankingsManager*>(m->m_statsMan)->GetPersonalStats()->m_skillPoints;
+    return static_cast<RankingsManager*>(m->m_ratingService)->GetPersonalStats()->m_skillPoints;
 }
-bool GameInProgress(Hub* m) { return GameModeName() != kNetLobby && !m->m_gameOver; }
+bool MatchUnderway(Hub* m) { return ActiveRulesetLabel() != kNetLobby && !m->m_matchEnded; }
 
-OptionStore::Preferences* NetworkPreferences(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
+OptionStore::Preferences* NetGameOptions(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_netOptions); }
 const char* PreferenceText(Hub* m, uint32_t name)
 {
     const char* text = nullptr;
-    NetworkPreferences(m)->FetchSetting(name)->FetchText(kUiString, &text, 1);
+    NetGameOptions(m)->FetchSetting(name)->FetchText(kUiString, &text, 1);
     return text;
 }
 
 // The presence (GameSpy) and the lobby (not source yet).
-bool PresenceLoggedIn(Hub* m) { return *(static_cast<uint8_t*>(m->m_buddyMan) + 0x10) != 0; }
+bool PresenceLoggedIn(Hub* m) { return *(static_cast<uint8_t*>(m->m_presenceService) + 0x10) != 0; }
 void SetPresence(Hub* m, int status, const char* text, const char* location)
 {
-    static_cast<FriendsManager*>(m->m_buddyMan)->ChangeStanding(status, text, location);
+    static_cast<FriendsManager*>(m->m_presenceService)->ChangeStanding(status, text, location);
 }
-char* LobbyServerName(Hub* m) { return static_cast<char*>(m->m_lobbyMan) + 0xB4; }
-char* LobbyPeerName(Hub* m) { return static_cast<char*>(m->m_lobbyMan) + 0x34; }
+char* LobbyServerName(Hub* m) { return static_cast<char*>(m->m_lobbyService) + 0xB4; }
+char* LobbyPeerName(Hub* m) { return static_cast<char*>(m->m_lobbyService) + 0x34; }
 
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
 void ComputeCdKeyResponse(const char* key, const char* challenge, char* response)
@@ -257,93 +257,93 @@ constexpr uint32_t kOurs = 0x80000000; // (+ an index into OurHandler)
 HandlerSlotValue OurHandler(uint32_t code)
 {
     switch (code) {
-    case kOurs + 0: return &Hub::HandleJoinRefused;
-    case kOurs + 1: return &Hub::HandleJoinProceed;
-    case kOurs + 2: return &OnlinePlay::HandleChat;
-    case kOurs + 3: return &Hub::HandleConnection;
-    case kOurs + 4: return &Hub::HandleJoinRequest;
+    case kOurs + 0: return &Hub::OnTurnedAwayMsg;
+    case kOurs + 1: return &Hub::OnGoAheadMsg;
+    case kOurs + 2: return &OnlinePlay::OnChatMsg;
+    case kOurs + 3: return &Hub::OnLinkEstablished;
+    case kOurs + 4: return &Hub::OnAdmissionAskMsg;
     default: return reinterpret_cast<HandlerSlotValue>(code);
     }
 }
 const HandlerEntry kClientHandlers[] = {
-    {0x42, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleReadyToPlay)), kHandleLate, true, kNormalPriority},  // proceed to play
-    {0x4D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObserve)), kHandleLate, true, kNormalPriority},  // observe proceed
-    {0x4E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObserversFull)), kHandleLate, true, kNormalPriority},  // observe refused
-    {kMsgJoinRefused, kOurs + 0, kHandleLate, true, kNormalPriority},
-    {kMsgJoinProceed, kOurs + 1, kHandleLate, true, kNormalPriority},
-    {0x25, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleReadyQuery)), kHandleLate, true, kNormalPriority},  // ready query
-    {0x26, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleReadyResponse)), kHandleLate, true, kNormalPriority},  // ready response
-    {0x53, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleJoinAccepted)), kHandleLate, true, kNormalPriority},  // player info ack request
-    {0x58, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCrownSpawn)), 0, true, kNormalPriority},            // the king dropped the crown
-    {0x75, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFlagReturned)), 0, true, kNormalPriority},            // a player dropped a flag
-    {0x3F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandlePanelMessage)), kHandleLate, true, kNormalPriority},  // panel message
-    {0x5E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleAutoServerNotice)), kHandleLate, true, kNormalPriority},  // auto server notification
-    {0x5F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFcfsNotice)), kHandleLate, true, kNormalPriority},  // first-come-first-served assignment
-    {0x68, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleJoinedTeam)), kHandleLate, true, kNormalPriority},  // team change
-    {0x69, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChooseTeam)), kHandleLate, true, kNormalPriority},  // number of teams
-    {0x4C, kOurs + 2, kHandleLate, false, kNormalPriority},  // chat
-    {0x7C, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCdKeyChallenge)), kHandleLate, true, kNormalPriority},  // challenge
+    {0x42, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleReadyToPlay)), kRunWhenLate, true, kMidPriority},  // proceed to play
+    {0x4D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnSpectateMsg)), kRunWhenLate, true, kMidPriority},  // observe proceed
+    {0x4E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObserversFull)), kRunWhenLate, true, kMidPriority},  // observe refused
+    {kMsgJoinRefused, kOurs + 0, kRunWhenLate, true, kMidPriority},
+    {kMsgJoinProceed, kOurs + 1, kRunWhenLate, true, kMidPriority},
+    {0x25, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnReadyAskMsg)), kRunWhenLate, true, kMidPriority},  // ready query
+    {0x26, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnReadyReplyMsg)), kRunWhenLate, true, kMidPriority},  // ready response
+    {0x53, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnAdmittedMsg)), kRunWhenLate, true, kMidPriority},  // player info ack request
+    {0x58, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCrownSpawn)), 0, true, kMidPriority},            // the king dropped the crown
+    {0x75, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFlagReturned)), 0, true, kMidPriority},            // a player dropped a flag
+    {0x3F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnHudNoticeMsg)), kRunWhenLate, true, kMidPriority},  // panel message
+    {0x5E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleAutoServerNotice)), kRunWhenLate, true, kMidPriority},  // auto server notification
+    {0x5F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFcfsNotice)), kRunWhenLate, true, kMidPriority},  // first-come-first-served assignment
+    {0x68, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleJoinedTeam)), kRunWhenLate, true, kMidPriority},  // team change
+    {0x69, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChooseTeam)), kRunWhenLate, true, kMidPriority},  // number of teams
+    {0x4C, kOurs + 2, kRunWhenLate, false, kMidPriority},  // chat
+    {0x7C, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCdKeyChallenge)), kRunWhenLate, true, kMidPriority},  // challenge
 };
 const HandlerEntry kGameClientHandlers[] = {
-    {0x6D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleSelectedGoals)), 0, true, kNormalPriority},    // selected goals
-    {0x34, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleStartGame)), 0, true, kNormalPriority},    // game info
-    {0x7A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleKillTeamFlags)), 0, true, kNormalPriority},    // kill the team flags
-    {0x6E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalCompleted)), 0, true, kNormalPriority},    // a goal beaten (relayed)
-    {0x6F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalStarted)), 0, true, kNormalPriority},    // a goal started (relayed)
-    {0x70, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleNothing)), 0, true, kNormalPriority},    // toggle pro set (nothing)
-    {0x46, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChangeLevel)), 0, true, kHighestPriority},   // change level
+    {0x6D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleSelectedGoals)), 0, true, kMidPriority},    // selected goals
+    {0x34, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleStartGame)), 0, true, kMidPriority},    // game info
+    {0x7A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleKillTeamFlags)), 0, true, kMidPriority},    // kill the team flags
+    {0x6E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalCompleted)), 0, true, kMidPriority},    // a goal beaten (relayed)
+    {0x6F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalStarted)), 0, true, kMidPriority},    // a goal started (relayed)
+    {0x70, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleNothing)), 0, true, kMidPriority},    // toggle pro set (nothing)
+    {0x46, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnLevelSwitchMsg)), 0, true, kHighestPriority},   // change level
     {0x46, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleNothing)), 0, true, kHighestPriority},   // (and nothing)
     {0x6C, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleParkMap)), 0, true, kHighestPriority},   // level data
-    {0x88, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleRailsData)), kHandleCrcMismatch, true, kHighestPriority}, // rail data
-    {0x87, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalsData)), kHandleCrcMismatch, true, kHighestPriority}, // goals data
-    {0x80, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChecksumRequest)), 0, true, kNormalPriority},    // cheat checksum request
+    {0x88, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleRailsData)), kRunOnBadCrc, true, kHighestPriority}, // rail data
+    {0x87, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnGoalSyncMsg)), kRunOnBadCrc, true, kHighestPriority}, // goals data
+    {0x80, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChecksumRequest)), 0, true, kMidPriority},    // cheat checksum request
 };
 const HandlerEntry kRemoteGameClientHandlers[] = {
-    {0x22, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleNewPlayer)), 0, true, kNormalPriority},    // player create
-    {0x79, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFlushImportant)), 0, true, kNormalPriority},    // join accepted
+    {0x22, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnPlayerAddedMsg)), 0, true, kMidPriority},    // player create
+    {0x79, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFlushImportant)), 0, true, kMidPriority},    // join accepted
 };
 const HandlerEntry kGameClientHandlers2[] = {
-    {0x7B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleKeepAlive)), 0, true, kNormalPriority},    // wait n seconds
-    {0x55, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleNewKing)), 0, true, kNormalPriority},    // new king
-    {0x72, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCapturedFlag)), 0, true, kNormalPriority},    // captured flag
-    {0x74, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleStoleFlag)), 0, true, kNormalPriority},    // stole flag
-    {0x71, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleTookFlag)), 0, true, kNormalPriority},    // took flag
-    {0x73, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleRetrievedFlag)), 0, true, kNormalPriority},    // retrieved flag
-    {0x5A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGameOver)), 0, true, kNormalPriority},    // game over
-    {0x6A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGameEnded)), 0, true, kNormalPriority},    // end game
-    {0x23, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObjectUpdateLength)), kHandleForeign | kHandleLate, true, kHighestPriority}, // object updates (their length)
-    {0x8D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleEliminated)), 0, true, kNormalPriority},    // a skater eliminated
-    {0x8E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleEliminated)), 0, true, kNormalPriority},
+    {0x7B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleKeepAlive)), 0, true, kMidPriority},    // wait n seconds
+    {0x55, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnCrownChangeMsg)), 0, true, kMidPriority},    // new king
+    {0x72, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnFlagScoredMsg)), 0, true, kMidPriority},    // captured flag
+    {0x74, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnFlagSwipedMsg)), 0, true, kMidPriority},    // stole flag
+    {0x71, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnFlagGrabbedMsg)), 0, true, kMidPriority},    // took flag
+    {0x73, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnFlagReturnedMsg)), 0, true, kMidPriority},    // retrieved flag
+    {0x5A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnMatchEndMsg)), 0, true, kMidPriority},    // game over
+    {0x6A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGameEnded)), 0, true, kMidPriority},    // end game
+    {0x23, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObjectUpdateLength)), kRunForForeign | kRunWhenLate, true, kHighestPriority}, // object updates (their length)
+    {0x8D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleEliminated)), 0, true, kMidPriority},    // a skater eliminated
+    {0x8E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleEliminated)), 0, true, kMidPriority},
 };
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
 const HandlerEntry kServerHandlers[] = {
-    {kMsgConnectionRequest, kOurs + 3, kHandleForeign | kHandleLate, true, kLowestPriority},
+    {kMsgConnectionRequest, kOurs + 3, kRunForForeign | kRunWhenLate, true, kLowestPriority},
     {0x90, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleTeamObject)), 0, true, kHighestPriority},           // a scavenger-hunt object picked up
-    {kMsgJoinRequest, kOurs + 4, kHandleLate, true, kNormalPriority},
-    {0x11, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleFindServer)), kHandleForeign | kHandleLate, true, kNormalPriority}, // find server
-    {0x0B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleDisconnect)), kHandleLate, true, kNormalPriority},  // disconnection request
-    {0x4A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObserveRequest)), kHandleLate, true, kNormalPriority},  // observe
-    {0x26, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleReadyResponse)), kHandleLate, true, kNormalPriority},  // ready response
-    {0x54, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleSendGameState)), 0, true, kNormalPriority},            // player info ack
-    {0x57, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleDropCarried)), 0, true, kNormalPriority},            // moved to a restart
-    {0x59, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGameEndedReport)), 0, true, kNormalPriority},            // the run ended
-    {0x60, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // first-come-first-served requests: start game,
-    {0x61, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // ban player, change level, toggle pro set, goal
-    {0x62, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},  // selection, end game, number of teams
-    {0x63, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x64, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x65, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x66, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kHandleLate, true, kNormalPriority},
-    {0x67, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleTeamChangeRequest)), kHandleLate, true, kNormalPriority},  // team change request
-    {0x6B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleRequestGameData)), kHandleLate, true, kNormalPriority},  // level request
-    {0x6E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalCompletedReport)), kHandleLate, true, kNormalPriority},  // a goal beaten
-    {0x6F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalStartedReport)), kHandleLate, true, kNormalPriority},  // a goal started
+    {kMsgJoinRequest, kOurs + 4, kRunWhenLate, true, kMidPriority},
+    {0x11, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnServerQueryMsg)), kRunForForeign | kRunWhenLate, true, kMidPriority}, // find server
+    {0x0B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnPeerLeftMsg)), kRunWhenLate, true, kMidPriority},  // disconnection request
+    {0x4A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleObserveRequest)), kRunWhenLate, true, kMidPriority},  // observe
+    {0x26, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnReadyReplyMsg)), kRunWhenLate, true, kMidPriority},  // ready response
+    {0x54, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleSendGameState)), 0, true, kMidPriority},            // player info ack
+    {0x57, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleDropCarried)), 0, true, kMidPriority},            // moved to a restart
+    {0x59, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGameEndedReport)), 0, true, kMidPriority},            // the run ended
+    {0x60, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},  // first-come-first-served requests: start game,
+    {0x61, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},  // ban player, change level, toggle pro set, goal
+    {0x62, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},  // selection, end game, number of teams
+    {0x63, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},
+    {0x64, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},
+    {0x65, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},
+    {0x66, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleHostOptions)), kRunWhenLate, true, kMidPriority},
+    {0x67, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::OnSwitchSquadMsg)), kRunWhenLate, true, kMidPriority},  // team change request
+    {0x6B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleRequestGameData)), kRunWhenLate, true, kMidPriority},  // level request
+    {0x6E, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalCompletedReport)), kRunWhenLate, true, kMidPriority},  // a goal beaten
+    {0x6F, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleGoalStartedReport)), kRunWhenLate, true, kMidPriority},  // a goal started
     {0x6C, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleParkMap)), 0, true, kHighestPriority},           // level data
     {0x88, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleRailsData)), 0, true, kHighestPriority},           // rail data
-    {0x7D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCdKeyAnswer)), 0, true, kNormalPriority},            // challenge response
-    {0x81, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChecksumResponse)), 0, true, kNormalPriority},            // cheat checksum response
-    {0x8B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCreatedDataRequest)), 0, true, kNormalPriority},            // rails / goals data requests
-    {0x8A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCreatedDataRequest)), 0, true, kNormalPriority},
+    {0x7D, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCdKeyAnswer)), 0, true, kMidPriority},            // challenge response
+    {0x81, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleChecksumResponse)), 0, true, kMidPriority},            // cheat checksum response
+    {0x8B, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCreatedDataRequest)), 0, true, kMidPriority},            // rails / goals data requests
+    {0x8A, reinterpret_cast<uint32_t>(CodeAddress(OnlinePlay::HandleCreatedDataRequest)), 0, true, kMidPriority},
 };
 
 template <size_t N>
@@ -356,13 +356,13 @@ void AddHandlers(AppHost* app, Hub* manager, const HandlerEntry (&entries)[N])
 
 void SendRefused(AppHost* app, Conn* conn, const char* data)
 {
-    app->DeliverTo(kMsgJoinRefused, kJoinRefusedSize, data, conn->m_hostAddr, conn->m_portNo, 0);
+    app->DeliverTo(kMsgJoinRefused, kJoinRefusedSize, data, conn->m_remoteIp, conn->m_portNo, 0);
 }
 
 } // namespace
 
 // 0x0052F560
-bool Hub::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPassword, bool checkVersion,
+bool Hub::JoinsAccepted(int& reason, ConnectInfo* msg, Conn* conn, bool checkPassword, bool checkVersion,
                        bool checkCdKey)
 {
     if (m_host->IsConnBlocked(conn)) {
@@ -395,7 +395,7 @@ bool Hub::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPassword
             return false;
         }
     }
-    if (!msg->willingToWait && !msg->observer && GameInProgress(this)) {
+    if (!msg->canQueueUp && !msg->observer && MatchUnderway(this)) {
         reason = kRefusedInProgress;
         return false;
     }
@@ -420,7 +420,7 @@ bool Hub::OkToJoin(int& reason, ConnectInfo* msg, Conn* conn, bool checkPassword
 // 0x00534480
 void Hub::JoinServer(uint32_t ip, uint16_t port, int index)
 {
-    NetLink::Hub* net = NetManager();
+    NetLink::Hub* net = NetSessionSlot();
     const char* name = PreferenceText(this, kNetworkId); // (not used)
     (void)name;
     AppHost* client = ClientSlot(index);
@@ -434,10 +434,10 @@ void Hub::JoinServer(uint32_t ip, uint16_t port, int index)
     } else {
         AsClient(client)->DialServer(ip, port);
         client->OpenedLink(static_cast<int>(ip), port, Conn::kFlagRemote);
-        m_joinStartTime = MilliSeconds();
-        LogicTasks()->QueueJob(m_joinTimeoutTask);
-        m_joinState = kJoinStateConnecting;
-        LogicTasks()->QueueJob(m_joinStateTask);
+        m_joinBeganAt = MilliSeconds();
+        LogicTasks()->QueueJob(m_joinExpiryJob);
+        m_joinPhase = kJoinStateConnecting;
+        LogicTasks()->QueueJob(m_joinPhaseJob);
         m_joinPort = port;
         m_joinIp = ip;
         info.rank = Rank(this);
@@ -453,7 +453,7 @@ void Hub::JoinServer(uint32_t ip, uint16_t port, int index)
     }
     if (!client->IsHostLocal())
         std::memset(PendingPassword(), 0, kPasswordSize);
-    info.willingToWait = false;
+    info.canQueueUp = false;
     info.broadband = net->GetNetLinkKind() != kConnectionTypeModem;
     Thugpro::ConnectRequest request;
     SendConnectionRequest(AsClient(client), info, &request);
@@ -466,7 +466,7 @@ void Hub::JoinServer(uint32_t ip, uint16_t port, int index)
             AddHandlers(m_clientApp, this, kRemoteGameClientHandlers);
         AddHandlers(m_clientApp, this, kGameClientHandlers2);
     }
-    m_observerCommand = 0;
+    m_spectateRequest = 0;
 }
 
 // 0x00534AF0
@@ -476,17 +476,17 @@ void Hub::RetryEntry(AppHost* client)
     std::memset(&info, 0, sizeof(info));
     info.observer = m_joinMode == kJoinModeObserve;
     info.version = kVersion;
-    info.willingToWait = true;
+    info.canQueueUp = true;
     info.password[0] = '\0';
-    info.broadband = NetManager()->GetNetLinkKind() != kConnectionTypeModem;
+    info.broadband = NetSessionSlot()->GetNetLinkKind() != kConnectionTypeModem;
     if (InInternetMode())
         info.rank = Rank(this);
     Thugpro::ConnectRequest request;
     SendConnectionRequest(AsClient(client), info, &request);
     client->Transmit(false);
-    m_joinStartTime = MilliSeconds();
-    LogicTasks()->QueueJob(m_joinTimeoutTask);
-    m_joinState = kJoinStateJoining;
+    m_joinBeganAt = MilliSeconds();
+    LogicTasks()->QueueJob(m_joinExpiryJob);
+    m_joinPhase = kJoinStateJoining;
 }
 
 // 0x00534BD0
@@ -500,14 +500,14 @@ void Hub::RetryEntryWithKey(const char* password)
     info.rank = Rank(this);
     info.observer = m_joinMode == kJoinModeObserve;
     info.version = kVersion;
-    info.willingToWait = true;
-    info.broadband = NetManager()->GetNetLinkKind() != kConnectionTypeModem;
+    info.canQueueUp = true;
+    info.broadband = NetSessionSlot()->GetNetLinkKind() != kConnectionTypeModem;
     std::strcpy(info.password, password);
     Thugpro::ConnectRequest request;
     SendConnectionRequest(AsClient(m_clientApp), info, &request);
-    m_joinStartTime = MilliSeconds();
-    LogicTasks()->QueueJob(m_joinTimeoutTask);
-    m_joinState = kJoinStateJoiningWithPassword;
+    m_joinBeganAt = MilliSeconds();
+    LogicTasks()->QueueJob(m_joinExpiryJob);
+    m_joinPhase = kJoinStateJoiningWithPassword;
 }
 
 const char g_uiString[10]{"ui_string"};
@@ -519,7 +519,7 @@ const char g_skateAppName[7]{"Skate6"};
 // 0x00537220
 AppHost* Hub::StartClientSession(bool broadcast, bool local, bool secure, int index)
 {
-    NetLink::Hub* net = NetManager();
+    NetLink::Hub* net = NetSessionSlot();
     int flags = broadcast ? kAppBroadcast : 0;
     flags |= local ? kAppLocal : kAppDynamicResend | kAppForeign;
     if (secure)
@@ -528,34 +528,34 @@ AppHost* Hub::StartClientSession(bool broadcast, bool local, bool secure, int in
                                           static_cast<int>(LocalAddress()), flags);
     ClientSlot(index) = client;
     if (index == 0 && client) {
-        m_latestReadyQuery = 0;
-        m_proSetFlags = 0;
-        m_camPlayer = nullptr;
+        m_lastReadyProbeId = 0;
+        m_scriptFlagBits = 0;
+        m_viewedPlayer = nullptr;
         OnlinePlay::SetReadyState(this, false); // (the helper: 0x00537140 through the hook)
     }
-    m_observerInputHandler = nullptr;
-    m_gameOver = false;
-    m_gamePending = false;
+    m_spectatorPadListener = nullptr;
+    m_matchEnded = false;
+    m_matchBeingSetUp = false;
     return ClientSlot(index);
 }
 
 // 0x00534430
 AppHost* Hub::StartMatchmakingClient()
 {
-    NetLink::Hub* net = NetManager();
+    NetLink::Hub* net = NetSessionSlot();
     AppHost* client = net->MakeClientApp(0, g_matchAppName, kJoinPort,
                                           static_cast<int>(LocalAddress()),
                                           kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
-    m_matchClient = client;
-    client->m_dispatcher.AppendListener(kMsgServerResponse, &HandleServerResponse,
-                                    kHandleForeign | kHandleLate, this, kNormalPriority);
-    return m_matchClient;
+    m_browserClient = client;
+    client->m_dispatcher.AppendListener(kMsgServerResponse, &OnServerReplyMsg,
+                                    kRunForForeign | kRunWhenLate, this, kMidPriority);
+    return m_browserClient;
 }
 
 // 0x0053C380
 AppHost* Hub::StartHostSession(bool local, bool secure)
 {
-    NetLink::Hub* net = NetManager();
+    NetLink::Hub* net = NetSessionSlot();
     int flags = kAppBroadcast | kAppDynamicResend | kAppForeign | (local ? kAppLocal : 0);
     if (secure)
         flags |= kAppSecure;
@@ -565,18 +565,18 @@ AppHost* Hub::StartHostSession(bool local, bool secure)
     if (m_hostMode != 0)
         m_hostMode = 0; // serve
     if (server) {
-        LogicTasks()->QueueJob(m_serverAddNewPlayersTask);
+        LogicTasks()->QueueJob(m_hostAdmitJob);
         AddHandlers(m_host, this, kServerHandlers);
-        m_lastScoreUpdate = 0;
-        m_waitingForGameToStart = false;
+        m_scoreSyncedAt = 0;
+        m_awaitingStart = false;
         ShuffleSpawnSlots(this);
-        m_observerInputHandler = nullptr;
+        m_spectatorPadListener = nullptr;
     }
     return m_host;
 }
 
 // 0x0052F790
-int Hub::HandleConnection(InboundMsgCtx* context)
+int Hub::OnLinkEstablished(InboundMsgCtx* context)
 {
     Conn* conn = context->m_senderConn;
     auto* manager = static_cast<Hub*>(context->m_content);
@@ -591,31 +591,31 @@ int Hub::HandleConnection(InboundMsgCtx* context)
         desc.m_ident = kMsgJoinProceed;
         desc.m_byteCount = sizeof(proceed);
         context->m_receiverApp->PutOnOutbox(conn->m_hdl, &desc);
-        return NetLink::kHandlerContinue;
+        return NetLink::kResultPassOn;
     }
-    if (!(context->m_wireOptions & kHandleForeign))
-        return NetLink::kHandlerMsgDone;
-    NetLink::Hub* net = NetManager();
+    if (!(context->m_wireOptions & kRunForForeign))
+        return NetLink::kResultConsumed;
+    NetLink::Hub* net = NetSessionSlot();
     if (!context->m_receiverApp->AllowsOutsidePeers())
-        return NetLink::kHandlerMsgDone;
+        return NetLink::kResultConsumed;
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
     if (context->m_bodySize < sizeof(ConnectInfo))
-        return NetLink::kHandlerMsgDone;
+        return NetLink::kResultConsumed;
     Thugpro::ConnectTrailer trailer;
     if (Thugpro::PeerMode() && Thugpro::ReadConnectTrailer(msg, context->m_bodySize, &trailer))
         Log("THUGPRO join (TP-R12): a THUGPRO client asks to join: version %08X, release %u, scripts %08X%s, machine %08X",
             trailer.version, trailer.release, trailer.scriptsHash, trailer.modifiedScripts ? " (modified)" : "",
             trailer.machineId);
     int reason = 0;
-    if (!manager->OkToJoin(reason, msg, conn, true, true, true)) {
+    if (!manager->JoinsAccepted(reason, msg, conn, true, true, true)) {
         char refused[32] = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
         refused[0] = static_cast<char>(reason);
         if (reason == kRefusedCdKey)
             std::strcpy(refused + 1, manager->m_challenge);
         SendRefused(context->m_receiverApp, conn, refused);
-        return NetLink::kHandlerHalt;
+        return NetLink::kResultStop;
     }
-    Conn* joined = context->m_receiverApp->OpenedLink(static_cast<int>(conn->m_hostAddr), conn->m_portNo, Conn::kFlagRemote);
+    Conn* joined = context->m_receiverApp->OpenedLink(static_cast<int>(conn->m_remoteIp), conn->m_portNo, Conn::kFlagRemote);
     context->m_senderConn = joined;
     joined->SetLinkSpeedClass(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
     joined->SetTransmitPeriod(static_cast<uint32_t>(1000 / GameConfig::g_frameRate * 2)); // two frames
@@ -627,9 +627,9 @@ int Hub::HandleConnection(InboundMsgCtx* context)
         instance->manager = manager;
         instance->app = context->m_receiverApp;
         instance->conn = joined;
-        AuthenticateUser(static_cast<int>(joined->m_ident), context->m_senderConn->m_hostAddr, manager->m_challenge,
+        AuthenticateUser(static_cast<int>(joined->m_ident), context->m_senderConn->m_remoteIp, manager->m_challenge,
                          msg->cdKeyResponse, instance);
-        return NetLink::kHandlerContinue;
+        return NetLink::kResultPassOn;
     }
     ProceedInfo proceed;
     std::memset(&proceed, 0, sizeof(proceed)); // (the original leaves the addresses as its stack had them on a LAN)
@@ -642,8 +642,8 @@ int Hub::HandleConnection(InboundMsgCtx* context)
     }
     std::strncpy(proceed.serverName, PreferenceText(manager, kServerName), kServerNameSize - 1);
     proceed.serverName[kServerNameSize - 1] = '\0';
-    context->m_receiverApp->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, joined->m_hostAddr, joined->m_portNo, 0);
-    return NetLink::kHandlerContinue;
+    context->m_receiverApp->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, joined->m_remoteIp, joined->m_portNo, 0);
+    return NetLink::kResultPassOn;
 }
 
 // 0x00536530
@@ -670,14 +670,14 @@ void Hub::ClientAuthorized(int /*gameId*/, int /*localId*/, int authenticated, c
         }
         std::strncpy(proceed.serverName, PreferenceText(manager, kServerName), kServerNameSize - 1);
         proceed.serverName[kServerNameSize - 1] = '\0';
-        instance->app->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, instance->conn->m_hostAddr,
+        instance->app->DeliverTo(kMsgJoinProceed, sizeof(proceed), &proceed, instance->conn->m_remoteIp,
                                      instance->conn->m_portNo, 0);
     }
     MemSys::Hub::Pull()->Dealloc(instance);
 }
 
 // 0x0052FA10
-int Hub::HandleJoinRequest(InboundMsgCtx* context)
+int Hub::OnAdmissionAskMsg(InboundMsgCtx* context)
 {
     Conn* conn = context->m_senderConn;
     auto* manager = static_cast<Hub*>(context->m_content);
@@ -686,9 +686,9 @@ int Hub::HandleJoinRequest(InboundMsgCtx* context)
     context->m_Acknowledge = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     if (context->m_bodySize < kJoinInfoHeaderSize)
-        return NetLink::kHandlerMsgDone;
+        return NetLink::kResultConsumed;
     int reason = 0;
-    if (conn->IsOffMachine() && !manager->OkToJoin(reason, msg, conn, false, false, false)) {
+    if (conn->IsOffMachine() && !manager->JoinsAccepted(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = NewDesc();
         char refused[kJoinRefusedSize] = {};
         refused[0] = static_cast<char>(reason);
@@ -697,22 +697,22 @@ int Hub::HandleJoinRequest(InboundMsgCtx* context)
         desc.m_ident = kMsgJoinRefused;
         context->m_receiverApp->PutOnOutbox(conn->m_hdl, &desc);
         context->m_senderConn->MarkStale();
-        return NetLink::kHandlerHalt;
+        return NetLink::kResultStop;
     }
     void* memory = MemSys::AllocZeroed(kPlayerInfoSize);
     auto* player = memory ? static_cast<JoinerRecord*>(memory)->MakeNew() : nullptr;
     std::strncpy(player->m_label, msg->name, kNameSize - 1);
     player->m_label[kNameSize - 1] = '\0';
-    player->m_entityKey = static_cast<uint8_t>(manager->NextPlayerObjectId());
+    player->m_entityKey = static_cast<uint8_t>(manager->ReserveObjIdForPlayer());
     player->m_conn = context->m_senderConn;
     player->m_flagBits = 0;
     player->m_profileId = msg->profile;
     player->m_skillPoints = msg->rating;
-    player->m_vehicleControlType = msg->vehicleControlType;
+    player->m_driveControlMode = msg->driveScheme;
     player->m_unknown34 = 0;
     if (msg->observer)
         player->m_flagBits = kPlayerObserver;
-    else if (GameInProgress(manager))
+    else if (MatchUnderway(manager))
         player->m_flagBits |= kPlayerPending | kPlayerObserver;
     if (context->m_senderConn->IsHostLocal()) {
         // The host's own player: its profile copied through a buffer.
@@ -734,9 +734,9 @@ int Hub::HandleJoinRequest(InboundMsgCtx* context)
             char response[0x80];
             GetCdKey(key);
             ComputeCdKeyResponse(key, manager->m_challenge, response);
-            AuthenticateUser(0, context->m_senderConn->m_hostAddr, manager->m_challenge, response, nullptr);
+            AuthenticateUser(0, context->m_senderConn->m_remoteIp, manager->m_challenge, response, nullptr);
         }
-        return NetLink::kHandlerContinue;
+        return NetLink::kResultPassOn;
     }
     if (!msg->observer) {
         // NOT ORIGINAL: the appearance read from a copy as long as the most a request holds (a request cut short
@@ -753,14 +753,14 @@ int Hub::HandleJoinRequest(InboundMsgCtx* context)
     player->DestroyBody();
     MemSys::Hub::Pull()->Dealloc(player);
     // Busy until it's in: no game messages meanwhile.
-    context->m_senderConn->m_curStanding = (context->m_senderConn->m_curStanding & ~Conn::kStatusReady) | Conn::kStatus2;
-    return NetLink::kHandlerContinue;
+    context->m_senderConn->m_curStanding = (context->m_senderConn->m_curStanding & ~Conn::kConnReady) | Conn::kStatus2;
+    return NetLink::kResultPassOn;
 }
 
 // 0x0052E490
-int Hub::HandleJoinProceed(InboundMsgCtx* context)
+int Hub::OnGoAheadMsg(InboundMsgCtx* context)
 {
-    NetLink::Hub* net = NetManager();
+    NetLink::Hub* net = NetSessionSlot();
     NetMessageInfo desc = NewDesc();
     Conn* conn = context->m_senderConn;
     auto* manager = static_cast<Hub*>(context->m_content);
@@ -785,11 +785,11 @@ int Hub::HandleJoinProceed(InboundMsgCtx* context)
     std::memset(info, 0, kJoinInfoHeaderSize);
     // NOT ORIGINAL: in the THUGPRO peer mode the profile is our machine id, as THUGPRO's client sends it (TP-R12).
     info->profile = Thugpro::PeerMode() ? static_cast<int32_t>(Thugpro::MachineId())
-                                        : *reinterpret_cast<int32_t*>(static_cast<uint8_t*>(manager->m_buddyMan) + 4);
+                                        : *reinterpret_cast<int32_t*>(static_cast<uint8_t*>(manager->m_presenceService) + 4);
     info->rating = Rating(manager);
     info->observer = manager->m_joinMode == kJoinModeObserve;
     info->version = kVersion;
-    info->willingToWait = true;
+    info->canQueueUp = true;
     bool narrowband;
     if (net->GetNetLinkKind() == kConnectionTypeModem) {
         narrowband = true;
@@ -816,14 +816,14 @@ int Hub::HandleJoinProceed(InboundMsgCtx* context)
     desc.m_ident = kMsgJoinRequest;
     desc.m_compression = 2; // LZSS (in the peer mode it goes as THUGPRO's LZHAM: CompressMessage)
     if (context->m_senderConn->IsOffMachine())
-        desc.m_queue = NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetMessageInfo::kLaneOrdered;
     AsClient(context->m_receiverApp)->SendToHost(&desc);
-    manager->m_joinState = kJoinStateJoining;
-    return NetLink::kHandlerMsgDone;
+    manager->m_joinPhase = kJoinStateJoining;
+    return NetLink::kResultConsumed;
 }
 
 // 0x0052E1E0
-int Hub::HandleJoinRefused(InboundMsgCtx* context)
+int Hub::OnTurnedAwayMsg(InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->m_content);
     const char* msg = context->m_body;
@@ -839,7 +839,7 @@ int Hub::HandleJoinRefused(InboundMsgCtx* context)
         manager->m_refusedReason = kReasonFullObservers;
         break;
     case kRefusedCdKey: {
-        if (manager->m_joinState == kJoinStateCdKey) {
+        if (manager->m_joinPhase == kJoinStateCdKey) {
             // Answered already: refused.
             manager->m_refusedReason = Checksums::HashFromText(g_netReasonGeneral);
             break;
@@ -853,39 +853,39 @@ int Hub::HandleJoinRefused(InboundMsgCtx* context)
         std::memcpy(challenge, msg + 1, challengeSize < kJoinRefusedSize - 1u ? challengeSize : kJoinRefusedSize - 1u);
         GetCdKey(key);
         ComputeCdKeyResponse(key, challenge, response);
-        NetLink::Hub* net = NetManager();
+        NetLink::Hub* net = NetSessionSlot();
         ConnectInfo info;
         std::memset(&info, 0, sizeof(info));
         std::strcpy(info.cdKeyResponse, response);
         const char* name = nullptr; // (not used)
-        NetworkPreferences(manager)->FetchSetting(kNetworkId)->FetchText(g_uiString,
+        NetGameOptions(manager)->FetchSetting(kNetworkId)->FetchText(g_uiString,
                                                                             &name, 1);
         info.rank = Rank(manager);
         info.observer = manager->m_joinMode == kJoinModeObserve;
         info.version = kVersion;
-        info.willingToWait = true;
+        info.canQueueUp = true;
         info.broadband = net->GetNetLinkKind() != kConnectionTypeModem;
         std::strcpy(info.password, JoinPassword());
         Thugpro::ConnectRequest request;
         SendConnectionRequest(AsClient(manager->m_clientApp), info, &request);
-        manager->m_joinState = kJoinStateCdKey;
-        return NetLink::kHandlerContinue;
+        manager->m_joinPhase = kJoinStateCdKey;
+        return NetLink::kResultPassOn;
     }
     case kRefusedPassword:
-        if (manager->m_joinState == kJoinStateTryingPassword) {
+        if (manager->m_joinPhase == kJoinStateTryingPassword) {
             manager->m_refusedReason = kReasonWrongPassword;
             break;
         }
         // Ask for it.
         MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
         Scripts::LaunchScript(kCreateEnterPasswordControl, nullptr, nullptr, false, nullptr);
-        manager->m_joinTimeoutTask->DropOut();
+        manager->m_joinExpiryJob->DropOut();
         MemSys::Hub::Pull()->LeaveHeapScope();
-        return NetLink::kHandlerContinue;
+        return NetLink::kResultPassOn;
     case kRefusedInProgress:
         Scripts::LaunchScript(kCreateGameInProgressDialog, nullptr, nullptr, false, nullptr);
-        manager->m_joinTimeoutTask->DropOut();
-        return NetLink::kHandlerContinue;
+        manager->m_joinExpiryJob->DropOut();
+        return NetLink::kResultPassOn;
     case kRefusedRankLow:
         manager->m_refusedReason = kReasonRankLow;
         break;
@@ -901,8 +901,8 @@ int Hub::HandleJoinRefused(InboundMsgCtx* context)
         break;
     }
     CancelJoinServer(manager);
-    manager->m_joinState = kJoinStateRefused;
-    return NetLink::kHandlerMsgDestroyed;
+    manager->m_joinPhase = kJoinStateRefused;
+    return NetLink::kResultMsgFreed;
 }
 
 } // namespace OnlinePlay

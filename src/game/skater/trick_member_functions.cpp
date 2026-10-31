@@ -40,7 +40,7 @@ constexpr uint32_t kReleased = 0x04BA9EE9, kGetSpazzFactor = 0x00271B04, kUseEve
                    kClearTrickQueue = 0x54C33B20, kRestoreEvents = 0x54D43789, kSetExtraGrindTricks = 0x6BA35AB4,
                    kFunction72C926CA = 0x72C926CA, kSetExtraTricks = 0x7627DC71, kDoNextManualTrick = 0x788F9A4E,
                    kClearEventBuffer = 0x86928082, kClearManualTrick = 0x8E3D3BEC,
-                   kClearExtraGrindTrick = 0xAB6B8DD9, kSetTrickMappings = 0xABFF7889, kSetTrickSlot = 0xB42A1230,
+                   kClearExtraGrindTrick = 0xAB6B8DD9, kReplaceBindings = 0xABFF7889, kSetTrickSlot = 0xB42A1230,
                    kClearPanelBailed = 0xB8045433, kClearTricksFrom = 0xCB30572D, kSetTrickScore = 0xCB3A8FD2,
                    kUseGrindEvents = 0xD4099D35, kKillExtraTricks = 0xD5813251, kBashOn = 0xD872002D,
                    kSetQueueTricks = 0xD8C79BB0, kFunctionDE98DE7A = 0xDE98DE7A, kResetSpin = 0xE50D471E,
@@ -63,7 +63,7 @@ constexpr float kSpinMargin = 0.1f;  // 0x00645D74 (0.100000001f)
 
 // The fields (see trick_queue.cpp).
 constexpr uint32_t kScore = 0x1C, kBalanceTrick = 0x24, kCorePhysics = 0x28, kState = 0x30, kComponent34 = 0x34;
-constexpr uint32_t kIsSpecial = 0xA24, kTrickMappings = 0xA28, kQueueHead = 0xA2C, kQueueTail = 0xA30;
+constexpr uint32_t kIsSpecial = 0xA24, kTrickBindingsSlot = 0xA28, kQueueHead = 0xA2C, kQueueTail = 0xA30;
 constexpr uint32_t kHeldButtons = 0xA00; // bool per button index
 constexpr uint32_t kQueueCount = 0x1204, kQueueArrays = 0x1208, kQueueSpecial = 0x1230, kEventsUse = 0x1234;
 constexpr uint32_t kManualCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
@@ -94,7 +94,7 @@ bool IsPadHeld(CMoveExecutor* self, uint32_t button)
 }
 bool IsSwitch(CMoveExecutor* self)
 {
-    return (static_cast<Skater::CorePhysicsComponent*>(Component(self, kCorePhysics))->IsSidesSwapped() & 0xFF) != 0;
+    return (static_cast<Skater::SkaterPhysicsModule*>(Component(self, kCorePhysics))->IsSidesSwapped() & 0xFF) != 0;
 }
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void ScoreTrick(CMoveExecutor* self, const char* name, int score, uint32_t flags)
@@ -103,7 +103,7 @@ void ScoreTrick(CMoveExecutor* self, const char* name, int score, uint32_t flags
 }
 void ScoreSpin(CMoveExecutor* self, int degrees)
 {
-    static_cast<GameModules::PointTally*>(Component(self, kScore))->SetTurnAmount(degrees);
+    static_cast<GameModules::PointTally*>(Component(self, kScore))->ChangeSpinDegrees(degrees);
 }
 
 // The trick names of unnamed name components (SetQueueTricks and the others): into `arrays`, counted at `count`.
@@ -122,7 +122,7 @@ void ExitCombo(CMoveExecutor* self)
     uint8_t* score = static_cast<uint8_t*>(Component(self, kScore));
     if (!Truncate(static_cast<double>(At<int>(score, 0x14)) * At<float>(score, 0x60)))
         return;
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params = params->PrepareAll();
     params->PutNameKey(kSkaterId, self->m_entity->m_ident);
@@ -147,7 +147,7 @@ bool SpinCounts(CMoveExecutor* self, bool fullTurn)
 bool SameTrickShown(CMoveExecutor* self, void* score)
 {
     uint32_t name = Checksums::HashFromText(&At<char>(self, kTrickName));
-    return static_cast<GameModules::PointTally*>(score)->GetLastTrickName() == name;
+    return static_cast<GameModules::PointTally*>(score)->FetchNewestTrickKey() == name;
 }
 
 } // namespace
@@ -222,7 +222,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         uint32_t value;
         params->ReadHashValue(0u, &value, 1);
         if (At<bool>(this, kTrickObjectsOn))
-            At<CTrickObjectList>(this, kTrickObjects).AppendOne(value);
+            At<CHitClusterLog>(this, kTrickObjects).AppendOne(value);
         return 1;
     }
     case kNoQuickGetup:
@@ -318,7 +318,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     case kClearExtraGrindTrick:
         ClearBlock1280();
         return 1;
-    case kSetTrickMappings: {
+    case kReplaceBindings: {
         // The trick mappings replaced by the global structure the first (unnamed name) component names.
         Scripts::CComponent* c = params->StepToEntry(nullptr);
         if (!c || c->name != 0 || (c->typeAndFlag & 0xFE) != Scripts::QBVAL_NAME << 1)
@@ -326,8 +326,8 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         Scripts::CStruct* mappings = Scripts::ReadSubStruct(c->checksum);
         if (!mappings)
             return 1;
-        At<Scripts::CStruct*>(this, kTrickMappings)->Clear();
-        At<Scripts::CStruct*>(this, kTrickMappings)->AppendStructureIfAny(mappings);
+        At<Scripts::CStruct*>(this, kTrickBindingsSlot)->Clear();
+        At<Scripts::CStruct*>(this, kTrickBindingsSlot)->AppendStructureIfAny(mappings);
         return 1;
     }
     case kSetTrickSlot: {
@@ -336,7 +336,7 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         params->ReadHashValue(kSlot, &slot, 0);
         uint32_t trick = 0;
         params->ReadHashValue(kTrick, &trick, 0);
-        At<Scripts::CStruct*>(this, kTrickMappings)->InsertPair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
+        At<Scripts::CStruct*>(this, kTrickBindingsSlot)->InsertPair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
         return 1;
     }
     case kClearPanelBailed: {
@@ -348,11 +348,11 @@ int CMoveExecutor::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
         At<bool>(this, kBailed) = true;
         At<bool>(this, kBailedPanel) = true;
         At<bool>(this, kTrickObjectsOn) = false;
-        CTrickObjectList& list = At<CTrickObjectList>(this, kTrickObjects);
+        CHitClusterLog& list = At<CHitClusterLog>(this, kTrickObjects);
         list.Clear();
         At<int>(this, kTrickCount) = 0;
         static_cast<CRiderTeeterMoves*>(Component(this, kBalanceTrick))->Reset();
-        static_cast<Skater::CorePhysicsComponent*>(Component(this, kCorePhysics))->EndSkitch();
+        static_cast<Skater::SkaterPhysicsModule*>(Component(this, kCorePhysics))->EndSkitch();
         At<float>(this, kSpinTotal) = 0.0f;
         At<uint32_t>(Component(this, kCorePhysics), 0x318) = 0;
         list.Clear();

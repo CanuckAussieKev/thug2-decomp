@@ -23,7 +23,7 @@ public:
         uint32_t name;
         uint32_t type;
     };
-    static constexpr int kMaxEntries = 450;
+    static constexpr int kBundleCapacity = 450;
 
     AssetBundle();
     // The vtable's only slot (scalar deleting destructor). Doesn't free the assets themselves.
@@ -51,8 +51,8 @@ public:
     uint8_t* m_loadedData;           // the start of the file
     int m_num;                     // number of entries
     int m_unknown14;
-    TableRow m_entries[kMaxEntries];
-    void* m_assets[kMaxEntries];     // each asset's own copy
+    TableRow m_entries[kBundleCapacity];
+    void* m_assets[kBundleCapacity];     // each asset's own copy
     bool m_readyFlag;
     uint8_t m_pad2341[3];
     MemSys::Arena* m_assetHeap;

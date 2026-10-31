@@ -50,13 +50,13 @@ constexpr uint32_t kPriority = 0x9D5923D8, kLow = 0x6D77875E, kNormal = 0xDE7A97
 constexpr uint32_t kMinInnerPathAngle = 0xFE65D822; // ped_min_inner_path_angle
 constexpr uint32_t kPedType = 0x17EA37FB, kSkate = 0x54166ACD; // PedType: Skate
 constexpr uint32_t kHitDeadEnd = 0xA80F965E;        // ped_walker_hit_dead_end (an aux script)
-constexpr uint32_t kAdjustSpeed = 0x74E4BBA5;       // (a node flag: its speed changed)
+constexpr uint32_t kChangePaceFlag = 0x74E4BBA5;       // (a node flag: its speed changed)
 constexpr uint32_t kAdjustSpeedWeight = 0x922C5B59;
 constexpr uint32_t kAdjustSpeedPercent = 0xA04D16EC; // AdjustSpeedPercent
-constexpr uint32_t kRunScript = 0x55D98ED7;         // LaunchScript
+constexpr uint32_t kLaunchNodeScript = 0x55D98ED7;         // LaunchScript
 constexpr uint32_t kRunScriptWeight = 0x86C9CCCE;   // RunScriptWeight
-constexpr uint32_t kRunScriptName = 0x64B4CD9D;     // RunScriptName
-constexpr uint32_t kTerrainType = 0x54CF8532;       // TerrainType
+constexpr uint32_t kNodeScriptKey = 0x64B4CD9D;     // RunScriptName
+constexpr uint32_t kSurfaceKindKey = 0x54CF8532;       // TerrainType
 constexpr uint32_t kTable = 0x46196541;             // SkaterPed_StateTable
 constexpr uint32_t kStateGrind = 0x57CD5C63, kStateGrindOff = 0x6DB75D2A, kStateJumpVert = 0x5DC4A15F,
                    kStateJump = 0xCCAF702F, kStateLip = 0x4E7AA8C2, kStateManual = 0xE6E09E94,
@@ -66,10 +66,10 @@ constexpr uint32_t kIsVert = 0x01615618;            // is_vert
 constexpr uint32_t kIsJumping = 0x65B5788D;         // is_jumping
 constexpr uint32_t kJumpToNextNode = 0xB02567AE;    // JumpToNextNode
 constexpr uint32_t kJumpHeight = 0x838DA447;        // JumpHeight
-constexpr uint32_t kJumpGravity = 0xE224A5D3;       // ped_skater_jump_gravity
+constexpr uint32_t kLeapGravity = 0xE224A5D3;       // ped_skater_jump_gravity
 constexpr uint32_t kJumpSpeedGlobal = 0xF1FF758A;   // ped_skater_jump_speed
 constexpr uint32_t kJumpSpeed = 0x1C4C5690;         // jumpSpeed
-constexpr uint32_t kJumpTime = 0x66CED87B;          // jumpTime
+constexpr uint32_t kLeapDuration = 0x66CED87B;          // jumpTime
 constexpr uint32_t kHeading = 0xFD4BC03E;           // heading
 constexpr uint32_t kHeightSlop = 0x23F14B13;        // ped_skater_jump_to_next_node_height_slop
 constexpr uint32_t kRandomSpin = 0xB4077854;        // (a flag: a random spin, in half turns)
@@ -232,21 +232,21 @@ void CPedestrianBrainModule::RunWaypointActions(Scripts::CStruct* node)
     // (Both values are read over the `node` argument's slot - missing, both are asserted, it keeps what it held: the
     // pointer's bits, or the percent read before.)
     uint32_t slot = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(node));
-    if (node->HasBareFlag(kAdjustSpeed) && Chance(node, kAdjustSpeedWeight)) {
+    if (node->HasBareFlag(kChangePaceFlag) && Chance(node, kAdjustSpeedWeight)) {
         node->FetchFloat(kAdjustSpeedPercent, reinterpret_cast<float*>(&slot), 1);
         float percent = std::bit_cast<float>(slot);
         CKinematicsModule* motion = Motion(m_entity);
         motion->m_pathMaxSpeed = percent * motion->m_pathMaxSpeed;
     }
-    if (node->HasBareFlag(kRunScript) && Chance(node, kRunScriptWeight)) {
-        node->ReadHashValue(kRunScriptName, &slot, 1);
+    if (node->HasBareFlag(kLaunchNodeScript) && Chance(node, kRunScriptWeight)) {
+        node->ReadHashValue(kNodeScriptKey, &slot, 1);
         Scripts::CScript* script = Scripts::SpawnScript(slot, nullptr, 0, nullptr, 0, 0, false, false, false, false);
         script->m_entity.AssignValue(m_entity);
     }
 }
 
 // 0x004EFD50
-Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, bool toNode)
+Scripts::CStruct* CPedestrianBrainModule::LeapNodeParams(Scripts::CStruct* params, bool toNode)
 {
     m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     m_vertRotation = 0.0f;
@@ -256,7 +256,7 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
     // (The height is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float height = std::bit_cast<float>(reinterpret_cast<uintptr_t>(params));
     params->FetchFloat(kJumpHeight, &height, 1);
-    float gravity = Scripts::FetchFloat(kJumpGravity);
+    float gravity = Scripts::FetchFloat(kLeapGravity);
     float jumpTime;
     int spin = 0;
     if (!toNode && !params->HasBareFlag(kJumpToNextNode)) {
@@ -299,7 +299,7 @@ Scripts::CStruct* CPedestrianBrainModule::JumpParams(Scripts::CStruct* params, b
         out->PushFloat(kJumpSpeed, static_cast<float>(std::sqrt((static_cast<double>(velX) * velX +
                                                                 static_cast<double>(velZ) * velZ) +
                                                                static_cast<double>(velY) * velY)));
-        out->PushFloat(kJumpTime, jumpTime);
+        out->PushFloat(kLeapDuration, jumpTime);
     }
     // The spin.
     if (params->HasBareFlag(kRandomSpin)) {
@@ -405,7 +405,7 @@ void CPedestrianBrainModule::StartGrind(Scripts::CStruct* node)
 {
     m_flagBits = (m_flagBits & ~(PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING)) | PED_FLAG_GRINDING;
     uint32_t terrain;
-    if (node->ReadHashValue(kTerrainType, &terrain, 0))
+    if (node->ReadHashValue(kSurfaceKindKey, &terrain, 0))
         SetSoundTerrain(SurfaceKind::GetTerrainIndex(terrain));
     Scripts::CStruct* params = StateParams(node);
     ChangePhase(kStateGrind, kTable, nullptr); // (the parameters aren't passed)
@@ -429,12 +429,12 @@ void CPedestrianBrainModule::Jump(Scripts::CStruct* node, bool vert)
     uint32_t state;
     if (vert) {
         m_flagBits &= ~PED_FLAG_MOVING;
-        params = JumpParams(node, vert);
+        params = LeapNodeParams(node, vert);
         state = kStateJumpVert;
     } else {
         if (node->HasBareFlag(kJumpToNextNode)) {
             m_flagBits &= ~PED_FLAG_MOVING;
-            params = JumpParams(node, false);
+            params = LeapNodeParams(node, false);
             m_flagBits |= PED_FLAG_JUMPING_TO_NODE;
         } else {
             params = StateParams(node);
@@ -479,16 +479,16 @@ void CPedestrianBrainModule::GrabTrick(Scripts::CStruct* node, bool vert)
     Scripts::CStruct* params;
     if (vert) {
         m_flagBits &= ~PED_FLAG_MOVING;
-        params = JumpParams(node, vert);
+        params = LeapNodeParams(node, vert);
         params->PutNameKey(0u, kIsVert);
     } else {
         params = StateParams(node);
         bool jumping = (Motion(m_entity)->m_motionFlags & 0x100) != 0;
         if (!jumping) {
             float speed = Scripts::FetchFloat(kJumpSpeedGlobal);
-            double gravity = Scripts::FetchFloat(kJumpGravity);
+            double gravity = Scripts::FetchFloat(kLeapGravity);
             double time = std::sqrt(static_cast<double>(speed) * speed / (gravity * gravity));
-            params->PutInt(kJumpTime, Truncate(time + time));
+            params->PutInt(kLeapDuration, Truncate(time + time));
         }
         params->PutInt(kIsJumping, jumping ? 1 : 0);
     }
@@ -514,7 +514,7 @@ void CPedestrianBrainModule::FlipTrick(Scripts::CStruct* node, bool vert)
     m_flagBits &= ~(PED_FLAG_GRINDING | PED_FLAG_SPINNING | PED_FLAG_VERT_ROTATING);
     CKinematicsModule* motion = Motion(m_entity);
     Scripts::CStruct* params = StateParams(node);
-    Scripts::CStruct* jump = JumpParams(node, vert);
+    Scripts::CStruct* jump = LeapNodeParams(node, vert);
     params->AppendStructureIfAny(jump);
     DeleteParams(jump);
     if (vert) {
@@ -709,7 +709,7 @@ bool CPedestrianBrainModule::Ped_GetJumpToNextNode(Scripts::CStruct* params, Scr
     }
     script->m_args->PutVec3(kHeading, Scripts::VectorValue{static_cast<float>(hx), static_cast<float>(hy), hz, sw});
     script->m_args->PushFloat(kJumpSpeed, speed);
-    script->m_args->PushFloat(kJumpTime, time);
+    script->m_args->PushFloat(kLeapDuration, time);
     return true;
 }
 

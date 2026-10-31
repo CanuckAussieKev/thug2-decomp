@@ -51,14 +51,14 @@ struct RefTo {
     int clone = -1;
     int quarters = 0;
 };
-struct LogEntry {
+struct LinkRecord {
     bool scenery = false;
     RefTo source;
     std::vector<RefTo> members;
 };
-std::string WriteRecord(const LogEntry& record);
+std::string WriteRecord(const LinkRecord& record);
 // The words after "link" (false: malformed).
-bool ReadRecord(std::istringstream& in, LogEntry* record);
+bool ReadRecord(std::istringstream& in, LinkRecord* record);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -77,8 +77,8 @@ void Tick();
 // The layout: the groups as records (`clones`: the checksums of the clones written as `clone` records, in order -
 // a clone not among them isn't written), and records put in place (`made`: the clones made from the layout's clone
 // records, in order; 0 for one that couldn't be). Returns the groups made.
-std::vector<LogEntry> Capture(const std::vector<uint32_t>& clones);
-int Apply(const std::vector<LogEntry>& records, const std::vector<uint32_t>& made);
+std::vector<LinkRecord> Capture(const std::vector<uint32_t>& clones);
+int Apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t>& made);
 // Reset level / a new level: forgotten.
 void ResetAll();
 void ForgetLevel();

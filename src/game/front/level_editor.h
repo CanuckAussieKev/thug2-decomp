@@ -180,7 +180,7 @@ void PlaceCamera(Gfx2D::ViewCam* camera);
 void NoteView(Gfx2D::ViewCam* camera, float angle, float aspect, const uint32_t viewport[4]);
 // Called by the renderer for a viewport's camera (Engine3D::DrawViewport): its field of view (degrees) and near plane - the
 // game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
-float ViewAngle(Gfx2D::ViewCam* camera, float angle);
+float AdjustViewAngle(Gfx2D::ViewCam* camera, float angle);
 float NearPlane(Gfx2D::ViewCam* camera);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void Blit();

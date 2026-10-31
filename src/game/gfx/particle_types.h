@@ -13,7 +13,7 @@
 namespace Engine3D {
 
 // "ribbon" (vtables 0x006494DC and 0x006494D8): history + 1 positions each (zeroed), two colours.
-struct CRibbonParticles : CParticleSystem {
+struct CRibbonParticles : CEmitterInstance {
     int m_steps; // +0x134: history + 1
 
     // 0x0049B0D0. Returns this.
@@ -26,7 +26,7 @@ struct CRibbonParticles : CParticleSystem {
 };
 
 // "ribbontrail" (vtables 0x006494F0 and 0x006494EC): history + 1 positions each (zeroed), a colour a step.
-struct CRibbonTrailParticles : CParticleSystem {
+struct CRibbonTrailParticles : CEmitterInstance {
     int m_steps; // +0x134: history + 1
 
     // 0x0049B380. Returns this.
@@ -39,7 +39,7 @@ struct CRibbonTrailParticles : CParticleSystem {
 };
 
 // "shaded" (vtables 0x00649504 and 0x00649500): a position each, four colours.
-struct CShadedParticles : CParticleSystem {
+struct CShadedParticles : CEmitterInstance {
     // 0x0049B660. Returns this.
     CShadedParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
@@ -50,7 +50,7 @@ struct CShadedParticles : CParticleSystem {
 };
 
 // "smooth" (vtables 0x00649518 and 0x00649514): a position each, two colours.
-struct CSmoothParticles : CParticleSystem {
+struct CSmoothParticles : CEmitterInstance {
     // 0x0049B910. Returns this.
     CSmoothParticles* MakeNew(uint32_t name, int particleCap, uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                 int segments, float unknown, int history);
@@ -61,7 +61,7 @@ struct CSmoothParticles : CParticleSystem {
 };
 
 // "smoothribbon" (vtables 0x0064952C and 0x00649528): history + 1 positions each (zeroed), four colours.
-struct CSmoothRibbonParticles : CParticleSystem {
+struct CSmoothRibbonParticles : CEmitterInstance {
     int m_steps; // +0x134: history + 1 (set once everything is allocated)
 
     // 0x0049BBD0. Returns this.
@@ -74,7 +74,7 @@ struct CSmoothRibbonParticles : CParticleSystem {
 };
 
 // "smoothstar" (vtables 0x00649540 and 0x0064953C): a position each, three colours; the star's points and size.
-struct CSmoothStarParticles : CParticleSystem {
+struct CSmoothStarParticles : CEmitterInstance {
     int m_segments;  // +0x134: the star's points
     float m_extent;    // +0x138
 
@@ -88,7 +88,7 @@ struct CSmoothStarParticles : CParticleSystem {
 };
 
 // "star" (vtables 0x00649554 and 0x00649550): as smoothstar.
-struct CStarParticles : CParticleSystem {
+struct CStarParticles : CEmitterInstance {
     int m_segments; // +0x134
     float m_extent;   // +0x138
 

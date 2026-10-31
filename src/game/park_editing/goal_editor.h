@@ -76,7 +76,7 @@ public:
 
     // 0x004E7050: the marker object of point `index` made (the script 0xEFC08BAE, with its kind's model, place,
     // height and heading).
-    void CreateMarker(int index);
+    void PlaceGoalMarker(int index);
     // 0x004E7780: the markers of every set point but the pro made again; the first point current, not won.
     void CreateMarkers();
     // 0x004E7210: whether `pos` is too near another set point (one radius between a letter and the start, another
@@ -147,7 +147,7 @@ public:
     bool m_won;                      // +0x289
     bool m_takenCount;                     // +0x28A
     uint8_t pad28B;
-    int m_goalIndex;                 // +0x28C its number in its level (CreatedGoal<n>)
+    int m_levelGoalNumber;                 // +0x28C its number in its level (CreatedGoal<n>)
     int m_timeLimit;                 // +0x290
     uint32_t m_controlType;          // +0x294
     int m_pointsHeld;                     // +0x298
@@ -161,8 +161,8 @@ public:
     int m_twistRate;                      // +0x2B8
     bool m_singleCombo;              // +0x2BC
     uint8_t pad2BD[3];
-    int m_comboSize;                 // +0x2C0
-    int m_tricktrisBlockSize;        // +0x2C4
+    int m_chainLength;                 // +0x2C0
+    int m_stackBlockSpan;        // +0x2C4
     int m_tricktrisTotalToWin;       // +0x2C8
     KeyComboSet m_keyComboSets[10];  // +0x2CC
     int m_numKeyComboSets;           // +0x2F4
@@ -171,7 +171,7 @@ public:
     char m_requiredTrick[0x35];      // +0x303
 };
 static_assert(offsetof(CEditedGoal, m_kindTag) == 0x114 && offsetof(CEditedGoal, m_pathVertices) == 0x118 &&
-                  offsetof(CEditedGoal, m_maxPoints) == 0x284 && offsetof(CEditedGoal, m_goalIndex) == 0x28C &&
+                  offsetof(CEditedGoal, m_maxPoints) == 0x284 && offsetof(CEditedGoal, m_levelGoalNumber) == 0x28C &&
                   offsetof(CEditedGoal, m_singleCombo) == 0x2BC && offsetof(CEditedGoal, m_keyComboSets) == 0x2CC &&
                   offsetof(CEditedGoal, m_numKeyComboSets) == 0x2F4 && offsetof(CEditedGoal, m_gaps) == 0x2F8 &&
                   offsetof(CEditedGoal, m_requiredTrick) == 0x303 && sizeof(CEditedGoal) == 0x338,

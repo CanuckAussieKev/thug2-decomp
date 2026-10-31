@@ -46,7 +46,7 @@ bool IsStartupScript(const Scripts::CScript* script)
 void Point(const char* name, void* function)
 {
     if (Scripts::CFunctionEntry* entry = Scripts::FindCFunction(name))
-        Scripts::SetCFunction(*entry, function);
+        Scripts::BindNativeCommand(*entry, function);
 }
 
 void Run(const char* script) { Scripts::LaunchScript(NameHash(script), nullptr, nullptr, false, script); }

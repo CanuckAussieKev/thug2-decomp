@@ -66,7 +66,7 @@ CViewpointModule* CViewpointModule::Teardown(unsigned int flags)
 // 0x0041B7F0
 void CViewpointModule::ConfigureFromData(Scripts::CStruct*)
 {
-    CObjectHubBase* manager = reinterpret_cast<CObjectHubBase*>(CompositeObjectManager());
+    CObjectHubBase* manager = reinterpret_cast<CObjectHubBase*>(ObjectHubSlot());
     reinterpret_cast<void(__thiscall*)(CObjectHubBase*, CEntity*, int)>(manager->m_vtable[4])(manager, m_entity,
                                                                                          kCameraPriority);
 }

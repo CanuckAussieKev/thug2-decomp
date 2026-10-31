@@ -113,7 +113,7 @@ constexpr uint32_t kBloomOn = 0x400681B6, kBloomStrength = 0x743D0048, kBloomCol
 constexpr uint32_t kNeutralColor = 0x81808080;
 
 // The exe's constants.
-float DegreeToRadianConv() { return ScriptCommands::g_degreesToRadians; } // 0.017453292
+float DegreeToRadianConv() { return ScriptCommands::g_degreeToRadianRatio; } // 0.017453292
 float Zero() { return GameObjects::g_floatZero; }             // 0.0
 float OnePercent() { return Engine3D::g_onePercent; }       // 0.01
 float OneOver255() { return g_oneOver255; }       // 1 / 255
@@ -193,9 +193,9 @@ uint32_t ColorFromArray(Scripts::CArray* array)
     return Rgba(r, g, b, 0);
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -210,12 +210,12 @@ void DeleteStructure(Scripts::CStruct* structure)
 void ChangeFog(bool on) { Engine3D::Engine::EnableFog(on); }
 void SetFogColor(uint32_t color) { Engine3D::Engine::SetFogColor(color); }
 void SetFogDistance(float distance) { Engine3D::Engine::SetFogDistance(distance); }
-void SetAmbientColor(uint32_t color) { Engine3D::SetLightAmbientColor(color); }
+void ChangeAmbientTint(uint32_t color) { Engine3D::SetLightAmbientColor(color); }
 void ChangeLightTint(int index, uint32_t color) { Engine3D::SetLightDiffuseColor(index, color); }
-void SetAmbientModulation(float lo, float hi) { Engine3D::SetAmbientLightModulationFactor(lo, hi); }
+void SetAmbientModulation(float lo, float hi) { Engine3D::ChangeAmbientScale(lo, hi); }
 void SetLightModulation(int index, float lo, float hi)
 {
-    Engine3D::SetDiffuseLightModulationFactor(index, lo, hi);
+    Engine3D::ChangeDiffuseScale(index, lo, hi);
 }
 void SetLightDirectionVector(int index, const float* direction)
 {
@@ -241,7 +241,7 @@ void SetSun(const SunParams* sun, int mask)
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void SetLevelColor(const float* color)
 {
-    static_cast<Engine3D::CParticleManager*>(reinterpret_cast<void*>(GameObjects::g_particleManager))->ChangeColour(color);
+    static_cast<Engine3D::CEffectsDirector*>(reinterpret_cast<void*>(GameObjects::g_particleHub))->ChangeColour(color);
     static_cast<Engine3D::CFlexibleParticleManager*>(Engine3D::g_flexibleParticleManager)->SetColourScale(color);
     Engine3D::Engine::SetLevelColor(color);
 }
@@ -252,7 +252,7 @@ void SetBloomStructure(Scripts::CStruct* params)
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
 bool IsMultiplayer() { return GameModules::Skate::IsMultiplayer() & 1; }
 // The game mode's name (GameModules::Skate's game mode 0x007CE470).
-uint32_t GameModeName()
+uint32_t ActiveRulesetLabel()
 {
     return static_cast<GoalSystem::CMatchRules*>(reinterpret_cast<void*>(GoalSystem::g_gameMode))->GetNameKey();
 }
@@ -531,7 +531,7 @@ TODParams CTODManager::GetTODParams(int index)
 }
 
 // 0x00571EF0
-void CTODManager::CreateObjects(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+void CTODManager::BuildTodObjects(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     uint32_t name = 0;
     if (params->ReadHashValue(kName, &name, 0)) {
@@ -737,7 +737,7 @@ void CTODManager::ApplyColor(uint32_t color, uint32_t skyColor, bool sky, uint32
     }
     if ((wholeLevel || resetLightGroup) && !partOnly) {
         // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
-        for (GameObjects::CObjectModule* model = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kModel); model;
+        for (GameObjects::CObjectModule* model = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kModel); model;
              model = *reinterpret_cast<GameObjects::CObjectModule**>(reinterpret_cast<uint8_t*>(model) + 0x14)) {
             uint8_t* object = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0xC);
             uint8_t* sector = LookUpSector(*reinterpret_cast<uint32_t*>(object + 0x14));
@@ -774,7 +774,7 @@ void CTODManager::ApplyTODParams(TODParams params)
     // (NOT ORIGINAL: an edited level's own ambient light and fog put over the state's - SetTODParamsFilter; its fog
     // shown even when the manager's is off)
     bool fogForced = Filter(&params);
-    SetAmbientColor(Rgba(params.ambientRed, params.ambientGreen, params.ambientBlue, 0x80));
+    ChangeAmbientTint(Rgba(params.ambientRed, params.ambientGreen, params.ambientBlue, 0x80));
     SetLightDirection(0, params.heading0, params.pitch0);
     SetLightDirection(1, params.headingA, params.pitch1);
     ChangeLightTint(0, Rgba(params.red0, params.green0, params.blue0, 0x80));
@@ -887,7 +887,7 @@ void CTODManager::MarkPermanentlyDead(Scripts::CStruct* params)
     uint32_t prefix;
     if (!params->HashFromNameOrText(kPrefix, &prefix, 0))
         return;
-    params->HasBareFlag(kNoPrefixWarning); // (see CreateObjects)
+    params->HasBareFlag(kNoPrefixWarning); // (see BuildTodObjects)
     uint16_t count = 0;
     uint32_t* nodes = LevelNodes::CollectNodesByPrefix(prefix, &count);
     for (int i = 0; i < count; ++i) {
@@ -899,7 +899,7 @@ void CTODManager::MarkPermanentlyDead(Scripts::CStruct* params)
 // 0x00573500
 void CTODManager::SetBloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color)
 {
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     if (on)
         AddBloomParams(on, bloom1, bloom2, strength, color, params);
     else
@@ -911,11 +911,11 @@ void CTODManager::SetBloom(int on, int bloom1, int bloom2, uint32_t strength, ui
 // 0x00573620
 CTODManager* CTODManager::MakeNew()
 {
-    m_unknown4 = NewStructure();
+    m_unknown4 = SpawnParamTable();
     void* table = MemSys::Alloc(sizeof(ListKit::KeyMap));
     m_deadObjects = table ? new (table) ListKit::KeyMap(8) : nullptr;
     for (TODSystem& system : m_systems)
-        system.params = NewStructure();
+        system.params = SpawnParamTable();
     Reset();
     return this;
 }
@@ -980,7 +980,7 @@ void CTODManager::UpdateSystem(int index)
     float threshold = system.state == kEvening ? Zero() : Half();
     if (!system.scriptRun && t > threshold) {
         system.scriptRun = true;
-        Scripts::CStruct* scriptParams = NewStructure();
+        Scripts::CStruct* scriptParams = SpawnParamTable();
         scriptParams->PutNameKey(kCurrentTod, system.state);
         scriptParams->PutNameKey(kNextTod, system.nextState);
         scriptParams->PutSubStruct(kTodStateParams, system.params);
@@ -1051,7 +1051,7 @@ void CTODManager::RefreshAll(bool tempState)
         }
         if (sky)
             continue;
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PutNameKey(kCurrentTod, PreviousTODState(system.state));
         params->PutNameKey(kNextTod, system.state);
         params->PutSubStruct(kTodStateParams, system.params);
@@ -1060,7 +1060,7 @@ void CTODManager::RefreshAll(bool tempState)
         params->PutNameKey(0u, kInstantChange);
         if (tempState)
             params->PutNameKey(0u, kTempState);
-        Scripts::CStruct* bloom = NewStructure();
+        Scripts::CStruct* bloom = SpawnParamTable();
         AddBloomParams(current.bloomOn, current.bloom1, current.bloom2, current.bloomStrength, current.bloomColor, bloom);
         params->PutSubStruct(kBloomParams, bloom);
         DeleteStructure(bloom);
@@ -1131,7 +1131,7 @@ void CTODManager::EnableBloom(int on)
 // 0x00574590
 void CTODManager::TickFrame()
 {
-    if (GameModeName() != kCareer || Scripts::FetchIntValue(kInactive) == 1 || m_tempTOD || !m_active || IsGameHalted())
+    if (ActiveRulesetLabel() != kCareer || Scripts::FetchIntValue(kInactive) == 1 || m_tempTOD || !m_active || IsGameHalted())
         return;
     int elapsed = Ftol(FrameClock::GetSlomoFrameSeconds() * m_timeMultiplier * Thousand());
     m_fullLength += elapsed;
@@ -1308,7 +1308,7 @@ bool __cdecl CFunc_TODManager_SetTODScript(Scripts::CStruct* params, Scripts::CS
 // 0x00572110: TODManager_Create name= | prefix=
 bool __cdecl CFunc_TODManager_Create(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    TODManager()->CreateObjects(params, script);
+    TODManager()->BuildTodObjects(params, script);
     return true;
 }
 
@@ -1326,7 +1326,7 @@ bool __cdecl CFunc_TODManager_GetCurrentTODParams(Scripts::CStruct* params, Scri
     params->FetchIntValue(kSystemIndex, &index, 0);
     CTODManager* manager = TODManager();
     TODParams p = manager->GetTODParams(index);
-    Scripts::CStruct* out = NewStructure();
+    Scripts::CStruct* out = SpawnParamTable();
     out->PutInt(kActive, manager->m_active);
     int current = 0;
     while (current < CTODManager::kSystems && manager->m_systems[current].sky)

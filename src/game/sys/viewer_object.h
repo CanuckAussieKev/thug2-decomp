@@ -122,7 +122,7 @@ void __cdecl HandleViewerObjectInput(ViewerObjectInputHandler* handler);
 // +0x80); 0x0058ACE0 (0x29) ReloadSkaterCamAnim (0x005ADEC0) with the message and the checksum at +0x80 (unnamed);
 // 0x0058A210 (0x2C) scripts\animview\<message>.qb loaded and the script named by the message spawned on the object.
 int __cdecl HandlePlayAnimation(NetLink::InboundMsgCtx* context);
-int __cdecl HandleSetAnimSpeed(NetLink::InboundMsgCtx* context);
+int __cdecl OnClipRateMsg(NetLink::InboundMsgCtx* context);
 int __cdecl HandleStepAnimation(NetLink::InboundMsgCtx* context);
 int __cdecl HandleReloadAnimation(NetLink::InboundMsgCtx* context);
 int __cdecl HandleReloadCamAnimation(NetLink::InboundMsgCtx* context);

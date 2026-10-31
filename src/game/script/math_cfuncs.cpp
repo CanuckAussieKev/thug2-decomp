@@ -43,7 +43,7 @@ constexpr uint32_t kRx = 0xFDF10F7A;           // "rx"
 constexpr uint32_t kRy = 0x8AF63FEC;           // "ry"
 constexpr uint32_t kRz = 0x13FF6E56;           // "rz"
 
-float DegreeToRadianConv() { return g_degreesToRadians; } // pi / 180
+float DegreeToRadianConv() { return g_degreeToRadianRatio; } // pi / 180
 float ConvertToDegrees() { return g_scriptRadiansToDegrees; } // 180 / pi
 
 // The x87 instructions the originals use (53-bit precision), so the results match bit for bit.

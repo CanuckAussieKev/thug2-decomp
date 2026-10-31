@@ -204,7 +204,7 @@ public:
     void CheckSleep();
 
     float m_massOverMoment;                // +0x18 mass_over_moment (0.003)
-    Maths::Vec4 m_constAcc;                // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
+    Maths::Vec4 m_steadyAccel;                // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     float m_restitution;                   // +0x2C coeff_restitution (0.4)
     float m_dragFactor;                      // +0x30 coeff_friction (0.5)
     float m_springConst;                   // +0x34 spring_const (10)
@@ -239,7 +239,7 @@ public:
     Scripts::CStruct* mp_callbackParams;    // +0xD4 CallbackParams (a copy)
     Scripts::CStruct* mp_collideSound;      // +0xD8 the sound type's CollideSound (a copy)
     Scripts::CStruct* mp_bounceSound;       // +0xDC ... BounceSound
-    int m_collideMuteDelay;                // +0xE0 (1000)
+    int m_impactQuietMs;                // +0xE0 (1000)
     int m_globalCollideMuteDelay;          // +0xE4 (100)
     float m_bounceCallbackThreshold;       // +0xE8 BounceVelocityCallbackThreshold (20)
     float m_bounceFullSpeed;               // +0xEC BounceVelocityFullSpeed (300)
@@ -258,9 +258,9 @@ public:
     uint8_t pad192[2];
     float m_pushCooldown;                  // +0x194 the time left of m_pushCooldownTime
     float m_radius;                        // +0x198 the bounding radius
-    CAudioEmitterModule* mp_soundComponent;    // +0x19C the object's sound component (for the bounce sound)
+    CAudioEmitterModule* m_audioModule;    // +0x19C the object's sound component (for the bounce sound)
 };
-static_assert(offsetof(CBodyDynamicsModule, m_constAcc) == 0x1C && offsetof(CBodyDynamicsModule, mp_contacts) == 0x60 &&
+static_assert(offsetof(CBodyDynamicsModule, m_steadyAccel) == 0x1C && offsetof(CBodyDynamicsModule, mp_contacts) == 0x60 &&
                   offsetof(CBodyDynamicsModule, m_capsule) == 0x64 &&
                   offsetof(CBodyDynamicsModule, mp_directedFriction) == 0x88 &&
                   offsetof(CBodyDynamicsModule, m_contactCount) == 0x8C &&

@@ -89,7 +89,7 @@ struct CPcTexture {
     bool Mirror();
     // 0x004CAA20 (virtual [24]): the edit's pixels' hue turned, saturation and value scaled (up to 1), from the copy
     // unless `cumulative`. True.
-    bool AdjustHsv(float hue, float saturation, float value, bool cumulative);
+    bool ShiftHueSatValue(float hue, float saturation, float value, bool cumulative);
     // 0x004CA8E0 (virtual [41]): another texture's level 0 drawn over the edit's pixels by its alpha. False.
     bool Overlay(CPcTexture* over, int unused);
     // 0x004C9F90: a rectangle of the edit's pixels read out (a palettized texture's whole image instead).

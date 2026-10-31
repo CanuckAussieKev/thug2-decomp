@@ -29,7 +29,7 @@ namespace {
 constexpr uint32_t kSlopeTurnSpeed = 0x62A1FA03;
 constexpr uint32_t kSlopeTurnNormal = 0xC3527EF2;
 constexpr uint32_t kPushSpeedCrouched = 0x92E0247C;
-constexpr uint32_t kPushSpeed = 0x4610C2E3;
+constexpr uint32_t kKickoffSpeed = 0x4610C2E3;
 constexpr uint32_t kPushCrouched = 0x3D24128E;
 constexpr uint32_t kPush = 0x5F9B864D;
 constexpr uint32_t kFrictionCrouched = 0xBED96EDA;
@@ -54,7 +54,7 @@ constexpr uint32_t kNormalBlend = 0x88;
 constexpr uint32_t kDisplayUp = 0x28;
 constexpr uint32_t kDisplayFacing = 0x38;
 constexpr uint32_t kTakeOffPoint = 0x268;
-constexpr uint32_t kWallNormal = 0x278;
+constexpr uint32_t kWallFaceVector = 0x278;
 constexpr uint32_t kVertFacing = 0x288;
 constexpr uint32_t kVertTime = 0x298;
 constexpr uint32_t kAutoKick = 0x2D9;
@@ -85,7 +85,7 @@ double SpeedOf(const Maths::Vec4& v) { return LengthUnrounded(v); }
 } // namespace
 
 // 0x004FE1F0
-void CorePhysicsComponent::ApplyFriction(float friction)
+void SkaterPhysicsModule::ApplyFriction(float friction)
 {
     Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
     float lengthSquared = static_cast<float>(LengthSqrUnrounded(velocity));
@@ -108,7 +108,7 @@ void CorePhysicsComponent::ApplyFriction(float friction)
 }
 
 // 0x004FE320
-bool CorePhysicsComponent::ShouldBrake()
+bool SkaterPhysicsModule::ShouldBrake()
 {
     uint8_t* input = InputOf(this);
     if (!At<uint8_t>(this, kAutoKick) && !input[kKickButton] && SpeedOf(VectorAt(ObjectOf(this), kVelocity)) < kSlow)
@@ -127,16 +127,16 @@ bool CorePhysicsComponent::ShouldBrake()
 }
 
 // 0x004FE420
-bool CorePhysicsComponent::MayTurnOnSlope()
+bool SkaterPhysicsModule::MayTurnOnSlope()
 {
     float speed = static_cast<float>(SpeedOf(VectorAt(ObjectOf(this), kVelocity)));
     if (!(Scripts::FetchFloat(kSlopeTurnSpeed) > speed))
         return false;
-    return Scripts::FetchFloat(kSlopeTurnNormal) > At<float>(this, kGroundNormal + 4);
+    return Scripts::FetchFloat(kSlopeTurnNormal) > At<float>(this, kFloorUpVector + 4);
 }
 
 // 0x004FE490
-bool CorePhysicsComponent::CanPushOff()
+bool SkaterPhysicsModule::CanPushOff()
 {
     uint8_t* input = InputOf(this);
     if (At<uint8_t>(this, kNoKick))
@@ -147,12 +147,12 @@ bool CorePhysicsComponent::CanPushOff()
         return false;
     float speed = static_cast<float>(SpeedOf(VectorAt(ObjectOf(this), kVelocity)));
     bool crouched = IsCrouched(this) || At<uint8_t>(this, kCrouchStat);
-    float limit = static_cast<float>(StatValue(ObjectOf(this), crouched ? kPushSpeedCrouched : kPushSpeed));
+    float limit = static_cast<float>(StatValue(ObjectOf(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
     return !(limit < speed);
 }
 
 // 0x004FE530
-void CorePhysicsComponent::PushOff()
+void SkaterPhysicsModule::PushOff()
 {
     void* object = ObjectOf(this);
     Maths::Vec4 direction;
@@ -183,11 +183,11 @@ void CorePhysicsComponent::PushOff()
 }
 
 // 0x004FE6A0
-void CorePhysicsComponent::ApplyStanceFriction()
+void SkaterPhysicsModule::ApplyStanceFriction()
 {
     void* object = ObjectOf(this);
-    float crouched = PhysicsFloat(kFrictionCrouched, object);
-    float standing = PhysicsFloat(kFriction, object);
+    float crouched = TuningFloatLookup(kFrictionCrouched, object);
+    float standing = TuningFloatLookup(kFriction, object);
     if (At<float>(this, kLimitsTime) != 0.0f) {
         crouched = At<float>(this, kLimitsFriction);
         standing = crouched;
@@ -196,7 +196,7 @@ void CorePhysicsComponent::ApplyStanceFriction()
 }
 
 // 0x004FE730
-void CorePhysicsComponent::ApplyRollingFriction()
+void SkaterPhysicsModule::ApplyWheelDrag()
 {
     Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
     double x = velocity.x;
@@ -227,7 +227,7 @@ void CorePhysicsComponent::ApplyRollingFriction()
 }
 
 // 0x004FE860
-void CorePhysicsComponent::TurnToNormal(Maths::Vec4 normal)
+void SkaterPhysicsModule::TurnToNormal(Maths::Vec4 normal)
 {
     uint8_t* settings = reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor);
     if (At<uint32_t>(settings, 0x40) != kOff && normal.y > 0.0f) {
@@ -242,8 +242,8 @@ void CorePhysicsComponent::TurnToNormal(Maths::Vec4 normal)
         if (feeler.GetHitShape(true, false))
             normal = Maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
     }
-    if (VectorAt(this, kGroundNormal) != normal) {
-        VectorAt(this, kGroundNormal) = normal;
+    if (VectorAt(this, kFloorUpVector) != normal) {
+        VectorAt(this, kFloorUpVector) = normal;
         VectorAt(this, kOldNormal) = VectorAt(this, kDrawnNormal);
         At<float>(this, kNormalBlend) = 1.0f;
         VectorAt(ObjectOf(this), kUp) = normal;
@@ -252,11 +252,11 @@ void CorePhysicsComponent::TurnToNormal(Maths::Vec4 normal)
 }
 
 // 0x004FEA50
-void CorePhysicsComponent::UpdateGroundNormal()
+void SkaterPhysicsModule::UpdateGroundNormal()
 {
     float& blend = At<float>(this, kNormalBlend);
     if (blend != 0.0f) {
-        if (VectorAt(this, kOldNormal) == VectorAt(this, kGroundNormal)) {
+        if (VectorAt(this, kOldNormal) == VectorAt(this, kFloorUpVector)) {
             blend = 0.0f;
         } else {
             double left = blend - static_cast<double>(Scripts::FetchFloat(kNormalBlendRate)) * At<float>(this, kFrameLength) *
@@ -265,12 +265,12 @@ void CorePhysicsComponent::UpdateGroundNormal()
             blend = t;
             if (left > 0.0 || left != left) {
                 Maths::Vec4 blended;
-                Walk::Lerp(&blended, &VectorAt(this, kGroundNormal), &VectorAt(this, kOldNormal), t);
+                Walk::Lerp(&blended, &VectorAt(this, kFloorUpVector), &VectorAt(this, kOldNormal), t);
                 VectorAt(this, kDrawnNormal) = blended;
                 VectorAt(this, kDrawnNormal).MakeUnit();
             } else {
                 blend = 0.0f;
-                VectorAt(this, kDrawnNormal) = VectorAt(this, kGroundNormal);
+                VectorAt(this, kDrawnNormal) = VectorAt(this, kFloorUpVector);
             }
         }
     }
@@ -284,7 +284,7 @@ void CorePhysicsComponent::UpdateGroundNormal()
 }
 
 // 0x004FEBA0
-void CorePhysicsComponent::StartVertAir()
+void SkaterPhysicsModule::StartVertAir()
 {
     if (!FlagsOf(this)[kFlagOnVert]) {
         SetTimedFlag(this, kFlagVertAir, 0);
@@ -292,8 +292,8 @@ void CorePhysicsComponent::StartVertAir()
     }
     void* object = ObjectOf(this);
     TrackingPrint(3, &VectorAt(object, kOldPosition), &VectorAt(object, kPosition));
-    Maths::Vec4 across = VectorAt(this, kGroundNormal);
-    VectorAt(this, kWallNormal) = VectorAt(this, kGroundNormal);
+    Maths::Vec4 across = VectorAt(this, kFloorUpVector);
+    VectorAt(this, kWallFaceVector) = VectorAt(this, kFloorUpVector);
     VectorAt(this, kTakeOffPoint) = VectorAt(ObjectOf(this), kOldPosition);
     At<float>(this, kTakeOffPoint + 4) = static_cast<float>(At<float>(this, kTakeOffPoint + 4) - 1.0);
     across.y = 0.0f;
@@ -323,4 +323,4 @@ void CorePhysicsComponent::StartVertAir()
 
 } // namespace Skater
 
-using Skater::CorePhysicsComponent;
+using Skater::SkaterPhysicsModule;

@@ -12,7 +12,7 @@ class KeyMap;
 namespace Scripts {
 
 // The script cache (one instance, 0x006F3558, reference counted by 0x006F355C): the scripts' code, decompressed
-// and pre-processed, by script name. Scripts are stored compressed in the symbol table (see CreateScriptSymbol);
+// and pre-processed, by script name. Scripts are stored compressed in the symbol table (see DefineScriptSymbol);
 // a running script (and every script it has called and is waiting on) holds a use of its cached code, which
 // FetchScript takes and ReleaseScript gives back.
 //

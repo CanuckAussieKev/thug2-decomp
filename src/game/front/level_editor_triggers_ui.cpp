@@ -429,7 +429,7 @@ void InspectorSection(int index)
             changed = true;
         }
         if (ImGui::TreeNode("Flags")) {
-            for (const char* flag : GapFlags()) {
+            for (const char* flag : GapOptionLabels()) {
                 bool on = std::find(s.flags.begin(), s.flags.end(), flag) != s.flags.end();
                 if (ImGui::Checkbox(flag, &on)) {
                     if (on)

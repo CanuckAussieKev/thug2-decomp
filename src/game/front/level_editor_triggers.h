@@ -98,7 +98,7 @@ struct Calls {
 Kind KindOfCalls(const Calls& calls, bool hasScript);
 
 // The gap flags StartGap is given in THUG2's levels (the checkboxes offered).
-const std::vector<const char*>& GapFlags();
+const std::vector<const char*>& GapOptionLabels();
 
 // A trigger volume the editor added (its node's place - pos, heading - is the node's).
 struct Spec {
@@ -181,7 +181,7 @@ struct Placed {
     float yaw = 0.0f;
 };
 // The record's text after "trigger " and back (false: not a record this reads - a bad value, a repeated key, no place).
-std::string LogEntry(const Placed& placed);
+std::string LinkRecord(const Placed& placed);
 bool ReadRecord(const std::string& text, Placed* placed);
 
 // The other end of a gap: the index in `specs` of a trigger with the same GapID and the other end's kind (-1: none).

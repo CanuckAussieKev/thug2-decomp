@@ -19,7 +19,7 @@ struct CDynamicLight;
 struct CDynamicLightBase;
 
 // The world lights (0x1C bytes: 0x0067DC98, and each of the stack's entries).
-struct sWorldLights {
+struct sLightingState {
     uint32_t ambient;      // +0x00: RGBA
     Maths::Vec4* directions; // +0x04: one per light
     uint32_t* colours;     // +0x08: one per light
@@ -30,11 +30,11 @@ struct sWorldLights {
 
     // 0x0048EAC0 (not a Ghidra function): grey ambient (0x48, 0x48, 0x48, 0x80), no arrays, a low range of 0.5.
     // Returns this.
-    sWorldLights* MakeNew();
+    sLightingState* MakeNew();
     // 0x0048EB00: the four arrays freed.
     void FreeArrays();
 };
-static_assert(offsetof(sWorldLights, lightLow) == 0x14 && sizeof(sWorldLights) == 0x1C, "layout must match the original");
+static_assert(offsetof(sLightingState, lightLow) == 0x14 && sizeof(sLightingState) == 0x1C, "layout must match the original");
 
 // 0x0048EB70: the manager set up for `maxLights` world lights (their arrays - the stack's zeroed - and the
 // intensities, all 1) and `maxModelLights` model lights.
@@ -52,11 +52,11 @@ uint32_t* __cdecl GetLightDiffuseColor(uint32_t* out, int light);
 // 0x0048ED70: a light's direction set and sent (0x004B6A70). That one's result.
 bool __cdecl SetLightDirection(int light, const Maths::Vec4* direction);
 // 0x0048E970 / 0x0048E990: the ambient's / a light's modulation ranges.
-void __cdecl SetAmbientLightModulationFactor(float low, float high);
-void __cdecl SetDiffuseLightModulationFactor(int light, float low, float high);
+void __cdecl ChangeAmbientScale(float low, float high);
+void __cdecl ChangeDiffuseScale(int light, float low, float high);
 // 0x0048E9B0 / 0x0048E9D0: read back (`low` or not; a light's always from the low ranges, as the original).
-float __cdecl GetAmbientLightModulationFactor(bool low);
-float __cdecl GetDiffuseLightModulationFactor(int light, bool low);
+float __cdecl FetchAmbientScale(bool low);
+float __cdecl FetchDiffuseScale(int light, bool low);
 // 0x0048EA00: the world lights saved on the stack (nothing when it's full).
 void __cdecl PushWorldLights();
 // 0x0048EA40: the world lights taken back from the stack; false when it's empty.
@@ -104,7 +104,7 @@ static_assert(offsetof(CDynamicLightBase, owner) == 0x28 && sizeof(CDynamicLight
 
 extern int g_dynamicLightCount;
 extern float g_ambientIntensity;
-extern sWorldLights g_worldLights;
+extern sLightingState g_activeLighting;
 extern CDynamicLightBase* g_dynamicLights[256];
 extern float* g_intensities;
 extern uint32_t g_modelLightCount;

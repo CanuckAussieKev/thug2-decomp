@@ -15,10 +15,10 @@ class AsyncFileHandle;
 namespace AssetStore {
 
 // The asset types (each file extension maps to one, 0x0067C650).
-enum AssetType : int {
+enum ResourceKind : int {
     kBinary = 1,          // .BIN
     kScene = 2,           // .SCN, .GEOM
-    kTextureDictionary = 3, // .TEX
+    kResTexDict = 3, // .TEX
     kSceneCollision = 4,  // .COL
     kAnimation = 5,       // .SKA, .FAM
     kSkeleton = 6,        // .SKE
@@ -153,7 +153,7 @@ struct AssetConstructors : CResource {
     // 0x0040A210 skin collision (0x50, 0x00645928)
     CResource* SkinCollision();
     // 0x0040A580 texture dictionary (0x50, 0x006459A8)
-    CResource* TextureDictionary();
+    CResource* TextureBank();
     // 0x00407A30 cutscene (0x4C, 0x00645600)
     CResource* Cutscene();
     // 0x00408BB0 node array (0x64, 0x00645698)

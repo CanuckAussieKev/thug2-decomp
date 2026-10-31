@@ -22,7 +22,7 @@ const uint8_t* ResolveRandomJumps(const uint8_t* token);
 // Past one value token (structures and arrays included).
 const uint8_t* SkipValue(const uint8_t* token);
 // The stored no-repeat / permute state of the random table `table` for the current script, or null.
-CStoredRandom* FindStoredRandom(const uint8_t* table, uint32_t type, uint32_t count);
+CStoredRandom* LookUpSavedRandom(const uint8_t* table, uint32_t type, uint32_t count);
 // A new stored random state (at most 100 are kept: the oldest goes).
 CStoredRandom* NewStoredRandom();
 // RandomRange(a, b) (`token` at the pair after the RandomRange token): an integer if both ends are whole

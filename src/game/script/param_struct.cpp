@@ -22,7 +22,7 @@ char* g_permanentStringsNext;
 uint32_t g_permanentStringsSize;
 uint32_t g_permanentStringCount;
 int g_structCopyCount;
-CSymbolTableEntry** g_symbolTable;
+CSymbolTableEntry** g_nameTable;
 MemSys::PoolPair g_symbolPools;
 CSymbolTableEntry* g_iteratorEntry;
 uint32_t g_iteratorBucket;
@@ -31,7 +31,7 @@ MemSys::PoolPair g_vectorPools;
 
 namespace {
 
-CSymbolTableEntry** SymbolTable() { return g_symbolTable; }
+CSymbolTableEntry** ScriptSymbolSlots() { return g_nameTable; }
 constexpr uint32_t kSymbolTableMask = 0xFFF;
 
 } // namespace
@@ -39,7 +39,7 @@ constexpr uint32_t kSymbolTableMask = 0xFFF;
 // 0x00478CC0
 CSymbolTableEntry* FindSymbol(uint32_t name)
 {
-    CSymbolTableEntry* entry = SymbolTable()[name & kSymbolTableMask];
+    CSymbolTableEntry* entry = ScriptSymbolSlots()[name & kSymbolTableMask];
     while (entry && entry->name != name)
         entry = entry->next;
     return entry;
@@ -565,7 +565,7 @@ void FreeString(const char* string)
 }
 
 // 0x00409030 / 0x00409070
-CStruct* NewStruct() { return static_cast<CStruct*>(StructPools().Carve(sizeof(CStruct))); }
+CStruct* SpawnParamBag() { return static_cast<CStruct*>(StructPools().Carve(sizeof(CStruct))); }
 void DeleteStruct(CStruct* structure) { StructPools().Dealloc(structure); }
 // 0x00408F90 / 0x00408FD0
 CArray* NewArray() { return static_cast<CArray*>(ArrayPools().Carve(sizeof(CArray))); }
@@ -751,7 +751,7 @@ void DuplicateComponent(CComponent* dest, CComponent* source, int reference)
             dest->structure = source->structure;
             break;
         }
-        CStruct* structure = NewStruct();
+        CStruct* structure = SpawnParamBag();
         if (structure)
             structure->PrepareAll();
         dest->structure = structure;
@@ -1098,7 +1098,7 @@ void CStruct::AppendStructRef(const char* name, CStruct* value)
 void CStruct::PutSubStruct(uint32_t name, CStruct* value)
 {
     CComponent* component = NewTypedComponent(name, QBVAL_STRUCT);
-    CStruct* copy = NewStruct();
+    CStruct* copy = SpawnParamBag();
     if (copy)
         copy->PrepareAll();
     component->structure = copy;
@@ -1395,7 +1395,7 @@ void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, u
         case QBVAL_STRUCT:
             if (element) {
                 auto* from = reinterpret_cast<CStruct*>(element);
-                CStruct* structure = NewStruct();
+                CStruct* structure = SpawnParamBag();
                 if (structure)
                     structure->PrepareAll();
                 if (from != structure) {
@@ -1503,7 +1503,7 @@ const char* EmptyString() { return ""; }
 void CreateSymbolTable()
 {
     auto* table = static_cast<CSymbolTableEntry**>(MemSys::AllocBlock(0x1000 * sizeof(CSymbolTableEntry*)));
-    g_symbolTable = table;
+    g_nameTable = table;
     for (uint32_t i = 0; i < 0x1000; ++i)
         table[i] = nullptr;
 }
@@ -1534,7 +1534,7 @@ CSymbolTableEntry* CreateSymbol(uint32_t name)
 // 0x00478DC0
 void LinkSymbol(CSymbolTableEntry* entry)
 {
-    CSymbolTableEntry*& head = SymbolTable()[entry->name & kSymbolTableMask];
+    CSymbolTableEntry*& head = ScriptSymbolSlots()[entry->name & kSymbolTableMask];
     entry->next = head;
     head = entry;
 }
@@ -1542,7 +1542,7 @@ void LinkSymbol(CSymbolTableEntry* entry)
 // 0x00478D60
 void UnlinkSymbol(CSymbolTableEntry* entry)
 {
-    CSymbolTableEntry** bucket = &SymbolTable()[entry->name & kSymbolTableMask];
+    CSymbolTableEntry** bucket = &ScriptSymbolSlots()[entry->name & kSymbolTableMask];
     CSymbolTableEntry* previous = nullptr;
     for (CSymbolTableEntry* each = *bucket; each; previous = each, each = each->next) {
         if (each != entry)
@@ -1562,7 +1562,7 @@ CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous)
     CSymbolTableEntry* entry;
     if (!previous) {
         IteratorBucket() = 0;
-        entry = SymbolTable()[0];
+        entry = ScriptSymbolSlots()[0];
     } else {
         entry = previous->next;
     }
@@ -1572,7 +1572,7 @@ CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous)
             IteratorEntry() = nullptr;
             return nullptr;
         }
-        entry = SymbolTable()[IteratorBucket()];
+        entry = ScriptSymbolSlots()[IteratorBucket()];
     }
     IteratorEntry() = entry;
     return entry;

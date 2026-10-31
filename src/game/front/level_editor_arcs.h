@@ -15,7 +15,7 @@ struct Painter;
 // level_editor_overlays.h), each lip of the selection is found in its collision and the flight a skater takes off it
 // drawn at three speeds, with where it lands - so a gap can be judged makeable while the pieces are placed.
 //
-// The flight is the game's air physics (Skater::CorePhysicsComponent::DoAirPhysics 0x0050CA00, rewritten in
+// The flight is the game's air physics (Skater::SkaterPhysicsModule::DoAirPhysics 0x0050CA00, rewritten in
 // game/skater/core_physics.cpp): each frame position += velocity t + (0, g, 0) t^2 / 2, velocity.y += g t, with
 //   g = Physics_Air_Gravity / Physics_Air_hang_Stat  (-1350 / 1.0 in skater_physics) - off a kicker or ramp;
 //   g = Physics_Air_Gravity / Physics_Vert_hang_Stat (-1350 / 1.1) - in vert air (off a quarter pipe's vert lip)

@@ -84,7 +84,7 @@ Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name);
 // The flag set: its flag and its base (named-driven).
 Spec Base(const Spec& flag);
 // The fixed names of the name-driven kinds ("" for the others): TRG_CTF_Restart_<Colour>, TRG_CTF_<Colour>.
-std::string FixedName(Kind kind, Team team);
+std::string PinnedNodeName(Kind kind, Team team);
 // A team lobby flag (the feature map's second round): a FlagSet node (GameObject Flag_<Colour>, its flag model) named
 // TRG_Flag_<Colour> - the name SK4_Scripts' Create_Team_Flags makes in a lobby (NodeExists / create name=) - whose
 // TriggerScript is its level's TRG_Flag_<Colour>Script (Team_Flag <colour>, as BO's and TR's); no base (the shipped

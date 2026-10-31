@@ -207,7 +207,7 @@ public:
     float m_unknown348C;          // +0x348C: where a fixed-step cutscene loops (0: never)
     uint64_t m_pausedVblanks;     // +0x3490
     uint64_t m_vblanks;           // +0x3498: counted by UpdateVblanks
-    uint64_t m_lastVblanks;       // +0x34A0: the timer's count at the last UpdateVblanks
+    uint64_t m_prevRetraces;       // +0x34A0: the timer's count at the last UpdateVblanks
     void* m_unknown34A8;          // +0x34A8: the skater's appearance
     void* m_unknown34AC;          // +0x34AC: the skater's profile structure
     uint8_t m_flag34B0;           // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)

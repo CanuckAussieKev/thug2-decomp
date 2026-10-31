@@ -27,7 +27,7 @@ public:
 
     // 0x0055EB70 (cdecl): the first word of `*name` (up to its first space, `*name` left there) into `out` - the
     // whole name if there's no space. (`size` isn't read.)
-    static void ParseFirstName(char* out, const char** name, int size);
+    static void ReadLeadingName(char* out, const char** name, int size);
     // 0x0055EBC0 (cdecl): with `add`, _success appended to `text` (sprintf onto itself, as the original). (`size`
     // isn't read.)
     static void AddSuccessSuffix(bool add, char* text, int size);

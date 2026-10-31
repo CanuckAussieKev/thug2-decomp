@@ -1,6 +1,6 @@
 // The network game's joining players made real (OnlinePlay::Hub): on a client, a JoinerRecord from the server
-// becomes a player with its skater (AddNewPlayer) once its time has come (ClientAddNewPlayersTask); on the server the
-// same (ServerAddNewPlayersTask) with the messages telling everyone about it (0x0053D9D0-0x0053EB70). See
+// becomes a player with its skater (AddNewPlayer) once its time has come (GuestPlayerIntakeTick); on the server the
+// same (HostPlayerIntakeTick) with the messages telling everyone about it (0x0053D9D0-0x0053EB70). See
 // gamenet_manager.h.
 
 #include <cstddef>
@@ -99,20 +99,20 @@ void Hub::AddNewPlayer(uint8_t* info)
         bool splitScreen = ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr) != 0;
         void* profile = Call<void*>(CodeAddress(static_cast<GameObjects::CRiderIdentity* (GameModules::Skate::*)(int)>(&GameModules::Skate::FetchAccount)), skate, splitScreen ? static_cast<int>(objId) : 0); // the skater's profile
         if (!InNetGame()) {
-            skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::AddSkater), skate, profile, true, static_cast<int>(objId), SkaterCount(skate));
+            skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::SpawnSkaterEntity), skate, profile, true, static_cast<int>(objId), SkaterCount(skate));
         } else if (Prop<uint32_t>(info, kInfoFlags) & kNewLocal) {
-            skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::AddSkater), skate, profile, true, static_cast<int>(objId), 0);
+            skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::SpawnSkaterEntity), skate, profile, true, static_cast<int>(objId), 0);
         } else {
             auto* skaters = reinterpret_cast<GameModules::Skate*>(skate);
             int count = Call<void*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), skate) ? skaters->CountRiders() : (skaters->CountRiders() + 1) & 7;
-            skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::AddSkater), skate, Prop<void*>(info, kInfoProfile), false,
+            skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::SpawnSkaterEntity), skate, Prop<void*>(info, kInfoProfile), false,
                                          static_cast<int>(objId), count);
             if (Prop<int>(info, kInfoVehicle)) // its vehicle control type
                 Prop<int>(static_cast<GameObjects::CGameEntity*>(skater)->FetchModule(kVehicleComponent), 0x1104) =
                     Prop<int>(info, kInfoVehicle);
         }
     }
-    uint8_t* player = PlayerByObjectId(static_cast<uint16_t>(static_cast<int16_t>(objId)));
+    uint8_t* player = FindPlayerSlotByObj(static_cast<uint16_t>(static_cast<int16_t>(objId)));
     if (Prop<uint32_t>(info, kInfoFlags) & kNewResync) { // the old player (or the local one) goes
         if (!player)
             player = LocalPlayer(this);
@@ -143,7 +143,7 @@ void Hub::AddNewPlayer(uint8_t* info)
     if (Prop<uint32_t>(info, kInfoFlags) & kNewResync) {
         PrepareLocalFace();
         SendCustomTagTexture();
-        GameObjects::g_trickObjectManager->RemoveAllClusters(); // the trick objects
+        GameObjects::g_trickSpotHub->RemoveAllClusters(); // the trick objects
         Run(kResyncedPlayers);
     }
     if (!IsOwnPlayer(player)) {
@@ -155,7 +155,7 @@ void Hub::AddNewPlayer(uint8_t* info)
 }
 
 // 0x0053EA30
-void __cdecl Hub::ClientAddNewPlayersTask(void* task)
+void __cdecl Hub::GuestPlayerIntakeTick(void* task)
 {
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_skaterInfoHeap);
@@ -194,7 +194,7 @@ void __cdecl Hub::ClientAddNewPlayersTask(void* task)
 
 namespace {
 
-// A player's details for the others (message 0x22, the client's HandleNewPlayer 0x0052DB80): a 0x30-byte header and
+// A player's details for the others (message 0x22, the client's OnPlayerAddedMsg 0x0052DB80): a 0x30-byte header and
 // its appearance (CRiderIdentity::EmitIntoBuffer, at most 0x1000 bytes).
 struct NewPlayerMessage {
     int32_t profileId;      // +0x00
@@ -206,7 +206,7 @@ struct NewPlayerMessage {
     int8_t objId;           // +0x18
     int8_t team;            // +0x19
     uint8_t pad1A[2];       // (never written)
-    int32_t vehicleControlType; // +0x1C
+    int32_t driveScheme; // +0x1C
     char name[kNameSize];   // +0x20
     uint8_t appearance[kAppearanceSize]; // +0x30
 };
@@ -214,7 +214,7 @@ static_assert(offsetof(NewPlayerMessage, objId) == 0x18 && offsetof(NewPlayerMes
               offsetof(NewPlayerMessage, appearance) == 0x30);
 constexpr uint16_t kNewPlayerHeader = 0x30;
 
-constexpr uint8_t kMsgNewPlayer = 0x22;
+constexpr uint8_t kMsgPlayerArrived = 0x22;
 constexpr uint8_t kMsgReadyQuery = 0x25;
 constexpr uint8_t kMsgJoinAccepted = 0x53;
 constexpr uint8_t kMsgParkMap = 0x6C;
@@ -225,7 +225,7 @@ constexpr uint16_t kRailsSize = 0x1132;
 constexpr uint8_t kCompressionLzss = 2;
 constexpr uint32_t kLoadParkLevel = 0xB664035D; // load_sk5ed_gameplay (the created park)
 constexpr uint32_t kPlayerFlagsSent = 0x27880;  // the flags a player's details carry
-constexpr int kNormalPriority = 0x80;
+constexpr int kMidPriority = 0x80;
 constexpr int kHighestPriority = 0xFF;
 
 // The player's details (its object id given), its appearance written into the message; the message's length.
@@ -236,7 +236,7 @@ uint16_t FillNewPlayerMessage(NewPlayerMessage& msg, uint8_t* player, int8_t obj
     msg.team = static_cast<int8_t>(Prop<int>(player, 0x30));
     msg.profileId = Prop<int32_t>(player, 0x28);
     msg.rating = Prop<int32_t>(player, 0x2C);
-    msg.vehicleControlType = Prop<int32_t>(player, 0x48);
+    msg.driveScheme = Prop<int32_t>(player, 0x48);
     msg.score = 0;
     msg.value14 = 0;
     msg.value10 = 0;
@@ -249,9 +249,9 @@ void SendNewPlayer(NetLink::AppHost* server, NetLink::NetMessageInfo& desc, uint
 {
     desc.m_content = &msg;
     desc.m_byteCount = length;
-    desc.m_ident = kMsgNewPlayer;
-    desc.m_rank = kNormalPriority;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_ident = kMsgPlayerArrived;
+    desc.m_rank = kMidPriority;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     desc.m_compression = kCompressionLzss;
     server->PutOnOutbox(PlayerHandle(to), &desc);
@@ -263,8 +263,8 @@ void SendWord(NetLink::AppHost* server, NetLink::NetMessageInfo& desc, uint8_t* 
     desc.m_content = word;
     desc.m_byteCount = sizeof(*word);
     desc.m_ident = id;
-    desc.m_rank = kNormalPriority;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_rank = kMidPriority;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     server->PutOnOutbox(PlayerHandle(to), &desc);
 }
@@ -272,7 +272,7 @@ void SendWord(NetLink::AppHost* server, NetLink::NetMessageInfo& desc, uint8_t* 
 } // namespace
 
 // 0x0053D9D0
-void __cdecl Hub::ServerAddNewPlayersTask(void* task)
+void __cdecl Hub::HostPlayerIntakeTick(void* task)
 {
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_skaterInfoHeap);
@@ -281,7 +281,7 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
     NetLink::Hub* net = NetLink::Hub::Sole();
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     auto* node = Prop<MemSys::ListNode*>(manager, 0x13C);
     if (node->data != reinterpret_cast<void*>(-1) && node) {
@@ -319,7 +319,7 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
                 msg.team = static_cast<int8_t>(Prop<int>(player, 0x30));
                 msg.profileId = Prop<int32_t>(player, 0x28);
                 msg.rating = Prop<int32_t>(player, 0x2C);
-                msg.vehicleControlType = Prop<int32_t>(player, 0x48);
+                msg.driveScheme = Prop<int32_t>(player, 0x48);
                 msg.score = 0;
                 msg.value14 = 0;
                 msg.value10 = 0;
@@ -336,13 +336,13 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
                 server->PutOnOutbox(PlayerHandle(player), &desc);
                 desc.m_content = &msg;
                 desc.m_byteCount = kNewPlayerHeader;
-                desc.m_ident = kMsgNewPlayer;
+                desc.m_ident = kMsgPlayerArrived;
                 desc.m_compression = kCompressionLzss;
                 server->PutOnOutbox(PlayerHandle(player), &desc);
                 desc.m_compression = 0;
             }
             if (!IsObserver(player)) { // the new player to every other remote player
-                for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true)) {
+                for (uint8_t* other = StartRosterSweep(manager, &search, true); other; other = StepRosterSweep(manager, &search, true)) {
                     if (other == player || IsOwnPlayer(other))
                         continue;
                     uint16_t length = FillNewPlayerMessage(msg, player, objId, 0, false);
@@ -350,8 +350,8 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
                 }
             }
             if (Prop<uint32_t>(player, 0x1D0) & kNewResync) { // the players of its own group to it
-                for (uint8_t* other = FirstPlayer(manager, &search, false); other;
-                     other = NextPlayer(manager, &search, false)) {
+                for (uint8_t* other = StartRosterSweep(manager, &search, false); other;
+                     other = StepRosterSweep(manager, &search, false)) {
                     if (other == player || Prop<uint32_t>(other, 0x1D8) != Prop<uint32_t>(player, 0x1D8))
                         continue;
                     uint16_t length = FillNewPlayerMessage(msg, other, static_cast<int8_t>(SkaterId(PlayerSkater(other))),
@@ -359,8 +359,8 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
                     SendNewPlayer(server, desc, player, msg, length);
                 }
             } else { // every playing player to it, the created park and its rails, then joined
-                for (uint8_t* other = FirstPlayer(manager, &search, false); other;
-                     other = NextPlayer(manager, &search, false)) {
+                for (uint8_t* other = StartRosterSweep(manager, &search, false); other;
+                     other = StepRosterSweep(manager, &search, false)) {
                     if (other == player || IsOwnPlayer(player))
                         continue;
                     int8_t otherId = static_cast<int8_t>(SkaterId(PlayerSkater(other)));
@@ -369,7 +369,7 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
                     msg.team = static_cast<int8_t>(Prop<int>(other, 0x30));
                     msg.profileId = Prop<int32_t>(other, 0x28);
                     msg.rating = Prop<int32_t>(other, 0x2C);
-                    msg.vehicleControlType = Prop<int32_t>(other, 0x48);
+                    msg.driveScheme = Prop<int32_t>(other, 0x48);
                     msg.score = manager->GetEntrantPoints(SkaterId(PlayerSkater(other))); // (its score)
                     msg.value14 = Prop<uint32_t>(other, 0x20);
                     msg.value10 = Prop<uint32_t>(other, 0x1C);
@@ -394,12 +394,12 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
             if (!IsObserver(player)) { // its skater; every other player asked whether it's ready
                 int count = IsOwnPlayer(player) && manager->InNetGame() ? 0 : SkaterCount(skate);
                 bool localConn = Prop<NetLink::Conn*>(player, 0x18)->IsHostLocal();
-                auto* skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::AddSkater), skate, Prop<void*>(info, kInfoProfile), localConn,
+                auto* skater = Call<GameObjects::CEntity*>(CodeAddress(&GameModules::Skate::SpawnSkaterEntity), skate, Prop<void*>(info, kInfoProfile), localConn,
                                                    static_cast<int>(objId), count);
                 AsPlayer(player)->BindRider(static_cast<GameObjects::CRider*>(skater));
                 if (!IsOwnPlayer(player))
                     static_cast<GameObjects::CRider*>(skater)->ConcealSkater(); // hidden
-                for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true)) {
+                for (uint8_t* other = StartRosterSweep(manager, &search, true); other; other = StepRosterSweep(manager, &search, true)) {
                     if (other == player)
                         continue;
                     SendWord(server, desc, other, kMsgReadyQuery, &now);
@@ -418,9 +418,9 @@ void __cdecl Hub::ServerAddNewPlayersTask(void* task)
         }
     }
     MemSys::Hub::Pull()->LeaveHeapScope();
-    Hub* global = g_gameNetManager;
+    Hub* global = g_onlineHub;
     global->UpdateLobbyServer();
-    if (g_netEnabled && global->InNetGame() && g_queryReporting)
+    if (g_onlineActive && global->InNetGame() && g_queryReporting)
         GameSpy::Qr2SendStateChanged(nullptr); // qr2_send_statechanged
 }
 

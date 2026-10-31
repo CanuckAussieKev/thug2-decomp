@@ -89,7 +89,7 @@ void SetLineColour(void* line, int vertex, uint32_t colour) { LineCall(line, 15,
 void SetLineVertex(void* line, int vertex, const Maths::Vec4& pos) { LineCall(line, 7, vertex, pos.x, pos.y, pos.z); }
 
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
-void BoneWorldPosition(CObjectModule* skeleton, uint32_t bone, Maths::Vec4* out)
+void JointWorldPoint(CObjectModule* skeleton, uint32_t bone, Maths::Vec4* out)
 {
     static_cast<CBoneRigModule*>(skeleton)->GetBonePosition(bone, out);
 }
@@ -98,7 +98,7 @@ void BonePosition(CObjectModule* skeleton, uint32_t bone, Maths::Vec4* out)
     static_cast<CBoneRigModule*>(skeleton)->GetLocalBonePosition(bone, out);
 }
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
-void BoneMatrix(CObjectModule* skeleton, uint32_t bone, Maths::Mat4* out)
+void SkinMatrixPtr(CObjectModule* skeleton, uint32_t bone, Maths::Mat4* out)
 {
     auto* data = reinterpret_cast<void*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(skeleton)->Word18());
     static_cast<Gfx2D::CRig*>(data)->ReadJointMatrix(bone, out);
@@ -155,7 +155,7 @@ CChain* CChain::MakeNew()
     m_collideEnd = 0;
     m_iterations = 0;
     m_damping = 0.0f;
-    m_pullDown = 0.0f;
+    m_sagForce = 0.0f;
     m_collideBelow = false;
     m_moveWithObject = true;
     return this;
@@ -290,7 +290,7 @@ void CChainComponent::ConfigureFromData(Scripts::CStruct* params)
         description->FetchVec(kStartOffset, reinterpret_cast<Scripts::VectorValue*>(&chain->m_startOffset), 1);
         description->ReadHashValue(kBoneEnd, &chain->m_boneEnd, 1);
         description->ReadHashValue(kObjEnd, &chain->m_objEnd, 1);
-        description->FetchFloat(kGravityForce, &chain->m_pullDown, 1);
+        description->FetchFloat(kGravityForce, &chain->m_sagForce, 1);
         description->FetchFloat(kDampForce, &chain->m_damping, 1);
         description->FetchIntValue(kIterations, &value, 1);
         chain->m_iterations = value;
@@ -398,9 +398,9 @@ void CChainComponent::TickFrame()
     float frame = static_cast<float>(FrameClock::GetSlomoFrameSeconds());
     const Maths::Vec4 velocity = m_entity->m_vel;
     Maths::Vec4 planePoint, axisFrom, axisTo;
-    BoneWorldPosition(m_boneRig, m_planeBone, &planePoint);
-    BoneWorldPosition(m_boneRig, m_axisFromBone, &axisFrom);
-    BoneWorldPosition(m_boneRig, m_axisToBone, &axisTo);
+    JointWorldPoint(m_boneRig, m_planeBone, &planePoint);
+    JointWorldPoint(m_boneRig, m_axisFromBone, &axisFrom);
+    JointWorldPoint(m_boneRig, m_axisToBone, &axisTo);
     // The plane's axis (y rounded before it's squared; w the rounded difference).
     double ax = static_cast<double>(axisTo.x) - axisFrom.x;
     float ay = Rounded(static_cast<double>(axisTo.y) - axisFrom.y);
@@ -461,14 +461,14 @@ void CChainComponent::TickFrame()
             link.m_nextPos.z = Rounded(static_cast<double>(stepZ) + link.m_atPoint.z);
             link.m_nextPos.w = Rounded(stepW + link.m_atPoint.w);
             link.m_nextPos.y = Rounded(static_cast<double>(link.m_nextPos.y) -
-                                       static_cast<double>(frame) * chain->m_pullDown * frame);
+                                       static_cast<double>(frame) * chain->m_sagForce * frame);
         }
 
         // The start: bone_start's position plus start_offset turned by the bone, into the world.
         Maths::Vec4 start;
         BonePosition(m_boneRig, chain->m_boneStart, &start);
         Maths::Mat4 bone;
-        BoneMatrix(m_boneRig, chain->m_boneStart, &bone);
+        SkinMatrixPtr(m_boneRig, chain->m_boneStart, &bone);
         bone.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
         Maths::Vec4 turned = chain->m_startOffset * bone;
         start = {Rounded(static_cast<double>(start.x) + turned.x), Rounded(static_cast<double>(start.y) + turned.y),

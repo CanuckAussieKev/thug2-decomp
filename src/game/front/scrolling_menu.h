@@ -10,15 +10,15 @@
 // its items, scrolling to keep the focused item in view (items outside the window get alpha 0).
 namespace MenuSystem {
 
-class CScrollingMenu : public CUiWidget {
+class CWindowedList : public CUiWidget {
 public:
     // 0x004AE050: the constructor (returns this): vtables 0x0064A154 / 0x0064A14C (the listener, registered for
     // the element), no menu yet, scroll_speed 10000, every item shown, no regular spacing (-1); type
     // VScrollingMenu (also for the horizontal one: its constructor doesn't change it).
-    CScrollingMenu* MakeNew();
+    CWindowedList* MakeNew();
     // 0x004AE170 / 0x004AE1C0: vertical (vtables 0x0064A188 / 0x0064A180) / horizontal (0x0064A1BC / 0x0064A1B4).
-    CScrollingMenu* ConstructVertical();
-    CScrollingMenu* ConstructHorizontal();
+    CWindowedList* ConstructVertical();
+    CWindowedList* ConstructHorizontal();
     // 0x004AE110: the destructor body (the listener goes, then CUiWidget's). 0x004AE1A0 / 0x004AE1F0: the
     // vertical / horizontal one's (their vtables, then this).
     void DestroyBody();
@@ -26,9 +26,9 @@ public:
     void DestroyBodyHorizontal();
     // 0x004AE240 / 0x004AE270 / 0x004AE2A0 (vtable slot 0 of each); 0x004AE210 / 0x004AE220 / 0x004AE230: the
     // same from the listener (+0x178).
-    CScrollingMenu* Teardown(uint8_t flags);
-    CScrollingMenu* DestroyVertical(uint8_t flags);
-    CScrollingMenu* DestroyHorizontal(uint8_t flags);
+    CWindowedList* Teardown(uint8_t flags);
+    CWindowedList* DestroyVertical(uint8_t flags);
+    CWindowedList* DestroyHorizontal(uint8_t flags);
 
     // 0x004AE520 (slot 1): internal_just, scroll_speed (an integer), num_items_to_show, reset_window_top /
     // reset_window_bottom / 0xA1F3B8BB (a new arrangement); then CUiWidget's.
@@ -51,9 +51,9 @@ public:
 
     GameObjects::CSignalReceiver m_listener; // +0x178
     CUiWidget* mp_menu;        // +0x194
-    uint32_t m_selectedId;          // +0x198 the item focused
-    float m_internalJustX;          // +0x19C internal_just
-    float m_internalJustY;          // +0x1A0
+    uint32_t m_chosenItemId;          // +0x198 the item focused
+    float m_innerAlignH;          // +0x19C internal_just
+    float m_innerAlignV;          // +0x1A0
     bool m_focused;                 // +0x1A4
     bool m_rearrange;               // +0x1A5
     uint8_t pad1A6[2];
@@ -65,10 +65,10 @@ public:
     bool m_vertical;                // +0x1BC
     uint8_t pad1BD[3];
 };
-static_assert(offsetof(CScrollingMenu, m_listener) == 0x178 && offsetof(CScrollingMenu, mp_menu) == 0x194 &&
-                  offsetof(CScrollingMenu, m_focused) == 0x1A4 && offsetof(CScrollingMenu, m_windowStart) == 0x1A8 &&
-                  offsetof(CScrollingMenu, m_regularSpace) == 0x1B8 && offsetof(CScrollingMenu, m_vertical) == 0x1BC &&
-                  sizeof(CScrollingMenu) == 0x1C0,
+static_assert(offsetof(CWindowedList, m_listener) == 0x178 && offsetof(CWindowedList, mp_menu) == 0x194 &&
+                  offsetof(CWindowedList, m_focused) == 0x1A4 && offsetof(CWindowedList, m_windowStart) == 0x1A8 &&
+                  offsetof(CWindowedList, m_regularSpace) == 0x1B8 && offsetof(CWindowedList, m_vertical) == 0x1BC &&
+                  sizeof(CWindowedList) == 0x1C0,
               "layout must match the original");
 
 } // namespace Front

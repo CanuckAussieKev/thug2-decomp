@@ -316,7 +316,7 @@ float Apparent(float distance)
     return distance * g_ortho.equivalent / EyeDistance(g_ortho.equivalent);
 }
 
-float ViewAngle(float baseDegrees) { return Ortho() ? OrthoAngle(baseDegrees, g_ortho.equivalent) : baseDegrees; }
+float AdjustViewAngle(float baseDegrees) { return Ortho() ? OrthoAngle(baseDegrees, g_ortho.equivalent) : baseDegrees; }
 
 float NearPlane() { return Ortho() ? OrthoNear(g_ortho.equivalent) : 2.0f; }
 
@@ -491,7 +491,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
     }
     // The numpad: 7 top, 1 front, 3 right (Ctrl: the opposite), 5 perspective / ortho.
     static const int kPad[4][2] = {{Actions::kViewTop, Actions::kViewBottom},
-                                   {Actions::kViewFront, Actions::kViewBack},
+                                   {Actions::kCamFrontView, Actions::kViewBack},
                                    {Actions::kViewRight, Actions::kViewLeft},
                                    {Actions::kViewOrtho, Actions::kViewOrtho}};
     for (int i = 0; i < 4; ++i) {

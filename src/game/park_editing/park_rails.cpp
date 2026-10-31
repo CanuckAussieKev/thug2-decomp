@@ -90,7 +90,7 @@ void CParkRailString::CopyFrom(const CParkRailString* source, const Maths::Vec4*
 {
     const bool climbing = source->m_class == kClimbingNode;
     for (const CParkRailPoint* from = source->mp_points; from; from = from->m_following) {
-        CParkRailPoint* point = mp_set->NewPoint(); // (not null-checked: as the original)
+        CParkRailPoint* point = mp_set->AppendRailVertex(); // (not null-checked: as the original)
         std::memcpy(point, from, offsetof(CParkRailPoint, m_following));
         // Turned about y: what's added to the offset's x and z.
         float x, z;
@@ -152,7 +152,7 @@ void CParkRailString::DeletePoints()
 CParkRailSet* CParkRailSet::MakeNew()
 {
     m_railGroups = nullptr;
-    m_numRails = 0;
+    m_railTotal = 0;
     mp_pointPool = nullptr;
     mp_railPool = nullptr;
     return this;
@@ -162,13 +162,13 @@ CParkRailSet* CParkRailSet::MakeNew()
 void CParkRailSet::AddRail(CParkRailString* string)
 {
     if (!m_railGroups) {
-        ++m_numRails;
+        ++m_railTotal;
         m_railGroups = string;
         m_tailNode = string;
         return;
     }
     m_tailNode->m_following = string;
-    ++m_numRails;
+    ++m_railTotal;
     m_tailNode = string;
 }
 
@@ -225,7 +225,7 @@ void CParkRailSet::FreePools()
 }
 
 // 0x0058B2D0
-CParkRailPoint* CParkRailSet::NewPoint()
+CParkRailPoint* CParkRailSet::AppendRailVertex()
 {
     MemSys::PoolPair& pair = PointPools();
     LendPool(pair, mp_pointPool);
@@ -279,7 +279,7 @@ void CParkRailSet::Clear()
     }
     m_railGroups = nullptr;
     m_tailNode = nullptr;
-    m_numRails = 0;
+    m_railTotal = 0;
 }
 
 } // namespace Ed

@@ -12,6 +12,6 @@ extern const char* g_memberFunctionNames[250];
 // The entry of the CFunction table with this name, or null.
 CFunctionEntry* FindCFunction(const char* name);
 // Point an entry at another function (the debug mode's CD / NotCD, the platform's IsPS2).
-void SetCFunction(CFunctionEntry& entry, void* function);
+void BindNativeCommand(CFunctionEntry& entry, void* function);
 
 } // namespace Script

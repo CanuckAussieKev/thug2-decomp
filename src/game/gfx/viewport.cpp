@@ -27,7 +27,7 @@ CViewRegion* g_viewports[10];
 
 float g_minusOne{-1.0f};
 float g_halfDegreeRadians{0.008726646f};
-float g_viewportRects[40]{
+float g_splitLayouts[40]{
     0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.0f, 0.0f,
     1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f,
     0.5f, 0.5f, 0.5f, 0.5f};
@@ -67,7 +67,7 @@ const int* ModeMapOf(int mode) { return g_modeMaps + 4 * mode; }
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
 // null when there's none.
-CViewRegion* ActiveViewport(int n)
+CViewRegion* CurrentViewSlot(int n)
 {
     const int* map = ModeMap();
     int found = 0;
@@ -164,7 +164,7 @@ int CViewRegion::FetchShown(int)
 float CViewRegion::FetchWidthOverHeight()
 {
     float width = m_span, height = m_levelY;
-    double aspect = GetScreenAspect();
+    double aspect = FetchViewRatio();
     return static_cast<float>(aspect * (static_cast<double>(width) / height));
 }
 
@@ -190,7 +190,7 @@ void CViewRegion::RemoveFlaggedCamera()
 }
 
 // 0x004A0760
-void __cdecl DeleteMarkedCameras()
+void __cdecl PurgeDoomedCameras()
 {
     for (int i = 0; i < kViewports; ++i) {
         if (Viewport(i))
@@ -202,7 +202,7 @@ void __cdecl DeleteMarkedCameras()
 void __cdecl CreateViewports()
 {
     for (int i = 0; i < kViewports; ++i) {
-        const float* table = g_viewportRects + 4 * i;
+        const float* table = g_splitLayouts + 4 * i;
         float rect[4] = {table[0], table[1], table[2], table[3]};
         Viewport(i) = reinterpret_cast<CViewRegion*>(CreateViewport(reinterpret_cast<uint32_t>(rect), 0));
     }
@@ -231,19 +231,19 @@ void __cdecl ChooseCamera(int view, Gfx2D::ViewCam* camera)
 // 0x004A09C0
 Gfx2D::ViewCam* __cdecl FetchLiveCamera(int n)
 {
-    auto* viewport = GetActiveViewport(n);
+    auto* viewport = FetchCurrentView(n);
     return viewport->m_viewer.Pull();
 }
 
 // 0x004A09E0
-Gfx2D::ViewCam* __cdecl GetClosestCamera(const Maths::Vec4* position, float* distance)
+Gfx2D::ViewCam* __cdecl FetchNearestCamera(const Maths::Vec4* position, float* distance)
 {
     int count = ModeViewportCount(ScreenMode());
     Gfx2D::ViewCam* closest = nullptr;
     float best = -1.0f; // (squared)
     for (int i = 0; i < count; ++i) {
         // (none: read through null, as the original - a mode's count never exceeds its map)
-        Gfx2D::ViewCam* camera = ActiveViewport(i)->m_viewer.Pull();
+        Gfx2D::ViewCam* camera = CurrentViewSlot(i)->m_viewer.Pull();
         if (!camera)
             continue;
         const Maths::Vec4* at = camera->FetchLocation();
@@ -270,7 +270,7 @@ void __cdecl SetScreenMode(int mode)
     ScreenMode() = mode;
     ActiveViewportCount() = ModeViewportCount(mode);
     for (int i = 0; i < ModeViewportCount(mode); ++i) {
-        Gfx2D::ViewCam* camera = ActiveViewport(i)->m_viewer.Pull(); // (no check, as the original)
+        Gfx2D::ViewCam* camera = CurrentViewSlot(i)->m_viewer.Pull(); // (no check, as the original)
         if (!camera)
             continue;
         float angle;
@@ -291,7 +291,7 @@ void __cdecl SetScreenFieldOfView(float degrees)
     g_screenAngle = degrees;
     // tan(degrees / 2) / tan(default / 2), as the original's x87 code (FPTAN at its precision)
     float halfDegreeRadians = g_halfDegreeRadians;
-    float defaultAngle = g_defaultAngle;
+    float defaultAngle = g_baseFovAngle;
     float factor;
     __asm {
         fld degrees
@@ -308,7 +308,7 @@ void __cdecl SetScreenFieldOfView(float degrees)
     }
     g_angleFactor = factor;
     for (int i = 0; i < ActiveViewportCount(); ++i) {
-        CViewRegion* viewport = ActiveViewport(i);
+        CViewRegion* viewport = CurrentViewSlot(i);
         if (viewport && viewport->m_viewer.Pull())
             viewport->m_viewer.Pull()->RefreshEffectiveHFov();
     }

@@ -103,7 +103,7 @@ void CBuildPointer::OnModeChanged()
 
 void CBuildPointer::GetMarqueeBounds(SCellBox* area)
 {
-    if (m_areaSelect == 0) {
+    if (m_boxSelectStage == 0) {
         area->AssignValue(0, 0, 0, 0, 0, 0);
         return;
     }
@@ -145,7 +145,7 @@ void CBuildPointer::RemoveOldestClipboard()
 
 void CBuildPointer::ClampToPark()
 {
-    const SCellBox& bounds = m_parkOwner->m_parkBounds;
+    const SCellBox& bounds = m_parkOwner->m_buildArea;
     SCellBox& pos = m_cellFootprint;
     if (pos.x < bounds.x)
         pos.x = bounds.x;
@@ -180,7 +180,7 @@ void CBuildPointer::ClampToPark()
     pos.z = static_cast<uint8_t>(pos.z + shift);
 }
 
-void CBuildPointer::DestroyClipboards()
+void CBuildPointer::FreeCopyBuffers()
 {
     CClipboard* clipboard = m_copyBuffers;
     while (clipboard) {
@@ -199,29 +199,29 @@ void CBuildPointer::ForgetGapAt(CPieceGroup* meta)
     SGapDetails* gap = m_parkOwner->GetGapInfo(&area, &half);
     if (!gap)
         return;
-    if (m_gap.m_numCompleteHalves != 1 ||
+    if (m_gap.m_halvesPlaced != 1 ||
         (gap->m_atPoint[0].x == m_gap.m_atPoint[0].x && gap->m_atPoint[0].y == m_gap.m_atPoint[0].y &&
          gap->m_atPoint[0].z == m_gap.m_atPoint[0].z))
-        m_gap.m_numCompleteHalves = 0;
+        m_gap.m_halvesPlaced = 0;
 }
 
 int CBuildPointer::AdvanceAreaSelection()
 {
-    if (m_areaSelect == 0) {
+    if (m_boxSelectStage == 0) {
         m_areaStart = m_cellFootprint;
         m_areaLast = m_cellFootprint;
-        m_areaSelect = 1;
+        m_boxSelectStage = 1;
         m_areaHighlighted = false;
-        return m_areaSelect;
+        return m_boxSelectStage;
     }
-    if (m_areaSelect == 1) {
+    if (m_boxSelectStage == 1) {
         SCellBox area;
         area.AssignValue(0, 0, 0, 0, 0, 0);
         GetMarqueeBounds(&area);
         if (area.w <= 10 && area.l <= 10)
-            m_areaSelect = 2;
+            m_boxSelectStage = 2;
     }
-    return m_areaSelect;
+    return m_boxSelectStage;
 }
 
 } // namespace Ed

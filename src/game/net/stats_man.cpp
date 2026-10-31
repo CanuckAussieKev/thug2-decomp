@@ -88,8 +88,8 @@ uint32_t& LoginStart() { return g_statsLoginStart; }
 // Set by the cheat script commands (career.cpp): the game reported as a cheat's.
 bool CheatFlag() { return g_cheatFlag; }
 
-Hub* NetManager() { return g_gameNetManager; }
-RankingsManager* Attributes() { return static_cast<RankingsManager*>(NetManager()->m_statsMan); }
+Hub* NetSessionSlot() { return g_onlineHub; }
+RankingsManager* Attributes() { return static_cast<RankingsManager*>(NetSessionSlot()->m_ratingService); }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
 void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
@@ -140,10 +140,10 @@ char* GcdSecretKey() { return GameSpy::StatsSecretKey(); }
 const char* StatsKey() { return NetLink::GameKey(); } // (OnlineGameKey or the game's own)
 
 // The manager's calls.
-const char* GameModeName(Hub* manager) { return manager->GetGameTypeName(); }
-uint32_t LevelChecksum(Hub* manager) { return manager->FetchStage(); }
+const char* ActiveRulesetLabel(Hub* manager) { return manager->GetGameTypeName(); }
+uint32_t LevelKeyHash(Hub* manager) { return manager->FetchStage(); }
 uint32_t GameModeChecksum(Hub* manager) { return manager->GetGameTypePreference(); }
-int PlayerScore(Hub* manager, int id) { return manager->GetEntrantPoints(static_cast<uint32_t>(id)); }
+int PlayerPoints(Hub* manager, int id) { return manager->GetEntrantPoints(static_cast<uint32_t>(id)); }
 
 void UnlinkListNode(void* node)
 {
@@ -505,7 +505,7 @@ RankingsManager* RankingsManager::MakeNew()
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }
     m_task = task;
-    m_loggedIn = false;
+    m_authenticated = false;
     m_curPhase = kNone;
     m_game = nullptr;
     m_needTopStats = true;
@@ -531,7 +531,7 @@ void RankingsManager::LogIn()
     Run(0x23343580);
     DWORD id;
     HANDLE thread = CreateThread(nullptr, 0x8000, &LogInThread, this, CREATE_SUSPENDED, &id);
-    NetManager()->SetRoomId(id);
+    NetSessionSlot()->SetRoomId(id);
     ResumeThread(thread); // (never closed)
     if (!m_task->IsOnTaskList())
         LogicTasks()->QueueJob(m_task);
@@ -543,22 +543,22 @@ void RankingsManager::LogOff()
 {
     CloseStatsConnection();
     m_task->DropOut();
-    m_loggedIn = false;
+    m_authenticated = false;
     m_curPhase = kNone;
 }
 
 // 0x0054C9B0
 bool RankingsManager::UpdateLoggedIn()
 {
-    m_loggedIn = IsStatsConnected() == 1;
-    return m_loggedIn;
+    m_authenticated = IsStatsConnected() == 1;
+    return m_authenticated;
 }
 
 // 0x0054CBA0
 void RankingsManager::OnLoggedIn()
 {
     PushTopDown();
-    m_loggedIn = true;
+    m_authenticated = true;
     Run(0x6307C08F);
     PopHeap();
 }
@@ -566,7 +566,7 @@ void RankingsManager::OnLoggedIn()
 // 0x0054CE80
 void RankingsManager::StartGame()
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     Detail::PlayerSearch search;
     PushBottomUp();
     m_game = NewGame(1);
@@ -579,14 +579,14 @@ void RankingsManager::StartGame()
     int fragLimit = prefs->GetSettingValue(0x71CD53A2, 0xCD66C8AE);
     SetGameString(m_game, "hostname", hostName);
     SetGameString(m_game, "mapname", manager->GetMapName(true));
-    SetGameString(m_game, "gametype", GameModeName(manager));
-    SetGameInt(m_game, "mapcrc", static_cast<int>(LevelChecksum(manager)));
+    SetGameString(m_game, "gametype", ActiveRulesetLabel(manager));
+    SetGameInt(m_game, "mapcrc", static_cast<int>(LevelKeyHash(manager)));
     SetGameInt(m_game, "gametypecrc", static_cast<int>(GameModeChecksum(manager)));
     SetGameInt(m_game, "maxplayers", manager->GetPlayerLimit());
     SetGameInt(m_game, "timelimit", timeLimit);
     SetGameInt(m_game, "fraglimit", fragLimit);
-    for (uint8_t* player = Detail::FirstPlayer(manager, &search, false); player;
-         player = Detail::NextPlayer(manager, &search, false)) {
+    for (uint8_t* player = Detail::StartRosterSweep(manager, &search, false); player;
+         player = Detail::StepRosterSweep(manager, &search, false)) {
         NetLink::NetMessageInfo desc;
         desc.MakeNew();
         int id = static_cast<int>(Detail::SkaterId(Detail::PlayerSkater(player)));
@@ -614,17 +614,17 @@ void RankingsManager::StartGame()
 // 0x0054D170
 void RankingsManager::RaiseTallies(bool final)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     Detail::PlayerSearch search;
     if (!m_game)
         return;
     PushBottomUp();
-    for (uint8_t* player = Detail::FirstPlayer(manager, &search, false); player;
-         player = Detail::NextPlayer(manager, &search, false)) {
+    for (uint8_t* player = Detail::StartRosterSweep(manager, &search, false); player;
+         player = Detail::StepRosterSweep(manager, &search, false)) {
         auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(Detail::PlayerSkater(player));
         skater->FetchModule(0xD262802F); // (unused)
         int id = static_cast<int>(Detail::SkaterId(skater));
-        SetPlayerInt(m_game, "score", PlayerScore(manager, id), id);
+        SetPlayerInt(m_game, "score", PlayerPoints(manager, id), id);
         SetPlayerInt(m_game, "combo", Detail::Prop<int>(player, 0x24), id);
     }
     SetGameInt(m_game, "highscore", manager->CheatingNoted() | CheatFlag());
@@ -662,7 +662,7 @@ PersonalStats* RankingsManager::GetPersonalStats() { return &m_personal; }
 int RankingsManager::GetRank() { return Rank(static_cast<double>(m_personal.m_skillPoints)); }
 
 // 0x0054D7B0
-void RankingsManager::ParseRatings(char* text)
+void RankingsManager::ReadSkillRatings(char* text)
 {
     PushTopDown();
     for (char* token = Text::Token(text, ":"); token; token = Text::Token(nullptr, ":")) {
@@ -729,7 +729,7 @@ void __cdecl RankingsManager::StatsTask(TaskList::SchedulerTask* task)
     case kLoggingIn:
         failed = FrameClock::GetTime() - LoginStart() > kLoginTimeout;
         break;
-    case kLoggedIn:
+    case kAuthDone:
         stats->m_curPhase = kReady;
         stats->OnLoggedIn();
         break;
@@ -737,7 +737,7 @@ void __cdecl RankingsManager::StatsTask(TaskList::SchedulerTask* task)
         Run(0xCBA113AF);
         CloseStatsConnection();
         stats->m_task->DropOut();
-        stats->m_loggedIn = false;
+        stats->m_authenticated = false;
         stats->m_curPhase = kNone;
         break;
     case kGettingStats:
@@ -769,7 +769,7 @@ unsigned long __stdcall RankingsManager::LogInThread(void* param)
     std::snprintf(GcdSecretKey(), 0x100, "%s", StatsKey());
     switch (InitStatsConnection(kStatsPort)) {
     case 0: // connected
-        stats->m_curPhase = kLoggedIn;
+        stats->m_curPhase = kAuthDone;
         break;
     case 1:
     case 2:
@@ -837,7 +837,7 @@ int __cdecl RankingsManager::OnTopStats(void*, int result, char* buffer, int64_t
         stats->ParseTopList(stats->m_topFile, buffer, true);
         break;
     case 4:
-        stats->ParseRatings(buffer);
+        stats->ReadSkillRatings(buffer);
         break;
     default:
         break;
@@ -893,15 +893,15 @@ bool __cdecl StatsLogOff(Scripts::CStruct*, Scripts::CScript*)
 // indexes 0-15; state 5 until the answer to 14).
 bool __cdecl RetrievePersonalStats(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     const void* callback = reinterpret_cast<const void*>(&RankingsManager::OnPersonalStats);
-    int profile = static_cast<FriendsManager*>(manager->m_buddyMan)->m_account;
+    int profile = static_cast<FriendsManager*>(manager->m_presenceService)->m_account;
     GetPersistDataValues(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)
-        profile = static_cast<FriendsManager*>(manager->m_buddyMan)->m_account;
+        profile = static_cast<FriendsManager*>(manager->m_presenceService)->m_account;
         GetPersistDataValues(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    static_cast<RankingsManager*>(manager->m_statsMan)->m_curPhase = RankingsManager::kGettingStats;
+    static_cast<RankingsManager*>(manager->m_ratingService)->m_curPhase = RankingsManager::kGettingStats;
     return true;
 }
 

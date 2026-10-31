@@ -22,7 +22,7 @@ namespace Engine3D {
 struct CWorldScene;
 class CWorldCell;
 
-struct sSceneLight {
+struct sLevelLamp {
     Maths::Vec4 m_atPoint;            // +0x00
     float m_strength;            // +0x10 (0-1)
     float m_radius;               // +0x14
@@ -32,7 +32,7 @@ struct sSceneLight {
 
     // 0x0048FF40 (the array's static constructor's callback): an empty table of 2^4 buckets, grey, nothing else
     // set. Returns this.
-    sSceneLight* MakeNew();
+    sLevelLamp* MakeNew();
     // 0x0048F1A0: a new radius (nothing when it's the same) - its dynamic light's too (1e10 inverse for 0).
     void SetReach(float radius);
     // 0x0048F200: whether it reaches `sector`.
@@ -44,7 +44,7 @@ struct sSceneLight {
     // distance between the centres), unless its name is in `excluded`.
     void FindSectors(Scripts::CArray* excluded);
 };
-static_assert(offsetof(sSceneLight, m_label) == 0x18 && sizeof(sSceneLight) == 0x24, "layout must match the original");
+static_assert(offsetof(sLevelLamp, m_label) == 0x18 && sizeof(sLevelLamp) == 0x24, "layout must match the original");
 
 // 0x0048F250: a sector's vertex colours made again: its own (CGeom::FetchTints) with up to 8 lights that reach it
 // added - each (radius - distance) / radius x its intensity x its colour, the sums added to the colour's RGB and
@@ -73,7 +73,7 @@ void __cdecl UpdateSceneLightQueue();
 void __cdecl UpdateSceneLight(uint32_t name, Scripts::CStruct* params);
 // 0x00490400: a new scene light (null past 150) - its dynamic light's brightness and colour set too -, its sectors
 // found and, when it's on, coloured.
-sSceneLight* __cdecl AddSceneLight(uint32_t name, const Maths::Vec4* pos, float brightness, uint32_t colour,
+sLevelLamp* __cdecl RegisterSceneLight(uint32_t name, const Maths::Vec4* pos, float brightness, uint32_t colour,
                                    float radius, Scripts::CArray* excluded);
 // 0x00490570: a level node's light: a dynamic light (unless 0xE1509E4F) and a scene light (unless 0x6F050E18) from
 // its brightness (0x2689291C, 100), radius (0x833950CC, 300), colour array (0x99A9B716, white) and excluded sectors
@@ -81,5 +81,5 @@ sSceneLight* __cdecl AddSceneLight(uint32_t name, const Maths::Vec4* pos, float 
 void __cdecl CreateLightFromNode(Scripts::CStruct* node);
 
 extern int g_sceneLightCount;
-extern sSceneLight g_sceneLights[150];
+extern sLevelLamp g_levelLamps[150];
 } // namespace Nx

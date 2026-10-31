@@ -83,7 +83,7 @@ void FreezeStream(int pause) { AudioStream::FreezeStream(pause); }
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)

@@ -84,7 +84,7 @@ float* __cdecl InterpolateRotation(float* out, const float* from, float* to, flo
 }
 
 // 0x0047D680
-void __cdecl BlendPoses(CStance* poses, float* weights, int bones, CStance* out, int count)
+void __cdecl MixPoses(CStance* poses, float* weights, int bones, CStance* out, int count)
 {
     weights[0] = 1.0f;
     double others = 0.0;
@@ -149,11 +149,11 @@ uint32_t g_loopTypeChecksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203};
 // 0x0047D580
 void __stdcall AddTimelineInfo(CAnimTimeline* timeline, Scripts::CStruct* info)
 {
-    constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kLoopType = 0x6B888E80;
+    constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kRepeatMode = 0x6B888E80;
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
     info->PutNameKey(kAnim, timeline->m_anim);
     info->PushFloat(kSpeed, timeline->m_speed);
-    info->PutNameKey(kLoopType, (g_loopTypeChecksums)[timeline->m_loopType]);
+    info->PutNameKey(kRepeatMode, (g_loopTypeChecksums)[timeline->m_repeatMode]);
     float start, current, end;
     timeline->GetTimes(&start, &current, &end);
     info->PushFloat(kStartTime, start);

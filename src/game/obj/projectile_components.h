@@ -54,7 +54,7 @@ public:
     uint8_t* mp_suspend;      // +0x18 the suspend component (Finalize)
     float m_radius;           // +0x1C radius
     float m_sizeFactor;            // +0x20 scale
-    uint32_t m_deathScript;   // +0x24 death_script
+    uint32_t m_onCollideScript;   // +0x24 death_script
     uint32_t m_holderKey;       // +0x28 owner_id (the skater who threw it)
     uint32_t m_projectileType; // +0x2C projectile_type
     Maths::Vec4 m_vel;        // +0x30 (0, 0, 1) normalised
@@ -94,11 +94,11 @@ public:
     // component yet (and an object id), that is.
     void TickFrame();
 
-    float m_radiusSqr;                 // +0x18 2304 (48 squared)
+    float m_reachSquared;                 // +0x18 2304 (48 squared)
     CRider* m_riderRef;                // +0x1C the local skater
     CPedestrianBrainModule* mp_pedLogic;   // +0x20 the object's
 };
-static_assert(offsetof(CProjectileProximityComponent, m_radiusSqr) == 0x18 &&
+static_assert(offsetof(CProjectileProximityComponent, m_reachSquared) == 0x18 &&
                   offsetof(CProjectileProximityComponent, mp_pedLogic) == 0x20 &&
                   sizeof(CProjectileProximityComponent) == 0x24,
               "layout must match the original");

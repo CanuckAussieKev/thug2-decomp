@@ -58,7 +58,7 @@ constexpr uint32_t kAnim = 0x78;            // the animation to play (checksum)
 constexpr uint32_t kHeightOffset = 0x9C;    // the origin's height offset
 constexpr uint32_t kHangOffset = 0x71C;     // the hang's offset from the critical point (a vector)
 constexpr uint32_t kWalkCamera = 0x1760;    // the walk camera (GameObjects::CFootView)
-constexpr uint32_t kRailStart = 0x1764;     // the rail held: its node...
+constexpr uint32_t kGripRailNode = 0x1764;     // the rail held: its node...
 constexpr uint32_t kRailEnd = 0x1768;       // ... and the next
 constexpr uint32_t kRailManager = 0x176C;   // whose rail manager
 constexpr uint32_t kModel = 0x1778;         // (+0x208: a node with flag 8 at +0x44 and a fraction at +0x20)
@@ -93,7 +93,7 @@ constexpr uint32_t kHangObstructionFeelerSide = 0xAFBF7687; // "hang_obstruction
 constexpr uint32_t kHangObstructionFeelerUp = 0x8F35F29F;   // "hang_obstruction_feeler_up"
 constexpr uint32_t kSkaterExitHang = 0xBEEDB40D;       // "SkaterExitHang"
 constexpr uint32_t kPushFeelerLength = 0xA20C43B7;     // "push_feeler_length"
-constexpr uint32_t kFeelerHeight = 0x6DA7F696;         // "feeler_height"
+constexpr uint32_t kProbeElevation = 0x6DA7F696;         // "feeler_height"
 constexpr uint32_t kPullUpObstructionHeight = 0x9B2818CF; // "pull_up_obstruction_height"
 constexpr uint32_t kPullUpOffsetForward = 0x21DFBE77;  // "pull_up_offset_forward"
 constexpr uint32_t kDropToHangSpeedFactor = 0x01D1E6AF; // "drop_to_hang_speed_factor"
@@ -104,14 +104,14 @@ constexpr uint32_t kHangMoveCollisionSideLength = 0x3344A6D0; // "hang_move_coll
 constexpr uint32_t kHangMoveCollisionUp = 0x84FF931C;   // "hang_move_collision_up"
 constexpr uint32_t kHangMoveCollisionBack = 0xCBEB3D89; // "hang_move_collision_back"
 constexpr uint32_t kHangMoveCollisionSideHeight = 0xC774DD6D; // "hang_move_collision_side_height"
-constexpr uint32_t kRailManagerComponent = 0x1CDFB2A3; // "railmanager" (the component type)
+constexpr uint32_t kRailHubModuleName = 0x1CDFB2A3; // "railmanager" (the component type)
 constexpr uint32_t kAnimPullUpFromHang = 0x9EF9F8F1;   // "PullUpFromHang"
 constexpr uint32_t kAnimDropToHang = 0xEB71D98E;       // "DropToHang"
 constexpr uint32_t kAnimHang = 0x4194ECCA;             // "Hang"
 
 // More fields: the facing aimed at in an animated move, the height there, the hang point's offset along the rail.
-constexpr uint32_t kTargetFacing = 0x18B4;
-constexpr uint32_t kTargetHeight = 0x18C8;
+constexpr uint32_t kDestHeading = 0x18B4;
+constexpr uint32_t kDestElevation = 0x18C8;
 constexpr uint32_t kHangAnim = 0x18D8; // the hang's animation (SWING / WALL)
 
 constexpr uint32_t kTaggingControl = 0x380D909A;       // "TaggingControl"
@@ -119,7 +119,7 @@ constexpr uint32_t kTaggingControl = 0x380D909A;       // "TaggingControl"
 // The hang's own update.
 constexpr uint32_t kState = 0x18;            // 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
 constexpr uint32_t kFrameLength = 0x80;      // the frame's length (seconds)
-constexpr uint32_t kControlMagnitude = 0x94; // how far the control is pushed
+constexpr uint32_t kStickDeflection = 0x94; // how far the control is pushed
 constexpr uint32_t kControlHeld = 0x98;      // (a byte: the control is pushed)
 constexpr uint32_t kAnimSpeed = 0x704;       // the move's speed (for the animation's)
 constexpr uint32_t kInput = 0x1770;          // the input component (+0x20: the control - see Walk::SkaterTurn)
@@ -164,12 +164,12 @@ constexpr uint32_t kAnimLadderOffTop = 0x12521BFB;     // "LadderOffTop"
 
 GameObjects::CGameEntity* ObjectOf(void* walk) { return At<GameObjects::CGameEntity*>(walk, kObject); }
 GameObjects::CGrindRailHub*& RailsOf(void* walk) { return At<GameObjects::CGrindRailHub*>(walk, kRailManager); }
-Skater::CorePhysicsComponent* PhysicsOf(void* walk) { return At<Skater::CorePhysicsComponent*>(walk, kPhysics); }
+Skater::SkaterPhysicsModule* PhysicsOf(void* walk) { return At<Skater::SkaterPhysicsModule*>(walk, kPhysics); }
 Maths::Vec4& VectorAt(void* walk, uint32_t offset) { return At<Maths::Vec4>(walk, offset); }
 
 // What FindRail finds (its 0x34-byte record, filled by CheckRail): the hang point, the direction to face (out from
 // the wall), how far along, out and up from the rail, the animation, and the rail's node.
-struct FoundRail {
+struct RailHit {
     Maths::Vec4 point;     // +0x00
     Maths::Vec4 facing;    // +0x10
     float along;           // +0x20
@@ -178,7 +178,7 @@ struct FoundRail {
     uint32_t anim;         // +0x2C the hang's animation (SWING, or WALL)
     GameObjects::CGrindPoint* node;  // +0x30
 };
-static_assert(sizeof(FoundRail) == sizeof(GameObjects::Record34), "the rail manager's record");
+static_assert(sizeof(RailHit) == sizeof(GameObjects::Record34), "the rail manager's record");
 
 // A feeler copied (its assignment 0x0043A930).
 void AssignFeeler(Engine3D::CProbeRay* to, const Engine3D::CProbeRay* from)
@@ -213,7 +213,7 @@ void GrabbedLadder(GameObjects::CFootMovement* walk)
 // object's space: riding that object if one is found). `direction` / the margin's global float are read again for
 // each. The rail manager used is left at +0x176C.
 bool FindWalkRail(GameObjects::CFootMovement* walk, const Maths::Vec4* start, const Maths::Vec4* end,
-                  const Maths::Vec4* (*direction)(GameObjects::CFootMovement*, Maths::Vec4*), uint32_t margin, FoundRail* found)
+                  const Maths::Vec4* (*direction)(GameObjects::CFootMovement*, Maths::Vec4*), uint32_t margin, RailHit* found)
 {
     Maths::Vec4 buffer;
     RailsOf(walk) = LevelRails();
@@ -224,7 +224,7 @@ bool FindWalkRail(GameObjects::CFootMovement* walk, const Maths::Vec4* start, co
         StopRiding(walk);
         return true;
     }
-    for (GameObjects::CObjectModule* component = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kRailManagerComponent);
+    for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kRailHubModuleName);
          component; component = At<GameObjects::CObjectModule*>(component, 0x14)) {
         Maths::Mat4 toLocal;
         ObjectMatrixOf(component, &toLocal);
@@ -271,7 +271,7 @@ void SetAnimDone(void* walk, uint32_t code)
 // The skater core's rail node (its +0x22C), if there is one.
 void TellPhysicsNode(void* walk)
 {
-    if (GameObjects::CGrindPoint* node = At<GameObjects::CGrindPoint*>(walk, kRailStart))
+    if (GameObjects::CGrindPoint* node = At<GameObjects::CGrindPoint*>(walk, kGripRailNode))
         At<GameObjects::CGrindPoint*>(PhysicsOf(walk), 0x22C) = node;
 }
 
@@ -302,7 +302,7 @@ void SetHangOffset(GameObjects::CFootMovement* walk)
 // The trigger component told a feeler hit something (for `events`), and the movable contact the feeler's hit.
 void TriggerFeeler(void* walk, const int* events, Engine3D::CProbeRay* feeler)
 {
-    At<GameObjects::CActivationZoneModule*>(walk, kTrigger)->CheckFeeler(events, feeler);
+    At<GameObjects::CActivationZoneModule*>(walk, kTrigger)->ProbeTouchesZone(events, feeler);
 }
 void ContactFeeler(void* walk, Engine3D::CProbeRay* feeler)
 {
@@ -517,7 +517,7 @@ void GameObjects::CFootMovement::FaceHangRail(float distance, bool fromEnd, cons
     GameObjects::CGrindRailHub* rails = RailsOf(this);
     Maths::Vec4 a, b;
     rails->GetAbsolutePos(&a, At<GameObjects::CGrindPoint*>(this, kRailEnd));
-    rails->GetAbsolutePos(&b, At<GameObjects::CGrindPoint*>(this, kRailStart));
+    rails->GetAbsolutePos(&b, At<GameObjects::CGrindPoint*>(this, kGripRailNode));
     Maths::Vec4 d = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
     float xx = d.x * d.x;
     double length = std::sqrt(static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y + xx);
@@ -651,7 +651,7 @@ bool GameObjects::CFootMovement::PullUp(Maths::Vec4* target)
     probe.MakeNew();
     float push = Param(kPushFeelerLength);
     float halfPush = static_cast<float>(static_cast<double>(push) * 0.5f);
-    float height = Param(kFeelerHeight);
+    float height = Param(kProbeElevation);
     float noRise = static_cast<float>(static_cast<double>(halfPush) * 0.0f);
     const Maths::Vec4& facing = VectorAt(this, kFacing);
     for (int i = 0; i < 7; ++i) {
@@ -701,8 +701,8 @@ bool GameObjects::CFootMovement::PullUp(Maths::Vec4* target)
     Maths::Vec4& offset = VectorAt(this, kHangOffset);
     offset = {backF * facing.x, backF * facing.y, backF * facing.z, static_cast<float>(back * facing.w)};
     offset.y = 1.0f;
-    VectorAt(this, kTargetFacing) = facing;
-    At<float>(this, kTargetHeight) = pos.y - At<float>(this, kRailUp);
+    VectorAt(this, kDestHeading) = facing;
+    At<float>(this, kDestElevation) = pos.y - At<float>(this, kRailUp);
     ChangePhase(4);
     At<uint32_t>(this, kAnim) = kAnimPullUpFromHang;
     return true;
@@ -725,10 +725,10 @@ bool GameObjects::CFootMovement::DropToHang()
         return false;
     At<float>(this, kUnknown74) = 1.0f;
     VectorAt(this, kPos).w = 1.0f;
-    FoundRail rail;
+    RailHit rail;
     if (!FindWalkRail(this, &VectorAt(this, kOldPos), &VectorAt(this, kPos), FacingAway, kDropToClimbMaxSnap, &rail))
         return false;
-    At<GameObjects::CGrindPoint*>(this, kRailStart) = rail.node;
+    At<GameObjects::CGrindPoint*>(this, kGripRailNode) = rail.node;
     At<GameObjects::CGrindPoint*>(this, kRailEnd) = rail.node->m_succ;
     At<float>(this, kVerticalSpeed) = 0.0f;
     VectorAt(this, kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -744,8 +744,8 @@ bool GameObjects::CFootMovement::DropToHang()
     float horiz = Param(kHangCriticalPointHorizOffset);
     VectorAt(this, kHangOffset) = {rail.facing.x * horiz, rail.facing.y * horiz, rail.facing.z * horiz,
                                    rail.facing.w * horiz};
-    VectorAt(this, kTargetFacing) = rail.facing;
-    At<float>(this, kTargetHeight) = VectorAt(this, kPos).y;
+    VectorAt(this, kDestHeading) = rail.facing;
+    At<float>(this, kDestElevation) = VectorAt(this, kPos).y;
     At<float>(this, kStartHeightOffset) = At<float>(this, kHeightOffset);
     At<float>(this, kEndHeightOffset) = static_cast<float>(HangHeightOffset());
     ChangePhase(4);
@@ -762,10 +762,10 @@ bool GameObjects::CFootMovement::GrabRail(Maths::Vec4 start, Maths::Vec4 end)
     end.y = end.y + Param(kHangVertOriginOffset);
     start.w = 1.0f;
     end.w = 1.0f;
-    FoundRail rail;
+    RailHit rail;
     if (!FindWalkRail(this, &start, &end, Facing, kClimbMaxSnap, &rail))
         return false;
-    At<GameObjects::CGrindPoint*>(this, kRailStart) = rail.node;
+    At<GameObjects::CGrindPoint*>(this, kGripRailNode) = rail.node;
     At<GameObjects::CGrindPoint*>(this, kRailEnd) = rail.node->m_succ;
     VectorAt(this, kPos) = rail.point;
     VectorAt(this, kFacing) = rail.facing;
@@ -890,7 +890,7 @@ void GameObjects::CFootMovement::PlaceOnHang()
     CGrindRailHub* rails = RailsOf(this);
     Maths::Vec4 a, b, point;
     Maths::Vec4* endPos = rails->GetAbsolutePos(&a, At<CGrindPoint*>(this, kRailEnd));
-    Maths::Vec4* startPos = rails->GetAbsolutePos(&b, At<CGrindPoint*>(this, kRailStart));
+    Maths::Vec4* startPos = rails->GetAbsolutePos(&b, At<CGrindPoint*>(this, kGripRailNode));
     Maths::Vec4& pos = VectorAt(this, kPos);
     pos = *Walk::Lerp(&point, startPos, endPos, At<float>(this, kAlong));
     pos.y = At<float>(this, kRailUp) + pos.y;
@@ -918,7 +918,7 @@ void GameObjects::CFootMovement::PlaceOnHang()
     if (!tracker->m_turned)
         return;
     rails->GetAbsolutePos(&a, At<CGrindPoint*>(this, kRailEnd));
-    rails->GetAbsolutePos(&b, At<CGrindPoint*>(this, kRailStart));
+    rails->GetAbsolutePos(&b, At<CGrindPoint*>(this, kGripRailNode));
     Maths::Vec4 along = {b.x - a.x, 0.0f, b.z - a.z, b.w - a.w};
     along.MakeUnit();
     double side = static_cast<double>(along.x) * facing.z + static_cast<double>(-along.z) * facing.x;
@@ -939,7 +939,7 @@ void GameObjects::CFootMovement::PlaceOnHang()
 // 0x0043FE30
 bool GameObjects::CFootMovement::HangClear(Engine3D::CProbeRay* feeler, const Maths::Vec4* point, Record34* record)
 {
-    auto* rail = reinterpret_cast<FoundRail*>(record);
+    auto* rail = reinterpret_cast<RailHit*>(record);
     rail->point = *point;
     CGrindPoint* node = rail->node;
     Maths::Vec4 side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
@@ -991,7 +991,7 @@ void GameObjects::CFootMovement::Shimmy(float move)
     Maths::Vec4& offset = VectorAt(this, kHangOffset);
     Maths::Vec4& facing = VectorAt(this, kFacing);
     float& along = At<float>(this, kAlong);
-    CGrindPoint*& start = At<CGrindPoint*>(this, kRailStart);
+    CGrindPoint*& start = At<CGrindPoint*>(this, kGripRailNode);
     CGrindPoint*& end = At<CGrindPoint*>(this, kRailEnd);
     // all of it kept, to be put back if the move is blocked
     const Maths::Vec4 oldPos = pos;
@@ -1080,7 +1080,7 @@ check:
 bool GameObjects::CFootMovement::CheckRail(const Maths::Vec4* start, const Maths::Vec4* end, const Maths::Vec4* onRail,
                                     const Maths::Vec4* onLine, float along, Record34* record, bool away)
 {
-    auto* rail = reinterpret_cast<FoundRail*>(record);
+    auto* rail = reinterpret_cast<RailHit*>(record);
     float origin = Param(kHangVertOriginOffset);
     // in the air: only rails at or below the line, and close to it
     if (At<int>(this, kState) == 1) {
@@ -1171,7 +1171,7 @@ void GameObjects::CFootMovement::UpdateHang()
             StopRiding(this);
         } else {
             CObjectModule* component =
-                At<CRideTracker*>(At<void*>(this, kContact), 0x18)->m_entity.Pull()->FetchModule(kRailManagerComponent);
+                At<CRideTracker*>(At<void*>(this, kContact), 0x18)->m_entity.Pull()->FetchModule(kRailHubModuleName);
             Maths::Mat4 matrix;
             ObjectMatrixOf(component, &matrix); // (unused)
             PlaceOnHang();
@@ -1218,7 +1218,7 @@ void GameObjects::CFootMovement::UpdateHang()
     if (X87Cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
         float direction = At<float>(input, 0x248) > 0.0f ? 1.0f : -1.0f;
         float speed = Param(kHangMoveSpeedParam);
-        wanted = static_cast<float>(static_cast<double>(direction) * At<float>(this, kControlMagnitude) * speed);
+        wanted = static_cast<float>(static_cast<double>(direction) * At<float>(this, kStickDeflection) * speed);
     }
     float rate = Param(kHangMoveLerpRate);
     float& moveSpeed = At<float>(this, kHangMoveSpeed);
@@ -1273,7 +1273,7 @@ void GameObjects::CFootMovement::EndLadderOffTopToAir()
 // 0x004410C0
 void GameObjects::CFootMovement::EndOntoLadderBottom()
 {
-    CGrindPoint* node = At<CGrindPoint*>(this, kRailStart);
+    CGrindPoint* node = At<CGrindPoint*>(this, kGripRailNode);
     CGrindPoint* other = LadderOtherEnd(node);
     Maths::Vec4 a, b;
     Maths::Vec4* nodePos = RailsOf(this)->GetAbsolutePos(&a, node);
@@ -1291,7 +1291,7 @@ void GameObjects::CFootMovement::EndOntoLadderBottom()
 // 0x00441190
 void GameObjects::CFootMovement::EndOntoLadderTop()
 {
-    CGrindPoint* node = At<CGrindPoint*>(this, kRailStart);
+    CGrindPoint* node = At<CGrindPoint*>(this, kGripRailNode);
     CGrindPoint* other = LadderOtherEnd(node);
     Maths::Vec4 a, b;
     Maths::Vec4* nodePos = RailsOf(this)->GetAbsolutePos(&a, node);
@@ -1397,8 +1397,8 @@ void GameObjects::CFootMovement::ClimbOffBottom()
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&facing, 1.0f);
     At<int>(this, kAnimWaiting) = 1;
-    VectorAt(this, kTargetFacing) = facing;
-    At<float>(this, kTargetHeight) = pos.y;
+    VectorAt(this, kDestHeading) = facing;
+    At<float>(this, kDestElevation) = pos.y;
     ChangePhase(4);
     At<uint32_t>(this, kAnim) = kAnimLadderOffBottom;
 }
@@ -1473,8 +1473,8 @@ void GameObjects::CFootMovement::ClimbOffTop()
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&facing, 1.0f);
     At<int>(this, kAnimWaiting) = 1;
-    VectorAt(this, kTargetFacing) = facing;
-    At<float>(this, kTargetHeight) = target.y;
+    VectorAt(this, kDestHeading) = facing;
+    At<float>(this, kDestElevation) = target.y;
     ChangePhase(4);
     At<uint32_t>(this, kAnim) = kAnimLadderOffTop;
 }
@@ -1488,7 +1488,7 @@ bool GameObjects::CFootMovement::ClimbOntoBottom(bool button)
     float height = Param(kMaxVertSnapDistance);
     FoundLadder ladder;
     if (!LevelRails()->FindLadder(&VectorAt(this, kPos), radius, height, true, this, reinterpret_cast<uint32_t>(&ladder),
-                                  &At<CGrindPoint*>(this, kRailStart)))
+                                  &At<CGrindPoint*>(this, kGripRailNode)))
         return false;
     GrabbedLadder(this);
     VectorAt(this, kStartPos) = VectorAt(this, kPos);
@@ -1498,8 +1498,8 @@ bool GameObjects::CFootMovement::ClimbOntoBottom(bool button)
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&ladder.facing, 1.0f);
     At<int>(this, kAnimWaiting) = 1;
-    VectorAt(this, kTargetFacing) = ladder.facing;
-    At<float>(this, kTargetHeight) = ladder.point.y;
+    VectorAt(this, kDestHeading) = ladder.facing;
+    At<float>(this, kDestElevation) = ladder.point.y;
     ChangePhase(4);
     At<uint32_t>(this, kAnim) = kAnimLadderOntoBottom;
     return true;
@@ -1514,7 +1514,7 @@ bool GameObjects::CFootMovement::ClimbOntoTop()
     float radius = Param(kMaxHorizSnapDistance);
     FoundLadder ladder;
     if (!LevelRails()->FindLadder(&VectorAt(this, kPos), radius, height, false, this, reinterpret_cast<uint32_t>(&ladder),
-                                  &At<CGrindPoint*>(this, kRailStart)))
+                                  &At<CGrindPoint*>(this, kGripRailNode)))
         return false;
     GrabbedLadder(this);
     VectorAt(this, kStartPos) = VectorAt(this, kPos);
@@ -1524,8 +1524,8 @@ bool GameObjects::CFootMovement::ClimbOntoTop()
     At<float>(this, kEndHeightOffset) = 0.0f;
     SetTransitionFacing(&ladder.facing, 1.0f);
     At<int>(this, kAnimWaiting) = 1;
-    VectorAt(this, kTargetFacing) = ladder.facing;
-    At<float>(this, kTargetHeight) = VectorAt(this, kPos).y;
+    VectorAt(this, kDestHeading) = ladder.facing;
+    At<float>(this, kDestElevation) = VectorAt(this, kPos).y;
     ChangePhase(4);
     At<uint32_t>(this, kAnim) = kAnimLadderOntoTop;
     return true;
@@ -1536,7 +1536,7 @@ bool GameObjects::CFootMovement::GrabLadder(const Maths::Vec4* start, const Math
 {
     FoundLadder ladder;
     if (!LevelRails()->FindLadderOnLine(start, end, this, reinterpret_cast<Record24*>(&ladder),
-                                        &At<CGrindPoint*>(this, kRailStart)))
+                                        &At<CGrindPoint*>(this, kGripRailNode)))
         return false;
     RailsOf(this) = LevelRails();
     LetGoOfRide(At<void*>(this, kContact));
@@ -1558,10 +1558,10 @@ void GameObjects::CFootMovement::ClimbLadder()
     float speed = Param(kLadderMoveSpeed);
     uint8_t* input = At<uint8_t*>(this, kInput);
     double moveSpeed =
-        X87Cos(At<float>(input, 0x248)) * At<float>(this, kControlMagnitude) * static_cast<double>(speed);
+        X87Cos(At<float>(input, 0x248)) * At<float>(this, kStickDeflection) * static_cast<double>(speed);
     At<float>(this, kAnimSpeed) = static_cast<float>(moveSpeed);
     float move = static_cast<float>(moveSpeed * At<float>(this, kFrameLength));
-    CGrindPoint* node = At<CGrindPoint*>(this, kRailStart);
+    CGrindPoint* node = At<CGrindPoint*>(this, kGripRailNode);
     CGrindPoint* other = LadderOtherEnd(node);
     Maths::Vec4 a, b;
     Maths::Vec4* nodePos = RailsOf(this)->GetAbsolutePos(&a, node);
@@ -1601,7 +1601,7 @@ void GameObjects::CFootMovement::ClimbLadder()
     const Maths::Vec4& facing = VectorAt(this, kFacing);
     Maths::Vec4 out = {climb * facing.x, climb * facing.y, climb * facing.z, climb * facing.w};
     Maths::Vec4 part = {d.x * along, d.y * along, d.z * along, d.w * along};
-    nodePos = RailsOf(this)->GetAbsolutePos(&a, At<CGrindPoint*>(this, kRailStart));
+    nodePos = RailsOf(this)->GetAbsolutePos(&a, At<CGrindPoint*>(this, kGripRailNode));
     double x = static_cast<double>(part.x) + nodePos->x;
     float y = part.y + nodePos->y;
     float z = part.z + nodePos->z;

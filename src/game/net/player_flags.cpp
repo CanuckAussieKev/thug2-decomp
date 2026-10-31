@@ -70,7 +70,7 @@ constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000;  // ms
 constexpr uint32_t kJustJoinedTime = 5000;  // ms
 
-Hub* TheManager() { return g_gameNetManager; }
+Hub* TheManager() { return g_onlineHub; }
 PlayerRecord* Local(Hub* manager) { return reinterpret_cast<PlayerRecord*>(LocalPlayer(manager)); }
 uint32_t FlagOf(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
@@ -82,8 +82,8 @@ const char* TeamName(const char* key) { return Scripts::FetchText(key); }
 void TakeFlagFromCarriers(Hub* manager, int team, bool stopAtFirst)
 {
     PlayerSearch search;
-    for (auto* p = reinterpret_cast<PlayerRecord*>(FirstPlayer(manager, &search, false)); p;
-         p = reinterpret_cast<PlayerRecord*>(NextPlayer(manager, &search, false))) {
+    for (auto* p = reinterpret_cast<PlayerRecord*>(StartRosterSweep(manager, &search, false)); p;
+         p = reinterpret_cast<PlayerRecord*>(StepRosterSweep(manager, &search, false))) {
         if (p->GetFlagTeam() != team)
             continue;
         if (stopAtFirst) {
@@ -100,7 +100,7 @@ void TakeFlagFromCarriers(Hub* manager, int team, bool stopAtFirst)
 // 0x00543910
 bool PlayerRecord::IsInvulnerable()
 {
-    if (!(m_conn->m_curStanding & NetLink::Conn::kStatusReady) || !m_skater->GetFlag2C4())
+    if (!(m_conn->m_curStanding & NetLink::Conn::kConnReady) || !m_skater->GetFlag2C4())
         return true;
     if (Prop<int>(Prop<void*>(m_skater, 0x27C), 0x18) < 10) // (its state history's frames)
         return true;
@@ -132,7 +132,7 @@ void PlayerRecord::SetFinishedJoining()
         desc.MakeNew();
         NetLink::AppHost* server = manager->m_host; // (0x005480C0, a getter folded there)
         desc.m_ident = kMsgPlayerFullyIn;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         server->PutOnOutbox(m_conn ? Prop<int>(m_conn, 0x3C) : 0, &desc);
         break;
@@ -261,7 +261,7 @@ void PlayerRecord::GiveCrown(bool king)
         m_flagBits &= ~kPlayerKing;
         return;
     }
-    if (auto* previous = reinterpret_cast<PlayerRecord*>(KingOfTheHill(manager)))
+    if (auto* previous = reinterpret_cast<PlayerRecord*>(IsCrownRuleActive(manager)))
         previous->GiveCrown(false);
     if (!(m_flagBits & kPlayerKing)) {
         m_flagBits |= kPlayerKing;
@@ -282,7 +282,7 @@ void PlayerRecord::GiveCrown(bool king)
         }
         // Split screen: the other screen's player is told too.
         if (!manager->InNetGame() &&
-            manager->PlayerByObjectId(SkaterId(m_skater) == 0 ? 1 : 0)) {
+            manager->FindPlayerSlotByObj(SkaterId(m_skater) == 0 ? 1 : 0)) {
             Scripts::CStruct* params = NewParams();
             params->AppendWord(kString0, m_skater->FetchShownName()); // (its display name)
             Run(kNewKingOther, params);

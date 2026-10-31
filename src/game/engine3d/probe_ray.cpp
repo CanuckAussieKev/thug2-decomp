@@ -119,7 +119,7 @@ int CProbeRay::GetHitShape(bool movables, bool farthest)
     m_surfaceDir = m_hit.normal;
     int result = hitStatic || m_entity ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/skater/debug_collision.h).
-    DebugCollision::NoteFeelerQuery(this, result,
+    CollisionOverlay::NoteFeelerQuery(this, result,
                                     static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress())));
     return result;
 }

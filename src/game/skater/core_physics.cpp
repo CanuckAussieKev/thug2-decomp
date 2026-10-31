@@ -43,19 +43,19 @@ T& At(void* object, uint32_t offset)
 // The component's fields (offsets).
 constexpr uint32_t kObject = 0xC;            // the skater's object (below)
 constexpr uint32_t kDisplayMatrix = 0x18;    // (a copy of the object's matrix)
-constexpr uint32_t kGroundNormal = 0x68;     // (a vector the wall check turns the facing into)
+constexpr uint32_t kFloorUpVector = 0x68;     // (a vector the wall check turns the facing into)
 constexpr uint32_t kFeeler = 0xA8;           // a collision feeler (its result is copied below)
 constexpr uint32_t kSurfaceFlags = 0xFA;     // (a byte passed on when landing)
 constexpr uint32_t kHitPoint = 0x120;        // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
 constexpr uint32_t kOtherFeeler = 0x158;     // another feeler
-constexpr uint32_t kFeelerStart = 0x208;     // the feeler's line
-constexpr uint32_t kFeelerEnd = 0x218;
+constexpr uint32_t kProbeOrigin = 0x208;     // the feeler's line
+constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228;     // (set by the feeler check 0x005003A0)
 constexpr uint32_t kHitFlag = 0x229;         // (likewise)
-constexpr uint32_t kWallNormal = 0x278;      // riding a wall: its normal (+0x268: the point, +0x26C its height)
+constexpr uint32_t kWallFaceVector = 0x278;      // riding a wall: its normal (+0x268: the point, +0x26C its height)
 constexpr uint32_t kInput = 0x150C;          // the pad: a button every 0x20 bytes (pressed, then times)
-constexpr uint32_t kTriggerComponent = 0x1510;
+constexpr uint32_t kActivationZoneSlot = 0x1510;
 constexpr uint32_t kOtherComponent = 0x1514; // (+0x1C, +0x1D: bytes set on landing)
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kOtherFlags = 0x151C;     // (+0x28, +0x50: bools)
@@ -83,7 +83,7 @@ Maths::Vec4& VectorAt(void* object, uint32_t offset) { return At<Maths::Vec4>(ob
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global
 // script value).
-float PhysicsFloat(uint32_t name, void* object)
+float TuningFloatLookup(uint32_t name, void* object)
 {
     return GameObjects::ReadTuningFloat(name, 1, static_cast<GameObjects::CGameEntity*>(object));
 }
@@ -116,7 +116,7 @@ int TimeSinceRelease(uint8_t* button) { return reinterpret_cast<GameObjects::CCo
 // The components the skater's physics reaches through its own fields.
 GameObjects::CActivationZoneModule* TriggerOf(void* component)
 {
-    return static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kTriggerComponent));
+    return static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kActivationZoneSlot));
 }
 Engine3D::CProbeRay* FeelerAt(void* component, uint32_t offset) { return &At<Engine3D::CProbeRay>(component, offset); }
 const int* Events(uint32_t address) { return reinterpret_cast<const int*>(address); }
@@ -145,7 +145,7 @@ void StackOn(Maths::Vec4& velocity, const Maths::Vec4& direction, float scale)
 } // namespace
 
 // 0x004FCBA0
-int CorePhysicsComponent::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = At<void*>(this, kObject);
     const Maths::Vec4& facing = VectorAt(object, kFacing);
@@ -163,14 +163,14 @@ int CorePhysicsComponent::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
         return 0;
     // (The original: both triggers. PartyMod's JZ -> JNZ at 0x004FCC59 makes it either.)
     if (TriggersHeld(input)) {
-        float scale = PhysicsFloat(0x1F96C224, object);
+        float scale = TuningFloatLookup(0x1F96C224, object);
         StackOn(VectorAt(At<void*>(this, kObject), kVelocity), forward, scale);
         return 1;
     }
     if (input[kButton60]) {
         int wait = PhysicsInteger(0x3080E9E7, object);
         if (TimeSincePress(input + kButton60) > wait) {
-            float scale = PhysicsFloat(0xDC818B7E, object);
+            float scale = TuningFloatLookup(0xDC818B7E, object);
             StackOn(VectorAt(At<void*>(this, kObject), kVelocity), forward, scale);
             return 1;
         }
@@ -178,7 +178,7 @@ int CorePhysicsComponent::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
     if (input[kButton20]) {
         int wait = PhysicsInteger(0x9B25142A, object);
         if (TimeSincePress(input + kButton20) > wait) {
-            float scale = PhysicsFloat(0x1AB3809F, object);
+            float scale = TuningFloatLookup(0x1AB3809F, object);
             Maths::Vec4& velocity = VectorAt(At<void*>(this, kObject), kVelocity);
             // velocity -= side * scale (x's product unrounded, as above)
             float y = scale * 0.0f;
@@ -193,7 +193,7 @@ int CorePhysicsComponent::LipPushOff(Scripts::CStruct*, Scripts::CScript*)
     if (input[kButton40]) {
         int wait = PhysicsInteger(0x9B25142A, object);
         if (TimeSincePress(input + kButton40) > wait) {
-            float scale = PhysicsFloat(0x1AB3809F, object);
+            float scale = TuningFloatLookup(0x1AB3809F, object);
             VectorAt(At<void*>(this, kObject), kVelocity) += side * scale;
             return 1;
         }
@@ -260,7 +260,7 @@ void LogRailBoost(Scripts::CScript* script, float before, float after, float hei
 } // namespace
 
 // 0x004FCE90
-int CorePhysicsComponent::SetSpeed(Scripts::CStruct* params, Scripts::CScript* script)
+int SkaterPhysicsModule::SetSpeed(Scripts::CStruct* params, Scripts::CScript* script)
 {
     float speed = 0.0f;
     params->FetchFloat(0u, &speed, 0); // (unnamed)
@@ -287,7 +287,7 @@ int CorePhysicsComponent::SetSpeed(Scripts::CStruct* params, Scripts::CScript* s
 }
 
 // 0x00509BD0
-void CorePhysicsComponent::CheckForGround()
+void SkaterPhysicsModule::CheckForGround()
 {
     void* object = At<void*>(this, kObject);
     uint8_t* input = At<uint8_t*>(this, kInput);
@@ -300,15 +300,15 @@ void CorePhysicsComponent::CheckForGround()
     }
     if (wheels == ThawBmx::kWheelsNotUsed) {
         // The feeler: from above the skater (up * a physics value) to 200 below, along its up axis.
-        float above = PhysicsFloat(0xE4D79235, object);
-        Maths::Vec4& start = VectorAt(this, kFeelerStart);
-        Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+        float above = TuningFloatLookup(0xE4D79235, object);
+        Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+        Maths::Vec4& end = VectorAt(this, kProbeTip);
         start = VectorAt(object, kUp) * above;
         end = VectorAt(object, kUp) * -200.0f;
         start += VectorAt(object, kPosition);
         end += VectorAt(object, kPosition);
 
-        if (CheckFeeler(0x10, 0)) {
+        if (ProbeTouchesZone(0x10, 0)) {
             const Maths::Vec4& position = VectorAt(object, kPosition);
             const Maths::Vec4& point = VectorAt(this, kHitPoint);
             const Maths::Vec4& up = VectorAt(object, kUp);
@@ -345,11 +345,11 @@ void CorePhysicsComponent::CheckForGround()
                                                          static_cast<double>(facing.z) * normal.z +
                                                          static_cast<double>(facing.y) * normal.y);
                 inHitPlane.AlignToPlane(normal);
-                inGroundPlane.AlignToPlane(VectorAt(this, kGroundNormal));
+                inGroundPlane.AlignToPlane(VectorAt(this, kFloorUpVector));
                 float turn = static_cast<float>(static_cast<double>(inGroundPlane.x) * inHitPlane.x +
                                                 static_cast<double>(inGroundPlane.z) * inHitPlane.z +
                                                 static_cast<double>(inGroundPlane.y) * inHitPlane.y);
-                float angle = PhysicsFloat(input[kButton20] ? 0x4138283E : 0xEF161C2A, object);
+                float angle = TuningFloatLookup(input[kButton20] ? 0x4138283E : 0xEF161C2A, object);
                 double limit = std::cos(static_cast<double>(angle) * 0.0174532924f); // (degrees to radians)
                 bool keep = true;
                 if (facingIntoHit > 0.0f && turn > 0.0f && turn < limit)
@@ -363,7 +363,7 @@ void CorePhysicsComponent::CheckForGround()
                     double moved = std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz +
                                              static_cast<double>(my) * my);
                     float reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
-                    float least = PhysicsFloat(0x899BA3D0, object);
+                    float least = TuningFloatLookup(0x899BA3D0, object);
                     if (reach < least)
                         reach = least;
                     if (distance > reach)
@@ -384,10 +384,10 @@ void CorePhysicsComponent::CheckForGround()
                         UpdateGroundNormal();
                     StartRidingHitObject();
                     if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
-                        TriggerOf(this)->CheckFeeler(g_kickEvents, FeelerAt(this, kOtherFeeler));
+                        TriggerOf(this)->ProbeTouchesZone(g_kickEvents, FeelerAt(this, kOtherFeeler));
                         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
                             return;
-                        TriggerOf(this)->CheckFeeler(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
+                        TriggerOf(this)->ProbeTouchesZone(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
                         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
                             return;
                     }
@@ -434,14 +434,14 @@ void CorePhysicsComponent::CheckForGround()
                          reinterpret_cast<AcidDrop*>(drop)))
             StartAcidDrop(reinterpret_cast<const AcidDrop*>(drop));
     }
-    TriggerOf(this)->CheckFeeler(g_otherFeelerLeaveEvents, FeelerAt(this, kOtherFeeler));
+    TriggerOf(this)->ProbeTouchesZone(g_otherFeelerLeaveEvents, FeelerAt(this, kOtherFeeler));
 }
 
 // Not original (THAW's BMX, phase 3 - THAW 0x005DF3E0..0x005DF7B5): the bike on the ground under its wheels
 // (ThawBmx::WheelGroundCheck has put it there): the display normal towards the ground's; with the feeler under the
 // skater on the ground (`hit`), what CheckForGround does on the ground after that: the terrain, a ride on what was
 // hit, the triggers, the trick objects, the feeler kept.
-void CorePhysicsComponent::GroundUnderWheels(bool hit)
+void SkaterPhysicsModule::GroundUnderWheels(bool hit)
 {
     if (!ThawBmx::LerpDisplayNormal(this))
         UpdateGroundNormal();
@@ -452,10 +452,10 @@ void CorePhysicsComponent::GroundUnderWheels(bool hit)
     At<uint8_t>(At<uint8_t*>(this, kOtherComponent), 0x1C) = surface;
     StartRidingHitObject();
     if (At<int>(this, 0x1AC) != At<int>(this, 0xFC)) {
-        TriggerOf(this)->CheckFeeler(g_kickEvents, FeelerAt(this, kOtherFeeler));
+        TriggerOf(this)->ProbeTouchesZone(g_kickEvents, FeelerAt(this, kOtherFeeler));
         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
             return;
-        TriggerOf(this)->CheckFeeler(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
+        TriggerOf(this)->ProbeTouchesZone(g_skaterEvents0064BBB0, FeelerAt(this, kFeeler));
         if (At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26))
             return;
     }
@@ -474,7 +474,7 @@ void* ObjectOf(void* component) { return At<void*>(component, kObject); }
 } // namespace
 
 // 0x0050CA00
-void CorePhysicsComponent::DoAirPhysics()
+void SkaterPhysicsModule::DoAirPhysics()
 {
     uint8_t* input = At<uint8_t*>(this, kInput);
     float gravity = static_cast<float>(GetGravity());
@@ -510,7 +510,7 @@ void CorePhysicsComponent::DoAirPhysics()
             KeepUpright();
     }
     if (At<float>(this, 0x320) != 0.0f)
-        ApplyRollingFriction();
+        ApplyWheelDrag();
 
     Maths::Vec4 velocity = VectorAt(ObjectOf(this), kVelocity);
     int& countdown = At<int>(this, 0x14CC);
@@ -582,15 +582,15 @@ void CorePhysicsComponent::DoAirPhysics()
             // On a wall: a feeler from the skater's up (+1) to 23 below; off it, break out of vert.
             const Maths::Vec4& up = VectorAt(object, kUp);
             const Maths::Vec4& position = VectorAt(object, kPosition);
-            Maths::Vec4& start = VectorAt(this, kFeelerStart);
-            Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+            Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+            Maths::Vec4& end = VectorAt(this, kProbeTip);
             float x = up.x + position.x, y = up.y + position.y, z = up.z + position.z, w = up.w + position.w;
             start.z = z, start.w = w, start.x = x, start.y = y;
             float ey = up.y * -23.0f, ez = up.z * -23.0f, ew = up.w * -23.0f;
             x = static_cast<float>(static_cast<double>(up.x) * -23.0f + position.x);
             y = ey + position.y, z = ez + position.z, w = ew + position.w;
             end.z = z, end.w = w, end.x = x, end.y = y;
-            if (!CheckFeeler(0x10, 0)) {
+            if (!ProbeTouchesZone(0x10, 0)) {
                 BreakVert(false);
                 int wait = Scripts::FetchIntValue(0x6BB5B751);
                 if (TimeSinceRelease(input + kButton20) > wait && TimeSincePress(input + kButton20) > wait)
@@ -621,13 +621,13 @@ void CorePhysicsComponent::DoAirPhysics()
             StopRiding(ride);
     }
     if (!riding && BitMark(this, 0x38) && BitMark(this, 0x30)) {
-        Maths::Vec4& start = VectorAt(this, kFeelerStart);
-        Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+        Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+        Maths::Vec4& end = VectorAt(this, kProbeTip);
         start.x = VectorAt(ObjectOf(this), kPosition).x;
         start.y = At<float>(this, 0x26C);
         start.z = VectorAt(ObjectOf(this), kPosition).z;
         end = start;
-        const Maths::Vec4& wall = VectorAt(this, kWallNormal);
+        const Maths::Vec4& wall = VectorAt(this, kWallFaceVector);
         float wz = wall.z * 30.0f, ww = wall.w * 30.0f;
         start.x = static_cast<float>(static_cast<double>(wall.x) * 30.0f + start.x);
         start.y = static_cast<float>(static_cast<double>(wall.y) * 30.0f + start.y);
@@ -642,7 +642,7 @@ void CorePhysicsComponent::DoAirPhysics()
         if (step > 0.5f) {
             start.y = step + start.y;
             end.y = end.y + step;
-            if (CheckFeeler(0, 8)) {
+            if (ProbeTouchesZone(0, 8)) {
                 found = true;
             } else {
                 start.y -= step;
@@ -650,12 +650,12 @@ void CorePhysicsComponent::DoAirPhysics()
                 step *= 0.5f;
             }
         }
-        if (!found && CheckFeeler(0, 8))
+        if (!found && ProbeTouchesZone(0, 8))
             found = true;
         for (int i = 0; !found && i < 10; ++i) {
             start.y -= 3.0f;
             end.y -= 3.0f;
-            if (CheckFeeler(0, 8)) {
+            if (ProbeTouchesZone(0, 8)) {
                 At<float>(this, 0x26C) = VectorAt(this, kHitPoint).y;
                 found = true;
             }
@@ -674,7 +674,7 @@ void CorePhysicsComponent::DoAirPhysics()
             At<float>(this, 0x270) = hz;
             VectorAt(ObjectOf(this), kPosition).x = point.x;
             VectorAt(ObjectOf(this), kPosition).z = hz;
-            Maths::Vec4& newWall = VectorAt(this, kWallNormal);
+            Maths::Vec4& newWall = VectorAt(this, kWallFaceVector);
             newWall = normal;
             float push = Scripts::FetchFloat(0x78384871);
             Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
@@ -709,9 +709,9 @@ void CorePhysicsComponent::DoAirPhysics()
     int state = At<int>(At<void*>(this, kTimedFlags), 0x18);
     if (state == 2 || state == 5)
         return;
-    VectorAt(this, kFeelerStart) = lastPosition();
-    VectorAt(this, kFeelerEnd) = VectorAt(ObjectOf(this), kPosition);
-    if (!stopped && CheckFeeler(0x10, 0)) {
+    VectorAt(this, kProbeOrigin) = lastPosition();
+    VectorAt(this, kProbeTip) = VectorAt(ObjectOf(this), kPosition);
+    if (!stopped && ProbeTouchesZone(0x10, 0)) {
         bool steep = VectorAt(this, kHitNormal).y < 0.1f;
         from = lastPosition();
         // (Not yet, while something above says so - fast or steep, and the ride's timer past 500.)
@@ -731,12 +731,12 @@ void CorePhysicsComponent::DoAirPhysics()
             VectorAt(ObjectOf(this), kFacing).AlignToPlane(normal);
             At<Maths::Mat4>(ObjectOf(this), kMatrix).SquareUpAxes(2);
             At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
-            float push = PhysicsFloat(0x23410C14, object);
+            float push = TuningFloatLookup(0x23410C14, object);
             VectorAt(ObjectOf(this), kPosition) += normal * push;
             SetTimedFlag(At<void*>(this, kTimedFlags), 0xB0, 1);
         }
     } else if (!BitMark(this, 0x30)) {
-        CheckSideCollisions();
+        TestLateralHits();
     }
 
     if (KeepOffCeiling())
@@ -759,7 +759,7 @@ void CorePhysicsComponent::DoAirPhysics()
 }
 
 // (Part of 0x0050CA00: landing on something skatable.)
-void CorePhysicsComponent::LandFromAir()
+void SkaterPhysicsModule::LandFromAir()
 {
     SetPhysicsState(0);
     StartRidingHitObject();
@@ -783,8 +783,8 @@ void CorePhysicsComponent::LandFromAir()
     void* skater = At<void*>(this, kSkaterComponent);
     if (!At<uint8_t>(skater, 0x13B0))
         static_cast<GameObjects::CMoveExecutor*>(skater)->SetTrickObjects(false);
-    SetLastGroundFeeler(&At<uint8_t>(this, kFeeler));
-    TriggerOf(this)->CheckFeeler(g_skaterEvents0064BB98, FeelerAt(this, kOtherFeeler));
+    RememberFloorProbe(&At<uint8_t>(this, kFeeler));
+    TriggerOf(this)->ProbeTouchesZone(g_skaterEvents0064BB98, FeelerAt(this, kOtherFeeler));
     if (!At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26)) {
         const Maths::Vec4& normal = VectorAt(this, kHitNormal);
         Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
@@ -825,7 +825,7 @@ void CorePhysicsComponent::LandFromAir()
             const Maths::Vec4 up = VectorAt(ObjectOf(this), kUp);
             const Maths::Vec4 hit = normal;
             VectorAt(this, 0x58) = up;
-            VectorAt(this, kGroundNormal) = up;
+            VectorAt(this, kFloorUpVector) = up;
             VectorAt(this, 0x78) = VectorAt(this, 0x58);
             FindNearestWallSide();
             At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
@@ -835,7 +835,7 @@ void CorePhysicsComponent::LandFromAir()
         }
         Maths::Vec4& ground = VectorAt(this, 0x58);
         ground = normal;
-        VectorAt(this, kGroundNormal) = ground;
+        VectorAt(this, kFloorUpVector) = ground;
         VectorAt(this, 0x78) = ground;
         FindNearestWallSide();
         VectorAt(ObjectOf(this), kUp) = ground;

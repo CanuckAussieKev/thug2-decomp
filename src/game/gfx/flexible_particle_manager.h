@@ -10,7 +10,7 @@
 // cutscene sets up), drawn far to near; the level's colour passed on to the systems that take it.
 namespace Engine3D {
 
-struct CParticleSystem;
+struct CEmitterInstance;
 
 // (0x28 bytes, vtable 0x006494B0: 0 the scalar deleting destructor.)
 struct CFlexibleParticleManager {
@@ -19,7 +19,7 @@ struct CFlexibleParticleManager {
     MemSys::Arena* m_arena;         // +0x08 "FlxParticles"
     MemSys::Zone* mp_tempRegion; // +0x0C
     MemSys::Arena* mp_tempHeap;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
-    MemSys::ListNode* mp_systems;  // +0x14: the list's head (ListKit::Foremost<CParticleSystem>, vtable 0x006494C4)
+    MemSys::ListNode* mp_systems;  // +0x14: the list's head (ListKit::Foremost<CEmitterInstance>, vtable 0x006494C4)
     float m_colourScale[4];     // +0x18: the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
@@ -39,15 +39,15 @@ struct CFlexibleParticleManager {
     // check), each with RenderIfVisible(`force` or the game paused).
     void RenderSystems(bool force);
     // 0x0049AC20: the system named `name` (the first), or null.
-    CParticleSystem* FindSystem(uint32_t name);
+    CEmitterInstance* FindSystem(uint32_t name);
     // 0x0049AC60: a new system (CreateFlexibleParticles' arguments, on the temporary heap if there is one, else its
     // own), unless it couldn't allocate everything (then destroyed: null): `perm` (not 0) kept by
     // DestroyNonPersistent, `useLevelColour` given the level's colour; updating, not emitting, added at the list's end.
-    CParticleSystem* StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams, uint32_t texture,
+    CEmitterInstance* StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams, uint32_t texture,
                                   uint32_t blendMode, int fixedAlpha, int segments, float unknown, int history, int perm,
                                   bool useLevelColour, const char* model);
     // 0x0049AD60: `system` taken out of the list (null: nothing).
-    void RemoveSystem(CParticleSystem* system);
+    void RemoveSystem(CEmitterInstance* system);
     // 0x0049AD90: the system named `name` destroyed (if there's one).
     void DestroySystemNow(uint32_t name);
     // 0x0049ADB0: the system named `name` left to die (no more emission; destroyed once empty).
@@ -68,7 +68,7 @@ static_assert(offsetof(CFlexibleParticleManager, mp_systems) == 0x14 &&
                   sizeof(CFlexibleParticleManager) == 0x28,
               "layout must match the original");
 
-// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (ListKit::Foremost<CParticleSystem>) destroyed - the
+// 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (ListKit::Foremost<CEmitterInstance>) destroyed - the
 // node's body 0x00496D10 -, freed with flags & 1. Returns it.
 struct CParticleSystemListHead {
     MemSys::ListNode* Teardown(unsigned int flags);

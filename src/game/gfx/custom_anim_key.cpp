@@ -20,7 +20,7 @@ namespace Gfx2D {
 namespace {
 
 void** const& kBaseVtable = Vt::kAnimEventBase;
-void** const& kScriptKeyVtable = Vt::kAnimEvent;
+void** const& kScriptKeyVtable = Vt::kVtblAnimCue;
 extern void** const kFovVtable;
 extern void** const kScriptVtable;
 extern void** const kMarkerVtable; // (kind 3: no data; its Process is the shared "true" 0x005BC7F0)
@@ -90,9 +90,9 @@ CUserClipKey* CUserClipKey::Teardown(unsigned int flags)
 bool CCameraFovKey::WorkOn(void* camera)
 {
     ReadDebugGlobal();
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
-    params->PushFloat(0u, m_viewAngle);
+    params->PushFloat(0u, m_fieldOfView);
     Scripts::LaunchScript(kSetHFOVRadians, params, static_cast<GameObjects::CEntity*>(camera), false, nullptr);
     if (params) {
         params->Clear();
@@ -105,11 +105,11 @@ bool CCameraFovKey::WorkOn(void* camera)
 bool CScriptKey::WorkOn(void* object)
 {
     ReadDebugGlobal();
-    if (m_runScript == 0x4E917BDA)
-        m_runScript = 0x69F35FA0;
-    else if (m_runScript == 0x208D7A0D)
-        m_runScript = 0x04D887B1;
-    Scripts::LaunchScript(m_runScript, nullptr, static_cast<GameObjects::CEntity*>(object), false, nullptr);
+    if (m_ownScript == 0x4E917BDA)
+        m_ownScript = 0x69F35FA0;
+    else if (m_ownScript == 0x208D7A0D)
+        m_ownScript = 0x04D887B1;
+    Scripts::LaunchScript(m_ownScript, nullptr, static_cast<GameObjects::CEntity*>(object), false, nullptr);
     return true;
 }
 
@@ -195,7 +195,7 @@ void CAnimScriptKey::AssignValue(int frame, uint32_t event, Scripts::CStruct* pa
     m_tick = frame;
     m_armed = false;
     m_kindTag = event;
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     mp_params = memory ? memory->PrepareAll() : nullptr;
     mp_params->AppendStructureIfAny(params);
 }
@@ -235,7 +235,7 @@ CUserClipKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
         auto* key = NewKey<CCameraFovKey>(kFovVtable, frame);
         if (!key)
             return nullptr;
-        *reinterpret_cast<uint32_t*>(&key->m_viewAngle) = fov;
+        *reinterpret_cast<uint32_t*>(&key->m_fieldOfView) = fov;
         return key;
     }
     case 2:
@@ -262,7 +262,7 @@ CUserClipKey* __cdecl CreateCustomAnimKey(const uint8_t** cursor)
         auto* key = NewKey<CScriptKey>(vtables[kind - 4], frame);
         if (!key)
             return nullptr;
-        key->m_runScript = value; // (each kind's one word)
+        key->m_ownScript = value; // (each kind's one word)
         return key;
     }
     default:

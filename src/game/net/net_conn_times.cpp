@@ -12,17 +12,17 @@ namespace NetLink {
 void Conn::StampLastHeard(uint32_t extra)
 {
     uint32_t time = FrameClock::GetTime() + extra;
-    if (time > m_lastCommTime)
-        m_lastCommTime = time;
+    if (time > m_lastHeardFrom)
+        m_lastHeardFrom = time;
 }
 
 // 0x00455940
 uint32_t Conn::GetSilenceDuration()
 {
     uint32_t now = FrameClock::GetTime();
-    if (now < m_lastCommTime)
+    if (now < m_lastHeardFrom)
         return 0;
-    return now - m_lastCommTime;
+    return now - m_lastHeardFrom;
 }
 
 } // namespace Net

@@ -228,7 +228,7 @@ bool CObjectiveAuthoring::GetCurrentEditedGoalId(Scripts::CStruct* /*params*/, S
     script->m_args->EraseModule("goal_id");
     if (m_activeNode) {
         char* name = g_createdGoalName;
-        Sprintf(name, "CreatedGoal%d", m_activeNode->m_goalIndex);
+        Sprintf(name, "CreatedGoal%d", m_activeNode->m_levelGoalNumber);
         script->m_args->PutNameKey("goal_id", Checksums::HashFromText(name));
     }
     return true;

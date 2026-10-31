@@ -388,7 +388,7 @@ void Toolbar(const ShapeMesh& model)
     state.simulating = PlayTest::Simulating();
     state.keyOf = [](const char* id) {
         int index = Actions::Find(id);
-        return index >= 0 ? Hints::FirstKey(Actions::KeysText(index)) : std::string();
+        return index >= 0 ? Hints::LeadingKeyName(Actions::KeysText(index)) : std::string();
     };
     const UiLayout::Rect2& strip = g_layout.strip;
     float padX = 8.0f * g_scale, padY = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
@@ -770,7 +770,7 @@ void NodeSection(const ShapeMesh& model, int index)
                 std::snprintf(label, sizeof(label), "Whole %s (%d point%s)", model.nodes.chainNoun,
                               model.nodes.railPoints, model.nodes.railPoints == 1 ? "" : "s");
                 if (ImGui::Checkbox(label, &whole))
-                    Ask(Request::kWholeRail, whole ? 1 : 0);
+                    Ask(Request::kReqEntireRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Move all points together  (L)");
             }

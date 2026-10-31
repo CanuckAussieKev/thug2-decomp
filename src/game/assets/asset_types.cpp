@@ -58,7 +58,7 @@ void ParseQbFile(const char* name, void* buffer)
 }
 void UnloadQbFile(uint32_t name) { Scripts::UnloadQBFile(name); }
 // Scenes (Nx): the file name, made from the buffer (with the textures), unloaded.
-void SceneFileName(char* out, const char* name, uint8_t flag) { Engine3D::Engine::SceneFileName(out, name, flag); }
+void BuildSceneFilePath(char* out, const char* name, uint8_t flag) { Engine3D::Engine::BuildSceneFilePath(out, name, flag); }
 void* MakeScene(const char* name, void* buffer, void* textures, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
     return Engine3D::LoadNamedSceneFromMemory(name, static_cast<const uint8_t*>(buffer), static_cast<Engine3D::CTextureSet*>(textures),
@@ -76,7 +76,7 @@ void AddCollision(void* scene, void* buffer, uint8_t flag)
     static_cast<Engine3D::CWorldScene*>(scene)->AddCollisionData(static_cast<const uint8_t*>(buffer), flag);
 }
 void* SceneCollision(void* scene) { return static_cast<Engine3D::CWorldScene*>(scene)->FetchStaticCollision(0); }
-void RemoveCollision(void* scene) { static_cast<Engine3D::CWorldScene*>(scene)->UnloadCollision(); }
+void DetachHitMesh(void* scene) { static_cast<Engine3D::CWorldScene*>(scene)->UnloadCollision(); }
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
 bool SplitSkinName(const char* name, char* base) { return Engine3D::Engine::SplitSkinName(name, base); }
 void* MakeSkinnedModel(uint32_t checksum, void* buffer, uint32_t size, void* cas, void* textures, int value,
@@ -96,7 +96,7 @@ void AddSkinCollision(void* model, void* buffer)
 {
     static_cast<Engine3D::CSubMesh*>(model)->AddCollision(static_cast<const uint8_t*>(buffer));
 }
-void RemoveSkinCollision(void* model) { static_cast<Engine3D::CSubMesh*>(model)->RemoveCollision(); }
+void RemoveSkinCollision(void* model) { static_cast<Engine3D::CSubMesh*>(model)->DetachHitMesh(); }
 // Texture dictionaries: the file name, made, unloaded.
 void TexDictFileName(char* out, const char* name) { Engine3D::TexDictFileName(out, name); }
 void* MakeTexDict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int value, uint8_t b, uint8_t c)
@@ -127,7 +127,7 @@ void StartReading(CResource* asset, FileLoad::AsyncFileHandle* file, void* buffe
 {
     if (async) {
         file->m_callbackMask = 0;
-        file->m_callbackMask |= 1u << FileLoad::kAsyncRead;
+        file->m_callbackMask |= 1u << FileLoad::kOpReadFile;
         file->ChangeHook(&CResource::ReadCallback, asset, nullptr);
     }
     file->TakeIn(buffer, 1, static_cast<int>(size));
@@ -176,7 +176,7 @@ void FreeMallocBuffer(void*& buffer)
 void* GroupData(CResource* asset) { return asset->m_bundle->VData(); }
 const char* PlatformName(const char* name, char* out)
 {
-    std::snprintf(out, 256, "%s.%s", name, Engine3D::PlatformExtension());
+    std::snprintf(out, 256, "%s.%s", name, Engine3D::PlatformSuffix());
     return out;
 }
 void CopyWords(void* to, const void* from, int words) { std::memcpy(to, from, 4 * static_cast<size_t>(words)); }
@@ -436,7 +436,7 @@ void* CNodeTableResource::BuildNodeTable(uint32_t name, int count)
         array->PrepareAll();
     array->ConfigureSizeKind(count, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < count; ++i) {
-        CStruct* node = Scripts::NewStruct();
+        CStruct* node = Scripts::SpawnParamBag();
         if (node)
             node->PrepareAll();
         array->SetElement(i, reinterpret_cast<uint32_t>(node));
@@ -499,7 +499,7 @@ int CSceneAsset::ReadIn(const char* name, bool async, bool useArchive, void* par
     SetUpParams(params, structure);
     CopyString(reinterpret_cast<char*>(m_args + 8), name);
     char file[256];
-    SceneFileName(file, name, m_args[7]);
+    BuildSceneFilePath(file, name, m_args[7]);
     uint32_t size;
     if (!ReadFile(this, file, async, &size))
         return -1;
@@ -602,7 +602,7 @@ bool CSceneCollisionAsset::FinishLoading(void* buffer, uint32_t size)
 int CSceneCollisionAsset::Offload()
 {
     if (VData()) {
-        RemoveCollision(GroupData(this));
+        DetachHitMesh(GroupData(this));
         FreeMallocBuffer(m_octets);
         VSetData(nullptr);
     }
@@ -737,7 +737,7 @@ int CSkinResource::ReadIn(const char* name, bool async, bool useArchive, void* p
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
     const char* kind = hasCas ? "skin" : "mdl";
     char file[512];
-    std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, Engine3D::PlatformExtension());
+    std::snprintf(file, sizeof(file), "%s.%s.%s", base, kind, Engine3D::PlatformSuffix());
     m_args->hasCas = hasCas;
     ++m_filesReading;
     uint32_t size;
@@ -750,7 +750,7 @@ int CSkinResource::ReadIn(const char* name, bool async, bool useArchive, void* p
     }
     if (hasCas) {
         char cas[512];
-        std::snprintf(cas, sizeof(cas), "%s.cas.%s", base, Engine3D::PlatformExtension());
+        std::snprintf(cas, sizeof(cas), "%s.cas.%s", base, Engine3D::PlatformSuffix());
         ++m_filesReading;
         m_casFile = FileLoad::AsyncOpen(cas, !async, 100);
         if (!m_casFile)

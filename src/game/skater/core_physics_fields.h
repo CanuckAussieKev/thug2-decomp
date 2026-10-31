@@ -25,7 +25,7 @@ T& At(void* object, uint32_t offset)
 // --- the component's fields ---
 constexpr uint32_t kObject = 0x0C;            // the skater (a composite object: its fields below)
 constexpr uint32_t kDisplayMatrix = 0x18;     // the matrix it's drawn with
-constexpr uint32_t kGroundNormal = 0x68;      // (and +0x58, +0x78: copies of the ground's normal)
+constexpr uint32_t kFloorUpVector = 0x68;      // (and +0x58, +0x78: copies of the ground's normal)
 constexpr uint32_t kFrameLength = 0x8C;       // the frame's length (seconds)
 constexpr uint32_t kFrameStart = 0x90;        // (the clock when the physics was reset)
 constexpr uint32_t kSafePosition = 0x98;      // (the object's position when reset)
@@ -33,19 +33,19 @@ constexpr uint32_t kFeeler = 0xA8;            // a collision feeler (Engine3D::C
 constexpr uint32_t kHitFlags = 0xF8;          // the feeler's hit face's flags (16 bits)
 constexpr uint32_t kHitPoint = 0x120;         // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
-constexpr uint32_t kLastGroundFeeler = 0x158; // a copy of the last ground hit's feeler
-constexpr uint32_t kFeelerStart = 0x208;      // the feeler's line
-constexpr uint32_t kFeelerEnd = 0x218;
+constexpr uint32_t kLastFloorProbe = 0x158; // a copy of the last ground hit's feeler
+constexpr uint32_t kProbeOrigin = 0x208;      // the feeler's line
+constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228;      // (set by the feeler check 0x005003A0)
 constexpr uint32_t kHitVert = 0x229;
 constexpr uint32_t kHitWall = 0x22A;
 constexpr uint32_t kInput = 0x150C;           // the pad: a button every 0x20 bytes (down, then times)
-constexpr uint32_t kTriggerComponent = 0x1510;
+constexpr uint32_t kActivationZoneSlot = 0x1510;
 constexpr uint32_t kOtherComponent = 0x1514;  // (+0x1C, +0x1D, +0x1E: bytes it's told)
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kTimedFlags = 0x1528;      // bools, each followed by the time it last changed (+0x18: the state)
 constexpr uint32_t kRide = 0x152C;            // +0x18: a smart pointer to what the skater rides on
-constexpr uint32_t kStateComponent = 0x1530;  // (+0x24, +0x26: bools; +0x2C: the walking component)
+constexpr uint32_t kStateModuleSlot = 0x1530;  // (+0x24, +0x26: bools; +0x2C: the walking component)
 
 // --- the skater object's fields ---
 constexpr uint32_t kPosition = 0x4C;
@@ -84,7 +84,7 @@ inline void SetTimedFlag(void* component, uint32_t flag, uint8_t value)
 
 // A physics value (0x00580400 / 0x00580440): the skater's tuning structure's `name`, else the global script value
 // (asserted when `required`). The float comes back on the x87 stack, rounded (it's a stored float).
-inline float PhysicsFloat(uint32_t name, void* object, int required = 1)
+inline float TuningFloatLookup(uint32_t name, void* object, int required = 1)
 {
     return GameObjects::ReadTuningFloat(name, required, static_cast<GameObjects::CGameEntity*>(object));
 }
@@ -100,11 +100,11 @@ inline double StatValue(void* object, uint32_t name)
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
-inline double Gravity(void* component) { return static_cast<Skater::CorePhysicsComponent*>(component)->GetGravity(); }
+inline double Gravity(void* component) { return static_cast<Skater::SkaterPhysicsModule*>(component)->GetGravity(); }
 // 0x004FDED0: the physics state (+0x18 of the flags) changed to `state`, with what goes with it.
 inline void ChangePhase(void* component, int state)
 {
-    static_cast<Skater::CorePhysicsComponent*>(component)->SetPhysicsState(state);
+    static_cast<Skater::SkaterPhysicsModule*>(component)->SetPhysicsState(state);
 }
 
 // 0x0042BBF0 (Maths::Vec4::SetLength): x, y and z scaled to `length` (left alone at length 0).

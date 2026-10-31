@@ -12,7 +12,7 @@
 // the managers that own objects (CObjectHubBase / CMiscHub, entity_hub.h).
 //
 // An object has an id (a name checksum, the name scripts write before ':' - `id:Obj_Func`) and a type, both also
-// kept as tags; at most one script of its own (m_runScript, not spawned: whoever updates the object runs it); tags (a
+// kept as tags; at most one script of its own (m_ownScript, not spawned: whoever updates the object runs it); tags (a
 // structure scripts read and write); flags scripts set and test (Obj_SetFlag...). Scripts find an object by its id
 // through the object tracker (0x006F0FC0, wt/trk's code): FindObject.
 //
@@ -51,11 +51,11 @@ static_assert(sizeof(CObjectRef) == 0xC, "layout must match the original");
 
 // An object's node in its manager's list (ListKit::Elem<CEntity>, vtable 0x006477E4; data = the object, priority =
 // the list's sort key: the highest first).
-struct CObjectNode : MemSys::ListNode {
+struct CEntityListEntry : MemSys::ListNode {
     // 0x00460B20: the destructor body: out of its list (and linked to itself).
     void DestroyBody();
     // 0x00460B40: the scalar deleting destructor.
-    CObjectNode* Teardown(unsigned int flags);
+    CEntityListEntry* Teardown(unsigned int flags);
 };
 
 // m_objectFlags (+0x08)
@@ -181,18 +181,18 @@ public:
     // --- fields (after CSharedBase's vtable and smart pointer list) ---
     uint32_t m_objectFlags;        // +0x08 OBJECT_FLAG_*
     CObjectHubBase* m_parkOwner;      // +0x0C the manager it is registered with
-    Scripts::CScript* m_runScript;     // +0x10 its own script (made on demand)
+    Scripts::CScript* m_ownScript;     // +0x10 its own script (made on demand)
     uint32_t m_ident;                 // +0x14 kUnassignedId until registered
     uint32_t m_kindTag;               // +0x18
     uint32_t m_visitedMask;        // +0x1C CObjectHubBase::ForEach's bits (one per walk in progress)
     Scripts::CStruct* m_tagTable;      // +0x20 made on demand (front-end heap)
     uint32_t m_flagBits;              // +0x24 the script flags (Obj_SetFlag...; never initialised here)
-    CObjectNode m_listLink;            // +0x28 in the manager's list (or its dead list)
+    CEntityListEntry m_listLink;            // +0x28 in the manager's list (or its dead list)
     uint32_t m_aliasCount;         // +0x3C the tracker's aliases of it (tracker.cpp)
     CObjectRef m_ref;              // +0x40
 };
 static_assert(offsetof(CEntity, m_objectFlags) == 0x08 && offsetof(CEntity, m_parkOwner) == 0x0C &&
-                  offsetof(CEntity, m_runScript) == 0x10 && offsetof(CEntity, m_ident) == 0x14 &&
+                  offsetof(CEntity, m_ownScript) == 0x10 && offsetof(CEntity, m_ident) == 0x14 &&
                   offsetof(CEntity, m_kindTag) == 0x18 && offsetof(CEntity, m_visitedMask) == 0x1C &&
                   offsetof(CEntity, m_tagTable) == 0x20 && offsetof(CEntity, m_flagBits) == 0x24 &&
                   offsetof(CEntity, m_listLink) == 0x28 && offsetof(CEntity, m_aliasCount) == 0x3C &&
@@ -235,7 +235,7 @@ public:
     int InvokeMethodByName(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params, Scripts::CScript* script);
     // 0x0042BB20 (vtable +0x2C of most components, shared): the entry's member function pointer (on `this` moved by
     // the entry's adjustment), or, with none, vtable +0x30 by the entry's name. Returns what that returns.
-    int RunMemberFunction(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params, Scripts::CScript* script);
+    int DispatchScriptMethod(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- the vtable ---
     CObjectModule* VirtualDestroy(unsigned int flags)
@@ -391,14 +391,14 @@ public:
     uint8_t m_unknownBC;           // +0xBC (cleared by the constructor)
     uint8_t padBD[3];
     Maths::Mat4 m_displayMatrix;   // +0xC0
-    CObjectModule* m_moduleList; // +0x100
+    CObjectModule* m_attachedModules; // +0x100
     uint32_t m_compositeFlags;     // +0x104 COMPOSITE_FLAG_*
 };
 static_assert(offsetof(CGameEntity, m_atPoint) == 0x4C && offsetof(CGameEntity, m_oldPos) == 0x5C &&
                   offsetof(CGameEntity, m_basisFrame) == 0x6C && offsetof(CGameEntity, m_vel) == 0xAC &&
                   offsetof(CGameEntity, m_unknownBC) == 0xBC &&
                   offsetof(CGameEntity, m_displayMatrix) == 0xC0 &&
-                  offsetof(CGameEntity, m_moduleList) == 0x100 &&
+                  offsetof(CGameEntity, m_attachedModules) == 0x100 &&
                   offsetof(CGameEntity, m_compositeFlags) == 0x104,
               "layout must match the original");
 

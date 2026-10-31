@@ -25,7 +25,7 @@ extern void** const kServerSearchVtable; // 0x0064CD70: ListKit::Hunt<HostListin
 // waiting to be shown (+0x16C).
 struct HostListing : MemSys::ListNode {
     char m_label[16];              // +0x14
-    uint32_t m_hostAddr;                // +0x24
+    uint32_t m_remoteIp;                // +0x24
     int m_portNo;                   // +0x28
     int m_ping;                   // +0x2C (9999: not known)
     int m_numPlayers;             // +0x30
@@ -65,7 +65,7 @@ struct HostListing : MemSys::ListNode {
     const char* GetEntrantName(int index);
     int GetEntrantRank(int index);
 };
-static_assert(offsetof(HostListing, m_hostAddr) == 0x24 && offsetof(HostListing, m_level) == 0x40 &&
+static_assert(offsetof(HostListing, m_remoteIp) == 0x24 && offsetof(HostListing, m_level) == 0x40 &&
                   offsetof(HostListing, m_hostMode) == 0x84 && offsetof(HostListing, m_sbServer) == 0x90 &&
                   offsetof(HostListing, m_participants) == 0x94 && sizeof(HostListing) == 0xA8,
               "layout must match the original");
@@ -111,7 +111,7 @@ bool __cdecl CFunc_DescribeServer(Scripts::CStruct* params, Scripts::CScript* sc
 bool __cdecl CFunc_ChooseServer(Scripts::CStruct* params, Scripts::CScript* script);
 bool __cdecl CFunc_RetrieveServerInfo(Scripts::CStruct* params, Scripts::CScript* script);
 // 0x005475C0: the server-list client's handler for a LAN server's reply (a Net message handler).
-int __cdecl HandleServerResponse(NetLink::InboundMsgCtx* context);
+int __cdecl OnServerReplyMsg(NetLink::InboundMsgCtx* context);
 // 0x00547750: GameSpy's game listing callback (add / update / remove / clear), the manager its parameter.
 void __cdecl ListingGamesCallback(void* peer, int success, const char* name, void* sb, int staging, int message,
                                   int progress, Hub* manager);

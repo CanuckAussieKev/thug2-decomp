@@ -280,7 +280,7 @@ public:
     Maths::Vec4 m_rotTarget;   // +0x12C per axis: the angle to turn through (radians; 0 forever)
     Maths::Vec4 m_rotDone;     // +0x13C per axis: turned so far
     Maths::Vec4 m_rotMaxSpeed; // +0x14C per axis: the speed to reach (radians per second)
-    Maths::Vec4 m_rotSpeed;    // +0x15C per axis: the speed now
+    Maths::Vec4 m_spinRates;    // +0x15C per axis: the speed now
     Maths::Vec4 m_rotAcceleration; // +0x16C
     Maths::Vec4 m_rotDeceleration; // +0x17C
     Maths::Vec4 m_moveStart;   // +0x18C
@@ -290,14 +290,14 @@ public:
     float m_pathSpeed1A8;      // +0x1A8
     float m_pathMinStopSpeed;  // +0x1AC Obj_SetPathMinStopVel
     Maths::Vec4 m_storedPos;   // +0x1B0 Obj_StorePos
-    uint32_t m_storedNode;     // +0x1C0 Obj_StoreNode
+    uint32_t m_savedNodeId;     // +0x1C0 Obj_StoreNode
     float m_turnTime;          // +0x1C4 Obj_Rotate's time (0: at once)
     float m_turnElapsed;       // +0x1C8
     Maths::ArcRotationBlender* mp_turn; // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
     float m_hoverBase;         // +0x1D0 the height without the bob
-    float m_hoverOffset;       // +0x1D4 the bob now
-    float m_hoverAmplitude;    // +0x1D8
-    int m_hoverPeriod;         // +0x1DC ms
+    float m_bobNow;       // +0x1D4 the bob now
+    float m_bobHeight;    // +0x1D8
+    int m_bobPeriod;         // +0x1DC ms
     float m_frameTime;         // +0x1E0 this frame's length (seconds, slow motion included)
     uint32_t m_firstNode;      // +0x1E4 its own node (Name)
     uint32_t m_listLink;           // +0x1E8 the node it's at
@@ -306,8 +306,8 @@ public:
     bool m_leaveYUnaffected;   // +0x1F4 Obj_FollowLeader's LeaveYUnaffected
     uint8_t pad1F5[3];
     float m_jumpSpeed;         // +0x1F8 up (per second)
-    float m_jumpGravity;       // +0x1FC
-    Maths::Vec4 m_jumpHeading; // +0x200 along (x, z; w kept)
+    float m_leapPull;       // +0x1FC
+    Maths::Vec4 m_leapDirection; // +0x200 along (x, z; w kept)
     bool m_jumpHasHeading;     // +0x210
     uint8_t pad211[3];
     Maths::Vec4 m_jumpPos;     // +0x214 the jump's position this frame
@@ -317,7 +317,7 @@ public:
     uint32_t m_unknown230;
     bool m_jumpHasLandHeight;  // +0x234
     uint8_t pad235[3];
-    float m_jumpLandHeight;    // +0x238
+    float m_leapTouchdownY;    // +0x238
     Maths::Vec4 m_jumpStart;   // +0x23C
 
     // 0x00425600 (thiscall; called by its member function for Obj_Rotate, 0x00426770): turn the object to an

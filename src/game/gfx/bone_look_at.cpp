@@ -27,7 +27,7 @@ using Scripts::CStruct;
 
 extern void** const kVtable;
 constexpr uint32_t kNoBone = 0xFFFFFFFF;
-constexpr uint32_t kSkeletonComponent = 0x222756D5;
+constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 // Member functions (names unknown)
 constexpr uint32_t kOn = 0x20D24E9A;
 constexpr uint32_t kIsOn = 0x027B2B1C;
@@ -209,7 +209,7 @@ void CBoneLookAt::TickFrame()
         if (bone.m_fixedPos)
             continue;
         auto* object = reinterpret_cast<GameObjects::CGameEntity*>(
-            GameObjects::CompositeObjectManager()->LookUpEntity(bone.m_aimPoint));
+            GameObjects::ObjectHubSlot()->LookUpEntity(bone.m_aimPoint));
         if (!object)
             continue;
         bone.m_targetPos.z = bone.m_shift.z + object->m_atPoint.z;
@@ -224,7 +224,7 @@ bool CBoneLookAt::Apply(Maths::QuatRotation* rotations)
 {
     reinterpret_cast<void(__thiscall*)(CBoneLookAt*)>(vtable[5])(this);
     auto* object = reinterpret_cast<GameObjects::CGameEntity*>(m_ownerObject);
-    GameObjects::CObjectModule* component = object->FetchModule(kSkeletonComponent);
+    GameObjects::CObjectModule* component = object->FetchModule(kSkeletonModuleName);
     auto* skeleton = component ? *reinterpret_cast<CRig**>(reinterpret_cast<uint8_t*>(component) + 0x18) : nullptr;
     for (SBone& bone : m_bones) {
         if (bone.m_bone == kNoBone)

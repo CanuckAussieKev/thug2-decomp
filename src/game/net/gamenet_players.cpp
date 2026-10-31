@@ -71,7 +71,7 @@ constexpr uint32_t kPlayerPending = 0x08;       // joined during a game: added f
 constexpr uint32_t kPlayerGameEnded = 0x100;    // its game has ended (message 0x59)
 constexpr uint32_t kPlayerInfoSize = 0x1F0;
 
-constexpr uint8_t kMsgPlayerQuit = 0x2D;  // a player left (its object id, the reason)
+constexpr uint8_t kMsgPlayerGone = 0x2D;  // a player left (its object id, the reason)
 constexpr uint8_t kMsgRemovedYou = 0x51;  // 'Q': kicked or banned (to its address)
 constexpr uint8_t kMsgMovedOn = 0x56;     // 'V': the game went on without it
 constexpr uint8_t kMsgGameOver = 0x5A;
@@ -133,25 +133,25 @@ void ResetWalkCamera(GameObjects::CObjectModule* camera) { static_cast<GameObjec
 void Hub::SpectatePlayer(uint8_t* player)
 {
     auto* camObject = static_cast<GameObjects::CGameEntity*>(
-        reinterpret_cast<GameObjects::CObjectHubBase*>(reinterpret_cast<void*>(GameObjects::g_compositeObjectManager))->LookUpEntity(kSkaterCamObject));
+        reinterpret_cast<GameObjects::CObjectHubBase*>(reinterpret_cast<void*>(GameObjects::g_compositeRegistry))->LookUpEntity(kSkaterCamObject));
     GameObjects::CObjectModule* skaterCamera = camObject->FetchModule(kSkaterCamera);
     GameObjects::CObjectModule* walkCamera = camObject->FetchModule(kWalkCamera);
     if (!player || !PlayerSkater(player)) {
         SetCameraSkater(skaterCamera, nullptr);
         SetWalkCameraSkater(walkCamera, nullptr);
         Prop<int>(walkCamera, 0x18) = 3; // (frames that jump straight to the target)
-        m_camPlayer = nullptr;
+        m_viewedPlayer = nullptr;
         return;
     }
     auto* skater = reinterpret_cast<GameObjects::CGameEntity*>(PlayerSkater(player));
-    if (player != LocalPlayer(g_gameNetManager)) {
+    if (player != LocalPlayer(g_onlineHub)) {
         // Someone else's skater: the skater camera onto it.
         SetCameraSkater(skaterCamera, skater);
         SetWalkCameraSkater(walkCamera, nullptr);
         Prop<int>(walkCamera, 0x18) = 3;
         skaterCamera->VirtualSuspend(false);
         walkCamera->VirtualSuspend(true);
-        m_camPlayer = player;
+        m_viewedPlayer = player;
         return;
     }
     // The local skater: the walk camera while it walks (its physics control's state says), else the skater camera.
@@ -168,7 +168,7 @@ void Hub::SpectatePlayer(uint8_t* player)
         walkCamera->VirtualSuspend(false);
         ResetWalkCamera(walkCamera);
     }
-    m_camPlayer = player;
+    m_viewedPlayer = player;
 }
 
 // 0x0053AA70
@@ -179,7 +179,7 @@ void Hub::SendObserveRequest()
     if (IsObserver(LocalPlayer(this))) // (no local player: the original reads through null too)
         return;
     desc.m_ident = kMsgObserveRequest;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     SendToServer(m_clientApp, &desc);
 }
@@ -190,18 +190,18 @@ void Hub::AssignFirstComeFirstServed()
     PlayerSearch search;
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
-    for (uint8_t* player = FirstPlayer(this, &search, false); player; player = NextPlayer(this, &search, false)) {
+    for (uint8_t* player = StartRosterSweep(this, &search, false); player; player = StepRosterSweep(this, &search, false)) {
         if (IsOwnPlayer(player) || !(Prop<uint32_t>(player, 0x1D0) & kPlayerFcfsCandidate))
             continue;
         AsPlayer(player)->SetHostPlayer(); // (its flag 0x200: first come, first served)
         uint32_t text;
-        reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)
+        reinterpret_cast<OptionStore::Preferences*>(m_netOptions)
             ->FetchSetting(kFcfsPreference)
             ->ReadHashValue("Checksum", &text, 1);
         desc.m_content = &text;
         desc.m_byteCount = sizeof(text);
         desc.m_ident = kMsgFcfsNotice;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         m_host->PutOnOutbox(PlayerHandle(player), &desc);
         return;
@@ -209,13 +209,13 @@ void Hub::AssignFirstComeFirstServed()
 }
 
 // 0x0053AC40
-int Hub::NextPlayerObjectId()
+int Hub::ReserveObjIdForPlayer()
 {
     for (int id = 0; id < kMaxObjectIds; ++id) {
         bool used = false;
         PlayerSearch search;
-        for (uint8_t* player = FirstPlayer(this, &search, false); player && !used;
-             player = NextPlayer(this, &search, false))
+        for (uint8_t* player = StartRosterSweep(this, &search, false); player && !used;
+             player = StepRosterSweep(this, &search, false))
             used = static_cast<int>(SkaterId(PlayerSkater(player))) == id; // (a player without a skater: read at 0x14)
         NewPlayerSearch newSearch;
         for (uint8_t* info = FirstNewPlayer(this, &newSearch); info && !used; info = NextNewPlayer(this, &newSearch)) {
@@ -231,20 +231,20 @@ int Hub::NextPlayerObjectId()
 }
 
 // 0x0053AE10
-uint8_t* Hub::PlayerByConnection(NetLink::Conn* conn)
+uint8_t* Hub::FindPlayerBySender(NetLink::Conn* conn)
 {
     PlayerSearch search;
-    for (uint8_t* player = FirstPlayer(this, &search, true); player; player = NextPlayer(this, &search, true))
+    for (uint8_t* player = StartRosterSweep(this, &search, true); player; player = StepRosterSweep(this, &search, true))
         if (Prop<NetLink::Conn*>(player, 0x18) == conn)
             return player;
     return nullptr;
 }
 
 // 0x0053AEA0
-uint8_t* Hub::PlayerByObjectId(uint16_t id)
+uint8_t* Hub::FindPlayerSlotByObj(uint16_t id)
 {
     PlayerSearch search;
-    for (uint8_t* player = FirstPlayer(this, &search, false); player; player = NextPlayer(this, &search, false)) {
+    for (uint8_t* player = StartRosterSweep(this, &search, false); player; player = StepRosterSweep(this, &search, false)) {
         GameObjects::CEntity* skater = PlayerSkater(player);
         if (skater && SkaterId(skater) == id)
             return player;
@@ -269,27 +269,27 @@ uint8_t* Hub::NewPlayer(GameObjects::CEntity* skater, NetLink::Conn* conn, uint3
             SpectatePlayer(static_cast<uint8_t*>(NextCamPlayer())); // the first player to watch
             AddObserverControls(this, player, tasks, input);
         } else {
-            m_camPlayer = nullptr;
+            m_viewedPlayer = nullptr;
         }
-    } else if (IsObserver(LocalPlayer(this)) && !m_camPlayer) { // (no local player: read through null)
+    } else if (IsObserver(LocalPlayer(this)) && !m_viewedPlayer) { // (no local player: read through null)
         SpectatePlayer(player);
     }
     MemSys::Hub::Pull()->LeaveHeapScope();
     return player;
 }
 
-bool g_netEnabled;
+bool g_onlineActive;
 bool g_openWaiting;
 
 // 0x0053C950
 void Hub::RemovePlayerRecord(uint8_t* player)
 {
-    if (player == m_camPlayer) { // the camera onto the next player (the local skater's if there is one)
-        m_camPlayer = NextCamPlayer();
-        if (player == m_camPlayer)
-            m_camPlayer = nullptr;
+    if (player == m_viewedPlayer) { // the camera onto the next player (the local skater's if there is one)
+        m_viewedPlayer = NextCamPlayer();
+        if (player == m_viewedPlayer)
+            m_viewedPlayer = nullptr;
         uint8_t* local = LocalPlayer(this);
-        SpectatePlayer(local && PlayerSkater(local) ? local : static_cast<uint8_t*>(m_camPlayer));
+        SpectatePlayer(local && PlayerSkater(local) ? local : static_cast<uint8_t*>(m_viewedPlayer));
     }
     if (AsPlayer(player)->HoldsCrown() && Prop<void*>(this, 0x6C)) // it had the crown: taken off
         Prop<GameObjects::CCrownObject*>(this, 0x6C)->TakeOff();
@@ -298,7 +298,7 @@ void Hub::RemovePlayerRecord(uint8_t* player)
     if (player)
         reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(player))[0])(player, 1);
     UpdateLobbyServer();
-    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+    if (g_onlineActive && g_onlineHub->InNetGame() &&
         g_queryReporting) // (reported to GameSpy's qr2: the player count changed)
         GameSpy::Qr2SendStateChanged(nullptr); // qr2_send_statechanged
 }
@@ -309,7 +309,7 @@ void Hub::EvictPlayer(uint8_t* player, int reason)
     char name[kNameSize];
     std::strcpy(name, PlayerName(player));
     if (!IsObserver(player) && Call<bool>(CodeAddress(&GoalSystem::CMatchRules::IsTrue), GameMode(), kShouldModulateColor))
-        GameObjects::g_trickObjectManager->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
+        GameObjects::g_trickSpotHub->ReleasePlayerClusters(static_cast<int>(SkaterId(PlayerSkater(player)))); // its colours off the trick objects
     if (!OnServer()) {
         RemovePlayerRecord(player);
         return;
@@ -318,7 +318,7 @@ void Hub::EvictPlayer(uint8_t* player, int reason)
     GameSpy::CdKeyDisconnectUser(kGameSpyGameId, static_cast<int>(conn->m_ident)); // gcd_disconnect_user
     if (!IsObserver(player)) {
         PlayerSearch search;
-        for (uint8_t* other = FirstPlayer(this, &search, true); other; other = NextPlayer(this, &search, true)) {
+        for (uint8_t* other = StartRosterSweep(this, &search, true); other; other = StepRosterSweep(this, &search, true)) {
             if (IsOwnPlayer(other))
                 continue;
             NetLink::NetMessageInfo desc;
@@ -326,24 +326,24 @@ void Hub::EvictPlayer(uint8_t* player, int reason)
             uint8_t msg[2] = {static_cast<uint8_t>(SkaterId(PlayerSkater(player))), static_cast<uint8_t>(reason)};
             desc.m_content = msg;
             desc.m_byteCount = sizeof(msg);
-            desc.m_ident = kMsgPlayerQuit;
-            desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+            desc.m_ident = kMsgPlayerGone;
+            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
             desc.m_groupId = kGroupGame;
             m_host->PutOnOutbox(PlayerHandle(other), &desc);
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
-            static_cast<RankingsManager*>(m_statsMan)->UpdateLoggedIn()) // (a rated game left early)
-            static_cast<RankingsManager*>(m_statsMan)->RemovePlayer(static_cast<int>(SkaterId(PlayerSkater(player))));
+            static_cast<RankingsManager*>(m_ratingService)->UpdateLoggedIn()) // (a rated game left early)
+            static_cast<RankingsManager*>(m_ratingService)->RemovePlayer(static_cast<int>(SkaterId(PlayerSkater(player))));
     }
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
         conn = Prop<NetLink::Conn*>(player, 0x18);
-        m_host->DeliverTo(kMsgRemovedYou, 0, nullptr, conn->m_hostAddr, conn->m_portNo, 0);
+        m_host->DeliverTo(kMsgRemovedYou, 0, nullptr, conn->m_remoteIp, conn->m_portNo, 0);
         if (reason == kDropBanned)
             m_host->BlockConnection(Prop<NetLink::Conn*>(player, 0x18));
     } else if (reason == kDropLeftOut) {
         conn = Prop<NetLink::Conn*>(player, 0x18);
-        m_host->DeliverTo(kMsgMovedOn, 0, nullptr, conn->m_hostAddr, conn->m_portNo, 0);
+        m_host->DeliverTo(kMsgMovedOn, 0, nullptr, conn->m_remoteIp, conn->m_portNo, 0);
     } else if (reason == kDropObserving) {
         close = false;
     }
@@ -375,15 +375,15 @@ void Hub::EvictPlayer(uint8_t* player, int reason)
     }
     // Every player still playing has finished: game over (message 0x5A to every one).
     PlayerSearch search;
-    for (uint8_t* p = FirstPlayer(this, &search, false); p; p = NextPlayer(this, &search, false))
+    for (uint8_t* p = StartRosterSweep(this, &search, false); p; p = StepRosterSweep(this, &search, false))
         if (!(Prop<uint32_t>(p, 0x1D0) & kPlayerGameEnded))
             return;
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
     desc.m_ident = kMsgGameOver;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
-    for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true))
+    for (uint8_t* p = StartRosterSweep(this, &search, true); p; p = StepRosterSweep(this, &search, true))
         m_host->PutOnOutbox(PlayerHandle(p), &desc);
 }
 
@@ -392,20 +392,20 @@ void Hub::ReAddPendingPlayers()
 {
     UpdateLobbyServer();
     g_openWaiting = true;
-    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+    if (g_onlineActive && g_onlineHub->InNetGame() &&
         g_queryReporting && g_openWaiting != 1) // (just set: never)
         GameSpy::Qr2SendStateChanged(nullptr);
     int frames = 10;
     PlayerSearch search;
-    uint8_t* player = FirstPlayer(this, &search, true);
+    uint8_t* player = StartRosterSweep(this, &search, true);
     while (player) {
-        uint8_t* next = NextPlayer(this, &search, true); // (before the player is destroyed)
+        uint8_t* next = StepRosterSweep(this, &search, true); // (before the player is destroyed)
         if (Prop<uint32_t>(player, 0x1D0) & kPlayerPending) {
             JoinerRecord info;
             info.MakeNew(); // (a skater profile)
             frames += 10;
             std::strcpy(info.m_label, PlayerName(player));
-            info.m_entityKey = static_cast<uint8_t>(NextPlayerObjectId());
+            info.m_entityKey = static_cast<uint8_t>(ReserveObjIdForPlayer());
             info.m_conn = Prop<NetLink::Conn*>(player, 0x18);
             info.m_flagBits = kNewPlayerRejoining;
             info.m_profileId = Prop<int32_t>(player, 0x28);
@@ -413,7 +413,7 @@ void Hub::ReAddPendingPlayers()
             info.m_unknown38 = 0;
             info.m_unknown3C = 0;
             info.m_unknown34 = 0;
-            info.m_vehicleControlType = Prop<int32_t>(player, 0x48);
+            info.m_driveControlMode = Prop<int32_t>(player, 0x48);
             MemSys::Hub* memory = MemSys::Hub::Pull();
             memory->EnterHeapScope(memory->m_skaterInfoHeap);
             info.m_account->CopyFrom(Prop<GameObjects::CRiderIdentity*>(player, 0x4C)); // its appearance
@@ -424,7 +424,7 @@ void Hub::ReAddPendingPlayers()
         }
         player = next;
     }
-    for (uint8_t* p = FirstPlayer(this, &search, false); p; p = NextPlayer(this, &search, false)) {
+    for (uint8_t* p = StartRosterSweep(this, &search, false); p; p = StepRosterSweep(this, &search, false)) {
         if (!IsOwnPlayer(p)) {
             static_cast<GameObjects::CRider*>(PlayerSkater(p))->ConcealSkater(); // hidden
             static_cast<GameObjects::CRider*>(PlayerSkater(p))->Reset27C();   // reset
@@ -437,12 +437,12 @@ void Hub::DestroyAllPlayers()
 {
     uint8_t* skate = Skate();
     PlayerSearch search;
-    uint8_t* player = FirstPlayer(this, &search, true);
+    uint8_t* player = StartRosterSweep(this, &search, true);
     while (player) {
-        uint8_t* next = NextPlayer(this, &search, true);
+        uint8_t* next = StepRosterSweep(this, &search, true);
         GameObjects::CEntity* skater = PlayerSkater(player);
         if (skater && (static_cast<GameObjects::CRider*>(skater)->GetSkaterNumber() != 0 || !IsOwnPlayer(player))) // (not the first local skater)
-            Call(CodeAddress(&GameModules::Skate::RemoveSkater), skate, skater);
+            Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), skate, skater);
         RemovePlayerRecord(player);
         player = next;
     }
@@ -460,13 +460,13 @@ void Hub::DropPlayersNotReady()
 {
     uint8_t* skate = Skate();
     PlayerSearch search;
-    uint8_t* player = FirstPlayer(this, &search, false);
+    uint8_t* player = StartRosterSweep(this, &search, false);
     while (player) {
-        uint8_t* next = NextPlayer(this, &search, false);
+        uint8_t* next = StepRosterSweep(this, &search, false);
         if (!(Prop<uint32_t>(player, 0x1D0) & kPlayerFcfsCandidate)) {
             GameObjects::CEntity* skater = PlayerSkater(player);
             EvictPlayer(player, kDropLeftOut);
-            Call(CodeAddress(&GameModules::Skate::RemoveSkater), skate, skater);
+            Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), skate, skater);
         }
         player = next;
     }
@@ -483,8 +483,8 @@ void Hub::RemovePlayersAndApps()
 // (inline in RemovePlayerRecord / ReAddPendingPlayers)
 void Hub::UpdateLobbyServer()
 {
-    void* peer = Prop<void*>(m_lobbyMan, 0x140);
-    if (peer && GameSpy::PeerIsConnected(peer) && Prop<bool>(m_lobbyMan, 0x139))
+    void* peer = Prop<void*>(m_lobbyService, 0x140);
+    if (peer && GameSpy::PeerIsConnected(peer) && Prop<bool>(m_lobbyService, 0x139))
         GameSpy::PeerStateChanged(peer); // (the hosted game's details to GameSpy's peer SDK)
 }
 
@@ -534,13 +534,13 @@ void Hub::EnterObserveMode()
         AsPlayer(local)->ClearFlags();
     }
     Prop<uint32_t>(local, 0x1D0) |= 4; // an observer
-    Call(CodeAddress(&GameModules::Skate::RemoveSkater), skate, PlayerSkater(local));
+    Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), skate, PlayerSkater(local));
     Prop<GameObjects::CEntity*>(local, 0x14) = nullptr;
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_skaterHeaps[0]);
     SpectatePlayer(static_cast<uint8_t*>(NextCamPlayer())); // the first player to watch
     AddObserverControls(this, local, tasks, input, -1);
-    m_observerCommand = 0;
+    m_spectateRequest = 0;
     Run(kHidePanelStuff);
     MemSys::Hub::Pull()->LeaveHeapScope();
 }

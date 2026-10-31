@@ -104,7 +104,7 @@ void CancelJoin(Hub* manager, bool notifyFirst)
         params = NewParams();
         params->PutNameKey(0u, kShowTimeout);
     }
-    manager->m_joinStateTask->DropOut();
+    manager->m_joinPhaseJob->DropOut();
     manager->SetEntryPhase(2);
     if (!notifyFirst) {
         params = NewParams();
@@ -117,7 +117,7 @@ void CancelJoin(Hub* manager, bool notifyFirst)
 } // namespace
 
 // 0x0052DB80
-int __cdecl HandleNewPlayer(NetLink::InboundMsgCtx* context)
+int __cdecl OnPlayerAddedMsg(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
     Hub* manager = ManagerOf(context);
@@ -140,7 +140,7 @@ int __cdecl HandleNewPlayer(NetLink::InboundMsgCtx* context)
     if (!(Prop<uint32_t>(info, 0x20) & 5))
         Prop<GameObjects::CRiderIdentity*>(info, 0x1C)->DecodeFromBytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
     int delay = 0;
-    if (manager->m_readyToPlay) {
+    if (manager->m_clearedToStart) {
         manager->BuildNetNotice(false, kNetMessageNewPlayer, reinterpret_cast<const char*>(info), nullptr, nullptr,
                                        nullptr, false, kPanelTime);
         delay = 10;
@@ -154,7 +154,7 @@ int __cdecl HandleNewPlayer(NetLink::InboundMsgCtx* context)
 int __cdecl HandleCrownSpawn(NetLink::InboundMsgCtx* context)
 {
     Hub* manager = ManagerOf(context);
-    uint8_t* king = KingOfTheHill(manager);
+    uint8_t* king = IsCrownRuleActive(manager);
     char spot = static_cast<char>(Message(context)[0]);
     if (king) {
         AsPlayer(king)->GiveCrown(false); // no longer the king
@@ -165,7 +165,7 @@ int __cdecl HandleCrownSpawn(NetLink::InboundMsgCtx* context)
         PanelMessage(manager, kDroppedCrownOther, nullptr, nullptr);
     } else if (king && PlayerSkater(king)) {
         // the other local player (id 1 if this one's is 0, else 0)
-        uint8_t* other = PlayerByObjectId(manager, static_cast<uint16_t>(SkaterId(PlayerSkater(king)) == 0));
+        uint8_t* other = FindPlayerSlotByObj(manager, static_cast<uint16_t>(SkaterId(PlayerSkater(king)) == 0));
         if (other)
             PanelMessage(manager, kDroppedCrownOther, nullptr, PlayerSkater(other));
     }
@@ -213,7 +213,7 @@ int __cdecl HandleFcfsNotice(NetLink::InboundMsgCtx* context)
 int __cdecl HandleFlagReturned(NetLink::InboundMsgCtx* context)
 {
     Hub* manager = ManagerOf(context);
-    uint8_t* player = PlayerByObjectId(manager, Message(context));
+    uint8_t* player = FindPlayerSlotByObj(manager, Message(context));
     if (!player || !AsPlayer(player)->IsCarryingFlag()) // (carrying a flag: 0 / 1)
         return kContinue;
     int team = AsPlayer(player)->GetFlagTeam(); // the flag's team
@@ -255,14 +255,14 @@ int __cdecl HandleRailsData(NetLink::InboundMsgCtx* context)
         return kKeep;
     }
     desc.m_ident = kMsgRequestRails; // again
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     SendToServer(context->m_receiverApp, &desc);
     return kDone;
 }
 
 // 0x00530FF0
-int __cdecl HandleGoalsData(NetLink::InboundMsgCtx* context)
+int __cdecl OnGoalSyncMsg(NetLink::InboundMsgCtx* context)
 {
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
@@ -281,20 +281,20 @@ int __cdecl HandleGoalsData(NetLink::InboundMsgCtx* context)
         return kKeep;
     }
     desc.m_ident = kMsgRequestGoals; // again
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     SendToServer(context->m_receiverApp, &desc);
     return kDone;
 }
 
 // 0x0052E760
-int __cdecl HandleNewKing(NetLink::InboundMsgCtx* context)
+int __cdecl OnCrownChangeMsg(NetLink::InboundMsgCtx* context)
 {
     const uint8_t* msg = Message(context);
     Hub* manager = ManagerOf(context);
     NewPlayerSearch search;
     // The crown off the old king - or off a new player waiting to be added.
-    if (uint8_t* king = KingOfTheHill(manager)) {
+    if (uint8_t* king = IsCrownRuleActive(manager)) {
         AsPlayer(king)->GiveCrown(false);
     } else {
         for (uint8_t* added = FirstNewPlayer(manager, &search); added; added = NextNewPlayer(manager, &search)) {
@@ -305,7 +305,7 @@ int __cdecl HandleNewKing(NetLink::InboundMsgCtx* context)
         }
     }
     // Onto the player of object id msg[0] - or the new player of that id.
-    if (uint8_t* player = PlayerByObjectId(manager, msg)) {
+    if (uint8_t* player = FindPlayerSlotByObj(manager, msg)) {
         AsPlayer(player)->GiveCrown(true);
         return kContinue;
     }
@@ -347,7 +347,7 @@ int __cdecl HandleJoinedTeam(NetLink::InboundMsgCtx* context)
     PlayerSearch search;
     Hub* manager = ManagerOf(context);
     const uint8_t* msg = Message(context);
-    uint8_t* player = PlayerByObjectId(manager, msg);
+    uint8_t* player = FindPlayerSlotByObj(manager, msg);
     if (!player)
         return kContinue;
     Prop<int>(player, 0x30) = static_cast<int8_t>(msg[1]);
@@ -368,7 +368,7 @@ int __cdecl HandleJoinedTeam(NetLink::InboundMsgCtx* context)
     // Everyone else on the same team: a warning.
     int others = 0;
     bool sameTeam = true;
-    for (uint8_t* other = FirstPlayer(manager, &search, false); other; other = NextPlayer(manager, &search, false)) {
+    for (uint8_t* other = StartRosterSweep(manager, &search, false); other; other = StepRosterSweep(manager, &search, false)) {
         if (other == player)
             continue;
         ++others;
@@ -393,7 +393,7 @@ int __cdecl HandleGoalCompleted(NetLink::InboundMsgCtx* context)
     auto virtualCall = [](uint8_t* object, uint32_t offset) {
         return reinterpret_cast<void**>(Prop<void**>(object, 0))[offset / 4];
     };
-    uint8_t* player = PlayerByObjectId(manager, msg);
+    uint8_t* player = FindPlayerSlotByObj(manager, msg);
     uint8_t* local = LocalPlayer(manager);
     reinterpret_cast<void(__thiscall*)(uint8_t*, int)>(virtualCall(goal, 0x70))(goal, PlayerTeam(player));
     if (!PlayerSkater(player))
@@ -457,7 +457,7 @@ int __cdecl HandleGoalStarted(NetLink::InboundMsgCtx* context)
     if (!goal)
         return kContinue;
     const char* text = nullptr;
-    uint8_t* player = PlayerByObjectId(manager, msg);
+    uint8_t* player = FindPlayerSlotByObj(manager, msg);
     if (PlayerTeam(LocalPlayer(manager)) != PlayerTeam(player))
         return kContinue;
     Call(CodeAddress(&GoalSystem::CObjective::GetObjectiveListCaption), goal, &text);
@@ -479,7 +479,7 @@ int __cdecl HandleEliminated(NetLink::InboundMsgCtx* context)
         Run(kEliminatedNone);
         return kContinue;
     }
-    uint8_t* player = PlayerByObjectId(ManagerOf(context), static_cast<uint16_t>(id));
+    uint8_t* player = FindPlayerSlotByObj(ManagerOf(context), static_cast<uint16_t>(id));
     if (!player)
         return kContinue;
     uint8_t* skate = Skate();

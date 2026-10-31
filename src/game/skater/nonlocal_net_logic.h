@@ -39,7 +39,7 @@ public:
     // 0x00517270 (vtable +0x04): the frame: the light and shadow from the ground (UpdateGroundLighting), the state
     // played back (Interpolate); when this machine's player plays (not observing) in a game that extrapolates
     // (0x00534340, or firefight) and the history is full, extrapolated (on a rail ExtrapolateOnRail, else Extrapolate
-    // and SnapToGround); the history's events (PlayHistoryEvents); the out-of-a-lip flag; driving in or out told to
+    // and SettleOntoFloor); the history's events (PlayHistoryEvents); the out-of-a-lip flag; driving in or out told to
     // the scripts (0x7853F8C4 / 0x0F02E44F with skaterId / control_type); the looping sound kept to the state.
     void TickFrame();
 
@@ -52,7 +52,7 @@ public:
     // hit on skatable ground close enough (within the frame's movement's slope, at least Physics_Ground_Snap_Down)
     // and not too steep (Ground_stick_angle_forward) makes it the ground (the up row and the position); a hit not
     // skatable that the skater is below is left by one unit along its normal.
-    void SnapToGround();
+    void SettleOntoFloor();
     // 0x00514D10: the velocity and the matrix turned (about y) towards `dir` by Wall_Bounce_Angle_Multiplier times
     // the angle between it and the right row (folded to at most pi / 2): that turn into `turn`; the angle returned.
     double TurnTowards(Maths::Vec4 dir, float* turn);
@@ -60,7 +60,7 @@ public:
     // Wall_Bounce_Dont_Slow_Angle), put back at the point (Skater_First_Forward_Collision_Height up the up row, 6
     // out along the normal); if a feeler ahead (Skater_First_Forward_Collision_Length) hits again within 240, turned
     // round by what's left of a half turn and halved.
-    void BounceOffWall(const Maths::Vec4* normal, const Maths::Vec4* point);
+    void DeflectFromWall(const Maths::Vec4* normal, const Maths::Vec4* point);
 
     // --- nonlocal_playback.cpp ---
     // 0x00515940: the states played back. The first time, from the newest state (a second's frames behind it): put
@@ -73,7 +73,7 @@ public:
     void Interpolate();
     // 0x00515360: on along the ground: the update's speed, lag (the connection's latency in frames) and alignment
     // (with this machine's skater's velocity) kept; the position moved along the last move's direction, flattened,
-    // by the averages; a wall between the played and the new position (at the collision height): BounceOffWall.
+    // by the averages; a wall between the played and the new position (at the collision height): DeflectFromWall.
     void Extrapolate();
     // 0x00516E00: on along the rail (the state's node, +0x80): the update's values kept as Extrapolate's; the
     // average alignment and lag times the frame's length (at most 1 s) moved along it a frame at a time
@@ -95,7 +95,7 @@ public:
     Maths::Vec4 m_playPos;          // +0x28 the position playback put the skater at
     Maths::Vec4 m_lastPlayPos;      // +0x38 the one before
     Maths::Vec4 m_lastPos;          // +0x48 the object's position before this frame
-    Maths::Vec4 m_groundNormal;     // +0x58 the last ground snapped to
+    Maths::Vec4 m_surfaceUp;     // +0x58 the last ground snapped to
     float m_speeds[kHistory];       // +0x68 per update: the playback's speed
     float m_lags[kHistory];         // +0xB8 per update: how far behind the connection is
     float m_alignments[kHistory];   // +0x108 per update: how the move lines up with the local skater's
@@ -115,7 +115,7 @@ public:
 static_assert(offsetof(CRiderRemoteSync, m_syncFrame) == 0x18 &&
                   offsetof(CRiderRemoteSync, m_playPos) == 0x28 &&
                   offsetof(CRiderRemoteSync, m_lastPos) == 0x48 &&
-                  offsetof(CRiderRemoteSync, m_groundNormal) == 0x58 &&
+                  offsetof(CRiderRemoteSync, m_surfaceUp) == 0x58 &&
                   offsetof(CRiderRemoteSync, m_speeds) == 0x68 &&
                   offsetof(CRiderRemoteSync, m_lags) == 0xB8 &&
                   offsetof(CRiderRemoteSync, m_alignments) == 0x108 &&

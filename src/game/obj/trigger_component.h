@@ -50,7 +50,7 @@ public:
 
     // 0x00434A60: the trigger of the node named `name` (a face's collision object): the node is the one named so -
     // looked up in the node manager (FetchVertex) when `nodes` is null, else searched for in `nodes` from its end - its
-    // TriggerScript run on the object (StartScriptTask, with its NetEnabled / Permanent flags, the node's name and
+    // TriggerScript run on the object (StartScriptTask, with its OnlineModeFlag / Permanent flags, the node's name and
     // the parameters structure 0x5180A4DB of the node named by `other` +0x14 when there is one), the events recorded
     // (+0x28: a bit for each of the three in `events` that isn't 0). False when there's no node (ours - see the .cpp),
     // no TriggerScript, or the skate module skips the node (0x00565BB0).
@@ -59,12 +59,12 @@ public:
     // trigger (TriggerNode) - while a movable object is being tested, or the hit object is still alive, through
     // that object's node array (its 0xC472ECC5 component's slot 13; none: the node manager) and with that object as
     // `other`. False if it's no trigger face, or the hit object is gone.
-    bool CheckFeeler(const int* events, Engine3D::CProbeRay* feeler);
+    bool ProbeTouchesZone(const int* events, Engine3D::CProbeRay* feeler);
     // 0x00434CE0: each of the trigger faces in `hits` (from the last; +0xC30 the count, 0x60 bytes each from +0x88:
     // +0 the name, +4 whether it's a trigger) whose name isn't met again later in the list: its trigger
     // (TriggerNode, no node array or other object).
     void TriggerHits(const int* events, const uint8_t* hits);
-    // 0x00434D70 (not a Ghidra function; cdecl): the feeler's callback during Update: CheckFeeler with no events
+    // 0x00434D70 (not a Ghidra function; cdecl): the feeler's callback during Update: ProbeTouchesZone with no events
     // (0x0064663C) on the component it carries (+0xA8).
     static bool __cdecl FeelerHit(Engine3D::CProbeRay* feeler);
 

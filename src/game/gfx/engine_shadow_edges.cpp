@@ -26,10 +26,10 @@ struct EdgeCorner {
     uint16_t pad; // (stack garbage in the original's records: zeroed here)
     Maths::Vec4 normal;
 };
-struct ShadowEdge {
+struct ShadowSilhouetteEdge {
     EdgeCorner corners[4];
 };
-static_assert(sizeof(ShadowEdge) == 0x50, "layout must match the original");
+static_assert(sizeof(ShadowSilhouetteEdge) == 0x50, "layout must match the original");
 
 CShadowVolume** ShadowVolumes() { return g_shadowVolumes; }
 ListKit::KeyMap& EdgeTable() { return g_shadowEdgeTable; }
@@ -55,10 +55,10 @@ bool Skipped(const CTriMeshSource& mesh) { return (reinterpret_cast<const uint16
 // as the original).
 void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const Maths::Vec4& normal)
 {
-    ShadowEdge* all = reinterpret_cast<ShadowEdge*>(edges->edges);
+    ShadowSilhouetteEdge* all = reinterpret_cast<ShadowSilhouetteEdge*>(edges->edges);
     int i = 0;
     for (; i < count; ++i) {
-        ShadowEdge& edge = all[i];
+        ShadowSilhouetteEdge& edge = all[i];
         if (edge.corners[0].vertex == from && edge.corners[2].vertex == to) {
             edge.corners[1].vertex = from;
             edge.corners[3].vertex = to;
@@ -74,7 +74,7 @@ void AddEdge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const M
     }
     if (i != count)
         return;
-    ShadowEdge& edge = all[count++];
+    ShadowSilhouetteEdge& edge = all[count++];
     for (int k = 0; k < 4; ++k) {
         edge.corners[k].vertex = k < 2 ? from : to;
         edge.corners[k].pad = 0;
@@ -109,7 +109,7 @@ void CShadowVolume::ChangeMesh(CRenderModel*, uint8_t* assetData)
     }
     int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
-        uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowEdge);
+        uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowSilhouetteEdge);
         mp_edges->edges = static_cast<uint8_t*>(MemSys::Alloc(size));
         std::memset(mp_edges->edges, 0, size);
     }

@@ -62,7 +62,7 @@ MemSys::ListNode* NextObjectNode(MemSys::ListNode* node)
 // 0x00423F10
 void CKinematicsModule::SetRotationDirection(int axis)
 {
-    float& speed = Axis(m_rotSpeed, axis);
+    float& speed = Axis(m_spinRates, axis);
     float& maxSpeed = Axis(m_rotMaxSpeed, axis);
     float& acceleration = Axis(m_rotAcceleration, axis);
     float& deceleration = Axis(m_rotDeceleration, axis);
@@ -82,7 +82,7 @@ void CKinematicsModule::SetRotationDirection(int axis)
 void CKinematicsModule::RotateAboutAxisBy(Scripts::CStruct* params, int axis, float sign)
 {
     float& target = Axis(m_rotTarget, axis);
-    float& speed = Axis(m_rotSpeed, axis);
+    float& speed = Axis(m_spinRates, axis);
     float& deceleration = Axis(m_rotDeceleration, axis);
     float& acceleration = Axis(m_rotAcceleration, axis);
     uint32_t bit = 1u << axis;
@@ -187,7 +187,7 @@ void CKinematicsModule::RotateAboutAxis(int axis, float angle)
 // 0x00425A80
 bool CKinematicsModule::UpdateAxisRotation(int axis)
 {
-    float& speed = Axis(m_rotSpeed, axis);
+    float& speed = Axis(m_spinRates, axis);
     float& maxSpeed = Axis(m_rotMaxSpeed, axis);
     float& acceleration = Axis(m_rotAcceleration, axis);
     float& deceleration = Axis(m_rotDeceleration, axis);
@@ -331,14 +331,14 @@ bool CKinematicsModule::LookAt(Scripts::CStruct* params, const Maths::Vec4* targ
             continue;
         if (!(time == 0.0f)) {
             Axis(m_rotAcceleration, axis) = 0.0f;
-            Axis(m_rotSpeed, axis) = static_cast<float>(static_cast<double>(Axis(m_rotTarget, axis)) / time);
+            Axis(m_spinRates, axis) = static_cast<float>(static_cast<double>(Axis(m_rotTarget, axis)) / time);
         } else {
             double rate = static_cast<double>(acceleration) * kDegrees;
             Axis(m_rotAcceleration, axis) = static_cast<float>(rate);
             if (rate == 0.0) {
-                Axis(m_rotSpeed, axis) = static_cast<float>(static_cast<double>(speed) * kDegrees);
+                Axis(m_spinRates, axis) = static_cast<float>(static_cast<double>(speed) * kDegrees);
             } else {
-                Axis(m_rotSpeed, axis) = 0.0f;
+                Axis(m_spinRates, axis) = 0.0f;
                 Axis(m_rotMaxSpeed, axis) = 0.0f;
             }
             SetRotationDirection(axis);
@@ -360,7 +360,7 @@ void CKinematicsModule::LookAtNodeLinked(Scripts::CStruct* params, Scripts::CScr
     if (link < 0 || link >= links)
         link = 0;
     Maths::Vec4 pos;
-    LevelNodes::FetchPlace(LevelNodes::GetLinkedNode(m_listLink, link), &pos);
+    LevelNodes::FetchPlace(LevelNodes::FetchNeighbourNode(m_listLink, link), &pos);
     LookAt(params, &pos);
 }
 
@@ -481,7 +481,7 @@ bool CKinematicsModule::Obj_LookAtNodeLinked(Scripts::CStruct* params, Scripts::
 bool CKinematicsModule::Obj_LookAtNodeStored(Scripts::CStruct* params, Scripts::CScript*)
 {
     Maths::Vec4 pos;
-    LevelNodes::FetchPlace(m_storedNode, &pos);
+    LevelNodes::FetchPlace(m_savedNodeId, &pos);
     LookAt(params, &pos);
     return true;
 }

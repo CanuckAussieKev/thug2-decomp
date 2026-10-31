@@ -26,7 +26,7 @@ constexpr uint32_t kForwardHeight = 0xD4205C9B;    // Skater_First_Forward_Colli
 constexpr uint32_t kForwardLength = 0x20102726;    // Skater_First_Forward_Collision_Length
 constexpr uint32_t kAirSnapUp = 0x786B3272;        // Physics_Air_Snap_Up
 constexpr uint32_t kMinDistanceToWall = 0x23410C14; // Skater_Min_Distance_To_Wall
-constexpr uint32_t kMaxMaxSpeed = 0xCC5F87AA;      // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;      // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kVehicleLandSound = 0xD478C96D; // vehicle_play_land_sound (a script)
 constexpr uint32_t kSideHeight = 0xB45B39E2;       // Skater_side_collide_height
 constexpr uint32_t kSideLength = 0x406B425F;       // Skater_side_collide_length
@@ -50,7 +50,7 @@ void ReleaseFeelerObject(FeelerStorage& feeler)
 } // namespace
 
 // 0x00508780
-bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
+bool SkaterPhysicsModule::CheckAirForwardCollision(const Maths::Vec4* from)
 {
     void* object = ObjectOf(this);
     const Maths::Vec4 entryVelocity = VectorAt(object, kVelocity); // (not original: for NotePath)
@@ -71,21 +71,21 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
 
     // The feeler: from `from` raised to the collision height, to the new position raised, plus the length along the
     // move.
-    float height = PhysicsFloat(kForwardHeight, object);
+    float height = TuningFloatLookup(kForwardHeight, object);
     const Maths::Vec4& up = VectorAt(object, kUp);
     Maths::Vec4 raise = {height * up.x, height * up.y, height * up.z, height * up.w};
-    Maths::Vec4& start = VectorAt(this, kFeelerStart);
+    Maths::Vec4& start = VectorAt(this, kProbeOrigin);
     start.x = raise.x + from->x;
     start.y = raise.y + from->y;
     start.z = raise.z + from->z;
     start.w = raise.w + from->w;
-    float reach = PhysicsFloat(kForwardLength, object);
+    float reach = TuningFloatLookup(kForwardLength, object);
     float aheadW = moveW * reach, aheadZ = direction.z * reach, aheadY = direction.y * reach,
           aheadX = reach * direction.x;
     const Maths::Vec4& now = VectorAt(ObjectOf(this), kPosition);
     double raisedW = static_cast<double>(raise.w) + now.w; // (unrounded)
     float raisedZ = raise.z + now.z, raisedY = raise.y + now.y, raisedX = raise.x + now.x;
-    Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+    Maths::Vec4& end = VectorAt(this, kProbeTip);
     end.x = raisedX + aheadX;
     end.y = raisedY + aheadY;
     end.z = raisedZ + aheadZ;
@@ -97,7 +97,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
     const Maths::Vec4* hitNormal = &VectorAt(this, kHitNormal);
     if (At<uint8_t>(this, kHitSkatable)) {
         // Something to skate on: only a wall when it's unlike the ground (and not facing up).
-        const Maths::Vec4& ground = VectorAt(this, kGroundNormal);
+        const Maths::Vec4& ground = VectorAt(this, kFloorUpVector);
         double dot = (static_cast<double>(normal.z) * ground.z + static_cast<double>(normal.y) * ground.y) +
                      static_cast<double>(normal.x) * ground.x;
         if (!(dot < static_cast<double>(0.8f)) || !(normal.y < 0.5f))
@@ -127,7 +127,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
     void* o = ObjectOf(this);
     if (VectorAt(o, kUp).y > 0.5f && VectorAt(o, kVelocity).y > 0.0f && normal.y < 0.01f) {
-        float snap = PhysicsFloat(kAirSnapUp, object);
+        float snap = TuningFloatLookup(kAirSnapUp, object);
         hit->m_line.start.y = hit->m_line.start.y + snap;
         hit->m_line.end.y = hit->m_line.end.y + snap;
         if (!hit->GetHitShape(true, false)) {
@@ -157,7 +157,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
         q.y = point.y - raise.y;
         q.z = point.z - raise.z;
         q.w = point.w - raise.w;
-        float distance = PhysicsFloat(kMinDistanceToWall, object);
+        float distance = TuningFloatLookup(kMinDistanceToWall, object);
         Maths::Vec4& r = VectorAt(ObjectOf(this), kPosition);
         r.x = static_cast<float>(static_cast<double>(distance) * normal.x + r.x);
         r.y = static_cast<float>(static_cast<double>(normal.y) * distance + r.y);
@@ -193,8 +193,8 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
                 uint8_t terrain = At<uint8_t>(this, kSurfaceFlags);
                 void* skater = ObjectOf(this);
                 float speed = static_cast<float>(LengthOf(VectorAt(skater, kVelocity)));
-                float fraction = speed / static_cast<GameObjects::CRider*>(skater)->GetScaledPhysics(kMaxMaxSpeed);
-                static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(this, kSoundComponent))->PlayBonk(fraction, terrain);
+                float fraction = speed / static_cast<GameObjects::CRider*>(skater)->GetScaledPhysics(kSpeedCapStat);
+                static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(this, kSfxModuleSlot))->PlayBonk(fraction, terrain);
             } else {
                 Scripts::LaunchScript(kVehicleLandSound, nullptr, static_cast<GameObjects::CEntity*>(ObjectOf(this)), false,
                                   nullptr);
@@ -246,7 +246,7 @@ bool CorePhysicsComponent::CheckAirForwardCollision(const Maths::Vec4* from)
 }
 
 // 0x0050A2C0
-bool CorePhysicsComponent::CheckSideCollision(float side, float length)
+bool SkaterPhysicsModule::CheckSideCollision(float side, float length)
 {
     if (StateOf(this) == kWallRide)
         return false;
@@ -255,7 +255,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
     const Maths::Vec4& up = VectorAt(object, kUp);
     float raiseW = height * up.w, raiseZ = height * up.z, raiseY = height * up.y, raiseX = height * up.x;
     const Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
-    Maths::Vec4& start = VectorAt(this, kFeelerStart);
+    Maths::Vec4& start = VectorAt(this, kProbeOrigin);
     start.x = raiseX + position.x;
     start.y = raiseY + position.y;
     start.z = raiseZ + position.z;
@@ -269,7 +269,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
     float outX = (side * right.x) * reach;
     float outW = static_cast<float>(static_cast<double>(side) * right.w * reach);
     float outZ = static_cast<float>(static_cast<double>(side) * right.z * reach);
-    Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+    Maths::Vec4& end = VectorAt(this, kProbeTip);
     end.x = outX + start.x;
     end.y = outY + start.y;
     end.z = outZ + start.z;
@@ -296,7 +296,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
         VectorAt(ObjectOf(this), kPosition) -= into / 10.0f;
         const uint8_t* input = InputOf(this);
         if (StateOf(this) != kAir && !input[0x100] && !input[0xA0] && !input[0x60] && !input[0x80])
-            BounceOffWall(&normal, &overlap, 0.2f); // (never: the state is the air's)
+            DeflectFromWall(&normal, &overlap, 0.2f); // (never: the state is the air's)
         return false;
     }
     // On the ground: a near-vertical wall puts the skater back where it was (+0x98) ...
@@ -306,7 +306,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
         return false;
     const Maths::Vec4 entryVelocity = VectorAt(ObjectOf(this), kVelocity); // (not original: for NotePath)
     VectorAt(ObjectOf(this), kPosition) = VectorAt(this, 0x98);
-    BounceOffWall(&normal, &overlap, 0.2f);
+    DeflectFromWall(&normal, &overlap, 0.2f);
     CollisionEvents::NotePath(this, CollisionEvents::RouteWay::SideWall, entryVelocity); // (not original)
     // ... then, unless there's something between (a feeler from just off the hit out to the length) or a trigger's
     // script takes over, onto the wall: at that feeler's end, lowered by the side height.
@@ -332,7 +332,7 @@ bool CorePhysicsComponent::CheckSideCollision(float side, float length)
 }
 
 // 0x0050C930
-void CorePhysicsComponent::CheckSideCollisions()
+void SkaterPhysicsModule::TestLateralHits()
 {
     Maths::Vec4 saved = VectorAt(ObjectOf(this), kPosition);
     float length = Scripts::FetchFloat(kSideLength);

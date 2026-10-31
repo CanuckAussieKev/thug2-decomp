@@ -81,13 +81,13 @@ struct PreManager {
     static KindTag* Fabricate(bool create) { return Pre::CreateManager(create); }
     static void Release() { Pre::DestroyManager(); }
 };
-struct McManager {
+struct CardSlotStub {
     using KindTag = MemCard::Hub;
     static void** Vtable() { return kMcManagerVtable; }
     static KindTag* Fabricate(bool create) { return MemCard::CreateManager(create); }
     static void Release() { MemCard::ReleaseManager(); }
 };
-struct SioManager {
+struct SerialSlotStub {
     using KindTag = Sio::Hub;
     static void** Vtable() { return kSioManagerVtable; }
     static KindTag* Fabricate(bool create) { return Sio::CreateManager(create); }
@@ -105,7 +105,7 @@ struct ScriptCache {
     static KindTag* Fabricate(bool create) { return Scripts::CreateScriptCache(create); }
     static void Release() { Scripts::ReleaseScriptCache(); }
 };
-struct MlpManager {
+struct MainLoopSlotStub {
     using KindTag = FrameLoop::Hub;
     static void** Vtable() { return kMlpManagerVtable; }
     static KindTag* Fabricate(bool create) { return FrameLoop::CreateManager(create); }
@@ -113,7 +113,7 @@ struct MlpManager {
 };
 
 // Named by their Create functions where there's no better name yet (SystemCore::Main makes them all).
-struct MdlManager {
+struct ModelSlotStub {
     using KindTag = GameModules::Hub;
     static void** Vtable() { return kMdlManagerVtable; }
     static KindTag* Fabricate(bool create) { return GameModules::CreateManager(create); }
@@ -149,19 +149,19 @@ struct Singleton4088E0 { // the asset manager
     static KindTag* Fabricate(bool create) { return AssetStore::CreateAssetManager(create); }
     static void Release() { AssetStore::ReleaseAssetManager(); }
 };
-struct NetManager {
+struct NetSessionSlot {
     using KindTag = NetLink::Hub;
     static void** Vtable() { return kNetManagerVtable; }
     static KindTag* Fabricate(bool create) { return NetLink::CreateManager(create); }
     static void Release() { NetLink::ReleaseManager(); }
 };
-struct CompositeObjectManager {
+struct ObjectHubSlot {
     using KindTag = GameObjects::CEntityHub;
     static void** Vtable() { return kCompositeObjectManagerVtable; }
     static KindTag* Fabricate(bool create) { return GameObjects::CreateCompositeObjectManager(create); }
     static void Release() { GameObjects::ReleaseCompositeObjectManager(); }
 };
-struct TrickObjectManager {
+struct TrickPropSlotStub {
     using KindTag = GameObjects::CTrickSpotHub;
     static void** Vtable() { return kTrickObjectManagerVtable; }
     static KindTag* Fabricate(bool create) { return GameObjects::AcquireTrickObjectManager(create); }
@@ -225,17 +225,17 @@ struct Singleton574540 { // the time of day manager
 
 static VtableSlot kPreManagerVtable_slots[] = {&LazyInstance<PreManager>::Teardown};
 void** const kPreManagerVtable = reinterpret_cast<void**>(kPreManagerVtable_slots);
-static VtableSlot kMcManagerVtable_slots[] = {&LazyInstance<McManager>::Teardown};
+static VtableSlot kMcManagerVtable_slots[] = {&LazyInstance<CardSlotStub>::Teardown};
 void** const kMcManagerVtable = reinterpret_cast<void**>(kMcManagerVtable_slots);
-static VtableSlot kSioManagerVtable_slots[] = {&LazyInstance<SioManager>::Teardown};
+static VtableSlot kSioManagerVtable_slots[] = {&LazyInstance<SerialSlotStub>::Teardown};
 void** const kSioManagerVtable = reinterpret_cast<void**>(kSioManagerVtable_slots);
 static VtableSlot kAsyncLoaderVtable_slots[] = {&LazyInstance<AsyncLoader>::Teardown};
 void** const kAsyncLoaderVtable = reinterpret_cast<void**>(kAsyncLoaderVtable_slots);
 static VtableSlot kScriptCacheVtable_slots[] = {&LazyInstance<ScriptCache>::Teardown};
 void** const kScriptCacheVtable = reinterpret_cast<void**>(kScriptCacheVtable_slots);
-static VtableSlot kMlpManagerVtable_slots[] = {&LazyInstance<MlpManager>::Teardown};
+static VtableSlot kMlpManagerVtable_slots[] = {&LazyInstance<MainLoopSlotStub>::Teardown};
 void** const kMlpManagerVtable = reinterpret_cast<void**>(kMlpManagerVtable_slots);
-static VtableSlot kMdlManagerVtable_slots[] = {&LazyInstance<MdlManager>::Teardown};
+static VtableSlot kMdlManagerVtable_slots[] = {&LazyInstance<ModelSlotStub>::Teardown};
 void** const kMdlManagerVtable = reinterpret_cast<void**>(kMdlManagerVtable_slots);
 static VtableSlot kSoundManagerVtable_slots[] = {&LazyInstance<SoundManager>::Teardown};
 void** const kSoundManagerVtable = reinterpret_cast<void**>(kSoundManagerVtable_slots);
@@ -247,11 +247,11 @@ static VtableSlot kInputManagerVtable_slots[] = {&LazyInstance<InputManager>::Te
 void** const kInputManagerVtable = reinterpret_cast<void**>(kInputManagerVtable_slots);
 static VtableSlot kSingleton4088E0Vtable_slots[] = {&LazyInstance<Singleton4088E0>::Teardown};
 void** const kSingleton4088E0Vtable = reinterpret_cast<void**>(kSingleton4088E0Vtable_slots);
-static VtableSlot kNetManagerVtable_slots[] = {&LazyInstance<NetManager>::Teardown};
+static VtableSlot kNetManagerVtable_slots[] = {&LazyInstance<NetSessionSlot>::Teardown};
 void** const kNetManagerVtable = reinterpret_cast<void**>(kNetManagerVtable_slots);
-static VtableSlot kCompositeObjectManagerVtable_slots[] = {&LazyInstance<CompositeObjectManager>::Teardown};
+static VtableSlot kCompositeObjectManagerVtable_slots[] = {&LazyInstance<ObjectHubSlot>::Teardown};
 void** const kCompositeObjectManagerVtable = reinterpret_cast<void**>(kCompositeObjectManagerVtable_slots);
-static VtableSlot kTrickObjectManagerVtable_slots[] = {&LazyInstance<TrickObjectManager>::Teardown};
+static VtableSlot kTrickObjectManagerVtable_slots[] = {&LazyInstance<TrickPropSlotStub>::Teardown};
 void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(kTrickObjectManagerVtable_slots);
 static VtableSlot kSingleton553DB0Vtable_slots[] = {&LazyInstance<Singleton553DB0>::Teardown};
 void** const kSingleton553DB0Vtable = reinterpret_cast<void**>(kSingleton553DB0Vtable_slots);

@@ -20,7 +20,7 @@ R Virtual(void* group, int slot)
     return reinterpret_cast<R(__thiscall*)(void*)>((*static_cast<void***>(group))[slot])(group);
 }
 float SpanTo(void* group) { return reinterpret_cast<float(__thiscall*)(void*)>((*static_cast<void***>(group))[5])(group); }
-float& NearDistance(void* group) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(group) + 4); }
+float& ImposterNearRange(void* group) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(group) + 4); }
 int& FrameCount(void* group) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(group) + 0x58); }
 bool HasImposter(void* group) { return *(static_cast<uint8_t*>(group) + 0x5C) != 0; }
 
@@ -67,7 +67,7 @@ void CImposterManager::TickFrame()
     for (void* group = FirstGroup(mp_groups); group; group = NextGroup(mp_groups)) {
         Virtual(group, 6);
         float distance = SpanTo(group);
-        if (distance <= NearDistance(group)) { // (NaN: as beyond it)
+        if (distance <= ImposterNearRange(group)) { // (NaN: as beyond it)
             Virtual(group, 2);
         } else if (!HasImposter(group)) {
             if (done < m_maxPerFrame) {

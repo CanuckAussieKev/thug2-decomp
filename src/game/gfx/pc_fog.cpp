@@ -20,29 +20,29 @@ namespace {
 
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 bool LoadingScreenUp() { return g_loadingScreenUp; }
-uint32_t& FogEnabled() { return g_fogEnabled; }
+uint32_t& FogRenderFlag() { return g_fogActive; }
 
 } // namespace
 
 // 0x004B8E40
-void __cdecl SetFogEnabled(bool on)
+void __cdecl ToggleFog(bool on)
 {
-    if ((FogEnabled() != 0) == on)
+    if ((FogRenderFlag() != 0) == on)
         return;
-    FogEnabled() = on;
+    FogRenderFlag() = on;
     if (!LoadingScreenUp())
-        InputPort()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
+        InputPort()->SetRenderState(D3DRS_FOGENABLE, FogRenderFlag());
 }
 
 // 0x004B8E80
 void __cdecl SetFogDistance(float start)
 {
-    g_fogStart = start;
+    g_fogBeginDistance = start;
     // the end: 7200 further with distance clipping (0x007D643A), else four times as far
     double end = g_distanceClipping ? static_cast<double>(start) + 7200.0f
                                                 : static_cast<double>(start) * 3.0f + start;
     g_fogEnd = static_cast<float>(end);
-    InputPort()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogStart));
+    InputPort()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogBeginDistance));
     InputPort()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
 }
 
@@ -50,8 +50,8 @@ void __cdecl SetFogDistance(float start)
 void __cdecl SetFogColor(uint32_t rgba)
 {
     uint32_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF, a = rgba >> 24;
-    if (a && !FogEnabled()) {
-        FogEnabled() = 1;
+    if (a && !FogRenderFlag()) {
+        FogRenderFlag() = 1;
         if (!LoadingScreenUp())
             InputPort()->SetRenderState(D3DRS_FOGENABLE, 1);
     }
@@ -61,7 +61,7 @@ void __cdecl SetFogColor(uint32_t rgba)
         density = 1.0;
     else if (!(density > 0.0))
         density = 0.0;
-    float* constant = &g_pixelShaderConstants[16];
+    float* constant = &g_psConstantBank[16];
     constant[0] = constant[1] = constant[2] = static_cast<float>(density);
     uint32_t color = (r << 16) | (g << 8) | b;
     g_fogColour = color;

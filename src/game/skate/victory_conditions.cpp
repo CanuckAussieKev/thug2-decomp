@@ -53,7 +53,7 @@ void** const kCollectAllObjectsVtable = reinterpret_cast<void**>(kCollectAllObje
 constexpr uint32_t kHighestScore = 0x8F30FD26;      // highest_score
 constexpr uint32_t kTargetScore = 0x71CD53A2;       // target_score
 constexpr uint32_t kCompleteGoals = 0x6FC19399;     // complete_goals
-constexpr uint32_t kBestCombo = 0x6FAD9811;         // best_combo
+constexpr uint32_t kLabelBestChain = 0x6FAD9811;         // best_combo
 constexpr uint32_t kLastManStanding = 0xCC06880F;   // last_man_standing
 constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
@@ -89,20 +89,20 @@ int NumTeams() { return static_cast<CMatchRules*>(GameMode())->NumTeams(); }
 
 // The network manager's players (0x007CCE14): PlayerRecord +0x14 the skater, +0x30 the team, +0x34 the objects
 // collected. Walked with a ListKit::Hunt<PlayerRecord> (vtable 0x0064C1A8).
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 struct PlayerSearch {
     void* m_vtable = GameModules::kPlayerSearchVtable;
     void* m_listLink = nullptr;
 };
-uint8_t* FirstPlayer(PlayerSearch* search)
+uint8_t* StartRosterSweep(PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(NetManager()->BeginPlayerWalk(search, false));
+    return static_cast<uint8_t*>(NetSessionSlot()->BeginPlayerWalk(search, false));
 }
-uint8_t* NextPlayer(PlayerSearch* search)
+uint8_t* StepRosterSweep(PlayerSearch* search)
 {
-    return static_cast<uint8_t*>(NetManager()->StepPlayerWalk(search, false));
+    return static_cast<uint8_t*>(NetSessionSlot()->StepPlayerWalk(search, false));
 }
-uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetOwnPlayer()); }
+uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetSessionSlot()->GetOwnPlayer()); }
 bool IsEliminated(uint8_t* player) { return reinterpret_cast<OnlinePlay::PlayerRecord*>(player)->IsEliminated(); }
 
 } // namespace
@@ -151,7 +151,7 @@ bool CScoreReachedVictoryCondition::RuleSatisfied()
     if (IsSquadMatch()) {
         int totals[4] = {};
         PlayerSearch search;
-        for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
+        for (uint8_t* player = StartRosterSweep(&search); player; player = StepRosterSweep(&search)) {
             uint8_t* score = ScoreOf(*reinterpret_cast<uint8_t**>(player + 0x14));
             int team = *reinterpret_cast<int*>(player + 0x30);
             totals[team] += TotalScore(score);
@@ -186,7 +186,7 @@ bool CBestComboVictoryCondition::EchoOut()
 // 0x00576B80
 bool CCompleteGoalsVictoryCondition::RuleSatisfied()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     uint8_t* skate = Skate();
     CGoalManager* goals = GetObjectiveBoard(); // the skate module's goal manager
     if (IsSquadMatch()) {
@@ -250,11 +250,11 @@ bool CEliminationVictoryCondition::RuleSatisfied()
 // 0x00576700
 bool CEliminationVictoryCondition::HasWonMatch(uint32_t player)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     uint8_t* skater = GetRiderAt(Skate(), player);
     if (!skater)
         return false;
-    uint8_t* info = net->PlayerByObjectId(
+    uint8_t* info = net->FindPlayerSlotByObj(
         static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))); // the player with the skater's id
     return !IsEliminated(info);
 }
@@ -264,11 +264,11 @@ bool CCollectAllObjectsVictoryCondition::RuleSatisfied()
 {
     int total = 0;
     PlayerSearch search;
-    for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search))
+    for (uint8_t* player = StartRosterSweep(&search); player; player = StepRosterSweep(&search))
         total += *reinterpret_cast<int*>(player + 0x34);
     if (!total)
         return false;
-    for (uint8_t* player = FirstPlayer(&search); player; player = NextPlayer(&search)) {
+    for (uint8_t* player = StartRosterSweep(&search); player; player = StepRosterSweep(&search)) {
         if (TotalScore(ScoreOf(*reinterpret_cast<uint8_t**>(player + 0x14))) == total)
             return true;
     }
@@ -295,7 +295,7 @@ CWinRule* CreateVictoryCondition(Scripts::CStruct* params)
             condition->m_pointsHeld = score;
         return condition;
     }
-    case kBestCombo: {
+    case kLabelBestChain: {
         int combos;
         params->FetchIntValue("num_combos", &combos, 1);
         auto* condition = static_cast<CBestComboVictoryCondition*>(make(8, kBestComboVtable));

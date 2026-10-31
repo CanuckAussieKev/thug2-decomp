@@ -39,7 +39,7 @@ void __cdecl KeyboardTask(void* task);
 // 0x00532050: the chat handler (message 76, registered by the join): "\c<colour + 2><name>\c0 : <text>" added to
 // the chat display (create_console_message text=...). 1. In the THUGPRO peer mode (thugpro_peer.h) the message is
 // THUGPRO's layout (a machine id first) and a malformed one is dropped.
-int __cdecl HandleChat(NetLink::InboundMsgCtx* context);
+int __cdecl OnChatMsg(NetLink::InboundMsgCtx* context);
 
 } // namespace OnlinePlay
 

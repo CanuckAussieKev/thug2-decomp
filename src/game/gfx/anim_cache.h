@@ -110,7 +110,7 @@ public:
     // 0x00480800
     int FetchKind();
     // 0x00480670: what an entry for that many keys of `type` would take (`key` isn't used).
-    uint32_t GetEntrySize(uint32_t key, int rotationKeys, int translationKeys, int type);
+    uint32_t FetchRecordBytes(uint32_t key, int rotationKeys, int translationKeys, int type);
     // 0x00480980: a new entry for `key` in the first entry not in use (none if `key` comes first or none is free, or
     // the heap hasn't room).
     CAnimCacheEntry* AddRow(uint32_t key, int16_t bones, int rotationKeys, int translationKeys, int type);

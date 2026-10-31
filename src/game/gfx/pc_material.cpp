@@ -33,7 +33,7 @@ float g_environmentMatrix[16]{
 namespace {
 
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
-float* PassConstants() { return g_pixelShaderConstants; } // the pixel shader's colours, 16 bytes a pass
+float* PassConstants() { return g_psConstantBank; } // the pixel shader's colours, 16 bytes a pass
 bool& ConstantsChanged() { return reinterpret_cast<bool&>(g_pixelShaderChanged); }
 
 void DeviceStageState(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
@@ -155,7 +155,7 @@ float WibbleOffset(float t, float frequency, float phase, float amplitude, float
 // (pass 0's flag 0x100) - or none, once, when the last material had it (0x00786E4C).
 void SetCommonStates(materialRef* material)
 {
-    ChangePhase(kAlphaRef, material->alphaRef);
+    ChangePhase(kPhaseAlphaTest, material->alphaRef);
     ChangePhase(kCullMode, material->twoSided ? D3DCULL_NONE : D3DCULL_CW);
     ChangePhase(kDepthBias, material->depthBias);
     material->UpdateUVWibbles();
@@ -194,7 +194,7 @@ void SetBorderColor(const materialRef* material, uint32_t pass, uint32_t stage)
     }
 }
 
-void SetBumpEnvMatrix(uint32_t stage)
+void ChangeBumpMapMatrix(uint32_t stage)
 {
     DeviceStageState(stage, D3DTSS_BUMPENVMAT00, reinterpret_cast<uint32_t&>(g_headingMatrix));
     DeviceStageState(stage, D3DTSS_BUMPENVMAT01, reinterpret_cast<uint32_t&>(g_headingMatrix.row[0].z));
@@ -203,7 +203,7 @@ void SetBumpEnvMatrix(uint32_t stage)
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
-void FillWibbleMatrix(float* matrix, const sUVWibble* wibble)
+void FillWibbleMatrix(float* matrix, const sUVOscillator* wibble)
 {
     matrix[0] = wibble->matrix[0];
     matrix[1] = wibble->matrix[1];
@@ -234,8 +234,8 @@ materialRef* materialRef::MakeNew()
         passFlags[pass] = 0;
         textures[pass] = nullptr;
         uvWibble[pass] = nullptr;
-        envMapTiling[pass][0] = 3.0f;
-        envMapTiling[pass][1] = 3.0f;
+        reflectionTiling[pass][0] = 3.0f;
+        reflectionTiling[pass][1] = 3.0f;
     }
     return this;
 }
@@ -251,7 +251,7 @@ void materialRef::DestroyBody()
     }
     if (animColors)
         heap->Dealloc(animColors);
-    for (sUVWibble* wibble : uvWibble)
+    for (sUVOscillator* wibble : uvWibble)
         if (wibble)
             heap->Dealloc(wibble);
     if (textureAnim) {
@@ -326,7 +326,7 @@ void materialRef::UpdateUVWibbles()
     for (uint32_t pass = 0; pass < passCount; ++pass) {
         if (!(passFlags[pass] & kPassUVWibble) || (passFlags[pass] & kPassExplicitUV))
             continue;
-        sUVWibble* w = uvWibble[pass];
+        sUVOscillator* w = uvWibble[pass];
         float u = WibbleOffset(t, w->frequency[0], w->phase[0], w->amplitude[0], w->velocity[0], false);
         float v = WibbleOffset(t, w->frequency[1], w->phase[1], w->amplitude[1], w->velocity[1], true);
         w->offset[0] = u;
@@ -357,13 +357,13 @@ void materialRef::HandIn()
         SetBorderColor(this, pass, pass);
         uint32_t flags = passFlags[pass];
         if (flags & kPassBumpEnv)
-            SetBumpEnvMatrix(pass);
+            ChangeBumpMapMatrix(pass);
         flags = passFlags[pass];
         D3DTRANSFORMSTATETYPE textureMatrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
         if ((flags & kPassEnvironment) && g_nearCamera) {
             float* matrix = g_environmentMatrixPass;
-            matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
-            matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
+            matrix[0] = static_cast<float>(reflectionTiling[pass][0] * 0.5);
+            matrix[5] = static_cast<float>(reflectionTiling[pass][1] * 0.5);
             ChangePhase(kLocalViewer, 1);
             InputPort()->SetTransform(textureMatrix, reinterpret_cast<const D3DMATRIX*>(matrix));
             DeviceStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
@@ -421,12 +421,12 @@ void materialRef::SubmitPass(uint32_t pass, const float* color)
             ChangePhase(kMipLodBias0, mipLodBias[pass]);
             SetBorderColor(this, pass, pass);
             if (passFlags[pass] & kPassBumpEnv)
-                SetBumpEnvMatrix(0);
+                ChangeBumpMapMatrix(0);
             uint32_t flags = passFlags[pass];
             if ((flags & kPassEnvironment) && g_nearCamera) {
                 float* matrix = g_environmentMatrix;
-                matrix[0] = static_cast<float>(envMapTiling[pass][0] * 0.5);
-                matrix[5] = static_cast<float>(envMapTiling[pass][1] * 0.5);
+                matrix[0] = static_cast<float>(reflectionTiling[pass][0] * 0.5);
+                matrix[5] = static_cast<float>(reflectionTiling[pass][1] * 0.5);
                 ChangePhase(kLocalViewer, 1);
                 Engine3D::SetTransform(D3DTS_TEXTURE0, matrix);
                 SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);

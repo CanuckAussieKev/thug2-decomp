@@ -96,7 +96,7 @@ const char* TypeName(KindTag type);    // the record's word: the type's checksum
 const char* TypeTitle(KindTag type);   // Create-a-Goal's menu name ("SKATE letters"...)
 uint32_t KindHash(KindTag type);   // 0x54166ACD...
 bool TypeOf(const std::string& name, KindTag* type);
-bool TypeOfChecksum(uint32_t checksum, KindTag* type);
+bool KindOfKey(uint32_t checksum, KindTag* type);
 // Whether the type is one of the trick goals (key combo sets, spin...): Skatetris, ComboSkatetris, TrickTris, TrickBeat.
 bool TrickType(KindTag type);
 // How many key combo sets the type offers (cag_key_combos: 8; Trick to the Beat the first 4).

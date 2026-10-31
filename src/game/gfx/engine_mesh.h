@@ -18,7 +18,7 @@ public:
     // 0x00490C90 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
     CSubMesh* Teardown(unsigned int flags);
     // 0x00490A90: the collision file unloaded (Pip), its name cleared.
-    void RemoveCollision();
+    void DetachHitMesh();
     // 0x00490B80: the collision from a .col file's data in memory: its objects (0x40 bytes each, after a 0x20-byte
     // header) relocated to the data after them (the vertices 16-aligned after the objects, then 6 bytes per vertex
     // word, the faces 4-aligned, the face-rejection buffers, the nodes and the face lists - as the scene's), their

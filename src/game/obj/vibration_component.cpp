@@ -39,7 +39,7 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-bool IsGameHalted() { return g_gamePaused; }
+bool IsGameHalted() { return g_simulationHalted; }
 
 } // namespace
 
@@ -202,7 +202,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CPadRumbleModule::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

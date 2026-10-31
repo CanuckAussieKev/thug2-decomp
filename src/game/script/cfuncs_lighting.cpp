@@ -222,11 +222,11 @@ bool __cdecl CFunc_SetDynamicLightModulationFactor(CStruct* params, CScript*)
         return true;
     params->FetchFloat(kValue2, &value2, 0);
     if (params->HasBareFlag(kAmbient)) {
-        Engine3D::SetAmbientLightModulationFactor(value, value2);
+        Engine3D::ChangeAmbientScale(value, value2);
         return true;
     }
     params->FetchIntValue(kDirectional, &directional, 0);
-    Engine3D::SetDiffuseLightModulationFactor(directional, value, value2);
+    Engine3D::ChangeDiffuseScale(directional, value, value2);
     return true;
 }
 

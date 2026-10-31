@@ -23,7 +23,7 @@ class CStruct;
 // each a corner and two edges) are tested against the world's collision with a rect feeler; their contact points get
 // impulses (restitution, friction) and a depth correction. Each frame the update steps the physics in up to six equal
 // sub-steps of at most 1/30 s. From the skater's input when driven; asleep (m_awake 0) once it has stood still for
-// three frames. With a skater (m_skaterVisible), its animation follows the steering.
+// three frames. With a skater (m_riderShown), its animation follows the steering.
 //
 // Vtable: 0 Destroy 0x0043C1A0, 1 Update 0x0043C1D0, 2 ConfigureFromData 0x00437D10, 3 Finalize 0x0043BA20, the empty
 // 0x005480A0 / 0x005BAB90, 0x0048DCD0, the base's Suspend, 11 0x0042BB20 (member function entries by table: the table
@@ -81,8 +81,8 @@ public:
         float minDynamicGripVel;   // +0xD8 min_dynamic_grip_velocity
         float staticFriction;      // +0xDC static_friction
         float dynamicFriction;     // +0xE0 dynamic_friction
-        float handbrakeThrottleFriction; // +0xE4 handbrake_throttle_friction
-        float handbrakeLockedFriction;   // +0xE8 handbrake_locked_friction
+        float parkingGripPowered; // +0xE4 handbrake_throttle_friction
+        float parkingGripLocked;   // +0xE8 handbrake_locked_friction
         float brakeExcess;         // +0xEC the brake torque left over once the tyre stopped
         float brakeTorque;         // +0xF0 brake_torque (* 12)
         float handbrakeTorque;     // +0xF4 handbrake_torque (* 12)
@@ -156,7 +156,7 @@ public:
     // --- the body ---
     // 0x00435520: the velocity (the momentum times the inverse mass, w 0) and the angular velocity (the angular
     // momentum through the world's inverse inertia).
-    void UpdateVelocities();
+    void StepVehicleSpeeds();
     // 0x004355B0: the velocity at `offset` from the body's position: the angular velocity across it, plus the
     // velocity (w the velocity's). Returns out.
     Maths::Vec4* GetPointVelocity(Maths::Vec4* out, const Maths::Vec4* offset);
@@ -197,7 +197,7 @@ public:
     // 0x00438A20: the inverse inertia tensor in the world: R * diag(inverse moments) * R^T (D3DXMatrixMultiply).
     void UpdateInertia();
     // 0x00435DA0: the collision cache refilled for the box around the wheels' lines and the colliders' corners.
-    void UpdateCollisionCache();
+    void RefreshHitCache();
     // 0x0043B240: each wheel's suspension line against the world (faces flagged 0x10 ignored): touching or in the
     // air, the trigger component told when a wheel lands, leaves or moves onto another collision object (and,
     // outside the park editor, of trigger faces along the line, flagged 0x50); then the wheels' contact points and
@@ -298,8 +298,8 @@ public:
     bool AllWheelsAreInContact(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00437BC0 (0x4C73526B): an offset (0xA6F5352F) kicked about (0x00435890). True.
     bool KickRandomly(Scripts::CStruct* params, Scripts::CScript* script);
-    // 0x004354B0 Vehicle_IsSkaterVisible: m_skaterVisible.
-    bool IsSkaterVisible(Scripts::CStruct* params, Scripts::CScript* script);
+    // 0x004354B0 Vehicle_IsSkaterVisible: m_riderShown.
+    bool IsRiderShown(Scripts::CStruct* params, Scripts::CScript* script);
 
     // --- the fields ---
     Maths::Vec4 m_atPoint;             // +0x18 the centre of mass (world)
@@ -349,26 +349,26 @@ public:
     Collider m_colliders[2];       // +0x1AC colliders (0xFC8C4AC6)
     Maths::Vec4 m_skaterBone;      // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
     bool m_canDismount;               // +0x2CC Exitable
-    bool m_noHandbrake;            // +0x2CD no_handbrake
+    bool m_handbrakeDisabled;            // +0x2CD no_handbrake
     uint8_t pad2CE[2];
     Wheel* m_wheels;               // +0x2D0
-    float m_driveTorque;           // +0x2D4 drive_torque (engine; * 12)
+    float m_engineTorque;           // +0x2D4 drive_torque (engine; * 12)
     float m_engineBraking;         // +0x2D8 (0xB2268648, * 12) engine braking without throttle
     int m_gearCount;               // +0x2DC gear_ratios
-    float m_gearRatios[kMaxGears]; // +0x2E0
+    float m_transmissionRatios[kMaxGears]; // +0x2E0
     float m_reverseRatio;          // +0x2F8 reverse_torque_ratio
-    float m_differentialRatio;     // +0x2FC differential_ratio
+    float m_finalDriveRatio;     // +0x2FC differential_ratio
     float m_upshiftSpeed;          // +0x300 upshift_rpm (rpm -> radians a second)
     float m_steering;              // +0x304 the input: -1 (left) .. 1 (right), squared with its sign
     bool m_throttle;               // +0x308
     bool m_brake;                  // +0x309
     bool m_handbrake;              // +0x30A
     bool m_reverse;                // +0x30B
-    Engine3D::CHitMeshCache m_collCache;    // +0x30C the feelers' collision cache
-    bool m_skaterVisible;          // +0x12D8 (0x2ED67657) a skater is shown driving
+    Engine3D::CHitMeshCache m_contactMemo;    // +0x30C the feelers' collision cache
+    bool m_riderShown;          // +0x12D8 (0x2ED67657) a skater is shown driving
     uint8_t pad12D9[3];
     Maths::Vec4 m_skaterPos;       // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
-    uint32_t m_skaterAnim;         // +0x12EC skater_anim (0xDA75A33E)
+    uint32_t m_riderAnimName;         // +0x12EC skater_anim (0xDA75A33E)
     float m_displaySteering;       // +0x12F0 m_steering smoothed (the model's wheels, the skater's animation)
     uint32_t m_soundsName;         // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     float m_gravityScale;          // +0x12F8 (Vehicle_AdjustGravity)
@@ -385,7 +385,7 @@ public:
     bool m_passive;                // +0x1320 no input, collision or debug drawing (set from outside)
     uint8_t pad1321[3];
     CGameEntity* m_riderRef;   // +0x1324 the local skater (GameModules::Skate's 0x00566520)
-    CObjectModule* mp_animBlender; // +0x1328 its animation blender (with m_skaterVisible)
+    CObjectModule* mp_animBlender; // +0x1328 its animation blender (with m_riderShown)
     CObjectModule* mp_skaterCorePhysics; // +0x132C its core physics (0x5BD63B29)
     CObjectModule* mp_trigger;    // +0x1330 the object's trigger component (0xE594F0A2)
 };
@@ -414,10 +414,10 @@ static_assert(offsetof(CDrivableModule, m_atPoint) == 0x18 && offsetof(CDrivable
                   offsetof(CDrivableModule, m_colliders) == 0x1AC &&
                   offsetof(CDrivableModule, m_skaterBone) == 0x2BC &&
                   offsetof(CDrivableModule, m_wheels) == 0x2D0 &&
-                  offsetof(CDrivableModule, m_gearRatios) == 0x2E0 &&
+                  offsetof(CDrivableModule, m_transmissionRatios) == 0x2E0 &&
                   offsetof(CDrivableModule, m_steering) == 0x304 &&
-                  offsetof(CDrivableModule, m_collCache) == 0x30C &&
-                  offsetof(CDrivableModule, m_skaterVisible) == 0x12D8 &&
+                  offsetof(CDrivableModule, m_contactMemo) == 0x30C &&
+                  offsetof(CDrivableModule, m_riderShown) == 0x12D8 &&
                   offsetof(CDrivableModule, m_soundsName) == 0x12F4 &&
                   offsetof(CDrivableModule, m_collisionImpulse) == 0x130C &&
                   offsetof(CDrivableModule, mp_input) == 0x1314 &&

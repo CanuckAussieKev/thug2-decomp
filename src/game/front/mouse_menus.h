@@ -83,7 +83,7 @@ bool Rotated(float angle);
 
 // A menu (a vmenu or an hmenu - CMenuBase, vtable 0x0064A048) and its item.
 bool IsMenu(const MenuSystem::CUiWidget* element);
-bool IsVerticalMenu(const MenuSystem::CUiWidget* menu); // +0x190
+bool MenuRunsTopToBottom(const MenuSystem::CUiWidget* menu); // +0x190
 int SelectedIndex(const MenuSystem::CUiWidget* menu);   // +0x178 (-1: none)
 bool MenuHasFocus(const MenuSystem::CUiWidget* menu);   // +0x180
 bool MenuWraps(const MenuSystem::CUiWidget* menu);      // +0x1A1

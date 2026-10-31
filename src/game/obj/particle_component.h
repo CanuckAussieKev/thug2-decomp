@@ -6,7 +6,7 @@
 #include "game/obj/entity.h"
 
 namespace Engine3D {
-struct CParticleManager;
+struct CEffectsDirector;
 }
 
 namespace Scripts {
@@ -57,12 +57,12 @@ public:
     void Conceal(bool hide);
 
     // --- script member functions (all true; nothing without a particle system) ---
-    // 0x00429970 SetEmitRate / 0x004299A0 SetLifespan / 0x004299E0 (0x19AF74D1) / 0x00429A20 SetMidPointPct: the
+    // 0x00429970 SetEmitRate / 0x004299A0 SetLifespan / 0x004299E0 (0x19AF74D1) / 0x00429A20 ChangeMidpointFraction: the
     // unnamed float (required) to the particle system (each but the first then refreshed: 0x00494E20).
     bool SetEmitRate(Scripts::CStruct* params, Scripts::CScript* script);
     bool SetLifespan(Scripts::CStruct* params, Scripts::CScript* script);
     bool SetFloat19AF74D1(Scripts::CStruct* params, Scripts::CScript* script);
-    bool SetMidPointPct(Scripts::CStruct* params, Scripts::CScript* script);
+    bool ChangeMidpointFraction(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00429A60 / 0x00429AA0 / 0x00429AE0: SetStartRadius / SetMidRadius / SetEndRadius (the unnamed float).
     bool SetStartRadius(Scripts::CStruct* params, Scripts::CScript* script);
     bool SetMidRadius(Scripts::CStruct* params, Scripts::CScript* script);
@@ -109,6 +109,6 @@ static_assert(offsetof(CEffectsEmitterModule, m_emitTarget) == 0x18 && offsetof(
 const uint8_t* __fastcall ParticleSystemParams(void* particle);
 void __fastcall SetParticleValue34(void* particle, float value);
 
-extern Engine3D::CParticleManager* g_particleManager;
+extern Engine3D::CEffectsDirector* g_particleHub;
 
 } // namespace Obj

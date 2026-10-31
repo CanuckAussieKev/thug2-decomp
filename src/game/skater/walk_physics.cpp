@@ -64,11 +64,11 @@ extern void** const kVtable;
 
 // Script names.
 constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B,
-                   kFeelerHeight = 0x6DA7F696, kStandPosSearchDepth = 0xAEBFA9CD, kRunAdjustRate = 0x3FB31DFC,
+                   kProbeElevation = 0x6DA7F696, kStandPosSearchDepth = 0xAEBFA9CD, kRunAdjustRate = 0x3FB31DFC,
                    kGravity = 0xA5E2DA58, kCheatMoon = 0x9C8C6DF1, kMaxSlowWalkSpeed = 0xF3649996,
                    kMaxFastWalkSpeed = 0x6A5805D8, kMaxSlowRunSpeed = 0x1C94CC9C;
-constexpr uint32_t kOff = 0xD443A2BC, kRun = 0xAF895B3F, kHangMove = 0x6384F1DA, kLadderMove = 0xA2BFE505,
-                   kStandardSpeedName = 0xB2D59BAF, kCameraName = 0xC4E311FA, kWalkCameraType = 0xC7D37EC2,
+constexpr uint32_t kOff = 0xD443A2BC, kRun = 0xAF895B3F, kLedgeMoveFlag = 0x6384F1DA, kLadderMove = 0xA2BFE505,
+                   kStandardSpeedName = 0xB2D59BAF, kCamIdKey = 0xC4E311FA, kWalkCameraType = 0xC7D37EC2,
                    kStateTimeName = 0x5AB23CC9, kSpeedScale = 0x092C388F, kWalkSlow = 0x1150CABB,
                    kWalkFast = 0x0131F2A2, kRunSlow = 0x5606D106, kRunFast = 0x4667E91F,
                    kHangInitAnimTypeName = 0x85FA9AC4, kStateDuration = 0x4B88E4E4, kPreviousStateName = 0xF78635DA,
@@ -158,7 +158,7 @@ void CFootMovement::DestroyBody()
 {
     m_vtable = kVtable;
     At<CSharedRef<CEntity>>(this, kObjectRef).Release();
-    At<Engine3D::CHitMeshCache>(this, kCollCache).Destruct();
+    At<Engine3D::CHitMeshCache>(this, kHitMeshStore).Destruct();
     for (int i = 7; i >= 0; --i)
         At<WalkContact>(this, kContacts + i * 0xCC).Teardown();
     CObjectModule::DestroyBody();
@@ -168,8 +168,8 @@ void CFootMovement::DestroyBody()
 void CFootMovement::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t id;
-    if (params->ReadHashValue(kCameraName, &id, 0)) {
-        auto* camera = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id));
+    if (params->ReadHashValue(kCamIdKey, &id, 0)) {
+        auto* camera = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(id));
         At<CGameEntity*>(this, kCamera) = camera;
         At<CObjectModule*>(this, kWalkCamera) = camera->FetchModule(kWalkCameraType);
     }
@@ -206,7 +206,7 @@ void CFootMovement::ChangePhase(int state)
         At<bool>(this, kRunning) = false;
     }
     if (previous == 1) {
-        At<float>(this, kJumpTime) = 0.0f;
+        At<float>(this, kLeapDuration) = 0.0f;
         At<Maths::Vec4>(this, kJumpVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         At<bool>(this, kOnRail) = false;
     }
@@ -307,7 +307,7 @@ void CFootMovement::UpdateRunAdjustment()
 }
 
 // 0x00528400
-void CFootMovement::LimitSpeed(uint32_t stopAnim)
+void CFootMovement::ClampSkaterSpeed(uint32_t stopAnim)
 {
     if (At<int>(this, kState) != 0)
         return;
@@ -338,7 +338,7 @@ double __cdecl CFootMovement::GetGravity()
 // 0x00528280
 bool __stdcall CFootMovement::FindStandPosition(const Maths::Vec4* position, Maths::Vec4* out, Engine3D::CProbeRay* feeler)
 {
-    float height = WalkParameter(kFeelerHeight);
+    float height = WalkParameter(kProbeElevation);
     feeler->m_line.start = *position;
     feeler->m_line.start.y = static_cast<float>(static_cast<double>(height) + height + feeler->m_line.start.y);
     feeler->m_line.end = *position;
@@ -370,11 +370,11 @@ bool CFootMovement::Walk_ScaleAnimSpeed(Scripts::CStruct* params, Scripts::CScri
         }
     } else if (params->HasBareFlag(kRun)) {
         At<int>(this, kAnimSpeedScaling) = 1;
-    } else if (params->HasBareFlag(kHangMove)) {
+    } else if (params->HasBareFlag(kLedgeMoveFlag)) {
         At<int>(this, kAnimSpeedScaling) = 2;
     } else if (params->HasBareFlag(kLadderMove)) {
         At<int>(this, kAnimSpeedScaling) = 3;
-        At<float>(this, kLadderDirection) = -1.0f;
+        At<float>(this, kLadderSign) = -1.0f;
     }
     params->FetchFloat(kStandardSpeedName, &At<float>(this, kStandardSpeed), 0);
     return true;
@@ -470,7 +470,7 @@ bool CFootMovement::Walk_GetHangAngle(Scripts::CStruct* /*params*/, Scripts::CSc
 // 0x00528860
 bool CFootMovement::Walk_SetForwardControlLock(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    At<bool>(this, kForwardControlLock) = params->HasBareFlag(kOn);
+    At<bool>(this, kLockedToHeading) = params->HasBareFlag(kOn);
     return true;
 }
 
@@ -490,7 +490,7 @@ static VtableSlot kVtable_slots[] = {&CFootMovement::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

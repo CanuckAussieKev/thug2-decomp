@@ -6,7 +6,7 @@
 namespace Util {
 
 // 0x00401050
-PackedBitBuffer::PackedBitBuffer() : m_cursor(nullptr), m_outset(nullptr), m_octets(0), m_bitsLeft(32), m_extent(0), m_bitsUsed(0)
+PackedBitBuffer::PackedBitBuffer() : m_cursor(nullptr), m_outset(nullptr), m_octets(0), m_freeBitsInWord(32), m_extent(0), m_bitsUsed(0)
 {
     // The original leaves m_outset uninitialised; zeroing it here is harmless.
 }
@@ -17,7 +17,7 @@ void PackedBitBuffer::ChangeIntakeContents(void* data, int size)
     m_cursor = static_cast<uint32_t*>(data);
     m_outset = static_cast<uint32_t*>(data);
     m_extent = size;
-    m_bitsLeft = 0;
+    m_freeBitsInWord = 0;
     m_bitsUsed = 0;
 }
 
@@ -27,7 +27,7 @@ void PackedBitBuffer::BindOutputBuffer(void* data, int size)
     m_cursor = static_cast<uint32_t*>(data);
     m_outset = static_cast<uint32_t*>(data);
     m_extent = size;
-    m_bitsLeft = 32;
+    m_freeBitsInWord = 32;
     m_bitsUsed = 0;
 }
 
@@ -40,10 +40,10 @@ int PackedBitBuffer::GetByteCount() const
 // 0x00401180
 void PackedBitBuffer::Drain()
 {
-    if (m_bitsLeft != 32) {
+    if (m_freeBitsInWord != 32) {
         *m_cursor++ = m_octets;
         m_octets = 0;
-        m_bitsLeft = 32;
+        m_freeBitsInWord = 32;
     }
 }
 
@@ -51,24 +51,24 @@ void PackedBitBuffer::Drain()
 void PackedBitBuffer::WriteBits(uint32_t value, int count)
 {
     m_bitsUsed += count;
-    if (count > m_bitsLeft) {
+    if (count > m_freeBitsInWord) {
         // Fill the rest of the current word, write it out, and continue with the remaining bits.
-        int used = 32 - m_bitsLeft;
+        int used = 32 - m_freeBitsInWord;
         m_octets = (m_octets & ((1u << used) - 1)) | (value << used);
         *m_cursor++ = m_octets;
         // Arithmetic shift (SAR in the original): a value with its top bit set carries ones into the next word.
-        value = static_cast<uint32_t>(static_cast<int32_t>(value) >> m_bitsLeft);
-        count -= m_bitsLeft;
+        value = static_cast<uint32_t>(static_cast<int32_t>(value) >> m_freeBitsInWord);
+        count -= m_freeBitsInWord;
         m_octets = 0;
-        m_bitsLeft = 32;
+        m_freeBitsInWord = 32;
     }
-    int used = 32 - m_bitsLeft;
-    m_bitsLeft -= count;
+    int used = 32 - m_freeBitsInWord;
+    m_freeBitsInWord -= count;
     m_octets = (m_octets & ((1u << used) - 1)) | (value << used);
-    if (m_bitsLeft == 0) {
+    if (m_freeBitsInWord == 0) {
         *m_cursor++ = m_octets;
         m_octets = 0;
-        m_bitsLeft = 32;
+        m_freeBitsInWord = 32;
     }
 }
 
@@ -76,14 +76,14 @@ void PackedBitBuffer::WriteBits(uint32_t value, int count)
 uint32_t PackedBitBuffer::ReadBits(int count)
 {
     m_bitsUsed += count;
-    if (m_bitsLeft == 0) {
+    if (m_freeBitsInWord == 0) {
         m_octets = *m_cursor++;
-        m_bitsLeft = 32;
+        m_freeBitsInWord = 32;
     }
 
-    int available = m_bitsLeft;
+    int available = m_freeBitsInWord;
     if (count <= available) {
-        m_bitsLeft = available - count;
+        m_freeBitsInWord = available - count;
         uint32_t bits = m_octets;
         if (count == 32)
             return bits;
@@ -96,7 +96,7 @@ uint32_t PackedBitBuffer::ReadBits(int count)
     uint32_t next = *m_cursor++;
     int rest = count - available;
     m_octets = next >> rest;
-    m_bitsLeft = 32 - rest;
+    m_freeBitsInWord = 32 - rest;
     return (low & ((1u << available) - 1)) | ((next & ((1u << rest) - 1)) << available);
 }
 

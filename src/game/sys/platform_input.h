@@ -30,8 +30,8 @@ struct PortControls {
 static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls, gamepad) == 0x70 &&
                   offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
               "layout must match the original");
-extern int32_t g_keyBindings[0x98];
-inline PortControls* Controls() { return reinterpret_cast<PortControls*>(g_keyBindings); }
+extern int32_t g_inputMap[0x98];
+inline PortControls* Controls() { return reinterpret_cast<PortControls*>(g_inputMap); }
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, game/gfx/settings.h).
@@ -119,7 +119,7 @@ void SetDefaultEscapeControl(int control);
 
 extern IDirectInput8A* g_directInput;
 extern IDirectInputDevice8A* g_keyboardDevice;
-extern int32_t g_keyBindings[0x98];
+extern int32_t g_inputMap[0x98];
 extern DIJOYSTATE2 g_joystickStates[2];
 extern DIJOYSTATE2 g_lastJoystickStates[2];
 extern IDirectInputDevice8A* g_joysticks[kPorts];

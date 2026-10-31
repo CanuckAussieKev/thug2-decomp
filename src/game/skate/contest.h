@@ -53,11 +53,11 @@ struct CContest {
     float m_silverScore;           // +0x118
     float m_goldScore;             // +0x11C
     float m_bailPenalty;           // +0x120 (stored by Start: not read here)
-    float m_bailPoints;            // +0x124: taken off the run's points (cleared when a run starts)
+    float m_crashPenalty;            // +0x124: taken off the run's points (cleared when a run starts)
     float m_judgeScores[kJudges];  // +0x128: the last run's judges' scores
     const char* m_judgeNames[kJudges]; // +0x13C: comp_str_Judge1..5
     float m_pathVertices;                // +0x150: the last run's points (cleared when a run starts)
-    int m_runScores[kRuns];        // +0x154: the player's score of each run
+    int m_runTotals[kRuns];        // +0x154: the player's score of each run
     bool m_ended;                  // +0x160
     uint8_t m_pad161[3];
     int m_standing;                   // +0x164: the player's place (1-8) after the last run
@@ -98,9 +98,9 @@ static_assert(sizeof(CContest::Leader) == 0x20 && offsetof(CContest::Leader, m_i
                   offsetof(CContest::Leader, m_scores) == 0x10 && offsetof(CContest::Leader, m_unknown1C) == 0x1C,
               "layout must match the original");
 static_assert(offsetof(CContest, m_leaders) == 0x08 && offsetof(CContest, m_thirdMark) == 0x108 &&
-                  offsetof(CContest, m_bailPoints) == 0x124 && offsetof(CContest, m_judgeScores) == 0x128 &&
+                  offsetof(CContest, m_crashPenalty) == 0x124 && offsetof(CContest, m_judgeScores) == 0x128 &&
                   offsetof(CContest, m_judgeNames) == 0x13C && offsetof(CContest, m_pathVertices) == 0x150 &&
-                  offsetof(CContest, m_runScores) == 0x154 && offsetof(CContest, m_ended) == 0x160 &&
+                  offsetof(CContest, m_runTotals) == 0x154 && offsetof(CContest, m_ended) == 0x160 &&
                   offsetof(CContest, m_standing) == 0x164 && sizeof(CContest) == 0x168,
               "layout must match the original");
 

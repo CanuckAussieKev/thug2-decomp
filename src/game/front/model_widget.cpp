@@ -35,17 +35,17 @@ namespace {
 extern void** const kCElement3dVtable;
 } // namespace
 
-static_assert(offsetof(CModelWidget, m_models) == 0x178 && offsetof(CModelWidget, m_numModels) == 0x434 &&
+static_assert(offsetof(CModelWidget, m_models) == 0x178 && offsetof(CModelWidget, m_modelTotal) == 0x434 &&
                   offsetof(CModelWidget, m_cameraZ) == 0x438 && offsetof(CModelWidget, m_angle) == 0x43C &&
                   offsetof(CModelWidget, m_angularVelocity) == 0x448 && offsetof(CModelWidget, m_basisFrame) == 0x454 &&
                   offsetof(CModelWidget, m_targetPosition) == 0x494 && offsetof(CModelWidget, m_pointAt) == 0x4A4 &&
-                  offsetof(CModelWidget, m_angleOrder) == 0x4A8 && offsetof(CModelWidget, m_targetObject) == 0x4AC &&
-                  offsetof(CModelWidget, m_hoverAmplitude) == 0x4B0 && offsetof(CModelWidget, m_hoverPeriod) == 0x4B4 &&
-                  offsetof(CModelWidget, m_pivot) == 0x4B8 && offsetof(CModelWidget, m_parentOffset) == 0x4C8 &&
+                  offsetof(CModelWidget, m_eulerSequence) == 0x4A8 && offsetof(CModelWidget, m_targetObject) == 0x4AC &&
+                  offsetof(CModelWidget, m_bobHeight) == 0x4B0 && offsetof(CModelWidget, m_bobPeriod) == 0x4B4 &&
+                  offsetof(CModelWidget, m_pivot) == 0x4B8 && offsetof(CModelWidget, m_anchorShift) == 0x4C8 &&
                   offsetof(CModelWidget, m_centre) == 0x4D8 && offsetof(CModelWidget, m_fitScale) == 0x4E8 &&
-                  offsetof(CModelWidget, m_scaleWithDistance) == 0x4EC && offsetof(CModelWidget, m_distanceScale) == 0x4F0 &&
+                  offsetof(CModelWidget, m_sizeFollowsRange) == 0x4EC && offsetof(CModelWidget, m_distanceScale) == 0x4F0 &&
                   offsetof(CModelWidget, m_maxScale) == 0x4F4 && offsetof(CModelWidget, m_viewSlot) == 0x4F8 &&
-                  offsetof(CModelWidget, m_parentObject) == 0x4FC && offsetof(CModelWidget, m_parentInteger) == 0x500 &&
+                  offsetof(CModelWidget, m_anchorObject) == 0x4FC && offsetof(CModelWidget, m_parentInteger) == 0x500 &&
                   offsetof(CModelWidget, m_parentNode) == 0x504 && offsetof(CModelWidget, m_leanAngle) == 0x508 &&
                   offsetof(CModelWidget, m_isDead) == 0x50C && sizeof(CModelWidget) == 0x510,
               "layout must match the original");
@@ -64,17 +64,17 @@ constexpr uint32_t kAngleOrders[6] = {0x233F6B18, 0x911B6961, 0x3BE6306E, 0xE7DE
 constexpr uint32_t kPointAtNothingFlag = 0xF01FDCA4; // (name not recovered)
 constexpr uint32_t kNodeToPointTo = 0xB2A86EB5, kObjectToPointTo = 0xDAD39B88, kTilt = 0xE3C07609;
 constexpr uint32_t kHoverParams = 0x00CA1C41, kAmp = 0xC9FDE32C, kFreq = 0xA80BEA4A;
-constexpr uint32_t kParentParams = 0x36388933, kSkater = 0x5B8AB877, kNode = 0x7A8017BA;
-constexpr uint32_t kScaleToScreenDims = 0x1B399065, kScaleWithDistance = 0x4564C8F2;
+constexpr uint32_t kOwnerArgs = 0x36388933, kSkater = 0x5B8AB877, kNode = 0x7A8017BA;
+constexpr uint32_t kScaleToScreenDims = 0x1B399065, kShrinkWithRange = 0x4564C8F2;
 constexpr uint32_t kDistanceScale = 0x571F3F3A; // (name not recovered)
-constexpr uint32_t kMaxScale = 0x31E78F98, kActiveViewport = 0x655EE08E;
+constexpr uint32_t kMaxScale = 0x31E78F98, kTargetViewport = 0x655EE08E;
 constexpr uint32_t kElement3d = 0x82C59D78;
 // The scripts run on each new model's object, and the one run when a ParentParams object is gone.
 constexpr uint32_t kAddComponentsScript = 0xDF835908; // element3d_add_components
 constexpr uint32_t kInitModelScript = 0xFA03586F;     // element3d_init_model
 constexpr uint32_t kKillScript = 0xA66C1C31;          // KillElement3d
 // The model component's type.
-constexpr uint32_t kModelComponent = 0x286A8D26;
+constexpr uint32_t kModelModuleName = 0x286A8D26;
 
 // The originals' float constants (read from the exe).
 float AspectToLayout() { return MenuSystem::g_aspectToLayout; } // 0.75000006 (3/4, a bit over)
@@ -86,7 +86,7 @@ float Inv1280() { return MenuSystem::g_inv1280; }        // 1/1280
 float InvTwoPi() { return MenuSystem::g_invTwoPi; }
 float TwoPi() { return MenuSystem::g_twoPi; }
 float Pi() { return MenuSystem::g_pi; }
-float Degrees() { return ::ScriptCommands::g_degreesToRadians; }        // pi / 180
+float Degrees() { return ::ScriptCommands::g_degreeToRadianRatio; }        // pi / 180
 float VisibleAlpha() { return ::GameModules::g_competitionTiny; }   // 0.0001
 
 // CUiWidget's pieces.
@@ -98,7 +98,7 @@ void BaseSetMorph(CUiWidget* e, CStruct* params) { e->CUiWidget::BlendTowards(pa
 // The viewport's camera (0x004A09C0, cdecl; null if none) and the camera's matrix, position and horizontal angle
 // in degrees (thiscall getters).
 void* ViewportCamera(int viewport) { return Engine3D::FetchLiveCamera(viewport); }
-const Maths::Mat4* CameraMatrix(void* camera)
+const Maths::Mat4* CamOrientation(void* camera)
 {
     return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat();
 }
@@ -187,20 +187,20 @@ CModelWidget* CModelWidget::MakeNew()
         model.object.Release();
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    m_numModels = 0;
+    m_modelTotal = 0;
     m_cameraZ = -400.0f;
     m_angle[0] = m_angle[1] = m_angle[2] = 0.0f;
     m_angularVelocity[0] = m_angularVelocity[1] = m_angularVelocity[2] = 0.0f;
     m_pointAt = kPointAtNothing;
-    m_angleOrder = 2;
+    m_eulerSequence = 2;
     m_targetPosition = {0.0f, 0.0f, 0.0f, 1.0f};
     m_targetObject = 0;
     m_leanAngle = 0.0f;
-    m_parentObject = 0;
+    m_anchorObject = 0;
     m_parentInteger = 0;
     m_fitScale = 1.0f;
     m_viewSlot = 0;
-    m_scaleWithDistance = false;
+    m_sizeFollowsRange = false;
     m_distanceScale = 0.002f;
     m_maxScale = 3.0f;
     m_isDead = false;
@@ -241,29 +241,29 @@ void CModelWidget::ClearModels()
         }
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    m_numModels = 0;
+    m_modelTotal = 0;
 }
 
 // 0x004A5E80
 void CModelWidget::ApplyViewport()
 {
     uint32_t mask = 1u << (m_viewSlot & 31);
-    for (int i = 0; i < m_numModels; ++i) {
+    for (int i = 0; i < m_modelTotal; ++i) {
         if (m_models[i].object)
-            SetModelViewports(m_models[i].object->FetchModule(kModelComponent), mask);
+            SetModelViewports(m_models[i].object->FetchModule(kModelModuleName), mask);
     }
 }
 
 // 0x004A6540
 void CModelWidget::AttachModel(CStruct* params, Maths::Vec4 offset)
 {
-    GameObjects::CGameEntity* object = GameObjects::CompositeObjectManager()->CreateCompositeObject();
-    m_models[m_numModels].object.AssignValue(object);
-    Scripts::LaunchScript(kAddComponentsScript, params, m_models[m_numModels].object.Pull(), false, nullptr);
-    Seal(m_models[m_numModels].object.Pull());
-    Scripts::LaunchScript(kInitModelScript, params, m_models[m_numModels].object.Pull(), false, nullptr);
-    m_models[m_numModels].offset = offset;
-    ++m_numModels;
+    GameObjects::CGameEntity* object = GameObjects::ObjectHubSlot()->CreateCompositeObject();
+    m_models[m_modelTotal].object.AssignValue(object);
+    Scripts::LaunchScript(kAddComponentsScript, params, m_models[m_modelTotal].object.Pull(), false, nullptr);
+    Seal(m_models[m_modelTotal].object.Pull());
+    Scripts::LaunchScript(kInitModelScript, params, m_models[m_modelTotal].object.Pull(), false, nullptr);
+    m_models[m_modelTotal].offset = offset;
+    ++m_modelTotal;
 }
 
 // 0x004A62B0. The models' bounding boxes (each moved by its offset) together; the scale is the smaller of the two
@@ -273,11 +273,11 @@ void CModelWidget::ScaleToScreenDims()
 {
     // (left uninitialised by the original when the first slot is empty)
     float minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0;
-    for (int i = 0; i < m_numModels; ++i) {
+    for (int i = 0; i < m_modelTotal; ++i) {
         ShapeMesh& model = m_models[i];
         if (!model.object)
             continue;
-        const Maths::Vec4* box = ModelBoundingBox(model.object->FetchModule(kModelComponent));
+        const Maths::Vec4* box = ModelBoundingBox(model.object->FetchModule(kModelModuleName));
         double lowX = static_cast<double>(box[0].x) + model.offset.x; // (compared unrounded)
         float lowY = box[0].y + model.offset.y;
         float lowZ = box[0].z + model.offset.z;
@@ -364,7 +364,7 @@ void CModelWidget::ChangeTraits(CStruct* params)
     params->FetchFloat(kAngVelZ, &m_angularVelocity[2], 0);
     for (int order = 0; order < 6; ++order) {
         if (params->HasBareFlag(kAngleOrders[order]))
-            m_angleOrder = order;
+            m_eulerSequence = order;
     }
     if (params->HasBareFlag(kPointAtNothingFlag))
         m_pointAt = kPointAtNothing;
@@ -379,26 +379,26 @@ void CModelWidget::ChangeTraits(CStruct* params)
     m_leanAngle = 0.0f;
     params->FetchFloat(kTilt, &m_leanAngle, 0);
 
-    m_hoverAmplitude = 0.0f;
-    m_hoverPeriod = 0;
+    m_bobHeight = 0.0f;
+    m_bobPeriod = 0;
     CStruct* hover = nullptr;
     if (params->ReadSubStruct(kHoverParams, &hover, 0)) {
-        hover->FetchFloat(kAmp, &m_hoverAmplitude, 0);
+        hover->FetchFloat(kAmp, &m_bobHeight, 0);
         float frequency = 1.0f;
         hover->FetchFloat(kFreq, &frequency, 0);
-        m_hoverPeriod = Truncated(1000.0 / frequency);
+        m_bobPeriod = Truncated(1000.0 / frequency);
     }
 
     m_parentInteger = 0;
-    m_parentObject = 0;
+    m_anchorObject = 0;
     m_parentNode = 0;
-    m_parentOffset = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_anchorShift = {0.0f, 0.0f, 0.0f, 1.0f};
     CStruct* parent = nullptr;
-    if (params->ReadSubStruct(kParentParams, &parent, 0)) {
-        parent->ReadHashValue(kName, &m_parentObject, 0);
-        parent->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&m_parentOffset), 0);
+    if (params->ReadSubStruct(kOwnerArgs, &parent, 0)) {
+        parent->ReadHashValue(kName, &m_anchorObject, 0);
+        parent->FetchVec(0u, reinterpret_cast<Scripts::VectorValue*>(&m_anchorShift), 0);
         if (parent->FetchIntValue(kSkater, &m_parentInteger, 0))
-            m_parentObject = kSkater;
+            m_anchorObject = kSkater;
         parent->ReadHashValue(kNode, &m_parentNode, 0);
     }
 
@@ -408,13 +408,13 @@ void CModelWidget::ChangeTraits(CStruct* params)
                                  reinterpret_cast<Scripts::VectorValue*>(&m_pivot), 0)) {
         m_pivot.w = 1.0f;
     }
-    m_scaleWithDistance = params->HasBareFlag(kScaleWithDistance);
+    m_sizeFollowsRange = params->HasBareFlag(kShrinkWithRange);
     m_distanceScale = 0.002f;
     params->FetchFloat(kDistanceScale, &m_distanceScale, 0);
     m_maxScale = 3.0f;
     params->FetchFloat(kMaxScale, &m_maxScale, 0);
     int viewport;
-    if (params->FetchIntValue(kActiveViewport, &viewport, 0)) {
+    if (params->FetchIntValue(kTargetViewport, &viewport, 0)) {
         m_viewSlot = viewport;
         ApplyViewport();
     }
@@ -472,7 +472,7 @@ void ScreenToWorld(const Maths::Vec4* centre, Maths::Mat4* out, int viewport, fl
                    Maths::Vec4* local)
 {
     float down = y - 224.0f; // (stored: rounded to float)
-    double across = (static_cast<double>(x) - 320.0f) * (static_cast<double>(Engine3D::GetScreenAspect()) * AspectToLayout());
+    double across = (static_cast<double>(x) - 320.0f) * (static_cast<double>(Engine3D::FetchViewRatio()) * AspectToLayout());
     if (static_cast<int32_t>(Engine3D::g_backBufferWidth) > 640) { // the back buffer's width
         across *= WideScreen();
         down = static_cast<float>(static_cast<double>(down) * WideScreen());
@@ -490,7 +490,7 @@ void ScreenToWorld(const Maths::Vec4* centre, Maths::Mat4* out, int viewport, fl
     void* camera = ViewportCamera(viewport);
     if (!camera)
         return;
-    Maths::Mat4 rotation = *CameraMatrix(camera);
+    Maths::Mat4 rotation = *CamOrientation(camera);
     rotation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Maths::Vec4 place = point * rotation;
     const Maths::Vec4* position = ViewerLocation(camera);
@@ -586,16 +586,16 @@ float WidescreenStretch(const Maths::Vec4* corners, int count, const Maths::Vec4
 // placed: hidden while the element is transparent.
 void CModelWidget::TickFrame()
 {
-    if (m_isDead || !m_numModels)
+    if (m_isDead || !m_modelTotal)
         return;
     bool onLayout = false;
     Maths::Vec4 place = {};
-    if (m_parentObject) {
-        auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::CompositeObjectManager());
-        GameObjects::CEntity* parent = manager->LookUpEntity(m_parentObject);
+    if (m_anchorObject) {
+        auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::ObjectHubSlot());
+        GameObjects::CEntity* parent = manager->LookUpEntity(m_anchorObject);
         if (parent) {
             m_basisFrame.ResetToIdentity();
-            m_basisFrame.row[3] = reinterpret_cast<GameObjects::CGameEntity*>(parent)->m_atPoint + m_parentOffset * m_basisFrame;
+            m_basisFrame.row[3] = reinterpret_cast<GameObjects::CGameEntity*>(parent)->m_atPoint + m_anchorShift * m_basisFrame;
         } else {
             Scripts::CScript* script = Scripts::SpawnScript(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false,
                                                           false);
@@ -606,7 +606,7 @@ void CModelWidget::TickFrame()
         Maths::Vec4 position;
         NodePosition(NodeStructure(m_parentNode), &position);
         m_basisFrame.ResetToIdentity();
-        Maths::Vec4 offset = m_parentOffset * m_basisFrame;
+        Maths::Vec4 offset = m_anchorShift * m_basisFrame;
         m_basisFrame.row[3].z = position.z + offset.z;
         m_basisFrame.row[3].w = position.w + offset.w;
         m_basisFrame.row[3].x = position.x + offset.x;
@@ -659,7 +659,7 @@ void CModelWidget::TickFrame()
     m_angle[0] = Wrapped(angleX);
     m_angle[1] = Wrapped(angleY);
     m_angle[2] = Wrapped(angleZ);
-    ApplyAngles(&local, m_angle[0], m_angle[1], m_angle[2], m_angleOrder);
+    ApplyAngles(&local, m_angle[0], m_angle[1], m_angle[2], m_eulerSequence);
     local.row[3].x += m_pivot.x;
     local.row[3].y += m_pivot.y;
     local.row[3].z += m_pivot.z;
@@ -668,7 +668,7 @@ void CModelWidget::TickFrame()
     float scaleX = static_cast<float>(static_cast<double>(m_summed.scaleX) * m_fitScale);
     Maths::Vec4 scale = {scaleX, static_cast<float>(static_cast<double>(m_summed.scaleY) * m_fitScale), scaleX, 1.0f};
     void* camera = nullptr;
-    if (m_scaleWithDistance && (camera = ViewportCamera(m_viewSlot)) != nullptr) {
+    if (m_sizeFollowsRange && (camera = ViewportCamera(m_viewSlot)) != nullptr) {
         Maths::Vec4 away = m_basisFrame.row[3] - *ViewerLocation(camera);
         double distance =
             std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
@@ -691,10 +691,10 @@ void CModelWidget::TickFrame()
         if (view) {
             Maths::Vec4 corners[8 * kMaxModels];
             int count = 0;
-            for (int i = 0; i < m_numModels; ++i) {
+            for (int i = 0; i < m_modelTotal; ++i) {
                 if (!m_models[i].object)
                     continue;
-                GameObjects::CObjectModule* component = m_models[i].object->FetchModule(kModelComponent);
+                GameObjects::CObjectModule* component = m_models[i].object->FetchModule(kModelModuleName);
                 const Maths::Vec4* box = component ? ModelBoundingBoxIfAny(component) : nullptr;
                 if (!box) {
                     count = 0; // (a model without a box yet: left as it is this frame)
@@ -718,24 +718,24 @@ void CModelWidget::TickFrame()
     Maths::Multiply(m_basisFrame, local, m_basisFrame);
 
     Maths::Vec4 hover = {};
-    if (m_hoverAmplitude > 0.0f) {
-        uint32_t period = static_cast<uint32_t>(m_hoverPeriod);
+    if (m_bobHeight > 0.0f) {
+        uint32_t period = static_cast<uint32_t>(m_bobPeriod);
         uint32_t phase = FrameClock::GetTime() % period * 2;
-        double s = X87Sin(static_cast<double>(static_cast<int32_t>(phase)) * Pi() / m_hoverPeriod) * m_hoverAmplitude;
+        double s = X87Sin(static_cast<double>(static_cast<int32_t>(phase)) * Pi() / m_bobPeriod) * m_bobHeight;
         hover.x = static_cast<float>(s * m_basisFrame.row[1].x);
         hover.y = static_cast<float>(s * m_basisFrame.row[1].y);
         hover.z = static_cast<float>(s * m_basisFrame.row[1].z);
         hover.w = static_cast<float>(s * m_basisFrame.row[1].w);
     }
     bool visible = m_summed.alpha >= VisibleAlpha();
-    for (int i = 0; i < m_numModels; ++i) {
+    for (int i = 0; i < m_modelTotal; ++i) {
         ShapeMesh& model = m_models[i];
         if (!model.object)
             continue;
-        GameObjects::CObjectModule* component = model.object->FetchModule(kModelComponent);
+        GameObjects::CObjectModule* component = model.object->FetchModule(kModelModuleName);
         Maths::Vec4 position = model.offset * m_basisFrame;
         Maths::Mat4 orientation = m_basisFrame;
-        if (m_hoverAmplitude > 0.0f) {
+        if (m_bobHeight > 0.0f) {
             position.x = hover.x + position.x;
             position.y = position.y + hover.y;
             position.z = position.z + hover.z;

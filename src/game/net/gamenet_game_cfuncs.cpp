@@ -62,7 +62,7 @@ constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
-Hub* NetManager() { return g_gameNetManager; }
+Hub* NetSessionSlot() { return g_onlineHub; }
 TaskList::PileUp* LogicTasks()
 {
     return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4);
@@ -79,11 +79,11 @@ void SendFlagMessage(Hub* manager, uint8_t id, int player, int team, Local local
     desc.m_byteCount = sizeof(msg);
     desc.m_content = msg;
     desc.m_ident = id;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     NetLink::AppHost* server = manager->m_host;
     PlayerSearch search;
-    for (uint8_t* other = FirstPlayer(manager, &search, true); other; other = NextPlayer(manager, &search, true)) {
+    for (uint8_t* other = StartRosterSweep(manager, &search, true); other; other = StepRosterSweep(manager, &search, true)) {
         if (IsOwnPlayer(other))
             local();
         else
@@ -96,8 +96,8 @@ void KickOrBan(Hub* manager, int drop, uint8_t request)
 {
     PlayerSearch search;
     int index = 0;
-    uint8_t* player = FirstPlayer(manager, &search, true);
-    for (; player && !(Prop<uint32_t>(player, 0x1D0) & kPlayerMarked); player = NextPlayer(manager, &search, true))
+    uint8_t* player = StartRosterSweep(manager, &search, true);
+    for (; player && !(Prop<uint32_t>(player, 0x1D0) & kPlayerMarked); player = StepRosterSweep(manager, &search, true))
         ++index;
     if (!player)
         return;
@@ -106,7 +106,7 @@ void KickOrBan(Hub* manager, int drop, uint8_t request)
         bool observer = IsObserver(player);
         manager->EvictPlayer(player, drop);
         if (!observer)
-            Call(CodeAddress(&GameModules::Skate::RemoveSkater), Skate(), skater); // its skater removed
+            Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), Skate(), skater); // its skater removed
         return;
     }
     struct {
@@ -123,7 +123,7 @@ void KickOrBan(Hub* manager, int drop, uint8_t request)
     desc.m_content = &msg;
     desc.m_byteCount = 2 + kNameSize;
     desc.m_ident = kMsgKickRequest;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     SendToServer(manager->m_clientApp, &desc);
 }
@@ -139,12 +139,12 @@ void UnlinkListNode(void* node)
 // 0x0053B450
 bool __cdecl CFunc_PlayerTookFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     int player = 0;
     int team = 0;
     params->FetchIntValue(kPlayer, &player, 0);
     params->FetchIntValue(kFlagTeam, &team, 0);
-    uint8_t* taker = manager->PlayerByObjectId(static_cast<uint16_t>(player));
+    uint8_t* taker = manager->FindPlayerSlotByObj(static_cast<uint16_t>(player));
     if (taker)
         SendFlagMessage(manager, kMsgTookFlag, player, team, [&] { AsPlayer(taker)->NoteFlagPickup(team); });
     return true;
@@ -153,10 +153,10 @@ bool __cdecl CFunc_PlayerTookFlag(Scripts::CStruct* params, Scripts::CScript*)
 // 0x0053B5A0
 bool __cdecl CFunc_PlayerCapturedFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     int player = 0;
     params->FetchIntValue(kPlayer, &player, 0);
-    uint8_t* capturer = manager->PlayerByObjectId(static_cast<uint16_t>(player));
+    uint8_t* capturer = manager->FindPlayerSlotByObj(static_cast<uint16_t>(player));
     if (!capturer || (Prop<uint32_t>(capturer, 0x1D0) & kPlayerCaptureBlocked))
         return true;
     int team = AsPlayer(capturer)->GetFlagTeam(); // the flag it carries
@@ -172,12 +172,12 @@ bool __cdecl CFunc_PlayerCapturedFlag(Scripts::CStruct* params, Scripts::CScript
 // 0x0053B710
 bool __cdecl CFunc_PlayerRetrievedFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     int player = 0;
     int team = 0;
     params->FetchIntValue("player", &player, 0);
     params->FetchIntValue("flag_team", &team, 0);
-    uint8_t* retriever = manager->PlayerByObjectId(static_cast<uint16_t>(player));
+    uint8_t* retriever = manager->FindPlayerSlotByObj(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
         SendFlagMessage(manager, kMsgCapturedFlag, player, team, [&] { AsPlayer(retriever)->ScoreFlagCapture(team); });
     return true;
@@ -188,7 +188,7 @@ bool __cdecl CFunc_PlayerHasFlag(Scripts::CStruct* params, Scripts::CScript*)
 {
     int player = 0;
     params->FetchIntValue("player", &player, 0);
-    uint8_t* found = NetManager()->PlayerByObjectId(static_cast<uint16_t>(player));
+    uint8_t* found = NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(player));
     if (!found)
         return true;
     return AsPlayer(found)->IsCarryingFlag() != 0; // (flags 0x7800: a team's flag)
@@ -197,7 +197,7 @@ bool __cdecl CFunc_PlayerHasFlag(Scripts::CStruct* params, Scripts::CScript*)
 // 0x0053B8A0
 bool __cdecl CFunc_GetNumPlayersOnTeam(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     int team = 0;
     params->FetchIntValue("team", &team, 1);
     script->m_args->PutInt("num_members", manager->CountTeamPlayers(team));
@@ -209,7 +209,7 @@ bool __cdecl CFunc_GetPlayersTeam(Scripts::CStruct* params, Scripts::CScript* sc
 {
     int id = 0;
     params->FetchIntValue(kObjId, &id, 0);
-    uint8_t* player = NetManager()->PlayerByObjectId(static_cast<uint16_t>(id));
+    uint8_t* player = NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(id));
     if (player)
         script->m_args->PutInt("team", PlayerTeam(player));
     return true;
@@ -218,7 +218,7 @@ bool __cdecl CFunc_GetPlayersTeam(Scripts::CStruct* params, Scripts::CScript* sc
 // 0x0053B940
 bool __cdecl CFunc_ExitSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     uint8_t* local = LocalPlayer(manager);
     if (!local)
         return false;
@@ -227,9 +227,9 @@ bool __cdecl CFunc_ExitSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
         if (void* task = Prop<void*>(local, 0x1EC))
             UnlinkListNode(task);
         Prop<void*>(local, 0x1EC) = nullptr;
-        if (manager->m_observerInputHandler)
-            UnlinkListNode(manager->m_observerInputHandler);
-        manager->m_observerInputHandler = nullptr;
+        if (manager->m_spectatorPadListener)
+            UnlinkListNode(manager->m_spectatorPadListener);
+        manager->m_spectatorPadListener = nullptr;
         Prop<uint32_t>(local, 0x1D0) &= ~kPlayerSurveying;
     }
     return true;
@@ -240,7 +240,7 @@ bool __cdecl CFunc_SetHostMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     int mode = 0;
     params->FetchIntValue(0u, &mode, 0);
-    NetManager()->SetHostMode(mode);
+    NetSessionSlot()->SetHostMode(mode);
     return true;
 }
 
@@ -249,8 +249,8 @@ bool g_textEntry;
 // 0x0053D440
 bool __cdecl CFunc_EnteredNetworkGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
-    if (g_netEnabled) // (on the internet: the server's GameSpy reporting)
+    Hub* manager = NetSessionSlot();
+    if (g_onlineActive) // (on the internet: the server's GameSpy reporting)
         StartQueryReporting(false);
     TaskList::PileUp* tasks = LogicTasks();
     tasks->QueueJob(Prop<TaskList::SchedulerTask*>(manager, 0xD4));
@@ -263,7 +263,7 @@ bool __cdecl CFunc_EnteredNetworkGame(Scripts::CStruct*, Scripts::CScript*)
 // 0x0053D490
 bool __cdecl CFunc_KickPlayer(Scripts::CStruct*, Scripts::CScript*)
 {
-    KickOrBan(NetManager(), kDropKicked, 0);
+    KickOrBan(NetSessionSlot(), kDropKicked, 0);
     return true;
 }
 
@@ -272,7 +272,7 @@ bool __cdecl CFunc_BanPlayer(Scripts::CStruct*, Scripts::CScript*)
 {
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_networkHeap);
-    KickOrBan(NetManager(), kDropBanned, 1);
+    KickOrBan(NetSessionSlot(), kDropBanned, 1);
     MemSys::Hub::Pull()->LeaveHeapScope();
     return true;
 }
@@ -280,9 +280,9 @@ bool __cdecl CFunc_BanPlayer(Scripts::CStruct*, Scripts::CScript*)
 // 0x0053D760
 bool __cdecl CFunc_CancelJoinServer(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     manager->CancelJoin();
-    manager->m_joinState = 10;
+    manager->m_joinPhase = 10;
     return true;
 }
 
@@ -290,7 +290,7 @@ bool __cdecl CFunc_CancelJoinServer(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_EnterSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 {
     TaskList::PileUp* tasks = LogicTasks();
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     uint8_t* input = reinterpret_cast<uint8_t*>(PadInput::g_inputManager); // the input manager
     uint8_t* local = LocalPlayer(manager);
     if (IsObserver(local) || (Prop<uint32_t>(local, 0x1D0) & kPlayerSurveying))
@@ -306,7 +306,7 @@ bool __cdecl CFunc_EnterSurveyorMode(Scripts::CStruct*, Scripts::CScript*)
 // 0x0053EA20
 bool __cdecl CFunc_DropPendingPlayers(Scripts::CStruct*, Scripts::CScript*)
 {
-    NetManager()->DropPlayersNotReady();
+    NetSessionSlot()->DropPlayersNotReady();
     return true;
 }
 

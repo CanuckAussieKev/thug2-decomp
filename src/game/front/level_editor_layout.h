@@ -175,7 +175,7 @@ struct FileLoad {
     std::vector<Clusters::Membership> clusters; // (map3) `cluster`
     std::vector<Cameras::ViewCam> cameras;       // (map3) `camera`
     std::vector<Goals::Goal> goals;             // `goal` (level_editor_goals.h)
-    std::vector<Links::LogEntry> links;           // (UX7) `link`: linked copies (level_editor_links.h)
+    std::vector<Links::LinkRecord> links;           // (UX7) `link`: linked copies (level_editor_links.h)
     // Records this reader doesn't know, as they are (comments taken off): another module's (AddExtension - the
     // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
     std::vector<std::string> extra;

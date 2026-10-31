@@ -47,7 +47,7 @@ namespace {
 extern void** const kVtable;
 
 constexpr float kHalf = 0.5f;                              // 0x006453BC
-constexpr float kDegreesToRadians = 0.01745329238474369f;  // 0x00645464
+constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
 constexpr double kAssent = 0.4363323251406352;             // 0x006463F0 (25 degrees)
 constexpr float kPyramidBase = -0.6000000238418579f;       // 0x006463E8
 constexpr float kPyramidTip = 1.600000023841858f;          // 0x006463E4
@@ -106,7 +106,7 @@ void QuatToMatrix(const Maths::QuatRotation* quat, Maths::Mat4* matrix) { quat->
 // A structure copied into a new one (from the script pools), and one deleted.
 Scripts::CStruct* CopyOf(Scripts::CStruct* source)
 {
-    Scripts::CStruct* copy = Scripts::NewStruct();
+    Scripts::CStruct* copy = Scripts::SpawnParamBag();
     if (copy)
         copy->PrepareAll();
     copy->MergeStructure(source); // (out of memory: through null, as the original)
@@ -148,7 +148,7 @@ CBodyDynamicsModule* CBodyDynamicsModule::MakeNew()
     m_flagBits = 0;
     m_orientation = {0.0f, 0.0f, 0.0f, 1.0f};
     m_kindTag = kType;
-    m_constAcc = {0.0f, -386.3999938964844f, 0.0f, 1.0f};
+    m_steadyAccel = {0.0f, -386.3999938964844f, 0.0f, 1.0f};
     m_skaterImpulseFactor = 1.0f;
     m_skaterRotationFactor = 1.0f;
     m_massOverMoment = 0.003000000026077032f;
@@ -167,7 +167,7 @@ CBodyDynamicsModule* CBodyDynamicsModule::MakeNew()
     m_settleScript = 0;
     m_bounceScript = 0;
     m_collideScript = 0;
-    m_collideMuteDelay = 1000;
+    m_impactQuietMs = 1000;
     m_globalCollideMuteDelay = 100;
     m_bounceCallbackThreshold = 20.0f;
     m_bounceFullSpeed = 300.0f;
@@ -311,7 +311,7 @@ void CBodyDynamicsModule::SetSounds(uint32_t type)
         // (read into the argument slot, which then holds the copy's allocation)
         int delay = static_cast<int>(reinterpret_cast<uint32_t>(mp_bounceSound));
         sounds->FetchIntValue(0x3818EE47, &delay, 0);
-        m_collideMuteDelay = delay;
+        m_impactQuietMs = delay;
     }
     if (sounds->HasEntryNamed(0xAD67A34D)) { // GlobalCollideMuteDelay
         int delay = 0; // (uninitialised in the original: only read when it's given)
@@ -352,8 +352,8 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     vector(0x0C4C809E, &m_vel);          // vel
     vector(0xFB1A83B2, &m_rotVel);       // rotvel
     vector(0x737612C6, &m_centerOfMass); // center_of_mass
-    if (!params->FetchFloat(0x6FAE5C9A, &m_constAcc.y, 0)) // const_acc: a number is the y
-        vector(0x6FAE5C9A, &m_constAcc);
+    if (!params->FetchFloat(0x6FAE5C9A, &m_steadyAccel.y, 0)) // const_acc: a number is the y
+        vector(0x6FAE5C9A, &m_steadyAccel);
     params->FetchFloat(0x60B4860D, &m_restitution, 0); // coeff_restitution
     params->FetchFloat(0xF9D75930, &m_dragFactor, 0);    // coeff_friction
     params->FetchFloat(0xF1ECB30F, &m_springConst, 0); // spring_const
@@ -374,7 +374,7 @@ void CBodyDynamicsModule::ConfigureFromData(Scripts::CStruct* params)
     if (params->HasEntryNamed(0xE9156E6D)) {            // skater_collision_assent (degrees)
         float degrees;
         params->FetchFloat(0xE9156E6D, &degrees, 0);
-        double radians = static_cast<double>(degrees) * kDegreesToRadians;
+        double radians = static_cast<double>(degrees) * kRadiansPerDegree;
         m_skaterAssentCos = X87Cos(radians);
         m_skaterAssentSin = X87Sin(radians);
     }
@@ -702,7 +702,7 @@ bool CBodyDynamicsModule::GetCenterOfMassPos(Scripts::CStruct* /*params*/, Scrip
 bool CBodyDynamicsModule::Rigidbody_MatchVelocityTo(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
     uint32_t id = params->StepToEntry(nullptr)->checksum;
-    auto* other = reinterpret_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id));
+    auto* other = reinterpret_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(id));
     bool adjust = params->HasBareFlag(0x8ACE8A0F); // ApplyRandomAdjustment
     m_vel = other->m_vel;
     if (adjust) {
@@ -754,7 +754,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CBodyDynamicsModule::Teardown
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

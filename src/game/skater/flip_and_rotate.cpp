@@ -50,21 +50,21 @@ T& Prop(void* object, uint32_t offset)
 
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-OnlinePlay::PlayerRecord* PlayerByObjectId(uint32_t id)
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+OnlinePlay::PlayerRecord* FindPlayerSlotByObj(uint32_t id)
 {
-    return reinterpret_cast<OnlinePlay::PlayerRecord*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)));
+    return reinterpret_cast<OnlinePlay::PlayerRecord*>(NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(id)));
 }
 bool IsOwnPlayer(OnlinePlay::PlayerRecord* player) { return player->IsOwnPlayer() != 0; }
 int PlayerSkaterIndex(OnlinePlay::PlayerRecord* player) { return static_cast<int>(player->GetSkaterValue2BC()); }
-NetLink::Guest* ClientApp(int index) { return static_cast<NetLink::Guest*>(NetManager()->FetchPatron(index)); }
-// A client app's +0x08 (passed to the animation blender and to SetBoardRotated, which doesn't use it).
+NetLink::Guest* ClientApp(int index) { return static_cast<NetLink::Guest*>(NetSessionSlot()->FetchPatron(index)); }
+// A client app's +0x08 (passed to the animation blender and to ApplyBoardTurned, which doesn't use it).
 uint32_t AppValue8(NetLink::Guest* app) { return Prop<uint32_t>(app, 0x08); }
 
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
-void TurnAround(uint8_t* corePhysics) { reinterpret_cast<Skater::CorePhysicsComponent*>(corePhysics)->TurnAround(); }
-bool FlipNeeded(uint8_t* corePhysics) { return (reinterpret_cast<Skater::CorePhysicsComponent*>(corePhysics)->IsSidesSwapped() & 0xFF) != 0; }
+void TurnAround(uint8_t* corePhysics) { reinterpret_cast<Skater::SkaterPhysicsModule*>(corePhysics)->TurnAround(); }
+bool FlipNeeded(uint8_t* corePhysics) { return (reinterpret_cast<Skater::SkaterPhysicsModule*>(corePhysics)->IsSidesSwapped() & 0xFF) != 0; }
 
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void FlipAnims(CObjectModule* blender, uint32_t objectId, uint32_t flip, uint32_t a, int b)
@@ -87,7 +87,7 @@ CObjectModule* __cdecl CRiderSpinAndFlip::Fabricate()
     component->CObjectModule::MakeNew();
     component->m_animBlender = nullptr;
     component->m_meshSet = nullptr;
-    component->m_boardRotated = false;
+    component->m_deckTurned = false;
     component->m_vtable = kVtable;
     component->m_kindTag = kSkaterFlipAndRotate;
     return component;
@@ -118,10 +118,10 @@ void CRiderSpinAndFlip::Seal()
 }
 
 // 0x00511390
-bool CRiderSpinAndFlip::SetBoardRotated(uint32_t objectId, bool rotated, uint32_t /*unused*/, bool send)
+bool CRiderSpinAndFlip::ApplyBoardTurned(uint32_t objectId, bool rotated, uint32_t /*unused*/, bool send)
 {
     if (send) {
-        OnlinePlay::PlayerRecord* player = PlayerByObjectId(objectId);
+        OnlinePlay::PlayerRecord* player = FindPlayerSlotByObj(objectId);
         if (player && IsOwnPlayer(player)) {
             NetLink::NetMessageInfo message;
             message.MakeNew();
@@ -133,8 +133,8 @@ bool CRiderSpinAndFlip::SetBoardRotated(uint32_t objectId, bool rotated, uint32_
             app->SendToHost(&message);
         }
     }
-    bool was = m_boardRotated;
-    m_boardRotated = rotated;
+    bool was = m_deckTurned;
+    m_deckTurned = rotated;
     return was;
 }
 
@@ -184,8 +184,8 @@ void CRiderSpinAndFlip::DoAfterAnim()
     }
     if (m_boardRotateAfter) {
         // (the player isn't checked for null here)
-        NetLink::Guest* app = ClientApp(PlayerSkaterIndex(PlayerByObjectId(m_entity->m_ident)));
-        SetBoardRotated(m_entity->m_ident, !m_boardRotated, AppValue8(app), true);
+        NetLink::Guest* app = ClientApp(PlayerSkaterIndex(FindPlayerSlotByObj(m_entity->m_ident)));
+        ApplyBoardTurned(m_entity->m_ident, !m_deckTurned, AppValue8(app), true);
         m_boardRotateAfter = false;
     }
     Prop<uint8_t>(m_meshSet, 0x1F4) = 0;
@@ -197,7 +197,7 @@ int CRiderSpinAndFlip::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 {
     switch (name) {
     case kBoardIsRotated:
-        return m_boardRotated ? 1 : 0;
+        return m_deckTurned ? 1 : 0;
     case kBoardRotateAfter:
         m_boardRotateAfter = true;
         return 1;
@@ -228,9 +228,9 @@ int CRiderSpinAndFlip::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         return 1;
     case kBoardRotate: {
         // (the player isn't checked for null here)
-        NetLink::Guest* app = ClientApp(PlayerSkaterIndex(PlayerByObjectId(m_entity->m_ident)));
-        bool rotated = params->HasBareFlag(kNormal) ? false : !m_boardRotated;
-        SetBoardRotated(m_entity->m_ident, rotated, AppValue8(app), true);
+        NetLink::Guest* app = ClientApp(PlayerSkaterIndex(FindPlayerSlotByObj(m_entity->m_ident)));
+        bool rotated = params->HasBareFlag(kNormal) ? false : !m_deckTurned;
+        ApplyBoardTurned(m_entity->m_ident, rotated, AppValue8(app), true);
         return 1;
     }
     default:

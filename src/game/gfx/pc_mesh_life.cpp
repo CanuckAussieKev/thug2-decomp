@@ -297,7 +297,7 @@ void __cdecl RecreateBuffers()
 void meshRef::DestroyBody()
 {
     if (flags & 0x10)
-        g_billboardManager.RemoveMesh(this);
+        g_billboardPool.RemoveMesh(this);
     MemSys::Hub* heap = MemSys::Hub::Pull();
     if (transform)
         heap->Dealloc(transform);

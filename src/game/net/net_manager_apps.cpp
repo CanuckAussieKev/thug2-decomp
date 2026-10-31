@@ -17,14 +17,14 @@
 
 namespace NetLink {
 
-Hub* g_netManager;
+Hub* g_netCore;
 
 namespace {
 
-constexpr int kMaxMsgIds = 255;
+constexpr int kMsgIdSpace = 255;
 constexpr uint8_t kMsgNoLength = 1; // (net_access_c.h)
 constexpr uint8_t kMsgAck = 8;
-constexpr uint8_t kMsgTimestamp = 9;
+constexpr uint8_t kMsgClockStamp = 9;
 constexpr int kConnectionTypeNone = 1; // (1 and 3: no configured IP address; their meaning isn't known yet)
 constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
@@ -32,7 +32,7 @@ constexpr int kClientMaxConnections = 1;
 constexpr uint32_t kServerSize = 0x2308;
 constexpr uint32_t kClientSize = 0x1F18;
 
-Hub*& Sole() { return g_netManager; }
+Hub*& Sole() { return g_netCore; }
 
 uint32_t g_netManagerReferences;
 
@@ -74,9 +74,9 @@ Hub* Hub::MakeNew()
 {
     SetupListSentinel(&m_hosts);
     SetupListSentinel(&m_clients);
-    for (int id = 0; id < kMaxMsgIds; ++id)
+    for (int id = 0; id < kMsgIdSpace; ++id)
         m_messageFlags[id] = 0;
-    m_messageFlags[kMsgTimestamp] = kMsgNoLength;
+    m_messageFlags[kMsgClockStamp] = kMsgNoLength;
     m_messageFlags[kMsgAck] = kMsgNoLength;
     CopyString(m_localIP, "<Unknown>");
     CopyString(m_routerAddr, "192.168.55.99");
@@ -87,7 +87,7 @@ Hub* Hub::MakeNew()
     m_isNetworked = false;
     m_flag2E6 = false;
     m_lastError = 0;
-    m_modemState = 5;
+    m_dialupPhase = 5;
     m_unknown2EC = 0;
     for (char* server : m_dnsServers)
         server[0] = '\0';

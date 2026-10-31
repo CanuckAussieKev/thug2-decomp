@@ -42,7 +42,7 @@ void SetUp(int index, int count);
 // Take an item from pool `index`; without that pool, allocate it from the default heap instead.
 void* CreateItem(int index);
 // Give an item back to wherever CreateItem got it.
-void FreeItem(int index, void* item);
+void ReturnEntry(int index, void* item);
 // Pool `index` (null if there isn't one).
 SlabBank* GetPool(int index);
 

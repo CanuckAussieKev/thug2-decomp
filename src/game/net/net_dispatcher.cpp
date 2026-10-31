@@ -118,18 +118,18 @@ int Router::DispatchMsg(InboundMsgCtx* context)
         context->m_content = handler->m_content;
         int result = handler->m_Code(context);
         switch (result) {
-        case kHandlerError:
-        case kHandlerHalt:
+        case kResultFailed:
+        case kResultStop:
         case kHandlerKeep:
-        case kHandlerMsgDestroyed:
+        case kResultMsgFreed:
             return result;
-        case kHandlerMsgDone:
-            return kHandlerContinue;
+        case kResultConsumed:
+            return kResultPassOn;
         default:
             break;
         }
     }
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 // 0x0045A830
@@ -166,12 +166,12 @@ int Router::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
         if (IsOutsider(conn))
             context.m_wireOptions |= kPacketForeign;
         int result = DispatchMsg(&context);
-        if (result == kHandlerError || result == kHandlerHalt) {
+        if (result == kResultFailed || result == kResultStop) {
             readPtr = readBuffer;
-            return kHandlerHalt;
+            return kResultStop;
         }
-        if (result == kHandlerMsgDestroyed)
-            return kHandlerMsgDestroyed; // (the connection is gone)
+        if (result == kResultMsgFreed)
+            return kResultMsgFreed; // (the connection is gone)
         if (context.m_typeCode != kMsgSequenced)
             AddMessageMetric(metrics, context.m_typeCode, context.m_bodySize);
         // (handlers may have changed the length: the timestamp and ack handlers set it)
@@ -189,7 +189,7 @@ int Router::InvokeHandlersForMsg(Conn* conn, uint32_t flags)
         }
     }
     readPtr = readBuffer;
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 } // namespace Net

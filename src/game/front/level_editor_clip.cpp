@@ -179,7 +179,7 @@ bool DupFrom(std::string* message)
         return false;
     }
     Layout::FileLoad fragment;
-    fragment.scene = Scenery::SceneName(scene);
+    fragment.scene = Scenery::WorldSceneKey(scene);
     std::vector<std::string> skipped;
     for (uint32_t checksum : s.sectors) {
         Layout::CloneRecord record;

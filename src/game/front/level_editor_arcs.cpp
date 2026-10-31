@@ -271,16 +271,16 @@ std::string SpanTo(float units)
 namespace {
 
 constexpr uint32_t kSkater = 0x5B8AB877;              // Skater (the local skater's alias)
-constexpr uint32_t kAirGravity = 0xFAA40754;          // Physics_Air_Gravity
+constexpr uint32_t kFallPull = 0xFAA40754;          // Physics_Air_Gravity
 constexpr uint32_t kAirHang = 0xC31CA696;             // Physics_Air_hang_Stat
 constexpr uint32_t kVertHang = 0x441C38A0;            // Physics_Vert_hang_Stat
 constexpr uint32_t kJumpSpeed = 0x02ADE3AD;           // Physics_Jump_Speed_Stat
 constexpr uint32_t kKickSpeed = 0x92E0247C;           // Skater_Max_Crouched_Kick_Speed_Stat
 constexpr uint32_t kMaxSpeed = 0x2EACDDB3;            // Skater_Max_Speed_Stat
-constexpr uint32_t kMaxMaxSpeed = 0xCC5F87AA;         // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;         // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kDefaultStats = 0x6357D57C;        // Skater_Default_Stats
 constexpr uint32_t kLimit = 0x8069179F;               // limit
-void** const& kCollStaticVtable = Vt::kCollStatic;    // (CStaticCollider)
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;    // (CStaticCollider)
 constexpr int kStatOllie = 2, kStatSpeed = 3;         // (STATS_OLLIE, STATS_SPEED)
 
 Physics g_physics = ArcsFallback();
@@ -317,7 +317,7 @@ void ReadPhysics()
     float defaultStat = Scripts::FetchFloat(kDefaultStats);
     p.speedStat = skater ? skater->FetchTally(kStatSpeed) : defaultStat;
     p.ollieStat = skater ? skater->FetchTally(kStatOllie) : defaultStat;
-    float gravity = GameObjects::ReadTuningFloat(kAirGravity, 0, skater);
+    float gravity = GameObjects::ReadTuningFloat(kFallPull, 0, skater);
     float airHang = Scripts::FetchFloat(kAirHang), vertHang = Scripts::FetchFloat(kVertHang);
     if (gravity < 0.0f) {
         p.airGravity = airHang > 0.0f ? gravity / airHang : gravity;
@@ -326,7 +326,7 @@ void ReadPhysics()
     StatValue(physics, kJumpSpeed, p.ollieStat, &p.jump);
     StatValue(physics, kKickSpeed, p.speedStat, &p.speeds[0]);
     StatValue(physics, kMaxSpeed, p.speedStat, &p.speeds[1]);
-    StatValue(physics, kMaxMaxSpeed, p.speedStat, &p.speeds[2]);
+    StatValue(physics, kSpeedCapStat, p.speedStat, &p.speeds[2]);
     char source[96];
     std::snprintf(source, sizeof(source), "%s, speed stat %.1f, ollie stat %.1f", skater ? "the skater's physics" : "skater_physics",
                   p.speedStat, p.ollieStat);

@@ -272,7 +272,7 @@ bool __cdecl CFunc_GoalManager_NextRaceWaypoint(Scripts::CStruct* params, Script
 bool __cdecl CFunc_GoalManager_NextWaypoint(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    return manager->m_goals.Pull(GoalName(params))->NextWaypoint();
+    return manager->m_goals.Pull(GoalName(params))->StepToNextWaypoint();
 }
 
 } // namespace Game

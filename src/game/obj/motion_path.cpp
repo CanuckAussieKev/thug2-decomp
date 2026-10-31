@@ -72,7 +72,7 @@ constexpr uint32_t kFpsps = 0xF414A5EA, kIpsps = 0x7644323B; // accelerations: f
 constexpr uint32_t kOff = 0xD443A2BC;
 constexpr uint32_t kInches = 0xF915B4F3;
 
-constexpr float kFeetToInches = 12.0f;          // 0x0064546C
+constexpr float kTwelveInchScale = 12.0f;          // 0x0064546C
 constexpr float kMilesToInches = 63360.0f;      // 0x006461E4
 constexpr float kPerHourToPerSecond = 0.000277777785f; // 0x006461E0 (1 / 3600)
 constexpr float kDefaultMinStopVelocity = 15.0f;
@@ -84,7 +84,7 @@ void GetSpeed(Scripts::CStruct* params, float* value, uint32_t feet, uint32_t in
     if (!params->FetchFloat(0u, value, 0))
         return;
     if (params->HasBareFlag(feet)) {
-        *value *= kFeetToInches;
+        *value *= kTwelveInchScale;
         return;
     }
     if (params->HasBareFlag(inches))
@@ -211,7 +211,7 @@ int CMotionPathMembers::SetPathDeceleration(Scripts::CStruct* params, Scripts::C
 }
 
 // 0x00423360
-int CMotionPathMembers::PathHeading(Scripts::CStruct* params, Scripts::CScript*)
+int CMotionPathMembers::RouteFacing(Scripts::CStruct* params, Scripts::CScript*)
 {
     if (params->HasBareFlag(kOff))
         m_pathFlags |= MOTION_PATH_NO_HEADING;
@@ -241,7 +241,7 @@ int CMotionPathMembers::StopAlongPath(Scripts::CStruct* params, Scripts::CScript
     if (!params->HasBareFlag(kInches)) {
         // (in feet: the stop's starting speed noted - not with `inches`, as the original)
         m_stopStartVelocity = m_velocity;
-        m_stopDistance *= kFeetToInches;
+        m_stopDistance *= kTwelveInchScale;
     }
     if (m_stopDistance == 0.0f)
         m_velocity = 0.0f;

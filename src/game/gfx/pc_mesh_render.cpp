@@ -54,17 +54,17 @@ struct sSkinVertex {
 };
 static_assert(sizeof(sSkinVertex) == 0x4C, "layout must match the original");
 
-const float* BoneMatrix(uint8_t bone) { return reinterpret_cast<float*&>(g_boneMatrices) + 16 * bone; }
+const float* SkinMatrixPtr(uint8_t bone) { return reinterpret_cast<float*&>(g_boneMatrices) + 16 * bone; }
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
 void AddBone(float* blended, const sSkinVertex& v, uint8_t bone, float weight)
 {
     float other[3];
-    TransformCoord(other, v.position, BoneMatrix(bone));
+    TransformCoord(other, v.position, SkinMatrixPtr(bone));
     for (int k = 0; k < 3; ++k)
         blended[k] = static_cast<float>(static_cast<double>(other[k]) * weight + blended[k]);
-    TransformNormal(other, v.normal, BoneMatrix(bone));
+    TransformNormal(other, v.normal, SkinMatrixPtr(bone));
     for (int k = 0; k < 3; ++k)
         blended[3 + k] = static_cast<float>(static_cast<double>(other[k]) * weight + blended[3 + k]);
 }
@@ -76,8 +76,8 @@ void Skin(meshRef* mesh, uint8_t* out, int bones)
     const auto* v = reinterpret_cast<const sSkinVertex*>(mesh->perVertexData);
     for (uint32_t i = 0; i < mesh->vertexCount; ++i, ++v) {
         float blended[6];
-        TransformCoord(blended, v->position, BoneMatrix(v->bones[0]));
-        TransformNormal(blended + 3, v->normal, BoneMatrix(v->bones[0]));
+        TransformCoord(blended, v->position, SkinMatrixPtr(v->bones[0]));
+        TransformNormal(blended + 3, v->normal, SkinMatrixPtr(v->bones[0]));
         if (bones > 1 && !(v->weights[0] == 1.0f)) {
             for (float& value : blended)
                 value = static_cast<float>(static_cast<double>(value) * v->weights[0]);
@@ -121,14 +121,14 @@ void meshRef::SkinThreeBones(uint8_t* out) { Skin(this, out, 3); }
 // 0x004D5290
 void meshRef::Render()
 {
-    if (g_skipRender || BeyondClipDistance(this))
+    if (g_suppressDraw || BeyondClipDistance(this))
         return;
     if (g_distanceClipping && g_fogSetting) { // (distance fog)
         float end = g_camera.farZ;
-        reinterpret_cast<uint32_t&>(g_fogStart) = 0;
+        reinterpret_cast<uint32_t&>(g_fogBeginDistance) = 0;
         reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
         float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
-        SetFogEnabled(true);
+        ToggleFog(true);
         InputPort()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         InputPort()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
         InputPort()->SetRenderState(D3DRS_FOGCOLOR, g_fogColour);
@@ -139,7 +139,7 @@ void meshRef::Render()
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
         InputPort()->GetTransform(D3DTS_WORLD, &world);
         D3DMATRIX boned;
-        MatrixMultiply(&boned, BoneMatrix(static_cast<uint8_t>(0)) + 16 * unknown98, &world);
+        MatrixMultiply(&boned, SkinMatrixPtr(static_cast<uint8_t>(0)) + 16 * unknown98, &world);
         InputPort()->SetTransform(D3DTS_WORLD, &boned);
     }
     ApplyVertexColors();
@@ -228,7 +228,7 @@ void meshRef::Render()
         InputPort()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     if (unknown98 != -1)
         InputPort()->SetTransform(D3DTS_WORLD, &world);
-    SetFogEnabled(false);
+    ToggleFog(false);
 }
 
 } // namespace Nx

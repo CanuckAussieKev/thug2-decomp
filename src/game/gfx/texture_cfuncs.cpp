@@ -166,15 +166,15 @@ bool __cdecl CFunc_CreateTexture(CStruct* params, CScript*)
     int width;
     int height;
     int bitDepth;
-    int paletteBitDepth = 0; // (not initialised in the original: only read when needed)
+    int clutBits = 0; // (not initialised in the original: only read when needed)
     bool valid = params->FetchIntValue(kWidth, &width, 0);
     valid = params->FetchIntValue(kHeight, &height, 0) && valid;
     valid = params->FetchIntValue(0xBA0F2AC5u, &bitDepth, 0) && valid; // bitdepth
-    if (bitDepth <= 8 && !params->FetchIntValue(0x51533ECBu, &paletteBitDepth, 0)) // palette_bitdepth
+    if (bitDepth <= 8 && !params->FetchIntValue(0x51533ECBu, &clutBits, 0)) // palette_bitdepth
         return false;
     if (!valid)
         return false;
-    return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, bitDepth, paletteBitDepth, 1, true) !=
+    return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, bitDepth, clutBits, 1, true) !=
            nullptr;
 }
 

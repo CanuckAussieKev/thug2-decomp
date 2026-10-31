@@ -380,14 +380,14 @@ bool __cdecl CFunc_PlayCamera(Scripts::CStruct* params, Scripts::CScript* script
     double now = Now();
     if (now < g_shotUntil) {
         // (the last shot still playing: killed first, as the goals kill theirs)
-        Scripts::CStruct* kill = Scripts::NewStruct()->PrepareAll();
+        Scripts::CStruct* kill = Scripts::SpawnParamBag()->PrepareAll();
         kill->PutNameKey(Checksums("name"), shot);
         ScriptCommands::CFunc_KillSkaterCamAnim(kill, script);
         kill->Clear();
         Scripts::DeleteStruct(kill);
     }
     // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
-    Scripts::CStruct* anim = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* anim = Scripts::SpawnParamBag()->PrepareAll();
     anim->PutNameKey(Checksums("name"), shot);
     anim->PutNameKey(0u, Checksums("virtual_cam"));
     anim->PutNameKey(Checksums("targetid"), Checksums("world"));

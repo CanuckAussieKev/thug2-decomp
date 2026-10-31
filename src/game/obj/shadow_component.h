@@ -64,7 +64,7 @@ public:
     // and shown; otherwise hidden.
     void RefreshShadow();
     // 0x004315A0: a shadow of `type` (1-3; see the class) made unless there is one; types 2 and 3 updated at once.
-    void CreateShadow(int type, const char* model);
+    void BuildBlobShadow(int type, const char* model);
     // 0x00431780: the shadow (if any) deleted - the model told it has none first (0x004949B0(false)).
     void DestroyShadow();
     // 0x004317C0 / 0x004317E0: the shadow's position / the ground normal under it.

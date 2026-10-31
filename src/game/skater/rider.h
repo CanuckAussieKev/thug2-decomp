@@ -158,7 +158,7 @@ public:
     uint8_t pad171[3];
     int m_shadowFade;            // +0x174
     uint8_t m_unknown178[4];
-    uint8_t* m_trickInfo[11];    // +0x17C (each: +4 a structure, +8 / +0xC arrays)
+    uint8_t* m_trickSlots[11];    // +0x17C (each: +4 a structure, +8 / +0xC arrays)
     uint8_t m_unknown1A8[0x1C0 - 0x1A8];
     struct Projectile {
         uint32_t name;           // projectile_0 ... projectile_4
@@ -199,7 +199,7 @@ public:
     uint8_t pad321[3];
 };
 static_assert(offsetof(CRider, m_style) == 0x10C && offsetof(CRider, m_label) == 0x158 &&
-                  offsetof(CRider, m_trickInfo) == 0x17C && offsetof(CRider, m_shadow) == 0x254 &&
+                  offsetof(CRider, m_trickSlots) == 0x17C && offsetof(CRider, m_shadow) == 0x254 &&
                   offsetof(CRider, m_statOverrides) == 0x290 && offsetof(CRider, m_skaterNumber) == 0x2B8 &&
                   offsetof(CRider, m_flag2C4) == 0x2C4 && offsetof(CRider, m_shownName) == 0x15C &&
                   offsetof(CRider, m_unknown264) == 0x264 && offsetof(CRider, m_customRestartPos) == 0x2C8 &&

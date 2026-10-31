@@ -37,9 +37,9 @@ constexpr uint32_t kPagerScript = 0xE8DA4931;
 
 void Dealloc(void* block) { MemSys::Hub::Pull()->Dealloc(block); }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -147,7 +147,7 @@ void CPagerMessageComponent::ClearMessages(Scripts::CStruct* params)
         }
         node = next;
     }
-    Scripts::CStruct* data = NewStructure();
+    Scripts::CStruct* data = SpawnParamTable();
     data->PutNameKey(0x14C4B1CC, 1u);
     Scripts::EndChildScriptsOfEntityByName(m_entity, kPagerScript, nullptr);
     m_entity->SpawnScript(kPagerScript, data, 0, false);
@@ -160,11 +160,11 @@ bool CPagerMessageComponent::SendPagerMessage(Scripts::CStruct* params, Scripts:
     auto* message = static_cast<PagerMessage*>(MemSys::Alloc(sizeof(PagerMessage)));
     if (message)
         message->params = nullptr;
-    message->params = NewStructure();
+    message->params = SpawnParamTable();
     message->params->MergeStructure(params);
     message->read = false;
     PushBack(&m_messages, &message);
-    Scripts::CStruct* data = NewStructure();
+    Scripts::CStruct* data = SpawnParamTable();
     data->PutNameKey(0x34406F14, 1u);
     if (message->params->HasBareFlag(0x8E6DFA5D))
         data->PutNameKey(0u, 0x8E6DFA5Du);
@@ -238,7 +238,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CPagerMessageComponent::Teard
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

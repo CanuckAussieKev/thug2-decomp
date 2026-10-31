@@ -26,7 +26,7 @@
 namespace Engine3D {
 
 int g_sceneLightCount;
-sSceneLight g_sceneLights[150]; // (kMaxSceneLights)
+sLevelLamp g_levelLamps[150]; // (kMaxSceneLights)
 
 uint32_t* g_queuedNodes;
 int g_queuedCount;
@@ -40,7 +40,7 @@ namespace {
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
 
-sSceneLight* SceneLights() { return g_sceneLights; }
+sLevelLamp* SceneLightArray() { return g_levelLamps; }
 int& SceneLightCount() { return g_sceneLightCount; }
 
 // The queue.
@@ -65,11 +65,11 @@ void* FirstValue(ListKit::KeyMap* table)
     return NextValue(table);
 }
 
-sSceneLight* FindSceneLight(uint32_t name)
+sLevelLamp* FindSceneLight(uint32_t name)
 {
     for (int i = 0; i < SceneLightCount(); ++i) {
-        if (SceneLights()[i].m_label == name)
-            return &SceneLights()[i];
+        if (SceneLightArray()[i].m_label == name)
+            return &SceneLightArray()[i];
     }
     return nullptr;
 }
@@ -84,7 +84,7 @@ void SetColours(CGeom* geom, const uint32_t* in) { reinterpret_cast<void(__thisc
 struct Sums {
     double r = 0.0, g = 0.0, b = 0.0;
     bool lit = false;
-    void AppendOne(const sSceneLight& light, double distanceSquared)
+    void AppendOne(const sLevelLamp& light, double distanceSquared)
     {
         auto d2 = static_cast<float>(distanceSquared);
         double radius = light.m_radius;
@@ -128,7 +128,7 @@ double OffsetSquaredZYX(const float* p, const Maths::Vec4& l)
 } // namespace
 
 // 0x0048FF40
-sSceneLight* sSceneLight::MakeNew()
+sLevelLamp* sLevelLamp::MakeNew()
 {
     void* memory = MemSys::Alloc(sizeof(ListKit::KeyMap));
     mp_sectors = memory ? new (memory) ListKit::KeyMap(4) : nullptr;
@@ -142,7 +142,7 @@ sSceneLight* sSceneLight::MakeNew()
 }
 
 // 0x0048F1A0
-void sSceneLight::SetReach(float radius)
+void sLevelLamp::SetReach(float radius)
 {
     if (radius == m_radius) // (NaN: set)
         return;
@@ -155,19 +155,19 @@ void sSceneLight::SetReach(float radius)
 }
 
 // 0x0048F200
-bool sSceneLight::TouchesSector(const CWorldCell* sector)
+bool sLevelLamp::TouchesSector(const CWorldCell* sector)
 {
     return mp_sectors->FetchEntry(reinterpret_cast<uint32_t>(sector)) != nullptr;
 }
 
 // 0x0048FFD0
-void sSceneLight::ClearSectors()
+void sLevelLamp::ClearSectors()
 {
     mp_sectors->EmptyTable();
 }
 
 // 0x0048FFE0
-void sSceneLight::FindSectors(Scripts::CArray* excluded)
+void sLevelLamp::FindSectors(Scripts::CArray* excluded)
 {
     mp_sectors->EmptyTable();
     CWorldScene* scene = GetMainScene();
@@ -216,7 +216,7 @@ void __cdecl ApplySceneLightsToSector(CWorldCell* sector)
     int lights[8];
     int found = 0;
     for (int i = 0; i < SceneLightCount(); ++i) {
-        sSceneLight& light = SceneLights()[i];
+        sLevelLamp& light = SceneLightArray()[i];
         if (light.m_strength > 0.0f && light.TouchesSector(sector)) {
             lights[found] = i;
             if (++found >= 8)
@@ -240,7 +240,7 @@ void __cdecl ApplySceneLightsToSector(CWorldCell* sector)
     for (int v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            sSceneLight& light = SceneLights()[lights[l]];
+            sLevelLamp& light = SceneLightArray()[lights[l]];
             sums.AppendOne(light, OffsetSquaredZXY(&vertices[v].x, light.m_atPoint));
         }
         if (sums.lit)
@@ -258,7 +258,7 @@ void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Maths::
     int lights[3];
     int found = 0;
     for (int i = 0; i < SceneLightCount() && found < 3; ++i) {
-        sSceneLight& light = SceneLights()[i];
+        sLevelLamp& light = SceneLightArray()[i];
         bool facing = true;
         if (normal) {
             double dx = static_cast<double>(positions->x) - light.m_atPoint.x;
@@ -281,7 +281,7 @@ void __cdecl LightVertexColours(const uint32_t* in, uint32_t* out, const Maths::
     for (uint32_t v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            sSceneLight& light = SceneLights()[lights[l]];
+            sLevelLamp& light = SceneLightArray()[lights[l]];
             sums.AppendOne(light, OffsetSquaredZYX(&positions[v].x, light.m_atPoint));
         }
         if (sums.lit)
@@ -294,7 +294,7 @@ void __cdecl ApplySceneLight(CWorldScene* /*scene*/, uint32_t name)
 {
     if (!name)
         return;
-    sSceneLight* light = FindSceneLight(name);
+    sLevelLamp* light = FindSceneLight(name);
     if (!light || !light->mp_sectors)
         return;
     ListKit::KeyMap* sectors = light->mp_sectors;
@@ -320,10 +320,10 @@ void __cdecl DeleteSceneLight(uint32_t name)
         }
     }
     for (int i = 0; i < SceneLightCount(); ++i) {
-        if (SceneLights()[i].m_label == name) {
-            SceneLights()[i].ClearSectors(); // (its table isn't freed: the last light's is copied over it)
+        if (SceneLightArray()[i].m_label == name) {
+            SceneLightArray()[i].ClearSectors(); // (its table isn't freed: the last light's is copied over it)
             --SceneLightCount();
-            SceneLights()[i] = SceneLights()[SceneLightCount()];
+            SceneLightArray()[i] = SceneLightArray()[SceneLightCount()];
             return;
         }
     }
@@ -333,7 +333,7 @@ void __cdecl DeleteSceneLight(uint32_t name)
 void __cdecl DeleteAllSceneLights()
 {
     for (int i = 0; i < SceneLightCount(); ++i)
-        SceneLights()[i].ClearSectors();
+        SceneLightArray()[i].ClearSectors();
     SceneLightCount() = 0;
 }
 
@@ -359,7 +359,7 @@ void __cdecl ClearSceneLightQueue()
 void __cdecl QueueSceneLights(const uint32_t* nodes, int count, int frames, Scripts::CStruct* params)
 {
     ClearSceneLightQueue();
-    Scripts::CStruct* copy = Scripts::NewStruct();
+    Scripts::CStruct* copy = Scripts::SpawnParamBag();
     if (copy)
         copy->PrepareAll();
     QueueParams() = copy;
@@ -376,7 +376,7 @@ void __cdecl QueueSceneLights(const uint32_t* nodes, int count, int frames, Scri
 // 0x004904E0
 void __cdecl UpdateSceneLightQueue()
 {
-    if (!QueuedNodes() || GameObjects::g_gamePaused) // (paused)
+    if (!QueuedNodes() || GameObjects::g_simulationHalted) // (paused)
         return;
     if (QueueFrame() > QueueFrames()) {
         ClearSceneLightQueue();
@@ -394,7 +394,7 @@ void __cdecl UpdateSceneLightQueue()
 void __cdecl UpdateSceneLight(uint32_t name, Scripts::CStruct* params)
 {
     CWorldScene* scene = GetMainScene();
-    sSceneLight* light = FindSceneLight(name);
+    sLevelLamp* light = FindSceneLight(name);
     float value;
     int red, green = 0, blue = 0; // (the original leaves green and blue unset when they're missing)
     if (light) {
@@ -440,13 +440,13 @@ void __cdecl UpdateSceneLight(uint32_t name, Scripts::CStruct* params)
 }
 
 // 0x00490400
-sSceneLight* __cdecl AddSceneLight(uint32_t name, const Maths::Vec4* pos, float brightness, uint32_t colour,
+sLevelLamp* __cdecl RegisterSceneLight(uint32_t name, const Maths::Vec4* pos, float brightness, uint32_t colour,
                                    float radius, Scripts::CArray* excluded)
 {
     if (SceneLightCount() >= kMaxSceneLights)
         return nullptr;
     double intensity = brightness * static_cast<double>(kPercent);
-    sSceneLight* light = &SceneLights()[SceneLightCount()++];
+    sLevelLamp* light = &SceneLightArray()[SceneLightCount()++];
     light->m_label = name;
     light->m_atPoint = *pos;
     if (light->m_strength != intensity) { // (the slot's old value; NaN: set)
@@ -504,7 +504,7 @@ void __cdecl CreateLightFromNode(Scripts::CStruct* node)
     if (scene) {
         Scripts::CArray* excluded = nullptr;
         node->FetchList(0xAF3F7288u, &excluded, 0);
-        AddSceneLight(name, &pos, brightness, colour, radius, excluded);
+        RegisterSceneLight(name, &pos, brightness, colour, radius, excluded);
     }
 }
 
@@ -515,7 +515,7 @@ namespace Engine3D {
 // 0x00640BC0 (a static initialiser): the 150 scene lights (each with its table of sectors).
 void ConstructSceneLights()
 {
-    for (sSceneLight& light : g_sceneLights)
+    for (sLevelLamp& light : g_levelLamps)
         light.MakeNew();
 }
 

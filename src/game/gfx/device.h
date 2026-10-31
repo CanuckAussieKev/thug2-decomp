@@ -45,12 +45,12 @@ extern bool g_showWindowFlag;
 extern bool g_streamOffsetSupported;
 extern IDirect3DTexture9* g_screenTextures[9];
 extern uint32_t g_loadingBarTimer; // the timer's id (timeSetEvent)
-extern float g_screenScaleX; // 640x480 -> back buffer scale
+extern float g_displayFactorX; // 640x480 -> back buffer scale
 
-extern float g_screenScaleY;
+extern float g_displayFactorY;
 extern int g_screenOffsetX;
 extern int g_screenOffsetY;
-extern IDirect3DSurface9* g_depthSurface;
+extern IDirect3DSurface9* g_zBufferSurface;
 extern IDirect3DSurface9* g_backBuffer;
 extern IDirect3DSurface9* g_backDepth;
 extern bool g_borderAddressingSupported;

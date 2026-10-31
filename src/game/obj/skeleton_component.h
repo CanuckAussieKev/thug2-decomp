@@ -41,7 +41,7 @@ public:
     // its +0x10.
     void ConfigureFromData(Scripts::CStruct* params);
     // 0x00431C70: a new skeleton (0x004A3D30) from the asset `name` (the asset manager's data; out of memory: none).
-    void InitSkeleton(uint32_t name);
+    void PrepareRig(uint32_t name);
     // 0x00431C60: the skeleton's position of `bone` (0x004A3870: its own space; whether the bone was found).
     bool GetLocalBonePosition(uint32_t bone, Maths::Vec4* out);
     // 0x00432050: `out` = where `bone` is in the world (the skeleton's position - (0, 0, 0, 1) if the bone isn't found -

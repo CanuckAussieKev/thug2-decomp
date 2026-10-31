@@ -68,7 +68,7 @@ enum Mark : uint8_t {
     kMarkAdded = 2,         // added by the editor (a node of the overlay)
     kMarkHidden = 4,        // hidden in the level (scenery's Delete, a level's node hidden) - saved
     kMarkViewHidden = 8,    // hidden while editing only (H / Isolate - never saved)
-    kMarkLocked = 16,       // locked (clicks pass it)
+    kMarkClickThrough = 16,       // locked (clicks pass it)
     kMarkCollisionOff = 32, // its collision switched off (level_editor_walls.h)
 };
 constexpr int kMarkCount = 6;
@@ -303,7 +303,7 @@ struct Request {
         kResetLevel,    // the toolbar's Reset level (as Ctrl+Shift+Delete: the confirm window)
         kResetConfirmed,
         kResetCancelled,
-        kWholeRail,     // value: 0 / 1 - a rail node moves alone / with its whole rail (L)
+        kReqEntireRail,     // value: 0 / 1 - a rail node moves alone / with its whole rail (L)
         kPickFilter,    // id: the pick filter's bits
         kToggleLock,    // L: the selection locked / unlocked
         kUnlock,        // value: the lock's kind, id: its id

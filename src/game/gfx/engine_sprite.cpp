@@ -79,8 +79,8 @@ void CBillboardQuad::SetTexture(uint8_t* texture)
 {
     m_bitmap = texture;
     if (texture) {
-        m_span = TextureWidth(texture);
-        m_levelY = TextureHeight(texture);
+        m_span = TexelsAcross(texture);
+        m_levelY = TexelsDown(texture);
     }
     Notify(this, 3);
 }
@@ -114,8 +114,8 @@ void CBillboardQuad::ChangeScale(float xscale, float yscale)
     float width = 1.0f;
     float height = 1.0f;
     if (m_bitmap) {
-        width = static_cast<float>(TextureWidth(m_bitmap));
-        height = static_cast<float>(TextureHeight(m_bitmap));
+        width = static_cast<float>(TexelsAcross(m_bitmap));
+        height = static_cast<float>(TexelsDown(m_bitmap));
     }
     constexpr float kMinWidth = 1.25f;                                // 0x00649AC4
     constexpr float kMinHeight = std::bit_cast<float>(0x3F955326u); // 0x00649AC0: 1.1666

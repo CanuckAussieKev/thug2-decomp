@@ -13,7 +13,7 @@ class CScript;
 namespace ScriptCommands {
 
 // The controller's input state (the object at the controller's +0x18): one byte per button, non-zero = held.
-struct ControllerInput {
+struct PadInputSample {
     uint8_t unknown0[4];
     uint8_t right; // +0x04
     uint8_t left;  // +0x05
@@ -64,6 +64,6 @@ bool __cdecl CFunc_OmnigonAllowed(Scripts::CStruct* params, Scripts::CScript* sc
 bool __cdecl CFunc_SetLevelName(Scripts::CStruct* params, Scripts::CScript* script);         // 0x0059F5B0
 bool __cdecl CFunc_DumpScripts(Scripts::CStruct* params, Scripts::CScript* script);          // 0x0059F5E0
 
-extern char g_nodeArrayName[128];
+extern char g_nodeListName[128];
 
 } // namespace ScriptCommands

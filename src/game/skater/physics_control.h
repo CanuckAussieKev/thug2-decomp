@@ -48,10 +48,10 @@ public:
     // camera suspended (the core physics told first - 0x004FDD50), the state walking (0x00519680), the walk
     // component resumed (told whether the skater was on the ground) and the walk camera, the camera's state handed
     // over; paused again if it was.
-    void SwitchSkatingToWalking();
+    void DismountToWalk();
     // 0x00517B20: to skating (nothing if skating): the same the other way (the core physics given the walk's
     // ground state and the ladder or bar it's on - 0x0050C670).
-    void SwitchWalkingToSkating();
+    void RemountBoard();
 
     // --- script member functions (the table at 0x006846F0; params, script; all true) ---
     // 0x004FC420 (with the skater's core physics): walking - the state's physics mode 1 and not driving.

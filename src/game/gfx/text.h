@@ -121,6 +121,6 @@ static_assert(offsetof(SGlyphRun, text) == 0x1C, "layout must match the original
 static_assert(offsetof(SGlyphRun, angle) == 0x38, "layout must match the original");
 static_assert(offsetof(SGlyphRun, fixedColor) == 0x40, "layout must match the original");
 
-extern STypeface* g_buttonFont;
+extern STypeface* g_glyphTypeface;
 
 } // namespace Nx

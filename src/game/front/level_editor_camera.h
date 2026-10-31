@@ -18,7 +18,7 @@
 //     1 / 3 the opposite ones; 5 switches between perspective and orthographic for the view as it is. Looking about (the
 //     right button, Alt+drag) goes back to perspective. In an ortho view the wheel and W / S zoom, A / D and Q / E pan.
 //     The view is near-orthographic: the renderer's own perspective with a long lens from far back (the camera at
-//     EyeDistance along the view, the lens narrowed to keep the picture's size - ViewAngle - and the near plane brought
+//     EyeDistance along the view, the lens narrowed to keep the picture's size - AdjustViewAngle - and the near plane brought
 //     up to keep the depth buffer's precision - NearPlane), so the game's culling, the picking rays and every gizmo
 //     stay right without a projection of our own (the renderer-independence rules: nothing Direct3D here).
 // Flying's acceleration ([editor] fly_accel_ms) is FlyRamp's.
@@ -133,7 +133,7 @@ View CurrentView();
 // view's equivalent (the move arrows' length, the gizmos' cut-offs); the distance itself otherwise.
 float Apparent(float distance);
 // The renderer's hooks (Engine3D::DrawViewport, for the editor's camera only): the field of view and the near plane.
-float ViewAngle(float baseDegrees);
+float AdjustViewAngle(float baseDegrees);
 float NearPlane();
 // For the status bar: "Top (ortho)", "flying to the selection"... (empty: nothing to say).
 std::string Standing();

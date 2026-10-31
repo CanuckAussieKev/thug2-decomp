@@ -105,7 +105,7 @@ bool Preferences::ChangeSetting(uint32_t name, Scripts::CStruct* values)
 }
 
 // 0x0046C610
-bool Preferences::SetPreferenceArray(uint32_t name, Scripts::CArray* array)
+bool Preferences::ChangeOptionList(uint32_t name, Scripts::CArray* array)
 {
     Scripts::CArray* existing = nullptr;
     if (!m_topEntry.FetchList(name, &existing, 0))

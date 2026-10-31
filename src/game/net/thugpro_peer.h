@@ -40,8 +40,8 @@ uint32_t MachineId();
 
 // --- Message ids and layouts (THUGPRO's GameMsg.h) ---
 
-constexpr uint8_t kMsgChangeLevel = 70;          // 0x46
-constexpr uint8_t kMsgStartInfo = 51;            // 0x33
+constexpr uint8_t kMsgLevelSwitch = 70;          // 0x46
+constexpr uint8_t kMsgLobbyDetails = 51;            // 0x33
 constexpr uint8_t kMsgChat = 76;                 // 0x4C
 constexpr uint8_t kMsgServerInfo = 155;          // S->C
 constexpr uint8_t kMsgUpdateTimeOfDay = 156;     // S->C

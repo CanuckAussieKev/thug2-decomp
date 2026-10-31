@@ -22,13 +22,13 @@ namespace Packs {
 namespace {
 
 constexpr int kMaxLoadedFiles = 200;
-constexpr int kMaxPreFiles = 100;
+constexpr int kPreloadCapacity = 100;
 
 LoadedFile g_loadedFiles[kMaxLoadedFiles];
-char* g_preFiles[kMaxPreFiles];
+char* g_preFiles[kPreloadCapacity];
 
 LoadedFile* LoadedFiles() { return g_loadedFiles; }
-// Each loaded .pre archive's memory starts with the archive's name (see PreHeader).
+// Each loaded .pre archive's memory starts with the archive's name (see PackLeadIn).
 char** PreFiles() { return g_preFiles; }
 
 void* AllocateFileMemory(unsigned int size) { return MemSys::AllocBlock(size); }
@@ -46,18 +46,18 @@ void* PreManagerLoadFile(const char* name, int* size)
 }
 
 // A loaded .pre archive: its name, padded to 16 bytes, then the archive's own header and its files.
-struct PreHeader {
+struct PackLeadIn {
     int totalSize;
     int version;
     int numFiles;
 };
 
-PreHeader* HeaderOf(char* pre)
+PackLeadIn* HeaderOf(char* pre)
 {
-    return reinterpret_cast<PreHeader*>(pre + ((std::strlen(pre) + 0x10) & ~0xFu));
+    return reinterpret_cast<PackLeadIn*>(pre + ((std::strlen(pre) + 0x10) & ~0xFu));
 }
 
-PreEntry* FirstEntry(PreHeader* header) { return reinterpret_cast<PreEntry*>(header + 1); }
+PreEntry* FirstEntry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
 
 // Archives as stored on disk: the name follows the header directly, the data the name, padded to 4 bytes.
 // (Loaded archives are repacked with 16-byte aligned data - see NextEntry.)
@@ -79,11 +79,11 @@ PreEntry* NextEntry(PreEntry* entry)
 // 0x005B7180
 PreEntry* FindPreEntry(uint32_t checksum)
 {
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         char* pre = PreFiles()[i];
         if (!pre)
             continue;
-        PreHeader* header = HeaderOf(pre);
+        PackLeadIn* header = HeaderOf(pre);
         PreEntry* entry = FirstEntry(header);
         for (int n = 0; n < header->numFiles; ++n, entry = NextEntry(entry)) {
             if (entry->checksum == checksum)
@@ -94,7 +94,7 @@ PreEntry* FindPreEntry(uint32_t checksum)
 }
 
 // 0x005B7C00 (PartyMod's script patching wraps calls to this, and calls it by address)
-void* ReadIn(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1)
+void* ReadIn(const char* name, bool async, void* callback, void* hookUserA, void* hookUserB)
 {
     uint32_t checksum = Checksums::HashFromText(name);
     // Not original - the data overlay (game/front/data_overlay.h): a file of the data overlay is read from it,
@@ -129,13 +129,13 @@ void* ReadIn(const char* name, bool async, void* callback, void* callback_arg0, 
     void* data;
     int size;
     if (async && !overlay) {
-        FileLoad::AsyncFile* file = FileLoad::AsyncOpen(name);
+        FileLoad::AsyncFileRef* file = FileLoad::AsyncOpen(name);
         size = FileLoad::AsyncGetFileSize(file);
         data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
         if (callback) {
-            FileLoad::AsyncSetCallbackMask(file, 1u << FileLoad::kAsyncRead); // call back when the read completes
-            FileLoad::AsyncSetCallback(file, reinterpret_cast<FileLoad::IoCompletionHook>(callback), callback_arg0,
-                                   callback_arg1);
+            FileLoad::AsyncSetCallbackMask(file, 1u << FileLoad::kOpReadFile); // call back when the read completes
+            FileLoad::AsyncSetCallback(file, reinterpret_cast<FileLoad::IoCompletionHook>(callback), hookUserA,
+                                   hookUserB);
         }
         FileLoad::StartBackgroundRead(file, data, size);
         FileLoad::AsyncClose(file);
@@ -211,12 +211,12 @@ void* LoadFileInto(const char* name, int* size, void* buffer)
 // 0x005B75A0
 void LoadPre(const char* name)
 {
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         if (PreFiles()[i] && _stricmp(PreFiles()[i], name) == 0)
             return; // already loaded
     }
     int slot = -1;
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         if (!PreFiles()[i]) {
             slot = i;
             break;
@@ -299,10 +299,10 @@ void LoadPre(const char* name)
 
     // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
     // can be used in place. First the new size (plus slack), then the copy.
-    auto* old_header = reinterpret_cast<PreHeader*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) &
+    auto* old_header = reinterpret_cast<PackLeadIn*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) &
                                                              ~size_t(0xF)));
     int count = old_header->numFiles;
-    uintptr_t new_size = prefix + sizeof(PreHeader);
+    uintptr_t new_size = prefix + sizeof(PackLeadIn);
     {
         auto* entry = reinterpret_cast<PreEntry*>(old_header + 1);
         for (int n = count; n != 0; --n) {
@@ -314,7 +314,7 @@ void LoadPre(const char* name)
     for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
         repacked[i] = block[i];
 
-    auto* new_header = reinterpret_cast<PreHeader*>(repacked + prefix);
+    auto* new_header = reinterpret_cast<PackLeadIn*>(repacked + prefix);
     new_header->numFiles = old_header->numFiles;
     new_header->version = old_header->version;
     auto* from = reinterpret_cast<PreEntry*>(old_header + 1);
@@ -395,14 +395,14 @@ bool __cdecl CFunc_DumpPipPreStatus(Scripts::CStruct* params, Scripts::CScript* 
     bool show_loose_files = Scripts::HasBareFlag(params, "ShowUnPreedFiles");
     bool only_open = Scripts::HasBareFlag(params, "ShowOnlyOpenFiles");
     DebugOut::Printf("Currently loaded pre files:\n");
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         char* pre = PreFiles()[i];
         if (!pre)
             continue;
         DebugOut::Printf("### %s ###\n", pre);
         if (!show_files)
             continue;
-        PreHeader* header = HeaderOf(pre);
+        PackLeadIn* header = HeaderOf(pre);
         PreEntry* entry = FirstEntry(header);
         for (int n = header->numFiles; n > 0; --n, entry = NextEntry(entry)) {
             if (!only_open || entry->useCount != 0) {
@@ -471,7 +471,7 @@ int GetFileSize(const char* name)
 // 0x005B70F0
 FileTables* FileTables::MakeNew()
 {
-    for (int i = 0; i < kMaxPreFiles; ++i)
+    for (int i = 0; i < kPreloadCapacity; ++i)
         PreFiles()[i] = nullptr;
     for (int i = 0; i < kMaxLoadedFiles; ++i)
         LoadedFiles()[i] = {};
@@ -482,7 +482,7 @@ FileTables* FileTables::MakeNew()
 bool UnloadPre(const char* name)
 {
     bool unloaded = false;
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         char*& pre = PreFiles()[i];
         if (pre && _stricmp(pre, name) == 0) {
             FreeFileMemory(pre);
@@ -497,7 +497,7 @@ bool UnloadPre(const char* name)
 const char* TakeNextFinishedArchive(const char* previous)
 {
     bool found_previous = previous == nullptr;
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         const char* pre = PreFiles()[i];
         if (!pre)
             continue;
@@ -512,11 +512,11 @@ const char* TakeNextFinishedArchive(const char* previous)
 // 0x005B7370
 bool ArchiveIsBusy(const char* name)
 {
-    for (int i = 0; i < kMaxPreFiles; ++i) {
+    for (int i = 0; i < kPreloadCapacity; ++i) {
         char* pre = PreFiles()[i];
         if (!pre || _stricmp(pre, name) != 0)
             continue;
-        PreHeader* header = HeaderOf(pre);
+        PackLeadIn* header = HeaderOf(pre);
         PreEntry* entry = FirstEntry(header);
         for (int n = 0; n < header->numFiles; ++n, entry = NextEntry(entry)) {
             if (entry->useCount != 0)

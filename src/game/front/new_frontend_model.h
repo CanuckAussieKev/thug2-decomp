@@ -206,7 +206,7 @@ public:
     // "tab:<section id>" / "group:<group id>"). False if it isn't there (or disabled).
     bool SelectId(const std::string& id);
     // The shown screen's selection as such an id ("" if none).
-    std::string SelectedId() const;
+    std::string ChosenItemId() const;
 
     // --- what is drawn ---
     Screen Shown() const { return m_shown; } // the screen drawn (changes half-way through a wipe)

@@ -77,7 +77,7 @@ public:
     CBestEntryList* m_highScores;      // +0x00
     CBestEntryList* m_bestCombos;      // +0x04
     CBestEntryList* m_arcadeScores;    // +0x08
-    CBestEntry* m_longestGrind;         // +0x0C
+    CBestEntry* m_grindRecord;         // +0x0C
     CBestEntry* m_longestManual;        // +0x10
     CBestEntry* m_longestLipTrick;      // +0x14
     CBestEntry* m_biggestChain;         // +0x18

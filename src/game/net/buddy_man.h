@@ -13,7 +13,7 @@ namespace TaskList {
 class SchedulerTask;
 } // namespace Tsk
 
-// The online profile and buddy list ("homies"): OnlinePlay::Hub's m_buddyMan (+0x18), a wrapper of the GameSpy
+// The online profile and buddy list ("homies"): OnlinePlay::Hub's m_presenceService (+0x18), a wrapper of the GameSpy
 // presence SDK (GP: library code, not decompiled - called by address). The profile is created or logged into from
 // a thread; the GP callbacks keep the buddy list and the buddy messages up to date and run the lobby menus' scripts.
 // 0x00548560-0x0054A660 (the rest of the class, 0x00548040-0x00548560, is with the lobby code before it).
@@ -42,23 +42,23 @@ static_assert(sizeof(Buddy) == 0x24C && offsetof(Buddy, m_account) == 0x34 && of
                   offsetof(Buddy, m_location) == 0x4C && offsetof(Buddy, m_statusText) == 0x14C,
               "layout must match the original");
 
-// A buddy message waiting to be shown (0x68 bytes): an ListKit::Elem<BuddyMessage> (vtable 0x0064D14C, its scalar
+// A buddy message waiting to be shown (0x68 bytes): an ListKit::Elem<FriendNote> (vtable 0x0064D14C, its scalar
 // deleting destructor 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
-struct BuddyMessage {
+struct FriendNote {
     MemSys::ListNode m_listLink;   // +0x00 data = this
     int m_account;          // +0x14 the sender
     char m_nick[16];        // +0x18
     char m_text[64];        // +0x28
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text. Returns this.
-    BuddyMessage* MakeNew();
+    FriendNote* MakeNew();
     // 0x00548D20 (vtable 0x0064D14C slot 0, scalar deleting): the node destructor (0x005484C0: unlinked), freed with
     // flag 1. Returns this.
-    BuddyMessage* Teardown(unsigned int flags);
+    FriendNote* Teardown(unsigned int flags);
 };
-static_assert(sizeof(BuddyMessage) == 0x68 && offsetof(BuddyMessage, m_nick) == 0x18 &&
-                  offsetof(BuddyMessage, m_text) == 0x28,
+static_assert(sizeof(FriendNote) == 0x68 && offsetof(FriendNote, m_nick) == 0x18 &&
+                  offsetof(FriendNote, m_text) == 0x28,
               "layout must match the original");
 
 class FriendsManager {
@@ -132,7 +132,7 @@ public:
     // 0x00548200: "<our network_id>\n<text>" sent to `profile` (gpSendBuddyMessage, 0x006005D0).
     void SendBuddyMessage(int profile, const char* text);
     // 0x005482A0: logged in as `profile` (state 4): profile_logged_in, the status online ("logging in").
-    void SetLoggedIn(int profile);
+    void ChangeOnlineFlag(int profile);
     // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
     void ChangeStanding(int status, const char* text, const char* location);
 
@@ -140,12 +140,12 @@ public:
     int m_account;            // +0x04 the logged-in profile id
     int m_curPhase;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
     TaskList::SchedulerTask* m_task;    // +0x0C TaskList::Task<FriendsManager> (BuddyTask)
-    bool m_loggedIn;          // +0x10
+    bool m_authenticated;          // +0x10
     uint8_t m_pad11[3];
     MemSys::ListNode m_friends;  // +0x14 ListKit::Foremost<Buddy>
-    MemSys::ListNode m_messages; // +0x28 ListKit::Foremost<BuddyMessage>
+    MemSys::ListNode m_messages; // +0x28 ListKit::Foremost<FriendNote>
 };
-static_assert(offsetof(FriendsManager, m_loggedIn) == 0x10 && offsetof(FriendsManager, m_friends) == 0x14 &&
+static_assert(offsetof(FriendsManager, m_authenticated) == 0x10 && offsetof(FriendsManager, m_friends) == 0x14 &&
                   offsetof(FriendsManager, m_messages) == 0x28 && sizeof(FriendsManager) == 0x3C,
               "layout must match the original");
 

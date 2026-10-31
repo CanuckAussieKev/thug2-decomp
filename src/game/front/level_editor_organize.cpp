@@ -409,7 +409,7 @@ std::string LayoutsFolder() { return GameFolderPath("thug2-decomp-layouts"); }
 uint32_t SceneNow()
 {
     uint8_t* scene = Scenery::MainScene();
-    return scene ? Scenery::SceneName(scene) : 0;
+    return scene ? Scenery::WorldSceneKey(scene) : 0;
 }
 
 GameObjects::CGameEntity* LiveObject(uint32_t id)

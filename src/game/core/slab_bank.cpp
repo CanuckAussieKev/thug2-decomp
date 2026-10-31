@@ -124,7 +124,7 @@ SlabBank* GetPool(int index)
 }
 
 // 0x005BC4A0
-void FreeItem(int index, void* item)
+void ReturnEntry(int index, void* item)
 {
     if (SlabBank* pool = PoolAt(index))
         pool->Dealloc(item);

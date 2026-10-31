@@ -37,7 +37,7 @@ public:
 
     // 0x00511390: the board rotated or not (returns what it was); with `send`, if `objectId`'s player is local, the
     // server is sent message 0x2A (the id and the value, a byte each). `unused` isn't read.
-    bool SetBoardRotated(uint32_t objectId, bool rotated, uint32_t unused, bool send);
+    bool ApplyBoardTurned(uint32_t objectId, bool rotated, uint32_t unused, bool send);
     // 0x00511310: the flip and rotate left for after the animation dropped (the board's isn't).
     void ClearAfterFlags();
     // 0x00511420: the animation blender mirrored as the state component's flip says (0x00419C10, with the skater's
@@ -50,7 +50,7 @@ public:
     // the board's rotation (the other way, told to the server); the model's +0x1F4 cleared.
     void DoAfterAnim();
 
-    bool m_boardRotated;     // +0x18
+    bool m_deckTurned;     // +0x18
     bool m_flipAfter;        // +0x19
     bool m_rotateAfter;      // +0x1A
     bool m_boardRotateAfter; // +0x1B
@@ -58,7 +58,7 @@ public:
     uint8_t* m_meshSet;        // +0x20 Model (0x286A8D26)
     uint8_t* m_corePhysics;  // +0x24 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(CRiderSpinAndFlip, m_boardRotated) == 0x18 &&
+static_assert(offsetof(CRiderSpinAndFlip, m_deckTurned) == 0x18 &&
                   offsetof(CRiderSpinAndFlip, m_boardRotateAfter) == 0x1B &&
                   offsetof(CRiderSpinAndFlip, m_animBlender) == 0x1C &&
                   offsetof(CRiderSpinAndFlip, m_meshSet) == 0x20 &&

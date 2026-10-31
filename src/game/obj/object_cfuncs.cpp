@@ -58,14 +58,14 @@ constexpr uint32_t kGroup = 0x923FBB3A;         // "Group"
 constexpr uint32_t kDefaultGroup = 0x1CA1FF20;  // "default"
 constexpr uint32_t kException = 0x80367192;     // "Exception"
 
-GameObjects::CGameEntity* ObjectById(uint32_t id)
+GameObjects::CGameEntity* EntityForId(uint32_t id)
 {
-    return static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id));
+    return static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id));
 }
 
 // The camera of viewport `index` (0x004A06D0), and its projection of a world position to the screen (0x004A1090,
 // vtable slot 1 of the camera: x, y and depth out; returns a scale, unused here).
-void* ViewportCamera(int index) { return Engine3D::GetActiveViewport(index); }
+void* ViewportCamera(int index) { return Engine3D::FetchCurrentView(index); }
 float ProjectToScreen(void* camera, const Maths::Vec4* position, float* x, float* y, float* depth)
 {
     return reinterpret_cast<float(__thiscall*)(void*, const Maths::Vec4*, float*, float*, float*)>(&Engine3D::VirtualSlot1Jump)(
@@ -73,7 +73,7 @@ float ProjectToScreen(void* camera, const Maths::Vec4* position, float* x, float
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
-void* ParticleManager() { return Engine3D::g_flexibleParticleManager; }
+void* ParticleHubHandle() { return Engine3D::g_flexibleParticleManager; }
 void DestroyParticleGroup(void* manager, uint32_t group)
 {
     static_cast<Engine3D::CFlexibleParticleManager*>(manager)->DestroyGroup(group);
@@ -159,7 +159,7 @@ bool __cdecl CFunc_CreateCompositeObject(Scripts::CStruct* params, Scripts::CScr
     params->FetchList(kComponents, &components, 1);
     Scripts::CStruct* nodeData = nullptr;
     params->ReadSubStruct(kParams, &nodeData, 0);
-    GameObjects::CompositeObjectManager()->SpawnEntityFromNode(components, nodeData, true);
+    GameObjects::ObjectHubSlot()->SpawnEntityFromNode(components, nodeData, true);
     return true;
 }
 
@@ -168,7 +168,7 @@ bool __cdecl CFunc_GetUniqueCompositeObjectID(Scripts::CStruct* params, Scripts:
 {
     uint32_t id = 8;
     params->ReadHashValue(kPreferredId, &id, 0);
-    while (ObjectById(id))
+    while (EntityForId(id))
         ++id;
     script->m_args->PutNameKey(kUniqueId, id);
     return true;
@@ -181,7 +181,7 @@ bool __cdecl CFunc_GetObjScreenCoords(Scripts::CStruct* params, Scripts::CScript
     void* camera = ViewportCamera(0);
     uint32_t id = 0;
     params->ReadHashValue(kObject, &id, 1);
-    GameObjects::CGameEntity* object = ObjectById(id);
+    GameObjects::CGameEntity* object = EntityForId(id);
     if (!object)
         return false;
     float x, y, depth;
@@ -200,7 +200,7 @@ bool __cdecl CFunc_RunScriptOnComponentType(Scripts::CStruct* params, Scripts::C
     params->ReadHashValue(kTarget, &target, 1);
     Scripts::CStruct* targetParams = nullptr;
     params->ReadSubStruct(kParams, &targetParams, 0);
-    for (GameObjects::CObjectModule* component = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(type); component;
+    for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(type); component;
          component = component->mp_nextOfType)
         component->InvokeMethodByName(target, targetParams, script);
     return true;
@@ -215,7 +215,7 @@ bool __cdecl CFunc_TransformLocalToWorld(Scripts::CStruct* params, Scripts::CScr
     params->FetchVec(kLocalOffset, &offset, 0);
     uint32_t id = 0;
     params->ReadHashValue(kObject, &id, 0);
-    GameObjects::CGameEntity* object = ObjectById(id);
+    GameObjects::CGameEntity* object = EntityForId(id);
     Maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
     Maths::Vec4 world;
     object->m_displayMatrix.Xform(world, local);
@@ -229,9 +229,9 @@ bool __cdecl CFunc_DestroyParticlesByGroupID(Scripts::CStruct* params, Scripts::
 {
     uint32_t group = 0;
     params->ReadHashValue(kGroupId, &group, 1);
-    if (void* manager = ParticleManager())
+    if (void* manager = ParticleHubHandle())
         DestroyParticleGroup(manager, group);
-    for (GameObjects::CObjectModule* component = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kParticle); component;
+    for (GameObjects::CObjectModule* component = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kParticle); component;
          component = component->mp_nextOfType) {
         GameObjects::CGameEntity* object = component->m_entity;
         if (!(object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) && ParticleGroup(component) == group)
@@ -285,7 +285,7 @@ bool __cdecl CFunc_RunScriptOnObject(Scripts::CStruct* params, Scripts::CScript*
     GameObjects::CEntity* object = GameObjects::FindObject(id);
     if (!object)
         return false;
-    Scripts::CScript* own = object->m_runScript;
+    Scripts::CScript* own = object->m_ownScript;
     if (own && !own->m_entity.Pull())
         own->m_entity.AssignValue(object);
     object->RunSubScript(name, scriptParams);
@@ -301,11 +301,11 @@ bool __cdecl CFunc_Orient(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t id = 0;
     params->ReadHashValue(kObject, &id, 1);
-    GameObjects::CGameEntity* object = ObjectById(id);
+    GameObjects::CGameEntity* object = EntityForId(id);
     GameObjects::CGameEntity* relativeTo = nullptr;
     uint32_t relativeId = 0;
     if (params->ReadHashValue(kRelativeTo, &relativeId, 0))
-        relativeTo = ObjectById(relativeId);
+        relativeTo = EntityForId(relativeId);
     uint32_t bone = 0;
     params->ReadHashValue(kBone, &bone, 0);
     Scripts::VectorValue offset;
@@ -315,7 +315,7 @@ bool __cdecl CFunc_Orient(Scripts::CStruct* params, Scripts::CScript*)
     if (!params->FetchVec(kAngles, &angles, 0))
         angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->HasBareFlag(kDegrees)) {
-        float degrees = g_degreesToRadians; // pi / 180
+        float degrees = g_degreeToRadianRatio; // pi / 180
         angles.x *= degrees;
         angles.y *= degrees;
         angles.z *= degrees;
@@ -356,12 +356,12 @@ bool __cdecl CFunc_SetEventHandlerOnObject(Scripts::CStruct* params, Scripts::CS
     params->ReadSubStruct(kParams, &handlerParams, 0);
     uint32_t id = 0;
     params->ReadHashValue(kObject, &id, 1);
-    GameObjects::CGameEntity* object = ObjectById(id);
-    if (!object->m_runScript) {
+    GameObjects::CGameEntity* object = EntityForId(id);
+    if (!object->m_ownScript) {
         void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        object->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        object->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
-    object->m_runScript->SetEventHandler(eventType, handler, group, exception, handlerParams);
+    object->m_ownScript->SetEventHandler(eventType, handler, group, exception, handlerParams);
     return true;
 }
 

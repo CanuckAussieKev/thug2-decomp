@@ -198,7 +198,7 @@ void PrunePlayers()
     }
 }
 
-void RemoveController(SDL_GameController* controller)
+void DetachAnimDriver(SDL_GameController* controller)
 {
     DebugLog::Printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
     int i = 0;
@@ -237,7 +237,7 @@ void InitControllers()
 // --- reading a controller -------------------------------------------------------------------------------------
 
 // How far a stick axis (0-255, 128 the centre) is from the centre.
-uint8_t AxisDistance(uint8_t value)
+uint8_t StickDeflection(uint8_t value)
 {
     if (value > 127)
         return value & 0x7F;
@@ -272,9 +272,9 @@ void ReadStick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8
         padAxisX = 0x80;
         stickY = 0x80;
     }
-    if (AxisDistance(padAxisX) > AxisDistance(*x))
+    if (StickDeflection(padAxisX) > StickDeflection(*x))
         *x = padAxisX;
-    if (AxisDistance(stickY) > AxisDistance(*y))
+    if (StickDeflection(stickY) > StickDeflection(*y))
         *y = stickY;
 }
 
@@ -320,7 +320,7 @@ void PollController(InputPort* device, SDL_GameController* controller)
         return;
     uint8_t* data = device->m_controlData;
     device->m_isUsable = 1;
-    device->m_pluggedIn = true;
+    device->m_isConnected = true;
 
     if (ButtonDown(controller, s_pad.menu))
         data[2] |= 1 << 3;
@@ -537,7 +537,7 @@ void PollKeyboard(InputPort* device)
 {
     uint8_t* data = device->m_controlData;
     device->m_isUsable = 1;
-    device->m_pluggedIn = true;
+    device->m_isConnected = true;
 
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     UpdateMenuKeys(keys);
@@ -751,7 +751,7 @@ void HandleInputEvent(SDL_Event* event)
         return;
     case SDL_CONTROLLERDEVICEREMOVED:
         if (SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which))
-            RemoveController(controller);
+            DetachAnimDriver(controller);
         return;
     case SDL_JOYDEVICEADDED:
         DebugLog::Printf(StageMap::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
@@ -840,7 +840,7 @@ int32_t DirectInputKey(SDL_Scancode scanCode)
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
 void WriteGameKeyBindings()
 {
-    int32_t* binds = OsLayer::g_keyBindings;
+    int32_t* binds = OsLayer::g_inputMap;
     binds[0] = DirectInputKey(s_keys.up);
     binds[1] = DirectInputKey(s_keys.down);
     binds[2] = DirectInputKey(s_keys.left);
@@ -1004,15 +1004,15 @@ void ProcessSdlDevice(InputPort* device)
     s_inMenu = InMenuFlag() && !s_editingPark;
 
     device->m_capabilities = 3;
-    device->m_numActuators = 2;
-    device->m_actuatorMax[0] = 255;
-    device->m_actuatorMax[1] = 255;
+    device->m_rumbleMotorCount = 2;
+    device->m_rumbleCap[0] = 255;
+    device->m_rumbleCap[1] = 255;
     device->m_curPhase = InputPort::kReady;
 
     OsLayer::PumpSdlEvents();
 
     PutWord32(device, 0x14, 0); // m_isUsable
-    PutWord32(device, 0xE0, 0); // m_pluggedIn
+    PutWord32(device, 0xE0, 0); // m_isConnected
     uint8_t* data = device->m_controlData;
     data[0] = 0;
     data[1] = 0x70;

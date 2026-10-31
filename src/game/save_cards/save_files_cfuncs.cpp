@@ -291,12 +291,12 @@ bool GetSaveInfo(CStruct* params, CScript* script)
 {
     uint32_t type = 0;
     params->ReadHashValue(0x7321A8D6u, &type, 0); // type
-    CStruct* contents = Scripts::NewStruct();
+    CStruct* contents = Scripts::SpawnParamBag();
     if (contents)
         contents = contents->PrepareAll();
     WriteSaveContents(contents, type);
     int mainSize = static_cast<int>(Scripts::MeasureBufferBytes(contents, 100000));
-    CStruct* summary = Scripts::NewStruct();
+    CStruct* summary = Scripts::SpawnParamBag();
     if (summary)
         summary = summary->PrepareAll();
     WriteSummary(contents, summary, type);
@@ -442,7 +442,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
             continue;
         if (listed >= kMaxFiles)
             continue;
-        CStruct* entry = Scripts::NewStruct();
+        CStruct* entry = Scripts::SpawnParamBag();
         if (entry)
             entry = entry->PrepareAll();
         entry->PutNameKey(0xFADDC0B8u, type); // file_type
@@ -474,7 +474,7 @@ bool GetMemCardDirectoryListing(CStruct* params, CScript* script)
             if (bad || ListedHeader().version != TypeVersion(type)) {
                 MarkCorrupt(entry, OsLayer() == 5 ? kNgcDamagedFile : kDamagedFile);
             } else {
-                CStruct* summary = Scripts::NewStruct();
+                CStruct* summary = Scripts::SpawnParamBag();
                 if (summary)
                     summary = summary->PrepareAll();
                 Scripts::DecodeFromBytes(summary, ListedSummary());
@@ -571,14 +571,14 @@ bool SaveToMemoryCard(CStruct* params, CScript*)
         ++VectorPools().current;
         switched = true;
     }
-    CStruct* contents = Scripts::NewStruct();
+    CStruct* contents = Scripts::SpawnParamBag();
     if (contents)
         contents = contents->PrepareAll();
     if (vaultData)
         contents->AppendStructureIfAny(g_keptParams);
     else
         WriteSaveContents(contents, type);
-    CStruct* summary = Scripts::NewStruct();
+    CStruct* summary = Scripts::SpawnParamBag();
     if (summary)
         summary = summary->PrepareAll();
     WriteSummary(contents, summary, type);

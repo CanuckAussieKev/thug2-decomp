@@ -25,7 +25,7 @@ void* CreatePiece(void* generator, void* source, uint32_t flags)
 }
 
 // One floor slide step for a cell or metapiece at `current`.
-int SlideAmount(uint32_t flags, int current, int height)
+int ScrollOffset(uint32_t flags, int current, int height)
 {
     if (flags & 1) {
         if (flags & 2)
@@ -84,9 +84,9 @@ CPieceGroup* CParkLayout::MakePlacedPiece(CPieceGroup* abstractMeta, uint32_t pi
     int count = abstractMeta->CountPieces();
     meta->Commission(count); // (a failed allocation crashes here, as in the original)
     meta->m_nameKey = abstractMeta->m_nameKey;
-    if (abstractMeta->m_flagBits & CPieceGroup::kInnerShell) {
+    if (abstractMeta->m_flagBits & CPieceGroup::kBuiltShell) {
         pieceFlags |= 0x20;
-        meta->m_flagBits |= CPieceGroup::kInnerShell;
+        meta->m_flagBits |= CPieceGroup::kBuiltShell;
     }
     if (abstractMeta->m_flagBits & CPieceGroup::kNoRails) {
         pieceFlags |= 0x100;
@@ -102,7 +102,7 @@ CPieceGroup* CParkLayout::MakePlacedPiece(CPieceGroup* abstractMeta, uint32_t pi
         static_cast<CParkTile*>(piece)->SetQuarterTurns(entry.rot, 0); // turn it
         SCellBox pos;
         pos.AssignValue(entry.x, entry.y, entry.z, 0, 0, 0);
-        meta->AddPiece(piece, &pos, entry.rot, entry.setsFloor);
+        meta->InsertTile(piece, &pos, entry.rot, entry.setsFloor);
     }
     meta->FinishPieces();
 
@@ -131,7 +131,7 @@ bool CParkLayout::HasPiecesOutside(SCellBox area)
         if (inside)
             continue;
         uint32_t flags = meta->m_flagBits;
-        if (!(flags & CPieceGroup::kInnerShell) && !(flags & CPieceGroup::kFence) && (flags & CPieceGroup::kInPark))
+        if (!(flags & CPieceGroup::kBuiltShell) && !(flags & CPieceGroup::kFence) && (flags & CPieceGroup::kInPark))
             return true;
     }
     return false;
@@ -205,7 +205,7 @@ CMapListNode* CParkLayout::GetIntersectingMetas(SCellBox area, int rot, CPieceGr
         for (int x = area.x; x < area.x + area.w; ++x) {
             for (int z = area.z; z < area.z + area.l; ++z) {
                 for (CMapListNode* node = m_cellMetas[x][z]; node; node = node->m_following) {
-                    if (precise && (node->GetPieceGroup()->m_flagBits & CPieceGroup::kInnerShell))
+                    if (precise && (node->GetPieceGroup()->m_flagBits & CPieceGroup::kBuiltShell))
                         continue;
                     if (node->GetPieceGroup()->Cast()->Intersects(area, skipInnerShell))
                         AddMetaToList(node->GetPieceGroup(), &list);
@@ -261,9 +261,9 @@ SGapDetails* CParkLayout::GetGapInfo(SCellBox* cell, int* half)
     CPieceGroup* meta = metas.list->GetPieceGroup()->Cast();
     int gap;
     // The gap a metapiece is a half of, and its info
-    if (!mp_gapManager->GetGapIndex(meta, &gap))
+    if (!m_gapRegistry->GetGapIndex(meta, &gap))
         return nullptr;
-    return mp_gapManager->GetGapInfo(gap, half);
+    return m_gapRegistry->GetGapInfo(gap, half);
 }
 
 bool CParkLayout::HasFloorLockedMeta(SCellBox area)
@@ -288,7 +288,7 @@ bool CParkLayout::BuildRiserList(SCellBox area, int y, int height, uint32_t flag
         for (int z = area.z; z < area.z + area.l; ++z) {
             FloorCell& cell = m_floor[x][z];
             if (!cell.m_touched) {
-                int amount = SlideAmount(flags, cell.m_levelY, height);
+                int amount = ScrollOffset(flags, cell.m_levelY, height);
                 cell.m_levelY += amount;
                 cell.m_delta = amount;
                 if (cell.m_levelY < -16 || cell.m_levelY > 15)
@@ -301,14 +301,14 @@ bool CParkLayout::BuildRiserList(SCellBox area, int y, int height, uint32_t flag
     for (CMapListNode* node = metas.list; node; node = node->m_following) {
         CPieceGroup* meta = node->GetPieceGroup()->Cast();
         SCellBox dims = meta->m_cellFootprint;
-        if ((meta->m_flagBits & CPieceGroup::kInnerShell) || (meta->m_flagBits & CPieceGroup::kFlag20))
+        if ((meta->m_flagBits & CPieceGroup::kBuiltShell) || (meta->m_flagBits & CPieceGroup::kFlag20))
             continue;
         meta->m_flagBits |= CPieceGroup::kFlag20;
         CMapListNode* slid = CMapListNode::Fabricate();
         slid->m_following = *slidList; // (out of memory crashes, as in the original)
         slid->m_pieceGroup = meta;
         *slidList = slid;
-        slid->m_dy = SlideAmount(flags, dims.y, height);
+        slid->m_dy = ScrollOffset(flags, dims.y, height);
         if (!BuildRiserList(dims, dims.y, height, flags & ~4u, slidList))
             return false;
     }

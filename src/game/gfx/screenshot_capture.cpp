@@ -17,7 +17,7 @@ namespace Gfx2D::ScreenshotCapture {
 namespace {
 
 IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
-// The renderer's "device lost" flag (Engine3D::StartRender doesn't begin a scene while it's set).
+// The renderer's "device lost" flag (Engine3D::BeginFrameDraw doesn't begin a scene while it's set).
 bool DeviceLostFlag() { return static_cast<uint8_t>(Engine3D::g_loadingScreenUp) != 0; }
 
 SystemCore::Screenshot::PixelFormat Map(D3DFORMAT format)
@@ -114,7 +114,7 @@ bool CaptureBackBuffer(SystemCore::Screenshot::TickCycle* out, std::string* erro
         *error = "the device is lost";
         return false;
     }
-    // (the main loop's scene is open here: Engine3D::StartRender began it, the end of the frame - 0x004B2750 - ends it)
+    // (the main loop's scene is open here: Engine3D::BeginFrameDraw began it, the end of the frame - 0x004B2750 - ends it)
     device->EndScene();
     bool ok = DupFrom(device, out, error);
     device->BeginScene();

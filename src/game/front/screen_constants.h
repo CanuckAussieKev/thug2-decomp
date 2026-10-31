@@ -21,7 +21,7 @@ extern float g_framesPerSecond; // 0x00645EA0
 } // namespace Front
 
 namespace ScriptCommands {
-extern float g_degreesToRadians; // 0x00645464, defined with its other users
+extern float g_degreeToRadianRatio; // 0x00645464, defined with its other users
 extern float g_scriptRadiansToDegrees; // 0x00645468, defined with its other users
 } // namespace ScriptCommands
 namespace GoalSystem {

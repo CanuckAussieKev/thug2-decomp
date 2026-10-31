@@ -69,7 +69,7 @@ namespace GameModules {
 
 int g_viewportCount;
 Scripts::CStruct* g_catInfo;
-Scripts::CStruct* g_statGoalInfo;
+Scripts::CStruct* g_statTargetInfo;
 
 namespace {
 
@@ -124,11 +124,11 @@ constexpr uint8_t kGroupGame = 8;
 constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}; // TRG_CTF_Restart_<colour>
 
 GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-GameObjects::CMiscHub* ObjectManager() { return reinterpret_cast<GameObjects::CMiscHub*>(GameObjects::g_compositeObjectManager); }
-GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickObjectManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+GameObjects::CMiscHub* EntityHubHandle() { return reinterpret_cast<GameObjects::CMiscHub*>(GameObjects::g_compositeRegistry); }
+GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickSpotHub; }
 Scripts::CStruct*& CatInfo() { return g_catInfo; }
-Scripts::CStruct*& StatGoalInfo() { return g_statGoalInfo; }
+Scripts::CStruct*& StatGoalParamsRef() { return g_statTargetInfo; }
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 MemSys::Arena* RiderHeapAt(int index) { return MemSys::Hub::Pull()->m_skaterHeaps[index]; }
@@ -139,9 +139,9 @@ struct PlayerSearch {
 };
 OnlinePlay::PlayerRecord* AsPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player); }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -239,14 +239,14 @@ __declspec(naked) void Skate::GetSkaterByIdStub()
 // --- adding and removing --------------------------------------------------------------------------------------------
 
 // 0x00565790
-void Skate::RemoveSkater(GameObjects::CRider* skater)
+void Skate::DropSkaterFromRoster(GameObjects::CRider* skater)
 {
-    if (GameObjects::CEntity* board = ObjectManager()->LookUpEntity(skater->m_ident + kBailBoard)) {
+    if (GameObjects::CEntity* board = EntityHubHandle()->LookUpEntity(skater->m_ident + kBailBoard)) {
         reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*)>(board->m_vtable[0x18 / 4])(board); // (marked dead)
-        ObjectManager()->FlushDeadObjects();
+        EntityHubHandle()->FlushDeadObjects();
     }
     if (!skater->m_unknownBC) {
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PutNameKey(kSkaterId, skater->m_ident);
         Scripts::LaunchScript(kRemoveClientSkater, params, nullptr, false, nullptr);
         DeleteStructure(params);
@@ -258,26 +258,26 @@ void Skate::RemoveSkater(GameObjects::CRider* skater)
             CatInfo() = nullptr;
         }
         DebugOut::Printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
-        CatInfo() = NewStructure();
+        CatInfo() = SpawnParamTable();
         skater->WriteCATInfo(CatInfo());
-        if (StatGoalInfo()) {
-            DeleteStructure(StatGoalInfo());
-            StatGoalInfo() = nullptr;
+        if (StatGoalParamsRef()) {
+            DeleteStructure(StatGoalParamsRef());
+            StatGoalParamsRef() = nullptr;
         }
         DebugOut::Printf("CAT: Storing Stat Goal data\n"); // "CAT: Storing Stat Goal data\n"
-        StatGoalInfo() = NewStructure();
-        skater->WriteList44B66A9F(StatGoalInfo());
+        StatGoalParamsRef() = SpawnParamTable();
+        skater->WriteList44B66A9F(StatGoalParamsRef());
     }
     UnlinkSkaterNode(static_cast<MemSys::ListNode*>(skater->GetBlock238()));
     reinterpret_cast<void(__thiscall*)(GameObjects::CRider*, int)>(skater->m_vtable[0])(skater, 1);
 }
 
 // 0x00567180
-GameObjects::CRider* Skate::AddSkater(GameObjects::CRiderIdentity* profile, bool local, uint32_t id, int viewport)
+GameObjects::CRider* Skate::SpawnSkaterEntity(GameObjects::CRiderIdentity* profile, bool local, uint32_t id, int viewport)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (local) {
-        GameObjects::CRiderIdentity* source = GameObjects::g_profileManager->FetchAccount(
+        GameObjects::CRiderIdentity* source = GameObjects::g_profileRoster->FetchAccount(
             static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr)) ? viewport : 0);
         reinterpret_cast<Gfx2D::CModelLook*>(profile)->CopyFrom(reinterpret_cast<Gfx2D::CModelLook*>(source));
         Scripts::LaunchScript(kShowPanelStuff, nullptr, nullptr, false, nullptr);
@@ -302,7 +302,7 @@ GameObjects::CRider* Skate::AddSkater(GameObjects::CRiderIdentity* profile, bool
                 static_cast<PointTally*>(skater->GetPointsTotal())->SetRiderNumber(static_cast<int16_t>(id));
                 return skater;
             }
-        } else if (GameObjects::CEntity* camera = ObjectManager()->LookUpEntity(kSkaterCam0)) {
+        } else if (GameObjects::CEntity* camera = EntityHubHandle()->LookUpEntity(kSkaterCam0)) {
             camera->m_objectFlags &= ~2u;
             reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*, int)>(camera->m_vtable[0])(camera, 1);
         }
@@ -318,12 +318,12 @@ GameObjects::CRider* Skate::AddSkater(GameObjects::CRiderIdentity* profile, bool
     MemSys::EnterHeapScope(RiderHeapAt(heap));
     void* memory = MemSys::AllocZeroed(sizeof(GameObjects::CRider));
     GameObjects::CRider* skater = memory ? static_cast<GameObjects::CRider*>(memory)->MakeNew(
-                                        viewport, reinterpret_cast<GameObjects::CEntityHub*>(ObjectManager()),
+                                        viewport, reinterpret_cast<GameObjects::CEntityHub*>(EntityHubHandle()),
                                         local, id, heap, 1)
                                   : nullptr;
     reinterpret_cast<void(__thiscall*)(GameObjects::CRider*, GameObjects::CRiderIdentity*)>(skater->m_vtable[0x34 / 4])(skater, profile);
     if (static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr))) {
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PutInt(kPlayer, 0);
         Scripts::LaunchScript(kModelApplyCustomLogos, params, nullptr, false, nullptr);
         DeleteStructure(params);
@@ -341,15 +341,15 @@ GameObjects::CRider* Skate::AddSkater(GameObjects::CRiderIdentity* profile, bool
             DeleteStructure(CatInfo());
             CatInfo() = nullptr;
         }
-        if (StatGoalInfo()) {
+        if (StatGoalParamsRef()) {
             DebugOut::Printf("CAT: Restoring Stat Goal data\n"); // "CAT: Restoring Stat Goal data\n"
-            skater->LoadList44B66A9F(StatGoalInfo());
-            DeleteStructure(StatGoalInfo());
-            StatGoalInfo() = nullptr;
+            skater->LoadList44B66A9F(StatGoalParamsRef());
+            DeleteStructure(StatGoalParamsRef());
+            StatGoalParamsRef() = nullptr;
         }
     }
     if (skater->m_ident == 1 && static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr)))
-        static_cast<GameObjects::CMoveExecutor*>(skater->FetchModule(kTrick))->SetTrickMappings(profile);
+        static_cast<GameObjects::CMoveExecutor*>(skater->FetchModule(kTrick))->ApplyTrickBindings(profile);
     MemSys::PopMemProfile();
     MemSys::LeaveHeapScope();
     return skater;
@@ -388,13 +388,13 @@ void Skate::SetSkaterShadow(GameObjects::CRider* skater)
         type = 2;
     if (!skater->m_unknownBC)
         type = 2;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->PushFloat(kShadowScale, 1.0f);
     params->AppendWord(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
     reinterpret_cast<void(__thiscall*)(GameObjects::CGroundShadowModule*, Scripts::CStruct*)>(shadow->m_vtable[2])(shadow, params);
     DeleteStructure(params);
     shadow->DestroyShadow();
-    shadow->CreateShadow(type, "Ped_Shadow");
+    shadow->BuildBlobShadow(type, "Ped_Shadow");
     MemSys::LeaveHeapScope();
 }
 
@@ -419,9 +419,9 @@ void Skate::BindControllers()
 // --- the restart points ---------------------------------------------------------------------------------------------
 
 // 0x00566100
-uint32_t Skate::SkipToRestartPoint(uint32_t skaterId)
+uint32_t Skate::WarpToRestart(uint32_t skaterId)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     auto generic = [] {
         DebugOut::Printf("\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
         uint32_t node = GameObjects::GetSpawnNode(0, 0, 0);
@@ -476,7 +476,7 @@ uint32_t Skate::SkipToRestartPoint(uint32_t skaterId)
 void Skate::TeleportToSpawn(GameObjects::CRider* skater, uint32_t node, uint32_t walking)
 {
     if (!node) {
-        node = SkipToRestartPoint(skater->m_ident);
+        node = WarpToRestart(skater->m_ident);
         if (!node)
             return;
     }
@@ -490,7 +490,7 @@ void Skate::ResetSkaters(uint32_t node, uint32_t walking)
     for (uint32_t i = 0; i < static_cast<uint32_t>(CountRiders()); ++i) {
         GameObjects::CRider* skater = SkaterAt(i); // (no check: as the original)
         if (skater->m_unknownBC) {
-            uint32_t at = node ? node : SkipToRestartPoint(skater->m_ident);
+            uint32_t at = node ? node : WarpToRestart(skater->m_ident);
             if (at)
                 reinterpret_cast<void(__thiscall*)(GameObjects::CRider*, uint32_t, uint32_t)>(skater->m_vtable[0x3C / 4])(
                     skater, at, walking);
@@ -527,8 +527,8 @@ void Skate::TidyUp()
     m_objectMovies->ClearMovies();
     if (Viewer* viewer = GetLiveViewer())
         viewer->DropViewerEntity();
-    ObjectManager()->ForEach(&GameObjects::DisposeWhenFree, nullptr);
-    ObjectManager()->FlushDeadObjects();
+    EntityHubHandle()->ForEach(&GameObjects::DisposeWhenFree, nullptr);
+    EntityHubHandle()->FlushDeadObjects();
     for (uint32_t i = 0; i < static_cast<uint32_t>(CountRiders()); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
         if (!skater)
@@ -536,14 +536,14 @@ void Skate::TidyUp()
         skater->m_objectFlags &= ~2u;
         skater->ShowSkater();
     }
-    NetManager()->ClearCrown();
+    NetSessionSlot()->ClearCrown();
     Scripts::KillAllChildScripts();
     TrickObjects()->RemoveAllClusters();
     static_cast<Engine3D::CFlexibleParticleManager*>(Engine3D::g_flexibleParticleManager)->DestroyNonPersistent();
     m_railManager->TidyUp();
     GameObjects::NearbyZone_Shutdown();
     GameObjects::Emitter_Cleanup();
-    static_cast<Engine3D::CParticleManager*>(static_cast<void*>(GameObjects::g_particleManager))->DestroyAllParticles();
+    static_cast<Engine3D::CEffectsDirector*>(static_cast<void*>(GameObjects::g_particleHub))->KillEveryParticle();
 }
 
 // 0x00565A00
@@ -551,14 +551,14 @@ void Skate::ChangeLevel(uint32_t level)
 {
     DebugOut::Printf("-----------------------------------------Skate::ChangeLevel(%d)\n", level); // "-----...Skate::ChangeLevel(%d)\n"
     MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_skaterInfoHeap);
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->Clear();
     params->AddComponentOfType(kLevel, Scripts::QBVAL_NAME, level);
     Scripts::LaunchScript(kRequestLevel, params, nullptr, false, nullptr);
     DeleteStructure(params);
     m_previousLevel = m_level;
     m_level = level;
-    params = NewStructure();
+    params = SpawnParamTable();
     params->Clear();
     if (level != kLoadMainMenu)
         params->AddComponentOfType(0, Scripts::QBVAL_NAME, kPreserveSkaters);
@@ -573,7 +573,7 @@ void Skate::ChangeLevel(uint32_t level)
 void Skate::RestartLevel()
 {
     m_runOver = false;
-    if ((CountRiders() || NetManager()->InNetGame()) && m_levelLaunched) {
+    if ((CountRiders() || NetSessionSlot()->InNetGame()) && m_levelLaunched) {
         m_career->BeginLevel(-1);
         Stubs::DoNothing(); // (a compiled-out call on the trick object manager)
     }
@@ -582,7 +582,7 @@ void Skate::RestartLevel()
 // 0x00566900
 void Skate::ResetLevel()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     TidyUp();
     ScriptCommands::CFunc_ParseNodeArray(nullptr, nullptr);
     m_runOver = false;
@@ -600,7 +600,7 @@ void Skate::ResetLevel()
 // 0x00566A60
 void Skate::LaunchGame()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     g_frontEndInstance->PauseGame(false);
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     DebugOut::Printf("\nLAUNCH GAME CALLED with %d skaters \n\n", CountRiders()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
@@ -626,8 +626,8 @@ void Skate::LaunchGame()
 // 0x00566BE0
 void Skate::TestRiderContacts()
 {
-    OnlinePlay::Hub* net = NetManager();
-    if (net->IsGameOver())
+    OnlinePlay::Hub* net = NetSessionSlot();
+    if (net->HasMatchEnded())
         return;
     if (!net->PlayersCanCollide() && GameMode()->GetNameKey() != kNetFirefight &&
         GameMode()->GetNameKey() != kFirefight && GameMode()->GetNameKey() != kNetKing &&
@@ -652,7 +652,7 @@ void Skate::TestRiderContacts()
     if (!king)
         return;
     PlayerSearch search;
-    AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(king->m_ident)))->GiveCrown(true);
+    AsPlayer(net->FindPlayerSlotByObj(static_cast<uint16_t>(king->m_ident)))->GiveCrown(true);
     for (void* player = net->BeginPlayerWalk(&search, true); player; player = net->StepPlayerWalk(&search, true)) {
         if (static_cast<uint8_t>(AsPlayer(player)->IsOwnPlayer()))
             continue;
@@ -663,7 +663,7 @@ void Skate::TestRiderContacts()
         desc.m_content = &id;
         desc.m_byteCount = 1;
         desc.m_ident = kMsgKing;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         server->PutOnOutbox(AsPlayer(player)->GetLinkHandle(), &desc);
     }
@@ -723,7 +723,7 @@ void Skate::UpdateRecords()
     float manual = *reinterpret_cast<float*>(balance + 0x50);
     float lipTrick = *reinterpret_cast<float*>(balance + 0x100);
     int tricks = score->m_bestTricks;
-    m_newRecord |= records->m_longestGrind->TryBeatRecord(Ftol(static_cast<double>(grind) * 100.0), 0);
+    m_newRecord |= records->m_grindRecord->TryBeatRecord(Ftol(static_cast<double>(grind) * 100.0), 0);
     m_newRecord |= records->m_longestManual->TryBeatRecord(Ftol(static_cast<double>(manual) * 100.0), 0);
     m_newRecord |= records->m_longestLipTrick->TryBeatRecord(Ftol(static_cast<double>(lipTrick) * 100.0), 0);
     m_newRecord |= records->m_biggestChain->TryBeatRecord(tricks, 0);
@@ -797,22 +797,22 @@ void Skate::ChangeRumble(int player, int on)
 // 0x00565ED0
 void Skate::LaunchScript(uint32_t name, Scripts::CStruct* params)
 {
-    if (!m_runScript) {
+    if (!m_ownScript) {
         void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
-    m_runScript->BindScript(name, params, nullptr);
+    m_ownScript->BindScript(name, params, nullptr);
 }
 
 // 0x00565F80
 bool Skate::KillScript()
 {
-    Scripts::CScript* script = m_runScript;
+    Scripts::CScript* script = m_ownScript;
     if (!script)
         return false;
     script->Teardown();
     Scripts::CScript::operator delete(script);
-    m_runScript = nullptr;
+    m_ownScript = nullptr;
     return true;
 }
 
@@ -823,7 +823,7 @@ void __cdecl Skate::DebugRails()
     if (!skate->m_debugRails)
         return;
     Stubs::IgnoreArgument(0); // (the rail manager's debug drawing)
-    auto* manager = reinterpret_cast<GameObjects::CEntityHub*>(ObjectManager());
+    auto* manager = reinterpret_cast<GameObjects::CEntityHub*>(EntityHubHandle());
     for (GameObjects::CObjectModule* component = manager->FindFirstModuleOfKind(kRailManagerType); component;
          component = component->mp_nextOfType) {
         uint8_t* object = reinterpret_cast<uint8_t*>(component->m_entity);
@@ -878,7 +878,7 @@ MenuSystem::CUiWidget* FindElement(uint32_t id)
 void __cdecl Skate::UpdateSuspendVisibility(GameObjects::CEntity* object, void*)
 {
     if (auto* suspend = static_cast<GameObjects::CDormancyModule*>(static_cast<GameObjects::CGameEntity*>(object)->FetchModule(kSuspend)))
-        suspend->UpdateVisibility();
+        suspend->RefreshShownState();
 }
 
 // 0x00567710
@@ -886,7 +886,7 @@ void Skate::RunFrameLogic()
 {
     ScriptCommands::g_todManager->TickFrame();
     GameObjects::NextSuspendFrame();
-    if (!GameObjects::g_gamePaused && !GameObjects::g_viewMode) {
+    if (!GameObjects::g_simulationHalted && !GameObjects::g_viewMode) {
         Stubs::DoNothing();
         if (m_movies->TotalOf()) {
             if (m_movies->ObtainActiveLens())
@@ -902,10 +902,10 @@ void Skate::RunFrameLogic()
         if (m_objectMovies->TotalOf())
             reinterpret_cast<void(__thiscall*)(GameObjects::CVideoHub*)>(m_objectMovies->m_vtable[0x20 / 4])(m_objectMovies);
     }
-    PreCalculateObjectUpdateInfo();
+    PrepareEntityUpdateData();
     Scripts::LaunchScript(kGameUpdate, nullptr, nullptr, false, nullptr);
-    if (GameObjects::g_gamePaused)
-        ObjectManager()->ForEach(&UpdateSuspendVisibility, nullptr);
+    if (GameObjects::g_simulationHalted)
+        EntityHubHandle()->ForEach(&UpdateSuspendVisibility, nullptr);
     // The proximity nodes told where the players (and their cameras) are.
     if (GetHomeRider()) {
         int screens = g_viewportCount;
@@ -918,12 +918,12 @@ void Skate::RunFrameLogic()
             }
         } else if (screens == 2) {
             if (ScreenCamera(0)) {
-                GameObjects::CEntity* first = ObjectManager()->LookUpEntity(0);
+                GameObjects::CEntity* first = EntityHubHandle()->LookUpEntity(0);
                 GameObjects::ProximityNotify(1, first, ScreenCamera(0)->FetchLocation(), 1);
                 GameObjects::ProximityNotify(1, first, reinterpret_cast<Maths::Vec4*>(reinterpret_cast<uint8_t*>(first) + 0x4C), 2);
             }
-            if (ScreenCamera(1) && ObjectManager()->LookUpEntity(1)) {
-                GameObjects::CEntity* second = ObjectManager()->LookUpEntity(1);
+            if (ScreenCamera(1) && EntityHubHandle()->LookUpEntity(1)) {
+                GameObjects::CEntity* second = EntityHubHandle()->LookUpEntity(1);
                 GameObjects::ProximityNotify(2, second, ScreenCamera(1)->FetchLocation(), 1);
                 GameObjects::ProximityNotify(2, second, reinterpret_cast<Maths::Vec4*>(reinterpret_cast<uint8_t*>(second) + 0x4C), 2);
             }
@@ -936,7 +936,7 @@ void Skate::RunFrameLogic()
         m_stageSwitched = false;
     // An unplugged controller: the dialog after controller_unplugged_frame_count frames (leaving a net game).
     int changing = Scripts::FetchIntValue(kIsChangingLevels);
-    if (!Scripts::FetchIntValue(kCheckForUnpluggedControllers) || changing || !m_checkControllers)
+    if (!Scripts::FetchIntValue(kCheckForUnpluggedControllers) || changing || !m_watchForUnplug)
         return;
     if (!FindElement(kRootWindow) || FindElement(kUnpluggedDialogAnchor))
         return;
@@ -952,10 +952,10 @@ void Skate::RunFrameLogic()
         unplugged = true;
         if (m_unpluggedFrames > Scripts::FetchIntValue(kUnpluggedFrameCount)) {
             m_unpluggedFrames = 0;
-            Scripts::CStruct* params = Scripts::NewStruct();
+            Scripts::CStruct* params = Scripts::SpawnParamBag();
             if (params)
                 params = params->PrepareAll();
-            OnlinePlay::Hub* net = NetManager();
+            OnlinePlay::Hub* net = NetSessionSlot();
             if (net->InNetGame()) {
                 GoalSystem::CGoalManager* goals = GoalSystem::GetObjectiveBoard();
                 goals->DisengageEveryObjective(false);
@@ -981,10 +981,10 @@ void Skate::RunFrameLogic()
 }
 
 // 0x00568C90 (the logic task's code)
-void __cdecl Skate::LogicTask(TaskList::SchedulerTask* task)
+void __cdecl Skate::FrontEndTick(TaskList::SchedulerTask* task)
 {
     Skate* skate = *reinterpret_cast<Skate**>(reinterpret_cast<uint8_t*>(task) + 0x1C);
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     skate->RunFrameLogic();
     if (net->OnServer() && skate->CountRiders())
         skate->TestRiderContacts();
@@ -1017,23 +1017,23 @@ Skate* Skate::MakeNew()
     m_riders.m_listLink.next = &m_riders.m_listLink;
     m_riders.m_listLink.prev = &m_riders.m_listLink;
     m_riders.m_listLink.vtable = kSkaterHeadVtable;
-    m_checkControllers = false;
+    m_watchForUnplug = false;
     m_unpluggedFrames = 0;
     auto* task = static_cast<TaskList::SchedulerTask*>(MemSys::AllocZeroed(0x20));
     if (task) {
         task->MakeNew(0);
         task->m_vtable = GameCode::kTaskVtable;
-        *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(task) + 0x18) = reinterpret_cast<void*>(&LogicTask);
+        *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(task) + 0x18) = reinterpret_cast<void*>(&FrontEndTick);
         *reinterpret_cast<Skate**>(reinterpret_cast<uint8_t*>(task) + 0x1C) = this;
     }
-    m_logicTask = task;
+    m_updateJob = task;
     reinterpret_cast<SkateNet*>(this)->CreateNetworkTasks();
-    GameObjects::g_profileManager->ResetTemplates();
+    GameObjects::g_profileRoster->ResetTemplates();
     void* memory = MemSys::AllocZeroed(0x10);
     m_gameFlow = memory ? static_cast<GoalSystem::CMatchFlow*>(memory)->MakeNew() : nullptr;
     memory = MemSys::AllocZeroed(0x39C);
     m_goalManager = memory ? static_cast<GoalSystem::CGoalManager*>(memory)->MakeNew() : nullptr;
-    Engine3D::Engine::SetObjectManager(static_cast<void*>(GameObjects::g_compositeObjectManager));
+    Engine3D::Engine::ChangeEntityHub(static_cast<void*>(GameObjects::g_compositeRegistry));
     memory = MemSys::AllocZeroed(0x6AC);
     m_career = memory ? static_cast<GameObjects::CRiderStoryProgress*>(memory)->MakeNew() : nullptr;
     memory = MemSys::AllocZeroed(0x54);
@@ -1065,7 +1065,7 @@ Skate* Skate::MakeNew()
         if (GameObjects::CRider* skater = SkaterAt(i))
             reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterCorePhysics))[0x2DA] = 0;
     }
-    m_runScript = nullptr;
+    m_ownScript = nullptr;
     return this;
 }
 
@@ -1098,13 +1098,13 @@ void Skate::DestroyBody()
         goals->DestroyBody();
         MemSys::Dealloc(goals);
     }
-    if (m_logicTask)
-        reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, int)>(m_logicTask->m_vtable[2])(m_logicTask, 1);
+    if (m_updateJob)
+        reinterpret_cast<void(__thiscall*)(TaskList::SchedulerTask*, int)>(m_updateJob->m_vtable[2])(m_updateJob, 1);
     if (m_splitscreenPreferences)
         reinterpret_cast<void(__thiscall*)(OptionStore::Preferences*, int)>(*reinterpret_cast<void***>(m_splitscreenPreferences)[0])(
             m_splitscreenPreferences, 1);
     MemSys::Dealloc(m_checksums);
-    if (Scripts::CScript* script = m_runScript) {
+    if (Scripts::CScript* script = m_ownScript) {
         script->Teardown();
         Scripts::CScript::operator delete(script);
     }

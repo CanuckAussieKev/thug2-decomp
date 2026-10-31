@@ -14,7 +14,7 @@
 //   +0x1C symbols, up to the file's end: a CSymbolTableEntry (0x14 bytes) and its value after it:
 //     integer, float, name, C function, member function, 0x0B (and any other type): nothing (the value is in the entry)
 //     string / local string: the text (null-terminated, padded)    pair: a CPair (0x0C)   vector: a CVector (0x10)
-//     script: {checksum, size, stored size, code} (as CreateScriptSymbol makes them)
+//     script: {checksum, size, stored size, code} (as DefineScriptSymbol makes them)
 //     structure: a CStruct (8) then its components, each a CComponent (0x10) followed by its value as above (a
 //       script component: its tokens up to and including '$'), structures and arrays nested the same way
 //     array: a CArray (0x0C), then for more than one element their table (4 bytes each), then the elements'

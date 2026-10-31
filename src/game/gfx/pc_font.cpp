@@ -22,7 +22,7 @@ extern void** const kPcFontVtable;
 extern void** const kPcTextVtable;
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
-STypeface*& ButtonFont() { return g_buttonFont; }
+STypeface*& PadGlyphTypeface() { return g_glyphTypeface; }
 CPcText*& FreeTexts() { return reinterpret_cast<CPcText*&>(g_freeTexts); }
 
 template <typename T>
@@ -89,7 +89,7 @@ void CPcFont::ChangeColors(const uint32_t* colors)
 // 0x004B3CB0
 void CPcFont::FlagButtonFont(bool buttons)
 {
-    ButtonFont() = buttons ? font : nullptr;
+    PadGlyphTypeface() = buttons ? font : nullptr;
 }
 
 // 0x004B3CD0

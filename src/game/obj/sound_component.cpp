@@ -47,13 +47,13 @@ constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
 constexpr uint32_t kRetryDelay = 0x14D;                // (ms)
 constexpr uint32_t kWaitTime = 2000;                   // (ms)
 
-SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
 CEntity* AsSoundObject(CAudioEmitterModule* component) { return reinterpret_cast<CEntity*>(component); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
 void* NearestCamera(const Maths::Vec4* position, float* distance)
 {
-    return Engine3D::GetClosestCamera(position, distance);
+    return Engine3D::FetchNearestCamera(position, distance);
 }
 const Maths::Vec4* ViewerLocation(void* camera)
 {
@@ -103,7 +103,7 @@ CAudioEmitterModule* CAudioEmitterModule::MakeNew()
 void CAudioEmitterModule::DestroyBody()
 {
     m_vtable = kVtable;
-    SfxManager()->StopObjectSounds(AsSoundObject(this));
+    AudioMixerHandle()->StopObjectSounds(AsSoundObject(this));
     CObjectModule::DestroyBody();
 }
 
@@ -142,7 +142,7 @@ int CAudioEmitterModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
     if (name == kObjStopSound) {
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
         params->ReadHashValue(0u, &sound, 0);
-        SfxManager()->HaltObjectSound(AsSoundObject(this), sound);
+        AudioMixerHandle()->HaltObjectSound(AsSoundObject(this), sound);
         if (m_waiting[0].props.checksum == sound)
             m_waiting[0].props.checksum = 0;
         if (m_waiting[1].props.checksum == sound)
@@ -231,10 +231,10 @@ void CAudioEmitterModule::UpdateWaitingSounds()
         float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {props.pitch2, props.volume2, props.dropoff, static_cast<int>(props.falloff)};
-            uint32_t id = SfxManager()->PlayObjectSound(props.checksum, &params, AsSoundObject(this), false, true);
+            uint32_t id = AudioMixerHandle()->PlayObjectSound(props.checksum, &params, AsSoundObject(this), false, true);
             if (!id)
                 continue;
-            if (SoundFx::PlaybackProps* playing = SfxManager()->GetPositionalProps(AsSoundObject(this), id, false)) {
+            if (SoundFx::PlaybackProps* playing = AudioMixerHandle()->GetPositionalProps(AsSoundObject(this), id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
@@ -297,7 +297,7 @@ void CAudioEmitterModule::EmitSound(Scripts::CStruct* params)
     reinterpret_cast<void(__thiscall*)(CAudioEmitterModule*, uint32_t, float, float)>(m_vtable[13])(this, sound, volume,
                                                                                                pitch);
     SoundParams play = {pitch, volume, dropoff, falloff};
-    SfxManager()->PlayObjectSound(sound, &play, AsSoundObject(this), keepPlacement, false);
+    AudioMixerHandle()->PlayObjectSound(sound, &play, AsSoundObject(this), keepPlacement, false);
 }
 
 // 0x00432FF0
@@ -307,7 +307,7 @@ void CAudioEmitterModule::AdjustSound(Scripts::CStruct* params, Scripts::CScript
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = reinterpret_cast<uint32_t>(params);
     params->ReadHashValue(0u, &sound, 0);
-    SoundFx::PlaybackProps* props = SfxManager()->GetPositionalProps(AsSoundObject(this), sound, true);
+    SoundFx::PlaybackProps* props = AudioMixerHandle()->GetPositionalProps(AsSoundObject(this), sound, true);
     if (!props) {
         for (WaitingSound& waiting : m_waiting) {
             if (waiting.props.checksum == sound) {
@@ -364,7 +364,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CAudioEmitterModule::Teardown
          Stubs::IgnoreArgument,
          Engine3D::VirtualSlot1Jump,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::CAudioEmitterModule::InvokeMethodByName,
          Stubs::IgnoreArguments3};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);

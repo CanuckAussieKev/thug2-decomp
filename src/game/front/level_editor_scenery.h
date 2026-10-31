@@ -177,7 +177,7 @@ std::vector<RailState> ChangedRails();
 uint8_t* MainScene();
 // Whether a scene is still one of the level's (in the scene list, not a sky).
 bool SceneLive(uint8_t* scene);
-uint32_t SceneName(uint8_t* scene);
+uint32_t WorldSceneKey(uint8_t* scene);
 
 // Copies of sectors (Ctrl+D, the browser): a full copy (CWorldScene::DuplicateSceneSector 0x0049DF30, as the park editor makes its
 // pieces) of the source as it is now, in its scene, ready to move like any sector. Its checksum (0: not made).

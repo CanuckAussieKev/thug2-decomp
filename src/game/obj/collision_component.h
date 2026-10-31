@@ -16,7 +16,7 @@ class CStruct;
 namespace GameObjects {
 
 // The collision component (type 0xA432DC41 "Collision", vtable 0x00645EEC, 0x1C bytes; made by 0x0041C920): an
-// object's own collision - a movable collision object (Engine3D::CreateMovableCollision 0x00414990: a box, a movable
+// object's own collision - a movable collision object (Engine3D::BuildDynamicHitMesh 0x00414990: a box, a movable
 // triangle object or several under a multi-object) that its object registered with the movables' list, placed where
 // the object is after each of its updates. Level objects, cars and the other objects with a model get one from their
 // node's CollisionMode (0x2D7E583B): its triangles are the model's collision (the asset manager's data for the model

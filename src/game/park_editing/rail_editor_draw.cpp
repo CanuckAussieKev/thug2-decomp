@@ -49,12 +49,12 @@ constexpr uint32_t kMaxJoinAngle = 0xB1459A78;          // RailEditorMaxJoinAngl
 constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15;      // Rail_Corner_Leave_Angle (degrees)
 constexpr uint32_t kMinimumSeparation = 0x8BEA1C03;     // RailEditorMinimumPointSeparation
 constexpr uint32_t kMaxSlope = 0x9FD761AF;              // RailEditorMaxSlope (degrees)
-constexpr uint32_t kFlashRate = 0x4551E901;             // RailEditorHighlightFlashRate
+constexpr uint32_t kPulseRateKey = 0x4551E901;             // RailEditorHighlightFlashRate
 constexpr uint32_t kRedLineFlashRate = 0xEEBE4394;      // RailEditorRedLineFlashRate
 constexpr uint32_t kHighlightR = 0xAD28B18B, kHighlightG = 0xC0F55560, kHighlightB = 0xB09FA1EF;
 constexpr uint32_t kBadR = 0x89B66FB9, kBadG = 0xE46B8B52, kBadB = 0x94017FDD;
 
-const float kDegToRad = FloatBits(0x3C8EFA35);  // 0x00645464
+const float kAngleScaleToRad = FloatBits(0x3C8EFA35);  // 0x00645464
 constexpr float kMaxSegment = 4000.0f;          // 0x0064B8F8
 constexpr float kMaxReach = 4500.0f;            // 0x0064B8FC
 const float kNearlyVertical = FloatBits(0x3F7FFF58); // 0x0064B900 (0.99999)
@@ -96,7 +96,7 @@ void SetVertices(uint8_t* geometry, Vec4* vertices)
 }
 Engine3D::CTriMeshSource* GetHitShape(uint8_t* geometry)
 {
-    return static_cast<Engine3D::CTriMeshSource*>(reinterpret_cast<Engine3D::CGeom*>(geometry)->mp_collTriData);
+    return static_cast<Engine3D::CTriMeshSource*>(reinterpret_cast<Engine3D::CGeom*>(geometry)->m_hitTriangles);
 }
 uint16_t CollisionVertexCount(const Engine3D::CTriMeshSource* collision)
 {
@@ -114,10 +114,10 @@ void TurnAboutY(double deltaX, double deltaZ, float angle, float* outX, double* 
     float sine;
     float x;
     double z;
-    float degToRad = kDegToRad;
+    float degreeFactor = kAngleScaleToRad;
     __asm {
         fld angle
-        fmul degToRad
+        fmul degreeFactor
         fld st(0)
         fsin
         fstp sine
@@ -217,7 +217,7 @@ bool RailCornerOk(const Vec4* a, const Vec4* b, const Vec4* c)
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
     float dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
-    return !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kCornerLeaveAngle)) * kDegToRad, dot);
+    return !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kCornerLeaveAngle)) * kAngleScaleToRad, dot);
 }
 
 namespace {
@@ -261,7 +261,7 @@ bool RailSegmentValid(const Vec4* a, const Vec4* b)
         return false;
     d.MakeUnit();
     float slope = d.y < 0.0f ? -d.y : d.y;
-    return SinAtLeast(static_cast<double>(Scripts::FetchFloat(kMaxSlope)) * kDegToRad, slope);
+    return SinAtLeast(static_cast<double>(Scripts::FetchFloat(kMaxSlope)) * kAngleScaleToRad, slope);
 }
 
 // 0x004F4B90
@@ -430,7 +430,7 @@ void CEditedRailPoint::DrawSegment(const Vec4* origin, const Vec4* position, flo
         here.MakeUnit();
         float dot = static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                        static_cast<double>(here.x) * before.x);
-        bool join = !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kMaxJoinAngle)) * kDegToRad, dot);
+        bool join = !X87::CosAbove(static_cast<double>(Scripts::FetchFloat(kMaxJoinAngle)) * kAngleScaleToRad, dot);
         Vec4 c, b, a;
         TransformRailPoint(&c, &nextNext->m_atPoint, origin, position, angle);
         TransformRailPoint(&b, &next->m_atPoint, origin, position, angle);
@@ -549,7 +549,7 @@ void CEditedRailPoint::Spotlight(bool flash, bool includeEndPosts)
 {
     if (m_highlighted)
         return;
-    uint32_t mask = flash ? FlashMask(Scripts::FetchIntValue(kFlashRate)) : 0xFFFFFFFFu;
+    uint32_t mask = flash ? FlashMask(Scripts::FetchIntValue(kPulseRateKey)) : 0xFFFFFFFFu;
     Colour normal = {static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightR)),
                      static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightG)),
                      static_cast<uint8_t>(Scripts::FetchIntValue(kHighlightB))};

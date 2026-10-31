@@ -45,7 +45,7 @@ public:
     void TickFrame();
 
     // 0x004E5170: the shadow made if there's none (a 0x14-byte 0x004A1750 object, scale 1.2, "Ped_Shadow").
-    void CreateShadow();
+    void BuildBlobShadow();
     // 0x004E5A10: the shadow placed on the ground under the cursor (or deleted with no ground).
     void ResyncGroundShadow();
     // 0x004E5460: the ground's height between `start` and `end` into `height`: false with no ground, when it's

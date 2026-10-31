@@ -60,7 +60,7 @@ const char* StatsFile(int index)
 // 0x0054DCB0
 bool __cdecl RetrieveTopStats(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint8_t* manager = reinterpret_cast<uint8_t*>(OnlinePlay::g_gameNetManager);
+    uint8_t* manager = reinterpret_cast<uint8_t*>(OnlinePlay::g_onlineHub);
     uint8_t* stats = *reinterpret_cast<uint8_t**>(manager + 0x1C);
     int& current = *reinterpret_cast<int*>(stats + 0x90);
     int index = 0;

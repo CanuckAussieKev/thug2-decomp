@@ -30,7 +30,7 @@ public:
     uint32_t* m_cursor;   // next word to read/write
     uint32_t* m_outset;    // start of the data
     uint32_t m_octets;    // bits waiting to be written / not yet read
-    int m_bitsLeft;       // writing: free bits in m_octets (32 = empty); reading: unread bits (0 = empty)
+    int m_freeBitsInWord;       // writing: free bits in m_octets (32 = empty); reading: unread bits (0 = empty)
     int m_extent;           // size of the data in bytes
     int m_bitsUsed;       // bits read or written so far
 };

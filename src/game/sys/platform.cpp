@@ -67,7 +67,7 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
     g_forceResolutions[1] = 0;
     g_forceResolutions[2] = 0;
     g_forceResolutions[3] = 0;
-    std::memset(OsLayer::g_keyBindings, 0xFF, sizeof(OsLayer::g_keyBindings));
+    std::memset(OsLayer::g_inputMap, 0xFF, sizeof(OsLayer::g_inputMap));
     Engine3D::g_antialiasing = false;
     Engine3D::g_hqShadows = 0;
     Engine3D::g_fogSetting = false;

@@ -199,16 +199,16 @@ void CBodyDynamicsModule::Integrate(float dt)
     if (m_unknown191 < 3) {
         // Moved by its velocity and half a step of acceleration, then accelerated.
         double half = Wide(dt) * kHalf;
-        double ax = half * m_constAcc.x;
-        float ay = Narrow(half * m_constAcc.y), az = Narrow(half * m_constAcc.z), aw = Narrow(half * m_constAcc.w);
+        double ax = half * m_steadyAccel.x;
+        float ay = Narrow(half * m_steadyAccel.y), az = Narrow(half * m_steadyAccel.z), aw = Narrow(half * m_steadyAccel.w);
         float mx = Narrow(ax + m_vel.x);
         double my = Wide(ay) + m_vel.y, mz = Wide(az) + m_vel.z;
         float mw = Narrow(Wide(aw) + m_vel.w);
         float px = Narrow(Wide(mx) * dt), py = Narrow(my * dt);
         double pz = mz * dt, pw = Wide(mw) * dt;
         m_atPoint = {Narrow(Wide(px) + m_atPoint.x), Narrow(Wide(py) + m_atPoint.y), Narrow(pz + m_atPoint.z), Narrow(pw + m_atPoint.w)};
-        double vx = Wide(dt) * m_constAcc.x, vy = Wide(dt) * m_constAcc.y;
-        float vz = Narrow(Wide(dt) * m_constAcc.z), vw = Narrow(Wide(dt) * m_constAcc.w);
+        double vx = Wide(dt) * m_steadyAccel.x, vy = Wide(dt) * m_steadyAccel.y;
+        float vz = Narrow(Wide(dt) * m_steadyAccel.z), vw = Narrow(Wide(dt) * m_steadyAccel.w);
         m_vel = {Narrow(vx + m_vel.x), Narrow(vy + m_vel.y), Narrow(Wide(vz) + m_vel.z), Narrow(Wide(vw) + m_vel.w)};
     } else {
         double px = Wide(dt) * m_vel.x, py = Wide(dt) * m_vel.y;
@@ -263,7 +263,7 @@ void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vec4* point)
     if (!(speed > m_bounceCallbackThreshold))
         return;
     if (m_bounceScript) {
-        Scripts::CStruct* params = Scripts::NewStruct();
+        Scripts::CStruct* params = Scripts::SpawnParamBag();
         if (params)
             params = params->PrepareAll();
         if (mp_callbackParams)
@@ -275,10 +275,10 @@ void CBodyDynamicsModule::OnBounce(float speed, const Maths::Vec4* point)
             Scripts::DeleteStruct(params);
         }
     }
-    if (mp_soundComponent && mp_bounceSound && 48 - SoundFx::CountPlayingVoices() > 12) {
+    if (m_audioModule && mp_bounceSound && 48 - SoundFx::CountPlayingVoices() > 12) {
         float percent = Maths::Confine(Narrow(Wide(speed) / m_bounceFullSpeed * 100.0f), 0.0f, 100.0f);
         mp_bounceSound->PushFloat(0x9E497FC6, percent); // Percent
-        mp_soundComponent->EmitSound(mp_bounceSound);
+        m_audioModule->EmitSound(mp_bounceSound);
     }
 }
 
@@ -494,10 +494,10 @@ void CBodyDynamicsModule::TickFrame()
                vw = Wide(remaining) * m_vel.w;
         double half = (Wide(remaining) * remaining) * kHalf;
         feeler.m_line.start = m_atPoint;
-        feeler.m_line.end = {Narrow(half * m_constAcc.x + (Wide(Narrow(vx)) + m_atPoint.x)),
-                             Narrow(Wide(Narrow(half * m_constAcc.y)) + (Wide(Narrow(vy)) + m_atPoint.y)),
-                             Narrow(Wide(Narrow(half * m_constAcc.z)) + (vz + m_atPoint.z)),
-                             Narrow(Wide(Narrow(half * m_constAcc.w)) + Narrow(vw + m_atPoint.w))};
+        feeler.m_line.end = {Narrow(half * m_steadyAccel.x + (Wide(Narrow(vx)) + m_atPoint.x)),
+                             Narrow(Wide(Narrow(half * m_steadyAccel.y)) + (Wide(Narrow(vy)) + m_atPoint.y)),
+                             Narrow(Wide(Narrow(half * m_steadyAccel.z)) + (vz + m_atPoint.z)),
+                             Narrow(Wide(Narrow(half * m_steadyAccel.w)) + Narrow(vw + m_atPoint.w))};
         bool hit = feeler.GetHitShape(false, false) != 0;
         if (hit) {
             const Maths::Seg& line = feeler.m_line;

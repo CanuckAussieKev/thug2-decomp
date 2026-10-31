@@ -34,9 +34,9 @@ namespace {
 
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }
-bool& ScreenUp() { return g_loadingScreenUp; }
+bool& LoadScreenShown() { return g_loadingScreenUp; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }
-uint32_t FogEnabled() { return g_fogEnabled; } // (the renderer's cached D3DRS_FOGENABLE)
+uint32_t FogRenderFlag() { return g_fogActive; } // (the renderer's cached D3DRS_FOGENABLE)
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
 void Lock() { WaitForSingleObject(ScreenMutex(), INFINITE); }
@@ -116,21 +116,21 @@ void ApplyBarStyle(bool select)
     if (select == s_barStyled)
         return;
     if (select) {
-        s_savedBarWidth = g_barWidth;
-        std::memcpy(s_savedColors[0], g_barStartColor, 4);
-        std::memcpy(s_savedColors[1], g_barEndColor, 4);
-        std::memcpy(s_savedColors[2], g_barBorderColor, 4);
-        g_barWidth = 300;
+        s_savedBarWidth = g_progressWidth;
+        std::memcpy(s_savedColors[0], g_progressFromColor, 4);
+        std::memcpy(s_savedColors[1], g_progressToColor, 4);
+        std::memcpy(s_savedColors[2], g_progressEdgeColor, 4);
+        g_progressWidth = 300;
         const uint8_t start[4] = {0xB9, 0xB5, 0xAC, 0x80}, end[4] = {0xF2, 0xE2, 0x05, 0x80},
                       track[4] = {0x3A, 0x3A, 0x38, 0x80};
-        std::memcpy(g_barStartColor, start, 4);
-        std::memcpy(g_barEndColor, end, 4);
-        std::memcpy(g_barBorderColor, track, 4);
+        std::memcpy(g_progressFromColor, start, 4);
+        std::memcpy(g_progressToColor, end, 4);
+        std::memcpy(g_progressEdgeColor, track, 4);
     } else {
-        g_barWidth = s_savedBarWidth;
-        std::memcpy(g_barStartColor, s_savedColors[0], 4);
-        std::memcpy(g_barEndColor, s_savedColors[1], 4);
-        std::memcpy(g_barBorderColor, s_savedColors[2], 4);
+        g_progressWidth = s_savedBarWidth;
+        std::memcpy(g_progressFromColor, s_savedColors[0], 4);
+        std::memcpy(g_progressToColor, s_savedColors[1], 4);
+        std::memcpy(g_progressEdgeColor, s_savedColors[2], 4);
     }
     s_barStyled = select;
     UpdateLoadingBarColors();
@@ -199,12 +199,12 @@ void __cdecl DrawLoadingScreenPicture()
 void __cdecl HideLoadingScreen()
 {
     Lock();
-    InputPort()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
+    InputPort()->SetRenderState(D3DRS_FOGENABLE, FogRenderFlag());
     if (BarTimer()) {
         StopTimer(BarTimer());
         BarTimer() = 0;
     }
-    ScreenUp() = false;
+    LoadScreenShown() = false;
     Unlock();
 }
 
@@ -212,7 +212,7 @@ void __cdecl HideLoadingScreen()
 void __cdecl FreeLoadingScreenSprite()
 {
     Lock();
-    InputPort()->SetRenderState(D3DRS_FOGENABLE, FogEnabled());
+    InputPort()->SetRenderState(D3DRS_FOGENABLE, FogRenderFlag());
     if (Sprite()) {
         Engine3D::DeleteModelLights(static_cast<Engine3D::CPcModelLights*>(Sprite())); // (the engine's delete)
         Sprite() = nullptr;
@@ -252,7 +252,7 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
         }
     }
     InputPort()->SetRenderState(D3DRS_FOGENABLE, FALSE);
-    ScreenUp() = false;
+    LoadScreenShown() = false;
     if (!keep) {
         if (black) {
             s_selectPicture = false;
@@ -293,7 +293,7 @@ void __cdecl ShowLoadingScreen(const char* name, bool keep, bool black)
         }
         InputPort()->Present(nullptr, nullptr, nullptr, nullptr);
     }
-    ScreenUp() = true;
+    LoadScreenShown() = true;
     Unlock();
 }
 

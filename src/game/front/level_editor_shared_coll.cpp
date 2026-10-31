@@ -187,7 +187,7 @@ void Companion::ChangeLive(bool active)
 
 bool Companion::LiveNow() const { return !(m_entity.m_flagBits & 4); }
 
-void Companion::SetFaceFlags(int face, uint16_t flags)
+void Companion::ChangeTriFlags(int face, uint16_t flags)
 {
     if (face >= 0 && face < m_geometry.m_numFaces)
         std::memcpy(&m_faces[static_cast<size_t>(face) * 10], &flags, 2);
@@ -715,7 +715,7 @@ bool SetTakenFlags(const Engine3D::CTriMeshSource* geometry, int face, uint16_t 
                 continue;
             taken[i].flags = flags;
             if (entry.second.companion)
-                entry.second.companion->SetFaceFlags(static_cast<int>(i), flags);
+                entry.second.companion->ChangeTriFlags(static_cast<int>(i), flags);
             *reinterpret_cast<uint16_t*>(taken[i].geometry->m_faces +
                                          taken[i].face * (taken[i].geometry->m_smallFaces ? 8 : 10)) =
                 static_cast<uint16_t>(flags | 0x10);

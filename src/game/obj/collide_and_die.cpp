@@ -23,7 +23,7 @@
 
 namespace GameObjects {
 
-OnlinePlay::Hub* g_gameNetManager;
+OnlinePlay::Hub* g_onlineHub;
 
 namespace {
 
@@ -31,7 +31,7 @@ extern void** const kVtable;
 
 constexpr uint32_t kRadius = 0xC48391A5;      // radius
 constexpr uint32_t kScale = 0x13B9DA7B;       // scale
-constexpr uint32_t kDeathScript = 0x6647ADC3; // death_script
+constexpr uint32_t kOnDestroyScript = 0x6647ADC3; // death_script
 constexpr uint32_t kVel = 0x0C4C809E;         // vel
 constexpr uint32_t kPos = 0x7F261953;         // pos
 constexpr uint32_t kSuspend = 0xCE0CA665;
@@ -68,7 +68,7 @@ CImpactDestructModule* CImpactDestructModule::MakeNew()
     m_radius = 0.0f;
     m_sizeFactor = 0.0f;
     m_madeTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + g_clockOffset);
-    m_deathScript = 0;
+    m_onCollideScript = 0;
     m_fadingOut = false;
     m_firstUpdate = true;
     return this;
@@ -95,7 +95,7 @@ void CImpactDestructModule::ConfigureFromData(Scripts::CStruct* params)
 {
     params->FetchFloat(kRadius, &m_radius, 1);
     params->FetchFloat(kScale, &m_sizeFactor, 1);
-    params->ReadHashValue(kDeathScript, &m_deathScript, 1);
+    params->ReadHashValue(kOnDestroyScript, &m_onCollideScript, 1);
     m_vel = {0.0f, 0.0f, 1.0f, 1.0f};
     params->FetchVec(kVel, reinterpret_cast<Scripts::VectorValue*>(&m_vel), 1);
     m_vel.MakeUnit();
@@ -107,7 +107,7 @@ void CImpactDestructModule::Seal() { mp_suspend = reinterpret_cast<uint8_t*>(m_e
 // 0x0041C3D0
 void CImpactDestructModule::TickFrame()
 {
-    if (!g_gameNetManager->InNetGame() && mp_suspend[0x30])
+    if (!g_onlineHub->InNetGame() && mp_suspend[0x30])
         return;
     int& offset = g_clockOffset;
     if (static_cast<uint32_t>(FrameClock::GameClockElapsed()) + (static_cast<uint32_t>(offset) - m_madeTime) > kLifetime) {
@@ -141,15 +141,15 @@ void CImpactDestructModule::TickFrame()
                 ProjectileHit(projectile);
             m_fadingOut = true;
             m_deathTime = static_cast<uint32_t>(FrameClock::GameClockElapsed() + offset + static_cast<int>(kDyingTime));
-            if (m_deathScript) {
+            if (m_onCollideScript) {
                 Maths::Vec4 point = feeler.m_contactPos;
-                Scripts::CStruct* params = Scripts::NewStruct();
+                Scripts::CStruct* params = Scripts::SpawnParamBag();
                 if (params)
                     params->PrepareAll();
                 params->PutVec3(kPos, *reinterpret_cast<Scripts::VectorValue*>(&point));
                 params->PutVec3(kVel, *reinterpret_cast<Scripts::VectorValue*>(&m_vel));
                 params->PushFloat(kScale, m_sizeFactor);
-                Scripts::LaunchScript(m_deathScript, params, nullptr, false, nullptr);
+                Scripts::LaunchScript(m_onCollideScript, params, nullptr, false, nullptr);
                 if (params) {
                     params->Clear(); // (the destructor)
                     Scripts::DeleteStruct(params);

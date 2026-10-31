@@ -32,10 +32,10 @@ float* LightDirectionConstant(uint32_t light) { return g_lightConstants + 4 + 8 
 float* LightColorConstant(uint32_t light) { return g_lightConstants + 8 + 8 * light; }
 
 // The scene's lights.
-uint32_t& SceneAmbient() { return g_worldLights.ambient; }
+uint32_t& SceneAmbient() { return g_activeLighting.ambient; }
 float SceneScale() { return g_ambientIntensity; }
-Maths::Vec4* SceneDirections() { return g_worldLights.directions; } // (0x0067DC9C)
-uint32_t* SceneColors() { return g_worldLights.colours; }           // (0x0067DCA0)
+Maths::Vec4* SceneDirections() { return g_activeLighting.directions; } // (0x0067DC9C)
+uint32_t* SceneColors() { return g_activeLighting.colours; }           // (0x0067DCA0)
 float* SceneIntensities() { return g_intensities; }
 uint32_t LightCount() { return g_lightCount; }
 uint32_t ModelLightCount() { return g_modelLightCount; }
@@ -121,7 +121,7 @@ CPcModelLights* CPcModelLights::Teardown(unsigned int flags)
 }
 
 // 0x004B6160
-bool CPcModelLights::SetAmbientColor(const uint32_t* color)
+bool CPcModelLights::ChangeAmbientTint(const uint32_t* color)
 {
     ambient = *color;
     return true;
@@ -170,7 +170,7 @@ void CPcModelLights::TickFrame(const Maths::Vec4* position, uint32_t radius)
     if (overrides & 1)
         color = ambient;
     else
-        GetAmbientLightColor(&color);
+        FetchAmbientHue(&color);
     SendColor(AmbientConstant(), color, scale);
     for (uint32_t i = 0; i < LightCount(); ++i) {
         if (overrides & (2u << (i & 31))) {
@@ -262,7 +262,7 @@ bool __cdecl UpdateAmbientLight()
 }
 
 // 0x004B6850
-uint32_t* __cdecl GetAmbientLightColor(uint32_t* out)
+uint32_t* __cdecl FetchAmbientHue(uint32_t* out)
 {
     *out = SceneAmbient();
     return out;
@@ -337,7 +337,7 @@ CPcModelLights* __cdecl SpawnModelLights()
 }
 
 namespace {
-static VtableSlot kModelLightsVtable_slots[] = {&Engine3D::CPcModelLights::Teardown, &Engine3D::CPcModelLights::SetAmbientColor,
+static VtableSlot kModelLightsVtable_slots[] = {&Engine3D::CPcModelLights::Teardown, &Engine3D::CPcModelLights::ChangeAmbientTint,
                 &Engine3D::CPcModelLights::SetLightDirection, &Engine3D::CPcModelLights::SetLightDiffuseColor,
                 &Engine3D::CPcModelLights::FetchAmbientTint, &Engine3D::CPcModelLights::GetLightDirection,
                 &Engine3D::CPcModelLights::GetLightDiffuseColor, &Engine3D::CPcModelLights::TickFrame, Stubs::IgnoreArguments2,

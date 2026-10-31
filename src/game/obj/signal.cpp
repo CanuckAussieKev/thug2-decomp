@@ -44,12 +44,12 @@ void TrackerLogEventRead(CSignal* event, uint32_t how, uint32_t script) { Tracke
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
 CStruct* NewEmptyStruct()
 {
-    CStruct* structure = Scripts::NewStruct();
+    CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 CStruct* NewStructCopy(CStruct* source)
 {
-    CStruct* structure = Scripts::NewStruct();
+    CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->InitCopy(source) : nullptr;
 }
 void FreeStruct(CStruct* structure)
@@ -179,7 +179,7 @@ void CSignalRouteTable::MarkGroup(uint32_t group)
 }
 
 // 0x0045F880
-int CSignalRouteTable::PrintTable(CSignalRouteTable* table)
+int CSignalRouteTable::ListWaitTable(CSignalRouteTable* table)
 {
     DebugOut::Printf("====================================\n");
     DebugOut::Printf("Event Handler Table:\n");
@@ -192,7 +192,7 @@ int CSignalRouteTable::PrintTable(CSignalRouteTable* table)
             DebugOut::Printf("  Type     : %s\n", Scripts::FindChecksumNameOrUnknown(entry.type));
             DebugOut::Printf("  Script   : %s\n", Scripts::FindChecksumNameOrUnknown(entry.script));
             DebugOut::Printf("  Group    : %s\n", Scripts::FindChecksumNameOrUnknown(entry.group));
-            DebugOut::Printf("  Exception: %s\n", (entry.flags & TableRow::FLAG_EXCEPTION) ? "yes" : "no");
+            DebugOut::Printf("  Exception: %s\n", (entry.flags & TableRow::FLAG_REPLACES_RUNNING) ? "yes" : "no");
             if (entry.params) {
                 DebugOut::Printf("  Params   :\n");
                 Scripts::DumpToLog(entry.params, 13);
@@ -261,8 +261,8 @@ void CSignalRouteTable::AppendListener(CScript* script, uint32_t type, uint32_t 
             entry = &m_entries[m_num++];
         }
     }
-    entry->flags = static_cast<uint8_t>((entry->flags & ~(TableRow::FLAG_EXCEPTION | TableRow::FLAG_MARKED)) |
-                                        (static_cast<uint8_t>(exception) & TableRow::FLAG_EXCEPTION));
+    entry->flags = static_cast<uint8_t>((entry->flags & ~(TableRow::FLAG_REPLACES_RUNNING | TableRow::FLAG_MARKED)) |
+                                        (static_cast<uint8_t>(exception) & TableRow::FLAG_REPLACES_RUNNING));
     entry->group = group;
     entry->params = params ? NewStructCopy(params) : nullptr;
     entry->script = scriptName;
@@ -396,8 +396,8 @@ void CSignalRouteTable::AddHandlers(Scripts::CArray* handlers, bool replace)
         entry.params = handler->ReadSubStruct(kParamsName, &params, 0) ? NewStructCopy(params) : nullptr;
         if (!handler->ReadHashValue(kGroupName, &entry.group, 0))
             entry.group = kDefaultGroup;
-        entry.flags = static_cast<uint8_t>((entry.flags & ~(TableRow::FLAG_EXCEPTION | TableRow::FLAG_MARKED)) |
-                                           (handler->HasBareFlag(kExceptionFlag) & TableRow::FLAG_EXCEPTION));
+        entry.flags = static_cast<uint8_t>((entry.flags & ~(TableRow::FLAG_REPLACES_RUNNING | TableRow::FLAG_MARKED)) |
+                                           (handler->HasBareFlag(kExceptionFlag) & TableRow::FLAG_REPLACES_RUNNING));
         entry.type = type->checksum;
         entry.script = script->checksum;
         m_altered = true;
@@ -414,7 +414,7 @@ void CSignalRouteTable::AddHandlers(Scripts::CArray* handlers, bool replace)
 }
 
 // 0x00460470
-void CSignalRouteTable::PassEvent(CSignal* event, CScript* script)
+void CSignalRouteTable::ForwardTrigger(CSignal* event, CScript* script)
 {
     bool wasChanged = m_altered;
     m_altered = false;
@@ -436,12 +436,12 @@ void CSignalRouteTable::PassEvent(CSignal* event, CScript* script)
                 params = entry->params;
             }
 
-            if (entry->flags & TableRow::FLAG_EXCEPTION) {
+            if (entry->flags & TableRow::FLAG_REPLACES_RUNNING) {
                 // An exception: first the script's OnExceptionRun script (once) as an interrupt, given an
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
                 if (script->GetOnExceptionScript()) {
                     CStruct* exceptionParams = NewEmptyStruct();
-                    exceptionParams->AddComponentOfType(0, Scripts::QBVAL_NAME, entry->flags & TableRow::FLAG_EXCEPTION);
+                    exceptionParams->AddComponentOfType(0, Scripts::QBVAL_NAME, entry->flags & TableRow::FLAG_REPLACES_RUNNING);
                     uint32_t onException = script->GetOnExceptionScript();
                     script->SetOnExceptionScript(0);
                     script->Preempt(onException, exceptionParams);
@@ -471,7 +471,7 @@ void CSignalRouteTable::PassEvent(CSignal* event, CScript* script)
             event->SetEventHandled(0, entry->script);
         }
         if (!m_alive) {
-            // The script was destroyed by a handler: the last PassEvent out frees the table.
+            // The script was destroyed by a handler: the last ForwardTrigger out frees the table.
             if (--m_inUse == 0) {
                 Teardown();
                 MemSys::Hub::Pull()->Dealloc(this);

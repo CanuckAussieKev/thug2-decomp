@@ -25,7 +25,7 @@ int g_frameCount{1};
 int g_currentTrackIndex;
 int g_currentPlaylist;
 bool g_initialised;
-bool g_usingUserSoundtrack;
+bool g_customPlaylistOn;
 int g_userSoundtrack;
 uint32_t g_userTrack;
 uint32_t g_userPosition;
@@ -38,12 +38,12 @@ bool StreamsOn() { return SoundAvailable() && g_streamsOn; }
 
 bool& Initialised() { return g_initialised; }
 // The music stream: 0 none, 1 playing, 2 preloaded.
-int& MusicStreamType() { return g_musicStreamType; }
+int& MusicChannelKind() { return g_bgmStreamKind; }
 enum : int { kMusicStreamNone = 0, kMusicStreamNormal = 1, kMusicStreamPreload = 2 };
 // Frames until PlayNextTrack is next tried (Update counts them).
 int& FrameCount() { return g_frameCount; }
 float& DefaultStreamVolume() { return g_musicVolume; }
-float& DefaultMusicVolume() { return g_musicStreamVolume; }
+float& BaseMusicGain() { return g_musicStreamVolume; }
 float Zero() { return GameObjects::g_floatZero; }
 int& CurrentTrackIndex() { return g_currentTrackIndex; }
 
@@ -78,7 +78,7 @@ uint32_t* OwnerIds(uint8_t* owner) { return reinterpret_cast<uint32_t*>(owner + 
 
 // The user soundtrack (see music_player.cpp).
 int& UserSoundtrack() { return g_userSoundtrack; }
-bool CustomSoundtrackActive() { return g_usingUserSoundtrack; }
+bool CustomSoundtrackActive() { return g_customPlaylistOn; }
 int* UserOrder() { return g_userOrder; }
 uint32_t& UserTrack() { return g_userTrack; }
 uint32_t& UserPosition() { return g_userPosition; }
@@ -91,14 +91,14 @@ void PlatformStopStreams() { AudioStream::HaltStreams(); }
 void PlatformStopStream(int index) { AudioStream::HaltStream(index, 1); }
 void PlatformSetStreamVolume(const void* volume, int index)
 {
-    // (an volumeRef starts with the platform's StreamVolume: five channels and the type)
-    AudioStream::ChangeStreamLoudness(static_cast<const StreamVolume*>(volume), index);
+    // (an volumeRef starts with the platform's StreamGain: five channels and the type)
+    AudioStream::ChangeStreamLoudness(static_cast<const StreamGain*>(volume), index);
 }
 int ChannelStatus(int channel) { return StreamStatus(channel); }
 uint32_t NumUserTracks(int soundtrack) { return static_cast<uint32_t>(UserSoundtrackTracks(soundtrack)); }
 
 constexpr uint32_t kHundredPercent = 0x42C80000; // 100.0f
-SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_audioMixer; }
 
 } // namespace
 
@@ -123,7 +123,7 @@ void __cdecl StopMusic()
     if (!MusicOn())
         return;
     FrameCount() = 1;
-    MusicStreamType() = kMusicStreamNone;
+    MusicChannelKind() = kMusicStreamNone;
     PlatformStopMusic();
 }
 
@@ -162,10 +162,10 @@ void __cdecl PlayMusicStream(uint32_t /*name*/, float volume)
         return;
     PlatformStopMusic();
     if (volume < Zero())
-        volume = DefaultMusicVolume();
+        volume = BaseMusicGain();
     if (MusicOn())
         PlatformSetMusicVolume(volume);
-    MusicStreamType() = kMusicStreamNormal;
+    MusicChannelKind() = kMusicStreamNormal;
 }
 
 // 0x004509E0
@@ -176,9 +176,9 @@ bool __cdecl PrimeMusicTrack(uint32_t name)
     PlatformStopMusic();
     if (!MusicOn())
         return false;
-    bool loading = PlayMusicTrack(name);
+    bool loading = StartTrackPlayback(name);
     if (loading)
-        MusicStreamType() = kMusicStreamPreload;
+        MusicChannelKind() = kMusicStreamPreload;
     return loading;
 }
 
@@ -196,7 +196,7 @@ bool __cdecl BeginPrimedMusicTrack(float volume)
     if (!MusicOn())
         return false;
     if (volume < Zero())
-        volume = DefaultMusicVolume();
+        volume = BaseMusicGain();
     if (!StartPreloadedMusic())
         return false;
     PlatformSetMusicVolume(volume);
@@ -284,7 +284,7 @@ bool __cdecl StartPreLoadedStream(uint32_t idOrName, void* volume, float pitch, 
         return false;
     StreamAt(index)->priority = priority;
     (void)pitch; // (the original passes it on; the platform's start doesn't take it)
-    return StartPreloadedStream(index, static_cast<const StreamVolume*>(volume));
+    return StartPreloadedStream(index, static_cast<const StreamGain*>(volume));
 }
 
 // 0x00450AE0
@@ -344,7 +344,7 @@ bool __cdecl UpdateStreamVolume(int slot)
     SoundFx::CAudioMixer* manager = SoundManager();
     if (stream->positional) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
-        void* object = Engine3D::GetClosestCamera(
+        void* object = Engine3D::FetchNearestCamera(
             reinterpret_cast<const Maths::Vec4*>(*reinterpret_cast<uint8_t**>(owner + 0xC) + 0x4C), nullptr);
         if (object) {
             auto* component = reinterpret_cast<GameObjects::CAudioStreamModule*>(owner);
@@ -379,9 +379,9 @@ void __cdecl PrepareAll()
         DefaultStreamVolume() = static_cast<float>(Scripts::FetchIntValue(0xABD4A575u));
         if (DefaultStreamVolume() == Zero())
             DefaultStreamVolume() = 50.0f;
-        DefaultMusicVolume() = static_cast<float>(Scripts::FetchIntValue(0x73F8E03Bu));
-        if (DefaultMusicVolume() == Zero())
-            DefaultMusicVolume() = 100.0f;
+        BaseMusicGain() = static_cast<float>(Scripts::FetchIntValue(0x73F8E03Bu));
+        if (BaseMusicGain() == Zero())
+            BaseMusicGain() = 100.0f;
         auto* playlists = g_playlists;
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = playlists[i];

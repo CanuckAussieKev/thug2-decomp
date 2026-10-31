@@ -69,7 +69,7 @@ struct Viewer : PartUnit {
         kCommandShoulderB = 0x4,
     };
 
-    ViewerInputHandler* m_inputHandler; // +0x14 (HandleInput, priority 0)
+    ViewerInputHandler* m_padListener; // +0x14 (ProcessPadInput, priority 0)
     ViewerInputHandler* m_shiftHandler; // +0x18 (HandleShift, priority 1000)
     void* m_task1C;                     // +0x1C a TaskList::Task<Viewer> (0x00577870)
     void* m_task20;                     // +0x20 a TaskList::Task<Viewer> (0x00577380)
@@ -113,7 +113,7 @@ struct Viewer : PartUnit {
     // 0x00577260: commands added (OR).
     void AddCommands(uint32_t commands);
 };
-static_assert(offsetof(Viewer, m_inputHandler) == 0x14 && offsetof(Viewer, m_actions) == 0x44 &&
+static_assert(offsetof(Viewer, m_padListener) == 0x14 && offsetof(Viewer, m_actions) == 0x44 &&
                   offsetof(Viewer, m_entity) == 0x54,
               "layout must match the original");
 
@@ -146,7 +146,7 @@ int __cdecl HandleAddToScene(NetLink::InboundMsgCtx* context);
 // at +0x18.)
 int __cdecl HandleCreateViewerObject(NetLink::InboundMsgCtx* context);
 // 0x00577670 (0x2B): the script named by the message's first word run with the structure written after it.
-int __cdecl HandleRunScript(NetLink::InboundMsgCtx* context);
+int __cdecl OnRemoteScriptMsg(NetLink::InboundMsgCtx* context);
 // 0x00577140: the PC tool's "remove the object" message (0x24): the viewer object deleted (the viewer from the
 // message's first word, like 0x005775A0). Returns 1.
 int __cdecl HandleRemoveViewerObject(void** context);

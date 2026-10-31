@@ -52,10 +52,10 @@ void ReleaseVertexBuffer(void* buffer) { static_cast<sVertexBuffer*>(buffer)->Te
 void DestroyMaterial(void* material) { static_cast<materialRef*>(material)->DestroyBody(); }
 
 // the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
-uint16_t g_stripBuffer[3072];
+uint16_t g_indexScratch[3072];
 
 // The rebuilt strip (0x007CAA40).
-uint16_t* StripBuffer() { return g_stripBuffer; }
+uint16_t* TriStripScratch() { return g_indexScratch; }
 
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
 void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
@@ -313,10 +313,10 @@ void sceneRef::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t coun
         uint32_t n = 0;
         for (uint32_t i = 0; i < IndexCount(mesh); ++i) {
             uint16_t value = indices[i] & 0x7FFF;
-            StripBuffer()[n++] = value;
+            TriStripScratch()[n++] = value;
             if (indices[i] & 0x8000) { // repeated: a strip break
-                StripBuffer()[n++] = value;
-                StripBuffer()[n++] = value;
+                TriStripScratch()[n++] = value;
+                TriStripScratch()[n++] = value;
             }
         }
         ReleaseIndexBuffer(IndexBufferOf(mesh));
@@ -324,7 +324,7 @@ void sceneRef::BreakStrips(uint32_t mask, const uint32_t* records, uint32_t coun
         void* buffer = NewIndexBuffer(n * 2);
         IndexBufferOf(mesh) = buffer;
         uint16_t* rebuilt = LockIndices(buffer);
-        std::memcpy(rebuilt, StripBuffer(), IndexCount(mesh) * 2);
+        std::memcpy(rebuilt, TriStripScratch(), IndexCount(mesh) * 2);
         UnlockIndices(IndexBufferOf(mesh));
     }
 }

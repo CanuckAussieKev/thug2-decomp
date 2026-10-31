@@ -520,8 +520,8 @@ void Emit(int before)
     detail.speed = std::sqrt(now.vel[0] * now.vel[0] + now.vel[1] * now.vel[1] + now.vel[2] * now.vel[2]);
     detail.trick = now.trick;
     detail.balance = BalanceName(now.balance);
-    detail.input = ButtonNames(now.buttons);
-    detail.inputWindow = ButtonNames(held);
+    detail.input = PadButtonLabels(now.buttons);
+    detail.inputWindow = PadButtonLabels(held);
     detail.stick[0] = now.stick[0];
     detail.stick[1] = now.stick[1];
     if (ray) {
@@ -715,9 +715,9 @@ void EndFrame(void* component)
     Copy3(s.pos, VectorAt(object, kPosition));
     Copy3(s.vel, VectorAt(object, kVelocity));
     Copy3(s.facing, VectorAt(object, kForward));
-    Copy3(s.groundNormal, VectorAt(component, kGroundNormal));
-    s.ground = FaceOf(FeelerAt(component, kLastGroundFeeler));
-    s.groundRay = LineOf(FeelerAt(component, kLastGroundFeeler));
+    Copy3(s.groundNormal, VectorAt(component, kFloorUpVector));
+    s.ground = FaceOf(FeelerAt(component, kLastFloorProbe));
+    s.groundRay = LineOf(FeelerAt(component, kLastFloorProbe));
     if (g_sampleTotal) {
         const Sample& last = SampleAt(0);
         float dx = s.pos[0] - last.pos[0], dy = s.pos[1] - last.pos[1], dz = s.pos[2] - last.pos[2];
@@ -752,7 +752,7 @@ std::string FlagNames(uint16_t flags)
     return out.empty() ? "0" : out;
 }
 
-std::string ButtonNames(uint16_t mask)
+std::string PadButtonLabels(uint16_t mask)
 {
     static const char* const kNames[16] = {"up", "down", "left", "right", "l1", "l2", "l3", "r1",
                                            "r2", "r3", "circle", "square", "triangle", "x", "start", "select"};

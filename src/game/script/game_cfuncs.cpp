@@ -60,7 +60,7 @@
 namespace ScriptCommands {
 
 bool g_tryingToJoin;
-char g_nodeArrayName[128];
+char g_nodeListName[128];
 void* g_secondControllerCheck;
 int g_viewModeCfunc;
 char g_passwordStars[32];
@@ -98,7 +98,7 @@ GameObjects::CRider* GetRiderAt(int index)
 }
 
 // The object manager (0x006F0FB8).
-GameObjects::CObjectHubBase* Objects() { return reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager); }
+GameObjects::CObjectHubBase* Objects() { return reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry); }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
 Gfx2D::ViewCam* ViewportCamera(int viewport) { return Engine3D::FetchLiveCamera(viewport); }
@@ -118,7 +118,7 @@ OptionStore::Preferences* GetPreferencesOfType(uint32_t type)
 bool& InternetGameHost() { return SystemCore::g_internetGameHost; }
 bool& JoiningInternetGame() { return SystemCore::g_joiningInternetGame; }
 bool& TryingToJoin() { return g_tryingToJoin; }
-bool& NetEnabled() { return OnlinePlay::g_netEnabled; }
+bool& OnlineModeFlag() { return OnlinePlay::g_onlineActive; }
 bool& JoinServerIPSucceeded() { return OnlinePlay::g_joinServerIPSucceeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
@@ -128,7 +128,7 @@ int& ViewMode() { return g_viewModeCfunc; }
 // GetPreferencePassword's row of stars (0x007CEBD0).
 char* PasswordStars() { return g_passwordStars; }
 
-GameObjects::CPreviewEntity* ViewerObject(GameModules::Viewer* viewer) { return static_cast<GameObjects::CPreviewEntity*>(viewer->GetViewerEntity()); }
+GameObjects::CPreviewEntity* ViewerTarget(GameModules::Viewer* viewer) { return static_cast<GameObjects::CPreviewEntity*>(viewer->GetViewerEntity()); }
 
 } // namespace
 
@@ -138,7 +138,7 @@ bool __cdecl CFunc_SetViewerAnim(Scripts::CStruct* params, Scripts::CScript*)
     if (GameModules::Viewer* viewer = GameModules::GetLiveViewer()) {
         uint32_t anim = 0; // (unset in the original when missing - an asserted parameter)
         params->ReadHashValue(0u, &anim, 1);
-        if (GameObjects::CPreviewEntity* object = ViewerObject(viewer))
+        if (GameObjects::CPreviewEntity* object = ViewerTarget(viewer))
             object->PlayAnimation(anim);
     }
     return true;
@@ -155,7 +155,7 @@ bool __cdecl CFunc_SetViewerLODDist(Scripts::CStruct* params, Scripts::CScript*)
     pair.PrepareAll();
     if (!params->FetchPair(0u, &pair, false))
         return false;
-    if (GameObjects::CPreviewEntity* object = ViewerObject(viewer)) {
+    if (GameObjects::CPreviewEntity* object = ViewerTarget(viewer)) {
         // (the model component isn't checked for null, as in the original)
         auto* model = reinterpret_cast<GameObjects::CMeshInstanceModule*>(object->FetchModule(kModel));
         model->SetColorValue(static_cast<int>(pair.x), pair.y);
@@ -169,7 +169,7 @@ bool __cdecl CFunc_ReloadViewerAnim(Scripts::CStruct* params, Scripts::CScript*)
     GameModules::Viewer* viewer = GameModules::GetLiveViewer();
     if (!viewer)
         return true;
-    GameObjects::CPreviewEntity* object = ViewerObject(viewer);
+    GameObjects::CPreviewEntity* object = ViewerTarget(viewer);
     if (!object)
         return true;
     uint32_t anim;
@@ -229,13 +229,13 @@ bool __cdecl CFunc_TryJoinServerIPSuccess(Scripts::CStruct*, Scripts::CScript*)
 // 0x0059F7E0 / 0x0059F7F0: GSEnableNet / GSDisableNet.
 bool __cdecl CFunc_GSEnableNet(Scripts::CStruct*, Scripts::CScript*)
 {
-    NetEnabled() = true;
+    OnlineModeFlag() = true;
     return true;
 }
 
 bool __cdecl CFunc_GSDisableNet(Scripts::CStruct*, Scripts::CScript*)
 {
-    NetEnabled() = false;
+    OnlineModeFlag() = false;
     return true;
 }
 
@@ -248,7 +248,7 @@ bool __cdecl CFunc_WaitForAsyncLoadToFinish(Scripts::CStruct*, Scripts::CScript*
 }
 
 // 0x0059F820
-void __cdecl SecondControllerCheckTask(void*)
+void __cdecl SecondPadWatchTick(void*)
 {
     Sio::Hub* devices = Sio::ManagerInstance();
     Sio::InputPort* first = devices->GetPadAtSlot(0);
@@ -306,9 +306,9 @@ bool __cdecl CFunc_ControllerPressed(Scripts::CStruct* params, Scripts::CScript*
         return false;
     int controller;
     if (params->FetchIntValue(0u, &controller, 0))
-        return ControllerPressed(frontEnd->m_inputHandlers[controller], button);
+        return ControllerPressed(frontEnd->m_padListeners[controller], button);
     for (int i = 0; i < 2; ++i) {
-        if (ControllerPressed(frontEnd->m_inputHandlers[i], button))
+        if (ControllerPressed(frontEnd->m_padListeners[i], button))
             return true;
     }
     return false;
@@ -321,7 +321,7 @@ bool __cdecl CFunc_GetAnalogueInfo(Scripts::CStruct* params, Scripts::CScript* s
     GameModules::FrontEnd* frontEnd = GameModules::FrontEndInstance();
     int controller = 0;
     params->FetchIntValue(kController, &controller, 0);
-    GameModules::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[controller];
+    GameModules::FrontEndInputHandler* handler = frontEnd->m_padListeners[controller];
     GameObjects::CPadState pad;
     pad.PrepareAll();
     pad.TickFrame(reinterpret_cast<const uint8_t*>(handler->m_controlData));
@@ -348,7 +348,7 @@ bool __cdecl CFunc_NodeArrayManLoad(Scripts::CStruct* params, Scripts::CScript*)
 {
     const char* file = nullptr;
     params->FetchText(0u, &file, 1);
-    char* out = g_nodeArrayName;
+    char* out = g_nodeListName;
     for (const char* in = file; (*out++ = *in++) != '\0';) {
     }
     AssetStore::AssetManager()->LoadAsset(file, 11, 0, 0, false, false, false, nullptr, 0);
@@ -422,7 +422,7 @@ bool __cdecl CFunc_GetPreferenceChecksum(Scripts::CStruct* params, Scripts::CScr
 // 0x0059FD80: ToggleNetMetrics.
 bool __cdecl CFunc_ToggleNetMetrics(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::g_gameNetManager->ToggleNetMetrics();
+    OnlinePlay::g_onlineHub->ToggleNetMetrics();
     return true;
 }
 
@@ -481,7 +481,7 @@ bool __cdecl CFunc_SetViewerModel(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_GetViewerObjectID(Scripts::CStruct*, Scripts::CScript* script)
 {
     if (GameModules::Viewer* viewer = GameModules::GetLiveViewer()) {
-        GameObjects::CPreviewEntity* object = ViewerObject(viewer);
+        GameObjects::CPreviewEntity* object = ViewerTarget(viewer);
         script->m_args->PutNameKey(0x0830ECAF, object->m_ident);
         script->m_args->PutNameKey(0x52280066, object->m_ident);
     }
@@ -531,7 +531,7 @@ bool __cdecl CFunc_Debounce(Scripts::CStruct* params, Scripts::CScript*)
     params->FetchFloat(0x906B67BAu, &time, 0); // "time"
     int release = 0;
     params->FetchIntValue(0x1A4E0EF9u, &release, 0);
-    auto* objects = GameObjects::g_compositeObjectManager;
+    auto* objects = GameObjects::g_compositeRegistry;
     for (GameObjects::CObjectModule* input = objects->FindFirstModuleOfKind(0x27D7CD28); input; input = input->mp_nextOfType)
         static_cast<GameObjects::CPadInputModule*>(input)->LockButton(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
@@ -559,7 +559,7 @@ bool __cdecl CFunc_StopKeyboardHandler(Scripts::CStruct*, Scripts::CScript*)
     return true;
 }
 
-// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (TaskList::Task, SecondControllerCheckTask,
+// 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (TaskList::Task, SecondPadWatchTick,
 // priority 0) made and added to the main loop's logic tasks. (The original gives the task a pointer to one of its
 // own locals as its data - the task never reads it; null here.)
 bool __cdecl CFunc_SpawnSecondControllerCheck(Scripts::CStruct*, Scripts::CScript*)
@@ -571,7 +571,7 @@ bool __cdecl CFunc_SpawnSecondControllerCheck(Scripts::CStruct*, Scripts::CScrip
     if (task) {
         reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(0);
         task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // TaskList::Task vtable
-        task[0x18 / 4] = reinterpret_cast<uint32_t>(&SecondControllerCheckTask);
+        task[0x18 / 4] = reinterpret_cast<uint32_t>(&SecondPadWatchTick);
         task[0x1C / 4] = 0;
     }
     SecondControllerCheck() = task;
@@ -823,9 +823,9 @@ constexpr uint32_t kMenuScript = 0x2B0CFCA1;  // its pad_choose script
 constexpr uint32_t kFirstRestartId = 123456;  // the restart items' ids, from here
 
 // A new, empty script structure (from the structures' pool) and its deletion.
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    auto* structure = Scripts::NewStruct();
+    auto* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -858,11 +858,11 @@ bool __cdecl CFunc_AddRestartsToMenu(Scripts::CStruct* params, Scripts::CScript*
         const char* name;
         if (!node->FetchText("RestartName", &name, 0)) // "RestartName"
             name = "Unnamed restart";                       // "Unnamed restart"
-        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* item = SpawnParamTable();
         item->AppendWord(kMenuText, name);
         item->PutNameKey(kMenuId, kFirstRestartId + count);
         AddRestartItemFlags(item);
-        Scripts::CStruct* choose = NewStructure();
+        Scripts::CStruct* choose = SpawnParamTable();
         choose->PutNameKey(0x66780C6F, restart);
         item->PutSubStruct(kMenuParams, choose);
         float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
@@ -874,7 +874,7 @@ bool __cdecl CFunc_AddRestartsToMenu(Scripts::CStruct* params, Scripts::CScript*
         ++count;
     }
     if (!count) {
-        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* item = SpawnParamTable();
         item->AppendWord(kMenuText, "No restarts in level"); // "No restarts in level"
         item->PutNameKey(kMenuId, kFirstRestartId);
         AddRestartItemFlags(item);
@@ -892,14 +892,14 @@ bool __cdecl CFunc_AddWarpPointsToMenu(Scripts::CStruct* params, Scripts::CScrip
     Scripts::CArray* nodes = nullptr;
     params->FetchList(0xE2C2FA03u, &nodes, 0);
     for (uint32_t i = 0; i < nodes->m_extent; ++i) {
-        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* item = SpawnParamTable();
         Scripts::CStruct* node = LevelNodes::FetchVertex(nodes->FetchPart(i), true);
         const char* name;
         if (!node->FetchText(0xFCD206E1u, &name, 0))
             name = "Unnamed restart"; // "Unnamed restart"
         item->AppendWord(kMenuText, name);
         item->PutNameKey(kMenuScript, 0x54523C62);
-        Scripts::CStruct* choose = NewStructure();
+        Scripts::CStruct* choose = SpawnParamTable();
         choose->PutNameKey(0x9F92BA78, nodes->FetchPart(i));
         item->PutSubStruct(kMenuParams, choose);
         Scripts::LaunchScript(0xBEED50B6, item, nullptr, false, nullptr);
@@ -925,7 +925,7 @@ bool __cdecl CFunc_AddFacesToMenu(Scripts::CStruct*, Scripts::CScript*)
             std::memcpy(name, found.cFileName, std::strlen(found.cFileName) + 1);
             if (std::strlen(name) > 4)
                 name[std::strlen(name) - 4] = '\0';
-            Scripts::CStruct* item = NewStructure();
+            Scripts::CStruct* item = SpawnParamTable();
             item->AppendWord("name", name); // "name"
             item->AppendWord("file", file); // "file"
             Scripts::LaunchScript("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"

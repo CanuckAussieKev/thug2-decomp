@@ -9,7 +9,7 @@
 // - The skater's physics paths that turn, reflect or stop the skater against collision call NotePath after they ran
 //   (core_physics_walls.cpp, core_collision.cpp, core_physics.cpp): which path, the face the component's feeler hit
 //   and the feeler's line. Nothing is changed; with the switch off NotePath returns at once.
-// - EndFrame (the end of CorePhysicsComponent::TickFrame, once a frame) keeps the last 90 frames (FindReversal). A
+// - EndFrame (the end of SkaterPhysicsModule::TickFrame, once a frame) keeps the last 90 frames (FindReversal). A
 //   reversal: on the ground now, moving (5+ inches a second); within the last 60 frames a ground frame moving 60+
 //   along a direction at least 145 degrees from today's (dot < -0.8); and between them a sudden change - one frame's
 //   direction turning by more than 60 degrees or the speed going through zero (a turn, even a sharp one, is a few
@@ -167,6 +167,6 @@ std::string FormatEvent(const Occurrence& event, std::string (*name)(uint32_t));
 // The second line, starting "collision-event-detail: n=<n> ".
 std::string FormatDetail(const Detail& detail);
 // The pad's buttons held in `mask` (bit i: the CPadState's i-th button), '+'-joined ("-" for none).
-std::string ButtonNames(uint16_t mask);
+std::string PadButtonLabels(uint16_t mask);
 
 } // namespace Skater::CollisionEvents

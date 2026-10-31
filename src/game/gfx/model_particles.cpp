@@ -31,9 +31,9 @@ uint8_t AssertFlag() { return g_allocAssertFlag; }
 void* Carve(unsigned int size) { return MemSys::Hub::Pull()->Carve(size, AssertFlag(), nullptr); }
 void* AllocateZeroed(unsigned int size) { return MemSys::Hub::Pull()->AllocateZeroed(size, AssertFlag(), nullptr); }
 int Rand() { return Crt::Rand(); } // (the game's C runtime's)
-CRenderModel* NewModel(int) { return static_cast<CRenderModel*>(Engine3D::SpawnModel()); }
+CRenderModel* SpawnRenderModel(int) { return static_cast<CRenderModel*>(Engine3D::SpawnModel()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
-void ModelFileName(const char* name, const char* ext, char* out)
+void ModelPathFor(const char* name, const char* ext, char* out)
 {
     Gfx2D::MakeModelFileName(name, ext, out);
 }
@@ -44,7 +44,7 @@ void ModelFileName(const char* name, const char* ext, char* out)
 CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const char* model, uint32_t, int, int,
                                             float, int)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     m_label = name;
     char fileName[512] = {};
     m_positionArray = nullptr;
@@ -62,7 +62,7 @@ CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const 
     m_positionArray = static_cast<float*>(Carve(m_modelCount * 12));
     if (!m_positionArray)
         return this;
-    ModelFileName(model, kModelExtension, fileName);
+    ModelPathFor(model, kModelExtension, fileName);
     TextUtil::ToLowerText(fileName);
     m_modelList = static_cast<void**>(AllocateZeroed(m_modelCount * 4));
     if (!m_modelList)
@@ -70,7 +70,7 @@ CModelParticles* CModelParticles::MakeNew(uint32_t name, int particleCap, const 
     if (MemSys::MallocAvailable() < m_modelCount * kMemoryPerModel)
         return this;
     for (unsigned int i = 0; i < m_modelCount; ++i) {
-        m_modelList[i] = NewModel(AssertFlag());
+        m_modelList[i] = SpawnRenderModel(AssertFlag());
         auto* each = static_cast<CRenderModel*>(m_modelList[i]);
         if (!each)
             return this;

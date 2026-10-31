@@ -78,9 +78,9 @@ void VirtualFinalize(CGameEntity* object)
     reinterpret_cast<void(__thiscall*)(CGameEntity*)>(object->m_vtable[8])(object);
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -137,7 +137,7 @@ void SpawnPedestrian(Scripts::CStruct* params)
     AddBaseComponents(ped);
     AddMotionComponents(ped);
     ped->ChangeSpecies(kObjectTypePed);
-    CompositeObjectManager()->VirtualRegisterObject(ped);
+    ObjectHubSlot()->VirtualRegisterObject(ped);
     LevelNodes::FetchPlace(params, &ped->m_atPoint);
     AddNodeComponents(ped, params);
     Scripts::LaunchScript(kPedAddComponents, params, ped, false, nullptr);
@@ -184,7 +184,7 @@ void SpawnAutomobile(Scripts::CStruct* params)
     void* component = MemSys::AllocZeroed(0x58);
     car->AttachModule(component ? static_cast<CAutomobileDynamicsModule*>(component)->MakeNew() : nullptr);
     LevelNodes::FetchPlace(params, &car->m_atPoint);
-    CompositeObjectManager()->VirtualRegisterObject(car);
+    ObjectHubSlot()->VirtualRegisterObject(car);
     SetUpAutomobile(car, params);
 }
 
@@ -259,7 +259,7 @@ void CCrownObject::InitFromNode(CEntityHub* manager, Scripts::CStruct* node)
 {
     manager->VirtualRegisterObject(this);
     AddMotionComponents(this);
-    Scripts::CStruct* model = NewStructure();
+    Scripts::CStruct* model = SpawnParamTable();
     model->PutNameKey(kComponent, kModel);
     VirtualCreateComponentFromStructure(model, nullptr);
     DeleteStructure(model);

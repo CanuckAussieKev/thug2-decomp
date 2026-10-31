@@ -23,7 +23,7 @@ constexpr uint32_t kRiserBelow = 0x4A0D22DB; // riser_below
 constexpr uint32_t kRiserFloor = 0xB0A98147; // riser_floor
 constexpr int kNoHeight = -1000;
 constexpr float kQuarterTurnDegrees = 90.0f; // 0x00645EB0
-constexpr float kDegreesToRadians = 0.017453292f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
 MemSys::PoolPair& EntryPools() { return g_clipboardEntryPools; }
@@ -42,7 +42,7 @@ int FreeRailPoints(void* editor)
     return CRailAuthoring::FreePoints();
 }
 void* NewRail(void* editor) { return static_cast<CRailAuthoring*>(editor)->NewRail(); }
-void* NextRail(void* rail) { return *static_cast<void**>(rail); }
+void* FollowRailLink(void* rail) { return *static_cast<void**>(rail); }
 // A rail's points (0x004F3B90); a copy of `from` (0x004F6F40); placed at `corner` and `cursor` turned by `angle`
 // (0x004F4370); two transforms with an origin, a position and an angle (0x004F61C0, 0x004F6210); hidden (0x004F4220,
 // 0x004F41C0); its destructor body (0x004F70F0); its pool pair (0x007CCD40).
@@ -160,7 +160,7 @@ void CClipboardEntry::Graft(uint8_t centreX, int height, uint8_t centreZ, CBuild
     SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
     FetchExtent(&area, centreX, centreZ, cursor);
     int top = m_y + height;
-    if (m_pieceGroup && (m_pieceGroup->m_flagBits & CPieceGroup::kInnerShell))
+    if (m_pieceGroup && (m_pieceGroup->m_flagBits & CPieceGroup::kBuiltShell))
         top += m_pieceGroup->m_cellFootprint.h;
     if (top >= 16)
         top = 15;
@@ -176,7 +176,7 @@ void CClipboardEntry::Graft(uint8_t centreX, int height, uint8_t centreZ, CBuild
         flat = false;
         floor = manager->GetGroundLevel(area, &flat);
     }
-    if (m_pieceGroup && !(m_pieceGroup->m_flagBits & CPieceGroup::kInnerShell)) {
+    if (m_pieceGroup && !(m_pieceGroup->m_flagBits & CPieceGroup::kBuiltShell)) {
         CPieceGroup* meta = manager->MakePlacedPiece(m_pieceGroup, 0);
         meta->SetQuarterTurns((cursor->m_quarterTurns + m_quarterTurns) & 3);
         manager->PlaceMetaPieceInPark(area, meta);
@@ -201,7 +201,7 @@ void CClipboardEntry::GlowOverlappingPieces(uint8_t centreX, uint8_t centreZ, CB
     MapListHolder metas(CParkLayout::sSingleton()->CollectPiecesInRegion(area));
     for (CMapListNode* node = metas.list; node; node = node->m_following) {
         CPieceGroup* meta = node->GetPieceGroup()->Cast();
-        if (!(meta->m_flagBits & CPieceGroup::kInnerShell))
+        if (!(meta->m_flagBits & CPieceGroup::kBuiltShell))
             meta->Spotlight(on, 0);
     }
 }
@@ -215,8 +215,8 @@ void CClipboardEntry::ShowPreview(uint8_t centreX, int /*height*/, uint8_t centr
     const int dx = m_posX - centreX;
     const int dz = m_depthCell - centreZ;
     const float x = static_cast<float>(((m_w - 1) * 0.5 + dx) * kCellWidth);
-    const double z = ((m_l - 1) * 0.5 + dz) * kCellLength;
-    const double radians = static_cast<double>(angle) * kDegreesToRadians;
+    const double z = ((m_l - 1) * 0.5 + dz) * kGridStepAlong;
+    const double radians = static_cast<double>(angle) * kRadiansPerDegree;
     const float sine = static_cast<float>(X87::Sin(radians));
     const double cosine = X87::Cos(radians);
     const float turnedX = static_cast<float>(z * sine + x * cosine);
@@ -226,7 +226,7 @@ void CClipboardEntry::ShowPreview(uint8_t centreX, int /*height*/, uint8_t centr
     at.w = position.w;
     at.z = static_cast<float>(position.z + turnedZ);
     at.x = position.x + turnedX;
-    at.y = static_cast<float>(m_y * static_cast<double>(kCellHeight) + position.y);
+    at.y = static_cast<float>(m_y * static_cast<double>(kGridStepUp) + position.y);
     if (!mp_preview) {
         mp_preview = CParkLayout::sSingleton()->MakePlacedPiece(m_pieceGroup, 0x204);
         mp_preview->m_flagBits |= CPieceGroup::kCursor;
@@ -353,7 +353,7 @@ void CClipboard::PreviewPieces(Maths::Vec4 position, float angle, int height)
         entry->ShowPreview(centreX, height, centreZ, position, angle);
     Maths::Vec4 centre;
     GetCentre(&centre);
-    for (void* rail = m_railGroups; rail; rail = NextRail(rail)) {
+    for (void* rail = m_railGroups; rail; rail = FollowRailLink(rail)) {
         TransformRail1(rail, &centre, &position, angle);
         TransformRail2(rail, &centre, &position, angle);
     }
@@ -366,7 +366,7 @@ void CClipboard::FreeAllPieceGroups()
         if (entry->mp_preview)
             DestroyPreview(entry);
     }
-    for (void* rail = m_railGroups; rail; rail = NextRail(rail))
+    for (void* rail = m_railGroups; rail; rail = FollowRailLink(rail))
         HideRail(rail);
 }
 
@@ -375,7 +375,7 @@ bool CClipboard::AddRow(CPieceGroup* meta, int dy)
 {
     const SCellBox area = meta->m_cellFootprint;
     const int8_t y = static_cast<int8_t>(area.y + dy);
-    CPieceGroup* source = CParkLayout::sSingleton()->GetAbstractMetaPiece(meta->m_nameKey, nullptr);
+    CPieceGroup* source = CParkLayout::sSingleton()->FetchMetaTemplate(meta->m_nameKey, nullptr);
     // (Already in it: done.)
     for (CClipboardEntry* entry = mp_metas; entry; entry = entry->m_following) {
         if (entry->m_pieceGroup == source && entry->m_posX == area.x && entry->m_y == y && entry->m_depthCell == area.z &&
@@ -441,7 +441,7 @@ void CClipboard::Teardown()
     m_hiCellX = 0;
     m_editSpan.AssignValue(0, 0, 0, 0, 0, 0);
     for (void* rail = m_railGroups; rail;) {
-        void* next = NextRail(rail);
+        void* next = FollowRailLink(rail);
         DestroyRail(rail);
         RailPools().Dealloc(rail);
         rail = next;
@@ -513,7 +513,7 @@ bool CClipboard::ShowAt(CBuildPointer* cursor)
         }
     }
     int railPoints = 0;
-    for (void* rail = m_railGroups; rail; rail = NextRail(rail))
+    for (void* rail = m_railGroups; rail; rail = FollowRailLink(rail))
         railPoints += RailPointCount(rail);
     if (railPoints > FreeRailPoints(RailEditor())) {
         CParkBuilderMode::Release();
@@ -524,7 +524,7 @@ bool CClipboard::ShowAt(CBuildPointer* cursor)
     Maths::Vec4 centre;
     GetCentre(&centre);
     Maths::Vec4 at = *editor->GetCursorPos();
-    for (void* rail = m_railGroups; rail; rail = NextRail(rail)) {
+    for (void* rail = m_railGroups; rail; rail = FollowRailLink(rail)) {
         void* copy = NewRail(RailEditor());
         DuplicateRailPath(copy, rail);
         PlaceRail(copy, &centre, &at, static_cast<float>(cursor->m_quarterTurns * static_cast<double>(kQuarterTurnDegrees)));

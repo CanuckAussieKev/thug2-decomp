@@ -19,7 +19,7 @@
 
 namespace GameObjects {
 
-void* g_proximManager;
+void* g_proximityHub;
 
 namespace {
 
@@ -28,17 +28,17 @@ constexpr uint32_t kShape = 0x22CF0027;           // (the shape's parameter)
 constexpr uint32_t kProximType = 0x7321A8D6;      // (what the node reacts to)
 constexpr uint32_t kRadius = 0xC48391A5;          // radius
 constexpr uint32_t kScript = 0x2CA8A299;          // (the node's script)
-constexpr uint32_t kProximObject = 0x5113F19C;    // ProximObject (a flag)
-constexpr uint32_t kSectorName = 0x08470F2E;      // (the object's sector, by the node's name)
+constexpr uint32_t kProximityTag = 0x5113F19C;    // ProximObject (a flag)
+constexpr uint32_t kOwnerSectorKey = 0x08470F2E;      // (the object's sector, by the node's name)
 constexpr uint32_t kClass = 0x12B4E660;           // class
 constexpr uint32_t kRestart = 0x1806DDF8;         // Restart
 
 // The skaters by object id (0-31).
-constexpr int kMaxSkaters = 32;
+constexpr int kSkaterSlots = 32;
 
-ProximManager*& Hub() { return reinterpret_cast<ProximManager*&>(g_proximManager); }
-CEntityHub* ObjectManager() { return g_compositeObjectManager; }
-CEntity* ObjectById(uint32_t id) { return ObjectManager()->LookUpEntity(id); }
+ProximityRegistry*& Hub() { return reinterpret_cast<ProximityRegistry*&>(g_proximityHub); }
+CEntityHub* EntityHubHandle() { return g_compositeRegistry; }
+CEntity* EntityForId(uint32_t id) { return EntityHubHandle()->LookUpEntity(id); }
 
 // A level sector's bounding box and world matrix (not rewritten yet).
 const Maths::BBox* SectorBox(void* sector)
@@ -68,18 +68,18 @@ void FlagAsDead(CEntity* object)
 }
 
 // The node's script, run for `object` (as a spawned script on it) or by itself; `entering` tells it which.
-void ExecuteNodeScript(ProximManager* manager, ProximNode* node, CEntity* object, bool entering)
+void ExecuteNodeScript(ProximityRegistry* manager, ProximNode* node, CEntity* object, bool entering)
 {
     manager->m_entering = entering;
     manager->m_inScript = true;
     if (object) {
-        object->StartScriptTask(node->m_runScript, static_cast<int>(node->m_label), false, false, nullptr);
+        object->StartScriptTask(node->m_ownScript, static_cast<int>(node->m_label), false, false, nullptr);
         if (entering)
             node->m_isWithin |= 1u << object->m_ident;
         else
             node->m_isWithin &= ~(1u << object->m_ident);
     } else {
-        Scripts::LaunchScript(node->m_runScript, nullptr, nullptr, false, nullptr);
+        Scripts::LaunchScript(node->m_ownScript, nullptr, nullptr, false, nullptr);
     }
     manager->m_inScript = false;
 }
@@ -108,7 +108,7 @@ int ProximShapeFromChecksum(uint32_t checksum)
 // 0x0046AB10
 void Proxim_AllocateManager()
 {
-    auto* manager = static_cast<ProximManager*>(MemSys::AllocZeroed(sizeof(ProximManager)));
+    auto* manager = static_cast<ProximityRegistry*>(MemSys::AllocZeroed(sizeof(ProximityRegistry)));
     if (manager)
         manager->m_inScript = false;
     Hub() = manager;
@@ -126,7 +126,7 @@ void NearbyZone_Startup()
 // 0x0046AB50
 void NearbyZone_Shutdown()
 {
-    ProximManager* manager = Hub();
+    ProximityRegistry* manager = Hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->m_head; node;) {
@@ -158,20 +158,20 @@ void ProximNode::ChangeLive(bool active)
             // its objects killed
             for (int id = 0; m_entities != 0; ++id) {
                 if (m_entities & 1) {
-                    if (CEntity* object = ObjectById(m_entityKey + id))
+                    if (CEntity* object = EntityForId(m_entityKey + id))
                         FlagAsDead(object);
                 }
                 m_entities >>= 1;
             }
-        } else if (ProximManager* manager = Hub()) {
+        } else if (ProximityRegistry* manager = Hub()) {
             // the exit script for each skater inside
             for (int id = 0; m_isWithin != 0; ++id) {
                 if (m_isWithin & 1) {
-                    CEntity* object = ObjectById(id);
+                    CEntity* object = EntityForId(id);
                     manager->m_entering = false;
                     manager->m_inScript = true;
                     if (object)
-                        object->StartScriptTask(m_runScript, static_cast<int>(m_label), false, false, nullptr);
+                        object->StartScriptTask(m_ownScript, static_cast<int>(m_label), false, false, nullptr);
                     manager->m_inScript = false;
                 }
                 m_isWithin >>= 1;
@@ -185,7 +185,7 @@ void ProximNode::ChangeLive(bool active)
 // 0x0046ACB0
 void ProximityNode_Enable(uint32_t name, int active)
 {
-    ProximManager* manager = Hub();
+    ProximityRegistry* manager = Hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->m_head; node; node = node->m_succ) {
@@ -290,7 +290,7 @@ void NearbyZone_AddNode(uint32_t name, bool active)
     auto* node = static_cast<ProximNode*>(MemSys::AllocZeroed(sizeof(ProximNode)));
     if (node)
         new (&node->m_box) Maths::BBox();
-    ProximManager* manager = Hub();
+    ProximityRegistry* manager = Hub();
     node->m_succ = manager->m_head;
     Hub()->m_head = node;
     node->m_label = name;
@@ -316,11 +316,11 @@ void NearbyZone_AddNode(uint32_t name, bool active)
     }
     params->FetchFloat(kRadius, &node->m_radius, 0);
     node->m_radiusSquared = node->m_radius * node->m_radius;
-    params->ReadHashValue(kScript, &node->m_runScript, 0);
+    params->ReadHashValue(kScript, &node->m_ownScript, 0);
     node->m_entityKey = 0;
     node->m_entities = 0;
     node->m_isWithin = 0;
-    if (params->HasBareFlag(kProximObject)) {
+    if (params->HasBareFlag(kProximityTag)) {
         node->m_outside = 0xFFFFFFFF;
         params->ReadHashValue(kName, &node->m_entityKey, 0);
         return;
@@ -328,7 +328,7 @@ void NearbyZone_AddNode(uint32_t name, bool active)
     node->m_outside = 0;
     node->m_active = true;
     int id = 0;
-    for (CEntity* skater = ObjectById(0); skater && id < kMaxSkaters; skater = ObjectById(++id)) {
+    for (CEntity* skater = EntityForId(0); skater && id < kSkaterSlots; skater = EntityForId(++id)) {
         if (reinterpret_cast<uint8_t*>(skater)[0xBC])
             node->m_isWithin |= 1u << id;
     }
@@ -339,7 +339,7 @@ void NearbyZone_AddNode(uint32_t name, bool active)
 // 0x0046B400
 void ProximityNotify(uint32_t mask, CEntity* object, const Maths::Vec4* point, int type)
 {
-    ProximManager* manager = Hub();
+    ProximityRegistry* manager = Hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->m_head; node; node = node->m_succ) {
@@ -354,19 +354,19 @@ void ProximityNotify(uint32_t mask, CEntity* object, const Maths::Vec4* point, i
             if (node->m_entityKey == 0) {
                 ExecuteNodeScript(manager, node, object, true);
             } else if (object) {
-                CGameEntity* made = ObjectManager()->CreateCompositeObject();
+                CGameEntity* made = EntityHubHandle()->CreateCompositeObject();
                 made->ChangeSerial(node->m_entityKey + object->m_ident);
                 made->m_atPoint = node->m_atPoint;
                 node->m_entities |= 1u << object->m_ident;
                 Scripts::CStruct params;
                 params.PrepareAll();
                 if (node->m_sector)
-                    params.PutNameKey(kSectorName, node->m_label);
+                    params.PutNameKey(kOwnerSectorKey, node->m_label);
                 made->BuildModulesFromList(Scripts::FetchList("proximobj_composite_structure"), &params);
                 reinterpret_cast<void(__thiscall*)(CGameEntity*)>(made->m_vtable[0x20 / 4])(made);
                 Scripts::CStruct scriptParams;
                 scriptParams.PrepareAll();
-                made->ReplaceScript(node->m_runScript, &scriptParams);
+                made->ReplaceScript(node->m_ownScript, &scriptParams);
                 scriptParams.Clear();
                 params.Clear();
             }
@@ -378,7 +378,7 @@ void ProximityNotify(uint32_t mask, CEntity* object, const Maths::Vec4* point, i
             if (node->m_entityKey == 0) {
                 ExecuteNodeScript(manager, node, object, false);
             } else if (object) {
-                if (CEntity* made = ObjectById(node->m_entityKey + object->m_ident))
+                if (CEntity* made = EntityForId(node->m_entityKey + object->m_ident))
                     FlagAsDead(made);
                 node->m_entities &= ~(1u << object->m_ident);
             }

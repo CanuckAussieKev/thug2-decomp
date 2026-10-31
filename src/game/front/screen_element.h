@@ -162,12 +162,12 @@ public:
     // --- parameter helpers ---
     // 0x004A8C80: a position from Pos (a pair: relative adds the position morphed to, proportional is a fraction
     // of the parent's size; or a vector's x, y). False without one.
-    bool ResolvePos(Scripts::CStruct* params, float* x, float* y);
+    bool ReadPositionParam(Scripts::CStruct* params, float* x, float* y);
     // 0x004A8DC0: a justification from the array `name` (two names: left/top -1, right/bottom 1, else 0; or two
     // floats). False without the array.
-    bool ResolveJust(Scripts::CStruct* params, uint32_t name, float* x, float* y);
+    bool ReadAlignmentParam(Scripts::CStruct* params, uint32_t name, float* x, float* y);
     // 0x004A8E90: an rgba from the array `name` (bytes, lowest first). False without the array.
-    bool ResolveRGBA(Scripts::CStruct* params, uint32_t name, uint32_t* rgba);
+    bool ReadColourParam(Scripts::CStruct* params, uint32_t name, uint32_t* rgba);
 
     // --- fields (after CEntity's) ---
     GameObjects::CSharedRef<CUiWidget> m_container;       // +0x4C

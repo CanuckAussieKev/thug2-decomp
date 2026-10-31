@@ -378,7 +378,7 @@ uint32_t NameChecksumFor(const std::string& text)
 }
 } // namespace
 
-std::string LogEntry(const Spec& s, const char* materialName)
+std::string LinkRecord(const Spec& s, const char* materialName)
 {
     std::ostringstream out;
     char colour[16];

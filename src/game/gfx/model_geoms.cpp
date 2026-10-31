@@ -162,7 +162,7 @@ CRenderModel* CRenderModel::MakeNew()
         m_displayMode = 6;
     m_geomTotal = 0;
     m_sourcePath = kNone;
-    m_flagBits = static_cast<uint8_t>((m_flagBits & ~kModelHidden) | kModelActive);
+    m_flagBits = static_cast<uint8_t>((m_flagBits & ~kModelHidden) | kModelEnabledBit);
     m_sizeFactor = {1.0f, 1.0f, 1.0f, 1.0f};
     m_flagBits &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
     mp_lights = nullptr;
@@ -374,7 +374,7 @@ bool CRenderModel::Render(Maths::Mat4* matrix, bool noBones, uint8_t* skeleton)
     bool normal = m_displayMode == 0;
     int index = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++index) {
-        bool active = normal && (m_flagBits & kModelActive) && (m_visibleGeoms & GeomBit(index));
+        bool active = normal && (m_flagBits & kModelEnabledBit) && (m_visibleGeoms & GeomBit(index));
         SetGeomActive(Geom(node), active);
     }
     if (m_flagBits & kModelScaled) {
@@ -439,7 +439,7 @@ int CRenderModel::TestBoneVolumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d
         if (!volumes)
             continue;
         float distance = nearest;
-        int result = reinterpret_cast<Gfx2D::CBoneVolumes*>(volumes)->TestLine(
+        int result = reinterpret_cast<Gfx2D::CBoneVolumes*>(volumes)->SegmentHitsBone(
             reinterpret_cast<const Maths::Seg*>(a), reinterpret_cast<Gfx2D::CRig*>(b),
             reinterpret_cast<const Maths::Mat4*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
             reinterpret_cast<float*>(&extra));
@@ -628,7 +628,7 @@ bool CRenderModel::ReplaceFaceTexture(void* face, const char* source, uint32_t n
     // applied to the image (0x00486F70) with the face's colour parameters.
     uint8_t color[0x30];
     Gfx2D::ReadFacePoints(reinterpret_cast<Gfx2D::SFaceAnchors*>(color), Scripts::ReadSubStruct(kSkinColor));
-    Gfx2D::SetModelFacePoints(reinterpret_cast<const Gfx2D::SFaceAnchors*>(color));
+    Gfx2D::ChangeFaceAnchors(reinterpret_cast<const Gfx2D::SFaceAnchors*>(color));
     Gfx2D::SetFaceOverlay(static_cast<CBitmapTexture*>(overlay));
     uint8_t parameters[0x38];
     auto getParameters = [faceTexture](uint8_t* out) {

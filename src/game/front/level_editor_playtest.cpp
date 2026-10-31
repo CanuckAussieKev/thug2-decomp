@@ -230,7 +230,7 @@ int Run::Bails() const
     return n;
 }
 
-int Run::BestCombo() const
+int Run::TopComboValue() const
 {
     int best = 0;
     for (const Occurrence& e : events) {
@@ -433,7 +433,7 @@ constexpr uint32_t kSkaterState = 0x43686585;        // SkaterState
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
 constexpr uint32_t kSkaterScore = 0xD262802F;        // SkaterScore
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters)
-constexpr uint32_t kCameraComponent = 0xC4E311FA;    // (camera objects)
+constexpr uint32_t kCamModuleName = 0xC4E311FA;    // (camera objects)
 
 template <typename T> T At(const void* base, uint32_t offset)
 {
@@ -521,7 +521,7 @@ std::vector<uint32_t> g_touchedBefore;
 bool g_handlerRegistered;
 uint32_t g_simStarted;
 
-uint32_t SceneNow() { return Scenery::SceneName(Scenery::MainScene()); }
+uint32_t SceneNow() { return Scenery::WorldSceneKey(Scenery::MainScene()); }
 
 std::string TrailsPath(uint32_t scene) { return GameFolderPath("thug2-decomp-layouts") + "\\" + FileName(scene); }
 
@@ -590,7 +590,7 @@ void CloseRun(const char* why)
     g_rec.run.number = level.nextNumber;
     Log("level editor: trail run %d recorded (%s): %.1f s, %u points, %d gaps landed, %d bails, best combo %d%s",
         g_rec.run.number, why, g_rec.run.seconds, static_cast<unsigned>(g_rec.run.samples.size()), g_rec.run.GapsLanded(),
-        g_rec.run.Bails(), g_rec.run.BestCombo(), g_rec.run.full ? " (full)" : "");
+        g_rec.run.Bails(), g_rec.run.TopComboValue(), g_rec.run.full ? " (full)" : "");
     level.AppendOne(std::move(g_rec.run));
 }
 
@@ -603,7 +603,7 @@ void OpenRun(int load)
     Log("level editor: trail - recording a run (the level's edited copy in play)");
 }
 
-void LogEntry(GameModules::FrontEnd* frontEnd)
+void LinkRecord(GameModules::FrontEnd* frontEnd)
 {
     int load = Layout::LevelLoads();
     if (g_rec.open && (g_rec.load != load || !g_recordOn))
@@ -688,7 +688,7 @@ void RestartStep(GameModules::FrontEnd* frontEnd)
         return;
     uint32_t restart = g_restart;
     g_restart = 0;
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->PutNameKey(Checksums::HashFromText("node_name"), restart);
     Scripts::LaunchScript(Checksums::HashFromText("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->Clear();
@@ -709,7 +709,7 @@ void __cdecl SnapOne(GameObjects::CEntity* object, void* data)
     auto* composite = static_cast<GameObjects::CGameEntity*>(object);
     if ((composite->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD) || (composite->m_compositeFlags & GameObjects::COMPOSITE_FLAG_DESTROYING))
         return;
-    if (composite->FetchModule(kSkaterPhysicsControl) || composite->FetchModule(kCameraComponent))
+    if (composite->FetchModule(kSkaterPhysicsControl) || composite->FetchModule(kCamModuleName))
         return;
     walk->out->push_back({Objects::StoreAway(composite), composite->m_vel});
 }
@@ -766,7 +766,7 @@ void StartSimulation()
         return;
     }
     g_snapshots.clear();
-    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager()) {
+    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot()) {
         SnapWalk walk = {&g_snapshots};
         manager->ForEach(SnapOne, &walk);
     }
@@ -834,7 +834,7 @@ void TickFrame(GameModules::FrontEnd* frontEnd)
     if (g_simulating) // (the editor closed some other way: the world put back first)
         StopSimulation("the editor closed");
     RestartStep(frontEnd);
-    LogEntry(frontEnd);
+    LinkRecord(frontEnd);
 }
 
 void OnEditorStart()

@@ -12,7 +12,7 @@ namespace Engine3D {
 // A pass's UV wibble (0x30 bytes, constructor 0x004D1A60: all 0 but the matrix's first value, 1): velocities,
 // frequencies, amplitudes and phases (u, v each), an explicit UV matrix's 2x2 part (+0x20; only two values are
 // set) and its offsets (+0x28).
-struct sUVWibble {
+struct sUVOscillator {
     float velocity[2];
     float frequency[2];
     float amplitude[2];
@@ -21,9 +21,9 @@ struct sUVWibble {
     float offset[2];
 
     // 0x004D1A60: construct - all 0 but the matrix's first value, 1. Returns this.
-    sUVWibble* MakeNew();
+    sUVOscillator* MakeNew();
 };
-static_assert(sizeof(sUVWibble) == 0x30, "layout must match the original");
+static_assert(sizeof(sUVOscillator) == 0x30, "layout must match the original");
 
 // A material's texture animation (0x44 bytes, +0xFC): for each pass a list of keys (a time in milliseconds and the
 // texture from then on), played from a phase, looping (`loops` times, then held at the end; 0: for ever).
@@ -76,9 +76,9 @@ struct materialRef {
     float passColor[4][4]; // +0x40: r, g, b (0.5: unchanged) and a fourth value
     uint32_t blendModes[4];    // +0x80 (ChooseBlendMode's)
     uint32_t addressModes[4];  // +0x90 (kAddressMode0's)
-    float envMapTiling[4][2];  // +0xA0 (3, 3 when constructed)
+    float reflectionTiling[4][2];  // +0xA0 (3, 3 when constructed)
     uint32_t unknownC0[4];     // +0xC0 (0x10001 when constructed)
-    sUVWibble* uvWibble[4];    // +0xD0
+    sUVOscillator* uvWibble[4];    // +0xD0
     uint32_t mipLodBias[4];    // +0xE0 (kMipLodBias0's: float bits)
     uint32_t colorAnimCount;   // +0xF0
     sColorAnim* colorAnims;    // +0xF4
@@ -109,7 +109,7 @@ struct materialRef {
     void SubmitPass(uint32_t pass, const float* color);
 };
 static_assert(offsetof(materialRef, passFlags) == 0x20 && offsetof(materialRef, passColor) == 0x40 &&
-                  offsetof(materialRef, envMapTiling) == 0xA0 && offsetof(materialRef, uvWibble) == 0xD0 &&
+                  offsetof(materialRef, reflectionTiling) == 0xA0 && offsetof(materialRef, uvWibble) == 0xD0 &&
                   offsetof(materialRef, colorAnimCount) == 0xF0 && offsetof(materialRef, textureAnim) == 0xFC &&
                   offsetof(materialRef, specularPower) == 0x10C && sizeof(materialRef) == 0x110,
               "layout must match the original");

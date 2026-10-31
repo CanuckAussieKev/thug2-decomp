@@ -39,7 +39,7 @@ int ArcRotationBlender::SetMatrices(const Mat4& from, const Mat4& to)
 }
 
 // 0x004058E0
-void ArcRotationBlender::InvertDirection()
+void ArcRotationBlender::FlipHeading()
 {
     axis = -axis;
     angle = 6.28318548f - angle; // 2 pi

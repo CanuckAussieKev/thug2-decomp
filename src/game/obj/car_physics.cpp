@@ -59,7 +59,7 @@ constexpr float kMinusRadiansToDegrees = -57.2957764f; // 0x00645EA4
 constexpr float kFullTurn = 360.0f;               // 0x00645EA8
 constexpr float kSpinScale = 0.000668449211f;     // 0x00645EAC
 constexpr float kSpinSpeedScale = 90.0f;          // 0x00645EB0
-constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
@@ -86,7 +86,7 @@ CAutomobileDynamicsModule::BoneDesc* ModelBones(void* model)
     return reinterpret_cast<CAutomobileDynamicsModule::BoneDesc*>(static_cast<Engine3D::CRenderModel*>(model)->GetAssetHierarchy());
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
-Maths::Mat4* SkeletonMatrices(void* skeleton) { return *reinterpret_cast<Maths::Mat4**>(static_cast<uint8_t*>(skeleton) + 4); }
+Maths::Mat4* RigMatrixBlock(void* skeleton) { return *reinterpret_cast<Maths::Mat4**>(static_cast<uint8_t*>(skeleton) + 4); }
 int SkeletonBoneCount(void* skeleton) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(skeleton) + 0x14); }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
@@ -256,10 +256,10 @@ void CAutomobileDynamicsModule::UpdateAngles()
 void __cdecl CAutomobileDynamicsModule::RefreshBoneRig(void* skeleton, void* model, float tilt, float spin, float steer)
 {
     BoneDesc* bones = ModelBones(model);
-    Maths::Mat4* matrices = SkeletonMatrices(skeleton);
-    float tiltRadians = tilt * kDegreesToRadians;
-    float steerRadians = steer * kDegreesToRadians;
-    float spinRadians = spin * kDegreesToRadians;
+    Maths::Mat4* matrices = RigMatrixBlock(skeleton);
+    float tiltRadians = tilt * kRadiansPerDegree;
+    float steerRadians = steer * kRadiansPerDegree;
+    float spinRadians = spin * kRadiansPerDegree;
     for (int i = 0; i < SkeletonBoneCount(skeleton); ++i) {
         BoneDesc& bone = bones[i];
         Maths::Mat4* matrix = &matrices[bone.index];
@@ -298,7 +298,7 @@ void CAutomobileDynamicsModule::UpdateBones()
     collapsed.ResetToIdentity();
     Maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
     collapsed.StretchBy(nothing);
-    SkeletonMatrices(m_boneRig)[0] = collapsed;
+    RigMatrixBlock(m_boneRig)[0] = collapsed;
 }
 
 // 0x0041C1B0
@@ -344,7 +344,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CAutomobileDynamicsModule::Te
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

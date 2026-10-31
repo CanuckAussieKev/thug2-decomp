@@ -47,13 +47,13 @@ using namespace Detail;
 
 namespace {
 
-constexpr uint32_t kMasterServers = 0x9954;  // char[10][16]: the master servers' names
+constexpr uint32_t kMasterHostTable = 0x9954;  // char[10][16]: the master servers' names
 constexpr int kMasterServerCount = 10;
 constexpr uint32_t kConnectTask = 0xD8;      // TaskList::SchedulerTask* (the online state's)
 constexpr uint32_t kOnlineState = 0x1A8;     // int (-1: starting)
 constexpr uint32_t kOnlineScript = 0x1C4;    // uint32_t: run once online
 constexpr uint32_t kOfflineScript = 0x1C8;   // uint32_t: run when connecting fails / after disconnecting
-constexpr uint8_t kMsgFindServer = 0x11;
+constexpr uint8_t kMsgServerQuery = 0x11;
 constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
 
 // Checksums.
@@ -105,7 +105,7 @@ const char* const kNoAddress = "0.0.0.0";   // "0.0.0.0"
 const char* const kDefaultDns1 = "205.147.0.100"; // "205.147.0.100"
 const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
 const char* const kEmpty = "";       // ""
-const char* const kChecksumName = "checksum"; // "checksum"
+const char* const kHashFieldName = "checksum"; // "checksum"
 
 TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
 
@@ -126,7 +126,7 @@ void SetPreferenceText(OptionStore::Preferences* preferences, uint32_t name, con
 void Hub::UseNetworkPreferences()
 {
     NetLink::Hub* net = NetLink::Hub::Sole();
-    char(*servers)[16] = reinterpret_cast<char(*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterServers);
+    char(*servers)[16] = reinterpret_cast<char(*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterHostTable);
     for (int i = 0; i < kMasterServerCount; ++i)
         servers[i][0] = 0;
     OptionStore::Preferences* preferences = GetOnlineSettings();
@@ -289,7 +289,7 @@ uint32_t Hub::GetGoalsPreference()
 {
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
     auto goals = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this));
-    GetGamePreferences()->FetchSetting(kGoals)->ReadHashValue(kChecksumName, &goals, 1);
+    GetGamePreferences()->FetchSetting(kGoals)->ReadHashValue(kHashFieldName, &goals, 1);
     return goals;
 }
 
@@ -342,7 +342,7 @@ void Hub::DisconnectFromInternet(uint32_t script)
 // 0x00536C10
 void __cdecl Hub::CancelConnectToInternet()
 {
-    Hub* manager = g_gameNetManager;
+    Hub* manager = g_onlineHub;
     NetLink::Hub* net = NetLink::Hub::Sole();
     TaskList::SchedulerTask* task = Prop<TaskList::SchedulerTask*>(manager, kConnectTask);
     switch (net->GetDialupStatus()) {
@@ -379,18 +379,18 @@ void Hub::FindServerAt(uint32_t ip)
     EmptyServerListing();
     StartServerList();
     g_joinServerIPSucceeded = false;
-    if (!m_matchClient)
+    if (!m_browserClient)
         StartMatchmakingClient();
     if (!ip) {
         g_askedFor = 0;
         return;
     }
-    if (m_matchClient) {
+    if (m_browserClient) {
         uint32_t request[3]; // (the time; the rest is the original's stack)
         request[0] = FrameClock::GetTime();
         request[1] = request[2] = 0;
         g_askedFor = ip;
-        m_matchClient->DeliverTo(kMsgFindServer, sizeof(request), request, ip, kLanPort, 0);
+        m_browserClient->DeliverTo(kMsgServerQuery, sizeof(request), request, ip, kLanPort, 0);
     }
 }
 
@@ -398,7 +398,7 @@ void Hub::FindServerAt(uint32_t ip)
 void __cdecl Hub::ServiceGameSpy()
 {
     GameSpy::CdKeyThink();
-    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+    if (g_onlineActive && g_onlineHub->InNetGame() &&
         g_queryReporting)
         GameSpy::Qr2Think(nullptr);
 }
@@ -427,12 +427,12 @@ const char* Hub::GetGameTypeName()
 void Hub::ChangeArena(uint32_t level)
 {
     m_level = level;
-    void* peer = static_cast<RoomManager*>(m_lobbyMan)->GetLobbyHandle();
-    if (peer && GameSpy::PeerIsConnected(peer) && static_cast<RoomManager*>(m_lobbyMan)->IsHosting())
+    void* peer = static_cast<RoomManager*>(m_lobbyService)->GetLobbyHandle();
+    if (peer && GameSpy::PeerIsConnected(peer) && static_cast<RoomManager*>(m_lobbyService)->IsHosting())
         GameSpy::PeerStateChanged(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     g_openWaiting = false;
-    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+    if (g_onlineActive && g_onlineHub->InNetGame() &&
         g_queryReporting && g_openWaiting)
         GameSpy::Qr2SendStateChanged(nullptr);
 }

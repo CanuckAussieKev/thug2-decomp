@@ -69,7 +69,7 @@ CStaticCollider* CStaticCollider::MakeNew()
 {
     m_flagBits = 0;
     m_geometry = nullptr;
-    m_vtable = Vt::kCollStatic;
+    m_vtable = Vt::kVtblStaticColl;
     m_octets = nullptr;
     m_unknown14 = 0;
     return this;
@@ -78,7 +78,7 @@ CStaticCollider* CStaticCollider::MakeNew()
 // 0x00412760
 void CStaticCollider::Destruct()
 {
-    m_vtable = Vt::kCollStatic;
+    m_vtable = Vt::kVtblStaticColl;
     if ((m_flagBits & kOwnsGeometry) && m_octets) {
         MemSys::FreeMalloc(m_octets);
         m_octets = nullptr;
@@ -104,7 +104,7 @@ CHitMesh* CStaticCollider::Replicate(bool instance)
         if (memory) {
             memory->m_flagBits = 0;
             memory->m_geometry = nullptr;
-            memory->m_vtable = Vt::kCollStatic;
+            memory->m_vtable = Vt::kVtblStaticColl;
             memory->m_octets = nullptr;
             memory->m_unknown14 = 0;
         }
@@ -242,14 +242,14 @@ void CCollStaticInstance::PlaceAtAbsolutePoint(const Maths::Vec4* position)
 {
     m_basisFrame.row[3] = *position;
     UpdateInverse();
-    UpdateWorldBBox();
+    RecomputeWorldBounds();
 }
 
 // 0x00413F30
 void CCollStaticInstance::ChangeFacing(const Maths::Mat4* orientation)
 {
     CCollScaled::ChangeFacing(orientation);
-    UpdateWorldBBox();
+    RecomputeWorldBounds();
 }
 
 // 0x00413F50
@@ -257,11 +257,11 @@ void CCollStaticInstance::ChangeScale(const Maths::Vec4* scale)
 {
     m_sizeFactor = *scale;
     UpdateInverse();
-    UpdateWorldBBox();
+    RecomputeWorldBounds();
 }
 
 // 0x004113B0
-void CCollStaticInstance::UpdateWorldBBox()
+void CCollStaticInstance::RecomputeWorldBounds()
 {
     m_worldBox.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     m_worldBox.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
@@ -310,7 +310,7 @@ void CCollStaticInstance::DrawDiagnostic(int a, int b)
 CHitMovingTriangles* CHitMovingTriangles::MakeNew(CTriMeshSource* geometry)
 {
     CHitMovingMesh::MakeNew();
-    m_vtable = Vt::kCollMovTri;
+    m_vtable = Vt::kVtblMovingMeshColl;
     new (&m_box) Maths::BBox();
     AssignShapeData(geometry);
     m_unknownD0 = geometry->m_unknown3C;
@@ -322,7 +322,7 @@ CHitMovingTriangles* CHitMovingTriangles::MakeNew(CTriMeshSource* geometry)
 CHitMovingTriangles* CHitMovingTriangles::ConstructCopy(const CHitMovingTriangles* other)
 {
     CHitMovingMesh::ConstructCopy(other);
-    m_vtable = Vt::kCollMovTri;
+    m_vtable = Vt::kVtblMovingMeshColl;
     m_radius = other->m_radius;
     m_boxDirty = other->m_boxDirty;
     m_box = other->m_box;
@@ -334,7 +334,7 @@ CHitMovingTriangles* CHitMovingTriangles::ConstructCopy(const CHitMovingTriangle
 // 0x00413070
 void CHitMovingTriangles::Destruct()
 {
-    m_vtable = Vt::kCollMovTri;
+    m_vtable = Vt::kVtblMovingMeshColl;
     CHitMovingMesh::Destruct();
 }
 
@@ -453,7 +453,7 @@ bool CollGeometryForwarders::IsPointBehindFaces(const Maths::Vec4* point, int un
 }
 
 // 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
-CHitMesh* CreateMovableCollision(int type, CTriMeshSource* geometries, int count, int value)
+CHitMesh* BuildDynamicHitMesh(int type, CTriMeshSource* geometries, int count, int value)
 {
     CHitMesh* made;
     if (type == 1) {

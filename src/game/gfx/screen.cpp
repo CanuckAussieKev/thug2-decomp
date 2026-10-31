@@ -17,8 +17,8 @@
 
 namespace Engine3D {
 
-float g_screenAspect;
-float g_defaultAngle;
+float g_widthOverHeight;
+float g_baseFovAngle;
 int g_scriptScreenBlur;
 
 float g_angleFactor{1.0f};
@@ -32,13 +32,13 @@ auto& ScreenBlur() { return g_screenBlur; }
 auto& ScriptScreenBlur() { return g_scriptScreenBlur; }
 
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
-float& ScreenAspect() { return g_screenAspect; }
+float& ViewRatioSlot() { return g_widthOverHeight; }
 float AngleFactorConstant() { return g_angleFactor; }
 
 // The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
-uint8_t& LetterboxActive() { return g_camera.letterboxActive; }
-float& ScreenScaleX() { return g_screenScaleX; }
-float& ScreenScaleY() { return g_screenScaleY; }
+uint8_t& CinemaBarsOn() { return g_camera.letterboxActive; }
+float& HorizScreenRatio() { return g_displayFactorX; }
+float& VertScreenRatio() { return g_displayFactorY; }
 uint32_t& ScreenOffsetX() { return reinterpret_cast<uint32_t&>(g_screenOffsetX); }
 uint32_t& ScreenOffsetY() { return reinterpret_cast<uint32_t&>(g_screenOffsetY); }
 uint32_t BackBufferWidth() { return reinterpret_cast<uint32_t&>(g_backBufferWidth); }
@@ -86,36 +86,36 @@ float Desired3DAspectRatio()
 // aspect: with widescreen_menus the window's shape in the front end too.)
 void SetScreenAspectRatio(float /*aspect*/)
 {
-    ScreenAspect() = Desired3DAspectRatio();
+    ViewRatioSlot() = Desired3DAspectRatio();
 }
 
 // 0x004A0790
-float GetScreenAspect()
+float FetchViewRatio()
 {
-    return ScreenAspect();
+    return ViewRatioSlot();
 }
 
 // 0x004A07A0
 void SetScreenAngle(float angle)
 {
-    g_defaultAngle = angle;
+    g_baseFovAngle = angle;
 }
 
 // 0x004A07B0
 float GetScreenAngle()
 {
-    return g_defaultAngle;
+    return g_baseFovAngle;
 }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
 // (0x00701340) is updated too.
-float GetScreenAngleFactor()
+float FetchFovRatio()
 {
     float aspect = Desired3DAspectRatio();
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
     float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
-    ScreenAspect() = aspect;
+    ViewRatioSlot() = aspect;
     if (AngleFactorConstant() != 1.0f)
         return AngleFactorConstant();
     return factor;
@@ -146,20 +146,20 @@ void SetLetterbox(bool letterbox)
     float desired = DesiredAspectRatio();
     if (backBufferAspect > desired) {
         // wider: bars left and right
-        ScreenScaleX() = desired / backBufferAspect * (static_cast<float>(BackBufferWidth()) / 640.0f);
-        ScreenScaleY() = static_cast<float>(BackBufferHeight()) / 480.0f;
-        auto width = static_cast<uint32_t>(ScreenScaleX() * 640.0f);
+        HorizScreenRatio() = desired / backBufferAspect * (static_cast<float>(BackBufferWidth()) / 640.0f);
+        VertScreenRatio() = static_cast<float>(BackBufferHeight()) / 480.0f;
+        auto width = static_cast<uint32_t>(HorizScreenRatio() * 640.0f);
         ScreenOffsetX() = (BackBufferWidth() - width) / 2;
-        ScreenOffsetY() = static_cast<uint32_t>(16.0f * ScreenScaleY());
+        ScreenOffsetY() = static_cast<uint32_t>(16.0f * VertScreenRatio());
     } else {
-        ScreenScaleX() = static_cast<float>(BackBufferWidth()) / 640.0f;
-        ScreenScaleY() = backBufferAspect / desired * (static_cast<float>(BackBufferHeight()) / 480.0f);
-        auto height = static_cast<uint32_t>(ScreenScaleY() * 480.0f);
+        HorizScreenRatio() = static_cast<float>(BackBufferWidth()) / 640.0f;
+        VertScreenRatio() = backBufferAspect / desired * (static_cast<float>(BackBufferHeight()) / 480.0f);
+        auto height = static_cast<uint32_t>(VertScreenRatio() * 480.0f);
         ScreenOffsetX() = 0;
         ScreenOffsetY() =
-            static_cast<uint32_t>(16.0f * ScreenScaleY() + static_cast<float>((BackBufferHeight() - height) / 2));
+            static_cast<uint32_t>(16.0f * VertScreenRatio() + static_cast<float>((BackBufferHeight() - height) / 2));
     }
-    LetterboxActive() = letterbox;
+    CinemaBarsOn() = letterbox;
 }
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are

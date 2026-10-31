@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// Four goal types: Skatetris (CTetrisGoal - tricks fall into a stack as screen elements and are cleared by doing
+// Four goal types: Skatetris (CFallingTricksGoal - tricks fall into a stack as screen elements and are cleared by doing
 // them; its TrickTris, combo and single_combo variants), TrickBeat (CTrickBeatGoal - tricks to land on the beat of a
 // sound pattern), TimedScoreRun and TrickObjects (CObjective with almost nothing of their own).
 // From the disassembly of 0x0056F090-0x00571110 and 0x00574960-0x00576520 (methods __thiscall). The goal manager
@@ -37,7 +37,7 @@ static_assert(sizeof(GoalBase) == 0x70 && offsetof(GoalBase, m_args) == 0x1C && 
               "layout must match the original");
 
 // One trick in the stack (0x20 bytes).
-struct TetrisTrick {
+struct StackedTrickEntry {
     uint32_t trick;     // +0x00 the trick's name (a grind: "FS " + name)
     uint32_t trick2;    // +0x04 a grind's "BS " + name
     uint32_t keyCombo;  // +0x08 a key combo's name (key combo tricks)
@@ -49,24 +49,24 @@ struct TetrisTrick {
     int spin;           // +0x18 in half turns
     int taps;           // +0x1C 1, or 2 for a double tap
 };
-static_assert(sizeof(TetrisTrick) == 0x20, "layout must match the original");
+static_assert(sizeof(StackedTrickEntry) == 0x20, "layout must match the original");
 
 // Skatetris (vtable 0x0064E8A0, 0x458 bytes).
-class CTetrisGoal : public GoalBase {
+class CFallingTricksGoal : public GoalBase {
 public:
     static constexpr int kMaxTricks = 30;
 
-    TetrisTrick m_tricks[kMaxTricks]; // +0x70
-    int m_numTricks;                   // +0x430
+    StackedTrickEntry m_tricks[kMaxTricks]; // +0x70
+    int m_trickTotal;                   // +0x430
     int m_stopwatch;                       // +0x434 ms since the last trick was added
     bool m_groupUsed[kMaxTricks];      // +0x438 the combo groups in use
     uint8_t pad456[2];
 
     // 0x0056F090: the constructor (CObjective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
     // scalar deleting destructor.
-    CTetrisGoal* MakeNew(Scripts::CStruct* params);
+    CFallingTricksGoal* MakeNew(Scripts::CStruct* params);
     void DestroyBody();
-    CTetrisGoal* Teardown(uint8_t flags);
+    CFallingTricksGoal* Teardown(uint8_t flags);
     // 0x0056F2E0: ready to start (trick_time copied to the current interval, the first trick soon).
     void PrepareAll();
     // 0x0056F130: every trick cleared (the slots left in use) and the single combo's added flag; 0x0056F5B0: the
@@ -98,8 +98,8 @@ public:
     bool Activate();
     bool TickFrame();
 };
-static_assert(offsetof(CTetrisGoal, m_numTricks) == 0x430 && offsetof(CTetrisGoal, m_groupUsed) == 0x438 &&
-                  sizeof(CTetrisGoal) == 0x458,
+static_assert(offsetof(CFallingTricksGoal, m_trickTotal) == 0x430 && offsetof(CFallingTricksGoal, m_groupUsed) == 0x438 &&
+                  sizeof(CFallingTricksGoal) == 0x458,
               "layout must match the original (0x0055BA10 allocates 0x458 bytes)");
 
 // One trick of TrickBeat's (0x20 bytes).
@@ -125,7 +125,7 @@ public:
     static constexpr int kBeats = 16;
 
     BeatTrick m_tricks[kMaxTricks]; // +0x70
-    int m_numTricks;                 // +0x430
+    int m_trickTotal;                 // +0x430
     int m_lastTime;                  // +0x434 the game clock last frame (ms)
     int m_beatTime;                  // +0x438 ms into the beat
     int m_beat;                      // +0x43C 0..15
@@ -173,7 +173,7 @@ public:
     bool Activate();
     bool TickFrame();
 };
-static_assert(offsetof(CTrickBeatGoal, m_numTricks) == 0x430 && offsetof(CTrickBeatGoal, m_pattern) == 0x448 &&
+static_assert(offsetof(CTrickBeatGoal, m_trickTotal) == 0x430 && offsetof(CTrickBeatGoal, m_pattern) == 0x448 &&
                   offsetof(CTrickBeatGoal, m_unknown45C) == 0x45C && sizeof(CTrickBeatGoal) == 0x47C,
               "layout must match the original (0x0055BA10 allocates 0x47C bytes)");
 

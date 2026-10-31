@@ -47,9 +47,9 @@ bool GameModeEndsRuns()
 // matches +0x38), and telling it (0x00533250).
 bool ServerToldRunEnded()
 {
-    return OnlinePlay::g_gameNetManager->GameEndedSent();
+    return OnlinePlay::g_onlineHub->GameEndedSent();
 }
-void TellServerRunEnded() { OnlinePlay::g_gameNetManager->SendGameEnded(); }
+void TellServerRunEnded() { OnlinePlay::g_onlineHub->SendGameEnded(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
 bool IsLocalSkater(CGameEntity* object) { return object->m_unknownBC != 0; }

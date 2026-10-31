@@ -57,11 +57,11 @@ void VirtualSlot38Jump();
 void VirtualSlot41Jump();
 
 // The texture's image size (slots 33 / 34).
-inline uint16_t TextureWidth(void* texture)
+inline uint16_t TexelsAcross(void* texture)
 {
     return reinterpret_cast<uint16_t(__thiscall*)(void*)>((*static_cast<void***>(texture))[33])(texture);
 }
-inline uint16_t TextureHeight(void* texture)
+inline uint16_t TexelsDown(void* texture)
 {
     return reinterpret_cast<uint16_t(__thiscall*)(void*)>((*static_cast<void***>(texture))[34])(texture);
 }

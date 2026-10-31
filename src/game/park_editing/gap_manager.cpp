@@ -188,7 +188,7 @@ void CGapRegistry::FireGap(int index, Scripts::CScript* script)
 {
     for (int i = 0; i < 2; ++i) {
         int half = m_startedFirst[index] ? i : 1 - i;
-        Scripts::CStruct* memory = Scripts::NewStruct();
+        Scripts::CStruct* memory = Scripts::SpawnParamBag();
         Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
         Gap* gap = mp_gaps[index];
         params->PutNameKey(kGapId, gap->m_ids[half]);

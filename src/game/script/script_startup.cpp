@@ -47,7 +47,7 @@ CFunctionEntry* FindCFunction(const char* name)
     return nullptr;
 }
 
-void SetCFunction(CFunctionEntry& entry, void* function)
+void BindNativeCommand(CFunctionEntry& entry, void* function)
 {
     entry.function = function;
 }

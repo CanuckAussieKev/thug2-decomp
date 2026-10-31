@@ -38,9 +38,9 @@ static_assert(offsetof(SFaceAnchors, m_h) == 0x24 && sizeof(SFaceAnchors) == 0x3
 // The face points of the head model's texture (0x0067DC14: the default ones - CS_NSN_Head's) and the current ones
 // massaged images are fitted to (0x0067DC4C), and the overlay drawn over them (0x006FA2EC).
 // 0x00486980: a copy of the default points.
-void __cdecl GetDefaultFacePoints(SFaceAnchors* out);
+void __cdecl FetchStockFaceAnchors(SFaceAnchors* out);
 // 0x004869A0: the current points set.
-void __cdecl SetModelFacePoints(const SFaceAnchors* points);
+void __cdecl ChangeFaceAnchors(const SFaceAnchors* points);
 // 0x004869C0: the overlay set (null: none).
 void __cdecl SetFaceOverlay(Engine3D::CBitmapTexture* overlay);
 // 0x004869D0: the points read from a structure: left_eye, right_eye, nose and lips (in that order - false at the first

@@ -31,7 +31,7 @@ const char* AnchorName(Anchor anchor);
 // The menu up now (`frontEnd` for the pause state; any of it may be null).
 Anchor AtHand(GameModules::FrontEnd* frontEnd);
 // The game mode's name ("singlesession", "freeskate", "career", "classic", "net"...; "" before there is one).
-std::string GameModeName();
+std::string ActiveRulesetLabel();
 // A network game, online, or a network game mode: the new front end leaves those to the original screens.
 bool NetSession();
 

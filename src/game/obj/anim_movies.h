@@ -48,7 +48,7 @@ static_assert(offsetof(CObjectAnimMovie, m_timeline) == 0x30 && sizeof(CObjectAn
 
 struct CCameraAnimMovie {
     CMovie m_base;
-    float m_viewAngle;                 // +0x2C (0: the script global 0x99529205)
+    float m_fieldOfView;                 // +0x2C (0: the script global 0x99529205)
     bool m_hasGoal;            // +0x30
     uint8_t pad31[3];
     uint32_t m_aimPoint;           // +0x34 the target object's name (0xC588EEBC: a fixed point, m_goalShift)

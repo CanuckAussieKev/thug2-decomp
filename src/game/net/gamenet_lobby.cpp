@@ -105,7 +105,7 @@ bool __cdecl CFunc_ResetConnectionTimer(Scripts::CStruct*, Scripts::CScript*)
 // 0x0053F8D0
 void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
 {
-    Hub* manager = g_gameNetManager;
+    Hub* manager = g_onlineHub;
     OptionStore::Preferences* prefs = manager->GetOnlineSettings();
     switch (key) {
     case kKeyHostname: {
@@ -155,7 +155,7 @@ void __cdecl RoomManager::ServerKeyCallback(void*, int key, void* buffer, void*)
         BufferAddInt(buffer, manager->GetHostingRole());
         break;
     case kKeyLoggedIn:
-        BufferAddInt(buffer, Prop<bool>(manager->m_buddyMan, 0x10) ? 1 : 0); // (the presence)
+        BufferAddInt(buffer, Prop<bool>(manager->m_presenceService, 0x10) ? 1 : 0); // (the presence)
         break;
     default:
         BufferAdd(buffer, "");
@@ -170,7 +170,7 @@ int __cdecl RoomManager::CountCallback(void*, int type, void*)
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return g_gameNetManager->CountPlayers();
+        return g_onlineHub->CountPlayers();
     return 0;
 }
 

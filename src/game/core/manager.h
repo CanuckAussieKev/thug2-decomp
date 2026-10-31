@@ -23,7 +23,7 @@ public:
     static_assert(sizeof(LabeledZone) == 0x90, "layout must match the original");
     static constexpr int kMaxHeaps = 48;
     static constexpr int kMaxNamedHeaps = 7;
-    static constexpr int kMaxSkaters = 8;
+    static constexpr int kSkaterSlots = 8;
 
     static Hub* Pull();
     static Hub*& Sole();
@@ -64,7 +64,7 @@ public:
 
     // Heaps by name checksum.
     LabeledZone* FindNamedHeap(uint32_t name);
-    Arena* GetNamedHeap(uint32_t name, int unused);
+    Arena* FetchHeapByKey(uint32_t name, int unused);
     bool ReleaseLabeledZone(uint32_t name, int unused);
     Arena* GetMemoryPool(uint32_t name);
     const char* GetZoneLabel(uint32_t name);
@@ -79,33 +79,33 @@ public:
 
     MemSource* m_heaps[kMaxHeaps];
     int m_heapCount;
-    MemSource** m_ongoing;            // the top of m_contextStack
-    MemSource* m_contextStack[16];
+    MemSource** m_ongoing;            // the top of m_allocSourceStack
+    MemSource* m_allocSourceStack[16];
     int m_contextDepth;
-    Zone* m_mainRegion;
+    Zone* m_primaryZone;
     Arena* m_topDownHeap;
     Arena* m_bottomUpHeap;
     Zone* m_frontEndRegion;
     Arena* m_frontEndHeap;
     Zone* m_scriptRegion;
     Arena* m_scriptHeap;
-    Zone* m_networkRegion;
+    Zone* m_multiplayerZone;
     Arena* m_networkHeap;
-    Zone* m_netMiscRegion;
+    Zone* m_networkExtrasZone;
     Arena* m_netMiscHeap;
-    Zone* m_internetRegion;
+    Zone* m_onlineZone;
     Arena* m_internetTopDownHeap;
     Arena* m_internetBottomUpHeap;
-    Zone* m_cutsceneRegion;
-    Arena* m_cutsceneTopDownHeap;
-    Arena* m_cutsceneBottomUpHeap;
-    Zone* m_debugRegion;
+    Zone* m_cinematicZone;
+    Arena* m_cinematicHighHeap;
+    Arena* m_cinematicLowHeap;
+    Zone* m_devToolsZone;
     Arena* m_debugHeap;
     uint32_t m_unknown158[2];
-    Zone* m_skaterRegions[kMaxSkaters];
-    Arena* m_skaterHeaps[kMaxSkaters];
-    Zone* m_skaterGeomRegions[kMaxSkaters];
-    Arena* m_skaterGeomHeaps[kMaxSkaters];
+    Zone* m_skaterRegions[kSkaterSlots];
+    Arena* m_skaterHeaps[kSkaterSlots];
+    Zone* m_skaterGeomRegions[kSkaterSlots];
+    Arena* m_skaterGeomHeaps[kSkaterSlots];
     LabeledZone m_namedHeaps[kMaxNamedHeaps];
     Zone* m_skaterInfoRegion;
     Arena* m_skaterInfoHeap;

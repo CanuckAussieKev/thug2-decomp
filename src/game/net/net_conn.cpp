@@ -136,7 +136,7 @@ Conn* Conn::MakeNew(int flags)
         static_cast<MsgSeqLinkHead*>(&queue)->MakeNew();
     InitConnListHead(&m_receivedStreams, kStreamLinkVtable);
     InitConnListHead(&m_sendStreams, kStreamLinkVtable);
-    m_latencyTest.MakeNew();
+    m_pingProbe.MakeNew();
     m_receiveMetrics.MakeNew();
     m_sendMetrics.MakeNew();
     m_appNode.vtable = kConnNodeVtable;
@@ -146,16 +146,16 @@ Conn* Conn::MakeNew(int flags)
     m_appNode.prev = &m_appNode;
 
     m_flagBits = static_cast<uint32_t>(flags);
-    m_curStanding = kStatusReady;
+    m_curStanding = kConnReady;
     m_readBuffer = m_readPtr = static_cast<char*>(MemSys::Alloc(kReadBufferSize));
     m_writeBuffer = m_writePtr = static_cast<char*>(MemSys::Alloc(kWriteBufferSize));
-    m_sendInterval = 0;
+    m_txSpacingMs = 0;
     m_lastSendTime = 0;
     m_sendNow = false;
     m_aliasConn = nullptr;
     m_lastTimestampIn = 0;
     m_timestampOut = 0;
-    m_nextStreamId = 0;
+    m_streamCounter = 0;
     m_linkSpeed = kBroadbandBandwidth;
     // (only the first 64 groups' sequence numbers are zeroed: 0x40 dwords each - the rest keep what the
     // memory held)
@@ -184,7 +184,7 @@ void Conn::Teardown()
 }
 
 // 0x00455970
-uint32_t Conn::GetTransmitPeriod() { return m_sendInterval; }
+uint32_t Conn::GetTransmitPeriod() { return m_txSpacingMs; }
 
 // 0x00455980
 void Conn::ForceSendNow(bool force) { m_sendNow = force; }
@@ -193,7 +193,7 @@ void Conn::ForceSendNow(bool force) { m_sendNow = force; }
 bool Conn::IsSendForced() { return m_sendNow; }
 
 // 0x004559A0
-int Conn::GetLinkSpeedClass() { return m_bandwidthType; }
+int Conn::GetLinkSpeedClass() { return m_linkClass; }
 
 // 0x004559B0
 void Conn::ChangeThroughput(int bytesPerSecond) { m_linkSpeed = bytesPerSecond; }
@@ -213,7 +213,7 @@ bool Conn::IsOffMachine() { return (m_flagBits & kFlagRemote) != 0; }
 // 0x00455A40
 void Conn::SetLinkSpeedClass(int type)
 {
-    m_bandwidthType = type;
+    m_linkClass = type;
     switch (type) {
     case kBandwidthBroadband:
         m_linkSpeed = kBroadbandBandwidth;
@@ -232,18 +232,18 @@ int Conn::GetMeanPing()
 {
     if (IsHostLocal())
         return 0;
-    return m_latencyTest.m_averageLatency;
+    return m_pingProbe.m_averageLatency;
 }
 
 // 0x00455C10
 void Conn::MarkStale()
 {
-    m_curStanding &= ~kStatusReady;
-    m_curStanding |= kStatusInvalid;
+    m_curStanding &= ~kConnReady;
+    m_curStanding |= kConnBroken;
 }
 
 // 0x00455C20
-bool Conn::IsSound() { return (m_curStanding & kStatusInvalid) == 0; }
+bool Conn::IsSound() { return (m_curStanding & kConnBroken) == 0; }
 
 // 0x00455C30
 uint32_t Conn::GetRetryDelay()

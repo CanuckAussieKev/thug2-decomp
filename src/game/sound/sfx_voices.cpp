@@ -46,7 +46,7 @@ SoundWaveSlot* PermanentWaves() { return g_permanentWaves; }
 int& PermanentCount() { return g_permanentCount; }
 float& DefaultDropoff() { return g_defaultDropoff; }
 bool QuietMisses() { return GameConfig::g_fromCD; }
-CAudioMixer*& Sole() { return g_sfxManager; }
+CAudioMixer*& Sole() { return g_audioMixer; }
 
 float g_voiceVolume{100.0f};
 uint32_t g_sfxReferences;
@@ -85,34 +85,34 @@ R Com(void* object, int offset, A... args)
 // Cameras (not rewritten yet).
 void* NearestCamera(const Maths::Vec4* position, float* distance)
 {
-    return Engine3D::GetClosestCamera(position, distance);
+    return Engine3D::FetchNearestCamera(position, distance);
 }
 void* ViewportCamera(int viewport) { return Engine3D::ObtainActiveLens(viewport); }
 const Maths::Vec4* ViewerLocation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation(); }
-const Maths::Mat4* CameraMatrix(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat(); }
+const Maths::Mat4* CamOrientation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat(); }
 // The objects' sound parts: the "object" the sound manager is given is the object's sound component.
-GameObjects::CAudioEmitterModule* SoundComponent(GameObjects::CEntity* object) { return reinterpret_cast<GameObjects::CAudioEmitterModule*>(object); }
+GameObjects::CAudioEmitterModule* AudioEmitterOf(GameObjects::CEntity* object) { return reinterpret_cast<GameObjects::CAudioEmitterModule*>(object); }
 double Extent(void* extent, const Maths::Vec4* from)
 {
     return Maths::GetDistance(*static_cast<const Maths::Vec4*>(extent), *from);
 }
 bool ObjectSoundExtent(GameObjects::CEntity* object, void* camera, void* out)
 {
-    return SoundComponent(object)->GetSoundExtent(camera, static_cast<Maths::Vec4*>(out));
+    return AudioEmitterOf(object)->GetSoundExtent(camera, static_cast<Maths::Vec4*>(out));
 }
 Maths::Vec4* ObjectSoundPosition(GameObjects::CEntity* object, Maths::Vec4* out, void* camera)
 {
-    return SoundComponent(object)->GetSoundPosition(out, camera);
+    return AudioEmitterOf(object)->GetSoundPosition(out, camera);
 }
 Maths::Vec4* ObjectSoundPrevious(GameObjects::CEntity* object, Maths::Vec4* out, void* camera)
 {
-    return SoundComponent(object)->GetPreviousSoundPosition(out, camera);
+    return AudioEmitterOf(object)->GetPreviousSoundPosition(out, camera);
 }
 void KeepLoopingSound(GameObjects::CEntity* object, PlaybackProps* props, uint32_t time)
 {
-    SoundComponent(object)->KeepLoopingSound(props, time);
+    AudioEmitterOf(object)->KeepLoopingSound(props, time);
 }
-void NoteSoundUpdate(GameObjects::CEntity* object, PlaybackProps* props) { SoundComponent(object)->UpdateProps(props); }
+void NoteSoundUpdate(GameObjects::CEntity* object, PlaybackProps* props) { AudioEmitterOf(object)->UpdateProps(props); }
 const Maths::Vec4* ObjectPosition(GameObjects::CEntity* object)
 {
     return reinterpret_cast<const Maths::Vec4*>(reinterpret_cast<uint8_t*>(object) + 0x98);
@@ -290,7 +290,7 @@ uint32_t CAudioMixer::EmitSound(uint32_t checksum, volumeRef* volume, float pitc
 {
     if (NoSound())
         return 0;
-    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
+    SoundWaveSlot* entry = FetchWaveSlot(checksum);
     if (!entry)
         return 0;
     uint32_t id = uniqueId ? uniqueId : checksum;
@@ -362,7 +362,7 @@ bool CAudioMixer::FetchLoudness(volumeRef* volume, const Maths::Vec4* position, 
         // which way the sound is: in front of the camera, to its side
         Maths::Vec4 toSound = *position - *ViewerLocation(camera);
         toSound.MakeUnit();
-        Maths::Vec4 front = -CameraMatrix(camera)->row[0];
+        Maths::Vec4 front = -CamOrientation(camera)->row[0];
         double facing = static_cast<double>(front.z) * toSound.z + static_cast<double>(front.y) * toSound.y +
                         static_cast<double>(front.x) * toSound.x;
         double side = (facing + 1.0f) * 0.5f;
@@ -380,7 +380,7 @@ bool CAudioMixer::FetchLoudness(volumeRef* volume, const Maths::Vec4* position, 
                 louder = true;
             }
             if (louder) {
-                Maths::Vec4 behind = -CameraMatrix(camera)->row[2];
+                Maths::Vec4 behind = -CamOrientation(camera)->row[2];
                 double ahead = static_cast<double>(behind.z) * toSound.z + static_cast<double>(behind.y) * toSound.y +
                                static_cast<double>(behind.x) * toSound.x;
                 if (ahead < 0.0)
@@ -404,7 +404,7 @@ uint32_t CAudioMixer::PlayObjectSound(uint32_t checksum, void* params, GameObjec
 {
     if (NoSound())
         return 0;
-    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
+    SoundWaveSlot* entry = FetchWaveSlot(checksum);
     if (!entry)
         return 0;
     auto* given = static_cast<float*>(params); // {pitch, volume, dropoff, falloff}
@@ -467,7 +467,7 @@ bool CAudioMixer::UpdatePositionalSound(GameObjects::CEntity* object, PlayingSou
     float pitch = 100.0f;
     volumeRef volume;
     CAudioMixer* manager = Sole();
-    volume.m_kindTag = manager ? manager->m_defaultVolumeType : volumeRef::TYPE_STEREO;
+    volume.m_kindTag = manager ? manager->m_fallbackChannelMode : volumeRef::TYPE_STEREO;
     volume.ChangeMuted();
     if (extent || distance < dropoff) {
         Maths::Vec4 heard;
@@ -539,7 +539,7 @@ void ReleaseManager()
 }
 
 // 0x0047C720
-int GetFreeVoice(PCWave* wave)
+int FetchIdleVoice(PCWave* wave)
 {
     uint32_t last = static_cast<uint32_t>(LastVoice());
     uint32_t count = static_cast<uint32_t>(VoiceCount());
@@ -612,7 +612,7 @@ void UpdateVoiceStates()
 void InitVoices(CAudioMixer* manager)
 {
     if (manager)
-        manager->m_defaultVolumeType = volumeRef::TYPE_STEREO;
+        manager->m_fallbackChannelMode = volumeRef::TYPE_STEREO;
     for (int i = 0; i < kMaxPlaying; ++i) {
         Voices()[i].buffer = nullptr;
         Voices()[i].buffer3D = nullptr;
@@ -784,14 +784,14 @@ void ApplyVoiceSettings(int index, volumeRef* volume, float pitch)
         void* viewport = ViewportCamera(0);
         Maths::Vec4 relative = volume->m_anchorPoint - *ViewerLocation(camera);
         if (camera != viewport && viewport) {
-            Maths::Vec4 front = -CameraMatrix(viewport)->row[2];
+            Maths::Vec4 front = -CamOrientation(viewport)->row[2];
             Com<long>(Listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // ChangeFacing
-            Maths::Vec4 heard = -CameraMatrix(camera)->row[2];
-            Maths::Vec4 seen = -CameraMatrix(viewport)->row[2];
+            Maths::Vec4 heard = -CamOrientation(camera)->row[2];
+            Maths::Vec4 seen = -CamOrientation(viewport)->row[2];
             double angle = Maths::ReadTurnAngle(heard, seen);
             relative.RotateAboutY(static_cast<float>(angle * 0.017453292f));
         } else {
-            Maths::Vec4 front = -CameraMatrix(camera)->row[2];
+            Maths::Vec4 front = -CamOrientation(camera)->row[2];
             Com<long>(Listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // ChangeFacing
         }
         float range = volume->m_dropoff;
@@ -866,7 +866,7 @@ int PlayVoice(PCWave** slot, volumeRef* volume, float pitch)
     PCWave* wave = *slot;
     if (!wave)
         return -1;
-    int index = GetFreeVoice(wave);
+    int index = FetchIdleVoice(wave);
     if (index < 0)
         return -1;
     Voice& voice = Voices()[index];

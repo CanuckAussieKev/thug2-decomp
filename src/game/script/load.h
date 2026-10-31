@@ -13,7 +13,7 @@ class CScript;
 // Define the global symbol `name` from the value at `token` (a .qb file's "name = value").
 const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const char* filename);
 // Make the script symbol `name` from `size` bytes of compiled code (compressed when that's smaller).
-CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
+CSymbolTableEntry* DefineScriptSymbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
                                       const char* filename);
 // Define everything in the .qb file `data` (old format). With `useQbNames`, the file's checksum names go in
 // the .qb name table; with `temporary`, every change is undone by ProcessPendingSymbols.

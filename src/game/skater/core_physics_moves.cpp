@@ -66,8 +66,8 @@ constexpr uint32_t kSpinY = 0x7DF8E00B;
 constexpr uint32_t kSpinZ = 0xE4F1B1B1;
 constexpr uint32_t kSpinScript = 0xD8FA65D7;
 constexpr uint32_t kStepUpHeight = 0x786B3272;
-constexpr uint32_t kTrickComponent = 0x270F56E1;      // Trick
-constexpr uint32_t kModelComponent = 0x286A8D26;      // Model
+constexpr uint32_t kTrickModuleKey = 0x270F56E1;      // Trick
+constexpr uint32_t kModelModuleName = 0x286A8D26;      // Model
 
 // The balance tricks and boards for which going backwards isn't turned round (their checksums).
 constexpr uint32_t kBalanceTrickA = 0xEF24413B;
@@ -81,10 +81,10 @@ constexpr float kTargetStep = 6.0f;          // 0x00646284
 constexpr float kTargetDrop = 4000.0f;       // 0x0064B8F8
 constexpr float kTargetLift = 400.0f;        // 0x00646288
 constexpr float kTargetVertY = 0.707f;       // 0x006467BC
-constexpr float kTargetFacing = 0.95f;       // 0x0064BC7C
+constexpr float kDestHeading = 0.95f;       // 0x0064BC7C
 constexpr float kTargetOpposite = -0.866f;   // 0x00646960
 constexpr float kOverrideStart = 1.25f;      // 0x00649AC4
-constexpr float kOverrideAir = 1.1f;         // 0x0064A300
+constexpr float kAirBoostFactor = 1.1f;         // 0x0064A300
 constexpr uint32_t kNoLimit = 0x60AD78EC;    // (float bits: about 1e20)
 constexpr float kBarelyMoving = 0.00001f;    // 0x006453B8
 constexpr float kDegrees = 0.01745329238474369f; // 0x00645464 (pi / 180)
@@ -136,7 +136,7 @@ float LeastOf(float a, float b, float c) { return Gfx2D::LeastOf(a, b, c); }
 } // namespace
 
 // 0x004FEE10
-bool CorePhysicsComponent::FindVertTarget(const Maths::Vec4* direction, const Maths::Vec4* facing, bool* notOpposite,
+bool SkaterPhysicsModule::FindVertTarget(const Maths::Vec4* direction, const Maths::Vec4* facing, bool* notOpposite,
                                            Maths::Vec4* point, Maths::Vec4* normal, bool* objectAlive)
 {
     Engine3D::CProbeRay feeler;
@@ -181,7 +181,7 @@ bool CorePhysicsComponent::FindVertTarget(const Maths::Vec4* direction, const Ma
             flat.MakeUnit();
             along = (static_cast<double>(flat.z) * facing->z + static_cast<double>(flat.y) * facing->y) +
                     static_cast<double>(flat.x) * facing->x;
-            if (along <= kTargetFacing) {
+            if (along <= kDestHeading) {
                 found = true;
                 break;
             }
@@ -204,7 +204,7 @@ bool CorePhysicsComponent::FindVertTarget(const Maths::Vec4* direction, const Ma
 }
 
 // 0x004FF200
-void CorePhysicsComponent::UpdateSpeedOverride()
+void SkaterPhysicsModule::UpdateSpeedOverride()
 {
     void* object = ObjectOf(this);
     float& factor = At<float>(this, kOverrideFactor);
@@ -214,7 +214,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
         float speedRounded = static_cast<float>(speed);
         if (speed < static_cast<double>(stat) * kOverrideStart)
             return;
-        float most = PhysicsFloat(kOverrideMaxFactor, object);
+        float most = TuningFloatLookup(kOverrideMaxFactor, object);
         double over = static_cast<double>(speedRounded) / stat;
         factor = over < most ? static_cast<float>(over) : most;
         At<uint32_t>(this, kLimitsMax) = kNoLimit;
@@ -223,7 +223,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
         return;
     }
     At<float>(this, kLimitsTime) = -1.0f;
-    double left = factor - static_cast<double>(PhysicsFloat(kOverrideRunDown, object)) * At<float>(this, kFrameLength);
+    double left = factor - static_cast<double>(TuningFloatLookup(kOverrideRunDown, object)) * At<float>(this, kFrameLength);
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
         float stat = static_cast<float>(StatValue(ObjectOf(this), kOverrideStat));
@@ -231,7 +231,7 @@ void CorePhysicsComponent::UpdateSpeedOverride()
         object = ObjectOf(this);
         float limit;
         if (At<int>(FlagsOf(this), kState) != 1) {
-            float speed = static_cast<float>(LengthUnrounded(VectorAt(object, kVelocity)) * kOverrideAir);
+            float speed = static_cast<float>(LengthUnrounded(VectorAt(object, kVelocity)) * kAirBoostFactor);
             limit = LeastOf(max, speed, At<float>(this, kLimitsMax));
         } else {
             float current = At<float>(this, kLimitsMax);
@@ -261,17 +261,17 @@ void CorePhysicsComponent::UpdateSpeedOverride()
 }
 
 // 0x004FF470
-double CorePhysicsComponent::GetGravity()
+double SkaterPhysicsModule::GetGravity()
 {
     void* object = ObjectOf(this);
     uint8_t* flags = FlagsOf(this);
-    float gravity = PhysicsFloat(kGravity, object);
+    float gravity = TuningFloatLookup(kGravity, object);
     bool vert = flags[kFlagVertAir] || flags[kFlagAcidDrop];
     float result = static_cast<float>(gravity / static_cast<double>(Scripts::FetchFloat(vert ? kGravityScaleVert : kGravityScale)));
     auto* career = At<GameObjects::CRiderStoryProgress*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20);
     if (career->IsCodeOn(kMoonCheat)) {
         career->SetGlobalFlag(Scripts::FetchIntValue(kMoonCheat));
-        result = static_cast<float>(static_cast<double>(PhysicsFloat(kMoonGravity, object)) * result);
+        result = static_cast<float>(static_cast<double>(TuningFloatLookup(kMoonGravity, object)) * result);
         reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
     }
     float scale = Scripts::FetchFloat(kFallScale);
@@ -282,7 +282,7 @@ double CorePhysicsComponent::GetGravity()
 }
 
 // 0x004FF590
-void CorePhysicsComponent::AlongFacing(Maths::Vec4* velocity)
+void SkaterPhysicsModule::AlongFacing(Maths::Vec4* velocity)
 {
     double length = LengthUnrounded(*velocity);
     if (!(length > kBarelyMoving))
@@ -304,7 +304,7 @@ void CorePhysicsComponent::AlongFacing(Maths::Vec4* velocity)
 }
 
 // 0x004FF670
-bool CorePhysicsComponent::WallPushOff()
+bool SkaterPhysicsModule::WallPushOff()
 {
     if (!InputOf(this)[kPushOffButton])
         return false;
@@ -339,11 +339,11 @@ bool CorePhysicsComponent::WallPushOff()
     } else {
         v = -Scripts::FetchFloat(kPushOffSpeed) * VectorAt(ObjectOf(this), kForward);
     }
-    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kGroundNormal));
+    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kFloorUpVector));
     void* object = ObjectOf(this);
     VectorAt(object, kForward) = VectorAt(object, kVelocity);
     VectorAt(ObjectOf(this), kForward).MakeUnit();
-    VectorAt(ObjectOf(this), kUp) = VectorAt(this, kGroundNormal);
+    VectorAt(ObjectOf(this), kUp) = VectorAt(this, kFloorUpVector);
     object = ObjectOf(this);
     VectorAt(object, kMatrix) = Maths::CrossVec(VectorAt(object, kUp), VectorAt(object, kForward));
     At<Maths::Mat4>(this, kDisplayMatrix) = At<Maths::Mat4>(ObjectOf(this), kMatrix);
@@ -352,7 +352,7 @@ bool CorePhysicsComponent::WallPushOff()
 }
 
 // 0x004FF920
-void CorePhysicsComponent::TurnRoundIfBackwards()
+void SkaterPhysicsModule::TurnRoundIfBackwards()
 {
     uint8_t* flags = FlagsOf(this);
     void* object = ObjectOf(this);
@@ -363,7 +363,7 @@ void CorePhysicsComponent::TurnRoundIfBackwards()
     double along = (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(v.x) * f.x;
     if (!(along < 0.0))
         return;
-    double least = PhysicsFloat(kBackwardsSpeed, object);
+    double least = TuningFloatLookup(kBackwardsSpeed, object);
     if (!(least * least < LengthSqrUnrounded(v)))
         return;
     bool special = At<uint8_t>(this, kOnVehicle);
@@ -397,7 +397,7 @@ void CorePhysicsComponent::TurnRoundIfBackwards()
 }
 
 // 0x004FFB10
-bool CorePhysicsComponent::JumpReleased()
+bool SkaterPhysicsModule::JumpReleased()
 {
     uint8_t* flags = FlagsOf(this);
     uint8_t* button = InputOf(this) + kJumpButton;
@@ -411,7 +411,7 @@ bool CorePhysicsComponent::JumpReleased()
 }
 
 // 0x004FFB90
-void CorePhysicsComponent::CheckFlipSpin()
+void SkaterPhysicsModule::CheckFlipSpin()
 {
     if (FlagsOf(this)[kFlagBail])
         return;
@@ -421,7 +421,7 @@ void CorePhysicsComponent::CheckFlipSpin()
     if (!input[kFlipButton1] && !input[kFlipButton2])
         return;
     At<uint8_t>(this, kModelFlipped) = 0;
-    auto* trick = static_cast<GameObjects::CMoveExecutor*>(Composite(ObjectOf(this))->FetchModule(kTrickComponent));
+    auto* trick = static_cast<GameObjects::CMoveExecutor*>(Composite(ObjectOf(this))->FetchModule(kTrickModuleKey));
     Scripts::CArray* spins = Scripts::FetchList(kFlipSpins);
     int count = static_cast<int>(spins->m_extent);
     Scripts::CStruct* spin = nullptr;
@@ -443,7 +443,7 @@ void CorePhysicsComponent::CheckFlipSpin()
     At<float>(this, kModelRotationLeft) = kFlipSpinTime;
     At<uint8_t>(this, kRailTricksOff) = 1;
     At<uint8_t>(this, kModelRotationFlag) = 1;
-    auto* model = static_cast<GameObjects::CMeshInstanceModule*>(Composite(ObjectOf(this))->FetchModule(kModelComponent));
+    auto* model = static_cast<GameObjects::CMeshInstanceModule*>(Composite(ObjectOf(this))->FetchModule(kModelModuleName));
     int x = 0, y = 0, z = 0;
     if (spin->FetchIntValue(kSpinX, &x, 0) && x)
         model->RotateDisplay(At<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(x), 0, true, true, false, false);
@@ -458,13 +458,13 @@ void CorePhysicsComponent::CheckFlipSpin()
 }
 
 // 0x004FFDB0
-bool CorePhysicsComponent::StepUp(const Maths::Vec4* point)
+bool SkaterPhysicsModule::StepUp(const Maths::Vec4* point)
 {
     if (FlagsOf(this)[kFlagBail])
         return false;
     Engine3D::CProbeRay feeler;
     feeler.MakeNew();
-    float height = PhysicsFloat(kStepUpHeight, ObjectOf(this));
+    float height = TuningFloatLookup(kStepUpHeight, ObjectOf(this));
     void* object = ObjectOf(this);
     const Maths::Vec4& position = VectorAt(object, kPosition);
     // Down from above the higher of the skater and the point to the lower.
@@ -498,4 +498,4 @@ bool CorePhysicsComponent::StepUp(const Maths::Vec4* point)
 
 } // namespace Skater
 
-using Skater::CorePhysicsComponent;
+using Skater::SkaterPhysicsModule;

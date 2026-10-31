@@ -23,15 +23,15 @@ constexpr uint32_t kAnimHeap = 0x8F21A798; // AnimHeap
 constexpr int kEntries = 50;
 constexpr int kSlots = 18;
 
-CClipStore* g_animCache;
+CClipStore* g_clipStore;
 
-CClipStore*& Cache() { return g_animCache; }
+CClipStore*& Cache() { return g_clipStore; }
 MemSys::PoolPair& SlotPools() { return g_animSlotPools; }
 
 MemSys::Hub* Hub() { return MemSys::Hub::Pull(); }
 
 // The AnimHeap made current (allocations and frees in between go to it).
-void PushAnimHeap() { Hub()->EnterHeapScope(Hub()->GetNamedHeap(kAnimHeap, 1)); }
+void PushAnimHeap() { Hub()->EnterHeapScope(Hub()->FetchHeapByKey(kAnimHeap, 1)); }
 void PopHeap() { Hub()->LeaveHeapScope(); }
 
 // The sizes of a rotation and a translation key for a cache type.
@@ -348,7 +348,7 @@ void CClipStore::DestroyBody()
 int CClipStore::FetchKind() { return m_kindTag; }
 
 // 0x00480670
-uint32_t CClipStore::GetEntrySize(uint32_t /*key*/, int rotationKeys, int translationKeys, int type)
+uint32_t CClipStore::FetchRecordBytes(uint32_t /*key*/, int rotationKeys, int translationKeys, int type)
 {
     uint8_t rotation, translation;
     KeySizes(type, rotation, translation);

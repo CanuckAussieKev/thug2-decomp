@@ -115,10 +115,10 @@ public:
     bool m_rememberedOverride; // +0x1A5
     bool m_overrideAlpha;      // +0x1A6 override_encoded_alpha
     uint8_t m_pad1A7;
-    float m_internalJustX, m_internalJustY; // +0x1A8
+    float m_innerAlignH, m_innerAlignV; // +0x1A8
 };
 static_assert(offsetof(CLabelWidget, mp_blur) == 0x190 && offsetof(CLabelWidget, m_shadowRgba) == 0x1A0 &&
-                  offsetof(CLabelWidget, m_internalJustX) == 0x1A8 && sizeof(CLabelWidget) == 0x1B0,
+                  offsetof(CLabelWidget, m_innerAlignH) == 0x1A8 && sizeof(CLabelWidget) == 0x1B0,
               "layout must match the original");
 
 } // namespace Front

@@ -45,11 +45,11 @@ void GoToPoint(V3 pos, float distance);
 
 // The undo / redo stacks by their steps' labels (each step's short label where it was made, and what was selected then):
 // undo oldest first (the last is the next undone), redo next first. JumpHistory: `steps` undone (negative) or redone.
-struct HistoryEntry {
+struct EditorUndoRecord {
     std::string label, detail;
 };
-std::vector<HistoryEntry> UndoHistory();
-std::vector<HistoryEntry> RedoHistory();
+std::vector<EditorUndoRecord> UndoHistory();
+std::vector<EditorUndoRecord> RedoHistory();
 void JumpHistory(int steps);
 // A module's undo step with a label (PushModuleUndo's steps are labelled by their module otherwise).
 void PushModuleUndoLabelled(std::shared_ptr<ModuleStep> before, const char* label);

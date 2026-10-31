@@ -41,7 +41,7 @@ ListKit::KeyMap& LoadedTexDicts() { return g_loadedTexDicts; }
 const int* KeyMultipliers() { return g_keyMultipliers; }
 
 // The CRC of what follows a name's last slash or backslash.
-uint32_t FileNameChecksum(const char* name)
+uint32_t FilenameKey(const char* name)
 {
     int start = static_cast<int>(std::strlen(name));
     while (start > 0 && name[start - 1] != '\\' && name[start - 1] != '/')
@@ -138,7 +138,7 @@ CBitmapTexture* CTextureSet::FetchSkin(uint32_t checksum)
 // 0x0049F560
 CBitmapTexture* CTextureSet::GetTextureByName(const char* name)
 {
-    uint32_t checksum = FileNameChecksum(name);
+    uint32_t checksum = FilenameKey(name);
     if (!mp_textures)
         return nullptr;
     return static_cast<CBitmapTexture*>(mp_textures->FetchEntry(checksum, true));
@@ -295,7 +295,7 @@ CTextureSet* __cdecl FindTexDict(uint32_t checksum) { return static_cast<CTextur
 CTextureSet* __cdecl LoadTexDict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
 {
     char file[0x80];
-    std::snprintf(file, sizeof(file), "%s.%s", path, PlatformExtension());
+    std::snprintf(file, sizeof(file), "%s.%s", path, PlatformSuffix());
     MemSys::PushMemProfile(path);
     uint32_t key = Checksums::HashFromText(path) + offset;
     CTextureSet* dict = FindTexDict(key);
@@ -352,7 +352,7 @@ bool __cdecl UnloadTexDict(CTextureSet* dict)
 // 0x0049EF90 (the original sprintfs unbounded)
 void __cdecl TexDictFileName(char* out, const char* name)
 {
-    std::snprintf(out, 256, "%s.%s", name, PlatformExtension());
+    std::snprintf(out, 256, "%s.%s", name, PlatformSuffix());
 }
 
 // 0x0049EFB0

@@ -19,9 +19,9 @@ extern void** const kMessageNodeVtable; // 0x0064CF64
 
 // The buddy lists' list types (their vtables hold only the scalar deleting destructor):
 // ListKit::Hunt<Buddy> (0x0064CECC): 0x005480D0 the body (the vtable reset), 0x00548440 the scalar deleting one;
-// ListKit::Hunt<BuddyMessage> (0x0064CED0): 0x005480E0 / 0x00548470;
+// ListKit::Hunt<FriendNote> (0x0064CED0): 0x005480E0 / 0x00548470;
 // ListKit::Elem<Buddy> (0x0064CF60): 0x005484A0 the body (out of its list), 0x005484E0 the scalar deleting one;
-// ListKit::Elem<BuddyMessage> (0x0064CF64): 0x005484C0 / 0x00548520.
+// ListKit::Elem<FriendNote> (0x0064CF64): 0x005484C0 / 0x00548520.
 struct BuddySearch {
     void** m_vtable;
     MemSys::ListNode* m_listLink;

@@ -133,7 +133,7 @@ uint32_t FirstHit(V3 from, V3 to, V3* point)
     return *reinterpret_cast<const uint32_t*>(feeler + 0x58);
 }
 
-Scripts::CStruct* NodeStruct(uint32_t name, const Nodes::Elem** out)
+Scripts::CStruct* LookUpNodeParams(uint32_t name, const Nodes::Elem** out)
 {
     int index = name ? Nodes::Find(name) : -1;
     if (index < 0)
@@ -147,7 +147,7 @@ Scripts::CStruct* NodeStruct(uint32_t name, const Nodes::Elem** out)
 uint32_t ClusterOf(uint32_t name)
 {
     uint32_t cluster = 0;
-    if (Scripts::CStruct* s = NodeStruct(name, nullptr))
+    if (Scripts::CStruct* s = LookUpNodeParams(name, nullptr))
         s->ReadHashValue(kCluster, &cluster, 0);
     return cluster;
 }
@@ -196,7 +196,7 @@ Attachment AttachmentOf(const Gather& g, uint32_t name, V3 pos)
 {
     const Nodes::Elem* node = nullptr;
     uint32_t cluster = 0;
-    if (Scripts::CStruct* s = NodeStruct(name, &node))
+    if (Scripts::CStruct* s = LookUpNodeParams(name, &node))
         s->ReadHashValue(kCluster, &cluster, 0);
     std::vector<uint32_t> links = LinkNames(node);
     Attachment a = Attached(cluster, links, 0, g.members, g.clusters);
@@ -214,7 +214,7 @@ void __cdecl GatherObject(GameObjects::CEntity* object, void* data)
         return;
     uint32_t cls = 0;
     const Nodes::Elem* node = nullptr;
-    if (Scripts::CStruct* s = NodeStruct(composite->m_ident, &node))
+    if (Scripts::CStruct* s = LookUpNodeParams(composite->m_ident, &node))
         s->ReadHashValue(kClass, &cls, 0);
     if (cls == kPedestrian)
         return; // (peds walk their paths: not carried)
@@ -265,7 +265,7 @@ Taken Arm()
         if (Scenery::Cuboid(member, &box) && !Scenery::IsShadow(member))
             g.boxes.push_back({member, box});
     }
-    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
+    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot())
         manager->ForEach(GatherObject, &g);
     g_carried.objects = g.objects;
     for (uint32_t id : g_carried.objects) {

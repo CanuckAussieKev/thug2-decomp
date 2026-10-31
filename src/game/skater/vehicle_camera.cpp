@@ -116,7 +116,7 @@ void CCarView::ConfigureFromData(Scripts::CStruct* params)
     if (params->HasEntryNamed(kSubject)) {
         uint32_t id;
         params->ReadHashValue(kSubject, &id, 1);
-        m_subject = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id));
+        m_subject = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(id));
         m_vehicle = reinterpret_cast<uint8_t*>(m_subject->FetchModule(kVehicle));
     }
     params->FetchFloat(kLerp, &m_lerp, 0);
@@ -128,7 +128,7 @@ void CCarView::ConfigureFromData(Scripts::CStruct* params)
 // 0x00524C00
 void CCarView::Seal()
 {
-    m_lookAround = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookAround));
+    m_freeLook = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookAround));
     Reset();
 }
 
@@ -194,7 +194,7 @@ void CCarView::ApplyToCamera()
 // 0x00524780
 void CCarView::UpdateOrientation()
 {
-    double heading = m_lookAround->m_heading;
+    double heading = m_freeLook->m_heading;
     double rotatedX, rotatedZ;
     X87::SpinBy(heading, m_direction.x, m_direction.z, &rotatedX, &rotatedZ);
     float right = static_cast<float>(rotatedZ);
@@ -217,9 +217,9 @@ void CCarView::UpdateOrientation()
 // 0x00524B40
 void CCarView::Reset()
 {
-    m_lookAround->m_heading = 0.0f;
-    m_lookAround->m_leanAngle = 0.0f;
-    m_lookAround->m_locked = false;
+    m_freeLook->m_heading = 0.0f;
+    m_freeLook->m_leanAngle = 0.0f;
+    m_freeLook->m_locked = false;
     const Maths::Vec4& at = m_subject->m_basisFrame.row[2];
     m_targetDirection = {-at.x, -at.y, -at.z, -at.w};
     m_targetDirection.y = 0.0f;
@@ -283,7 +283,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CCarView::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

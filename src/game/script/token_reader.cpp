@@ -53,7 +53,7 @@ const uint8_t* SkipEndOfLinesIn(const uint8_t* p)
 
 CStruct* NewInitStruct()
 {
-    CStruct* structure = NewStruct();
+    CStruct* structure = SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 CArray* NewInitArray()
@@ -106,7 +106,7 @@ const uint8_t* AddNamedExpression(const uint8_t* token, uint32_t name, CStruct* 
 } // namespace
 
 // 0x004728C0
-CScript* GetRunningScript() { return g_currentScript; }
+CScript* GetRunningScript() { return g_runningScript; }
 
 // 0x004728D0
 CScript* StepScriptList(CScript* script)
@@ -115,7 +115,7 @@ CScript* StepScriptList(CScript* script)
 }
 
 // 0x0046F7A0 (the table in EBX, the type in EDI, the count in ESI)
-CStoredRandom* FindStoredRandom(const uint8_t* table, uint32_t type, uint32_t count)
+CStoredRandom* LookUpSavedRandom(const uint8_t* table, uint32_t type, uint32_t count)
 {
     uint32_t script = reinterpret_cast<uint32_t>(GetRunningScript());
     for (CStoredRandom* stored = StoredRandomsNewest(); stored; stored = stored->m_succ) {
@@ -184,7 +184,7 @@ const uint8_t* ResolveRandomJumps(const uint8_t* token)
         case 0x40: { // RandomNoRepeat
             uint32_t count = FetchWord32(token + 1);
             const uint8_t* table = token + 5 + 2 * count;
-            CStoredRandom* stored = FindStoredRandom(table, 0x40, count);
+            CStoredRandom* stored = LookUpSavedRandom(table, 0x40, count);
             if (!stored) {
                 stored = NewStoredRandom();
                 stored->m_lookupTable = table;
@@ -208,7 +208,7 @@ const uint8_t* ResolveRandomJumps(const uint8_t* token)
         case 0x41: { // RandomPermute
             uint32_t count = FetchWord32(token + 1);
             const uint8_t* table = token + 5 + 2 * count;
-            CStoredRandom* stored = FindStoredRandom(table, 0x41, count);
+            CStoredRandom* stored = LookUpSavedRandom(table, 0x41, count);
             if (!stored) {
                 stored = NewStoredRandom();
                 stored->m_lookupTable = table;
@@ -966,7 +966,7 @@ using Scripts::CStruct;
 
 const Scripts::CStoredRandom* __cdecl FindStoredRandomRegisters(const uint8_t* table, uint32_t type, uint32_t count)
 {
-    return Scripts::FindStoredRandom(table, type, count);
+    return Scripts::LookUpSavedRandom(table, type, count);
 }
 const uint8_t* __cdecl SkipValueRegisters(const uint8_t* token) { return Scripts::SkipValue(token); }
 const uint8_t* __cdecl ParseRandomRangeRegisters(const uint8_t* token, CComponent* out, uint32_t deterministic)

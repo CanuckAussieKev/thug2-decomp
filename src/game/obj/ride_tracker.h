@@ -26,14 +26,14 @@ struct CRideTracker {
     bool TickFrame(const Maths::Vec4* point);
 
     CSharedRef<CGameEntity> m_entity;  // +0x00
-    Maths::Mat4 m_lastMatrix;            // +0x0C
+    Maths::Mat4 m_previousXform;            // +0x0C
     Maths::Vec4 m_lastPos;               // +0x4C
     Maths::Vec4 m_carried;               // +0x5C
     Maths::Mat4 m_turn;                  // +0x6C
     bool m_turned;                       // +0xAC
     uint8_t m_padAD[3];
 };
-static_assert(offsetof(CRideTracker, m_lastMatrix) == 0x0C && offsetof(CRideTracker, m_carried) == 0x5C &&
+static_assert(offsetof(CRideTracker, m_previousXform) == 0x0C && offsetof(CRideTracker, m_carried) == 0x5C &&
                   offsetof(CRideTracker, m_turned) == 0xAC && sizeof(CRideTracker) == 0xB0,
               "layout must match the original");
 

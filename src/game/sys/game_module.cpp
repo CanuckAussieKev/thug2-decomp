@@ -85,7 +85,7 @@ Hub* Hub::MakeNew()
     if (task) {
         reinterpret_cast<TaskList::SchedulerTask*>(task)->MakeNew(-1000);             // TaskList::SchedulerTask
         task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                                // TaskList::Task<Manager>
-        task[6] = reinterpret_cast<uint32_t>(&ProcessModules);
+        task[6] = reinterpret_cast<uint32_t>(&TickModules);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
     m_task = task;
@@ -147,7 +147,7 @@ void Hub::HaltEveryModule()
 }
 
 // 0x0044F440
-void __cdecl Hub::ProcessModules(void* task)
+void __cdecl Hub::TickModules(void* task)
 {
     auto* manager = static_cast<Hub*>(static_cast<void**>(task)[7]);
     if (!manager->m_commandPending)

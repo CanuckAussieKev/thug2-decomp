@@ -22,11 +22,11 @@
 //
 // The tokens Update handles itself (all others start a statement, run by ExecuteCommand):
 //   01 end of line, 28, 3D endswitch: skipped (one byte)      02 end of line with line number: 5 bytes
-//   20 begin, 21 repeat, 22 break: ExecuteBegin / ExecuteRepeat / ExecuteBreak
+//   20 begin, 21 repeat, 22 break: RunLoopOpen / RunCountedLoop / RunLoopExit
 //   24 '$' end of script, 29 return [args]: this level's OnExitRun script (if any) is cleared and run as an
 //      interrupt first (a nested Update), then ReturnFromScript ('$': no results; return: its arguments)
 //   2E jump, 2F/37/40/41 random blocks, 49 short jump: ResolveRandomJumps
-//   3C switch: ExecuteSwitch      47 if: ExecuteIf      48 else (reached at the end of an if's true part):
+//   3C switch: RunMultiBranch      47 if: RunConditional      48 else (reached at the end of an if's true part):
 //      jump by its 2-byte offset (to the endif)
 //   25, 26, 3E case, 3F default: nothing - m_pc doesn't move and Update loops for ever (these never start a
 //      statement in compiled code; kept as in the original)
@@ -93,7 +93,7 @@ GameObjects::CObjectModule* FetchModule(GameObjects::CEntity* object, uint32_t t
 GameObjects::CEntity* FindObject(uint32_t name) { return GameObjects::FindObject(name); }
 // 0x0044E4F0 on OnlinePlay::Hub (0x007CCE14): called where a member function has no object to run on, its
 // result unused - what is left of a compiled-out assert.
-void NoObjectCheck() { OnlinePlay::g_gameNetManager->InNetGame(); }
+void NoObjectCheck() { OnlinePlay::g_onlineHub->InNetGame(); }
 
 // A component made and freed around one expression / switch value.
 void DeleteComponent(CComponent* component)
@@ -122,7 +122,7 @@ bool CScript::InvokeMethodByName(CMemberFunctionEntry* entry, GameObjects::CEnti
         NoObjectCheck();
         return false;
     }
-    return Scripts::InvokeMethodByName(entry, m_functionParams, object, this);
+    return Scripts::InvokeMethodByName(entry, m_stmtArgs, object, this);
 }
 
 // 0x004731E0
@@ -134,14 +134,14 @@ bool CScript::InvokeMethodByName(uint32_t name, GameObjects::CEntity* object)
         NoObjectCheck();
         return false;
     }
-    return ObjectCallMemberFunction(object, name, m_functionParams, this);
+    return ObjectCallMemberFunction(object, name, m_stmtArgs, this);
 }
 
 // 0x00472950
 void CScript::ParseFunctionParams()
 {
-    m_functionParams->Clear();
-    m_pc = ParseArguments(m_functionParams, m_pc, m_args);
+    m_stmtArgs->Clear();
+    m_pc = ParseArguments(m_stmtArgs, m_pc, m_args);
 }
 
 // 0x004729E0: a name token, `<name>` (the parameter's checksum value) or `<...>` (the unnamed checksum
@@ -184,7 +184,7 @@ uint32_t CScript::ReadName()
 //     name = value          sets the script parameter `name` (the 4 bytes before the '=' are read as the name)
 //     name args             a script (called: true), a C function, or a member function on the script's object;
 //                           an unknown name is reported (except in the script 0xFB11E6CD) and is false
-// The arguments are parsed into m_functionParams (they may refer to m_args).
+// The arguments are parsed into m_stmtArgs (they may refer to m_args).
 bool CScript::ExecuteCommand()
 {
     switch (*m_pc) {
@@ -197,7 +197,7 @@ bool CScript::ExecuteCommand()
             NoObjectCheck();
             return false;
         }
-        return ObjectCallMemberFunction(m_entity.Pull(), name, m_functionParams, this);
+        return ObjectCallMemberFunction(m_entity.Pull(), name, m_stmtArgs, this);
     }
     case 0x46: {
         ++m_pc;
@@ -208,14 +208,14 @@ bool CScript::ExecuteCommand()
             NoObjectCheck();
             return false;
         }
-        return Scripts::InvokeMethodByName(entry, m_functionParams, m_entity.Pull(), this);
+        return Scripts::InvokeMethodByName(entry, m_stmtArgs, m_entity.Pull(), this);
     }
     case 0x43: {
         ++m_pc;
         auto function = reinterpret_cast<CFunction>(FetchWord32(m_pc));
         m_pc += 4;
         ParseFunctionParams();
-        return function(m_functionParams, this);
+        return function(m_stmtArgs, this);
     }
     }
 
@@ -258,7 +258,7 @@ bool CScript::ExecuteCommand()
         switch (symbol->type) {
         case QBVAL_SCRIPT_BODY: {
             const uint8_t* code = ScriptCache()->FetchScript(symbol->name);
-            RunSubScript(function, code, m_functionParams, object, false);
+            RunSubScript(function, code, m_stmtArgs, object, false);
             return true;
         }
         case QBVAL_NATIVE_METHOD:
@@ -300,23 +300,23 @@ bool CScript::ExecuteCommand()
     // called and the commands that load or build things.
     if (Gfx2D::LoadingConsole::LiveNow() &&
         (symbol->type == QBVAL_SCRIPT_BODY || symbol->type == QBVAL_NATIVE_FUNC))
-        Gfx2D::LoadingConsole::NoteScriptCall(name, symbol->type == QBVAL_NATIVE_FUNC, m_functionParams);
+        Gfx2D::LoadingConsole::NoteScriptCall(name, symbol->type == QBVAL_NATIVE_FUNC, m_stmtArgs);
     switch (symbol->type) {
     case QBVAL_SCRIPT_BODY: {
         const uint8_t* code = ScriptCache()->FetchScript(symbol->name);
-        RunSubScript(name, code, m_functionParams, m_entity.Pull(), false);
+        RunSubScript(name, code, m_stmtArgs, m_entity.Pull(), false);
         return true;
     }
     case QBVAL_NATIVE_FUNC:
-        return reinterpret_cast<CFunction>(symbol->raw)(m_functionParams, this);
+        return reinterpret_cast<CFunction>(symbol->raw)(m_stmtArgs, this);
     case QBVAL_NATIVE_METHOD: {
         auto* entry = reinterpret_cast<CMemberFunctionEntry*>(symbol->raw);
         GameObjects::CEntity* object = m_entity.m_ownerObject;
         if (entry) {
             if (object)
-                return Scripts::InvokeMethodByName(entry, m_functionParams, object, this);
+                return Scripts::InvokeMethodByName(entry, m_stmtArgs, object, this);
         } else if (object) {
-            return ObjectCallMemberFunction(object, name, m_functionParams, this);
+            return ObjectCallMemberFunction(object, name, m_stmtArgs, this);
         }
         NoObjectCheck();
         return false;
@@ -329,7 +329,7 @@ bool CScript::ExecuteCommand()
 // 0x00475050: 47 <offset to the else / endif> [39 not] condition. The condition is a statement (a script call
 // in it runs first, and counts as true). If the script is still running and the (negated) result is false, it
 // jumps; else it goes on into the true part.
-void CScript::ExecuteIf()
+void CScript::RunConditional()
 {
     ++m_pc;
     const uint8_t* target = m_pc + FetchWord16(m_pc);
@@ -367,12 +367,12 @@ void CScript::SkipToEndOfSwitch()
 // component equals it (ComponentsEqual). On a match, the case labels right after it (`49 xx xx 3E 49 xx xx
 // value`) are skipped and the case's statements run from there; the 49 jump at the end of a case's statements
 // goes to the endswitch. No match: on to the next case, finally into the default or past the endswitch.
-void CScript::ExecuteSwitch()
+void CScript::RunMultiBranch()
 {
     ++m_pc;
     ParseFunctionParams();
     CComponent* value = NewComponent();
-    if (CComponent* first = m_functionParams->StepToEntry(nullptr))
+    if (CComponent* first = m_stmtArgs->StepToEntry(nullptr))
         DuplicateComponent(value, first, 0);
     for (;;) {
         uint8_t token = *m_pc;
@@ -399,7 +399,7 @@ void CScript::ExecuteSwitch()
         const uint8_t* next = m_pc + FetchWord16(m_pc);
         m_pc += 2;
         ParseFunctionParams();
-        CComponent* match = m_functionParams->StepToEntry(nullptr);
+        CComponent* match = m_stmtArgs->StepToEntry(nullptr);
         if (!match || !ComponentsEqual(value, match)) {
             m_pc = next;
             continue;
@@ -417,29 +417,29 @@ void CScript::ExecuteSwitch()
 
 // 0x00473220: 20 begin. The next loop of the loop stack starts after the token; the first nested loop (the
 // inline loop in use) moves the stack to a block of 10 on the script heap - also when the inline loop belongs
-// to a calling level (RunSubScript keeps m_currentLoop: one stack for every level), whose saved loop pointers are
+// to a calling level (RunSubScript keeps m_innermostRepeat: one stack for every level), whose saved loop pointers are
 // moved with it. Not checked beyond 10.
-void CScript::ExecuteBegin()
+void CScript::RunLoopOpen()
 {
     ++m_pc;
-    if (m_currentLoop == &m_inlineLoop) {
+    if (m_innermostRepeat == &m_inlineLoop) {
         MemSys::Hub* manager = MemSys::Hub::Pull();
         manager->EnterHeapScope(manager->m_scriptHeap);
         m_loops = static_cast<SRepeatFrame*>(MemSys::AllocBlock(10 * sizeof(SRepeatFrame)));
         MemSys::Hub::Pull()->LeaveHeapScope();
         m_loops[0] = m_inlineLoop;
-        m_currentLoop = m_loops;
-        for (int i = 0; i < m_numReturnAddresses; ++i) {
+        m_innermostRepeat = m_loops;
+        for (int i = 0; i < m_callDepth; ++i) {
             if (SRepeatFrame* loop = m_returnAddresses[i].m_loopState)
                 m_returnAddresses[i].m_loopState = m_loops + (loop - &m_inlineLoop);
         }
     }
-    m_currentLoop = m_currentLoop ? m_currentLoop + 1 : m_loops;
-    m_currentLoop->m_tokensBegin = m_pc;
-    m_currentLoop->m_tokensEnd = nullptr;
-    m_currentLoop->m_argsSeen = false;
-    m_currentLoop->m_argsExpected = true;
-    m_currentLoop->m_headcount = 0;
+    m_innermostRepeat = m_innermostRepeat ? m_innermostRepeat + 1 : m_loops;
+    m_innermostRepeat->m_tokensBegin = m_pc;
+    m_innermostRepeat->m_tokensEnd = nullptr;
+    m_innermostRepeat->m_argsSeen = false;
+    m_innermostRepeat->m_argsExpected = true;
+    m_innermostRepeat->m_headcount = 0;
 }
 
 // The loop below the current one (none: null).
@@ -449,33 +449,33 @@ static SRepeatFrame* OuterLoop(SRepeatFrame* loop, SRepeatFrame* loops) { return
 // stays after the 21 - it only moves by jumping back or to m_tokensEnd). No count: back to the start for ever (until
 // a break). A count: counted down, back to the start until it reaches 0 - so `repeat 0` (or a negative count)
 // goes round 2^32 times, as in the original.
-void CScript::ExecuteRepeat()
+void CScript::RunCountedLoop()
 {
-    SRepeatFrame* loop = m_currentLoop;
+    SRepeatFrame* loop = m_innermostRepeat;
     if (loop->m_argsExpected) {
         ++m_pc;
-        m_functionParams->Clear();
-        m_currentLoop->m_tokensEnd = ParseArguments(m_functionParams, m_pc, m_args);
-        m_currentLoop->m_argsSeen = m_functionParams->FetchIntValue(0u, &m_currentLoop->m_headcount, 0);
-        m_currentLoop->m_argsExpected = false;
+        m_stmtArgs->Clear();
+        m_innermostRepeat->m_tokensEnd = ParseArguments(m_stmtArgs, m_pc, m_args);
+        m_innermostRepeat->m_argsSeen = m_stmtArgs->FetchIntValue(0u, &m_innermostRepeat->m_headcount, 0);
+        m_innermostRepeat->m_argsExpected = false;
     }
-    loop = m_currentLoop;
+    loop = m_innermostRepeat;
     if (!loop->m_argsSeen) {
         m_pc = loop->m_tokensBegin;
         return;
     }
     --loop->m_headcount;
-    if (m_currentLoop->m_headcount != 0) {
-        m_pc = m_currentLoop->m_tokensBegin;
+    if (m_innermostRepeat->m_headcount != 0) {
+        m_pc = m_innermostRepeat->m_tokensBegin;
         return;
     }
-    m_pc = m_currentLoop->m_tokensEnd;
-    m_currentLoop = OuterLoop(m_currentLoop, m_loops);
+    m_pc = m_innermostRepeat->m_tokensEnd;
+    m_innermostRepeat = OuterLoop(m_innermostRepeat, m_loops);
 }
 
 // 0x00472B50: 22 break: past the repeat of this loop (counting nested begin / repeat), whose arguments are
 // parsed (without the script's parameters) and dropped, then out of the loop.
-void CScript::ExecuteBreak()
+void CScript::RunLoopExit()
 {
     int depth = 0;
     bool searching = true;
@@ -491,9 +491,9 @@ void CScript::ExecuteBreak()
         }
         m_pc = StepOverToken(m_pc);
     } while (searching);
-    m_functionParams->Clear();
-    m_pc = ParseArguments(m_functionParams, m_pc, nullptr);
-    m_currentLoop = OuterLoop(m_currentLoop, m_loops);
+    m_stmtArgs->Clear();
+    m_pc = ParseArguments(m_stmtArgs, m_pc, nullptr);
+    m_innermostRepeat = OuterLoop(m_innermostRepeat, m_loops);
 }
 
 // 0x004750B0 (see the top of the file)
@@ -540,13 +540,13 @@ EScriptOutcome CScript::TickFrame()
             m_pc += 5;
             break;
         case 0x20:
-            ExecuteBegin();
+            RunLoopOpen();
             break;
         case 0x21:
-            ExecuteRepeat();
+            RunCountedLoop();
             break;
         case 0x22:
-            ExecuteBreak();
+            RunLoopExit();
             break;
         case 0x24: // '$'
             if (uint32_t onExit = m_onExitScript) {
@@ -564,7 +564,7 @@ EScriptOutcome CScript::TickFrame()
             // (from wherever the on-exit script left m_pc - see docs/script-runtime.md)
             ++m_pc;
             ParseFunctionParams();
-            if (ReturnFromScript(m_functionParams))
+            if (ReturnFromScript(m_stmtArgs))
                 return SCRIPT_OUTCOME_ENDED_BY_INTERRUPT;
             break;
         case 0x25:
@@ -581,10 +581,10 @@ EScriptOutcome CScript::TickFrame()
             m_pc = ResolveRandomJumps(m_pc);
             break;
         case 0x3C:
-            ExecuteSwitch();
+            RunMultiBranch();
             break;
         case 0x47:
-            ExecuteIf();
+            RunConditional();
             break;
         case 0x48: // else: jump to the endif
             ++m_pc;

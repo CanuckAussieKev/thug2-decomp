@@ -62,7 +62,7 @@ public:
     // 0x004342F0: whether the model is drawn: not when the object is invisible; always without LOD, in more than one
     // viewport (0x00701378 > 1) or when the model asks (+0x234); otherwise within lod_dist2 and its bounding sphere in
     // view (0x0048C490). Told to the model (0x00493C60); a model just made visible is updated at once.
-    void UpdateVisibility();
+    void RefreshShownState();
 
     // --- script member functions (the table at 0x00684C48) ---
     // 0x004341E0 (not a Ghidra function) Obj_ResetNoSuspendCount: ResetCounts and the object unsuspended. True.
@@ -103,7 +103,7 @@ struct SuspendTaskHolder {
 // (all of them at once: the original doesn't move on to the next component while counting), else - unless the camera
 // data (the skate module's +0x3DC) says otherwise or it never suspends - after its LOD frames, its distance squared to
 // the camera against the suspend distance; the object suspended or woken to match; then the model updated (during the
-// LOD frames: shown) or its visibility decided (UpdateVisibility).
+// LOD frames: shown) or its visibility decided (RefreshShownState).
 void __cdecl SuspendTask(void* task);
 
 } // namespace Obj

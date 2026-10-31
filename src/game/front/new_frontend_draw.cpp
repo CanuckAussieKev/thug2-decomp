@@ -675,7 +675,7 @@ float PauseSide(Ctx& c, float left, float right, float bottom, std::string* kick
     std::vector<std::string> cols;
     const Session& s = c.extras.session;
     if (s.bestCombo >= 0)
-        cols.push_back(std::string(Text::kBestCombo) + " " + Thousands(s.bestCombo));
+        cols.push_back(std::string(Text::kLabelBestChain) + " " + Thousands(s.bestCombo));
     if (s.gaps >= 0)
         cols.push_back(std::string(Text::kGaps) + " " + std::to_string(s.gaps) + (s.gapsTotal > 0 ? "/" + std::to_string(s.gapsTotal) : ""));
     if (s.seconds >= 0.0f)

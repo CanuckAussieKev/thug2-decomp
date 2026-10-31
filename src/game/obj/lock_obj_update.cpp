@@ -55,7 +55,7 @@ double X87Sin(double angle)
 void* SkeletonOf(CObjectModule* component) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
-bool BoneMatrix(void* skeleton, uint32_t bone, Maths::Mat4* out)
+bool SkinMatrixPtr(void* skeleton, uint32_t bone, Maths::Mat4* out)
 {
     return static_cast<Gfx2D::CRig*>(skeleton)->ReadJointMatrix(bone, out);
 }
@@ -126,10 +126,10 @@ CPinnedObjectModule* CPinnedObjectModule::Teardown(unsigned int flags)
 // 0x0041F760
 void CPinnedObjectModule::UpdateLock()
 {
-    CEntityHub* manager = CompositeObjectManager();
+    CEntityHub* manager = ObjectHubSlot();
     auto* target = static_cast<CGameEntity*>(manager->LookUpEntity(m_targetId));
     if (!target) {
-        target = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_entityLabel));
+        target = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(m_entityLabel));
         if (!target)
             return;
     }
@@ -140,9 +140,9 @@ void CPinnedObjectModule::UpdateLock()
         // On a bone: its orientation, and its "at" towards its parent.
         CObjectModule* skeletonComponent = target->FetchModule(kSkeleton);
         void* skeleton = skeletonComponent ? SkeletonOf(target->FetchModule(kSkeleton)) : nullptr;
-        if (skeleton && BoneMatrix(skeleton, m_bone, &m_entity->m_basisFrame)) {
+        if (skeleton && SkinMatrixPtr(skeleton, m_bone, &m_entity->m_basisFrame)) {
             Maths::Mat4 parent;
-            BoneMatrix(skeleton, ParentBone(skeleton, BoneIndex(skeleton, m_bone)), &parent);
+            SkinMatrixPtr(skeleton, ParentBone(skeleton, BoneIndex(skeleton, m_bone)), &parent);
             CGameEntity* object = m_entity;
             Maths::Vec4 jointWorld = object->m_basisFrame.row[3];
             Maths::Vec4 ownerPos = parent.row[3];

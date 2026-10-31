@@ -32,13 +32,13 @@ namespace Gfx2D {
 // 0x004865D0 sets it up (frame, type, a copy of the parameters), 0x00486150 arms / disarms it, 0x00486160 fires it
 // (if armed: disarmed, then its slot 2 with the object), 0x00486560 is its destructor body; slot 1 (0x004860C0)
 // says whether it lies between two times.
-class CAnimEvent {
+class CTimedClipEvent {
 public:
     // 0x00481A20: the event's vtable, no parameters. Returns this.
-    CAnimEvent* MakeNew();
+    CTimedClipEvent* MakeNew();
     // 0x00481DB0 (slot 0): the vector deleting destructor - `flags` 2: the whole array this starts (its count in
     // the word before it) destroyed last to first, 1: freed.
-    CAnimEvent* Teardown(uint8_t flags);
+    CTimedClipEvent* Teardown(uint8_t flags);
 
     void** m_vtable;
     int m_tick;              // +0x04
@@ -47,14 +47,14 @@ public:
     uint32_t m_kindTag;          // +0x0C
     Scripts::CStruct* mp_params; // +0x10
 };
-static_assert(sizeof(CAnimEvent) == 0x14 && offsetof(CAnimEvent, mp_params) == 0x10, "layout must match the original");
+static_assert(sizeof(CTimedClipEvent) == 0x14 && offsetof(CTimedClipEvent, mp_params) == 0x10, "layout must match the original");
 
 // The events' base (vtable 0x006487B0: slot 2 pure).
 class CAnimEventBase {
 public:
     // 0x004819F0 (slot 0): the base's vtable; freed with `flags` 1. Returns this.
     CAnimEventBase* Teardown(uint8_t flags);
-    // 0x004819E0: the base's vtable back (its destructor body; CUserClipKey's and CAnimEvent's call it).
+    // 0x004819E0: the base's vtable back (its destructor body; CUserClipKey's and CTimedClipEvent's call it).
     void DestroyBody();
 
     void** m_vtable;
@@ -76,7 +76,7 @@ public:
     // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.
     void DeleteControllers();
     // 0x004818B0: `controller` (if it's one of them) deleted and the rest moved down.
-    void RemoveController(CAnimController* controller);
+    void DetachAnimDriver(CAnimController* controller);
     // 0x00481920: each controller's pose (slot 1) into `pose` (no null check). True.
     bool GetPoses(void* pose);
     // 0x00481980 / 0x00481990: whether it isn't off / is fading.
@@ -98,7 +98,7 @@ public:
     // animation and duration - Sync keeps the timeline's place in proportion); anything else to the controllers in
     // turn until one doesn't answer 2 (not its own).
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
-    // 0x004823C0 (slot 6): the animation played - its events, the standard (or with LoopType 3 the wobble)
+    // 0x004823C0 (slot 6): the animation played - its events, the standard (or with RepeatMode 3 the wobble)
     // controller, a weighted one (`params` with 0xD697A799 or flag 0x1B92121C), one for the structure 0xAEEEC12E,
     // the FlipRotate one; then each controller told 0xD0209498 (fraction 0) and PlayAnim with all of it.
     void PlayAnim(uint32_t anim, float start, float end, int loopType, float blendPeriod, float speed, bool flipped,
@@ -135,7 +135,7 @@ public:
     float m_fadeLeft;                     // +0x5C
     float m_fadeScale;                    // +0x60
     GameObjects::CGameEntity* m_ownerObject;     // +0x64
-    CAnimEvent* mp_events;                // +0x68 (an array of m_eventCount)
+    CTimedClipEvent* mp_events;                // +0x68 (an array of m_eventCount)
     uint32_t m_eventCount;                // +0x6C
     bool m_eventsOn;                      // +0x70
     uint8_t m_pad71[3];

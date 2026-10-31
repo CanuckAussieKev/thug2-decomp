@@ -42,7 +42,7 @@ constexpr uint32_t kObjectTypePed = 0xD2DB7F97;     // OBJECT_TYPE_PED
 constexpr uint32_t kMinBias = 0x4ABA9798;           // ped_min_bias
 constexpr uint32_t kBiasDecay = 0x98CD0C8C;         // (the bias's decay per frame)
 constexpr uint32_t kAvoidPedRange = 0x7A78F471;     // ped_avoid_ped_range
-constexpr uint32_t kAvoidPedBias = 0xD1E6177B;      // ped_avoid_ped_bias
+constexpr uint32_t kPedDodgeBias = 0xD1E6177B;      // ped_avoid_ped_bias
 constexpr uint32_t kMaxYDistance = 0x21B13FFC;      // ped_max_y_distance_to_ignore
 constexpr uint32_t kHeadOnRange = 0xD2E22CEC;       // ped_head_on_range
 constexpr uint32_t kMaxDistanceToPath = 0xA876AA2C; // ped_max_distance_to_path
@@ -151,7 +151,7 @@ double CosPlus(double angle, double addend)
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -315,7 +315,7 @@ bool CPedestrianBrainModule::AvoidPeds()
     Maths::Mat4 m = m_entity->m_displayMatrix;
     const Maths::Vec4& at = m.row[2];
     float range = Scripts::FetchFloat(kAvoidPedRange);
-    float bias = Scripts::FetchFloat(kAvoidPedBias);
+    float bias = Scripts::FetchFloat(kPedDodgeBias);
     CKinematicsModule* motion = Motion(m_entity);
     int count = mp_peds->m_extent;
     if (count <= 0)
@@ -916,12 +916,12 @@ void CPedestrianBrainModule::SkaterMoveUpdate()
     if (sound >= 0)
         SetSoundState(sound);
     if (m_flagBits & PED_FLAG_MOVING)
-        m_speedFraction = motion->m_pathMaxSpeed == 0.0f ? 0.0f : static_cast<float>(static_cast<double>(motion->m_pathSpeed) / motion->m_pathMaxSpeed);
+        m_speedRatio = motion->m_pathMaxSpeed == 0.0f ? 0.0f : static_cast<float>(static_cast<double>(motion->m_pathSpeed) / motion->m_pathMaxSpeed);
     else
-        m_speedFraction = 0.0f;
+        m_speedRatio = 0.0f;
     if (auto* looping = static_cast<CRiderRollingAudio*>(m_entity->FetchModule(kSkaterLoopingSound))) {
         looping->m_noRailSound = (m_flagBits & (PED_FLAG_BAILING | PED_FLAG_GRIND_BAILING)) != 0;
-        looping->SetPaceRatio(m_speedFraction);
+        looping->SetPaceRatio(m_speedRatio);
     }
 }
 

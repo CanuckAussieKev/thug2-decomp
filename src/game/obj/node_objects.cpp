@@ -41,7 +41,7 @@ constexpr uint32_t kPlainObjectFlag = 0x69C257E9;
 constexpr uint32_t kPlainObjectScript = 0xA98F5C63;
 constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
-CEntityHub* ObjectManager() { return g_compositeObjectManager; }
+CEntityHub* EntityHubHandle() { return g_compositeRegistry; }
 
 void Seal(CGameEntity* object)
 {
@@ -67,7 +67,7 @@ void RunCreationScript(CGameEntity* object, Scripts::CStruct* params)
     if (!params->FetchIntValue(kCreationValue, &value, 0))
         return;
     uint32_t name = LevelNodes::GetNodeName(params);
-    Scripts::CStruct* data = Scripts::NewStruct();
+    Scripts::CStruct* data = Scripts::SpawnParamBag();
     if (data)
         data->PrepareAll();
     data->PutNameKey(kName, name);
@@ -103,7 +103,7 @@ void SpawnEffectEntity(Scripts::CStruct* params)
 {
     const char* structure = params->HasEntryNamed("HasMotion") ? "moving_particle_composite_structure"
                                                                           : "particle_composite_structure";
-    ObjectManager()->SpawnEntityFromNode(Scripts::FetchList(structure), params, true);
+    EntityHubHandle()->SpawnEntityFromNode(Scripts::FetchList(structure), params, true);
 }
 
 // 0x00468B60
@@ -117,7 +117,7 @@ void StartNodeObject(CGameEntity* object, Scripts::CStruct* params)
 // 0x00468CB0
 CGameEntity* CreateGameObject(Scripts::CStruct* params, int /*unused*/)
 {
-    CGameEntity* object = ObjectManager()->SpawnEntityFromNode(
+    CGameEntity* object = EntityHubHandle()->SpawnEntityFromNode(
         Scripts::FetchList(kGameObjectComponents), params, false);
     object->AttachModule(NewGameObjectComponentA());
     Scripts::LaunchScript(kGameObjectScript, params, object, false, nullptr);
@@ -143,7 +143,7 @@ void CreateNodeObject(Scripts::CStruct* params)
         CreateGameObject(params, 1);
         return;
     }
-    CGameEntity* object = ObjectManager()->CreateCompositeObject();
+    CGameEntity* object = EntityHubHandle()->CreateCompositeObject();
     object->ConfigureFromData(params);
     Scripts::LaunchScript(kPlainObjectScript, params, object, false, nullptr);
     StartNodeObject(object, params);
@@ -201,7 +201,7 @@ CVideoEntry* CVideoEntry::DestroyNode(unsigned int flags)
 void CVideoEntry::ConfigureFromData(Scripts::CStruct* params)
 {
     if (!m_args) {
-        Scripts::CStruct* created = Scripts::NewStruct();
+        Scripts::CStruct* created = Scripts::SpawnParamBag();
         m_args = created ? created->PrepareAll() : nullptr;
     }
     m_args->Clear();
@@ -222,7 +222,7 @@ void CVideoEntry::ConfigureFromData(Scripts::CStruct* params)
 // 0x00469180
 Scripts::CStruct* CVideoEntry::GetSettings()
 {
-    Scripts::CStruct* settings = Scripts::NewStruct();
+    Scripts::CStruct* settings = Scripts::SpawnParamBag();
     if (settings)
         settings = settings->PrepareAll();
     settings->PutInt(0x8DDE72C0, m_flag19);

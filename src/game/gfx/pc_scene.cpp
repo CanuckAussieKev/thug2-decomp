@@ -243,7 +243,7 @@ void CPcScreenEffects::SetUnknown5728(uint32_t value) { g_screenEffectUnknown572
 namespace {
 
 // The engine and mesh code the loaders go through.
-void SetSectorChecksum(CPcSector* sector, uint32_t checksum)
+void ChangeSectorKey(CPcSector* sector, uint32_t checksum)
 {
     reinterpret_cast<AssetStore::CResource*>(sector)->SetChecksum(checksum); // (folded with CResource's)
 }
@@ -267,7 +267,7 @@ void FinishMesh(CPcSector* sector, CPcGeom* geom, meshRef* mesh, uint32_t billbo
     bounds->AppendSpot(*max);
     if (sector->flags & 0x800000) {
         mesh->MakeBillboard(static_cast<int>(billboardType), pivot, axis);
-        g_billboardManager.AppendMesh(mesh);
+        g_billboardPool.AppendMesh(mesh);
     }
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;
@@ -291,7 +291,7 @@ bool CPcSector::ReadFromRamBlock(uint8_t** cursor)
 {
     auto* geometry = static_cast<CPcGeom*>(geom);
     auto* p = reinterpret_cast<const uint32_t*>(*cursor);
-    SetSectorChecksum(this, *p++);
+    ChangeSectorKey(this, *p++);
     uint32_t lightGroup = *p++;
     flags = *p++;
     geometry->meshCount = *p++;
@@ -367,7 +367,7 @@ bool CPcSector::IngestFromFile(FileLoad::Hdl file, uint32_t unknown)
     auto read = [file](void* into, int size, int count) { FileLoad::TakeIn(into, size, count, file); };
     uint32_t checksum;
     read(&checksum, 4, 1);
-    SetSectorChecksum(this, checksum);
+    ChangeSectorKey(this, checksum);
     uint32_t lightGroup;
     read(&lightGroup, 4, 1);
     read(&flags, 4, 1);

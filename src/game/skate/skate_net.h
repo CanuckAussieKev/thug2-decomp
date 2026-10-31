@@ -58,10 +58,10 @@ public:
     static int __cdecl HandleScores(NetLink::InboundMsgCtx* context);
     // 0x0056D810 (0x33): the game's start: the network settings, the level requested, the game mode and its
     // victory conditions, the mode's goal_script started.
-    static int __cdecl HandleStartInfo(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnRunStartMsg(NetLink::InboundMsgCtx* context);
     // 0x0056E380 (0x48): a script run on every machine ([0] the script, [4] the object, [8] the parameters as
     // written by the script writer), from the top-down heap.
-    static int __cdecl HandleRunScript(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnRemoteScriptMsg(NetLink::InboundMsgCtx* context);
     // 0x0056E470 (0x23): the other skaters' updates - a bit stream: a mask of 8 objects, then for each a time
     // stamp, the fields that changed (position, angles, state, flags) - added to each object's state history
     // (+0x27C: 20 entries, the newest at count % 20).
@@ -120,19 +120,19 @@ public:
     // up); 0x0056B800 (0x35 / 0x36) a terrain sound; 0x0056C330 (0x49) a script run now (in a game) or queued;
     // 0x0056C3D0 (0x83) a projectile launched where it is by now; 0x0056C6E0 (0x82) the cheats; 0x0056C7E0 (0x7F)
     // one cheat toggled; 0x0056C8C0 (0x2C) an object's first animation channel told.
-    static int __cdecl HandleChangeLevel(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnLevelSwitchMsg(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleHistoryValue(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleSkaterMessages(NetLink::InboundMsgCtx* context);
     static int __cdecl HandlePlayerLeft(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleServerQuit(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleGraffitiObjects(NetLink::InboundMsgCtx* context);
     static int __cdecl HandlePlaceTag(NetLink::InboundMsgCtx* context);
-    static int __cdecl HandleSparks(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnSparksMsg(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleLookUpObject(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleTerrainSound(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleRunScriptNow(NetLink::InboundMsgCtx* context);
-    static int __cdecl HandleProjectile(NetLink::InboundMsgCtx* context);
-    static int __cdecl HandleCheats(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnProjectileMsg(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnCheatStateMsg(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleToggleCheat(NetLink::InboundMsgCtx* context);
     static int __cdecl HandleSkaterChannel(NetLink::InboundMsgCtx* context);
 

@@ -236,7 +236,7 @@ const std::vector<const char*>& BreakSounds()
     return sounds;
 }
 
-const std::vector<const char*>& GapFlags()
+const std::vector<const char*>& GapOptionLabels()
 {
     static const std::vector<const char*> flags = {
         "PURE_AIR",       "PURE_GRIND",     "PURE_RAIL",       "PURE_MANUAL",    "CANCEL_GROUND", "CANCEL_AIR",
@@ -560,7 +560,7 @@ std::vector<uint8_t> QbFile(const std::vector<Spec>& specs)
     return out;
 }
 
-std::string LogEntry(const Placed& placed)
+std::string LinkRecord(const Placed& placed)
 {
     const Spec& s = placed.spec;
     std::ostringstream out;
@@ -887,7 +887,7 @@ std::vector<uint8_t> ProximQbFile(const std::vector<ProximScript>& scripts)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic;
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
 constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
@@ -1194,7 +1194,7 @@ Engine3D::CHitMovingBox* MakeBox(uint32_t name)
         return nullptr;
     Engine3D::CHitMovingBox* box = static_cast<Engine3D::CHitMovingBox*>(memory)->MakeNew();
     box->m_checksum = name;
-    box->m_faceFlags = kVolumeFlags;
+    box->m_polyAttrBits = kVolumeFlags;
     box->m_surfaceType = 0;
     Engine3D::RegisterMovable(box);
     return box;
@@ -1312,7 +1312,7 @@ int SpecIndex(const std::string& name)
 
 // A scenery piece's sector, and whether it's there (CWorldCell::IsOperative 0x0049E9E0: its geometry's active flag - a Kill,
 // the editor's hiding - else its collision's).
-bool SectorActive(uint32_t checksum)
+bool IsSectorEnabled(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
     return sector && reinterpret_cast<Engine3D::CWorldCell*>(sector)->IsOperative();
@@ -1344,7 +1344,7 @@ struct ProximOriginal {
 std::map<uint32_t, ProximOriginal> g_proximOriginals;
 std::vector<uint8_t> g_proximDefined;
 
-bool HaveProximManager() { return GameObjects::g_proximManager != nullptr; }
+bool HaveProximManager() { return GameObjects::g_proximityHub != nullptr; }
 
 int ProximIndex(uint32_t node)
 {
@@ -1357,7 +1357,7 @@ int ProximIndex(uint32_t node)
 
 void PutProximBack(GameObjects::ProximNode* p, const ProximOriginal& o)
 {
-    p->m_runScript = o.script;
+    p->m_ownScript = o.script;
     p->m_form = o.shape;
     p->m_radius = o.radius;
     p->m_radiusSquared = o.radius * o.radius;
@@ -1380,7 +1380,7 @@ void SyncProxims()
             continue;
         auto o = g_proximOriginals.find(e.node);
         if (o == g_proximOriginals.end()) {
-            ProximOriginal original = {p->m_runScript, p->m_form, p->m_radius,
+            ProximOriginal original = {p->m_ownScript, p->m_form, p->m_radius,
                                        {p->m_box.min.x, p->m_box.min.y, p->m_box.min.z},
                                        {p->m_box.max.x, p->m_box.max.y, p->m_box.max.z}};
             o = g_proximOriginals.emplace(e.node, original).first;
@@ -1410,8 +1410,8 @@ void SyncProxims()
         GameObjects::ProximNode* p = l.second;
         const ProximOriginal& o = g_proximOriginals[e.node];
         uint32_t script = !e.enter.empty() || !e.exit.empty() ? Checksums(ProximScriptName(e.node).c_str()) : o.script;
-        if (p->m_runScript != script)
-            p->m_runScript = script;
+        if (p->m_ownScript != script)
+            p->m_ownScript = script;
         if (!e.shape) {
             p->m_form = o.shape;
             p->m_radius = o.radius;
@@ -1451,7 +1451,7 @@ void Sync()
                 a.yaw = 0.0f;
                 a.spec.size = size;
             }
-            a.broken = !SectorActive(ChecksumOf(spec.target));
+            a.broken = !IsSectorEnabled(ChecksumOf(spec.target));
         }
         g_added.push_back(a);
     }
@@ -1756,7 +1756,7 @@ void Guard()
             if (g_specs[k].kind == Kind::Break && HashOfName(g_specs[k].name) == g_boxes[i].name)
                 at = static_cast<int>(k);
         }
-        if (at >= 0 && !SectorActive(ChecksumOf(g_specs[at].target))) {
+        if (at >= 0 && !IsSectorEnabled(ChecksumOf(g_specs[at].target))) {
             FreeBox(g_boxes[i].coll);
             g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
             Log("level editor: breakable %s broken - its box taken out until the piece is back",
@@ -1811,7 +1811,7 @@ void Kickoff()
     for (const Spec& spec : g_specs) {
         uint32_t piece = spec.kind == Kind::Break ? ChecksumOf(spec.target) : 0;
         uint8_t* sector = piece ? Scenery::SectorOf(piece) : nullptr;
-        if (sector && NodeAlive(spec.name) && !SectorActive(piece) && !Scenery::Hidden(piece)) {
+        if (sector && NodeAlive(spec.name) && !IsSectorEnabled(piece) && !Scenery::Hidden(piece)) {
             reinterpret_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(true);
             Log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
         }
@@ -2667,7 +2667,7 @@ struct Seen {
 std::vector<Seen> g_seen;
 
 // The trigger's TriggerScript run on the skater, as the trigger component's TriggerNode (0x00434A60) runs it: not when
-// the skate module skips the node (0x00565BB0), its NetEnabled / Permanent flags, the node's name.
+// the skate module skips the node (0x00565BB0), its OnlineModeFlag / Permanent flags, the node's name.
 void FireOnLeaving(GameObjects::CEntity* skater, uint32_t node)
 {
     Scripts::CStruct* s = LevelNodes::FetchVertex(node, false);
@@ -2676,8 +2676,8 @@ void FireOnLeaving(GameObjects::CEntity* skater, uint32_t node)
         return;
     if (GameModules::Skate::ShouldBeAbsent(s))
         return;
-    static const uint32_t kNetEnabled = Checksums("NetEnabled"), kPermanent = Checksums("Permanent");
-    skater->StartScriptTask(script, static_cast<int>(node), s->HasBareFlag(kNetEnabled), s->HasBareFlag(kPermanent),
+    static const uint32_t kOnlineFlag = Checksums("NetEnabled"), kPermanent = Checksums("Permanent");
+    skater->StartScriptTask(script, static_cast<int>(node), s->HasBareFlag(kOnlineFlag), s->HasBareFlag(kPermanent),
                               nullptr);
     if (DebugEnabled())
         Log("level editor: trigger %s left - its script run (exit)", LabelOf(node).c_str());
@@ -2948,7 +2948,7 @@ void SetBreakable(uint32_t sector, bool on)
     int i = SpecIndex(name);
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
-    if (uint8_t* piece = Scenery::SectorOf(sector); piece && !SectorActive(sector) && !Scenery::Hidden(sector))
+    if (uint8_t* piece = Scenery::SectorOf(sector); piece && !IsSectorEnabled(sector) && !Scenery::Hidden(sector))
         reinterpret_cast<Engine3D::CWorldCell*>(piece)->ChangeLive(true);
     Sync();
     Hud::Message("No longer breakable", 4.0);

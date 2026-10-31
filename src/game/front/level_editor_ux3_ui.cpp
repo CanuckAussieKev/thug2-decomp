@@ -174,7 +174,7 @@ void HistoryWindow()
         ImGui::End();
         return;
     }
-    std::vector<HistoryEntry> undo = UndoHistory(), redo = RedoHistory();
+    std::vector<EditorUndoRecord> undo = UndoHistory(), redo = RedoHistory();
     ImGui::TextDisabled("%d undo, %d redo",
                         static_cast<int>(undo.size()), static_cast<int>(redo.size()));
     ImGui::Separator();

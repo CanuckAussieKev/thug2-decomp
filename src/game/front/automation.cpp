@@ -68,8 +68,8 @@ constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the c
 constexpr int kPartialLineFrames = 30;
 constexpr int kMaxCaptureFrames = SystemCore::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
 constexpr int kMaxTraceFrames = 36000;   // trace: ten minutes at 60 frames a second
-constexpr uint32_t kSkaterStateComponent = 0x43686585; // SkaterState
-constexpr uint32_t kSkaterScoreComponent = 0xD262802F; // SkaterScore
+constexpr uint32_t kStateModuleKey = 0x43686585; // SkaterState
+constexpr uint32_t kScoreModuleKey = 0xD262802F; // SkaterScore
 constexpr uint32_t kSkaterCorePhysicsComponent = 0x5BD63B29; // SkaterCorePhysics
 
 uint32_t NameHash(const std::string& name) { return Checksums::HashFromText(name.c_str()); }
@@ -744,10 +744,10 @@ bool StructDenied(Scripts::CStruct* params, int depth)
 // Whether an element's event handlers (all, or only pad_choose / pad_start ones) run or name a denied script.
 bool HandlersDenied(const CUiWidget* element, bool chooseOnly)
 {
-    Scripts::CScript* script = element->m_runScript;
-    if (!script || !script->m_eventHandlers)
+    Scripts::CScript* script = element->m_ownScript;
+    if (!script || !script->m_signalRoutes)
         return false;
-    const GameObjects::CSignalRouteTable* table = script->m_eventHandlers;
+    const GameObjects::CSignalRouteTable* table = script->m_signalRoutes;
     for (int i = 0; i < table->m_num; ++i) {
         const GameObjects::CSignalRouteTable::TableRow& entry = table->m_entries[i];
         if (entry.script == GameObjects::kNullScript)
@@ -799,7 +799,7 @@ std::string NetRefusal()
     if (NetLink::Hub* net = NetLink::Hub::Sole())
         if (net->IsOnline())
             return "the game is online";
-    if (void* gameNet = OnlinePlay::g_gameNetManager)
+    if (void* gameNet = OnlinePlay::g_onlineHub)
         if (static_cast<OnlinePlay::Hub*>(gameNet)->InNetGame())
             return "a network game runs";
     if (void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode)) {
@@ -810,7 +810,7 @@ std::string NetRefusal()
     return {};
 }
 
-std::string GameModeName()
+std::string ActiveRulesetLabel()
 {
     void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
     return mode ? NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey()) : "";
@@ -827,7 +827,7 @@ bool MainMenuUp()
     return menu && IsMenu(menu) && MouseMenus::MenuGetsPadEvents(menu);
 }
 
-bool SkaterUp() { return GameObjects::FindObject(kSkater) != nullptr; }
+bool SkaterPresent() { return GameObjects::FindObject(kSkater) != nullptr; }
 
 // --- trace: the skater frame by frame ---------------------------------------------------------------------------
 
@@ -872,13 +872,13 @@ void TraceFrame()
         return;
     auto* skater = static_cast<GameObjects::CGameEntity*>(GameObjects::FindObject(kSkater));
     if (skater) {
-        auto* state = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterStateComponent));
+        auto* state = reinterpret_cast<uint8_t*>(skater->FetchModule(kStateModuleKey));
         int where = state ? *reinterpret_cast<int*>(state + 0x18) : -1;
         int physics = state ? *reinterpret_cast<int*>(state + 0x1C) : -1;
         int bailing = state ? state[0x70] : -1;
         int trick = state ? state[0xE0] : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
-        auto* scoreComponent = reinterpret_cast<uint8_t*>(skater->FetchModule(kSkaterScoreComponent));
+        auto* scoreComponent = reinterpret_cast<uint8_t*>(skater->FetchModule(kScoreModuleKey));
         uint8_t* score = scoreComponent ? *reinterpret_cast<uint8_t**>(scoreComponent + 0x18) : nullptr;
         int pot = score ? *reinterpret_cast<int*>(score + 0x14) : -1;
         float multiplier = score ? *reinterpret_cast<float*>(score + 0x60) : 0.0f;
@@ -1075,7 +1075,7 @@ bool TimedOut(const Runner& runner, int seconds)
 
 Scripts::CStruct* MakeParams(const std::vector<Param>& params)
 {
-    Scripts::CStruct* out = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* out = Scripts::SpawnParamBag()->PrepareAll();
     for (const Param& param : params) {
         switch (param.kind) {
         case Param::BitMark: out->PutNameKey(0u, NameHash(param.text)); break;
@@ -1112,7 +1112,7 @@ int ReadTarget(void* /*context*/) { return TargetMenu() ? SelectedIndex(TargetMe
 void SendStep(void* context, int direction)
 {
     auto* frontEnd = static_cast<GameModules::FrontEnd*>(context);
-    bool vertical = TargetMenu() && MouseMenus::IsVerticalMenu(TargetMenu().Pull());
+    bool vertical = TargetMenu() && MouseMenus::MenuRunsTopToBottom(TargetMenu().Pull());
     uint32_t event = vertical ? (direction < 0 ? GameModules::FrontEnd::kPadUp : GameModules::FrontEnd::kPadDown)
                               : (direction < 0 ? GameModules::FrontEnd::kPadLeft : GameModules::FrontEnd::kPadRight);
     MouseMenus::SendMenuPadEvent(frontEnd, event);
@@ -1124,7 +1124,7 @@ bool MenuInputBlocked(GameModules::FrontEnd* frontEnd)
 {
     if (!frontEnd || frontEnd->m_padMappings[0].m_mapping == 0 || frontEnd->m_blockMenuInput)
         return true;
-    GameModules::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
+    GameModules::FrontEndInputHandler* handler = frontEnd->m_padListeners[0];
     return !handler || !handler->m_dev;
 }
 
@@ -1256,13 +1256,13 @@ bool ConditionHolds(const OrderCode& command)
     case Condition::NewFrontend: return MenuSystem::NewFrontend::AutomationScreenUp(command.target);
     case Condition::InGame: {
         auto* frontEnd = GameModules::g_frontEndInstance;
-        return CurrentLoadState() && !InFrontEnd() && SkaterUp() && !(frontEnd && frontEnd->m_isHalted);
+        return CurrentLoadState() && !InFrontEnd() && SkaterPresent() && !(frontEnd && frontEnd->m_isHalted);
     }
     case Condition::StageMap: {
         std::string name = command.target;
         if (_strnicmp(name.c_str(), "load_", 5) != 0)
             name = "Load_" + name;
-        return CurrentLoadState() == NameHash(name) && SkaterUp();
+        return CurrentLoadState() == NameHash(name) && SkaterPresent();
     }
     case Condition::Menu: {
         ElementPtr holder;
@@ -1302,7 +1302,7 @@ bool ConditionMet(Runner& runner)
 // object manager's LogTrickObjects as a skater's trick goes - more than THUG2's own mask held crashed there.
 std::string LogTricks(int count, std::string* failed)
 {
-    auto* manager = GameObjects::g_trickObjectManager;
+    auto* manager = GameObjects::g_trickSpotHub;
     if (!manager) {
         *failed = "no trick object manager";
         return "";
@@ -1409,7 +1409,7 @@ bool Kickoff(Runner& runner, GameModules::FrontEnd* frontEnd)
         return true;
     }
     case Op::JumpTo: {
-        if (!CurrentLoadState() || InFrontEnd() || !SkaterUp()) {
+        if (!CurrentLoadState() || InFrontEnd() || !SkaterPresent()) {
             Fail(runner, "not in a level with the skater", false);
             return true;
         }
@@ -1461,7 +1461,7 @@ bool Kickoff(Runner& runner, GameModules::FrontEnd* frontEnd)
         return true;
     }
     case Op::LogTricks: {
-        if (!CurrentLoadState() || InFrontEnd() || !SkaterUp()) {
+        if (!CurrentLoadState() || InFrontEnd() || !SkaterPresent()) {
             Fail(runner, "not in a level with the skater", false);
             return true;
         }
@@ -1620,7 +1620,7 @@ void WriteStatus(Runner& runner)
     status.level = load ? NameOf(load) : "";
     if (_strnicmp(status.level.c_str(), "load_", 5) == 0)
         status.level.erase(0, 5);
-    status.gameMode = GameModeName();
+    status.gameMode = ActiveRulesetLabel();
     std::vector<CUiWidget*> focused, selected;
     FocusedElements(&focused, &selected);
     for (CUiWidget* element : focused)

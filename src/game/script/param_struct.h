@@ -193,7 +193,7 @@ void DuplicateArray(CArray* dest, CArray* source);
 void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, uint32_t type);
 
 // The pooled allocations of the script's value objects.
-CStruct* NewStruct();
+CStruct* SpawnParamBag();
 void DeleteStruct(CStruct* structure);
 CArray* NewArray();
 void DeleteArray(CArray* array);

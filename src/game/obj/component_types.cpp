@@ -111,7 +111,7 @@ const ComponentType kComponentTypes[] = {
     {0xBF518E27, CodeAddress(&GameObjects::CRiderFrameLookups::Fabricate), nullptr}, // SkaterMatrixQueries
     {0x125044E2, CodeAddress(&GameObjects::CRiderOverheadTag::Fabricate), nullptr}, // SkaterFloatingName
     {0x18223FD6, CodeAddress(&GameObjects::CRiderFrameLog::Fabricate), nullptr}, // SkaterStateHistory
-    {0x5BD63B29, CodeAddress(&Skater::CorePhysicsComponent::Fabricate), CodeAddress(&Skater::CorePhysicsComponent::PublishMethodTable)}, // SkaterCorePhysics
+    {0x5BD63B29, CodeAddress(&Skater::SkaterPhysicsModule::Fabricate), CodeAddress(&Skater::SkaterPhysicsModule::PublishMethodTable)}, // SkaterCorePhysics
     {0x9F9CC949, CodeAddress(&GameObjects::CRiderPhysicsTweaks::Fabricate), nullptr}, // SkaterAdjustPhysics
     {0x9B373E58, CodeAddress(&GameObjects::CRiderPhysicsCommit::Fabricate), nullptr}, // SkaterFinalizePhysics
     {0xD8CC3428, CodeAddress(&CRiderStateReset::Fabricate), nullptr}, // SkaterCleanupState
@@ -171,7 +171,7 @@ const ComponentType kComponentTypes[] = {
     {0x41272956, CodeAddress(&GameObjects::CVelocityTrackerModule::Fabricate), nullptr}, // Velocity
     {0x6259B52B, CodeAddress(&GameObjects::CImpactDestructModule::Fabricate), nullptr},
     {0x7767D6D7, CodeAddress(&GameObjects::CShotImpactModule::Fabricate), nullptr},
-    {0x1BBF844D, CodeAddress(&GameObjects::CDisplayMatrixComponent::Fabricate), nullptr},
+    {0x1BBF844D, CodeAddress(&GameObjects::CFaceHeadingModule::Fabricate), nullptr},
     {0x9649D4F9, CodeAddress(&GameObjects::CParkedVehicleModule::Fabricate), nullptr}, // StaticVehicle
     {0xCDC76A22, CodeAddress(&GameObjects::CColorCycleComponent::Fabricate), CodeAddress(&GameObjects::CColorCycleComponent::PublishMethodTable)},
     {0xB87C8E43, CodeAddress(&GameObjects::CBBoxComponent::Fabricate), nullptr},
@@ -188,7 +188,7 @@ const ComponentType kComponentTypes[] = {
 // 0x004E4860
 void __cdecl RegisterComponentTypes()
 {
-    CEntityHub* manager = CompositeObjectManager();
+    CEntityHub* manager = ObjectHubSlot();
     for (const ComponentType& t : kComponentTypes) {
         manager->EnrolModule(t.type, reinterpret_cast<ComponentCreateFunction>(t.create),
                                    reinterpret_cast<ComponentRegisterFunction>(t.registerFunctions));

@@ -63,7 +63,7 @@ public:
     void ScaleToScreenDims();
 
     ShapeMesh m_models[kMaxModels];    // +0x178
-    int m_numModels;               // +0x434
+    int m_modelTotal;               // +0x434
     float m_cameraZ;               // +0x438 (CameraZ: the distance in front of the camera, negative)
     float m_angle[3];              // +0x43C angleX/Y/Z (radians, kept within one turn)
     float m_angularVelocity[3];    // +0x448 AngVelX/Y/Z (per frame)
@@ -71,20 +71,20 @@ public:
                                    // front of it (row 3 at +0x484)
     Maths::Vec4 m_targetPosition;  // +0x494 NodeToPointTo's node position
     int m_pointAt;                 // +0x4A4 kPointAt*
-    int m_angleOrder;              // +0x4A8 AngleOrderXYZ 0, XZY 1, YXZ 2 (default), YZX 3, ZXY 4, ZYX 5
+    int m_eulerSequence;              // +0x4A8 AngleOrderXYZ 0, XZY 1, YXZ 2 (default), YZX 3, ZXY 4, ZYX 5
     uint32_t m_targetObject;       // +0x4AC ObjectToPointTo
-    float m_hoverAmplitude;        // +0x4B0 HoverParams Amp
-    int m_hoverPeriod;             // +0x4B4 ms (1000 / freq)
+    float m_bobHeight;        // +0x4B0 HoverParams Amp
+    int m_bobPeriod;             // +0x4B4 ms (1000 / freq)
     Maths::Vec4 m_pivot;           // +0x4B8 PivotPoint (w = 1)
-    Maths::Vec4 m_parentOffset;    // +0x4C8 ParentParams' vector
+    Maths::Vec4 m_anchorShift;    // +0x4C8 ParentParams' vector
     Maths::Vec4 m_centre;          // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
     float m_fitScale;              // +0x4E8 scale_to_screen_dims' scale (1)
-    bool m_scaleWithDistance;      // +0x4EC ScaleWithDistance
+    bool m_sizeFollowsRange;      // +0x4EC ScaleWithDistance
     uint8_t m_pad4ED[3];
     float m_distanceScale;         // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
     float m_maxScale;              // +0x4F4 MaxScale (3)
     int m_viewSlot;                // +0x4F8 active_viewport
-    uint32_t m_parentObject;       // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
+    uint32_t m_anchorObject;       // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
     int m_parentInteger;           // +0x500 ParentParams' integer 0x5B8AB877
     uint32_t m_parentNode;         // +0x504 ParentParams' node (0x7A8017BA)
     float m_leanAngle;                  // +0x508 tilt (degrees, when pointing at something)
@@ -92,7 +92,7 @@ public:
     uint8_t m_pad50D[3];
 };
 
-// 0x004A6BD0 (cdecl): `m` turned about the world's axes by the three angles in `order` (the m_angleOrder values;
+// 0x004A6BD0 (cdecl): `m` turned about the world's axes by the three angles in `order` (the m_eulerSequence values;
 // others: nothing).
 void ApplyAngles(Maths::Mat4* m, float x, float y, float z, int order);
 

@@ -118,7 +118,7 @@ void WriteVertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint
 
 // The record (after "ground ") and back (false: a bad or repeated key, a missing rect / base / height / material, an
 // unknown kind; `known`: the material's name, if any).
-std::string LogEntry(const Spec& spec, const char* materialName);
+std::string LinkRecord(const Spec& spec, const char* materialName);
 bool ReadRecord(const std::string& text, Spec* spec);
 // "ed_ground" and the lowest two-digit number not taken.
 std::string FreshName(const std::vector<Spec>& specs);

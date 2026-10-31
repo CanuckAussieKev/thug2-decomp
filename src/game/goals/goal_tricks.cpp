@@ -23,8 +23,8 @@ using namespace GoalCalls;
 using namespace GoalNames;
 using GameObjects::CRiderIdentity;
 
-constexpr uint32_t kKeyCombos = 0x79704516;           // key_combos
-constexpr uint32_t kKeyComboString = 0x52E2851E;      // key_combo_string
+constexpr uint32_t kButtonSequences = 0x79704516;           // key_combos
+constexpr uint32_t kButtonSeqText = 0x52E2851E;      // key_combo_string
 constexpr uint32_t kKeyCombo = 0xACFDB27A;            // key_combo
 constexpr uint32_t kTrickMapping = 0xD544AA2D;        // trick_mapping
 constexpr uint32_t kGoalNoValidKeyCombos = 0xF3C20AF5; // goal_no_valid_key_combos
@@ -62,9 +62,9 @@ constexpr uint32_t kLoadPremadeCat = 0x466576C8;      // load_premade_cat
 
 constexpr int kTextSize = 0x200; // the texts' buffer
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -88,14 +88,14 @@ void FreeArray(Scripts::CArray* array)
         Scripts::DeleteArray(array);
     }
 }
-CRiderIdentity* CurrentProfile() { return GameObjects::g_profileManager->FetchActiveAccount(); }
+CRiderIdentity* CurrentProfile() { return GameObjects::g_profileRoster->FetchActiveAccount(); }
 
 } // namespace
 
 // 0x005565C0
 void CObjective::NoComboSequenceLeft()
 {
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     uint32_t id = 0;
     m_args->ReadHashValue(kGoalIdName, &id, 1);
     params->PutNameKey(kGoalIdChecksum, id);
@@ -106,7 +106,7 @@ void CObjective::NoComboSequenceLeft()
 // 0x005568B0
 int CObjective::PickKeyCombo(Scripts::CArray* combos)
 {
-    Scripts::CStruct* mapping = SkateCalls::GetProfileFromParams(nullptr)->GetInfoStructure(kTrickMapping);
+    Scripts::CStruct* mapping = SkateCalls::GetProfileFromParams(nullptr)->FetchDetailsParams(kTrickMapping);
     uint32_t count = combos->m_extent;
     uint32_t combo = 0; // (kept from one look-up to the next, as the original's)
     auto comboAt = [combos, &combo](uint32_t index) {
@@ -147,7 +147,7 @@ bool CObjective::BuildTrickTexts(Scripts::CArray* keyCombos, Scripts::CArray* ke
     Scripts::CStruct* comboTexts = Scripts::ReadSubStruct(kTetrisTrickText);
     void* skate = SkateCalls::Skate();
     CRiderIdentity* profile = SkateCalls::GetProfileFromParams(nullptr);
-    Scripts::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
+    Scripts::CStruct* mapping = profile->FetchDetailsParams(kTrickMapping);
     int count = static_cast<int>(keyCombos->m_extent);
     const char* trickText = nullptr; // (a slot with no local skater keeps the last one, as the original)
     for (int i = 0; i < count; ++i) {
@@ -199,7 +199,7 @@ bool CObjective::BuildTrickTexts(Scripts::CArray* keyCombos, Scripts::CArray* ke
 bool CObjective::SwapMoveCaption()
 {
     Scripts::CArray* combos = nullptr;
-    if (!m_args->FetchList(kKeyCombos, &combos, 0))
+    if (!m_args->FetchList(kButtonSequences, &combos, 0))
         return false;
     // The texts as written, kept the first time.
     const char* text;
@@ -307,14 +307,14 @@ void CObjective::RemoveRewardTrick()
         }
         profile->AddMaxSpecials(-1);
     }
-    m_args->EraseModule(kKeyCombos);
-    m_args->EraseModule(kKeyComboString);
+    m_args->EraseModule(kButtonSequences);
+    m_args->EraseModule(kButtonSeqText);
 }
 
 // 0x00555D40
 void CObjective::TintTaggedProps(int player, bool clear)
 {
-    GameObjects::CTrickSpotHub* objects = GameObjects::g_trickObjectManager;
+    GameObjects::CTrickSpotHub* objects = GameObjects::g_trickSpotHub;
     Scripts::CArray* clusters = nullptr;
     if (!m_args->FetchList(kKillClusters, &clusters, 0))
         return;
@@ -382,7 +382,7 @@ bool CObjective::AwardSpecialTrick()
         keys = free->StepToEntry(nullptr)->raw;
         profile->AddMaxSpecials(1);
         if (cat) {
-            Scripts::CStruct* params = NewStructure();
+            Scripts::CStruct* params = SpawnParamTable();
             params->PutNameKey(kTrickslot, keys);
             params->PutInt(kIndex, premade);
             params->PutInt(kSpecialTrickIndex, slots);
@@ -397,11 +397,11 @@ bool CObjective::AwardSpecialTrick()
         }
         m_args->PutInt(kShouldRemoveTrick, 1);
     }
-    m_args->EraseModule(kKeyCombos);
+    m_args->EraseModule(kButtonSequences);
     Scripts::CArray* combos = NewArray();
     combos->ConfigureSizeKind(1, Scripts::QBVAL_NAME);
     combos->SetElement(0, keys);
-    m_args->AppendArrayRef(kKeyCombos, combos);
+    m_args->AppendArrayRef(kButtonSequences, combos);
     SwapMoveCaption();
     return !had;
 }

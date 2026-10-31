@@ -79,7 +79,7 @@ constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer re
 constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
-Hub* NetManager() { return g_gameNetManager; }
+Hub* NetSessionSlot() { return g_onlineHub; }
 TaskList::PileUp* LogicTasks()
 {
     return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
@@ -148,13 +148,13 @@ void __cdecl RoomManager::DisconnectedCallback(void*, const char* reason, void* 
         DebugOut::Printf("******* Connect Callback FAILED!\n");
         Run(kConnectionFailureDialog);
         lobby->m_connecting = false;
-    } else if (!lobby->m_expectingDisconnect) {
+    } else if (!lobby->m_dropIsExpected) {
         DebugOut::Printf("Wasn't expecting discon.  Attempting to stop hosting game\n");
         Run(kLostConnectionToGameSpy);
     } else {
         DebugOut::Printf("Was expecting discon. Ignore\n");
     }
-    lobby->m_expectingDisconnect = true;
+    lobby->m_dropIsExpected = true;
 }
 
 // 0x0053F6C0
@@ -190,11 +190,11 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
     }
     if (key != kKeyPlayer && key != kKeyRating)
         return;
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch newSearch;
-    for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true)) {
+    for (uint8_t* p = StartRosterSweep(manager, &search, true); p; p = StepRosterSweep(manager, &search, true)) {
         if (IsObserver(p) && !(Prop<uint32_t>(p, 0x1D0) & kPlayerObserverCounted))
             continue;
         if (count == index) {
@@ -225,8 +225,8 @@ void __cdecl RoomManager::PlayerKeyCallback(void*, int key, int index, void* buf
 // 0x0053FDA0
 void __cdecl RoomManager::PublicAddressCallback(void*, uint32_t ip, uint16_t port, void* param)
 {
-    Hub* manager = NetManager();
-    void* buddy = manager->m_buddyMan;
+    Hub* manager = NetSessionSlot();
+    void* buddy = manager->m_presenceService;
     if (!manager->OnServer())
         return;
     auto* lobby = static_cast<RoomManager*>(param);
@@ -249,7 +249,7 @@ void __cdecl RoomManager::NickErrorCallback(void* peer, int type, const char* ni
     PushInternetHeap();
     char retry[128];
     if (type == kNickInUse) {
-        const char* id = NetManager()->GetOnlineSettings()->GetPreferenceString(kNetworkId, kUiString);
+        const char* id = NetSessionSlot()->GetOnlineSettings()->GetPreferenceString(kNetworkId, kUiString);
         DebugOut::Printf("Nick Error. Nick %s In Use\n", nick);
         std::sprintf(retry, "a%d_%s", FrameClock::GetTime(), id);
         GameSpy::PeerRetryWithNick(peer, static_cast<const char*>(retry)); // retried with that nick
@@ -275,7 +275,7 @@ void __cdecl RoomManager::ConnectCallback(void* peer, int success, int, void* pa
     DebugOut::Printf("****** Connect Callback Successful\n");
     net->SetLocalAddress(GameSpy::PeerGetPublicIp(peer)); // the peer's public address
     ScriptCommands::CFunc_StartLobbyList(nullptr, nullptr);
-    lobby->m_expectingDisconnect = false;
+    lobby->m_dropIsExpected = false;
     g_connectedTime = FrameClock::GetTime(); // connected
 }
 
@@ -316,7 +316,7 @@ void __cdecl RoomManager::QueryTask(void* task)
         GameFree(packet.data);
     }
     QueuedCount() = 0;
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     if (!g_gamePosted && manager->InNetGame() && manager->OnServer()) { // not reported yet
         if (now - g_hostingSince > kNotPostedTime) {
             if (!g_notPostedShown) {
@@ -335,8 +335,8 @@ void __cdecl RoomManager::QueryTask(void* task)
 void RoomManager::StartHosting()
 {
     TaskList::PileUp* tasks = LogicTasks();
-    NetLink::AppHost* server = NetManager()->m_host;
-    server->SetOutsidePacketHook(reinterpret_cast<NetLink::ForeignPacketHandler>(&RoomManager::QueuePacket));
+    NetLink::AppHost* server = NetSessionSlot()->m_host;
+    server->SetOutsidePacketHook(reinterpret_cast<NetLink::UnknownPacketCallback>(&RoomManager::QueuePacket));
     ClearQueue();
     if (GameSpy::PeerStartReportingWithSocket(m_remote, server->Socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
         PeerStateChanged(m_remote);
@@ -353,13 +353,13 @@ void RoomManager::StartHosting()
 // 0x00540300
 void __cdecl RoomManager::NatNegotiationCompleted(int result, int, const void* address, void* userData)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     if (result == kNatSuccess && !manager->OnServer()) { // the client joins at the address found
         const auto* sockaddr = static_cast<const uint8_t*>(address);
         uint16_t port = static_cast<uint16_t>(sockaddr[2] << 8 | sockaddr[3]); // (ntohs)
         manager->JoinServer(*reinterpret_cast<const uint32_t*>(sockaddr + 4), port, 0);
     }
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
+    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     if (manager->OnServer()) {
         if (--lobby->m_negotiations == 0)
             lobby->m_natTask->DropOut();
@@ -393,25 +393,25 @@ unsigned long __stdcall RoomManager::ConnectThread(void* lobbyData)
 {
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_internetBottomUpHeap);
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     char nick[128];
     std::strcpy(nick, manager->GetOnlineSettings()->GetPreferenceString(kNetworkId, kUiString));
     auto* lobby = static_cast<RoomManager*>(lobbyData);
     lobby->m_connecting = true;
     auto nickError = &RoomManager::NickErrorCallback;
     auto connected = &RoomManager::ConnectCallback;
-    GameSpy::PeerConnect(lobby->m_remote, static_cast<const char*>(nick), Prop<int>(manager->m_buddyMan, 4) /* its profile */,
+    GameSpy::PeerConnect(lobby->m_remote, static_cast<const char*>(nick), Prop<int>(manager->m_presenceService, 4) /* its profile */,
                          nickError, connected, lobbyData, 0); // peer connect (not blocking)
     MemSys::Hub::Pull()->LeaveHeapScope();
     return 0;
 }
 
 // 0x00540C90
-void __cdecl RoomManager::NatNegotiateCallback(void*, int cookie, void*)
+void __cdecl RoomManager::HolePunchResultFn(void*, int cookie, void*)
 {
     TaskList::PileUp* tasks = LogicTasks();
-    Hub* manager = NetManager();
-    if (static_cast<RoomManager*>(manager->m_lobbyMan)->m_negotiations != 0)
+    Hub* manager = NetSessionSlot();
+    if (static_cast<RoomManager*>(manager->m_lobbyService)->m_negotiations != 0)
         return; // (one at a time)
     NetLink::AppHost* server = manager->m_host;
     PushInternetHeap();
@@ -421,7 +421,7 @@ void __cdecl RoomManager::NatNegotiateCallback(void*, int cookie, void*)
         PopHeap();
         return;
     }
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
+    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     if (lobby->m_negotiations == 0)
         tasks->QueueJob(lobby->m_natTask);
     ++lobby->m_negotiations;

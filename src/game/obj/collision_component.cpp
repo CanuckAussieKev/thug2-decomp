@@ -33,7 +33,7 @@ namespace {
 
 extern void** const kVtable;
 
-constexpr uint32_t kModelComponent = 0x286A8D26; // Model
+constexpr uint32_t kModelModuleName = 0x286A8D26; // Model
 constexpr uint32_t kCollisionMode = 0x2D7E583B;  // CollisionMode
 constexpr uint32_t kClass = 0x12B4E660;          // Class
 constexpr uint32_t kLevelObject = 0xB7B3BD86;    // LevelObject
@@ -127,16 +127,16 @@ void CContactShapeModule::ConfigureFromData(Scripts::CStruct* params)
 void CContactShapeModule::SetUpHitShape(int type, Engine3D::CTriMeshSource* geometry)
 {
     if (geometry) {
-        m_hitShape = Engine3D::CreateMovableCollision(type, geometry, 1, reinterpret_cast<int>(m_entity));
+        m_hitShape = Engine3D::BuildDynamicHitMesh(type, geometry, 1, reinterpret_cast<int>(m_entity));
         return;
     }
-    uint8_t* model = ModelOf(m_entity->FetchModule(kModelComponent));
+    uint8_t* model = ModelOf(m_entity->FetchModule(kModelModuleName));
     auto* data = static_cast<uint8_t*>(AssetStore::AssetManager()->GetAssetData(*reinterpret_cast<uint32_t*>(model + 0x30), 0));
     if (data) {
-        m_hitShape = Engine3D::CreateMovableCollision(type, *reinterpret_cast<Engine3D::CTriMeshSource**>(data + 0x8C),
+        m_hitShape = Engine3D::BuildDynamicHitMesh(type, *reinterpret_cast<Engine3D::CTriMeshSource**>(data + 0x8C),
                                                   *reinterpret_cast<int*>(data + 0x88), reinterpret_cast<int>(m_entity));
     } else {
-        m_hitShape = Engine3D::CreateMovableCollision(type, nullptr, 0, reinterpret_cast<int>(m_entity));
+        m_hitShape = Engine3D::BuildDynamicHitMesh(type, nullptr, 0, reinterpret_cast<int>(m_entity));
     }
 }
 
@@ -146,7 +146,7 @@ void CContactShapeModule::TickFrame()
     Engine3D::CHitMesh* collision = m_hitShape;
     if (!collision)
         return;
-    CObjectModule* model = m_entity->FetchModule(kModelComponent);
+    CObjectModule* model = m_entity->FetchModule(kModelModuleName);
     const uint8_t* bone = model ? BoneOf(ModelOf(model)) : nullptr;
     if (!bone) {
         PlaceAtAbsolutePoint(collision, &m_entity->m_atPoint);

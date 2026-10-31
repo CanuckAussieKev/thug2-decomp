@@ -132,7 +132,7 @@ struct StartGameInfo {
     uint32_t teams;         // +0x18
     uint32_t goals;         // +0x1C the goals preference's checksum
     uint32_t value20;       // +0x20 (0x00535AD0)
-    int8_t crownSpawnPoint; // +0x24
+    int8_t crownStartSlot; // +0x24
     uint8_t unused25[3];
     uint32_t startInfo[8];  // +0x28 the manager's start info words (+0x48)
 };
@@ -143,11 +143,11 @@ TaskList::PileUp* LogicTasks()
 {
     return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
 }
-OptionStore::Preferences* NetworkPreferences(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
+OptionStore::Preferences* NetGameOptions(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_netOptions); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 OptionStore::Preferences* GamePreferences(Hub* m)
 {
-    return m->InNetGame() ? NetworkPreferences(m) : Call<OptionStore::Preferences*>(CodeAddress(&GameModules::Skate::GetSplitViewSettings), Skate());
+    return m->InNetGame() ? NetGameOptions(m) : Call<OptionStore::Preferences*>(CodeAddress(&GameModules::Skate::GetSplitViewSettings), Skate());
 }
 uint32_t PreferenceChecksum(OptionStore::Preferences* prefs, uint32_t name, uint32_t field)
 {
@@ -164,7 +164,7 @@ void Hub::ResetToLobby()
 {
     int teams;
     if (OnServer()) {
-        m_level = PreferenceChecksum(NetworkPreferences(this), kLevel, kChecksum);
+        m_level = PreferenceChecksum(NetGameOptions(this), kLevel, kChecksum);
         teams = GetNumTeams();
     } else {
         teams = Call<int>(CodeAddress(&GoalSystem::CMatchRules::NumTeams), GameMode());
@@ -172,12 +172,12 @@ void Hub::ResetToLobby()
     Prop<uint32_t>(this, 0x30) = kNetLobby;
     Call(CodeAddress(&GoalSystem::CMatchRules::ApplyMatchStyle), GameMode(), kNetLobby); // the game mode
     Call(CodeAddress(&GoalSystem::CMatchRules::SetNumTeams), GameMode(), teams);
-    m_gameOver = false;
+    m_matchEnded = false;
     ClearRoster();
-    if (uint8_t* king = KingOfTheHill(this))
+    if (uint8_t* king = IsCrownRuleActive(this))
         AsPlayer(king)->GiveCrown(false);
     PlayerSearch search;
-    for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true))
+    for (uint8_t* p = StartRosterSweep(this, &search, true); p; p = StepRosterSweep(this, &search, true))
         AsPlayer(p)->ClearFlags(); // carries no flag
     ClearQueuedScripts();
     Prop<uint32_t>(this, 0x1B0) = FrameClock::GetTime(); // (back in the lobby: auto-serve waits from here)
@@ -203,7 +203,7 @@ void Hub::StartNetworkGame()
     uint32_t gameType = Prop<uint32_t>(this, 0x30);
     uint32_t timeLimit =
         prefs->GetSettingValue(gameType == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
-    m_level = PreferenceChecksum(NetworkPreferences(this), kLevel, kChecksum);
+    m_level = PreferenceChecksum(NetGameOptions(this), kLevel, kChecksum);
     StartGameInfo info;
     info.gameType = Prop<uint32_t>(this, 0x30);
     info.fireballLevel = static_cast<uint32_t>(GetFireballLevel());
@@ -227,14 +227,14 @@ void Hub::StartNetworkGame()
     do
         info.gameId = static_cast<uint8_t>(Maths::Rnd(0xFF) + 1);
     while (info.gameId == Prop<uint8_t>(this, 0x39));
-    info.crownSpawnPoint = Prop<int8_t>(this, 0x68);
+    info.crownStartSlot = Prop<int8_t>(this, 0x68);
     std::memcpy(info.startInfo, &Prop<uint32_t>(this, 0x48), sizeof(info.startInfo));
     desc.m_content = &info;
     desc.m_byteCount = sizeof(info);
     desc.m_ident = kMsgStartGame;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
-    for (uint8_t* p = FirstPlayer(this, &search, true); p; p = NextPlayer(this, &search, true)) {
+    for (uint8_t* p = StartRosterSweep(this, &search, true); p; p = StepRosterSweep(this, &search, true)) {
         Prop<uint32_t>(p, 0x24) = 0;
         AsPlayer(p)->ClearFlags(); // carries no flag
         Prop<uint32_t>(p, 0x1D0) &= ~kPlayerCaptureBlocked;
@@ -242,15 +242,15 @@ void Hub::StartNetworkGame()
         if (!InNetGame())
             break; // (split screen: the first player only)
     }
-    if (uint8_t* king = KingOfTheHill(this))
+    if (uint8_t* king = IsCrownRuleActive(this))
         AsPlayer(king)->GiveCrown(false);
     Prop<void*>(this, 0x1D0) = nullptr;   // the last leader
     Prop<int>(this, 0x1D4) = -1;          // the last leading team
     ClearQueuedScripts();
     ClearRoster();
     g_cheatFlag = false;
-    if (static_cast<RankingsManager*>(m_statsMan)->UpdateLoggedIn())
-        static_cast<RankingsManager*>(m_statsMan)->StartGame();
+    if (static_cast<RankingsManager*>(m_ratingService)->UpdateLoggedIn())
+        static_cast<RankingsManager*>(m_ratingService)->StartGame();
 }
 
 // 0x0053C6E0
@@ -258,34 +258,34 @@ void Hub::CancelJoin()
 {
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
-    if (m_joinState == 10 || m_joinState == 8 || m_joinState == kJoinStateRefused)
+    if (m_joinPhase == 10 || m_joinPhase == 8 || m_joinPhase == kJoinStateRefused)
         return;
     NetLink::AppHost* client = m_clientApp;
     desc.m_ident = kMsgDisconnect;
     SendToServer(client, &desc);
     client->Transmit(false);
     DisconnectClients();
-    m_joinTimeoutTask->DropOut();
+    m_joinExpiryJob->DropOut();
     RemoveAllNewPlayers();
-    if (Prop<bool>(m_buddyMan, 0x10)) // (logged in to the presence)
-        static_cast<FriendsManager*>(m_buddyMan)->ChangeStanding(kHomieStatusChatting, Scripts::FetchText("homie_status_chatting"),
-                                                      static_cast<char*>(m_lobbyMan) + 0x34);
+    if (Prop<bool>(m_presenceService, 0x10)) // (logged in to the presence)
+        static_cast<FriendsManager*>(m_presenceService)->ChangeStanding(kHomieStatusChatting, Scripts::FetchText("homie_status_chatting"),
+                                                      static_cast<char*>(m_lobbyService) + 0x34);
 }
 
 // 0x0053BED0
 void __cdecl Hub::ObserverTask(void*)
 {
-    Hub* manager = g_gameNetManager;
-    if (manager->m_observerCommand == 1) { // (the next player asked for)
+    Hub* manager = g_onlineHub;
+    if (manager->m_spectateRequest == 1) { // (the next player asked for)
         manager->SpectatePlayer(static_cast<uint8_t*>(manager->NextCamPlayer()));
-        manager->m_observerCommand = 0;
+        manager->m_spectateRequest = 0;
     }
 }
 
 // 0x00536890
 void __cdecl Hub::ObserverInput(void* handler)
 {
-    auto* input = static_cast<ObserverInputHandler*>(handler);
+    auto* input = static_cast<SpectatorInputSink*>(handler);
     Hub* manager = input->m_content;
     GameObjects::CEntity* root = FindRootWindow();
     if (root) {
@@ -299,7 +299,7 @@ void __cdecl Hub::ObserverInput(void* handler)
             return;
     }
     if (input->m_controlData[0x20] & 0x40) // (the controller's button: the next player)
-        manager->m_observerCommand = 1;
+        manager->m_spectateRequest = 1;
 }
 
 // 0x0053BF00
@@ -307,31 +307,31 @@ void __cdecl Hub::AutoServeTask(void* task)
 {
     Hub* manager = TaskManager(task);
     if (FrameClock::GetTime() - g_autoServeStart < kAutoServeWait || GameType() != kNetLobby ||
-        manager->CountPlayers() < 2 || manager->m_waitingForGameToStart ||
+        manager->CountPlayers() < 2 || manager->m_awaitingStart ||
         FrameClock::GetTime() - Prop<uint32_t>(manager, 0x1B0) <= kAutoServeIdle)
         return;
     Run(kLoadPendingPlayers);
     Run(kStartNetworkGame);
-    manager->m_waitingForGameToStart = true;
+    manager->m_awaitingStart = true;
 }
 
 // 0x0053BF90
-void __cdecl Hub::JoinStateTask(void* task)
+void __cdecl Hub::JoinProgressTick(void* task)
 {
     Hub* manager = TaskManager(task);
-    switch (manager->m_joinState) {
+    switch (manager->m_joinPhase) {
     case kJoinStateConnecting: // 1
         Run(kCreateConnectingDialog);
-        manager->m_joinState = 0;
+        manager->m_joinPhase = 0;
         break;
     case kJoinStateJoining: // 2 (none for the host's own client)
         if (!manager->m_clientApp->IsHostLocal())
             Run(kCreateJoiningDialog);
-        manager->m_joinState = 0;
+        manager->m_joinPhase = 0;
         break;
     case kJoinStateJoiningWithPassword: // 3
         Run(kCreateTryingPasswordDialog);
-        manager->m_joinState = kJoinStateTryingPassword;
+        manager->m_joinPhase = kJoinStateTryingPassword;
         break;
     case 6: { // joined
         NewPlayerSearch search;
@@ -339,28 +339,28 @@ void __cdecl Hub::JoinStateTask(void* task)
         for (; info && !(Prop<uint32_t>(info, 0x20) & kNewPlayerLocal); info = NextNewPlayer(manager, &search)) {
         }
         if (info && (Prop<uint32_t>(info, 0x20) & kNewPlayerObserver)) { // the local player joined to observe
-            Call(CodeAddress(&GameModules::Skate::RemoveSkater), Skate(), Call<void*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
+            Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), Skate(), Call<void*>(CodeAddress(GameModules::Skate::GetLocalSkaterStub), Skate())); // the local skater removed
             manager->SpectatePlayer(nullptr);
         }
         Run(kEnteredNetworkGame);
-        manager->m_joinState = 7;
+        manager->m_joinPhase = 7;
         break;
     }
     case 8: // the join over
         Run(kDialogBoxExit);
-        manager->m_joinTimeoutTask->DropOut();
-        manager->m_joinStateTask->DropOut();
+        manager->m_joinExpiryJob->DropOut();
+        manager->m_joinPhaseJob->DropOut();
         break;
     case kJoinStateRefused: { // 9
         Scripts::CStruct* params = NewParams();
         params->PutNameKey(kReason, manager->m_refusedReason);
-        manager->m_joinStateTask->DropOut();
+        manager->m_joinPhaseJob->DropOut();
         Run(kCreateJoinRefusedDialog, params);
         DeleteParams(params);
         break;
     }
     case 10: // cancelled
-        manager->m_joinStateTask->DropOut();
+        manager->m_joinPhaseJob->DropOut();
         break;
     default:
         break;
@@ -419,9 +419,9 @@ void __cdecl Hub::ConnectionTask(void* task)
     }
     if (manager->OnServer()) { // the players' connections watched
         PlayerSearch search;
-        uint8_t* player = FirstPlayer(manager, &search, true);
+        uint8_t* player = StartRosterSweep(manager, &search, true);
         while (player) {
-            uint8_t* next = NextPlayer(manager, &search, true);
+            uint8_t* next = StepRosterSweep(manager, &search, true);
             NetLink::Conn* conn = Prop<NetLink::Conn*>(player, 0x18);
             if (!conn->IsHostLocal()) {
                 int reason = -1;
@@ -438,7 +438,7 @@ void __cdecl Hub::ConnectionTask(void* task)
                     bool observer = IsObserver(player);
                     manager->EvictPlayer(player, reason);
                     if (!observer)
-                        Call(CodeAddress(&GameModules::Skate::RemoveSkater), skate, skater);
+                        Call(CodeAddress(&GameModules::Skate::DropSkaterFromRoster), skate, skater);
                 }
             }
             player = next;
@@ -451,13 +451,13 @@ void __cdecl Hub::ConnectionTask(void* task)
     if (!client)
         return;
     NetLink::Conn* conn = client->BeginConnWalk(&search);
-    if (!conn || !(manager->m_joinState == 8 || manager->m_joinState == 7 || manager->m_joinState == 6) ||
+    if (!conn || !(manager->m_joinPhase == 8 || manager->m_joinPhase == 7 || manager->m_joinPhase == 6) ||
         conn->GetSilenceDuration() <= kSilentTimeout)
         return;
     if (Prop<uint32_t>(skate, 0x378) == kLoadMainMenu) {
         Run(kShowJoinTimeoutNotice);
-        manager->m_joinStateTask->DropOut();
-        manager->m_joinState = 10;
+        manager->m_joinPhaseJob->DropOut();
+        manager->m_joinPhase = 10;
     } else {
         Run(kCreateLostConnectionDialog);
         manager->DestroyAllPlayers();

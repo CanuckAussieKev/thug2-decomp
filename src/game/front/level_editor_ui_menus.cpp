@@ -26,7 +26,7 @@ void Item(const char* id, const char* label = nullptr)
     const Actions::ActStep* action = index >= 0 ? Actions::Pull(index) : nullptr;
     if (!action)
         return;
-    std::string keys = Hints::FirstKey(Actions::KeysText(index));
+    std::string keys = Hints::LeadingKeyName(Actions::KeysText(index));
     int checked = Actions::Checked(index);
     if (ImGui::MenuItem(label ? label : action->name.c_str(), keys.empty() ? nullptr : keys.c_str(), checked == 1,
                         Actions::IsSwitchedOn(index)))

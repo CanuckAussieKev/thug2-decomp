@@ -37,7 +37,7 @@ constexpr float kInchesPerMile = Bits(0x47778000);
 constexpr float kHoursPerSecond = Bits(0x3991A2B4);
 
 // A vertex of a collision object (its vtable slot 9).
-Maths::Vec4 VertexPos(Engine3D::CHitMesh* object, int vertex)
+Maths::Vec4 VertexPosition3(Engine3D::CHitMesh* object, int vertex)
 {
     Maths::Vec4 pos;
     reinterpret_cast<Maths::Vec4*(__thiscall*)(Engine3D::CHitMesh*, Maths::Vec4*, int)>(
@@ -81,7 +81,7 @@ bool __cdecl GroundHit(Maths::Vec4* triangle, const Maths::Vec4* end, const Math
             vertex = geometry->m_faces[face * 8 + 4 + corner];
         else
             vertex = *reinterpret_cast<const uint16_t*>(geometry->m_faces + face * 10 + 4 + 2 * corner);
-        triangle[corner] = VertexPos(object, vertex);
+        triangle[corner] = VertexPosition3(object, vertex);
     }
     *out = feeler.m_contactPos;
     return true;
@@ -109,15 +109,15 @@ void CKinematicsModule::UpdateJump()
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
-    double fall = static_cast<double>(m_jumpGravity) * m_frameTime;
+    double fall = static_cast<double>(m_leapPull) * m_frameTime;
     double rise = static_cast<double>(m_jumpSpeed) * m_frameTime + fall * m_frameTime * 0.5;
     if (m_jumpHasHeading) {
         // (along the heading at the start's speed: x and z through rounded products, w through an unrounded one)
         float frame = m_frameTime;
         double speed = m_jumpStartSpeed;
-        double alongW = speed * m_jumpHeading.w * frame;
-        float alongZ = static_cast<float>(speed * m_jumpHeading.z);
-        float alongX = static_cast<float>(speed * m_jumpHeading.x);
+        double alongW = speed * m_leapDirection.w * frame;
+        float alongZ = static_cast<float>(speed * m_leapDirection.z);
+        float alongX = static_cast<float>(speed * m_leapDirection.x);
         x = static_cast<float>(static_cast<double>(alongX) * frame + x);
         z = static_cast<float>(static_cast<double>(z) + static_cast<double>(alongZ) * frame);
         w = static_cast<float>(static_cast<double>(w) + alongW);
@@ -127,9 +127,9 @@ void CKinematicsModule::UpdateJump()
     if (rise < 0.0) {
         // (coming down: landed at land_height, or on whatever is below)
         if (m_jumpHasLandHeight) {
-            if (y < m_jumpLandHeight) {
+            if (y < m_leapTouchdownY) {
                 m_motionFlags &= ~MOTION_JUMPING;
-                y = m_jumpLandHeight;
+                y = m_leapTouchdownY;
             }
         } else {
             Engine3D::CProbeRay feeler;
@@ -341,7 +341,7 @@ void CKinematicsModule::MoveToLink(Scripts::CStruct* params, Scripts::CScript* s
         link -= 1;
     else if (links > 1 && params->HasBareFlag(kRandomLink))
         link = Maths::Rnd(links);
-    Scripts::CStruct* node = LevelNodes::GetLinkedNode(m_listLink, link);
+    Scripts::CStruct* node = LevelNodes::FetchNeighbourNode(m_listLink, link);
     uint32_t name = LevelNodes::GetNodeName(node);
     Maths::Vec4 pos;
     LevelNodes::FetchPlace(node, &pos);

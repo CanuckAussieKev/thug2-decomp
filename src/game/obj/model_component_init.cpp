@@ -70,7 +70,7 @@ void* SkeletonOf(CObjectModule* component)
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
 }
 uint32_t SkeletonName(void* skeleton) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14); }
-void* SkeletonData(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
+void* RigDefinition(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
 
 // Nx (not rewritten yet): a new model (0x0048BFA0) and its deletion (0x0048C3C0); the model's geoms cleared
 // (0x00494BA0), counted (0x00492E40), by index (0x00494640) and name (0x00493CD0), their names (0x00494680), one added
@@ -79,7 +79,7 @@ void* SkeletonData(void* skeleton) { return *reinterpret_cast<void**>(static_cas
 // skeleton (0x00492DD0), shadow volume (0x00492E90), bounding sphere (0x00492F30), lights (+0x2C) made (0x00493BD0) or
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
-Engine3D::CRenderModel* NewModel(int arg) { return (void)arg, static_cast<Engine3D::CRenderModel*>(Engine3D::SpawnModel()); }
+Engine3D::CRenderModel* SpawnRenderModel(int arg) { return (void)arg, static_cast<Engine3D::CRenderModel*>(Engine3D::SpawnModel()); }
 void DeleteModel(Engine3D::CRenderModel* model) { Engine3D::Engine::DeleteGeomObject(model); }
 void* ModelLights(Engine3D::CRenderModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
 void* CloneModelGeom(void* geom, Engine3D::CRenderModel* to) { return static_cast<Engine3D::CGeom*>(geom)->CloneForModel(1, to); }
@@ -95,7 +95,7 @@ bool FetchMagnification(Maths::Vec4* scale, Scripts::CStruct* params)
 void* LookUpSector(uint32_t name) { return Engine3D::Engine::LookUpSector(name); }
 void* SectorGeom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
-void ModelFileName(const char* name, const char* ext, char* out)
+void ModelPathFor(const char* name, const char* ext, char* out)
 {
     Gfx2D::MakeModelFileName(name, ext, out);
 }
@@ -109,7 +109,7 @@ void* FindBoneVolumes(uint32_t name) { return Gfx2D::FindBoneVolumes(name); }
 // The model builder Gfx (an GameObjects::CEntity, vtable 0x00648920, 0x54 bytes, constructor 0x004897D0: use the asset
 // manager, the texture dictionary offset) that builds a model from a profile with a build script (0x0048A2F0); its
 // destructor is the CEntity's.
-struct ModelBuilder {
+struct ModelAssembler {
     alignas(16) uint8_t bytes[0x60];
 };
 
@@ -128,7 +128,7 @@ CMeshInstanceModule* CMeshInstanceModule::MakeNew()
     CObjectModule::MakeNew();
     m_vtable = kVtable;
     m_kindTag = kType;
-    m_meshInstance = NewModel(1);
+    m_meshInstance = SpawnRenderModel(1);
     m_pivot = {0.0f, 0.0f, 0.0f, 1.0f};
     for (CModelSpinAxis& axis : m_twistRate) {
         for (CModelSpin& spin : axis.m_spins)
@@ -245,7 +245,7 @@ void CMeshInstanceModule::SetUpMeshFromProfile(void* profile, bool viaResourceSt
     void* skeleton = nullptr;
     if (CObjectModule* component = m_entity->FetchModule(kSkeleton))
         skeleton = SkeletonOf(component);
-    ModelBuilder builder;
+    ModelAssembler builder;
     reinterpret_cast<Gfx2D::CModelAssembler*>(&builder)->MakeNew(viaResourceStore, texDictOffset);
     reinterpret_cast<Gfx2D::CModelAssembler*>(&builder)->Build(static_cast<Gfx2D::CModelLook*>(profile), model, static_cast<Gfx2D::CRig*>(skeleton), buildScript ? buildScript : kDefaultBuildScript);
     if (m_entity->m_compositeFlags & COMPOSITE_FLAG_FINALIZED) {
@@ -286,9 +286,9 @@ void CMeshInstanceModule::InitBoneVolumes()
     if (m_meshInstance->GetBoneVolumes())
         return;
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->GetNamedHeap(kBoneVolumeHeap, 1));
+    manager->EnterHeapScope(manager->FetchHeapByKey(kBoneVolumeHeap, 1));
     void* skeleton = SkeletonOf(m_boneRig);
-    void* data = SkeletonData(skeleton);
+    void* data = RigDefinition(skeleton);
     void* volumes = FindBoneVolumes(SkeletonName(skeleton));
     if (volumes) {
         ++*reinterpret_cast<int*>(static_cast<uint8_t*>(volumes) + 8); // (another user)
@@ -334,7 +334,7 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
             m_meshInstance->AddAssetGeom(name, 0, multicolor != 0, 1);
         } else if (params->ReadHashValue(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
-            auto* object = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(name));
+            auto* object = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(name));
             auto* source = static_cast<CMeshInstanceModule*>(object->FetchModule(kModel));
             m_colorValueCount = source->m_colorValueCount;
             for (int i = 0; i < m_colorValueCount; ++i)
@@ -364,7 +364,7 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
                 for (int i = 0; i < source->m_meshInstance->FetchGeomTotal(); ++i) {
                     void* clone = CloneModelGeom(source->m_meshInstance->FetchGeom(i), m_meshInstance);
                     ActivateGeom(clone);
-                    AddGeom(m_meshInstance, clone, source->m_meshInstance->GetGeomName(i));
+                    AddGeom(m_meshInstance, clone, source->m_meshInstance->FetchPartLabel(i));
                 }
             }
         } else {
@@ -375,9 +375,9 @@ void CMeshInstanceModule::SetUpMesh(Scripts::CStruct* params)
                     char path[0x200];
                     uint32_t skeletonName;
                     if (params->ReadHashValue(kSkeletonName, &skeletonName, 0))
-                        ModelFileName(file, ".skin", path);
+                        ModelPathFor(file, ".skin", path);
                     else
-                        ModelFileName(file, ".mdl", path);
+                        ModelPathFor(file, ".mdl", path);
                     TextUtil::ToLowerText(path);
                     bool allowReplace = params->HasBareFlag(kAllowReplaceTex);
                     m_meshInstance->AddFileGeom(static_cast<const char*>(path), 0, viaResourceStore != 0, texDictOffset, allowReplace, 0, 1, 0);

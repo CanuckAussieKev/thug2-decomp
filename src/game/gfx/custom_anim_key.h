@@ -44,7 +44,7 @@ public:
     // its unnamed float. True.
     bool WorkOn(void* camera);
 
-    float m_viewAngle; // +0x0C
+    float m_fieldOfView; // +0x0C
 };
 
 // A script run on the object (kind 4; 0x10 bytes, vtable 0x00648818).
@@ -54,7 +54,7 @@ public:
     // 0x04D887B1 - kept). True.
     bool WorkOn(void* object);
 
-    uint32_t m_runScript; // +0x0C
+    uint32_t m_ownScript; // +0x0C
 };
 
 // A global structure given to the script 0xBDF7F843 (kind 5; 0x10 bytes, vtable 0x00648830).

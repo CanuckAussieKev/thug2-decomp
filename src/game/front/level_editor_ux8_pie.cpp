@@ -18,7 +18,7 @@ Item ActStep(int index, const char* label, bool edits)
     Item item;
     const Actions::ActStep* a = Actions::Pull(index);
     item.label = label ? label : a ? a->name : "?";
-    item.keys = Hints::FirstKey(Actions::KeysText(index));
+    item.keys = Hints::LeadingKeyName(Actions::KeysText(index));
     item.run = [index] { Actions::Run(index); };
     item.enabled = [index] { return Actions::IsSwitchedOn(index); };
     item.checked = [index] { return Actions::Checked(index); };
@@ -43,7 +43,7 @@ Item Tool(Xform::Mode mode, int action)
 {
     Item item;
     item.label = std::string("Tool: ") + Xform::ModeName(mode);
-    item.keys = Hints::FirstKey(Actions::KeysText(action));
+    item.keys = Hints::LeadingKeyName(Actions::KeysText(action));
     // (set directly: the keys pick a tool only with the right button up and wasd_flies=0)
     item.run = [mode] { Xform::AtHand().mode = mode; };
     item.enabled = [] { return true; };
@@ -55,7 +55,7 @@ Item ViewMode(int mode)
 {
     Item item;
     item.label = std::string("View: ") + Overlays::ViewModeName(mode);
-    item.keys = Hints::FirstKey(Actions::KeysText(Actions::kViewModeLit + mode));
+    item.keys = Hints::LeadingKeyName(Actions::KeysText(Actions::kViewModeLit + mode));
     item.run = [mode] { Overlays::ChangeViewMode(mode); };
     item.enabled = [] { return true; };
     item.checked = [mode] { return Overlays::ViewMode() == mode ? 1 : 0; };

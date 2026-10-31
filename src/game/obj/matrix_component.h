@@ -10,7 +10,7 @@ namespace GameObjects {
 
 // A component holding a matrix that becomes its object's display matrix after each of the object's updates (type
 // 0x208353AC, vtable 0x00645F24, 0x58 bytes; made by 0x0041CB20). A cutscene's stand-in hands it the object's display
-// matrix (cutscene_update.cpp, where the type is called kSoundComponent). Vtable: 0 the scalar deleting destructor;
+// matrix (cutscene_update.cpp, where the type is called kSfxModuleSlot). Vtable: 0 the scalar deleting destructor;
 // 1 Update; 2 and 7 / 8 / 10 the empty 0x005BAB90; 3 / 4 / 9 the empty 0x005480A0; 5 the shared 0x004E3F90; 12
 // InvokeMethodByName 0x0051ADC0.
 class CMatrixComponent : public CObjectModule {

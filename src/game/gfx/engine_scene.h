@@ -32,7 +32,7 @@ struct CWorldScene {
     char m_label[0x80];            // +0x04: the file it was loaded from
     uint32_t m_checksum;          // +0x84: its name's
     CTextureSet* m_textureSet;         // +0x88
-    bool m_hasCollision;          // +0x8C: its collision gets a grid (super sectors)
+    bool m_buildsCollisionGrid;          // +0x8C: its collision gets a grid (super sectors)
     bool m_isSky;                 // +0x8D: a sky (the scene list tells the sky from the main scene by it)
     uint8_t pad8E[2];
     Maths::BBox m_unknownBox;       // +0x90 (made empty)
@@ -42,7 +42,7 @@ struct CWorldScene {
     char m_pipName[0x80];         // +0xD8: the collision file's (unloaded with the collision)
     int m_collStaticCount;        // +0x158
     CStaticCollider* mp_collStatics;  // +0x15C (an array new)
-    uint8_t* mp_collObjects;      // +0x160: the collision geometry (LoadCollisionData's)
+    uint8_t* m_collisionBlob;      // +0x160: the collision geometry (LoadCollisionData's)
     char m_addName[0x80];         // +0x164: the scene added to it
     uint32_t m_addData;           // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
     char m_addPipName[0x80];      // +0x1E8: the added scene's collision file
@@ -121,7 +121,7 @@ struct CWorldScene {
     uint32_t DuplicateSceneSector(CWorldCell* sector, CWorldScene* scene, int instance, bool flag, uint32_t name);
     // 0x0049DF30: the same for the sector `sectionId` of this scene (0 if there's none).
     uint32_t CloneSectorNamed(uint32_t sectionId, CWorldScene* scene, int instance, bool flag, uint32_t name);
-    // 0x0049D590: the collision from a scene file's collision data - the static objects (and with m_hasCollision
+    // 0x0049D590: the collision from a scene file's collision data - the static objects (and with m_buildsCollisionGrid
     // their grid), each given to its sector (a new one, shown, if there's none of its name) and the sector put in the
     // grid (0x40); the weather told (0x004A1090) when the script integer 0xBA1E4254 is set. True.
     bool AddCollisionData(const uint8_t* data, int flag);
@@ -148,7 +148,7 @@ struct CWorldScene {
     // deleted (0x0049CB40). True.
     bool UnloadAddedScene();
 };
-static_assert(offsetof(CWorldScene, m_hasCollision) == 0x8C && offsetof(CWorldScene, m_collisionBox) == 0xB0 &&
+static_assert(offsetof(CWorldScene, m_buildsCollisionGrid) == 0x8C && offsetof(CWorldScene, m_collisionBox) == 0xB0 &&
                   offsetof(CWorldScene, mp_sectors) == 0xD0 && offsetof(CWorldScene, mp_collGrid) == 0xD4 &&
                   offsetof(CWorldScene, m_pipName) == 0xD8 && offsetof(CWorldScene, m_collStaticCount) == 0x158 &&
                   offsetof(CWorldScene, mp_collStatics) == 0x15C && offsetof(CWorldScene, m_addName) == 0x164 &&

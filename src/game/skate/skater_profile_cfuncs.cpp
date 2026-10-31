@@ -70,7 +70,7 @@ bool SetOption(Scripts::CStruct* params, Option option, bool on)
     return true;
 }
 
-GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
+GameObjects::CProfileRoster* RosterHandle() { return GameObjects::g_profileRoster; }
 
 constexpr uint32_t kMasterSkaterList = 0xF31E8FF8; // master_skater_list
 constexpr uint32_t kStatNames = 0x61EB6BA9;        // stat_names
@@ -89,12 +89,12 @@ constexpr uint32_t kOff = 0xD443A2BC;              // off
 constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;     // NoFaceTexture
 
 // The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
-uint32_t TemplateCount() { return ProfileManager()->m_templates.m_num; }
+uint32_t TemplateCount() { return RosterHandle()->m_templates.m_num; }
 GameObjects::CRiderIdentity* TemplateAt(uint32_t index)
 {
     // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
     return reinterpret_cast<GameObjects::CRiderIdentity*>(
-        reinterpret_cast<GoalSystem::CGoalManager*>(ProfileManager())->GetObjectiveAt(static_cast<int>(index)));
+        reinterpret_cast<GoalSystem::CGoalManager*>(RosterHandle())->GetObjectiveAt(static_cast<int>(index)));
 }
 // The template named `name` (by its info's name), or null.
 GameObjects::CRiderIdentity* FindTemplate(uint32_t name)
@@ -103,7 +103,7 @@ GameObjects::CRiderIdentity* FindTemplate(uint32_t name)
     for (int i = 0; i < count; ++i) {
         GameObjects::CRiderIdentity* profile = TemplateAt(i);
         uint32_t profileName = 0;
-        profile->InfoStructure()->ReadHashValue(kName, &profileName, 1);
+        profile->DetailsParams()->ReadHashValue(kName, &profileName, 1);
         if (profileName == name)
             return profile;
     }
@@ -116,7 +116,7 @@ Scripts::CStruct* TableRow(Scripts::CArray* list, uint32_t index)
 }
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -138,7 +138,7 @@ bool __cdecl CFunc_RestoreTemporaryAppearance(Scripts::CStruct* params, Scripts:
     params->ReadHashValue(kName, &name, 1);
     int player = 0;
     params->FetchIntValue(kPlayer, &player, 1);
-    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CProfileRoster* manager = RosterHandle();
     GameObjects::CRiderIdentity* profile = manager->FetchAccount(player);
     GameObjects::CRiderIdentity* remembered = manager->GetExtraProfile(name);
     if (params->HasBareFlag(kNoFaceTexture)) {
@@ -155,7 +155,7 @@ bool __cdecl CFunc_RestoreTemporaryAppearance(Scripts::CStruct* params, Scripts:
 // 0x005AAF90: SyncPlayer2Profile - the second player's profile copied again from its template.
 bool __cdecl CFunc_SyncPlayer2Profile(Scripts::CStruct*, Scripts::CScript*)
 {
-    ProfileManager()->ResetSecondProfile();
+    RosterHandle()->ResetSecondProfile();
     return true;
 }
 
@@ -184,9 +184,9 @@ bool __cdecl CFunc_ResetAllToDefaultStats(Scripts::CStruct*, Scripts::CScript*)
         for (uint32_t k = 0; k < count; ++k) {
             GameObjects::CRiderIdentity* profile = TemplateAt(k);
             uint32_t profileName = 0;
-            profile->InfoStructure()->ReadHashValue(kName, &profileName, 1);
+            profile->DetailsParams()->ReadHashValue(kName, &profileName, 1);
             if (profileName == skaterName) {
-                profile->InfoStructure()->AppendStructureIfAny(stats);
+                profile->DetailsParams()->AppendStructureIfAny(stats);
                 break;
             }
         }
@@ -208,7 +208,7 @@ bool __cdecl CFunc_ResetToDefaultProfile(Scripts::CStruct* params, Scripts::CScr
         entry->ReadHashValue(kName, &entryName, 1);
         if (entryName != name)
             continue;
-        GameObjects::CRiderIdentity* profile = ProfileManager()->GetTemplate(name);
+        GameObjects::CRiderIdentity* profile = RosterHandle()->GetTemplate(name);
         uint32_t partial;
         if (params->ReadHashValue(kPartial, &partial, 0)) {
             if (partial == kStatsAndTricks)
@@ -230,7 +230,7 @@ bool __cdecl CFunc_ResetAllToDefaultProfile(Scripts::CStruct*, Scripts::CScript*
         Scripts::CStruct* entry = TableRow(list, i);
         uint32_t name = 0;
         entry->ReadHashValue(kName, &name, 1);
-        ProfileManager()->GetTemplate(name)->Reset(entry);
+        RosterHandle()->GetTemplate(name)->Reset(entry);
     }
     return true;
 }
@@ -246,7 +246,7 @@ bool __cdecl CFunc_ForEachSkaterName(Scripts::CStruct* params, Scripts::CScript*
     int count = static_cast<int>(TemplateCount());
     for (int i = 0; i < count; ++i) {
         uint32_t name = 0;
-        TemplateAt(i)->InfoStructure()->ReadHashValue(kName, &name, 1);
+        TemplateAt(i)->DetailsParams()->ReadHashValue(kName, &name, 1);
         Scripts::CStruct* run = NewParams();
         run->AppendStructureIfAny(scriptParams);
         run->PutNameKey(kName, name);
@@ -266,7 +266,7 @@ bool __cdecl CFunc_ForEachSkaterProfile(Scripts::CStruct* params, Scripts::CScri
     params->ReadSubStruct(kParams, &scriptParams, 0);
     int count = static_cast<int>(TemplateCount());
     for (int i = 0; i < count; ++i) {
-        Scripts::CStruct* info = TemplateAt(i)->InfoStructure();
+        Scripts::CStruct* info = TemplateAt(i)->DetailsParams();
         Scripts::CStruct* run = NewParams();
         run->AppendStructureIfAny(scriptParams);
         run->AppendStructureIfAny(info);
@@ -285,7 +285,7 @@ bool __cdecl CFunc_GetSkaterProfileInfoByName(Scripts::CStruct* params, Scripts:
     GameObjects::CRiderIdentity* profile = FindTemplate(name);
     if (!profile)
         return false;
-    script->m_args->AppendStructureIfAny(profile->InfoStructure());
+    script->m_args->AppendStructureIfAny(profile->DetailsParams());
     return true;
 }
 
@@ -300,7 +300,7 @@ bool __cdecl CFunc_SetSkaterProfileInfoByName(Scripts::CStruct* params, Scripts:
     GameObjects::CRiderIdentity* profile = FindTemplate(name);
     if (!profile)
         return false;
-    profile->InfoStructure()->AppendStructureIfAny(values);
+    profile->DetailsParams()->AppendStructureIfAny(values);
     return true;
 }
 
@@ -323,7 +323,7 @@ bool __cdecl CFunc_SetNeversoftSkater(Scripts::CStruct* params, Scripts::CScript
     profile->SetAppearance(appearance, true);
     Scripts::CStruct* info = nullptr;
     params->ReadSubStruct(kInfo, &info, 1);
-    profile->InfoStructure()->AppendStructureIfAny(info);
+    profile->DetailsParams()->AppendStructureIfAny(info);
     profile->SetValue09F350E5(1);
     return true;
 }
@@ -349,7 +349,7 @@ bool __cdecl CFunc_SetSkaterProfileInfo(Scripts::CStruct* params, Scripts::CScri
     params->FetchIntValue(kPlayer, &player, 1);
     Scripts::CStruct* values = nullptr;
     params->ReadSubStruct(kParams, &values, 1);
-    ProfileManager()->FetchAccount(player)->InfoStructure()->AppendStructureIfAny(values);
+    RosterHandle()->FetchAccount(player)->DetailsParams()->AppendStructureIfAny(values);
     return true;
 }
 
@@ -357,7 +357,7 @@ bool __cdecl CFunc_GetSkaterProfileInfo(Scripts::CStruct* params, Scripts::CScri
 {
     int player = 0; // (uninitialised in the original when missing)
     params->FetchIntValue(kPlayer, &player, 1);
-    script->m_args->AppendStructureIfAny(ProfileManager()->FetchAccount(player)->InfoStructure());
+    script->m_args->AppendStructureIfAny(RosterHandle()->FetchAccount(player)->DetailsParams());
     return true;
 }
 
@@ -371,7 +371,7 @@ bool __cdecl CFunc_SetSkaterProfileProperty(Scripts::CStruct* params, Scripts::C
     params->ReadHashValue(0u, &stat, 0);
     int value = 0;
     params->FetchIntValue(0u, &value, 0);
-    return ProfileManager()->FetchAccount(player)->SetAbilityLevel(stat, value);
+    return RosterHandle()->FetchAccount(player)->SetAbilityLevel(stat, value);
 }
 
 // 0x005AC520: SetClassicStat <stat> <value> - the career's info value (classic mode's stats).
@@ -432,7 +432,7 @@ bool __cdecl CFunc_SelectCurrentSkater(Scripts::CStruct* params, Scripts::CScrip
     uint32_t name = 0; // (uninitialised in the original when missing)
     if (!params->ReadHashValue(kName, &name, 0))
         params->ReadHashValue(0u, &name, 1);
-    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CProfileRoster* manager = RosterHandle();
     if (GetProfileFromParams(nullptr)->FetchTitle() == name)
         return false;
     manager->SetCurrentSkater(name);
@@ -466,7 +466,7 @@ bool __cdecl CFunc_AwardStatPoint(Scripts::CStruct* params, Scripts::CScript*)
 // named one, or the current profile.
 bool __cdecl CFunc_AwardSpecialTrickSlot(Scripts::CStruct* params, Scripts::CScript*)
 {
-    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CProfileRoster* manager = RosterHandle();
     if (params->HasBareFlag(kAll)) {
         int count = static_cast<int>(manager->m_templates.m_num);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
@@ -477,7 +477,7 @@ bool __cdecl CFunc_AwardSpecialTrickSlot(Scripts::CStruct* params, Scripts::CScr
     if (params->HasEntryNamed(kProfile)) {
         uint32_t name = 0; // (uninitialised in the original when not a checksum)
         params->ReadHashValue(kProfile, &name, 1);
-        ProfileManager()->GetTemplate(name)->AddMaxSpecials(1);
+        RosterHandle()->GetTemplate(name)->AddMaxSpecials(1);
         return true;
     }
     GetProfileFromParams(nullptr)->AddMaxSpecials(1);
@@ -497,14 +497,14 @@ bool __cdecl CFunc_UpdateSkaterStats(Scripts::CStruct* params, Scripts::CScript*
 // 0x005AFFE0: GetCurrentSkaterProfileIndex - the profile manager's current index as currentSkaterProfileIndex.
 bool __cdecl CFunc_GetCurrentSkaterProfileIndex(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_args->PutInt(kCurrentSkaterProfileIndex, ProfileManager()->m_cursorPos);
+    script->m_args->PutInt(kCurrentSkaterProfileIndex, RosterHandle()->m_cursorPos);
     return true;
 }
 
 // 0x005B0000: GetCustomSkaterName - the custom skater's display name as display_name.
 bool __cdecl CFunc_GetCustomSkaterName(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_args->AppendWord(kDisplayName, ProfileManager()->GetTemplate(kCustom)->FetchShownName());
+    script->m_args->AppendWord(kDisplayName, RosterHandle()->GetTemplate(kCustom)->FetchShownName());
     return true;
 }
 
@@ -538,7 +538,7 @@ bool __cdecl CFunc_GetStatValue(Scripts::CStruct* params, Scripts::CScript* scri
     if (GameModeIsTrue(kIsClassic)) {
         value = Career()->GetInfoInteger(stat);
     } else {
-        GameObjects::CProfileRoster* manager = ProfileManager();
+        GameObjects::CProfileRoster* manager = RosterHandle();
         uint32_t name;
         GameObjects::CRiderIdentity* profile =
             params->ReadHashValue(kSkater, &name, 0) ? manager->GetTemplate(name) : manager->FetchActiveAccount();
@@ -553,7 +553,7 @@ bool __cdecl CFunc_GetNumStatPointsAvailable(Scripts::CStruct* params, Scripts::
 {
     int player = 0; // (uninitialised in the original when missing)
     params->FetchIntValue(kPlayer, &player, 1);
-    int points = ProfileManager()->FetchAccount(player)->GetInfo471FC4DD();
+    int points = RosterHandle()->FetchAccount(player)->GetInfo471FC4DD();
     script->m_args->PutInt("points_available", points);
     return true;
 }
@@ -563,7 +563,7 @@ bool __cdecl CFunc_UnlockSkater(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->ReadHashValue(kName, &name, 1);
-    Scripts::CStruct* info = ProfileManager()->GetTemplate(name)->InfoStructure();
+    Scripts::CStruct* info = RosterHandle()->GetTemplate(name)->DetailsParams();
     int hidden = 1;
     info->FetchIntValue(kIsHidden, &hidden, 1);
     if (hidden)

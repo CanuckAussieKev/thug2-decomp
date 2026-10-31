@@ -20,7 +20,7 @@ namespace {
 // left, right, up-left, up-right, down-left, down-right - DPadDirection's numbers).
 const char* const kPadNames[8] = {"leftup", "leftdown", "leftleft", "leftright",
                                   "rightup", "rightdown", "rightleft", "rightright"};
-const char* const kTrickNames[2][8] = {
+const char* const kStickTrickTable[2][8] = {
     {"leftup", "leftdown", "leftleft", "leftright", "leftupleft", "leftupright", "leftdownleft", "leftdownright"},
     {"rightup", "rightdown", "rightleft", "rightright", "rightupleft", "rightupright", "rightdownleft",
      "rightdownright"},
@@ -140,7 +140,7 @@ uint32_t TrickStickName(bool right, int direction)
         return 0;
     uint32_t& name = names[right ? 1 : 0][direction - 1];
     if (!name)
-        name = Name(kTrickNames[right ? 1 : 0][direction - 1]);
+        name = Name(kStickTrickTable[right ? 1 : 0][direction - 1]);
     return name;
 }
 

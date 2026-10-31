@@ -51,10 +51,10 @@ constexpr uint32_t kNoPedestrians = 0x2CAA92ED;   // (name unknown) a global int
 constexpr uint32_t kPreloadModelFromAppearance = 0x53E82A70; // preload_model_from_appearance
 constexpr uint32_t kPart = 0xB6F08F39;            // part
 constexpr uint32_t kDescId = 0x4BB2084E;          // desc_id
-constexpr uint32_t kAllowedToPick = 0x355F9467;   // allowed_to_pick
+constexpr uint32_t kPickPermitted = 0x355F9467;   // allowed_to_pick
 constexpr uint32_t kAllowRandom = 0xF1E3CD22;     // allow_random
 constexpr uint32_t kAlreadySelected = 0x92BDDFD9; // already_selected
-constexpr uint32_t kRandomIndex = 0x4B833E64;     // random_index
+constexpr uint32_t kShuffleIndex = 0x4B833E64;     // random_index
 constexpr uint32_t kLevelSpecific = 0x3598BF7D;   // level_specific
 constexpr uint32_t kExcludeFromLevels = 0x94D12F97; // exclude_from_levels
 constexpr uint32_t kCasArtist = 0x2A648514;       // cas_artist
@@ -71,7 +71,7 @@ constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-void* NewModel(int) { return Engine3D::SpawnModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
+void* SpawnRenderModel(int) { return Engine3D::SpawnModel(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
 void DeleteModel(void* model) { Engine3D::Engine::DeleteGeomObject(model); }
 void IngestMesh(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
@@ -105,7 +105,7 @@ void PreloadPartList(uint32_t list)
 
 // The CAS option lists (no source yet): 0x00485CF0 the option `descriptorId` of a slot's global list; 0x00485D70 the
 // options of a slot's list matching a filter (0: any of them allowed to pick) into `out`, their count in `count`.
-Scripts::CStruct* CasOption(uint32_t part, uint32_t descriptorId, bool assert)
+Scripts::CStruct* CustomiseChoice(uint32_t part, uint32_t descriptorId, bool assert)
 {
     return GameObjects::FindCasOption(part, descriptorId, assert);
 }
@@ -120,7 +120,7 @@ void MatchingOptions(uint32_t part, uint32_t filter, Scripts::CStruct** out, int
 struct Appearance {
     alignas(4) uint8_t m_bytes[0x5C];
 };
-struct ModelBuilder {
+struct ModelAssembler {
     alignas(4) uint8_t m_bytes[0x54];
 };
 
@@ -132,8 +132,8 @@ Scripts::CStruct* Element(Scripts::CArray* array, uint32_t index)
 void Choose(Scripts::CStruct* option, int index)
 {
     option->PutInt(kAllowRandom, 1);
-    option->PutInt(kAllowedToPick, 0);
-    option->PutInt(kRandomIndex, index);
+    option->PutInt(kPickPermitted, 0);
+    option->PutInt(kShuffleIndex, index);
 }
 
 } // namespace
@@ -173,7 +173,7 @@ bool __cdecl CFunc_PreloadModels(Scripts::CStruct*, Scripts::CScript*)
             path = *made;
             made->~Chars();
         }
-        void* nxModel = NewModel(1);
+        void* nxModel = SpawnRenderModel(1);
         IngestMesh(nxModel, path.c_str(), 0, 1, 0, node->HasBareFlag(kAllowReplaceTex), 0, 1, 0);
         if (!node->HasBareFlag(kNoCollision)) {
             const char* file = path.c_str();
@@ -208,7 +208,7 @@ bool __cdecl CFunc_PreloadModels(Scripts::CStruct*, Scripts::CScript*)
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
 bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (OnlinePlay::g_gameNetManager->InNetGame())
+    if (OnlinePlay::g_onlineHub->InNetGame())
         return false;
     if (Scripts::FetchIntValue(kNoPedestrians))
         return false;
@@ -232,7 +232,7 @@ bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript
             TextUtil::Chars* made = ModelPath(storage, model, ".skin");
             path = *made;
             made->~Chars();
-            void* nxModel = NewModel(1);
+            void* nxModel = SpawnRenderModel(1);
             IngestMesh(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             DeleteModel(nxModel);
         }
@@ -242,7 +242,7 @@ bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript
             TextUtil::Chars* made = ModelPath(storage, model, ".mdl");
             path = *made;
             made->~Chars();
-            void* nxModel = NewModel(1);
+            void* nxModel = SpawnRenderModel(1);
             IngestMesh(nxModel, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             DeleteModel(nxModel);
         }
@@ -252,12 +252,12 @@ bool __cdecl CFunc_PreloadPedestrians(Scripts::CStruct* params, Scripts::CScript
         Scripts::CStruct* profile = Scripts::ReadSubStruct(profileName);
         if (!profile)
             continue;
-        void* nxModel = NewModel(1);
+        void* nxModel = SpawnRenderModel(1);
         Appearance appearance;
         auto* gfxAppearance = reinterpret_cast<Gfx2D::CModelLook*>(&appearance);
         gfxAppearance->MakeNew();
         gfxAppearance->ReadIn(profile, false);
-        ModelBuilder builder;
+        ModelAssembler builder;
         auto* gfxBuilder = reinterpret_cast<Gfx2D::CModelAssembler*>(&builder);
         gfxBuilder->MakeNew(true, 8);
         gfxBuilder->Build(gfxAppearance, static_cast<Engine3D::CRenderModel*>(nxModel), nullptr, kPreloadModelFromAppearance);
@@ -284,10 +284,10 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts:
     uint32_t level = SkateField<uint32_t>(0x374); // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
         Scripts::CStruct* option = Element(list, i);
-        option->EraseModule(kAllowedToPick);
+        option->EraseModule(kPickPermitted);
         option->PutInt(kAllowRandom, 0);
         option->PutInt(kAlreadySelected, 0);
-        option->PutInt(kRandomIndex, -1);
+        option->PutInt(kShuffleIndex, -1);
     }
     int candidates = 0;
     for (uint32_t i = 0; i < size; ++i) {
@@ -307,9 +307,9 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts:
         }
         if (candidate) {
             ++candidates;
-            option->PutInt(kAllowedToPick, 1);
+            option->PutInt(kPickPermitted, 1);
         } else {
-            option->PutInt(kAllowedToPick, 0);
+            option->PutInt(kPickPermitted, 0);
             Scripts::FetchIntValue(kCasArtist); // (read and not used)
         }
     }
@@ -331,12 +331,12 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts:
         uint32_t descriptorId;
         if (!slot->ReadHashValue(kDescId, &descriptorId, 0))
             continue;
-        Scripts::CStruct* option = CasOption(part, descriptorId, false);
+        Scripts::CStruct* option = CustomiseChoice(part, descriptorId, false);
         if (!option || option->HasEntryNamed(kNoRandom))
             continue;
         Scripts::FetchIntValue(kCasArtist); // (read and not used)
         option->PutInt(kAllowRandom, 1);
-        option->PutInt(kAllowedToPick, 1);
+        option->PutInt(kPickPermitted, 1);
         option->PutInt(kAlreadySelected, 1);
     }
     LevelNodes::EndNodeWalk();
@@ -365,7 +365,7 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts:
         Scripts::CStruct* option;
         do {
             option = Element(list, static_cast<uint32_t>(Maths::Rnd(static_cast<int>(size))));
-            option->FetchIntValue(kAllowedToPick, &allowed, 1);
+            option->FetchIntValue(kPickPermitted, &allowed, 1);
         } while (!allowed);
         Choose(option, n);
     }
@@ -376,7 +376,7 @@ bool __cdecl CFunc_PreselectRandomPedestrians(Scripts::CStruct* params, Scripts:
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
 bool __cdecl CFunc_ReplaceCarTextures(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    auto* objects = GameObjects::g_compositeObjectManager;
+    auto* objects = GameObjects::g_compositeRegistry;
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
     uint32_t seen[32];
     int seenCount = 0;

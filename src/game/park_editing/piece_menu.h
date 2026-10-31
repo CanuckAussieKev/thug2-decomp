@@ -10,12 +10,12 @@
 namespace ParkEditing {
 
 class CTopBarMenus;
-extern CTopBarMenus* g_upperMenuManager;
+extern CTopBarMenus* g_topBarMenus;
 
 class CTopBarMenus {
 public:
     // The one instance.
-    static CTopBarMenus*& Sole() { return g_upperMenuManager; }
+    static CTopBarMenus*& Sole() { return g_topBarMenus; }
 
     // 0x00598DA0: close the menus and delete the instance
     static void DiscardOccurrence();

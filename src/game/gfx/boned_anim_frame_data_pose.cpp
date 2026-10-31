@@ -178,7 +178,7 @@ void CJointClipFrames::BuildCache(int format)
         LastCacheVblank() = FrameClock::FetchRetraceCount();
     }
     CClipStore* manager = CClipStore::Pull();
-    uint32_t size = manager->GetEntrySize(m_boneCount, static_cast<int>(m_quatKeyCount),
+    uint32_t size = manager->FetchRecordBytes(m_boneCount, static_cast<int>(m_quatKeyCount),
                                           static_cast<int>(m_transKeyCount), format);
     int priority = static_cast<int16_t>(static_cast<int16_t>(m_bits << 7) >> 8);
     if (*reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||

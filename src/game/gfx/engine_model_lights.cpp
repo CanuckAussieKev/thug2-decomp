@@ -27,10 +27,10 @@ uint32_t g_lightDirectionGuard;
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
 uint32_t LightCount() { return g_lightCount; }
 // (the world lights' fields: ambientLow 0x0067DCA4, ambientHigh, lightLow, lightHigh)
-float DarkRange() { return g_worldLights.ambientLow; }
-float BrightRange() { return g_worldLights.ambientHigh; }
-float* DarkRanges() { return g_worldLights.lightLow; }
-float* BrightRanges() { return g_worldLights.lightHigh; }
+float DarkRange() { return g_activeLighting.ambientLow; }
+float BrightRange() { return g_activeLighting.ambientHigh; }
+float* DarkRanges() { return g_activeLighting.lightLow; }
+float* BrightRanges() { return g_activeLighting.lightHigh; }
 
 template <typename R = void, typename... A>
 R Virtual(CModelLights* lights, int slot, A... args)
@@ -53,7 +53,7 @@ float Scaled(float brightness, float dark, float bright)
 CModelLights* CModelLights::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kModelLightsVtable);
-    m_brightnessTarget = 0.0f;
+    m_intensityGoal = 0.0f;
     m_brightness = 0.0f;
     m_sizeFactor = 1.0f;
     mp_intensities = static_cast<float*>(MemSys::Alloc(LightCount() * 4));
@@ -84,7 +84,7 @@ CModelLights* CModelLights::Teardown(unsigned int flags)
 }
 
 // 0x0048E450
-bool CModelLights::SetAmbientColor(const uint32_t* color)
+bool CModelLights::ChangeAmbientTint(const uint32_t* color)
 {
     bool result = Virtual<bool>(this, 1, color);
     Virtual(this, 8, true, false);
@@ -92,7 +92,7 @@ bool CModelLights::SetAmbientColor(const uint32_t* color)
 }
 
 // 0x0048E480
-bool CModelLights::SetDiffuseColor(int light, const uint32_t* color)
+bool CModelLights::ChangeDiffuseHue(int light, const uint32_t* color)
 {
     bool result = Virtual<bool>(this, 3, light, color);
     Virtual(this, 8, false, true);
@@ -123,7 +123,7 @@ void CModelLights::UpdateBrightness()
 // 0x0048E830
 bool CModelLights::MoveBrightness(float target, float step)
 {
-    m_brightnessTarget = target;
+    m_intensityGoal = target;
     if (m_brightness < target) {
         double moved = static_cast<double>(step) + m_brightness; // (compared before it's rounded)
         m_brightness = static_cast<float>(moved);
@@ -142,7 +142,7 @@ bool CModelLights::MoveBrightness(float target, float step)
 // 0x0048E8A0
 bool CModelLights::ChangeBrightness(float brightness)
 {
-    m_brightnessTarget = brightness;
+    m_intensityGoal = brightness;
     m_brightness = brightness;
     UpdateBrightness();
     return true;
@@ -151,32 +151,32 @@ bool CModelLights::ChangeBrightness(float brightness)
 // --- the base's platform calls ----------------------------------------------------------------------------------
 
 // 0x0048E4E0
-bool CModelLights::PlatSetLightAmbientColor(const uint32_t*)
+bool CModelLights::PutAmbientLightTint(const uint32_t*)
 {
     Stub("STUB: CModelLights::SetLightAmbientColor\n"); // "STUB: CModelLights::SetLightAmbientColor\n"
     return false;
 }
 // 0x0048E500
-bool CModelLights::PlatSetLightDirection(int, const Maths::Vec4*)
+bool CModelLights::PutLightAim(int, const Maths::Vec4*)
 {
     Stub("STUB: CModelLights::SetLightDirection\n"); // "STUB: CModelLights::SetLightDirection\n"
     return false;
 }
 // 0x0048E520
-bool CModelLights::PlatSetLightDiffuseColor(int, const uint32_t*)
+bool CModelLights::PutDiffuseLightTint(int, const uint32_t*)
 {
     Stub("STUB: CModelLights::SetLightDiffuseColor\n"); // "STUB: CModelLights::SetLightDiffuseColor\n"
     return false;
 }
 // 0x0048E730
-uint32_t* CModelLights::PlatGetLightAmbientColor(uint32_t* out)
+uint32_t* CModelLights::ReadAmbientLightTint(uint32_t* out)
 {
     Stub("STUB: CModelLights::GetLightAmbientColor\n"); // "STUB: CModelLights::GetLightAmbientColor\n"
     std::memset(out, 0, 4);
     return out;
 }
 // 0x0048E760 (the vector 0x006FAACC, its guard 0x006FAADC: zeroed the first time)
-Maths::Vec4* CModelLights::PlatGetLightDirection(int)
+Maths::Vec4* CModelLights::ReadLightAim(int)
 {
     Stub("STUB: CModelLights::GetLightDirection\n"); // "STUB: CModelLights::GetLightDirection\n"
     uint32_t& guard = g_lightDirectionGuard;
@@ -188,7 +188,7 @@ Maths::Vec4* CModelLights::PlatGetLightDirection(int)
     return direction;
 }
 // 0x0048E7C0
-uint32_t* CModelLights::PlatGetLightDiffuseColor(uint32_t* out, int)
+uint32_t* CModelLights::ReadDiffuseLightTint(uint32_t* out, int)
 {
     Stub("STUB: CModelLights::GetLightDiffuseColor\n"); // "STUB: CModelLights::GetLightDiffuseColor\n"
     std::memset(out, 0, 4);
@@ -200,32 +200,32 @@ void CModelLights::PlatApplySceneLights(const Maths::Vec4*, uint32_t)
     Stub("STUB: CModelLights::plat_apply_scene_lights\n"); // "STUB: CModelLights::plat_apply_scene_lights\n"
 }
 // 0x0048E540
-void CModelLights::PlatUpdateBrightness(bool, bool) { Stub("STUB: CModelLights::UpdateBrightness\n"); } // "STUB: CModelLights::UpdateBrightness\n"
+void CModelLights::ApplyLightBrightness(bool, bool) { Stub("STUB: CModelLights::UpdateBrightness\n"); } // "STUB: CModelLights::UpdateBrightness\n"
 // 0x0048E550
-void CModelLights::PlatEnableAmbientLight(bool) { Stub("STUB: CModelLights::EnableAmbientLight\n"); } // "STUB: CModelLights::EnableAmbientLight\n"
+void CModelLights::SwitchAmbientLight(bool) { Stub("STUB: CModelLights::EnableAmbientLight\n"); } // "STUB: CModelLights::EnableAmbientLight\n"
 // 0x0048E560
-void CModelLights::PlatEnableDiffuseLight(int, bool) { Stub("STUB: CModelLights::EnableDiffuseLight\n"); } // "STUB: CModelLights::EnableDiffuseLight\n"
+void CModelLights::SwitchDiffuseLight(int, bool) { Stub("STUB: CModelLights::EnableDiffuseLight\n"); } // "STUB: CModelLights::EnableDiffuseLight\n"
 // 0x0048E570
-bool CModelLights::PlatIsAmbientLightEnabled()
+bool CModelLights::AmbientLightIsOn()
 {
     Stub("STUB: CModelLights::IsAmbientLightEnabled\n"); // "STUB: CModelLights::IsAmbientLightEnabled\n"
     return false;
 }
 // 0x0048E580
-bool CModelLights::PlatIsDiffuseLightEnabled(int)
+bool CModelLights::DiffuseLightIsOn(int)
 {
     Stub("STUB: CModelLights::IsDiffuseLightEnabled\n"); // "STUB: CModelLights::IsDiffuseLightEnabled\n"
     return false;
 }
 
 namespace {
-static VtableSlot kModelLightsVtable_slots[] = {&Engine3D::CModelLights::Teardown, &Engine3D::CModelLights::PlatSetLightAmbientColor,
-                &Engine3D::CModelLights::PlatSetLightDirection, &Engine3D::CModelLights::PlatSetLightDiffuseColor,
-                &Engine3D::CModelLights::PlatGetLightAmbientColor, &Engine3D::CModelLights::PlatGetLightDirection,
-                &Engine3D::CModelLights::PlatGetLightDiffuseColor, &Engine3D::CModelLights::PlatApplySceneLights,
-                &Engine3D::CModelLights::PlatUpdateBrightness, &Engine3D::CModelLights::PlatEnableAmbientLight,
-                &Engine3D::CModelLights::PlatEnableDiffuseLight, &Engine3D::CModelLights::PlatIsAmbientLightEnabled,
-                &Engine3D::CModelLights::PlatIsDiffuseLightEnabled};
+static VtableSlot kModelLightsVtable_slots[] = {&Engine3D::CModelLights::Teardown, &Engine3D::CModelLights::PutAmbientLightTint,
+                &Engine3D::CModelLights::PutLightAim, &Engine3D::CModelLights::PutDiffuseLightTint,
+                &Engine3D::CModelLights::ReadAmbientLightTint, &Engine3D::CModelLights::ReadLightAim,
+                &Engine3D::CModelLights::ReadDiffuseLightTint, &Engine3D::CModelLights::PlatApplySceneLights,
+                &Engine3D::CModelLights::ApplyLightBrightness, &Engine3D::CModelLights::SwitchAmbientLight,
+                &Engine3D::CModelLights::SwitchDiffuseLight, &Engine3D::CModelLights::AmbientLightIsOn,
+                &Engine3D::CModelLights::DiffuseLightIsOn};
 void** const kModelLightsVtable = reinterpret_cast<void**>(kModelLightsVtable_slots);
 } // namespace
 

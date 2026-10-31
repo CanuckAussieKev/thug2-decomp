@@ -60,7 +60,7 @@ public:
     double GetCollisionReach(bool driving);
     // 0x0051A080: how close two skaters must come to collide: one of four script floats (the object's +0xBC and the
     // network manager's flag 0x4 pick it), times 1 + 0xEEF4AFB3's number for each of the two that is driving.
-    double GetCollisionRadius(bool myDriving, bool theirDriving);
+    double FetchHitRadius(bool myDriving, bool theirDriving);
     // 0x0051A150: whether the object is within 96 of the network manager's local skater (+0x6C).
     bool IsNearLocalSkater();
     // 0x0051A1C0: a network game's skater collisions, against skaters `first` to 7: each skater's frame of
@@ -72,18 +72,18 @@ public:
     void CheckForCollisions(int first);
     // 0x00569680: the newest state sent (+0x1C, 0x84 bytes each; the count at +0x18). 0x005696A0: the newest other
     // message (+0xA70; the count at +0xA6C - its slot, as the history fills it: count % 20).
-    uint8_t* GetLatestState();
+    uint8_t* FetchNewestSnapshot();
     StateHistoryMessage* GetLatestMessage();
 
     // --- network message handlers (the skater's client app; the handler's data is the skater) ---
     // 0x00519870: 0x84 - this skater was hit by another (`msg[0]` its object id, `msg[1]` whether it was driving,
     // `msg+4` the score to lose): knocked back away from it (300 * 1.5 horizontally, 200 up), into a bail on foot or
     // driving, and its score lowered (to 0 at least: then unbind_fireball_tricks). 0x85 - this skater hit another.
-    // Each is an event to the skater with the other's name (0x915E5E39 / 0xA1021AF0). Returns kHandlerMsgDone.
+    // Each is an event to the skater with the other's name (0x915E5E39 / 0xA1021AF0). Returns kResultConsumed.
     static int __cdecl HandleHitMessages(NetLink::InboundMsgCtx* context);
     // 0x00519C10: 0x43 - this skater was run into (`msg[0]` the other's object id, bit 7: it was driving; cleared in
     // the message; `msg+4` the push): knocked back unless driving, the push as a vector in the event 0x915E5E39.
-    // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kHandlerContinue.
+    // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kResultPassOn.
     static int __cdecl HandleCollisionMessages(NetLink::InboundMsgCtx* context);
 };
 static_assert(sizeof(CRiderFrameLog) == 0x18, "fields are reached by offset");

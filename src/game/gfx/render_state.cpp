@@ -30,7 +30,7 @@ uint32_t g_srcBlend;
 uint32_t g_destBlend;
 uint32_t g_alphaBlend;
 uint32_t g_alphaTest;
-uint32_t g_alphaRef;
+uint32_t g_alphaTestValue;
 uint32_t g_specular;
 uint8_t g_dither;
 uint8_t g_zWrite;
@@ -47,15 +47,15 @@ uint32_t g_borderColours[4];
 uint32_t g_vertexFormat;
 uint32_t g_pixelShaderLocked;
 void* g_currentPixelShader;
-float g_pixelShaderConstants[20];
+float g_psConstantBank[20];
 uint32_t g_instanceColourOn;
 uint8_t g_instanceColour[4];
 uint8_t g_pixelShaderChanged;
 uint32_t g_vertexFormatLocked;
 uint32_t g_skippedPasses;
 uint32_t g_submitLocked;
-uint32_t g_blendModeOverride;
-uint32_t g_fogEnabled;
+uint32_t g_forcedBlend;
+uint32_t g_fogActive;
 uint8_t g_localViewer;
 const float* g_worldTransform;
 float g_worldTransformCopy[16];
@@ -71,7 +71,7 @@ uint32_t& SrcBlend() { return g_srcBlend; }
 uint32_t& DestBlend() { return g_destBlend; }
 uint32_t& AlphaBlend() { return g_alphaBlend; }
 uint32_t& AlphaTest() { return g_alphaTest; }
-uint32_t& AlphaRef() { return g_alphaRef; }
+uint32_t& AlphaTestLevel() { return g_alphaTestValue; }
 uint32_t& Specular() { return g_specular; }
 uint8_t& Dither() { return g_dither; }
 uint8_t& ZWrite() { return g_zWrite; }
@@ -86,11 +86,11 @@ void** Textures() { return g_textures; }           // [4]
 uint32_t& VertexFormat() { return g_vertexFormat; }
 uint32_t& PixelShaderLocked() { return g_pixelShaderLocked; }
 void*& CurrentPixelShader() { return g_currentPixelShader; }
-float* PixelShaderConstants() { return g_pixelShaderConstants; } // [5][4]; [4] is 0x00786F0C
+float* PsConstantBank() { return g_psConstantBank; } // [5][4]; [4] is 0x00786F0C
 uint8_t& PixelShaderChanged() { return g_pixelShaderChanged; }
 uint32_t& VertexFormatLocked() { return g_vertexFormatLocked; }
-uint32_t& BlendModeOverride() { return g_blendModeOverride; }
-uint32_t& Fog() { return g_fogEnabled; }
+uint32_t& ForcedBlend() { return g_forcedBlend; }
+uint32_t& Fog() { return g_fogActive; }
 uint32_t& FogColor() { return g_fogColour; }
 uint8_t& LocalViewer() { return g_localViewer; }
 
@@ -151,10 +151,10 @@ void __cdecl ChangePhase(int state, uint32_t value)
             ZTest() = 0;
         }
         return;
-    case kAlphaRef:
-        if (value == AlphaRef())
+    case kPhaseAlphaTest:
+        if (value == AlphaTestLevel())
             return;
-        AlphaRef() = value;
+        AlphaTestLevel() = value;
         if (value) {
             Engine3D::SetRenderState(D3DRS_ALPHAREF, value);
             if (!AlphaTest()) {
@@ -297,7 +297,7 @@ void __cdecl SetTexture(int stage, void* texture)
 // 0x004DA760
 void __cdecl ChooseBlendMode(uint32_t mode)
 {
-    uint32_t wanted = BlendModeOverride() ? BlendModeOverride() : mode;
+    uint32_t wanted = ForcedBlend() ? ForcedBlend() : mode;
     if (wanted == BlendMode())
         return;
     uint32_t kind = wanted & 0xFFFFFF;
@@ -460,7 +460,7 @@ void __cdecl SetPixelShader(void* shader, const void* material)
             CurrentPixelShader() = shader;
             PixelShaderChanged() = 1;
         }
-        InputPort()->SetPixelShaderConstantF(0, PixelShaderConstants(), 5);
+        InputPort()->SetPixelShaderConstantF(0, PsConstantBank(), 5);
     }
     PixelShaderChanged() = 0;
 }
@@ -475,8 +475,8 @@ void __cdecl SetPixelShaderWithConstants(void* shader, uint32_t count)
             CurrentPixelShader() = shader;
             PixelShaderChanged() = 1;
         }
-        InputPort()->SetPixelShaderConstantF(0, PixelShaderConstants(), count);
-        InputPort()->SetPixelShaderConstantF(4, PixelShaderConstants() + 16, 1);
+        InputPort()->SetPixelShaderConstantF(0, PsConstantBank(), count);
+        InputPort()->SetPixelShaderConstantF(4, PsConstantBank() + 16, 1);
     }
     PixelShaderChanged() = 0;
 }
@@ -520,7 +520,7 @@ void __cdecl ResetRenderState()
     ZWrite() = 1;
     AlphaBlend() = 1;
     AlphaTest() = 1;
-    AlphaRef() = 0;
+    AlphaTestLevel() = 0;
     for (int i = 0; i < 4; ++i) {
         AddressModes()[i] = 0;
         MipLodBiases()[i] = 0;
@@ -536,10 +536,10 @@ void __cdecl ResetRenderState()
     g_pendingScreenShot[0] = 0;
     reinterpret_cast<uint8_t&>(g_screenShotNameExact) = 0;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    reinterpret_cast<uint32_t&>(g_pixelShaderConstants[16]) = 0;
-    g_pixelShaderConstants[17] = 0.5f;
-    reinterpret_cast<uint32_t&>(g_pixelShaderConstants[18]) = 0;
-    g_pixelShaderConstants[19] = 0.5f;
+    reinterpret_cast<uint32_t&>(g_psConstantBank[16]) = 0;
+    g_psConstantBank[17] = 0.5f;
+    reinterpret_cast<uint32_t&>(g_psConstantBank[18]) = 0;
+    g_psConstantBank[19] = 0.5f;
     PixelShaderLocked() = 0;
     CurrentPixelShader() = nullptr;
     PixelShaderChanged() = 0;
@@ -548,7 +548,7 @@ void __cdecl ResetRenderState()
     VertexFormatLocked() = 0;
     g_skippedPasses = 0;
     g_submitLocked = 0;
-    BlendModeOverride() = 0;
+    ForcedBlend() = 0;
     g_camera.clearColourAndDepth = true;
     g_camera.backgroundColour = 0;
     g_camera.letterboxActive = 0; // the letterbox
@@ -566,7 +566,7 @@ void __cdecl ResetRenderState()
     reinterpret_cast<uint32_t&>(g_lightConstants[3]) = 0x3F800000;
     Fog() = 0;
     FogColor() = 0;
-    reinterpret_cast<uint32_t&>(g_fogStart) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
+    reinterpret_cast<uint32_t&>(g_fogBeginDistance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
     reinterpret_cast<uint32_t&>(g_fogEnd) = 0xC6C03000;
 }
 
@@ -585,7 +585,7 @@ void __cdecl ApplyRenderState()
     InputPort()->SetRenderState(D3DRS_ALPHABLENDENABLE, AlphaBlend());
     InputPort()->SetRenderState(D3DRS_ALPHATESTENABLE, AlphaTest());
     InputPort()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-    InputPort()->SetRenderState(D3DRS_ALPHAREF, AlphaRef());
+    InputPort()->SetRenderState(D3DRS_ALPHAREF, AlphaTestLevel());
     for (int sampler = 0; sampler < 4; ++sampler) {
         AddressModes()[sampler] = 0;
         MipLodBiases()[sampler] = 0;
@@ -617,13 +617,13 @@ void __cdecl ApplyRenderState()
     InputPort()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
     InputPort()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
     MarkBillboardsReady();
-    CreatePixelShaders();
+    CompilePixelShaders();
     InputPort()->SetRenderState(D3DRS_FOGENABLE, Fog());
     InputPort()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
     InputPort()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
     InputPort()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
     InputPort()->SetRenderState(D3DRS_FOGCOLOR, FogColor());
-    InputPort()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogStart));
+    InputPort()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fogBeginDistance));
     InputPort()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fogEnd));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - game/gfx/graphics_options.h)
     if (g_antialiasing || GraphicsOptions::ChosenSamples()) // the antialiasing setting

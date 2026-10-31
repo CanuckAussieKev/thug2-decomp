@@ -32,7 +32,7 @@ constexpr uint32_t kCheatingNoted = 0x3B;    // bool
 constexpr uint32_t kFinalScores = 0x44;      // bool
 constexpr uint32_t kDrawNames = 0x47;        // bool
 constexpr uint32_t kStartInfoWords = 0x48;   // 8 words
-constexpr uint32_t kCrownSpawnPoint = 0x68;
+constexpr uint32_t kCrownStartField = 0x68;
 constexpr uint32_t kCrown = 0x6C;
 constexpr uint32_t kHostTask = 0xF4;         // TaskList::SchedulerTask*
 constexpr uint32_t kNetworkPrefs = 0x104;    // OptionStore::Preferences
@@ -41,7 +41,7 @@ constexpr uint32_t kLastLeader = 0x1D0;
 constexpr uint32_t kLastLeadingTeam = 0x1D4;
 constexpr uint32_t kGoalsMessage = 0x1D8;    // the level, then the goals (6000 bytes)
 constexpr uint32_t kGoalsSize = 0x1948;
-constexpr uint32_t kGoalsLevel = 0x194C;
+constexpr uint32_t kGoalSetField = 0x194C;
 constexpr uint32_t kLobbyId = 0x9950;
 constexpr uint32_t kPendingData = 0xFDF8;
 constexpr uint32_t kPendingDataSize = 0xFDFC;
@@ -50,7 +50,7 @@ constexpr int kGoalsBufferSize = 6000;
 constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
 
 // Messages.
-constexpr uint8_t kMsgFindServer = 0x11;
+constexpr uint8_t kMsgServerQuery = 0x11;
 constexpr uint8_t kMsgReadyResponse = 0x26;
 constexpr uint8_t kMsgGameEnded = 0x59;
 constexpr uint8_t kGroupGame = 8;            // the sequenced group of the game's messages
@@ -173,30 +173,30 @@ void Hub::SetEntryPort(int port) { m_joinPort = port; }
 NetLink::AppHost* Hub::FetchPatron(int index) { return ClientSlot(index); }
 
 // 0x00532EB0
-NetLink::AppHost* Hub::GetMatchmakingClient() { return m_matchClient; }
+NetLink::AppHost* Hub::GetMatchmakingClient() { return m_browserClient; }
 
 // 0x00532EC0
-void* Hub::GetCamPlayer() { return m_camPlayer; }
+void* Hub::FetchViewedPlayer() { return m_viewedPlayer; }
 
 uint32_t g_commandLineServer{0xFFFFFFFF};
 
 // 0x00532ED0
-void Hub::FindServersOnLan()
+void Hub::ScanLocalNetwork()
 {
-    if (!m_matchClient)
+    if (!m_browserClient)
         return;
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     uint32_t message[3] = {FrameClock::GetTime(), 0, 0};
     uint32_t& askedFor = g_askedFor;
     if (askedFor) {
-        m_matchClient->DeliverTo(kMsgFindServer, sizeof(message), message, askedFor, kLanPort, 0);
+        m_browserClient->DeliverTo(kMsgServerQuery, sizeof(message), message, askedFor, kLanPort, 0);
         askedFor = 0;
         return;
     }
-    m_matchClient->DeliverTo(kMsgFindServer, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
+    m_browserClient->DeliverTo(kMsgServerQuery, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
     uint32_t commandLine = g_commandLineServer; // (ParseNetworkParams)
     if (commandLine != 0xFFFFFFFF)
-        m_matchClient->DeliverTo(kMsgFindServer, sizeof(message), message, commandLine, kLanPort, 0);
+        m_browserClient->DeliverTo(kMsgServerQuery, sizeof(message), message, commandLine, kLanPort, 0);
 }
 
 // 0x00532F70 / 0x00532F80
@@ -254,23 +254,23 @@ void* Hub::GetLastLeader() { return Prop<void*>(this, kLastLeader); }
 int Hub::GetLastLeadingTeam() { return Prop<int>(this, kLastLeadingTeam); }
 
 // 0x005331B0 / 0x005331C0
-void Hub::SetLastScoreUpdate(uint32_t time) { m_lastScoreUpdate = time; }
-uint32_t Hub::GetLastScoreUpdate() { return m_lastScoreUpdate; }
+void Hub::ChangeScoreSyncStamp(uint32_t time) { m_scoreSyncedAt = time; }
+uint32_t Hub::FetchScoreSyncStamp() { return m_scoreSyncedAt; }
 
 // 0x005331D0 / 0x005331E0
 void Hub::SetFinalScoresReceived(bool received) { Prop<bool>(this, kFinalScores) = received; }
 bool Hub::FinalScoresReceived() { return Prop<bool>(this, kFinalScores); }
 
 // 0x005331F0 / 0x00533200
-void Hub::SetEntryPhase(int state) { m_joinState = state; }
-int Hub::GetEntryPhase() { return m_joinState; }
+void Hub::SetEntryPhase(int state) { m_joinPhase = state; }
+int Hub::GetEntryPhase() { return m_joinPhase; }
 
 // 0x00533210 / 0x00533220
 void* Hub::GetCrownHolder() { return Prop<void*>(this, kCrown); }
 void Hub::ClearCrown() { Prop<void*>(this, kCrown) = nullptr; }
 
 // 0x00533230
-void Hub::SetCrownStartSpot(char point) { Prop<int>(this, kCrownSpawnPoint) = point; }
+void Hub::SetCrownStartSpot(char point) { Prop<int>(this, kCrownStartField) = point; }
 
 // 0x00533240
 void Hub::SetRoomId(uint32_t id) { Prop<uint32_t>(this, kLobbyId) = id; }
@@ -283,7 +283,7 @@ void Hub::SendGameEnded()
     desc.m_content = &Prop<uint8_t>(this, kGameId);
     desc.m_byteCount = 1;
     desc.m_ident = kMsgGameEnded;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     static_cast<NetLink::Guest*>(m_clientApp)->SendToHost(&desc);
     Prop<uint8_t>(this, kEndedGameId) = Prop<uint8_t>(this, kGameId);
@@ -293,9 +293,9 @@ void Hub::SendGameEnded()
 bool Hub::GameEndedSent() { return Prop<uint8_t>(this, kEndedGameId) == Prop<uint8_t>(this, kGameId); }
 
 // 0x005332B0 / 0x005332C0 / 0x005332D0
-bool Hub::IsGameOver() { return m_gameOver; }
-void Hub::SetGameOver() { m_gameOver = true; }
-void Hub::ResetMatchEnded() { m_gameOver = false; }
+bool Hub::HasMatchEnded() { return m_matchEnded; }
+void Hub::MarkMatchEnded() { m_matchEnded = true; }
+void Hub::ResetMatchEnded() { m_matchEnded = false; }
 
 // 0x005332E0 / 0x005332F0
 bool Hub::CheatingNoted() { return Prop<bool>(this, kCheatingNoted); }
@@ -306,11 +306,11 @@ void Hub::SendReadyResponse()
 {
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
-    uint32_t id = m_latestReadyQuery;
+    uint32_t id = m_lastReadyProbeId;
     desc.m_content = &id;
     desc.m_byteCount = sizeof(id);
     desc.m_ident = kMsgReadyResponse;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueImportant;
+    desc.m_queue = NetLink::NetMessageInfo::kLanePriority;
     for (int i = 0; i < 2; ++i) {
         if (NetLink::AppHost* client = FetchPatron(i))
             static_cast<NetLink::Guest*>(client)->SendToHost(&desc);
@@ -333,7 +333,7 @@ bool Hub::HasCreatedGoals()
 // 0x005333A0
 void Hub::PrepareCreatedGoals(uint32_t level)
 {
-    Prop<uint32_t>(this, kGoalsLevel) = level;
+    Prop<uint32_t>(this, kGoalSetField) = level;
     Prop<uint32_t>(this, kGoalsMessage) = level;
     ParkEditing::CObjectiveAuthoring* editor = GoalEditor();
     int size = static_cast<int>(editor->WriteLevelGoalsToBuffer(

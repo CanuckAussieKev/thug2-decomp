@@ -55,20 +55,20 @@ int SphereHidden(const Maths::Vec4* centre, float radius)
 }
 
 // The system's virtual functions.
-void DeleteSystem(CParticleSystem* system)
+void DeleteSystem(CEmitterInstance* system)
 {
-    reinterpret_cast<void(__thiscall*)(CParticleSystem*, unsigned int)>(system->m_vtable[0])(system, 1);
+    reinterpret_cast<void(__thiscall*)(CEmitterInstance*, unsigned int)>(system->m_vtable[0])(system, 1);
 }
-int NumVertexLists(CParticleSystem* system)
+int NumVertexLists(CEmitterInstance* system)
 {
-    return reinterpret_cast<int(__thiscall*)(CParticleSystem*)>(system->m_vtable[2])(system);
+    return reinterpret_cast<int(__thiscall*)(CEmitterInstance*)>(system->m_vtable[2])(system);
 }
-int NumColours(CParticleSystem* system)
+int NumColours(CEmitterInstance* system)
 {
-    return reinterpret_cast<int(__thiscall*)(CParticleSystem*)>(system->m_vtable[3])(system);
+    return reinterpret_cast<int(__thiscall*)(CEmitterInstance*)>(system->m_vtable[3])(system);
 }
 
-float* PositionOf(CParticleSystem* system, int particle, int step)
+float* PositionOf(CEmitterInstance* system, int particle, int step)
 {
     return system->m_positionArray + 3 * (system->m_maxParticles * step + particle);
 }
@@ -82,7 +82,7 @@ enum : uint32_t {
     kEmitRate = 0x35B65BD4,
     kSetColor = 0x514B2584,
     kEmpty = 0x482482C6, // (its name unknown)
-    kSetSpeedRange = 0x63274395,
+    kSpeedSpanCmd = 0x63274395,
     kEmit = 0x711B1A6A,
     kSetAngleSpread = 0x7911855B,
     kApplyEnvBrightness = 0x96896315,
@@ -146,7 +146,7 @@ void GetVectorOrXyz(Scripts::CStruct* params, uint32_t name, float& x, float& y,
 }
 
 // Sizes from the system's, scaled (unless the scale is exactly 1).
-void SetSizes(CParticleSystem* system, sFlexibleParticle& p)
+void SetSizes(CEmitterInstance* system, sFlexibleParticle& p)
 {
     p.startSize[0] = system->m_extent[0];
     p.startSize[1] = system->m_extent[1];
@@ -163,7 +163,7 @@ void SetSizes(CParticleSystem* system, sFlexibleParticle& p)
 } // namespace
 
 // 0x00496FE0
-void CParticleSystem::Emit(int count)
+void CEmitterInstance::Emit(int count)
 {
     if (m_fadingOut)
         return;
@@ -274,7 +274,7 @@ void CParticleSystem::Emit(int count)
 }
 
 // 0x00497B00
-bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
+bool CEmitterInstance::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript*)
 {
     switch (name) {
     case kSetEmitAngle: { // (degrees)
@@ -363,7 +363,7 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
     case kEmpty:
         m_unknown8C = 0;
         break;
-    case kSetSpeedRange: {
+    case kSpeedSpanCmd: {
         float min = 0.0f;
         params->FetchFloat(kMin, &min, 0);
         float max = min;
@@ -462,7 +462,7 @@ bool CParticleSystem::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
     return true;
 }
 
-void CParticleSystem::UpdateGroundBrightness(bool movables)
+void CEmitterInstance::UpdateGroundBrightness(bool movables)
 {
     CProbeRay feeler;
     feeler.MakeNew();
@@ -476,7 +476,7 @@ void CParticleSystem::UpdateGroundBrightness(bool movables)
     feeler.Destruct();
 }
 
-void CParticleSystem::RemoveParticle(int index, bool throughAccessors)
+void CEmitterInstance::RemoveParticle(int index, bool throughAccessors)
 {
     --m_unknown8C;
     m_particleList[index] = m_particleList[m_unknown8C];
@@ -500,7 +500,7 @@ void CParticleSystem::RemoveParticle(int index, bool throughAccessors)
 }
 
 // 0x004987F0
-void CParticleSystem::TickFrame(float time, bool skip)
+void CEmitterInstance::TickFrame(float time, bool skip)
 {
     if (m_fadingOut && m_unknown8C == 0) {
         DeleteSystem(this);

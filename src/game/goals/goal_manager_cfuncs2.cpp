@@ -31,7 +31,7 @@ constexpr uint32_t kIsClassicMode = 0x5A2C589A;   // is_classic
 constexpr uint32_t kGoalName = 0xBFECC45B;        // goal_name
 constexpr uint32_t kLevelPrefix = 0x15F818D0;     // level_prefix
 constexpr uint32_t kTotal = 0x3DD01EA1;           // total
-constexpr uint32_t kGoalPoints = 0x42C20492;      // goal_points
+constexpr uint32_t kGoalScoreValue = 0x42C20492;      // goal_points
 constexpr uint32_t kProsetNotPrefix = 0xC60CE720; // proset_not_prefix
 constexpr uint32_t kType = 0x7321A8D6;            // type
 constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
@@ -47,7 +47,7 @@ void Append(char* dest, const char* text) { DupFrom(dest + std::strlen(dest), te
 
 CMatchRules* GameMode() { return g_gameMode; }
 // The level structure being played (the skate module's +0x380 names it).
-Scripts::CStruct* LevelStructure() { return Scripts::ReadSubStruct(SkateCalls::SkateField<uint32_t>(0x380)); }
+Scripts::CStruct* LevelParamsRef() { return Scripts::ReadSubStruct(SkateCalls::SkateField<uint32_t>(0x380)); }
 
 uint32_t GoalName(Scripts::CStruct* params)
 {
@@ -77,7 +77,7 @@ bool __cdecl CFunc_GoalManager_CreateGoalName(Scripts::CStruct* params, Scripts:
     const char* type;
     params->FetchText(kGoalType, &type, true);
     const char* level;
-    LevelStructure()->FetchText(kLevel, &level, 1);
+    LevelParamsRef()->FetchText(kLevel, &level, 1);
     char name[128];
     DupFrom(name, level);
     if (GameMode()->IsTrue(kIsClassicMode) || params->HasBareFlag(kClassicModeGoal))
@@ -93,7 +93,7 @@ bool __cdecl CFunc_GoalManager_CreateGoalName(Scripts::CStruct* params, Scripts:
 bool __cdecl CFunc_GoalManager_GetLevelPrefix(Scripts::CStruct*, Scripts::CScript* script)
 {
     const char* level;
-    LevelStructure()->FetchText(kLevel, &level, 1);
+    LevelParamsRef()->FetchText(kLevel, &level, 1);
     script->m_args->AppendWord(kLevelPrefix, level);
     return true;
 }
@@ -206,7 +206,7 @@ bool __cdecl CFunc_GoalManager_GetNumberOfGoalPoints(Scripts::CStruct* params, S
 {
     CGoalManager* manager = GetObjectiveBoard();
     int points = params->HasBareFlag(kTotal) ? manager->m_totalGoalPoints : manager->m_objectiveScore;
-    script->m_args->PutInt(kGoalPoints, points);
+    script->m_args->PutInt(kGoalScoreValue, points);
     return true;
 }
 
@@ -361,7 +361,7 @@ bool __cdecl CFunc_GoalManager_UnPauseCompetition(Scripts::CStruct* params, Scri
 bool __cdecl CFunc_GoalManager_GoalIsLocked(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t name = GoalName(params);
-    return static_cast<uint8_t>(GetObjectiveBoard()->IsGoalLocked(name)) != 0; // (AL)
+    return static_cast<uint8_t>(GetObjectiveBoard()->IsGoalBlocked(name)) != 0; // (AL)
 }
 
 // 0x0055A430: an active competition's goal_id into the script's. False if none.

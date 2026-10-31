@@ -44,7 +44,7 @@ uint8_t __cdecl GetTerrainIndex(uint32_t checksum);
 // 0x00444310: the action (TA_*) of the sound table `table` (an unknown table reads address 8: a crash).
 uint32_t __cdecl GetTableAction(uint8_t table);
 // 0x00444360: the checksum of the terrain with index `terrain` (0 if there's none).
-uint32_t __cdecl GetTerrainChecksum(uint8_t terrain);
+uint32_t __cdecl FetchSurfaceKey(uint8_t terrain);
 // 0x004443B0: the index of the sound table of type `type` (TABLE_*; 0 if there's none).
 uint8_t __cdecl GetTableIndex(uint32_t type);
 // 0x00444400: the structure `name` of the terrain's settings (or of STANDARD_TERRAIN_DEFAULT) into `out`; whether

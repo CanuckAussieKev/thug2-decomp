@@ -64,7 +64,7 @@ public:
     uint32_t m_blendMode;            // +0x1C
     Maths::Mat4 m_projection;        // +0x20
     float m_extent;                    // +0x60
-    float m_viewAngle;                     // +0x64
+    float m_fieldOfView;                     // +0x64
     float m_aspect;                  // +0x68
     uint32_t m_fineness;             // +0x6C
     Maths::Vec4 m_direction;         // +0x70: the object's (normalised)

@@ -50,12 +50,12 @@ uint8_t* NewSectorGeom(uint8_t* scene)
     *reinterpret_cast<uint8_t**>(geom + 0x34) = scene;
     return geom;
 }
-void InitGeom(uint8_t* geom) { reinterpret_cast<CPcGeom*>(geom)->StartMeshList(); }
+void PrepareGeometry(uint8_t* geom) { reinterpret_cast<CPcGeom*>(geom)->StartMeshList(); }
 // The 2D clip rectangle off (0x004D3CE0).
 void ClearScreenClip() { ClearSkinScaling(); }
 
 // The scene's hash table size: 2^n entries (n 1-12), the first at least twice the sectors.
-int HashBits(int sectors)
+int TableBitWidth(int sectors)
 {
     unsigned int wanted = 2 * static_cast<unsigned int>(sectors);
     unsigned int size = 2;
@@ -89,10 +89,10 @@ sceneRef* NewMeshList(bool meshFlag)
     return list;
 }
 
-uint8_t* NewScene(int sectors, bool addSuperSectors, bool flag8D, sceneRef* list)
+uint8_t* BuildWorldScene(int sectors, bool withSuperSectors, bool flag8D, sceneRef* list)
 {
-    uint8_t* scene = NewPcScene(HashBits(sectors));
-    scene[0x8C] = addSuperSectors;
+    uint8_t* scene = NewPcScene(TableBitWidth(sectors));
+    scene[0x8C] = withSuperSectors;
     scene[0x8D] = flag8D;
     *reinterpret_cast<sceneRef**>(scene + 0x280) = list;
     return scene;
@@ -119,7 +119,7 @@ sHierarchyNode* sHierarchyNode::MakeNew()
 }
 
 // 0x004B3490
-void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool addSuperSectors, bool flag8D, bool meshFlag)
+void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool withSuperSectors, bool flag8D, bool meshFlag)
 {
     sceneRef* list = NewMeshList(meshFlag);
     const uint8_t* p = data + 0xC; // (past the header)
@@ -128,12 +128,12 @@ void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool addS
         static_cast<const ListKit::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
     int sectors = *reinterpret_cast<const int*>(p);
     p += 4;
-    uint8_t* scene = NewScene(sectors, addSuperSectors, flag8D, list);
+    uint8_t* scene = BuildWorldScene(sectors, withSuperSectors, flag8D, list);
     for (int i = sectors; i > 0; --i) {
         void* sector = SpawnSector(scene);
         uint8_t* geom = NewSectorGeom(scene);
         ChooseGeom(sector, geom);
-        InitGeom(geom);
+        PrepareGeometry(geom);
         if (static_cast<CPcSector*>(sector)->ReadFromRamBlock(const_cast<uint8_t**>(&p)))
             InsertSector(scene, sector);
     }
@@ -151,7 +151,7 @@ void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool addS
 }
 
 // 0x004B36D0
-void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperSectors, bool flag8D, bool meshFlag,
+void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool withSuperSectors, bool flag8D, bool meshFlag,
                                 int sectorFlags)
 {
     sceneRef* list = NewMeshList(meshFlag);
@@ -166,12 +166,12 @@ void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperS
         file, static_cast<const ListKit::KeyMap*>(*reinterpret_cast<void**>(static_cast<uint8_t*>(textures) + 0xC)));
     int sectors;
     FileLoad::TakeIn(&sectors, 4, 1, file);
-    uint8_t* scene = NewScene(sectors, addSuperSectors, flag8D, list);
+    uint8_t* scene = BuildWorldScene(sectors, withSuperSectors, flag8D, list);
     for (int i = 0; i < sectors; ++i) {
         void* sector = SpawnSector(scene);
         uint8_t* geom = NewSectorGeom(scene);
         ChooseGeom(sector, geom);
-        InitGeom(geom);
+        PrepareGeometry(geom);
         if (static_cast<CPcSector*>(sector)->IngestFromFile(file, static_cast<uint32_t>(sectorFlags)))
             InsertSector(scene, sector);
     }

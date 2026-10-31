@@ -61,7 +61,7 @@ struct CChain {
     CChainLink m_chainLink[kMaxLinks]; // +0x024
     int m_iterations;         // +0x664 (0x41E56E7B): constraint passes a second
     float m_damping;          // +0x668 damp_force
-    float m_pullDown;          // +0x66C gravity_force
+    float m_sagForce;          // +0x66C gravity_force
     bool m_moveWithObject;    // +0x670 (0xC96BA2C1): the links carried by the object's velocity
     uint8_t pad671[3];
     float m_planeOffset;      // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis

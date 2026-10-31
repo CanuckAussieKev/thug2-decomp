@@ -200,7 +200,7 @@ void SetSamplerState(int sampler, int type, uint32_t value)
 {
     Method<long(__stdcall*)(void*, int, int, uint32_t)>(0x114 / 4)(InputPort(), sampler, type, value);
 }
-enum { kD3DCullMode = 22, kMultisampleAntialias = 161, kD3DLighting = 137, kMinFilter = 6 };
+enum { kD3DCullMode = 22, kRsMultisample = 161, kD3DLighting = 137, kMinFilter = 6 };
 // The states BeginMovie changes, for EndMovie.
 uint32_t& SavedCullMode() { return g_savedCullMode; }
 uint32_t& SavedAntialias() { return g_savedAntialias; }
@@ -223,8 +223,8 @@ void* __cdecl BeginMovie(uint32_t width, uint32_t height)
 {
     GetRenderState(kD3DCullMode, &SavedCullMode());
     SetRenderState(kD3DCullMode, 1); // none
-    GetRenderState(kMultisampleAntialias, &SavedAntialias());
-    SetRenderState(kMultisampleAntialias, 0);
+    GetRenderState(kRsMultisample, &SavedAntialias());
+    SetRenderState(kRsMultisample, 0);
     SetRenderState(kD3DLighting, 0);
     SetRendererSampler(1, 0);
     SetRendererSampler(2, 0);
@@ -251,7 +251,7 @@ void __cdecl EndMovie(void* texture)
 {
     MoviePlaying() = false;
     SetRenderState(kD3DCullMode, SavedCullMode());
-    SetRenderState(kMultisampleAntialias, SavedAntialias());
+    SetRenderState(kRsMultisample, SavedAntialias());
     SetSamplerState(0, kMinFilter, SavedMinFilter());
     SetRendererSampler(1, 1);
     SetRendererSampler(2, 1);
@@ -304,7 +304,7 @@ void CreateSoundManager() { SoundFx::CreateManager(false); }
 void ReleaseSoundManager() { SoundFx::ReleaseManager(); }
 float SoundVolume() { return SoundFx::FetchMasterLoudness(); }
 float MusicVolume() { return AudioStream::GetMusicVolume(); }
-void SetFogEnabled(bool on) { Engine3D::Engine::EnableFog(on); }
+void ToggleFog(bool on) { Engine3D::Engine::EnableFog(on); }
 bool AppActive() { return SystemCore::g_appActive; }
 bool QuitRequested() { return g_quitRequested; }
 bool DeviceLost() { return g_deviceLost; }
@@ -349,8 +349,8 @@ void __cdecl PlayMovieFile(const char* name)
     UINT screenSaverTimeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screenSaverTimeout, 0);
     uint32_t screenSaverFrames = 0;
-    bool fog = reinterpret_cast<int&>(g_fogEnabled) != 0;
-    SetFogEnabled(false);
+    bool fog = reinterpret_cast<int&>(g_fogActive) != 0;
+    ToggleFog(false);
     if (texture) {
         Sio::Hub* input = Sio::CreateManager(false);
         uint16_t seenUp[4] = {};
@@ -426,7 +426,7 @@ void __cdecl PlayMovieFile(const char* name)
         Sio::ReleaseManager();
     }
     MoviePlaying() = false;
-    SetFogEnabled(fog);
+    ToggleFog(fog);
     EndMovie(texture);
     VideoClose(CurrentMovie());
     CurrentMovie() = nullptr;

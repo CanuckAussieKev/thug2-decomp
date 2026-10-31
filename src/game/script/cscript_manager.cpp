@@ -87,12 +87,12 @@ bool ObjectRunsScripts(GameObjects::CEntity* object)
 uint32_t ObjectId(GameObjects::CEntity* object) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x14); }
 
 // The network game (OnlinePlay::Hub 0x007CCE14).
-using NetManager = OnlinePlay::Hub;
-NetManager* NetLink() { return reinterpret_cast<NetManager*>(OnlinePlay::g_gameNetManager); }
+using NetSessionSlot = OnlinePlay::Hub;
+NetSessionSlot* NetLink() { return reinterpret_cast<NetSessionSlot*>(OnlinePlay::g_onlineHub); }
 // 0x0044E4F0: whether a network game is on.
-bool InNetGame(NetManager* net) { return net->InNetGame(); }
+bool InNetGame(NetSessionSlot* net) { return net->InNetGame(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
-void* FetchPatron(NetManager* net, int index) { return net->FetchPatron(index); }
+void* FetchPatron(NetSessionSlot* net, int index) { return net->FetchPatron(index); }
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
 using ::NetLink::NetMessageInfo;
 void InitMsgDesc(NetMessageInfo* desc) { desc->MakeNew(); }
@@ -115,7 +115,7 @@ bool UsesObject(const CScript* script, GameObjects::CEntity* object)
 {
     if (script->m_entity.Pull() == object)
         return true;
-    for (int i = 0; i < script->m_numReturnAddresses; ++i) {
+    for (int i = 0; i < script->m_callDepth; ++i) {
         if (script->m_returnAddresses[i].m_ownerEntity == object)
             return true;
     }
@@ -138,8 +138,8 @@ void TickChildScripts()
         if (run && (flags & SCRIPT_FLAG_PAUSE_WITH_OBJECT) && script->m_entity.Pull())
             run = ObjectRunsScripts(script->m_entity.Pull());
         if (run && UpdateScript(script) == SCRIPT_OUTCOME_FINISHED) {
-            if (script->m_callbackScript)
-                LaunchScript(script->m_callbackScript, script->m_callbackParams, script->m_entity.Pull(), false, nullptr);
+            if (script->m_onFinishScript)
+                LaunchScript(script->m_onFinishScript, script->m_callbackParams, script->m_entity.Pull(), false, nullptr);
             DeleteScript(script);
         }
         script = next;
@@ -190,8 +190,8 @@ CScript* SpawnScript(uint32_t name, CStruct* params, uint32_t callback, CStruct*
                                                 (notSessionSpecific ? SCRIPT_FLAG_NOT_SESSION_SPECIFIC : 0) |
                                                 (pauseWithObject ? SCRIPT_FLAG_PAUSE_WITH_OBJECT : 0));
     if (callback) {
-        script->m_callbackScript = callback;
-        CStruct* copy = NewStruct();
+        script->m_onFinishScript = callback;
+        CStruct* copy = SpawnParamBag();
         copy = copy ? copy->PrepareAll() : nullptr;
         script->m_callbackParams = copy;
         if (callbackParams)
@@ -225,7 +225,7 @@ void DeleteFinishedScripts()
 {
     for (CScript* script = ScriptListHead(); script;) {
         CScript* next = script->m_following;
-        if (!script->m_pc && !IsSpawned(script) && !script->m_eventHandlers)
+        if (!script->m_pc && !IsSpawned(script) && !script->m_signalRoutes)
             DeleteScript(script);
         script = next;
     }
@@ -286,7 +286,7 @@ void RunScriptOnce(uint32_t name, CStruct* params, GameObjects::CEntity* object,
 // 0x00473350
 void SendRunScriptMessage(uint32_t name, CStruct* params, GameObjects::CEntity* object)
 {
-    NetManager* net = NetLink();
+    NetSessionSlot* net = NetLink();
     if (!InNetGame(net))
         return;
     NetMessageInfo desc;
@@ -303,7 +303,7 @@ void SendRunScriptMessage(uint32_t name, CStruct* params, GameObjects::CEntity* 
     desc.m_content = &message;
     desc.m_byteCount = static_cast<uint16_t>(size + 8);
     desc.m_ident = NETOP_SPAWN_SCRIPT;
-    desc.m_queue = NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetMessageInfo::kLaneOrdered;
     desc.m_groupId = 8;
     SendToHost(client, &desc);
 }
@@ -311,7 +311,7 @@ void SendRunScriptMessage(uint32_t name, CStruct* params, GameObjects::CEntity* 
 // 0x00473420
 void SendSpawnScriptMessage(uint32_t name, GameObjects::CEntity* object, int node, bool permanent)
 {
-    NetManager* net = NetLink();
+    NetSessionSlot* net = NetLink();
     if (!InNetGame(net))
         return;
     NetMessageInfo desc;
@@ -331,7 +331,7 @@ void SendSpawnScriptMessage(uint32_t name, GameObjects::CEntity* object, int nod
     desc.m_content = &message;
     desc.m_byteCount = sizeof(message);
     desc.m_ident = MSG_ID_SPAWN_SCRIPT;
-    desc.m_queue = NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetMessageInfo::kLaneOrdered;
     desc.m_groupId = 8;
     SendToHost(client, &desc);
 }
@@ -364,7 +364,7 @@ bool ScriptExists(uint32_t name)
 uint32_t GetSpawnId(CScript* script) { return script && IsSpawned(script) ? script->m_spawnId : 0; }
 
 // 0x00472E20
-CScript* FindSpawnedScriptWithId(uint32_t id)
+CScript* LookUpSpawnedScript(uint32_t id)
 {
     for (CScript* script = ScriptListHead(); script; script = script->m_following) {
         if (IsSpawned(script) && script->m_spawnId == id)

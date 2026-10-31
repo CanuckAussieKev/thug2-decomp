@@ -67,7 +67,7 @@ uint32_t& KeptType() { return g_keptType; }
 struct SaveDate {
     int fields[6];
 };
-SaveDate ReadDate(CStruct* summary)
+SaveDate ReadStampedDate(CStruct* summary)
 {
     static const uint32_t kNames[6] = {
         0x447D8CC8, // "year"
@@ -183,8 +183,8 @@ int MakeFolderFileName(uint32_t type, const char* name, char* buffer)
 // 0x005A63E0
 bool IsLater(CStruct* first, CStruct* second)
 {
-    SaveDate a = ReadDate(first);
-    SaveDate b = ReadDate(second);
+    SaveDate a = ReadStampedDate(first);
+    SaveDate b = ReadStampedDate(second);
     for (int i = 0; i < 6; ++i) {
         if (a.fields[i] != b.fields[i])
             return a.fields[i] > b.fields[i];
@@ -346,7 +346,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     switch (type) {
     case kSaveCat: {
         auto* skater = static_cast<GameObjects::CRider*>(GameModules::Skate::Sole()->GetRiderAt(0));
-        CStruct* trickRecord = *reinterpret_cast<CStruct**>(skater->m_trickInfo[0] + 4);
+        CStruct* trickRecord = *reinterpret_cast<CStruct**>(skater->m_trickSlots[0] + 4);
         const char* name = kEmpty;
         trickRecord->FetchText(kName, &name, 1);
         summary->AppendWord(kName, name);
@@ -370,7 +370,7 @@ void WriteSummary(CStruct* saved, CStruct* summary, uint32_t type)
     }
     case kSaveNetworkSettings: {
         auto* preferences = reinterpret_cast<uint8_t*>(
-            OnlinePlay::g_gameNetManager->GetOnlineSettings());
+            OnlinePlay::g_onlineHub->GetOnlineSettings());
         auto* settings = reinterpret_cast<CStruct*>(preferences + 4);
         CStruct* networkId = nullptr;
         settings->ReadSubStruct(0xCBED746Eu, &networkId, 0); // network_id
@@ -413,7 +413,7 @@ void __fastcall ApplyGoalManagerParams(CStruct* saved)
 // 0x005A6C80
 bool ApplyCatAndCustomSkater(CStruct* loaded, CStruct* customSkater)
 {
-    GameObjects::CProfileRoster* profiles = GameObjects::g_profileManager;
+    GameObjects::CProfileRoster* profiles = GameObjects::g_profileRoster;
     GameModules::Skate* skate = GameModules::Skate::Sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
     int index = reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(profiles);
@@ -432,7 +432,7 @@ const uint8_t* KeepLoadedContents(const uint8_t* data, uint32_t type)
         Scripts::DeleteStruct(kept);
         KeptContents() = nullptr;
     }
-    CStruct* contents = Scripts::NewStruct();
+    CStruct* contents = Scripts::SpawnParamBag();
     if (contents)
         contents = contents->PrepareAll();
     KeptContents() = contents;

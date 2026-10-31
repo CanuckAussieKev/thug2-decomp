@@ -22,9 +22,9 @@ constexpr uint32_t kCameraLookaround = 0x81C7122D, kCamera = 0xC4E311FA;
 constexpr uint32_t kHorizFov = 0x94DF1603, kBehind = 0x52E6C41B, kAbove = 0x0B96AE2D, kTilt = 0xE3C07609,
                    kOriginOffset = 0x012F6992, kLipTrickTilt = 0x7F0032AC, kLipTrickAbove = 0xADB6390E,
                    kSlerp = 0xF54FB9C5, kVertAirSlerp = 0x2FA11029, kVertAirLandedSlerp = 0x042FD4A0,
-                   kLerpXZ = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXZ = 0xF386F4D9, kVertAirLerpY = 0x4882A1FE,
-                   kLookRate = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A, kZoomLerp = 0x748743A7,
-                   kGrindZoom = 0x5A7F5CC5, kBigAirTrickZoom = 0xD790B83D, kLipTrickZoom = 0xD414C22E,
+                   kLerpXZ = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXZ = 0xF386F4D9, kHalfpipeAirBlendY = 0x4882A1FE,
+                   kLookRate = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A, kZoomBlend = 0x748743A7,
+                   kRailZoom = 0x5A7F5CC5, kBigAirTrickZoom = 0xD790B83D, kLipTrickZoom = 0xD414C22E,
                    kName = 0xA1DC81F9;
 
 constexpr float kFeet = 12.0f;  // 0x0064546C
@@ -56,7 +56,7 @@ void CRiderChaseView::DestroyBody()
 // 0x004F9A20
 void CRiderChaseView::Seal()
 {
-    mp_lookAround = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookaround));
+    m_freeLookModule = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookaround));
 }
 
 // 0x004F9A40
@@ -68,8 +68,8 @@ void CRiderChaseView::ChangePhase(const WalkCameraState* state)
     m_zoom = state->zoom;
     m_settleTime = 0.0f;
     m_instantFrames = 0;
-    mp_lookAround->m_heading = 0.0f;
-    mp_lookAround->m_locked = false;
+    m_freeLookModule->m_heading = 0.0f;
+    m_freeLookModule->m_locked = false;
 }
 
 // 0x004F9970
@@ -115,18 +115,18 @@ void CRiderChaseView::ChangeRegime(int mode, float time)
     params->FetchFloat(kLerpXZ, &m_lerpXZ, 0);
     params->FetchFloat(kLerpY, &m_lerpY, 0);
     params->FetchFloat(kVertAirLerpXZ, &m_vertAirLerpXZ, 0);
-    params->FetchFloat(kVertAirLerpY, &m_vertAirLerpY, 0);
+    params->FetchFloat(kHalfpipeAirBlendY, &m_halfpipeUpBlend, 0);
     params->FetchFloat(kLookRate, &m_lookRate, 0);
     params->FetchFloat(kWallrideOffsetAngle, &m_wallrideOffsetAngle, 0);
     float zoomLerp;
-    m_grindZoom = 1.0f;
+    m_railZoomFactor = 1.0f;
     m_lipTrickZoom = 1.0f;
     m_bigAirTrickZoom = 1.0f;
-    params->FetchFloat(kZoomLerp, &zoomLerp, 0);
-    params->FetchFloat(kGrindZoom, &m_grindZoom, 0);
+    params->FetchFloat(kZoomBlend, &zoomLerp, 0);
+    params->FetchFloat(kRailZoom, &m_railZoomFactor, 0);
     params->FetchFloat(kBigAirTrickZoom, &m_bigAirTrickZoom, 0);
     params->FetchFloat(kLipTrickZoom, &m_lipTrickZoom, 0);
-    m_zoomLerp = zoomLerp;
+    m_zoomEaseRate = zoomLerp;
     const char* name;
     params->FetchText(kName, &name, 0);
     m_originOffset = static_cast<float>(static_cast<double>(offset) * kFeet);
@@ -169,7 +169,7 @@ void CRiderChaseView::ChangeRegime(int mode, float time)
         heading = 0.0f;
         break;
     }
-    mp_lookAround->m_modeHeading = heading;
+    m_freeLookModule->m_modeHeading = heading;
 }
 
 } // namespace Obj

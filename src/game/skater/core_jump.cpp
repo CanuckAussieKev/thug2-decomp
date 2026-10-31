@@ -37,8 +37,8 @@ constexpr uint32_t kName = 0xA1DC81F9;
 constexpr uint32_t kNoSound = 0xE13620A8;           // no_sound
 constexpr uint32_t kBonelessHeight = 0xEC6B7FC7;    // BonelessHeight
 constexpr uint32_t kSpeed = 0xF0D90109;             // speed
-constexpr uint32_t kMaxTenseTime = 0xF733C097;      // Skater_max_tense_time
-constexpr uint32_t kMaxMaxSpeed = 0xCC5F87AA;       // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kChargeCapMs = 0xF733C097;      // Skater_max_tense_time
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;       // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kWallplantDuration = 0xA06E446B; // Physics_Wallplant_Duration
 constexpr uint32_t kSkaterJump = 0x8687163A;        // SkaterJump (event)
 constexpr uint32_t kAirName = 0x439F4704;           // AIR
@@ -67,14 +67,14 @@ void PlayJumpSound(void* component, uint8_t terrain)
     const Maths::Vec4& v = VectorAt(object, kVelocity);
     float speed = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y +
                                                static_cast<double>(v.z) * v.z));
-    float fraction = speed / ScaledPhysics(object, kMaxMaxSpeed);
-    static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(component, kSoundComponent))->PlayJumpInState(fraction, terrain);
+    float fraction = speed / ScaledPhysics(object, kSpeedCapStat);
+    static_cast<GameObjects::CRiderSfxPlayer*>(At<void*>(component, kSfxModuleSlot))->PlayJumpInState(fraction, terrain);
 }
 
 } // namespace
 
 // 0x005092E0
-void CorePhysicsComponent::TriggerRailScript(const int* events)
+void SkaterPhysicsModule::TriggerRailScript(const int* events)
 {
     auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
     if (!node)
@@ -114,12 +114,12 @@ void CorePhysicsComponent::TriggerRailScript(const int* events)
         else
             StopRiding(this);
     }
-    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(this, kTriggerComponent))
+    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))
         ->TriggerNode(events, At<uint32_t>(this, kRailScriptNode), nullptr, rideObject);
 }
 
 // 0x00509450
-void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
+void SkaterPhysicsModule::PerformLeap(Scripts::CStruct* params)
 {
     bool sound = !params->HasBareFlag(kNoSound);
     switch (StateOf(this)) {
@@ -146,8 +146,8 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
     }
 
     // The speed: between the min and the max by how long the jump was held.
-    int maxTense = Scripts::FetchIntValue(kMaxTenseTime);
-    int& tense = At<int>(this, kTenseTime);
+    int maxTense = Scripts::FetchIntValue(kChargeCapMs);
+    int& tense = At<int>(this, kJumpChargeMs);
     if (tense >= maxTense)
         tense = maxTense;
     bool fromVert = BitMark(this, 0x30) || (StateOf(this) == kGround && BitMark(this, 0x40));
@@ -200,12 +200,12 @@ void CorePhysicsComponent::PerformLeap(Scripts::CStruct* params)
     if (bike)
         ThawBmx::JumpPitch(this);
     SetPhysicsState(kAir);
-    At<int>(this, kJumpTime) = Now();
+    At<int>(this, kLeapDuration) = Now();
     static_cast<GameObjects::CEntity*>(ObjectOf(this))->Announce(kSkaterJump, nullptr, 0.0f);
 }
 
 // 0x00509920
-void CorePhysicsComponent::BeginSkitch()
+void SkaterPhysicsModule::BeginSkitch()
 {
     auto* object = At<GameObjects::CGameEntity*>(this, kSkitched);
     if (!object)
@@ -219,7 +219,7 @@ void CorePhysicsComponent::BeginSkitch()
 }
 
 // 0x00509990
-void CorePhysicsComponent::EndSkitch()
+void SkaterPhysicsModule::EndSkitch()
 {
     if (!BitMark(this, 0x88))
         return;
@@ -241,7 +241,7 @@ void CorePhysicsComponent::EndSkitch()
 }
 
 // 0x00509050
-void CorePhysicsComponent::DoWallplantPhysics()
+void SkaterPhysicsModule::StepWallplant()
 {
     int planted = At<int>(this, 0x90);
     At<uint8_t>(this, 0x2E4) = 0;
@@ -249,8 +249,8 @@ void CorePhysicsComponent::DoWallplantPhysics()
     if (static_cast<float>(elapsed) > Scripts::FetchFloat(kWallplantDuration)) {
         // Over: into the air, with a feeler along the facing (12 ahead to 36 behind) for a trigger.
         SetPhysicsState(kAir);
-        Maths::Vec4& start = VectorAt(this, kFeelerStart);
-        Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+        Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+        Maths::Vec4& end = VectorAt(this, kProbeTip);
         start = VectorAt(ObjectOf(this), kFacing) * kFeelerAhead;
         end = VectorAt(ObjectOf(this), kFacing) * kFeelerBehind;
         start += VectorAt(ObjectOf(this), kPosition);
@@ -280,28 +280,28 @@ void CorePhysicsComponent::DoWallplantPhysics()
 }
 
 // 0x00509A40
-int CorePhysicsComponent::Jump(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::Jump(Scripts::CStruct* params, Scripts::CScript*)
 {
     PerformLeap(params);
     return 1;
 }
 
 // 0x00509A60
-int CorePhysicsComponent::StartSkitch(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::StartSkitch(Scripts::CStruct*, Scripts::CScript*)
 {
     BeginSkitch();
     return 1;
 }
 
 // 0x00509A70
-int CorePhysicsComponent::EndTowRide(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::EndTowRide(Scripts::CStruct*, Scripts::CScript*)
 {
     EndSkitch();
     return 1;
 }
 
 // 0x00509A80
-int CorePhysicsComponent::ChangePhase(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::ChangePhase(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t state = 0;
     params->ReadHashValue(0u, &state, 0);
@@ -331,14 +331,14 @@ int CorePhysicsComponent::ChangePhase(Scripts::CStruct* params, Scripts::CScript
 }
 
 // 0x00509B70
-int CorePhysicsComponent::TriggerGrindOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::TriggerGrindOff(Scripts::CStruct*, Scripts::CScript*)
 {
     TriggerRailScript(g_grindOffEvents);
     return 1;
 }
 
 // 0x00509B90
-int CorePhysicsComponent::ForceBreakVert(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ForceBreakVert(Scripts::CStruct*, Scripts::CScript*)
 {
     BreakVert(true);
     KeepUpright();
@@ -346,7 +346,7 @@ int CorePhysicsComponent::ForceBreakVert(Scripts::CStruct*, Scripts::CScript*)
 }
 
 // 0x00509BB0
-int CorePhysicsComponent::WalkingWallplant(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::WalkingWallplant(Scripts::CStruct*, Scripts::CScript*)
 {
     WallPlant(false, false, true);
     return 1;

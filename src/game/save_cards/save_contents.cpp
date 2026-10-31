@@ -40,7 +40,7 @@ using Scripts::CStruct;
 constexpr uint32_t kOptions = 0x2FCA0578;                // "Options"
 constexpr uint32_t kSplitScreenPreferences = 0xF7720C3F; // "SplitScreenPreferences"
 constexpr uint32_t kSoundOptions = 0x89EB9738;           // "SoundOptions"
-constexpr uint32_t kMainVolume = 0x6F016DFB;             // "MasterLoudness"
+constexpr uint32_t kMasterGainKey = 0x6F016DFB;             // "MasterLoudness"
 constexpr uint32_t kMusicVolume = 0xABD4A575;            // "MusicVolume"
 constexpr uint32_t kMusicVolOutsideBox = 0xE3C22B01;     // "MusicVolOutsideBox"
 constexpr uint32_t kForbiddenTracks1 = 0x595D2C95;       // "PlayListForbiddenTrackFlags1"
@@ -49,7 +49,7 @@ constexpr uint32_t kForbiddenTracks3 = 0xB7534DB9;       // (name unknown) the s
 constexpr uint32_t kForbiddenTracks4 = 0x2937D81A;       // (name unknown) its low half
 constexpr uint32_t kCurrentSoundtrack = 0xE1F7C4AE;      // "current_soundtrack"
 constexpr uint32_t kRandomMode = 0x31C71B70;             // "RandomMode"
-constexpr uint32_t kControllerPreferences = 0x37BDB853;  // "ControllerPreferences"
+constexpr uint32_t kPadSettingsKey = 0x37BDB853;  // "ControllerPreferences"
 constexpr uint32_t kVibrationOn = 0x73CEE124;            // "VibrationOn"
 constexpr uint32_t kAutokickOn = 0x1EEF7085;             // "AutokickOn"
 constexpr uint32_t kSpinTapsOn = 0xA483BA67;             // "SpinTapsOn"
@@ -65,9 +65,9 @@ constexpr uint32_t kGoalEditor = 0x81F01058;             // "GoalEditor": the ob
 constexpr int kControllers = 8;
 
 GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
-GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileManager; }
+GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileRoster; }
 Highscores::CBestResults* GameRecords() { return Highscores::g_gameRecords; }
-OnlinePlay::Hub* GameNetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* OnlineHubHandle() { return OnlinePlay::g_onlineHub; }
 GameObjects::CRiderStoryProgress* Career() { return *reinterpret_cast<GameObjects::CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(Skate()) + 0x20); }
 int OsLayer() { return GameConfig::g_platform; }
 
@@ -93,9 +93,9 @@ GameObjects::CObjectModule* GoalEditorComponent()
 // spin taps).
 uint8_t* ControllerFlags(int controller) { return reinterpret_cast<uint8_t*>(Skate()) + 0x394 + 8 * controller; }
 
-CStruct* NewStructure()
+CStruct* SpawnParamTable()
 {
-    CStruct* structure = Scripts::NewStruct();
+    CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(CStruct* structure)
@@ -111,14 +111,14 @@ void DeleteStructure(CStruct* structure)
 // 0x005A7560
 void WriteGlobalInfo(CStruct* global)
 {
-    CStruct* options = NewStructure();
+    CStruct* options = SpawnParamTable();
     OptionStore::Preferences* splitScreen = SplitScreenPreferences();
-    CStruct* splitScreenCopy = NewStructure();
+    CStruct* splitScreenCopy = SpawnParamTable();
     splitScreenCopy->AppendStructureIfAny(PreferencesStructure(splitScreen));
     options->AppendStructRef(kSplitScreenPreferences, splitScreenCopy);
 
-    CStruct* sound = NewStructure();
-    sound->PushFloat(kMainVolume, SoundFx::FetchMasterLoudness());
+    CStruct* sound = SpawnParamTable();
+    sound->PushFloat(kMasterGainKey, SoundFx::FetchMasterLoudness());
     sound->PushFloat(kMusicVolume, Scripts::FetchFloat(kMusicVolOutsideBox));
     uint64_t tracksOff[2];
     AudioStream::GetTracksOff(&tracksOff[0], &tracksOff[1]);
@@ -137,7 +137,7 @@ void WriteGlobalInfo(CStruct* global)
         controllers = controllers->PrepareAll();
     controllers->ConfigureSizeKind(kControllers, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < kControllers; ++i) {
-        CStruct* controller = NewStructure();
+        CStruct* controller = SpawnParamTable();
         const uint8_t* flags = ControllerFlags(i);
         if (flags[1])
             controller->PutNameKey(0u, kAutokickOn);
@@ -147,19 +147,19 @@ void WriteGlobalInfo(CStruct* global)
             controller->PutNameKey(0u, kVibrationOn);
         controllers->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(controller));
     }
-    options->AppendArrayRef(kControllerPreferences, controllers);
-    options->PutSubStruct(kTaunts, PreferencesStructure(GameNetManager()->GetTauntSettings()));
+    options->AppendArrayRef(kPadSettingsKey, controllers);
+    options->PutSubStruct(kTaunts, PreferencesStructure(OnlineHubHandle()->GetTauntSettings()));
     global->AppendStructRef(kOptions, options);
 
     Career()->WriteToStructure(global);
     GameRecords()->WriteToStructure(global);
-    CStruct* pros = NewStructure();
+    CStruct* pros = SpawnParamTable();
     Profiles()->WritePros(pros);
     global->AppendStructRef(kPros, pros);
 }
 
 // 0x005A7CF0
-void ReadGlobalInfo(CStruct* global, CScript* script)
+void ReadSaveHeader(CStruct* global, CScript* script)
 {
     CStruct* options = nullptr;
     global->ReadSubStruct(kOptions, &options, 0);
@@ -168,18 +168,18 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
     SplitScreenPreferences()->SetPreferences(splitScreen);
     CStruct* taunts = nullptr;
     options->ReadSubStruct(kTaunts, &taunts, 0);
-    GameNetManager()->GetTauntSettings()->SetPreferences(taunts);
+    OnlineHubHandle()->GetTauntSettings()->SetPreferences(taunts);
 
     CStruct* sound = nullptr;
     options->ReadSubStruct(kSoundOptions, &sound, 0);
-    auto* sfx = SoundFx::g_sfxManager;
+    auto* sfx = SoundFx::g_audioMixer;
     float mainVolume = 0.0f;
-    if (sound->FetchFloat(kMainVolume, &mainVolume, 0))
+    if (sound->FetchFloat(kMasterGainKey, &mainVolume, 0))
         sfx->ChangeMasterLoudness(mainVolume);
     float musicVolume = 0.0f;
     if (sound->FetchFloat(kMusicVolume, &musicVolume, 0)) {
         AudioStream::SetMusicVolume(musicVolume);
-        CStruct* change = NewStructure();
+        CStruct* change = SpawnParamTable();
         change->PushFloat(kMusicVolOutsideBox, musicVolume);
         Scripts::LaunchScript("Change", change, nullptr, false);
         DeleteStructure(change);
@@ -199,14 +199,14 @@ void ReadGlobalInfo(CStruct* global, CScript* script)
         sound->ReadHashValue(kCurrentSoundtrack, &soundtrack, 0);
         if (Scripts::CSymbolTableEntry* symbol = Scripts::FindSymbol(kCurrentSoundtrack))
             symbol->checksum = soundtrack;
-        CStruct* change = NewStructure();
+        CStruct* change = SpawnParamTable();
         change->PutNameKey(0x8C465905u, soundtrack); // trackchecksum
         Scripts::LaunchScript(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack
         DeleteStructure(change);
     }
 
     CArray* controllers = nullptr;
-    if (options->FetchList(kControllerPreferences, &controllers, 0)) {
+    if (options->FetchList(kPadSettingsKey, &controllers, 0)) {
         GameModules::Skate* skate = Skate();
         for (int i = 0; i < kControllers; ++i) {
             auto* controller = reinterpret_cast<CStruct*>(controllers->FetchPart(static_cast<uint32_t>(i)));
@@ -257,7 +257,7 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         return;
     case kSaveCat: {
         auto* skater = static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(0));
-        uint8_t* trickRecord = skater->m_trickInfo[0];
+        uint8_t* trickRecord = skater->m_trickSlots[0];
         contents->PutSubStruct("other_params", *reinterpret_cast<CStruct**>(trickRecord + 4));
         contents->AppendArrayValue("rotation_info", *reinterpret_cast<CArray**>(trickRecord + 8));
         contents->AppendArrayValue("animation_info", *reinterpret_cast<CArray**>(trickRecord + 0xC));
@@ -267,24 +267,24 @@ void WriteSaveContents(CStruct* contents, uint32_t type)
         ParkEditing::CParkBuilderMode::Sole()->ExportToStruct(contents);
         return;
     case kSaveNetworkSettings:
-        contents->AppendStructureIfAny(PreferencesStructure(GameNetManager()->GetOnlineSettings()));
+        contents->AppendStructureIfAny(PreferencesStructure(OnlineHubHandle()->GetOnlineSettings()));
         return;
     case kSaveOptionsAndPros: {
-        CStruct* global = NewStructure();
+        CStruct* global = SpawnParamTable();
         WriteGlobalInfo(global);
         contents->AppendStructRef(kGlobalInfo, global);
-        CStruct* story = NewStructure();
+        CStruct* story = SpawnParamTable();
         void* goalManager = GoalSystem::GetObjectiveBoard();
         // the goal manager's parameters (a folded getter, +0x14)
         story->PutSubStruct(kGoalManagerParams, reinterpret_cast<CStruct*(__thiscall*)(void*)>(CodeAddress(&Gfx2D::CRig::GetNumBones))(goalManager));
         contents->AppendStructRef(kStory, story);
-        CStruct* storySkater = NewStructure();
+        CStruct* storySkater = SpawnParamTable();
         auto* skater = static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(0));
         skater->WriteCATInfo(storySkater);
         skater->WriteList44B66A9F(storySkater);
         skater->WriteChapterInfo(storySkater);
         contents->AppendStructRef(kStorySkater, storySkater);
-        CStruct* customSkater = NewStructure();
+        CStruct* customSkater = SpawnParamTable();
         Profiles()->WriteCustomSkaters(customSkater);
         contents->AppendStructRef(kCustomSkater, customSkater);
         // (on into CreatedGraphic's layer_infos, as the original does)
@@ -316,13 +316,13 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
             return;
         CStruct* other = nullptr;
         contents->ReadSubStruct("other_params", &other, 1);
-        reinterpret_cast<CStruct*>(*reinterpret_cast<CStruct**>(skater->m_trickInfo[0] + 4))->AppendStructureIfAny(other);
+        reinterpret_cast<CStruct*>(*reinterpret_cast<CStruct**>(skater->m_trickSlots[0] + 4))->AppendStructureIfAny(other);
         CArray* rotation = nullptr;
         contents->FetchList("rotation_info", &rotation, 1);
-        Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickInfo[0] + 8), rotation);
+        Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickSlots[0] + 8), rotation);
         CArray* animation = nullptr;
         contents->FetchList("animation_info", &animation, 1);
-        Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickInfo[0] + 0xC), animation);
+        Scripts::DuplicateArray(*reinterpret_cast<CArray**>(skater->m_trickSlots[0] + 0xC), animation);
         return;
     }
     case kSavePark:
@@ -335,7 +335,7 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
         return;
     }
     case kSaveNetworkSettings:
-        GameNetManager()->GetOnlineSettings()->SetPreferences(contents);
+        OnlineHubHandle()->GetOnlineSettings()->SetPreferences(contents);
         return;
     case kSaveOptionsAndPros: {
         uint32_t& sections = SectionsToApplyWhenLoading();
@@ -343,7 +343,7 @@ void ApplyLoadedContents(uint32_t type, CStruct* contents, CScript* script, CStr
             DebugOut::Printf("APPLY_GLOBAL_INFO\n"); // "APPLY_GLOBAL_INFO\n"
             CStruct* global = nullptr;
             contents->ReadSubStruct(kGlobalInfo, &global, 1);
-            ReadGlobalInfo(global, script);
+            ReadSaveHeader(global, script);
         }
         if (sections & 2) {
             DebugOut::Printf("APPLY_STORY\n"); // "APPLY_STORY\n"

@@ -30,7 +30,7 @@ int Truncate(double value) { return static_cast<int>(value); }
 void CObjective::PassInheritedFlags(int depth)
 {
     void* manager = ObjectiveBoard();
-    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
+    for (GoalEdge* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
         CObjective* child = GetGoal(manager, link->m_objectiveKey, 1);
         if (child) {
             child->m_inherited |= m_inherited;
@@ -43,7 +43,7 @@ void CObjective::PassInheritedFlags(int depth)
 void CObjective::ClearChildWins()
 {
     void* manager = ObjectiveBoard();
-    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
+    for (GoalEdge* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
         link->m_won = false;
         CObjective* child = GetGoal(manager, link->m_objectiveKey, 1);
         if (child)
@@ -137,7 +137,7 @@ void CObjective::ClearFlagValues(Scripts::CStruct* flags)
 // 0x00554070
 void CObjective::ZeroObjectiveBits()
 {
-    if (m_goalFlags->HasBareFlag(kSkaterFlags)) {
+    if (m_goalFlags->HasBareFlag(kSkaterTraits)) {
         Scripts::CComponent* component = m_goalFlags->StepToEntry(nullptr);
         while (component) {
             Scripts::CComponent* next = m_goalFlags->StepToEntry(component);
@@ -167,7 +167,7 @@ bool CObjective::HasEveryBit()
 {
     int toWin = m_numFlags;
     m_args->FetchIntValue(kNumFlagsToWin, &toWin, 0);
-    if (m_goalFlags->HasBareFlag(kSkaterFlags)) {
+    if (m_goalFlags->HasBareFlag(kSkaterTraits)) {
         for (Scripts::CComponent* component = m_goalFlags->StepToEntry(nullptr); component;) {
             Scripts::CComponent* next = m_goalFlags->StepToEntry(component);
             if ((component->typeAndFlag & 0xFE) == (Scripts::QBVAL_STRUCT << 1)) {
@@ -238,7 +238,7 @@ bool CObjective::HasWonGoalOrChild()
 {
     if (Virtual<bool>(this, kVtHasWon))
         return true;
-    for (GoalLink* link = m_subNodes; link; link = link->m_succ) {
+    for (GoalEdge* link = m_subNodes; link; link = link->m_succ) {
         if (link->m_won)
             return true;
     }
@@ -354,7 +354,7 @@ bool CObjective::HasComponentA302D7CD() { return m_args->HasEntryNamed(kComponen
 void CObjective::RestoreSaveBlock(Scripts::CStruct* data)
 {
     int beaten = 0;
-    data->FetchIntValue(kHasBeaten, &beaten, 1);
+    data->FetchIntValue(kAlreadyWon, &beaten, 1);
     if (beaten)
         Virtual<void>(this, kVtMarkWon);
     int locked = 1;
@@ -373,7 +373,7 @@ void CObjective::RestoreSaveBlock(Scripts::CStruct* data)
         if (type == kTime)
             m_bestTime = record;
         else if (type == kScore)
-            m_bestScore = record;
+            m_recordPoints = record;
     }
     if (data->HasEntryNamed(kGoalFlags)) {
         m_goalFlags->Clear();
@@ -400,14 +400,14 @@ void CObjective::CaptureSaveBlock(Scripts::CStruct* data)
     bool locked = (m_flagBits & kFlagLocked) || IsGroupLocked(manager, m_bundle, m_level);
     data->PutInt(kIsLocked, locked);
     data->PutInt(kHasSeen, (m_flagBits & kFlagSeen) ? 1 : 0);
-    data->PutInt(kHasBeaten, Virtual<bool>(this, kVtHasWon));
+    data->PutInt(kAlreadyWon, Virtual<bool>(this, kVtHasWon));
     int record = 0;
     uint32_t type;
     if (m_args->ReadHashValue(kRecordType, &type, 0)) {
         if (type == kTime)
             record = m_bestTime;
         else if (type == kScore)
-            record = m_bestScore;
+            record = m_recordPoints;
     }
     data->PutInt(kWinRecord, record);
     data->PutNameKey(kNoName, m_args->HasEntryNamed(kClassicModeGoal) ? kClassic : kCareer);
@@ -473,7 +473,7 @@ int CObjective::GetTimesStarted() { return m_timesStarted; }
 void CObjective::ChooseRunEnding(int type) { m_runEnding = type; }
 
 // 0x00554A20
-void CObjective::SetDeactivateOnExpire(bool deactivate)
+void CObjective::ChangeEndsOnTimeout(bool deactivate)
 {
     m_flagBits = static_cast<uint8_t>((m_flagBits & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
 }

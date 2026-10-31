@@ -27,7 +27,7 @@ public:
     // (0x0048D060, a string's width and height, is a jump to virtual [8] folded with other classes' slot 8:
     // engine_geom.h's VirtualSlot8Jump.)
     // 0x0048D070 (virtual [2]) / 0x0048D080 (virtual [3] and [4]): "STUB A DUB DUB".
-    void PlatSetSpacings(int glyphGap, int blankGap);
+    void SetGlyphGaps(int glyphGap, int blankGap);
     void PlatSetColors(const uint32_t* colors);
 
     void** m_vtable;
@@ -65,7 +65,7 @@ bool __cdecl CFunc_UnloadFont(Scripts::CStruct* params, Scripts::CScript* script
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
 char __cdecl ButtonGlyph(const char* digit);
 
-extern char g_metaButtonMap[32];
+extern char g_glyphAliasTable[32];
 
 extern FontSlot g_fontSlots[16];
 extern ListKit::KeyMap g_fontTable; // 0x006FA9F0: the fonts by name

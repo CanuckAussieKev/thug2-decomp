@@ -4,7 +4,7 @@
 
 namespace MenuSystem::LevelEditor::Hints {
 
-std::string FirstKey(const std::string& keysText)
+std::string LeadingKeyName(const std::string& keysText)
 {
     size_t at = keysText.find(" / ");
     return at == std::string::npos ? keysText : keysText.substr(0, at);
@@ -109,7 +109,7 @@ struct Builder {
             out.push_back({keys, what});
     }
     // An action's first key ("" unbound: left out).
-    std::string Key(const char* id) const { return FirstKey(keyOf(id)); }
+    std::string Key(const char* id) const { return LeadingKeyName(keyOf(id)); }
     void Act(const char* id, const std::string& what, const char* prefix = nullptr)
     {
         std::string k = Key(id);

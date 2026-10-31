@@ -36,8 +36,8 @@ namespace {
 extern void** const kCutsceneDetailsVtable;
 
 constexpr uint32_t kUnnamed = 0;
-constexpr uint32_t kModelComponent = 0x286A8D26;
-constexpr uint32_t kSkeletonComponent = 0x222756D5;
+constexpr uint32_t kModelModuleName = 0x286A8D26;
+constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 constexpr uint32_t kMatrixComponent = 0x208353AC; // (told the object's new matrix: a CMatrixComponent)
 constexpr uint32_t kVersion = 0x40E32C3C;
 constexpr uint32_t kObjects = 0x4DE5330C;
@@ -45,7 +45,7 @@ constexpr uint32_t kName = 0x2BFC2486;
 constexpr uint32_t kModel = 0xB974F2FC;
 constexpr uint32_t kSkeleton = 0x09794932;
 constexpr uint32_t kAnim = 0x6C2BFB7F;
-constexpr uint32_t kSkaterFlag = 0x723CDA8F;
+constexpr uint32_t kIsSkaterMarker = 0x723CDA8F;
 constexpr uint32_t kSkaterFlag2 = 0x6914D9D2;
 constexpr uint32_t kFixedTime = 0x0C00425A;      // a global integer: the time from the frame counter 0x006F115C
 constexpr uint32_t kEndScript = 0x4C0FD1D7;      // run when a looping cutscene reaches its end
@@ -122,7 +122,7 @@ bool __stdcall ObjectsFromTable(Scripts::CStruct* params, const uint32_t* table)
     Scripts::CArray* objects = memory ? memory->PrepareAll() : nullptr;
     objects->ConfigureSizeKind(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
     for (int i = 0; i < count; ++i, entry += 5) {
-        Scripts::CStruct* block = Scripts::NewStruct();
+        Scripts::CStruct* block = Scripts::SpawnParamBag();
         Scripts::CStruct* object = block ? block->PrepareAll() : nullptr;
         object->PutNameKey(kName, entry[0]);
         object->PutNameKey(kModel, entry[1]);
@@ -130,7 +130,7 @@ bool __stdcall ObjectsFromTable(Scripts::CStruct* params, const uint32_t* table)
         object->PutNameKey(kAnim, entry[3]);
         uint32_t flags = entry[4];
         if (flags >> 30 & 1)
-            object->PutNameKey(kUnnamed, kSkaterFlag);
+            object->PutNameKey(kUnnamed, kIsSkaterMarker);
         if (flags >> 31 & 1)
             object->PutNameKey(kUnnamed, kSkaterFlag2);
         objects->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(object));
@@ -215,7 +215,7 @@ void CCinematicTable::UpdateTime(int /*unused*/)
 // 0x00465AB0
 void CCinematicTable::UpdateStandIn(CGameEntity* object)
 {
-    if (CObjectModule* component = object->FetchModule(kModelComponent)) {
+    if (CObjectModule* component = object->FetchModule(kModelModuleName)) {
         void* model = ModelOf(component);
         if (*(Bytes(model) + 0x44) & 4) // (hidden)
             return;
@@ -223,11 +223,11 @@ void CCinematicTable::UpdateStandIn(CGameEntity* object)
             // the level object it stands in for: faded out, moved along
             auto* level = static_cast<CGameEntity*>(
                 FindObject(static_cast<CMeshInstanceModule*>(component)->GetLinkedEntityName()));
-            CObjectModule* levelComponent = level->FetchModule(kModelComponent);
+            CObjectModule* levelComponent = level->FetchModule(kModelModuleName);
             void* levelModel = ModelOf(levelComponent);
             FadeModel(levelModel, 0.0f);
             static_cast<CMeshInstanceModule*>(levelComponent)->UpdateBrightness();
-            CObjectModule* skeleton = object->FetchModule(kSkeletonComponent);
+            CObjectModule* skeleton = object->FetchModule(kSkeletonModuleName);
             float matrix[16];
             *reinterpret_cast<Maths::Mat4*>(matrix) = *reinterpret_cast<const Maths::Mat4*>(Bytes(object) + 0xC0);
             std::memcpy(matrix + 12, Bytes(object) + 0x4C, 16);
@@ -282,7 +282,7 @@ void CCinematicTable::UpdateObjectTransforms()
         if (CGameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
             auto* skeleton = reinterpret_cast<void*>(
-                reinterpret_cast<OnlinePlay::FoldedGetters*>(parent->FetchModule(kSkeletonComponent))->Word18());
+                reinterpret_cast<OnlinePlay::FoldedGetters*>(parent->FetchModule(kSkeletonModuleName))->Word18());
             float bone[4], turned[4];
             static_cast<Gfx2D::CRig*>(skeleton)->GetBonePosition(kAttachBone, reinterpret_cast<Maths::Vec4*>(bone));
             *reinterpret_cast<Maths::Vec4*>(turned) =
@@ -346,7 +346,7 @@ CCinematicEntry* CCinematicEntry::MakeNew(const uint32_t* settings)
     m_vtable = kCutsceneDetailsVtable;
     m_content = nullptr;
     m_asset = 0;
-    Scripts::CStruct* block = Scripts::NewStruct();
+    Scripts::CStruct* block = Scripts::SpawnParamBag();
     m_args = block ? block->PrepareAll() : nullptr;
     std::memcpy(m_settings, settings, 12);
     m_ownsData = static_cast<uint8_t>(m_settings[2] & 0xFF);
@@ -370,9 +370,9 @@ void CCinematicEntry::DestroyBody()
             assets->DiscardLoadedItem(asset);
             m_content = nullptr;
         }
-        Engine3D::SetAmbientLightModulationFactor(m_musicVolume, 0.0f);
-        Engine3D::SetDiffuseLightModulationFactor(0, m_streamVolume0, 0.0f);
-        Engine3D::SetDiffuseLightModulationFactor(1, m_streamVolume1, 0.0f);
+        Engine3D::ChangeAmbientScale(m_musicVolume, 0.0f);
+        Engine3D::ChangeDiffuseScale(0, m_streamVolume0, 0.0f);
+        Engine3D::ChangeDiffuseScale(1, m_streamVolume1, 0.0f);
     }
     reinterpret_cast<CVideoEntry*>(this)->DestroyBody();
 }

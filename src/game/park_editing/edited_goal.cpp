@@ -25,7 +25,7 @@ char g_goalNameBuffer[104];
 namespace {
 
 constexpr float kPi = 3.14159274101257324f;          // 0x006453D8
-constexpr float kRadiansToDegrees = 57.2957763671875f; // 0x00645468
+constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
@@ -201,7 +201,7 @@ void CEditedGoal::SetCountdownSeconds(int seconds)
 }
 
 // 0x004E7050
-void CEditedGoal::CreateMarker(int index)
+void CEditedGoal::PlaceGoalMarker(int index)
 {
     Scripts::CStruct params;
     params.PrepareAll();
@@ -229,7 +229,7 @@ void CEditedGoal::CreateMarker(int index)
     params.PutNameKey(0xA1DC81F9, Checksums::HashFromText(NameBuffer()));
     const EditedGoalPoint& point = m_pathVertices[index];
     params.PutVec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
-    params.PushFloat(0xFF7EBAF6, point.angle * kRadiansToDegrees);
+    params.PushFloat(0xFF7EBAF6, point.angle * kDegreesPerRadian);
     Scripts::LaunchScript(0xEFC08BAE, &params, nullptr, false, nullptr);
     params.Clear();
 }
@@ -238,7 +238,7 @@ void CEditedGoal::CreateMarker(int index)
 void CEditedGoal::CreateMarkers()
 {
     for (int i = 1; i < m_vertexTotal; ++i)
-        CreateMarker(i);
+        PlaceGoalMarker(i);
     m_currentPoint = 0;
     m_won = false;
 }
@@ -294,7 +294,7 @@ bool CEditedGoal::PlacePoint(const Maths::Vec4& pos, float height, float angle)
         m_lastPointPlaced = true;
     if (m_currentPoint == 0)
         Scripts::LaunchScript(0xD066A889, nullptr, nullptr, false, nullptr);
-    CreateMarker(m_currentPoint);
+    PlaceGoalMarker(m_currentPoint);
     ++m_currentPoint;
     RunMarkerObjectScript(m_currentPoint);
     if (m_currentPoint < m_vertexTotal)
@@ -344,11 +344,11 @@ void CEditedGoal::EmitNodeCoords()
     for (int i = 0; i < m_vertexTotal; ++i) {
         name[0] = '\0';
         if (i == 0)
-            Sprintf(name, "TRG_EditedGoal%d_Pro", m_goalIndex);
+            Sprintf(name, "TRG_EditedGoal%d_Pro", m_levelGoalNumber);
         else if (i == 1)
-            Sprintf(name, "TRG_EditedGoal%d_Restart", m_goalIndex);
+            Sprintf(name, "TRG_EditedGoal%d_Restart", m_levelGoalNumber);
         else
-            Sprintf(name, "TRG_EditedGoal%d_Object_%d", m_goalIndex, i - 2);
+            Sprintf(name, "TRG_EditedGoal%d_Object_%d", m_levelGoalNumber, i - 2);
         WriteNodePosition(i, Checksums::HashFromText(name));
     }
 }
@@ -397,7 +397,7 @@ void CEditedGoal::ReadSpecificParams(Scripts::CStruct* params)
         params->FetchIntValue(0xD9426372, &m_racePerCheckpointTime, 0);
         break;
     case kGoalTypeComboTricks:
-        params->FetchIntValue(0x67DD90CA, &m_comboSize, 0);
+        params->FetchIntValue(0x67DD90CA, &m_chainLength, 0);
         if (params->HasBareFlag(0xDF47B144))
             m_singleCombo = true;
         ReadTrickSettings(params);
@@ -426,7 +426,7 @@ void CEditedGoal::ReadSpecificParams(Scripts::CStruct* params)
         ReadKeyComboSets(params);
         break;
     case kGoalTypeTricktris:
-        params->FetchIntValue(0x45A375C9, &m_tricktrisBlockSize, 0);
+        params->FetchIntValue(0x45A375C9, &m_stackBlockSpan, 0);
         params->FetchIntValue(0xBFD3A831, &m_tricktrisTotalToWin, 0);
         ReadTrickSettings(params);
         break;

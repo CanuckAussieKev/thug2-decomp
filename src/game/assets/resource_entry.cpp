@@ -406,7 +406,7 @@ CResource* AssetConstructors::SkinCollision()
 }
 
 // 0x0040A580
-CResource* AssetConstructors::TextureDictionary()
+CResource* AssetConstructors::TextureBank()
 {
     ConstructType(this, kTextureDictionaryVtable);
     ClearExtra(this);

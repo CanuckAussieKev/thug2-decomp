@@ -42,8 +42,8 @@ using namespace Detail;
 
 namespace {
 
-constexpr uint32_t kNetworkPreferences = 0x7D1C1C0F; // (the global structure of the network preferences)
-constexpr uint32_t kTauntPreferences = 0x878CB88F;
+constexpr uint32_t kNetSettingsKey = 0x7D1C1C0F; // (the global structure of the network preferences)
+constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
 constexpr int kChallengeLength = 8;
 
@@ -96,7 +96,7 @@ void* Carve(uint32_t size)
 Hub* Hub::MakeNew()
 {
     Prop<uint32_t>(this, 0) = 0; // the flags
-    reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)->PrepareAll();
+    reinterpret_cast<OptionStore::Preferences*>(m_netOptions)->PrepareAll();
     auto* taunts = &Prop<OptionStore::Preferences>(this, 0x110);
     taunts->PrepareAll();
     SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x11C), reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
@@ -104,13 +104,13 @@ Hub* Hub::MakeNew()
     SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
     SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
     SetupListSentinel(&Prop<MemSys::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
-    m_proSetFlags = 0;
+    m_scriptFlagBits = 0;
     TaskList::PileUp* tasks =
         reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
     NetLink::Hub::Sole()->SetMsgOptions(0x23, 1); // (the object update message's)
     m_clientApp = nullptr;
     m_client1 = nullptr;
-    m_matchClient = nullptr;
+    m_browserClient = nullptr;
     m_host = nullptr;
     Prop<bool>(this, 0x45) = false;
     Prop<bool>(this, 0x46) = false;
@@ -120,20 +120,20 @@ Hub* Hub::MakeNew()
     m_hostMode = 0;
     Prop<int>(this, 0x1B8) = 2;
     Prop<int>(this, 0x1BC) = 2;
-    reinterpret_cast<OptionStore::Preferences*>(m_networkPreferences)->ReadIn(kNetworkPreferences);
-    taunts->ReadIn(kTauntPreferences);
+    reinterpret_cast<OptionStore::Preferences*>(m_netOptions)->ReadIn(kNetSettingsKey);
+    taunts->ReadIn(kTauntSettingsKey);
     Prop<TaskList::SchedulerTask*>(this, 0xC0) = NewTask(this, Code(&Hub::ConnectionTask), -2000);
     Prop<TaskList::SchedulerTask*>(this, 0xC4) = NewTask(this, Code(&NetMetricsTask), 0);
     Prop<TaskList::SchedulerTask*>(this, 0xF0) = NewTask(this, CodeAddress(OnlinePlay::ServerListTask), 0);
     Prop<TaskList::SchedulerTask*>(this, 0xF4) = NewTask(this, Code(&Hub::AutoServeTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xC8) = NewTask(this, CodeAddress(OnlinePlay::ScoreUpdateTask), 0);
-    m_clientAddNewPlayersTask = NewTask(this, Code(&Hub::ClientAddNewPlayersTask), -2000);
-    m_serverAddNewPlayersTask = NewTask(this, Code(&Hub::ServerAddNewPlayersTask), -2000);
+    Prop<TaskList::SchedulerTask*>(this, 0xC8) = NewTask(this, CodeAddress(OnlinePlay::ScoreBroadcastTick), 0);
+    m_guestAdmitJob = NewTask(this, Code(&Hub::GuestPlayerIntakeTick), -2000);
+    m_hostAdmitJob = NewTask(this, Code(&Hub::HostPlayerIntakeTick), -2000);
     Prop<TaskList::SchedulerTask*>(this, 0xD4) = NewTask(this, Code(&KeyboardTask), 0);
-    Prop<TaskList::SchedulerTask*>(this, 0xD8) = NewTask(this, Code(&ModemStateTask), 0);
-    m_joinTimeoutTask = NewTask(this, Code(&JoinTimeoutTask), 0);
+    Prop<TaskList::SchedulerTask*>(this, 0xD8) = NewTask(this, Code(&DialupProgressTick), 0);
+    m_joinExpiryJob = NewTask(this, Code(&JoinDeadlineTick), 0);
     Prop<TaskList::SchedulerTask*>(this, 0xE0) = NewTask(this, Code(&NetLink::ServiceTask), 0);
-    m_joinStateTask = NewTask(this, Code(&Hub::JoinStateTask), 0);
+    m_joinPhaseJob = NewTask(this, Code(&Hub::JoinProgressTick), 0);
     Prop<TaskList::SchedulerTask*>(this, 0xE8) = NewTask(this, Code(&Hub::StartGameTask), 0);
     Prop<TaskList::SchedulerTask*>(this, 0xEC) = NewTask(this, Code(&LevelChangeTask), 0);
     Prop<TaskList::SchedulerTask*>(this, 0xF8) = NewTask(this, CodeAddress(CarriedFlagsTask), 0);
@@ -144,13 +144,13 @@ Hub* Hub::MakeNew()
     m_joinMode = 0;
     Prop<bool>(this, 0xFE09) = false;
     void* memory = Carve(0x154);
-    m_lobbyMan = memory ? static_cast<RoomManager*>(memory)->MakeNew() : nullptr;
+    m_lobbyService = memory ? static_cast<RoomManager*>(memory)->MakeNew() : nullptr;
     memory = Carve(0x3C8);
     m_vaultMan = memory ? static_cast<VaultMan*>(memory)->MakeNew() : nullptr;
     memory = Carve(0x3C);
-    m_buddyMan = memory ? static_cast<FriendsManager*>(memory)->MakeNew() : nullptr;
+    m_presenceService = memory ? static_cast<FriendsManager*>(memory)->MakeNew() : nullptr;
     memory = Carve(0x200);
-    m_statsMan = memory ? static_cast<RankingsManager*>(memory)->MakeNew() : nullptr;
+    m_ratingService = memory ? static_cast<RankingsManager*>(memory)->MakeNew() : nullptr;
     GameSpy::CdKeyInit(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     Crt::Srand(Crt::Instant());
@@ -167,7 +167,7 @@ uint32_t g_gameNetReferences;
 // 0x0053F520
 Hub* __cdecl Hub::Fabricate(bool create)
 {
-    Hub*& instance = g_gameNetManager;
+    Hub*& instance = g_onlineHub;
     if (!instance && create) {
         void* memory = MemSys::AllocZeroed(0xFE0C, nullptr, 1);
         instance = memory ? static_cast<Hub*>(memory)->MakeNew() : nullptr;

@@ -59,7 +59,7 @@ using KeyText = std::function<std::string(const char* id)>;
 constexpr size_t kMaxHints = 16;
 std::vector<Hint> Build(const CtxInfo& context, const KeyText& keyOf);
 // The first of a KeysText's alternatives ("Ctrl+Y / Ctrl+Shift+Z" -> "Ctrl+Y"; an Info's text as it is).
-std::string FirstKey(const std::string& keysText);
+std::string LeadingKeyName(const std::string& keysText);
 // Single plain keys run together for a cap ("W", "A", "S", "D" -> "WASD"; a key with modifiers or a long name: joined
 // with a space).
 std::string JoinKeys(const std::vector<std::string>& keys);

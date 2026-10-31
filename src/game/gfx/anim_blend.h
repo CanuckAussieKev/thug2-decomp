@@ -37,7 +37,7 @@ float* __cdecl InterpolateRotation(float* out, const float* from, float* to, flo
 
 // 0x0047D680: `count` poses mixed into the first by `weights` (weights[0] becomes 1 minus the others), `bones`
 // bones each; the result copied to `out` if that isn't `poses`. The poses' rotations change on the way.
-void __cdecl BlendPoses(CStance* poses, float* weights, int bones, CStance* out, int count);
+void __cdecl MixPoses(CStance* poses, float* weights, int bones, CStance* out, int count);
 // 0x0047D8F0: the same for the poses whose `ids` are `id` only (weights below 0.00001 left out); a bone a pose
 // takes from a higher one is marked valid.
 void __cdecl BlendPosesById(CStance* poses, float* weights, const uint32_t* ids, int bones, CStance* out, int count,
@@ -95,7 +95,7 @@ public:
     // `period` with the weight the others leave it, and a new timeline (0x00481EE0, CAnimTrack::MakeNew) put
     // first.
     void PushTimeline(float period);
-    // 0x0047ED60: each timeline's pose (FetchPose) from the skeleton's base translations, blended (BlendPoses) and
+    // 0x0047ED60: each timeline's pose (FetchPose) from the skeleton's base translations, blended (MixPoses) and
     // copied to the blend buffer's `index`; false with rendering skipped (0x007D1EC0), no anim set or no skeleton.
     bool BlendPose(int index);
     // 0x0047EFF0: BlendPose(0).
@@ -125,7 +125,7 @@ public:
     // playing timeline's controllers (SetWobbleDetails 0xEA6D0EFD).
     void SetWobbleDetails(const float* details, bool send);
     // 0x0047E740: the playing timeline's loop type (message 0x3D when it changed).
-    void SetLoopType(int loopType, bool send);
+    void ChangeRepeatMode(int loopType, bool send);
     // 0x0047E810: the playing timeline turned round. (`unused` isn't.)
     void Reverse(uint32_t unused);
     // 0x0047E850: the playing timeline's speed (message 0x41; unless `all`, nothing when within 0.05 of it); with

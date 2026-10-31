@@ -44,13 +44,13 @@ constexpr uint32_t kRadius = 0xC48391A5;         // "radius"
 constexpr uint8_t kMsgObjectPickedUp = 0x90;   // ReportObjectPickup: the object's id
 constexpr uint8_t kMsgNeedToPlaceObjects = 0x91;
 constexpr uint8_t kMsgHuntStarted = 0x93;
-constexpr uint8_t kMsgEnterVehicle = 0x89;     // BroadcastEnterVehicle: the skater and the control type
+constexpr uint8_t kMsgBoardVehicle = 0x89;     // BroadcastEnterVehicle: the skater and the control type
 constexpr uint8_t kMsgObjectPlacements = 0x8F; // a player's placed objects (from the server) / one placed (to it)
-constexpr uint8_t kMsgProjectile = 0x83;       // BroadcastProjectile
+constexpr uint8_t kMsgShotFired = 0x83;       // BroadcastProjectile
 constexpr int kMaxPlaced = 5;                  // (the placements message's room)
 constexpr uint8_t kGroupGame = 8;
 
-Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& PlacedCount(uint8_t* player) { return OnlinePlay::Detail::AsPlayer(player)->m_unknown34; }
@@ -62,23 +62,23 @@ uint8_t* ScriptPlayer(Scripts::CScript* script)
     GameObjects::CEntity* object = script->m_entity.m_ownerObject;
     if (!object)
         return nullptr;
-    return NetManager()->PlayerByObjectId(static_cast<uint16_t>(object->m_ident));
+    return NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(object->m_ident));
 }
 
 // A message without data to every player (or every remote one) through the server.
 void AnnounceToPlayers(uint8_t id, bool remoteOnly)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
     NetLink::AppHost* server = manager->m_host;
     OnlinePlay::Detail::PlayerSearch search;
-    for (uint8_t* player = OnlinePlay::Detail::FirstPlayer(manager, &search, true); player;
-         player = OnlinePlay::Detail::NextPlayer(manager, &search, true)) {
+    for (uint8_t* player = OnlinePlay::Detail::StartRosterSweep(manager, &search, true); player;
+         player = OnlinePlay::Detail::StepRosterSweep(manager, &search, true)) {
         if (remoteOnly && OnlinePlay::Detail::IsOwnPlayer(player))
             continue;
         desc.m_ident = id;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         server->PutOnOutbox(OnlinePlay::Detail::PlayerHandle(player), &desc);
     }
@@ -117,10 +117,10 @@ bool __cdecl CFunc_AnnounceNeedToPlaceObjects(Scripts::CStruct*, Scripts::CScrip
 // 0x005B20E0: AtLeastOneObjectPlaced: whether a player (observers not counted) has placed an object.
 bool __cdecl CFunc_AtLeastOneObjectPlaced(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     OnlinePlay::Detail::PlayerSearch search;
-    for (uint8_t* player = OnlinePlay::Detail::FirstPlayer(manager, &search, false); player;
-         player = OnlinePlay::Detail::NextPlayer(manager, &search, false)) {
+    for (uint8_t* player = OnlinePlay::Detail::StartRosterSweep(manager, &search, false); player;
+         player = OnlinePlay::Detail::StepRosterSweep(manager, &search, false)) {
         if (PlacedCount(player) > 0)
             return true;
     }
@@ -131,7 +131,7 @@ bool __cdecl CFunc_AtLeastOneObjectPlaced(Scripts::CStruct*, Scripts::CScript*)
 // client 0 online, otherwise through the client numbered colObjId (as the original does). Always true.
 bool __cdecl CFunc_ReportObjectPickup(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
     uint32_t client = 0; // (both uninitialised in the original when missing)
@@ -141,7 +141,7 @@ bool __cdecl CFunc_ReportObjectPickup(Scripts::CStruct* params, Scripts::CScript
     NetLink::AppHost* app = manager->FetchPatron(manager->InNetGame() ? 0 : static_cast<int>(client));
     uint32_t msg = id;
     desc.m_ident = kMsgObjectPickedUp;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     desc.m_content = &msg;
     desc.m_byteCount = sizeof(msg);
@@ -165,7 +165,7 @@ bool __cdecl CFunc_PlacedLessThan(Scripts::CStruct* params, Scripts::CScript* sc
 // a byte, the control type) to the server through client 0, if there is one. Always true.
 bool __cdecl CFunc_BroadcastEnterVehicle(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     uint32_t skater;
     params->ReadHashValue(kSkaterId, &skater, 1);
     uint32_t steerKind;
@@ -182,9 +182,9 @@ bool __cdecl CFunc_BroadcastEnterVehicle(Scripts::CStruct* params, Scripts::CScr
         msg.skater = static_cast<uint8_t>(skater);
         msg.steerKind = steerKind;
         desc.m_content = &msg;
-        desc.m_ident = kMsgEnterVehicle;
+        desc.m_ident = kMsgBoardVehicle;
         desc.m_byteCount = sizeof(msg);
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         OnlinePlay::Detail::SendToServer(client, &desc);
     }
@@ -214,7 +214,7 @@ bool __cdecl CFunc_LobbyCheckKeyboard(Scripts::CStruct*, Scripts::CScript*)
 // (the rest of the 5 left as they were from the last one). Always true.
 bool __cdecl CFunc_BroadcastObjectPlacements(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     OnlinePlay::Detail::PlayerSearch others;
     OnlinePlay::Detail::PlayerSearch receivers;
     NetLink::NetMessageInfo desc;
@@ -229,12 +229,12 @@ bool __cdecl CFunc_BroadcastObjectPlacements(Scripts::CStruct*, Scripts::CScript
     desc.m_ident = kMsgObjectPlacements;
     desc.m_content = &msg;
     desc.m_byteCount = sizeof(msg);
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
-    for (uint8_t* receiver = OnlinePlay::Detail::FirstPlayer(manager, &receivers, true); receiver;
-         receiver = OnlinePlay::Detail::NextPlayer(manager, &receivers, true)) {
-        for (uint8_t* player = OnlinePlay::Detail::FirstPlayer(manager, &others, false); player;
-             player = OnlinePlay::Detail::NextPlayer(manager, &others, false)) {
+    for (uint8_t* receiver = OnlinePlay::Detail::StartRosterSweep(manager, &receivers, true); receiver;
+         receiver = OnlinePlay::Detail::StepRosterSweep(manager, &receivers, true)) {
+        for (uint8_t* player = OnlinePlay::Detail::StartRosterSweep(manager, &others, false); player;
+             player = OnlinePlay::Detail::StepRosterSweep(manager, &others, false)) {
             if (player == receiver)
                 continue;
             msg.id = static_cast<uint8_t>(OnlinePlay::Detail::AsPlayer(player)->m_skater->m_ident);
@@ -251,7 +251,7 @@ bool __cdecl CFunc_BroadcastObjectPlacements(Scripts::CStruct*, Scripts::CScript
 // client 0 online, otherwise through the client numbered by ObjId (as the original does). Always true.
 bool __cdecl CFunc_ReportObjectPlacement(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     uint32_t client = 0; // (both uninitialised in the original when missing)
     params->ReadHashValue(kObjId, &client, 0);
     Scripts::VectorValue pos = {};
@@ -264,7 +264,7 @@ bool __cdecl CFunc_ReportObjectPlacement(Scripts::CStruct* params, Scripts::CScr
         desc.m_content = &msg;
         desc.m_ident = kMsgObjectPlacements;
         desc.m_byteCount = sizeof(msg);
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         OnlinePlay::Detail::SendToServer(app, &desc);
     }
@@ -275,7 +275,7 @@ bool __cdecl CFunc_ReportObjectPlacement(Scripts::CStruct* params, Scripts::CScr
 // server through client 0, if there is one. Always true.
 bool __cdecl CFunc_BroadcastProjectile(Scripts::CStruct* params, Scripts::CScript*)
 {
-    NetLink::AppHost* client = NetManager()->FetchPatron(0);
+    NetLink::AppHost* client = NetSessionSlot()->FetchPatron(0);
     if (!client)
         return true;
     NetLink::NetMessageInfo desc;
@@ -314,10 +314,10 @@ bool __cdecl CFunc_BroadcastProjectile(Scripts::CStruct* params, Scripts::CScrip
     msg.type = type;
     msg.ammoType = ammoType;
     msg.zero = 0;
-    desc.m_ident = kMsgProjectile;
+    desc.m_ident = kMsgShotFired;
     desc.m_content = &msg;
     desc.m_byteCount = sizeof(msg);
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     OnlinePlay::Detail::SendToServer(client, &desc);
     return true;

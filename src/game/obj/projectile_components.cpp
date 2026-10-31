@@ -44,7 +44,7 @@ extern void** const kProximityVtable;
 constexpr uint32_t kRadius = 0xC48391A5;          // radius
 constexpr uint32_t kScale = 0x13B9DA7B;           // scale
 constexpr uint32_t kOwnerId = 0x81C39E06;         // owner_id
-constexpr uint32_t kDeathScript = 0x6647ADC3;     // death_script
+constexpr uint32_t kOnDestroyScript = 0x6647ADC3;     // death_script
 constexpr uint32_t kProjectileType = 0xB4D91E49;  // projectile_type
 constexpr uint32_t kPos = 0x7F261953;             // Pos
 constexpr uint32_t kVel = 0x0C4C809E;             // Vel
@@ -77,7 +77,7 @@ struct HitMessage {
 };
 static_assert(sizeof(HitMessage) == 8, "the message is 8 bytes");
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 GameModules::Skate* SkateModule() { return GameModules::g_skateModule; }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
@@ -91,7 +91,7 @@ void Kill(CGameEntity* object) { reinterpret_cast<void(__thiscall*)(CGameEntity*
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -120,7 +120,7 @@ CObjectModule* __cdecl CShotImpactModule::Fabricate()
     component->CObjectModule::MakeNew();
     component->m_radius = 0.0f;
     component->m_holderKey = 0;
-    component->m_deathScript = 0;
+    component->m_onCollideScript = 0;
     component->m_sizeFactor = 0.0f;
     component->m_hit = false;
     component->m_vtable = kCollisionVtable;
@@ -150,7 +150,7 @@ void CShotImpactModule::ConfigureFromData(Scripts::CStruct* params)
     params->FetchFloat(kRadius, &m_radius, 1);
     params->FetchFloat(kScale, &m_sizeFactor, 1);
     params->ReadHashValue(kOwnerId, &m_holderKey, 1);
-    params->ReadHashValue(kDeathScript, &m_deathScript, 1);
+    params->ReadHashValue(kOnDestroyScript, &m_onCollideScript, 1);
     params->ReadHashValue(kProjectileType, &m_projectileType, 1);
     m_vel = {0.0f, 0.0f, 1.0f, 1.0f};
     m_vel.MakeUnit();
@@ -170,7 +170,7 @@ int CShotImpactModule::ScoreTaken()
 // 0x004F3090
 void CShotImpactModule::TickFrame()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (net->InNetGame() && m_projectileType != kFireball && !net->PlayersCanCollide())
         return;
     float reach = static_cast<float>(static_cast<double>(m_radius) + kReach);
@@ -183,8 +183,8 @@ void CShotImpactModule::TickFrame()
         CGameEntity* skater = skate->GetRiderAt(static_cast<int>(i));
         if (skater->m_ident == m_holderKey)
             continue;
-        auto* owner = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(m_holderKey)));
-        auto* victim = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)));
+        auto* owner = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->FindPlayerSlotByObj(static_cast<uint16_t>(m_holderKey)));
+        auto* victim = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident)));
         if (!victim->CanBeHitAgain())
             continue;
         GameModules::PointTally* score = ScoreOf(skater);
@@ -206,13 +206,13 @@ void CShotImpactModule::TickFrame()
         msg.MakeNew();
         auto* server = reinterpret_cast<NetLink::AppHost*>(reinterpret_cast<OnlinePlay::FoldedGetters*>(net)->Word04());
         Kill(m_entity);
-        if (m_deathScript) {
+        if (m_onCollideScript) {
             Maths::Vec4 pos = m_entity->m_atPoint;
             Scripts::CStruct* params = NewParams();
             params->PutVec3(kPos, Scripts::VectorValue{pos.x, pos.y, pos.z, pos.w});
             params->PutVec3(kVel, Scripts::VectorValue{m_vel.x, m_vel.y, m_vel.z, m_vel.w});
             params->PushFloat(kScale, m_sizeFactor);
-            Scripts::LaunchScript(m_deathScript, params, nullptr, false, nullptr);
+            Scripts::LaunchScript(m_onCollideScript, params, nullptr, false, nullptr);
             DeleteParams(params);
         }
         // (The original builds it over its loop counter's slot: the two bytes after the flag are the count's high
@@ -224,9 +224,9 @@ void CShotImpactModule::TickFrame()
         msg.m_ident = kMsgHit;
         msg.m_content = &hit;
         msg.m_byteCount = sizeof(hit);
-        msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        msg.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         msg.m_groupId = 8;
-        victim->SetLastHitTime(FrameClock::GetTime());
+        victim->ChangeRecentHitStamp(FrameClock::GetTime());
         server->PutOnOutbox(victim->GetLinkHandle(), &msg);
         hit.id = static_cast<uint8_t>(skater->m_ident);
         msg.m_ident = kMsgHitOwner;
@@ -285,7 +285,7 @@ void CProjectileProximityComponent::ConfigureFromData(Scripts::CStruct*)
 {
     m_riderRef = LocalSkater();
     mp_pedLogic = static_cast<CPedestrianBrainModule*>(m_entity->FetchModule(kPedLogic));
-    m_radiusSqr = kReach * kReach;
+    m_reachSquared = kReach * kReach;
 }
 
 // 0x004F35B0
@@ -313,7 +313,7 @@ void CProjectileProximityComponent::TickFrame()
         float dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         double dy = pos[1] - middle;
         double dx = static_cast<double>(pos[0]) - at.x;
-        if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= m_radiusSqr))
+        if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= m_reachSquared))
             continue;
         // In reach: the ped is hit.
         m_entity->PostOwnEvent(kProjectileInAvoidRadius, nullptr);

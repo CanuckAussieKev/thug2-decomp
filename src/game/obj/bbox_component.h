@@ -38,9 +38,9 @@ public:
         Maths::Vec4 m_shift;  // +0x70 the component's offset + offset (inches)
         uint8_t unknown80[4];
         bool m_computed;       // +0x84 m_basisFrame, m_upperLimit and m_lowerLimit done (ComputeRect)
-        bool m_radiusComputed; // +0x85 m_radiusSqr done (RectRadiusSqr)
+        bool m_radiusComputed; // +0x85 m_reachSquared done (RectRadiusSqr)
         uint8_t pad86[2];
-        float m_radiusSqr;     // +0x88
+        float m_reachSquared;     // +0x88
     };
 
     // 0x0041ADC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
@@ -91,7 +91,7 @@ static_assert(offsetof(CBBoxComponent::Rect2, m_levelY) == 0x40 &&
                   offsetof(CBBoxComponent::Rect2, m_upperLimit) == 0x50 &&
                   offsetof(CBBoxComponent::Rect2, m_shift) == 0x70 &&
                   offsetof(CBBoxComponent::Rect2, m_computed) == 0x84 &&
-                  offsetof(CBBoxComponent::Rect2, m_radiusSqr) == 0x88 &&
+                  offsetof(CBBoxComponent::Rect2, m_reachSquared) == 0x88 &&
                   sizeof(CBBoxComponent::Rect2) == 0x8C,
               "layout must match the original");
 

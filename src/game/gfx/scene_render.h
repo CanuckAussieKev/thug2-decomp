@@ -14,7 +14,7 @@ enum DrawOptionBits : uint32_t {
     kRenderOcclusion = 0x4,     // skip meshes hidden by an occluder
     kRenderNoCulling = 0x8,     // no view / viewport tests
     kRenderNearFirst = 0x10,    // opaque meshes with the depth value up to 600 first, the others after
-    kRenderShadowVolumes = 0x20, // only the stencil shadow volumes
+    kDrawStencilOnly = 0x20, // only the stencil shadow volumes
     kRenderStats = 0x40,        // count the pass (0x00775B80)
 };
 

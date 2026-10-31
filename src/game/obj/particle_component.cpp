@@ -51,7 +51,7 @@ uint32_t g_particleComponentMemberFunctions[126]{
             0x55835CF2, 0xA9DB601E, 0, 0, 0, 0,
             0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0,
             0, 0xA9DB601E, 0, 0, 0, 0};
-Engine3D::CParticleManager* g_particleManager;
+Engine3D::CEffectsDirector* g_particleHub;
 
 namespace {
 
@@ -145,7 +145,7 @@ void CEffectsEmitterModule::DestroyBody()
 {
     m_vtable = kVtable;
     if (m_effectHandle)
-        g_particleManager->DestroyParticle(reinterpret_cast<Engine3D::CSparkle*>(m_effectHandle));
+        g_particleHub->RetireParticle(reinterpret_cast<Engine3D::CSparkle*>(m_effectHandle));
     CObjectModule::DestroyBody();
 }
 
@@ -198,7 +198,7 @@ bool CEffectsEmitterModule::SetFloat19AF74D1(Scripts::CStruct* params, Scripts::
 }
 
 // 0x00429A20
-bool CEffectsEmitterModule::SetMidPointPct(Scripts::CStruct* params, Scripts::CScript*)
+bool CEffectsEmitterModule::ChangeMidpointFraction(Scripts::CStruct* params, Scripts::CScript*)
 {
     float value = UnnamedFloat(params);
     if (m_effectHandle) {
@@ -428,7 +428,7 @@ void CEffectsEmitterModule::ConfigureFromData(Scripts::CStruct* params)
             p.m_localPos[i] = p.m_atPoint[i];
     p.m_orientWithObject = params->HasBareFlag(0xA2487CC3u);
     p.m_flag158 = params->HasBareFlag(0xA0E585B0u);
-    m_effectHandle = g_particleManager->SpawnParticle(
+    m_effectHandle = g_particleHub->SpawnParticle(
         &p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
@@ -452,7 +452,7 @@ void CEffectsEmitterModule::TickFrame()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
     if (mp_suspend && static_cast<CDormancyModule*>(mp_suspend)->IsFar()) {
-        void* net = static_cast<void*>(g_gameNetManager);
+        void* net = static_cast<void*>(g_onlineHub);
         if (!static_cast<OnlinePlay::Hub*>(net)->InNetGame() || m_lifespan == 0)
             return;
     }
@@ -510,7 +510,7 @@ int CEffectsEmitterModule::InvokeMethodByName(uint32_t name, Scripts::CStruct*, 
 // 0x0042B040
 bool CEffectsEmitterModule::GetParticleParams(Scripts::CStruct*, Scripts::CScript* script)
 {
-    Scripts::CStruct* result = Scripts::NewStruct();
+    Scripts::CStruct* result = Scripts::SpawnParamBag();
     if (result)
         result = result->PrepareAll();
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
@@ -587,7 +587,7 @@ static VtableSlot kVtable_slots[] = {&CEffectsEmitterModule::Teardown,
          &CEffectsEmitterModule::Conceal,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &CEffectsEmitterModule::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

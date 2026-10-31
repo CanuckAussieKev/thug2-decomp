@@ -73,14 +73,14 @@ constexpr uint32_t kUnHide = 0xB60D1F35, kPriorityName = 0x9D5923D8, kKeepScaleN
 constexpr uint32_t kFlag1000000Name = 0x1F2C6E1D, kTagNotFocusable = 0xF33A3321;
 constexpr uint32_t kRestoreAlpha = 0x5D8BB535, kAlpha = 0x2F1FC695, kRememberAlpha = 0xFF8DF26B;
 constexpr uint32_t kRelativeScale = 0xE1F4711F, kScale = 0x13B9DA7B, kAnim = 0x98549BA4;
-constexpr uint32_t kEaseOut = 0xF5B95CE4, kFastIn = 0x6AA7DD49, kGentle = 0x768F6843, kEventsBlocked = 0x73CB6D65;
+constexpr uint32_t kEaseOut = 0xF5B95CE4, kFastIn = 0x6AA7DD49, kGentle = 0x768F6843, kInputLocked = 0x73CB6D65;
 constexpr uint32_t kLeft = 0x85981897, kTop = 0xE126E035, kRight = 0x4B358AEB, kBottom = 0x76A08D5B;
 constexpr uint32_t kWindowElement = 0xA13ADBB7;
 // The element's events (sent by the system): its focus flag set / cleared.
 constexpr uint32_t kSystem = 0x36B2EE74, kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 constexpr uint32_t kDeadBeef = 0xDEADBEEF;
 
-float Degrees() { return ::ScriptCommands::g_degreesToRadians; }       // pi / 180
+float Degrees() { return ::ScriptCommands::g_degreeToRadianRatio; }       // pi / 180
 float RotationOffset() { return ::GoalSystem::g_goalLifeSecondsPerMillisecond; } // 0.001 (added to a rotation in radians)
 float ConvertToDegrees() { return ::ScriptCommands::g_scriptRadiansToDegrees; }
 
@@ -113,7 +113,7 @@ void LaunchEvent(uint32_t type, uint32_t target)
     GameObjects::Tracker()->LaunchEvent(type, target, kSystem, nullptr, false, -1.0f);
 }
 
-void* Hub() { return g_screenElementManager; }
+void* Hub() { return g_uiElementHub; }
 
 // The screen element manager's pieces.
 CUiTree* Elements(void* manager) { return static_cast<CUiTree*>(manager); }
@@ -662,7 +662,7 @@ void CUiWidget::UpdateLayout()
     if (m_objectFlags & kPos3d) {
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
-        void* camera = Engine3D::GetActiveViewport(0);
+        void* camera = Engine3D::FetchCurrentView(0);
         float x, y, z;
         float scale = reinterpret_cast<float(__thiscall*)(void*, const Maths::Vec4*, float*, float*, float*)>(&Engine3D::VirtualSlot1Jump)(
             camera, &m_aimPoint.pos3d, &x, &y, &z);
@@ -767,7 +767,7 @@ void CUiWidget::UpdateLayout()
 // --- parameters -----------------------------------------------------------------------------------------------
 
 // 0x004A8C80 (a Pos structure with neither flag gives true but leaves x, y alone)
-bool CUiWidget::ResolvePos(Scripts::CStruct* params, float* x, float* y)
+bool CUiWidget::ReadPositionParam(Scripts::CStruct* params, float* x, float* y)
 {
     Scripts::CPair pair;
     pair.PrepareAll();
@@ -800,7 +800,7 @@ bool CUiWidget::ResolvePos(Scripts::CStruct* params, float* x, float* y)
 }
 
 // 0x004A8DC0
-bool CUiWidget::ResolveJust(Scripts::CStruct* params, uint32_t name, float* x, float* y)
+bool CUiWidget::ReadAlignmentParam(Scripts::CStruct* params, uint32_t name, float* x, float* y)
 {
     Scripts::CArray* array;
     if (!params->FetchList(name, &array, 0))
@@ -826,7 +826,7 @@ bool CUiWidget::ResolveJust(Scripts::CStruct* params, uint32_t name, float* x, f
 }
 
 // 0x004A8E90 (shifts past 31 bits wrap, as x86 SHL does)
-bool CUiWidget::ResolveRGBA(Scripts::CStruct* params, uint32_t name, uint32_t* rgba)
+bool CUiWidget::ReadColourParam(Scripts::CStruct* params, uint32_t name, uint32_t* rgba)
 {
     Scripts::CArray* array;
     if (!params->FetchList(name, &array, 0))
@@ -872,10 +872,10 @@ void CUiWidget::ChangeTraits(Scripts::CStruct* params)
         ManagerSetParent(manager, &parent, &self, 1);
     }
     float alignH = 0.0f, alignV = 0.0f;
-    if (ResolveJust(params, kJust, &alignH, &alignV))
+    if (ReadAlignmentParam(params, kJust, &alignH, &alignV))
         ChangeAlignment(alignH, alignV);
     uint32_t rgba;
-    if (ResolveRGBA(params, kRgba, &rgba))
+    if (ReadColourParam(params, kRgba, &rgba))
         ChangeRgba(rgba, 1);
     float degrees = 0.0f;
     if (params->FetchFloat(kRotAngle, &degrees, 0)) {
@@ -986,16 +986,16 @@ void CUiWidget::GetProperties(Scripts::CStruct* out)
         out->InsertPair(kScale, scaleX, scaleY);
     out->InsertPair(kPos, m_shown.x, m_shown.y);
     out->PushFloat(kRotAngle, static_cast<float>(static_cast<double>(m_shown.angle) * ConvertToDegrees()));
-    out->PutInt(kEventsBlocked, InputSuppressed() ? 1 : 0);
+    out->PutInt(kInputLocked, InputSuppressed() ? 1 : 0);
 }
 
 // 0x004A9AA0
 void CUiWidget::BlendTowards(Scripts::CStruct* params)
 {
-    // (ResolvePos may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
+    // (ReadPositionParam may leave them: the original's y is its argument's slot - the params' address -, x a stale local)
     float x = 0.0f, y;
     std::memcpy(&y, &params, sizeof(y));
-    if (ResolvePos(params, &x, &y))
+    if (ReadPositionParam(params, &x, &y))
         ChangeLocation(x, y, 0);
     if (params->HasBareFlag(kRestoreAlpha)) {
         float alpha = m_rememberedAlpha;
@@ -1043,7 +1043,7 @@ void CUiWidget::BlendTowards(Scripts::CStruct* params)
             m_objectFlags |= 0x300;
     }
     uint32_t rgba;
-    if (ResolveRGBA(params, kRgba, &rgba) && Rgba(m_aimPoint.rgba) != rgba) {
+    if (ReadColourParam(params, kRgba, &rgba) && Rgba(m_aimPoint.rgba) != rgba) {
         SetRgbaBytes(m_aimPoint.rgba, rgba);
         m_objectFlags |= kDirty;
     }

@@ -111,23 +111,23 @@ static_assert(offsetof(CSparkle, m_args) == 0x4 && offsetof(CSparkle, m_extentBo
 
 // The particle component's particle manager (0x1C bytes, vtable 0x006493A0: 0 the scalar deleting destructor,
 // 1 Create - the PC manager's, CPcParticleManager); one, at 0x006FA7C4.
-struct CParticleManager {
+struct CEffectsDirector {
     void** vtable;
     GameObjects::PointerList m_systems; // +0x04: CSparkle*
     float m_shade[4];          // +0x0C: given to the systems that take it
 
     // 0x00496770: the vtable, an empty list, white. Returns this.
-    CParticleManager* MakeNew();
+    CEffectsDirector* MakeNew();
     // 0x004967D0: the list emptied (twice, as the original) and its sentinel freed.
     void DestroyBody();
     // 0x00496860 (vtable slot 0): destroyed, and freed with flags & 1. Returns this.
-    CParticleManager* Teardown(unsigned int flags);
+    CEffectsDirector* Teardown(unsigned int flags);
     // 0x00496510: a new system (vtable slot 1) made from `params`, given the manager's colour if it takes it, onto
     // the end of the list. Null if there's no memory.
     CSparkle* SpawnParticle(const CSparkleConfig* params);
     // 0x00496590: `particle`'s emit script's scripts killed; then the first system of its name released, deleted and
     // taken off the list.
-    void DestroyParticle(CSparkle* particle);
+    void RetireParticle(CSparkle* particle);
     // 0x00496640: with any, each rendered - advanced unless the game is paused (0x006FA7D4).
     void DrawParticles();
     // 0x00496680: each updated.
@@ -135,10 +135,10 @@ struct CParticleManager {
     // 0x004966B0: each given `rgba` (SetColourScale), and the manager's colour = `rgba`.
     void ChangeColour(const float* rgba);
     // 0x00496700: each released and deleted, the list emptied.
-    void DestroyAllParticles();
+    void KillEveryParticle();
 };
-static_assert(offsetof(CParticleManager, m_systems) == 0x4 && offsetof(CParticleManager, m_shade) == 0xC &&
-                  sizeof(CParticleManager) == 0x1C,
+static_assert(offsetof(CEffectsDirector, m_systems) == 0x4 && offsetof(CEffectsDirector, m_shade) == 0xC &&
+                  sizeof(CEffectsDirector) == 0x1C,
               "layout must match the original");
 
 } // namespace Nx

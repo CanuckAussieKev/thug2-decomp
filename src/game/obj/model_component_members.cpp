@@ -103,11 +103,11 @@ constexpr uint32_t kRotationOffset = 0x8F38F109, kHoldOnLastAngle = 0xE14BC9AC, 
 constexpr uint32_t kX = 0x7323E97C, kY = 0x0424D9EA, kZ = 0x9D2D8850;
 constexpr uint32_t kHidden = 0x77A21642;
 
-constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kFramesToMs = 16.666666f;          // 0x006460DC
 constexpr float kSecondsToMs = 1000.0f;            // 0x006453C0
 constexpr float kPercent = 0.01f;                  // 0x0064544C
-constexpr uint8_t kMsgRotateDisplay = 0x76;
+constexpr uint8_t kMsgSpinModel = 0x76;
 constexpr uint8_t kMsgCancelRotateDisplay = 0x8C;
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
@@ -115,9 +115,9 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 
 // The model's lights (not rewritten yet): ambient colour (0x0048E450) and on (0x0048DE30), a diffuse light's colour
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
-void SetAmbientColor(void* lights, const uint8_t* rgba) { static_cast<Engine3D::CModelLights*>(lights)->SetAmbientColor(reinterpret_cast<const uint32_t*>(rgba)); }
+void ChangeAmbientTint(void* lights, const uint8_t* rgba) { static_cast<Engine3D::CModelLights*>(lights)->ChangeAmbientTint(reinterpret_cast<const uint32_t*>(rgba)); }
 void EnableAmbient(void* lights, bool on) { reinterpret_cast<void(__thiscall*)(void*, bool)>(&Engine3D::VirtualSlot9Jump)(lights, on); }
-void SetDiffuseColor(void* lights, int index, const uint8_t* rgba) { static_cast<Engine3D::CModelLights*>(lights)->SetDiffuseColor(index, reinterpret_cast<const uint32_t*>(rgba)); }
+void ChangeDiffuseHue(void* lights, int index, const uint8_t* rgba) { static_cast<Engine3D::CModelLights*>(lights)->ChangeDiffuseHue(index, reinterpret_cast<const uint32_t*>(rgba)); }
 void EnableDiffuse(void* lights, int index, bool on) { reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&Engine3D::VirtualSlot10Jump)(lights, index, on); }
 void SetLightDirection(void* lights, int index, const Maths::Vec4* direction)
 {
@@ -152,7 +152,7 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
     case kAtomicIsHidden: {
         uint32_t geom;
         params->ReadHashValue(0u, &geom, 1);
-        bool hidden = m_meshInstance->IsGeomHidden(geom);
+        bool hidden = m_meshInstance->IsPartConcealed(geom);
         script->m_args->PutInt(kHidden, hidden ? 1 : 0);
         break;
     }
@@ -204,7 +204,7 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
         params->FetchIntValue(kG, &g, 0);
         params->FetchIntValue(kB, &b, 0);
         uint8_t rgba[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-        SetAmbientColor(ModelLights(m_meshInstance), rgba);
+        ChangeAmbientTint(ModelLights(m_meshInstance), rgba);
         EnableAmbient(ModelLights(m_meshInstance), true);
         break;
     }
@@ -221,7 +221,7 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
         params->FetchIntValue(kG, &g, 0);
         params->FetchIntValue(kB, &b, 0);
         uint8_t rgba[4] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80};
-        SetDiffuseColor(ModelLights(m_meshInstance), index, rgba);
+        ChangeDiffuseHue(ModelLights(m_meshInstance), index, rgba);
         EnableDiffuse(ModelLights(m_meshInstance), index, true);
         break;
     }
@@ -241,8 +241,8 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
         } else {
             float heading, pitch;
             if (params->FetchFloat(kHeading, &heading, 0) && params->FetchFloat(kPitch, &pitch, 0)) {
-                direction.RotateAboutX(pitch * kDegreesToRadians);
-                direction.RotateAboutY(heading * kDegreesToRadians);
+                direction.RotateAboutX(pitch * kRadiansPerDegree);
+                direction.RotateAboutY(heading * kRadiansPerDegree);
             }
         }
         SetLightDirection(ModelLights(m_meshInstance), index, &direction);
@@ -252,8 +252,8 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
         m_twistRate[0].Clear();
         m_twistRate[1].Clear();
         m_twistRate[2].Clear();
-        void* manager = NetManager();
-        void* player = PlayerByObjectId(manager, m_entity->m_ident);
+        void* manager = NetSessionSlot();
+        void* player = FindPlayerSlotByObj(manager, m_entity->m_ident);
         if (player && IsOwnPlayer(player)) {
             NetLink::NetMessageInfo message;
             message.MakeNew();
@@ -293,8 +293,8 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
             m_twistRate[axis].AppendOne(duration, now, start, end - start, power, hold, dontPause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
-        void* manager = NetManager();
-        void* player = PlayerByObjectId(manager, m_entity->m_ident);
+        void* manager = NetSessionSlot();
+        void* player = FindPlayerSlotByObj(manager, m_entity->m_ident);
         if (player && IsOwnPlayer(player)) {
             NetLink::NetMessageInfo message;
             message.MakeNew();
@@ -318,7 +318,7 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
             data.axes = axes;
             message.m_content = &data;
             message.m_byteCount = 0x10;
-            message.m_ident = kMsgRotateDisplay;
+            message.m_ident = kMsgSpinModel;
             app->SendToHost(&message);
         }
         break;
@@ -388,7 +388,7 @@ int CMeshInstanceModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* par
         }
         float rot;
         if (params->FetchFloat(kRot, &rot, 0))
-            uv.SpinAroundZ(rot * kDegreesToRadians);
+            uv.SpinAroundZ(rot * kRadiansPerDegree);
         float uOff = 0.0f, vOff = 0.0f;
         bool offset = params->FetchFloat(kUOff, &uOff, 0);
         if (params->FetchFloat(kVOff, &vOff, 0) || offset) {

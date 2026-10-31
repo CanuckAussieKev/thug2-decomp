@@ -53,7 +53,7 @@ const char* AnchorName(Anchor anchor)
     return "?";
 }
 
-std::string GameModeName()
+std::string ActiveRulesetLabel()
 {
     void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
     if (!mode)
@@ -74,10 +74,10 @@ bool NetSession()
     if (NetLink::Hub* net = NetLink::Hub::Sole())
         if (net->IsOnline())
             return true;
-    if (void* gameNet = OnlinePlay::g_gameNetManager)
+    if (void* gameNet = OnlinePlay::g_onlineHub)
         if (static_cast<OnlinePlay::Hub*>(gameNet)->InNetGame())
             return true;
-    return GameModeName().rfind("net", 0) == 0;
+    return ActiveRulesetLabel().rfind("net", 0) == 0;
 }
 
 CUiWidget* Find(uint32_t id)
@@ -99,7 +99,7 @@ Anchor AtHand(GameModules::FrontEnd* frontEnd)
             return Anchor::CareerOptions;
         if (Find(NameHash("menu_cas")))
             return Anchor::CreateModes;
-        if (Find(NameHash("ss_play_level")) && GameModeName() == "singlesession")
+        if (Find(NameHash("ss_play_level")) && ActiveRulesetLabel() == "singlesession")
             return Anchor::SkateShop;
         if (Find(NameHash("main_vmenu")))
             return Anchor::MainMenu;
@@ -107,7 +107,7 @@ Anchor AtHand(GameModules::FrontEnd* frontEnd)
     }
     if (!Paused(frontEnd) || !Find(NameHash("pause_vmenu")) || !Find(NameHash("menu_continue")))
         return Anchor::None;
-    std::string mode = GameModeName();
+    std::string mode = ActiveRulesetLabel();
     if (mode != "singlesession" && mode != "freeskate" && mode != "career" && mode != "classic")
         return Anchor::None;
     return Anchor::Freeze;
@@ -120,8 +120,8 @@ void LaunchPad(GameModules::FrontEnd* frontEnd, uint32_t type, CUiWidget* elemen
     Scripts::CStruct params;
     params.PrepareAll();
     int device = 0;
-    if (frontEnd && frontEnd->m_inputHandlers[0] && frontEnd->m_inputHandlers[0]->m_dev)
-        device = *reinterpret_cast<int*>(frontEnd->m_inputHandlers[0]->m_dev + 0xC);
+    if (frontEnd && frontEnd->m_padListeners[0] && frontEnd->m_padListeners[0]->m_dev)
+        device = *reinterpret_cast<int*>(frontEnd->m_padListeners[0]->m_dev + 0xC);
     params.PutInt(kDeviceNum, device);
     params.PutInt(kController, 0);
     GameObjects::Tracker()->LaunchEvent(type, IdOf(element), kMenuEvent, &params, false, -1.0f);

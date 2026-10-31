@@ -161,7 +161,7 @@ void MoveLights(uint32_t name, V3 pos)
             place->z = pos.z;
         }
     }
-    auto* level = reinterpret_cast<uint8_t*>(Engine3D::g_sceneLights);
+    auto* level = reinterpret_cast<uint8_t*>(Engine3D::g_levelLamps);
     int levelCount = Engine3D::g_sceneLightCount;
     for (int i = 0; i < levelCount && i < 150; ++i) {
         uint8_t* entry = level + i * 0x24;
@@ -179,7 +179,7 @@ void ApplyLive(const Nodes::Elem* node, uint32_t name, const Values& values)
 {
     Maths::Vec4 pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
     Nodes::Family family = node ? node->family : Nodes::Family::Other;
-    if (family == Nodes::Family::FireOff && reinterpret_cast<GameObjects::ProximManager*>(GameObjects::g_proximManager)) {
+    if (family == Nodes::Family::FireOff && reinterpret_cast<GameObjects::ProximityRegistry*>(GameObjects::g_proximityHub)) {
         if (GameObjects::ProximNode* proxim = GameObjects::Proxim_GetNode(name))
             proxim->m_atPoint = pos;
     }
@@ -237,7 +237,7 @@ bool Movable(const Nodes::Elem& node)
         return true;
     default:
         // (particle systems, objects the level hasn't made - level_editor_entities.h)
-        return Entities::MovableNode(node.name, static_cast<int>(node.family));
+        return Entities::PickedNodeIndex(node.name, static_cast<int>(node.family));
     }
 }
 
@@ -370,9 +370,9 @@ bool AssignValue(uint32_t name, const Values& values)
     return true;
 }
 
-std::vector<LogEntry> Changed()
+std::vector<LinkRecord> Changed()
 {
-    std::vector<LogEntry> out;
+    std::vector<LinkRecord> out;
     for (const Touched& t : g_touched) {
         Values now;
         if (TakeIn(t.name, &now) && !Same(now, t.origin))

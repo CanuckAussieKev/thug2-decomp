@@ -18,7 +18,7 @@ namespace Engine3D {
 struct meshRef;
 
 // The engine's shatter (0x2C bytes, vtable 0x00649308; CPcShatter extends it): per triangle its centre, velocity
-// and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, SetShatterParams).
+// and turn a step; the settings the Shatter command gave when it was made (engine_effects.h, ChangeBreakupSettings).
 struct CShatter {
     void** vtable;
     Maths::Vec4* centres;    // +0x04

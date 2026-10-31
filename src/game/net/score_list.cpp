@@ -63,9 +63,9 @@ constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62C
                                      0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}; // net_score_5 ... 8
 
 constexpr uint32_t kUpdateInterval = 1000; // ms
-uint32_t g_lastScoreUpdate;
+uint32_t g_scoreRefreshStamp;
 
-uint32_t& LastScoreUpdate() { return g_lastScoreUpdate; }
+uint32_t& ScoreSyncStampSlot() { return g_scoreRefreshStamp; }
 
 // A player's SkaterScore's score object (no null checks: as the original).
 void* ScoreOf(PlayerRecord* player)
@@ -77,11 +77,11 @@ int PointsOf(void* score) { return Call<int>(CodeAddress(&GameModules::PointTall
 
 PlayerRecord* First(Hub* manager, PlayerSearch* search)
 {
-    return reinterpret_cast<PlayerRecord*>(FirstPlayer(manager, search, false));
+    return reinterpret_cast<PlayerRecord*>(StartRosterSweep(manager, search, false));
 }
 PlayerRecord* Next(Hub* manager, PlayerSearch* search)
 {
-    return reinterpret_cast<PlayerRecord*>(NextPlayer(manager, search, false));
+    return reinterpret_cast<PlayerRecord*>(StepRosterSweep(manager, search, false));
 }
 
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
@@ -146,14 +146,14 @@ int Hub::GetEntrantPoints(uint32_t id)
     PlayerRecord* local = reinterpret_cast<PlayerRecord*>(LocalPlayer(this));
     if (GameType() == kNetGoalAttack && !(local->m_flagBits & kPlayerObserver))
         return Call<int>(CodeAddress(&GoalSystem::CGoalManager::CountClearedByPlayer), ObjectiveBoard(), id);
-    auto* player = reinterpret_cast<PlayerRecord*>(PlayerByObjectId(static_cast<uint16_t>(id)));
+    auto* player = reinterpret_cast<PlayerRecord*>(FindPlayerSlotByObj(static_cast<uint16_t>(id)));
     return PointsOf(ScoreOf(player));
 }
 
 // 0x00544780
-void __cdecl ScoreUpdateTask(void* task)
+void __cdecl ScoreBroadcastTick(void* task)
 {
-    void* elements = MenuSystem::g_screenElementManager; // (the screen element manager: unused by the lookup)
+    void* elements = MenuSystem::g_uiElementHub; // (the screen element manager: unused by the lookup)
     (void)elements;
     Hub* manager = Prop<Hub*>(task, 0x1C);
     ListKit::Foremost list;
@@ -164,7 +164,7 @@ void __cdecl ScoreUpdateTask(void* task)
     list.m_listLink.prev = &list.m_listLink;
     PlayerSearch search;
     bool notLobby = GameType() != kNetLobby;
-    bool kingOfTheHill = GameType() == kNetKing || GameType() == kKing;
+    bool hillMode = GameType() == kNetKing || GameType() == kKing;
     bool scavengerHunt = false;
     if (GameType() == kNetScavengerHunt) {
         uint8_t* goal = Call<uint8_t*>(CodeAddress(&GoalSystem::CGoalManager::GetGoal), ObjectiveBoard(), kScavenger, 0);
@@ -172,12 +172,12 @@ void __cdecl ScoreUpdateTask(void* task)
             scavengerHunt = true; // (the goal is active)
     }
     uint32_t now = FrameClock::GetTime();
-    if (now - LastScoreUpdate() < kUpdateInterval) {
+    if (now - ScoreSyncStampSlot() < kUpdateInterval) {
         list.m_listLink.prev->next = list.m_listLink.next; // (the head's destructor)
         list.m_listLink.next->prev = list.m_listLink.prev;
         return;
     }
-    LastScoreUpdate() = now;
+    ScoreSyncStampSlot() = now;
     Run(kClearScores);
 
     if (notLobby && manager->ShowTeamScores()) {
@@ -276,7 +276,7 @@ void __cdecl ScoreUpdateTask(void* task)
         char text[128]; // (64 in the original: the longest king of the hill lines overran it)
         if (!notLobby) {
             std::sprintf(text, "\\c%d%s", entry->m_shade, entry->m_text);
-        } else if (kingOfTheHill) {
+        } else if (hillMode) {
             int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
                 std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d", prefix, entry->m_shade, entry->m_text,

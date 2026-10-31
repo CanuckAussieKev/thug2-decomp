@@ -24,7 +24,7 @@ uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 constexpr uint32_t kLevelNum = 0x1A4CDE06;  // levelIndex
 constexpr uint32_t kUnlocked = 0xD3E93882;
 constexpr uint32_t k2206B1E7 = 0x2206B1E7;
-constexpr uint32_t kHasBeaten = 0x49807745; // hasBeaten
+constexpr uint32_t kAlreadyWon = 0x49807745; // hasBeaten
 constexpr uint32_t kRecord = 0xC22A2B72;
 // The bare name a goal's save adds: career for a story goal, classic for a classic mode one (its classic_mode_goal
 // test - 0x00554770); GoalManager_ResetCareer <mode> (0x00557E70) drops the store's goals of a mode by it.
@@ -37,7 +37,7 @@ uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule)
 // challenges from +0x1C, 0x24 bytes each, the status at +0x10 of each (0 open, 1 done - the stat point given -,
 // 2 / 3 locked until StatsManager_UnlockAmGoals / UnlockProGoals; StatsManager_GetGoalStatus 0x0051CB30 reads it,
 // the stats menu counts the done ones: 3 + done = the stat's maximum) and the "just done" byte at +0x0C.
-constexpr int kStatGoals = 70;
+constexpr int kGoalStatCount = 70;
 constexpr int kStatGoalSize = 0x24;
 constexpr int kStatGoalStatus = 0x1C + 0x10;
 constexpr int kStatGoalJustDone = 0x1C + 0x0C;
@@ -48,11 +48,11 @@ int CompleteStatGoals()
     auto* stats = skater ? reinterpret_cast<uint8_t*>(skater->FetchModule(0x4FF8DAC6)) : nullptr;
     if (!stats)
         return 0;
-    for (int i = 0; i < kStatGoals; ++i) {
+    for (int i = 0; i < kGoalStatCount; ++i) {
         *reinterpret_cast<int*>(stats + kStatGoalStatus + i * kStatGoalSize) = 1;
         stats[kStatGoalJustDone + i * kStatGoalSize] = 0;
     }
-    return kStatGoals;
+    return kGoalStatCount;
 }
 
 // One goal put into the goal manager's store of goals that aren't loaded (+0x14) as beaten, as a goal's save writes
@@ -63,14 +63,14 @@ void StoreBeatenGoal(Scripts::CStruct* saved, uint32_t name, int level, uint32_t
     Scripts::CStruct* old = nullptr;
     if (saved->ReadSubStruct(name, &old, 0) && old)
         old->FetchIntValue(kRecord, &record, 0);
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* goal = memory ? memory->PrepareAll() : nullptr;
     if (!goal)
         return;
     goal->PutInt(kLevelNum, level);
     goal->PutInt(kUnlocked, 1);
     goal->PutInt(k2206B1E7, 0);
-    goal->PutInt(kHasBeaten, 1);
+    goal->PutInt(kAlreadyWon, 1);
     goal->PutInt(kRecord, record);
     goal->PutNameKey(0u, mode);
     saved->PutSubStruct(name, goal); // (a copy; replaces one of the same name)

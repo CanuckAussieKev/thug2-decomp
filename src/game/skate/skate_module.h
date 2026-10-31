@@ -92,7 +92,7 @@ public:
     // 0x00564DB0 (TaskList::Task<Skate>'s vtable slot 0): the task's code run with the task. 0x00568C90: the logic task's
     // code - RunFrameLogic, the skaters' collisions on the server, king of the hill's clock.
     static void __fastcall RunTask(TaskList::SchedulerTask* task);
-    static void __cdecl LogicTask(TaskList::SchedulerTask* task);
+    static void __cdecl FrontEndTick(TaskList::SchedulerTask* task);
     // 0x00565750 / 0x00565FC0: the skater list's node's / head's scalar deleting destructors (vtables 0x0064E544 /
     // 0x0064E5D4).
     static MemSys::ListNode* __fastcall DestroySkaterNode(MemSys::ListNode* node, int, uint8_t flags);
@@ -114,8 +114,8 @@ public:
     // or a new one on the next unused skater heap); its controllers bound, the created tricks and stat goals given
     // back. 0x00565790: a skater removed (its bail board; a client's left script; the local player's created tricks
     // and stat goals kept) and deleted.
-    GameObjects::CRider* AddSkater(GameObjects::CRiderIdentity* profile, bool local, uint32_t id, int viewport);
-    void RemoveSkater(GameObjects::CRider* skater);
+    GameObjects::CRider* SpawnSkaterEntity(GameObjects::CRiderIdentity* profile, bool local, uint32_t id, int viewport);
+    void DropSkaterFromRoster(GameObjects::CRider* skater);
     // 0x00565FF0: the first skater heap no skater uses (from 0 for a local skater, 1 for another).
     int FindFreeRiderHeap(bool local);
     // 0x00564C60: a skater hidden or shown (`this` unused).
@@ -127,7 +127,7 @@ public:
     // 0x00566100: the restart point for skater `skaterId` (by game mode: the team's, HORSE's, the multiplayer start
     // positions, Player1, any). 0x00566370: a skater moved to `node` (or its restart point). 0x00566980: every
     // local skater moved there and reset.
-    uint32_t SkipToRestartPoint(uint32_t skaterId);
+    uint32_t WarpToRestart(uint32_t skaterId);
     void TeleportToSpawn(GameObjects::CRider* skater, uint32_t node, uint32_t walking);
     void ResetSkaters(uint32_t node, uint32_t walking);
     // 0x00566BE0: the skaters' collisions (in the games that have them) and king of the hill's crown taken.
@@ -162,7 +162,7 @@ public:
     // 0x00564F20: the level's objects cleaned up for the park editor.
     void TidyBeforeParkBuild();
     // 0x00565620: the camera's position noted for the objects' updates (none in more than one viewport).
-    void PreCalculateObjectUpdateInfo();
+    void PrepareEntityUpdateData();
     // 0x00567710: one frame: the time of day, the suspend frame, the movies, Game_Update, the proximity nodes, the
     // unplugged controllers.
     void RunFrameLogic();
@@ -177,7 +177,7 @@ public:
     void AdvanceMatchFlow();
     OptionStore::Preferences* GetSplitViewSettings();
     GoalSystem::CGoalManager* GetObjectiveBoard();
-    void CheckControllers();
+    void ScanPadConnections();
     // 0x00564F60: the voices' volumes on a pause.
     void Freeze(bool paused);
     // 0x00564F80: the profile `params`' integer `skater` names (none, or no params: the current one). 0x00564FC0:
@@ -237,12 +237,12 @@ public:
     MemSys::ListNode* SkaterNode(uint32_t index);
     GameObjects::CRider* SkaterAt(uint32_t index);
 
-    TaskList::SchedulerTask* m_logicTask;                   // +0x14 (TaskList::Task<Skate>, vtable 0x006476F0: LogicTask)
+    TaskList::SchedulerTask* m_updateJob;                   // +0x14 (TaskList::Task<Skate>, vtable 0x006476F0: FrontEndTick)
     TaskList::SchedulerTask* m_serverTasks[2];              // +0x18 (SkateNet::CreateNetworkTasks)
     GameObjects::CRiderStoryProgress* m_career;                 // +0x20
     GameObjects::CGrindRailHub* m_railManager;             // +0x24
     ListKit::Foremost m_riders;                          // +0x28 (their nodes' data the skaters, in object id order)
-    bool m_checkControllers;                      // +0x3C
+    bool m_watchForUnplug;                      // +0x3C
     uint8_t pad3D[3];
     int m_unpluggedFrames;                        // +0x40
     bool m_runningQueuedScripts;                  // +0x44
@@ -274,15 +274,15 @@ public:
     int m_unknown3D0;                             // +0x3D0
     bool m_debugRails;                            // +0x3D4
     uint8_t pad3D5[3];
-    Scripts::CScript* m_runScript;                    // +0x3D8
-    bool m_noCamera;                              // +0x3DC (PreCalculateObjectUpdateInfo: no camera to measure from)
+    Scripts::CScript* m_ownScript;                    // +0x3D8
+    bool m_noCamera;                              // +0x3DC (PrepareEntityUpdateData: no camera to measure from)
     uint8_t pad3DD[3];
     Maths::Vec4 m_cameraPos;                      // +0x3E0
 };
-static_assert(offsetof(Skate, m_logicTask) == 0x14 && offsetof(Skate, m_riders) == 0x28 &&
+static_assert(offsetof(Skate, m_updateJob) == 0x14 && offsetof(Skate, m_riders) == 0x28 &&
                   offsetof(Skate, m_matchStyle) == 0x4C && offsetof(Skate, m_scoreGoals) == 0x60 &&
                   offsetof(Skate, m_competition) == 0x360 && offsetof(Skate, m_gameFlow) == 0x388 &&
-                  offsetof(Skate, m_participants) == 0x390 && offsetof(Skate, m_runScript) == 0x3D8 &&
+                  offsetof(Skate, m_participants) == 0x390 && offsetof(Skate, m_ownScript) == 0x3D8 &&
                   offsetof(Skate, m_cameraPos) == 0x3E0 && sizeof(Skate) == 0x3F0,
               "layout must match the original");
 

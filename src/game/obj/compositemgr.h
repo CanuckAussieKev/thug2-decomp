@@ -64,7 +64,7 @@ public:
     // 0x0045F5D0: COMPOSITE_FLAG_PAUSED set (or cleared) on every object it has now - the same walk.
     void Freeze(bool pause);
 
-    void* m_logicTask;        // +0x40 a TaskList::Task (vtable 0x006476F0) running UpdateTask
+    void* m_updateJob;        // +0x40 a TaskList::Task (vtable 0x006476F0) running UpdateTask
     uint32_t m_componentTypes; // +0x44
     struct ComponentType {
         uint32_t type;
@@ -72,7 +72,7 @@ public:
     };
     ComponentType m_components[kMaxComponentTypes]; // +0x48
 };
-static_assert(offsetof(CEntityHub, m_logicTask) == 0x40 &&
+static_assert(offsetof(CEntityHub, m_updateJob) == 0x40 &&
                   offsetof(CEntityHub, m_componentTypes) == 0x44 &&
                   offsetof(CEntityHub, m_components) == 0x48 && sizeof(CEntityHub) == 0x448,
               "layout must match the original (0x0045F7A0 allocates 0x448 bytes)");
@@ -81,7 +81,7 @@ static_assert(offsetof(CEntityHub, m_logicTask) == 0x40 &&
 void __cdecl CompositeObjectManagerTask(void* task);
 
 // The singleton (0x006F0FB8).
-CEntityHub*& CompositeObjectManager();
+CEntityHub*& ObjectHubSlot();
 // 0x0045F1E0: drop a reference; the last one only forgets the instance (it isn't deleted).
 void ReleaseCompositeObjectManager();
 // 0x0045F7A0: the first call with `create` makes it (zeroed, 0x448 bytes); every call takes a reference and returns
@@ -103,7 +103,7 @@ void InitCoim(int a, uint32_t heapSize, int b, int c);
 // 0x0045F1C0 (ResizeCOIMHeap's work): the heap made again `size` bytes, or destroyed for 0.
 void ResizeCoimHeap(uint32_t size);
 
-extern GameObjects::CEntityHub* g_compositeObjectManager;
+extern GameObjects::CEntityHub* g_compositeRegistry;
 
 extern float g_pi;
 } // namespace Obj

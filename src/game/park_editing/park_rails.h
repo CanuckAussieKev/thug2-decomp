@@ -69,7 +69,7 @@ static_assert(offsetof(CParkRailString, mp_points) == 0x0C && offsetof(CParkRail
 struct CParkRailSet {
     CParkRailString* m_railGroups;  // +0x00
     CParkRailString* m_tailNode;   // +0x04
-    uint16_t m_numRails;        // +0x08
+    uint16_t m_railTotal;        // +0x08
     uint8_t pad0A[2];
     MemSys::SlabBank* mp_pointPool;    // +0x0C (0x30-byte items)
     MemSys::SlabBank* mp_railPool;     // +0x10 (0x20-byte items)
@@ -89,14 +89,14 @@ struct CParkRailSet {
     // 0x0058B280: its pools deleted (rails', then points').
     void FreePools();
     // 0x0058B2D0 / 0x0058B370: a new point / rail from its pool (the rail's set is this one).
-    CParkRailPoint* NewPoint();
+    CParkRailPoint* AppendRailVertex();
     CParkRailString* NewRail();
     // 0x0058B5B0: `rail` (null is fine; not in the set) given back to its pool.
     void FreeRail(CParkRailString* rail);
     // 0x0058B700: every rail (and its points) given back; empty.
     void Clear();
 };
-static_assert(offsetof(CParkRailSet, m_numRails) == 0x08 && offsetof(CParkRailSet, mp_pointPool) == 0x0C &&
+static_assert(offsetof(CParkRailSet, m_railTotal) == 0x08 && offsetof(CParkRailSet, mp_pointPool) == 0x0C &&
                   offsetof(CParkRailSet, m_label) == 0x14 && sizeof(CParkRailSet) == 0x34,
               "layout must match the original");
 

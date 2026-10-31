@@ -40,7 +40,7 @@ void RegisterLogicTask(uint8_t* mlp, void* task)
 
 } // namespace
 
-Hub* Hub::Sole() { return g_netManager; }
+Hub* Hub::Sole() { return g_netCore; }
 
 // 0x00454580
 bool Hub::ConnectToInternet()

@@ -62,7 +62,7 @@ void OverrideGameModeOptions(Scripts::CStruct* options)
 }
 void SetGameModeFlag(void (GoalSystem::CMatchRules::*setter)(bool), bool on) { (static_cast<GoalSystem::CMatchRules*>(GameMode())->*setter)(on); }
 constexpr auto kSetAccumulateScore = &GoalSystem::CMatchRules::SetScoreAccumulation;
-constexpr auto kSetScoreFrozen = &GoalSystem::CMatchRules::HoldPoints;
+constexpr auto kApplyPointHold = &GoalSystem::CMatchRules::HoldPoints;
 constexpr auto kSetDegradeScore = &GoalSystem::CMatchRules::SetScoreDegradation;
 constexpr auto kSetTrackTrickScore = &GoalSystem::CMatchRules::SetTrickScoreTracking;
 
@@ -102,7 +102,7 @@ void PopHeap() { MemSys::Hub::Pull()->LeaveHeapScope(); }
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -295,7 +295,7 @@ bool __cdecl CFunc_TrickOffAllObjects(Scripts::CStruct* params, Scripts::CScript
     if (!GameConfig::g_fromCD) {
         int player = 0;
         params->FetchIntValue(0u, &player, 0);
-        GameObjects::g_trickObjectManager->GiveFreeClusters(player);
+        GameObjects::g_trickSpotHub->GiveFreeClusters(player);
     }
     return true;
 }
@@ -325,7 +325,7 @@ bool __cdecl CFunc_SetScoreAccumulation(Scripts::CStruct* params, Scripts::CScri
     int on = 1;
     params->FetchIntValue(0u, &on, 0);
     SetGameModeFlag(kSetAccumulateScore, on != 0);
-    SetGameModeFlag(kSetScoreFrozen, !on && params->HasBareFlag(kFreezeScore));
+    SetGameModeFlag(kApplyPointHold, !on && params->HasBareFlag(kFreezeScore));
     return true;
 }
 

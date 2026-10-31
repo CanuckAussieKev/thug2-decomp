@@ -17,12 +17,12 @@ using Scripts::CStruct;
 
 constexpr uint32_t kDescId = 0x4BB2084E;          // desc_id
 constexpr uint32_t kCreatedGraphic = 0x79DAA2F9;  // (the created graphic's desc_id)
-constexpr uint32_t kAllowedToPick = 0x355F9467;   // allowed_to_pick
+constexpr uint32_t kPickPermitted = 0x355F9467;   // allowed_to_pick
 constexpr uint32_t kFilter = 0x0D7260FD;          // (name unknown) an option's filter checksum
 constexpr uint32_t kNoRandom = 0xF6F8E158;        // no_random
 constexpr uint32_t kAllowRandom = 0xF1E3CD22;     // allow_random
 constexpr uint32_t kAlreadySelected = 0x92BDDFD9; // already_selected
-constexpr uint32_t kRandomIndex = 0x4B833E64;     // random_index
+constexpr uint32_t kShuffleIndex = 0x4B833E64;     // random_index
 
 CStruct* Option(CArray* list, uint32_t index) { return reinterpret_cast<CStruct*>(list->FetchPart(index)); }
 
@@ -72,7 +72,7 @@ void __cdecl GetMatchingCasOptions(uint32_t part, uint32_t filter, CStruct** out
     for (int i = 0; i < size; ++i) {
         CStruct* option = Option(list, static_cast<uint32_t>(i));
         int allowed = 0;
-        option->FetchIntValue(kAllowedToPick, &allowed, 1);
+        option->FetchIntValue(kPickPermitted, &allowed, 1);
         if (!allowed)
             continue;
         uint32_t optionFilter = 0;
@@ -140,7 +140,7 @@ CStruct* __cdecl GetCasOptionByIndex(uint32_t part, int index, uint32_t filter)
         for (int i = 0; i < size; ++i) {
             CStruct* option = Option(list, static_cast<uint32_t>(i));
             int rolledSlot = -1;
-            if (option->FetchIntValue(kRandomIndex, &rolledSlot, 1) && rolledSlot == index)
+            if (option->FetchIntValue(kShuffleIndex, &rolledSlot, 1) && rolledSlot == index)
                 return option;
         }
         return nullptr;

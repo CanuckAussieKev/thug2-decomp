@@ -75,7 +75,7 @@
 //     segment; THAW's own `land onto` is never true on a THUG2 rail: TriggerType needs every number - see
 //     tools/pipeline/thaw_levels/thaw_scripts.ts) the loop is spawned on the skater; each frame on the rail and
 //     higher than the last, its speed * (1 + rate). Taken off: the node's own TriggerScript put back as it was.
-//     ([features] debug_rail_speed=1 logs the loops' boosts - Skater::CorePhysicsComponent::SetSpeed.)
+//     ([features] debug_rail_speed=1 logs the loops' boosts - Skater::SkaterPhysicsModule::SetSpeed.)
 //     Shown as chevrons along the segment (the level's own RailAccelerate rails too, in grey - read only).
 // Layout records (version 2 still - an older reader skips them):
 //   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,<node>] [facing=<radians>]
@@ -305,7 +305,7 @@ bool LadderClick(V3 from, V3 dir, float maxT, std::string* message, uint32_t* se
 bool FlatGrindable(V3 a, V3 b);
 void StartDrawing(Blit kind);
 Blit Drawing();
-// `end`: a chain's free end the click snapped to (SnapPoint) - the first click draws on from it, a later one links
+// `end`: a chain's free end the click snapped to (MagnetPoint) - the first click draws on from it, a later one links
 // onto it and finishes. True: a point was added.
 bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select);
 void StopDrawing();
@@ -315,7 +315,7 @@ void StopDrawing();
 bool AddRail(const std::vector<V3>& points, uint32_t cluster, std::string* message, uint32_t* select);
 // The point a click in the view gives: the first collision the ray from `from` along `dir` meets (edges snapped:
 // SnapToEdge, unless `free`), a rail's end within 24 units taken as it is (`end`: its name - drawing links to it).
-bool SnapPoint(V3 from, V3 dir, float maxT, bool free, V3* point, uint32_t* end);
+bool MagnetPoint(V3 from, V3 dir, float maxT, bool free, V3* point, uint32_t* end);
 // An armed pick (Link / Assign): waiting, and the node clicked.
 bool WantsPick();
 bool Picked(uint32_t name, std::string* message, uint32_t* select);

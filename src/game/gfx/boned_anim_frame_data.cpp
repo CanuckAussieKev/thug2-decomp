@@ -69,8 +69,8 @@ void CacheRelease(void* cache, CJointClipFrames* data, int index)
     static_cast<CClipStore*>(cache)->RemoveUser(reinterpret_cast<uint32_t>(data), index);
 }
 // The events' arming and firing.
-void ArmEvent(CAnimEvent* e, bool armed) { reinterpret_cast<CUserClipKey*>(e)->ChangeLive(armed); }
-bool FireEvent(CAnimEvent* e, void* target)
+void ArmEvent(CTimedClipEvent* e, bool armed) { reinterpret_cast<CUserClipKey*>(e)->ChangeLive(armed); }
+bool FireEvent(CTimedClipEvent* e, void* target)
 {
     return reinterpret_cast<CUserClipKey*>(e)->ProcessIfActive(target);
 }
@@ -442,7 +442,7 @@ CJointClipFrames* CJointClipFrames::MakeNew()
 void CJointClipFrames::DestroyBody()
 {
     for (int i = 0; i < m_eventCount; ++i) {
-        if (CAnimEvent* event = mp_events[i])
+        if (CTimedClipEvent* event = mp_events[i])
             Virtual<void*>(event, 0, 1);
     }
     if (mp_events)
@@ -496,7 +496,7 @@ bool CJointClipFrames::FireEvents(float from, float to, void* target, int flag)
     float toFrame = static_cast<float>(static_cast<double>(to) * 60.0);
     int count = m_eventCount;
     for (int i = 0; i < count; ++i) {
-        CAnimEvent* event = mp_events[i];
+        CTimedClipEvent* event = mp_events[i];
         if (Virtual<bool>(event, 1, fromFrame, toFrame, flag))
             FireEvent(event, target);
     }
@@ -793,9 +793,9 @@ uint8_t* PastBoneBits(uint8_t* p)
     return p + ((count - 1) / 32) * 4 + 8;
 }
 // An event made from the data at `*at` (0x00486680, not rewritten here), which it moves past.
-CAnimEvent* ReadEvent(uint8_t** at)
+CTimedClipEvent* ReadEvent(uint8_t** at)
 {
-    return reinterpret_cast<CAnimEvent*>(CreateCustomAnimKey(const_cast<const uint8_t**>(at)));
+    return reinterpret_cast<CTimedClipEvent*>(CreateCustomAnimKey(const_cast<const uint8_t**>(at)));
 }
 
 } // namespace
@@ -808,9 +808,9 @@ bool CJointClipFrames::ReadEvents(const uint32_t* header, uint8_t* at)
         m_eventCount = static_cast<int16_t>(header[3]);
         return true;
     }
-    mp_events = static_cast<CAnimEvent**>(MemSys::AllocBlock(header[3] * 4));
+    mp_events = static_cast<CTimedClipEvent**>(MemSys::AllocBlock(header[3] * 4));
     for (uint32_t i = 0; i < header[3]; ++i) {
-        CAnimEvent* event = ReadEvent(&at);
+        CTimedClipEvent* event = ReadEvent(&at);
         if (!event)
             return false;
         mp_events[i] = event;

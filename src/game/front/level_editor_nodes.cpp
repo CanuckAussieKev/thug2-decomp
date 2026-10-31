@@ -230,7 +230,7 @@ void Scan()
         return;
     static const uint32_t kRestartTypes = NameHash("restart_types"), kColor = NameHash("Color"),
                           kOuterRadius = NameHash("OuterRadius"), kInnerRadius = NameHash("InnerRadius"),
-                          kRadius = NameHash("Radius"), kTerrainType = NameHash("TerrainType"),
+                          kRadius = NameHash("Radius"), kSurfaceKindKey = NameHash("TerrainType"),
                           kTrickObject = NameHash("TrickObject"), kTriggerScript = NameHash("TriggerScript");
     int crowns = 0, restarts = 0;
     ++g_generation;
@@ -293,7 +293,7 @@ void Scan()
             }
             case Family::Rail:
             case Family::Ladder: {
-                s->ReadHashValue(kTerrainType, &node.terrain, 0);
+                s->ReadHashValue(kSurfaceKindKey, &node.terrain, 0);
                 node.trickObject = s->HasBareFlag(kTrickObject);
                 static const uint32_t kMetal = NameHash("Metal"), kWood = NameHash("Wood"),
                                       kConcrete = NameHash("Concrete");

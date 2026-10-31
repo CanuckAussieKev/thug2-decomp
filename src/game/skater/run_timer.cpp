@@ -37,7 +37,7 @@ constexpr uint32_t kSkaterRunTimer = 0x8BCE7E66, kWalk = 0x726E85AA;
 constexpr uint32_t kMState = 0x109B9260, kMTimer = 0xD9D89E81, kHangSpeedAdjustment = 0x92FB4D09,
                    kRunTimerUp = 0x9E22A8E9, kHideRunTimer = 0x813CC576, kShowRunTimer = 0x47EEC244,
                    kDuration = 0x0B84F532 /* Physics_RunTimer_Duration */, kFactorComplete = 0x41F56511,
-                   kRunTimerControllerId = 0x39778122, kRunTimerId = 0x628F21C9;
+                   kClockCtlKey = 0x39778122, kRunTimerId = 0x628F21C9;
 // The run timer script's spawn id and the ids the scripts get: from the skater's index (the object's +0x2BC).
 constexpr uint32_t kRunTimerScriptId = 0x83321DEA, kRunTimerIdBase = 0x7D42821C;
 
@@ -45,7 +45,7 @@ constexpr int kMaxResumes = 8;
 constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 
 // The state names m_curPhase shows as (0x0064C080).
-const uint32_t* StateNames() { return g_runTimerStateNames; }
+const uint32_t* ModeLabelKeys() { return g_runTimerStateNames; }
 
 uint32_t SkaterIndex(CGameEntity* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
 uint32_t TimerScriptId(CGameEntity* skater) { return SkaterIndex(skater) + kRunTimerScriptId; }
@@ -106,7 +106,7 @@ void CRiderRunClock::Seal() { m_walk = reinterpret_cast<uint8_t*>(m_entity->Fetc
 // 0x00518270
 void CRiderRunClock::FetchDiagnostics(Scripts::CStruct* params)
 {
-    params->PutNameKey(kMState, StateNames()[m_curPhase]);
+    params->PutNameKey(kMState, ModeLabelKeys()[m_curPhase]);
     params->PushFloat(kMTimer, m_secondsRemaining);
     // (then the base's FetchDiagnostics, which is empty: 0x005BAB90)
 }
@@ -136,7 +136,7 @@ void CRiderRunClock::TickFrame()
 // 0x00518390
 void CRiderRunClock::Halt()
 {
-    if (Scripts::FindSpawnedScriptWithId(TimerScriptId(m_entity)))
+    if (Scripts::LookUpSpawnedScript(TimerScriptId(m_entity)))
         TellTimerScript(m_entity, kHideRunTimer);
     m_curPhase = CLOCK_IDLE;
 }
@@ -180,9 +180,9 @@ bool CRiderRunClock::GetFactorComplete(Scripts::CStruct*, Scripts::CScript* scri
     return true;
 }
 // 0x00518540
-bool CRiderRunClock::GetRunTimerControllerId(Scripts::CStruct*, Scripts::CScript* script)
+bool CRiderRunClock::FetchRunClockPadId(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_args->PutNameKey(kRunTimerControllerId, TimerScriptId(m_entity));
+    script->m_args->PutNameKey(kClockCtlKey, TimerScriptId(m_entity));
     return true;
 }
 // 0x00518570
@@ -216,7 +216,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRunClock::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          &GameObjects::CRiderRunClock::FetchDiagnostics,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

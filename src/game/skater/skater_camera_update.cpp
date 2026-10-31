@@ -235,10 +235,10 @@ void CRiderChaseView::TickFrame()
                 facing.MakeUnit();
             } else {
                 facing = Maths::Vec4(0.0f, -1.0f, 0.0f, 1.0f);
-                CFreeLookModule* lookAround = mp_lookAround;
+                CFreeLookModule* lookAround = m_freeLookModule;
                 if (!lookAround->m_locked && !lookAround->m_turning && physicsState != 3) {
                     lookAround->m_leanAngle = 0.0f;
-                    mp_lookAround->m_heading = 0.0f;
+                    m_freeLookModule->m_heading = 0.0f;
                 }
             }
             Perpendicular(right, upRow, facing);
@@ -275,7 +275,7 @@ void CRiderChaseView::TickFrame()
         wallRide = physicsState == 2;
     }
     Maths::Mat4 rotation;
-    CFreeLookModule* lookAround = mp_lookAround;
+    CFreeLookModule* lookAround = m_freeLookModule;
     bool lipTilted = false;
     if (!wallRide) {
         float heading = lookAround->m_modeHeading + lookAround->m_heading;
@@ -287,7 +287,7 @@ void CRiderChaseView::TickFrame()
     } else {
         if (lookAround) {
             lookAround->m_heading = 0.0f;
-            mp_lookAround->m_locked = false;
+            m_freeLookModule->m_locked = false;
         }
         if (m_wallrideOffsetAngle != 0.0f && turned) {
             skater = m_riderRef;
@@ -307,7 +307,7 @@ void CRiderChaseView::TickFrame()
             Multiply(&orient, &Maths::MakePitchMatrix(rotation, m_leanAngle + m_airTilt), &orient);
     }
     if (physicsState != 2 || lipTilted) {
-        float tilt = mp_lookAround->m_leanAngle;
+        float tilt = m_freeLookModule->m_leanAngle;
         Multiply(&orient, &Maths::MakePitchMatrix(rotation, tilt), &orient);
     }
 
@@ -420,10 +420,10 @@ void CRiderChaseView::TickFrame()
     FetchGoal(&target, instant);
     float height, distance;
     if (instant) {
-        float rate = m_zoomLerp;
-        m_zoomLerp = 1.0f;
+        float rate = m_zoomEaseRate;
+        m_zoomEaseRate = 1.0f;
         GetZoomedOffsets(&height, &distance);
-        m_zoomLerp = rate;
+        m_zoomEaseRate = rate;
     } else {
         GetZoomedOffsets(&height, &distance);
     }

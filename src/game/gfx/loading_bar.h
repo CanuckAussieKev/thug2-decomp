@@ -20,12 +20,12 @@ void __stdcall DrawLoadingScreenFrame(unsigned int id, unsigned int message, uns
 extern int g_gradientWidth;
 // The bar's settings: position, size (width, height), border, and the three colours (r, g, b, 0x80).
 extern int g_barPosition[2];
-extern int g_barWidth;
-extern int g_barHeight;
+extern int g_progressWidth;
+extern int g_progressHeight;
 extern int g_barBorder[2];
-extern uint8_t g_barStartColor[4];
-extern uint8_t g_barEndColor[4];
-extern uint8_t g_barBorderColor[4];
+extern uint8_t g_progressFromColor[4];
+extern uint8_t g_progressToColor[4];
+extern uint8_t g_progressEdgeColor[4];
 
 extern float g_tickSeconds;
 

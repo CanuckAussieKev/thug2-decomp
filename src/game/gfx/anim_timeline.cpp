@@ -49,7 +49,7 @@ void Clear(CAnimTimeline* t)
     t->m_finish = 0.0f;
     t->m_speed = 0.0f;
     t->m_direction = 0;
-    t->m_loopType = CAnimTimeline::kCycle;
+    t->m_repeatMode = CAnimTimeline::kCycle;
     t->m_complete = false;
     t->m_anim = kNoAnim;
 }
@@ -113,7 +113,7 @@ void CAnimTimeline::PlayAnim(uint32_t anim, float from, float to, int loopType, 
     m_finish = forwards ? to : from;
     m_speed = speed * kSecondsPerFrame;
     m_direction = forwards ? 0 : -1;
-    m_loopType = loopType;
+    m_repeatMode = loopType;
     m_complete = false;
     m_anim = anim;
 }
@@ -134,7 +134,7 @@ void CAnimTimeline::GetTimes(float* start, float* current, float* end)
 // 0x004813F0
 bool CAnimTimeline::IsAccomplished()
 {
-    if (m_loopType != kOnce)
+    if (m_repeatMode != kOnce)
         return false;
     return m_direction == 0 ? m_ongoing == m_finish : m_ongoing == m_outset;
 }
@@ -146,7 +146,7 @@ double CAnimTimeline::NextTime()
     float bound = 0.0f;   // the end it reaches
     double time = 0.0;
     m_complete = false;
-    if (m_loopType == kHold)
+    if (m_repeatMode == kHold)
         return 0.0;
     if (m_direction == 0) {
         double next = FrameClock::GetSlomoFrameSeconds() * kFramesPerSecond * m_speed + m_ongoing;
@@ -175,12 +175,12 @@ double CAnimTimeline::NextTime()
         }
         bound = m_outset;
     }
-    if (m_complete && m_loopType == kOnce) {
+    if (m_complete && m_repeatMode == kOnce) {
         time = bound;
-    } else if (m_complete && m_loopType == kPingPong) {
+    } else if (m_complete && m_repeatMode == kPingPong) {
         time = bound;
         m_direction = m_direction != 0 ? 0 : -1;
-    } else if (!m_complete || m_loopType != kCycle) {
+    } else if (!m_complete || m_repeatMode != kCycle) {
         time = stepped;
     }
     if (time < m_outset)
@@ -237,7 +237,7 @@ void CAnimTrack::DeleteControllers()
 }
 
 // 0x004818B0
-void CAnimTrack::RemoveController(CAnimController* controller)
+void CAnimTrack::DetachAnimDriver(CAnimController* controller)
 {
     int i = 0;
     for (;; ++i) {

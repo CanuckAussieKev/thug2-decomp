@@ -88,10 +88,10 @@ void RemakeShadow(CGameEntity* object, GameObjects::CGroundShadowModule* shadow,
     if (object->FetchModule(kSkaterCorePhysics)) {
         MemSys::Hub* manager = MemSys::Hub::Pull();
         manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
-        shadow->CreateShadow(1, kPedShadow);
+        shadow->BuildBlobShadow(1, kPedShadow);
         MemSys::Hub::Pull()->LeaveHeapScope();
     } else {
-        shadow->CreateShadow(2, kPedShadow);
+        shadow->BuildBlobShadow(2, kPedShadow);
     }
 }
 
@@ -109,8 +109,8 @@ bool __cdecl CFunc_SwapObjectModels(Scripts::CStruct* params, Scripts::CScript*)
     params->ReadHashValue(kObj1, &id1, 1);
     uint32_t id2;
     params->ReadHashValue(kObj2, &id2, 1);
-    auto* a = static_cast<CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id1));
-    auto* b = static_cast<CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id2));
+    auto* a = static_cast<CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id1));
+    auto* b = static_cast<CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id2));
     if (a->FetchModule(kSkaterCorePhysics))
         skater = static_cast<GameObjects::CRider*>(a);
     if (b->FetchModule(kSkaterCorePhysics))
@@ -199,7 +199,7 @@ bool __cdecl CFunc_RestoreAllSwappedObjectModels(Scripts::CStruct*, Scripts::CSc
             if (!entry.used)
                 continue;
             any = true;
-            CStruct* memory = Scripts::NewStruct();
+            CStruct* memory = Scripts::SpawnParamBag();
             CStruct* swap = memory ? memory->PrepareAll() : nullptr;
             swap->PutNameKey(kObj1, entry.id);
             swap->PutNameKey(kObj2, entry.current);

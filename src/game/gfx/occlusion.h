@@ -11,7 +11,7 @@
 namespace Engine3D {
 
 // An occlusion polygon (0x00787360, up to 512).
-struct OcclusionPoly {
+struct OccluderPolygon {
     uint8_t inUse;     // an occluder now
     uint8_t enabled;
     uint8_t pad[2];
@@ -19,11 +19,11 @@ struct OcclusionPoly {
     float corners[4][4];
     float normal[4];
 };
-static_assert(sizeof(OcclusionPoly) == 0x58, "layout must match the original");
+static_assert(sizeof(OccluderPolygon) == 0x58, "layout must match the original");
 
 // An occluder (0x00792360, up to 8): its polygon, the planes, and what it hid in each of the last two frames.
 struct Occluder {
-    OcclusionPoly* poly;
+    OccluderPolygon* poly;
     float planes[5][4]; // x, y, z, distance
     int hidden[2];
 };

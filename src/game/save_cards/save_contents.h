@@ -19,7 +19,7 @@ namespace MemCard {
 void WriteGlobalInfo(Scripts::CStruct* global);
 // 0x005A7CF0: the same read back from `global` and applied (the music volume through the Change script, the
 // soundtrack through set_loaded_soundtrack); LastLevelLoadScript / LastGameMode left in the script's parameters.
-void ReadGlobalInfo(Scripts::CStruct* global, Scripts::CScript* script);
+void ReadSaveHeader(Scripts::CStruct* global, Scripts::CScript* script);
 // 0x005A79A0 (the structure in EBX; cdecl the type): the save's contents for `type`: the goal editor's goals, the
 // CAT (other_params, rotation_info, animation_info), the park, the network settings, OptionsAndPros (GlobalInfo,
 // Story, StorySkater, CustomSkater - then also what CreatedGraphic has), CreatedGraphic (layer_infos).

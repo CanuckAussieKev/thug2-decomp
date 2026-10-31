@@ -57,7 +57,7 @@ constexpr uint32_t kDisable = 0xB0BAB2AE;         // "disable"
 constexpr uint32_t kEnable = 0x0C5F37CD;          // "enable"
 constexpr uint32_t kDefrag = 0x6A8251D1;          // "defrag"
 constexpr uint32_t kClear = 0x1A4E0EF9;           // "clear"
-constexpr uint32_t kMaxLights = 0x50228D9E;       // "max_lights"
+constexpr uint32_t kLightCapacity = 0x50228D9E;       // "max_lights"
 constexpr uint32_t kMaxModelLights = 0x701C70AC;  // (name unknown) the light manager's second count
 constexpr uint32_t kAspect = 0x0F7C3CAA;          // "aspect"
 constexpr uint32_t kAngle = 0xFF7EBAF6;           // "angle"
@@ -111,7 +111,7 @@ inline void AllowBoneLOD(bool /*allow*/) {}
 inline void PrintAnimCacheInfo(void* /*cache*/) {}
 
 // The animation cache manager (0x006F92B0 through its getter 0x00480660).
-Gfx2D::CClipStore* AnimCache() { return Gfx2D::CClipStore::Pull(); }
+Gfx2D::CClipStore* ClipStoreRef() { return Gfx2D::CClipStore::Pull(); }
 
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
 uint8_t* ViewportCamera(int index) { return reinterpret_cast<uint8_t*>(Engine3D::ObtainActiveLens(index)); }
@@ -190,11 +190,11 @@ bool __cdecl CFunc_UpdateAnimCache(CStruct* params, CScript*)
     if (disable || enable)
         return true;
     if (clear)
-        AnimCache()->Drain(false);
+        ClipStoreRef()->Drain(false);
     else if (defrag)
-        AnimCache()->Defragment();
+        ClipStoreRef()->Defragment();
     else
-        PrintAnimCacheInfo(AnimCache());
+        PrintAnimCacheInfo(ClipStoreRef());
     return true;
 }
 
@@ -210,7 +210,7 @@ bool __cdecl CFunc_InitLightManager(CStruct* params, CScript*)
 {
     int maxLights = 0;
     int maxModelLights = 0;
-    params->FetchIntValue(kMaxLights, &maxLights, 1);
+    params->FetchIntValue(kLightCapacity, &maxLights, 1);
     params->FetchIntValue(kMaxModelLights, &maxModelLights, 1);
     Engine3D::InitLightManager(static_cast<uint32_t>(maxLights), static_cast<uint32_t>(maxModelLights));
     return true;
@@ -357,12 +357,12 @@ bool __cdecl CFunc_GetDynamicLightModulationFactor(CStruct* params, CScript* scr
     int directional = 0;
     float low, high;
     if (params->HasBareFlag(kAmbient)) {
-        low = Engine3D::GetAmbientLightModulationFactor(true);
-        high = Engine3D::GetAmbientLightModulationFactor(false);
+        low = Engine3D::FetchAmbientScale(true);
+        high = Engine3D::FetchAmbientScale(false);
     } else {
         params->FetchIntValue(kDirectional, &directional, 0);
-        low = Engine3D::GetDiffuseLightModulationFactor(directional, true);
-        high = Engine3D::GetDiffuseLightModulationFactor(directional, false);
+        low = Engine3D::FetchDiffuseScale(directional, true);
+        high = Engine3D::FetchDiffuseScale(directional, false);
     }
     script->m_args->PushFloat(kModValueLo, low);
     script->m_args->PushFloat(kModValueHi, high);
@@ -501,7 +501,7 @@ bool __cdecl CFunc_GetBonePosition(CStruct* params, CScript* script)
     params->ReadHashValue(kId, &id, 1);
     bool found = false;
     Maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
-    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::CompositeObjectManager());
+    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::ObjectHubSlot());
     if (GameObjects::CEntity* object = manager->LookUpEntity(id)) {
         uint32_t bone = 0;
         params->ReadHashValue(kBone, &bone, 1);

@@ -29,16 +29,16 @@ layout is in cscript.h. The parts that matter for scheduling are:
 |---|---|
 | `m_pc` +0x0C | the next token. Null means not running ("finished"). |
 | `m_args` +0x14 | the current level's parameters: the defaults from the script's first line, plus the caller's arguments, plus `name = value` assignments, plus whatever C functions leave there. |
-| `m_functionParams` +0x10 | the arguments of the statement being run, parsed again for every statement. |
-| `m_currentLoop` / `m_loops` | one loop stack shared by all call levels: 1 inline entry, moved to 10 on the script heap. |
-| `m_numReturnAddresses`, `m_returnAddresses` | the call stack: saved caller levels (`SCallFrame`, 0x30 bytes). 2 inline, moved to 16 on the script heap. Nothing checks the limit. |
-| `m_waitType` +0xA4 with `m_waitCounter`, `m_waitTimer`, `m_waitTimerStarted`, `m_waitArg`, `m_waitComponent` | the current level's wait (section 5). |
+| `m_stmtArgs` +0x10 | the arguments of the statement being run, parsed again for every statement. |
+| `m_innermostRepeat` / `m_loops` | one loop stack shared by all call levels: 1 inline entry, moved to 10 on the script heap. |
+| `m_callDepth`, `m_returnAddresses` | the call stack: saved caller levels (`SCallFrame`, 0x30 bytes). 2 inline, moved to 16 on the script heap. Nothing checks the limit. |
+| `m_waitType` +0xA4 with `m_waitCounter`, `m_waitTimer`, `m_waitTimerStarted`, `m_waitArg`, `m_blockingModule` | the current level's wait (section 5). |
 | `m_flagBits` +0xB4 | bit 0 `SCRIPT_RUN_INTERRUPTED`: the top level was entered as an interrupt. Bit 1 `SCRIPT_RUN_WAIT_UPDATED`: the wait has already been counted in this Update. |
 | `m_spawnFlags` +0xCC | `SPAWNED` 1, `NOT_SESSION_SPECIFIC` 2, `PAUSED` 4, `PAUSE_WITH_OBJECT` 8, `TRACKER_BLOCKED` 0x10. |
 | `m_entity` +0xBC | the object the current level runs on (a smart pointer; saved levels hold plain pointers). |
 | `m_onExitScript` +0xE8 | the current level's OnExitRun script. Each saved level has its own copy. |
-| `m_eventHandlers` +0xE0 | the event handler table, created on demand. |
-| `m_callbackScript` / `m_callbackParams` | for spawned scripts: run when the script finishes. |
+| `m_signalRoutes` +0xE0 | the event handler table, created on demand. |
+| `m_onFinishScript` / `m_callbackParams` | for spawned scripts: run when the script finishes. |
 | `m_spawnId`, `m_uniqueId`, `m_spawnerFile`, `m_listLink` | identity, used by the kill walks (section 10). |
 
 Globals: the list head 0x006F3538, the current script 0x006F3530 (GetRunningScript 0x004728C0), the count
@@ -47,9 +47,9 @@ and "one-per-frame released" 0x006F352C.
 
 **The list.** Every script is on one doubly linked list. Construct (0x004738E0) puts a new script at the
 **head**, so the list runs from newest to oldest. Only Destroy (0x00474420) unlinks a script. Stopping a script
-does not unlink it. Construct zeroes the whole object after constructing `m_refCounted`, which leaves that
+does not unlink it. Construct zeroes the whole object after constructing `m_sharedBase`, which leaves that
 member's vtable null for the script's whole life **[quirk, harmless unless something calls through it]**.
-`m_refCounted` (+0xEC) is what smart pointers to a script point at: LaunchEvent takes them around a broadcast
+`m_sharedBase` (+0xEC) is what smart pointers to a script point at: LaunchEvent takes them around a broadcast
 (section 11), and Destroy clears them.
 `m_uniqueId` is the counter's value before the increment.
 
@@ -68,7 +68,7 @@ object walk, "The whole frame" below; section 12).
    - it is not (paused **and** still has code). A paused script with no code is updated, finishes and goes;
    - it is not (`PAUSE_WITH_OBJECT` **and** it has an object **and** the object's vtable +0x1C returns false).
      With no object, it runs.
-4. If that Update returns FINISHED (0): when `m_callbackScript` is set, the callback runs to completion right
+4. If that Update returns FINISHED (0): when `m_onFinishScript` is set, the callback runs to completion right
    there with `LaunchScript(callback, m_callbackParams, the script's object, net = false)` (section 9). Then the
    script is deleted (Destroy + pool delete). The results 1, 2 and 5 keep the script for the next frame.
 5. Clear "updating". If a KillAllChildScripts arrived during the walk (the pending flag 0x006F3545 is set), run
@@ -234,7 +234,7 @@ that returned 5 it still points at the script, even outside any Update (for exam
 scripts, section 7).
 
 **A script stopped mid-statement** (a C function calls ResetScriptState on its own script): `m_pc` becomes null, the
-statement's result is read before anything is freed (test), ExecuteIf sees `m_pc == 0` and doesn't jump, and
+statement's result is read before anything is freed (test), RunConditional sees `m_pc == 0` and doesn't jump, and
 the loop ends with FINISHED.
 
 ## 4. Statements
@@ -247,14 +247,14 @@ the loop ends with FINISHED.
 | 02 | end of line + 4-byte line number | pc += 5 |
 | 28 | endif | pc += 1 |
 | 3D | endswitch | pc += 1 |
-| 20 | begin | ExecuteBegin (4.4) |
-| 21 | repeat [n] | ExecuteRepeat (4.4) |
-| 22 | break | ExecuteBreak (4.4) |
+| 20 | begin | RunLoopOpen (4.4) |
+| 21 | repeat [n] | RunCountedLoop (4.4) |
+| 22 | break | RunLoopExit (4.4) |
 | 24 | `$` end of script | if this level has an OnExitRun: clear it, `Preempt(it)`. Then `ReturnFromScript(null)`; "interrupted" means return 5 (section 6) |
-| 29 | return [args] | the same on-exit step, then `++pc`, parse the arguments into m_functionParams **from wherever pc is now**, `ReturnFromScript(m_functionParams)` (see the quirk in section 7) |
+| 29 | return [args] | the same on-exit step, then `++pc`, parse the arguments into m_stmtArgs **from wherever pc is now**, `ReturnFromScript(m_stmtArgs)` (see the quirk in section 7) |
 | 2E, 2F, 37, 40, 41, 49 | jump / random blocks / short jump | `pc = ResolveRandomJumps(pc)` |
-| 3C | switch | ExecuteSwitch (4.3) |
-| 47 | if | ExecuteIf (4.3) |
+| 3C | switch | RunMultiBranch (4.3) |
+| 47 | if | RunConditional (4.3) |
 | 48 | else, reached at the end of an if's true part | jump by its 2-byte offset (to the endif) |
 | 25, 26, 3E (case), 3F (default) | | nothing: pc doesn't move and Update **loops for ever** **[bug, kept]**. Compiled code never starts a statement with these (25 and 26 are probably the older long-form if/else; not verified) |
 | everything else (00, 03-1F, 23, 27, 2A-2D, 30-36, 38-3B, 42-46, > 49) | | ExecuteCommand (4.2) |
@@ -264,12 +264,12 @@ the loop ends with FINISHED.
 The result is a bool and is only used by `if`. Its branches, in order:
 
 1. **`44 <name> args`**: a member function by name on `m_entity`, through the object's vtable +0x0C
-   `(name, m_functionParams, script)`. With no object: OnlinePlay 0x0044E4F0 is called and its result ignored (what
+   `(name, m_stmtArgs, script)`. With no object: OnlinePlay 0x0044E4F0 is called and its result ignored (what
    is left of a compiled-out assert), and the result is false.
 2. **`46 <entry> args`**: a member function table entry on `m_entity`, through the free InvokeMethodByName
    0x00472980. For the component types 0x57525413 / 0x0ADA4E74 the object runs it itself (vtable +0x08);
    otherwise its component of that type (0x0045DB90, then the component's vtable +0x2C) does. No object: as in 1.
-3. **`43 <fnptr> args`**: a C function, `fn(m_functionParams, this)`. Its result is the statement's result.
+3. **`43 <fnptr> args`**: a C function, `fn(m_stmtArgs, this)`. Its result is the statement's result.
 4. Otherwise a **name** is read first:
    - `0E ( expression )`: evaluated into a temporary component (with `m_args` supplying `<x>` values). If the
      result is not a name, the statement's value is `raw != 0` and **nothing runs**. If it is a name, that
@@ -294,11 +294,11 @@ The result is a bool and is only used by `if`. Its branches, in order:
      `p`), then `pc += 5`, ResolveRandomJumps, then an expression or a single value. A typed result is added to
      **m_args** (replacing an existing one). An empty result (for example a missing `<param>`) is dropped.
      Result true.
-   - **otherwise a call**: ParseFunctionParams (0x00472950: clear m_functionParams, parse the rest of the line
+   - **otherwise a call**: ParseFunctionParams (0x00472950: clear m_stmtArgs, parse the rest of the line
      with m_args supplying `<x>`), then ResolveSymbol(name):
      - missing: unless the current script is 0xFB11E6CD (presumably the default level's), print `WARNING:
        script %s not found, ignoring in default level.`; result false;
-     - a script: `RunSubScript(name, FetchScript(symbol->name), m_functionParams, m_entity, false)`, result true
+     - a script: `RunSubScript(name, FetchScript(symbol->name), m_stmtArgs, m_entity, false)`, result true
        (section 6);
      - a C function: its result;
      - a member function: on m_entity (by entry, else by name); with no object, the OnlinePlay call and false;
@@ -323,7 +323,7 @@ The result is a bool and is only used by `if`. Its branches, in order:
 
 ### 4.4 Loops
 
-- There is **one loop stack for all call levels**. RunSubScript doesn't reset `m_currentLoop`, so a callee's loops
+- There is **one loop stack for all call levels**. RunSubScript doesn't reset `m_innermostRepeat`, so a callee's loops
   stack above its caller's. Each saved level remembers its loop pointer.
 - **begin (0x00473220)**: pushes a loop that starts after the token. When the inline loop is in use (the second
   nested loop, even if the inline loop belongs to a calling level), the stack moves to 10 entries on the script
@@ -401,12 +401,12 @@ What these rules mean, per type:
   script heap. It never shrinks back before ResetScriptState.
 - **The callee**: `m_scriptTitle = name`; m_args = a new structure holding the defaults from the callee's
   first line (ParseArguments with no parameter source), then `params` appended (MergeStructure 0x00478480);
-  `m_entity = object`; bit 0 = `interrupted`; no wait; no on-exit script. `m_currentLoop` and m_functionParams
+  `m_entity = object`; bit 0 = `interrupted`; no wait; no on-exit script. `m_innermostRepeat` and m_stmtArgs
   are kept. **The callee's first statement runs in the same Update.**
 - `code == null` while a script is running is not checked: ParseArguments reads from null **[bug: crash]**. This
   happens with Interrupt or OnExitRun of a name that isn't a script. ExecuteCommand only calls RunSubScript for
   real script symbols.
-- Call arguments are evaluated in the caller (m_functionParams, with the caller's m_args for `<x>`). The callee
+- Call arguments are evaluated in the caller (m_stmtArgs, with the caller's m_args for `<x>`). The callee
   gets a copy appended over its defaults, so arguments win.
 - The object: a plain call uses the caller's `m_entity`; `obj:Script` uses that object.
 
@@ -475,10 +475,10 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
 
 - **BindScript(name, code, params, object)** (0x00474540; overloads 0x004747A0 by checksum and 0x004747C0 by
   string):
-  1. Copy `params` if they are (inside) this script's own m_args or m_functionParams (CopyParamsIfOwned
+  1. Copy `params` if they are (inside) this script's own m_args or m_stmtArgs (CopyParamsIfOwned
      0x004739D0), because the next step frees those.
   2. ResetScriptState (which runs the on-exit scripts).
-  3. Create new m_functionParams and m_args; set the name and the object.
+  3. Create new m_stmtArgs and m_args; set the name and the object.
   4. `m_pc = code` if given, else `FetchScript(name)`.
      - **No code**: free the copy, ResetScriptState again, then ReportStopped. The script ends at once, and the
        report is the same as for a kill.
@@ -495,9 +495,9 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
   2. Free m_codeCopy.
   3. If `m_pc` was set, `ReleaseScript(m_scriptTitle)`. This happens **even for a private copy or for code passed
      to BindScript**, which never took a cache use, so a use someone else took is given back **[quirk]**.
-  4. Clear pc; free m_args and m_functionParams.
+  4. Clear pc; free m_args and m_stmtArgs.
   5. For every saved level, release its script and free its parameters.
-  6. Go back to the inline stacks (heap blocks freed); `m_currentLoop = 0`.
+  6. Go back to the inline stacks (heap blocks freed); `m_innermostRepeat = 0`.
   7. Clear wait counter, type, component and arg; release the object; clear the name; clear `m_flagBits` bits 0
      and 1.
 
@@ -526,7 +526,7 @@ true)`, then a **nested Update**, whose result is returned. Callers: the event h
     heap and deleted afterwards. SpawnScript returns null.
   - **Anything else**, including a missing name: a new script at the head, `BindScript(name, null, params,
     **object = null**)`; `m_spawnId = id`; `m_listLink = node`; `m_spawnFlags = (old & 0xF1) | SPAWNED |
-    nss<<1 | pwo<<3` (paused is cleared). With a callback: `m_callbackScript` is set and `m_callbackParams` is
+    nss<<1 | pwo<<3` (paused is cleared). With a callback: `m_onFinishScript` is set and `m_callbackParams` is
     a **fresh copy**, an empty structure when no callback parameters are given.
   - **Network**: with `net` in a network game, message 0x49 is sent ({name, object id -1, node, permanent}, 16
     bytes); `permanent` is only used there.
@@ -591,7 +591,7 @@ Stopped scripts stay on the list.
     table.
   - **PauseSpawnedScripts(pause)** 0x00472D80 and **ResumeChildScript** 0x00472DC0: the PAUSED bit of
     spawned scripts.
-  - **FindSpawnedScriptWithId** 0x00472E20 (first match from the head), **GetSpawnId** 0x00472E00 (0 when not
+  - **LookUpSpawnedScript** 0x00472E20 (first match from the head), **GetSpawnId** 0x00472E00 (0 when not
     spawned), **ScriptExists** 0x00472DE0 (the symbol is a script), **FindScriptWithUniqueId** 0x004734B0.
 
 ## 11. Events and event handlers
@@ -616,7 +616,7 @@ it. Nothing is queued for a later frame (test).
   - **event listeners** (+0x14): C++ objects (`CSignalReceiver`, vtable 0x006477D8) that see every targeted event
     through their vtable +0x04 (0x004A1090; who registers them is open, section 13) (code);
   - the event log (+0x20, below).
-- **The handler table** (`GameObjects::CSignalRouteTable`, a script's `m_eventHandlers`, 0x10 bytes on the front-end
+- **The handler table** (`GameObjects::CSignalRouteTable`, a script's `m_signalRoutes`, 0x10 bytes on the front-end
   heap, created on demand): `{entries, count, alive (+8), changed (+9), in use (+0xC)}`. An entry (0x14 bytes) is
   `{type, script, group, params (an owned copy), flags}`; flags bit 0 exception, bit 1 marked; bits 2-7 are never
   initialised (garbage in new entries) **[quirk, harmless]**. A **removed** entry keeps its slot: its script
@@ -634,7 +634,7 @@ The CFunctions and the CScript methods they use:
 | ResetEventHandlersFromTable (0x0044AC70) | 0x004736C0 | MarkGroup 0x0045F840, AppendListener, RemoveMarked 0x0045FED0 |
 | ClearEventHandler (0x0044ACD0; also CEntity 0x004607A0) | 0x00473690 | RemoveType 0x0045FDF0, then the tracker's RemoveListener |
 | ClearEventHandlerGroup (0x0044AD00) | 0x00472EA0 | RemoveGroup(script, group) 0x004600E0 |
-| PrintEventHandlerTable (0x0044AD90) | 0x00472EC0 | PrintTable 0x0045F880 |
+| PrintEventHandlerTable (0x0044AD90) | 0x00472EC0 | ListWaitTable 0x0045F880 |
 
 - **AppendListener** (from SetEventHandler / SetException / ResetEventHandlersFromTable): the entry of the **same
   type** is overwritten in place (even a removed one), else the first removed slot is reused, else the array
@@ -685,7 +685,7 @@ The CFunctions and the CScript methods they use:
    gets it only if its squared distance from the **source** object (looked up by id, not checked for null
    **[bug]**) is less than radius squared (equal: not delivered); scripts without an object, or whose object has
    no position, always get it; a NaN radius means none. Event listeners and the target are not involved.
-   With two or more listeners, smart pointers to each script's `m_refCounted` are taken first, so a script
+   With two or more listeners, smart pointers to each script's `m_sharedBase` are taken first, so a script
    **deleted by an earlier receiver's handlers is skipped**; scripts that start listening during the delivery
    don't get it. With exactly one listener there is no such protection (its script is called directly) (test /
    code).
@@ -703,7 +703,7 @@ PassEventToScript; screen elements handle targeted events their own way, section
 object does **not** get events targeted at the object (code).
 
 **One script, ReceiveEvent** (0x00473800, section 5): first the levels blocked on the type are released (the
-current one and saved ones), then, if the script has a table, `PassEvent(event, script)` (11.4). Always true.
+current one and saved ones), then, if the script has a table, `ForwardTrigger(event, script)` (11.4). Always true.
 
 **The CFunctions** (test):
 - **LaunchEvent / FireEvent** (0x004634D0): `type` is a name, an array of names or a structure of names (each
@@ -726,9 +726,9 @@ current one and saved ones), then, if the script has a table, `PassEvent(event, 
   0x00462B70, consecutive ones counted in one entry), OBJECT_ADDED / OBJECT_REMOVED (4 / 5). PrintEventLog
   (0x00462480) prints only the header and footer in this build. It doesn't affect scheduling (code + test).
 
-### 11.4 PassEvent: how a script's handlers run
+### 11.4 ForwardTrigger: how a script's handlers run
 
-**PassEvent(event, script)** (0x00460470) (test):
+**ForwardTrigger(event, script)** (0x00460470) (test):
 1. `wasChanged = changed; changed = false; ++inUse`. The entry pointer is taken **once**.
 2. For each entry **in table order** (the count re-read each time), if its type is the event's and it isn't
    removed:
@@ -752,7 +752,7 @@ current one and saved ones), then, if the script has a table, `PassEvent(event, 
 
    After every entry (matched or not):
    - if the table is no longer **alive** (a handler destroyed the script: CScript::Teardown only clears `alive`
-     while `inUse != 0`, section 8): `--inUse`, and if that was the outermost PassEvent the table is destroyed and
+     while `inUse != 0`, section 8): `--inUse`, and if that was the outermost ForwardTrigger the table is destroyed and
      freed; return;
    - if **changed** (a handler *added* entries, which may have moved the array): `--inUse` and **stop** - the
      remaining entries don't run for this event, and `changed` stays set.
@@ -764,7 +764,7 @@ Consequences for a port:
   script.
 - Handlers removed by an earlier handler (or by the OnExceptionRun script) are skipped; handlers **added** by a
   handler end this event's walk at once (the new ones don't see it). `changed` is also a re-entrancy signal: a
-  nested PassEvent that added entries stops the outer one too.
+  nested ForwardTrigger that added entries stops the outer one too.
 - Handlers run synchronously inside whatever sent the event - possibly inside another script's Update or a C
   function. A handler that waits leaves the receiving script running the handler at its next Update.
 - `exception` is the only per-entry behaviour switch; object flag 0x10000 switches all of a script's normal

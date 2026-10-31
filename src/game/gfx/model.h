@@ -32,7 +32,7 @@ static_assert(offsetof(sModelGeom, assetName) == 0x10 && sizeof(sModelGeom) == 0
 // CRenderModel::m_flagBits (the flag setters take a byte and keep its low bit - the original's shifts and masks)
 enum : uint8_t {
     kModelSphereValid = 0x01, // m_enclosingBall holds the platform's
-    kModelActive = 0x02,
+    kModelEnabledBit = 0x02,
     kModelHidden = 0x04,
     kModelScaled = 0x08,       // m_sizeFactor isn't (1, 1, 1)
     kModelShadow = 0x10,       // its geoms cast a shadow (each geom told as it comes)
@@ -134,7 +134,7 @@ public:
     // textures (null / 0 past the end).
     void* GetGeomByName(uint32_t name);
     void* FetchGeom(int index);
-    uint32_t GetGeomName(int index);
+    uint32_t FetchPartLabel(int index);
     uint8_t* GetGeomTextures(int index);
     // 0x00493D10: texture `source` (".png" added when missing) replaced by `dest` (cut at ".png") in the textures of
     // the geom `name` (all, or ones without a name) - (0x0049FB20). Whether any was; script integer 0x2A648514 read
@@ -164,7 +164,7 @@ public:
     // 0x00494800 / 0x00494880: the geom `name` (or all) hidden or shown (m_visibleGeoms; whether any matched); whether
     // it's hidden (false when a geom of that name is shown).
     bool ConcealMesh(uint32_t name, bool hide);
-    bool IsGeomHidden(uint32_t name);
+    bool IsPartConcealed(uint32_t name);
     // 0x004948D0: every geom coloured. Always true.
     bool ChangeTint(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
     // 0x00494930 / 0x00494970: the geoms' viewport masks together; each geom's set. (Always true.)

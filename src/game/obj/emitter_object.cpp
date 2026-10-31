@@ -177,7 +177,7 @@ void Emitter_AddNode(uint32_t name, bool active)
     LevelNodes::FetchPlace(params, &node->m_atPoint);
     params->FetchFloat(kRadius, &node->m_radius, 0);
     node->m_radiusSquared = node->m_radius * node->m_radius;
-    params->ReadHashValue(kScript, &node->m_runScript, 0);
+    params->ReadHashValue(kScript, &node->m_ownScript, 0);
 }
 
 // 0x00468AC0

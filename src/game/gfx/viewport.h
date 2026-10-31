@@ -66,7 +66,7 @@ struct OcclusionRequest {
 static_assert(sizeof(OcclusionRequest) == 0x10, "layout must match the original");
 
 // 0x004A0760: every viewport's camera marked for deletion deleted.
-void __cdecl DeleteMarkedCameras();
+void __cdecl PurgeDoomedCameras();
 // 0x004A0840: the ten viewports made (the PC's CreateViewport) from the rectangles at 0x00649C28.
 void __cdecl CreateViewports();
 // 0x004A0950: the camera of view `view` of the screen mode (null: the view isn't shown).
@@ -77,7 +77,7 @@ void __cdecl ChooseCamera(int view, Gfx2D::ViewCam* camera);
 Gfx2D::ViewCam* __cdecl FetchLiveCamera(int n);
 // 0x004A09E0: of the active viewports' cameras, the one nearest `position` (null: none) and its distance (if
 // `distance` isn't null).
-Gfx2D::ViewCam* __cdecl GetClosestCamera(const Maths::Vec4* position, float* distance);
+Gfx2D::ViewCam* __cdecl FetchNearestCamera(const Maths::Vec4* position, float* distance);
 // 0x004A0AD0: the screen mode (0-5) set, and each active viewport's camera given the horizontal angle
 // Skater_Cam_Horiz_FOV (halved for split_vertical).
 void __cdecl SetScreenMode(int mode);

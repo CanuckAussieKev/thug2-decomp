@@ -182,7 +182,7 @@ public:
 
     // 0x00571EF0: TODManager_Create name=<node> | prefix=<prefix>: the nodes' objects made (Obj's
     // CreateFromNode), except those marked permanently dead.
-    void CreateObjects(Scripts::CStruct* params, Scripts::CScript* script);
+    void BuildTodObjects(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00573400: TODManager_MarkPermanentlyDead name=<node> | prefix=<prefix>.
     void MarkPermanentlyDead(Scripts::CStruct* params);
     // 0x00572BD0: the dead-objects table emptied (level clean-up).

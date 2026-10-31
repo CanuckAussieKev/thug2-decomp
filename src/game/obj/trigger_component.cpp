@@ -61,7 +61,7 @@ namespace {
 extern void** const kVtable;
 
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
-constexpr uint32_t kNetEnabled = 0x20209C31;    // NetEnabled
+constexpr uint32_t kOnlineFlag = 0x20209C31;    // OnlineModeFlag
 constexpr uint32_t kPermanent = 0x23627FD7;     // Permanent
 constexpr uint32_t kParams = 0x5180A4DB;        // (a parameters structure on the other object's node)
 constexpr uint32_t kTriggerType = 0x3A717382;   // TriggerType
@@ -224,13 +224,13 @@ bool CActivationZoneModule::TriggerNode(const int* events, uint32_t name, Script
         recorded += 1u << (events[2] & 31);
     CEntity* object = At<CEntity*>(this, 0x0C);
     bool permanent = node->HasBareFlag(kPermanent);
-    bool replicateFlag = node->HasBareFlag(kNetEnabled);
+    bool replicateFlag = node->HasBareFlag(kOnlineFlag);
     object->StartScriptTask(script, static_cast<int>(name), replicateFlag, permanent, params);
     return true;
 }
 
 // 0x00434BF0
-bool CActivationZoneModule::CheckFeeler(const int* events, Engine3D::CProbeRay* feeler)
+bool CActivationZoneModule::ProbeTouchesZone(const int* events, Engine3D::CProbeRay* feeler)
 {
     if (!feeler->m_hit.faceFlag40 || !feeler->m_hit.objectChecksum)
         return false;
@@ -273,7 +273,7 @@ void CActivationZoneModule::TriggerHits(const int* events, const uint8_t* hits)
 bool __cdecl CActivationZoneModule::FeelerHit(Engine3D::CProbeRay* feeler)
 {
     auto* component = reinterpret_cast<CActivationZoneModule*>(feeler->m_unknownA8);
-    return component->CheckFeeler(kNoEvents, feeler);
+    return component->ProbeTouchesZone(kNoEvents, feeler);
 }
 
 } // namespace Obj

@@ -54,7 +54,7 @@ enum class Kind : uint8_t {
     Float,
     Name,
     Chars,
-    LocalString,
+    LocalisedText,
     Vec4,
     Pair,
     BitMark,
@@ -70,7 +70,7 @@ struct Value {
     int32_t integer = 0;
     float numbers[3] = {};      // Float: [0]; Pair: [0..1]; Vector: [0..2]
     uint32_t checksum = 0;      // Name
-    std::string text;           // String, LocalString; Other: how it reads
+    std::string text;           // String, LocalisedText; Other: how it reads
     bool on = false;            // Flag
     std::vector<uint32_t> list; // Names: checksums; Integers: the ints (as uint32_t)
     std::vector<float> floats;  // Floats

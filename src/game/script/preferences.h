@@ -35,7 +35,7 @@ public:
     // 0x0046C5D0: the preference `name` given the components of `values` (false if there's no such preference).
     bool ChangeSetting(uint32_t name, Scripts::CStruct* values);
     // 0x0046C610: the array `name` replaced by a copy of `array` (false if there's no such array).
-    bool SetPreferenceArray(uint32_t name, Scripts::CArray* array);
+    bool ChangeOptionList(uint32_t name, Scripts::CArray* array);
     // 0x0046C650: the global structure `name`'s components added (asserting it exists); true.
     bool ReadIn(uint32_t name);
 

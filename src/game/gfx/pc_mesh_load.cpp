@@ -67,7 +67,7 @@ static_assert(sizeof(sScaledVertex) == 0x84, "layout must match the original");
 bool SkinScalingOn() { return g_skinScalingOn && reinterpret_cast<float*&>(g_skinSettings[3]); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
-void BoneScale(int bone, float& e0, float& e4, float& e8, float& e12)
+void BoneScaleTerms(int bone, float& e0, float& e4, float& e8, float& e12)
 {
     if (bone == -1) {
         e0 = e4 = e8 = e12 = 1.0f;
@@ -86,9 +86,9 @@ void BoneScale(int bone, float& e0, float& e4, float& e8, float& e12)
 void ScaledPositionInMemory(sScaledVertex v, float* out)
 {
     float e0_0, e0_4, e0_8, e0_c, e1_0, e1_4, e1_8, e1_c, e2_0, e2_4, e2_8, e2_c;
-    BoneScale(v.bones[0], e0_0, e0_4, e0_8, e0_c);
-    BoneScale(v.bones[1], e1_0, e1_4, e1_8, e1_c);
-    BoneScale(v.bones[2], e2_0, e2_4, e2_8, e2_c);
+    BoneScaleTerms(v.bones[0], e0_0, e0_4, e0_8, e0_c);
+    BoneScaleTerms(v.bones[1], e1_0, e1_4, e1_8, e1_c);
+    BoneScaleTerms(v.bones[2], e2_0, e2_4, e2_8, e2_c);
     float ax_ = v.a[0], ay_ = v.a[1], az_ = v.a[2], bx_ = v.b[0], by_ = v.b[1], bz_ = v.b[2];
     float cx_ = v.c[0], cy_ = v.c[1], cz_ = v.c[2];
     float px_ = v.p[0], py_ = v.p[1], pz_ = v.p[2], qx_ = v.q[0], qy_ = v.q[1], qz_ = v.q[2];
@@ -205,9 +205,9 @@ void ScaledPositionInMemory(sScaledVertex v, float* out)
 void ScaledPositionInFile(sScaledVertex v, float* out)
 {
     float e0_0, e0_4, e0_8, e0_c, e1_0, e1_4, e1_8, e1_c, e2_0, e2_4, e2_8, e2_c;
-    BoneScale(v.bones[0], e0_0, e0_4, e0_8, e0_c);
-    BoneScale(v.bones[1], e1_0, e1_4, e1_8, e1_c);
-    BoneScale(v.bones[2], e2_0, e2_4, e2_8, e2_c);
+    BoneScaleTerms(v.bones[0], e0_0, e0_4, e0_8, e0_c);
+    BoneScaleTerms(v.bones[1], e1_0, e1_4, e1_8, e1_c);
+    BoneScaleTerms(v.bones[2], e2_0, e2_4, e2_8, e2_c);
     float ax_ = v.a[0], ay_ = v.a[1], az_ = v.a[2], aw_ = v.a[3], bx_ = v.b[0], by_ = v.b[1], bz_ = v.b[2], bw_ = v.b[3];
     float cx_ = v.c[0], cy_ = v.c[1], cz_ = v.c[2], cw_ = v.c[3];
     float px_ = v.p[0], py_ = v.p[1], pz_ = v.p[2], pw_ = v.p[3], qx_ = v.q[0], qy_ = v.q[1], qz_ = v.q[2], qw_ = v.q[3];
@@ -361,7 +361,7 @@ uint32_t VertexFormat(uint32_t type)
 
 // What both mesh loaders share (their reads in the same order; the file one reads the counted things in one call).
 template <typename Reader>
-void LoadMesh(meshRef* mesh, Reader& reader, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic)
+void ReadMeshFromFile(meshRef* mesh, Reader& reader, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic)
 {
     for (int i = 0; i < 8; ++i) {
         reader.TakeIn(&mesh->indexCounts[i], 2, 1);
@@ -529,7 +529,7 @@ void meshRef::SetUpSkinning(const uint8_t* packed, uint32_t /*bytes*/, sVertexAr
 void meshRef::ReadFromRamBlock(uint8_t** cursor, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena)
 {
     MemoryReader reader{*cursor};
-    LoadMesh(this, reader, materialChecksum, scene, arena, false);
+    ReadMeshFromFile(this, reader, materialChecksum, scene, arena, false);
     *cursor = reader.cursor;
 }
 
@@ -537,7 +537,7 @@ void meshRef::ReadFromRamBlock(uint8_t** cursor, uint32_t materialChecksum, scen
 void meshRef::IngestFromFile(void* file, uint32_t materialChecksum, sceneRef* scene, sVertexArena* arena, bool dynamic)
 {
     FileReader reader{file};
-    LoadMesh(this, reader, materialChecksum, scene, arena, dynamic);
+    ReadMeshFromFile(this, reader, materialChecksum, scene, arena, dynamic);
 }
 
 // 0x004D6530

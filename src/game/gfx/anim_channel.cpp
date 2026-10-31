@@ -67,7 +67,7 @@ constexpr uint32_t kAnimTags = 0x5DB4115F;          // AnimTags
 constexpr uint32_t kIndex = 0xD2D6A582;             // (a timeline's index)
 constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
 constexpr uint32_t kCycle = 0x4F792E6C, kPingPong = 0x3153E314, kHoldLoop = 0x6D941203; // the loop types' names
-constexpr float kDefaultBlendPeriod = 0.3f;         // 0x3E99999A
+constexpr float kStockCrossfade = 0.3f;         // 0x3E99999A
 constexpr float kFixedPoint = 4096.0f;              // 0x00648730
 
 // The network messages a channel sends.
@@ -93,7 +93,7 @@ CStance*& BlendBuffer() { return g_blendBuffer; }
 CStance*& Poses() { return g_poses; }
 int& MaxBlends() { return g_maxBlends; }
 int& Subsets() { return g_subsets; }
-bool OmitFromDraw() { return Engine3D::g_skipRender; }
+bool OmitFromDraw() { return Engine3D::g_suppressDraw; }
 
 MemSys::PoolPair& StructPools() { return Scripts::g_structPools; }
 
@@ -133,17 +133,17 @@ GameObjects::CGameEntity* Owner(CBlendChannel* channel) { return reinterpret_cas
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 OnlinePlay::PlayerRecord* LocalPlayer(uint32_t objectId)
 {
-    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(objectId)));
+    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(objectId)));
     if (!player || !player->IsOwnPlayer())
         return nullptr;
     return player;
 }
 NetLink::Guest* ClientOf(OnlinePlay::PlayerRecord* player)
 {
-    return static_cast<NetLink::Guest*>(NetManager()->FetchPatron(static_cast<int>(player->GetSkaterValue2BC())));
+    return static_cast<NetLink::Guest*>(NetSessionSlot()->FetchPatron(static_cast<int>(player->GetSkaterValue2BC())));
 }
 
 void PostOut(NetLink::Guest* app, NetLink::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
@@ -157,7 +157,7 @@ void PostOut(NetLink::Guest* app, NetLink::NetMessageInfo& message, uint8_t id, 
 }
 
 // A structure made and freed as the original's inlined new / delete do.
-CStruct* NewStruct()
+CStruct* SpawnParamBag()
 {
     void* memory = StructPools().Carve(8);
     return memory ? static_cast<CStruct*>(memory)->PrepareAll() : nullptr;
@@ -287,7 +287,7 @@ void CBlendChannel::Reset()
     m_nextBlend = 0.0f;
     if (waiting) {
         m_waiting = false;
-        if (Scripts::CScript* script = Owner(this)->m_runScript)
+        if (Scripts::CScript* script = Owner(this)->m_ownScript)
             script->StopWaiting();
     }
     m_waitTime = 0.0f;
@@ -345,12 +345,12 @@ void CBlendChannel::UpdateBlend()
     if (!m_waiting)
         return;
     GameObjects::CGameEntity* owner = Owner(this);
-    if (!owner->m_runScript) {
+    if (!owner->m_ownScript) {
         void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        owner->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        owner->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     bool stop;
-    if (!owner->m_runScript->IsBlocked(false)) {
+    if (!owner->m_ownScript->IsBlocked(false)) {
         stop = true;
     } else {
         float start, current, end;
@@ -362,7 +362,7 @@ void CBlendChannel::UpdateBlend()
             stop = start >= end && current <= m_waitTime;
     }
     if (stop) {
-        owner->m_runScript->StopWaiting();
+        owner->m_ownScript->StopWaiting();
         m_waiting = false;
     }
 }
@@ -447,7 +447,7 @@ bool CBlendChannel::BlendPose(int index)
         FetchPose(i, &Poses()[i], &BlendWeights()[i]);
     }
     if (count > 1)
-        BlendPoses(Poses(), BlendWeights(), skeleton->GetNumBones(), Poses(), count);
+        MixPoses(Poses(), BlendWeights(), skeleton->GetNumBones(), Poses(), count);
     std::memcpy(&BlendBuffer()[index], Poses(), sizeof(CStance));
     return true;
 }
@@ -507,7 +507,7 @@ bool CBlendChannel::SetFlipped(uint32_t objectId, bool flip, uint32_t /*unused*/
 // 0x0047DD80
 void CBlendChannel::ToggleFlipped()
 {
-    NetLink::AppHost* app = NetManager()->FetchPatron(0);
+    NetLink::AppHost* app = NetSessionSlot()->FetchPatron(0);
     uint32_t unused = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(app) + 8);
     SetFlipped(Owner(this)->m_ident, !((m_flagBits >> 29) & 1), unused, true);
 }
@@ -533,7 +533,7 @@ bool CBlendChannel::IsCycling()
     CAnimTrack* first = First(this);
     if (!first)
         return false;
-    return first->m_loopType == CAnimTimeline::kCycle || first->m_loopType == CAnimTimeline::kPingPong;
+    return first->m_repeatMode == CAnimTimeline::kCycle || first->m_repeatMode == CAnimTimeline::kPingPong;
 }
 
 // 0x0047DF50
@@ -593,7 +593,7 @@ void CBlendChannel::ChooseWobbleGoal(float target, bool send)
     }
     if (!First(this))
         return;
-    CStruct* params = NewStruct();
+    CStruct* params = SpawnParamBag();
     params->PushFloat(0x4D747FA0, target);
     PassToFirst(this, 0xD0209498, params); // ChooseWobbleGoal
     FreeStruct(params);
@@ -630,7 +630,7 @@ void CBlendChannel::SetWobbleDetails(const float* details, bool send)
     }
     if (!First(this))
         return;
-    CStruct* params = NewStruct();
+    CStruct* params = SpawnParamBag();
     params->PushFloat(0xFD266A26, details[0]); // wobbleAmpA
     params->PushFloat(0x642F3B9C, details[1]); // wobbleAmpB
     params->PushFloat(0x0F43FD49, details[2]); // wobbleK1
@@ -641,7 +641,7 @@ void CBlendChannel::SetWobbleDetails(const float* details, bool send)
 }
 
 // 0x0047E740
-void CBlendChannel::SetLoopType(int loopType, bool send)
+void CBlendChannel::ChangeRepeatMode(int loopType, bool send)
 {
     if (send && m_ident == 0) {
         if (OnlinePlay::PlayerRecord* player = LocalPlayer(Owner(this)->m_ident)) {
@@ -656,7 +656,7 @@ void CBlendChannel::SetLoopType(int loopType, bool send)
         }
     }
     if (CAnimTrack* first = First(this))
-        first->m_loopType = loopType;
+        first->m_repeatMode = loopType;
 }
 
 // 0x0047E810
@@ -737,8 +737,8 @@ void CBlendChannel::SetAnimTags(uint32_t anim)
     CStruct* tags;
     if (!all || !all->ReadSubStruct(anim, &tags, 0))
         return;
-    CStruct* params = NewStruct();
-    CStruct* copy = NewStruct();
+    CStruct* params = SpawnParamBag();
+    CStruct* copy = SpawnParamBag();
     copy->AppendStructureIfAny(tags);
     params->AppendStructRef(0x5DB4115F, copy); // AnimTags
     Owner(this)->SetTagsFromStruct(params);
@@ -754,7 +754,7 @@ void __cdecl CBlendChannel::InitBuffers(int blends, int subsets)
     MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->CreateLabeledZone(kAnimScratch, Subsets() * 0x840 + 0x90 + MaxBlends() * 0x848,
                            "AnimScratch", 0); // "AnimScratch"
-    manager->EnterHeapScope(manager->GetNamedHeap(kAnimScratch, 1));
+    manager->EnterHeapScope(manager->FetchHeapByKey(kAnimScratch, 1));
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
     // translations' constructor 0x005902E0 does nothing)
     auto newPoses = [](int count) {
@@ -830,13 +830,13 @@ void CBlendChannel::ConfigureFromData(CStruct* params)
     if (!params->ReadHashValue(0x52A864B0, &animSet, 0))
         params->ReadHashValue(0x09794932, &animSet, 1);
     m_lookupKey = animSet;
-    PlayAnim(kDefault, false, 0.0f, 1000.0f, 0, kDefaultBlendPeriod, 1.0f, nullptr);
+    PlayAnim(kDefault, false, 0.0f, 1000.0f, 0, kStockCrossfade, 1.0f, nullptr);
     Reset();
     uint32_t anim = kDefault;
     bool loop = params->ReadHashValue(0xEAE64B47, &anim, 0);
-    PlayAnim(anim, false, 0.0f, *AnimLength(m_lookupKey + anim), 0, kDefaultBlendPeriod, 1.0f, nullptr);
+    PlayAnim(anim, false, 0.0f, *AnimLength(m_lookupKey + anim), 0, kStockCrossfade, 1.0f, nullptr);
     if (loop)
-        SetLoopType(CAnimTimeline::kCycle, true);
+        ChangeRepeatMode(CAnimTimeline::kCycle, true);
     if (params->HasBareFlag(0xCF466AA2))
         m_flag4C = true;
     SetEventsOn(params->HasBareFlag(0xE1B3F630));
@@ -934,7 +934,7 @@ uint32_t CBlendChannel::PlayAnimFromScript(CStruct* params, Scripts::CScript* sc
 
     uint32_t partial;
     if (params->ReadHashValue(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
-        CStruct* controller = Scripts::NewStruct();
+        CStruct* controller = Scripts::SpawnParamBag();
         if (controller)
             controller = controller->PrepareAll();
         uint32_t id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
@@ -1011,9 +1011,9 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
         return IsClipDone() ? 1 : 0;
     case kPlayAnim:
     case kObjPlayAnim: {
-        PlayAnimFromScript(params, script, kDefaultBlendPeriod);
+        PlayAnimFromScript(params, script, kStockCrossfade);
         MemSys::ListNode* node = m_timelines.next;
-        if (!IsHead(node) && node && reinterpret_cast<CAnimTrack*>(node)->m_loopType == CAnimTimeline::kHold)
+        if (!IsHead(node) && node && reinterpret_cast<CAnimTrack*>(node)->m_repeatMode == CAnimTimeline::kHold)
             Virtual<int>(mp_owner, 3, 0xEA6D0EFDu, params, script); // (the object's own member function)
         return 1;
     }
@@ -1037,7 +1037,7 @@ int CBlendChannel::InvokeMethodByName(uint32_t name, CStruct* params, Scripts::C
         return 1;
     }
     case 0x58C52F64: // the loop type: once with 0xD443A2BC, else cycling
-        SetLoopType(params->HasBareFlag(0xD443A2BC) ? CAnimTimeline::kOnce : CAnimTimeline::kCycle, true);
+        ChangeRepeatMode(params->HasBareFlag(0xD443A2BC) ? CAnimTimeline::kOnce : CAnimTimeline::kCycle, true);
         return 1;
     case 0x5195BCBB: // the speed to the script's Speed
         script->m_args->PushFloat(kSpeed, static_cast<float>(GetSpeed(params, script)));
@@ -1120,15 +1120,15 @@ int CBlendChannel::WaitAnim(CStruct* params)
     if (forwards ? m_waitTime > end : m_waitTime < end)
         m_waitTime = end;
     GameObjects::CGameEntity* owner = Owner(this);
-    if (!owner->m_runScript) {
+    if (!owner->m_ownScript) {
         void* memory = Scripts::CScript::operator new(sizeof(Scripts::CScript));
-        owner->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        owner->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     if ((start <= end && current >= m_waitTime) || (start >= end && current <= m_waitTime)) {
-        owner->m_runScript->StopWaiting(); // (already there)
+        owner->m_ownScript->StopWaiting(); // (already there)
         m_waiting = false;
     } else {
-        owner->m_runScript->GateOff(0);
+        owner->m_ownScript->GateOff(0);
         m_waiting = true;
     }
     return 1;

@@ -21,10 +21,10 @@ class CArray;
 uint8_t* WriteNameAndType(uint8_t* buffer, uint8_t type, uint32_t name);
 // 0x004798F0 (name in ECX, value in EBX): an integer component, in the smallest form for its value. Returns the
 // bytes written - 0 when they don't fit in `size`.
-uint32_t WriteInteger(uint32_t name, int value, uint8_t* buffer, uint32_t size);
+uint32_t EmitInt(uint32_t name, int value, uint8_t* buffer, uint32_t size);
 void WriteIntegerStub();
 // 0x00479A50 (buffer in ECX, name in EDX, size in ESI): a float component (0x13 with no value for tiny ones).
-uint32_t WriteFloat(uint8_t* buffer, uint32_t name, uint32_t size, float value);
+uint32_t EmitReal(uint8_t* buffer, uint32_t name, uint32_t size, float value);
 void WriteFloatStub();
 // 0x00479AC0 / 0x00479B20 (buffer in EAX, string in ECX): a string / local string component.
 uint32_t WriteString(uint8_t* buffer, const char* string, uint32_t name, uint32_t size);

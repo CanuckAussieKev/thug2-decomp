@@ -25,7 +25,7 @@ constexpr uint32_t kResetAll = 0x81740BB6;      // "reset_all"
 constexpr uint32_t kNetKing = 0x6EF8FDA0;       // "netking"
 constexpr uint32_t kKing = 0x5D32129C;          // "king"
 constexpr uint32_t kUseBailStyle = 0x929EB4D5;  // "UseBailStyle"
-constexpr uint32_t kExcludeTeam = 0x6C2A140F;   // "exclude_team"
+constexpr uint32_t kSkipTeam = 0x6C2A140F;   // "exclude_team"
 constexpr uint32_t kRadius = 0xC48391A5;        // "radius"
 constexpr uint32_t kTeam = 0x3B1F59E0;          // "team"
 constexpr uint32_t kPlayer = 0x67E6859A;        // "player"
@@ -39,7 +39,7 @@ bool IsHostLocal(GameObjects::CRider* skater) { return reinterpret_cast<uint8_t*
 void* ScoreOf(GameObjects::CRider* skater) { return skater->GetPointsTotal(); }
 
 // The game mode's name (0x005532A0, no source yet).
-uint32_t GameModeName()
+uint32_t ActiveRulesetLabel()
 {
     return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey();
 }
@@ -84,7 +84,7 @@ bool __cdecl CFunc_ResetScore(Scripts::CStruct* params, Scripts::CScript*)
         if (!IsHostLocal(skater) && !all)
             continue;
         static_cast<GameModules::PointTally*>(ScoreOf(skater))->Reset();
-        if (GameModeName() == kNetKing || GameModeName() == kKing)
+        if (ActiveRulesetLabel() == kNetKing || ActiveRulesetLabel() == kKing)
             MenuSystem::SetScoreText("0:00", skater->GetSkaterNumber()); // "0:00"
         else
             MenuSystem::SetScoreText("0", skater->GetSkaterNumber()); // "0"
@@ -129,17 +129,17 @@ bool __cdecl CFunc_GetCollidingPlayerAndTeam(Scripts::CStruct* params, Scripts::
     uint32_t player = 0xFFFFFFFF;
     float nearest = 1000000.0f;
     int excludeTeam;
-    params->FetchIntValue(kExcludeTeam, &excludeTeam, 1);
+    params->FetchIntValue(kSkipTeam, &excludeTeam, 1);
     float radius;
     params->FetchFloat(kRadius, &radius, 1);
     double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
     float radiusSquared = static_cast<float>(inches * inches);
-    OnlinePlay::Hub* net = OnlinePlay::g_gameNetManager;
+    OnlinePlay::Hub* net = OnlinePlay::g_onlineHub;
     for (int i = 0; i < Skate()->CountRiders(); ++i) {
         GameObjects::CRider* skater = SkaterAt(i);
         if (!skater)
             continue;
-        auto* info = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)));
+        auto* info = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident)));
         if (!info)
             continue;
         if (info->m_team == excludeTeam && !info->IsCarryingFlag())
@@ -156,7 +156,7 @@ bool __cdecl CFunc_GetCollidingPlayerAndTeam(Scripts::CStruct* params, Scripts::
         }
     }
     if (static_cast<int>(player) > -1)
-        team = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->PlayerByObjectId(static_cast<uint16_t>(player)))->m_team;
+        team = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->FindPlayerSlotByObj(static_cast<uint16_t>(player)))->m_team;
     results->PutInt(kTeam, team);
     results->PutInt(kPlayer, static_cast<int>(player));
     return true;

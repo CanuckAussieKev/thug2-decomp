@@ -101,7 +101,7 @@ SGapDetails* CGapRegistry::GetGapInfo(int index, int* half)
 }
 
 // 0x0058CB70
-void CGapRegistry::SetCurrentGap(int index)
+void CGapRegistry::ChangeGapInProgress(int index)
 {
     if (!mp_gaps[index])
         return;
@@ -137,11 +137,11 @@ SGapDetails* SGapDetails::MakeNew()
 float SGapDetails::FetchMagnitude(int half)
 {
     // Its extents and its half's piece across the gap: the piece's length when it faces along z, its width along x.
-    const int extents = m_rightExtent[half] + m_leftExtent[half];
+    const int extents = m_reachRight[half] + m_reachLeft[half];
     switch (m_quarterTurns[half]) {
     case 0:
     case 2:
-        return static_cast<float>((extents + m_atPoint[half].l) * static_cast<double>(kCellLength));
+        return static_cast<float>((extents + m_atPoint[half].l) * static_cast<double>(kGridStepAlong));
     case 1:
     case 3:
         return static_cast<float>((extents + m_atPoint[half].w) * static_cast<double>(kCellWidth));

@@ -85,9 +85,9 @@ bool g_failedLogged;
 void SetMaterial(uint8_t* material) { reinterpret_cast<Engine3D::materialRef*>(material)->HandIn(); }
 void DrawMesh(uint8_t* mesh) { reinterpret_cast<Engine3D::meshRef*>(mesh)->Render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void DrawInstance(uint8_t* instance) { Engine3D::RenderInstance(reinterpret_cast<Engine3D::sSingleton*>(instance), 8); }
+void DrawInstance(uint8_t* instance) { Engine3D::DrawOneInstance(reinterpret_cast<Engine3D::sSingleton*>(instance), 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void UpdateFrustum() { Engine3D::g_billboardManager.SetupAxes(); }
+void UpdateFrustum() { Engine3D::g_billboardPool.SetupAxes(); }
 
 // The camera's globals Engine3D::ChooseCamera and the instance render change, saved and put back.
 struct SavedRange {

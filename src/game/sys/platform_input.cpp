@@ -21,7 +21,7 @@ IDirectInput8A* g_directInput;
 IDirectInputDevice8A* g_keyboardDevice;
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
-int32_t g_keyBindings[0x98];
+int32_t g_inputMap[0x98];
 IDirectInputDevice8A* g_joysticks[kPorts];
 IDirectInputEffect* g_effects[kPorts]; // each joystick's constant-force effect (rumble)
 uint32_t g_forceAxisCounts[kPorts];

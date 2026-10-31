@@ -29,7 +29,7 @@ extern void** const kPcAsyncFileHandleAdapterVtable;
 namespace FileLoad {
 
 static_assert(offsetof(AsyncFileHandle, m_callbackMask) == 0x14 && offsetof(AsyncFileHandle, m_isBlocking) == 0x21 &&
-                  offsetof(AsyncFileHandle, m_payloadBytes) == 0x2C && offsetof(AsyncFileHandle, m_busyCount) == 0x38,
+                  offsetof(AsyncFileHandle, m_payloadBytes) == 0x2C && offsetof(AsyncFileHandle, m_inFlightOps) == 0x38,
               "layout must match the original");
 
 namespace {
@@ -38,7 +38,7 @@ constexpr int kMaxHandles = 16;
 
 AsyncFileHandle* g_pool[kMaxHandles];
 int g_handlesInUse;
-int g_busyCount;
+int g_pendingReads;
 bool g_ioCompleted;
 int g_currentList;
 AsyncLoaderModule* g_loaderModule;
@@ -48,7 +48,7 @@ bool g_useOverlappedIo;
 // Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
 AsyncFileHandle** SlabBank() { return g_pool; }
 int& HandlesInUse() { return g_handlesInUse; }
-volatile int& BusyCount() { return g_busyCount; }
+volatile int& PendingIoCounter() { return g_pendingReads; }
 volatile bool& IoCompleted() { return g_ioCompleted; }
 
 // Completed operations waiting for their callbacks: two lists, one filled while the other is run.
@@ -74,7 +74,7 @@ void ResetFields(AsyncFileHandle* file)
     file->m_payloadBytes = -1;
     file->m_anchorPoint = -1;
     file->m_callbackMask = 0xFFFFFFFF;
-    file->m_busyCount = 0;
+    file->m_inFlightOps = 0;
     file->m_callback = nullptr;
     file->m_arg0 = nullptr;
     file->m_arg1 = nullptr;
@@ -91,9 +91,9 @@ void ResetFields(AsyncFileHandle* file)
 // Report an operation served from a .pre archive, as the platform does when its I/O completes.
 void CompleteFromArchive(AsyncFileHandle* file)
 {
-    BusyCount() = BusyCount() + 1;
-    file->m_busyCount = file->m_busyCount + 1;
-    file->Virtual<void>(AsyncFileHandle::kIoCallback, file->m_operation, false, file->m_outcomeVal, 0);
+    PendingIoCounter() = PendingIoCounter() + 1;
+    file->m_inFlightOps = file->m_inFlightOps + 1;
+    file->Virtual<void>(AsyncFileHandle::kSlotNotify, file->m_operation, false, file->m_outcomeVal, 0);
 }
 
 } // namespace
@@ -108,7 +108,7 @@ void ConstructBase(AsyncFileHandle* file)
     ResetFields(file);
     file->m_vtable = kAsyncFileHandleAdapterVtable;
     // The base class's platform init, through the base vtable (a debug stub).
-    reinterpret_cast<bool(__thiscall*)(AsyncFileHandle*)>(file->m_vtable[AsyncFileHandle::kPlatInit])(file);
+    reinterpret_cast<bool(__thiscall*)(AsyncFileHandle*)>(file->m_vtable[AsyncFileHandle::kSlotInit])(file);
 }
 
 // --- CAsyncFileHandle ----------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ void ConstructBase(AsyncFileHandle* file)
 bool AsyncFileHandle::PrepareAll()
 {
     ResetFields(this);
-    return Virtual<bool>(kPlatInit);
+    return Virtual<bool>(kSlotInit);
 }
 
 // 0x005B6380
@@ -155,19 +155,19 @@ bool AsyncFileHandle::Cancel()
 // 0x005B6730
 bool AsyncFileHandle::IsOccupied()
 {
-    return m_busyCount > 0;
+    return m_inFlightOps > 0;
 }
 
 // 0x005B6740
 int AsyncFileHandle::TakeIn(void* buffer, int size, int count)
 {
-    m_operation = kAsyncRead;
+    m_operation = kOpReadFile;
     if (m_preFile) {
         m_outcomeVal = Pre::TakeIn(buffer, size, count, static_cast<Pre::ArchiveFile::FileInfo*>(m_preFile));
         CompleteFromArchive(this);
         return m_outcomeVal;
     }
-    return Virtual<int>(kPlatRead, buffer, size, count);
+    return Virtual<int>(kSlotRead, buffer, size, count);
 }
 
 // 0x005B67B0
@@ -190,7 +190,7 @@ bool AsyncFileHandle::Unseal(const char* name, bool blocking, int priority)
             return m_outcomeVal != 0;
         }
     }
-    return Virtual<bool>(kPlatOpen, name);
+    return Virtual<bool>(kSlotOpen, name);
 }
 
 // 0x005B6840
@@ -202,11 +202,11 @@ bool AsyncFileHandle::Shut()
         CompleteFromArchive(this);
         return m_outcomeVal != 0;
     }
-    return Virtual<bool>(kPlatClose);
+    return Virtual<bool>(kSlotClose);
 }
 
 // 0x005B69F0 (virtual onIoDone: an operation finished - queue its callback, or count it done)
-void AsyncFileHandle::IoCallback(int event, bool error, int value, int /*extra*/)
+void AsyncFileHandle::IoDoneHandler(int event, bool error, int value, int /*extra*/)
 {
     m_outcomeVal = value;
     IoCompleted() = true;
@@ -214,8 +214,8 @@ void AsyncFileHandle::IoCallback(int event, bool error, int value, int /*extra*/
         AsyncAddCallback(this, event, value); // counted done when the callback has run
         return;
     }
-    BusyCount() = BusyCount() - 1;
-    if ((m_busyCount = m_busyCount - 1) == 0)
+    PendingIoCounter() = PendingIoCounter() - 1;
+    if ((m_inFlightOps = m_inFlightOps - 1) == 0)
         m_operation = kAsyncIdle;
 }
 
@@ -231,7 +231,7 @@ void AsyncInit()
 // 0x005B6580
 bool AsyncBusy()
 {
-    return BusyCount() > 0;
+    return PendingIoCounter() > 0;
 }
 
 // 0x005B6590
@@ -274,8 +274,8 @@ void AsyncExecuteCallbacks()
         const PendingCallback& pending = CallbackLists()[list][i];
         AsyncFileHandle* file = pending.file;
         file->m_callback(file, pending.event, pending.value, file->m_arg0, file->m_arg1);
-        BusyCount() = BusyCount() - 1;
-        if ((file->m_busyCount = file->m_busyCount - 1) == 0)
+        PendingIoCounter() = PendingIoCounter() - 1;
+        if ((file->m_inFlightOps = file->m_inFlightOps - 1) == 0)
             file->m_operation = kAsyncIdle;
     }
     CallbackCounts()[list] = 0;
@@ -285,16 +285,16 @@ void AsyncExecuteCallbacks()
 void AsyncWaitForIO(bool all)
 {
     for (;;) {
-        DebugOut::Printf("CAsyncFileLoader waiting for io completion: busy count %d completion %d\n", BusyCount(),
+        DebugOut::Printf("CAsyncFileLoader waiting for io completion: busy count %d completion %d\n", PendingIoCounter(),
                     IoCompleted());
         while (!IoCompleted()) {
         }
-        DebugOut::Printf("CAsyncFileLoader got completion: busy count %d completion %d\n", BusyCount(), IoCompleted());
+        DebugOut::Printf("CAsyncFileLoader got completion: busy count %d completion %d\n", PendingIoCounter(), IoCompleted());
         AsyncExecuteCallbacks();
         if (!all)
             return;
         int busy = 0;
-        while (busy < kMaxHandles && SlabBank()[busy]->m_busyCount <= 0)
+        while (busy < kMaxHandles && SlabBank()[busy]->m_inFlightOps <= 0)
             ++busy;
         if (busy == kMaxHandles)
             return;
@@ -309,9 +309,9 @@ AsyncFileHandle* AsyncGetHandle()
     if (first_free >= kMaxHandles)
         return nullptr;
     // The next handle may still be finishing an operation: use a later idle one instead, or wait.
-    if (SlabBank()[first_free]->m_busyCount > 0) {
+    if (SlabBank()[first_free]->m_inFlightOps > 0) {
         int idle = first_free + 1;
-        while (idle < kMaxHandles && SlabBank()[idle]->m_busyCount > 0)
+        while (idle < kMaxHandles && SlabBank()[idle]->m_inFlightOps > 0)
             ++idle;
         if (idle < kMaxHandles) {
             AsyncFileHandle* swap = SlabBank()[idle];
@@ -322,12 +322,12 @@ AsyncFileHandle* AsyncGetHandle()
             do {
                 AsyncExecuteCallbacks();
                 first_free = HandlesInUse();
-            } while (busy->m_busyCount > 0);
+            } while (busy->m_inFlightOps > 0);
         }
     }
     AsyncFileHandle* file = SlabBank()[first_free];
     ResetFields(file);
-    file->Virtual<bool>(AsyncFileHandle::kPlatInit);
+    file->Virtual<bool>(AsyncFileHandle::kSlotInit);
     return SlabBank()[HandlesInUse()++];
 }
 
@@ -427,14 +427,14 @@ bool& UseOverlappedIo() { return g_useOverlappedIo; }
 struct PcAsyncFileHandle : AsyncFileHandle {
     // Platform methods (vtable slots).
     void PcIoCallback(int event, bool error, int value, int extra);
-    bool PlatInit();
-    bool PlatOpen(const char* name);
-    bool PlatClose();
-    bool PlatIsDone();
-    bool PlatIsBusy();
-    bool PlatIsEOF();
-    int PlatLoad(void* buffer);
-    int PlatRead(void* buffer, int size, int count);
+    bool OsOpenSetup();
+    bool OsOpenFile(const char* name);
+    bool OsCloseFile();
+    bool OsReadFinished();
+    bool OsReadPending();
+    bool OsAtEnd();
+    int OsLoadWhole(void* buffer);
+    int OsReadChunk(void* buffer, int size, int count);
 
     uint8_t m_unknown3C[0x7C - 0x3C];
     int m_unknown7C;
@@ -457,7 +457,7 @@ void PcAsyncFileHandle::PcIoCallback(int event, bool error, int value, int extra
             m_payloadBytes = extra;
         break;
     case 2:
-    case kAsyncRead:
+    case kOpReadFile:
         if (!error && m_tempBuffer && value > 0)
             std::memcpy(m_destination, m_tempBuffer, static_cast<size_t>(value));
         [[fallthrough]];
@@ -479,11 +479,11 @@ void PcAsyncFileHandle::PcIoCallback(int event, bool error, int value, int extra
     default:
         break;
     }
-    IoCallback(event, error, value, extra);
+    IoDoneHandler(event, error, value, extra);
 }
 
 // 0x005B9650 (returns false, as the original does - EAX is 0 when it returns)
-bool PcAsyncFileHandle::PlatInit()
+bool PcAsyncFileHandle::OsOpenSetup()
 {
     m_unknown7C = 0;
     m_destination = nullptr;
@@ -495,7 +495,7 @@ bool PcAsyncFileHandle::PlatInit()
 }
 
 // 0x005B97E0
-bool PcAsyncFileHandle::PlatOpen(const char* name)
+bool PcAsyncFileHandle::OsOpenFile(const char* name)
 {
     m_anchorPoint = 0;
     char path[260];
@@ -503,8 +503,8 @@ bool PcAsyncFileHandle::PlatOpen(const char* name)
     // Original behaviour: the data folder's file.
     if (!MenuSystem::DataOverlay::OverlayPath(name, path))
         MakeDiskPath(reinterpret_cast<char(&)[256]>(path), name);
-    BusyCount() = BusyCount() + 1;
-    m_busyCount = m_busyCount + 1;
+    PendingIoCounter() = PendingIoCounter() + 1;
+    m_inFlightOps = m_inFlightOps + 1;
     bool overlapped = UseOverlappedIo();
     m_fileRef = CreateFileA(path, GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
                          overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -512,25 +512,25 @@ bool PcAsyncFileHandle::PlatOpen(const char* name)
         return false; // (the busy counts stay raised, as in the original)
     m_payloadBytes = static_cast<int>(::GetFileSize(m_fileRef, nullptr));
     m_payloadBytes = (m_payloadBytes + 0x7FF) & ~0x7FF; // whole 2 KB sectors (unbuffered reads)
-    Virtual<void>(kIoCallback, m_operation, false, reinterpret_cast<int>(m_fileRef), static_cast<int>(m_payloadBytes));
+    Virtual<void>(kSlotNotify, m_operation, false, reinterpret_cast<int>(m_fileRef), static_cast<int>(m_payloadBytes));
     return true;
 }
 
 // 0x005B9AF0
-bool PcAsyncFileHandle::PlatClose()
+bool PcAsyncFileHandle::OsCloseFile()
 {
     if (m_fileRef == INVALID_HANDLE_VALUE)
         return false;
-    BusyCount() = BusyCount() + 1;
-    m_busyCount = m_busyCount + 1;
+    PendingIoCounter() = PendingIoCounter() + 1;
+    m_inFlightOps = m_inFlightOps + 1;
     CloseHandle(m_fileRef);
     m_fileRef = INVALID_HANDLE_VALUE;
-    Virtual<void>(kIoCallback, m_operation, false, 0, 0);
+    Virtual<void>(kSlotNotify, m_operation, false, 0, 0);
     return true;
 }
 
 // 0x005B9680 (called by the I/O thread while the handle is busy)
-bool PcAsyncFileHandle::PlatIsDone()
+bool PcAsyncFileHandle::OsReadFinished()
 {
     if (!UseOverlappedIo()) {
         m_outcomeVal = 0;
@@ -543,51 +543,51 @@ bool PcAsyncFileHandle::PlatIsDone()
             DWORD bytes;
             GetOverlappedResult(m_fileRef, &m_asyncCtl, &bytes, FALSE);
             m_outcomeVal = 0;
-            Virtual<void>(kIoCallback, m_operation, false, static_cast<int>(bytes), 0);
+            Virtual<void>(kSlotNotify, m_operation, false, static_cast<int>(bytes), 0);
         }
     }
     return done;
 }
 
 // 0x005B9700
-bool PcAsyncFileHandle::PlatIsBusy()
+bool PcAsyncFileHandle::OsReadPending()
 {
     return m_outcomeVal == kErrorIoPending;
 }
 
 // 0x005B9710
-bool PcAsyncFileHandle::PlatIsEOF()
+bool PcAsyncFileHandle::OsAtEnd()
 {
     return m_outcomeVal == kErrorHandleEof;
 }
 
 // 0x005B9720: read the whole file from the start
-int PcAsyncFileHandle::PlatLoad(void* buffer)
+int PcAsyncFileHandle::OsLoadWhole(void* buffer)
 {
     m_asyncCtl.Offset = 0;
     m_asyncCtl.OffsetHigh = 0;
     m_asyncCtl.hEvent = nullptr;
-    return Virtual<int>(kPlatRead, buffer, 1, GetFileSize());
+    return Virtual<int>(kSlotRead, buffer, 1, GetFileSize());
 }
 
 // 0x005B9A40
-int PcAsyncFileHandle::PlatRead(void* buffer, int size, int count)
+int PcAsyncFileHandle::OsReadChunk(void* buffer, int size, int count)
 {
     DWORD length = static_cast<DWORD>((size * count + 0x7FF) & ~0x7FF); // whole sectors
-    BusyCount() = BusyCount() + 1;
-    m_busyCount = m_busyCount + 1;
+    PendingIoCounter() = PendingIoCounter() + 1;
+    m_inFlightOps = m_inFlightOps + 1;
     DWORD bytes = 0;
     if (!ReadFile(m_fileRef, buffer, length, &bytes, UseOverlappedIo() ? &m_asyncCtl : nullptr)) {
         m_outcomeVal = static_cast<int>(GetLastError());
         if (m_outcomeVal == kErrorIoPending && m_isBlocking) {
-            while (!Virtual<bool>(kPlatIsDone)) {
+            while (!Virtual<bool>(kSlotFinished)) {
             }
         }
         return 0;
     }
     // Finished at once: counted done here, without a callback (as in the original).
-    BusyCount() = BusyCount() - 1;
-    m_busyCount = m_busyCount - 1;
+    PendingIoCounter() = PendingIoCounter() - 1;
+    m_inFlightOps = m_inFlightOps - 1;
     return 0;
 }
 
@@ -599,7 +599,7 @@ DWORD WINAPI AsyncIoThread(void*)
         for (int i = 0; i < kMaxHandles; ++i) {
             AsyncFileHandle* file = SlabBank()[i];
             if (file && file->IsOccupied())
-                file->Virtual<bool>(AsyncFileHandle::kPlatIsDone);
+                file->Virtual<bool>(AsyncFileHandle::kSlotFinished);
         }
     }
 }
@@ -639,11 +639,11 @@ void ConstructAsyncFileHandle(AsyncFileHandle* file)
 
 PcAsyncMethods PcAsyncFileHandleMethods()
 {
-    return {CodeAddress(&PcAsyncFileHandle::PcIoCallback), CodeAddress(&PcAsyncFileHandle::PlatInit),
-            CodeAddress(&PcAsyncFileHandle::PlatOpen),     CodeAddress(&PcAsyncFileHandle::PlatClose),
-            CodeAddress(&PcAsyncFileHandle::PlatIsDone),   CodeAddress(&PcAsyncFileHandle::PlatIsBusy),
-            CodeAddress(&PcAsyncFileHandle::PlatIsEOF),    CodeAddress(&PcAsyncFileHandle::PlatLoad),
-            CodeAddress(&PcAsyncFileHandle::PlatRead)};
+    return {CodeAddress(&PcAsyncFileHandle::PcIoCallback), CodeAddress(&PcAsyncFileHandle::OsOpenSetup),
+            CodeAddress(&PcAsyncFileHandle::OsOpenFile),     CodeAddress(&PcAsyncFileHandle::OsCloseFile),
+            CodeAddress(&PcAsyncFileHandle::OsReadFinished),   CodeAddress(&PcAsyncFileHandle::OsReadPending),
+            CodeAddress(&PcAsyncFileHandle::OsAtEnd),    CodeAddress(&PcAsyncFileHandle::OsLoadWhole),
+            CodeAddress(&PcAsyncFileHandle::OsReadChunk)};
 }
 
 bool& AsyncUseOverlappedIo()
@@ -715,7 +715,7 @@ void AsyncPollHandles()
     for (int i = 0; i < kMaxHandles; ++i) {
         AsyncFileHandle* file = SlabBank()[i];
         if (file && file->IsOccupied())
-            file->Virtual<bool>(AsyncFileHandle::kPlatIsDone);
+            file->Virtual<bool>(AsyncFileHandle::kSlotFinished);
     }
 }
 
@@ -805,7 +805,7 @@ FileLoad::AsyncLoaderModule* FileLoad::ConstructAsyncLoaderModule(void* memory)
 
 namespace {
 static VtableSlot kAsyncFileHandleAdapterVtable_slots[] = {&AsyncFileHandleAdapter::Teardown,
-                &AsyncFileHandle::IoCallback,
+                &AsyncFileHandle::IoDoneHandler,
                 &BaseStubs::PrepareAll,
                 &BaseStubs::Unseal,
                 &BaseStubs::Shut,
@@ -828,12 +828,12 @@ static VtableSlot kAsyncLoaderModuleMethodsVtable_slots[] = {&AsyncLoaderModuleM
                 &AsyncLoaderModuleMethods::Kickoff, &GameModules::Skate::StopCallback};
 void** const kAsyncLoaderModuleMethodsVtable = reinterpret_cast<void**>(kAsyncLoaderModuleMethodsVtable_slots);
 static VtableSlot kPcAsyncFileHandleAdapterVtable_slots[] = {&PcAsyncFileHandleAdapter::Teardown,
-                &FileLoad::PcAsyncFileHandle::PcIoCallback, &FileLoad::PcAsyncFileHandle::PlatInit,
-                &FileLoad::PcAsyncFileHandle::PlatOpen, &FileLoad::PcAsyncFileHandle::PlatClose,
-                &FileLoad::PcAsyncFileHandle::PlatIsDone, &FileLoad::PcAsyncFileHandle::PlatIsBusy,
-                &FileLoad::PcAsyncFileHandle::PlatIsEOF, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
-                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &FileLoad::PcAsyncFileHandle::PlatLoad,
-                &FileLoad::PcAsyncFileHandle::PlatRead, Stubs::ReturnZero3, Stubs::ReturnZero2, Stubs::ReturnZero2,
+                &FileLoad::PcAsyncFileHandle::PcIoCallback, &FileLoad::PcAsyncFileHandle::OsOpenSetup,
+                &FileLoad::PcAsyncFileHandle::OsOpenFile, &FileLoad::PcAsyncFileHandle::OsCloseFile,
+                &FileLoad::PcAsyncFileHandle::OsReadFinished, &FileLoad::PcAsyncFileHandle::OsReadPending,
+                &FileLoad::PcAsyncFileHandle::OsAtEnd, Stubs::IgnoreArgument, Stubs::IgnoreArgument,
+                Stubs::IgnoreArgument, Stubs::IgnoreArgument, Stubs::IgnoreArgument, &FileLoad::PcAsyncFileHandle::OsLoadWhole,
+                &FileLoad::PcAsyncFileHandle::OsReadChunk, Stubs::ReturnZero3, Stubs::ReturnZero2, Stubs::ReturnZero2,
                 &BaseStubs::Cancel};
 void** const kPcAsyncFileHandleAdapterVtable = reinterpret_cast<void**>(kPcAsyncFileHandleAdapterVtable_slots);
 } // namespace

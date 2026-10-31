@@ -52,7 +52,7 @@ void BaseDestroyBody(void* movie) { Base(movie)->DestroyBody(); }
 void BaseLoad(void* movie, Scripts::CStruct* params) { Base(movie)->ConfigureFromData(params); }
 void SetHeld(void* movie, int value) { Base(movie)->SetFlag1B(static_cast<uint8_t>(value)); }
 // The movie's name (movie_manager.h).
-uint32_t NameOf(void* movie) { return MovieName(movie); }
+uint32_t NameOf(void* movie) { return MovieKeyFromParams(movie); }
 // The asset manager's asset by name (null if none).
 void* FindAsset(uint32_t name) { return AssetStore::g_assetManager->GetAssetData(name, 0); }
 // The movie's own Start (vtable slot 3).
@@ -217,7 +217,7 @@ CCameraAnimMovie* CCameraAnimMovie::MakeNew()
     m_anim = nullptr;
     m_hasGoal = false;
     m_aimPoint = 0;
-    reinterpret_cast<uint32_t&>(m_viewAngle) = 0;
+    reinterpret_cast<uint32_t&>(m_fieldOfView) = 0;
     return this;
 }
 
@@ -244,7 +244,7 @@ bool CCameraAnimMovie::ReadIn(Scripts::CStruct* params)
     BaseLoad(this, params);
     float fov;
     if (params->FetchFloat(0x17E7321E, &fov, 0)) {
-        m_viewAngle = fov;
+        m_fieldOfView = fov;
         m_base.m_viewer->ChangeHFov(fov);
     }
     if (!LoadAnim(this, params))
@@ -354,7 +354,7 @@ void CCameraAnimMovie::PlaceCamera()
         pos[0] = pos[1] = pos[2] = 0.0f;
         pos[3] = 1.0f;
         SetIdentity(m);
-        float fov = m_viewAngle;
+        float fov = m_fieldOfView;
         if (fov == g_floatZero)
             fov = Scripts::FetchFloat(0x99529205);
         m_base.m_viewer->ChangeHFov(fov);
@@ -364,7 +364,7 @@ void CCameraAnimMovie::PlaceCamera()
     float dir[4];
     if (m_aimPoint != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
-        auto* object = reinterpret_cast<uint8_t*>(reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(m_aimPoint));
+        auto* object = reinterpret_cast<uint8_t*>(reinterpret_cast<CObjectHubBase*>(g_compositeRegistry)->LookUpEntity(m_aimPoint));
         if (!object)
             return;
         float target[4] = {Prop<float>(object, 0x4C), Prop<float>(object, 0x50), Prop<float>(object, 0x54), 1.0f};

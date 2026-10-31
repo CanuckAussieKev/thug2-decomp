@@ -149,7 +149,7 @@ bool __cdecl CFunc_MemDeleteHeap(CStruct* params, CScript*)
 // 0x00448200: MemHeapExists name=...: whether there is such a named heap.
 bool __cdecl CFunc_MemHeapExists(CStruct* params, CScript*)
 {
-    return Hub()->GetNamedHeap(HeapName(params), 0) != nullptr;
+    return Hub()->FetchHeapByKey(HeapName(params), 0) != nullptr;
 }
 
 // 0x00448270: AnalyzeHeap [<heap name> (BottomUpHeap)] (compiled out; params may be null). Always true.

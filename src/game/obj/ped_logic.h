@@ -127,13 +127,13 @@ public:
     // 0x004EFD50: a new structure (StateParams) with a jump's parameters: straight up (jumpSpeed from JumpHeight and
     // ped_skater_jump_gravity) or to the next node (heading, jumpSpeed, jumpTime; land_height); the spin (SpinAngle or
     // random half turns, SpinDirection) and the spine transfer's turn (should_flip). The caller deletes it.
-    Scripts::CStruct* JumpParams(Scripts::CStruct* params, bool toNode);
+    Scripts::CStruct* LeapNodeParams(Scripts::CStruct* params, bool toNode);
     // 0x004F2570: the next waypoint reached: the path moved on (the vert flags, the crouch for a jump, the node after
     // chosen), the reached node's actions and, for a skating ped's node, its SkateAction (not after a vert grab).
     void ReachWaypoint();
     // 0x004F2340: the state a skating ped's node's SkateAction starts (none while bailing).
     void DoSkateAction(Scripts::CStruct* node);
-    // The states DoSkateAction starts (SkaterPed_StateTable's), with StateParams / JumpParams of the node:
+    // The states DoSkateAction starts (SkaterPed_StateTable's), with StateParams / LeapNodeParams of the node:
     void StartGrind(Scripts::CStruct* node);              // 0x004F1A90 STATE_grind (the node's TerrainType's sound)
     void EndGrind(Scripts::CStruct* node);                // 0x004F1B10 STATE_grindoff, if grinding
     void Jump(Scripts::CStruct* node, bool vert);         // 0x004F1B40 STATE_jump / STATE_jumpvert
@@ -274,7 +274,7 @@ public:
     float m_stickAbove;            // +0xD4 DistAbove (ped_skater_stick_dist_above)
     float m_stickBelow;            // +0xD8 DistBelow (ped_skater_stick_dist_below)
     float m_storedMaxVelocity;     // +0xDC Ped_StoreMaxVelocity
-    float m_speedFraction;         // +0xE0 the motion component's speed over its max speed (the looping sound's)
+    float m_speedRatio;         // +0xE0 the motion component's speed over its max speed (the looping sound's)
     int m_spinAngle;               // +0xE4 the jump's spin (degrees, signed)
     float m_twistRate;                  // +0xE8 how far it has spun (degrees)
     float m_spinTime;              // +0xEC the jump's length (seconds)

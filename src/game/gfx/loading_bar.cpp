@@ -27,12 +27,12 @@ float g_totalSeconds;
 
 float g_floatTen{10.0f};
 int g_barPosition[2]{258, 400};
-int g_barWidth{140};
-int g_barHeight{8};
+int g_progressWidth{140};
+int g_progressHeight{8};
 int g_barBorder[2]{5, 5};
-uint8_t g_barStartColor[4]{0x00, 0x4C, 0x81, 0x80};
-uint8_t g_barEndColor[4]{0xAC, 0xD3, 0x73, 0x80};
-uint8_t g_barBorderColor[4]{0x28, 0x28, 0x28, 0x80};
+uint8_t g_progressFromColor[4]{0x00, 0x4C, 0x81, 0x80};
+uint8_t g_progressToColor[4]{0xAC, 0xD3, 0x73, 0x80};
+uint8_t g_progressEdgeColor[4]{0x28, 0x28, 0x28, 0x80};
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
@@ -54,12 +54,12 @@ Rgb g_gradientStart;
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const uint8_t* StartColor() { return g_barStartColor; }
-const uint8_t* EndColor() { return g_barEndColor; }
-const uint8_t* BorderColor() { return g_barBorderColor; }
-int& BarWidth() { return g_barWidth; }
+const uint8_t* StartColor() { return g_progressFromColor; }
+const uint8_t* EndColor() { return g_progressToColor; }
+const uint8_t* BorderColor() { return g_progressEdgeColor; }
+int& ProgressBarPixels() { return g_progressWidth; }
 int& ScreenWidth() { return g_backBufferWidth; }
-float& ScreenScaleX() { return g_screenScaleX; }
+float& HorizScreenRatio() { return g_displayFactorX; }
 
 Rgb& GradientStart() { return g_gradientStart; }
 Rgb& GradientEnd() { return g_gradientEnd; }
@@ -74,7 +74,7 @@ float& ElapsedSeconds() { return g_elapsedSeconds; }
 float& TotalSeconds() { return g_totalSeconds; }
 int& ScreenHeight() { return g_backBufferHeight; }
 uint32_t& BarTimer() { return g_loadingBarTimer; }    // the timer's id (timeSetEvent)
-bool& ScreenUp() { return g_loadingScreenUp; }           // shown (0x004B78B0): the main loop doesn't draw
+bool& LoadScreenShown() { return g_loadingScreenUp; }           // shown (0x004B78B0): the main loop doesn't draw
 HANDLE& ScreenMutex() { return reinterpret_cast<HANDLE&>(g_screenMutex); }    // held while the loading screen is drawn
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
@@ -105,14 +105,14 @@ void UpdateLoadingBarColors()
 {
     GradientStart() = {StartColor()[0], StartColor()[1], StartColor()[2]};
     GradientEnd() = {EndColor()[0], EndColor()[1], EndColor()[2]};
-    GradientWidth() = static_cast<int>(static_cast<double>(ScreenWidth()) * BarWidth() * (1.0f / 640.0f));
+    GradientWidth() = static_cast<int>(static_cast<double>(ScreenWidth()) * ProgressBarPixels() * (1.0f / 640.0f));
     BorderArgb() = 0x80000000u | BorderColor()[0] << 16 | BorderColor()[1] << 8 | BorderColor()[2];
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
     // bytes too early (it replaced the instruction's base, which is the table's address + 4). Here the table is
     // at the start of the buffer. Nothing reads the table.
-    int steps = static_cast<int>(static_cast<double>(GradientWidth()) * ScreenScaleX());
+    int steps = static_cast<int>(static_cast<double>(GradientWidth()) * HorizScreenRatio());
     const Rgb start = GradientStart();
     const Rgb delta = {GradientEnd().r - start.r, GradientEnd().g - start.g, GradientEnd().b - start.b};
     Rgb* table = GradientTable();
@@ -130,7 +130,7 @@ void UpdateLoadingBarColors()
 // full. Not original: the loading console's panel (game/gfx/loading_console.h) is drawn before the scene ends.
 void __stdcall DrawLoadingScreenFrame(unsigned int, unsigned int, unsigned long, unsigned long, unsigned long)
 {
-    if (!BarTimer() || !ScreenUp())
+    if (!BarTimer() || !LoadScreenShown())
         return;
     WaitForSingleObject(ScreenMutex(), INFINITE);
     InputPort()->BeginScene();

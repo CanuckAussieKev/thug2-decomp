@@ -10,12 +10,12 @@ namespace AudioStream {
 
 // A stream's frame amplitudes (data\fam\<checksum>.fam: one byte a frame, for lip sync), loaded by
 // LoadStreamFrameAmp. One slot (at 0x0069BAC8); a checksum of 0 marks it free.
-struct FrameAmp {
+struct StreamAmpCurve {
     uint32_t checksum;
     int size;
     uint8_t data[0x1000];
 };
-static_assert(sizeof(FrameAmp) == 0x1008, "layout must match the original");
+static_assert(sizeof(StreamAmpCurve) == 0x1008, "layout must match the original");
 
 // 0x00451010: pause (1) or unpause (0) the streams; -1 unpauses only if they weren't paused when last paused
 // with 1. (As PauseMusic, for the streams.)
@@ -27,9 +27,9 @@ bool __cdecl IsStreamPlaying(uint32_t id);
 
 // 0x004516A0: load the frame amplitudes of stream `checksum` into the free slot; the slot, or null (none free,
 // no file, or more than 0x1000 bytes).
-FrameAmp* __cdecl LoadStreamFrameAmp(uint32_t checksum);
+StreamAmpCurve* __cdecl LoadStreamFrameAmp(uint32_t checksum);
 // 0x004516E0: the slot holding stream `checksum`'s frame amplitudes (with 0: a free slot), or null.
-FrameAmp* __cdecl GetStreamFrameAmp(uint32_t checksum);
+StreamAmpCurve* __cdecl FetchStreamAmpCurve(uint32_t checksum);
 // 0x00451720: free the slot of stream `checksum`; false if none (or checksum 0).
 bool __cdecl FreeStreamFrameAmp(uint32_t checksum);
 

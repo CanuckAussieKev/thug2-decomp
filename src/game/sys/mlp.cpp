@@ -47,7 +47,7 @@ namespace {
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
-bool& OmitFromDraw() { return Engine3D::g_skipRender; }
+bool& OmitFromDraw() { return Engine3D::g_suppressDraw; }
 bool& Flag6F1158() { return GameObjects::g_cutscenePlaying; } // cleared every frame (read by the pad code)
 bool AppActive() { return SystemCore::g_appActive; }
 bool TextEntry() { return OnlinePlay::g_textEntry; } // keeps the loop running while the window is inactive
@@ -83,12 +83,12 @@ void RunTasks(TaskList::PileUp& list, bool profiling)
 {
     list.WorkOn(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
-void BeginScene() { Engine3D::StartRender(); }      // the device's BeginScene
+void BeginScene() { Engine3D::BeginFrameDraw(); }      // the device's BeginScene
 void RenderFrame() { Engine3D::Engine::RenderFrame(); }     // the world, then the 2D
 void AfterRender() { GameModules::Skate::DebugRails(); }     // (uses the skate module)
 void EndScene() { Engine3D::Engine::EndRender(); }        // EndScene, Present
 
-uint8_t LetterboxActive() { return Engine3D::g_camera.letterboxActive; }
+uint8_t CinemaBarsOn() { return Engine3D::g_camera.letterboxActive; }
 
 } // namespace
 
@@ -99,9 +99,9 @@ void RenderFrameLetterboxed()
 {
     RenderFrame();
     if (Engine3D::CurrentLevel() == 0) {
-        if (LetterboxActive() != 1)
+        if (CinemaBarsOn() != 1)
             Engine3D::SetLetterbox(true);
-    } else if (LetterboxActive() != 0) {
+    } else if (CinemaBarsOn() != 0) {
         Engine3D::SetLetterbox(false);
     }
 }
@@ -273,7 +273,7 @@ void Hub::MainLoop()
         }
         frameStart += frameTicks;
 
-        FrameClock::CountVblank();
+        FrameClock::NoteRefresh();
         FrameClock::OnceEveryDraw();
         if (m_profileFrames) {
             DebugOut::Printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"

@@ -49,11 +49,11 @@ static_assert(offsetof(sSingleton, bones) == 0x44 && offsetof(sSingleton, color)
               "layout must match the original");
 
 // 0x004D16B0: an instance drawn on its own (flag 8: even out of view or occluded), the world transform put back.
-void __cdecl RenderInstance(sSingleton* instance, uint32_t flags);
+void __cdecl DrawOneInstance(sSingleton* instance, uint32_t flags);
 // 0x004D1760: the active instances shown in `viewport`, with opaque (flags 1) or transparent (2) meshes, in view
 // and not occluded: sorted (CompareInstances), the vertex-shader-skinned ones first (transparent ones with 0x80),
 // then the others (transparent ones with 0x100; 0x00786E60 set for those near the camera), lit by lights 0 and 1.
-void __cdecl RenderInstances(uint32_t flags, int viewport);
+void __cdecl DrawInstanceBatch(uint32_t flags, int viewport);
 // 0x004D0F40 (qsort's, over instance pointers): the vertex-shader-skinned ones first, by their bones (descending)
 // then their transparent mesh counts; the others by their transparent mesh counts, then their first transparent
 // meshes' materials' sort keys (+0x1C).

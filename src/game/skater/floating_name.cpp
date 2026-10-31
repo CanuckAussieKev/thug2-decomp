@@ -39,19 +39,19 @@ constexpr float kLocalHeight = 96.0f;  // above this machine's player's skater
 constexpr float kOtherHeight = 120.0f; // above the others'
 
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
-// this machine's player (GetCamPlayer: its +0x1CC).
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-bool InNetGame() { return NetManager()->InNetGame(); }
-bool ShowNames() { return NetManager()->WantsNameTags(); }
-uint8_t* PlayerByObjectId(uint32_t id) { return NetManager()->PlayerByObjectId(static_cast<uint16_t>(id)); }
-uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetManager()->GetCamPlayer()); }
+// this machine's player (FetchViewedPlayer: its +0x1CC).
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+bool InNetGame() { return NetSessionSlot()->InNetGame(); }
+bool ShowNames() { return NetSessionSlot()->WantsNameTags(); }
+uint8_t* FindPlayerSlotByObj(uint32_t id) { return NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(id)); }
+uint8_t* LocalPlayer() { return static_cast<uint8_t*>(NetSessionSlot()->FetchViewedPlayer()); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
 bool IsSquadMatch() { return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->IsSquadMatch() != 0; }
 
 // `name` run with a structure holding only id = `labelId`.
 void RunWithLabelId(uint32_t name, uint32_t labelId)
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params->PrepareAll();
     params->PutNameKey(kId, labelId);
@@ -115,7 +115,7 @@ void CRiderOverheadTag::TickFrame()
         MenuSystem::CUiTree::Sole()->FetchPart(&found, m_labelId, 0);
         label = found.Pull();
     }
-    uint8_t* player = PlayerByObjectId(m_entity->m_ident);
+    uint8_t* player = FindPlayerSlotByObj(m_entity->m_ident);
     auto* skater = static_cast<CRider*>(m_entity);
     if (!skater->GetFlag2C4() || (m_entity->m_compositeFlags & COMPOSITE_FLAG_HIDDEN)) {
         if (label)
@@ -123,7 +123,7 @@ void CRiderOverheadTag::TickFrame()
         return;
     }
     float height = LocalPlayer() == player ? kLocalHeight : kOtherHeight;
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params->PrepareAll();
     params->PutNameKey(kId, m_labelId);

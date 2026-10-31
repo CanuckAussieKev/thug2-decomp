@@ -189,7 +189,7 @@ std::string InstallFolder()
 
 } // namespace
 
-std::vector<uint8_t> DecodeLzss(const uint8_t* in, size_t length, size_t size)
+std::vector<uint8_t> ExpandLzss(const uint8_t* in, size_t length, size_t size)
 {
     uint8_t window[4096];
     std::memset(window, ' ', sizeof(window));
@@ -257,7 +257,7 @@ bool ReadArchive(const std::vector<uint8_t>& archive, const std::vector<std::str
             if (key != wanted)
                 continue;
             const uint8_t* data = archive.data() + body;
-            std::vector<uint8_t> file = compressed ? DecodeLzss(data, stored, size) : std::vector<uint8_t>(data, data + size);
+            std::vector<uint8_t> file = compressed ? ExpandLzss(data, stored, size) : std::vector<uint8_t>(data, data + size);
             if (file.size() == size) // (a file that doesn't decompress to its size is left out)
                 out->emplace_back(key, std::move(file));
         }

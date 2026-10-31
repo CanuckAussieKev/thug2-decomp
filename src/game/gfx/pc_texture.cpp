@@ -35,7 +35,7 @@ extern void** const kTexDictVtable;
 sTextureEdit* Edit(const CPcTexture* texture) { return static_cast<sTextureEdit*>(texture->engine); }
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 
-CPcTexture* NewTexture()
+CPcTexture* AllocPcTexture()
 {
     void* memory = MemSys::Alloc(sizeof(CPcTexture));
     return memory ? static_cast<CPcTexture*>(memory)->MakeNew() : nullptr;
@@ -675,7 +675,7 @@ bool CPcTexture::Stretch(uint16_t position, int vertical, int amount)
         }
     }
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_cutsceneTopDownHeap ? manager->m_cutsceneTopDownHeap : manager->m_topDownHeap);
+    manager->EnterHeapScope(manager->m_cinematicHighHeap ? manager->m_cinematicHighHeap : manager->m_topDownHeap);
     auto* part = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(readHeight) * readWidth * 4));
     auto* stretched = static_cast<uint32_t*>(MemSys::Alloc(static_cast<uint32_t>(newHeight) * newWidth * 4));
     MemSys::Hub::Pull()->LeaveHeapScope();
@@ -741,7 +741,7 @@ bool CPcTexture::Overlay(CPcTexture* over, int /*unused*/)
 }
 
 // 0x004CAA20
-bool CPcTexture::AdjustHsv(float hue, float saturation, float value, bool cumulative)
+bool CPcTexture::ShiftHueSatValue(float hue, float saturation, float value, bool cumulative)
 {
     auto* into = reinterpret_cast<uint8_t*>(flags & 1 ? Edit(this)->pixels : nullptr);
     const uint8_t* from = nullptr;
@@ -969,7 +969,7 @@ CPcTexDict* CPcTexDict::Teardown(unsigned int freeFlags)
 // 0x004C9B00
 CPcTexture* CPcTexDict::IngestSkin(const char* name, int a2, int /*unused*/)
 {
-    CPcTexture* texture = NewTexture();
+    CPcTexture* texture = AllocPcTexture();
     // (no check: the engine's load called on null without memory, as the original)
     reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::LoadByName(name, a2, 1);
     return texture;
@@ -979,7 +979,7 @@ CPcTexture* CPcTexDict::IngestSkin(const char* name, int a2, int /*unused*/)
 CPcTexture* CPcTexDict::CreateTexture(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
                                       uint32_t /*unused*/)
 {
-    CPcTexture* texture = NewTexture();
+    CPcTexture* texture = AllocPcTexture();
     reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::ReadFromRamBlock(reinterpret_cast<const uint8_t*>(static_cast<uintptr_t>(a1)), a2, a3, a4, a5, 1);
     return texture;
 }
@@ -990,7 +990,7 @@ CPcTexture* CPcTexDict::RefreshTexture(uint32_t checksum, uint32_t a2, uint32_t 
 {
     auto* texture = static_cast<CPcTexture*>(static_cast<ListKit::KeyMap*>(textures)->FetchEntry(checksum));
     if (!texture)
-        texture = NewTexture();
+        texture = AllocPcTexture();
     reinterpret_cast<CBitmapTexture*>(texture)->CBitmapTexture::Fabricate(checksum, a2, a3, a4, a5, a6);
     return texture;
 }
@@ -1046,7 +1046,7 @@ ListKit::KeyMap* RemakeTable(ListKit::KeyMap* table, uint32_t count)
 
 // A texture's format from its header: by depth (8 P8, 16 A1R5G5B5, 32 A8R8G8B8) or its compression (1, 2: DXT1, 5:
 // DXT5); anything else keeps the last one's (the original's stack).
-uint32_t TextureFormat(uint8_t compression, uint8_t depth, uint32_t last)
+uint32_t PixelLayout(uint8_t compression, uint8_t depth, uint32_t last)
 {
     if (compression) {
         if (compression == 1 || compression == 2)
@@ -1113,7 +1113,7 @@ ListKit::KeyMap* __cdecl LoadTexturesFromFile(const char* name, ListKit::KeyMap*
         texture->depth = static_cast<uint8_t>(depth);
         texture->unknownE = static_cast<uint8_t>(paletteDepth);
         texture->unknownF = static_cast<uint8_t>(compression);
-        format = TextureFormat(texture->unknownF, texture->depth, format);
+        format = PixelLayout(texture->unknownF, texture->depth, format);
         if (texture->height < 4)
             texture->height = 4;
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
@@ -1178,7 +1178,7 @@ ListKit::KeyMap* __cdecl LoadTexturesFromMemory(const uint8_t** cursor, ListKit:
         texture->depth = static_cast<uint8_t>(depth);
         texture->unknownE = static_cast<uint8_t>(paletteDepth);
         texture->unknownF = static_cast<uint8_t>(compression);
-        format = TextureFormat(static_cast<uint8_t>(compression), static_cast<uint8_t>(depth), format);
+        format = PixelLayout(static_cast<uint8_t>(compression), static_cast<uint8_t>(depth), format);
         auto** d3d = reinterpret_cast<IDirect3DTexture9**>(&texture->texture);
         InputPort()->CreateTexture(static_cast<uint16_t>(width), static_cast<uint16_t>(height),
                                 static_cast<uint8_t>(levels), 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d,
@@ -1368,7 +1368,7 @@ static VtableSlot kTextureVtable_slots[] = {&Engine3D::CPcTexture::Teardown, &En
                 &Engine3D::CPcTexture::EndEdit, Stubs::ReturnFalse5, &Engine3D::CPcTexture::Modulate, &Engine3D::CPcTexture::Mirror,
                 Stubs::ReturnFalse, &Engine3D::CPcTexture::ResizeFrom, &Engine3D::CPcTexture::Zoom, &Engine3D::CPcTexture::SpinBy,
                 &Engine3D::CPcTexture::Offset, &Engine3D::CPcTexture::Border, Stubs::ReturnFalse7, &Engine3D::CPcTexture::Stretch,
-                &Engine3D::CPcTexture::Squash, Stubs::ReturnFalse2, &Engine3D::CPcTexture::AdjustHsv, Stubs::ReturnZero,
+                &Engine3D::CPcTexture::Squash, Stubs::ReturnFalse2, &Engine3D::CPcTexture::ShiftHueSatValue, Stubs::ReturnZero,
                 Stubs::ReturnZero, Stubs::ReturnZero, Stubs::ReturnZero, Stubs::IgnoreArguments2, Stubs::ReturnFalse1,
                 Stubs::ReturnFalse, Stubs::ReturnFalse, &Engine3D::CPcTexture::FetchBreadth, &Engine3D::CPcTexture::FetchTallness,
                 &Engine3D::CPcTexture::GetDepth, Stubs::ReturnZero, Stubs::IgnoreArgument, &Engine3D::CPcTexture::GetUnknownE,

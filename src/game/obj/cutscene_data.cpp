@@ -36,10 +36,10 @@ float g_cutsceneTranslations[512];
 
 namespace {
 
-constexpr uint32_t kModelComponent = 0x286A8D26;    // the component whose +0x208 is the object's model
-constexpr uint32_t kSkeletonComponent = 0x222756D5;
+constexpr uint32_t kModelModuleName = 0x286A8D26;    // the component whose +0x208 is the object's model
+constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 constexpr uint32_t kCutsceneObjectType = 0xCDEB9229;
-constexpr uint32_t kHideObjects = 0x67F08671;       // a global array: the objects a cutscene hides
+constexpr uint32_t kCutsceneHideList = 0x67F08671;       // a global array: the objects a cutscene hides
 constexpr uint32_t kLights = 0x2A79C44E;            // a global array: the nodes of the cutscene's lights
 constexpr uint32_t kCreateScript = 0x1F29C5A5;      // the scripts that make a cutscene object
 constexpr uint32_t kInitScript = 0x2E20EA32;
@@ -211,10 +211,10 @@ void CCinematicTable::DestroyObjects()
         ObjectEntry& entry = m_entities[i];
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
-            CObjectModule* standIn = static_cast<CGameEntity*>(entry.object)->FetchModule(kModelComponent);
+            CObjectModule* standIn = static_cast<CGameEntity*>(entry.object)->FetchModule(kModelModuleName);
             uint32_t id = static_cast<CMeshInstanceModule*>(standIn)->GetLinkedEntityName();
             auto* original = static_cast<CGameEntity*>(FindObject(id));
-            void* model = ModelOf(original->FetchModule(kModelComponent));
+            void* model = ModelOf(original->FetchModule(kModelModuleName));
             static_cast<Engine3D::CRenderModel*>(model)->ChangeBoundSphere(reinterpret_cast<const Maths::Vec4*>(m_lent2C));
             static_cast<Engine3D::CRenderModel*>(model)->Conceal(m_lent3C);
             static_cast<Engine3D::CRenderModel*>(model)->AllowResizing(m_lent3D);
@@ -262,7 +262,7 @@ CGameEntity* CCinematicTable::CreateObject(Scripts::CStruct* params)
     void* memory = MemSys::AllocZeroed(0x108);
     auto* object = memory ? static_cast<CGameEntity*>(memory)->MakeNew() : nullptr;
     object->ChangeSpecies(kCutsceneObjectType);
-    void* objects = static_cast<void*>(g_compositeObjectManager);
+    void* objects = static_cast<void*>(g_compositeRegistry);
     reinterpret_cast<void(__thiscall*)(void*, CGameEntity*)>((*reinterpret_cast<void***>(objects))[1])(objects,
                                                                                                          object);
     params->PutInt(kFlagParam, m_flag34B0);
@@ -282,14 +282,14 @@ void CCinematicTable::ShowHiddenObjects()
 {
     if (!m_flag34B0)
         return;
-    Scripts::CArray* hidden = Scripts::FetchList(kHideObjects);
+    Scripts::CArray* hidden = Scripts::FetchList(kCutsceneHideList);
     if (!hidden)
         return;
     for (uint32_t i = 0; i < hidden->m_extent; ++i) {
         auto* object = static_cast<CGameEntity*>(FindObject(hidden->FetchPart(i)));
         if (!object)
             continue;
-        CObjectModule* component = object->FetchModule(kModelComponent);
+        CObjectModule* component = object->FetchModule(kModelModuleName);
         if (!component || !ModelOf(component))
             continue;
         static_cast<Engine3D::CRenderModel*>(ModelOf(component))->ChangeLive(1);
@@ -317,7 +317,7 @@ void CCinematicTable::RefreshViewer(void* camera)
     if (m_skipped)
         return;
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(manager->m_cutsceneBottomUpHeap);
+    manager->EnterHeapScope(manager->m_cinematicLowHeap);
     static_cast<Gfx2D::CJointClipFrames*>(mp_objectAnims)
         ->FireEvents(std::bit_cast<float>(m_unknown3478), m_clock, camera, 0);
     MemSys::Hub::Pull()->LeaveHeapScope();
@@ -332,7 +332,7 @@ void CCinematicTable::UpdateObjectPoses()
         ObjectEntry& entry = m_entities[i];
         if (!entry.animation)
             continue;
-        CObjectModule* component = entry.object->FetchModule(kSkeletonComponent);
+        CObjectModule* component = entry.object->FetchModule(kSkeletonModuleName);
         if (!component)
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)

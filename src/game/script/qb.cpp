@@ -41,8 +41,8 @@ struct ScriptChecksumName {
     char* name;
     ScriptChecksumName* next;
 };
-ScriptChecksumName* g_scriptNames;
-ScriptChecksumName*& ScriptNames() { return g_scriptNames; }
+ScriptChecksumName* g_scriptLabels;
+ScriptChecksumName*& ScriptLabelTable() { return g_scriptLabels; }
 
 char* CopyString(const char* string)
 {
@@ -226,9 +226,9 @@ void PrepareScriptTokens(uint8_t* token)
 // 0x0046F9B0
 const char* FindScriptChecksumName(uint32_t checksum)
 {
-    if (!ScriptNames())
+    if (!ScriptLabelTable())
         return nullptr;
-    for (ScriptChecksumName* entry = &ScriptNames()[checksum & 0xFFF]; entry; entry = entry->next) {
+    for (ScriptChecksumName* entry = &ScriptLabelTable()[checksum & 0xFFF]; entry; entry = entry->next) {
         if (entry->checksum == checksum)
             return entry->name;
     }
@@ -238,10 +238,10 @@ const char* FindScriptChecksumName(uint32_t checksum)
 // 0x0046F9F0
 void FreeScriptChecksumNames()
 {
-    if (!ScriptNames())
+    if (!ScriptLabelTable())
         return;
     for (uint32_t i = 0; i < 0x1000; ++i) {
-        ScriptChecksumName& bucket = ScriptNames()[i];
+        ScriptChecksumName& bucket = ScriptLabelTable()[i];
         for (ScriptChecksumName* entry = bucket.next; entry;) {
             ScriptChecksumName* next = entry->next;
             MemSys::FreeMalloc(entry->name);
@@ -251,8 +251,8 @@ void FreeScriptChecksumNames()
         if (bucket.name)
             MemSys::FreeMalloc(bucket.name);
     }
-    MemSys::FreeMalloc(ScriptNames());
-    ScriptNames() = nullptr;
+    MemSys::FreeMalloc(ScriptLabelTable());
+    ScriptLabelTable() = nullptr;
 }
 
 namespace {
@@ -281,7 +281,7 @@ const char* KeptQbName(uint32_t checksum)
 // 0x0046FA60 (a checksum already there is added again)
 void AddScriptChecksumName(uint32_t checksum, const char* name)
 {
-    ScriptChecksumName& bucket = ScriptNames()[checksum & 0xFFF];
+    ScriptChecksumName& bucket = ScriptLabelTable()[checksum & 0xFFF];
     if (bucket.name) {
         auto* entry = static_cast<ScriptChecksumName*>(MemSys::AllocBlock(sizeof(ScriptChecksumName)));
         entry->checksum = checksum;
@@ -489,7 +489,7 @@ void AllocateScriptChecksumNames(bool debugHeap)
     MemSys::Hub* manager = MemSys::Hub::Pull();
     MemSys::EnterHeapScope(debugHeap ? manager->m_debugHeap : manager->m_scriptHeap);
     auto* names = static_cast<uint32_t*>(MemSys::AllocBlock(0x1000 * 12));
-    reinterpret_cast<uint32_t*&>(g_scriptNames) = names;
+    reinterpret_cast<uint32_t*&>(g_scriptLabels) = names;
     MemSys::LeaveHeapScope();
     for (uint32_t i = 0; i < 0x1000 * 3; ++i)
         names[i] = 0;

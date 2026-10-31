@@ -1,6 +1,6 @@
 #pragma once
 
-// The event lists the trigger component's CheckFeeler / TriggerNode are given (const tables of three ints: an event,
+// The event lists the trigger component's ProbeTouchesZone / TriggerNode are given (const tables of three ints: an event,
 // a sub-event, 0), in the exe's read-only data. Defined in trigger_component.cpp.
 extern const int g_wheelLeavesEvents[3]; // vehicle wheel leaving the ground
 extern const int g_wheelLandsEvents[3]; // vehicle wheel landing

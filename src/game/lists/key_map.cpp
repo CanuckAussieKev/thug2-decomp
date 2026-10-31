@@ -85,7 +85,7 @@ void KeyMap::EraseEntry(const uint32_t& key)
     }
     if (previous) {
         previous->next = item->next;
-        MemSys::SlotPoolSetup::FreeItem(0, item);
+        MemSys::SlotPoolSetup::ReturnEntry(0, item);
     } else {
         // The bucket's own slot: empty it, keeping any chain behind it.
         item->key = 0;
@@ -103,7 +103,7 @@ void KeyMap::EmptyTable()
     for (unsigned int i = 1u << m_bits; i != 0; --i, ++bucket) {
         for (Item* item = bucket->next; item;) {
             Item* next = item->next;
-            MemSys::SlotPoolSetup::FreeItem(0, item);
+            MemSys::SlotPoolSetup::ReturnEntry(0, item);
             item = next;
         }
         *bucket = {0, nullptr, nullptr};

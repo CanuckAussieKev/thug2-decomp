@@ -44,9 +44,9 @@ constexpr uint32_t kInit = 0x398B1B8B;                 // init
 constexpr uint32_t kDontDeactivateOnExpiry = 0x79BBFFCB; // dont_deactivate_upon_expiration
 constexpr uint32_t kResetScore = 0x4599B58C;           // reset_score
 constexpr uint32_t kActivate = 0x4999FB52;             // activate
-constexpr uint32_t kKeyCombos = 0x79704516;            // key_combos
+constexpr uint32_t kButtonSequences = 0x79704516;            // key_combos
 constexpr uint32_t kDeactivate = 0x01C92CAC;           // deactivate
-constexpr uint32_t kTestingGoal = 0x54D3CAC1;          // testing_goal
+constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;          // testing_goal
 constexpr uint32_t kJustWonGoal = 0xC309CAD1;          // just_won_goal
 constexpr uint32_t kReadySkaterForEarlyEnd = 0x719AE783; // ready_skater_for_early_end_current_goal
 constexpr uint32_t kCustomScoreRecord = 0xFC9630AB;    // custom_score_record
@@ -92,12 +92,12 @@ void** const kGoalVtable = reinterpret_cast<void**>(kGoalVtable_slots);
 // The x87 code's float to int conversion (_ftol): truncation.
 int Truncate(double value) { return static_cast<int>(value); }
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-uint32_t GameModeName() { return static_cast<GoalSystem::CMatchRules*>(SkateCalls::GameMode())->GetNameKey(); }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+uint32_t ActiveRulesetLabel() { return static_cast<GoalSystem::CMatchRules*>(SkateCalls::GameMode())->GetNameKey(); }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -107,9 +107,9 @@ void DeleteStructure(Scripts::CStruct* structure)
         Scripts::DeleteStruct(structure);
     }
 }
-GoalLink* AllocChainLink()
+GoalEdge* AllocChainLink()
 {
-    auto* link = static_cast<GoalLink*>(MemSys::Alloc(sizeof(GoalLink)));
+    auto* link = static_cast<GoalEdge*>(MemSys::Alloc(sizeof(GoalEdge)));
     if (link) {
         link->m_objectiveKey = 0;
         link->m_succ = nullptr;
@@ -152,10 +152,10 @@ void* ScoreOf(GameObjects::CGameEntity* skater)
 void ResetScore(void* score) { static_cast<GameModules::PointTally*>(score)->Reset(); }
 int TotalScore(void* score) { return static_cast<GameModules::PointTally*>(score)->GetTotalScore(); }
 // The root of a goal's parents (the last one whose first parent link has a goal), or null if it has none.
-CObjective* RootOf(void* manager, GoalLink* parents)
+CObjective* RootOf(void* manager, GoalEdge* parents)
 {
     CObjective* root = nullptr;
-    for (GoalLink* link = parents; link && link->m_objectiveKey; link = root->m_parents)
+    for (GoalEdge* link = parents; link && link->m_objectiveKey; link = root->m_parents)
         root = GetGoal(manager, link->m_objectiveKey, 1);
     return root;
 }
@@ -185,15 +185,15 @@ CObjective* CObjective::MakeNew(Scripts::CStruct* params)
     m_secondsRemaining = 0;
     m_unknown68 = -1;
     m_unknown64 = -1;
-    m_args = NewStructure();
+    m_args = SpawnParamTable();
     m_args->AppendStructureIfAny(params);
     m_ped = NewGoalPed(m_args);
-    m_goalFlags = NewStructure();
+    m_goalFlags = SpawnParamTable();
     m_numFlags = 0;
     m_numFlagsSet = 0;
     m_elapsed = 0;
     m_bestTime = 0x7FFFFFFF;
-    m_bestScore = 0;
+    m_recordPoints = 0;
     m_runEnding = 0;
     m_level = SkateCalls::Career()->FetchStage();
     m_bundle = -1;
@@ -225,13 +225,13 @@ void CObjective::DestroyBody()
     }
     DeleteStructure(m_args);
     DeleteStructure(m_goalFlags);
-    for (GoalLink* link = m_subNodes; link;) {
-        GoalLink* next = link->m_succ;
+    for (GoalEdge* link = m_subNodes; link;) {
+        GoalEdge* next = link->m_succ;
         MemSys::Dealloc(link);
         link = next;
     }
-    for (GoalLink* link = m_parents; link;) {
-        GoalLink* next = link->m_succ;
+    for (GoalEdge* link = m_parents; link;) {
+        GoalEdge* next = link->m_succ;
         MemSys::Dealloc(link);
         link = next;
     }
@@ -306,7 +306,7 @@ bool CObjective::Activate()
     void* manager = ObjectiveBoard();
     ++m_timesStarted;
     m_elapsed = 0;
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     PlayerSearch search;
     if (m_args->HasBareFlag(kResetScore)) {
         for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false))
@@ -332,7 +332,7 @@ bool CObjective::Activate()
     if (!Virtual<bool>(this, kVtIsInitialized))
         PrepareAll();
     m_flagBits &= ~kFlagEndOfRunStarted;
-    m_args->RemoveFlag(kComboStarted);
+    m_args->RemoveFlag(kChainActiveFlag);
     uint32_t script;
     if (m_args->ReadHashValue(kActivate, &script, 0))
         Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
@@ -350,7 +350,7 @@ bool CObjective::Disengage(bool, bool resetTree)
     if (!Virtual<bool>(this, kVtIsActive))
         return false;
     if (m_args->HasBareFlag(kSpecial))
-        m_args->EraseModule(kKeyCombos);
+        m_args->EraseModule(kButtonSequences);
     Virtual<void>(this, kVtSetInactive);
     if (!m_args->HasBareFlag(kSaveGoalFlags))
         ZeroObjectiveBits();
@@ -359,7 +359,7 @@ bool CObjective::Disengage(bool, bool resetTree)
     if (m_args->ReadHashValue(kDeactivate, &script, 0))
         Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
     if (!m_args->HasBareFlag(kQuickStart))
-        m_args->RemoveFlag(kTestingGoal);
+        m_args->RemoveFlag(kTrialRunFlag);
     if (!m_args->HasBareFlag(kJustWonGoal) && !m_args->HasBareFlag(kQuickStart)) {
         Scripts::LaunchScript(kReadySkaterForEarlyEnd, m_args, nullptr, false, nullptr);
         if (resetTree && m_parents && m_parents->m_objectiveKey) {
@@ -378,7 +378,7 @@ bool CObjective::Disengage(bool, bool resetTree)
 bool CObjective::Win()
 {
     m_args->PutInt(kWinRecord, 0);
-    GoalLink* children = m_subNodes;
+    GoalEdge* children = m_subNodes;
     if (children->m_objectiveKey) {
         // A goal of stages: the next one started.
         void* manager = ObjectiveBoard();
@@ -390,7 +390,7 @@ bool CObjective::Win()
         return true;
     }
     m_args->PutNameKey(kNoName, kJustWonGoal);
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     bool newRecord = false;
     uint32_t type;
     if (!net->InNetGame() && m_args->ReadHashValue(kRecordType, &type, 0)) {
@@ -400,15 +400,15 @@ bool CObjective::Win()
             int custom;
             if (m_args->FetchIntValue(kCustomScoreRecord, &custom, 0)) {
                 record = custom;
-                better = record > m_bestScore;
+                better = record > m_recordPoints;
             } else {
                 void* score = ScoreOf(SkateCalls::GetHomeRider());
                 record = m_args->HasBareFlag(kHighCombo) ? *reinterpret_cast<int*>(static_cast<uint8_t*>(score) + 0x20)
                                                             : TotalScore(score);
-                better = record > m_bestScore;
+                better = record > m_recordPoints;
             }
             if (better)
-                m_bestScore = record;
+                m_recordPoints = record;
         } else if (type == kTime) {
             record = m_elapsed;
             better = static_cast<uint32_t>(record) < static_cast<uint32_t>(m_bestTime);
@@ -422,7 +422,7 @@ bool CObjective::Win()
     }
     bool rewarded = false;
     if (!Virtual<bool>(this, kVtHasWon) && !net->InNetGame()) {
-        Scripts::CStruct* rewards = NewStructure();
+        Scripts::CStruct* rewards = SpawnParamTable();
         GetPrizeStruct(rewards);
         if (newRecord)
             rewards->PutNameKey(kNoName, kNewRecord);
@@ -439,7 +439,7 @@ bool CObjective::Win()
     uint32_t script;
     if (m_args->ReadHashValue(kSuccess, &script, 0))
         Scripts::LaunchScript(script, m_args, nullptr, false, nullptr);
-    bool testing = m_args->HasBareFlag(kTestingGoal);
+    bool testing = m_args->HasBareFlag(kTrialRunFlag);
     if (Virtual<bool>(this, kVtIsActive))
         Virtual<bool>(this, kVtDeactivate, false, true);
     if (!testing) {
@@ -448,7 +448,7 @@ bool CObjective::Win()
             GameObjects::CRiderStoryProgress* career = SkateCalls::Career();
             if (SkateCalls::GameModeIsTrue(kIsCareer)) {
                 career->DepositMoney(GetRewardPoints());
-                Scripts::CStruct* params = NewStructure();
+                Scripts::CStruct* params = SpawnParamTable();
                 params->PutInt(kRewardPointsName, GetRewardPoints());
                 Scripts::LaunchScript(kCheckChapterAdvancement, params, nullptr, false, nullptr);
                 DeleteStructure(params);
@@ -469,9 +469,9 @@ void CObjective::Unlock()
     if (!(m_flagBits & kFlagLocked))
         return;
     m_flagBits &= ~kFlagLocked;
-    if (NetManager()->InNetGame())
+    if (NetSessionSlot()->InNetGame())
         return;
-    if (!Virtual<bool>(this, kVtHasWon) || GameModeName() == kClassic || m_args->HasBareFlag(kAlwaysInitializeGoal) ||
+    if (!Virtual<bool>(this, kVtHasWon) || ActiveRulesetLabel() == kClassic || m_args->HasBareFlag(kAlwaysInitializeGoal) ||
         m_args->HasBareFlag(kEditedGoal))
         PrepareAll();
     InvokeHookScript(kUnlockScript);
@@ -481,7 +481,7 @@ void CObjective::Unlock()
 void CObjective::GetPrizeStruct(Scripts::CStruct* rewards)
 {
     void* manager = ObjectiveBoard();
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (!m_args->HasBareFlag(kEditedGoal))
         ShowGoalPoints(manager);
     rewards->PutNameKey(kNoName, kRewardsGiven);
@@ -605,7 +605,7 @@ bool CObjective::SetFlag(uint32_t flag, int value, uint32_t sub)
         uint32_t id = GetObjectiveKey();
         CompleteObjective(goals, id);
     } else if (!sub && m_args->HasBareFlag(kGaps) && !m_args->HasBareFlag(kNoGapMessages)) {
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->AppendStructureIfAny(m_args);
         Scripts::LaunchScript(kGoalGapsGotGap, params, nullptr, false, nullptr);
         DeleteStructure(params);
@@ -622,13 +622,13 @@ void CObjective::AllocObjectiveBits(Scripts::CStruct* params)
     if (params->FetchList(kGoalFlags, &flags, 0)) {
         if (flags->m_kindTag == Scripts::QBVAL_STRUCT) {
             // One structure per skater: its own flags and counts.
-            m_goalFlags->PutNameKey(kNoName, kSkaterFlags);
+            m_goalFlags->PutNameKey(kNoName, kSkaterTraits);
             int skaters = static_cast<int>(flags->m_extent);
             for (int i = 0; i < skaters; ++i) {
                 auto* entry = reinterpret_cast<Scripts::CStruct*>(flags->FetchPart(static_cast<uint32_t>(i)));
                 uint32_t skater;
                 entry->ReadHashValue(kSkater, &skater, 1);
-                Scripts::CStruct* own = NewStructure();
+                Scripts::CStruct* own = SpawnParamTable();
                 Scripts::CArray* names;
                 entry->FetchList(kGoalFlags, &names, 1);
                 int count = static_cast<int>(names->m_extent);
@@ -652,13 +652,13 @@ void CObjective::AllocObjectiveBits(Scripts::CStruct* params)
 // 0x00556240
 bool CObjective::AllSkatersRunDone()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     PlayerSearch search;
     for (void* player = net->BeginPlayerWalk(&search, false); player; player = net->StepPlayerWalk(&search, false)) {
         GameObjects::CGameEntity* skater = PlayerSkater(player);
         auto* endRun = static_cast<GameObjects::CRiderSessionEnd*>(skater->FetchModule(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
-        if (GameModeName() == kHorse && (reinterpret_cast<uint8_t*>(skater)[0x320] ||
+        if (ActiveRulesetLabel() == kHorse && (reinterpret_cast<uint8_t*>(skater)[0x320] ||
                                          (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x104) >> 2) & 1))
             continue;
         bool done;

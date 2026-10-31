@@ -30,7 +30,7 @@ namespace {
 using namespace GoalNames;
 
 constexpr uint32_t kHorseRunDone = 0xA32FAF13;     // (name unknown: the horse goal's run over)
-constexpr uint32_t kHorseSpots = 0x92C6E839;       // (name unknown: the horse spots)
+constexpr uint32_t kLetterSpots = 0x92C6E839;       // (name unknown: the horse spots)
 constexpr uint32_t kElimiskateInterval = 0xF92E5D89; // elimiskate_interval
 constexpr uint32_t kScavengerInterval = 0x8A6B04AD;  // scavenger_interval
 constexpr uint32_t kNetElimiskate = 0x10F84276;    // netelimiskate
@@ -81,8 +81,8 @@ static VtableSlot kRaceGoalVtable_slots[] = {&GoalSystem::CRaceObjective::Teardo
                  &GoalSystem::CObjective::SetStageFlag, &GoalSystem::CObjective::SetNetStageFlag, &GoalSystem::CObjective::UnBeat};
 void** const kRaceGoalVtable = reinterpret_cast<void**>(kRaceGoalVtable_slots);
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-uint32_t GameModeName() { return g_gameMode->GetNameKey(); }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+uint32_t ActiveRulesetLabel() { return g_gameMode->GetNameKey(); }
 // Whether every goal is completed (a goal attack's victory condition). CCompleteGoalsVictoryCondition::RuleSatisfied
 // doesn't use its object: the original calls it with whatever ECX holds, the game mode just asked for its name.
 bool GoalsCompleted()
@@ -95,9 +95,9 @@ struct PlayerSearch {
     void* m_listLink = nullptr;
 };
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -159,7 +159,7 @@ void CLetterGameObjective::Expire() { CObjective::Expire(); }
 void CLetterGameObjective::Land()
 {
     Scripts::CArray* spots;
-    m_args->FetchList(kHorseSpots, &spots, 1);
+    m_args->FetchList(kLetterSpots, &spots, 1);
     int count = static_cast<int>(spots->m_extent);
     int i = 0;
     int score = 0;    // (both set before they're read)
@@ -184,7 +184,7 @@ void CLetterGameObjective::Land()
         CGoalManager* manager = GetObjectiveBoard();
         if (landed > score) {
             manager->RaiseBit(id, flag, 1, 0);
-            manager->NextWaypoint(id);
+            manager->StepToNextWaypoint(id);
         } else {
             manager->FailObjective(id);
         }
@@ -229,14 +229,14 @@ bool COnlineObjective::TimerBeeps() { return GetObjectiveKey() != kElimiskateInt
 // 0x00560BC0
 bool COnlineObjective::Activate()
 {
-    NetManager()->ResetMatchEnded();
+    NetSessionSlot()->ResetMatchEnded();
     return CObjective::Activate();
 }
 
 // 0x00560BE0
 bool COnlineObjective::Disengage(bool force, bool resetTree)
 {
-    if (!force && GameModeName() == kNetGoalAttack)
+    if (!force && ActiveRulesetLabel() == kNetGoalAttack)
         return false;
     return CObjective::Disengage(force, resetTree);
 }
@@ -248,7 +248,7 @@ bool COnlineObjective::TickFrame()
         PrepareAll();
         m_isPrepared = true;
     }
-    if (GameModeName() == kNetGoalAttack && GoalsCompleted() && Virtual<bool>(this, kVtIsActive)) {
+    if (ActiveRulesetLabel() == kNetGoalAttack && GoalsCompleted() && Virtual<bool>(this, kVtIsActive)) {
         Virtual<void>(this, kVtExpire);
         return true;
     }
@@ -260,18 +260,18 @@ bool COnlineObjective::WantsToEnd()
 {
     bool timed = false;
     bool scavenger = false;
-    if (GameModeName() == kNetElimiskate)
+    if (ActiveRulesetLabel() == kNetElimiskate)
         timed = true;
-    if (GameModeName() == kNetScavengerHunt || GameModeName() == kScavengerHunt) {
+    if (ActiveRulesetLabel() == kNetScavengerHunt || ActiveRulesetLabel() == kScavengerHunt) {
         scavenger = true;
         if (GetObjectiveKey() != kScavengerCollectPeriod)
             timed = true;
     }
-    if (GameModeName() == kNetGoalAttack)
+    if (ActiveRulesetLabel() == kNetGoalAttack)
         return GoalsCompleted() && AllSkatersRunDone();
     if (timed)
         return m_secondsRemaining <= 0;
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     PlayerSearch search;
     if (!net->CountPlayers())
         return true;
@@ -291,15 +291,15 @@ bool COnlineObjective::WantsToEnd()
             endRun->EndRun(false);
         }
     }
-    return net->IsGameOver();
+    return net->HasMatchEnded();
 }
 
 // 0x00560E20
 void COnlineObjective::Expire()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (!m_args->HasBareFlag(kGameContinues))
-        net->SetGameOver();
+        net->MarkMatchEnded();
     SetSecondsRemaining(0);
     CObjective::Expire();
 }
@@ -380,7 +380,7 @@ bool CRaceObjective::AdvanceRaceGate(uint32_t id)
             ZeroObjectiveBits();
             return AdvanceRaceGate(id);
         }
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PutNameKey(kGoalIdChecksum, id);
         if (i == 0 && m_laps > 1)
             params->PutInt(kStartLap, m_lap);

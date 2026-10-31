@@ -90,12 +90,12 @@ bool AssignValue(uint32_t name, const Values& values);
 void NoteOrigin(uint32_t name);
 const Values* Origin(uint32_t name);
 // The nodes the editor has changed in this level and where the level had them.
-struct LogEntry {
+struct LinkRecord {
     uint32_t name;
     Values values;
 };
 // Those changed and not back where the level had them, as they are now (layouts save them).
-std::vector<LogEntry> Changed();
+std::vector<LinkRecord> Changed();
 // A node the editor removed (an added one): its changes forgotten.
 void Forget(uint32_t name);
 // Every node the editor has changed put back where the level had it (a layout put in place of another).

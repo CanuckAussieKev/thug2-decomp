@@ -40,7 +40,7 @@ namespace MenuSystem::LevelEditor::Ground {
 namespace {
 
 void** const& kPcGeomVtable = Vt::kPcGeom;
-void** const& kCollStaticVtable = Vt::kCollStatic;
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;
 
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
@@ -108,9 +108,9 @@ std::map<std::string, Made> g_made;   // (the pieces in place)
 std::set<uint32_t> g_pool;           // (every sector made this level - kept, hidden, when its piece goes)
 std::map<uint32_t, int> g_tileHides; // (tiles hidden by pits, and by how many)
 uint8_t* g_scene;
-uint32_t g_sceneName;
+uint32_t g_activeSceneKey;
 
-uint32_t SectorName(const Spec& spec)
+uint32_t SectorKeyFromSpec(const Spec& spec)
 {
     char text[96];
     std::snprintf(text, sizeof(text), "%s_%08X", spec.name.c_str(), spec.material);
@@ -121,11 +121,11 @@ uint32_t SectorName(const Spec& spec)
 void NoteLevel()
 {
     uint8_t* scene = Scenery::MainScene();
-    uint32_t name = Scenery::SceneName(scene);
-    if (scene == g_scene && name == g_sceneName)
+    uint32_t name = Scenery::WorldSceneKey(scene);
+    if (scene == g_scene && name == g_activeSceneKey)
         return;
     g_scene = scene;
-    g_sceneName = name;
+    g_activeSceneKey = name;
     g_specs.clear();
     g_made.clear();
     g_pool.clear();
@@ -317,7 +317,7 @@ bool Make(const Spec& spec, std::string* why)
         *why = "the piece has no faces";
         return false;
     }
-    uint32_t name = SectorName(spec);
+    uint32_t name = SectorKeyFromSpec(spec);
     uint8_t* sector = LookupSector(scene, name);
     if (sector && !g_pool.count(name)) {
         *why = "a sector of that name is the level's";
@@ -659,7 +659,7 @@ std::vector<std::string> CaptureRecords()
 {
     std::vector<std::string> lines;
     for (const Spec& s : g_specs)
-        lines.push_back("ground " + LogEntry(s, Objects::Caption(s.material).c_str()));
+        lines.push_back("ground " + LinkRecord(s, Objects::Caption(s.material).c_str()));
     return lines;
 }
 
@@ -684,7 +684,7 @@ void ResetAll()
 {
     // (a new level: nothing of the old one touched - its sectors are gone)
     uint8_t* scene = Scenery::MainScene();
-    if (scene == g_scene && Scenery::SceneName(scene) == g_sceneName) {
+    if (scene == g_scene && Scenery::WorldSceneKey(scene) == g_activeSceneKey) {
         std::vector<std::string> names;
         for (const auto& made : g_made)
             names.push_back(made.first);
@@ -694,7 +694,7 @@ void ResetAll()
     g_specs.clear();
     g_made.clear();
     g_tileHides.clear();
-    if (scene != g_scene || Scenery::SceneName(scene) != g_sceneName)
+    if (scene != g_scene || Scenery::WorldSceneKey(scene) != g_activeSceneKey)
         NoteLevel();
 }
 

@@ -25,7 +25,7 @@ class CStruct;
 // - the bike state lives in a side structure keyed by the core physics component (our component's layout is THUG2's;
 //   THAW's offsets don't apply), BikeState below;
 // - the 17 bike member functions of THAW's core physics (SkaterOnBike ... exitbikeendo) are answered by
-//   CorePhysicsComponent::InvokeMethodByName through InvokeMethodByName below - registered as script member
+//   SkaterPhysicsModule::InvokeMethodByName through InvokeMethodByName below - registered as script member
 //   functions only while the feature is on; plus ThawBmxLoadAssets (ours: the bike's skeleton and animations loaded
 //   once, permanent);
 // - GetPhysicsStructure (0x005802E0, rider.cpp) gives thaw_bicycle_physics (THAW's bicycle_physics, put into the
@@ -236,7 +236,7 @@ bool WallplantBySquare(void* core);
 // ... else the bike's list, bike_Wallplant_Trick (THAW's; THUG2's Wallplant_Trick when the overlay hasn't it).
 uint32_t WallplantTrickList();
 // THAW 0x005D3330: on the bike skitching is R2 held long enough (the skater's: up).
-uint8_t* SkitchButton(void* core);
+uint8_t* TowButton(void* core);
 // THAW 0x005DF98B (in the air, after the recovery): the tire tap - looked for (0x005DC290: R1 and up / down held,
 // a ledge ahead: THUG2's rail search with the hang check, LedgePoint below) or carried on (0x005CE920: the wheel to the
 // tap point).
@@ -297,7 +297,7 @@ int CallTrickMember(void* core, uint32_t name, Scripts::CStruct* params, Scripts
 // raises the "under the floor" check's end by as much (THAW doesn't - phase 6: the
 // same midway position under a step's top would turn the bike back there). 0: not on the bike.
 float StuckCheckRaise(void* core);
-// THAW 0x005CA8F0 (LimitSpeed, THAW's for every skater - here on the bike only, the keys being bicycle_physics'):
+// THAW 0x005CA8F0 (ClampSkaterSpeed, THAW's for every skater - here on the bike only, the keys being bicycle_physics'):
 // for Skater_Vert_Max_Speed_Time after the bike was last on vert ground (THAW's ground update 0x005E4579 notes the
 // time while its feeler hits vert) the max-max speed is Skater_Vert_Max_Max_Speed_Stat and the heavy air friction
 // over the max speed isn't applied. `*maxMax` changed; returns whether the heavy friction may apply this frame.
@@ -339,7 +339,7 @@ void SetSteerAnim(void* core, bool on);
 void SteerAnimOff(void* core);
 
 // ---------------------------------------------------------------------------------------------------------------
-// The stall (thaw_bmx_physics.cpp; core_rail.cpp CorePhysicsComponent::DoBikeStallPhysics): R1 held as a grind starts
+// The stall (thaw_bmx_physics.cpp; core_rail.cpp SkaterPhysicsModule::DoBikeStallPhysics): R1 held as a grind starts
 // on the bike. THAW's own physics state 6 (CoreFields::kBikeStall): the bike still on the rail, facing along it, out
 // by a jump (BikeStallTrick's Ollied: StallOllieOut) or, on a rail too steep, sliding off into a grind.
 

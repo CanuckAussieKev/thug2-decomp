@@ -32,7 +32,7 @@ struct TODParams;
 //     tod_manager.qb's tod_manager_default_afternoon), CFunc_TODManager_GetCurrentTODParams (0x00572C00, its output) and
 //     CFunc_GetLightCurrentColor (0x00447130, its output); Levels.qb's ambient_* in some level structures are left over
 //     and do nothing (no level structure has fog_*). The engine's ambient light and fog come from the manager:
-//     ApplyTODParams (0x00572A10) sends the state's ambient_* / fog_* (SetAmbientColor 0x0048E8F0, the fog's 0x00490DE0 /
+//     ApplyTODParams (0x00572A10) sends the state's ambient_* / fog_* (ChangeAmbientTint 0x0048E8F0, the fog's 0x00490DE0 /
 //     0x00490E20 / 0x00490E00 - what the SetFogColor / SetFogDistance / EnableFog script commands call) whenever the
 //     state changes or is refreshed. So the edited copy's are put over the state's there (Gfx2D::SetTODParamsFilter -
 //     Override below), and sent again at once when they change (Reapply: the manager's ApplyTODParams with its current

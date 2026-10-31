@@ -66,7 +66,7 @@ int g_backBufferWidth;
 int g_backBufferHeight;
 int g_drawCalls;
 int g_drawnTriangles;
-float g_fogStart;
+float g_fogBeginDistance;
 float g_fogEnd;
 
 namespace {
@@ -191,8 +191,8 @@ float FloatFromBits(uint32_t bits)
 void SetDisplayRegion()
 {
     // the 640x480 layout's size on the back buffer (SetLetterbox), centred
-    auto width = static_cast<uint32_t>(g_screenScaleX * 640.0f);
-    auto height = static_cast<uint32_t>(g_screenScaleY * 480.0f);
+    auto width = static_cast<uint32_t>(g_displayFactorX * 640.0f);
+    auto height = static_cast<uint32_t>(g_displayFactorY * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
     g_deviceViewport.x = (reinterpret_cast<uint32_t&>(g_backBufferWidth) - width) / 2;
     g_deviceViewport.width = width;
@@ -218,7 +218,7 @@ void Draw2DWithBlackBars()
     constexpr uint32_t kBlack = 0xFF000000;
     if (backBufferAspect > DesiredAspectRatio()) {
         // bars left and right
-        auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_screenScaleX * 640.0f)));
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_displayFactorX * 640.0f)));
         uint32_t barWidth = (backBufferWidth - width) / 2;
         SetTexture(0, nullptr);
         BarVertex bar[4] = {
@@ -233,7 +233,7 @@ void Draw2DWithBlackBars()
         DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
     } else if (backBufferAspect < DesiredAspectRatio()) {
         // bars top and bottom
-        auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_screenScaleY * 480.0f)));
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_displayFactorY * 480.0f)));
         uint32_t barHeight = (backBufferHeight - height) / 2;
         SetTexture(0, nullptr);
         BarVertex bar[4] = {
@@ -323,7 +323,7 @@ void ChooseCamera(const Maths::Mat4* orientation, const Maths::Vec4* position, f
     MatrixRotationY(&g_headingMatrix,
                     Atan2LessQuarterTurn(-camera.backward[2], -camera.backward[0]));
     // The view frustum (0x00775B80) follows the new view.
-    g_billboardManager.SetupAxes();
+    g_billboardPool.SetupAxes();
 }
 
 namespace {
@@ -405,7 +405,7 @@ void DrawScreenBlur()
     // Draw into `texture`: the other texture (if the blur level, 0x0078732C, is above 2)...
     void* surface = nullptr;
     Method<long(__stdcall*)(void*, unsigned int, void**)>(texture, 0x48)(texture, 0, &surface); // GetSurfaceLevel
-    void* depth = reinterpret_cast<void*>(g_depthSurface);
+    void* depth = reinterpret_cast<void*>(g_zBufferSurface);
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
     if (!GraphicsOptions::SetSceneTarget(static_cast<IDirect3DTexture9*>(texture))) {
         SetRenderTarget(surface);
@@ -519,19 +519,19 @@ void FullScreenViewport()
 // The camera (a game object).
 float CameraAngle(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchEffectiveHFov(); }
 const Maths::Vec4* ViewerLocation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchLocation(); }
-const Maths::Mat4* CameraMatrix(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat(); }
+const Maths::Mat4* CamOrientation(void* camera) { return static_cast<Gfx2D::ViewCam*>(camera)->FetchMat(); }
 
 void DrawSceneGroup(Scene* scene, int pass, int viewport)
 {
     DrawScene(reinterpret_cast<sceneRef*>(scene->group), static_cast<uint32_t>(pass), viewport);
 }
-void SetPass(int pass) { RenderInstances(static_cast<uint32_t>(pass), 0); }
+void SetPass(int pass) { DrawInstanceBatch(static_cast<uint32_t>(pass), 0); }
 // No world transform (SetWorldTransform's null: the original passes 0).
 void ClearWorldTransform() { SetWorldTransform(nullptr); }
 
 void DrawViewport(int index)
 {
-    const Viewport* view = reinterpret_cast<const Viewport*>(GetActiveViewport(index));
+    const Viewport* view = reinterpret_cast<const Viewport*>(FetchCurrentView(index));
     void* camera = view->camera;
     if (!camera)
         return;
@@ -573,15 +573,15 @@ void DrawViewport(int index)
 
     // The world: every scene but the sky.
     {
-        float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        float angle = MenuSystem::LevelEditor::AdjustViewAngle(editorCamera, CameraAngle(camera));
         s_nearZ = editorNear;
         const Maths::Vec4* position = ViewerLocation(camera);
-        ChooseCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        ChooseCamera(CamOrientation(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
         MenuSystem::LevelEditor::NoteView(static_cast<Gfx2D::ViewCam*>(camera), angle, aspect, &vp.x);
         // Not original - the screenshot key's sidecar (game/sys/screenshot.h): the camera noted.
-        const Maths::Mat4* frame = CameraMatrix(camera);
+        const Maths::Mat4* frame = CamOrientation(camera);
         const float at[3] = {position->x, position->y, position->z};
         const float forward[3] = {-frame->row[2].x, -frame->row[2].y, -frame->row[2].z};
         SystemCore::Screenshot::NoteView(index, at, forward);
@@ -611,18 +611,18 @@ void DrawViewport(int index)
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
         Maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
-        float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        float angle = MenuSystem::LevelEditor::AdjustViewAngle(editorCamera, CameraAngle(camera));
         s_nearZ = 2.0f;
-        ChooseCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
+        ChooseCamera(CamOrientation(camera), &origin, angle, aspect, 1.0f, true);
     }
-    float& fogStart = g_fogStart;
+    float& fogStart = g_fogBeginDistance;
     float& fogEnd = g_fogEnd;
     float savedFogEnd = fogEnd, savedFogStart = fogStart;
     fogStart = 20.0f;
     fogEnd = 21.0f;
-    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogStart)); // D3DRS_FOGSTART
+    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogBeginDistance)); // D3DRS_FOGSTART
     SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd)); // D3DRS_FOGEND
-    bool fog = g_fogEnabled != 0;
+    bool fog = g_fogActive != 0;
     ChangeFog(false);
     SetRenderState(1, 0);
     SetRenderState(2, 1);
@@ -647,16 +647,16 @@ void DrawViewport(int index)
     SetRenderState(2, 1);
     fogStart = savedFogStart;
     fogEnd = savedFogEnd;
-    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogStart));
+    SetDeviceRenderState(0x24, reinterpret_cast<uint32_t&>(g_fogBeginDistance));
     SetDeviceRenderState(0x25, reinterpret_cast<uint32_t&>(g_fogEnd));
     ChangeFog(fog);
 
     // The world again, for the later passes.
     {
-        float angle = MenuSystem::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        float angle = MenuSystem::LevelEditor::AdjustViewAngle(editorCamera, CameraAngle(camera));
         const Maths::Vec4* position = ViewerLocation(camera);
         s_nearZ = editorNear;
-        ChooseCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        ChooseCamera(CamOrientation(camera), position, angle, aspect, 1.0f, false);
         s_nearZ = 2.0f;
     }
     SetPass(0x82);
@@ -670,7 +670,7 @@ void DrawViewport(int index)
     IssueOcclusionQueries();
     SetRenderState(1, 0);
     static_cast<CFlexibleParticleManager*>(g_flexibleParticleManager)->RenderSystems(index > 0);
-    static_cast<CParticleManager*>(reinterpret_cast<void*>(GameObjects::g_particleManager))->DrawParticles();
+    static_cast<CEffectsDirector*>(reinterpret_cast<void*>(GameObjects::g_particleHub))->DrawParticles();
     {
         // (the weather's slot 3, through the jump 0x004A10A0)
         void* weather = g_weather;
@@ -728,7 +728,7 @@ void DrawWorld()
         SetViewport();
         CopyScreenQuarter();
         DrawScreenBlur();
-        bool fog = g_fogEnabled != 0;
+        bool fog = g_fogActive != 0;
         ChangeFog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.

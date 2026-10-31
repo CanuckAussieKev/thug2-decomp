@@ -129,11 +129,11 @@ constexpr uint32_t kLimit = 0x8069179F;          // limit
 constexpr uint32_t kIsClassic = 0x5A2C589A;      // is_classic
 constexpr uint32_t kSkaterCam0 = 0x967C138C;     // skatercam0
 constexpr uint32_t kSkaterCam1 = 0xE17B231A;     // skatercam1
-constexpr uint32_t kModelComponent = 0x286A8D26; // model (a component)
+constexpr uint32_t kModelModuleName = 0x286A8D26; // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;     // (a physics integer: pausing freezes the whole game)
 
 uint8_t* Skate() { return reinterpret_cast<uint8_t*>(GameModules::g_skateModule); }
-OnlinePlay::Hub* NetLink() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetLink() { return OnlinePlay::g_onlineHub; }
 bool Rule5A1180() { return static_cast<uint8_t>(ScriptCommands::CFunc_InSplitScreenGame(nullptr, nullptr)) != 0; }
 
 template <typename T>
@@ -210,7 +210,7 @@ void CRider::LoadCATInfo(Scripts::CStruct* params)
     params->FetchList(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
         auto* trick = reinterpret_cast<Scripts::CStruct*>(tricks->FetchPart(i));
-        uint8_t* info = m_trickInfo[i];
+        uint8_t* info = m_trickSlots[i];
         Scripts::CStruct* other = nullptr;
         trick->ReadSubStruct(kOther, &other, 1);
         At<Scripts::CStruct*>(info, 4)->AppendStructureIfAny(other);
@@ -323,7 +323,7 @@ float CRider::FetchTally(int index)
     }
     // Online: the server's rules for this player.
     if (NetLink()->InNetGame()) {
-        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_ident)));
+        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->FindPlayerSlotByObj(static_cast<uint16_t>(m_ident)));
         if (!player)
             stat = 10.0f;
         else if (player->HoldsCrown())
@@ -333,7 +333,7 @@ float CRider::FetchTally(int index)
         else
             stat = 10.0f;
     } else if (Rule5A1180()) {
-        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_ident)));
+        auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetLink()->FindPlayerSlotByObj(static_cast<uint16_t>(m_ident)));
         if (player && player->HoldsCrown())
             stat = 1.0f;
     }
@@ -398,7 +398,7 @@ float CRider::GetScaledValue(Scripts::CStruct* params)
 float CRider::GetScaledPhysics(uint32_t name)
 {
     Scripts::CStruct* params = nullptr;
-    CEntity* object = CompositeObjectManager()->LookUpEntity(m_ident);
+    CEntity* object = ObjectHubSlot()->LookUpEntity(m_ident);
     Scripts::CStruct* physics = GetPhysicsStructure(static_cast<CGameEntity*>(object));
     if (!physics->ReadSubStruct(name, &params, 0))
         params = Scripts::ReadSubStruct(name);
@@ -420,7 +420,7 @@ void CRider::MoveToRandomRestart()
     uint32_t restart;
     int tries = 0;
     do {
-        restart = reinterpret_cast<GameModules::Skate*>(skate)->SkipToRestartPoint(static_cast<uint32_t>(Maths::Rnd(8)));
+        restart = reinterpret_cast<GameModules::Skate*>(skate)->WarpToRestart(static_cast<uint32_t>(Maths::Rnd(8)));
         ++tries;
     } while (restart == m_lastRestart && tries < 20);
     m_lastRestart = restart;
@@ -431,7 +431,7 @@ void CRider::MoveToRandomRestart()
 // 0x00580880
 CEntity* CRider::GetSkaterCamera()
 {
-    return CompositeObjectManager()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0);
+    return ObjectHubSlot()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0);
 }
 
 // 0x005808A0
@@ -489,10 +489,10 @@ void CRider::UpdateShadowLight(int, int)
         down[0] = 0.0f, down[1] = -1.0f, down[2] = 0.0f, down[3] = 1.0f;
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
-    if (FetchModule(kModelComponent) && At<void*>(FetchModule(kModelComponent), 0x208)) {
+    if (FetchModule(kModelModuleName) && At<void*>(FetchModule(kModelModuleName), 0x208)) {
         // (the model's +0x2C - read through the folded getter 0x00532EB0 - and its virtual slot 5 - through the jump
         // 0x00456B30)
-        void* lights = At<void*>(At<void*>(FetchModule(kModelComponent), 0x208), 0x2C);
+        void* lights = At<void*>(At<void*>(FetchModule(kModelModuleName), 0x208), 0x2C);
         if (lights) {
             const float* v = reinterpret_cast<float*(__thiscall*)(void*, int)>((*static_cast<void***>(lights))[5])(lights, 0);
             double x = v[0] * -1.0, y = v[1] * -1.0, z = v[2] * -1.0, w = v[3] * -1.0;
@@ -585,7 +585,7 @@ void CRider::UpdateFromProfile(CRiderIdentity* profile)
     m_goofy = checksum(kStance) == kGoofy;
     m_pro = profile->IsPro();
     m_shownName = profile->FetchShownName();
-    Scripts::CStruct* info = profile->InfoStructure();
+    Scripts::CStruct* info = profile->DetailsParams();
     m_style = 0;
     info->FetchIntValue(kIsMale, &m_male, 1);
     info->ReadHashValue(kSkateStyle, &m_style, 0);
@@ -649,7 +649,7 @@ void CRider::SetUpNetwork()
 {
     auto* client = reinterpret_cast<uint8_t*>(NetLink()->FetchPatron(m_skaterNumber));
     auto* flipAndRotate = static_cast<CRiderSpinAndFlip*>(FetchModule(kSkaterFlipAndRotate));
-    flipAndRotate->SetBoardRotated(m_ident, false, At<uint32_t>(client, 8), m_unknownBC != 0);
+    flipAndRotate->ApplyBoardTurned(m_ident, false, At<uint32_t>(client, 8), m_unknownBC != 0);
     flipAndRotate->ApplyFlipToAnims();
     reinterpret_cast<CMeshInstanceModule*>(m_unknown250)->ConcealMesh(0xA7A9D4B8, false, m_unknownBC != 0);
     static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
@@ -708,7 +708,7 @@ void CRider::ShowBoardElement(uint32_t type)
     const char* model;
     params->FetchText(0x49B318FD, &model, 1);
     // (the third is a checksum where SwapTexture takes a texture name: passed on as it is)
-    static_cast<CMeshInstanceModule*>(FetchModule(kModelComponent))
+    static_cast<CMeshInstanceModule*>(FetchModule(kModelModuleName))
         ->SwapTexture(modelSwap, model, reinterpret_cast<const char*>(static_cast<uintptr_t>(modelSwap2)));
     if (second)
         static_cast<Engine3D::CTextureSet*>(Elements())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(overlay));
@@ -747,7 +747,7 @@ void CRider::ShowSkater()
 const char* CRider::FetchShownName()
 {
     if (NetLink()->InNetGame())
-        return reinterpret_cast<const char*>(NetLink()->PlayerByObjectId(static_cast<uint16_t>(m_ident))) + 0x38;
+        return reinterpret_cast<const char*>(NetLink()->FindPlayerSlotByObj(static_cast<uint16_t>(m_ident))) + 0x38;
     return m_shownName.c_str();
 }
 
@@ -791,7 +791,7 @@ void CRider::Freeze()
     Scripts::LaunchScript(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (uint8_t* input = m_unknown264)
         At<Sio::InputPort*>(At<uint8_t*>(input, 0x490), 0x1C)->PauseActuators();
-    SoundFx::g_sfxManager->UpdateVoiceVolumes();
+    SoundFx::g_audioMixer->UpdateVoiceVolumes();
 }
 
 // 0x005817F0
@@ -818,7 +818,7 @@ constexpr uint32_t kCustomSkater = 0x0A7BE964;  // custom
 template <typename Fill>
 void AddComponentFromStructure(CRider* skater, Fill fill)
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     fill(params);
     skater->VirtualCreateComponentFromStructure(params, nullptr);
@@ -839,18 +839,18 @@ void CRider::PrepareAll(CRiderIdentity* profile)
         // Its camera: found, or made from skatercam_composite_structure.
         manager->EnterHeapScope(manager->m_skaterInfoHeap);
         uint32_t cameraName = m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0;
-        auto* camera = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(cameraName));
+        auto* camera = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(cameraName));
         if (camera) {
             static_cast<CRiderChaseView*>(camera->FetchModule(0x5E43A604))->BindRider(this); // skatercamera
             auto* walkCamera = reinterpret_cast<uint8_t*>(camera->FetchModule(0xC7D37EC2));                     // walkcamera
             reinterpret_cast<CFootView*>(walkCamera)->BindRider(this);
             *reinterpret_cast<int*>(walkCamera + 0x18) = 3;
         } else {
-            Scripts::CStruct* memory = Scripts::NewStruct();
+            Scripts::CStruct* memory = Scripts::SpawnParamBag();
             Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
             params->PutNameKey(0x4C48DA58, m_ident);
             params->PutNameKey(kNameChecksum, cameraName);
-            camera = CompositeObjectManager()->SpawnEntityFromNode(Scripts::FetchList("skatercam_composite_structure"),
+            camera = ObjectHubSlot()->SpawnEntityFromNode(Scripts::FetchList("skatercam_composite_structure"),
                                                                              params, true);
             if (params) {
                 params->Clear();
@@ -865,7 +865,7 @@ void CRider::PrepareAll(CRiderIdentity* profile)
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
     void* script = Scripts::CScript::operator new(0xF4);
-    m_runScript = script ? static_cast<Scripts::CScript*>(script)->MakeNew() : nullptr;
+    m_ownScript = script ? static_cast<Scripts::CScript*>(script)->MakeNew() : nullptr;
     uint32_t skeleton = 0x9FE476E2;
     if (Scripts::CStruct* assetInfo = Scripts::ReadSubStruct(0x962E5CF7))
         assetInfo->ReadHashValue(0xCEEFD662, &skeleton, 0);
@@ -887,9 +887,9 @@ void CRider::PrepareAll(CRiderIdentity* profile)
         params->PutNameKey(0u, 0x10079F2D);       // UseModelLights
         params->PutInt(0xD223B8BD, 1);         // max_scene_lights
         params->PutInt(0x2A1F92C0, local ? 1 : 0);
-        params->PutNameKey(kComponentName, kModelComponent);
+        params->PutNameKey(kComponentName, kModelModuleName);
     });
-    m_unknown250 = reinterpret_cast<uint8_t*>(FetchModule(kModelComponent));
+    m_unknown250 = reinterpret_cast<uint8_t*>(FetchModule(kModelModuleName));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
     MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_skaterGeomHeaps[m_skaterNumber]);
     auto* assets = AssetStore::g_assetManager;
@@ -924,7 +924,7 @@ void CRider::PrepareAll(CRiderIdentity* profile)
         At<uint8_t>(m_corePhysics, 0x2DA) = skate[0x396 + 8 * m_viewSlot];
         static_cast<CPadRumbleModule*>(m_unknown25C)->ChangeLive(skate[0x394 + 8 * m_viewSlot] != 0);
         if (m_unknownBC)
-            m_runScript->BindScript("SkaterInit", nullptr, this);
+            m_ownScript->BindScript("SkaterInit", nullptr, this);
     }
     UpdateFromProfile(profile);
     SetStatsFromProfile(profile);
@@ -933,7 +933,7 @@ void CRider::PrepareAll(CRiderIdentity* profile)
         At<float>(FetchModule(0x187574FA), 0x20) = maxSpeed;
     }
     if (void* state = m_unknown258) {
-        static_cast<CMoveExecutor*>(state)->SetTrickMappings(profile);
+        static_cast<CMoveExecutor*>(state)->ApplyTrickBindings(profile);
         auto* tricks = static_cast<CMoveExecutor*>(m_unknown258);
         tricks->ClearEventBuffer();
         tricks->ClearQueue();
@@ -954,7 +954,7 @@ void CRider::PrepareAll(CRiderIdentity* profile)
     if (m_unknownBC) {
         for (int i = 0; i < 11; ++i) {
             void* memory = MemSys::Alloc(0x10);
-            m_trickInfo[i] = memory ? reinterpret_cast<uint8_t*>(static_cast<GoalSystem::CCreateATrick*>(memory)->MakeNew()) : nullptr;
+            m_trickSlots[i] = memory ? reinterpret_cast<uint8_t*>(static_cast<GoalSystem::CCreateATrick*>(memory)->MakeNew()) : nullptr;
         }
         Scripts::LaunchScript(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         CGameEntity::InvokeMethodByName(0x5C038F9B, nullptr, nullptr); // SkaterPhysicsControl_SwitchWalkingToSkating
@@ -967,7 +967,7 @@ void CRider::PrepareAll(CRiderIdentity* profile)
     }
     AddRigidBodyPusher(this);
     // Its controls' tag (a custom skater's own, if it has one) and sticker.
-    Scripts::CStruct* info = profile->InfoStructure();
+    Scripts::CStruct* info = profile->DetailsParams();
     const char* tag;
     info->FetchText(0x4FA8DF27, &tag, 1); // tag_texture
     CObjectModule* controls = FetchModule(0x5B512EDC);
@@ -998,7 +998,7 @@ void CRider::InitFromProfile(CRiderIdentity* profile)
         const struct {
             uint8_t id;
             void* code;
-        } handlers[] = {{0x3B, CodeAddress(&GameModules::PointTally::HandleScoreMessage)},
+        } handlers[] = {{0x3B, CodeAddress(&GameModules::PointTally::OnScoreMsg)},
                         {0x44, CodeAddress(&CRiderFrameLog::HandleCollisionMessages)},
                         {0x43, CodeAddress(&CRiderFrameLog::HandleCollisionMessages)},
                         {0x85, CodeAddress(&CRiderFrameLog::HandleHitMessages)},
@@ -1019,22 +1019,22 @@ void CRider::InitFromProfile(CRiderIdentity* profile)
 // 0x005823A0
 void CRider::RunStateScript(bool walk, bool other)
 {
-    if (!m_runScript) {
+    if (!m_ownScript) {
         void* memory = Scripts::CScript::operator new(0xF4);
-        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     Scripts::CStruct* params = nullptr;
     if (walk || other) {
-        Scripts::CStruct* memory = Scripts::NewStruct();
+        Scripts::CStruct* memory = Scripts::SpawnParamBag();
         params = memory ? memory->PrepareAll() : nullptr;
         if (walk)
             params->PutNameKey(0u, 0x726E85AA); // Walk
         if (other)
             params->PutNameKey(0u, 0x7B738580);
     }
-    m_runScript->BindScript(0xE740F458, params, this);
+    m_ownScript->BindScript(0xE740F458, params, this);
     if (m_unknownBC)
-        m_runScript->TickFrame();
+        m_ownScript->TickFrame();
     if (params) {
         params->Clear();
         Scripts::DeleteStruct(params);
@@ -1044,14 +1044,14 @@ void CRider::RunStateScript(bool walk, bool other)
 // 0x00582510
 void CRider::SwitchToScript(uint32_t name, Scripts::CStruct* params)
 {
-    if (!m_runScript) {
+    if (!m_ownScript) {
         void* memory = Scripts::CScript::operator new(0xF4);
-        m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     if (CObjectModule* flipAndRotate = FetchModule(kSkaterFlipAndRotate))
         static_cast<CRiderSpinAndFlip*>(flipAndRotate)->DoAfterAnim();
-    m_runScript->BindScript(name, params, this);
-    m_runScript->TickFrame();
+    m_ownScript->BindScript(name, params, this);
+    m_ownScript->TickFrame();
 }
 
 // 0x005825E0
@@ -1061,9 +1061,9 @@ void CRider::WriteCATInfo(Scripts::CStruct* save)
     Scripts::CArray* tricks = memory ? memory->PrepareAll() : nullptr;
     tricks->ConfigureSizeKind(11, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < 11; ++i) {
-        Scripts::CStruct* structMemory = Scripts::NewStruct();
+        Scripts::CStruct* structMemory = Scripts::SpawnParamBag();
         Scripts::CStruct* trick = structMemory ? structMemory->PrepareAll() : nullptr;
-        uint8_t* info = m_trickInfo[i];
+        uint8_t* info = m_trickSlots[i];
         trick->PutSubStruct(kOther, At<Scripts::CStruct*>(info, 4));
         trick->AppendArrayValue(kAnimations, At<Scripts::CArray*>(info, 0xC));
         trick->AppendArrayValue(kRotations, At<Scripts::CArray*>(info, 8));
@@ -1113,7 +1113,7 @@ void CRider::LaunchProjectile()
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
     float toTargetX = 0.0f, toTargetZ = 0.0f;
     Maths::Vec4 aim = {};
-    for (CObjectModule* component = CompositeObjectManager()->FindFirstModuleOfKind(0x3618B878); component;
+    for (CObjectModule* component = ObjectHubSlot()->FindFirstModuleOfKind(0x3618B878); component;
          component = component->mp_nextOfType) {
         CGameEntity* object = component->m_entity;
         if (!object)
@@ -1169,7 +1169,7 @@ void CRider::LaunchProjectile()
         }
     }
     // LaunchProjectile from there (at the target, when there is one beyond 100).
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     params->PutVec3("pos", {origin.x, origin.y, origin.z, origin.w});
     if (target && best > 100.0f) {
@@ -1229,7 +1229,7 @@ CRider* CRider::MakeNew(int viewport, CEntityHub* manager, bool local, uint32_t 
     m_state288 = nullptr;
     m_state284 = nullptr;
     // Its components, one structure (component = ...) changed for each.
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     auto add = [this, params](uint32_t type) {
         params->PutNameKey(kComponentName, type);
@@ -1281,7 +1281,7 @@ CRider* CRider::MakeNew(int viewport, CEntityHub* manager, bool local, uint32_t 
     m_unknown27C = reinterpret_cast<uint8_t*>(FetchModule(0x18223FD6));
     add(kSkaterFlipAndRotate);
     // The controls, told its skater number.
-    Scripts::CStruct* extraMemory = Scripts::NewStruct();
+    Scripts::CStruct* extraMemory = Scripts::SpawnParamBag();
     Scripts::CStruct* extra = extraMemory ? extraMemory->PrepareAll() : nullptr;
     extra->PutInt(0xA2B033FD, m_skaterNumber);
     params->PutNameKey(kComponentName, 0x5B512EDC);
@@ -1307,10 +1307,10 @@ void CRider::ResetComponents()
     }
     static_cast<CPickupItemHandler*>(FetchModule(0xF27A294D))->DestroyItems();
     static_cast<CAnimBlenderComponent*>(m_unknown24C)->ResetChannels();
-    if (Scripts::CScript* script = m_runScript) {
+    if (Scripts::CScript* script = m_ownScript) {
         script->Teardown();
         Scripts::CScript::operator delete(script);
-        m_runScript = nullptr;
+        m_ownScript = nullptr;
     }
     // Not original - the special items gone, THAW's bike with them: off the bike (game/skater/thaw_bmx.h).
     if (Skater::ThawBmx::IsSwitchedOn())
@@ -1323,7 +1323,7 @@ void CRider::Relaunch(uint32_t a, uint32_t b)
     uint8_t* walking = At<uint8_t*>(m_state284, 0x2C);
     if (!At<bool>(walking, 0x118) && At<int>(walking, 0x1C) == 1) {
         // Walking: back to skating first.
-        Scripts::CStruct* memory = Scripts::NewStruct();
+        Scripts::CStruct* memory = Scripts::SpawnParamBag();
         Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
         params->PutNameKey(0x91D0D784, 0x1DDE4804);
         SwitchToScript(0x93A4E402, params);
@@ -1332,10 +1332,10 @@ void CRider::Relaunch(uint32_t a, uint32_t b)
             Scripts::DeleteStruct(params);
         }
     }
-    if (m_runScript)
-        m_runScript->RunOnExitScripts();
-    reinterpret_cast<Skater::CorePhysicsComponent*>(m_corePhysics)->Reset();
-    auto* camera = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0));
+    if (m_ownScript)
+        m_ownScript->RunOnExitScripts();
+    reinterpret_cast<Skater::SkaterPhysicsModule*>(m_corePhysics)->Reset();
+    auto* camera = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0));
     static_cast<CRiderChaseView*>(camera->FetchModule(0x5E43A604))->RestoreDefaultState();
     reinterpret_cast<void(__thiscall*)(CRider*)>(m_vtable[0x44 / 4])(this);
     ResetComponents();
@@ -1425,7 +1425,7 @@ bool CRider::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts
         if (!m_unknownBC)
             return false;
         if (m_strokeKind == 0x0CDBA4F9) // mongo_when_switch
-            return (reinterpret_cast<Skater::CorePhysicsComponent*>(m_corePhysics)->IsSidesSwapped() & 0xFF) != 0;
+            return (reinterpret_cast<Skater::SkaterPhysicsModule*>(m_corePhysics)->IsSidesSwapped() & 0xFF) != 0;
         return m_strokeKind == 0x16C6DF0B; // always_mongo
     case 0x3F06191C: // LaunchDirtyProjectile
         DebugOut::Printf("LaunchDirtyProjectile\n");
@@ -1549,7 +1549,7 @@ void CRider::JumpToSpawn(uint32_t node, uint32_t walking)
             if (m_pauseState == 0) {
                 MarkJumpedAhead(false);
                 auto* camera = static_cast<CGameEntity*>(
-                    CompositeObjectManager()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0));
+                    ObjectHubSlot()->LookUpEntity(m_viewSlot == 1 ? kSkaterCam1 : kSkaterCam0));
                 if (camera)
                     camera->TickFrame();
             }
@@ -1568,10 +1568,10 @@ void CRider::JumpToSpawn(uint32_t node, uint32_t walking)
         NetLink::NetMessageInfo message;
         message.MakeNew();
         auto* client = static_cast<NetLink::Guest*>(net->FetchPatron(m_viewSlot));
-        if (uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(m_ident)))
+        if (uint8_t* player = net->FindPlayerSlotByObj(static_cast<uint16_t>(m_ident)))
             reinterpret_cast<OnlinePlay::PlayerRecord*>(player)->MarkFaceTextureSent();
         message.m_ident = 0x57;
-        message.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        message.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         message.m_groupId = 8;
         client->SendToHost(&message);
     }
@@ -1588,11 +1588,11 @@ void CRider::DestroyBody()
     ResetComponents();
     Scripts::LaunchScript(0xF429E0AC, nullptr, this, false, nullptr);
     for (int i = 0; i < 11; ++i) {
-        if (uint8_t* info = m_trickInfo[i])
+        if (uint8_t* info = m_trickSlots[i])
             reinterpret_cast<void*(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(info))[0])(info, 1);
     }
     if (m_unknownBC && m_viewSlot == 1) {
-        if (CEntity* camera = CompositeObjectManager()->LookUpEntity(kSkaterCam1))
+        if (CEntity* camera = ObjectHubSlot()->LookUpEntity(kSkaterCam1))
             reinterpret_cast<void(__thiscall*)(CEntity*)>(camera->m_vtable[0x18 / 4])(camera); // (marked dead)
     }
     // Out of the skater list.

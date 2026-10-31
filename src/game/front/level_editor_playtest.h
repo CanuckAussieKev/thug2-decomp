@@ -146,7 +146,7 @@ struct Run {
     bool full = false;
     int GapsLanded() const;
     int Bails() const;
-    int BestCombo() const;
+    int TopComboValue() const;
 };
 
 // A level's trails: its runs (the newest last, at most kMaxRuns) and the gaps landed in them.

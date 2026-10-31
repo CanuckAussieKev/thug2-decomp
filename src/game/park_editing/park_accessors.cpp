@@ -17,8 +17,8 @@ namespace ParkEditing {
 float g_parkCellSizeX{120.0f};
 float g_parkCellSizeY{48.0f};
 float g_parkCellSizeZ{120.0f};
-CGapRegistry* g_gapManager;
-CParkLayout* g_parkManager;
+CGapRegistry* g_gapRegistry;
+CParkLayout* g_parkLayout;
 
 namespace {
 
@@ -39,7 +39,7 @@ void CopyText(char* to, const char* from)
 
 } // namespace
 
-CParkLayout* CParkLayout::sSingleton() { return g_parkManager; }
+CParkLayout* CParkLayout::sSingleton() { return g_parkLayout; }
 
 CompressedMap* CParkLayout::GetPackedParkData(bool flagClean)
 {
@@ -129,7 +129,7 @@ void CParkLayout::GetMapInfo(const CompressedMap* map, int* numGaps, int* numMet
     *width = map->m_w;
     *length = map->m_l;
     *numGaps = map->m_numGaps;
-    *numMetas = map->m_numMetas;
+    *numMetas = map->m_compositeCount;
     *theme = map->m_shellSize;
     *unknown18 = map->m_styleSet ? map->m_styleSet : 0x1CA1FF20; // Default
 }
@@ -160,7 +160,7 @@ int CParkLayout::GetRestartIndex(uint32_t name)
     return 0;
 }
 
-CPieceGroup* CParkLayout::GetAbstractMetaPiece(uint32_t name, int* index)
+CPieceGroup* CParkLayout::FetchMetaTemplate(uint32_t name, int* index)
 {
     int position = m_numAbstractMetas - 1;
     for (CMapListNode* node = mp_abstract_metas; node; node = node->m_following, --position) {
@@ -177,7 +177,7 @@ CPieceGroup* CParkLayout::GetAbstractMetaPiece(uint32_t name, int* index)
 bool CParkLayout::CanResizeTo(SCellBox area)
 {
     // 0x0059EB30: the park memory check for going from one floor area to another
-    return PiecesFit(m_parkBounds.w * m_parkBounds.l, area.w * area.l);
+    return PiecesFit(m_buildArea.w * m_buildArea.l, area.w * area.l);
 }
 
 int CParkLayout::GetGroundLevel(SCellBox area, bool* uniform)
@@ -225,7 +225,7 @@ bool CParkLayout::IsAreaBlocked(SCellBox area)
 namespace {
 
 // CGapRegistry (0xA8 bytes): the instance in use (sSingleton, 0x0058CBB0), constructor, copying and destructor.
-void*& GapManagerInstance() { return reinterpret_cast<void*&>(g_gapManager); }
+void*& GapManagerInstance() { return reinterpret_cast<void*&>(g_gapRegistry); }
 
 } // namespace
 
@@ -262,7 +262,7 @@ void CParkLayout::HighlightGapPieces(bool on, SGapDetails* gap)
     m_builder->SetPiecesHighlighted(0);
     if (on) {
         if (gap && gap->m_tabIndex >= 0)
-            mp_gapManager->SetCurrentGap(gap->m_tabIndex);
+            m_gapRegistry->ChangeGapInProgress(gap->m_tabIndex);
     } else {
         m_builder->SetPiecesHighlighted(0);
     }

@@ -53,7 +53,7 @@ public:
     uint8_t* m_block;
     int m_entryCount;
     ListKit::KeyMap* m_files; // FileInfo by name checksum
-    FileInfo* m_activeFile;
+    FileInfo* m_openEntry;
     int m_openCount;
     bool m_bottomUpHeap;
 };
@@ -82,7 +82,7 @@ public:
 
     // Whether the archive `name` is loaded / still waiting to finish loading.
     bool IsLoaded(const char* name);
-    bool IsLoadFinished(const char* name);
+    bool HasFinishedLoading(const char* name);
     // An archive's data has arrived for pending load `handle`: index it and add it to the loaded archives.
     // The third argument (probably the data's size) isn't used, but callers pass it.
     void FinishLoad(int handle, uint8_t* data, int size);
@@ -95,14 +95,14 @@ public:
         char name[64];
     };
 
-    ArchiveFile* m_activePre;
-    ArchiveFile::FileInfo* m_activeHandle;
-    uint8_t* m_activeData;
+    ArchiveFile* m_openArchive;
+    ArchiveFile::FileInfo* m_openEntryKey;
+    uint8_t* m_openEntryData;
     ArchiveFile::FileInfo* m_missingHandle; // the last handle no archive had (a quick "no" next time)
     ListKit::KeyMap* m_pres;             // ArchiveFile by archive name checksum
     bool m_holdArchiveLoads;
     PendingLoad m_pending[8];
-    int m_numPending;
+    int m_queuedArchiveCount;
 };
 
 // The pre manager, if one exists (set by its constructor), and the one CreateManager made - the same object.

@@ -378,7 +378,7 @@ bool __cdecl CFunc_ForEachIn(CStruct* params, CScript* script)
     CStruct* extra = nullptr;
     params->ReadSubStruct(kParams, &extra, 0);
     if (extra) {
-        CStruct* elementParams = Scripts::NewStruct();
+        CStruct* elementParams = Scripts::SpawnParamBag();
         if (elementParams)
             elementParams = elementParams->PrepareAll();
         for (uint32_t i = 0; i < array->m_extent; ++i) {
@@ -421,7 +421,7 @@ bool __cdecl CFunc_GetElement(CStruct* params, CScript* script)
         script->m_args->AddComponentOfType(kElement, Scripts::QBVAL_INTEGER, array->FetchPart(index));
         break;
     case Scripts::QBVAL_STRUCT: {
-        CStruct* copy = Scripts::NewStruct();
+        CStruct* copy = Scripts::SpawnParamBag();
         if (copy)
             copy = copy->PrepareAll();
         copy->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->FetchPart(index)));
@@ -492,7 +492,7 @@ bool __cdecl CFunc_GotoPreserveParams(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
     params->ReadHashValue(0u, &name, 0);
-    CStruct* scriptParams = Scripts::NewStruct();
+    CStruct* scriptParams = Scripts::SpawnParamBag();
     if (scriptParams)
         scriptParams = scriptParams->PrepareAll();
     scriptParams->AppendStructureIfAny(script->m_args);
@@ -512,7 +512,7 @@ bool __cdecl FormatPrintfText(char* out, CStruct* params, CScript*)
 {
     const char* text = "Default printf text"; // "Default printf text"
     if (params->FetchText(0u, &text, 0)) {
-        CStruct* format = Scripts::NewStruct();
+        CStruct* format = Scripts::SpawnParamBag();
         if (format)
             format = format->PrepareAll();
         format->PutNameKey(kTextName, kPrintfText);
@@ -541,7 +541,7 @@ bool __cdecl CFunc_Dump(CStruct* params, CScript* script)
 {
     uint32_t name = 0;
     params->ReadHashValue(0u, &name, 1);
-    CStruct* dump = Scripts::NewStruct();
+    CStruct* dump = Scripts::SpawnParamBag();
     if (dump)
         dump = dump->PrepareAll();
     char text[0x400];
@@ -604,7 +604,7 @@ bool __cdecl CFunc_AppendStruct(CStruct* params, CScript*)
     params->ReadHashValue(kStruct, &blockName, 1);
     params->ReadHashValue(kField, &field, 1);
     params->ReadSubStruct(kParams, &fieldParams, 1);
-    CStruct* copy = Scripts::NewStruct();
+    CStruct* copy = Scripts::SpawnParamBag();
     if (copy)
         copy = copy->PrepareAll();
     copy->AppendStructureIfAny(fieldParams);

@@ -51,8 +51,8 @@ constexpr uint32_t kConnDisconnAccepted = 0x8;
 // (NetLink::NetMessageInfo: net_app.h)
 
 constexpr int kQueueNormal = 0;
-constexpr int kQueueImportant = 1;
-constexpr int kQueueSequenced = 2;
+constexpr int kLanePriority = 1;
+constexpr int kLaneOrdered = 2;
 constexpr int kHighestPriority = 0xFF;
 
 // Message ids.
@@ -64,11 +64,11 @@ constexpr uint8_t kMsgConnectionRefused = 5;
 constexpr uint8_t kMsgConnectionTerminated = 6;
 constexpr uint8_t kMsgSequenced = 7;
 constexpr uint8_t kMsgAck = 8;
-constexpr uint8_t kMsgTimestamp = 9;
+constexpr uint8_t kMsgClockStamp = 9;
 constexpr uint8_t kMsgDisconnRequest = 0xB;
 constexpr uint8_t kMsgDisconnAccepted = 0xC;
-constexpr uint8_t kMsgStreamStart = 0xE;
-constexpr uint8_t kMsgStreamData = 0xF;
+constexpr uint8_t kMsgBulkBegin = 0xE;
+constexpr uint8_t kMsgBulkChunk = 0xF;
 constexpr uint8_t kMsgCompressed = 0x12;
 
 // The longest round trip counted as latency (0x00647588: 2000 ms).
@@ -112,7 +112,7 @@ inline Conn* OpenedLink(AppHost* app, uint32_t ip, uint16_t port, int flags)
     return app->OpenedLink(static_cast<int>(ip), port, flags);
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
-inline bool ReadPacket(AppHost* app, char* packet, char* to, int size)
+inline bool PullDatagram(AppHost* app, char* packet, char* to, int size)
 {
     return app->Decrypt(reinterpret_cast<const uint8_t*>(packet), reinterpret_cast<uint8_t*>(to), size);
 }
@@ -124,7 +124,7 @@ inline void DeliverTo(AppHost* app, uint8_t id, uint16_t length, const void* dat
 }
 inline void SeverLink(AppHost* app, Conn* conn) { app->SeverLink(conn); }
 inline void ReportSocketError(AppHost* app) { app->RaiseFault(); }
-inline uint8_t* FetchHub(AppHost* app) { return static_cast<uint8_t*>(app->NetManager()); }
+inline uint8_t* FetchHub(AppHost* app) { return static_cast<uint8_t*>(app->NetSessionSlot()); }
 // NetLink::Hub's flags for a message id (0x00454980).
 inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
 {
@@ -152,7 +152,7 @@ inline void MarkMessagesForRetry(Conn* conn, uint32_t timestamp) { conn->MarkMes
 // The connection's destructor.
 inline void DestroyConn(Conn* conn) { conn->Teardown(); }
 // The connection's latency test takes a measurement.
-inline void AddLatency(Conn* conn, uint32_t latency) { conn->m_latencyTest.InputDelayAmount(static_cast<int>(latency)); }
+inline void AddLatency(Conn* conn, uint32_t latency) { conn->m_pingProbe.InputDelayAmount(static_cast<int>(latency)); }
 // Message/packet metrics (0x00454550, 0x00454D90).
 inline void AddMessageMetric(void* metrics, uint8_t id, uint32_t size)
 {

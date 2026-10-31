@@ -82,7 +82,7 @@ public:
     // 0x004B2170 (vtable slot 0)
     CPanelWidget* Teardown(uint8_t flags);
     // 0x004B2160: its window.
-    void* GetWindow2d() const;
+    void* FetchScreenRect() const;
     // 0x004B21A0 (slot 10): after a change, the window moved to the element's top left and sized as it.
     void TickFrame();
 

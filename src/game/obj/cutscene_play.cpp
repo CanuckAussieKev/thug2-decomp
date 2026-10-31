@@ -61,7 +61,7 @@ void DeleteVirtual(void* object)
 }
 Scripts::CStruct* MakeStruct()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 
@@ -106,7 +106,7 @@ void CCinematicTable::MarkLoadedModels()
 bool CCinematicTable::FinishLoading(int /*unused*/)
 {
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap);
+    manager->EnterHeapScope(m_flag34B0 ? manager->m_cinematicLowHeap : manager->m_bottomUpHeap);
     LoadFromBundle();
     MarkLoadedModels();
     AddCutsceneLights();
@@ -167,8 +167,8 @@ bool CCinematicTable::ReadIn(const char* path, int a2, int /*unused*/, const uin
     }
     g_cutscenePlaying = true;
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    MemSys::Arena* fileHeap = m_flag34B0 ? manager->m_cutsceneBottomUpHeap : manager->m_bottomUpHeap;
-    MemSys::Arena* assetHeap = m_flag34B0 ? manager->m_cutsceneTopDownHeap : manager->m_topDownHeap;
+    MemSys::Arena* fileHeap = m_flag34B0 ? manager->m_cinematicLowHeap : manager->m_bottomUpHeap;
+    MemSys::Arena* assetHeap = m_flag34B0 ? manager->m_cinematicHighHeap : manager->m_topDownHeap;
     manager->EnterHeapScope(fileHeap);
     void* memory = MemSys::AllocZeroed(sizeof(FileLoad::AssetBundle));
     mp_bundle = memory ? new (memory) FileLoad::AssetBundle : nullptr;

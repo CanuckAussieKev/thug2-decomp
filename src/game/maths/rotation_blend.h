@@ -16,7 +16,7 @@ public:
     int SetMatrices(const Mat4& start, const Mat4& end);
 
     // Go the other way round: negate the axis and use 2*pi - angle.
-    void InvertDirection();
+    void FlipHeading();
 
     // The orientation a fraction `t` of the way from start to end (t <= 0 gives start; t >= 1, or NaN, gives
     // end). Small rotations blend the rows linearly and renormalise; others rotate start by t * angle about the

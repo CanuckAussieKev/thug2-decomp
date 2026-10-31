@@ -171,8 +171,8 @@ ElementPtr* CUiTree::SpawnPart(ElementPtr* out, uint32_t type, uint32_t id, Scri
         element.AssignValue(m ? static_cast<CGroupWidget*>(m)->MakeNew() : nullptr);
         break;
     case kHScrollingMenu:
-        m = NewMemory(sizeof(CScrollingMenu));
-        element.AssignValue(m ? static_cast<CScrollingMenu*>(m)->ConstructHorizontal() : nullptr);
+        m = NewMemory(sizeof(CWindowedList));
+        element.AssignValue(m ? static_cast<CWindowedList*>(m)->ConstructHorizontal() : nullptr);
         break;
     case kTextureElement:
         m = NewMemory(sizeof(CTextureElement));
@@ -199,8 +199,8 @@ ElementPtr* CUiTree::SpawnPart(ElementPtr* out, uint32_t type, uint32_t id, Scri
         element.AssignValue(m ? static_cast<CModelWidget*>(m)->MakeNew() : nullptr);
         break;
     case kVScrollingMenu:
-        m = NewMemory(sizeof(CScrollingMenu));
-        element.AssignValue(m ? static_cast<CScrollingMenu*>(m)->ConstructVertical() : nullptr);
+        m = NewMemory(sizeof(CWindowedList));
+        element.AssignValue(m ? static_cast<CWindowedList*>(m)->ConstructVertical() : nullptr);
         break;
     case kSpriteElement:
         m = NewMemory(sizeof(CImageWidget));
@@ -527,7 +527,7 @@ bool __cdecl CFunc_CreateMultipleTextElements(Scripts::CStruct* params, Scripts:
     int lineLength = 0;
     int previous = 0;
     auto makeElement = [&]() {
-        CStruct* elementParams = Scripts::NewStruct();
+        CStruct* elementParams = Scripts::SpawnParamBag();
         if (elementParams)
             elementParams = elementParams->PrepareAll();
         elementParams->AppendStructureIfAny(params);

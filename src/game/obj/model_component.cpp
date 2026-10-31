@@ -30,12 +30,12 @@ namespace {
 
 constexpr float kHalfPi = 1.57079637f;         // 0x00645484
 constexpr float kFramesToMs = 16.666666f;      // 0x006460DC (1000 / 60)
-constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kLerpRateScale = 0.02f;        // 0x00646124
 constexpr double kTwoTo32 = 4294967296.0;      // 0x006453B4
 
 constexpr uint8_t kMsgHideGeom = 0x3E;
-constexpr uint8_t kMsgRotateDisplay = 0x76;
+constexpr uint8_t kMsgSpinModel = 0x76;
 constexpr uint8_t kMsgCancelRotateDisplay = 0x8C;
 
 // The x87 FSIN, as the originals take it.
@@ -106,10 +106,10 @@ void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-void* NetManager() { return reinterpret_cast<void*>(OnlinePlay::g_gameNetManager); }
-void* PlayerByObjectId(uint32_t id)
+void* NetSessionSlot() { return reinterpret_cast<void*>(OnlinePlay::g_onlineHub); }
+void* FindPlayerSlotByObj(uint32_t id)
 {
-    return static_cast<OnlinePlay::Hub*>(NetManager())->PlayerByObjectId(static_cast<uint16_t>(id));
+    return static_cast<OnlinePlay::Hub*>(NetSessionSlot())->FindPlayerSlotByObj(static_cast<uint16_t>(id));
 }
 bool IsOwnPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player)->IsOwnPlayer() != 0; }
 int PlayerSkaterIndex(void* player) { return static_cast<int>(static_cast<OnlinePlay::PlayerRecord*>(player)->GetSkaterValue2BC()); }
@@ -121,8 +121,8 @@ NetLink::Guest* ClientApp(void* manager, int index)
 // A message about `object` to the server, when its player is this machine's.
 void SendToServer(CGameEntity* object, uint8_t id, uint16_t length, void* data)
 {
-    void* manager = NetManager();
-    void* player = PlayerByObjectId(object->m_ident);
+    void* manager = NetSessionSlot();
+    void* player = FindPlayerSlotByObj(object->m_ident);
     if (!player || !IsOwnPlayer(player))
         return;
     NetLink::NetMessageInfo message;
@@ -230,7 +230,7 @@ void CMeshInstanceModule::GetDrawMatrix(Maths::Mat4* out)
             rotation.ResetToIdentity();
         none = false;
         Maths::Mat4 turn;
-        MatrixMultiply(&rotation, &rotation, &kCreate[axis](turn, angle * kDegreesToRadians));
+        MatrixMultiply(&rotation, &rotation, &kCreate[axis](turn, angle * kRadiansPerDegree));
     }
     Maths::Vec4 shift = {0.0f, 0.0f, 0.0f, 0.0f};
     if (!none) {
@@ -376,8 +376,8 @@ void CMeshInstanceModule::RotateDisplay(float duration, float start, float end, 
         uint8_t axes;
         uint8_t pad;
     } data;
-    void* manager = NetManager();
-    void* player = PlayerByObjectId(m_entity->m_ident);
+    void* manager = NetSessionSlot();
+    void* player = FindPlayerSlotByObj(m_entity->m_ident);
     if (!player || !IsOwnPlayer(player))
         return;
     NetLink::NetMessageInfo message;
@@ -392,7 +392,7 @@ void CMeshInstanceModule::RotateDisplay(float duration, float start, float end, 
     data.hold = hold;
     data.axes = axes;
     message.m_byteCount = 0x10;
-    message.m_ident = kMsgRotateDisplay;
+    message.m_ident = kMsgSpinModel;
     app->SendToHost(&message);
 }
 

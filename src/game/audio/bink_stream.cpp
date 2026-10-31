@@ -262,7 +262,7 @@ Result WadStream::Unseal(Hdl file, void* buffer)
 }
 
 // 0x004543F0
-bool WadStream::PreloadDone()
+bool WadStream::PrefetchComplete()
 {
     if (m_curPhase != 1)
         return false;

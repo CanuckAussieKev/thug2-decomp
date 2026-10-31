@@ -36,7 +36,7 @@ uint32_t g_textVertexStore[0x1C00];
 uint16_t g_textQuadIndices[0x100 * 6];
 
 STypeface* g_fontList;
-STypeface* g_buttonFont;
+STypeface* g_glyphTypeface;
 STypeface* g_textureFont;
 uint32_t g_textVertexCount;
 TextVertex* g_textVertexBuffer;
@@ -49,8 +49,8 @@ constexpr float kEffectScale = Bits(0x38800000); // 0x006487C8, 1 / 16384
 constexpr float kMinusHalf = Bits(0xBF000000);   // 0x0064642C
 
 // The 640x480 -> back buffer conversion (set up by InitDirect3D).
-float ScreenScaleX() { return g_screenScaleX; }
-float ScreenScaleY() { return g_screenScaleY; }
+float HorizScreenRatio() { return g_displayFactorX; }
+float VertScreenRatio() { return g_displayFactorY; }
 int ScreenOffsetX() { return g_screenOffsetX; }
 int ScreenOffsetY() { return g_screenOffsetY; }
 
@@ -59,7 +59,7 @@ TextVertex*& VertexBuffer() { return g_textVertexBuffer; }
 uint32_t& VertexCount() { return g_textVertexCount; }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
-STypeface* ButtonFont() { return g_buttonFont; }
+STypeface* PadGlyphTypeface() { return g_glyphTypeface; }
 STypeface*& TextureFont() { return g_textureFont; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
@@ -159,7 +159,7 @@ void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHei
                 ++p;
                 int button = ButtonIndex(tag, p);
                 if (UseButtonGlyph(button)) {
-                    font = ButtonFont();
+                    font = PadGlyphTypeface();
                     glyph = &font->chars[font->specialMap[button]];
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
@@ -205,8 +205,8 @@ void STypeface::ReadStringParam(const char* text, float* outWidth, float* outHei
 // 0x004CFB20
 void SGlyphRun::DrawKeyChar(char c, float* penX, float penY)
 {
-    double scaleX = ScreenScaleX();
-    double scaleY = ScreenScaleY();
+    double scaleX = HorizScreenRatio();
+    double scaleY = VertScreenRatio();
     float spacing = static_cast<float>(font->glyphGap * static_cast<double>(xscale));
     if (c == ' ') {
         *penX = static_cast<float>((font->blankGap * static_cast<double>(xscale) + spacing) * scaleX + *penX);
@@ -235,8 +235,8 @@ void SGlyphRun::DrawKeyChar(char c, float* penX, float penY)
 // 0x004CFD00
 void SGlyphRun::Blit()
 {
-    double scaleX = ScreenScaleX();
-    double scaleY = ScreenScaleY();
+    double scaleX = HorizScreenRatio();
+    double scaleY = VertScreenRatio();
     double offsetX = ScreenOffsetX();
     double offsetY = ScreenOffsetY();
     // Screen positions (x87: each sum rounded to float once, when stored).
@@ -288,7 +288,7 @@ void SGlyphRun::Blit()
                 int button = ButtonIndex(tag, p);
                 if (UseButtonGlyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
-                    STypeface* buttons = ButtonFont();
+                    STypeface* buttons = PadGlyphTypeface();
                     glyph = &buttons->chars[buttons->specialMap[button]];
                     charFont = buttons;
                     CloseSketch();
@@ -511,7 +511,7 @@ void SGlyphRun::DrawVertices()
     SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
     SetTexture(0, textureFont->texture); // (the original also passes unknown17C, which SetTexture doesn't take)
     DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(InputPort(), 22, 1); // D3DRS_CULLMODE: none
-    if (!g_skipRender) { // (rendering not skipped)
+    if (!g_suppressDraw) { // (rendering not skipped)
         ++g_drawCalls;            // draw calls
         g_drawnTriangles += count / 2; // "triangles"
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,

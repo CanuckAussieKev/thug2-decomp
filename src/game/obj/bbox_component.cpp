@@ -50,8 +50,8 @@ constexpr uint32_t kObjectTypePed = 0xD2DB7F97;
 constexpr uint32_t kObjectTypeGameObj = 0xBC0D91D8;
 constexpr uint32_t kObjectTypeCar = 0x5C0312EB;
 
-constexpr float kFeetToInches = 12.0f;               // 0x0064546C
-constexpr float kDegreesToRadians = 0.0174532924f;   // 0x00645464
+constexpr float kTwelveInchScale = 12.0f;               // 0x0064546C
+constexpr float kRadiansPerDegree = 0.0174532924f;   // 0x00645464
 constexpr float kHalf = 0.5f;                        // 0x006453BC
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
@@ -141,13 +141,13 @@ void CBBoxComponent::InitRect(Rect2* rect, Scripts::CStruct* params)
         rect->m_shift.w = offset.w + rect->m_shift.w;
     }
     if (params->FetchFloat(kAngle, &rect->m_angle, 0))
-        rect->m_angle = rect->m_angle * kDegreesToRadians;
+        rect->m_angle = rect->m_angle * kRadiansPerDegree;
     if (params->FetchFloat(kHeight, &rect->m_levelY, 0))
-        rect->m_levelY = rect->m_levelY * kFeetToInches;
+        rect->m_levelY = rect->m_levelY * kTwelveInchScale;
     if (params->FetchFloat(kDist, &rect->m_separation, 0))
-        rect->m_separation = rect->m_separation * kFeetToInches;
+        rect->m_separation = rect->m_separation * kTwelveInchScale;
     if (params->FetchFloat(kWidth, &rect->m_span, 0))
-        rect->m_span = rect->m_span * kFeetToInches;
+        rect->m_span = rect->m_span * kTwelveInchScale;
 }
 
 // 0x0041AB20
@@ -185,7 +185,7 @@ void CBBoxComponent::ComputeRect(Rect2* rect)
 double RectRadiusSqr(CBBoxComponent::Rect2* rect)
 {
     if (rect->m_radiusComputed)
-        return rect->m_radiusSqr;
+        return rect->m_reachSquared;
     float size = std::fabs(rect->m_separation);
     if (std::fabs(rect->m_levelY) > size)
         size = std::fabs(rect->m_levelY);
@@ -199,7 +199,7 @@ double RectRadiusSqr(CBBoxComponent::Rect2* rect)
     rect->m_radiusComputed = true;
     double sum = static_cast<double>(size) + offset;
     double square = sum * sum;
-    rect->m_radiusSqr = static_cast<float>(square);
+    rect->m_reachSquared = static_cast<float>(square);
     return square;
 }
 
@@ -298,7 +298,7 @@ bool CBBoxComponent::QueryObjects(Scripts::CStruct* params, Scripts::CScript* sc
     if (!rect) {
         if (!params->FetchFloat(kRadius, &reachSquared, 0))
             return false;
-        double radius = static_cast<double>(reachSquared) * kFeetToInches;
+        double radius = static_cast<double>(reachSquared) * kTwelveInchScale;
         reachSquared = static_cast<float>(radius * radius);
     }
     uint32_t type;

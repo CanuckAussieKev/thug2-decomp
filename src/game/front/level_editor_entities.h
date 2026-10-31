@@ -79,7 +79,7 @@ inline float MphToUnits(float mph) { return mph * 17.6f; }
 // The limits the editor accepts (the Inspector's fields clamp to them; a layout record outside them is refused).
 constexpr float kMinMph = 0.1f, kMaxMph = 200.0f;
 constexpr float kMinVolume = 0.0f, kMaxVolume = 400.0f;
-constexpr float kMinRadius = 1.0f, kMaxRadius = 100000.0f;
+constexpr float kMinRadius = 1.0f, kRadiusCeiling = 100000.0f;
 
 // (map4) A particle system's emitter as its node places it: MidPosition / EndPosition (world places) and the three
 // boxes the particles start / pass / end in (BoxDimsStart / BoxDimsMid / BoxDimsEnd - extents along the world's axes:
@@ -150,7 +150,7 @@ bool TakeUndo(State* before);
 // with it (TurnParticle, from the node as the level - or the copy - had it), the system made again.
 void NodeMoved(uint32_t name, V3 pos, V3 angles);
 // Whether the node edits move this node: a particle node, an object node the level hasn't made (a ghost).
-bool MovableNode(uint32_t name, int family);
+bool PickedNodeIndex(uint32_t name, int family);
 // The Inspector's note for those.
 const char* WhenApplied(uint32_t name, int family);
 

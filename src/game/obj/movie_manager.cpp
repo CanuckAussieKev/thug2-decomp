@@ -25,7 +25,7 @@
 
 namespace GameObjects {
 
-bool g_gamePaused;
+bool g_simulationHalted;
 int g_viewMode;
 
 namespace {
@@ -52,7 +52,7 @@ bool HasCamera(CMovie* movie) { return Virtual<bool>(movie, 0x1C); }
 void Halt(CMovie* movie) { Virtual<void>(movie, 0x20); }
 // The movie details' (node_objects.h) part of a movie.
 CVideoEntry* Details(CMovie* movie) { return reinterpret_cast<CVideoEntry*>(movie); }
-uint32_t NameOf(CMovie* movie) { return MovieName(movie); }
+uint32_t NameOf(CMovie* movie) { return MovieKeyFromParams(movie); }
 // The game's camera (0x004A0970).
 // The movie at `index` of the list (ListKit::Foremost<CMovie>::FetchEntry, 0x0055D990; null past the end).
 CMovie* MovieAt(MemSys::ListNode* head, int index)
@@ -69,9 +69,9 @@ void Uncouple(MemSys::ListNode* node)
     node->prev = node;
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -129,9 +129,9 @@ Gfx2D::ViewCam* CameraAssignment::Assign(const Gfx2D::ViewCam* other)
     camera->m_atPoint = other->m_atPoint;
     camera->m_basisFrame = other->m_basisFrame;
     camera->m_hFov = other->m_hFov;
-    camera->m_adjustedHFov = other->m_adjustedHFov;
+    camera->m_correctedHorizFov = other->m_correctedHorizFov;
     camera->m_unknownB4 = other->m_unknownB4;
-    camera->m_nearClip = other->m_nearClip;
+    camera->m_nearDist = other->m_nearDist;
     camera->m_farClip = other->m_farClip;
     camera->m_unknownC0 = other->m_unknownC0;
     return camera;
@@ -183,7 +183,7 @@ void CVideoHub::KeepCamera(CMovie* movie)
 {
     if (!movie || !HasCamera(movie) || !Virtual<bool>(movie, 0x28))
         return;
-    if (g_gamePaused) // (the game paused)
+    if (g_simulationHalted) // (the game paused)
         return;
     if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378) == 0xE92ECAFE)
         return;
@@ -249,7 +249,7 @@ void CVideoHub::ClearMovies()
 void CVideoHub::EndMovie(CMovie* movie)
 {
     uint32_t endScript = movie->m_endScript;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->AppendStructureIfAny(movie->m_endParams);
     if (TotalOf() == 1)
         KeepCamera(movie);
@@ -451,7 +451,7 @@ bool CVideoHub::TickFrame()
     CMovie* movie = MovieAt(&m_movies, 0);
     if (!movie)
         return false;
-    if (!g_gamePaused || g_viewMode != 0) // (not paused, or the view mode)
+    if (!g_simulationHalted || g_viewMode != 0) // (not paused, or the view mode)
         Virtual<void>(movie, 0x08);
     else if (!movie->m_playsWhilePaused)
         Virtual<void>(movie, 0x08);
@@ -526,7 +526,7 @@ CVideoHub* CVideoHub::Teardown(unsigned int flags)
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
-uint32_t __fastcall MovieName(const void* movie) { return reinterpret_cast<const CVideoEntry*>(movie)->m_value20; }
+uint32_t __fastcall MovieKeyFromParams(const void* movie) { return reinterpret_cast<const CVideoEntry*>(movie)->m_value20; }
 
 } // namespace Obj
 

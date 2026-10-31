@@ -26,7 +26,7 @@ constexpr uint8_t kSignedShort = 0x0F;
 constexpr uint8_t kUnsignedByte = 0x10;
 constexpr uint8_t kUnsignedShort = 0x11;
 constexpr uint8_t kZeroInteger = 0x12;
-constexpr uint8_t kZeroFloat = 0x13;
+constexpr uint8_t kTagZeroF = 0x13;
 
 uint32_t FloatBits(float value)
 {
@@ -68,7 +68,7 @@ uint8_t* WriteNameAndType(uint8_t* buffer, uint8_t type, uint32_t name)
 }
 
 // 0x004798F0
-uint32_t WriteInteger(uint32_t name, int value, uint8_t* buffer, uint32_t size)
+uint32_t EmitInt(uint32_t name, int value, uint8_t* buffer, uint32_t size)
 {
     uint8_t type = QBVAL_INTEGER;
     if (value == 0)
@@ -114,21 +114,21 @@ __declspec(naked) void WriteIntegerStub()
         push dword ptr [esp + 8]
         push ebx
         push ecx
-        call WriteInteger
+        call EmitInt
         add esp, 16
         ret
     }
 }
 
 // 0x00479A50
-uint32_t WriteFloat(uint8_t* buffer, uint32_t name, uint32_t size, float value)
+uint32_t EmitReal(uint8_t* buffer, uint32_t name, uint32_t size, float value)
 {
     float magnitude = value < 0.0f ? -value : value;
     // (a NaN counts as big)
     if (magnitude < 0.0001) {
         if (size < 5)
             return 0;
-        return Written(WriteNameAndType(buffer, kZeroFloat, name), buffer);
+        return Written(WriteNameAndType(buffer, kTagZeroF, name), buffer);
     }
     if (size < 9)
         return 0;
@@ -143,7 +143,7 @@ __declspec(naked) void WriteFloatStub()
         push esi
         push edx
         push ecx
-        call WriteFloat
+        call EmitReal
         add esp, 16
         ret
     }
@@ -309,10 +309,10 @@ uint32_t EmitIntoBuffer(CStruct* structure, uint8_t* buffer, uint32_t size, int 
             uint32_t written;
             switch (component->KindTag()) {
             case QBVAL_INTEGER:
-                written = WriteInteger(component->name, component->integer, p, remaining);
+                written = EmitInt(component->name, component->integer, p, remaining);
                 break;
             case QBVAL_FLOAT:
-                written = WriteFloat(p, component->name, remaining, component->floatValue);
+                written = EmitReal(p, component->name, remaining, component->floatValue);
                 break;
             case QBVAL_STRING:
                 written = WriteString(p, component->string, component->name, remaining);
@@ -457,7 +457,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
             break;
         }
         case QBVAL_STRUCT: {
-            CStruct* inner = NewStruct();
+            CStruct* inner = SpawnParamBag();
             if (inner)
                 inner->PrepareAll();
             p = DecodeFromBytes(inner, p);
@@ -495,7 +495,7 @@ const uint8_t* DecodeFromBytes(CStruct* structure, const uint8_t* buffer)
         case kZeroInteger:
             structure->PutInt(name, 0);
             break;
-        case kZeroFloat:
+        case kTagZeroF:
             structure->PushFloat(name, 0.0f);
             break;
         default:
@@ -559,7 +559,7 @@ const uint8_t* ReadArrayFromBuffer(CArray* array, const uint8_t* buffer)
         break;
     case QBVAL_STRUCT:
         for (uint32_t i = 0; i < count; ++i) {
-            CStruct* inner = NewStruct();
+            CStruct* inner = SpawnParamBag();
             if (inner)
                 inner->PrepareAll();
             p = DecodeFromBytes(inner, p);

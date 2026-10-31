@@ -37,7 +37,7 @@
 
 namespace Engine3D {
 
-bool g_skipRender; // rendering skipped (frames not drawn or shown)
+bool g_suppressDraw; // rendering skipped (frames not drawn or shown)
 
 void* g_flexibleParticleManager;
 void* g_imposterManager;
@@ -71,10 +71,10 @@ CSceneNode* FirstScene()
 }
 CWorldScene* SceneOf(MemSys::ListNode* node) { return static_cast<CWorldScene*>(node->data); }
 
-void* g_objectManager;
+void* g_sceneObjects;
 int g_renderIgnore0;
 int g_renderIgnore1;
-bool g_metricsOn;
+bool g_statsOverlayOn;
 Engine::IdleFunction g_idleFunction;
 
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
@@ -82,9 +82,9 @@ Engine::IdleFunction g_idleFunction;
 // StartEngine).
 void*& FlexibleParticleManager() { return g_flexibleParticleManager; }
 void*& ImposterManager() { return g_imposterManager; }
-CParticleManager* ParticleManager() { return GameObjects::g_particleManager; }
+CEffectsDirector* ParticleHubHandle() { return GameObjects::g_particleHub; }
 void* Weather() { return g_weather; }
-bool OmitFromDraw() { return g_skipRender; }
+bool OmitFromDraw() { return g_suppressDraw; }
 int ViewportCount() { return GameModules::g_viewportCount; }
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
@@ -143,7 +143,7 @@ void __cdecl PrepareAll(uint32_t textPoolSize)
 void __cdecl EndRender()
 {
     FinishRendering();
-    DeleteMarkedCameras();
+    PurgeDoomedCameras();
 }
 
 // 0x0048C330
@@ -153,7 +153,7 @@ void __cdecl RenderFrame()
     UpdateSpawnedPolys();
     AgeAllTextureSplats();
     UpdateShatters();
-    ParticleManager()->TickParticles();
+    ParticleHubHandle()->TickParticles();
     // the weather's frame (vtable slot 2 - through the folded jump 0x004E3F90), by the slow-motion frame time
     void* weather = Weather();
     reinterpret_cast<void(__thiscall*)(void*, float)>((*static_cast<void***>(weather))[2])(
@@ -165,7 +165,7 @@ void __cdecl RenderFrame()
 }
 
 // 0x0048C0A0
-void __cdecl SetObjectManager(void* manager) { g_objectManager = manager; }
+void __cdecl ChangeEntityHub(void* manager) { g_sceneObjects = manager; }
 
 // 0x0048C0B0
 uint32_t* __cdecl GetCollisionScenes() { return reinterpret_cast<uint32_t*>(g_collisionScenes); }
@@ -181,7 +181,7 @@ void __cdecl ToggleRenderMode()
 // 0x0048C0F0
 void __cdecl ToggleMetrics()
 {
-    bool& on = g_metricsOn;
+    bool& on = g_statsOverlayOn;
     on = !on;
 }
 
@@ -219,9 +219,9 @@ void* __cdecl LoadModelFromMemory(uint32_t checksum, const uint8_t* data, int si
 }
 
 // 0x0048C390
-void __cdecl SceneFileName(char* out, const char* name, uint32_t)
+void __cdecl BuildSceneFilePath(char* out, const char* name, uint32_t)
 {
-    std::sprintf(out, kSceneFileFormat, name, name, "", PlatformExtension());
+    std::sprintf(out, kSceneFileFormat, name, name, "", PlatformSuffix());
 }
 
 // 0x0048C3C0
@@ -238,7 +238,7 @@ void* __cdecl LoadModelFile(const char* fileName, void* textures, int, bool)
     bool skinned = SplitSkinName(fileName, base);
     TextUtil::ToLowerText(base);
     char path[0x200];
-    std::sprintf(path, kModelFileFormat, base, skinned ? "skin" : "mdl", PlatformExtension());
+    std::sprintf(path, kModelFileFormat, base, skinned ? "skin" : "mdl", PlatformSuffix());
     MemSys::PushMemProfile(path);
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
@@ -271,7 +271,7 @@ void* __cdecl LookUpSector(uint32_t checksum)
 void __cdecl AddScene(CWorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
 {
     char file[0x80];
-    std::sprintf(file, kSceneFileFormat, name, name, "", PlatformExtension());
+    std::sprintf(file, kSceneFileFormat, name, name, "", PlatformSuffix());
     scene->m_checksum = Checksums::HashFromText(name);
     scene->m_textureSet = static_cast<CTextureSet*>(textures);
     if (!loaded)

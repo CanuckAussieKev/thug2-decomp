@@ -49,7 +49,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -207,7 +207,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CColorCycleComponent::Teardow
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

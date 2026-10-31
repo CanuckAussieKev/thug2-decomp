@@ -33,7 +33,7 @@ struct STrickLog {
     int m_pointsHeld;          // +0x00 its base points
     int m_repeats;        // +0x04 how often done before (the reduction's index)
     int m_twistRate;           // +0x08 in half turns
-    int m_spinDegrees;    // +0x0C as spun (signed)
+    int m_rotationDeg;    // +0x0C as spun (signed)
     uint32_t m_label;      // +0x10 its name's checksum
     int m_kind;           // +0x14 (the flags' 0x04 / 0x08 bits shifted; not 0: 1.2 times)
     uint32_t m_flagBits;     // +0x18 (kTrick* below)
@@ -113,7 +113,7 @@ public:
     // --- queries (point_tally.cpp) ---
     // 0x00561240 (cdecl): the step the counting pot goes down by: 1, 10, 100, 10000, 100000 or 1000000 (none of
     // 1000).
-    static int ScoreIncrement(int value);
+    static int PointGain(int value);
     // 0x00561290
     void SetRiderNumber(int16_t id);
     // 0x005612A0: `text` into `out` with each space as "\_" (`this` unused).
@@ -129,7 +129,7 @@ public:
     // 0x00561550: the points of the log's tricks [first, last) (as captureScore, without kTrickSpinPlusOne).
     int GetScoreOfRange(int first, int last);
     // 0x00561640 / 0x00561660: the last trick's / trick `index`'s name (0: none).
-    uint32_t GetLastTrickName();
+    uint32_t FetchNewestTrickKey();
     uint32_t GetTrickName(int index);
     // 0x00561670: the trick string (the_trick_text + the skater's number) set to the log's texts, or emptied; then
     // UpdateTrickText.
@@ -142,7 +142,7 @@ public:
     void DispatchScorePot(int points, float multiplier);
     // 0x005619E0: in a career game, the skate module's score goals (+0x60, 64 of {score, script, goal}) the total
     // went past from `before` to `after` - each done once, its script run on the skater.
-    void CheckHighScore(int before, int after);
+    void TestRecordScore(int before, int after);
     // 0x00561A80: the total; shown (as minutes:seconds in king of the hill) for a local skater.
     void SetGrandTotal(int total);
     // 0x00561B40: the total - on the server in a game scored by clusters, the clusters the skater holds.
@@ -196,12 +196,12 @@ public:
     // --- the combo (score_combo.cpp) ---
     // 0x00562E40 (captureScore): the combo's points (each trick's, the debug print), the special meter filled by the
     // new points (NewSpecial), m_potScore / m_potSpecial.
-    void CaptureScore();
+    void BankComboScore();
     // 0x00563020: the pot and the log emptied; no multiplier, no spin trick, no robot counts for the combo.
     void ResetScorePot();
     // 0x00563080: the balance meter (on / off - show_balance_meter / hide_balance_meter - its mode, the arrow's place
     // and angle for `lean`).
-    void PositionBalanceMeter(bool on, float lean, bool manual);
+    void PlaceBalanceGauge(bool on, float lean, bool manual);
     // 0x00563370 / 0x00563390
     void SetTeeterGauge(bool on, float lean);
     void SetWheelieGauge(bool on, float lean);
@@ -216,7 +216,7 @@ public:
     // last one's points just grow), how often it was seen, the multiplier, the trick string and pot shown.
     void FireOff(const char* text, int score, uint32_t flags);
     // 0x00563F30: the spin trick's spin (the "FS" / "BS" and Cab names; ollies' sides swapped on odd half turns).
-    void SetTurnAmount(int degrees);
+    void ChangeSpinDegrees(int degrees);
     // 0x00564270: points added to the last trick while it is being held (no more than 10 tricks since the last
     // no-spin one; a no-spin trick only up to 20000).
     void TweakTrick(int points);
@@ -227,7 +227,7 @@ public:
     void Bail(bool clear);
     // 0x00564A10: everything back to the start of a run.
     void Reset();
-    // 0x00564BE0: SetTurnAmount while the spin trick isn't a no-spin one.
+    // 0x00564BE0: ChangeSpinDegrees while the spin trick isn't a no-spin one.
     void AdvanceTurn(int degrees);
 
     // --- the network (score_net.cpp) ---
@@ -238,11 +238,11 @@ public:
     // object's cluster coloured for the skater (or the skater's team).
     void NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_t* objects, bool send);
     // 0x005626F0 (cdecl, the net handler): a trick objects message for this game logged by the skater's score.
-    static int __cdecl HandleScoreMessage(NetLink::InboundMsgCtx* context);
+    static int __cdecl OnScoreMsg(NetLink::InboundMsgCtx* context);
 
     // (the trick log's entry `index`; the last one)
     STrickLog* Trick(int index) { return static_cast<STrickLog*>(m_log.m_items[index]); }
-    STrickLog* LastTrick() { return Trick(m_log.m_num - 1); }
+    STrickLog* NewestLoggedTrick() { return Trick(m_log.m_num - 1); }
 };
 static_assert(offsetof(PointTally, m_seen) == 0x38 && offsetof(PointTally, m_log) == 0x4C && offsetof(PointTally, m_special) == 0x70 &&
                   offsetof(PointTally, m_barColors) == 0x75 && offsetof(PointTally, m_specialPhase) == 0x84 &&
@@ -252,7 +252,7 @@ static_assert(offsetof(PointTally, m_seen) == 0x38 && offsetof(PointTally, m_log
                   sizeof(PointTally) == 0x1550,
               "layout must match the original");
 
-// 0x00561240's entry: PointTally::ScoreIncrement with EDX kept (Update relies on it).
+// 0x00561240's entry: PointTally::PointGain with EDX kept (Update relies on it).
 int ScoreIncrementStub();
 
 } // namespace Mdl

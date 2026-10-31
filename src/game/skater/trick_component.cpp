@@ -105,7 +105,7 @@ __declspec(naked) void IsDirectionStub()
 }
 
 namespace {
-void __stdcall MarkUsedThunk(CMoveExecutor* trick, uint32_t flags) { trick->MarkUsed(flags); }
+void __stdcall MarkUsedThunk(CMoveExecutor* trick, uint32_t flags) { trick->FlagSpent(flags); }
 } // namespace
 
 __declspec(naked) void MarkUsedStub()
@@ -209,7 +209,7 @@ void CMoveExecutor::ClearUsed()
 }
 
 // 0x0051EBD0
-void CMoveExecutor::MarkUsed(uint32_t flags)
+void CMoveExecutor::FlagSpent(uint32_t flags)
 {
     ForEachEvent(this, [&](int, TrickEvent& e) {
         if (e.used) {
@@ -372,7 +372,7 @@ bool CMoveExecutor::CheckSpinSequence(const uint32_t* buttons, bool any)
     });
     if (!found)
         return false;
-    MarkUsed(0x100);
+    FlagSpent(0x100);
     SetButtonMap(buttons);
     return true;
 }
@@ -420,7 +420,7 @@ bool CMoveExecutor::CheckReleasePress(uint32_t button, bool twice, bool setMap)
     if (!found)
         return false;
     if (setMap) {
-        MarkUsed(0xFFFFFFFF);
+        FlagSpent(0xFFFFFFFF);
         // (the original hands its own three stack arguments over as the map)
         const uint32_t map[3] = {button, twice, setMap};
         SetButtonMap(map);
@@ -678,7 +678,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
     uint32_t buttons[3] = {0, 0, 0};
     // The events marked used get `markFlags`, the trigger's buttons become the map.
     auto succeed = [&] {
-        MarkUsed(markFlags);
+        FlagSpent(markFlags);
         SetButtonMap(buttons);
         return true;
     };
@@ -741,7 +741,7 @@ bool CMoveExecutor::CheckTrigger(Scripts::CStruct* trigger, uint32_t markFlags, 
         Scan scan = MatchSteps(this, steps, buttons, ReadTrigger(node, 1, buttons), mask);
         if (scan != Scan::Found)
             return scan == Scan::Stopped ? false : fail();
-        MarkUsed(markFlags);
+        FlagSpent(markFlags);
         return true;
     }
     case 0x7D482318: { // InOrder: the first pressed, then the second

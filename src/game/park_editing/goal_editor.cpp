@@ -79,12 +79,12 @@ static VtableSlot kVtable_slots[] = {&ParkEditing::CObjectiveAuthoring::Teardown
          &ParkEditing::CObjectiveAuthoring::Conceal,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
-constexpr uint32_t kGoalsArray = 0x38DBE1D0;
+constexpr uint32_t kGoalListName = 0x38DBE1D0;
 constexpr uint32_t kParkEditorGameplayLevel = 0xB664035D; // Load_Sk5Ed_gameplay
 
 template <typename... Args>
@@ -117,9 +117,9 @@ GameObjects::CEditorViewModule* ViewCam(GameObjects::CObjectModule* camera)
     return static_cast<GameObjects::CEditorViewModule*>(camera);
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -194,7 +194,7 @@ void CObjectiveAuthoring::Seal()
 // 0x004E8470
 CObjectiveAuthoring* __cdecl CObjectiveAuthoring::Pull()
 {
-    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::CompositeObjectManager());
+    auto* manager = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::ObjectHubSlot());
     auto* object = reinterpret_cast<GameObjects::CGameEntity*>(manager->LookUpEntity(kGoalEditor));
     return static_cast<CObjectiveAuthoring*>(object->FetchModule(kGoalEditor));
 }
@@ -215,7 +215,7 @@ CEditedGoal* CObjectiveAuthoring::FindGoalById(uint32_t id)
 {
     uint32_t level = CurrentLevel();
     for (CEditedGoal& goal : m_goals) {
-        if (goal.m_takenCount && goal.m_level == level && CreatedGoalId(goal.m_goalIndex) == id)
+        if (goal.m_takenCount && goal.m_level == level && CreatedGoalId(goal.m_levelGoalNumber) == id)
             return &goal;
     }
     return nullptr;
@@ -234,7 +234,7 @@ CEditedGoal* CObjectiveAuthoring::GetGoalFromParams(Scripts::CStruct* params)
     if (params->FetchIntValue(0x474A6A7F, &index, 0)) {
         uint32_t level = CurrentLevel();
         for (CEditedGoal& goal : m_goals) {
-            if (goal.m_takenCount && goal.m_level == level && goal.m_goalIndex == index)
+            if (goal.m_takenCount && goal.m_level == level && goal.m_levelGoalNumber == index)
                 return &goal;
         }
         return nullptr;
@@ -347,8 +347,8 @@ void CObjectiveAuthoring::DropObjective(CEditedGoal* goal)
 {
     if (goal->m_takenCount) {
         GoalSystem::CGoalManager* manager = GoalSystem::GetObjectiveBoard();
-        if (manager->GoalExists(CreatedGoalId(goal->m_goalIndex)))
-            manager->DropObjective(CreatedGoalId(goal->m_goalIndex));
+        if (manager->GoalExists(CreatedGoalId(goal->m_levelGoalNumber)))
+            manager->DropObjective(CreatedGoalId(goal->m_levelGoalNumber));
     }
     InitEditedGoal(reinterpret_cast<uint8_t*>(goal));
     if (m_activeNode == goal)
@@ -431,7 +431,7 @@ void CObjectiveAuthoring::BeginFreshObjective()
         taken = false;
         for (CEditedGoal& goal : m_goals) {
             if (goal.m_takenCount && goal.m_vertexTotal >= goal.m_minPoints && goal.m_level == level &&
-                goal.m_goalIndex == index) {
+                goal.m_levelGoalNumber == index) {
                 ++index;
                 taken = true;
                 break;
@@ -445,7 +445,7 @@ void CObjectiveAuthoring::BeginFreshObjective()
         InitEditedGoal(reinterpret_cast<uint8_t*>(&goal));
         m_activeNode->m_takenCount = true;
         m_activeNode->m_level = level;
-        m_activeNode->m_goalIndex = index;
+        m_activeNode->m_levelGoalNumber = index;
         RefreshCursor();
         return;
     }
@@ -468,7 +468,7 @@ void CObjectiveAuthoring::ReadGoals(Scripts::CStruct* params, int parkOnly)
     else
         ClearLevelGoals();
     Scripts::CArray* goals = nullptr;
-    params->FetchList(kGoalsArray, &goals, 0);
+    params->FetchList(kGoalListName, &goals, 0);
     if (!goals)
         return;
     uint32_t count = goals->m_extent;
@@ -494,7 +494,7 @@ const uint8_t* CObjectiveAuthoring::ReadLevelGoalsFromBuffer(uint32_t level, con
 {
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     const uint8_t* end = Scripts::DecodeFromBytes(params, buffer);
     for (CEditedGoal& goal : m_goals) {
         if (goal.m_takenCount && goal.m_level == level)
@@ -502,7 +502,7 @@ const uint8_t* CObjectiveAuthoring::ReadLevelGoalsFromBuffer(uint32_t level, con
     }
     m_activeNode = nullptr;
     Scripts::CArray* goals = nullptr;
-    params->FetchList(kGoalsArray, &goals, 1);
+    params->FetchList(kGoalListName, &goals, 1);
     uint32_t left = goals->m_extent;
     uint32_t next = 0;
     for (CEditedGoal& goal : m_goals) {
@@ -535,11 +535,11 @@ void CObjectiveAuthoring::WriteGoals(Scripts::CStruct* out)
     for (CEditedGoal& goal : m_goals) {
         if (!goal.m_takenCount || goal.m_level == kParkEditorLevel)
             continue;
-        Scripts::CStruct* entry = NewStructure();
+        Scripts::CStruct* entry = SpawnParamTable();
         goal.ExportToStruct(entry);
         goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
     }
-    out->AppendArrayRef(kGoalsArray, goals);
+    out->AppendArrayRef(kGoalListName, goals);
 }
 
 // 0x004EBA10
@@ -554,17 +554,17 @@ void CObjectiveAuthoring::WriteLevelGoals(uint32_t level, Scripts::CStruct* out)
     for (CEditedGoal& goal : m_goals) {
         if (!goal.m_takenCount || goal.m_level != level)
             continue;
-        Scripts::CStruct* entry = NewStructure();
+        Scripts::CStruct* entry = SpawnParamTable();
         goal.ExportToStruct(entry);
         goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
     }
-    out->AppendArrayRef(kGoalsArray, goals);
+    out->AppendArrayRef(kGoalListName, goals);
 }
 
 // 0x004EBB70
 uint32_t CObjectiveAuthoring::WriteLevelGoalsToBuffer(uint32_t level, uint8_t* buffer, uint32_t size)
 {
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     WriteLevelGoals(level, params);
@@ -577,7 +577,7 @@ uint32_t CObjectiveAuthoring::WriteLevelGoalsToBuffer(uint32_t level, uint8_t* b
 bool CObjectiveAuthoring::NewEditorGoal(Scripts::CStruct* /*params*/, Scripts::CScript* script)
 {
     BeginFreshObjective();
-    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_activeNode->m_goalIndex);
+    Sprintf(CreatedGoalName(), "CreatedGoal%d", m_activeNode->m_levelGoalNumber);
     script->m_args->PutNameKey("goal_id", Checksums::HashFromText(CreatedGoalName()));
     return true;
 }
@@ -654,7 +654,7 @@ void CObjectiveAuthoring::Conceal(bool hide)
         Scripts::LaunchScript(0xFCC60D8B, nullptr, nullptr, false, nullptr);
         return;
     }
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->PutInt(0x67E6859A, 0);
     mp_input->ConfigureFromData(params);
     if (params) {
@@ -681,7 +681,7 @@ bool CObjectiveAuthoring::GetEditedGoalsInfo(Scripts::CStruct* params, Scripts::
     for (CEditedGoal& goal : m_goals) {
         if (!goal.m_takenCount || (level && goal.m_level != level) || goal.m_vertexTotal < goal.m_minPoints)
             continue;
-        Scripts::CStruct* entry = NewStructure();
+        Scripts::CStruct* entry = SpawnParamTable();
         goal.ExportToStruct(entry);
         goals->SetElement(index++, reinterpret_cast<uint32_t>(entry));
     }

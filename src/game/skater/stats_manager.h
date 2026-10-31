@@ -103,7 +103,7 @@ public:
     bool m_goalDone;             // +0x9F6 a goal's status was set to 1
     uint8_t pad9F7;
     int m_pointsHeld;                 // +0x9F8 the combo's points times its multiplier
-    int m_lastScore;             // +0x9FC
+    int m_scoreBeforeCombo;             // +0x9FC
     int m_pathVertices;                // +0xA00 the score over the multiplier
     int m_lastPoints;            // +0xA04
     float m_multiplier;          // +0xA08

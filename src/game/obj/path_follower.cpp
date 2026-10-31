@@ -148,7 +148,7 @@ bool CPathFollower::CheckCorner()
         if (LevelNodes::GetLinkCount(m_listLink) == 0)
             return false;
         Maths::Vec4 next;
-        LevelNodes::FetchPlace(LevelNodes::GetLinkedNode(m_listLink, 0), &next);
+        LevelNodes::FetchPlace(LevelNodes::FetchNeighbourNode(m_listLink, 0), &next);
         double between = SpanTo(next, m_endPoint);
         if (between < m_cornerDistance) {
             double cut = between * 0.5;

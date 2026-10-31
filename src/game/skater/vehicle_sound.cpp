@@ -52,7 +52,7 @@ T& Prop(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int Clock() { return FrameClock::GameClockElapsed(); }
@@ -269,7 +269,7 @@ void CSkaterVehicleSoundComponent::TickEngine()
 
     SoundFx::volumeRef volume;
     volume.PrepareAll();
-    SoundFx::CAudioMixer* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = AudioMixerHandle();
     sfx->FetchLoudness(&volume, &m_entity->m_atPoint, sfx->GetDropoffDistance(m_engineSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x288B029D);
     float quiet = Setting(m_settings, 0xB8F81277);
@@ -302,7 +302,7 @@ void CSkaterVehicleSoundComponent::UpdateSkid()
 
     SoundFx::volumeRef volume;
     volume.PrepareAll();
-    SoundFx::CAudioMixer* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = AudioMixerHandle();
     sfx->FetchLoudness(&volume, &m_entity->m_atPoint, sfx->GetDropoffDistance(m_skidSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x42EA5746);
     float quiet = Setting(m_settings, 0x43E6CDF2);
@@ -333,7 +333,7 @@ bool CSkaterVehicleSoundComponent::SetSkaterVehicleSounds(Scripts::CStruct* para
 {
     params->ReadHashValue(0u, &m_settingsName, 0);
     if (m_engineSound)
-        SfxManager()->StopSound(m_engineSound);
+        AudioMixerHandle()->StopSound(m_engineSound);
     m_engineSound = 0;
     m_engineSoundName = 0;
     m_skidSoundName = 0;
@@ -348,7 +348,7 @@ bool CSkaterVehicleSoundComponent::SetSkaterVehicleSounds(Scripts::CStruct* para
 bool CSkaterVehicleSoundComponent::NoSkaterVehicleSounds(Scripts::CStruct*, Scripts::CScript*)
 {
     if (m_engineSound)
-        SfxManager()->StopSound(m_engineSound);
+        AudioMixerHandle()->StopSound(m_engineSound);
     m_engineSound = 0;
     m_engineSoundName = 0;
     m_skidSoundName = 0;
@@ -362,7 +362,7 @@ bool CSkaterVehicleSoundComponent::NoSkaterVehicleSounds(Scripts::CStruct*, Scri
 bool CSkaterVehicleSoundComponent::StopSkaterVehicleSounds(Scripts::CStruct*, Scripts::CScript*)
 {
     if (m_engineSound)
-        SfxManager()->StopSound(m_engineSound);
+        AudioMixerHandle()->StopSound(m_engineSound);
     return true;
 }
 
@@ -382,7 +382,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CSkaterVehicleSoundComponent:
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

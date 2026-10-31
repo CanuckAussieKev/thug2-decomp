@@ -32,7 +32,7 @@ IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 IDirect3DDevice9* DeviceCopy() { return g_drawDevice; } // (the same device)
 IDirect3DTexture9* ScreenCopy(int index) { return g_screenTextures[index]; }
 IDirect3DTexture9* CurrentScreenCopy() { return ScreenCopy(g_screenCopyIndex); }
-IDirect3DSurface9* DepthSurface() { return g_depthSurface; }
+IDirect3DSurface9* ZBufferSurface() { return g_zBufferSurface; }
 bool& ScreenCopyInUse() { return g_screenCopyInUse; }
 void* Shader(int slot) { return g_pixelShaders[slot]; }
 
@@ -89,7 +89,7 @@ uint32_t TapColour(float weight)
 void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour,
                             bool shader)
 {
-    bool fogWasOn = g_fogEnabled != 0;
+    bool fogWasOn = g_fogActive != 0;
     ChangeFog(false);
     auto* targetTexture = static_cast<IDirect3DTexture9*>(target);
     SetTarget(targetTexture, nullptr);
@@ -99,7 +99,7 @@ void __cdecl DrawScreenQuad(uint32_t blend, void* target, void* source, float du
     DeviceCopy()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     DeviceCopy()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
     ChangePhase(kAddressMode0, 0x10001);
-    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kPhaseAlphaTest, 0);
     float width = static_cast<float>(Unsigned(targetDesc.Width));
     float height = static_cast<float>(Unsigned(targetDesc.Height));
     ChooseBlendMode(blend);
@@ -150,7 +150,7 @@ void __cdecl BeginScreenEffects()
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
         if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy())) {
             InputPort()->SetRenderTarget(0, surface);
-            InputPort()->SetDepthStencilSurface(DepthSurface());
+            InputPort()->SetDepthStencilSurface(ZBufferSurface());
         }
     } else {
         if (!g_bloomOn || !g_shadersAvailable) // no bloom (or no pixel shaders)
@@ -158,7 +158,7 @@ void __cdecl BeginScreenEffects()
         CurrentScreenCopy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, game/gfx/graphics_options.h)
         if (!GraphicsOptions::SetSceneTarget(CurrentScreenCopy()))
-            SetRenderTargetAndDepth(surface, DepthSurface());
+            SetRenderTargetAndDepth(surface, ZBufferSurface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     uint32_t colour = (g_fogSetting && g_distanceClipping)
@@ -186,7 +186,7 @@ void __cdecl CopyScreenQuarter()
     ChangePhase(kAlphaBlend, 0);
     ChangePhase(kCullMode, D3DCULL_NONE);
     DrawScreenQuad(0, quarter, source, 0.0f, 0.0f, 0x80808080, true);
-    SetTarget(CurrentScreenCopy(), DepthSurface());
+    SetTarget(CurrentScreenCopy(), ZBufferSurface());
     ChangePhase(kZWrite, 1);
     ChangePhase(kZTest, 1);
     ChangePhase(kAlphaTest, 1);
@@ -233,7 +233,7 @@ void __cdecl Bloom()
     a = ScreenCopy(7);
     for (int tap = 0; tap < 4; ++tap)
         DrawScreenQuad(tap > 0, a, b, TapOffset(tap), 0.0f, TapColour(TapWeight(tap)), true);
-    SetTarget(CurrentScreenCopy(), DepthSurface());
+    SetTarget(CurrentScreenCopy(), ZBufferSurface());
     if (!g_blurSecondPass)
         return;
     // Both blurred copies added over the frame.
@@ -241,7 +241,7 @@ void __cdecl Bloom()
     ChangePhase(kZTest, 0);
     ChangePhase(kAlphaTest, 0);
     ChangePhase(kAlphaBlend, 1);
-    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kPhaseAlphaTest, 0);
     ChangePhase(kAddressMode0, 0x10001);
     SetPixelShader(Shader(kPixelShader950), nullptr);
     SetVertexFormat(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);

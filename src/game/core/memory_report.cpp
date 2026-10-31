@@ -44,9 +44,9 @@ void AddressSpace(uint64_t& total, uint64_t& largest)
 void LogMemoryUse(const char* when)
 {
     Hub* manager = Hub::Pull();
-    if (!manager || !manager->m_mainRegion)
+    if (!manager || !manager->m_primaryZone)
         return;
-    Zone* main = manager->m_mainRegion;
+    Zone* main = manager->m_primaryZone;
     std::string line;
     char part[160];
     std::snprintf(part, sizeof(part), "main block %d KB, free %d KB (least %d KB); heaps:", Kb(Sizes::MainBlockSize()),

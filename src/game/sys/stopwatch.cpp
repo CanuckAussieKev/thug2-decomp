@@ -19,7 +19,7 @@ float g_slomo{1.0f};
 float g_nextSlomo{1.0f};
 float g_vblanksPerSecond{60.0f};
 float g_frameLength;
-double g_uncappedFrameLength;
+double g_rawStepSeconds;
 uint64_t g_lastFrameVblank;
 uint64_t g_previousFrameVblank;
 int g_historyIndex;
@@ -28,7 +28,7 @@ uint64_t g_unknown1EA8;
 uint64_t g_startClock;
 uint64_t g_unknown1EB8;
 uint64_t g_vblanks;
-uint64_t g_totalVblanks;
+uint64_t g_elapsedRefreshes;
 uint64_t g_renderFrame;
 uint64_t g_unknown1EE0;
 bool g_flag1EE8;
@@ -37,7 +37,7 @@ bool g_rateSet;
 
 // The timing block (0x007D1E68), saved whole by Reset.
 float& FrameLength() { return g_frameLength; }
-double& RawFrameDuration() { return g_uncappedFrameLength; }
+double& RawFrameDuration() { return g_rawStepSeconds; }
 
 int g_history[4];
 
@@ -49,7 +49,7 @@ int& HistoryIndex() { return g_historyIndex; }
 struct TimingBlock {
     float frameLength;
     uint32_t pad;
-    double uncappedFrameLength;
+    double rawStep;
     int history[4];
     uint64_t lastFrameVblank;
     uint64_t previousFrameVblank;
@@ -63,7 +63,7 @@ uint64_t& Unknown1EA8() { return g_unknown1EA8; }
 uint64_t& StartClock() { return g_startClock; }
 uint64_t& Unknown1EB8() { return g_unknown1EB8; }
 uint64_t& Vblanks() { return g_vblanks; } // since Reset
-uint64_t& TotalVblanks() { return g_totalVblanks; }
+uint64_t& ElapsedRefreshes() { return g_elapsedRefreshes; }
 uint64_t& RenderFrame() { return g_renderFrame; }
 uint64_t& Unknown1EE0() { return g_unknown1EE0; }
 bool& Flag1EE8() { return g_flag1EE8; }
@@ -103,7 +103,7 @@ void Reset()
     PreviousFrameVblank() = 0;
     HistoryIndex() = 0;
     g_savedTimingBlock.frameLength = FrameLength();
-    g_savedTimingBlock.uncappedFrameLength = RawFrameDuration();
+    g_savedTimingBlock.rawStep = RawFrameDuration();
     std::memcpy(g_savedTimingBlock.history, History(), sizeof(g_savedTimingBlock.history));
     g_savedTimingBlock.lastFrameVblank = LastFrameVblank();
     g_savedTimingBlock.previousFrameVblank = PreviousFrameVblank();
@@ -123,10 +123,10 @@ void PrepareAll()
 }
 
 // 0x005BE700
-void CountVblank()
+void NoteRefresh()
 {
     ++Vblanks();
-    ++TotalVblanks();
+    ++ElapsedRefreshes();
 }
 
 // 0x005BE740
@@ -157,8 +157,8 @@ void UpdateFrameLength()
 // 0x005BE920
 void WaitForVblank()
 {
-    uint64_t start = TotalVblanks();
-    while (TotalVblanks() == start) {
+    uint64_t start = ElapsedRefreshes();
+    while (ElapsedRefreshes() == start) {
         // the idle function (0x0048C1C0 reads it from 0x006FA7D8)
         if (Engine3D::Engine::GetIdleFunction())
             Engine3D::Engine::GetIdleFunction()();
@@ -166,7 +166,7 @@ void WaitForVblank()
 }
 
 // 0x005BE8E0
-uint64_t FetchRetraceCount() { return TotalVblanks(); }
+uint64_t FetchRetraceCount() { return ElapsedRefreshes(); }
 
 // 0x005BE8D0
 uint64_t GetDrawFrame() { return RenderFrame(); }

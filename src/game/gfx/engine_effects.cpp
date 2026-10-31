@@ -34,7 +34,7 @@
 
 namespace Engine3D {
 
-Maths::Vec4 g_shatterVelocity;
+Maths::Vec4 g_glassBurstVelocity;
 float g_shatterSpeed;
 ListKit::KeyMap* g_splatSets;
 ListKit::KeyMap* g_spawnedPolys;
@@ -49,16 +49,16 @@ int g_splatReserve{128};
 int g_splatFade{8};
 float g_fogDistance{3000.0f};
 float g_fogExponent{10.0f};
-float g_shatterLifetime{4.0f};
+float g_glassLifeSpan{4.0f};
 float g_shatterFloor{-10000.0f};
-float g_shatterBounce{0.8f};
+float g_glassRestitution{0.8f};
 uint32_t g_fogColor{0x66806060};
 ListKit::KeyMap* g_flashes;
 ListKit::KeyMap* g_recentSplats;
 uint32_t g_shatterTexture;
 uint32_t g_shatterValueAF1A;
 int g_shatterValue33DF;
-bool g_fogEnabled;
+bool g_fogActive;
 Maths::Vec4 g_shatterVector210E;
 float g_levelColor[4];
 void* g_lineSectors[128];
@@ -91,7 +91,7 @@ void DropOut(ListKit::KeyMap* table, void* value)
     table->EraseEntry(key);
 }
 
-bool Paused() { return GameObjects::g_gamePaused; }
+bool Paused() { return GameObjects::g_simulationHalted; }
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int Rand() { return Crt::Rand(); }
@@ -102,7 +102,7 @@ constexpr double kPerRand = std::bit_cast<float>(0x38000100u);
 int FrameMilliseconds() { return static_cast<int>(static_cast<int64_t>(FrameClock::GetSlomoFrameSeconds() * 1000.0f)); }
 
 // The platform's fog exponent: compiled out on PC (the empty 0x005480A0).
-void PlatSetFogExponent(float /*exponent*/) {}
+void SetFogDensityCurve(float /*exponent*/) {}
 // Two compiled-out calls (the empty 0x005480A0) after the tables are made.
 void CompiledOut() {}
 
@@ -153,9 +153,9 @@ CShatter* CShatter::MakeNew(int count)
     triangleCount = static_cast<uint16_t>(count);
     unknown28 = g_shatterValueAF1A;
     gravity = 128.0f;
-    lifetime = g_shatterLifetime;
+    lifetime = g_glassLifeSpan;
     floor = g_shatterFloor;
-    bounce = g_shatterBounce;
+    bounce = g_glassRestitution;
     return this;
 }
 
@@ -219,8 +219,8 @@ namespace Engine {
 // 0x00490DE0
 void __cdecl EnableFog(bool on)
 {
-    g_fogEnabled = on;
-    Engine3D::SetFogEnabled(on);
+    g_fogActive = on;
+    Engine3D::ToggleFog(on);
 }
 
 // 0x00490E00
@@ -234,7 +234,7 @@ void __cdecl SetFogDistance(float distance)
 void __cdecl SetFogExponent(float exponent)
 {
     g_fogExponent = exponent;
-    PlatSetFogExponent(exponent);
+    SetFogDensityCurve(exponent);
 }
 
 // 0x00490E20
@@ -248,18 +248,18 @@ void __cdecl SetFogColor(uint32_t rgba)
 void __cdecl SetLevelColor(const float* color) { std::memcpy(g_levelColor, color, 16); }
 
 // 0x00491110
-void __cdecl SetShatterParams(const Maths::Vec4* velocity, const Maths::Vec4* vector210E, float valueC483, float area,
+void __cdecl ChangeBreakupSettings(const Maths::Vec4* velocity, const Maths::Vec4* vector210E, float valueC483, float area,
                               float speed, float velocityScale, float lifetime, float floor, float bounce,
                               float value2E1C, uint32_t texture, uint32_t valueAF1A, int value33DF)
 {
-    g_shatterVelocity = *velocity;
+    g_glassBurstVelocity = *velocity;
     g_shatterVector210E = *vector210E;
     g_splitAreaLimit = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
     g_shatterSpeed = speed == 0.0f ? 0.0f : speed;
     g_shatterVelocityScale = velocityScale == 0.0f ? 1.0f : velocityScale;
-    g_shatterLifetime = lifetime == 0.0f ? 4.0f : lifetime;
+    g_glassLifeSpan = lifetime == 0.0f ? 4.0f : lifetime;
     g_shatterFloor = floor == 0.0f ? -10000.0f : floor;
-    g_shatterBounce = bounce == 0.0f ? 0.8f : bounce;
+    g_glassRestitution = bounce == 0.0f ? 0.8f : bounce;
     g_shatterValue2E1C = value2E1C;
     g_shatterValueC483Squared = static_cast<float>(static_cast<double>(valueC483) * valueC483);
     g_shatterTexture = texture;

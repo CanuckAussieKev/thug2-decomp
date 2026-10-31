@@ -74,7 +74,7 @@ float HeadingOf(V3 at);
 // Rows made unit (an object's matrix: its local axes; a zero row becomes the world's).
 void UnitAxes(const V3 rows[3], V3 out[3]);
 // The angle of `point` about the vertical line through `pivot` (as HeadingOf).
-float AngleAbout(V3 pivot, V3 point);
+float TurnAroundAxis(V3 pivot, V3 point);
 // An angle brought into (-pi, pi].
 float Wrap(float radians);
 // On a step of `stepDegrees` (0: as it is).

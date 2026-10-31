@@ -29,7 +29,7 @@
 namespace Engine3D {
 
 bool g_billboardsReady;
-billboardSet g_billboardManager;
+billboardSet g_billboardPool;
 uint8_t g_billboardFlag;
 
 float g_billboardConstants[12]{
@@ -43,7 +43,7 @@ extern void** const kWindowVtable;
 
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 bool VertexShaders() { return g_shadersAvailable; }
-void SetFogEnabled(bool on) { Engine::EnableFog(on); }
+void ToggleFog(bool on) { Engine::EnableFog(on); }
 sVertexBuffer* VertexBuffer(meshRef* mesh, int index)
 {
     return mesh->FetchVertexStore(index);
@@ -79,7 +79,7 @@ void OrderBatches(billboardSet* manager)
         manager->batches, static_cast<uint32_t>(manager->count), 4, CompareBatches); // (the C runtime's qsort)
 }
 
-float DrawOrder(const sBillboardBatch* batch)
+float SortDepthOfBatch(const sBillboardBatch* batch)
 {
     return batch->material ? *reinterpret_cast<const float*>(batch->material + 0x1C) : 0.0f;
 }
@@ -106,9 +106,9 @@ int __cdecl CompareBatches(const void* a, const void* b)
         return second != nullptr;
     if (!second)
         return -1;
-    if (DrawOrder(first) < DrawOrder(second))
+    if (SortDepthOfBatch(first) < SortDepthOfBatch(second))
         return -1;
-    return DrawOrder(first) > DrawOrder(second) ? 1 : 0;
+    return SortDepthOfBatch(first) > SortDepthOfBatch(second) ? 1 : 0;
 }
 
 // 0x004CD980
@@ -143,14 +143,14 @@ void DrawBillboardMesh(meshRef* mesh, const float* yAxis, const float* xAxis, co
         return;
     if (g_distanceClipping && g_fogSetting) { // (fog: its start a quarter back)
         float end = g_camera.farZ;
-        reinterpret_cast<uint32_t&>(g_fogStart) = 0;
+        reinterpret_cast<uint32_t&>(g_fogBeginDistance) = 0;
         reinterpret_cast<uint32_t&>(g_fogEnd) = 0;
         float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.nearZ) * 0.25f);
-        SetFogEnabled(true);
+        ToggleFog(true);
         InputPort()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         InputPort()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
     } else {
-        SetFogEnabled(false);
+        ToggleFog(false);
     }
     if (VertexShaders()) {
         if (mesh->flags & 4)
@@ -245,7 +245,7 @@ void DrawBillboardMesh(meshRef* mesh, const float* yAxis, const float* xAxis, co
     InputPort()->SetIndices(indices);
     if (indices)
         indices->Release();
-    SetFogEnabled(false);
+    ToggleFog(false);
     (void)viewport;
 }
 
@@ -422,7 +422,7 @@ void sBillboardBatch::Render()
     multiply(viewWorld, view, identity);
     multiply(all, projection, viewWorld);
     InputPort()->SetVertexShaderConstantF(0, all, 4);
-    auto* manager = &g_billboardManager;
+    auto* manager = &g_billboardPool;
     float* constants = g_billboardConstants; // c4-c6
     auto setAxes = [&](const float* x, const float* y, const float* z) {
         std::memcpy(constants, x, 12);

@@ -42,7 +42,7 @@ constexpr uint32_t kDropFlags = 0xE4;      // (in the flags block: the drop's ho
 constexpr uint32_t kDropTargetHeight = 0x37C;
 constexpr uint32_t kRideObjectHit = 0x14C0;
 constexpr uint32_t kDropMatrix = 0x3B0;    // the wall's orientation (rows: across, the normal, along)
-constexpr uint32_t kDropDirection = 0x490;
+constexpr uint32_t kDropHeading = 0x490;
 constexpr uint32_t kSlerp = 0x3F0;
 constexpr uint32_t kDropTime = 0x488;
 constexpr uint32_t kDropDuration = 0x48C;
@@ -70,7 +70,7 @@ GameObjects::CGameEntity* SkaterObject(void* component) { return static_cast<Gam
 // The walking component's state (+0x1530's +0x2C): walking on the ground (its +0x118 clear and +0x1C == `state`).
 bool WalkingState(void* component, int state)
 {
-    uint8_t* walk = At<uint8_t*>(At<void*>(component, kStateComponent), 0x2C);
+    uint8_t* walk = At<uint8_t*>(At<void*>(component, kStateModuleSlot), 0x2C);
     return !walk[0x118] && At<int>(walk, 0x1C) == state;
 }
 
@@ -93,7 +93,7 @@ double FallTime(void* component, float height, float upward)
 } // namespace
 
 // 0x00502240
-bool CorePhysicsComponent::FindAcidDrop(bool pop, const Maths::Vec4* position, const Maths::Vec4* lastPosition,
+bool SkaterPhysicsModule::FindAcidDrop(bool pop, const Maths::Vec4* position, const Maths::Vec4* lastPosition,
                                         Maths::Vec4* velocity, AcidDrop* drop)
 {
     // Looking along the horizontal velocity (walking: the walking direction).
@@ -227,13 +227,13 @@ bool CorePhysicsComponent::FindAcidDrop(bool pop, const Maths::Vec4* position, c
     void* object = ObjectOf(this);
     if (pop) {
         // At least Physics_Acid_Drop_Pop_Speed up.
-        float least = PhysicsFloat(kPopSpeed, object);
+        float least = TuningFloatLookup(kPopSpeed, object);
         float upward = velocity->y;
         velocity->y = upward > least ? upward : least;
     }
     if (!WalkingState(this, 1) || At<uint32_t>(At<void*>(this, kWalkState), 0x18)) {
         // At most twice that.
-        double most = static_cast<double>(PhysicsFloat(kPopSpeed, object)) * 2.0;
+        double most = static_cast<double>(TuningFloatLookup(kPopSpeed, object)) * 2.0;
         float upward = velocity->y;
         velocity->y = upward < most ? upward : static_cast<float>(most);
     }
@@ -306,7 +306,7 @@ bool CorePhysicsComponent::FindAcidDrop(bool pop, const Maths::Vec4* position, c
 }
 
 // 0x00502F20
-void CorePhysicsComponent::StartAcidDrop(const AcidDrop* drop)
+void SkaterPhysicsModule::StartAcidDrop(const AcidDrop* drop)
 {
     // The horizontal direction to the drop point and the speed to get there in the fall's time.
     void* object = ObjectOf(this);
@@ -364,7 +364,7 @@ void CorePhysicsComponent::StartAcidDrop(const AcidDrop* drop)
     along.FlattenOntoPlane(normal);
     along.MakeUnit();
     Maths::Vec4 up = normal;
-    VectorAt(this, kDropDirection) = along;
+    VectorAt(this, kDropHeading) = along;
     Maths::Mat4 wall;
     wall.row[0] = {static_cast<float>(static_cast<double>(up.y) * along.z - static_cast<double>(up.z) * along.y),
                    static_cast<float>(static_cast<double>(up.z) * along.x - static_cast<double>(up.x) * along.z),
@@ -390,7 +390,7 @@ void CorePhysicsComponent::StartAcidDrop(const AcidDrop* drop)
     At<Maths::Mat4>(this, kDropLastMatrix) = start;
 
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     params = params ? params->PrepareAll() : nullptr;
     params->PushFloat(kDropHeight,
                      static_cast<float>(VectorAt(ObjectOf(this), kPosition).y - static_cast<double>(drop->hitHeight)));
@@ -422,14 +422,14 @@ constexpr float kLeastTurn = 0.5235988f;        // 0x0064BD48 (30 degrees)
 bool FindTransferTarget(void* component, Maths::Vec4* look, Maths::Vec4* normal, bool* hip, Maths::Vec4* target,
                         Maths::Vec4* targetNormal, bool* objectHit)
 {
-    return static_cast<CorePhysicsComponent*>(component)->FindVertTarget(look, normal, hip, target, targetNormal,
+    return static_cast<SkaterPhysicsModule*>(component)->FindVertTarget(look, normal, hip, target, targetNormal,
                                                                          objectHit);
 }
 
 } // namespace
 
 // 0x00505F70
-bool CorePhysicsComponent::TrySpineTransfer()
+bool SkaterPhysicsModule::TrySpineTransfer()
 {
     // The skater's up, flattened and normalised (the wall's way out), and the way back down the wall: against the
     // velocity, turned a quarter round about the horizontal across the wall.
@@ -571,7 +571,7 @@ bool CorePhysicsComponent::TrySpineTransfer()
     end.row[1] = targetNormal;
     end.row[2] = forward;
     end.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    VectorAt(this, kDropDirection) = forward;
+    VectorAt(this, kDropHeading) = forward;
     double turn = Maths::GetTurnAroundAxis(VectorAt(object, kForward), oldVelocity, VectorAt(object, kUp));
     if (std::fabs(turn) < kLeastTurn)
         turn = 0.0;
@@ -584,7 +584,7 @@ bool CorePhysicsComponent::TrySpineTransfer()
     Maths::Mat4 halfway;
     slerp.FetchMat(halfway, 0.5f);
     if (halfway.row[1].y < 0.0f) // (the short way round turns upside down: the long way)
-        slerp.InvertDirection();
+        slerp.FlipHeading();
 
     // The arc there in the fall's time: its horizontal velocity into the flags block, as the acid drop's.
     At<float>(this, kDropTargetHeight) = height;

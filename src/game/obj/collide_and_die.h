@@ -49,7 +49,7 @@ public:
     float m_radius;         // +0x1C radius
     float m_sizeFactor;          // +0x20 scale (given to death_script)
     uint32_t m_madeTime;    // +0x24
-    uint32_t m_deathScript; // +0x28 death_script
+    uint32_t m_onCollideScript; // +0x28 death_script
     uint32_t m_deathTime;   // +0x2C (a second after the hit)
     bool m_fadingOut;           // +0x30
     bool m_firstUpdate;     // +0x31
@@ -64,6 +64,6 @@ static_assert(offsetof(CImpactDestructModule, m_radius) == 0x1C &&
                   offsetof(CImpactDestructModule, m_lastPos) == 0x44 && sizeof(CImpactDestructModule) == 0x54,
               "layout must match the original");
 
-extern OnlinePlay::Hub* g_gameNetManager;
+extern OnlinePlay::Hub* g_onlineHub;
 
 } // namespace Obj

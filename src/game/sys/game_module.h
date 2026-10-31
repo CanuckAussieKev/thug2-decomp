@@ -36,7 +36,7 @@ struct PartUnit {
 static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, m_locked) == 0x0C && offsetof(PartUnit, m_listLink) == 0x10);
 
 struct Hub {
-    void* m_task;            // TaskList::Task<Manager> (priority -1000) running ProcessModules
+    void* m_task;            // TaskList::Task<Manager> (priority -1000) running TickModules
     MemSys::ListNode m_modules; // +0x04: the list's head (ListKit::Foremost<Module>, vtable 0x00647288)
     bool m_commandPending;   // +0x18: a module was given a command since the task last ran
 
@@ -57,7 +57,7 @@ struct Hub {
     // 0x0044F440 (the task's code, the manager its data): if a command is pending, each module's carried out -
     // a stopped one started by kStart or kRestart; a running one stopped by kStop, stopped and started again by
     // kRestart - and the command cleared.
-    static void __cdecl ProcessModules(void* task);
+    static void __cdecl TickModules(void* task);
 };
 static_assert(sizeof(Hub) == 0x1C && offsetof(Hub, m_commandPending) == 0x18);
 

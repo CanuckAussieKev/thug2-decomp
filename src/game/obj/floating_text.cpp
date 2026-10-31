@@ -26,7 +26,7 @@
 namespace MenuSystem {
 
 // 0x0041E2A0
-CUiTree* __cdecl GetScreenElementManager() { return CUiTree::Sole(); }
+CUiTree* __cdecl FetchUiTree() { return CUiTree::Sole(); }
 
 } // namespace Front
 
@@ -66,7 +66,7 @@ int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     return params ? params->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)

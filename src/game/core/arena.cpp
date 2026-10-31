@@ -42,7 +42,7 @@ uint8_t* EndOf(ChunkPrefix* header)
 // The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
 Arena* FindHeap(uint32_t name)
 {
-    return Hub::Pull()->GetNamedHeap(name, 0);
+    return Hub::Pull()->FetchHeapByKey(name, 0);
 }
 void DumpHeaps() { ScriptCommands::CFunc_DumpHeaps(nullptr, nullptr); }
 

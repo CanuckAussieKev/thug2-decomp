@@ -19,18 +19,18 @@ char* g_namesNext;
 
 namespace {
 
-struct ChecksumName {
+struct HashedLabel {
     uint32_t checksum;
     const char* name;
 };
 constexpr uint32_t kBucketSize = 10;
 
-ChecksumName* g_checksumNameTable;
-ChecksumName*& NameTable() { return g_checksumNameTable; }
+HashedLabel* g_checksumNameTable;
+HashedLabel*& NameTable() { return g_checksumNameTable; }
 char*& NamesStart() { return g_namesStart; }
 char*& NamesNext() { return g_namesNext; }
 
-ChecksumName* Bucket(uint32_t checksum) { return NameTable() + (checksum & 0xFFFF) * kBucketSize; }
+HashedLabel* Bucket(uint32_t checksum) { return NameTable() + (checksum & 0xFFFF) * kBucketSize; }
 
 // A hex digit's value (anything else counts as its character code, as in the original).
 int HexDigit(char c)
@@ -54,7 +54,7 @@ void AllocateChecksumNameLookupTables()
 {
     if (!ChecksumNamesEnabled())
         return;
-    NameTable() = static_cast<ChecksumName*>(MemSys::AllocBlock(0x10000 * kBucketSize * sizeof(ChecksumName)));
+    NameTable() = static_cast<HashedLabel*>(MemSys::AllocBlock(0x10000 * kBucketSize * sizeof(HashedLabel)));
     char* names = static_cast<char*>(MemSys::AllocBlock(5000000));
     NamesStart() = names;
     NamesNext() = names;
@@ -69,7 +69,7 @@ void RegisterNameHash(uint32_t checksum, const char* name)
     if (!ChecksumNamesEnabled())
         return;
     // (a full bucket runs on into the next one, as in the original)
-    ChecksumName* entry = Bucket(checksum);
+    HashedLabel* entry = Bucket(checksum);
     for (; entry->name; ++entry) {
         if (entry->checksum == checksum) {
             // (the original compares the names here - a checksum clash check whose result is ignored)
@@ -90,7 +90,7 @@ const char* LookUpHashName(uint32_t checksum)
 {
     if (!ChecksumNamesEnabled())
         return nullptr;
-    ChecksumName* entry = Bucket(checksum);
+    HashedLabel* entry = Bucket(checksum);
     for (uint32_t i = 0; i < kBucketSize && entry->name; ++i, ++entry) {
         if (entry->checksum == checksum)
             return entry->name;

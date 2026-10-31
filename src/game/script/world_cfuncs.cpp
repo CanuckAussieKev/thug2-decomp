@@ -98,7 +98,7 @@ bool __cdecl CFunc_UnPauseSkaters(CStruct*, CScript*)
 // 0x005A5480
 bool __cdecl CFunc_SkatersAreReady(CStruct*, CScript*)
 {
-    if (!OnlinePlay::g_gameNetManager->m_readyToPlay)
+    if (!OnlinePlay::g_onlineHub->m_clearedToStart)
         return false;
     if (GameModules::Skate::Sole()->CountRiders() > 0)
         return true;
@@ -118,11 +118,11 @@ bool __cdecl CFunc_LaunchViewer(CStruct*, CScript*)
     modules->LaunchModule(viewer);
     ViewerLaunched() = true;
 
-    CStruct* nodeData = Scripts::NewStruct();
+    CStruct* nodeData = Scripts::SpawnParamBag();
     if (nodeData)
         nodeData = nodeData->PrepareAll();
     nodeData->PutNameKey("name", kViewerCam);
-    GameObjects::CGameEntity* camera = GameObjects::CompositeObjectManager()->SpawnEntityFromNode(
+    GameObjects::CGameEntity* camera = GameObjects::ObjectHubSlot()->SpawnEntityFromNode(
         Scripts::FetchList("viewercam_composite_structure"), nodeData, true);
     if (nodeData) {
         nodeData->Clear();
@@ -139,7 +139,7 @@ bool __cdecl CFunc_AddSkaterEarly(CStruct*, CScript*)
         GameModules::Skate* skate = GameModules::Skate::Sole();
         // its profile 0 (0x00564FC0) as a new local skater (0x00567180), no id, heap 0
         GameObjects::CRiderIdentity* profile = skate->FetchAccount(static_cast<int>(0));
-        skate->AddSkater(profile, true, 0, 0);
+        skate->SpawnSkaterEntity(profile, true, 0, 0);
     }
     return true;
 }

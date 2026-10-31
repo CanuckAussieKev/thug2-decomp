@@ -30,10 +30,10 @@ uint32_t NameHash(const char* name) { return Checksums::HashFromText(name); }
 // The scripts and globals (tools/pipeline/thaw_bmx/ride.ts, convert.ts).
 constexpr const char* kHomeBike = "thaw_bmx_home";          // the level's bike's object
 constexpr const char* kHomeScript = "thaw_bmx_home_bike";   // makes it (the modes it's in decided there)
-constexpr const char* kLevelScript = "thaw_bmx_level_start"; // a new level: the last level's bikes gone
+constexpr const char* kLevelStartScript = "thaw_bmx_level_start"; // a new level: the last level's bikes gone
 constexpr const char* kHomeBikes = "thaw_bmx_home_bikes";   // THAW's places: [{level=<name> pos=(...) heading=<deg>}]
 // The skate module's level structure name (+0x380, SetLevelStructureName) and the structure's `level` string.
-constexpr uint32_t kLevelStructure = 0x380;
+constexpr uint32_t kLevelDataKey = 0x380;
 
 constexpr int kSettleFrames = 30; // (in a new level, unpaused, before the start spot is noted)
 constexpr int kCheckFrames = 30;  // (how often the level's bike is looked for)
@@ -97,16 +97,16 @@ Kickoff FindStartSpot(Point pos, float heading)
     return {};
 }
 
-Scripts::CStruct* LevelStructure()
+Scripts::CStruct* LevelParamsRef()
 {
-    uint32_t name = SkateCalls::SkateField<uint32_t>(kLevelStructure);
+    uint32_t name = SkateCalls::SkateField<uint32_t>(kLevelDataKey);
     return name ? Scripts::ReadSubStruct(name) : nullptr;
 }
 
 // THAW's place for the current level (thaw_bmx_home_bikes, by the level structure's `level`).
 bool ThawSpot(Point* pos, float* heading)
 {
-    Scripts::CStruct* level = LevelStructure();
+    Scripts::CStruct* level = LevelParamsRef();
     const char* name = nullptr;
     if (!level || !level->FetchText("level", &name, 0) || !name)
         return false;
@@ -273,7 +273,7 @@ void UpdateParked(GameModules::FrontEnd* frontEnd)
     if ((frontEnd && frontEnd->m_isHalted) || MenuSystem::LevelEditor::LiveNow())
         return;
     GameObjects::CRider* skater = LocalSkater();
-    uint32_t structure = GameModules::Skate::Sole() ? SkateCalls::SkateField<uint32_t>(kLevelStructure) : 0;
+    uint32_t structure = GameModules::Skate::Sole() ? SkateCalls::SkateField<uint32_t>(kLevelDataKey) : 0;
     if (!skater || !structure || Engine3D::CurrentLevel() == 0) {
         g_level.frames = 0;
         return;
@@ -293,7 +293,7 @@ void UpdateParked(GameModules::FrontEnd* frontEnd)
         g_level.noted = true;
         if (!g_level.start.valid)
             Log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
-        LaunchScript(kLevelScript);
+        LaunchScript(kLevelStartScript);
     }
     if (g_level.frames % kCheckFrames != 0 || OnBike(skater->m_corePhysics) || GameObjects::FindObject(NameHash(kHomeBike)))
         return;

@@ -36,7 +36,7 @@ constexpr uint32_t kNoseManual = 0x0AC90769;      // (another manual kind)
 constexpr uint32_t kPerfectSkitch = 0x69A1CE96;   // CHEAT_PERFECT_SKITCH
 constexpr uint32_t kPerfectManual = 0xB38341C9;   // CHEAT_PERFECT_MANUAL
 
-constexpr float kRadiansToDegrees = 57.2957764f; // 0x00645468
+constexpr float kDegreesPerRadian = 57.2957764f; // 0x00645468
 constexpr float kFullTurn = 360.0f;              // 0x00645EA8
 constexpr float kMoving = 0.001f;                // 0x006461D8
 constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
@@ -58,7 +58,7 @@ void PerfectCheat(void* component, uint32_t cheat, uint32_t lean)
 } // namespace
 
 // 0x0050EE70
-void CorePhysicsComponent::DoGroundPhysics()
+void SkaterPhysicsModule::DoGroundPhysics()
 {
     for (uint32_t flag : {0x48u, 0x30u, 0x38u, 0x78u, 0xA8u, 0x80u, 0xB0u})
         SetFlag(this, flag, 0);
@@ -71,7 +71,7 @@ void CorePhysicsComponent::DoGroundPhysics()
 
     // The heading (+0x348, degrees round from the facing).
     void* object = ObjectOf(this);
-    double heading = static_cast<double>(Maths::FastACos(VectorAt(object, kFacing).x)) * kRadiansToDegrees;
+    double heading = static_cast<double>(Maths::FastACos(VectorAt(object, kFacing).x)) * kDegreesPerRadian;
     At<float>(this, 0x348) = static_cast<float>(heading);
     if (VectorAt(object, kFacing).z < 0.0f)
         At<float>(this, 0x348) = static_cast<float>(kFullTurn - heading);
@@ -79,12 +79,12 @@ void CorePhysicsComponent::DoGroundPhysics()
         ThawBmx::NoteVertGround(this);
     // Moving: the velocity turned into the ground's plane.
     if (LengthOf(VectorAt(object, kVelocity)) > kMoving)
-        VectorAt(object, kVelocity).AlignToPlane(VectorAt(this, kGroundNormal));
+        VectorAt(object, kVelocity).AlignToPlane(VectorAt(this, kFloorUpVector));
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
-    Maths::Vec4 gravity = {0.0f, PhysicsFloat(kGroundGravity, ObjectOf(this)), 0.0f, 1.0f};
+    Maths::Vec4 gravity = {0.0f, TuningFloatLookup(kGroundGravity, ObjectOf(this)), 0.0f, 1.0f};
     if (!(At<float>(this, 0x350) == 0.0f) && VectorAt(ObjectOf(this), kVelocity).y > 0.0f)
         gravity = {0.0f, At<float>(this, 0x360), 0.0f, 1.0f};
-    gravity.FlattenOntoPlane(VectorAt(this, kGroundNormal));
+    gravity.FlattenOntoPlane(VectorAt(this, kFloorUpVector));
     bool bike = ThawBmx::LiveNow(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
     if (bike)
         ThawBmx::OnGround(this);
@@ -181,7 +181,7 @@ void CorePhysicsComponent::DoGroundPhysics()
         AlongFacing(&VectorAt(ObjectOf(this), kVelocity));
     CollisionEvents::Checkpoint(this, "along-facing-4FF590"); // (not original)
     if (!BitMark(this, 0x88)) {
-        CheckSideCollisions();
+        TestLateralHits();
         LeanPushOffWall();
     }
     CollisionEvents::Checkpoint(this, "side-collisions"); // (not original)
@@ -203,7 +203,7 @@ void CorePhysicsComponent::DoGroundPhysics()
 // (Part of 0x0050EE70) The move along the ground: the step, then kept to the ground (skitching: a feeler down the
 // up for the terrain under the skater). Stopped short of the step (on the ground, the first time): the rest of the
 // step once more, along the velocity.
-void CorePhysicsComponent::MoveOnGround(Maths::Vec4 step)
+void SkaterPhysicsModule::MoveOnGround(Maths::Vec4 step)
 {
     bool again = false;
     for (;;) {
@@ -236,7 +236,7 @@ void CorePhysicsComponent::MoveOnGround(Maths::Vec4 step)
             if (Feel(this, 0x10, 0)) {
                 uint8_t terrain = At<uint8_t>(this, kSurfaceFlags);
                 reinterpret_cast<GameObjects::CRiderPoseState*>(FlagsOf(this))->SetSurfaceKind(terrain);
-                At<uint8_t>(At<void*>(this, kSoundComponent), 0x1C) = terrain;
+                At<uint8_t>(At<void*>(this, kSfxModuleSlot), 0x1C) = terrain;
             }
         } else {
             CheckForGround();

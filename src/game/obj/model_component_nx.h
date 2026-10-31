@@ -34,7 +34,7 @@ inline uint32_t SkeletonName(void* skeleton)
 {
     return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14);
 }
-inline void* SkeletonData(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
+inline void* RigDefinition(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
 
 // The model's lights (+0x2C, the folded getter 0x00532EB0), its file checksum (+0x30) and flags (+0x44: 2 active, 4
 // hidden).
@@ -75,10 +75,10 @@ inline void UpdateLightsBrightness(void* lights) { static_cast<Engine3D::CModelL
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-inline void* NetManager() { return reinterpret_cast<void*>(OnlinePlay::g_gameNetManager); }
-inline void* PlayerByObjectId(void* manager, uint32_t id)
+inline void* NetSessionSlot() { return reinterpret_cast<void*>(OnlinePlay::g_onlineHub); }
+inline void* FindPlayerSlotByObj(void* manager, uint32_t id)
 {
-    return static_cast<OnlinePlay::Hub*>(manager)->PlayerByObjectId(static_cast<uint16_t>(id));
+    return static_cast<OnlinePlay::Hub*>(manager)->FindPlayerSlotByObj(static_cast<uint16_t>(id));
 }
 inline bool IsOwnPlayer(void* player) { return static_cast<OnlinePlay::PlayerRecord*>(player)->IsOwnPlayer() != 0; }
 inline int PlayerSkaterIndex(void* player)

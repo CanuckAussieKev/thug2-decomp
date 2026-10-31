@@ -25,9 +25,9 @@ public:
     CModelLights* Teardown(unsigned int flags);
 
     // 0x0048E450: the ambient colour set (virtual [1]), then UpdateBrightness(1, 0) (virtual [8]). [1]'s result.
-    bool SetAmbientColor(const uint32_t* color);
+    bool ChangeAmbientTint(const uint32_t* color);
     // 0x0048E480: a light's colour set (virtual [3]), then UpdateBrightness(0, 1). [3]'s result.
-    bool SetDiffuseColor(int light, const uint32_t* color);
+    bool ChangeDiffuseHue(int light, const uint32_t* color);
     // 0x0048E4D0: the position the lights are for. True.
     bool BindPositionSource(const Maths::Vec4* position);
     // 0x0048E660: the scale and the intensities from the brightness (0 to 1: 2b - 1 times the dark range below 0.5 and
@@ -39,23 +39,23 @@ public:
     bool ChangeBrightness(float brightness);
 
     // The base's platform calls (each prints its "STUB: CModelLights::...\n"):
-    bool PlatSetLightAmbientColor(const uint32_t* color);                   // 0x0048E4E0 [1]: false
-    bool PlatSetLightDirection(int light, const Maths::Vec4* direction);    // 0x0048E500 [2]: false
-    bool PlatSetLightDiffuseColor(int light, const uint32_t* color);        // 0x0048E520 [3]: false
-    uint32_t* PlatGetLightAmbientColor(uint32_t* out);                      // 0x0048E730 [4]: 0
-    Maths::Vec4* PlatGetLightDirection(int light);                          // 0x0048E760 [5]: a static 0 vector
-    uint32_t* PlatGetLightDiffuseColor(uint32_t* out, int light);           // 0x0048E7C0 [6]: 0
+    bool PutAmbientLightTint(const uint32_t* color);                   // 0x0048E4E0 [1]: false
+    bool PutLightAim(int light, const Maths::Vec4* direction);    // 0x0048E500 [2]: false
+    bool PutDiffuseLightTint(int light, const uint32_t* color);        // 0x0048E520 [3]: false
+    uint32_t* ReadAmbientLightTint(uint32_t* out);                      // 0x0048E730 [4]: 0
+    Maths::Vec4* ReadLightAim(int light);                          // 0x0048E760 [5]: a static 0 vector
+    uint32_t* ReadDiffuseLightTint(uint32_t* out, int light);           // 0x0048E7C0 [6]: 0
     void PlatApplySceneLights(const Maths::Vec4* position, uint32_t radius); // 0x0048E5A0 [7]
-    void PlatUpdateBrightness(bool ambient, bool diffuse);                  // 0x0048E540 [8]
-    void PlatEnableAmbientLight(bool on);                                   // 0x0048E550 [9]
-    void PlatEnableDiffuseLight(int light, bool on);                        // 0x0048E560 [10]
-    bool PlatIsAmbientLightEnabled();                                       // 0x0048E570 [11]: false
-    bool PlatIsDiffuseLightEnabled(int light);                              // 0x0048E580 [12]: false (not a Ghidra function)
+    void ApplyLightBrightness(bool ambient, bool diffuse);                  // 0x0048E540 [8]
+    void SwitchAmbientLight(bool on);                                   // 0x0048E550 [9]
+    void SwitchDiffuseLight(int light, bool on);                        // 0x0048E560 [10]
+    bool AmbientLightIsOn();                                       // 0x0048E570 [11]: false
+    bool DiffuseLightIsOn(int light);                              // 0x0048E580 [12]: false (not a Ghidra function)
 
     void** m_vtable;
     uint32_t m_unknown4;
     float m_brightness;            // +0x08
-    float m_brightnessTarget;      // +0x0C
+    float m_intensityGoal;      // +0x0C
     float m_sizeFactor;                 // +0x10: the ambient colour's
     float* mp_intensities;         // +0x14: each light's
     const Maths::Vec4* mp_position; // +0x18

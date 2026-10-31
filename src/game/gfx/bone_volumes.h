@@ -48,7 +48,7 @@ struct CBoneVolumes {
     // positive, plus `extraRadius`; the bones' world positions kept in 0x006FA320). The distance to it (the square
     // root of the squared distance) into `distance` and where along the segment into `t`, when given. The bone's
     // name, 0 for none.
-    uint32_t TestLine(const Maths::Seg* segment, CRig* skeleton, const Maths::Mat4* world, uint32_t bone,
+    uint32_t SegmentHitsBone(const Maths::Seg* segment, CRig* skeleton, const Maths::Mat4* world, uint32_t bone,
                       float scale, float extraRadius, float* distance, float* t);
     // 0x0048BC40: the volume of the capsule round `bone` (radius times the bone's largest scale; none: 0) into
     // `volume`. True.

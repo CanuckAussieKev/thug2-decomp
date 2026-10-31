@@ -250,7 +250,7 @@ void __cdecl ShatterGeom(uint8_t* geom)
         void* memory = MemSys::Alloc(sizeof(CPcShatter));
         CPcShatter* shatter = memory ? static_cast<CPcShatter*>(memory)->MakeNew(count, mesh, 0) : nullptr;
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const float* direction = reinterpret_cast<const float*>(&g_shatterVelocity);
+        const float* direction = reinterpret_cast<const float*>(&g_glassBurstVelocity);
         double scale = -static_cast<double>(g_shatterVelocityScale);
         double backX = scale * direction[0];
         float backY = static_cast<float>(scale * direction[1]);

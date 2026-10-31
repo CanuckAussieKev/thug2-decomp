@@ -35,7 +35,7 @@ struct CRiderIdentity {
     void WriteToSave(Scripts::CStruct* save);               // 0x00586B00
     bool Reset(Scripts::CStruct* params);                   // 0x00586810 (its defaults, then `params`; true)
     void SetAppearance(Scripts::CStruct* appearance, bool update); // 0x00488F40
-    Scripts::CStruct* InfoStructure() { return reinterpret_cast<Scripts::CStruct*>(m_details); }
+    Scripts::CStruct* DetailsParams() { return reinterpret_cast<Scripts::CStruct*>(m_details); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void EraseOne();
     // 0x00543010: the destructor body (Delete without the free): the info cleared, the appearance's destructor body.
@@ -49,7 +49,7 @@ struct CRiderIdentity {
     int GetInfo471FC4DD();
     bool AddMaxSpecials(int amount);
     uint32_t GetNameKeyField(uint32_t name);
-    Scripts::CStruct* GetInfoStructure(uint32_t name);
+    Scripts::CStruct* FetchDetailsParams(uint32_t name);
     bool HasFlagF3149AC5();
     void SetValue09F350E5(uint8_t value);
     const char* GetStringF36C1878();
@@ -181,6 +181,6 @@ static_assert(offsetof(CProfileRoster, m_profiles) == 0x14 &&
                   offsetof(CProfileRoster, m_extraProfiles) == 0x34 && sizeof(CProfileRoster) == 0x40,
               "layout must match the original");
 
-extern GameObjects::CProfileRoster* g_profileManager;
+extern GameObjects::CProfileRoster* g_profileRoster;
 
 } // namespace Obj

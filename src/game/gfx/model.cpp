@@ -226,7 +226,7 @@ bool CRenderModel::ChangeLive(uint8_t active)
     if (((m_flagBits >> 1) & 1) != active) {
         for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next)
             SetGeomActive(Geom(node), active);
-        m_flagBits = SetFlag(m_flagBits, kModelActive, active & 1);
+        m_flagBits = SetFlag(m_flagBits, kModelEnabledBit, active & 1);
     }
     return true;
 }
@@ -260,7 +260,7 @@ void* CRenderModel::FetchGeom(int index)
 }
 
 // 0x00494680
-uint32_t CRenderModel::GetGeomName(int index)
+uint32_t CRenderModel::FetchPartLabel(int index)
 {
     int i = 0;
     for (sModelGeomNode* node = First(this); node != m_geoms; node = node->next, ++i) {
@@ -341,7 +341,7 @@ bool CRenderModel::ConcealMesh(uint32_t name, bool hide)
 }
 
 // 0x00494880
-bool CRenderModel::IsGeomHidden(uint32_t name)
+bool CRenderModel::IsPartConcealed(uint32_t name)
 {
     bool hidden = true;
     int index = 0;

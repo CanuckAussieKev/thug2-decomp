@@ -42,8 +42,8 @@ constexpr uint32_t kHsv = 0xFB0E4249;             // "hsv"
 constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
-void* TextureDictionary() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
-void* FindTexture(uint32_t name) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->FetchSkin(name); }
+void* TextureBank() { return reinterpret_cast<void*>(Engine3D::g_gameTextureDict); }
+void* FindTexture(uint32_t name) { return static_cast<Engine3D::CTextureSet*>(TextureBank())->FetchSkin(name); }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
 // skate module's 0x00564F80 with no params is the current profile.
@@ -111,7 +111,7 @@ bool __cdecl CFunc_LoadFaceTextureFromProfile(Scripts::CStruct* params, Scripts:
     void* face = FaceTexture();
     int size = static_cast<Gfx2D::CFaceSkin*>(face)->GetImageSize();         // (0x4420)
     void* data = static_cast<Gfx2D::CFaceSkin*>(face)->GetImage();           // (its +0x3C)
-    void* texture = static_cast<Engine3D::CTextureSet*>(TextureDictionary())
+    void* texture = static_cast<Engine3D::CTextureSet*>(TextureBank())
                         ->ReadTextureBuffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
     return texture != nullptr;
 }
@@ -169,7 +169,7 @@ bool __cdecl CFunc_RotateTexture(Scripts::CStruct* params, Scripts::CScript*)
     void* texture = FindTexture(name);
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
-        float radians = static_cast<float>(static_cast<double>(angle) * g_degreesToRadians);
+        float radians = static_cast<float>(static_cast<double>(angle) * g_degreeToRadianRatio);
         TextureCall<void>(17, texture, radians, -1.0f, -1.0f);
     }
     return true;

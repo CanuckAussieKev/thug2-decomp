@@ -16,10 +16,10 @@ namespace OnlinePlay::Guards {
 
 namespace {
 
-constexpr uint8_t kMsgStartInfo = 0x33;
-constexpr uint8_t kMsgGameInfo = 0x34;
+constexpr uint8_t kMsgLobbyDetails = 0x33;
+constexpr uint8_t kMsgSessionBrief = 0x34;
 constexpr uint8_t kMsgPrimaryAnim = 0x29;
-constexpr uint8_t kMsgChangeLevel = 0x46;
+constexpr uint8_t kMsgLevelSwitch = 0x46;
 constexpr uint8_t kMsgCreateSpecialItem = 0x77;
 constexpr uint8_t kMsgDestroySpecialItem = 0x78;
 constexpr uint8_t kMsgServerMovedOn = 'V';
@@ -113,9 +113,9 @@ int CheckReceivedMessage(NetLink::InboundMsgCtx* context)
     case kMsgPrimaryAnim: needed = kAnimOffset + 4; break;
     case kMsgCreateSpecialItem:
     case kMsgDestroySpecialItem: needed = kSpecialItemDetails + 4; break;
-    case kMsgStartInfo: needed = kStartInfoLevel + 4; break;
-    case kMsgGameInfo: needed = kGameInfoMode + 4; break;
-    case kMsgChangeLevel: needed = kChangeLevelLevel + 4; break;
+    case kMsgLobbyDetails: needed = kStartInfoLevel + 4; break;
+    case kMsgSessionBrief: needed = kGameInfoMode + 4; break;
+    case kMsgLevelSwitch: needed = kChangeLevelLevel + 4; break;
     default: return kDispatch;
     }
     if (!context->m_body || context->m_bodySize < needed) {
@@ -141,7 +141,7 @@ int CheckReceivedMessage(NetLink::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgStartInfo: {
+    case kMsgLobbyDetails: {
         uint32_t level = Read32(context, kStartInfoLevel);
         if (!s_lookups.scriptExists(level)) {
             LogOnce(id, level, "names a level we haven't, leaving the server: load script");
@@ -154,7 +154,7 @@ int CheckReceivedMessage(NetLink::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgGameInfo: {
+    case kMsgSessionBrief: {
         uint32_t mode = Read32(context, kGameInfoMode);
         if (!s_lookups.gameModeExists(mode)) {
             LogOnce(id, mode, "names a game mode we haven't, played as free skate:");
@@ -162,7 +162,7 @@ int CheckReceivedMessage(NetLink::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgChangeLevel: {
+    case kMsgLevelSwitch: {
         uint32_t level = Read32(context, kChangeLevelLevel);
         if (!s_lookups.scriptExists(level)) {
             LogOnce(id, level, "names a level we haven't, leaving the server: load script");

@@ -23,7 +23,7 @@ namespace {
 constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;   // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kMaxSpeedStat = 0x2EACDDB3;      // Skater_Max_Speed_Stat
 constexpr uint32_t kHeavyAirFriction = 0x850EB87A;  // Physics_Heavy_Air_Friction
-constexpr uint32_t kRollingFriction = 0x78F80EC4;   // Physics_Rolling_Friction
+constexpr uint32_t kCoastDrag = 0x78F80EC4;   // Physics_Rolling_Friction
 constexpr uint32_t kBrakeAcceleration = 0xE5D73F6F; // Physics_Brake_Acceleration
 
 // The fields used here.
@@ -45,13 +45,13 @@ float SpeedOf(const Maths::Vec4& v)
 // 0x004FE1F0 (not rewritten yet): the air friction `friction` applied to the velocity.
 void ApplyAirFriction(void* component, float friction)
 {
-    static_cast<CorePhysicsComponent*>(component)->ApplyFriction(friction);
+    static_cast<SkaterPhysicsModule*>(component)->ApplyFriction(friction);
 }
 
 } // namespace
 
 // 0x00501850
-void CorePhysicsComponent::LimitSpeed()
+void SkaterPhysicsModule::ClampSkaterSpeed()
 {
     void* object = ObjectOf(this);
     Maths::Vec4& velocity = VectorAt(object, kVelocity);
@@ -92,13 +92,13 @@ void CorePhysicsComponent::LimitSpeed()
         rolling = static_cast<float>(left);
         if (left <= 0.0) {
             At<uint32_t>(this, kRollingFrictionTimer) = 0;
-            At<float>(this, kRollingFrictionNow) = PhysicsFloat(kRollingFriction, object);
+            At<float>(this, kRollingFrictionNow) = TuningFloatLookup(kCoastDrag, object);
         }
     }
 }
 
 // 0x005019E0
-void CorePhysicsComponent::Brake()
+void SkaterPhysicsModule::Brake()
 {
     if (ThawBmx::LiveNow(this)) { // (not original: THAW's bike brakes, thaw_bmx_physics.cpp)
         ThawBmx::Brake(this);
@@ -111,14 +111,14 @@ void CorePhysicsComponent::Brake()
     }
     void* object = ObjectOf(this);
     float speed = SpeedOf(VectorAt(object, kVelocity));
-    double slowing = static_cast<double>(PhysicsFloat(kBrakeAcceleration, object)) * At<float>(this, kFrameLength);
+    double slowing = static_cast<double>(TuningFloatLookup(kBrakeAcceleration, object)) * At<float>(this, kFrameLength);
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
         VectorAt(ObjectOf(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
         return;
     }
     Maths::Vec4 slow = VectorAt(ObjectOf(this), kVelocity);
-    SetLength(slow, static_cast<float>(-(static_cast<double>(PhysicsFloat(kBrakeAcceleration, object)) *
+    SetLength(slow, static_cast<float>(-(static_cast<double>(TuningFloatLookup(kBrakeAcceleration, object)) *
                                         At<float>(this, kFrameLength))));
     Maths::Vec4& velocity = VectorAt(ObjectOf(this), kVelocity);
     velocity.x = slow.x + velocity.x;
@@ -128,21 +128,21 @@ void CorePhysicsComponent::Brake()
 }
 
 // 0x00506DF0
-void CorePhysicsComponent::ApplyGroundFriction()
+void SkaterPhysicsModule::ApplyGroundFriction()
 {
     void* object = ObjectOf(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
     if (!At<uint8_t>(this, kFrictionOn) && !FlagsOf(this)[0x70] &&
-        At<float>(this, kRollingFrictionNow) == PhysicsFloat(kRollingFriction, object) && !ThawBmx::LiveNow(this))
+        At<float>(this, kRollingFrictionNow) == TuningFloatLookup(kCoastDrag, object) && !ThawBmx::LiveNow(this))
         return;
     ApplyStanceFriction(); // (the friction: crouched or standing)
     if (TurnDownSlope()) // (turned down the slope)
         return;
-    ApplyRollingFriction(); // (the rolling friction)
+    ApplyWheelDrag(); // (the rolling friction)
 }
 
 // 0x005021D0
-void CorePhysicsComponent::StartRidingHitObject()
+void SkaterPhysicsModule::StartRidingHitObject()
 {
     if (FlagsOf(this)[0x88])
         return;

@@ -30,8 +30,8 @@ constexpr uint32_t kRotate = 0xC876ADF3;
 constexpr uint32_t kDuration = 0x79A07F3F, kSeconds = 0xD029F619, kSecond = 0x49E0EE96, kFrames = 0x019176C5,
                    kFrame = 0x4A07C332, kX = 0x7323E97C, kY = 0x0424D9EA, kZ = 0x9D2D8850, kNode = 0x7A8017BA;
 
-constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
-constexpr float kRadiansToDegrees = 57.2957763671875f;    // 0x00645468
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
+constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
 constexpr float kSecondsPerMs = 0.001f;                   // 0x006461D8
 constexpr float kSecondsPerFrame = 0.0166666675f;         // 0x006463B8
 
@@ -53,8 +53,8 @@ void StartTurn(CRiderTurning::Turn& turn, double degrees, float duration)
     turn.duration = duration;
     turn.turned = 0.0f;
     turn.active = true;
-    turn.rate = static_cast<float>(degrees / duration * kDegreesToRadians);
-    turn.remaining = static_cast<float>(std::fabs(degrees * kDegreesToRadians));
+    turn.rate = static_cast<float>(degrees / duration * kRadiansPerDegree);
+    turn.remaining = static_cast<float>(std::fabs(degrees * kRadiansPerDegree));
 }
 
 } // namespace
@@ -156,7 +156,7 @@ int CRiderTurning::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
             const Maths::Vec4& at = m_entity->m_atPoint;
             Maths::Vec4 toNode = {pos.x - at.x, pos.y - at.y, pos.z - at.z, pos.w - at.w};
             double degrees = static_cast<double>(Maths::GetAngleInPlane(m_entity->m_basisFrame, toNode, 2, 1)) *
-                             kRadiansToDegrees;
+                             kDegreesPerRadian;
             StartTurn(m_turns[1], degrees, duration);
         }
         VirtualSuspend(false);
@@ -166,12 +166,12 @@ int CRiderTurning::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     float degrees;
     if (params->FetchFloat(kX, &degrees, 0)) {
         Maths::Mat4 rotation;
-        Maths::MakePitchMatrix(rotation, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+        Maths::MakePitchMatrix(rotation, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
         TurnBy(m_entity->m_basisFrame, rotation);
     } else if (params->FetchFloat(kY, &degrees, 0)) {
-        m_entity->m_basisFrame.YawLocally(static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+        m_entity->m_basisFrame.YawLocally(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     } else if (params->FetchFloat(kZ, &degrees, 0)) {
-        m_entity->m_basisFrame.RollInOwnFrame(static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+        m_entity->m_basisFrame.RollInOwnFrame(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     } else {
         // Turned round: the at and right rows reversed (their w kept), and the core physics' flag at +0x34C flipped.
         Maths::Vec4& atRow = m_entity->m_basisFrame.row[2];

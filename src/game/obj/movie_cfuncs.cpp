@@ -61,7 +61,7 @@ GameObjects::CEntity* NamedSkater(Scripts::CStruct* params)
 bool IsHostLocal(GameObjects::CEntity* object) { return static_cast<GameObjects::CGameEntity*>(object)->m_unknownBC != 0; }
 
 // A movie's name (0 if missing).
-uint32_t MovieName(Scripts::CStruct* params, int assert)
+uint32_t MovieKeyFromParams(Scripts::CStruct* params, int assert)
 {
     uint32_t name = 0;
     params->ReadHashValue(kName, &name, assert);
@@ -75,7 +75,7 @@ CutsceneDestroyEntry* CutsceneDestroyEntry::MakeNew()
 {
     m_label = 0;
     m_destroyScript = 0;
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     m_args = memory ? memory->PrepareAll() : nullptr;
     return this;
 }
@@ -100,7 +100,7 @@ bool __cdecl CFunc_PlaySkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*
         CameraMovies()->ClearMovies();
         return true;
     }
-    uint32_t name = MovieName(params, 0);
+    uint32_t name = MovieKeyFromParams(params, 0);
     Scripts::LaunchScript(kDisableSkaterScaling, nullptr, nullptr, false, nullptr);
     CameraMovies()->AddMovie(name, params, kSkaterCamAnim);
     return true;
@@ -112,7 +112,7 @@ bool __cdecl CFunc_SetSkaterCamAnimSkippable(Scripts::CStruct* params, Scripts::
 {
     GameObjects::CEntity* skater = NamedSkater(params);
     if (skater && IsHostLocal(skater)) {
-        uint32_t name = MovieName(params, 0);
+        uint32_t name = MovieKeyFromParams(params, 0);
         int skippable = 0;
         params->FetchIntValue(kSkippable, &skippable, 0);
         CameraMovies()->MovieCall468F40(name, skippable != 0);
@@ -124,7 +124,7 @@ bool __cdecl CFunc_SetSkaterCamAnimShouldPause(Scripts::CStruct* params, Scripts
 {
     GameObjects::CEntity* skater = NamedSkater(params);
     if (skater && IsHostLocal(skater)) {
-        uint32_t name = MovieName(params, 0);
+        uint32_t name = MovieKeyFromParams(params, 0);
         int pause = 0;
         params->FetchIntValue(kShouldPause, &pause, 0);
         CameraMovies()->MovieCall468F50(name, pause != 0);
@@ -149,7 +149,7 @@ bool __cdecl CFunc_GetCurrentSkaterCamAnimName(Scripts::CStruct*, Scripts::CScri
 // script's (a local skater; false without them).
 bool __cdecl CFunc_GetSkaterCamAnimParams(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    uint32_t name = MovieName(params, 0);
+    uint32_t name = MovieKeyFromParams(params, 0);
     GameObjects::CEntity* skater = NamedSkater(params);
     if (!skater || !IsHostLocal(skater))
         return false;
@@ -167,7 +167,7 @@ bool __cdecl CFunc_SkaterCamAnimFinished(Scripts::CStruct* params, Scripts::CScr
     GameObjects::CEntity* skater = NamedSkater(params);
     if (!skater || !IsHostLocal(skater))
         return true;
-    return CameraMovies()->IsMovieGone(MovieName(params, 0));
+    return CameraMovies()->IsMovieGone(MovieKeyFromParams(params, 0));
 }
 
 bool __cdecl CFunc_SkaterCamAnimHeld(Scripts::CStruct* params, Scripts::CScript*)
@@ -175,7 +175,7 @@ bool __cdecl CFunc_SkaterCamAnimHeld(Scripts::CStruct* params, Scripts::CScript*
     GameObjects::CEntity* skater = NamedSkater(params);
     if (!skater || !IsHostLocal(skater))
         return true;
-    return CameraMovies()->MovieFlag18(MovieName(params, 0));
+    return CameraMovies()->MovieFlag18(MovieKeyFromParams(params, 0));
 }
 
 // 0x005ADD70: KillSkaterCamAnim (also KillCutscene) [SkaterId= | skater=] Current | all | name=<anim> - for a local
@@ -199,7 +199,7 @@ bool __cdecl CFunc_KillSkaterCamAnim(Scripts::CStruct* params, Scripts::CScript*
             if (params->HasBareFlag(kAll))
                 CameraMovies()->ClearMovies();
             else
-                CameraMovies()->KillMovie(MovieName(params, 1));
+                CameraMovies()->KillMovie(MovieKeyFromParams(params, 1));
             result = true;
         }
     }
@@ -242,7 +242,7 @@ bool __cdecl CFunc_PlayCutscene(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->HasBareFlag(kStop);
     if (params->HasBareFlag(kObjectAnim)) {
-        ObjectMovies()->AddMovie(MovieName(params, 1), params, kObjectCutscene);
+        ObjectMovies()->AddMovie(MovieKeyFromParams(params, 1), params, kObjectCutscene);
         return true;
     }
     CameraMovies()->AddMovie(kCutscene, params, kCutscene);
@@ -278,7 +278,7 @@ bool __cdecl CFunc_Cutscene_FrameAdvance(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_PlayObjectAnim(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->HasBareFlag(kStop);
-    ObjectMovies()->AddMovie(MovieName(params, 0), params, kObjectAnim);
+    ObjectMovies()->AddMovie(MovieKeyFromParams(params, 0), params, kObjectAnim);
     return true;
 }
 
@@ -286,7 +286,7 @@ bool __cdecl CFunc_PlayObjectAnim(Scripts::CStruct* params, Scripts::CScript*)
 // should_pause=<0/1>.
 bool __cdecl CFunc_SetObjectAnimSkippable(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint32_t name = MovieName(params, 0);
+    uint32_t name = MovieKeyFromParams(params, 0);
     int skippable = 0;
     params->FetchIntValue(kSkippable, &skippable, 0);
     ObjectMovies()->MovieCall468F40(name, skippable != 0);
@@ -295,7 +295,7 @@ bool __cdecl CFunc_SetObjectAnimSkippable(Scripts::CStruct* params, Scripts::CSc
 
 bool __cdecl CFunc_SetObjectAnimShouldPause(Scripts::CStruct* params, Scripts::CScript*)
 {
-    uint32_t name = MovieName(params, 0);
+    uint32_t name = MovieKeyFromParams(params, 0);
     int pause = 0;
     params->FetchIntValue(kShouldPause, &pause, 0);
     ObjectMovies()->MovieCall468F50(name, pause != 0);
@@ -305,12 +305,12 @@ bool __cdecl CFunc_SetObjectAnimShouldPause(Scripts::CStruct* params, Scripts::C
 // 0x005AE270 / 0x005AE2B0: ObjectAnimFinished / ObjectAnimHeld name=<anim>.
 bool __cdecl CFunc_ObjectAnimFinished(Scripts::CStruct* params, Scripts::CScript*)
 {
-    return ObjectMovies()->IsMovieGone(MovieName(params, 0));
+    return ObjectMovies()->IsMovieGone(MovieKeyFromParams(params, 0));
 }
 
 bool __cdecl CFunc_ObjectAnimHeld(Scripts::CStruct* params, Scripts::CScript*)
 {
-    return ObjectMovies()->MovieFlag18(MovieName(params, 0));
+    return ObjectMovies()->MovieFlag18(MovieKeyFromParams(params, 0));
 }
 
 // 0x005AE2F0: KillObjectAnim Current | all | name=<anim> - the playing one ended (its result), every one dropped, or
@@ -324,7 +324,7 @@ bool __cdecl CFunc_KillObjectAnim(Scripts::CStruct* params, Scripts::CScript*)
         movies->ClearMovies();
         return true;
     }
-    movies->KillMovie(MovieName(params, 1));
+    movies->KillMovie(MovieKeyFromParams(params, 1));
     return true;
 }
 

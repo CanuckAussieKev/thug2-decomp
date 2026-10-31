@@ -74,17 +74,17 @@ constexpr uint32_t kNearestType = 0xBAF9B341;    // (name unknown): the object t
 // The constants the original reads (0x006461F4: inches to feet; 0x00645D74).
 constexpr float kInchesToFeet = 1.0f / 12.0f;
 constexpr float kSpeedTolerance = 0.1f;
-constexpr float kRadiansToDegrees = 57.2957763671875f; // 0x00645468
-constexpr float kRightAngle = 90.0f;                  // 0x00645EB0
-constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
+constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
+constexpr float kQuarterTurnDeg = 90.0f;                  // 0x00645EB0
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kNearlyVertical = 0.99f;              // 0x00645450
 constexpr float kFarAway = 5322672.0f;                // (0x4AA26F60)
 
 // The composite object manager (0x006F0FB8, compositemgr.cpp): its lists of the components of each type, and the
 // component makers.
-void EnrolModule(CObjectModule* component) { CompositeObjectManager()->AttachModuleOfKind(component); }
-void UnregisterComponent(CObjectModule* component) { CompositeObjectManager()->DetachModuleOfKind(component); }
-CObjectModule* SpawnModule(uint32_t type) { return CompositeObjectManager()->SpawnModule(type); }
+void EnrolModule(CObjectModule* component) { ObjectHubSlot()->AttachModuleOfKind(component); }
+void UnregisterComponent(CObjectModule* component) { ObjectHubSlot()->DetachModuleOfKind(component); }
+CObjectModule* SpawnModule(uint32_t type) { return ObjectHubSlot()->SpawnModule(type); }
 // The position (pos=) / orientation in a structure, if it has them (LevelNodes, nodes.h).
 void GetPositionFromStructure(CStruct* params, Maths::Vec4* pos) { LevelNodes::FetchPlace(params, pos); }
 void GetOrientationFromStructure(CStruct* params, Maths::Mat4* matrix) { LevelNodes::FetchFacing(params, matrix); }
@@ -255,7 +255,7 @@ CGameEntity* CGameEntity::MakeNew()
     m_displayMatrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m_displayMatrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     m_displayMatrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_moduleList = nullptr;
+    m_attachedModules = nullptr;
     m_compositeFlags = 0;
     m_unknownBC = 0;
     m_objectFlags |= OBJECT_FLAG_HAS_POSITION;
@@ -267,9 +267,9 @@ void CGameEntity::DestroyBody()
 {
     m_vtable = kCompositeObjectVtable;
     m_compositeFlags |= COMPOSITE_FLAG_DESTROYING;
-    while (m_moduleList) {
-        CObjectModule* component = m_moduleList;
-        m_moduleList = component->m_following;
+    while (m_attachedModules) {
+        CObjectModule* component = m_attachedModules;
+        m_attachedModules = component->m_following;
         UnregisterComponent(component);
         component->VirtualDestroy(1);
     }
@@ -293,13 +293,13 @@ void CGameEntity::TickFrame()
     if (m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
     if (!(m_compositeFlags & COMPOSITE_FLAG_SUSPENDED)) {
-        if (m_runScript)
-            m_runScript->TickFrame();
+        if (m_ownScript)
+            m_ownScript->TickFrame();
         if (m_objectFlags & OBJECT_FLAG_DEAD)
             return;
         VirtualOwnUpdate();
     }
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following) {
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following) {
         if (component->m_flagBits & COMPONENT_FLAG_SUSPENDED)
             continue;
         component->TickFrame();
@@ -319,7 +319,7 @@ void CGameEntity::Conceal(bool hide)
         m_compositeFlags |= COMPOSITE_FLAG_HIDDEN;
     else
         m_compositeFlags &= ~COMPOSITE_FLAG_HIDDEN;
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following)
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following)
         component->Conceal(hide);
 }
 
@@ -332,7 +332,7 @@ void CGameEntity::HoldOff(bool suspend)
         m_compositeFlags |= COMPOSITE_FLAG_SUSPENDED;
     else
         m_compositeFlags &= ~COMPOSITE_FLAG_SUSPENDED;
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following)
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following)
         component->VirtualSuspend(suspend);
 }
 
@@ -341,7 +341,7 @@ void CGameEntity::MarkJumpedAhead(bool teleportComponents)
 {
     m_compositeFlags |= COMPOSITE_FLAG_TELEPORTED;
     if (teleportComponents) {
-        for (CObjectModule* component = m_moduleList; component; component = component->m_following)
+        for (CObjectModule* component = m_attachedModules; component; component = component->m_following)
             component->JumpTo();
     }
 }
@@ -352,7 +352,7 @@ bool CGameEntity::ShouldUpdateScripts() { return !(m_compositeFlags & COMPOSITE_
 // 0x0045D7C0
 void CGameEntity::FlagAsDead()
 {
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following)
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following)
         component->ObjectMarkedDead();
     CEntity::FlagAsDead();
 }
@@ -362,10 +362,10 @@ void CGameEntity::FlagAsDead()
 // 0x0045DA30 (the component's +0x10 isn't cleared: it is expected to be null already)
 void CGameEntity::AttachModule(CObjectModule* component)
 {
-    if (!m_moduleList) {
-        m_moduleList = component;
+    if (!m_attachedModules) {
+        m_attachedModules = component;
     } else {
-        CObjectModule* last = m_moduleList;
+        CObjectModule* last = m_attachedModules;
         while (last->m_following)
             last = last->m_following;
         last->m_following = component;
@@ -395,7 +395,7 @@ void CGameEntity::CreateComponentFromStructure(CStruct* params, CStruct* extra)
         component->ConfigureFromData(params);
         return;
     }
-    CStruct* memory = Scripts::NewStruct();
+    CStruct* memory = Scripts::SpawnParamBag();
     CStruct* merged = memory ? memory->PrepareAll() : nullptr;
     merged->MergeStructure(params);
     merged->MergeStructure(extra);
@@ -421,18 +421,18 @@ void CGameEntity::ConfigureFromData(CStruct* params)
 // 0x0045DB30
 void CGameEntity::Seal()
 {
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following)
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following)
         component->Seal();
     m_compositeFlags |= COMPOSITE_FLAG_FINALIZED;
     m_compositeFlags |= COMPOSITE_FLAG_FINALIZED2;
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following)
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following)
         component->JumpTo();
 }
 
 // 0x0045DB90
 CObjectModule* CGameEntity::FetchModule(uint32_t type)
 {
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following) {
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following) {
         if (component->m_kindTag == type)
             return component;
     }
@@ -442,7 +442,7 @@ CObjectModule* CGameEntity::FetchModule(uint32_t type)
 // 0x0045E450
 bool CGameEntity::InvokeMethodByName(uint32_t name, CStruct* params, CScript* script)
 {
-    for (CObjectModule* component = m_moduleList; component; component = component->m_following) {
+    for (CObjectModule* component = m_attachedModules; component; component = component->m_following) {
         int result = component->InvokeMethodByName(name, params, script);
         if (result == 0)
             return false;
@@ -733,7 +733,7 @@ bool CGameEntity::Obj_GetOrientationToObject(CStruct* params, CScript* script)
         toOther.MakeUnit();
         double sum = static_cast<double>(toOther.z) * right.z + static_cast<double>(toOther.y) * right.y;
         dot = static_cast<float>(sum + static_cast<double>(toOther.x) * right.x);
-        angle = static_cast<float>(FastACosUnrounded(dot) * kRadiansToDegrees - kRightAngle);
+        angle = static_cast<float>(FastACosUnrounded(dot) * kDegreesPerRadian - kQuarterTurnDeg);
     }
     script->m_args->PushFloat(kDotProd, dot);
     script->m_args->PushFloat(kAngleResult, angle);
@@ -777,9 +777,9 @@ bool CGameEntity::Obj_SetOrientation(CStruct* params, CScript* /*script*/)
     params->FetchFloat(kX, &x, 0);
     params->FetchFloat(kY, &y, 0);
     params->FetchFloat(kZ, &z, 0);
-    x *= kDegreesToRadians;
-    y *= kDegreesToRadians;
-    z *= kDegreesToRadians;
+    x *= kRadiansPerDegree;
+    y *= kRadiansPerDegree;
+    z *= kRadiansPerDegree;
     Maths::Mat4 m;
     m.SetFromEulerAngles(x, y, z);
     m_basisFrame = m;
@@ -837,7 +837,7 @@ bool CGameEntity::Obj_NearestOutsideAngle(CStruct* params, CScript* /*script*/)
         return false;
     float angle = 0.0f; // (uninitialised in the original: a missing angle compares with stack garbage)
     params->FetchFloat(kUnnamed, &angle, 1);
-    angle *= kDegreesToRadians;
+    angle *= kRadiansPerDegree;
     Maths::Vec4 offset = {other->m_atPoint.x - m_atPoint.x, other->m_atPoint.y - m_atPoint.y, other->m_atPoint.z - m_atPoint.z,
                           other->m_atPoint.w - m_atPoint.w};
     return std::fabs(Maths::GetAngleInPlane(m_basisFrame, offset, 2, 1)) > angle;

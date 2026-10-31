@@ -29,7 +29,7 @@ void __cdecl SetPrimitiveStates()
     InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
     InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
     ChangePhase(kAddressMode0, 0x10001); // (clamped both ways)
-    ChangePhase(kAlphaRef, 1);
+    ChangePhase(kPhaseAlphaTest, 1);
     ChangePhase(kZWrite, 1);
     ChangePhase(kZTest, 1);
     ChangePhase(kCullMode, D3DCULL_NONE);

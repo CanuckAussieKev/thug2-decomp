@@ -492,7 +492,7 @@ uint32_t g_confirmHide;
 bool g_confirmReset;
 uint32_t g_resetAskedAt;
 // Rails (level_editor_node_edit.h): a rail node moves with its whole rail (L toggles: one point).
-bool g_wholeRail = true;
+bool g_moveEntireRail = true;
 std::vector<Nodes::Pickable> g_pickables;
 Ui::Overlay g_overlay;
 int g_hudTakenDown;    // (the UI runs: frames the HUD's screen elements have been taken down)
@@ -626,7 +626,7 @@ GameObjects::CGameEntity* Primary()
     return objects.empty() ? nullptr : objects.front();
 }
 // The node selected by itself, if the editor moves it (a point node): its index in Nodes::All(), else -1.
-int MovableNode()
+int PickedNodeIndex()
 {
     if (!g_nodeSelected)
         return -1;
@@ -642,7 +642,7 @@ int MovableNode()
 // That node's place now (false: none).
 bool NodeValues(NodeEdit::Values* values)
 {
-    return MovableNode() >= 0 && NodeEdit::TakeIn(g_nodeName, values);
+    return PickedNodeIndex() >= 0 && NodeEdit::TakeIn(g_nodeName, values);
 }
 // An invisible wall selected by itself (Shift+click with the collision shown - level_editor_view.h): moved, turned and
 // switched off / on as level_editor_walls.h does; 0 when none (or something else is selected).
@@ -651,7 +651,7 @@ uint32_t WallOnly()
     uint32_t wall = View::SelectedWall();
     return wall && !g_nodeSelected && !Scenery::HasSelection() && !Primary() && Walls::IsWall(wall) ? wall : 0;
 }
-bool HaveSelection() { return Primary() || Scenery::HasSelection() || MovableNode() >= 0 || WallOnly(); }
+bool HaveSelection() { return Primary() || Scenery::HasSelection() || PickedNodeIndex() >= 0 || WallOnly(); }
 
 // A spawn, crown or flag of a level shared with THUGPRO changed by the editor (moved, added, hidden, reordered): the
 // warning, once a run (the edit is made - layouts aren't used in net games, but a layout baked into the level's files
@@ -680,14 +680,14 @@ void NoteOnlineEdit(int index)
 // rest of its rail with it, by as much, while Whole rail is on (L).
 void SetSelectedNode(const NodeEdit::Values& values)
 {
-    int index = MovableNode();
+    int index = PickedNodeIndex();
     if (index < 0)
         return;
     NoteOnlineEdit(index);
     NodeEdit::Values now;
     if (NodeEdit::IsChain(g_nodeName) && NodeEdit::TakeIn(g_nodeName, &now)) {
         V3 delta = values.pos - now.pos;
-        for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_wholeRail)) {
+        for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_moveEntireRail)) {
             NodeEdit::Values point;
             if (NodeEdit::TakeIn(name, &point)) {
                 point.pos = point.pos + delta;
@@ -810,7 +810,7 @@ V3 SelectionCentre()
         }
         return (min + max) * 0.5f;
     }
-    if (MovableNode() >= 0 || WallOnly())
+    if (PickedNodeIndex() >= 0 || WallOnly())
         return SelectionPos();
     for (uint32_t checksum : Scenery::Selection()) {
         V3 a, b;
@@ -947,10 +947,10 @@ UndoStep Snapshot()
 {
     UndoStep step;
     std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
-    if (MovableNode() >= 0) {
+    if (PickedNodeIndex() >= 0) {
         step.kind = UndoStep::kNodes;
         // (a rail point: the points that move with it too)
-        std::vector<uint32_t> names = NodeEdit::MovedWith(g_nodeName, g_wholeRail);
+        std::vector<uint32_t> names = NodeEdit::MovedWith(g_nodeName, g_moveEntireRail);
         for (uint32_t name : names)
             NodeEdit::NoteOrigin(name);
         step.nodes = NodeEdit::Capture(names, NodeEdit::TakeIn);
@@ -1080,7 +1080,7 @@ bool ScaleSelectionBy(V3 factor, bool uniform)
         Hud::Message("Invisible walls can't be scaled");
         return false;
     }
-    if (MovableNode() >= 0 || (objects.empty() && !Scenery::HasSelection())) {
+    if (PickedNodeIndex() >= 0 || (objects.empty() && !Scenery::HasSelection())) {
         Hud::Message("Nodes can't be scaled");
         return false;
     }
@@ -1489,10 +1489,10 @@ bool ToPixel(const TickCycle& frame, V3 point, float* px, float* py)
 
 // What the selection can do: a chain's point doesn't turn (a ladder turns whole with Z / X); only scenery and objects
 // with a model scale.
-bool SelectionTurns() { return !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName)); }
+bool SelectionTurns() { return !(PickedNodeIndex() >= 0 && NodeEdit::IsChain(g_nodeName)); }
 bool SelectionScales()
 {
-    if (MovableNode() >= 0 || WallOnly())
+    if (PickedNodeIndex() >= 0 || WallOnly())
         return false;
     std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     if (objects.empty())
@@ -1684,7 +1684,7 @@ void StartTransformDrag(V3 origin, V3 dir, const TickCycle& frame)
         g_rotByPlane = std::fabs(MakeUnit(dir).y) > 0.25f &&
                        RayPlane(origin, dir, g_transformPivot, {0.0f, 1.0f, 0.0f}, &t) && t < kMaxPickDistance;
         if (g_rotByPlane) {
-            g_rotLast = Xform::AngleAbout(g_transformPivot, origin + dir * t);
+            g_rotLast = Xform::TurnAroundAxis(g_transformPivot, origin + dir * t);
             return;
         }
         float px, py, ax, ay, bx, by, r = ArrowLength();
@@ -1718,7 +1718,7 @@ void RotateDrag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         float t, px, py;
         if (g_rotByPlane) {
             if (RayPlane(origin, dir, g_transformPivot, {0.0f, 1.0f, 0.0f}, &t) && t < kMaxPickDistance) {
-                angle = Xform::AngleAbout(g_transformPivot, origin + dir * t);
+                angle = Xform::TurnAroundAxis(g_transformPivot, origin + dir * t);
                 have = true;
             }
         } else if (ToPixel(frame, g_transformPivot, &px, &py) && std::hypot(g_cursorX - px, g_cursorY - py) > 2.0f) {
@@ -1837,7 +1837,7 @@ std::vector<V3> SelectionCorners()
         if (Objects::ModelBox(object, &box))
             add(box);
     }
-    if (objects.empty() && MovableNode() < 0 && !WallOnly()) {
+    if (objects.empty() && PickedNodeIndex() < 0 && !WallOnly()) {
         for (uint32_t checksum : Scenery::Selection()) {
             if (Scenery::Cuboid(checksum, &box))
                 add(box);
@@ -1853,7 +1853,7 @@ std::vector<V3> SelectionCorners()
 void SurfaceDrag(V3 origin, V3 dir)
 {
     std::vector<uint32_t> skip;
-    if (!Primary() && MovableNode() < 0) {
+    if (!Primary() && PickedNodeIndex() < 0) {
         skip = Scenery::Selection();
         if (uint32_t wall = WallOnly())
             skip.push_back(wall);
@@ -2015,7 +2015,7 @@ void Drag(V3 origin, V3 dir, const TickCycle& frame, float mouseX, float mouseY,
         }
     }
     // (no snapping held: a scenery piece's box faces flush with its neighbours' - level_editor_arrange.h)
-    if (!snap.on && !Primary() && MovableNode() < 0 && !WallOnly()) {
+    if (!snap.on && !Primary() && PickedNodeIndex() < 0 && !WallOnly()) {
         int axes = g_axis >= 0 ? (Xform::AtHand().space == Xform::Space::World ? 1 << g_axis : 0)
                    : g_dragVertical ? 2
                                     : 5;
@@ -2032,7 +2032,7 @@ void NoteForAdjust(Xform::Mode mode, V3 moved, bool uniform)
     Adjust::ActStep action;
     if (mode == Xform::Mode::SpinBy) {
         action.kind = Adjust::Kind::Turn;
-        action.quarters = !Primary() && MovableNode() < 0;
+        action.quarters = !Primary() && PickedNodeIndex() < 0;
         action.degrees = action.quarters ? static_cast<float>(g_quartersApplied) * 90.0f : g_rotApplied * 180.0f / kPi;
     } else if (mode == Xform::Mode::StretchBy) {
         action.kind = Adjust::Kind::StretchBy;
@@ -2571,7 +2571,7 @@ bool __cdecl CFunc_Start(Scripts::CStruct*, Scripts::CScript*)
     g_occlusionInPlay = Engine3D::OcclusionOff();
     // (the camera tools and the preferences - level_editor_camera.h, level_editor_prefs.h)
     g_speed = static_cast<float>(OptionStore::Pull().flySpeed);
-    ViewCam::Kickoff(Scenery::SceneName(Scenery::MainScene()));
+    ViewCam::Kickoff(Scenery::WorldSceneKey(Scenery::MainScene()));
     PlayTest::OnEditorStart(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
     Actions::SeedKeys(SDL_GetKeyboardState(nullptr)); // (the key that opened the editor doesn't act at once)
     Engine3D::OcclusionOff() = g_occlusionOff;
@@ -2791,9 +2791,9 @@ void PlaceCamera(Gfx2D::ViewCam* camera)
     camera->m_basisFrame.row[2] = {frame.back.x, frame.back.y, frame.back.z, 0.0f};
 }
 
-float ViewAngle(Gfx2D::ViewCam* camera, float angle)
+float AdjustViewAngle(Gfx2D::ViewCam* camera, float angle)
 {
-    return g_active && camera && camera == g_camera ? ViewCam::ViewAngle(angle) : angle;
+    return g_active && camera && camera == g_camera ? ViewCam::AdjustViewAngle(angle) : angle;
 }
 
 float NearPlane(Gfx2D::ViewCam* camera) { return g_active && camera && camera == g_camera ? ViewCam::NearPlane() : 2.0f; }
@@ -3005,7 +3005,7 @@ void PlaceNode(int entry, V3 at)
         at = DroppedTo(at, at.y, ground.y);
     if (e.kind == NodeCreate::Kind::Light)
         at.y += 150.0f;
-    std::string name = e.lobby ? NodeCreate::LobbyFlagName(e.team) : NodeCreate::FixedName(e.kind, e.team);
+    std::string name = e.lobby ? NodeCreate::LobbyFlagName(e.team) : NodeCreate::PinnedNodeName(e.kind, e.team);
     if (name.empty())
         name = NodeCreate::FreshName(NodeCreate::NameStem(e.kind), NodeCreate::NameTaken);
     std::vector<NodeCreate::Spec> specs = {NodeCreate::Default(e.kind, e.team, at, g_yaw, name)};
@@ -3326,7 +3326,7 @@ void DrawChainPoint(V3 dir, bool alt)
     }
     V3 point;
     uint32_t end = 0;
-    if (!Chains::SnapPoint(g_pos, MakeUnit(dir), kMaxPickDistance, alt, &point, &end)) {
+    if (!Chains::MagnetPoint(g_pos, MakeUnit(dir), kMaxPickDistance, alt, &point, &end)) {
         Hud::Message("No surface under the cursor");
         return;
     }
@@ -3357,7 +3357,7 @@ void StopChainDrawing(const char* message)
 // UI runs (`confirmed`), at once with the old HUD.
 void UnlinkListNode(bool confirmed)
 {
-    int index = MovableNode();
+    int index = PickedNodeIndex();
     if (index < 0)
         return;
     const Nodes::Elem node = Nodes::All()[index];
@@ -3437,7 +3437,7 @@ void UnlinkListNode(bool confirmed)
 // Home on a hidden node: shown again (undoable).
 bool ShowHiddenNode()
 {
-    int index = MovableNode();
+    int index = PickedNodeIndex();
     if (index < 0 || !Nodes::All()[index].hidden)
         return false;
     uint32_t name = Nodes::All()[index].name;
@@ -3461,7 +3461,7 @@ bool ShowHiddenNode()
 // An added crown earlier / later among the added crowns (one undo step).
 void MoveSelectedCrown(int delta)
 {
-    int index = MovableNode();
+    int index = PickedNodeIndex();
     if (index < 0)
         return;
     const Nodes::Elem& node = Nodes::All()[index];
@@ -3506,7 +3506,7 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     }
     c.rmb = g_mouse.right;
     c.flyAlways = Xform::FlyAlways();
-    if (MovableNode() >= 0)
+    if (PickedNodeIndex() >= 0)
         c.selection = WallOnly() ? Hints::Selection::Wall : Hints::Selection::PointNode;
     else if (Primary())
         c.selection = Hints::Selection::Objects;
@@ -3538,7 +3538,7 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     c.ux9Tool = Ux9::PickingTool();
     c.facesMode = Faces::Picking();
     c.boxArmed = Organize::BoxArmed();
-    c.chainPoint = MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName);
+    c.chainPoint = PickedNodeIndex() >= 0 && NodeEdit::IsChain(g_nodeName);
     c.following = Ux8::Following();
     c.walking = Ux8::OnFoot();
     c.pieOpen = Ux8::PieOpen();
@@ -3583,7 +3583,7 @@ std::unordered_map<uint32_t, uint8_t> ChangeMarks()
             a.x != b.x || a.z != b.z)
             mark(id, Ui::kMarkMoved);
     }
-    for (const NodeEdit::LogEntry& r : NodeEdit::Changed())
+    for (const NodeEdit::LinkRecord& r : NodeEdit::Changed())
         mark(r.name, Ui::kMarkMoved);
     for (const Nodes::Elem& n : Nodes::All()) {
         if (n.added)
@@ -3594,7 +3594,7 @@ std::unordered_map<uint32_t, uint8_t> ChangeMarks()
     for (uint32_t id : View::HiddenIds())
         mark(id, Ui::kMarkViewHidden);
     for (const Picking::Lock& lock : Picking::Locks())
-        mark(lock.id, Ui::kMarkLocked);
+        mark(lock.id, Ui::kMarkClickThrough);
     return marks;
 }
 
@@ -3604,7 +3604,7 @@ Ui::ShapeMesh AssembleModel()
     model.carry = Carry::IsSwitchedOn();
     model.carried = g_dragging || g_keyMoving || g_fieldEditing ? Carry::TotalOf() : 0; // (a move under way)
     model.marks = ChangeMarks();
-    uint32_t scene = Scenery::SceneName(Scenery::MainScene());
+    uint32_t scene = Scenery::WorldSceneKey(Scenery::MainScene());
     model.level = scene ? Objects::Caption(scene) : "";
     model.levelTitle = Layout::LevelTitle();
     model.editedSaved = Layout::HasSavedLayout();
@@ -3740,8 +3740,8 @@ Ui::ShapeMesh AssembleModel()
         if (NodeEdit::IsChain(g_nodeName)) {
             model.nodes.rail = true; // (a rail's, a ladder's or a path's point: moved alone or with its chain)
             model.nodes.chainNoun = Chains::IsPath(g_nodeName) ? "path" : Chains::IsLadder(g_nodeName) ? "ladder" : "rail";
-            model.nodes.entireRail = g_wholeRail;
-            model.nodes.railPoints = static_cast<int>(NodeEdit::MovedWith(g_nodeName, g_wholeRail).size());
+            model.nodes.entireRail = g_moveEntireRail;
+            model.nodes.railPoints = static_cast<int>(NodeEdit::MovedWith(g_nodeName, g_moveEntireRail).size());
         }
     }
     model.nodes.onlineWarning = g_onlineWarningShown;
@@ -3990,7 +3990,7 @@ void Duplicate(const TickCycle& frame, const Xform::RepeatStep* repeat = nullptr
     std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
     V3 sourcePos = SelectionPos();
     float sourceHeading = SelectionHeading();
-    if (MovableNode() >= 0) {
+    if (PickedNodeIndex() >= 0) {
         DuplicateNode(frame, repeat);
         return;
     }
@@ -4160,7 +4160,7 @@ void RepeatDuplicate(const TickCycle& frame)
     Xform::Kind kind = Xform::Kind::None;
     std::vector<uint32_t> ids;
     std::vector<GameObjects::CGameEntity*> objects = SelectedObjects();
-    if (MovableNode() >= 0) {
+    if (PickedNodeIndex() >= 0) {
         kind = Xform::Kind::Elem;
         ids.push_back(g_nodeName);
     } else if (!objects.empty()) {
@@ -4225,7 +4225,7 @@ void SwitchSceneryCollision(bool off)
 // Delete: scenery hidden (undoable); object copies deleted (undoable); other objects can't be.
 void EraseOne()
 {
-    if (MovableNode() >= 0) {
+    if (PickedNodeIndex() >= 0) {
         UnlinkListNode(false);
         return;
     }
@@ -4282,7 +4282,7 @@ void Reset()
         // (a rail point: with the points that move with it - its whole rail while Whole rail is on)
         UndoStep before = Snapshot();
         bool any = false;
-        for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_wholeRail)) {
+        for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_moveEntireRail)) {
             NodeEdit::Values now;
             const NodeEdit::Values* origin = NodeEdit::Origin(name);
             if (origin && NodeEdit::TakeIn(name, &now) && !NodeEdit::Same(now, *origin)) {
@@ -4662,7 +4662,7 @@ void DropSelection()
     V3 pos = SelectionPos();
     float base = SelectionBase();
     V3 ground;
-    V3 from = GroundRayStart(pos, base, Primary() || MovableNode() >= 0);
+    V3 from = GroundRayStart(pos, base, Primary() || PickedNodeIndex() >= 0);
     if (GroundBelow(from, &ground) && ground.y != base) {
         PushUndo(Snapshot(), "Drop to ground");
         PlaceSelection(DroppedTo(pos, base, ground.y));
@@ -5040,12 +5040,12 @@ void ApplyUiRequests(V3 dir, bool haveRay, const TickCycle& frame)
             break;
         case Ui::Request::kSelectNode:
             SelectNode(request.value);
-            if (MovableNode() >= 0)
+            if (PickedNodeIndex() >= 0)
                 FocusOnSelection(); // (the camera turns to it, at the distance it is - and orbits it)
             break;
         case Ui::Request::kNodeSet:
             // The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
-            if (MovableNode() >= 0 && !g_dragging && !g_keyMoving) {
+            if (PickedNodeIndex() >= 0 && !g_dragging && !g_keyMoving) {
                 if (!g_fieldEditing) {
                     BeginChange();
                     g_fieldEditing = true;
@@ -5066,7 +5066,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const TickCycle& frame)
         case Ui::Request::kScaleSet:
             // The Inspector's Scale X / Y / Z (level_editor_scale.h): scenery or objects scaled to them (along their own
             // axes) while dragged or typed; one undo step until let go.
-            if ((Primary() || Scenery::HasSelection()) && MovableNode() < 0 && !g_dragging && !g_keyMoving) {
+            if ((Primary() || Scenery::HasSelection()) && PickedNodeIndex() < 0 && !g_dragging && !g_keyMoving) {
                 if (!g_fieldEditing) {
                     BeginChange();
                     g_fieldEditing = true;
@@ -5166,8 +5166,8 @@ void ApplyUiRequests(V3 dir, bool haveRay, const TickCycle& frame)
         case Ui::Request::kResetCancelled:
             g_confirmReset = false;
             break;
-        case Ui::Request::kWholeRail:
-            g_wholeRail = request.value != 0;
+        case Ui::Request::kReqEntireRail:
+            g_moveEntireRail = request.value != 0;
             break;
         case Ui::Request::kFieldSet:
         case Ui::Request::kFieldRemove:
@@ -5579,15 +5579,15 @@ void TickFrame()
         FocusOnSelection();
     // L: with a rail point selected, it moves with its whole rail or by itself (level_editor_node_edit.h); otherwise
     // the selection locked (clicks pass it - level_editor_picking.h) or, all locked, unlocked.
-    int lNode = MovableNode();
+    int lNode = PickedNodeIndex();
     // (a rail's, a ladder's or a path's point: its whole chain or itself - level_editor_chains.h)
     bool railPoint = lNode >= 0 && NodeEdit::IsChain(Nodes::All()[lNode].name);
     bool lPressed = Actions::Squeezed(Actions::kLock);
     if (lPressed && !railPoint && !g_dragging)
         ToggleLock();
     if (lPressed && railPoint && !noChange) {
-        g_wholeRail = !g_wholeRail;
-        Hud::Message(g_wholeRail ? "Move whole chain" : "Move single point");
+        g_moveEntireRail = !g_moveEntireRail;
+        Hud::Message(g_moveEntireRail ? "Move whole chain" : "Move single point");
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
@@ -5645,7 +5645,7 @@ void TickFrame()
         TickCycle view = FrameFromYawPitch(g_yaw, g_pitch);
         Triggers::Tick(g_pos, view.back * -1.0f, g_yaw);
         // (an editor trigger selected by itself: its resize handles)
-        Triggers::SetSelected(MovableNode() >= 0 && Triggers::HasHandles(g_nodeName) ? g_nodeName : 0);
+        Triggers::SetSelected(PickedNodeIndex() >= 0 && Triggers::HasHandles(g_nodeName) ? g_nodeName : 0);
         UndoStep step;
         if (Triggers::TakeUndo(&step.triggers)) {
             step.kind = UndoStep::kTriggers;
@@ -5694,7 +5694,7 @@ void TickFrame()
         Checks::ToggleWindow(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
     if (Actions::Squeezed(Actions::kLogCamera)) {
         TickCycle view = FrameFromYawPitch(g_yaw, g_pitch);
-        uint32_t scene = Scenery::SceneName(Scenery::MainScene());
+        uint32_t scene = Scenery::WorldSceneKey(Scenery::MainScene());
         Log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:", Engine3D::CurrentLevel(),
             Objects::Caption(scene).c_str(), g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
         Log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", g_pos.x, g_pos.y, g_pos.z,
@@ -5902,15 +5902,15 @@ void TickFrame()
         int turn = (Actions::Squeezed(Actions::kTurnRight) ? 1 : 0) - (Actions::Squeezed(Actions::kTurnLeft) ? 1 : 0);
         if (turn && Organize::SelectionLocked(true))
             turn = 0;
-        if (turn && !g_dragging && MovableNode() >= 0 && Chains::IsLadder(g_nodeName)) {
+        if (turn && !g_dragging && PickedNodeIndex() >= 0 && Chains::IsLadder(g_nodeName)) {
             RunChainOp(Chains::kOpTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
-        } else if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
+        } else if (turn && !g_dragging && !(PickedNodeIndex() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
             PushUndo(Snapshot(), "Turn");
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
             Adjust::ActStep action; // (level_editor_adjust.h)
             action.kind = Adjust::Kind::Turn;
-            action.quarters = !Primary() && MovableNode() < 0;
+            action.quarters = !Primary() && PickedNodeIndex() < 0;
             action.degrees = static_cast<float>(turn) * (action.quarters ? 90.0f : Xform::AngleStep());
             Adjust::Note(action);
         }
@@ -6227,7 +6227,7 @@ void TickFrame()
         } else if (trigger) {
             if (triggerNode >= 0) {
                 SelectNodeOnly(triggerNode);
-                drag = MovableNode() >= 0 && !shift;
+                drag = PickedNodeIndex() >= 0 && !shift;
             } else {
                 Unpick();
             }
@@ -6306,7 +6306,7 @@ void TickFrame()
     if (HaveSelection()) {
         V3 pos = SelectionPos();
         g_markBase = {pos.x, SelectionBase(), pos.z};
-        V3 from = Primary() || MovableNode() >= 0 ? g_markBase + V3{0.0f, 2.0f, 0.0f} : g_markBase - V3{0.0f, 1.0f, 0.0f};
+        V3 from = Primary() || PickedNodeIndex() >= 0 ? g_markBase + V3{0.0f, 2.0f, 0.0f} : g_markBase - V3{0.0f, 1.0f, 0.0f};
         g_haveMark = GroundBelow(from, &g_markGround);
     }
     // The camera tools' end of the frame: a flight, an ortho view kept on its axis (level_editor_camera.h).
@@ -6536,17 +6536,17 @@ void PushModuleUndo(std::shared_ptr<ModuleStep> before) { PushModuleUndoLabelled
 
 // --- for the history, changes, selection and clipboard modules (level_editor_modules.h, level_editor_ux3.h) ---
 
-std::vector<HistoryEntry> UndoHistory()
+std::vector<EditorUndoRecord> UndoHistory()
 {
-    std::vector<HistoryEntry> out;
+    std::vector<EditorUndoRecord> out;
     for (const UndoStep& step : g_undo)
         out.push_back({step.label, step.detail});
     return out;
 }
 
-std::vector<HistoryEntry> RedoHistory()
+std::vector<EditorUndoRecord> RedoHistory()
 {
-    std::vector<HistoryEntry> out;
+    std::vector<EditorUndoRecord> out;
     for (auto it = g_redo.rbegin(); it != g_redo.rend(); ++it)
         out.push_back({it->label, it->detail});
     return out;
@@ -6746,7 +6746,7 @@ bool SetSelectionTransform(const TransformValues& transform)
             SetSelectedNode(node);
         }
     }
-    if (transform.hasScale && (Primary() || Scenery::HasSelection()) && MovableNode() < 0)
+    if (transform.hasScale && (Primary() || Scenery::HasSelection()) && PickedNodeIndex() < 0)
         ScaleSelectionTo(transform.scale);
     if (!Primary() && Scenery::HasSelection())
         FollowScenery();
@@ -6824,7 +6824,7 @@ Selected Selection()
         out.kind = Kind::Objects;
         for (GameObjects::CGameEntity* object : objects)
             out.ids.push_back(object->m_ident);
-    } else if (MovableNode() >= 0) {
+    } else if (PickedNodeIndex() >= 0) {
         out.kind = Kind::Elem;
         out.ids.push_back(g_nodeName);
     } else if (uint32_t wall = WallOnly()) {

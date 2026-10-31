@@ -47,9 +47,9 @@ inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] :
 inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 inline GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-inline OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-inline GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickObjectManager; }
-inline GameObjects::CRider* SkaterById(int id)
+inline OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+inline GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickSpotHub; }
+inline GameObjects::CRider* RiderForSlot(int id)
 {
     return static_cast<GameObjects::CRider*>(SkateCalls::GetRiderByNumber(static_cast<uint32_t>(id)));
 }
@@ -62,7 +62,7 @@ inline MenuSystem::CUiWidget* FindElement(uint32_t id)
 }
 
 // A structure from the pool (null if that fails: the original goes on with it) / deleted.
-Scripts::CStruct* NewStructure();
+Scripts::CStruct* SpawnParamTable();
 void DeleteStructure(Scripts::CStruct* structure);
 
 } // namespace ScoreInternal

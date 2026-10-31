@@ -11,7 +11,7 @@ namespace Engine3D {
 enum RenderStateId {
     kZWrite = 1,          // bool
     kZTest = 2,           // bool: less-equal, else always
-    kAlphaRef = 3,        // 0 = alpha test off, else on with this reference
+    kPhaseAlphaTest = 3,        // 0 = alpha test off, else on with this reference
     kAddressMode0 = 4,    // 4-7: a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap,
                           // 1 clamp, 2 border (clamp without border support)
     kMipLodBias0 = 8,     // 8-11: a sampler's mip level bias (float bits)
@@ -77,14 +77,14 @@ extern void* g_textures[4];
 extern uint32_t g_borderColours[4];
 extern uint32_t g_pixelShaderLocked;
 extern void* g_currentPixelShader;
-extern float g_pixelShaderConstants[20];
+extern float g_psConstantBank[20];
 extern uint32_t g_instanceColourOn;
 extern uint8_t g_instanceColour[4];
 extern uint8_t g_pixelShaderChanged;
 extern uint32_t g_vertexFormatLocked;
 extern uint32_t g_skippedPasses;
 extern uint32_t g_submitLocked;
-extern uint32_t g_fogEnabled;
+extern uint32_t g_fogActive;
 extern const float* g_worldTransform;
 extern float g_worldTransformCopy[16];
 

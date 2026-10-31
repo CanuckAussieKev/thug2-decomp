@@ -31,7 +31,7 @@ constexpr uint32_t kLagRange = 0x700C4085;        // LagRange
 constexpr uint32_t kLagWobble = 0xD25807F0;       // lagwobble
 constexpr uint32_t kAngles = 0x9D2D0915;          // Angles
 // NOT ORIGINAL: THAW's flag (THAW's names: 0xD74A6981)
-constexpr uint32_t kNoRotate = 0xD74A6981; // no_rotate
+constexpr uint32_t kKeepOrientation = 0xD74A6981; // no_rotate
 
 // The wobble's step: 2 pi / 1024 as the float the original multiplies by (0x00646118; the update's own, 0x0064611C,
 // is one bit larger).
@@ -81,7 +81,7 @@ void CPinnedObjectModule::ConfigureFromData(Scripts::CStruct* params)
     params->ReadHashValue(kId, &m_targetId, 0);
     params->ReadHashValue(kBone, &m_bone, 0);
     // (updated after the target: its priority less one)
-    CEntityHub* manager = CompositeObjectManager();
+    CEntityHub* manager = ObjectHubSlot();
     CEntity* target = manager->LookUpEntity(m_targetId);
     if (!target)
         target = manager->LookUpEntity(m_entityLabel);
@@ -118,7 +118,7 @@ void CPinnedObjectModule::ConfigureFromData(Scripts::CStruct* params)
         AnglesToMatrix(&m_orientationTurn, &angles);
     }
     // NOT ORIGINAL: THAW's no_rotate (LOCK_FLAG_NO_ROTATE)
-    if (params->HasBareFlag(kNoRotate))
+    if (params->HasBareFlag(kKeepOrientation))
         m_lockFlags |= LOCK_FLAG_NO_ROTATE;
 }
 

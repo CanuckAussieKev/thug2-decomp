@@ -33,8 +33,8 @@ uint16_t g_spriteQuadIndices[6]{0, 1, 2, 1, 3, 2};
 namespace {
 
 // The 640x480 layout -> back buffer conversion (SetLetterbox) and the back buffer's size.
-float ScreenScaleX() { return g_screenScaleX; }
-float ScreenScaleY() { return g_screenScaleY; }
+float HorizScreenRatio() { return g_displayFactorX; }
+float VertScreenRatio() { return g_displayFactorY; }
 int32_t ScreenOffsetX() { return static_cast<int32_t>(g_screenOffsetX); }
 int32_t ScreenOffsetY() { return static_cast<int32_t>(g_screenOffsetY); }
 int32_t BackBufferWidth() { return g_backBufferWidth; }
@@ -143,8 +143,8 @@ void SQuadSprite::Blit()
             x0 = 0.0f;
             x1 = screenRight;
         } else {
-            x0 = static_cast<float>(static_cast<double>(ScreenScaleX()) * x0 + ScreenOffsetX());
-            x1 = static_cast<float>(static_cast<double>(ScreenScaleX()) * x1 + ScreenOffsetX());
+            x0 = static_cast<float>(static_cast<double>(HorizScreenRatio()) * x0 + ScreenOffsetX());
+            x1 = static_cast<float>(static_cast<double>(HorizScreenRatio()) * x1 + ScreenOffsetX());
         }
         if (y0 <= 0.0f && y1 >= kLayoutHeight) {
             y0 = 0.0f;
@@ -152,9 +152,9 @@ void SQuadSprite::Blit()
         } else {
             // (an edge exactly at 0 isn't moved by the offset - the original's)
             if (y0 != 0.0f)
-                y0 = static_cast<float>(static_cast<double>(ScreenScaleY()) * y0 + ScreenOffsetY());
+                y0 = static_cast<float>(static_cast<double>(VertScreenRatio()) * y0 + ScreenOffsetY());
             if (y1 != 0.0)
-                y1 = y1 * ScreenScaleY() + ScreenOffsetY();
+                y1 = y1 * VertScreenRatio() + ScreenOffsetY();
         }
         if (frontEndWidescreen) {
             // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
@@ -186,9 +186,9 @@ void SQuadSprite::Blit()
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)
             layoutX[i] = static_cast<double>(corners[i].x) + x;
-            vertices[i].x = static_cast<float>(static_cast<int32_t>(Truncated(layoutX[i] * ScreenScaleX() + offsetX)));
+            vertices[i].x = static_cast<float>(static_cast<int32_t>(Truncated(layoutX[i] * HorizScreenRatio() + offsetX)));
             vertices[i].y = static_cast<float>(static_cast<int32_t>(
-                Truncated((static_cast<double>(corners[i].y) + y) * ScreenScaleY() + offsetY)));
+                Truncated((static_cast<double>(corners[i].y) + y) * VertScreenRatio() + offsetY)));
         }
         if (frontEndWidescreen && upright) {
             // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
@@ -244,7 +244,7 @@ void SQuadSprite::Blit()
     SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
     SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
     SetTextureStageState(0, 4, 5); // alpha: the same
-    if (!g_skipRender) { // (rendering not skipped)
+    if (!g_suppressDraw) { // (rendering not skipped)
         ++g_drawCalls;    // draw calls
         g_drawnTriangles += 2; // triangles
         using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,

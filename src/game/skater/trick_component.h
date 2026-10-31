@@ -76,7 +76,7 @@ public:
     // 0x0051EB80: the used marks of the counted events cleared.
     void ClearUsed();
     // 0x0051EBD0: the counted events marked used get `flags` and lose the mark.
-    void MarkUsed(uint32_t flags);
+    void FlagSpent(uint32_t flags);
     // 0x0051F570: a new event of `type` at the head (the oldest dropped when there are 100): now, unused, no flags.
     TrickEvent* AppendIncident(int type);
     // 0x0051F610: the events of `button` older than `ms` get every flag (no trick uses them any more).
@@ -151,7 +151,7 @@ public:
 
     // 0x00522410: the trick mapping structure (made if needed) filled from `profile`: its 12 special trick slots
     // (keys = trick, an integer when the slot's flag is set, else a name), then its trick_mapping info.
-    void SetTrickMappings(CRiderIdentity* profile);
+    void ApplyTrickBindings(CRiderIdentity* profile);
     // 0x00521E50: the 21 buttons' states from the input's mask (+0x1C): the d-pad's direction (1-8) then the
     // others (0x0051F8F0 each).
     void UpdateButtons();
@@ -194,7 +194,7 @@ public:
     void SetExtraTricks(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00521D80: the bits of `array`'s tricks that 0x0051EF50 matches `ignore` with (the array must exist).
     // 0x00521DF0: those bits added to each extra trick array's mask (and the special one's).
-    uint32_t GetIgnoreMask(uint32_t array, uint32_t ignore);
+    uint32_t FetchSkipMask(uint32_t array, uint32_t ignore);
     void IgnoreTricks(uint32_t ignore);
 
     // --- the button buffer ---
@@ -277,7 +277,7 @@ static_assert(offsetof(CMoveExecutor, m_input) == 0x20 && offsetof(CMoveExecutor
 // Left, Right and the diagonals).
 bool IsDirection(uint32_t button);
 void IsDirectionStub();
-// 0x0051EBD0's entry: MarkUsed keeping ECX and EDX (its callers use ECX after it).
+// 0x0051EBD0's entry: FlagSpent keeping ECX and EDX (its callers use ECX after it).
 void MarkUsedStub();
 
 // 0x00523350 (the C function DoNextTrick): the trick component's DoNextTrick with ScriptToRunFirst, Params and a

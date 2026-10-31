@@ -346,7 +346,7 @@ public:
 private:
     static Scripts::CStruct* NewParams()
     {
-        Scripts::CStruct* params = Scripts::NewStruct();
+        Scripts::CStruct* params = Scripts::SpawnParamBag();
         return params ? params->PrepareAll() : nullptr;
     }
     static void DeleteParams(Scripts::CStruct* params)
@@ -412,7 +412,7 @@ struct HostOptions {
 };
 HostOptions g_host;
 
-Hub* NetManager() { return FetchHub(); }
+Hub* NetSessionSlot() { return FetchHub(); }
 
 bool IsClientOfNetGame(Hub* manager) { return manager && manager->InNetGame() && !manager->OnServer(); }
 bool IsHostOfNetGame(Hub* manager) { return manager && manager->InNetGame() && manager->OnServer(); }
@@ -426,7 +426,7 @@ void ApplySession()
     const HostListing& info = g_session.info;
     Log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
         prefix ? prefix : "(no level structure)", info.timeOfDay, info.weather, LevelOptions(info), ProSets(info));
-    ApplyServerInfo(info, prefix, NetManager()->m_level, effects);
+    ApplyServerInfo(info, prefix, NetSessionSlot()->m_level, effects);
     g_session.applied = true;
 }
 
@@ -448,7 +448,7 @@ void SendServerInfo(NetLink::AppHost* app, int handle)
     desc.m_byteCount = sizeof(info);
     desc.m_content = &info;
     desc.m_rank = 0xFF;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueImportant;
+    desc.m_queue = NetLink::NetMessageInfo::kLanePriority;
     desc.m_groupId = kGroupPlayerMessages;
     app->PutOnOutbox(handle, &desc);
 }
@@ -456,7 +456,7 @@ void SendServerInfo(NetLink::AppHost* app, int handle)
 // A 4-byte update to every player (the host's own client ignores it).
 void Broadcast(uint8_t id, uint32_t value)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     if (!IsHostOfNetGame(manager) || !manager->m_host)
         return;
     NetLink::NetMessageInfo desc;
@@ -464,7 +464,7 @@ void Broadcast(uint8_t id, uint32_t value)
     desc.m_ident = id;
     desc.m_byteCount = 4;
     desc.m_content = &value;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupPlayerMessages;
     manager->m_host->PutOnOutbox(kHandleBroadcast, &desc);
 }
@@ -474,14 +474,14 @@ bool FilterOutgoing(NetLink::AppHost* app, int handle, NetLink::NetMessageInfo* 
 {
     if (!PeerMode())
         return false;
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     if (!IsHostOfNetGame(manager) || app != manager->m_host)
         return false;
-    if (desc->m_ident == kMsgStartInfo) {
+    if (desc->m_ident == kMsgLobbyDetails) {
         SendServerInfo(app, handle);
         return false;
     }
-    if (desc->m_ident == kMsgChangeLevel && desc->m_byteCount == kChangeLevelSize && desc->m_content) {
+    if (desc->m_ident == kMsgLevelSwitch && desc->m_byteCount == kChangeLevelSize && desc->m_content) {
         uint8_t message[kChangeLevelThugproSize];
         const auto* data = static_cast<const uint8_t*>(desc->m_content);
         uint32_t level;
@@ -501,7 +501,7 @@ bool UnlockTimeOfDay()
 {
     if (!PeerMode())
         return false;
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     return manager && manager->InNetGame();
 }
 
@@ -534,7 +534,7 @@ void AddClientHandlers(NetLink::AppHost* client, void* skate)
 int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context)
 {
     HostListing info;
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) ||
+    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) ||
         !DecodeServerInfo(reinterpret_cast<const uint8_t*>(context->m_body), context->m_bodySize, &info))
         return 1;
     g_session.have = true;
@@ -547,7 +547,7 @@ int __cdecl HandleServerInfo(NetLink::InboundMsgCtx* context)
 
 int __cdecl HandleUpdateTimeOfDay(NetLink::InboundMsgCtx* context)
 {
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_bodySize < 4)
+    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) || context->m_bodySize < 4)
         return 1;
     g_session.have = true;
     g_session.info.timeOfDay = Word(context);
@@ -560,7 +560,7 @@ int __cdecl HandleUpdateTimeOfDay(NetLink::InboundMsgCtx* context)
 
 int __cdecl HandleUpdateWeather(NetLink::InboundMsgCtx* context)
 {
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_bodySize < 4)
+    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) || context->m_bodySize < 4)
         return 1;
     g_session.have = true;
     g_session.info.weather = Word(context);
@@ -578,7 +578,7 @@ int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!PeerMode() || !IsClientOfNetGame(NetManager()) || context->m_bodySize < 4 || Word(context) == 1)
+    if (!PeerMode() || !IsClientOfNetGame(NetSessionSlot()) || context->m_bodySize < 4 || Word(context) == 1)
         return 1;
     Log("thugpro: the host allows no modified scripts (message 159) - leaving");
     NetLink::InboundMsgCtx removed = *context;
@@ -588,7 +588,7 @@ int __cdecl HandleModsAllowed(NetLink::InboundMsgCtx* context)
 
 void TickFrame()
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     if (!PeerMode() || !IsClientOfNetGame(manager)) {
         if (g_session.have)
             Log("thugpro: network game over - the host's options dropped");
@@ -665,7 +665,7 @@ bool HandleChatCommand(const char* text)
                          static_cast<unsigned>(sizeof(first)), second, static_cast<unsigned>(sizeof(second)));
     if (words < 1)
         return false;
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     bool client = IsClientOfNetGame(manager);
     char line[160];
     if (_stricmp(command, "thugpro") == 0) {

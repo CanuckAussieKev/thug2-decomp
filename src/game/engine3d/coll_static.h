@@ -97,7 +97,7 @@ public:
     void ChangeFacing(const Maths::Mat4* orientation);
     void ChangeScale(const Maths::Vec4* scale);
     // 0x004113B0: the world box from every vertex scaled and placed.
-    void UpdateWorldBBox();
+    void RecomputeWorldBounds();
     // 0x00413FF0 (slot 14): as the sector's, in the instance's space (no rejection); the point (scaled, placed)
     // and normal (turned) back in world space.
     bool CollideWithLine(const Maths::Seg* line, const Maths::Vec4* direction, CollisionHit* hit,
@@ -172,7 +172,7 @@ struct CollGeometryForwarders : CHitMesh {
 // 0x00414990 (cdecl): a movable collision object made from `count` geometries (consecutive in memory): type 1 a box
 // around them all, type 4 a movable triangle object (several: a multi-object of them); null for other types or
 // no geometry. `value` is set through slot 11 and the object registered with it (0x004177B0).
-CHitMesh* CreateMovableCollision(int type, CTriMeshSource* geometries, int count, int value);
+CHitMesh* BuildDynamicHitMesh(int type, CTriMeshSource* geometries, int count, int value);
 
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
 struct CollGeometryStubs {

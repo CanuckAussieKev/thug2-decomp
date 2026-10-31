@@ -23,7 +23,7 @@ struct Painter;
 // lip's 300 wide, 400 high above it; a wall's 300 x 300 a little off it; an area's 300 x 300 on the ground. The start is
 // selected afterwards - its Inspector section and resize handles adjust it, "Select the other end" the end.
 //
-// Types (THUG2's StartGap flags - Triggers::GapFlags): Air [CANCEL_GROUND] (the editor's default gap), Grind
+// Types (THUG2's StartGap flags - Triggers::GapOptionLabels): Air [CANCEL_GROUND] (the editor's default gap), Grind
 // [REQUIRE_RAIL, CANCEL_GROUND], Lip [REQUIRE_LIP], Manual [PURE_MANUAL], Wallride [REQUIRE_WALLRIDE, CANCEL_GROUND].
 // Skitch: no gap flag of THUG2's means a skitch - not offered. The flags can be changed in the Inspector afterwards.
 namespace MenuSystem::LevelEditor::GapWizard {

@@ -18,6 +18,6 @@ bool __cdecl CFunc_SyncCAGWorkspace(Scripts::CStruct* params, Scripts::CScript* 
 bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript* script);
 bool __cdecl CFunc_ResolveHeadBoneScale(Scripts::CStruct* params, Scripts::CScript* script);
 
-extern float g_degreesToRadians; // pi / 180
+extern float g_degreeToRadianRatio; // pi / 180
 
 } // namespace ScriptCommands

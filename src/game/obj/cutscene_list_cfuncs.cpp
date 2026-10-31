@@ -29,7 +29,7 @@ constexpr uint32_t kParams = 0x7031F10C;           // "params"
 constexpr uint32_t kId = 0x40C698AF;               // "id"
 constexpr uint32_t kCallback = 0x86068BD9;         // "callback"
 constexpr uint32_t kCallbackParams = 0x0DD85BDA;   // "CallbackParams"
-constexpr uint32_t kNetEnabled = 0x20209C31;       // "NetEnabled"
+constexpr uint32_t kOnlineFlag = 0x20209C31;       // "OnlineModeFlag"
 constexpr uint32_t kPermanent = 0x23627FD7;        // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
 constexpr uint32_t kKillSpawnedScript = 0xD7034230; // "cutscene_kill_spawned_script"
@@ -56,7 +56,7 @@ void DeleteEntry(CutsceneDestroyEntry* entry)
 // A new structure (`new CStruct`), deleted with Clear and DeleteStruct.
 CStruct* NewParams()
 {
-    CStruct* memory = Scripts::NewStruct();
+    CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(CStruct* params)
@@ -142,7 +142,7 @@ bool __cdecl CFunc_RemoveFromCutsceneDestroyList(Scripts::CStruct* params, Scrip
 }
 
 // 0x005B5510: Cutscene_SpawnScript <script> [params={...}] [id=<id>] [callback=<script>] [CallbackParams={...}]
-// [NetEnabled] [permanent] [NotSessionSpecific=n]: the script spawned as SpawnScript does (the id defaulting to the
+// [OnlineModeFlag] [permanent] [NotSessionSpecific=n]: the script spawned as SpawnScript does (the id defaulting to the
 // calling script's .qb file - its symbol's +8), and an entry added to the cutscene destroy list that kills it
 // (cutscene_kill_spawned_script with its unique id). The spawned script isn't checked for null. Always true.
 bool __cdecl CFunc_Cutscene_SpawnScript(Scripts::CStruct* params, Scripts::CScript* script)
@@ -158,7 +158,7 @@ bool __cdecl CFunc_Cutscene_SpawnScript(Scripts::CStruct* params, Scripts::CScri
     params->ReadHashValue(kCallback, &callback, 0);
     CStruct* callbackParams = nullptr;
     params->ReadSubStruct(kCallbackParams, &callbackParams, 0);
-    bool replicateFlag = params->HasBareFlag(kNetEnabled);
+    bool replicateFlag = params->HasBareFlag(kOnlineFlag);
     bool permanent = params->HasBareFlag(kPermanent);
     int notSessionSpecific = 0;
     params->FetchIntValue(kNotSessionSpecific, &notSessionSpecific, 0);

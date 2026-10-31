@@ -17,8 +17,8 @@ namespace Gfx2D {
 
 static_assert(offsetof(ViewCam, m_oldPos) == 0x4C && offsetof(ViewCam, m_atPoint) == 0x5C &&
                   offsetof(ViewCam, m_basisFrame) == 0x6C && offsetof(ViewCam, m_hFov) == 0xAC &&
-                  offsetof(ViewCam, m_adjustedHFov) == 0xB0 && offsetof(ViewCam, m_unknownB4) == 0xB4 &&
-                  offsetof(ViewCam, m_nearClip) == 0xB8 && offsetof(ViewCam, m_farClip) == 0xBC &&
+                  offsetof(ViewCam, m_correctedHorizFov) == 0xB0 && offsetof(ViewCam, m_unknownB4) == 0xB4 &&
+                  offsetof(ViewCam, m_nearDist) == 0xB8 && offsetof(ViewCam, m_farClip) == 0xBC &&
                   offsetof(ViewCam, m_unknownC0) == 0xC0 && sizeof(ViewCam) == 0xC4,
               "the original's layout");
 
@@ -38,8 +38,8 @@ float FloatFromBits(uint32_t bits)
 const float kDegreesToHalfRadians = FloatFromBits(0x3C0EFA35);
 const float kHalfRadiansToDegrees = FloatFromBits(0x42E52EE0);
 const float kHalf = 0.5f;
-const float kDegreesToRadians = FloatFromBits(0x3C8EFA35);
-const float kRadiansToDegrees = FloatFromBits(0x42652EE0);
+const float kRadiansPerDegree = FloatFromBits(0x3C8EFA35);
+const float kDegreesPerRadian = FloatFromBits(0x42652EE0);
 
 } // namespace
 
@@ -57,7 +57,7 @@ ViewCam* ViewCam::MakeNew()
     m_basisFrame.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m_basisFrame.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     m_basisFrame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_nearClip = 12.0f;
+    m_nearDist = 12.0f;
     m_farClip = 12000.0f;
     if (Engine3D::g_distanceClipping) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
@@ -95,7 +95,7 @@ ViewCam* ViewCam::ScalarDelete(uint8_t flags)
 void ViewCam::RefreshEffectiveHFov()
 {
     const float toHalfRadians = kDegreesToHalfRadians, toDegrees = kHalfRadiansToDegrees, half = kHalf,
-                toRadians = kDegreesToRadians;
+                toRadians = kRadiansPerDegree;
     float halfAngle;
     float hFov = m_hFov;
     __asm {
@@ -103,7 +103,7 @@ void ViewCam::RefreshEffectiveHFov()
         fmul toHalfRadians
         fstp halfAngle
     }
-    float factor = Engine3D::GetScreenAngleFactor();
+    float factor = Engine3D::FetchFovRatio();
     float divisor = m_unknownC0;
     float adjusted, tanAdjusted;
     __asm {
@@ -122,7 +122,7 @@ void ViewCam::RefreshEffectiveHFov()
         fstp st(0)
         fstp tanAdjusted
     }
-    m_adjustedHFov = adjusted;
+    m_correctedHorizFov = adjusted;
     float defaultAngle = Engine3D::GetScreenAngle();
     float ratio;
     __asm {
@@ -146,7 +146,7 @@ bool ViewCam::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Script
     float radians;
     std::memcpy(&radians, &params, 4);
     params->FetchFloat(0u, &radians, 1);
-    m_hFov = radians * kRadiansToDegrees;
+    m_hFov = radians * kDegreesPerRadian;
     RefreshEffectiveHFov();
     return true;
 }
@@ -174,7 +174,7 @@ Maths::Mat4& ViewCam::ChangeMat(const Maths::Mat4& matrix)
 float ViewCam::FetchEffectiveHFov()
 {
     RefreshEffectiveHFov();
-    return m_adjustedHFov;
+    return m_correctedHorizFov;
 }
 
 // 0x00485B20

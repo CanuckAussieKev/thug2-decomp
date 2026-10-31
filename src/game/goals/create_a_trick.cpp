@@ -40,7 +40,7 @@ void** const kCreateATrickVtable = reinterpret_cast<void**>(kCreateATrickVtable_
 GameObjects::CRider* LocalSkater() { return static_cast<GameObjects::CRider*>(SkateCalls::GetHomeRider()); }
 CCreateATrick* CreatedTrick(GameObjects::CRider* skater, int index)
 {
-    return reinterpret_cast<CCreateATrick*>(skater->m_trickInfo[index]);
+    return reinterpret_cast<CCreateATrick*>(skater->m_trickSlots[index]);
 }
 // The editor's state on the skater.
 template <typename T>
@@ -64,7 +64,7 @@ CCreateATrick* CCreateATrick::MakeNew()
     m_vtable = kCreateATrickVtable;
     DebugOut::Printf("creating a CCreateATrick\n"); // "creating a CCreateATrick\n"
     Scripts::CStruct* other = Scripts::ReadSubStruct("Default_CAT_other_info"); // "Default_CAT_other_info"
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     m_otherParams = params ? params->PrepareAll() : nullptr;
     m_otherParams->AppendStructureIfAny(other);
     Scripts::CArray* rotations = Scripts::FetchList("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"
@@ -165,7 +165,7 @@ bool __cdecl CFunc_SetCreateATrickParams(Scripts::CStruct* params, Scripts::CScr
         return false;
     int index;
     params->FetchIntValue(kTrickIndex, &index, 1);
-    if (!skater->m_trickInfo[1]) {
+    if (!skater->m_trickSlots[1]) {
         DebugOut::Printf("Skater has no created tricks!!\n"); // "Skater has no created tricks!!\n"
         return false;
     }

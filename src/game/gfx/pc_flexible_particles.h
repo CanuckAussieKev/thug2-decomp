@@ -18,7 +18,7 @@ struct sSimpleMaterial;
 
 // (sFlexibleParticle: particle_system.h.)
 
-// What the PC classes share (the engine's particle system's fields they read; Engine3D::CParticleSystem in
+// What the PC classes share (the engine's particle system's fields they read; Engine3D::CEmitterInstance in
 // flexible_particle.h is the component's view of the same object). Two vtables: +0x00 and +0x0C.
 struct CPcFlexibleParticles {
     void** vtable;

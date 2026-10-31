@@ -50,7 +50,7 @@ constexpr uint32_t kString = 0x61414D56;       // "string"
 constexpr uint32_t kName = 0xA1DC81F9;         // "name"
 constexpr uint32_t kType = 0x7321A8D6;         // "type"
 constexpr uint32_t kTextName = 0xFF0DB407;     // "textname"
-constexpr uint32_t kChecksumName = 0x76FA7A8F; // "ChecksumName"
+constexpr uint32_t kHashFieldName = 0x76FA7A8F; // "HashedLabel"
 constexpr uint32_t kUseCommas = 0xF138085F;    // "UseCommas"
 constexpr uint32_t kIntegerWidth = 0xADA5B338; // "integer_width"
 constexpr uint32_t kDecimalPlaces = 0xD8E2E09F; // "decimalplaces"
@@ -139,7 +139,7 @@ int FormatText(Scripts::CStruct* results, Scripts::CStruct* params)
     uint32_t textName = 0;
     params->ReadHashValue(kTextName, &textName, 0);
     uint32_t nameKeyHash = 0;
-    params->ReadHashValue(kChecksumName, &nameKeyHash, 0);
+    params->ReadHashValue(kHashFieldName, &nameKeyHash, 0);
     int result = 1;
     const char* format = "";
     if (!params->FetchText(0u, &format, 0)) {
@@ -282,7 +282,7 @@ bool __cdecl CFunc_Change(Scripts::CStruct* params, Scripts::CScript*)
         break;
     case Scripts::QBVAL_STRUCT: {
         entry->type = Scripts::QBVAL_STRUCT;
-        Scripts::CStruct* memory = Scripts::NewStruct();
+        Scripts::CStruct* memory = Scripts::SpawnParamBag();
         Scripts::CStruct* structure = memory ? memory->PrepareAll() : nullptr;
         entry->structure = structure;
         structure->AppendStructureIfAny(copy.structure);

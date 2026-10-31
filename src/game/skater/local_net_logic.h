@@ -32,7 +32,7 @@ public:
     void TickFrame();
     // 0x005136F0 (the client's handler for message 0x4B, registered by 0x0056EB50; not a Ghidra function): someone's
     // graffiti was stolen - the message's +4 the victim's skater id, +8 the thief's, +0 the network manager's run
-    // count (+0x38) it belongs to (another: kHandlerMsgDone). The handler's data is the local skater: its victim runs
+    // count (+0x38) it belongs to (another: kResultConsumed). The handler's data is the local skater: its victim runs
     // GraffitiStealYou with String0 = the thief's name, its thief GraffitiStealOther with the victim's.
     static int __cdecl HandleGraffitiSteal(NetLink::InboundMsgCtx* context);
 

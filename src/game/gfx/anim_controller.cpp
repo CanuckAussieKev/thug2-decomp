@@ -52,10 +52,10 @@ constexpr uint32_t kGlobalFrame = 0x92267217, kSetWeightedAnim = 0x5E3F0F17;
 constexpr uint32_t kSetTarget = 0xD0209498, kSetWobbleDetails = 0xEA6D0EFD;
 constexpr uint32_t kStep = 0x6AAEB76F, kSetSpeed = 0xBD4EDD44, kGetPartialAnimParams = 0xD63A1B81;
 constexpr uint32_t kReverse = 0xF5E2B871;
-constexpr uint32_t kAnimName = 0x6C2BFB7F, kStartTime = 0xD16B61E6, kEndTime = 0xAB81BB3D, kLoopType = 0xCD8D7C1B;
+constexpr uint32_t kAnimName = 0x6C2BFB7F, kStartTime = 0xD16B61E6, kEndTime = 0xAB81BB3D, kRepeatMode = 0xCD8D7C1B;
 constexpr uint32_t kBlendPeriod = 0x8F0D24ED, kSpeed = 0xF0D90109, kAnim = 0x98549BA4, kCurrent = 0x230CCBF4;
 constexpr uint32_t kWeightedAnim = 0xD697A799, kWeight = 0xC6AE16AC, kFraction = 0x4D747FA0;
-constexpr uint32_t kWobbleAmpA = 0xFD266A26, kWobbleAmpB = 0x642F3B9C, kWobbleK1 = 0x0F43FD49;
+constexpr uint32_t kWobbleAmpA = 0xFD266A26, kSwayAmpSecond = 0x642F3B9C, kWobbleK1 = 0x0F43FD49;
 constexpr uint32_t kWobbleK2 = 0x964AACF3, kSpazFactor = 0xF90B0824, kFrames = 0x06C9F278;
 constexpr uint32_t kPartialAnimTime = 0xAAECB346, kPartialAnim = 0x659BF355, kPartialAnimComplete = 0x4966CC11;
 // Component types.
@@ -163,7 +163,7 @@ PlayParams ReadPlayParams(CStruct* params)
     params->ReadHashValue(kAnimName, &p.anim, 1);
     params->FetchFloat(kStartTime, &p.start, 1);
     params->FetchFloat(kEndTime, &p.end, 1);
-    params->FetchIntValue(kLoopType, &p.loopType, 1);
+    params->FetchIntValue(kRepeatMode, &p.loopType, 1);
     params->FetchFloat(kBlendPeriod, &p.blend, 1);
     params->FetchFloat(kSpeed, &p.speed, 1);
     return p;
@@ -460,7 +460,7 @@ int CWobbleDriver::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, S
     }
     case kSetWobbleDetails: {
         float ampA, ampB, k1, k2, spaz;
-        if (params->FetchFloat(kWobbleAmpA, &ampA, 0) && params->FetchFloat(kWobbleAmpB, &ampB, 0) &&
+        if (params->FetchFloat(kWobbleAmpA, &ampA, 0) && params->FetchFloat(kSwayAmpSecond, &ampB, 0) &&
             params->FetchFloat(kWobbleK1, &k1, 0) && params->FetchFloat(kWobbleK2, &k2, 0) &&
             params->FetchFloat(kSpazFactor, &spaz, 0)) {
             m_ampA = ampA;

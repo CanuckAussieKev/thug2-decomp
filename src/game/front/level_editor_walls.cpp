@@ -85,7 +85,7 @@ int Combined(const std::vector<bool>& offs)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic;
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;
 
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 

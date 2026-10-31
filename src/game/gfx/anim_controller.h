@@ -27,7 +27,7 @@ namespace Gfx2D {
 // node of the engine's intrusive lists (MemSys::ListNode: data, priority, next, prev at +4..+0x10).
 // Vtable slots: 0 Destroy, 1 Reset, 2 Update, 3 PlayAnim, 4 (0x005BAB90: ignores its argument).
 struct CAnimTimeline {
-    enum LoopType : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
+    enum RepeatMode : int { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
     CAnimTimeline* MakeNew();
@@ -59,7 +59,7 @@ struct CAnimTimeline {
     float m_finish;        // +0x1C
     float m_speed;      // +0x20 (per 1/60 s)
     int m_direction;    // +0x24 0 forwards, -1 backwards
-    int m_loopType;     // +0x28
+    int m_repeatMode;     // +0x28
     bool m_complete;    // +0x2C
     uint8_t m_pad2D[3];
     uint32_t m_anim;    // +0x30 the animation's name
@@ -107,7 +107,7 @@ public:
     CStandardAnimController* Teardown(uint8_t flags);
     // 0x004A4F70 (slot 1)
     bool FetchPose(uint8_t* pose);
-    // 0x004A4670 (slot 3): PlayAnim (0xAF2FAE19: AnimName, StartTime, EndTime, LoopType, BlendPeriod, Speed),
+    // 0x004A4670 (slot 3): PlayAnim (0xAF2FAE19: AnimName, StartTime, EndTime, RepeatMode, BlendPeriod, Speed),
     // 0xC68365EB (a new frame source for Anim), 0x92267217 (0x00485270 with the global 0x006F92B0's +0xD4),
     // StaleCache (refetches, then 2).
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);

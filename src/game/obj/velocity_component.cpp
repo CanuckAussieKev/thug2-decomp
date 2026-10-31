@@ -73,7 +73,7 @@ void CVelocityTrackerModule::ConfigureFromData(Scripts::CStruct* params)
 // 0x0043D340
 void CVelocityTrackerModule::TickFrame()
 {
-    if (!g_gameNetManager->InNetGame() && SuspendFlag(mp_suspend))
+    if (!g_onlineHub->InNetGame() && SuspendFlag(mp_suspend))
         return;
     const Maths::Vec4& vel = m_entity->m_vel;
     // Half the velocity (each rounded), the position as it was.

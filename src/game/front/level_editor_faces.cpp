@@ -173,7 +173,7 @@ std::vector<SectorFaces> GroupSet(const std::vector<Change>& changes)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic;
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;
 constexpr size_t kMostSelected = 8192;
 
 bool g_picking;

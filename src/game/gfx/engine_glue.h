@@ -16,7 +16,7 @@ namespace Engine3D {
 // 0x004B2270: the MemViewToggle command's flag (0x00701588; nothing reads it).
 void __cdecl ToggleMemView();
 // 0x004B2280: the frame's BeginScene, unless the loading screen is up (0x00786D04).
-void __cdecl StartRender();
+void __cdecl BeginFrameDraw();
 // 0x004B22A0: an engine object deleted through its virtual destructor (none: nothing).
 void __cdecl DeleteObject(void* object);
 // 0x004B22B0: a jump to 0x004D3CA0 - the 2D clip rectangle (four values) set and turned on.
@@ -33,7 +33,7 @@ void __cdecl ClearDebugLines();
 // 0x004B2310: a jump to 0x004DB570 - whether a sphere (a centre, a radius) is in view (1 / 0).
 int __cdecl SphereVisible(const Maths::Vec4* centre, float radius);
 // 0x004B2320: the platform's file extension, "Xbx".
-const char* __cdecl PlatformExtension();
+const char* __cdecl PlatformSuffix();
 
 // 0x004B24C0 / 0x004B24D0: jumps to 0x004D07B0 / 0x004D06A0 - the gamma ramp set from / read back as three
 // factors.
@@ -48,16 +48,16 @@ void __cdecl StartEngine();
 // 0x004B2750: the frame ended and shown (unless the loading screen is up / rendering is skipped), the draw counts
 // reset, a pending screenshot taken (0x00786D94), and the next frame's clear.
 void __cdecl FinishRendering();
-// 0x004B28C0: a new PC scene (0x284 bytes; its mesh list at +0x280); `addSuperSectors` kept at +0x8C. The name and
+// 0x004B28C0: a new PC scene (0x284 bytes; its mesh list at +0x280); `withSuperSectors` kept at +0x8C. The name and
 // textures aren't used here.
-void* __cdecl CreateScene(const char* name, void* textures, bool addSuperSectors);
+void* __cdecl MakeEmptyScene(const char* name, void* textures, bool withSuperSectors);
 // 0x004B2990: a scene's sectors let go (0x004C6200) and its mesh list deleted. Always true.
 bool __cdecl UnloadScene(void* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
 void* __cdecl SpawnModel();
 void* __cdecl CreateGeom();
-void* __cdecl CreateSprite();
+void* __cdecl BuildSpriteQuad();
 void* __cdecl CreateTexturedQuad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.
 void* __cdecl CreateRenderTarget(int width, int height, uint8_t depth, int unused);

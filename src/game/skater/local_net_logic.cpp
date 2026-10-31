@@ -40,7 +40,7 @@ namespace Thugpro = OnlinePlay::Thugpro;
 
 constexpr uint32_t kComponent6C = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 
 extern void** const kVtable;
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
@@ -52,13 +52,13 @@ bool IsVersusSession()
 {
     return GameModules::Skate::IsMultiplayer() != 0;
 }
-CRider* SkaterById(uint32_t id)
+CRider* RiderForSlot(uint32_t id)
 {
     return GameModules::Skate::Sole()->GetRiderByNumber(id);
 }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
-void* LocalPlayer() { return NetManager()->GetOwnPlayer(); }
-uint8_t RunCount() { return NetManager()->GetGameId(); }
+void* LocalPlayer() { return NetSessionSlot()->GetOwnPlayer(); }
+uint8_t RunCount() { return NetSessionSlot()->GetGameId(); }
 
 template <typename T>
 T& Prop(const void* object, uint32_t offset)
@@ -68,8 +68,8 @@ T& Prop(const void* object, uint32_t offset)
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).
-NetLink::AppHost* ClientApp(int index) { return NetManager()->FetchPatron(index); }
-bool OnServer() { return NetManager()->OnServer(); }
+NetLink::AppHost* ClientApp(int index) { return NetSessionSlot()->FetchPatron(index); }
+bool OnServer() { return NetSessionSlot()->OnServer(); }
 
 // What the update reads of the skater: its orientation as angles, the core component's state and controls, the two
 // other components' values.
@@ -277,16 +277,16 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
     if (static_cast<uint8_t>(message[0]) != RunCount())
-        return NetLink::kHandlerMsgDone;
+        return NetLink::kResultConsumed;
     uint32_t victimId = *reinterpret_cast<const uint32_t*>(message + 4);
     uint32_t thiefId = *reinterpret_cast<const uint32_t*>(message + 8);
     auto* skater = static_cast<CRider*>(context->m_content);
-    CRider* victim = SkaterById(victimId);
+    CRider* victim = RiderForSlot(victimId);
     if (!victim)
-        return NetLink::kHandlerContinue;
-    CRider* thief = SkaterById(thiefId);
+        return NetLink::kResultPassOn;
+    CRider* thief = RiderForSlot(thiefId);
     if (!thief)
-        return NetLink::kHandlerContinue;
+        return NetLink::kResultPassOn;
     uint32_t script;
     CRider* other;
     if (skater->m_ident == victimId) {
@@ -296,9 +296,9 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
         script = kGraffitiStealOther;
         other = victim;
     } else {
-        return NetLink::kHandlerContinue;
+        return NetLink::kResultPassOn;
     }
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params = params->PrepareAll();
     params->Clear(); // (on the new structure, as the original)
@@ -308,7 +308,7 @@ int __cdecl CRiderHostSync::HandleGraffitiSteal(NetLink::InboundMsgCtx* context)
         params->Clear();
         Scripts::DeleteStruct(params);
     }
-    return NetLink::kHandlerContinue;
+    return NetLink::kResultPassOn;
 }
 
 } // namespace Obj

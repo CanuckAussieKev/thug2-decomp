@@ -31,21 +31,21 @@ constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
 uint8_t** Drawn() { return g_drawnMeshes; }
-struct SortedMesh {
+struct DepthOrderedMesh {
     uint8_t* mesh;
     float depth;
     uint32_t unused;
 };
-SortedMesh g_sortedMeshes[1000];
-SortedMesh* Sorted() { return g_sortedMeshes; }
+DepthOrderedMesh g_sortedMeshes[1000];
+DepthOrderedMesh* Sorted() { return g_sortedMeshes; }
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
-uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
+uint32_t MeshTraits(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint8_t* MeshMaterial(const uint8_t* mesh) { return *reinterpret_cast<uint8_t* const*>(mesh + 0x14); }
 void SetMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->HandIn(); }
 void DrawMesh(uint8_t* mesh) { reinterpret_cast<meshRef*>(mesh)->Render(); }
 // The render statistics (0x00775B80; thiscall).
-void CountPass(int which) { g_billboardManager.Render(which); }
+void CountPass(int which) { g_billboardPool.Render(which); }
 
 // The game's qsort (equal entries keep the game's order).
 void Qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
@@ -66,7 +66,7 @@ struct Lap {
     // viewport, in view and (with occlusion) not hidden by an occluder.
     bool Visible(uint8_t* mesh) const
     {
-        uint32_t meshFlags = MeshFlags(mesh);
+        uint32_t meshFlags = MeshTraits(mesh);
         if (!(meshFlags & 0x40) || (meshFlags & 0x210))
             return false;
         if (noCulling)
@@ -103,8 +103,8 @@ struct Lap {
 // 0x004DA690
 int __cdecl CompareDistances(const void* a, const void* b)
 {
-    float first = static_cast<const SortedMesh*>(a)->depth;
-    float second = static_cast<const SortedMesh*>(b)->depth;
+    float first = static_cast<const DepthOrderedMesh*>(a)->depth;
+    float second = static_cast<const DepthOrderedMesh*>(b)->depth;
     if (first < second)
         return -1;
     if (first > second)
@@ -122,7 +122,7 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
     // Original behaviour: drawn.
     if (ViewMode::WorldHidden())
         return;
-    if (flags & kRenderShadowVolumes) {
+    if (flags & kDrawStencilOnly) {
         DrawShadowVolumes(scene, viewport);
         return;
     }
@@ -201,7 +201,7 @@ void __cdecl DrawScene(sceneRef* scene, uint32_t flags, int viewport)
             ++sorted;
         }
         if (sorted > 0) {
-            Qsort(Sorted(), sorted, sizeof(SortedMesh), &CompareDistances);
+            Qsort(Sorted(), sorted, sizeof(DepthOrderedMesh), &CompareDistances);
             for (int s = 0; s < sorted; ++s)
                 pass.Blit(Sorted()[s].mesh);
         }

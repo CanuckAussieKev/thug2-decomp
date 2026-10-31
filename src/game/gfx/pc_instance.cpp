@@ -40,7 +40,7 @@ namespace {
 
 IDirect3DDevice9* InputPort() { return g_d3dDevice; }
 sSingleton*& Instances() { return g_instances; }
-sSingleton* g_visibleInstances[4096]; // RenderInstances' list
+sSingleton* g_visibleInstances[4096]; // DrawInstanceBatch' list
 sSingleton** Visible() { return g_visibleInstances; }
 const Maths::Mat4* LastBones() { return g_lastBones; }
 void SetLastBones(const Maths::Mat4* bones) { g_lastBones = bones; }
@@ -58,7 +58,7 @@ bool SkinnedByShader(const sSingleton* instance) { return instance->bones && Bon
 // The scene's first byte's top bit: drawn unlit.
 bool SceneUnlit(const sceneRef* scene) { return static_cast<int8_t>(scene->flags & 0xFF) < 0; }
 
-uint32_t MeshFlags(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
+uint32_t MeshTraits(const uint8_t* mesh) { return *reinterpret_cast<const uint32_t*>(mesh); }
 uint32_t& MeshFlagsRef(uint8_t* mesh) { return *reinterpret_cast<uint32_t*>(mesh); }
 
 const Maths::Vec4* Position(const sSingleton* instance)
@@ -71,7 +71,7 @@ uint32_t Channel(float value) { return static_cast<uint32_t>(static_cast<int64_t
 
 // The model's lights for the instance's position (the model's +0x2C: virtual [7], Update, with its own +4), or the
 // scene's.
-void UpdateModelLights(sSingleton* instance)
+void RefreshInstanceLighting(sSingleton* instance)
 {
     uint8_t* lights = instance->model ? *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(instance->model) + 0x2C)
                                       : nullptr;
@@ -134,7 +134,7 @@ sSingleton* sSingleton::MakeNew(sceneRef* list, const Maths::Mat4* matrix, int c
         return this;
     for (int i = 0; i < scene->meshCount; ++i) {
         uint8_t* mesh = scene->meshes[i];
-        if (!(*reinterpret_cast<uint32_t*>(mesh + 0x38) & kMeshLit) || (MeshFlags(mesh) & kMeshNotLit))
+        if (!(*reinterpret_cast<uint32_t*>(mesh + 0x38) & kMeshLit) || (MeshTraits(mesh) & kMeshNotLit))
             return this;
     }
     flags |= 2;
@@ -172,7 +172,7 @@ void sSingleton::Render(uint32_t drawBits)
             if (SceneUnlit(scene)) {
                 InputPort()->SetRenderState(D3DRS_LIGHTING, FALSE);
             } else {
-                UpdateModelLights(this);
+                RefreshInstanceLighting(this);
                 InputPort()->SetRenderState(D3DRS_LIGHTING, TRUE);
                 SendLights();
             }
@@ -206,7 +206,7 @@ void sSingleton::Render(uint32_t drawBits)
 
     SetLastBones(nullptr);
     if ((flags & 2) && !SceneUnlit(scene)) {
-        UpdateModelLights(this);
+        RefreshInstanceLighting(this);
         ChangePhase(kStateLighting, 1);
         SendLights();
     } else {
@@ -238,7 +238,7 @@ void sSingleton::Render(uint32_t drawBits)
 }
 
 // 0x004D16B0
-void __cdecl RenderInstance(sSingleton* instance, uint32_t flags)
+void __cdecl DrawOneInstance(sSingleton* instance, uint32_t flags)
 {
     SetLastBones(nullptr);
     if (!instance->active)
@@ -260,7 +260,7 @@ void __cdecl RenderInstance(sSingleton* instance, uint32_t flags)
 }
 
 // 0x004D1760
-void __cdecl RenderInstances(uint32_t flags, int viewport)
+void __cdecl DrawInstanceBatch(uint32_t flags, int viewport)
 {
     uint32_t mask = 1u << (viewport & 0x1F);
     float culling[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; // the identity at each one's position
@@ -357,7 +357,7 @@ int __cdecl CompareInstances(const void* a, const void* b)
 }
 
 // 0x004D1A60
-sUVWibble* sUVWibble::MakeNew()
+sUVOscillator* sUVOscillator::MakeNew()
 {
     velocity[0] = velocity[1] = 0;
     frequency[0] = frequency[1] = 0;

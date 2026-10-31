@@ -87,7 +87,7 @@ bool& SkateshopOverride() { return g_skateshopOverride; } // set elsewhere: neve
 bool& KeyboardOnScreen() { return Sio::g_keyboardOnScreen; }
 bool& MenuOnScreen() { return Sio::g_inMenuFlag; }     // a menu, dialog box or the quit dialog
 bool& PendingScript() { return g_pendingScript; }    // set elsewhere: run 0xFB11E6CD next frame
-bool& IsGameHalted() { return GameObjects::g_gamePaused; }
+bool& IsGameHalted() { return GameObjects::g_simulationHalted; }
 
 uint8_t* SkateBytes() { return reinterpret_cast<uint8_t*>(g_skateModule); } // GameModules::Skate
 void* Tracker() { return reinterpret_cast<void*>(GameObjects::g_tracker); }    // GameObjects::CEventWaitBoard
@@ -141,7 +141,7 @@ struct InputManagerRef {
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params = params->PrepareAll();
     return params;
@@ -184,10 +184,10 @@ void ReleaseFrontEnd()
 void FrontEnd::DestroyBody()
 {
     m_vtable = kFrontEndVtable;
-    if (m_logicTask)
-        UnlinkListNode(m_logicTask);
+    if (m_updateJob)
+        UnlinkListNode(m_updateJob);
     // (m_keyboardTask is never deleted)
-    for (FrontEndInputHandler*& handler : m_inputHandlers) {
+    for (FrontEndInputHandler*& handler : m_padListeners) {
         if (handler)
             UnlinkListNode(handler);
         handler = nullptr;
@@ -198,7 +198,7 @@ void FrontEnd::DestroyBody()
 // 0x0054ECA0
 bool FrontEnd::PadsPluggedIn()
 {
-    for (FrontEndInputHandler* handler : m_inputHandlers) {
+    for (FrontEndInputHandler* handler : m_padListeners) {
         if (reinterpret_cast<Sio::InputPort*>(handler->m_dev)->IsAttached())
             return true;
     }
@@ -251,7 +251,7 @@ uint32_t FrontEnd::AutoRepeat(uint32_t held, int deviceIndex)
     PadMapping& pad = m_padMappings[deviceIndex];
     if (pad.m_repeatState == 0) {
         if (event) { // first held: sent now, repeated after the delay
-            pad.m_repeatTimer = static_cast<uint32_t>(m_autoRepeatDelay);
+            pad.m_repeatTimer = static_cast<uint32_t>(m_holdRepeatMs);
             pad.m_repeatState = 1;
         }
     } else if (event) {
@@ -292,9 +292,9 @@ FrontEnd* FrontEnd::Teardown(unsigned int flags)
 void FrontEnd::Kickoff()
 {
     MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
-    AppendVertex(MainLoopManager() + 4, m_logicTask); // the logic tasks
+    AppendVertex(MainLoopManager() + 4, m_updateJob); // the logic tasks
     uint8_t* input = InputManager();
-    for (FrontEndInputHandler* handler : m_inputHandlers) {
+    for (FrontEndInputHandler* handler : m_padListeners) {
         // The controller's place in the input manager (see UpdateInputMappings).
         AppendVertex(input + handler->m_ordinal * 0x84 + 8, handler);
         uint8_t* server = input + handler->m_ordinal * 0x84;
@@ -307,8 +307,8 @@ void FrontEnd::Kickoff()
 // 0x0054EF30
 void FrontEnd::Halt()
 {
-    RemoveNode(m_logicTask);
-    for (FrontEndInputHandler* handler : m_inputHandlers)
+    RemoveNode(m_updateJob);
+    for (FrontEndInputHandler* handler : m_padListeners)
         RemoveNode(handler);
 }
 
@@ -339,7 +339,7 @@ void FrontEnd::UpdateButtonEventMappings(Scripts::CStruct* params)
         // Quirks kept: button null (index 0) removes the event's pairs, then the first free slot still gets
         // (0, event) - the event moves to left_trigger_full; event null removes the button's pairs, then a free
         // slot gets (button, null).
-        for (ButtonEvent& entry : m_buttonEvents) {
+        for (PadPressRecord& entry : m_padEventQueue) {
             if (padButtonLabel == kNull && entry.m_incident == event) {
                 entry.m_incident = 0;
             } else if (event == kNull && entry.m_button == button) {
@@ -363,7 +363,7 @@ bool __cdecl CFunc_SetMenuAutoRepeatTimes(Scripts::CStruct* params, Scripts::CSc
     int rate = Ftol(static_cast<double>(times.y) * 1000.0);
     int delay = Ftol(static_cast<double>(times.x) * 1000.0);
     frontEnd->m_autoRepeatRate = rate;
-    frontEnd->m_autoRepeatDelay = delay;
+    frontEnd->m_holdRepeatMs = delay;
     return true;
 }
 
@@ -454,7 +454,7 @@ void FrontEnd::TickFrame(bool gamePaused)
     AudioStream::TickFrame();
     // (the sound manager: its voices' states, and its positional sounds; the original calls the first - which
     // takes no manager - as its method)
-    auto* objects = SoundFx::g_sfxManager;
+    auto* objects = SoundFx::g_audioMixer;
     SoundFx::UpdateVoiceStates();
     MemSys::Hub* memory = MemSys::Hub::Pull();
     if (!gamePaused) {
@@ -477,9 +477,9 @@ void FrontEnd::TickFrame(bool gamePaused)
 uint32_t FrontEnd::GrabControlEvent(uint32_t makes, int index, int deviceIndex, uint32_t held)
 {
     for (int i = 0; i < kMaxButtonEvents; ++i) {
-        ButtonEvent& entry = m_buttonEvents[i];
+        PadPressRecord& entry = m_padEventQueue[i];
         if ((makes & (1u << (entry.m_button & 31))) && entry.m_incident != 0 && --index < 0)
-            return m_buttonEvents[i].m_incident;
+            return m_padEventQueue[i].m_incident;
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
     if (!((held & 0x100) && Scripts::FetchIntValue(0xF3E055E1u) != 0)) {
@@ -522,7 +522,7 @@ uint32_t FrontEnd::GrabControlEvent(uint32_t makes, int index, int deviceIndex, 
 void FrontEnd::SetAnalogStickActiveForMenus(bool active)
 {
     InputManagerRef input;
-    reinterpret_cast<PadInput::Hub*>(input.m_supervisor)->SetOverridePadWithStick(active);
+    reinterpret_cast<PadInput::Hub*>(input.m_supervisor)->ChangePadFollowsStick(active);
 }
 
 // 0x0054F960
@@ -554,7 +554,7 @@ void FrontEnd::PauseGame(bool pause)
         else
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x30 / 4])(skater);
     }
-    GameObjects::CompositeObjectManager()->Freeze(pause);
+    GameObjects::ObjectHubSlot()->Freeze(pause);
     FrameClock::PauseGameClock(pause);
     MenuSystem::CUiTree::Sole()->SetPausedAll(pause);
     IsGameHalted() = pause;
@@ -623,7 +623,7 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
 }
 
 // 0x0054FCC0
-void __cdecl FrontEnd::LogicTask(FrontEndTask* task)
+void __cdecl FrontEnd::FrontEndTick(FrontEndTask* task)
 {
     MemSys::Hub::Pull()->EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
     task->m_content->TickFrame(task->m_content->m_isHalted);
@@ -637,7 +637,7 @@ void FrontEnd::UpdateInputMappings()
     InputManagerRef input;
     for (int i = 0; i < 2; ++i) {
         DebugOut::Printf("m_device_server_map[%i] = %i\n", i, m_deviceServerMap[i]); // "m_device_server_map[%i] = %i\n"
-        FrontEndInputHandler* handler = m_inputHandlers[i];
+        FrontEndInputHandler* handler = m_padListeners[i];
         if (!handler)
             continue;
         DebugOut::Printf("got a handler\n"); // "got a handler\n"
@@ -668,10 +668,10 @@ FrontEnd* FrontEnd::MakeNew()
     if (task) {
         ConstructNode(task, -2000);
         *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // TaskList::Task<FrontEnd>
-        task->m_codeValue = &LogicTask;
+        task->m_codeValue = &FrontEndTick;
         task->m_content = this;
     }
-    m_logicTask = task;
+    m_updateJob = task;
     task = static_cast<FrontEndTask*>(MemSys::AllocZeroed(sizeof(FrontEndTask)));
     if (task) {
         ConstructNode(task, -1000);
@@ -689,18 +689,18 @@ FrontEnd* FrontEnd::MakeNew()
             handler->m_codeValue = &InputLogic;
             handler->m_content = this;
         }
-        m_inputHandlers[i] = handler;
+        m_padListeners[i] = handler;
         m_padMappings[i].m_repeatState = 0;
         m_padMappings[i].m_mapping = 1;
     }
     m_isHalted = false;
-    m_autoRepeatDelay = 300;
+    m_holdRepeatMs = 300;
     m_autoRepeatRate = 50;
     m_blockMenuInput = false;
     m_startupScriptOn = false;
     m_checkStartupScript = true;
     m_startupScriptId = 0;
-    for (ButtonEvent& entry : m_buttonEvents)
+    for (PadPressRecord& entry : m_padEventQueue)
         entry.m_incident = 0;
     m_deviceServerMap[0] = 0;
     m_deviceServerMap[1] = 1;

@@ -71,7 +71,7 @@ public:
     void UpdateRunAdjustment();
     // 0x00528400: on the ground and 100 ms after landing: the speed kept from rising past the last frame's
     // (+0x704 / +0x708); a stopped run becomes `stopAnim` if that's Skid, else Stand.
-    void LimitSpeed(uint32_t stopAnim);
+    void ClampSkaterSpeed(uint32_t stopAnim);
     // 0x005284C0 (`this` isn't used): gravity (walk_parameters); with the moon cheat on, half of it (the cheat
     // told, the global 0x007CE4FD set).
     static double __cdecl GetGravity();
@@ -93,7 +93,7 @@ public:
     void SetTransitionFacing(const Maths::Vec4* facing, float rate);
     // 0x005277B0: its collision cache refilled for the box around it (feeler_length + 1 across, walker_height + 1
     // above, snap_down_height + 1 below) and made the feelers' current one.
-    void UpdateCollisionCache();
+    void RefreshHitCache();
     // 0x00527BE0: the display offset (+0x9C) eased back to 0 at display_offset_restore_rate (not while hanging, 2,
     // or in state 4).
     void RestoreDisplayOffset();
@@ -197,7 +197,7 @@ public:
     // 0x0052B370: onto the ground under it (snap_up_height above to snap_down_height below): big steps told to the
     // object, the step smoothing, the ground's triggers when it changes. None (or a wall): off the edge into the air
     // (SkaterOffEdge) unless a hang, a drop or a ladder takes over.
-    void SnapToGround();
+    void SettleOntoFloor();
     // 0x0052AF40: walking begins (from skating): on the ground (`onGround`) or in the air - then thrown along the
     // turn under way off a vert ramp, the heading from the velocity (or the object's axes), off what it rode.
     void Begin(bool onGround);
@@ -231,7 +231,7 @@ public:
     void GoToAir();
     // 0x0052A180 (Walk_AnimWaitComplete), 0x0052C280 (ReleaseHang), 0x0052C290 (Walk_ForceToAirFromHang: into the air
     // and the object's AIR event): member functions; 1 (true). 0x0052C2B0: GoToAir.
-    int AnimWaitComplete(Scripts::CStruct* params, Scripts::CScript* script);
+    int ClipFinishedWaiting(Scripts::CStruct* params, Scripts::CScript* script);
     int ReleaseHang(Scripts::CStruct* params, Scripts::CScript* script);
     int ForceToAirFromHang(Scripts::CStruct* params, Scripts::CScript* script);
     void GoToAirFor(void* unused);

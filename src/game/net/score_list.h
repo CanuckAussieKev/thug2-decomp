@@ -35,6 +35,6 @@ static_assert(offsetof(ScoreEntry, m_text) == 0x14 && offsetof(ScoreEntry, m_fla
 // text and id) and to update_score. The text: a prefix (the crown's abbreviation, or \s0-\s3 for the flags carried),
 // the colour, the name and the score (king of the hill: m:ss or h:mm:ss; a running scavenger hunt: no score but for
 // the local player).
-void __cdecl ScoreUpdateTask(void* task);
+void __cdecl ScoreBroadcastTick(void* task);
 
 } // namespace OnlinePlay

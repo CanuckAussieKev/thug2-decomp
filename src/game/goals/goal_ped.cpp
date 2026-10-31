@@ -54,7 +54,7 @@ constexpr uint32_t kUsePosInfo = 0xC9B0DEB7;     // use_pos_info
 constexpr uint32_t kStreamId = 0x8A68AB90;       // streamId
 constexpr uint32_t kPlayAnim = 0x93516575;       // play_anim
 constexpr uint32_t kNoStream = 0x102A8591;       // no_stream
-constexpr uint32_t kCamAnimIndex = 0x64EEE2E6;   // cam_anim_index
+constexpr uint32_t kCamClipIndex = 0x64EEE2E6;   // cam_anim_index
 constexpr uint32_t kSpeakerName = 0x82CBE8D1;    // speaker_name
 constexpr uint32_t kLastAnim = 0x0E7F5FF8;       // last_anim
 constexpr uint32_t kSpeakerObjId = 0xF0C598FA;   // speaker_obj_id
@@ -89,12 +89,12 @@ GameObjects::CGameEntity* ObjectNamed(uint32_t id)
 {
     if (id == kSkater)
         return SkateCalls::GetHomeRider();
-    return static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(id));
+    return static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(id));
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -148,7 +148,7 @@ CObjectiveNpc* CObjectiveNpc::MakeNew(Scripts::CStruct* params)
 }
 
 // 0x0055EB70
-void CObjectiveNpc::ParseFirstName(char* out, const char** name, int)
+void CObjectiveNpc::ReadLeadingName(char* out, const char** name, int)
 {
     if (!std::strstr(*name, " ")) { // " "
         for (const char* from = *name; (*out++ = *from++) != 0;) {
@@ -178,7 +178,7 @@ const char* CObjectiveNpc::GetProGivenName()
     const char* display = profile->FetchShownName();
     if (profile->IsPro()) {
         char first[0x80];
-        ParseFirstName(first, &display, sizeof(first));
+        ReadLeadingName(first, &display, sizeof(first));
         if (profile->IsPro() && Checksums::HashFromText(pro) == Checksums::HashFromText(first)) {
             const char* alternative;
             return params->FetchText(kProAlternative, &alternative, false) ? alternative : nullptr;
@@ -284,7 +284,7 @@ void CObjectiveNpc::GetSkaterGivenName(char* out, int size)
 {
     const char* display = CurrentProfile()->FetchShownName();
     out[0] = 0;
-    ParseFirstName(out, &display, size);
+    ReadLeadingName(out, &display, size);
 }
 
 // 0x0055F1B0
@@ -338,7 +338,7 @@ void CObjectiveNpc::RemoveObjectiveNpc()
     GoalParams(m_objectiveKey)->ReadHashValue(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (GameObjects::CEntity* object = GameObjects::CompositeObjectManager()->LookUpEntity(trigger))
+    if (GameObjects::CEntity* object = GameObjects::ObjectHubSlot()->LookUpEntity(trigger))
         reinterpret_cast<void(__thiscall*)(GameObjects::CEntity*)>(object->m_vtable[6])(object); // (FlagAsDead)
 }
 
@@ -360,7 +360,7 @@ void CObjectiveNpc::UnloadAnimBank()
     if (m_animObject) {
         GameObjects::CGameEntity* object = ObjectNamed(m_animObject);
         Scripts::StopScriptsUsingObjectThatReferTo(object, kGoalPlayStream);
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PutNameKey(kType, kPartialAnim);
         params->PutNameKey(kId, kJawRotation);
         if (object)
@@ -384,9 +384,9 @@ void CObjectiveNpc::Conceal(bool hide)
     params->ReadHashValue(kTriggerObjId, &trigger, 0);
     if (!trigger)
         return;
-    if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(trigger)))
+    if (auto* object = static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(trigger)))
         object->Conceal(hide);
-    Scripts::CStruct* arrow = NewStructure();
+    Scripts::CStruct* arrow = SpawnParamTable();
     arrow->PutNameKey(kGoalIdChecksum, m_objectiveKey);
     if (hide) {
         Scripts::LaunchScript(kGoalPedKillArrow, arrow, nullptr, false, nullptr);
@@ -423,7 +423,7 @@ void CObjectiveNpc::PlayStream(uint32_t stream, bool noAnim, uint32_t objectId, 
     GameObjects::CGameEntity* object = ObjectNamed(id);
     if (!object)
         return;
-    Scripts::CStruct* playParams = NewStructure();
+    Scripts::CStruct* playParams = SpawnParamTable();
     playParams->PutNameKey(kStreamChecksum, stream);
     if (!noAnim) {
         playParams->PutInt(kUsePosInfo, 0);
@@ -449,7 +449,7 @@ void CObjectiveNpc::PlayOpeningVoiceLine(Scripts::CStruct* params)
     if (m_suspended || GoalParams(m_objectiveKey)->HasBareFlag(kNoStream))
         return;
     int index = -1;
-    params->FetchIntValue(kCamAnimIndex, &index, 0);
+    params->FetchIntValue(kCamClipIndex, &index, 0);
     const char* speaker = nullptr;
     params->FetchText(kSpeakerName, &speaker, 0);
     bool lastAnim = params->HasBareFlag(kLastAnim);
@@ -491,7 +491,7 @@ void CObjectiveNpc::PlayProVoiceLine(const char* kind, int count, bool callByNam
     GameObjects::CRiderIdentity* profile = CurrentProfile();
     const char* display = profile->FetchShownName();
     char player[0x80];
-    ParseFirstName(player, &display, sizeof(player));
+    ReadLeadingName(player, &display, sizeof(player));
     int total = callByName ? count + 20 : count;
     Scripts::CArray* order = ShuffledNumbers(total);
     for (int i = 0; i < total; ++i) {

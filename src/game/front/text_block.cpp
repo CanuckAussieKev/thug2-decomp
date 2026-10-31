@@ -31,11 +31,11 @@ namespace {
 using Scripts::CStruct;
 
 // Names (checksums).
-constexpr uint32_t kTextBlockElement = 0x40D92263, kFont = 0x2F6BF72D, kInternalJust = 0x67E093E4;
-constexpr uint32_t kInternalScale = 0x1FE341D2, kLineSpacing = 0xE3FA22FC, kAllowExpansion = 0x322839A2;
+constexpr uint32_t kTextBlockElement = 0x40D92263, kFont = 0x2F6BF72D, kInnerAlign = 0x67E093E4;
+constexpr uint32_t kInternalScale = 0x1FE341D2, kLineSpacing = 0xE3FA22FC, kMayGrow = 0x322839A2;
 constexpr uint32_t kText = 0xC4745838, kBlurEffect = 0xD1653C6C, kNoBlurEffect = 0x4B73E4F8;
-constexpr uint32_t kBlurRgba = 0x4F0E1182, kShadowOffs = 0x2A1FE0CC, kShadow = 0x8A897DD2;
-constexpr uint32_t kNoShadow = 0x95B5B9A0, kShadowRgba = 0x1E7BB1F5;
+constexpr uint32_t kHaloColor = 0x4F0E1182, kShadowOffs = 0x2A1FE0CC, kShadow = 0x8A897DD2;
+constexpr uint32_t kShadowOffFlag = 0x95B5B9A0, kShadowRgba = 0x1E7BB1F5;
 constexpr uint32_t kRememberOverrideRgbaState = 0x0BF51A0C, kRestoreOverrideRgbaState = 0x61B7B58B;
 constexpr uint32_t kOverrideEncodedRgba = 0xB7686F92, kDontOverrideEncodedRgba = 0xD25BC6CD;
 constexpr uint32_t kOverrideEncodedAlpha = 0x1A226DCD, kDontOverrideEncodedAlpha = 0xE1931201;
@@ -103,7 +103,7 @@ CParagraphWidget* CParagraphWidget::MakeNew()
     m_linesHeight = 0.0f;
     m_numElements = 0;
     mp_blur = nullptr;
-    m_allowExpansion = false;
+    m_mayGrow = false;
     m_overrideRgba = false;
     m_rememberedOverride = false;
     ChangeSpecies(kTextBlockElement);
@@ -197,7 +197,7 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
     m_numLines = 0;
     m_line = 0;
     m_lineWidth = 0.0f;
-    if (m_allowExpansion) {
+    if (m_mayGrow) {
         m_levelY = 0.0f;
         m_maxLines = 0;
     }
@@ -210,7 +210,7 @@ void CParagraphWidget::ChangeCaption(const char** texts, int count)
     m_numElements = m_line;
     int first = 0;
     if (m_numLines >= m_maxLines) {
-        if (m_allowExpansion) {
+        if (m_mayGrow) {
             // the block grows to the lines' height and they are made again
             float width, height;
             ReadStringParam(GetFont(m_fontName), SizingText(), &width, &height);
@@ -384,10 +384,10 @@ void CParagraphWidget::ChangeTraits(CStruct* params)
     uint32_t font;
     if (params->ReadHashValue(kFont, &font, 0))
         ChangeTypeface(font);
-    if (ResolveJust(params, kInternalJust, &m_internalJustX, &m_internalJustY))
+    if (ReadAlignmentParam(params, kInnerAlign, &m_innerAlignH, &m_innerAlignV))
         m_objectFlags |= kVisibleNow;
-    if (params->HasBareFlag(kAllowExpansion))
-        m_allowExpansion = true;
+    if (params->HasBareFlag(kMayGrow))
+        m_mayGrow = true;
     const char* texts[kMaxTexts];
     Scripts::CArray* array;
     if (params->FetchText(kText, &texts[0], 0)) {
@@ -409,7 +409,7 @@ void CParagraphWidget::ChangeTraits(CStruct* params)
         mp_blur = nullptr;
     }
     uint32_t rgba;
-    if (ResolveRGBA(params, kBlurRgba, &rgba) && mp_blur)
+    if (ReadColourParam(params, kHaloColor, &rgba) && mp_blur)
         mp_blur->m_rgbaValue = rgba;
     Scripts::CPair offset;
     offset.PrepareAll();
@@ -419,9 +419,9 @@ void CParagraphWidget::ChangeTraits(CStruct* params)
     }
     if (params->HasBareFlag(kShadow))
         m_shadow = true;
-    if (params->HasBareFlag(kNoShadow))
+    if (params->HasBareFlag(kShadowOffFlag))
         m_shadow = false;
-    ResolveRGBA(params, kShadowRgba, reinterpret_cast<uint32_t*>(m_shadowRgba));
+    ReadColourParam(params, kShadowRgba, reinterpret_cast<uint32_t*>(m_shadowRgba));
     if (params->HasBareFlag(kRememberOverrideRgbaState))
         m_rememberedOverride = m_overrideRgba;
     if (params->HasBareFlag(kRestoreOverrideRgbaState))
@@ -467,16 +467,16 @@ void CParagraphWidget::TickFrame()
 {
     if (!(m_objectFlags & kVisibleNow))
         return;
-    float y = static_cast<float>((static_cast<double>(m_levelY) - m_linesHeight) * (static_cast<double>(m_internalJustY) + One()) *
+    float y = static_cast<float>((static_cast<double>(m_levelY) - m_linesHeight) * (static_cast<double>(m_innerAlignV) + One()) *
                                  Half());
     ElementPtr child;
     child.AssignValue(mp_firstChild.m_ownerObject);
     for (int i = 0; i < m_numElements; ++i) {
-        child->ChangeAlignment(m_internalJustX, -1.0f);
+        child->ChangeAlignment(m_innerAlignH, -1.0f);
         uint32_t rgba;
         std::memcpy(&rgba, m_shown.rgba, 4);
         child->ChangeRgba(rgba, 1);
-        float x = static_cast<float>((static_cast<double>(m_internalJustX) + One()) * m_span * Half());
+        float x = static_cast<float>((static_cast<double>(m_innerAlignH) + One()) * m_span * Half());
         child->ChangeLocation(x, y, 0);
         y = static_cast<float>(static_cast<double>(child->m_levelY) * m_internalScale * m_lineSpacing + y);
         child.AssignValue(child->m_following.m_ownerObject);

@@ -22,9 +22,9 @@ class CArray;
 namespace ParkEditing {
 
 // The pieces (park.h): a piece type is a CTileTemplate, a placed piece a CParkTile (a clone of its source's sector).
-using SourcePiece = CTileTemplate;
-using ClonedPiece = CParkTile;
-inline ClonedPiece* Cloned(CParkTile* piece) { return piece; }
+using TemplateTile = CTileTemplate;
+using DuplicatedTile = CParkTile;
+inline DuplicatedTile* Cloned(CParkTile* piece) { return piece; }
 
 // The rail sets, their rails and points (park_rails.h, 0x0058AFC0-0x0058B700).
 using RailPoint = CParkRailPoint;
@@ -37,7 +37,7 @@ struct PieceNodeInfo {
     uint32_t m_cluster;
     Scripts::CArray* m_linkSet;
 };
-// A rail node read by NextRailNode (0x30 bytes).
+// A rail node read by FindFollowingRailNode (0x30 bytes).
 struct RailNodeInfo {
     uint32_t m_class;
     uint32_t m_kindTag;

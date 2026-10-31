@@ -49,7 +49,7 @@ constexpr uint32_t kKillBlur = 0xBDA66E7D;        // kill_blur
 constexpr uint32_t kDontKillTriggerOnSuccess = 0x6BEBDBCC; // dont_kill_trigger_on_success
 constexpr uint32_t kResetGoalTrigger = 0x17C2E09F; // GoalManager_ResetGoalTrigger
 constexpr uint32_t kGoalManagerParams = 0x23D4170A; // GoalManager_Params
-constexpr uint32_t kDifficultyLevels = 0xB13D98D3; // difficulty_levels
+constexpr uint32_t kSkillTiers = 0xB13D98D3; // difficulty_levels
 constexpr uint32_t kNullGoal = 0x3D1CAB0B;        // null_goal
 constexpr uint32_t kParent = 0xC2719FB0;          // parent
 constexpr uint32_t kCurrentMenu = 0x4D49AC0A;     // current_menu
@@ -60,18 +60,18 @@ constexpr uint32_t kScale = 0x13B9DA7B;           // scale
 constexpr uint32_t kViewSelectedGoalsMenuSetEvents = 0xE704C86C; // view_selected_goals_menu_set_events
 constexpr uint32_t kChooseGoalsMenuSetEvents = 0x6790AC11;       // choose_goals_menu_set_events
 constexpr uint32_t kTrickName = 0x5B077CE1;       // trickname
-constexpr uint32_t kKeyCombos = 0x79704516;       // key_combos
+constexpr uint32_t kButtonSequences = 0x79704516;       // key_combos
 constexpr uint32_t kAttempts = 0xD023ADBE;        // (name unknown: the times the beaten goals were started)
 
 const char* const kNetJudge = "NetJudge"; // "NetJudge"
 
 CMatchRules* GameMode() { return g_gameMode; }
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 bool InMultiplayerGame() { return static_cast<uint8_t>(ScriptCommands::CFunc_InMultiplayerGame(nullptr, nullptr)) != 0; }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -111,7 +111,7 @@ CObjective* MakeGoal(Scripts::CStruct* params)
     }
     if (params->HasBareFlag(kTetrisFlag)) {
         void* memory = MemSys::AllocZeroed(0x458);
-        return memory ? reinterpret_cast<CObjective*>(static_cast<CTetrisGoal*>(memory)->MakeNew(params)) : nullptr;
+        return memory ? reinterpret_cast<CObjective*>(static_cast<CFallingTricksGoal*>(memory)->MakeNew(params)) : nullptr;
     }
     if (params->HasBareFlag(kHorseFlag)) {
         void* memory = MemSys::AllocZeroed(0x70);
@@ -194,7 +194,7 @@ void CGoalManager::RetryPreviousObjective()
     Scripts::StopScriptsTargeting(kSk3KillSkaterFinish);
     Scripts::LaunchScript(kKillBlur, nullptr, nullptr, false, nullptr);
     if (!Virtual<bool>(goal, CObjective::kVtHasWon) || goal->FetchArgs()->HasBareFlag(kDontKillTriggerOnSuccess)) {
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PutNameKey("goal_id", goal->GetObjectiveKey()); // "goal_id"
         Scripts::LaunchScript(kResetGoalTrigger, params, nullptr, false, nullptr);
         DeleteStructure(params);
@@ -206,17 +206,17 @@ void CGoalManager::RetryPreviousObjective()
 // 0x0055C090
 void CGoalManager::LevelUnload()
 {
-    if (NetManager()->InNetGame())
+    if (NetSessionSlot()->InNetGame())
         return;
-    Scripts::CStruct* own = NewStructure();
-    own->PutSubStruct(kDifficultyLevels, m_args);
+    Scripts::CStruct* own = SpawnParamTable();
+    own->PutSubStruct(kSkillTiers, m_args);
     m_goalData->PutSubStruct(kGoalManagerParams, own);
     DeleteStructure(own);
     for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (goal->FetchArgs()->HasBareFlag(kNullGoal) || goal->IsUserMadeObjective())
             continue;
-        Scripts::CStruct* data = NewStructure();
+        Scripts::CStruct* data = SpawnParamTable();
         Virtual<void>(goal, CObjective::kVtGetSaveData, data);
         m_goalData->PutSubStruct(goal->GetObjectiveKey(), data);
         DeleteStructure(data);
@@ -234,7 +234,7 @@ int CGoalManager::CountClearedInStage(int level, int)
         int goalLevel = 0;
         if (component->structure->FetchIntValue(kLevelNum, &goalLevel, 0)) {
             int beaten = 0;
-            component->structure->FetchIntValue(kHasBeaten, &beaten, 0);
+            component->structure->FetchIntValue(kAlreadyWon, &beaten, 0);
             if (goalLevel == level && beaten)
                 ++count;
         }
@@ -260,7 +260,7 @@ void CGoalManager::AppendObjectiveOptions(bool selectedOnly, bool skipEdited, bo
             continue;
         if (editedOnly && !goal->IsEditedGoal2())
             continue;
-        Scripts::CStruct* choice = NewStructure();
+        Scripts::CStruct* choice = SpawnParamTable();
         choice->PutNameKey(kGoalIdChecksum, goal->GetObjectiveKey());
         choice->PutNameKey(kParent, kCurrentMenu);
         choice->AppendWord(kText, text);
@@ -277,7 +277,7 @@ bool CGoalManager::SwapMoveCaption(uint32_t id, const char* text, char* out, int
 {
     Scripts::CStruct* params = m_goals.Pull(id)->FetchArgs();
     Scripts::CArray* keyCombos;
-    params->FetchList(kKeyCombos, &keyCombos, 1);
+    params->FetchList(kButtonSequences, &keyCombos, 1);
     Scripts::CArray* keyTexts = NewArray();
     Scripts::CArray* trickTexts = NewArray();
     uint32_t count = keyCombos->m_extent;
@@ -300,7 +300,7 @@ bool CGoalManager::SwapMoveCaption(uint32_t id, const char* text, char* out, int
 Scripts::CStruct* CGoalManager::GetObjectiveTryDetails()
 {
     int count = m_goals.m_num; // (read once)
-    Scripts::CStruct* info = NewStructure();
+    Scripts::CStruct* info = SpawnParamTable();
     int attempts = 0;
     for (int i = 0; i < count; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);

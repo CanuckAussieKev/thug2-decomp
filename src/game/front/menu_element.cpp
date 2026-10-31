@@ -29,9 +29,9 @@ using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kVMenu = 0x130EF802, kHMenu = 0xCCDED1E1, kContainerElement = 0x5B9DA842;
-constexpr uint32_t kInternalJust = 0x67E093E4, kRegularSpaceAmount = 0xF24ADEDB, kPaddingScale = 0x6D853B88;
-constexpr uint32_t kSpacingBetween = 0x4B4E14AB, kEnablePadHandling = 0x4BD08BFE, kDisablePadHandling = 0xC22541CC;
-constexpr uint32_t kAllowWrap = 0x43A7692D, kDontAllowWrap = 0x5DEA5C64, kFocusableChild = 0xF1822B9C;
+constexpr uint32_t kInnerAlign = 0x67E093E4, kRegularSpaceAmount = 0xF24ADEDB, kInsetFactor = 0x6D853B88;
+constexpr uint32_t kItemSpacing = 0x4B4E14AB, kEnablePadHandling = 0x4BD08BFE, kDisablePadHandling = 0xC22541CC;
+constexpr uint32_t kWrapAround = 0x43A7692D, kDontAllowWrap = 0x5DEA5C64, kFocusableChild = 0xF1822B9C;
 constexpr uint32_t kTagSelectedId = 0xAC988EBE, kTagSelectedIndex = 0xF2239871, kTagGridIndex = 0x8321DD71;
 constexpr uint32_t kTagGridX = 0x5B92F8DD, kTagNotFocusable = 0xF33A3321;
 constexpr uint32_t kController = 0xB30D9965, kGridIndex = 0xFACF9A8B, kChildId = 0x229D3DE4;
@@ -47,11 +47,11 @@ void Launch(uint32_t type, uint32_t target, CStruct* data)
 }
 
 // The screen element manager (0x00701440) and its pieces.
-void* Hub() { return g_screenElementManager; }
+void* Hub() { return g_uiElementHub; }
 CUiTree* Elements(void* manager) { return static_cast<CUiTree*>(manager); }
 bool UsesPriorities(void* manager) { return Elements(manager)->HasPriorities(); }
 bool IsPriorityEvent(void* manager, uint32_t type) { return Elements(manager)->IsPadEvent(type); }
-bool IsTopPriority(void* manager, uint32_t id) { return Elements(manager)->IsTopPriority(id); }
+bool HasTopPrecedence(void* manager, uint32_t id) { return Elements(manager)->HasTopPrecedence(id); }
 ElementPtr* LookUp(void* manager, ElementPtr* out, uint32_t id, int assert)
 {
     return Elements(manager)->FetchPart(out, id, assert);
@@ -77,18 +77,18 @@ void SendFocus(uint32_t id, int controller, int gridIndex)
 CMenuBase* CMenuBase::MakeNew()
 {
     CUiWidget::MakeNew();
-    m_selectedId = 0;
+    m_chosenItemId = 0;
     m_focused = false;
     m_controller = 0;
     m_regularSpace = 0.0f;
-    m_spacingBetween = 0.0f;
-    m_internalJustX = 0.0f;
-    m_internalJustY = 0.0f;
+    m_itemGap = 0.0f;
+    m_innerAlignH = 0.0f;
+    m_innerAlignV = 0.0f;
     m_padHandling = true;
-    m_allowWrap = true;
+    m_cyclesAround = true;
     m_vtable = kCBaseMenuVtable;
     m_selectedIndex = -1;
-    m_paddingScale = 1.0f;
+    m_marginFactor = 1.0f;
     m_gridIndex = -1;
     return this;
 }
@@ -139,7 +139,7 @@ int CMenuBase::GetRegularSpace(float* out) const
 // 0x004A7580
 void CMenuBase::SetSelectionTags()
 {
-    WriteHashTag(kTagSelectedId, m_selectedId);
+    WriteHashTag(kTagSelectedId, m_chosenItemId);
     StoreIntTag(kTagSelectedIndex, m_selectedIndex);
     StoreIntTag(kTagGridIndex, m_gridIndex);
 }
@@ -148,25 +148,25 @@ void CMenuBase::SetSelectionTags()
 void CMenuBase::ChangeTraits(Scripts::CStruct* params)
 {
     float alignH = 0.0f, alignV = 0.0f;
-    if (ResolveJust(params, kInternalJust, &alignH, &alignV)) {
-        m_internalJustX = alignH;
-        m_internalJustY = alignV;
+    if (ReadAlignmentParam(params, kInnerAlign, &alignH, &alignV)) {
+        m_innerAlignH = alignH;
+        m_innerAlignV = alignV;
     }
     int space = 0;
     if (params->FetchIntValue(kRegularSpaceAmount, &space, 0))
         m_regularSpace = static_cast<float>(space);
-    params->FetchFloat(kPaddingScale, &m_paddingScale, 0);
+    params->FetchFloat(kInsetFactor, &m_marginFactor, 0);
     int between = 0;
-    if (params->FetchIntValue(kSpacingBetween, &between, 0))
-        m_spacingBetween = static_cast<float>(between);
+    if (params->FetchIntValue(kItemSpacing, &between, 0))
+        m_itemGap = static_cast<float>(between);
     if (params->HasBareFlag(kEnablePadHandling))
         m_padHandling = true;
     else if (params->HasBareFlag(kDisablePadHandling))
         m_padHandling = false;
-    if (params->HasBareFlag(kAllowWrap))
-        m_allowWrap = true;
+    if (params->HasBareFlag(kWrapAround))
+        m_cyclesAround = true;
     else if (params->HasBareFlag(kDontAllowWrap))
-        m_allowWrap = false;
+        m_cyclesAround = false;
     CUiWidget::ChangeTraits(params);
 }
 
@@ -181,14 +181,14 @@ void CMenuBase::MoveSelection(int direction, bool stay, bool gridX)
             int index = m_selectedIndex + direction;
             m_selectedIndex = index;
             if (index >= ChildTotal()) {
-                if (m_allowWrap) {
+                if (m_cyclesAround) {
                     m_selectedIndex = 0;
                 } else {
                     direction = -direction;
                     m_selectedIndex = ChildTotal() - 1;
                 }
             } else if (index < 0) {
-                if (m_allowWrap) {
+                if (m_cyclesAround) {
                     m_selectedIndex = ChildTotal() - 1;
                 } else {
                     direction = -direction;
@@ -199,7 +199,7 @@ void CMenuBase::MoveSelection(int direction, bool stay, bool gridX)
         stay = false;
         ElementPtr item;
         item.AssignValue(FindChildAtSlot(m_selectedIndex));
-        m_selectedId = item->m_ident;
+        m_chosenItemId = item->m_ident;
         if (gridX) {
             m_gridIndex = -1;
             item->ReadIntTag(kTagGridX, &m_gridIndex);
@@ -213,7 +213,7 @@ void CMenuBase::MoveSelection(int direction, bool stay, bool gridX)
         }
         --tries;
     }
-    m_selectedId = 0;
+    m_chosenItemId = 0;
     m_selectedIndex = -1;
 }
 
@@ -221,19 +221,19 @@ void CMenuBase::MoveSelection(int direction, bool stay, bool gridX)
 void CMenuBase::Step(int direction)
 {
     int gridIndex = -1;
-    if (m_selectedId) {
+    if (m_chosenItemId) {
         CUiWidget* item;
         {
             ElementPtr found;
-            item = LookUp(Hub(), &found, m_selectedId, 0)->m_ownerObject;
+            item = LookUp(Hub(), &found, m_chosenItemId, 0)->m_ownerObject;
         }
         if (item)
             item->ReadIntTag(kTagGridIndex, &gridIndex);
-        Launch(kUnfocus, m_selectedId, nullptr);
+        Launch(kUnfocus, m_chosenItemId, nullptr);
     }
     MoveSelection(direction, false, true);
-    if (m_selectedId)
-        SendFocus(m_selectedId, m_controller, gridIndex);
+    if (m_chosenItemId)
+        SendFocus(m_chosenItemId, m_controller, gridIndex);
 }
 
 // 0x004A7B80
@@ -256,17 +256,17 @@ void CMenuBase::Arrange()
             for (; item; item.AssignValue(item->m_following.m_ownerObject)) {
                 double across, along;
                 if (m_vertical) {
-                    across = static_cast<double>(item->m_span) * m_paddingScale;
+                    across = static_cast<double>(item->m_span) * m_marginFactor;
                     along = item->m_levelY;
                 } else {
-                    across = static_cast<double>(item->m_levelY) * m_paddingScale;
+                    across = static_cast<double>(item->m_levelY) * m_marginFactor;
                     along = item->m_span;
                 }
-                total = static_cast<float>(along * m_paddingScale + m_spacingBetween + total);
+                total = static_cast<float>(along * m_marginFactor + m_itemGap + total);
                 if (across > largest)
                     largest = static_cast<float>(across);
             }
-            total = static_cast<float>(static_cast<double>(total) - m_spacingBetween);
+            total = static_cast<float>(static_cast<double>(total) - m_itemGap);
         }
     }
     if (m_objectFlags & kDimsLocked) {
@@ -289,9 +289,9 @@ void CMenuBase::Arrange()
     // where the first item goes: the free space split by internal_just
     float offset = m_vertical
                        ? static_cast<float>((static_cast<double>(m_levelY) - total) *
-                                            (static_cast<double>(m_internalJustY) + 1.0) * 0.5)
+                                            (static_cast<double>(m_innerAlignV) + 1.0) * 0.5)
                        : static_cast<float>((static_cast<double>(m_span) - total) *
-                                            (static_cast<double>(m_internalJustX) + 1.0) * 0.5);
+                                            (static_cast<double>(m_innerAlignH) + 1.0) * 0.5);
     {
         ElementPtr item;
         item.AssignValue(mp_firstChild.m_ownerObject);
@@ -299,13 +299,13 @@ void CMenuBase::Arrange()
             offset = static_cast<float>(static_cast<double>(m_regularSpace) * 0.5 + offset);
             for (; item; item.AssignValue(item->m_following.m_ownerObject)) {
                 if (m_vertical) {
-                    item->ChangeAlignment(m_internalJustX, 0.0f);
-                    item->ChangeLocation(static_cast<float>((static_cast<double>(m_internalJustX) + 1.0) * m_span * 0.5),
+                    item->ChangeAlignment(m_innerAlignH, 0.0f);
+                    item->ChangeLocation(static_cast<float>((static_cast<double>(m_innerAlignH) + 1.0) * m_span * 0.5),
                                  offset, 1);
                 } else {
-                    item->ChangeAlignment(0.0f, m_internalJustY);
+                    item->ChangeAlignment(0.0f, m_innerAlignV);
                     item->ChangeLocation(offset,
-                                 static_cast<float>((static_cast<double>(m_internalJustY) + 1.0) * m_levelY * 0.5), 1);
+                                 static_cast<float>((static_cast<double>(m_innerAlignV) + 1.0) * m_levelY * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(offset) + m_regularSpace);
             }
@@ -313,29 +313,29 @@ void CMenuBase::Arrange()
             for (; item; item.AssignValue(item->m_following.m_ownerObject)) {
                 // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
                 double half = (m_vertical ? static_cast<double>(item->m_levelY) : static_cast<double>(item->m_span)) *
-                              m_paddingScale * 0.5;
+                              m_marginFactor * 0.5;
                 float halfStored = static_cast<float>(half);
                 offset = static_cast<float>(half + offset);
                 if (m_vertical) {
-                    item->ChangeAlignment(m_internalJustX, 0.0f);
-                    item->ChangeLocation(static_cast<float>((static_cast<double>(m_internalJustX) + 1.0) * m_span * 0.5),
+                    item->ChangeAlignment(m_innerAlignH, 0.0f);
+                    item->ChangeLocation(static_cast<float>((static_cast<double>(m_innerAlignH) + 1.0) * m_span * 0.5),
                                  offset, 1);
                 } else {
-                    item->ChangeAlignment(0.0f, m_internalJustY);
+                    item->ChangeAlignment(0.0f, m_innerAlignV);
                     item->ChangeLocation(offset,
-                                 static_cast<float>((static_cast<double>(m_internalJustY) + 1.0) * m_levelY * 0.5), 1);
+                                 static_cast<float>((static_cast<double>(m_innerAlignV) + 1.0) * m_levelY * 0.5), 1);
                 }
-                offset = static_cast<float>(static_cast<double>(halfStored) + offset + m_spacingBetween);
+                offset = static_cast<float>(static_cast<double>(halfStored) + offset + m_itemGap);
                 if (item->m_objectFlags & kDirty)
                     m_objectFlags |= kDirty;
             }
         }
     }
-    if (m_selectedId == 0 && mp_firstChild && m_focused) {
+    if (m_chosenItemId == 0 && mp_firstChild && m_focused) {
         m_selectedIndex = 0;
         MoveSelection(1, true, true);
-        if (m_selectedId)
-            SendFocus(m_selectedId, m_controller, -1);
+        if (m_chosenItemId)
+            SendFocus(m_chosenItemId, m_controller, -1);
     }
 }
 
@@ -344,7 +344,7 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
 {
     void* manager = m_parkOwner;
     if (ManagerUsesPriorities() && IsPriorityEvent(manager, event->m_kindTag)) {
-        if (!HasPriority() || !IsTopPriority(manager, m_ident))
+        if (!HasPriority() || !HasTopPrecedence(manager, m_ident))
             return false;
     }
     if (!GameObjects::CEntity::PassEventToScript(event))
@@ -352,15 +352,15 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
     if (event->m_kindTag == kFocusSentEvent) {
         // find the selected item again (by id, else by index), lay the items out
         bool refocus = false;
-        if (m_selectedId) {
+        if (m_chosenItemId) {
             int index;
             ElementPtr item;
-            item.AssignValue(FindChildWithId(m_selectedId, &index));
+            item.AssignValue(FindChildWithId(m_chosenItemId, &index));
             if (!item) {
                 ElementPtr byIndex;
                 byIndex.AssignValue(FindChildAtSlot(m_selectedIndex));
                 if (byIndex) {
-                    m_selectedId = byIndex->m_ident;
+                    m_chosenItemId = byIndex->m_ident;
                     SetSelectionTags();
                 } else {
                     m_selectedIndex = -1;
@@ -377,8 +377,8 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
         }
         if (refocus && m_focused) {
             MoveSelection(1, true, true);
-            if (m_selectedId)
-                SendFocus(m_selectedId, m_controller, -1);
+            if (m_chosenItemId)
+                SendFocus(m_chosenItemId, m_controller, -1);
         }
         Arrange();
         event->SetEventHandled(m_ident, 0);
@@ -400,7 +400,7 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
             }
             if (found != -1) {
                 m_selectedIndex = found;
-                m_selectedId = 1;
+                m_chosenItemId = 1;
             }
         }
         uint32_t childId;
@@ -409,7 +409,7 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
             item.AssignValue(mp_firstChild.m_ownerObject);
             for (int i = 0; item; ++i) {
                 if (childId == item->m_ident) {
-                    m_selectedId = childId;
+                    m_chosenItemId = childId;
                     m_selectedIndex = i;
                     break;
                 }
@@ -417,17 +417,17 @@ bool CMenuBase::PassEventToScript(GameObjects::CSignal* event)
             }
         }
         m_focused = true;
-        if (m_selectedId) {
+        if (m_chosenItemId) {
             MoveSelection(1, true, false);
-            if (m_selectedId)
-                Launch(kFocus, m_selectedId, event->m_payload);
+            if (m_chosenItemId)
+                Launch(kFocus, m_chosenItemId, event->m_payload);
         }
         event->SetEventHandled(m_ident, 0);
     }
     if (event->m_kindTag == kUnfocus && m_focused) {
         m_focused = false;
-        if (m_selectedId)
-            Launch(kUnfocus, m_selectedId, nullptr);
+        if (m_chosenItemId)
+            Launch(kUnfocus, m_chosenItemId, nullptr);
         event->SetEventHandled(m_ident, 0);
     }
     uint32_t type = event->m_kindTag;
@@ -483,7 +483,7 @@ bool CGroupWidget::PassEventToScript(GameObjects::CSignal* event)
 {
     void* manager = m_parkOwner;
     if (UsesPriorities(manager) && IsPriorityEvent(manager, event->m_kindTag)) {
-        if (!HasPriority() || !IsTopPriority(manager, m_ident))
+        if (!HasPriority() || !HasTopPrecedence(manager, m_ident))
             return false;
     }
     if (!GameObjects::CEntity::PassEventToScript(event))

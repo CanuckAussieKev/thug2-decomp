@@ -16,7 +16,7 @@
 
 namespace GameObjects {
 
-GameObjects::CProfileRoster* g_profileManager;
+GameObjects::CProfileRoster* g_profileRoster;
 uint32_t g_profileManagerReferences;
 
 namespace {
@@ -49,7 +49,7 @@ constexpr uint32_t kStats[] = {
 
 MemSys::Arena* ProfileHeap() { return MemSys::Hub::Pull()->m_skaterInfoHeap; }
 
-CProfileRoster*& Sole() { return g_profileManager; }
+CProfileRoster*& Sole() { return g_profileRoster; }
 uint32_t& RefTally() { return g_profileManagerReferences; }
 
 // A new profile (constructed: its defaults).
@@ -72,12 +72,12 @@ void CRiderIdentity::SetAppearance(Scripts::CStruct* appearance, bool update)
 // 0x00543010
 void CRiderIdentity::DestroyBody()
 {
-    InfoStructure()->Clear();
+    DetailsParams()->Clear();
     reinterpret_cast<Gfx2D::CModelLook*>(this)->DestroyBody();
 }
 void CRiderIdentity::EraseOne()
 {
-    InfoStructure()->Clear();
+    DetailsParams()->Clear();
     reinterpret_cast<Gfx2D::CModelLook*>(this)->DestroyBody();
     MemSys::Hub::Pull()->Dealloc(this);
 }
@@ -321,13 +321,13 @@ bool CProfileRoster::ReadCustomSkater(Scripts::CStruct* save, bool keepSavedStat
     for (int i = 0; i < 10; ++i)
         stats[i] = profile->FetchTally(kStats[i]);
     int maxSpecials = profile->GetMaxSpecials();
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* specials = memory ? memory->PrepareAll() : nullptr;
     specials->AppendStructureIfAny(profile->GetSpecials());
     Scripts::CStruct* info = nullptr;
     custom->ReadSubStruct(kInfo, &info, 0);
-    profile->InfoStructure()->Clear();
-    profile->InfoStructure()->AppendStructureIfAny(info);
+    profile->DetailsParams()->Clear();
+    profile->DetailsParams()->AppendStructureIfAny(info);
     if (!keepSavedStats) {
         for (int i = 0; i < 10; ++i)
             profile->SetAbilityLevel(kStats[i], stats[i]);

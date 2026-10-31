@@ -25,7 +25,7 @@ constexpr float kAxisDominance = 5.8284001f; // 0x0064F7AC: tan(67.5 degrees) sq
 constexpr float kSlideStep = 0.15f;        // 0x0064F63C: of m_moveTime per frame
 constexpr float kTurnStep = 15.0f;         // 0x0064F640: degrees per frame
 constexpr float kShowInset = 1.5f;         // 0x00646744
-constexpr int kMaxClipboards = 6;
+constexpr int kClipboardLimit = 6;
 
 // The pooled clipboards (ClipboardPools, park_memory.h - 0x007CE5B4): new from the current pool or the heap;
 // 0x005955C0 frees one.
@@ -54,7 +54,7 @@ int FreeRailPoints()
 }
 
 // The heap the park editor allocates from (0x0059E180).
-MemSys::MemSource* ParkEditorHeap() { return GetMainHeap(); }
+MemSys::MemSource* EditorArena() { return GetMainHeap(); }
 
 // Swap the box's w and l (a quarter turn).
 void SwapWidthAndLength(SCellBox& area)
@@ -120,7 +120,7 @@ void CBuildPointer::ShiftBy(int dx, int dz)
         SCellBox pos = metas.list->GetPlacedPiece()->m_cellFootprint;
         int half;
         if (SGapDetails* gap = m_parkOwner->GetGapInfo(&pos, &half)) {
-            if (m_gap.m_numCompleteHalves != 1)
+            if (m_gap.m_halvesPlaced != 1)
                 m_gap = *gap;
             mode = kModeGapAdjust;
         }
@@ -129,7 +129,7 @@ void CBuildPointer::ShiftBy(int dx, int dz)
         m_modeSel = mode;
         OnModeChanged();
     }
-    if (m_gap.m_numCompleteHalves > 0) {
+    if (m_gap.m_halvesPlaced > 0) {
         m_parkOwner->HighlightGapPieces(1, &m_gap);
     } else {
         CParkLayout* manager = m_parkOwner;
@@ -239,7 +239,7 @@ void CBuildPointer::DropAreaMarquee()
     SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
     GetMarqueeBounds(&area);
     m_parkOwner->HighlightMetasWithinArea(area, 0);
-    m_areaSelect = 0;
+    m_boxSelectStage = 0;
     m_areaHighlighted = false;
 }
 
@@ -276,7 +276,7 @@ bool CBuildPointer::CopyAreaToClipboard()
     int count = 0;
     for (CClipboard* clipboard = m_copyBuffers; clipboard; clipboard = clipboard->m_following)
         ++count;
-    if (count == kMaxClipboards)
+    if (count == kClipboardLimit)
         RemoveOldestClipboard();
 
     auto* memory = static_cast<CClipboard*>(ClipboardPools().Carve(sizeof(CClipboard)));
@@ -311,7 +311,7 @@ bool CBuildPointer::CopyAreaToClipboard()
 // 0x0059A8D0
 void CBuildPointer::UpdateAreaSelectionHighlight()
 {
-    if (m_areaSelect != 1)
+    if (m_boxSelectStage != 1)
         return;
     SCellBox area = SCellBox::Make(0, 0, 0, 0, 0, 0);
     if (!m_areaHighlighted) {
@@ -361,7 +361,7 @@ void CBuildPointer::SwitchToClipboard()
         }
         m_menuIndex = menuIndex;
         if (m_parkOwner->m_sets[i].m_isClipboard) {
-            m_clipboardSet = i;
+            m_pasteSetIndex = i;
             set = &m_parkOwner->m_sets[i];
             break;
         }
@@ -409,7 +409,7 @@ void CBuildPointer::ChangePiece(uint32_t checksum)
         return;
     }
     int mode = kModeRegular;
-    if (flags & CPieceGroup::kAreaSelect)
+    if (flags & CPieceGroup::kMarqueeTool)
         mode = kModeAreaSelect;
     else if (flags & CPieceGroup::kRailPlacement)
         mode = kModeRailPlacement;
@@ -433,14 +433,14 @@ CBuildPointer* CBuildPointer::MakeNew()
     m_areaStart = SCellBox::Make(0, 0, 0, 0, 0, 0);
     m_areaLast = SCellBox::Make(0, 0, 0, 0, 0, 0);
     m_gap.MakeNew();
-    m_areaSelect = 0;
+    m_boxSelectStage = 0;
     m_areaHighlighted = false;
     m_copyBuffers = nullptr;
     mp_clipboard = nullptr;
     m_moveTime = 1.0f;
-    m_clipboardSet = 0;
+    m_pasteSetIndex = 0;
     m_menuIndex = 0;
-    m_gap.m_numCompleteHalves = 0;
+    m_gap.m_halvesPlaced = 0;
     m_gap.m_cancelFlags = 0;
     m_modeSel = kModeNone;
     m_parkOwner = CParkLayout::Sole();
@@ -456,7 +456,7 @@ void CBuildPointer::SpawnOccurrence()
     if (Sole())
         return;
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    manager->EnterHeapScope(ParkEditorHeap());
+    manager->EnterHeapScope(EditorArena());
     void* memory = MemSys::Alloc(sizeof(CBuildPointer));
     Sole() = memory ? static_cast<CBuildPointer*>(memory)->MakeNew() : nullptr;
     MemSys::Hub::Pull()->LeaveHeapScope();

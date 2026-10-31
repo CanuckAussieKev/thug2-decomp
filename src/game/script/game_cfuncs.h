@@ -65,7 +65,7 @@ bool __cdecl CFunc_AddFacesToMenu(Scripts::CStruct* params, Scripts::CScript* sc
 
 // 0x0059F820: the second controller check's task (SpawnSecondControllerCheck): runs the script 0x07C28B45 when
 // both controllers are plugged in, else 0x9C9DFCF8 - every frame while the task is on.
-void __cdecl SecondControllerCheckTask(void* task);
+void __cdecl SecondPadWatchTick(void* task);
 // 0x0059F890: make the camera of the object `id` (its 0xC4E311FA component) the camera of `viewport`; with
 // `takeCurrentView`, the object first moves to where the viewport's camera is now (and the component is told).
 // False if there's no such object.

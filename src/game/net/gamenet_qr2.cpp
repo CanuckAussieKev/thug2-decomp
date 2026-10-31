@@ -74,8 +74,8 @@ constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 void BufferAdd(void* buffer, const char* text) { GameSpy::Qr2BufferAdd(buffer, text); }
 void BufferAddInt(void* buffer, int value) { GameSpy::Qr2BufferAddInt(buffer, value); }
 
-Hub* NetManager() { return g_gameNetManager; }
-OptionStore::Preferences* NetworkPreferences(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_networkPreferences); }
+Hub* NetSessionSlot() { return g_onlineHub; }
+OptionStore::Preferences* NetGameOptions(Hub* m) { return reinterpret_cast<OptionStore::Preferences*>(m->m_netOptions); }
 
 char g_fallbackMapName[128]{"Boston"};
 
@@ -89,11 +89,11 @@ int g_lobbyGroupId;
 // 0x0053B9C0
 void __cdecl ServerKeyCallback(int key, void* buffer, void*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        NetworkPreferences(manager)->FetchSetting(kServerName)->FetchText("ui_string", &text, 0);
+        NetGameOptions(manager)->FetchSetting(kServerName)->FetchText("ui_string", &text, 0);
         BufferAdd(buffer, text);
         return;
     }
@@ -146,7 +146,7 @@ void __cdecl ServerKeyCallback(int key, void* buffer, void*)
 // 0x0053BBC0
 void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     if (index >= manager->CountPlayers()) {
         BufferAdd(buffer, "");
         return;
@@ -154,10 +154,10 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
     // QUIRK kept: the original never counts `index` down - only player 0 is found; for the others the walk runs off
     // the end and they're reported empty.
     PlayerSearch search;
-    uint8_t* player = FirstPlayer(manager, &search, false);
+    uint8_t* player = StartRosterSweep(manager, &search, false);
     if (index != 0)
         while (player)
-            player = NextPlayer(manager, &search, false);
+            player = StepRosterSweep(manager, &search, false);
     if (!player) {
         BufferAdd(buffer, "");
         return;
@@ -168,7 +168,7 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
         return;
     case kKeyPing: {
         NetLink::Conn* conn = Prop<NetLink::Conn*>(player, 0x18);
-        BufferAddInt(buffer, conn->IsHostLocal() ? 0 : conn->m_latencyTest.m_averageLatency);
+        BufferAddInt(buffer, conn->IsHostLocal() ? 0 : conn->m_pingProbe.m_averageLatency);
         return;
     }
     case kKeyTeam:
@@ -184,9 +184,9 @@ void __cdecl PlayerKeyCallback(int key, int index, void* buffer, void*)
 int __cdecl CountCallback(int type, void*)
 {
     if (type == kKeyTypePlayer)
-        return NetManager()->CountPlayers();
+        return NetSessionSlot()->CountPlayers();
     if (type == kKeyTypeTeam)
-        return NetManager()->GetNumTeams();
+        return NetSessionSlot()->GetNumTeams();
     return 0;
 }
 
@@ -195,7 +195,7 @@ void __cdecl StartQueryReporting(bool keepMapName)
 {
     if (!keepMapName) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        NetworkPreferences(NetManager())->FetchSetting(kLevel)->FetchText("ui_string", &text, 0);
+        NetGameOptions(NetSessionSlot())->FetchSetting(kLevel)->FetchText("ui_string", &text, 0);
         std::strcpy(FallbackMapName(), text);
     }
     bool& reporting = g_queryReporting;

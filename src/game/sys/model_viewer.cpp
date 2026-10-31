@@ -79,7 +79,7 @@ void ShutDownObject(void* object) { static_cast<GameObjects::CPreviewEntity*>(ob
 void LaunchScript(uint32_t name) { Scripts::LaunchScript(name, nullptr, nullptr, false, nullptr); }
 
 // More names.
-constexpr uint32_t kViewerController = 0x702247A5;       // the controller the handlers read (a script integer)
+constexpr uint32_t kViewerPadKey = 0x702247A5;       // the controller the handlers read (a script integer)
 constexpr uint32_t kViewerCam = 0xEB17151B;              // viewer_cam (the camera object's id)
 constexpr uint32_t kResetCameraToViewerObject = 0xC965E06F;
 constexpr uint32_t kNoRoll = 0xD8C91578;                 // (a script integer: the roll commands ignored)
@@ -100,9 +100,9 @@ FrameLoop::Hub* MainLoopManager() { return AssetStore::g_mainLoopManager; }
 void ConstructNode(void* node, int priority) { static_cast<TaskList::SchedulerTask*>(node)->MakeNew(priority); }
 void AppendVertex(TaskList::PileUp& list, void* node) { list.QueueJob(static_cast<TaskList::SchedulerTask*>(node)); }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -201,7 +201,7 @@ void Viewer::StopCallback()
         EraseOne(m_entity, 0);
         m_entity = nullptr;
     }
-    RemoveNode(m_inputHandler);
+    RemoveNode(m_padListener);
     RemoveNode(m_task1C);
     RemoveNode(m_task20);
     RemoveNode(m_shiftHandler);
@@ -215,8 +215,8 @@ void Viewer::DestroyBody()
     if (m_netHandler)
         EraseOne(m_netHandler, 0);
     // (the handlers' and tasks' scalar deleting destructors are their vtables' slot 2)
-    if (m_inputHandler)
-        EraseOne(m_inputHandler, 2);
+    if (m_padListener)
+        EraseOne(m_padListener, 2);
     if (m_task1C)
         EraseOne(m_task1C, 2);
     if (m_task20)
@@ -411,7 +411,7 @@ void __cdecl SelectComboTask(ViewerTask* task)
 int __cdecl HandleAddToScene(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->AppendWord(kScene, Scripts::QBVAL_STRING, message);
     params->AppendWord(kAdd, Scripts::QBVAL_STRING, message + 0x80);
     Scripts::LaunchScript(kAddToScene, params, nullptr, false, nullptr);
@@ -423,7 +423,7 @@ int __cdecl HandleAddToScene(NetLink::InboundMsgCtx* context)
 int __cdecl HandleCreateViewerObject(NetLink::InboundMsgCtx* context)
 {
     auto* viewer = reinterpret_cast<Viewer*>(context->m_body); // (sic: see model_viewer.h)
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     const char* message = context->m_body;
     params->AppendWord(kModelName, message);
     params->PutNameKey(kSkeletonName, *reinterpret_cast<const uint32_t*>(message + 0x84));
@@ -433,11 +433,11 @@ int __cdecl HandleCreateViewerObject(NetLink::InboundMsgCtx* context)
 }
 
 // 0x00577670
-int __cdecl HandleRunScript(NetLink::InboundMsgCtx* context)
+int __cdecl OnRemoteScriptMsg(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
     uint32_t name = *reinterpret_cast<const uint32_t*>(message);
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     Scripts::DecodeFromBytes(params, reinterpret_cast<const uint8_t*>(message + 4)); // the script reader
     Scripts::LaunchScript(name, params, nullptr, false, nullptr);
     DeleteStructure(params);
@@ -449,7 +449,7 @@ bool Viewer::PlaceCamera(Scripts::CStruct* params)
 {
     if (!Scripts::FetchIntValue(kResetCameraToViewerObject))
         return true;
-    auto* camera = static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(kViewerCam));
+    auto* camera = static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(kViewerCam));
     if (!camera)
         return true;
     Maths::Mat4 identity;
@@ -491,7 +491,7 @@ void __cdecl FreeCameraTask(ViewerTask* task)
     viewer->m_padLY = DeadZone(viewer->m_padLY);
     viewer->m_padLX = DeadZone(viewer->m_padLX);
 
-    auto* camera = static_cast<GameObjects::CGameEntity*>(GameObjects::CompositeObjectManager()->LookUpEntity(kViewerCam));
+    auto* camera = static_cast<GameObjects::CGameEntity*>(GameObjects::ObjectHubSlot()->LookUpEntity(kViewerCam));
     constexpr float kDegrees = 0.017453292f; // 0x00645464 (pi / 180)
     if (camera) {
         if (viewer->m_modeSel == 0) {
@@ -548,7 +548,7 @@ void __cdecl FreeCameraTask(ViewerTask* task)
 int __cdecl HandleReloadScene(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->AppendWord(kScene, Scripts::QBVAL_STRING, message);
     Scripts::LaunchScript(kReloadScene, params, nullptr, false, nullptr);
     DeleteStructure(params);
@@ -568,10 +568,10 @@ void Viewer::StartCallback()
         dispatcher.AppendListener(0x2A, &HandleAddToScene, 3, nullptr, 0x80);
         dispatcher.AppendListener(0x23, &HandleCreateViewerObject, 3, this, 0x80);
         dispatcher.AppendListener(0x24, reinterpret_cast<NetLink::HandlerSlotValue>(&HandleRemoveViewerObject), 3, this, 0x80);
-        dispatcher.AppendListener(0x2B, &HandleRunScript, 3, this, 0x80);
+        dispatcher.AppendListener(0x2B, &OnRemoteScriptMsg, 3, this, 0x80);
     }
     AppendVertex(MainLoopManager()->m_logicTasks, m_task1C);
-    AddInputHandler(m_inputHandler);
+    AddInputHandler(m_padListener);
     DebugOut::Printf("Adding shift input handlers\n)");
     AddInputHandler(m_shiftHandler);
     AppendVertex(MainLoopManager()->m_logicTasks, m_task20);
@@ -592,7 +592,7 @@ Viewer* Viewer::MakeNew()
         int address = static_cast<int>(inet_addr(net->FetchOwnAddress()));
         m_netHandler = net->MakeServerApp(0, "THUG2 Viewer", 4, 10000, address, 0x10);
     }
-    int controller = Scripts::FetchIntValue(kViewerController);
+    int controller = Scripts::FetchIntValue(kViewerPadKey);
 
     auto* freeCamera = static_cast<ViewerTask*>(MemSys::AllocZeroed(sizeof(ViewerTask)));
     if (freeCamera) {
@@ -610,7 +610,7 @@ Viewer* Viewer::MakeNew()
         input->m_codeValue = &HandleViewerInput;
         input->m_content = this;
     }
-    m_inputHandler = input;
+    m_padListener = input;
     SetMovementVelocity(400.0f);
     SetRotateVelocity(120.0f);
     DebugOut::Printf("Creating shift input handlers\n)");

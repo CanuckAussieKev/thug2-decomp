@@ -16,7 +16,7 @@ class CStruct;
 namespace MenuSystem {
 
 // 0x0041E2A0: the screen element manager (the singleton 0x00701440).
-CUiTree* __cdecl GetScreenElementManager();
+CUiTree* __cdecl FetchUiTree();
 
 } // namespace Front
 

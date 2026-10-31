@@ -64,7 +64,7 @@ constexpr uint32_t kRailGravity = 0xD1F46992;         // (a physics float: the r
 constexpr uint32_t kRailCornerLeaveAngle = 0x76C1DA15; // (the angle a rail may turn and still be followed)
 constexpr uint32_t kRailActive = 0x4;                 // CGrindPoint::m_flagBits
 constexpr float kRailEndSlack = 0.1f;                 // 0x00645D74: past a segment's end by more than this
-constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
@@ -72,12 +72,12 @@ constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
 constexpr uint32_t kFrameSize = 0x84;
 uint8_t* HistoryFrame(uint8_t* history, int index) { return history + 0x1C + index * kFrameSize; }
 uint32_t FrameTime(uint8_t* frame) { return reinterpret_cast<SkaterStateHistoryFrame*>(frame)->GetTime(); }
-Maths::Mat4& FrameMatrix(uint8_t* frame) { return Prop<Maths::Mat4>(frame, 0x08); }
+Maths::Mat4& SnapshotOrientation(uint8_t* frame) { return Prop<Maths::Mat4>(frame, 0x08); }
 Maths::Vec4& FramePosition(uint8_t* frame) { return Prop<Maths::Vec4>(frame, 0x48); }
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 // The network manager's client app: +8 its frame count.
-uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetManager()->FetchPatron(0)); }
+uint8_t* ClientApp() { return reinterpret_cast<uint8_t*>(NetSessionSlot()->FetchPatron(0)); }
 int FrameRate() { return GameConfig::g_frameRate; }
 int Now() { return FrameClock::GameClockElapsed() + g_clockOffset; }
 // The level's rails (the skate module's +0x24).
@@ -89,10 +89,10 @@ CGrindRailHub* LevelRails() { return Prop<CGrindRailHub*>(reinterpret_cast<uint8
 // left out: it never is.)
 float ConnectionLag(uint8_t* app, CGameEntity* skater, int frameMs)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     NetLink::Conn* conn;
     if (net->OnServer()) {
-        uint8_t* player = net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident));
+        uint8_t* player = net->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident));
         conn = Prop<NetLink::Conn*>(player, 0x18);
     } else {
         NetLink::ConnSearch search;
@@ -100,7 +100,7 @@ float ConnectionLag(uint8_t* app, CGameEntity* skater, int frameMs)
         search.m_listLink = nullptr;
         conn = reinterpret_cast<NetLink::AppHost*>(app)->BeginConnWalk(&search);
     }
-    int latency = conn->IsHostLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
+    int latency = conn->IsHostLocal() ? 0 : conn->m_pingProbe.m_averageLatency;
     if (frameMs == 0)
         return 0.0f;
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frameMs)) /
@@ -124,8 +124,8 @@ void CRiderRemoteSync::Interpolate()
         uint8_t* frame = HistoryFrame(m_pastFrames, newest);
         m_playIdx = newest;
         m_syncTime = static_cast<int>(FrameTime(frame) - delay);
-        skater->m_basisFrame = FrameMatrix(frame);
-        Prop<Maths::Mat4>(skater, 0xC0) = FrameMatrix(frame);
+        skater->m_basisFrame = SnapshotOrientation(frame);
+        Prop<Maths::Mat4>(skater, 0xC0) = SnapshotOrientation(frame);
         skater->m_atPoint = FramePosition(frame);
         skater->MarkJumpedAhead(true);
         skater->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -133,13 +133,13 @@ void CRiderRemoteSync::Interpolate()
             return;
         skater->ShowSkater();
         Scripts::LaunchScript(kSkaterAppeared, nullptr, skater, false, nullptr);
-        NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)); // (its result unused)
+        NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident)); // (its result unused)
         UpdateGroundLighting();
         return;
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetManager()->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident)));
+    auto* player = reinterpret_cast<OnlinePlay::PlayerRecord*>(NetSessionSlot()->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident)));
     if (!player->HasFinishedJoining())
         player->SetFinishedJoining();
     int count = Prop<int>(m_pastFrames, 0x18);
@@ -183,10 +183,10 @@ void CRiderRemoteSync::Interpolate()
     double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
                               static_cast<double>(turn.y) * turn.y);
     if (turned > kTurnSnap) {
-        skater->m_basisFrame = FrameMatrix(from);
-        Prop<Maths::Mat4>(skater, 0xC0) = FrameMatrix(from);
+        skater->m_basisFrame = SnapshotOrientation(from);
+        Prop<Maths::Mat4>(skater, 0xC0) = SnapshotOrientation(from);
     } else {
-        Maths::Mat4 start = FrameMatrix(from), end = FrameMatrix(to), between;
+        Maths::Mat4 start = SnapshotOrientation(from), end = SnapshotOrientation(to), between;
         Maths::ArcRotationBlender slerp(start, end);
         slerp.FetchMat(between, t);
         skater->m_basisFrame = between;
@@ -251,7 +251,7 @@ void CRiderRemoteSync::Interpolate()
 // 0x00515360
 void CRiderRemoteSync::Extrapolate()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     uint8_t* app = ClientApp();
     int frameMs = static_cast<int>(static_cast<double>(m_frameSeconds) * kMsPerSecond);
     float lag = ConnectionLag(app, m_entity, frameMs);
@@ -325,7 +325,7 @@ void CRiderRemoteSync::Extrapolate()
     feeler.ChangeStrand(&from, &to);
     feeler.SetExcluded(0x10, 0);
     if (feeler.GetHitShape(true, false))
-        BounceOffWall(&feeler.m_surfaceDir, &feeler.m_contactPos);
+        DeflectFromWall(&feeler.m_surfaceDir, &feeler.m_contactPos);
 }
 
 // 0x00516640
@@ -391,7 +391,7 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
         float cosine = static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
                                           static_cast<double>(there.x) * here.x);
         double limit = Skater::X87Cos(static_cast<double>(ReadTuningFloat(kRailCornerLeaveAngle, 1, skater)) *
-                                      kDegreesToRadians);
+                                      kRadiansPerDegree);
         if (limit > cosine)
             stopped = true;
     }
@@ -475,7 +475,7 @@ CGrindPoint* CRiderRemoteSync::MoveAlongRail(CGrindPoint* node, float seconds)
 void CRiderRemoteSync::ExtrapolateOnRail()
 {
     CGrindRailHub* rails = LevelRails();
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     uint8_t* app = ClientApp();
     int frameMs = static_cast<int>(static_cast<double>(m_frameSeconds) * kMsPerSecond);
     float lag = ConnectionLag(app, m_entity, frameMs);
@@ -552,7 +552,7 @@ void CRiderRemoteSync::PlayHistoryEvents()
                 break;
             case 0x2A: // the board rotated (the byte passed as it was sent)
                 static_cast<CRiderSpinAndFlip*>(m_flipAndRotate)
-                    ->SetBoardRotated(static_cast<uint32_t>(Prop<int8_t>(m, 0x01)), Prop<bool>(m, 0x09), 0, false);
+                    ->ApplyBoardTurned(static_cast<uint32_t>(Prop<int8_t>(m, 0x01)), Prop<bool>(m, 0x09), 0, false);
                 break;
             case 0x2B:
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
@@ -572,7 +572,7 @@ void CRiderRemoteSync::PlayHistoryEvents()
             }
             case 0x3D:
                 if (Gfx2D::CBlendChannel* channel = blender->FindChannel(0))
-                    channel->SetLoopType(Prop<int8_t>(m, 0x02), false);
+                    channel->ChangeRepeatMode(Prop<int8_t>(m, 0x02), false);
                 break;
             case 0x3E:
                 reinterpret_cast<CMeshInstanceModule*>(m_meshSet)->ConcealMesh(Prop<uint32_t>(m, 0x20),
@@ -598,7 +598,7 @@ void CRiderRemoteSync::PlayHistoryEvents()
                 auto* items = static_cast<CPickupItemHandler*>(m_entity->FetchModule(CPickupItemHandler::kType));
                 Scripts::CStruct* structure = Scripts::ReadSubStruct(Prop<uint32_t>(m, 0x20)); // (the original also passes 1)
                 CGameEntity* item = items->CreateItem(Prop<int>(m, 0x44), structure);
-                Scripts::CStruct* params = Scripts::NewStruct();
+                Scripts::CStruct* params = Scripts::SpawnParamBag();
                 if (params)
                     params = params->PrepareAll();
                 params->PutNameKey(kItemName, Prop<uint32_t>(m, 0x24));

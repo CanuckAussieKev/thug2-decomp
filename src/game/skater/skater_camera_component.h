@@ -77,12 +77,12 @@ public:
     void ApplyShake(Maths::Vec4* position, const Maths::Mat4* orientation);
     // 0x004FA020 (RET 8): the point followed: the skater's position (at once with `instant` or when the state's +0xA0
     // says so), else eased toward it - across at m_lerpXZ (in vert air m_vertAirLerpXZ), up at m_lerpY
-    // (m_vertAirLerpY; at once when the state's +0x98), both scaled by m_rateScale (rising back to 1 over m_rateTime
+    // (m_halfpipeUpBlend; at once when the state's +0x98), both scaled by m_rateScale (rising back to 1 over m_rateTime
     // seconds at m_rateRise). Into `out`.
     void FetchGoal(Maths::Vec4* out, bool instant);
     // 0x004FA230 (RET 8): the height above the skater (m_above, on a lip m_lipTrickAbove, from 3 while zoomed in) and
-    // the distance behind (m_behind x the zoom, which eases at m_zoomLerp toward 1 - in vert air m_bigAirTrickZoom, on
-    // a rail m_grindZoom, on a lip m_lipTrickZoom - times the look-around's zoom; nearer as the look-around tilts
+    // the distance behind (m_behind x the zoom, which eases at m_zoomEaseRate toward 1 - in vert air m_bigAirTrickZoom, on
+    // a rail m_railZoomFactor, on a lip m_lipTrickZoom - times the look-around's zoom; nearer as the look-around tilts
     // down). Nothing without a skater.
     void GetZoomedOffsets(float* height, float* distance);
 
@@ -106,7 +106,7 @@ public:
     float m_lerpXZ;                  // +0xE4 lerp_xz
     float m_lerpY;                   // +0xE8 lerp_y
     float m_vertAirLerpXZ;           // +0xEC vert_air_lerp_xz
-    float m_vertAirLerpY;            // +0xF0 vert_air_lerp_y
+    float m_halfpipeUpBlend;            // +0xF0 vert_air_lerp_y
     float m_lookRate;                // +0xF4 the roll's ease (the mode's 0xBEF0D195; name not recovered)
     float m_rateTime;                // +0xF8 seconds left of the rates' rise back to 1
     float m_rateRise;                // +0xFC
@@ -115,9 +115,9 @@ public:
     uint8_t pad105[3];
     float m_zoom;                    // +0x108 the zoom now
     float m_zoomTarget;              // +0x10C
-    float m_zoomLerp;                // +0x110 zoom_lerp
+    float m_zoomEaseRate;                // +0x110 zoom_lerp
     float m_bigAirTrickZoom;         // +0x114 big_air_trick_zoom (in vert air)
-    float m_grindZoom;               // +0x118 grind_zoom
+    float m_railZoomFactor;               // +0x118 grind_zoom
     float m_lipTrickZoom;            // +0x11C lip_trick_zoom
     int m_lipState;                  // +0x120 0 none, 1 looking along the lip, 2 blocked: the other way
     float m_wallrideOffsetAngle;     // +0x124 wallride_offset_angle
@@ -137,7 +137,7 @@ public:
     float m_shakeAmpY;               // +0x15C
     float m_shakeRateX;              // +0x160 rates
     float m_shakeRateY;              // +0x164
-    CFreeLookModule* mp_lookAround; // +0x168
+    CFreeLookModule* m_freeLookModule; // +0x168
     Maths::ArcRotationBlender* m_arcBlender; // +0x16C
     CGameEntity* m_riderRef;     // +0x170
     uint8_t* mp_state;               // +0x174 the skater's SkaterState (+0x18 the state, flags as bytes)
@@ -155,7 +155,7 @@ static_assert(offsetof(CRiderChaseView, m_modeSel) == 0x24 && offsetof(CRiderCha
                   offsetof(CRiderChaseView, m_leanAngle) == 0x12C &&
                   offsetof(CRiderChaseView, m_slerp) == 0x140 &&
                   offsetof(CRiderChaseView, m_shakeLeft) == 0x150 &&
-                  offsetof(CRiderChaseView, mp_lookAround) == 0x168 &&
+                  offsetof(CRiderChaseView, m_freeLookModule) == 0x168 &&
                   offsetof(CRiderChaseView, m_arcBlender) == 0x16C &&
                   offsetof(CRiderChaseView, mp_control) == 0x178 && sizeof(CRiderChaseView) == 0x17C,
               "layout must match the original");

@@ -27,7 +27,7 @@ namespace {
 
 extern void** const kManagerVtable;
 extern void** const kHeadVtable;
-void** const& kNodeVtable = Vt::kParticleNode; // (ListKit::Elem<CParticleSystem>'s own)
+void** const& kNodeVtable = Vt::kParticleNode; // (ListKit::Elem<CEmitterInstance>'s own)
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
 const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
@@ -36,7 +36,7 @@ constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
 float& FrameTimeScale() { return g_frameTimeScale; }
-bool IsGameHalted() { return GameObjects::g_gamePaused; }
+bool IsGameHalted() { return GameObjects::g_simulationHalted; }
 int DrawnViewport() { return g_drawnViewport; }
 
 // A virtual scalar deleting destructor (slot 0) with flags 1.
@@ -47,14 +47,14 @@ void DeleteVirtual(void* object)
 }
 
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
-CParticleSystem* SystemOf(MemSys::ListNode* node)
+CEmitterInstance* SystemOf(MemSys::ListNode* node)
 {
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return nullptr;
-    return reinterpret_cast<CParticleSystem*>(reinterpret_cast<uint8_t*>(node) - offsetof(CParticleSystem, m_listLink));
+    return reinterpret_cast<CEmitterInstance*>(reinterpret_cast<uint8_t*>(node) - offsetof(CEmitterInstance, m_listLink));
 }
-CParticleSystem* FirstSystem(MemSys::ListNode* head) { return head ? SystemOf(head->next) : nullptr; }
-CParticleSystem* NextSystem(CParticleSystem* system) { return SystemOf(system->m_listLink.next); }
+CEmitterInstance* FirstSystem(MemSys::ListNode* head) { return head ? SystemOf(head->next) : nullptr; }
+CEmitterInstance* NextSystem(CEmitterInstance* system) { return SystemOf(system->m_listLink.next); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -142,8 +142,8 @@ int __cdecl CFlexibleParticleManager::CompareDistance(const void* a, const void*
 {
     auto* camera = FetchLiveCamera(DrawnViewport());
     const Maths::Vec4& at = *camera->FetchLocation();
-    const CParticleSystem* first = *static_cast<CParticleSystem* const*>(a);
-    const CParticleSystem* second = *static_cast<CParticleSystem* const*>(b);
+    const CEmitterInstance* first = *static_cast<CEmitterInstance* const*>(a);
+    const CEmitterInstance* second = *static_cast<CEmitterInstance* const*>(b);
     // (the original keeps some differences as floats and others at 53 bits)
     float x1 = static_cast<float>(static_cast<double>(first->m_atPoint.x) - at.x);
     float y1 = static_cast<float>(static_cast<double>(first->m_atPoint.y) - at.y);
@@ -162,9 +162,9 @@ int __cdecl CFlexibleParticleManager::CompareDistance(const void* a, const void*
 // 0x0049AB50
 void CFlexibleParticleManager::RenderSystems(bool force)
 {
-    CParticleSystem* systems[256] = {};
+    CEmitterInstance* systems[256] = {};
     int count = 0;
-    for (CParticleSystem* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
+    for (CEmitterInstance* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
         if (system->m_wantsTime)
             systems[count++] = system; // (no bound, as the original)
     }
@@ -178,9 +178,9 @@ void CFlexibleParticleManager::RenderSystems(bool force)
 }
 
 // 0x0049AC20
-CParticleSystem* CFlexibleParticleManager::FindSystem(uint32_t name)
+CEmitterInstance* CFlexibleParticleManager::FindSystem(uint32_t name)
 {
-    for (CParticleSystem* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
+    for (CEmitterInstance* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
         if (system->m_label == name)
             return system;
     }
@@ -188,13 +188,13 @@ CParticleSystem* CFlexibleParticleManager::FindSystem(uint32_t name)
 }
 
 // 0x0049AC60
-CParticleSystem* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams,
+CEmitterInstance* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32_t type, int particleCap, int maxStreams,
                                                         uint32_t texture, uint32_t blendMode, int fixedAlpha,
                                                         int segments, float unknown, int history, int perm,
                                                         bool useLevelColour, const char* model)
 {
     MemSys::Hub::Pull()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(mp_tempHeap ? mp_tempHeap : m_arena));
-    auto* system = static_cast<CParticleSystem*>(CreateFlexibleParticles(
+    auto* system = static_cast<CEmitterInstance*>(CreateFlexibleParticles(
         name, type, particleCap, maxStreams, texture, blendMode, fixedAlpha, segments, unknown, history, model));
     MemSys::Hub::Pull()->LeaveHeapScope();
     if (!system)
@@ -221,7 +221,7 @@ CParticleSystem* CFlexibleParticleManager::StartSubsystem(uint32_t name, uint32_
 }
 
 // 0x0049AD60
-void CFlexibleParticleManager::RemoveSystem(CParticleSystem* system)
+void CFlexibleParticleManager::RemoveSystem(CEmitterInstance* system)
 {
     if (!system)
         return;
@@ -235,14 +235,14 @@ void CFlexibleParticleManager::RemoveSystem(CParticleSystem* system)
 // 0x0049AD90
 void CFlexibleParticleManager::DestroySystemNow(uint32_t name)
 {
-    if (CParticleSystem* system = FindSystem(name))
+    if (CEmitterInstance* system = FindSystem(name))
         DeleteVirtual(system);
 }
 
 // 0x0049ADB0
 void CFlexibleParticleManager::DestroySystemWhenEmpty(uint32_t name)
 {
-    if (CParticleSystem* system = FindSystem(name)) {
+    if (CEmitterInstance* system = FindSystem(name)) {
         system->m_fadingOut = true;
         system->m_flagBits |= 1u;
     }
@@ -251,9 +251,9 @@ void CFlexibleParticleManager::DestroySystemWhenEmpty(uint32_t name)
 // 0x0049ADE0
 void CFlexibleParticleManager::DestroyGroup(uint32_t group)
 {
-    CParticleSystem* system = FirstSystem(mp_systems);
+    CEmitterInstance* system = FirstSystem(mp_systems);
     while (system) {
-        CParticleSystem* next = NextSystem(system);
+        CEmitterInstance* next = NextSystem(system);
         if (system->m_groupId == group)
             DeleteVirtual(system);
         system = next;
@@ -263,9 +263,9 @@ void CFlexibleParticleManager::DestroyGroup(uint32_t group)
 // 0x0049AE30
 void CFlexibleParticleManager::DestroyNonPersistent()
 {
-    CParticleSystem* system = FirstSystem(mp_systems);
+    CEmitterInstance* system = FirstSystem(mp_systems);
     while (system) {
-        CParticleSystem* next = NextSystem(system);
+        CEmitterInstance* next = NextSystem(system);
         if (!system->unknown12E)
             DeleteVirtual(system);
         system = next;
@@ -277,7 +277,7 @@ void CFlexibleParticleManager::SetColourScale(const float* rgba)
 {
     if (!mp_systems)
         return;
-    for (CParticleSystem* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
+    for (CEmitterInstance* system = FirstSystem(mp_systems); system; system = NextSystem(system)) {
         if (system->m_flagBits & 0x10000u)
             system->SetColourScale(rgba);
     }

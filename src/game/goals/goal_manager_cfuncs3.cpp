@@ -37,7 +37,7 @@ constexpr uint32_t kSpecialFlag = 0xB394C01C;       // special
 constexpr uint32_t kCatNum = 0xA75B8581;            // cat_num
 constexpr uint32_t kUnassigned = 0xF60C9090;        // Unassigned
 constexpr uint32_t kParams = 0x7031F10C;            // params
-constexpr uint32_t kTrickChecksum = 0x4443A4DA;     // trick_checksum
+constexpr uint32_t kTrickNameKey = 0x4443A4DA;     // trick_checksum
 constexpr uint32_t kExtraTricks = 0x6E855102;       // ExtraTricks
 constexpr uint32_t kExtraTrickString = 0x3DAAF58B;  // extra_trick_string
 constexpr uint32_t kExtraTrickChecksum = 0xD0BCFC62; // (name unknown: the extra trick's checksum)
@@ -51,7 +51,7 @@ constexpr uint32_t kGoalEndOfRun = 0x54585419;      // Goal_EndOfRun
 constexpr uint32_t kEndOfRun = 0xE022C12C;          // EndOfRun
 constexpr uint32_t kNone = 0x806FFF30;              // none
 constexpr uint32_t kSuspend = 0xCE0CA665;           // suspend
-constexpr uint32_t kDifficultyLevel = 0x3671F748;   // difficulty_level
+constexpr uint32_t kSkillTier = 0x3671F748;   // difficulty_level
 constexpr uint32_t kStage = 0x5D82C486;             // (name unknown: AdvanceStage's stage)
 constexpr uint32_t kForce = 0x68977CD7;             // force
 constexpr uint32_t kSponsor = 0x7E73362B;           // sponsor
@@ -59,7 +59,7 @@ constexpr uint32_t kTeam = 0x3B1F59E0;              // Team
 constexpr uint32_t kNumTeamMembers = 0xEB8DD330;    // num_team_members
 constexpr uint32_t kPro = 0x944B2900;               // pro
 constexpr uint32_t kRemove = 0x977FE2CF;            // remove
-constexpr uint32_t kMarkUsed = 0x531FF702;          // mark_used
+constexpr uint32_t kFlagAsUsed = 0x531FF702;          // mark_used
 constexpr uint32_t kTeamName = 0x703D7582;          // team_name
 constexpr uint32_t kTempo = 0x8B4A1490;             // tempo
 constexpr uint32_t kBeatPattern = 0x407CCE70;       // beat_pattern
@@ -72,8 +72,8 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;      // reward_points
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
 CMatchRules* GameMode() { return g_gameMode; }
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+GameObjects::CProfileRoster* RosterHandle() { return GameObjects::g_profileRoster; }
 
 uint32_t GoalName(Scripts::CStruct* params)
 {
@@ -108,11 +108,11 @@ bool __cdecl CFunc_GoalManager_GetTrickFromKeyCombo(Scripts::CStruct* params, Sc
     if (params->HasEntryNamed(kProfile)) {
         uint32_t name;
         params->ReadHashValue(kProfile, &name, 1);
-        profile = ProfileManager()->GetTemplate(name);
+        profile = RosterHandle()->GetTemplate(name);
     } else {
         profile = SkateCalls::GetProfileFromParams(nullptr);
     }
-    Scripts::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
+    Scripts::CStruct* mapping = profile->FetchDetailsParams(kTrickMapping);
     if (!params->HasBareFlag(kSpecialFlag)) {
         int created;
         if (mapping->FetchIntValue(keyCombo, &created, 0)) {
@@ -127,7 +127,7 @@ bool __cdecl CFunc_GoalManager_GetTrickFromKeyCombo(Scripts::CStruct* params, Sc
         const char* name;
         trickParams->FetchText(kName, &name, 1);
         script->m_args->AppendWord(kTrickString, name);
-        script->m_args->PutNameKey(kTrickChecksum, trick);
+        script->m_args->PutNameKey(kTrickNameKey, trick);
         uint32_t extra = 0;
         if (!trickParams->ReadHashValue(kExtraTricks, &extra, 0)) {
             Scripts::CArray* extras;
@@ -163,9 +163,9 @@ bool __cdecl CFunc_GoalManager_GetTrickFromKeyCombo(Scripts::CStruct* params, Sc
             script->m_args->AppendWord(kTrickString, name);
         }
         if (special.flag)
-            script->m_args->PutInt(kTrickChecksum, static_cast<int>(special.trick));
+            script->m_args->PutInt(kTrickNameKey, static_cast<int>(special.trick));
         else
-            script->m_args->PutNameKey(kTrickChecksum, special.trick);
+            script->m_args->PutNameKey(kTrickNameKey, special.trick);
         script->m_args->PutInt(kCurrentIndex, i);
         return true;
     }
@@ -294,7 +294,7 @@ bool __cdecl CFunc_GoalManager_GetLastGoalId(Scripts::CStruct*, Scripts::CScript
 bool __cdecl CFunc_GoalManager_ClearTetrisTricks(Scripts::CStruct* params, Scripts::CScript*)
 {
     CGoalManager* manager = GetObjectiveBoard();
-    reinterpret_cast<CTetrisGoal*>(manager->m_goals.Pull(GoalName(params)))->ClearTricksAndMenu();
+    reinterpret_cast<CFallingTricksGoal*>(manager->m_goals.Pull(GoalName(params)))->ClearTricksAndMenu();
     return true;
 }
 
@@ -303,7 +303,7 @@ bool __cdecl CFunc_GoalManager_ClearTetrisTricks(Scripts::CStruct* params, Scrip
 // original's stack garbage.)
 bool __cdecl CFunc_GoalManager_AnnounceGoalStarted(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     CGoalManager* manager = GetObjectiveBoard();
     CObjective* goal = manager->m_goals.Pull(GoalName(params));
     if (goal->IsOnlineObjective() || goal->m_parents->m_objectiveKey)
@@ -348,7 +348,7 @@ bool __cdecl CFunc_GoalManager_SetShouldDeactivateOnExpire(Scripts::CStruct* par
     params->FetchIntValue(0u, &deactivate, 1);
     CGoalManager* manager = GetObjectiveBoard();
     bool on = deactivate != 0;
-    manager->m_goals.Pull(name)->SetDeactivateOnExpire(on);
+    manager->m_goals.Pull(name)->ChangeEndsOnTimeout(on);
     return true;
 }
 
@@ -405,7 +405,7 @@ bool __cdecl CFunc_GoalManager_GetDifficultyLevel(Scripts::CStruct*, Scripts::CS
     case 2: result = 2; break;
     default: result = 1; break;
     }
-    script->m_args->PutInt(kDifficultyLevel, result);
+    script->m_args->PutInt(kSkillTier, result);
     return true;
 }
 
@@ -492,7 +492,7 @@ bool __cdecl CFunc_GoalManager_SetTeamMember(Scripts::CStruct* params, Scripts::
     uint32_t pro;
     params->ReadHashValue(kPro, &pro, 1);
     bool remove = params->HasBareFlag(kRemove);
-    bool markUsed = params->HasBareFlag(kMarkUsed);
+    bool markUsed = params->HasBareFlag(kFlagAsUsed);
     if (remove)
         manager->m_team->EraseModule(pro);
     else

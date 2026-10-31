@@ -88,7 +88,7 @@ struct Text {
 } // namespace
 
 // 0x004DD7F0
-void __cdecl CreatePixelShaders()
+void __cdecl CompilePixelShaders()
 {
     bool& done = g_pixelShadersMade;
     if (done)

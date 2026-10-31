@@ -181,7 +181,7 @@ void TakeBaseline()
     double size = 0.0;
     g_base.main = g_base.script = 0.0;
     if (manager) {
-        RegionUse(manager->m_mainRegion, &size, &g_base.main);
+        RegionUse(manager->m_primaryZone, &size, &g_base.main);
         RegionUse(manager->m_scriptRegion, &size, &g_base.script);
     }
     for (int i = 0; i < kPoolCount; ++i) {
@@ -285,7 +285,7 @@ std::vector<Meter> Meters()
             m.where = "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
             meters.push_back(m);
         }
-        if (RegionUse(manager->m_mainRegion, &size, &used)) {
+        if (RegionUse(manager->m_primaryZone, &size, &used)) {
             Meter m;
             m.name = "Main memory";
             m.used = used;

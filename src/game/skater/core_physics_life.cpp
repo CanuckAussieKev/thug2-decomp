@@ -24,7 +24,7 @@ using namespace Physics;
 
 namespace {
 
-constexpr uint32_t kRollingFriction = 0x78F80EC4;   // Physics_Rolling_Friction
+constexpr uint32_t kCoastDrag = 0x78F80EC4;   // Physics_Rolling_Friction
 constexpr uint32_t kGetOffEvent = 0x5E27200A;       // (broadcast when the skater gets off its board; name not recovered)
 constexpr uint32_t kRailWaitName = 0xE4412EB7;      // (a script value: the rail wait, ms; name not recovered)
 constexpr uint32_t kTrackingName = 0x19FB78FA;      // (a script value: the tracking printout on; name not recovered)
@@ -71,8 +71,8 @@ constexpr uint32_t kSkitched = 0x364;
 constexpr uint32_t kAirStart = 0x380;
 constexpr uint32_t kAirEnd = 0x384;
 constexpr uint32_t kGetOffPending = 0x4F0;
-constexpr uint32_t kCollisionCache = 0x4F4;
-constexpr uint32_t kSoundComponent = 0x1514;       // (+0x18 the state, +0x1C the terrain, +0x1E sliding)
+constexpr uint32_t kContactMeshStore = 0x4F4;
+constexpr uint32_t kSfxModuleSlot = 0x1514;       // (+0x18 the state, +0x1C the terrain, +0x1E sliding)
 
 // The state component's (+0x1528) flags used here.
 constexpr uint32_t kFlagFlipped = 0x28;
@@ -88,7 +88,7 @@ GameObjects::CRiderPoseState* StateOf(void* component)
 {
     return At<GameObjects::CRiderPoseState*>(component, kTimedFlags);
 }
-uint8_t* SoundOf(void* component) { return At<uint8_t*>(component, kSoundComponent); }
+uint8_t* SoundOf(void* component) { return At<uint8_t*>(component, kSfxModuleSlot); }
 GameObjects::CMoveExecutor* TrickOf(void* component) { return At<GameObjects::CMoveExecutor*>(component, kSkaterComponent); }
 void ReleasePointer(void* component, uint32_t offset)
 {
@@ -108,7 +108,7 @@ void __cdecl TrackingPrint(int index, const Maths::Vec4* a, const Maths::Vec4* b
 }
 
 // 0x004FC3C0
-bool CorePhysicsComponent::ProjectileButtonPressed()
+bool SkaterPhysicsModule::ProjectileButtonPressed()
 {
     uint32_t button = Scripts::GetSymbolValue(kProjectileControl); // (the game's string)
     if (!TrickOf(this)->CheckReleasePress(button, false, true))
@@ -118,7 +118,7 @@ bool CorePhysicsComponent::ProjectileButtonPressed()
 }
 
 // 0x004FC440
-int CorePhysicsComponent::IsSidesSwapped()
+int SkaterPhysicsModule::IsSidesSwapped()
 {
     uint8_t flipped = At<uint8_t>(StateOf(this), kFlagFlipped);
     if (At<uint8_t>(ObjectOf(this), 0x110))
@@ -127,17 +127,17 @@ int CorePhysicsComponent::IsSidesSwapped()
 }
 
 // 0x004FC470
-void CorePhysicsComponent::SetSurfaceKind(uint32_t terrain)
+void SkaterPhysicsModule::SetSurfaceKind(uint32_t terrain)
 {
     StateOf(this)->SetSurfaceKind(static_cast<uint8_t>(terrain));
     SoundOf(this)[0x1C] = static_cast<uint8_t>(terrain);
 }
 
 // 0x004FC500
-void CorePhysicsComponent::DestroyBody()
+void SkaterPhysicsModule::DestroyBody()
 {
     At<void**>(this, 0) = g_corePhysicsVtable;
-    At<Engine3D::CHitMeshCache>(this, kCollisionCache).Destruct();
+    At<Engine3D::CHitMeshCache>(this, kContactMeshStore).Destruct();
     ReleasePointer(this, kSkitched);
     ReleasePointer(this, kGroundFeelerObject);
     ReleasePointer(this, kFeelerObject);
@@ -145,9 +145,9 @@ void CorePhysicsComponent::DestroyBody()
 }
 
 // 0x004FC5C0
-void CorePhysicsComponent::ConfigureFromData(Scripts::CStruct*)
+void SkaterPhysicsModule::ConfigureFromData(Scripts::CStruct*)
 {
-    At<float>(this, kRollingFrictionValue) = PhysicsFloat(kRollingFriction, ObjectOf(this));
+    At<float>(this, kRollingFrictionValue) = TuningFloatLookup(kCoastDrag, ObjectOf(this));
     void* object = ObjectOf(this);
     VectorAt(object, kPosition) = Maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     Maths::Mat4& matrix = At<Maths::Mat4>(ObjectOf(this), kMatrix);
@@ -164,14 +164,14 @@ void CorePhysicsComponent::ConfigureFromData(Scripts::CStruct*)
 }
 
 // 0x004FC690
-void CorePhysicsComponent::Seal()
+void SkaterPhysicsModule::Seal()
 {
     for (const auto& c : kComponents)
         At<void*>(this, c.offset) = static_cast<GameObjects::CGameEntity*>(ObjectOf(this))->FetchModule(c.type);
 }
 
 // 0x004FDD50
-void CorePhysicsComponent::LeaveSkating()
+void SkaterPhysicsModule::LeaveSkating()
 {
     if (At<uint8_t>(this, kGetOffPending)) {
         At<uint8_t>(this, kGetOffPending) = 0;
@@ -191,7 +191,7 @@ void CorePhysicsComponent::LeaveSkating()
 }
 
 // 0x004FDE40
-void CorePhysicsComponent::ClearFlags()
+void SkaterPhysicsModule::ClearFlags()
 {
     // (Flags 23 down to 0 - the flags block's +0x20 + 8 each -, all but 1: flipped.)
     for (int flag = 23; flag >= 0; --flag) {
@@ -208,7 +208,7 @@ void CorePhysicsComponent::ClearFlags()
 }
 
 // 0x004FDED0
-void CorePhysicsComponent::SetPhysicsState(int state)
+void SkaterPhysicsModule::SetPhysicsState(int state)
 {
     if (StateOf(this)->m_curPhase != state) {
         At<int>(this, kStateTime) = Now();
@@ -250,7 +250,7 @@ void CorePhysicsComponent::SetPhysicsState(int state)
 }
 
 // 0x004FE120
-void CorePhysicsComponent::TurnAround()
+void SkaterPhysicsModule::TurnAround()
 {
     void* object = ObjectOf(this);
     Maths::Vec4& facing = VectorAt(object, kForward);
@@ -262,7 +262,7 @@ void CorePhysicsComponent::TurnAround()
 }
 
 // 0x004FE1D0
-void CorePhysicsComponent::ResetToAir(void*)
+void SkaterPhysicsModule::ResetToAir(void*)
 {
     ClearFlags();
     SetPhysicsState(kAir);
@@ -297,4 +297,4 @@ bool CRiderBoardPhysics::IsOnFoot()
 
 } // namespace Obj
 
-using Skater::CorePhysicsComponent;
+using Skater::SkaterPhysicsModule;

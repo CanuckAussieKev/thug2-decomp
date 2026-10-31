@@ -24,8 +24,8 @@ constexpr uint32_t kFrameStart = 0x98;    // the position as the frame began
 constexpr uint32_t kFeeler = 0xA8;        // its feeler (the last ground hit)
 constexpr uint32_t kHitPoint = 0x120;
 constexpr uint32_t kHitNormal = 0x130;
-constexpr uint32_t kFeelerStart = 0x208;
-constexpr uint32_t kFeelerEnd = 0x218;
+constexpr uint32_t kProbeOrigin = 0x208;
+constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kTimedFlags = 0x1528;  // the skater's state component (+0x18 the physics state)
 // The skater object's.
 constexpr uint32_t kPosition = 0x4C;
@@ -63,7 +63,7 @@ T& At(const void* base, uint32_t offset)
 Maths::Vec4& VectorAt(const void* base, uint32_t offset) { return At<Maths::Vec4>(base, offset); }
 
 int StateOf(void* core) { return At<int>(At<void*>(core, kTimedFlags), 0x18); }
-void ChangePhase(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
+void ChangePhase(void* core, int state) { static_cast<Skater::SkaterPhysicsModule*>(core)->SetPhysicsState(state); }
 
 } // namespace
 
@@ -80,8 +80,8 @@ void CRiderPhysicsTweaks::TickFrame()
         return; // (not moved this frame)
 
     // The ground below: a feeler from just over the skater (8 up) to uber_frig_current_height feet under it.
-    Maths::Vec4& start = VectorAt(core, kFeelerStart);
-    Maths::Vec4& end = VectorAt(core, kFeelerEnd);
+    Maths::Vec4& start = VectorAt(core, kProbeOrigin);
+    Maths::Vec4& end = VectorAt(core, kProbeTip);
     start = position;
     end = position;
     const Maths::Vec4& up = VectorAt(object, kUp);
@@ -96,10 +96,10 @@ void CRiderPhysicsTweaks::TickFrame()
     float raise = Skater::ThawBmx::LiveNow(core) ? Skater::ThawBmx::StuckCheckRaise(core) : 0.0f;
     if (raise != 0.0f)
         start.y += raise;
-    auto* physics = static_cast<Skater::CorePhysicsComponent*>(core);
+    auto* physics = static_cast<Skater::SkaterPhysicsModule*>(core);
     uint8_t* parkEditor = reinterpret_cast<uint8_t*>(static_cast<void*>(ParkEditing::g_parkEditor));
 
-    if (!physics->CheckFeeler(0x10, 0)) {
+    if (!physics->ProbeTouchesZone(0x10, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = StateOf(core);

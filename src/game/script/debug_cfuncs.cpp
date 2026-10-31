@@ -71,7 +71,7 @@ uint32_t* LevelSpecificQbFiles() { return g_levelQbFiles; }
 bool __cdecl CFunc_DisplayFreeMem(Scripts::CStruct*, Scripts::CScript*)
 {
     MemSys::Hub* manager = MemSys::Hub::Pull();
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     for (MemSys::MemSource* heap = manager->FirstZone(); heap; heap = manager->FollowingZone(heap)) {
         MemSys::Zone* region = heap->m_region;
@@ -184,9 +184,9 @@ bool __cdecl CFunc_English(Scripts::CStruct*, Scripts::CScript*) { return Langua
 // the proximity nodes), then every proximity node freed.
 bool __cdecl CFunc_ProximCleanup(Scripts::CStruct*, Scripts::CScript*)
 {
-    for (GameObjects::CObjectModule* c = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kSound); c; c = c->mp_nextOfType)
+    for (GameObjects::CObjectModule* c = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kSound); c; c = c->mp_nextOfType)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0xBC) = 0;
-    for (GameObjects::CObjectModule* c = GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kStream); c; c = c->mp_nextOfType)
+    for (GameObjects::CObjectModule* c = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kStream); c; c = c->mp_nextOfType)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0x28) = 0;
     GameObjects::NearbyZone_Shutdown();
     return true;
@@ -196,7 +196,7 @@ bool __cdecl CFunc_ProximCleanup(Scripts::CStruct*, Scripts::CScript*)
 // check that the proximity manager exists.)
 bool __cdecl CFunc_Inside(Scripts::CStruct*, Scripts::CScript*)
 {
-    return reinterpret_cast<GameObjects::ProximManager*&>(GameObjects::g_proximManager)->m_entering;
+    return reinterpret_cast<GameObjects::ProximityRegistry*&>(GameObjects::g_proximityHub)->m_entering;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).

@@ -41,9 +41,9 @@ using namespace GoalNames;
 int Truncate(double value) { return static_cast<int>(value); }
 
 // A new link (the manager's Allocate, as the original's inlined new).
-GoalLink* AllocChainLink()
+GoalEdge* AllocChainLink()
 {
-    auto* link = static_cast<GoalLink*>(MemSys::Alloc(sizeof(GoalLink)));
+    auto* link = static_cast<GoalEdge*>(MemSys::Alloc(sizeof(GoalEdge)));
     if (link) {
         link->m_objectiveKey = 0;
         link->m_succ = nullptr;
@@ -52,10 +52,10 @@ GoalLink* AllocChainLink()
     return link;
 }
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 GameObjects::CGameEntity* LocalSkater() { return SkateCalls::GetHomeRider(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
-uint32_t GameModeName() { return static_cast<GoalSystem::CMatchRules*>(SkateCalls::GameMode())->GetNameKey(); }
+uint32_t ActiveRulesetLabel() { return static_cast<GoalSystem::CMatchRules*>(SkateCalls::GameMode())->GetNameKey(); }
 bool GameModeTimerBeeps() { return static_cast<GoalSystem::CMatchRules*>(SkateCalls::GameMode())->ClockBeepsNearEnd(); }
 // A field at `offset`.
 float FloatAt(const void* object, uint32_t offset)
@@ -97,7 +97,7 @@ void CObjective::AttachUpperLink(uint32_t id)
         m_parents->m_objectiveKey = id;
         return;
     }
-    GoalLink* link = AllocChainLink();
+    GoalEdge* link = AllocChainLink();
     link->m_objectiveKey = id;
     link->m_succ = m_parents;
     m_parents = link;
@@ -110,11 +110,11 @@ void CObjective::AttachChild(uint32_t id)
         m_subNodes->m_objectiveKey = id;
         return;
     }
-    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
+    for (GoalEdge* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ) {
         if (link->m_objectiveKey == id)
             return;
     }
-    GoalLink* link = AllocChainLink();
+    GoalEdge* link = AllocChainLink();
     link->m_objectiveKey = id;
     link->m_succ = m_subNodes;
     m_subNodes = link;
@@ -132,7 +132,7 @@ void CObjective::Uninitialize(bool children, int depth)
     if (!children)
         return;
     void* manager = ObjectiveBoard();
-    for (GoalLink* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ)
+    for (GoalEdge* link = m_subNodes; link && link->m_objectiveKey; link = link->m_succ)
         GetGoal(manager, link->m_objectiveKey, 1)->Uninitialize(children, depth + 1);
 }
 
@@ -151,7 +151,7 @@ bool CObjective::Lose()
 // 0x00554CD0
 bool CObjective::HasRunOut()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (!LocalSkater() || !net->CountPlayers())
         return true;
     if (m_curPhase & kStateNoTimeLimit)
@@ -162,7 +162,7 @@ bool CObjective::HasRunOut()
 // 0x00554D10
 bool CObjective::IsExpiredAtEndOfRun(bool force)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     GameObjects::CGameEntity* skater = LocalSkater();
     if (!skater)
         return true;
@@ -208,14 +208,14 @@ bool CObjective::TickFrame()
             GameModeTimerBeeps())
             Scripts::LaunchScript(kTimerRunoutBeep, nullptr, nullptr, false, nullptr);
     }
-    if (m_args->HasBareFlag(kRequireCombo) && !m_args->HasBareFlag(kComboStarted)) {
+    if (m_args->HasBareFlag(kRequireCombo) && !m_args->HasBareFlag(kChainActiveFlag)) {
         GameObjects::CGameEntity* skater = LocalSkater();
         if (skater) {
             const auto* score = static_cast<const uint8_t*>(static_cast<GameObjects::CRider*>(skater)->GetPointsTotal());
             // (the combo's points: its base score times its multiplier)
             if (score &&
                 Truncate(*reinterpret_cast<const int*>(score + 0x14) * static_cast<double>(FloatAt(score, 0x60))) > 0)
-                m_args->PutNameKey(kNoName, kComboStarted);
+                m_args->PutNameKey(kNoName, kChainActiveFlag);
         }
     }
     if (Virtual<bool>(this, kVtHasTimeLimit) && Virtual<bool>(this, kVtShouldExpire))
@@ -237,10 +237,10 @@ void CObjective::Expire()
 bool CObjective::RegisterGapHit(uint32_t gap)
 {
     Scripts::CArray* gaps = nullptr;
-    if (!m_args->FetchList(kRequiredGaps, &gaps, 0))
+    if (!m_args->FetchList(kNeededGapList, &gaps, 0))
         return false;
     const char* trick = kEmptyString;
-    m_args->FetchText(kRequiredTrickName, &trick, 0);
+    m_args->FetchText(kDemandedTrick, &trick, 0);
     if (*trick) {
         GameObjects::CGameEntity* skater = LocalSkater();
         if (!skater)
@@ -264,7 +264,7 @@ bool CObjective::RegisterGapHit(uint32_t gap)
 }
 
 // 0x00555100
-bool CObjective::NextWaypoint()
+bool CObjective::StepToNextWaypoint()
 {
     Scripts::CArray* waypoints;
     if (!m_args->FetchList(kWaypoints, &waypoints, 0))
@@ -318,7 +318,7 @@ void CObjective::KillCluster(uint32_t cluster, int score)
         if (!entry->FetchIntValue(kScore, &needed, 0))
             m_args->FetchIntValue(kScore, &needed, 1);
         if (id == cluster && score > needed) {
-            if (!GameObjects::g_trickObjectManager->SetObjectGraffitiColor(cluster, 0))
+            if (!GameObjects::g_trickSpotHub->SetObjectGraffitiColor(cluster, 0))
                 DebugOut::Printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag;
             entry->ReadHashValue(kFlag, &flag, 1);
@@ -368,7 +368,7 @@ uint32_t CObjective::GetTopObjectiveKey()
 bool CObjective::HasWon()
 {
     // (NetLobby counts whether or not a network game is on)
-    if ((NetManager()->InNetGame() && GameModeName() == kNetGoalAttack) || GameModeName() == kNetLobby)
+    if ((NetSessionSlot()->InNetGame() && ActiveRulesetLabel() == kNetGoalAttack) || ActiveRulesetLabel() == kNetLobby)
         return (m_flagBits & kFlagWonInNetGame) != 0;
     return (m_flagBits & kFlagWon) != 0;
 }
@@ -376,12 +376,12 @@ bool CObjective::HasWon()
 // 0x005555E0
 void CObjective::MarkWon()
 {
-    if (NetManager()->InNetGame() && GameModeName() == kNetGoalAttack)
+    if (NetSessionSlot()->InNetGame() && ActiveRulesetLabel() == kNetGoalAttack)
         m_flagBits |= kFlagWonInNetGame;
     else
         m_flagBits |= kFlagWon;
     void* manager = ObjectiveBoard();
-    for (GoalLink* link = m_parents; link && link->m_objectiveKey; link = link->m_succ)
+    for (GoalEdge* link = m_parents; link && link->m_objectiveKey; link = link->m_succ)
         Virtual<void>(GetGoal(manager, link->m_objectiveKey, 1), kVtMarkWon);
 }
 
@@ -401,7 +401,7 @@ int CObjective::NetStageFlagSet(int bit) { return (m_netStageFlags & (1u << (bit
 void CObjective::SetLaunchAltitude()
 {
     void* state = LocalSkater()->FetchModule(kSkaterState);
-    m_args->PutInt(kStartHeight, Truncate(FloatAt(state, 0x11C)));
+    m_args->PutInt(kLaunchAltitude, Truncate(FloatAt(state, 0x11C)));
 }
 
 // 0x00555710
@@ -413,7 +413,7 @@ bool CObjective::TestHighestAir()
     m_args->FetchIntValue(kRecord, &record, 0);
     GameObjects::CGameEntity* skater = LocalSkater();
     int start = 10000;
-    m_args->FetchIntValue(kStartHeight, &start, 0);
+    m_args->FetchIntValue(kLaunchAltitude, &start, 0);
     void* state = skater->FetchModule(kSkaterState);
     int height = Truncate(FloatAt(state, 0x11C)) - start;
     if (height < 0)
@@ -435,7 +435,7 @@ bool CObjective::TestLongestJump()
 {
     uint32_t id;
     m_args->ReadHashValue(kDistanceObject, &id, 1);
-    GameObjects::CEntity* object = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(id);
+    GameObjects::CEntity* object = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->LookUpEntity(id);
     GameObjects::CGameEntity* skater = LocalSkater();
     if (!skater || !object)
         return false;
@@ -466,7 +466,7 @@ bool CObjective::TestLongestJump()
 // 0x00555930
 bool CObjective::UnBeat()
 {
-    if (NetManager()->InNetGame()) {
+    if (NetSessionSlot()->InNetGame()) {
         m_stageFlags = 0;
         m_netStageFlags = 0;
         if (m_flagBits & kFlagWonInNetGame) {

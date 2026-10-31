@@ -198,7 +198,7 @@ void CPcWeather::RenderRain(float x, float z)
     } else {
         ChooseBlendMode(rainBlend);
     }
-    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kPhaseAlphaTest, 0);
     SetPixelShader(nullptr, nullptr);
     InputPort()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
     InputPort()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
@@ -281,7 +281,7 @@ void CPcWeather::RenderSnow(float x, float z)
     if (maxZ < 0 || minZ > depth - 1)
         return;
     ChooseBlendMode(snowBlend);
-    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kPhaseAlphaTest, 0);
     ChangePhase(kAddressMode0, 0);
     static_cast<textureRef*>(snowTexture)->AssignValue(0);
     InputPort()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
@@ -396,7 +396,7 @@ void CPcWeather::RenderSplashes(float x, float z)
         feeler.m_entity.Release();
     }
     ChooseBlendMode(splashBlend);
-    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kPhaseAlphaTest, 0);
     ChangePhase(kAddressMode0, 0);
     static_cast<textureRef*>(splashTexture)->AssignValue(0);
     SetPixelShader(nullptr, nullptr);

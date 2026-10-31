@@ -67,7 +67,7 @@ void SetNoLod(float* distances)
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 uint8_t* ModelOf(CObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
-void SetModelActive(uint8_t* model, bool active) { reinterpret_cast<Engine3D::CRenderModel*>(model)->ChangeLive(active); }
+void ChangeModelEnabled(uint8_t* model, bool active) { reinterpret_cast<Engine3D::CRenderModel*>(model)->ChangeLive(active); }
 
 } // namespace
 
@@ -204,7 +204,7 @@ bool CDormancyModule::WantsAnimating(float* distanceSquared)
 }
 
 // 0x004342F0
-void CDormancyModule::UpdateVisibility()
+void CDormancyModule::RefreshShownState()
 {
     if (!m_meshInstance || !ModelOf(m_meshInstance))
         return;
@@ -232,7 +232,7 @@ void CDormancyModule::UpdateVisibility()
     }
     uint8_t flags = ModelOf(m_meshInstance)[0x44];
     bool shown = (flags & 0x2) && !(flags & 0x4);
-    SetModelActive(ModelOf(m_meshInstance), visible);
+    ChangeModelEnabled(ModelOf(m_meshInstance), visible);
     if (visible && !shown)
         m_meshInstance->TickFrame();
 }
@@ -285,7 +285,7 @@ void __cdecl SuspendTask(void* /*task*/)
     // the position).
     const uint8_t* camera = reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x3DC;
     auto* component =
-        static_cast<CDormancyModule*>(CompositeObjectManager()->FindFirstModuleOfKind(CDormancyModule::kType));
+        static_cast<CDormancyModule*>(ObjectHubSlot()->FindFirstModuleOfKind(CDormancyModule::kType));
     while (component) {
         component->m_distanceSquared = 0.0f;
         component->m_far = false;
@@ -316,9 +316,9 @@ void __cdecl SuspendTask(void* /*task*/)
         if (CObjectModule* model = component->m_meshInstance) {
             if (component->m_framesBeforeLod) {
                 if (ModelOf(model))
-                    SetModelActive(ModelOf(model), true);
+                    ChangeModelEnabled(ModelOf(model), true);
             } else {
-                component->UpdateVisibility();
+                component->RefreshShownState();
             }
         }
         component = static_cast<CDormancyModule*>(component->mp_nextOfType);
@@ -341,7 +341,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CDormancyModule::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

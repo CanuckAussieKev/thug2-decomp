@@ -14,7 +14,7 @@ class CViewRegion;
 
 // 0x004A06D0: the n-th active viewport - the n-th view of the screen mode's map (0x0067E540: ten entries, -1 for a
 // view not shown) that's shown. Null if there are fewer.
-CViewRegion* __cdecl GetActiveViewport(int n);
+CViewRegion* __cdecl FetchCurrentView(int n);
 // 0x004A0710: the screen mode (0x0070134C: one_camera, split_vertical, ...).
 int __cdecl GetViewLayout();
 // 0x004A0720: `camera` marked for deletion in the first viewport showing it (CViewRegion::FlagCameraForRemoval

@@ -51,7 +51,7 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 uint8_t* ConstructMaterial(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<materialRef*>(memory)->MakeNew()); }
 void DestroyMaterial(uint8_t* material) { reinterpret_cast<materialRef*>(material)->DestroyBody(); }
 void SetMaterialStates(uint8_t* material) { reinterpret_cast<materialRef*>(material)->SubmitStates(); }
-void SetMaterialPass(uint8_t* material, int pass, int flags)
+void ChangeMaterialLayer(uint8_t* material, int pass, int flags)
 {
     reinterpret_cast<materialRef*>(material)->SubmitPass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
 }
@@ -381,7 +381,7 @@ void CPcParticleSystem::Render(bool advance)
     }
 
     SetMaterialStates(material);
-    SetMaterialPass(material, 0, 0);
+    ChangeMaterialLayer(material, 0, 0);
     float r[3], u[3];
     CameraAxes(r, u);
     SetVertexFormat(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);

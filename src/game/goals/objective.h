@@ -30,13 +30,13 @@ class CObjectiveNpc;
 
 // A link to another goal by id (0xC bytes): the children (+0x28) and the parents (+0x2C) are singly linked lists of
 // these; a child's link is marked when that child is won (Win, 0x005576D0).
-struct GoalLink {
+struct GoalEdge {
     uint32_t m_objectiveKey;  // +0x00 (0: the list's first link, not yet used)
-    GoalLink* m_succ;   // +0x04
+    GoalEdge* m_succ;   // +0x04
     bool m_won;         // +0x08
     uint8_t m_pad09[3];
 };
-static_assert(sizeof(GoalLink) == 0xC, "layout must match the original");
+static_assert(sizeof(GoalEdge) == 0xC, "layout must match the original");
 
 class CObjective {
 public:
@@ -100,8 +100,8 @@ public:
     Scripts::CStruct* m_args;     // +0x1C
     Scripts::CStruct* m_goalFlags;  // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
     int m_runEnding;              // +0x24: 0 the goal's own end of run (GoalRunDone...), 1 the normal one
-    GoalLink* m_subNodes;          // +0x28
-    GoalLink* m_parents;           // +0x2C
+    GoalEdge* m_subNodes;          // +0x28
+    GoalEdge* m_parents;           // +0x2C
     uint32_t m_skater;             // +0x30: skater (none 0x806FFF30)
     int m_level;                   // +0x34: the career's level when made
     int m_bundle;                   // +0x38: group_number (-1: none) - locked while the manager's group is
@@ -109,7 +109,7 @@ public:
     uint32_t m_netStageFlags;      // +0x40
     int m_timesStarted;            // +0x44
     int m_bestTime;                // +0x48: ms (record_type time; 0x7FFFFFFF none)
-    int m_bestScore;               // +0x4C (record_type score)
+    int m_recordPoints;               // +0x4C (record_type score)
     int m_secondsRemaining;                // +0x50: ms
     uint32_t m_unknown54;
     int m_numFlags;                // +0x58
@@ -224,7 +224,7 @@ public:
     // 0x00554A00 / 0x00554A10 / 0x00554A20
     int GetTimesStarted();
     void ChooseRunEnding(int type);
-    void SetDeactivateOnExpire(bool deactivate);
+    void ChangeEndsOnTimeout(bool deactivate);
     // 0x00554A40 / 0x00554A50 / 0x00554A70: the Horse, findGaps and require_combo flags.
     bool IsHorse();
     bool IsFindGaps();
@@ -260,7 +260,7 @@ public:
     // 0x00555100: the first of the waypoints (0x160B3220, else the asserted 0x92C6E839) whose flag isn't set yet
     // started: paused, its time (added, with 0xFB11CB01, else the goal's), the goal's id and the first_spot flag
     // passed, spawned (the horse's or the race's script). True.
-    bool NextWaypoint();
+    bool StepToNextWaypoint();
     // 0x005552D0: cluster `cluster` taken with a score above its kill_clusters entry's (else the goal's) score: the
     // cluster turned to the player's colour (0) and the entry's flag set.
     void KillCluster(uint32_t cluster, int score);

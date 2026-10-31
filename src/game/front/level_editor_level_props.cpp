@@ -23,7 +23,7 @@ namespace MenuSystem::LevelEditor::LevelProps {
 
 namespace {
 
-const char* const kStateNames[kStates] = {"morning", "afternoon", "evening", "night"};
+const char* const kTimeOfDayLabels[kStates] = {"morning", "afternoon", "evening", "night"};
 
 bool ReadInts(const std::string& text, int* out, int count)
 {
@@ -46,12 +46,12 @@ Fields::Value Int(int value)
 
 } // namespace
 
-const char* TodName(int tod) { return tod >= 0 && tod < kStates ? kStateNames[tod] : nullptr; }
+const char* TodName(int tod) { return tod >= 0 && tod < kStates ? kTimeOfDayLabels[tod] : nullptr; }
 
 bool TodFromName(const std::string& name, int* tod)
 {
     for (int i = 0; i < kStates; ++i) {
-        if (_stricmp(name.c_str(), kStateNames[i]) == 0) {
+        if (_stricmp(name.c_str(), kTimeOfDayLabels[i]) == 0) {
             *tod = i;
             return true;
         }
@@ -356,7 +356,7 @@ bool LevelDefaults(Props* props)
     p.tod = 1; // (load_level: afternoon when the level names none)
     if (level->ReadHashValue(Checksums::HashFromText("tod_state"), &state, 0)) {
         for (int i = 0; i < kStates; ++i)
-            p.tod = state == Checksums::HashFromText(kStateNames[i]) ? i : p.tod;
+            p.tod = state == Checksums::HashFromText(kTimeOfDayLabels[i]) ? i : p.tod;
     }
     int value = 1;
     p.time = level->FetchIntValue(Checksums::HashFromText("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
@@ -453,7 +453,7 @@ void OnEditedCopyUp(const Props& props)
             Log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
         return;
     }
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->PutNameKey(Checksums::HashFromText("node_name"), props.start);
     Scripts::LaunchScript(Checksums::HashFromText("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->Clear();

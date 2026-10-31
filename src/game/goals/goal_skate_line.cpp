@@ -38,9 +38,9 @@ static VtableSlot kSkateLineVtable_slots[] = {&GoalSystem::CSkateLineGoal::Teard
                  &GoalSystem::CObjective::UnBeat};
 void** const kSkateLineVtable = reinterpret_cast<void**>(kSkateLineVtable_slots);
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -100,7 +100,7 @@ void CSkateLineGoal::NextCluster()
     int time;
     if (cluster->FetchIntValue(kTime, &time, 1))
         SetSecondsRemaining(time);
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->AppendStructureIfAny(m_args);
     params->AppendStructureIfAny(cluster);
     params->PutInt(kGoalObjectsIndex, m_numFlagsSet);

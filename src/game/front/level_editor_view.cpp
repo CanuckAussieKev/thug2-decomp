@@ -176,7 +176,7 @@ std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std:
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic;
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;
 
 template <typename F>
 F Method(void* object, int offset)
@@ -308,7 +308,7 @@ struct HiddenObjectRec {
     std::vector<std::pair<void*, bool>> geoms; // (each geometry and whether it was on)
 };
 std::vector<HiddenSectorRec> g_hiddenSectors;
-std::vector<HiddenObjectRec> g_hiddenObjects;
+std::vector<HiddenObjectRec> g_concealedRecords;
 
 // CWorldCell::ToggleShown (0x0049E680, thiscall, RET 4) / FetchShown (0x0049E690): the viewports it shows in.
 void ToggleShown(uint8_t* sector, uint32_t mask)
@@ -356,7 +356,7 @@ bool HideObject(uint32_t id)
     }
     if (rec.geoms.empty())
         return false;
-    g_hiddenObjects.push_back(rec);
+    g_concealedRecords.push_back(rec);
     return true;
 }
 
@@ -384,7 +384,7 @@ void Kickoff()
     g_wall = 0;
     g_hoverWall = 0;
     g_hiddenSectors.clear();
-    g_hiddenObjects.clear();
+    g_concealedRecords.clear();
 }
 
 void Halt()
@@ -398,11 +398,11 @@ void Halt()
 void Tick()
 {
     // (the model's suspend pass turns its geometries on when its decision changes: off again)
-    for (size_t i = 0; i < g_hiddenObjects.size();) {
-        HiddenObjectRec& rec = g_hiddenObjects[i];
+    for (size_t i = 0; i < g_concealedRecords.size();) {
+        HiddenObjectRec& rec = g_concealedRecords[i];
         GameObjects::CGameEntity* object = LiveObject(rec.id);
         if (!object) {
-            g_hiddenObjects.erase(g_hiddenObjects.begin() + static_cast<long>(i));
+            g_concealedRecords.erase(g_concealedRecords.begin() + static_cast<long>(i));
             continue;
         }
         for (int g = 0; g < static_cast<int>(rec.geoms.size()); ++g) {
@@ -699,7 +699,7 @@ bool HiddenSector(uint32_t checksum)
 
 bool HiddenObject(uint32_t id)
 {
-    return std::any_of(g_hiddenObjects.begin(), g_hiddenObjects.end(),
+    return std::any_of(g_concealedRecords.begin(), g_concealedRecords.end(),
                        [&](const HiddenObjectRec& r) { return r.id == id; });
 }
 
@@ -712,7 +712,7 @@ int Conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
         hidden += HideObject(id) ? 1 : 0;
     if (DebugEnabled())
         Log("level editor: view - hid %d (%d sectors, %d objects hidden in all)", hidden,
-            static_cast<int>(g_hiddenSectors.size()), static_cast<int>(g_hiddenObjects.size()));
+            static_cast<int>(g_hiddenSectors.size()), static_cast<int>(g_concealedRecords.size()));
     return hidden;
 }
 
@@ -728,7 +728,7 @@ int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
         },
         &sectorWalk);
     ObjectWalk objectWalk;
-    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
+    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot())
         manager->ForEach(CollectObject, &objectWalk);
     return Conceal(IsolateOthers(sectorWalk.ids, sectors), IsolateOthers(objectWalk.ids, objects));
 }
@@ -747,7 +747,7 @@ void ShowAll()
         if (copy && source && GeomOf(copy) && GeomOf(source) && FetchShown(copy) == 0 && FetchShown(source) != 0)
             ToggleShown(copy, FetchShown(source));
     }
-    for (const HiddenObjectRec& rec : g_hiddenObjects) {
+    for (const HiddenObjectRec& rec : g_concealedRecords) {
         GameObjects::CGameEntity* object = LiveObject(rec.id);
         for (int g = 0; object && g < static_cast<int>(rec.geoms.size()); ++g) {
             void* geom = Objects::Geometry(object, g);
@@ -755,7 +755,7 @@ void ShowAll()
                 SetGeomActive(geom, rec.geoms[g].second);
         }
     }
-    g_hiddenObjects.clear();
+    g_concealedRecords.clear();
 }
 
 int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
@@ -771,7 +771,7 @@ int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& obje
         it = g_hiddenSectors.erase(it);
         ++shown;
     }
-    for (auto it = g_hiddenObjects.begin(); it != g_hiddenObjects.end();) {
+    for (auto it = g_concealedRecords.begin(); it != g_concealedRecords.end();) {
         if (std::find(objects.begin(), objects.end(), it->id) == objects.end()) {
             ++it;
             continue;
@@ -782,20 +782,20 @@ int Show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& obje
             if (geom && geom == it->geoms[g].first)
                 SetGeomActive(geom, it->geoms[g].second);
         }
-        it = g_hiddenObjects.erase(it);
+        it = g_concealedRecords.erase(it);
         ++shown;
     }
     return shown;
 }
 
-int HiddenCount() { return static_cast<int>(g_hiddenSectors.size() + g_hiddenObjects.size()); }
+int HiddenCount() { return static_cast<int>(g_hiddenSectors.size() + g_concealedRecords.size()); }
 
 std::vector<uint32_t> HiddenIds()
 {
     std::vector<uint32_t> ids;
     for (const HiddenSectorRec& rec : g_hiddenSectors)
         ids.push_back(rec.checksum);
-    for (const HiddenObjectRec& rec : g_hiddenObjects)
+    for (const HiddenObjectRec& rec : g_concealedRecords)
         ids.push_back(rec.id);
     return ids;
 }

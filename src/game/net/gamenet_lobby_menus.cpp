@@ -80,7 +80,7 @@ constexpr int kLobbyStateListed = 15;
 constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 
-Hub* NetManager() { return g_gameNetManager; }
+Hub* NetSessionSlot() { return g_onlineHub; }
 void PushInternetHeap()
 {
     MemSys::Hub* memory = MemSys::Hub::Pull();
@@ -110,7 +110,7 @@ void SetRgba(Scripts::CArray* rgba, int r, int g, int b, int a)
 }
 
 // The presence (OnlinePlay's FriendsManager: +4 the player's profile, +0x10 logged in).
-bool LoggedIn(void* buddy) { return Prop<bool>(buddy, 0x10); }
+bool MarkFriendOnline(void* buddy) { return Prop<bool>(buddy, 0x10); }
 int OwnProfile(void* buddy) { return Prop<int>(buddy, 4); }
 
 } // namespace
@@ -150,7 +150,7 @@ void __cdecl RoomManager::RoomMessageCallback(void*, int, const char* nick, cons
 // 0x00540E00
 bool __cdecl CFunc_SendMessage(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     const char* message = nullptr;
     if (!params->FetchText(kText, &message, 0))
         return true;
@@ -165,7 +165,7 @@ bool __cdecl CFunc_SendMessage(Scripts::CStruct* params, Scripts::CScript*)
     }
     PushInternetHeap();
     GameSpy::PeerMessageRoom(
-        static_cast<RoomManager*>(manager->m_lobbyMan)->m_remote, kGroupRoom, message, 0); // to the group room
+        static_cast<RoomManager*>(manager->m_lobbyService)->m_remote, kGroupRoom, message, 0); // to the group room
     PopHeap();
     return true;
 }
@@ -203,7 +203,7 @@ void RoomManager::AddRoomMenuItem(LobbyRoom* room, int index)
 // 0x005411E0
 void RoomManager::AddPlayerListItem(LobbyPlayer* player)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     PushInternetHeap();
     Scripts::CStruct* choose = NewParams();
     Scripts::CStruct* params = NewParams();
@@ -211,9 +211,9 @@ void RoomManager::AddPlayerListItem(LobbyPlayer* player)
     Scripts::CStruct* unfocus = NewParams();
     params->AppendWord(kText, player->m_nick);
     rgba->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
-    void* buddy = manager->m_buddyMan;
+    void* buddy = manager->m_presenceService;
     uint32_t script;
-    if (player->m_account && LoggedIn(buddy)) {
+    if (player->m_account && MarkFriendOnline(buddy)) {
         if (player->m_account != OwnProfile(buddy) &&
             !static_cast<FriendsManager*>(buddy)->IsBuddy(player->m_account)) { // not a buddy yet
             SetRgba(rgba, 0, 128, 0, 128);
@@ -231,7 +231,7 @@ void RoomManager::AddPlayerListItem(LobbyPlayer* player)
         }
     } else {
         SetRgba(rgba, 128, 128, 128, 128);
-        script = LoggedIn(buddy) ? kCantAddBuddyPrompt1 : kCantAddBuddyPrompt2;
+        script = MarkFriendOnline(buddy) ? kCantAddBuddyPrompt1 : kCantAddBuddyPrompt2;
     }
     params->PutNameKey(kPadChooseScript, script);
     // (x87: the rating times two floats, truncated)
@@ -261,7 +261,7 @@ bool g_listingFound;
 void __cdecl RoomManager::GroupRoomCallback(void*, int success, int groupId, void* server, const char* name,
                                          int numWaiting, int maxWaiting, int numGames, int, void* param)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     auto setState = [manager](int state) { manager->SetServiceState(state); };
     if (!success) {
         setState(kLobbyStateFailed);
@@ -300,7 +300,7 @@ void __cdecl RoomManager::GroupRoomCallback(void*, int success, int groupId, voi
     auto rating = [manager] {
         // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
         // Singletons::PointerMember::Pull)
-        return static_cast<RankingsManager*>(manager->m_statsMan)->GetPersonalStats()->m_skillPoints;
+        return static_cast<RankingsManager*>(manager->m_ratingService)->GetPersonalStats()->m_skillPoints;
     };
     if (rating() > room->m_maxRating)
         room->m_outOfRange = true;

@@ -46,13 +46,13 @@ uint32_t g_netGameStartTime;
 namespace {
 
 constexpr uint32_t kCtfTask = 0xF8;          // TaskList::SchedulerTask*: capture the flag's
-constexpr uint32_t kChangeLevelTask = 0xEC;  // TaskList::SchedulerTask*: the level change's
+constexpr uint32_t kLevelSwitchJob = 0xEC;  // TaskList::SchedulerTask*: the level change's
 constexpr uint32_t kMotdCancelled = 0xFE08;  // bool
 constexpr uint32_t kMotdReceived = 0xFE09;   // bool
 constexpr uint32_t kServicesState = 0xFE0A;  // uint8_t (1: available)
 
 // Messages to the server.
-constexpr uint8_t kMsgStartGameRequest = 0x60;
+constexpr uint8_t kMsgBeginMatchAsk = 0x60;
 constexpr uint8_t kMsgChangeLevelRequest = 0x62;
 constexpr uint8_t kMsgToggleProSetRequest = 0x63;
 constexpr uint8_t kMsgToggleGoalRequest = 0x64;
@@ -102,12 +102,12 @@ uint32_t& LastFlagBaseWarning() { return g_lastFlagBaseWarning; }
 uint32_t& NetGameStartTime() { return g_netGameStartTime; }
 
 TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
-Hub* NetLink() { return g_gameNetManager; }
+Hub* NetLink() { return g_onlineHub; }
 
 // The lobby (OnlinePlay's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
 // SetServiceState, 0x005453E0) and services state (SetNextServiceState, 0x005451B0).
-void* LobbyPeer(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan)->GetLobbyHandle(); }
-bool InGroupRoom(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan)->InGroupRoom(); }
+void* LobbyPeer(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyService)->GetLobbyHandle(); }
+bool InGroupRoom(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyService)->InGroupRoom(); }
 void SetLobbyState(Hub* manager, int state) { manager->SetServiceState(state); }
 void SetServicesState(Hub* manager, int state) { manager->SetNextServiceState(state); }
 
@@ -119,7 +119,7 @@ void SendRequest(Hub* manager, uint8_t id, void* data, uint16_t length)
     desc.m_ident = id;
     desc.m_content = data;
     desc.m_byteCount = length;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     SendToServer(manager->m_clientApp, &desc);
 }
@@ -151,12 +151,12 @@ bool __cdecl CFunc_DisplayFlagBaseWarning(CStruct*, CScript*)
 }
 
 // 0x00535E20: NetworkGamePending - a start request is waiting for the server.
-bool __cdecl CFunc_NetworkGamePending(CStruct*, CScript*) { return NetLink()->m_gamePending; }
+bool __cdecl CFunc_NetworkGamePending(CStruct*, CScript*) { return NetLink()->m_matchBeingSetUp; }
 
 // 0x00535E30: MarkGameOver.
 bool __cdecl CFunc_MarkGameOver(CStruct*, CScript*)
 {
-    NetLink()->m_gameOver = true;
+    NetLink()->m_matchEnded = true;
     return true;
 }
 
@@ -199,7 +199,7 @@ bool __cdecl CFunc_IsAutoServing(CStruct*, CScript*)
 // 0x00535F20: ChangeLevelPending - the level change's task is in a list.
 bool __cdecl CFunc_ChangeLevelPending(CStruct*, CScript*)
 {
-    return Prop<TaskList::SchedulerTask*>(NetLink(), kChangeLevelTask)->IsOnTaskList();
+    return Prop<TaskList::SchedulerTask*>(NetLink(), kLevelSwitchJob)->IsOnTaskList();
 }
 
 // 0x00535F30: CancelMotdDownload.
@@ -237,7 +237,7 @@ bool __cdecl CFunc_ServicesAreAvailable(CStruct*, CScript*)
 bool __cdecl CFunc_AlreadyGotMotd(CStruct*, CScript*) { return Prop<bool>(NetLink(), kMotdReceived); }
 
 // 0x00535FB0: JoinServerComplete - ready to play.
-bool __cdecl CFunc_JoinServerComplete(CStruct*, CScript*) { return NetLink()->m_readyToPlay; }
+bool __cdecl CFunc_JoinServerComplete(CStruct*, CScript*) { return NetLink()->m_clearedToStart; }
 
 // 0x00535FC0: JustStartedNetGame - within 5 seconds of the network game's start (0x007CCDF4).
 bool __cdecl CFunc_JustStartedNetGame(CStruct*, CScript*)
@@ -267,8 +267,8 @@ bool __cdecl CFunc_FCFSRequestStartGame(CStruct*, CScript*)
     request.ctfGameType = preferences->GetPreferenceChecksum(kCtfGameType, kChecksum);
     request.goals = preferences->GetPreferenceChecksum(kGoals, kChecksum);
     request.teamGraffiti = preferences->GetPreferenceChecksum(kTeamGraffitiMode, kChecksum);
-    SendRequest(manager, kMsgStartGameRequest, &request, sizeof(request));
-    manager->m_gamePending = true;
+    SendRequest(manager, kMsgBeginMatchAsk, &request, sizeof(request));
+    manager->m_matchBeingSetUp = true;
     return true;
 }
 
@@ -328,14 +328,14 @@ bool __cdecl CFunc_FCFSRequestToggleGoalSelection(CStruct* params, CScript*)
 }
 
 // 0x00536360: ResetProSetFlags - for each of the 7 pro set flags (FLAG_PROSET1_GEO_ON on), SetFlag or UnSetFlag
-// {flag = <its number>} as m_proSetFlags has its bit.
+// {flag = <its number>} as m_scriptFlagBits has its bit.
 bool __cdecl CFunc_ResetProSetFlags(CStruct*, CScript*)
 {
     Hub* manager = NetLink();
     for (int bit = 0; bit < kProSetCount; ++bit) {
         CStruct* params = NewParams();
         params->PutInt(kFlag, Scripts::FetchIntValue(kFirstProSetFlag) + bit);
-        Run((manager->m_proSetFlags & (1u << bit)) ? kSetFlag : kUnSetFlag, params);
+        Run((manager->m_scriptFlagBits & (1u << bit)) ? kSetFlag : kUnSetFlag, params);
         DeleteParams(params);
     }
     return true;

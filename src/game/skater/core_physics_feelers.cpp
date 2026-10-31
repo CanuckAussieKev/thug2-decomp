@@ -53,7 +53,7 @@ constexpr uint32_t kLipHorizOffset = 0xB92CBE3B;       // SkateInAble_LipHorizOf
 constexpr uint32_t kLipDownOffset = 0xEFDFE781;        // SkateInAble_LipDownOffset
 constexpr uint32_t kLipExtraHorizOffset = 0x108613CB;  // SkateInAble_LipExtraCheckHorizOffset
 constexpr uint32_t kLipExtraDownOffset = 0xF9DC446D;   // SkateInAble_LipExtraCheckDownOffset
-constexpr uint32_t kHorizOffset = 0xC78EBE56;          // SkateInAble_HorizOffset
+constexpr uint32_t kSidewaysShift = 0xC78EBE56;          // SkateInAble_HorizOffset
 constexpr uint32_t kDownOffset = 0xFCA3378C;           // SkateInAble_DownOffset
 constexpr uint32_t kCount = 0x7A26BB9D;                // count
 constexpr uint32_t kAmmoMeterChange = 0x0C8E5500;      // ammo_meter_change (a script)
@@ -91,7 +91,7 @@ constexpr uint32_t kSideTurn = 0x2C8;
 constexpr uint32_t kSideTimes = 0x328;         // the clock when each side last hit (4)
 constexpr uint32_t kProjectileCount = 0x2F8;   // (the ammo)
 
-constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kNearGroundReach = 16.0f;          // 0x00645D68
 constexpr float kNearGroundHeight = 20.0f;         // 0x006486AC
 constexpr float kRailEndDistance = 6.0f;           // 0x00646284
@@ -120,10 +120,10 @@ Maths::Vec4 RailNodePosition(void* manager, const void* node)
 } // namespace
 
 // 0x005003A0
-bool CorePhysicsComponent::CheckFeeler(uint32_t ignore, uint32_t require)
+bool SkaterPhysicsModule::ProbeTouchesZone(uint32_t ignore, uint32_t require)
 {
     auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kFeeler));
-    feeler->ChangeStrand(&VectorAt(this, kFeelerStart), &VectorAt(this, kFeelerEnd));
+    feeler->ChangeStrand(&VectorAt(this, kProbeOrigin), &VectorAt(this, kProbeTip));
     feeler->SetExcluded(static_cast<uint16_t>(ignore), static_cast<uint16_t>(require));
     uint8_t hit = static_cast<uint8_t>(feeler->GetHitShape(true, false));
     if (!hit)
@@ -147,7 +147,7 @@ bool CorePhysicsComponent::CheckFeeler(uint32_t ignore, uint32_t require)
         return true;
     } else {
         // Neither: skatable unless steeper than Wall_Non_Skatable_Angle (its sine above the normal's y).
-        double limit = X87Sin(static_cast<double>(Scripts::FetchFloat(kWallNonSkatableAngle)) * kDegreesToRadians);
+        double limit = X87Sin(static_cast<double>(Scripts::FetchFloat(kWallNonSkatableAngle)) * kRadiansPerDegree);
         skatable = !(limit > normalY);
     }
     At<uint8_t>(this, kHitSkatable) = skatable ? 1 : 0;
@@ -155,7 +155,7 @@ bool CorePhysicsComponent::CheckFeeler(uint32_t ignore, uint32_t require)
 }
 
 // 0x00500020
-bool CorePhysicsComponent::CanGrindRail(const void* rail, const void*, bool anyTime)
+bool SkaterPhysicsModule::CanGrindRail(const void* rail, const void*, bool anyTime)
 {
     struct RailNode {
         uint8_t unknown[0x40];
@@ -214,7 +214,7 @@ bool CorePhysicsComponent::CanGrindRail(const void* rail, const void*, bool anyT
 }
 
 // 0x005012B0
-int CorePhysicsComponent::NearGround(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::NearGround(Scripts::CStruct* params, Scripts::CScript*)
 {
     bool right = params->FindComponent(kRight) != nullptr;
     void* object = ObjectOf(this);
@@ -222,8 +222,8 @@ int CorePhysicsComponent::NearGround(Scripts::CStruct* params, Scripts::CScript*
     const Maths::Vec4& position = VectorAt(object, kPosition);
     double x = static_cast<double>(side.x) * kNearGroundReach; // (left unrounded)
     float y = side.y * kNearGroundReach, z = side.z * kNearGroundReach, w = side.w * kNearGroundReach;
-    Maths::Vec4& start = VectorAt(this, kFeelerStart);
-    Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+    Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+    Maths::Vec4& end = VectorAt(this, kProbeTip);
     // A feeler 20 up and down, a little to the side (Right: the other way).
     float originCoordX, originCoordY;
     if (right) {
@@ -242,20 +242,20 @@ int CorePhysicsComponent::NearGround(Scripts::CStruct* params, Scripts::CScript*
     start.y = start.y + kNearGroundHeight;
     end = start;
     end.y = end.y - kNearGroundHeight;
-    return CheckFeeler(0x10, 0) ? 1 : 0;
+    return ProbeTouchesZone(0x10, 0) ? 1 : 0;
 }
 
 // 0x00500F10
-int CorePhysicsComponent::SkateInAble(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SkateInAble(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
-    Maths::Vec4& start = VectorAt(this, kFeelerStart);
-    Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+    Maths::Vec4& start = VectorAt(this, kProbeOrigin);
+    Maths::Vec4& end = VectorAt(this, kProbeTip);
     // (each line's x - and across the skater its y - from an unrounded product, as the original's FPU code has them)
     if (params->HasBareFlag(kLip)) {
         // Down from just behind the position (back along up), then from a little further.
-        float back = PhysicsFloat(kLipHorizOffset, object);
-        float down = PhysicsFloat(kLipDownOffset, object);
+        float back = TuningFloatLookup(kLipHorizOffset, object);
+        float down = TuningFloatLookup(kLipDownOffset, object);
         end = VectorAt(ObjectOf(this), kPosition);
         end.y = end.y - down;
         const Maths::Vec4& up = VectorAt(ObjectOf(this), kUp);
@@ -263,9 +263,9 @@ int CorePhysicsComponent::SkateInAble(Scripts::CStruct* params, Scripts::CScript
         start.y = end.y - back * up.y;
         start.z = end.z - back * up.z;
         start.w = end.w - back * up.w;
-        if (!CheckFeeler(0x10, 0)) {
-            back = PhysicsFloat(kLipExtraHorizOffset, object);
-            down = PhysicsFloat(kLipExtraDownOffset, object);
+        if (!ProbeTouchesZone(0x10, 0)) {
+            back = TuningFloatLookup(kLipExtraHorizOffset, object);
+            down = TuningFloatLookup(kLipExtraDownOffset, object);
             const Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
             const Maths::Vec4& up2 = VectorAt(ObjectOf(this), kUp);
             start.x = static_cast<float>(position.x - static_cast<double>(back) * up2.x);
@@ -274,13 +274,13 @@ int CorePhysicsComponent::SkateInAble(Scripts::CStruct* params, Scripts::CScript
             start.w = position.w - back * up2.w;
             end = start;
             end.y = end.y - down;
-            if (!CheckFeeler(0x10, 0))
+            if (!ProbeTouchesZone(0x10, 0))
                 return 0;
         }
         return At<uint8_t>(this, kHitVert) ? 1 : 0;
     }
     // Across the skater: from `across` to one side (lowered) to as far to the other.
-    float across = PhysicsFloat(kHorizOffset, object);
+    float across = TuningFloatLookup(kSidewaysShift, object);
     const Maths::Vec4& side = VectorAt(ObjectOf(this), kMatrix);
     const Maths::Vec4& position = VectorAt(ObjectOf(this), kPosition);
     Maths::Vec4 nearSide;
@@ -288,7 +288,7 @@ int CorePhysicsComponent::SkateInAble(Scripts::CStruct* params, Scripts::CScript
     nearSide.y = static_cast<float>(static_cast<double>(across) * side.y + position.y);
     nearSide.z = across * side.z + position.z;
     nearSide.w = across * side.w + position.w;
-    float down = PhysicsFloat(kDownOffset, object);
+    float down = TuningFloatLookup(kDownOffset, object);
     nearSide.y = nearSide.y - down;
     const Maths::Vec4& side2 = VectorAt(ObjectOf(this), kMatrix);
     const double twice = static_cast<double>(across) + across;
@@ -304,19 +304,19 @@ int CorePhysicsComponent::SkateInAble(Scripts::CStruct* params, Scripts::CScript
         start = farSide;
         end = nearSide;
     }
-    if (!CheckFeeler(0x10, 0))
+    if (!ProbeTouchesZone(0x10, 0))
         return 0;
     return At<uint8_t>(this, kHitVert) ? 1 : 0;
 }
 
 // 0x005013E0
-int CorePhysicsComponent::SetAmmo(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetAmmo(Scripts::CStruct* params, Scripts::CScript*)
 {
     int& ammo = At<int>(this, kProjectileCount);
     int before = ammo;
     params->FetchIntValue(uint32_t{0}, &ammo, 0); // (the unnamed integer)
     int change = ammo - before;
-    Scripts::CStruct* changed = Scripts::NewStruct();
+    Scripts::CStruct* changed = Scripts::SpawnParamBag();
     changed = changed ? changed->PrepareAll() : nullptr;
     changed->PutInt(kCount, change); // (on a null structure if out of memory, as the original)
     Scripts::EndChildScriptsOfEntityByName(SkaterObject(this), kAmmoMeterChange, nullptr);
@@ -330,7 +330,7 @@ int CorePhysicsComponent::SetAmmo(Scripts::CStruct* params, Scripts::CScript*)
 
 // 0x005014E0 (some turns by Mat4::RotateY, the others by a rotation matrix and D3DXMatrixMultiply, as the original
 // has them)
-int CorePhysicsComponent::CheckNatasExitDirection(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::CheckNatasExitDirection(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
     params->ReadHashValue(kDir, &dir, 1);
@@ -364,7 +364,7 @@ int CorePhysicsComponent::CheckNatasExitDirection(Scripts::CStruct* params, Scri
 }
 
 // 0x00501600
-int CorePhysicsComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
+int SkaterPhysicsModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script)
 {
     if (name == kLedge)
         return At<uint8_t>(this, kOnLedge) ? 1 : 0;
@@ -414,7 +414,7 @@ int CorePhysicsComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* pa
 }
 
 // 0x005009C0
-void CorePhysicsComponent::FindNearestWallSide()
+void SkaterPhysicsModule::FindNearestWallSide()
 {
     Engine3D::CProbeRay feeler;
     feeler.MakeNew();
@@ -444,16 +444,16 @@ void CorePhysicsComponent::FindNearestWallSide()
 }
 
 // 0x00501C90
-void CorePhysicsComponent::CheckSideFeeler(const Maths::Vec4* start, const Maths::Vec4* end, uint32_t side)
+void SkaterPhysicsModule::CheckSideFeeler(const Maths::Vec4* start, const Maths::Vec4* end, uint32_t side)
 {
     // (The original's loop over the other three sides checks the opposite side's time each time round.)
     for (uint32_t other = 0; other < 4; ++other) {
         if (other != side && Since(At<uint32_t>(this, kSideTimes + (side ^ 1) * 4)) > 500)
             return;
     }
-    VectorAt(this, kFeelerStart) = *start;
-    VectorAt(this, kFeelerEnd) = *end;
-    if (!CheckFeeler(0x10, 0))
+    VectorAt(this, kProbeOrigin) = *start;
+    VectorAt(this, kProbeTip) = *end;
+    if (!ProbeTouchesZone(0x10, 0))
         return;
     Maths::Vec4& sum = VectorAt(this, kSideNormalSum);
     const Maths::Vec4& normal = VectorAt(this, kHitNormal);
@@ -467,7 +467,7 @@ void CorePhysicsComponent::CheckSideFeeler(const Maths::Vec4* start, const Maths
 }
 
 // 0x005055B0
-void CorePhysicsComponent::CheckSideFeelers()
+void SkaterPhysicsModule::CheckSideFeelers()
 {
     if (At<float>(this, kSideDistance) == 0.0f || At<float>(this, kSidePush) == 0.0f)
         return;
@@ -515,7 +515,7 @@ void CorePhysicsComponent::CheckSideFeelers()
     velocity.y = push.y + velocity.y;
     velocity.z = push.z + velocity.z;
     velocity.w = push.w + velocity.w;
-    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kGroundNormal));
+    VectorAt(ObjectOf(this), kVelocity).AlignToPlane(VectorAt(this, kFloorUpVector));
     object = ObjectOf(this);
     const Maths::Vec4& forward = VectorAt(object, kForward);
     const Maths::Vec4& normal = VectorAt(this, kHitNormal);
@@ -536,7 +536,7 @@ void CorePhysicsComponent::CheckSideFeelers()
 }
 
 // 0x005054A0
-bool CorePhysicsComponent::ApplyModelRotations()
+bool SkaterPhysicsModule::ApplyModelRotations()
 {
     void* model = SkaterObject(this)->FetchModule(0x286A8D26); // (Model)
     if (!At<uint8_t>(model, 0xC8) && !At<uint8_t>(model, 0x15C) && !At<uint8_t>(model, 0x1F0))

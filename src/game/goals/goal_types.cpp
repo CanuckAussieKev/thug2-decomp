@@ -90,9 +90,9 @@ void** const kFindGapsGoalVtable = reinterpret_cast<void**>(kFindGapsGoalVtable_
 
 int Truncate(double value) { return static_cast<int>(value); }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -118,7 +118,7 @@ CContestObjective* CContestObjective::MakeNew(Scripts::CStruct* params)
     m_hasTopPrize = false;
     m_prizePaid = 0;
     m_listLink.vtable = kCompetitionGoalVtable;
-    m_bestScore = 0x7FFFFFFF;
+    m_recordPoints = 0x7FFFFFFF;
     m_runEnding = 1;
     return this;
 }
@@ -203,7 +203,7 @@ void CContestObjective::RestoreSaveBlock(Scripts::CStruct* data)
     m_prizePaid = given;
     int record;
     if (data->FetchIntValue(kWinRecordName, &record, 0))
-        m_bestScore = record;
+        m_recordPoints = record;
     CObjective::RestoreSaveBlock(data);
 }
 
@@ -214,7 +214,7 @@ void CContestObjective::CaptureSaveBlock(Scripts::CStruct* data)
     data->PutInt(kGotBronze, m_hasThirdPlace ? 1 : 0);
     data->PutNameKey(kGotSilver, m_hasSecondPlace ? 1 : 0); // (the silver and gold medals saved as checksums)
     data->PutNameKey(kGotGold, m_hasTopPrize ? 1 : 0);
-    data->PutInt(kWinRecordName, m_bestScore);
+    data->PutInt(kWinRecordName, m_recordPoints);
     data->PutInt(kRewardGiven, m_prizePaid);
 }
 
@@ -242,7 +242,7 @@ bool CContestObjective::Win()
     InvokeHookScript(kDeactivateScript);
     m_args->RemoveFlag(kJustWonGoal);
     Virtual<void>(this, kVtSetInactive);
-    if (!OnlinePlay::g_gameNetManager->InNetGame()) {
+    if (!OnlinePlay::g_onlineHub->InNetGame()) {
         GameModules::CContest* competition = TheCompetition();
         int place = 999;
         if (competition->PlaceIs(1))
@@ -251,14 +251,14 @@ bool CContestObjective::Win()
             place = 2;
         else if (competition->PlaceIs(3))
             place = 3;
-        if (place < m_bestScore) {
+        if (place < m_recordPoints) {
             m_args->PutInt(kWinRecordName, place);
-            m_bestScore = place;
+            m_recordPoints = place;
         }
     }
-    Scripts::CStruct* rewards = NewStructure();
+    Scripts::CStruct* rewards = SpawnParamTable();
     if (!Virtual<bool>(this, kVtHasWon)) {
-        Scripts::CStruct* own = NewStructure();
+        Scripts::CStruct* own = SpawnParamTable();
         GetPrizeStruct(own);
         rewards->AppendStructureIfAny(own);
         DeleteStructure(own);
@@ -450,7 +450,7 @@ void CHuntGapsObjective::ScanForGaps()
     m_args->PutInt(kNumberCollected, count);
     if (!foundNew)
         return;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->PutNameKey(kGoalIdChecksum, GetObjectiveKey());
     Scripts::LaunchScript(kFindGapsFoundGap, params, nullptr, false, nullptr);
     DeleteStructure(params);
@@ -460,7 +460,7 @@ void CHuntGapsObjective::ScanForGaps()
 bool CHuntGapsObjective::Activate()
 {
     m_args->EraseModule(kGapsFound);
-    Scripts::CStruct* found = NewStructure();
+    Scripts::CStruct* found = SpawnParamTable();
     m_args->PutSubStruct(kGapsFound, found);
     DeleteStructure(found);
     m_args->PutInt(kNumGapsFound, 0);

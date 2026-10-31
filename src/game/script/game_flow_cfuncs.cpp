@@ -68,7 +68,7 @@ constexpr uint32_t kName = 0xA1DC81F9;        // "name"
 constexpr uint32_t kPrefix = 0x6C4E7971;      // "prefix"
 constexpr uint32_t kSkaterType = 0xBAF9B341;  // (name unknown) the skaters' object type
 constexpr uint32_t kKeepSpawnerFile = 0x01917DF2; // (name unknown) don't note the spawner's .qb file (as SpawnScript)
-constexpr uint32_t kGamePaused = 0x3BA1FDB9;  // (name unknown) GameIsPaused's answer
+constexpr uint32_t kPausedAnswerKey = 0x3BA1FDB9;  // (name unknown) GameIsPaused's answer
 constexpr uint32_t kFlagCommandFlagA = 0x2E7D5EE7; // (names unknown) flags the object flag commands look for and
 constexpr uint32_t kFlagCommandFlagB = 0xBCEB479A; // ignore
 constexpr uint32_t kCleanupScript1 = 0xFF958F9D; // (names unknown) the scripts Cleanup runs
@@ -86,12 +86,12 @@ GameObjects::CRider* GetRiderAt(int index) { return static_cast<GameObjects::CRi
 GameObjects::CRider* GetHomeRider() { return SkateModule()->GetHomeRider(); }
 
 // The object manager (0x006F0FB8).
-GameObjects::CEntityHub* Objects() { return GameObjects::g_compositeObjectManager; }
+GameObjects::CEntityHub* Objects() { return GameObjects::g_compositeRegistry; }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
 void* GameMode() { return static_cast<void*>(GoalSystem::g_gameMode); }
 GoalSystem::CMatchRules* GameModeObject() { return static_cast<GoalSystem::CMatchRules*>(GameMode()); }
 int GameModeTimeLimit() { return GameModeObject()->GetTimeLimit(); }
-OnlinePlay::Hub* GameNetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* OnlineHubHandle() { return OnlinePlay::g_onlineHub; }
 MemSys::Hub* MemManager() { return MemSys::Hub::Pull(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is
@@ -159,7 +159,7 @@ bool __cdecl CFunc_Cleanup(Scripts::CStruct* params, Scripts::CScript* script)
     Scripts::DeleteFinishedScripts();
     CompiledOutDebugCall();
     Engine3D::UninitLightManager();
-    SoundFx::g_sfxManager->SweepUp();
+    SoundFx::g_audioMixer->SweepUp();
     assets->UnloadAllAssetsOfType(false, 9);
     DebugOut::Printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->UnloadAllAssets(false);
@@ -184,7 +184,7 @@ bool __cdecl CFunc_Cleanup(Scripts::CStruct* params, Scripts::CScript* script)
             Packs::UnloadPre(pre);
         pre = next;
     }
-    Engine3D::DeleteMarkedCameras();
+    Engine3D::PurgeDoomedCameras();
     Engine3D::ClearSceneLightQueue();
     Engine3D::DropParticleTextures(false);
     GameObjects::CPathManager::Sole()->Dealloc();
@@ -416,9 +416,9 @@ bool __cdecl CFunc_UnPauseGame(Scripts::CStruct*, Scripts::CScript*)
 // command's own parameters.
 bool __cdecl CFunc_GameIsPaused(Scripts::CStruct* params, Scripts::CScript*)
 {
-    if (!GameObjects::g_gamePaused)
+    if (!GameObjects::g_simulationHalted)
         return false;
-    params->PutNameKey(kGamePaused, kGamePaused);
+    params->PutNameKey(kPausedAnswerKey, kPausedAnswerKey);
     return true;
 }
 
@@ -438,7 +438,7 @@ bool __cdecl CFunc_UnPauseObjects(Scripts::CStruct*, Scripts::CScript*)
 // 0x005A0640: ResetClock: on the server, the skate module's clock (+0x370) set to the game mode's time limit.
 bool __cdecl CFunc_ResetClock(Scripts::CStruct*, Scripts::CScript*)
 {
-    if (GameNetManager()->OnServer())
+    if (OnlineHubHandle()->OnServer())
         SkateModule()->SetUnknown370(GameModeTimeLimit());
     return true;
 }
@@ -619,7 +619,7 @@ bool __cdecl CFunc_ClearOmnigons(Scripts::CStruct*, Scripts::CScript*)
 // sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
 bool __cdecl CFunc_BroadcastOmnigon(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Hub* gameNet = GameNetManager();
+    OnlinePlay::Hub* gameNet = OnlineHubHandle();
     NetLink::ConnSearch search = {NetLink::kConnSearchVtable, nullptr};
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
     params->ReadHashValue(kOmnigon, &omnigon, true);
@@ -639,7 +639,7 @@ bool __cdecl CFunc_BroadcastOmnigon(Scripts::CStruct* params, Scripts::CScript*)
         desc.m_content = &message;
         desc.m_ident = 0x7F;
         desc.m_byteCount = 8;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = 8;
         server->PutOnOutbox(conn->m_hdl, &desc);
         LastBroadcastedOmnigon() = omnigon;

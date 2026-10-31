@@ -192,9 +192,9 @@ void MatrixTranspose::TransposeInPlace()
 CHitMovingBox* CHitMovingBox::MakeNew()
 {
     CHitMovingMesh::MakeNew();
-    m_vtable = Vt::kCollMovBBox;
+    m_vtable = Vt::kVtblMovingBoxColl;
     new (&m_box) Maths::BBox();
-    m_faceFlags = 0;
+    m_polyAttrBits = 0;
     m_surfaceType = 0;
     m_box.min = {-50.0f, -20.0f, -90.0f, 1.0f};
     m_box.max = {30.0f, 36.0f, 90.0f, 1.0f};
@@ -205,9 +205,9 @@ CHitMovingBox* CHitMovingBox::MakeNew()
 CHitMovingBox* CHitMovingBox::ConstructCopy(const CHitMovingBox* other)
 {
     CHitMovingMesh::ConstructCopy(other);
-    m_vtable = Vt::kCollMovBBox;
+    m_vtable = Vt::kVtblMovingBoxColl;
     m_box = other->m_box;
-    m_faceFlags = other->m_faceFlags;
+    m_polyAttrBits = other->m_polyAttrBits;
     m_surfaceType = other->m_surfaceType;
     for (int i = 0; i < 4; ++i)
         m_unknownCA[i] = other->m_unknownCA[i];
@@ -217,7 +217,7 @@ CHitMovingBox* CHitMovingBox::ConstructCopy(const CHitMovingBox* other)
 // 0x004125F0
 void CHitMovingBox::Destruct()
 {
-    m_vtable = Vt::kCollMovBBox;
+    m_vtable = Vt::kVtblMovingBoxColl;
     CHitMovingMesh::Destruct();
 }
 
@@ -243,7 +243,7 @@ void CHitMovingBox::AssignShapeData(CTriMeshSource* geometry)
 // 0x0040AE60
 uint32_t CHitMovingBox::GetTriangleAttrs(int /*face*/) const
 {
-    return m_faceFlags;
+    return m_polyAttrBits;
 }
 
 // 0x0040AE70

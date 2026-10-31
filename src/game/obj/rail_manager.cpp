@@ -32,11 +32,11 @@ constexpr uint32_t kType = 0x7321A8D6;           // type
 constexpr uint32_t kLadder = 0xC84243DA;         // Ladder
 constexpr uint32_t kCreatedAtStart = 0x7C2552B9; // CreatedAtStart
 constexpr uint32_t kLipOverride = 0xF4C67F0F;    // LipOverride
-constexpr uint32_t kDefaultLine = 0x4DE721DE;    // DefaultLine
+constexpr uint32_t kStockRailFlag = 0x4DE721DE;    // DefaultLine
 constexpr uint32_t kHangLeft = 0xF6DD21CA;       // HangLeft
 constexpr uint32_t kHangRight = 0x5E9CE29B;      // HangRight
 constexpr uint32_t kNoClimbing = 0xF22BFC6D;     // NoClimbing
-constexpr uint32_t kTerrainType = 0x54CF8532;    // TerrainType
+constexpr uint32_t kSurfaceKindKey = 0x54CF8532;    // TerrainType
 constexpr uint32_t kClimbMaxSnap = 0x30CE7F2C;   // Climb_Max_Snap (a script float)
 constexpr uint32_t kRailMaxSnap = 0xF840753E;    // Rail_Max_Snap (a script float)
 constexpr uint32_t kRailNode = 0x8E6B02AD;       // RailNode
@@ -198,10 +198,10 @@ void CGrindRailHub::MoveNode(uint32_t name, const Maths::Vec4* pos)
 }
 
 // 0x0057C4F0
-Maths::Mat4& CGrindRailHub::SetObjectMatrix(const Maths::Mat4& matrix)
+Maths::Mat4& CGrindRailHub::ChangeBodyTransform(const Maths::Mat4& matrix)
 {
     m_onObject = true;
-    return m_objectMatrix = matrix;
+    return m_frameXform = matrix;
 }
 
 // 0x0057C500
@@ -333,7 +333,7 @@ Maths::Vec4* CGrindRailHub::ToWorld(Maths::Vec4* out, const Maths::Vec4* in)
         *out = *in;
         return out;
     }
-    Xform(&m_objectMatrix, out, in);
+    Xform(&m_frameXform, out, in);
     return out;
 }
 
@@ -345,7 +345,7 @@ Maths::Vec4* CGrindRailHub::GetAbsolutePos(Maths::Vec4* out, const CGrindPoint* 
         return out;
     }
     Maths::Vec4 world;
-    Xform(&m_objectMatrix, &world, &node->m_atPoint);
+    Xform(&m_frameXform, &world, &node->m_atPoint);
     *out = world;
     return out;
 }
@@ -443,7 +443,7 @@ Maths::Mat4* CGrindRailHub::GetClimbMatrix(Maths::Mat4* out, const CGrindPoint* 
         *out = local;
     } else {
         Maths::Mat4 world;
-        Maths::Multiply(world, m_objectMatrix, local);
+        Maths::Multiply(world, m_frameXform, local);
         *out = world;
     }
     return out;
@@ -469,7 +469,7 @@ void CGrindRailHub::AppendVertex(uint32_t name, Scripts::CStruct* params)
     LevelNodes::FetchPlace(params, &node->m_atPoint);
     if (params->HasBareFlag(kLipOverride))
         node->m_flagBits |= RAIL_FLAG_LIP_OVERRIDE;
-    if (params->HasBareFlag(kDefaultLine))
+    if (params->HasBareFlag(kStockRailFlag))
         node->m_flagBits |= RAIL_FLAG_DEFAULT_LINE;
     if (climbing) {
         node->m_flagBits |= RAIL_FLAG_CLIMBING;
@@ -499,7 +499,7 @@ void CGrindRailHub::AppendVertex(uint32_t name, Scripts::CStruct* params)
     } else {
         node->m_surfaceType = 0;
         uint32_t terrain = 0; // (the original's: its params argument's slot, the low byte the climbing flag)
-        params->ReadHashValue(kTerrainType, &terrain, 1);
+        params->ReadHashValue(kSurfaceKindKey, &terrain, 1);
         node->m_surfaceType = static_cast<uint8_t>(SurfaceKind::GetTerrainIndex(terrain));
     }
     BoxOf(&node->m_atPoint, &node->m_atPoint, &node->m_lowerLimit, &node->m_upperLimit);
@@ -900,7 +900,7 @@ void CGrindRailHub::AddFromNodeArray(Scripts::CArray* nodes)
             node->ReadHashValue(kName, &nodeName, 1);
             uint32_t cluster = nodeName;
             node->ReadHashValue(kCluster, &cluster, 1);
-            auto* trickObjects = g_trickObjectManager;
+            auto* trickObjects = g_trickSpotHub;
             trickObjects->AddCluster(cluster);
             trickObjects->AddObjectToCluster(nodeName, cluster);
         }

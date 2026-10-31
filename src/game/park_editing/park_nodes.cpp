@@ -42,7 +42,7 @@ constexpr uint32_t kPos = 0x7F261953;            // pos
 constexpr uint32_t kAngles = 0x9D2D0915;         // angles
 constexpr uint32_t kCluster = 0x1A3A966B;        // Cluster
 constexpr uint32_t kLinks = 0x2E7D5EE7;          // links
-constexpr uint32_t kTerrainType = 0x54CF8532;    // TerrainType
+constexpr uint32_t kSurfaceKindKey = 0x54CF8532;    // TerrainType
 constexpr uint32_t kTriggerScript = 0x2CA8A299;  // TriggerScript
 constexpr uint32_t kNoClimbing = 0xF22BFC6D;     // NoClimbing
 constexpr uint32_t kModel = 0x286A8D26;          // model
@@ -92,7 +92,7 @@ constexpr uint32_t kFirstRailNode = 0x001E8481;
 constexpr uint32_t kFirstRestartNode = 0x005B8D81;
 constexpr uint32_t kFirstRailEditorNode = 0x003D0901;
 
-// Where NextRailNode's search for a piece's rail nodes starts (0x007CE600: its first rail node).
+// Where FindFollowingRailNode's search for a piece's rail nodes starts (0x007CE600: its first rail node).
 int& RailSearchStart() { return g_railSearchStart; }
 
 // The rail editor (0x004F4970): its rail points (0x004F3C70), its rails written as nodes (0x004F6920).
@@ -108,11 +108,11 @@ void GoalEditorWriteNodes(CArray* nodes, int* index, MemSys::Arena* heap)
     AddGoalEditorNodes(nodes, index, heap);
 }
 // The gap manager: the trigger script of a gap's piece
-uint32_t GapTriggerScript(ClonedPiece* piece) { return CGapRegistry::Sole()->GetGapTriggerName(piece); }
+uint32_t GapFireScript(DuplicatedTile* piece) { return CGapRegistry::Sole()->GetGapTriggerName(piece); }
 // CFunc_ParseNodeArray (0x005A34E0): the node manager's node array parsed (its objects made).
 void ParseNodeArray() { ScriptCommands::CFunc_ParseNodeArray(nullptr, nullptr); }
 
-AssetStore::CNodeTableResource* NodeArrayAsset(CParkAssembler& d) { return reinterpret_cast<AssetStore::CNodeTableResource*>(d.m_nodeArray); }
+AssetStore::CNodeTableResource* NodeTableResource(CParkAssembler& d) { return reinterpret_cast<AssetStore::CNodeTableResource*>(d.m_nodeArray); }
 CStruct* Elem(CArray* nodes, int index) { return reinterpret_cast<CStruct*>(nodes->FetchPart(static_cast<uint32_t>(index))); }
 Scripts::VectorValue Value(const Maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
 Scripts::VectorValue* Out(Maths::Vec4* v) { return reinterpret_cast<Scripts::VectorValue*>(v); }
@@ -155,7 +155,7 @@ uint32_t CParkAssembler::NextGeometryNode(CArray* nodes, int* index)
     return 0;
 }
 
-uint32_t CParkAssembler::NextRailNode(CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
+uint32_t CParkAssembler::FindFollowingRailNode(CArray* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
                                       bool* isLoop)
 {
     auto used = [this](int node) {
@@ -222,7 +222,7 @@ uint32_t CParkAssembler::NextRailNode(CArray* nodes, uint32_t geometry, uint32_t
     node->ReadHashValue(kClass, &info->m_class, 1);
     node->ReadHashValue(kType, &info->m_kindTag, 1);
     if (info->m_class == kRailNode)
-        node->ReadHashValue(kTerrainType, &info->m_surfaceType, 1);
+        node->ReadHashValue(kSurfaceKindKey, &info->m_surfaceType, 1);
     info->m_climbable = true;
     if (node->HasBareFlag(kNoClimbing))
         info->m_climbable = false;
@@ -262,21 +262,21 @@ void CParkAssembler::BuildSourceRails(CArray* nodes)
         m_numUsedNodes = 0;
         bool isLoop = false;
         RailNodeInfo info;
-        uint32_t node = NextRailNode(nodes, geometry, 0, &info, &isLoop);
+        uint32_t node = FindFollowingRailNode(nodes, geometry, 0, &info, &isLoop);
         while (node) {
             Rail* rail = rails.NewRail();
             rail->m_class = info.m_class;
             rail->m_label = geometry;
             rail->m_flagBits = static_cast<uint8_t>((rail->m_flagBits & ~Rail::kLoop) | (isLoop ? Rail::kLoop : 0));
-            RailPoint* point = rails.NewPoint();
+            RailPoint* point = rails.AppendRailVertex();
             point->m_atPoint = info.m_atPoint;
             point->m_headings = info.m_headings;
             point->m_kindTag = info.m_kindTag;
             point->m_surfaceType = info.m_surfaceType;
             rail->AppendSpot(point);
-            for (node = NextRailNode(nodes, geometry, node, &info, &isLoop); node;
-                 node = NextRailNode(nodes, geometry, node, &info, &isLoop)) {
-                point = rails.NewPoint();
+            for (node = FindFollowingRailNode(nodes, geometry, node, &info, &isLoop); node;
+                 node = FindFollowingRailNode(nodes, geometry, node, &info, &isLoop)) {
+                point = rails.AppendRailVertex();
                 point->m_atPoint = info.m_atPoint;
                 point->m_headings = info.m_headings;
                 point->m_kindTag = info.m_kindTag;
@@ -287,7 +287,7 @@ void CParkAssembler::BuildSourceRails(CArray* nodes)
             }
             rails.AddRail(rail);
             isLoop = false;
-            node = NextRailNode(nodes, geometry, 0, &info, &isLoop);
+            node = FindFollowingRailNode(nodes, geometry, 0, &info, &isLoop);
         }
         geometry = NextGeometryNode(nodes, &index);
     }
@@ -295,11 +295,11 @@ void CParkAssembler::BuildSourceRails(CArray* nodes)
     MemSys::Dealloc(mp_nodeInfo);
 
     // each source piece's rail points and segments
-    for (SourcePiece* source = mp_sources; source; source = source->m_following) {
-        source->m_numRailPoints = 0;
+    for (TemplateTile* source = mp_sources; source; source = source->m_following) {
+        source->m_railPointTotal = 0;
         source->m_numRailSegments = 0;
         for (int i = 0; Rail* rail = rails.FindRail(source->m_label, i); ++i) {
-            source->m_numRailPoints += rail->m_vertexTotal;
+            source->m_railPointTotal += rail->m_vertexTotal;
             source->m_numRailSegments += rail->CountSegments();
         }
     }
@@ -333,11 +333,11 @@ void CParkAssembler::GetNodeCounts(int* counts)
 {
     for (int i = 0; i < 6; ++i)
         counts[i] = 0;
-    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->m_following) {
-        if (!(piece->m_flagBits & (ClonedPiece::kNoNode20 | ClonedPiece::kNoNode80)))
+    for (DuplicatedTile* piece = mp_pieces; piece; piece = piece->m_following) {
+        if (!(piece->m_flagBits & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80)))
             ++counts[0];
-        if (!(piece->m_flagBits & ClonedPiece::kCursor) && !(piece->m_flagBits & ClonedPiece::kNoRails)) {
-            counts[1] += piece->mp_source->m_numRailPoints;
+        if (!(piece->m_flagBits & DuplicatedTile::kCursor) && !(piece->m_flagBits & DuplicatedTile::kNoRails)) {
+            counts[1] += piece->mp_source->m_railPointTotal;
             counts[2] += piece->mp_source->m_numRailSegments;
         }
     }
@@ -364,7 +364,7 @@ void CParkAssembler::BuildGoalNodeArray()
 {
     int count = GoalEditorConstant82();
     int index = 0;
-    auto* nodes = static_cast<CArray*>(NodeArrayAsset(*this)->BuildNodeTable(kParkNodeArray, count));
+    auto* nodes = static_cast<CArray*>(NodeTableResource(*this)->BuildNodeTable(kParkNodeArray, count));
     GoalEditorWriteNodes(nodes, &index, MemSys::TopDownHeap());
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
     if (manager->HasNodeArray(kParkNodeArray))
@@ -399,7 +399,7 @@ void CParkAssembler::BuildRails(CMapListNode* metas)
             continue;
         const int pieces = static_cast<int>(meta->m_filledSlots);
         for (int i = 0; i < pieces; ++i) {
-            ClonedPiece* piece = Cloned(meta->GetPiece(static_cast<uint32_t>(i)));
+            DuplicatedTile* piece = Cloned(meta->GetPiece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
                 const uint32_t name = piece->mp_source->m_label;
                 Rail* source = m_sourceRails.FindRail(name, j);
@@ -407,7 +407,7 @@ void CParkAssembler::BuildRails(CMapListNode* metas)
                     break;
                 Rail* rail = rails.NewRail();
                 uint32_t cluster = piece->m_ident;
-                if (meta->m_flagBits & CPieceGroup::kInnerShell)
+                if (meta->m_flagBits & CPieceGroup::kBuiltShell)
                     cluster = 0;
                 float angle = 0.0f;
                 if (name == kLadderSmall || name == kLadderMid || name == kLadderTall)
@@ -427,23 +427,23 @@ void CParkAssembler::BuildRails(CMapListNode* metas)
 
 void CParkAssembler::WritePieceNodes(CArray* nodes, int* index)
 {
-    for (ClonedPiece* piece = mp_pieces; piece; piece = piece->m_following) {
-        if (piece->m_flagBits & (ClonedPiece::kNoNode20 | ClonedPiece::kNoNode80))
+    for (DuplicatedTile* piece = mp_pieces; piece; piece = piece->m_following) {
+        if (piece->m_flagBits & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80))
             continue;
         CStruct* node = Elem(nodes, *index);
         node->PutVec3(kPos, Value(piece->m_atPoint));
         node->PutNameKey(kName, piece->m_sector);
         const uint32_t flags = piece->mp_source->m_flagBits;
-        if (!(flags & SourcePiece::kGameObject)) {
+        if (!(flags & TemplateTile::kGameObject)) {
             node->PutNameKey(kFlag, kPieceFlag);
             node->PutNameKey(kCluster, ~piece->m_ident);
-        } else if (flags & SourcePiece::kAbsentInNetGames) {
+        } else if (flags & TemplateTile::kAbsentInNetGames) {
             node->PutNameKey(kFlag, kNetAbsentFlag);
         } else {
             node->PutNameKey(kFlag, kGameObjectFlag);
         }
-        if (piece->m_flagBits & ClonedPiece::kGap)
-            node->PutNameKey(kTriggerScript, GapTriggerScript(piece));
+        if (piece->m_flagBits & DuplicatedTile::kGap)
+            node->PutNameKey(kTriggerScript, GapFireScript(piece));
         else if (uint32_t script = piece->mp_source->m_triggerScript)
             node->PutNameKey(kTriggerScript, script);
         ++*index;
@@ -467,7 +467,7 @@ void CParkAssembler::WriteRailNodes(CArray* nodes, int* index)
             node->PutVec3(kPos, Value(point->m_atPoint));
             node->PutNameKey(kName, name++);
             node->PutNameKey(kFlag, (rail->m_flagBits & Rail::kClimbable) ? kClimbableRailFlag : kRailFlag);
-            node->PutNameKey(kTerrainType, point->m_surfaceType);
+            node->PutNameKey(kSurfaceKindKey, point->m_surfaceType);
             if (point->m_cluster) {
                 node->PutNameKey(kFlag, kTrickObject);
                 node->PutNameKey(kCluster, ~point->m_cluster);
@@ -538,7 +538,7 @@ void CParkAssembler::WriteRestartNodes(CArray* nodes, int* index)
                 restartType = kHorse;
             if (type == RestartPoint::kPlayer2 || k == 1)
                 restartType = kMultiplayer;
-            if (type == RestartPoint::kKingOfTheHill)
+            if (type == RestartPoint::kCrownRestart)
                 restartType = kCrown;
             if (flag) {
                 restartType = kCtf;
@@ -548,13 +548,13 @@ void CParkAssembler::WriteRestartNodes(CArray* nodes, int* index)
                 CStruct* node = Elem(nodes, *index);
                 const float y = static_cast<float>(static_cast<double>(restart.m_atPoint.y) + 50.0);
                 node->PutVec3(kPos, restart.m_atPoint.x, y, restart.m_atPoint.z);
-                const uint32_t nodeClass = type == RestartPoint::kKingOfTheHill ? kGenericNode : kRestart;
+                const uint32_t nodeClass = type == RestartPoint::kCrownRestart ? kGenericNode : kRestart;
                 node->AddComponentOfType(kClass, Scripts::QBVAL_NAME, nodeClass);
                 node->PutVec3(kAngles, 0.0f, RestartAngle(restart.m_quarterTurns), 0.0f);
                 node->AddComponentOfType(kName, Scripts::QBVAL_NAME, nodeName);
                 node->AddComponentOfType(kType, Scripts::QBVAL_NAME, restartType);
                 node->AddComponentOfType(kFlag, Scripts::QBVAL_NAME, kCreatedAtStart);
-                if (type != RestartPoint::kKingOfTheHill) {
+                if (type != RestartPoint::kCrownRestart) {
                     const char* label = "Multi Restart";
                     if (k == 0) {
                         switch (type) {
@@ -620,7 +620,7 @@ void CParkAssembler::BuildNodeArray(CMapListNode* metas)
     LevelNodes::CNodeManager* manager = LevelNodes::NodeManagerInstance();
     if (manager->HasNodeArray(kParkNodeArray))
         manager->RemoveNodeArray(kParkNodeArray);
-    auto* nodes = static_cast<CArray*>(NodeArrayAsset(*this)->BuildNodeTable(kParkNodeArray, total));
+    auto* nodes = static_cast<CArray*>(NodeTableResource(*this)->BuildNodeTable(kParkNodeArray, total));
     int index = 0;
     WritePieceNodes(nodes, &index);
     WriteRailNodes(nodes, &index);

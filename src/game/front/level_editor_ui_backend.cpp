@@ -173,14 +173,14 @@ void InvalidateContextObjects()
         ImGui_ImplDX9_InvalidateDeviceObjects();
 }
 
-uint64_t CreateTexture(int width, int height, TextureFormat format, const void* data, int rowBytes, int rows)
+uint64_t CreateTexture(int width, int height, PixelLayout format, const void* data, int rowBytes, int rows)
 {
     IDirect3DDevice9* device = InputPort();
     if (!device || width <= 0 || height <= 0 || !data)
         return 0;
     IDirect3DTexture9* texture = nullptr;
     // (managed: Direct3D keeps a copy, so a device reset doesn't lose it)
-    D3DFORMAT d3dFormat = format == TextureFormat::Dxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
+    D3DFORMAT d3dFormat = format == PixelLayout::Dxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
     if (FAILED(device->CreateTexture(width, height, 1, 0, d3dFormat, D3DPOOL_MANAGED, &texture, nullptr)) || !texture)
         return 0;
     D3DLOCKED_RECT locked;

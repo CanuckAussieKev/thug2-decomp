@@ -17,11 +17,11 @@ struct Conn;
 
 // What a handler returns.
 enum HandlerResult : int {
-    kHandlerError = 0,         // stop: the rest of the packet is dropped
-    kHandlerContinue = 1,      // on to the next handler
-    kHandlerHalt = 2,          // stop: the rest of the packet is dropped
-    kHandlerMsgDestroyed = 3,  // stop: the connection is gone (nothing of it may be touched)
-    kHandlerMsgDone = 4,       // no more handlers for this message; the packet goes on
+    kResultFailed = 0,         // stop: the rest of the packet is dropped
+    kResultPassOn = 1,      // on to the next handler
+    kResultStop = 2,          // stop: the rest of the packet is dropped
+    kResultMsgFreed = 3,  // stop: the connection is gone (nothing of it may be touched)
+    kResultConsumed = 4,       // no more handlers for this message; the packet goes on
     kHandlerKeep = 5,          // no more handlers; a streamed message's buffers are kept
 };
 

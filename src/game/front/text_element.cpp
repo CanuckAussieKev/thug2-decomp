@@ -32,9 +32,9 @@ using Scripts::CStruct;
 
 // Names (checksums).
 constexpr uint32_t kTextElement = 0x5200DFB6, kFont = 0x2F6BF72D, kRotAngle = 0xED344E1B;
-constexpr uint32_t kInternalJust = 0x67E093E4, kText = 0xC4745838, kBlurEffect = 0xD1653C6C;
-constexpr uint32_t kNoBlurEffect = 0x4B73E4F8, kBlurRgba = 0x4F0E1182, kShadowOffs = 0x2A1FE0CC;
-constexpr uint32_t kShadow = 0x8A897DD2, kNoShadow = 0x95B5B9A0, kShadowRgba = 0x1E7BB1F5;
+constexpr uint32_t kInnerAlign = 0x67E093E4, kText = 0xC4745838, kBlurEffect = 0xD1653C6C;
+constexpr uint32_t kNoBlurEffect = 0x4B73E4F8, kHaloColor = 0x4F0E1182, kShadowOffs = 0x2A1FE0CC;
+constexpr uint32_t kShadow = 0x8A897DD2, kShadowOffFlag = 0x95B5B9A0, kShadowRgba = 0x1E7BB1F5;
 constexpr uint32_t kRememberOverrideRgbaState = 0x0BF51A0C, kRestoreOverrideRgbaState = 0x61B7B58B;
 constexpr uint32_t kOverrideEncodedRgba = 0xB7686F92, kDontOverrideEncodedRgba = 0xD25BC6CD;
 constexpr uint32_t kOverrideEncodedAlpha = 0x1A226DCD, kDontOverrideEncodedAlpha = 0xE1931201;
@@ -50,7 +50,7 @@ void CopyText(char* to, const char* from)
 }
 void AppendText(char* to, const char* from) { CopyText(to + std::strlen(to), from); }
 
-float Degrees() { return ::ScriptCommands::g_degreesToRadians; }        // pi / 180
+float Degrees() { return ::ScriptCommands::g_degreeToRadianRatio; }        // pi / 180
 float RotationOffset() { return ::GoalSystem::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
 float MinimumAlpha() { return ::GameModules::g_competitionTiny; }    // 0.0001: below it, transparent
 float LayoutTop() { return MenuSystem::g_layoutTop; }       // -200: text whose top is above it is hidden
@@ -231,8 +231,8 @@ CLabelWidget* CLabelWidget::MakeNew()
     mp_blur = nullptr;
     m_shadow = false;
     MakeTextObjects(1, false);
-    m_internalJustX = 0.0f;
-    m_internalJustY = 0.0f;
+    m_innerAlignH = 0.0f;
+    m_innerAlignV = 0.0f;
     m_overrideRgba = false;
     m_rememberedOverride = false;
     ChangeSpecies(kTextElement);
@@ -272,9 +272,9 @@ void CLabelWidget::SetViewports()
     if (!window)
         return;
     if (m_num)
-        TextViewport(mp_texts[0], window->GetWindow2d());
+        TextViewport(mp_texts[0], window->FetchScreenRect());
     if (m_shadow)
-        TextViewport(mp_shadows[0], window->GetWindow2d());
+        TextViewport(mp_shadows[0], window->FetchScreenRect());
 }
 
 // 0x004AF8C0
@@ -339,13 +339,13 @@ void CLabelWidget::SetTextRotation(float degrees, int now)
     float halfY = static_cast<float>(static_cast<double>(height) * m_summed.scaleY * Half());
     for (int i = 0; i < m_num; ++i) {
         float x = halfX, y = halfY;
-        if (m_internalJustX < Zero())
+        if (m_innerAlignH < Zero())
             x = 0.0f;
-        else if (m_internalJustX > Zero())
+        else if (m_innerAlignH > Zero())
             x = static_cast<float>(static_cast<double>(width) * m_summed.scaleX);
-        if (m_internalJustY < Zero())
+        if (m_innerAlignV < Zero())
             y = 0.0f;
-        else if (m_internalJustY > Zero())
+        else if (m_innerAlignV > Zero())
             y = static_cast<float>(static_cast<double>(height) * m_summed.scaleY);
         TextRotation(mp_texts[i], angle, x, y);
         if (m_shadow)
@@ -483,7 +483,7 @@ void CLabelWidget::ChangeTraits(CStruct* params)
     float degrees = 0.0f;
     if (params->FetchFloat(kRotAngle, &degrees, 0))
         SetTextRotation(degrees, 1);
-    if (ResolveJust(params, kInternalJust, &m_internalJustX, &m_internalJustY))
+    if (ReadAlignmentParam(params, kInnerAlign, &m_innerAlignH, &m_innerAlignV))
         m_objectFlags |= kVisibleNow;
     const char* text;
     if (params->FetchText(kText, &text, 0))
@@ -493,7 +493,7 @@ void CLabelWidget::ChangeTraits(CStruct* params)
     if (params->HasBareFlag(kNoBlurEffect))
         DisableBlur();
     uint32_t rgba;
-    if (ResolveRGBA(params, kBlurRgba, &rgba) && mp_blur)
+    if (ReadColourParam(params, kHaloColor, &rgba) && mp_blur)
         mp_blur->m_rgbaValue = rgba;
     Scripts::CPair offset;
     offset.PrepareAll();
@@ -505,11 +505,11 @@ void CLabelWidget::ChangeTraits(CStruct* params)
         m_shadow = true;
         MakeTextObjects(m_num, true);
     }
-    if (params->HasBareFlag(kNoShadow) && m_shadow) {
+    if (params->HasBareFlag(kShadowOffFlag) && m_shadow) {
         m_shadow = false;
         FreeTextObjects(true);
     }
-    ResolveRGBA(params, kShadowRgba, reinterpret_cast<uint32_t*>(m_shadowRgba));
+    ReadColourParam(params, kShadowRgba, reinterpret_cast<uint32_t*>(m_shadowRgba));
     if (params->HasBareFlag(kRememberOverrideRgbaState))
         m_rememberedOverride = m_overrideRgba;
     if (params->HasBareFlag(kRestoreOverrideRgbaState))
@@ -562,13 +562,13 @@ void CLabelWidget::TickFrame()
         double scaledHeight = static_cast<double>(height) * m_summed.scaleY;
         float scaledHeightF = static_cast<float>(scaledHeight);
         float y = static_cast<float>(scaledHeight * Half());
-        if (m_internalJustX < Zero())
+        if (m_innerAlignH < Zero())
             x = 0.0f;
-        else if (m_internalJustX > Zero())
+        else if (m_innerAlignH > Zero())
             x = static_cast<float>(scaledWidth);
-        if (m_internalJustY < Zero())
+        if (m_innerAlignV < Zero())
             y = 0.0f;
-        else if (m_internalJustY > Zero())
+        else if (m_innerAlignV > Zero())
             y = scaledHeightF;
         TextFont(t, m_typeface);
         TextPos(t, m_summed.left, m_summed.top);

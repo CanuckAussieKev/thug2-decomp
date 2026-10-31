@@ -13,7 +13,7 @@ namespace TaskList {
 class SchedulerTask;
 } // namespace Tsk
 
-// The online stats: OnlinePlay::Hub's m_statsMan (+0x1C), on GameSpy's stats and persistent storage SDK (gstats /
+// The online stats: OnlinePlay::Hub's m_ratingService (+0x1C), on GameSpy's stats and persistent storage SDK (gstats /
 // gpersist: library code, not decompiled - called by address, some of it through function pointers the SDK keeps).
 // Logging in to the stats server (a thread), reporting the host's game (the players, their scores and combos), the
 // player's own rating, high scores and combos from persistent storage, and the top-score lists downloaded from
@@ -131,7 +131,7 @@ public:
     enum State : int {
         kNone = 0,
         kLoggingIn = 1,    // the login thread runs
-        kLoggedIn = 2,     // (the thread's answer: the task makes it 4)
+        kAuthDone = 2,     // (the thread's answer: the task makes it 4)
         kLoginFailed = 3,
         kReady = 4,
         kGettingStats = 5, // RetrievePersonalStats: waiting for the 15 answers
@@ -149,7 +149,7 @@ public:
     void LogIn();
     // 0x0054C9D0: the stats connection closed, the task out of its list, logged off.
     void LogOff();
-    // 0x0054C9B0: m_loggedIn from the SDK's connection state. Returns it.
+    // 0x0054C9B0: m_authenticated from the SDK's connection state. Returns it.
     bool UpdateLoggedIn();
     // 0x0054CBA0: logged in (script 0x6307C08F).
     void OnLoggedIn();
@@ -168,7 +168,7 @@ public:
     // 0x0054D2D0: the rank from the rating: rating * 0.000286 * 10, at most 10.
     int GetRank();
     // 0x0054D7B0: the ratings list "rating:score:name\n"... into the fifth top list.
-    void ParseRatings(char* text);
+    void ReadSkillRatings(char* text);
     // 0x0054D910: a top-score list "Level:<level>\n" then "score:rating:name\n" lines, into top list `list`
     // (`titled`: its first line is the title).
     void ParseTopList(int list, char* text, bool titled);
@@ -192,7 +192,7 @@ public:
     static void __stdcall GenerateAuth(const char* challenge, const char* password, char* response);
 
     TaskList::SchedulerTask* m_task;     // +0x000 TaskList::Task<RankingsManager> (StatsTask)
-    bool m_loggedIn;           // +0x004
+    bool m_authenticated;           // +0x004
     uint8_t m_pad5[3];
     int m_curPhase;               // +0x008 State
     void* m_game;              // +0x00C the SDK's game being reported

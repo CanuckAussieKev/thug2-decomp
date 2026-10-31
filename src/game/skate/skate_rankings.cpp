@@ -42,8 +42,8 @@ constexpr uint32_t kKing = 0x5D32129C;               // king
 constexpr uint32_t kFirstLine = 0x00039447;          // the first score line's id
 
 GoalSystem::CMatchRules* GameMode() { return GoalSystem::g_gameMode; }
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
-bool KingOfTheHill() { return GameMode()->GetNameKey() == kNetKing || GameMode()->GetNameKey() == kKing; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
+bool IsCrownRuleActive() { return GameMode()->GetNameKey() == kNetKing || GameMode()->GetNameKey() == kKing; }
 
 struct PlayerSearch {
     void** m_vtable = GameModules::kPlayerSearchVtable;
@@ -92,9 +92,9 @@ void DeleteEntry(OnlinePlay::ScoreEntry* entry)
     reinterpret_cast<void(__thiscall*)(OnlinePlay::ScoreEntry*, int)>(entry->vtable[0])(entry, 1);
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -108,7 +108,7 @@ void DeleteStructure(Scripts::CStruct* structure)
 // A player's (or team's) line in the player list.
 void AddPlayerLine(const char* text, bool teamScore)
 {
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->AppendWord(kText, text);
     if (teamScore)
         params->PutNameKey(0u, kTeamScore);
@@ -122,7 +122,7 @@ void AddPlayerLine(const char* text, bool teamScore)
 template <typename Format>
 void AddScoreLine(Format format, uint32_t id, bool teamScore, bool fontFirst = false)
 {
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     char text[0x40];
     format(text, sizeof(text));
     params->AppendWord(kText, text);
@@ -141,7 +141,7 @@ void AddScoreLine(Format format, uint32_t id, bool teamScore, bool fontFirst = f
 // A score as shown: a time (minutes:seconds) in king of the hill, else the number.
 void FormatScore(char* out, size_t size, uint32_t score, int colour, bool coloured)
 {
-    if (KingOfTheHill()) {
+    if (IsCrownRuleActive()) {
         uint32_t seconds = score / 1000;
         if (coloured)
             std::snprintf(out, size, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
@@ -160,7 +160,7 @@ void FormatScore(char* out, size_t size, uint32_t score, int colour, bool colour
 // 0x00567C70: elimiskate's rankings - by the time each player was out (the last out first; still in: 100000).
 void __cdecl FillEliminationRanking()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     PlayerSearch search;
     RankingList list;
     MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_frontEndHeap);
@@ -195,7 +195,7 @@ void __cdecl FillEliminationRanking()
 // 0x00568120
 bool __cdecl Skate::CFunc_FillRankingScreen(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     PlayerSearch search;
     RankingList list;
     if (GameMode()->GetNameKey() == kElimiskate || GameMode()->GetNameKey() == kNetElimiskate) {

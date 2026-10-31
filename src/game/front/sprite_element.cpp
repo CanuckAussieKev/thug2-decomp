@@ -37,7 +37,7 @@ constexpr uint32_t kTextureElement = 0x118F6383, kSpriteElement = 0xB12B510A, kW
 constexpr uint32_t kTexture = 0x7D99F28D, kRotAngle = 0xED344E1B, kBlend = 0x54628ED7, kNoZWrite = 0x40F139CB;
 constexpr uint32_t kRgba = 0x3F6BCDBA;
 
-float Degrees() { return ::ScriptCommands::g_degreesToRadians; }        // pi / 180
+float Degrees() { return ::ScriptCommands::g_degreeToRadianRatio; }        // pi / 180
 float RotationOffset() { return ::GoalSystem::g_goalLifeSecondsPerMillisecond; }  // 0.001 (added to a rotation in radians)
 float MinimumAlpha() { return ::GameModules::g_competitionTiny; }    // 0.0001: below it, transparent
 float LayoutTop() { return MenuSystem::g_layoutTop; }       // -200: a sprite whose top is above it is hidden
@@ -65,12 +65,12 @@ void* FindTexture(uint32_t checksum)
 {
     return Engine3D::g_gameTextureDict->FetchSkin(checksum);
 }
-uint16_t TextureWidth(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot33Jump)(texture); }
-uint16_t TextureHeight(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot34Jump)(texture); }
+uint16_t TexelsAcross(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot33Jump)(texture); }
+uint16_t TexelsDown(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&Engine3D::VirtualSlot34Jump)(texture); }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
 void* NewTexturedPiece() { return Engine3D::CreateTexturedQuad(); }
-void* NewSprite(int unused) { return (void)unused, Engine3D::CreateSprite(); }
+void* NewSprite(int unused) { return (void)unused, Engine3D::BuildSpriteQuad(); }
 void FreePiece(void* piece) { Engine3D::DeleteModelLights(static_cast<Engine3D::CPcModelLights*>(piece)); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
@@ -195,8 +195,8 @@ void CImageWidget::SetTexture(uint32_t texture)
     m_texture = texture;
     void* found = FindTexture(texture);
     reinterpret_cast<Engine3D::CBillboardQuad*>(m_quad)->SetTexture(static_cast<uint8_t*>(found));
-    float height = static_cast<float>(TextureHeight(found));
-    float width = static_cast<float>(TextureWidth(found));
+    float height = static_cast<float>(TexelsDown(found));
+    float width = static_cast<float>(TexelsAcross(found));
     FitToSize(width, height, 0);
     m_objectFlags |= kVisibleNow;
 }
@@ -234,7 +234,7 @@ void CImageWidget::ChangeTraits(CStruct* params)
         m_zWrite = false;
     // (no window above it: the original reads through null)
     auto* window = static_cast<CPanelWidget*>(FetchPane());
-    reinterpret_cast<Engine3D::CGlyphString*>(m_quad)->ChangePane(window->GetWindow2d());
+    reinterpret_cast<Engine3D::CGlyphString*>(m_quad)->ChangePane(window->FetchScreenRect());
 }
 
 // 0x004AF4E0
@@ -326,7 +326,7 @@ CPanelWidget* CPanelWidget::Teardown(uint8_t flags)
 }
 
 // 0x004B2160
-void* CPanelWidget::GetWindow2d() const
+void* CPanelWidget::FetchScreenRect() const
 {
     return m_viewWindow;
 }

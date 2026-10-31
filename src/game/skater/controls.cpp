@@ -33,7 +33,7 @@ int& OsLayer() { return GameConfig::g_platform; }
 
 // The fields the acid drops use (offsets into the skater component).
 constexpr uint32_t kVelocity = 0x34;    // four floats, then one more at +0x44
-constexpr uint32_t kStateChecksum = 0x78;
+constexpr uint32_t kStateKeyField = 0x78;
 constexpr uint32_t kDisabled = 0x9B;   // (a bool that stops it)
 constexpr uint32_t kMode = 0x748;
 constexpr uint32_t kInput = 0x1770;    // the pad: +0xC0 and +0x120 are held buttons
@@ -48,7 +48,7 @@ constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 // The physics' acid drop search: fills `velocity` if there's somewhere to drop in.
 bool FindAcidDrop(void* skater, float* velocity)
 {
-    return At<CorePhysicsComponent*>(skater, kPhysics)->FindAcidDrop(
+    return At<SkaterPhysicsModule*>(skater, kPhysics)->FindAcidDrop(
         false, &At<Maths::Vec4>(skater, 0x24), &At<Maths::Vec4>(skater, 0x68), reinterpret_cast<Maths::Vec4*>(velocity),
         &At<AcidDrop>(skater, 0x768));
 }
@@ -64,7 +64,7 @@ bool ButtonsHeld(void* skater)
     return input[0x120] != 0;
 }
 
-void EnterAcidDrop(void* skater, const float* velocity)
+void BeginDropIn(void* skater, const float* velocity)
 {
     float* v = &At<float>(skater, kVelocity);
     v[0] = velocity[0];
@@ -74,7 +74,7 @@ void EnterAcidDrop(void* skater, const float* velocity)
     v[1] = 0.0f;
     std::memcpy(&At<float>(skater, kVelocity + 0x10), &velocity[1], 4);
     At<int>(skater, kMode) = 2;
-    At<uint32_t>(skater, kStateChecksum) = kAcidDropState;
+    At<uint32_t>(skater, kStateKeyField) = kAcidDropState;
 }
 
 } // namespace
@@ -108,7 +108,7 @@ bool Component::TryWalkAcidDrop()
     if (!FindAcidDrop(this, velocity))
         return false;
     At<GameObjects::CMovingSurfaceModule*>(this, kMovableContact)->StartRiding(&At<Engine3D::CProbeRay>(this, kTriggerFeeler));
-    EnterAcidDrop(this, velocity);
+    BeginDropIn(this, velocity);
     return true;
 }
 
@@ -124,13 +124,13 @@ bool Component::TryAcidDrop()
     if (!FindAcidDrop(this, velocity))
         return false;
     if (At<bool>(this, kWalking)) {
-        At<GameObjects::CActivationZoneModule*>(this, kTrigger)->CheckFeeler(g_walkEvents0064C63C,
+        At<GameObjects::CActivationZoneModule*>(this, kTrigger)->ProbeTouchesZone(g_walkEvents0064C63C,
                                                                  &At<Engine3D::CProbeRay>(this, kTriggerFeeler));
         if (At<bool>(At<uint8_t*>(this, kFlags), 0x26))
             return true;
     }
     reinterpret_cast<GameObjects::CFootMovement*>(this)->ChangePhase(1);
-    EnterAcidDrop(this, velocity);
+    BeginDropIn(this, velocity);
     return true;
 }
 

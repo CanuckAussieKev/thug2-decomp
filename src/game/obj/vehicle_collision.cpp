@@ -429,8 +429,8 @@ void CDrivableModule::Collide()
     rect.MakeNew();
     Engine3D::CProbeRay feeler;
     feeler.MakeNew();
-    rect.m_hitCache = &m_collCache;
-    feeler.m_hitCache = &m_collCache;
+    rect.m_hitCache = &m_contactMemo;
+    feeler.m_hitCache = &m_contactMemo;
     m_contactCount = 0;
     Contact* contacts = Contacts();
     // Each collider's face against the world: where it crosses the world's faces, and lines from the body's

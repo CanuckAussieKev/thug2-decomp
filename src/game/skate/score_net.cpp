@@ -39,17 +39,17 @@ OnlinePlay::PlayerRecord* AsPlayer(void* player) { return static_cast<OnlinePlay
 // 0x00561BA0
 void PointTally::NoteTaggedPropAsk(int score)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     NetLink::NetMessageInfo desc;
     desc.MakeNew();
-    auto* info = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(m_riderNo)));
+    auto* info = AsPlayer(net->FindPlayerSlotByObj(static_cast<uint16_t>(m_riderNo)));
     auto* client = static_cast<NetLink::Guest*>(net->FetchPatron(info->m_skater->m_viewSlot));
     GameObjects::TrickObjectsMessage message;
     message.one = 1;
     message.player = m_riderNo;
     message.score = static_cast<uint32_t>(score);
     message.gameId = net->GetGameId();
-    auto* trick = static_cast<GameObjects::CMoveExecutor*>(SkaterById(m_riderNo)->FetchModule(kTrick));
+    auto* trick = static_cast<GameObjects::CMoveExecutor*>(RiderForSlot(m_riderNo)->FetchModule(kTrick));
     uint32_t bytes = trick->EndTrickObjects(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(message.objects)),
                                             sizeof(message.objects));
     message.count = bytes >> 2;
@@ -58,7 +58,7 @@ void PointTally::NoteTaggedPropAsk(int score)
     desc.m_content = &message;
     desc.m_byteCount = static_cast<uint16_t>(bytes + offsetof(GameObjects::TrickObjectsMessage, objects));
     desc.m_ident = GameObjects::kMsgTrickObjects;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = GameObjects::kGroupGame;
     client->SendBulkToHost(GameObjects::kMsgTrickObjects, desc.m_byteCount, &message, kTrickObjBuffer, GameObjects::kGroupGame,
                                   true, false);
@@ -67,14 +67,14 @@ void PointTally::NoteTaggedPropAsk(int score)
 // 0x00561CB0
 void PointTally::NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_t* objects, bool send)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     void* skate = SkateCalls::Skate();
     PlayerSearch search;
     if (send) {
         NetLink::AppHost* server = net->m_host; // (0x005480C0)
         NetLink::Conn* conn = nullptr;
-        if (GameObjects::CRider* skater = SkaterById(m_riderNo)) {
-            if (auto* info = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_ident))))
+        if (GameObjects::CRider* skater = RiderForSlot(m_riderNo)) {
+            if (auto* info = AsPlayer(net->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident))))
                 conn = info->m_conn;
         }
         uint8_t stolen[8] = {};
@@ -88,8 +88,8 @@ void PointTally::NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_
             stolenMessage.thief = skaterId;
             stolenMessage.victim = victim;
             stolenMessage.gameId = net->GetGameId();
-            auto* thief = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(skaterId)));
-            auto* robbed = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(victim)));
+            auto* thief = AsPlayer(net->FindPlayerSlotByObj(static_cast<uint16_t>(skaterId)));
+            auto* robbed = AsPlayer(net->FindPlayerSlotByObj(static_cast<uint16_t>(victim)));
             // (not between players of one team)
             if (static_cast<uint8_t>(GameMode()->IsSquadMatch()) && robbed && thief && robbed->m_team == thief->m_team)
                 continue;
@@ -118,7 +118,7 @@ void PointTally::NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_
         desc.m_byteCount = static_cast<uint16_t>(count * 4 + offsetof(GameObjects::TrickObjectsMessage, objects));
         desc.m_content = &all;
         desc.m_ident = GameObjects::kMsgTrickObjects;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = GameObjects::kGroupGame;
         for (void* info = net->BeginPlayerWalk(&search, false); info; info = net->StepPlayerWalk(&search, false))
             server->SendBulkMessage(AsPlayer(info)->GetLinkHandle(), desc.m_ident, desc.m_byteCount, desc.m_content,
@@ -142,18 +142,18 @@ void PointTally::NoteTaggedProp(int skaterId, int score, uint32_t count, uint32_
             return;
     }
     int owner = static_cast<uint8_t>(GameMode()->IsSquadMatch())
-                    ? AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(skaterId)))->m_team
+                    ? AsPlayer(net->FindPlayerSlotByObj(static_cast<uint16_t>(skaterId)))->m_team
                     : skaterId;
     for (uint32_t i = 0; i < count; ++i)
         TrickObjects()->SetObjectGraffitiColor(objects[i], owner);
 }
 
 // 0x005626F0
-int __cdecl PointTally::HandleScoreMessage(NetLink::InboundMsgCtx* context)
+int __cdecl PointTally::OnScoreMsg(NetLink::InboundMsgCtx* context)
 {
     auto* message = reinterpret_cast<GameObjects::TrickObjectsMessage*>(context->m_body);
     auto* score = static_cast<PointTally*>(static_cast<GameObjects::CRider*>(context->m_content)->GetPointsTotal());
-    if (static_cast<int8_t>(message->one) == 1 && message->gameId == NetManager()->GetGameId())
+    if (static_cast<int8_t>(message->one) == 1 && message->gameId == NetSessionSlot()->GetGameId())
         score->NoteTaggedProp(message->player, static_cast<int>(message->score), message->count, message->objects, false);
     return 1;
 }

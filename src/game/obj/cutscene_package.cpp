@@ -93,7 +93,7 @@ void* NewAnimSource()
 }
 Scripts::CStruct* MakeStruct()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void FreeStruct(Scripts::CStruct* s)
@@ -170,12 +170,12 @@ bool CCinematicEntry::ConfigureFromData(Scripts::CStruct* params)
         // the loading screen; the music volumes kept to give back at the end, then muted
         Engine3D::DisplayLoadingScreen(nullptr, true, false);
         Gfx2D::LoadingConsole::ScreenShown(true, false); // not original: the loading console (gfx/loading_console.h)
-        m_musicVolume = Engine3D::GetAmbientLightModulationFactor(true);
-        m_streamVolume0 = Engine3D::GetDiffuseLightModulationFactor(0, true);
-        m_streamVolume1 = Engine3D::GetDiffuseLightModulationFactor(1, true);
-        Engine3D::SetAmbientLightModulationFactor(0.0f, 0.0f);
-        Engine3D::SetDiffuseLightModulationFactor(0, 0.0f, 0.0f);
-        Engine3D::SetDiffuseLightModulationFactor(1, 0.0f, 0.0f);
+        m_musicVolume = Engine3D::FetchAmbientScale(true);
+        m_streamVolume0 = Engine3D::FetchDiffuseScale(0, true);
+        m_streamVolume1 = Engine3D::FetchDiffuseScale(1, true);
+        Engine3D::ChangeAmbientScale(0.0f, 0.0f);
+        Engine3D::ChangeDiffuseScale(0, 0.0f, 0.0f);
+        Engine3D::ChangeDiffuseScale(1, 0.0f, 0.0f);
         Engine3D::UpdateSceneLightQueue();
         AssetStore::CResourceRegistry* assets = Assets();
         if (!assets->GetAssetDataByName(fileName, 0)) {

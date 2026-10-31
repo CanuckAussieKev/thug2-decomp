@@ -37,12 +37,12 @@ constexpr uint32_t kFacePoints = 0xAC3CD84C; // face_points
 constexpr uint32_t kNoPaletteGen = 0x5905256B; // no_palette_gen
 constexpr uint32_t kNoColour = 0x80808080;
 
-SFaceAnchors g_defaultFacePoints{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
-SFaceAnchors g_modelFacePoints{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
+SFaceAnchors g_stockFaceAnchors{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
+SFaceAnchors g_activeFaceAnchors{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
 Engine3D::CBitmapTexture* g_faceOverlay;
 
-SFaceAnchors& DefaultFacePoints() { return g_defaultFacePoints; }
-SFaceAnchors& ModelFacePoints() { return g_modelFacePoints; }
+SFaceAnchors& StockFaceAnchors() { return g_stockFaceAnchors; }
+SFaceAnchors& ActiveFaceAnchors() { return g_activeFaceAnchors; }
 Engine3D::CBitmapTexture*& FaceOverlay() { return g_faceOverlay; }
 
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
@@ -110,10 +110,10 @@ CArray* NewPointArray(const int* point)
 } // namespace
 
 // 0x00486980
-void __cdecl GetDefaultFacePoints(SFaceAnchors* out) { *out = DefaultFacePoints(); }
+void __cdecl FetchStockFaceAnchors(SFaceAnchors* out) { *out = StockFaceAnchors(); }
 
 // 0x004869A0
-void __cdecl SetModelFacePoints(const SFaceAnchors* points) { ModelFacePoints() = *points; }
+void __cdecl ChangeFaceAnchors(const SFaceAnchors* points) { ActiveFaceAnchors() = *points; }
 
 // 0x004869C0
 void __cdecl SetFaceOverlay(Engine3D::CBitmapTexture* overlay) { FaceOverlay() = overlay; }
@@ -172,7 +172,7 @@ bool __cdecl FitFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAnchor
     if (face.m_mouthPart[1] <= noseY)
         face.m_mouthPart[1] = noseY + 2;
 
-    const SFaceAnchors& model = ModelFacePoints();
+    const SFaceAnchors& model = ActiveFaceAnchors();
     int modelNoseX = model.m_noseSlot[0];
     int modelNoseY = model.m_noseSlot[1];
     int dx = modelNoseX - face.m_noseSlot[0];
@@ -239,7 +239,7 @@ bool __cdecl MassageFaceTexture(Engine3D::CBitmapTexture* texture, const SFaceAn
 CFaceSkin* CFaceSkin::MakeNew()
 {
     m_isUsable = false;
-    GetDefaultFacePoints(&m_pathVertices);
+    FetchStockFaceAnchors(&m_pathVertices);
     CopyString(m_overlayName, "faces\\CS_NSN_Head_wht_alpha");
     return this;
 }
@@ -359,7 +359,7 @@ bool __cdecl CFunc_SetModelFaceTexturePoints(CStruct* params, Scripts::CScript*)
     if (points) {
         SFaceAnchors read{}; // (the original's isn't cleared: points missing are the stack's)
         Gfx2D::ReadFacePoints(&read, points);
-        Gfx2D::SetModelFacePoints(&read); // (whatever was read)
+        Gfx2D::ChangeFaceAnchors(&read); // (whatever was read)
     }
     return true;
 }

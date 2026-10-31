@@ -30,7 +30,7 @@ using Scripts::CStruct;
 constexpr int kSwapSlots = 5;
 SwapSlot* SwapTable() { return g_swapTable; }
 
-GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileManager; }
+GameObjects::CProfileRoster* Profiles() { return GameObjects::g_profileRoster; }
 GameObjects::CRiderStoryProgress* Career()
 {
     return *reinterpret_cast<GameObjects::CRiderStoryProgress**>(reinterpret_cast<uint8_t*>(GameModules::Skate::Sole()) + 0x20);

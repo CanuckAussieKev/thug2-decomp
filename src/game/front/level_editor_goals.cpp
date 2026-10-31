@@ -156,7 +156,7 @@ bool TypeOf(const std::string& name, KindTag* type)
     return false;
 }
 
-bool TypeOfChecksum(uint32_t checksum, KindTag* type)
+bool KindOfKey(uint32_t checksum, KindTag* type)
 {
     for (int i = 0; i < kTypes; ++i) {
         if (kTypeInfo[i].checksum == checksum) {
@@ -643,14 +643,14 @@ bool g_dragging;                         // a field being dragged: one undo step
 int g_select = -1;                       // a node to select (Nodes::All() index)
 
 constexpr const char* kStem = "ed_goal";
-constexpr const char* kPointType = "ed_goal";
+constexpr const char* kGoalMarkerType = "ed_goal";
 
 bool SameText(const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) == 0; }
 uint32_t Checksums(const std::string& text) { return Checksums::HashFromText(text.c_str()); }
 
 std::string PointNode(const Goal& g, int index) { return g.id + "_" + PointSuffix(g.type, index); }
 
-int FindGoal(const std::string& id)
+int IndexOfGoalId(const std::string& id)
 {
     for (size_t i = 0; i < g_goals.size(); ++i)
         if (g_goals[i].id == id)
@@ -678,7 +678,7 @@ NodeCreate::Spec PointSpec(const Goal& g, int index)
     NodeCreate::Spec s;
     s.name = PointNode(g, index);
     s.cls = "GenericNode";
-    s.type = kPointType;
+    s.type = kGoalMarkerType;
     s.pos = g.points[index].pos;
     s.angles = {0.0f, g.points[index].heading, 0.0f};
     s.owned = true;
@@ -747,7 +747,7 @@ void RemoveNode(const std::string& name)
 void RemoveStrayPoints(const std::vector<Goal>& goals)
 {
     for (const NodeCreate::Spec& spec : NodeCreate::AtHand()) {
-        if (!SameText(spec.type, kPointType) || !SameText(spec.cls, "GenericNode"))
+        if (!SameText(spec.type, kGoalMarkerType) || !SameText(spec.cls, "GenericNode"))
             continue;
         bool kept = false;
         for (const Goal& g : goals)
@@ -803,7 +803,7 @@ uint32_t CurrentLevel()
 // A GoalManager_* script command with name=<goal> (they take no other parameter and don't use the script).
 bool GoalCommand(CFunction command, uint32_t goal)
 {
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->PutNameKey(0xA1DC81F9u, goal); // name
     bool result = command(params, nullptr);
     params->Clear();
@@ -891,7 +891,7 @@ NodeCreate::LinkChain PlayNodes(const Goal& g, int index)
 }
 
 // The gaps' numbers in the level's gap list now (the skate module's checklist, 0x005656C0).
-std::vector<int> GapNumbers(const Goal& g)
+std::vector<int> GapOrdinals(const Goal& g)
 {
     std::vector<int> out;
     uint8_t* skate = SkateModule();
@@ -968,7 +968,7 @@ void PutInPlay()
         // Create-a-Goal's own: AddEditedGoalToGoalManager (0x004EB6B0 on the record, MarkUnbeaten), then
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image;
-        FillImage(*goal, level, index, GapNumbers(*goal), &image);
+        FillImage(*goal, level, index, GapOrdinals(*goal), &image);
         reinterpret_cast<ParkEditing::CEditedGoal*>(image.bytes)->AddToGoalManager(true);
         uint32_t id = Checksums(GoalId(index));
         if (!GoalExists(id)) {
@@ -1007,7 +1007,7 @@ V3 Grounded(V3 at)
 std::string FreshId()
 {
     return NodeCreate::FreshName(kStem, [](const std::string& id) {
-        if (FindGoal(id) >= 0)
+        if (IndexOfGoalId(id) >= 0)
             return true;
         for (const char* suffix : {"_pro", "_start"})
             if (NodeCreate::NameTaken(id + suffix))
@@ -1098,7 +1098,7 @@ bool Fabricate(KindTag type)
 
 bool Edit(const std::string& id, const Goal& changed, bool done)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i < 0)
         return false;
     if (!g_dragging)
@@ -1127,7 +1127,7 @@ bool Edit(const std::string& id, const Goal& changed, bool done)
 
 bool DropOut(const std::string& id)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i < 0)
         return false;
     PushUndo();
@@ -1141,7 +1141,7 @@ bool DropOut(const std::string& id)
 
 bool AddCheckpoint(const std::string& id)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i < 0 || g_goals[i].type != KindTag::Race || static_cast<int>(g_goals[i].points.size()) >= MaxPoints(KindTag::Race))
         return false;
     PushUndo();
@@ -1156,7 +1156,7 @@ bool AddCheckpoint(const std::string& id)
 
 bool RemoveCheckpoint(const std::string& id)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i < 0 || g_goals[i].type != KindTag::Race || static_cast<int>(g_goals[i].points.size()) <= MinPoints(KindTag::Race))
         return false;
     PushUndo();
@@ -1168,7 +1168,7 @@ bool RemoveCheckpoint(const std::string& id)
 
 bool RestorePoints(const std::string& id)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i < 0 || !MissingPoints(g_goals[i]))
         return false;
     PushUndo();
@@ -1178,7 +1178,7 @@ bool RestorePoints(const std::string& id)
 
 bool Export(const std::string& id, std::string* message)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i < 0) {
         *message = "No such goal";
         return false;
@@ -1223,7 +1223,7 @@ bool Export(const std::string& id, std::string* message)
         return false;
     }
     GoalImage image;
-    FillImage(g, level, index, GapNumbers(g), &image);
+    FillImage(g, level, index, GapOrdinals(g), &image);
     std::memcpy(slots + slot * kSlotSize, image.bytes, kSlotSize);
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) +
                "";
@@ -1237,7 +1237,7 @@ int Apply(const std::vector<Goal>& goals)
 {
     int made = 0;
     for (const Goal& g : goals) {
-        if (FindGoal(g.id) >= 0 || static_cast<int>(g_goals.size()) >= kMaxGoals)
+        if (IndexOfGoalId(g.id) >= 0 || static_cast<int>(g_goals.size()) >= kMaxGoals)
             continue;
         bool clash = false;
         for (size_t k = 0; k < g.points.size(); ++k)
@@ -1306,7 +1306,7 @@ void Queue(std::function<void()> action) { g_queue.push_back(std::move(action));
 void EndDrag() { g_dragging = false; }
 int Missing(const std::string& id)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     return i < 0 ? 0 : MissingPoints(g_goals[i]);
 }
 bool PointOfNode(uint32_t node, std::string* id, int* point)
@@ -1319,7 +1319,7 @@ bool PointOfNode(uint32_t node, std::string* id, int* point)
 }
 void ChooseOne(const std::string& id, int point)
 {
-    int i = FindGoal(id);
+    int i = IndexOfGoalId(id);
     if (i >= 0 && point >= 0 && point < static_cast<int>(g_goals[i].points.size()))
         SelectPoint(g_goals[i], point);
 }

@@ -33,8 +33,8 @@ constexpr uint32_t kGetHeading = 0x8E7833BE, kAbsolutePitchGreaterThan = 0x5E269
 constexpr uint32_t kHeading = 0xFD4BC03E, kCosine = 0x2315EF17, kSine = 0x26910CC0, kSlope = 0xA733BA7A,
                    kChangeInSlope = 0x21AFFF16;
 
-constexpr float kRadiansToDegrees = 57.2957763671875f; // 0x00645468
-constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
+constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kFullCircle = 360.0f;                  // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
@@ -48,7 +48,7 @@ float AngleParameter(Scripts::CStruct* params)
     return angle;
 }
 // The cosine of `degrees`, as the original's x87.
-double CosDegrees(float degrees) { return Skater::X87Cos(static_cast<double>(degrees) * kDegreesToRadians); }
+double CosDegrees(float degrees) { return Skater::X87Cos(static_cast<double>(degrees) * kRadiansPerDegree); }
 
 } // namespace
 
@@ -100,7 +100,7 @@ int CRiderFrameLookups::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
     switch (name) {
     case kGetHeading: {
         const Maths::Vec4& facing = m_entity->m_basisFrame.row[2];
-        float heading = static_cast<float>(static_cast<double>(Maths::FastACos(facing.x)) * kRadiansToDegrees);
+        float heading = static_cast<float>(static_cast<double>(Maths::FastACos(facing.x)) * kDegreesPerRadian);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
         script->m_args->PushFloat(kHeading, heading);
@@ -121,8 +121,8 @@ int CRiderFrameLookups::InvokeMethodByName(uint32_t name, Scripts::CStruct* para
         if (m_entity->m_basisFrame.row[2].y < 0.0f)
             slope = -slope;
         script->m_args->PushFloat(kSlope, slope);
-        script->m_args->PushFloat(kChangeInSlope, slope - m_lastSlope);
-        m_lastSlope = slope;
+        script->m_args->PushFloat(kChangeInSlope, slope - m_prevGradient);
+        m_prevGradient = slope;
         return 1;
     }
     case kPitchGreaterThan: {

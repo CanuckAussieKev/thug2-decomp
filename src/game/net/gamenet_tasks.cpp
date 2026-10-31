@@ -50,7 +50,7 @@ constexpr uint32_t kRedialPause = 0x645456E7;         // net_modem_state_redial_
 constexpr uint32_t kConnecting = 0x23E04F62;          // net_modem_state_conencting
 constexpr uint32_t kDialing = 0x02F1330D;             // net_modem_state_dialing
 constexpr uint32_t kConnected = 0x685FBA50;           // net_modem_state_connected
-constexpr uint32_t kLoggedIn = 0xE0DE5630;            // net_modem_state_logged_in
+constexpr uint32_t kAuthDone = 0xE0DE5630;            // net_modem_state_logged_in
 constexpr uint32_t kDisconnecting = 0x8B0A8838;       // net_modem_state_disconnecting
 constexpr uint32_t kHangingUp = 0x2967A529;           // net_modem_state_hanging_up
 constexpr uint32_t kDisconnected = 0xF850742F;        // net_modem_state_disconnected
@@ -67,7 +67,7 @@ Hub* TaskManager(void* task) { return Prop<Hub*>(task, 0x1C); }
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
 void ShowConnectionMetrics(NetLink::Conn* conn, int index)
 {
-    int lag = conn->IsHostLocal() ? 0 : conn->m_latencyTest.m_averageLatency;
+    int lag = conn->IsHostLocal() ? 0 : conn->m_pingProbe.m_averageLatency;
     int sent = conn->m_sendMetrics.GetThroughput();
     int received = conn->m_receiveMetrics.GetThroughput();
     int resends = conn->GetHighestResendCount();
@@ -104,9 +104,9 @@ void __cdecl LevelChangeTask(void* task)
     if (FrameClock::GetTime() < g_levelChangeTime)
         return;
     Call(CodeAddress(&GameModules::Skate::ChangeLevel), Skate(), manager->m_level); // the level changed
-    if (uint8_t* king = KingOfTheHill(manager))
+    if (uint8_t* king = IsCrownRuleActive(manager))
         AsPlayer(king)->GiveCrown(false);
-    for (uint8_t* p = FirstPlayer(manager, &search, true); p; p = NextPlayer(manager, &search, true))
+    for (uint8_t* p = StartRosterSweep(manager, &search, true); p; p = StepRosterSweep(manager, &search, true))
         AsPlayer(p)->ClearFlags(); // carries no flag
     Prop<TaskList::SchedulerTask*>(manager, 0xEC)->DropOut();
 }
@@ -114,7 +114,7 @@ void __cdecl LevelChangeTask(void* task)
 uint32_t g_modemDialogEnd;
 
 // 0x00533810
-void __cdecl ModemStateTask(void* task)
+void __cdecl DialupProgressTick(void* task)
 {
     Hub* manager = TaskManager(task);
     NetLink::Hub* net = NetLink::Hub::Sole();
@@ -142,9 +142,9 @@ void __cdecl ModemStateTask(void* task)
         break;
     case 2: // logged in (with the speed on a modem)
         if (net->GetNetLinkKind() == 1)
-            std::sprintf(line2, "%s %d bps", Scripts::FetchText(kLoggedIn), net->GetDialupSpeed());
+            std::sprintf(line2, "%s %d bps", Scripts::FetchText(kAuthDone), net->GetDialupSpeed());
         else
-            std::sprintf(line2, "%s", Scripts::FetchText(kLoggedIn));
+            std::sprintf(line2, "%s", Scripts::FetchText(kAuthDone));
         params->AppendWord(kText, Scripts::QBVAL_STRING, line2);
         Run(kFinalStateDialog, params);
         break;
@@ -191,12 +191,12 @@ void __cdecl NetMetricsTask(void* task)
 }
 
 // 0x00533ED0
-void __cdecl JoinTimeoutTask(void* task)
+void __cdecl JoinDeadlineTick(void* task)
 {
     Hub* manager = TaskManager(task);
-    if (manager->m_joinState == 8 || FrameClock::GetTime() - static_cast<uint32_t>(manager->m_joinStartTime) <= kJoinTimeout)
+    if (manager->m_joinPhase == 8 || FrameClock::GetTime() - static_cast<uint32_t>(manager->m_joinBeganAt) <= kJoinTimeout)
         return;
-    manager->m_joinStateTask->DropOut();
+    manager->m_joinPhaseJob->DropOut();
     Run(kShowJoinTimeoutNotice);
 }
 

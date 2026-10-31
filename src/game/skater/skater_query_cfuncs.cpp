@@ -45,7 +45,7 @@ constexpr uint8_t kMsgEliminated = 0x8D;            // the player of an object i
 constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
 // The network manager and its player lists (ListKit::Hunt<PlayerRecord>, vtable 0x0064C1A8; JoinerRecord's 0x0064C82C).
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 struct PlayerSearch {
     void** m_vtable = GameModules::kPlayerSearchVtable;
     void* m_listLink = nullptr;
@@ -54,11 +54,11 @@ struct NewPlayerSearch {
     void** m_vtable = OnlinePlay::kNewPlayerSearchVtable;
     void* m_listLink = nullptr;
 };
-PlayerRecord* FirstPlayer(OnlinePlay::Hub* manager, PlayerSearch* search, bool observers)
+PlayerRecord* StartRosterSweep(OnlinePlay::Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<PlayerRecord*>(manager->BeginPlayerWalk(search, observers));
 }
-PlayerRecord* NextPlayer(OnlinePlay::Hub* manager, PlayerSearch* search, bool observers)
+PlayerRecord* StepRosterSweep(OnlinePlay::Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<PlayerRecord*>(manager->StepPlayerWalk(search, observers));
 }
@@ -104,14 +104,14 @@ void PrepareEliminated(NetLink::NetMessageInfo* desc, uint32_t* data)
     desc->m_ident = kMsgEliminated;
     desc->m_byteCount = 4;
     desc->m_content = data;
-    desc->m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc->m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc->m_groupId = 8;
 }
 void SendToPlayers(OnlinePlay::Hub* manager, NetLink::NetMessageInfo* desc, bool observers)
 {
     PlayerSearch search;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, observers); player;
-         player = NextPlayer(manager, &search, observers))
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, observers); player;
+         player = StepRosterSweep(manager, &search, observers))
         manager->m_host->PutOnOutbox(player->GetLinkHandle(), desc);
 }
 
@@ -175,11 +175,11 @@ bool __cdecl CFunc_SkaterGetLastScoreLanded(Scripts::CStruct*, Scripts::CScript*
 // 0x005AC7B0: AccumulateScores - each player's total score added to the score accumulated over the session.
 bool __cdecl CFunc_AccumulateScores(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     PlayerSearch unused; // (made and dropped by the original)
     (void)unused;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false))
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false))
         player->AddToAccumulatedScore(TotalScore(ScoreOf(player->m_skater)));
     return true;
 }
@@ -189,13 +189,13 @@ bool __cdecl CFunc_AccumulateScores(Scripts::CStruct*, Scripts::CScript*)
 // told its skater's id.
 bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     PlayerSearch others;
     int lowest = -1;
     int highest = 0;
     int inGame = 0;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (player->IsEliminated())
             continue;
         ++inGame;
@@ -216,7 +216,7 @@ bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*
         SendToPlayers(manager, &desc, false);
         return true;
     }
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (player->IsEliminated() || TotalScore(ScoreOf(player->m_skater)) != lowest)
             continue;
         desc.MakeNew();
@@ -232,12 +232,12 @@ bool __cdecl CFunc_EliminateLastPlacePlayer(Scripts::CStruct*, Scripts::CScript*
 // whether at most one player isn't (then num_players: how many).
 bool __cdecl CFunc_OnlyOnePlayerLeft(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     if (IsSquadMatch()) {
         int teams[4] = {0, 0, 0, 0};
-        for (PlayerRecord* player = FirstPlayer(manager, &search, false); player;
-             player = NextPlayer(manager, &search, false)) {
+        for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player;
+             player = StepRosterSweep(manager, &search, false)) {
             if (!player->IsEliminated())
                 ++teams[player->m_team];
         }
@@ -247,7 +247,7 @@ bool __cdecl CFunc_OnlyOnePlayerLeft(Scripts::CStruct*, Scripts::CScript* script
         return withPlayers <= 1;
     }
     int players = 0;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (!player->IsEliminated())
             ++players;
     }
@@ -261,13 +261,13 @@ bool __cdecl CFunc_OnlyOnePlayerLeft(Scripts::CStruct*, Scripts::CScript* script
 // total score reaches it.
 bool __cdecl CFunc_AnySkaterTotalScoreAtLeast(Scripts::CStruct* params, Scripts::CScript*)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     int target = IntegerOrZero(params);
     if (IsSquadMatch()) {
         int teams[4] = {0, 0, 0, 0};
-        for (PlayerRecord* player = FirstPlayer(manager, &search, false); player;
-             player = NextPlayer(manager, &search, false)) {
+        for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player;
+             player = StepRosterSweep(manager, &search, false)) {
             uint8_t* score = ScoreOf(player->m_skater);
             teams[player->m_team] += TotalScore(score);
         }
@@ -277,7 +277,7 @@ bool __cdecl CFunc_AnySkaterTotalScoreAtLeast(Scripts::CStruct* params, Scripts:
         }
         return false;
     }
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (player->m_skater && TotalScore(ScoreOf(player->m_skater)) >= target)
             return true;
     }
@@ -289,14 +289,14 @@ bool __cdecl CFunc_AnySkaterTotalScoreAtLeast(Scripts::CStruct* params, Scripts:
 // game: also false with exactly one skater.)
 bool __cdecl CFunc_OnlyOneSkaterLeft(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     NewPlayerSearch joining;
     int scored = 0;
     if (IsSquadMatch()) {
         int teams[4] = {0, 0, 0, 0};
-        for (PlayerRecord* player = FirstPlayer(manager, &search, false); player;
-             player = NextPlayer(manager, &search, false)) {
+        for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player;
+             player = StepRosterSweep(manager, &search, false)) {
             uint8_t* score = ScoreOf(player->m_skater);
             teams[player->m_team] += TotalScore(score);
         }
@@ -306,8 +306,8 @@ bool __cdecl CFunc_OnlyOneSkaterLeft(Scripts::CStruct*, Scripts::CScript*)
             return false;
     } else {
         int skaters = 0;
-        for (PlayerRecord* player = FirstPlayer(manager, &search, false); player;
-             player = NextPlayer(manager, &search, false)) {
+        for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player;
+             player = StepRosterSweep(manager, &search, false)) {
             if (!player->m_skater)
                 continue;
             ++skaters;
@@ -385,7 +385,7 @@ bool __cdecl CFunc_SkaterGetScoreInfo(Scripts::CStruct*, Scripts::CScript* scrip
 // points: the best other player's total.
 bool __cdecl CFunc_InFirstPlace(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     int better = 0;
     int best = 0;
@@ -394,7 +394,7 @@ bool __cdecl CFunc_InFirstPlace(Scripts::CStruct*, Scripts::CScript* script)
         return false;
     int mine = TotalScore(ComponentScoreOf(local->m_skater));
     int inGame = 0;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (player->IsEliminated())
             continue;
         ++inGame;
@@ -414,7 +414,7 @@ bool __cdecl CFunc_InFirstPlace(Scripts::CStruct*, Scripts::CScript* script)
 // InFirstPlace); then points: the lowest other player's total.
 bool __cdecl CFunc_InLastPlace(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     int worse = 0;
     int lowest = -1;
@@ -423,7 +423,7 @@ bool __cdecl CFunc_InLastPlace(Scripts::CStruct*, Scripts::CScript* script)
         return false;
     int mine = TotalScore(ComponentScoreOf(local->m_skater));
     int inGame = 0;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (player->IsEliminated())
             continue;
         ++inGame;
@@ -448,7 +448,7 @@ bool __cdecl CFunc_InLastPlace(Scripts::CStruct*, Scripts::CScript* script)
 // InFirstPlace); then points: the local total less the lowest total (the local player's own counted).
 bool __cdecl CFunc_InSecondToLastPlace(Scripts::CStruct*, Scripts::CScript* script)
 {
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     PlayerSearch search;
     int worse = 0;
     int lowest = -1;
@@ -457,7 +457,7 @@ bool __cdecl CFunc_InSecondToLastPlace(Scripts::CStruct*, Scripts::CScript* scri
         return false;
     int mine = TotalScore(ComponentScoreOf(local->m_skater));
     int inGame = 0;
-    for (PlayerRecord* player = FirstPlayer(manager, &search, false); player; player = NextPlayer(manager, &search, false)) {
+    for (PlayerRecord* player = StartRosterSweep(manager, &search, false); player; player = StepRosterSweep(manager, &search, false)) {
         if (player->IsEliminated())
             continue;
         ++inGame;
@@ -500,7 +500,7 @@ bool __cdecl CFunc_ToggleSkaterCamMode(Scripts::CStruct* params, Scripts::CScrip
     params->FetchIntValue(kSkater, &index, 0);
     GameObjects::CGameEntity* skater;
     if (index == 0) {
-        auto* local = static_cast<PlayerRecord*>(NetManager()->GetOwnPlayer());
+        auto* local = static_cast<PlayerRecord*>(NetSessionSlot()->GetOwnPlayer());
         if (!local)
             return true;
         skater = local->m_skater;
@@ -543,9 +543,9 @@ bool __cdecl CFunc_GetSkaterSex(Scripts::CStruct* params, Scripts::CScript* scri
 {
     int player = 0; // (uninitialised in the original, as is_male)
     params->FetchIntValue(kPlayer, &player, 1);
-    GameObjects::CRiderIdentity* profile = GameObjects::g_profileManager->FetchAccount(player);
+    GameObjects::CRiderIdentity* profile = GameObjects::g_profileRoster->FetchAccount(player);
     int male = 0;
-    profile->InfoStructure()->FetchIntValue(kIsMale, &male, 1);
+    profile->DetailsParams()->FetchIntValue(kIsMale, &male, 1);
     script->m_args->PutInt(kIsMale, male);
     return true;
 }

@@ -106,7 +106,7 @@ uint32_t Since(uint32_t time) { return static_cast<uint32_t>(FrameClock::GameClo
 // The first viewport's camera (Nx, 0x004A06D0): its vtable slot 1 (through 0x004A1090) projects a point to the
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
 // rectangle (the query's number, 0 if none).
-void* ViewportCamera() { return Engine3D::GetActiveViewport(0); }
+void* ViewportCamera() { return Engine3D::FetchCurrentView(0); }
 void CastOnto(void* camera, const Maths::Vec4* point, float* x, float* y, float* z)
 {
     // (slot 1, through the jump 0x004A1090)
@@ -184,7 +184,7 @@ double Dot(const Maths::Vec4& a, const Maths::Vec4& b)
 Scripts::VectorValue Value(const Maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
 Scripts::CStruct* NewParams()
 {
-    CStruct* structure = Scripts::NewStruct();
+    CStruct* structure = Scripts::SpawnParamBag();
     if (structure)
         structure->PrepareAll();
     return structure;

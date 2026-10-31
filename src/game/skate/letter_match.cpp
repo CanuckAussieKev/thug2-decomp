@@ -29,7 +29,7 @@ constexpr uint32_t kPlayerName = 0x9196D920;       // playerName
 constexpr uint32_t kPanelString1 = 0xDE802177;     // panelString1
 constexpr uint32_t kIsAn = 0x8DF39CE4;             // horse_str_isan
 constexpr uint32_t kIsA = 0xFB911171;              // horse_str_isa
-constexpr uint32_t kScoreToBeat = 0xA32FE78F;      // horse_str_scoretobeat
+constexpr uint32_t kTargetScoreText = 0xA32FE78F;      // horse_str_scoretobeat
 constexpr uint32_t kSetScore = 0x695BC447;         // horse_str_setscore
 constexpr uint32_t kSetScoreIs = 0x5E024658;       // horse_str_setscoreis
 constexpr uint32_t kGetsTheLetter = 0xB470755A;    // horse_str_getstheletter
@@ -40,7 +40,7 @@ constexpr uint32_t kYouTied = 0x334622A1;          // horse_str_youtiedthetarget
 // NoScoreSet.
 uint32_t g_horseStatuses[7]{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0, 0x23DB4AEA, 0xA71DD8EB, 0x00000000}; // (zero-terminated)
 const uint32_t* Statuses() { return g_horseStatuses; }
-enum StatusIndex { kGotLetter = 0, kTieScore = 1, kBeatScore = 2, kGameOver = 3, kIdle = 4, kNoScoreSetStatus = 5 };
+enum StatusIndex { kGotLetter = 0, kTieScore = 1, kBeatScore = 2, kMatchEnded = 3, kIdle = 4, kNoScoreSetStatus = 5 };
 
 int HorseRestarts()
 {
@@ -139,7 +139,7 @@ bool CLetterMatch::IsOver()
 }
 
 // 0x005603D0
-int CLetterMatch::GetNextValidSkaterId()
+int CLetterMatch::FetchNextLiveRider()
 {
     int id = 0;
     for (int i = 0; i < kPlayers; ++i) {
@@ -180,7 +180,7 @@ TextUtil::Chars CLetterMatch::FetchText(uint32_t which)
     case kHorsePreRun:
         if (m_pointsTarget > 0) {
             const char* points = TextUtil::FormatWithSeparators(m_pointsTarget);
-            std::snprintf(text, sizeof(text), "%s %s", Scripts::FetchText(kScoreToBeat), points); // "%s %s"
+            std::snprintf(text, sizeof(text), "%s %s", Scripts::FetchText(kTargetScoreText), points); // "%s %s"
         } else
             std::snprintf(text, sizeof(text), Scripts::FetchText(kSetScore));
         break;
@@ -215,7 +215,7 @@ void CLetterMatch::EndRun()
         ChooseNextSpawn();
         if (IsOver()) {
             std::snprintf(m_panel, sizeof(m_panel), "You are a %s!", m_word); // "You are a %s!"
-            m_curStanding = Statuses()[kGameOver];
+            m_curStanding = Statuses()[kMatchEnded];
             return;
         }
         char letter[2] = {Upper(m_word[m_letters[m_skater] - 1]), 0};
@@ -235,7 +235,7 @@ void CLetterMatch::EndRun()
 // 0x005608B0
 void CLetterMatch::SwapRiders()
 {
-    int id = GetNextValidSkaterId();
+    int id = FetchNextLiveRider();
     m_lastSkater = id;
     m_skater = id;
 }

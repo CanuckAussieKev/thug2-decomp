@@ -166,7 +166,7 @@ void CPathManager::NumberPaths()
             node->PutInt(kPathNum, path);
             if (LevelNodes::GetLinkCount(node) == 0)
                 break;
-            node = LevelNodes::GetLinkedNode(node, 0);
+            node = LevelNodes::FetchNeighbourNode(node, 0);
         }
         if (path == m_pathCount)
             ++m_pathCount;

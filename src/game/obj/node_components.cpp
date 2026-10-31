@@ -202,7 +202,7 @@ Maths::Mat4* CGrindPathLinkModule::UpdateRailMatrix(Maths::Mat4* out)
     placement.row[2].w = 0.0f;
     const Maths::Vec4& pos = m_entity->m_atPoint;
     placement.row[3] = {pos.x, pos.y, pos.z, 1.0f};
-    m_railGroups->SetObjectMatrix(placement);
+    m_railGroups->ChangeBodyTransform(placement);
     *out = placement;
     return out;
 }

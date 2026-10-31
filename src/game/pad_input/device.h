@@ -25,7 +25,7 @@ public:
     // 0x005BDCC0: once a frame. PartyMod's (see device.cpp).
     void WorkOn(int unused);
     // 0x005BCC60
-    bool IsAttached() const { return m_pluggedIn; }
+    bool IsAttached() const { return m_isConnected; }
     // 0x005BCC70: start looking for a pad, if idle and one is there.
     void Acquire();
     // 0x005BD8B0: a pad is there: an analogue pad with two motors (type 7); settle, then ready.
@@ -42,7 +42,7 @@ public:
     // step, reading the pad (see device.cpp).
     void FireActuator(int actuator, int percent);
     // 0x005BCCB0: allow vibration again (the motors stay as they are).
-    void EnableActuators() { m_actuatorsDisabled = 0; }
+    void EnableActuators() { m_rumbleOff = 0; }
     // 0x005BDAD0: stop the motors and refuse further vibration.
     void StopRumble();
     // 0x005BDB30: stop the motors. Ends disabled if it was disabled, else enabled (see device.cpp).
@@ -64,30 +64,30 @@ public:
     uint32_t m_octets; // m_bufferRaw rounded up to 64
     uint8_t m_controlData[32]; // PS2 format: buttons (inverted bits), sticks, pressures
     uint8_t m_alignData[32];
-    uint8_t m_actuatorDirect[32]; // each motor's level
-    uint8_t m_actuatorMax[32];
+    uint8_t m_rumbleRaw[32]; // each motor's level
+    uint8_t m_rumbleCap[32];
     uint8_t m_actuatorSaved[32]; // levels while paused
     int m_pauseCount;
-    uint8_t m_actuatorsDisabled;
+    uint8_t m_rumbleOff;
     uint8_t m_padC1[3];
     uint32_t m_capabilities;
     uint32_t m_unknownC8;
-    int m_numActuators;
+    int m_rumbleMotorCount;
     uint32_t m_bufferRaw;
     int m_curPhase;
     int m_nextState; // after kSettle
     int m_ordinal;
-    bool m_pluggedIn;
+    bool m_isConnected;
     uint8_t m_padE1[3];
-    int m_unpluggedCounter;
-    int m_unpluggedRetry; // rand() & 63
+    int m_disconnectedTicks;
+    int m_reconnectDelay; // rand() & 63
     uint8_t m_heldDown; // any button down
     uint8_t m_keyboardControl; // set by the original read (start, the keyboard's char 0x19...)
     uint8_t m_padEE[2];
 };
-static_assert(offsetof(InputPort, m_controlData) == 0x1C && offsetof(InputPort, m_actuatorDirect) == 0x5C &&
+static_assert(offsetof(InputPort, m_controlData) == 0x1C && offsetof(InputPort, m_rumbleRaw) == 0x5C &&
                   offsetof(InputPort, m_pauseCount) == 0xBC && offsetof(InputPort, m_curPhase) == 0xD4 &&
-                  offsetof(InputPort, m_pluggedIn) == 0xE0 && sizeof(InputPort) == 0xF0,
+                  offsetof(InputPort, m_isConnected) == 0xE0 && sizeof(InputPort) == 0xF0,
               "layout must match the original");
 
 // The platform layer's pad state for a port (0x005F5BC0 fills it).

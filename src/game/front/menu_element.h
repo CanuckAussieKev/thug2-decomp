@@ -54,19 +54,19 @@ public:
     void Arrange();
 
     int m_selectedIndex;     // +0x178 (-1 none)
-    uint32_t m_selectedId;   // +0x17C (0 none)
+    uint32_t m_chosenItemId;   // +0x17C (0 none)
     bool m_focused;          // +0x180
     uint8_t m_pad181[3];
     int m_controller;        // +0x184 the controller of the focus event
-    float m_internalJustX;   // +0x188 internal_just
-    float m_internalJustY;   // +0x18C
+    float m_innerAlignH;   // +0x188 internal_just
+    float m_innerAlignV;   // +0x18C
     bool m_vertical;         // +0x190 a vmenu
     uint8_t m_pad191[3];
     float m_regularSpace;    // +0x194 regular_space_amount (0: off)
-    float m_paddingScale;    // +0x198 padding_scale (1)
-    float m_spacingBetween;  // +0x19C spacing_between
+    float m_marginFactor;    // +0x198 padding_scale (1)
+    float m_itemGap;  // +0x19C spacing_between
     bool m_padHandling;      // +0x1A0 enable_pad_handling (on)
-    bool m_allowWrap;        // +0x1A1 allow_wrap (on)
+    bool m_cyclesAround;        // +0x1A1 allow_wrap (on)
     uint8_t m_pad1A2[2];
     int m_gridIndex;         // +0x1A4 (-1)
 };

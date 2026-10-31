@@ -30,12 +30,12 @@ static_assert(offsetof(sHierarchyNode, boneSlot) == 0xA && offsetof(sHierarchyNo
 
 // 0x004B3490: a scene from geometry in memory: after a 12-byte header, the materials (with `textures`' (+0x0C)
 // textures), the sector count, each sector (a PC geom of its own; kept when it loads), the hierarchy (count and
-// nodes). The scene's hash table has 2^n entries for twice the sectors (n 1-12). `addSuperSectors` / `flag8D` go
+// nodes). The scene's hash table has 2^n entries for twice the sectors (n 1-12). `withSuperSectors` / `flag8D` go
 // to the scene's +0x8C / +0x8D, `meshFlag` to its mesh list's +0x40.
-void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool addSuperSectors, bool flag8D, bool meshFlag);
+void* __cdecl LoadSceneFromMemory(const uint8_t* data, void* textures, bool withSuperSectors, bool flag8D, bool meshFlag);
 // 0x004B36D0: the same from a file (opened "rb"; null if there's none) - the header's three words read and not
 // used; `sectorFlags` passed to each sector's load.
-void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool addSuperSectors, bool flag8D, bool meshFlag,
+void* __cdecl LoadSceneFromFile(const char* name, void* textures, bool withSuperSectors, bool flag8D, bool meshFlag,
                                 int sectorFlags);
 // 0x004B3990: a new animation frame source (0x214 bytes from the frame sources' pools 0x006FA7F4; 0x0048CF70).
 void* __cdecl CreateFrameSource();

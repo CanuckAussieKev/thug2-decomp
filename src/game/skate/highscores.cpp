@@ -30,7 +30,7 @@ constexpr uint32_t kHighScores = 0xFA60D92F;      // highscores
 constexpr uint32_t kBestCombos = 0xD91F1F72;      // bestcombos
 constexpr uint32_t kArcadeScores = 0xDBE683AF;    // arcadescores
 constexpr uint32_t kLongestCombo = 0x3F544EA0;    // longestcombo
-constexpr uint32_t kLongestGrind = 0x54C9597A;    // longestgrind
+constexpr uint32_t kBestGrindKey = 0x54C9597A;    // longestgrind
 constexpr uint32_t kLongestLipTrick = 0x40590191; // longestliptrick
 constexpr uint32_t kLongestManual = 0x82883251;   // longestmanual
 constexpr uint32_t kGameRecordsArray = 0xE764EDF2; // (the game records' array, as written)
@@ -58,16 +58,16 @@ char* NewInitials()
     return reinterpret_cast<char*>(memory);
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 
 // A record as a structure: value, number, initials.
 Scripts::CStruct* RecordStructure(const CBestEntry* record)
 {
-    Scripts::CStruct* structure = NewStructure();
+    Scripts::CStruct* structure = SpawnParamTable();
     structure->AddComponentOfType(kValue, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(record->m_val));
     structure->AddComponentOfType(kNumber, Scripts::QBVAL_INTEGER, static_cast<uint32_t>(record->m_slotNo));
     structure->AppendWord(kInitials, Scripts::QBVAL_STRING, record->m_tag);
@@ -236,7 +236,7 @@ CStageBests* CStageBests::MakeNew()
     m_bestCombos = NewTable(5);
     m_arcadeScores = NewTable(10);
     m_biggestChain = NewLongestRecord();
-    m_longestGrind = NewLongestRecord();
+    m_grindRecord = NewLongestRecord();
     m_longestLipTrick = NewLongestRecord();
     m_longestManual = NewLongestRecord();
     return this;
@@ -247,7 +247,7 @@ void CStageBests::DestroyBody()
 {
     DeleteRecord(m_longestManual);
     DeleteRecord(m_longestLipTrick);
-    DeleteRecord(m_longestGrind);
+    DeleteRecord(m_grindRecord);
     DeleteRecord(m_biggestChain);
     DeleteTable(m_bestCombos);
     DeleteTable(m_highScores);
@@ -257,7 +257,7 @@ void CStageBests::DestroyBody()
 // 0x0057EDD0
 void CStageBests::UpdateInitials(const char* initials)
 {
-    for (CBestEntry* record : {m_longestManual, m_longestLipTrick, m_longestGrind, m_biggestChain}) {
+    for (CBestEntry* record : {m_longestManual, m_longestLipTrick, m_grindRecord, m_biggestChain}) {
         if (record->m_isFresh)
             record->SetPlayerTag(initials);
     }
@@ -278,8 +278,8 @@ void CStageBests::DecodeFromStruct(Scripts::CStruct* params)
         m_arcadeScores->DecodeFromStruct(structure);
     params->ReadSubStruct(kLongestCombo, &structure, 0);
     m_biggestChain->DecodeFromStruct(structure);
-    params->ReadSubStruct(kLongestGrind, &structure, 0);
-    m_longestGrind->DecodeFromStruct(structure);
+    params->ReadSubStruct(kBestGrindKey, &structure, 0);
+    m_grindRecord->DecodeFromStruct(structure);
     params->ReadSubStruct(kLongestLipTrick, &structure, 0);
     m_longestLipTrick->DecodeFromStruct(structure);
     params->ReadSubStruct(kLongestManual, &structure, 0);
@@ -289,19 +289,19 @@ void CStageBests::DecodeFromStruct(Scripts::CStruct* params)
 // 0x0057F7B0
 void CStageBests::WriteToStructure(Scripts::CStruct* params)
 {
-    Scripts::CStruct* structure = NewStructure();
+    Scripts::CStruct* structure = SpawnParamTable();
     m_highScores->WriteToStructure(structure);
     params->AddComponentOfType(kHighScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
-    structure = NewStructure();
+    structure = SpawnParamTable();
     m_bestCombos->WriteToStructure(structure);
     params->AddComponentOfType(kBestCombos, kStructureComponent, reinterpret_cast<uint32_t>(structure));
     if (m_arcadeScores) {
-        structure = NewStructure();
+        structure = SpawnParamTable();
         m_arcadeScores->WriteToStructure(structure);
         params->AddComponentOfType(kArcadeScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
     }
     params->AddComponentOfType(kLongestCombo, kStructureComponent, reinterpret_cast<uint32_t>(RecordStructure(m_biggestChain)));
-    params->AddComponentOfType(kLongestGrind, kStructureComponent, reinterpret_cast<uint32_t>(RecordStructure(m_longestGrind)));
+    params->AddComponentOfType(kBestGrindKey, kStructureComponent, reinterpret_cast<uint32_t>(RecordStructure(m_grindRecord)));
     params->AddComponentOfType(kLongestLipTrick, kStructureComponent,
                                reinterpret_cast<uint32_t>(RecordStructure(m_longestLipTrick)));
     params->AddComponentOfType(kLongestManual, kStructureComponent,
@@ -358,7 +358,7 @@ void CBestResults::WriteToStructure(Scripts::CStruct* params)
     Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
     array->ConfigureSizeKind(m_levelCount, Scripts::QBVAL_STRUCT);
     for (int i = 0; i < m_levelCount; ++i) {
-        Scripts::CStruct* structure = NewStructure();
+        Scripts::CStruct* structure = SpawnParamTable();
         m_levels[i].WriteToStructure(structure);
         array->SetElement(i, reinterpret_cast<uint32_t>(structure));
     }

@@ -77,7 +77,7 @@ bool AssetBundle::Split(int /*unused*/, int size)
         return false;
     m_num = static_cast<int>(header[1]);
     // The entries are copied before the table is checked against the file size (and the count against
-    // kMaxEntries is never checked) - as in the original.
+    // kBundleCapacity is never checked) - as in the original.
     uint32_t tableSize = static_cast<uint32_t>(m_num) * sizeof(TableRow);
     std::memcpy(m_entries, entries, tableSize);
     if (entries + tableSize > end)

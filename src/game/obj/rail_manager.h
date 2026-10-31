@@ -8,7 +8,7 @@
 
 // The rail manager (GameObjects::CGrindRailHub, 0x0057C170-0x0057EE65): a level's (or a moving object's) grind rails and
 // climbing nodes, made from the node array's RailNodes / ClimbingNodes. The skate module's is at +0x24; an object's
-// rails are in its own space (m_onObject, m_objectMatrix). Each node keeps the box of its segment to the next node,
+// rails are in its own space (m_onObject, m_frameXform). Each node keeps the box of its segment to the next node,
 // so skaters find rails by testing boxes. Also the box / interval helpers its code uses.
 namespace Scripts {
 class CArray;
@@ -58,7 +58,7 @@ public:
     CGrindRailHub* PrepareAll();
     void TidyUp();
     // 0x0057C4F0: its rails ride an object: positions are in `matrix`'s space.
-    Maths::Mat4& SetObjectMatrix(const Maths::Mat4& matrix);
+    Maths::Mat4& ChangeBodyTransform(const Maths::Mat4& matrix);
     // 0x0057CB20: `in` in the world (through the object's matrix when on an object). Returns `out`.
     Maths::Vec4* ToWorld(Maths::Vec4* out, const Maths::Vec4* in);
     // 0x0057CB60: `node`'s position in the world. Returns `out`.
@@ -116,7 +116,7 @@ public:
     // own previous link at its own index count times (found: the previous node's box - never).
     void MoveNode(uint32_t name, const Maths::Vec4* pos);
 
-    Maths::Mat4 m_objectMatrix; // +0x00
+    Maths::Mat4 m_frameXform; // +0x00
     CGrindPoint* m_nodes;         // +0x40
     Scripts::CArray* m_nodeArray; // +0x44 the node array they were made from
     int m_num;                // +0x48

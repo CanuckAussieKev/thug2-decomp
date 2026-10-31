@@ -361,7 +361,7 @@ bool ReadIn(const char* name, std::string* why)
     }
     Log("start level: %s (free skate)", level.c_str());
     Scripts::LaunchScript(NameHash("EnableSun"), nullptr, nullptr, false, "EnableSun");
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->PutNameKey(0u, NameHash("freeskate"));
     Scripts::LaunchScript(NameHash("SetGameType"), params, nullptr, false, "SetGameType");
     params->Clear();

@@ -38,7 +38,7 @@ const char* __cdecl GetLocaleLabel();
 const char* __cdecl GetRegionLabel();
 const char* __cdecl GetPlatformLabel();
 const char* __cdecl GetScreenModeLabel();
-const char* __cdecl GetPlatformExtension();
+const char* __cdecl FetchPlatformSuffix();
 // 0x005B6090: the NTSC flag set (only with an NTSC display).
 void __cdecl SetNtscFlag(bool on);
 // 0x005B60B0: the configuration from the registry (ReadRegistry) and the command line.

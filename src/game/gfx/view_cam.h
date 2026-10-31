@@ -40,7 +40,7 @@ public:
     void ChangeLocation(const Maths::Vec4& pos);
     // 0x00485A90 (returns the camera's matrix: the copy's result).
     Maths::Mat4& ChangeMat(const Maths::Mat4& matrix);
-    // 0x00485AA0: m_adjustedHFov (m_hFov widened by Engine3D::GetScreenAngleFactor, over m_unknownC0) and m_unknownB4.
+    // 0x00485AA0: m_correctedHorizFov (m_hFov widened by Engine3D::FetchFovRatio, over m_unknownC0) and m_unknownB4.
     void RefreshEffectiveHFov();
     // 0x00485B10: the horizontal field of view in degrees as drawn (updated first).
     float FetchEffectiveHFov();
@@ -51,9 +51,9 @@ public:
     Maths::Vec4 m_atPoint;          // +0x5C
     Maths::Mat4 m_basisFrame;       // +0x6C: row 2 points backward (the view looks along -row 2), row 1 up
     float m_hFov;               // +0xAC: degrees, at 4:3
-    float m_adjustedHFov;       // +0xB0: degrees, as drawn
-    float m_unknownB4;          // +0xB4: tan(half m_adjustedHFov) / tan(half the default angle)
-    float m_nearClip;           // +0xB8: 12 (by its value)
+    float m_correctedHorizFov;       // +0xB0: degrees, as drawn
+    float m_unknownB4;          // +0xB4: tan(half m_correctedHorizFov) / tan(half the default angle)
+    float m_nearDist;           // +0xB8: 12 (by its value)
     float m_farClip;            // +0xBC: 12000 (by its value)
     float m_unknownC0;          // +0xC0: 1 (divides the widened angle's tangent)
 };

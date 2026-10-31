@@ -11,7 +11,7 @@ namespace GameObjects {
 // 0x004312A0). Vtable: 0 the scalar deleting destructor; 1 Update; 2 / 8 the empty 0x005BAB90; 3 / 4 / 9 the empty
 // 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 10 0x005144C0; 11 the base's member
 // function table entry 0x0045D720; 12 InvokeMethodByName 0x0051ADC0 (none of its own).
-class CDisplayMatrixComponent : public CObjectModule {
+class CFaceHeadingModule : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0x1BBF844D;
 
@@ -20,10 +20,10 @@ public:
     // 0x00431240: the destructor body (the base's).
     void DestroyBody();
     // 0x00431250 (vtable slot 0)
-    CDisplayMatrixComponent* Teardown(unsigned int flags);
+    CFaceHeadingModule* Teardown(unsigned int flags);
     // 0x00431280 (vtable slot 1): the object's display matrix = its orientation.
     void TickFrame();
 };
-static_assert(sizeof(CDisplayMatrixComponent) == 0x18, "layout must match the original");
+static_assert(sizeof(CFaceHeadingModule) == 0x18, "layout must match the original");
 
 } // namespace Obj

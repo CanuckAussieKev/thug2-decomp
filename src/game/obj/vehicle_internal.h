@@ -27,7 +27,7 @@ inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp";   // "o
 // `events` (const int[3]).
 inline void TriggerFeeler(CObjectModule* trigger, const int* events, Engine3D::CProbeRay* feeler)
 {
-    static_cast<CActivationZoneModule*>(trigger)->CheckFeeler(events, feeler);
+    static_cast<CActivationZoneModule*>(trigger)->ProbeTouchesZone(events, feeler);
 }
 inline void TriggerRect(CObjectModule* trigger, const int* events, Engine3D::CBoxProbe* feeler)
 {

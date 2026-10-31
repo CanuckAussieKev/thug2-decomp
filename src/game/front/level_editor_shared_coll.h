@@ -83,7 +83,7 @@ public:
     // On / off (the object's flag 4, as CWorldCell::ChangeLive turns a sector's collision off).
     void ChangeLive(bool active);
     // A face's flags set (level_editor_faces.h: the face flags edited).
-    void SetFaceFlags(int face, uint16_t flags);
+    void ChangeTriFlags(int face, uint16_t flags);
     bool LiveNow() const;
 
     Engine3D::CStaticCollider* Object() { return &m_entity; }

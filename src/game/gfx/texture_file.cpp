@@ -60,7 +60,7 @@ void ExpandPalette(void* out, const void* indices, uint32_t size, const void* pa
                             static_cast<const uint32_t*>(palette));
 }
 
-textureRef* NewTexture()
+textureRef* AllocPcTexture()
 {
     void* memory = MemSys::Alloc(sizeof(textureRef));
     return memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
@@ -140,7 +140,7 @@ textureRef* __cdecl ReadTextureFile(const char* name)
     ImageHeader header;
     FileLoad::TakeIn(&header, 0x20, 1, file);
     if (IsHdDxt(header)) { // (not original - hd_ui.h)
-        textureRef* hd = NewTexture();
+        textureRef* hd = AllocPcTexture();
         hd->palette = nullptr;
         InputPort()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
@@ -156,7 +156,7 @@ textureRef* __cdecl ReadTextureFile(const char* name)
     uint32_t bits;
     bool palettized;
     Decode(header.format, &bits, &palettized);
-    textureRef* texture = NewTexture();
+    textureRef* texture = AllocPcTexture();
     texture->palette = nullptr;
     uint8_t palette[0x400];
     if (palettized)
@@ -200,7 +200,7 @@ textureRef* __cdecl LoadTextureMemory(const uint8_t* data)
     std::memcpy(&header, data, sizeof(header));
     const uint8_t* at = data + 0x20;
     if (IsHdDxt(header)) { // (not original - hd_ui.h)
-        textureRef* hd = NewTexture();
+        textureRef* hd = AllocPcTexture();
         hd->palette = nullptr;
         InputPort()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                 reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
@@ -217,7 +217,7 @@ textureRef* __cdecl LoadTextureMemory(const uint8_t* data)
     uint32_t bits;
     bool palettized;
     Decode(header.format, &bits, &palettized);
-    textureRef* texture = NewTexture();
+    textureRef* texture = AllocPcTexture();
     texture->palette = nullptr;
     uint8_t palette[0x400];
     if (palettized) {

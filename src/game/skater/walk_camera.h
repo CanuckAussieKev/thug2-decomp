@@ -67,7 +67,7 @@ public:
     // look-around back to straight ahead, unlocked, its factor 1.
     void ApplyQueuedChange();
     // 0x00525F70: look along `facing` (turned by the look-around heading) at `rate`, until RestoreState.
-    void SetOverrideFacing(const Maths::Vec4* facing, float rate);
+    void ChangeForcedHeading(const Maths::Vec4* facing, float rate);
     // 0x00525060 / 0x00524FF0: its orientation, target, turn cosine and zoom saved / restored (restoring also
     // ends a flush, the instant frames, an override and the look-around's heading and lock).
     void SaveState(WalkCameraState* state);
@@ -90,11 +90,11 @@ public:
     Maths::Vec4 m_aimPoint;           // +0x24
     Maths::Mat4 m_orientation;      // +0x34
     float m_turnCosine;             // +0x74 the last turn's cosine (the new at-row against the old)
-    bool m_override;                // +0x78 (SetOverrideFacing)
+    bool m_override;                // +0x78 (ChangeForcedHeading)
     uint8_t pad79[3];
-    Maths::Vec4 m_overrideFacing;   // +0x7C
+    Maths::Vec4 m_forcedHeading;   // +0x7C
     float m_overrideRate;           // +0x8C
-    CFreeLookModule* m_lookAround; // +0x90
+    CFreeLookModule* m_freeLook; // +0x90
     CObjectModule* m_viewer;       // +0x94 (+0x18 its camera)
     uint8_t* m_skaterCamera;        // +0x98 (the parameters it shares: +0x74 a matrix, +0xC4, +0xD0, +0xE4, +0xE8,
                                     // +0x110, +0x12C)
@@ -106,7 +106,7 @@ static_assert(offsetof(CFootView, m_instantFrames) == 0x18 && offsetof(CFootView
                   offsetof(CFootView, m_aimPoint) == 0x24 &&
                   offsetof(CFootView, m_orientation) == 0x34 &&
                   offsetof(CFootView, m_override) == 0x78 &&
-                  offsetof(CFootView, m_lookAround) == 0x90 &&
+                  offsetof(CFootView, m_freeLook) == 0x90 &&
                   offsetof(CFootView, m_physicsControl) == 0xA4 && sizeof(CFootView) == 0xA8,
               "layout must match the original");
 static_assert(sizeof(WalkCameraState) == 0x58, "layout must match the original");

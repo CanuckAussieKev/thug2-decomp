@@ -37,7 +37,7 @@ constexpr uint32_t kFakeLightsExact = 0x80804991; // (name unknown) FakeLights: 
 constexpr uint32_t kParams = 0x7031F10C;         // "params"
 constexpr uint32_t kCallback = 0x86068BD9;       // "callback"
 constexpr uint32_t kCallbackParams = 0x0DD85BDA; // "callbackparams"
-constexpr uint32_t kNetEnabled = 0x20209C31;     // "NetEnabled"
+constexpr uint32_t kOnlineFlag = 0x20209C31;     // "OnlineModeFlag"
 constexpr uint32_t kPermanent = 0x23627FD7;      // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
 constexpr uint32_t kKeepSpawnerFile = 0x01917DF2; // (name unknown) SpawnScript: don't note the spawner's .qb file
@@ -53,7 +53,7 @@ int ButtonIndex(uint32_t button) { return PadInput::ButtonIndex(button); }
 uint32_t& LastBroadcastedOmnigon() { return g_lastBroadcastedOmnigon; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
-char* NodeArrayName() { return g_nodeArrayName; }
+char* NodeTableKeyText() { return g_nodeListName; }
 char* LevelName() { return g_levelName; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
@@ -71,7 +71,7 @@ bool __cdecl ControllerPressed(const void* controller, uint32_t button)
 {
     if (!controller)
         return false;
-    auto* input = *reinterpret_cast<ControllerInput* const*>(static_cast<const uint8_t*>(controller) + 0x18);
+    auto* input = *reinterpret_cast<PadInputSample* const*>(static_cast<const uint8_t*>(controller) + 0x18);
     if (!input)
         return false;
     int index = ButtonIndex(button);
@@ -165,7 +165,7 @@ bool __cdecl CFunc_LoadNodeArray(Scripts::CStruct* params, Scripts::CScript*)
     Scripts::KillAllChildScripts();
     const char* name = nullptr;
     params->FetchText(0u, &name, 0);
-    char* out = NodeArrayName(); // (no length limit, like strcpy)
+    char* out = NodeTableKeyText(); // (no length limit, like strcpy)
     for (const char* in = name; (*out++ = *in++) != '\0';) {
     }
     Scripts::LoadQBFile(name, 0);
@@ -218,7 +218,7 @@ bool __cdecl CFunc_CasArtist(Scripts::CStruct*, Scripts::CScript*)
 }
 
 // 0x0059F330: SpawnScript <name> [params={...}] [id=n] [callback=<script>] [callbackparams={...}]
-// [NetEnabled] [permanent] [NotSessionSpecific=n]: spawn the script at the calling script's node. The new
+// [OnlineModeFlag] [permanent] [NotSessionSpecific=n]: spawn the script at the calling script's node. The new
 // script remembers the caller's .qb file (so killing by file kills it) unless the flag 0x01917DF2 is given.
 // Always true.
 bool __cdecl CFunc_SpawnScript(Scripts::CStruct* params, Scripts::CScript* script)
@@ -233,7 +233,7 @@ bool __cdecl CFunc_SpawnScript(Scripts::CStruct* params, Scripts::CScript* scrip
     params->ReadHashValue(kCallback, &callback, 0);
     Scripts::CStruct* callbackParams = nullptr;
     params->ReadSubStruct(kCallbackParams, &callbackParams, 0);
-    bool replicateFlag = params->HasBareFlag(kNetEnabled);
+    bool replicateFlag = params->HasBareFlag(kOnlineFlag);
     bool permanent = params->HasBareFlag(kPermanent);
     int notSessionSpecific = 0;
     params->FetchIntValue(kNotSessionSpecific, &notSessionSpecific, 0);

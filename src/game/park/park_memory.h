@@ -17,7 +17,7 @@ namespace ParkEditing {
 
 // The figures (0x007CE618, 0x6C bytes, copied out by GetMemoryStats).
 struct MemoryStats {
-    int parkHeapUsed;      // +0x00 the park heap's used size
+    int parkBytesInUse;      // +0x00 the park heap's used size
     int parkHeapFree;      // +0x04 its region's space + its free blocks - park_heap_pad
     int mainHeapFree;      // +0x08 the main (bottom-up) heap's, less the pads (or its largest block, see below)
     bool mainHeapFragmented; // +0x0C the main heap's largest block is less than its free space and the pad

@@ -33,7 +33,7 @@ struct WadStream {
     Result StartRead();
     // 0x004543F0: whether the preload (state 1; any other state: false) is far enough: the read done at once,
     // or 8 KB loaded ahead.
-    bool PreloadDone();
+    bool PrefetchComplete();
     // 0x00454430: pause (non-zero) or resume.
     void Freeze(int pause);
     // 0x00454440 (empty; also called on BinkStreams - linker-folded): the five channels' volumes.
@@ -118,7 +118,7 @@ struct BinkStream {
     // 0x005B9760 (linker-folded `return true`): whether it may be freed now (else it's asked to stop), and
     // whether its preload is far enough to start.
     bool ReadyToFree() { return true; }
-    bool PreloadDone() { return true; }
+    bool PrefetchComplete() { return true; }
     // 0x00454440 (WadStream::SetChannelVolumes, linker-folded: empty).
     void SetChannelVolumes(float, float, float, float, float) {}
 
@@ -245,7 +245,7 @@ bool __cdecl LoadMusicTrack(uint32_t checksum);
 // 0x00453D70: the same for the track named by the file name in `path` (any directories dropped).
 bool __cdecl LoadMusicTrackByName(const char* path);
 // 0x00453DB0: load and start music track `checksum` (noted in 0x0069CBA8).
-bool __cdecl PlayMusicTrack(uint32_t checksum);
+bool __cdecl StartTrackPlayback(uint32_t checksum);
 // 0x00453BF0: start the music loaded (then frees what finished): false if there's none.
 bool __cdecl StartPreloadedMusic();
 // 0x00453850: play track `track` of user soundtrack `soundtrack` as a WadStream (there are no user
@@ -265,21 +265,21 @@ void __cdecl SyncMusicToTime(float seconds);
 
 // The sound streams.
 // A stream's volume: five channel levels (0-100), or the first two as left and right.
-struct StreamVolume {
+struct StreamGain {
     float level[5];
     int type; // 2: five channels; 0, 1, 3: left and right; others: unchanged
 };
 // 0x00454080: load pcm.wad's entry `checksum` into stream `slot` (free) as a Bink stream played `plays`
 // times (0: once), at `volume` (if given); a preload isn't started (StartPreloadedStream). Two arguments unused.
-bool __cdecl LoadStream(uint32_t checksum, int slot, const StreamVolume* volume, int unused4, int unused5,
+bool __cdecl LoadStream(uint32_t checksum, int slot, const StreamGain* volume, int unused4, int unused5,
                         bool preload, int plays);
 // 0x00454200: load and start stream `checksum` (noted in 0x0069CBAC) in `slot`, played once.
 bool __cdecl PlayStream(uint32_t checksum, int slot, int unused);
 // 0x00454270: start the stream preloaded in `slot` at `volume`: false if there's none.
-bool __cdecl StartPreloadedStream(int slot, const StreamVolume* volume);
+bool __cdecl StartPreloadedStream(int slot, const StreamGain* volume);
 // 0x00453DF0: stream `slot`'s volume: the levels times the sound effects volume / 100; the slot's volume is
 // their mean (left for two). True.
-bool __cdecl ChangeStreamLoudness(const StreamVolume* volume, int slot);
+bool __cdecl ChangeStreamLoudness(const StreamGain* volume, int slot);
 // 0x00453B30: stop stream `slot` (freed now, or asked to stop if it can't go yet). The second argument is
 // unused.
 void __cdecl HaltStream(int slot, int unused);

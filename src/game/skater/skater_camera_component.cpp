@@ -144,7 +144,7 @@ void CRiderChaseView::FetchGoal(Maths::Vec4* out, bool instant)
     if (VertAir(state)) {
         across = static_cast<float>(
             FrameBlend(static_cast<float>(m_vertAirLerpXZ * static_cast<double>(m_rateScale)), seconds));
-        up = FrameBlend(static_cast<float>(m_vertAirLerpY * static_cast<double>(m_rateScale)), seconds);
+        up = FrameBlend(static_cast<float>(m_halfpipeUpBlend * static_cast<double>(m_rateScale)), seconds);
     } else {
         across = static_cast<float>(FrameBlend(static_cast<float>(m_lerpXZ * static_cast<double>(m_rateScale)), seconds));
         up = FrameBlend(static_cast<float>(m_lerpY * static_cast<double>(m_rateScale)), seconds);
@@ -183,17 +183,17 @@ void CRiderChaseView::GetZoomedOffsets(float* height, float* distance)
     if (m_vertZoomOn)
         m_zoomTarget = m_bigAirTrickZoom;
     else if (At<int>(state, 0x18) == 4)
-        m_zoomTarget = m_grindZoom;
+        m_zoomTarget = m_railZoomFactor;
     else if (At<int>(state, 0x18) == 3)
         m_zoomTarget = m_lipTrickZoom;
-    CFreeLookModule* lookAround = mp_lookAround;
+    CFreeLookModule* lookAround = m_freeLookModule;
     if (lookAround->m_turning && std::bit_cast<uint32_t>(lookAround->m_factor) != 0x3F800000u)
         m_zoomTarget = static_cast<float>(static_cast<double>(lookAround->m_factor) * m_zoomTarget);
-    double eased = (static_cast<double>(m_zoomTarget) - m_zoom) * m_zoomLerp + m_zoom;
+    double eased = (static_cast<double>(m_zoomTarget) - m_zoom) * m_zoomEaseRate + m_zoom;
     m_zoom = static_cast<float>(eased);
     double behind = eased * m_behind;
     *distance = static_cast<float>(behind);
-    float tilt = mp_lookAround->m_leanAngle;
+    float tilt = m_freeLookModule->m_leanAngle;
     if (tilt < 0.0f)
         *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) * behind);
     float above = At<int>(mp_state, 0x18) == 3 ? m_lipTrickAbove : m_above;
@@ -242,11 +242,11 @@ CRiderChaseView* CRiderChaseView::MakeNew()
     m_zoom = 1.0f;
     m_turnCosine = 1.0f;
     m_vertAirLerpXZ = 1.0f;
-    m_vertAirLerpY = 1.0f;
+    m_halfpipeUpBlend = 1.0f;
     m_riderRef = nullptr;
     mp_state = nullptr;
     mp_control = nullptr;
-    m_zoomLerp = 0.0625f;
+    m_zoomEaseRate = 0.0625f;
     m_lerpXZ = 0.25f;
     m_lerpY = 0.5f;
     m_lookRate = 0.1f;
@@ -273,7 +273,7 @@ void CRiderChaseView::ConfigureFromData(Scripts::CStruct* params)
     std::memcpy(m_orientation, &matrix, sizeof(m_orientation));
     uint32_t id = 0;
     params->ReadHashValue(kSkaterId, &id, 1);
-    BindRider(static_cast<CGameEntity*>(reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(id)));
+    BindRider(static_cast<CGameEntity*>(reinterpret_cast<CObjectHubBase*>(g_compositeRegistry)->LookUpEntity(id)));
 }
 
 // 0x004FA680

@@ -38,11 +38,11 @@ constexpr uint32_t kViewGoalsMenuAddItem = 0x380AEA65; // view_goals_menu_add_it
 constexpr uint32_t kCountAll = 0xA21884B5;         // count_all
 constexpr uint32_t kTrickBeat = 0xD0DD047B;        // TrickBeat
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* made = Scripts::NewStruct();
+    Scripts::CStruct* made = Scripts::SpawnParamBag();
     return made ? made->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -108,7 +108,7 @@ bool CGoalManager::HasActiveGapGoal()
         if (!Virtual<bool>(goal, CObjective::kVtIsActive))
             continue;
         Scripts::CArray* gaps = nullptr;
-        if (goal->FetchArgs()->FetchList(kRequiredGaps, &gaps, 0))
+        if (goal->FetchArgs()->FetchList(kNeededGapList, &gaps, 0))
             return true;
     }
     return false;
@@ -117,7 +117,7 @@ bool CGoalManager::HasActiveGapGoal()
 // 0x0055DF90
 void CGoalManager::RevokeEveryClear()
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     for (int i = 0; i < m_goals.m_num; ++i) {
         CObjective* goal = m_goals.GetByIndex(i);
         if (Virtual<bool>(goal, CObjective::kVtUnBeat) && !net->InNetGame()) {
@@ -128,7 +128,7 @@ void CGoalManager::RevokeEveryClear()
     }
     if (!net->InNetGame())
         m_goalData->Clear();
-    if (NumActiveGoals(false) == 0 && !static_cast<uint8_t>(ScriptCommands::CFunc_InMultiplayerGame(nullptr, nullptr)))
+    if (CountLiveGoals(false) == 0 && !static_cast<uint8_t>(ScriptCommands::CFunc_InMultiplayerGame(nullptr, nullptr)))
         Scripts::LaunchScript(kShowGoalPoints, nullptr, nullptr, false, nullptr);
 }
 
@@ -184,7 +184,7 @@ void CGoalManager::AppendObjectiveListEntries()
             continue;
         if (goal->IsOnlineObjective())
             continue;
-        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* item = SpawnParamTable();
         item->PutNameKey(kGoalIdChecksum, goal->GetObjectiveKey());
         item->AppendWord(kText, text);
         if (Virtual<bool>(goal, CObjective::kVtHasWon)) {
@@ -277,7 +277,7 @@ bool __cdecl CFunc_GoalManager_HasActiveGoals(Scripts::CStruct* params, Scripts:
 {
     CGoalManager* manager = GetObjectiveBoard();
     bool all = params->HasBareFlag(kCountAll);
-    return manager->NumActiveGoals(all) > 0;
+    return manager->CountLiveGoals(all) > 0;
 }
 
 // 0x0055E8A0
@@ -300,7 +300,7 @@ bool __cdecl CFunc_GoalManager_GoalShouldExpire(Scripts::CStruct*, Scripts::CScr
     CGoalManager* manager = GetObjectiveBoard();
     if (!manager)
         return false;
-    for (int i = 0; i < manager->NumActiveGoals(true); ++i) {
+    for (int i = 0; i < manager->CountLiveGoals(true); ++i) {
         if (Virtual<bool>(manager->GetEngagedObjective(i), CObjective::kVtIsExpired))
             return true;
     }

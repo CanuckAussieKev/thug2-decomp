@@ -109,7 +109,7 @@ public:
     uint8_t unknownB005[3];
     ListKit::KeyMap* mp_names;  // +0xB008 name checksum -> m_names entry (made on the first AddRow)
     int m_layer;               // +0xB00C how many launches are under way
-    int m_newEntries;          // +0xB010 entries since the last Print
+    int m_addedSinceSweep;          // +0xB010 entries since the last Print
 };
 static_assert(sizeof(CSignalTrace::TableRow) == 0x1C && offsetof(CSignalTrace, m_ordinal) == 0x7000 &&
                   offsetof(CSignalTrace, m_names) == 0x7005 && offsetof(CSignalTrace, mp_names) == 0xB008 &&

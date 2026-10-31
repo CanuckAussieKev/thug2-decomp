@@ -52,7 +52,7 @@ void** const kScoreSearchVtable = reinterpret_cast<void**>(kScoreSearchVtable_sl
 static VtableSlot kScoreNodeVtable_slots[] = {&OnlinePlay::ScoreNode::Teardown};
 void** const kScoreNodeVtable = reinterpret_cast<void**>(kScoreNodeVtable_slots);
 
-Hub* TheManager() { return g_gameNetManager; }
+Hub* TheManager() { return g_onlineHub; }
 
 GameObjects::CObjectModule* SkaterComponent(GameObjects::CRider* skater, uint32_t type)
 {
@@ -89,7 +89,7 @@ JoinerRecord* JoinerRecord::MakeNew()
     m_profileId = 0;
     m_skillPoints = 0;
     m_unknown38 = 0;
-    m_vehicleControlType = 0;
+    m_driveControlMode = 0;
     MemSys::Hub::Pull()->LeaveHeapScope();
     return this;
 }
@@ -139,7 +139,7 @@ PlayerRecord* PlayerRecord::MakeNew(uint32_t flags)
     m_skater = nullptr;
     m_account = nullptr;
     m_joinTime = 0;
-    m_lastHitTime = 0;
+    m_lastImpactAt = 0;
     m_team = 0;
     m_unknown28 = 0;
     m_skillPoints = 0;
@@ -184,7 +184,7 @@ void PlayerRecord::BindRider(GameObjects::CRider* skater)
 {
     Hub* manager = TheManager();
     m_skater = skater;
-    if (!(m_flagBits & kPlayerLocal) && manager->GetCamPlayer() == this)
+    if (!(m_flagBits & kPlayerLocal) && manager->FetchViewedPlayer() == this)
         manager->SpectatePlayer(reinterpret_cast<uint8_t*>(this)); // (the camera follows it again)
 }
 
@@ -249,7 +249,7 @@ void PlayerRecord::AwaitReadyResponse(uint32_t id)
         return;
     if (id)
         m_readyQueryOwed = id;
-    m_conn->m_curStanding &= ~NetLink::Conn::kStatusReady;
+    m_conn->m_curStanding &= ~NetLink::Conn::kConnReady;
     m_conn->m_curStanding |= NetLink::Conn::kStatus2;
 }
 
@@ -260,16 +260,16 @@ void PlayerRecord::ReceiveReadyResponse(uint32_t id)
         return;
     if (m_conn) {
         m_conn->m_curStanding &= ~NetLink::Conn::kStatus2;
-        m_conn->m_curStanding |= NetLink::Conn::kStatusReady;
+        m_conn->m_curStanding |= NetLink::Conn::kConnReady;
         m_conn->ClearResendCounts();
     }
     m_readyQueryOwed = 0;
 }
 
 // 0x00543110 / 0x00543100 / 0x005430E0
-void PlayerRecord::SetLastHitTime(uint32_t time) { m_lastHitTime = time; }
-void PlayerRecord::ClearLastHitTime() { m_lastHitTime = 0; }
-int PlayerRecord::CanBeHitAgain() { return FrameClock::GetTime() - m_lastHitTime > kHitWindow ? 1 : 0; }
+void PlayerRecord::ChangeRecentHitStamp(uint32_t time) { m_lastImpactAt = time; }
+void PlayerRecord::ClearLastHitTime() { m_lastImpactAt = 0; }
+int PlayerRecord::CanBeHitAgain() { return FrameClock::GetTime() - m_lastImpactAt > kHitWindow ? 1 : 0; }
 
 // 0x00543120 / 0x00543130 / 0x00543140
 int PlayerRecord::GetLastSentSkater() { return m_lastSentSkater; }

@@ -21,7 +21,7 @@
 
 namespace Scripts {
 
-CScript* g_currentScript;
+CScript* g_runningScript;
 CScript* g_scriptListHead;
 bool g_onePerFrameReleased;
 int g_scriptCount;
@@ -38,7 +38,7 @@ MemSys::PoolPair& ScriptPools() { return g_scriptPools; }
 // A new empty structure from the structure pool (null if there's no room).
 CStruct* NewEmptyStruct()
 {
-    CStruct* structure = NewStruct();
+    CStruct* structure = SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 // `delete structure` (its destructor is Clear).
@@ -56,8 +56,8 @@ CScript* CScript::MakeNew()
     m_entity.m_preceding = nullptr;
     m_entity.m_following = nullptr;
     m_entity.m_ownerObject = nullptr;
-    m_refCounted.MakeNew();
-    // Then all of it is zeroed - m_refCounted's vtable too (an original quirk, kept).
+    m_sharedBase.MakeNew();
+    // Then all of it is zeroed - m_sharedBase's vtable too (an original quirk, kept).
     std::memset(this, 0, sizeof(CScript));
     m_following = ScriptListHead();
     if (ScriptListHead())
@@ -66,7 +66,7 @@ CScript* CScript::MakeNew()
     ++ScriptCount();
     ++NextScriptUniqueId();
     m_listLink = 0;
-    m_eventHandlers = nullptr;
+    m_signalRoutes = nullptr;
     m_returnAddresses = m_inlineReturnAddresses;
     m_onExceptionScript = 0;
     m_onExitScript = 0;
@@ -91,9 +91,9 @@ void CScript::Teardown()
         m_priorEntry->m_following = m_following;
 
     ForgetStoredRandomsOf(reinterpret_cast<uint32_t>(this));
-    if (GameObjects::CSignalRouteTable* table = m_eventHandlers) {
+    if (GameObjects::CSignalRouteTable* table = m_signalRoutes) {
         if (table->m_inUse) {
-            // Its handlers are being run: it is marked dead and freed afterwards (by PassEvent).
+            // Its handlers are being run: it is marked dead and freed afterwards (by ForwardTrigger).
             table->m_alive = false;
         } else {
             table->Teardown();
@@ -101,7 +101,7 @@ void CScript::Teardown()
         }
     }
     --ScriptCount();
-    m_refCounted.Destruct();
+    m_sharedBase.Destruct();
     m_entity.Release();
 }
 
@@ -129,28 +129,28 @@ void CScript::ResetScriptState()
         FreeStruct(m_args);
         m_args = nullptr;
     }
-    if (m_functionParams) {
-        FreeStruct(m_functionParams);
-        m_functionParams = nullptr;
+    if (m_stmtArgs) {
+        FreeStruct(m_stmtArgs);
+        m_stmtArgs = nullptr;
     }
-    for (int i = 0; i < m_numReturnAddresses; ++i) {
+    for (int i = 0; i < m_callDepth; ++i) {
         cache->ReleaseScript(m_returnAddresses[i].m_scriptId);
         if (CStruct* params = m_returnAddresses[i].m_argStruct) {
             FreeStruct(params);
             m_returnAddresses[i].m_argStruct = nullptr;
         }
     }
-    m_numReturnAddresses = 0;
+    m_callDepth = 0;
     if (m_returnAddresses != m_inlineReturnAddresses)
         MemSys::FreeMalloc(m_returnAddresses);
     m_returnAddresses = m_inlineReturnAddresses;
-    m_currentLoop = nullptr;
+    m_innermostRepeat = nullptr;
     if (m_loops != &m_inlineLoop)
         MemSys::FreeMalloc(m_loops);
     m_loops = &m_inlineLoop;
     m_waitCounter = 0;
     m_waitType = SUSPEND_ON_NOTHING;
-    m_waitComponent = nullptr;
+    m_blockingModule = nullptr;
     m_waitArg = 0;
     m_entity.Release();
     m_scriptTitle = 0;
@@ -165,7 +165,7 @@ void CScript::RunOnExitScripts()
         Preempt(name, nullptr);
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
-    for (int i = m_numReturnAddresses; i; --i) {
+    for (int i = m_callDepth; i; --i) {
         uint32_t& onExit = m_returnAddresses[i - 1].mOnExitScript;
         if (uint32_t name = onExit) {
             onExit = 0;
@@ -177,9 +177,9 @@ void CScript::RunOnExitScripts()
 // 0x00473010
 void CScript::ReportStopped()
 {
-    if (m_eventHandlers) {
-        m_eventHandlers->UnregisterWithTracker(this);
-        m_eventHandlers->RemoveGroup(GameObjects::kAllGroups);
+    if (m_signalRoutes) {
+        m_signalRoutes->UnregisterWithTracker(this);
+        m_signalRoutes->RemoveGroup(GameObjects::kAllGroups);
     }
     if (m_spawnFlags & SCRIPT_FLAG_TRACKER_BLOCKED)
         GameObjects::Tracker()->ForgetScript(this);
@@ -190,7 +190,7 @@ CStruct* CScript::CopyParamsIfOwned(CStruct* params)
 {
     if (!params)
         return nullptr;
-    if ((m_functionParams && m_functionParams->RefTally(params)) || (m_args && m_args->RefTally(params))) {
+    if ((m_stmtArgs && m_stmtArgs->RefTally(params)) || (m_args && m_args->RefTally(params))) {
         CStruct* copy = NewEmptyStruct();
         copy->AppendStructureIfAny(params); // (no check for a full pool)
         return copy;
@@ -204,7 +204,7 @@ void CScript::BindScript(uint32_t name, const uint8_t* code, CStruct* params, Ga
     // ResetScriptState frees this script's parameters: keep what `params` needs.
     CStruct* copy = CopyParamsIfOwned(params);
     ResetScriptState();
-    m_functionParams = NewEmptyStruct();
+    m_stmtArgs = NewEmptyStruct();
     m_scriptTitle = name;
     m_entity.AssignValue(object);
     m_args = NewEmptyStruct();
@@ -257,7 +257,7 @@ void CScript::Relaunch()
     CStruct* params = NewEmptyStruct();
     uint32_t name;
     GameObjects::CEntity* object;
-    if (m_numReturnAddresses) {
+    if (m_callDepth) {
         // The bottom level: the script it was started with.
         params->Assign(m_returnAddresses[0].m_argStruct);
         object = m_returnAddresses[0].m_ownerEntity;
@@ -275,12 +275,12 @@ void CScript::Relaunch()
 // 0x00472C90
 bool CScript::AllScriptsStillDefined()
 {
-    if (m_numReturnAddresses == 0)
+    if (m_callDepth == 0)
         return m_codeCopy || FindSymbol(m_scriptTitle);
     if (!FindSymbol(m_scriptTitle))
         return false;
     // (the bottom level's script isn't looked for when it runs a private copy)
-    for (int i = m_codeCopy ? 1 : 0; i < m_numReturnAddresses; ++i) {
+    for (int i = m_codeCopy ? 1 : 0; i < m_callDepth; ++i) {
         if (!FindSymbol(m_returnAddresses[i].m_scriptId))
             return false;
     }
@@ -293,7 +293,7 @@ bool CScript::HasAttachedScript() { return m_pc != nullptr; }
 // 0x00472F90
 void CScript::SetSpawnerFile(CScript* spawner)
 {
-    uint32_t name = spawner->m_numReturnAddresses ? spawner->m_returnAddresses[0].m_scriptId : spawner->m_scriptTitle;
+    uint32_t name = spawner->m_callDepth ? spawner->m_returnAddresses[0].m_scriptId : spawner->m_scriptTitle;
     m_spawnerFile = FindSymbol(name)->unknown8; // (no check that it is still defined)
 }
 
@@ -304,7 +304,7 @@ void CScript::ObjectDestroyed(GameObjects::CEntity* object)
         return;
     if (m_entity.Pull() == object)
         m_entity.Release();
-    for (int i = 0; i < m_numReturnAddresses; ++i) {
+    for (int i = 0; i < m_callDepth; ++i) {
         if (m_returnAddresses[i].m_ownerEntity == object)
             m_returnAddresses[i].m_ownerEntity = nullptr;
     }
@@ -320,7 +320,7 @@ void CScript::SetOnExitScript(uint32_t name) { m_onExitScript = name; }
 void CScript::ClearOnExitScripts()
 {
     m_onExitScript = 0;
-    for (int i = m_numReturnAddresses; i; --i)
+    for (int i = m_callDepth; i; --i)
         m_returnAddresses[i - 1].mOnExitScript = 0;
 }
 

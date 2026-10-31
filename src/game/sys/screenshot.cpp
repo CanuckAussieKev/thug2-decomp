@@ -104,7 +104,7 @@ std::string NameOf(uint32_t checksum)
     std::snprintf(text, sizeof(text), "0x%08X", checksum);
     return text;
 }
-std::string GameModeName()
+std::string ActiveRulesetLabel()
 {
     void* mode = reinterpret_cast<void*>(GoalSystem::g_gameMode);
     return mode ? NameOf(static_cast<GoalSystem::CMatchRules*>(mode)->GetNameKey()) : "";
@@ -184,9 +184,9 @@ std::vector<Section> GatherSections(const TickCycle& frame, const std::string& p
     bool loading = LoadingScreenUp();
     game.fields.push_back({"where", !load ? "starting up" : inLevel ? "level" : "front end"});
     game.fields.push_back({"level load script", load ? NameOf(load) : ""});
-    uint32_t scene = MenuSystem::LevelEditor::Scenery::SceneName(MenuSystem::LevelEditor::Scenery::MainScene());
+    uint32_t scene = MenuSystem::LevelEditor::Scenery::WorldSceneKey(MenuSystem::LevelEditor::Scenery::MainScene());
     game.fields.push_back({"scene", scene ? NameOf(scene) : ""});
-    game.fields.push_back({"game mode", GameModeName()});
+    game.fields.push_back({"game mode", ActiveRulesetLabel()});
     GameModules::FrontEnd* frontEnd = TheFrontEnd();
     game.fields.push_back({"paused", frontEnd ? (frontEnd->m_isHalted ? "yes" : "no") : ""});
     game.fields.push_back({"loading screen", loading ? "yes" : "no"});
@@ -236,7 +236,7 @@ void ShowMessage(const std::string& text)
     if (!CurrentLoadState() || !Scripts::ScriptExists(kScript))
         return;
     auto crc = [](const char* name) { return Checksums::HashFromText(name); };
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->AppendWord(crc("text"), text.c_str());
     params->PutNameKey(crc("id"), crc("thug2_decomp_screenshot_message"));
     params->InsertPair(crc("pos"), 320.0f, g_messageY);

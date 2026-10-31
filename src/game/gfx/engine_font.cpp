@@ -16,7 +16,7 @@
 
 namespace Engine3D {
 
-char g_metaButtonMap[32];
+char g_glyphAliasTable[32];
 FontSlot g_fontSlots[16];
 
 namespace {
@@ -25,7 +25,7 @@ extern void** const kFontVtable;
 
 FontSlot* Slots() { return g_fontSlots; }
 ListKit::KeyMap& FontTable() { return g_fontTable; }
-char* MetaButtonMap() { return g_metaButtonMap; }
+char* GlyphEscapeTable() { return g_glyphAliasTable; }
 
 template <typename R = void, typename... A>
 R Virtual(CTypeface* font, int slot, A... args)
@@ -66,7 +66,7 @@ void CTypeface::Offload()
 }
 
 // 0x0048D070
-void CTypeface::PlatSetSpacings(int /*glyphGap*/, int /*blankGap*/)
+void CTypeface::SetGlyphGaps(int /*glyphGap*/, int /*blankGap*/)
 {
     DebugOut::Printf("STUB A DUB DUB"); // "STUB A DUB DUB"
 }
@@ -80,7 +80,7 @@ void CTypeface::PlatSetColors(const uint32_t* /*colors*/)
 // 0x0048D6A0
 char __cdecl ButtonGlyph(const char* digit)
 {
-    return MetaButtonMap()[TextUtil::HexDigitValue(digit)];
+    return GlyphEscapeTable()[TextUtil::HexDigitValue(digit)];
 }
 
 // 0x0048D6C0
@@ -115,7 +115,7 @@ bool __cdecl CFunc_UnloadFont(Scripts::CStruct* params, Scripts::CScript* /*scri
 }
 
 namespace {
-static VtableSlot kFontVtable_slots[] = {&Engine3D::CTypeface::Teardown, Stubs::ReturnFalse1, &Engine3D::CTypeface::PlatSetSpacings,
+static VtableSlot kFontVtable_slots[] = {&Engine3D::CTypeface::Teardown, Stubs::ReturnFalse1, &Engine3D::CTypeface::SetGlyphGaps,
                 &Engine3D::CTypeface::PlatSetColors, &Engine3D::CTypeface::PlatSetColors, Stubs::DoNothing, Stubs::ReturnZero,
                 Stubs::ReturnZero, Stubs::IgnoreArguments3};
 void** const kFontVtable = reinterpret_cast<void**>(kFontVtable_slots);

@@ -78,7 +78,7 @@ CTextureProjection* CTextureProjection::MakeNew()
     m_projection.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     m_projection.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     m_extent = 0.0f;
-    m_viewAngle = 0.0f;
+    m_fieldOfView = 0.0f;
     m_aspect = 0.0f;
     m_direction = {0.0f, 0.0f, 0.0f, 1.0f};
     m_anchorPoint = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -106,7 +106,7 @@ void CTextureProjection::ConfigureFromData(Scripts::CStruct* params)
 {
     auto vector = [](Maths::Vec4* v) { return reinterpret_cast<Scripts::VectorValue*>(v); };
     m_extent = 0.0f;
-    m_viewAngle = 60.0f;
+    m_fieldOfView = 60.0f;
     m_aspect = 1.0f;
     m_direction = {0.0f, 0.0f, 0.0f, 1.0f};
     params->FetchVec(0xB1DE1E91, vector(&m_direction), 1);
@@ -116,7 +116,7 @@ void CTextureProjection::ConfigureFromData(Scripts::CStruct* params)
     params->FetchFloat(0xDF61A4BD, &m_range, 1);
     if (params->FetchFloat(0x083FDB95, &m_extent, 0)) {
         m_flagBits = (m_flagBits & ~kProjectionPerspective) | kProjectionOrthographic;
-    } else if (params->FetchFloat(0x17E7321E, &m_viewAngle, 0)) {
+    } else if (params->FetchFloat(0x17E7321E, &m_fieldOfView, 0)) {
         params->FetchFloat(0x0F7C3CAA, &m_aspect, 0);
         m_flagBits = (m_flagBits & ~kProjectionOrthographic) | kProjectionPerspective;
     }
@@ -162,7 +162,7 @@ void CTextureProjection::UpdateMatrix()
     if (m_flagBits & kProjectionOrthographic)
         Maths::CreateOrthographicMatrix(lens, m_extent, m_extent, 0.1f, m_range);
     else if (m_flagBits & kProjectionPerspective)
-        Maths::CreatePerspectiveMatrix(lens, m_viewAngle, m_aspect, 0.1f, m_range);
+        Maths::CreatePerspectiveMatrix(lens, m_fieldOfView, m_aspect, 0.1f, m_range);
     else
         return;
     // (D3DXMatrixMultiply)

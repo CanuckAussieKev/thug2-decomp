@@ -106,7 +106,7 @@ std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept 
 // The Inspector's typed cluster name.
 char g_typed[64];
 
-uint8_t* Hub() { return reinterpret_cast<uint8_t*>(GameObjects::g_trickObjectManager); }
+uint8_t* Hub() { return reinterpret_cast<uint8_t*>(GameObjects::g_trickSpotHub); }
 
 Scripts::CStruct* NodeOf(uint32_t sector)
 {

@@ -38,11 +38,11 @@ struct CTrickParamSet {
 // A list in the skater's trick component (its +0x13B4): 0x00588170 the constructor (no entries; its count at +0x800);
 // 0x00588180 emptied (true). Its entries are the names of the clusters the skater's current trick (or combo) hit -
 // a ring of 0x200: past that the oldest are written over.
-struct CTrickObjectList {
+struct CHitClusterLog {
     static constexpr uint32_t kCapacity = 0x200;
     uint32_t m_items[kCapacity];
     int m_num; // +0x800
-    CTrickObjectList* MakeNew();
+    CHitClusterLog* MakeNew();
     bool Clear();
     // 0x00588A20: the cluster of trick object `objectName` listed, unless it has none (or no name) or is listed
     // already; the goal manager is told first (0x00559150). Always false.
@@ -91,7 +91,7 @@ struct TrickObjectHead : MemSys::ListNode {
 struct CTrickObjectCluster {
     MemSys::ListNode m_listLink;     // +0x00 (data itself; its vtable 0x0064F10C is the cluster's)
     uint32_t m_label;          // +0x14
-    uint32_t m_bestScore;     // +0x18
+    uint32_t m_recordPoints;     // +0x18
     uint32_t m_scores[8];     // +0x1C
     int m_owner;              // +0x3C (an object id)
     bool m_owned;             // +0x40
@@ -196,7 +196,7 @@ constexpr uint8_t kMsgTagStolen = 0x4B;
 constexpr uint8_t kMsgTrickObjects = 0x3B;
 constexpr uint8_t kMsgObserverTrickObjects = 0x5B;
 constexpr uint8_t kGroupGame = 8;
-constexpr uint32_t kMaxMessageObjects = CTrickObjectList::kCapacity;
+constexpr uint32_t kMaxMessageObjects = CHitClusterLog::kCapacity;
 struct TagStolenMessage {
     uint8_t gameId;
     uint8_t pad01[3];
@@ -270,6 +270,6 @@ void __cdecl FindClusterIndex(CTrickObjectCluster* cluster, ClusterIndexSearch* 
 void __cdecl FindClusterAtIndex(CTrickObjectCluster* cluster, ClusterAtIndex* search);
 void __cdecl WriteHeldCluster(CTrickObjectCluster* cluster, GraffitiStateWriter* writer);
 
-extern GameObjects::CTrickSpotHub* g_trickObjectManager;
+extern GameObjects::CTrickSpotHub* g_trickSpotHub;
 
 } // namespace Obj

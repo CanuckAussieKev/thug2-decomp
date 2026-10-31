@@ -33,7 +33,7 @@ struct CPcModelLights {
     // 0x004B67B0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
     CPcModelLights* Teardown(unsigned int flags);
     // 0x004B6160 / 0x004B6170 (virtual [1] / [4]): the ambient colour. Set returns true; Get returns out.
-    bool SetAmbientColor(const uint32_t* color);
+    bool ChangeAmbientTint(const uint32_t* color);
     uint32_t* FetchAmbientTint(uint32_t* out);
     // 0x004B6780 / 0x004B6180 (virtual [2] / [5]): a light's direction (the scene's unless overridden). Set
     // returns true.
@@ -61,7 +61,7 @@ static_assert(offsetof(CPcModelLights, overrides) == 0x1C && offsetof(CPcModelLi
 // 0x004B67E0: the scene's ambient colour sent to the renderer. True.
 bool __cdecl UpdateAmbientLight();
 // 0x004B6850: the scene's ambient colour into *out. Returns out.
-uint32_t* __cdecl GetAmbientLightColor(uint32_t* out);
+uint32_t* __cdecl FetchAmbientHue(uint32_t* out);
 // 0x004B6860: a scene light's colour (times its intensity) sent to the renderer. True.
 bool __cdecl UpdateLightColor(int light);
 // 0x004B68E0: a scene light's colour into *out. Returns out.

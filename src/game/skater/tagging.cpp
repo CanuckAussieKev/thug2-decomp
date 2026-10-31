@@ -51,7 +51,7 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 constexpr uint32_t kSkaterScore = 0xD262802F;
 
-constexpr float kDegreesToRadians = 0.017453292f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 constexpr float kInch = 12.0f;                   // 0x0064546C (feet to inches)
 
 template <typename T>
@@ -61,17 +61,17 @@ T& Prop(const void* object, uint32_t offset)
 }
 
 // --- textures (the texture dictionary 0x00700F20) ---
-void* TextureDictionary() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
+void* TextureBank() { return reinterpret_cast<void*>(Engine3D::g_particleTextureDict); }
 void* IngestSkin(const char* name, bool a, bool b, bool c)
 {
-    return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->IngestSkin(name, a, b, c);
+    return static_cast<Engine3D::CTextureSet*>(TextureBank())->IngestSkin(name, a, b, c);
 }
 void* CopyTexture(uint32_t key, void* texture)
 {
-    return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->CopyTexture(key, static_cast<Engine3D::CBitmapTexture*>(texture));
+    return static_cast<Engine3D::CTextureSet*>(TextureBank())->CopyTexture(key, static_cast<Engine3D::CBitmapTexture*>(texture));
 }
-void* FindTexture(uint32_t checksum) { return static_cast<Engine3D::CTextureSet*>(TextureDictionary())->FetchSkin(checksum); }
-void UnloadTexture(void* texture) { static_cast<Engine3D::CTextureSet*>(TextureDictionary())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(texture)); }
+void* FindTexture(uint32_t checksum) { return static_cast<Engine3D::CTextureSet*>(TextureBank())->FetchSkin(checksum); }
+void UnloadTexture(void* texture) { static_cast<Engine3D::CTextureSet*>(TextureBank())->UnloadTexture(static_cast<Engine3D::CBitmapTexture*>(texture)); }
 void ReleaseTexture(void* texture) { reinterpret_cast<void(__thiscall*)(void*)>(&Engine3D::VirtualSlot32Jump)(texture); }
 // A texture's image put on `texture` (its vtable +0x10).
 void PutOn(void* texture, void* image) { reinterpret_cast<void(__thiscall*)(void*, void*)>(&Gfx2D::VirtualSlot4Jump)(texture, image); }
@@ -98,11 +98,11 @@ void* LoadOnTextureHeap(const char* name, bool c)
     return texture;
 }
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -249,10 +249,10 @@ int CTaggingComponent::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
 // 0x0051DBC0
 void CTaggingComponent::PlaceTag(bool sticker, Maths::Vec4 start, Maths::Vec4 end, int size, bool send)
 {
-    float turn = static_cast<float>(Scripts::FetchFloat(0x2D7DF904u) * static_cast<double>(kDegreesToRadians));
+    float turn = static_cast<float>(Scripts::FetchFloat(0x2D7DF904u) * static_cast<double>(kRadiansPerDegree));
     float spin = 0.0f;
     if (sticker)
-        spin = static_cast<float>((Maths::Rnd(90) - 45) * static_cast<double>(kDegreesToRadians));
+        spin = static_cast<float>((Maths::Rnd(90) - 45) * static_cast<double>(kRadiansPerDegree));
     float width = static_cast<float>(size);
     Engine3D::Engine::CreateTextureSplatAt(&start, &end, width, width, spin, turn, 5000.0f,
                                      "", 0x54628ED7, 0, 0,
@@ -261,7 +261,7 @@ void CTaggingComponent::PlaceTag(bool sticker, Maths::Vec4 start, Maths::Vec4 en
         return;
     NetLink::NetMessageInfo msg;
     msg.MakeNew();
-    OnlinePlay::Hub* manager = NetManager();
+    OnlinePlay::Hub* manager = NetSessionSlot();
     if (!manager->InNetGame())
         return;
     struct {
@@ -276,7 +276,7 @@ void CTaggingComponent::PlaceTag(bool sticker, Maths::Vec4 start, Maths::Vec4 en
     msg.m_byteCount = 0x28;
     msg.m_ident = 0x99;
     msg.m_groupId = 0xA;
-    msg.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    msg.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     static_cast<NetLink::Guest*>(manager->FetchPatron(0))->SendToHost(&msg);
 }
 
@@ -493,7 +493,7 @@ bool CTaggingControlComponent::TickFrame()
             hits[i] = feeler.m_contactPos;
             distances[i] = std::fabs(feeler.m_reach);
             found = true;
-            static_cast<CActivationZoneModule*>(m_trigger)->CheckFeeler(g_taggingEvents, &feeler);
+            static_cast<CActivationZoneModule*>(m_trigger)->ProbeTouchesZone(g_taggingEvents, &feeler);
         } else {
             distances[i] = 1000.0f;
         }

@@ -27,7 +27,7 @@ namespace {
 
 constexpr uint32_t kAccumulateScore = 0xC1F5864B;   // accumulate_score
 constexpr uint32_t kTrackBestCombo = 0xD57C16BA;    // track_best_combo
-constexpr uint32_t kScoreFrozen = 0x78FB9F04;       // score_frozen
+constexpr uint32_t kPointsHeldFlag = 0x78FB9F04;       // score_frozen
 constexpr uint32_t kDegradeScore = 0xCA37E639;      // degrade_score
 constexpr uint32_t kTrackTrickScore = 0x47F763FF;   // track_trick_score
 constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;  // team_graffiti_mode
@@ -53,7 +53,7 @@ constexpr uint32_t kScreenMode = 0x9BAB2EAE;        // screenmode
 constexpr uint32_t kSplitScreen = 0x06AB02F2;       // splitscreen
 constexpr uint32_t kSingle = 0x3558D8E6;            // single
 constexpr uint32_t kHorse = 0x9D65D0E7;             // Horse
-constexpr uint32_t kViewportType = 0x6F82C71E;      // viewport_type
+constexpr uint32_t kScreenLayoutKey = 0x6F82C71E;      // viewport_type
 constexpr uint32_t kChecksum = 0x21902065;          // checksum
 constexpr uint32_t kViewportVertical = 0x92F5B4CB;  // viewport_type_vertical
 constexpr uint32_t kViewportHorizontal = 0x7C442511; // viewport_type_horizontal
@@ -79,7 +79,7 @@ int Unset(const void* mode) { return static_cast<int>(reinterpret_cast<uintptr_t
 
 CMatchRules*& TheGameMode() { return g_gameMode; }
 uint32_t& RefTally() { return g_gameModeReferences; }
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 
 // A virtual function of an object with a game vtable.
 template <typename R, typename... A>
@@ -90,7 +90,7 @@ R VirtualCall(void* object, uint32_t slot, A... args)
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.
 void* ObjectiveBoard() { return GetObjectiveBoard(); }
-int CountGoals(void* manager, int which) { return static_cast<CGoalManager*>(manager)->NumActiveGoals(which != 0); }
+int CountGoals(void* manager, int which) { return static_cast<CGoalManager*>(manager)->CountLiveGoals(which != 0); }
 CObjective* CurrentNetGoal(void* manager) { return static_cast<CGoalManager*>(manager)->GetActiveNetGoal(); }
 CObjective* GetGoal(void* manager, uint32_t id, int assert)
 {
@@ -132,7 +132,7 @@ CMatchRules::ConditionNode* ConditionAt(CMatchRules::ConditionNode* head, uint32
 CMatchFlow* CMatchFlow::MakeNew()
 {
     m_vtable = kGameFlowVtable;
-    m_runScript = nullptr;
+    m_ownScript = nullptr;
     m_label = 0;
     m_pending = false;
     return this;
@@ -142,7 +142,7 @@ CMatchFlow* CMatchFlow::MakeNew()
 CMatchFlow* CMatchFlow::Teardown(uint8_t flags)
 {
     m_vtable = kGameFlowVtable;
-    if (Scripts::CScript* script = m_runScript) {
+    if (Scripts::CScript* script = m_ownScript) {
         script->Teardown();
         Scripts::CScript::operator delete(script);
     }
@@ -163,21 +163,21 @@ void CMatchFlow::TickFrame()
 {
     if (m_pending) {
         m_pending = false;
-        if (Scripts::CScript* old = m_runScript) {
+        if (Scripts::CScript* old = m_ownScript) {
             old->Teardown();
             Scripts::CScript::operator delete(old);
         }
         void* memory = Scripts::CScript::operator new(0xF4);
         auto* script = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
-        m_runScript = script;
+        m_ownScript = script;
         script->BindScript(m_label, nullptr, nullptr);
     }
-    if (m_runScript && static_cast<int>(m_runScript->TickFrame()) == 0) {
-        if (Scripts::CScript* done = m_runScript) {
+    if (m_ownScript && static_cast<int>(m_ownScript->TickFrame()) == 0) {
+        if (Scripts::CScript* done = m_ownScript) {
             done->Teardown();
             Scripts::CScript::operator delete(done);
         }
-        m_runScript = nullptr;
+        m_ownScript = nullptr;
     }
 }
 
@@ -376,7 +376,7 @@ int CMatchRules::GetFirstConditionValue()
 bool CMatchRules::ApplyMatchStyle(uint32_t type)
 {
     int maxPlayers = 8;
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (net && net->InNetGame())
         m_args.FetchIntValue(kMaxPlayers, &maxPlayers, true);
     m_args.Clear();
@@ -436,7 +436,7 @@ bool CMatchRules::KeepsBestChain()
 void CMatchRules::SetScoreAccumulation(bool on) { m_args.PutInt(kAccumulateScore, on); }
 
 // 0x00553020
-void CMatchRules::HoldPoints(bool on) { m_args.PutInt(kScoreFrozen, on); }
+void CMatchRules::HoldPoints(bool on) { m_args.PutInt(kPointsHeldFlag, on); }
 
 // 0x00553040
 void CMatchRules::SetScoreDegradation(bool on) { m_args.PutInt(kDegradeScore, on); }
@@ -451,10 +451,10 @@ void CMatchRules::SetTeamGraffitiMode(uint32_t mode) { m_args.PutNameKey(kTeamGr
 void CMatchRules::SetGoalsMode(uint32_t mode) { m_args.PutNameKey(kGoals, mode); }
 
 // 0x005530C0
-int CMatchRules::IsScoreFrozen()
+int CMatchRules::IsScoringPaused()
 {
     int frozen = Unset(this);
-    m_args.FetchIntValue(kScoreFrozen, &frozen, true);
+    m_args.FetchIntValue(kPointsHeldFlag, &frozen, true);
     return frozen != 0 ? 1 : 0;
 }
 
@@ -638,7 +638,7 @@ bool CMatchRules::ClockHaltsAtZero()
 // 0x005535A0
 void CMatchRules::SetNumTeams(int teams)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     m_args.PutInt(kNumTeams, teams);
     uint32_t name = 0;
     m_args.ReadHashValue(kName, &name, 0);
@@ -649,7 +649,7 @@ void CMatchRules::SetNumTeams(int teams)
 // 0x005535F0
 int CMatchRules::IsSquadMatch()
 {
-    if (!NetManager()->InNetGame())
+    if (!NetSessionSlot()->InNetGame())
         return 0;
     int teams = Unset(this);
     m_args.FetchIntValue(kNumTeams, &teams, true);
@@ -664,7 +664,7 @@ int CMatchRules::GetViewLayout()
     if (mode == kSplitScreen) {
         auto* prefs = GameModules::Skate::Sole()->GetSplitViewSettings();
         uint32_t viewport;
-        prefs->FetchSetting(kViewportType)->ReadHashValue(kChecksum, &viewport, true);
+        prefs->FetchSetting(kScreenLayoutKey)->ReadHashValue(kChecksum, &viewport, true);
         if (viewport == kViewportVertical)
             return 1;
         return viewport == kViewportHorizontal ? 2 : 1;

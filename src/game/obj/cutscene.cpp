@@ -82,8 +82,8 @@ int CCinematicTable::IsFinished()
 // 0x004639C0
 void CCinematicTable::UpdateVblanks()
 {
-    m_vblanks += FrameClock::FetchRetraceCount() - m_lastVblanks;
-    m_lastVblanks = FrameClock::FetchRetraceCount();
+    m_vblanks += FrameClock::FetchRetraceCount() - m_prevRetraces;
+    m_prevRetraces = FrameClock::FetchRetraceCount();
 }
 
 // 0x00463A10
@@ -100,7 +100,7 @@ void CCinematicTable::CheckSkip()
 {
     if (Scripts::FetchIntValue(kNoSkipping) != 0 || !m_canSkip || m_clock == 0.0f)
         return;
-    GameModules::FrontEndInputHandler* handler = GameModules::FrontEndInstance()->m_inputHandlers[0];
+    GameModules::FrontEndInputHandler* handler = GameModules::FrontEndInstance()->m_padListeners[0];
     auto* device = reinterpret_cast<Sio::InputPort*>(handler->m_dev);
     if (!device->IsAttached() || !device->m_isUsable)
         return;

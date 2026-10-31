@@ -62,7 +62,7 @@ void SetupListSentinel(MemSys::ListNode* head)
 // 0x00461B20
 CObjectListHead* CObjectListHead::Teardown(unsigned int flags)
 {
-    static_cast<CObjectNode*>(static_cast<MemSys::ListNode*>(this))->DestroyBody();
+    static_cast<CEntityListEntry*>(static_cast<MemSys::ListNode*>(this))->DestroyBody();
     if (flags & 1)
         MemSys::Hub::Pull()->Dealloc(this);
     return this;
@@ -346,7 +346,7 @@ void ReleaseTracker()
 // 0x00461FE0
 void CEventWaitBoard::SubscribeReceiver(CSignalReceiver* listener)
 {
-    listener->mp_nextListener = mp_eventListeners;
+    listener->m_nextSubscriber = mp_eventListeners;
     mp_eventListeners = listener;
     listener->m_onBoard = true;
 }

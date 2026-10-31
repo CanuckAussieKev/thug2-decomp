@@ -69,7 +69,7 @@ public:
     float m_reach;                     // +0x94 (0xBD3D3CA9)
     float m_angle;                        // +0x98 degrees (angle)
     float m_lerp;                         // +0x9C (0x9213625F) a second
-    CFreeLookModule* m_lookAround; // +0xA0
+    CFreeLookModule* m_freeLook; // +0xA0
 };
 static_assert(offsetof(CCarView, m_subject) == 0x18 &&
                   offsetof(CCarView, m_direction) == 0x20 &&

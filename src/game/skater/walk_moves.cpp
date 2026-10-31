@@ -68,13 +68,13 @@ constexpr uint32_t kOldPosition = 0x68;
 constexpr uint32_t kAnimState = 0x78;          // the state's animation checksum (Stand, Land, Jump, HANG, ...)
 constexpr uint32_t kPreviousAnimState = 0x7C;
 constexpr uint32_t kFrameLength = 0x80;        // seconds
-constexpr uint32_t kControlDirection = 0x84;
-constexpr uint32_t kControlMagnitude = 0x94;
+constexpr uint32_t kStickHeading = 0x84;
+constexpr uint32_t kStickDeflection = 0x94;
 constexpr uint32_t kContacts = 0xA0;           // 8 contacts, 0xCC each
 constexpr uint32_t kAnimSpeedMode = 0x700;
 constexpr uint32_t kSpeed = 0x704;
 constexpr uint32_t kCurbOffset = 0x714;        // the step smoothing's height
-constexpr uint32_t kCollCache = 0x790;
+constexpr uint32_t kHitMeshStore = 0x790;
 constexpr uint32_t kWalkCamera = 0x1760;
 constexpr uint32_t kInput = 0x1770;
 constexpr uint32_t kAnimation = 0x1774;
@@ -90,7 +90,7 @@ constexpr uint32_t kHangMoveFacing = 0x191C;
 constexpr uint32_t kHangMoving = 0x1944;
 constexpr uint32_t kFlag1958 = 0x1958;
 constexpr uint32_t kJumpHeld = 0x9A;           // (a byte: cleared once the input's +0x100 is)
-constexpr uint32_t kTargetHeight = 0x9C;       // (the animation wait's height, eased from +0x1914 to +0x1918)
+constexpr uint32_t kDestElevation = 0x9C;       // (the animation wait's height, eased from +0x1914 to +0x1918)
 constexpr uint32_t kCurbSnapped = 0x718;       // (a byte: the step smoothing held this frame)
 constexpr uint32_t kRideOffset = 0x71C;        // (the point checked against moving objects, from the position)
 constexpr uint32_t kTrigger = 0x1780;          // (a component: +0x24 animation speed shown, +0x26 the walk halted)
@@ -109,11 +109,11 @@ constexpr uint32_t kOffVert = 0x9B;            // (a byte: began in the air off 
 constexpr uint32_t kVertTurnSpeed = 0x72C;     // (a turn under way when it began: non-zero, the angle, the axis)
 constexpr uint32_t kVertTurn = 0x730;
 constexpr uint32_t kVertTurnAxis = 0x734;
-constexpr uint32_t kTriggerComponent = 0x177C; // the object's trigger component (sets off the ground's triggers)
+constexpr uint32_t kActivationZoneSlot = 0x177C; // the object's trigger component (sets off the ground's triggers)
 constexpr uint32_t kTerrainComponent = 0x1788; // (a component told the terrain under it)
-constexpr uint32_t kGroundNormal = 0x1794;
+constexpr uint32_t kFloorUpVector = 0x1794;
 constexpr uint32_t kHasGround = 0x1864;        // (a byte: the trigger feeler holds the ground stood on)
-constexpr uint32_t kObjectUp = 0x7C;           // the object's matrix: the second row
+constexpr uint32_t kEntityUpRow = 0x7C;           // the object's matrix: the second row
 constexpr uint32_t kObjectForward = 0x8C;      // ... the third
 constexpr uint32_t kBarrierJumpAllowed = 0x98; // (a byte checked before a barrier jump)
 constexpr uint32_t kBarrierTimed = 0x17A8;     // (a byte: walking into a barrier since +0x17AC)
@@ -165,7 +165,7 @@ constexpr uint32_t kBarrierJumpMaxAngle = 0x78E6A5EC; // barrier_jump_max_angle
 constexpr uint32_t kBarrierJumpMinClearance = 0x72660978; // barrier_jump_min_clearance
 constexpr uint32_t kBarrierJumpDelay = 0x38D36700; // barrier_jump_delay
 constexpr uint32_t kFeelerLength = 0x99978D2B;     // feeler_length
-constexpr uint32_t kFeelerHeight = 0x6DA7F696;     // feeler_height
+constexpr uint32_t kProbeElevation = 0x6DA7F696;     // feeler_height
 constexpr uint32_t kPushFeelerLength = 0xA20C43B7; // push_feeler_length
 constexpr uint32_t kPushStrength = 0x4D16F37D;     // push_strength
 constexpr uint32_t kMinAnimRunSpeed = 0x0BD6A05D;  // min_anim_run_speed
@@ -308,10 +308,10 @@ void Halt(void* walk)
 // a + b in the x87's double precision, stored as a float.
 float AppendOne(float a, float b) { return static_cast<float>(static_cast<double>(a) + b); }
 
-// The walk camera's override (0x00525F70: SetOverrideFacing - the walk camera component, not rewritten here).
+// The walk camera's override (0x00525F70: ChangeForcedHeading - the walk camera component, not rewritten here).
 void SetCameraOverride(void* camera, const Maths::Vec4* facing, float rate)
 {
-    static_cast<CFootView*>(camera)->SetOverrideFacing(facing, rate);
+    static_cast<CFootView*>(camera)->ChangeForcedHeading(facing, rate);
 }
 
 } // namespace
@@ -330,12 +330,12 @@ CFootMovement* CFootMovement::MakeNew()
     m_vtable = kWalkVtable;
     for (uint32_t i = 0; i < 8; ++i)
         reinterpret_cast<WalkContact*>(&At<uint8_t>(this, kContacts + 0xCC * i))->MakeNew(); // (each contact's constructor)
-    reinterpret_cast<Engine3D::CHitMeshCache*>(&At<uint8_t>(this, kCollCache))->MakeNew();
+    reinterpret_cast<Engine3D::CHitMeshCache*>(&At<uint8_t>(this, kHitMeshStore))->MakeNew();
     reinterpret_cast<Engine3D::CProbeRay*>(&At<uint8_t>(this, kTriggerFeeler))->MakeNew();
     for (uint32_t offset = kComponents; offset <= 0x178C; offset += 4)
         At<void*>(this, offset) = nullptr;
     m_kindTag = 0x726E85AA; // Walk
-    VectorAt(this, kControlDirection) = {0.0f, 0.0f, 0.0f, 1.0f};
+    VectorAt(this, kStickHeading) = {0.0f, 0.0f, 0.0f, 1.0f};
     VectorAt(this, kExtraVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     At<float>(this, 0x72C) = 0.0f;
     At<bool>(this, kFlag1958) = false;
@@ -412,7 +412,7 @@ void CFootMovement::UpdateAnimSpeed()
     };
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
-        Scripts::CStruct* params = Scripts::NewStruct();
+        Scripts::CStruct* params = Scripts::SpawnParamBag();
         params = params ? params->PrepareAll() : nullptr;
         params->PushFloat(kSpeedName, speed);
         reinterpret_cast<CObjectModule*>(animation)->InvokeMethodByName(kSetAnimSpeed, params, nullptr);
@@ -440,7 +440,7 @@ void CFootMovement::UpdateAnimSpeed()
     case 3: { // on a ladder: also sent when it changed by 0.1 or more
         float speed = At<float>(this, kSpeed) / WalkParameter(kLadderMoveSpeed);
         tell(speed);
-        auto* net = OnlinePlay::g_gameNetManager;
+        auto* net = OnlinePlay::g_onlineHub;
         if (net->InNetGame() &&
             !(std::fabs(static_cast<double>(speed) - At<float>(this, kSentLadderSpeed)) < 0.10000000149011612)) {
             At<float>(this, kSentLadderSpeed) = speed;
@@ -543,7 +543,7 @@ void CFootMovement::GoToAir()
 }
 
 // 0x0052A180
-int CFootMovement::AnimWaitComplete(Scripts::CStruct*, Scripts::CScript*)
+int CFootMovement::ClipFinishedWaiting(Scripts::CStruct*, Scripts::CScript*)
 {
     ApplyTransition();
     return 1;
@@ -627,11 +627,11 @@ void CFootMovement::TickFrame()
     UpdateUpright();
     CopyToObject();
     UpdateRotateUpright();
-    LimitSpeed(previousAnim);
+    ClampSkaterSpeed(previousAnim);
     m_entity->PostOwnEvent(At<uint32_t>(this, kAnimState), nullptr);
     UpdateAnimSpeed();
     UpdateCameraOverride();
-    static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateFocusButton();
+    static_cast<Skater::SkaterPhysicsModule*>(At<void*>(this, kSkater))->UpdateFocusButton();
     int& countdown = At<int>(this, 0x710);
     if (countdown > 0 && --countdown == 0)
         At<bool>(this, 0x70C) = false;
@@ -641,7 +641,7 @@ void CFootMovement::TickFrame()
 void CFootMovement::UpdateGround()
 {
     UpdateRide();
-    UpdateCollisionCache();
+    RefreshHitCache();
     Maths::Vec4& velocity = VectorAt(this, kVelocity);
     UpdateGroundVelocity(&velocity);
     if (At<uint32_t>(this, kAnimState) == kSkid) {
@@ -669,7 +669,7 @@ void CFootMovement::UpdateGround()
     position.y += y;
     position.z += z;
     position.w += w;
-    SnapToGround();
+    SettleOntoFloor();
 
     if (At<int>(this, kState) == 0 && !Halted(this)) {
         UpdateCurbFloat();
@@ -686,7 +686,7 @@ void CFootMovement::UpdateGround()
             if (lengthSqr > 100.0)
                 VectorAt(this, kFacing) = velocity / static_cast<float>(std::sqrt(lengthSqr));
         }
-        static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateProjectiles();
+        static_cast<Skater::SkaterPhysicsModule*>(At<void*>(this, kSkater))->UpdateProjectiles();
     }
     ClearCurrentCache();
 }
@@ -695,7 +695,7 @@ void CFootMovement::UpdateGround()
 void CFootMovement::UpdateAir()
 {
     const uint8_t* pad = At<uint8_t*>(this, kInput) + 0x20;
-    UpdateCollisionCache();
+    RefreshHitCache();
     At<uint32_t>(this, kAnimState) = kAir;
     SteerJump();
     if (!UpdateContacts())
@@ -721,7 +721,7 @@ void CFootMovement::UpdateAir()
     vertical = static_cast<float>(vertical - gravity * frame);
     if (position.y > At<float>(this, kExtraVelocityTop))
         extra = {0.0f, 0.0f, 0.0f, 1.0f};
-    static_cast<Skater::CorePhysicsComponent*>(At<void*>(this, kSkater))->UpdateProjectiles();
+    static_cast<Skater::SkaterPhysicsModule*>(At<void*>(this, kSkater))->UpdateProjectiles();
     Maths::Vec4& oldPosition = VectorAt(this, kOldPosition);
     CollideAirMove(&oldPosition, &position);
     if (At<int>(this, kState) != 1 || Halted(this))
@@ -834,7 +834,7 @@ void CFootMovement::UpdateAnimWait()
     facing.z = static_cast<float>(-(x * sine) + cosine * facing.z);
     At<uint32_t>(this, kAnimState) = kAnimWait;
     double low = At<float>(this, kWaitHeightFrom);
-    At<float>(this, kTargetHeight) = static_cast<float>((At<float>(this, kWaitHeightTo) - low) * t + low);
+    At<float>(this, kDestElevation) = static_cast<float>((At<float>(this, kWaitHeightTo) - low) * t + low);
 }
 
 // 0x0052A700
@@ -879,9 +879,9 @@ void CFootMovement::CollideAirMove(const Maths::Vec4* from, const Maths::Vec4* t
     Engine3D::CProbeRay* ground = &At<Engine3D::CProbeRay>(this, kTriggerFeeler);
     reinterpret_cast<Engine3D::CProbeRay*>(ground)->Assign(*feeler); // (the feeler copied)
     At<bool>(this, kHasGround) = true;
-    static_cast<CActivationZoneModule*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C648, ground);
+    static_cast<CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))->ProbeTouchesZone(g_walkEvents0064C648, ground);
     if (!Halted(this)) {
-        VectorAt(this, kGroundNormal) = feeler->m_surfaceDir;
+        VectorAt(this, kFloorUpVector) = feeler->m_surfaceDir;
         void* ride = At<void*>(this, kRide);
         static_cast<CMovingSurfaceModule*>(ride)->StartRiding(feeler); // (what it landed on)
         Maths::Vec4& velocity = VectorAt(this, kVelocity);
@@ -901,7 +901,7 @@ void CFootMovement::CollideAirMove(const Maths::Vec4* from, const Maths::Vec4* t
         if (along > 0.0) {
             velocity.ProjectOnto(facing);
             stop = false;
-            if (At<float>(this, kControlMagnitude) == 0.0f) {
+            if (At<float>(this, kStickDeflection) == 0.0f) {
                 auto speed = static_cast<float>(std::sqrt(static_cast<double>(velocity.x) * velocity.x +
                                                           static_cast<double>(velocity.y) * velocity.y +
                                                           static_cast<double>(velocity.z) * velocity.z));
@@ -918,7 +918,7 @@ void CFootMovement::CollideAirMove(const Maths::Vec4* from, const Maths::Vec4* t
 }
 
 // 0x0052B370
-void CFootMovement::SnapToGround()
+void CFootMovement::SettleOntoFloor()
 {
     // A feeler from snap_up_height above to snap_down_height below the position.
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
@@ -944,13 +944,13 @@ void CFootMovement::SnapToGround()
         Engine3D::CProbeRay* ground = &At<Engine3D::CProbeRay>(this, kTriggerFeeler);
         if (ground->m_hit.object != feeler->m_hit.object) {
             if (At<bool>(this, kHasGround)) {
-                static_cast<CActivationZoneModule*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C660, ground);
+                static_cast<CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))->ProbeTouchesZone(g_walkEvents0064C660, ground);
                 if (Halted(this)) {
                     feeler->Destruct();
                     return;
                 }
             }
-            static_cast<CActivationZoneModule*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C654, feeler);
+            static_cast<CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))->ProbeTouchesZone(g_walkEvents0064C654, feeler);
             if (Halted(this)) {
                 feeler->Destruct();
                 return;
@@ -958,7 +958,7 @@ void CFootMovement::SnapToGround()
         }
         reinterpret_cast<Engine3D::CProbeRay*>(ground)->Assign(*feeler); // (the feeler copied)
         At<bool>(this, kHasGround) = true;
-        VectorAt(this, kGroundNormal) = feeler->m_surfaceDir;
+        VectorAt(this, kFloorUpVector) = feeler->m_surfaceDir;
         static_cast<CMovingSurfaceModule*>(At<void*>(this, kRide))->StartRiding(feeler); // (what it stands on)
         // (the terrain byte, passed as the dword there)
         static_cast<CRiderPoseState*>(At<void*>(this, kTerrainComponent))->SetSurfaceKind(static_cast<uint8_t>(*reinterpret_cast<const uint32_t*>(&feeler->m_hit.terrain)));
@@ -970,7 +970,7 @@ void CFootMovement::SnapToGround()
     if (feeler->GetHitShape(true, false))
         PutOff(&position, feeler, kWallGap);
     if (At<bool>(this, kHasGround)) {
-        static_cast<CActivationZoneModule*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C630, &At<Engine3D::CProbeRay>(this, kTriggerFeeler));
+        static_cast<CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))->ProbeTouchesZone(g_walkEvents0064C630, &At<Engine3D::CProbeRay>(this, kTriggerFeeler));
         if (Halted(this)) {
             ReleaseHit(feeler);
             return;
@@ -1003,7 +1003,7 @@ void CFootMovement::Begin(bool onGround)
     At<int>(this, kStateTime) = Now();
     if (onGround) {
         ChangePhase(0);
-        VectorAt(this, kGroundNormal) = {0.0f, 1.0f, 0.0f, 1.0f};
+        VectorAt(this, kFloorUpVector) = {0.0f, 1.0f, 0.0f, 1.0f};
         At<bool>(this, kHasGround) = false;
         m_entity->m_vel.y = 0.0f;
         At<bool>(this, kOffVert) = false;
@@ -1040,7 +1040,7 @@ void CFootMovement::Begin(bool onGround)
                                 static_cast<double>(heading.x) * heading.x) +
                                static_cast<double>(heading.y) * heading.y);
             if (length < kMinHeadingLength) {
-                heading = -VectorAt(m_entity, kObjectUp);
+                heading = -VectorAt(m_entity, kEntityUpRow);
                 heading.y = 0.0f;
                 length = std::sqrt((static_cast<double>(heading.x) * heading.x +
                                     static_cast<double>(heading.y) * heading.y) +
@@ -1062,7 +1062,7 @@ void CFootMovement::Begin(bool onGround)
     At<uint32_t>(this, kPreviousAnimState) = 0;
     At<bool>(this, kJumpHeld) = true;
     VectorAt(this, kRideOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
-    At<uint32_t>(this, kTargetHeight) = 0;
+    At<uint32_t>(this, kDestElevation) = 0;
     At<uint32_t>(At<void*>(this, 0x1790), 0x18) = 0;
     At<bool>(this, 0x70C) = false;
 }
@@ -1091,7 +1091,7 @@ void CFootMovement::Jump()
         break;
     }
     if (At<int>(this, kState) == 0 && At<bool>(this, kHasGround)) {
-        static_cast<CActivationZoneModule*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C63C, &At<Engine3D::CProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))->ProbeTouchesZone(g_walkEvents0064C63C, &At<Engine3D::CProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (Halted(this))
             return;
     }
@@ -1106,13 +1106,13 @@ void CFootMovement::Jump()
         // the control is pushed, over the run speed's range); the heading the velocity's when moving.
         CopyFromObject();
         Maths::Vec4& velocity = VectorAt(this, kVelocity);
-        if (At<float>(this, kControlMagnitude) == 0.0f) {
+        if (At<float>(this, kStickDeflection) == 0.0f) {
             heading = facing;
         } else {
             float push = static_cast<float>(GetControlSpeed()); // (how far the control is pushed, 0 - 1)
             float scaled = Param(kJumpHorizSpeed) * push;
             auto speed = static_cast<float>(scaled / RunSpeed());
-            const Maths::Vec4& direction = VectorAt(this, kControlDirection);
+            const Maths::Vec4& direction = VectorAt(this, kStickHeading);
             double along = (static_cast<double>(velocity.z) * direction.z + static_cast<double>(velocity.y) * direction.y) +
                            static_cast<double>(velocity.x) * direction.x;
             if (along > 0.0) {
@@ -1176,7 +1176,7 @@ bool CFootMovement::TryBarrierJump()
 
     float highest = WalkParameter(kBarrierJumpHighestBarrier);
     float reach = WalkParameter(kFeelerLength) * 3.0f;
-    float feelerHeight = WalkParameter(kFeelerHeight);
+    float feelerHeight = WalkParameter(kProbeElevation);
     auto step = static_cast<float>((static_cast<double>(highest) - feelerHeight) * kNinth);
     alignas(16) uint8_t feelerStorage[sizeof(Engine3D::CProbeRay)];
     auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(feelerStorage)->MakeNew();
@@ -1202,7 +1202,7 @@ bool CFootMovement::TryBarrierJump()
         if (!contact.hit || (contact.feeler.m_hit.faceFlags & kFaceWall))
             continue;
         double limit = X87Cos(WalkParameter(kBarrierJumpMaxAngle) * kDegrees);
-        const Maths::Vec4& control = VectorAt(this, kControlDirection);
+        const Maths::Vec4& control = VectorAt(this, kStickHeading);
         double facingIt = (static_cast<double>(control.z) * contact.normal.z +
                            static_cast<double>(control.y) * contact.normal.y) +
                           static_cast<double>(control.x) * contact.normal.x;
@@ -1267,7 +1267,7 @@ bool CFootMovement::TryBarrierJump()
     double gravity = static_cast<float>(GetGravity());
     auto speed = static_cast<float>(std::sqrt(gravity * rise * 2.0));
     if (At<bool>(this, kHasGround)) {
-        static_cast<CActivationZoneModule*>(At<void*>(this, kTriggerComponent))->CheckFeeler(g_walkEvents0064C63C, &At<Engine3D::CProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<CActivationZoneModule*>(At<void*>(this, kActivationZoneSlot))->ProbeTouchesZone(g_walkEvents0064C63C, &At<Engine3D::CProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (Halted(this)) {
             cache->Destruct();
             ReleaseHit(feeler);
@@ -1290,7 +1290,7 @@ bool CFootMovement::TryBarrierJump()
 bool CFootMovement::UpdateContacts()
 {
     float reach = WalkParameter(kFeelerLength);
-    float feelerHeight = WalkParameter(kFeelerHeight);
+    float feelerHeight = WalkParameter(kProbeElevation);
     alignas(16) uint8_t storage[sizeof(Engine3D::CProbeRay)];
     auto* feeler = reinterpret_cast<Engine3D::CProbeRay*>(storage)->MakeNew();
     Maths::Vec4& position = VectorAt(this, kPosition);
@@ -1403,8 +1403,8 @@ bool CFootMovement::UpdateContacts()
             return false;
         }
         // On steep ground: pushed down the slope by push_strength.
-        if (At<int>(this, kState) == 0 && VectorAt(this, kGroundNormal).y < kSteepGround) {
-            const Maths::Vec4& ground = VectorAt(this, kGroundNormal);
+        if (At<int>(this, kState) == 0 && VectorAt(this, kFloorUpVector).y < kSteepGround) {
+            const Maths::Vec4& ground = VectorAt(this, kFloorUpVector);
             float x = ground.x;
             float y = 0.0f;
             float z = ground.z;
@@ -1587,7 +1587,7 @@ static VtableSlot kWalkVtable_slots[] = {&CFootMovement::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kWalkVtable = reinterpret_cast<void**>(kWalkVtable_slots);
 

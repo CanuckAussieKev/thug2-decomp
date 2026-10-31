@@ -1029,7 +1029,7 @@ bool Menu::SelectId(const std::string& id)
     return false;
 }
 
-std::string Menu::SelectedId() const
+std::string Menu::ChosenItemId() const
 {
     if (m_shown == Screen::Levels) {
         const StageMap* level = SelectedLevel();

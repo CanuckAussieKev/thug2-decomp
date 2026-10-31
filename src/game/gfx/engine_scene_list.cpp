@@ -75,9 +75,9 @@ void DestroyNodeBody(MemSys::ListNode* node) { static_cast<CSceneNode*>(node)->D
 // Compiled out (0x005B9E50, false): the platform's own load of an added scene's geometry.
 bool PlatLoadAddScene(CWorldScene* /*scene*/, const char* /*fileName*/) { return false; }
 // "levels\<name>\<name>.scn.<the platform's extension>" (the original's sprintf; no length limit there).
-void SceneFileName(char* out, size_t size, const char* name)
+void BuildSceneFilePath(char* out, size_t size, const char* name)
 {
-    std::snprintf(out, size, "levels\\%s\\%s%s.scn.%s", name, name, "", PlatformExtension());
+    std::snprintf(out, size, "levels\\%s\\%s%s.scn.%s", name, name, "", PlatformSuffix());
 }
 
 } // namespace
@@ -258,14 +258,14 @@ bool __cdecl CFunc_ToggleAddScenes(Scripts::CStruct* /*params*/, Scripts::CScrip
 void __cdecl GetSceneDebugInfo(Scripts::CStruct* info)
 {
     if (GetMainScene()) {
-        Scripts::CStruct* main = Scripts::NewStruct();
+        Scripts::CStruct* main = Scripts::SpawnParamBag();
         if (main)
             main->PrepareAll();
         GetMainScene()->FetchDiagnostics(main);
         info->AppendStructRef(0x9B10525Cu, main);
     }
     if (GetSkyScene()) {
-        Scripts::CStruct* sky = Scripts::NewStruct();
+        Scripts::CStruct* sky = Scripts::SpawnParamBag();
         if (sky)
             sky->PrepareAll();
         GetSkyScene()->FetchDiagnostics(sky);
@@ -274,23 +274,23 @@ void __cdecl GetSceneDebugInfo(Scripts::CStruct* info)
 }
 
 // 0x0048CC80
-CWorldScene* __cdecl NewScene(const char* name, CTextureSet* textures, bool addSuperSectors)
+CWorldScene* __cdecl BuildWorldScene(const char* name, CTextureSet* textures, bool withSuperSectors)
 {
-    auto* scene = static_cast<CWorldScene*>(Engine3D::CreateScene(name, textures, addSuperSectors));
+    auto* scene = static_cast<CWorldScene*>(Engine3D::MakeEmptyScene(name, textures, withSuperSectors));
     RegisterScene(scene, name, textures, 1, nullptr, 0);
     return scene;
 }
 
 // 0x0048CCB0
-CWorldScene* __cdecl LoadScene(const char* name, CTextureSet* textures, bool addSuperSectors, bool isSky, bool meshFlag,
+CWorldScene* __cdecl LoadScene(const char* name, CTextureSet* textures, bool withSuperSectors, bool isSky, bool meshFlag,
                           int unused)
 {
     char file[0x80];
-    SceneFileName(file, sizeof(file), name);
+    BuildSceneFilePath(file, sizeof(file), name);
     MemSys::PushMemProfile(file);
     uint32_t vertexArena[4] = {0, 0, 0, 0};
     void* arena = g_streamOffsetSupported ? vertexArena : nullptr;
-    auto* scene = static_cast<CWorldScene*>(LoadSceneFromFile(file, textures, addSuperSectors, isSky, meshFlag,
+    auto* scene = static_cast<CWorldScene*>(LoadSceneFromFile(file, textures, withSuperSectors, isSky, meshFlag,
                                                          reinterpret_cast<int>(arena)));
     MemSys::PopMemProfile();
     RegisterScene(scene, name, textures, 0, arena, unused);
@@ -298,11 +298,11 @@ CWorldScene* __cdecl LoadScene(const char* name, CTextureSet* textures, bool add
 }
 
 // 0x0048CD80
-CWorldScene* __cdecl LoadNamedSceneFromMemory(const char* name, const uint8_t* data, CTextureSet* textures, bool addSuperSectors,
+CWorldScene* __cdecl LoadNamedSceneFromMemory(const char* name, const uint8_t* data, CTextureSet* textures, bool withSuperSectors,
                                     bool isSky, bool meshFlag, int unused)
 {
     MemSys::PushMemProfile("Scene Processing");
-    auto* scene = static_cast<CWorldScene*>(Engine3D::LoadSceneFromMemory(data, textures, addSuperSectors, isSky, meshFlag));
+    auto* scene = static_cast<CWorldScene*>(Engine3D::LoadSceneFromMemory(data, textures, withSuperSectors, isSky, meshFlag));
     MemSys::PopMemProfile();
     RegisterScene(scene, name, textures, 0, nullptr, unused);
     return scene;
@@ -313,7 +313,7 @@ CWorldScene* __cdecl AddScene(const char* sceneName, const char* addName)
 {
     char file[0x80];
     char texFile[0x80];
-    SceneFileName(file, sizeof(file), addName);
+    BuildSceneFilePath(file, sizeof(file), addName);
     std::snprintf(texFile, sizeof(texFile), "levels\\%s\\%s.tex", addName, addName);
     CWorldScene* scene = LookUpScene(Checksums::HashFromText(sceneName));
     if (std::strcmp(scene->m_addName, file) == 0) {

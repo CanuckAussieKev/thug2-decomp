@@ -127,7 +127,7 @@ void Pane(float scale, ImFont* heading, ImFont* small)
             ImGui::TableNextColumn();
             ImGui::Text("%d", run.Bails());
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.BestCombo());
+            ImGui::Text("%d", run.TopComboValue());
             ImGui::SameLine();
             if (ImGui::SmallButton("x"))
                 remove = run.number;

@@ -58,7 +58,7 @@
 #include "game/script/qb.h"
 #include "game/sys/run_log.h"
 
-namespace DebugCollision {
+namespace CollisionOverlay {
 
 namespace {
 
@@ -191,4 +191,4 @@ void NoteFeelerQuery(const void* feeler, int hit, uint32_t caller)
         LogHit(feeler, caller);
 }
 
-} // namespace DebugCollision
+} // namespace CollisionOverlay

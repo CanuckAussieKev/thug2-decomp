@@ -54,13 +54,13 @@ MemSys::PoolPair& ArrayPools() { return Scripts::g_arrayPools; }
 MemSys::PoolPair& ClipboardEntryPools() { return g_clipboardEntryPools; }
 MemSys::PoolPair& MapListNodePools() { return g_nodePools; }
 uint8_t& PoolMadeHere(MemSys::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
-MemSys::SlabBank* CurrentPool(MemSys::PoolPair& pair) { return pair.pools[pair.current]; }
+MemSys::SlabBank* ActiveSlabPool(MemSys::PoolPair& pair) { return pair.pools[pair.current]; }
 
 int& Unknown7CE68C() { return g_parkMemoryUnknown7CE68C; }
 
 // The park manager and its generator, whose +0x20 is the most players the park is set up for.
-ParkEditing::CParkAssembler* ParkGenerator() { return ParkEditing::CParkLayout::sSingleton()->m_builder; }
-int ParkMaxPlayers() { return ParkGenerator()->GetPlayerLimit(); }
+ParkEditing::CParkAssembler* ParkAssemblerRef() { return ParkEditing::CParkLayout::sSingleton()->m_builder; }
+int ParkMaxPlayers() { return ParkAssemblerRef()->GetPlayerLimit(); }
 
 // A heap's free memory: its region's unclaimed space and its free blocks.
 int FreeMemory(MemSys::Arena* heap) { return heap->m_region->FreeByteCount() + heap->m_freeSize; }
@@ -75,7 +75,7 @@ void MakePool(MemSys::PoolPair& pair, int itemSize, int count, const char* name)
 
 void DeletePool(MemSys::PoolPair& pair)
 {
-    MemSys::SlabBank* pool = CurrentPool(pair);
+    MemSys::SlabBank* pool = ActiveSlabPool(pair);
     if (!pool)
         return;
     if (PoolMadeHere(pair)) {
@@ -98,7 +98,7 @@ void UpdateMax(MemoryStats& stats, double value, float stored)
 // before the script runs, the park's count after.
 float PoolUsage(MemSys::PoolPair& pair, const char* baseName, const int& items)
 {
-    MemSys::SlabBank* pool = CurrentPool(pair);
+    MemSys::SlabBank* pool = ActiveSlabPool(pair);
     int count = pool->m_num;
     int used = pool->m_takenCount;
     int base = GetMemoryValue(baseName, -1);
@@ -197,8 +197,8 @@ void __cdecl Marker(uint32_t marker)
         break;
     case 0x9BF91DBE:
         stats.marker48 = FreeMemory(heap);
-        stats.componentsUsedAtMarker = CurrentPool(ComponentPools())->m_takenCount;
-        stats.vectorsUsedAtMarker = CurrentPool(VectorPools())->m_takenCount;
+        stats.componentsUsedAtMarker = ActiveSlabPool(ComponentPools())->m_takenCount;
+        stats.vectorsUsedAtMarker = ActiveSlabPool(VectorPools())->m_takenCount;
         break;
     case 0xCC63F828:
         stats.marker5C = FreeMemory(heap);
@@ -228,10 +228,10 @@ void __cdecl PowerDown()
 // 0x0059E5C0
 int __cdecl GetMemoryValue(const char* name, int index)
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params->PrepareAll();
-    Scripts::CStruct* results = Scripts::NewStruct();
+    Scripts::CStruct* results = Scripts::SpawnParamBag();
     if (results)
         results->PrepareAll();
     int value = 0;
@@ -257,7 +257,7 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     MemoryStats& stats = Attributes();
     if (CountsDirty()) {
         CountsDirty() = false;
-        ParkGenerator()->GetNodeCounts(stats.pieceCounts);
+        ParkAssemblerRef()->GetNodeCounts(stats.pieceCounts);
     }
     MemSys::Arena* mainHeap = MemSys::Hub::Pull()->m_bottomUpHeap;
     MemSys::Zone* mainRegion = mainHeap->m_region;
@@ -267,7 +267,7 @@ MemoryStats* __cdecl GetMemoryStats(MemoryStats* out)
     stats.mainHeapFree = mainRegion->FreeByteCount() + mainHeap->m_freeSize;
     stats.mainHeapFree -= GetMemoryValue("anim_set_mem", -1) + mainPad; // "anim_set_mem"
     int parkPad = GetMemoryValue("park_heap_pad", -1); // "park_heap_pad"
-    stats.parkHeapUsed = ParkHeap()->m_usedSize;
+    stats.parkBytesInUse = ParkHeap()->m_usedSize;
     stats.parkHeapFree = ParkRegion()->FreeByteCount() + (ParkHeap()->m_freeSize - parkPad);
 
     // Fragmented: the largest block is all that can be counted on.
@@ -373,7 +373,7 @@ void __cdecl PrepareAll(uint32_t level)
     ParkRegion() = region;
     ParkHeap() = manager->AddHeap(region, direction, name);
     CreateMapListNodePool(16000, "CMapListNode"); // "CMapListNode"
-    DebugOut::Printf("pool is at %p\n", CurrentPool(MapListNodePools())); // "pool is at %p\n"
+    DebugOut::Printf("pool is at %p\n", ActiveSlabPool(MapListNodePools())); // "pool is at %p\n"
     CreateClipboardEntryPool(1000, "CClipboardEntry"); // "CClipboardEntry"
     CreateClipboardPool(6, "CClipboard");         // "CClipboard"
     manager->LeaveHeapScope();

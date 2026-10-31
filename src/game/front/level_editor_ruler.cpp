@@ -58,7 +58,7 @@ std::string Describe(const Measure& m)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic; // (CStaticCollider)
+void** const& kCollStaticVtable = Vt::kVtblStaticColl; // (CStaticCollider)
 
 bool g_armed;
 int g_ends;        // (0, 1 or 2 ends placed)

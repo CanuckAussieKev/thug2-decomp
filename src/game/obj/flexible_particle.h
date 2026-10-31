@@ -15,7 +15,7 @@ class CStruct;
 struct CMemberFunctionEntry;
 } // namespace Script
 
-// Engine3D::CParticleSystem: game/gfx/particle_system.h.
+// Engine3D::CEmitterInstance: game/gfx/particle_system.h.
 
 namespace GameObjects {
 
@@ -88,7 +88,7 @@ public:
     // 0x0041E190 (DestroyParticles): the system destroyed now and let go; the object dies. 1.
     int DestroyParticles(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
-    CSharedRef<Engine3D::CParticleSystem> mp_system; // +0x18
+    CSharedRef<Engine3D::CEmitterInstance> mp_system; // +0x18
     uint32_t m_label;                        // +0x24 name (or the component's address)
     uint32_t m_unknown28;                   // +0x28 0x184197D5 (given to the system's +0x78)
     float m_clock;                           // +0x2C the time not yet given to the system

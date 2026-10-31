@@ -33,7 +33,7 @@ D3DPRESENT_PARAMETERS g_presentParameters;
 bool g_streamOffsetSupported;
 bool g_showWindowFlag; // (the original showed the window maximised / minimised by it)
 uint32_t g_loadingBarTimer; // the timer's id (timeSetEvent)
-float g_screenScaleX; // 640x480 -> back buffer scale
+float g_displayFactorX; // 640x480 -> back buffer scale
 IDirect3DDevice9* g_drawDevice; // the same device, kept twice
 IDirect3DTexture9* g_screenTextures[9];
 
@@ -42,8 +42,8 @@ int g_resolutionSetting;
 bool g_antialiasing;
 int g_screenOffsetY;
 int g_screenOffsetX;
-float g_screenScaleY;
-IDirect3DSurface9* g_depthSurface;
+float g_displayFactorY;
+IDirect3DSurface9* g_zBufferSurface;
 IDirect3DSurface9* g_screenSurfaces[9]; // their level 0
 IDirect3DSurface9* g_backDepth;
 IDirect3DSurface9* g_backBuffer;
@@ -90,8 +90,8 @@ int& DeviceHeight() { return g_deviceHeight; }
 void InitDirect3D()
 {
     g_loadingBarTimer = 0;
-    g_screenScaleX = 1.0f; // 640x480 -> back buffer scale and offset
-    g_screenScaleY = 1.0f;
+    g_displayFactorX = 1.0f; // 640x480 -> back buffer scale and offset
+    g_displayFactorY = 1.0f;
     g_screenOffsetX = 0;
     g_screenOffsetY = 16;
     g_depthTextureTarget = 0;
@@ -170,10 +170,10 @@ void InitDirect3D()
     g_drawDevice = device;
     // (the back buffer size as set by CreateDevice, unsigned)
     float scaleX = static_cast<float>(static_cast<double>(pp.BackBufferWidth) * kPer640);
-    g_screenScaleX = scaleX;
+    g_displayFactorX = scaleX;
     float scaleY = static_cast<float>(static_cast<double>(pp.BackBufferHeight) * kPer480);
     g_screenOffsetX = 0;
-    g_screenScaleY = scaleY;
+    g_displayFactorY = scaleY;
     g_screenOffsetY = static_cast<int>(static_cast<int64_t>(static_cast<double>(scaleY) * kOffsetLines));
 
     // Whether depth textures (D24S8) can be used.
@@ -184,7 +184,7 @@ void InitDirect3D()
         g_depthTexturesSupported = true;
     for (IDirect3DTexture9*& texture : g_screenTextures)
         texture = nullptr;
-    g_depthSurface = 0;
+    g_zBufferSurface = 0;
     ResetRenderState();
     CreateRenderTargets();
     // Originally from PartyMod Fixes (its jump at 0x004D8989): the cursor is left alone. The original hid it when full screen:
@@ -200,7 +200,7 @@ namespace {
 // The default-pool objects (released before a device reset, made again after).
 IDirect3DTexture9** ScreenTextures() { return g_screenTextures; } // [9]
 IDirect3DSurface9** ScreenSurfaces() { return g_screenSurfaces; } // [9], their level 0
-IDirect3DSurface9*& DepthSurface() { return g_depthSurface; }
+IDirect3DSurface9*& ZBufferSurface() { return g_zBufferSurface; }
 IDirect3DSurface9*& BackBuffer() { return g_backBuffer; }
 IDirect3DSurface9*& BackDepth() { return g_backDepth; }
 IDirect3DSurface9*& DepthTextureTarget() { return g_depthTextureTarget; }
@@ -273,8 +273,8 @@ void __cdecl ReleaseRenderTargets()
         ScreenTextures()[i]->Release();
         ScreenTextures()[i] = nullptr;
     }
-    DepthSurface()->Release();
-    DepthSurface() = nullptr;
+    ZBufferSurface()->Release();
+    ZBufferSurface() = nullptr;
     if (DepthTextureTarget()) {
         DepthTextureTarget()->Release();
         DepthTextureTarget() = nullptr;
@@ -299,7 +299,7 @@ void __cdecl CreateRenderTargets()
         ScreenTextures()[i]->GetSurfaceLevel(0, &ScreenSurfaces()[i]);
     }
     InputPort()->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
-                                        D3DMULTISAMPLE_NONE, 0, TRUE, &DepthSurface(), nullptr);
+                                        D3DMULTISAMPLE_NONE, 0, TRUE, &ZBufferSurface(), nullptr);
     InputPort()->GetRenderTarget(0, &BackBuffer());
     InputPort()->GetDepthStencilSurface(&BackDepth());
     BackBuffer()->Release(); // (only the pointers are kept)
@@ -403,7 +403,7 @@ void __cdecl ShowDiscError()
         SetTexture(0, nullptr);
         ChangePhase(kAddressMode0, 0x10001);
         ChangePhase(kDepthBias, 0);
-        ChangePhase(kAlphaRef, 1);
+        ChangePhase(kPhaseAlphaTest, 1);
         ChangePhase(kZWrite, 0);
         InputPort()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
         InputPort()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);

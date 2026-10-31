@@ -18,7 +18,7 @@ class Vec4;
 
 namespace Gfx2D {
 
-class CAnimEvent;
+class CTimedClipEvent;
 
 // A key as three shorts after the time word (8 bytes).
 struct CShortKey {
@@ -193,7 +193,7 @@ public:
     uint32_t* m_boneLabels;        // +0x1C
     uint32_t* mp_partialBones;     // +0x20 (flag 0x80000: a count, then a bit for each bone)
     uint8_t* mp_cacheEntry;        // +0x24 (+4: the frame it was last used)
-    CAnimEvent** mp_events;        // +0x28
+    CTimedClipEvent** mp_events;        // +0x28
     uint16_t* mp_quatSizes;        // +0x2C (each bone's quaternion keys' size in bytes)
     uint16_t* mp_transSizes;       // +0x30
     int16_t m_quatKeyCount;        // +0x34

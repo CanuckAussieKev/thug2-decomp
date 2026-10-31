@@ -143,7 +143,7 @@ void CRiderPoseState::SetSurfaceKind(uint8_t terrain)
 void CRiderPoseState::ClearPowerups() { m_boostItems[0] = 0; }
 
 // 0x00519650
-void CRiderPoseState::ClearDoingTrick() { m_doingTrick = 0; }
+void CRiderPoseState::ClearDoingTrick() { m_inTrickMove = 0; }
 
 // 0x00519480
 bool CRiderPoseState::InAir(Scripts::CStruct*, Scripts::CScript*) { return m_curPhase == AIR; }
@@ -182,7 +182,7 @@ bool CRiderPoseState::UnsetDriving(Scripts::CStruct*, Scripts::CScript*)
     return true;
 }
 // 0x005196E0
-bool CRiderPoseState::InAirMove(Scripts::CStruct*, Scripts::CScript*) { return m_doingTrick != 0; }
+bool CRiderPoseState::InAirMove(Scripts::CStruct*, Scripts::CScript*) { return m_inTrickMove != 0; }
 
 // 0x00519540
 bool CRiderPoseState::HasPowerup(Scripts::CStruct* params, Scripts::CScript*)
@@ -260,7 +260,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CRiderPoseState::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

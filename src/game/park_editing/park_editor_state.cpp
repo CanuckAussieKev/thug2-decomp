@@ -172,7 +172,7 @@ bool __cdecl CFunc_SetParkEditorPauseMode(Scripts::CStruct* params, Scripts::CSc
     return true;
 }
 
-void __cdecl CParkBuilderMode::LogicTask(ParkEditorTask* task)
+void __cdecl CParkBuilderMode::FrontEndTick(ParkEditorTask* task)
 {
     CParkBuilderMode* editor = task->m_content;
     const uint32_t before = EditorClock();
@@ -194,10 +194,10 @@ CParkBuilderMode* CParkBuilderMode::MakeNew()
     if (logic) {
         reinterpret_cast<TaskList::SchedulerTask*>(logic)->MakeNew(0);
         *reinterpret_cast<uint32_t*>(logic) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
-        logic->m_codeValue = &LogicTask;
+        logic->m_codeValue = &FrontEndTick;
         logic->m_content = this;
     }
-    mp_logicTask = logic;
+    m_editorUpdateJob = logic;
     auto* display = static_cast<ParkEditorTask*>(MemSys::AllocZeroed(sizeof(ParkEditorTask)));
     if (display) {
         reinterpret_cast<TaskList::SchedulerTask*>(display)->MakeNew(-1000);
@@ -212,20 +212,20 @@ CParkBuilderMode* CParkBuilderMode::MakeNew()
         reinterpret_cast<TaskList::SchedulerTask*>(input)->MakeNew(0);
         input->m_ordinal = 0;
         *reinterpret_cast<uint32_t*>(input) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable);
-        input->m_codeValue = &HandleInput;
+        input->m_codeValue = &ProcessPadInput;
         input->m_content = this;
     }
-    mp_inputHandler = input;
+    m_editorPadListener = input;
     m_moveSpeed = 480.0f;
     m_turnSpeed = 120.0f;
     m_unknown64 = 0;
-    m_cameraDistance = 1400.0f;
+    m_orbitRadius = 1400.0f;
     m_cameraAngle = 0.0f;
     m_cameraTilt = 10.0f;
     m_curPhase = kStateOff;
     m_flagBits = 0;
-    m_timeOfDayScript = 0;
-    m_commandDone = false;
+    m_lightingScript = 0;
+    m_actionFinished = false;
     CParkLayout::SpawnOccurrence();
     m_listener.EnterWaitBoard(nullptr);
     return this;

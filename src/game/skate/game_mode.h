@@ -31,7 +31,7 @@ class CWinRule;
 class CMatchFlow {
 public:
     void** m_vtable;          // +0x00
-    Scripts::CScript* m_runScript; // +0x04
+    Scripts::CScript* m_ownScript; // +0x04
     bool m_pending;           // +0x08: m_label to be started
     uint8_t m_pad09[3];
     uint32_t m_label;          // +0x0C
@@ -104,7 +104,7 @@ public:
     void SetTrickScoreTracking(bool on); // 0x00553060
     void SetTeamGraffitiMode(uint32_t mode); // 0x00553080
     void SetGoalsMode(uint32_t mode);   // 0x005530A0
-    int IsScoreFrozen();                // 0x005530C0 score_frozen (0 / 1 in EAX)
+    int IsScoringPaused();                // 0x005530C0 score_frozen (0 / 1 in EAX)
     bool KeepsMovePoints();       // 0x005530F0 track_trick_score
     bool RepeatsLosePoints();          // 0x00553110 degrade_score
     int NumTeams();                     // 0x00553130 num_teams

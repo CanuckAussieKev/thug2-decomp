@@ -25,7 +25,7 @@ uint32_t GetLinkCount(Scripts::CStruct* node);
 // 0x0045BE10: the name of its link `index` [it has to have links=: the original reads a null array otherwise].
 uint32_t FetchLink(Scripts::CStruct* node, int index);
 // 0x0045C420: the node its link `index` names (FetchVertex, asserting).
-Scripts::CStruct* GetLinkedNode(Scripts::CStruct* node, int index);
+Scripts::CStruct* FetchNeighbourNode(Scripts::CStruct* node, int index);
 // 0x0045C4B0: whether one of its links is `target`.
 bool HasLinkTo(Scripts::CStruct* node, Scripts::CStruct* target);
 // 0x0045C050: `out` = its pos=, else its position= with z negated, else (0, 0, 0, 1). Whether it had either.
@@ -44,7 +44,7 @@ bool NodeExists(uint32_t name);
 // 0x0045C3A0 / 0x0045C3E0 / 0x0045C460 / 0x0045C560 / 0x0045C590: as above, for the node named `name`.
 uint32_t GetLinkCount(uint32_t name);
 uint32_t FetchLink(uint32_t name, int index);
-Scripts::CStruct* GetLinkedNode(uint32_t name, int index);
+Scripts::CStruct* FetchNeighbourNode(uint32_t name, int index);
 bool FetchPlace(uint32_t name, Maths::Vec4* out);
 bool ReadTurnAngles(uint32_t name, Maths::Vec4* out);
 // 0x0045C520: whether the node named `name` links to the node named `target`.

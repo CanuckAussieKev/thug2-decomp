@@ -131,7 +131,7 @@ bool __cdecl LoadMusicTrackByName(const char* path)
 }
 
 // 0x00453DB0
-bool __cdecl PlayMusicTrack(uint32_t checksum)
+bool __cdecl StartTrackPlayback(uint32_t checksum)
 {
     LastMusicTrack() = checksum;
     if (!LoadMusicTrack(checksum))
@@ -210,7 +210,7 @@ void __cdecl SyncMusicToTime(float seconds)
 // --- The sound streams -------------------------------------------------------------------------------------
 
 // 0x00453DF0
-bool __cdecl ChangeStreamLoudness(const StreamVolume* volume, int slotIndex)
+bool __cdecl ChangeStreamLoudness(const StreamGain* volume, int slotIndex)
 {
     WaitForSingleObject(StreamLock(), INFINITE);
     StreamSlot& slot = StreamSlots()[slotIndex];
@@ -256,7 +256,7 @@ bool __cdecl ChangeStreamLoudness(const StreamVolume* volume, int slotIndex)
 }
 
 // 0x00454080
-bool __cdecl LoadStream(uint32_t checksum, int slotIndex, const StreamVolume* volume, int, int, bool preload, int plays)
+bool __cdecl LoadStream(uint32_t checksum, int slotIndex, const StreamGain* volume, int, int, bool preload, int plays)
 {
     int entry = FindWadEntry(checksum);
     if (entry < 0)
@@ -294,7 +294,7 @@ bool __cdecl PlayStream(uint32_t checksum, int slot, int unused)
 }
 
 // 0x00454270
-bool __cdecl StartPreloadedStream(int slot, const StreamVolume* volume)
+bool __cdecl StartPreloadedStream(int slot, const StreamGain* volume)
 {
     if (!StreamSlots()[slot].Playing())
         return false;

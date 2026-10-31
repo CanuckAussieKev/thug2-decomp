@@ -19,11 +19,11 @@ NetMessageInfo* NetMessageInfo::MakeNew()
     m_byteCount = 0;
     m_content = nullptr;
     m_rank = 0x80;
-    m_queue = kQueueDefault;
+    m_queue = kLaneNormal;
     m_groupId = 0;
     m_singular = false;
     m_delay = 0;
-    m_forcedSequenceId = 0;
+    m_fixedSeqNo = 0;
     m_compression = 0;
     return this;
 }
@@ -35,14 +35,14 @@ StreamDesc* StreamDesc::MakeNew()
     m_content = nullptr;
     m_succ = nullptr;
     m_groupId = 0;
-    m_sendInPlace = false;
+    m_borrowedPayload = false;
     return this;
 }
 
 // 0x00454E00
 void StreamDesc::DestroyBody()
 {
-    if (m_content && !m_sendInPlace) {
+    if (m_content && !m_borrowedPayload) {
         DebugOut::Printf("Destroying StreamDesc's Data\n");
         MemSys::Dealloc(m_content);
     }

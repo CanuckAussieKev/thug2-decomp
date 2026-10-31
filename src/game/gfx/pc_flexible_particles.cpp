@@ -133,7 +133,7 @@ void CPcFlexibleParticles::EmitForFrame(float& accumulator)
     accumulator = static_cast<float>(owed);
     if (owed < 1.0f || owed != owed)
         return;
-    reinterpret_cast<CParticleSystem*>(this)->Emit(Truncate(owed));
+    reinterpret_cast<CEmitterInstance*>(this)->Emit(Truncate(owed));
     accumulator = static_cast<float>(accumulator - static_cast<double>(Truncate(accumulator)));
 }
 
@@ -766,7 +766,7 @@ void CPcGlowParticles::Render()
             ++particle;
         }
         uint32_t triangles = (words >> 4) / 3; // (the original's count: a quarter of what it wrote)
-        if (!g_skipRender) { // (rendering not skipped)
+        if (!g_suppressDraw) { // (rendering not skipped)
             DrawnTriangles() += triangles;
             ++DrawCalls();
             InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer, sizeof(sTrailVertex));

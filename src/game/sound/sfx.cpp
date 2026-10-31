@@ -22,7 +22,7 @@ float g_volumeScale{100.0f};
 SoundWaveSlot g_permanentWaves[256];
 SoundWaveSlot g_levelWaves[256];
 PlayingSound g_playingSounds[48];
-CAudioMixer* g_sfxManager;
+CAudioMixer* g_audioMixer;
 PositionalSound* g_positionalHead;
 int g_permanentCount;
 int g_levelCount;
@@ -40,11 +40,11 @@ constexpr uint32_t kDebugB = 0xD7BB618D;
 
 PlayingSound* Playing() { return g_playingSounds; }
 
-float g_mainVolume{100.0f};
+float g_masterGain{100.0f};
 float g_pitch{1.0f};
-PositionalSound g_positionalSounds[128];
+PositionalSound g_spatialVoices[128];
 
-PositionalSound* PositionalPool() { return g_positionalSounds; }
+PositionalSound* PositionalPool() { return g_spatialVoices; }
 PositionalSound*& PositionalHead() { return g_positionalHead; }
 int& PositionalCount() { return g_positionalCount; }
 SoundWaveSlot* PermanentWaves() { return g_permanentWaves; }
@@ -52,7 +52,7 @@ int& PermanentCount() { return g_permanentCount; }
 SoundWaveSlot* LevelWaves() { return g_levelWaves; }
 int& LevelCount() { return g_levelCount; }
 float& DefaultDropoff() { return g_defaultDropoff; }
-float& MasterLoudness() { return g_mainVolume; }
+float& MasterLoudness() { return g_masterGain; }
 float& Pitch() { return g_pitch; }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
 bool QuietMisses() { return GameConfig::g_fromCD; }
@@ -85,8 +85,8 @@ int FalloffFromChecksum(uint32_t checksum)
 // 0x0047B030
 volumeRef* volumeRef::PrepareAll()
 {
-    CAudioMixer* manager = g_sfxManager;
-    m_kindTag = manager ? manager->m_defaultVolumeType : TYPE_STEREO;
+    CAudioMixer* manager = g_audioMixer;
+    m_kindTag = manager ? manager->m_fallbackChannelMode : TYPE_STEREO;
     ChangeMuted();
     return this;
 }
@@ -163,7 +163,7 @@ int CountPlayingVoices()
 CAudioMixer* CAudioMixer::MakeNew()
 {
     if (!NoSound()) {
-        m_defaultVolumeType = volumeRef::TYPE_STEREO;
+        m_fallbackChannelMode = volumeRef::TYPE_STEREO;
         InitVoices(this);
         for (int i = 0; i < kMaxPlaying; ++i) {
             Playing()[i].uniqueId = 0;
@@ -317,7 +317,7 @@ void CAudioMixer::UpdateVoiceVolumes()
 }
 
 // 0x0047B2C0
-SoundWaveSlot* CAudioMixer::GetWaveTableEntry(uint32_t checksum)
+SoundWaveSlot* CAudioMixer::FetchWaveSlot(uint32_t checksum)
 {
     if (NoSound())
         return nullptr;
@@ -337,7 +337,7 @@ bool CAudioMixer::IsFrozen()
 {
     if (m_muteOverride)
         return false;
-    return Engine3D::g_loadingScreenShown || GameObjects::g_gamePaused;
+    return Engine3D::g_loadingScreenShown || GameObjects::g_simulationHalted;
 }
 
 // 0x0047B360
@@ -354,7 +354,7 @@ bool CAudioMixer::IngestSound(const char* path, uint16_t flags, int loadType, in
             name = path + i + 1;
     }
     uint32_t checksum = Checksums::HashFromText(name);
-    if (GetWaveTableEntry(checksum))
+    if (FetchWaveSlot(checksum))
         return false;
     SoundWaveSlot* entry;
     if (loadType == 0) {
@@ -481,7 +481,7 @@ float CAudioMixer::GetDropoffDistance(uint32_t checksum)
 {
     if (NoSound())
         return DefaultDropoff();
-    SoundWaveSlot* entry = GetWaveTableEntry(checksum);
+    SoundWaveSlot* entry = FetchWaveSlot(checksum);
     if (!entry)
         return 0.0f;
     return entry->dropoff == 0.0f ? DefaultDropoff() : entry->dropoff;

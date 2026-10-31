@@ -480,10 +480,10 @@ V3 Limit(uint8_t* sector, V3 worldScale)
 
 namespace {
 
-constexpr uint32_t kModelComponent = 0x286A8D26;
-void** const& kMovTriVtable = Vt::kCollMovTri;
-void** const& kMovBBoxVtable = Vt::kCollMovBBox;
-void** const& kMultiVtable = Vt::kCollMulti;
+constexpr uint32_t kModelModuleName = 0x286A8D26;
+void** const& kMovTriVtable = Vt::kVtblMovingMeshColl;
+void** const& kMovBBoxVtable = Vt::kVtblMovingBoxColl;
+void** const& kMultiVtable = Vt::kVtblCompoundColl;
 void* const kListHeadData = reinterpret_cast<void*>(-1);
 
 // A scaled object: its collision object then, its triangle objects' own geometries (copied, as they were unscaled)
@@ -509,7 +509,7 @@ std::vector<ObjectEntry> g_objects;
 
 uint8_t* ModelOf(GameObjects::CGameEntity* object)
 {
-    GameObjects::CObjectModule* component = object->FetchModule(kModelComponent);
+    GameObjects::CObjectModule* component = object->FetchModule(kModelModuleName);
     return component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
 }
 
@@ -687,7 +687,7 @@ static VtableSlot kCollMulti_slots[] = {&Engine3D::CHitMeshGroup::ScalarDelete, 
                 &Engine3D::CHitMeshGroup::CollideWithLine, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint,
                 &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CHitMeshGroup::PassDown,
                 &Engine3D::CHitMeshGroup::GetLocalBounds};
-void** const kCollMulti = reinterpret_cast<void**>(kCollMulti_slots);
+void** const kVtblCompoundColl = reinterpret_cast<void**>(kCollMulti_slots);
 static VtableSlot kCollMovBBox_slots[] = {&Engine3D::CHitMovingBox::ScalarDelete, Stubs::ReturnFalse,
                 &Engine3D::CHitMovingBox::GetTriangleAttrs, &Engine3D::CHitMovingBox::GetFaceTerrain, &Engine3D::CHitMovingBox::AssignShapeData,
                 &Engine3D::CProbeRay::ChangeFinish, &Engine3D::CHitMovingMesh::ChangeFacing, &Engine3D::CHitMovingMesh::GetAbsolutePoint,
@@ -696,7 +696,7 @@ static VtableSlot kCollMovBBox_slots[] = {&Engine3D::CHitMovingBox::ScalarDelete
                 &Engine3D::CHitMovingBox::CollideWithLine, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint,
                 &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces,
                 &Engine3D::CHitMovingBox::DrawDiagnostic, Stubs::ReturnZero};
-void** const kCollMovBBox = reinterpret_cast<void**>(kCollMovBBox_slots);
+void** const kVtblMovingBoxColl = reinterpret_cast<void**>(kCollMovBBox_slots);
 static VtableSlot kCollMovTri_slots[] = {&Engine3D::CHitMovingTriangles::ScalarDelete, Stubs::ReturnTrue,
                 &Engine3D::CollFaceAccess::GetTriangleAttrs, &Engine3D::CollFaceAccess::GetFaceTerrain, &Engine3D::CHitMovingTriangles::AssignShapeData,
                 &Engine3D::CHitMovingTriangles::PlaceAtAbsolutePoint, &Engine3D::CHitMovingMesh::ChangeFacing,
@@ -705,5 +705,5 @@ static VtableSlot kCollMovTri_slots[] = {&Engine3D::CHitMovingTriangles::ScalarD
                 &Engine3D::CHitMovingTriangles::InsideBounds, &Engine3D::CHitMovingTriangles::CollideWithLine, &Engine3D::CViewRegion::QueryPoint,
                 &Engine3D::CViewRegion::QueryPoint, &Engine3D::CViewRegion::QueryPoint, &Engine3D::CollGeometryForwarders::IsPointBehindFaces,
                 &Engine3D::CHitMovingTriangles::DrawDiagnostic, &Engine3D::CHitMovingTriangles::GetLocalBounds};
-void** const kCollMovTri = reinterpret_cast<void**>(kCollMovTri_slots);
+void** const kVtblMovingMeshColl = reinterpret_cast<void**>(kCollMovTri_slots);
 } // namespace Vt

@@ -59,7 +59,7 @@ constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
 
 constexpr uint32_t kServerTask2 = 0xE8; // TaskList::SchedulerTask* (removed with the server)
-constexpr uint32_t kStartPoints = 0x48; // int[8]: the starting points
+constexpr uint32_t kInitialScores = 0x48; // int[8]: the starting points
 constexpr uint32_t kCrownStart = 0x68;  // int: the crown's
 constexpr uint32_t kShowMetrics = 0x45; // bool
 constexpr uint32_t kShowScores = 0x46;  // bool
@@ -229,7 +229,7 @@ const char* Hub::FetchSecret()
 // 0x00534340
 bool Hub::PlayersCanCollide()
 {
-    if ((m_gameOver || GameType() == kFreeskate || GameType() == kHorse) && GameType() != kNetLobby)
+    if ((m_matchEnded || GameType() == kFreeskate || GameType() == kHorse) && GameType() != kNetLobby)
         return false;
     if (InSplitScreenGame())
         return true;
@@ -252,11 +252,11 @@ void Hub::DestroyServer()
     NetLink::Hub* net = NetLink::Hub::Sole();
     if (m_host) {
         if (!m_host->IsHostLocal() && (m_flagBits & kFlagsInternet)) {
-            static_cast<RoomManager*>(m_lobbyMan)->StopHosting(); // the lobby's reporting stopped
+            static_cast<RoomManager*>(m_lobbyService)->StopHosting(); // the lobby's reporting stopped
             GameSpy::NatFreeNegotiations();    // (GameSpy)
         }
         net->ReleaseApp(m_host);
-        m_serverAddNewPlayersTask->DropOut();
+        m_hostAdmitJob->DropOut();
         Prop<TaskList::SchedulerTask*>(this, kServerTask2)->DropOut();
         m_host = nullptr;
     }
@@ -266,9 +266,9 @@ void Hub::DestroyServer()
 // 0x00534D50
 void Hub::DestroyMatchClient()
 {
-    if (m_matchClient) {
-        NetLink::Hub::Sole()->ReleaseApp(m_matchClient);
-        m_matchClient = nullptr;
+    if (m_browserClient) {
+        NetLink::Hub::Sole()->ReleaseApp(m_browserClient);
+        m_browserClient = nullptr;
     }
 }
 
@@ -306,7 +306,7 @@ bool Hub::SendCustomTagTexture()
             desc.m_ident = kMsgTagLogos;
             desc.m_content = &logos;
             desc.m_byteCount = 4;
-            desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
             desc.m_groupId = kGroupTag;
             void* palette = TexturePalette(texture);
             m_clientApp->SendBulkToConn(server, kMsgTagPalette, TexturePaletteSize(texture), palette,
@@ -359,7 +359,7 @@ int Hub::GetChoiceInteger(uint32_t list, uint32_t choice, uint32_t field)
 // 0x005359F0
 void Hub::ChooseStartPoints()
 {
-    int* points = &Prop<int>(this, kStartPoints);
+    int* points = &Prop<int>(this, kInitialScores);
     int offset = Maths::Rnd(256);
     int count;
     if (InNetGame()) {
@@ -418,7 +418,7 @@ bool Hub::KeepsScore()
 }
 
 // 0x00535D90
-void Hub::SetPresetOptionBits(char flags) { m_proSetFlags = static_cast<uint32_t>(static_cast<int>(flags)); }
+void Hub::SetPresetOptionBits(char flags) { m_scriptFlagBits = static_cast<uint32_t>(static_cast<int>(flags)); }
 
 // (no address: the list code folded at 0x00588B70 - see the header; the first node's data read before the null check,
 // as there)
@@ -450,7 +450,7 @@ void Hub::DestroyBody()
         g_queryReporting = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
-    if (auto* lobby = static_cast<RoomManager*>(m_lobbyMan)) {
+    if (auto* lobby = static_cast<RoomManager*>(m_lobbyService)) {
         lobby->DestroyBody();
         MemSys::Hub::Pull()->Dealloc(lobby);
     }
@@ -458,11 +458,11 @@ void Hub::DestroyBody()
         vault->DestroyBody();
         MemSys::Hub::Pull()->Dealloc(vault);
     }
-    if (auto* buddies = static_cast<FriendsManager*>(m_buddyMan)) {
+    if (auto* buddies = static_cast<FriendsManager*>(m_presenceService)) {
         buddies->DestroyBody();
         MemSys::Hub::Pull()->Dealloc(buddies);
     }
-    if (auto* stats = static_cast<RankingsManager*>(m_statsMan)) {
+    if (auto* stats = static_cast<RankingsManager*>(m_ratingService)) {
         stats->DestroyBody();
         MemSys::Hub::Pull()->Dealloc(stats);
     }

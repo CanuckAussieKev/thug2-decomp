@@ -40,7 +40,7 @@ const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);       // 0x00646828: 1 /
 const float kPercent = 100.0f;                                // 0x006463D4
 const double kTwoTo32 = 4294967296.0;                         // 0x006453B4 (an unsigned clock difference)
 
-SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
 uint32_t ClockOffset() { return static_cast<uint32_t>(g_clockOffset); }
 
 // A float of the global structure kRates (asserted).
@@ -117,11 +117,11 @@ void CEngineAudioModule::DestroyBody()
 {
     m_vtable = kVtable;
     if (m_engineSound) {
-        SfxManager()->StopSound(m_engineSound);
+        AudioMixerHandle()->StopSound(m_engineSound);
         m_engineSound = 0;
     }
     if (m_skidSound) {
-        SfxManager()->StopSound(m_skidSound);
+        AudioMixerHandle()->StopSound(m_skidSound);
         m_skidSound = 0;
     }
     CObjectModule::DestroyBody();
@@ -267,7 +267,7 @@ void CEngineAudioModule::TickEngine()
 
     SoundFx::volumeRef volume;
     volume.PrepareAll();
-    SoundFx::CAudioMixer* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = AudioMixerHandle();
     sfx->FetchLoudness(&volume, &m_entity->m_atPoint, sfx->GetDropoffDistance(m_engineSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x288B029D);
     float quiet = Setting(m_settings, 0xB8F81277);
@@ -277,9 +277,9 @@ void CEngineAudioModule::TickEngine()
     float lowPitch = Setting(m_settings, 0x2660AF3B);
     float pitch = static_cast<float>((static_cast<double>(highPitch) - lowPitch) * rpm + lowPitch);
     if (!m_engineSound)
-        m_engineSound = SfxManager()->EmitSound(m_engineSoundName, &volume, pitch, 0, nullptr, 0);
+        m_engineSound = AudioMixerHandle()->EmitSound(m_engineSoundName, &volume, pitch, 0, nullptr, 0);
     else
-        SfxManager()->SetSoundParamsScaled(m_engineSound, &volume, pitch);
+        AudioMixerHandle()->SetSoundParamsScaled(m_engineSound, &volume, pitch);
     // (volumeRef's destructor is empty: 0x005480A0)
 }
 
@@ -310,7 +310,7 @@ void CEngineAudioModule::UpdateSkid()
 
     SoundFx::volumeRef volume;
     volume.PrepareAll();
-    SoundFx::CAudioMixer* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = AudioMixerHandle();
     sfx->FetchLoudness(&volume, &m_entity->m_atPoint, sfx->GetDropoffDistance(m_skidSoundName), 0, nullptr, nullptr);
     float loudest = Setting(m_settings, 0x42EA5746);
     float quiet = Setting(m_settings, 0x43E6CDF2);
@@ -320,11 +320,11 @@ void CEngineAudioModule::UpdateSkid()
     float pitch = static_cast<float>((static_cast<double>(highPitch) - lowPitch) * level + lowPitch);
     if (!volume.IsAudioOff()) {
         if (!m_skidSound)
-            m_skidSound = SfxManager()->EmitSound(m_skidSoundName, &volume, pitch, 0, nullptr, 0);
+            m_skidSound = AudioMixerHandle()->EmitSound(m_skidSoundName, &volume, pitch, 0, nullptr, 0);
         else
-            SfxManager()->SetSoundParamsScaled(m_skidSound, &volume, pitch);
+            AudioMixerHandle()->SetSoundParamsScaled(m_skidSound, &volume, pitch);
     } else if (m_skidSound) {
-        SfxManager()->StopSound(m_skidSound);
+        AudioMixerHandle()->StopSound(m_skidSound);
         m_skidSound = 0;
     }
 }
@@ -347,7 +347,7 @@ void CEngineAudioModule::UpdateCollideSound()
     m_collideTime = Now(FrameClock::GameClockElapsed());
 
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* event = memory ? memory->PrepareAll() : nullptr;
     float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->PushFloat(0x29461E27, level);

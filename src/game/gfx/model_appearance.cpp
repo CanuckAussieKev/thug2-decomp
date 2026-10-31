@@ -25,7 +25,7 @@ extern void** const kVtable;
 
 constexpr uint32_t kAppearanceInitStructure = 0xFE54486D; // appearance_init_structure
 constexpr uint32_t kRandomizedDescId = 0xD81C03B0;        // randomized_desc_id
-constexpr uint32_t kRandomIndex = 0x4B833E64;             // random_index
+constexpr uint32_t kShuffleIndex = 0x4B833E64;             // random_index
 constexpr uint32_t kRandomSet = 0x0D7260FD;               // random_set
 constexpr uint32_t kDescId = 0x4BB2084E;                  // desc_id
 constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6;           // use_default_hsv
@@ -62,7 +62,7 @@ const uint32_t kTattoos[] = {
 
 // The CAS part lists (not rewritten yet, cdecl): the option `descriptorId` of the slot `part`'s list; a random option of
 // it (made with `randomSet`); the option at `index`.
-Scripts::CStruct* CasOption(uint32_t part, uint32_t descriptorId, bool assert)
+Scripts::CStruct* CustomiseChoice(uint32_t part, uint32_t descriptorId, bool assert)
 {
     return GameObjects::FindCasOption(part, descriptorId, assert);
 }
@@ -91,7 +91,7 @@ CFaceSkin* ConstructFaceTexture(void* memory)
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.
 Scripts::CStruct* NewTempStruct()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteTempStruct(Scripts::CStruct* s)
@@ -181,7 +181,7 @@ void CModelLook::ResolveRandomParts()
             option = RandomCasOption(part, randomSet);
         } else {
             int index;
-            if (!component->structure->FetchIntValue(kRandomIndex, &index, 0))
+            if (!component->structure->FetchIntValue(kShuffleIndex, &index, 0))
                 continue;
             option = CasOptionAt(part, index, randomSet);
         }
@@ -208,7 +208,7 @@ Scripts::CStruct* CModelLook::GetPartOption(uint32_t part)
         return nullptr;
     uint32_t descriptorId = 0;
     slot->ReadHashValue(kDescId, &descriptorId, 0);
-    return CasOption(part, descriptorId, false);
+    return CustomiseChoice(part, descriptorId, false);
 }
 
 // 0x004890B0

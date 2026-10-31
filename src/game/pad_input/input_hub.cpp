@@ -22,7 +22,7 @@ Hub*& Sole() { return g_inputManager; }
 
 unsigned int g_inputManagerReferences;
 // The buttons' name checksums (index 0: none).
-uint32_t g_buttonChecksums[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
+uint32_t g_padButtonKeys[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
 
 unsigned int& RefTally() { return g_inputManagerReferences; }
 
@@ -58,7 +58,7 @@ void* NewTask(int priority, uint32_t code, void* data)
     return task;
 }
 
-bool OverridePadWithStick(Hub* manager) { return manager->OverridePadWithStick(); }
+bool PadFollowsStick(Hub* manager) { return manager->PadFollowsStick(); }
 
 int SpanTo(uint8_t value)
 {
@@ -110,7 +110,7 @@ void Payload::DigitalAsStick()
 }
 
 // 0x0044E900
-void Payload::HandleAnalogTolerance()
+void Payload::ApplyDeadzoneRules()
 {
     m_incident[kRawRightX] = m_incident[kRightX];
     m_incident[kRawLeftX] = m_incident[kLeftX];
@@ -127,7 +127,7 @@ void Payload::HandleAnalogTolerance()
 }
 
 // 0x0044EA30
-void Payload::OverridePadWithStick()
+void Payload::PadFollowsStick()
 {
     if (m_buttons & (kButtonUp | kButtonRight | kButtonDown | kButtonLeft))
         return;
@@ -160,13 +160,13 @@ HostEnd* HostEnd::MakeNew()
     m_content.m_previous = 0;
     m_dataIn = nullptr;
     m_dataOut = nullptr;
-    m_dataInEnd = nullptr;
-    m_dataOutEnd = nullptr;
+    m_inBufLimit = nullptr;
+    m_outBufLimit = nullptr;
     return this;
 }
 
 // 0x0044EAA0
-void HostEnd::ServiceHandlers()
+void HostEnd::PollInputSinks()
 {
     if (m_dataIn && m_dataIn->m_isUsable) {
         SetButtons(m_content, m_dataIn->m_buttons);
@@ -194,8 +194,8 @@ void HostEnd::ServiceHandlers()
     case 5: // the sticks, no pressures
         std::memcpy(m_content.m_incident, control + 4, 4);
         m_content.DigitalAsStick();
-        if (OverridePadWithStick(manager))
-            m_content.OverridePadWithStick();
+        if (PadFollowsStick(manager))
+            m_content.PadFollowsStick();
         break;
     case 7: // the sticks, and pressures if the device reads them
         if (device->m_unknownC8 == 1) {
@@ -204,9 +204,9 @@ void HostEnd::ServiceHandlers()
         }
         std::memcpy(m_content.m_incident, control + 4, 4);
         m_content.DigitalAsStick();
-        m_content.HandleAnalogTolerance();
-        if (OverridePadWithStick(manager))
-            m_content.OverridePadWithStick();
+        m_content.ApplyDeadzoneRules();
+        if (PadFollowsStick(manager))
+            m_content.PadFollowsStick();
         break;
     }
     if (m_dataOut) {
@@ -232,7 +232,7 @@ Hub* Hub::MakeNew()
     m_task = NewTask(2000, reinterpret_cast<uint32_t>(&Hub::ServiceTask), this);
     for (int i = 0; i < kNumServers; ++i)
         m_hosts[i].m_dev = devices->GetPadAtSlot(i);
-    m_overridePadWithStick = true;
+    m_stickReplacesPad = true;
     m_unknown10D = false;
     m_unknown110[0] = -1;
     m_unknown110[1] = -1;
@@ -304,21 +304,21 @@ void __cdecl Hub::ServiceTask(void* task)
 {
     auto* manager = *reinterpret_cast<Hub**>(static_cast<uint8_t*>(task) + 0x1C);
     for (HostEnd& server : manager->m_hosts) {
-        if (server.m_dataIn && server.m_dataIn >= server.m_dataInEnd)
+        if (server.m_dataIn && server.m_dataIn >= server.m_inBufLimit)
             server.m_dataIn = nullptr;
-        if (server.m_dataOut && server.m_dataOut >= server.m_dataOutEnd)
+        if (server.m_dataOut && server.m_dataOut >= server.m_outBufLimit)
             server.m_dataOut = nullptr;
-        server.ServiceHandlers();
+        server.PollInputSinks();
     }
 }
 
 // 0x0044E590
-uint32_t __cdecl ButtonHash(int index) { return g_buttonChecksums[index]; }
+uint32_t __cdecl ButtonHash(int index) { return g_padButtonKeys[index]; }
 
 // 0x0044E5A0
 int __cdecl ButtonIndex(uint32_t checksum)
 {
-    const uint32_t* table = g_buttonChecksums;
+    const uint32_t* table = g_padButtonKeys;
     for (int i = 1; i < 22; ++i) {
         if (table[i] == checksum)
             return i;

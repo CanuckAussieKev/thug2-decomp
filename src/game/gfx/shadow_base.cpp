@@ -41,8 +41,8 @@ float* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
 float* ProjectionMatrix() { return reinterpret_cast<float*>(&g_projectionMatrix); }
 const float* WorldMatrix() { return reinterpret_cast<float*>(&g_worldMatrix); }
 uint8_t& CustomTransforms() { return g_camera.customTransforms; } // the view / projection aren't the camera's
-bool OmitFromDraw() { return g_skipRender; }
-uint32_t& Fog() { return g_fogEnabled; }
+bool OmitFromDraw() { return g_suppressDraw; }
+uint32_t& Fog() { return g_fogActive; }
 uint32_t& DepthBias() { return g_depthBias; }
 uint32_t& CullMode() { return g_cullMode; }
 uint32_t& PixelShaderLocked() { return g_pixelShaderLocked; }
@@ -57,12 +57,12 @@ struct ProjectedVertex {
 static_assert(sizeof(ProjectedVertex) == 0x1C, "the buffer's stride");
 ProjectedVertex g_projectedVertices[4096];
 ProjectedVertex* Projected() { return g_projectedVertices; }
-struct ShadowVertex {
+struct ShadowCornerPoint {
     float position[3];
     float u, v;
 };
-static_assert(sizeof(ShadowVertex) == 0x14, "the draw's stride");
-ShadowVertex* ShadowTriangles() { return reinterpret_cast<ShadowVertex*>(g_shadowTriangles); }
+static_assert(sizeof(ShadowCornerPoint) == 0x14, "the draw's stride");
+ShadowCornerPoint* ShadowTriangles() { return reinterpret_cast<ShadowCornerPoint*>(g_shadowTriangles); }
 constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
 
 ShadowCompanionFn g_shadowCompanion = nullptr; // NOT ORIGINAL (SetShadowCompanion)
@@ -92,7 +92,7 @@ void MatrixOrtho(float* out, float width, float height, float nearZ, float farZ)
 // The models' meshes (not rewritten yet; thiscall).
 int MeshCount(void* model) { return static_cast<CRenderModel*>(model)->FetchGeomTotal(); }
 void* Mesh(void* model, int index) { return static_cast<CRenderModel*>(model)->FetchGeom(index); }
-void DrawMesh(void* mesh, int flags) { RenderInstance(static_cast<sSingleton*>(mesh), static_cast<uint32_t>(flags)); }
+void DrawMesh(void* mesh, int flags) { DrawOneInstance(static_cast<sSingleton*>(mesh), static_cast<uint32_t>(flags)); }
 // A scene mesh's draw (thiscall).
 void DrawSceneMesh(void* mesh) { static_cast<meshRef*>(mesh)->Render(); }
 
@@ -154,7 +154,7 @@ void __cdecl ProjectShadowVertices(const float* positions, uint32_t count, const
 // 0x004DA190
 int __cdecl ClipShadowTriangles(const uint16_t* indices, uint32_t count)
 {
-    ShadowVertex* out = ShadowTriangles();
+    ShadowCornerPoint* out = ShadowTriangles();
     for (uint32_t i = 0; i < count; ++i, indices += 3) {
         const ProjectedVertex& v0 = Projected()[indices[0]];
         const ProjectedVertex& v1 = Projected()[indices[1]];
@@ -212,7 +212,7 @@ void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
     SetTexture(0, nullptr);
     ChangePhase(kZWrite, 0);
     ChangePhase(kZTest, 1);
-    ChangePhase(kAlphaRef, 0);
+    ChangePhase(kPhaseAlphaTest, 0);
     if (!TwoSidedStencil())
         InputPort()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
     const auto* bytes = static_cast<const uint8_t*>(scene);
@@ -348,7 +348,7 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
         InputPort()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
         InputPort()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         InputPort()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFA0A0A0); // the shadow's colour
-        ChangePhase(kAlphaRef, 1);
+        ChangePhase(kPhaseAlphaTest, 1);
         SetTexture(0, nullptr);
         SetTexture(2, nullptr);
         SetTexture(3, nullptr);
@@ -384,7 +384,7 @@ void __cdecl DrawShadows(const void* /*unused*/, void* const* meshes, int count)
             int triangles = ClipShadowTriangles(*reinterpret_cast<const uint16_t**>(mesh + 0xB8),
                                                 *reinterpret_cast<uint32_t*>(mesh + 0xB4));
             if (triangles) {
-                InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, ShadowTriangles(), sizeof(ShadowVertex));
+                InputPort()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, ShadowTriangles(), sizeof(ShadowCornerPoint));
                 ++g_drawCalls; // draws
                 g_drawnTriangles += triangles;
             }

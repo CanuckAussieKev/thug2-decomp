@@ -64,7 +64,7 @@ constexpr uint32_t kMultiplier = 0x5B6556A4;
 constexpr uint32_t kCountA80 = 0x364E8C16;
 constexpr uint32_t kCountA84 = 0x68703AE9;
 constexpr uint32_t kTrickCount = 0x69B0F836;
-constexpr uint32_t kJumpDistance = 0x8F6F9F05; // horizontal
+constexpr uint32_t kLeapReach = 0x8F6F9F05; // horizontal
 constexpr uint32_t kAirDistance = 0xC3EC3EED;  // horizontal, from take-off to landing
 constexpr uint32_t kScore562370 = 0x9068B4E5;
 
@@ -90,7 +90,7 @@ void LaunchScript(uint32_t name, Scripts::CStruct* params = nullptr) { Scripts::
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -202,7 +202,7 @@ void CAttributeTracker::ConfigureFromData(Scripts::CStruct*)
     m_countA84 = 0;
     m_airScore = 0;
     m_firstUpdate = true;
-    m_skater = static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(m_entity->m_ident));
+    m_skater = static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(m_entity->m_ident));
     if (!m_skater) {
         m_skaterState = nullptr;
         m_physicsControl = nullptr;
@@ -521,7 +521,7 @@ void CAttributeTracker::TickFrame()
             }
             break;
         }
-        case kJumpDistance:
+        case kLeapReach:
             if (m_jumpPhase == 2) {
                 Maths::Vec4 start = {m_jumpStart.x, 0.0f, m_jumpStart.z, 1.0f};
                 Maths::Vec4 end = {m_jumpEnd.x, 0.0f, m_jumpEnd.z, 1.0f};
@@ -555,7 +555,7 @@ void CAttributeTracker::TickFrame()
         LaunchScript(0x41B03551);
     m_lastState = m_curPhase;
     m_value58 = 0.0f;
-    m_lastScore = m_pointsHeld;
+    m_scoreBeforeCombo = m_pointsHeld;
     m_lastPoints = m_pathVertices;
     m_lastMultiplier = m_multiplier;
 }
@@ -678,7 +678,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CAttributeTracker::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

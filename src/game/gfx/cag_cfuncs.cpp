@@ -21,7 +21,7 @@ namespace {
 using Scripts::CArray;
 using Scripts::CStruct;
 
-constexpr uint32_t kInfoArray = 0x54AAD4BD;      // "info_array"
+constexpr uint32_t kLayerInfoList = 0x54AAD4BD;      // "info_array"
 constexpr uint32_t kCustomTag = 0xAA286543;      // (name unknown) the custom tag texture (in the dictionary 0x00700F20)
 constexpr uint32_t kWorkspace = 0xFDA19704;      // (name unknown) the layer workspace texture
 constexpr uint32_t kTextureId = 0xDFB43C53;      // "texture_id"
@@ -58,7 +58,7 @@ void* FindTexture(void* dictionary, uint32_t name)
 {
     return static_cast<Engine3D::CTextureSet*>(dictionary)->FetchSkin(name);
 }
-void* NewTexture(uint32_t name, int width, int height, int a, int b)
+void* AllocPcTexture(uint32_t name, int width, int height, int a, int b)
 {
     return static_cast<Engine3D::CTextureSet*>(Textures())->CreateTexture(name, width, height, a, b, 1, true);
 }
@@ -78,7 +78,7 @@ GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
 
 } // namespace
 
-float g_degreesToRadians{0.017453292f}; // pi / 180
+float g_degreeToRadianRatio{0.017453292f}; // pi / 180
 
 // 0x005B3A90: GenerateCAGTexture info_array=[{texture_id scale flip_h flip_v rot pos_x pos_y rgba layer_id}...]
 // player=n [Test=1]: the custom tag texture composed from its layers: cleared, then each layer's texture drawn into a
@@ -90,13 +90,13 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
 {
     uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
     CArray* layers = nullptr;
-    params->FetchList(kInfoArray, &layers, 1);
+    params->FetchList(kLayerInfoList, &layers, 1);
     void* tag = FindTexture(SkaterTextures(), kCustomTag);
     TextureCall<void>(8, tag, 0, 0);
     TextureCall<void>(12, tag, 0u, false);
     uint32_t size = TextureCall<uint32_t>(33, tag);
     int width = static_cast<uint16_t>(size);
-    void* workspace = NewTexture(kWorkspace, width, width, 4, 0x20);
+    void* workspace = AllocPcTexture(kWorkspace, width, width, 4, 0x20);
     TextureCall<void>(8, workspace, 0, 0);
 
     uint32_t count = layers->m_extent;
@@ -126,7 +126,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
             TextureCall<void>(14, workspace);
         float rot;
         info->FetchFloat(kRot, &rot, 1);
-        float radians = static_cast<float>(static_cast<double>(rot) * g_degreesToRadians); // pi / 180
+        float radians = static_cast<float>(static_cast<double>(rot) * g_degreeToRadianRatio); // pi / 180
         TextureCall<void>(17, workspace, radians, -1.0f, -1.0f);
         float x;
         info->FetchFloat(kPosX, &x, 1);
@@ -172,7 +172,7 @@ bool __cdecl CFunc_GenerateCAGTexture(Scripts::CStruct* params, Scripts::CScript
     int test = 0;
     params->FetchIntValue(kTest, &test, 0);
     if (test) {
-        void* sprite = NewTexture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
+        void* sprite = AllocPcTexture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
         TextureCall<void>(4, sprite, tag);
     }
     return true;
@@ -232,7 +232,7 @@ bool __cdecl CFunc_Get2DPosFrom2DVec(Scripts::CStruct* params, Scripts::CScript*
         y = magnitude;
         negateY = true;
     } else {
-        float radians = static_cast<float>(static_cast<double>(theta) * g_degreesToRadians); // pi / 180
+        float radians = static_cast<float>(static_cast<double>(theta) * g_degreeToRadianRatio); // pi / 180
         y = static_cast<float>(static_cast<double>(Maths::FastSin(radians)) * magnitude);
         x = static_cast<float>(static_cast<double>(Maths::FastCos(radians)) * magnitude);
     }

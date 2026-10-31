@@ -64,8 +64,8 @@ constexpr uint32_t kDoneScript = 0x0089990F;
 constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
-Hub* NetManager() { return g_gameNetManager; }
-VaultMan* Vault() { return reinterpret_cast<VaultMan*>(NetManager()->m_vaultMan); }
+Hub* NetSessionSlot() { return g_onlineHub; }
+VaultMan* Vault() { return reinterpret_cast<VaultMan*>(NetSessionSlot()->m_vaultMan); }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
 void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
@@ -84,7 +84,7 @@ HANDLE StartThread(LPTHREAD_START_ROUTINE thread, void* param)
 {
     DWORD id;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, param, CREATE_SUSPENDED, &id);
-    NetManager()->SetRoomId(id);
+    NetSessionSlot()->SetRoomId(id);
     return handle; // (never closed)
 }
 
@@ -628,7 +628,7 @@ unsigned long __stdcall VaultMan::ListThread(void* param)
 // 0x0054A860
 unsigned long __stdcall VaultMan::DownloadThread(void* url)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     VaultMan* vault = Vault();
     Stall(vault->m_semaphore);
     PushBottomUp();
@@ -648,7 +648,7 @@ unsigned long __stdcall VaultMan::DownloadThread(void* url)
 unsigned long __stdcall VaultMan::UploadThread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
+    OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
     const char* networkId;
     prefs->FetchSetting(Checksums("network_id"))->FetchText("ui_string", &networkId, 1);
     Stall(vault->m_semaphore);
@@ -839,9 +839,9 @@ bool __cdecl CancelFileTransfer(Scripts::CStruct*, Scripts::CScript*)
 // the uploads list, as an "Uploads" category).
 bool __cdecl DownloadDirectoryList(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     VaultMan* vault = reinterpret_cast<VaultMan*>(manager->m_vaultMan);
-    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_buddyMan);
+    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_presenceService);
     params->ReadHashValue(0u, &vault->m_kindTag, 1);
     if (const char* folder = TypeFolder(vault->m_kindTag)) // (an unknown type keeps the folder)
         std::snprintf(vault->m_folder, sizeof(vault->m_folder), "%s", folder);

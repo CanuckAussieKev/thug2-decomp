@@ -153,7 +153,7 @@ int __cdecl Main(int argc, char** argv)
         PadInput::Hub* input = PadInput::CreateManager(true);
         FileLoad::AsyncLoaderModule* asyncLoader = FileLoad::CreateAsyncLoaderModule(true);
         MemSys::PopMemProfile();
-        PadInput::g_inputManager->SetOverridePadWithStick(true); // (+0x10C)
+        PadInput::g_inputManager->ChangePadFollowsStick(true); // (+0x10C)
         Scripts::AllocatePools();
         // Not original - the level editor (game/front/level_editor.h) and CREATE 100% CAS
         // (game/front/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
@@ -181,7 +181,7 @@ int __cdecl Main(int argc, char** argv)
         uint8_t* module5691A0 = reinterpret_cast<uint8_t*>(GameModules::Skate::SpawnOccurrence(true));
         auto* frontEnd = reinterpret_cast<uint8_t*>(GameModules::CreateFrontEnd(true));
         OnlinePlay::Hub::Fabricate(true);
-        reinterpret_cast<void*&>(GameObjects::g_gameNetManager) = OnlinePlay::g_gameNetManager; // (the network manager)
+        reinterpret_cast<void*&>(GameObjects::g_onlineHub) = OnlinePlay::g_onlineHub; // (the network manager)
         auto* parkEditor = reinterpret_cast<uint8_t*>(ParkEditing::CParkBuilderMode::Fabricate(true));
         MenuSystem::CreateScreenElementManager(true);
         LevelNodes::CreateNodeManager(true);

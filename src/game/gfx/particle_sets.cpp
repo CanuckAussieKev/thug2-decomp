@@ -30,7 +30,7 @@ extern void** const kManagerVtable;
 constexpr float kByteToUnit = 1.0f / 255.0f;   // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
-bool IsGameHalted() { return GameObjects::g_gamePaused; }
+bool IsGameHalted() { return GameObjects::g_simulationHalted; }
 
 // The system's virtual functions.
 CSparkle* EraseOne(CSparkle* particle, unsigned int flags)
@@ -43,9 +43,9 @@ void ColourChanged(CSparkle* particle)
     reinterpret_cast<void(__thiscall*)(CSparkle*)>(particle->vtable[6])(particle);
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 
@@ -291,7 +291,7 @@ void CSparkle::SetEmitScript(uint32_t script, uint32_t objectId)
         Scripts::StopScriptsByTag(m_args.m_emitScript);
     m_args.m_emitScript = script;
     m_args.m_entityKey = objectId;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->PutNameKey(kObjectIdParam, m_args.m_entityKey); // (not checked for null, as the original)
     Scripts::SpawnScript(m_args.m_emitScript, params, 0, nullptr, 0, 0, false, false, false, false);
     if (params) {
@@ -307,7 +307,7 @@ void CSparkle::Release() { reinterpret_cast<CPcParticleSystem*>(this)->EngineRel
 // --- the manager ---
 
 // 0x00496770
-CParticleManager* CParticleManager::MakeNew()
+CEffectsDirector* CEffectsDirector::MakeNew()
 {
     vtable = kManagerVtable;
     m_systems.size = 0;
@@ -323,7 +323,7 @@ CParticleManager* CParticleManager::MakeNew()
 }
 
 // 0x004967D0
-void CParticleManager::DestroyBody()
+void CEffectsDirector::DestroyBody()
 {
     vtable = kManagerVtable;
     GameObjects::PointerListNode* result;
@@ -335,7 +335,7 @@ void CParticleManager::DestroyBody()
 }
 
 // 0x00496860
-CParticleManager* CParticleManager::Teardown(unsigned int flags)
+CEffectsDirector* CEffectsDirector::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
@@ -344,9 +344,9 @@ CParticleManager* CParticleManager::Teardown(unsigned int flags)
 }
 
 // 0x00496510
-CSparkle* CParticleManager::SpawnParticle(const CSparkleConfig* params)
+CSparkle* CEffectsDirector::SpawnParticle(const CSparkleConfig* params)
 {
-    CSparkle* particle = reinterpret_cast<CSparkle*(__thiscall*)(CParticleManager*)>(vtable[1])(this);
+    CSparkle* particle = reinterpret_cast<CSparkle*(__thiscall*)(CEffectsDirector*)>(vtable[1])(this);
     if (particle) {
         particle->PrepareAll(params);
         if (particle->m_args.m_flag158) {
@@ -360,7 +360,7 @@ CSparkle* CParticleManager::SpawnParticle(const CSparkleConfig* params)
 }
 
 // 0x00496590
-void CParticleManager::DestroyParticle(CSparkle* particle)
+void CEffectsDirector::RetireParticle(CSparkle* particle)
 {
     if (particle->m_args.m_emitScript) {
         Scripts::StopScriptsByTag(particle->m_args.m_emitScript);
@@ -387,7 +387,7 @@ void CParticleManager::DestroyParticle(CSparkle* particle)
 }
 
 // 0x00496640
-void CParticleManager::DrawParticles()
+void CEffectsDirector::DrawParticles()
 {
     if (!m_systems.size)
         return;
@@ -397,7 +397,7 @@ void CParticleManager::DrawParticles()
 }
 
 // 0x00496680
-void CParticleManager::TickParticles()
+void CEffectsDirector::TickParticles()
 {
     for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
          node = node->next)
@@ -405,7 +405,7 @@ void CParticleManager::TickParticles()
 }
 
 // 0x004966B0
-void CParticleManager::ChangeColour(const float* rgba)
+void CEffectsDirector::ChangeColour(const float* rgba)
 {
     for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
          node = node->next)
@@ -415,7 +415,7 @@ void CParticleManager::ChangeColour(const float* rgba)
 }
 
 // 0x00496700
-void CParticleManager::DestroyAllParticles()
+void CEffectsDirector::KillEveryParticle()
 {
     for (GameObjects::PointerListNode* node = m_systems.head ? m_systems.head->next : nullptr; node != m_systems.head;
          node = node->next) {
@@ -430,7 +430,7 @@ void CParticleManager::DestroyAllParticles()
 }
 
 namespace {
-static VtableSlot kManagerVtable_slots[] = {&Engine3D::CParticleManager::Teardown, Stubs::ReturnZero};
+static VtableSlot kManagerVtable_slots[] = {&Engine3D::CEffectsDirector::Teardown, Stubs::ReturnZero};
 void** const kManagerVtable = reinterpret_cast<void**>(kManagerVtable_slots);
 } // namespace
 

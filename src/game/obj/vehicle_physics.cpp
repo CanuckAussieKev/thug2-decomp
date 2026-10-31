@@ -94,7 +94,7 @@ double X87Atan2(double y, double x)
 }
 
 // The cap on a brake-like torque: what stops the wheel in this step, |(-1 / (dt * invMoment)) * spin| as a float.
-float StoppingTorque(double perStep, float spin) { return static_cast<float>(std::fabs(-1.0 / perStep * spin)); }
+float BrakeTurnForce(double perStep, float spin) { return static_cast<float>(std::fabs(-1.0 / perStep * spin)); }
 
 // A torque on the wheel (already times its inverse moment): its spin changed over the step, and summed.
 void SpinWheel(CDrivableModule::Wheel& wheel, double torque, float timestep)
@@ -172,7 +172,7 @@ void CDrivableModule::UpdateWheelFriction()
 }
 
 // 0x00435DA0
-void CDrivableModule::UpdateCollisionCache()
+void CDrivableModule::RefreshHitCache()
 {
     Maths::BBox box;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
@@ -200,7 +200,7 @@ void CDrivableModule::UpdateCollisionCache()
              static_cast<float>(static_cast<double>(zHalf) + b.z), static_cast<float>(static_cast<double>(wHalf) + b.w)};
         box.AppendSpot(p);
     }
-    m_collCache.TickFrame(box);
+    m_contactMemo.TickFrame(box);
 }
 
 // 0x00435F00
@@ -391,9 +391,9 @@ void CDrivableModule::ApplyEngineBraking()
         if (!wheel.drive || wheel.state == kWheelInAir)
             continue;
         int gear = GetGear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
-        double ratio = m_gearRatios[gear];
+        double ratio = m_transmissionRatios[gear];
         double braking = ratio * m_engineBraking * ratio / Unsigned(m_driveWheelCount);
-        float stop = StoppingTorque(static_cast<double>(wheel.invMoment) * m_stepLength, wheel.spin);
+        float stop = BrakeTurnForce(static_cast<double>(wheel.invMoment) * m_stepLength, wheel.spin);
         if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
@@ -420,7 +420,7 @@ void CDrivableModule::ApplyDriveTorque()
         else
             spin = wheel.spin < 0.0f ? -wheel.spin : 0.0f;
         int gear = GetGear(spin);
-        double torque = static_cast<double>(m_gearRatios[gear]) * m_differentialRatio * m_driveTorque /
+        double torque = static_cast<double>(m_transmissionRatios[gear]) * m_finalDriveRatio * m_engineTorque /
                         Unsigned(m_driveWheelCount) * grip;
         if (m_reverse)
             torque = -(torque * m_reverseRatio);
@@ -438,7 +438,7 @@ void CDrivableModule::ApplyBrakes()
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         double braking = wheel.brakeTorque;
-        float stop = StoppingTorque(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
+        float stop = BrakeTurnForce(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
         if (braking > stop) {
             wheel.brakeExcess = static_cast<float>(braking - stop);
             braking = stop;
@@ -457,7 +457,7 @@ void CDrivableModule::ApplyHandbrake(float scale)
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
         double braking = static_cast<double>(scale) * wheel.handbrakeTorque;
-        float stop = StoppingTorque(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
+        float stop = BrakeTurnForce(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
         if (braking > stop) {
             wheel.brakeExcess = static_cast<float>(braking - stop);
             braking = stop;
@@ -480,7 +480,7 @@ void CDrivableModule::ApplyBrakeExcess()
         if (wheel.brakeExcess == 0.0f)
             continue;
         double braking = wheel.brakeExcess;
-        float stop = StoppingTorque(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
+        float stop = BrakeTurnForce(static_cast<double>(m_stepLength) * wheel.invMoment, wheel.spin);
         if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
@@ -540,7 +540,7 @@ void CDrivableModule::UpdateDependents()
     Maths::Vec4 turned;
     m_comOffset = m_basisFrame.RotateVector(turned, m_centerOfMass);
     UpdateInertia();
-    UpdateVelocities();
+    StepVehicleSpeeds();
     const Maths::Vec4* r = m_basisFrame.row;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
@@ -609,7 +609,7 @@ void CDrivableModule::UpdateDependents()
                                static_cast<float>(inverse * edge.z), static_cast<float>(inverse * edge.w)};
         }
     }
-    UpdateCollisionCache();
+    RefreshHitCache();
 }
 
 // 0x0043B240
@@ -617,7 +617,7 @@ void CDrivableModule::UpdateWheelContacts()
 {
     Engine3D::CProbeRay feeler;
     feeler.MakeNew();
-    feeler.m_hitCache = &m_collCache;
+    feeler.m_hitCache = &m_contactMemo;
     m_wheelsInContact = 0;
     for (int i = m_wheelCount - 1; i >= 0; --i) {
         Wheel& wheel = m_wheels[i];
@@ -732,7 +732,7 @@ void CDrivableModule::ReadControls()
             m_steering = 1.0f;
     }
     m_throttle = input[0x1C0] != 0;
-    m_handbrake = input[0x100] != 0 && !m_noHandbrake;
+    m_handbrake = input[0x100] != 0 && !m_handbrakeDisabled;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
     bool pressed, other = false;
@@ -796,28 +796,28 @@ void CDrivableModule::UpdateSkater()
     uint8_t* core = reinterpret_cast<uint8_t*>(mp_skaterCorePhysics);
     *reinterpret_cast<Maths::Mat4*>(core + 0x18) = reinterpret_cast<CObjectModule*>(core)->m_entity->m_basisFrame;
     skater->m_vel = object->m_vel;
-    if (!m_skaterVisible)
+    if (!m_riderShown)
         return;
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     uint8_t* flags = *reinterpret_cast<uint8_t**>(core + 0x1528);
     float steering = flags[0x28] ? m_displaySteering : -m_displaySteering;
     auto* blender = reinterpret_cast<CAnimBlenderComponent*>(mp_animBlender);
-    double duration = blender->FetchValue(m_skaterAnim);
+    double duration = blender->FetchValue(m_riderAnimName);
     float frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     uint32_t frameBits = std::bit_cast<uint32_t>(frame);
     uint32_t blend = std::bit_cast<uint32_t>(1000.0f);
-    if (!OnlinePlay::g_gameNetManager->InNetGame()) {
-        blender->PlayAnimationEx(m_skaterAnim, 0, frameBits, blend, 1, 0, 0);
+    if (!OnlinePlay::g_onlineHub->InNetGame()) {
+        blender->PlayAnimationEx(m_riderAnimName, 0, frameBits, blend, 1, 0, 0);
         return;
     }
     // In a network game every fifteenth update is sent on (b = 1).
     int& counter = g_vehicleNetUpdateCounter;
     if (++counter == 15) {
         counter = 0;
-        blender->PlayAnimationEx(m_skaterAnim, 1, frameBits, blend, 1, 0, 0);
+        blender->PlayAnimationEx(m_riderAnimName, 1, frameBits, blend, 1, 0, 0);
         return;
     }
-    blender->PlayAnimationEx(m_skaterAnim, 0, frameBits, blend, 1, 0, 0);
+    blender->PlayAnimationEx(m_riderAnimName, 0, frameBits, blend, 1, 0, 0);
 }
 
 namespace {

@@ -407,7 +407,7 @@ Paint::Art LoadImageFile(const std::string& name)
         if (left < static_cast<size_t>(rowBytes) * rows)
             return {};
         art.texture = UiBackend::CreateTexture(static_cast<int>(width), static_cast<int>(height),
-                                               UiBackend::TextureFormat::Dxt1, texels, rowBytes, rows);
+                                               UiBackend::PixelLayout::Dxt1, texels, rowBytes, rows);
         return art;
     }
     uint32_t bits = format == 0 ? 32 : format == 2 ? 16 : format == 0x13 ? 8 : format;
@@ -444,7 +444,7 @@ Paint::Art LoadImageFile(const std::string& name)
         bgra[i * 4 + 3] = 0xFF; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
     }
     art.texture = UiBackend::CreateTexture(static_cast<int>(width), static_cast<int>(height),
-                                           UiBackend::TextureFormat::Bgra32, bgra.data(), static_cast<int>(width * 4),
+                                           UiBackend::PixelLayout::Bgra32, bgra.data(), static_cast<int>(width * 4),
                                            static_cast<int>(height));
     return art;
 }
@@ -929,13 +929,13 @@ void ReadValueSprites(const CUiWidget* element, Mirror::ItemRead* item, int* bud
     }
 }
 
-GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
+GameObjects::CProfileRoster* RosterHandle() { return GameObjects::g_profileRoster; }
 
 // The skater select's stats for the template `name`: stat_names' short_string (else string) and the template's value.
 std::vector<std::pair<std::string, int>> SkaterStats(uint32_t name)
 {
     std::vector<std::pair<std::string, int>> stats;
-    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CProfileRoster* manager = RosterHandle();
     GameObjects::CRiderIdentity* profile = manager ? manager->GetTemplate(name) : nullptr;
     Scripts::CArray* names = Scripts::FetchList(NameHash("stat_names"));
     if (!profile || !names || names->m_kindTag != Scripts::QBVAL_STRUCT)
@@ -961,7 +961,7 @@ Mirror::MenuRead ReadMenu(CUiWidget* menu, bool inDialog)
     read.found = true;
     read.menuId = IdOfElement(menu);
     read.menuKey = reinterpret_cast<uintptr_t>(menu);
-    read.vertical = MouseMenus::IsVerticalMenu(menu);
+    read.vertical = MouseMenus::MenuRunsTopToBottom(menu);
     read.selectedIndex = MouseMenus::SelectedIndex(menu);
     read.inDialog = inDialog;
     read.inLevel = !InFrontEnd();
@@ -984,7 +984,7 @@ Mirror::MenuRead ReadMenu(CUiWidget* menu, bool inDialog)
                 ReadValueSprites(first, &item, &valueBudget);
         }
         if (skaters) {
-            GameObjects::CProfileRoster* manager = ProfileManager();
+            GameObjects::CProfileRoster* manager = RosterHandle();
             GameObjects::CRiderIdentity* profile = manager ? manager->GetTemplate(item.id) : nullptr;
             const char* name = profile ? profile->FetchShownName() : nullptr;
             item.display = name ? name : "";
@@ -1221,7 +1221,7 @@ Mirror::MenuRead ReadKeyboard(CUiWidget* keys, CUiWidget* active)
 
 // A button tag as the game spells it (gfx/text.cpp's): the explicit buttons through the controller map when one is in
 // use, the meta buttons through the meta map; the arrow glyphs Up / Down / Left / Right, else the key's name.
-std::string ButtonName(char tag, char digit)
+std::string PadButtonLabelFor(char tag, char digit)
 {
     int button;
     if (tag == 'm' || tag == 'M') {
@@ -1271,7 +1271,7 @@ Mirror::Policy MirrorPolicy()
     policy.dialogs = GetPrivateProfileIntA("frontend", "restyle_dialogs", 1, ini.c_str()) != 0;
     policy.skaters = GetPrivateProfileIntA("frontend", "restyle_skater_select", 1, ini.c_str()) != 0;
     policy.online = GetPrivateProfileIntA("frontend", "restyle_online", 1, ini.c_str()) != 0;
-    std::string mode = GameScreens::GameModeName();
+    std::string mode = GameScreens::ActiveRulesetLabel();
     policy.editor = s_leftOriginal != nullptr || mode == "parkeditor" || mode == "creategoals" ||
                     ScriptInteger("in_cat_preview_mode") == 1;
     return policy;
@@ -1285,7 +1285,7 @@ Mirror::View MirrorNow()
     if (policyFrames-- <= 0) { // (the ini read twice a second)
         policy = MirrorPolicy();
         policyFrames = 30;
-        Mirror::SetButtonNamer(ButtonName);
+        Mirror::SetButtonNamer(PadButtonLabelFor);
     }
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
     if (!CurrentLoadState() || LoadingScreenUp() || (GameScreens::NetSession() && !policy.online) || LevelEditor::LiveNow())
@@ -1638,7 +1638,7 @@ void Do(GameModules::FrontEnd* frontEnd, const ActStep& action)
             // (the pause menu's change of level, as its level select does it)
             Log("new front end: change level to %s", action.load.c_str());
             HideRoot(false);
-            Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+            Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
             params->PutNameKey(NameHash("level"), NameHash(action.load.c_str()));
             Scripts::SpawnScript(NameHash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
             params->Clear();
@@ -2239,7 +2239,7 @@ bool __cdecl CFunc_Item(Scripts::CStruct* params, Scripts::CScript*)
     uint32_t item = 0;
     if (params)
         params->ReadHashValue(NameHash("item"), &item, 0);
-    std::string mode = GameScreens::GameModeName();
+    std::string mode = GameScreens::ActiveRulesetLabel();
     bool freeSkate = mode == "freeskate" || mode == "singlesession";
     bool levels = s_catalogueOk && !s_catalogue.sections.empty();
     if (item == NameHash("on"))
@@ -2258,7 +2258,7 @@ bool __cdecl CFunc_Item(Scripts::CStruct* params, Scripts::CScript*)
 // NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
 // sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
 // `back` spawned (its menu went: the skate shop's).
-bool __cdecl CFunc_Open(Scripts::CStruct* params, Scripts::CScript*)
+bool __cdecl CFunc_ShowNewFrontend(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t screen = 0, back = 0;
     if (!IsSwitchedOn() || !params || !params->ReadHashValue(NameHash("screen"), &screen, 0))
@@ -2285,7 +2285,7 @@ void RegisterScriptFunctions()
 {
     static const Scripts::CFunctionEntry functions[] = {
         {"NewFrontend_Item", reinterpret_cast<void*>(&CFunc_Item)},
-        {"NewFrontend_Open", reinterpret_cast<void*>(&CFunc_Open)},
+        {"NewFrontend_Open", reinterpret_cast<void*>(&CFunc_ShowNewFrontend)},
     };
     Scripts::InstallScriptFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }
@@ -2437,7 +2437,7 @@ std::string AutomationCommand(const std::string& line, bool* done)
             if (_stricmp(words[1].c_str(), name) == 0) {
                 if (s_state != State::Shown || s_menu.Occupied())
                     return "error: the new front end isn't up";
-                if (input == Intake::Confirm && Refused(s_menu.Shown(), s_menu.SelectedId()))
+                if (input == Intake::Confirm && Refused(s_menu.Shown(), s_menu.ChosenItemId()))
                     return "refused: online";
                 Do(TheFrontEnd(), s_menu.Press(input));
                 return "ok";
@@ -2472,7 +2472,7 @@ std::string AutomationStatus()
     std::string text = std::string(StateName(s_state));
     if (s_state == State::Shown || s_state == State::Launching) {
         text += std::string(" ") + ScreenName(s_menu.Shown());
-        std::string item = s_menu.SelectedId();
+        std::string item = s_menu.ChosenItemId();
         if (!item.empty())
             text += "/" + item;
     }

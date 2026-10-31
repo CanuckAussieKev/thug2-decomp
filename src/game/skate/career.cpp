@@ -297,10 +297,10 @@ namespace {
 
 // The save's names.
 constexpr uint32_t kCareerStructure = 0x4DA4937B;
-constexpr uint32_t kGoalsArray = 0xB7EF8BFC;
+constexpr uint32_t kGoalListName = 0xB7EF8BFC;
 constexpr uint32_t kFlagsArray = 0xC0FA354F;
 constexpr uint32_t kGlobalFlagsArray = 0xA888FE32;
-constexpr uint32_t kGapsArray = 0x9DD7E4A6;
+constexpr uint32_t kGapLevelList = 0x9DD7E4A6;
 constexpr uint32_t kGapLevel = 0x651533EC;
 constexpr uint32_t kGapsBuilt = 0x73F8CA00;
 constexpr uint32_t kGapList = 0xD76C173E;
@@ -312,14 +312,14 @@ constexpr uint32_t kGapDir = 0x9E12C9F8;
 constexpr uint32_t kVisitedArray = 0x7106C6BF;
 constexpr uint32_t kCashArray = 0x414FD20F;
 constexpr uint32_t kAmountArray = 0x9CC5BBF6;
-constexpr uint32_t kTotalCash = 0x0444419A;
+constexpr uint32_t kCashBalanceKey = 0x0444419A;
 constexpr uint32_t kTotalAmount = 0x95947B61;
 constexpr uint32_t kCounterArray = 0xE888DD02;
 constexpr uint32_t kTotalCounter = 0x6C1A5E39;
 constexpr uint32_t kFlag5EF = 0x7A6BF912;
 constexpr uint32_t kValue634 = 0xF884773C;
 constexpr uint32_t kMaxValue634 = 0x1C6CF075;
-constexpr uint32_t kInfoStructure = 0x55D761CF;
+constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 
 static VtableSlot kCareerVtable_slots[] = {&GameObjects::CRiderStoryProgress::Teardown};
 void** const kCareerVtable = reinterpret_cast<void**>(kCareerVtable_slots);
@@ -331,9 +331,9 @@ Scripts::CArray* NewArray(uint32_t size, Scripts::EQbValueKind type)
     array->ConfigureSizeKind(size, type);
     return array;
 }
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 
@@ -348,7 +348,7 @@ CRiderStoryProgress* CRiderStoryProgress::MakeNew()
         m_gaps[level] = memory ? static_cast<GoalSystem::CGapTally*>(memory)->MakeNew() : nullptr;
         m_visited[level] = false;
     }
-    m_details = NewStructure();
+    m_details = SpawnParamTable();
     Reset(true, 0);
     return this;
 }
@@ -384,7 +384,7 @@ void CRiderStoryProgress::DecodeFromStruct(Scripts::CStruct* save)
     Scripts::CStruct* career = nullptr;
     save->ReadSubStruct(kCareerStructure, &career, 0);
     Scripts::CArray* goals = nullptr;
-    career->FetchList(kGoalsArray, &goals, 0);
+    career->FetchList(kGoalListName, &goals, 0);
     Scripts::CArray* flags = nullptr;
     career->FetchList(kFlagsArray, &flags, 0);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
@@ -399,7 +399,7 @@ void CRiderStoryProgress::DecodeFromStruct(Scripts::CStruct* save)
         m_globalFlags[i] = globals->FetchPart(i);
     // The gap checklists.
     Scripts::CArray* gapLevels = nullptr;
-    career->FetchList(kGapsArray, &gapLevels, 0);
+    career->FetchList(kGapLevelList, &gapLevels, 0);
     if (gapLevels) {
         for (int level = 0; level < kLevels; ++level) {
             GoalSystem::CGapTally* checklist = m_gaps[level];
@@ -445,7 +445,7 @@ void CRiderStoryProgress::DecodeFromStruct(Scripts::CStruct* save)
         m_amount[level] = static_cast<uint16_t>(amounts->FetchPart(level));
     }
     int value = 0; // (the original's is left as it was when a value is missing)
-    career->FetchIntValue(kTotalCash, &value, 0);
+    career->FetchIntValue(kCashBalanceKey, &value, 0);
     m_lifetimeFunds = static_cast<uint16_t>(value);
     career->FetchIntValue(kTotalAmount, &value, 0);
     m_totalAmount = static_cast<uint16_t>(value);
@@ -470,7 +470,7 @@ void CRiderStoryProgress::DecodeFromStruct(Scripts::CStruct* save)
     career->FetchIntValue(kValue634, &m_value634, 0);
     career->FetchIntValue(kMaxValue634, &m_maxValue634, 0);
     Scripts::CStruct* info = nullptr; // (the original's is left as it was)
-    career->ReadSubStruct(kInfoStructure, &info, 0);
+    career->ReadSubStruct(kCareerInfoKey, &info, 0);
     m_details->AppendStructureIfAny(info);
     MenuSystem::LevelEditor::Career::CareerReplaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
 }
@@ -494,7 +494,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
     Scripts::CArray* gapLevels = NewArray(kLevels, Scripts::QBVAL_STRUCT);
     for (int level = 0; level < kLevels; ++level) {
         GoalSystem::CGapTally* checklist = m_gaps[level];
-        Scripts::CStruct* entry = NewStructure();
+        Scripts::CStruct* entry = SpawnParamTable();
         entry->PutInt(kGapLevel, level);
         // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
         // the editor's gaps, nor gaps landed in it.
@@ -505,7 +505,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
                 Scripts::CArray* list = NewArray(static_cast<uint32_t>(view.gaps.size()), Scripts::QBVAL_STRUCT);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
                     const MenuSystem::LevelEditor::Career::Gap& g = view.gaps[i];
-                    Scripts::CStruct* gap = NewStructure();
+                    Scripts::CStruct* gap = SpawnParamTable();
                     gap->AppendWord(kGapName, g.name.c_str());
                     gap->PutInt(kGapCount, g.count);
                     gap->PutInt(kGapScore, g.score);
@@ -522,7 +522,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
             int count = checklist->TotalOf();
             Scripts::CArray* list = NewArray(static_cast<uint32_t>(count), Scripts::QBVAL_STRUCT);
             for (int i = 0; i < count; ++i) {
-                Scripts::CStruct* gap = NewStructure();
+                Scripts::CStruct* gap = SpawnParamTable();
                 gap->AppendWord(kGapName, checklist->GetGapTitle(i));
                 gap->PutInt(kGapCount, checklist->CountGapsFound(i));
                 gap->PutInt(kGapScore, checklist->GetGapPoints(i));
@@ -540,11 +540,11 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
     Scripts::CArray* visited = NewArray(kLevels, Scripts::QBVAL_INTEGER);
     for (int level = 0; level < kLevels; ++level)
         visited->SetElement(static_cast<uint32_t>(level), m_visited[level]);
-    Scripts::CStruct* career = NewStructure();
-    career->AddComponentOfType(kGoalsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(goals));
+    Scripts::CStruct* career = SpawnParamTable();
+    career->AddComponentOfType(kGoalListName, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(goals));
     career->AddComponentOfType(kFlagsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(flags));
     career->AddComponentOfType(kGlobalFlagsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(globals));
-    career->AddComponentOfType(kGapsArray, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(gapLevels));
+    career->AddComponentOfType(kGapLevelList, Scripts::QBVAL_ARRAY, reinterpret_cast<uint32_t>(gapLevels));
     career->AppendArrayRef(kVisitedArray, visited);
     career->PutNameKey(0xE3335D2F, *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule) + 0x378)); // (the skate module's)
     career->PutNameKey(0x2CC06F5E, static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey());
@@ -561,7 +561,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
     }
     career->AppendArrayRef(kCashArray, cash);
     career->AppendArrayRef(kAmountArray, amounts);
-    career->PutInt(kTotalCash, m_lifetimeFunds);
+    career->PutInt(kCashBalanceKey, m_lifetimeFunds);
     career->PutInt(kTotalAmount, m_totalAmount);
     Scripts::CArray* counters = NewArray(18, Scripts::QBVAL_INTEGER);
     for (int level = 0; level < 18; ++level)
@@ -571,7 +571,7 @@ void CRiderStoryProgress::WriteToStructure(Scripts::CStruct* save)
     career->PutInt(kFlag5EF, m_flag5EF);
     career->PutInt(kValue634, m_value634);
     career->PutInt(kMaxValue634, m_maxValue634);
-    career->PutSubStruct(kInfoStructure, m_details);
+    career->PutSubStruct(kCareerInfoKey, m_details);
     save->AddComponentOfType(kCareerStructure, 11, reinterpret_cast<uint32_t>(career));
 }
 

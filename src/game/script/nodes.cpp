@@ -85,7 +85,7 @@ uint32_t FetchLink(CStruct* node, int index)
 }
 
 // 0x0045C420
-CStruct* GetLinkedNode(CStruct* node, int index) { return Hub()->FetchVertex(FetchLink(node, index), true); }
+CStruct* FetchNeighbourNode(CStruct* node, int index) { return Hub()->FetchVertex(FetchLink(node, index), true); }
 
 // 0x0045C4B0
 bool HasLinkTo(CStruct* node, CStruct* target)
@@ -153,9 +153,9 @@ uint32_t GetLinkCount(uint32_t name) { return GetLinkCount(Hub()->FetchVertex(na
 uint32_t FetchLink(uint32_t name, int index) { return FetchLink(Hub()->FetchVertex(name, true), index); }
 
 // 0x0045C460
-CStruct* GetLinkedNode(uint32_t name, int index)
+CStruct* FetchNeighbourNode(uint32_t name, int index)
 {
-    return GetLinkedNode(Hub()->FetchVertex(name, true), index);
+    return FetchNeighbourNode(Hub()->FetchVertex(name, true), index);
 }
 
 // 0x0045C560
@@ -208,7 +208,7 @@ void ForEachScriptCall(uint32_t script, uint32_t target, ScriptCallCallback call
     Scripts::CScriptStore* cache = Scripts::g_scriptCache;
     const uint8_t* token = cache->FetchScript(script);
     CStruct* params = nullptr;
-    if (void* memory = Scripts::NewStruct())
+    if (void* memory = Scripts::SpawnParamBag())
         params = static_cast<CStruct*>(memory)->PrepareAll();
     token = Scripts::SkipToEndOfStatement(token); // (past the script's first line)
     for (;;) {

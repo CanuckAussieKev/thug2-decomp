@@ -31,16 +31,16 @@ struct Gauges {
     // 0x00454530: the bytes of the messages of `msgId`.
     int GetMsgByteTotal(int msgId) { return m_messageData[msgId]; }
     // 0x00454540: how many messages of `msgId`.
-    int GetMsgCountForType(int msgId) { return m_numMessages[msgId]; }
+    int GetMsgCountForType(int msgId) { return m_perKindCounts[msgId]; }
 
     Packet m_packetTally[kNumPackets];       // +0x0000 the newest at (m_numPackets - 1) % 256
     int m_numPackets;                    // +0x0800 every packet added
-    int m_numMessages[kNumMessageIds];   // +0x0804
+    int m_perKindCounts[kNumMessageIds];   // +0x0804
     int m_messageData[kNumMessageIds];   // +0x0C04
     int m_totalBytes;                    // +0x1004 every packet's bytes
     int m_bytesPerSec;                   // +0x1008
 };
-static_assert(offsetof(Gauges, m_numPackets) == 0x800 && offsetof(Gauges, m_numMessages) == 0x804 &&
+static_assert(offsetof(Gauges, m_numPackets) == 0x800 && offsetof(Gauges, m_perKindCounts) == 0x804 &&
                   offsetof(Gauges, m_messageData) == 0xC04 && offsetof(Gauges, m_totalBytes) == 0x1004 &&
                   offsetof(Gauges, m_bytesPerSec) == 0x1008 && sizeof(Gauges) == 0x100C,
               "layout must match the original");

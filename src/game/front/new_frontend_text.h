@@ -89,7 +89,7 @@ inline constexpr const char* kQuitToMenu = "Quit to menu";
 inline constexpr const char* kViewGoals = "View goals";
 inline constexpr const char* kYourOptions = "Your options";
 // The session row: "Best combo 20,005", "Gaps 3/14", "Time 01:52".
-inline constexpr const char* kBestCombo = "Best combo";
+inline constexpr const char* kLabelBestChain = "Best combo";
 inline constexpr const char* kGaps = "Gaps";
 inline constexpr const char* kGoals = "Goals";
 inline constexpr const char* kTime = "Time";

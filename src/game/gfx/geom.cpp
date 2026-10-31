@@ -59,7 +59,7 @@ void MeshPosition(meshRef* mesh, Maths::Vec4* out)
 }
 materialRef* MaterialOf(meshRef* mesh) { return reinterpret_cast<materialRef*>(mesh->material); }
 // A mesh's colour (flag 4): the floats at +0x80; its vertex shader at +0x38.
-float* MeshColor(meshRef* mesh) { return reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80); }
+float* MeshTintPtr(meshRef* mesh) { return reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80); }
 uint32_t& MeshVertexShader(meshRef* mesh) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x38); }
 
 // The instance's meshes (its mesh list's).
@@ -74,10 +74,10 @@ sSingleton* NewInstance(sceneRef* scene, const Maths::Mat4* transform, int boneC
     return static_cast<sSingleton*>(memory)->MakeNew(scene, transform, boneCount, bones);
 }
 // A new UV wibble (0x004D1A60, on 0x30 bytes from the heap).
-sUVWibble* NewUVWibble()
+sUVOscillator* NewUVWibble()
 {
-    void* memory = MemSys::Alloc(sizeof(sUVWibble));
-    return memory ? static_cast<sUVWibble*>(memory)->MakeNew() : nullptr;
+    void* memory = MemSys::Alloc(sizeof(sUVOscillator));
+    return memory ? static_cast<sUVOscillator*>(memory)->MakeNew() : nullptr;
 }
 
 void Identity(Maths::Mat4* m)
@@ -419,10 +419,10 @@ void CPcGeom::ChangeTint(uint32_t rgba)
     float red = ChannelToFloat(r), green = ChannelToFloat(g), blue = ChannelToFloat(b);
     for (uint32_t i = 0; i < meshCount; ++i) {
         meshRef* mesh = meshes[i];
-        MeshColor(mesh)[0] = red;
-        MeshColor(mesh)[1] = green;
+        MeshTintPtr(mesh)[0] = red;
+        MeshTintPtr(mesh)[1] = green;
         mesh->flags |= 4;
-        MeshColor(mesh)[2] = blue;
+        MeshTintPtr(mesh)[2] = blue;
     }
 }
 
@@ -438,9 +438,9 @@ uint32_t* CPcGeom::FetchTint(uint32_t* out)
         mesh = meshes[0];
     }
     if (mesh && (mesh->flags & 4)) {
-        color[0] = FloatToChannel(MeshColor(mesh)[0]);
-        color[1] = FloatToChannel(MeshColor(mesh)[1]);
-        color[2] = FloatToChannel(MeshColor(mesh)[2]);
+        color[0] = FloatToChannel(MeshTintPtr(mesh)[0]);
+        color[1] = FloatToChannel(MeshTintPtr(mesh)[1]);
+        color[2] = FloatToChannel(MeshTintPtr(mesh)[2]);
     }
     std::memcpy(out, color, 4);
     return out;
@@ -793,7 +793,7 @@ void CPcGeom::SetUVWibbleParams(float uVel, float uAmp, float uFreq, float uPhas
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->passCount; ++p) {
-            if (sUVWibble* wibble = material->uvWibble[p]) {
+            if (sUVOscillator* wibble = material->uvWibble[p]) {
                 wibble->velocity[0] = uVel;
                 wibble->velocity[1] = vVel;
                 wibble->amplitude[0] = uAmp;
@@ -834,7 +834,7 @@ void CPcGeom::SetUVWibbleOffsets(float u, float v)
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->passCount; ++p) {
-            if (sUVWibble* wibble = material->uvWibble[p]) {
+            if (sUVOscillator* wibble = material->uvWibble[p]) {
                 wibble->offset[0] = u;
                 wibble->offset[1] = v;
                 CallVirtual(this, 43, 1); // EnableExplicitUVWibble
@@ -870,7 +870,7 @@ bool CPcGeom::ChooseUvMatrix(uint32_t checksum, int pass, const Maths::Mat4* mat
             shader = g_vertexShaderUv5C;
         else if (shader == g_vertexShaders[3])
             shader = g_vertexShaderUv58;
-        sUVWibble* wibble = material->uvWibble[index];
+        sUVOscillator* wibble = material->uvWibble[index];
         wibble->matrix[0] = matrix->row[0].x;
         wibble->matrix[1] = matrix->row[0].y;
         wibble->offset[0] = matrix->row[3].x;

@@ -12,7 +12,7 @@ Gauges* Gauges::MakeNew()
     m_numPackets = 0;
     m_totalBytes = 0;
     m_bytesPerSec = 0;
-    for (int& count : m_numMessages)
+    for (int& count : m_perKindCounts)
         count = 0;
     for (int& bytes : m_messageData)
         bytes = 0;
@@ -22,7 +22,7 @@ Gauges* Gauges::MakeNew()
 // 0x00454550
 void Gauges::AppendNote(int msgId, int size)
 {
-    ++m_numMessages[msgId];
+    ++m_perKindCounts[msgId];
     m_messageData[msgId] += size;
 }
 

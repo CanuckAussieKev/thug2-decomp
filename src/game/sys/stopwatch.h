@@ -12,7 +12,7 @@ void PrepareAll();
 void Reset();
 
 // 0x005BE700: a vblank has passed (counted since Reset, and in total).
-void CountVblank();
+void NoteRefresh();
 // 0x005BE740: a frame has been rendered: its length in vblanks goes into the four-frame history.
 void OnceEveryDraw();
 // 0x005BE7F0: once a frame: the frame length from the history (each entry 0-4 vblanks; outside 0-10 counts

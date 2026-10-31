@@ -30,7 +30,7 @@ const char* KindName(Kind kind)
     case Kind::Float: return "float";
     case Kind::Name: return "name";
     case Kind::Chars: return "string";
-    case Kind::LocalString: return "local string";
+    case Kind::LocalisedText: return "local string";
     case Kind::Vec4: return "vector";
     case Kind::Pair: return "pair";
     case Kind::BitMark: return "flag";
@@ -53,7 +53,7 @@ bool SameValue(const Value& a, const Value& b)
         return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1] && a.numbers[2] == b.numbers[2];
     case Kind::Name: return a.checksum == b.checksum;
     case Kind::Chars:
-    case Kind::LocalString:
+    case Kind::LocalisedText:
     case Kind::Other: return a.text == b.text;
     case Kind::BitMark: return a.on == b.on;
     case Kind::Names:
@@ -217,7 +217,7 @@ std::string Format(const Value& value, const NameLookup& names)
         return FloatText(value.numbers[0]) + ", " + FloatText(value.numbers[1]) + ", " + FloatText(value.numbers[2]);
     case Kind::Name: return NameText(value.checksum, names);
     case Kind::Chars:
-    case Kind::LocalString:
+    case Kind::LocalisedText:
     case Kind::Other: return value.text;
     case Kind::BitMark: return value.on ? "on" : "off";
     case Kind::Names: {
@@ -282,7 +282,7 @@ bool Parse(Kind kind, const std::string& text, Value* value, std::string* error)
         }
         break;
     case Kind::Chars:
-    case Kind::LocalString:
+    case Kind::LocalisedText:
         if (text.size() > 255) {
             *error = "too long (255 characters at most)";
             return false;
@@ -410,7 +410,7 @@ std::string EncodeValue(const Value& value, const NameLookup& names)
         return text;
     case Kind::Name: return "n:" + RecordName(value.checksum, names);
     case Kind::Chars: return "s:" + Escape(value.text);
-    case Kind::LocalString: return "l:" + Escape(value.text);
+    case Kind::LocalisedText: return "l:" + Escape(value.text);
     case Kind::BitMark: return value.on ? "flag:1" : "flag:0";
     case Kind::Names: {
         std::vector<std::string> parts;
@@ -456,7 +456,7 @@ bool DecodeValue(const std::string& text, Value* value)
     if (type == "n")
         return Parse(Kind::Name, body, value, &error);
     if (type == "s" || type == "l")
-        return Unescape(body, &plain) && Parse(type == "s" ? Kind::Chars : Kind::LocalString, plain, value, &error);
+        return Unescape(body, &plain) && Parse(type == "s" ? Kind::Chars : Kind::LocalisedText, plain, value, &error);
     if (type == "flag") {
         if (body != "0" && body != "1")
             return false;
@@ -630,7 +630,7 @@ Value ValueOf(const Scripts::CComponent* c)
         v.text = c->string ? c->string : "";
         break;
     case Scripts::QBVAL_INLINE_TEXT:
-        v.kind = Kind::LocalString;
+        v.kind = Kind::LocalisedText;
         v.text = c->string ? c->string : "";
         break;
     case Scripts::QBVAL_PAIR:
@@ -696,7 +696,7 @@ void AddValue(Scripts::CStruct* s, uint32_t key, const Value& v)
     case Kind::Float: s->PushFloat(key, v.numbers[0]); break;
     case Kind::Name: s->PutNameKey(key, v.checksum); break;
     case Kind::Chars: s->AppendWord(key, v.text.c_str()); break;
-    case Kind::LocalString: s->AppendInlineText(key, v.text.c_str()); break;
+    case Kind::LocalisedText: s->AppendInlineText(key, v.text.c_str()); break;
     case Kind::Pair: s->InsertPair(key, v.numbers[0], v.numbers[1]); break;
     case Kind::Vec4: s->PutVec3(key, v.numbers[0], v.numbers[1], v.numbers[2]); break;
     case Kind::BitMark:

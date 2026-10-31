@@ -31,26 +31,26 @@ inline Maths::Mat4& MatrixAt(void* object, uint32_t offset) { return At<Maths::M
 // The component's fields (offsets).
 constexpr uint32_t kObject = 0xC;            // the skater's object (below)
 constexpr uint32_t kDisplayMatrix = 0x18;    // (a copy of the object's matrix)
-constexpr uint32_t kGroundNormal = 0x68;
+constexpr uint32_t kFloorUpVector = 0x68;
 constexpr uint32_t kFrameLength = 0x8C;      // the frame's length (seconds)
 constexpr uint32_t kFeeler = 0xA8;           // a collision feeler (CProbeRay: +0x78 its hit point, +0x88 normal)
 constexpr uint32_t kSurfaceFlags = 0xFA;
 constexpr uint32_t kHitPoint = 0x120;        // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
 constexpr uint32_t kOtherFeeler = 0x158;
-constexpr uint32_t kFeelerStart = 0x208;     // the feeler's line
-constexpr uint32_t kFeelerEnd = 0x218;
+constexpr uint32_t kProbeOrigin = 0x208;     // the feeler's line
+constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228;     // (set by the feeler check 0x005003A0)
 constexpr uint32_t kRailNode = 0x22C;        // the rail node being ground (CGrindPoint*)
 constexpr uint32_t kRailManager = 0x230;     // ... and its rail manager
 constexpr uint32_t kRailScriptNode = 0x240;  // the rail node whose TriggerScript last ran (its name)
 constexpr uint32_t kLastRailScript = 0x244;  // (the same, kept for the next)
 constexpr uint32_t kSkitched = 0x364;        // the object being skitched on (a smart pointer)
-constexpr uint32_t kTenseTime = 0x378;       // how long the jump was held (ms), up to the max tense time
-constexpr uint32_t kJumpTime = 0x4EC;        // when the skater last jumped
+constexpr uint32_t kJumpChargeMs = 0x378;       // how long the jump was held (ms), up to the max tense time
+constexpr uint32_t kLeapDuration = 0x4EC;        // when the skater last jumped
 constexpr uint32_t kInput = 0x150C;          // the pad: a button every 0x20 bytes (pressed, then times)
-constexpr uint32_t kTriggerComponent = 0x1510;
-constexpr uint32_t kSoundComponent = 0x1514;
+constexpr uint32_t kActivationZoneSlot = 0x1510;
+constexpr uint32_t kSfxModuleSlot = 0x1514;
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kOtherFlags = 0x151C;
 constexpr uint32_t kBalanceTrick = 0x1524;    // the balance trick component (+0x18 the trick's kind, +0xD4 a lip's balance)
@@ -103,7 +103,7 @@ inline uint8_t BitMark(void* component, uint32_t offset) { return At<uint8_t>(Fl
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global script
 // value).
-inline float PhysicsFloat(uint32_t name, void* object)
+inline float TuningFloatLookup(uint32_t name, void* object)
 {
     return GameObjects::ReadTuningFloat(name, 1, static_cast<GameObjects::CGameEntity*>(object));
 }
@@ -115,8 +115,8 @@ inline int PhysicsInteger(uint32_t name, void* object)
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).
 inline void TriggerFeeler(void* component, const int* events, uint32_t feelerOffset)
 {
-    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kTriggerComponent))
-        ->CheckFeeler(events, &At<Engine3D::CProbeRay>(component, feelerOffset));
+    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kActivationZoneSlot))
+        ->ProbeTouchesZone(events, &At<Engine3D::CProbeRay>(component, feelerOffset));
 }
 // Whether a trigger's script took over (+0x1530's +0x26).
 inline bool TriggerTookOver(void* component) { return At<uint8_t>(At<uint8_t*>(component, kTriggerState), 0x26) != 0; }
@@ -149,11 +149,11 @@ inline void StopRiding(void* component)
 
 inline void DestroyFeeler(void* feeler) { static_cast<Engine3D::CProbeRay*>(feeler)->Destruct(); }
 
-// 0x005003A0: the collision feeler from kFeelerStart to kFeelerEnd: true on a hit (kHitPoint, kHitNormal, ...).
+// 0x005003A0: the collision feeler from kProbeOrigin to kProbeTip: true on a hit (kHitPoint, kHitNormal, ...).
 // (`a` and `b`: two face-flag masks - 0x10, 0 for the ground checks; 0, 8 across a wall.)
 inline bool Feel(void* component, uint32_t a, uint32_t b)
 {
-    return static_cast<CorePhysicsComponent*>(component)->CheckFeeler(a, b);
+    return static_cast<SkaterPhysicsModule*>(component)->ProbeTouchesZone(a, b);
 }
 
 } // namespace Skater::CoreFields

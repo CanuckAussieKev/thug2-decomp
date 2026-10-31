@@ -18,12 +18,12 @@ extern void** const kVtable;
 } // namespace
 
 // 0x004312A0
-CObjectModule* __cdecl CDisplayMatrixComponent::Fabricate()
+CObjectModule* __cdecl CFaceHeadingModule::Fabricate()
 {
-    void* memory = MemSys::AllocZeroed(sizeof(CDisplayMatrixComponent));
+    void* memory = MemSys::AllocZeroed(sizeof(CFaceHeadingModule));
     if (!memory)
         return nullptr;
-    auto* component = static_cast<CDisplayMatrixComponent*>(memory);
+    auto* component = static_cast<CFaceHeadingModule*>(memory);
     component->CObjectModule::MakeNew();
     component->m_vtable = kVtable;
     component->m_kindTag = kType;
@@ -31,14 +31,14 @@ CObjectModule* __cdecl CDisplayMatrixComponent::Fabricate()
 }
 
 // 0x00431240
-void CDisplayMatrixComponent::DestroyBody()
+void CFaceHeadingModule::DestroyBody()
 {
     m_vtable = kVtable;
     CObjectModule::DestroyBody();
 }
 
 // 0x00431250
-CDisplayMatrixComponent* CDisplayMatrixComponent::Teardown(unsigned int flags)
+CFaceHeadingModule* CFaceHeadingModule::Teardown(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
@@ -47,15 +47,15 @@ CDisplayMatrixComponent* CDisplayMatrixComponent::Teardown(unsigned int flags)
 }
 
 // 0x00431280
-void CDisplayMatrixComponent::TickFrame() { m_entity->m_displayMatrix = m_entity->m_basisFrame; }
+void CFaceHeadingModule::TickFrame() { m_entity->m_displayMatrix = m_entity->m_basisFrame; }
 
 } // namespace Obj
 
 namespace GameObjects {
 namespace {
 
-static VtableSlot kVtable_slots[] = {&GameObjects::CDisplayMatrixComponent::Teardown,
-         &GameObjects::CDisplayMatrixComponent::TickFrame,
+static VtableSlot kVtable_slots[] = {&GameObjects::CFaceHeadingModule::Teardown,
+         &GameObjects::CFaceHeadingModule::TickFrame,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::DoNothing,

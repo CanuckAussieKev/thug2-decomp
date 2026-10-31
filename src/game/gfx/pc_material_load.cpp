@@ -109,12 +109,12 @@ ListKit::KeyMap* ReadMaterials(Reader& reader, const ListKit::KeyMap* textures)
             uint32_t u = Pull<uint32_t>(reader);
             uint32_t v = Pull<uint32_t>(reader);
             m->addressModes[pass] = v << 16 | u;
-            reader.TakeIn(m->envMapTiling[pass], 8, 1);
+            reader.TakeIn(m->reflectionTiling[pass], 8, 1);
             reader.TakeIn(&m->unknownC0[pass], 4, 1);
             if (m->passFlags[pass] & 1) {
                 m->hasUVWibble = true;
-                void* w = MemSys::Alloc(sizeof(sUVWibble));
-                sUVWibble* wibble = w ? static_cast<sUVWibble*>(w)->MakeNew() : nullptr;
+                void* w = MemSys::Alloc(sizeof(sUVOscillator));
+                sUVOscillator* wibble = w ? static_cast<sUVOscillator*>(w)->MakeNew() : nullptr;
                 m->uvWibble[pass] = wibble;
                 reader.TakeIn(wibble, 0x20, 1);
             }

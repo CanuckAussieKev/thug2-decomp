@@ -55,7 +55,7 @@ CGeom* CGeom::MakeNew()
 {
     m_vtable = reinterpret_cast<void**>(kGeomVtable);
     m_cloneKind = 0;
-    mp_collTriData = nullptr;
+    m_hitTriangles = nullptr;
     mp_renderColours = nullptr;
     m_multicolour = 0;
     return this;
@@ -86,8 +86,8 @@ CGeom* CGeom::Replicate(int instance, void* scene)
     auto* clone = Virtual<CGeom*>(this, 2, instance, scene); // (the whole word passed on)
     if (clone) {
         clone->m_cloneKind = static_cast<uint8_t>(instance) ? 1 : 2;
-        if (mp_collTriData)
-            clone->mp_collTriData = mp_collTriData;
+        if (m_hitTriangles)
+            clone->m_hitTriangles = m_hitTriangles;
         clone->mp_renderColours = nullptr;
     }
     return clone;
@@ -130,7 +130,7 @@ Maths::Vec4* CGeom::FetchBoundSphere(Maths::Vec4* out)
 // 0x0048DF10
 void CGeom::ChooseTriSource(void* faces)
 {
-    mp_collTriData = faces;
+    m_hitTriangles = faces;
 }
 
 // 0x0048E150

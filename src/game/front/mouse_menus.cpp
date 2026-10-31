@@ -180,7 +180,7 @@ Rect2 Widen(Rect2 area, const CUiWidget* menu)
     if (Rotated(Bearing(menu)))
         return area;
     Rect2 span = ElementRect(menu);
-    if (IsVerticalMenu(menu)) {
+    if (MenuRunsTopToBottom(menu)) {
         if (span.right > span.left) {
             area.left = std::min(area.left, span.left);
             area.right = std::max(area.right, span.right);
@@ -233,7 +233,7 @@ bool FindMenu(CUiWidget* element, MenuFilter accepts, bool verticalOnly)
 {
     if (Flags(element) & kFlagHidden)
         return false;
-    if (IsMenu(element) && (!verticalOnly || IsVerticalMenu(element)) && accepts(element))
+    if (IsMenu(element) && (!verticalOnly || MenuRunsTopToBottom(element)) && accepts(element))
         return true;
     for (CUiWidget* child = FirstChild(element); child; child = NextSibling(child))
         if (FindMenu(child, accepts, verticalOnly))
@@ -252,8 +252,8 @@ ScreenMapping CurrentMapping(int windowWidth, int windowHeight)
     mapping.windowHeight = windowHeight;
     mapping.backBufferWidth = static_cast<uint32_t>(Engine3D::g_backBufferWidth);
     mapping.backBufferHeight = static_cast<uint32_t>(Engine3D::g_backBufferHeight);
-    mapping.scaleX = Engine3D::g_screenScaleX;
-    mapping.scaleY = Engine3D::g_screenScaleY;
+    mapping.scaleX = Engine3D::g_displayFactorX;
+    mapping.scaleY = Engine3D::g_displayFactorY;
     mapping.offsetX = static_cast<int32_t>(Engine3D::g_screenOffsetX);
     mapping.offsetY = static_cast<int32_t>(Engine3D::g_screenOffsetY);
     return mapping;
@@ -305,7 +305,7 @@ bool IsMenu(const CUiWidget* element)
     return type == kVMenu || type == kHMenu;
 }
 
-bool IsVerticalMenu(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x190) != 0; }
+bool MenuRunsTopToBottom(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x190) != 0; }
 int SelectedIndex(const CUiWidget* menu) { return Prop<int>(menu, 0x178); }
 bool MenuHasFocus(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x180) != 0; }
 bool MenuWraps(const CUiWidget* menu) { return Prop<uint8_t>(menu, 0x1A1) != 0; }
@@ -506,7 +506,7 @@ void HandleMouseEvent(SDL_Event* event)
     }
 }
 
-void* ElementManager() { return MenuSystem::g_screenElementManager; }
+void* UiTreeHandle() { return MenuSystem::g_uiElementHub; }
 CUiWidget* RootElement(void* manager)
 {
     return *reinterpret_cast<CUiWidget**>(static_cast<uint8_t*>(manager) + 0x44);
@@ -540,7 +540,7 @@ bool MenuTakesPadEvents(CUiWidget* menu)
         if (listed) {
             if (!FlagInChain(menu, kFlagPriority))
                 return false;
-            if (!reinterpret_cast<MenuSystem::CUiTree*>(manager)->IsTopPriority(IdentNo(menu)))
+            if (!reinterpret_cast<MenuSystem::CUiTree*>(manager)->HasTopPrecedence(IdentNo(menu)))
                 return false;
         }
     }
@@ -596,7 +596,7 @@ void LogElement(const char* what, const CUiWidget* element)
 void SendPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event)
 {
     const char* notSent = nullptr;
-    GameModules::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
+    GameModules::FrontEndInputHandler* handler = frontEnd->m_padListeners[0];
     if (frontEnd->m_padMappings[0].m_mapping == 0)
         notSent = "the first controller's pad mapping is inactive";
     else if (frontEnd->m_blockMenuInput)
@@ -619,10 +619,10 @@ void SendPadEvent(GameModules::FrontEnd* frontEnd, uint32_t event)
 // The item's own handler for `type` (its script's event handler table).
 bool HandlesEvent(const CUiWidget* item, uint32_t type)
 {
-    Scripts::CScript* script = AsObject(item)->m_runScript;
-    if (!script || !script->m_eventHandlers)
+    Scripts::CScript* script = AsObject(item)->m_ownScript;
+    if (!script || !script->m_signalRoutes)
         return false;
-    const GameObjects::CSignalRouteTable* table = script->m_eventHandlers;
+    const GameObjects::CSignalRouteTable* table = script->m_signalRoutes;
     for (int i = 0; i < table->m_num; ++i)
         if (table->m_entries[i].type == type && table->m_entries[i].script != GameObjects::kNullScript)
             return true;
@@ -725,7 +725,7 @@ TargetState AdvancePending(GameModules::FrontEnd* frontEnd)
     Stepper stepper;
     stepper.frontEnd = frontEnd;
     stepper.menu.AssignValue(menu);
-    stepper.vertical = IsVerticalMenu(menu);
+    stepper.vertical = MenuRunsTopToBottom(menu);
     // Nothing to send while the menu doesn't take pad events, or while it is on an item it passes over (its own
     // focus script moves on).
     CUiWidget* current = ChildAt(menu, SelectedIndex(menu));
@@ -775,7 +775,7 @@ void SelectUnderCursor(GameModules::FrontEnd* frontEnd, float x, float y, bool c
 {
     for (int pass = 0; pass < 4; ++pass) {
         Hit hit;
-        if (!FindItemAt(RootElement(ElementManager()), x, y, MenuTakesPadEvents, &hit)) {
+        if (!FindItemAt(RootElement(UiTreeHandle()), x, y, MenuTakesPadEvents, &hit)) {
             s_hoverItem = nullptr;
             s_hoverId = 0;
             return;
@@ -800,18 +800,18 @@ void Click(GameModules::FrontEnd* frontEnd, float x, float y)
         Log("mouse: left click at layout (%.1f, %.1f)", x, y);
     SelectUnderCursor(frontEnd, x, y, true);
     Hit hit;
-    if (!FindItemAt(RootElement(ElementManager()), x, y, MenuTakesPadEvents, &hit)) {
+    if (!FindItemAt(RootElement(UiTreeHandle()), x, y, MenuTakesPadEvents, &hit)) {
         if (debug) {
             Log("  no item of a menu that takes pad events under the cursor - nothing sent");
             int lines = 0;
-            if (CUiWidget* root = RootElement(ElementManager()))
+            if (CUiWidget* root = RootElement(UiTreeHandle()))
                 LogElementsAt(root, x, y, lines);
         }
         s_logEvents = false;
         return;
     }
     uint32_t event = kPadChoose;
-    if (IsVerticalMenu(hit.menu) && (HandlesEvent(hit.item, kPadLeft) || HandlesEvent(hit.item, kPadRight))) {
+    if (MenuRunsTopToBottom(hit.menu) && (HandlesEvent(hit.item, kPadLeft) || HandlesEvent(hit.item, kPadRight))) {
         int side = OptionSide(ElementRect(hit.item), x);
         if (side < 0)
             event = kPadLeft;
@@ -923,7 +923,7 @@ void TickFrame(GameModules::FrontEnd* frontEnd)
     s_mouse.wheel = 0;
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
-    void* manager = ElementManager();
+    void* manager = UiTreeHandle();
     bool menus = manager && RootElement(manager) && (Engine3D::CurrentLevel() == 0 || frontEnd->m_isHalted);
     if (menus && InParkEditor() && !frontEnd->m_isHalted)
         menus = false;
@@ -962,7 +962,7 @@ void TickFrame(GameModules::FrontEnd* frontEnd)
     if (input.rightClicks || input.wheel)
         ClearPending("a right click or the wheel");
     for (int i = 0; i < input.rightClicks; ++i) {
-        bool any = AnyMenu(RootElement(ElementManager()), MenuTakesPadEvents, false);
+        bool any = AnyMenu(RootElement(UiTreeHandle()), MenuTakesPadEvents, false);
         if (DebugEnabled())
             Log("mouse: right click at layout (%.1f, %.1f)%s", x, y, any ? "" : ": no menu takes pad events - nothing sent");
         s_logEvents = true;
@@ -972,7 +972,7 @@ void TickFrame(GameModules::FrontEnd* frontEnd)
     }
     int notches = std::max(-5, std::min(5, input.wheel));
     for (; notches != 0; notches += notches > 0 ? -1 : 1)
-        if (AnyMenu(RootElement(ElementManager()), MenuTakesPadEvents, true))
+        if (AnyMenu(RootElement(UiTreeHandle()), MenuTakesPadEvents, true))
             SendPadEvent(frontEnd, notches > 0 ? kPadUp : kPadDown);
 }
 

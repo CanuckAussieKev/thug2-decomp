@@ -55,8 +55,8 @@ constexpr int kClientNatIndex = 1;
 constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1};
 
-Hub* NetManager() { return g_gameNetManager; }
-RoomManager* Lobby() { return static_cast<RoomManager*>(NetManager()->m_lobbyMan); }
+Hub* NetSessionSlot() { return g_onlineHub; }
+RoomManager* Lobby() { return static_cast<RoomManager*>(NetSessionSlot()->m_lobbyService); }
 TaskList::PileUp* LogicTasks()
 {
     return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(AssetStore::g_mainLoopManager)) + 4);
@@ -79,11 +79,11 @@ int& QueuedCount() { return g_queuedCount; }
 bool __cdecl CFunc_StartNatNegotiation(Scripts::CStruct* params, Scripts::CScript*)
 {
     TaskList::PileUp* tasks = LogicTasks();
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     const char* address = nullptr;
     int port = 0;
     PushInternetHeap();
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
+    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     params->FetchText(0u, &address, 0);
     params->FetchIntValue(0u, &port, 0);
     params->ReadHashValue(kCookie, reinterpret_cast<uint32_t*>(&lobby->m_natCookie), 0);
@@ -99,7 +99,7 @@ bool __cdecl CFunc_StartNatNegotiation(Scripts::CStruct* params, Scripts::CScrip
         return false;
     }
     tasks->QueueJob(lobby->m_natTask);
-    client->SetOutsidePacketHook(reinterpret_cast<NetLink::ForeignPacketHandler>(&RoomManager::QueuePacket));
+    client->SetOutsidePacketHook(reinterpret_cast<NetLink::UnknownPacketCallback>(&RoomManager::QueuePacket));
     tasks->QueueJob(lobby->m_hostingTask);
     for (int i = 0; i < QueuedCount(); ++i)
         Crt::Dealloc(Queue()[i].data); // (the game's C runtime free)
@@ -124,9 +124,9 @@ bool __cdecl CFunc_CancelNatNegotiation(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_LeaveLobby(Scripts::CStruct* params, Scripts::CScript*)
 {
     PushInternetHeap();
-    Hub* manager = NetManager();
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
-    void* buddy = manager->m_buddyMan;
+    Hub* manager = NetSessionSlot();
+    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
+    void* buddy = manager->m_presenceService;
     GameSpy::PeerLeaveRoom(lobby->m_remote, kGroupRoom, nullptr); // the group room left
     lobby->m_inGroupRoom = false;
     if (Prop<bool>(buddy, 0x10) && !params->HasEntryNamed(kPreserveStatus)) {
@@ -143,7 +143,7 @@ bool __cdecl CFunc_LeaveLobby(Scripts::CStruct* params, Scripts::CScript*)
 bool __cdecl CFunc_CancelLobbyConnect(Scripts::CStruct*, Scripts::CScript*)
 {
     Lobby()->m_connecting = false;
-    Lobby()->m_expectingDisconnect = true;
+    Lobby()->m_dropIsExpected = true;
     return true;
 }
 
@@ -151,9 +151,9 @@ bool __cdecl CFunc_CancelLobbyConnect(Scripts::CStruct*, Scripts::CScript*)
 bool __cdecl CFunc_SetQuietMode(Scripts::CStruct* params, Scripts::CScript*)
 {
     PushInternetHeap();
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     int quiet = params->HasBareFlag(kOff) ? 0 : 1;
-    GameSpy::PeerSetQuietMode(static_cast<RoomManager*>(manager->m_lobbyMan)->m_remote, quiet);
+    GameSpy::PeerSetQuietMode(static_cast<RoomManager*>(manager->m_lobbyService)->m_remote, quiet);
     PopHeap();
     return true;
 }
@@ -161,13 +161,13 @@ bool __cdecl CFunc_SetQuietMode(Scripts::CStruct* params, Scripts::CScript*)
 // 0x005406C0
 bool __cdecl CFunc_CanHostGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
-    RoomManager* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
+    Hub* manager = NetSessionSlot();
+    RoomManager* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     if (!lobby->m_restrictedHosting)
         return lobby->m_unknown30 < lobby->m_unknown2C;
-    if (!Prop<bool>(manager->m_buddyMan, 0x10)) // (logged in to the presence)
+    if (!Prop<bool>(manager->m_presenceService, 0x10)) // (logged in to the presence)
         return false;
-    int profile = Prop<int>(manager->m_buddyMan, 4);
+    int profile = Prop<int>(manager->m_presenceService, 4);
     for (int allowed : kHostProfiles)
         if (profile == allowed)
             return true;

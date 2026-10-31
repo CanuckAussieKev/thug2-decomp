@@ -40,7 +40,7 @@ constexpr uint32_t kObjId = 0x0830ECAF;           // ObjId
 constexpr uint32_t kStructure = 0x90FEC815;       // structure
 constexpr uint32_t kTags = 0x90436BD9;            // tags
 constexpr uint32_t kRemoveTags = 0x8225D629;      // remove_tags
-constexpr uint32_t kEventHandlers = 0x475BF03C;   // event_handlers
+constexpr uint32_t kReactionList = 0x475BF03C;   // event_handlers
 constexpr uint32_t kReplaceHandlers = 0x3F93A1EF; // replace_handlers
 constexpr uint32_t kParams = 0x7031F10C;          // params
 constexpr uint32_t kPauseWithObject = 0x8757D0BB; // PauseWithObject
@@ -76,7 +76,7 @@ void DeleteScript(CScript* script)
 // `new CStruct` (the structure pool) / `delete`.
 CStruct* NewEmptyStruct()
 {
-    CStruct* structure = Scripts::NewStruct();
+    CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void FreeStruct(CStruct* structure)
@@ -107,10 +107,10 @@ CObjectRef* CObjectRef::Teardown(unsigned int flags)
 }
 
 // 0x00460B20
-void CObjectNode::DestroyBody() { UnlinkAs(g_objectNodeVtable); }
+void CEntityListEntry::DestroyBody() { UnlinkAs(g_objectNodeVtable); }
 
 // 0x00460B40
-CObjectNode* CObjectNode::Teardown(unsigned int flags)
+CEntityListEntry* CEntityListEntry::Teardown(unsigned int flags)
 {
     UnlinkAs(g_objectNodeVtable);
     if (flags & 1)
@@ -134,7 +134,7 @@ CEntity* CEntity::MakeNew()
     m_ident = kUnassignedId;
     m_kindTag = kNoObjectType;
     m_tagTable = nullptr;
-    m_runScript = nullptr;
+    m_ownScript = nullptr;
     m_parkOwner = nullptr;
     m_objectFlags = 0;
     m_aliasCount = 0;
@@ -150,11 +150,11 @@ void CEntity::DestroyBody()
         FreeStruct(m_tagTable); // (the pointer is left as it is)
     if (m_parkOwner)
         m_parkOwner->VirtualUnregisterObject(this);
-    if (m_runScript) {
-        m_runScript->ClearOnExitScripts();
-        if (m_runScript)
-            DeleteScript(m_runScript);
-        m_runScript = nullptr;
+    if (m_ownScript) {
+        m_ownScript->ClearOnExitScripts();
+        if (m_ownScript)
+            DeleteScript(m_ownScript);
+        m_ownScript = nullptr;
     }
     Scripts::EndScriptsBoundToEntity(this);
     m_ref.DestroyBody();
@@ -183,9 +183,9 @@ void CEntity::ChangeTraits(CStruct* params)
 {
     bool replace = params->HasBareFlag(kReplaceHandlers);
     CArray* handlers = nullptr;
-    if (params->FetchList(kEventHandlers, &handlers, 0)) {
+    if (params->FetchList(kReactionList, &handlers, 0)) {
         CreateScriptIfNeeded();
-        m_runScript->InstallEventTable(handlers, replace);
+        m_ownScript->InstallEventTable(handlers, replace);
     }
     CStruct* tags = nullptr;
     if (params->ReadSubStruct(kTags, &tags, 0)) {
@@ -210,19 +210,19 @@ bool CEntity::InvokeMethodByName(uint32_t name, CStruct* params, CScript* /*scri
 // 0x00461140
 bool CEntity::PassEventToScript(CSignal* event)
 {
-    if (!m_runScript)
+    if (!m_ownScript)
         return true;
     CSharedRef<CEntity> self;
     self.AssignValue(this);
-    m_runScript->ReceiveEvent(event);
+    m_ownScript->ReceiveEvent(event);
     return static_cast<bool>(self); // (cleared if the object was deleted meanwhile)
 }
 
 // 0x00460A50
 void CEntity::FlagAsDead()
 {
-    if (m_runScript)
-        m_runScript->GateOff(0); // (until unblocked: for good)
+    if (m_ownScript)
+        m_ownScript->GateOff(0); // (until unblocked: for good)
     Scripts::EndScriptsBoundToEntity(this);
     m_objectFlags &= ~OBJECT_FLAG_LOCKED;
     CObjectHubBase* manager = m_parkOwner; // (unregistering clears m_parkOwner: the manager read first is used)
@@ -235,11 +235,11 @@ void CEntity::FlagAsDead()
 // 0x00461290
 void CEntity::CreateScriptIfNeeded()
 {
-    if (m_runScript)
+    if (m_ownScript)
         return;
     MemSys::EnterHeapScope(MemSys::Hub::Pull()->m_scriptHeap);
     CScript* script = NewScript();
-    m_runScript = script;
+    m_ownScript = script;
     script->BindScript(kEmptyScript, nullptr, this);
     MemSys::LeaveHeapScope();
 }
@@ -247,22 +247,22 @@ void CEntity::CreateScriptIfNeeded()
 // 0x00461350
 CScript* CEntity::ReplaceScript(uint32_t name, CStruct* params)
 {
-    if (!m_runScript)
-        m_runScript = NewScript();
-    m_runScript->BindScript(name, params, this);
-    m_runScript->HasAttachedScript(); // (the answer isn't used)
-    return m_runScript;
+    if (!m_ownScript)
+        m_ownScript = NewScript();
+    m_ownScript->BindScript(name, params, this);
+    m_ownScript->HasAttachedScript(); // (the answer isn't used)
+    return m_ownScript;
 }
 
 // 0x00461500
 int CEntity::RunSubScript(uint32_t name, CStruct* params)
 {
-    if (!m_runScript) {
+    if (!m_ownScript) {
         CScript* script = NewScript();
-        m_runScript = script;
+        m_ownScript = script;
         script->m_entity.AssignValue(this);
     }
-    return m_runScript->Preempt(name, params);
+    return m_ownScript->Preempt(name, params);
 }
 
 // 0x00461410
@@ -392,8 +392,8 @@ bool CEntity::FetchLabels(CArray* names, CStruct* dest)
 // 0x004607A0
 void CEntity::ClearEventHandler(uint32_t type)
 {
-    if (m_runScript)
-        m_runScript->ClearEventHandler(type);
+    if (m_ownScript)
+        m_ownScript->ClearEventHandler(type);
 }
 
 // 0x004607B0
@@ -641,7 +641,7 @@ void** const kObjectVtable = reinterpret_cast<void**>(kObjectVtable_slots);
 
 namespace GameObjects {
 
-static VtableSlot g_objectNodeVtable_slots[] = {&GameObjects::CObjectNode::Teardown};
+static VtableSlot g_objectNodeVtable_slots[] = {&GameObjects::CEntityListEntry::Teardown};
 void** const g_objectNodeVtable = reinterpret_cast<void**>(g_objectNodeVtable_slots);
 
 } // namespace Obj

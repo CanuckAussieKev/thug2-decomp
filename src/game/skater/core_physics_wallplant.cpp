@@ -59,7 +59,7 @@ constexpr uint32_t kDriving = 0x2ED;
 constexpr uint32_t kModelRotating = 0x2DB;
 constexpr uint32_t kHitObjectChecksum = 0x100;
 constexpr uint32_t kWallplantTime = 0x4E0;
-constexpr uint32_t kWallRideTime = 0x39C;
+constexpr uint32_t kWallRideStartTime = 0x39C;
 constexpr uint32_t kWallplantEndTime = 0x3A0;
 constexpr uint32_t kWallDirection = 0x38C;   // the wall ridden (its normal)
 constexpr uint32_t kLateFrames = 0x14CC;     // frames left for a late wall plant
@@ -74,7 +74,7 @@ constexpr float kUnsignedOffset = 4294967296.0f; // 0x006453B4
 constexpr float kMaxTilt01 = 0.1f;           // 0x00645D74
 constexpr float kBackOff = 24.0f;            // 0x00645EE8
 constexpr float kMinSpeed = 0.01f;           // 0x0064544C
-constexpr float kDegreesToRadians = 0.0174532924f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kRiseScale = 0.15f;          // 0x0064BD4C
 constexpr float kProbe = 6.0f;               // (0x40C00000)
 constexpr float kWalkReach = 36.0f;          // (0x42100000)
@@ -86,11 +86,11 @@ GameObjects::CGameEntity* SkaterObject(void* component) { return static_cast<Gam
 
 void CheckTriggers(void* component, const int* kind, uint32_t feeler)
 {
-    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kTriggerComponent))
-        ->CheckFeeler(kind, &At<Engine3D::CProbeRay>(component, feeler));
+    static_cast<GameObjects::CActivationZoneModule*>(At<void*>(component, kActivationZoneSlot))
+        ->ProbeTouchesZone(kind, &At<Engine3D::CProbeRay>(component, feeler));
 }
 
-bool TriggerTookOver(void* component) { return At<uint8_t>(At<void*>(component, kStateComponent), 0x26) != 0; }
+bool TriggerTookOver(void* component) { return At<uint8_t>(At<void*>(component, kStateModuleSlot), 0x26) != 0; }
 
 // The trick button `button` pressed now, or within Wall_Ride_Triangle_Window (0x0051ECF0 / 0x0051F6B0 on the
 // skater component).
@@ -122,14 +122,14 @@ bool WallAboveHit(void* component)
 } // namespace
 
 // 0x00507500
-bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
+bool SkaterPhysicsModule::WallPlant(bool late, bool checkOnly, bool walking)
 {
     if (At<uint8_t>(this, kDriving)) {
         int allowed = 0;
         if (!SkaterObject(this)->ReadIntTag(kCanWallplant, &allowed))
             return false;
     }
-    if (At<uint8_t>(this, kModelRotating) || At<uint8_t>(At<void*>(this, kStateComponent), 0x24))
+    if (At<uint8_t>(this, kModelRotating) || At<uint8_t>(At<void*>(this, kStateModuleSlot), 0x24))
         return false;
 
     if (!walking) {
@@ -144,7 +144,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
         if (Scripts::FetchFloat(kDisallowRewallplant) > sincePlantFloat)
             return false;
         float sinceRide =
-            static_cast<float>(FrameClock::GameClockTimeSince(At<int>(this, kWallRideTime)));
+            static_cast<float>(FrameClock::GameClockTimeSince(At<int>(this, kWallRideStartTime)));
         if (static_cast<double>(Scripts::FetchFloat(kWallplantDelay)) * kToMilliseconds > sinceRide)
             return false;
         if (Scripts::FetchFloat(kMinWallplantHeight) > At<float>(FlagsOf(this), kTakeOffHeight))
@@ -196,22 +196,22 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
             const Maths::Vec4& old = VectorAt(o, kOldPosition);
             Maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, position.w - old.w};
             move.MakeUnit();
-            double height = PhysicsFloat(kForwardHeight, o);
+            double height = TuningFloatLookup(kForwardHeight, o);
             const Maths::Vec4& up = VectorAt(o, kUp);
             float hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
                   hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
             const Maths::Vec4& last = VectorAt(ObjectOf(this), kOldPosition);
-            Maths::Vec4& start = VectorAt(this, kFeelerStart);
+            Maths::Vec4& start = VectorAt(this, kProbeOrigin);
             start = {hx + last.x, hy + last.y, hz + last.z, hw + last.w};
-            double length = PhysicsFloat(kForwardLength, ObjectOf(this));
+            double length = TuningFloatLookup(kForwardLength, ObjectOf(this));
             float lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
                   ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
             const Maths::Vec4& now = VectorAt(ObjectOf(this), kPosition);
             double w = static_cast<double>(hw) + now.w; // (left unrounded)
             float z = hz + now.z, y = hy + now.y, x = hx + now.x;
-            Maths::Vec4& end = VectorAt(this, kFeelerEnd);
+            Maths::Vec4& end = VectorAt(this, kProbeTip);
             end = {x + lx, y + ly, z + lz, static_cast<float>(w + lw)};
-            if (!CheckFeeler(0x10, 0))
+            if (!ProbeTouchesZone(0x10, 0))
                 return false;
         }
     } else {
@@ -220,13 +220,13 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
         const Maths::Vec4& facing = VectorAt(object, kForward);
         Maths::Vec4 direction = {-facing.x, facing.y, -facing.z, facing.w};
         direction.MakeUnit();
-        float height = PhysicsFloat(kForwardHeight, object);
+        float height = TuningFloatLookup(kForwardHeight, object);
         Maths::Vec4 lift = VectorAt(object, kUp) * height;
-        VectorAt(this, kFeelerStart) = VectorAt(ObjectOf(this), kPosition) + lift;
+        VectorAt(this, kProbeOrigin) = VectorAt(ObjectOf(this), kPosition) + lift;
         Maths::Vec4 reach = direction * kWalkReach;
         Maths::Vec4 base = VectorAt(ObjectOf(this), kPosition) + lift;
-        VectorAt(this, kFeelerEnd) = base + reach;
-        if (!CheckFeeler(0x10, 0))
+        VectorAt(this, kProbeTip) = base + reach;
+        if (!ProbeTouchesZone(0x10, 0))
             return false;
     }
 
@@ -248,7 +248,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
     wall.y = 0.0f;
     wall.MakeUnit();
     if (!walking) {
-        double limit = X87Sin(static_cast<double>(Scripts::FetchFloat(kMinApproachAngle)) * kDegreesToRadians);
+        double limit = X87Sin(static_cast<double>(Scripts::FetchFloat(kMinApproachAngle)) * kRadiansPerDegree);
         double approach = static_cast<double>(heading.x) * wall.x + static_cast<double>(heading.z) * wall.z +
                           static_cast<double>(wall.y) * heading.y;
         if (-limit < approach)
@@ -332,7 +332,7 @@ bool CorePhysicsComponent::WallPlant(bool late, bool checkOnly, bool walking)
 }
 
 // 0x00508140
-bool CorePhysicsComponent::StartWallRide()
+bool SkaterPhysicsModule::StartWallRide()
 {
     if (At<uint8_t>(this, kDriving) || !At<uint8_t>(this, kHitWall))
         return false;
@@ -340,7 +340,7 @@ bool CorePhysicsComponent::StartWallRide()
     if (!ButtonPressed(this, kTriangle) && !(ThawBmx::LiveNow(this) && ThawBmx::WallrideButton(this)))
         return false;
     // Not again within Wall_Ride_Delay of the last ride or plant.
-    float sinceRide = static_cast<float>(static_cast<int>(Since(At<uint32_t>(this, kWallRideTime))));
+    float sinceRide = static_cast<float>(static_cast<int>(Since(At<uint32_t>(this, kWallRideStartTime))));
     if (!(static_cast<double>(Scripts::FetchFloat(kWallRideDelay)) * kToMilliseconds < sinceRide))
         return false;
     float sincePlant = static_cast<float>(static_cast<int>(Since(At<uint32_t>(this, kWallplantEndTime))));
@@ -365,19 +365,19 @@ bool CorePhysicsComponent::StartWallRide()
     float facing = static_cast<float>(static_cast<double>(heading.x) * flatWall.x +
                                       static_cast<double>(heading.z) * flatWall.z +
                                       static_cast<double>(heading.y) * flatWall.y);
-    if (!(-X87Sin(static_cast<double>(Scripts::FetchFloat(kUpsideDownAngle)) * kDegreesToRadians) < wall.y))
+    if (!(-X87Sin(static_cast<double>(Scripts::FetchFloat(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))
         return false;
     float headOn = std::fabs(facing);
-    if (!(X87Sin(static_cast<double>(Scripts::FetchFloat(kMaxIncidentAngle)) * kDegreesToRadians) > headOn))
+    if (!(X87Sin(static_cast<double>(Scripts::FetchFloat(kMaxIncidentAngle)) * kRadiansPerDegree) > headOn))
         return false;
     object = ObjectOf(this);
-    if (!(X87Cos(static_cast<double>(Scripts::FetchFloat(kMaxTilt)) * kDegreesToRadians) < VectorAt(object, kUp).y))
+    if (!(X87Cos(static_cast<double>(Scripts::FetchFloat(kMaxTilt)) * kRadiansPerDegree) < VectorAt(object, kUp).y))
         return false;
     void* skater = At<void*>(this, kSkaterComponent);
     if (!At<uint8_t>(skater, 0x13B0))
         static_cast<GameObjects::CMoveExecutor*>(skater)->SetTrickObjects(false);
-    SetLastGroundFeeler(&At<uint8_t>(this, kFeeler));
-    CheckTriggers(this, g_skaterEvents0064BB98, kLastGroundFeeler);
+    RememberFloorProbe(&At<uint8_t>(this, kFeeler));
+    CheckTriggers(this, g_skaterEvents0064BB98, kLastFloorProbe);
     if (TriggerTookOver(this))
         return false;
     // Nothing in the way along the move (turned along the wall, three times as far).
@@ -385,12 +385,12 @@ bool CorePhysicsComponent::StartWallRide()
     object = ObjectOf(this);
     Maths::Vec4 move = VectorAt(object, kPosition) - VectorAt(object, kOldPosition);
     move.AlignToPlane(wall);
-    VectorAt(this, kFeelerStart) = VectorAt(ObjectOf(this), kPosition);
-    VectorAt(this, kFeelerEnd) = VectorAt(ObjectOf(this), kPosition) + move * 3.0f;
-    if (CheckFeeler(0x10, 0))
+    VectorAt(this, kProbeOrigin) = VectorAt(ObjectOf(this), kPosition);
+    VectorAt(this, kProbeTip) = VectorAt(ObjectOf(this), kPosition) + move * 3.0f;
+    if (ProbeTouchesZone(0x10, 0))
         return false;
     // On the wall: at the hit, one off it; moving and facing along it, up its normal.
-    At<int>(this, kWallRideTime) = Now();
+    At<int>(this, kWallRideStartTime) = Now();
     VectorAt(ObjectOf(this), kPosition) = hit;
     VectorAt(ObjectOf(this), kPosition) += wall;
     VectorAt(ObjectOf(this), kVelocity).AlignToPlane(wall);

@@ -61,7 +61,7 @@ uint32_t g_memViewToggle;
 // The loading screen is up (0x00786D04, ShowLoadingScreen): it draws and presents on its own.
 bool LoadingScreenUp() { return g_loadingScreenUp; }
 // Rendering skipped (frames not drawn or shown).
-bool OmitFromDraw() { return g_skipRender; }
+bool OmitFromDraw() { return g_suppressDraw; }
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
@@ -69,7 +69,7 @@ char* PendingScreenShot() { return g_pendingScreenShot; }
 bool& ScreenShotNameExact() { return g_screenShotNameExact; }
 
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
-uint32_t ClearColour()
+uint32_t BackBufferFill()
 {
     if (g_fogSetting && g_distanceClipping)
         return g_fogColour;
@@ -100,7 +100,7 @@ void __cdecl ToggleMemView()
 }
 
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
-void __cdecl StartRender()
+void __cdecl BeginFrameDraw()
 {
     if (g_loadingScreenUp)
         return;
@@ -147,7 +147,7 @@ int __cdecl SphereVisible(const Maths::Vec4* centre, float radius)
 }
 
 // 0x004B2320
-const char* __cdecl PlatformExtension()
+const char* __cdecl PlatformSuffix()
 {
     return "Xbx";
 }
@@ -197,10 +197,10 @@ void __cdecl StartEngine()
     void* memory = MemSys::Alloc(0x1C);
     void* particles = nullptr;
     if (memory) {
-        particles = static_cast<CParticleManager*>(memory)->MakeNew();
+        particles = static_cast<CEffectsDirector*>(memory)->MakeNew();
         *static_cast<void**>(particles) = reinterpret_cast<void*>(kCPcParticleManagerVtable);
     }
-    reinterpret_cast<void*&>(GameObjects::g_particleManager) = particles;
+    reinterpret_cast<void*&>(GameObjects::g_particleHub) = particles;
     memory = MemSys::Alloc(0x12AC);
     g_weather = memory ? static_cast<CPcWeather*>(memory)->MakeNew() : nullptr;
     memory = MemSys::Alloc(8);
@@ -219,7 +219,7 @@ CPcParticleManager* CPcParticleManager::Teardown(unsigned int flags)
 // 0x004B2740
 void CPcParticleManager::DestroyBody()
 {
-    reinterpret_cast<CParticleManager*>(this)->DestroyBody();
+    reinterpret_cast<CEffectsDirector*>(this)->DestroyBody();
 }
 
 // 0x004B2750
@@ -242,7 +242,7 @@ void __cdecl FinishRendering()
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (g_screenBlur != 0) {
         if (!OmitFromDraw())
-            InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
+            InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, BackBufferFill(), 1.0f, 0);
         ++g_screenBlurFrames;
         return;
     }
@@ -251,7 +251,7 @@ void __cdecl FinishRendering()
             ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
     } else if (g_camera.clearColourAndDepth) {
         if (!OmitFromDraw())
-            ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, ClearColour(), 1.0f, 0);
+            ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, BackBufferFill(), 1.0f, 0);
     } else if (!OmitFromDraw()) {
         ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, g_camera.backgroundColour, 1.0f, 0);
     }
@@ -259,12 +259,12 @@ void __cdecl FinishRendering()
 }
 
 // 0x004B28C0
-void* __cdecl CreateScene(const char* /*name*/, void* /*textures*/, bool addSuperSectors)
+void* __cdecl MakeEmptyScene(const char* /*name*/, void* /*textures*/, bool withSuperSectors)
 {
     void* memory = MemSys::Alloc(0x284);
     uint8_t* scene = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->MakeNew(10)) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
-    scene[0x8C] = addSuperSectors;
+    scene[0x8C] = withSuperSectors;
     scene[0x8D] = 0;
     memory = MemSys::Alloc(sizeof(sceneRef));
     *reinterpret_cast<sceneRef**>(scene + 0x280) = memory ? static_cast<sceneRef*>(memory)->MakeNew() : nullptr;
@@ -296,7 +296,7 @@ void* __cdecl CreateGeom()
 }
 
 // 0x004B2A80
-void* __cdecl CreateSprite()
+void* __cdecl BuildSpriteQuad()
 {
     void* memory = MemSys::Alloc(0x48);
     return memory ? static_cast<CPcSprite*>(memory)->MakeNew() : nullptr;

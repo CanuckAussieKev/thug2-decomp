@@ -79,7 +79,7 @@ constexpr uint32_t kShowPoints = 0x09A30DBF;         // GoalManager_ShowPoints
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;     // GoalManager_ShowGoalPoints
 
 // The camera's constants (the exe's).
-constexpr float kDegToRad = 0.0174532924f;    // 0x00645464
+constexpr float kAngleScaleToRad = 0.0174532924f;    // 0x00645464
 constexpr float kCameraHeight = 300.0f;       // 0x0064F224
 constexpr float kStickDeadZone = 50.0f;       // 0x006463CC (and -50, 0x0064EBE8)
 constexpr float kStickScale = 0.0128205130f;  // 0x0064EBEC (1 / 78)
@@ -213,8 +213,8 @@ CParkBuilderMode* CParkBuilderMode::Listener::DestroyEditor(uint8_t flags) { ret
 void CParkBuilderMode::StartCallback()
 {
     uint8_t* mainLoop = MainLoop();
-    reinterpret_cast<TaskList::PileUp*>(mainLoop + 4)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(mp_logicTask));
-    ParkEditorInputHandler* handler = mp_inputHandler;
+    reinterpret_cast<TaskList::PileUp*>(mainLoop + 4)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(m_editorUpdateJob));
+    ParkEditorInputHandler* handler = m_editorPadListener;
     PadInput::HostEnd& server = InputManager()->m_hosts[handler->m_ordinal];
     reinterpret_cast<TaskList::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(handler));
     handler->m_controlData = &InputManager()->m_hosts[handler->m_ordinal].m_content;
@@ -225,8 +225,8 @@ void CParkBuilderMode::StartCallback()
 // 0x0058D340
 void CParkBuilderMode::StopCallback()
 {
-    reinterpret_cast<TaskList::SchedulerTask*>(mp_logicTask)->DropOut();
-    reinterpret_cast<TaskList::SchedulerTask*>(mp_inputHandler)->DropOut();
+    reinterpret_cast<TaskList::SchedulerTask*>(m_editorUpdateJob)->DropOut();
+    reinterpret_cast<TaskList::SchedulerTask*>(m_editorPadListener)->DropOut();
 }
 
 // 0x0058DB30
@@ -300,7 +300,7 @@ void CParkBuilderMode::SetPackedParkData(const CompressedMap* map, bool flagDirt
 }
 bool CParkBuilderMode::MainHeapHasRoom(int count, int size) { return ParkEditing::MainHeapHasRoom(count, size); }
 Maths::Vec4* CParkBuilderMode::GetCursorPos() { return &Cursor()->m_atPoint; }
-void CParkBuilderMode::SetDaylightScript(uint32_t script) { m_timeOfDayScript = script; }
+void CParkBuilderMode::SetDaylightScript(uint32_t script) { m_lightingScript = script; }
 uint32_t CParkBuilderMode::GetShellChecksum() { return Hub()->GetShellChecksum(); }
 const char* CParkBuilderMode::GetParkName() { return Hub()->GetParkName(); }
 
@@ -344,7 +344,7 @@ void CParkBuilderMode::RefreshPieceMenu()
         return;
     CBuildPointer* cursor = Cursor();
     int menuIndex = cursor->m_menuIndex;
-    int set = cursor->m_clipboardSet;
+    int set = cursor->m_pasteSetIndex;
     CPieceFamily* pieces = Hub()->GetPieceFamily(set, nullptr);
     CTopBarMenus::sSingleton()->SelectPieceFamily(pieces, set, menuIndex);
     Cursor()->OnModeChanged();
@@ -378,7 +378,7 @@ bool CParkBuilderMode::IsInsidePark(Maths::Vec4 pos, float margin)
 {
     Maths::Vec4 size;
     CParkLayout* manager = Hub();
-    SCellBox bounds = manager->m_parkBounds;
+    SCellBox bounds = manager->m_buildArea;
     Maths::Vec4 corner = Hub()->CellToWorldPos(bounds, &size);
     double x = pos.x;
     double z = pos.z;
@@ -399,7 +399,7 @@ bool CParkBuilderMode::FindRestart(void* a, void* b, void* c)
 int CParkBuilderMode::GetPlayerLimit() { return Hub()->m_builder->GetPlayerLimit(); }
 
 // 0x0058DB70
-void __cdecl HandleInput(ParkEditorInputHandler* handler)
+void __cdecl ProcessPadInput(ParkEditorInputHandler* handler)
 {
     CParkBuilderMode* editor = handler->m_content;
     editor->m_actions = 0;
@@ -439,7 +439,7 @@ void __cdecl HandleInput(ParkEditorInputHandler* handler)
 }
 
 // 0x0058EBE0
-void CParkBuilderMode::ChangeSelection()
+void CParkBuilderMode::MoveSelectionCursor()
 {
     if (m_actions & kCommandPreviousSet) {
         Cursor()->StepPieceFamily(-1);
@@ -471,17 +471,17 @@ void CParkBuilderMode::TickFrame()
     camera.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     camera.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     camera.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    camera.row[3] = {0.0f, 0.0f, m_cameraDistance, 1.0f};
+    camera.row[3] = {0.0f, 0.0f, m_orbitRadius, 1.0f};
     Maths::Mat4 rotation;
     MatrixMultiply(&camera, &camera,
-                   &Maths::MakePitchMatrix(rotation, static_cast<float>(m_cameraTilt * -static_cast<double>(kDegToRad))));
+                   &Maths::MakePitchMatrix(rotation, static_cast<float>(m_cameraTilt * -static_cast<double>(kAngleScaleToRad))));
     MatrixMultiply(&camera, &camera,
-                   &Maths::MakeYawMatrix(rotation, static_cast<float>(m_cameraAngle * static_cast<double>(kDegToRad))));
+                   &Maths::MakeYawMatrix(rotation, static_cast<float>(m_cameraAngle * static_cast<double>(kAngleScaleToRad))));
     const Maths::Vec4& cursorPos = Cursor()->m_atPoint;
     camera.row[3].x = static_cast<float>(static_cast<double>(camera.row[3].x) + Cursor()->m_atPoint.x);
     camera.row[3].y = static_cast<float>(static_cast<double>(camera.row[3].y) + kCameraHeight);
     camera.row[3].z = static_cast<float>(static_cast<double>(cursorPos.z) + camera.row[3].z);
-    auto* objects = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager);
+    auto* objects = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry);
     if (auto* cam = reinterpret_cast<GameObjects::CGameEntity*>(objects->LookUpEntity(kParkedCam))) {
         cam->m_atPoint = camera.row[3];
         cam->m_basisFrame = camera;
@@ -505,7 +505,7 @@ void CParkBuilderMode::TickFrame()
     double a = moveY * m_moveSpeed * seconds;
     float offsetCellX;
     float offsetCellZ;
-    TurnMove(static_cast<double>(m_cameraAngle) * kDegToRad, a, b, &offsetCellX, &offsetCellZ);
+    TurnMove(static_cast<double>(m_cameraAngle) * kAngleScaleToRad, a, b, &offsetCellX, &offsetCellZ);
 
     // The right stick turns (0-360) and tilts (10-90) the camera.
     double turnY = DeadZone(m_padRY);
@@ -545,13 +545,13 @@ void CParkBuilderMode::TickFrame()
     // Placing: a gap's half, the area selection's corners, the paste, or the piece.
     if (m_actions & kCommandPlace) {
         if (IsGapTool(Cursor())) {
-            if ((Cursor()->AddGapHalf() || Cursor()->IsOverGap()) && Cursor()->m_gap.m_numCompleteHalves != 1) {
+            if ((Cursor()->AddGapHalf() || Cursor()->IsOverGap()) && Cursor()->m_gap.m_halvesPlaced != 1) {
                 LaunchScript(kPlayEdPlaceSound);
                 LaunchScript(kGapPlaced);
             } else {
                 LaunchScript(kPlayEdBuzzSound);
             }
-            m_commandDone = true;
+            m_actionFinished = true;
         } else if (Cursor()->m_modeSel == CBuildPointer::kModeAreaSelect) {
             switch (Cursor()->AdvanceAreaSelection()) {
             case 1:
@@ -567,10 +567,10 @@ void CParkBuilderMode::TickFrame()
             }
         } else if (Cursor()->m_modeSel == CBuildPointer::kModePaste) {
             Cursor()->ShowClipboard();
-            m_commandDone = true;
+            m_actionFinished = true;
         } else {
-            LaunchScript(Cursor()->PlacePiece() ? kPlayEdPlaceSound : kPlayEdBuzzSound);
-            m_commandDone = true;
+            LaunchScript(Cursor()->CommitTilePlacement() ? kPlayEdPlaceSound : kPlayEdBuzzSound);
+            m_actionFinished = true;
         }
     }
 
@@ -583,37 +583,37 @@ void CParkBuilderMode::TickFrame()
                 Cursor()->DropAreaMarquee();
             else
                 LaunchScript(Cursor()->DestroyUnderCursor() ? kPlayEdEraseSound : kPlayEdBuzzSound);
-            m_commandDone = true;
+            m_actionFinished = true;
         }
         GapRegistry()->UpdateChecklist();
     }
 
-    ChangeSelection();
+    MoveSelectionCursor();
 
     // Raising and lowering the floor (not with a gap).
     if (m_actions & kCommandRaise) {
         if (!IsGapTool(Cursor()))
             LaunchScript(Cursor()->RaiseLower(1) ? kPlayRaiseGroundSound : kPlayEdBuzzSound);
-        m_commandDone = true;
+        m_actionFinished = true;
     }
     if (m_actions & kCommandLower) {
         if (!IsGapTool(Cursor()))
             LaunchScript(Cursor()->RaiseLower(-1) ? kPlayLowerGroundSound : kPlayEdBuzzSound);
-        m_commandDone = true;
+        m_actionFinished = true;
     }
 
     // Zooming (not with a gap).
     if ((m_actions & kCommandZoomOut) && !IsGapTool(Cursor())) {
-        double distance = static_cast<double>(m_cameraDistance) + kZoomStep;
-        m_cameraDistance = static_cast<float>(distance);
+        double distance = static_cast<double>(m_orbitRadius) + kZoomStep;
+        m_orbitRadius = static_cast<float>(distance);
         if (distance > kMaxDistance)
-            m_cameraDistance = kMaxDistance;
+            m_orbitRadius = kMaxDistance;
     }
     if ((m_actions & kCommandZoomIn) && !IsGapTool(Cursor())) {
-        double distance = static_cast<double>(m_cameraDistance) - kZoomStep;
-        m_cameraDistance = static_cast<float>(distance);
+        double distance = static_cast<double>(m_orbitRadius) - kZoomStep;
+        m_orbitRadius = static_cast<float>(distance);
         if (distance < kMinDistance)
-            m_cameraDistance = kMinDistance;
+            m_orbitRadius = kMinDistance;
     }
 
     // A gap's extents.
@@ -656,7 +656,7 @@ void CParkBuilderMode::UpdateMenuStick()
 void CParkBuilderMode::LinkToPad(int controller)
 {
     PadInput::Hub* input = PadInput::CreateManager(false); // (a Singletons::LazyInstance<PadInput::Hub>)
-    ParkEditorInputHandler* handler = mp_inputHandler;
+    ParkEditorInputHandler* handler = m_editorPadListener;
     reinterpret_cast<TaskList::SchedulerTask*>(handler)->DropOut();
     PadInput::HostEnd& server = input->m_hosts[controller];
     reinterpret_cast<TaskList::PileUp*>(server.m_handlers)->QueueJob(reinterpret_cast<TaskList::SchedulerTask*>(handler));
@@ -691,7 +691,7 @@ void CParkBuilderMode::LogicUpdate()
         if (railBit())
             LaunchScript(kSwitchOnRailEditor);
         if (!(m_flagBits & kFlagPaused))
-            ChangeSelection();
+            MoveSelectionCursor();
         if (Cursor()->m_modeSel != CBuildPointer::kModeRailPlacement)
             LaunchScript(kSwitchOffRailEditor);
     } else {
@@ -721,11 +721,11 @@ void CParkBuilderMode::ChangePhase(uint32_t state)
     GameModules::FrontEnd* frontEnd = GameModules::CreateFrontEnd(false); // (a Singletons::LazyInstance<GameModules::FrontEnd>)
     if (state == kStateEdit) {
         reinterpret_cast<GameModules::Skate*>(SkateModule())->TidyBeforeParkBuild();
-        frontEnd->m_autoRepeatDelay = 320;
+        frontEnd->m_holdRepeatMs = 320;
         frontEnd->m_autoRepeatRate = 100;
         Hub()->HighlightGapPieces(false, nullptr);
     } else {
-        frontEnd->m_autoRepeatDelay = 320;
+        frontEnd->m_holdRepeatMs = 320;
         frontEnd->m_autoRepeatRate = 50;
     }
     UpdateMenuStick();

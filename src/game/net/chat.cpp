@@ -79,26 +79,26 @@ void SendToServer(Hub* manager, NetMessageInfo* desc)
 }
 
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).
-using ScriptStruct = Scripts::CStruct;
+using ParamBag = Scripts::CStruct;
 
-uint32_t g_lastTauntTime;
+uint32_t g_prevTauntStamp;
 
-ScriptStruct* NewScriptStruct()
+ParamBag* NewScriptStruct()
 {
     int current = Scripts::g_structPools.current;
     MemSys::SlabBank* pool = Scripts::g_structPools.pools[current];
     void* memory = pool ? pool->Carve() : MemSys::Alloc(8);
-    return memory ? static_cast<ScriptStruct*>(memory)->PrepareAll() : nullptr;
+    return memory ? static_cast<ParamBag*>(memory)->PrepareAll() : nullptr;
 }
-void DeleteScriptStruct(ScriptStruct* s)
+void DeleteScriptStruct(ParamBag* s)
 {
     if (!s)
         return;
     s->Clear();
     Scripts::DeleteStruct(s);
 }
-void AppendWord(ScriptStruct* s, uint32_t name, const char* value) { s->AppendWord(name, value); }
-void LaunchScript(uint32_t script, ScriptStruct* params)
+void AppendWord(ParamBag* s, uint32_t name, const char* value) { s->AppendWord(name, value); }
+void LaunchScript(uint32_t script, ParamBag* params)
 {
     Scripts::LaunchScript(script, params, nullptr, false, nullptr);
 }
@@ -119,7 +119,7 @@ void DupFrom(char* out, size_t size, const char* in)
 
 void ShowLocalChatLine(const char* line)
 {
-    ScriptStruct* params = NewScriptStruct();
+    ParamBag* params = NewScriptStruct();
     AppendWord(params, kText, line);
     LaunchScript(kShowChatScript, params);
     DeleteScriptStruct(params);
@@ -140,7 +140,7 @@ void PostOut(Hub* manager, const char* name, uint8_t color, const char* text)
     desc.m_ident = kMsgChat;
     desc.m_byteCount = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
     desc.m_content = &packet;
-    desc.m_queue = NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetMessageInfo::kLaneOrdered;
     desc.m_groupId = 8;
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
     // to its 127 characters.
@@ -161,7 +161,7 @@ void PostOut(Hub* manager, const char* name, uint8_t color, const char* text)
 
 } // namespace
 
-Hub* FetchHub() { return g_gameNetManager; }
+Hub* FetchHub() { return g_onlineHub; }
 
 namespace {
 
@@ -175,7 +175,7 @@ constexpr uint32_t kId = 0x40C698AF;           // "id"
 constexpr uint32_t kOpenChatScript = 0x3B4548B8;
 constexpr uint32_t kTauntScript = 0x2C43B5BA;
 constexpr uint32_t kTauntName = 0xB53D0E0F;
-uint32_t& LastTauntTime() { return g_lastTauntTime; }
+uint32_t& PreviousTauntStamp() { return g_prevTauntStamp; }
 
 // The script command ObjectExists with these parameters.
 bool ObjectExists(Scripts::CStruct* params) { return GameObjects::CFunc_ObjectExists(params, nullptr); }
@@ -197,7 +197,7 @@ int BoundedLength(const char* text, const char* end)
 } // namespace
 
 // 0x00532050 (OnlinePlay::Hub's chat handler, message 76; its data: none)
-int __cdecl HandleChat(NetLink::InboundMsgCtx* context)
+int __cdecl OnChatMsg(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
     char line[256];
@@ -216,7 +216,7 @@ int __cdecl HandleChat(NetLink::InboundMsgCtx* context)
         std::snprintf(line, sizeof(line), "\\c%i%.*s\\c0 : %.*s", static_cast<int8_t>(message[0]) + 2,
                       BoundedLength(name, end), name, BoundedLength(text, end), text);
     }
-    ScriptStruct* params = NewScriptStruct();
+    ParamBag* params = NewScriptStruct();
     AppendWord(params, kText, line);
     LaunchScript(kShowChatScript, params);
     DeleteScriptStruct(params);
@@ -299,7 +299,7 @@ void __cdecl KeyboardTask(void* /*task*/)
     if (key == kKeyEnter) {
         // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
         // never freed: the original leaks them, 8 bytes a time.)
-        Scripts::CStruct* params = Scripts::NewStruct();
+        Scripts::CStruct* params = Scripts::SpawnParamBag();
         if (params)
             params = params->PrepareAll();
         params->PutNameKey(kId, 0x31631B98);
@@ -332,9 +332,9 @@ void __cdecl KeyboardTask(void* /*task*/)
     case kKeyF4: taunt = 0xA36DBEE1; break;
     default: return;
     }
-    if (FrameClock::GetTime() - LastTauntTime() <= 2000)
+    if (FrameClock::GetTime() - PreviousTauntStamp() <= 2000)
         return;
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params = params->PrepareAll();
     params->PutNameKey(kTauntName, taunt);
@@ -343,7 +343,7 @@ void __cdecl KeyboardTask(void* /*task*/)
         params->Clear();
         Scripts::DeleteStruct(params);
     }
-    LastTauntTime() = FrameClock::GetTime();
+    PreviousTauntStamp() = FrameClock::GetTime();
 }
 
 } // namespace OnlinePlay

@@ -107,7 +107,7 @@ struct CEditedRail {
     void DrawPosts(const Maths::Vec4* origin, const Maths::Vec4* position, float angle);
     // 0x004F6240: a new point at the head (null when the pool is full - 400 used; an empty pool crashes, as in the
     // original). Its fields cleared, w = 1.
-    CEditedRailPoint* NewPoint();
+    CEditedRailPoint* AppendRailVertex();
     // 0x004F62D0: a new point with `source`'s position, post and height.
     void AddPointCopy(const CEditedRailPoint* source);
     // 0x004F6300: `point` taken out: the rail cut there - the points after it (towards the head's end) returned as a

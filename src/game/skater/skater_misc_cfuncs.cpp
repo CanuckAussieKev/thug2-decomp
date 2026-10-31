@@ -31,7 +31,7 @@ using Scripts::CStruct;
 
 constexpr uint32_t kPart = 0xB6F08F39;            // "part"
 constexpr uint32_t kPlayer = 0x67E6859A;          // "player"
-constexpr uint32_t kSkewAngle = 0x5582FE27;       // "Skew_Angle"
+constexpr uint32_t kTiltDegrees = 0x5582FE27;       // "Skew_Angle"
 constexpr uint32_t kVelX = 0x6187906D;            // "vel_x"
 constexpr uint32_t kVelY = 0x1680A0FB;            // "vel_y"
 constexpr uint32_t kVelZ = 0x8F89F141;            // "vel_z"
@@ -63,7 +63,7 @@ void MatrixMultiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b
 // with `before` m = rotation * m.
 void TurnAboutY(Maths::Mat4& m, float degrees, bool before)
 {
-    float radians = static_cast<float>(static_cast<double>(degrees) * g_degreesToRadians); // pi / 180
+    float radians = static_cast<float>(static_cast<double>(degrees) * g_degreeToRadianRatio); // pi / 180
     Maths::Mat4 rotation;
     Maths::Mat4& turn = Maths::MakeYawMatrix(rotation, radians);
     if (before)
@@ -101,7 +101,7 @@ bool __cdecl CFunc_GetSkaterVelocity(Scripts::CStruct* params, Scripts::CScript*
     Maths::Vec4 velocity = object->m_vel;
     float scale = 1.0f;
     float skew = 0.0f;
-    params->FetchFloat(kSkewAngle, &skew, 0);
+    params->FetchFloat(kTiltDegrees, &skew, 0);
     script->m_args->PutInt(kVelX, Ftol(velocity.x));
     script->m_args->PutInt(kVelY, Ftol(velocity.y));
     script->m_args->PutInt(kVelZ, Ftol(velocity.z));
@@ -179,14 +179,14 @@ bool __cdecl CFunc_PlaySkaterStream(Scripts::CStruct* params, Scripts::CScript* 
     }
 
     CopyString(firstName, skater->m_givenName); // (copied and not used)
-    GameObjects::CRiderIdentity* profile = GameObjects::g_profileManager->GetTemplate(skater->m_label);
+    GameObjects::CRiderIdentity* profile = GameObjects::g_profileRoster->GetTemplate(skater->m_label);
     if (skater->m_pro) {
         const char* lastName;
-        profile->InfoStructure()->FetchText(kLastName, &lastName, 1);
+        profile->DetailsParams()->FetchText(kLastName, &lastName, 1);
         CopyString(voice, lastName);
     } else {
         uint32_t voiceName;
-        if (profile->InfoStructure()->ReadHashValue(kVoice, &voiceName, 0)) {
+        if (profile->DetailsParams()->ReadHashValue(kVoice, &voiceName, 0)) {
             CArray* voices = Scripts::FetchList(kPlayerVoices);
             int size = static_cast<int>(voices->m_extent);
             for (int i = 0; i < size; ++i) {
@@ -213,7 +213,7 @@ bool __cdecl CFunc_PlaySkaterStream(Scripts::CStruct* params, Scripts::CScript* 
                       static_cast<int>(order->FetchPart(i)));
         if (!AudioStream::StreamExists(Checksums::HashFromText(stream)))
             continue;
-        CStruct* structMemory = Scripts::NewStruct();
+        CStruct* structMemory = Scripts::SpawnParamBag();
         CStruct* streamParams = structMemory ? structMemory->PrepareAll() : nullptr;
         streamParams->PutNameKey(kStreamChecksum, Checksums::HashFromText(stream));
         Scripts::LaunchScript(kSkaterPlayBailStream, streamParams, script->m_entity.m_ownerObject, false, nullptr);

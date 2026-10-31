@@ -22,7 +22,7 @@ class AsyncFileHandle;
 using IoCompletionHook = void(__cdecl*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
 
 // Operations, also the events passed to callbacks.
-enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kAsyncRead = 3, kAsyncClose = 6, kAsyncCancel = 7 };
+enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
 
 class AsyncFileHandle {
 public:
@@ -36,14 +36,14 @@ public:
     bool Unseal(const char* name, bool blocking, int priority);
     bool Shut();
     // Virtual slot 1 (overridden by the platform class, which calls this one).
-    void IoCallback(int event, bool error, int value, int extra);
+    void IoDoneHandler(int event, bool error, int value, int extra);
 
     // The virtual methods, by vtable slot.
     enum Bay {
-        kDestroy = 0, kIoCallback = 1, kPlatInit = 2, kPlatOpen = 3, kPlatClose = 4, kPlatIsDone = 5,
-        kPlatIsBusy = 6, kPlatIsEOF = 7, kPlatSetPriority = 8, kPlatSetStream = 9, kPlatSetDestination = 10,
-        kPlatSetBufferSize = 11, kPlatSetBlocking = 12, kPlatLoad = 13, kPlatRead = 14, kPlatWrite = 15,
-        kPlatGetS = 16, kPlatSeek = 17, kPlatCancel = 18,
+        kDestroy = 0, kSlotNotify = 1, kSlotInit = 2, kSlotOpen = 3, kSlotClose = 4, kSlotFinished = 5,
+        kSlotBusy = 6, kSlotAtEnd = 7, kSlotPriority = 8, kSlotStreamMode = 9, kSlotTarget = 10,
+        kSlotBufSize = 11, kSlotBlockMode = 12, kSlotLoadAll = 13, kSlotRead = 14, kSlotWrite = 15,
+        kSlotReadLine = 16, kSlotSeek = 17, kPlatCancel = 18,
     };
     template <typename R, typename... A>
     R Virtual(int slot, A... args)
@@ -67,7 +67,7 @@ public:
     volatile int m_payloadBytes; // -1 until the platform knows it
     int m_anchorPoint;
     void* m_preFile;         // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
-    volatile int m_busyCount;
+    volatile int m_inFlightOps;
 };
 
 // What the CAsyncFileHandle constructor does (defaults, base vtable, the base class's platform init).
@@ -129,6 +129,6 @@ inline int CachedFileSize(const char*) { return 0; }
 inline bool LoadCachedFile(const char*, void*) { return false; }
 
 // The old name, for existing callers.
-using AsyncFile = AsyncFileHandle;
+using AsyncFileRef = AsyncFileHandle;
 
 } // namespace File

@@ -77,7 +77,7 @@ public:
     uint8_t m_unknown20[0x50];  // +0x20 (the controls, the flip flag +0x28 and its time +0x2C... - the physics')
     uint8_t m_bailing;          // +0x70
     uint8_t m_unknown71[0x6F];
-    uint8_t m_doingTrick;       // +0xE0
+    uint8_t m_inTrickMove;       // +0xE0
     uint8_t m_surfaceType;          // +0xE1
     uint8_t m_unknownE2[0x36];
     uint8_t m_inVehicle;          // +0x118
@@ -89,7 +89,7 @@ public:
 static_assert(offsetof(CRiderPoseState, m_curPhase) == 0x18 &&
                   offsetof(CRiderPoseState, m_physicsMode) == 0x1C &&
                   offsetof(CRiderPoseState, m_bailing) == 0x70 &&
-                  offsetof(CRiderPoseState, m_doingTrick) == 0xE0 &&
+                  offsetof(CRiderPoseState, m_inTrickMove) == 0xE0 &&
                   offsetof(CRiderPoseState, m_surfaceType) == 0xE1 &&
                   offsetof(CRiderPoseState, m_inVehicle) == 0x118 &&
                   offsetof(CRiderPoseState, m_boostItems) == 0x120 &&

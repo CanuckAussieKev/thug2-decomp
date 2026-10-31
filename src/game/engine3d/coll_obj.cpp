@@ -133,7 +133,7 @@ CHitMeshGroup* CHitMeshGroup::MakeNew()
 {
     m_flagBits = 0;
     m_geometry = nullptr;
-    m_vtable = Vt::kCollMulti;
+    m_vtable = Vt::kVtblCompoundColl;
     new (&m_box) Maths::BBox();
     MemSys::ListNode* head = NewHead();
     m_value38 = 0;
@@ -150,7 +150,7 @@ CHitMeshGroup* CHitMeshGroup::ConstructCopy(const CHitMeshGroup* other)
     m_flagBits = other->m_flagBits;
     m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
-    m_vtable = Vt::kCollMulti;
+    m_vtable = Vt::kVtblCompoundColl;
     m_subNodes = other->m_subNodes;
     m_box = other->m_box;
     m_dirty = other->m_dirty;
@@ -162,7 +162,7 @@ CHitMeshGroup* CHitMeshGroup::ConstructCopy(const CHitMeshGroup* other)
 // 0x00411B10
 void CHitMeshGroup::Destruct()
 {
-    m_vtable = Vt::kCollMulti;
+    m_vtable = Vt::kVtblCompoundColl;
     if (m_subNodes) {
         MemSys::ListNode* node = m_subNodes->next;
         if (node->data != kHeadData && node) {

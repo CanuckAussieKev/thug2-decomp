@@ -52,7 +52,7 @@ constexpr uint32_t kSkaterId = 0x5B24FAAA, kControlType = 0x81CFF663, kStartDriv
                    kStopDrivingScript = 0x0F02E44F;
 constexpr uint32_t kNetFirefight = 0xBFF33600, kFirefight = 0x3D6D444F;
 
-constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kHalfPi = 1.5707963705062866f;            // 0x00645484
 constexpr float kPi = 3.1415927410125732f;                // 0x0064BFA4
 constexpr float kLightingRise = 0.001f;                   // 0x006461D8 (of the up row)
@@ -205,7 +205,7 @@ void CRiderRemoteSync::UpdateGroundLighting()
 }
 
 // 0x00514850
-void CRiderRemoteSync::SnapToGround()
+void CRiderRemoteSync::SettleOntoFloor()
 {
     Engine3D::CProbeRay feeler;
     feeler.MakeNew();
@@ -246,7 +246,7 @@ void CRiderRemoteSync::SnapToGround()
     bool skatable = (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) &&
                     !(flags & kFaceWallride);
     if (skatable &&
-        !(Skater::X87Sin(static_cast<double>(Scripts::FetchFloat(kWallNonSkatableAngle)) * kDegreesToRadians) >
+        !(Skater::X87Sin(static_cast<double>(Scripts::FetchFloat(kWallNonSkatableAngle)) * kRadiansPerDegree) >
           normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
         const Maths::Vec4 ground = normal;
@@ -256,12 +256,12 @@ void CRiderRemoteSync::SnapToGround()
                                           static_cast<double>(atRow.y) * normal.y);
         Maths::Vec4 onLast = atRow;
         onGround.AlignToPlane(ground);
-        onLast.AlignToPlane(m_groundNormal);
+        onLast.AlignToPlane(m_surfaceUp);
         float turn = static_cast<float>((static_cast<double>(onLast.x) * onGround.x +
                                          static_cast<double>(onLast.z) * onGround.z) +
                                         static_cast<double>(onLast.y) * onGround.y);
         float stick = static_cast<float>(
-            Skater::X87Cos(Physics(skater, kGroundStickAngleForward) * kDegreesToRadians));
+            Skater::X87Cos(Physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
         if (facing > 0.0f && turn > 0.0f && turn < stick)
             return;
         if (height > 0.0f) {
@@ -280,7 +280,7 @@ void CRiderRemoteSync::SnapToGround()
             if (distance > reach)
                 return;
         }
-        m_groundNormal = ground;
+        m_surfaceUp = ground;
         skater->m_basisFrame.row[1] = ground;
         skater->m_basisFrame.SquareUpAxes(1);
         skater->m_atPoint = point;
@@ -324,7 +324,7 @@ double CRiderRemoteSync::TurnTowards(Maths::Vec4 dir, float* turn)
 }
 
 // 0x00514E20
-void CRiderRemoteSync::BounceOffWall(const Maths::Vec4* normal, const Maths::Vec4* point)
+void CRiderRemoteSync::DeflectFromWall(const Maths::Vec4* normal, const Maths::Vec4* point)
 {
     CGameEntity* skater = m_entity;
     float awayZ = static_cast<float>(static_cast<double>(skater->m_atPoint.z) - m_lastPos.z);
@@ -342,7 +342,7 @@ void CRiderRemoteSync::BounceOffWall(const Maths::Vec4* normal, const Maths::Vec
     float turn;
     float angle = static_cast<float>(TurnTowards(*normal, &turn));
     // Slowed by how far past Wall_Bounce_Dont_Slow_Angle it turned (to nothing at a right angle).
-    double dontSlow = static_cast<double>(Scripts::FetchFloat(kWallBounceDontSlowAngle)) * kDegreesToRadians;
+    double dontSlow = static_cast<double>(Scripts::FetchFloat(kWallBounceDontSlowAngle)) * kRadiansPerDegree;
     double magnitude = std::fabs(static_cast<double>(angle));
     if (magnitude > dontSlow) {
         double keep = 1.0 - (magnitude - dontSlow) / (kHalfPi - dontSlow);
@@ -433,7 +433,7 @@ void CRiderRemoteSync::BounceOffWall(const Maths::Vec4* normal, const Maths::Vec
 // 0x00517270
 void CRiderRemoteSync::TickFrame()
 {
-    auto* netManager = OnlinePlay::g_gameNetManager;
+    auto* netManager = OnlinePlay::g_onlineHub;
     m_frameSeconds = static_cast<float>(FrameClock::GetFrameSeconds());
     int state = Prop<int>(m_curPhase, 0x18);
     bool wasLip = state == kStateLip;
@@ -450,7 +450,7 @@ void CRiderRemoteSync::TickFrame()
     auto* player = static_cast<OnlinePlay::PlayerRecord*>(netManager->GetOwnPlayer());
     if (!player->IsObserver() && !player->IsScoutingLevel()) {
         void* gameMode = static_cast<void*>(GoalSystem::g_gameMode);
-        bool extrapolate = OnlinePlay::g_gameNetManager->PlayersCanCollide() ||
+        bool extrapolate = OnlinePlay::g_onlineHub->PlayersCanCollide() ||
                            static_cast<GoalSystem::CMatchRules*>(gameMode)->GetNameKey() == kNetFirefight ||
                            static_cast<GoalSystem::CMatchRules*>(gameMode)->GetNameKey() == kFirefight;
         if (extrapolate && Prop<int>(m_pastFrames, 0x18) >= kHistory) {
@@ -458,7 +458,7 @@ void CRiderRemoteSync::TickFrame()
                 ExtrapolateOnRail();
             } else {
                 Extrapolate();
-                SnapToGround();
+                SettleOntoFloor();
             }
         }
     }
@@ -478,7 +478,7 @@ void CRiderRemoteSync::TickFrame()
     uint8_t driving = Prop<uint8_t>(m_curPhase, 0x118);
     uint32_t steerKind = Prop<uint32_t>(m_pastFrames, 0x1104);
     if ((driving && steerKind) || (!driving && m_wasDriving)) {
-        Scripts::CStruct* params = Scripts::NewStruct();
+        Scripts::CStruct* params = Scripts::SpawnParamBag();
         if (params)
             params = params->PrepareAll();
         params->PutNameKey(kSkaterId, m_entity->m_ident);

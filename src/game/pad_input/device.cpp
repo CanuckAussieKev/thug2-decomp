@@ -78,15 +78,15 @@ InputPort::InputPort(int index, int port, int slot)
     m_curPhase = kIdle;
     m_nextState = kIdle;
     m_capabilities = 0;
-    m_numActuators = 0;
+    m_rumbleMotorCount = 0;
     m_isUsable = 0;
-    std::memset(m_actuatorDirect, 0, sizeof(m_actuatorDirect));
+    std::memset(m_rumbleRaw, 0, sizeof(m_rumbleRaw));
     std::memset(m_alignData, 0xFF, sizeof(m_alignData));
     m_alignData[0] = 0;
     m_alignData[1] = 1;
     std::memset(m_controlData, 0, sizeof(m_controlData));
     m_octets = (m_bufferRaw + 63) & ~63u; // (m_bufferRaw is never set: as in the original)
-    m_unpluggedRetry = std::rand() & 63;
+    m_reconnectDelay = std::rand() & 63;
 }
 
 // 0x005BCD00
@@ -101,7 +101,7 @@ InputPort* InputPort::Teardown(unsigned int flags)
 }
 
 // 0x005BDCC0. The original steps through the states:
-//     m_pluggedIn = 0;
+//     m_isConnected = 0;
 //     switch (m_curPhase) { case kDetect: Detect(); break; case kReady: PullData(0); break;
 //                        case kSettle: Settle(); break; }
 // where PullData polls the pad into m_controlData. Originally from PartyMod Fixes (its jump from here): SDL game controllers
@@ -125,12 +125,12 @@ void InputPort::Detect()
 {
     if (!PadPresent(m_portNo))
         return;
-    m_unpluggedCounter = 0;
+    m_disconnectedTicks = 0;
     m_kindTag = 7;
     m_capabilities |= kAnalog;
-    m_actuatorMax[0] = 0xFF;
-    m_actuatorMax[1] = 0xFF;
-    m_numActuators = 2;
+    m_rumbleCap[0] = 0xFF;
+    m_rumbleCap[1] = 0xFF;
+    m_rumbleMotorCount = 2;
     m_capabilities |= kHasActuators;
     m_curPhase = kSettle;
     m_nextState = kReady;
@@ -148,55 +148,55 @@ void InputPort::Settle()
 // the reading).
 void InputPort::FireActuator(int actuator, int percent)
 {
-    if (m_actuatorsDisabled)
+    if (m_rumbleOff)
         return;
     if (m_curPhase != kReady || !(m_capabilities & kHasActuators))
         return;
-    if (actuator < 0 || actuator >= m_numActuators)
+    if (actuator < 0 || actuator >= m_rumbleMotorCount)
         return;
     // (x87: max * percent * 0.01f, truncated for the level; the same value * 256 for the motor)
-    double level = static_cast<double>(m_actuatorMax[actuator]) * percent * static_cast<double>(0.01f);
-    m_actuatorDirect[actuator] = static_cast<uint8_t>(static_cast<int>(level));
+    double level = static_cast<double>(m_rumbleCap[actuator]) * percent * static_cast<double>(0.01f);
+    m_rumbleRaw[actuator] = static_cast<uint8_t>(static_cast<int>(level));
     int motor = static_cast<int>(level * 256.0) & 0xFFFF;
     if (actuator == 0)
-        SetActuators(m_portNo, motor, m_actuatorDirect[1] << 8);
+        SetActuators(m_portNo, motor, m_rumbleRaw[1] << 8);
     else
-        SetActuators(m_portNo, m_actuatorDirect[0] << 8, motor);
+        SetActuators(m_portNo, m_rumbleRaw[0] << 8, motor);
 }
 
 // 0x005BDAD0
 void InputPort::StopRumble()
 {
-    if (m_actuatorsDisabled)
+    if (m_rumbleOff)
         return;
     if (m_curPhase == kReady && (m_capabilities & kHasActuators)) {
-        for (int i = 0; i < m_numActuators; ++i)
-            m_actuatorDirect[i] = 0;
+        for (int i = 0; i < m_rumbleMotorCount; ++i)
+            m_rumbleRaw[i] = 0;
         SetActuators(m_portNo, 0, 0);
     }
-    m_actuatorsDisabled = 1;
+    m_rumbleOff = 1;
 }
 
 // 0x005BDB30. Either way the motors stop; the flag ends as it was (the first branch clears it so that
 // StopRumble acts, which sets it again).
 void InputPort::ClearRumble()
 {
-    if (m_actuatorsDisabled) {
-        m_actuatorsDisabled = 0;
+    if (m_rumbleOff) {
+        m_rumbleOff = 0;
         StopRumble();
         return;
     }
     StopRumble();
-    m_actuatorsDisabled = 0;
+    m_rumbleOff = 0;
 }
 
 // 0x005BDB60
 void InputPort::PauseActuators()
 {
     if (m_pauseCount == 0 && m_curPhase == kReady && (m_capabilities & kHasActuators)) {
-        for (int i = 0; i < m_numActuators; ++i) {
-            m_actuatorSaved[i] = m_actuatorDirect[i];
-            m_actuatorDirect[i] = 0;
+        for (int i = 0; i < m_rumbleMotorCount; ++i) {
+            m_actuatorSaved[i] = m_rumbleRaw[i];
+            m_rumbleRaw[i] = 0;
         }
         SetActuators(m_portNo, 0, 0);
     }
@@ -209,9 +209,9 @@ void InputPort::UnpauseActuators()
     if (m_pauseCount == 0 || --m_pauseCount != 0)
         return;
     if (m_curPhase == kReady && (m_capabilities & kHasActuators)) {
-        for (int i = 0; i < m_numActuators; ++i)
-            m_actuatorDirect[i] = m_actuatorSaved[i];
-        SetActuators(m_portNo, m_actuatorDirect[0] << 8, m_actuatorDirect[1] << 8);
+        for (int i = 0; i < m_rumbleMotorCount; ++i)
+            m_rumbleRaw[i] = m_actuatorSaved[i];
+        SetActuators(m_portNo, m_rumbleRaw[0] << 8, m_rumbleRaw[1] << 8);
     }
 }
 
@@ -219,8 +219,8 @@ void InputPort::UnpauseActuators()
 void InputPort::StopActuators()
 {
     if (m_curPhase == kReady && (m_capabilities & kHasActuators)) {
-        for (int i = 0; i < m_numActuators; ++i) {
-            m_actuatorDirect[i] = 0;
+        for (int i = 0; i < m_rumbleMotorCount; ++i) {
+            m_rumbleRaw[i] = 0;
             m_actuatorSaved[i] = 0;
         }
         SetActuators(m_portNo, 0, 0);
@@ -348,7 +348,7 @@ namespace {
 bool& MenuActive() { return GameModules::g_menusActive; }
 bool& QuitRequested() { return Engine3D::g_quitRequested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
-int KeyBinding(int action) { return OsLayer::g_keyBindings[action]; }
+int KeyBinding(int action) { return OsLayer::g_inputMap[action]; }
 // The platform layer's key names.
 const wchar_t* KeyNameW(int code) { return OsLayer::KeyName(code); }
 char (&NameBuffer())[256] { return g_nameBuffer; }
@@ -541,7 +541,7 @@ void PumpWindowMessages() { OsLayer::ProcessWindowEvents(); }
 void ReadPadState(int port, PadState* state) { OsLayer::ReadPad(port + 1, state); }
 bool KeyDown(int code) { return OsLayer::KeyDown(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(reinterpret_cast<void*>(GameObjects::g_profileManager)); }
+int MenuPort() { return reinterpret_cast<int(__thiscall*)(void*)>(CodeAddress(&GoalSystem::CObjective::FetchArgs))(reinterpret_cast<void*>(GameObjects::g_profileRoster)); }
 
 uint8_t IfAbove(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t PressureOrZero(uint8_t value) { return value > 0x20 ? value : 0; }
@@ -600,13 +600,13 @@ void InputPort::PullData(int)
         } else if (menuPort == m_portNo && m_portNo == 1) {
             SetPadMode(3);
         } else {
-            m_pluggedIn = true;
+            m_isConnected = true;
             element.Release();
             return;
         }
     } else if (pieceMenuShown) {
         if (m_portNo != 0) {
-            m_pluggedIn = true;
+            m_isConnected = true;
             element.Release();
             return;
         }
@@ -616,7 +616,7 @@ void InputPort::PullData(int)
         playing = true;
     }
     PumpWindowMessages();
-    m_pluggedIn = false;
+    m_isConnected = false;
     if (!PadPresent(m_portNo))
         return;
 
@@ -626,7 +626,7 @@ void InputPort::PullData(int)
     uint16_t buttons = pad.buttons;
     bool keyboardMenu = m_keyboardControl && menuMode; // (the keyboard drives the menus: some buttons ignored)
     m_isUsable = 1;
-    m_pluggedIn = true;
+    m_isConnected = true;
     // Two bytes of button bits, each set while the button is up.
     m_controlData[0] = 0;
     m_controlData[1] = 0x70;
@@ -642,7 +642,7 @@ void InputPort::PullData(int)
     if (level && level->checksum == kParkEditorLevel) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editorElement = false;
-        if (MenuSystem::g_screenElementManager) {
+        if (MenuSystem::g_uiElementHub) {
             MenuSystem::ElementPtr found;
             MenuSystem::FetchPart(&found, 0x31631B98);
             editorElement = found.Pull() != nullptr;

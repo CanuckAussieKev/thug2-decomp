@@ -57,8 +57,8 @@ using Detail::NewParams;
 
 static VtableSlot kBuddyVtable_slots[] = {&OnlinePlay::Buddy::Teardown};
 void** const kBuddyVtable = reinterpret_cast<void**>(kBuddyVtable_slots); // ListKit::Elem<Buddy> (Buddy)
-static VtableSlot kMessageVtable_slots[] = {&OnlinePlay::BuddyMessage::Teardown};
-void** const kMessageVtable = reinterpret_cast<void**>(kMessageVtable_slots); // ListKit::Elem<BuddyMessage>
+static VtableSlot kMessageVtable_slots[] = {&OnlinePlay::FriendNote::Teardown};
+void** const kMessageVtable = reinterpret_cast<void**>(kMessageVtable_slots); // ListKit::Elem<FriendNote>
 
 constexpr int kMaxBuddies = 30;          // BuddyListFull
 constexpr int kMaxMessages = 20;         // more than this waiting: new ones are dropped
@@ -83,7 +83,7 @@ uint32_t& LoginStart() { return g_buddyLoginStart; }
 uint32_t& LastProcess() { return g_lastProcess; }
 bool& CreatingProfile() { return g_creatingProfile; }
 
-Hub* NetManager() { return g_gameNetManager; }
+Hub* NetSessionSlot() { return g_onlineHub; }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 void PushTopDown() { RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap); }
 void PushBottomUp() { RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap); }
@@ -163,14 +163,14 @@ struct GpRecvBuddyMessageArg {
 // 0x00548040: whether a GP location string is a THUG2 game's: "10thug211:<ip>:<private ip>:<port>:<name>".
 // (IsThug2Location itself, from server_list.h)
 // 0x005482A0: logged in as `profile` (state 4, the status set online).
-void LoggedIn(FriendsManager* man, int profile) { man->SetLoggedIn(profile); }
-// 0x005484A0 / 0x005484C0: ListKit::Elem<Buddy> / ListKit::Elem<BuddyMessage>'s destructors (unlinked).
+void MarkFriendOnline(FriendsManager* man, int profile) { man->ChangeOnlineFlag(profile); }
+// 0x005484A0 / 0x005484C0: ListKit::Elem<Buddy> / ListKit::Elem<FriendNote>'s destructors (unlinked).
 void DestroyBuddyNode(Buddy* buddy) { static_cast<BuddyNode*>(&buddy->m_listLink)->DestroyBody(); }
-void DestroyMessageNode(BuddyMessage* message) { static_cast<BuddyMessageNode*>(&message->m_listLink)->DestroyBody(); }
+void DestroyMessageNode(FriendNote* message) { static_cast<BuddyMessageNode*>(&message->m_listLink)->DestroyBody(); }
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
 const void* const kOnBuddyRequest = CodeAddress(FriendsManager::OnBuddyRequest);
 const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(CodeAddress(FriendsManager::LoginThread));
-// The lobby (m_lobbyMan): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
+// The lobby (m_lobbyService): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
 void* LobbyPeer(void* lobby) { return static_cast<RoomManager*>(lobby)->GetLobbyHandle(); }
 uint32_t PeerPublicIp(void* peer) { return GameSpy::PeerGetPublicIp(peer); }
 
@@ -216,7 +216,7 @@ int TotalOf(const MemSys::ListNode* head)
 
 // A new buddy (the constructor inlined in the original): offline, not pending, no location. (A failed allocation
 // isn't checked by the callers.)
-Buddy* NewBuddy()
+Buddy* AllocFriendEntry()
 {
     auto* buddy = static_cast<Buddy*>(MemSys::AllocZeroed(sizeof(Buddy)));
     if (buddy) {
@@ -254,7 +254,7 @@ void ParseLocation(Buddy* buddy, char* location, bool checked)
 } // namespace
 
 // 0x00548CB0
-BuddyMessage* BuddyMessage::MakeNew()
+FriendNote* FriendNote::MakeNew()
 {
     InitNode(&m_listLink, kMessageVtable);
     m_account = 0;
@@ -273,7 +273,7 @@ Buddy* Buddy::Teardown(unsigned int flags)
 }
 
 // 0x00548D20
-BuddyMessage* BuddyMessage::Teardown(unsigned int flags)
+FriendNote* FriendNote::Teardown(unsigned int flags)
 {
     DestroyMessageNode(this);
     if (flags & 1)
@@ -302,7 +302,7 @@ FriendsManager* FriendsManager::MakeNew()
         reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
     }
     m_task = task;
-    m_loggedIn = false;
+    m_authenticated = false;
     m_curPhase = 0;
     m_account = 0;
     PopHeap();
@@ -321,7 +321,7 @@ void FriendsManager::DestroyBody()
 // 0x0054A1A0
 void FriendsManager::LogIn()
 {
-    if (m_loggedIn)
+    if (m_authenticated)
         LogOff();
     PushBottomUp();
     m_curPhase = 2;
@@ -329,7 +329,7 @@ void FriendsManager::LogIn()
     Run("log_in_profile");
     DWORD id;
     HANDLE thread = CreateThread(nullptr, 0x8000, kLoginThread, this, CREATE_SUSPENDED, &id);
-    NetManager()->SetRoomId(id);
+    NetSessionSlot()->SetRoomId(id);
     ResumeThread(thread); // (the handle is never closed)
     if (!m_task->IsOnTaskList())
         LogicTasks()->QueueJob(m_task);
@@ -339,14 +339,14 @@ void FriendsManager::LogIn()
 // 0x0054A5C0
 void FriendsManager::SpawnAccount()
 {
-    if (m_loggedIn)
+    if (m_authenticated)
         LogOff();
     m_curPhase = 1;
     LoginStart() = FrameClock::GetTime();
     PushTopDown();
     DWORD id;
     HANDLE thread = CreateThread(nullptr, 0x8000, &CreateProfileThread, this, CREATE_SUSPENDED, &id);
-    NetManager()->SetRoomId(id);
+    NetSessionSlot()->SetRoomId(id);
     ResumeThread(thread);
     LogicTasks()->QueueJob(m_task); // (not checked for being in the list already, unlike LogIn)
     PopHeap();
@@ -357,16 +357,16 @@ void FriendsManager::LogOff()
 {
     GpDisconnect(this);
     m_task->DropOut();
-    m_loggedIn = false;
+    m_authenticated = false;
     ListKit::Hunt<Buddy> buddies;
     for (Buddy* buddy = buddies.HeadElement(&m_friends); buddy;) {
         Buddy* next = buddies.FollowingItem();
         UnlinkListNode(buddy);
         buddy = next;
     }
-    ListKit::Hunt<BuddyMessage> messages;
-    for (BuddyMessage* message = messages.HeadElement(&m_messages); message;) {
-        BuddyMessage* next = messages.FollowingItem();
+    ListKit::Hunt<FriendNote> messages;
+    for (FriendNote* message = messages.HeadElement(&m_messages); message;) {
+        FriendNote* next = messages.FollowingItem();
         UnlinkListNode(message);
         message = next;
     }
@@ -376,7 +376,7 @@ void FriendsManager::LogOff()
 void FriendsManager::AddBuddy(const char* nick, int profile)
 {
     PushBottomUp();
-    Buddy* buddy = NewBuddy();
+    Buddy* buddy = AllocFriendEntry();
     Text::DupFrom(buddy->m_nick, nick);
     buddy->m_account = profile;
     buddy->m_curStanding = 0;
@@ -444,11 +444,11 @@ void FriendsManager::FillBuddyList(bool clear, bool allowJoin, bool allowRemove)
 // 0x00549F50
 void FriendsManager::FillProspectiveBuddyList()
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     Detail::PlayerSearch search;
     PushTopDown();
-    for (uint8_t* player = Detail::FirstPlayer(manager, &search, true); player;
-         player = Detail::NextPlayer(manager, &search, true)) {
+    for (uint8_t* player = Detail::StartRosterSweep(manager, &search, true); player;
+         player = Detail::StepRosterSweep(manager, &search, true)) {
         int profile = Detail::Prop<int>(player, 0x28);
         if (Detail::IsOwnPlayer(player) || profile == 0 || IsBuddy(profile))
             continue;
@@ -569,7 +569,7 @@ void __cdecl FriendsManager::OnBuddyStatus(void*, const void* argument, FriendsM
             Run("added_buddy", params);
             DeleteParams(params);
             buddy->m_pending = false;
-            OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
+            OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
             Scripts::CArray* old = prefs->GetSettingList(Checksums("buddy_array"));
             Scripts::CArray* memory = Scripts::NewArray();
             Scripts::CArray* buddies = memory ? memory->PrepareAll() : nullptr;
@@ -585,7 +585,7 @@ void __cdecl FriendsManager::OnBuddyStatus(void*, const void* argument, FriendsM
             entry->PutInt("profile", buddy->m_account);
             entry->AppendWord("nick", buddy->m_nick);
             buddies->SetElement(i, reinterpret_cast<uint32_t>(entry));
-            prefs->SetPreferenceArray(Checksums("buddy_array"), buddies);
+            prefs->ChangeOptionList(Checksums("buddy_array"), buddies);
         }
         Scripts::CStruct* params = NewParams();
         params->AppendWord(Checksums("name"), Scripts::QBVAL_STRING, buddy->m_nick);
@@ -599,8 +599,8 @@ void __cdecl FriendsManager::OnBuddyStatus(void*, const void* argument, FriendsM
     }
 
     // Not on the list: someone who made us their buddy.
-    OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
-    Buddy* buddy = NewBuddy();
+    OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
+    Buddy* buddy = AllocFriendEntry();
     buddy->m_account = status.profile;
     buddy->m_curStanding = status.status;
     Text::DupFrom(buddy->m_statusText, status.statusString);
@@ -641,8 +641,8 @@ void __cdecl FriendsManager::OnBuddyMessage(void*, const void* argument, Friends
         return;
     PushTopDown();
     size_t length = std::strlen(arg->message);
-    void* memory = MemSys::AllocZeroed(sizeof(BuddyMessage));
-    BuddyMessage* message = memory ? static_cast<BuddyMessage*>(memory)->MakeNew() : nullptr;
+    void* memory = MemSys::AllocZeroed(sizeof(FriendNote));
+    FriendNote* message = memory ? static_cast<FriendNote*>(memory)->MakeNew() : nullptr;
     message->m_account = arg->profile;
     char* text = Text::Token(arg->message, "\n");
     if (length == std::strlen(text)) {
@@ -678,7 +678,7 @@ void __cdecl FriendsManager::OnConnectNewUser(void*, const void* argument, Frien
 {
     auto* arg = static_cast<const GpConnectResponseArg*>(argument);
     if (arg->result == 0) {
-        LoggedIn(man, arg->profile);
+        MarkFriendOnline(man, arg->profile);
     } else if (arg->result == 4 && CreatingProfile()) { // the nick is taken: the profile exists - log in
         CreatingProfile() = false;
         man->LogIn();
@@ -720,7 +720,7 @@ unsigned long __stdcall FriendsManager::CreateProfileThread(void* parameter)
 {
     auto* man = static_cast<FriendsManager*>(parameter);
     PushBottomUp();
-    OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
+    OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
     const char* email = prefs->GetPreferenceString(Checksums("profile_email"), Checksums("ui_string"));
     const char* password = prefs->GetPreferenceString(Checksums("profile_password"), Checksums("ui_string"));
     CreatingProfile() = true;
@@ -736,7 +736,7 @@ unsigned long __stdcall FriendsManager::CreateProfileThread(void* parameter)
 bool __cdecl SetUniqueId(Scripts::CStruct*, Scripts::CScript*)
 {
     uint32_t now = FrameClock::GetTime();
-    OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
+    OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
     Scripts::CStruct* params = NewParams();
     char text[32];
     std::snprintf(text, sizeof(text), "%d", static_cast<int>(now));
@@ -751,7 +751,7 @@ bool __cdecl SetUniqueId(Scripts::CStruct*, Scripts::CScript*)
 // and address - a buddy behind this machine's public address is joined at its private address on THUG2's port.
 bool __cdecl JoinBuddy(Scripts::CStruct* params, Scripts::CScript*)
 {
-    Hub* manager = NetManager();
+    Hub* manager = NetSessionSlot();
     bool observe = params->HasBareFlag("observe");
     const char* location;
     int ip, privateIp, port;
@@ -762,7 +762,7 @@ bool __cdecl JoinBuddy(Scripts::CStruct* params, Scripts::CScript*)
     char status[1024];
     std::snprintf(status, sizeof(status), "10thug211:%d:%d:%d:%s", ip, privateIp, port, location);
     bool sameAddress = false;
-    if (static_cast<uint32_t>(ip) == PeerPublicIp(LobbyPeer(manager->m_lobbyMan))) {
+    if (static_cast<uint32_t>(ip) == PeerPublicIp(LobbyPeer(manager->m_lobbyService))) {
         ip = privateIp;
         port = kJoinPort;
         sameAddress = true;
@@ -775,7 +775,7 @@ bool __cdecl JoinBuddy(Scripts::CStruct* params, Scripts::CScript*)
         manager->SetJoinMode(0);
         text = Scripts::FetchText("homie_status_playing");
     }
-    FriendsManager* man = static_cast<FriendsManager*>(manager->m_buddyMan);
+    FriendsManager* man = static_cast<FriendsManager*>(manager->m_presenceService);
     PushTopDown();
     GpSetStatus(man, kStatusPlaying, text, status);
     PopHeap();
@@ -793,7 +793,7 @@ bool __cdecl JoinBuddy(Scripts::CStruct* params, Scripts::CScript*)
 }
 
 namespace {
-FriendsManager* Buddies() { return static_cast<FriendsManager*>(NetManager()->m_buddyMan); }
+FriendsManager* Buddies() { return static_cast<FriendsManager*>(NetSessionSlot()->m_presenceService); }
 } // namespace
 
 // 0x00548E40: AddBuddy profile nick
@@ -853,8 +853,8 @@ bool __cdecl RemoveBuddy(Scripts::CStruct* params, Scripts::CScript*)
 // profile) and deleted. (There must be one: AnyBuddyMessagesLeft.)
 bool __cdecl ShowNextBuddyMessage(Scripts::CStruct*, Scripts::CScript* script)
 {
-    ListKit::Hunt<BuddyMessage> search;
-    BuddyMessage* message = search.HeadElement(&Buddies()->m_messages);
+    ListKit::Hunt<FriendNote> search;
+    FriendNote* message = search.HeadElement(&Buddies()->m_messages);
     script->m_args->AppendWord(0xD6F4D0C8, message->m_nick);
     script->m_args->AppendWord(0xD3A5478A, message->m_nick);
     script->m_args->AppendWord(0x59EDEC1C, message->m_text);
@@ -875,7 +875,7 @@ bool __cdecl IsAlreadyMyBuddy(Scripts::CStruct* params, Scripts::CScript*)
 // 0x0054A250: log in if the profile_success preference is boolean_true (else false).
 bool __cdecl ProfileLogIn(Scripts::CStruct*, Scripts::CScript*)
 {
-    OptionStore::Preferences* prefs = NetManager()->GetOnlineSettings();
+    OptionStore::Preferences* prefs = NetSessionSlot()->GetOnlineSettings();
     if (prefs->GetPreferenceChecksum(Checksums("profile_success"), Checksums("checksum")) != Checksums("boolean_true"))
         return false;
     Buddies()->LogIn();

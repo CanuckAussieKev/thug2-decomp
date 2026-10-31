@@ -28,11 +28,11 @@ bool& StreamHeaderLoaded() { return g_streamsOn; }
 bool StreamsOn() { return SoundOn() && StreamHeaderLoaded(); }
 
 int g_lastStream;
-bool g_streamsPaused;
+bool g_streamsHeld;
 bool g_streamsBlocked;
 bool g_streamsPausedBefore;
 
-bool& StreamsPaused() { return g_streamsPaused; }
+bool& StreamingHalted() { return g_streamsHeld; }
 bool& StreamsPausedBefore() { return g_streamsPausedBefore; }
 // Set: no new streams play (nothing in the game sets it).
 bool StreamsBlocked() { return g_streamsBlocked; }
@@ -45,8 +45,8 @@ uint32_t& OwnerId(void* owner, int stream) { return *reinterpret_cast<uint32_t*>
 // The stream PlayStream started last.
 int& LastStream() { return g_lastStream; }
 
-FrameAmp g_frameAmps[1]; // (one slot; a checksum of 0 marks it free)
-FrameAmp* FrameAmps() { return g_frameAmps; }
+StreamAmpCurve g_frameAmps[1]; // (one slot; a checksum of 0 marks it free)
+StreamAmpCurve* FrameAmps() { return g_frameAmps; }
 constexpr int kFrameAmps = 1;
 
 // The platform's streams (stream.h): whether a channel is free (StreamStatus: 1), pause (streams: 0), stop a
@@ -58,21 +58,21 @@ bool PreloadOnChannel(uint32_t checksum, int channel, int stopped) { return Play
 bool PlayOnChannel(uint32_t checksum, int channel, const void* volume, float pitch, int stopped, int unknown, int option)
 {
     // (the pitch and `stopped` reach two unused arguments; `unknown` is the preload flag, `option` the plays)
-    return LoadStream(checksum, channel, static_cast<const StreamVolume*>(volume), std::bit_cast<int>(pitch), stopped,
+    return LoadStream(checksum, channel, static_cast<const StreamGain*>(volume), std::bit_cast<int>(pitch), stopped,
                       unknown != 0, option);
 }
-// FrameAmp's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
-bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->ReadIn(checksum); }
+// StreamAmpCurve's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
+bool ReadAmpCurve(StreamAmpCurve* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->ReadIn(checksum); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void ReadDebugFlag() { Scripts::FetchIntValue(0xD7BB618Du); }
 
 // The sound effects manager (0x006F85A8) and its volumes (SoundFx::volumeRef, 0x2C bytes; the first two channels are
 // set below). volumeRef's destructor is empty.
-SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_audioMixer; }
 using Loudness = SoundFx::volumeRef;
 void ConstructVolume(Loudness* volume) { volume->PrepareAll(); }
 void ChangeMuted(Loudness* volume) { volume->ChangeMuted(); }
-float LoudestChannel(Loudness* volume) { return volume->FindPeakChannel(); }
+float PeakChannelIndex(Loudness* volume) { return volume->FindPeakChannel(); }
 inline void DestroyVolume(Loudness*) {} // (0x005480A0)
 // Whether sound is off (the manager's IsFrozen).
 bool SoundOffRequested(SoundFx::CAudioMixer* manager) { return manager->IsFrozen(); }
@@ -85,7 +85,7 @@ bool LoudnessFromPosition(SoundFx::CAudioMixer* manager, Loudness* volume, const
 // and the stream component's position for it and its emitter's extent.
 void* NearestEmitter(const float* position)
 {
-    return Engine3D::GetClosestCamera(reinterpret_cast<const Maths::Vec4*>(position), nullptr);
+    return Engine3D::FetchNearestCamera(reinterpret_cast<const Maths::Vec4*>(position), nullptr);
 }
 Maths::Vec4* SoundPosition(void* component, Maths::Vec4* out, void* emitter)
 {
@@ -121,12 +121,12 @@ void __cdecl FreezeStream(int pause)
     }
     if (pause == 0) {
         ReadDebugFlag();
-        StreamsPaused() = false;
+        StreamingHalted() = false;
         PlatformPause(false, 0);
     } else if (pause == 1) {
         ReadDebugFlag();
-        StreamsPausedBefore() = StreamsPaused();
-        StreamsPaused() = true;
+        StreamsPausedBefore() = StreamingHalted();
+        StreamingHalted() = true;
         PlatformPause(true, 0);
     }
 }
@@ -145,16 +145,16 @@ bool __cdecl LoadStreamHeader(const char* name)
 bool __cdecl IsStreamPlaying(uint32_t id) { return StreamsOn() && FindPlayingStream(id) >= 0; }
 
 // 0x004516A0
-FrameAmp* __cdecl LoadStreamFrameAmp(uint32_t checksum)
+StreamAmpCurve* __cdecl LoadStreamFrameAmp(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
         if (FrameAmps()[i].checksum == 0)
-            return LoadFrameAmp(&FrameAmps()[i], checksum) ? &FrameAmps()[i] : nullptr;
+            return ReadAmpCurve(&FrameAmps()[i], checksum) ? &FrameAmps()[i] : nullptr;
     return nullptr;
 }
 
 // 0x004516E0
-FrameAmp* __cdecl GetStreamFrameAmp(uint32_t checksum)
+StreamAmpCurve* __cdecl FetchStreamAmpCurve(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
         if (FrameAmps()[i].checksum == checksum)
@@ -165,7 +165,7 @@ FrameAmp* __cdecl GetStreamFrameAmp(uint32_t checksum)
 // 0x00451720
 bool __cdecl FreeStreamFrameAmp(uint32_t checksum)
 {
-    FrameAmp* slot = GetStreamFrameAmp(checksum);
+    StreamAmpCurve* slot = FetchStreamAmpCurve(checksum);
     if (!slot || slot->checksum == 0)
         return false;
     slot->checksum = 0;
@@ -217,14 +217,14 @@ int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int 
     stream.channel = channel;
     stream.priority = priority;
     stream.beginFrame = static_cast<uint32_t>(FrameClock::GetDrawFrame()); // (the low half)
-    stream.listener = reinterpret_cast<uint32_t*>(GetStreamFrameAmp(checksum));
+    stream.listener = reinterpret_cast<uint32_t*>(FetchStreamAmpCurve(checksum));
     return channel;
 }
 
 // 0x00451960
 uint32_t __cdecl PlayStream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id)
 {
-    if (!StreamsOn() || StreamsBlocked() || StreamsPaused())
+    if (!StreamsOn() || StreamsBlocked() || StreamingHalted())
         return 0;
     if (!id)
         id = checksum;
@@ -234,7 +234,7 @@ uint32_t __cdecl PlayStream(uint32_t checksum, const void* volume, float pitch, 
         return 0;
     Stream& stream = Streams()[channel];
     SetUpStream(stream, checksum, option);
-    stream.names[0].frameAmp = GetStreamFrameAmp(checksum);
+    stream.names[0].frameAmp = FetchStreamAmpCurve(checksum);
     LastStream() = channel;
     return stream.id;
 }
@@ -252,7 +252,7 @@ uint32_t __cdecl PrimeStream(uint32_t checksum, int priority)
     if (channel != -1) {
         Stream& stream = Streams()[channel];
         SetUpStream(stream, checksum, 0);
-        stream.names[0].frameAmp = GetStreamFrameAmp(checksum);
+        stream.names[0].frameAmp = FetchStreamAmpCurve(checksum);
         id = stream.id;
     }
     DestroyVolume(&volume);
@@ -282,7 +282,7 @@ bool __cdecl AddStream(uint32_t stream, uint32_t name, void* owner)
     Stream& playing = Streams()[found];
     int n = playing.nameCount++;
     playing.names[n].checksum = name;
-    playing.names[n].frameAmp = GetStreamFrameAmp(name);
+    playing.names[n].frameAmp = FetchStreamAmpCurve(name);
     return true;
 }
 
@@ -309,7 +309,7 @@ uint32_t __cdecl PlayStreamAtObject(void* component, uint32_t checksum, float dr
         } else {
             ChangeMuted(&streamVolume);
         }
-        if (std::fabs(LoudestChannel(&streamVolume)) < 2.0f) { // (NaN: on)
+        if (std::fabs(PeakChannelIndex(&streamVolume)) < 2.0f) { // (NaN: on)
             ReadDebugFlag();
             if (!audible) {
                 DestroyVolume(&streamVolume);

@@ -41,7 +41,7 @@ bool FirstTrickStarted() { return GameModules::Skate::Sole()->FirstTrickStarted(
 bool FirstTrickCompleted() { return GameModules::Skate::Sole()->FirstTrickCompleted(); }
 void SendScores(bool final) { GameModules::Skate::Sole()->BroadcastPoints(final); }
 
-OnlinePlay::Hub* NetManager() { return OnlinePlay::g_gameNetManager; }
+OnlinePlay::Hub* NetSessionSlot() { return OnlinePlay::g_onlineHub; }
 
 } // namespace
 
@@ -289,7 +289,7 @@ bool __cdecl CFunc_FirstTrickCompleted(Scripts::CStruct*, Scripts::CScript*) { r
 // final scores have come.
 bool __cdecl CFunc_CalculateFinalScores(Scripts::CStruct*, Scripts::CScript*)
 {
-    OnlinePlay::Hub* net = NetManager();
+    OnlinePlay::Hub* net = NetSessionSlot();
     if (net->OnServer()) {
         SendScores(true);
         return true;

@@ -171,7 +171,7 @@ bool __cdecl ScaleFromArgs(Maths::Vec4* scale, CStruct* params)
 // 0x00487BD0
 void SHiddenModels::Conceal()
 {
-    auto* manager = GameObjects::CompositeObjectManager();
+    auto* manager = GameObjects::ObjectHubSlot();
     auto first = [manager] {
         return static_cast<GameObjects::CMeshInstanceModule*>(manager->FindFirstModuleOfKind(GameObjects::CMeshInstanceModule::kType));
     };

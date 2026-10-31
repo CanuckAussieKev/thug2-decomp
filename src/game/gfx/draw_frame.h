@@ -79,7 +79,7 @@ extern int g_backBufferWidth;
 extern int g_backBufferHeight;
 extern int g_drawCalls;
 extern int g_drawnTriangles;
-extern float g_fogStart;
+extern float g_fogBeginDistance;
 extern float g_fogEnd;
 
 extern DeviceViewport g_deviceViewport;

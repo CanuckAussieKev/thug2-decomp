@@ -86,9 +86,9 @@ CResource* MakeAsset(int type, bool withCutscene)
     case kScene:
         memory = MemSys::AllocZeroed(0x50);
         return memory ? static_cast<AssetConstructors*>(memory)->Scene() : nullptr;
-    case kTextureDictionary:
+    case kResTexDict:
         memory = MemSys::AllocZeroed(0x50);
-        return memory ? static_cast<AssetConstructors*>(memory)->TextureDictionary() : nullptr;
+        return memory ? static_cast<AssetConstructors*>(memory)->TextureBank() : nullptr;
     case kSceneCollision:
         memory = MemSys::AllocZeroed(0x50);
         return memory ? static_cast<AssetConstructors*>(memory)->SceneCollision() : nullptr;

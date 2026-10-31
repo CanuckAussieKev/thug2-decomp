@@ -24,16 +24,16 @@ CDynamicLightBase* g_dynamicLights[256];
 float* g_intensities;
 uint32_t g_modelLightCount;
 float g_ambientIntensity{1.0f};
-sWorldLights g_worldLights{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
-sWorldLights g_worldLightStack[4]; // (the saved ones: PushLights / PopLights)
+sLightingState g_activeLighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
+sLightingState g_worldLightStack[4]; // (the saved ones: PushLights / PopLights)
 namespace {
 
 extern void** const kDynamicLightVtable;
-constexpr int kStackDepth = 4;
+constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
-sWorldLights& World() { return g_worldLights; }
-sWorldLights* PileUp() { return g_worldLightStack; }
+sLightingState& World() { return g_activeLighting; }
+sLightingState* PileUp() { return g_worldLightStack; }
 int g_lightStackTop{-1};
 float g_lightBrightness{1.0f};
 float g_lightBrightnessTarget{1.0f};
@@ -44,7 +44,7 @@ float g_minIntensity;
 int& StackTop() { return g_lightStackTop; }
 uint32_t& LightCount() { return g_lightCount; }
 float& Brightness() { return g_lightBrightness; }
-float& BrightnessTarget() { return g_lightBrightnessTarget; }
+float& LightGainGoal() { return g_lightBrightnessTarget; }
 float& AmbientIntensity() { return g_ambientIntensity; }
 float MinIntensity() { return g_minIntensity; }
 float*& Intensities() { return g_intensities; }
@@ -74,7 +74,7 @@ double CallFalloff(CDynamicLightBase* light, float distance)
 } // namespace
 
 // 0x0048EAC0
-sWorldLights* sWorldLights::MakeNew()
+sLightingState* sLightingState::MakeNew()
 {
     ambient = 0x80484848;
     directions = nullptr;
@@ -86,7 +86,7 @@ sWorldLights* sWorldLights::MakeNew()
 }
 
 // 0x0048EB00
-void sWorldLights::FreeArrays()
+void sLightingState::FreeArrays()
 {
     if (directions) {
         MemSys::Hub::Pull()->Dealloc(directions);
@@ -112,13 +112,13 @@ void __cdecl InitLightManager(uint32_t maxLights, uint32_t maxModelLights)
     DebugOut::Printf("Initializing Light Manager...");
     g_modelLightCount = maxModelLights;
     LightCount() = maxLights;
-    sWorldLights& world = World();
+    sLightingState& world = World();
     world.directions = static_cast<Maths::Vec4*>(MemSys::Alloc(maxLights * 16));
     world.colours = static_cast<uint32_t*>(MemSys::Alloc(maxLights * 4));
     world.lightLow = static_cast<float*>(MemSys::Alloc(maxLights * 4));
     world.lightHigh = static_cast<float*>(MemSys::Alloc(maxLights * 4));
-    for (int i = 0; i < kStackDepth; ++i) {
-        sWorldLights& saved = PileUp()[i];
+    for (int i = 0; i < kSavedLightLevels; ++i) {
+        sLightingState& saved = PileUp()[i];
         saved.directions = static_cast<Maths::Vec4*>(MemSys::Alloc(maxLights * 16));
         saved.colours = static_cast<uint32_t*>(MemSys::Alloc(maxLights * 4));
         saved.lightLow = static_cast<float*>(MemSys::Alloc(maxLights * 4));
@@ -150,7 +150,7 @@ bool __cdecl SetLightAmbientColor(uint32_t rgba)
 // 0x0048E900
 uint32_t* __cdecl GetLightAmbientColor(uint32_t* out)
 {
-    GetAmbientLightColor(out);
+    FetchAmbientHue(out);
     return out;
 }
 
@@ -176,27 +176,27 @@ bool __cdecl SetLightDirection(int light, const Maths::Vec4* direction)
 }
 
 // 0x0048E970
-void __cdecl SetAmbientLightModulationFactor(float low, float high)
+void __cdecl ChangeAmbientScale(float low, float high)
 {
     World().ambientLow = low;
     World().ambientHigh = high;
 }
 
 // 0x0048E990
-void __cdecl SetDiffuseLightModulationFactor(int light, float low, float high)
+void __cdecl ChangeDiffuseScale(int light, float low, float high)
 {
     World().lightLow[light] = low;
     World().lightHigh[light] = high;
 }
 
 // 0x0048E9B0
-float __cdecl GetAmbientLightModulationFactor(bool low)
+float __cdecl FetchAmbientScale(bool low)
 {
     return low ? World().ambientLow : World().ambientHigh;
 }
 
 // 0x0048E9D0 (both branches read the low ranges, as the original)
-float __cdecl GetDiffuseLightModulationFactor(int light, bool low)
+float __cdecl FetchDiffuseScale(int light, bool low)
 {
     if (low)
         return World().lightLow[light];
@@ -206,7 +206,7 @@ float __cdecl GetDiffuseLightModulationFactor(int light, bool low)
 // 0x0048EA00
 void __cdecl PushWorldLights()
 {
-    if (++StackTop() < kStackDepth)
+    if (++StackTop() < kSavedLightLevels)
         PileUp()[StackTop()] = World();
     else
         --StackTop();
@@ -227,7 +227,7 @@ bool __cdecl PopWorldLights()
 bool __cdecl SetWorldBrightness(float target)
 {
     constexpr float kStep = 0.02f; // 0x006492BC
-    BrightnessTarget() = target;
+    LightGainGoal() = target;
     float& brightness = Brightness();
     if (brightness < target) {
         double moved = static_cast<double>(brightness) + kStep; // (compared before it's rounded)
@@ -402,12 +402,12 @@ void** const kDynamicLightVtable = reinterpret_cast<void**>(kDynamicLightVtable_
 namespace Engine3D {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
-void SetWorldLightsAmbient() { g_worldLights.ambient = 0x80484848; }
+void SetWorldLightsAmbient() { g_activeLighting.ambient = 0x80484848; }
 
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void ConstructWorldLightStack()
 {
-    for (sWorldLights& lights : g_worldLightStack)
+    for (sLightingState& lights : g_worldLightStack)
         lights.MakeNew();
 }
 

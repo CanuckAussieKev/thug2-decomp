@@ -37,9 +37,9 @@ constexpr uint32_t kSwitchOffBalanceMeter = 0x78E669AB, kSwitchOnBalanceMeter = 
                    kStartBalanceTrick = 0x6CC475B7, kAdjustBalance = 0x7A0DCD4B, kSetWobbleDetails = 0xEA6D0EFD,
                    kStopBalanceTrick = 0xE553A5B8, kDoBalanceTrick = 0x7E92670C;
 // Parameters
-constexpr uint32_t kTimeAdd = 0x3A4E9413, kLeanAdd = 0x0B4CECC1, kSpeedAdd = 0xEB9ECABB, kTimeMult = 0x4C074698,
+constexpr uint32_t kTimeAdd = 0x3A4E9413, kLeanAdd = 0x0B4CECC1, kPaceBoost = 0xEB9ECABB, kDurationScale = 0x4C074698,
                    kLeanMult = 0x24EBF718, kSpeedMult = 0x94DBBD1C, kWobble = 0x6D941203,
-                   kDefaultWobbleParams = 0x5ADB96D4, kWobbleParams = 0xD095379C, kBalanceParams = 0x647FACC2,
+                   kDefaultWobbleParams = 0x5ADB96D4, kWobbleParams = 0xD095379C, kEquilibriumArgs = 0x647FACC2,
                    kTweak = 0x2BFD3D35, kButtonA = 0x4F1A0B01, kButtonB = 0xD6135ABB, kTypeName = 0x7321A8D6,
                    kIsATap = 0x2335E1E1, kDoFlipCheck = 0x1304E677, kPlayRangeAnimBackwards = 0x08FE31ED,
                    kClearCheese = 0xBBDB0F78;
@@ -53,9 +53,9 @@ constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitc
 
 CRider* SkaterOf(CGameEntity* object) { return static_cast<CRider*>(object); }
 
-Scripts::CStruct* NewStruct()
+Scripts::CStruct* SpawnParamBag()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 
@@ -251,7 +251,7 @@ void CRiderTeeterMoves::ClearParams()
 void CRiderTeeterMoves::ChangeArgs(Scripts::CStruct* params)
 {
     if (!mp_params)
-        mp_params = NewStruct();
+        mp_params = SpawnParamBag();
     mp_params->Clear();
     mp_params->AppendStructureIfAny(params);
 }
@@ -259,9 +259,9 @@ void CRiderTeeterMoves::ChangeArgs(Scripts::CStruct* params)
 // 0x004F9200
 void CRiderTeeterMoves::SetWobble(Scripts::CStruct* wobble)
 {
-    if (!m_entity->m_runScript) {
+    if (!m_entity->m_ownScript) {
         void* memory = Scripts::g_scriptPools.Carve(0xF4);
-        m_entity->m_runScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
+        m_entity->m_ownScript = memory ? static_cast<Scripts::CScript*>(memory)->MakeNew() : nullptr;
     }
     float values[5];
     Scripts::CStruct* value = nullptr; // (not cleared again: a missing one leaves the last found)
@@ -303,14 +303,14 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
         float timeAdd = 0.0f, leanAdd = 0.0f, speedAdd = 0.0f, timeMult = 1.0f, leanMult = 1.0f, speedMult = 1.0f;
         params->FetchFloat(kTimeAdd, &timeAdd, 0);
         params->FetchFloat(kLeanAdd, &leanAdd, 0);
-        params->FetchFloat(kSpeedAdd, &speedAdd, 0);
-        params->FetchFloat(kTimeMult, &timeMult, 0);
+        params->FetchFloat(kPaceBoost, &speedAdd, 0);
+        params->FetchFloat(kDurationScale, &timeMult, 0);
         params->FetchFloat(kLeanMult, &leanMult, 0);
         params->FetchFloat(kSpeedMult, &speedMult, 0);
         // (an unknown type has no balance: the original crashes here)
         CBalance* balance = AtHand();
-        double time = static_cast<double>(timeMult) * balance->m_railTime + timeAdd;
-        balance->m_railTime = time < 0.0 ? 0.0f : static_cast<float>(time);
+        double time = static_cast<double>(timeMult) * balance->m_onRailSeconds + timeAdd;
+        balance->m_onRailSeconds = time < 0.0 ? 0.0f : static_cast<float>(time);
         // The lean and its speed scaled, then pushed further the way they lean.
         double lean = static_cast<double>(leanMult) * balance->m_lean;
         balance->m_lean = static_cast<float>(lean);
@@ -338,7 +338,7 @@ int CRiderTeeterMoves::InvokeMethodByName(uint32_t name, Scripts::CStruct* param
     case kDoBalanceTrick: {
         ClearParams();
         Scripts::CStruct* balanceParams = nullptr;
-        if (params->ReadSubStruct(kBalanceParams, &balanceParams, 0))
+        if (params->ReadSubStruct(kEquilibriumArgs, &balanceParams, 0))
             ChangeArgs(balanceParams);
         int tweak = 0;
         params->FetchIntValue(kTweak, &tweak, 0);
@@ -386,7 +386,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CRiderTeeterMoves::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::CRiderTeeterMoves::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

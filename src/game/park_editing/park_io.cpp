@@ -88,7 +88,7 @@ void CParkLayout::SetUpAbstractMetas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
             }
-            meta->AddPiece(source, &pos, 0, false);
+            meta->InsertTile(source, &pos, 0, false);
             uint32_t name = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 4); // the source's name
             pieceNames[numPieceNames++] = name;
             meta->m_flagBits |= CPieceGroup::kSector;
@@ -100,7 +100,7 @@ void CParkLayout::SetUpAbstractMetas()
                     meta->m_flagBits |= CPieceGroup::kGap;
                     break;
                 case 0xFC26B6F4: // area_selection
-                    meta->m_flagBits |= CPieceGroup::kAreaSelect;
+                    meta->m_flagBits |= CPieceGroup::kMarqueeTool;
                     break;
                 case 0xFFD81C08: // rail_placement
                     meta->m_flagBits |= CPieceGroup::kRailPlacement;
@@ -156,7 +156,7 @@ void CParkLayout::SetUpAbstractMetas()
                 int rot = at->m_extent > 3 ? static_cast<int>(at->FetchPart(3)) : 0;
                 if (entry->HasBareFlag(0x0CD75A3Fu))
                     unslidable = true;
-                meta->AddPiece(source, &pos, rot, entry->HasBareFlag(0x0CD75A3Fu));
+                meta->InsertTile(source, &pos, rot, entry->HasBareFlag(0x0CD75A3Fu));
             }
             if (unslidable)
                 meta->m_flagBits |= CPieceGroup::kFloorLocked;
@@ -188,7 +188,7 @@ void CParkLayout::SetUpAbstractMetas()
         if (desc->ReadHashValue("name", &meta->m_nameKey, 0))
             meta->m_flagBits &= ~CPieceGroup::kSector;
         if (desc->HasBareFlag("is_riser"))
-            meta->m_flagBits |= CPieceGroup::kInnerShell;
+            meta->m_flagBits |= CPieceGroup::kBuiltShell;
         if (desc->HasBareFlag("no_rails"))
             meta->m_flagBits |= CPieceGroup::kNoRails;
         CMapListNode* node = CMapListNode::Fabricate();
@@ -216,7 +216,7 @@ void CParkLayout::SetUpAbstractMetas()
         SCellBox pos;
         pos.AssignValue(0, 0, 0, 0, 0, 0);
         GetFootprintSize(source, &pos);
-        meta->AddPiece(source, &pos, 0, false);
+        meta->InsertTile(source, &pos, 0, false);
         meta->m_nameKey = name;
         meta->m_flagBits |= CPieceGroup::kSector;
         CMapListNode* node = CMapListNode::Fabricate();
@@ -238,10 +238,10 @@ void CParkLayout::WriteCompressedMap()
     map.m_rev = CompressedMap::kVersion;
     map.m_shellSize = static_cast<uint16_t>(m_shellSize);
     map.unknown0A = 0;
-    map.m_posX = m_parkBounds.x;
-    map.m_depthCell = m_parkBounds.z;
-    map.m_w = m_parkBounds.w;
-    map.m_l = m_parkBounds.l;
+    map.m_posX = m_buildArea.x;
+    map.m_depthCell = m_buildArea.z;
+    map.m_w = m_buildArea.w;
+    map.m_l = m_buildArea.l;
     map.m_styleSet = EditorValue78();
     map.m_maxPlayers = GeneratorMaxPlayers(m_builder);
     char* to = map.m_label;
@@ -256,7 +256,7 @@ void CParkLayout::WriteCompressedMap()
     for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
         CPieceGroup* meta = node->GetPieceGroup()->Cast();
         uint32_t flags = meta->m_flagBits;
-        if ((flags & CPieceGroup::kInnerShell) || (flags & CPieceGroup::kFence) || !(flags & CPieceGroup::kInPark))
+        if ((flags & CPieceGroup::kBuiltShell) || (flags & CPieceGroup::kFence) || !(flags & CPieceGroup::kInPark))
             continue;
         SCellBox at = meta->m_cellFootprint;
         uint32_t index = 0;
@@ -271,14 +271,14 @@ void CParkLayout::WriteCompressedMap()
         out += 8;
         ++numMetas;
     }
-    map.m_numMetas = static_cast<uint16_t>(numMetas);
+    map.m_compositeCount = static_cast<uint16_t>(numMetas);
 
     SGapDetails* gaps[32];
     int numGaps = 0;
     for (int i = 0; i < 32; ++i) {
         int half = 0;
-        SGapDetails* gap = mp_gapManager->GetGapInfo(i, &half);
-        if (gap && half == 0 && gap->m_numCompleteHalves == 2)
+        SGapDetails* gap = m_gapRegistry->GetGapInfo(i, &half);
+        if (gap && half == 0 && gap->m_halvesPlaced == 2)
             gaps[numGaps++] = gap;
     }
     map.m_numGaps = static_cast<uint16_t>(numGaps);
@@ -289,13 +289,13 @@ void CParkLayout::WriteCompressedMap()
         out[2] = static_cast<uint8_t>(gap->m_atPoint[0].y + 8);
         out[4] = gap->m_atPoint[0].z;
         out[8] |= static_cast<uint8_t>(gap->m_quarterTurns[0]);
-        out[6] = static_cast<uint8_t>(gap->m_leftExtent[0] << 4);
-        out[6] = static_cast<uint8_t>((gap->m_rightExtent[0] & 0xF) | (gap->m_leftExtent[0] << 4));
+        out[6] = static_cast<uint8_t>(gap->m_reachLeft[0] << 4);
+        out[6] = static_cast<uint8_t>((gap->m_reachRight[0] & 0xF) | (gap->m_reachLeft[0] << 4));
         out[1] = gap->m_atPoint[1].x;
         out[3] = static_cast<uint8_t>(gap->m_atPoint[1].y + 8);
         out[5] = gap->m_atPoint[1].z;
         out[8] |= static_cast<uint8_t>(gap->m_quarterTurns[1] << 4);
-        out[7] = static_cast<uint8_t>((gap->m_rightExtent[1] & 0xF) | (gap->m_leftExtent[1] << 4));
+        out[7] = static_cast<uint8_t>((gap->m_reachRight[1] & 0xF) | (gap->m_reachLeft[1] << 4));
         char* text = reinterpret_cast<char*>(out + 0xA);
         for (const char* from = gap->m_text; (*text++ = *from++) != '\0';) {
         }
@@ -315,7 +315,7 @@ void CParkLayout::SetDefaultBounds()
     int inner = Scripts::FetchIntValue("ed_default_inner_dim"); // (0x004790C0, asserting)
     m_shellBounds.AssignValue(1, -4, 1, 56, 8, 56);
     uint8_t corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
-    m_parkBounds.AssignValue(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
+    m_buildArea.AssignValue(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
 }
 
 void CParkLayout::SetUpRoadMask()
@@ -378,7 +378,7 @@ void CParkLayout::UpdatePercentBar()
         percent = 0.0f;
     else if (full > 1.0f)
         percent = 1.0f;
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
     params->PushFloat(0x6D6C056Du, percent); // park_percent (out of memory crashes, as in the original)
     if (Attributes().maxUsage >= 1.0f) // (0x007CE644: the park memory stats' largest usage)
@@ -408,7 +408,7 @@ void CParkLayout::ExportToStruct(Scripts::CStruct* out)
     for (uint32_t i = 0; i < 0xEA6; ++i)
         map->SetElement(i, words[i]);
     out->AppendArrayRef(0x337C5289u, map); // Park_editor_map
-    Scripts::CStruct* structMemory = Scripts::NewStruct();
+    Scripts::CStruct* structMemory = Scripts::SpawnParamBag();
     Scripts::CStruct* goals = structMemory ? structMemory->PrepareAll() : nullptr;
     // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
     CObjectiveAuthoring::Pull()->WriteLevelGoals(0xE8B4B836, goals);
@@ -431,15 +431,15 @@ void CParkLayout::ClearCompressedMap()
     map.m_rev = CompressedMap::kVersion;
     map.m_shellSize = static_cast<uint16_t>(m_shellSize);
     map.unknown0A = 0;
-    map.m_posX = m_parkBounds.x;
-    map.m_depthCell = m_parkBounds.z;
-    map.m_w = m_parkBounds.w;
-    map.m_l = m_parkBounds.l;
+    map.m_posX = m_buildArea.x;
+    map.m_depthCell = m_buildArea.z;
+    map.m_w = m_buildArea.w;
+    map.m_l = m_buildArea.l;
     map.m_styleSet = static_cast<void*>(g_parkEditor) ? EditorValue78() : 0;
     map.m_maxPlayers = 2;
     std::memcpy(map.m_label, "Unnamed park", 13); // "Unnamed park"
     std::memset(map.m_floorHeights, 0, kFloorSize * kFloorSize);
-    map.m_numMetas = 0;
+    map.m_compositeCount = 0;
     uint32_t used = offsetof(CompressedMap, m_floorHeights) + kFloorSize * kFloorSize;
     // (the checksum is taken before the size and the gap count are set, as in the original)
     uint32_t checksum = Checksums::GenerateCRCFromBuffer(&map.m_extent, static_cast<int>(used - 4));
@@ -453,13 +453,13 @@ void CParkLayout::ClearCompressedMap()
 
 bool CParkLayout::RegisterGapEntry(SGapDetails* gap)
 {
-    int tab = mp_gapManager->FindEmptyGapSlot();
+    int tab = m_gapRegistry->FindEmptyGapSlot();
     if (tab == -1)
         return false;
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
     // the previous half's position is used again (the original's are left unset before the first half).
     Maths::Vec4 at = {0.0f, 0.0f, 0.0f, 1.0f};
-    for (int half = 0; half < gap->m_numCompleteHalves; ++half) {
+    for (int half = 0; half < gap->m_halvesPlaced; ++half) {
         SCellBox& pos = gap->m_atPoint[half];
         pos.w = 1;
         pos.h = 1;
@@ -481,22 +481,22 @@ bool CParkLayout::RegisterGapEntry(SGapDetails* gap)
         case 0:
             alongX = 1;
             x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * 0.5) - 1.0);
-            z = (static_cast<double>(d.z - gap->m_rightExtent[half]) * l + length * 0.5) - l;
+            z = (static_cast<double>(d.z - gap->m_reachRight[half]) * l + length * 0.5) - l;
             at.y = static_cast<float>(y);
             break;
         case 1:
-            x = static_cast<float>((static_cast<double>(d.x - gap->m_rightExtent[half]) * w + length * 0.5) - w);
+            x = static_cast<float>((static_cast<double>(d.x - gap->m_reachRight[half]) * w + length * 0.5) - w);
             z = (static_cast<double>(d.z) * l - l * 0.5) + 1.0;
             at.y = static_cast<float>(y);
             break;
         case 2:
             alongX = 1;
             x = static_cast<float>((static_cast<double>(d.x) * w - w * 0.5) + 1.0);
-            z = (static_cast<double>(d.z - gap->m_leftExtent[half]) * l + length * 0.5) - l;
+            z = (static_cast<double>(d.z - gap->m_reachLeft[half]) * l + length * 0.5) - l;
             at.y = static_cast<float>(y);
             break;
         case 3:
-            x = static_cast<float>((static_cast<double>(d.x - gap->m_leftExtent[half]) * w + length * 0.5) - w);
+            x = static_cast<float>((static_cast<double>(d.x - gap->m_reachLeft[half]) * w + length * 0.5) - w);
             z = (static_cast<double>(d.l + d.z) * l - l * 0.5) - 1.0;
             at.y = static_cast<float>(y);
             break;
@@ -507,19 +507,19 @@ bool CParkLayout::RegisterGapEntry(SGapDetails* gap)
         void* piece = m_builder->MakeGapMarkerPiece(&at, length, alongX);
         static_cast<CParkTile*>(piece)->SetLength(static_cast<float>(length / w));
         if (half == 0)
-            mp_gapManager->StartGap(piece, meta, tab);
+            m_gapRegistry->StartGap(piece, meta, tab);
         else
-            mp_gapManager->EndGap(piece, meta, tab);
+            m_gapRegistry->EndGap(piece, meta, tab);
     }
     gap->m_tabIndex = tab;
-    mp_gapManager->StoreGapDetails(tab, gap);
+    m_gapRegistry->StoreGapDetails(tab, gap);
     return true;
 }
 
 void CParkLayout::DropGapEntry(SGapDetails* gap)
 {
     CPieceGroup* halves[2]; // (unset for a half with nothing there, as in the original)
-    for (int half = 0; half < gap->m_numCompleteHalves; ++half) {
+    for (int half = 0; half < gap->m_halvesPlaced; ++half) {
         MapListHolder metas(GetIntersectingMetas(gap->m_atPoint[half], 0, nullptr, true));
         if (metas.list->m_following)
             PrintMapList(metas.list);
@@ -536,8 +536,8 @@ void CParkLayout::DropGapEntry(SGapDetails* gap)
     }
     int index;
     // The gap of the first half, removed
-    if (mp_gapManager->GetGapIndex(halves[0], &index))
-        mp_gapManager->DropGapEntry(index, true);
+    if (m_gapRegistry->GetGapIndex(halves[0], &index))
+        m_gapRegistry->DropGapEntry(index, true);
     gap->m_tabIndex = -1;
     gap->m_cancelFlags = static_cast<uint32_t>(Scripts::FetchIntValue(0x9A27E74Du)); // CANCEL_GROUND
 }

@@ -134,7 +134,7 @@ CKinematicsModule* Motion(CGameEntity* object) { return static_cast<CKinematicsM
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 
@@ -398,8 +398,8 @@ bool CPedestrianBrainModule::ChangePhase(uint32_t state, uint32_t table, Scripts
     InitializeMovement();
     if (stateStruct->HasBareFlag(kHideBoardGeom))
         HideBoard(1);
-    if (m_entity->m_runScript)
-        m_entity->m_runScript->TickFrame();
+    if (m_entity->m_ownScript)
+        m_entity->m_ownScript->TickFrame();
     return true;
 }
 
@@ -436,7 +436,7 @@ bool CPedestrianBrainModule::Bail()
 // 0x004EE2C0
 const char* ProfileVoice()
 {
-    CRiderIdentity* profile = g_profileManager->FetchActiveAccount();
+    CRiderIdentity* profile = g_profileRoster->FetchActiveAccount();
     auto* info = reinterpret_cast<Scripts::CStruct*>(profile->m_details);
     uint32_t voice;
     if (!info->ReadHashValue(kVoice, &voice, 0)) {
@@ -616,7 +616,7 @@ bool CPedestrianBrainModule::Ped_SetIsSkater(Scripts::CStruct* params, Scripts::
 bool CPedestrianBrainModule::Ped_PlayJumpSound(Scripts::CStruct*, Scripts::CScript*)
 {
     if (auto* sound = static_cast<CRiderSfxPlayer*>(m_entity->FetchModule(kSkaterSound)))
-        sound->PlayJumpHere(m_speedFraction);
+        sound->PlayJumpHere(m_speedRatio);
     return true;
 }
 
@@ -624,7 +624,7 @@ bool CPedestrianBrainModule::Ped_PlayJumpSound(Scripts::CStruct*, Scripts::CScri
 bool CPedestrianBrainModule::Ped_PlayLandSound(Scripts::CStruct*, Scripts::CScript*)
 {
     if (auto* sound = static_cast<CRiderSfxPlayer*>(m_entity->FetchModule(kSkaterSound)))
-        sound->PlayLandHere(m_speedFraction);
+        sound->PlayLandHere(m_speedRatio);
     return true;
 }
 
@@ -741,7 +741,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CPedestrianBrainModule::Teard
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::CPedestrianBrainModule::InvokeMethodByName,
          &GameObjects::CPedestrianBrainModule::GenericMoveUpdate,
          &GameObjects::CPedestrianBrainModule::SkaterMoveUpdate,

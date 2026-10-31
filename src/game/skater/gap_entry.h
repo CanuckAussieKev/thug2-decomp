@@ -78,12 +78,12 @@ public:
     // (deleted) with requirements left, or without a perfect landing when Require_Perfect; else its gap trick is
     // done if the trick was done since (or none was needed), the checklist gets the skater's start for the text,
     // a local skater with a score gets it (and the checklist the gap, DefaultGapScript run), the GapScript is run
-    // (NetEnabled, permanent), Continue starts a new gap, <GapID>_Success is sent, and the gap deleted. The walk
+    // (OnlineModeFlag, permanent), Continue starts a new gap, <GapID>_Success is sent, and the gap deleted. The walk
     // begins again after each.
     void EndGap(Scripts::CStruct* params, Scripts::CScript* script);
 
     MemSys::ListNode m_gaps;      // +0x18 ListKit::Foremost<TrickListEntry> (vtable 0x0064BEC4)
-    MemSys::ListNode m_gapTricks; // +0x2C ListKit::Foremost<TrickNameEntry> (vtable 0x0064BEC8)
+    MemSys::ListNode m_gapMoveChain; // +0x2C ListKit::Foremost<TrickNameEntry> (vtable 0x0064BEC8)
     uint32_t m_tick;          // +0x40 counted by Update
     uint8_t* m_pointsHeld;          // +0x44 the skater's score (GameModules::PointTally; set by the skater)
     uint8_t* m_corePhysics;    // +0x48 SkaterCorePhysics (0x5BD63B29)
@@ -91,7 +91,7 @@ public:
     uint8_t* m_physicsControl; // +0x50 SkaterPhysicsControl (0xD9151D4D)
     uint8_t* m_walk;           // +0x54 Walk (0x726E85AA)
 };
-static_assert(offsetof(CRiderGapTracker, m_gaps) == 0x18 && offsetof(CRiderGapTracker, m_gapTricks) == 0x2C &&
+static_assert(offsetof(CRiderGapTracker, m_gaps) == 0x18 && offsetof(CRiderGapTracker, m_gapMoveChain) == 0x2C &&
                   offsetof(CRiderGapTracker, m_tick) == 0x40 && offsetof(CRiderGapTracker, m_pointsHeld) == 0x44 &&
                   offsetof(CRiderGapTracker, m_corePhysics) == 0x48 &&
                   offsetof(CRiderGapTracker, m_walk) == 0x54 && sizeof(CRiderGapTracker) == 0x58,

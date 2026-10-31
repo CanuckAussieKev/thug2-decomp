@@ -33,7 +33,7 @@ public:
     // 0x00459DC0: a message streamed to the server (AppHost::SendBulkToConn, 0x00458740, on the first
     // connection).
     void SendBulkToHost(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
-                               bool allAtOnce, bool sendInPlace);
+                               bool queueAllPieces, bool borrowCallerBuffer);
 
     // 0x0045A300: everything waiting on the socket, into the server connection's read buffer (or, from an unknown
     // address while not connected, into a new connection).
@@ -44,11 +44,11 @@ public:
 
     // Handlers.
     // 0x0045ABC0 (id 4): the packet's messages will be acked.
-    static int __cdecl HandleConnectionAccepted(InboundMsgCtx* context);
+    static int __cdecl OnLinkAcceptedMsg(InboundMsgCtx* context);
     // 0x0045ABD0 (ids 5, 6): the connection is terminated; the packet stops.
     static int __cdecl HandleConnectionRefused(InboundMsgCtx* context);
     // 0x0045AA70 (id 9): the server's timestamp, acked; lost, late and duplicate packets counted from it.
-    static int __cdecl HandleTimestamp(InboundMsgCtx* context);
+    static int __cdecl OnClockSyncMsg(InboundMsgCtx* context);
 
     uint8_t m_serverAddress[0x10]; // +0x1F08 sockaddr_in (DialServer; PullInbound looks the server up by it)
 };

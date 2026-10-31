@@ -57,9 +57,9 @@ constexpr uint32_t kAcidDropTime = 0x488;
 constexpr uint32_t kAcidDropDuration = 0x48C;
 constexpr uint32_t kAcidDropMatrix = 0x4A0;   // the slerp's last matrix
 
-constexpr float kDegreesToRadians = 0.0174532924f;  // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f;  // 0x00645464
 constexpr float kMinusDegreesToRadians = -0.0174532924f; // 0x0064BCCC
-constexpr float kRadiansToDegrees = 57.2957764f;    // 0x00645468
+constexpr float kDegreesPerRadian = 57.2957764f;    // 0x00645468
 constexpr float kSlopeTurnSpeed = 0.001f;           // 0x006461D8
 constexpr float kSlowGroundTurnSpeed = 10.0f;       // 0x00646710
 constexpr float kSlowGroundTurnRate = 0.00166666671f; // 0x0064BD38 (1 / 600)
@@ -96,7 +96,7 @@ void TurnMatrices(void* component, float angle)
 } // namespace
 
 // 0x005002D0
-void CorePhysicsComponent::TurnForRailJump()
+void SkaterPhysicsModule::TurnForRailJump()
 {
     uint8_t* input = InputOf(this);
     float angle;
@@ -104,13 +104,13 @@ void CorePhysicsComponent::TurnForRailJump()
         // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
         const ThawBmx::BikeState* bike = ThawBmx::StateOf(this, false);
         if (bike && bike->stickLeft.down)
-            angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kDegreesToRadians);
+            angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kRadiansPerDegree);
         else if (bike && bike->stickRight.down)
             angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
     } else if (input[0x60])
-        angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kDegreesToRadians);
+        angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kRadiansPerDegree);
     else if (input[0x80])
         angle = static_cast<float>(static_cast<double>(Scripts::FetchFloat(kRailJumpAngle)) * kMinusDegreesToRadians);
     else
@@ -120,7 +120,7 @@ void CorePhysicsComponent::TurnForRailJump()
 }
 
 // 0x00503560
-void CorePhysicsComponent::TurnOnGround()
+void SkaterPhysicsModule::TurnOnGround()
 {
     if (ThawBmx::LiveNow(this)) { // (not original: the bike's own turning, THAW 0x005D61F0)
         ThawBmx::TurnOnGround(this);
@@ -137,11 +137,11 @@ void CorePhysicsComponent::TurnOnGround()
     if (pad[0x40]) {
         button = pad + 0x40;
         sharp = pad[0x20] != 0;
-        rate = PhysicsFloat(sharp ? kGroundSharpRotation : kGroundRotation, object);
+        rate = TuningFloatLookup(sharp ? kGroundSharpRotation : kGroundRotation, object);
     } else if (pad[0x60]) {
         button = pad + 0x60;
         sharp = pad[0x20] != 0;
-        rate = -static_cast<double>(PhysicsFloat(sharp ? kGroundSharpRotation : kGroundRotation, object));
+        rate = -static_cast<double>(TuningFloatLookup(sharp ? kGroundSharpRotation : kGroundRotation, object));
     } else {
         return;
     }
@@ -163,7 +163,7 @@ void CorePhysicsComponent::TurnOnGround()
 }
 
 // 0x005039F0
-float CorePhysicsComponent::BounceOffWall(const Maths::Vec4* normal, float* turn, float scale)
+float SkaterPhysicsModule::DeflectFromWall(const Maths::Vec4* normal, float* turn, float scale)
 {
     // Not original: THAW 0x005CCBF0 (the on-bike flag tested first, 0x005CCBF6) - on the bike rolling backwards into a
     // wall: stopped, no bounce (`turn` left as it is).
@@ -190,7 +190,7 @@ float CorePhysicsComponent::BounceOffWall(const Maths::Vec4* normal, float* turn
 }
 
 // 0x00501B00
-bool CorePhysicsComponent::TurnDownSlope()
+bool SkaterPhysicsModule::TurnDownSlope()
 {
     if (!MayTurnOnSlope())
         return false;
@@ -199,12 +199,12 @@ bool CorePhysicsComponent::TurnDownSlope()
     Maths::Vec4 heading = LengthUnrounded(VectorAt(object, kVelocity)) < kSlopeTurnSpeed ? VectorAt(object, kForward)
                                                                                        : VectorAt(object, kVelocity);
     Maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
-    down.FlattenOntoPlane(VectorAt(this, kGroundNormal));
+    down.FlattenOntoPlane(VectorAt(this, kFloorUpVector));
     object = ObjectOf(this);
     double off = Maths::GetTurnAroundAxis(heading, down, VectorAt(object, kUp));
     float angle = static_cast<float>(off);
     float sign = off < 0.0 ? -1.0f : 1.0f;
-    double turn = static_cast<double>(PhysicsFloat(kSlowTurnOnSlopes, object)) * At<float>(this, kFrameLength) * sign;
+    double turn = static_cast<double>(TuningFloatLookup(kSlowTurnOnSlopes, object)) * At<float>(this, kFrameLength) * sign;
     float step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
@@ -213,7 +213,7 @@ bool CorePhysicsComponent::TurnDownSlope()
 }
 
 // 0x00504730
-void CorePhysicsComponent::NatasSpin()
+void SkaterPhysicsModule::NatasSpin()
 {
     auto* career = At<GameObjects::CRiderStoryProgress*>(static_cast<void*>(GameModules::g_skateModule), 0x20);
     if (career->IsCodeOn(kPerfectRail)) {
@@ -236,13 +236,13 @@ void CorePhysicsComponent::NatasSpin()
     float step = static_cast<float>(rate * At<float>(this, kFrameLength));
     TurnMatrices(this, step);
     float& total = At<float>(At<void*>(this, kSkaterComponent), kTrickRotation);
-    total = static_cast<float>(static_cast<double>(step) * kRadiansToDegrees + total);
+    total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
     uint8_t* flags = FlagsOf(this);
     bool show = true;
     if (flags[0x30] && !flags[0x78]) {
         float size = std::fabs(total);
-        double snap = 360.0f - static_cast<double>(PhysicsFloat(kSpinCountSlop, ObjectOf(this))) + 0.1f;
+        double snap = 360.0f - static_cast<double>(TuningFloatLookup(kSpinCountSlop, ObjectOf(this))) + 0.1f;
         show = snap <= size;
     }
     if (show) {
@@ -254,7 +254,7 @@ void CorePhysicsComponent::NatasSpin()
 }
 
 // 0x00504910
-void CorePhysicsComponent::LeanInAir()
+void SkaterPhysicsModule::LeanInAir()
 {
     uint8_t* flags = FlagsOf(this);
     if (flags[0x78] || flags[0xC0] || flags[0x30])
@@ -285,7 +285,7 @@ void CorePhysicsComponent::LeanInAir()
 }
 
 // 0x00504A60
-void CorePhysicsComponent::RotateInAcidDrop()
+void SkaterPhysicsModule::RotateInAcidDrop()
 {
     if (!FlagsOf(this)[0x78])
         return;
@@ -310,7 +310,7 @@ void CorePhysicsComponent::RotateInAcidDrop()
 }
 
 // 0x00504B40
-void CorePhysicsComponent::RecoverInAir()
+void SkaterPhysicsModule::RecoverInAir()
 {
     if (FlagsOf(this)[0x78])
         return;
@@ -348,7 +348,7 @@ void CorePhysicsComponent::RecoverInAir()
 }
 
 // 0x00504DF0
-void CorePhysicsComponent::KeepUpright()
+void SkaterPhysicsModule::KeepUpright()
 {
     void* object = ObjectOf(this);
     const Maths::Vec4& forward = VectorAt(object, kForward);
@@ -360,10 +360,10 @@ void CorePhysicsComponent::KeepUpright()
                       static_cast<double>(up.y) * 0.0f;
     double angle;
     if (sideways > static_cast<double>(At<float>(this, kFrameLength)) * kUprightRight) {
-        angle = static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kDegreesToRadians *
+        angle = static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kRadiansPerDegree *
                 At<float>(this, kFrameLength);
     } else if (sideways < static_cast<double>(At<float>(this, kFrameLength)) * kUprightLeft) {
-        angle = -(static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kDegreesToRadians *
+        angle = -(static_cast<double>(Scripts::FetchFloat(kUprightSidewaysSpeed)) * kRadiansPerDegree *
                   At<float>(this, kFrameLength));
     } else {
         return;

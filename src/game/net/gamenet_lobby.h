@@ -1,6 +1,6 @@
 #pragma once
 
-// The network manager's GameSpy lobby (OnlinePlay::RoomManager, the manager's m_lobbyMan): the peer SDK's connection to the
+// The network manager's GameSpy lobby (OnlinePlay::RoomManager, the manager's m_lobbyService): the peer SDK's connection to the
 // chat lobby, its rooms and the game hosted from it. Here its small members and the peer SDK callbacks at
 // 0x0053F520-0x0053FEE0 (gamenet_lobby.cpp); only the fields used so far are named. The peer SDK is library code
 // (game/net/gamespy.h).
@@ -87,7 +87,7 @@ public:
     static void __cdecl PublicAddressCallback(void* peer, uint32_t ip, uint16_t port, void* param);
     // 0x00540C90 (NAT negotiation asked by a client): negotiation with the cookie on the server's socket (the first
     // starts the NAT negotiation task), counted (+0x13C).
-    static void __cdecl NatNegotiateCallback(void* peer, int cookie, void* param);
+    static void __cdecl HolePunchResultFn(void* peer, int cookie, void* param);
     // 0x00540300 (NAT negotiation's end, `result` 0 = success): a client joins the server at the address found; the
     // server counts down (the task off at 0); a client's negotiation is cleaned up (failure:
     // 0x3A9FB574).
@@ -199,7 +199,7 @@ public:
     char m_serverName[0x80];      // +0xB4
     bool m_inGroupRoom;           // +0x134
     bool m_restrictedHosting;     // +0x135 only a few GameSpy profiles may host (CanHostGame)
-    bool m_expectingDisconnect;   // +0x136
+    bool m_dropIsExpected;   // +0x136
     bool m_lostConnection;        // +0x137
     bool m_connecting;            // +0x138
     bool m_hosting;               // +0x139

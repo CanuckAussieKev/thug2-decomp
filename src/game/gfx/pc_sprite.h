@@ -9,7 +9,7 @@
 // engine's settings copied into the 2D sprite that draws it (SQuadSprite, billboard_quad.h).
 namespace Engine3D {
 
-// The PC sprite (0x48 bytes, vtable 0x0064A744; made by CreateSprite 0x004B2A80).
+// The PC sprite (0x48 bytes, vtable 0x0064A744; made by BuildSpriteQuad 0x004B2A80).
 struct CPcSprite {
     void** vtable;
     uint8_t* texture;     // +0x04: the engine's texture holder (+0x10 the texture, through one more pointer with

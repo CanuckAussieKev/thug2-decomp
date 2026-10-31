@@ -28,7 +28,7 @@ bool g_musicHeaderLoaded{true};
 bool g_streamsOn{true};
 float g_musicVolume{50.0f};
 float g_musicStreamVolume{100.0f};
-int g_musicStreamType;
+int g_bgmStreamKind;
 bool g_shuffleUser;
 void* g_soundDevice;
 Playlist g_playlists[2];       // (the music's two playlists; 0 is the game's, 1 the script's)
@@ -52,7 +52,7 @@ bool g_reshuffle{true};
 int g_orderCount{1};
 bool g_looping;
 int g_clearedByClearPlaylist;
-bool g_musicPaused;
+bool g_bgmHeld;
 int g_orderPosition;
 bool g_musicPausedBefore;
 
@@ -88,7 +88,7 @@ int& FrameCount() { return g_frameCount; }
 // The user soundtrack: which, whether it's playing (in place of the game's music), its shuffled order and the
 // track in it, whether it's shuffled.
 int& UserSoundtrack() { return g_userSoundtrack; }
-bool& CustomSoundtrackActive() { return g_usingUserSoundtrack; }
+bool& CustomSoundtrackActive() { return g_customPlaylistOn; }
 int* UserOrder() { return g_userOrder; }
 constexpr int kUserOrderSize = 600;
 int& UserTrack() { return reinterpret_cast<int&>(g_userTrack); }
@@ -111,7 +111,7 @@ void StartTrack(Playlist& list, int track)
 {
     PlayTrack(reinterpret_cast<const char*>(list.tracks[track]), false);
     CurrentTrack() = track;
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     params = params ? params->PrepareAll() : nullptr;
     params->PutInt(0x8D02705Du, CurrentTrack());
     Scripts::LaunchScript(0x300CAD34u, params, nullptr, false, nullptr);
@@ -125,10 +125,10 @@ void StartTrack(Playlist& list, int track)
 float& MusicVolume() { return g_musicVolume; }
 float& MusicStreamVolume() { return g_musicStreamVolume; }
 // What the music's channel plays: 0 a track, 1 a music stream (0x00450EF0), 2 another kind of stream (0x004509E0).
-int& MusicStreamType() { return g_musicStreamType; }
+int& MusicChannelKind() { return g_bgmStreamKind; }
 // Set by the music's initialisation (0x00450D60).
 bool Initialised() { return g_initialised; }
-bool& MusicPaused() { return g_musicPaused; }
+bool& MusicHalted() { return g_bgmHeld; }
 bool& MusicPausedBefore() { return g_musicPausedBefore; }
 bool& MusicHeaderLoaded() { return g_musicHeaderLoaded; }
 uint8_t& RandomOrder() { return g_randomOrder; }
@@ -166,12 +166,12 @@ void __cdecl PauseMusic(int pause)
     }
     if (pause == 0) {
         ReadDebugFlag();
-        MusicPaused() = false;
+        MusicHalted() = false;
         PlatformPause(false, 1);
     } else if (pause == 1) {
         ReadDebugFlag();
-        MusicPausedBefore() = MusicPaused();
-        MusicPaused() = true;
+        MusicPausedBefore() = MusicHalted();
+        MusicHalted() = true;
         PlatformPause(true, 1);
     }
 }
@@ -182,7 +182,7 @@ void __cdecl SetMusicVolume(float volume)
     if (!MusicOn() || !InRange(volume))
         return;
     MusicVolume() = volume;
-    if (!Initialised() || MusicStreamType() != 0)
+    if (!Initialised() || MusicChannelKind() != 0)
         return;
     if (CurrentPlaylist() != 0 && !OtherListsAtMusicVolume())
         return;
@@ -195,7 +195,7 @@ void __cdecl SetMusicStreamVolume(float volume)
     if (!MusicOn() || !InRange(volume))
         return;
     MusicStreamVolume() = volume;
-    if (Initialised() && MusicStreamType() == 1)
+    if (Initialised() && MusicChannelKind() == 1)
         SetPlatformVolume(volume);
 }
 
@@ -366,7 +366,7 @@ void __cdecl ChangeTrackState(int track, bool off, int list)
 // 0x004520D0
 void __cdecl PlayTrack(const char* name, bool loop)
 {
-    if (!MusicOn() || MusicStreamType() != 0)
+    if (!MusicOn() || MusicChannelKind() != 0)
         return;
     char* playing = static_cast<char*>(SpecialTrack());
 #pragma warning(suppress : 4996) // (40 bytes, as in the original)
@@ -407,7 +407,7 @@ void __cdecl PlayNextTrack()
         return;
     if (MusicStatus() != 1) // 1: no stream playing
         return;
-    g_musicStreamType = 0;
+    g_bgmStreamKind = 0;
     ApplyTrackVolume(); // the music volume
     if (CurrentPlaylist() == 1) {
         int track = Scripts::FetchIntValue(0xF18AB1F9u);
@@ -486,7 +486,7 @@ void __cdecl PlayNextTrackInOrder()
         return;
     if (MusicStatus() != 1) // 1: no stream playing
         return;
-    g_musicStreamType = 0;
+    g_bgmStreamKind = 0;
     ApplyTrackVolume(); // the music volume
     if (Looping()) {
         PlayTrack(static_cast<const char*>(SpecialTrack()), true);
@@ -666,7 +666,7 @@ const char* __cdecl GetSoundtrackName(int index)
 }
 
 // 0x00450430
-bool __cdecl MusicIsPaused() { return g_musicPaused; }
+bool __cdecl MusicIsPaused() { return g_bgmHeld; }
 
 // 0x00450440
 float __cdecl GetMusicVolume() { return g_musicVolume; }

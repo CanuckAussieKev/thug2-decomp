@@ -30,7 +30,7 @@ void SetSamplerState(int state, int value) { ChangePhase(state, static_cast<uint
 void DrawFlash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
-    const float* view = reinterpret_cast<const float*>(GetActiveViewport(flash->viewport));
+    const float* view = reinterpret_cast<const float*>(FetchCurrentView(flash->viewport));
     double width = g_backBufferWidth;
     double height = g_backBufferHeight;
     // (x87: each product is rounded once, each sum to float)

@@ -31,7 +31,7 @@ void DestroyParkPools() { PowerDown(); }
 // 0x00598E00
 CParkLayout* CParkLayout::MakeNew()
 {
-    m_parkBounds = SCellBox::Make(0, 0, 0, 0, 0, 0);
+    m_buildArea = SCellBox::Make(0, 0, 0, 0, 0, 0);
     m_shellBounds = SCellBox::Make(0, 0, 0, 0, 0, 0);
     for (SCellBox& area : m_blockedAreas)
         area = SCellBox::Make(0, 0, 0, 0, 0, 0);
@@ -45,7 +45,7 @@ CParkLayout* CParkLayout::MakeNew()
     m_parkBuilt = false;
     m_flagBits = 0;
     m_05 = false;
-    mp_gapManager = nullptr;
+    m_gapRegistry = nullptr;
     mp_gapManagerCopy = nullptr;
     // The shell's blocks of each of the 8 kinds.
     for (int i = 1; i <= 8; ++i) {
@@ -102,9 +102,9 @@ void CParkLayout::PlaceMetaPieceInPark(SCellBox pos, CPieceGroup* meta)
     Maths::Vec4 origin;
     origin.x = static_cast<float>((meta->m_cellFootprint.w * 0.5 + pos.x) * kCellWidth -
                                   static_cast<double>(kCellWidth) * kGridCells * 0.5);
-    origin.z = static_cast<float>((meta->m_cellFootprint.l * 0.5 + pos.z) * kCellLength -
-                                  static_cast<double>(kCellLength) * kGridCells * 0.5);
-    origin.y = static_cast<float>(pos.y * static_cast<double>(kCellHeight));
+    origin.z = static_cast<float>((meta->m_cellFootprint.l * 0.5 + pos.z) * kGridStepAlong -
+                                  static_cast<double>(kGridStepAlong) * kGridCells * 0.5);
+    origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
     if (meta->m_flagBits & CPieceGroup::kRiserBelow)
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
     origin.w = 1.0f; // (the original leaves w as it was on the stack)
@@ -119,7 +119,7 @@ void CParkLayout::PlaceMetaPieceInPark(SCellBox pos, CPieceGroup* meta)
         position.w = 1.0f; // (likewise)
         piece->ChangePlace(&position, 1);
         piece->SetQuarterTurns((piece->m_quarterTurns + meta->m_quarterTurns) & 3, 1);
-        m_builder->AddPiece(piece);
+        m_builder->InsertTile(piece);
         m_builder->LightPiece(piece);
     }
     SetMetaInCells(meta, 1);
@@ -130,7 +130,7 @@ void CParkLayout::PlaceMetaPieceInPark(SCellBox pos, CPieceGroup* meta)
             break;
         }
     }
-    if (!(meta->m_flagBits & CPieceGroup::kFence) && !(meta->m_flagBits & CPieceGroup::kInnerShell))
+    if (!(meta->m_flagBits & CPieceGroup::kFence) && !(meta->m_flagBits & CPieceGroup::kBuiltShell))
         m_flagBits &= ~(kMapUpToDate | kMapSaved);
     AddPieceCost(meta);
 }
@@ -174,16 +174,16 @@ void CParkLayout::FreePlacedPiece(CPieceGroup* meta, uint32_t flags)
     if (CBuildPointer* cursor = CBuildPointer::Sole())
         cursor->ForgetGapAt(meta);
     int gap;
-    if (mp_gapManager->GetGapIndex(meta, &gap)) {
+    if (m_gapRegistry->GetGapIndex(meta, &gap)) {
         int half;
-        DropGapEntry(mp_gapManager->GetGapInfo(gap, &half));
+        DropGapEntry(m_gapRegistry->GetGapInfo(gap, &half));
     }
     // A change to the park the player made: the compressed map is out of date.
     uint32_t metaFlags = meta->m_flagBits;
-    if (!(metaFlags & CPieceGroup::kFence) && (metaFlags & CPieceGroup::kInPark) && !(metaFlags & CPieceGroup::kInnerShell))
+    if (!(metaFlags & CPieceGroup::kFence) && (metaFlags & CPieceGroup::kInPark) && !(metaFlags & CPieceGroup::kBuiltShell))
         m_flagBits &= ~(kMapUpToDate | kMapSaved);
     // What stands on it goes too.
-    if (!(meta->m_flagBits & CPieceGroup::kInnerShell) && (flags & 1)) {
+    if (!(meta->m_flagBits & CPieceGroup::kBuiltShell) && (flags & 1)) {
         SCellBox above = meta->m_cellFootprint;
         above.y = static_cast<int8_t>(above.h + above.y);
         above.StretchVertically();
@@ -209,7 +209,7 @@ void CParkLayout::FreePlacedPiece(CPieceGroup* meta, uint32_t flags)
 void CParkLayout::DestroyConcreteMetas(int keepRails)
 {
     GeneratorRebuildsCollision() = false;
-    mp_gapManager->ClearGapEntries();
+    m_gapRegistry->ClearGapEntries();
     for (CMapListNode* node = mp_concrete_metas; node;) {
         CMapListNode* next = node->m_following;
         FreePlacedPiece(node->GetPlacedPiece(), 0);
@@ -265,7 +265,7 @@ void CParkLayout::Teardown(int keepRails)
         return;
     if (!(m_flagBits & (kMapUpToDate | kMapSaved)))
         WriteCompressedMap();
-    mp_gapManager->ClearGapEntries();
+    m_gapRegistry->ClearGapEntries();
     while (mp_abstract_metas) {
         CPieceGroup* meta = mp_abstract_metas->GetPieceGroup();
         RemoveMetaFromList(meta, &mp_abstract_metas);
@@ -278,11 +278,11 @@ void CParkLayout::Teardown(int keepRails)
     m_parkBuilt = false;
     m_flagBits = (m_flagBits & ~kMapUpToDate) | kMapSaved;
     m_05 = false;
-    if (CGapRegistry* gaps = mp_gapManager) {
+    if (CGapRegistry* gaps = m_gapRegistry) {
         gaps->Teardown();
         MemSys::Dealloc(gaps);
     }
-    mp_gapManager = nullptr;
+    m_gapRegistry = nullptr;
     if (mp_riserList)
         CMapListNode::FreeNodeChain(mp_riserList);
     mp_riserList = nullptr;

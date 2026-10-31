@@ -1,6 +1,6 @@
 // The rigid body component's code before its life and physics (game/obj/rigidbody_component.h): the debug switch,
 // the member function table and three of its members, the pushers' reach, Finalize, Sleep, the world points, the
-// damping and the check for sleep; and the components' shared vtable slot 11 (RunMemberFunction).
+// damping and the check for sleep; and the components' shared vtable slot 11 (DispatchScriptMethod).
 //
 // The original's arithmetic is x87 code at 53-bit precision: what it keeps on the FPU stack is a double here, what
 // it stores to memory a float - each value rounded where the original rounds it, and sums keep its grouping.
@@ -87,7 +87,7 @@ void __cdecl CBodyDynamicsModule::PublishMethodTable()
 }
 
 // 0x0042BB20
-int CObjectModule::RunMemberFunction(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
+int CObjectModule::DispatchScriptMethod(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
                                       Scripts::CScript* script)
 {
     if (entry->mCode) {
@@ -135,7 +135,7 @@ void __cdecl SetRigidBodyPusherReach(CGameEntity* object, float reach)
 // 0x0042BD90
 void CBodyDynamicsModule::Seal()
 {
-    mp_soundComponent = static_cast<CAudioEmitterModule*>(m_entity->FetchModule(kSound));
+    m_audioModule = static_cast<CAudioEmitterModule*>(m_entity->FetchModule(kSound));
     const Maths::Mat4& m = m_basisFrame;
     for (int i = 0; i < m_springCount; ++i) {
         Spring& spring = mp_springs[i];
@@ -384,13 +384,13 @@ void CBodyDynamicsModule::FeelPushers()
             m_entity->SpawnScript(m_collideScript, mp_callbackParams, 0, false)->TickFrame();
         HideSector(Checksums::FoldTextIntoChecksum(m_entity->m_ident, "_Shadow"));
         int now = static_cast<int>(FrameClock::GetTime());
-        if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && mp_soundComponent &&
+        if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && m_audioModule &&
             mp_collideSound) {
             double length = std::sqrt((Wide(impulse.x) * impulse.x + Wide(impulse.z) * impulse.z) +
                                       Wide(impulse.y) * impulse.y);
             mp_collideSound->PushFloat(kPercent, Narrow(length * kSoundScale));
-            mp_soundComponent->EmitSound(mp_collideSound);
-            m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_collideMuteDelay));
+            m_audioModule->EmitSound(mp_collideSound);
+            m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_impactQuietMs));
             NextCollideSoundTime() = MuteUntil(m_globalCollideMuteDelay);
         }
         return;

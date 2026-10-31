@@ -54,7 +54,7 @@ bool SceneLoadCollisionData(CWorldScene* scene, const uint8_t* data, int* count,
 bool SceneUnloadCollision(CWorldScene* scene) { return scene->UnloadCollision(); }
 
 // The platform's new sector (slot 7), its geometry and collision cleared.
-CWorldCell* NewSector(CWorldScene* scene)
+CWorldCell* AllocSector(CWorldScene* scene)
 {
     auto* sector = Virtual<CWorldCell*>(scene, 7);
     sector->m_geomHandle = nullptr;
@@ -170,7 +170,7 @@ CWorldScene* CWorldScene::MakeNew(int bits)
     m_pipName[0] = '\0';
     mp_collGrid = nullptr;
     mp_collStatics = nullptr;
-    mp_collObjects = nullptr;
+    m_collisionBlob = nullptr;
     m_collStaticCount = 0;
     m_addName[0] = '\0';
     m_addData = 0;
@@ -181,7 +181,7 @@ CWorldScene* CWorldScene::MakeNew(int bits)
     m_added = false;
     mp_hiddenSectors = NewHead();
     mp_addSceneSectors = NewHead();
-    m_hasCollision = false;
+    m_buildsCollisionGrid = false;
     m_isSky = false;
     return this;
 }
@@ -279,9 +279,9 @@ uint32_t CWorldScene::CloneSectorNamed(uint32_t sectionId, CWorldScene* scene, i
 // 0x0049D590 (the original's SEH frame around the grid's `new` left out)
 bool CWorldScene::AddCollisionData(const uint8_t* data, int flag)
 {
-    SceneLoadCollisionData(this, data, &m_collStaticCount, &mp_collStatics, &mp_collObjects, &m_collisionBox, flag);
+    SceneLoadCollisionData(this, data, &m_collStaticCount, &mp_collStatics, &m_collisionBlob, &m_collisionBox, flag);
     if (m_collStaticCount > 0) {
-        if (m_hasCollision) {
+        if (m_buildsCollisionGrid) {
             void* memory = MemSys::Alloc(sizeof(CCollGrid));
             CCollGrid* grid = nullptr;
             if (memory) {
@@ -301,7 +301,7 @@ bool CWorldScene::AddCollisionData(const uint8_t* data, int flag)
             uint32_t name = reinterpret_cast<CHitMesh*>(coll)->m_checksum;
             auto* sector = static_cast<CWorldCell*>(mp_sectors->FetchEntry(name));
             if (!sector) {
-                sector = NewSector(this);
+                sector = AllocSector(this);
                 sector->m_checksum = name;
                 sector->ChangeLive(true);
                 PutSector(this, sector);
@@ -321,7 +321,7 @@ bool CWorldScene::AddCollisionData(const uint8_t* data, int flag)
 // 0x0049DF70 (the original sprintfs into its 128 bytes unbounded)
 bool CWorldScene::LoadCollisionFile(const char* name, int flag)
 {
-    std::snprintf(m_pipName, sizeof(m_pipName), "levels\\%s\\%s%s.col.%s", name, name, "", PlatformExtension());
+    std::snprintf(m_pipName, sizeof(m_pipName), "levels\\%s\\%s%s.col.%s", name, name, "", PlatformSuffix());
     auto* data = static_cast<const uint8_t*>(Packs::ReadIn(m_pipName, false, nullptr, nullptr, nullptr));
     if (!data)
         return false;
@@ -407,7 +407,7 @@ bool CWorldScene::LoadAddScene(const char* name)
     Maths::BBox box;
     if (!mp_collStatics)
         return false;
-    std::snprintf(m_addPipName, sizeof(m_addPipName), "levels\\%s\\%s%s.col.%s", name, name, "", PlatformExtension());
+    std::snprintf(m_addPipName, sizeof(m_addPipName), "levels\\%s\\%s%s.col.%s", name, name, "", PlatformSuffix());
     // (the base's collision file, not the one just named - as the original)
     if (auto* data = static_cast<const uint8_t*>(Packs::ReadIn(m_pipName, false, nullptr, nullptr, nullptr)))
         SceneLoadCollisionData(this, data, &m_addCollStaticCount, &mp_addCollStatics, &mp_addCollObjects, &box, 0);
@@ -416,7 +416,7 @@ bool CWorldScene::LoadAddScene(const char* name)
             uint32_t sectionId = reinterpret_cast<CHitMesh*>(CollStaticAt(mp_addCollStatics, i))->m_checksum;
             auto* sector = static_cast<CWorldCell*>(mp_sectors->FetchEntry(sectionId));
             if (!sector) {
-                sector = NewSector(this);
+                sector = AllocSector(this);
                 sector->m_checksum = sectionId;
                 sector->ChangeLive(true);
                 sector->ChangeBits(kSectorAddToGrid);

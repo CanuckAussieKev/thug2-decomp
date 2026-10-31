@@ -110,6 +110,6 @@ void __cdecl SetFlag786EB4();
 void __cdecl ClearFlag786EB4();
 
 extern uint8_t g_billboardFlag;
-extern billboardSet g_billboardManager;
+extern billboardSet g_billboardPool;
 
 } // namespace Nx

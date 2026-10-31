@@ -186,7 +186,7 @@ const char* __cdecl GetScreenModeLabel()
 }
 
 // 0x005B6040
-const char* __cdecl GetPlatformExtension()
+const char* __cdecl FetchPlatformSuffix()
 {
     switch (Hardware()) {
     case 1:

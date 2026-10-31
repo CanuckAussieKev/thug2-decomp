@@ -44,8 +44,8 @@ void InvalidateContextObjects();
 // A picture for ImGui made from texels in memory (the new front end's loading screens): `rows` rows of `rowBytes`
 // bytes - 32-bit BGRA texels (A8R8G8B8), or rows of 4x4 DXT1 blocks. A managed texture (it survives a device reset);
 // 0 when it can't be made. ReleaseTexture frees it.
-enum class TextureFormat { Bgra32, Dxt1 };
-uint64_t CreateTexture(int width, int height, TextureFormat format, const void* data, int rowBytes, int rows);
+enum class PixelLayout { Bgra32, Dxt1 };
+uint64_t CreateTexture(int width, int height, PixelLayout format, const void* data, int rowBytes, int rows);
 void ReleaseTexture(uint64_t id);
 
 // An off-screen picture (the Add palette's preview, level_editor_preview.h): a square colour target of `size` pixels

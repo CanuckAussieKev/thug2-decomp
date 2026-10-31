@@ -53,10 +53,10 @@ void CParkLayout::GenerateNodeArray()
     for (int i = 0; i < 18; ++i) {
         // Round the middle of the park: player 1 and 2's restarts, four more, six of type 3, six of type 4.
         SCellBox pos = SCellBox::Make(0, 0, 0, 0, 0, 0);
-        pos = m_parkBounds;
-        pos.x = static_cast<uint8_t>(pos.x + (m_parkBounds.w >> 1));
+        pos = m_buildArea;
+        pos.x = static_cast<uint8_t>(pos.x + (m_buildArea.w >> 1));
         pos.y = 0;
-        pos.z = static_cast<uint8_t>(m_parkBounds.z + (m_parkBounds.l >> 1));
+        pos.z = static_cast<uint8_t>(m_buildArea.z + (m_buildArea.l >> 1));
         pos.w = 1;
         pos.h = 1;
         pos.l = 1;
@@ -107,8 +107,8 @@ void CParkLayout::GenerateNodeArray()
         }
         Maths::Vec4 point;
         point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kCellWidth) + kCellWidth * 0.5);
-        point.y = static_cast<float>(pos.y * static_cast<double>(kCellHeight));
-        point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kCellLength) + kCellLength * 0.5);
+        point.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
+        point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kGridStepAlong) + kGridStepAlong * 0.5);
         point.w = 1.0f;
         Feeler feeler;
         feeler.MakeNew();
@@ -122,7 +122,7 @@ void CParkLayout::GenerateNodeArray()
             if (i >= 2 && i <= 5)
                 point.y = feeler.m_contactPos.y;
             else
-                point.y = static_cast<float>(static_cast<double>(feeler.m_contactPos.y) + kCellHeight);
+                point.y = static_cast<float>(static_cast<double>(feeler.m_contactPos.y) + kGridStepUp);
         }
         m_builder->PlantRestartPoint(&point, 0, &pos, type, 1, flag);
         // (the feeler's destructor lets go of what it hit)
@@ -138,7 +138,7 @@ bool CParkLayout::CanChangeFloorHere(SCellBox area, bool uneven)
         MapListHolder metas(CollectPiecesInRegion(area));
         bool clear = true;
         for (CMapListNode* node = metas.list; node; node = node->m_following) {
-            if (!(node->GetPlacedPiece()->m_flagBits & CPieceGroup::kInnerShell)) {
+            if (!(node->GetPlacedPiece()->m_flagBits & CPieceGroup::kBuiltShell)) {
                 clear = false;
                 break;
             }
@@ -262,9 +262,9 @@ void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
     }
     // (outside the park's bounds, no top piece unless the floor is dug in)
     if (inPark) {
-        if (x < m_parkBounds.x || x >= m_parkBounds.x + m_parkBounds.w)
+        if (x < m_buildArea.x || x >= m_buildArea.x + m_buildArea.w)
             top = 0;
-        if (z < m_parkBounds.z || z >= m_parkBounds.z + m_parkBounds.l)
+        if (z < m_buildArea.z || z >= m_buildArea.z + m_buildArea.l)
             top = 0;
     }
 
@@ -275,7 +275,7 @@ void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
     for (CMapListNode* node = metas.list; node;) {
         CPieceGroup* meta = node->GetPlacedPiece();
         node = node->m_following;
-        if (!(meta->m_flagBits & CPieceGroup::kInnerShell))
+        if (!(meta->m_flagBits & CPieceGroup::kBuiltShell))
             continue;
         if (top && meta->m_nameKey == top && meta->m_cellFootprint.y == request->y) {
             top = 0;
@@ -296,8 +296,8 @@ void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
     }
     if (below) {
         CPieceGroup* meta = MakePlacedPiece(FindPieceTemplate(below), 0);
-        if (request->x < m_parkBounds.x || request->x >= m_parkBounds.x + m_parkBounds.w ||
-            request->z < m_parkBounds.z || request->z >= m_parkBounds.z + m_parkBounds.l)
+        if (request->x < m_buildArea.x || request->x >= m_buildArea.x + m_buildArea.w ||
+            request->z < m_buildArea.z || request->z >= m_buildArea.z + m_buildArea.l)
             meta->m_flagBits |= CPieceGroup::kRiserBelow | CPieceGroup::kFlag400;
         PlaceMetaPieceInPark(SCellBox::Make(static_cast<uint8_t>(request->x), static_cast<int8_t>(belowY),
                                           static_cast<uint8_t>(request->z), 0, 0, 0),
@@ -308,8 +308,8 @@ void CParkLayout::RebuildFloorPiece(FloorPieceRequest* request)
 // 0x0059BED0
 void CParkLayout::RebuildInnerShell(SCellBox bounds)
 {
-    m_parkBounds = bounds;
-    SCellBox& park = m_parkBounds;
+    m_buildArea = bounds;
+    SCellBox& park = m_buildArea;
     // The four strips round the park (where the walls go).
     m_blockedAreas[0].x = static_cast<uint8_t>(park.x - 1);
     m_blockedAreas[0].z = static_cast<uint8_t>(park.z - 1);
@@ -336,7 +336,7 @@ void CParkLayout::RebuildInnerShell(SCellBox bounds)
         bool destroy;
         if (flags & CPieceGroup::kFence)
             destroy = true;
-        else if ((flags & CPieceGroup::kInnerShell) || !(flags & CPieceGroup::kInPark))
+        else if ((flags & CPieceGroup::kBuiltShell) || !(flags & CPieceGroup::kInPark))
             destroy = false;
         else
             destroy = area.x < park.x || area.z < park.z || area.w + area.x > park.w + park.x ||
@@ -414,16 +414,16 @@ bool CParkLayout::RegenerateGround(SCellBox* area, int /*unused*/)
         // The inner shell's pieces outside the park go first.
         for (CMapListNode* node = mp_concrete_metas; node; node = node->m_following) {
             CPieceGroup* meta = node->GetPieceGroup();
-            if (!(meta->m_flagBits & CPieceGroup::kInnerShell))
+            if (!(meta->m_flagBits & CPieceGroup::kBuiltShell))
                 continue;
             SCellBox d = meta->m_cellFootprint;
-            if (d.x >= m_parkBounds.x && d.z >= m_parkBounds.z && d.w + d.x <= m_parkBounds.w + m_parkBounds.x &&
-                d.l + d.z <= m_parkBounds.l + m_parkBounds.z)
+            if (d.x >= m_buildArea.x && d.z >= m_buildArea.z && d.w + d.x <= m_buildArea.w + m_buildArea.x &&
+                d.l + d.z <= m_buildArea.l + m_buildArea.z)
                 continue;
             FreePlacedPiece(node->GetPlacedPiece(), 0);
         }
         m_builder->CleanUpOutRefs();
-        area = &m_parkBounds;
+        area = &m_buildArea;
     }
     // Every cell of the area and the ring round it.
     FloorCell* cells = &m_floor[0][0];

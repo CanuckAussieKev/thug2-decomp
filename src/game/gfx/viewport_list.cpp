@@ -13,7 +13,7 @@ CViewRegion* Viewport(int index) { return g_viewports[index]; }
 } // namespace
 
 // 0x004A06D0
-CViewRegion* __cdecl GetActiveViewport(int n)
+CViewRegion* __cdecl FetchCurrentView(int n)
 {
     const int* map = g_modeMap;
     int shown = 0;

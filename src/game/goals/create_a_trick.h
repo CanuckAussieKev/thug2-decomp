@@ -1,7 +1,7 @@
 #pragma once
 
 // Create-a-trick (0x00551CA0-0x005527BF): GoalSystem::CCreateATrick - one of the skater's created tricks (the CRider's
-// m_trickInfo slots, +0x17C): its other parameters, rotations and animations - and the script commands that read
+// m_trickSlots slots, +0x17C): its other parameters, rotations and animations - and the script commands that read
 // and write them and the editor's state on the skater (+0x1A8-+0x1BF).
 
 #include <cstddef>

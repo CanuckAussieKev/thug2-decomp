@@ -14,7 +14,7 @@
 
 namespace ParkEditing {
 
-CTopBarMenus* g_upperMenuManager;
+CTopBarMenus* g_topBarMenus;
 
 namespace {
 
@@ -178,7 +178,7 @@ void CTopBarMenus::SelectPieceFamily(CPieceFamily* set, int /*unused*/, int fami
         first = first + (count - last) - 1;
         last = count - 1;
     }
-    void* elements = MenuSystem::g_screenElementManager;
+    void* elements = MenuSystem::g_uiElementHub;
     MenuSystem::ElementPtr slider;
     FetchPart(elements, &slider, kPieceSlider);
     float x;

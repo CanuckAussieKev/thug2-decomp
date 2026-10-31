@@ -53,10 +53,10 @@ struct Payload {
     void DigitalAsStick();
     // 0x0044E900: the raw sticks kept at 0x12-0x15; then each stick axis within 50 of the centre centred, and a
     // raw stick only when both its axes are.
-    void HandleAnalogTolerance();
+    void ApplyDeadzoneRules();
     // 0x0044EA30: with no d-pad button down, the left stick works the d-pad: its direction's button bit and
     // pressure (the pressures as the original computes them: up's grows towards the centre).
-    void OverridePadWithStick();
+    void PadFollowsStick();
 };
 static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, m_buttons) == 0x1C && offsetof(Payload, m_previous) == 0x30);
 
@@ -66,27 +66,27 @@ struct HostEnd {
     uint8_t m_handlers[0x3C];    // +0x04: the handler list (TaskList::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
     Payload m_content;                 // +0x40
     PadFrameRecord* m_dataIn;      // +0x74: the recording played back (null: none)
-    PadFrameRecord* m_dataInEnd;   // +0x78
+    PadFrameRecord* m_inBufLimit;   // +0x78
     PadFrameRecord* m_dataOut;     // +0x7C: the recording made (null: none)
-    PadFrameRecord* m_dataOutEnd;  // +0x80
+    PadFrameRecord* m_outBufLimit;  // +0x80
 
     // 0x0044E9E0: the handler list and everything cleared (but m_dev, m_makes and m_breaks). Returns this.
     HostEnd* MakeNew();
     // 0x0044EAA0: a frame - the data from the recording played back (if any), else from the device (if it has
     // a pad: nothing at all when it has none), recorded if recording; the buttons noted for the device's index
     // (0x00696D48 / 50 / 58); then the handlers run.
-    void ServiceHandlers();
+    void PollInputSinks();
     // 0x0044E520: the destructor: the handler list destroyed (0x004070E0).
     void Destruct();
 };
-static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, m_content) == 0x40 && offsetof(HostEnd, m_dataOutEnd) == 0x80);
+static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, m_content) == 0x40 && offsetof(HostEnd, m_outBufLimit) == 0x80);
 
 struct Hub {
     enum { kNumServers = 2 };
 
     void* m_task;                     // TaskList::Task<Manager> (priority 2000) running the servers (0x0044E660)
     HostEnd m_hosts[kNumServers];    // +0x04
-    bool m_overridePadWithStick;      // +0x10C (0x0044E610 sets, 0x0044E620 gets)
+    bool m_stickReplacesPad;      // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool m_unknown10D;
     uint8_t pad10E[2];
     int m_unknown110[2];              // +0x110 (0x0044E630 / 0x0044E640 get and set them)
@@ -101,17 +101,17 @@ struct Hub {
     void StopRumble(int index);
     void EnableActuators(int index);
     // 0x0044E610 / 0x0044E620
-    void SetOverridePadWithStick(bool on) { m_overridePadWithStick = on; }
-    bool OverridePadWithStick() { return m_overridePadWithStick; }
+    void ChangePadFollowsStick(bool on) { m_stickReplacesPad = on; }
+    bool PadFollowsStick() { return m_stickReplacesPad; }
     // 0x0044E630 / 0x0044E640: m_unknown110[`player`] (the controller a player uses: Construct gives player 0
     // controller 0, player 1 none).
     int GetPlayerController(int player) { return m_unknown110[player]; }
     void SetPlayerController(int player, int controller) { m_unknown110[player] = controller; }
     // 0x0044E660: the task's code (`task` its TaskList::Task<Manager>: the manager at +0x1C): for each server, a
-    // recording played back or made that reached its end stops; then the server's frame (ServiceHandlers).
+    // recording played back or made that reached its end stops; then the server's frame (PollInputSinks).
     static void __cdecl ServiceTask(void* task);
 };
-static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, m_overridePadWithStick) == 0x10C);
+static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, m_stickReplacesPad) == 0x10C);
 
 // The singleton (0x00696D40, references 0x00696D44). 0x0044E7F0: the first call with `create` makes it, every
 // call takes a reference and returns it (null if there is none).

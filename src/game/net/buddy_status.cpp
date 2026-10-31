@@ -37,9 +37,9 @@ void** const kBuddySearchVtable = reinterpret_cast<void**>(kBuddySearchVtable_sl
 static VtableSlot kMessageSearchVtable_slots[] = {&OnlinePlay::BuddyMessageSearch::Teardown};
 void** const kMessageSearchVtable = reinterpret_cast<void**>(kMessageSearchVtable_slots);
 
-Hub* TheManager() { return g_gameNetManager; }
+Hub* TheManager() { return g_onlineHub; }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
-FriendsManager* Buddies() { return static_cast<FriendsManager*>(TheManager()->m_buddyMan); }
+FriendsManager* Buddies() { return static_cast<FriendsManager*>(TheManager()->m_presenceService); }
 
 void UnlinkNode(MemSys::ListNode* node)
 {
@@ -102,10 +102,10 @@ void FriendsManager::SendBuddyMessage(int profile, const char* text)
 }
 
 // 0x005482A0
-void FriendsManager::SetLoggedIn(int profile)
+void FriendsManager::ChangeOnlineFlag(int profile)
 {
     RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
-    m_loggedIn = true;
+    m_authenticated = true;
     m_account = profile;
     m_curPhase = 4;
     Scripts::LaunchScript("profile_logged_in", nullptr, nullptr, false);
@@ -185,7 +185,7 @@ bool __cdecl ProfileLoggedIn(Scripts::CStruct* params, Scripts::CScript* script)
 {
     (void)params;
     (void)script;
-    return Buddies()->m_loggedIn;
+    return Buddies()->m_authenticated;
 }
 
 // 0x00548370: the message `string` sent to `profile` (false for none or an empty one).
@@ -199,7 +199,7 @@ bool __cdecl SendBuddyMessage(Scripts::CStruct* params, Scripts::CScript* script
         return false;
     int profile;
     params->FetchIntValue("profile", &profile, 1);
-    static_cast<FriendsManager*>(manager->m_buddyMan)->SendBuddyMessage(profile, text);
+    static_cast<FriendsManager*>(manager->m_presenceService)->SendBuddyMessage(profile, text);
     return true;
 }
 
@@ -209,9 +209,9 @@ bool __cdecl SetLobbyStatus(Scripts::CStruct* params, Scripts::CScript* script)
     (void)params;
     (void)script;
     Hub* manager = TheManager();
-    const char* lobby = static_cast<RoomManager*>(manager->m_lobbyMan)->m_roomName; // (0x0053F820)
+    const char* lobby = static_cast<RoomManager*>(manager->m_lobbyService)->m_roomName; // (0x0053F820)
     const char* text = Scripts::FetchText("homie_status_chatting");
-    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_buddyMan);
+    FriendsManager* buddies = static_cast<FriendsManager*>(manager->m_presenceService);
     RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
     GameSpy::GpSetStatus(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
     RamStats()->LeaveHeapScope();

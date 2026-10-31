@@ -206,7 +206,7 @@ Spec Base(const Spec& flag)
     return base;
 }
 
-std::string FixedName(Kind kind, Team team)
+std::string PinnedNodeName(Kind kind, Team team)
 {
     if (kind == Kind::TeamSpawn)
         return std::string("TRG_CTF_Restart_") + TeamName(team);
@@ -516,7 +516,7 @@ std::vector<HiddenNode> g_hidden;
 LevelNodes::CNodeManager* Hub() { return LevelNodes::NodeManagerInstance(); }
 
 // The game's managers made at the level's load (null outside a level).
-bool HaveProxim() { return GameObjects::g_proximManager != nullptr; }
+bool HaveProxim() { return GameObjects::g_proximityHub != nullptr; }
 bool HaveEmitters() { return GameObjects::g_emitterTable != nullptr; }
 
 void AddLight(Scripts::CStruct* node) { Engine3D::CreateLightFromNode(node); }
@@ -540,7 +540,7 @@ void OnArrayRemoved(uint32_t name)
 
 Scripts::CStruct* Build(const Spec& spec)
 {
-    Scripts::CStruct* node = Scripts::NewStruct();
+    Scripts::CStruct* node = Scripts::SpawnParamBag();
     if (!node)
         return nullptr;
     node->PrepareAll();
@@ -815,7 +815,7 @@ const char* WhyNot(Kind kind, Team team)
         return "Not in a level";
     if (const char* limit = LimitMessage(kind, CountsNow()))
         return limit;
-    std::string fixed = FixedName(kind, team);
+    std::string fixed = PinnedNodeName(kind, team);
     if (!fixed.empty() && (NameTaken(fixed) || (kind == Kind::FlagSet && NameTaken(fixed + "_Base"))))
         return kind == Kind::FlagSet ? "This team flag already exists"
                                      : "This team spawn already exists";

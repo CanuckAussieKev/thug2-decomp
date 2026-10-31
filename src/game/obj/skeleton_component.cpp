@@ -50,7 +50,7 @@ constexpr uint32_t kMaxBoneSkipLod = 0xD3982061;    // max_bone_skip_lod
 constexpr float kInchesPerFoot = 12.0f;                   // 0x0064546C
 constexpr float kOneOverRandMax = 3.0518509447574615e-05f; // 0x00646510 (1 / 32767)
 constexpr float kTwoPi = 6.2831854820251465f;             // 0x0064545C
-constexpr float kDegreesToRadians = 0.01745329238474369f; // 0x00645464
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 
 // The renderer's skeleton (0x1C bytes; not rewritten yet): +0x00 flags, +0x08 its skeleton data (+0x04 the bone
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
@@ -134,7 +134,7 @@ CBoneRigModule* CBoneRigModule::Teardown(unsigned int flags)
 }
 
 // 0x00431C70
-void CBoneRigModule::InitSkeleton(uint32_t name)
+void CBoneRigModule::PrepareRig(uint32_t name)
 {
     void* asset = AssetStore::g_assetManager->GetAssetData(name, 0);
     void* memory = MemSys::Alloc(0x1C);
@@ -146,7 +146,7 @@ void CBoneRigModule::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t from = 0;
     if (params->ReadHashValue(kCopySkeletonFrom, &from, 0)) {
-        auto* other = reinterpret_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(from));
+        auto* other = reinterpret_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(from));
         auto* otherSkeleton = reinterpret_cast<CBoneRigModule*>(other->FetchModule(kType));
         void* memory = MemSys::Alloc(0x1C);
         m_boneRig = memory ? reinterpret_cast<uint8_t*>(static_cast<Gfx2D::CRig*>(memory)->ConstructCopy(
@@ -158,7 +158,7 @@ void CBoneRigModule::ConfigureFromData(Scripts::CStruct* params)
     uint32_t name = reinterpret_cast<uint32_t>(params);
     if (!params->ReadHashValue(kType, &name, 0))
         params->ReadHashValue(kSkeletonName, &name, 1);
-    InitSkeleton(name);
+    PrepareRig(name);
     int skip = 0;
     if (params->FetchIntValue(kMaxBoneSkipLod, &skip, 0) && m_boneRig)
         *reinterpret_cast<int*>(m_boneRig + 0x10) = skip;
@@ -284,7 +284,7 @@ void CBoneRigModule::SpawnCompositeObjectAtBone(uint32_t bone, Scripts::CArray* 
                                    carried.w + turned.w}); // vel
     m_entity->m_basisFrame.RotateVector(turned, *rotationalVelocity);
     params->PutVec3(0xFB1A83B2, ToValue(turned)); // rotvel
-    CompositeObjectManager()->SpawnEntityFromNode(components, params, true);
+    ObjectHubSlot()->SpawnEntityFromNode(components, params, true);
 }
 
 // 0x00431C00
@@ -360,7 +360,7 @@ bool CBoneRigModule::TextureSplat(Scripts::CStruct* params, Scripts::CScript* /*
     params->FetchFloat(0x78AAF97F, &angle, 0);
     uint32_t blend = 0x54628ED7; // blend
     params->ReadHashValue(0xDD6BB3D5, &blend, 0); // blendmode
-    angle = angle * kDegreesToRadians;
+    angle = angle * kRadiansPerDegree;
 
     // The texture: by name or by checksum, from name= or texture=.
     void* texture = nullptr;
@@ -439,7 +439,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CBoneRigModule::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

@@ -34,7 +34,7 @@ namespace {
 
 extern void** const kVtable;
 constexpr uint32_t kObjectProximity = 0x1D5B1AE6;
-constexpr float kFeetToInches = 12.0f; // 0x0064546C
+constexpr float kTwelveInchScale = 12.0f; // 0x0064546C
 
 // 0x0064B6F8 (bits 0x55CE224C, about 2.8e13): "no skater".
 float FarAway()
@@ -49,7 +49,7 @@ float FarAway()
 bool SetSquaredRadius(Scripts::CStruct* params, float& radius)
 {
     if (params->FetchFloat(0u, &radius, 0)) {
-        double inches = static_cast<double>(radius) * kFeetToInches;
+        double inches = static_cast<double>(radius) * kTwelveInchScale;
         radius = static_cast<float>(inches * inches);
     }
     return true;
@@ -143,7 +143,7 @@ void CObjectProximityComponent::TickFrame()
     bool dead;
     auto event = [this](uint32_t type, Scripts::CStruct* data) { m_entity->PostOwnEvent(type, data); };
     auto newData = []() {
-        Scripts::CStruct* data = Scripts::NewStruct();
+        Scripts::CStruct* data = Scripts::SpawnParamBag();
         return data ? data->PrepareAll() : nullptr;
     };
     auto deleteData = [](Scripts::CStruct* data) {
@@ -269,7 +269,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CObjectProximityComponent::Te
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

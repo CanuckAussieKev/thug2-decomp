@@ -291,7 +291,7 @@ std::string EmitOut(const FileLoad& file)
         Comment(out, lock.id);
     }
     for (const Triggers::Placed& t : file.triggers)
-        out << "trigger " << Triggers::LogEntry(t) << '\n';
+        out << "trigger " << Triggers::LinkRecord(t) << '\n';
     for (const Triggers::ProximEdit& p : file.proxims)
         out << "proxim " << Triggers::ProximRecord(p, Objects::NameOf(p.node)) << '\n';
     for (const SetRecord& s : file.nodes) {
@@ -326,7 +326,7 @@ std::string EmitOut(const FileLoad& file)
         out << Cameras::WriteRecord(c) << '\n';
     for (const Goals::Goal& g : file.goals)
         out << "goal " << Goals::WriteRecord(g) << '\n'; // (level_editor_goals.h)
-    for (const Links::LogEntry& r : file.links)
+    for (const Links::LinkRecord& r : file.links)
         out << Links::WriteRecord(r) << '\n'; // (UX7: linked copies)
     for (const std::string& line : file.extra)
         out << line << '\n';
@@ -659,7 +659,7 @@ int g_switchWait;
 // The network game (OnlinePlay::Hub 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool InNetGame()
 {
-    void* net = OnlinePlay::g_gameNetManager;
+    void* net = OnlinePlay::g_onlineHub;
     return net && static_cast<OnlinePlay::Hub*>(net)->InNetGame();
 }
 
@@ -747,7 +747,7 @@ bool Capture(FileLoad* file)
     if (Engine3D::CurrentLevel() == 0 || !scene)
         return false;
     *file = FileLoad{};
-    file->scene = Scenery::SceneName(scene);
+    file->scene = Scenery::WorldSceneKey(scene);
     file->sectors = Scenery::ChangedSectors();
     file->rails = Scenery::ChangedRails();
     // (a rail point the editor added: its `point` record has where it is now - not a `rail` offset)
@@ -804,7 +804,7 @@ bool Capture(FileLoad* file)
     }
     file->locks = Picking::Locks();
     file->walls = Walls::Changed();
-    for (const NodeEdit::LogEntry& node : NodeEdit::Changed()) {
+    for (const NodeEdit::LinkRecord& node : NodeEdit::Changed()) {
         if (NodeCreate::IsAdded(node.name))
             continue; // (its node record has its place)
         const NodeEdit::Values& v = node.values;
@@ -1091,9 +1091,9 @@ bool ReadIn(std::string* message)
         Log("level editor: %s", message->c_str());
         return false;
     }
-    std::string path = PathFor(Scenery::SceneName(scene));
+    std::string path = PathFor(Scenery::WorldSceneKey(scene));
     FileLoad file;
-    if (!ReadFor(path, Scenery::SceneName(scene), &file, message, "No saved layout for this level"))
+    if (!ReadFor(path, Scenery::WorldSceneKey(scene), &file, message, "No saved layout for this level"))
         return false;
     *message = "Layout loaded: " + Apply(file);
     Log("level editor: %s - %s", message->c_str(), path.c_str());
@@ -1149,7 +1149,7 @@ bool AutosaveOffered()
     uint8_t* scene = Scenery::MainScene();
     if (Engine3D::CurrentLevel() == 0 || !scene || g_autosaveOurs || Refused())
         return false;
-    uint32_t name = Scenery::SceneName(scene);
+    uint32_t name = Scenery::WorldSceneKey(scene);
     uint64_t autosaveTime = 0, savedTime = 0;
     bool haveAutosave = WriteTime(AutosavePathFor(name), &autosaveTime);
     bool haveSaved = WriteTime(PathFor(name), &savedTime);
@@ -1167,7 +1167,7 @@ bool RestoreAutosave(std::string* message)
         *message = "Not in a level";
         return false;
     }
-    uint32_t name = Scenery::SceneName(scene);
+    uint32_t name = Scenery::WorldSceneKey(scene);
     std::string path = AutosavePathFor(name);
     FileLoad file;
     if (!ReadFor(path, name, &file, message, "No autosave for this level"))
@@ -1187,7 +1187,7 @@ bool DiscardAutosave(std::string* message)
         *message = "Not in a level";
         return false;
     }
-    std::string path = AutosavePathFor(Scenery::SceneName(scene));
+    std::string path = AutosavePathFor(Scenery::WorldSceneKey(scene));
     g_offerPending = false;
     if (!DeleteFileA(path.c_str())) {
         *message = "No autosave to discard";
@@ -1472,7 +1472,7 @@ void PanelMessage(const char* text)
     static const uint32_t kScript = Checksums::HashFromText("create_panel_message");
     if (!text || !*text || Engine3D::CurrentLevel() == 0 || !Scripts::ScriptExists(kScript))
         return;
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->AppendWord(Checksums::HashFromText("text"), text);
     params->PutNameKey(Checksums::HashFromText("id"), Checksums::HashFromText("level_editor_refused_message"));
     params->InsertPair(Checksums::HashFromText("pos"), 320.0f, 70.0f);
@@ -1488,7 +1488,7 @@ bool HasSavedLayout()
 {
     uint8_t* scene = Scenery::MainScene();
     uint64_t time = 0;
-    return Engine3D::CurrentLevel() != 0 && scene && WriteTime(PathFor(Scenery::SceneName(scene)), &time);
+    return Engine3D::CurrentLevel() != 0 && scene && WriteTime(PathFor(Scenery::WorldSceneKey(scene)), &time);
 }
 
 std::string LevelTitle()
@@ -1499,7 +1499,7 @@ std::string LevelTitle()
     // (the symbols walked once a level: the toolbar asks every frame)
     static uint32_t cachedLoad = 0, cachedScene = 0;
     static std::string cached;
-    uint32_t load = CurrentLoad(), scene = Scenery::SceneName(Scenery::MainScene());
+    uint32_t load = CurrentLoad(), scene = Scenery::WorldSceneKey(Scenery::MainScene());
     if (load != cachedLoad || scene != cachedScene || cached.empty()) {
         cachedLoad = load;
         cachedScene = scene;
@@ -1585,7 +1585,7 @@ bool PutBack(const std::string& before, std::string* message)
     FileLoad file;
     int line = 0;
     uint8_t* scene = Scenery::MainScene();
-    if (Engine3D::CurrentLevel() == 0 || !scene || !TakeIn(before, &file, &line) || file.scene != Scenery::SceneName(scene)) {
+    if (Engine3D::CurrentLevel() == 0 || !scene || !TakeIn(before, &file, &line) || file.scene != Scenery::WorldSceneKey(scene)) {
         *message = "Couldn't restore the changes";
         return false;
     }
@@ -1672,7 +1672,7 @@ bool __cdecl CFunc_EditedLevels(Scripts::CStruct*, Scripts::CScript* script)
             std::string named;
             if (SavedProps(level->second.scene, &props))
                 named = props.name;
-            Scripts::CStruct* copy = Scripts::NewStruct()->PrepareAll();
+            Scripts::CStruct* copy = Scripts::SpawnParamBag()->PrepareAll();
             copy->MergeStructure(entry);
             for (const char* flag : kDropped)
                 copy->RemoveFlag(Checksums::HashFromText(flag));

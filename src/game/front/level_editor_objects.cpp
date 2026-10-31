@@ -29,9 +29,9 @@
 namespace MenuSystem::LevelEditor::Objects {
 namespace {
 
-constexpr uint32_t kModelComponent = 0x286A8D26;
+constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters aren't picked)
-constexpr uint32_t kCameraComponent = 0xC4E311FA;      // camera (camera objects aren't either)
+constexpr uint32_t kCamModuleName = 0xC4E311FA;      // camera (camera objects aren't either)
 constexpr uint32_t kClass = 0x12B4E660;                // Class
 constexpr uint32_t kName = 0xA1DC81F9;                 // Name
 constexpr uint32_t kPos = 0x7F261953;                  // Pos
@@ -159,7 +159,7 @@ void __cdecl CountOne(GameObjects::CEntity* object, void* data)
     OrientedBox box;
     if (!ModelBox(composite, &box)) {
         if (census->objects <= 80) {
-            GameObjects::CObjectModule* component = composite->FetchModule(kModelComponent);
+            GameObjects::CObjectModule* component = composite->FetchModule(kModelModuleName);
             uint8_t* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208)
                                        : nullptr;
             Log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
@@ -179,7 +179,7 @@ void __cdecl CountOne(GameObjects::CEntity* object, void* data)
 // level object for SetObjectColor).
 void* ModelGeometry(GameObjects::CGameEntity* object, int index)
 {
-    GameObjects::CObjectModule* component = object->FetchModule(kModelComponent);
+    GameObjects::CObjectModule* component = object->FetchModule(kModelModuleName);
     auto* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
     return model ? reinterpret_cast<Engine3D::CRenderModel*>(model)->FetchGeom(index) : nullptr;
 }
@@ -216,9 +216,9 @@ bool ModelBox(GameObjects::CGameEntity* object, OrientedBox* out)
         return false;
     if (object->m_objectFlags & GameObjects::OBJECT_FLAG_DEAD)
         return false;
-    if (object->FetchModule(kSkaterPhysicsControl) || object->FetchModule(kCameraComponent))
+    if (object->FetchModule(kSkaterPhysicsControl) || object->FetchModule(kCamModuleName))
         return false;
-    GameObjects::CObjectModule* component = object->FetchModule(kModelComponent);
+    GameObjects::CObjectModule* component = object->FetchModule(kModelModuleName);
     if (!component)
         return false;
     auto* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
@@ -272,7 +272,7 @@ bool ModelBox(GameObjects::CGameEntity* object, OrientedBox* out)
 GameObjects::CGameEntity* Pick(V3 origin, V3 dir, float maxT, float* t)
 {
     *t = maxT;
-    GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager();
+    GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot();
     if (!manager)
         return nullptr;
     PickWalk walk = {origin, MakeUnit(dir), maxT, nullptr, nullptr};
@@ -284,7 +284,7 @@ GameObjects::CGameEntity* Pick(V3 origin, V3 dir, float maxT, float* t)
 std::vector<std::pair<GameObjects::CGameEntity*, float>> PickAll(V3 origin, V3 dir, float maxT)
 {
     std::vector<std::pair<GameObjects::CGameEntity*, float>> all;
-    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager()) {
+    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot()) {
         PickWalk walk = {origin, MakeUnit(dir), maxT, nullptr, &all};
         manager->ForEach(PickOne, &walk);
     }
@@ -295,7 +295,7 @@ std::vector<std::pair<GameObjects::CGameEntity*, float>> PickAll(V3 origin, V3 d
 void LogCensus()
 {
     Census census = {};
-    if (GameObjects::CEntityHub* manager = GameObjects::CompositeObjectManager())
+    if (GameObjects::CEntityHub* manager = GameObjects::ObjectHubSlot())
         manager->ForEach(CountOne, &census);
     Log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }
@@ -446,7 +446,7 @@ GameObjects::CGameEntity* MakeCopy(uint32_t source, V3 pos, uint32_t name)
         Scripts::NoteQbName(name, (Caption(source) + " copy").c_str());
     // The node's structure copied, named and placed anew, made a node (AddCopyNode), then created from it as the
     // level's objects are (CreateFromStructure's 0x005A2E50).
-    Scripts::CStruct* copy = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* copy = Scripts::SpawnParamBag()->PrepareAll();
     copy->MergeStructure(node);
     copy->EraseModule(kName);
     copy->PutNameKey(kName, name);

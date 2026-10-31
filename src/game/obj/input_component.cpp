@@ -68,7 +68,7 @@ constexpr uint32_t kOn = 0xF649D637;                        // on
 constexpr uint32_t kKeyboardAnchor = 0x31631B98;            // keyboard_anchor
 constexpr float kMilliseconds = 1000.0f;            // 0x006453C0
 constexpr float kFrameMilliseconds = 16.6666660f;   // 0x006460DC (0x41855555)
-constexpr float kRadiansToDegrees = 57.2957764f;    // 0x00645468 (0x42652EE0)
+constexpr float kDegreesPerRadian = 57.2957764f;    // 0x00645468 (0x42652EE0)
 constexpr double kTwoTo32 = 4294967296.0;           // 0x006453B4
 
 // The pad events: a button's pressure index in the controller data, its event bit, its events down / up and the
@@ -268,12 +268,12 @@ void CPadInputModule::UpdatePad2(const uint8_t* data)
 // 0x0041EF20
 bool CPadInputModule::IsInputBlocked()
 {
-    if (!g_gameNetManager->InNetGame())
+    if (!g_onlineHub->InNetGame())
         return false;
     if (FindElement(kControllerUnpluggedDialog))
         return true;
     if (MenuSystem::CUiWidget* root = FindElement(kRootWindow)) {
-        Scripts::CStruct* tags = Scripts::NewStruct();
+        Scripts::CStruct* tags = Scripts::SpawnParamBag();
         if (tags)
             tags = tags->PrepareAll();
         root->CopyTagsTo(tags);
@@ -416,10 +416,10 @@ int CPadInputModule::DownPressed(Scripts::CStruct*, Scripts::CScript*) { return 
 // 0x0041EA60
 int CPadInputModule::GetSticks(Scripts::CStruct*, Scripts::CScript* script)
 {
-    script->m_args->PushFloat(0x737F15CF, m_padPrimary.m_polar[1].angle * kRadiansToDegrees);
+    script->m_args->PushFloat(0x737F15CF, m_padPrimary.m_polar[1].angle * kDegreesPerRadian);
     script->m_args->PushFloat(0x686AD1C2,
                                static_cast<float>(StickLength(m_padPrimary.m_stick[2], m_padPrimary.m_stick[3], m_padPrimary.m_polar[1].angle)));
-    script->m_args->PushFloat(0xD6030CEA, m_padPrimary.m_polar[0].angle * kRadiansToDegrees);
+    script->m_args->PushFloat(0xD6030CEA, m_padPrimary.m_polar[0].angle * kDegreesPerRadian);
     script->m_args->PushFloat(0xC94777AC,
                                static_cast<float>(StickLength(m_padPrimary.m_stick[0], m_padPrimary.m_stick[1], m_padPrimary.m_polar[0].angle)));
     return 1;
@@ -461,7 +461,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CPadInputModule::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

@@ -55,7 +55,7 @@ public:
     uint8_t* m_input;              // +0x10 input (+0x20 its control data)
     uint8_t m_unknown14[0x10];
     float m_clock;                  // +0x24
-    float m_railTime;              // +0x28
+    float m_onRailSeconds;              // +0x28
     float m_bestTime;              // +0x2C
     float m_lean;                  // +0x30
     float m_leanSpeed;             // +0x34

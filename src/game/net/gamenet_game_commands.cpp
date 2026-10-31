@@ -65,11 +65,11 @@ constexpr uint8_t kMsgTeamGame = 0x7A;
 constexpr uint32_t kFlagsServer = 1;   // the manager's flags
 constexpr uint32_t kFlagsInternet = 4;
 constexpr uint32_t kPlayerFlags = 0x1D0;
-constexpr uint32_t kPlayerProfile = 0x28; // PlayerRecord: the GameSpy profile id
+constexpr uint32_t kProfileIdField = 0x28; // PlayerRecord: the GameSpy profile id
 constexpr uint32_t kRemoveMark = 0x400;   // a player's flags: being removed (its options dialog is up)
 
 constexpr uint32_t kGameStartTask = 0xE8;  // TaskList::SchedulerTask*
-constexpr uint32_t kChangeLevelTask = 0xEC;
+constexpr uint32_t kLevelSwitchJob = 0xEC;
 constexpr uint32_t kCrownSpawn = 0x68;     // int
 constexpr uint32_t kCrown = 0x6C;          // GameObjects::CCrownObject*
 
@@ -111,7 +111,7 @@ constexpr int kPlayerMenuIdBase = 123456;  // the menu items' ids: this plus the
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
-Hub* NetLink() { return g_gameNetManager; }
+Hub* NetLink() { return g_onlineHub; }
 TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 4); }
 
 uint32_t g_lastTeamRequest;
@@ -141,7 +141,7 @@ void InitDesc(NetLink::NetMessageInfo& desc, uint8_t id)
 {
     desc.MakeNew();
     desc.m_ident = id;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
 }
 
@@ -149,7 +149,7 @@ void InitDesc(NetLink::NetMessageInfo& desc, uint8_t id)
 // game is on / off (once, as `on` changes).
 void ReportGameState(Hub* manager, bool on)
 {
-    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyMan);
+    auto* lobby = static_cast<RoomManager*>(manager->m_lobbyService);
     void* peer = lobby->GetLobbyHandle();
     if (peer && GameSpy::PeerIsConnected(peer) && lobby->IsHosting())
         GameSpy::PeerStateChanged(peer);
@@ -158,15 +158,15 @@ void ReportGameState(Hub* manager, bool on)
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (g_netEnabled && g_gameNetManager->InNetGame() &&
+    if (g_onlineActive && g_onlineHub->InNetGame() &&
         g_queryReporting)
         GameSpy::Qr2SendStateChanged(nullptr);
 }
 
 // The GameSpy presence (+0x18): logged in (its flag at +0x10, through the getter folded at 0x005480B0), `profile` a
 // buddy (0x00549CB0).
-bool LoggedIn(Hub* manager) { return static_cast<FoldedGetters*>(manager->m_buddyMan)->Byte10(); }
-bool IsBuddy(Hub* manager, int profile) { return static_cast<FriendsManager*>(manager->m_buddyMan)->IsBuddy(profile); }
+bool MarkFriendOnline(Hub* manager) { return static_cast<FoldedGetters*>(manager->m_presenceService)->Byte10(); }
+bool IsBuddy(Hub* manager, int profile) { return static_cast<FriendsManager*>(manager->m_presenceService)->IsBuddy(profile); }
 
 } // namespace
 
@@ -212,7 +212,7 @@ bool __cdecl CFunc_SpawnCrown(CStruct*, CScript*)
     CStruct* node = nodes[spawn % count]; // (no node of the type divides by zero, as in the original)
     Maths::Vec4 position;
     LevelNodes::FetchPlace(node, &position);
-    Prop<GameObjects::CCrownObject*>(manager, kCrown)->InitFromNode(GameObjects::g_compositeObjectManager,
+    Prop<GameObjects::CCrownObject*>(manager, kCrown)->InitFromNode(GameObjects::g_compositeRegistry,
                                                              node);
     if (auto* king = static_cast<uint8_t*>(manager->GetHillRuler()))
         Prop<GameObjects::CCrownObject*>(manager, kCrown)->PutOn(reinterpret_cast<GameObjects::CGameEntity*>(PlayerSkater(king)));
@@ -228,9 +228,9 @@ bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
     TaskList::PileUp* tasks = LogicTasks();
     ReportGameState(manager, true);
     if (Prop<TaskList::SchedulerTask*>(manager, kGameStartTask)->IsOnTaskList() ||
-        Prop<TaskList::SchedulerTask*>(manager, kChangeLevelTask)->IsOnTaskList())
+        Prop<TaskList::SchedulerTask*>(manager, kLevelSwitchJob)->IsOnTaskList())
         return true;
-    manager->m_gamePending = true;
+    manager->m_matchBeingSetUp = true;
     if (!manager->InNetGame())
         NetGameStartTime() = FrameClock::GetTime();
     else if (manager->GetGameTypePreference() == kNetGoalAttack)
@@ -271,7 +271,7 @@ bool __cdecl CFunc_StartNetworkGame(CStruct*, CScript*)
         std::memset(end, 0, 4);
         desc.m_content = buffer;
         desc.m_ident = kMsgSelectedGoals;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         desc.m_byteCount = static_cast<uint16_t>(static_cast<uint16_t>(end - buffer) + 4);
         SendToPlayers(manager, server, &desc, Recipients::kRemote);
@@ -303,7 +303,7 @@ bool __cdecl CFunc_EndNetworkGame(CStruct*, CScript*)
         NetLink::AppHost* server = manager->m_host;
         Run(kDoBackendRetry);
         desc.m_ident = kMsgGameEnded;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         SendToPlayers(manager, server, &desc, Recipients::kRemote);
     } else {
@@ -341,7 +341,7 @@ bool __cdecl CFunc_SetNumTeams(CStruct* params, CScript*)
         request.m_content = &count;
         request.m_byteCount = 1;
         request.m_ident = kMsgNumTeamsRequest;
-        request.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        request.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         request.m_groupId = kGroupGame;
         SendToServer(manager->m_clientApp, &request);
         return true;
@@ -362,14 +362,14 @@ bool __cdecl CFunc_SetNumTeams(CStruct* params, CScript*)
     desc.m_content = &count;
     desc.m_byteCount = 1;
     desc.m_ident = kMsgNumTeams;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     SendToPlayers(manager, server, &desc, Recipients::kRemote);
     uint8_t change[2];
     desc.m_content = change;
     desc.m_byteCount = 2;
     desc.m_ident = kMsgTeamChange;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     desc.m_groupId = kGroupGame;
     for (auto* player = static_cast<uint8_t*>(manager->BeginPlayerWalk(&search, false)); player;
          player = static_cast<uint8_t*>(manager->StepPlayerWalk(&search, false))) {
@@ -404,7 +404,7 @@ bool __cdecl CFunc_JoinTeam(CStruct* params, CScript*)
         desc.m_content = request;
         desc.m_byteCount = 2;
         desc.m_ident = kMsgJoinTeamRequest;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupGame;
         SendToServer(client, &desc);
     }
@@ -462,11 +462,11 @@ bool __cdecl CFunc_CreatePlayerOptions(CStruct* params, CScript*)
         return true;
     Prop<uint32_t>(player, kPlayerFlags) |= kRemoveMark;
     CStruct* dialog = NewParams();
-    int profile = Prop<int>(player, kPlayerProfile);
-    if ((manager->m_flagBits & kFlagsInternet) && profile && LoggedIn(manager)) {
-        dialog->PutInt(kProfile, Prop<int>(player, kPlayerProfile));
+    int profile = Prop<int>(player, kProfileIdField);
+    if ((manager->m_flagBits & kFlagsInternet) && profile && MarkFriendOnline(manager)) {
+        dialog->PutInt(kProfile, Prop<int>(player, kProfileIdField));
         dialog->AppendWord(kNick, PlayerName(player));
-        dialog->PutNameKey(0u, IsBuddy(manager, Prop<int>(player, kPlayerProfile)) ? kAllowRemoveHomie : kAllowAddHomie);
+        dialog->PutNameKey(0u, IsBuddy(manager, Prop<int>(player, kProfileIdField)) ? kAllowRemoveHomie : kAllowAddHomie);
     }
     dialog->AppendWord(kName, Scripts::QBVAL_STRING, name);
     Run(kCreatePlayerOptionsDialog, dialog);
@@ -495,9 +495,9 @@ bool __cdecl CFunc_FillPlayerListMenu(CStruct*, CScript*)
         Scripts::CArray* rgba = arrayMemory ? arrayMemory->PrepareAll() : nullptr;
         rgba->ConfigureSizeKind(4, Scripts::QBVAL_INTEGER);
         uint32_t blue;
-        int profile = Prop<int>(player, kPlayerProfile);
-        if (profile && LoggedIn(manager)) {
-            if (IsBuddy(manager, Prop<int>(player, kPlayerProfile))) {
+        int profile = Prop<int>(player, kProfileIdField);
+        if (profile && MarkFriendOnline(manager)) {
+            if (IsBuddy(manager, Prop<int>(player, kProfileIdField))) {
                 rgba->SetElement(0, 0x80);
                 rgba->SetElement(1, 0x80);
             } else {

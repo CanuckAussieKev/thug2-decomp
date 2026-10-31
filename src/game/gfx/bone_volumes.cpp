@@ -32,10 +32,10 @@ constexpr float kDefaultRadius = 3.0f;              // 0x40400000
 // The shared sets, by bone count.
 ListKit::KeyMap g_boneVolumeTable{ListKit::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 ListKit::KeyMap& Table() { return g_boneVolumeTable; }
-Maths::Vec4 g_bonePositions[64]; // each bone's world position as TestLine found it
+Maths::Vec4 g_boneWorldPos[64]; // each bone's world position as SegmentHitsBone found it
 
-// Each bone's world position as TestLine found it (64 of them).
-Maths::Vec4* BonePositions() { return g_bonePositions; }
+// Each bone's world position as SegmentHitsBone found it (64 of them).
+Maths::Vec4* JointPointArray() { return g_boneWorldPos; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void Multiply(Maths::Mat4* out, const Maths::Mat4* a, const Maths::Mat4* b)
@@ -166,7 +166,7 @@ void CBoneVolumes::Fill(CRigData* data)
 }
 
 // 0x0048B580
-uint32_t CBoneVolumes::TestLine(const Maths::Seg* segment, CRig* skeleton, const Maths::Mat4* world, uint32_t bone,
+uint32_t CBoneVolumes::SegmentHitsBone(const Maths::Seg* segment, CRig* skeleton, const Maths::Mat4* world, uint32_t bone,
                                 float scale, float extraRadius, float* distance, float* t)
 {
     CRigData* data = skeleton->m_payload;
@@ -192,7 +192,7 @@ uint32_t CBoneVolumes::TestLine(const Maths::Seg* segment, CRig* skeleton, const
     float nearest = 0.0f;
     float nearestT = 0.0f;
     uint32_t hit = 0;
-    Maths::Vec4* positions = BonePositions();
+    Maths::Vec4* positions = JointPointArray();
     for (int i = 0; i < skeleton->GetNumBones(); ++i) {
         CJoint* boneState = skeleton->GetBone(i);
         Maths::Mat4 at;

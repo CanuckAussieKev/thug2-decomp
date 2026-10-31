@@ -144,7 +144,7 @@ bool ParseRef(const std::string& text, bool member, bool scenery, RefTo* ref)
 
 } // namespace
 
-std::string WriteRecord(const LogEntry& record)
+std::string WriteRecord(const LinkRecord& record)
 {
     std::string out = "link ";
     out += record.scenery ? "sector " : "object ";
@@ -158,9 +158,9 @@ std::string WriteRecord(const LogEntry& record)
     return out;
 }
 
-bool ReadRecord(std::istringstream& in, LogEntry* record)
+bool ReadRecord(std::istringstream& in, LinkRecord* record)
 {
-    *record = LogEntry{};
+    *record = LinkRecord{};
     std::string kind, source, members;
     if (!(in >> kind >> source >> members))
         return false;
@@ -456,9 +456,9 @@ void Tick()
     }
 }
 
-std::vector<LogEntry> Capture(const std::vector<uint32_t>& clones)
+std::vector<LinkRecord> Capture(const std::vector<uint32_t>& clones)
 {
-    std::vector<LogEntry> out;
+    std::vector<LinkRecord> out;
     auto refOf = [&](uint32_t id, bool scenery, RefTo* ref) {
         *ref = RefTo{};
         if (!scenery) {
@@ -476,7 +476,7 @@ std::vector<LogEntry> Capture(const std::vector<uint32_t>& clones)
         return !Scenery::Hidden(id);
     };
     for (const GroupSet& group : g_state) {
-        LogEntry record;
+        LinkRecord record;
         record.scenery = group.scenery;
         if (!refOf(group.source, group.scenery, &record.source))
             continue;
@@ -493,7 +493,7 @@ std::vector<LogEntry> Capture(const std::vector<uint32_t>& clones)
     return out;
 }
 
-int Apply(const std::vector<LogEntry>& records, const std::vector<uint32_t>& made)
+int Apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t>& made)
 {
     auto resolve = [&](const RefTo& ref) -> uint32_t {
         if (ref.clone < 0)
@@ -501,7 +501,7 @@ int Apply(const std::vector<LogEntry>& records, const std::vector<uint32_t>& mad
         return ref.clone < static_cast<int>(made.size()) ? made[ref.clone] : 0;
     };
     int groups = 0;
-    for (const LogEntry& record : records) {
+    for (const LinkRecord& record : records) {
         uint32_t source = resolve(record.source);
         if (!source)
             continue;

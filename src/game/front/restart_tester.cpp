@@ -89,7 +89,7 @@ std::vector<Relaunch> LevelRestarts()
 // (A text element has no line breaks: a second line is a second message.)
 void Message(const char* text, const char* id = "restart_tester_message", float y = 70.0f)
 {
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->AppendWord(NameHash("text"), text);
     params->PutNameKey(NameHash("id"), NameHash(id));
     params->InsertPair(NameHash("pos"), 320.0f, y);
@@ -126,7 +126,7 @@ void Next()
         if (s_visited.count(r.name))
             continue;
         s_visited.insert(r.name);
-        Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+        Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
         params->PutNameKey(NameHash("node_name"), r.name);
         Scripts::LaunchScript(NameHash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->Clear();

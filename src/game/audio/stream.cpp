@@ -41,7 +41,7 @@ uint32_t& WadEntryCount() { return g_wadEntryCount; }
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
 OVERLAPPED g_overlapped[256];
 OVERLAPPED* Overlapped() { return g_overlapped; }
-constexpr int kNumOverlapped = 256;
+constexpr int kOverlapSlots = 256;
 int& NextOverlapped() { return g_nextOverlapped; }
 
 // The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
@@ -91,12 +91,12 @@ bool Over(const StreamSlot& slot)
     return false;
 }
 
-bool PreloadDone(const StreamSlot& slot)
+bool PrefetchComplete(const StreamSlot& slot)
 {
     if (slot.wad)
-        return slot.wad->PreloadDone();
+        return slot.wad->PrefetchComplete();
     if (slot.bink)
-        return slot.bink->PreloadDone();
+        return slot.bink->PrefetchComplete();
     return true;
 }
 
@@ -204,7 +204,7 @@ _OVERLAPPED* __cdecl NewOverlapped()
         // (loops for ever if all 256 are in use)
         OVERLAPPED* overlapped = &Overlapped()[NextOverlapped()];
         int next = NextOverlapped() + 1;
-        NextOverlapped() = next >= kNumOverlapped ? 0 : next;
+        NextOverlapped() = next >= kOverlapSlots ? 0 : next;
         if (UsesOverlapped(MusicSlot(), overlapped))
             continue;
         bool used = false;
@@ -313,13 +313,13 @@ int __cdecl StreamStatus(int slot)
 // 0x00453220
 bool __cdecl MusicPreloadDone()
 {
-    return PreloadDone(MusicSlot());
+    return PrefetchComplete(MusicSlot());
 }
 
 // 0x004531D0
 bool __cdecl StreamPreloadDone(int slot)
 {
-    return PreloadDone(StreamSlots()[slot]);
+    return PrefetchComplete(StreamSlots()[slot]);
 }
 
 // 0x004532C0

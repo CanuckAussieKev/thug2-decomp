@@ -54,7 +54,7 @@ int& ScriptWarningLevel();
 // as text - integers ("%d"; integer_width: "%0*d"; UseCommas: with the language's thousands separators), floats
 // (decimalplaces, default 3), strings, pairs and vectors ("(%.3f,%.3f[,%.3f])"), names (their text - the result
 // is then 2); "\%" is a literal '%'. The text goes to a shared buffer (0x00696940) and, as textname=<name> and
-// ChecksumName=<name> (its checksum), into `results`. Returns 0 with no format or a missing parameter (printed),
+// HashedLabel=<name> (its checksum), into `results`. Returns 0 with no format or a missing parameter (printed),
 // else 1 (2 if a name was written).
 int FormatText(Scripts::CStruct* results, Scripts::CStruct* params);
 // FormatText's text buffer (0x00696940; its end, 0x00696D2C, isn't checked).

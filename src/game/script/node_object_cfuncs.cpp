@@ -176,7 +176,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
         }
     }
     auto* camera = static_cast<GameObjects::CGameEntity*>(
-        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(kViewerCameraObject));
+        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->LookUpEntity(kViewerCameraObject));
     if (!camera)
         return;
     const Maths::Vec4& lo = box.min;
@@ -200,7 +200,7 @@ void __cdecl FitViewerCamera(uint8_t* scene, float scale, float angleX, float an
         for (int column = 0; column < 4; ++column)
             r[column] = row == column ? 1.0f : 0.0f;
     }
-    const double toRadians = g_degreesToRadians;
+    const double toRadians = g_degreeToRadianRatio;
     auto turn = [&](Maths::Mat4& (*create)(Maths::Mat4&, float), float degrees) {
         Maths::Mat4 rotation;
         create(rotation, static_cast<float>(degrees * toRadians));
@@ -385,7 +385,7 @@ bool __cdecl KillFromNodeName(uint32_t name, Scripts::CScript* script)
             uint32_t id;
             GameObjects::CEntity* object;
         } data = {name, script->m_entity.Pull()};
-        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->ForEach(&DestroyObjectWithId, &data);
+        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->ForEach(&DestroyObjectWithId, &data);
         return true;
     }
     case kClassClimbingNode:
@@ -430,7 +430,7 @@ bool __cdecl CFunc_CreateFromStructure(Scripts::CStruct* params, Scripts::CScrip
 namespace {
 
 constexpr uint32_t kCreatedAtStart = 0x7C2552B9;  // (name unknown) a node's object made when the level starts
-constexpr uint32_t kTerrainType = 0x7E4813A7;     // (name unknown) a level sector's terrain
+constexpr uint32_t kSurfaceKindKey = 0x7E4813A7;     // (name unknown) a level sector's terrain
 constexpr uint32_t kDefaultTerrain = 0xE3714DC1;  // (name unknown) ... when none is given
 constexpr uint32_t kTrickObject = 0x1645B830;     // (name unknown) a node that is a trick object
 constexpr uint32_t kCluster = 0x1A3A966B;         // (name unknown) its cluster (its own name if none)
@@ -443,7 +443,7 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // CParkBuilderMode::kStateOff
 // The sector named `name` in any scene (0x0048C510; null if none).
 uint8_t* FindSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
 bool ParkEditorOff() { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor) + 0x40) == kParkEditorOff; }
-GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickObjectManager; }
+GameObjects::CTrickSpotHub* TrickObjects() { return GameObjects::g_trickSpotHub; }
 
 } // namespace
 
@@ -488,7 +488,7 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
             if (uint8_t* sector = FindSector(name)) {
                 ChangeLive(sector, false);
                 uint32_t terrain = kDefaultTerrain;
-                node->ReadHashValue(kTerrainType, &terrain, 0);
+                node->ReadHashValue(kSurfaceKindKey, &terrain, 0);
                 *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
             }
         } else if (nodeClass == kClassLevelGeometry) {
@@ -517,7 +517,7 @@ bool __cdecl CFunc_ParseNodeArray(Scripts::CStruct* params, Scripts::CScript*)
                         MarkAsOccluder(name, 0);
                 }
                 uint32_t terrain = kDefaultTerrain;
-                node->ReadHashValue(kTerrainType, &terrain, 0);
+                node->ReadHashValue(kSurfaceKindKey, &terrain, 0);
                 *reinterpret_cast<uint32_t*>(sector + 0xC) = terrain;
             } else {
                 uint32_t cloneFrom = 0;
@@ -589,18 +589,18 @@ bool __cdecl CFunc_ReLoadNodeArray(Scripts::CStruct*, Scripts::CScript* script)
 {
     MemManager()->EnterHeapScope(reinterpret_cast<MemSys::MemSource*>(MemManager()->m_debugHeap));
     LevelNodes::CNodeManager* nodeManager = LevelNodes::NodeManagerInstance();
-    const char* nodeArrayName = g_nodeArrayName;
+    const char* loadedNodeList = g_nodeListName;
     AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
-    assets->DiscardLoadedItem(assets->ObtainLoadedItem(Checksums::HashFromText(nodeArrayName), 0));
+    assets->DiscardLoadedItem(assets->ObtainLoadedItem(Checksums::HashFromText(loadedNodeList), 0));
     alignas(4) uint8_t storage[8];
     auto* file = reinterpret_cast<Scripts::CStruct*>(storage);
     file->PrepareAll();
-    file->AppendWord(0u, nodeArrayName);
+    file->AppendWord(0u, loadedNodeList);
     const char* name = nullptr;
     file->FetchText(0u, &name, 1);
     LevelNodes::NodeManagerInstance()->RemoveNodeArrayOfFile(name);
     CFunc_NodeArrayManLoad(file, script);
-    Scripts::LoadQBFile(nodeArrayName, 0);
+    Scripts::LoadQBFile(loadedNodeList, 0);
     LevelNodes::GetLastNodeArray();
     uint32_t last = nodeManager->GetLastNodeArrayName();
     nodeManager->RemoveNodeArray(last);
@@ -663,7 +663,7 @@ bool __cdecl SetNodeHidden(uint32_t name, bool hide, int secondViewport)
         command.value = 4;
         command.action = hide ? kFlagActionSetObjectFlags : kFlagActionClearObjectFlags;
         command.id = name;
-        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->ForEach(&ApplyFlagCommandToObject, &command);
+        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->ForEach(&ApplyFlagCommandToObject, &command);
         return true;
     }
     if (nodeClass != kClassLevelObject && nodeClass != kClassLevelGeometry)
@@ -695,7 +695,7 @@ bool __cdecl NodeIsAlive(uint32_t name)
         command.found = false;
         command.result = false;
         command.id = name;
-        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->ForEach(&ApplyFlagCommandToObject, &command);
+        reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->ForEach(&ApplyFlagCommandToObject, &command);
         return command.found;
     }
     if (nodeClass != kClassLevelGeometry)
@@ -721,7 +721,7 @@ bool __cdecl SetNodeColor(uint32_t name, Scripts::CStruct* params)
         uint32_t objectName = 0;
         if (node->ReadHashValue(kName, &objectName, 0)) {
             auto* object = static_cast<GameObjects::CGameEntity*>(
-                reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager)->LookUpEntity(objectName));
+                reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry)->LookUpEntity(objectName));
             // (neither checked for null, as in the original)
             reinterpret_cast<GameObjects::CMeshInstanceModule*>(object->FetchModule(0x286A8D26))->ChangeTint(rgba); // "model"
         }
@@ -782,7 +782,7 @@ bool __cdecl SetNodeTerrain(uint32_t name, Scripts::CStruct* params)
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
 bool __cdecl NodeCommand(uint32_t name, int action, Scripts::CScript* script, Scripts::CStruct* params)
 {
-    OnlinePlay::Hub* gameNet = OnlinePlay::g_gameNetManager;
+    OnlinePlay::Hub* gameNet = OnlinePlay::g_onlineHub;
     if (gameNet->IsNetworkGame() && SkipsNode(LevelNodes::FetchVertex(name, true)))
         return false;
     int secondViewport = 0;
@@ -904,7 +904,7 @@ bool __cdecl CFunc_Shatter(Scripts::CStruct* params, Scripts::CScript* script)
         minimumArea = g_nodeObjectMinimumArea; // (5000)
     if (area < minimumArea)
         area = minimumArea;
-    Engine3D::Engine::SetShatterParams(&velocity, reinterpret_cast<const Maths::Vec4*>(&vector), valueC483, area, valueBD30,
+    Engine3D::Engine::ChangeBreakupSettings(&velocity, reinterpret_cast<const Maths::Vec4*>(&vector), valueC483, area, valueBD30,
                                  value834A, valueE632, value7DC3, valueF01B, value2E1C, checksumB3DE, checksumAF1A,
                                  value33DF);
     return NodeCommandByName(params, script, 4);

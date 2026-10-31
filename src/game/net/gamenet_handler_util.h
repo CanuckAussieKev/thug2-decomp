@@ -30,9 +30,9 @@ extern void** const kNewPlayerSearchVtable; // 0x0064C82C: ListKit::Hunt<JoinerR
 namespace OnlinePlay::Detail {
 
 // Handler results.
-constexpr int kContinue = NetLink::kHandlerContinue;
-constexpr int kHalt = NetLink::kHandlerHalt;
-constexpr int kDone = NetLink::kHandlerMsgDone;
+constexpr int kContinue = NetLink::kResultPassOn;
+constexpr int kHalt = NetLink::kResultStop;
+constexpr int kDone = NetLink::kResultConsumed;
 constexpr int kKeep = NetLink::kHandlerKeep;
 
 constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
@@ -81,18 +81,18 @@ inline uint8_t* GetGoal(uint8_t* goals, uint32_t name) { return Call<uint8_t*>(C
 // The manager's players (OnlinePlay::PlayerRecord, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
 // connection, +0x30 the team, +0x38 the name, +0x1D0 flags.
 inline PlayerRecord* AsPlayer(const uint8_t* player) { return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player)); }
-inline uint8_t* PlayerByConnection(Hub* manager, NetLink::Conn* conn)
+inline uint8_t* FindPlayerBySender(Hub* manager, NetLink::Conn* conn)
 {
-    return manager->PlayerByConnection(conn);
+    return manager->FindPlayerBySender(conn);
 }
 // (the original pushes the id as 16 bits)
-inline uint8_t* PlayerByObjectId(Hub* manager, uint16_t id) { return manager->PlayerByObjectId(id); }
-inline uint8_t* PlayerByObjectId(Hub* manager, const uint8_t* id) // a signed byte, widened
+inline uint8_t* FindPlayerSlotByObj(Hub* manager, uint16_t id) { return manager->FindPlayerSlotByObj(id); }
+inline uint8_t* FindPlayerSlotByObj(Hub* manager, const uint8_t* id) // a signed byte, widened
 {
-    return PlayerByObjectId(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
+    return FindPlayerSlotByObj(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
 inline uint8_t* LocalPlayer(Hub* manager) { return static_cast<uint8_t*>(manager->GetOwnPlayer()); }
-inline uint8_t* KingOfTheHill(Hub* manager) { return static_cast<uint8_t*>(manager->GetHillRuler()); }
+inline uint8_t* IsCrownRuleActive(Hub* manager) { return static_cast<uint8_t*>(manager->GetHillRuler()); }
 // (0 or 1 in EAX: the original's callers test AL)
 inline bool IsOwnPlayer(const uint8_t* player) { return AsPlayer(player)->IsOwnPlayer() != 0; }
 inline bool IsObserver(const uint8_t* player) { return AsPlayer(player)->IsObserver() != 0; }
@@ -111,11 +111,11 @@ struct NewPlayerSearch {
     void** m_vtable = kNewPlayerSearchVtable;
     void* m_listLink = nullptr;
 };
-inline uint8_t* FirstPlayer(Hub* manager, PlayerSearch* search, bool observers)
+inline uint8_t* StartRosterSweep(Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<uint8_t*>(manager->BeginPlayerWalk(search, observers));
 }
-inline uint8_t* NextPlayer(Hub* manager, PlayerSearch* search, bool observers)
+inline uint8_t* StepRosterSweep(Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<uint8_t*>(manager->StepPlayerWalk(search, observers));
 }
@@ -141,7 +141,7 @@ inline void SendToServer(NetLink::AppHost* app, NetLink::NetMessageInfo* desc)
 // original does), deleted with Clear.
 inline Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 inline void DeleteParams(Scripts::CStruct* params)

@@ -81,7 +81,7 @@ extern int g_frameCount;
 extern int g_currentTrackIndex;
 extern int g_currentPlaylist;
 extern bool g_initialised;
-extern bool g_usingUserSoundtrack;
+extern bool g_customPlaylistOn;
 extern int g_userSoundtrack;
 
 extern uint32_t g_userTrack;

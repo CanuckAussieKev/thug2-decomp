@@ -50,8 +50,8 @@ constexpr uint32_t kStartGap = 0x65B9EC39, kEndGap = 0xE5399FB2, kStartGapTrick 
 constexpr uint32_t kGapID = 0x3B442E26, kTrickText = 0x3EAFA520, kTrickscript = 0xA26994E6, kKeycombo = 0x95E16467,
                    kSpin = 0xEDF5DB70, kPerfect = 0x1C39F1B9, kNumTaps = 0xA4BEE6A1, kTricks = 0x1E26FD3E,
                    kFlags = 0xF4FABE45, kCombinedFlags = 0x2760DE9E, kCarGap = 0xC442E33D,
-                   kNotOnlyCar = 0xE3ED4ADE /* (name unknown) */, kRequirePerfect = 0x687E2C25, kText = 0xC4745838,
-                   kScore = 0xCD66C8AE, kGapScript = 0x7C9E51AB, kPermanent = 0x23627FD7, kNetEnabled = 0x20209C31,
+                   kNotOnlyCar = 0xE3ED4ADE /* (name unknown) */, kNeedsCleanLanding = 0x687E2C25, kText = 0xC4745838,
+                   kScore = 0xCD66C8AE, kGapScript = 0x7C9E51AB, kPermanent = 0x23627FD7, kOnlineFlag = 0x20209C31,
                    kContinue = 0xEC1CD520, kNotInSameFrame = 0x97975226, kTriggerScript = 0x2CA8A299;
 // Scripts and settings
 constexpr uint32_t kDoPerfectCheck2 = 0x35B75889, kDefaultGapScript = 0x541A2485,
@@ -71,7 +71,7 @@ T& Prop(void* object, uint32_t offset)
 
 // A gap in progress (the 0x64-byte TrickListEntry) and a gap trick (the 0x34-byte TrickNameEntry), by their fields.
 uint32_t& GapId(TrickListEntry* gap) { return Prop<uint32_t>(gap, 0x14); }
-uint32_t& GapFlags(TrickListEntry* gap) { return Prop<uint32_t>(gap, 0x18); }
+uint32_t& GapOptionLabels(TrickListEntry* gap) { return Prop<uint32_t>(gap, 0x18); }
 int& GapNode(TrickListEntry* gap) { return Prop<int>(gap, 0x1C); }
 uint32_t& GapKeyCombo(TrickListEntry* gap) { return Prop<uint32_t>(gap, 0x20); }
 int& GapTrickCount(TrickListEntry* gap) { return Prop<int>(gap, 0x24); } // the score's count of the trick at the start
@@ -131,7 +131,7 @@ void SetupListSentinel(MemSys::ListNode& head, void** vtable)
 
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
 // rewritten yet.
-GoalSystem::CGapTally* GapChecklist()
+GoalSystem::CGapTally* GapTallyRef()
 {
     return static_cast<GoalSystem::CGapTally*>(GameModules::Skate::Sole()->FetchGapList());
 }
@@ -189,7 +189,7 @@ CRiderGapTracker* CRiderGapTracker::MakeNew()
     CObjectModule::MakeNew();
     m_vtable = kVtable;
     SetupListSentinel(m_gaps, kGapHeadVtable);
-    SetupListSentinel(m_gapTricks, kGapTrickHeadVtable);
+    SetupListSentinel(m_gapMoveChain, kGapTrickHeadVtable);
     m_kindTag = kSkaterGap;
     m_corePhysics = nullptr;
     m_balanceTrick = nullptr;
@@ -200,7 +200,7 @@ CRiderGapTracker* CRiderGapTracker::MakeNew()
 void CRiderGapTracker::DestroyBody()
 {
     m_vtable = kVtable;
-    m_gapTricks.UnlinkAs(g_gapTrickNodeVtable);
+    m_gapMoveChain.UnlinkAs(g_gapTrickNodeVtable);
     m_gaps.UnlinkAs(g_gapNodeVtable);
     CObjectModule::DestroyBody();
 }
@@ -251,7 +251,7 @@ void CRiderGapTracker::GetStateFlags(uint32_t* cancel, uint32_t* require)
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
         CGameEntity* vehicle =
-            static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(kPlayerVehicle));
+            static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(kPlayerVehicle));
         uint8_t* physics = reinterpret_cast<uint8_t*>(vehicle->FetchModule(kVehicle));
         set(Prop<uint32_t>(physics, 0x114) != 0 ? kGapGround : kGapAir);
         return;
@@ -296,10 +296,10 @@ void CRiderGapTracker::ScanForGaps(uint32_t cancel, uint32_t require)
 {
     for (TrickListEntry* gap = First<TrickListEntry>(m_gaps); gap;) {
         TrickListEntry* next = Next(gap);
-        GapFlags(gap) &= ~require;
-        if (GapFlags(gap) & cancel) {
+        GapOptionLabels(gap) &= ~require;
+        if (GapOptionLabels(gap) & cancel) {
             if (uint32_t script = GapTrickScript(gap)) {
-                for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapTricks); trick; trick = Next(trick)) {
+                for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapMoveChain); trick; trick = Next(trick)) {
                     if (!TrickDone(trick) && TrickGapId(trick) == GapId(gap) && TrickScript(trick) == script &&
                         TrickNode(trick) == GapNode(gap)) {
                         EraseOne(trick);
@@ -317,7 +317,7 @@ void CRiderGapTracker::ScanForGaps(uint32_t cancel, uint32_t require)
 void CRiderGapTracker::ClearGaps()
 {
     reinterpret_cast<ListHead*>(&m_gaps)->DeleteAllNodes();
-    reinterpret_cast<ListHead*>(&m_gapTricks)->DeleteAllNodes();
+    reinterpret_cast<ListHead*>(&m_gapMoveChain)->DeleteAllNodes();
 }
 
 // 0x00512050
@@ -325,7 +325,7 @@ void CRiderGapTracker::StartGapTrick(Scripts::CStruct* params, Scripts::CScript*
 {
     void* memory = MemSys::AllocZeroed(sizeof(TrickNameEntry));
     auto* trick = memory ? static_cast<TrickNameEntry*>(memory)->MakeNew() : nullptr;
-    AddToFront(m_gapTricks, &trick->m_listLink);
+    AddToFront(m_gapMoveChain, &trick->m_listLink);
     TrickNode(trick) = script->m_listLink;
     TrickDone(trick) = 0;
     TrickFrame(trick) = m_tick;
@@ -342,7 +342,7 @@ void CRiderGapTracker::StartGapTrick(Scripts::CStruct* params, Scripts::CScript*
 // 0x00512140
 void CRiderGapTracker::CheckGapTricks(Scripts::CStruct* /*params*/)
 {
-    for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapTricks); trick;) {
+    for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapMoveChain); trick;) {
         TrickNameEntry* next = Next(trick);
         if (TrickDone(trick))
             m_entity->StartScriptTask(TrickScript(trick), TrickNode(trick), false, false, nullptr);
@@ -354,7 +354,7 @@ void CRiderGapTracker::CheckGapTricks(Scripts::CStruct* /*params*/)
 void CRiderGapTracker::ClearGapTricks(Scripts::CStruct* params)
 {
     bool notThisFrame = params->HasBareFlag(kNotInSameFrame);
-    for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapTricks); trick;) {
+    for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapMoveChain); trick;) {
         TrickNameEntry* next = Next(trick);
         if (!notThisFrame || TrickFrame(trick) != m_tick)
             EraseOne(trick);
@@ -423,27 +423,27 @@ void CRiderGapTracker::StartGap(Scripts::CStruct* params, Scripts::CScript* scri
     }
 
     // Its flags.
-    GapFlags(gap) = 0;
+    GapOptionLabels(gap) = 0;
     Scripts::CArray* flags = nullptr;
     params->FetchList(kFlags, &flags, 0);
     if (flags) {
         for (uint32_t i = 0; i < flags->m_extent; ++i)
-            GapFlags(gap) |= Scripts::FetchIntValue(flags->FetchPart(i));
+            GapOptionLabels(gap) |= Scripts::FetchIntValue(flags->FetchPart(i));
     } else {
         uint32_t flag;
         if (params->ReadHashValue(kFlags, &flag, 0))
-            GapFlags(gap) |= Scripts::FetchIntValue(flag);
+            GapOptionLabels(gap) |= Scripts::FetchIntValue(flag);
     }
     uint32_t combined = 0;
     if (params->ReadHashValue(kCombinedFlags, &combined, 0))
-        GapFlags(gap) |= combined;
+        GapOptionLabels(gap) |= combined;
     if (params->HasBareFlag(kCarGap))
-        GapFlags(gap) |= kGapSkating | kGapWalking;
-    else if (!params->HasBareFlag(kNotOnlyCar) && !(GapFlags(gap) & (kGapSkating | kGapWalking)))
-        GapFlags(gap) |= kGapDriving;
+        GapOptionLabels(gap) |= kGapSkating | kGapWalking;
+    else if (!params->HasBareFlag(kNotOnlyCar) && !(GapOptionLabels(gap) & (kGapSkating | kGapWalking)))
+        GapOptionLabels(gap) |= kGapDriving;
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
-    bool drivingMatters = Prop<uint8_t>(StateOf(m_physicsControl), 0x118) && (GapFlags(gap) & kGapDriving);
+    bool drivingMatters = Prop<uint8_t>(StateOf(m_physicsControl), 0x118) && (GapOptionLabels(gap) & kGapDriving);
     if (!drivingMatters && Prop<uint32_t>(reinterpret_cast<uint8_t*>(ParkEditing::g_parkEditor), 0x40) == kOff)
         return;
     uint32_t cancel, require;
@@ -466,13 +466,13 @@ void CRiderGapTracker::EndGap(Scripts::CStruct* params, Scripts::CScript* script
             continue;
         }
         // Failed: a required state never seen, or not landed perfectly when that's required.
-        if (GapFlags(gap) & kGapRequired) {
+        if (GapOptionLabels(gap) & kGapRequired) {
             EraseOne(gap);
             gap = next;
             continue;
         }
-        if (params->HasEntryNamed(kRequirePerfect)) {
-            Scripts::CStruct* results = Scripts::NewStruct();
+        if (params->HasEntryNamed(kNeedsCleanLanding)) {
+            Scripts::CStruct* results = Scripts::SpawnParamBag();
             if (results)
                 results = results->PrepareAll();
             Scripts::RunScriptOnce(kDoPerfectCheck2, nullptr, m_entity, results);
@@ -512,7 +512,7 @@ void CRiderGapTracker::EndGap(Scripts::CStruct* params, Scripts::CScript* script
                     done = true;
             }
             if (done) {
-                for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapTricks); trick; trick = Next(trick)) {
+                for (TrickNameEntry* trick = First<TrickNameEntry>(m_gapMoveChain); trick; trick = Next(trick)) {
                     if (TrickGapId(trick) == GapId(gap)) {
                         // (0x00578670, trick_lists.h's TrickListEntry::SetFlag: the flag at +0x2C - here the gap
                         // trick's done)
@@ -522,18 +522,18 @@ void CRiderGapTracker::EndGap(Scripts::CStruct* params, Scripts::CScript* script
                 }
             }
         }
-        GapChecklist()->SetGapPositions(text, GapStartPos(gap), GapStartDir(gap));
+        GapTallyRef()->SetGapPositions(text, GapStartPos(gap), GapStartDir(gap));
         int points = 0;
         if (params->FetchIntValue(kScore, &points, 0) && m_entity->m_unknownBC) {
             AddGapScore(m_pointsHeld, coloured, points, 0x10);
             Prop<uint8_t>(m_entity->FetchModule(kTrick), 0x13A8) = 1;
-            GapChecklist()->RegisterGapHit(text);
+            GapTallyRef()->RegisterGapHit(text);
             m_entity->StartScriptTask(kDefaultGapScript, 0, false, false, nullptr);
         }
         uint32_t gapScript;
         if (params->ReadHashValue(kGapScript, &gapScript, 0)) {
             bool permanent = params->HasBareFlag(kPermanent);
-            bool replicateFlag = params->HasBareFlag(kNetEnabled);
+            bool replicateFlag = params->HasBareFlag(kOnlineFlag);
             m_entity->StartScriptTask(gapScript, script->m_listLink, replicateFlag, permanent, nullptr);
         }
         Scripts::CStruct* continuation = nullptr;
@@ -562,7 +562,7 @@ int CRiderGapTracker::InvokeMethodByName(uint32_t name, Scripts::CStruct* params
             return 1;
         int links = static_cast<int>(LevelNodes::GetLinkCount(static_cast<uint32_t>(node)));
         for (int i = 0; i < links; ++i) {
-            Scripts::CStruct* linked = LevelNodes::GetLinkedNode(static_cast<uint32_t>(node), i);
+            Scripts::CStruct* linked = LevelNodes::FetchNeighbourNode(static_cast<uint32_t>(node), i);
             uint32_t triggerScript = 0;
             if (linked->ReadHashValue(kTriggerScript, &triggerScript, 0)) {
                 m_entity->StartScriptTask(triggerScript, script->m_listLink, false, false, nullptr);
@@ -607,12 +607,12 @@ GapTrickListNode* GapTrickListNode::Teardown(unsigned int flags)
 GapTrickListNode* GapTrickListNode::DestroyHead(unsigned int flags) { return Teardown(flags); }
 
 // 0x00511C10
-void __cdecl DiscardQueuedGaps() { GapChecklist()->ClearPending(); }
+void __cdecl DiscardQueuedGaps() { GapTallyRef()->ClearPending(); }
 
 // 0x00511C30
 void __cdecl PayOutQueuedGaps()
 {
-    GapChecklist()->PayOutQueuedGaps();
+    GapTallyRef()->PayOutQueuedGaps();
     if (Career()->AllGapsGot())
         Scripts::SpawnScript(kProcessAllGapsReward, nullptr, 0, nullptr, 0, 0, false, false, false, false);
 }

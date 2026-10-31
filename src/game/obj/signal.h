@@ -14,7 +14,7 @@
 // The rules (order, removal while running, the in-use / alive protocol) are in docs/script-runtime.md
 // section 11.
 //
-// Every method is __thiscall, callee-pops; PrintTable is __cdecl. No register arguments.
+// Every method is __thiscall, callee-pops; ListWaitTable is __cdecl. No register arguments.
 
 namespace Scripts {
 class CArray;
@@ -75,23 +75,23 @@ public:
 
     void** m_vtable;
     CSharedRef<CEntity> m_ownerObject;       // +0x04
-    CSignalReceiver* mp_nextListener;  // +0x10 the tracker's list (set by the tracker)
+    CSignalReceiver* m_nextSubscriber;  // +0x10 the tracker's list (set by the tracker)
     bool m_onBoard;                // +0x14 on the tracker's list
     uint8_t m_pad15[3];
     int m_busy;                       // +0x18 raised by the tracker while it asks this listener (0x00462F00)
 };
-static_assert(offsetof(CSignalReceiver, mp_nextListener) == 0x10 && offsetof(CSignalReceiver, m_onBoard) == 0x14 &&
+static_assert(offsetof(CSignalReceiver, m_nextSubscriber) == 0x10 && offsetof(CSignalReceiver, m_onBoard) == 0x14 &&
                   sizeof(CSignalReceiver) == 0x1C,
               "layout must match the original");
 
-// A script's event handlers (Scripts::CScript::m_eventHandlers, 0x10 bytes, on the front-end heap).
+// A script's event handlers (Scripts::CScript::m_signalRoutes, 0x10 bytes, on the front-end heap).
 // Entries are never taken out while the table might be running them: removing one sets its script to
 // kNullScript (and frees its parameters); Compact drops those later.
 class CSignalRouteTable {
 public:
     struct TableRow {
         enum : uint8_t {
-            FLAG_EXCEPTION = 0x01, // replaces the running script instead of interrupting it
+            FLAG_REPLACES_RUNNING = 0x01, // replaces the running script instead of interrupting it
             FLAG_MARKED = 0x02,    // marked for removal (MarkGroup / RemoveMarked)
         };
         uint32_t type;            // +0x00 the event type (0 after RemoveType)
@@ -136,17 +136,17 @@ public:
     void UnregisterWithTracker(Scripts::CScript* script);
 
     // 0x00460470: run the handlers of `event` for `script` (the table's owner), in table order.
-    void PassEvent(CSignal* event, Scripts::CScript* script);
+    void ForwardTrigger(CSignal* event, Scripts::CScript* script);
 
     // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns DebugOut::Printf's result.
-    static int PrintTable(CSignalRouteTable* table);
+    static int ListWaitTable(CSignalRouteTable* table);
 
     TableRow* m_entries;   // +0x00
     int m_num;        // +0x04
-    bool m_alive;       // +0x08 cleared when the script dies while PassEvent runs (PassEvent then frees the table)
-    bool m_altered;     // +0x09 entries were added or moved (PassEvent stops: its entry pointer may be stale)
+    bool m_alive;       // +0x08 cleared when the script dies while ForwardTrigger runs (ForwardTrigger then frees the table)
+    bool m_altered;     // +0x09 entries were added or moved (ForwardTrigger stops: its entry pointer may be stale)
     uint8_t m_pad0A[2];
-    int m_inUse;        // +0x0C PassEvent nesting depth
+    int m_inUse;        // +0x0C ForwardTrigger nesting depth
 };
 static_assert(sizeof(CSignalRouteTable) == 0x10 && offsetof(CSignalRouteTable, m_inUse) == 0x0C,
               "layout must match the original");

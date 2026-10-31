@@ -76,7 +76,7 @@ CVector* NewResultVector()
 CStruct* NewResultStructure()
 {
     SetResultType(QBVAL_STRUCT);
-    CStruct* structure = NewStruct();
+    CStruct* structure = SpawnParamBag();
     structure = structure ? structure->PrepareAll() : nullptr;
     Result().structure = structure;
     return structure;
@@ -141,7 +141,7 @@ void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, 
             to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (QBVAL_STRUCT_REF << 1));
             to->raw = array->FetchPart(index);
         } else {
-            CStruct* structure = NewStruct();
+            CStruct* structure = SpawnParamBag();
             to->structure = structure ? structure->PrepareAll() : nullptr;
             to->structure->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->FetchPart(index)));
         }

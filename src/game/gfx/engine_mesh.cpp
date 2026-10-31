@@ -39,7 +39,7 @@ CSubMesh* CSubMesh::MakeNew()
 }
 
 // 0x00490A90
-void CSubMesh::RemoveCollision()
+void CSubMesh::DetachHitMesh()
 {
     if (m_collisionName[0]) {
         Packs::Offload(m_collisionName);
@@ -51,7 +51,7 @@ void CSubMesh::RemoveCollision()
 void CSubMesh::DestroyBody()
 {
     m_vtable = reinterpret_cast<void**>(kMeshVtable);
-    RemoveCollision();
+    DetachHitMesh();
 }
 
 // 0x00490C90
@@ -108,7 +108,7 @@ void __cdecl SkinCollisionFileName(char* out, const char* name)
     if (!extension)
         extension = out + std::strlen(out);
     std::memcpy(extension, ".col.", 6);
-    const char* platform = PlatformExtension();
+    const char* platform = PlatformSuffix();
     end = out + std::strlen(out);
     while ((*end++ = *platform++) != '\0') {
     }

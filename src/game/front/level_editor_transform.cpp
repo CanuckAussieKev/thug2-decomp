@@ -107,7 +107,7 @@ void UnitAxes(const V3 rows[3], V3 out[3])
         out[i] = Dot(rows[i], rows[i]) > 1e-12f ? MakeUnit(rows[i]) : kWorld[i];
 }
 
-float AngleAbout(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
+float TurnAroundAxis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
 
 float Wrap(float radians)
 {

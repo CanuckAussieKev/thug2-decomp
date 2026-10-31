@@ -38,7 +38,7 @@ void __cdecl EndRender();
 void __cdecl RenderFrame();
 
 // 0x0048C0A0: the object manager the engine's code uses (0x006FA720).
-void __cdecl SetObjectManager(void* manager);
+void __cdecl ChangeEntityHub(void* manager);
 // 0x0048C0B0: the scenes the last collision query's grids belong to (0x006FA738).
 uint32_t* __cdecl GetCollisionScenes();
 // 0x0048C0D0: the next render mode (0x006FA734: 0-3 in turn).
@@ -58,7 +58,7 @@ bool __cdecl SplitSkinName(const char* name, char* base);
 void* __cdecl LoadModelFromMemory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures,
                                   int unused5, uint32_t unused6, uint32_t unused7);
 // 0x0048C390: a level's scene file name, "levels\<name>\<name>.scn.<platform>". The third argument isn't used.
-void __cdecl SceneFileName(char* out, const char* name, uint32_t unused);
+void __cdecl BuildSceneFilePath(char* out, const char* name, uint32_t unused);
 // 0x0048C3C0: an engine object deleted (a compiled-out call, then DeleteModelLights' virtual delete). Its result.
 bool __cdecl DeleteGeomObject(void* object);
 // 0x0048C3D0: a model's mesh loaded from "<name>.skin.<platform>" (a name with ".skin") or "<name>.mdl.<platform>"
@@ -83,7 +83,7 @@ CWorldScene* __cdecl FindScene(uint32_t checksum);
 
 } // namespace Engine
 
-extern bool g_skipRender; // rendering skipped (frames not drawn or shown)
+extern bool g_suppressDraw; // rendering skipped (frames not drawn or shown)
 
 extern void* g_flexibleParticleManager;
 extern void* g_imposterManager;

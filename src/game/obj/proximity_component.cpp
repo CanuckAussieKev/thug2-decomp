@@ -38,7 +38,7 @@ int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // 0x0042B620
 void CProximityComponent::LaunchScript(uint32_t script, CEntity* skater)
 {
-    Scripts::CStruct* params = Scripts::NewStruct();
+    Scripts::CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params = params->PrepareAll();
     params->PutNameKey(kSkaterId, skater->m_ident);

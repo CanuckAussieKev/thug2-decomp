@@ -93,10 +93,10 @@ double CDrivableModule::GetTyreFriction(Wheel* wheel, float slip)
     if (m_handbrake) {
         double friction;
         if (m_throttle) {
-            friction = wheel->handbrakeThrottleFriction;
+            friction = wheel->parkingGripPowered;
             wheel->state = kWheelHandbrakeThrottle;
         } else {
-            friction = wheel->handbrakeLockedFriction;
+            friction = wheel->parkingGripLocked;
             wheel->state = kWheelHandbrakeLocked;
         }
         if (slip < wheel->minStaticGripVel) {
@@ -130,10 +130,10 @@ int CDrivableModule::GetGear(float spin)
 {
     float upshift = m_upshiftSpeed;
     int gear = 0;
-    if (!(static_cast<double>(m_gearRatios[0]) * m_differentialRatio * spin > upshift))
+    if (!(static_cast<double>(m_transmissionRatios[0]) * m_finalDriveRatio * spin > upshift))
         return gear;
     while (gear < m_gearCount - 1) {
-        double engine = static_cast<double>(m_gearRatios[gear + 1]) * m_differentialRatio * spin;
+        double engine = static_cast<double>(m_transmissionRatios[gear + 1]) * m_finalDriveRatio * spin;
         ++gear;
         if (!(engine > upshift))
             break;
@@ -142,7 +142,7 @@ int CDrivableModule::GetGear(float spin)
 }
 
 // 0x00435520
-void CDrivableModule::UpdateVelocities()
+void CDrivableModule::StepVehicleSpeeds()
 {
     double invMass = m_invMass;
     m_vel.z = static_cast<float>(invMass * m_linearMomentum.z);
@@ -218,7 +218,7 @@ void CDrivableModule::ApplyImpulseAtOffset(const Maths::Vec4* impulse, const Mat
     m_rotmom.x = static_cast<float>(tx + m_rotmom.x);
     m_rotmom.y = static_cast<float>(ty + m_rotmom.y);
     m_rotmom.z = static_cast<float>(static_cast<double>(tz) + m_rotmom.z);
-    UpdateVelocities();
+    StepVehicleSpeeds();
 }
 
 // 0x00435850
@@ -280,7 +280,7 @@ void CDrivableModule::KickRandomlyAlong(const Maths::Vec4* along)
     m_rotmom.y = static_cast<float>(static_cast<double>(spinY) * moment + m_rotmom.y);
     m_rotmom.z = static_cast<float>(static_cast<double>(turnZ) + m_rotmom.z);
     m_rotmom.w = static_cast<float>(static_cast<double>(rotW) + m_rotmom.w);
-    UpdateVelocities();
+    StepVehicleSpeeds();
     m_kickTime = Scripts::FetchFloat(0x771922A6);
     m_awake = 1;
     m_stillFrames = 0;
@@ -322,7 +322,7 @@ bool CDrivableModule::Kick(Scripts::CStruct* params, Scripts::CScript*)
     m_rotmom.y = static_cast<float>(static_cast<double>(spinAboutY) + m_rotmom.y);
     m_rotmom.z = static_cast<float>(static_cast<double>(turnZ) + m_rotmom.z);
     m_rotmom.w = static_cast<float>(static_cast<double>(rotW) + m_rotmom.w);
-    UpdateVelocities();
+    StepVehicleSpeeds();
     return true;
 }
 
@@ -363,7 +363,7 @@ bool CDrivableModule::KickRandomly(Scripts::CStruct* params, Scripts::CScript*)
 }
 
 // 0x004354B0
-bool CDrivableModule::IsSkaterVisible(Scripts::CStruct*, Scripts::CScript*) { return m_skaterVisible; }
+bool CDrivableModule::IsRiderShown(Scripts::CStruct*, Scripts::CScript*) { return m_riderShown; }
 
 // --- the component's life ---
 
@@ -407,7 +407,7 @@ CGameEntity* LocalSkater()
 }
 uint32_t SkateRestart(int index)
 {
-    return GameModules::Skate::Sole()->SkipToRestartPoint(static_cast<uint32_t>(index));
+    return GameModules::Skate::Sole()->WarpToRestart(static_cast<uint32_t>(index));
 }
 // The model's geometry (0x00493040 on the model's +0x208): its matrix at +0x60, the wheels' places (z up) at +0xE0 +
 // 0x50 each.
@@ -448,7 +448,7 @@ CDrivableModule* CDrivableModule::MakeNew()
     m_vtable = kVtable;
     ClearToW1(m_orientation);
     // (the colliders' vectors' constructors do nothing: 0x005902E0)
-    m_collCache.MakeNew();
+    m_contactMemo.MakeNew();
     mp_input = nullptr;
     m_debugMode = 0;
     m_passive = false;
@@ -475,7 +475,7 @@ void CDrivableModule::DestroyBody()
             m_wheels[i].Destruct();
         MemSys::Hub::Pull()->Dealloc(block);
     }
-    m_collCache.Destruct();
+    m_contactMemo.Destruct();
     CObjectModule::DestroyBody();
 }
 
@@ -529,7 +529,7 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
     params->FetchFloat(0x386837DB, &m_yawDamping, 0);
     params->FetchFloat(0x469CF79A, &m_spinDamping, 0);
     m_canDismount = params->HasBareFlag(0xC2A136CC);
-    m_noHandbrake = params->HasBareFlag(0xAD6C0A46);
+    m_handbrakeDisabled = params->HasBareFlag(0xAD6C0A46);
 
     // colliders: each three points, a corner and the ends of its two edges (the edges kept relative to the corner -
     // their w less the corner's, which nothing sets). The points' average distance from the body's origin, less 48,
@@ -582,8 +582,8 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
         Scripts::CStruct* engine;
         params->ReadSubStruct(0x1757E572, &engine, 1);
         if (engine->HasEntryNamed(0x9AA9FAEE)) {
-            engine->FetchFloat(0x9AA9FAEE, &m_driveTorque, 0);
-            m_driveTorque = static_cast<float>(static_cast<double>(m_driveTorque) * kFeet);
+            engine->FetchFloat(0x9AA9FAEE, &m_engineTorque, 0);
+            m_engineTorque = static_cast<float>(static_cast<double>(m_engineTorque) * kFeet);
         }
         if (engine->HasEntryNamed(0xB2268648)) {
             engine->FetchFloat(0xB2268648, &m_engineBraking, 0);
@@ -593,14 +593,14 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
             engine->FetchFloat(0x33921583, &m_upshiftSpeed, 0);
             m_upshiftSpeed = static_cast<float>(static_cast<double>(m_upshiftSpeed) * kRpmToRadians);
         }
-        engine->FetchFloat(0x94EA6601, &m_differentialRatio, 0);
+        engine->FetchFloat(0x94EA6601, &m_finalDriveRatio, 0);
         engine->FetchFloat(0x82BCBB10, &m_reverseRatio, 0);
         if (engine->HasEntryNamed(0xC023FA75)) {
             Scripts::CArray* ratios;
             engine->FetchList(0xC023FA75, &ratios, 1);
             m_gearCount = static_cast<int>(ratios->m_extent);
             for (int i = 0; i < m_gearCount; ++i)
-                m_gearRatios[i] = ratios->FetchFloat(static_cast<uint32_t>(i));
+                m_transmissionRatios[i] = ratios->FetchFloat(static_cast<uint32_t>(i));
         }
     }
 
@@ -662,10 +662,10 @@ void CDrivableModule::ConfigureFromData(Scripts::CStruct* params)
         params->FetchVec(0x7F261953, reinterpret_cast<Scripts::VectorValue*>(&m_atPoint), 0);
         m_entity->m_atPoint = m_atPoint;
     }
-    m_skaterVisible = m_skaterVisible || params->HasBareFlag(kSkater);
+    m_riderShown = m_riderShown || params->HasBareFlag(kSkater);
     if (params->HasBareFlag(kSkater)) {
         params->FetchVec(0xEC86EF7A, reinterpret_cast<Scripts::VectorValue*>(&m_skaterPos), 1); // skater_pos
-        params->ReadHashValue(0xDA75A33E, &m_skaterAnim, 1);                                       // skater_anim
+        params->ReadHashValue(0xDA75A33E, &m_riderAnimName, 1);                                       // skater_anim
     }
     params->ReadHashValue(0x0EDCF90E, &m_soundsName, 0); // sounds
 
@@ -746,7 +746,7 @@ void CDrivableModule::Seal()
     m_riderRef = LocalSkater();
     mp_skaterCorePhysics = m_riderRef->FetchModule(kSkaterCorePhysics);
     mp_trigger = m_riderRef->FetchModule(kTrigger);
-    if (!m_skaterVisible)
+    if (!m_riderShown)
         m_riderRef->Conceal(true);
     else
         mp_animBlender = m_riderRef->FetchModule(kAnimBlender);
@@ -868,7 +868,7 @@ void CDrivableModule::TickFrame()
 // 0x0043A070
 void CDrivableModule::RefreshBoneRig()
 {
-    if (Engine3D::g_skipRender) // (rendering off)
+    if (Engine3D::g_suppressDraw) // (rendering off)
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     auto* bones = reinterpret_cast<Maths::Mat4*>(static_cast<OnlinePlay::FoldedGetters*>(SkeletonOf(m_boneRig))->Word04());
@@ -1146,7 +1146,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CDrivableModule::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::ComponentWithoutMemberFunctions::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

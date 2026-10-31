@@ -20,7 +20,7 @@ class CStruct;
 namespace MenuSystem {
 
 class CUiTree;
-extern CUiTree* g_screenElementManager; // the singleton
+extern CUiTree* g_uiElementHub; // the singleton
 
 class CUiTree : public GameObjects::CObjectHubBase {
 public:
@@ -43,9 +43,9 @@ public:
         uint8_t pad15[3];
     };
     static_assert(sizeof(PriorityEntry) == 0x18, "layout must match the original");
-    enum { kFocusEntries = 0x30, kPriorities = 10, kMaxPadEventTypes = 0x30 };
+    enum { kFocusEntries = 0x30, kPriorities = 10, kPadEventSlots = 0x30 };
 
-    static CUiTree*& Sole() { return g_screenElementManager; }
+    static CUiTree*& Sole() { return g_uiElementHub; }
 
     // 0x004AB990: the constructor (returns this): vtables 0x0064A0E8 / 0x0064A104 (the listener), no root, the
     // listener on the tracker's list for no object, no focus, no priorities, no pad event types read yet.
@@ -117,7 +117,7 @@ public:
     // 0x004AAD50: whether `type` is a pad event type.
     bool IsPadEvent(uint32_t type) const;
     // 0x004AB7C0: whether the element `id` has the top priority.
-    bool IsTopPriority(uint32_t id);
+    bool HasTopPrecedence(uint32_t id);
     // 0x004AC570: the element `id` takes a priority slot (a free one, else the lowest if it's at least as high);
     // the new top is shown, the others hidden. False if no slot.
     bool PushPriority(uint32_t id, uint32_t priority);
@@ -129,12 +129,12 @@ public:
     ElementPtr mp_resolving;                         // +0x50 ResolveId's element so far
     FocusEntry m_focusEntries[kFocusEntries];        // +0x5C
     FocusEntry* mp_focusLists[2];                    // +0x4DC one per controller
-    bool m_focusListChanged[2];                      // +0x4E4
+    bool m_focusDirty[2];                      // +0x4E4
     uint8_t pad4E6[2];
     int m_numPriorities;                             // +0x4E8
     PriorityEntry m_priorities[kPriorities];         // +0x4EC
-    uint32_t m_padEventTypes[kMaxPadEventTypes];     // +0x5DC (from the script array 0x0064A10C)
-    int m_numPadEventTypes;                          // +0x69C
+    uint32_t m_padEventTypes[kPadEventSlots];     // +0x5DC (from the script array 0x0064A10C)
+    int m_padEventKindCount;                          // +0x69C
     bool m_checkDevice;                              // +0x6A0 (pad events of other devices ignored)
     uint8_t pad6A1[3];
 };

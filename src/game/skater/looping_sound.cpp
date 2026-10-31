@@ -48,7 +48,7 @@ T& Prop(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
 
 // The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
 // entry's volume for a percentage.
@@ -108,7 +108,7 @@ CRiderRollingAudio* CRiderRollingAudio::MakeNew()
 {
     CObjectModule::MakeNew();
     m_vtable = kVtable;
-    m_lastVolume.PrepareAll();
+    m_prevLevels.PrepareAll();
     m_soundChanged = 1;
     m_curPhase = kStateAir;
     m_on = 1;
@@ -125,7 +125,7 @@ CRiderRollingAudio* CRiderRollingAudio::MakeNew()
 void CRiderRollingAudio::StopSound()
 {
     if (m_soundId) {
-        SfxManager()->StopSound(m_soundId);
+        AudioMixerHandle()->StopSound(m_soundId);
         m_soundId = 0;
     }
 }
@@ -135,7 +135,7 @@ void CRiderRollingAudio::DestroyBody()
 {
     m_vtable = kVtable;
     StopSound();
-    // (m_lastVolume's destructor: nothing)
+    // (m_prevLevels's destructor: nothing)
     CObjectModule::DestroyBody();
 }
 
@@ -159,9 +159,9 @@ void CRiderRollingAudio::ConfigureFromData(Scripts::CStruct* params)
 // 0x005138B0
 void CRiderRollingAudio::SetPaceRatio(float fraction)
 {
-    m_speedFraction = fraction;
+    m_speedRatio = fraction;
     if (fraction > 1.0f)
-        m_speedFraction = 1.0f;
+        m_speedRatio = 1.0f;
 }
 
 // 0x00513970
@@ -268,14 +268,14 @@ void CRiderRollingAudio::TickFrame()
         break;
     }
     if (m_soundId && (!m_haveSound || m_playingChecksum != SoundNameKey(m_sound))) {
-        SfxManager()->StopSound(m_soundId);
+        AudioMixerHandle()->StopSound(m_soundId);
         m_soundId = 0;
     }
     if (!m_haveSound)
         return;
 
     // Its volume from where the skater is - stopped while the skater hasn't moved.
-    SoundFx::CAudioMixer* sfx = SfxManager();
+    SoundFx::CAudioMixer* sfx = AudioMixerHandle();
     if (m_entity->m_atPoint != m_lastPos) {
         float dropoff = sfx->GetDropoffDistance(SoundNameKey(m_sound));
         sfx->FetchLoudness(&volume, &m_entity->m_atPoint, dropoff, 0, nullptr, nullptr);
@@ -288,29 +288,29 @@ void CRiderRollingAudio::TickFrame()
     float pitch;
     if (m_curPhase == kStateAir && m_soundId) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
-        if (m_tiltAngle > m_airPitchFloor) {
-            m_tiltAngle = static_cast<float>(m_tiltAngle - static_cast<double>(FrameClock::GetSlomoFrameSeconds()) * m_airPitchFall);
-            pitch = m_tiltAngle;
+        if (m_leanPitchAngle > m_airPitchFloor) {
+            m_leanPitchAngle = static_cast<float>(m_leanPitchAngle - static_cast<double>(FrameClock::GetSlomoFrameSeconds()) * m_airPitchFall);
+            pitch = m_leanPitchAngle;
         } else {
             volume.ChangeMuted();
-            pitch = m_tiltAngle;
+            pitch = m_leanPitchAngle;
         }
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
         auto* core = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCorePhysics));
         if (core && Prop<uint8_t>(core, 0x2EC))
-            m_speedFraction = kCapsizedFraction;
-        if (m_speedFraction > 0.0f) {
-            float percent = static_cast<float>(static_cast<double>(m_volumeMult) * m_speedFraction * kPercent);
+            m_speedRatio = kCapsizedFraction;
+        if (m_speedRatio > 0.0f) {
+            float percent = static_cast<float>(static_cast<double>(m_volumeMult) * m_speedRatio * kPercent);
             volume.PercentTweak(static_cast<float>(SoundVolume(m_sound, percent)));
             pitch = static_cast<float>((static_cast<double>(FullSpeedPitch(m_sound)) - RestPitch(m_sound)) *
-                                           m_speedFraction +
+                                           m_speedRatio +
                                        RestPitch(m_sound));
-            m_tiltAngle = pitch;
+            m_leanPitchAngle = pitch;
         } else {
             volume.ChangeMuted();
             pitch = 0.0f;
-            m_tiltAngle = 0.0f;
+            m_leanPitchAngle = 0.0f;
         }
     }
 
@@ -319,8 +319,8 @@ void CRiderRollingAudio::TickFrame()
         return;
     }
     if (!m_soundId) {
-        static_cast<LoopingSoundVolume*>(&m_lastVolume)->Assign(&volume);
-        m_lastPitch = pitch;
+        static_cast<LoopingSoundVolume*>(&m_prevLevels)->Assign(&volume);
+        m_prevPitchValue = pitch;
         m_soundId = sfx->EmitSound(SoundNameKey(m_sound), &volume, pitch, 0, nullptr,
                                    static_cast<int>(reinterpret_cast<uintptr_t>(m_sound)));
         if (m_soundId)
@@ -329,11 +329,11 @@ void CRiderRollingAudio::TickFrame()
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
     if (!m_forceUpdate &&
-        !(std::fabs(static_cast<double>(volume.m_lanes[0]) - m_lastVolume.m_lanes[0]) > kChangeThreshold) &&
-        !(std::fabs(static_cast<double>(pitch) - m_lastPitch) > kChangeThreshold))
+        !(std::fabs(static_cast<double>(volume.m_lanes[0]) - m_prevLevels.m_lanes[0]) > kChangeThreshold) &&
+        !(std::fabs(static_cast<double>(pitch) - m_prevPitchValue) > kChangeThreshold))
         return;
-    static_cast<LoopingSoundVolume*>(&m_lastVolume)->Assign(&volume);
-    m_lastPitch = pitch;
+    static_cast<LoopingSoundVolume*>(&m_prevLevels)->Assign(&volume);
+    m_prevPitchValue = pitch;
     m_forceUpdate = 0;
     sfx->SetSoundParamsScaled(m_soundId, &volume, pitch);
 }
@@ -354,7 +354,7 @@ static VtableSlot kVtable_slots[] = {&GameObjects::CRiderRollingAudio::Teardown,
          Stubs::IgnoreArgument,
          Stubs::DoNothing,
          Stubs::IgnoreArgument,
-         &GameObjects::CObjectModule::RunMemberFunction,
+         &GameObjects::CObjectModule::DispatchScriptMethod,
          &GameObjects::CRiderRollingAudio::InvokeMethodByName};
 void** const kVtable = reinterpret_cast<void**>(kVtable_slots);
 

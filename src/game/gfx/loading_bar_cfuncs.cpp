@@ -65,7 +65,7 @@ bool __cdecl CFunc_SetLoadingBarPos(Scripts::CStruct* params, Scripts::CScript* 
 // 0x004907F0
 bool __cdecl CFunc_SetLoadingBarSize(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return ChoosePair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_barWidth, g_barHeight);
+    return ChoosePair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_progressWidth, g_progressHeight);
 }
 
 // 0x00490840
@@ -77,19 +77,19 @@ bool __cdecl CFunc_SetLoadingBarBorder(Scripts::CStruct* params, Scripts::CScrip
 // 0x004908E0
 bool __cdecl CFunc_SetLoadingBarStartColor(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return ChangeColour(params, g_barStartColor);
+    return ChangeColour(params, g_progressFromColor);
 }
 
 // 0x00490960
 bool __cdecl CFunc_SetLoadingBarEndColor(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return ChangeColour(params, g_barEndColor);
+    return ChangeColour(params, g_progressToColor);
 }
 
 // 0x004909E0
 bool __cdecl CFunc_SetLoadingBarBorderColor(Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    return ChangeColour(params, g_barBorderColor);
+    return ChangeColour(params, g_progressEdgeColor);
 }
 
 // 0x00490890

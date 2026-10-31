@@ -76,7 +76,7 @@ struct FrontEnd {
         uint32_t m_repeatTimer; // ms left until the next repeat
         uint32_t m_mapping;     // 0 inactive, 1 active (the default), 2 use_as_first
     };
-    struct ButtonEvent {
+    struct PadPressRecord {
         uint32_t m_button; // the index of the button's name (ButtonEventMappings)
         uint32_t m_incident;  // 0: a free slot
     };
@@ -84,18 +84,18 @@ struct FrontEnd {
 
     void** m_vtable;
     uint8_t m_owningModule[0x14 - 4];          // GameModules::PartUnit's fields
-    FrontEndTask* m_logicTask;           // +0x14: LogicTask, priority -2000
+    FrontEndTask* m_updateJob;           // +0x14: FrontEndTick, priority -2000
     FrontEndTask* m_keyboardTask;        // +0x18: KeyboardTask, priority -1000 (added by RegisterKeyListener)
     uint32_t m_unknown1C;
-    FrontEndInputHandler* m_inputHandlers[2]; // +0x20: InputLogic, priority -1000
+    FrontEndInputHandler* m_padListeners[2]; // +0x20: InputLogic, priority -1000
     int m_deviceServerMap[2];            // +0x28: which controller each handler listens to (0, 1)
     bool m_isHalted;                       // +0x30
-    int m_autoRepeatDelay;               // +0x34: ms (300)
+    int m_holdRepeatMs;               // +0x34: ms (300)
     int m_autoRepeatRate;                // +0x38: ms (50)
     int m_keyboardDevice;                // +0x3C: the device_num the typed keys are reported with
     PadMapping m_padMappings[2];         // +0x40
     bool m_blockMenuInput;               // +0x58
-    ButtonEvent m_buttonEvents[kMaxButtonEvents]; // +0x5C
+    PadPressRecord m_padEventQueue[kMaxButtonEvents]; // +0x5C
     bool m_checkStartupScript;           // +0x15C: the first input frame looks at the global below once
     bool m_startupScriptOn;              // +0x15D
     uint32_t m_startupScriptId;          // +0x160: the spawned script's unique id
@@ -118,7 +118,7 @@ struct FrontEnd {
     // 0x0054ECD0: no more typed keys (the keyboard task out of the logic tasks; StopKeyboardHandler).
     void UnregisterKeyListener();
     // 0x0054ECE0: the auto-repeat of a held direction for controller `deviceIndex` (InputLogic's first event): the
-    // direction's event when it's first held, then after m_autoRepeatDelay ms, then every m_autoRepeatRate ms; 0
+    // direction's event when it's first held, then after m_holdRepeatMs ms, then every m_autoRepeatRate ms; 0
     // in between. Controller 0 with the on-screen keyboard up also takes the PC keyboard's arrows. Always 0 while
     // the startup script runs (it's unpaused each time until it ends).
     uint32_t AutoRepeat(uint32_t held, int deviceIndex);
@@ -126,7 +126,7 @@ struct FrontEnd {
     void RegisterKeyListener(int device);
     // 0x0054EF80: the button-event pairs from the `xbox` array of `params` (see the top of this file).
     void UpdateButtonEventMappings(Scripts::CStruct* params);
-    // 0x0054F380: once a frame (LogicTask): whether a menu / the keyboard is up, the music, the spawned scripts.
+    // 0x0054F380: once a frame (FrontEndTick): whether a menu / the keyboard is up, the music, the spawned scripts.
     void TickFrame(bool gamePaused);
     // 0x0054F600: the `index`-th pad event of the pressed buttons, else pad_start for Start, else (controller 0,
     // the on-screen keyboard up) Escape / Enter / Space as pad_back / pad_start / pad_choose. 0 if none.
@@ -141,14 +141,14 @@ struct FrontEnd {
     // 0x0054F200 (the keyboard task): each typed key (printable, Enter or Backspace) to handle_keyboard_input.
     static void __cdecl KeyboardTask(FrontEndTask* task);
     // 0x0054FCC0 (the logic task)
-    static void __cdecl LogicTask(FrontEndTask* task);
+    static void __cdecl FrontEndTick(FrontEndTask* task);
     // 0x0054FB40 (a controller's handler): its pad events, each sent to the menus (unless blocked or inactive).
     static void __cdecl InputLogic(FrontEndInputHandler* handler);
 };
-static_assert(offsetof(FrontEnd, m_logicTask) == 0x14 && offsetof(FrontEnd, m_inputHandlers) == 0x20 &&
+static_assert(offsetof(FrontEnd, m_updateJob) == 0x14 && offsetof(FrontEnd, m_padListeners) == 0x20 &&
                   offsetof(FrontEnd, m_isHalted) == 0x30 && offsetof(FrontEnd, m_keyboardDevice) == 0x3C &&
                   offsetof(FrontEnd, m_padMappings) == 0x40 && offsetof(FrontEnd, m_blockMenuInput) == 0x58 &&
-                  offsetof(FrontEnd, m_buttonEvents) == 0x5C && offsetof(FrontEnd, m_checkStartupScript) == 0x15C &&
+                  offsetof(FrontEnd, m_padEventQueue) == 0x5C && offsetof(FrontEnd, m_checkStartupScript) == 0x15C &&
                   offsetof(FrontEnd, m_startupScriptId) == 0x160 && sizeof(FrontEnd) == 0x164,
               "layout must match the original");
 

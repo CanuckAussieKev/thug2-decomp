@@ -104,7 +104,7 @@ constexpr uint32_t kRotate = 0xC876ADF3;            // rotate
 constexpr uint32_t kIsDeck = 0x25A0E7E9;            // is_deck
 constexpr uint32_t kBaseTexture = 0x499F4BE9;       // base_texture
 constexpr uint32_t kLogoTexture = 0x49B318FD;       // logo_texture
-constexpr uint32_t kUseDefaultScale = 0x5A96985D;   // use_default_scale
+constexpr uint32_t kKeepStockScale = 0x5A96985D;   // use_default_scale
 constexpr uint32_t kX = 0x7323E97C;                 // x
 constexpr uint32_t kY = 0x0424D9EA;                 // y
 constexpr uint32_t kZ = 0x9D2D8850;                 // z
@@ -569,10 +569,10 @@ bool CModelAssembler::ApplyBoneSizing(uint32_t part, uint32_t castPart)
         if (!slot)
             return false;
     }
-    if (!slot->HasEntryNamed(kUseDefaultScale))
+    if (!slot->HasEntryNamed(kKeepStockScale))
         return false;
     int useDefault = 0;
-    slot->FetchIntValue(kUseDefaultScale, &useDefault, 0);
+    slot->FetchIntValue(kKeepStockScale, &useDefault, 0);
     if (useDefault)
         return false;
     int x, y, z;
@@ -615,10 +615,10 @@ bool CModelAssembler::ApplyObjectScale()
         return true;
     }
     Scripts::CStruct* slot = BuiltAppearance()->GetPart(kObjectScaling);
-    if (!slot || !slot->HasEntryNamed(kUseDefaultScale))
+    if (!slot || !slot->HasEntryNamed(kKeepStockScale))
         return false;
     int useDefault = 0;
-    slot->FetchIntValue(kUseDefaultScale, &useDefault, 0);
+    slot->FetchIntValue(kKeepStockScale, &useDefault, 0);
     if (useDefault)
         return false;
     int x, y, z;

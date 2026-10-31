@@ -50,7 +50,7 @@ public:
     // 0x00454590: offline. True.
     bool DisconnectFromInternet();
     // 0x004545A0
-    int GetDialupSpeed() { return m_modemBaudRate; }
+    int GetDialupSpeed() { return m_dialupBps; }
     // 0x004545B0: the bandwidth allowed over all connections (bytes a second).
     int FetchThroughput() { return m_linkSpeed; }
     // 0x004545C0
@@ -93,8 +93,8 @@ public:
     char GetMsgOptions(uint8_t msgId) { return static_cast<char>(m_messageFlags[msgId]); }
     void SetMsgOptions(uint8_t msgId, char flags) { m_messageFlags[msgId] = static_cast<uint8_t>(flags); }
     // 0x004549A0 / 0x004549B0: the online state machine's state (0x00533810: 0-8; 5 at first).
-    int GetDialupStatus() { return m_modemState; }
-    void SetDialupStatus(int state) { m_modemState = state; }
+    int GetDialupStatus() { return m_dialupPhase; }
+    void SetDialupStatus(int state) { m_dialupPhase = state; }
     // 0x004549C0: (a console's network drivers, set up with the viewer's address - the LoadNetworkDrivers
     // script command: nothing to load on the PC) true.
     bool LoadNetworkDrivers(const char* ip, const char* subnetMask, const char* gateway);
@@ -127,10 +127,10 @@ public:
     bool m_useDHCP;                       // +0x2E5 (the apps are then bound to m_localIP)
     bool m_flag2E6;                       // +0x2E6
     uint8_t m_pad2E7;
-    int m_modemState;                     // +0x2E8
+    int m_dialupPhase;                     // +0x2E8
     int m_unknown2EC;                     // +0x2EC (0 from the constructor)
     uint8_t m_unknown2F0[0x374 - 0x2F0];
-    int m_modemBaudRate;                  // +0x374
+    int m_dialupBps;                  // +0x374
     int m_linkSpeed;                      // +0x378 (400000 at first)
 };
 static_assert(offsetof(Hub, m_clients) == 0x14 && offsetof(Hub, m_messageFlags) == 0x28 &&
@@ -143,7 +143,7 @@ static_assert(offsetof(Hub, m_clients) == 0x14 && offsetof(Hub, m_messageFlags) 
                   offsetof(Hub, m_domainName) == 0x2BC && offsetof(Hub, m_numApps) == 0x2DC &&
                   offsetof(Hub, m_lastError) == 0x2E0 && offsetof(Hub, m_isNetworked) == 0x2E4 &&
                   offsetof(Hub, m_useDHCP) == 0x2E5 && offsetof(Hub, m_flag2E6) == 0x2E6 &&
-                  offsetof(Hub, m_modemState) == 0x2E8 && offsetof(Hub, m_modemBaudRate) == 0x374 &&
+                  offsetof(Hub, m_dialupPhase) == 0x2E8 && offsetof(Hub, m_dialupBps) == 0x374 &&
                   offsetof(Hub, m_linkSpeed) == 0x378 && sizeof(Hub) == 0x37C,
               "layout must match the original");
 
@@ -152,6 +152,6 @@ Hub* CreateManager(bool create);
 // 0x004558D0: one reference less; the last deletes it.
 void ReleaseManager();
 
-extern Hub* g_netManager;
+extern Hub* g_netCore;
 
 } // namespace Net

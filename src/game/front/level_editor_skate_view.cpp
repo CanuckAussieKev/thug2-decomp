@@ -93,7 +93,7 @@ float Threshold(float angle, float factor)
 
 namespace {
 
-void** const& kCollStaticVtable = Vt::kCollStatic;
+void** const& kCollStaticVtable = Vt::kVtblStaticColl;
 constexpr float kRadius = 3000.0f;
 constexpr int kMaxFaces = 12000;
 constexpr uint32_t kRail = 0xF040F0FF;
@@ -119,7 +119,7 @@ float GameThreshold()
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
         float angle = Scripts::FetchFloat(0x3EEDE4D3u); // (the original also passes 1, unused)
-        float factor = ::ScriptCommands::g_degreesToRadians;
+        float factor = ::ScriptCommands::g_degreeToRadianRatio;
         g_threshold = Threshold(angle, factor);
     }
     return g_threshold;

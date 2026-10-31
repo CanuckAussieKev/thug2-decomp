@@ -54,7 +54,7 @@ void __cdecl AddGoalEditorNodes(Scripts::CArray* nodes, int* index, MemSys::Aren
             if (inPlace) {
                 node = reinterpret_cast<Scripts::CStruct*>(nodes->FetchPart(static_cast<uint32_t>(*index)));
             } else {
-                node = Scripts::NewStruct();
+                node = Scripts::SpawnParamBag();
                 node = node ? node->PrepareAll() : nullptr;
             }
             static const uint32_t kKinds[3] = {0x8F0F67D7, 0xC9119673, 0x000B52B3};

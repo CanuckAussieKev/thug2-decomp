@@ -87,7 +87,7 @@ MemSys::Arena* g_coimHeap;
 uint32_t g_instanceCount;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
 CObjectModule* g_componentList[GameObjects::CEntityHub::kMaxComponentTypes];
-GameObjects::CEntityHub* g_compositeObjectManager;
+GameObjects::CEntityHub* g_compositeRegistry;
 uint32_t g_compositeMgrReferences;
 
 namespace {
@@ -174,7 +174,7 @@ void WalkObjects(CObjectHubBase* manager, Visit visit)
 
 } // namespace
 
-CEntityHub*& CompositeObjectManager() { return g_compositeObjectManager; }
+CEntityHub*& ObjectHubSlot() { return g_compositeRegistry; }
 
 // 0x0045F6E0
 CEntityHub* CEntityHub::MakeNew()
@@ -188,7 +188,7 @@ CEntityHub* CEntityHub::MakeNew()
         task[6] = reinterpret_cast<uint32_t>(&CompositeObjectManagerTask);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
-    m_logicTask = task;
+    m_updateJob = task;
     RegisterLogicTask(task);
     Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kObjectMemberFunctionType),
                                         g_objectMemberFunctions, 0x18);
@@ -201,10 +201,10 @@ CEntityHub* CEntityHub::MakeNew()
 void CEntityHub::DestroyBody()
 {
     m_vtable = kManagerVtable;
-    if (m_logicTask) {
-        RemoveTask(m_logicTask);
-        if (m_logicTask) { // (its deleting destructor, through the vtable)
-            auto* task = static_cast<void***>(m_logicTask);
+    if (m_updateJob) {
+        RemoveTask(m_updateJob);
+        if (m_updateJob) { // (its deleting destructor, through the vtable)
+            auto* task = static_cast<void***>(m_updateJob);
             reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
         }
     }
@@ -335,12 +335,12 @@ void __cdecl CompositeObjectManagerTask(void* task)
 // 0x0045F7A0
 CEntityHub* CreateCompositeObjectManager(bool create)
 {
-    if (!CompositeObjectManager() && create) {
+    if (!ObjectHubSlot() && create) {
         void* memory = MemSys::AllocZeroed(sizeof(CEntityHub), 1);
-        CompositeObjectManager() = memory ? static_cast<CEntityHub*>(memory)->MakeNew() : nullptr;
+        ObjectHubSlot() = memory ? static_cast<CEntityHub*>(memory)->MakeNew() : nullptr;
     }
     ++RefTally();
-    return CompositeObjectManager();
+    return ObjectHubSlot();
 }
 
 // 0x0045F1E0
@@ -351,7 +351,7 @@ void ReleaseCompositeObjectManager()
         --references;
         return;
     }
-    CompositeObjectManager() = nullptr; // (not deleted)
+    ObjectHubSlot() = nullptr; // (not deleted)
     references = 0;
 }
 

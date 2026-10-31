@@ -41,7 +41,7 @@ void __cdecl PlayNextTrackInOrder();
 // and it isn't the user's playlist) - if the music is audible or it's playlist 1.
 void __cdecl TickFrame();
 
-struct FrameAmp;
+struct StreamAmpCurve;
 
 // The three streams (0x74 bytes each, at 0x0069B938; started by StartStream / PlayStream, stream.h).
 struct Stream {
@@ -58,10 +58,10 @@ struct Stream {
     uint8_t usePosInfo; // +0x28 its volume follows the owner's position (PlayStreamAtObject)
     uint8_t pad29[3];
     int falloffCurve; // +0x2C
-    uint32_t* listener; // +0x30 the stream's frame amplitudes (a FrameAmp: checksum and size cleared when it ends)
+    uint32_t* listener; // +0x30 the stream's frame amplitudes (a StreamAmpCurve: checksum and size cleared when it ends)
     struct {
         uint32_t checksum;
-        FrameAmp* frameAmp;
+        StreamAmpCurve* frameAmp;
     } names[8];         // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
@@ -163,7 +163,7 @@ extern bool g_musicHeaderLoaded;
 extern bool g_streamsOn;
 extern float g_musicVolume;
 extern float g_musicStreamVolume;
-extern int g_musicStreamType;
+extern int g_bgmStreamKind;
 extern bool g_shuffleUser;
 extern void* g_soundDevice;
 

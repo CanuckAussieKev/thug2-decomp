@@ -1559,7 +1559,7 @@ bool SceneLive(uint8_t* scene)
     return live && scene;
 }
 
-uint32_t SceneName(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0; }
+uint32_t WorldSceneKey(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0; }
 
 // --- copies of sectors ---
 //

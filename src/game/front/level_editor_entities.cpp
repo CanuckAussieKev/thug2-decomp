@@ -206,7 +206,7 @@ void SetEmitter(State* state, const EmitterSound& emitter)
     EmitterSound e = emitter;
     e.volume = std::clamp(e.volume, kMinVolume, kMaxVolume);
     if (e.radius > 0.0f)
-        e.radius = std::clamp(e.radius, kMinRadius, kMaxRadius);
+        e.radius = std::clamp(e.radius, kMinRadius, kRadiusCeiling);
     else
         e.radius = 0.0f;
     if (it != state->emitters.end())
@@ -319,7 +319,7 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
             if (!ParseNumber(value, &e.volume) || e.volume < kMinVolume || e.volume > kMaxVolume)
                 return false;
         } else if (key == "radius") {
-            if (!ParseNumber(value, &e.radius) || (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kMaxRadius)))
+            if (!ParseNumber(value, &e.radius) || (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
                 return false;
         } // (other keys: a later version's - skipped)
     }
@@ -355,7 +355,7 @@ double Now()
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-Scripts::CStruct* NodeStruct(uint32_t name)
+Scripts::CStruct* LookUpNodeParams(uint32_t name)
 {
     return name && LevelNodes::NodeManagerInstance() ? LevelNodes::FetchVertex(name, false) : nullptr;
 }
@@ -512,7 +512,7 @@ void RunRemakes()
             ++it; // (not removed yet: the game deletes dead objects in its update)
             continue;
         }
-        if (Scripts::CStruct* node = NodeStruct(r.name)) {
+        if (Scripts::CStruct* node = LookUpNodeParams(r.name)) {
             ScriptCommands::CreateFromNode(node);
             if (r.keep)
                 Objects::Restore(r.state);
@@ -526,10 +526,10 @@ void RunRemakes()
 
 // --- sounds on emitters ---
 
-SoundFx::CAudioMixer* SfxManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* AudioMixerHandle() { return SoundFx::g_audioMixer; }
 void* NearestCamera(const Maths::Vec4* position, float* distance)
 {
-    return Engine3D::GetClosestCamera(position, distance);
+    return Engine3D::FetchNearestCamera(position, distance);
 }
 const Maths::Vec4* ViewerLocation(void* camera)
 {
@@ -542,7 +542,7 @@ GameObjects::EmitterNode* Emitter(uint32_t name)
 
 void StopPlaying(Playing* p)
 {
-    if (SoundFx::CAudioMixer* m = SfxManager(); m && p->id && !SoundFx::NoSound())
+    if (SoundFx::CAudioMixer* m = AudioMixerHandle(); m && p->id && !SoundFx::NoSound())
         m->StopSound(p->id);
     p->id = 0;
 }
@@ -556,7 +556,7 @@ void StopAllSounds()
 
 void UpdateSounds()
 {
-    SoundFx::CAudioMixer* m = SfxManager();
+    SoundFx::CAudioMixer* m = AudioMixerHandle();
     std::vector<EmitterSound> emitters = EffectiveEmitters();
     bool off = !m || SoundFx::NoSound() || !InLevel() || Layout::NetworkActive();
     // (those no longer wanted, or of another sound now: stopped)
@@ -580,7 +580,7 @@ void UpdateSounds()
             p = g_playing.end() - 1;
         }
         GameObjects::EmitterNode* emitter = Emitter(e.name);
-        SoundFx::SoundWaveSlot* wave = m->GetWaveTableEntry(e.sound);
+        SoundFx::SoundWaveSlot* wave = m->FetchWaveSlot(e.sound);
         if (!emitter || !emitter->m_active || !wave || m->IsFrozen()) {
             StopPlaying(&*p);
             continue;
@@ -623,7 +623,7 @@ void ApplyRadius(const EmitterSound& e)
         emitter->m_radius = e.radius;
         emitter->m_radiusSquared = e.radius * e.radius;
     }
-    if (Scripts::CStruct* node = NodeStruct(e.name); node && !NodeCreate::IsAdded(e.name)) {
+    if (Scripts::CStruct* node = LookUpNodeParams(e.name); node && !NodeCreate::IsAdded(e.name)) {
         float now = 0.0f;
         if (!node->FetchFloat(KRadius(), &now, 0) || now != e.radius) {
             node->EraseModule(KRadius());
@@ -674,7 +674,7 @@ uint32_t PathSpeedScript()
 
 void ApplySpeed(GameObjects::CGameEntity* object, float mph)
 {
-    Scripts::CStruct* params = Scripts::NewStruct()->PrepareAll();
+    Scripts::CStruct* params = Scripts::SpawnParamBag()->PrepareAll();
     params->PushFloat(Key("speed"), mph);
     Scripts::LaunchScript(PathSpeedScript(), params, object, false, nullptr);
     params->Clear();
@@ -735,7 +735,7 @@ bool PathOf(uint32_t name, std::vector<V3>* points, bool* closed)
 {
     points->clear();
     *closed = false;
-    Scripts::CStruct* node = NodeStruct(name);
+    Scripts::CStruct* node = LookUpNodeParams(name);
     if (!node || LevelNodes::GetLinkCount(node) == 0)
         return false;
     uint32_t next = LevelNodes::FetchLink(node, 0);
@@ -745,7 +745,7 @@ bool PathOf(uint32_t name, std::vector<V3>* points, bool* closed)
             *closed = next == seen.front();
             break;
         }
-        Scripts::CStruct* point = NodeStruct(next);
+        Scripts::CStruct* point = LookUpNodeParams(next);
         if (!point || ClassOf(point) != KWaypoint())
             break;
         Maths::Vec4 pos;
@@ -763,7 +763,7 @@ float PreviewMph(uint32_t name)
         if (s.name == name)
             return s.mph;
     }
-    uint32_t cls = ClassOf(NodeStruct(name));
+    uint32_t cls = ClassOf(LookUpNodeParams(name));
     return cls == kVehicle ? 25.0f : cls == kPedestrian ? 3.0f : 10.0f;
 }
 
@@ -934,11 +934,11 @@ State AtHand()
 {
     State out;
     for (const Pace& s : g_state.speeds) {
-        if (NodeStruct(s.name))
+        if (LookUpNodeParams(s.name))
             out.speeds.push_back(s);
     }
     for (const EmitterSound& e : g_state.emitters) {
-        if (NodeStruct(e.name))
+        if (LookUpNodeParams(e.name))
             out.emitters.push_back(e);
     }
     return out;
@@ -1016,7 +1016,7 @@ void Tick(bool editorActive, uint32_t selected, bool dragging)
     // The objects whose model was swapped: made again when their node's model= isn't the one they were made with
     // (the swap, its undo, Home).
     for (auto& [id, made] : g_madeWith) {
-        std::string model = ModelOf(NodeStruct(id));
+        std::string model = ModelOf(LookUpNodeParams(id));
         if (model != made && LiveObject(id)) {
             made = model;
             QueueRemake(id, true, 0.0);
@@ -1038,7 +1038,7 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
     int index = Nodes::Find(name);
     if (index < 0 || Nodes::All()[index].family != Nodes::Family::Particle)
         return;
-    Scripts::CStruct* node = NodeStruct(name);
+    Scripts::CStruct* node = LookUpNodeParams(name);
     if (!node)
         return;
     static const uint32_t kMid = Key("MidPosition"), kEnd = Key("EndPosition");
@@ -1084,7 +1084,7 @@ void NodeMoved(uint32_t name, V3 pos, V3 angles)
     QueueRemake(name, false, 0.3); // (once the drag rests)
 }
 
-bool MovableNode(uint32_t name, int family)
+bool PickedNodeIndex(uint32_t name, int family)
 {
     auto f = static_cast<Nodes::Family>(family);
     int index = Nodes::Find(name);
@@ -1142,7 +1142,7 @@ Placed Place(int index, V3 at, float yaw)
             placed.message = "Couldn't copy " + Nodes::Caption(source.names.front());
             return placed;
         }
-        uint32_t cls = ClassOf(NodeStruct(source.names.front()));
+        uint32_t cls = ClassOf(LookUpNodeParams(source.names.front()));
         if (cls == kPedestrian || cls == kVehicle)
             Objects::TurnAbout(copy, at, yaw - Heading(copy)); // (facing the way the camera looks)
         placed.copies.push_back(copy->m_ident);
@@ -1156,7 +1156,7 @@ Placed Place(int index, V3 at, float yaw)
     std::vector<V3> places;
     for (uint32_t name : source.names) {
         Maths::Vec4 p;
-        LevelNodes::FetchPlace(NodeStruct(name), &p);
+        LevelNodes::FetchPlace(LookUpNodeParams(name), &p);
         places.push_back({p.x, p.y, p.z});
     }
     V3 anchor = PinAnchorPoint(places);

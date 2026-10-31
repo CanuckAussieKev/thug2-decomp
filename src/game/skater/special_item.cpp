@@ -42,7 +42,7 @@ constexpr uint32_t kBone = 0xCAB94088;
 constexpr uint32_t kParams = 0x7031F10C;
 constexpr uint32_t kId = 0xA1DC81F9;
 constexpr uint32_t kOwner = 0x7A9597B3;
-constexpr uint32_t kDeathScript = 0x40764820;
+constexpr uint32_t kOnDestroyScript = 0x40764820;
 constexpr uint32_t kObjectId = 0x40C698AF;
 
 // Network messages to the server.
@@ -57,7 +57,7 @@ T& Prop(const void* object, uint32_t offset)
 
 Scripts::CStruct* NewParams()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteParams(Scripts::CStruct* params)
@@ -81,7 +81,7 @@ uint8_t* ModelData(CGameEntity* object)
 // A message to the server, in a network game.
 void SendToServer(uint8_t id, void* data)
 {
-    auto* manager = OnlinePlay::g_gameNetManager;
+    auto* manager = OnlinePlay::g_onlineHub;
     if (!manager->InNetGame())
         return;
     NetLink::NetMessageInfo msg;
@@ -136,7 +136,7 @@ void CPickupItemHandler::DestroyItem(int slot)
     Scripts::CStruct* tags = NewParams();
     m_items[slot]->CopyTagsTo(tags);
     uint32_t script;
-    if (tags->ReadHashValue(kDeathScript, &script, 0))
+    if (tags->ReadHashValue(kOnDestroyScript, &script, 0))
         Scripts::LaunchScript(script, nullptr, m_items[slot], false, nullptr);
     DeleteParams(tags);
     FlagAsDead(m_items[slot]);
@@ -168,8 +168,8 @@ CGameEntity* CPickupItemHandler::CreateItem(int slot, Scripts::CStruct* params)
     Scripts::CStruct* tags = NewParams();
     tags->PutNameKey(kOwner, m_entity->m_ident);
     uint32_t script;
-    if (params->ReadHashValue(kDeathScript, &script, 0))
-        tags->PutNameKey(kDeathScript, script);
+    if (params->ReadHashValue(kOnDestroyScript, &script, 0))
+        tags->PutNameKey(kOnDestroyScript, script);
     m_items[slot]->SetTagsFromStruct(tags);
     DeleteParams(tags);
 

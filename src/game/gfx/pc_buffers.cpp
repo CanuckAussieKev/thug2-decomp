@@ -216,7 +216,7 @@ void meshRef::SetPixelShaderColored()
 {
     uint8_t* mat = material;
     uint32_t bytes = *reinterpret_cast<uint32_t*>(mat + 8) << 4; // 16 a pass
-    auto* constants = g_pixelShaderConstants;
+    auto* constants = g_psConstantBank;
     auto* saved = g_savedPixelShaderConstants;
     std::memcpy(saved, constants, bytes);
     double r, g, b;

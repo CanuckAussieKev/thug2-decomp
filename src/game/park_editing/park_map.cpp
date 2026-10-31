@@ -74,9 +74,9 @@ void CopyString(char* dest, const char* source)
     }
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -129,7 +129,7 @@ void CParkLayout::TransferParkFile(bool save, int slot)
     char name[64];
     std::snprintf(name, sizeof(name), "CustomParks\\custom%d.prk", slot);
     if (save) {
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         ExportToStruct(params);
         uint32_t size = StructureBufferSize(params, 100000);
         void* buffer = MemSys::AllocBlock(size);
@@ -147,7 +147,7 @@ void CParkLayout::TransferParkFile(bool save, int slot)
     void* buffer = MemSys::AllocBlock(size);
     FileLoad::TakeIn(buffer, static_cast<int>(size), 1, file);
     FileLoad::Shut(file);
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     ReadStructure(params, buffer);
     MemSys::FreeMalloc(buffer);
     DecodeFromStruct(params, false);
@@ -194,10 +194,10 @@ void CParkLayout::ReadFromCompressedMap()
 // on the stack.
 void CParkLayout::ReadCompressedMap(Scripts::CArray* names, bool current)
 {
-    m_parkBounds.x = m_map.m_posX;
-    m_parkBounds.z = m_map.m_depthCell;
-    m_parkBounds.w = m_map.m_w;
-    m_parkBounds.l = m_map.m_l;
+    m_buildArea.x = m_map.m_posX;
+    m_buildArea.z = m_map.m_depthCell;
+    m_buildArea.w = m_map.m_w;
+    m_buildArea.l = m_map.m_l;
     m_shellSize = m_map.m_shellSize;
     SetTheme(m_map.m_styleSet);
     m_builder->SetPlayerCap(m_map.m_maxPlayers);
@@ -211,7 +211,7 @@ void CParkLayout::ReadCompressedMap(Scripts::CArray* names, bool current)
 
     // The metapieces (8 bytes each): the name's index, x, z; the height and rotation.
     auto* entry = reinterpret_cast<const uint32_t*>(heights);
-    for (int i = 0; i < m_map.m_numMetas; ++i, entry += 2) {
+    for (int i = 0; i < m_map.m_compositeCount; ++i, entry += 2) {
         uint32_t where = entry[0];
         uint32_t how = entry[1];
         uint32_t checksum = names->FetchPart(where & 0x3FF);
@@ -237,12 +237,12 @@ void CParkLayout::ReadCompressedMap(Scripts::CArray* names, bool current)
             info.m_atPoint[end].y = static_cast<int8_t>(gap[2 + end] - 8);
             info.m_atPoint[end].z = gap[4 + end];
             info.m_quarterTurns[end] = (gap[8] >> (end * 4)) & 0xF;
-            info.m_leftExtent[end] = gap[6 + end] >> 4;
-            info.m_rightExtent[end] = gap[6 + end] & 0xF;
+            info.m_reachLeft[end] = gap[6 + end] >> 4;
+            info.m_reachRight[end] = gap[6 + end] & 0xF;
         }
         CopyString(info.m_text, reinterpret_cast<const char*>(gap + 0xA));
         info.m_pointsHeld = *reinterpret_cast<const uint16_t*>(gap + 0x2A);
-        info.m_numCompleteHalves = 2;
+        info.m_halvesPlaced = 2;
         if (current)
             info.m_cancelFlags = *reinterpret_cast<const uint32_t*>(gap + 0x2C);
         RegisterGapEntry(&info);

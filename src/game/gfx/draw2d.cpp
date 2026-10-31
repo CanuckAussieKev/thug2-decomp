@@ -136,7 +136,7 @@ void __cdecl Draw2D()
     ChooseBlendMode(5);
     ChangePhase(kAddressMode0, 0x10001);
     ChangePhase(kDepthBias, 0);
-    ChangePhase(kAlphaRef, 1);
+    ChangePhase(kPhaseAlphaTest, 1);
     ChangePhase(kZWrite, 0);
     SetTexture(1, nullptr);
     SetTexture(2, nullptr);

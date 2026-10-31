@@ -29,7 +29,7 @@ namespace {
 uint32_t& LoadingFile() { return g_loadingFile; }
 
 // Not rewritten yet: the platform's file extension for pre-compiled scripts.
-const char* PrecompiledExtension() { return GameConfig::GetPlatformExtension(); }
+const char* PrecompiledExtension() { return GameConfig::FetchPlatformSuffix(); }
 
 // The symbol `existing` makes way for a new definition: set aside (temporary loads) or removed.
 void Replace(CSymbolTableEntry* existing, int temporary)
@@ -62,7 +62,7 @@ const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const 
     }
     case 0x03: {
         symbol->type = QBVAL_STRUCT;
-        CStruct* structure = NewStruct();
+        CStruct* structure = SpawnParamBag();
         structure = structure ? structure->PrepareAll() : nullptr;
         symbol->structure = structure;
         return ParseStructure(structure, token, nullptr);
@@ -80,7 +80,7 @@ const uint8_t* ParseSymbolDefinition(const uint8_t* token, uint32_t name, const 
 }
 
 // 0x0046FE40 (the size in EAX, the code in EBX)
-CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
+CSymbolTableEntry* DefineScriptSymbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
                                       const char* filename)
 {
     CSymbolTableEntry* symbol = CreateSymbol(name);
@@ -169,9 +169,9 @@ void ReadQbFile(const char* filename, const uint8_t* data, int unused, int useQb
                 if (existing->type == QBVAL_SCRIPT_BODY && checksum == *reinterpret_cast<uint32_t*>(existing->raw))
                     break;
                 Replace(existing, temporary);
-                CreateScriptSymbol(size, start, name, checksum, filename);
+                DefineScriptSymbol(size, start, name, checksum, filename);
             } else {
-                CSymbolTableEntry* symbol = CreateScriptSymbol(size, start, name, checksum, filename);
+                CSymbolTableEntry* symbol = DefineScriptSymbol(size, start, name, checksum, filename);
                 if (temporary)
                     RemoveSymbolLater(symbol);
             }
@@ -212,7 +212,7 @@ bool ScriptRefersTo(const CScript* script, uint32_t name)
     if (script->m_scriptTitle == name)
         return true;
     // The calls it's in the middle of.
-    for (int i = 0; i < script->m_numReturnAddresses; ++i) {
+    for (int i = 0; i < script->m_callDepth; ++i) {
         if (script->m_returnAddresses[i].m_scriptId == name)
             return true;
     }
@@ -317,7 +317,7 @@ const uint8_t* __cdecl ParseSymbolDefinitionRegisters(const uint8_t* token, uint
 Scripts::CSymbolTableEntry* __cdecl CreateScriptSymbolRegisters(uint32_t size, const uint8_t* code, uint32_t name,
                                                                uint32_t checksum, const char* filename)
 {
-    return Scripts::CreateScriptSymbol(size, code, name, checksum, filename);
+    return Scripts::DefineScriptSymbol(size, code, name, checksum, filename);
 }
 
 } // namespace

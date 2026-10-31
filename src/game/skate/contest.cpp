@@ -39,7 +39,7 @@ constexpr uint32_t kName = 0xA1DC81F9;              // Name
 constexpr uint32_t kScore = 0xCD66C8AE;             // score
 constexpr uint32_t kPlayer = 0x67E6859A;            // player
 constexpr uint32_t kTopJudge = 0x7B1B959F;          // top_judge
-constexpr uint32_t kLeaderBoard = 0x370B9420;       // leader_board
+constexpr uint32_t kRankingList = 0x370B9420;       // leader_board
 constexpr uint32_t kAddLeaderBoard = 0xCE76F8C1;    // goal_comp_add_leader_board
 constexpr uint32_t kJudgeNames[CContest::kJudges] = {
     0x84F93830, 0x1DF0698A, 0x6AF7591C, 0xF493CCBF, 0x8394FC29, // comp_str_Judge1..5
@@ -68,7 +68,7 @@ int Truncate(double value) { return static_cast<int>(value); }
 // A score rounded to the nearest (the original adds 0.499999 and truncates).
 int Round(float value) { return Truncate(static_cast<double>(value) + NearlyHalf()); }
 
-GameObjects::CProfileRoster* ProfileManager() { return GameObjects::g_profileManager; }
+GameObjects::CProfileRoster* RosterHandle() { return GameObjects::g_profileRoster; }
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 GameObjects::CRiderIdentity* TemplateAt(GameObjects::CProfileRoster* manager, int index)
 {
@@ -82,9 +82,9 @@ bool CompetitionGoalActive()
     return GoalSystem::GetObjectiveBoard()->GetActiveCompetition() != nullptr;
 }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* structure = Scripts::NewStruct();
+    Scripts::CStruct* structure = Scripts::SpawnParamBag();
     return structure ? structure->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -166,7 +166,7 @@ void CContest::BeginTimedSession()
 {
     ++m_runs;
     m_pathVertices = 0.0f;
-    m_bailPoints = 0.0f;
+    m_crashPenalty = 0.0f;
 }
 
 // 0x00550040
@@ -238,7 +238,7 @@ CContest* CContest::MakeNew(int)
     // (the compiler's array-constructor helper, 0x0062388B)
     for (Leader& leader : m_leaders)
         leader.MakeNew();
-    m_args = NewStructure();
+    m_args = SpawnParamTable();
     return this;
 }
 
@@ -255,7 +255,7 @@ void CContest::Kickoff(float bronze, float silver, float gold, float bronzeScore
     m_bailPenalty = bailPenalty;
     m_ended = false;
 
-    GameObjects::CProfileRoster* manager = ProfileManager();
+    GameObjects::CProfileRoster* manager = RosterHandle();
     m_leaders[0].m_label = manager->FetchActiveAccount()->FetchShownName();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
@@ -364,7 +364,7 @@ void CContest::ShowLeaderBoard()
 {
     if (!CompetitionGoalActive())
         return;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     Scripts::CArray* board = NewArray();
     board->ConfigureSizeKind(5, Scripts::QBVAL_STRUCT);
     DebugOut::Printf("\nSetupJudgeText\n");
@@ -375,7 +375,7 @@ void CContest::ShowLeaderBoard()
     }
     for (int i = 0; i < 5; ++i) {
         Leader& leader = m_leaders[i];
-        Scripts::CStruct* entry = NewStructure();
+        Scripts::CStruct* entry = SpawnParamTable();
         entry->AppendWord(kName, leader.m_label.c_str());
         DebugOut::Printf("m_current_round: %i\n", m_runs);
         entry->PutInt(kScore, leader.BestTwo(m_runs + 1));
@@ -383,7 +383,7 @@ void CContest::ShowLeaderBoard()
             entry->PutNameKey(kNoName, kPlayer);
         board->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
     }
-    params->AppendArrayValue(kLeaderBoard, board);
+    params->AppendArrayValue(kRankingList, board);
     FreeArray(board);
     Scripts::SpawnScript(kAddLeaderBoard, params, 0, nullptr, 0, 0, false, false, false, false);
     DeleteStructure(params);
@@ -416,8 +416,8 @@ void CContest::EndRun(int score)
                                         (static_cast<double>(m_goldScore) + m_goldScore - m_goldScore) +
                                     m_topMark);
     DebugOut::Printf("points calculated at %f\n", static_cast<double>(points));
-    points = points - m_bailPoints;
-    DebugOut::Printf("points decremented by %f bail points to %f\n", static_cast<double>(m_bailPoints),
+    points = points - m_crashPenalty;
+    DebugOut::Printf("points decremented by %f bail points to %f\n", static_cast<double>(m_crashPenalty),
                 static_cast<double>(points));
 
     float max = MaxPoints();
@@ -469,14 +469,14 @@ void CContest::EndRun(int score)
         (static_cast<double>(judges[1]) + judges[2] + judges[0]) * Third() + NearlyHalf()));
     if (!(m_pathVertices <= limit))
         m_pathVertices = limit;
-    m_runScores[m_runs] = Truncate(m_pathVertices);
+    m_runTotals[m_runs] = Truncate(m_pathVertices);
     DebugOut::Printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
                 static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(m_pathVertices));
 
     // The player's score of the run, the standings, the place.
     for (Leader& leader : m_leaders) {
         if (leader.m_ident == 0)
-            leader.m_scores[m_runs] = m_runScores[m_runs];
+            leader.m_scores[m_runs] = m_runTotals[m_runs];
     }
     SortLeaders();
     for (int i = 0; i < kLeaders; ++i) {
@@ -511,12 +511,12 @@ void CContest::EndRun(int score)
 
     if (!CompetitionGoalActive())
         return;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     Scripts::CArray* scores = NewArray();
     scores->ConfigureSizeKind(5, Scripts::QBVAL_STRUCT);
     DebugOut::Printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
-        Scripts::CStruct* entry = NewStructure();
+        Scripts::CStruct* entry = SpawnParamTable();
         entry->PutInt("score", Round(judges[i])); // "score"
         if (IsLeadingScorer(i))
             entry->PutNameKey(kNoName, kTopJudge);

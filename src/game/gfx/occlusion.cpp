@@ -14,7 +14,7 @@
 
 namespace Engine3D {
 
-OcclusionPoly g_occlusionPolys[512];
+OccluderPolygon g_occluderQuads[512];
 Occluder g_occluders[8];
 
 uint32_t g_occlusionPolyCount;
@@ -25,19 +25,19 @@ float g_lastSphereDistance;
 
 namespace {
 
-OcclusionPoly* Polys() { return g_occlusionPolys; }
+OccluderPolygon* Polys() { return g_occluderQuads; }
 uint32_t& PolyCount() { return g_occlusionPolyCount; }
 uint32_t& NextPoly() { return g_occlusionNextPoly; } // where AddOccluders carries on
 int& TickCycle() { return g_occlusionFrame; }
 Occluder* OccluderArray() { return g_occluders; }
 uint32_t& OccluderCount() { return g_occluderCount; }
-constexpr uint32_t kMaxOccluders = 8;
+constexpr uint32_t kOccluderLimit = 8;
 
 // The object's transform for culling (SetWorldTransform), or null: only its position row is used here.
 const float* WorldTransform() { return g_worldTransform; }
 // The view matrix (0x00786BD0) and the view's clip values.
 const void* ViewMatrix() { return reinterpret_cast<float*>(&g_viewMatrix); }
-float NearClip() { return g_camera.nearZ; }
+float NearPlaneDepth() { return g_camera.nearZ; }
 float FarClip() { return g_camera.farZ; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
 float SideCos() { return g_viewShape.sinX; }
@@ -100,7 +100,7 @@ void SetPlane(float* plane, const float* origin, const float* uEnd, const float*
 // plane and inside the four side planes.
 bool InsideFrustum(const float* view, float radius)
 {
-    if (static_cast<double>(radius) - view[2] < NearClip())
+    if (static_cast<double>(radius) - view[2] < NearPlaneDepth())
         return false;
     double a = static_cast<double>(SideCos()) * view[2];
     double b = static_cast<double>(SideSin()) * view[0];
@@ -182,9 +182,9 @@ void __cdecl AddOccluders()
     uint32_t occluders = OccluderCount();
     uint32_t added = 0;
     for (uint32_t looked = 0;;) {
-        OcclusionPoly& poly = Polys()[next++];
+        OccluderPolygon& poly = Polys()[next++];
         if (!poly.inUse && poly.enabled) {
-            if (occluders < kMaxOccluders) {
+            if (occluders < kOccluderLimit) {
                 Occluder& occluder = OccluderArray()[occluders++];
                 occluder.poly = &poly;
                 poly.inUse = 1;
@@ -207,7 +207,7 @@ void __cdecl AddOccluders()
 void __cdecl InsertOccluderPoly(const Maths::Vec4* p0, const Maths::Vec4* p1, const Maths::Vec4* p2,
                               const Maths::Vec4* p3, uint32_t checksum)
 {
-    OcclusionPoly& poly = Polys()[PolyCount()];
+    OccluderPolygon& poly = Polys()[PolyCount()];
     poly.inUse = 0;
     poly.enabled = 1;
     poly.checksum = checksum;
@@ -244,7 +244,7 @@ void __cdecl CollectOccluders(const Maths::Vec4* eye, int frame)
     using D = DotOrder;
     for (uint32_t i = 0; i < OccluderCount(); ++i) {
         Occluder& occluder = OccluderArray()[i];
-        const OcclusionPoly& poly = *occluder.poly;
+        const OccluderPolygon& poly = *occluder.poly;
         const float* p0 = poly.corners[0];
         const float* p1 = poly.corners[1];
         const float* p2 = poly.corners[2];

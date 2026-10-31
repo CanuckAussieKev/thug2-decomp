@@ -62,12 +62,12 @@ struct BannedConnNode : MemSys::ListNode {
 
 // An address an App doesn't accept connections from: a node whose data is itself (made by AppHost::BlockConnection).
 struct BlockedConnEntry : BannedConnNode {
-    uint32_t m_hostAddr; // +0x14
+    uint32_t m_remoteIp; // +0x14
 
     // 0x00457460: the scalar deleting destructor (BlockedConnEntry's and ListKit::Foremost<BlockedConnEntry>'s).
     BlockedConnEntry* DestroyBanned(unsigned int flags);
 };
-static_assert(offsetof(BlockedConnEntry, m_hostAddr) == 0x14 && sizeof(BlockedConnEntry) == 0x18, "layout must match the original");
+static_assert(offsetof(BlockedConnEntry, m_remoteIp) == 0x14 && sizeof(BlockedConnEntry) == 0x18, "layout must match the original");
 
 // A list search as the game lays it out: the vtable (its virtual destructor), then the current node (see
 // ListKit::Hunt). The destructors only reset the vtable.

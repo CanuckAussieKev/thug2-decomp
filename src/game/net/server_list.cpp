@@ -105,10 +105,10 @@ constexpr uint32_t kRequest = 0xFE00;
 constexpr uint32_t kRequestStart = 0xFE04;
 constexpr uint32_t kNewsOk = 0xFE09;
 
-Hub* TheManager() { return g_gameNetManager; }
+Hub* TheManager() { return g_onlineHub; }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
 TaskList::PileUp* LogicTasks() { return reinterpret_cast<TaskList::PileUp*>(reinterpret_cast<uint8_t*>(AssetStore::g_mainLoopManager) + 0x04); }
-RoomManager* Lobby(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan); }
+RoomManager* Lobby(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyService); }
 
 uint32_t g_lastRefresh;
 bool g_showPending;
@@ -343,10 +343,10 @@ void Hub::SetServiceState(int state)
 // 0x005451E0
 void Hub::UpdateHostingStatus()
 {
-    NetLink::Hub* net = NetLink::g_netManager;
+    NetLink::Hub* net = NetLink::g_netCore;
     RamStats()->EnterHeapScope(RamStats()->m_internetTopDownHeap);
-    static_cast<RoomManager*>(m_lobbyMan)->StartHosting();
-    if (Prop<bool>(m_buddyMan, 0x10)) { // (0x005480B0: logged in to presence)
+    static_cast<RoomManager*>(m_lobbyService)->StartHosting();
+    if (Prop<bool>(m_presenceService, 0x10)) { // (0x005480B0: logged in to presence)
         const char* serverName;
         GetOnlineSettings()->FetchSetting(kServerName)->FetchText(kUiString, &serverName, 1);
         char location[1024];
@@ -358,7 +358,7 @@ void Hub::UpdateHostingStatus()
         } else {
             std::sprintf(location, "10thug211:0:0:0:%s (%s)", serverName, lobby->m_roomName);
         }
-        static_cast<FriendsManager*>(m_buddyMan)->ChangeStanding(2, Scripts::FetchText(kHostingStatus), location);
+        static_cast<FriendsManager*>(m_presenceService)->ChangeStanding(2, Scripts::FetchText(kHostingStatus), location);
     }
     RamStats()->LeaveHeapScope();
 }
@@ -478,7 +478,7 @@ bool Hub::HasServer(const char* name, uint32_t ip)
             auto* server = static_cast<HostListing*>(node->data);
             if (!server)
                 break;
-            if (server->m_hostAddr == ip && _stricmp(server->m_label, name) == 0)
+            if (server->m_remoteIp == ip && _stricmp(server->m_label, name) == 0)
                 return true;
         }
     }
@@ -517,14 +517,14 @@ void Hub::RefreshServerList(bool force)
     EmptyServerListing();
     StartServerList();
     if (!InInternetMode()) {
-        FindServersOnLan();
+        ScanLocalNetwork();
         RamStats()->LeaveHeapScope();
         return;
     }
     Hub* manager = TheManager();
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     RamStats()->EnterHeapScope(RamStats()->m_internetBottomUpHeap);
-    static_cast<RoomManager*>(manager->m_lobbyMan)->ClearLostConnection();
+    static_cast<RoomManager*>(manager->m_lobbyService)->ClearLostConnection();
     GameSpy::PeerStartListingGames(Lobby(this)->m_remote, keys, 4, nullptr, CodeAddress(ListingGamesCallback),
                                    this); // (the games listed)
     RamStats()->LeaveHeapScope();

@@ -52,7 +52,7 @@ public:
     bool Freeze(Scripts::CStruct* params, Scripts::CScript* script);                       // 0x005184A0 RunTimer_Pause
     bool Unpause(Scripts::CStruct* params, Scripts::CScript* script);                     // 0x005184F0 RunTimer_unpause
     bool GetFactorComplete(Scripts::CStruct* params, Scripts::CScript* script);           // 0x00518500 (FactorComplete)
-    bool GetRunTimerControllerId(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00518540
+    bool FetchRunClockPadId(Scripts::CStruct* params, Scripts::CScript* script);     // 0x00518540
     bool GetRunTimerId(Scripts::CStruct* params, Scripts::CScript* script);               // 0x00518570
     bool ChainBegan(Scripts::CStruct* params, Scripts::CScript* script);                // 0x005185A0
 

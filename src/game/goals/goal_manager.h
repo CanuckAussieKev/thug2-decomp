@@ -112,7 +112,7 @@ public:
     bool RegisterGapHit(uint32_t gap);
     // 0x00558730 / 0x00558750: goal `id`'s parameters / its next waypoint started.
     Scripts::CStruct* GetObjectiveArgs(uint32_t id);
-    bool NextWaypoint(uint32_t id);
+    bool StepToNextWaypoint(uint32_t id);
     // 0x00558770: every active graffiti goal told cluster `cluster` was taken with `score` (not network goals).
     void KillCluster(uint32_t cluster, int score);
     // 0x005587F0: every active goal's tricks checked: special (or create_a_trick) goals won once their trick
@@ -140,7 +140,7 @@ public:
     // 0x00558C70: a goal's pro speaks: `params`' Name is the goal, VO a stream (else type, a type of stream).
     void PlayObjectiveVoiceLine(Scripts::CStruct* params);
     // 0x00558D20: goal `id` is locked - or, not in this level, its saved isLocked.
-    int IsGoalLocked(uint32_t id);
+    int IsGoalBlocked(uint32_t id);
     // 0x00558D90: the active competition goal, or null.
     CObjective* GetActiveCompetition();
     // 0x00558DF0: every goal's texts redone with its tricks.
@@ -234,7 +234,7 @@ public:
     // 0x0055DBF0: the active goal at `index` (null if the list is empty).
     CObjective* GetEngagedObjective(int index);
     // 0x0055DC30: the active goals counted: network goals with `all`, the others with `all` or if active.
-    int NumActiveGoals(bool all);
+    int CountLiveGoals(bool all);
 };
 static_assert(offsetof(CGoalManager, m_goalData) == 0x14 && offsetof(CGoalManager, m_activeGoals) == 0x18 &&
                   offsetof(CGoalManager, m_previousObjective) == 0x2C && offsetof(CGoalManager, m_objectiveScore) == 0x38 &&

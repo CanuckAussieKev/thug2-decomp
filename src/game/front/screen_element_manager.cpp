@@ -26,17 +26,17 @@ extern void** const kCScreenElementManagerVtable;
 extern void** const kListenerAdapterVtable;
 } // namespace
 
-CUiTree* g_screenElementManager;
+CUiTree* g_uiElementHub;
 
 static_assert(offsetof(CUiTree, m_listener) == 0x28 && offsetof(CUiTree, mp_root) == 0x44 &&
                   offsetof(CUiTree, mp_resolving) == 0x50 &&
                   offsetof(CUiTree, m_focusEntries) == 0x5C &&
                   offsetof(CUiTree, mp_focusLists) == 0x4DC &&
-                  offsetof(CUiTree, m_focusListChanged) == 0x4E4 &&
+                  offsetof(CUiTree, m_focusDirty) == 0x4E4 &&
                   offsetof(CUiTree, m_numPriorities) == 0x4E8 &&
                   offsetof(CUiTree, m_priorities) == 0x4EC &&
                   offsetof(CUiTree, m_padEventTypes) == 0x5DC &&
-                  offsetof(CUiTree, m_numPadEventTypes) == 0x69C &&
+                  offsetof(CUiTree, m_padEventKindCount) == 0x69C &&
                   offsetof(CUiTree, m_checkDevice) == 0x6A0 && sizeof(CUiTree) == 0x6A4,
               "layout must match the original");
 
@@ -65,7 +65,7 @@ void VSetProperties(CUiWidget* e, CStruct* params)
 // A structure with one flag, given to `element`'s ChangeTraits (Hide / UnHide).
 void SetFlagProperty(CUiWidget* element, uint32_t flag)
 {
-    CStruct* params = Scripts::NewStruct();
+    CStruct* params = Scripts::SpawnParamBag();
     if (params)
         params = params->PrepareAll();
     params->PutNameKey(0u, flag);
@@ -104,13 +104,13 @@ CUiTree* CUiTree::MakeNew()
     m_listener.EnterWaitBoard(nullptr);
     for (int i = 0; i < 2; ++i) {
         mp_focusLists[i] = nullptr;
-        m_focusListChanged[i] = false;
+        m_focusDirty[i] = false;
     }
     for (FocusEntry& entry : m_focusEntries) {
         entry.element.Release();
         entry.next = nullptr;
     }
-    m_numPadEventTypes = 0;
+    m_padEventKindCount = 0;
     std::memset(m_padEventTypes, 0, sizeof(m_padEventTypes));
     m_checkDevice = false;
     m_numPriorities = 0;
@@ -422,7 +422,7 @@ void CUiTree::AddFocusEntry(ElementPtr* element, int list)
         last->next = entry;
     else
         mp_focusLists[list] = entry;
-    m_focusListChanged[list] = true;
+    m_focusDirty[list] = true;
 }
 
 // 0x004AB330
@@ -453,7 +453,7 @@ void CUiTree::RemoveFocusEntries(ElementPtr* element, bool fromParent, bool mark
                     else
                         mp_focusLists[i] = next;
                     entry->element.Release();
-                    m_focusListChanged[i] = true;
+                    m_focusDirty[i] = true;
                     entry = previous;
                 }
             }
@@ -488,15 +488,15 @@ void CUiTree::ListenerReceive(GameObjects::CSignal* event)
     // (`this` is the listener: the manager is 0x28 before it)
     CUiTree* manager =
         reinterpret_cast<CUiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(CUiTree, m_listener));
-    if (manager->m_numPadEventTypes == 0) {
+    if (manager->m_padEventKindCount == 0) {
         Scripts::CArray* types = Scripts::FetchList(PadEventTypesName()); // (the original passes 1 as well: unused)
-        manager->m_numPadEventTypes = static_cast<int>(types->m_extent);
-        for (int i = 0; i < manager->m_numPadEventTypes; ++i)
+        manager->m_padEventKindCount = static_cast<int>(types->m_extent);
+        for (int i = 0; i < manager->m_padEventKindCount; ++i)
             manager->m_padEventTypes[i] = types->FetchPart(i);
     }
     bool padEvent = false;
     if (manager->m_numPriorities > 0) {
-        for (int i = 0; i < manager->m_numPadEventTypes; ++i) {
+        for (int i = 0; i < manager->m_padEventKindCount; ++i) {
             if (event->m_kindTag == manager->m_padEventTypes[i]) {
                 padEvent = true;
                 break;
@@ -544,7 +544,7 @@ void CUiTree::ListenerReceive(GameObjects::CSignal* event)
     // a pad event from the system: offered to the controller's focused elements until one handles it (a
     // change of the list starts the round again with the elements not offered it yet)
     bool isPadType = false;
-    for (int i = 0; i < manager->m_numPadEventTypes; ++i) {
+    for (int i = 0; i < manager->m_padEventKindCount; ++i) {
         if (event->m_kindTag == manager->m_padEventTypes[i]) {
             isPadType = true;
             break;
@@ -555,12 +555,12 @@ void CUiTree::ListenerReceive(GameObjects::CSignal* event)
     int controller = GameObjects::EventController(event);
     for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next)
         entry->tried = false;
-    manager->m_focusListChanged[controller] = true;
+    manager->m_focusDirty[controller] = true;
     do {
-        manager->m_focusListChanged[controller] = false;
+        manager->m_focusDirty[controller] = false;
         for (FocusEntry* entry = manager->mp_focusLists[controller]; entry; entry = entry->next) {
             if (!entry->tried && !entry->marked && !entry->element->InputSuppressed()) {
-                if (padEvent && (!entry->element->HasPriority() || !manager->IsTopPriority(entry->id)))
+                if (padEvent && (!entry->element->HasPriority() || !manager->HasTopPrecedence(entry->id)))
                     continue;
                 if (tracker->LaunchEvent(event->m_kindTag, entry->element->m_ident, event->m_fromWhere, event->m_payload, false,
                                          -1.0f)) {
@@ -569,10 +569,10 @@ void CUiTree::ListenerReceive(GameObjects::CSignal* event)
                 }
                 entry->tried = true;
             }
-            if (manager->m_focusListChanged[controller])
+            if (manager->m_focusDirty[controller])
                 break;
         }
-    } while (manager->m_focusListChanged[controller]);
+    } while (manager->m_focusDirty[controller]);
 }
 
 // --- pad-event priorities -------------------------------------------------------------------------------------
@@ -583,14 +583,14 @@ bool CUiTree::HasPriorities() const { return m_numPriorities > 0; }
 // 0x004AAD50
 bool CUiTree::IsPadEvent(uint32_t type) const
 {
-    for (int i = 0; i < m_numPadEventTypes; ++i)
+    for (int i = 0; i < m_padEventKindCount; ++i)
         if (type == m_padEventTypes[i])
             return true;
     return false;
 }
 
 // 0x004AB7C0
-bool CUiTree::IsTopPriority(uint32_t id)
+bool CUiTree::HasTopPrecedence(uint32_t id)
 {
     ElementPtr element;
     FetchPart(&element, id, 1);
@@ -635,7 +635,7 @@ bool CUiTree::PushPriority(uint32_t id, uint32_t priority)
     entry.priority = priority;
     if (m_numPriorities > 0) {
         // the top one shown: the new one hidden unless it is the new top, then the old top is
-        CStruct* params = Scripts::NewStruct();
+        CStruct* params = Scripts::SpawnParamBag();
         if (params)
             params = params->PrepareAll();
         params->PutNameKey(0u, kHide);

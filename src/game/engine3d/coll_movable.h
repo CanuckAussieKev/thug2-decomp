@@ -78,12 +78,12 @@ public:
     void DrawDiagnostic(int a, int b);
 
     Maths::BBox m_box;            // +0xA4
-    uint32_t m_faceFlags;       // +0xC4
+    uint32_t m_polyAttrBits;       // +0xC4
     uint16_t m_surfaceType;         // +0xC8
     uint8_t m_unknownCA[4];     // +0xCA (copied, not otherwise used here)
     uint8_t padCE[2];
 };
-static_assert(sizeof(CHitMovingBox) == 0xD0 && offsetof(CHitMovingBox, m_faceFlags) == 0xC4, "layout must match");
+static_assert(sizeof(CHitMovingBox) == 0xD0 && offsetof(CHitMovingBox, m_polyAttrBits) == 0xC4, "layout must match");
 
 // A scaled, rotated and placed collision object (0xA0 bytes, vtable 0x00645B58), with the inverse transform.
 class CCollScaled : public CHitMesh {

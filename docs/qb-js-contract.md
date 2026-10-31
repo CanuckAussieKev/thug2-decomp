@@ -44,7 +44,7 @@ Number standing for a float32 payload, or implicit Unicode conversion is used.
 | 1 Integer | `{type:1, bits:u32}` | Copy bits; interpret signed only for the relevant operation |
 | 2 Float | `{type:2, bits:u32}` | Copy float32 bits, including negative zero and NaN payloads |
 | 3 String | `{type:3, bytes:number[]}` | Copy byte sequence |
-| 4 LocalString | `{type:4, bytes:number[]}` | Same payload, different type |
+| 4 LocalisedText | `{type:4, bytes:number[]}` | Same payload, different type |
 | 5 Pair | `{type:5, coordinates:[u32,u32]}` | Copy coordinate bits |
 | 6 Vector | `{type:6, coordinates:[u32,u32,u32]}` | Copy coordinate bits |
 | 10 Structure | `{type:10, members:Parameters}` | Mutable container identity; ordinary component copy is deep |
@@ -183,7 +183,7 @@ tag normalization in this getter.
 matching Name fields are raw. For an unnamed request, skip a Name that resolves
 to a global Structure; do not expand that component as a matching value.
 Nonmatching unnamed structure inclusions recurse. `readString` first performs
-the entire String search and only if absent performs LocalString search; it
+the entire String search and only if absent performs LocalisedText search; it
 does not just pick the last of either kind. `contains` follows FindComponent's
 presence/unnamed-flag behavior, not JS truthiness or last-value lookup.
 
@@ -219,7 +219,7 @@ Validation/type failures carry `ctx.site` where a context exists.
 `binary` covers array indexing as op 5 and member selection/dot product as op 8.
 A type-21 array produces reference container elements; a type-12 array produces
 copies. A type-20 structure's selected member is copied in reference mode.
-LocalString array indexing remains unsupported until source-compatible behavior
+LocalisedText array indexing remains unsupported until source-compatible behavior
 is explicitly implemented. Bounds apply even when an original low-level getter
 would ignore a singleton index. Arithmetic delegates to expression.cpp behavior, not
 to a generated JS operator.
@@ -234,7 +234,7 @@ other types to 0. AND/OR evaluate both inputs and combine FetchFlag results
 bitwise; they are not JS short-circuit operators.
 
 Equality resolves Names as ComponentsEqual does. QScript symbols compare by callable identity without execution. Numbers compare numerically;
-String and LocalString require matching types and bytewise C-string equality;
+String and LocalisedText require matching types and bytewise C-string equality;
 coordinates compare component float values. Owning type-10/12 values compare
 the same container identity, not structural contents. Reference tags 20/21
 take ComponentsEqual's default-false path, even for the same target. Structure

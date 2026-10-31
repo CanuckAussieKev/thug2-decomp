@@ -68,8 +68,8 @@ void CParkAssembler::DestroyBody()
 {
     if (m_sceneHandle)
         m_sceneHandle = nullptr;
-    if (mp_sourceScene)
-        mp_sourceScene = nullptr;
+    if (m_sourceWorld)
+        m_sourceWorld = nullptr;
     // (the node array's owner: 0x00407810 is CResource's destructor body, folded with CNodeTableResource's)
     reinterpret_cast<AssetStore::CResource*>(m_nodeArray)->Destruct();
     DestroyEmptyMember(&m_rails);
@@ -132,7 +132,7 @@ void CParkAssembler::ConfigureLighting(int count, float ambientR, float ambientG
     std::memcpy(&m_43C, &cursorAmbience, 4); // (the cursor's ambience)
 }
 
-void CParkAssembler::GetRestartSlots(int type, int* first, int* last)
+void CParkAssembler::FetchSpawnSlots(int type, int* first, int* last)
 {
     switch (type) {
     case RestartPoint::kPlayer1:
@@ -147,7 +147,7 @@ void CParkAssembler::GetRestartSlots(int type, int* first, int* last)
         *first = 2;
         *last = 7;
         break;
-    case RestartPoint::kKingOfTheHill:
+    case RestartPoint::kCrownRestart:
         *first = 8;
         *last = 13;
         break;
@@ -167,7 +167,7 @@ bool CParkAssembler::HasFreeRestartSlot(int type)
 {
     int first = 0;
     int last = 0;
-    GetRestartSlots(type, &first, &last);
+    FetchSpawnSlots(type, &first, &last);
     for (int i = first; i <= last; ++i) {
         if (!m_restarts[i].m_kindTag || m_restarts[i].m_automatic)
             return true;
@@ -225,7 +225,7 @@ void CParkAssembler::UpdateBounds(uint32_t /*unused*/)
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
     SCellBox area;
     area.AssignValue(0, 0, 0, 0, 0, 0);
-    area = CParkLayout::sSingleton()->m_parkBounds;
+    area = CParkLayout::sSingleton()->m_buildArea;
     Maths::Vec4 corner = CParkLayout::sSingleton()->CellToWorldPos(area, nullptr);
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));
@@ -264,7 +264,7 @@ uint32_t CParkAssembler::DuplicateSceneSector(uint32_t name, int a, int b, int /
 {
     m_flagBits |= CParkAssembler::kSceneChanged;
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
-    uint32_t clone = Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), a, b, 0);
+    uint32_t clone = Scene::DuplicateSceneSector(SceneOf(m_sourceWorld), name, SceneOf(m_sceneHandle), a, b, 0);
     MemSys::LeaveHeapScope();
     return clone;
 }
@@ -286,8 +286,8 @@ CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
     m_flagBits |= CParkAssembler::kSceneChanged;
     MemSys::EnterHeapScope(MemSys::BottomUpHeap());
     uint32_t clone = (flags & CParkTile::kCursor)
-                         ? Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), 1, 0, 0)
-                         : Scene::DuplicateSceneSector(SceneOf(mp_sourceScene), name, SceneOf(m_sceneHandle), 0, 1, 0);
+                         ? Scene::DuplicateSceneSector(SceneOf(m_sourceWorld), name, SceneOf(m_sceneHandle), 1, 0, 0)
+                         : Scene::DuplicateSceneSector(SceneOf(m_sourceWorld), name, SceneOf(m_sceneHandle), 0, 1, 0);
     MemSys::LeaveHeapScope();
     CloningPiece() = 0;
     // The piece itself on the park editor's heap.
@@ -312,7 +312,7 @@ CParkTile* CParkAssembler::CreatePiece(CParkTile* source, uint32_t flags)
     return piece;
 }
 
-void CParkAssembler::AddPiece(CParkTile* piece)
+void CParkAssembler::InsertTile(CParkTile* piece)
 {
     piece->m_flagBits |= CParkTile::kInList;
     piece->m_following = mp_pieces;

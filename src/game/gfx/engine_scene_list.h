@@ -60,13 +60,13 @@ bool __cdecl CFunc_ToggleAddScenes(Scripts::CStruct* params, Scripts::CScript* s
 void __cdecl GetSceneDebugInfo(Scripts::CStruct* info);
 // 0x0048CC80: a new, empty scene (the platform's) registered under `name` with `textures` (0x0048C560, already
 // loaded).
-CWorldScene* __cdecl NewScene(const char* name, CTextureSet* textures, bool addSuperSectors);
+CWorldScene* __cdecl BuildWorldScene(const char* name, CTextureSet* textures, bool withSuperSectors);
 // 0x0048CCB0: a scene loaded from "levels\<name>\<name>.scn.<ext>" (with a vertex arena of its own when 0x00786AB6
 // is set) and registered (0x0048C560 - `unused` passed on, and not used there).
-CWorldScene* __cdecl LoadScene(const char* name, CTextureSet* textures, bool addSuperSectors, bool isSky, bool meshFlag,
+CWorldScene* __cdecl LoadScene(const char* name, CTextureSet* textures, bool withSuperSectors, bool isSky, bool meshFlag,
                           int unused);
 // 0x0048CD80: a scene loaded from geometry in memory and registered under `name` (the same way).
-CWorldScene* __cdecl LoadNamedSceneFromMemory(const char* name, const uint8_t* data, CTextureSet* textures, bool addSuperSectors,
+CWorldScene* __cdecl LoadNamedSceneFromMemory(const char* name, const uint8_t* data, CTextureSet* textures, bool withSuperSectors,
                                     bool isSky, bool meshFlag, int unused);
 // 0x0048CDD0: the scene "levels\<add>\<add>.scn.<ext>" added over the scene `sceneName` (that scene's added scene
 // let go of first, with its texture dictionary, if it's this one), with its texture dictionary ("levels\<add>\

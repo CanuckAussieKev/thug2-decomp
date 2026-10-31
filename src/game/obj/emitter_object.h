@@ -44,10 +44,10 @@ struct EmitterNode {
     void* m_sector;           // +0x34
     Maths::BBox m_box;          // +0x38
     uint32_t m_unknown58;
-    uint32_t m_runScript;        // +0x5C
+    uint32_t m_ownScript;        // +0x5C
 };
 static_assert(offsetof(EmitterNode, m_active) == 0x24 && offsetof(EmitterNode, m_sector) == 0x34 &&
-                  offsetof(EmitterNode, m_box) == 0x38 && offsetof(EmitterNode, m_runScript) == 0x5C &&
+                  offsetof(EmitterNode, m_box) == 0x38 && offsetof(EmitterNode, m_ownScript) == 0x5C &&
                   sizeof(EmitterNode) == 0x60,
               "layout must match the original");
 

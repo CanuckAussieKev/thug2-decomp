@@ -42,11 +42,11 @@ public:
     int InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* script);
 
     Maths::Mat4 m_basisFrame;   // +0x18 the core physics' (rows: right, up, at, position)
-    float m_lastSlope;      // +0x58 GetSlope's last
+    float m_prevGradient;      // +0x58 GetSlope's last
     uint8_t* m_corePhysics; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };
 static_assert(offsetof(CRiderFrameLookups, m_basisFrame) == 0x18 &&
-                  offsetof(CRiderFrameLookups, m_lastSlope) == 0x58 &&
+                  offsetof(CRiderFrameLookups, m_prevGradient) == 0x58 &&
                   offsetof(CRiderFrameLookups, m_corePhysics) == 0x5C &&
                   sizeof(CRiderFrameLookups) == 0x60,
               "layout must match the original (0x00514430 allocates 0x60 bytes)");

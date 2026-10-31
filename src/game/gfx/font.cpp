@@ -24,7 +24,7 @@ namespace {
 FontSlot* Slots() { return g_fontSlots; }
 ListKit::KeyMap& FontTable() { return g_fontTable; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
-char* MetaButtonMap() { return g_metaButtonMap; }
+char* GlyphEscapeTable() { return g_glyphAliasTable; }
 bool g_metaButtonMapLoaded;
 
 bool& MetaButtonMapLoaded() { return g_metaButtonMapLoaded; }
@@ -119,7 +119,7 @@ void LoadFont(const char* name, int glyphGap, int blankGap, uint32_t* colors, bo
         return;
     for (uint32_t i = 0; i < 32; ++i) {
         int digit = i < map->m_extent ? static_cast<int>(map->FetchPart(i)) : 0;
-        MetaButtonMap()[i] = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
+        GlyphEscapeTable()[i] = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
     }
     MetaButtonMapLoaded() = true;
 }

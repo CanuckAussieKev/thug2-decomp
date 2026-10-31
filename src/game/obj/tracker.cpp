@@ -68,18 +68,18 @@ void ChangeTraits(CEntity* object, Scripts::CStruct* params)
     void** vtable = *reinterpret_cast<void***>(object);
     reinterpret_cast<void(__thiscall*)(CEntity*, Scripts::CStruct*)>(vtable[1])(object, params);
 }
-void PassEvent(CEntity* object, CSignal* event)
+void ForwardTrigger(CEntity* object, CSignal* event)
 {
     void** vtable = *reinterpret_cast<void***>(object);
     reinterpret_cast<void(__thiscall*)(CEntity*, CSignal*)>(vtable[5])(object, event);
 }
 // The object with this id (the object manager 0x006F0FB8's LookUpEntity).
-CEntity* FindObjectById(uint32_t id) { return reinterpret_cast<CObjectHubBase*>(g_compositeObjectManager)->LookUpEntity(id); }
+CEntity* FindObjectById(uint32_t id) { return reinterpret_cast<CObjectHubBase*>(g_compositeRegistry)->LookUpEntity(id); }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool GetObjectId(Scripts::CStruct* params, uint32_t name, uint32_t* id)
 {
-    return reinterpret_cast<MenuSystem::CUiTree*>(MenuSystem::g_screenElementManager)->ResolveId(params, name, id);
+    return reinterpret_cast<MenuSystem::CUiTree*>(MenuSystem::g_uiElementHub)->ResolveId(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).
@@ -244,7 +244,7 @@ void CSignalTrace::AddRow(uint32_t type, uint32_t target, uint32_t source, uint3
     }
     if (kind == LAUNCHED)
         ++m_layer;
-    ++m_newEntries;
+    ++m_addedSinceSweep;
 }
 
 // 0x004620A0
@@ -266,7 +266,7 @@ void CSignalTrace::EchoOut(bool onlyNew, int /*count*/)
             index = 0;
     }
     DebugOut::Printf(line);
-    m_newEntries = 0;
+    m_addedSinceSweep = 0;
 }
 
 // 0x00462CB0
@@ -282,7 +282,7 @@ CEventWaitBoard* CEventWaitBoard::MakeNew()
     m_log.m_hasLooped = false;
     m_log.mp_names = nullptr;
     m_log.m_layer = 0;
-    m_log.m_newEntries = 0;
+    m_log.m_addedSinceSweep = 0;
     mp_objects = NewHashTable(8);
     mp_aliases = NewHashTable(4);
     mp_listeners = NewHashTable(8);
@@ -409,12 +409,12 @@ void CEventWaitBoard::RegisterNickname(uint32_t alias, CEntity* object)
 void CEventWaitBoard::RemoveEventListener(CSignalReceiver* listener)
 {
     CSignalReceiver* previous = nullptr;
-    for (CSignalReceiver* other = mp_eventListeners; other; other = other->mp_nextListener) {
+    for (CSignalReceiver* other = mp_eventListeners; other; other = other->m_nextSubscriber) {
         if (other == listener) {
             if (previous)
-                previous->mp_nextListener = listener->mp_nextListener;
+                previous->m_nextSubscriber = listener->m_nextSubscriber;
             else
-                mp_eventListeners = listener->mp_nextListener;
+                mp_eventListeners = listener->m_nextSubscriber;
             break;
         }
         previous = other;
@@ -522,7 +522,7 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.
-        for (CSignalReceiver* listener = mp_eventListeners; listener; listener = listener->mp_nextListener) {
+        for (CSignalReceiver* listener = mp_eventListeners; listener; listener = listener->m_nextSubscriber) {
             ++listener->m_busy;
             ListenerReceive(listener, &event);
             --listener->m_busy;
@@ -530,9 +530,9 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
         uint32_t eventTarget = event.m_aimPoint;
         if (eventTarget != kNoObjectId && !(event.m_flagBits & CSignal::FLAG_HANDLED)) {
             if (CEntity* object = LookUpObject(eventTarget)) {
-                PassEvent(object, &event);
+                ForwardTrigger(object, &event);
             } else {
-                Scripts::CScript* script = Scripts::FindSpawnedScriptWithId(eventTarget);
+                Scripts::CScript* script = Scripts::LookUpSpawnedScript(eventTarget);
                 if (!script)
                     m_log.EchoOut(true, kLogSize);
                 script->ReceiveEvent(&event); // (null when there's no such script - an original crash)
@@ -585,7 +585,7 @@ bool CEventWaitBoard::LaunchEvent(uint32_t type, uint32_t target, uint32_t sourc
             CScriptNode* node = list->m_following->IsHead() ? nullptr : list->m_following;
             for (int i = 0; node; ++i) {
                 scripts[i] = node->m_payload;
-                pointers[i].AssignValue(&node->m_payload->m_refCounted);
+                pointers[i].AssignValue(&node->m_payload->m_sharedBase);
                 node = node->m_following;
                 if (node->IsHead())
                     break;

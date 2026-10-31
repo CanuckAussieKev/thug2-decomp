@@ -36,7 +36,7 @@ bool WorldHidden();
 void* DeviceShader(void* shader);
 // A shader's source text noted when it is assembled (game/gfx/pixel_shaders.cpp): its unlit twin is made from it.
 void NoteShaderSource(void* shader, const char* source);
-// The device's shaders were made again (CreatePixelShaders after a reset): the twins forgotten (and released).
+// The device's shaders were made again (CompilePixelShaders after a reset): the twins forgotten (and released).
 void ForgetShaders();
 
 // --- the pieces (pure) -------------------------------------------------------------------------------------------

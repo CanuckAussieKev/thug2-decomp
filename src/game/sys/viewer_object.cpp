@@ -50,9 +50,9 @@ constexpr uint32_t kSkeletonFileName = 0xF679DB13;       // skeletonFileName
 constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
 constexpr uint32_t kViewerObjPos = 0x15670AB7;           // ViewerObjPos
 constexpr uint32_t kAddComponents = 0x24C71BC7;          // viewerobj_add_components
-constexpr uint32_t kInitModel = 0xBBAB79DE;              // viewerobj_init_model
+constexpr uint32_t kSetupModelScript = 0xBBAB79DE;              // viewerobj_init_model
 constexpr uint32_t kIdle = 0x23DB4AEA;                   // idle
-constexpr int kSkeletonAsset = 6;                        // (the asset type)
+constexpr int kAssetKindSkeleton = 6;                        // (the asset type)
 
 // `path` set to a model's file path: "models\<name>\<name><extension>", or "models\<name>" when the name holds a path
 // separator (0x004879D0, in the CAS code - not rewritten yet - makes it as a temporary String).
@@ -122,12 +122,12 @@ constexpr uint32_t kViewerAutoRepeatSpeed = 0x2DA212E5;  // ViewerAutoRepeatSpee
 constexpr uint32_t kObjectTypeComposite = 0xCDEB9229;    // OBJECT_TYPE_COMPOSITE
 const float kFrameTime = std::bit_cast<float>(0x3C888889u);              // 1/60 s
 constexpr float kSpeedStep = 0.25f;                                      // 0x0064F130
-constexpr float kDegreesToRadians = 0.017453292f;                        // 0x00645464
+constexpr float kRadiansPerDegree = 0.017453292f;                        // 0x00645464
 
 // A pooled script structure, and one cleared and freed (either may be null).
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -222,7 +222,7 @@ Maths::Vec4 g_originPosition{0.0f, 0.0f, 0.0f, 1.0f};
 // 0x00589910
 void CPreviewEntity::ReadIn(Scripts::CStruct* params)
 {
-    CompositeObjectManager()->VirtualRegisterObject(this);
+    ObjectHubSlot()->VirtualRegisterObject(this);
     AddMotionComponents(this);
     AddNodeComponents(this, params);
     MemSys::Hub* memory = MemSys::Hub::Pull();
@@ -247,7 +247,7 @@ void CPreviewEntity::ReadIn(Scripts::CStruct* params)
         params->ReadHashValue(kSkeletonName, &skeleton, 1);
         AssetStore::CResourceRegistry* assets = AssetStore::AssetManager();
         if (!assets->ObtainLoadedItem(skeleton, 0)) {
-            assets->LoadAsset(skeletonFile, kSkeletonAsset, skeleton, 0, false, false, false, nullptr, 0);
+            assets->LoadAsset(skeletonFile, kAssetKindSkeleton, skeleton, 0, false, false, false, nullptr, 0);
             m_asset = skeleton;
         }
     }
@@ -264,7 +264,7 @@ void CPreviewEntity::ReadIn(Scripts::CStruct* params)
     std::memcpy(&m_basisFrame, kIdentity, sizeof(kIdentity));
     Scripts::LaunchScript(kAddComponents, params, this, false, nullptr);
     reinterpret_cast<void(__thiscall*)(CPreviewEntity*)>(m_vtable[0x20 / 4])(this); // Finalize
-    Scripts::LaunchScript(kInitModel, params, this, false, nullptr);
+    Scripts::LaunchScript(kSetupModelScript, params, this, false, nullptr);
     PlayAnimation(kIdle);
     MemSys::Hub::Pull()->LeaveHeapScope();
 }
@@ -304,7 +304,7 @@ void CPreviewEntity::ScaleAnimRate(float speed)
         m_speed = 0.0f;
     if (Animation(this)) {
         Animation(this)->FirstChannel47E850(m_speed, 0.0f, 0.0f, 0.0f);
-        Scripts::CStruct* params = NewStructure();
+        Scripts::CStruct* params = SpawnParamTable();
         params->PushFloat(kSpeed, m_speed);
         AnimationBase(this)->InvokeMethodByName(kSetSpeed, params, nullptr);
         DeleteStructure(params);
@@ -324,7 +324,7 @@ void CPreviewEntity::StepAnimation(bool forward)
         if (forward) {
             Animation(this)->PassToEachChannel(std::bit_cast<uint32_t>(kFrameTime));
             Animation(this)->VisitChannels();
-            Scripts::CStruct* params = NewStructure();
+            Scripts::CStruct* params = SpawnParamTable();
             params->PushFloat(kFrames, kFrameTime);
             AnimationBase(this)->InvokeMethodByName(kStep, params, nullptr);
             DeleteStructure(params);
@@ -335,7 +335,7 @@ void CPreviewEntity::StepAnimation(bool forward)
             Animation(this)->VisitChannels();
             Animation(this)->FirstChannel47E810(0);
             AnimationBase(this)->InvokeMethodByName(kReverse, nullptr, nullptr);
-            Scripts::CStruct* params = NewStructure();
+            Scripts::CStruct* params = SpawnParamTable();
             params->PushFloat(kFrames, -kFrameTime);
             AnimationBase(this)->InvokeMethodByName(kStep, params, nullptr);
             DeleteStructure(params);
@@ -382,7 +382,7 @@ void CPreviewEntity::SpinWheels()
         bones[i] = *reinterpret_cast<const Maths::Mat4*>(hierarchy + 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
         Maths::Mat4 spin;
-        const float radians = static_cast<float>(static_cast<double>(WheelAngle()) * kDegreesToRadians);
+        const float radians = static_cast<float>(static_cast<double>(WheelAngle()) * kRadiansPerDegree);
         MultiplyMatrix(&bones[wheel], &Maths::MakePitchMatrix(spin, radians), &bones[wheel]);
     }
     for (int bone = 1; bone < 6; ++bone)
@@ -395,7 +395,7 @@ void CPreviewEntity::UpdatePanel()
     if (Animation(this) && m_panelShown) {
         const uint32_t anim = Animation(this)->GetTimeline30();
         if (Animation(this)->HasValue(anim)) {
-            Scripts::CStruct* params = NewStructure();
+            Scripts::CStruct* params = SpawnParamTable();
             char line1[128], line2[128], line3[128], textRow4[128];
             std::snprintf(line1, sizeof(line1), "name %s", "Unknown");
             params->AppendWord(kLine1, line1);
@@ -528,7 +528,7 @@ int __cdecl HandlePlayAnimation(NetLink::InboundMsgCtx* context)
 }
 
 // 0x0058ACA0
-int __cdecl HandleSetAnimSpeed(NetLink::InboundMsgCtx* context)
+int __cdecl OnClipRateMsg(NetLink::InboundMsgCtx* context)
 {
     ObjectOf(context)->ScaleAnimRate(*reinterpret_cast<const float*>(context->m_body));
     return 1;
@@ -553,7 +553,7 @@ int __cdecl HandleReloadAnimation(NetLink::InboundMsgCtx* context)
 int __cdecl HandleReloadCamAnimation(NetLink::InboundMsgCtx* context)
 {
     const char* message = context->m_body;
-    Scripts::CStruct* params = NewStructure();
+    Scripts::CStruct* params = SpawnParamTable();
     params->AppendWord(0u, message);
     params->PutNameKey(0u, *reinterpret_cast<const uint32_t*>(message + 0x80));
     ScriptCommands::CFunc_ReloadSkaterCamAnim(params, nullptr);
@@ -608,7 +608,7 @@ CPreviewEntity* CPreviewEntity::MakeNew(NetLink::AppHost* app)
     if (app) {
         NetLink::Router& dispatcher = app->m_dispatcher;
         dispatcher.AppendListener(0x25, &HandlePlayAnimation, 3, this, 0x80);
-        dispatcher.AppendListener(0x26, &HandleSetAnimSpeed, 3, this, 0x80);
+        dispatcher.AppendListener(0x26, &OnClipRateMsg, 3, this, 0x80);
         dispatcher.AppendListener(0x27, &HandleStepAnimation, 3, this, 0x80);
         dispatcher.AppendListener(0x28, &HandleReloadAnimation, 3, this, 0x80);
         dispatcher.AppendListener(0x29, &HandleReloadCamAnimation, 3, this, 0x80);

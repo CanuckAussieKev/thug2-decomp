@@ -196,7 +196,7 @@ public:
     // 0x0047B2A0: every playing voice set silent (0x0047D390).
     void UpdateVoiceVolumes();
     // 0x0047B2C0: the wave table entry for `checksum` (level ones first).
-    SoundWaveSlot* GetWaveTableEntry(uint32_t checksum);
+    SoundWaveSlot* FetchWaveSlot(uint32_t checksum);
 
     // --- 0x0047B8E0-0x0047C6BB ---
     // 0x0047B8E0: `pitch` shifted by the sound's motion relative to the camera (Doppler): `position` now,
@@ -231,7 +231,7 @@ public:
 
     uint8_t m_muteOverride;   // +0x00
     uint8_t m_unknown1[3];
-    int m_defaultVolumeType;  // +0x04
+    int m_fallbackChannelMode;  // +0x04
 };
 
 // 0x0047AC10: the falloff function named by `checksum` (0: linear and others).
@@ -250,7 +250,7 @@ void ReleaseManager();
 // --- the voices (0x0047C720-0x0047D41E) ---
 // 0x0047C720: a voice for `wave`: one holding it already, else the last free one after the last used (or the one
 // after the last used).
-int GetFreeVoice(PCWave* wave);
+int FetchIdleVoice(PCWave* wave);
 // 0x0047C790: the number of sound groups (none: -1).
 int GroupCount();
 // 0x0047C7A0
@@ -282,7 +282,7 @@ extern float g_defaultDropoff;
 extern SoundWaveSlot g_permanentWaves[256];
 extern SoundWaveSlot g_levelWaves[256];
 extern PlayingSound g_playingSounds[48];
-extern CAudioMixer* g_sfxManager;
+extern CAudioMixer* g_audioMixer;
 extern PositionalSound* g_positionalHead;
 extern int g_permanentCount;
 extern int g_levelCount;

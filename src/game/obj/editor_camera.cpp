@@ -89,7 +89,7 @@ private:
 
 // The shadow object (0x14 bytes, not rewritten yet): 0x004A1750 constructs it, 0x004A17E0 sets its texture by
 // name; its vtable's [0] deletes, [1] places it (point, orientation, normal).
-void DeleteShadow(void*& shadow)
+void ReleaseBlobShadow(void*& shadow)
 {
     reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(shadow))[0])(shadow, 1);
     shadow = nullptr;
@@ -224,7 +224,7 @@ void CEditorViewModule::DestroyBody()
 {
     m_vtable = kVtable;
     if (m_shadowHandle)
-        DeleteShadow(m_shadowHandle);
+        ReleaseBlobShadow(m_shadowHandle);
     CObjectModule::DestroyBody();
 }
 
@@ -257,7 +257,7 @@ void CEditorViewModule::Seal()
 }
 
 // 0x004E5170
-void CEditorViewModule::CreateShadow()
+void CEditorViewModule::BuildBlobShadow()
 {
     if (m_shadowHandle)
         return;
@@ -271,9 +271,9 @@ void CEditorViewModule::CreateShadow()
 void CEditorViewModule::Conceal(bool hide)
 {
     if (!hide)
-        CreateShadow();
+        BuildBlobShadow();
     else if (m_shadowHandle)
-        DeleteShadow(m_shadowHandle);
+        ReleaseBlobShadow(m_shadowHandle);
 }
 
 // 0x004E5A10
@@ -286,10 +286,10 @@ void CEditorViewModule::ResyncGroundShadow()
     feeler.ChangeFinish(bottom);
     if (!feeler.GetHitShape(1, 0)) {
         if (m_shadowHandle)
-            DeleteShadow(m_shadowHandle);
+            ReleaseBlobShadow(m_shadowHandle);
         return;
     }
-    CreateShadow();
+    BuildBlobShadow();
     Maths::Vec4 point = feeler.Point();
     Maths::Mat4 identity;
     identity.ResetToIdentity();

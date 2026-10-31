@@ -39,8 +39,8 @@ constexpr uint32_t kAllowReplaceTex = 0x6C37FDC7;  // "AllowReplaceTex"
 constexpr uint32_t kScene = 0x26861025;            // "scene"
 constexpr uint32_t kIsNet = 0x417149C8;            // "is_net"
 constexpr uint32_t kAdd = 0x02E58C18;              // "Add"
-constexpr uint32_t kDescChecksum = 0x4D20D794;     // "descChecksum"
-constexpr uint32_t kRefChecksum = 0x91CC92C8;      // "refChecksum"
+constexpr uint32_t kSpecKey = 0x4D20D794;     // "descChecksum"
+constexpr uint32_t kTargetKey = 0x91CC92C8;      // "refChecksum"
 constexpr uint32_t kParent = 0xC2719FB0;           // "parent"
 constexpr uint32_t kAsync = 0x90E07C79;            // "async"
 constexpr uint32_t kDesc = 0xF44A53AB;             // "desc"
@@ -76,10 +76,10 @@ int& ConfigNTSC() { return g_configNtsc; }
 int& ConfigFramerate() { return GameConfig::g_frameRate; }
 bool& ConfigBootstrap() { return GameConfig::g_configBootstrap; }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.
-const char* HardwareName() { return GameConfig::GetPlatformLabel(); }
-const char* DisplayTypeName(int) { return GameConfig::GetScreenModeLabel(); } // (the frame rate isn't read)
+const char* PlatformLabelText() { return GameConfig::GetPlatformLabel(); }
+const char* VideoModeLabelText(int) { return GameConfig::GetScreenModeLabel(); } // (the frame rate isn't read)
 const char* LanguageName() { return GameConfig::GetLocaleLabel(); }
-const char* TerritoryName() { return GameConfig::GetRegionLabel(); }
+const char* RegionLabelText() { return GameConfig::GetRegionLabel(); }
 
 // The engine's scenes (Nx, cdecl): by name (0x0048C750: the name's checksum looked up, 0x0048C700), the first in the
 // scene table, every one unloaded, one unloaded (0x0048C690; 1: its collision too), reloaded, geometry added to one
@@ -189,8 +189,8 @@ bool __cdecl CFunc_UnloadAnim(CStruct* params, CScript*)
     params->FetchText(kName, &name, true);
     uint32_t desc = 0;
     uint32_t reference = 0;
-    params->ReadHashValue(kDescChecksum, &desc, 1);
-    if (!params->ReadHashValue(kRefChecksum, &reference, 0))
+    params->ReadHashValue(kSpecKey, &desc, 1);
+    if (!params->ReadHashValue(kTargetKey, &reference, 0))
         reference = static_cast<uint32_t>(assets->m_unknown18); // the reference checksum (SetReferenceChecksum)
     uint32_t checksum = desc ? reference + desc : Checksums::HashFromText(name);
     if (AssetStore::CResource* asset = assets->ObtainLoadedItem(checksum, 0))
@@ -223,7 +223,7 @@ bool __cdecl CFunc_LoadAnim(CStruct* params, CScript*)
     const char* name;
     uint32_t desc = 0;
     params->FetchText(kName, &name, false);
-    params->ReadHashValue(kDescChecksum, &desc, true);
+    params->ReadHashValue(kSpecKey, &desc, true);
     bool async = params->HasBareFlag(kAsync);
     bool usePip = params->HasBareFlag(kUsePip);
     return assets->LoadAnim(name, desc, static_cast<uint32_t>(assets->m_unknown18), async, usePip);
@@ -348,13 +348,13 @@ bool __cdecl CFunc_PrintConfig(CStruct*, CScript*)
 {
     DebugOut::Printf("\n");
     DebugOut::Printf("System Configuration:\n\n");
-    DebugOut::Printf("Hardware       = %s\n", HardwareName());
+    DebugOut::Printf("Hardware       = %s\n", PlatformLabelText());
     // (the original passes no number: the %d reads the frame rate it passed to the name's function, still on the
     // stack)
     int framerate = ConfigFramerate();
-    DebugOut::Printf("Display Type   = %s, %d fps\n", DisplayTypeName(framerate), framerate);
+    DebugOut::Printf("Display Type   = %s, %d fps\n", VideoModeLabelText(framerate), framerate);
     DebugOut::Printf("Language       = %s\n", LanguageName());
-    DebugOut::Printf("Territory      = %s\n", TerritoryName());
+    DebugOut::Printf("Territory      = %s\n", RegionLabelText());
     DebugOut::Printf("CD             = %s\n", ConfigCD() ? "True" : "False");
     DebugOut::Printf("GotExtraMemory = %s\n", ConfigGotExtraMemory() ? "True" : "False");
     DebugOut::Printf("\n");

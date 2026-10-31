@@ -128,13 +128,13 @@ double g_lastActivity = 0.0; // the last line's time (Now())
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE ScreenMutex() { return reinterpret_cast<HANDLE&>(Engine3D::g_screenMutex); }
 IDirect3DDevice9* InputPort() { return Engine3D::g_d3dDevice; }
-bool ScreenUp() { return Engine3D::g_loadingScreenUp != 0; } // the main loop draws nothing then
+bool LoadScreenShown() { return Engine3D::g_loadingScreenUp != 0; } // the main loop draws nothing then
 uint32_t BarTimer() { return Engine3D::g_loadingBarTimer; }   // the loading bar's timer (0x004B7400)
 void* ScreenPicture() { return Engine3D::g_loadingScreenPicture; }    // the loading screen's picture
 void* MovieShown() { return Engine3D::g_currentMovie; }       // a Bink movie playing (gfx/movie.cpp)
 int ScreenWidth() { return Engine3D::g_backBufferWidth; }
 int ScreenHeight() { return Engine3D::g_backBufferHeight; }
-int BarWidth() { return Engine3D::g_gradientWidth; } // the loading bar's width in pixels
+int ProgressBarPixels() { return Engine3D::g_gradientWidth; } // the loading bar's width in pixels
 
 double Now()
 {
@@ -277,8 +277,8 @@ void Layout(double now)
     float width = static_cast<float>(ScreenWidth()), height = static_cast<float>(ScreenHeight());
     float margin = std::max(8.0f, std::round(height * 0.02f));
     float pad = std::round(g_lineHeight * 0.4f);
-    // Left of the loading bar (centred, BarWidth wide, its frame 5/640 of the screen wider each side), at most 45%.
-    float barLeft = (width - static_cast<float>(BarWidth())) * 0.5f - width * 5.0f / 640.0f;
+    // Left of the loading bar (centred, ProgressBarPixels wide, its frame 5/640 of the screen wider each side), at most 45%.
+    float barLeft = (width - static_cast<float>(ProgressBarPixels())) * 0.5f - width * 5.0f / 640.0f;
     float panelWidth = std::min(width * 0.45f, barLeft - 2.0f * margin);
     if (panelWidth < 20.0f * g_advance)
         panelWidth = std::min(width - 2.0f * margin, 40.0f * g_advance); // (no room beside the bar: over it)
@@ -325,14 +325,14 @@ void CALLBACK ScreenTick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.
-    if (!g_active || !g_timerDraws || BarTimer() != 0 || !ScreenUp() || MovieShown())
+    if (!g_active || !g_timerDraws || BarTimer() != 0 || !LoadScreenShown() || MovieShown())
         return;
     bool blank = g_blank;
     if (!blank && !ScreenPicture())
         return;
     WaitForSingleObject(ScreenMutex(), INFINITE);
     IDirect3DDevice9* device = InputPort();
-    if (device && ScreenUp() && BarTimer() == 0 && g_active) {
+    if (device && LoadScreenShown() && BarTimer() == 0 && g_active) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
         if (blank)

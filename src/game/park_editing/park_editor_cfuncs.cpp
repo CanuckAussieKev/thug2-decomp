@@ -250,14 +250,14 @@ bool __cdecl CFunc_SetParkEditorTimeOfDay(Scripts::CStruct* params, Scripts::CSc
 {
     uint32_t script = 0;
     params->ReadHashValue(kTodScript, &script, 0);
-    Editor()->m_timeOfDayScript = script;
+    Editor()->m_lightingScript = script;
     return true;
 }
 
 // 0x0058DFE0
 bool __cdecl CFunc_GetParkEditorTimeOfDayScript(Scripts::CStruct*, Scripts::CScript* script)
 {
-    uint32_t tod = Editor()->m_timeOfDayScript;
+    uint32_t tod = Editor()->m_lightingScript;
     if (!tod)
         return false;
     script->m_args->PutNameKey(kTodScript, tod);
@@ -304,7 +304,7 @@ bool __cdecl CFunc_SetParkEditorMaxPlayers(Scripts::CStruct* params, Scripts::CS
 // 0x0058E170
 SCellBox* __cdecl GetResizeArea(SCellBox* out, Scripts::CStruct* params)
 {
-    SCellBox area = Hub()->m_parkBounds;
+    SCellBox area = Hub()->m_buildArea;
     int w = area.w;
     int l = area.l;
     params->FetchIntValue("w", &w, 0);
@@ -400,7 +400,7 @@ bool __cdecl CFunc_ResizePark(Scripts::CStruct* params, Scripts::CScript*)
 // 0x0058E7E0
 bool __cdecl CFunc_GetCurrentParkBounds(Scripts::CStruct*, Scripts::CScript* script)
 {
-    SCellBox bounds = Hub()->m_parkBounds;
+    SCellBox bounds = Hub()->m_buildArea;
     script->m_args->PutInt(kX, bounds.x);
     script->m_args->PutInt(kZ, bounds.z);
     script->m_args->PutInt(kW, bounds.w);
@@ -411,7 +411,7 @@ bool __cdecl CFunc_GetCurrentParkBounds(Scripts::CStruct*, Scripts::CScript* scr
 // 0x0058E870
 bool __cdecl CFunc_CanChangeParkDimension(Scripts::CStruct* params, Scripts::CScript*)
 {
-    SCellBox bounds = Hub()->m_parkBounds;
+    SCellBox bounds = Hub()->m_buildArea;
     SCellBox shell = Hub()->m_shellBounds;
     Scripts::CArray* size = nullptr;
     if (params->FetchList(0u, &size, 0)) {
@@ -521,13 +521,13 @@ bool __cdecl CFunc_SwitchParkEditorMenuPieceToMostRecentClipboard(Scripts::CStru
 // 0x0058F750
 bool __cdecl CFunc_SwitchToParkEditorCamera(Scripts::CStruct*, Scripts::CScript*)
 {
-    auto* objects = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeObjectManager);
+    auto* objects = reinterpret_cast<GameObjects::CObjectHubBase*>(GameObjects::g_compositeRegistry);
     if (!objects->LookUpEntity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
-        Scripts::CStruct* memory = Scripts::NewStruct();
+        Scripts::CStruct* memory = Scripts::SpawnParamBag();
         Scripts::CStruct* params = memory ? memory->PrepareAll() : nullptr;
         params->PutNameKey("name", kParkedCam);
-        auto* composites = GameObjects::g_compositeObjectManager;
+        auto* composites = GameObjects::g_compositeRegistry;
         composites->SpawnEntityFromNode(Scripts::FetchList("parkedcam_composite_structure"), params, true);
         if (params) {
             params->Clear();

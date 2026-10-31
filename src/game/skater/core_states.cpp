@@ -34,12 +34,12 @@ constexpr uint32_t kLipKind = 0xA549B57B;        // Lip (the balance trick's kin
 constexpr uint32_t kPerfectRail = 0xCD09E062;    // CHEAT_PERFECT_RAIL
 constexpr uint32_t kName = 0xA1DC81F9;
 
-void ChangeState(void* component, int state) { static_cast<CorePhysicsComponent*>(component)->SetPhysicsState(state); }
+void ChangeState(void* component, int state) { static_cast<SkaterPhysicsModule*>(component)->SetPhysicsState(state); }
 
 } // namespace
 
 // 0x0050BF50
-void CorePhysicsComponent::DoLipPhysics()
+void SkaterPhysicsModule::StepCopingMove()
 {
     SetFlag(this, 0x78, 0);
     SetFlag(this, 0xA8, 0);
@@ -97,7 +97,7 @@ void CorePhysicsComponent::DoLipPhysics()
 }
 
 // 0x0050C670
-void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop)
+void SkaterPhysicsModule::ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop)
 {
     ClearFlags();
     if (onGround) {
@@ -113,15 +113,15 @@ void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, vo
     At<int>(this, 0x90) = Now();
     MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
-    VectorAt(this, kGroundNormal) = VectorAt(ObjectOf(this), kUp);
-    VectorAt(this, 0x78) = VectorAt(this, kGroundNormal);
+    VectorAt(this, kFloorUpVector) = VectorAt(ObjectOf(this), kUp);
+    VectorAt(this, 0x78) = VectorAt(this, kFloorUpVector);
     VectorAt(this, 0x58) = VectorAt(this, 0x78);
     VectorAt(this, 0x98) = VectorAt(ObjectOf(this), kPosition);
     VectorAt(ObjectOf(this), kOldPosition) = VectorAt(this, 0x98);
     // The jump / trick state cleared.
     At<uint8_t>(this, 0x1C5) = 0;
     At<int>(this, 0x2C0) = 0;
-    At<int>(this, kTenseTime) = 0;
+    At<int>(this, kJumpChargeMs) = 0;
     At<int>(this, 0x39C) = 0;
     At<int>(this, 0x3A0) = 0;
     At<uint8_t>(this, 0x370) = 0;
@@ -133,7 +133,7 @@ void CorePhysicsComponent::ResumeSkating(bool onGround, const uint8_t* grind, vo
     At<float>(this, 0x3AC) = 1.0f;
     At<int>(this, 0x4E0) = 0;
     At<int>(this, 0x4E4) = 0;
-    At<int>(this, kJumpTime) = 0;
+    At<int>(this, kLeapDuration) = 0;
     At<uint8_t>(this, 0x4E8) = 0;
     if (grind) {
         auto* rail = const_cast<uint8_t*>(grind);

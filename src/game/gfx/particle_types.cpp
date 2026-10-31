@@ -55,7 +55,7 @@ T* DestroyAndFree(T* system, unsigned int flags)
 CRibbonParticles* CRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                               int history)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
     m_steps = history + 1;
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * m_steps) * kPosition, true,
@@ -70,7 +70,7 @@ CRibbonParticles* CRibbonParticles::MakeNew(uint32_t name, int particleCap, uint
 void CRibbonParticles::DestroyBody()
 {
     SetVtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049B0A0
@@ -82,7 +82,7 @@ CRibbonParticles* CRibbonParticles::Teardown(unsigned int flags) { return Destro
 CRibbonTrailParticles* CRibbonTrailParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int,
                                                         float, int history)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
     m_steps = history + 1;
     // (the colours' count read again from m_steps for each array and each step of the loop)
@@ -98,7 +98,7 @@ CRibbonTrailParticles* CRibbonTrailParticles::MakeNew(uint32_t name, int particl
 void CRibbonTrailParticles::DestroyBody()
 {
     SetVtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049B350
@@ -110,7 +110,7 @@ CRibbonTrailParticles* CRibbonTrailParticles::Teardown(unsigned int flags) { ret
 CShadedParticles* CShadedParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                               int)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 4)) {
         m_colourMid = -1.0f;
@@ -123,7 +123,7 @@ CShadedParticles* CShadedParticles::MakeNew(uint32_t name, int particleCap, uint
 void CShadedParticles::DestroyBody()
 {
     SetVtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049B630
@@ -135,7 +135,7 @@ CShadedParticles* CShadedParticles::Teardown(unsigned int flags) { return Destro
 CSmoothParticles* CSmoothParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int, float,
                                               int)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 2)) {
         m_colourMid = -1.0f;
@@ -148,7 +148,7 @@ CSmoothParticles* CSmoothParticles::MakeNew(uint32_t name, int particleCap, uint
 void CSmoothParticles::DestroyBody()
 {
     SetVtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049B8E0
@@ -160,7 +160,7 @@ CSmoothParticles* CSmoothParticles::Teardown(unsigned int flags) { return Destro
 CSmoothRibbonParticles* CSmoothRibbonParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int,
                                                           int, float, int history)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap * (history + 1)) * kPosition,
                        true, 4)) {
@@ -175,7 +175,7 @@ CSmoothRibbonParticles* CSmoothRibbonParticles::MakeNew(uint32_t name, int parti
 void CSmoothRibbonParticles::DestroyBody()
 {
     SetVtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049BBA0
@@ -187,7 +187,7 @@ CSmoothRibbonParticles* CSmoothRibbonParticles::Teardown(unsigned int flags) { r
 CSmoothStarParticles* CSmoothStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int,
                                                       int segments, float size, int)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 3)) {
         m_segments = segments;
@@ -202,7 +202,7 @@ CSmoothStarParticles* CSmoothStarParticles::MakeNew(uint32_t name, int particleC
 void CSmoothStarParticles::DestroyBody()
 {
     SetVtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049BE50
@@ -214,7 +214,7 @@ CSmoothStarParticles* CSmoothStarParticles::Teardown(unsigned int flags) { retur
 CStarParticles* CStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t, uint32_t, int, int segments,
                                           float size, int)
 {
-    CParticleSystem::MakeNew();
+    CEmitterInstance::MakeNew();
     SetVtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
     if (ConstructParts(this, name, particleCap, static_cast<unsigned int>(particleCap) * kPosition, false, 3)) {
         m_segments = segments;
@@ -229,7 +229,7 @@ CStarParticles* CStarParticles::MakeNew(uint32_t name, int particleCap, uint32_t
 void CStarParticles::DestroyBody()
 {
     SetVtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
-    CParticleSystem::DestroyBody();
+    CEmitterInstance::DestroyBody();
 }
 
 // 0x0049C110
@@ -252,7 +252,7 @@ struct TypeNodeAdapters {
     template <typename T>
     T* System()
     {
-        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(Engine3D::CParticleSystem, m_listLink));
+        return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(Engine3D::CEmitterInstance, m_listLink));
     }
     Engine3D::CRibbonParticles* DestroyRibbon(unsigned int flags) { return System<Engine3D::CRibbonParticles>()->Teardown(flags); }
     Engine3D::CRibbonTrailParticles* DestroyRibbonTrail(unsigned int flags)

@@ -151,7 +151,7 @@ int DispatchStream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* des
     if (checkChecksum && Checksums::GenerateCRCFromBuffer(whole.m_body, desc->m_extent) != desc->m_checksum)
         whole.m_wireOptions |= kPacketChecksumMismatch;
     int result = GetDispatcher(context->m_receiverApp)->DispatchMsg(&whole);
-    if (result != kHandlerKeep && result != kHandlerMsgDestroyed) {
+    if (result != kHandlerKeep && result != kResultMsgFreed) {
         if (StreamDesc* stream = link->m_msgMeta) {
             DestroyStreamDesc(stream);
             MemSys::Hub::Pull()->Dealloc(stream);
@@ -189,7 +189,7 @@ bool AppHost::BundleMessages(Conn* conn, int queue, bool resendsOnly)
         }
         break;
     }
-    case kQueueImportant: {
+    case kLanePriority: {
         ListKit::Hunt<ReliableMsgNode> search;
         for (ReliableMsgNode* link = search.HeadElement(&conn->m_importantMsgs); link;
              link = search.FollowingItem()) {
@@ -217,7 +217,7 @@ bool AppHost::BundleMessages(Conn* conn, int queue, bool resendsOnly)
         }
         break;
     }
-    case kQueueSequenced: {
+    case kLaneOrdered: {
         ListKit::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode* link = search.HeadElement(&conn->m_sequencedMsgs); link;
              link = search.FollowingItem()) {
@@ -252,25 +252,25 @@ bool AppHost::BundleMessages(Conn* conn, int queue, bool resendsOnly)
 }
 
 // 0x0045AB60
-int AppHost::HandleLatencyResponse(InboundMsgCtx* context)
+int AppHost::OnPingReplyMsg(InboundMsgCtx* context)
 {
     Conn* conn = context->m_senderConn;
     auto* sentTime = reinterpret_cast<uint32_t*>(context->m_body);
     if (!NetLink::IsHostLocal(conn)) {
         uint32_t now = Timestamp(context->m_receiverApp);
-        if (*sentTime == conn->m_latencyTest.m_sendTime) {
-            conn->m_latencyTest.m_receiveTime = *sentTime;
+        if (*sentTime == conn->m_pingProbe.m_sendTime) {
+            conn->m_pingProbe.m_receiveTime = *sentTime;
             uint32_t latency = now - *sentTime;
             if (latency > MaxLatency())
                 latency = MaxLatency();
             AddLatency(conn, latency);
         }
     }
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 // 0x0045AD60
-int AppHost::HandleLatencyTest(InboundMsgCtx* context)
+int AppHost::OnPingProbeMsg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
     ConstructMsgDesc(&desc);
@@ -279,7 +279,7 @@ int AppHost::HandleLatencyTest(InboundMsgCtx* context)
     desc.m_byteCount = sizeof(sentTime);
     desc.m_ident = kMsgLatencyResponse;
     NetLink::PutOnOutbox(context->m_receiverApp, context->m_senderConn->m_hdl, &desc);
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 // 0x0045ABF0
@@ -291,11 +291,11 @@ int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
     // NOT ORIGINAL: a message too short for its header, or expanding to less than a message's id and length, is
     // dropped (the original reads past them).
     if (context->m_bodySize < 3)
-        return kHandlerMsgDone;
+        return kResultConsumed;
     int size = *reinterpret_cast<uint16_t*>(msg + 1);
     uint8_t method = static_cast<uint8_t>(msg[0]);
     if (size < 3)
-        return kHandlerMsgDone;
+        return kResultConsumed;
     const auto* stream = reinterpret_cast<const uint8_t*>(msg + 3);
     int streamSize = static_cast<int>(context->m_bodySize) - 3;
     auto* data = static_cast<char*>(MemSys::Alloc(size));
@@ -304,12 +304,12 @@ int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
         if (!RleStreamFits(stream, streamSize) || Decompress(msg + 3, streamSize, data, &size) != 0 ||
             expectedSize != size) {
             MemSys::Hub::Pull()->Dealloc(data);
-            return kHandlerMsgDone;
+            return kResultConsumed;
         }
     } else if (method == 2) {
         if (!LzssStreamFits(stream, streamSize, expectedSize)) {
             MemSys::Hub::Pull()->Dealloc(data);
-            return kHandlerMsgDone;
+            return kResultConsumed;
         }
         size = static_cast<int>(reinterpret_cast<char*>(Lzss::Decode(reinterpret_cast<uint8_t*>(msg + 3),
                                                                      reinterpret_cast<uint8_t*>(data),
@@ -317,7 +317,7 @@ int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
                                 data);
         if (expectedSize != size) {
             MemSys::Hub::Pull()->Dealloc(data);
-            return kHandlerMsgDone;
+            return kResultConsumed;
         }
     } else if (method == Lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11), expanded into the header's size and no further.
@@ -326,12 +326,12 @@ int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
                                static_cast<size_t>(expectedSize), &expanded) ||
             expanded != static_cast<size_t>(expectedSize)) {
             MemSys::Hub::Pull()->Dealloc(data);
-            return kHandlerMsgDone;
+            return kResultConsumed;
         }
     } else {
         // (The original uses the buffer as it is, not expanded - uninitialised memory dispatched. NOT ORIGINAL: dropped.)
         MemSys::Hub::Pull()->Dealloc(data);
-        return kHandlerMsgDone;
+        return kResultConsumed;
     }
 
     // The expanded data is one message: id, length, data.
@@ -340,7 +340,7 @@ int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
     uint16_t length = *reinterpret_cast<uint16_t*>(data + 1);
     if (length > expectedSize - 3) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
         MemSys::Hub::Pull()->Dealloc(data);
-        return kHandlerMsgDone;
+        return kResultConsumed;
     }
     auto* copy = static_cast<char*>(MemSys::Alloc(length));
     std::memcpy(copy, data + 3, length);
@@ -356,7 +356,7 @@ int AppHost::HandleCompressedMessages(InboundMsgCtx* context)
 }
 
 // 0x0045AF10
-int AppHost::HandleSequencedMessages(InboundMsgCtx* context)
+int AppHost::OnOrderedMsgs(InboundMsgCtx* context)
 {
     auto* msg = reinterpret_cast<uint8_t*>(context->m_body);
     Conn* conn = context->m_senderConn;
@@ -364,7 +364,7 @@ int AppHost::HandleSequencedMessages(InboundMsgCtx* context)
     uint32_t sequence = *reinterpret_cast<uint32_t*>(msg + 1);
     uint8_t group = msg[0];
     if (sequence < conn->m_sequenceNumbers[group])
-        return kHandlerContinue; // handled already
+        return kResultPassOn; // handled already
 
     MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_networkHeap);
@@ -390,19 +390,19 @@ int AppHost::HandleSequencedMessages(InboundMsgCtx* context)
             MemSys::Hub::Pull()->Dealloc(duplicate);
         }
         UnlinkListNode(link);
-        return kHandlerMsgDone;
+        return kResultConsumed;
     }
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 // 0x0045B0B0
-int AppHost::HandleAck(InboundMsgCtx* context)
+int AppHost::OnReceiptMsg(InboundMsgCtx* context)
 {
     auto* packetstamp = reinterpret_cast<uint16_t*>(context->m_body);
     uint32_t sentTime = 0;
     context->m_bodySize = sizeof(uint16_t);
     if (context->m_wireOptions & kPacketForeign)
-        return kHandlerMsgDone;
+        return kResultConsumed;
 
     {
         ListKit::Hunt<ReliableMsgNode> search;
@@ -438,23 +438,23 @@ int AppHost::HandleAck(InboundMsgCtx* context)
     Conn* conn = context->m_senderConn;
     if (IsOffMachine(conn) && (conn->m_curStanding & kConnStatus1) && sentTime) {
         uint32_t latency = Timestamp(context->m_receiverApp) - sentTime;
-        uint32_t current = NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency);
+        uint32_t current = NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_pingProbe.m_averageLatency);
         if (latency > current) {
             if (latency > MaxLatency())
                 latency = MaxLatency();
             AddLatency(context->m_senderConn, latency);
         }
     }
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 // 0x0045B2F0
-int AppHost::HandleStreamMessages(InboundMsgCtx* context)
+int AppHost::DrainStreamMsgs(InboundMsgCtx* context)
 {
     MemSys::Hub* manager = MemSys::Hub::Pull();
     manager->EnterHeapScope(manager->m_networkHeap);
     switch (context->m_typeCode) {
-    case kMsgStreamData: {
+    case kMsgBulkChunk: {
         // stream id (4 bytes), then the piece
         char* msg = context->m_body;
         ListKit::Hunt<BulkStreamNode> search;
@@ -471,7 +471,7 @@ int AppHost::HandleStreamMessages(InboundMsgCtx* context)
         }
         break;
     }
-    case kMsgStreamStart: {
+    case kMsgBulkBegin: {
         // name (0x20 bytes), size, stream id, checksum, message id, then the first piece
         char* msg = context->m_body;
         int streamId = *reinterpret_cast<int*>(msg + 0x24);
@@ -480,7 +480,7 @@ int AppHost::HandleStreamMessages(InboundMsgCtx* context)
              link = search.FollowingItem()) {
             if (link->m_msgMeta->m_streamId == streamId) { // started already
                 MemSys::Hub::Pull()->LeaveHeapScope();
-                return kHandlerMsgDone;
+                return kResultConsumed;
             }
         }
         void* memory = MemSys::Alloc(sizeof(StreamDesc));
@@ -514,7 +514,7 @@ int AppHost::HandleStreamMessages(InboundMsgCtx* context)
         break;
     }
     MemSys::Hub::Pull()->LeaveHeapScope();
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 } // namespace Net

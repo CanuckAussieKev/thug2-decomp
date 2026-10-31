@@ -43,10 +43,10 @@ void DeleteVirtual(void* object, int slot)
 }
 
 // Conn's methods (net_conn.cpp)
-uint32_t SendInterval(Conn* conn) { return conn->GetTransmitPeriod(); }
+uint32_t TransmitPeriod(Conn* conn) { return conn->GetTransmitPeriod(); }
 bool SendNow(Conn* conn) { return conn->IsSendForced(); }
 // twice the average latency, at least 500 ms (1000 ms with status bit 2)
-uint32_t ResendThreshold(Conn* conn) { return conn->GetRetryDelay(); }
+uint32_t RetransmitLimit(Conn* conn) { return conn->GetRetryDelay(); }
 void DeleteConn(Conn* conn)
 {
     if (conn) {
@@ -135,7 +135,7 @@ void AppHost::RaiseFault()
 // 0x00456B00
 bool AppHost::IsSendDue(Conn* conn)
 {
-    uint32_t interval = SendInterval(conn);
+    uint32_t interval = TransmitPeriod(conn);
     if (m_clock - conn->m_lastSendTime >= interval)
         return true;
     return SendNow(conn);
@@ -255,21 +255,21 @@ bool AppHost::PrepareAll()
         }
     }
     m_numConnections = 0;
-    m_totalBytesOut = 0;
-    m_totalBytesIn = 0;
+    m_outboundByteTotal = 0;
+    m_inboundByteTotal = 0;
     m_lostPackets = 0;
-    m_latePackets = 0;
-    m_dupePackets = 0;
+    m_staleArrivals = 0;
+    m_repeatArrivals = 0;
     m_frameCount = 0;
     DispatcherInit(&m_dispatcher);
     // the handlers (net_app_messages.cpp)
-    AppendListener(&m_dispatcher, kMsgAck, AppHost::HandleAck, kHandleFlags3, kHighPriority);
-    AppendListener(&m_dispatcher, kMsgSequenced, AppHost::HandleSequencedMessages, kHandleFlags2, kHighPriority);
+    AppendListener(&m_dispatcher, kMsgAck, AppHost::OnReceiptMsg, kHandleFlags3, kHighPriority);
+    AppendListener(&m_dispatcher, kMsgSequenced, AppHost::OnOrderedMsgs, kHandleFlags2, kHighPriority);
     AppendListener(&m_dispatcher, kMsgCompressed, AppHost::HandleCompressedMessages, kHandleFlags3, kHighPriority);
-    AppendListener(&m_dispatcher, kMsgStreamStart, AppHost::HandleStreamMessages, kHandleFlags2, kHighPriority);
-    AppendListener(&m_dispatcher, kMsgStreamData, AppHost::HandleStreamMessages, kHandleFlags2, kHighPriority);
-    AppendListener(&m_dispatcher, kMsgLatencyTest, AppHost::HandleLatencyTest, kHandleFlags2, kHighPriority);
-    AppendListener(&m_dispatcher, kMsgLatencyResponse, AppHost::HandleLatencyResponse, kHandleFlags2, kHighPriority);
+    AppendListener(&m_dispatcher, kMsgBulkBegin, AppHost::DrainStreamMsgs, kHandleFlags2, kHighPriority);
+    AppendListener(&m_dispatcher, kMsgBulkChunk, AppHost::DrainStreamMsgs, kHandleFlags2, kHighPriority);
+    AppendListener(&m_dispatcher, kMsgLatencyTest, AppHost::OnPingProbeMsg, kHandleFlags2, kHighPriority);
+    AppendListener(&m_dispatcher, kMsgLatencyResponse, AppHost::OnPingReplyMsg, kHandleFlags2, kHighPriority);
     return true;
 }
 
@@ -305,7 +305,7 @@ void AppHost::BlockConnection(Conn* conn)
     auto* banned = static_cast<BlockedConnEntry*>(MemSys::AllocZeroed(sizeof(BlockedConnEntry)));
     if (banned)
         *static_cast<MemSys::ListNode*>(banned) = {kBannedConnVtable, banned, 0, banned, banned};
-    banned->m_hostAddr = conn->m_hostAddr; // (an allocation failure crashes here, as in the original)
+    banned->m_remoteIp = conn->m_remoteIp; // (an allocation failure crashes here, as in the original)
     // at the end of the list
     banned->prev = m_banned.prev;
     banned->next = &m_banned;
@@ -349,12 +349,12 @@ bool AppHost::DispatchQueuedSequencedMessages(Conn* conn)
             int result = DispatchMessage(&m_dispatcher, &context);
             if (result == kHandlerKeep)
                 return true;
-            if (result == kHandlerMsgDestroyed)
+            if (result == kResultMsgFreed)
                 return false;
             if (msg)
                 DeleteMsg(msg);
             DeleteVirtual(link, 0);
-            if (result != kHandlerContinue)
+            if (result != kResultPassOn)
                 return true;
         }
     }
@@ -386,7 +386,7 @@ Conn* AppHost::FindConnAtAddress(uint32_t ip, uint16_t port)
 {
     ListKit::Hunt<Conn> search;
     for (Conn* conn = search.HeadElement(&m_circuits); conn; conn = search.FollowingItem()) {
-        if (conn->m_hostAddr == ip && conn->m_portNo == port)
+        if (conn->m_remoteIp == ip && conn->m_portNo == port)
             return conn;
     }
     return nullptr;
@@ -409,13 +409,13 @@ bool AppHost::ImportantMessagesDue(Conn* conn)
     ListKit::Hunt<TimedMsgNode> important;
     for (TimedMsgNode* link = important.HeadElement(&conn->m_importantMsgs); link; link = important.FollowingItem()) {
         uint32_t sent = link->At<uint32_t>(0x14);
-        if (!sent || m_clock - sent > ResendThreshold(conn))
+        if (!sent || m_clock - sent > RetransmitLimit(conn))
             return true;
     }
     ListKit::Hunt<TimedMsgNode> sequenced;
     for (TimedMsgNode* link = sequenced.HeadElement(&conn->m_sequencedMsgs); link; link = sequenced.FollowingItem()) {
         uint32_t sent = link->At<uint32_t>(0x1C);
-        if (!sent || m_clock - sent > ResendThreshold(conn))
+        if (!sent || m_clock - sent > RetransmitLimit(conn))
             return true;
     }
     return false;
@@ -432,13 +432,13 @@ bool AppHost::MessagesDue(Conn* conn)
     ListKit::Hunt<TimedMsgNode> important;
     for (TimedMsgNode* link = important.HeadElement(&conn->m_importantMsgs); link; link = important.FollowingItem()) {
         uint32_t sent = link->At<uint32_t>(0x14);
-        if (!sent || m_clock < link->At<uint32_t>(0x24) || m_clock - sent > ResendThreshold(conn))
+        if (!sent || m_clock < link->At<uint32_t>(0x24) || m_clock - sent > RetransmitLimit(conn))
             return true;
     }
     ListKit::Hunt<TimedMsgNode> sequenced;
     for (TimedMsgNode* link = sequenced.HeadElement(&conn->m_sequencedMsgs); link; link = sequenced.FollowingItem()) {
         uint32_t sent = link->At<uint32_t>(0x1C);
-        if (!sent || m_clock < link->At<uint32_t>(0x24) || m_clock - sent > ResendThreshold(conn))
+        if (!sent || m_clock < link->At<uint32_t>(0x24) || m_clock - sent > RetransmitLimit(conn))
             return true;
     }
     return false;

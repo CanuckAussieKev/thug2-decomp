@@ -57,9 +57,9 @@ public:
 
     uint32_t m_soundId;            // +0x18 the playing sound's unique id (0: none)
     uint32_t m_playingChecksum;    // +0x1C
-    float m_tiltAngle;                 // +0x20 the pitch worked out
-    float m_lastPitch;             // +0x24 the pitch last given
-    SoundFx::volumeRef m_lastVolume;     // +0x28 the volume last given
+    float m_leanPitchAngle;                 // +0x20 the pitch worked out
+    float m_prevPitchValue;             // +0x24 the pitch last given
+    SoundFx::volumeRef m_prevLevels;     // +0x28 the volume last given
     float m_airPitchFloor;         // +0x54 the air sound's pitch falls down to this (45)
     float m_airPitchFall;          // +0x58 by this much a second (18.33)
     uint8_t* m_physicsControl;     // +0x5C SkaterPhysicsControl (0xD9151D4D)
@@ -75,20 +75,20 @@ public:
     uint8_t m_noRailSound;         // +0xFF (the state's +0x70)
     uint8_t m_sliding;             // +0x100 on a rail: slide, not grind (the state's +0x58)
     uint8_t pad101[3];
-    float m_speedFraction;         // +0x104
+    float m_speedRatio;         // +0x104
     float m_volumeMult;            // +0x108 volume_mult
     uint8_t m_on;                  // +0x10C
     uint8_t pad10D[3];
 };
 static_assert(offsetof(CRiderRollingAudio, m_soundId) == 0x18 &&
-                  offsetof(CRiderRollingAudio, m_lastVolume) == 0x28 &&
+                  offsetof(CRiderRollingAudio, m_prevLevels) == 0x28 &&
                   offsetof(CRiderRollingAudio, m_airPitchFloor) == 0x54 &&
                   offsetof(CRiderRollingAudio, m_physicsControl) == 0x5C &&
                   offsetof(CRiderRollingAudio, m_lastPos) == 0x64 &&
                   offsetof(CRiderRollingAudio, m_curPhase) == 0x74 &&
                   offsetof(CRiderRollingAudio, m_sound) == 0x78 &&
                   offsetof(CRiderRollingAudio, m_haveSound) == 0xFC &&
-                  offsetof(CRiderRollingAudio, m_speedFraction) == 0x104 &&
+                  offsetof(CRiderRollingAudio, m_speedRatio) == 0x104 &&
                   offsetof(CRiderRollingAudio, m_on) == 0x10C &&
                   sizeof(CRiderRollingAudio) == 0x110,
               "layout must match the original (0x00513AD0 allocates 0x110 bytes)");

@@ -46,8 +46,8 @@ constexpr uint32_t kRank = 0x7786171A;                  // rank
 constexpr uint32_t kDestroyDescChildren = 0xDD6DDFD6;   // destroy_server_desc_children
 constexpr uint32_t kAddInfoItem = 0x676C4DB8;           // net_game_info_add_item
 constexpr uint32_t kUpdatePlayerTitle = 0xC755D58E;     // net_game_info_update_player_title
-constexpr uint32_t kAddPlayer = 0x62F4E2E8;             // net_game_info_add_player
-constexpr uint32_t kGameInProgress = 0xC7EDAA8E;        // netoptions_str_game_in_progress
+constexpr uint32_t kInfoAddPlayerText = 0x62F4E2E8;             // net_game_info_add_player
+constexpr uint32_t kMidGameText = 0xC7EDAA8E;        // netoptions_str_game_in_progress
 constexpr uint32_t kAutoServe = 0xA37CBD43;             // netoptions_str_auto_serve
 constexpr uint32_t kFcfs = 0x850E7F29;                  // netoptions_str_fcfs
 constexpr uint32_t kTitlePing = 0x7E63A240;             // sort_title_ping
@@ -79,9 +79,9 @@ constexpr uint16_t kServerResponseSize = 0xE0;
 // GameSpy's listing messages (peerListingGamesCallback's msg).
 enum ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove = 2, kListingClear = 3 };
 
-Hub* TheManager() { return g_gameNetManager; }
+Hub* TheManager() { return g_onlineHub; }
 MemSys::Hub* RamStats() { return MemSys::Hub::Pull(); }
-RoomManager* Lobby(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyMan); }
+RoomManager* Lobby(Hub* manager) { return static_cast<RoomManager*>(manager->m_lobbyService); }
 
 MemSys::ListNode* Foremost(Hub* manager, uint32_t offset) { return &Prop<MemSys::ListNode>(manager, offset); }
 constexpr uint32_t kServers = 0x158;
@@ -179,7 +179,7 @@ bool __cdecl CFunc_DescribeServer(Scripts::CStruct* params, Scripts::CScript* sc
     Run(kDestroyDescChildren);
     RamStats()->EnterHeapScope(RamStats()->m_frontEndHeap);
     if (server->m_started)
-        InfoLine(kGameInProgress, NoValue);
+        InfoLine(kMidGameText, NoValue);
     if (server->m_hostMode == 1)
         InfoLine(kAutoServe, NoValue);
     else if (server->m_hostMode == 2)
@@ -226,7 +226,7 @@ bool __cdecl CFunc_DescribeServer(Scripts::CStruct* params, Scripts::CScript* sc
         player->AppendWord(kName, value);
         std::sprintf(value, "%s", server->GetEntrantName(i));
         player->AppendWord(kValue, value);
-        Run(kAddPlayer, player);
+        Run(kInfoAddPlayerText, player);
         DeleteParams(player);
     }
     RamStats()->LeaveHeapScope();
@@ -256,12 +256,12 @@ bool __cdecl CFunc_ChooseServer(Scripts::CStruct* params, Scripts::CScript* scri
     if (refused) {
         reply->PutNameKey(kReason, refused);
         reply->PutNameKey(kJustDialog, 0);
-        manager->m_joinStateTask->DropOut();
+        manager->m_joinPhaseJob->DropOut();
         Run(kJoinRefusedDialog, reply);
     } else {
-        if (Prop<bool>(manager->m_buddyMan, 0x10)) // (0x005480B0: logged in to presence)
-            static_cast<RoomManager*>(manager->m_lobbyMan)->ChangeHostName(server->m_label);
-        const char* ip = Crt::InetNtoa(server->m_hostAddr);
+        if (Prop<bool>(manager->m_presenceService, 0x10)) // (0x005480B0: logged in to presence)
+            static_cast<RoomManager*>(manager->m_lobbyService)->ChangeHostName(server->m_label);
+        const char* ip = Crt::InetNtoa(server->m_remoteIp);
         if (!server->m_canReach)
             reply->AddComponentOfType(kCookie, Scripts::QBVAL_NAME, Maths::Rnd(0x7FFF) * Maths::Rnd(0x7FFF));
         reply->AddComponentOfType(0, Scripts::QBVAL_INTEGER, server->m_portNo);
@@ -298,23 +298,23 @@ bool __cdecl CFunc_RetrieveServerInfo(Scripts::CStruct* params, Scripts::CScript
 // notes the replying address (0x007CCA84, 0x007CCA88); a server not listed yet is added to the waiting servers with
 // the reply's name, level, mode, counts, flags, skill and players (the ping: the time since the time it carries).
 // 4 for a reply of another size or a server known already, else 1.
-int __cdecl HandleServerResponse(NetLink::InboundMsgCtx* context)
+int __cdecl OnServerReplyMsg(NetLink::InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->m_content);
     if (g_askedFor) {
-        g_askedFor = context->m_senderConn->m_hostAddr;
+        g_askedFor = context->m_senderConn->m_remoteIp;
         g_joinServerIPSucceeded = true;
     }
     if (context->m_bodySize != kServerResponseSize)
         return kDone;
     const char* reply = context->m_body;
-    if (manager->HasServer(reply + 0x08, context->m_senderConn->m_hostAddr))
+    if (manager->HasServer(reply + 0x08, context->m_senderConn->m_remoteIp))
         return kDone;
     RamStats()->EnterHeapScope(RamStats()->m_networkHeap);
     void* block = MemSys::AllocZeroed(sizeof(HostListing));
     HostListing* server = block ? static_cast<HostListing*>(block)->MakeNew() : nullptr;
     std::strcpy(server->m_label, reply + 0x08);
-    server->m_hostAddr = context->m_senderConn->m_hostAddr;
+    server->m_remoteIp = context->m_senderConn->m_remoteIp;
     server->m_ping = static_cast<int>(FrameClock::GetTime() - Prop<uint32_t>(reply, 0x5C));
     std::strcpy(server->m_level, reply + 0x18);
     std::strcpy(server->m_modeSel, reply + 0x38);
@@ -348,7 +348,7 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
     (void)staging;
     (void)progress;
     if (!success) {
-        static_cast<RoomManager*>(TheManager()->m_lobbyMan)->SetLostConnection(); // (the lobby told the listing failed)
+        static_cast<RoomManager*>(TheManager()->m_lobbyService)->SetLostConnection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {
@@ -364,14 +364,14 @@ void __cdecl ListingGamesCallback(void* peer, int success, const char* name, voi
         if (GameSpy::ServerDirectConnect(sb)) { // (it answered directly)
             uint32_t ours = GameSpy::PeerGetPublicIp(peer); // (our public address)
             if (GameSpy::ServerGetPublicAddress(sb) == ours) {      // (its public address)
-                server->m_hostAddr = GameSpy::ServerGetPrivateAddress(sb); // (its private address)
+                server->m_remoteIp = GameSpy::ServerGetPrivateAddress(sb); // (its private address)
                 server->m_portNo = kPort;
                 sameNetwork = true;
             }
         }
         if (!sameNetwork) {
             bool hasPrivate = GameSpy::ServerHasPrivateAddress(sb) != 0; // (it has a private address)
-            server->m_hostAddr = GameSpy::ServerGetPublicAddress(sb);
+            server->m_remoteIp = GameSpy::ServerGetPublicAddress(sb);
             uint16_t port = static_cast<uint16_t>(GameSpy::ServerGetPublicQueryPort(sb)); // (its public port)
             if (!hasPrivate) {
                 server->m_canReach = false;

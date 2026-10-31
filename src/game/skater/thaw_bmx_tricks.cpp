@@ -49,12 +49,12 @@ constexpr uint32_t kDisplayUp = 0x28;
 constexpr uint32_t kFrameLength = 0x8C;    // THAW +0x9C
 constexpr uint32_t kHitFlags = 0xF8;
 constexpr uint32_t kHitPoint = 0x120;
-constexpr uint32_t kFeelerStart = 0x208;
-constexpr uint32_t kFeelerEnd = 0x218;
+constexpr uint32_t kProbeOrigin = 0x208;
+constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kInput = 0x150C;        // THAW +0x1910 (the pad at its +0x20)
 constexpr uint32_t kBalanceTricks = 0x1524; // THAW +0x1928 (the balance trick component: +0x18 its kind)
 constexpr uint32_t kFlags = 0x1528;        // THAW +0x192C
-constexpr uint32_t kGroundNormal = 0x68;   // THAW +0x68 (THAW's 0x005D0BD0 sets it - the same place as THUG2's)
+constexpr uint32_t kFloorUpVector = 0x68;   // THAW +0x68 (THAW's 0x005D0BD0 sets it - the same place as THUG2's)
 // The timed flags (THUG2's; THAW's in the comment).
 constexpr uint32_t kFlagVert = 0x30;       // THAW 0x30
 constexpr uint32_t kFlag38 = 0x38;         // THAW 0x38
@@ -81,7 +81,7 @@ constexpr uint32_t kModelOfComponent = 0x208; // the model component's renderer 
 constexpr uint32_t kModelFlags = 0x44;        // the renderer model's flags (0x2 shown, 0x4 hidden)
 
 // THAW's constants.
-constexpr float kDegreesToRadians = 0.0174532924f;  // 0x006DB474
+constexpr float kRadiansPerDegree = 0.0174532924f;  // 0x006DB474
 constexpr float kTapAbove = -30.0f;                 // 0x006EDDA0 (in vert: nothing this near below - the tap's room)
 constexpr float kTapSearchStart = 100.0f;           // 0x006DCBC0 (in vert: the depths looked at, from this ...)
 constexpr float kTapSearchStep = 3.0f;              // 0x006DC7F0 (... down by this ...)
@@ -156,7 +156,7 @@ float RailAscentSine()
     float degrees = 0.0f;
     if (Scripts::CStruct* walk = Scripts::ReadSubStruct(kWalkParameters))
         walk->FetchFloat(kHangMaxRailAscent, &degrees, 0);
-    return static_cast<float>(std::sin(static_cast<double>(degrees) * kDegreesToRadians));
+    return static_cast<float>(std::sin(static_cast<double>(degrees) * kRadiansPerDegree));
 }
 
 bool FindLedge(const Maths::Vec4& start, const Maths::Vec4& end, const Maths::Vec4& direction, Maths::Vec4* point)
@@ -283,7 +283,7 @@ float BalanceWobble(float lean, bool flip) { return (flip ? kBalanceMiddle - lea
 
 bool DisplayPitchBeyond(const Maths::Vec4& up, const Maths::Vec4& normal, float degrees)
 {
-    return std::cos(static_cast<double>(degrees) * kDegreesToRadians) > Dot3(up, normal);
+    return std::cos(static_cast<double>(degrees) * kRadiansPerDegree) > Dot3(up, normal);
 }
 
 bool LedgePoint(const Maths::Vec4& start, const Maths::Vec4& end, const Maths::Vec4& direction, const Maths::Vec4& a,
@@ -328,7 +328,7 @@ uint32_t WallplantTrickList()
     return Scripts::FetchList(bike) ? bike : kThugWallplantTrick;
 }
 
-uint8_t* SkitchButton(void* core) { return PadOf(core) + kR2; }
+uint8_t* TowButton(void* core) { return PadOf(core) + kR2; }
 
 // --- the tire tap ------------------------------------------------------------------------------------------------
 
@@ -361,15 +361,15 @@ void StartTireTap(void* core, BikeState& state)
     if (!state.tapArmed && !held)
         return;
     void* object = ObjectOf(core);
-    auto* physics = static_cast<CorePhysicsComponent*>(core);
+    auto* physics = static_cast<SkaterPhysicsModule*>(core);
     const Maths::Vec4 position = VectorAt(object, kPosition);
     const Maths::Vec4 up = VectorAt(object, kUp);
     bool found = false;
     float best = kTapFar;
     if (!notVert) {
-        VectorAt(core, kFeelerStart) = position;
-        VectorAt(core, kFeelerEnd) = position + kTapAbove * up;
-        if (physics->CheckFeeler(0x10, 0)) {
+        VectorAt(core, kProbeOrigin) = position;
+        VectorAt(core, kProbeTip) = position + kTapAbove * up;
+        if (physics->ProbeTouchesZone(0x10, 0)) {
             state.tapArmed = true;
             return;
         }
@@ -380,9 +380,9 @@ void StartTireTap(void* core, BikeState& state)
         for (float depth = kTapSearchStart; depth > kTapSearchEnd; depth -= kTapSearchStep) {
             Maths::Vec4 from = position + depth * down;
             Maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};
-            VectorAt(core, kFeelerStart) = from;
-            VectorAt(core, kFeelerEnd) = to;
-            if (!physics->CheckFeeler(0x10, 0) || (At<uint16_t>(core, kHitFlags) & 8))
+            VectorAt(core, kProbeOrigin) = from;
+            VectorAt(core, kProbeTip) = to;
+            if (!physics->ProbeTouchesZone(0x10, 0) || (At<uint16_t>(core, kHitFlags) & 8))
                 continue;
             float distance = from.y - VectorAt(core, kHitPoint).y;
             if (distance > best + kTapNearer)
@@ -641,7 +641,7 @@ int CallTrickMember(void* core, uint32_t name, Scripts::CStruct* params, Scripts
         float degrees = 0.0f;
         if (params)
             params->FetchFloat(static_cast<uint32_t>(0), &degrees, 0);
-        return Bike::DisplayPitchBeyond(VectorAt(core, kDisplayUp), VectorAt(core, kGroundNormal), degrees) ? 1 : 0;
+        return Bike::DisplayPitchBeyond(VectorAt(core, kDisplayUp), VectorAt(core, kFloorUpVector), degrees) ? 1 : 0;
     }
     if (name == kLandedFromTap) { // 0x005C7AF0
         const BikeState* state = StateOf(core, false);

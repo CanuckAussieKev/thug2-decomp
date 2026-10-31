@@ -4,7 +4,7 @@
 // 0x007CE5DC; Singletons::LazyInstance's Create 0x00590160 makes it, Release 0x0058D290 lets it go): the Create-A-Park
 // mode itself. A module (vtable 0x0064F234: the scalar deleting destructor, start and stop) and an event listener
 // (+0x14, vtable 0x0064F22C) for the menus' pad events; a task that runs the editor each frame (0x0058FFC0 ->
-// LogicUpdate), an empty display task and an input handler (HandleInput) on one controller. Its state says what
+// LogicUpdate), an empty display task and an input handler (ProcessPadInput) on one controller. Its state says what
 // the park is doing: off (a normal level), edit (the editor up), test_play (skating the park from the editor)
 // or regular_play (a created park loaded as a level).
 //
@@ -143,7 +143,7 @@ public:
     static int __cdecl GetPlayerLimit();
     // 0x0058EBE0: the menu commands: the previous / next set, the previous / next piece (the piece menu refreshed
     // and its container told).
-    void ChangeSelection();
+    void MoveSelectionCursor();
     // 0x0058ED50: a frame of editing: the camera (parked_cam) placed from the cursor, its angle, tilt and
     // distance; then (not paused) the sticks move the cursor and turn the camera, and the commands are carried out.
     void TickFrame();
@@ -152,7 +152,7 @@ public:
     // 0x0058F6C0: the input handler onto controller `controller`'s handlers.
     void LinkToPad(int controller);
     // 0x0058F8A0: the logic task's work each frame: the skaters paused while editing (unpaused in test play);
-    // editing with a cursor: the rail editor's scripts, Update (or, placing rails, only ChangeSelection) and the
+    // editing with a cursor: the rail editor's scripts, Update (or, placing rails, only MoveSelectionCursor) and the
     // memory bar; else the commands dropped.
     void LogicUpdate();
     // 0x0058FA50: the state becomes `state` (unless 0): the cursor shown while editing; the editor's look on, or
@@ -170,7 +170,7 @@ public:
     // call takes a reference and returns it (null if there is none).
     static CParkBuilderMode* __cdecl Fabricate(bool create);
     // 0x0058FFC0: the logic task's code: the park editor's clock (0x007CE5EC) moved on, then LogicUpdate.
-    static void __cdecl LogicTask(ParkEditorTask* task);
+    static void __cdecl FrontEndTick(ParkEditorTask* task);
 
     // The listener's vtable (0x0064F22C), `this` the listener (+0x14).
     struct Listener : GameObjects::CSignalReceiver {
@@ -183,11 +183,11 @@ public:
     };
 
     Listener m_listener;                    // +0x14
-    bool m_commandDone;                     // +0x30: a command that changes the park was carried out
+    bool m_actionFinished;                     // +0x30: a command that changes the park was carried out
     uint8_t pad31[3];
-    ParkEditorTask* mp_logicTask;           // +0x34 (0x0058FFC0, priority 0)
+    ParkEditorTask* m_editorUpdateJob;           // +0x34 (0x0058FFC0, priority 0)
     ParkEditorTask* mp_displayTask;         // +0x38 (the empty 0x005480A0, priority -1000)
-    ParkEditorInputHandler* mp_inputHandler; // +0x3C (HandleInput, priority 0)
+    ParkEditorInputHandler* m_editorPadListener; // +0x3C (ProcessPadInput, priority 0)
     uint32_t m_curPhase;                       // +0x40
     uint32_t m_actions;                    // +0x44
     uint32_t m_flagBits;                       // +0x48
@@ -200,18 +200,18 @@ public:
     int m_unknown64;                        // +0x64 (0)
     float m_cameraAngle;                    // +0x68: degrees round y (0-360)
     float m_cameraTilt;                     // +0x6C: degrees down (10-90; 10 to start with)
-    float m_cameraDistance;                 // +0x70 (500-1500; 1400 to start with)
+    float m_orbitRadius;                 // +0x70 (500-1500; 1400 to start with)
     int m_lastTime;                         // +0x74: FrameClock::GetTime at the last Update
-    uint32_t m_timeOfDayScript;             // +0x78 (SetParkEditorTimeOfDay's tod_script)
+    uint32_t m_lightingScript;             // +0x78 (SetParkEditorTimeOfDay's tod_script)
 };
-static_assert(offsetof(CParkBuilderMode, m_listener) == 0x14 && offsetof(CParkBuilderMode, m_commandDone) == 0x30 &&
-                  offsetof(CParkBuilderMode, mp_inputHandler) == 0x3C && offsetof(CParkBuilderMode, m_curPhase) == 0x40 &&
+static_assert(offsetof(CParkBuilderMode, m_listener) == 0x14 && offsetof(CParkBuilderMode, m_actionFinished) == 0x30 &&
+                  offsetof(CParkBuilderMode, m_editorPadListener) == 0x3C && offsetof(CParkBuilderMode, m_curPhase) == 0x40 &&
                   offsetof(CParkBuilderMode, m_moveSpeed) == 0x4C && offsetof(CParkBuilderMode, m_cameraAngle) == 0x68 &&
-                  offsetof(CParkBuilderMode, m_timeOfDayScript) == 0x78 && sizeof(CParkBuilderMode) == 0x7C,
+                  offsetof(CParkBuilderMode, m_lightingScript) == 0x78 && sizeof(CParkBuilderMode) == 0x7C,
               "layout must match the original");
 
 // 0x0058DB70: the input handler's code: the sticks and the buttons as commands (cleared each frame).
-void __cdecl HandleInput(ParkEditorInputHandler* handler);
+void __cdecl ProcessPadInput(ParkEditorInputHandler* handler);
 // 0x0058E170: the area ResizePark is asked for without a structure: the park's bounds with w= / l= (or inc_w= /
 // inc_l=), kept centred. Returns `out`.
 SCellBox* __cdecl GetResizeArea(SCellBox* out, Scripts::CStruct* params);

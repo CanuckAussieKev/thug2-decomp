@@ -37,7 +37,7 @@ constexpr uint32_t kWalkCamera = 0xC7D37EC2;
 constexpr uint32_t kWalk = 0x726E85AA, kSkaterPhysicsControl = 0xD9151D4D, kCameraLookAround = 0x81C7122D,
                    kCamera = 0xC4E311FA, kSkaterCamera = 0x5E43A604, kInput = 0x27D7CD28;
 constexpr uint32_t kSkaterId = 0x4C48DA58; // (an object id; the name isn't recovered)
-constexpr uint32_t kFlushRequest = 0x73FEBD0F, kReset = 0xD1A485D1;
+constexpr uint32_t kDrainQueueCmd = 0x73FEBD0F, kReset = 0xD1A485D1;
 constexpr uint32_t kParameters = 0x1CDA02AE; // walk_camera_parameters
 constexpr uint32_t kLockAngle = 0xB8DA8A73, kFullSlerpSpeed = 0xBCEF6DDA, kMinSlerpSpeed = 0x824349E5,
                    kDpadFullSlerpSpeed = 0x73DA1EC0, kDpadMinSlerpSpeed = 0x0DA5CAD3, kFacingControl = 0xF6F69DC8,
@@ -163,7 +163,7 @@ void CFootView::ConfigureFromData(Scripts::CStruct* params)
 {
     uint32_t id = 0;
     params->ReadHashValue(kSkaterId, &id, 1);
-    BindRider(static_cast<CGameEntity*>(CompositeObjectManager()->LookUpEntity(id)));
+    BindRider(static_cast<CGameEntity*>(ObjectHubSlot()->LookUpEntity(id)));
     m_turnCosine = 1.0f;
     m_zoom = 1.0f;
     m_orientation = m_entity->m_basisFrame;
@@ -172,7 +172,7 @@ void CFootView::ConfigureFromData(Scripts::CStruct* params)
 // 0x00524FB0
 void CFootView::Seal()
 {
-    m_lookAround = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookAround));
+    m_freeLook = static_cast<CFreeLookModule*>(m_entity->FetchModule(kCameraLookAround));
     m_viewer = m_entity->FetchModule(kCamera);
     m_skaterCamera = reinterpret_cast<uint8_t*>(m_entity->FetchModule(kSkaterCamera));
 }
@@ -190,16 +190,16 @@ void CFootView::ApplyQueuedChange()
 {
     m_flush = true;
     At<bool>(m_walk, 0x70C) = true;
-    m_lookAround->m_heading = 0.0f;
-    m_lookAround->m_leanAngle = 0.0f;
-    m_lookAround->m_factor = 1.0f;
-    m_lookAround->m_locked = false;
+    m_freeLook->m_heading = 0.0f;
+    m_freeLook->m_leanAngle = 0.0f;
+    m_freeLook->m_factor = 1.0f;
+    m_freeLook->m_locked = false;
 }
 
 // 0x00525D40
 int CFootView::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
 {
-    if (name == kFlushRequest) {
+    if (name == kDrainQueueCmd) {
         ApplyQueuedChange();
         return 1;
     }
@@ -211,10 +211,10 @@ int CFootView::InvokeMethodByName(uint32_t name, Scripts::CStruct* /*params*/, S
 }
 
 // 0x00525F70
-void CFootView::SetOverrideFacing(const Maths::Vec4* facing, float rate)
+void CFootView::ChangeForcedHeading(const Maths::Vec4* facing, float rate)
 {
     m_override = true;
-    m_overrideFacing = *facing;
+    m_forcedHeading = *facing;
     m_overrideRate = rate;
 }
 
@@ -237,8 +237,8 @@ void CFootView::RestoreState(const WalkCameraState* state)
     m_flush = false;
     At<bool>(m_walk, 0x70C) = false;
     m_instantFrames = 0;
-    m_lookAround->m_heading = 0.0f;
-    m_lookAround->m_locked = false;
+    m_freeLook->m_heading = 0.0f;
+    m_freeLook->m_locked = false;
     m_override = false;
 }
 
@@ -275,14 +275,14 @@ void CFootView::GetZoomedOffsets(float* height, float* distance)
 {
     float factor = 1.0f;
     uint32_t factorBits;
-    std::memcpy(&factorBits, &m_lookAround->m_factor, 4);
-    if (m_lookAround->m_turning && factorBits != 0x3F800000)
-        factor = m_lookAround->m_factor;
+    std::memcpy(&factorBits, &m_freeLook->m_factor, 4);
+    if (m_freeLook->m_turning && factorBits != 0x3F800000)
+        factor = m_freeLook->m_factor;
     double zoom = (static_cast<double>(factor) - m_zoom) * At<float>(m_skaterCamera, 0x110) + m_zoom;
     m_zoom = static_cast<float>(zoom);
     double behind = zoom * At<float>(m_skaterCamera, 0xC4);
     *distance = static_cast<float>(behind);
-    float tilt = m_lookAround->m_leanAngle;
+    float tilt = m_freeLook->m_leanAngle;
     if (tilt < 0.0f)
         *distance = static_cast<float>(
             (((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange + kTiltBase) * behind);
@@ -359,11 +359,11 @@ void CFootView::TickFrame()
     if (!(turn == 0.0f) && !m_flush)
         TurnByStick(static_cast<double>(Param(kFacingControl)) * turn, &facing.x, &facing.z);
     if (m_override) {
-        float x = m_overrideFacing.x;
-        facing.y = m_overrideFacing.y;
-        facing.z = m_overrideFacing.z;
-        facing.w = m_overrideFacing.w;
-        double heading = m_lookAround->m_heading;
+        float x = m_forcedHeading.x;
+        facing.y = m_forcedHeading.y;
+        facing.z = m_forcedHeading.z;
+        facing.w = m_forcedHeading.w;
+        double heading = m_freeLook->m_heading;
         float s = X87::SinF(heading);
         float c = X87::CosF(heading);
         float z = facing.z;
@@ -379,7 +379,7 @@ void CFootView::TickFrame()
     look.row[2] = facing;
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     Maths::Mat4 tilt;
-    Maths::MakePitchMatrix(tilt, m_lookAround->m_leanAngle + At<float>(m_skaterCamera, 0x12C));
+    Maths::MakePitchMatrix(tilt, m_freeLook->m_leanAngle + At<float>(m_skaterCamera, 0x12C));
     MatrixMultiply(&look, &tilt, &look);
     look.row[0] = {-look.row[0].x, -look.row[0].y, -look.row[0].z, -look.row[0].w};
     look.row[2] = {-look.row[2].x, -look.row[2].y, -look.row[2].z, -look.row[2].w};

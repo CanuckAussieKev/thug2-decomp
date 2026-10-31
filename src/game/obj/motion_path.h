@@ -57,7 +57,7 @@ public:
     int SetPathAcceleration(Scripts::CStruct* params, Scripts::CScript* script);
     int SetPathDeceleration(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x00423360 [Obj_PathHeading]: `Off` - MOTION_PATH_NO_HEADING. 1.
-    int PathHeading(Scripts::CStruct* params, Scripts::CScript* script);
+    int RouteFacing(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004233A0 [Obj_RandomPathMode]: `Off` clears MOTION_PATH_RANDOM, else sets it. 1.
     int RandomPathMode(Scripts::CStruct* params, Scripts::CScript* script);
     // 0x004233E0 [Obj_StopAlongPath]: a stop over the unnamed distance (feet; `inches`: inches; 0 - or none: at

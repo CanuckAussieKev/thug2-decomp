@@ -42,7 +42,7 @@ uint8_t& SlotTaken(uint8_t* skater, int slot) { return skater[kSlots + 4 + slot 
 
 // One feeler's end x / z, as the original's x87 code: the cosine of the angle as computed (53 bits), the sine of it
 // rounded to float; z adds (sin + float(cos)) * 12 rounded to float first.
-void FeelerEnd(int index, float x, float z, float* lastColumn, float* endZ)
+void ProbeTip(int index, float x, float z, float* lastColumn, float* endZ)
 {
     float angleF;
     float slot;
@@ -153,8 +153,8 @@ void CProjectileComponent::CheckTriggers()
         feeler.m_line.start = pos;
         feeler.m_line.end.y = pos.y;
         feeler.m_line.end.w = endW;
-        FeelerEnd(i, pos.x, pos.z, &feeler.m_line.end.x, &feeler.m_line.end.z);
-        if (feeler.GetHitShape(true, false) && mp_trigger->CheckFeeler(TouchEvents(), &feeler))
+        ProbeTip(i, pos.x, pos.z, &feeler.m_line.end.x, &feeler.m_line.end.z);
+        if (feeler.GetHitShape(true, false) && mp_trigger->ProbeTouchesZone(TouchEvents(), &feeler))
             m_rest = kRestFrames;
     }
     feeler.m_entity.Release();

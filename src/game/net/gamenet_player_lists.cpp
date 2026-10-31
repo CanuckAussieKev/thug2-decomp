@@ -56,8 +56,8 @@ using namespace Detail;
 namespace {
 
 constexpr uint32_t kPlayers = 0x11C;       // ListKit::Foremost<PlayerRecord>
-constexpr uint32_t kNewPlayers = 0x130;    // ListKit::Foremost<JoinerRecord>
-constexpr uint32_t kQueuedScripts = 0x144; // QueuedScript (a head of its own type)
+constexpr uint32_t kJoinerListOffset = 0x130;    // ListKit::Foremost<JoinerRecord>
+constexpr uint32_t kQueuedScripts = 0x144; // PendingScriptItem (a head of its own type)
 
 constexpr uint32_t kNewPlayerObjectId = 0x10; // JoinerRecord: its object id (a signed byte)
 constexpr uint32_t kNewPlayerConn = 0x14;     // JoinerRecord: its connection
@@ -65,8 +65,8 @@ constexpr uint32_t kPlayerFlags = 0x1D0;      // PlayerRecord: flags
 constexpr uint32_t kSkaterListFirst = 0x34;   // the skate module's skater list's first node (its head is at +0x28)
 
 // Messages.
-constexpr uint8_t kMsgPanelMessage = 0x3F;
-constexpr uint8_t kMsgToggleProSet = 0x70;
+constexpr uint8_t kMsgHudNotice = 0x3F;
+constexpr uint8_t kMsgFlipProSetting = 0x70;
 
 // Checksums.
 constexpr uint32_t kSkaterScore = 0xD262802F;           // SkaterScore (the component)
@@ -91,7 +91,7 @@ struct PanelMessage {
 static_assert(sizeof(PanelMessage) == 0x2C, "layout must match the original");
 
 MemSys::ListNode* PlayerList(Hub* manager) { return &Prop<MemSys::ListNode>(manager, kPlayers); }
-MemSys::ListNode* NewPlayerList(Hub* manager) { return &Prop<MemSys::ListNode>(manager, kNewPlayers); }
+MemSys::ListNode* NewPlayerList(Hub* manager) { return &Prop<MemSys::ListNode>(manager, kJoinerListOffset); }
 MemSys::ListNode* QueuedScriptList(Hub* manager) { return &Prop<MemSys::ListNode>(manager, kQueuedScripts); }
 bool IsHead(const MemSys::ListNode* node) { return reinterpret_cast<intptr_t>(node->data) == -1; }
 // The node after `node`; null at the list's end (the head).
@@ -284,7 +284,7 @@ void* Hub::StepJoinerWalk(void* search)
 }
 
 // 0x005370A0
-void* Hub::GetNewPlayerInfoByObjectId(uint16_t id)
+void* Hub::FetchIncomingPlayerByObj(uint16_t id)
 {
     MemSys::ListNode* node = NextNode(NewPlayerList(this));
     for (uint8_t* player = DataOf(node); player; player = DataOf(node)) {
@@ -298,9 +298,9 @@ void* Hub::GetNewPlayerInfoByObjectId(uint16_t id)
 // 0x00537140
 void Hub::SetReadyState(bool ready)
 {
-    if (static_cast<uint8_t>(ready) == *reinterpret_cast<uint8_t*>(&m_readyToPlay))
+    if (static_cast<uint8_t>(ready) == *reinterpret_cast<uint8_t*>(&m_clearedToStart))
         return;
-    m_readyToPlay = ready;
+    m_clearedToStart = ready;
     uint8_t* skate = Detail::Skate();
     unsigned int count = TallyNodes(Prop<MemSys::ListNode*>(skate, kSkaterListFirst));
     for (unsigned int i = 0; i < count; ++i) {
@@ -367,9 +367,9 @@ void Hub::BuildNetNotice(bool broadcast, uint32_t text, const char* string1, con
             std::strcpy(message.string2, string2);
         desc.m_content = &message;
         desc.m_byteCount = sizeof(PanelMessage);
-        desc.m_ident = kMsgPanelMessage;
+        desc.m_ident = kMsgHudNotice;
         if (important) {
-            desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+            desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
             desc.m_groupId = kGroupGame;
         }
         for (MemSys::ListNode* node = NextNode(PlayerList(this)); uint8_t* player = DataOf(node); node = NextNode(node))
@@ -401,13 +401,13 @@ void Hub::BuildNetNotice(bool broadcast, uint32_t text, const char* string1, con
 void Hub::QueueScript(int node, uint32_t objectId, uint32_t script)
 {
     MemSys::ListNode* head = QueuedScriptList(this);
-    for (MemSys::ListNode* n = NextNode(head); auto* queued = reinterpret_cast<QueuedScript*>(DataOf(n)); n = NextNode(n)) {
-        if (queued->m_runScript == script)
+    for (MemSys::ListNode* n = NextNode(head); auto* queued = reinterpret_cast<PendingScriptItem*>(DataOf(n)); n = NextNode(n)) {
+        if (queued->m_ownScript == script)
             return;
     }
     MemSys::Hub* memory = MemSys::Hub::Pull();
     memory->EnterHeapScope(memory->m_networkHeap);
-    auto* queued = static_cast<QueuedScript*>(MemSys::AllocZeroed(sizeof(QueuedScript)));
+    auto* queued = static_cast<PendingScriptItem*>(MemSys::AllocZeroed(sizeof(PendingScriptItem)));
     if (queued) { // (a null one is written to anyway, as in the original)
         queued->data = queued;
         queued->priority = 0;
@@ -417,7 +417,7 @@ void Hub::QueueScript(int node, uint32_t objectId, uint32_t script)
     }
     queued->m_listLink = node;
     queued->m_entityKey = objectId;
-    queued->m_runScript = script;
+    queued->m_ownScript = script;
     // Onto the end of the list.
     queued->prev = head->prev;
     queued->next = head;
@@ -442,7 +442,7 @@ void Hub::ClearQueuedScripts()
 void Hub::LaunchQueuedScripts()
 {
     MemSys::Hub* memory = MemSys::Hub::Pull();
-    auto* sound = SoundFx::g_sfxManager;
+    auto* sound = SoundFx::g_audioMixer;
     uint8_t* skate = Detail::Skate();
     memory->EnterHeapScope(memory->m_bottomUpHeap);
     Call(CodeAddress(&GameModules::Skate::BeginQueuedScripts), skate);
@@ -450,12 +450,12 @@ void Hub::LaunchQueuedScripts()
     sound->ChangeMasterLoudness(0.0f);
     Run(kPreRunQueuedScripts);
     MemSys::ListNode* node = NextNode(QueuedScriptList(this));
-    for (auto* queued = reinterpret_cast<QueuedScript*>(DataOf(node)); queued;) {
+    for (auto* queued = reinterpret_cast<PendingScriptItem*>(DataOf(node)); queued;) {
         node = NextNode(node);
-        auto* next = reinterpret_cast<QueuedScript*>(DataOf(node));
+        auto* next = reinterpret_cast<PendingScriptItem*>(DataOf(node));
         Scripts::CScript* script =
-            Scripts::SpawnScript(queued->m_runScript, nullptr, 0, nullptr, queued->m_listLink, 0, false, false, false, false);
-        GameObjects::CEntity* object = reinterpret_cast<GameObjects::CObjectHubBase*&>(GameObjects::g_compositeObjectManager)->LookUpEntity(queued->m_entityKey);
+            Scripts::SpawnScript(queued->m_ownScript, nullptr, 0, nullptr, queued->m_listLink, 0, false, false, false, false);
+        GameObjects::CEntity* object = reinterpret_cast<GameObjects::CObjectHubBase*&>(GameObjects::g_compositeRegistry)->LookUpEntity(queued->m_entityKey);
         script->m_entity.AssignValue(object);
         while (script->TickFrame() != Scripts::SCRIPT_OUTCOME_FINISHED) {
         }
@@ -479,12 +479,12 @@ void Hub::ToggleProSet(uint8_t bit, uint32_t param)
         uint8_t bit;
         uint8_t pad[3]; // (the original's stack)
     } message = {param, bit, {0, 0, 0}};
-    m_proSetFlags ^= 1u << (bit & 31);
+    m_scriptFlagBits ^= 1u << (bit & 31);
     desc.m_byteCount = sizeof(message);
     desc.m_groupId = kGroupGame;
     desc.m_content = &message;
-    desc.m_ident = kMsgToggleProSet;
-    desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+    desc.m_ident = kMsgFlipProSetting;
+    desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
     NetLink::AppHost* server = m_host;
     for (MemSys::ListNode* node = NextNode(PlayerList(this)); uint8_t* player = DataOf(node); node = NextNode(node)) {
         if (!IsOwnPlayer(player))
@@ -559,13 +559,13 @@ void Hub::DisconnectClients()
         if (!ClientSlot(i))
             continue;
         if (i == 0 && !m_clientApp->IsHostLocal())
-            m_clientAddNewPlayersTask->DropOut();
+            m_guestAdmitJob->DropOut();
         net->ReleaseApp(ClientSlot(i));
         ClientSlot(i) = nullptr;
     }
-    if (m_observerInputHandler) {
-        DeleteVirtual(m_observerInputHandler);
-        m_observerInputHandler = nullptr;
+    if (m_spectatorPadListener) {
+        DeleteVirtual(m_spectatorPadListener);
+        m_spectatorPadListener = nullptr;
     }
     g_textEntry = 0;
     if (g_queryReporting) {
@@ -577,8 +577,8 @@ void Hub::DisconnectClients()
     Prop<TaskList::SchedulerTask*>(this, 0xC8)->DropOut();
     Prop<TaskList::SchedulerTask*>(this, 0xEC)->DropOut();
     ClearQueuedScripts();
-    if (m_readyToPlay) {
-        m_readyToPlay = false;
+    if (m_clearedToStart) {
+        m_clearedToStart = false;
         uint8_t* skate = Detail::Skate();
         unsigned int count = TallyNodes(Prop<MemSys::ListNode*>(skate, kSkaterListFirst));
         for (unsigned int i = 0; i < count; ++i) {
@@ -616,7 +616,7 @@ void Hub::SendTagTexturesTo(void* target)
         desc.m_content = &skaterId;
         desc.m_ident = kMsgTagOwner;
         desc.m_byteCount = 1;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupTag;
         m_host->PutOnOutbox(PlayerHandle(player), &desc);
         void* palette = TexturePalette(texture);
@@ -628,7 +628,7 @@ void Hub::SendTagTexturesTo(void* target)
         desc.m_content = &logos;
         desc.m_ident = kMsgTagLogos;
         desc.m_byteCount = 4;
-        desc.m_queue = NetLink::NetMessageInfo::kQueueSequenced;
+        desc.m_queue = NetLink::NetMessageInfo::kLaneOrdered;
         desc.m_groupId = kGroupTag;
         m_host->PutOnOutbox(PlayerHandle(player), &desc);
     }
@@ -753,9 +753,9 @@ void* Hub::NextCamPlayer()
     auto canWatch = [](void* player) {
         return !static_cast<PlayerRecord*>(player)->IsScoutingLevel() && !static_cast<PlayerRecord*>(player)->IsEliminated();
     };
-    if (m_camPlayer) {
+    if (m_viewedPlayer) {
         void* player = BeginPlayerWalk(&search, false);
-        while (player && player != m_camPlayer)
+        while (player && player != m_viewedPlayer)
             player = StepPlayerWalk(&search, false);
         if (player) {
             // The ones after it; past the end, from the start again.
@@ -763,7 +763,7 @@ void* Hub::NextCamPlayer()
                 if (canWatch(player))
                     return player;
             }
-            m_camPlayer = nullptr;
+            m_viewedPlayer = nullptr;
             return NextCamPlayer();
         }
     }
@@ -774,7 +774,7 @@ void* Hub::NextCamPlayer()
     return nullptr;
 }
 
-Hub* g_gameNetManager;
+Hub* g_onlineHub;
 
 // 0x00539610 (a task's code: the manager's flag task): in capture the flag, each flag a player (no observers)
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
@@ -782,7 +782,7 @@ Hub* g_gameNetManager;
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
 void __cdecl CarriedFlagsTask(void*)
 {
-    Hub* manager = g_gameNetManager;
+    Hub* manager = g_onlineHub;
     PlayerSearch search;
     if (GameType() != kNetCtf)
         return;
@@ -834,12 +834,12 @@ void __cdecl ReleaseManager()
         --references;
         return;
     }
-    Hub* manager = g_gameNetManager;
+    Hub* manager = g_onlineHub;
     if (manager) {
         manager->DestroyBody();
         MemSys::Hub::Pull()->Dealloc(manager);
     }
-    g_gameNetManager = nullptr;
+    g_onlineHub = nullptr;
     references = 0;
 }
 

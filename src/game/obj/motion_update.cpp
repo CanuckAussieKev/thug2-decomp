@@ -396,7 +396,7 @@ bool CKinematicsModule::Obj_FollowPathLinked(Scripts::CStruct* params, Scripts::
 // 0x00425290
 bool CKinematicsModule::Obj_FollowPathStored(Scripts::CStruct*, Scripts::CScript*)
 {
-    StartPath(m_storedNode);
+    StartPath(m_savedNodeId);
     m_motionFlags = (m_motionFlags & ~MOTION_MOVING) | MOTION_FOLLOWING_PATH;
     return true;
 }

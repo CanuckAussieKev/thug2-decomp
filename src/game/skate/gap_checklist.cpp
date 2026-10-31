@@ -44,7 +44,7 @@ constexpr uint32_t kSkaterStartPos = 0x26A4E85A;     // skater_start_pos
 constexpr uint32_t kSkaterStartDir = 0x1CD674E6;     // skater_start_dir
 constexpr uint32_t kGapMenuAddItem = 0xB74B672C;     // gap_menu_add_item (a script)
 constexpr uint32_t kArraySize = 0x7F5B3D4D;          // array_size
-constexpr uint32_t kNumGapsGot = 0x6A8A0061;         // num_gaps_got
+constexpr uint32_t kGapsFoundCount = 0x6A8A0061;         // num_gaps_got
 constexpr uint32_t kGapList = 0x737449DE;            // GapList
 constexpr uint32_t kLevel = 0x651533EC;              // level
 constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
@@ -67,9 +67,9 @@ CGapEntry* GapOf(MemSys::ListNode* node)
 }
 CGapEntry* Next(CGapEntry* gap) { return GapOf(gap->m_listLink.next); }
 
-Scripts::CStruct* NewStructure()
+Scripts::CStruct* SpawnParamTable()
 {
-    Scripts::CStruct* memory = Scripts::NewStruct();
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
     return memory ? memory->PrepareAll() : nullptr;
 }
 void DeleteStructure(Scripts::CStruct* structure)
@@ -320,7 +320,7 @@ bool CGapTally::AddGapsToMenu(Scripts::CStruct* params, Scripts::CScript* /*scri
     params->ReadHashValue(kChooseScript, &chooseScript, 0);
     int index = 0;
     for (CGapEntry* gap = GapOf(m_gaps.next); gap;) {
-        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* item = SpawnParamTable();
         CGapEntry* next = Next(gap);
         if (index == 0)
             item->PutNameKey(0u, kFirstItem);
@@ -349,7 +349,7 @@ bool CGapTally::CreateGapList(Scripts::CStruct* /*params*/, Scripts::CScript* sc
         ++count;
     script->m_args->PutInt(kArraySize, count);
     if (count == 0) {
-        script->m_args->PutInt(kNumGapsGot, count);
+        script->m_args->PutInt(kGapsFoundCount, count);
         return false;
     }
     Scripts::CArray* memory = Scripts::NewArray();
@@ -360,7 +360,7 @@ bool CGapTally::CreateGapList(Scripts::CStruct* /*params*/, Scripts::CScript* sc
     for (CGapEntry* gap = GapOf(m_gaps.next); gap; gap = Next(gap), ++index) {
         if (gap->m_num)
             ++got;
-        Scripts::CStruct* item = NewStructure();
+        Scripts::CStruct* item = SpawnParamTable();
         item->PutInt("gap_score", gap->m_pointsHeld);
         item->AppendWord("gap_name", gap->m_label.c_str());
         item->PutInt("times", gap->m_num);
@@ -370,7 +370,7 @@ bool CGapTally::CreateGapList(Scripts::CStruct* /*params*/, Scripts::CScript* sc
         list->SetElement(index, reinterpret_cast<uint32_t>(item));
     }
     script->m_args->AppendArrayRef(kGapList, list);
-    script->m_args->PutInt(kNumGapsGot, got);
+    script->m_args->PutInt(kGapsFoundCount, got);
     return true;
 }
 
@@ -412,7 +412,7 @@ void CGapTally::PayOutQueuedGaps()
                 goals->RegisterGapHit(index);
             if (gap->m_num == 0) {
                 ++newGaps;
-                Scripts::CStruct* params = NewStructure();
+                Scripts::CStruct* params = SpawnParamTable();
                 if (newGaps > 1)
                     params->PutInt(kMultipleNewGaps, newGaps);
                 params->AppendWord(kGapText, gap->m_label.c_str());

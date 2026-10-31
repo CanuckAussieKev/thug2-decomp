@@ -152,7 +152,7 @@ constexpr uint32_t kCarPlantUpwardBoost = 0xCB49B3F2;  // CarPlant_Upward_boost
 constexpr uint32_t kCarPlantForwardBoost = 0xB7422173; // CarPlant_Forward_boost
 constexpr uint32_t kSlide = 0x8D10119D;                // slide
 constexpr uint32_t kDefault = 0x1CA1FF20;              // Default
-constexpr uint32_t kRollingFriction = 0x78F80EC4;      // Physics_Rolling_Friction
+constexpr uint32_t kCoastDrag = 0x78F80EC4;      // Physics_Rolling_Friction
 constexpr uint32_t kBackside = 0x47953F00;             // backside
 constexpr uint32_t kFrontside = 0x996D5512;            // Frontside
 constexpr uint32_t kCancelLimits = 0xC6F342D9;         // (overridelimits' first flag; name not recovered)
@@ -203,7 +203,7 @@ constexpr uint32_t kProjectileInput = 0x308;
 constexpr uint32_t kNoKick = 0x310;
 constexpr uint32_t kCanBrake = 0x311;
 constexpr uint32_t kRollingFrictionValue = 0x314;
-constexpr uint32_t kSpecialFrictionIndex = 0x318;
+constexpr uint32_t kOddGripIndex = 0x318;
 constexpr uint32_t kSpecialFrictionStart = 0x31C;
 constexpr uint32_t kSpecialFrictionTime = 0x320;
 constexpr uint32_t kBraking = 0x324;
@@ -216,7 +216,7 @@ constexpr uint32_t kLimitsFriction = 0x35C;
 constexpr uint32_t kLimitsGravity = 0x360;
 constexpr uint32_t kNoSpin = 0x370;
 constexpr uint32_t kBail = 0x371;
-constexpr uint32_t kLandedFromSpine = 0x372;
+constexpr uint32_t kCameDownSpine = 0x372;
 constexpr uint32_t kLandedFromVert = 0x373;
 constexpr uint32_t kAllowLipNoGrind = 0x375;
 constexpr uint32_t kAirStart = 0x380;
@@ -224,11 +224,11 @@ constexpr uint32_t kAirEnd = 0x384;
 constexpr uint32_t kLockVelocity = 0x388;
 constexpr uint32_t kNoRailTricks = 0x3A4;
 constexpr uint32_t kLastSpinBackside = 0x3A5;
-constexpr uint32_t kGrindTweak = 0x3A8;
+constexpr uint32_t kGrindAdjust = 0x3A8;
 constexpr uint32_t kTantrum = 0x1508;
 constexpr uint32_t kTagging = 0x1509;
 constexpr uint32_t kThrowing = 0x14C8;
-constexpr uint32_t kSoundComponent = 0x1514;           // (+0x1E: sliding)
+constexpr uint32_t kSfxModuleSlot = 0x1514;           // (+0x1E: sliding)
 
 // The timed flags (offsets into the flags block).
 constexpr uint32_t kFlagCrouched = 0x20;
@@ -323,14 +323,14 @@ bool HitWall(const Engine3D::CProbeRay& feeler)
 } // namespace
 
 // 0x004FBE80
-void __cdecl CorePhysicsComponent::PublishMethodTable()
+void __cdecl SkaterPhysicsModule::PublishMethodTable()
 {
     Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kSkaterCorePhysics),
                                         g_coreMemberFunctions, 0x18);
 }
 
 // 0x004FBEA0
-int CorePhysicsComponent::AirTimeThreshold(Scripts::CStruct* params)
+int SkaterPhysicsModule::AirTimeThreshold(Scripts::CStruct* params)
 {
     float value = 0.0f;
     params->FetchFloat(0u, &value, 0);
@@ -344,256 +344,256 @@ int CorePhysicsComponent::AirTimeThreshold(Scripts::CStruct* params)
 // --- the component's own bytes ---
 
 // 0x004FBF40
-int CorePhysicsComponent::CanBrakeOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CanBrakeOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kCanBrake) = 0;
     return 1;
 }
 // 0x004FBF50
-int CorePhysicsComponent::CanBrakeOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CanBrakeOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kCanBrake) = 1;
     return 1;
 }
 // 0x004FBF60
-int CorePhysicsComponent::CanKickOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CanKickOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoKick) = 0;
     return 1;
 }
 // 0x004FBF70
-int CorePhysicsComponent::CanKickOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CanKickOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoKick) = 1;
     return 1;
 }
 // 0x004FBF80
-int CorePhysicsComponent::ForceAutoKickOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ForceAutoKickOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAutoKick) = 1;
     return 1;
 }
 // 0x004FBF90
-int CorePhysicsComponent::ForceAutoKickOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ForceAutoKickOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAutoKick) = 0;
     return 1;
 }
 // 0x004FBFA0
-int CorePhysicsComponent::AutoKickIsOff(Scripts::CStruct*, Scripts::CScript*) { return Byte(this, kAutoKick) ? 0 : 1; }
+int SkaterPhysicsModule::AutoKickIsOff(Scripts::CStruct*, Scripts::CScript*) { return Byte(this, kAutoKick) ? 0 : 1; }
 // 0x004FBFB0
-int CorePhysicsComponent::SkaterVehicleOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::SkaterVehicleOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kOnVehicle) = 1;
     return 1;
 }
 // 0x004FBFC0
-int CorePhysicsComponent::SkaterVehicleOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::SkaterVehicleOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kOnVehicle) = 0;
     return 1;
 }
 // 0x004FBFD0
-int CorePhysicsComponent::IsSkaterOnVehicle(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kOnVehicle)); }
+int SkaterPhysicsModule::IsSkaterOnVehicle(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kOnVehicle)); }
 // 0x004FC000
-int CorePhysicsComponent::CanSpin(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CanSpin(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoSpin) = 0;
     return 1;
 }
 // 0x004FC010
-int CorePhysicsComponent::BailOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::BailOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kBail) = 1;
     return 1;
 }
 // 0x004FC020
-int CorePhysicsComponent::BailOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::BailOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kBail) = 0;
     return 1;
 }
 // 0x004FC030
-int CorePhysicsComponent::BailIsOn(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kBail)); }
+int SkaterPhysicsModule::BailIsOn(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kBail)); }
 // 0x004FC080
-int CorePhysicsComponent::BadLedge(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kNearLedge)); }
+int SkaterPhysicsModule::BadLedge(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kNearLedge)); }
 // 0x004FC090
-int CorePhysicsComponent::LandedFromSpine(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CameDownOffSpine(Scripts::CStruct*, Scripts::CScript*)
 {
-    return Is(Byte(this, kLandedFromSpine));
+    return Is(Byte(this, kCameDownSpine));
 }
 // 0x004FC0A0
-int CorePhysicsComponent::LandedFromVert(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kLandedFromVert)); }
+int SkaterPhysicsModule::LandedFromVert(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kLandedFromVert)); }
 // 0x004FC0B0
-int CorePhysicsComponent::SetLandedFromVert(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::SetLandedFromVert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kLandedFromVert) = 1;
     return 1;
 }
 // 0x004FC0C0
-int CorePhysicsComponent::ResetLandedFromVert(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ResetLandedFromVert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kLandedFromVert) = 0;
     return 1;
 }
 // 0x004FC0D0
-int CorePhysicsComponent::AllowLipNoGrind(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::AllowLipNoGrind(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAllowLipNoGrind) = 1;
     return 1;
 }
 // 0x004FC0E0
-int CorePhysicsComponent::ClearAllowLipNoGrind(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ClearAllowLipNoGrind(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kAllowLipNoGrind) = 0;
     return 1;
 }
 // 0x004FC0F0
-int CorePhysicsComponent::NoRailTricks(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::NoRailTricks(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoRailTricks) = 1;
     return 1;
 }
 // 0x004FC100
-int CorePhysicsComponent::AllowRailTricks(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::AllowRailTricks(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoRailTricks) = 0;
     return 1;
 }
 // 0x004FC1A0
-int CorePhysicsComponent::InRevert(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::InRevert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kRevert) = 1;
     return 1;
 }
 // 0x004FC1B0
-int CorePhysicsComponent::OutRevert(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::OutRevert(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kRevert) = 0;
     return 1;
 }
 // 0x004FC1C0
-int CorePhysicsComponent::IsInRevert(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kRevert)); }
+int SkaterPhysicsModule::IsInRevert(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kRevert)); }
 // 0x004FC1D0
-int CorePhysicsComponent::ProjectilesOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ProjectilesOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kProjectiles) = 1;
     return 1;
 }
 // 0x004FC1E0
-int CorePhysicsComponent::ProjectilesOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ProjectilesOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kProjectiles) = 0;
     return 1;
 }
 // 0x004FC1F0
-int CorePhysicsComponent::FocusOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::FocusOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kFocus) = 1;
     return 1;
 }
 // 0x004FC200
-int CorePhysicsComponent::IsSkaterFocused(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kFocus)); }
+int SkaterPhysicsModule::IsSkaterFocused(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kFocus)); }
 // 0x004FC210
-int CorePhysicsComponent::ResetProjectileInput(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ResetProjectileInput(Scripts::CStruct*, Scripts::CScript*)
 {
     At<int>(this, kProjectileInput) = -1;
     return 1;
 }
 // 0x004FC230
-int CorePhysicsComponent::EnterPowerslide(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::EnterPowerslide(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kPowerslide) = 1;
     return 1;
 }
 // 0x004FC240
-int CorePhysicsComponent::ExitPowerslide(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ExitPowerslide(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kPowerslide) = 0;
     return 1;
 }
 // 0x004FC250
-int CorePhysicsComponent::MotoSkateboardOn(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::MotoSkateboardOn(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kMotoskateboard) = 1;
     return 1;
 }
 // 0x004FC260
-int CorePhysicsComponent::MotoSkateboardOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::MotoSkateboardOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kMotoskateboard) = 0;
     return 1;
 }
 // 0x004FC270
-int CorePhysicsComponent::IsOnMotoskateboard(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::IsOnMotoskateboard(Scripts::CStruct*, Scripts::CScript*)
 {
     return Is(Byte(this, kMotoskateboard));
 }
 // 0x004FC280
-int CorePhysicsComponent::SkaterIsFlipping(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kModelRotating)); }
+int SkaterPhysicsModule::SkaterIsFlipping(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kModelRotating)); }
 // 0x004FC290
-int CorePhysicsComponent::ResetIsFlipping(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ResetIsFlipping(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kModelRotating) = 0;
     return 1;
 }
 // 0x004FC2A0
-int CorePhysicsComponent::SetThrowingProjectile(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::SetThrowingProjectile(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kThrowing) = 1;
     return 1;
 }
 // 0x004FC2B0
-int CorePhysicsComponent::UnsetThrowingProjectile(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::UnsetThrowingProjectile(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kThrowing) = 0;
     return 1;
 }
 // 0x004FC2C0
-int CorePhysicsComponent::IsThrowingProjectile(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kThrowing)); }
+int SkaterPhysicsModule::IsThrowingProjectile(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kThrowing)); }
 // 0x004FC2D0
-int CorePhysicsComponent::EndManualTurnaround(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::EndManualTurnaround(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kManualTurnaround) = 0;
     return 1;
 }
 // 0x004FC2E0
-int CorePhysicsComponent::EnterTantrum(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::EnterTantrum(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTantrum) = 1;
     return 1;
 }
 // 0x004FC2F0
-int CorePhysicsComponent::ExitTantrum(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ExitTantrum(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTantrum) = 0;
     return 1;
 }
 // 0x004FC300
-int CorePhysicsComponent::InTantrum(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kTantrum)); }
+int SkaterPhysicsModule::InTantrum(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kTantrum)); }
 // 0x004FC310
-int CorePhysicsComponent::EnterTagging(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::EnterTagging(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTagging) = 1;
     return 1;
 }
 // 0x004FC320
-int CorePhysicsComponent::ExitTagging(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::ExitTagging(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kTagging) = 0;
     return 1;
 }
 // 0x004FC330
-int CorePhysicsComponent::IsTagging(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kTagging)); }
+int SkaterPhysicsModule::IsTagging(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kTagging)); }
 // 0x004FC9B0
-int CorePhysicsComponent::Braking(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kBraking)); }
+int SkaterPhysicsModule::Braking(Scripts::CStruct*, Scripts::CScript*) { return Is(Byte(this, kBraking)); }
 
 // --- the timed flags ---
 
 // 0x004FC780
-int CorePhysicsComponent::Flipped(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagFlipped]); }
+int SkaterPhysicsModule::Flipped(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagFlipped]); }
 // 0x004FC7A0
-int CorePhysicsComponent::Switched(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::Switched(Scripts::CStruct*, Scripts::CScript*)
 {
     bool flipped = FlagsOf(this)[kFlagFlipped] != 0;
     if (At<uint8_t>(ObjectOf(this), kObjectRegularStance))
@@ -601,51 +601,51 @@ int CorePhysicsComponent::Switched(Scripts::CStruct*, Scripts::CScript*)
     return flipped ? 0 : 1;
 }
 // 0x004FC7E0
-int CorePhysicsComponent::Crouched(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagCrouched]); }
+int SkaterPhysicsModule::Crouched(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagCrouched]); }
 // 0x004FC800
-int CorePhysicsComponent::FirstTimeOnThisRail(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::FirstTimeOnThisRail(Scripts::CStruct*, Scripts::CScript*)
 {
     return Is(FlagsOf(this)[kFlagFirstTimeOnRail]);
 }
 // 0x004FC820
-int CorePhysicsComponent::Skitching(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagSkitching]); }
+int SkaterPhysicsModule::Skitching(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagSkitching]); }
 // 0x004FC840
-int CorePhysicsComponent::CancelWallpush(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::CancelWallpush(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagCancelWallpush, 1);
     return 1;
 }
 // 0x004FCF90
-int CorePhysicsComponent::NoSpin(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::NoSpin(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kNoSpin) = 1;
     SetTimedFlag(this, kFlagSpin, 0);
     return 1;
 }
 // 0x004FCFC0
-int CorePhysicsComponent::InBail(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::InBail(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagBail, 1);
     return 1;
 }
 // 0x004FCFF0
-int CorePhysicsComponent::NotInBail(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::NotInBail(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagBail, 0);
     return 1;
 }
 // 0x004FD020
-int CorePhysicsComponent::IsInBail(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagBail]); }
+int SkaterPhysicsModule::IsInBail(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagBail]); }
 // 0x004FD1C0
-int CorePhysicsComponent::InVertAir(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagVertAir]); }
+int SkaterPhysicsModule::InVertAir(Scripts::CStruct*, Scripts::CScript*) { return Is(FlagsOf(this)[kFlagVertAir]); }
 // 0x004FD530
-int CorePhysicsComponent::OverrideCancelGround(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::OverrideCancelGround(Scripts::CStruct* params, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagCancelGround, params->HasBareFlag(kOff) ? 0 : 1);
     return 1;
 }
 // 0x004FD630
-int CorePhysicsComponent::SetVertAir(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::SetVertAir(Scripts::CStruct*, Scripts::CScript*)
 {
     SetTimedFlag(this, kFlagVertAir, 1);
     return 1;
@@ -654,31 +654,31 @@ int CorePhysicsComponent::SetVertAir(Scripts::CStruct*, Scripts::CScript*)
 // --- values from the parameters ---
 
 // 0x004FBFE0
-int CorePhysicsComponent::SetSkaterVehicle(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetSkaterVehicle(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->ReadHashValue(0u, &At<uint32_t>(this, kVehicle), 1);
     return 1;
 }
 // 0x004FC040
-int CorePhysicsComponent::LockVelocityDirection(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::LockVelocityDirection(Scripts::CStruct* params, Scripts::CScript*)
 {
     Byte(this, kLockVelocity) = params->HasBareFlag(kOn);
     return 1;
 }
 // 0x004FC060
-int CorePhysicsComponent::SetGrindTweak(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::ChangeRailAdjust(Scripts::CStruct* params, Scripts::CScript*)
 {
-    params->FetchIntValue(0u, &At<int>(this, kGrindTweak), 0);
+    params->FetchIntValue(0u, &At<int>(this, kGrindAdjust), 0);
     return 1;
 }
 // 0x004FC180
-int CorePhysicsComponent::SetAmmoType(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetAmmoType(Scripts::CStruct* params, Scripts::CScript*)
 {
     params->ReadHashValue(0u, &At<uint32_t>(this, kProjectileType), 0);
     return 1;
 }
 // 0x004FC110
-int CorePhysicsComponent::SetExtraPush(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetExtraPush(Scripts::CStruct* params, Scripts::CScript*)
 {
     float* radius = &At<float>(this, kExtraPushRadius);
     float* speed = &At<float>(this, kExtraPushSpeed);
@@ -692,7 +692,7 @@ int CorePhysicsComponent::SetExtraPush(Scripts::CStruct* params, Scripts::CScrip
     return 1;
 }
 // 0x004FC340
-int CorePhysicsComponent::DoingFlip(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::DoingFlip(Scripts::CStruct*, Scripts::CScript*)
 {
     if (Byte(this, kModelRotating) && At<float>(this, kModelRotationLeft) > kFlipLeftMin)
         return 1;
@@ -702,19 +702,19 @@ int CorePhysicsComponent::DoingFlip(Scripts::CStruct*, Scripts::CScript*)
 // --- the air time ---
 
 // 0x004FC880
-int CorePhysicsComponent::AirTimeLessThan(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::AirTimeLessThan(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t time = TimeAloft(this);
     return time < static_cast<uint32_t>(AirTimeThreshold(params)) ? 1 : 0;
 }
 // 0x004FC8E0
-int CorePhysicsComponent::AirTimeGreaterThan(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::AirTimeGreaterThan(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t time = TimeAloft(this);
     return static_cast<uint32_t>(AirTimeThreshold(params)) < time ? 1 : 0;
 }
 // 0x004FC940
-int CorePhysicsComponent::GetAirtime(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetAirtime(Scripts::CStruct*, Scripts::CScript* script)
 {
     uint32_t time = TimeAloft(this);
     float seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
@@ -723,7 +723,7 @@ int CorePhysicsComponent::GetAirtime(Scripts::CStruct*, Scripts::CScript* script
 }
 
 // 0x004FC9C0
-int CorePhysicsComponent::RestoreAutoKick(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::RestoreAutoKick(Scripts::CStruct*, Scripts::CScript*)
 {
     int profile = At<int>(ObjectOf(this), kObjectProfile);
     uint8_t* profiles = reinterpret_cast<uint8_t*>(GameModules::g_skateModule);
@@ -732,7 +732,7 @@ int CorePhysicsComponent::RestoreAutoKick(Scripts::CStruct*, Scripts::CScript*)
 }
 
 // 0x004FC9F0
-int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
     Maths::Vec4& velocity = VectorAt(object, kVelocity);
@@ -740,7 +740,7 @@ int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
     if (upward < 0.0f)
         upward = 0.0f;
     velocity.y = upward;
-    velocity.y = static_cast<float>(static_cast<double>(PhysicsFloat(kCarPlantUpwardBoost, object)) + velocity.y);
+    velocity.y = static_cast<float>(static_cast<double>(TuningFloatLookup(kCarPlantUpwardBoost, object)) + velocity.y);
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
     Maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
@@ -758,7 +758,7 @@ int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
         direction.y = static_cast<float>(0.0 * inverse);
         direction.z = static_cast<float>(direction.z * inverse);
     }
-    double boost = PhysicsFloat(kCarPlantForwardBoost, object);
+    double boost = TuningFloatLookup(kCarPlantForwardBoost, object);
     float y = static_cast<float>(direction.y * boost);
     float z = static_cast<float>(direction.z * boost);
     float w = static_cast<float>(direction.w * boost);
@@ -771,29 +771,29 @@ int CorePhysicsComponent::DoCarPlantBoost(Scripts::CStruct*, Scripts::CScript*)
 }
 
 // 0x004FD040
-int CorePhysicsComponent::SetRailSound(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetRailSound(Scripts::CStruct* params, Scripts::CScript*)
 {
     uint32_t sound = 0;
     params->ReadHashValue(0u, &sound, 1);
     bool slide = sound == kSlide;
     SetTimedFlag(this, kFlagSlide, slide ? 1 : 0);
-    At<uint8_t>(At<void*>(this, kSoundComponent), 0x1E) = slide ? 1 : 0;
+    At<uint8_t>(At<void*>(this, kSfxModuleSlot), 0x1E) = slide ? 1 : 0;
     return 1;
 }
 
 // 0x004FD0D0
-int CorePhysicsComponent::SetRollingFriction(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::ChangeWheelDrag(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
     float* friction = &At<float>(this, kRollingFrictionValue);
     params->FetchFloat(0u, friction, 0);
     if (params->HasBareFlag(kDefault) && At<float>(this, kSpecialFrictionTime) == 0.0f)
-        *friction = PhysicsFloat(kRollingFriction, object);
+        *friction = TuningFloatLookup(kCoastDrag, object);
     return 1;
 }
 
 // 0x004FD140
-int CorePhysicsComponent::LastSpinWas(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::LastSpinWas(Scripts::CStruct* params, Scripts::CScript*)
 {
     if (params->HasBareFlag(kBackside)) {
         bool flipped = FlagsOf(this)[kFlagFlipped] != 0;
@@ -809,7 +809,7 @@ int CorePhysicsComponent::LastSpinWas(Scripts::CStruct* params, Scripts::CScript
 }
 
 // 0x004FD1E0
-int CorePhysicsComponent::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
     const Maths::Vec4& velocity = VectorAt(object, kVelocity);
@@ -845,7 +845,7 @@ int CorePhysicsComponent::TurnToFaceVelocity(Scripts::CStruct*, Scripts::CScript
 }
 
 // 0x004FD360
-int CorePhysicsComponent::OverrideLimits(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::OverrideLimits(Scripts::CStruct* params, Scripts::CScript*)
 {
     void* object = ObjectOf(this);
     float& time = At<float>(this, kLimitsTime);
@@ -870,7 +870,7 @@ int CorePhysicsComponent::OverrideLimits(Scripts::CStruct* params, Scripts::CScr
     At<uint32_t>(this, kLimitsFriction) = kLimitsFrictionDefault;
     params->FetchFloat(kFriction, friction, 0);
     float* gravity = &At<float>(this, kLimitsGravity);
-    *gravity = PhysicsFloat(kGroundGravity, object);
+    *gravity = TuningFloatLookup(kGroundGravity, object);
     params->FetchFloat(kGravity, gravity, 0);
     if (params->HasBareFlag(kUntilCancelled))
         time = -1.0f;
@@ -880,11 +880,11 @@ int CorePhysicsComponent::OverrideLimits(Scripts::CStruct* params, Scripts::CScr
 }
 
 // 0x004FD4A0
-int CorePhysicsComponent::SetSpecialFriction(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetSpecialFriction(Scripts::CStruct* params, Scripts::CScript*)
 {
     Scripts::CArray* frictions = nullptr;
     params->FetchList(0u, &frictions, 0);
-    int& index = At<int>(this, kSpecialFrictionIndex);
+    int& index = At<int>(this, kOddGripIndex);
     int count = static_cast<int>(frictions->m_extent); // (no array: the original reads through null too)
     if (index >= count)
         index = count - 1;
@@ -899,7 +899,7 @@ int CorePhysicsComponent::SetSpecialFriction(Scripts::CStruct* params, Scripts::
 // --- results for the script ---
 
 // 0x004FD580
-int CorePhysicsComponent::GetMatrixNormal(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetMatrixNormal(Scripts::CStruct*, Scripts::CScript* script)
 {
     ResultsOf(script)->PushFloat(kX, VectorAt(ObjectOf(this), kUp).x);
     ResultsOf(script)->PushFloat(kY, VectorAt(ObjectOf(this), kUp).y);
@@ -907,32 +907,32 @@ int CorePhysicsComponent::GetMatrixNormal(Scripts::CStruct*, Scripts::CScript* s
     return 1;
 }
 // 0x004FD5E0
-int CorePhysicsComponent::GetLastGroundPos(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetLastGroundPos(Scripts::CStruct*, Scripts::CScript* script)
 {
     const Maths::Vec4& position = VectorAt(this, kLastGroundPos);
     ResultsOf(script)->PutVec3(kPos, position.x, position.y, position.z);
     return 1;
 }
 // 0x004FD610
-int CorePhysicsComponent::GetLastGroundHeading(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetLastGroundHeading(Scripts::CStruct*, Scripts::CScript* script)
 {
     ResultsOf(script)->PushFloat(kLastHeading, At<float>(this, kLastHeadingValue));
     return 1;
 }
 // 0x004FDC30
-int CorePhysicsComponent::GetAmmo(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetAmmo(Scripts::CStruct*, Scripts::CScript* script)
 {
     ResultsOf(script)->PutInt(kAmmo, At<int>(this, kProjectileCount));
     return 1;
 }
 // 0x004FDC50
-int CorePhysicsComponent::GetAmmoType(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetAmmoType(Scripts::CStruct*, Scripts::CScript* script)
 {
     ResultsOf(script)->PutNameKey(kAmmoType, At<uint32_t>(this, kProjectileType));
     return 1;
 }
 // 0x004FDC70
-int CorePhysicsComponent::GetPitchBailDir(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetPitchBailDir(Scripts::CStruct*, Scripts::CScript* script)
 {
     ResultsOf(script)->PutNameKey(kPitchBailDir, At<uint32_t>(this, kPitchBail));
     return 1;
@@ -941,7 +941,7 @@ int CorePhysicsComponent::GetPitchBailDir(Scripts::CStruct*, Scripts::CScript* s
 // --- feelers ahead ---
 
 // 0x004FD660
-int CorePhysicsComponent::IsFacingWall(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::IsFacingWall(Scripts::CStruct* params, Scripts::CScript*)
 {
     Engine3D::CProbeRay feeler;
     if (FeelAhead(this, params, feeler, false) && HitWall(feeler))
@@ -950,7 +950,7 @@ int CorePhysicsComponent::IsFacingWall(Scripts::CStruct* params, Scripts::CScrip
 }
 
 // 0x004FD840
-int CorePhysicsComponent::TurnFromWall(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::TurnFromWall(Scripts::CStruct* params, Scripts::CScript*)
 {
     Engine3D::CProbeRay feeler;
     if (!FeelAhead(this, params, feeler, false) || !HitWall(feeler))
@@ -965,7 +965,7 @@ int CorePhysicsComponent::TurnFromWall(Scripts::CStruct* params, Scripts::CScrip
 }
 
 // 0x004FDA80
-int CorePhysicsComponent::IsFacingVert(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::IsFacingVert(Scripts::CStruct* params, Scripts::CScript*)
 {
     Engine3D::CProbeRay feeler;
     if (FeelAhead(this, params, feeler, true) && (feeler.m_hit.faceFlags & 8))
@@ -976,7 +976,7 @@ int CorePhysicsComponent::IsFacingVert(Scripts::CStruct* params, Scripts::CScrip
 // --- focus ---
 
 // 0x004FDC90
-int CorePhysicsComponent::FocusOff(Scripts::CStruct*, Scripts::CScript*)
+int SkaterPhysicsModule::FocusOff(Scripts::CStruct*, Scripts::CScript*)
 {
     Byte(this, kFocus) = 0;
     auto* camera = static_cast<GameObjects::CGameEntity*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetSkaterCamera());
@@ -984,7 +984,7 @@ int CorePhysicsComponent::FocusOff(Scripts::CStruct*, Scripts::CScript*)
     return 1;
 }
 // 0x004FDCC0
-int CorePhysicsComponent::GetFocusTimeLeft(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetFocusTimeLeft(Scripts::CStruct*, Scripts::CScript* script)
 {
     auto* score = static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetPointsTotal());
     if (!score)
@@ -993,7 +993,7 @@ int CorePhysicsComponent::GetFocusTimeLeft(Scripts::CStruct*, Scripts::CScript* 
     return 1;
 }
 // 0x004FDCF0
-int CorePhysicsComponent::GetFocusTimesAllowed(Scripts::CStruct*, Scripts::CScript* script)
+int SkaterPhysicsModule::GetFocusTimesAllowed(Scripts::CStruct*, Scripts::CScript* script)
 {
     auto* score = static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetPointsTotal());
     if (!score)
@@ -1002,7 +1002,7 @@ int CorePhysicsComponent::GetFocusTimesAllowed(Scripts::CStruct*, Scripts::CScri
     return 1;
 }
 // 0x004FDD20
-int CorePhysicsComponent::SetFocusTimesAllowed(Scripts::CStruct* params, Scripts::CScript*)
+int SkaterPhysicsModule::SetFocusTimesAllowed(Scripts::CStruct* params, Scripts::CScript*)
 {
     auto* score = static_cast<uint8_t*>(static_cast<GameObjects::CRider*>(ObjectOf(this))->GetPointsTotal());
     if (!score)
@@ -1013,4 +1013,4 @@ int CorePhysicsComponent::SetFocusTimesAllowed(Scripts::CStruct* params, Scripts
 
 } // namespace Skater
 
-using Skater::CorePhysicsComponent;
+using Skater::SkaterPhysicsModule;

@@ -369,7 +369,7 @@ bool __cdecl CFunc_NudgeVC(CStruct* params, CScript*)
 // needed; otherwise (0, 0, 1)). Returns what 0x0048ED70 returns (its AL).
 bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
 {
-    constexpr float kDegreesToRadians = 0.0174532924f; // (0x00645464)
+    constexpr float kRadiansPerDegree = 0.0174532924f; // (0x00645464)
     int index = 0; // (uninitialised in the original)
     params->FetchIntValue(kIndex, &index, 0);
     Scripts::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -378,12 +378,12 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
     if (params->FetchVec(kDirection, &direction, 0)) {
         direction.w = 0.0f;
     } else if (params->FetchFloat(kHeading, &heading, 0) && params->FetchFloat(kPitch, &pitch, 0)) {
-        double p = static_cast<double>(pitch) * kDegreesToRadians;
+        double p = static_cast<double>(pitch) * kRadiansPerDegree;
         float y = direction.y;
         float z = direction.z;
         direction.y = static_cast<float>(X87CosTimes(p, y) - X87SinTimes(p, z));
         double turnedZ = X87CosTimes(p, z) + X87SinTimes(p, y);
-        double h = static_cast<double>(heading) * kDegreesToRadians;
+        double h = static_cast<double>(heading) * kRadiansPerDegree;
         float s = X87Sin(h);
         float c = X87Cos(h);
         float x = direction.x;
@@ -397,7 +397,7 @@ bool __cdecl CFunc_SetLightDirection(CStruct* params, CScript*)
 // Metrics. Always true.
 bool __cdecl CFunc_GetMetrics(CStruct*, CScript* script)
 {
-    CStruct* metrics = Scripts::NewStruct();
+    CStruct* metrics = Scripts::SpawnParamBag();
     if (metrics)
         metrics = metrics->PrepareAll();
     Engine3D::GetSceneDebugInfo(metrics);

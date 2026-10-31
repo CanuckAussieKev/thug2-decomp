@@ -58,7 +58,7 @@ PositionScale LevelPositionScale(uint32_t level)
 
 void RefreshPositionScale()
 {
-    auto* manager = g_gameNetManager;
+    auto* manager = g_onlineHub;
     bool netGame = manager && manager->InNetGame();
     uint32_t level = manager ? manager->m_level : 0;
     if (netGame == s_scaleNetGame && level == s_scaleLevel)

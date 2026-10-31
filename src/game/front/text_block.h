@@ -58,14 +58,14 @@ public:
     int m_lineLength;         // +0x188
     float m_lineWidth;        // +0x18C
     int m_maxLines;           // +0x190 how many fit
-    float m_internalJustX, m_internalJustY; // +0x194
+    float m_innerAlignH, m_innerAlignV; // +0x194
     float m_internalScale;    // +0x19C
     float m_lineSpacing;      // +0x1A0
     float m_linesHeight;      // +0x1A4 the lines' height in all
     int m_numElements;        // +0x1A8 line elements
     CSmearEffect* mp_blur;     // +0x1AC
     bool m_shadow;            // +0x1B0
-    bool m_allowExpansion;    // +0x1B1
+    bool m_mayGrow;    // +0x1B1
     uint8_t m_pad1B2[2];
     float m_shadowX, m_shadowY; // +0x1B4
     uint8_t m_shadowRgba[4];  // +0x1BC

@@ -27,7 +27,7 @@ namespace {
 // A little slack before a size is cut down to whole cells (0x00645448).
 constexpr double kCellSlack = 2.0;
 // Degrees to radians, as the exe has it (0x00645464).
-constexpr float kDegreesToRadians = 0.0174532924f;
+constexpr float kRadiansPerDegree = 0.0174532924f;
 
 // A piece's size in whole cells along one axis (truncated).
 uint8_t Cells(float size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
@@ -97,8 +97,8 @@ void CParkTile::GetFootprintSize(SCellBox* dims)
 {
     Maths::Vec4 size;
     MeasureSpan(&size);
-    dims->l = Cells(size.z, kCellLength);
-    dims->h = Cells(size.y, kCellHeight);
+    dims->l = Cells(size.z, kGridStepAlong);
+    dims->h = Cells(size.y, kGridStepUp);
     dims->w = Cells(size.x, kCellWidth);
 }
 
@@ -144,7 +144,7 @@ void CParkTile::SetAngle(float degrees)
     Maths::Mat4 orientation;
     orientation.ResetToIdentity();
     Maths::Mat4 turn;
-    Maths::MakeYawMatrix(turn, static_cast<float>(static_cast<double>(degrees) * kDegreesToRadians));
+    Maths::MakeYawMatrix(turn, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     MultiplyMatrices(&orientation, &orientation, &turn);
     Scene::ChangeFacing(geometry, &orientation);
 }
@@ -176,7 +176,7 @@ CTileTemplate* CTileTemplate::MakeNew()
     m_extent = {0.0f, 0.0f, 0.0f, 1.0f};
     m_20 = 1;
     m_triggerScript = 0;
-    m_numRailPoints = 0;
+    m_railPointTotal = 0;
     m_numRailSegments = 0;
     return this;
 }

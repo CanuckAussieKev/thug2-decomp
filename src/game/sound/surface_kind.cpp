@@ -41,7 +41,7 @@ constexpr uint32_t kMaxPitch = 0xFA3E14C5;                // "maxPitch"
 constexpr uint32_t kMinPitch = 0x1C5EBB24;                // "minPitch"
 constexpr uint32_t kMaxVol = 0x0693DAAF;                  // "maxVol"
 constexpr uint32_t kMinVol = 0x4391992D;                  // "floorLoudness"
-constexpr uint32_t kLoadPitch = 0xF573682F;               // "loadPitch"
+constexpr uint32_t kInitialPitchKey = 0xF573682F;               // "loadPitch"
 constexpr uint32_t kLoadVol = 0x312CCBCF;                 // "loadVol"
 
 constexpr float kHundred = 100.0f;
@@ -68,7 +68,7 @@ ListKit::KeyMap& TerrainTypes() { return g_terrainTypes; }
 ListKit::KeyMap g_terrainActions{ListKit::KeyMap::Unconstructed{}}; // (KeyMap(8) at start-up)
 ListKit::KeyMap& TerrainActions() { return g_terrainActions; }
 
-SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_sfxManager; }
+SoundFx::CAudioMixer* SoundManager() { return SoundFx::g_audioMixer; }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int Truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -119,7 +119,7 @@ uint32_t __cdecl GetTableAction(uint8_t table)
 }
 
 // 0x00444360 (the walk stops at an item without a value - as the original)
-uint32_t __cdecl GetTerrainChecksum(uint8_t terrain)
+uint32_t __cdecl FetchSurfaceKey(uint8_t terrain)
 {
     ListKit::KeyMap& types = TerrainTypes();
     types.m_iterBucket = -1;
@@ -149,7 +149,7 @@ uint8_t __cdecl GetTableIndex(uint32_t type)
 // 0x00444400
 bool __cdecl GetTerrainStructure(uint8_t terrain, CStruct** out, uint32_t name)
 {
-    CStruct* settings = Scripts::ReadSubStruct(GetTerrainChecksum(terrain));
+    CStruct* settings = Scripts::ReadSubStruct(FetchSurfaceKey(terrain));
     if (settings && settings->ReadSubStruct(name, out, 0))
         return true;
     CStruct* standard = Scripts::ReadSubStruct(kStandardTerrainDefault);
@@ -220,7 +220,7 @@ bool __cdecl GetSoundInfo(CStruct* soundAction, SoundInfo* info)
     soundAction->FetchFloat(kMinPitch, &info->minPitch, 0);
     soundAction->FetchFloat(kMaxVol, &info->maxVol, 0);
     soundAction->FetchFloat(kMinVol, &info->floorLoudness, 0);
-    soundAction->FetchFloat(kLoadPitch, &info->loadPitch, 0);
+    soundAction->FetchFloat(kInitialPitchKey, &info->loadPitch, 0);
     soundAction->FetchFloat(kLoadVol, &info->loadVol, 0);
     return true;
 }
@@ -352,7 +352,7 @@ void __cdecl PlayTerrainSound(uint8_t table, uint8_t terrain, const Maths::Vec4*
     if (SoundFx::NoSound())
         return;
     SoundFx::CAudioMixer* sounds = SoundManager();
-    void* net = OnlinePlay::g_gameNetManager;
+    void* net = OnlinePlay::g_onlineHub;
     CStruct* soundActions;
     if (!GetTerrainStructureInto(&soundActions, terrain, kSoundActions))
         return;
@@ -420,7 +420,7 @@ bool __cdecl LoadTerrainSounds(uint32_t checksum)
     Scripts::ReadSubStruct(kTerrainDefault)->ReadSubStruct(kSoundActions, &defaultActions, 1);
     CStruct* terrainActions = nullptr;
     if (GetTerrainStructure(terrain, &terrainActions, kSoundActions)) {
-        CStruct* merged = Scripts::NewStruct();
+        CStruct* merged = Scripts::SpawnParamBag();
         if (merged)
             merged->PrepareAll();
         merged->AppendStructureIfAny(defaultActions);

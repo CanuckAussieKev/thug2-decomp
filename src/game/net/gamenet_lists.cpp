@@ -15,7 +15,7 @@ static VtableSlot kServerNodeVtable_slots[] = {&ServerNode::Teardown};
 void** const kServerNodeVtable = reinterpret_cast<void**>(kServerNodeVtable_slots);
 static VtableSlot kQueuedScriptNodeVtable_slots[] = {&QueuedScriptNode::Teardown};
 void** const kQueuedScriptNodeVtable = reinterpret_cast<void**>(kQueuedScriptNodeVtable_slots);
-static VtableSlot kQueuedScriptVtable_slots[] = {&QueuedScript::DestroyRecord};
+static VtableSlot kQueuedScriptVtable_slots[] = {&PendingScriptItem::DestroyRecord};
 void** const kQueuedScriptVtable = reinterpret_cast<void**>(kQueuedScriptVtable_slots);
 static VtableSlot kPlayerHeadVtable_slots[] = {&PlayerNode::DestroyHead};
 void** const kPlayerHeadVtable = reinterpret_cast<void**>(kPlayerHeadVtable_slots);
@@ -106,7 +106,7 @@ QueuedScriptNode* QueuedScriptNode::Teardown(unsigned int flags)
 }
 
 // 0x005371F0
-QueuedScript* QueuedScript::DestroyRecord(unsigned int flags)
+PendingScriptItem* PendingScriptItem::DestroyRecord(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)

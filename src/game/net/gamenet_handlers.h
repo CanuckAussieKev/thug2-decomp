@@ -36,28 +36,28 @@ struct NewPlayerSearchDestructors {
 };
 
 // --- The client's handlers (gamenet_handlers.cpp) ---
-// 0x0052D7B0 (0x25): the server's ready query: its id (the message's word) kept in m_latestReadyQuery, for
+// 0x0052D7B0 (0x25): the server's ready query: its id (the message's word) kept in m_lastReadyProbeId, for
 // SendReadyResponse. 1.
-int __cdecl HandleReadyQuery(NetLink::InboundMsgCtx* context);
+int __cdecl OnReadyAskMsg(NetLink::InboundMsgCtx* context);
 // 0x0052D7D0 (0x26, the server's too): a ready response: the packet acknowledged; the sender's player (by
 // connection) is given the id - if it's the query it was sent, its connection is ready again. 1.
-int __cdecl HandleReadyResponse(NetLink::InboundMsgCtx* context);
+int __cdecl OnReadyReplyMsg(NetLink::InboundMsgCtx* context);
 // 0x0052D800 (0x4D): out of surveyor mode (the script command ExitSurveyorMode), into observing (0x0053E650). 1.
-int __cdecl HandleObserve(NetLink::InboundMsgCtx* context);
+int __cdecl OnSpectateMsg(NetLink::InboundMsgCtx* context);
 // 0x0052D830 (0x79): a remote connection's important and sequenced queues emptied. 1.
 int __cdecl HandleFlushImportant(NetLink::InboundMsgCtx* context);
 // 0x0052D850 (0x74) / 0x0052D880 (0x71) / 0x0052D8B0 (0x72): the player of object id msg[0] stole / took /
 // captured team msg[1]'s flag (0x00543C70 / 0x00543F00 / 0x00543A90); 0x0052D8E0 (0x73): retrieved its own
 // (0x00544110). Nothing for an unknown player. 1.
-int __cdecl HandleStoleFlag(NetLink::InboundMsgCtx* context);
-int __cdecl HandleTookFlag(NetLink::InboundMsgCtx* context);
-int __cdecl HandleCapturedFlag(NetLink::InboundMsgCtx* context);
-int __cdecl HandleRetrievedFlag(NetLink::InboundMsgCtx* context);
+int __cdecl OnFlagSwipedMsg(NetLink::InboundMsgCtx* context);
+int __cdecl OnFlagGrabbedMsg(NetLink::InboundMsgCtx* context);
+int __cdecl OnFlagScoredMsg(NetLink::InboundMsgCtx* context);
+int __cdecl OnFlagReturnedMsg(NetLink::InboundMsgCtx* context);
 // 0x0052D910 (0x5E) / 0x0052D930 (0x7A): the script launch_auto_server_notification / Kill_Team_Flags. 1.
 int __cdecl HandleAutoServerNotice(NetLink::InboundMsgCtx* context);
 int __cdecl HandleKillTeamFlags(NetLink::InboundMsgCtx* context);
 // 0x0052D950 (0x3F): a panel message: +4 its text's checksum, +8 its time, +0x0C / +0x1C two strings. 1.
-int __cdecl HandlePanelMessage(NetLink::InboundMsgCtx* context);
+int __cdecl OnHudNoticeMsg(NetLink::InboundMsgCtx* context);
 // 0x0052D980 (0x23, before the skate module's): the object update message's length, from its bits: 8 skaters'
 // bits, then for each one present a 16-bit time, 9 flags, and the fields they say are there. 1.
 int __cdecl HandleObjectUpdateLength(NetLink::InboundMsgCtx* context);
@@ -70,15 +70,15 @@ int __cdecl HandleCdKeyChallenge(NetLink::InboundMsgCtx* context);
 int __cdecl HandleKeepAlive(NetLink::InboundMsgCtx* context);
 // 0x0052DCC0 (0x53): joined: the join state 6, message 0x54 to the server, and (on a client) the skate module's
 // handlers on each local client. 1.
-int __cdecl HandleJoinAccepted(NetLink::InboundMsgCtx* context);
-// 0x0052E1A0 (0x42): the server has sent the game's state: ready to play (0x00537140(true): m_readyToPlay, the
+int __cdecl OnAdmittedMsg(NetLink::InboundMsgCtx* context);
+// 0x0052E1A0 (0x42): the server has sent the game's state: ready to play (0x00537140(true): m_clearedToStart, the
 // skaters told), and (not a local client) the add-new-players task added to the logic tasks. 1.
 int __cdecl HandleReadyToPlay(NetLink::InboundMsgCtx* context);
 // 0x0052EB70 (0x6C, the server's too): the created park's map (0x0058D6B0 with the message), its CRC computed (and
 // dropped). 1.
 int __cdecl HandleParkMap(NetLink::InboundMsgCtx* context);
 // 0x0052ED80 (0x5A): game over (every player's game has ended); an observer of a goal attack gets the rankings. 1.
-int __cdecl HandleGameOver(NetLink::InboundMsgCtx* context);
+int __cdecl OnMatchEndMsg(NetLink::InboundMsgCtx* context);
 // 0x0052EDD0 (0x6A): the game has ended: the trick objects reset (0x005889F0), create_game_ended_dialog,
 // 0x00537620. 1.
 int __cdecl HandleGameEnded(NetLink::InboundMsgCtx* context);
@@ -93,10 +93,10 @@ int __cdecl HandleChecksumRequest(NetLink::InboundMsgCtx* context);
 // 0x0052DB80 (0x22): a new player: a JoinerRecord from the message (name, object id, team, flags, the appearance into
 // its profile unless flags 5), announced (net_message_new_player) and added 10 frames on once ready to play, else at
 // once. 1.
-int __cdecl HandleNewPlayer(NetLink::InboundMsgCtx* context);
+int __cdecl OnPlayerAddedMsg(NetLink::InboundMsgCtx* context);
 // 0x0052E760 (0x55): a new king: the crown off the old one (or a waiting new player's flag 0x80), onto the player of
 // object id msg[0] (or the waiting new player of that id). 1.
-int __cdecl HandleNewKing(NetLink::InboundMsgCtx* context);
+int __cdecl OnCrownChangeMsg(NetLink::InboundMsgCtx* context);
 // 0x0052E870 (0x58): the crown dropped: the king no longer one (the drop announced to him, to everyone in a network
 // game, else to the other local player), then the crown put at the msg[0]'th crown node (counting on across up to 49
 // walks of the nodes) and taken off. 1.
@@ -111,7 +111,7 @@ int __cdecl HandleFlagReturned(NetLink::InboundMsgCtx* context);
 // mismatch): asked for again (0x8B / 0x8A; 4) - or, when leaving for the main menu, the join cancelled
 // (cancel_join_server show_timeout; 5).
 int __cdecl HandleRailsData(NetLink::InboundMsgCtx* context);
-int __cdecl HandleGoalsData(NetLink::InboundMsgCtx* context);
+int __cdecl OnGoalSyncMsg(NetLink::InboundMsgCtx* context);
 // 0x00531950 (0x6D): the goals chosen (0x00558580, then each named one's virtual +0x74 and 0x00554440); msg[0] = 1
 // spawns wait_and_create_view_selected_goals_menu goal_summary. 1.
 int __cdecl HandleSelectedGoals(NetLink::InboundMsgCtx* context);
@@ -153,14 +153,14 @@ int __cdecl HandleRequestGameData(NetLink::InboundMsgCtx* context);
 int __cdecl HandleGameEndedReport(NetLink::InboundMsgCtx* context);
 // 0x0052EE10 (0x67): a team change (object id, team) passed on to everyone as 0x68 - in the lobby or after the game
 // only (else 4; 4 for an unknown player or one without a skater). 1.
-int __cdecl HandleTeamChangeRequest(NetLink::InboundMsgCtx* context);
+int __cdecl OnSwitchSquadMsg(NetLink::InboundMsgCtx* context);
 // 0x0052EF40 / 0x0052F1A0 (0x6E / 0x6F, for the current game - else 4): goal attack: a goal completed (once per team
 // in team games; marked done by the sender's skater) / started (team games), passed on to the players / teammates. 1.
 int __cdecl HandleGoalCompletedReport(NetLink::InboundMsgCtx* context);
 int __cdecl HandleGoalStartedReport(NetLink::InboundMsgCtx* context);
 // 0x0052FCC0 (0x0B): a connection is closing: its player out of the game (a remote one; its skater removed unless an
 // observer) - 5; or a new player waiting to be added dropped with its connection - 5; else 2.
-int __cdecl HandleDisconnect(NetLink::InboundMsgCtx* context);
+int __cdecl OnPeerLeftMsg(NetLink::InboundMsgCtx* context);
 // 0x0052FDA0 (0x57): the sender drops what it carries (its flag 0x8000 cleared): in CTF its flag returned (0x75 to
 // the remote players), in king of the hill the crown to a random spot (Rnd(10) into +0x68, 0x58 to all). 1.
 int __cdecl HandleDropCarried(NetLink::InboundMsgCtx* context);
@@ -173,14 +173,14 @@ int __cdecl HandleChecksumResponse(NetLink::InboundMsgCtx* context);
 // player and observer counts and limits, password, in a game, host mode, logged in, the server's name, level, mode,
 // skill level, the asker's time, the players' names (observers only with 0x005434C0) and the waiting new players'
 // (their names used as sprintf formats, the original's). 1.
-int __cdecl HandleFindServer(NetLink::InboundMsgCtx* context);
+int __cdecl OnServerQueryMsg(NetLink::InboundMsgCtx* context);
 // 0x005301A0 (0x60-0x66, server; from the host's own player only - else 4): 0x60 the game's options into the network
 // preferences, then chosen_start_game; 0x61 kick (msg[0] = 1) or ban the msg[1]'th player named msg + 2; 0x62
 // change_level; 0x64 0x00558960 on the goal manager; 0x65 end the game (0x6A to the others); 0x66 the team count.
 int __cdecl HandleHostOptions(NetLink::InboundMsgCtx* context);
 // 0x005311F0 (0x46, client): a level change (msg + 4 nonzero): the level kept; unless one is pending (4), the change
 // task added (when: now + 3 s, + 1 s more for the created park), the level preference set on the server, announced. 4.
-int __cdecl HandleChangeLevel(NetLink::InboundMsgCtx* context);
+int __cdecl OnLevelSwitchMsg(NetLink::InboundMsgCtx* context);
 // 0x005313C0 (0x34, client): a game starts: the start info words, the crown's spawn point, the skaters reset, the game
 // mode set (victory conditions, time, teams...), StartingNewNetGame, the players' flags and scores reset, the crown
 // taken off, the mode's goal_script run. 1.
@@ -197,12 +197,12 @@ void __cdecl LevelChangeTask(void* task);
 // 0x00533810: the online connection's state (NetLink::Hub's modem state) shown when it changes (+0x1A8 the last
 // shown): connecting / dialing, connected, logged in (with the speed on a modem), disconnecting, hanging up,
 // disconnected, a redial pause (state 8 for 5 s, then ConnectToInternet - its parameters never deleted).
-void __cdecl ModemStateTask(void* task);
+void __cdecl DialupProgressTick(void* task);
 // 0x00533B50: update_net_metrics for each remote connection of the client (if not local) and the server - each list
 // twice (the original's loop).
 void __cdecl NetMetricsTask(void* task);
 // 0x00533ED0: joining for over a minute (and not in a game): the join state task removed, ShowJoinTimeoutNotice.
-void __cdecl JoinTimeoutTask(void* task);
+void __cdecl JoinDeadlineTick(void* task);
 // 0x00533400 / 0x00533420 / 0x005334B0: the GameSpy query callbacks - every player / team key "", the key lists (the
 // server's 1, 2, 4, 5, 6, 8, 20, 10, 11, 19; the players' 21, 24, 25), an error adding the server (debug output).
 void __cdecl PlayerTeamKeyCallback(int key, int index, void* buffer, void* data);

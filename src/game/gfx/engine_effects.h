@@ -48,7 +48,7 @@ void __cdecl SetLevelColor(const float* color);
 // - 82944 for 0 -, the random speed (0x007004CC, 0 for 0), the velocity's scale (0x0067DDF4, 1 for 0), a shatter's
 // lifetime (0x0067DDF8, 4 for 0), floor (0x0067DDFC, -10000 for 0) and bounce (0x0067DE00, 0.8 for 0); 0x0067DDD8,
 // the texture (0x007004BC), 0x007004C0 and 0x007004C4 as given.
-void __cdecl SetShatterParams(const Maths::Vec4* velocity, const Maths::Vec4* vector210E, float valueC483, float area,
+void __cdecl ChangeBreakupSettings(const Maths::Vec4* velocity, const Maths::Vec4* vector210E, float valueC483, float area,
                               float speed, float velocityScale, float lifetime, float floor, float bounce,
                               float value2E1C, uint32_t texture, uint32_t valueAF1A, int value33DF);
 // 0x00490DC0 (not a Ghidra function; what a PC sector's ChangeLive calls): a geom shattered with the shatter texture
@@ -109,7 +109,7 @@ void __cdecl KillAllEffects();
 
 extern sVertexStack g_vertexStack;
 
-extern Maths::Vec4 g_shatterVelocity;
+extern Maths::Vec4 g_glassBurstVelocity;
 extern float g_shatterVelocityScale;
 extern float g_shatterSpeed;
 extern ListKit::KeyMap* g_spawnedPolys;

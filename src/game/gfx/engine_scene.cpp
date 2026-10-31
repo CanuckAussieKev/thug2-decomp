@@ -44,7 +44,7 @@ R Virtual(void* object, int slot, A... args)
 
 // The engine's sector (not rewritten here; thiscall): its flags (+8) read / set / cleared, its name (+4 - the folded
 // getter 0x005480C0), its box, drawn and collided with or not.
-uint32_t SectorFlags(void* sector) { return static_cast<CWorldCell*>(sector)->FetchBits(); }
+uint32_t SectorAttributeBits(void* sector) { return static_cast<CWorldCell*>(sector)->FetchBits(); }
 void ApplySectorBits(void* sector, uint32_t flags)
 {
     static_cast<CWorldCell*>(sector)->ChangeBits(flags);
@@ -53,13 +53,13 @@ void ResetSectorBits(void* sector, uint32_t flags)
 {
     static_cast<CWorldCell*>(sector)->ClearFlags(flags);
 }
-uint32_t SectorName(void* sector) { return static_cast<OnlinePlay::FoldedGetters*>(sector)->Word04(); }
+uint32_t SectorKeyFromSpec(void* sector) { return static_cast<OnlinePlay::FoldedGetters*>(sector)->Word04(); }
 const Maths::BBox* SectorBox(void* sector)
 {
     return static_cast<CWorldCell*>(sector)->FetchBounds();
 }
 // (0x0049E9B0 tests the argument's low byte only)
-void SetSectorActive(void* sector, uint32_t on) { static_cast<CWorldCell*>(sector)->ChangeLive(static_cast<uint8_t>(on) != 0); }
+void EnableSector(void* sector, uint32_t on) { static_cast<CWorldCell*>(sector)->ChangeLive(static_cast<uint8_t>(on) != 0); }
 
 // (a static collision object's own print, compiled out: the empty 0x005480A0 with it in ECX)
 inline void PrintCollStatic(const CStaticCollider*) {}
@@ -130,7 +130,7 @@ void* CWorldScene::SpawnSector()
 // 0x0049CA20
 int __cdecl MakeCollisionFileName(char* out, const char* level)
 {
-    const char* extension = PlatformExtension();
+    const char* extension = PlatformSuffix();
     return std::snprintf(out, 0x7FFFFFFF, "levels\\%s\\%s%s.col.%s", level, level, "", extension);
 }
 
@@ -149,13 +149,13 @@ void* CWorldScene::LookUpSector(uint32_t name)
 // 0x0049CB40
 bool CWorldScene::RemoveSceneSector(void* sector)
 {
-    if (SectorFlags(sector) & 0x40) {
+    if (SectorAttributeBits(sector) & 0x40) {
         ApplySectorBits(sector, 8);
         m_sectorKept = true;
         return false;
     }
-    if (LookUpSector(SectorName(sector)) == sector) {
-        uint32_t name = SectorName(sector);
+    if (LookUpSector(SectorKeyFromSpec(sector)) == sector) {
+        uint32_t name = SectorKeyFromSpec(sector);
         mp_sectors->EraseEntry(name);
     }
     if (sector)
@@ -228,7 +228,7 @@ bool CWorldScene::LoadCollisionData(const uint8_t* data, int* count, CStaticColl
 // 0x0049CE60
 bool CWorldScene::InitCollisionGrid(const Maths::BBox* box)
 {
-    if (!m_hasCollision)
+    if (!m_buildsCollisionGrid)
         return false;
     m_collisionBox = *box;
     auto* grid = static_cast<CCollGrid*>(MemSys::Alloc(sizeof(CCollGrid)));
@@ -273,7 +273,7 @@ void CWorldScene::DeleteMarkedSectors()
     if (!mp_collGrid)
         return;
     ForEachSector(mp_sectors, [](void* sector) {
-        if (SectorFlags(sector) & 8) {
+        if (SectorAttributeBits(sector) & 8) {
             ResetSectorBits(sector, 0x40);
             Virtual<void*>(sector, 0, 1u);
         }
@@ -292,7 +292,7 @@ void CWorldScene::SetSectorsInBox(const Maths::Vec4* box, uint32_t on, int)
         const auto* f = reinterpret_cast<const float*>(bounds);
         // (each "not past it": NaN counts as touching)
         if (!(minX > f[4]) && !(f[0] > maxX) && !(minZ > f[6]) && !(f[2] > maxZ) && !(minY > f[5]) && !(f[1] > maxY))
-            SetSectorActive(sector, on);
+            EnableSector(sector, on);
     });
 }
 
@@ -382,5 +382,5 @@ static VtableSlot kCollStatic_slots[] = {&SceneCollisionAdapters::CollStaticDele
                 &Engine3D::CollGeometryForwarders::IsPointBehindFaces, &Engine3D::CollGeometryForwarders::DrawDiagnostic,
                 Stubs::ReturnZero, &Engine3D::CStaticCollider::GetGeometryBBox, &Engine3D::CollGeometryForwarders::RotateY,
                 &Engine3D::CollGeometryForwarders::StretchBy};
-void** const kCollStatic = reinterpret_cast<void**>(kCollStatic_slots);
+void** const kVtblStaticColl = reinterpret_cast<void**>(kCollStatic_slots);
 } // namespace Vt

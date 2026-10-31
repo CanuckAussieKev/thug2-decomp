@@ -53,16 +53,16 @@ struct ProximNode {
     void* m_sector;                // +0x78
     Maths::BBox m_box;               // +0x7C
     uint32_t m_unknown9C;
-    uint32_t m_runScript;             // +0xA0
+    uint32_t m_ownScript;             // +0xA0
     ProximNode* m_succ;            // +0xA4
 };
 static_assert(offsetof(ProximNode, m_toSector) == 0x14 && offsetof(ProximNode, m_active) == 0x54 &&
                   offsetof(ProximNode, m_kindTag) == 0x68 && offsetof(ProximNode, m_box) == 0x7C &&
-                  offsetof(ProximNode, m_runScript) == 0xA0 && sizeof(ProximNode) == 0xA8,
+                  offsetof(ProximNode, m_ownScript) == 0xA0 && sizeof(ProximNode) == 0xA8,
               "layout must match the original");
 
 // The node list (0x006F2268 points to it).
-struct ProximManager {
+struct ProximityRegistry {
     ProximNode* m_head;
     bool m_entering;     // +4: while a node's script runs: entering (true) or leaving
     bool m_inScript;     // +5: a node's script is running
@@ -96,5 +96,5 @@ int GetRestartNodes(uint32_t type, uint32_t* out, uint32_t start);
 // 0x0046B790: restart node `index` (wrapped round the count once it's past it) of `type` - 0 if there's none.
 uint32_t GetSpawnNode(uint32_t type, int index, uint32_t start);
 
-extern void* g_proximManager;
+extern void* g_proximityHub;
 } // namespace Obj

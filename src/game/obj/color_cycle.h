@@ -24,7 +24,7 @@ namespace GameObjects {
 class CColorCycleComponent : public CObjectModule {
 public:
     static constexpr uint32_t kType = 0xCDC76A22;
-    static constexpr int kMaxColors = 5;
+    static constexpr int kCycleColorCap = 5;
 
     // 0x0041B3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined:
     // the base's, no colours, off; 0 if out of memory).
@@ -59,7 +59,7 @@ public:
     // for the array, as the original does). 1.
     int SetColorsFromScript(Scripts::CStruct* params, Scripts::CScript* script);
 
-    Maths::Vec4 m_colors[kMaxColors]; // +0x18 (x, y, z: 0-255)
+    Maths::Vec4 m_colors[kCycleColorCap]; // +0x18 (x, y, z: 0-255)
     int m_colorCount;                 // +0x68
     int m_ongoing;                    // +0x6C
     float m_period;                   // +0x70 milliseconds

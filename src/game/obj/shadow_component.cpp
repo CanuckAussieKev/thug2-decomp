@@ -35,8 +35,8 @@ constexpr uint32_t kStayPut = 0x7E773A11;     // (a flag: the shadow doesn't fol
 constexpr uint32_t kShadowModel = 0x545F8172; // ShadowModel
 constexpr uint32_t kShadowScale = 0x6F8CD62F; // ShadowScale
 constexpr uint32_t kOffset = 0xA6F5352F;      // offset
-constexpr uint32_t kShadowOff = 0xAAF6E513;   // Obj_ShadowOff
-constexpr uint32_t kShadowOn = 0xF272C43A;    // Obj_ShadowOn
+constexpr uint32_t kCastNoShadow = 0xAAF6E513;   // Obj_ShadowOff
+constexpr uint32_t kEnableShadowCast = 0xF272C43A;    // Obj_ShadowOn
 
 enum ShadowKind { SHADOW_DETAILED = 1, SHADOW_SIMPLE = 2, SHADOW_VOLUME = 3 };
 
@@ -51,7 +51,7 @@ void** Vtable(void* shadow) { return *static_cast<void***>(shadow); }
 int& ShadowKindOf(void* shadow) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(shadow) + 0x04); }
 float& ShadowScaleOf(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x0C); }
 float& ShadowOffsetOf(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x10); }
-void DeleteShadow(void* shadow) { reinterpret_cast<void*(__thiscall*)(void*, int)>(Vtable(shadow)[0])(shadow, 1); }
+void ReleaseBlobShadow(void* shadow) { reinterpret_cast<void*(__thiscall*)(void*, int)>(Vtable(shadow)[0])(shadow, 1); }
 void ShadowUpdate(void* shadow, const Maths::Vec4* pos, const Maths::Mat4* matrix, Maths::Vec4 normal)
 {
     reinterpret_cast<void(__thiscall*)(void*, const Maths::Vec4*, const Maths::Mat4*, Maths::Vec4)>(Vtable(shadow)[1])(
@@ -107,7 +107,7 @@ void CGroundShadowModule::DestroyBody()
 {
     m_vtable = kVtable;
     if (m_shadowHandle) {
-        DeleteShadow(m_shadowHandle);
+        ReleaseBlobShadow(m_shadowHandle);
         m_shadowHandle = nullptr;
     }
     CObjectModule::DestroyBody();
@@ -183,7 +183,7 @@ void CGroundShadowModule::Conceal(bool hide)
 }
 
 // 0x004315A0
-void CGroundShadowModule::CreateShadow(int type, const char* modelName)
+void CGroundShadowModule::BuildBlobShadow(int type, const char* modelName)
 {
     if (m_shadowHandle)
         return;
@@ -227,7 +227,7 @@ void CGroundShadowModule::DestroyShadow()
     if (m_meshInstance)
         SetModelShadow(ModelOf(m_meshInstance), false);
     if (m_shadowHandle)
-        DeleteShadow(m_shadowHandle);
+        ReleaseBlobShadow(m_shadowHandle);
     m_shadowHandle = nullptr;
 }
 
@@ -255,13 +255,13 @@ void CGroundShadowModule::ConfigureFromData(Scripts::CStruct* params)
     switch (m_shadowKind) {
     case kDetailed:
         if (!m_shadowHandle)
-            CreateShadow(SHADOW_DETAILED, nullptr);
+            BuildBlobShadow(SHADOW_DETAILED, nullptr);
         break;
     case kSimple: {
         const char* model = "Ped_Shadow";
         params->FetchText(kShadowModel, &model, 0);
         if (!m_shadowHandle)
-            CreateShadow(SHADOW_SIMPLE, model);
+            BuildBlobShadow(SHADOW_SIMPLE, model);
         float scale = 1.0f;
         params->FetchFloat(kShadowScale, &scale, 0);
         ShadowScaleOf(m_shadowHandle) = scale;
@@ -270,7 +270,7 @@ void CGroundShadowModule::ConfigureFromData(Scripts::CStruct* params)
     }
     case kVolume:
         if (!m_shadowHandle)
-            CreateShadow(SHADOW_VOLUME, nullptr);
+            BuildBlobShadow(SHADOW_VOLUME, nullptr);
         break;
     case kNone:
         if (m_shadowHandle)
@@ -310,11 +310,11 @@ void CGroundShadowModule::TickFrame()
 // 0x00431B10
 int CGroundShadowModule::InvokeMethodByName(uint32_t name, Scripts::CStruct* params, Scripts::CScript* /*script*/)
 {
-    if (name == kShadowOff) {
+    if (name == kCastNoShadow) {
         DestroyShadow();
         return 1;
     }
-    if (name != kShadowOn)
+    if (name != kEnableShadowCast)
         return 2;
     uint32_t type; // (read into the parameters' own argument slot)
     if (!params->ReadHashValue(kShadowType, &type, 0))

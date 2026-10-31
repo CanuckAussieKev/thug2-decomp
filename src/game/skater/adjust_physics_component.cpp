@@ -48,7 +48,7 @@ T& At(const void* base, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(base) + offset);
 }
 
-void ChangePhase(void* core, int state) { static_cast<Skater::CorePhysicsComponent*>(core)->SetPhysicsState(state); }
+void ChangePhase(void* core, int state) { static_cast<Skater::SkaterPhysicsModule*>(core)->SetPhysicsState(state); }
 
 // The debug message's strings as the original passes them ("M:%s:%i: %s\n", the source file, "found to be inside a
 // moving object").

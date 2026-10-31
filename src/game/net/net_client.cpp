@@ -47,7 +47,7 @@ void ConstructAppTask(AppHost* app)
         static_cast<TaskList::SchedulerTask*>(task)->MakeNew(kAppTaskPriority); // (TaskList::Task's base)
         Prop<AppHost*>(task, 0x1C) = app;
         Prop<void**>(task, 0x0) = GameCode::kTaskVtable;
-        Prop<void*>(task, 0x18) = reinterpret_cast<void*>(&AppHost::SendNetworkData);
+        Prop<void*>(task, 0x18) = reinterpret_cast<void*>(&AppHost::FlushOutgoingTraffic);
     }
     app->m_sendTask = task;
 }
@@ -90,10 +90,10 @@ bool Guest::PrepareAll()
     if (!AppHost::PrepareAll())
         return false;
     Router* dispatcher = GetDispatcher(this);
-    dispatcher->AppendListener(kMsgConnectionAccepted, HandleConnectionAccepted, 3, nullptr, 0x80);
+    dispatcher->AppendListener(kMsgConnectionAccepted, OnLinkAcceptedMsg, 3, nullptr, 0x80);
     dispatcher->AppendListener(kMsgConnectionRefused, HandleConnectionRefused, 2, nullptr, 0x80);
     dispatcher->AppendListener(kMsgConnectionTerminated, HandleConnectionRefused, 2, nullptr, 0x80);
-    dispatcher->AppendListener(kMsgTimestamp, HandleTimestamp, 3, nullptr, 0x80);
+    dispatcher->AppendListener(kMsgClockStamp, OnClockSyncMsg, 3, nullptr, 0x80);
     return true;
 }
 
@@ -119,10 +119,10 @@ bool Guest::DialServer(uint32_t ip, uint16_t port)
 
 // 0x00459DC0
 void Guest::SendBulkToHost(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
-                                   bool allAtOnce, bool sendInPlace)
+                                   bool queueAllPieces, bool borrowCallerBuffer)
 {
     if (Conn* server = ServerConnection(this))
-        SendBulkToConn(server, msgId, size, data, desc, groupId, allAtOnce, sendInPlace);
+        SendBulkToConn(server, msgId, size, data, desc, groupId, queueAllPieces, borrowCallerBuffer);
 }
 
 // 0x00459E50
@@ -151,20 +151,20 @@ void Guest::PullInbound()
             WSAGetLastError();
             return;
         }
-        m_totalBytesIn += received;
+        m_inboundByteTotal += received;
         int size = (m_flagBits & kAppSecure) ? received - 2 : received;
         auto& server = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
         if (Conn* conn = NetLink::FindConnAtAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& readPtr = conn->m_readPtr;
             if (readPtr + size < conn->m_readBuffer + kConnReceiveBufferSize) {
                 uint32_t time = FrameClock::GetTime();
-                if (ReadPacket(this, buffer, readPtr, received)) {
+                if (PullDatagram(this, buffer, readPtr, received)) {
                     readPtr += size;
                     AddPacketMetric(&conn->m_receiveMetrics, received + 0x1C,
                                     Timestamp(this));
-                    if (time > conn->m_lastCommTime)
-                        conn->m_lastCommTime = time;
-                } else if (auto handler = m_foreignPacketHandler) {
+                    if (time > conn->m_lastHeardFrom)
+                        conn->m_lastHeardFrom = time;
+                } else if (auto handler = m_unknownPacketSink) {
                     handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
                 }
             }
@@ -172,11 +172,11 @@ void Guest::PullInbound()
             // from an unknown address
             if (Conn* fresh = NetLink::OpenedLink(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
                 fresh->m_ownerApp = this;
-                if (ReadPacket(this, buffer, fresh->m_readPtr, received)) {
+                if (PullDatagram(this, buffer, fresh->m_readPtr, received)) {
                     fresh->m_readPtr = fresh->m_readBuffer + size;
                     MarkNewConnection(fresh);
                 } else {
-                    if (auto handler = m_foreignPacketHandler)
+                    if (auto handler = m_unknownPacketSink)
                         handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
                     DestroyConn(fresh);
                     MemSys::Hub::Pull()->Dealloc(fresh);
@@ -203,19 +203,19 @@ void Guest::Transmit(Conn* conn)
             auto timestamp = static_cast<uint16_t>(conn->m_timestampOut);
             desc.m_content = &timestamp;
             desc.m_byteCount = sizeof(timestamp);
-            desc.m_ident = kMsgTimestamp;
+            desc.m_ident = kMsgClockStamp;
             desc.m_rank = kHighestPriority;
             NetLink::PutOnOutbox(this, conn->m_hdl, &desc);
         }
         if (IsOffMachine(conn) && !IsOutsider(conn) && (m_flagBits & kAppMeasureLatency)) {
             NetMessageInfo desc;
             ConstructMsgDesc(&desc);
-            uint32_t& sent = conn->m_latencyTest.m_sendTime;
+            uint32_t& sent = conn->m_pingProbe.m_sendTime;
             uint32_t now = Timestamp(this);
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
-                if (sent > conn->m_latencyTest.m_receiveTime) {
-                    uint32_t latency = (NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency)) + 100;
+                if (sent > conn->m_pingProbe.m_receiveTime) {
+                    uint32_t latency = (NetLink::IsHostLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_pingProbe.m_averageLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
                     AddLatency(conn, latency);
@@ -229,13 +229,13 @@ void Guest::Transmit(Conn* conn)
         }
         if (!BundleMessages(conn, kQueueNormal, false))
             done = true;
-        if (!BundleMessages(conn, kQueueSequenced, true))
+        if (!BundleMessages(conn, kLaneOrdered, true))
             done = true;
-        if (!BundleMessages(conn, kQueueImportant, true))
+        if (!BundleMessages(conn, kLanePriority, true))
             done = true;
-        if (!BundleMessages(conn, kQueueSequenced, false))
+        if (!BundleMessages(conn, kLaneOrdered, false))
             done = true;
-        if (!BundleMessages(conn, kQueueImportant, false))
+        if (!BundleMessages(conn, kLanePriority, false))
             done = true;
         char*& writePtr = conn->m_writePtr;
         int size = static_cast<int>(writePtr - conn->m_writeBuffer);
@@ -243,14 +243,14 @@ void Guest::Transmit(Conn* conn)
             char* packet = conn->m_writeBuffer;
             bool sent = m_linkedUp
                             ? NetLink::PostOut(this, packet, size, 0)
-                            : NetLink::TransmitTo(this, conn->m_hostAddr, conn->m_portNo,
+                            : NetLink::TransmitTo(this, conn->m_remoteIp, conn->m_portNo,
                                      packet, size, 0);
             if (!sent) {
                 MarkMessagesForRetry(conn, conn->m_timestampOut);
                 writePtr = conn->m_writeBuffer;
                 return;
             }
-            m_totalBytesOut += size;
+            m_outboundByteTotal += size;
             AddPacketMetric(&conn->m_sendMetrics, size + 0x1C, Timestamp(this));
             conn->m_lastSendTime = Timestamp(this);
             ForceSendNow(conn, false);
@@ -261,25 +261,25 @@ void Guest::Transmit(Conn* conn)
 }
 
 // 0x0045ABC0
-int Guest::HandleConnectionAccepted(InboundMsgCtx* context)
+int Guest::OnLinkAcceptedMsg(InboundMsgCtx* context)
 {
     context->m_Acknowledge = true;
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 // 0x0045ABD0
 int Guest::HandleConnectionRefused(InboundMsgCtx* context)
 {
     NetLink::SeverLink(context->m_receiverApp, context->m_senderConn);
-    return kHandlerHalt;
+    return kResultStop;
 }
 
 // 0x0045AA70
-int Guest::HandleTimestamp(InboundMsgCtx* context)
+int Guest::OnClockSyncMsg(InboundMsgCtx* context)
 {
     context->m_bodySize = sizeof(uint16_t);
     if (context->m_wireOptions & kPacketForeign)
-        return kHandlerMsgDone;
+        return kResultConsumed;
     auto* stamp = reinterpret_cast<uint16_t*>(context->m_body);
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
     context->m_SequencesToAck[context->m_NumSequencesToAck] = *stamp;
@@ -288,33 +288,33 @@ int Guest::HandleTimestamp(InboundMsgCtx* context)
     uint32_t& newest = conn->m_lastTimestampIn;
     if (newest == 0) {
         newest = *stamp;
-        return kHandlerContinue;
+        return kResultPassOn;
     }
     uint32_t timestamp = *stamp;
     bool late;
     if (timestamp < newest) {
         late = newest - timestamp <= kTimestampWindow; // (else it has wrapped around: newer)
     } else if (timestamp == newest) {
-        ++context->m_receiverApp->m_dupePackets;
-        return kHandlerError;
+        ++context->m_receiverApp->m_repeatArrivals;
+        return kResultFailed;
     } else {
         uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
             context->m_receiverApp->m_lostPackets += gap - 1;
             context->m_senderConn->m_lastTimestampIn = *stamp;
-            return kHandlerContinue;
+            return kResultPassOn;
         }
         late = gap > kTimestampWindow; // (so far ahead it has wrapped around: older)
     }
     if (late) {
         // it was counted as lost when a newer one came
-        ++context->m_receiverApp->m_latePackets;
+        ++context->m_receiverApp->m_staleArrivals;
         --context->m_receiverApp->m_lostPackets;
         context->m_wireOptions |= kPacketLate;
-        return kHandlerContinue;
+        return kResultPassOn;
     }
     newest = timestamp;
-    return kHandlerContinue;
+    return kResultPassOn;
 }
 
 } // namespace Net

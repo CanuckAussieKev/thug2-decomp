@@ -76,7 +76,7 @@ constexpr uint32_t kScore = 0xCD66C8AE;       // "score"
 GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
 void* GameMode() { return static_cast<void*>(GoalSystem::g_gameMode); }
-uint32_t GameModeName() { return static_cast<GoalSystem::CMatchRules*>(GameMode())->GetNameKey(); }
+uint32_t ActiveRulesetLabel() { return static_cast<GoalSystem::CMatchRules*>(GameMode())->GetNameKey(); }
 // The rail editor (0x004F4970 finds it).
 ParkEditing::CRailAuthoring* RailEditor() { return ParkEditing::CRailAuthoring::Sole(); }
 
@@ -110,7 +110,7 @@ bool ArrayHas(CArray* array, uint32_t name)
 // true.
 bool __cdecl CFunc_InterpolateParameters(Scripts::CStruct* params, Scripts::CScript* script)
 {
-    CStruct* memory = Scripts::NewStruct();
+    CStruct* memory = Scripts::SpawnParamBag();
     CStruct* result = memory ? memory->PrepareAll() : nullptr;
     CStruct* a = nullptr;
     params->ReadSubStruct(kA, &a, 1);
@@ -197,7 +197,7 @@ bool __cdecl CFunc_ClearPowerups(Scripts::CStruct*, Scripts::CScript*)
     for (int i = 0; i < 8; ++i) {
         if (skate->GetRiderAt(i)) {
             auto* state = static_cast<GameObjects::CRiderPoseState*>(
-                GameObjects::CompositeObjectManager()->FindFirstModuleOfKind(kSkaterState));
+                GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kSkaterState));
             state->ClearPowerups();
         }
     }
@@ -320,7 +320,7 @@ bool __cdecl CFunc_DrawDirectionalLightLines(Scripts::CStruct* params, Scripts::
     float pitch;
     params->FetchFloat(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(g_gameUtilMinusDegreesToRadians)); // -pi / 180
-    heading = static_cast<float>((90.0 - heading) * g_degreesToRadians);          // pi / 180
+    heading = static_cast<float>((90.0 - heading) * g_degreeToRadianRatio);          // pi / 180
     int r;
     params->FetchIntValue(kR, &r, 1);
     int g;
@@ -350,7 +350,7 @@ bool __cdecl CFunc_DrawDirectionalLightLines(Scripts::CStruct* params, Scripts::
 // 0x005B3470: InSlapGame: whether the game mode is netslap or slap.
 bool __cdecl CFunc_InSlapGame(Scripts::CStruct*, Scripts::CScript*)
 {
-    return GameModeName() == kNetSlap || GameModeName() == kSlap;
+    return ActiveRulesetLabel() == kNetSlap || ActiveRulesetLabel() == kSlap;
 }
 
 // 0x005B46A0: SetPreferencesFromUI <which preferences> string="..." field="name" [checksum=<value>] [time=n]
@@ -363,7 +363,7 @@ bool __cdecl CFunc_SetPreferencesFromUI(Scripts::CStruct* params, Scripts::CScri
     params->FetchText(kString, &string, 1);
     const char* field;
     params->FetchText("field", &field, 1);
-    CStruct* memory = Scripts::NewStruct();
+    CStruct* memory = Scripts::SpawnParamBag();
     CStruct* value = memory ? memory->PrepareAll() : nullptr;
     value->AppendWord(kUiString, Scripts::QBVAL_STRING, string);
     uint32_t checksum = 0;
