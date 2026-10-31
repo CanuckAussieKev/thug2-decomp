@@ -33,7 +33,9 @@
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
+#ifndef THUG2_STANDALONE
 #include "hook/selftest.h"
+#endif
 #include "hook/game_code.h"
 #include "game/obj/cutscene.h"
 #include "game/gfx/movie.h"
@@ -205,7 +207,9 @@ void ReleaseManager()
 void Manager::MainLoop()
 {
     // The test runner's EngineStarted stage: every engine module exists, the first frame is next.
+#ifndef THUG2_STANDALONE
     RunStageOnce(TestStage::EngineStarted);
+#endif
 
     uint8_t doneOnEntry = m_done;
     // The screen saver's timeout is set again every 201 frames, which restarts its idle time.

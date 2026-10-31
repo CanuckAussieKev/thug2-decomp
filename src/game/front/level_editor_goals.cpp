@@ -28,7 +28,7 @@
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/obj/compositemgr.h"
 
 namespace Front::LevelEditor::Goals {

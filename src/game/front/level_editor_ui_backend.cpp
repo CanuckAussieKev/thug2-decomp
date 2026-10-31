@@ -13,7 +13,7 @@
 #include "backends/imgui_impl_sdl2.h"
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 #include "game/gfx/device.h"
 #include "game/gfx/render.h"

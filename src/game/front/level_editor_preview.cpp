@@ -22,7 +22,7 @@
 #include "game/mth/matrix.h"
 #include "game/obj/object.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/gfx/pc_instance.h"
 
 namespace Front::LevelEditor::Preview {

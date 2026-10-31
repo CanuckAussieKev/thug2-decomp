@@ -29,7 +29,7 @@
 #include "game/sys/game_clock.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Skater::ThawBmx {
 

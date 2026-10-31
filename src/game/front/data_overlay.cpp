@@ -13,7 +13,7 @@
 #include "game/front/new_frontend.h"
 #include "game/gfx/hd_ui.h"
 #include "game/skate/thugpro_cas.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::DataOverlay {
 

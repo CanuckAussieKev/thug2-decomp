@@ -23,7 +23,7 @@
 #include "game/skate/skate_module.h"
 #include "game/sys/game_config.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Clusters {

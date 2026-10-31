@@ -17,7 +17,7 @@
 #include "game/front/level_editor_modules.h"
 #include "game/front/level_editor_organize.h"
 #include "game/front/level_editor_ui.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 

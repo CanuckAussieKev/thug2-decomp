@@ -57,7 +57,7 @@
 #include "game/script/qb.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace DebugCollision {
 

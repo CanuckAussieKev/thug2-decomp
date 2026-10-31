@@ -46,11 +46,8 @@ export function parseLinkErrors(log: string): Unresolved[] {
 export function category(symbol: string): string {
     if (symbol.includes("GameFunction<")) return "GameFunction";
     if (symbol.includes("GameVariable<")) return "GameVariable";
-    // (src/hook's: the log, the ini, the crash handler - to move into the game's source)
-    if (/\b(Log\w*|SetLog\w*|Config\w*|SetCrashHook|GameFolderPath|_thug2_decomp_before_exit)\b/.test(symbol))
-        return "hook: log / ini / crash";
     if (
-        /\b(Original\w*|RegisterReplacement|WriteGameCode|RestoreOriginal|ReplacementFunction|RunStageOnce|SelfTest\w*|Shadow\w*|\w*TestFault\w*)\b/.test(
+        /\b(Original\w*|RegisterReplacement|WriteGameCode|RestoreOriginal|ReplacementFunction|SelfTest\w*|Shadow\w*)\b/.test(
             symbol,
         )
     )

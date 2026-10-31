@@ -22,7 +22,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "hook/game_code.h"
 #include "game/core/stubs.h"
 #include "game/front/screen_element.h"

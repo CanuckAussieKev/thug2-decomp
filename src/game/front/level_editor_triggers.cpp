@@ -41,7 +41,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Triggers {

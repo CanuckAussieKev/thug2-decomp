@@ -22,7 +22,7 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_view.h"
 #include "game/obj/object.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::LevelEditor::Organize {
 

@@ -26,7 +26,7 @@
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::StartLevel {
 

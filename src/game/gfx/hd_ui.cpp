@@ -2,7 +2,7 @@
 
 #include "game/gfx/hd_ui.h"
 
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Nx::HdUi {
 

@@ -31,7 +31,7 @@
 #include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::LevelEditor::Arrange {
 

@@ -15,7 +15,7 @@
 #include "game/skater/skater.h"
 #include "game/sys/mlp.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Front::TestView {
 

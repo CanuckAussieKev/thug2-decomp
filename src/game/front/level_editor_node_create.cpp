@@ -23,7 +23,7 @@
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/gfx/light_manager.h"
 
 namespace Front::LevelEditor::NodeCreate {

@@ -17,7 +17,7 @@
 #include "game/front/level_editor_shared_coll.h"
 #include "game/front/level_editor_view.h"
 #include "game/nx/coll_tri.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 #include "imgui.h"
 

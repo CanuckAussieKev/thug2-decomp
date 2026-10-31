@@ -12,7 +12,7 @@
 #include "game/core/alloc.h"
 #include "game/core/manager.h"
 #include "game/core/memory_sizes.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Mem {
 

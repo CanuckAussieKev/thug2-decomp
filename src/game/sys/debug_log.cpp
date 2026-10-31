@@ -8,7 +8,7 @@
 #include <cstring>
 
 #include "game/sys/config.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace DebugLog {
 

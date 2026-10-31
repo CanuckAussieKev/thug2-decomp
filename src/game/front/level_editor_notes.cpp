@@ -14,7 +14,7 @@
 #include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_modules.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Notes {

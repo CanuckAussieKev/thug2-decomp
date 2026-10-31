@@ -12,7 +12,7 @@
 #include "game/front/new_frontend_mirror.h"
 #include "game/front/new_frontend_options.h"
 #include "game/front/new_frontend_text.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 

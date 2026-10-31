@@ -9,7 +9,7 @@
 #include "game/net/thugpro_peer.h"
 #include "game/script/struct.h"
 #include "game/sys/config.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace GameNet::Thugpro {
 

@@ -15,7 +15,7 @@
 #include "game/sys/mlp.h"
 #include "game/script/script_tables.h"
 #include "hook/hook.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/obj/movie_manager.h"
 
 namespace Sys::DebugMode {

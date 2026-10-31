@@ -11,7 +11,7 @@
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/core/game_vtables.h"
 
 namespace Front::LevelEditor::Walls {

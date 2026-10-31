@@ -23,7 +23,7 @@
 #include "game/sys/config.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 #include "game/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"
 #include "hook/game_code.h"

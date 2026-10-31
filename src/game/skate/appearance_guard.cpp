@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "game/script/struct.h"
-#include "hook/log.h"
+#include "game/sys/log.h"
 
 namespace Obj::AppearanceGuard {
 
