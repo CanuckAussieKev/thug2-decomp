@@ -28,9 +28,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/entity.h"
-#include "engine/core/stubs.h"
 
 namespace objects {
 
@@ -55,18 +53,17 @@ constexpr uint32_t kPedAddComponents = 0xF3EEC45E; // ped_add_components (a scri
 constexpr uint32_t kPedInitModel = 0x955A2767;     // ped_init_model (a script)
 constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a script)
 
-// A new component of `size` bytes from T's constructor (null if there's no memory).
-template <typename T>
-ObjectModule* new_component(unsigned int size)
+// A new component of `Size` bytes (the original's allocation) from T's constructor (null if there's no memory).
+template <typename T, unsigned int Size>
+ObjectModule* new_component()
 {
-    void* memory = memory::alloc_zeroed(size);
-    return memory ? static_cast<T*>(memory)->make_new() : nullptr;
+    static_assert(sizeof(T) == Size, "the original allocates this many bytes");
+    return new T;
 }
 // A component's configure_from_data (vtable +0x08).
 void init_component_from_structure(ObjectModule* component, script::Struct* params)
 {
-    reinterpret_cast<void(__thiscall*)(ObjectModule*, script::Struct*)>((*reinterpret_cast<void***>(component))[2])(
-        component, params);
+    component->configure_from_data(params);
 }
 // The model component's update after the object is finished (0x00420480).
 void update_model(ObjectModule* model) { static_cast<MeshInstanceModule*>(model)->jump_to(); }
@@ -88,18 +85,18 @@ void delete_structure(script::Struct* structure)
 // 0x0057B250
 void add_base_components(GameEntity* object)
 {
-    object->attach_module(new_component<DormancyModule>(0x4C)); // suspend
-    object->attach_module(new_component<CbBoxComponent>(0x4C)); // (type 0xB87C8E43)
+    object->attach_module(new_component<DormancyModule, 0x4C>()); // suspend
+    object->attach_module(new_component<CbBoxComponent, 0x4C>()); // (type 0xB87C8E43)
 }
 
 // 0x0057B2F0
 void add_motion_components(GameEntity* object)
 {
-    object->attach_module(new_component<KinematicsModule>(0x24C));        // motion
-    object->attach_module(new_component<ObjectProximityComponent>(0x30)); // objectproximity
-    object->attach_module(new_component<AudioEmitterModule>(0xC0));       // sound
-    object->attach_module(new_component<AudioStreamModule>(0x2C));        // stream
-    object->attach_module(new_component<PinnedObjectModule>(0x90));       // lockobj
+    object->attach_module(new_component<KinematicsModule, 0x24C>());        // motion
+    object->attach_module(new_component<ObjectProximityComponent, 0x30>()); // objectproximity
+    object->attach_module(new_component<AudioEmitterModule, 0xC0>());       // sound
+    object->attach_module(new_component<AudioStreamModule, 0x2C>());        // stream
+    object->attach_module(new_component<PinnedObjectModule, 0x90>());       // lockobj
 }
 
 // 0x0057B420
@@ -171,8 +168,7 @@ void spawn_automobile(script::Struct* params)
     auto* car = new GameEntity;
     add_base_components(car);
     car->change_species(kObjectTypeCar);
-    void* component = memory::alloc_zeroed(0x58);
-    car->attach_module(component ? static_cast<AutomobileDynamicsModule*>(component)->make_new() : nullptr);
+    car->attach_module(new_component<AutomobileDynamicsModule, 0x58>());
     level_nodes::fetch_place(params, &car->at_point_);
     object_hub_slot()->enrol_subject(car);
     set_up_automobile(car, params);

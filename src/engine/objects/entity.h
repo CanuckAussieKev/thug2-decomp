@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"
@@ -212,53 +213,74 @@ class GameEntity;
 // component belongs to one object (entity_) and is linked into its list (+0x10) and into the composite object
 // manager's list of the components of its type (+0x14; 0x006F0FB8, wt/coim's 0x0045F3E0 / 0x0045F420).
 //
-// The vtable's slots (from their callers): +0x00 the scalar deleting destructor; +0x04 Update; +0x08
-// configure_from_data(params); +0x0C Finalize; +0x10 its object is being marked dead; +0x18 a script waiting on it
-// (cscript_wait.cpp); +0x1C hold_off(bool); +0x20 conceal(bool); +0x24 Teleport; +0x2C a member function table entry
-// (0x0045D720: by its name, +0x30); +0x30 a member function by name: 0 = false, 1 = true, 2 = not one of its own.
+// The virtuals are the original's slots in order (0 the destructor): 1 Update, 2 configure_from_data, 3 Finalize,
+// 5 reapply_from_data, 6 a script waiting on it (cscript_wait.cpp), 7 hold_off, 8 conceal, 9 Teleport,
+// 10 fetch_diagnostics, 11 a member function table entry, 12 a member function by name. Slot 4 (its object is being
+// marked dead) is the same empty stub in every component's table: a plain method. The components with more slots
+// (13-15: the model, the collision, the peds, the node lists) have them as plain methods of their own.
+//
+// Components are made from the current heap, zeroed (the original's makers), and deleted back to it. Not a
+// memory::HeapObject: the scripts' member function tables name component methods through code_address, which an
+// empty base would turn into the multiple-inheritance member pointer form.
 class ObjectModule {
 public:
-    // 0x0045D730: the constructor (returns this): the base vtable, no flags.
-    ObjectModule* make_new();
-    // 0x0045D740: the destructor body: if a script waited on it, every script lets go of it
+    static void* operator new(std::size_t size) noexcept
+    {
+        return memory::alloc_zeroed(static_cast<unsigned int>(size));
+    }
+    static void operator delete(void* memory);
+    static void* operator new(std::size_t, void* place) noexcept { return place; }
+    static void operator delete(void*, void*) noexcept {}
+
+    // 0x0045D730: no flags (the rest is the zeroed memory it is made in).
+    ObjectModule() : flag_bits_(0) {}
+    // 0x0045D740 (0x0045D780 the deleting one): if a script waited on it, every script lets go of it
     // (component_destroyed_all_scripts).
-    void destroy_body();
-    // 0x0045D780: the scalar deleting destructor (the base's vtable slot 0).
-    ObjectModule* teardown(unsigned int flags);
-    // 0x0045D760 (vtable +0x1C): suspended or not (a suspended component isn't updated).
-    void hold_off(bool suspend);
-    // 0x0045D720 (vtable +0x2C): a member function table entry, run by its name (vtable +0x30) - a component
-    // ignores the entry's member function pointer.
-    int invoke_method_by_name(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
-    // 0x0042BB20 (vtable +0x2C of most components, shared): the entry's member function pointer (on `this` moved by
-    // the entry's adjustment), or, with none, vtable +0x30 by the entry's name. Returns what that returns.
+    virtual ~ObjectModule();
+
+    ObjectModule(const ObjectModule&) = delete;
+    ObjectModule& operator=(const ObjectModule&) = delete;
+
+    // 0x0051B970 (slot 1, Update - pure in the base's table; this body is the one every component with nothing to
+    // update shares): suspends itself (hold_off), so it isn't updated again.
+    virtual void tick_frame();
+    // (slot 2 - pure in the base's table; the components without settings share an empty stub) Set up from `params`.
+    virtual void configure_from_data(script::Struct* /*params*/) {}
+    // (slot 3, Finalize) Once the object has all its components: nothing here.
+    virtual void seal() {}
+    // (slot 4, the same empty stub in every table) Its object is being marked dead.
+    void object_marked_dead() {}
+    // 0x004E3F90 (slot 5, a tail jump to slot 2): set up again from `params`.
+    virtual void reapply_from_data(script::Struct* params) { configure_from_data(params); }
+    // (slot 6, cscript_wait.cpp: a script waiting on the component with `arg` asks it whether to stop waiting) Nothing
+    // here.
+    virtual void step_wait_state(script::Script* /*script*/, uint32_t /*arg*/) {}
+    // 0x0045D760 (slot 7): suspended or not (a suspended component isn't updated).
+    virtual void hold_off(bool suspend);
+    // (slot 8) Its object hidden or shown: nothing here.
+    virtual void conceal(bool /*hide*/) {}
+    // (slot 9, Teleport) Its object was moved without passing in between: nothing here.
+    virtual void jump_to() {}
+    // (slot 10) Its debug details added to `info`: nothing here.
+    virtual void fetch_diagnostics(script::Struct* /*info*/) {}
+    // 0x0045D720 (slot 11): a member function table entry, run by its name (invoke_method_by_name) - the base ignores
+    // the entry's member function pointer.
+    virtual int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
+    // 0x0051ADC0 (slot 12, the base's and every component's without member functions of its own): a member function
+    // by name: 0 = false, 1 = true, 2 = not one of its own.
+    virtual int invoke_method_by_name(uint32_t /*name*/, script::Struct* /*params*/, script::Script* /*script*/)
+    {
+        return 2;
+    }
+
+    // 0x0042BB20 (slot 11 of most components, shared): the entry's member function pointer (on `this` moved by the
+    // entry's adjustment), or, with none, invoke_method_by_name by the entry's name. Returns what that returns.
     int dispatch_script_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
+    // 0x0041D700 (slot 11 of the flexible particle and animation blender components, shared): as
+    // dispatch_script_method, but the member function is given the entry's name too.
+    int dispatch_named_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
+                                     script::Script* script);
 
-    // --- the vtable ---
-    ObjectModule* virtual_destroy(unsigned int flags)
-    {
-        return reinterpret_cast<ObjectModule*(__thiscall*)(ObjectModule*, unsigned int)>(vtable_[0])(this, flags);
-    }
-    void tick_frame() { reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[1])(this); }
-    void configure_from_data(script::Struct* params)
-    {
-        reinterpret_cast<void(__thiscall*)(ObjectModule*, script::Struct*)>(vtable_[2])(this, params);
-    }
-    void seal() { reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[3])(this); }
-    void object_marked_dead() { reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[4])(this); }
-    void virtual_suspend(bool suspend)
-    {
-        reinterpret_cast<void(__thiscall*)(ObjectModule*, bool)>(vtable_[7])(this, suspend);
-    }
-    void conceal(bool hide) { reinterpret_cast<void(__thiscall*)(ObjectModule*, bool)>(vtable_[8])(this, hide); }
-    void jump_to() { reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[9])(this); }
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
-    {
-        return reinterpret_cast<int(__thiscall*)(ObjectModule*, uint32_t, script::Struct*, script::Script*)>(
-            vtable_[12])(this, name, params, script);
-    }
-
-    void** vtable_;
     uint32_t kind_tag_;          // +0x04 its component type (a checksum)
     uint32_t flag_bits_;         // +0x08 COMPONENT_FLAG_*
     GameEntity* entity_;         // +0x0C
@@ -267,8 +289,8 @@ public:
 };
 static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == 0x08 &&
                   offsetof(ObjectModule, entity_) == 0x0C && offsetof(ObjectModule, following_) == 0x10 &&
-                  offsetof(ObjectModule, next_of_type_) == 0x14,
-              "layout must match the original");
+                  offsetof(ObjectModule, next_of_type_) == 0x14 && sizeof(ObjectModule) == 0x18,
+              "layout must match the original (the components' fields start at 0x18)");
 
 // ObjectModule::flag_bits_ (+0x08)
 constexpr uint32_t kComponentFlagSuspended = 0x1;

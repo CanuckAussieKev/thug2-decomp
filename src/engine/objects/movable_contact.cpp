@@ -11,9 +11,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -24,8 +22,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
-
 constexpr float kFeelerTop = 400.0f;  // 0x00646288
 constexpr float kFeelerBottom = 6.0f; // 0x00646284
 constexpr float kNudge = 0.1f;        // 0x00645D74 (as the float it is)
@@ -35,34 +31,18 @@ float get_sum(float a, double b) { return static_cast<float>(static_cast<double>
 } // namespace
 
 // 0x00427AB0
-ObjectModule* __cdecl MovingSurfaceModule::fabricate()
+ObjectModule* __cdecl MovingSurfaceModule::fabricate() { return new MovingSurfaceModule; }
+
+// (the constructor: inlined in fabricate in the original)
+MovingSurfaceModule::MovingSurfaceModule()
 {
-    auto* contact = static_cast<MovingSurfaceModule*>(memory::alloc_zeroed(sizeof(MovingSurfaceModule)));
-    if (!contact)
-        return nullptr;
-    contact->ObjectModule::make_new();
-    contact->vtable_ = kVtable;
-    contact->kind_tag_ = kType;
-    contact->ride_ = nullptr;
-    contact->stop_time_ = 0;
-    return contact;
+    kind_tag_ = kType;
+    ride_ = nullptr;
+    stop_time_ = 0;
 }
 
-// 0x004276C0
-void MovingSurfaceModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x004276D0
-MovingSurfaceModule* MovingSurfaceModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004276C0 (0x004276D0 the deleting one)
+MovingSurfaceModule::~MovingSurfaceModule() {}
 
 // 0x00427700
 GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::Vec4* hit)
@@ -218,26 +198,3 @@ void MovingSurfaceModule::update_contact_point()
 } // namespace objects
 
 using objects::MovingSurfaceModule;
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &MovingSurfaceModule::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
-} // namespace objects

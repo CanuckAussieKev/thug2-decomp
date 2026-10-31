@@ -23,7 +23,7 @@ namespace objects {
 
 class AnimBlenderComponent;
 
-class RiderTeeterMoves : public ObjectModule {
+class RiderTeeterMoves final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x589E5FB3;
     // The balance trick types (trick_).
@@ -34,18 +34,21 @@ public:
     static ObjectModule* __cdecl fabricate();
     // 0x004F8CD0 (registered with the type): the member function table 0x00683238 (in_balance_move).
     static void __cdecl publish_method_table();
-    // 0x004F8F80: the constructor (returns this): the four balances made, no physics structure, no anim component.
-    RiderTeeterMoves* make_new();
-    // 0x004F8CF0: the destructor body (the balances', last first, then the base's). 0x004F9010 (vtable slot 0).
-    void destroy_body();
-    RiderTeeterMoves* teardown(unsigned int flags);
+    // 0x004F8F80: the four balances made, no physics structure, no anim component.
+    RiderTeeterMoves();
+    // 0x004F8CF0: the destructor body (the balances', last first, then the base's). (0x004F9010 the deleting one)
+    ~RiderTeeterMoves() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x004F9040 (vtable slot 2): each balance given the skater. `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004F9080 (vtable slot 3): the anim blender component (0x7149B753).
-    void seal();
+    void seal() override;
     // 0x004F9420 (vtable slot 12): SwitchOffBalanceMeter, SwitchOnBalanceMeter, StartBalanceTrick, AdjustBalance,
     // SetWobbleDetails, StopBalanceTrick, DoBalanceTrick; 2 for other names.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004F8D70 (the member function in_balance_move, from the table; not a Ghidra function): whether one was
     // started (StartBalanceTrick). Its parameters aren't read.
     int in_balance_move(script::Struct* params, script::Script* script);

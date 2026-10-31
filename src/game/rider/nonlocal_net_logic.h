@@ -20,28 +20,25 @@ struct GrindPoint;
 // invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
-class RiderRemoteSync : public ObjectModule {
+class RiderRemoteSync final : public ObjectModule {
 public:
     static constexpr int kHistory = 20;
 
     // 0x005147F0 (registered by register_component_types): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x005144E0: the base, its vtable and type, no components, the two positions (0, 0, 0, 1), no updates. Returns
-    // this.
-    RiderRemoteSync* make_new();
+    // 0x005144E0: its type, no components, the two positions (0, 0, 0, 1), no updates.
+    RiderRemoteSync();
     // 0x005144B0: the destructor body (the base's).
-    void destroy_body();
-    // 0x00514550 (vtable slot 0)
-    RiderRemoteSync* teardown(unsigned int flags);
+    ~RiderRemoteSync() override;
     // 0x00514580 (vtable +0x0C): the state history, state, end run, animation blender, flip-and-rotate, model and
     // shadow components found.
-    void seal();
+    void seal() override;
     // 0x00517270 (vtable +0x04): the frame: the light and shadow from the ground (update_ground_lighting), the state
     // played back (Interpolate); when this machine's player plays (not observing) in a game that extrapolates
     // (0x00534340, or firefight) and the history is full, extrapolated (on a rail extrapolate_on_rail, else Extrapolate
     // and settle_onto_floor); the history's events (play_history_events); the out-of-a-lip flag; driving in or out told to
     // the scripts (0x7853F8C4 / 0x0F02E44F with skaterId / control_type); the looping sound kept to the state.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x005144D0: the playback restarted (the synced time and the last event time cleared).
     void reset_playback();

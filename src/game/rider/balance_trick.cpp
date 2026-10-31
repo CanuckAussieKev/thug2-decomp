@@ -14,9 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/rider.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
@@ -26,8 +24,6 @@ namespace objects {
 uint32_t g_balance_trick_member_functions[12]{0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0, 0, 0x589E5FB3, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kAnimBlender = 0x7149B753, kSkaterScore = 0xD262802F;
 
@@ -61,11 +57,7 @@ script::Struct* spawn_param_bag()
 } // namespace
 
 // 0x004F9170
-ObjectModule* __cdecl RiderTeeterMoves::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderTeeterMoves));
-    return memory ? static_cast<RiderTeeterMoves*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl RiderTeeterMoves::fabricate() { return new RiderTeeterMoves; }
 
 // 0x004F8CD0
 void __cdecl RiderTeeterMoves::publish_method_table()
@@ -74,35 +66,18 @@ void __cdecl RiderTeeterMoves::publish_method_table()
 }
 
 // 0x004F8F80
-RiderTeeterMoves* RiderTeeterMoves::make_new()
+RiderTeeterMoves::RiderTeeterMoves()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
-    new (&manual_) Balance;
-    new (&grind_) Balance;
-    new (&lip_) Balance;
-    new (&skitch_) Balance;
+    // (the four balances - manual_, grind_, lip_, skitch_ - are constructed first, as members)
     kind_tag_ = kType;
     anim_blender_ptr_ = nullptr;
     call_args_ = nullptr;
-    return this;
 }
 
-// 0x004F8CF0
-void RiderTeeterMoves::destroy_body()
+// 0x004F8CF0 (0x004F9010 the deleting one)
+RiderTeeterMoves::~RiderTeeterMoves()
 {
-    vtable_ = kVtable;
     // (the balances' destructors do nothing)
-    ObjectModule::destroy_body();
-}
-
-// 0x004F9010
-RiderTeeterMoves* RiderTeeterMoves::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004F9040
@@ -366,25 +341,4 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::RiderTeeterMoves::teardown,
-                                      &objects::ComponentWithoutUpdate::tick_frame,
-                                      &objects::RiderTeeterMoves::configure_from_data,
-                                      &objects::RiderTeeterMoves::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::RiderTeeterMoves::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

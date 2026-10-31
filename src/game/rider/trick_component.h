@@ -52,7 +52,7 @@ static_assert(sizeof(QueuedTrick) == 0x14, "layout must match the original");
 // by offset (named in trick_queue.cpp).
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 3 Finalize (0x0051F2B0), 12 invoke_method_by_name.
-class MoveExecutor : public ObjectModule {
+class MoveExecutor final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x270F56E1;
     static constexpr int kEvents = 100;
@@ -64,7 +64,7 @@ public:
 
     // 0x0051F2B0 (vtable Finalize): the skater's input, balance trick, core physics, flip and rotate, state and stats
     // manager components.
-    void seal();
+    void seal() override;
     // 0x0051F320: everything cleared (the events, the queue, the lists, the buttons' state).
     void get_reset();
     // 0x0051EAB0 / 0x0051EB30 / 0x0051EF00: the extra trick lists / the +0x1238 block / the +0x1280 block cleared.
@@ -137,17 +137,20 @@ public:
     // --- 0x00521BA0-0x00524411 (trick_queue.cpp, trick_member_functions.cpp) ---
     // 0x00523490: a new one (0 if out of memory): 0x1BC0 bytes, constructed.
     static ObjectModule* __cdecl fabricate();
-    // 0x00522390: the constructor: the base's, its vtable and type, its trick object list (+0x13B4), no trick
-    // mappings, no components, reset (0x0051F320). Returns this.
-    MoveExecutor* make_new();
+    // 0x00522390: its type, its trick object list (+0x13B4), no trick
+    // mappings, no components, reset (0x0051F320).
+    MoveExecutor();
     // 0x005234F0: the destructor body: its trick mappings structure freed, then the base's. 0x005243F0 (slot 0):
     // the scalar deleting destructor.
-    void destroy_body();
-    MoveExecutor* teardown(unsigned int flags);
+    ~MoveExecutor() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x005231D0 (slot 1): one frame (suspended - vtable +0x1C - while its object is: the object's +0xBC clear):
     // the buttons, the balance trick's buttons, the extra tricks, 0x00521A10, the manual tricks (the pending one
     // dropped after its time), the extra grind tricks (likewise), button mashing.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x00522410: the trick mapping structure (made if needed) filled from `profile`: its 12 special trick slots
     // (keys = trick, an integer when the slot's flag is set, else a name), then its trick_mapping info.
@@ -226,7 +229,7 @@ public:
     // buffer (ClearEventBuffer, RestoreEvents, UseGrindEvents, 0x070E934D), mashing (BashOn / BashOff, the quick
     // getup), the trick display (SetTrickName, SetTrickScore, display), ClearPanel_Landed / ClearPanel_Bailed.
     // 1 / 0 for true / false, 2 for a name it doesn't know.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // --- member functions reached through their records (the table at 0x00683148) ---
     // 0x00522280 (Pressed): whether the unnamed button was pressed within dur= (15) ms (0x0051F6B0).
@@ -254,21 +257,22 @@ public:
     uint32_t ignored_[2]; // +0xA1C
     bool unknowna24_;     // +0xA24
     uint8_t pada25_[3];
-    script::Struct* trick_lists_; // +0xA28
-    int queue_first_;             // +0xA2C
-    int queue_last_;              // +0xA30
-    QueuedTrick queue_[100];      // +0xA34
-    int extra_list_count_;        // +0x1204
-    uint32_t extra_lists_[10];    // +0x1208
-    uint32_t manual_list_;        // +0x1230
-    uint32_t list_used_;          // +0x1234
+    script::Struct* trick_lists_;          // +0xA28
+    int queue_first_;                      // +0xA2C
+    int queue_last_;                       // +0xA30
+    QueuedTrick queue_[100];               // +0xA34
+    int extra_list_count_;                 // +0x1204
+    uint32_t extra_lists_[10];             // +0x1208
+    uint32_t manual_list_;                 // +0x1230
+    uint32_t list_used_;                   // +0x1234
+    uint8_t unknown1238_[0x1BC0 - 0x1238]; // +0x1238 (allocated by the original's 0x00523490; not used here)
 };
 static_assert(offsetof(MoveExecutor, input_) == 0x20 && offsetof(MoveExecutor, events_) == 0x38 &&
                   offsetof(MoveExecutor, event_count_) == 0x998 && offsetof(MoveExecutor, button_map_) == 0x99C &&
                   offsetof(MoveExecutor, held_off_until_) == 0x9A8 && offsetof(MoveExecutor, btn_down_) == 0xA00 &&
                   offsetof(MoveExecutor, ignored_count_) == 0xA18 && offsetof(MoveExecutor, trick_lists_) == 0xA28 &&
                   offsetof(MoveExecutor, queue_) == 0xA34 && offsetof(MoveExecutor, extra_list_count_) == 0x1204 &&
-                  offsetof(MoveExecutor, manual_list_) == 0x1230,
+                  offsetof(MoveExecutor, manual_list_) == 0x1230 && sizeof(MoveExecutor) == 0x1BC0,
               "layout must match the original");
 
 // 0x0051EA40: whether `button` is one of the d-pad's eight directions (Up, Down,

@@ -1653,16 +1653,6 @@ void walk::MovableContact::start_riding(objects::GameEntity* object)
 namespace objects {
 
 // 0x0043D930
-ObjectModule* __cdecl create_wait_and_die_component()
-{
-    void* memory = memory::alloc_zeroed(0x28);
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<ObjectModule*>(memory);
-    component->make_new();
-    *reinterpret_cast<void***>(component) = kWaitAndDieVtable; // its vtable
-    reinterpret_cast<uint32_t*>(component)[1] = 0x03AC8065;    // its type
-    return component;
-}
+ObjectModule* __cdecl create_wait_and_die_component() { return new WaitAndDieComponent; }
 
 } // namespace objects

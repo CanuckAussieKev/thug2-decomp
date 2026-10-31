@@ -19,20 +19,24 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor; the rest the base's / shared (1 0x0051B970, 2 / 8 / 10 0x005BAB90, 3 / 4 /
 // 9 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 11 0x0042BB20, 12 0x0051ADC0).
-class FamComponent : public ObjectModule {
+class FamComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x0301D67C;
 
     // 0x0041D200 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no fam, no stream; 0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    FamComponent();
     // 0x0041D170 (not a Ghidra function; registered with Create): its member functions' table (0x006836E8; the
     // functions are put in by the static initialiser at 0x00642B30).
     static void __cdecl publish_method_table();
     // 0x0041D190: the base's body.
-    void destroy_body();
-    // 0x0041D1A0 (vtable slot 0)
-    FamComponent* teardown(unsigned int flags);
+    ~FamComponent() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
 
     // 0x0041D2C0: the loaded fam's scripts (fam_play_stream) stopped, its anim controller removed from the animation
     // blender (RemoveAnimController type=partialAnim id=jawRotation), the asset unloaded; none loaded.

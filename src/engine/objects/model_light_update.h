@@ -24,27 +24,27 @@ constexpr uint32_t kModelLightSampled = 0x2; // the first sample taken
 // towards it in between.
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the rest the base's / shared.
-class MeshLightingModule : public ObjectModule {
+class MeshLightingModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xE3FCA939;
 
     // 0x00422DC0 (registered with the composite object manager): a new one (the constructor inlined: the base's, its
     // vtable, no flags, interval or brightness, its type; 0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x00422D00: its vtable back, then the base's body.
-    void destroy_body();
-    // 0x00422D10 (vtable slot 0)
-    MeshLightingModule* teardown(unsigned int flags);
+    // The constructor (inlined in fabricate in the original).
+    MeshLightingModule();
+    // 0x00422D00: the base's.
+    ~MeshLightingModule() override;
     // 0x00422D40 (vtable slot 2): kModelLightOnce from flag 0xE7375C4C; the interval from 0x470B8AE9 (default 0: every
     // frame), the counter starting at (this component's address % interval) + 1 - spreading objects' samples over the
     // frames (an interval of 0 given: a division by zero, as the original).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00422DA0 (vtable slot 3): its object's model component.
-    void seal();
+    void seal() override;
     // 0x004230B0 (vtable slot 1): the first time, a sample (set at once); then, until the counter passes the
     // interval, the lights lerped towards the brightness (by 0.02); once it does, back to 0 and a sample (lerped) -
     // or, kModelLightOnce, the component suspended.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00422E40: the brightness of the face under the object given to the model component (lerped by `rate` with
     // `lerp`) and kept; nothing hit: nothing.
     void get_sample(bool lerp, float rate);

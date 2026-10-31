@@ -25,28 +25,26 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize, 8 Hide (the shadow),
 // 12 invoke_method_by_name; the rest the base's / shared.
-class EditorViewModule : public ObjectModule {
+class EditorViewModule final : public ObjectModule {
 public:
     // 0x004E5940 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x004E5060: the base's constructor; the points (0, 0, 0, 1), everything else 0. Returns this.
-    EditorViewModule* make_new();
+    // 0x004E5060: the points (0, 0, 0, 1), everything else 0.
+    EditorViewModule();
     // 0x004E5100: the shadow deleted, then the base's destructor body.
-    void destroy_body();
-    // 0x004E59A0 (slot 0)
-    EditorViewModule* teardown(unsigned int flags);
+    ~EditorViewModule() override;
     // 0x004E4ED0 (slot 2): min_height (0), the zoom range 0x52EECB98 / 0x53E2512C (100 / 2000), the flags
     // SimpleCollision and 0xF5680DEF.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004E51F0 (slot 3): the object's Input component.
-    void seal();
+    void seal() override;
     // 0x004E59D0 (slot 8): hidden - no shadow; shown - the shadow made.
-    void conceal(bool hide);
+    void conceal(bool hide) override;
     // 0x004E5210 (slot 12): 0x69CB3AE1 puts the cursor at Position= (asserted) and updates; 0xF362BBBF puts it
     // there quietly (zoom 0xC48391A5 700, tilt 0.6, height 0xB8D629CA 0). 2 for anything else.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004E5C20 (slot 1): one frame (see the class).
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004E5170: the shadow made if there's none (a simple shadow, scale 1.2, "Ped_Shadow").
     void build_blob_shadow();

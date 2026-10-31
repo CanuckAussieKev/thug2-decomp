@@ -21,21 +21,21 @@ class Struct;
 // invoke_method_by_name; the rest the base's or empty.
 namespace objects {
 
-class TowRideHandler : public ObjectModule {
+class TowRideHandler final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x3506CE64;
 
     // 0x0051BA10 (registered with the composite object manager): a new one, skitching allowed (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    TowRideHandler();
     // 0x0051B960: the destructor body (the base's).
-    void destroy_body();
-    // 0x0051B980 (vtable slot 0)
-    TowRideHandler* teardown(unsigned int flags);
+    ~TowRideHandler() override;
     // 0x0051B9B0 (vtable slot 2): the object's hook manager (`params` isn't read).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0051B9D0 (vtable slot 12): Obj_AllowSkitching (0xC38CCE3B) - allowed unless the flag "off" is given; true.
     // Other names: 2 (not mine). (Ghidra splits it at 0x0051B9D8, after the first compare.)
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x0051BA70: the hook point nearest `target` (its squared distance), each point on the car: its node through
     // the object's matrix and position, its height above the car dropped (projected onto the car's plane - the
@@ -53,11 +53,5 @@ public:
 static_assert(offsetof(TowRideHandler, allowed_) == 0x18 && offsetof(TowRideHandler, hooks_) == 0x1C &&
                   sizeof(TowRideHandler) == 0x20,
               "layout must match the original");
-
-// The components with nothing to update (the state history, skitch, special item, tagging, avoid components...).
-struct ComponentWithoutUpdate : ObjectModule {
-    // 0x0051B970 (vtable slot 1): suspends itself (vtable +0x1C), so it isn't updated again.
-    void tick_frame();
-};
 
 } // namespace objects

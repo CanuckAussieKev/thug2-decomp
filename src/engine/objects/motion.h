@@ -56,21 +56,23 @@ constexpr uint32_t kMotion2LevelHeading = 0x400;   // the path's heading kept le
 // step_wait_state, 7 the base's Suspend, 8 / 10 the empty 0x005BAB90, 11 0x0042BB20 (the table entry's member function,
 // else slot 12), 12 invoke_method_by_name. Its member functions are in the table at 0x00681EB8 (registered by
 // 0x00423130; the member function pointers filled in by the dynamic initialiser 0x00640E30).
-class KinematicsModule : public ObjectModule {
+class KinematicsModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x0A015E17;
 
     // --- life ---
     // 0x00426650 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
     static ObjectModule* __cdecl fabricate();
-    // 0x00424AA0: the constructor (returns this): the base's, its vtable and type, no path follower or path group,
+    // 0x00424AA0: its type, no path follower or path group,
     // only the ground's height taken (+0x70), no ground offset; then Reset.
-    KinematicsModule* make_new();
+    KinematicsModule();
     // 0x00424AE0: the destructor body: the path follower deleted (its vtable), the turn's interpolator and the
     // follow trail freed, then the base's.
-    void destroy_body();
-    // 0x004266F0 (vtable slot 0): the scalar deleting destructor.
-    KinematicsModule* teardown(unsigned int flags);
+    ~KinematicsModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00423D00: every motion setting back to rest (identity-like vectors, no flags, no speeds); +0x70 and the
     // pointers are kept.
     void get_reset();
@@ -79,20 +81,20 @@ public:
 
     // --- the vtable ---
     // 0x00426720 (slot 2): its node (Name, 0 if none) as both nodes; oriented to that node (0x00425970).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004236C0 (slot 6): a script waiting on it (wait types 5-9) stops waiting when what it waits for is over: 5
     // moving (kMotionMoveMask), 7 the jump, 8 the path's speed down to 0 (not above 0), 9 turning
     // (kMotionRotateMask); 6 never.
-    void step_wait_state(script::Script* script, uint32_t arg);
+    void step_wait_state(script::Script* script, uint32_t arg) override;
     // 0x004274D0 (slot 12): Obj_MoveToNode (0x8819DD8B) runs glide_to_node (0x00426C10), 1; anything else 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x004270E0 (slot 1): the frame's length (slow motion included); hovering (back to the base height, then the
     // bob), the axes' turns (0x00425C70), Obj_Rotate's turn (0x00424440), then moving to a point, along a path or
     // after a leader (the first that applies), the jump (0x00424870: the position it gives); the ground offset
     // eased in (384 per second squared towards it, the speed zeroed when it changes direction or overshoots);
     // objects with ids over 15 (not skaters) get their matrix as the display matrix.
-    void tick_frame();
+    void tick_frame() override;
 
     // --- the update's parts ---
     // 0x00423740: the hover's bob for now: sin(2 pi * (the game clock mod the period) / period) * amplitude (the

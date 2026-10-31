@@ -18,22 +18,22 @@ namespace objects {
 
 // The tagging component (Tagging, type 0x5B512EDC, vtable 0x0064C330, 0x24 bytes; made by 0x0051DA80).
 // Vtable: 0 Destroy, 1 Update 0x0051B970 (shared: suspends itself), 2 configure_from_data, 12 invoke_method_by_name.
-class TaggingComponent : public ObjectModule {
+class TaggingComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x5B512EDC;
 
     // 0x0051DA80 (registered with the composite object manager): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    TaggingComponent();
     // 0x0051D760: the destructor body: both textures given back, then the base's.
-    void destroy_body();
-    // 0x0051D860 (vtable slot 0)
-    TaggingComponent* teardown(unsigned int flags);
+    ~TaggingComponent() override;
     // 0x0051D890 (vtable slot 2): its own copies of tags\cas_01 and tags\sticker, keyed by the skater number
     // (0xA2B033FD of `params`; without it, what its slot held: `params` itself).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0051DB00 (vtable slot 12): SetGraffitiTexture / SetStickerTexture (the unnamed string), HasCustomTagTexture,
     // ApplyCustomTagTexture. Other names: 2 (not mine).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x0051D830: the custom tag texture (0xAA286543) put on the graffiti texture.
     void apply_custom_tag_texture();
@@ -56,26 +56,28 @@ static_assert(offsetof(TaggingComponent, graffiti_) == 0x1C && sizeof(TaggingCom
 
 // The tagging control component (TaggingControl, type 0x380D909A, vtable 0x0064C394, 0x38 bytes; made by 0x0051E280).
 // Vtable: 0 Destroy, 1 Update (0x0051EA30, a jump to 0x0051E390), 3 Finalize, 12 invoke_method_by_name.
-class TaggingControlComponent : public ObjectModule {
+class TaggingControlComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x380D909A;
 
     // 0x0051E280 (registered with the composite object manager): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    TaggingControlComponent();
     // 0x0051DD50: the destructor body (the base's).
-    void destroy_body();
-    // 0x0051DD60 (vtable slot 0)
-    TaggingControlComponent* teardown(unsigned int flags);
+    ~TaggingControlComponent() override;
     // 0x0051DD90 (vtable slot 3): the skater's walk, input, core physics, trigger and tagging components.
-    void seal();
+    void seal() override;
     // 0x0051E300 (vtable slot 12): TagNow, VertStickerSlap, TagClearFlags, BlockTaggingOn / Off. Other names: 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    // 0x0051E390 (vtable slot 1, through 0x0051EA30): a walking skater (not blocked, out of its cooldown) tagging:
+    // 0x0051EA30 (vtable slot 1): a jump to try_tagging.
+    void tick_frame() override { try_tagging(); }
+    // 0x0051E390: a walking skater (not blocked, out of its cooldown) tagging:
     // the tag button tapped - feelers from the tagging bone in six directions ahead find the nearest wall; the first
     // tap starts the tag (script 0x8C92DEA3 / 0x5213AFD6, 30 frames), the next one places it (bigger with a bigger
     // score) and starts the cooldown. Returns whether it got past the checks.
-    bool tick_frame();
+    bool try_tagging();
     // 0x0051DDF0: a sticker slapped (or with `sticker` false, a tag sprayed) on the wall the skater faces from the
     // air: a feeler along its facing (`walking`: the walk component's heading; `low`: the lower spray height) finds
     // the wall; a sticker is only marked the first time and placed the next. False before the cooldown or the

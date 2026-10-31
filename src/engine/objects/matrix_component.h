@@ -13,20 +13,19 @@ namespace objects {
 // matrix (cutscene_update.cpp, where the type is called kSfxModuleSlot). Vtable: 0 the scalar deleting destructor;
 // 1 Update; 2 and 7 / 8 / 10 the empty 0x005BAB90; 3 / 4 / 9 the empty 0x005480A0; 5 the shared 0x004E3F90; 12
 // invoke_method_by_name 0x0051ADC0.
-class MatrixComponent : public ObjectModule {
+class MatrixComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x208353AC;
 
     // 0x0041CB20 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0041CAD0: the base's constructor, its vtable and type, the matrix the identity. Returns this.
-    MatrixComponent* make_new();
+    // 0x0041CAD0: its type, the matrix the identity.
+    MatrixComponent();
     // 0x0041CA60: the base's body.
-    void destroy_body();
-    // 0x0041CA70 (vtable slot 0)
-    MatrixComponent* teardown(unsigned int flags);
+    ~MatrixComponent() override;
+    void hold_off(bool /*suspend*/) override {} // (slot 7: never suspended)
     // 0x0041CAA0 (vtable slot 1): the object's display matrix = the matrix.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0041CAC0: the matrix set.
     void change_mat(const maths::Mat4* matrix);
 

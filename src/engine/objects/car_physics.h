@@ -21,7 +21,7 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the rest the base's / shared (4
 // / 9 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 11 0x0042BB20, 12 0x0051ADC0).
-class AutomobileDynamicsModule : public ObjectModule {
+class AutomobileDynamicsModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xC695136D;
 
@@ -41,21 +41,23 @@ public:
     // 0x0041B910 (not a Ghidra function; registered with Create): its member functions' table (0x006846A8; the
     // functions are put in by the static initialiser at 0x00643E80).
     static void __cdecl publish_method_table();
-    // 0x0041BAD0: the base's constructor, its vtable and type, no spin or steering, the body shown. Returns this.
-    AutomobileDynamicsModule* make_new();
+    // 0x0041BAD0: its type, no spin or steering, the body shown.
+    AutomobileDynamicsModule();
     // 0x0041B930: the base's body.
-    void destroy_body();
-    // 0x0041BB00 (vtable slot 0)
-    AutomobileDynamicsModule* teardown(unsigned int flags);
+    ~AutomobileDynamicsModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x0041B940 (vtable slot 2): the tilt's minimum (0x877DB8DA), maximum (0xFB3464DF), rate (0xFD8BC8D6) and
     // acceleration divisor (0xB2C7447B): the script globals of those names, overridden by `params`.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041BE10 (vtable slot 3): the object's motion, suspend, skeleton and model components; with a skeleton, its
     // skeleton and the model, and the distance between the positions of bones 2 and 4 (each times bone 0's matrix).
-    void seal();
+    void seal() override;
     // 0x0041C1B0 (vtable slot 1): unless suspended (the suspend component's +0x30, or it says not to update), dead or
     // without a skeleton: update_angles, then update_bones.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x0041BB30: the wheels' spin (the motion's speed; kept within 0-360), the steering (towards
     // -asin(wheel_base_ / the distance to the path follower's point) - negated for a negative turn, 0 without one or

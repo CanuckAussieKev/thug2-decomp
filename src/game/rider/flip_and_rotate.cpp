@@ -16,9 +16,7 @@
 #include "platform/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -28,7 +26,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kModel = 0x286A8D26, kAnimBlender = 0x7149B753,
                    kSkaterState = 0x43686585;
@@ -82,36 +79,19 @@ int get_skater_index(GameEntity* skater) { return prop<int>(skater, 0x2BC); }
 } // namespace
 
 // 0x00511470
-ObjectModule* __cdecl RiderSpinAndFlip::fabricate()
+ObjectModule* __cdecl RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderSpinAndFlip::RiderSpinAndFlip()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderSpinAndFlip));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderSpinAndFlip*>(memory);
-    component->ObjectModule::make_new();
-    component->anim_blender_ = nullptr;
-    component->mesh_set_ = nullptr;
-    component->deck_turned_ = false;
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterFlipAndRotate;
-    return component;
+    anim_blender_ = nullptr;
+    mesh_set_ = nullptr;
+    deck_turned_ = false;
+    kind_tag_ = kSkaterFlipAndRotate;
 }
 
-// 0x00511300
-void RiderSpinAndFlip::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00511320
-RiderSpinAndFlip* RiderSpinAndFlip::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00511300 (0x00511320 the deleting one)
+RiderSpinAndFlip::~RiderSpinAndFlip() {}
 
 // 0x00511350
 void RiderSpinAndFlip::seal()
@@ -241,27 +221,4 @@ int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* param
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderSpinAndFlip::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    stubs::ignore_argument,
-    &objects::RiderSpinAndFlip::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::RiderSpinAndFlip::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

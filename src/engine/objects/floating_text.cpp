@@ -16,8 +16,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -33,8 +31,6 @@ UiTree* __cdecl fetch_ui_tree() { return UiTree::sole(); }
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kId = 0x40C698AF;        // id
 constexpr uint32_t kString = 0x61414D56;    // string
@@ -80,40 +76,26 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041E3C0
-ObjectModule* __cdecl FloatingTextComponent::fabricate()
+ObjectModule* __cdecl FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+FloatingTextComponent::FloatingTextComponent()
 {
-    auto* component = static_cast<FloatingTextComponent*>(memory::alloc_zeroed(sizeof(FloatingTextComponent)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->text_[0] = 0;
-    component->ident_ = 0;
-    component->end_time_ = 0;
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    component->tint_ = 2;
-    component->y_offset_ = 120.0f;
-    return component;
+    text_[0] = 0;
+    ident_ = 0;
+    end_time_ = 0;
+    kind_tag_ = kType;
+    tint_ = 2;
+    y_offset_ = 120.0f;
 }
 
-// 0x0041E5E0
-void FloatingTextComponent::destroy_body()
+// 0x0041E5E0 (0x0041E6C0 the deleting one)
+FloatingTextComponent::~FloatingTextComponent()
 {
-    vtable_ = kVtable;
     script::Struct* params = new_params();
     params->put_name_key(kId, ident_);
     script::launch_script(kDestroyScript, params, nullptr, false, nullptr);
     delete_params(params);
-    ObjectModule::destroy_body();
-}
-
-// 0x0041E6C0
-FloatingTextComponent* FloatingTextComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0041E2B0
@@ -182,31 +164,8 @@ int FloatingTextComponent::invoke_method_by_name(uint32_t name, script::Struct* 
 {
     if (name != kReinit)
         return 2;
-    reinterpret_cast<void(__thiscall*)(ObjectModule*, script::Struct*)>(vtable_[5])(this, params);
+    reapply_from_data(params);
     return 1;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::FloatingTextComponent::teardown,
-    &objects::FloatingTextComponent::tick_frame,
-    &objects::FloatingTextComponent::configure_from_data,
-    &objects::FloatingTextComponent::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::FloatingTextComponent::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

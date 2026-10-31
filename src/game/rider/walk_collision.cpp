@@ -478,10 +478,8 @@ bool FootMovement::try_grind()
         ObjectModule* component = object_hub_slot()->find_first_module_of_kind(kRailManagerType);
         if (!component)
             return false;
-        // (vtable +0x34: the component's rails)
-        auto rails_of = [](ObjectModule* c) {
-            return reinterpret_cast<GrindRailHub*(__thiscall*)(ObjectModule*)>(c->vtable_[13])(c);
-        };
+        // (the original's slot 13: the component's rails)
+        auto rails_of = [](ObjectModule* c) { return static_cast<GrindPathLinkModule*>(c)->get_rail_groups(); };
         for (; component && !found; component = component->next_of_type_) {
             maths::Mat4 world;
             static_cast<GrindPathLinkModule*>(component)->update_rail_matrix(&world);

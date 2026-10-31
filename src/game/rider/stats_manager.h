@@ -21,7 +21,7 @@ class Struct;
 // (member function entries by table: the StatsManager_ functions, the table at 0x00684180), 12 0x0051ADC0 (shared).
 namespace objects {
 
-class AttributeTracker : public ObjectModule {
+class AttributeTracker final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x4FF8DAC6;
     static constexpr int kGoals = 70;
@@ -46,13 +46,15 @@ public:
     // 0x0051C440 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684180) registered.
     static void __cdecl publish_method_table();
-    // 0x0051C5A0: the base's constructor, its vtable and type; no skater, the positions and the last air combo's
-    // score cleared. Returns this.
-    AttributeTracker* make_new();
+    // 0x0051C5A0: its type; no skater, the positions and the last air combo's
+    // score cleared.
+    AttributeTracker();
     // 0x0051C460: the destructor body (the base's).
-    void destroy_body();
-    // 0x0051C640 (vtable slot 0)
-    AttributeTracker* teardown(unsigned int flags);
+    ~AttributeTracker() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
 
     // 0x0051C470 / 0x0051C480: goal `index`'s status; set (1 also marks that one was done, +0x9F6).
     int get_goal_status(int index);
@@ -61,7 +63,7 @@ public:
     // 0x0051C670 (vtable slot 2): everything reset; the skater (the object's id in the object manager) and its
     // state and physics control components; the difficulty; the goals read from the global array 0x4E46CC28 (`params`
     // isn't read).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0051C950: whether the goals are checked: a skater, the game mode's flag 0x1DED1EA4, activated, the skate
     // module not in mode 0xE92ECAFE, and the first profile's name 0x0A7BE964.
     bool is_operative();
@@ -80,7 +82,7 @@ public:
     // 0x0051CE80: goal `index` met (script 0x55E516C8 with its name, target, text and index).
     void meet_goal(int index);
     // 0x0051CF90 (vtable slot 1): the score and multiplier noted, the air and jump watched, every open goal checked.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0051D6A0: a balance trick of `trickType` held `time` seconds: the manual / grind time goals checked.
     void check_balance_time(uint32_t trick_type, float time, int unused);
 

@@ -22,8 +22,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/rider/looping_sound.h"
 #include "game/rider/skater_sound.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -44,8 +42,6 @@ uint32_t g_ped_logic_member_functions[174]{
     0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0, 0,          0x6EFDDFB8, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kModel = 0x286A8D26;
@@ -146,11 +142,7 @@ GroundTriangle& GroundTriangle::get_assign(const GroundTriangle& source)
 }
 
 // 0x004F0B10
-ObjectModule* __cdecl PedestrianBrainModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(PedestrianBrainModule));
-    return memory ? static_cast<PedestrianBrainModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
 
 // 0x004ECFB0
 void __cdecl PedestrianBrainModule::publish_method_table()
@@ -165,10 +157,8 @@ int PedestrianBrainModule::invoke_method_by_name(uint32_t name, script::Struct* 
 }
 
 // 0x004EE4F0
-PedestrianBrainModule* PedestrianBrainModule::make_new()
+PedestrianBrainModule::PedestrianBrainModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     for (float& bias : bias_)
         bias = 0.0f;
@@ -188,27 +178,15 @@ PedestrianBrainModule* PedestrianBrainModule::make_new()
     update_type_ = checksums::hash_from_text("NULL");
     aux_script_ = nullptr;
     next_node_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    return this;
 }
 
-// 0x004F2120
-void PedestrianBrainModule::destroy_body()
+// 0x004F2120 (0x004F2540 the deleting one)
+PedestrianBrainModule::~PedestrianBrainModule()
 {
-    vtable_ = kVtable;
     if (script::Script* script = aux_script_) {
         delete_script(script);
         aux_script_ = nullptr;
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x004F2540
-PedestrianBrainModule* PedestrianBrainModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004ED2C0
@@ -712,28 +690,4 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
     return false;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::PedestrianBrainModule::teardown,
-                                      &objects::PedestrianBrainModule::tick_frame,
-                                      &objects::PedestrianBrainModule::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::PedestrianBrainModule::invoke_method_by_name,
-                                      &objects::PedestrianBrainModule::generic_move_update,
-                                      &objects::PedestrianBrainModule::skater_move_update,
-                                      &objects::PedestrianBrainModule::no_move_update};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

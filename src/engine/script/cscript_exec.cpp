@@ -72,13 +72,11 @@ bool object_call_member_function(objects::Entity* object, uint32_t name, Struct*
 {
     return object->invoke_method_by_name(name, params, script);
 }
-// ObjectModule vtable +0x2C (the original tests the whole of EAX, not just AL).
+// ObjectModule::invoke_method (vtable +0x2C; the original tests the whole of EAX, not just AL).
 bool component_call_member_function(objects::ObjectModule* component, MemberFunctionEntry* entry, Struct* params,
                                     Script* script)
 {
-    auto* vtable = *reinterpret_cast<void***>(component);
-    return reinterpret_cast<uint32_t(__thiscall*)(objects::ObjectModule*, MemberFunctionEntry*, Struct*, Script*)>(
-               vtable[11])(component, entry, params, script) != 0;
+    return component->invoke_method(entry, params, script) != 0;
 }
 // The object's component of `type` (GameEntity::fetch_module).
 objects::ObjectModule* fetch_module(objects::Entity* object, uint32_t type)

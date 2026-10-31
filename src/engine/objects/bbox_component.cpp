@@ -15,9 +15,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -27,8 +25,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kObjObjectInRect = 0x6520B902;         // Obj_ObjectInRect
 constexpr uint32_t kObjObjectInRadius = 0x67660FE5;       // Obj_ObjectInRadius
@@ -81,39 +77,19 @@ bool is_near(const GameEntity* object, const GameEntity* self, float reach_squar
 } // namespace
 
 // 0x0041ADC0
-ObjectModule* __cdecl CbBoxComponent::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(CbBoxComponent));
-    return memory ? static_cast<CbBoxComponent*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl CbBoxComponent::fabricate() { return new CbBoxComponent; }
 
 // 0x0041AAD0
-CbBoxComponent* CbBoxComponent::make_new()
+CbBoxComponent::CbBoxComponent()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     box_max_ = {10.0f, 10.0f, 10.0f, 1.0f};
     box_min_ = {-10.0f, -10.0f, -10.0f, 1.0f};
     shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    return this;
 }
 
-// 0x0041A810
-void CbBoxComponent::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041A880
-CbBoxComponent* CbBoxComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041A810 (0x0041A880 the deleting one)
+CbBoxComponent::~CbBoxComponent() {}
 
 // 0x0041A950
 void CbBoxComponent::init_rect(Rect2* rect, script::Struct* params)
@@ -329,27 +305,4 @@ int CbBoxComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::CbBoxComponent::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::CbBoxComponent::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

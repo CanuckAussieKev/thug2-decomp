@@ -28,7 +28,7 @@ namespace objects {
 // Vtable: 0 the scalar deleting destructor; 1 Update; 2 configure_from_data; 3 Finalize; 4 / 9 the empty 0x005480A0; 5
 // the shared 0x004E3F90; 6 0x0048DCD0; 7 / 8 / 10 the empty 0x005BAB90 (it can't be suspended by its object); 11
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
-class DormancyModule : public ObjectModule {
+class DormancyModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xCE0CA665;
 
@@ -37,23 +37,26 @@ public:
     // 0x00434610 (not a Ghidra function; registered with Create): its script member functions registered, then the
     // suspend task made (create_suspend_task).
     static void __cdecl publish_method_table();
-    // 0x00433F50: the base's constructor, its vtable and type; NeverSuspend; the suspend distance
+    // 0x00433F50: its type; NeverSuspend; the suspend distance
     // DefaultMovingObjectSuspendDistance feet (and its square); 10 frames before the first check, 3 before the LOD
-    // checks. Returns this.
-    DormancyModule* make_new();
+    // checks.
+    DormancyModule();
     // 0x00433E10: the base's body.
-    void destroy_body();
-    // 0x00433FD0 (vtable slot 0)
-    DormancyModule* teardown(unsigned int flags);
+    ~DormancyModule() override;
+    void hold_off(bool /*suspend*/) override {} // (slot 7: never suspended)
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00433E50 (vtable slot 1): suspends itself (the base's hold_off(true)) - the task does its work.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00434000 (vtable slot 2): SuspendDistance (feet; 0: lod_dist1, else the default) - which turns NeverSuspend
     // off -, NeverSuspend; the LOD distances (feet): none with NoLOD (the script integer), else lod_dist1 (50),
     // lod_dist2 (lod_dist1 + 75), lod_dist3 / lod_dist4 (1000001 / 1000002), the first two scaled by the script
     // floats LOD0DistanceMultiplier / LOD1DistanceMultiplier (out-of-order distances only reported, compiled out).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004341C0 (vtable slot 3): the model component found and kept.
-    void seal();
+    void seal() override;
 
     // 0x00433E60: 10 frames before the next suspend check and the LOD checks.
     void reset_counts();

@@ -10,8 +10,6 @@
 #include "engine/script/cscript.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -21,7 +19,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterEndRun = 0xB1D5A3E1;
 
 // Script member functions
@@ -51,40 +48,23 @@ bool is_local_skater(GameEntity* object) { return object->unknownbc_ != 0; }
 } // namespace
 
 // 0x00510F90
-ObjectModule* __cdecl RiderSessionEnd::fabricate()
+ObjectModule* __cdecl RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderSessionEnd::RiderSessionEnd()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderSessionEnd));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderSessionEnd*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->flag_bits_ = 0;
-    component->kind_tag_ = kSkaterEndRun;
-    return component;
+    flag_bits_ = 0;
+    kind_tag_ = kSkaterEndRun;
 }
 
-// 0x00510D20
-void RiderSessionEnd::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00510D40
-RiderSessionEnd* RiderSessionEnd::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00510D20 (0x00510D40 the deleting one)
+RiderSessionEnd::~RiderSessionEnd() {}
 
 // 0x00510D70
 void RiderSessionEnd::tick_frame()
 {
     if (!is_versus_session()) {
-        virtual_suspend(true);
+        hold_off(true);
         return;
     }
     if (is_local_skater(entity_) && (flag_bits_ & kEndRunDone) && !server_told_run_ended())
@@ -165,27 +145,4 @@ void RiderSessionEnd::clear_goal_end_of_run_started() { flag_bits_ &= ~kEndRunGo
 // 0x00510F80
 void RiderSessionEnd::clear_forced() { flag_bits_ &= ~kEndRunForced; }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderSessionEnd::teardown,
-    &objects::RiderSessionEnd::tick_frame,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::RiderSessionEnd::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

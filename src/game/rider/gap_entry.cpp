@@ -35,7 +35,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 extern void** const kGapHeadVtable;      // lists::Foremost<TrickListEntry>
 extern void** const kGapTrickHeadVtable; // lists::Foremost<TrickNameEntry>
 constexpr uint32_t kSkaterGap = 0x11B4C67F;
@@ -182,41 +181,23 @@ int get_half_turns(int degrees) { return degrees / 180; }
 } // namespace
 
 // 0x00512C60
-ObjectModule* __cdecl RiderGapTracker::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderGapTracker));
-    return memory ? static_cast<RiderGapTracker*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl RiderGapTracker::fabricate() { return new RiderGapTracker; }
 
 // 0x005122A0
-RiderGapTracker* RiderGapTracker::make_new()
+RiderGapTracker::RiderGapTracker()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     setup_list_sentinel(gaps_, kGapHeadVtable);
     setup_list_sentinel(gap_move_chain_, kGapTrickHeadVtable);
     kind_tag_ = kSkaterGap;
     core_physics_ = nullptr;
     balance_trick_ = nullptr;
-    return this;
 }
 
-// 0x00511F10
-void RiderGapTracker::destroy_body()
+// 0x00511F10 (0x005122F0 the deleting one)
+RiderGapTracker::~RiderGapTracker()
 {
-    vtable_ = kVtable;
     gap_move_chain_.unlink_as(kGapTrickNodeVtable);
     gaps_.unlink_as(kGapNodeVtable);
-    ObjectModule::destroy_body();
-}
-
-// 0x005122F0
-RiderGapTracker* RiderGapTracker::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00511BB0
@@ -662,22 +643,6 @@ void __cdecl pay_out_queued_gaps()
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderGapTracker::teardown,
-    &objects::RiderGapTracker::tick_frame,
-    &objects::RiderGapTracker::configure_from_data,
-    &objects::RiderGapTracker::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::RiderGapTracker::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 static VtableSlot g_gap_head_vtable_slots[] = {&objects::GapListNode::destroy_head};
 void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots);
 static VtableSlot g_gap_trick_head_vtable_slots[] = {&objects::GapTrickListNode::destroy_head};

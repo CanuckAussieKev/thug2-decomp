@@ -21,7 +21,7 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor, 2 configure_from_data; the rest the base's / shared (1 0x0051B970, 3 / 4 / 9
 // 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 11 0x0042BB20, 12 0x0051ADC0).
-class PadInputModule : public ObjectModule {
+class PadInputModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x27D7CD28;
 
@@ -33,16 +33,17 @@ public:
     // 0x0041E6F0 (not a Ghidra function; registered with Create): its member functions' table (0x00684C78; the
     // functions are put in by the static initialiser at 0x006445B0).
     static void __cdecl publish_method_table();
-    // 0x0041E850: the base's constructor, its vtable, both pads' Init, its type; no handler, 0x49C cleared. Returns
-    // this.
-    PadInputModule* make_new();
+    // 0x0041E850: both pads' Init, its type; no handler, 0x49C cleared.
+    PadInputModule();
     // 0x0041E710: each handler out of its list and deleted; then the base's body.
-    void destroy_body();
-    // 0x0041E8C0 (vtable slot 0)
-    PadInputModule* teardown(unsigned int flags);
+    ~PadInputModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x0041F390 (vtable slot 2): the controller of Player (the input manager's) or controller (link_to_pad);
     // 0xB9B1E3B6 into +0x49C.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041F1B0: the handlers made the first time (on the skater info heap; priority -1), then the first moved to
     // `controller`'s server and the second to controller 1's; the vibration component's device set to the first's.
     void link_to_pad(int controller);

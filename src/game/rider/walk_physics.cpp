@@ -23,9 +23,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
 #include "engine/net/gamenet_manager.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -47,8 +45,6 @@ uint32_t g_walk_member_functions[114]{
 namespace {
 
 using namespace walk_fields;
-
-extern void** const kVtable;
 
 // Script names.
 constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B, kProbeElevation = 0x6DA7F696,
@@ -143,15 +139,13 @@ WalkContact* WalkContact::make_new()
 // 0x00528890
 void WalkContact::teardown() { get_at<SharedRef<GameEntity>>(this, 0xB4).get_release(); }
 
-// 0x005288B0
-void FootMovement::destroy_body()
+// 0x005288B0 (0x0052A290 the deleting one)
+FootMovement::~FootMovement()
 {
-    vtable_ = kVtable;
     get_at<SharedRef<Entity>>(this, kObjectRef).get_release();
     get_at<render::HitMeshCache>(this, kHitMeshStore).destruct();
     for (int i = 7; i >= 0; --i)
         get_at<WalkContact>(this, kContacts + i * 0xCC).teardown();
-    ObjectModule::destroy_body();
 }
 
 // 0x00526060
@@ -466,25 +460,4 @@ bool FootMovement::walk_set_forward_control_lock(script::Struct* params, script:
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&FootMovement::teardown,
-                                      &FootMovement::tick_frame,
-                                      &objects::FootMovement::configure_from_data,
-                                      &objects::FootMovement::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -15,8 +15,6 @@
 #include "platform/stopwatch.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -28,8 +26,6 @@ uint32_t g_vehicle_sound_member_functions[24]{0xB8451886, 0x1859F772, 0, 0, 0, 0
                                               0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kSound = 0x07713C7B;
@@ -101,15 +97,8 @@ float get_fraction(double value)
 
 } // namespace
 
-// 0x0051ADC0
-int ComponentWithoutMemberFunctions::invoke_method_by_name(uint32_t, script::Struct*, script::Script*) { return 2; }
-
 // 0x0051B880
-ObjectModule* __cdecl SkaterVehicleSoundComponent::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(SkaterVehicleSoundComponent));
-    return memory ? static_cast<SkaterVehicleSoundComponent*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
 
 // 0x0051AD90
 void __cdecl SkaterVehicleSoundComponent::publish_method_table()
@@ -118,9 +107,8 @@ void __cdecl SkaterVehicleSoundComponent::publish_method_table()
 }
 
 // 0x0051ADD0
-SkaterVehicleSoundComponent* SkaterVehicleSoundComponent::make_new()
+SkaterVehicleSoundComponent::SkaterVehicleSoundComponent()
 {
-    ObjectModule::make_new();
     sound_ = nullptr;
     settings_ = nullptr;
     park_editor_level_ = false;
@@ -132,28 +120,13 @@ SkaterVehicleSoundComponent* SkaterVehicleSoundComponent::make_new()
     unknownbc_ = 0;
     engine_sound_ = 0;
     skid_sound_ = 0;
-    vtable_ = kVtable;
     kind_tag_ = kType;
     settings_name_ = 0x1CA1FF20;
     silenced_ = true;
-    return this;
 }
 
-// 0x0051ADB0
-void SkaterVehicleSoundComponent::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0051AE30
-SkaterVehicleSoundComponent* SkaterVehicleSoundComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0051ADB0 (0x0051AE30 the deleting one)
+SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() {}
 
 // 0x0051AE60
 void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
@@ -368,25 +341,4 @@ bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct*, sc
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::SkaterVehicleSoundComponent::teardown,
-                                      &objects::SkaterVehicleSoundComponent::tick_frame,
-                                      &objects::SkaterVehicleSoundComponent::configure_from_data,
-                                      &objects::SkaterVehicleSoundComponent::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

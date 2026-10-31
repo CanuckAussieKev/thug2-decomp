@@ -16,8 +16,6 @@
 #include "platform/stopwatch.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
@@ -26,8 +24,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kSound = 0x07713C7B;
@@ -88,16 +84,11 @@ void play_sound_from_structure(ObjectModule* sound, script::Struct* description)
 } // namespace
 
 // 0x0043CFC0
-ObjectModule* __cdecl EngineAudioModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(EngineAudioModule));
-    return memory ? static_cast<EngineAudioModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl EngineAudioModule::fabricate() { return new EngineAudioModule; }
 
 // 0x0043C590
-EngineAudioModule* EngineAudioModule::make_new()
+EngineAudioModule::EngineAudioModule()
 {
-    ObjectModule::make_new();
     vehicle_ptr_ = nullptr;
     sound_ptr_ = nullptr;
     settings_ = nullptr;
@@ -110,15 +101,12 @@ EngineAudioModule* EngineAudioModule::make_new()
     collide_time_ = 0;
     engine_sound_ = 0;
     skid_sound_ = 0;
-    vtable_ = kVtable;
     kind_tag_ = kType;
-    return this;
 }
 
-// 0x0043C5F0
-void EngineAudioModule::destroy_body()
+// 0x0043C5F0 (0x0043D020 the deleting one)
+EngineAudioModule::~EngineAudioModule()
 {
-    vtable_ = kVtable;
     if (engine_sound_) {
         audio_mixer_handle()->stop_sound(engine_sound_);
         engine_sound_ = 0;
@@ -127,16 +115,6 @@ void EngineAudioModule::destroy_body()
         audio_mixer_handle()->stop_sound(skid_sound_);
         skid_sound_ = 0;
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x0043D020
-EngineAudioModule* EngineAudioModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0043C670
@@ -362,27 +340,4 @@ void EngineAudioModule::update_collide_sound()
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::EngineAudioModule::teardown,
-    &objects::EngineAudioModule::tick_frame,
-    &objects::EngineAudioModule::configure_from_data,
-    &objects::EngineAudioModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    &objects::EngineAudioModule::fetch_diagnostics,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

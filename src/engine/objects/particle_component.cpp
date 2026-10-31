@@ -22,8 +22,6 @@
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/collide_and_die.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 
@@ -41,7 +39,6 @@ render::EffectsDirector* g_particle_hub;
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSuspend = 0xCE0CA665; // the suspend component
 
 // The particle system updated (the engine's 0x00494E20).
@@ -92,11 +89,7 @@ Colour colour_of(script::Array* array)
 // --- life ---
 
 // 0x0042A000
-ObjectModule* __cdecl EffectsEmitterModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(EffectsEmitterModule));
-    return memory ? static_cast<EffectsEmitterModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl EffectsEmitterModule::fabricate() { return new EffectsEmitterModule; }
 
 // 0x00429940
 void __cdecl EffectsEmitterModule::publish_method_table()
@@ -105,35 +98,21 @@ void __cdecl EffectsEmitterModule::publish_method_table()
 }
 
 // 0x00429B20
-EffectsEmitterModule* EffectsEmitterModule::make_new()
+EffectsEmitterModule::EffectsEmitterModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     emit_target_ = 0;
     effect_handle_ = nullptr;
     mesh_instance_ = nullptr;
     lifespan_ = 0;
     start_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
-    return this;
 }
 
-// 0x00429B90
-void EffectsEmitterModule::destroy_body()
+// 0x00429B90 (0x0042A060 the deleting one)
+EffectsEmitterModule::~EffectsEmitterModule()
 {
-    vtable_ = kVtable;
     if (effect_handle_)
         g_particle_hub->retire_particle(effect_handle_);
-    ObjectModule::destroy_body();
-}
-
-// 0x0042A060
-EffectsEmitterModule* EffectsEmitterModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00429BF0
@@ -577,24 +556,3 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
 } // namespace objects
 
 using objects::EffectsEmitterModule;
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&EffectsEmitterModule::teardown,
-                                      &EffectsEmitterModule::tick_frame,
-                                      &EffectsEmitterModule::configure_from_data,
-                                      &EffectsEmitterModule::seal,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      &EffectsEmitterModule::conceal,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &EffectsEmitterModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
-} // namespace objects

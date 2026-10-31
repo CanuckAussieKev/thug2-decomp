@@ -30,7 +30,7 @@ struct Record34;
 // Vtable: 0 the scalar deleting destructor (0x0052A290), 1 Update (0x0052D4B0), 2 configure_from_data, 3 Finalize.
 namespace objects {
 
-class FootMovement : public ObjectModule {
+class FootMovement final : public ObjectModule {
 public:
     // Its states (+0x18; the names are the table at 0x0064C618): 0 WALKING_GROUND, 1 WALKING_AIR, 2 / 3 / 4 the
     // hanging and climbing ones.
@@ -40,12 +40,16 @@ public:
     static void __cdecl publish_method_table();
     // 0x005288B0: the destructor body: its smart pointer (+0x184C) let go, its collision cache (+0x790) and its
     // eight contacts (+0xA0, 0xCC each, the last first) destroyed, then the base's.
-    void destroy_body();
+    ~FootMovement() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00526060 (slot 2): its camera from camera= (an object id: the object and its WalkCamera component).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00525FB0 (slot 3): the object's Input, animblender, Model, Trigger, SkaterPhysicsControl, MovableContact,
     // SkaterState, SkaterCorePhysics and TaggingControl components.
-    void seal();
+    void seal() override;
     // 0x00525E60: its camera object and that object's WalkCamera component.
     void choose_camera(GameEntity* camera);
     // 0x005260E0: the state changed (the previous one kept, the time it changed): what leaving the air, landing,
@@ -168,18 +172,16 @@ public:
     // --- walk_moves.cpp (skater-6: 0x00529F80-0x0052D6A0) ---
     // 0x0052A5C0: a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0052A190: the constructor: the base's, its vtable and type, the eight contacts (0xCC each at +0xA0), the
+    // 0x0052A190: its type, the eight contacts (0xCC each at +0xA0), the
     // collision cache (+0x790), the trigger feeler (+0x17B4), no components yet, no control (0, 0, 0, 1), no extra
-    // velocity (0, 0, 0, 1). Returns this.
-    FootMovement* make_new();
-    // 0x0052A290 (vtable slot 0): the scalar deleting destructor (the body is 0x005288B0).
-    FootMovement* teardown(unsigned int flags);
+    // velocity (0, 0, 0, 1).
+    FootMovement();
     // 0x0052D4B0 (vtable slot 1): one frame: the animation state (+0x78, the previous kept at +0x7C) started afresh,
     // the frame's length, the step smoothing's height taken off, then the state's update (0 update_ground, 1
     // update_air, 2 hanging 0x00440BF0, 3 on a ladder 0x004425B0, 4 update_anim_wait); unless the walk was halted,
     // the step smoothing eased down and put back, the state's checks (an acid drop after half a second on the
     // ground), the animation state sent to the object as an event, the animation speed and the camera.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0052D300 (state 0): riding, the contacts, moved by the velocity and onto the ground; inside a moving object
     // it takes that object's velocity.
     void update_ground();
@@ -367,7 +369,11 @@ public:
     // 0x004425B0 (state 3): on a ladder, each frame: its rail script for the first 25 ticks; climbing with the
     // control within ladder_control_tolerance of up or down, else still (Ladder).
     void update_ladder();
+
+    // The fields after the base's (+0x18-+0x195F): reached by offset.
+    uint8_t fields_[0x1960 - 0x18];
 };
+static_assert(sizeof(FootMovement) == 0x1960, "the original's 0x0052A5C0 allocates 0x1960 bytes");
 
 // One of the Walk component's eight contacts (+0xA0, 0xCC bytes): a feeler at +0x1C. 0x00528880: constructed (its
 // feeler's). Returns this. 0x00528890: the destructor (the feeler's object let go).

@@ -15,8 +15,6 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -28,8 +26,6 @@ namespace objects {
 uint32_t g_sound_component_member_functions[12]{0xAFA20E18, 0x07713C7B, 0, 0, 0, 0, 0, 0x07713C7B, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kObjAdjustSound = 0x3E5E8023;
 constexpr uint32_t kObjStopSound = 0x4E4132D6;
@@ -69,11 +65,7 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-ObjectModule* __cdecl AudioEmitterModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(AudioEmitterModule));
-    return memory ? static_cast<AudioEmitterModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
 
 // 0x00432C80
 void __cdecl AudioEmitterModule::publish_method_table()
@@ -82,34 +74,17 @@ void __cdecl AudioEmitterModule::publish_method_table()
 }
 
 // 0x00432D90
-AudioEmitterModule* AudioEmitterModule::make_new()
+AudioEmitterModule::AudioEmitterModule()
 {
-    ObjectModule::make_new();
     spewer_ = nullptr;
     proxim_ = nullptr;
-    vtable_ = kVtable;
     kind_tag_ = kType;
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     last_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    return this;
 }
 
-// 0x00432DF0
-void AudioEmitterModule::destroy_body()
-{
-    vtable_ = kVtable;
-    audio_mixer_handle()->stop_object_sounds(as_sound_object(this));
-    ObjectModule::destroy_body();
-}
-
-// 0x00433160
-AudioEmitterModule* AudioEmitterModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00432DF0 (0x00433160 the deleting one)
+AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_sounds(as_sound_object(this)); }
 
 // 0x00432CA0
 void AudioEmitterModule::configure_from_data(script::Struct* params)
@@ -293,8 +268,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         if (!sound)
             return;
     }
-    reinterpret_cast<void(__thiscall*)(AudioEmitterModule*, uint32_t, float, float)>(vtable_[13])(this, sound, volume,
-                                                                                                  pitch);
+    // (here the original calls its slot 13, an empty stub taking the sound, volume and pitch: nothing)
     SoundParams play = {pitch, volume, dropoff, falloff};
     audio_mixer_handle()->play_object_sound(sound, &play, as_sound_object(this), keep_placement, false);
 }
@@ -347,26 +321,4 @@ bool AudioEmitterModule::obj_play_sound(script::Struct* params, script::Script* 
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::AudioEmitterModule::teardown,
-                                      &objects::AudioEmitterModule::tick_frame,
-                                      &objects::AudioEmitterModule::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      render::virtual_slot1_jump,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::AudioEmitterModule::invoke_method_by_name,
-                                      stubs::ignore_arguments3};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -13,8 +13,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -24,7 +22,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterRotate = 0x52D61A0D, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kRotate = 0xC876ADF3;
 constexpr uint32_t kDuration = 0x79A07F3F, kSeconds = 0xD029F619, kSecond = 0x49E0EE96, kFrames = 0x019176C5,
@@ -57,34 +54,17 @@ void start_turn(RiderTurning::Turn& turn, double degrees, float duration)
 } // namespace
 
 // 0x00517D40
-ObjectModule* __cdecl RiderTurning::fabricate()
+ObjectModule* __cdecl RiderTurning::fabricate() { return new RiderTurning; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderTurning::RiderTurning()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderTurning));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderTurning*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterRotate;
-    component->core_physics_ = nullptr;
-    return component;
+    kind_tag_ = kSkaterRotate;
+    core_physics_ = nullptr;
 }
 
-// 0x00517CC0
-void RiderTurning::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00517CF0
-RiderTurning* RiderTurning::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00517CC0 (0x00517CF0 the deleting one)
+RiderTurning::~RiderTurning() {}
 
 // 0x00517CD0
 void RiderTurning::configure_from_data(script::Struct* /*params*/)
@@ -119,7 +99,7 @@ void RiderTurning::tick_frame()
         turn_by(core_matrix(core_physics_), rotation);
     }
     if (!turns_[0].active && !turns_[1].active && !turns_[2].active)
-        virtual_suspend(true);
+        hold_off(true);
 }
 
 // 0x00517EA0
@@ -153,7 +133,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
                              kDegreesPerRadian;
             start_turn(turns_[1], degrees, duration);
         }
-        virtual_suspend(false);
+        hold_off(false);
         return 1;
     }
     // At once.
@@ -184,27 +164,4 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
     return 1;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderTurning::teardown,
-    &objects::RiderTurning::tick_frame,
-    &objects::RiderTurning::configure_from_data,
-    &objects::RiderTurning::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::RiderTurning::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

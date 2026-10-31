@@ -19,26 +19,30 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 11 the shared 0x0042BB20, 12 invoke_method_by_name.
 namespace objects {
 
-class RiderBoardPhysics : public ObjectModule {
+class RiderBoardPhysics final : public ObjectModule {
 public:
     // 0x00517830 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderBoardPhysics();
     // 0x005176A0 (registered with Create): its script member functions (the table at 0x006846F0) registered.
     static void __cdecl publish_method_table();
     // 0x005176C0: the destructor body (the base's).
-    void destroy_body();
-    // 0x00517740 (vtable slot 0)
-    RiderBoardPhysics* teardown(unsigned int flags);
+    ~RiderBoardPhysics() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x005176D0 (vtable +0x08): not paused. `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00517770 (vtable +0x0C): the core physics and state components found; the state's physics mode (+0x1C) -1.
-    void seal();
+    void seal() override;
     // 0x00517AC0 (vtable +0x04): while paused the display matrix follows the physics' matrix (skating) or the object's
     // (walking), and the physics is paused again if something resumed it.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00517C80 (vtable +0x30): SkaterPhysicsControl_SwitchWalkingToSkating / _SwitchSkatingToWalking - 1; 2 for
     // any other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x005178B0: the physics paused or not: the core physics, rotate, adjust and finalize physics components
     // (skating) or the walk component (walking) suspended or resumed - not resumed while the object itself is

@@ -31,19 +31,18 @@ constexpr uint8_t kLockFlagNoRotate = 0x8;
 // Update, 2 configure_from_data, 3 / 4 / 9 the empty 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 / 8 / 10 0x005BAB90, 11
 // the base's 0x0045D720, 12 invoke_method_by_name. Made by 0x0041FF20 (the constructor 0x0041F500 inlined); the
 // destructor body is 0x0041F400. Construction, destruction and the lock's update: lock_obj_update.cpp.
-class PinnedObjectModule : public ObjectModule {
+class PinnedObjectModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x5CB5CB7E;
 
     // 0x0041FF20 (registered with the composite object manager): a new one (Construct on zeroed memory; 0 if out of
     // memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0041F500: the base's constructor, not locked, its vtable and type. Returns this.
-    PinnedObjectModule* make_new();
-    // 0x0041F400: its vtable back, then the base's body.
-    void destroy_body();
-    // 0x0041F440 (vtable slot 0)
-    PinnedObjectModule* teardown(unsigned int flags);
+    // 0x0041F500: not locked, its type.
+    PinnedObjectModule();
+    // 0x0041F400: the base's.
+    ~PinnedObjectModule() override;
+    void hold_off(bool /*suspend*/) override {} // (slot 7: never suspended)
     // 0x0041F760: the lock's update - finds the target by id, else by name (none: nothing), takes its orientation
     // (its model's matrix when the model is followed - a model with +0x234 set, or a skater -, else its display
     // matrix) or, on a bone, the bone's turned by it with "at" pointing to the bone's parent; puts the object at its
@@ -57,13 +56,13 @@ public:
     // (two frequencies; default 0, 0) make the position follow with a lag: m_lag = min + (max - min) * (1 + sin(t * f2)
     // * sin(t * f1)) / 2, t = (milliseconds + a random phase) mod 1024 in steps of 2 pi / 1024. Angles turn the
     // orientation by that rotation after taking the target's. NOT ORIGINAL: no_rotate (kLockFlagNoRotate).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041FF90 (vtable slot 1): when locked, the lock's update (update_lock). NOT ORIGINAL: with kLockFlagNoRotate the object's own
     // orientation (matrix and display matrix) is put back after it - the position stays the lock's.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0041F410 (vtable slot 12): Obj_LockToObject (0x785E57C7) - configure_from_data(params) through the vtable,
     // 1; any other member: 2 (not its own).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     uint32_t entity_label_;        // +0x18 ObjectName (0 none)
     uint32_t target_id_;           // +0x1C id (default the "no id" value at 0x0064780C)

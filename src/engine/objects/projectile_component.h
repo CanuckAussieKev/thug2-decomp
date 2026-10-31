@@ -26,24 +26,24 @@ namespace objects {
 
 class ActivationZoneModule;
 
-class ProjectileComponent : public ObjectModule {
+class ProjectileComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x7E747547;
 
     // 0x004F3890 (registered by register_component_types): a new one (0 if out of memory): the feelers not resting;
     // the rest zero (a cleared allocation).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    ProjectileComponent();
     // 0x004F37B0: the destructor body: its projectile slot let go (the base's after).
-    void destroy_body();
-    // 0x004F37D0 (vtable slot 0)
-    ProjectileComponent* teardown(unsigned int flags);
+    ~ProjectileComponent() override;
     // 0x004F3800 (vtable slot 2): the local skater's projectile slot named as the object taken (none: the last one,
     // -1 kept as the slot - the original then marks the byte before the slots' first). `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004F3860 (vtable slot 3): the local skater's trigger component (none without a local skater).
-    void seal();
+    void seal() override;
     // 0x004F3A90 (vtable slot 1): the slot's position set to the object's, then check_triggers.
-    void tick_frame();
+    void tick_frame() override;
     // 0x004F3910 (inside Ghidra's 0x004F3A90; reached by its jump): resting: one frame less. Otherwise eight
     // feelers from the object, 12 out at 2pi/7 steps (movable objects too), each that hits a trigger face set off on
     // the trigger component (event 14) - any that does rests them for ten frames.

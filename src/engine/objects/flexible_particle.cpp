@@ -17,9 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/collide_and_die.h"
-#include "engine/core/code_address.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/camera_lookaround.h"
 
 namespace render {
@@ -50,8 +48,6 @@ uint32_t g_flexible_particle_member_functions[156]{
     0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0, 0,          0xC5BCEB9E, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kName = 0xA1DC81F9;       // name
 constexpr uint32_t kMax = 0x6289DD76;        // max
@@ -157,11 +153,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 } // namespace
 
 // 0x0041E1E0
-ObjectModule* __cdecl FlexibleParticleComponent::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(FlexibleParticleComponent));
-    return memory ? static_cast<FlexibleParticleComponent*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl FlexibleParticleComponent::fabricate() { return new FlexibleParticleComponent; }
 
 // 0x0041D6E0
 void __cdecl FlexibleParticleComponent::publish_method_table()
@@ -171,10 +163,8 @@ void __cdecl FlexibleParticleComponent::publish_method_table()
 }
 
 // 0x0041DA00
-FlexibleParticleComponent* FlexibleParticleComponent::make_new()
+FlexibleParticleComponent::FlexibleParticleComponent()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     system_.preceding_ = nullptr;
     system_.following_ = nullptr;
     system_.owner_object_ = nullptr;
@@ -187,25 +177,13 @@ FlexibleParticleComponent* FlexibleParticleComponent::make_new()
     brightness_model_ = nullptr;
     rotate_ = false;
     clock_ = 0.0f;
-    return this;
 }
 
-// 0x0041DA80
-void FlexibleParticleComponent::destroy_body()
+// 0x0041DA80 (0x0041E240 the deleting one)
+FlexibleParticleComponent::~FlexibleParticleComponent()
 {
-    vtable_ = kVtable;
     delete system_.get_pull();
     system_.get_release();
-    ObjectModule::destroy_body();
-}
-
-// 0x0041E240
-FlexibleParticleComponent* FlexibleParticleComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0041DB00
@@ -389,16 +367,15 @@ int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Stru
 }
 
 // 0x0041D700
-int FlexibleParticleComponent::call_member_function_entry(script::MemberFunctionEntry* entry, script::Struct* params,
-                                                          script::Script* script)
+int ObjectModule::dispatch_named_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
+                                               script::Script* script)
 {
     if (entry->method_code_) {
         using Member = int(__thiscall*)(void*, uint32_t, script::Struct*, script::Script*);
         return reinterpret_cast<Member>(entry->method_code_)(reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_,
                                                              entry->callsign_, params, script);
     }
-    return reinterpret_cast<int(__thiscall*)(ObjectModule*, uint32_t, script::Struct*, script::Script*)>(vtable_[12])(
-        this, entry->callsign_, params, script);
+    return invoke_method_by_name(entry->callsign_, params, script);
 }
 
 // 0x0041D7F0
@@ -483,25 +460,4 @@ int FlexibleParticleComponent::destroy_particles(uint32_t, script::Struct*, scri
     return 1;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::FlexibleParticleComponent::teardown,
-                                      &objects::FlexibleParticleComponent::tick_frame,
-                                      &objects::FlexibleParticleComponent::configure_from_data,
-                                      &objects::FlexibleParticleComponent::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      stubs::ignore_argument,
-                                      &objects::FlexibleParticleComponent::conceal,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::FlexibleParticleComponent::call_member_function_entry,
-                                      &objects::FlexibleParticleComponent::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

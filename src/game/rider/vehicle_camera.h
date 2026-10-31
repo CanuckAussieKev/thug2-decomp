@@ -24,27 +24,32 @@ class FreeLookModule;
 // heading, and kept clear of the world.
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the base's others.
-class CarView : public ObjectModule {
+class CarView final : public ObjectModule {
 public:
     // 0x005248C0: a new one (0 if out of memory): the base's constructor, its vtable and type, height 60,
     // distance 144, lerp 3.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    CarView();
     // 0x00524420: its member function table (0x00684150) registered.
     static void __cdecl publish_method_table();
     // 0x00524440: the destructor body (the base's). 0x00524470 (slot 0): the scalar deleting destructor.
-    void destroy_body();
-    CarView* teardown(unsigned int flags);
+    ~CarView() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x005244A0 (slot 2): subject= (an object id: the object and its Vehicle component), then 0x9213625F (lerp),
     // 0x14849B6D (height), 0xBD3D3CA9 (distance) and angle= - each kept when not given.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00524C00 (slot 3): the object's CameraLookAround component, then Reset.
-    void seal();
+    void seal() override;
     // 0x00524B40: the look-around component back to straight ahead; looking along the vehicle's heading; the
     // orientation and position built and given to the camera object; the Camera component's Update.
     void get_reset();
     // 0x00524940 (slot 1): the camera's old position kept; the direction turned toward the target (see the
     // class), the orientation and position built, the position kept clear of the world, given to the camera.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00524450 (VehicleCamera_Reset, by its member function record): its structure read again (vtable +0x14)
     // and Finalize (vtable +0x0C). True.
     bool vehicle_camera_reset(script::Struct* params, script::Script* script);

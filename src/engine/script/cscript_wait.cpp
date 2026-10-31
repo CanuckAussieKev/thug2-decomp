@@ -12,6 +12,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cache.h"
@@ -103,11 +104,8 @@ void Script::update_wait()
     case 8:
     case 9:
     case 10: {
-        // The component decides (and stops the wait itself): vtable +0x18 (thiscall: the script, the argument).
-        objects::ObjectModule* component = blocking_module_;
-        auto check = reinterpret_cast<void(__thiscall*)(objects::ObjectModule*, Script*, uint32_t)>(
-            (*reinterpret_cast<void***>(component))[0x18 / 4]);
-        check(component, this, suspend_arg_);
+        // The component decides (and stops the wait itself): its step_wait_state (vtable +0x18).
+        blocking_module_->step_wait_state(this, suspend_arg_);
         break;
     }
     default:

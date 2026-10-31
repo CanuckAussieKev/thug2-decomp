@@ -26,9 +26,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_score.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/collide_and_die.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/node_components.h"
@@ -37,9 +35,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kCollisionVtable;
-extern void** const kProximityVtable;
 
 constexpr uint32_t kRadius = 0xC48391A5;              // radius
 constexpr uint32_t kScale = 0x13B9DA7B;               // scale
@@ -110,37 +105,21 @@ modules::PointTally* get_score_of(GameEntity* skater)
 // --- the projectile collision component ---
 
 // 0x004F3010
-ObjectModule* __cdecl ShotImpactModule::fabricate()
+ObjectModule* __cdecl ShotImpactModule::fabricate() { return new ShotImpactModule; }
+
+// (the constructor: inlined in fabricate in the original)
+ShotImpactModule::ShotImpactModule()
 {
-    auto* component = static_cast<ShotImpactModule*>(memory::alloc_zeroed(sizeof(ShotImpactModule)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->radius_ = 0.0f;
-    component->holder_key_ = 0;
-    component->on_collide_script_ = 0;
-    component->size_factor_ = 0.0f;
-    component->hit_ = false;
-    component->vtable_ = kCollisionVtable;
-    component->ObjectModule::kind_tag_ = kType;
-    return component;
+    radius_ = 0.0f;
+    holder_key_ = 0;
+    on_collide_script_ = 0;
+    size_factor_ = 0.0f;
+    hit_ = false;
+    kind_tag_ = kType;
 }
 
-// 0x004F2F10
-void ShotImpactModule::destroy_body()
-{
-    vtable_ = kCollisionVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x004F2F50
-ShotImpactModule* ShotImpactModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004F2F10 (0x004F2F50 the deleting one)
+ShotImpactModule::~ShotImpactModule() {}
 
 // 0x004F2F80
 void ShotImpactModule::configure_from_data(script::Struct* params)
@@ -254,33 +233,13 @@ void ShotImpactModule::tick_frame()
 // --- the projectile proximity component ---
 
 // 0x004F3550
-ObjectModule* __cdecl ProjectileProximityComponent::fabricate()
-{
-    auto* component =
-        static_cast<ProjectileProximityComponent*>(memory::alloc_zeroed(sizeof(ProjectileProximityComponent)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kProximityVtable;
-    component->kind_tag_ = kType;
-    return component;
-}
+ObjectModule* __cdecl ProjectileProximityComponent::fabricate() { return new ProjectileProximityComponent; }
 
-// 0x004F34E0
-void ProjectileProximityComponent::destroy_body()
-{
-    vtable_ = kProximityVtable;
-    ObjectModule::destroy_body();
-}
+// (the constructor: inlined in fabricate in the original)
+ProjectileProximityComponent::ProjectileProximityComponent() { kind_tag_ = kType; }
 
-// 0x004F34F0
-ProjectileProximityComponent* ProjectileProximityComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004F34E0 (0x004F34F0 the deleting one)
+ProjectileProximityComponent::~ProjectileProximityComponent() {}
 
 // 0x004F3520
 void ProjectileProximityComponent::configure_from_data(script::Struct*)
@@ -333,43 +292,4 @@ void ProjectileProximityComponent::tick_frame()
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_collision_vtable_slots[] = {
-    &objects::ShotImpactModule::teardown,
-    &objects::ShotImpactModule::tick_frame,
-    &objects::ShotImpactModule::configure_from_data,
-    &objects::ImpactDestructModule::seal,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kCollisionVtable = reinterpret_cast<void**>(g_collision_vtable_slots);
-static VtableSlot g_proximity_vtable_slots[] = {
-    &objects::ProjectileProximityComponent::teardown,
-    &objects::ProjectileProximityComponent::tick_frame,
-    &objects::ProjectileProximityComponent::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kProximityVtable = reinterpret_cast<void**>(g_proximity_vtable_slots);
-
-} // namespace
 } // namespace objects

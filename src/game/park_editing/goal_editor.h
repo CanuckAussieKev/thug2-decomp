@@ -190,29 +190,31 @@ void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Are
 //
 // Vtable: 0 Destroy 0x004E7B20; 1 Update 0x004EBD30; 2 the empty 0x005BAB90; 3 Finalize 0x004E8210; 8 Hide
 // 0x004EBC40; the rest shared.
-class ObjectiveAuthoring : public objects::ObjectModule {
+class ObjectiveAuthoring final : public objects::ObjectModule {
 public:
     // 0x004EB7F0: a new one (0 if out of memory).
     static objects::ObjectModule* __cdecl fabricate();
     // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.
     static void __cdecl publish_method_table();
-    // 0x004EA230: the base's constructor, its vtable and type, every goal's defaults (the array constructor with
-    // 0x004E93C0), the goals cleared; no input or camera yet. Returns this.
-    ObjectiveAuthoring* make_new();
+    // 0x004EA230: its type, every goal's defaults (the array constructor with
+    // 0x004E93C0), the goals cleared; no input or camera yet.
+    ObjectiveAuthoring();
     // 0x004E6FD0: the destructor body: the script 0xFCC60D8B run, then the base's.
-    void destroy_body();
-    // 0x004E7B20 (vtable slot 0)
-    ObjectiveAuthoring* teardown(unsigned int flags);
+    ~ObjectiveAuthoring() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x004E8210 (vtable slot 3): the object's input (0x27D7CD28) and editor camera components found.
-    void seal();
+    void seal() override;
     // 0x004EBD30 (vtable slot 1): with a goal being edited, the input's two buttons (+0x1C0: place the current point
     // at the cursor and go on; +0x1A0: place it and step back) - refused near another goal's pro / start (the
     // scripts 0xAEBC7020 / 0xADE100D6), else placed (0x718B071B / 0xFA275CC5, the cursor refreshed and moved;
     // the last point: 0xC05E7E20); then the cursor script.
-    void tick_frame();
+    void tick_frame() override;
     // 0x004EBC40 (vtable slot 8, not a Ghidra function): hidden - the script 0xFCC60D8B; shown - the input
     // component given 0x67E6859A = 0 and the cursor refreshed.
-    void conceal(bool hide);
+    void conceal(bool hide) override;
     // 0x004EC010 [GetEditedGoalsInfo]: EditedGoalsInfo = the level's (0x651533EC, any without) complete goals.
     bool get_edited_goals_info(script::Struct* params, script::Script* script);
 

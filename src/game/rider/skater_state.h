@@ -22,7 +22,7 @@ class Struct;
 // invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
-class RiderPoseState : public ObjectModule {
+class RiderPoseState final : public ObjectModule {
 public:
     // The skater's state (+0x18).
     enum State : int { kGround = 0, kAir = 1, kWall = 2, kLip = 3, kRail = 4, kWallplant = 5 };
@@ -31,14 +31,18 @@ public:
 
     // 0x00519740 (registered by register_component_types): a new one (0 if out of memory), no powerups.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderPoseState();
     // 0x00519430 (registered with Create): its script member functions (the table at 0x00684A80) registered.
     static void __cdecl publish_method_table();
     // 0x00519450: the destructor body (the base's).
-    void destroy_body();
-    // 0x00519620 (vtable slot 0)
-    RiderPoseState* teardown(unsigned int flags);
+    ~RiderPoseState() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00519460 (vtable +0x08): in the air. `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
 
     // 0x00519660 / 0x00519680 / 0x005196A0: the state / the physics mode / the terrain; when it changes the skater
     // gets OnSkaterStateChange / OnSkaterPhysicsStateChange / OnSkaterTerrainChange.

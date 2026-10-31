@@ -24,19 +24,21 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor; Update 0x0051B970, the empty 0x005BAB90 / 0x005480A0, 0x0042BB20 and
 // invoke_method_by_name 0x0051ADC0 (shared with other classes, not rewritten here); the base's Suspend.
-class ObstacleDodgeModule : public ObjectModule {
+class ObstacleDodgeModule final : public ObjectModule {
 public:
     // 0x004E39E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
     // 0x004E3310 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x006839E8) registered.
     static void __cdecl publish_method_table();
-    // 0x004E3660: the base's constructor, its vtable and type. The rest isn't initialised. Returns this.
-    ObstacleDodgeModule* make_new();
+    // 0x004E3660: its type. The rest isn't initialised.
+    ObstacleDodgeModule();
     // 0x004E3330: the destructor body (the base's).
-    void destroy_body();
-    // 0x004E36C0 (vtable slot 0)
-    ObstacleDodgeModule* teardown(unsigned int flags);
+    ~ObstacleDodgeModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
 
     // 0x004E34C0: the angle (degrees, as get_angle_in_plane of the display matrix) to the side of the object
     // further from the local skater, across the skater's horizontal velocity.

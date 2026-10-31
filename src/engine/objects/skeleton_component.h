@@ -23,23 +23,27 @@ namespace objects {
 // Vtable: 0 the scalar deleting destructor; 1 Update 0x0051B970 (shared, empty); 2 configure_from_data; 3 / 4 / 9 the
 // empty 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 / 10 the empty 0x005BAB90; 11
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
-class BoneRigModule : public ObjectModule {
+class BoneRigModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x222756D5;
 
     // 0x00431F60 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no skeleton.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    BoneRigModule();
     // 0x00431BE0 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl publish_method_table();
     // 0x00431FE0: the skeleton destroyed (0x004A2CB0) and freed; the base's body.
-    void destroy_body();
-    // 0x00432790 (vtable slot 0)
-    BoneRigModule* teardown(unsigned int flags);
+    ~BoneRigModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00431CF0 (vtable slot 2): CopySkeletonFrom=<object id>: a copy (0x004A3E80) of that object's skeleton;
     // otherwise the skeleton made from the asset skeleton= (or skeletonName=, asserted), and max_bone_skip_lod= to
     // its +0x10.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00431C70: a new skeleton (0x004A3D30) from the asset `name` (the asset manager's data; out of memory: none).
     void prepare_rig(uint32_t name);
     // 0x00431C60: the skeleton's position of `bone` (0x004A3870: its own space; whether the bone was found).

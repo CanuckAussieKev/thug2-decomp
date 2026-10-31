@@ -22,7 +22,7 @@ class Struct;
 // invoke_method_by_name 0x0051ADC0 (shared: "not mine").
 namespace objects {
 
-class SkaterVehicleSoundComponent : public ObjectModule {
+class SkaterVehicleSoundComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x1859F772;
     static constexpr int kMaxGears = 6;
@@ -41,21 +41,23 @@ public:
     // 0x0051AD90 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684648) registered.
     static void __cdecl publish_method_table();
-    // 0x0051ADD0: the base's constructor, its vtable and type; no sounds, no settings, the settings' name 0x1CA1FF20,
-    // silenced. Returns this.
-    SkaterVehicleSoundComponent* make_new();
+    // 0x0051ADD0: its type; no sounds, no settings, the settings' name 0x1CA1FF20,
+    // silenced.
+    SkaterVehicleSoundComponent();
     // 0x0051ADB0: the destructor body (the base's).
-    void destroy_body();
-    // 0x0051AE30 (vtable slot 0)
-    SkaterVehicleSoundComponent* teardown(unsigned int flags);
+    ~SkaterVehicleSoundComponent() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
 
     // 0x0051AE60 (vtable slot 2): whether the level is the park editor's (its +0x40 isn't "off"); `params` isn't
     // read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0051B8E0 (vtable slot 3): the skater's core physics, sound and input components, then the settings read.
-    void seal();
+    void seal() override;
     // 0x0051B920 (vtable slot 1): the engine and skid sounds while driving (not silenced, with settings).
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x0051B670: the settings read (see the class).
     void read_settings();
@@ -109,12 +111,5 @@ static_assert(offsetof(SkaterVehicleSoundComponent, settings_) == 0x24 &&
                   offsetof(SkaterVehicleSoundComponent, settings_name_) == 0xC0 &&
                   sizeof(SkaterVehicleSoundComponent) == 0xC8,
               "layout must match the original");
-
-// The components with no member functions of their own by name (the state history, the vehicle sound, the stats
-// manager, the matrix, collision and avoid components...).
-struct ComponentWithoutMemberFunctions {
-    // 0x0051ADC0 (vtable +0x30): 2 - not mine.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
-};
 
 } // namespace objects

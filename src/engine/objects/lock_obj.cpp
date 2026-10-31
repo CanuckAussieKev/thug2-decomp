@@ -140,7 +140,7 @@ int PinnedObjectModule::invoke_method_by_name(uint32_t name, script::Struct* par
 {
     if (name != kObjLockToObject)
         return 2;
-    ObjectModule::configure_from_data(params);
+    configure_from_data(params);
     return 1;
 }
 

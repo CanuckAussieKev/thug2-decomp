@@ -24,7 +24,7 @@ struct ProximNode;
 // Vtable: 0 the scalar deleting destructor; 1 Update 0x0051B970 (shared, empty); 2 configure_from_data; 3 / 4 / 9 the
 // empty 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 / 10 the empty 0x005BAB90; 11
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
-class AudioStreamModule : public ObjectModule {
+class AudioStreamModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x0F1641E3;
 
@@ -32,14 +32,16 @@ public:
     static ObjectModule* __cdecl fabricate();
     // 0x00433870 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl publish_method_table();
-    // 0x00433C10: the base's constructor, its vtable and type; no emitter or proxim node. Returns this.
-    AudioStreamModule* make_new();
+    // 0x00433C10: its type; no emitter or proxim node.
+    AudioStreamModule();
     // 0x00433890: its streams stopped (audio::halt_stream); the base's body.
-    void destroy_body();
-    // 0x00433C40 (vtable slot 0)
-    AudioStreamModule* teardown(unsigned int flags);
+    ~AudioStreamModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00433900 (vtable slot 2): ProximNode= (the proxim node heard from).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00433CD0: where its streams are heard from by `camera`: the emitter's nearest point (with an emitter and a
     // camera), else the object's position.
     maths::Vec4* get_stream_position(maths::Vec4* out, void* camera);

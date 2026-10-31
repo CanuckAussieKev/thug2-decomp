@@ -18,20 +18,20 @@ class Struct;
 // file's range: see component_types.cpp.)
 namespace objects {
 
-class WaitAndDieComponent : public ObjectModule {
+class WaitAndDieComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x03AC8065;
 
-    // 0x0043D840: the destructor body (the base's).
-    void destroy_body();
-    // 0x0043D850 (vtable slot 0)
-    WaitAndDieComponent* teardown(unsigned int flags);
+    // (0x0043D930's inlined constructor: create_wait_and_die_component) Its type.
+    WaitAndDieComponent() { kind_tag_ = kType; }
+    // 0x0043D840 (0x0043D850 the deleting one): the base's.
+    ~WaitAndDieComponent() override;
     // 0x0043D880 (vtable slot 2): the object to wait for (0x1869F559, a checksum; none: 0) - without one, the
     // LifeTime (0xC218CF77, seconds, asserted) in ms, truncated; with one the lifetime is 0. Started now.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0043D8E0 (vtable slot 1): the time since the start kept; the object dies (vtable slot 6, flag_as_dead) when the
     // object it waits for can't be found, or - waiting for none - once the time is past the lifetime.
-    void tick_frame();
+    void tick_frame() override;
 
     int outset_;        // +0x18 the game clock (with its offset) at configure_from_data
     uint32_t elapsed_;  // +0x1C ms since then (each update)
@@ -41,8 +41,5 @@ public:
 static_assert(offsetof(WaitAndDieComponent, outset_) == 0x18 && offsetof(WaitAndDieComponent, wait_for_) == 0x24 &&
                   sizeof(WaitAndDieComponent) == 0x28,
               "layout must match the original");
-
-// 0x00646898: waitAndDieVtable (defined where the class's functions are).
-extern void** const kWaitAndDieVtable;
 
 } // namespace objects

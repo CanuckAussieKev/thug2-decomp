@@ -16,8 +16,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/maths/x87_math.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -29,7 +27,6 @@ uint32_t g_vehicle_camera_member_functions[12]{0x000469FD, 0x2C747D8A, 0, 0, 0, 
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kVehicleCamera = 0x2C747D8A;
 constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kCamera = 0xC4E311FA;
@@ -67,19 +64,15 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
 } // namespace
 
 // 0x005248C0
-ObjectModule* __cdecl CarView::fabricate()
+ObjectModule* __cdecl CarView::fabricate() { return new CarView; }
+
+// (the constructor: inlined in fabricate in the original)
+CarView::CarView()
 {
-    void* memory = memory::alloc_zeroed(sizeof(CarView));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<CarView*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kVehicleCamera;
-    component->level_y_ = 60.0f;
-    component->reach_ = 144.0f;
-    component->lerp_ = 3.0f;
-    return component;
+    kind_tag_ = kVehicleCamera;
+    level_y_ = 60.0f;
+    reach_ = 144.0f;
+    lerp_ = 3.0f;
 }
 
 // 0x00524420
@@ -89,21 +82,8 @@ void __cdecl CarView::publish_method_table()
                                            0x18);
 }
 
-// 0x00524440
-void CarView::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00524470
-CarView* CarView::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00524440 (0x00524470 the deleting one)
+CarView::~CarView() {}
 
 // 0x005244A0
 void CarView::configure_from_data(script::Struct* params)
@@ -130,8 +110,8 @@ void CarView::seal()
 // 0x00524450
 bool CarView::vehicle_camera_reset(script::Struct* params, script::Script* /*script*/)
 {
-    reinterpret_cast<void(__thiscall*)(ObjectModule*, script::Struct*)>(vtable_[5])(this, params);
-    reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[3])(this);
+    reapply_from_data(params);
+    seal();
     return true;
 }
 
@@ -262,25 +242,4 @@ void CarView::tick_frame()
     apply_to_camera();
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::CarView::teardown,
-                                      &objects::CarView::tick_frame,
-                                      &objects::CarView::configure_from_data,
-                                      &objects::CarView::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

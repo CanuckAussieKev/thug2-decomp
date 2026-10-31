@@ -31,7 +31,7 @@ class Struct;
 // invoke_method_by_name 0x0051ADC0 (not mine).
 namespace objects {
 
-class DrivableModule : public ObjectModule {
+class DrivableModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xE47F1B79;
     static constexpr int kMaxGears = 6;
@@ -122,24 +122,27 @@ public:
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x00437C00: the base's constructor; identity orientation, the collision cache, no input, no debug drawing, no
-    // wheels, no contacts, awake; the sounds' name 0x1CA1FF20. Returns this.
-    DrivableModule* make_new();
+    // 0x00437C00: identity orientation, the collision cache, no input, no debug drawing, no
+    // wheels, no contacts, awake; the sounds' name 0x1CA1FF20.
+    DrivableModule();
     // 0x0043B990: the destructor body: the wheels destroyed and freed, the collision cache unregistered, the base's.
-    void destroy_body();
-    // 0x0043C1A0 (vtable slot 0)
-    DrivableModule* teardown(unsigned int flags);
+    ~DrivableModule() override;
+    void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00437D10 (vtable slot 2): the vehicle's parameters (see vehicle_component.cpp).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0043BA20 (vtable slot 3): the components, the wheels' and the skater's positions from the model, the
     // wheelbase and track, the centre of mass, the skater's components; the body's state into the object.
-    void seal();
+    void seal() override;
     // 0x0043C1D0 (vtable slot 1): the controls (none when passive); asleep, only the steering, the wheels' roll, the
     // model and the skater; else in up to six sub-steps of at most 1/30 s: Integrate, Collide (not when passive), the
     // wheels' contacts, steering, damping and forces, the air and free-fall times; then (not when passive) the body
     // into the object, check_sleep, the model and the skater. Stops as soon as a trigger's script took over or the
     // object died. A gravity override ends when its time is up or two wheels touch.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0043A070: the model's bones: 1 the skater's place, 2 on the wheels (steered, rolled, at their suspension's
     // extension but no lower than max_drawn_y_); nothing in debug mode 2 (all zero). Skipped while rendering is off.
     void refresh_bone_rig();

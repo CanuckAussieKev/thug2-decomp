@@ -11,8 +11,6 @@
 #include "engine/gfx/model.h"
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -22,8 +20,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kShadowType = 0x9AC24B18;       // ShadowType
@@ -71,44 +67,26 @@ const uint8_t* hierarchy_of(uint8_t* model)
 } // namespace
 
 // 0x00431800
-ObjectModule* __cdecl GroundShadowModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(GroundShadowModule));
-    return memory ? static_cast<GroundShadowModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl GroundShadowModule::fabricate() { return new GroundShadowModule; }
 
 // 0x00431380
-GroundShadowModule* GroundShadowModule::make_new()
+GroundShadowModule::GroundShadowModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     shadow_handle_ = nullptr;
     surface_dir_ = {0.0f, 1.0f, 0.0f, 1.0f};
     shadow_kind_ = kNone;
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     follow_object_ = true;
-    return this;
 }
 
-// 0x00431300
-void GroundShadowModule::destroy_body()
+// 0x00431300 (0x004313D0 the deleting one)
+GroundShadowModule::~GroundShadowModule()
 {
-    vtable_ = kVtable;
     if (shadow_handle_) {
         delete shadow_handle_;
         shadow_handle_ = nullptr;
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x004313D0
-GroundShadowModule* GroundShadowModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00431400
@@ -299,7 +277,7 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     uint32_t type; // (read into the parameters' own argument slot)
     if (!params->read_hash_value(kShadowType, &type, 0))
         params->put_name_key(kShadowType, kSimple);
-    reinterpret_cast<void(__thiscall*)(GroundShadowModule*, script::Struct*)>(vtable_[2])(this, params);
+    configure_from_data(params);
     if (shadow_handle_ && shadow_kind_of(shadow_handle_) == kShadowSimple) {
         float offset = 0.2f; // (read into the name's argument slot)
         params->fetch_float(kOffset, &offset, 0);
@@ -308,27 +286,4 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     return 1;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::GroundShadowModule::teardown,
-    &objects::GroundShadowModule::tick_frame,
-    &objects::GroundShadowModule::configure_from_data,
-    &objects::GroundShadowModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    &objects::GroundShadowModule::conceal,
-    render::virtual_slot1_jump,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::GroundShadowModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

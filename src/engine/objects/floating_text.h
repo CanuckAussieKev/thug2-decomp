@@ -31,31 +31,31 @@ namespace objects {
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name; the rest
 // the base's / shared (4 / 9 0x005480A0, 5 0x004E3F90 - configure_from_data through the vtable -, 6 0x0048DCD0, 7
 // 0x0045D760, 8 / 10 0x005BAB90, 11 0x0045D720).
-class FloatingTextComponent : public ObjectModule {
+class FloatingTextComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xEADA1621;
 
     // 0x0041E3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no text, colour 2, y_offset 120, no id, no end; 0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    FloatingTextComponent();
     // 0x0041E5E0: the element destroyed (the script 0x2575B406 with id=), then the base's body.
-    void destroy_body();
-    // 0x0041E6C0 (vtable slot 0)
-    FloatingTextComponent* teardown(unsigned int flags);
+    ~FloatingTextComponent() override;
     // 0x0041E2B0 (vtable slot 2): the id (the object's id - 0x1525E9DF the first time), string (copied, at most 64
     // characters - strncpy: not terminated when longer; an empty one ends the text now), color, y_offset, the id
     // (0x727F9552), duration (seconds: the end time).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041E3A0 (vtable slot 3): the object's model component.
-    void seal();
+    void seal() override;
     // 0x0041E450 (vtable slot 1): while the model is drawn (its model's +0x44: 2 set, 4 not) and there's text: past the
     // end time the text is emptied (once); the element's properties - id, text "\c<color><string>", pos3D (the object's
     // position, y + y_offset) - given to it (its vtable slot 1) or, with no element yet, to the script 0x6A060CF0.
     // (The original formats the text into 64 bytes on its stack: a string of more than about 60 characters overran
     // them and ended the game at its stack cookie check. Ours cuts it short instead.)
-    void tick_frame();
+    void tick_frame() override;
     // 0x0041E270 (vtable slot 12): 0xE357E3CB configure_from_data again (through the vtable), 1; anything else 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     char text_[0x40];             // +0x18 string (0 first: none)
     int tint_;                    // +0x58 color (a font colour index)

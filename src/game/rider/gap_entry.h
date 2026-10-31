@@ -30,26 +30,24 @@ namespace objects {
 struct TrickListEntry;
 struct TrickNameEntry;
 
-class RiderGapTracker : public ObjectModule {
+class RiderGapTracker final : public ObjectModule {
 public:
     // 0x00512C60 (registered by register_component_types): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x005122A0: the base, its vtable and type, two empty lists, no core physics or balance trick yet. Returns this.
-    RiderGapTracker* make_new();
+    // 0x005122A0: its type, two empty lists, no core physics or balance trick yet.
+    RiderGapTracker();
     // 0x00511F10: the two lists' heads unlinked (their entries aren't freed: clear_gaps), then the base's.
-    void destroy_body();
-    // 0x005122F0 (vtable slot 0)
-    RiderGapTracker* teardown(unsigned int flags);
+    ~RiderGapTracker() override;
     // 0x00511BB0 (vtable +0x08): the frame count reset. `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00511BC0 (vtable +0x0C): the core physics, balance trick, physics control and walk components found.
-    void seal();
+    void seal() override;
     // 0x00512320 (vtable +0x04): one more frame; the gaps checked against the skater's state.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00512CC0 (vtable +0x30): StartGap, EndGap, StartGapTrick, CheckGapTricks, ClearGapTricks, DuplicateTrigger (the
     // TriggerScript of the first node the script's node links to that has one, run on the skater) - 1; 2 for any
     // other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00511C80: the flags of the skater's state now: `cancel` the low ones (one state bit, and 0x200 skating / 0x400
     // walking / 0x800 driving), `require` the same << 16.

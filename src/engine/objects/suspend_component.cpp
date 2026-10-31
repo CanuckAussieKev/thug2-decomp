@@ -17,8 +17,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/assets/resource_registry.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -35,7 +33,6 @@ SuspendTaskHolder* g_suspend_task_holder;
 
 namespace {
 
-extern void** const kVtable;
 constexpr int kTaskPriority = -1100;
 
 constexpr uint32_t kModel = 0x286A8D26;
@@ -75,11 +72,7 @@ void change_model_enabled(uint8_t* model, bool active)
 } // namespace
 
 // 0x00434290
-ObjectModule* __cdecl DormancyModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(DormancyModule));
-    return memory ? static_cast<DormancyModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl DormancyModule::fabricate() { return new DormancyModule; }
 
 // 0x00434610
 void __cdecl DormancyModule::publish_method_table()
@@ -89,10 +82,8 @@ void __cdecl DormancyModule::publish_method_table()
 }
 
 // 0x00433F50
-DormancyModule* DormancyModule::make_new()
+DormancyModule::DormancyModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * kInchesPerFoot;
     suspend_distance_ = static_cast<float>(distance);
@@ -100,24 +91,10 @@ DormancyModule* DormancyModule::make_new()
     frames_before_check_ = kCheckFrames;
     frames_before_lod_ = 3;
     suspend_distance_squared_ = static_cast<float>(distance * distance);
-    return this;
 }
 
-// 0x00433E10
-void DormancyModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00433FD0
-DormancyModule* DormancyModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00433E10 (0x00433FD0 the deleting one)
+DormancyModule::~DormancyModule() {}
 
 // 0x00433E50
 void DormancyModule::tick_frame() { ObjectModule::hold_off(true); }
@@ -323,25 +300,4 @@ void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::DormancyModule::teardown,
-                                      &objects::DormancyModule::tick_frame,
-                                      &objects::DormancyModule::configure_from_data,
-                                      &objects::DormancyModule::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      stubs::ignore_argument,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

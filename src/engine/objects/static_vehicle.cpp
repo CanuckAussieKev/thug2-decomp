@@ -13,7 +13,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -24,7 +23,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kSkeleton = 0x222756D5;
 
@@ -53,33 +51,13 @@ maths::Vec4 from_model(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
 } // namespace
 
 // 0x00433690
-ObjectModule* __cdecl ParkedVehicleModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ParkedVehicleModule));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<ParkedVehicleModule*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    return component;
-}
+ObjectModule* __cdecl ParkedVehicleModule::fabricate() { return new ParkedVehicleModule; }
 
-// 0x00433650
-void ParkedVehicleModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
+// (the constructor: inlined in fabricate in the original)
+ParkedVehicleModule::ParkedVehicleModule() { kind_tag_ = kType; }
 
-// 0x00433660
-ParkedVehicleModule* ParkedVehicleModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00433650 (0x00433660 the deleting one)
+ParkedVehicleModule::~ParkedVehicleModule() {}
 
 // 0x004336F0
 void ParkedVehicleModule::seal()
@@ -115,27 +93,4 @@ void ParkedVehicleModule::seal()
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::ParkedVehicleModule::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    stubs::ignore_argument,
-    &objects::ParkedVehicleModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

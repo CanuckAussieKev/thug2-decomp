@@ -230,7 +230,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
                 fade_model(model_of(component), 1.0f);
                 static_cast<MeshInstanceModule*>(component)->get_update_brightness();
             }
-            reinterpret_cast<void(__thiscall*)(ObjectModule*)>((*reinterpret_cast<void***>(component))[1])(component);
+            component->tick_frame();
         }
     }
     if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))

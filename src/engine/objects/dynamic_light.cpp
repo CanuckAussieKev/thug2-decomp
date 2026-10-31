@@ -12,8 +12,6 @@
 #include "engine/core/mem.h"
 #include "engine/render/dynamic_light.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -33,8 +31,6 @@ void DynamicLight::set_reach(float radius)
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kStartRadius = 0x3BEE67C8, kMiddleRadius = 0x8E39913D, kEndRadius = 0x3F243A3C; // StartRadius...
 constexpr uint32_t kStartIntensity = 0x27A7443F, kMiddleIntensity = 0xCEF9F4FD, kEndIntensity = 0xE1CE9780;
@@ -77,37 +73,23 @@ render::DynamicLight* new_dynamic_light(int kind)
 } // namespace
 
 // 0x0041D0F0
-ObjectModule* __cdecl DynamicLightComponent::fabricate()
+ObjectModule* __cdecl DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+DynamicLightComponent::DynamicLightComponent()
 {
-    auto* component = static_cast<DynamicLightComponent*>(memory::alloc_zeroed(sizeof(DynamicLightComponent)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    component->light_ = nullptr;
-    return component;
+    kind_tag_ = kType;
+    light_ = nullptr;
 }
 
-// 0x0041CBD0
-void DynamicLightComponent::destroy_body()
+// 0x0041CBD0 (0x0041D0C0 the deleting one)
+DynamicLightComponent::~DynamicLightComponent()
 {
-    vtable_ = kVtable;
     if (light_) {
         light_->holder_key_ = 0;
         light_ = nullptr;
     }
     wait_and_die_ = nullptr;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041D0C0
-DynamicLightComponent* DynamicLightComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0041CBF0
@@ -213,27 +195,4 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::DynamicLightComponent::teardown,
-    &objects::DynamicLightComponent::tick_frame,
-    &objects::DynamicLightComponent::configure_from_data,
-    &objects::DynamicLightComponent::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::DynamicLightComponent::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

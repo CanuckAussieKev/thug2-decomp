@@ -28,7 +28,7 @@ class Rider;
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize (the collide-and-die
 // component's 0x0041C330: the suspend component at +0x18); the rest the base's / shared (4 / 9 0x005480A0, 5 / 8
 // 0x005BAB90, 6 0x0048DCD0, 7 0x0045D760, 10 0x005144C0, 11 0x0045D720, 12 0x0051ADC0).
-class ShotImpactModule : public ObjectModule {
+class ShotImpactModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x7767D6D7;
     static constexpr uint32_t kFireball = 0xD039432C; // projectile_type fireball
@@ -36,15 +36,18 @@ public:
     // 0x004F3010 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no radius, scale, death script or owner, not hit.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    ShotImpactModule();
     // 0x004F2F10: the base's body.
-    void destroy_body();
-    // 0x004F2F50 (vtable slot 0)
-    ShotImpactModule* teardown(unsigned int flags);
+    ~ShotImpactModule() override;
+    void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
+    // 0x0041C330 (slot 3, the collide-and-die component's Finalize, folded): the object's suspend component kept.
+    void seal() override { suspend_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(0xCE0CA665)); }
     // 0x004F2F80 (vtable slot 2): radius, scale, owner_id, death_script, projectile_type (each asserted); vel
     // (0, 0, 1) normalised - not read from the parameters.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004F3090 (vtable slot 1): see the class.
-    void tick_frame();
+    void tick_frame() override;
     // 0x004F2F40: it has hit the world (the collide-and-die component's call): no more skaters are hit.
     void mark_hit();
     // 0x004F2F20 (not a Ghidra function): the score a hit takes - a fireball's scale (truncated) times ten, 0 for
@@ -76,22 +79,22 @@ static_assert(offsetof(ShotImpactModule, suspend_) == 0x18 && offsetof(ShotImpac
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data; the rest the base's / shared (3 / 4
 // 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 9 0x005480A0, 11 0x0045D720, 12
 // 0x0051ADC0).
-class ProjectileProximityComponent : public ObjectModule {
+class ProjectileProximityComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x3618B878;
 
     // 0x004F3550 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    ProjectileProximityComponent();
     // 0x004F34E0: the base's body.
-    void destroy_body();
-    // 0x004F34F0 (vtable slot 0)
-    ProjectileProximityComponent* teardown(unsigned int flags);
+    ~ProjectileProximityComponent() override;
     // 0x004F3520 (vtable slot 2): the local skater, the object's PedLogic component, 48 squared. (The parameters
     // aren't read.)
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004F35B0 (vtable slot 1): see the class. With no skater yet, it's looked up instead; with no PedLogic
     // component yet (and an object id), that is.
-    void tick_frame();
+    void tick_frame() override;
 
     float reach_squared_;              // +0x18 2304 (48 squared)
     Rider* rider_ref_;                 // +0x1C the local skater

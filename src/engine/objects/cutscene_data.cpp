@@ -285,7 +285,7 @@ void CinematicTable::show_hidden_objects()
         if (!component || !model_of(component))
             continue;
         static_cast<render::RenderModel*>(model_of(component))->change_live(1);
-        reinterpret_cast<void(__thiscall*)(ObjectModule*)>((*reinterpret_cast<void***>(component))[1])(component);
+        component->tick_frame();
     }
 }
 

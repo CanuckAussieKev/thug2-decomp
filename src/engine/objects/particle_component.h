@@ -25,7 +25,7 @@ namespace objects {
 // Vtable: 0 Destroy, 1 Update (0x0042AD90), 2 configure_from_data (0x0042A090), 3 Finalize, 4 / 9 the empty
 // 0x005480A0, 5 / 10 the empty 0x005BAB90, 6 0x0048DCD0, 7 the base's Suspend, 8 Hide, 11 0x0042BB20 (the table
 // entry's member function, else slot 12), 12 invoke_method_by_name (0x0042AEE0).
-class EffectsEmitterModule : public ObjectModule {
+class EffectsEmitterModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xA9DB601E;
 
@@ -33,29 +33,32 @@ public:
     static ObjectModule* __cdecl fabricate();
     // 0x00429940: its member function table registered.
     static void __cdecl publish_method_table();
-    // 0x00429B20: the constructor (returns this): the base's, its vtable and type, no particle system, no
+    // 0x00429B20: its type, no particle system, no
     // lifetime, started now (the game clock).
-    EffectsEmitterModule* make_new();
+    EffectsEmitterModule();
     // 0x00429B90: the destructor body: the particle system destroyed by the particle manager, then the base's.
-    void destroy_body();
-    // 0x0042A060 (vtable slot 0): the scalar deleting destructor.
-    EffectsEmitterModule* teardown(unsigned int flags);
+    ~EffectsEmitterModule() override;
+    void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00429BF0 (slot 3): the object's suspend component kept.
-    void seal();
+    void seal() override;
     // 0x0042A090 (slot 2): its particle system made by the particle manager from the parameters (sizes, radii,
     // positions and boxes scaled by 0x13B9DA7B and turned to face 0x0C4C809E with 0x7045843A; colours; a
     // rotation...); the emit target's script spawned on the object; the model to follow (0x5E2A8D9F's object).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0042AD90 (slot 1): nothing while suspended (unless a network game runs and it has a lifetime); past its
     // lifetime the object dies; the model's +0x22C to the particle system; with its parameters' +0x152, its three
     // positions (+0xF4, offsets from the object) moved with the object, and with +0x154 turned by its orientation.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0042AEE0 (slot 12): 0x2299A9F2 (whether the particle system's vtable slot 7 says so: 1 / 0), 0x96896315 (a
     // feeler from 1 above its position (+0x94 of its parameters) to 4800 below: the vertex value hit doubled, else
     // 1, to the particle system's +0x38) - 1; anything else 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x00429960 (slot 8): the particle system hidden or shown (its 0x00494E70; none: a crash).
-    void conceal(bool hide);
+    void conceal(bool hide) override;
 
     // --- script member functions (all true; nothing without a particle system) ---
     // 0x00429970 SetEmitRate / 0x004299A0 set_lifespan / 0x004299E0 (0x19AF74D1) / 0x00429A20 change_midpoint_fraction: the

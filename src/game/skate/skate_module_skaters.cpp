@@ -357,8 +357,7 @@ void Skate::set_skater_shadow(objects::Rider* skater)
     script::Struct* params = spawn_param_table();
     params->push_float(kBlobSizeFactor, 1.0f);
     params->append_word(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
-    reinterpret_cast<void(__thiscall*)(objects::GroundShadowModule*, script::Struct*)>(shadow->vtable_[2])(shadow,
-                                                                                                           params);
+    shadow->configure_from_data(params);
     delete_structure(params);
     shadow->destroy_shadow();
     shadow->build_blob_shadow(type, "Ped_Shadow");
@@ -803,8 +802,7 @@ void __cdecl Skate::debug_rails()
         matrix[11] = 0.0f;
         std::memcpy(matrix + 12, object + 0x4C, 12);
         matrix[15] = 1.0f;
-        void* rails =
-            reinterpret_cast<void*(__thiscall*)(objects::ObjectModule*)>(component->vtable_[0x34 / 4])(component);
+        void* rails = static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
         if (rails)
             stubs::ignore_argument(static_cast<int>(reinterpret_cast<uintptr_t>(matrix)));
     }

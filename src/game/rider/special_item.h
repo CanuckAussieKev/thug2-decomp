@@ -18,17 +18,17 @@ class Struct;
 // empty.
 namespace objects {
 
-class PickupItemHandler : public ObjectModule {
+class PickupItemHandler final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xF27A294D;
     static constexpr int kItems = 2;
 
     // 0x0051BD80 (registered with the composite object manager): a new one, no items (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    PickupItemHandler();
     // 0x0051BF20: the destructor body: both items destroyed, then the base's.
-    void destroy_body();
-    // 0x0051C130 (vtable slot 0)
-    PickupItemHandler* teardown(unsigned int flags);
+    ~PickupItemHandler() override;
 
     // 0x0051BF80: item `slot` (the one there destroyed first) made from `params` (a game object from a node; its id,
     // if given, offset by the object's id - written back into `params`), tagged with the object's id (0x7A9597B3)
@@ -43,7 +43,7 @@ public:
     // 0x0051C160 (vtable slot 12): CreateSpecialItem (index, bone, params), DestroySpecialItem (index) - each sent to
     // the server in a network game (messages 0x77 / 0x78) -, DestroyAllSpecialItems, SpecialItemExists (index, or
     // any). Other names: 2 (not mine).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     GameEntity* items_[kItems]; // +0x18
 };

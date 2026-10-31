@@ -34,7 +34,7 @@ class AudioEmitterModule;
 // Vtable: 0 the scalar deleting destructor; 1 Update 0x00430E20; 2 configure_from_data; 3 Finalize 0x0042BD90; 4 / 9
 // the empty 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 / 10 the empty 0x005BAB90; 11
 // 0x0042BB20 (shared); 12 invoke_method_by_name 0x0051ADC0 (none by name).
-class BodyDynamicsModule : public ObjectModule {
+class BodyDynamicsModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xFFB39248;
 
@@ -64,21 +64,23 @@ public:
 
     // 0x0042EF00 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0042E3F0: the base's constructor, its vtable and type, the capsule (+0x64) constructed, the defaults (see the
-    // fields). Returns this.
-    BodyDynamicsModule* make_new();
+    // 0x0042E3F0: its type, the capsule (+0x64) constructed, the defaults (see the
+    // fields).
+    BodyDynamicsModule();
     // 0x0042EF60: the shape's, the friction's, the spheres' and the springs' arrays freed, the callback and sound
     // structures deleted; the base's body.
-    void destroy_body();
-    // 0x00430DF0 (vtable slot 0)
-    BodyDynamicsModule* teardown(unsigned int flags);
+    ~BodyDynamicsModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x0042F050 (vtable slot 2): everything from the structure - the state, velocities, the physical constants, the
     // scripts and sounds, springs=, the shape (contacts= / spheres - 0x5B6A8D18 - / Box (dimensions or top_ /
     // bottom_dimensions), Pyramid (height, depth), Cylinder (radius, top_ / bottom_radius, height, edges), Triangle
     // (Dimensions); Box without any), directed_friction=, Angles= (the shape turned), the centre of mass (given, or
     // the average of the points) the shape is moved to, model_offset=, mass_over_moment (else scaled down for big
     // shapes), disable_player_collision; the bounding radius; the position moved by the offset.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
 
     // The shapes (each replaces the contact points; half sizes; w 1):
     // 0x0042D4B0: the vectors of `points` (w 0).
@@ -130,7 +132,7 @@ public:
     bool rigid_body_disable(script::Struct* params, script::Script* script); // 0x0042BBB0: disabled
     bool rigid_body_reset(script::Struct* params, script::Script* script);   // 0x0042BBD0: configure_from_data again
     // 0x0042BD90 (vtable slot 3): the sound component found; each spring's anchor is where its point is now.
-    void seal();
+    void seal() override;
     // 0x0042BE90: asleep (SettleScript run first, CallbackParams its parameters): no velocity, no turning.
     void sleep();
 
@@ -163,7 +165,7 @@ public:
     // the frame's end - a hit cuts the step short (6 back from the hit) and is collided with; the fifth puts it to
     // sleep (0x0042BE90). Then the contacts (0x0042C950 finds them) resolved, the springs, the damping (0x0042C6D0)
     // and sleeping (0x0042C890); the object's position (by the turned model offset), matrices and velocity set.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0042E540: `dt` seconds: the position moved (gravity's half step in it, unless unknown191_ >= 3), the
     // velocity accelerated (the same), the orientation turned by the rotational velocity and normalised, its matrix,
     // and the world points.

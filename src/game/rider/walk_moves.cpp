@@ -35,8 +35,6 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/walk_camera.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/node_components.h"
@@ -46,8 +44,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kWalkVtable;
 
 template <typename T>
 T& get_at(const void* object, uint32_t offset)
@@ -318,17 +314,11 @@ void set_camera_override(void* camera, const maths::Vec4* facing, float rate)
 } // namespace
 
 // 0x0052A5C0
-ObjectModule* __cdecl FootMovement::fabricate()
-{
-    void* memory = memory::alloc_zeroed(0x1960);
-    return memory ? static_cast<FootMovement*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl FootMovement::fabricate() { return new FootMovement; }
 
 // 0x0052A190
-FootMovement* FootMovement::make_new()
+FootMovement::FootMovement()
 {
-    ObjectModule::make_new();
-    vtable_ = kWalkVtable;
     for (uint32_t i = 0; i < 8; ++i)
         reinterpret_cast<WalkContact*>(&get_at<uint8_t>(this, kContacts + 0xCC * i))
             ->make_new(); // (each contact's constructor)
@@ -341,16 +331,6 @@ FootMovement* FootMovement::make_new()
     vector_at(this, kExtraVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
     get_at<float>(this, 0x72C) = 0.0f;
     get_at<bool>(this, kFlag1958) = false;
-    return this;
-}
-
-// 0x0052A290
-FootMovement* FootMovement::teardown(unsigned int flags)
-{
-    FootMovement::destroy_body(); // the destructor body
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00529F80
@@ -1588,24 +1568,3 @@ bool FootMovement::update_contacts()
 } // namespace objects
 
 using objects::FootMovement;
-
-namespace objects {
-namespace {
-
-static VtableSlot g_walk_vtable_slots[] = {&FootMovement::teardown,
-                                           &FootMovement::tick_frame,
-                                           &objects::FootMovement::configure_from_data,
-                                           &objects::FootMovement::seal,
-                                           stubs::do_nothing,
-                                           objects::reapply_from_data,
-                                           stubs::ignore_arguments2,
-                                           &objects::ObjectModule::hold_off,
-                                           stubs::ignore_argument,
-                                           stubs::do_nothing,
-                                           stubs::ignore_argument,
-                                           &objects::ObjectModule::dispatch_script_method,
-                                           &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kWalkVtable = reinterpret_cast<void**>(g_walk_vtable_slots);
-
-} // namespace
-} // namespace objects

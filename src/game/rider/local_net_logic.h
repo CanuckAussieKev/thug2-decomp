@@ -16,20 +16,22 @@ struct InboundMsgCtx;
 // 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 12 the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
-class RiderHostSync : public ObjectModule {
+class RiderHostSync final : public ObjectModule {
 public:
     // 0x00513630 (registered by register_component_types): a new one (0 if out of memory): nothing sent yet (the state
     // and +0x35 0xFF, so the first update sends them).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderHostSync();
     // 0x00512E30: the destructor body (the base's).
-    void destroy_body();
-    // 0x00512E40 (vtable slot 0)
-    RiderHostSync* teardown(unsigned int flags);
+    ~RiderHostSync() override;
+    // 0x004FBDA0 (slot 2, the cleanup component's, folded: its +0x18 cleared): no update sent yet.
+    void configure_from_data(script::Struct* /*params*/) override { last_transmit_at_ = 0; }
     // 0x00512E70 (vtable +0x0C): the state and core physics components found.
-    void seal();
+    void seal() override;
     // 0x005136C0 (vtable +0x04): in a multiplayer game with a local player (the network manager's 0x00537320),
     // send_update.
-    void tick_frame();
+    void tick_frame() override;
     // 0x005136F0 (the client's handler for message 0x4B, registered by 0x0056EB50; not a Ghidra function): someone's
     // graffiti was stolen - the message's +4 the victim's skater id, +8 the thief's, +0 the network manager's run
     // count (+0x38) it belongs to (another: kResultConsumed). The handler's data is the local skater: its victim runs

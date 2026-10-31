@@ -44,13 +44,11 @@ int screen_mode() { return render::get_view_layout(); }
 
 } // namespace
 
-// 0x004F99F0
-void RiderChaseView::destroy_body()
+// 0x004F99F0 (0x004FA590 the deleting one)
+RiderChaseView::~RiderChaseView()
 {
     maths::ArcRotationBlender* slerp = arc_blender_;
-    vtable_ = kSkaterCameraVtable;
     memory::Hub::get_pull()->dealloc(slerp);
-    ObjectModule::destroy_body();
 }
 
 // 0x004F9A20

@@ -258,9 +258,8 @@ bool __cdecl cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->skater_geom_heaps_[skater->get_skater_number()]);
     model_build_hook();
-    objects::ObjectModule* model = skater->fetch_module(kModel);
-    reinterpret_cast<void(__thiscall*)(objects::ObjectModule*, void*, bool, int, uint32_t)>(model->vtable_[13])(
-        model, profile, false, skater->get_skater_number(), 0); // (set_up_mesh_from_profile)
+    auto* model = static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel));
+    model->set_up_mesh_from_profile(profile, false, skater->get_skater_number(), 0);
     memory::Hub::get_pull()->leave_heap_scope();
     manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->skater_heaps_[skater->get_skater_number()]);

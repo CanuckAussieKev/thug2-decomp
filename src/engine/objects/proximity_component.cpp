@@ -97,7 +97,7 @@ bool ProximityComponent::proximity_init(script::Struct* params, script::Script*)
     tick_frame();
     configure_from_data(params);
     active_ = true;
-    virtual_suspend(false);
+    hold_off(false);
     return true;
 }
 
@@ -114,7 +114,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
             reactivate_time_ = 0;
         }
     }
-    virtual_suspend(false);
+    hold_off(false);
     return true;
 }
 

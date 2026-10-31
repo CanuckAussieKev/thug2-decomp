@@ -24,26 +24,25 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize; the rest the base's / shared (4
 // / 9 0x005480A0, 5 / 8 0x005BAB90, 6 0x0048DCD0, 7 0x0045D760, 10 0x005144C0, 11 0x0045D720, 12 0x0051ADC0).
-class ImpactDestructModule : public ObjectModule {
+class ImpactDestructModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x6259B52B;
 
     // 0x0041C370 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0041C210: the base's constructor, its vtable and type; no radius, scale or script, made now (the game clock),
-    // not dying, the first update to come. Returns this.
-    ImpactDestructModule* make_new();
+    // 0x0041C210: its type; no radius, scale or script, made now (the game clock),
+    // not dying, the first update to come.
+    ImpactDestructModule();
     // 0x0041C1F0: the base's body.
-    void destroy_body();
-    // 0x0041C280 (vtable slot 0)
-    ImpactDestructModule* teardown(unsigned int flags);
+    ~ImpactDestructModule() override;
+    void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
     // 0x0041C2B0 (vtable slot 2): radius, scale, death_script (each asserted), vel (asserted; default (0, 0, 1),
     // normalised).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041C330 (vtable slot 3): the object's suspend component.
-    void seal();
+    void seal() override;
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
-    void tick_frame();
+    void tick_frame() override;
 
     uint8_t* suspend_;           // +0x18 the suspend component (+0x30: suspended)
     float radius_;               // +0x1C radius

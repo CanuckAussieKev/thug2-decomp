@@ -11,8 +11,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/node_objects.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -22,16 +20,12 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kObjectHookManager = 0x27443708;
 constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
 const char* const kOff = "off";                  // "off"
 
-// The hook manager's node list (its vtable +0x34), or null.
-ClassNodeList* hook_nodes(ObjectModule* hooks)
-{
-    return reinterpret_cast<ClassNodeList*(__thiscall*)(ObjectModule*)>(hooks->vtable_[13])(hooks);
-}
+// The hook manager's node list (the original's slot 13), or null.
+ClassNodeList* hook_nodes(ObjectModule* hooks) { return static_cast<HookPointRegistryModule*>(hooks)->get_hooks(); }
 
 // The nodes' transform: the object's orientation (the w column cleared) at its position.
 void place_nodes(ClassNodeList* nodes, GameEntity* object)
@@ -50,38 +44,18 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
 
 } // namespace
 
-// 0x0051B970
-void ComponentWithoutUpdate::tick_frame() { virtual_suspend(true); }
-
 // 0x0051BA10
-ObjectModule* __cdecl TowRideHandler::fabricate()
+ObjectModule* __cdecl TowRideHandler::fabricate() { return new TowRideHandler; }
+
+// (the constructor: inlined in fabricate in the original)
+TowRideHandler::TowRideHandler()
 {
-    void* memory = memory::alloc_zeroed(sizeof(TowRideHandler));
-    if (!memory)
-        return nullptr;
-    auto* skitch = static_cast<TowRideHandler*>(memory);
-    skitch->ObjectModule::make_new();
-    skitch->vtable_ = kVtable;
-    skitch->kind_tag_ = kType;
-    skitch->allowed_ = true;
-    return skitch;
+    kind_tag_ = kType;
+    allowed_ = true;
 }
 
-// 0x0051B960
-void TowRideHandler::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0051B980
-TowRideHandler* TowRideHandler::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0051B960 (0x0051B980 the deleting one)
+TowRideHandler::~TowRideHandler() {}
 
 // 0x0051B9B0
 void TowRideHandler::configure_from_data(script::Struct*) { hooks_ = entity_->fetch_module(kObjectHookManager); }
@@ -161,27 +135,4 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::TowRideHandler::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    &objects::TowRideHandler::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::TowRideHandler::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

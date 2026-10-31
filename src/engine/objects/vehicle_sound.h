@@ -23,7 +23,7 @@ namespace objects {
 
 class DrivableModule;
 
-class EngineAudioModule : public ObjectModule {
+class EngineAudioModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x28C97F3C;
     static constexpr int kMaxGears = 6;
@@ -39,22 +39,20 @@ public:
 
     // 0x0043CFC0 (registered with the composite object manager): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0043C590: the base's constructor, its vtable and type; no components, settings or sounds. Returns this.
-    EngineAudioModule* make_new();
+    // 0x0043C590: its type; no components, settings or sounds.
+    EngineAudioModule();
     // 0x0043C5F0: the destructor body: both sounds stopped, then the base's.
-    void destroy_body();
-    // 0x0043D020 (vtable slot 0)
-    EngineAudioModule* teardown(unsigned int flags);
+    ~EngineAudioModule() override;
     // 0x0043C670 (vtable slot 2): whether the level is the park editor's (its +0x40 isn't "off"); `params` isn't
     // read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0043D050 (vtable slot 3): the object's Vehicle and Sound components, then the settings read.
-    void seal();
+    void seal() override;
     // 0x0043D290 (vtable slot 1): with settings, the engine, the tyres and the crash sound.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0043C540 (vtable slot 10): the sounds' names (engine_sound 0x2A19E830, tire_sound 0xE798FE80) and the crash
     // sound's structure (0x36FA68D2) added to `info` (then the base's, empty: 0x005BAB90).
-    void fetch_diagnostics(script::Struct* info);
+    void fetch_diagnostics(script::Struct* info) override;
 
     // 0x0043CE70: the settings: the vehicle's sounds' structure in PlayerVehicleSounds, its EngineSound, TireSound,
     // Gears (each: 0xFAD20901 up, 0xFCF5C8A2 down, 0x735B5CE4 / 0xE59A89A6 the pitch range) and CollideSound; in the

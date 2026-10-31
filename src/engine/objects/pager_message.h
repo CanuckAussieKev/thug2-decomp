@@ -40,18 +40,21 @@ struct PagerMessage {
 // the skater's pager - messages sent by scripts, kept in order, read or not. Its script member functions are the
 // table at 0x006831A8 (filled at start-up). Every change runs the object's script 0xE8DA4931 afresh (one already
 // running is killed).
-class PagerMessageComponent : public ObjectModule {
+class PagerMessageComponent final : public ObjectModule {
 public:
     // 0x004ECF20: a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
     // 0x004EC960 (not a Ghidra function): its script member functions (the table at 0x006831A8) registered.
     static void __cdecl publish_method_table();
-    // 0x004ECE10: the base's constructor, its vtable and type, an empty list. Returns this.
-    PagerMessageComponent* make_new();
+    // 0x004ECE10: its type, an empty list.
+    PagerMessageComponent();
     // 0x004ECE90: the destructor body: every message deleted, the list freed, the base's.
-    void destroy_body();
-    // 0x004ECF80 (vtable slot 0)
-    PagerMessageComponent* teardown(unsigned int flags);
+    ~PagerMessageComponent() override;
+    void tick_frame() override {} // (slot 1: nothing to update)
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x004ECC80: the oldest messages deleted down to the parameters' 0x340FB7F4 (none: all), then the script
     // 0xE8DA4931 run with 0x14C4B1CC.
     void clear_messages(script::Struct* params);

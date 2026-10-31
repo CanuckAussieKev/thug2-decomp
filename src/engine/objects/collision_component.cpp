@@ -18,8 +18,6 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_world.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -30,8 +28,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kModelModuleName = 0x286A8D26; // Model
 constexpr uint32_t kCollisionMode = 0x2D7E583B;   // CollisionMode
@@ -64,35 +60,18 @@ void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 } // namespace
 
 // 0x0041C920
-ObjectModule* __cdecl ContactShapeModule::fabricate()
-{
-    auto* component = static_cast<ContactShapeModule*>(memory::alloc_zeroed(sizeof(ContactShapeModule)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    return component;
-}
+ObjectModule* __cdecl ContactShapeModule::fabricate() { return new ContactShapeModule; }
 
-// 0x0041C710
-void ContactShapeModule::destroy_body()
+// (the constructor: inlined in fabricate in the original)
+ContactShapeModule::ContactShapeModule() { kind_tag_ = kType; }
+
+// 0x0041C710 (0x0041C780 the deleting one)
+ContactShapeModule::~ContactShapeModule()
 {
-    vtable_ = kVtable;
     if (hit_shape_) {
         render::unregister_movable(hit_shape_);
         delete hit_shape_;
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x0041C780
-ContactShapeModule* ContactShapeModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0041C7B0
@@ -103,12 +82,10 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     int type = render::shape_type_from_checksum(mode);
     if (!type)
         return;
-    using InitCollisionSlot = void(__thiscall*)(ContactShapeModule*, int, render::TriMeshSource*);
-    auto init_collision = reinterpret_cast<InitCollisionSlot>(vtable_[13]);
     uint32_t cls = 0;
     params->read_hash_value(kClass, &cls, 0);
     if (cls != kLevelObject) {
-        init_collision(this, type, nullptr);
+        set_up_hit_shape(type, nullptr);
         return;
     }
     // (the original passes on whatever was in the name's slot when there's no Name - an assertion's case; ours 0)
@@ -116,9 +93,9 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kName, &name, 1);
     uint8_t* sector = look_up_sector(name); // (no such sector: a crash, as in the original)
     if (sector_collision(sector))
-        init_collision(this, type, sector_collision(sector)->geometry_);
+        set_up_hit_shape(type, sector_collision(sector)->geometry_);
     else
-        init_collision(this, type, nullptr);
+        set_up_hit_shape(type, nullptr);
 }
 
 // 0x0041C890
@@ -162,28 +139,4 @@ void ContactShapeModule::tick_frame()
     collision->change_facing(&orientation);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::ContactShapeModule::teardown,
-    &objects::ContactShapeModule::tick_frame,
-    &objects::ContactShapeModule::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    render::virtual_slot1_jump,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-    &objects::ContactShapeModule::set_up_hit_shape};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

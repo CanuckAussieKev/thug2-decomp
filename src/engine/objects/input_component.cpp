@@ -19,9 +19,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/collide_and_die.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -38,8 +36,6 @@ uint32_t g_input_component_member_functions[90]{
     0x1090A150, 0x27D7CD28, 0, 0, 0, 0, 0x28729460, 0x27D7CD28, 0, 0, 0, 0, 0,          0x27D7CD28, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kPlayer = 0x67E6859A;     // Player
 constexpr uint32_t kController = 0xB30D9965; // controller
@@ -120,11 +116,7 @@ frontend::UiWidget* find_element(uint32_t id)
 } // namespace
 
 // 0x0041EEC0
-ObjectModule* __cdecl PadInputModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(PadInputModule));
-    return memory ? static_cast<PadInputModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl PadInputModule::fabricate() { return new PadInputModule; }
 
 // 0x0041E6F0
 void __cdecl PadInputModule::publish_method_table()
@@ -133,22 +125,18 @@ void __cdecl PadInputModule::publish_method_table()
 }
 
 // 0x0041E850
-PadInputModule* PadInputModule::make_new()
+PadInputModule::PadInputModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     pad_primary_.prepare_all();
     pad_secondary_.prepare_all();
     kind_tag_ = kType;
     handler_ = nullptr;
     unknown49c_ = 0;
-    return this;
 }
 
-// 0x0041E710
-void PadInputModule::destroy_body()
+// 0x0041E710 (0x0041E8C0 the deleting one)
+PadInputModule::~PadInputModule()
 {
-    vtable_ = kVtable;
     for (Responder* handler : {handler_, handler2_}) {
         if (!handler)
             continue;
@@ -156,16 +144,6 @@ void PadInputModule::destroy_body()
             handler->drop_out();
         delete handler;
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x0041E8C0
-PadInputModule* PadInputModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0041F390
@@ -447,25 +425,4 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
     return 0;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::PadInputModule::teardown,
-                                      &objects::ComponentWithoutUpdate::tick_frame,
-                                      &objects::PadInputModule::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

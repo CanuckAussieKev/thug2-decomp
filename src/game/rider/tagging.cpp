@@ -25,9 +25,7 @@
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -38,9 +36,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kTaggingVtable;
-extern void** const kControlVtable;
 
 constexpr uint32_t kCustomTag = 0xAA286543;
 constexpr uint32_t kWalk = 0x726E85AA;
@@ -157,37 +152,22 @@ float tag_setting(uint32_t name) { return FootMovement::get_param(name); }
 // --- TaggingComponent ---
 
 // 0x0051DA80
-ObjectModule* __cdecl TaggingComponent::fabricate()
+ObjectModule* __cdecl TaggingComponent::fabricate() { return new TaggingComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+TaggingComponent::TaggingComponent()
 {
-    void* memory = memory::alloc_zeroed(sizeof(TaggingComponent));
-    if (!memory)
-        return nullptr;
-    auto* tagging = static_cast<TaggingComponent*>(memory);
-    tagging->ObjectModule::make_new();
-    tagging->custom_tag_ = false;
-    tagging->graffiti_ = nullptr;
-    tagging->sticker_ = nullptr;
-    tagging->vtable_ = kTaggingVtable;
-    tagging->kind_tag_ = kType;
-    return tagging;
+    custom_tag_ = false;
+    graffiti_ = nullptr;
+    sticker_ = nullptr;
+    kind_tag_ = kType;
 }
 
-// 0x0051D760
-void TaggingComponent::destroy_body()
+// 0x0051D760 (0x0051D860 the deleting one)
+TaggingComponent::~TaggingComponent()
 {
-    vtable_ = kTaggingVtable;
     free_texture(graffiti_);
     free_texture(sticker_);
-    ObjectModule::destroy_body();
-}
-
-// 0x0051D860
-TaggingComponent* TaggingComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0051D890
@@ -293,35 +273,18 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
 // --- TaggingControlComponent ---
 
 // 0x0051E280
-ObjectModule* __cdecl TaggingControlComponent::fabricate()
+ObjectModule* __cdecl TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+TaggingControlComponent::TaggingControlComponent()
 {
-    void* memory = memory::alloc_zeroed(sizeof(TaggingControlComponent));
-    if (!memory)
-        return nullptr;
-    auto* control = static_cast<TaggingControlComponent*>(memory);
-    control->ObjectModule::make_new();
-    control->vtable_ = kControlVtable;
-    control->kind_tag_ = kType;
-    control->pending_ = false;
-    control->blocked_ = false;
-    return control;
+    kind_tag_ = kType;
+    pending_ = false;
+    blocked_ = false;
 }
 
-// 0x0051DD50
-void TaggingControlComponent::destroy_body()
-{
-    vtable_ = kControlVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0051DD60
-TaggingControlComponent* TaggingControlComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0051DD50 (0x0051DD60 the deleting one)
+TaggingControlComponent::~TaggingControlComponent() {}
 
 // 0x0051DD90
 void TaggingControlComponent::seal()
@@ -446,7 +409,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 }
 
 // 0x0051E390
-bool TaggingControlComponent::tick_frame()
+bool TaggingControlComponent::try_tagging()
 {
     uint8_t* state = prop<uint8_t*>(entity_->fetch_module(kSkaterPhysicsControl), 0x2C);
     if (prop<bool>(state, 0x118) || prop<int>(state, 0x1C) != 1 || blocked_)
@@ -562,43 +525,4 @@ bool TaggingControlComponent::tick_frame()
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_tagging_vtable_slots[] = {
-    &objects::TaggingComponent::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    &objects::TaggingComponent::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::TaggingComponent::invoke_method_by_name};
-void** const kTaggingVtable = reinterpret_cast<void**>(g_tagging_vtable_slots);
-static VtableSlot g_control_vtable_slots[] = {
-    &objects::TaggingControlComponent::teardown,
-    &objects::TaggingControlComponent::tick_frame,
-    stubs::ignore_argument,
-    &objects::TaggingControlComponent::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::TaggingControlComponent::invoke_method_by_name};
-void** const kControlVtable = reinterpret_cast<void**>(g_control_vtable_slots);
-
-} // namespace
 } // namespace objects

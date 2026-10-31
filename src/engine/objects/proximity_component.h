@@ -24,7 +24,7 @@ public:
     // 0x0042B700: the skater's head (its position and the line a radius 0x006939A8 up from it, as a capsule of the
     // inner radius - the outer once inside) holding its position: in or out; a change runs the enter / exit script.
     // Inactive: out.
-    void tick_frame();
+    void tick_frame() override;
 
     // --- script member functions (true) ---
     // 0x0042B850 (Proximity_Init): inactive, updated, then configure_from_data (vtable slot 2), active, not suspended.

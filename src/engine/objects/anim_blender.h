@@ -23,7 +23,7 @@ class Struct;
 
 namespace objects {
 
-class AnimBlenderComponent : public ObjectModule {
+class AnimBlenderComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x7149B753;
 
@@ -31,30 +31,33 @@ public:
     // its script member functions (the table at 0x00682350, 0x18 bytes a record) registered.
     static ObjectModule* __cdecl fabricate();
     static void __cdecl publish_method_table();
-    // 0x0041A410: the base's constructor, its vtable, an empty channel list, an empty observer list (its
-    // sentinel node allocated), its type. Returns this.
-    AnimBlenderComponent* make_new();
+    // 0x0041A410: an empty channel list, an empty observer list (its
+    // sentinel node allocated), its type.
+    AnimBlenderComponent();
     // 0x0041A4C0: the channels deleted, each observer deleted and the list emptied (twice) and its sentinel
     // freed, the channel list's head unlinked, the base's destructor body.
-    void destroy_body();
-    // 0x0041A610 (vtable slot 0)
-    AnimBlenderComponent* teardown(unsigned int flags);
+    ~AnimBlenderComponent() override;
+    // (slot 11: the flexible particle component's 0x0041D700, folded)
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_named_script_method(entry, params, script);
+    }
 
     // --- the vtable ---
     // 0x0041A260 (slot 1): each channel updated (those after the first with a weight below 0.00001 only reset,
     // weight 0); if any changed the pose, the poses blended into the shared buffer 0x006F8A60 bone set by bone
     // set (weights 0x006F8A5C, sets 0x006F8A58), the observers told and the skeleton given it.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00419DD0 (slot 2): with no channel yet, one made (at the front) and set up from `params` on the
     // bottom-up heap.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004196D0 (slot 3): each channel's slot 2, then the object's 0x222756D5 (skeleton), 0x286A8D26 (model) and
     // 0xCE0CA665 components kept.
-    void seal();
-    // 0x00419980 (slot 6): `value` to slot 6 of each channel whose id is `id`.
-    void pass_to_channels(uint32_t value, uint32_t id);
+    void seal() override;
+    // 0x00419980 (slot 6): the waiting `script` to slot 6 of each channel whose id is `id`.
+    void step_wait_state(script::Script* script, uint32_t id) override;
     // 0x00419950 (slot 12): 0x0B1E7291 and 0xEA6D0EFD go to pass_to_channel; anything else isn't handled (2).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // --- script member functions (the table at 0x00682350; each is given its name) ---
     // 0x0041A1A0 [0xCABB44AE]: a channel added (id from 0x5CFCCF35, at the front with flag 0x580C0963; the first

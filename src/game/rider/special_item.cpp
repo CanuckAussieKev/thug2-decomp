@@ -13,9 +13,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/model.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -24,8 +22,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kLockObj = 0x5CB5CB7E;
@@ -96,36 +92,21 @@ void send_to_server(uint8_t id, void* data)
 } // namespace
 
 // 0x0051BD80
-ObjectModule* __cdecl PickupItemHandler::fabricate()
+ObjectModule* __cdecl PickupItemHandler::fabricate() { return new PickupItemHandler; }
+
+// (the constructor: inlined in fabricate in the original)
+PickupItemHandler::PickupItemHandler()
 {
-    void* memory = memory::alloc_zeroed(sizeof(PickupItemHandler));
-    if (!memory)
-        return nullptr;
-    auto* items = static_cast<PickupItemHandler*>(memory);
-    items->ObjectModule::make_new();
-    items->vtable_ = kVtable;
-    items->kind_tag_ = kType;
-    items->items_[0] = nullptr;
-    items->items_[1] = nullptr;
-    return items;
+    kind_tag_ = kType;
+    items_[0] = nullptr;
+    items_[1] = nullptr;
 }
 
-// 0x0051BF20
-void PickupItemHandler::destroy_body()
+// 0x0051BF20 (0x0051C130 the deleting one)
+PickupItemHandler::~PickupItemHandler()
 {
-    vtable_ = kVtable;
     for (int slot = 0; slot < kItems; ++slot)
         destroy_item(slot);
-    ObjectModule::destroy_body();
-}
-
-// 0x0051C130
-PickupItemHandler* PickupItemHandler::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0051BE00
@@ -244,27 +225,4 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::PickupItemHandler::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::PickupItemHandler::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

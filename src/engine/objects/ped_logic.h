@@ -56,7 +56,7 @@ constexpr uint32_t kPedFlagBoardHidden = 0x20000; // its board is hidden
 // 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 11 0x0042BB20 (shared), 12 invoke_method_by_name 0x004ECFD0; then its
 // own: 13 (+0x34) the generic move update 0x004F2A10, 14 (+0x38) the skater move update 0x004F2AD0, 15 (+0x3C) the
 // no-move update 0x004ED4A0.
-class PedestrianBrainModule : public ObjectModule {
+class PedestrianBrainModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x6EFDDFB8;
 
@@ -66,21 +66,23 @@ public:
     // records) made script symbols.
     static void __cdecl publish_method_table();
     // 0x004ECFD0 (vtable slot 12): 1 (done, nothing else) for the member function 0x315D9ED4, 2 (not ours) for any other.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
-    // 0x004EE4F0: the base's constructor, its vtable and type; no avoidance or bias, the position history at the
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
+    // 0x004EE4F0: its type; no avoidance or bias, the position history at the
     // origin, ped_skater_stick_dist_above / below, the states "" (their checksums), no aux script, the next waypoint at
-    // the origin. Returns this.
-    PedestrianBrainModule* make_new();
+    // the origin.
+    PedestrianBrainModule();
     // 0x004F2120: the aux script deleted, then the base's body.
-    void destroy_body();
-    // 0x004F2540 (vtable slot 0)
-    PedestrianBrainModule* teardown(unsigned int flags);
+    ~PedestrianBrainModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x004ED2C0 (vtable slot 2): female if SkeletonName is Ped_Female; kPedFlagBoardHideable if profile's board has
     // a desc_id; the start node (Name, asserted) and its position; up = the object's up row (all three); DistAbove /
     // DistBelow (the stick distances); the display matrix kept.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004F2190 (vtable slot 1): the frame time, then the move update ped_update_type names; the aux script run.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004ED140: the logic state (a state table's member name; shot, ...).
     uint32_t get_logic_state() { return cur_phase_; }
@@ -202,7 +204,7 @@ public:
     void blocker_update();
     void bail_move_update();
 
-    // --- the move updates (vtable slots 13-15) ---
+    // --- the move updates (the original's vtable slots 13-15: no other class has them, so plain methods) ---
     // 0x004EFBC0 (lip_trick_update): the display matrix turned upright about up_dir_.
     void lip_trick_update();
     // 0x004F2A10 (slot 13, generic_move_update): a walker along its path.
@@ -210,15 +212,6 @@ public:
     // 0x004F2AD0 (slot 14, skater_move_update; not a Ghidra function): a skating ped along its path, its waypoints,
     // grind bails, crouches, spins and sounds.
     void skater_move_update();
-    void virtual_generic_move_update()
-    {
-        reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[13])(this);
-    }
-    void virtual_skater_move_update()
-    {
-        reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[14])(this);
-    }
-    void virtual_no_move_update() { reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[15])(this); }
     // 0x004ED4A0 (slot 15, no_move_update): the display matrix kept if the motion component is rotating, else put back.
     void no_move_update();
 

@@ -22,9 +22,7 @@
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -40,7 +38,6 @@ int g_editor_camera_seen_count;
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr float kTwoPi = 6.2831854820251465f;      // 0x0064545C
@@ -186,17 +183,11 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E5940
-ObjectModule* __cdecl EditorViewModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(EditorViewModule));
-    return memory ? static_cast<EditorViewModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl EditorViewModule::fabricate() { return new EditorViewModule; }
 
 // 0x004E5060
-EditorViewModule* EditorViewModule::make_new()
+EditorViewModule::EditorViewModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kEditorCamera;
     for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
         *v = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -205,25 +196,13 @@ EditorViewModule* EditorViewModule::make_new()
     input_ptr_ = nullptr;
     simple_collision_ = false;
     no_wall_check_ = false;
-    return this;
 }
 
-// 0x004E5100
-void EditorViewModule::destroy_body()
+// 0x004E5100 (0x004E59A0 the deleting one)
+EditorViewModule::~EditorViewModule()
 {
-    vtable_ = kVtable;
     delete shadow_handle_;
     shadow_handle_ = nullptr;
-    ObjectModule::destroy_body();
-}
-
-// 0x004E59A0
-EditorViewModule* EditorViewModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004E4ED0
@@ -360,7 +339,7 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_vec(0xB9D31B0A, &position, 1); // Position
         cursor_ = {position.x, position.y, position.z, position.w};
         level_y_ = 0.0f;
-        reinterpret_cast<void(__thiscall*)(ObjectModule*)>(vtable_[1])(this); // Update
+        tick_frame();
         level_y_ = position.y - cursor_.y;
         return 1;
     }
@@ -589,27 +568,4 @@ void EditorViewModule::tick_frame()
     resync_ground_shadow();
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::EditorViewModule::teardown,
-    &objects::EditorViewModule::tick_frame,
-    &objects::EditorViewModule::configure_from_data,
-    &objects::EditorViewModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    &objects::EditorViewModule::conceal,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::EditorViewModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

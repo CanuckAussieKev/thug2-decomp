@@ -12,7 +12,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/game_vtables.h"
 #include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -23,7 +22,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 extern void** const kHeadVtable; // the head as made
 
 constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
@@ -42,25 +40,21 @@ bool is_head(const memory::ListNode* node) { return node->data == reinterpret_ca
 } // namespace
 
 // 0x00434870
-ObjectModule* __cdecl TextureProjectionComponent::fabricate()
+ObjectModule* __cdecl TextureProjectionComponent::fabricate() { return new TextureProjectionComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+TextureProjectionComponent::TextureProjectionComponent()
 {
-    void* memory = memory::alloc_zeroed(sizeof(TextureProjectionComponent));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<TextureProjectionComponent*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    memory::ListNode& head = component->projections_.list_link_;
+    memory::ListNode& head = projections_.list_link_;
     head.priority = 0;
     head.data = reinterpret_cast<void*>(-1);
     head.next = &head;
     head.prev = &head;
     head.vtable = kHeadVtable;
-    component->suspend_ = nullptr;
-    component->bone_rig_ = nullptr;
-    component->mesh_instance_ = nullptr;
-    component->kind_tag_ = kType;
-    return component;
+    suspend_ = nullptr;
+    bone_rig_ = nullptr;
+    mesh_instance_ = nullptr;
+    kind_tag_ = kType;
 }
 
 // 0x00434670
@@ -72,22 +66,11 @@ TextureProjectionComponent::ProjectionList* TextureProjectionComponent::Projecti
     return this;
 }
 
-// 0x004346B0
-void TextureProjectionComponent::destroy_body()
+// 0x004346B0 (0x00434840 the deleting one)
+TextureProjectionComponent::~TextureProjectionComponent()
 {
-    vtable_ = kVtable;
     reinterpret_cast<ListHead*>(&projections_)->delete_all_nodes();
     projections_.list_link_.unlink_as(vt::kProjectionNode);
-    ObjectModule::destroy_body();
-}
-
-// 0x00434840
-TextureProjectionComponent* TextureProjectionComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00434730
@@ -133,22 +116,6 @@ void TextureProjectionComponent::tick_frame()
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {
-    &objects::TextureProjectionComponent::teardown,
-    &objects::TextureProjectionComponent::tick_frame,
-    &objects::TextureProjectionComponent::configure_from_data,
-    &objects::TextureProjectionComponent::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 static VtableSlot g_head_vtable_slots[] = {&render::PcTextureProjection::teardown};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 

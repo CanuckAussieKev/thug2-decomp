@@ -22,7 +22,7 @@ namespace objects {
 //
 // Vtable: 0 the scalar deleting destructor, 12 invoke_method_by_name; the rest the base's / shared (1 0x0051B970, 2 / 8
 // / 10 0x005BAB90, 3 / 4 / 9 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 11 0x0045D720).
-class CbBoxComponent : public ObjectModule {
+class CbBoxComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xB87C8E43;
 
@@ -45,17 +45,15 @@ public:
 
     // 0x0041ADC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0041AAD0: the base's constructor, its vtable and type; the box (10, 10, 10, 1) - (-10, -10, -10, 1), the
-    // offset (0, 0, 0, 1). Returns this.
-    CbBoxComponent* make_new();
+    // 0x0041AAD0: its type; the box (10, 10, 10, 1) - (-10, -10, -10, 1), the
+    // offset (0, 0, 0, 1).
+    CbBoxComponent();
     // 0x0041A810: the base's body.
-    void destroy_body();
-    // 0x0041A880 (vtable slot 0)
-    CbBoxComponent* teardown(unsigned int flags);
+    ~CbBoxComponent() override;
     // 0x0041B1A0 (vtable slot 12): Obj_ObjectInRect (0x6520B902; a Rect from `params`), Obj_ObjectInRadius
     // (0x67660FE5), Obj_ObjectInRadiusOfNode (0xDCE760A1: about the position of `node` - none: 0): 1 / 0 for whether
     // an object is there (query_objects); anything else 2 (not its own).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x0041A950: `rect` from `params`: offset (feet, added to the component's offset), angle (degrees), height,
     // dist, width (feet; 0 when not given); not computed.

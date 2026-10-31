@@ -68,7 +68,7 @@ void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModu
 } // namespace
 
 // 0x004F8420
-void RiderPhysicsTweaks::tick_frame()
+void RiderPhysicsTweaks::keep_above_ground()
 {
     void* core = core_ptr_;
     void* object = entity_;

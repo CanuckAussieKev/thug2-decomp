@@ -17,8 +17,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity_hub.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -30,7 +28,6 @@ float g_lock_obj_update_wobble_step{0.0061359233f};
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the skaters)
@@ -91,37 +88,17 @@ void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 } // namespace
 
 // 0x0041FF20
-ObjectModule* __cdecl PinnedObjectModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(PinnedObjectModule));
-    return memory ? static_cast<PinnedObjectModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl PinnedObjectModule::fabricate() { return new PinnedObjectModule; }
 
 // 0x0041F500
-PinnedObjectModule* PinnedObjectModule::make_new()
+PinnedObjectModule::PinnedObjectModule()
 {
-    ObjectModule::make_new();
     lock_flags_ &= ~kLockFlagLocked;
-    vtable_ = kVtable;
     kind_tag_ = kType;
-    return this;
 }
 
-// 0x0041F400
-void PinnedObjectModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041F440
-PinnedObjectModule* PinnedObjectModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041F400 (0x0041F440 the deleting one)
+PinnedObjectModule::~PinnedObjectModule() {}
 
 // 0x0041F760
 void PinnedObjectModule::update_lock()
@@ -230,27 +207,4 @@ void PinnedObjectModule::update_lock()
     entity_->display_matrix_ = entity_->basis_frame_;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::PinnedObjectModule::teardown,
-    &objects::PinnedObjectModule::tick_frame,
-    &objects::PinnedObjectModule::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    stubs::ignore_argument,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::PinnedObjectModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

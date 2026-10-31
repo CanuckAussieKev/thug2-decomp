@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
 
 namespace script {
 class Struct;
@@ -28,7 +29,7 @@ struct AcidDrop {
 };
 static_assert(sizeof(AcidDrop) == 0x28, "layout must match the original");
 
-class SkaterPhysicsModule {
+class SkaterPhysicsModule final : public objects::ObjectModule {
 public:
     // --- rotation.cpp: turning in the air ---
     // 0x00504060: spin in the air. Tap mode (+0x2DA): each tap of the left / right spin button (L1/R1: input
@@ -200,19 +201,16 @@ public:
     // speed limited; flags +0x98 / +0xA0 cleared; the state's update (ground, air, wall ride, lip, rail, wallplant);
     // try_grind (inlined in the original); free revert, focus, projectiles, special time; event 0xF225FE69 /
     // 0x5E27200A when +0x4F0 (in the air with flag +0x30, not +0x78) changes; +0x14CC cleared out of the air.
-    void tick_frame();
+    void tick_frame() override;
 
     // --- core_physics_state.cpp: the component made, reset and destroyed; timers ---
     // (Fields: core_physics_fields.h. The component is 0x153C bytes, type 0x5BD63B29 SkaterCorePhysics, vtable
     // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 invoke_method_by_name 0x00501600.)
     // 0x00505440 (the component type's maker): a new one (0 if out of memory).
     static void* __cdecl fabricate();
-    // 0x00500CA0: the base's constructor, then its vtable and type; its two feelers (+0xA8, +0x158) and its collision
-    // cache (+0x4F4) made; no components (+0x150C-+0x1538); a few flags cleared, +0x308 = -1, +0x2E8 = 1. The rest
-    // isn't initialised. Returns this.
-    SkaterPhysicsModule* make_new();
-    // 0x00500DB0 (vtable slot 0): the destructor body (0x004FC500), then freed with `flags` bit 0. Returns this.
-    SkaterPhysicsModule* teardown(unsigned int flags);
+    // 0x00500CA0: its type; its two feelers (+0xA8, +0x158) and its collision cache (+0x4F4) made; no components
+    // (+0x150C-+0x1538); a few flags cleared, +0x308 = -1, +0x2E8 = 1. The rest isn't initialised (zeroed memory).
+    SkaterPhysicsModule();
     // 0x00506BE0: back to rest - the old position and +0x98 = the position (not in a network game), no velocity,
     // the ground state, every timed flag set and cleared (flag 7 telling +0x1514's +0x1E so), the ride let go of,
     // and the speed / trick timers and flags cleared.
@@ -303,7 +301,7 @@ public:
     // component moves the skater, then the display matrix, the shadow, +0x98, the old position and the camera follow
     // (teleported); without NoReset it stops and lands, with orient its horizontal speed turns to the new facing.
     // 2 for any other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x005009C0: which end or side of the board (nose / tail 12 along the forward row, left / Right 12 along the
     // side row) has the nearest wall: +0x2D4 (0 if none).
     void find_nearest_wall_side();
@@ -572,15 +570,19 @@ public:
     int set_focus_times_allowed(script::Struct* params, script::Script* script);
 
     // --- core_physics_life.cpp: set up, taken down, the state changed ---
-    // 0x004FC500: the destructor body: its vtable, the collision cache (+0x4F4) taken down, the smart pointers at
-    // +0x364 (the object skitched on) and in its two feelers (+0x1F0, +0x140) let go, then the base's.
-    void destroy_body();
+    // 0x004FC500 (0x00500DB0 the deleting one): the collision cache (+0x4F4) taken down, the smart pointers at +0x364
+    // (the object skitched on) and in its two feelers (+0x1F0, +0x140) let go, then the base's.
+    ~SkaterPhysicsModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x004FC5C0 (vtable slot 2; `params` isn't used): the rolling friction (+0x314) from Physics_Rolling_Friction;
     // the skater at the origin with no turn, the display matrix the same; the ground normals (+0x58, +0x68, +0x78)
     // straight up; +0x2EC and the projectile count cleared.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004FC690 (vtable slot 3): the object's components it works with, +0x150C Input to +0x1538 (0x380D909A).
-    void seal();
+    void seal() override;
     // 0x004FC3C0: the projectile button (the script value projectile_control) released then pressed (the Trick
     // component's check_release_press); then the projectile input (+0x308) reset to -1. Whether it was.
     bool projectile_button_pressed();
@@ -711,14 +713,15 @@ private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)
     void land_from_air();
+
+    // The fields after the base's (+0x18-+0x153B): reached by offset (core_physics_fields.h).
+    uint8_t fields_[0x153C - 0x18];
 };
+static_assert(sizeof(SkaterPhysicsModule) == 0x153C, "the original's 0x00505440 allocates 0x153C bytes");
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
 void __cdecl tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 
 extern maths::Vec4 g_acid_hold;
-
-// 0x0064BC48: corePhysicsVtable (defined where the class's functions are).
-extern void** const kCorePhysicsVtable;
 
 } // namespace skater

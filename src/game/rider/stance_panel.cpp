@@ -10,8 +10,6 @@
 #include "frontend/sprite_element.h"
 #include "engine/objects/smtptr.h"
 #include "game/rider/rider.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -23,7 +21,6 @@ uint32_t g_stance_textures[5]{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterStancePanel = 0x21FC3301, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kNollieOn = 0x41EB710B, kInNollie = 0x1EB61DCE, kPressureOn = 0x0A23D710, kPressureOff = 0x71B57DD6,
                    kNollieOff = 0xFB9B7C9C, kInPressure = 0x9FAB9D0B;
@@ -38,34 +35,17 @@ const uint32_t* stance_textures() { return g_stance_textures; }
 } // namespace
 
 // 0x005193B0
-ObjectModule* __cdecl RiderStanceDisplay::fabricate()
+ObjectModule* __cdecl RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderStanceDisplay::RiderStanceDisplay()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderStanceDisplay));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderStanceDisplay*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterStancePanel;
-    component->core_physics_ = nullptr;
-    return component;
+    kind_tag_ = kSkaterStancePanel;
+    core_physics_ = nullptr;
 }
 
-// 0x00519130
-void RiderStanceDisplay::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x005191E0
-RiderStanceDisplay* RiderStanceDisplay::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00519130 (0x005191E0 the deleting one)
+RiderStanceDisplay::~RiderStanceDisplay() {}
 
 // 0x00519140
 void RiderStanceDisplay::configure_from_data(script::Struct* /*params*/) { shown_ = -1; }
@@ -149,27 +129,4 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderStanceDisplay::teardown,
-    &objects::RiderStanceDisplay::tick_frame,
-    &objects::RiderStanceDisplay::configure_from_data,
-    &objects::RiderStanceDisplay::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::RiderStanceDisplay::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

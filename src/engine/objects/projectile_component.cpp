@@ -10,8 +10,6 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/trigger_component.h"
 #include "game/skate/skate_module_calls.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -22,8 +20,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 // The local skater's projectile slots (Rider +0x1C0, five of 0x18 bytes: +0 the name, +4 taken, +8 the position).
 constexpr uint32_t kSlots = 0x1C0;
@@ -77,35 +73,17 @@ void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 } // namespace
 
 // 0x004F3890
-ObjectModule* __cdecl ProjectileComponent::fabricate()
+ObjectModule* __cdecl ProjectileComponent::fabricate() { return new ProjectileComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+ProjectileComponent::ProjectileComponent()
 {
-    void* memory = memory::alloc_zeroed(sizeof(ProjectileComponent));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<ProjectileComponent*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    component->rest_ = 0;
-    return component;
+    kind_tag_ = kType;
+    rest_ = 0;
 }
 
-// 0x004F37B0
-void ProjectileComponent::destroy_body()
-{
-    vtable_ = kVtable;
-    slot_taken(rider_ref_, seat_) = 0;
-    ObjectModule::destroy_body();
-}
-
-// 0x004F37D0
-ProjectileComponent* ProjectileComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004F37B0 (0x004F37D0 the deleting one)
+ProjectileComponent::~ProjectileComponent() { slot_taken(rider_ref_, seat_) = 0; }
 
 // 0x004F3800
 void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
@@ -160,27 +138,4 @@ void ProjectileComponent::check_triggers()
     feeler.entity_.get_release();
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::ProjectileComponent::teardown,
-    &objects::ProjectileComponent::tick_frame,
-    &objects::ProjectileComponent::configure_from_data,
-    &objects::ProjectileComponent::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

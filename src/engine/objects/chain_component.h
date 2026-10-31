@@ -77,7 +77,7 @@ static_assert(offsetof(Chain, chain_link_) == 0x24 && offsetof(Chain, iterations
 // Vtable: 0 Destroy, 1 Update (0x004287A0), 2 configure_from_data (0x004283B0), 3 Finalize, 4 / 9 the empty 0x005480A0,
 // 5 0x004E3F90, 6 0x0048DCD0, 7 the base's Suspend, 8 / 10 the empty 0x005BAB90, 11 the base's 0x0045D720, 12
 // invoke_method_by_name.
-class ChainComponent : public ObjectModule {
+class ChainComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x6DCFEC46;
 
@@ -97,26 +97,24 @@ public:
 
     // 0x004298B0 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
     static ObjectModule* __cdecl fabricate();
-    // 0x004296E0: the constructor (returns this): the base's, its vtable and type, an empty list, nothing found yet,
+    // 0x004296E0: its type, an empty list, nothing found yet,
     // the last frame's length (the slow motion frame) taken now.
-    ChainComponent* make_new();
+    ChainComponent();
     // 0x00429790: the destructor body: each chain's links destroyed and the chain freed, the list emptied and its
     // head freed, then the base's.
-    void destroy_body();
-    // 0x00429910 (vtable slot 0): the scalar deleting destructor.
-    ChainComponent* teardown(unsigned int flags);
+    ~ChainComponent() override;
     // 0x00428370 (slot 3): the object's suspend, skeleton and model components kept.
-    void seal();
+    void seal() override;
     // 0x004283B0 (slot 2): collision_info (the three bones of the collision plane: its point, and the two its axis
     // runs between), then a chain made for each structure of `chains` (each a new line between each link and the
     // next), appended to the list.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004287A0 (slot 1): each chain stepped (see chain_component.cpp).
-    void tick_frame();
+    void tick_frame() override;
     // 0x004294C0 (slot 12): 0x286BA49C (the chain chainid's dist=, 0xE4D4B316 / 0x98382F87 its collision range),
     // 0x317A113A (a link of the chain chainid put at the vector 0xEC13B28C: 0xD037C420 its index, else the first with
     // 0x3EA1D93A, else - without 0x5F78A252 - the last), 0x982C70E5 (hidden or not: 0x5B6634D4) - 1; anything else 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     ChainList chains_;            // +0x18
     ObjectModule* suspend_;       // +0x20

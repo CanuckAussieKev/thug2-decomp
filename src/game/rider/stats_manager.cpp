@@ -19,8 +19,6 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -36,8 +34,6 @@ uint32_t g_stats_manager_member_functions[60]{0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0
                                               0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0, 0,          0x4FF8DAC6, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
@@ -129,11 +125,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0051CB90
-ObjectModule* __cdecl AttributeTracker::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(AttributeTracker));
-    return memory ? static_cast<AttributeTracker*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl AttributeTracker::fabricate() { return new AttributeTracker; }
 
 // 0x0051C440
 void __cdecl AttributeTracker::publish_method_table()
@@ -142,38 +134,22 @@ void __cdecl AttributeTracker::publish_method_table()
 }
 
 // 0x0051C5A0
-AttributeTracker* AttributeTracker::make_new()
+AttributeTracker::AttributeTracker()
 {
-    ObjectModule::make_new();
     skater_ = nullptr;
     skater_state_ = nullptr;
     physics_control_ = nullptr;
     unknowna9c_ = 0;
-    vtable_ = kVtable;
     kind_tag_ = kType;
     air_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
     air_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
     jump_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
     jump_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
     last_air_combo_score_ = 0;
-    return this;
 }
 
-// 0x0051C460
-void AttributeTracker::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0051C640
-AttributeTracker* AttributeTracker::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0051C460 (0x0051C640 the deleting one)
+AttributeTracker::~AttributeTracker() {}
 
 // 0x0051C470
 int AttributeTracker::get_goal_status(int index) { return goals_[index].cur_standing_; }
@@ -618,7 +594,7 @@ void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
 // 0x0051C4A0
 bool AttributeTracker::re_init(script::Struct* params, script::Script*)
 {
-    reinterpret_cast<void(__thiscall*)(AttributeTracker*, script::Struct*)>(vtable_[5])(this, params);
+    reapply_from_data(params);
     return true;
 }
 
@@ -686,25 +662,4 @@ bool AttributeTracker::clear_last_air_combo_score(script::Struct*, script::Scrip
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::AttributeTracker::teardown,
-                                      &objects::AttributeTracker::tick_frame,
-                                      &objects::AttributeTracker::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

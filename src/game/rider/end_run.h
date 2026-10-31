@@ -26,22 +26,22 @@ constexpr uint32_t kEndRunGoalStarted = 0x08; // Goal_EndOfRunStarted
 constexpr uint32_t kEndRunGoalDone = 0x10;    // Goal_EndOfRunDone
 constexpr uint32_t kEndRunFlag20 = 0x20;      // cleared by Goal_EndOfRunDone and RunStarted; never set here
 
-class RiderSessionEnd : public ObjectModule {
+class RiderSessionEnd final : public ObjectModule {
 public:
     // 0x00510F90 (registered by register_component_types): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderSessionEnd();
     // 0x00510D20: the destructor body (the base's).
-    void destroy_body();
-    // 0x00510D40 (vtable slot 0)
-    RiderSessionEnd* teardown(unsigned int flags);
+    ~RiderSessionEnd() override;
 
     // 0x00510D70 (vtable +0x04): outside a multiplayer game the component suspends itself. A local skater whose run
     // is over tells the network manager (0x00533250: message 0x59 to the server) unless it has already.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00510DC0 (vtable +0x30): the script member functions IsInEndOfRun (the end started but not done),
     // EndOfRunStarted, EndofRunDone, ClearEndofRunStarted, Goal_EndOfRunStarted, Goal_EndOfRunDone and RunStarted
     // (every flag cleared): 1 / 0; 2 for any other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00510D30: the flags, copied into `out` (returned).
     uint32_t* fetch_bits(uint32_t* out);

@@ -2,10 +2,8 @@
 // The sectors drawn for them: rail_editor_draw.cpp; the script side: rail_editor_script.cpp.
 
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/code_address.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/stubs.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -52,22 +50,6 @@ uint32_t g_next_rail_id{1};
 
 namespace {
 
-static VtableSlot g_vtable_slots[] = {
-    &park_editing::RailAuthoring::teardown,
-    &park_editing::RailAuthoring::tick_frame,
-    stubs::ignore_argument,
-    &park_editing::RailAuthoring::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    &park_editing::RailAuthoring::conceal,
-    stubs::do_nothing,
-    &park_editing::RailAuthoring::fetch_diagnostics,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &park_editing::RailAuthoring::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 uint32_t& next_rail_id() { return g_next_rail_id; }
 
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
@@ -406,17 +388,11 @@ RailAuthoring* __cdecl RailAuthoring::sole()
 }
 
 // 0x004F7FB0
-objects::ObjectModule* __cdecl RailAuthoring::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RailAuthoring));
-    return memory ? static_cast<RailAuthoring*>(memory)->make_new() : nullptr;
-}
+objects::ObjectModule* __cdecl RailAuthoring::fabricate() { return new RailAuthoring; }
 
 // 0x004F7C90
-RailAuthoring* RailAuthoring::make_new()
+RailAuthoring::RailAuthoring()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     make_point_pool(kMaxPoints, "CEditedRailPoint");
     make_rail_pool(kMaxRails, "CEditedRail");
@@ -427,26 +403,14 @@ RailAuthoring* RailAuthoring::make_new()
     rail_groups_ = nullptr;
     std::memset(&packed_, 0, sizeof(packed_));
     get_clear();
-    return this;
 }
 
-// 0x004F7D20
-void RailAuthoring::destroy_body()
+// 0x004F7D20 (0x004F8010 the deleting one)
+RailAuthoring::~RailAuthoring()
 {
-    vtable_ = kVtable;
     get_clear();
     free_pool(point_pools());
     free_pool(rail_pools());
-    ObjectModule::destroy_body();
-}
-
-// 0x004F8010
-RailAuthoring* RailAuthoring::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004F47E0

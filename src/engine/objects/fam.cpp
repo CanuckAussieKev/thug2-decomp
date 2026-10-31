@@ -16,9 +16,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -31,8 +29,6 @@ uint32_t g_fam_member_functions[18]{0xE5894C80, 0x0301D67C, 0, 0, 0,          0,
                                     0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kFamScript = 0x074253BB;            // fam_play_stream
 constexpr uint32_t kStreamChecksum = 0x0572EA28;       // stream_checksum
@@ -66,17 +62,14 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041D200
-ObjectModule* __cdecl FamComponent::fabricate()
+ObjectModule* __cdecl FamComponent::fabricate() { return new FamComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+FamComponent::FamComponent()
 {
-    auto* component = static_cast<FamComponent*>(memory::alloc_zeroed(sizeof(FamComponent)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    component->fam_ = 0;
-    component->feed_ = 0;
-    return component;
+    kind_tag_ = kType;
+    fam_ = 0;
+    feed_ = 0;
 }
 
 // 0x0041D170
@@ -85,21 +78,8 @@ void __cdecl FamComponent::publish_method_table()
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_fam_member_functions, 0x18);
 }
 
-// 0x0041D190
-void FamComponent::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041D1A0
-FamComponent* FamComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041D190 (0x0041D1A0 the deleting one)
+FamComponent::~FamComponent() {}
 
 // 0x0041D2C0
 void FamComponent::unload_fam()
@@ -191,25 +171,4 @@ int FamComponent::obj_stop_last_fam(script::Struct*, script::Script*)
     return 1;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::FamComponent::teardown,
-                                      &objects::ComponentWithoutUpdate::tick_frame,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

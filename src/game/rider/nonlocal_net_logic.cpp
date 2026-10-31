@@ -25,8 +25,6 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 #include "game/skate/game_mode.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -37,7 +35,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterNonLocalNetLogic = 0x850EEF66;
 constexpr uint32_t kSkaterStateHistory = 0x18223FD6, kSkaterState = 0x43686585, kSkaterEndRun = 0xB1D5A3E1,
                    kAnimBlender = 0x7149B753, kSkaterFlipAndRotate = 0x488AF07A, kModel = 0x286A8D26,
@@ -103,16 +100,11 @@ double x87_acos(double x)
 } // namespace
 
 // 0x005147F0
-ObjectModule* __cdecl RiderRemoteSync::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderRemoteSync));
-    return memory ? static_cast<RiderRemoteSync*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
 
 // 0x005144E0
-RiderRemoteSync* RiderRemoteSync::make_new()
+RiderRemoteSync::RiderRemoteSync()
 {
-    ObjectModule::make_new();
     past_frames_ = nullptr;
     cur_phase_ = nullptr;
     run_over_ = nullptr;
@@ -121,30 +113,15 @@ RiderRemoteSync* RiderRemoteSync::make_new()
     mesh_set_ = nullptr;
     shadow_ = nullptr;
     play_idx_ = 0;
-    vtable_ = kVtable;
     kind_tag_ = kSkaterNonLocalNetLogic;
     play_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
     last_play_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
     updates_ = 0;
     last_event_time_ = 0;
-    return this;
 }
 
-// 0x005144B0
-void RiderRemoteSync::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00514550
-RiderRemoteSync* RiderRemoteSync::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x005144B0 (0x00514550 the deleting one)
+RiderRemoteSync::~RiderRemoteSync() {}
 
 // 0x00514580
 void RiderRemoteSync::seal()
@@ -496,13 +473,13 @@ void RiderRemoteSync::tick_frame()
     auto* sound = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound));
     if (prop<int>(cur_phase_, 0x1C) != 0) {
         if (sound->on_) {
-            sound->virtual_suspend(true);
+            sound->hold_off(true);
             sound->on_ = 0;
         }
         return;
     }
     if (sound->on_ != 1) {
-        sound->virtual_suspend(false);
+        sound->hold_off(false);
         sound->on_ = 1;
     }
     double vz = entity_->vel_.z, vx = entity_->vel_.x;
@@ -519,27 +496,4 @@ void RiderRemoteSync::tick_frame()
     sound->sliding_ = prop<uint8_t>(cur_phase_, 0x58);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderRemoteSync::teardown,
-    &objects::RiderRemoteSync::tick_frame,
-    stubs::ignore_argument,
-    &objects::RiderRemoteSync::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -27,7 +27,7 @@ struct ProximNode;
 // Vtable: 0 the scalar deleting destructor; 1 Update; 2 configure_from_data; 3 / 4 the empty 0x005480A0; 5 the shared
 // 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 / 10 the empty 0x005BAB90; 9 0x004A1090 (shared); 11 0x0042BB20
 // (shared); 12 invoke_method_by_name; 13 0x0048D090 (empty, RET 0xC: told of each sound before it's played).
-class AudioEmitterModule : public ObjectModule {
+class AudioEmitterModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x07713C7B;
 
@@ -41,20 +41,23 @@ public:
     static ObjectModule* __cdecl fabricate();
     // 0x00432C80 (not a Ghidra function; registered with Create): its script member functions registered.
     static void __cdecl publish_method_table();
-    // 0x00432D90: the base's constructor, its vtable and type; no emitter or proxim node; at the origin (w 1) now and
-    // before. (The sound slots and waiting sounds are left as allocated - zero.) Returns this.
-    AudioEmitterModule* make_new();
+    // 0x00432D90: its type; no emitter or proxim node; at the origin (w 1) now and
+    // before. (The sound slots and waiting sounds are left as allocated - zero.)
+    AudioEmitterModule();
     // 0x00432DF0: every sound of it stopped (the manager's stop_object_sounds); the base's body.
-    void destroy_body();
-    // 0x00433160 (vtable slot 0)
-    AudioEmitterModule* teardown(unsigned int flags);
+    ~AudioEmitterModule() override;
+    void jump_to() override { tick_frame(); } // (slot 9: a jump to slot 1)
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00432CA0 (vtable slot 2): ProximNode= (the proxim node heard from).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004335D0 (vtable slot 1): the position a frame ago kept, the object's taken; then update_waiting_sounds.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00433190 (vtable slot 12): Obj_AdjustSound, Obj_StopSound (the unnamed sound stopped and no longer waited
     // for), Obj_SetSound: 1; other names 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00432D40: a looping sound kept to start later (in the first free place; none: dropped), looked at again 2
     // seconds after `time`.

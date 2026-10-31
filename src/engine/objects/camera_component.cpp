@@ -10,8 +10,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -22,44 +20,22 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr int kCameraPriority = -1000;
 
 } // namespace
 
 // 0x0041B840
-ObjectModule* __cdecl ViewpointModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ViewpointModule));
-    return memory ? static_cast<ViewpointModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl ViewpointModule::fabricate() { return new ViewpointModule; }
 
 // 0x0041B730
-ViewpointModule* ViewpointModule::make_new()
+ViewpointModule::ViewpointModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     view_camera_ = new gfx::ViewCam;
-    return this;
 }
 
-// 0x0041B6D0
-void ViewpointModule::destroy_body()
-{
-    vtable_ = kVtable;
-    delete view_camera_;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041B7C0
-ViewpointModule* ViewpointModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041B6D0 (0x0041B7C0 the deleting one)
+ViewpointModule::~ViewpointModule() { delete view_camera_; }
 
 // 0x0041B7F0
 void ViewpointModule::configure_from_data(script::Struct*)
@@ -86,27 +62,4 @@ void ViewpointModule::tick_frame()
     view_camera_->change_mat(matrix);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::ViewpointModule::teardown,
-    &objects::ViewpointModule::tick_frame,
-    &objects::ViewpointModule::configure_from_data,
-    &objects::ViewpointModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

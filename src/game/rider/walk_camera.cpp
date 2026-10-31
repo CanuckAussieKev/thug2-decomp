@@ -19,8 +19,6 @@
 #include "game/rider/walk_physics.h"
 #include "engine/maths/x87_math.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 
 namespace objects {
 
@@ -32,7 +30,6 @@ T& get_at(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-extern void** const kVtable;
 constexpr uint32_t kWalkCamera = 0xC7D37EC2;
 constexpr uint32_t kWalk = 0x726E85AA, kSkaterPhysicsControl = 0xD9151D4D, kCameraLookAround = 0x81C7122D,
                    kCamera = 0xC4E311FA, kSkaterCamera = 0x5E43A604, kInput = 0x27D7CD28;
@@ -112,34 +109,17 @@ maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const
 }
 
 // 0x00525DC0
-ObjectModule* __cdecl FootView::fabricate()
+ObjectModule* __cdecl FootView::fabricate() { return new FootView; }
+
+// (the constructor: inlined in fabricate in the original)
+FootView::FootView()
 {
-    void* memory = memory::alloc_zeroed(sizeof(FootView));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<FootView*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kWalkCamera;
-    component->aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    return component;
+    kind_tag_ = kWalkCamera;
+    aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
-// 0x00524C20
-void FootView::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00524F20
-FootView* FootView::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00524C20 (0x00524F20 the deleting one)
+FootView::~FootView() {}
 
 // 0x00524C50
 void FootView::bind_rider(GameEntity* skater)
@@ -178,7 +158,7 @@ void FootView::seal()
 void FootView::reset_now()
 {
     snap_next_ = true;
-    ObjectModule::tick_frame();
+    tick_frame();
     snap_next_ = false;
 }
 
@@ -502,27 +482,4 @@ void FootView::tick_frame()
     get_at<maths::Mat4>(skater_camera_, 0x74) = matrix;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::FootView::teardown,
-    &objects::FootView::tick_frame,
-    &objects::FootView::configure_from_data,
-    &objects::FootView::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::FootView::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

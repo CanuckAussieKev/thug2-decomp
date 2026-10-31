@@ -77,7 +77,6 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/code_address.h"
 #include "engine/objects/entity.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/state_history.h"
 #include "game/rider/local_net_logic.h"
@@ -227,7 +226,7 @@ void Rider::load_cat_info(script::Struct* params)
 // 0x00580150
 void Rider::load_list_44b_66a_9f(script::Struct* params)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*static_cast<void***>(list_28c_))[5])(list_28c_, 0);
+    static_cast<AttributeTracker*>(list_28c_)->reapply_from_data(nullptr);
     script::Array* entries = nullptr;
     params->fetch_list(kList44b66a9f, &entries, 0);
     for (int i = 0; i < 0x46; ++i)
@@ -918,8 +917,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     auto* assets = assets::g_asset_manager;
     bool flag = assets->get_permanent_by_default();
     assets->set_permanent_by_default(false);
-    reinterpret_cast<void(__thiscall*)(void*, RiderIdentity*, int, int, int)>(
-        (*reinterpret_cast<void***>(unknown250_))[0x34 / 4])(unknown250_, profile, 0, skater_number_, 0);
+    reinterpret_cast<MeshInstanceModule*>(unknown250_)->set_up_mesh_from_profile(profile, false, skater_number_, 0);
     assets->set_permanent_by_default(flag);
     memory::Hub::get_pull()->leave_heap_scope();
     add_component_from_structure(this, [](script::Struct* params) {

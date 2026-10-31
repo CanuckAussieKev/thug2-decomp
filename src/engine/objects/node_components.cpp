@@ -12,9 +12,7 @@
 #include "engine/objects/node_objects.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
@@ -27,16 +25,12 @@ static_assert(sizeof(ClassNodeList) == 0x4C && sizeof(GrindRailHub) == 0x54, "th
 
 namespace {
 
-extern void** const kNodeArrayVtable;
-extern void** const kHookManagerVtable;
-extern void** const kRailManagerVtable;
-
 constexpr uint32_t kModel = 0x286A8D26; // model
 
-// The node array of an object's node array component (its vtable slot 13).
+// The node array of an object's node array component (the original's slot 13).
 script::Array* node_array_of(ObjectModule* component)
 {
-    return reinterpret_cast<script::Array*(__thiscall*)(ObjectModule*)>(component->vtable_[13])(component);
+    return static_cast<WaypointListModule*>(component)->get_node_array();
 }
 
 } // namespace
@@ -44,33 +38,17 @@ script::Array* node_array_of(ObjectModule* component)
 // --- the node array ---
 
 // 0x00428010
-ObjectModule* __cdecl WaypointListModule::fabricate()
+ObjectModule* __cdecl WaypointListModule::fabricate() { return new WaypointListModule; }
+
+// (the constructor: inlined in fabricate in the original)
+WaypointListModule::WaypointListModule()
 {
-    auto* component = static_cast<WaypointListModule*>(memory::alloc_zeroed(sizeof(WaypointListModule)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kNodeArrayVtable;
-    component->kind_tag_ = kType;
-    component->nodes_ = nullptr;
-    return component;
+    kind_tag_ = kType;
+    nodes_ = nullptr;
 }
 
-// 0x00427EA0
-void WaypointListModule::destroy_body()
-{
-    vtable_ = kNodeArrayVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00427EF0
-WaypointListModule* WaypointListModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00427EA0 (0x00427EF0 the deleting one)
+WaypointListModule::~WaypointListModule() {}
 
 // 0x00427F20
 void WaypointListModule::configure_from_data(script::Struct* params)
@@ -93,42 +71,28 @@ void WaypointListModule::reapply_from_data(script::Struct* params)
 {
     const char* model = nullptr;
     if (params->fetch_text(kModel, &model, 0))
-        ObjectModule::configure_from_data(params);
+        configure_from_data(params);
 }
 
 // --- the object hooks ---
 
 // 0x00428130
-ObjectModule* __cdecl HookPointRegistryModule::fabricate()
+ObjectModule* __cdecl HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
+
+// (the constructor: inlined in fabricate in the original)
+HookPointRegistryModule::HookPointRegistryModule()
 {
-    auto* component = static_cast<HookPointRegistryModule*>(memory::alloc_zeroed(sizeof(HookPointRegistryModule)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kHookManagerVtable;
-    component->kind_tag_ = kType;
-    component->hooks_ptr_ = nullptr;
-    return component;
+    kind_tag_ = kType;
+    hooks_ptr_ = nullptr;
 }
 
-// 0x004281B0
-void HookPointRegistryModule::destroy_body()
+// 0x004281B0 (0x00428220 the deleting one)
+HookPointRegistryModule::~HookPointRegistryModule()
 {
-    vtable_ = kHookManagerVtable;
     if (ClassNodeList* hooks = hooks_ptr_) {
         hooks->get_clear(); // (its destructor)
         memory::Hub::get_pull()->dealloc(hooks);
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x00428220
-HookPointRegistryModule* HookPointRegistryModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00428090
@@ -147,36 +111,22 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
 // --- the rails ---
 
 // 0x0042B920
-ObjectModule* __cdecl GrindPathLinkModule::fabricate()
+ObjectModule* __cdecl GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
+
+// (the constructor: inlined in fabricate in the original)
+GrindPathLinkModule::GrindPathLinkModule()
 {
-    auto* component = static_cast<GrindPathLinkModule*>(memory::alloc_zeroed(sizeof(GrindPathLinkModule)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kRailManagerVtable;
-    component->kind_tag_ = kType;
-    component->rail_groups_ = nullptr;
-    return component;
+    kind_tag_ = kType;
+    rail_groups_ = nullptr;
 }
 
-// 0x0042B9A0
-void GrindPathLinkModule::destroy_body()
+// 0x0042B9A0 (0x0042BA90 the deleting one)
+GrindPathLinkModule::~GrindPathLinkModule()
 {
-    vtable_ = kRailManagerVtable;
     if (GrindRailHub* rails = rail_groups_) {
         rails->tidy_up(); // (its destructor)
         memory::Hub::get_pull()->dealloc(rails);
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x0042BA90
-GrindPathLinkModule* GrindPathLinkModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0042B880
@@ -212,61 +162,3 @@ maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
 using objects::GrindPathLinkModule;
 using objects::HookPointRegistryModule;
 using objects::WaypointListModule;
-
-namespace objects {
-namespace {
-
-static VtableSlot g_node_array_vtable_slots[] = {
-    &WaypointListModule::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    &WaypointListModule::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    &WaypointListModule::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-    &online::FoldedGetters::word18};
-void** const kNodeArrayVtable = reinterpret_cast<void**>(g_node_array_vtable_slots);
-static VtableSlot g_hook_manager_vtable_slots[] = {
-    &HookPointRegistryModule::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    &HookPointRegistryModule::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-    &online::FoldedGetters::word18};
-void** const kHookManagerVtable = reinterpret_cast<void**>(g_hook_manager_vtable_slots);
-static VtableSlot g_rail_manager_vtable_slots[] = {
-    &GrindPathLinkModule::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    &GrindPathLinkModule::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-    &online::FoldedGetters::word18};
-void** const kRailManagerVtable = reinterpret_cast<void**>(g_rail_manager_vtable_slots);
-
-} // namespace
-} // namespace objects

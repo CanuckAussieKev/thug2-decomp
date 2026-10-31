@@ -29,27 +29,25 @@ struct WalkCameraState;
 //
 // Vtable: 0 the scalar deleting destructor (0x004FA590), 1 Update (0x004FA860), 2 configure_from_data (0x004FA5C0),
 // 3 Finalize (0x004F9A20), 12 invoke_method_by_name (0x004FA680).
-class RiderChaseView : public ObjectModule {
+class RiderChaseView final : public ObjectModule {
 public:
     // 0x004FA800: a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x004FA4B0: the base's constructor, its vtable and type, the interpolator (0x98 bytes), the zooms and rates at
-    // their defaults, no skater. Returns this.
-    RiderChaseView* make_new();
+    // 0x004FA4B0: its type, the interpolator (0x98 bytes), the zooms and rates at
+    // their defaults, no skater.
+    RiderChaseView();
     // 0x004F99F0: the destructor body: the interpolator freed, the base's.
-    void destroy_body();
-    // 0x004FA590 (slot 0): the destructor body, then freed with `flags` bit 0. Returns this.
-    RiderChaseView* teardown(unsigned int flags);
+    ~RiderChaseView() override;
     // 0x004FA5C0 (slot 2): the camera object's matrix made the identity and its orientation the same; the skater
     // from 0x4C48DA58 (an object id, asserted).
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004F9A20 (slot 3): the camera lookaround component (0x81C7122D).
-    void seal();
+    void seal() override;
     // 0x004FA680 (slot 12): 0x75A516D3 - a shake from duration, vert_amp, horiz_amp, vert_vel, horiz_vel;
     // 0xD7867FFE - the camera mode from 0x6835B854 (asserted). 1, or 2 for anything else.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004FA860 (slot 1): one frame (skater_camera_update.cpp).
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x004FA3C0: the skater followed, its SkaterState and SkaterPhysicsControl components (none: all null); 3
     // instant frames.
@@ -157,27 +155,26 @@ static_assert(offsetof(RiderChaseView, mode_sel_) == 0x24 && offsetof(RiderChase
 
 // The skater's cleanup-state component (type 0xD8CC3428 "SkaterCleanupState", vtable 0x0064BB48, 0x1C bytes; made
 // by 0x004FBE20): each frame the skater's shadow and light follow it (Rider::update_shadow_light).
-class RiderStateReset : public ObjectModule {
+class RiderStateReset final : public ObjectModule {
 public:
     // 0x004FBE20: a new one (the constructor inlined: the base's, its vtable and type; 0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x004FBD90: the destructor body (its vtable, then the base's). 0x004FBDB0 (slot 0): the scalar deleting
-    // destructor.
-    void destroy_body();
-    RiderStateReset* teardown(unsigned int flags);
+    // The constructor (inlined in fabricate in the original).
+    RiderStateReset();
+    // 0x004FBD90: the destructor body (the base's). (0x004FBDB0 the deleting one)
+    ~RiderStateReset() override;
     // 0x004FBDA0 (slot 2; `params` isn't used): the state cleared. (Two other components' vtables, 0x0064BEF8 and
     // 0x0064C054, share this function.)
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004FBDE0 (slot 3): the object's SkaterState component.
-    void seal();
+    void seal() override;
     // 0x004FBE00 (slot 1): Rider::update_shadow_light with the object's position and matrix.
-    void tick_frame();
+    void tick_frame() override;
 
     ObjectModule* state_ref_; // +0x18 the object's SkaterState
 };
 static_assert(sizeof(RiderStateReset) == 0x1C, "layout must match the original");
 
 // 0x0064BA74: skaterCameraVtable (defined where the class's functions are).
-extern void** const kSkaterCameraVtable;
 
 } // namespace objects

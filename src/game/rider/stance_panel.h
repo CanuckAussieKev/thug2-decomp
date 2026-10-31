@@ -18,24 +18,24 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name.
 namespace objects {
 
-class RiderStanceDisplay : public ObjectModule {
+class RiderStanceDisplay final : public ObjectModule {
 public:
     // 0x005193B0 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderStanceDisplay();
     // 0x00519130: the destructor body (the base's).
-    void destroy_body();
-    // 0x005191E0 (vtable slot 0)
-    RiderStanceDisplay* teardown(unsigned int flags);
+    ~RiderStanceDisplay() override;
     // 0x00519140 (vtable +0x08): no stance shown yet. `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00519210 (vtable +0x0C): the core physics component found.
-    void seal();
+    void seal() override;
     // 0x00519230 (vtable +0x04): the skater's panel element (0x69751A23 below its skater number's id) shown the
     // stance when it changes: hidden for 5, else the stance's texture (the table at 0x0064C12C) at full alpha.
-    void tick_frame();
+    void tick_frame() override;
     // 0x005192C0 (vtable +0x30): NollieOn / NollieOff / InNollie, PressureOn / PressureOff / InPressure; 2 for any
     // other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00519150: the stance: with pressure 3 or 4 (flipped or not), else nollie 1 / 2 when flipped, 0 / 5 when not
     // - flipped being the state component's +0x28 (the other way round when the skater's +0x110 is set).

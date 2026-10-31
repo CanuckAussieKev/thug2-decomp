@@ -185,17 +185,11 @@ void StateHistoryMessage::change_moment(uint32_t time)
 // --- RiderFrameLog ---
 
 // 0x0051AD30
-ObjectModule* __cdecl RiderFrameLog::fabricate()
-{
-    void* memory = memory::alloc_zeroed(0x1108);
-    return memory ? static_cast<RiderFrameLog*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl RiderFrameLog::fabricate() { return new RiderFrameLog; }
 
 // 0x0051ACB0
-RiderFrameLog* RiderFrameLog::make_new()
+RiderFrameLog::RiderFrameLog()
 {
-    ObjectModule::make_new();
-    vtable_ = kStateHistoryVtable;
     // (The original clears each state entry's +0x68 / +0x6C and the entry, the messages, the counts, then the
     // entries and the messages again.)
     std::memset(reinterpret_cast<uint8_t*>(this) + 0x1C, 0, kEntries * 0x84);
@@ -204,16 +198,6 @@ RiderFrameLog* RiderFrameLog::make_new()
     prop<int>(this, 0x18) = 0;  // the states received
     prop<int>(this, 0xA6C) = 0; // the messages received
     kind_tag_ = kType;
-    return this;
-}
-
-// 0x00519840
-RiderFrameLog* RiderFrameLog::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00519FA0

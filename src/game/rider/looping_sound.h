@@ -22,33 +22,35 @@ class Struct;
 // invoke_method_by_name.
 namespace objects {
 
-class RiderRollingAudio : public ObjectModule {
+class RiderRollingAudio final : public ObjectModule {
 public:
     // 0x00513AD0 (registered by register_component_types): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
     // 0x00513860 (registered with Create): its script member functions (the table at 0x00684A68) registered.
     static void __cdecl publish_method_table();
-    // 0x005138E0: the base, its vtable and type; on, the sound to be chosen (changed), in the air, volume_mult 1.
-    // Returns this.
-    RiderRollingAudio* make_new();
+    // 0x005138E0: its type; on, the sound to be chosen (changed), in the air, volume_mult 1.
+    //
+    RiderRollingAudio();
     // 0x00513B30: the sound stopped, then the base's.
-    void destroy_body();
-    // 0x00513FA0 (vtable slot 0)
-    RiderRollingAudio* teardown(unsigned int flags);
+    ~RiderRollingAudio() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x00513880 (vtable +0x08): the air sound's pitch fall (45 and 18.33 a second) and volume_mult.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00513970 (vtable +0x0C): the physics control component found.
-    void seal();
+    void seal() override;
     // 0x00513F60 (vtable +0x1C): the base's; suspended, the sound stops; resumed, the sound is chosen again.
-    void hold_off(bool suspend);
+    void hold_off(bool suspend) override;
     // 0x005139E0 (vtable +0x30): SkaterLoopingSound_TurnOn / _TurnOff (resumed / suspended) - 1; PlayAnim turns it on
     // when the skater (skating, not walking or driving) has animTags with WalkToSkateTransition in its tags - and,
     // like any other name, returns 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x00513BB0 (vtable +0x04): off: suspended. Otherwise the sound for the state (chosen again when it changed),
     // stopped when it changes or the skater hasn't moved; its volume from where the skater is and the speed (the air
     // sound's pitch falling while it lasts), played or its volume and pitch updated when they changed enough.
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x005138B0: the speed as a fraction of the top speed (at most 1).
     void set_pace_ratio(float fraction);

@@ -16,8 +16,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -43,8 +41,6 @@ BodyDynamicsModule::Contact* BodyDynamicsModule::get_contacts() { return g_rigid
 float g_rigid_body_pusher_height;
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr float kHalf = 0.5f;                             // 0x006453BC
 constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
@@ -133,18 +129,12 @@ const float* vector_of(uint32_t element) { return reinterpret_cast<const float*>
 } // namespace
 
 // 0x0042EF00
-ObjectModule* __cdecl BodyDynamicsModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(BodyDynamicsModule));
-    return memory ? static_cast<BodyDynamicsModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
 
 // 0x0042E3F0
-BodyDynamicsModule* BodyDynamicsModule::make_new()
+BodyDynamicsModule::BodyDynamicsModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
-    new (&capsule_) maths::Capsule();
+    // (capsule_ is constructed first, as a member)
     flag_bits_ = 0;
     orientation_ = {0.0f, 0.0f, 0.0f, 1.0f};
     kind_tag_ = kType;
@@ -172,13 +162,11 @@ BodyDynamicsModule* BodyDynamicsModule::make_new()
     bounce_callback_threshold_ = 20.0f;
     bounce_full_speed_ = 300.0f;
     die_timer_ = -1.0f;
-    return this;
 }
 
-// 0x0042EF60
-void BodyDynamicsModule::destroy_body()
+// 0x0042EF60 (0x00430DF0 the deleting one)
+BodyDynamicsModule::~BodyDynamicsModule()
 {
-    vtable_ = kVtable;
     for (void* array : {static_cast<void*>(contacts_), static_cast<void*>(steer_friction_),
                         static_cast<void*>(spheres_), static_cast<void*>(springs_)}) {
         if (array)
@@ -188,16 +176,6 @@ void BodyDynamicsModule::destroy_body()
         if (structure)
             erase_one(structure);
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x00430DF0
-BodyDynamicsModule* BodyDynamicsModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0042D4B0
@@ -738,27 +716,6 @@ void __cdecl add_rigid_body_pusher(GameEntity* object)
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::BodyDynamicsModule::teardown,
-                                      &objects::BodyDynamicsModule::tick_frame,
-                                      &objects::BodyDynamicsModule::configure_from_data,
-                                      &BodyDynamicsModule::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects
 
 namespace objects {

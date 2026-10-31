@@ -12,9 +12,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
 #include "platform/run_log.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/trigger_events.h"
@@ -58,8 +56,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
-
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint32_t kOnlineFlag = 0x20209C31;    // online_mode_flag
 constexpr uint32_t kPermanent = 0x23627FD7;     // Permanent
@@ -79,45 +75,25 @@ T& get_at(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-// The node array of `object`'s nodearray component (its vtable slot 13), or null without one.
+// The node array of `object`'s nodearray component (the original's slot 13), or null without one.
 script::Array* node_array_of(GameEntity* object)
 {
     ObjectModule* nodes = object->fetch_module(kNodeArray);
     if (!nodes)
         return nullptr;
-    return reinterpret_cast<script::Array*(__thiscall*)(ObjectModule*)>(nodes->vtable_[13])(nodes);
+    return static_cast<WaypointListModule*>(nodes)->get_node_array();
 }
 
 } // namespace
 
 // 0x00434B90
-ObjectModule* __cdecl ActivationZoneModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ActivationZoneModule));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<ActivationZoneModule*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    return component;
-}
+ObjectModule* __cdecl ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
 
-// 0x00434900
-void ActivationZoneModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
+// (the constructor: inlined in fabricate in the original)
+ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }
 
-// 0x00434910
-ActivationZoneModule* ActivationZoneModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00434900 (0x00434910 the deleting one)
+ActivationZoneModule::~ActivationZoneModule() {}
 
 // 0x00434940
 void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity_->at_point_; }
@@ -278,27 +254,4 @@ bool __cdecl ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
     return component->probe_touches_zone(kNoEvents, feeler);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::ActivationZoneModule::teardown,
-    &objects::ActivationZoneModule::tick_frame,
-    &objects::ActivationZoneModule::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ActivationZoneModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

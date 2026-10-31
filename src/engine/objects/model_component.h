@@ -65,35 +65,33 @@ static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
 //
 // Vtable: 0 the scalar deleting destructor (0x00420270), 1 Update, 2 configure_from_data, 3 Finalize, 8 Hide, 9
 // Teleport, 12 invoke_method_by_name, 13 set_up_mesh_from_profile, 14 change_mesh; the rest the base's / shared.
-class MeshInstanceModule : public ObjectModule {
+class MeshInstanceModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x286A8D26;
 
     // 0x00421490 (registered with the composite object manager): a new one (Construct; 0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x00420BF0: the base's constructor, its vtable and type, a new model (0x0048BFA0), the spins off, no display
-    // offset (w 1), scale 1, no colour values, the pivot (0, 0, 0, 1). Returns this.
-    MeshInstanceModule* make_new();
-    // 0x00420000: its vtable back, the model deleted (0x0048C3C0), then the base's body.
-    void destroy_body();
-    // 0x00420270 (vtable slot 0)
-    MeshInstanceModule* teardown(unsigned int flags);
+    // 0x00420BF0: its type, a new model (0x0048BFA0), the spins off, no display
+    // offset (w 1), scale 1, no colour values, the pivot (0, 0, 0, 1).
+    MeshInstanceModule();
+    // 0x00420000: the model deleted (0x0048C3C0), then the base's body.
+    ~MeshInstanceModule() override;
     // 0x004214F0 (vtable slot 2): UseModelLights (the model's lights made - their position the object's, their
     // count Max_Scene_Lights - or, without it, taken away), the skeleton given to the model, ShadowVolume, then
     // set_up_mesh.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x004204B0 (vtable slot 3): its object's skeleton, animation blender and suspend components.
-    void seal();
+    void seal() override;
     // 0x004219F0 (vtable slot 1): a level object (set_up_mesh's refObjectName) follows its sector's model; otherwise an
     // active, shown model goes to the display matrix (with the skeleton and whether the blender's animation is
     // ready).
-    void tick_frame();
+    void tick_frame() override;
     // 0x00420070 (vtable slot 8)
-    void conceal(bool hide);
+    void conceal(bool hide) override;
     // 0x00420480 (vtable slot 9): Update now, then the model's lights' brightness.
-    void jump_to();
+    void jump_to() override;
     // 0x00421AE0 (vtable slot 12): its script members (a switch on the name); 2 when it's not one of them.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x00421230 (vtable slot 13): the model built from a profile (Gfx: 0x004897D0 / 0x0048A2F0 - the build script,
     // 0x91C1EC93 when 0), then as set_up_mesh ends.
     void set_up_mesh_from_profile(void* profile, bool via_resource_store, int tex_dict_offset, uint32_t build_script);

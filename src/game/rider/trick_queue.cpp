@@ -24,8 +24,6 @@
 #include "platform/stopwatch.h"
 #include "game/goals/goal_manager.h"
 #include "game/rider/balance_trick.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -42,7 +40,6 @@ T& get_at(void* object, uint32_t offset)
     return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
 }
 
-extern void** const kVtable;
 constexpr uint32_t kTrick = 0x270F56E1;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 
@@ -183,44 +180,24 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 } // namespace
 
 // 0x00523490
-ObjectModule* __cdecl MoveExecutor::fabricate()
-{
-    void* memory = memory::alloc_zeroed(0x1BC0);
-    if (!memory)
-        return nullptr;
-    return static_cast<MoveExecutor*>(memory)->make_new();
-}
+ObjectModule* __cdecl MoveExecutor::fabricate() { return new MoveExecutor; }
 
 // 0x00522390
-MoveExecutor* MoveExecutor::make_new()
+MoveExecutor::MoveExecutor()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     get_at<HitClusterLog>(this, kTrickObjects).make_new();
     kind_tag_ = kTrick;
     get_at<void*>(this, kTrickBindingsSlot) = nullptr;
     for (uint32_t offset = 0x1C; offset <= 0x34; offset += 4)
         get_at<void*>(this, offset) = nullptr;
     get_reset();
-    return this;
 }
 
-// 0x005234F0
-void MoveExecutor::destroy_body()
+// 0x005234F0 (0x005243F0 the deleting one)
+MoveExecutor::~MoveExecutor()
 {
-    vtable_ = kVtable;
     if (script::Struct* mappings = get_at<script::Struct*>(this, kTrickBindingsSlot))
         free_struct(mappings);
-    ObjectModule::destroy_body();
-}
-
-// 0x005243F0
-MoveExecutor* MoveExecutor::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00522410
@@ -775,7 +752,7 @@ void MoveExecutor::update_bash()
 void MoveExecutor::tick_frame()
 {
     if (!reinterpret_cast<GameEntity*>(entity_)->unknownbc_) {
-        virtual_suspend(true);
+        hold_off(true);
         return;
     }
     update_buttons();
@@ -822,25 +799,4 @@ bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script)
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::MoveExecutor::teardown,
-                                      &objects::MoveExecutor::tick_frame,
-                                      stubs::ignore_argument,
-                                      &objects::MoveExecutor::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::MoveExecutor::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -18,8 +18,6 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
@@ -32,8 +30,6 @@ uint32_t g_car_physics_member_functions[18]{0xA2331896, 0xC695136D, 0, 0, 0,    
                                             0,          0,          0, 0, 0xC695136D, 0, 0,          0,          0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kMinTilt = 0x877DB8DA;
 constexpr uint32_t kMaxTilt = 0xFB3464DF;
@@ -106,11 +102,7 @@ bool suspend_should_update(uint8_t* suspend, float* distance)
 } // namespace
 
 // 0x0041BD90
-ObjectModule* __cdecl AutomobileDynamicsModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(AutomobileDynamicsModule));
-    return memory ? static_cast<AutomobileDynamicsModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
 
 // 0x0041B910
 void __cdecl AutomobileDynamicsModule::publish_method_table()
@@ -119,33 +111,17 @@ void __cdecl AutomobileDynamicsModule::publish_method_table()
 }
 
 // 0x0041BAD0
-AutomobileDynamicsModule* AutomobileDynamicsModule::make_new()
+AutomobileDynamicsModule::AutomobileDynamicsModule()
 {
-    ObjectModule::make_new();
     wheel_spin_ = 0.0f;
     steer_ = 0.0f;
     target_steer_ = 0.0f;
-    vtable_ = kVtable;
     kind_tag_ = kType;
     body_shown_ = true;
-    return this;
 }
 
-// 0x0041B930
-void AutomobileDynamicsModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041BB00
-AutomobileDynamicsModule* AutomobileDynamicsModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041B930 (0x0041BB00 the deleting one)
+AutomobileDynamicsModule::~AutomobileDynamicsModule() {}
 
 // 0x0041B940
 void AutomobileDynamicsModule::configure_from_data(script::Struct* params)
@@ -329,25 +305,4 @@ int AutomobileDynamicsModule::show_body(script::Struct* params, script::Script*)
 // 0x0041BA20
 int AutomobileDynamicsModule::do_nothing(script::Struct*, script::Script*) { return 1; }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::AutomobileDynamicsModule::teardown,
-                                      &objects::AutomobileDynamicsModule::tick_frame,
-                                      &objects::AutomobileDynamicsModule::configure_from_data,
-                                      &objects::AutomobileDynamicsModule::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -19,18 +19,18 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 3 Finalize, 12 invoke_method_by_name.
 namespace objects {
 
-class RiderFrameLookups : public ObjectModule {
+class RiderFrameLookups final : public ObjectModule {
 public:
     // 0x00514430 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderFrameLookups();
     // 0x00513FD0: the destructor body (the base's).
-    void destroy_body();
-    // 0x00513FE0 (vtable slot 0)
-    RiderFrameLookups* teardown(unsigned int flags);
+    ~RiderFrameLookups() override;
     // 0x00514010 (vtable +0x0C): the core physics component found.
-    void seal();
+    void seal() override;
     // 0x00514030 (vtable +0x04): the core physics' matrix (+0x18) copied.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00514040 (vtable +0x30): the script member functions (the unnamed parameter an angle in degrees):
     // GetHeading (heading 0-360 from the at row's x - turned for a negative z -, cosine, sine into the script's
     // parameters), GetSlope (Slope - the at row's angle above the horizontal, negative when it points down - and
@@ -39,7 +39,7 @@ public:
     // into the plane across that vector more than the angle away), YawingLeft / YawingRight (the velocity, turned
     // into the up row's plane, to that side of the at row), YawBetween (more than the pair's first angle and not
     // more than its second away from the at row). 1 / 0; 2 for any other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     maths::Mat4 basis_frame_; // +0x18 the core physics' (rows: right, up, at, position)
     float prev_gradient_;     // +0x58 GetSlope's last

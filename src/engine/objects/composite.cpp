@@ -16,8 +16,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "game/rider/vehicle_sound.h"
@@ -40,8 +38,6 @@ float g_composite_acos_a3{-0.0187293f};
 float g_composite_feet_to_inches{12.0f};
 
 namespace {
-
-extern void** const kComponentVtable;
 
 // Names (checksums).
 constexpr uint32_t kUnnamed = 0;
@@ -187,30 +183,17 @@ bool Entity::invoke_method(MemberFunctionEntry* entry, Struct* params, Script* s
 
 // --- ObjectModule -------------------------------------------------------------------------------------------
 
-// 0x0045D730
-ObjectModule* ObjectModule::make_new()
-{
-    vtable_ = kComponentVtable;
-    flag_bits_ = 0;
-    return this;
-}
+void ObjectModule::operator delete(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
-// 0x0045D740
-void ObjectModule::destroy_body()
+// 0x0045D740 (0x0045D780 the deleting one)
+ObjectModule::~ObjectModule()
 {
-    vtable_ = kComponentVtable;
     if (flag_bits_ & kComponentFlagScriptWaiting)
         script::component_destroyed_all_scripts(this);
 }
 
-// 0x0045D780
-ObjectModule* ObjectModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0051B970
+void ObjectModule::tick_frame() { hold_off(true); }
 
 // 0x0045D760
 void ObjectModule::hold_off(bool suspend)
@@ -221,8 +204,8 @@ void ObjectModule::hold_off(bool suspend)
         flag_bits_ &= ~kComponentFlagSuspended;
 }
 
-// 0x0045D720 (a jump to vtable +0x30 with the entry's name in place of the entry)
-int ObjectModule::invoke_method_by_name(MemberFunctionEntry* entry, Struct* params, Script* script)
+// 0x0045D720 (a jump to slot 12 with the entry's name in place of the entry)
+int ObjectModule::invoke_method(MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     return invoke_method_by_name(entry->callsign_, params, script);
 }
@@ -253,7 +236,7 @@ GameEntity::~GameEntity()
         ObjectModule* component = attached_modules_;
         attached_modules_ = component->following_;
         unregister_component(component);
-        component->virtual_destroy(1);
+        delete component;
     }
 }
 
@@ -305,7 +288,7 @@ void GameEntity::hold_off(bool suspend)
     else
         composite_flags_ &= ~kCompositeFlagSuspended;
     for (ObjectModule* component = attached_modules_; component; component = component->following_)
-        component->virtual_suspend(suspend);
+        component->hold_off(suspend);
 }
 
 // 0x0045E4C0
@@ -814,27 +797,4 @@ bool GameEntity::obj_nearest_outside_angle(Struct* params, Script* /*script*/)
     return std::fabs(maths::get_angle_in_plane(basis_frame_, offset, 2, 1)) > angle;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_component_vtable_slots[] = {
-    &objects::ObjectModule::teardown,
-    &_purecall,
-    &_purecall,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kComponentVtable = reinterpret_cast<void**>(g_component_vtable_slots);
-
-} // namespace
 } // namespace objects

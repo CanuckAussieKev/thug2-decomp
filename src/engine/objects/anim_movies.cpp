@@ -474,10 +474,10 @@ void ObjectAnimMovie::tick_frame()
             reinterpret_cast<const maths::Vec4*>(object + 0x4C)->echo_out(); // (printed)
             reinterpret_cast<const maths::Mat4*>(object + 0x6C)->echo_out();
         }
-        // The object's model told (slot 1 of its 0x286A8D26 component).
-        void* component = reinterpret_cast<GameEntity*>(object)->fetch_module(0x286A8D26);
+        // The object's model told (the Update of its 0x286A8D26 component).
+        ObjectModule* component = reinterpret_cast<GameEntity*>(object)->fetch_module(0x286A8D26);
         if (component)
-            reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(component))[1])(component);
+            component->tick_frame();
     }
     memory::Hub::get_pull()->dealloc(quats);
     memory::Hub::get_pull()->dealloc(positions);

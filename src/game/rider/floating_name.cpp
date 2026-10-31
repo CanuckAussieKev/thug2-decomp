@@ -14,8 +14,6 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "game/skate/game_mode.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -26,7 +24,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterFloatingName = 0x125044E2;
 constexpr uint32_t kId = 0x40C698AF, kText = 0xC4745838, kPos3d = 0x4B491900;
 constexpr uint32_t kCreateObjectLabel = 0x6A060CF0, kDestroyObjectLabel = 0x2575B406;
@@ -71,34 +68,13 @@ void run_with_label_id(uint32_t name, uint32_t label_id)
 } // namespace
 
 // 0x00511810
-ObjectModule* __cdecl RiderOverheadTag::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderOverheadTag));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderOverheadTag*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterFloatingName;
-    return component;
-}
+ObjectModule* __cdecl RiderOverheadTag::fabricate() { return new RiderOverheadTag; }
 
-// 0x00511AA0
-void RiderOverheadTag::destroy_body()
-{
-    vtable_ = kVtable;
-    run_with_label_id(kDestroyObjectLabel, label_id_);
-    ObjectModule::destroy_body();
-}
+// (the constructor: inlined in fabricate in the original)
+RiderOverheadTag::RiderOverheadTag() { kind_tag_ = kSkaterFloatingName; }
 
-// 0x00511B80
-RiderOverheadTag* RiderOverheadTag::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00511AA0 (0x00511B80 the deleting one)
+RiderOverheadTag::~RiderOverheadTag() { run_with_label_id(kDestroyObjectLabel, label_id_); }
 
 // 0x00511780
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
@@ -112,7 +88,7 @@ void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 void RiderOverheadTag::tick_frame()
 {
     if (!in_net_game() || !show_names()) {
-        virtual_suspend(true);
+        hold_off(true);
         return;
     }
     frontend::UiWidget* label;
@@ -150,27 +126,4 @@ void RiderOverheadTag::tick_frame()
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderOverheadTag::teardown,
-    &objects::RiderOverheadTag::tick_frame,
-    &objects::RiderOverheadTag::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

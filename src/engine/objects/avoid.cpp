@@ -20,9 +20,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -38,7 +36,6 @@ uint32_t g_avoid_member_functions[54]{
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kAvoid = 0x6EB050ED;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kMotion = 0x0A015E17;
@@ -153,11 +150,7 @@ bool line_collides(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E39E0
-ObjectModule* __cdecl ObstacleDodgeModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ObstacleDodgeModule));
-    return memory ? static_cast<ObstacleDodgeModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl ObstacleDodgeModule::fabricate() { return new ObstacleDodgeModule; }
 
 // 0x004E3310
 void __cdecl ObstacleDodgeModule::publish_method_table()
@@ -166,29 +159,10 @@ void __cdecl ObstacleDodgeModule::publish_method_table()
 }
 
 // 0x004E3660
-ObstacleDodgeModule* ObstacleDodgeModule::make_new()
-{
-    ObjectModule::make_new();
-    vtable_ = kVtable;
-    kind_tag_ = kAvoid;
-    return this;
-}
+ObstacleDodgeModule::ObstacleDodgeModule() { kind_tag_ = kAvoid; }
 
-// 0x004E3330
-void ObstacleDodgeModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x004E36C0
-ObstacleDodgeModule* ObstacleDodgeModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004E3330 (0x004E36C0 the deleting one)
+ObstacleDodgeModule::~ObstacleDodgeModule() {}
 
 // 0x004E34C0
 float ObstacleDodgeModule::side_away_from_skater()
@@ -402,25 +376,4 @@ bool ObstacleDodgeModule::restore_motion(script::Struct* /*params*/, script::Scr
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::ObstacleDodgeModule::teardown,
-                                      &objects::ComponentWithoutUpdate::tick_frame,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

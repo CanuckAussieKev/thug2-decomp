@@ -594,8 +594,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     // The rails on moving objects: the move in the object's space.
     for (auto* rails = objects::object_hub_slot()->find_first_module_of_kind(kRailManagerType); rails;
          rails = get_at<objects::ObjectModule*>(rails, 0x14)) {
-        auto* object_rails = reinterpret_cast<objects::GrindRailHub*(__thiscall*)(void*)>(
-            (*reinterpret_cast<void***>(rails))[13])(rails);
+        auto* object_rails = static_cast<objects::GrindPathLinkModule*>(rails)->get_rail_groups();
         maths::Mat4 world;
         static_cast<objects::GrindPathLinkModule*>(rails)->update_rail_matrix(&world);
         maths::Mat4 inverse;

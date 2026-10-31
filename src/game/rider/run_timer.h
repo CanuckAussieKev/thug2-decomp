@@ -22,25 +22,31 @@ class Struct;
 // the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
-class RiderRunClock : public ObjectModule {
+class RiderRunClock final : public ObjectModule {
 public:
     enum State : int { kClockIdle = 0, kClockTicking = 1, kActivePaused = 2, kActiveTimeUp = 3 };
 
     // 0x005185D0 (registered by register_component_types): a new one (0 if out of memory). Nothing else is set.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderRunClock();
     // 0x00518240 (registered with Create): its script member functions (the table at 0x006849C0) registered.
     static void __cdecl publish_method_table();
     // 0x00518260: the destructor body (the base's).
-    void destroy_body();
-    // 0x005182B0 (vtable slot 0)
-    RiderRunClock* teardown(unsigned int flags);
+    ~RiderRunClock() override;
+    // 0x004FBDA0 (slot 2, the cleanup component's, folded: its +0x18 cleared): state 0.
+    void configure_from_data(script::Struct* /*params*/) override { cur_phase_ = 0; }
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x005182E0 (vtable +0x0C): the walk component found.
-    void seal();
+    void seal() override;
     // 0x00518300 (vtable +0x04): running, the time left goes down by the frame's time (scaled while the walk's state
     // is 2-4); below 0 it's up: RunTimerUp to the skater - and again every frame while it's up.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00518270 (vtable +0x28): cur_phase_ (the state's name) and stopwatch_ added to `params`, then the base's (empty).
-    void fetch_diagnostics(script::Struct* params);
+    void fetch_diagnostics(script::Struct* params) override;
 
     // 0x00518390: stopped (inactive); HideRunTimer to the run timer's script if it's running.
     void halt();

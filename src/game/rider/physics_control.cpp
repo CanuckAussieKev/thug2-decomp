@@ -18,8 +18,6 @@
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_camera.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -35,7 +33,6 @@ uint32_t g_physics_control_member_functions[66]{
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, kSkaterRotate = 0x52D61A0D,
                    kSkaterAdjustPhysics = 0x9F9CC949, kSkaterFinalizePhysics = 0x9B373E58, kWalk = 0x726E85AA,
@@ -57,7 +54,7 @@ int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // Milliseconds as unsigned seconds (the original's unsigned conversion through the x87), rounded once to float.
 float get_seconds(int ms) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs); }
 
-void freeze_module(ObjectModule* component, bool suspend) { component->virtual_suspend(suspend); }
+void freeze_module(ObjectModule* component, bool suspend) { component->hold_off(suspend); }
 
 // Calls into the other components: the core physics told it's leaving (0x004FDD50, not rewritten yet) / given the
 // walk's state on coming back (resume_skating), the state component's physics mode (1: walking), the walk component
@@ -96,17 +93,13 @@ void walk_camera_restore(ObjectModule* camera, void* state)
 } // namespace
 
 // 0x00517830
-ObjectModule* __cdecl RiderBoardPhysics::fabricate()
+ObjectModule* __cdecl RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderBoardPhysics::RiderBoardPhysics()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderBoardPhysics));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderBoardPhysics*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterPhysicsControl;
-    component->core_physics_ = nullptr;
-    return component;
+    kind_tag_ = kSkaterPhysicsControl;
+    core_physics_ = nullptr;
 }
 
 // 0x005176A0
@@ -116,21 +109,8 @@ void __cdecl RiderBoardPhysics::publish_method_table()
                                            g_physics_control_member_functions, 0x18);
 }
 
-// 0x005176C0
-void RiderBoardPhysics::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00517740
-RiderBoardPhysics* RiderBoardPhysics::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x005176C0 (0x00517740 the deleting one)
+RiderBoardPhysics::~RiderBoardPhysics() {}
 
 // 0x005176D0
 void RiderBoardPhysics::configure_from_data(script::Struct* /*params*/) { is_halted_ = false; }
@@ -317,25 +297,4 @@ bool RiderBoardPhysics::un_set_force_walk(script::Struct*, script::Script*)
 // 0x00517730
 bool RiderBoardPhysics::is_force_walk_on(script::Struct*, script::Script*) { return force_walk_; }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::RiderBoardPhysics::teardown,
-                                      &objects::RiderBoardPhysics::tick_frame,
-                                      &objects::RiderBoardPhysics::configure_from_data,
-                                      &objects::RiderBoardPhysics::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::RiderBoardPhysics::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

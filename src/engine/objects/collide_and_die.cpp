@@ -15,8 +15,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
@@ -26,8 +24,6 @@ namespace objects {
 online::Hub* g_online_hub;
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kRadius = 0xC48391A5;          // radius
 constexpr uint32_t kScale = 0x13B9DA7B;           // scale
@@ -50,17 +46,11 @@ void projectile_hit(ObjectModule* projectile) { static_cast<ShotImpactModule*>(p
 } // namespace
 
 // 0x0041C370
-ObjectModule* __cdecl ImpactDestructModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ImpactDestructModule));
-    return memory ? static_cast<ImpactDestructModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl ImpactDestructModule::fabricate() { return new ImpactDestructModule; }
 
 // 0x0041C210
-ImpactDestructModule* ImpactDestructModule::make_new()
+ImpactDestructModule::ImpactDestructModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     radius_ = 0.0f;
     size_factor_ = 0.0f;
@@ -68,24 +58,10 @@ ImpactDestructModule* ImpactDestructModule::make_new()
     on_collide_script_ = 0;
     fading_out_ = false;
     first_update_ = true;
-    return this;
 }
 
-// 0x0041C1F0
-void ImpactDestructModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041C280
-ImpactDestructModule* ImpactDestructModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041C1F0 (0x0041C280 the deleting one)
+ImpactDestructModule::~ImpactDestructModule() {}
 
 // 0x0041C2B0
 void ImpactDestructModule::configure_from_data(script::Struct* params)
@@ -160,27 +136,4 @@ void ImpactDestructModule::tick_frame()
     first_update_ = false;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::ImpactDestructModule::teardown,
-    &objects::ImpactDestructModule::tick_frame,
-    &objects::ImpactDestructModule::configure_from_data,
-    &objects::ImpactDestructModule::seal,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

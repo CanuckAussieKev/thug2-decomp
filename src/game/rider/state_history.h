@@ -36,19 +36,17 @@ struct StateHistoryMessage {
 static_assert(offsetof(StateHistoryMessage, clock_) == 0x04 && sizeof(StateHistoryMessage) == 0x54,
               "layout must match the original");
 
-class RiderFrameLog : public ObjectModule {
+class RiderFrameLog final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x18223FD6;
     static constexpr int kEntries = 20;
 
     // 0x0051AD30 (registered with the composite object manager): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x0051ACB0: the base's constructor, its vtable and type, every entry and the counts cleared. Returns this.
-    RiderFrameLog* make_new();
-    // 0x00519840 (vtable slot 0): the destructor body (0x005197C0), then freed with flags & 1.
-    RiderFrameLog* teardown(unsigned int flags);
+    // 0x0051ACB0: its type, every entry and the counts cleared.
+    RiderFrameLog();
     // 0x005197C0: the destructor body (the base's; in skater_state.cpp).
-    void destroy_body();
+    ~RiderFrameLog() override;
 
     // 0x00519FA0: how far the object moves this frame: its velocity times the frame's length (w from the unrounded
     // frame length, x / y / z from it rounded).
@@ -85,10 +83,10 @@ public:
     // the message; `msg+4` the push): knocked back unless driving, the push as a vector in the event 0x915E5E39.
     // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kResultPassOn.
     static int __cdecl handle_collision_messages(net::InboundMsgCtx* context);
-};
-static_assert(sizeof(RiderFrameLog) == 0x18, "fields are reached by offset");
 
-// 0x0064C174: stateHistoryVtable (defined where the class's functions are).
-extern void** const kStateHistoryVtable;
+    // The fields after the base's (+0x18-+0x1107): reached by offset.
+    uint8_t fields_[0x1108 - 0x18];
+};
+static_assert(sizeof(RiderFrameLog) == 0x1108, "fields are reached by offset (the original allocates 0x1108 bytes)");
 
 } // namespace objects

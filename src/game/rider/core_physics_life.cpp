@@ -130,15 +130,13 @@ void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
     sound_of(this)[0x1C] = static_cast<uint8_t>(terrain);
 }
 
-// 0x004FC500
-void SkaterPhysicsModule::destroy_body()
+// 0x004FC500 (0x00500DB0 the deleting one)
+SkaterPhysicsModule::~SkaterPhysicsModule()
 {
-    get_at<void**>(this, 0) = kCorePhysicsVtable;
     get_at<render::HitMeshCache>(this, kContactMeshStore).destruct();
     release_pointer(this, kSkitched);
     release_pointer(this, kGroundFeelerObject);
     release_pointer(this, kFeelerObject);
-    reinterpret_cast<objects::ObjectModule*>(this)->objects::ObjectModule::destroy_body();
 }
 
 // 0x004FC5C0

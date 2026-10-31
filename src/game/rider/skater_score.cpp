@@ -12,9 +12,7 @@
 #include "game/skate/career.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
 #include "engine/net/gamenet_manager.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -24,7 +22,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterScore = 0xD262802F;
 constexpr uint32_t kCheatAlwaysSpecial = 0xEEFECF1B;
 // Member functions
@@ -70,37 +67,22 @@ int number_parameter(script::Struct* params)
 } // namespace
 
 // 0x00518B60
-ObjectModule* __cdecl RiderPointKeeper::fabricate()
+ObjectModule* __cdecl RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderPointKeeper::RiderPointKeeper()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderPointKeeper));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderPointKeeper*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterScore;
-    component->points_held_ = nullptr;
-    return component;
+    kind_tag_ = kSkaterScore;
+    points_held_ = nullptr;
 }
 
-// 0x00518BE0
-void RiderPointKeeper::destroy_body()
+// 0x00518BE0 (0x00518C50 the deleting one)
+RiderPointKeeper::~RiderPointKeeper()
 {
-    vtable_ = kVtable;
     if (uint8_t* score = points_held_) {
         get_score_of(score)->destroy_body(); // (its destructor)
         memory::Hub::get_pull()->dealloc(score);
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x00518C50
-RiderPointKeeper* RiderPointKeeper::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00518660
@@ -118,7 +100,7 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
 void RiderPointKeeper::tick_frame()
 {
     if (!entity_->unknownbc_) {
-        virtual_suspend(true);
+        hold_off(true);
         return;
     }
     get_score_of(points_held_)->tick_frame();
@@ -221,27 +203,4 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
     }
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderPointKeeper::teardown,
-    &objects::RiderPointKeeper::tick_frame,
-    &objects::RiderPointKeeper::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::RiderPointKeeper::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

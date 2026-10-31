@@ -20,7 +20,6 @@
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
-#include "engine/core/code_address.h"
 
 namespace commands {
 
@@ -78,12 +77,10 @@ void follow_position(render::RenderModel* model, maths::Vec4* position)
     static_cast<render::ModelLights*>(lights)->bind_position_source(position);
 }
 
-// The model component's change_mesh through its vtable (slot 14).
+// The model component's change_mesh (the original's slot 14).
 void set_model_virtual(objects::MeshInstanceModule* component, render::RenderModel* model)
 {
-    auto** vtable = *reinterpret_cast<void***>(component);
-    reinterpret_cast<void(__thiscall*)(objects::MeshInstanceModule*, render::RenderModel*)>(vtable[14])(component,
-                                                                                                        model);
+    component->change_mesh(model);
 }
 
 // An object's shadow made again: a skater's in its skater heap (type 1), anything else's type 2.

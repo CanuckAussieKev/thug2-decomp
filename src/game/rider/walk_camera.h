@@ -40,24 +40,25 @@ maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const
 // world. The parameters are the global structure walk_camera_parameters.
 //
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name.
-class FootView : public ObjectModule {
+class FootView final : public ObjectModule {
 public:
     // 0x00525DC0: a new one (0 if out of memory): the base's constructor, its vtable and type, the target (0, 0,
     // 0, 1).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    FootView();
     // 0x00524C20: the destructor body (the base's). 0x00524F20 (slot 0): the scalar deleting destructor.
-    void destroy_body();
-    FootView* teardown(unsigned int flags);
+    ~FootView() override;
     // 0x00524F50 (slot 2): its skater from 0x4C48DA58 (an object id, asserted; name not recovered), the zoom and
     // the turn cosine 1, its orientation from the camera object's matrix.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00524FB0 (slot 3): the object's CameraLookAround, Camera and skatercamera components.
-    void seal();
+    void seal() override;
     // 0x00525D40 (slot 12): WalkCamera_FlushRequest (apply_queued_change's work) and WalkCamera_Reset (reset_now); 2
     // for anything else.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x005251D0 (slot 1): one frame (see the class).
-    void tick_frame();
+    void tick_frame() override;
 
     // 0x00524C50: the skater followed, its Walk and SkaterPhysicsControl components (none: all null).
     void bind_rider(GameEntity* skater);

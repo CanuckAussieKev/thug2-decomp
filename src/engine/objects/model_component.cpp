@@ -292,8 +292,7 @@ void MeshInstanceModule::get_update_brightness() { lights_update_brightness(mode
 void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_script)
 {
     if (mesh_instance_)
-        reinterpret_cast<void(__thiscall*)(MeshInstanceModule*, void*, bool, int, uint32_t)>(vtable_[13])(
-            this, profile, true, 0, build_script);
+        set_up_mesh_from_profile(profile, true, 0, build_script);
 }
 
 // 0x00420110

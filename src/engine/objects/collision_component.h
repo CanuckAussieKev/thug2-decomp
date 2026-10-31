@@ -26,21 +26,22 @@ namespace objects {
 // Vtable: 0 the scalar deleting destructor; 1 Update; 2 configure_from_data; 3 / 4 the empty 0x005480A0; 5 the shared
 // 0x004E3F90 (slot 2 again); 7 the base's Suspend; 9 0x004A1090 (Teleport: Update); 12 invoke_method_by_name 0x0051ADC0;
 // 13 set_up_hit_shape.
-class ContactShapeModule : public ObjectModule {
+class ContactShapeModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xA432DC41;
 
     // 0x0041C920 (registered with the composite object manager by 0x004E4860): a new one, without collision (0 if
     // out of memory).
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    ContactShapeModule();
     // 0x0041C710: the collision object (if any) out of the movables' list and deleted, then the base's body.
-    void destroy_body();
-    // 0x0041C780 (vtable slot 0)
-    ContactShapeModule* teardown(unsigned int flags);
+    ~ContactShapeModule() override;
+    void jump_to() override { tick_frame(); } // (slot 9: a jump to slot 1)
     // 0x0041C7B0 (vtable slot 2): CollisionMode (0x2D7E583B) to a shape type (render::shape_type_from_checksum; nothing
     // more when 0); a LevelObject (Class 0xB7B3BD86) takes the geometry of the level sector named as it (Name, which
     // must be there) when that sector has collision; then set_up_hit_shape.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041C890 (vtable slot 13): the collision object made from `geometry` (one) or, without one, from the asset
     // manager's data for the model component's model (+0x208, its +0x30: its count at +0x88, its geometries at +0x8C;
     // none found: no geometry). A component without a model crashes there, as in the original.
@@ -48,7 +49,7 @@ public:
     // 0x0041C980 (vtable slot 1): the collision object placed where the object is: with a model whose bone matrix
     // (0x00493040) there is, at the object's position plus that matrix's translation (not turned) and turned by the
     // matrix times the object's display matrix; else at the object's position, turned by its display matrix.
-    void tick_frame();
+    void tick_frame() override;
 
     render::HitMesh* hit_shape_; // +0x18
 };

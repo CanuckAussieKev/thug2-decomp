@@ -11,8 +11,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/collide_and_die.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
@@ -21,7 +19,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kVel = 0x0C4C809E;
 const float kHalf = 0.5f; // 0x006453BC
 
@@ -31,33 +28,13 @@ bool suspend_flag(ObjectModule* suspend) { return static_cast<DormancyModule*>(s
 } // namespace
 
 // 0x0043D430
-ObjectModule* __cdecl VelocityTrackerModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(VelocityTrackerModule));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<VelocityTrackerModule*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    return component;
-}
+ObjectModule* __cdecl VelocityTrackerModule::fabricate() { return new VelocityTrackerModule; }
 
-// 0x0043D2B0
-void VelocityTrackerModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
+// (the constructor: inlined in fabricate in the original)
+VelocityTrackerModule::VelocityTrackerModule() { kind_tag_ = kType; }
 
-// 0x0043D2C0
-VelocityTrackerModule* VelocityTrackerModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0043D2B0 (0x0043D2C0 the deleting one)
+VelocityTrackerModule::~VelocityTrackerModule() {}
 
 // 0x0043D2F0
 void VelocityTrackerModule::configure_from_data(script::Struct* params)
@@ -91,27 +68,4 @@ void VelocityTrackerModule::tick_frame()
     out.y = static_cast<float>(static_cast<double>(step_y) + pos.y);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::VelocityTrackerModule::teardown,
-    &objects::VelocityTrackerModule::tick_frame,
-    &objects::VelocityTrackerModule::configure_from_data,
-    &objects::ImpactDestructModule::seal,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

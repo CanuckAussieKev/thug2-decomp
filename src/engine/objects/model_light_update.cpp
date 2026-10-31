@@ -13,8 +13,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/model_component_nx.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -25,7 +23,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kOnce = 0xE7375C4C;     // (its name isn't in THUG2's scripts)
 constexpr uint32_t kInterval = 0x470B8AE9; // (nor this one's)
 constexpr uint32_t kModel = 0x286A8D26;
@@ -39,36 +36,20 @@ constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
 } // namespace
 
 // 0x00422DC0
-ObjectModule* __cdecl MeshLightingModule::fabricate()
+ObjectModule* __cdecl MeshLightingModule::fabricate() { return new MeshLightingModule; }
+
+// (the constructor: inlined in fabricate in the original)
+MeshLightingModule::MeshLightingModule()
 {
-    auto* component = static_cast<MeshLightingModule*>(memory::alloc_zeroed(sizeof(MeshLightingModule)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->light_flags_ = 0;
-    component->gap_time_ = 0;
-    component->counter_ = 0;
-    component->brightness_ = 0.0f;
-    component->kind_tag_ = kType;
-    return component;
+    light_flags_ = 0;
+    gap_time_ = 0;
+    counter_ = 0;
+    brightness_ = 0.0f;
+    kind_tag_ = kType;
 }
 
-// 0x00422D00
-void MeshLightingModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00422D10
-MeshLightingModule* MeshLightingModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00422D00 (0x00422D10 the deleting one)
+MeshLightingModule::~MeshLightingModule() {}
 
 // 0x00422D40
 void MeshLightingModule::configure_from_data(script::Struct* params)
@@ -144,32 +125,9 @@ void MeshLightingModule::tick_frame()
     }
     counter_ = 0;
     if (light_flags_ & kModelLightOnce)
-        virtual_suspend(true);
+        hold_off(true);
     else
         get_sample(true, 1.0f);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::MeshLightingModule::teardown,
-    &objects::MeshLightingModule::tick_frame,
-    &objects::MeshLightingModule::configure_from_data,
-    &objects::MeshLightingModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

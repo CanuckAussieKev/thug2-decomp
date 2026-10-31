@@ -18,9 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -35,8 +33,6 @@ uint32_t g_skeleton_component_member_functions[36]{
     0xB244C9CF, 0x222756D5, 0, 0, 0, 0, 0xF99F9FAF, 0x222756D5, 0, 0, 0, 0, 0,          0x222756D5, 0, 0, 0, 0};
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kBone = 0xCAB94088;             // bone
 constexpr uint32_t kCopySkeletonFrom = 0xA81F615C; // CopySkeletonFrom
@@ -87,17 +83,13 @@ script::VectorValue to_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}
 } // namespace
 
 // 0x00431F60
-ObjectModule* __cdecl BoneRigModule::fabricate()
+ObjectModule* __cdecl BoneRigModule::fabricate() { return new BoneRigModule; }
+
+// (the constructor: inlined in fabricate in the original)
+BoneRigModule::BoneRigModule()
 {
-    void* memory = memory::alloc_zeroed(sizeof(BoneRigModule));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<BoneRigModule*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    component->bone_rig_ = nullptr;
-    return component;
+    kind_tag_ = kType;
+    bone_rig_ = nullptr;
 }
 
 // 0x00431BE0
@@ -106,24 +98,13 @@ void __cdecl BoneRigModule::publish_method_table()
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_skeleton_component_member_functions, 0x18);
 }
 
-// 0x00431FE0
-void BoneRigModule::destroy_body()
+// 0x00431FE0 (0x00432790 the deleting one)
+BoneRigModule::~BoneRigModule()
 {
-    vtable_ = kVtable;
     if (uint8_t* skeleton = bone_rig_) {
         reinterpret_cast<gfx::Rig*>(skeleton)->destroy_body();
         memory::Hub::get_pull()->dealloc(skeleton);
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x00432790
-BoneRigModule* BoneRigModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00431C70
@@ -417,25 +398,4 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::BoneRigModule::teardown,
-                                      &objects::ComponentWithoutUpdate::tick_frame,
-                                      &objects::BoneRigModule::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

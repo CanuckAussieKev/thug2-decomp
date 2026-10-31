@@ -34,7 +34,6 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/code_address.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
@@ -379,7 +378,6 @@ bool DrivableModule::is_rider_shown(script::Struct*, script::Script*) { return r
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kSkeleton = 0x222756D5;
@@ -439,17 +437,11 @@ void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
 } // namespace
 
 // 0x0043AA30
-ObjectModule* __cdecl DrivableModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(DrivableModule));
-    return memory ? static_cast<DrivableModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl DrivableModule::fabricate() { return new DrivableModule; }
 
 // 0x00437C00
-DrivableModule* DrivableModule::make_new()
+DrivableModule::DrivableModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     clear_to_w1(orientation_);
     // (the colliders' vectors' constructors do nothing: 0x005902E0)
     contact_memo_.make_new();
@@ -465,13 +457,11 @@ DrivableModule* DrivableModule::make_new()
     still_frames_ = 0;
     sounds_name_ = 0x1CA1FF20;
     awake_ = 1;
-    return this;
 }
 
-// 0x0043B990
-void DrivableModule::destroy_body()
+// 0x0043B990 (0x0043C1A0 the deleting one)
+DrivableModule::~DrivableModule()
 {
-    vtable_ = kVtable;
     if (wheels_) {
         // (as `delete[]`: the count before the array, the wheels destroyed last to first)
         int* block = reinterpret_cast<int*>(wheels_) - 1;
@@ -480,16 +470,6 @@ void DrivableModule::destroy_body()
         memory::Hub::get_pull()->dealloc(block);
     }
     contact_memo_.destruct();
-    ObjectModule::destroy_body();
-}
-
-// 0x0043C1A0
-DrivableModule* DrivableModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00437D10
@@ -1060,7 +1040,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     for (int n = 60; n != 0; --n) {
         for (int i = wheel_count_ - 1; i >= 0; --i)
             wheels_[i].spin = 0.0f;
-        ObjectModule::tick_frame();
+        tick_frame();
     }
     passive_ = false;
     clear_to_w1(linear_momentum_);
@@ -1146,25 +1126,4 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     return true;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::DrivableModule::teardown,
-                                      &objects::DrivableModule::tick_frame,
-                                      &objects::DrivableModule::configure_from_data,
-                                      &objects::DrivableModule::seal,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

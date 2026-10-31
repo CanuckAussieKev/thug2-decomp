@@ -16,8 +16,6 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -27,8 +25,6 @@
 namespace objects {
 
 namespace {
-
-extern void** const kVtable;
 
 constexpr uint32_t kSuspend = 0xCE0CA665;  // the suspend component
 constexpr uint32_t kSkeleton = 0x222756D5; // the skeleton component
@@ -178,17 +174,11 @@ void Chain::update_lines()
 // --- life ---
 
 // 0x004298B0
-ObjectModule* __cdecl ChainComponent::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ChainComponent));
-    return memory ? static_cast<ChainComponent*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl ChainComponent::fabricate() { return new ChainComponent; }
 
 // 0x004296E0
-ChainComponent* ChainComponent::make_new()
+ChainComponent::ChainComponent()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     chains_.size = 0;
     auto* head = static_cast<Elem*>(carve(sizeof(Elem)));
     if (head) {
@@ -207,13 +197,11 @@ ChainComponent* ChainComponent::make_new()
     axis_to_bone_ = 0;
     plane_bone_ = 0;
     invisible_ = false;
-    return this;
 }
 
-// 0x00429790
-void ChainComponent::destroy_body()
+// 0x00429790 (0x00429910 the deleting one)
+ChainComponent::~ChainComponent()
 {
-    vtable_ = kVtable;
     if (chains_.size) {
         for (Elem* node = get_first(chains_.head); node != chains_.head;) {
             if (Chain* chain = node->chain) {
@@ -235,16 +223,6 @@ void ChainComponent::destroy_body()
     }
     erase_nodes(&chains_, get_first(chains_.head), chains_.head);
     memory::Hub::get_pull()->dealloc(chains_.head);
-    ObjectModule::destroy_body();
-}
-
-// 0x00429910
-ChainComponent* ChainComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004296B0
@@ -654,26 +632,3 @@ void ChainComponent::tick_frame()
 using objects::Chain;
 using objects::ChainComponent;
 using objects::ChainLink;
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &ChainComponent::teardown,
-    &ChainComponent::tick_frame,
-    &ChainComponent::configure_from_data,
-    &ChainComponent::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &ChainComponent::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
-} // namespace objects

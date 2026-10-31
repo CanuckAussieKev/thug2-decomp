@@ -27,35 +27,34 @@ namespace objects {
 // The component's vtable: 0 the scalar deleting destructor; 1 Update; 2 configure_from_data; 3 Finalize; 4 the empty
 // 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 Hide; 9 0x004A1090 (Teleport, shared);
 // 10 the empty 0x005BAB90; 11 the base's member function table entry 0x0045D720; 12 invoke_method_by_name.
-class GroundShadowModule : public ObjectModule {
+class GroundShadowModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x8A897DD2;
 
     // 0x00431800 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
-    // 0x00431380: the base's constructor, its vtable and type; no shadow, at the origin (w 1) with the ground normal
-    // (0, 1, 0, 1), type none, following its object. Returns this.
-    GroundShadowModule* make_new();
+    // 0x00431380: its type; no shadow, at the origin (w 1) with the ground normal
+    // (0, 1, 0, 1), type none, following its object.
+    GroundShadowModule();
     // 0x00431300: the shadow deleted; the base's body.
-    void destroy_body();
-    // 0x004313D0 (vtable slot 0)
-    GroundShadowModule* teardown(unsigned int flags);
+    ~GroundShadowModule() override;
+    void jump_to() override { tick_frame(); } // (slot 9: a jump to slot 1)
     // 0x00431860 (vtable slot 2): ShadowType (simple by default) and the 0x7E773A11 flag (don't follow the object);
     // the old shadow removed and the new one made (see the class). For a simple shadow, its scale (ShadowScale=, 1)
     // and a first Update.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00431400 (vtable slot 3): the model component found and kept; the shadow (if any) given the model and its
     // asset data (the asset manager's, by the model's checksum +0x30).
-    void seal();
+    void seal() override;
     // 0x004319D0 (vtable slot 1): following the object: the shadow's position = the object's, and the shadow given
     // the display matrix at that position - or, when the model has a hierarchy (0x00493040), the root's matrix times
     // the display matrix at the object's position plus the root's translation; then refresh_shadow.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00431570 (vtable slot 8): the shadow hidden or shown.
-    void conceal(bool hide);
+    void conceal(bool hide) override;
     // 0x00431B10 (vtable slot 12): Obj_ShadowOff (the shadow removed) and Obj_ShadowOn (configure_from_data with
     // ShadowType simple when not given; a simple shadow's offset= (0.2) set). 1 for those, 2 for other names.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00431450: with a shadow, a model component and a model: while the model is visible (its flags +0x44 have
     // 0x2 and not 0x4) the shadow updated for its type (detailed: placed 36 above the object, along its up; simple:

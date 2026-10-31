@@ -12,8 +12,6 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -28,7 +26,6 @@ uint32_t g_color_cycle_member_functions[30]{0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0, 
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kName = 0xA1DC81F9;  // name
 constexpr uint32_t kColor = 0x99A9B716; // color
 constexpr uint32_t kNeutralColor = 0x808080;
@@ -57,19 +54,16 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041B3C0
-ObjectModule* __cdecl ColorCycleComponent::fabricate()
+ObjectModule* __cdecl ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+ColorCycleComponent::ColorCycleComponent()
 {
-    auto* component = static_cast<ColorCycleComponent*>(memory::alloc_zeroed(sizeof(ColorCycleComponent)));
-    if (!component)
-        return nullptr;
-    component->ObjectModule::make_new();
-    component->color_count_ = 0;
-    component->ongoing_ = 0;
-    component->clock_ = 0.0f;
-    component->on_ = false;
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kType;
-    return component;
+    color_count_ = 0;
+    ongoing_ = 0;
+    clock_ = 0.0f;
+    on_ = false;
+    kind_tag_ = kType;
 }
 
 // 0x0041B280
@@ -78,21 +72,8 @@ void __cdecl ColorCycleComponent::publish_method_table()
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_color_cycle_member_functions, 0x18);
 }
 
-// 0x0041B2A0
-void ColorCycleComponent::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0041B2E0
-ColorCycleComponent* ColorCycleComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0041B2A0 (0x0041B2E0 the deleting one)
+ColorCycleComponent::~ColorCycleComponent() {}
 
 // 0x0041B310
 void ColorCycleComponent::change_colors(script::Array* colors)
@@ -185,25 +166,4 @@ int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::
     return 1;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::ColorCycleComponent::teardown,
-                                      &objects::ColorCycleComponent::tick_frame,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

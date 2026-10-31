@@ -169,7 +169,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         script->args_->put_name_key(kFilename, model_file_checksum(mesh_instance_));
         break;
     case kObjUpdateModel:
-        ObjectModule::tick_frame(); // (through the vtable)
+        tick_frame();
         break;
     case kObjSetVisibility:
     case kObjClearVisibility: {
@@ -445,8 +445,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_hash_value(kBuildScript, &build_script, 0);
             gfx::ModelLook appearance; // (destroyed at the end of the block)
             appearance.read_in(profile, true);
-            reinterpret_cast<void(__thiscall*)(MeshInstanceModule*, void*, bool, int, uint32_t)>(vtable_[13])(
-                this, &appearance, via_resource_store != 0, tex_dict_offset, build_script);
+            set_up_mesh_from_profile(&appearance, via_resource_store != 0, tex_dict_offset, build_script);
         }
         break;
     case kObjReplaceTexture: {

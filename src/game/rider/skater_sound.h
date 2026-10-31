@@ -18,21 +18,21 @@ class Struct;
 // Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 configure_from_data, 12 invoke_method_by_name.
 namespace objects {
 
-class RiderSfxPlayer : public ObjectModule {
+class RiderSfxPlayer final : public ObjectModule {
 public:
     // 0x00518E20 (registered by register_component_types): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderSfxPlayer();
     // 0x00518C80: the destructor body (the base's).
-    void destroy_body();
-    // 0x00518C90 (vtable slot 0)
-    RiderSfxPlayer* teardown(unsigned int flags);
+    ~RiderSfxPlayer() override;
     // 0x00518CC0 (vtable +0x08): volume_mult.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00518FD0 (vtable +0x30): PlayJumpSound / PlayLandSound (on the ground or in the air, or on a rail: the speed
     // - |vy| for a landing on the ground -, else nothing), PlayBonkSound, PlayCessSound (the speed) - 1; 2 for any
     // other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // `speed` (a fraction of full speed) as a percentage: the volume times volume_mult; the sound of `terrain` in
     // the state's table played at the skater:

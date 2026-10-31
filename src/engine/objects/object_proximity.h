@@ -15,18 +15,20 @@ namespace objects {
 // The object proximity component ("objectproximity", type 0x1D5B1AE6, vtable 0x0064B6C4, 0x30 bytes; made by
 // 0x004EC420): radii (kept squared, in inches: the scripts give feet) round an object and the nearest skater's
 // distance from it. Its script member functions are the table at 0x00682620 (filled at start-up).
-class ObjectProximityComponent : public ObjectModule {
+class ObjectProximityComponent final : public ObjectModule {
 public:
     // 0x004EC420: a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.
     static void __cdecl publish_method_table();
-    // 0x004EC370: the base's constructor, its vtable and type. Returns this.
-    ObjectProximityComponent* make_new();
+    // 0x004EC370: its type.
+    ObjectProximityComponent();
     // 0x004EC240: the destructor body (the base's).
-    void destroy_body();
-    // 0x004EC390 (vtable slot 0)
-    ObjectProximityComponent* teardown(unsigned int flags);
+    ~ObjectProximityComponent() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
 
     // 0x004EC3C0: the squared distance from the local skater (unrounded, in ST0), its id into `skaterId`; no local
     // skater, or this object is it: 0x55CE224C (about 2.8e13).
@@ -36,7 +38,7 @@ public:
     // 0xD69BD3DE; outer avoid - outside it 0x35FDAFAE; attention - in it 0xA06C9031, else 0x9C1CDE7A. One distance
     // is worked out and reused (the nearest skater's or the local one's - as the original mixes them). A dead
     // object gets only the inner radius's first event.
-    void tick_frame();
+    void tick_frame() override;
     // 0x004EC4B0: the squared distance from the nearest other skater, its id into `skaterId` (none nearer than
     // 0x55CE224C: that, the id left alone).
     float nearest_skater_distance_squared(uint32_t* skater_id);

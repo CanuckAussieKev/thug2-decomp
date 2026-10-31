@@ -23,8 +23,6 @@
 #include "game/rider/rider.h"
 #include "engine/util/bitstream.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
@@ -42,7 +40,6 @@ constexpr uint32_t kComponent6c = 0xB1D5A3E1; // the component whose +0x18 goes 
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
 constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraffitiStealOther = 0x4D7F6FFA;
@@ -216,43 +213,26 @@ void RiderHostSync::send_update()
 }
 
 // 0x00513630
-ObjectModule* __cdecl RiderHostSync::fabricate()
+ObjectModule* __cdecl RiderHostSync::fabricate() { return new RiderHostSync; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderHostSync::RiderHostSync()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderHostSync));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderHostSync*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->sent_controls_ = 0;
-    component->sent_value_6c_ = 0;
-    component->core_ = nullptr;
-    component->board_ = nullptr;
-    component->last_transmit_at_ = 0;
-    component->sent_value_7c_ = 0xFF;
-    component->kind_tag_ = kSkaterLocalNetLogic;
-    component->sent_controls_ = 0;
-    component->sent_flag74_ = 0xFF;
-    component->sent_state_ = 0;
-    component->sent_value80_ = 0;
-    return component;
+    sent_controls_ = 0;
+    sent_value_6c_ = 0;
+    core_ = nullptr;
+    board_ = nullptr;
+    last_transmit_at_ = 0;
+    sent_value_7c_ = 0xFF;
+    kind_tag_ = kSkaterLocalNetLogic;
+    sent_controls_ = 0;
+    sent_flag74_ = 0xFF;
+    sent_state_ = 0;
+    sent_value80_ = 0;
 }
 
-// 0x00512E30
-void RiderHostSync::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00512E40
-RiderHostSync* RiderHostSync::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00512E30 (0x00512E40 the deleting one)
+RiderHostSync::~RiderHostSync() {}
 
 // 0x00512E70
 void RiderHostSync::seal()
@@ -307,27 +287,4 @@ int __cdecl RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     return net::kResultPassOn;
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderHostSync::teardown,
-    &objects::RiderHostSync::tick_frame,
-    &RiderStateReset::configure_from_data,
-    &objects::RiderHostSync::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

@@ -27,8 +27,6 @@
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/physics_control.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/node_components.h"
@@ -93,17 +91,11 @@ objects::GameEntity* skater_object(void* component) { return static_cast<objects
 } // namespace
 
 // 0x00505440
-void* __cdecl SkaterPhysicsModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(0x153C);
-    return memory ? static_cast<SkaterPhysicsModule*>(memory)->make_new() : nullptr;
-}
+void* __cdecl SkaterPhysicsModule::fabricate() { return new SkaterPhysicsModule; }
 
 // 0x00500CA0
-SkaterPhysicsModule* SkaterPhysicsModule::make_new()
+SkaterPhysicsModule::SkaterPhysicsModule()
 {
-    reinterpret_cast<objects::ObjectModule*>(this)->make_new();
-    get_at<void**>(this, 0) = kCorePhysicsVtable;
     reinterpret_cast<render::ProbeRay*>(&get_at<uint8_t>(this, kFeeler))->make_new();
     reinterpret_cast<render::ProbeRay*>(&get_at<uint8_t>(this, kLastFloorProbe))->make_new();
     get_at<uint32_t>(this, 0x368) = 0;
@@ -124,16 +116,6 @@ SkaterPhysicsModule* SkaterPhysicsModule::make_new()
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
     if (thaw_bmx::is_switched_on())
         thaw_bmx::get_forget(this);
-    return this;
-}
-
-// 0x00500DB0
-SkaterPhysicsModule* SkaterPhysicsModule::teardown(unsigned int flags)
-{
-    SkaterPhysicsModule::destroy_body(); // (the destructor body)
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00506BE0
@@ -406,21 +388,4 @@ namespace skater {
 namespace {} // namespace
 } // namespace skater
 
-namespace skater {
-
-static VtableSlot g_core_physics_vtable_slots[] = {&skater::SkaterPhysicsModule::teardown,
-                                                   &skater::SkaterPhysicsModule::tick_frame,
-                                                   &SkaterPhysicsModule::configure_from_data,
-                                                   &SkaterPhysicsModule::seal,
-                                                   stubs::do_nothing,
-                                                   objects::reapply_from_data,
-                                                   stubs::ignore_arguments2,
-                                                   &objects::ObjectModule::hold_off,
-                                                   stubs::ignore_argument,
-                                                   stubs::do_nothing,
-                                                   stubs::ignore_argument,
-                                                   &objects::ObjectModule::dispatch_script_method,
-                                                   &skater::SkaterPhysicsModule::invoke_method_by_name};
-void** const kCorePhysicsVtable = reinterpret_cast<void**>(g_core_physics_vtable_slots);
-
-} // namespace skater
+namespace skater {} // namespace skater

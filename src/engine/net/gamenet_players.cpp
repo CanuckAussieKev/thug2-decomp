@@ -150,8 +150,8 @@ void Hub::spectate_player(uint8_t* player)
         set_camera_skater(skater_camera, skater);
         set_walk_camera_skater(walk_camera, nullptr);
         prop<int>(walk_camera, 0x18) = 3;
-        skater_camera->virtual_suspend(false);
-        walk_camera->virtual_suspend(true);
+        skater_camera->hold_off(false);
+        walk_camera->hold_off(true);
         viewed_player_ = player;
         return;
     }
@@ -162,11 +162,11 @@ void Hub::spectate_player(uint8_t* player)
     prop<int>(walk_camera, 0x18) = 3;
     uint8_t* state = prop<uint8_t*>(control, 0x2C);
     if (!prop<bool>(state, 0x118) && prop<int>(state, 0x1C) == 0) {
-        skater_camera->virtual_suspend(false);
-        walk_camera->virtual_suspend(true);
+        skater_camera->hold_off(false);
+        walk_camera->hold_off(true);
     } else {
-        skater_camera->virtual_suspend(true);
-        walk_camera->virtual_suspend(false);
+        skater_camera->hold_off(true);
+        walk_camera->hold_off(false);
         reset_walk_camera(walk_camera);
     }
     viewed_player_ = player;

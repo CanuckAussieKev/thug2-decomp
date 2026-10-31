@@ -41,6 +41,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
+#include "game/rider/rider.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
 #include "game/park_editing/goal_editor.h"
@@ -298,9 +299,13 @@ void Hub::set_ready_state(bool ready)
     uint8_t* skate = detail::get_skate();
     unsigned int count = tally_nodes(prop<memory::ListNode*>(skate, kSkaterListFirst));
     for (unsigned int i = 0; i < count; ++i) {
-        auto* skater = get_call<void***>(code_address(&modules::Skate::get_rider_at), skate, i);
-        if (skater) // (the skater's slot 12 when ready, 11 when not)
-            reinterpret_cast<void(__thiscall*)(void*)>((*skater)[ready ? 12 : 11])(skater);
+        auto* skater = get_call<objects::Rider*>(code_address(&modules::Skate::get_rider_at), skate, i);
+        if (skater) { // (the original's skater slots 12 / 11)
+            if (ready)
+                skater->unpause();
+            else
+                skater->get_freeze();
+        }
     }
 }
 
@@ -587,9 +592,9 @@ void Hub::disconnect_clients()
         uint8_t* skate = detail::get_skate();
         unsigned int count = tally_nodes(prop<memory::ListNode*>(skate, kSkaterListFirst));
         for (unsigned int i = 0; i < count; ++i) {
-            auto* skater = get_call<void***>(code_address(&modules::Skate::get_rider_at), skate, i);
+            auto* skater = get_call<objects::Rider*>(code_address(&modules::Skate::get_rider_at), skate, i);
             if (skater)
-                reinterpret_cast<void(__thiscall*)(void*)>((*skater)[11])(skater);
+                skater->get_freeze(); // (the original's skater slot 11)
         }
     }
 }

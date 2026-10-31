@@ -1179,7 +1179,7 @@ void PedestrianBrainModule::tick_frame()
     step_seconds_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     switch (update_type_) {
     case kGenericMoveUpdate:
-        virtual_generic_move_update();
+        generic_move_update();
         break;
     case kGoHomeUpdate:
         go_home_update();
@@ -1191,10 +1191,10 @@ void PedestrianBrainModule::tick_frame()
         blocker_update();
         break;
     case kNoMoveUpdate:
-        virtual_no_move_update();
+        no_move_update();
         break;
     case kSkaterMoveUpdate:
-        virtual_skater_move_update();
+        skater_move_update();
         break;
     case kLipTrickUpdate:
         lip_trick_update();

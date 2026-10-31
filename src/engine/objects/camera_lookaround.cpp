@@ -13,8 +13,6 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -23,7 +21,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kCameraLookAround = 0x81C7122D;
 constexpr uint32_t kInput = 0x27D7CD28;
 constexpr uint32_t kTurnTo = 0xB8F23899, kStopTurning = 0xE3B327C0;
@@ -57,33 +54,13 @@ void get_ease(float& angle, double target, float frame)
 } // namespace
 
 // 0x004E42E0
-ObjectModule* __cdecl FreeLookModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(FreeLookModule));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<FreeLookModule*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kCameraLookAround;
-    return component;
-}
+ObjectModule* __cdecl FreeLookModule::fabricate() { return new FreeLookModule; }
 
-// 0x004E3F60
-void FreeLookModule::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
+// (the constructor: inlined in fabricate in the original)
+FreeLookModule::FreeLookModule() { kind_tag_ = kCameraLookAround; }
 
-// 0x004E4010
-FreeLookModule* FreeLookModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x004E3F60 (0x004E4010 the deleting one)
+FreeLookModule::~FreeLookModule() {}
 
 // 0x004E3F70
 void FreeLookModule::configure_from_data(script::Struct* /*params*/)
@@ -188,36 +165,4 @@ int FreeLookModule::invoke_method_by_name(uint32_t name, script::Struct* params,
     return 2;
 }
 
-// 0x004E3F90: a tail jump to the component's slot 2 (its arguments left as they are).
-__declspec(naked) void reapply_from_data()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 8]
-    }
-}
-
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::FreeLookModule::teardown,
-    &objects::FreeLookModule::tick_frame,
-    &objects::FreeLookModule::configure_from_data,
-    &objects::FreeLookModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::FreeLookModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

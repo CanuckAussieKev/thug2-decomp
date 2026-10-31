@@ -13,8 +13,6 @@
 #include "engine/sound/surface_kind.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -26,7 +24,6 @@ uint32_t g_looping_sound_member_functions[6]{0, 0xB5F1E9D2, 0, 0, 0, 0};
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kTurnOn = 0xEDE3935F, kTurnOff = 0x9731E193, kPlayAnim = 0x0B1E7291;
@@ -90,11 +87,7 @@ LoopingSoundVolume* LoopingSoundVolume::get_assign(const sound::VolumeRef* other
 }
 
 // 0x00513AD0
-ObjectModule* __cdecl RiderRollingAudio::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderRollingAudio));
-    return memory ? static_cast<RiderRollingAudio*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
 
 // 0x00513860
 void __cdecl RiderRollingAudio::publish_method_table()
@@ -104,10 +97,8 @@ void __cdecl RiderRollingAudio::publish_method_table()
 }
 
 // 0x005138E0
-RiderRollingAudio* RiderRollingAudio::make_new()
+RiderRollingAudio::RiderRollingAudio()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     prev_levels_.prepare_all();
     sound_changed_ = 1;
     cur_phase_ = kStateAir;
@@ -118,7 +109,6 @@ RiderRollingAudio* RiderRollingAudio::make_new()
     force_update_ = 0;
     kind_tag_ = kSkaterLoopingSound;
     volume_mult_ = 1.0f;
-    return this;
 }
 
 // 0x00513AB0
@@ -130,22 +120,11 @@ void RiderRollingAudio::stop_sound()
     }
 }
 
-// 0x00513B30
-void RiderRollingAudio::destroy_body()
+// 0x00513B30 (0x00513FA0 the deleting one)
+RiderRollingAudio::~RiderRollingAudio()
 {
-    vtable_ = kVtable;
     stop_sound();
     // (prev_levels_'s destructor: nothing)
-    ObjectModule::destroy_body();
-}
-
-// 0x00513FA0
-RiderRollingAudio* RiderRollingAudio::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00513880
@@ -186,13 +165,13 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
     switch (name) {
     case kTurnOn:
         if (on_ != 1) {
-            virtual_suspend(false);
+            hold_off(false);
             on_ = 1;
         }
         return 1;
     case kTurnOff:
         if (on_) {
-            virtual_suspend(true);
+            hold_off(true);
             on_ = 0;
         }
         return 1;
@@ -203,7 +182,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
         script::Struct* anim_tags;
         if (tags && !prop<uint8_t>(state, 0x118) && !prop<int>(state, 0x1C) &&
             tags->read_sub_struct(kAnimTags, &anim_tags, 0) && anim_tags->has_bare_flag(kWalkToSkateTransition)) {
-            virtual_suspend(false);
+            hold_off(false);
             on_ = 1;
         }
         return 2;
@@ -217,7 +196,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
 void RiderRollingAudio::tick_frame()
 {
     if (!on_) {
-        virtual_suspend(true);
+        hold_off(true);
         return;
     }
     LoopingSoundVolume volume;
@@ -338,25 +317,4 @@ void RiderRollingAudio::tick_frame()
     sfx->set_sound_params_scaled(sound_id_, &volume, pitch);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::RiderRollingAudio::teardown,
-                                      &objects::RiderRollingAudio::tick_frame,
-                                      &objects::RiderRollingAudio::configure_from_data,
-                                      &objects::RiderRollingAudio::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::RiderRollingAudio::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::RiderRollingAudio::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

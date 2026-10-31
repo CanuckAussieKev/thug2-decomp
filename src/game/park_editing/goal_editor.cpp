@@ -6,10 +6,8 @@
 #include <cstring>
 
 #include "engine/core/checksums.h"
-#include "engine/core/code_address.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/stubs.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park_editing/goal_editor.h"
@@ -44,20 +42,6 @@ uint32_t g_goal_editor_member_functions[216]{
 
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&park_editing::ObjectiveAuthoring::teardown,
-                                      &park_editing::ObjectiveAuthoring::tick_frame,
-                                      stubs::ignore_argument,
-                                      &park_editing::ObjectiveAuthoring::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      &park_editing::ObjectiveAuthoring::conceal,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kGoalListName = 0x38DBE1D0;
@@ -112,11 +96,7 @@ bool get_outside(float x, float z, float x0, float z0, float x1, float z1)
 } // namespace
 
 // 0x004EB7F0
-objects::ObjectModule* __cdecl ObjectiveAuthoring::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(ObjectiveAuthoring));
-    return memory ? static_cast<ObjectiveAuthoring*>(memory)->make_new() : nullptr;
-}
+objects::ObjectModule* __cdecl ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
 
 // 0x004E6FB0
 void __cdecl ObjectiveAuthoring::publish_method_table()
@@ -125,10 +105,8 @@ void __cdecl ObjectiveAuthoring::publish_method_table()
 }
 
 // 0x004EA230
-ObjectiveAuthoring* ObjectiveAuthoring::make_new()
+ObjectiveAuthoring::ObjectiveAuthoring()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     for (EditedGoal& goal : goals_)
         goal.make_new();
     kind_tag_ = kGoalEditor;
@@ -136,25 +114,13 @@ ObjectiveAuthoring* ObjectiveAuthoring::make_new()
     clear_park_goals();
     input_ptr_ = nullptr;
     view_camera_ = nullptr;
-    return this;
 }
 
-// 0x004E6FD0
-void ObjectiveAuthoring::destroy_body()
+// 0x004E6FD0 (0x004E7B20 the deleting one)
+ObjectiveAuthoring::~ObjectiveAuthoring()
 {
-    vtable_ = kVtable;
     script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
     // (the goals' destructors are empty)
-    ObjectModule::destroy_body();
-}
-
-// 0x004E7B20
-ObjectiveAuthoring* ObjectiveAuthoring::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004E8210

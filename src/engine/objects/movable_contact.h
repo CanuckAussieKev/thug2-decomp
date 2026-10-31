@@ -20,17 +20,17 @@ struct RideTracker;
 //
 // Vtable: 0 Destroy, 1 0x0051B970 (shared), 2 / 8 / 10 the empty 0x005BAB90, 3 / 4 / 9 the empty 0x005480A0, 5
 // 0x004E3F90, 6 0x0048DCD0, 7 the base's Suspend, 11 the base's 0x0045D720, 12 0x0051ADC0 (shared).
-class MovingSurfaceModule : public ObjectModule {
+class MovingSurfaceModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x408D2AA9;
 
     // 0x00427AB0 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined: the base's,
     // its vtable and type, no ride, no stop time).
     static ObjectModule* __cdecl fabricate();
-    // 0x004276C0: the destructor body (its vtable, then the base's - the ride tracker isn't freed).
-    void destroy_body();
-    // 0x004276D0 (vtable slot 0): the scalar deleting destructor.
-    MovingSurfaceModule* teardown(unsigned int flags);
+    // The constructor (inlined in fabricate in the original).
+    MovingSurfaceModule();
+    // 0x004276C0: the destructor body (the base's - the ride tracker isn't freed).
+    ~MovingSurfaceModule() override;
 
     // 0x00427700 (thiscall, RET 8; `this` unused): the moving object under `point` - a feeler from 400 over the point
     // down to 6 over it hits a movable object that's still there, and nothing is in the way back up from the point

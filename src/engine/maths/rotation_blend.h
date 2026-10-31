@@ -9,6 +9,8 @@ namespace maths {
 // that angle about the axis.
 class ArcRotationBlender {
 public:
+    // Nothing set (an owner made in zeroed memory leaves it so until it sets the matrices).
+    ArcRotationBlender() = default;
     ArcRotationBlender(const Mat4& start, const Mat4& end);
 
     // Store both matrices and compute the relative rotation. Returns the "small rotation" flag (the original

@@ -8,8 +8,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -33,21 +31,8 @@ void die(Entity* object) { object->flag_as_dead(); }
 
 } // namespace
 
-// 0x0043D840
-void WaitAndDieComponent::destroy_body()
-{
-    vtable_ = kWaitAndDieVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x0043D850
-WaitAndDieComponent* WaitAndDieComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x0043D840 (0x0043D850 the deleting one)
+WaitAndDieComponent::~WaitAndDieComponent() {}
 
 // 0x0043D880
 void WaitAndDieComponent::configure_from_data(script::Struct* params)
@@ -80,23 +65,4 @@ namespace objects {
 namespace {} // namespace
 } // namespace objects
 
-namespace objects {
-
-static VtableSlot g_wait_and_die_vtable_slots[] = {
-    &objects::WaitAndDieComponent::teardown,
-    &objects::WaitAndDieComponent::tick_frame,
-    &objects::WaitAndDieComponent::configure_from_data,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kWaitAndDieVtable = reinterpret_cast<void**>(g_wait_and_die_vtable_slots);
-
-} // namespace objects
+namespace objects {} // namespace objects

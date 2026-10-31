@@ -11,9 +11,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
 #include "game/rider/skitch.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -35,7 +33,6 @@ uint32_t g_skater_state_member_functions[114]{
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kOnSkaterStateChange = 0xA7662059, kOnSkaterPhysicsStateChange = 0x6BAC488C,
                    kOnSkaterTerrainChange = 0xD3FDE02A;
@@ -61,17 +58,13 @@ int find_powerup(script::Struct* params)
 } // namespace
 
 // 0x00519740
-ObjectModule* __cdecl RiderPoseState::fabricate()
+ObjectModule* __cdecl RiderPoseState::fabricate() { return new RiderPoseState; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderPoseState::RiderPoseState()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderPoseState));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderPoseState*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterState;
-    component->boost_items_[0] = 0;
-    return component;
+    kind_tag_ = kSkaterState;
+    boost_items_[0] = 0;
 }
 
 // 0x00519430
@@ -81,21 +74,8 @@ void __cdecl RiderPoseState::publish_method_table()
                                            0x18);
 }
 
-// 0x00519450
-void RiderPoseState::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00519620
-RiderPoseState* RiderPoseState::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00519450 (0x00519620 the deleting one)
+RiderPoseState::~RiderPoseState() {}
 
 // 0x00519460
 void RiderPoseState::configure_from_data(script::Struct* /*params*/) { cur_phase_ = kAir; }
@@ -219,53 +199,9 @@ void SkaterStateHistoryFrame::change_moment(uint32_t time)
     *reinterpret_cast<uint16_t*>(self + 0x7A) = static_cast<uint16_t>(time >> 16);
 }
 
-// 0x005197C0
-void RiderFrameLog::destroy_body()
-{
-    vtable_ = kStateHistoryVtable;
-    ObjectModule::destroy_body();
-}
+// 0x005197C0 (0x00519840 the deleting one)
+RiderFrameLog::~RiderFrameLog() {}
 
 } // namespace objects
 
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&objects::RiderPoseState::teardown,
-                                      &objects::ComponentWithoutUpdate::tick_frame,
-                                      &objects::RiderPoseState::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      stubs::ignore_arguments2,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_state_history_vtable_slots[] = {
-    &objects::RiderFrameLog::teardown,
-    &objects::ComponentWithoutUpdate::tick_frame,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kStateHistoryVtable = reinterpret_cast<void**>(g_state_history_vtable_slots);
-
-} // namespace objects
+namespace objects {} // namespace objects

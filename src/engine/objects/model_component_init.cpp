@@ -23,8 +23,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/checksums.h"
 #include "engine/core/str.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -34,7 +32,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kSuspend = 0xCE0CA665;
@@ -115,17 +112,11 @@ void* find_bone_volumes(uint32_t name) { return gfx::find_bone_volumes(name); }
 } // namespace
 
 // 0x00421490
-ObjectModule* __cdecl MeshInstanceModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(MeshInstanceModule));
-    return memory ? static_cast<MeshInstanceModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl MeshInstanceModule::fabricate() { return new MeshInstanceModule; }
 
 // 0x00420BF0
-MeshInstanceModule* MeshInstanceModule::make_new()
+MeshInstanceModule::MeshInstanceModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     kind_tag_ = kType;
     mesh_instance_ = spawn_render_model(1);
     pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -138,25 +129,10 @@ MeshInstanceModule* MeshInstanceModule::make_new()
     sector_model_ = false;
     shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
     brightness_ = 1.0f;
-    return this;
 }
 
-// 0x00420000
-void MeshInstanceModule::destroy_body()
-{
-    vtable_ = kVtable;
-    delete_model(mesh_instance_);
-    ObjectModule::destroy_body();
-}
-
-// 0x00420270
-MeshInstanceModule* MeshInstanceModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00420000 (0x00420270 the deleting one)
+MeshInstanceModule::~MeshInstanceModule() { delete_model(mesh_instance_); }
 
 // 0x004204B0
 void MeshInstanceModule::seal()
@@ -218,7 +194,7 @@ void MeshInstanceModule::tick_frame()
 // 0x00420480
 void MeshInstanceModule::jump_to()
 {
-    ObjectModule::tick_frame(); // (through the vtable)
+    tick_frame();
     if (mesh_instance_ && model_lights(mesh_instance_))
         update_lights_brightness(model_lights(mesh_instance_));
 }
@@ -228,7 +204,7 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
 {
     mesh_instance_ = model;
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
-        ObjectModule::tick_frame();
+        tick_frame();
         if (mesh_instance_ && model_lights(mesh_instance_))
             update_lights_brightness(model_lights(mesh_instance_));
     }
@@ -248,7 +224,7 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     builder.get_build(static_cast<gfx::ModelLook*>(profile), model, static_cast<gfx::Rig*>(skeleton),
                       build_script ? build_script : kDefaultBuildScript);
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
-        ObjectModule::tick_frame();
+        tick_frame();
         if (mesh_instance_ && model_lights(mesh_instance_))
             update_lights_brightness(model_lights(mesh_instance_));
     }
@@ -392,7 +368,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
         }
     }
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
-        ObjectModule::tick_frame();
+        tick_frame();
         if (mesh_instance_ && model_lights(mesh_instance_))
             update_lights_brightness(model_lights(mesh_instance_));
     }
@@ -402,29 +378,4 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
         init_bone_volumes();
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::MeshInstanceModule::teardown,
-    &objects::MeshInstanceModule::tick_frame,
-    &objects::MeshInstanceModule::configure_from_data,
-    &objects::MeshInstanceModule::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    &objects::MeshInstanceModule::conceal,
-    &objects::MeshInstanceModule::jump_to,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::MeshInstanceModule::invoke_method_by_name,
-    &objects::MeshInstanceModule::set_up_mesh_from_profile,
-    &objects::MeshInstanceModule::change_mesh};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects

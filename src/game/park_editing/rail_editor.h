@@ -171,7 +171,7 @@ void stretch_rail_sector(uint32_t source, const maths::Vec4* from, const maths::
 // Vtable: 0 Destroy, 1 Update, 3 Finalize, 8 Hide, 10 fetch_diagnostics, 12 invoke_method_by_name; the rest the base's /
 // shared (2 / ... the empty 0x005BAB90, 4 / 9 the empty 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 the base's
 // Suspend, 11 the base's member function table entry 0x0045D720).
-class RailAuthoring : public objects::ObjectModule {
+class RailAuthoring final : public objects::ObjectModule {
 public:
     static constexpr uint32_t kType = 0x5B509AD3;
     static constexpr int kMaxPoints = 400;
@@ -181,29 +181,27 @@ public:
     static RailAuthoring* __cdecl sole();
     // 0x004F7FB0 (registered by register_component_types): a new one (0 if out of memory).
     static objects::ObjectModule* __cdecl fabricate();
-    // 0x004F7C90: the constructor (returns this): the pools made, no rails, the buffer cleared.
-    RailAuthoring* make_new();
+    // 0x004F7C90: the pools made, no rails, the buffer cleared.
+    RailAuthoring();
     // 0x004F7D20: the destructor body: cleared, the current pools freed (when made here).
-    void destroy_body();
-    // 0x004F8010 (vtable slot 0)
-    RailAuthoring* teardown(unsigned int flags);
+    ~RailAuthoring() override;
     // 0x004F47E0 (vtable slot 3): the input and editor camera components.
-    void seal();
+    void seal() override;
     // 0x004F4810 (vtable slot 1): the pad's X / Triangle / Square / Circle presses run RailEditorX ... (each trigger
     // cleared), then RailEditorEveryFrame - on the object.
-    void tick_frame();
+    void tick_frame() override;
     // 0x004F6F90 (vtable slot 8): hidden: rail_editor_destroy_cursor, the park's rails rebuilt, highlights and the
     // dotted line gone; shown: rail_editor_create_cursor, the park's rail nodes built, the camera told of the player
     // (its slot 2), the pad cleared.
-    void conceal(bool hide);
+    void conceal(bool hide) override;
     // 0x004F6C10 (vtable slot 10): NumFreeRailPoints, NumFreeRails, CurrentRail (its info or null) and Rails (an empty
     // structure each) added to `info`, then the base's (0x005BAB90).
-    void fetch_diagnostics(script::Struct* info);
+    void fetch_diagnostics(script::Struct* info) override;
     // 0x004F75F0 (vtable slot 12): the script member functions: NewRail, AddNewPosition, DeleteRail, DeleteRailPoint,
     // UpdateRailPointPosition, HighlightRailPoint, UnHighlightAllRails, Get/SetEditingMode, GetCursorPosition,
     // GetEditedRailInfo, DrawDottedLine, DeleteDottedLine, ClearRailEditor, DestroyEditedRailSectors, and 0x31F66E6B
     // (no rail points free). 2 for other names.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x004F7550: every rail freed, no current rail, mode 0, the dotted line deleted.
     void get_clear();

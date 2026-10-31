@@ -48,13 +48,13 @@ void seal(GameEntity* object) { object->seal(); }
 // The two components a game object gets after its array's (not rewritten yet).
 ObjectModule* new_game_object_component_a()
 {
-    void* memory = memory::alloc_zeroed(0x90);
-    return memory ? static_cast<PinnedObjectModule*>(memory)->make_new() : nullptr;
+    static_assert(sizeof(PinnedObjectModule) == 0x90, "the original allocates 0x90 bytes");
+    return new PinnedObjectModule;
 }
 ObjectModule* new_game_object_component_b()
 {
-    void* memory = memory::alloc_zeroed(0x4C);
-    return memory ? static_cast<CbBoxComponent*>(memory)->make_new() : nullptr;
+    static_assert(sizeof(CbBoxComponent) == 0x4C, "the original allocates 0x4C bytes");
+    return new CbBoxComponent;
 }
 
 // The creation script 0x413B766D with the node's name and its integer 0x99A9B716 (if it has one).

@@ -25,7 +25,7 @@ class InputPort;
 // mine).
 namespace objects {
 
-class PadRumbleModule : public ObjectModule {
+class PadRumbleModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0x404EB936;
     static constexpr int kActuators = 2;
@@ -40,15 +40,19 @@ public:
 
     // 0x0043D670 (registered with the composite object manager): a new one (0 if out of memory): off, no runs.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    PadRumbleModule();
     // 0x0043D490 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684EE8: vibrate).
     static void __cdecl publish_method_table();
     // 0x0043D4B0: the destructor body: with a device, both motors stopped (1, then 0); then the base's.
-    void destroy_body();
-    // 0x0043D5E0 (vtable slot 0)
-    PadRumbleModule* teardown(unsigned int flags);
+    ~PadRumbleModule() override;
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_script_method(entry, params, script); // (slot 11: 0x0042BB20, shared)
+    }
     // 0x0043D610 (vtable slot 1): off: suspended (through the vtable); on: the timed runs (0x0043D61F).
-    void tick_frame();
+    void tick_frame() override;
     // 0x0043D61F (the rest of 0x0043D610, which Ghidra split off): each motor (1, then 0) whose run's duration has
     // passed on the game clock is stopped.
     void update_timers();

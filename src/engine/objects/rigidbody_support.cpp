@@ -112,7 +112,7 @@ bool BodyDynamicsModule::rigid_body_disable(script::Struct*, script::Script*)
 // 0x0042BBD0
 bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script*)
 {
-    ObjectModule::configure_from_data(params);
+    configure_from_data(params);
     return true;
 }
 

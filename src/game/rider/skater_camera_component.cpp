@@ -25,8 +25,6 @@
 #include "game/rider/walk_camera.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "game/rider/vehicle_sound.h"
@@ -39,8 +37,7 @@ namespace {
 using skater::physics::get_at;
 using skater::physics::x87_sin;
 
-constexpr uint32_t kSkaterCamera = 0x5E43A604; // skatercamera (the component type)
-extern void** const kCleanupVtable;
+constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
 constexpr uint32_t kSkaterState = 0x43686585;    // SkaterState (a component)
 constexpr uint32_t kPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl (a component)
@@ -230,10 +227,8 @@ void RiderChaseView::save_state(WalkCameraState* state)
 }
 
 // 0x004FA4B0
-RiderChaseView* RiderChaseView::make_new()
+RiderChaseView::RiderChaseView()
 {
-    ObjectModule::make_new();
-    vtable_ = kSkaterCameraVtable;
     kind_tag_ = kSkaterCamera;
     mode_sel_ = 0;
     if (!memory::g_manager_ready)
@@ -252,16 +247,6 @@ RiderChaseView* RiderChaseView::make_new()
     lerp_xz_ = 0.25f;
     lerp_y_ = 0.5f;
     look_rate_ = 0.1f;
-    return this;
-}
-
-// 0x004FA590
-RiderChaseView* RiderChaseView::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004FA5C0
@@ -319,34 +304,15 @@ void RiderChaseView::next_mode()
 }
 
 // 0x004FA800
-ObjectModule* __cdecl RiderChaseView::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderChaseView));
-    if (!memory)
-        return nullptr;
-    return static_cast<RiderChaseView*>(memory)->make_new();
-}
+ObjectModule* __cdecl RiderChaseView::fabricate() { return new RiderChaseView; }
 
 // --- the cleanup state ---
 
-// 0x004FBD90
-void RiderStateReset::destroy_body()
-{
-    vtable_ = kCleanupVtable;
-    ObjectModule::destroy_body();
-}
+// 0x004FBD90 (0x004FBDB0 the deleting one)
+RiderStateReset::~RiderStateReset() {}
 
 // 0x004FBDA0
 void RiderStateReset::configure_from_data(script::Struct*) { state_ref_ = nullptr; }
-
-// 0x004FBDB0
-RiderStateReset* RiderStateReset::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
 
 // 0x004FBDE0
 void RiderStateReset::seal() { state_ref_ = entity_->fetch_module(kSkaterState); }
@@ -360,63 +326,14 @@ void RiderStateReset::tick_frame()
 }
 
 // 0x004FBE20
-ObjectModule* __cdecl RiderStateReset::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(RiderStateReset));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderStateReset*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kCleanupVtable;
-    component->kind_tag_ = kCleanupState;
-    return component;
-}
+ObjectModule* __cdecl RiderStateReset::fabricate() { return new RiderStateReset; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderStateReset::RiderStateReset() { kind_tag_ = kCleanupState; }
 
 } // namespace objects
 
 using objects::RiderChaseView;
 using objects::RiderStateReset;
 
-namespace objects {
-namespace {
-
-static VtableSlot g_cleanup_vtable_slots[] = {
-    &RiderStateReset::teardown,
-    &RiderStateReset::tick_frame,
-    &RiderStateReset::configure_from_data,
-    &RiderStateReset::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kCleanupVtable = reinterpret_cast<void**>(g_cleanup_vtable_slots);
-
-} // namespace
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_skater_camera_vtable_slots[] = {
-    &RiderChaseView::teardown,
-    &objects::RiderChaseView::tick_frame,
-    &RiderChaseView::configure_from_data,
-    &objects::RiderChaseView::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &RiderChaseView::invoke_method_by_name};
-void** const kSkaterCameraVtable = reinterpret_cast<void**>(g_skater_camera_vtable_slots);
-
-} // namespace objects
+namespace objects {} // namespace objects

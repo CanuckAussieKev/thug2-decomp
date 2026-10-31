@@ -27,7 +27,7 @@ namespace objects {
 // Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize, 8 Hide, 11 the member function
 // table entry runner (shared with the animation blender), 12 invoke_method_by_name; the rest the base's / shared (4 / 9
 // 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 / 10 0x005BAB90).
-class FlexibleParticleComponent : public ObjectModule {
+class FlexibleParticleComponent final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xC5BCEB9E;
 
@@ -36,12 +36,11 @@ public:
     // 0x0041D6E0 (not a Ghidra function; registered with Create): its member functions' table (0x00683AC0; the
     // functions are put in by the static initialiser at 0x00642FD0).
     static void __cdecl publish_method_table();
-    // 0x0041DA00: the base's constructor, its vtable and type; no system, no name, nothing else. Returns this.
-    FlexibleParticleComponent* make_new();
+    // 0x0041DA00: its type; no system, no name, nothing else.
+    FlexibleParticleComponent();
     // 0x0041DA80: the system deleted (its vtable slot 0) and let go; then the base's body.
-    void destroy_body();
-    // 0x0041E240 (vtable slot 0)
-    FlexibleParticleComponent* teardown(unsigned int flags);
+    ~FlexibleParticleComponent() override;
+    void hold_off(bool /*suspend*/) override {} // (slot 7: never suspended)
     // 0x0041DB00 (vtable slot 2): see the class; the parameters: name, max (a float, truncated; 1), MaxStreams (2),
     // texture, blendmode (0x515E298E), type (0xAAB555BB), 0x184197D5, 0xA605B89F (0), segments (8), 0x4E0A65EE (0.5),
     // history (1), perm (0), emitterIndependent, emit_rate, model (a string), useGlobalColorModulation, groupID, params
@@ -49,23 +48,25 @@ public:
     // with ObjID (the brightness of that object's model), UseRandomUVQuadrants, 0x5446AF14, FillPath, 0xDE45A90D,
     // priority, align_to. Without perm (or with no system of the name) a new system, named by the component's own
     // address. Also sets the particle manager's update time from the global Force_Particle_Update_Time.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x0041D740 (vtable slot 3): the object's suspend component, which is told to start (0x00433E70).
-    void seal();
+    void seal() override;
     // 0x0041DF80 (vtable slot 1): no system: the object dies. Otherwise the time goes on; suspended (outside a network
     // game) the system only catches up once the time reaches Force_Particle_Update_Time; else, where the suspend
     // component says the object is to be updated, the system follows the object (its position; with EnableRotate its
     // rotation times the object's orientation becomes the display matrix it follows) and is given the time, elsewhere
     // 0x00496F60. A hidden object's system gets its +0x12F and +0x130 cleared.
-    void tick_frame();
+    void tick_frame() override;
     // 0x0041D760 (vtable slot 8): the system's +0x12F = `hide`.
-    void conceal(bool hide);
+    void conceal(bool hide) override;
     // 0x0041D780 (vtable slot 12): IsEmitting (0x2299A9F2; the system unchecked), ApplyEnvBrightness (0x96896315,
     // passed on); anything else 2.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
-    // 0x0041D700 (vtable slot 11; the animation blender's too): a member function table entry run with its name - its
-    // member function pointer (on `this` moved by the entry's adjustment), or invoke_method_by_name (vtable slot 12).
-    int call_member_function_entry(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
+    // 0x0041D700 (vtable slot 11; the animation blender's too): ObjectModule::dispatch_named_script_method.
+    int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override
+    {
+        return dispatch_named_script_method(entry, params, script);
+    }
 
     // --- the member functions scripts call (the table at 0x00683AC0; each is given its name) ---
     // 0x0041D7F0 (setSpeedRange, setEmitRange, setAngleSpread, 0xDB8621F7, setCircularEmit, 0xE3309AB5, setLODParams,

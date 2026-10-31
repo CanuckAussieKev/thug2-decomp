@@ -18,7 +18,7 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name.
 namespace objects {
 
-class RiderTurning : public ObjectModule {
+class RiderTurning final : public ObjectModule {
 public:
     // A turn about one axis over time.
     struct Turn {
@@ -32,20 +32,20 @@ public:
 
     // 0x00517D40 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderTurning();
     // 0x00517CC0: the destructor body (the base's).
-    void destroy_body();
-    // 0x00517CF0 (vtable slot 0)
-    RiderTurning* teardown(unsigned int flags);
+    ~RiderTurning() override;
     // 0x00517CD0 (vtable +0x08): no turns. `params` isn't read.
-    void configure_from_data(script::Struct* params);
+    void configure_from_data(script::Struct* params) override;
     // 0x00517D20 (vtable +0x0C): the core physics component found.
-    void seal();
+    void seal() override;
     // 0x00517DC0 (vtable +0x04): each active turn steps by the frame's time (the last step cut to end exactly), the
     // object's and the core physics' matrices turned by it about the axis; with none left the component suspends
     // itself.
-    void tick_frame();
+    void tick_frame() override;
     // 0x00517EA0 (vtable +0x30): Rotate (1); 2 for any other name.
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     Turn turns_[3];         // +0x18 about x, y, z
     uint8_t* core_physics_; // +0x54 SkaterCorePhysics (0x5BD63B29)

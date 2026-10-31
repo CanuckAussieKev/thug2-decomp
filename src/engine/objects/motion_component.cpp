@@ -18,8 +18,6 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -30,8 +28,6 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
-
-extern void** const kVtable;
 
 // Script wait types a component decides (CScript::suspend_reason_ 5-10; cscript.h).
 constexpr uint32_t kWaitMove = 5;
@@ -47,17 +43,11 @@ int game_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // --- life ---
 
 // 0x00426650
-ObjectModule* __cdecl KinematicsModule::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(KinematicsModule));
-    return memory ? static_cast<KinematicsModule*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl KinematicsModule::fabricate() { return new KinematicsModule; }
 
 // 0x00424AA0
-KinematicsModule* KinematicsModule::make_new()
+KinematicsModule::KinematicsModule()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     ground_speed_ = 0.0f;
     ground_offset_ = 0.0f;
     kind_tag_ = kType;
@@ -65,13 +55,11 @@ KinematicsModule* KinematicsModule::make_new()
     path_group_ = nullptr;
     ground_height_only_ = true;
     get_reset();
-    return this;
 }
 
-// 0x00424AE0
-void KinematicsModule::destroy_body()
+// 0x00424AE0 (0x004266F0 the deleting one)
+KinematicsModule::~KinematicsModule()
 {
-    vtable_ = kVtable;
     if (path_follower_) {
         delete path_follower_;
         path_follower_ = nullptr;
@@ -85,16 +73,6 @@ void KinematicsModule::destroy_body()
         memory::Hub::get_pull()->dealloc(trail);
         trail_ = nullptr;
     }
-    ObjectModule::destroy_body();
-}
-
-// 0x004266F0
-KinematicsModule* KinematicsModule::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x00423D00
@@ -336,24 +314,3 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
 } // namespace objects
 
 using objects::KinematicsModule;
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {&KinematicsModule::teardown,
-                                      &KinematicsModule::tick_frame,
-                                      &KinematicsModule::configure_from_data,
-                                      stubs::do_nothing,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      &KinematicsModule::step_wait_state,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::ObjectModule::dispatch_script_method,
-                                      &KinematicsModule::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
-} // namespace objects

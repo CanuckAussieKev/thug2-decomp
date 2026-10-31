@@ -306,8 +306,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         ->upload_skinning_palette(reinterpret_cast<uint8_t*>(mine));
                     static_cast<MeshInstanceModule*>(level_model)->get_update_brightness();
                 }
-                reinterpret_cast<void(__thiscall*)(ObjectModule*, int)>((*reinterpret_cast<void***>(stand_in))[7])(
-                    stand_in, 1);
+                stand_in->hold_off(true);
             }
             entry.name = name;
             entry.object->change_serial(name);
@@ -406,8 +405,7 @@ void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
 void CinematicTable::apply_skater_look(ObjectEntry& entry)
 {
     ObjectModule* component = entry.object->fetch_module(kModelModuleName);
-    reinterpret_cast<void(__thiscall*)(ObjectModule*, void*, int, int, uint32_t)>(
-        (*reinterpret_cast<void***>(component))[0x34 / 4])(component, unknown34a8_, 0, 0, 0x8FB01036);
+    static_cast<MeshInstanceModule*>(component)->set_up_mesh_from_profile(unknown34a8_, false, 0, 0x8FB01036);
     uint32_t part_name = kPartA;
     auto* part = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
     if (!part) {

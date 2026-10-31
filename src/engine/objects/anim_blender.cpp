@@ -21,7 +21,6 @@
 #include "game/rider/thaw_bmx.h"
 #include "engine/core/game_vtables.h"
 #include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -44,7 +43,6 @@ uint32_t g_anim_blender_member_functions[180]{
 
 namespace {
 
-extern void** const kVtable;
 extern void** const kHeadVtable;
 
 constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
@@ -85,11 +83,7 @@ bool bool_arg(float word) { return bool_arg(std::bit_cast<uint32_t>(word)); }
 } // namespace
 
 // 0x0041A5B0
-ObjectModule* __cdecl AnimBlenderComponent::fabricate()
-{
-    void* memory = memory::alloc_zeroed(sizeof(AnimBlenderComponent));
-    return memory ? static_cast<AnimBlenderComponent*>(memory)->make_new() : nullptr;
-}
+ObjectModule* __cdecl AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
 
 // 0x00419690
 void __cdecl AnimBlenderComponent::publish_method_table()
@@ -98,10 +92,8 @@ void __cdecl AnimBlenderComponent::publish_method_table()
 }
 
 // 0x0041A410
-AnimBlenderComponent* AnimBlenderComponent::make_new()
+AnimBlenderComponent::AnimBlenderComponent()
 {
-    ObjectModule::make_new();
-    vtable_ = kVtable;
     lanes_.data = reinterpret_cast<void*>(-1);
     lanes_.priority = 0;
     lanes_.next = &lanes_;
@@ -115,13 +107,11 @@ AnimBlenderComponent* AnimBlenderComponent::make_new()
     }
     observers_ = sentinel;
     kind_tag_ = kType;
-    return this;
 }
 
-// 0x0041A4C0
-void AnimBlenderComponent::destroy_body()
+// 0x0041A4C0 (0x0041A610 the deleting one)
+AnimBlenderComponent::~AnimBlenderComponent()
 {
-    vtable_ = kVtable;
     reinterpret_cast<ListHead*>(&lanes_)->delete_all_nodes();
     auto** sentinel = static_cast<void**>(observers_);
     for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
@@ -140,16 +130,6 @@ void AnimBlenderComponent::destroy_body()
     }
     memory::Hub::get_pull()->dealloc(observers_);
     lanes_.unlink_as(vt::kBlenderChannelNode);
-    ObjectModule::destroy_body();
-}
-
-// 0x0041A610
-AnimBlenderComponent* AnimBlenderComponent::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x0041A260 (the 0xCE0CA665 component's answer goes to each channel as a dword whose high byte, as in the
@@ -244,11 +224,11 @@ void AnimBlenderComponent::seal()
 }
 
 // 0x00419980
-void AnimBlenderComponent::pass_to_channels(uint32_t value, uint32_t id)
+void AnimBlenderComponent::step_wait_state(script::Script* script, uint32_t id)
 {
     for (memory::ListNode* node = lanes_.next; !is_over(node); node = node->next) {
         if (ident_no(as_channel(node)) == id)
-            Virtual<void>(node, 6, value);
+            Virtual<void>(node, 6, script);
     }
 }
 
@@ -651,20 +631,6 @@ namespace {
 
 static VtableSlot g_head_vtable_slots[] = {&objects::BlendChannelLinks::destroy_head};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-static VtableSlot g_vtable_slots[] = {&objects::AnimBlenderComponent::teardown,
-                                      &objects::AnimBlenderComponent::tick_frame,
-                                      &objects::AnimBlenderComponent::configure_from_data,
-                                      &objects::AnimBlenderComponent::seal,
-                                      stubs::do_nothing,
-                                      objects::reapply_from_data,
-                                      &objects::AnimBlenderComponent::pass_to_channels,
-                                      &objects::ObjectModule::hold_off,
-                                      stubs::ignore_argument,
-                                      stubs::do_nothing,
-                                      stubs::ignore_argument,
-                                      &objects::FlexibleParticleComponent::call_member_function_entry,
-                                      &objects::AnimBlenderComponent::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
 } // namespace objects

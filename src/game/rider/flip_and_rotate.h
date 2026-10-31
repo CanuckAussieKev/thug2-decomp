@@ -18,22 +18,22 @@ class Struct;
 // Vtable: 0 Destroy, 3 Finalize, 12 invoke_method_by_name; Update is the shared empty 0x0051B970.
 namespace objects {
 
-class RiderSpinAndFlip : public ObjectModule {
+class RiderSpinAndFlip final : public ObjectModule {
 public:
     // 0x00511470 (registered by register_component_types): a new one (0 if out of memory): the board not rotated, no
     // components yet. The "after" flags aren't initialised.
     static ObjectModule* __cdecl fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderSpinAndFlip();
     // 0x00511300: the destructor body (the base's).
-    void destroy_body();
-    // 0x00511320 (vtable slot 0)
-    RiderSpinAndFlip* teardown(unsigned int flags);
+    ~RiderSpinAndFlip() override;
     // 0x00511350 (vtable +0x0C): the core physics, model and animation blender components found.
-    void seal();
+    void seal() override;
     // 0x00511600 (vtable +0x30): BoardIsRotated, BoardRotate (to `Normal` - not rotated - or the other way; told to
     // the server), BoardRotateAfter, flip, FlipAndRotate, RotateNoFlip, FlipAfter, IsFlipAfterSet, RotateAfter, the
     // flip only if the core physics says so (0x72289A28, name unknown) - 1, or the flag; PlayAnim does what was
     // left for after the animation and returns 2 (not handled: the animation components play it).
-    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     // 0x00511390: the board rotated or not (returns what it was); with `send`, if `objectId`'s player is local, the
     // server is sent message 0x2A (the id and the value, a byte each). `unused` isn't read.

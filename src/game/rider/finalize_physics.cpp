@@ -11,8 +11,6 @@
 #include "engine/maths/vec4.h"
 #include "game/rider/looping_sound.h"
 #include "game/rider/rider.h"
-#include "engine/core/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -23,7 +21,6 @@ namespace objects {
 
 namespace {
 
-extern void** const kVtable;
 constexpr uint32_t kSkaterFinalizePhysics = 0x9B373E58;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, kSkaterSound = 0x187574FA,
                    kSkaterLoopingSound = 0xB5F1E9D2;
@@ -63,35 +60,18 @@ void get_note(T& stored, T value, uint8_t& changed)
 } // namespace
 
 // 0x00511280
-ObjectModule* __cdecl RiderPhysicsCommit::fabricate()
+ObjectModule* __cdecl RiderPhysicsCommit::fabricate() { return new RiderPhysicsCommit; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderPhysicsCommit::RiderPhysicsCommit()
 {
-    void* memory = memory::alloc_zeroed(sizeof(RiderPhysicsCommit));
-    if (!memory)
-        return nullptr;
-    auto* component = static_cast<RiderPhysicsCommit*>(memory);
-    component->ObjectModule::make_new();
-    component->vtable_ = kVtable;
-    component->kind_tag_ = kSkaterFinalizePhysics;
-    component->core_physics_ = nullptr;
-    component->cur_phase_ = nullptr;
-    return component;
+    kind_tag_ = kSkaterFinalizePhysics;
+    core_physics_ = nullptr;
+    cur_phase_ = nullptr;
 }
 
-// 0x00511010
-void RiderPhysicsCommit::destroy_body()
-{
-    vtable_ = kVtable;
-    ObjectModule::destroy_body();
-}
-
-// 0x00511020
-RiderPhysicsCommit* RiderPhysicsCommit::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
+// 0x00511010 (0x00511020 the deleting one)
+RiderPhysicsCommit::~RiderPhysicsCommit() {}
 
 // 0x00511050
 void RiderPhysicsCommit::seal()
@@ -143,27 +123,4 @@ void RiderPhysicsCommit::tick_frame()
     get_note(prop<int>(loop, 0x74), prop<int>(cur_phase_, 0x18), changed);
 }
 
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_vtable_slots[] = {
-    &objects::RiderPhysicsCommit::teardown,
-    &objects::RiderPhysicsCommit::tick_frame,
-    stubs::ignore_argument,
-    &objects::RiderPhysicsCommit::seal,
-    stubs::do_nothing,
-    objects::reapply_from_data,
-    stubs::ignore_arguments2,
-    &objects::ObjectModule::hold_off,
-    stubs::ignore_argument,
-    stubs::do_nothing,
-    stubs::ignore_argument,
-    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-        &objects::ObjectModule::invoke_method_by_name),
-    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
-void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
-
-} // namespace
 } // namespace objects
