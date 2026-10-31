@@ -1,9 +1,8 @@
-# The GameSpy SDK for the standalone build (and the self-tests that compare it with the exe's copy): IGN's
+# The GameSpy SDK the game links: IGN's
 # open-source release (BSD-3, "Copyright (c) 2011, IGN Entertainment, Inc." - see THIRD_PARTY_NOTICES.md), the
 # December 2007 SDK (common 2.06), from github.com/nitrocaster/GameSpy at a pinned commit; downloaded at configure
 # time and checked against its SHA-256 - not stored in this repo. Only the modules the game uses are built, as the
-# static C library `gamespy_sdk`. The hooked build (dinput8.dll) never links it: it calls the exe's own copy
-# (src/game/net/gamespy.h).
+# static C library `gamespy_sdk` (called through src/game/net/gamespy.h).
 #
 # Two changes are made to the source. The peer SDK's chat server name is a constant there ("peerchat."
 # GSI_DOMAIN_NAME, Peer/peerOperations.c); it becomes a variable, peerChatServerAddress, like the SDK's other host
